@@ -1,0 +1,17 @@
+[package]
+name = "sequoia"
+version = "0.1.0"
+authors = ["Neal H. Walfield <neal@gnu.org>"]
+
+[dependencies]
+nom = "3.2.0"
+num = "0.1.40"
+num-derive = "0.1.41"
+
+[lib]
+name = "sequoia"
+path = "src/lib.rs"
+
+[[bin]]
+name = "sequoia"
+path = "src/sequoia.rs"
