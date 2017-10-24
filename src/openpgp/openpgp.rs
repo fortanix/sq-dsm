@@ -165,6 +165,7 @@ impl Deref for CTB {
 #[derive(Debug)]
 // We need PartialEq so that assert_eq! works.
 #[derive(PartialEq)]
+#[derive(Clone, Copy)]
 pub enum BodyLength {
     Full(u32),
     /* The size parameter is the size of the initial block.  */
@@ -185,20 +186,20 @@ pub struct Header {
 }
 
 #[derive(Debug)]
-pub struct Signature<'a> {
+pub struct Signature {
     common: PacketCommon,
     version: u8,
     sigtype: u8,
     pk_algo: u8,
     hash_algo: u8,
-    hashed_area: &'a[u8],
-    unhashed_area: &'a[u8],
+    hashed_area: Box<[u8]>,
+    unhashed_area: Box<[u8]>,
     hash_prefix: [u8; 2],
-    mpis: &'a[u8],
+    mpis: Box<[u8]>,
 }
 
 // Allow transparent access of common fields.
-impl<'a> Deref for Signature<'a> {
+impl<'a> Deref for Signature {
     type Target = PacketCommon;
 
     fn deref(&self) -> &Self::Target {
@@ -207,17 +208,17 @@ impl<'a> Deref for Signature<'a> {
 }
 
 #[derive(Debug)]
-pub struct Key<'a> {
+pub struct Key {
     common: PacketCommon,
     version: u8,
     /* When the key was created.  */
     creation_time: u32,
     pk_algo: u8,
-    mpis: &'a [u8],
+    mpis: Box<[u8]>,
 }
 
 // Allow transparent access of common fields.
-impl<'a> Deref for Key<'a> {
+impl<'a> Deref for Key {
     type Target = PacketCommon;
 
     fn deref(&self) -> &Self::Target {
@@ -226,13 +227,13 @@ impl<'a> Deref for Key<'a> {
 }
 
 #[derive(Debug)]
-pub struct UserID<'a> {
+pub struct UserID {
     common: PacketCommon,
-    value: &'a [u8],
+    value: Box<[u8]>,
 }
 
 // Allow transparent access of common fields.
-impl<'a> Deref for UserID<'a> {
+impl<'a> Deref for UserID {
     type Target = PacketCommon;
 
     fn deref(&self) -> &Self::Target {
@@ -241,21 +242,21 @@ impl<'a> Deref for UserID<'a> {
 }
 
 #[derive(Debug)]
-pub struct Literal<'a> {
+pub struct Literal {
     common: PacketCommon,
     format: u8,
-    /* filename is a string, but strings in Rust are valid UTF-8.
-     * But, there is no guarantee that the filename is valid UTF-8.
-     * Thus, we leave filename as a byte array.  It can be converted
-     * to a string using String::from_utf8() or
-     * String::from_utf8_lossy(). */
-    filename: &'a [u8],
+    // filename is a string, but strings in Rust are valid UTF-8.
+    // There is no guarantee, however, that the filename is valid
+    // UTF-8.  Thus, we leave filename as a byte array.  It can be
+    // converted to a string using String::from_utf8() or
+    // String::from_utf8_lossy().
+    filename: Option<Vec<u8>>,
     date: u32,
-    content: &'a [u8],
+    content: Box<[u8]>,
 }
 
 // Allow transparent access of common fields.
-impl<'a> Deref for Literal<'a> {
+impl<'a> Deref for Literal {
     type Target = PacketCommon;
 
     fn deref(&self) -> &Self::Target {
@@ -264,18 +265,18 @@ impl<'a> Deref for Literal<'a> {
 }
 
 #[derive(Debug)]
-pub enum Packet<'a> {
-    Signature(Signature<'a>),
-    PublicKey(Key<'a>),
-    PublicSubkey(Key<'a>),
-    SecretKey(Key<'a>),
-    SecretSubkey(Key<'a>),
-    UserID(UserID<'a>),
-    Literal(Literal<'a>),
+pub enum Packet {
+    Signature(Signature),
+    PublicKey(Key),
+    PublicSubkey(Key),
+    SecretKey(Key),
+    SecretSubkey(Key),
+    UserID(UserID),
+    Literal(Literal),
 }
 
 // Allow transparent access of common fields.
-impl<'a> Deref for Packet<'a> {
+impl Deref for Packet {
     type Target = PacketCommon;
 
     fn deref(&self) -> &Self::Target {
