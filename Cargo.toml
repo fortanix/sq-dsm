@@ -7,6 +7,8 @@ authors = ["Neal H. Walfield <neal@gnu.org>"]
 nom = "3.2.0"
 num = "0.1.40"
 num-derive = "0.1.41"
+flate2 = "0.2"
+bzip2 = "0.3.2"
 
 [lib]
 name = "sequoia"

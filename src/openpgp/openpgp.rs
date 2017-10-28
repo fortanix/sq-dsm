@@ -23,7 +23,7 @@ pub enum Tag {
     SecretKey = 5,
     PublicKey = 6,
     SecretSubkey = 7,
-    Compressed = 8,
+    CompressedData = 8,
     /* Symmetrically Encrypted Data Packet.  */
     SED = 9,
     Marker = 10,
@@ -265,6 +265,22 @@ impl<'a> Deref for Literal {
 }
 
 #[derive(Debug)]
+pub struct CompressedData {
+    common: PacketCommon,
+    algo: u8,
+    content: Box<[u8]>,
+}
+
+// Allow transparent access of common fields.
+impl<'a> Deref for CompressedData {
+    type Target = PacketCommon;
+
+    fn deref(&self) -> &Self::Target {
+        &self.common
+    }
+}
+
+#[derive(Debug)]
 pub enum Packet {
     Signature(Signature),
     PublicKey(Key),
@@ -273,6 +289,7 @@ pub enum Packet {
     SecretSubkey(Key),
     UserID(UserID),
     Literal(Literal),
+    CompressedData(CompressedData),
 }
 
 // Allow transparent access of common fields.

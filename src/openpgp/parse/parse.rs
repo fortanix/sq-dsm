@@ -317,6 +317,92 @@ fn literal_body_test () {
         }
     }
 }
+
+// Parse the body of a user id packet.
+pub fn compressed_data_body<T: BufferedReader>(bio: &mut T)
+                                               -> Result<CompressedData,
+                                                         std::io::Error> {
+    use flate2::FlateReadExt;
+    use bzip2::read::BzDecoder;
+
+    let algo = bio.data_consume_hard(1)?[0];
+
+    //   0          - Uncompressed
+    //   1          - ZIP [RFC1951]
+    //   2          - ZLIB [RFC1950]
+    //   3          - BZip2 [BZ2]
+    //   100 to 110 - Private/Experimental algorithm
+    let mut deflater : Option<Box<std::io::Read>> = match algo {
+        0 => // Uncompressed.
+            return Ok(CompressedData {
+                common: PacketCommon {
+                    tag: Tag::CompressedData,
+                },
+                algo: algo,
+                content: bio.steal_eof()?,
+            }),
+        1 => // Zip.
+            Some(Box::new(bio.deflate_decode())),
+        2 => // Zlib
+            Some(Box::new(bio.zlib_decode())),
+        3 => // BZip2
+            Some(Box::new(BzDecoder::new(bio))),
+        _ =>
+            // Unknown algo.  XXX: Return a better error code.
+            return Err(Error::new(ErrorKind::UnexpectedEof,
+                                  "Unsupported compression algo")),
+    };
+
+    if let Some(ref mut deflater) = deflater {
+        let mut bio2 = BufferedReaderGeneric::new(deflater, None);
+
+        return Ok(CompressedData {
+            common: PacketCommon {
+                tag: Tag::CompressedData,
+            },
+            algo: algo,
+            content: bio2.steal_eof()?,
+        });
+    }
+    unreachable!();
+}
+
+#[test]
+fn compressed_data_body_test () {
+    let expected = include_bytes!("literal-mode-t-partial-body.txt");
+
+    for i in 1..4 {
+        use std::path::PathBuf;
+        use std::fs::File;
+
+        let path : PathBuf = [env!("CARGO_MANIFEST_DIR"),
+                              "src", "openpgp", "parse",
+                              &format!("compressed-data-algo-{}.asc", i)[..]]
+            .iter().collect();
+        let mut f = File::open(&path).expect(&path.to_string_lossy());
+        let mut bio = BufferedReaderGeneric::new(&mut f, None);
+
+        let h = header(&mut bio).unwrap();
+        println!("{:?}", h);
+        assert_eq!(h.ctb.tag, Tag::CompressedData);
+        assert_eq!(h.length, BodyLength::Indeterminate);
+
+        let p = compressed_data_body(&mut bio).unwrap();
+
+        let mut bio2 = BufferedReaderMemory::new(&p.content);
+        let h = header(&mut bio2).unwrap();
+        assert_eq!(h.ctb.tag, Tag::Literal);
+        assert_eq!(h.length, BodyLength::Partial(4096));
+
+        let mut bio3 = BufferedReaderPartialBodyFilter::new(&mut bio2, 4096);
+        let p = literal_body(&mut bio3).unwrap();
+
+        assert_eq!(p.filename, None);
+        assert_eq!(p.format, 'b' as u8);
+        assert_eq!(p.date, 1509219866);
+        assert_eq!(&expected[..], &p.content[..]);
+    }
+}
 
 /// Parse exactly one OpenPGP packet.  Any remaining data is returned.
 pub fn parse_packet<T: BufferedReader>(bio: &mut T, header: Header)
@@ -342,6 +428,9 @@ pub fn parse_packet<T: BufferedReader>(bio: &mut T, header: Header)
             return Ok(Packet::UserID(userid_body(bio)?)),
         Tag::Literal =>
             return Ok(Packet::Literal(literal_body(bio)?)),
+        Tag::CompressedData =>
+            // XXX: We need to recurse on p.content.
+            return Ok(Packet::CompressedData(compressed_data_body(bio)?)),
         _ => {
             println!("Unsupported packet type: {:?}", header);
             // XXX: Fix error code.
