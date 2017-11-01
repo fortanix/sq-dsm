@@ -335,13 +335,14 @@ pub fn compressed_data_body<T: BufferedReader>(bio: &mut T)
     //   100 to 110 - Private/Experimental algorithm
     let mut deflater : Option<Box<std::io::Read>> = match algo {
         0 => // Uncompressed.
-            return Ok(CompressedData {
-                common: PacketCommon {
-                    tag: Tag::CompressedData,
-                },
-                algo: algo,
-                content: bio.steal_eof()?,
-            }),
+            unimplemented!(),
+            // return Ok(CompressedData {
+            //     common: PacketCommon {
+            //         tag: Tag::CompressedData,
+            //     },
+            //     algo: algo,
+            //     children: Message::deserialize(bio),
+            // }),
         1 => // Zip.
             Some(Box::new(bio.deflate_decode())),
         2 => // Zlib
@@ -355,14 +356,14 @@ pub fn compressed_data_body<T: BufferedReader>(bio: &mut T)
     };
 
     if let Some(ref mut deflater) = deflater {
-        let mut bio2 = BufferedReaderGeneric::new(deflater, None);
+        let bio2 = BufferedReaderGeneric::new(deflater, None);
 
         return Ok(CompressedData {
             common: PacketCommon {
                 tag: Tag::CompressedData,
             },
             algo: algo,
-            content: bio2.steal_eof()?,
+            content: Message::deserialize(bio2)?,
         });
     }
     unreachable!();
@@ -391,18 +392,19 @@ fn compressed_data_body_test () {
         let p = compressed_data_body(&mut bio).unwrap();
         println!("{:?}", p);
 
-        let mut bio2 = BufferedReaderMemory::new(&p.content);
-        let h = header(&mut bio2).unwrap();
-        assert_eq!(h.ctb.tag, Tag::Literal);
-        assert_eq!(h.length, BodyLength::Partial(4096));
+        assert_eq!(p.content.packets.len(), 1);
+        match p.content.packets[0] {
+            Packet::Literal(ref l) => {
+                assert_eq!(l.filename, None);
+                assert_eq!(l.format, 'b' as u8);
+                assert_eq!(l.date, 1509219866);
+                assert_eq!(&expected[..], &l.content[..]);
+            },
+            _ => {
+                unreachable!();
+            },
+        }
 
-        let mut bio3 = BufferedReaderPartialBodyFilter::new(&mut bio2, 4096);
-        let p = literal_body(&mut bio3).unwrap();
-
-        assert_eq!(p.filename, None);
-        assert_eq!(p.format, 'b' as u8);
-        assert_eq!(p.date, 1509219866);
-        assert_eq!(&expected[..], &p.content[..]);
     }
 }
 

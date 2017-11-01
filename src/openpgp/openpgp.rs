@@ -333,11 +333,11 @@ impl<'a> Deref for Literal {
 pub struct CompressedData {
     common: PacketCommon,
     algo: u8,
-    content: Box<[u8]>,
+    content: Message,
 }
 
 // Allow transparent access of common fields.
-impl<'a> Deref for CompressedData {
+impl Deref for CompressedData {
     type Target = PacketCommon;
 
     fn deref(&self) -> &Self::Target {
@@ -347,16 +347,9 @@ impl<'a> Deref for CompressedData {
 
 impl std::fmt::Debug for CompressedData {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        let l = std::cmp::min(16, self.content.len());
-        let mut content_fmt = format!("{:?}", &self.content[..l]);
-        if l < self.content.len() {
-            content_fmt.push_str("...");
-        }
-        content_fmt.push_str(&format!(" ({} bytes)", self.content.len())[..]);
-
         f.debug_struct("CompressedData")
             .field("algo", &self.algo)
-            .field("content (decompressed)", &content_fmt)
+            .field("content", &self.content)
             .finish()
     }
 }
@@ -374,7 +367,7 @@ pub enum Packet {
 }
 
 // Allow transparent access of common fields.
-impl Deref for Packet {
+impl<'a> Deref for Packet {
     type Target = PacketCommon;
 
     fn deref(&self) -> &Self::Target {
