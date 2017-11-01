@@ -7,6 +7,7 @@ use super::*;
 
 mod buffered_reader;
 use self::buffered_reader::*;
+pub use self::buffered_reader::BufferedReader;
 
 mod buffered_reader_partial_body;
 use self::buffered_reader_partial_body::*;
@@ -440,55 +441,89 @@ pub fn parse_packet<T: BufferedReader>(bio: &mut T, header: Header)
     }
 }
 
-pub fn parse_message (input: &[u8]) -> Result<Vec<Packet>, std::io::Error> {
-    let mut bio = BufferedReaderMemory::new(input);
 
-    let mut packets : Vec<Packet> = Vec::with_capacity(16);
+impl Message {
+    /// Deserializes an OpenPGP message,
+    pub fn deserialize<T: BufferedReader>(mut bio: T)
+                                          -> Result<Message, std::io::Error> {
+        let mut packets : Vec<Packet> = Vec::with_capacity(16);
 
-    // XXX: Be smarter about how we detect the EOF.
-    while bio.data(1)?.len() != 0 {
-        let header = header(&mut bio)?;
-        let p = match header.length {
-            BodyLength::Full(len) => {
-                let mut bio2 = BufferedReaderLimitor::new(&mut bio, len as u64);
-                let p = parse_packet(&mut bio2, header)?;
-                let rest = bio2.steal_eof()?;
-                if rest.len() > 0 {
-                    println!("Packet failed to process {} bytes of data", rest.len());
-                }
-                p
-            },
-            BodyLength::Partial(len) => {
-                let mut bio2 = BufferedReaderPartialBodyFilter::new(&mut bio, len);
-                let p = parse_packet(&mut bio2, header)?;
-                let rest = bio2.steal_eof()?;
-                if rest.len() > 0 {
-                    println!("Packet failed to process {} bytes of data", rest.len());
-                }
-                p
-            },
-            BodyLength::Indeterminate => {
-                let p = parse_packet(&mut bio, header)?;
-                let rest = bio.steal_eof()?;
-                if rest.len() > 0 {
-                    println!("Packet failed to process {} bytes of data", rest.len());
-                }
-                p
-            },
-        };
+        // XXX: Be smarter about how we detect the EOF.
+        while bio.data(1)?.len() != 0 {
+            let header = header(&mut bio)?;
+            let p = match header.length {
+                BodyLength::Full(len) => {
+                    let mut bio2 = BufferedReaderLimitor::new(&mut bio, len as u64);
+                    let p = parse_packet(&mut bio2, header)?;
+                    let rest = bio2.steal_eof()?;
+                    if rest.len() > 0 {
+                        println!("Packet failed to process {} bytes of data",
+                                 rest.len());
+                    }
+                    p
+                },
+                BodyLength::Partial(len) => {
+                    let mut bio2 = BufferedReaderPartialBodyFilter::new(&mut bio,
+                                                                        len);
+                    let p = parse_packet(&mut bio2, header)?;
+                    let rest = bio2.steal_eof()?;
+                    if rest.len() > 0 {
+                        println!("Packet failed to process {} bytes of data",
+                                 rest.len());
+                    }
+                    p
+                },
+                BodyLength::Indeterminate => {
+                    let p = parse_packet(&mut bio, header)?;
+                    let rest = bio.steal_eof()?;
+                    if rest.len() > 0 {
+                        println!("Packet failed to process {} bytes of data",
+                                 rest.len());
+                    }
+                    p
+                },
+            };
 
-        // println!("packet: {:?}\n", _p);
-        packets.push(p);
+            // println!("packet: {:?}\n", _p);
+            packets.push(p);
+        }
+
+        Ok(Message {
+            input: None,
+            packets: packets,
+        })
     }
-
-    return Ok(packets);
 }
 
 #[test]
-fn parse_message_test () {
+fn deserialize_test () {
     // XXX: This test should be more thorough.  Right now, we mostly
     // just rely on the fact that an assertion is not thrown.
 
-    let data = include_bytes!("public-key.asc");
-    let _packets = parse_message (data).unwrap();
+    {
+        // A flat message.
+        let data = include_bytes!("public-key.asc");
+        let bio = BufferedReaderMemory::new(data);
+        let message = Message::deserialize(bio).unwrap();
+        println!("Message has {} top-level packets.", message.packets.len());
+        println!("Message: {:?}", message);
+
+    }
+
+    {
+        // A message containing a compressed packet that contains a
+        // literal packet.
+        use std::path::PathBuf;
+        use std::fs::File;
+
+        let path : PathBuf = [env!("CARGO_MANIFEST_DIR"),
+                              "src", "openpgp", "parse",
+                              "compressed-data-algo-1.asc"]
+            .iter().collect();
+        let mut f = File::open(&path).expect(&path.to_string_lossy());
+        let bio = BufferedReaderGeneric::new(&mut f, None);
+        let message = Message::deserialize(bio).unwrap();
+        println!("Message has {} top-level packets.", message.packets.len());
+        println!("Message: {:?}", message);
+    }
 }

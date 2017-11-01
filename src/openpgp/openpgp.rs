@@ -2,6 +2,7 @@
 
 use std;
 use std::ops::Deref;
+use self::parse::BufferedReader;
 
 /// The OpenPGP packet types.  The values correspond to the serialized
 /// format.  The packet types named UnassignedXX are not in use as of
@@ -382,5 +383,22 @@ impl Deref for Packet {
             &Packet::Literal(ref packet) => &packet.common,
             _ => unimplemented!(),
         }
+    }
+}
+
+/// A `Message` is a container that holds zero or more OpenPGP
+/// packets.  This is used both as a top-level for an OpenPGP message
+/// as well as by Packets that are containers (like a compressed data
+/// packet).
+pub struct Message {
+    input: Option<Box<BufferedReader>>,
+    packets: Vec<Packet>,
+}
+
+impl std::fmt::Debug for Message {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        f.debug_struct("Message")
+            .field("packets", &self.packets)
+            .finish()
     }
 }
