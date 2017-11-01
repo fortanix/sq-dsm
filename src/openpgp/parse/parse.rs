@@ -510,6 +510,12 @@ fn deserialize_test () {
         println!("Message has {} top-level packets.", message.packets.len());
         println!("Message: {:?}", message);
 
+        let mut count = 0;
+        for (i, p) in message.iter().enumerate() {
+            println!("{}: {:?}", i, p);
+            count += 1;
+        }
+        assert_eq!(count, 61);
     }
 
     {
@@ -527,5 +533,12 @@ fn deserialize_test () {
         let message = Message::deserialize(bio).unwrap();
         println!("Message has {} top-level packets.", message.packets.len());
         println!("Message: {:?}", message);
+
+        let mut count = 0;
+        for (i, p) in message.iter().enumerate() {
+            println!("{}: {:?}", i, p);
+            count += 1;
+        }
+        assert_eq!(count, 2);
     }
 }

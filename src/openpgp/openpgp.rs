@@ -395,3 +395,81 @@ impl std::fmt::Debug for Message {
             .finish()
     }
 }
+
+/// A `PacketIter` iterates over the *contents* of a packet in
+/// depth-first order.  It starts by returning the current packet.
+pub struct PacketIter<'a> {
+    // An iterator over the current message's children.
+    children: std::slice::Iter<'a, Packet>,
+    // The current child (i.e., the last value returned by
+    // children.next()).
+    child: Option<&'a Packet>,
+    // The an iterator over the current child's children.
+    grandchildren: Option<Box<PacketIter<'a>>>,
+}
+
+impl Message {
+    fn iter(&self) -> PacketIter {
+        return PacketIter {
+            // Iterate over each packet in the message.
+            children: self.packets.iter(),
+            child: None,
+            grandchildren: None,
+        };
+    }
+}
+
+impl Packet {
+    fn iter(&self) -> PacketIter {
+        match self {
+            &Packet::CompressedData(ref cd) => return cd.iter(),
+            // The rest of the packets aren't containers.
+            _ => {
+                let empty_packet_slice : &[Packet] = &[][..];
+                return PacketIter {
+                    children: empty_packet_slice.iter(),
+                    child: None,
+                    grandchildren: None,
+                }
+            },
+        }
+    }
+}
+
+impl CompressedData {
+    fn iter(&self) -> PacketIter {
+        return PacketIter {
+            children: self.content.packets.iter(),
+            child: None,
+            grandchildren: None,
+        }
+    }
+}
+
+impl<'a> Iterator for PacketIter<'a> {
+    type Item = &'a Packet;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        // If we don't have a grandchild iterator (self.grandchildren
+        // is None), then we are just starting, and we need to get the
+        // next child.
+        if let Some(ref mut grandchildren) = self.grandchildren {
+            let grandchild = grandchildren.next();
+            // If the grandchild iterator is exhausted (grandchild is
+            // None), then we need the next child.
+            if grandchild.is_some() {
+                return grandchild;
+            }
+        }
+
+        // Get the next child and the iterator for its children.
+        self.child = self.children.next();
+        if let Some(child) = self.child {
+            self.grandchildren = Some(Box::new(child.iter()));
+        }
+
+        // First return the child itself.  Subsequent calls will
+        // return its grandchildren.
+        return self.child;
+    }
+}
