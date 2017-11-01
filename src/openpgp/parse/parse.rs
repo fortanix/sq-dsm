@@ -388,6 +388,7 @@ fn compressed_data_body_test () {
         assert_eq!(h.length, BodyLength::Indeterminate);
 
         let p = compressed_data_body(&mut bio).unwrap();
+        println!("{:?}", p);
 
         let mut bio2 = BufferedReaderMemory::new(&p.content);
         let h = header(&mut bio2).unwrap();

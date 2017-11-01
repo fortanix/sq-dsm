@@ -1,5 +1,6 @@
 // Machinery for parsing and serializing OpenPGP packet headers.
 
+use std;
 use std::ops::Deref;
 
 /// The OpenPGP packet types.  The values correspond to the serialized
@@ -185,7 +186,6 @@ pub struct Header {
     length: BodyLength,
 }
 
-#[derive(Debug)]
 pub struct Signature {
     common: PacketCommon,
     version: u8,
@@ -198,6 +198,25 @@ pub struct Signature {
     mpis: Box<[u8]>,
 }
 
+impl std::fmt::Debug for Signature {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let hashed_area = format!("{} bytes", self.hashed_area.len());
+        let unhashed_area = format!("{} bytes", self.unhashed_area.len());
+        let mpis = format!("{} bytes", self.mpis.len());
+
+        f.debug_struct("Signature")
+            .field("version", &self.version)
+            .field("sigtype", &self.sigtype)
+            .field("pk_algo", &self.pk_algo)
+            .field("hash_algo", &self.hash_algo)
+            .field("hashed_area", &hashed_area)
+            .field("unhashed_area", &unhashed_area)
+            .field("hash_prefix", &self.hash_prefix)
+            .field("mpis", &mpis)
+            .finish()
+    }
+}
+
 // Allow transparent access of common fields.
 impl<'a> Deref for Signature {
     type Target = PacketCommon;
@@ -207,7 +226,6 @@ impl<'a> Deref for Signature {
     }
 }
 
-#[derive(Debug)]
 pub struct Key {
     common: PacketCommon,
     version: u8,
@@ -215,6 +233,20 @@ pub struct Key {
     creation_time: u32,
     pk_algo: u8,
     mpis: Box<[u8]>,
+}
+
+impl std::fmt::Debug for Key {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let mpis = format!("{} bytes", self.mpis.len());
+
+        f.debug_struct("Key")
+            .field("tag", &self.common.tag)
+            .field("version", &self.version)
+            .field("creation_time", &self.creation_time)
+            .field("pk_algo", &self.pk_algo)
+            .field("mpis", &mpis)
+            .finish()
+    }
 }
 
 // Allow transparent access of common fields.
@@ -226,10 +258,19 @@ impl<'a> Deref for Key {
     }
 }
 
-#[derive(Debug)]
 pub struct UserID {
     common: PacketCommon,
     value: Box<[u8]>,
+}
+
+impl std::fmt::Debug for UserID {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let userid = String::from_utf8_lossy(&self.value[..]);
+
+        f.debug_struct("UserID")
+            .field("value", &userid)
+            .finish()
+    }
 }
 
 // Allow transparent access of common fields.
@@ -241,7 +282,6 @@ impl<'a> Deref for UserID {
     }
 }
 
-#[derive(Debug)]
 pub struct Literal {
     common: PacketCommon,
     format: u8,
@@ -255,6 +295,31 @@ pub struct Literal {
     content: Box<[u8]>,
 }
 
+impl std::fmt::Debug for Literal {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let filename = if let Some(ref filename) = self.filename {
+            Some(String::from_utf8_lossy(filename))
+        } else {
+            None
+        };
+
+        let threshold = 36;
+        let prefix = &self.content[..std::cmp::min(threshold, self.content.len())];
+        let mut prefix_fmt = String::from_utf8_lossy(prefix).into_owned();
+        if self.content.len() > threshold {
+            prefix_fmt.push_str("...");
+        }
+        prefix_fmt.push_str(&format!(" ({} bytes)", self.content.len())[..]);
+
+        f.debug_struct("Literal")
+            .field("format", &(self.format as char))
+            .field("filename", &filename)
+            .field("date", &self.date)
+            .field("content", &prefix_fmt)
+            .finish()
+    }
+}
+
 // Allow transparent access of common fields.
 impl<'a> Deref for Literal {
     type Target = PacketCommon;
@@ -264,7 +329,6 @@ impl<'a> Deref for Literal {
     }
 }
 
-#[derive(Debug)]
 pub struct CompressedData {
     common: PacketCommon,
     algo: u8,
@@ -277,6 +341,22 @@ impl<'a> Deref for CompressedData {
 
     fn deref(&self) -> &Self::Target {
         &self.common
+    }
+}
+
+impl std::fmt::Debug for CompressedData {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let l = std::cmp::min(16, self.content.len());
+        let mut content_fmt = format!("{:?}", &self.content[..l]);
+        if l < self.content.len() {
+            content_fmt.push_str("...");
+        }
+        content_fmt.push_str(&format!(" ({} bytes)", self.content.len())[..]);
+
+        f.debug_struct("CompressedData")
+            .field("algo", &self.algo)
+            .field("content (decompressed)", &content_fmt)
+            .finish()
     }
 }
 
