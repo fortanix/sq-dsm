@@ -1,4 +1,5 @@
 use std;
+use std::fs::File;
 use std::io::{Error,ErrorKind};
 
 use num::FromPrimitive;
@@ -485,6 +486,12 @@ impl Message {
             packets: packets,
         })
     }
+
+    pub fn from_file(mut file: File) -> Result<Message, std::io::Error> {
+        let mut bio = BufferedReaderGeneric::new(&mut file, None);
+        Message::deserialize(&mut bio)
+    }
+    }
 }
 
 #[test]
@@ -512,7 +519,6 @@ fn deserialize_test () {
         // A message containing a compressed packet that contains a
         // literal packet.
         use std::path::PathBuf;
-        use std::fs::File;
 
         let path : PathBuf = [env!("CARGO_MANIFEST_DIR"),
                               "src", "openpgp", "parse",
