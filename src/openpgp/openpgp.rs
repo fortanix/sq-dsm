@@ -409,7 +409,7 @@ pub struct PacketIter<'a> {
 }
 
 impl Message {
-    fn iter(&self) -> PacketIter {
+    pub fn iter(&self) -> PacketIter {
         return PacketIter {
             // Iterate over each packet in the message.
             children: self.packets.iter(),
@@ -420,7 +420,7 @@ impl Message {
 }
 
 impl Packet {
-    fn iter(&self) -> PacketIter {
+    pub fn iter(&self) -> PacketIter {
         match self {
             &Packet::CompressedData(ref cd) => return cd.iter(),
             // The rest of the packets aren't containers.
@@ -437,7 +437,7 @@ impl Packet {
 }
 
 impl CompressedData {
-    fn iter(&self) -> PacketIter {
+    pub fn iter(&self) -> PacketIter {
         return PacketIter {
             children: self.content.packets.iter(),
             child: None,
