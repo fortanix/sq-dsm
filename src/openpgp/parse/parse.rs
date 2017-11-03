@@ -67,7 +67,7 @@ pub fn body_length_new_format<T: BufferedReader> (bio: &mut T)
     }
 
     assert_eq!(octet1, 255);
-    // Four octets.
+    // Five octets.
     return Ok(BodyLength::Full(bio.read_be_u32()?));
 }
 
