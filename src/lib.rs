@@ -11,5 +11,6 @@ extern crate flate2;
 extern crate bzip2;
 
 pub mod openpgp;
+pub mod keys;
 pub mod key_store;
 pub mod net;
