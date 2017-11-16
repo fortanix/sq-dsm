@@ -505,7 +505,7 @@ impl<'a, T: BufferedReader> Read for BufferedReaderLimitor<'a, T> {
     }
 }
 
-impl<'a, T: BufferedReader + 'a> BufferedReader for BufferedReaderLimitor<'a, T> {
+impl<'a, T: BufferedReader> BufferedReader for BufferedReaderLimitor<'a, T> {
     /// Return the buffer.  Ensure that it contains at least `amount`
     /// bytes.
     fn data(&mut self, amount: usize) -> Result<&[u8], io::Error> {
