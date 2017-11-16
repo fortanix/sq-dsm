@@ -356,14 +356,14 @@ pub fn compressed_data_body<T: BufferedReader>(bio: &mut T)
     };
 
     if let Some(ref mut deflater) = deflater {
-        let bio2 = BufferedReaderGeneric::new(deflater, None);
+        let mut bio2 = BufferedReaderGeneric::new(deflater, None);
 
         return Ok(CompressedData {
             common: PacketCommon {
                 tag: Tag::CompressedData,
             },
             algo: algo,
-            content: Message::deserialize(bio2)?,
+            content: Message::deserialize(&mut bio2)?,
         });
     }
     unreachable!();
@@ -446,16 +446,16 @@ pub fn parse_packet<T: BufferedReader>(bio: &mut T, header: Header)
 
 impl Message {
     /// Deserializes an OpenPGP message,
-    pub fn deserialize<T: BufferedReader>(mut bio: T)
+    pub fn deserialize<T: BufferedReader>(bio: &mut T)
                                           -> Result<Message, std::io::Error> {
         let mut packets : Vec<Packet> = Vec::with_capacity(16);
 
         // XXX: Be smarter about how we detect the EOF.
         while bio.data(1)?.len() != 0 {
-            let header = header(&mut bio)?;
+            let header = header(bio)?;
             let p = match header.length {
                 BodyLength::Full(len) => {
-                    let mut bio2 = BufferedReaderLimitor::new(&mut bio, len as u64);
+                    let mut bio2 = BufferedReaderLimitor::new(bio, len as u64);
                     let p = parse_packet(&mut bio2, header)?;
                     let rest = bio2.steal_eof()?;
                     if rest.len() > 0 {
@@ -465,7 +465,7 @@ impl Message {
                     p
                 },
                 BodyLength::Partial(len) => {
-                    let mut bio2 = BufferedReaderPartialBodyFilter::new(&mut bio,
+                    let mut bio2 = BufferedReaderPartialBodyFilter::new(bio,
                                                                         len);
                     let p = parse_packet(&mut bio2, header)?;
                     let rest = bio2.steal_eof()?;
@@ -476,7 +476,7 @@ impl Message {
                     p
                 },
                 BodyLength::Indeterminate => {
-                    let p = parse_packet(&mut bio, header)?;
+                    let p = parse_packet(bio, header)?;
                     let rest = bio.steal_eof()?;
                     if rest.len() > 0 {
                         println!("Packet failed to process {} bytes of data",
@@ -505,8 +505,8 @@ fn deserialize_test () {
     {
         // A flat message.
         let data = include_bytes!("public-key.asc");
-        let bio = BufferedReaderMemory::new(data);
-        let message = Message::deserialize(bio).unwrap();
+        let mut bio = BufferedReaderMemory::new(data);
+        let message = Message::deserialize(&mut bio).unwrap();
         println!("Message has {} top-level packets.", message.packets.len());
         println!("Message: {:?}", message);
 
@@ -529,8 +529,8 @@ fn deserialize_test () {
                               "compressed-data-algo-1.asc"]
             .iter().collect();
         let mut f = File::open(&path).expect(&path.to_string_lossy());
-        let bio = BufferedReaderGeneric::new(&mut f, None);
-        let message = Message::deserialize(bio).unwrap();
+        let mut bio = BufferedReaderGeneric::new(&mut f, None);
+        let message = Message::deserialize(&mut bio).unwrap();
         println!("Message has {} top-level packets.", message.packets.len());
         println!("Message: {:?}", message);
 
