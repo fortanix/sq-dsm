@@ -323,7 +323,8 @@ fn literal_body_test () {
 pub fn compressed_data_body<T: BufferedReader>(bio: &mut T)
                                                -> Result<CompressedData,
                                                          std::io::Error> {
-    use flate2::FlateReadExt;
+    use flate2::read::DeflateDecoder;
+    use flate2::read::ZlibDecoder;
     use bzip2::read::BzDecoder;
 
     let algo = bio.data_consume_hard(1)?[0];
@@ -333,40 +334,29 @@ pub fn compressed_data_body<T: BufferedReader>(bio: &mut T)
     //   2          - ZLIB [RFC1950]
     //   3          - BZip2 [BZ2]
     //   100 to 110 - Private/Experimental algorithm
-    let mut deflater : Option<Box<std::io::Read>> = match algo {
+    let mut decompressor : Box<std::io::Read> = match algo {
         0 => // Uncompressed.
-            unimplemented!(),
-            // return Ok(CompressedData {
-            //     common: PacketCommon {
-            //         tag: Tag::CompressedData,
-            //     },
-            //     algo: algo,
-            //     children: Message::deserialize(bio),
-            // }),
+            Box::new(bio),
         1 => // Zip.
-            Some(Box::new(bio.deflate_decode())),
+            Box::new(DeflateDecoder::new(bio)),
         2 => // Zlib
-            Some(Box::new(bio.zlib_decode())),
+            Box::new(ZlibDecoder::new(bio)),
         3 => // BZip2
-            Some(Box::new(BzDecoder::new(bio))),
+            Box::new(BzDecoder::new(bio)),
         _ =>
             // Unknown algo.  XXX: Return a better error code.
             return Err(Error::new(ErrorKind::UnexpectedEof,
                                   "Unsupported compression algo")),
     };
 
-    if let Some(ref mut deflater) = deflater {
-        let mut bio2 = BufferedReaderGeneric::new(deflater, None);
-
-        return Ok(CompressedData {
-            common: PacketCommon {
-                tag: Tag::CompressedData,
-            },
-            algo: algo,
-            content: Message::deserialize(&mut bio2)?,
-        });
-    }
-    unreachable!();
+    let mut bio = BufferedReaderGeneric::new(&mut decompressor, None);
+    return Ok(CompressedData {
+        common: PacketCommon {
+            tag: Tag::CompressedData,
+        },
+        algo: algo,
+        content: Message::deserialize(&mut bio)?,
+    });
 }
 
 #[test]
