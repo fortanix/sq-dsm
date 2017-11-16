@@ -244,8 +244,8 @@ pub fn userid_body<T: BufferedReader>(bio: &mut T) -> Result<UserID, std::io::Er
 }
 
 /// Parse the body of a literal packet.
-pub fn literal_body(bio: &mut BufferedReader)
-                     -> Result<Literal, std::io::Error> {
+pub fn literal_body<R: BufferedReader>(mut bio: &mut R)
+        -> Result<Literal, std::io::Error> {
     // When using bio, we have to do some acrobatics, because
     // calling bio.data() creates a mutable borrow on bio.  Since
     // there can only be one such borrow at a time, we have to put it
