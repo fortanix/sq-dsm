@@ -179,7 +179,7 @@ pub fn buffered_reader_generic_read_impl<T: BufferedReader>
 /// reading from a file, and it even works with a `&[u8]` (but
 /// `BufferedReaderMemory` is more efficient).
 #[derive(Debug)]
-pub struct BufferedReaderGeneric<'a, T: 'a + Read + ?Sized> {
+pub struct BufferedReaderGeneric<'a, T: Read + 'a> {
     buffer: Option<Box<[u8]>>,
     // The next byte to read in the buffer.
     cursor: usize,
@@ -192,7 +192,7 @@ pub struct BufferedReaderGeneric<'a, T: 'a + Read + ?Sized> {
     error: Option<io::Error>,
 }
 
-impl<'a, T: Read + ?Sized> BufferedReaderGeneric<'a, T> {
+impl<'a, T: Read> BufferedReaderGeneric<'a, T> {
     /// Instantiate a new generic reader.  `reader` is the source to
     /// wrap.  `preferred_chuck_size` is the preferred chuck size.  If
     /// None, then the default will be used, which is usually what you
@@ -321,13 +321,13 @@ impl<'a, T: Read + ?Sized> BufferedReaderGeneric<'a, T> {
     }
 }
 
-impl<'a, T: Read + ?Sized> Read for BufferedReaderGeneric<'a, T> {
+impl<'a, T: Read> Read for BufferedReaderGeneric<'a, T> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, io::Error> {
         return buffered_reader_generic_read_impl(self, buf);
     }
 }
 
-impl<'a, T: Read + ?Sized> BufferedReader for BufferedReaderGeneric<'a, T> {
+impl<'a, T: Read> BufferedReader for BufferedReaderGeneric<'a, T> {
     fn data(&mut self, amount: usize) -> Result<&[u8], io::Error> {
         return self.data_helper(amount, false, false);
     }
@@ -372,7 +372,7 @@ impl<'a, T: Read + ?Sized> BufferedReader for BufferedReaderGeneric<'a, T> {
 //
 //   for i in $(seq 0 9999); do printf "%04d\n" $i; done > buffered-reader-test.txt
 #[cfg(test)]
-fn buffered_reader_test_data_check<T: BufferedReader + ?Sized>(bio: &mut T) {
+fn buffered_reader_test_data_check<T: BufferedReader>(bio: &mut T) {
     for i in 0 .. 10000 {
         let consumed = {
             // Each number is 4 bytes plus a newline character.
@@ -410,7 +410,7 @@ fn buffered_reader_generic_test() {
     // Same test, but as a slice.
     {
         let mut data : &[u8] = include_bytes!("buffered-reader-test.txt");
-        let mut bio = BufferedReaderGeneric::new(&mut data as &mut Read, None);
+        let mut bio = BufferedReaderGeneric::new(&mut data, None);
 
         buffered_reader_test_data_check(&mut bio);
     }
