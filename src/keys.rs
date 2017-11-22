@@ -141,6 +141,30 @@ impl TPK {
 
         Some(self)
     }
+
+    /// Serialize the transferable public key into an OpenPGP message.
+    pub fn to_message(self) -> openpgp::Message {
+        let mut p : Vec<openpgp::Packet> = Vec::new();
+        let mut subkeys = self.subkeys;
+
+        p.push(openpgp::Packet::PublicKey(subkeys.remove(0).subkey));
+
+        for u in self.userids.into_iter() {
+            p.push(openpgp::Packet::UserID(u.userid));
+            for s in u.signatures.into_iter() {
+                p.push(openpgp::Packet::Signature(s));
+            }
+        }
+
+        for k in subkeys.into_iter() {
+            p.push(openpgp::Packet::PublicSubkey(k.subkey));
+            for s in k.signatures.into_iter() {
+                p.push(openpgp::Packet::Signature(s));
+            }
+        }
+
+        openpgp::Message::from_packets(p)
+    }
 }
 
 #[cfg(test)]
@@ -170,6 +194,7 @@ mod test {
     #[test]
     fn basics() {
         let m = openpgp::Message::from_bytes(bytes!("testy.pgp")).unwrap();
+        let orig_dbg = format!("{:?}", m);
         let tpk = TPK::from_message(m).unwrap();
         //println!("{:?}", tpk);
 
@@ -178,10 +203,16 @@ mod test {
         //assert_eq!(tpk.userids[0].userid.value, "Testy McTestface <testy@example.org>");
         assert_eq!(tpk.subkeys.len(), 2, "number of subkeys");
 
+        // XXX Messages cannot be compared.
+        assert_eq!(format!("{:?}", tpk.to_message()), orig_dbg);
+
         let m = openpgp::Message::from_bytes(bytes!("testy-no-subkey.pgp")).unwrap();
+        let orig_dbg = format!("{:?}", m);
         let tpk = TPK::from_message(m).unwrap();
 
         assert_eq!(tpk.userids.len(), 1, "number of userids");
         assert_eq!(tpk.subkeys.len(), 1, "number of subkeys");
+        // XXX Messages cannot be compared.
+        assert_eq!(format!("{:?}", tpk.to_message()), orig_dbg);
     }
 }
