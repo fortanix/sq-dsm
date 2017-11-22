@@ -491,6 +491,10 @@ impl Message {
         let mut bio = BufferedReaderGeneric::new(&mut file, None);
         Message::deserialize(&mut bio)
     }
+
+    pub fn from_bytes(data: &[u8]) -> Result<Message, std::io::Error> {
+        let mut bio = BufferedReaderMemory::new(data);
+        Message::deserialize(&mut bio)
     }
 }
 
