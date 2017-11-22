@@ -417,6 +417,10 @@ impl Message {
             grandchildren: None,
         };
     }
+
+    pub fn into_iter(self) -> std::vec::IntoIter<Packet> {
+        self.packets.into_iter()
+    }
 }
 
 impl Packet {
