@@ -409,6 +409,10 @@ pub struct PacketIter<'a> {
 }
 
 impl Message {
+    pub fn from_packets(p: Vec<Packet>) -> Self {
+        Message { input: None, packets: p }
+    }
+
     pub fn iter(&self) -> PacketIter {
         return PacketIter {
             // Iterate over each packet in the message.
