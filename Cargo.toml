@@ -4,6 +4,7 @@ version = "0.1.0"
 authors = ["Neal H. Walfield <neal@gnu.org>"]
 
 [dependencies]
+libc = "0.2.33"
 nom = "3.2.0"
 num = "0.1.40"
 num-derive = "0.1.41"
@@ -13,6 +14,7 @@ bzip2 = "0.3.2"
 [lib]
 name = "sequoia"
 path = "src/lib.rs"
+crate-type = ["lib", "dylib"]
 
 [[bin]]
 doc = false

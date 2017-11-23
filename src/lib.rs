@@ -14,3 +14,4 @@ pub mod openpgp;
 pub mod keys;
 pub mod key_store;
 pub mod net;
+pub mod ffi;
