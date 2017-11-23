@@ -254,8 +254,8 @@ mod test {
         //println!("{:?}", tpk);
 
         assert_eq!(tpk.userids.len(), 1, "number of userids");
-        // XXX .value is private
-        //assert_eq!(tpk.userids[0].userid.value, "Testy McTestface <testy@example.org>");
+        assert_eq!(String::from_utf8_lossy(&tpk.userids[0].userid.value),
+                   "Testy McTestface <testy@example.org>");
         assert_eq!(tpk.subkeys.len(), 1, "number of subkeys");
 
         // XXX Messages cannot be compared.
@@ -266,6 +266,8 @@ mod test {
         let tpk = TPK::from_message(m).unwrap();
 
         assert_eq!(tpk.userids.len(), 1, "number of userids");
+        assert_eq!(String::from_utf8_lossy(&tpk.userids[0].userid.value),
+                   "Testy McTestface <testy@example.org>");
         assert_eq!(tpk.subkeys.len(), 0, "number of subkeys");
         // XXX Messages cannot be compared.
         assert_eq!(format!("{:?}", tpk.to_message()), orig_dbg);
