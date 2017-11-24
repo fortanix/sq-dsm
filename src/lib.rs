@@ -15,3 +15,4 @@ pub mod keys;
 pub mod key_store;
 pub mod net;
 pub mod ffi;
+pub mod armor;
