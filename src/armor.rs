@@ -97,7 +97,7 @@ impl<'a, W: Write> Writer<'a, W> {
         Writer {
             sink: inner,
             kind: kind,
-            stash: Vec::<u8>::with_capacity(3),
+            stash: Vec::<u8>::with_capacity(2),
             column: 0,
             crc: CRC::new(),
             initialized: false,
@@ -177,6 +177,7 @@ impl<'a, W: Write> Write for Writer<'a, W> {
 
         // First of all, if there are stashed bytes, fill the stash
         // and encode it.
+        assert!(self.stash.len() < 3);
         if self.stash.len() > 0 {
             while self.stash.len() < 3 {
                 self.stash.push(input[0]);
@@ -200,6 +201,7 @@ impl<'a, W: Write> Write for Writer<'a, W> {
         }
         // We popped values from the end of the input, fix the order.
         self.stash.reverse();
+        assert!(self.stash.len() < 3);
 
         // We know that we have a multiple of 3 bytes, encode them and write them out.
         assert!(input.len() % 3 == 0);
@@ -244,7 +246,7 @@ impl<'a, R: Read> Reader<'a, R> {
         Reader {
             source: inner,
             kind: kind,
-            stash: Vec::<u8>::with_capacity(3),
+            stash: Vec::<u8>::with_capacity(2),
             crc: CRC::new(),
             expect_crc: None,
             initialized: false,
@@ -377,7 +379,7 @@ impl<'a, W: Read> Read for Reader<'a, W> {
         let mut read = 0;
 
         /* See if there are stashed bytes, and use them.  */
-        self.stash.reverse();
+        assert!(self.stash.len() < 3);
         while self.stash.len() > 0 && buf.len() > read {
             buf[read] = self.stash.pop().unwrap();
             read += 1;
@@ -430,7 +432,7 @@ impl<'a, W: Read> Read for Reader<'a, W> {
             /* We got more than we wanted, spill the surplus into our
              * stash.  */
             let spill = decoded.len() - (buf.len() - read);
-            assert!(spill <= 3);
+            assert!(spill < 3);
 
             &mut buf[read..read + decoded.len() - spill].copy_from_slice(
                 &decoded[..decoded.len() - spill]);
@@ -438,6 +440,8 @@ impl<'a, W: Read> Read for Reader<'a, W> {
             for c in &decoded[decoded.len() - spill..] {
                 self.stash.push(*c);
             }
+            assert!(self.stash.len() < 3);
+            self.stash.reverse();
             read += decoded.len() - spill;
         }
 
