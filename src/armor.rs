@@ -1,8 +1,36 @@
 //! Handling ASCII Armor (see [RFC 4880, section
 //! 6](https://tools.ietf.org/html/rfc4880#section-6)).
+//!
+//! # Scope
+//!
+//! This implements a subset of the ASCII Armor specification.  Not
+//! supported features are:
+//!
+//!  - Multipart messages
+//!  - Headers
+//!
+//! The former is likely no longer useful today, and the latter seems
+//! to be of questionable value because the data is not authenticated.
+//! Reading armored data with headers is supported, but they are
+//! merely swallowed.
+//!
+//! # Memory allocations
+//!
+//! Both the reader and the writer allocate memory in the order of the
+//! size of chunks read or written.
+//!
+//! # Example
+//!
+//! ```rust,no_run
+//! use std::fs::File;
+//! use sequoia::armor::{Reader, Kind};
+//!
+//! let mut file = File::open("somefile.asc").unwrap();
+//! let mut r = Reader::new(&mut file, Kind::File);
+//! ```
 
 extern crate base64;
-use std::io::Write;
+use std::io::{Read, Write};
 use std::io::{Error, ErrorKind};
 use std::cmp::min;
 
@@ -42,6 +70,14 @@ impl Kind {
             &Kind::File => "ARMORED FILE",
         }
     }
+
+    fn begin(&self) -> String {
+        format!("-----BEGIN PGP {}-----", self.blurb())
+    }
+
+    fn end(&self) -> String {
+        format!("-----END PGP {}-----", self.blurb())
+    }
 }
 
 /// A filter that applies ASCII Armor to the data written to it.
@@ -73,7 +109,7 @@ impl<'a, W: Write> Writer<'a, W> {
     fn initialize(&mut self) -> Result<(), Error> {
         if self.initialized { return Ok(()) }
 
-        write!(self.sink, "-----BEGIN PGP {}-----{}{}", self.kind.blurb(),
+        write!(self.sink, "{}{}{}", self.kind.begin(),
                LINE_ENDING, LINE_ENDING)?;
 
         self.initialized = true;
@@ -107,9 +143,9 @@ impl<'a, W: Write> Writer<'a, W> {
         ];
 
         // CRC and footer.
-        write!(self.sink, "={}{}-----END PGP {}-----{}",
+        write!(self.sink, "={}{}{}{}",
                base64::encode_config(&bytes, base64::STANDARD_NO_PAD),
-               LINE_ENDING, self.kind.blurb(), LINE_ENDING)?;
+               LINE_ENDING, self.kind.end(), LINE_ENDING)?;
 
         self.finalized = true;
         Ok(())
@@ -191,6 +227,230 @@ impl<'a, W: Write> Drop for Writer<'a, W> {
     }
 }
 
+/// A filter that strips ASCII Armor from a stream of data.
+pub struct Reader<'a, R: 'a + Read> {
+    source: &'a mut R,
+    kind: Kind,
+    stash: Vec<u8>,
+    crc: CRC,
+    expect_crc: Option<u32>,
+    initialized: bool,
+    finalized: bool,
+}
+
+impl<'a, R: Read> Reader<'a, R> {
+    /// Construct a new filter for the given type of data.
+    pub fn new(inner: &'a mut R, kind: Kind) -> Self {
+        Reader {
+            source: inner,
+            kind: kind,
+            stash: Vec::<u8>::with_capacity(3),
+            crc: CRC::new(),
+            expect_crc: None,
+            initialized: false,
+            finalized: false,
+        }
+    }
+
+    /// Consume the header if not already done.
+    fn initialize(&mut self) -> Result<(), Error> {
+        if self.initialized { return Ok(()) }
+
+        let header = self.kind.begin();
+        let mut buf: Vec<u8> = vec![0; header.len()];
+
+        self.source.read_exact(&mut buf)?;
+        if buf != header.into_bytes() {
+            return Err(Error::new(ErrorKind::InvalidInput, "Invalid ASCII Armor header."));
+        }
+        self.linebreak()?;
+
+        while self.line()? != 0 {
+            /* Swallow headers.  */
+        }
+
+        self.initialized = true;
+        Ok(())
+    }
+
+    /// Consume the footer.  No more data can be read after this
+    /// call.
+    fn finalize(&mut self, buf: &[u8]) -> Result<(), Error> {
+        if self.finalized {
+            return Err(Error::new(ErrorKind::BrokenPipe, "Reader is finalized."));
+        }
+
+        let mut rest = Vec::new();
+        self.source.read_to_end(&mut rest)?;
+
+        let mut footer = Vec::new();
+        footer.extend(buf);
+        footer.extend(&rest);
+        let mut off = 0;
+
+        /* Look for CRC.  The CRC is optional.  */
+        if footer.len() >= 6 && footer[0] == '=' as u8 {
+            /* Found.  */
+            let crc = match base64::decode_config(&footer[1..5], base64::MIME) {
+                Ok(d) => d,
+                Err(e) => return Err(Error::new(ErrorKind::InvalidInput, e)),
+            };
+            self.expect_crc = Some((crc[0] as u32) << 16
+                                   | (crc[1] as u32) << 8
+                                   | crc[2] as u32);
+
+            /* Update offset, skip whitespace.  */
+            off += 5;
+            while off < footer.len() && is_ascii_whitespace(footer[off]) {
+                off += 1;
+            }
+        }
+
+        if ! footer[off..].starts_with(&self.kind.end().into_bytes()) {
+            return Err(Error::new(ErrorKind::InvalidInput, "Invalid ASCII Armor footer."));
+        }
+
+        self.finalized = true;
+        Ok(())
+    }
+
+    /// Consume a linebreak.
+    fn linebreak(&mut self) -> Result<(), Error> {
+        if self.line()? != 0 {
+            return Err(Error::new(ErrorKind::InvalidInput, "Expected newline."));
+        }
+        Ok(())
+    }
+
+    /// Consume a line, returning the number of non-whitespace bytes.
+    fn line(&mut self) -> Result<usize, Error> {
+        let mut buf = [0; 1];
+        let mut c = 0;
+
+        loop {
+            self.source.read_exact(&mut buf)?;
+            if buf[0] == '\r' as u8 {
+                self.source.read_exact(&mut buf)?;
+            }
+
+            if buf[0] != '\n' as u8 {
+                c += 1;
+            } else {
+                break;
+            }
+        }
+
+        Ok(c)
+    }
+}
+
+/* XXX: Use u8.is_ascii_whitespace() once out of nightlies.  */
+fn is_ascii_whitespace(c: u8) -> bool {
+    c == ' ' as u8 || c == '\n' as u8 || c == '\r' as u8 || c == '\t' as u8
+}
+
+/// Look for the CRC sum or the footer.
+fn find_footer(buf: &[u8]) -> Option<usize> {
+    if buf.len() == 0 {
+        return None;
+    }
+
+    if buf[0] == '=' as u8 || buf[0] == '-' as u8 {
+        return Some(0);
+    }
+
+    for i in 0..buf.len() - 1 {
+        if is_ascii_whitespace(buf[i]) && (buf[i+1] == '=' as u8
+                                           || buf[i+1] == '-' as u8) {
+            return Some(i + 1);
+        }
+    }
+    None
+}
+
+impl<'a, W: Read> Read for Reader<'a, W> {
+    fn read(&mut self, buf: &mut [u8]) -> Result<usize, Error> {
+        self.initialize()?;
+        if self.finalized { return Ok(0) }
+
+        /* How much did we get?  */
+        let mut read = 0;
+
+        /* See if there are stashed bytes, and use them.  */
+        self.stash.reverse();
+        while self.stash.len() > 0 && buf.len() > read {
+            buf[read] = self.stash.pop().unwrap();
+            read += 1;
+        }
+
+        /* Try to get enough bytes to fill buf, account for bytes
+         * filled using the stash, round up.  */
+        let mut raw: Vec<u8> = vec![0; (buf.len() - read + 2) / 3 * 4];
+        let got = self.source.read(&mut raw)?;
+        raw.truncate(got);
+
+        /* Check if we see the footer.  If so, we're almost done.  */
+        let decoded = if let Some(n) = find_footer(&raw) {
+            self.finalize(&raw[n..])?;
+            match base64::decode_config(&raw[..n], base64::MIME) {
+                Ok(d) => d,
+                Err(e) => return Err(Error::new(ErrorKind::InvalidInput, e)),
+            }
+        } else {
+            /* We may have to get some more until we have a multiple
+             * of four non-whitespace ASCII characters.  */
+            loop {
+                let n = &raw.iter().filter(|c| ! is_ascii_whitespace(**c)).count();
+                if n % 4 == 0 { break }
+
+                /* Get some more bytes.  */
+                let mut m: Vec<u8> = vec![0; 4 - n % 4];
+                let got = self.source.read(&mut m)?;
+                if got == 0 {
+                    /* Tough.  This will fail in the decoder.  */
+                    break;
+                }
+                m.truncate(got);
+                raw.append(&mut m);
+            }
+
+            match base64::decode_config(&raw, base64::MIME) {
+                Ok(d) => d,
+                Err(e) => return Err(Error::new(ErrorKind::InvalidInput, e)),
+            }
+        };
+
+        self.crc.update(&decoded);
+
+        /* Check how much we got vs how much was requested.  */
+        if decoded.len() <= (buf.len() - read) {
+            &mut buf[read..read + decoded.len()].copy_from_slice(&decoded);
+            read += decoded.len();
+        } else {
+            /* We got more than we wanted, spill the surplus into our
+             * stash.  */
+            let spill = decoded.len() - (buf.len() - read);
+            assert!(spill <= 3);
+
+            &mut buf[read..read + decoded.len() - spill].copy_from_slice(
+                &decoded[..decoded.len() - spill]);
+
+            for c in &decoded[decoded.len() - spill..] {
+                self.stash.push(*c);
+            }
+            read += decoded.len() - spill;
+        }
+
+        /* If we are finalized, we may have found a crc sum.  */
+        if let Some(crc) = self.expect_crc {
+            if self.crc.finalize() != crc {
+                return Err(Error::new(ErrorKind::InvalidInput, "Bad CRC sum."));
+            }
+        }
+        Ok(read)
+    }
+}
+
 const CRC24_INIT: u32 = 0xB704CE;
 const CRC24_POLY: u32 = 0x1864CFB;
 
@@ -254,9 +514,11 @@ mod test {
     use std::fs::File;
     use std::io::prelude::*;
 
+    const TEST_VECTORS: [u8; 9] = [0, 1, 2, 3, 47, 48, 49, 50, 51];
+
     #[test]
     fn enarmor() {
-        for len in [0, 1, 2, 3, 47, 48, 49, 50, 51].into_iter() {
+        for len in TEST_VECTORS.iter() {
             let mut file = File::open(format!("tests/data/armor/test-{}.bin", len)).unwrap();
             let mut bin = Vec::<u8>::new();
             file.read_to_end(&mut bin).unwrap();
@@ -272,6 +534,98 @@ mod test {
             }
             assert_eq!(String::from_utf8_lossy(&buf),
                        String::from_utf8_lossy(&asc));
+        }
+    }
+
+    use super::Reader;
+
+    #[test]
+    fn dearmor_binary() {
+        for len in TEST_VECTORS.iter() {
+            let mut file = File::open(format!("tests/data/armor/test-{}.bin", len)).unwrap();
+            let mut r = Reader::new(&mut file, Kind::Message);
+            let mut buf = [0; 5];
+            let e = r.read(&mut buf);
+            assert!(e.is_err());
+        }
+    }
+
+    #[test]
+    fn dearmor_wrong_kind() {
+        let mut file = File::open("tests/data/armor/test-0.asc").unwrap();
+        let mut r = Reader::new(&mut file, Kind::Message);
+        let mut buf = [0; 5];
+        let e = r.read(&mut buf);
+        assert!(e.is_err());
+    }
+
+    #[test]
+    fn dearmor_wrong_crc() {
+        let mut file = File::open("tests/data/armor/test-0.bad-crc.asc").unwrap();
+        let mut r = Reader::new(&mut file, Kind::File);
+        let mut buf = [0; 5];
+        let e = r.read(&mut buf);
+        assert!(e.is_err());
+    }
+
+    #[test]
+    fn dearmor_wrong_footer() {
+        let mut file = File::open("tests/data/armor/test-2.bad-footer.asc").unwrap();
+        let mut r = Reader::new(&mut file, Kind::File);
+        let mut buf = [0; 5];
+        let e = r.read(&mut buf);
+        assert!(e.is_err());
+    }
+
+    #[test]
+    fn dearmor_no_crc() {
+        let mut file = File::open("tests/data/armor/test-1.no-crc.asc").unwrap();
+        let mut r = Reader::new(&mut file, Kind::File);
+        let mut buf = [0; 5];
+        let e = r.read(&mut buf);
+        assert!(e.unwrap() == 1 && buf[0] == 0xde);
+    }
+
+    #[test]
+    fn dearmor_with_header() {
+        let mut file = File::open("tests/data/armor/test-3.with-headers.asc").unwrap();
+        let mut r = Reader::new(&mut file, Kind::File);
+        let mut buf = [0; 5];
+        let e = r.read(&mut buf);
+        assert!(e.is_ok());
+    }
+
+    #[test]
+    fn dearmor() {
+        for len in TEST_VECTORS.iter() {
+            let mut file = File::open(format!("tests/data/armor/test-{}.bin", len)).unwrap();
+            let mut bin = Vec::<u8>::new();
+            file.read_to_end(&mut bin).unwrap();
+
+            let mut file = File::open(format!("tests/data/armor/test-{}.asc", len)).unwrap();
+            let mut r = Reader::new(&mut file, Kind::File);
+            let mut dearmored = Vec::<u8>::new();
+            r.read_to_end(&mut dearmored).unwrap();
+
+            assert_eq!(&bin, &dearmored);
+        }
+    }
+
+    #[test]
+    fn dearmor_bytewise() {
+        for len in TEST_VECTORS.iter() {
+            let mut file = File::open(format!("tests/data/armor/test-{}.bin", len)).unwrap();
+            let mut bin = Vec::<u8>::new();
+            file.read_to_end(&mut bin).unwrap();
+
+            let mut file = File::open(format!("tests/data/armor/test-{}.asc", len)).unwrap();
+            let r = Reader::new(&mut file, Kind::File);
+            let mut dearmored = Vec::<u8>::new();
+            for c in r.bytes() {
+                dearmored.push(c.unwrap());
+            }
+
+            assert_eq!(&bin, &dearmored);
         }
     }
 }
