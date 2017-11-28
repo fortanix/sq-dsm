@@ -120,6 +120,7 @@ impl<'a, W: Write> Writer<'a, W> {
     /// call.  If this is not called explicitly, the header is written
     /// once the writer is dropped.
     pub fn finalize(&mut self) -> Result<(), Error> {
+        self.initialize()?;
         if self.finalized {
             return Err(Error::new(ErrorKind::BrokenPipe, "Writer is finalized."));
         }
