@@ -44,6 +44,7 @@ const LINE_ENDING: &str = "\n";
 
 /// Specifies the type of data that is to be encoded (see [RFC 4880,
 /// section 6.2](https://tools.ietf.org/html/rfc4880#section-6.2)).
+#[derive(Copy, Clone, PartialEq)]
 pub enum Kind {
     /// A generic OpenPGP message.
     Message,
@@ -57,9 +58,26 @@ pub enum Kind {
     Signature,
     /// A generic file.  This is a GnuPG extension.
     File,
+    /// When reading an Armored file, accept any type.
+    Any,
 }
 
 impl Kind {
+    fn detect(blurb: &[u8]) -> Option<Self> {
+        if blurb.len() < 16 || ! blurb.starts_with(b"-----BEGIN PGP ") {
+            return None;
+        }
+
+        match &blurb[15..17] {
+            b"ME" => Some(Kind::Message),
+            b"PU" => Some(Kind::PublicKey),
+            b"PR" => Some(Kind::SecretKey),
+            b"SI" => Some(Kind::Signature),
+            b"AR" => Some(Kind::File),
+            _ => None,
+        }
+    }
+
     fn blurb(&self) -> &str {
         match self {
             &Kind::Message => "MESSAGE",
@@ -68,11 +86,16 @@ impl Kind {
             &Kind::SecretKey => "PRIVATE KEY BLOCK",
             &Kind::Signature => "SIGNATURE",
             &Kind::File => "ARMORED FILE",
+            &Kind::Any => unreachable!(),
         }
     }
 
     fn begin(&self) -> String {
         format!("-----BEGIN PGP {}-----", self.blurb())
+    }
+
+    fn begin_len(&self) -> usize {
+        20 + self.blurb().len()
     }
 
     fn end(&self) -> String {
@@ -94,6 +117,7 @@ pub struct Writer<'a, W: 'a + Write> {
 impl<'a, W: Write> Writer<'a, W> {
     /// Construct a new filter for the given type of data.
     pub fn new(inner: &'a mut W, kind: Kind) -> Self {
+        assert!(kind != Kind::Any);
         Writer {
             sink: inner,
             kind: kind,
@@ -263,15 +287,37 @@ impl<'a, R: Read> Reader<'a, R> {
         }
     }
 
+    /// Return the kind of data this reader is for.  Useful in
+    /// combination with 'Kind::Any'.
+    pub fn kind(&self) -> Kind {
+        self.kind
+    }
+
     /// Consume the header if not already done.
     fn initialize(&mut self) -> Result<(), Error> {
         if self.initialized { return Ok(()) }
 
-        let header = self.kind.begin();
-        let mut buf: Vec<u8> = vec![0; header.len()];
+        let buf = if self.kind == Kind::Any {
+            let peek = 17;
+            let mut buf: Vec<u8> = vec![0; peek];
+            self.source.read_exact(&mut buf)?;
 
-        self.source.read_exact(&mut buf)?;
-        if buf != header.into_bytes() {
+            if let Some(k) = Kind::detect(&buf) {
+                self.kind = k;
+            } else {
+                return Err(Error::new(ErrorKind::InvalidInput, "Invalid ASCII Armor header."));
+            }
+
+            buf.resize(self.kind.begin_len(), 0);
+            self.source.read_exact(&mut buf[peek..])?;
+            buf
+        } else {
+            let mut buf: Vec<u8> = vec![0; self.kind.begin_len()];
+            self.source.read_exact(&mut buf)?;
+            buf
+        };
+
+        if buf != self.kind.begin().into_bytes() {
             return Err(Error::new(ErrorKind::InvalidInput, "Invalid ASCII Armor header."));
         }
         self.linebreak()?;
@@ -628,6 +674,16 @@ mod test {
         let mut r = Reader::new(&mut file, Kind::File);
         let mut buf = [0; 5];
         let e = r.read(&mut buf);
+        assert!(e.is_ok());
+    }
+
+    #[test]
+    fn dearmor_any() {
+        let mut file = File::open("tests/data/armor/test-3.with-headers.asc").unwrap();
+        let mut r = Reader::new(&mut file, Kind::Any);
+        let mut buf = [0; 5];
+        let e = r.read(&mut buf);
+        assert!(r.kind() == Kind::File);
         assert!(e.is_ok());
     }
 
