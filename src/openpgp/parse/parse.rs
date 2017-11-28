@@ -6,7 +6,7 @@ use num::FromPrimitive;
 
 use super::*;
 
-mod buffered_reader;
+pub mod buffered_reader;
 use self::buffered_reader::*;
 pub use self::buffered_reader::BufferedReader;
 
