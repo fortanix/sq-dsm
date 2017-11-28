@@ -207,15 +207,17 @@ impl<'a, W: Write> Write for Writer<'a, W> {
         // We know that we have a multiple of 3 bytes, encode them and write them out.
         assert!(input.len() % 3 == 0);
         let encoded = base64::encode_config(input, base64::STANDARD_NO_PAD);
+        written += input.len();
         let mut enc = encoded.as_bytes();
         while enc.len() > 0 {
             let n = min(LINE_LENGTH - self.column, enc.len());
             self.sink.write_all(&enc[..n])?;
             enc = &enc[n..];
-            written += n;
             self.column += n;
             self.linebreak()?;
         }
+
+        assert_eq!(written, buf.len());
         Ok(written)
     }
 
@@ -535,7 +537,7 @@ mod test {
             let mut buf = Vec::new();
             {
                 let mut w = Writer::new(&mut buf, Kind::File);
-                w.write(&bin).unwrap();
+                w.write_all(&bin).unwrap();
             }
             assert_eq!(String::from_utf8_lossy(&buf),
                        String::from_utf8_lossy(&asc));
