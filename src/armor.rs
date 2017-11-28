@@ -181,6 +181,12 @@ impl<'a, W: Write> Write for Writer<'a, W> {
         assert!(self.stash.len() < 3);
         if self.stash.len() > 0 {
             while self.stash.len() < 3 {
+                if input.len() == 0 {
+                    /* We exhausted the input.  Return now, any
+                     * stashed bytes are encoded when finalizing the
+                     * writer.  */
+                    return Ok(written);
+                }
                 self.stash.push(input[0]);
                 input = &input[1..];
                 written += 1;
@@ -538,6 +544,29 @@ mod test {
             {
                 let mut w = Writer::new(&mut buf, Kind::File);
                 w.write_all(&bin).unwrap();
+            }
+            assert_eq!(String::from_utf8_lossy(&buf),
+                       String::from_utf8_lossy(&asc));
+        }
+    }
+
+    #[test]
+    fn enarmor_bytewise() {
+        for len in TEST_VECTORS.iter() {
+            let mut file = File::open(format!("tests/data/armor/test-{}.bin", len)).unwrap();
+            let mut bin = Vec::<u8>::new();
+            file.read_to_end(&mut bin).unwrap();
+
+            let mut file = File::open(format!("tests/data/armor/test-{}.asc", len)).unwrap();
+            let mut asc = Vec::<u8>::new();
+            file.read_to_end(&mut asc).unwrap();
+
+            let mut buf = Vec::new();
+            {
+                let mut w = Writer::new(&mut buf, Kind::File);
+                for (i, _) in bin.iter().enumerate() {
+                    w.write(&bin[i..i+1]).unwrap();
+                }
             }
             assert_eq!(String::from_utf8_lossy(&buf),
                        String::from_utf8_lossy(&asc));
