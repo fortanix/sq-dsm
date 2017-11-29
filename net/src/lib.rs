@@ -38,8 +38,11 @@ extern crate hyper;
 extern crate hyper_tls;
 extern crate native_tls;
 extern crate tokio_core;
+extern crate tokio_io;
 #[macro_use]
 extern crate percent_encoding;
+
+extern crate capnp_rpc;
 
 use percent_encoding::{percent_encode, DEFAULT_ENCODE_SET};
 use self::futures::{Future, Stream};
@@ -57,6 +60,8 @@ use sequoia_core::{Context, NetworkPolicy};
 use openpgp::tpk::{self, TPK};
 use openpgp::types::KeyId;
 use openpgp::{Message, armor};
+
+pub mod ipc;
 
 define_encode_set! {
     /// Encoding used for submitting keys.
