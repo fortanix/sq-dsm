@@ -16,10 +16,15 @@ main (int argc, char **argv)
   struct stat st;
   int fd;
   char *b;
+  struct sq_context *ctx;
   struct sq_tpk *tpk;
 
   if (argc != 2)
     error (1, 0, "Usage: %s <file>", argv[0]);
+
+  ctx = sq_context_new(NULL, NULL);
+  if (ctx == NULL)
+    error (1, 0, "Initializing sequoia failed.");
 
   if (stat (argv[1], &st))
     error (1, errno, "%s", argv[1]);
@@ -38,6 +43,7 @@ main (int argc, char **argv)
 
   sq_tpk_dump (tpk);
   sq_tpk_free (tpk);
+  sq_context_free (ctx);
   munmap (b, st.st_size);
   close (fd);
   return 0;
