@@ -12,7 +12,7 @@ extern crate bzip2;
 
 pub mod openpgp;
 pub mod keys;
-pub mod key_store;
+pub mod store;
 pub mod net;
 pub mod ffi;
 pub mod armor;
