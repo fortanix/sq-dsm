@@ -10,6 +10,9 @@ extern crate nom;
 extern crate flate2;
 extern crate bzip2;
 
+#[macro_use]
+extern crate percent_encoding;
+
 pub mod openpgp;
 pub mod keys;
 pub mod store;

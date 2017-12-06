@@ -93,4 +93,61 @@ struct sq_tpk *sq_tpk_from_bytes (const char *b, size_t len);
 void sq_tpk_dump (const struct sq_tpk *tpk);
 void sq_tpk_free (struct sq_tpk *tpk);
 
+
+/* sequoia::net.  */
+
+/*/
+/// For accessing keyservers using HKP.
+/*/
+struct sq_keyserver;
+
+/*/
+/// Returns a handle for the given URI.
+///
+/// `uri` is a UTF-8 encoded value of a keyserver URI,
+/// e.g. `hkps://examle.org`.
+///
+/// Returns `NULL` on errors.
+/*/
+struct sq_keyserver *sq_keyserver_new (const struct sq_context *ctx,
+				       const char *uri);
+
+/*/
+/// Returns a handle for the given URI.
+///
+/// `uri` is a UTF-8 encoded value of a keyserver URI,
+/// e.g. `hkps://examle.org`.  `cert` is a DER encoded certificate of
+/// size `len` used to authenticate the server.
+///
+/// Returns `NULL` on errors.
+/*/
+struct sq_keyserver *sq_keyserver_with_cert (const struct sq_context *ctx,
+					     const char *uri,
+					     const uint8_t *cert,
+					     size_t len);
+
+/*/
+/// Returns a handle for the SKS keyserver pool.
+///
+/// The pool `hkps://hkps.pool.sks-keyservers.net` provides HKP
+/// services over https.  It is authenticated using a certificate
+/// included in this library.  It is a good default choice.
+///
+/// Returns `NULL` on errors.
+/*/
+struct sq_keyserver *sq_keyserver_sks_pool (const struct sq_context *ctx);
+
+/*/
+/// Frees a keyserver object.
+/*/
+void sq_keyserver_free (struct sq_keyserver *ks);
+
+/*/
+/// Retrieves the key with the given `keyid`.
+///
+/// Returns `NULL` on errors.
+/*/
+struct sq_tpk *sq_keyserver_get (struct sq_keyserver *ks,
+				 const struct sq_keyid *id);
+
 #endif

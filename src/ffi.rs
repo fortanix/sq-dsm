@@ -1,5 +1,5 @@
 extern crate libc;
-use self::libc::{uint8_t, uint64_t, c_char, size_t};
+extern crate native_tls;
 
 use std::ffi::CStr;
 use std::ptr;
@@ -7,8 +7,11 @@ use std::slice;
 use std::str;
 
 use keys::TPK;
-use openpgp;
+use net::KeyServer;
 use openpgp::types::KeyId;
+use openpgp;
+use self::libc::{uint8_t, uint64_t, c_char, size_t};
+use self::native_tls::Certificate;
 use super::{Config, Context};
 
 /*  sequoia::Context.  */
@@ -186,4 +189,116 @@ pub extern "system" fn sq_tpk_free(tpk: *mut TPK) {
     unsafe {
         drop(Box::from_raw(tpk));
     }
+}
+
+/// Returns a handle for the given URI.
+///
+/// `uri` is a UTF-8 encoded value of a keyserver URI,
+/// e.g. `hkps://examle.org`.
+///
+/// Returns `NULL` on errors.
+#[no_mangle]
+pub extern "system" fn sq_keyserver_new(ctx: Option<&Context>,
+                                        uri: *const c_char) -> *mut KeyServer {
+    let uri = unsafe {
+        if uri.is_null() { None } else { Some(CStr::from_ptr(uri)) }
+    };
+
+    if ctx.is_none() || uri.is_none() {
+        return ptr::null_mut();
+    }
+    let ks = KeyServer::new(ctx.unwrap(), &uri.unwrap().to_string_lossy());
+
+    if let Ok(ks) = ks {
+        Box::into_raw(Box::new(ks))
+    } else {
+        ptr::null_mut()
+    }
+}
+
+/// Returns a handle for the given URI.
+///
+/// `uri` is a UTF-8 encoded value of a keyserver URI,
+/// e.g. `hkps://examle.org`.  `cert` is a DER encoded certificate of
+/// size `len` used to authenticate the server.
+///
+/// Returns `NULL` on errors.
+pub extern "system" fn sq_keyserver_with_cert(ctx: Option<&Context>,
+                                              uri: *const c_char,
+                                              cert: *const uint8_t,
+                                              len: size_t) -> *mut KeyServer {
+    let uri = unsafe {
+        if uri.is_null() { None } else { Some(CStr::from_ptr(uri)) }
+    };
+
+    if ctx.is_none() || uri.is_none() || cert.is_null() {
+        return ptr::null_mut();
+    }
+
+    let cert = unsafe {
+        slice::from_raw_parts(cert, len as usize)
+    };
+
+    let cert = Certificate::from_der(cert);
+    if cert.is_err() {
+        return ptr::null_mut();
+    }
+
+    let ks = KeyServer::with_cert(ctx.unwrap(),
+                                  &uri.unwrap().to_string_lossy(),
+                                  cert.unwrap());
+
+    if let Ok(ks) = ks {
+        Box::into_raw(Box::new(ks))
+    } else {
+        ptr::null_mut()
+    }
+}
+
+/// Returns a handle for the SKS keyserver pool.
+///
+/// The pool `hkps://hkps.pool.sks-keyservers.net` provides HKP
+/// services over https.  It is authenticated using a certificate
+/// included in this library.  It is a good default choice.
+///
+/// Returns `NULL` on errors.
+#[no_mangle]
+pub extern "system" fn sq_keyserver_sks_pool(ctx: Option<&Context>) -> *mut KeyServer {
+    if ctx.is_none() {
+        return ptr::null_mut();
+    }
+
+    let ks = KeyServer::sks_pool(ctx.unwrap());
+
+    if let Ok(ks) = ks {
+        Box::into_raw(Box::new(ks))
+    } else {
+        ptr::null_mut()
+    }
+}
+
+/// Frees a keyserver object.
+#[no_mangle]
+pub extern "system" fn sq_keyserver_free(ks: *mut KeyServer) {
+    if ks.is_null() {
+        return
+    }
+    unsafe {
+        drop(Box::from_raw(ks));
+    }
+}
+
+/// Retrieves the key with the given `keyid`.
+///
+/// Returns `NULL` on errors.
+#[no_mangle]
+pub extern "system" fn sq_keyserver_get(ks: Option<&mut KeyServer>,
+                                        id: Option<&KeyId>) -> *mut TPK {
+    if ks.is_none() || id.is_none() {
+        return ptr::null_mut();
+    }
+
+    ks.unwrap().get(id.as_ref().unwrap())
+        .map(|id| Box::into_raw(Box::new(id)))
+        .unwrap_or(ptr::null_mut())
 }
