@@ -23,7 +23,14 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 /// A `&Context` is required for many operations.
+///
+/// # Example
+///
+/// ```
+/// let c = Context::new("org.example.webmail").finalize().unwrap();
+/// ```
 pub struct Context {
+    domain: String,
     home: PathBuf,
     lib: PathBuf,
 }
@@ -34,15 +41,26 @@ fn prefix() -> PathBuf {
 }
 
 impl Context {
-    /// Create a `Pre(Context)` with reasonable defaults.  `Pre(Context)`s
-    /// can be modified, and have to be finalized in order to turn
-    /// them into a Context.
-    pub fn new() -> Pre {
+    /// Creates a `Pre(Context)` with reasonable defaults.
+    ///
+    /// `domain` should uniquely identify your application, it is
+    /// strongly suggested to use a reversed fully qualified domain
+    /// name that is associated with your application.
+    ///
+    /// `Pre(Context)`s can be modified, and have to be finalized in
+    /// order to turn them into a Context.
+    pub fn new(domain: &str) -> Pre {
         Pre(Context {
+            domain: String::from(domain),
             home: env::home_dir().unwrap_or(env::temp_dir())
                 .join(".sequoia"),
             lib: prefix().join("lib").join("sequoia"),
         })
+    }
+
+    /// Return the directory containing backend servers.
+    pub fn domain(&self) -> &str {
+        &self.domain
     }
 
     /// Return the directory containing shared state and rendezvous

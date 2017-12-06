@@ -3,7 +3,8 @@
 
 struct sq_context;
 
-struct sq_context *sq_context_new(const char *home, const char *lib);
+struct sq_context *sq_context_new(const char *domain, const char *home,
+				  const char *lib);
 void sq_context_free(struct sq_context *context);
 
 struct sq_tpk;

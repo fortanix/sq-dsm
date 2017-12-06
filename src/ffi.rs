@@ -19,8 +19,12 @@ use super::Context;
 ///
 /// Returns `NULL` on errors.
 #[no_mangle]
-pub extern "system" fn sq_context_new(home: *const c_char,
+pub extern "system" fn sq_context_new(domain: *const c_char,
+                                      home: *const c_char,
                                       lib: *const c_char) -> *mut Context {
+    let domain = unsafe {
+        if domain.is_null() { None } else { Some(CStr::from_ptr(domain)) }
+    };
     let home = unsafe {
         if home.is_null() { None } else { Some(CStr::from_ptr(home)) }
     };
@@ -28,7 +32,11 @@ pub extern "system" fn sq_context_new(home: *const c_char,
         if lib.is_null() { None } else { Some(CStr::from_ptr(lib)) }
     };
 
-    let mut pre = Context::new();
+    if domain.is_none() {
+        return ptr::null_mut();
+    }
+
+    let mut pre = Context::new(&domain.unwrap().to_string_lossy());
 
     if let Some(home) = home {
         pre = pre.home(home.to_string_lossy().as_ref());
