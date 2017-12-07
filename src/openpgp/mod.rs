@@ -4,5 +4,6 @@
 // wrong place).  Hence, that here as well.
 
 pub mod parse;
+pub mod types;
 
 include!("openpgp.rs");

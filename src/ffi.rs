@@ -1,5 +1,5 @@
 extern crate libc;
-use self::libc::{uint8_t, c_char, size_t};
+use self::libc::{uint8_t, uint64_t, c_char, size_t};
 
 use std::ffi::CStr;
 use std::ptr;
@@ -8,6 +8,7 @@ use std::str;
 
 use keys::TPK;
 use openpgp;
+use openpgp::types::KeyId;
 use super::Context;
 
 /// Create a context object.
@@ -60,6 +61,34 @@ pub extern "system" fn sq_context_free(context: *mut Context) {
     }
 }
 
+/* openpgp::types.  */
+/// Returns a KeyID with the given `id`.
+#[no_mangle]
+pub extern "system" fn sq_keyid_new(id: uint64_t) -> *mut KeyId {
+    Box::into_raw(Box::new(KeyId::new(id)))
+}
+
+/// Returns a KeyID with the given `id` encoded as hexadecimal string.
+#[no_mangle]
+pub extern "system" fn sq_keyid_from_hex(id: *const c_char) -> *mut KeyId {
+    if id.is_null() { return ptr::null_mut() }
+    let id = unsafe { CStr::from_ptr(id).to_string_lossy() };
+    KeyId::from_hex(&id)
+        .map(|id| Box::into_raw(Box::new(id)))
+        .unwrap_or(ptr::null_mut())
+}
+
+/// Frees an `KeyId` object.
+#[no_mangle]
+pub extern "system" fn sq_keyid_free(keyid: *mut KeyId) {
+    if keyid.is_null() { return }
+    unsafe {
+        drop(Box::from_raw(keyid));
+    }
+}
+
+
+/* keys.  */
 #[no_mangle]
 pub extern "system" fn sq_tpk_from_bytes(b: *const uint8_t, len: size_t) -> *mut TPK {
     assert!(!b.is_null());
