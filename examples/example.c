@@ -22,7 +22,7 @@ main (int argc, char **argv)
   if (argc != 2)
     error (1, 0, "Usage: %s <file>", argv[0]);
 
-  ctx = sq_context_new("org.sequoia-pgp.example", NULL, NULL);
+  ctx = sq_context_new("org.sequoia-pgp.example");
   if (ctx == NULL)
     error (1, 0, "Initializing sequoia failed.");
 

@@ -9,51 +9,33 @@ use std::str;
 use keys::TPK;
 use openpgp;
 use openpgp::types::KeyId;
-use super::Context;
+use super::{Config, Context};
 
-/// Create a context object.
+/*  sequoia::Context.  */
+
+/// Creates a Context with reasonable defaults.
 ///
-/// If `home` is not `NULL`, it is used as directory containing shared
-/// state and rendezvous nodes.  If `lib` is not `NULL`, it is used as
-/// directory containing backend servers.  If either argument is
-/// `NULL`, a reasonable default is used.
+/// `domain` should uniquely identify your application, it is strongly
+/// suggested to use a reversed fully qualified domain name that is
+/// associated with your application.  `domain` must not be `NULL`.
 ///
 /// Returns `NULL` on errors.
 #[no_mangle]
-pub extern "system" fn sq_context_new(domain: *const c_char,
-                                      home: *const c_char,
-                                      lib: *const c_char) -> *mut Context {
+pub extern "system" fn sq_context_new(domain: *const c_char)
+                                      -> *mut Context {
+    assert!(! domain.is_null());
     let domain = unsafe {
-        if domain.is_null() { None } else { Some(CStr::from_ptr(domain)) }
-    };
-    let home = unsafe {
-        if home.is_null() { None } else { Some(CStr::from_ptr(home)) }
-    };
-    let lib = unsafe {
-        if lib.is_null() { None } else { Some(CStr::from_ptr(lib)) }
+        CStr::from_ptr(domain).to_string_lossy()
     };
 
-    if domain.is_none() {
-        return ptr::null_mut();
-    }
-
-    let mut pre = Context::new(&domain.unwrap().to_string_lossy());
-
-    if let Some(home) = home {
-        pre = pre.home(home.to_string_lossy().as_ref());
-    }
-    if let Some(lib) = lib {
-        pre = pre.lib(lib.to_string_lossy().as_ref());
-    }
-
-    if let Ok(context) = pre.finalize() {
+    if let Ok(context) = Context::new(&domain) {
         Box::into_raw(Box::new(context))
     } else {
         ptr::null_mut()
     }
 }
 
-/// Free a context.
+/// Frees a context.
 #[no_mangle]
 pub extern "system" fn sq_context_free(context: *mut Context) {
     unsafe {
@@ -61,7 +43,91 @@ pub extern "system" fn sq_context_free(context: *mut Context) {
     }
 }
 
+/// Creates a Context that can be configured.
+///
+/// `domain` should uniquely identify your application, it is strongly
+/// suggested to use a reversed fully qualified domain name that is
+/// associated with your application.  `domain` must not be `NULL`.
+///
+/// The configuration is seeded like in `sq_context_new`, but can be
+/// modified.  A configuration has to be finalized using
+/// `sq_config_build()` in order to turn it into a Context.
+#[no_mangle]
+pub extern "system" fn sq_context_configure(domain: *const c_char)
+                                            -> *mut Config {
+    assert!(! domain.is_null());
+    let domain = unsafe {
+        CStr::from_ptr(domain).to_string_lossy()
+    };
+
+    Box::into_raw(Box::new(Context::configure(&domain)))
+}
+
+/// Returns the domain of the context.
+#[no_mangle]
+pub extern "system" fn sq_context_domain(ctx: Option<&Context>) -> *const c_char {
+    assert!(ctx.is_some());
+    ctx.unwrap().domain().as_bytes().as_ptr() as *const c_char
+}
+
+/// Returns the directory containing shared state.
+#[no_mangle]
+pub extern "system" fn sq_context_home(ctx: Option<&Context>) -> *const c_char {
+    assert!(ctx.is_some());
+    ctx.unwrap().home().to_string_lossy().as_ptr() as *const c_char
+}
+
+/// Returns the directory containing backend servers.
+#[no_mangle]
+pub extern "system" fn sq_context_lib(ctx: Option<&Context>) -> *const c_char {
+    assert!(ctx.is_some());
+    ctx.unwrap().lib().to_string_lossy().as_bytes().as_ptr() as *const c_char
+}
+
+/*  sequoia::Config.  */
+
+/// Finalizes the configuration and return a `Context`.
+///
+/// Consumes `cfg`.  Returns `NULL` on errors.
+#[no_mangle]
+pub extern "system" fn sq_config_build(cfg: Option<&mut Config>)
+                                       -> *mut Context {
+    assert!(cfg.is_some());
+    let cfg = unsafe { Box::from_raw(cfg.unwrap()) };
+
+    if let Ok(context) = cfg.build() {
+        Box::into_raw(Box::new(context))
+    } else {
+        ptr::null_mut()
+    }
+}
+
+/// Sets the directory containing shared state.
+#[no_mangle]
+pub extern "system" fn sq_config_home(cfg: Option<&mut Config>,
+                                      home: *const c_char) {
+    assert!(cfg.is_some());
+    assert!(! home.is_null());
+    let home = unsafe {
+        CStr::from_ptr(home).to_string_lossy()
+    };
+    cfg.unwrap().set_home(home.as_ref())
+}
+
+/// Set the directory containing backend servers.
+#[no_mangle]
+pub extern "system" fn sq_config_lib(cfg: Option<&mut Config>,
+                                     lib: *const c_char) {
+    assert!(cfg.is_some());
+    assert!(! lib.is_null());
+    let lib = unsafe {
+        CStr::from_ptr(lib).to_string_lossy()
+    };
+    cfg.unwrap().set_lib(&lib.as_ref())
+}
+
 /* openpgp::types.  */
+
 /// Returns a KeyID with the given `id`.
 #[no_mangle]
 pub extern "system" fn sq_keyid_new(id: uint64_t) -> *mut KeyId {

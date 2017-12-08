@@ -28,7 +28,7 @@ use std::path::{Path, PathBuf};
 ///
 /// ```
 /// # use sequoia::Context;
-/// let c = Context::new("org.example.webmail").finalize().unwrap();
+/// let c = Context::new("org.example.webmail").unwrap();
 /// ```
 pub struct Context {
     domain: String,
@@ -42,16 +42,26 @@ fn prefix() -> PathBuf {
 }
 
 impl Context {
-    /// Creates a `Pre(Context)` with reasonable defaults.
+    /// Creates a Context with reasonable defaults.
+    ///
+    /// `domain` should uniquely identify your application, it is
+    /// strongly suggested to use a reversed fully qualified domain
+    /// name that is associated with your application.
+    pub fn new(domain: &str) -> io::Result<Self> {
+        Self::configure(domain).build()
+    }
+
+    /// Creates a Context that can be configured.
     ///
     /// `domain` should uniquely identify your application, it is
     /// strongly suggested to use a reversed fully qualified domain
     /// name that is associated with your application.
     ///
-    /// `Pre(Context)`s can be modified, and have to be finalized in
-    /// order to turn them into a Context.
-    pub fn new(domain: &str) -> Pre {
-        Pre(Context {
+    /// The configuration is seeded like in `Context::new`, but can be
+    /// modified.  A configuration has to be finalized using
+    /// `.build()` in order to turn it into a Context.
+    pub fn configure(domain: &str) -> Config {
+        Config(Context {
             domain: String::from(domain),
             home: env::home_dir().unwrap_or(env::temp_dir())
                 .join(".sequoia"),
@@ -59,44 +69,52 @@ impl Context {
         })
     }
 
-    /// Return the directory containing backend servers.
+    /// Returns the domain of the context.
     pub fn domain(&self) -> &str {
         &self.domain
     }
 
-    /// Return the directory containing shared state and rendezvous
-    /// nodes.
+    /// Returns the directory containing shared state.
     pub fn home(&self) -> &Path {
         &self.home
     }
 
-    /// Return the directory containing backend servers.
+    /// Returns the directory containing backend servers.
     pub fn lib(&self) -> &Path {
         &self.lib
     }
 }
 
-/// A `Pre(Context)` is a context object that can be modified.
-pub struct Pre(Context);
+/// Represents a `Context` configuration.
+pub struct Config(Context);
 
-impl Pre {
-    /// Finalize the configuration and return a `Context`.
-    pub fn finalize(self) -> io::Result<Context> {
+impl Config {
+    /// Finalizes the configuration and return a `Context`.
+    pub fn build(self) -> io::Result<Context> {
         let c = self.0;
         fs::create_dir_all(c.home())?;
         Ok(c)
     }
 
-    /// Set the directory containing shared state and rendezvous
-    /// nodes.
-    pub fn home<P: AsRef<Path>>(mut self, new: P) -> Self {
-        self.0.home = PathBuf::new().join(new);
+    /// Sets the directory containing shared state.
+    pub fn home<P: AsRef<Path>>(mut self, home: P) -> Self {
+        self.set_home(home);
         self
     }
 
+    /// Sets the directory containing shared state.
+    pub fn set_home<P: AsRef<Path>>(&mut self, home: P) {
+        self.0.home = PathBuf::new().join(home);
+    }
+
     /// Set the directory containing backend servers.
-    pub fn lib<P: AsRef<Path>>(mut self, new: P) -> Self {
-        self.0.lib = PathBuf::new().join(new);
+    pub fn lib<P: AsRef<Path>>(mut self, lib: P) -> Self {
+        self.set_lib(lib);
         self
+    }
+
+    /// Sets the directory containing shared state.
+    pub fn set_lib<P: AsRef<Path>>(&mut self, lib: P) {
+        self.0.lib = PathBuf::new().join(lib);
     }
 }
