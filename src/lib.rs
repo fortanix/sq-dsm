@@ -27,6 +27,7 @@ use std::path::{Path, PathBuf};
 /// # Example
 ///
 /// ```
+/// # use sequoia::Context;
 /// let c = Context::new("org.example.webmail").finalize().unwrap();
 /// ```
 pub struct Context {
