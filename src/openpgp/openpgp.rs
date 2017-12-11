@@ -174,12 +174,22 @@ pub enum BodyLength {
     Indeterminate,
 }
 
-#[derive(Debug)]
 #[derive(PartialEq)]
 pub struct PacketCommon {
     tag: Tag,
     children: Option<Container>,
     content: Option<Vec<u8>>,
+}
+
+impl std::fmt::Debug for PacketCommon {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        f.debug_struct("Signature")
+            .field("tag", &self.tag)
+            .field("children", &self.children)
+            .field("content (bytes)",
+                   &self.content.as_ref().map(|content| content.len()))
+            .finish()
+    }
 }
 
 /// An OpenPGP packet's header.
