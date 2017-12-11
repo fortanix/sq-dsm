@@ -1,6 +1,5 @@
 use std;
 use std::fs::File;
-use std::io::{Error,ErrorKind};
 
 use num::FromPrimitive;
 
@@ -403,7 +402,7 @@ fn literal_parser_test () {
 // Parse the body of a compressed data packet.
 fn compressed_data_parser<'a, R: BufferedReader + 'a>(mut bio: R)
         -> Result<PacketParser<'a>, std::io::Error> {
-    let algo = bio.data_consume_hard(1)?[0];
+    let algo = bio.data_hard(1)?[0];
 
     //   0          - Uncompressed
     //   1          - ZIP [RFC1951]
@@ -420,16 +419,36 @@ fn compressed_data_parser<'a, R: BufferedReader + 'a>(mut bio: R)
             // filter.  We can emulate this using a Limitor.
             Box::new(BufferedReaderLimitor::new(bio, std::u64::MAX))
         },
-        1 => // Zip.
-            Box::new(BufferedReaderDeflate::new(bio)),
-        2 => // Zlib
-            Box::new(BufferedReaderZlib::new(bio)),
-        3 => // BZip2
-            Box::new(BufferedReaderBzip::new(bio)),
-        _ =>
-            // Unknown algo.  XXX: Return a better error code.
-            return Err(Error::new(ErrorKind::UnexpectedEof,
-                                  "Unsupported compression algo")),
+        1 => {
+            // Zip.
+            bio.consume(1);
+            Box::new(BufferedReaderDeflate::new(bio))
+        },
+        2 => {
+            // Zlib
+            bio.consume(1);
+            Box::new(BufferedReaderZlib::new(bio))
+        },
+        3 => {
+            // BZip2
+            bio.consume(1);
+            Box::new(BufferedReaderBzip::new(bio))
+        },
+        _ => {
+            // Unknown algo.  Return an unknown packet.
+            return Ok(PacketParser {
+                packet: Packet::Unknown(Unknown {
+                    common: PacketCommon {
+                        tag: Tag::CompressedData,
+                        children: None,
+                        content: None,
+                    }
+                }),
+                reader: Box::new(bio),
+                recursion_depth: 0,
+                max_recursion_depth: MAX_RECURSION_DEPTH,
+            });
+        }
     };
 
     return Ok(PacketParser {
