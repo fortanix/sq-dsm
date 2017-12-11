@@ -798,7 +798,7 @@ impl Message {
         let mut pp = ppo.unwrap();
 
         'outer: loop {
-            let (packet, ppo, relative_position2) = pp.recurse()?;
+            let (mut packet, mut ppo, mut relative_position2) = pp.recurse()?;
 
             assert!(-depth <= relative_position);
             assert!(relative_position <= 1);
@@ -822,31 +822,13 @@ impl Message {
                 }
             }
 
-            if relative_position > 0 {
-                // Create a new container.
-                let tmp = container;
-                let i = tmp.packets.len() - 1;
-                assert!(tmp.packets[i].children.is_none());
-                tmp.packets[i].children = Some(Container::new());
-                container = tmp.packets[i].children.as_mut().unwrap();
-            }
-
-            container.packets.push(packet);
-
-            if ppo.is_none() {
-                break 'outer;
-            }
-
-            relative_position = relative_position2;
-            pp = ppo.unwrap();
 
             // If next packet will be inserted in the same container
             // or the current container's child, we don't need to walk
             // the tree from the root.
-            while relative_position >= 0 {
-                let (packet, ppo, relative_position2) = pp.recurse()?;
-
+            loop {
                 if relative_position == 1 {
+                    // Create a new container.
                     let tmp = container;
                     let i = tmp.packets.len() - 1;
                     assert!(tmp.packets[i].children.is_none());
@@ -862,6 +844,15 @@ impl Message {
 
                 relative_position = relative_position2;
                 pp = ppo.unwrap();
+
+                if relative_position < 0 {
+                    break;
+                }
+
+                let result = pp.recurse()?;
+                packet = result.0;
+                ppo = result.1;
+                relative_position2 = result.2;
             }
         }
 
