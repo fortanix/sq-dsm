@@ -236,15 +236,6 @@ impl std::fmt::Debug for Signature {
     }
 }
 
-// Allow transparent access of common fields.
-impl<'a> Deref for Signature {
-    type Target = PacketCommon;
-
-    fn deref(&self) -> &Self::Target {
-        &self.common
-    }
-}
-
 #[derive(PartialEq)]
 pub struct Key {
     common: PacketCommon,
@@ -269,15 +260,6 @@ impl std::fmt::Debug for Key {
     }
 }
 
-// Allow transparent access of common fields.
-impl<'a> Deref for Key {
-    type Target = PacketCommon;
-
-    fn deref(&self) -> &Self::Target {
-        &self.common
-    }
-}
-
 #[derive(PartialEq)]
 pub struct UserID {
     common: PacketCommon,
@@ -291,15 +273,6 @@ impl std::fmt::Debug for UserID {
         f.debug_struct("UserID")
             .field("value", &userid)
             .finish()
-    }
-}
-
-// Allow transparent access of common fields.
-impl<'a> Deref for UserID {
-    type Target = PacketCommon;
-
-    fn deref(&self) -> &Self::Target {
-        &self.common
     }
 }
 
@@ -348,28 +321,10 @@ impl std::fmt::Debug for Literal {
     }
 }
 
-// Allow transparent access of common fields.
-impl<'a> Deref for Literal {
-    type Target = PacketCommon;
-
-    fn deref(&self) -> &Self::Target {
-        &self.common
-    }
-}
-
 #[derive(PartialEq)]
 pub struct CompressedData {
     common: PacketCommon,
     algo: u8,
-}
-
-// Allow transparent access of common fields.
-impl Deref for CompressedData {
-    type Target = PacketCommon;
-
-    fn deref(&self) -> &Self::Target {
-        &self.common
-    }
 }
 
 impl std::fmt::Debug for CompressedData {
