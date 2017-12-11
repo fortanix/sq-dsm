@@ -395,8 +395,15 @@ fn compressed_data_parser<'a, R: BufferedReader + 'a>(mut bio: R)
     //   3          - BZip2 [BZ2]
     //   100 to 110 - Private/Experimental algorithm
     let bio : Box<BufferedReader> = match algo {
-        0 => // Uncompressed.
-            Box::new(bio),
+        0 => {
+            // Uncompressed.
+            bio.consume(1);
+            // Our ownership convention is that each container
+            // pushes exactly one `BufferedReader` on the reader
+            // stack.  In this case, we need a pass-through
+            // filter.  We can emulate this using a Limitor.
+            Box::new(BufferedReaderLimitor::new(bio, std::u64::MAX))
+        },
         1 => // Zip.
             Box::new(BufferedReaderDeflate::new(bio)),
         2 => // Zlib
