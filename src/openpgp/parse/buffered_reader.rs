@@ -5,7 +5,7 @@ use std::str;
 use std::io;
 use std::io::{Error,ErrorKind};
 use std::cmp;
-use std::io::Read;
+use std::fmt;
 
 // The default buffer size.
 const DEFAULT_BUF_SIZE: usize = 8 * 1024;
@@ -18,7 +18,7 @@ const DEFAULT_BUF_SIZE: usize = 8 * 1024;
 /// to first copy it to a local buffer.  However, unlike `BufRead`,
 /// `BufferedReader` allows the caller to ensure that the internal
 /// buffer has a certain amount of data.
-pub trait BufferedReader : Read {
+pub trait BufferedReader : io::Read + fmt::Debug {
     /// Return the data in the internal buffer.  Normally, the
     /// returned buffer will contain *at least* `amount` bytes worth
     /// of data.  Less data may be returned if the end of the file is
@@ -121,22 +121,25 @@ pub trait BufferedReader : Read {
     /// Reads and consumes `amount` bytes, and returns them in a
     /// caller owned buffer.  Implementations may optimize this to
     /// avoid a copy.
-    fn steal(&mut self, amount: usize) -> Result<Box<[u8]>, std::io::Error> {
+    fn steal(&mut self, amount: usize) -> Result<Vec<u8>, std::io::Error> {
         let mut data = self.data_consume_hard(amount)?;
         assert!(data.len() >= amount);
         if data.len() > amount {
             data = &data[..amount];
         }
-        return Ok(data.to_vec().into_boxed_slice());
+        return Ok(data.to_vec());
     }
 
     /// Like steal, but instead of stealing a fixed number of bytes,
     /// it steals all of the data it can.
-    fn steal_eof(&mut self) -> Result<Box<[u8]>, std::io::Error> {
+    fn steal_eof(&mut self) -> Result<Vec<u8>, std::io::Error> {
         let len = self.data_eof()?.len();
         let data = self.steal(len)?;
         return Ok(data);
     }
+
+    fn into_inner<'a>(self: Box<Self>) -> Option<Box<BufferedReader + 'a>>
+        where Self: 'a;
 }
 
 /// This function implements the `std::io::Read::read` method in terms
@@ -174,37 +177,105 @@ pub fn buffered_reader_generic_read_impl<T: BufferedReader>
     }
 }
 
+/// Make a `Box<BufferedReader>` look like a BufferedReader.
+impl <'a> BufferedReader for Box<BufferedReader + 'a> {
+    fn data(&mut self, amount: usize) -> Result<&[u8], io::Error> {
+        return self.as_mut().data(amount);
+    }
+
+    fn data_hard(&mut self, amount: usize) -> Result<&[u8], io::Error> {
+        return self.as_mut().data_hard(amount);
+    }
+
+    fn data_eof(&mut self) -> Result<&[u8], io::Error> {
+        return self.as_mut().data_eof();
+    }
+
+    fn consume(&mut self, amount: usize) -> &[u8] {
+        return self.as_mut().consume(amount);
+    }
+
+    fn data_consume(&mut self, amount: usize)
+                    -> Result<&[u8], std::io::Error> {
+        return self.as_mut().data_consume(amount);
+    }
+
+    fn data_consume_hard(&mut self, amount: usize) -> Result<&[u8], io::Error> {
+        return self.as_mut().data_consume_hard(amount);
+    }
+
+    fn read_be_u16(&mut self) -> Result<u16, std::io::Error> {
+        return self.as_mut().read_be_u16();
+    }
+
+    fn read_be_u32(&mut self) -> Result<u32, std::io::Error> {
+        return self.as_mut().read_be_u32();
+    }
+
+    fn steal(&mut self, amount: usize) -> Result<Vec<u8>, std::io::Error> {
+        return self.as_mut().steal(amount);
+    }
+
+    fn steal_eof(&mut self) -> Result<Vec<u8>, std::io::Error> {
+        return self.as_mut().steal_eof();
+    }
+
+    fn into_inner<'b>(self: Box<Self>) -> Option<Box<BufferedReader + 'b>>
+            where Self: 'b {
+        // Strip the outer box.
+        (*self).into_inner()
+    }
+}
+
 /// A generic `BufferedReader` implementation that only requires a
 /// source that implements the `Read` trait.  This is sufficient when
 /// reading from a file, and it even works with a `&[u8]` (but
 /// `BufferedReaderMemory` is more efficient).
-#[derive(Debug)]
-pub struct BufferedReaderGeneric<'a, T: Read + 'a> {
+pub struct BufferedReaderGeneric<T: io::Read> {
     buffer: Option<Box<[u8]>>,
     // The next byte to read in the buffer.
     cursor: usize,
     // The preferred chunk size.  This is just a hint.
     preferred_chunk_size: usize,
-    reader: &'a mut T,
+    // XXX: This is pub for the decompressors.  It would be better to
+    // change this to some accessor method.
+    pub reader: Box<T>,
     // Whether we saw an EOF.
     saw_eof: bool,
     // The last error that we encountered, but have not yet returned.
     error: Option<io::Error>,
 }
 
-impl<'a, T: Read> BufferedReaderGeneric<'a, T> {
+impl<T: io::Read> std::fmt::Debug for BufferedReaderGeneric<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let buffered_data = if let Some(ref buffer) = self.buffer {
+            buffer.len() - self.cursor
+        } else {
+            0
+        };
+
+        f.debug_struct("BufferedReaderGeneric")
+            .field("preferred_chunk_size", &self.preferred_chunk_size)
+            .field("buffer data", &buffered_data)
+            .field("saw eof", &self.saw_eof)
+            .field("error", &self.error)
+            .finish()
+    }
+}
+
+impl<T: io::Read> BufferedReaderGeneric<T> {
     /// Instantiate a new generic reader.  `reader` is the source to
     /// wrap.  `preferred_chuck_size` is the preferred chuck size.  If
     /// None, then the default will be used, which is usually what you
     /// want.
-    pub fn new(reader: &'a mut T, preferred_chunk_size: Option<usize>)
-           -> BufferedReaderGeneric<'a, T> {
+    pub fn new(reader: T, preferred_chunk_size: Option<usize>)
+           -> BufferedReaderGeneric<T> {
         BufferedReaderGeneric {
             buffer: None,
             cursor: 0,
             preferred_chunk_size:
                 if let Some(s) = preferred_chunk_size { s } else { DEFAULT_BUF_SIZE },
-            reader: reader,
+            reader: Box::new(reader),
             saw_eof: false,
             error: None,
         }
@@ -321,13 +392,13 @@ impl<'a, T: Read> BufferedReaderGeneric<'a, T> {
     }
 }
 
-impl<'a, T: Read> Read for BufferedReaderGeneric<'a, T> {
+impl<T: io::Read> io::Read for BufferedReaderGeneric<T> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, io::Error> {
         return buffered_reader_generic_read_impl(self, buf);
     }
 }
 
-impl<'a, T: Read> BufferedReader for BufferedReaderGeneric<'a, T> {
+impl<T: io::Read> BufferedReader for BufferedReaderGeneric<T> {
     fn data(&mut self, amount: usize) -> Result<&[u8], io::Error> {
         return self.data_helper(amount, false, false);
     }
@@ -366,13 +437,18 @@ impl<'a, T: Read> BufferedReader for BufferedReaderGeneric<'a, T> {
     fn data_consume_hard(&mut self, amount: usize) -> Result<&[u8], io::Error> {
         return self.data_helper(amount, true, true);
     }
+
+    fn into_inner<'b>(self: Box<Self>) -> Option<Box<BufferedReader + 'b>>
+        where Self: 'b {
+        None
+    }
 }
 
 // The file was created as follows:
 //
 //   for i in $(seq 0 9999); do printf "%04d\n" $i; done > buffered-reader-test.txt
 #[cfg(test)]
-fn buffered_reader_test_data_check<T: BufferedReader>(bio: &mut T) {
+fn buffered_reader_test_data_check<'a, T: BufferedReader + 'a>(bio: &mut T) {
     for i in 0 .. 10000 {
         let consumed = {
             // Each number is 4 bytes plus a newline character.
@@ -417,11 +493,19 @@ fn buffered_reader_generic_test() {
 }
 
 /// A `BufferedReader` specialized for reading from memory buffers.
-#[derive(Debug)]
 pub struct BufferedReaderMemory<'a> {
     buffer: &'a [u8],
     // The next byte to read in the buffer.
     cursor: usize,
+}
+
+impl <'a> std::fmt::Debug for BufferedReaderMemory<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        f.debug_struct("BufferedReaderMemory")
+            .field("buffer (bytes)", &&self.buffer.len())
+            .field("cursor", &self.cursor)
+            .finish()
+    }
 }
 
 impl<'a> BufferedReaderMemory<'a> {
@@ -433,7 +517,7 @@ impl<'a> BufferedReaderMemory<'a> {
     }
 }
 
-impl<'a> Read for BufferedReaderMemory<'a> {
+impl<'a> io::Read for BufferedReaderMemory<'a> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, io::Error> {
         let amount = cmp::min(buf.len(), self.buffer.len() - self.cursor);
         buf[0..amount].copy_from_slice(
@@ -471,6 +555,11 @@ impl<'a> BufferedReader for BufferedReaderMemory<'a> {
         }
         return Ok(self.consume(amount));
     }
+
+    fn into_inner<'b>(self: Box<Self>) -> Option<Box<BufferedReader + 'b>>
+            where Self: 'b {
+        None
+    }
 }
 
 #[test]
@@ -481,16 +570,16 @@ fn buffered_reader_memory_test () {
     buffered_reader_test_data_check(&mut bio);
 }
 
-/// A `BufferedReaderLimit` limits the amount of data that can be read
-/// from a `BufferedReader`.
+/// A `BufferedReaderLimitor` limits the amount of data that can be
+/// read from a `BufferedReader`.
 #[derive(Debug)]
-pub struct BufferedReaderLimitor<'a, T: BufferedReader + 'a> {
-    reader: &'a mut T,
+pub struct BufferedReaderLimitor<T: BufferedReader> {
+    reader: T,
     limit: u64,
 }
 
-impl<'a, T: BufferedReader> BufferedReaderLimitor<'a, T> {
-    pub fn new(reader: &'a mut T, limit: u64) -> BufferedReaderLimitor<T> {
+impl<T: BufferedReader> BufferedReaderLimitor<T> {
+    pub fn new(reader: T, limit: u64) -> BufferedReaderLimitor<T> {
         BufferedReaderLimitor {
             reader: reader,
             limit: limit,
@@ -498,14 +587,14 @@ impl<'a, T: BufferedReader> BufferedReaderLimitor<'a, T> {
     }
 }
 
-impl<'a, T: BufferedReader> Read for BufferedReaderLimitor<'a, T> {
+impl<T: BufferedReader> io::Read for BufferedReaderLimitor<T> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, io::Error> {
         let len = cmp::min(self.limit, buf.len() as u64) as usize;
         return self.reader.read(&mut buf[0..len]);
     }
 }
 
-impl<'a, T: BufferedReader> BufferedReader for BufferedReaderLimitor<'a, T> {
+impl<T: BufferedReader> BufferedReader for BufferedReaderLimitor<T> {
     /// Return the buffer.  Ensure that it contains at least `amount`
     /// bytes.
     fn data(&mut self, amount: usize) -> Result<&[u8], io::Error> {
@@ -552,6 +641,11 @@ impl<'a, T: BufferedReader> BufferedReader for BufferedReaderLimitor<'a, T> {
         }
         return result;
     }
+
+    fn into_inner<'b>(self: Box<Self>) -> Option<Box<BufferedReader + 'b>>
+            where Self: 'b {
+        Some(Box::new(self.reader))
+    }
 }
 
 #[test]
@@ -560,10 +654,11 @@ fn buffered_reader_limitor_test() {
 
     /* Add a single limitor.  */
     {
-        let mut bio = BufferedReaderMemory::new(data);
+        let mut bio : Box<BufferedReader>
+            = Box::new(BufferedReaderMemory::new(data));
 
-        {
-            let mut bio2 = BufferedReaderLimitor::new(&mut bio, 5);
+        bio = {
+            let mut bio2 = Box::new(BufferedReaderLimitor::new(bio, 5));
             {
                 let result = bio2.data(5).unwrap();
                 assert_eq!(result.len(), 5);
@@ -575,7 +670,9 @@ fn buffered_reader_limitor_test() {
                 assert_eq!(result.len(), 0);
                 assert_eq!(result, &b""[..]);
             }
-        }
+
+            bio2.into_inner().unwrap()
+        };
 
         {
             {
@@ -595,13 +692,16 @@ fn buffered_reader_limitor_test() {
     /* Try with two limitors where the first one imposes the real
      * limit.  */
     {
-        let mut bio = BufferedReaderMemory::new(data);
+        let mut bio : Box<BufferedReader>
+            = Box::new(BufferedReaderMemory::new(data));
 
-        {
-            let mut bio2 = BufferedReaderLimitor::new(&mut bio, 5);
+        bio = {
+            let bio2 : Box<BufferedReader>
+                = Box::new(BufferedReaderLimitor::new(bio, 5));
             // We limit to 15 bytes, but bio2 will still limit us to 5
             // bytes.
-            let mut bio3 = BufferedReaderLimitor::new(&mut bio2, 15);
+            let mut bio3 : Box<BufferedReader>
+                = Box::new(BufferedReaderLimitor::new(bio2, 15));
             {
                 let result = bio3.data(100).unwrap();
                 assert_eq!(result.len(), 5);
@@ -613,7 +713,9 @@ fn buffered_reader_limitor_test() {
                 assert_eq!(result.len(), 0);
                 assert_eq!(result, &b""[..]);
             }
-        }
+
+            bio3.into_inner().unwrap().into_inner().unwrap()
+        };
 
         {
             {
@@ -651,8 +753,8 @@ mod test {
 
         // Try it again with a limitor.
         {
-            let mut bio = BufferedReaderMemory::new(data);
-            let mut bio2 = BufferedReaderLimitor::new(&mut bio, (data.len() / 2) as u64);
+            let bio = BufferedReaderMemory::new(data);
+            let mut bio2 = BufferedReaderLimitor::new(bio, (data.len() / 2) as u64);
             let amount = {
                 bio2.data_eof().unwrap().len()
             };
@@ -663,7 +765,7 @@ mod test {
     }
 
     #[cfg(test)]
-    fn buffered_reader_read_test_aux<T: BufferedReader>
+    fn buffered_reader_read_test_aux<'a, T: BufferedReader + 'a>
         (mut bio: T, data: &[u8]) {
         let mut buffer = [0; 99];
 

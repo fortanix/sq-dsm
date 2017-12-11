@@ -10,9 +10,9 @@ use super::super::BodyLength;
 /// A `BufferedReader` that transparently handles OpenPGP's chunking
 /// scheme.  This implicitly implements a limitor.
 #[derive(Debug)]
-pub struct BufferedReaderPartialBodyFilter<'a, T: 'a + BufferedReader> {
+pub struct BufferedReaderPartialBodyFilter<T: BufferedReader> {
     // The underlying reader.
-    reader: &'a mut T,
+    reader: T,
 
     // The amount of unread data in the current partial body chunk.
     // That is, if `buffer` contains 10 bytes and
@@ -30,11 +30,11 @@ pub struct BufferedReaderPartialBodyFilter<'a, T: 'a + BufferedReader> {
     cursor: usize,
 }
 
-impl<'a, T: BufferedReader> BufferedReaderPartialBodyFilter<'a, T> {
+impl<T: BufferedReader> BufferedReaderPartialBodyFilter<T> {
     /// Create a new BufferedReaderPartialBodyFilter object.
     /// `partial_body_length` is the amount of data in the initial
     /// partial body chunk.
-    pub fn new(reader: &mut T, partial_body_length: u32)
+    pub fn new(reader: T, partial_body_length: u32)
                -> BufferedReaderPartialBodyFilter<T> {
         BufferedReaderPartialBodyFilter {
             reader: reader,
@@ -115,7 +115,7 @@ impl<'a, T: BufferedReader> BufferedReaderPartialBodyFilter<'a, T> {
             // Read the next partial body length header.
             assert_eq!(self.partial_body_length, 0);
 
-            match super::body_length_new_format(self.reader) {
+            match super::body_length_new_format(&mut self.reader) {
                 Ok(BodyLength::Full(len)) => {
                     //println!("Last chuck: {} bytes", len);
                     self.last = true;
@@ -246,13 +246,13 @@ impl<'a, T: BufferedReader> BufferedReaderPartialBodyFilter<'a, T> {
 
 }
 
-impl<'a, T: BufferedReader> std::io::Read for BufferedReaderPartialBodyFilter<'a, T> {
+impl<T: BufferedReader> std::io::Read for BufferedReaderPartialBodyFilter<T> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, std::io::Error> {
         return buffered_reader::buffered_reader_generic_read_impl(self, buf);
     }
 }
 
-impl<'a, T: BufferedReader> BufferedReader for BufferedReaderPartialBodyFilter<'a, T> {
+impl<T: BufferedReader> BufferedReader for BufferedReaderPartialBodyFilter<T> {
     /// Return the buffer.  Ensure that it contains at least `amount`
     /// bytes.
 
@@ -291,5 +291,10 @@ impl<'a, T: BufferedReader> BufferedReader for BufferedReaderPartialBodyFilter<'
 
     fn data_consume_hard(&mut self, amount: usize) -> Result<&[u8], std::io::Error> {
         return self.data_helper(amount, true, true);
+    }
+
+    fn into_inner<'b>(self: Box<Self>) -> Option<Box<BufferedReader + 'b>>
+            where Self: 'b {
+        Some(Box::new(self.reader))
     }
 }

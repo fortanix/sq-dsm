@@ -1,8 +1,7 @@
 // Machinery for parsing and serializing OpenPGP packet headers.
 
 use std;
-use std::ops::Deref;
-use self::parse::BufferedReader;
+use std::ops::{Deref,DerefMut};
 
 /// The OpenPGP packet types.  The values correspond to the serialized
 /// format.  The packet types named UnassignedXX are not in use as of
@@ -130,7 +129,7 @@ pub enum PacketLengthType {
 pub struct CTBOld {
     common: CTBCommon,
     length_type: PacketLengthType,
-}    
+}
 
 // Allow transparent access of common fields.
 impl Deref for CTBOld {
@@ -176,8 +175,11 @@ pub enum BodyLength {
 }
 
 #[derive(Debug)]
+#[derive(PartialEq)]
 pub struct PacketCommon {
     tag: Tag,
+    children: Option<Container>,
+    content: Option<Vec<u8>>,
 }
 
 /// An OpenPGP packet's header.
@@ -187,16 +189,17 @@ pub struct Header {
     length: BodyLength,
 }
 
+#[derive(PartialEq)]
 pub struct Signature {
     common: PacketCommon,
     version: u8,
     sigtype: u8,
     pk_algo: u8,
     hash_algo: u8,
-    hashed_area: Box<[u8]>,
-    unhashed_area: Box<[u8]>,
+    hashed_area: Vec<u8>,
+    unhashed_area: Vec<u8>,
     hash_prefix: [u8; 2],
-    mpis: Box<[u8]>,
+    mpis: Vec<u8>,
 }
 
 impl std::fmt::Debug for Signature {
@@ -227,13 +230,14 @@ impl<'a> Deref for Signature {
     }
 }
 
+#[derive(PartialEq)]
 pub struct Key {
     common: PacketCommon,
     version: u8,
     /* When the key was created.  */
     creation_time: u32,
     pk_algo: u8,
-    mpis: Box<[u8]>,
+    mpis: Vec<u8>,
 }
 
 impl std::fmt::Debug for Key {
@@ -259,9 +263,10 @@ impl<'a> Deref for Key {
     }
 }
 
+#[derive(PartialEq)]
 pub struct UserID {
     common: PacketCommon,
-    value: Box<[u8]>,
+    value: Vec<u8>,
 }
 
 impl std::fmt::Debug for UserID {
@@ -283,6 +288,7 @@ impl<'a> Deref for UserID {
     }
 }
 
+#[derive(PartialEq)]
 pub struct Literal {
     common: PacketCommon,
     format: u8,
@@ -293,7 +299,6 @@ pub struct Literal {
     // String::from_utf8_lossy().
     filename: Option<Vec<u8>>,
     date: u32,
-    content: Box<[u8]>,
 }
 
 impl std::fmt::Debug for Literal {
@@ -304,13 +309,20 @@ impl std::fmt::Debug for Literal {
             None
         };
 
+        let content = if let Some(ref content) = self.common.content {
+            &content[..]
+        } else {
+            &b""[..]
+        };
+
         let threshold = 36;
-        let prefix = &self.content[..std::cmp::min(threshold, self.content.len())];
+        let prefix =
+            &content[..std::cmp::min(threshold, content.len())];
         let mut prefix_fmt = String::from_utf8_lossy(prefix).into_owned();
-        if self.content.len() > threshold {
+        if content.len() > threshold {
             prefix_fmt.push_str("...");
         }
-        prefix_fmt.push_str(&format!(" ({} bytes)", self.content.len())[..]);
+        prefix_fmt.push_str(&format!(" ({} bytes)", content.len())[..]);
 
         f.debug_struct("Literal")
             .field("format", &(self.format as char))
@@ -330,10 +342,10 @@ impl<'a> Deref for Literal {
     }
 }
 
+#[derive(PartialEq)]
 pub struct CompressedData {
     common: PacketCommon,
     algo: u8,
-    content: Message,
 }
 
 // Allow transparent access of common fields.
@@ -349,12 +361,12 @@ impl std::fmt::Debug for CompressedData {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         f.debug_struct("CompressedData")
             .field("algo", &self.algo)
-            .field("content", &self.content)
             .finish()
     }
 }
 
 #[derive(Debug)]
+#[derive(PartialEq)]
 pub enum Packet {
     Signature(Signature),
     PublicKey(Key),
@@ -373,18 +385,53 @@ impl<'a> Deref for Packet {
     fn deref(&self) -> &Self::Target {
         match self {
             &Packet::Signature(ref packet) => &packet.common,
+            &Packet::PublicKey(ref packet) => &packet.common,
+            &Packet::PublicSubkey(ref packet) => &packet.common,
+            &Packet::SecretKey(ref packet) => &packet.common,
+            &Packet::SecretSubkey(ref packet) => &packet.common,
+            &Packet::UserID(ref packet) => &packet.common,
             &Packet::Literal(ref packet) => &packet.common,
-            _ => unimplemented!(),
+            &Packet::CompressedData(ref packet) => &packet.common,
         }
     }
 }
 
-/// A `Message` is a container that holds zero or more OpenPGP
+impl<'a> DerefMut for Packet {
+    fn deref_mut(&mut self) -> &mut PacketCommon {
+        match self {
+            &mut Packet::Signature(ref mut packet) => &mut packet.common,
+            &mut Packet::PublicKey(ref mut packet) => &mut packet.common,
+            &mut Packet::PublicSubkey(ref mut packet) => &mut packet.common,
+            &mut Packet::SecretKey(ref mut packet) => &mut packet.common,
+            &mut Packet::SecretSubkey(ref mut packet) => &mut packet.common,
+            &mut Packet::UserID(ref mut packet) => &mut packet.common,
+            &mut Packet::Literal(ref mut packet) => &mut packet.common,
+            &mut Packet::CompressedData(ref mut packet) => &mut packet.common,
+        }
+    }
+}
+
+/// A `Container` is a container that holds zero or more OpenPGP
 /// packets.  This is used both as a top-level for an OpenPGP message
 /// as well as by Packets that are containers (like a compressed data
 /// packet).
+#[derive(PartialEq)]
+pub struct Container {
+    packets: Vec<Packet>,
+}
+
+impl std::fmt::Debug for Container {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        f.debug_struct("Container")
+            .field("packets", &self.packets)
+            .finish()
+    }
+}
+
+/// A `Message` holds a deserialized OpenPGP message.
 pub struct Message {
-    input: Option<Box<BufferedReader>>,
+    // At the top level, we have a sequence of packets, which may be
+    // containers.
     packets: Vec<Packet>,
 }
 
@@ -410,7 +457,7 @@ pub struct PacketIter<'a> {
 
 impl Message {
     pub fn from_packets(p: Vec<Packet>) -> Self {
-        Message { input: None, packets: p }
+        Message { packets: p }
     }
 
     pub fn iter(&self) -> PacketIter {
@@ -447,7 +494,12 @@ impl Packet {
 impl CompressedData {
     pub fn iter(&self) -> PacketIter {
         return PacketIter {
-            children: self.content.packets.iter(),
+            children: if let Some(ref container) = self.common.children {
+                container.packets.iter()
+            } else {
+                let empty_packet_slice : &[Packet] = &[][..];
+                empty_packet_slice.iter()
+            },
             child: None,
             grandchildren: None,
         }
