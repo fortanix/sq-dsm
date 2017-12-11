@@ -174,6 +174,22 @@ fn header<R: BufferedReader> (bio: &mut R)
     return Ok(Header { ctb: ctb, length: length });
 }
 
+fn unknown_parser<'a, R: BufferedReader + 'a>(bio: R)
+        -> Result<PacketParser<'a>, std::io::Error> {
+    return Ok(PacketParser {
+        packet: Packet::Unknown(Unknown {
+            common: PacketCommon {
+                tag: Tag::Signature,
+                children: None,
+                content: None,
+            },
+        }),
+        reader: Box::new(bio),
+        recursion_depth: 0,
+        max_recursion_depth: MAX_RECURSION_DEPTH,
+    });
+}
+
 fn signature_parser<'a, R: BufferedReader + 'a>(mut bio: R)
         -> Result<PacketParser<'a>, std::io::Error> {
     let version = bio.data_consume_hard(1)?[0];
@@ -607,11 +623,8 @@ impl <'a> PacketParser<'a> {
                 literal_parser(bio)?,
             Tag::CompressedData =>
                 compressed_data_parser(bio)?,
-            _ => {
-                // XXX: Return an "unknown" packet instead of erroring out.
-                eprintln!("Unsupported packet type: {:?}", header);
-                return Err(Error::new(ErrorKind::UnexpectedEof, "EOF"));
-            },
+            _ =>
+                unknown_parser(bio)?,
         };
 
         return Ok(PacketParserOrBufferedReader::PacketParser(result));
@@ -715,7 +728,7 @@ impl <'a> PacketParser<'a> {
                 }
             },
             // Packets that don't recurse.
-            Packet::Signature(_)
+            Packet::Unknown(_) | Packet::Signature(_)
                 | Packet::PublicKey(_) | Packet::PublicSubkey(_)
                 | Packet::SecretKey(_) | Packet::SecretSubkey(_)
                 | Packet::UserID(_) | Packet::Literal(_) => {

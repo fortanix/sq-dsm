@@ -189,6 +189,11 @@ pub struct Header {
     length: BodyLength,
 }
 
+#[derive(PartialEq,Debug)]
+pub struct Unknown {
+    common: PacketCommon,
+}
+
 #[derive(PartialEq)]
 pub struct Signature {
     common: PacketCommon,
@@ -368,6 +373,7 @@ impl std::fmt::Debug for CompressedData {
 #[derive(Debug)]
 #[derive(PartialEq)]
 pub enum Packet {
+    Unknown(Unknown),
     Signature(Signature),
     PublicKey(Key),
     PublicSubkey(Key),
@@ -384,6 +390,7 @@ impl<'a> Deref for Packet {
 
     fn deref(&self) -> &Self::Target {
         match self {
+            &Packet::Unknown(ref packet) => &packet.common,
             &Packet::Signature(ref packet) => &packet.common,
             &Packet::PublicKey(ref packet) => &packet.common,
             &Packet::PublicSubkey(ref packet) => &packet.common,
@@ -399,6 +406,7 @@ impl<'a> Deref for Packet {
 impl<'a> DerefMut for Packet {
     fn deref_mut(&mut self) -> &mut PacketCommon {
         match self {
+            &mut Packet::Unknown(ref mut packet) => &mut packet.common,
             &mut Packet::Signature(ref mut packet) => &mut packet.common,
             &mut Packet::PublicKey(ref mut packet) => &mut packet.common,
             &mut Packet::PublicSubkey(ref mut packet) => &mut packet.common,
