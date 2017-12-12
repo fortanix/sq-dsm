@@ -13,10 +13,10 @@
 //!
 //! [SKS keyserver]: https://www.sks-keyservers.net/overview-of-pools.php#pool_hkps
 //!
-//! ```
+//! ```no_run
 //! # use sequoia::net;
 //! # use sequoia::openpgp::types::KeyId;
-//! let ctx = sequoia::Context::new("org.sequoia-pgp.example").finalize().unwrap();
+//! let ctx = sequoia::Context::new("org.sequoia-pgp.example").unwrap();
 //! let mut ks = net::KeyServer::sks_pool(&ctx).unwrap();
 //! let keyid = KeyId::from_hex("31855247603831FD").unwrap();
 //! println!("{:?}", ks.get(&keyid));
