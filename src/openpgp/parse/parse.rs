@@ -453,18 +453,23 @@ fn compressed_data_parser<'a, R: BufferedReader + 'a>(mut bio: R)
     });
 }
 
+#[cfg(test)]
+use std::path::PathBuf;
+
+#[cfg(test)]
+fn path_to(artifact: &str) -> PathBuf {
+    [env!("CARGO_MANIFEST_DIR"), "src", "openpgp", "parse", artifact]
+        .iter().collect()
+}
+
 #[test]
 fn compressed_data_parser_test () {
     let expected = include_bytes!("literal-mode-t-partial-body.txt");
 
     for i in 1..4 {
-        use std::path::PathBuf;
         use std::fs::File;
 
-        let path : PathBuf = [env!("CARGO_MANIFEST_DIR"),
-                              "src", "openpgp", "parse",
-                              &format!("compressed-data-algo-{}.asc", i)[..]]
-            .iter().collect();
+        let path = path_to(&format!("compressed-data-algo-{}.asc", i)[..]);
         let mut f = File::open(&path).expect(&path.to_string_lossy());
         let mut bio = BufferedReaderGeneric::new(&mut f, None);
 
@@ -861,133 +866,117 @@ impl Message {
     }
 }
 
-#[test]
-fn deserialize_test_1 () {
-    // XXX: This test should be more thorough.  Right now, we mostly
-    // just rely on the fact that an assertion is not thrown.
+#[cfg(test)]
+mod message_test {
+    use super::path_to;
+    use super::{BufferedReaderMemory, BufferedReaderGeneric, Message, PacketParser};
 
-    // A flat message.
-    let data = include_bytes!("public-key.asc");
-    let bio = BufferedReaderMemory::new(data);
-    let message = Message::deserialize(bio, None).unwrap();
-    eprintln!("Message has {} top-level packets.",
-              message.packets.len());
-    eprintln!("Message: {:?}", message);
-
-    let mut count = 0;
-    for (i, p) in message.iter().enumerate() {
-        eprintln!("{}: {:?}", i, p);
-        count += 1;
-    }
-
-    assert_eq!(count, 61);
-}
-
-#[test]
-fn deserialize_test_2 () {
-    // A message containing a compressed packet that contains a
-    // literal packet.
-    use std::path::PathBuf;
     use std::fs::File;
 
-    let path : PathBuf = [env!("CARGO_MANIFEST_DIR"),
-                          "src", "openpgp", "parse",
-                          "compressed-data-algo-1.asc"]
-        .iter().collect();
-    let mut f = File::open(&path).expect(&path.to_string_lossy());
-    let bio = BufferedReaderGeneric::new(&mut f, None);
-    let message = Message::deserialize(bio, None).unwrap();
-    eprintln!("Message has {} top-level packets.", message.packets.len());
-    eprintln!("Message: {:?}", message);
+    #[test]
+    fn deserialize_test_1 () {
+        // XXX: This test should be more thorough.  Right now, we mostly
+        // just rely on the fact that an assertion is not thrown.
 
-    let mut count = 0;
-    for (i, p) in message.iter().enumerate() {
-        eprintln!("{}: {:?}", i, p);
-        count += 1;
-    }
-    assert_eq!(count, 2);
-}
+        // A flat message.
+        let data = include_bytes!("public-key.asc");
+        let bio = BufferedReaderMemory::new(data);
+        let message = Message::deserialize(bio, None).unwrap();
+        eprintln!("Message has {} top-level packets.",
+                  message.packets.len());
+        eprintln!("Message: {:?}", message);
 
-#[test]
-fn deserialize_test_3 () {
-    use std::path::PathBuf;
-    use std::fs::File;
-
-    let path : PathBuf = [env!("CARGO_MANIFEST_DIR"),
-                          "src", "openpgp", "parse",
-                          "signed.gpg"]
-        .iter().collect();
-    let mut f = File::open(&path).expect(&path.to_string_lossy());
-    let bio = BufferedReaderGeneric::new(&mut f, None);
-    let message = Message::deserialize(bio, None).unwrap();
-    eprintln!("Message has {} top-level packets.", message.packets.len());
-    eprintln!("Message: {:?}", message);
-
-    let mut count = 0;
-    for (i, p) in message.iter().enumerate() {
-        count += 1;
-        eprintln!("{}: {:?}", i, p);
-    }
-    // We expect 6 packets.
-    assert_eq!(count, 6);
-}
-
-#[test]
-fn compression_quine_test_1 () {
-    // Use the Message::deserialize interface to parse an OpenPGP
-    // quine.
-    use std::path::PathBuf;
-    use std::fs::File;
-
-    let path : PathBuf = [env!("CARGO_MANIFEST_DIR"),
-                          "src", "openpgp", "parse",
-                          "compression-quine.gpg"]
-        .iter().collect();
-    let mut f = File::open(&path).expect(&path.to_string_lossy());
-
-    let bio = BufferedReaderGeneric::new(&mut f, None);
-    let max_recursion_depth = 128;
-    let message =
-        Message::deserialize(bio, Some(max_recursion_depth)).unwrap();
-
-    let mut count = 0;
-    for (i, p) in message.iter().enumerate() {
-        count += 1;
-        if false {
-            eprintln!("{}: p: {:?}", i, p);
-        }
-    }
-
-    assert_eq!(count, 1 + max_recursion_depth);
-}
-
-#[test]
-fn compression_quine_test_2 () {
-    // Use the iterator interface to parse an OpenPGP quine.
-    use std::path::PathBuf;
-    use std::fs::File;
-
-    let path : PathBuf = [env!("CARGO_MANIFEST_DIR"),
-                          "src", "openpgp", "parse",
-                          "compression-quine.gpg"]
-        .iter().collect();
-    let mut f = File::open(&path).expect(&path.to_string_lossy());
-
-    let bio = BufferedReaderGeneric::new(&mut f, None);
-    let max_recursion_depth = 255;
-    let mut ppo : Option<PacketParser>
-        = PacketParser::new(bio, Some(max_recursion_depth)).unwrap();
-
-    let mut count : usize = 0;
-    loop {
-        if let Some(pp2) = ppo {
+        let mut count = 0;
+        for (i, p) in message.iter().enumerate() {
+            eprintln!("{}: {:?}", i, p);
             count += 1;
-
-            let (_packet, pp2, _position) = pp2.recurse().unwrap();
-            ppo = pp2;
-        } else {
-            break;
         }
+
+        assert_eq!(count, 61);
     }
-    assert_eq!(count, 1 + max_recursion_depth as usize);
+
+    #[test]
+    fn deserialize_test_2 () {
+        // A message containing a compressed packet that contains a
+        // literal packet.
+        let path = path_to("compressed-data-algo-1.asc");
+        let mut f = File::open(&path).expect(&path.to_string_lossy());
+        let bio = BufferedReaderGeneric::new(&mut f, None);
+        let message = Message::deserialize(bio, None).unwrap();
+        eprintln!("Message has {} top-level packets.", message.packets.len());
+        eprintln!("Message: {:?}", message);
+
+        let mut count = 0;
+        for (i, p) in message.iter().enumerate() {
+            eprintln!("{}: {:?}", i, p);
+            count += 1;
+        }
+        assert_eq!(count, 2);
+    }
+
+    #[test]
+    fn deserialize_test_3 () {
+        let path = path_to("signed.gpg");
+        let mut f = File::open(&path).expect(&path.to_string_lossy());
+        let bio = BufferedReaderGeneric::new(&mut f, None);
+        let message = Message::deserialize(bio, None).unwrap();
+        eprintln!("Message has {} top-level packets.", message.packets.len());
+        eprintln!("Message: {:?}", message);
+
+        let mut count = 0;
+        for (i, p) in message.iter().enumerate() {
+            count += 1;
+            eprintln!("{}: {:?}", i, p);
+        }
+        // We expect 6 packets.
+        assert_eq!(count, 6);
+    }
+
+    #[test]
+    fn compression_quine_test_1 () {
+        // Use the Message::deserialize interface to parse an OpenPGP
+        // quine.
+        let path = path_to("compression-quine.gpg");
+        let mut f = File::open(&path).expect(&path.to_string_lossy());
+
+        let bio = BufferedReaderGeneric::new(&mut f, None);
+        let max_recursion_depth = 128;
+        let message =
+            Message::deserialize(bio, Some(max_recursion_depth)).unwrap();
+
+        let mut count = 0;
+        for (i, p) in message.iter().enumerate() {
+            count += 1;
+            if false {
+                eprintln!("{}: p: {:?}", i, p);
+            }
+        }
+
+        assert_eq!(count, 1 + max_recursion_depth);
+    }
+
+    #[test]
+    fn compression_quine_test_2 () {
+        // Use the iterator interface to parse an OpenPGP quine.
+        let path = path_to("compression-quine.gpg");
+        let mut f = File::open(&path).expect(&path.to_string_lossy());
+
+        let bio = BufferedReaderGeneric::new(&mut f, None);
+        let max_recursion_depth = 255;
+        let mut ppo : Option<PacketParser>
+            = PacketParser::new(bio, Some(max_recursion_depth)).unwrap();
+
+        let mut count : usize = 0;
+        loop {
+            if let Some(pp2) = ppo {
+                count += 1;
+
+                let (_packet, pp2, _position) = pp2.recurse().unwrap();
+                ppo = pp2;
+            } else {
+                break;
+            }
+        }
+        assert_eq!(count, 1 + max_recursion_depth as usize);
+    }
 }
