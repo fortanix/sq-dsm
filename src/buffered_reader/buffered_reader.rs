@@ -1,5 +1,3 @@
-//! An improved `BufRead` interface.
-
 use std;
 use std::str;
 use std::io;
@@ -9,6 +7,9 @@ use std::fmt;
 
 // The default buffer size.
 const DEFAULT_BUF_SIZE: usize = 8 * 1024;
+
+pub mod buffered_reader_decompress;
+pub mod buffered_reader_partial_body;
 
 /// A `BufferedReader` is a type of `Read`er that has an internal
 /// buffer, and allows working directly from that buffer.  Like a
@@ -475,7 +476,7 @@ fn buffered_reader_generic_test() {
         use std::fs::File;
 
         let path : PathBuf = [env!("CARGO_MANIFEST_DIR"),
-                              "src", "openpgp", "parse", "buffered-reader-test.txt"]
+                              "src", "buffered_reader", "buffered-reader-test.txt"]
             .iter().collect();
         let mut f = File::open(&path).expect(&path.to_string_lossy());
         let mut bio = BufferedReaderGeneric::new(&mut f, None);
@@ -829,7 +830,7 @@ mod test {
             use std::fs::File;
 
             let path : PathBuf = [env!("CARGO_MANIFEST_DIR"),
-                                  "src", "openpgp", "parse",
+                                  "src", "buffered_reader",
                                   "buffered-reader-test.txt"]
                 .iter().collect();
 

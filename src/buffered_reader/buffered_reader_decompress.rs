@@ -5,7 +5,7 @@ use flate2::read::DeflateDecoder;
 use flate2::read::ZlibDecoder;
 use bzip2::read::BzDecoder;
 
-use super::buffered_reader::*;
+use super::*;
 
 pub struct BufferedReaderDeflate<R: BufferedReader> {
     reader: BufferedReaderGeneric<DeflateDecoder<R>>,

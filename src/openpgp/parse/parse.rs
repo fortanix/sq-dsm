@@ -5,17 +5,11 @@ use num::FromPrimitive;
 
 use super::*;
 
-pub mod buffered_reader;
-use self::buffered_reader::*;
-pub use self::buffered_reader::BufferedReader;
-
-mod buffered_reader_partial_body;
-use self::buffered_reader_partial_body::*;
-
-mod buffered_reader_decompress;
-use self::buffered_reader_decompress::BufferedReaderDeflate;
-use self::buffered_reader_decompress::BufferedReaderZlib;
-use self::buffered_reader_decompress::BufferedReaderBzip;
+use ::buffered_reader::*;
+use ::buffered_reader::buffered_reader_partial_body::*;
+use ::buffered_reader::buffered_reader_decompress::BufferedReaderDeflate;
+use ::buffered_reader::buffered_reader_decompress::BufferedReaderZlib;
+use ::buffered_reader::buffered_reader_decompress::BufferedReaderBzip;
 
 /// The default amount of acceptable nesting.  Typically, we expect a
 /// message to looking like:
@@ -62,7 +56,7 @@ named!(
             (r))));
 
 /// Decode a new format body length as described in Section 4.2.2 of RFC 4880.
-fn body_length_new_format<T: BufferedReader> (bio: &mut T)
+pub fn body_length_new_format<T: BufferedReader> (bio: &mut T)
       -> Result<BodyLength, std::io::Error> {
     let octet1 = bio.data_consume_hard(1)?[0];
     if octet1 < 192 {
@@ -915,6 +909,30 @@ fn deserialize_test_2 () {
         count += 1;
     }
     assert_eq!(count, 2);
+}
+
+#[test]
+fn deserialize_test_3 () {
+    use std::path::PathBuf;
+    use std::fs::File;
+
+    let path : PathBuf = [env!("CARGO_MANIFEST_DIR"),
+                          "src", "openpgp", "parse",
+                          "signed.gpg"]
+        .iter().collect();
+    let mut f = File::open(&path).expect(&path.to_string_lossy());
+    let bio = BufferedReaderGeneric::new(&mut f, None);
+    let message = Message::deserialize(bio, None).unwrap();
+    eprintln!("Message has {} top-level packets.", message.packets.len());
+    eprintln!("Message: {:?}", message);
+
+    let mut count = 0;
+    for (i, p) in message.iter().enumerate() {
+        count += 1;
+        eprintln!("{}: {:?}", i, p);
+    }
+    // We expect 6 packets.
+    assert_eq!(count, 6);
 }
 
 #[test]

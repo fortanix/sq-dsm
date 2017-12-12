@@ -17,6 +17,8 @@ pub mod net;
 pub mod ffi;
 pub mod armor;
 
+mod buffered_reader;
+
 use std::env;
 use std::fs;
 use std::io;
