@@ -206,6 +206,7 @@ fn signature_parser<'a, R: BufferedReader + 'a>(mut bio: R)
             pk_algo: pk_algo,
             hash_algo: hash_algo,
             hashed_area: hashed_area,
+            hashed_area_parsed: RefCell::new(None),
             unhashed_area: unhashed_area,
             hash_prefix: [hash_prefix1, hash_prefix2],
             mpis: mpis,

@@ -29,6 +29,12 @@ impl<'a> BufferedReaderMemory<'a> {
             cursor: 0,
         }
     }
+
+    /// Returns the number of bytes that have been consumed by this
+    /// reader.
+    pub fn total_out(&self) -> usize {
+        return self.cursor;
+    }
 }
 
 impl<'a> io::Read for BufferedReaderMemory<'a> {

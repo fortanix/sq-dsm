@@ -3,6 +3,11 @@
 use std;
 use std::ops::{Deref,DerefMut};
 
+use std::cell::RefCell;
+use std::collections::HashMap;
+
+mod subpackets;
+
 /// The OpenPGP packet types.  The values correspond to the serialized
 /// format.  The packet types named UnassignedXX are not in use as of
 /// RFC 4880.
@@ -212,6 +217,10 @@ pub struct Signature {
     pk_algo: u8,
     hash_algo: u8,
     hashed_area: Vec<u8>,
+    // We parse the subpackets on demand.  Since self-referential
+    // structs are a no-no, we use (start, len) to reference the
+    // content in hashed_area.
+    hashed_area_parsed: RefCell<Option<HashMap<u8, (bool, u16, u16)>>>,
     unhashed_area: Vec<u8>,
     hash_prefix: [u8; 2],
     mpis: Vec<u8>,
