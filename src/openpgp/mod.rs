@@ -5,6 +5,7 @@
 
 pub mod armor;
 pub mod parse;
+pub mod tpk;
 pub mod types;
 
 include!("openpgp.rs");

@@ -6,8 +6,8 @@ use std::ptr;
 use std::slice;
 use std::str;
 
-use keys::TPK;
 use net::KeyServer;
+use openpgp::tpk::TPK;
 use openpgp::types::KeyId;
 use self::libc::{uint8_t, uint64_t, c_char, size_t};
 use self::native_tls::Certificate;

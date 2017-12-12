@@ -1,7 +1,7 @@
 use io;
 
-use super::openpgp;
-use super::openpgp::Packet;
+use openpgp;
+use super::Packet;
 
 /// A transferable public key (TPK).
 ///
@@ -221,7 +221,7 @@ mod test {
     use super::{Error, TPK, openpgp};
 
     macro_rules! bytes {
-        ( $x:expr ) => { include_bytes!(concat!("../tests/data/keys/", $x)) };
+        ( $x:expr ) => { include_bytes!(concat!("../../tests/data/keys/", $x)) };
     }
 
     #[test]

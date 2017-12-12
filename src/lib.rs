@@ -14,7 +14,6 @@ extern crate bzip2;
 extern crate percent_encoding;
 
 pub mod openpgp;
-pub mod keys;
 pub mod store;
 pub mod net;
 pub mod ffi;

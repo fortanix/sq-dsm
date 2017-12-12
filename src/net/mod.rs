@@ -41,7 +41,7 @@ use std::io::{Cursor, Read};
 use std::io;
 
 use super::Context;
-use super::keys::{self, TPK};
+use super::openpgp::tpk::{self, TPK};
 use super::openpgp::types::KeyId;
 use super::openpgp::{self, armor};
 
@@ -236,7 +236,7 @@ pub enum Error {
     /// A communication partner violated the protocol.
     ProtocolViolation,
     /// There was an error parsing the key.
-    KeysError(keys::Error),
+    KeysError(tpk::Error),
     /// Encountered an unexpected low-level http status.
     HttpStatus(hyper::StatusCode),
     /// An `io::Error` occured.
@@ -249,8 +249,8 @@ pub enum Error {
     TlsError(native_tls::Error),
 }
 
-impl From<keys::Error> for Error {
-    fn from(e: keys::Error) -> Self {
+impl From<tpk::Error> for Error {
+    fn from(e: tpk::Error) -> Self {
         Error::KeysError(e)
     }
 }
