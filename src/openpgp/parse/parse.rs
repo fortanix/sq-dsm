@@ -3,13 +3,10 @@ use std::fs::File;
 
 use num::FromPrimitive;
 
+use ::buffered_reader::*;
+
 use super::*;
 
-use ::buffered_reader::*;
-use ::buffered_reader::partial_body::*;
-use ::buffered_reader::decompress::BufferedReaderDeflate;
-use ::buffered_reader::decompress::BufferedReaderZlib;
-use ::buffered_reader::decompress::BufferedReaderBzip;
 
 /// The default amount of acceptable nesting.  Typically, we expect a
 /// message to looking like:

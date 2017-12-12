@@ -5,17 +5,22 @@ use std::io::{Error,ErrorKind};
 use std::cmp;
 use std::fmt;
 
+mod generic;
+mod memory;
+mod limitor;
+mod partial_body;
+mod decompress;
+
+pub use self::generic::BufferedReaderGeneric;
+pub use self::memory::BufferedReaderMemory;
+pub use self::limitor::BufferedReaderLimitor;
+pub use self::partial_body::BufferedReaderPartialBodyFilter;
+pub use self::decompress::BufferedReaderDeflate;
+pub use self::decompress::BufferedReaderZlib;
+pub use self::decompress::BufferedReaderBzip;
+
 // The default buffer size.
 const DEFAULT_BUF_SIZE: usize = 8 * 1024;
-
-pub mod decompress;
-pub mod partial_body;
-pub mod generic;
-pub use self::generic::*;
-pub mod memory;
-pub use self::memory::*;
-pub mod limitor;
-pub use self::limitor::*;
 
 /// A `BufferedReader` is a type of `Read`er that has an internal
 /// buffer, and allows working directly from that buffer.  Like a
@@ -172,7 +177,7 @@ pub trait BufferedReader : io::Read + fmt::Debug {
 ///
 /// but, alas, Rust doesn't like that ("error[E0119]: conflicting
 /// implementations of trait `std::io::Read` for type `&mut _`").
-pub fn buffered_reader_generic_read_impl<T: BufferedReader>
+fn buffered_reader_generic_read_impl<T: BufferedReader>
     (bio: &mut T, buf: &mut [u8]) -> Result<usize, io::Error> {
     match bio.data_consume(buf.len()) {
         Ok(inner) => {
