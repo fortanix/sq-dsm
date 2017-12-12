@@ -110,10 +110,36 @@ struct sq_keyid *sq_keyid_from_hex (const char *id);
 /*/
 void sq_keyid_free (struct sq_keyid *keyid);
 
+
+/* sequoia::keys.  */
+
+/*/
+/// A transferable public key (TPK).
+///
+/// A TPK (see [RFC 4880, section 11.1]) can be used to verify
+/// signatures and encrypt data.  It can be stored in a keystore and
+/// uploaded to keyservers.
+///
+/// [RFC 4880, section 11.1]: https://tools.ietf.org/html/rfc4880#section-11.1
+/*/
 struct sq_tpk;
+
+/*/
+/// Returns the first TPK found in `buf`.
+///
+/// `buf` must be an OpenPGP encoded message.
+/*/
 struct sq_tpk *sq_tpk_from_bytes (const char *b, size_t len);
-void sq_tpk_dump (const struct sq_tpk *tpk);
+
+/*/
+/// Frees the TPK.
+/*/
 void sq_tpk_free (struct sq_tpk *tpk);
+
+/*/
+/// Dumps the TPK.
+/*/
+void sq_tpk_dump (const struct sq_tpk *tpk);
 
 
 /* sequoia::net.  */

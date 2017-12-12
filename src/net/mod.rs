@@ -41,7 +41,7 @@ use std::io::{Cursor, Read};
 use std::io;
 
 use super::Context;
-use super::keys::TPK;
+use super::keys::{self, TPK};
 use super::openpgp::types::KeyId;
 use super::openpgp::{self, armor};
 
@@ -160,7 +160,7 @@ impl KeyServer {
         };
 
         let m = openpgp::Message::from_bytes(&key?)?;
-        TPK::from_message(m).ok_or(Error::MalformedResponse)
+        TPK::from_message(m).map_err(|e| Error::KeysError(e))
     }
 
     /// Sends the given key to the server.
@@ -235,6 +235,8 @@ pub enum Error {
     MalformedResponse,
     /// A communication partner violated the protocol.
     ProtocolViolation,
+    /// There was an error parsing the key.
+    KeysError(keys::Error),
     /// Encountered an unexpected low-level http status.
     HttpStatus(hyper::StatusCode),
     /// An `io::Error` occured.
@@ -245,6 +247,12 @@ pub enum Error {
     HyperError(hyper::Error),
     /// A `native_tls::Error` occured.
     TlsError(native_tls::Error),
+}
+
+impl From<keys::Error> for Error {
+    fn from(e: keys::Error) -> Self {
+        Error::KeysError(e)
+    }
 }
 
 impl From<hyper::StatusCode> for Error {

@@ -9,7 +9,6 @@ use std::str;
 use keys::TPK;
 use net::KeyServer;
 use openpgp::types::KeyId;
-use openpgp;
 use self::libc::{uint8_t, uint64_t, c_char, size_t};
 use self::native_tls::Certificate;
 use super::{Config, Context};
@@ -157,30 +156,25 @@ pub extern "system" fn sq_keyid_free(keyid: *mut KeyId) {
 }
 
 
-/* keys.  */
+/* sequoia::keys.  */
+
+/// Returns the first TPK found in `buf`.
+///
+/// `buf` must be an OpenPGP encoded message.
 #[no_mangle]
 pub extern "system" fn sq_tpk_from_bytes(b: *const uint8_t, len: size_t) -> *mut TPK {
     assert!(!b.is_null());
-    let bytes = unsafe {
+    let buf = unsafe {
         slice::from_raw_parts(b, len as usize)
     };
-    let m = openpgp::Message::from_bytes(bytes);
-
-    if let Some(tpk) = m.ok().and_then(|m| TPK::from_message(m)) {
+    if let Ok(tpk) = TPK::from_bytes(buf) {
         Box::into_raw(Box::new(tpk))
     } else {
         ptr::null_mut()
     }
 }
 
-#[no_mangle]
-pub extern "system" fn sq_tpk_dump(tpk: *mut TPK) {
-    assert!(!tpk.is_null());
-    unsafe {
-        println!("{:?}", *tpk);
-    }
-}
-
+/// Frees the TPK.
 #[no_mangle]
 pub extern "system" fn sq_tpk_free(tpk: *mut TPK) {
     if tpk.is_null() {
@@ -190,6 +184,18 @@ pub extern "system" fn sq_tpk_free(tpk: *mut TPK) {
         drop(Box::from_raw(tpk));
     }
 }
+
+/// Dumps the TPK.
+#[no_mangle]
+pub extern "system" fn sq_tpk_dump(tpk: *mut TPK) {
+    assert!(!tpk.is_null());
+    unsafe {
+        println!("{:?}", *tpk);
+    }
+}
+
+
+/* sequoia::net.  */
 
 /// Returns a handle for the given URI.
 ///
