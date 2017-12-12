@@ -3,6 +3,7 @@
 // an included file confuses rust (it looks for the module in the
 // wrong place).  Hence, that here as well.
 
+pub mod armor;
 pub mod parse;
 pub mod types;
 

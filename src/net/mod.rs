@@ -41,10 +41,9 @@ use std::io::{Cursor, Read};
 use std::io;
 
 use super::Context;
-use super::armor;
 use super::keys::TPK;
 use super::openpgp::types::KeyId;
-use super::openpgp;
+use super::openpgp::{self, armor};
 
 define_encode_set! {
     /// Encoding used for submitting keys.

@@ -18,7 +18,6 @@ pub mod keys;
 pub mod store;
 pub mod net;
 pub mod ffi;
-pub mod armor;
 
 mod buffered_reader;
 

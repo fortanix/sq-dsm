@@ -23,7 +23,7 @@
 //!
 //! ```rust,no_run
 //! use std::fs::File;
-//! use sequoia::armor::{Reader, Kind};
+//! use sequoia::openpgp::armor::{Reader, Kind};
 //!
 //! let mut file = File::open("somefile.asc").unwrap();
 //! let mut r = Reader::new(&mut file, Kind::File);
