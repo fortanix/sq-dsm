@@ -254,7 +254,7 @@ impl From<hyper::StatusCode> for Error {
     }
 }
 
-    impl From<io::Error> for Error {
+impl From<io::Error> for Error {
     fn from(error: io::Error) -> Self {
         Error::IoError(error)
     }

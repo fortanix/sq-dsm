@@ -4,19 +4,23 @@
 #include <stddef.h>
 #include <stdint.h>
 
+
+/* sequoia::Context.  */
+
 /*/
-/// A `&Context` is required for many operations.
+/// A `struct sq_context *` is required for many operations.
 ///
 /// # Example
 ///
 /// ```c
 /// struct sq_context *ctx sq_context_new("org.sequoia-pgp.example");
-/// if (ctx == 0) { ... }
+/// if (ctx == NULL) { ... }
 /// ```
 /*/
 struct sq_context;
 
 /*/
+/// Represents a `Context` configuration.
 /*/
 struct sq_config;
 
@@ -64,7 +68,8 @@ const char *sq_context_home(const struct sq_context *ctx);
 /*/
 const char *sq_context_lib(const struct sq_context *ctx);
 
-/*  sequoia::Config.  */
+
+/* sequoia::Config.  */
 
 /*/
 /// Finalizes the configuration and return a `Context`.
@@ -83,9 +88,26 @@ void sq_config_home(struct sq_config *cfg, const char *home);
 /*/
 void sq_config_lib(struct sq_config *cfg, const char *lib);
 
+/* sequoia::openpgp::types.  */
+
+/*/
+/// Uniquely identifies OpenPGP keys.
+/*/
 struct sq_keyid;
+
+/*/
+/// Returns a KeyID with the given `id`.
+/*/
 struct sq_keyid *sq_keyid_new (uint64_t id);
+
+/*/
+/// Returns a KeyID with the given `id` encoded as hexadecimal string.
+/*/
 struct sq_keyid *sq_keyid_from_hex (const char *id);
+
+/*/
+/// Frees a keyid object.
+/*/
 void sq_keyid_free (struct sq_keyid *keyid);
 
 struct sq_tpk;
