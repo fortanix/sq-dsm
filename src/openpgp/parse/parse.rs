@@ -14,7 +14,7 @@ use super::*;
 ///   [ encryption container: [ signature: [ compressioned data: [ literal data ]]]]
 ///
 /// So, this should be more than enough.
-const MAX_RECURSION_DEPTH : usize = 16;
+const MAX_RECURSION_DEPTH : u8 = 16;
 
 // Packet headers.
 
@@ -525,10 +525,14 @@ pub struct PacketParser<'a> {
 
     // This packets recursion depth.  A top-level packet has a
     // recursion depth of 0.
-    recursion_depth: usize,
+    recursion_depth: u8,
 
     // The maximum allowed recursion depth.
-    max_recursion_depth: usize,
+    //
+    // There is absolutely no reason that this should be more than
+    // 255.  Moreover, if it is too large, then a read from the
+    // pipeline will blow the stack.
+    max_recursion_depth: u8,
 
     // The packet that is being parsed.
     packet: Packet,
@@ -568,7 +572,7 @@ impl <'a> PacketParser<'a> {
     /// To manage the amount of recursion manually, just pass
     /// std::usize::MAX.
     pub fn new<R: BufferedReader + 'a>(bio: R,
-                                       max_recursion_depth: Option<usize>)
+                                       max_recursion_depth: Option<u8>)
             -> Result<Option<PacketParser<'a>>, std::io::Error> {
         // Parse the first packet.
         let pp = PacketParser::parse(bio)?;
@@ -773,7 +777,7 @@ impl Container {
 
 impl Message {
     pub fn deserialize<R: BufferedReader>
-            (bio: R, max_recursion_depth: Option<usize>)
+            (bio: R, max_recursion_depth: Option<u8>)
             -> Result<Message, std::io::Error> {
         // Create a top-level container.
         let mut top_level = Container::new();
@@ -974,14 +978,11 @@ fn compression_quine_test_2 () {
     let mut f = File::open(&path).expect(&path.to_string_lossy());
 
     let bio = BufferedReaderGeneric::new(&mut f, None);
-    // XXX: If I set this higher, I get a stack overflow stemming from
-    // PacketParser::finish and its call to steal_eof.  This needs to
-    // be investigated.
-    let max_recursion_depth = 512;
+    let max_recursion_depth = 255;
     let mut ppo : Option<PacketParser>
         = PacketParser::new(bio, Some(max_recursion_depth)).unwrap();
 
-    let mut count = 0;
+    let mut count : usize = 0;
     loop {
         if let Some(pp2) = ppo {
             count += 1;
@@ -992,5 +993,5 @@ fn compression_quine_test_2 () {
             break;
         }
     }
-    assert_eq!(count, 1 + max_recursion_depth);
+    assert_eq!(count, 1 + max_recursion_depth as usize);
 }
