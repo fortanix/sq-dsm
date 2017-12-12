@@ -1,0 +1,8 @@
+[package]
+name = "buffered-reader"
+version = "0.1.0"
+authors = ["Neal H. Walfield <neal@gnu.org>"]
+
+[dependencies]
+bzip2 = "0.3.2"
+flate2 = "0.2"

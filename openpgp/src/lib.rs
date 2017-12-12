@@ -1,6 +1,22 @@
-// Machinery for parsing and serializing OpenPGP packet headers.
+//! OpenPGP data types and machinery.
 
-use std;
+extern crate buffered_reader;
+
+// For #[derive(FromPrimitive)]
+extern crate num;
+
+#[macro_use]
+extern crate num_derive;
+
+#[macro_use]
+extern crate nom;
+
+pub mod armor;
+pub mod parse;
+pub mod tpk;
+pub mod types;
+pub mod partial_body;
+
 use std::ops::{Deref,DerefMut};
 
 use std::cell::RefCell;

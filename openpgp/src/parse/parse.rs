@@ -4,6 +4,7 @@ use std::fs::File;
 use num::FromPrimitive;
 
 use ::buffered_reader::*;
+use super::partial_body::BufferedReaderPartialBodyFilter;
 
 use super::*;
 
@@ -458,7 +459,7 @@ use std::path::PathBuf;
 
 #[cfg(test)]
 fn path_to(artifact: &str) -> PathBuf {
-    [env!("CARGO_MANIFEST_DIR"), "src", "openpgp", "parse", artifact]
+    [env!("CARGO_MANIFEST_DIR"), "src", "parse", artifact]
         .iter().collect()
 }
 

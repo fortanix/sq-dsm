@@ -1,7 +1,8 @@
-use io;
+//! Transferable public keys.
 
-use openpgp;
-use super::Packet;
+use std::io;
+
+use super::{Packet, Message, Signature, Key, UserID};
 
 /// A transferable public key (TPK).
 ///
@@ -12,21 +13,21 @@ use super::Packet;
 /// [RFC 4880, section 11.1]: https://tools.ietf.org/html/rfc4880#section-11.1
 #[derive(Debug)]
 pub struct TPK {
-    primary: openpgp::Key,
+    primary: Key,
     userids: Vec<UserIDBinding>,
     subkeys: Vec<SubkeyBinding>,
 }
 
 #[derive(Debug)]
 pub struct SubkeyBinding {
-    subkey: openpgp::Key,
-    signatures: Vec<openpgp::Signature>,
+    subkey: Key,
+    signatures: Vec<Signature>,
 }
 
 #[derive(Debug)]
 pub struct UserIDBinding {
-    userid: openpgp::UserID,
-    signatures: Vec<openpgp::Signature>,
+    userid: UserID,
+    signatures: Vec<Signature>,
 }
 
 #[derive(Debug)]
@@ -40,7 +41,7 @@ enum States {
 
 impl TPK {
     /// Returns the first TPK found in `m`.
-    pub fn from_message(m: openpgp::Message) -> Result<Self> {
+    pub fn from_message(m: Message) -> Result<Self> {
         let mut state = States::Start;
         let mut primary = None;
         let mut userids = vec![];
@@ -142,7 +143,7 @@ impl TPK {
     ///
     /// `buf` must be an OpenPGP encoded message.
     pub fn from_bytes(buf: &[u8]) -> Result<Self> {
-        openpgp::Message::from_bytes(buf)
+        Message::from_bytes(buf)
             .map_err(|e| Error::IoError(e))
             .and_then(Self::from_message)
     }
@@ -173,27 +174,27 @@ impl TPK {
     }
 
     /// Serialize the transferable public key into an OpenPGP message.
-    pub fn to_message(self) -> openpgp::Message {
-        let mut p : Vec<openpgp::Packet> = Vec::new();
+    pub fn to_message(self) -> Message {
+        let mut p : Vec<Packet> = Vec::new();
 
-        p.push(openpgp::Packet::PublicKey(self.primary));
+        p.push(Packet::PublicKey(self.primary));
 
         for u in self.userids.into_iter() {
-            p.push(openpgp::Packet::UserID(u.userid));
+            p.push(Packet::UserID(u.userid));
             for s in u.signatures.into_iter() {
-                p.push(openpgp::Packet::Signature(s));
+                p.push(Packet::Signature(s));
             }
         }
 
         let subkeys = self.subkeys;
         for k in subkeys.into_iter() {
-            p.push(openpgp::Packet::PublicSubkey(k.subkey));
+            p.push(Packet::PublicSubkey(k.subkey));
             for s in k.signatures.into_iter() {
-                p.push(openpgp::Packet::Signature(s));
+                p.push(Packet::Signature(s));
             }
         }
 
-        openpgp::Message::from_packets(p)
+        Message::from_packets(p)
     }
 }
 
@@ -218,36 +219,36 @@ impl From<io::Error> for Error {
 
 #[cfg(test)]
 mod test {
-    use super::{Error, TPK, openpgp};
+    use super::{Error, TPK, Message};
 
     macro_rules! bytes {
-        ( $x:expr ) => { include_bytes!(concat!("../../tests/data/keys/", $x)) };
+        ( $x:expr ) => { include_bytes!(concat!("../tests/data/keys/", $x)) };
     }
 
     #[test]
     fn broken() {
-        let m = openpgp::Message::from_bytes(bytes!("testy-broken-no-pk.pgp")).unwrap();
+        let m = Message::from_bytes(bytes!("testy-broken-no-pk.pgp")).unwrap();
         if let Err(Error::NoKeyFound) = TPK::from_message(m) {
             /* Pass.  */
         } else {
             panic!("Expected error, got none.");
         }
 
-        let m = openpgp::Message::from_bytes(bytes!("testy-broken-no-uid.pgp")).unwrap();
+        let m = Message::from_bytes(bytes!("testy-broken-no-uid.pgp")).unwrap();
         if let Err(Error::NoUserId) = TPK::from_message(m) {
             /* Pass.  */
         } else {
             panic!("Expected error, got none.");
         }
 
-        let m = openpgp::Message::from_bytes(bytes!("testy-broken-no-sig-on-subkey.pgp")).unwrap();
+        let m = Message::from_bytes(bytes!("testy-broken-no-sig-on-subkey.pgp")).unwrap();
         let tpk = TPK::from_message(m).unwrap();
         assert_eq!(tpk.subkeys.len(), 0);
     }
 
     #[test]
     fn basics() {
-        let m = openpgp::Message::from_bytes(bytes!("testy.pgp")).unwrap();
+        let m = Message::from_bytes(bytes!("testy.pgp")).unwrap();
         let orig_dbg = format!("{:?}", m);
         let tpk = TPK::from_message(m).unwrap();
         //println!("{:?}", tpk);
@@ -260,7 +261,7 @@ mod test {
         // XXX Messages cannot be compared.
         assert_eq!(format!("{:?}", tpk.to_message()), orig_dbg);
 
-        let m = openpgp::Message::from_bytes(bytes!("testy-no-subkey.pgp")).unwrap();
+        let m = Message::from_bytes(bytes!("testy-no-subkey.pgp")).unwrap();
         let orig_dbg = format!("{:?}", m);
         let tpk = TPK::from_message(m).unwrap();
 

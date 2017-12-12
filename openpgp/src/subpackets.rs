@@ -188,8 +188,7 @@ fn subpacket_test_1 () {
     use std::fs::File;
 
     let path : PathBuf = [env!("CARGO_MANIFEST_DIR"),
-                          "src", "openpgp", "parse",
-                          "signed.gpg"]
+                          "src", "parse", "signed.gpg"]
         .iter().collect();
     let mut f = File::open(&path).expect(&path.to_string_lossy());
     let bio = BufferedReaderGeneric::new(&mut f, None);

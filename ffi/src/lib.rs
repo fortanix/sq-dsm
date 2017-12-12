@@ -1,17 +1,49 @@
+//! Provides a Foreign Function Interface.
+//!
+//! We provide a set of functions that use C types and the C calling
+//! convention.  This interfaces allows you to use Sequoia safely from
+//! any other language.
+//!
+//! # Guarantees
+//!
+//! Provided that the caller obeys her side of the contract, this
+//! library...
+//!
+//!  - will not make an invalid memory access,
+//!  - will not `abort(2)`,
+//!  - XXX
+//!
+//! # Types
+//!
+//! Sequoia objects are opaque objects.  They are created in
+//! constructors, and must be freed when no longer needed.
+//!
+//! Strings must be UTF-8 encoded and zero-terminated.
+//!
+//! # Lifetimes
+//!
+//! Objects created using a context must not outlive that context.
+//! Similarly, iterators must not outlive the object they are created
+//! from.
+
+
 extern crate libc;
 extern crate native_tls;
+extern crate openpgp;
+extern crate sequoia_core;
+extern crate sequoia_net;
 
 use std::ffi::CStr;
 use std::ptr;
 use std::slice;
 use std::str;
 
-use net::KeyServer;
 use openpgp::tpk::TPK;
 use openpgp::types::KeyId;
 use self::libc::{uint8_t, uint64_t, c_char, size_t};
 use self::native_tls::Certificate;
-use super::{Config, Context};
+use sequoia_core::{Config, Context};
+use sequoia_net::KeyServer;
 
 /*  sequoia::Context.  */
 

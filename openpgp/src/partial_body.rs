@@ -3,9 +3,9 @@ use std::cmp;
 use std::io;
 use std::io::{Error,ErrorKind};
 
-use super::*;
-use ::openpgp::BodyLength;
-use ::openpgp::parse::body_length_new_format;
+use buffered_reader::{buffered_reader_generic_read_impl, BufferedReader};
+use super::BodyLength;
+use parse::body_length_new_format;
 
 /// A `BufferedReader` that transparently handles OpenPGP's chunking
 /// scheme.  This implicitly implements a limitor.
@@ -248,7 +248,7 @@ impl<T: BufferedReader> BufferedReaderPartialBodyFilter<T> {
 
 impl<T: BufferedReader> std::io::Read for BufferedReaderPartialBodyFilter<T> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, std::io::Error> {
-        return super::buffered_reader_generic_read_impl(self, buf);
+        return buffered_reader_generic_read_impl(self, buf);
     }
 }
 

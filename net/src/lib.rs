@@ -14,19 +14,30 @@
 //! [SKS keyserver]: https://www.sks-keyservers.net/overview-of-pools.php#pool_hkps
 //!
 //! ```no_run
-//! # use sequoia::net;
-//! # use sequoia::openpgp::types::KeyId;
-//! let ctx = sequoia::Context::new("org.sequoia-pgp.example").unwrap();
-//! let mut ks = net::KeyServer::sks_pool(&ctx).unwrap();
+//! # extern crate openpgp;
+//! # extern crate sequoia_core;
+//! # extern crate sequoia_net;
+//! # use openpgp::types::KeyId;
+//! # use sequoia_core::Context;
+//! # use sequoia_net::KeyServer;
+//! # fn main() {
+//! let ctx = Context::new("org.sequoia-pgp.example").unwrap();
+//! let mut ks = KeyServer::sks_pool(&ctx).unwrap();
 //! let keyid = KeyId::from_hex("31855247603831FD").unwrap();
 //! println!("{:?}", ks.get(&keyid));
+//! # }
 //! ```
+
+extern crate openpgp;
+extern crate sequoia_core;
 
 extern crate futures;
 extern crate hyper;
 extern crate hyper_tls;
 extern crate native_tls;
 extern crate tokio_core;
+#[macro_use]
+extern crate percent_encoding;
 
 use percent_encoding::{percent_encode, DEFAULT_ENCODE_SET};
 use self::futures::{Future, Stream};
@@ -40,10 +51,10 @@ use std::convert::From;
 use std::io::{Cursor, Read};
 use std::io;
 
-use super::Context;
-use super::openpgp::tpk::{self, TPK};
-use super::openpgp::types::KeyId;
-use super::openpgp::{self, armor};
+use sequoia_core::Context;
+use openpgp::tpk::{self, TPK};
+use openpgp::types::KeyId;
+use openpgp::{Message, armor};
 
 define_encode_set! {
     /// Encoding used for submitting keys.
@@ -159,7 +170,7 @@ impl KeyServer {
             Err(e) => Err(Error::HyperError(e)),
         };
 
-        let m = openpgp::Message::from_bytes(&key?)?;
+        let m = Message::from_bytes(&key?)?;
         TPK::from_message(m).map_err(|e| Error::KeysError(e))
     }
 

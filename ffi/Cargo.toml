@@ -1,0 +1,16 @@
+[package]
+name = "sequoia-ffi"
+version = "0.1.0"
+authors = ["Justus Winter <justus@pep-project.org>"]
+
+[dependencies]
+openpgp = { path = "../openpgp" }
+sequoia-core = { path = "../core" }
+sequoia-store = { path = "../store" }
+sequoia-net = { path = "../net" }
+native-tls = "0.1.4"
+libc = "0.2.33"
+
+
+[lib]
+crate-type = ["dylib"]

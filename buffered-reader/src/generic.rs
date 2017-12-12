@@ -232,7 +232,7 @@ fn buffered_reader_generic_test() {
         use std::fs::File;
 
         let path : PathBuf = [env!("CARGO_MANIFEST_DIR"),
-                              "src", "buffered_reader", "buffered-reader-test.txt"]
+                              "src", "buffered-reader-test.txt"]
             .iter().collect();
         let mut f = File::open(&path).expect(&path.to_string_lossy());
         let mut bio = BufferedReaderGeneric::new(&mut f, None);

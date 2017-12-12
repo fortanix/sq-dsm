@@ -1,0 +1,6 @@
+[package]
+name = "sequoia-store"
+version = "0.1.0"
+authors = ["Justus Winter <justus@pep-project.org>"]
+
+[dependencies]
