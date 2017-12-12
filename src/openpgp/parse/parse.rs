@@ -6,10 +6,10 @@ use num::FromPrimitive;
 use super::*;
 
 use ::buffered_reader::*;
-use ::buffered_reader::buffered_reader_partial_body::*;
-use ::buffered_reader::buffered_reader_decompress::BufferedReaderDeflate;
-use ::buffered_reader::buffered_reader_decompress::BufferedReaderZlib;
-use ::buffered_reader::buffered_reader_decompress::BufferedReaderBzip;
+use ::buffered_reader::partial_body::*;
+use ::buffered_reader::decompress::BufferedReaderDeflate;
+use ::buffered_reader::decompress::BufferedReaderZlib;
+use ::buffered_reader::decompress::BufferedReaderBzip;
 
 /// The default amount of acceptable nesting.  Typically, we expect a
 /// message to looking like:
