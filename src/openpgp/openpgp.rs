@@ -103,12 +103,12 @@ pub enum Tag {
 /// They both include the packet's so-called tag.
 #[derive(Debug)]
 pub struct CTBCommon {
-    tag: Tag,
+    pub tag: Tag,
 }
 
 #[derive(Debug)]
 pub struct CTBNew {
-    common: CTBCommon,
+    pub common: CTBCommon,
 }
 
 // Allow transparent access of common fields.
@@ -132,8 +132,8 @@ pub enum PacketLengthType {
 
 #[derive(Debug)]
 pub struct CTBOld {
-    common: CTBCommon,
-    length_type: PacketLengthType,
+    pub common: CTBCommon,
+    pub length_type: PacketLengthType,
 }
 
 // Allow transparent access of common fields.
@@ -181,8 +181,8 @@ pub enum BodyLength {
 
 #[derive(PartialEq)]
 pub struct PacketCommon {
-    children: Option<Container>,
-    content: Option<Vec<u8>>,
+    pub children: Option<Container>,
+    pub content: Option<Vec<u8>>,
 }
 
 impl std::fmt::Debug for PacketCommon {
@@ -198,31 +198,31 @@ impl std::fmt::Debug for PacketCommon {
 /// An OpenPGP packet's header.
 #[derive(Debug)]
 pub struct Header {
-    ctb: CTB,
-    length: BodyLength,
+    pub ctb: CTB,
+    pub length: BodyLength,
 }
 
 #[derive(PartialEq,Debug)]
 pub struct Unknown {
-    common: PacketCommon,
-    tag: Tag,
+    pub common: PacketCommon,
+    pub tag: Tag,
 }
 
 #[derive(PartialEq)]
 pub struct Signature {
-    common: PacketCommon,
-    version: u8,
-    sigtype: u8,
-    pk_algo: u8,
-    hash_algo: u8,
-    hashed_area: Vec<u8>,
+    pub common: PacketCommon,
+    pub version: u8,
+    pub sigtype: u8,
+    pub pk_algo: u8,
+    pub hash_algo: u8,
+    pub hashed_area: Vec<u8>,
     // We parse the subpackets on demand.  Since self-referential
     // structs are a no-no, we use (start, len) to reference the
     // content in hashed_area.
-    hashed_area_parsed: RefCell<Option<HashMap<u8, (bool, u16, u16)>>>,
-    unhashed_area: Vec<u8>,
-    hash_prefix: [u8; 2],
-    mpis: Vec<u8>,
+    pub hashed_area_parsed: RefCell<Option<HashMap<u8, (bool, u16, u16)>>>,
+    pub unhashed_area: Vec<u8>,
+    pub hash_prefix: [u8; 2],
+    pub mpis: Vec<u8>,
 }
 
 impl std::fmt::Debug for Signature {
@@ -246,12 +246,12 @@ impl std::fmt::Debug for Signature {
 
 #[derive(PartialEq)]
 pub struct Key {
-    common: PacketCommon,
-    version: u8,
+    pub common: PacketCommon,
+    pub version: u8,
     /* When the key was created.  */
-    creation_time: u32,
-    pk_algo: u8,
-    mpis: Vec<u8>,
+    pub creation_time: u32,
+    pub pk_algo: u8,
+    pub mpis: Vec<u8>,
 }
 
 impl std::fmt::Debug for Key {
@@ -269,8 +269,8 @@ impl std::fmt::Debug for Key {
 
 #[derive(PartialEq)]
 pub struct UserID {
-    common: PacketCommon,
-    value: Vec<u8>,
+    pub common: PacketCommon,
+    pub value: Vec<u8>,
 }
 
 impl std::fmt::Debug for UserID {
@@ -285,15 +285,15 @@ impl std::fmt::Debug for UserID {
 
 #[derive(PartialEq)]
 pub struct Literal {
-    common: PacketCommon,
-    format: u8,
+    pub common: PacketCommon,
+    pub format: u8,
     // filename is a string, but strings in Rust are valid UTF-8.
     // There is no guarantee, however, that the filename is valid
     // UTF-8.  Thus, we leave filename as a byte array.  It can be
     // converted to a string using String::from_utf8() or
     // String::from_utf8_lossy().
-    filename: Option<Vec<u8>>,
-    date: u32,
+    pub filename: Option<Vec<u8>>,
+    pub date: u32,
 }
 
 impl std::fmt::Debug for Literal {
@@ -330,8 +330,8 @@ impl std::fmt::Debug for Literal {
 
 #[derive(PartialEq)]
 pub struct CompressedData {
-    common: PacketCommon,
-    algo: u8,
+    pub common: PacketCommon,
+    pub algo: u8,
 }
 
 impl std::fmt::Debug for CompressedData {
@@ -397,7 +397,7 @@ impl<'a> DerefMut for Packet {
 /// packet).
 #[derive(PartialEq)]
 pub struct Container {
-    packets: Vec<Packet>,
+    pub packets: Vec<Packet>,
 }
 
 impl std::fmt::Debug for Container {
@@ -412,7 +412,7 @@ impl std::fmt::Debug for Container {
 pub struct Message {
     // At the top level, we have a sequence of packets, which may be
     // containers.
-    packets: Vec<Packet>,
+    pub packets: Vec<Packet>,
 }
 
 impl std::fmt::Debug for Message {
