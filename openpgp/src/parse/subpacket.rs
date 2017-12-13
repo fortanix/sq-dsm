@@ -1,7 +1,6 @@
 use std::io::Error;
 
 use super::*;
-use ::buffered_reader::*;
 
 #[derive(Debug)]
 #[derive(FromPrimitive)]

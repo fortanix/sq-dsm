@@ -24,8 +24,6 @@ use std::ops::{Deref,DerefMut};
 use std::cell::RefCell;
 use std::collections::HashMap;
 
-mod subpackets;
-
 /// The OpenPGP packet types.  The values correspond to the serialized
 /// format.  The packet types named UnassignedXX are not in use as of
 /// RFC 4880.

@@ -8,6 +8,7 @@ use super::partial_body::BufferedReaderPartialBodyFilter;
 
 use super::*;
 
+pub mod subpacket;
 pub mod key;
 
 /// The default amount of acceptable nesting.  Typically, we expect a
