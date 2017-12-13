@@ -5,13 +5,26 @@ use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 
-/// A `&Context` is required for many operations.
+/// A `&Context` for Sequoia.
 ///
 /// # Example
+///
+/// A context with reasonable defaults can be created using
+/// `Context::new`:
 ///
 /// ```
 /// # use sequoia_core::Context;
 /// let c = Context::new("org.example.webmail").unwrap();
+/// ```
+///
+/// A context can be configured using the builder pattern with
+/// `Context::configure`:
+///
+/// ```
+/// # use sequoia_core::Context;
+/// let c = Context::configure("org.example.webmail")
+///             .home("/tmp/foo")
+///             .build().unwrap();
 /// ```
 pub struct Context {
     domain: String,
@@ -19,9 +32,10 @@ pub struct Context {
     lib: PathBuf,
 }
 
+/// Returns $PREXIX, or a reasonable default prefix.
 fn prefix() -> PathBuf {
     /* XXX: Windows support.  */
-    PathBuf::from(option_env!("PREFIX").or(Some("/usr/local")).unwrap())
+    PathBuf::from(option_env!("PREFIX").unwrap_or("/usr/local"))
 }
 
 impl Context {
@@ -69,10 +83,20 @@ impl Context {
 }
 
 /// Represents a `Context` configuration.
+///
+/// A context can be configured using the builder pattern with
+/// `Context::configure`:
+///
+/// ```
+/// # use sequoia_core::Context;
+/// let c = Context::configure("org.example.webmail")
+///             .home("/tmp/foo")
+///             .build().unwrap();
+/// ```
 pub struct Config(Context);
 
 impl Config {
-    /// Finalizes the configuration and return a `Context`.
+    /// Finalizes the configuration and returns a `Context`.
     pub fn build(self) -> io::Result<Context> {
         let c = self.0;
         fs::create_dir_all(c.home())?;
@@ -90,7 +114,7 @@ impl Config {
         self.0.home = PathBuf::new().join(home);
     }
 
-    /// Set the directory containing backend servers.
+    /// Sets the directory containing backend servers.
     pub fn lib<P: AsRef<Path>>(mut self, lib: P) -> Self {
         self.set_lib(lib);
         self
