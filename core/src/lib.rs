@@ -44,7 +44,7 @@ impl Context {
     /// `domain` should uniquely identify your application, it is
     /// strongly suggested to use a reversed fully qualified domain
     /// name that is associated with your application.
-    pub fn new(domain: &str) -> io::Result<Self> {
+    pub fn new(domain: &str) -> Result<Self> {
         Self::configure(domain).build()
     }
 
@@ -97,7 +97,7 @@ pub struct Config(Context);
 
 impl Config {
     /// Finalizes the configuration and returns a `Context`.
-    pub fn build(self) -> io::Result<Context> {
+    pub fn build(self) -> Result<Context> {
         let c = self.0;
         fs::create_dir_all(c.home())?;
         Ok(c)
@@ -123,5 +123,23 @@ impl Config {
     /// Sets the directory containing shared state.
     pub fn set_lib<P: AsRef<Path>>(&mut self, lib: P) {
         self.0.lib = PathBuf::new().join(lib);
+    }
+}
+
+/* Error handling.  */
+
+/// Result type for Sequoia.
+pub type Result<T> = ::std::result::Result<T, Error>;
+
+/// Errors for Sequoia.
+#[derive(Debug)]
+pub enum Error {
+    /// An `io::Error` occured.
+    IoError(io::Error),
+}
+
+impl From<io::Error> for Error {
+    fn from(error: io::Error) -> Self {
+        Error::IoError(error)
     }
 }
