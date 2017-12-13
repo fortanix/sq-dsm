@@ -181,7 +181,6 @@ pub enum BodyLength {
 
 #[derive(PartialEq)]
 pub struct PacketCommon {
-    tag: Tag,
     children: Option<Container>,
     content: Option<Vec<u8>>,
 }
@@ -189,7 +188,6 @@ pub struct PacketCommon {
 impl std::fmt::Debug for PacketCommon {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         f.debug_struct("Signature")
-            .field("tag", &self.tag)
             .field("children", &self.children)
             .field("content (bytes)",
                    &self.content.as_ref().map(|content| content.len()))
@@ -207,6 +205,7 @@ pub struct Header {
 #[derive(PartialEq,Debug)]
 pub struct Unknown {
     common: PacketCommon,
+    tag: Tag,
 }
 
 #[derive(PartialEq)]
@@ -260,7 +259,6 @@ impl std::fmt::Debug for Key {
         let mpis = format!("{} bytes", self.mpis.len());
 
         f.debug_struct("Key")
-            .field("tag", &self.common.tag)
             .field("version", &self.version)
             .field("creation_time", &self.creation_time)
             .field("pk_algo", &self.pk_algo)

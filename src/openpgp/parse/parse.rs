@@ -164,15 +164,15 @@ fn header<R: BufferedReader> (bio: &mut R)
     return Ok(Header { ctb: ctb, length: length });
 }
 
-fn unknown_parser<'a, R: BufferedReader + 'a>(bio: R)
+fn unknown_parser<'a, R: BufferedReader + 'a>(bio: R, tag: Tag)
         -> Result<PacketParser<'a>, std::io::Error> {
     return Ok(PacketParser {
         packet: Packet::Unknown(Unknown {
             common: PacketCommon {
-                tag: Tag::Signature,
                 children: None,
                 content: None,
             },
+            tag: tag,
         }),
         reader: Box::new(bio),
         recursion_depth: 0,
@@ -197,7 +197,6 @@ fn signature_parser<'a, R: BufferedReader + 'a>(mut bio: R)
     return Ok(PacketParser {
         packet: Packet::Signature(Signature {
             common: PacketCommon {
-                tag: Tag::Signature,
                 children: None,
                 content: None,
             },
@@ -263,7 +262,6 @@ fn key_parser<'a, R: BufferedReader + 'a>(mut bio: R, tag: Tag)
 
     let key = Key {
         common: PacketCommon {
-            tag: tag,
             children: None,
             content: None,
         },
@@ -293,7 +291,6 @@ fn userid_parser<'a, R: BufferedReader + 'a>(mut bio: R)
     return Ok(PacketParser {
         packet: Packet::UserID(UserID {
             common: PacketCommon {
-                tag: Tag::UserID,
                 children: None,
                 content: None,
             },
@@ -323,7 +320,6 @@ fn literal_parser<'a, R: BufferedReader + 'a>(mut bio: R)
     return Ok(PacketParser {
         packet: Packet::Literal(Literal {
             common: PacketCommon {
-                tag: Tag::Literal,
                 children: None,
                 content: None,
             },
@@ -431,10 +427,10 @@ fn compressed_data_parser<'a, R: BufferedReader + 'a>(mut bio: R)
             return Ok(PacketParser {
                 packet: Packet::Unknown(Unknown {
                     common: PacketCommon {
-                        tag: Tag::CompressedData,
                         children: None,
                         content: None,
-                    }
+                    },
+                    tag: Tag::CompressedData,
                 }),
                 reader: Box::new(bio),
                 recursion_depth: 0,
@@ -446,7 +442,6 @@ fn compressed_data_parser<'a, R: BufferedReader + 'a>(mut bio: R)
     return Ok(PacketParser {
         packet: Packet::CompressedData(CompressedData {
             common: PacketCommon {
-                tag: Tag::CompressedData,
                 children: None,
                 content: None,
             },
@@ -639,7 +634,7 @@ impl <'a> PacketParser<'a> {
             Tag::CompressedData =>
                 compressed_data_parser(bio)?,
             _ =>
-                unknown_parser(bio)?,
+                unknown_parser(bio, tag)?,
         };
 
         return Ok(PacketParserOrBufferedReader::PacketParser(result));
