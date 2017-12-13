@@ -237,7 +237,7 @@ pub struct Signature {
     // We parse the subpackets on demand.  Since self-referential
     // structs are a no-no, we use (start, len) to reference the
     // content in hashed_area.
-    pub hashed_area_parsed: RefCell<Option<HashMap<u8, (bool, u16, u16)>>>,
+    hashed_area_parsed: RefCell<Option<HashMap<u8, (bool, u16, u16)>>>,
     pub unhashed_area: Vec<u8>,
     pub hash_prefix: [u8; 2],
     pub mpis: Vec<u8>,
