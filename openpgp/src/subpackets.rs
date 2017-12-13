@@ -177,8 +177,23 @@ impl Signature {
     // SignatureTarget
     // EmbeddedSignature
 
-    pub fn issuer_fingerprint<'a>(&'a self) -> Option<(bool, &'a[u8])> {
-        self.subpacket(SubpacketTag::IssuerFingerprint as u8)
+    pub fn issuer_fingerprint(&self) -> Option<(bool, Fingerprint)> {
+        match self.subpacket(SubpacketTag::IssuerFingerprint as u8) {
+            Some((critical, raw)) => {
+                let version = raw.get(0);
+                if let Some(version) = version {
+                    if *version == 4 {
+                        return Some((critical,
+                                     Fingerprint::from_bytes(&raw[1..])));
+                    }
+                }
+
+                // No idea what this is or even if the version is
+                // valid.
+                return Some((critical, Fingerprint::from_bytes(&raw[..])));
+            },
+            None => return None,
+        }
     }
 }
 
@@ -197,16 +212,16 @@ fn subpacket_test_1 () {
     eprintln!("Message: {:?}", message);
 
     let mut count = 0;
-    for (i, p) in message.iter().enumerate() {
-        count += 1;
-        eprintln!("{}: {:?}", i, p);
+    for p in message.iter() {
         if let &Packet::Signature(ref sig) = p {
+            count += 1;
+
             let mut got2 = false;
             let mut got33 = false;
 
             for i in 0..256 {
-                if let Some((critical, value)) = sig.subpacket(i as u8) {
-                    eprintln!("  {}: {:?}", i, value);
+                if let Some((critical, _value)) = sig.subpacket(i as u8) {
+                    // eprintln!("  {}: {:?}", i, value);
 
                     if i == 2 {
                         got2 = true;
@@ -221,8 +236,14 @@ fn subpacket_test_1 () {
             }
 
             assert!(got2 && got33);
+
+            let fp = sig.issuer_fingerprint().unwrap().1.to_string();
+            // eprintln!("Issuer: {}", fp);
+            assert!(
+                fp == "7FAF 6ED7 2381 4355 7BDF  7ED2 6863 C9AD 5B4D 22D3"
+                || fp == "C03F A641 1B03 AE12 5764  6118 7223 B566 78E0 2528");
         }
     }
-    // We expect 6 packets.
-    assert_eq!(count, 6);
+    // 2 packets have subpackets.
+    assert_eq!(count, 2);
 }
