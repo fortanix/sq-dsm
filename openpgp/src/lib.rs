@@ -11,6 +11,8 @@ extern crate num_derive;
 #[macro_use]
 extern crate nom;
 
+extern crate sha1;
+
 pub mod armor;
 pub mod parse;
 pub mod tpk;
@@ -527,5 +529,77 @@ impl<'a> Iterator for PacketIter<'a> {
         // First return the child itself.  Subsequent calls will
         // return its grandchildren.
         return self.child;
+    }
+}
+
+pub enum Fingerprint {
+    V4([u8;20]),
+    // Used for holding fingerprints that we don't understand.  For
+    // instance, we don't grok v3 fingerprints.  And, it is possible
+    // that the Issuer subpacket contains the wrong number of bytes.
+    Invalid(Box<[u8]>)
+}
+
+impl Fingerprint {
+    /// Reads a binary fingerprint.
+    pub fn from_bytes(raw: &[u8]) -> Fingerprint {
+        if raw.len() == 20 {
+            let mut fp : [u8; 20] = Default::default();
+            fp.copy_from_slice(raw);
+            Fingerprint::V4(fp)
+        } else {
+            Fingerprint::Invalid(raw.to_vec().into_boxed_slice())
+        }
+    }
+
+    // Converts the fingerprint to its standard representation.
+    pub fn to_string(&self) -> String {
+        let raw = match self {
+            &Fingerprint::V4(ref fp) => &fp[..],
+            &Fingerprint::Invalid(ref fp) => &fp[..],
+        };
+
+        // We currently only handle V4 fingerprints, which look like:
+        //
+        //   8F17 7771 18A3 3DDA 9BA4  8E62 AACB 3243 6300 52D9
+        //
+        // Since we have no idea how to format an invalid fingerprint,
+        // just format it like a V4 fingerprint and hope for the best.
+
+        let mut output = Vec::with_capacity(
+            // Each byte results in to hex characters.
+            raw.len() * 2
+            // Every 2 bytes of output, we insert a space.
+            + raw.len() / 2
+            // After 5 groups, there is another space.
+            + raw.len() / 10);
+
+        for (i, b) in raw.iter().enumerate() {
+            if i > 0 && i % 2 == 0 {
+                output.push(' ' as u8);
+            }
+
+            if i > 0 && i % 10 == 0 {
+                output.push(' ' as u8);
+            }
+
+            let top = b >> 4;
+            let bottom = b & 0xFu8;
+
+            if top < 10u8 {
+                output.push('0' as u8 + top)
+            } else {
+                output.push('A' as u8 + (top - 10u8))
+            }
+
+            if bottom < 10u8 {
+                output.push('0' as u8 + bottom)
+            } else {
+                output.push('A' as u8 + (bottom - 10u8))
+            }
+        }
+
+        // We know the content is valid UTF-8.
+        String::from_utf8(output).unwrap()
     }
 }
