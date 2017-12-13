@@ -51,7 +51,7 @@ use std::convert::From;
 use std::io::{Cursor, Read};
 use std::io;
 
-use sequoia_core::Context;
+use sequoia_core::{Context, NetworkPolicy};
 use openpgp::tpk::{self, TPK};
 use openpgp::types::KeyId;
 use openpgp::{Message, armor};
@@ -128,9 +128,14 @@ impl KeyServer {
     }
 
     /// Common code for the above functions.
-    fn make(_ctx: &Context, core: Core, client: Box<AClient>, uri: Uri) -> Result<Self> {
-        let uri = {
-            let s = uri.scheme().ok_or(Error::MalformedUri)?;
+    fn make(ctx: &Context, core: Core, client: Box<AClient>, uri: Uri) -> Result<Self> {
+        let s = uri.scheme().ok_or(Error::MalformedUri)?;
+        match s {
+            "hkp" => ctx.network_policy().assert(NetworkPolicy::Insecure),
+            "hkps" => ctx.network_policy().assert(NetworkPolicy::Encrypted),
+            _ => unreachable!()
+        }?;
+        let uri =
             format!("{}://{}:{}",
                     match s {"hkp" => "http", "hkps" => "https", _ => unreachable!()},
                     uri.host().ok_or(Error::MalformedUri)?,
@@ -138,8 +143,7 @@ impl KeyServer {
                         "hkp" => uri.port().or(Some(11371)),
                         "hkps" => uri.port().or(Some(443)),
                         _ => unreachable!(),
-                    }.unwrap())
-        }.parse()?;
+                    }.unwrap()).parse()?;
 
         Ok(KeyServer{core: core, client: client, uri: uri})
     }
@@ -248,6 +252,8 @@ pub enum Error {
     ProtocolViolation,
     /// There was an error parsing the key.
     KeysError(tpk::Error),
+    /// A `sequoia_core::Error` occured.
+    CoreError(sequoia_core::Error),
     /// Encountered an unexpected low-level http status.
     HttpStatus(hyper::StatusCode),
     /// An `io::Error` occured.
@@ -263,6 +269,12 @@ pub enum Error {
 impl From<tpk::Error> for Error {
     fn from(e: tpk::Error) -> Self {
         Error::KeysError(e)
+    }
+}
+
+impl From<sequoia_core::Error> for Error {
+    fn from(e: sequoia_core::Error) -> Self {
+        Error::CoreError(e)
     }
 }
 

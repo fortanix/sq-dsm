@@ -30,6 +30,7 @@ pub struct Context {
     domain: String,
     home: PathBuf,
     lib: PathBuf,
+    network_policy: NetworkPolicy,
 }
 
 /// Returns $PREXIX, or a reasonable default prefix.
@@ -63,6 +64,7 @@ impl Context {
             home: env::home_dir().unwrap_or(env::temp_dir())
                 .join(".sequoia"),
             lib: prefix().join("lib").join("sequoia"),
+            network_policy: NetworkPolicy::Encrypted,
         })
     }
 
@@ -80,6 +82,12 @@ impl Context {
     pub fn lib(&self) -> &Path {
         &self.lib
     }
+
+    /// Returns the network policy.
+    pub fn network_policy(&self) -> &NetworkPolicy {
+        &self.network_policy
+    }
+
 }
 
 /// Represents a `Context` configuration.
@@ -124,6 +132,17 @@ impl Config {
     pub fn set_lib<P: AsRef<Path>>(&mut self, lib: P) {
         self.0.lib = PathBuf::new().join(lib);
     }
+
+    /// Sets the network policy.
+    pub fn network_policy(mut self, policy: NetworkPolicy) -> Self {
+        self.set_network_policy(policy);
+        self
+    }
+
+    /// Sets the network policy.
+    pub fn set_network_policy(&mut self, policy: NetworkPolicy) {
+        self.0.network_policy = policy;
+    }
 }
 
 /* Error handling.  */
@@ -134,6 +153,8 @@ pub type Result<T> = ::std::result::Result<T, Error>;
 /// Errors for Sequoia.
 #[derive(Debug)]
 pub enum Error {
+    /// The network policy was violated by the given action.
+    NetworkPolicyViolation(NetworkPolicy),
     /// An `io::Error` occured.
     IoError(io::Error),
 }
@@ -141,5 +162,98 @@ pub enum Error {
 impl From<io::Error> for Error {
     fn from(error: io::Error) -> Self {
         Error::IoError(error)
+    }
+}
+
+/* Network policy.  */
+
+/// Network policy for Sequoia.
+///
+/// With this policy you can control how Sequoia accesses remote
+/// systems.
+#[derive(PartialEq, PartialOrd, Debug, Copy, Clone)]
+pub enum NetworkPolicy {
+    /// Do not contact remote systems.
+    Offline,
+
+    /// Only contact remote systems using anonymization techniques
+    /// like TOR.
+    Anonymized,
+
+    /// Only contact remote systems using transports offering
+    /// encryption and authentication like TLS.
+    Encrypted,
+
+    /// Contact remote systems even with insecure transports.
+    Insecure,
+}
+
+impl NetworkPolicy {
+    pub fn assert(&self, action: NetworkPolicy) -> Result<()> {
+        if action > *self {
+            Err(Error::NetworkPolicyViolation(action))
+        } else {
+            Ok(())
+        }
+    }
+}
+
+#[cfg(test)]
+mod network_policy_test {
+    use super::{Error, NetworkPolicy};
+
+    macro_rules! assert_match {
+        (  $result:expr, $error: pat ) => {
+            if let $error = $result {
+                /* Pass.  */
+            } else {
+                panic!("Expected {}, got {:?}.", stringify!($error), $result);
+            }
+        };
+    }
+
+
+    #[test]
+    fn offline() {
+        let p = NetworkPolicy::Offline;
+        assert_match!(p.assert(NetworkPolicy::Anonymized),
+                      Err(Error::NetworkPolicyViolation(_)));
+        assert_match!(p.assert(NetworkPolicy::Encrypted),
+                      Err(Error::NetworkPolicyViolation(_)));
+        assert_match!(p.assert(NetworkPolicy::Insecure),
+                      Err(Error::NetworkPolicyViolation(_)));
+    }
+
+    #[test]
+    fn anonymized() {
+        let p = NetworkPolicy::Anonymized;
+        assert_match!(p.assert(NetworkPolicy::Anonymized),
+                      Ok(()));
+        assert_match!(p.assert(NetworkPolicy::Encrypted),
+                      Err(Error::NetworkPolicyViolation(_)));
+        assert_match!(p.assert(NetworkPolicy::Insecure),
+                      Err(Error::NetworkPolicyViolation(_)));
+    }
+
+    #[test]
+    fn encrypted() {
+        let p = NetworkPolicy::Encrypted;
+        assert_match!(p.assert(NetworkPolicy::Anonymized),
+                      Ok(()));
+        assert_match!(p.assert(NetworkPolicy::Encrypted),
+                      Ok(()));
+        assert_match!(p.assert(NetworkPolicy::Insecure),
+                      Err(Error::NetworkPolicyViolation(_)));
+    }
+
+    #[test]
+    fn insecure() {
+        let p = NetworkPolicy::Insecure;
+        assert_match!(p.assert(NetworkPolicy::Anonymized),
+                      Ok(()));
+        assert_match!(p.assert(NetworkPolicy::Encrypted),
+                      Ok(()));
+        assert_match!(p.assert(NetworkPolicy::Insecure),
+                      Ok(()));
     }
 }

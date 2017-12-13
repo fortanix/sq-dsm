@@ -25,6 +25,27 @@ struct sq_context;
 struct sq_config;
 
 /*/
+/// Network policy for Sequoia.
+///
+/// With this policy you can control how Sequoia accesses remote
+/// systems.
+/*/
+
+/* Do not contact remote systems.  */
+#define SQ_NETWORK_POLICY_OFFLINE	0
+
+/* Only contact remote systems using anonymization techniques
+ * like TOR.  */
+#define SQ_NETWORK_POLICY_ANONYMIZED	1
+
+/* Only contact remote systems using transports offering
+ * encryption and authentication like TLS.  */
+#define SQ_NETWORK_POLICY_ENCRYPTED	2
+
+/* Contact remote systems even with insecure transports.  */
+#define SQ_NETWORK_POLICY_INSECURE	3
+
+/*/
 /// Creates a Context with reasonable defaults.
 ///
 /// `domain` should uniquely identify your application, it is strongly
@@ -68,6 +89,11 @@ const char *sq_context_home(const struct sq_context *ctx);
 /*/
 const char *sq_context_lib(const struct sq_context *ctx);
 
+/*/
+/// Returns the network policy.
+/*/
+uint8_t sq_context_network_policy(const struct sq_context *ctx);
+
 
 /* sequoia::Config.  */
 
@@ -87,6 +113,12 @@ void sq_config_home(struct sq_config *cfg, const char *home);
 /// Sets the directory containing backend servers.
 /*/
 void sq_config_lib(struct sq_config *cfg, const char *lib);
+
+/*/
+/// Sets the network policy.
+/*/
+void sq_config_network_policy(struct sq_config *cfg, uint8_t policy);
+
 
 /* sequoia::openpgp::types.  */
 
