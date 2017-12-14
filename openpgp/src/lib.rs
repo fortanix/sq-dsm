@@ -470,27 +470,10 @@ impl Message {
     }
 }
 
-impl Packet {
-    pub fn iter(&self) -> PacketIter {
-        match self {
-            &Packet::CompressedData(ref cd) => return cd.iter(),
-            // The rest of the packets aren't containers.
-            _ => {
-                let empty_packet_slice : &[Packet] = &[][..];
-                return PacketIter {
-                    children: empty_packet_slice.iter(),
-                    child: None,
-                    grandchildren: None,
-                }
-            },
-        }
-    }
-}
-
-impl CompressedData {
+impl PacketCommon {
     pub fn iter(&self) -> PacketIter {
         return PacketIter {
-            children: if let Some(ref container) = self.common.children {
+            children: if let Some(ref container) = self.children {
                 container.packets.iter()
             } else {
                 let empty_packet_slice : &[Packet] = &[][..];
