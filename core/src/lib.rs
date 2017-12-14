@@ -21,9 +21,9 @@ use std::path::{Path, PathBuf};
 /// `Context::configure`:
 ///
 /// ```
-/// # use sequoia_core::Context;
+/// # use sequoia_core::{Context, NetworkPolicy};
 /// let c = Context::configure("org.example.webmail")
-///             .home("/tmp/foo")
+///             .network_policy(NetworkPolicy::Offline)
 ///             .build().unwrap();
 /// ```
 pub struct Context {
@@ -96,9 +96,9 @@ impl Context {
 /// `Context::configure`:
 ///
 /// ```
-/// # use sequoia_core::Context;
+/// # use sequoia_core::{Context, NetworkPolicy};
 /// let c = Context::configure("org.example.webmail")
-///             .home("/tmp/foo")
+///             .network_policy(NetworkPolicy::Offline)
 ///             .build().unwrap();
 /// ```
 pub struct Config(Context);
