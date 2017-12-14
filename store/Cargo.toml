@@ -2,5 +2,31 @@
 name = "sequoia-store"
 version = "0.1.0"
 authors = ["Justus Winter <justus@pep-project.org>"]
+build = "build.rs"
+
+[features]
+default = ["background-services"]
+background-services = []
 
 [dependencies]
+openpgp = { path = "../openpgp" }
+sequoia-core = { path = "../core" }
+sequoia-net = { path = "../net" }
+capnp = "0.8"
+capnp-rpc = "0.8"
+futures = "0.1.17"
+rusqlite = "0.12.0"
+tokio-core = "0.1.10"
+tokio-io = "0.1.4"
+
+[build-dependencies]
+capnpc = "0.8"
+
+[lib]
+name = "sequoia_store"
+path = "src/lib.rs"
+
+[[bin]]
+name = "keystore"
+path = "src/server.rs"
+required-features = ["background-services"]
