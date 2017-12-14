@@ -1,4 +1,6 @@
 use std;
+use std::io;
+use std::str;
 use std::fs::File;
 
 use num::FromPrimitive;
@@ -771,6 +773,111 @@ impl <'a> PacketParser<'a> {
 
         return &mut self.packet;
     }
+}
+
+impl<'a> io::Read for PacketParser<'a> {
+    fn read(&mut self, buf: &mut [u8]) -> Result<usize, io::Error> {
+        return buffered_reader_generic_read_impl(self, buf);
+    }
+}
+
+impl<'a> BufferedReader for PacketParser<'a> {
+    fn data(&mut self, amount: usize) -> Result<&[u8], io::Error> {
+        return self.reader.data(amount);
+    }
+
+    fn data_hard(&mut self, amount: usize) -> Result<&[u8], io::Error> {
+        return self.reader.data_hard(amount);
+    }
+
+    fn data_eof(&mut self) -> Result<&[u8], io::Error> {
+        return self.reader.data_eof();
+    }
+
+    fn consume(&mut self, amount: usize) -> &[u8] {
+        return self.reader.consume(amount);
+    }
+
+    fn data_consume(&mut self, amount: usize)
+                    -> Result<&[u8], io::Error> {
+        return self.reader.data_consume(amount);
+    }
+
+    fn data_consume_hard(&mut self, amount: usize) -> Result<&[u8], io::Error> {
+        return self.reader.data_consume_hard(amount);
+    }
+
+    fn read_be_u16(&mut self) -> Result<u16, io::Error> {
+        return self.reader.read_be_u16();
+    }
+
+    fn read_be_u32(&mut self) -> Result<u32, io::Error> {
+        return self.reader.read_be_u32();
+    }
+
+    fn steal(&mut self, amount: usize) -> Result<Vec<u8>, io::Error> {
+        return self.reader.steal(amount);
+    }
+
+    fn steal_eof(&mut self) -> Result<Vec<u8>, io::Error> {
+        return self.reader.steal_eof();
+    }
+
+    fn into_inner<'b>(self: Box<Self>) -> Option<Box<BufferedReader + 'b>>
+            where Self: 'b {
+        None
+    }
+}
+
+// Check that we can use the read interface to stream the contents of
+// a packet.
+#[test]
+fn packet_parser_reader_interface() {
+    // We need the Read trait.
+    use std::io::Read;
+
+    let expected = include_bytes!("literal-mode-t-partial-body.txt");
+
+    // A message containing a compressed packet that contains a
+    // literal packet.
+    let path = path_to("compressed-data-algo-1.asc");
+    let mut f = File::open(&path).expect(&path.to_string_lossy());
+    let bio = BufferedReaderGeneric::new(&mut f, None);
+    let pp = PacketParser::new(bio, None).unwrap().unwrap();
+
+    // The message has the form:
+    //   [ compressed data [ literal data ] ]
+    let (packet, ppo, relative_position) = pp.recurse().unwrap();
+    if let Packet::CompressedData(_) = packet {
+    } else {
+        panic!("Expected a compressed data packet.");
+    }
+    assert_eq!(relative_position, 1);
+
+    let mut pp = ppo.unwrap();
+
+    if let Packet::Literal(_) = pp.packet {
+    } else {
+        panic!("Expected a literal data packet.");
+    }
+
+    // Check that we can read the packet's contents.  We do this one
+    // byte at a time to exercise the cursor implementation.
+    for i in 0..expected.len() {
+        let mut buf = [0u8; 1];
+        let r = pp.read(&mut buf).unwrap();
+        assert_eq!(r, 1);
+        assert_eq!(buf[0], expected[i]);
+    }
+    // And, now an EOF.
+    let mut buf = [0u8; 1];
+    let r = pp.read(&mut buf).unwrap();
+    assert_eq!(r, 0);
+
+    // Make sure we can still get the next packet (which in this case
+    // is just EOF).
+    let (_, ppo, _) = pp.recurse().unwrap();
+    assert!(ppo.is_none());
 }
 
 impl Container {
