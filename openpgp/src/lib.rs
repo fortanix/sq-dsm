@@ -413,7 +413,7 @@ impl<'a> DerefMut for Packet {
 /// packet).
 #[derive(PartialEq)]
 pub struct Container {
-    pub packets: Vec<Packet>,
+    packets: Vec<Packet>,
 }
 
 impl Container {
@@ -447,7 +447,7 @@ impl std::fmt::Debug for Container {
 pub struct Message {
     // At the top level, we have a sequence of packets, which may be
     // containers.
-    pub top_level: Container,
+    top_level: Container,
 }
 
 impl std::fmt::Debug for Message {
