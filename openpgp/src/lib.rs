@@ -416,6 +416,25 @@ pub struct Container {
     pub packets: Vec<Packet>,
 }
 
+impl Container {
+    pub fn descendants(&self) -> PacketIter {
+        return PacketIter {
+            // Iterate over each packet in the message.
+            children: self.children(),
+            child: None,
+            grandchildren: None,
+        };
+    }
+
+    pub fn children<'a>(&'a self) -> std::slice::Iter<'a, Packet> {
+        self.packets.iter()
+    }
+
+    pub fn into_children(self) -> std::vec::IntoIter<Packet> {
+        self.packets.into_iter()
+    }
+}
+
 impl std::fmt::Debug for Container {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         f.debug_struct("Container")
@@ -428,13 +447,13 @@ impl std::fmt::Debug for Container {
 pub struct Message {
     // At the top level, we have a sequence of packets, which may be
     // containers.
-    pub packets: Vec<Packet>,
+    pub top_level: Container,
 }
 
 impl std::fmt::Debug for Message {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         f.debug_struct("Message")
-            .field("packets", &self.packets)
+            .field("packets", &self.top_level.packets)
             .finish()
     }
 }
@@ -453,20 +472,19 @@ pub struct PacketIter<'a> {
 
 impl Message {
     pub fn from_packets(p: Vec<Packet>) -> Self {
-        Message { packets: p }
+        Message { top_level: Container { packets: p } }
     }
 
-    pub fn iter(&self) -> PacketIter {
-        return PacketIter {
-            // Iterate over each packet in the message.
-            children: self.packets.iter(),
-            child: None,
-            grandchildren: None,
-        };
+    pub fn descendants(&self) -> PacketIter {
+        self.top_level.descendants()
     }
 
-    pub fn into_iter(self) -> std::vec::IntoIter<Packet> {
-        self.packets.into_iter()
+    pub fn children<'a>(&'a self) -> std::slice::Iter<'a, Packet> {
+        self.top_level.children()
+    }
+
+    pub fn into_children(self) -> std::vec::IntoIter<Packet> {
+        self.top_level.into_children()
     }
 }
 

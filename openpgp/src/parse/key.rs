@@ -68,7 +68,7 @@ mod fingerprint_test {
                     "50E6 D924 308D BF22 3CFB  510A C2B8 1905 6C65 2598",
                     "2DC5 0AB5 5BE2 F3B0 4C2D  2CF8 A350 6AFB 820A BD08"];
 
-        for p in message.iter() {
+        for p in message.descendants() {
             if let &Packet::PublicKey(ref p) = p {
                 let fp = p.fingerprint().to_string();
                 // eprintln!("PK: {:?}", fp);

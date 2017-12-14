@@ -46,7 +46,7 @@ impl TPK {
         let mut primary = None;
         let mut userids = vec![];
         let mut subkeys = vec![];
-        for p in m.into_iter() {
+        for p in m.into_children() {
             state = match state {
                 States::Start => {
                     /* Find the first public key packet.  */

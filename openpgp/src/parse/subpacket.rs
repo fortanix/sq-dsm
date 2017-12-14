@@ -207,11 +207,11 @@ fn subpacket_test_1 () {
     let mut f = File::open(&path).expect(&path.to_string_lossy());
     let bio = BufferedReaderGeneric::new(&mut f, None);
     let message = Message::deserialize(bio, None).unwrap();
-    eprintln!("Message has {} top-level packets.", message.packets.len());
+    eprintln!("Message has {} top-level packets.", message.children().len());
     eprintln!("Message: {:?}", message);
 
     let mut count = 0;
-    for p in message.iter() {
+    for p in message.descendants() {
         if let &Packet::Signature(ref sig) = p {
             count += 1;
 

@@ -901,7 +901,7 @@ impl Message {
         let ppo = PacketParser::new(bio, max_recursion_depth)?;
         if ppo.is_none() {
             // Empty message.
-            return Ok(Message { packets: Vec::new() });
+            return Ok(Message::from_packets(Vec::new()));
         }
         let mut pp = ppo.unwrap();
 
@@ -964,7 +964,7 @@ impl Message {
             }
         }
 
-        return Ok(Message { packets: top_level.packets });
+        return Ok(Message { top_level: top_level });
     }
 
     pub fn from_file(mut file: File) -> Result<Message, std::io::Error> {
@@ -995,11 +995,11 @@ mod message_test {
         let bio = BufferedReaderMemory::new(data);
         let message = Message::deserialize(bio, None).unwrap();
         eprintln!("Message has {} top-level packets.",
-                  message.packets.len());
+                  message.children().len());
         eprintln!("Message: {:?}", message);
 
         let mut count = 0;
-        for (i, p) in message.iter().enumerate() {
+        for (i, p) in message.descendants().enumerate() {
             eprintln!("{}: {:?}", i, p);
             count += 1;
         }
@@ -1015,11 +1015,12 @@ mod message_test {
         let mut f = File::open(&path).expect(&path.to_string_lossy());
         let bio = BufferedReaderGeneric::new(&mut f, None);
         let message = Message::deserialize(bio, None).unwrap();
-        eprintln!("Message has {} top-level packets.", message.packets.len());
+        eprintln!("Message has {} top-level packets.",
+                  message.children().len());
         eprintln!("Message: {:?}", message);
 
         let mut count = 0;
-        for (i, p) in message.iter().enumerate() {
+        for (i, p) in message.descendants().enumerate() {
             eprintln!("{}: {:?}", i, p);
             count += 1;
         }
@@ -1032,11 +1033,12 @@ mod message_test {
         let mut f = File::open(&path).expect(&path.to_string_lossy());
         let bio = BufferedReaderGeneric::new(&mut f, None);
         let message = Message::deserialize(bio, None).unwrap();
-        eprintln!("Message has {} top-level packets.", message.packets.len());
+        eprintln!("Message has {} top-level packets.",
+                  message.children().len());
         eprintln!("Message: {:?}", message);
 
         let mut count = 0;
-        for (i, p) in message.iter().enumerate() {
+        for (i, p) in message.descendants().enumerate() {
             count += 1;
             eprintln!("{}: {:?}", i, p);
         }
@@ -1057,7 +1059,7 @@ mod message_test {
             Message::deserialize(bio, Some(max_recursion_depth)).unwrap();
 
         let mut count = 0;
-        for (i, p) in message.iter().enumerate() {
+        for (i, p) in message.descendants().enumerate() {
             count += 1;
             if false {
                 eprintln!("{}: p: {:?}", i, p);
