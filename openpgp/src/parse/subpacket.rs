@@ -2,6 +2,15 @@ use std::io::Error;
 
 use super::*;
 
+#[cfg(test)]
+use std::path::PathBuf;
+
+#[cfg(test)]
+fn path_to(artifact: &str) -> PathBuf {
+    [env!("CARGO_MANIFEST_DIR"), "tests", "data", "messages", artifact]
+        .iter().collect()
+}
+
 #[derive(Debug)]
 #[derive(FromPrimitive)]
 #[derive(ToPrimitive)]
@@ -198,12 +207,9 @@ impl Signature {
 
 #[test]
 fn subpacket_test_1 () {
-    use std::path::PathBuf;
     use std::fs::File;
 
-    let path : PathBuf = [env!("CARGO_MANIFEST_DIR"),
-                          "src", "parse", "signed.gpg"]
-        .iter().collect();
+    let path = path_to("signed.gpg");
     let mut f = File::open(&path).expect(&path.to_string_lossy());
     let bio = BufferedReaderGeneric::new(&mut f, None);
     let message = Message::deserialize(bio, None).unwrap();

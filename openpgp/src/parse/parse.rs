@@ -12,6 +12,20 @@ use super::*;
 
 pub mod subpacket;
 pub mod key;
+
+#[cfg(test)]
+macro_rules! bytes {
+    ( $x:expr ) => { include_bytes!(concat!("../../tests/data/messages/", $x)) };
+}
+
+#[cfg(test)]
+use std::path::PathBuf;
+
+#[cfg(test)]
+fn path_to(artifact: &str) -> PathBuf {
+    [env!("CARGO_MANIFEST_DIR"), "tests", "data", "messages", artifact]
+        .iter().collect()
+}
 
 /// The default amount of acceptable nesting.  Typically, we expect a
 /// message to looking like:
@@ -223,7 +237,7 @@ fn signature_parser<'a, R: BufferedReader + 'a>(mut bio: R)
 
 #[test]
 fn signature_parser_test () {
-    let data = include_bytes!("sig.asc");
+    let data = bytes!("sig.gpg");
 
     {
         let mut bio = BufferedReaderMemory::new(data);
@@ -341,7 +355,7 @@ fn literal_parser<'a, R: BufferedReader + 'a>(mut bio: R)
 #[test]
 fn literal_parser_test () {
     {
-        let data = include_bytes!("literal-mode-b.asc");
+        let data = bytes!("literal-mode-b.gpg");
         let mut bio = BufferedReaderMemory::new(data);
 
         let header = header(&mut bio).unwrap();
@@ -362,7 +376,7 @@ fn literal_parser_test () {
     }
 
     {
-        let data = include_bytes!("literal-mode-t-partial-body.asc");
+        let data = bytes!("literal-mode-t-partial-body.gpg");
         let mut bio = BufferedReaderMemory::new(data);
 
         let header = header(&mut bio).unwrap();
@@ -380,7 +394,7 @@ fn literal_parser_test () {
                            b"manifesto.txt"[..]);
                 assert_eq!(p.date, 1508000649);
 
-                let expected = include_bytes!("literal-mode-t-partial-body.txt");
+                let expected = bytes!("a-cypherpunks-manifesto.txt");
 
                 assert_eq!(p.common.content, Some(expected.to_vec()));
             } else {
@@ -458,23 +472,14 @@ fn compressed_data_parser<'a, R: BufferedReader + 'a>(mut bio: R)
     });
 }
 
-#[cfg(test)]
-use std::path::PathBuf;
-
-#[cfg(test)]
-fn path_to(artifact: &str) -> PathBuf {
-    [env!("CARGO_MANIFEST_DIR"), "src", "parse", artifact]
-        .iter().collect()
-}
-
 #[test]
 fn compressed_data_parser_test () {
-    let expected = include_bytes!("literal-mode-t-partial-body.txt");
+    let expected = bytes!("a-cypherpunks-manifesto.txt");
 
     for i in 1..4 {
         use std::fs::File;
 
-        let path = path_to(&format!("compressed-data-algo-{}.asc", i)[..]);
+        let path = path_to(&format!("compressed-data-algo-{}.gpg", i)[..]);
         let mut f = File::open(&path).expect(&path.to_string_lossy());
         let mut bio = BufferedReaderGeneric::new(&mut f, None);
 
@@ -836,11 +841,11 @@ fn packet_parser_reader_interface() {
     // We need the Read trait.
     use std::io::Read;
 
-    let expected = include_bytes!("literal-mode-t-partial-body.txt");
+    let expected = bytes!("a-cypherpunks-manifesto.txt");
 
     // A message containing a compressed packet that contains a
     // literal packet.
-    let path = path_to("compressed-data-algo-1.asc");
+    let path = path_to("compressed-data-algo-1.gpg");
     let mut f = File::open(&path).expect(&path.to_string_lossy());
     let bio = BufferedReaderGeneric::new(&mut f, None);
     let pp = PacketParser::new(bio, None).unwrap().unwrap();
@@ -991,7 +996,7 @@ mod message_test {
         // just rely on the fact that an assertion is not thrown.
 
         // A flat message.
-        let data = include_bytes!("public-key.asc");
+        let data = bytes!("public-key.gpg");
         let bio = BufferedReaderMemory::new(data);
         let message = Message::deserialize(bio, None).unwrap();
         eprintln!("Message has {} top-level packets.",
@@ -1011,7 +1016,7 @@ mod message_test {
     fn deserialize_test_2 () {
         // A message containing a compressed packet that contains a
         // literal packet.
-        let path = path_to("compressed-data-algo-1.asc");
+        let path = path_to("compressed-data-algo-1.gpg");
         let mut f = File::open(&path).expect(&path.to_string_lossy());
         let bio = BufferedReaderGeneric::new(&mut f, None);
         let message = Message::deserialize(bio, None).unwrap();

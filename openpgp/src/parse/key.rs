@@ -1,6 +1,15 @@
 use super::*;
 use sha1;
 
+#[cfg(test)]
+use std::path::PathBuf;
+
+#[cfg(test)]
+fn path_to(artifact: &str) -> PathBuf {
+    [env!("CARGO_MANIFEST_DIR"), "tests", "data", "messages", artifact]
+        .iter().collect()
+}
+
 impl Key {
     // Computes and returns the key's fingerprint as per Section 12.2
     // of RFC 4880.
@@ -47,14 +56,10 @@ mod fingerprint_test {
 
     #[test]
     fn fingerprint_test () {
-        use std::path::PathBuf;
         use std::fs::File;
         use ::buffered_reader::*;
 
-        let path : PathBuf = [env!("CARGO_MANIFEST_DIR"),
-                              "src", "parse",
-                              "public-key.asc"]
-            .iter().collect();
+        let path = path_to("public-key.gpg");
         let mut f = File::open(&path).expect(&path.to_string_lossy());
         let bio = BufferedReaderGeneric::new(&mut f, None);
         let message = Message::deserialize(bio, None).unwrap();
