@@ -531,17 +531,17 @@ pub struct PacketParser<'a> {
 
     // This packets recursion depth.  A top-level packet has a
     // recursion depth of 0.
-    recursion_depth: u8,
+    pub recursion_depth: u8,
 
     // The maximum allowed recursion depth.
     //
     // There is absolutely no reason that this should be more than
     // 255.  Moreover, if it is too large, then a read from the
     // pipeline will blow the stack.
-    max_recursion_depth: u8,
+    pub max_recursion_depth: u8,
 
     // The packet that is being parsed.
-    packet: Packet,
+    pub packet: Packet,
 }
 
 impl <'a> std::fmt::Debug for PacketParser<'a> {
