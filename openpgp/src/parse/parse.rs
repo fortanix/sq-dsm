@@ -876,8 +876,10 @@ fn packet_parser_reader_interface() {
 
     // Make sure we can still get the next packet (which in this case
     // is just EOF).
-    let (_, ppo, _) = pp.recurse().unwrap();
+    let (packet, ppo, _) = pp.recurse().unwrap();
     assert!(ppo.is_none());
+    // Since we read all of the data, we expect content to be None.
+    assert!(packet.content.is_none());
 }
 
 impl Container {
