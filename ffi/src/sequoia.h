@@ -84,7 +84,7 @@ struct sq_context *sq_config_build(struct sq_config *cfg);
 void sq_config_home(struct sq_config *cfg, const char *home);
 
 /*/
-/// Set the directory containing backend servers.
+/// Sets the directory containing backend servers.
 /*/
 void sq_config_lib(struct sq_config *cfg, const char *lib);
 
