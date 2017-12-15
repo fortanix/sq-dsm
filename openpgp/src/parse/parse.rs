@@ -208,7 +208,7 @@ fn unknown_parser<'a, R: BufferedReader + 'a>(bio: R, tag: Tag)
         reader: Box::new(bio),
         content_was_read: false,
         recursion_depth: 0,
-        max_recursion_depth: MAX_RECURSION_DEPTH,
+        settings: PACKET_PARSER_DEFAULTS
     });
 }
 
@@ -245,7 +245,7 @@ fn signature_parser<'a, R: BufferedReader + 'a>(mut bio: R)
         reader: Box::new(bio),
         content_was_read: false,
         recursion_depth: 0,
-        max_recursion_depth: MAX_RECURSION_DEPTH,
+        settings: PACKET_PARSER_DEFAULTS
     });
 }
 
@@ -315,7 +315,7 @@ fn key_parser<'a, R: BufferedReader + 'a>(mut bio: R, tag: Tag)
         reader: Box::new(bio),
         content_was_read: false,
         recursion_depth: 0,
-        max_recursion_depth: MAX_RECURSION_DEPTH,
+        settings: PACKET_PARSER_DEFAULTS
     });
 }
 
@@ -333,7 +333,7 @@ fn userid_parser<'a, R: BufferedReader + 'a>(mut bio: R)
         reader: Box::new(bio),
         content_was_read: false,
         recursion_depth: 0,
-        max_recursion_depth: MAX_RECURSION_DEPTH,
+        settings: PACKET_PARSER_DEFAULTS
     });
 }
 
@@ -365,7 +365,7 @@ fn literal_parser<'a, R: BufferedReader + 'a>(mut bio: R)
         reader: Box::new(bio),
         content_was_read: false,
         recursion_depth: 0,
-        max_recursion_depth: MAX_RECURSION_DEPTH,
+        settings: PACKET_PARSER_DEFAULTS
     });
 }
 
@@ -471,7 +471,7 @@ fn compressed_data_parser<'a, R: BufferedReader + 'a>(mut bio: R)
                 reader: Box::new(bio),
                 content_was_read: false,
                 recursion_depth: 0,
-                max_recursion_depth: MAX_RECURSION_DEPTH,
+                settings: PACKET_PARSER_DEFAULTS
             });
         }
     };
@@ -487,7 +487,7 @@ fn compressed_data_parser<'a, R: BufferedReader + 'a>(mut bio: R)
         reader: bio,
         content_was_read: false,
         recursion_depth: 0,
-        max_recursion_depth: MAX_RECURSION_DEPTH,
+        settings: PACKET_PARSER_DEFAULTS
     });
 }
 
@@ -541,7 +541,13 @@ fn compressed_data_parser_test () {
     }
 }
 
+#[derive(Debug)]
 struct PacketParserBuilderSettings {
+    // The maximum allowed recursion depth.
+    //
+    // There is absolutely no reason that this should be more than
+    // 255.  Moreover, if it is too large, then a read from the
+    // pipeline will blow the stack.
     max_recursion_depth: u8,
 }
 
@@ -580,7 +586,7 @@ impl<R: BufferedReader> PacketParserBuilder<R> {
             // We successfully parsed the first packet's header.
 
             // Override the defaults.
-            pp.max_recursion_depth = self.settings.max_recursion_depth;
+            pp.settings = self.settings;
 
             Ok(Some(pp))
         } else {
@@ -635,6 +641,8 @@ pub struct PacketParser<'a> {
     // run-time!).
     reader: Box<BufferedReader + 'a>,
 
+    settings: PacketParserBuilderSettings,
+
     // Whether the caller read the packets content.  If so, then we
     // can't recurse, because we're missing some of the packet!
     content_was_read: bool,
@@ -642,13 +650,6 @@ pub struct PacketParser<'a> {
     // This packets recursion depth.  A top-level packet has a
     // recursion depth of 0.
     pub recursion_depth: u8,
-
-    // The maximum allowed recursion depth.
-    //
-    // There is absolutely no reason that this should be more than
-    // 255.  Moreover, if it is too large, then a read from the
-    // pipeline will blow the stack.
-    pub max_recursion_depth: u8,
 
     // The packet that is being parsed.
     pub packet: Packet,
@@ -660,7 +661,7 @@ impl <'a> std::fmt::Debug for PacketParser<'a> {
             .field("reader", &self.reader)
             .field("packet", &self.packet)
             .field("recursion_depth", &self.recursion_depth)
-            .field("max_recursion_depth", &self.max_recursion_depth)
+            .field("settings", &self.settings)
             .finish()
     }
 }
@@ -800,7 +801,7 @@ impl <'a> PacketParser<'a> {
         let mut reader = self.reader.into_inner().unwrap();
 
         // Stash some fields that we'll put in the new packet.
-        let max_recursion_depth = self.max_recursion_depth;
+        let settings = self.settings;
         let packet = self.packet;
 
         // Now read the next packet.
@@ -824,7 +825,7 @@ impl <'a> PacketParser<'a> {
                 },
                 PacketParserOrBufferedReader::PacketParser(mut pp) => {
                     pp.recursion_depth = recursion_depth;
-                    pp.max_recursion_depth = max_recursion_depth;
+                    pp.settings = settings;
                     return Ok((packet, Some(pp), relative_position));
                 }
             }
@@ -843,14 +844,14 @@ impl <'a> PacketParser<'a> {
         match self.packet {
             // Packets that recurse.
             Packet::CompressedData(_) => {
-                if self.recursion_depth >= self.max_recursion_depth
+                if self.recursion_depth >= self.settings.max_recursion_depth
                     || self.content_was_read {
                     // Drop through.
                 } else {
                     match PacketParser::parse(self.reader)? {
                         PacketParserOrBufferedReader::PacketParser(mut pp) => {
                             pp.recursion_depth = self.recursion_depth + 1;
-                            pp.max_recursion_depth = self.max_recursion_depth;
+                            pp.settings = self.settings;
                             return Ok((self.packet, Some(pp), 1));
                         },
                         PacketParserOrBufferedReader::BufferedReader(_) => {
