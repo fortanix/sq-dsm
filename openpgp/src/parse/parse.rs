@@ -206,6 +206,7 @@ fn unknown_parser<'a, R: BufferedReader + 'a>(bio: R, tag: Tag)
             tag: tag,
         }),
         reader: Box::new(bio),
+        content_was_read: false,
         recursion_depth: 0,
         max_recursion_depth: MAX_RECURSION_DEPTH,
     });
@@ -242,6 +243,7 @@ fn signature_parser<'a, R: BufferedReader + 'a>(mut bio: R)
             mpis: mpis,
         }),
         reader: Box::new(bio),
+        content_was_read: false,
         recursion_depth: 0,
         max_recursion_depth: MAX_RECURSION_DEPTH,
     });
@@ -311,6 +313,7 @@ fn key_parser<'a, R: BufferedReader + 'a>(mut bio: R, tag: Tag)
             _ => unreachable!(),
         },
         reader: Box::new(bio),
+        content_was_read: false,
         recursion_depth: 0,
         max_recursion_depth: MAX_RECURSION_DEPTH,
     });
@@ -328,6 +331,7 @@ fn userid_parser<'a, R: BufferedReader + 'a>(mut bio: R)
             value: bio.steal_eof()?,
         }),
         reader: Box::new(bio),
+        content_was_read: false,
         recursion_depth: 0,
         max_recursion_depth: MAX_RECURSION_DEPTH,
     });
@@ -359,6 +363,7 @@ fn literal_parser<'a, R: BufferedReader + 'a>(mut bio: R)
             date: date,
         }),
         reader: Box::new(bio),
+        content_was_read: false,
         recursion_depth: 0,
         max_recursion_depth: MAX_RECURSION_DEPTH,
     });
@@ -464,6 +469,7 @@ fn compressed_data_parser<'a, R: BufferedReader + 'a>(mut bio: R)
                     tag: Tag::CompressedData,
                 }),
                 reader: Box::new(bio),
+                content_was_read: false,
                 recursion_depth: 0,
                 max_recursion_depth: MAX_RECURSION_DEPTH,
             });
@@ -479,6 +485,7 @@ fn compressed_data_parser<'a, R: BufferedReader + 'a>(mut bio: R)
             algo: algo,
         }),
         reader: bio,
+        content_was_read: false,
         recursion_depth: 0,
         max_recursion_depth: MAX_RECURSION_DEPTH,
     });
@@ -545,6 +552,10 @@ pub struct PacketParser<'a> {
     // a Decompressor (in fact, the actual type is only known at
     // run-time!).
     reader: Box<BufferedReader + 'a>,
+
+    // Whether the caller read the packets content.  If so, then we
+    // can't recurse, because we're missing some of the packet!
+    content_was_read: bool,
 
     // This packets recursion depth.  A top-level packet has a
     // recursion depth of 0.
@@ -755,17 +766,19 @@ impl <'a> PacketParser<'a> {
     }
 
     /// Like `next`, but if the current packet is a container (and we
-    /// haven't reached the maximum recursion depth), recurse into the
-    /// container, and return a `PacketParser` for its first child.
-    /// Otherwise, return the next packet in the packet stream.  If we
-    /// recurse, then the position parameter is 1.
+    /// haven't reached the maximum recursion depth, and the user
+    /// hasn't read the content), recurse into the container, and
+    /// return a `PacketParser` for its first child.  Otherwise,
+    /// return the next packet in the packet stream.  If we recurse,
+    /// then the relative position parameter is 1.
     pub fn recurse(self)
             -> Result<(Packet, Option<PacketParser<'a>>, isize),
                       std::io::Error> {
         match self.packet {
             // Packets that recurse.
             Packet::CompressedData(_) => {
-                if self.recursion_depth >= self.max_recursion_depth {
+                if self.recursion_depth >= self.max_recursion_depth
+                    || self.content_was_read {
                     // Drop through.
                 } else {
                     match PacketParser::parse(self.reader)? {
@@ -811,49 +824,69 @@ impl <'a> PacketParser<'a> {
 
 impl<'a> io::Read for PacketParser<'a> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, io::Error> {
+        self.content_was_read = true;
         return buffered_reader_generic_read_impl(self, buf);
     }
 }
 
 impl<'a> BufferedReader for PacketParser<'a> {
     fn data(&mut self, amount: usize) -> Result<&[u8], io::Error> {
+        // There is no need to set `content_was_read`, because this
+        // doesn't actually consume any data.
         return self.reader.data(amount);
     }
 
     fn data_hard(&mut self, amount: usize) -> Result<&[u8], io::Error> {
+        // There is no need to set `content_was_read`, because this
+        // doesn't actually consume any data.
         return self.reader.data_hard(amount);
     }
 
     fn data_eof(&mut self) -> Result<&[u8], io::Error> {
+        // There is no need to set `content_was_read`, because this
+        // doesn't actually consume any data.
         return self.reader.data_eof();
     }
 
     fn consume(&mut self, amount: usize) -> &[u8] {
+        if amount > 0 {
+            self.content_was_read = true;
+        }
         return self.reader.consume(amount);
     }
 
     fn data_consume(&mut self, amount: usize)
                     -> Result<&[u8], io::Error> {
+        if amount > 0 {
+            self.content_was_read = true;
+        }
         return self.reader.data_consume(amount);
     }
 
     fn data_consume_hard(&mut self, amount: usize) -> Result<&[u8], io::Error> {
+        if amount > 0 {
+            self.content_was_read = true;
+        }
         return self.reader.data_consume_hard(amount);
     }
 
     fn read_be_u16(&mut self) -> Result<u16, io::Error> {
+        self.content_was_read = true;
         return self.reader.read_be_u16();
     }
 
     fn read_be_u32(&mut self) -> Result<u32, io::Error> {
+        self.content_was_read = true;
         return self.reader.read_be_u32();
     }
 
     fn steal(&mut self, amount: usize) -> Result<Vec<u8>, io::Error> {
+        self.content_was_read = true;
         return self.reader.steal(amount);
     }
 
     fn steal_eof(&mut self) -> Result<Vec<u8>, io::Error> {
+        self.content_was_read = true;
         return self.reader.steal_eof();
     }
 
@@ -1021,8 +1054,10 @@ impl Message {
 #[cfg(test)]
 mod message_test {
     use super::path_to;
-    use super::{BufferedReaderMemory, BufferedReaderGeneric, Message, PacketParser};
+    use super::{BufferedReaderMemory, BufferedReaderGeneric,
+                Message, Packet, PacketParser};
 
+    use std::io::Read;
     use std::fs::File;
 
     #[test]
@@ -1133,4 +1168,48 @@ mod message_test {
         }
         assert_eq!(count, 1 + max_recursion_depth as usize);
     }
+
+    #[test]
+    fn consume_content_1 () {
+        // A message containing a compressed packet that contains a
+        // literal packet.  When we read some of the compressed
+        // packet, we expect recurse() to not recurse.
+
+        let ppo = PacketParser::from_file(
+            path_to("compressed-data-algo-1.gpg")).unwrap();
+
+        let mut pp = ppo.unwrap();
+        if let Packet::CompressedData(_) = pp.packet {
+        } else {
+            panic!("Expected a compressed packet!");
+        }
+
+        // Read some of the body of the compressed packet.
+        let mut data = [0u8; 1];
+        let amount = pp.read(&mut data).unwrap();
+        assert_eq!(amount, 1);
+
+        // recurse should now not recurse.  Since there is nothing
+        // following the compressed packet, ppo should be None.
+        let (mut packet, ppo, _relative_position) = pp.next().unwrap();
+        assert!(ppo.is_none());
+
+        // Get the rest of the content and put the initial byte that
+        // we stole back.
+        let mut content = packet.content.take().unwrap();
+        content.insert(0, data[0]);
+
+        let content = &content.into_boxed_slice()[..];
+        let ppo = PacketParser::from_bytes(content).unwrap();
+        let pp = ppo.unwrap();
+        if let Packet::Literal(_) = pp.packet {
+        } else {
+            panic!("Expected a literal packet!");
+        }
+
+        // And we're done...
+        let (_packet, ppo, _relative_position) = pp.next().unwrap();
+        assert!(ppo.is_none());
+    }
+
 }
