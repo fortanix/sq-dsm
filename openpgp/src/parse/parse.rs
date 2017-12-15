@@ -588,6 +588,11 @@ impl<R: BufferedReader> PacketParserBuilder<R> {
             Ok(None)
         }
     }
+
+    pub fn deserialize(self)
+            -> Result<Message, std::io::Error> {
+        Message::assemble(self.finalize()?)
+    }
 }
 
 impl <'a, R: io::Read + 'a> PacketParserBuilder<BufferedReaderGeneric<R>> {
@@ -1015,8 +1020,7 @@ impl Container {
 }
 
 impl Message {
-    pub fn deserialize<R: BufferedReader>
-            (bio: R, max_recursion_depth: Option<u8>)
+    fn assemble<'a>(ppo: Option<PacketParser<'a>>)
             -> Result<Message, std::io::Error> {
         // Create a top-level container.
         let mut top_level = Container::new();
@@ -1024,10 +1028,6 @@ impl Message {
         let mut depth : isize = 0;
         let mut relative_position = 0;
 
-        let ppo = PacketParserBuilder::from_buffered_reader(bio)?
-            .max_recursion_depth(
-                max_recursion_depth.unwrap_or(MAX_RECURSION_DEPTH))
-            .finalize()?;
         if ppo.is_none() {
             // Empty message.
             return Ok(Message::from_packets(Vec::new()));
@@ -1096,20 +1096,25 @@ impl Message {
         return Ok(Message { top_level: top_level });
     }
 
+    pub fn deserialize<R: BufferedReader>(bio: R)
+            -> Result<Message, std::io::Error> {
+        PacketParserBuilder::from_buffered_reader(bio)?.deserialize()
+    }
+
     pub fn from_reader<R: io::Read>(reader: R)
              -> Result<Message, std::io::Error> {
         let bio = BufferedReaderGeneric::new(reader, None);
-        Message::deserialize(bio, None)
+        Message::deserialize(bio)
     }
 
     pub fn from_file(mut file: File) -> Result<Message, std::io::Error> {
         let bio = BufferedReaderGeneric::new(&mut file, None);
-        Message::deserialize(bio, None)
+        Message::deserialize(bio)
     }
 
     pub fn from_bytes(data: &[u8]) -> Result<Message, std::io::Error> {
         let bio = BufferedReaderMemory::new(data);
-        Message::deserialize(bio, None)
+        Message::deserialize(bio)
     }
 }
 
@@ -1130,7 +1135,7 @@ mod message_test {
         // A flat message.
         let data = bytes!("public-key.gpg");
         let bio = BufferedReaderMemory::new(data);
-        let message = Message::deserialize(bio, None).unwrap();
+        let message = Message::deserialize(bio).unwrap();
         eprintln!("Message has {} top-level packets.",
                   message.children().len());
         eprintln!("Message: {:?}", message);
@@ -1151,7 +1156,7 @@ mod message_test {
         let path = path_to("compressed-data-algo-1.gpg");
         let mut f = File::open(&path).expect(&path.to_string_lossy());
         let bio = BufferedReaderGeneric::new(&mut f, None);
-        let message = Message::deserialize(bio, None).unwrap();
+        let message = Message::deserialize(bio).unwrap();
         eprintln!("Message has {} top-level packets.",
                   message.children().len());
         eprintln!("Message: {:?}", message);
@@ -1169,7 +1174,7 @@ mod message_test {
         let path = path_to("signed.gpg");
         let mut f = File::open(&path).expect(&path.to_string_lossy());
         let bio = BufferedReaderGeneric::new(&mut f, None);
-        let message = Message::deserialize(bio, None).unwrap();
+        let message = Message::deserialize(bio).unwrap();
         eprintln!("Message has {} top-level packets.",
                   message.children().len());
         eprintln!("Message: {:?}", message);
@@ -1188,12 +1193,10 @@ mod message_test {
         // Use the Message::deserialize interface to parse an OpenPGP
         // quine.
         let path = path_to("compression-quine.gpg");
-        let mut f = File::open(&path).expect(&path.to_string_lossy());
-
-        let bio = BufferedReaderGeneric::new(&mut f, None);
         let max_recursion_depth = 128;
-        let message =
-            Message::deserialize(bio, Some(max_recursion_depth)).unwrap();
+        let message = PacketParserBuilder::from_file(path).unwrap()
+            .max_recursion_depth(max_recursion_depth)
+            .deserialize().unwrap();
 
         let mut count = 0;
         for (i, p) in message.descendants().enumerate() {

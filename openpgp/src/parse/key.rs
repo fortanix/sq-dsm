@@ -62,7 +62,7 @@ mod fingerprint_test {
         let path = path_to("public-key.gpg");
         let mut f = File::open(&path).expect(&path.to_string_lossy());
         let bio = BufferedReaderGeneric::new(&mut f, None);
-        let message = Message::deserialize(bio, None).unwrap();
+        let message = Message::deserialize(bio).unwrap();
 
         // The blob contains a public key and a three subkeys.
         let mut pki = 0;

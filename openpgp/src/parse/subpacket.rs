@@ -212,7 +212,7 @@ fn subpacket_test_1 () {
     let path = path_to("signed.gpg");
     let mut f = File::open(&path).expect(&path.to_string_lossy());
     let bio = BufferedReaderGeneric::new(&mut f, None);
-    let message = Message::deserialize(bio, None).unwrap();
+    let message = Message::deserialize(bio).unwrap();
     eprintln!("Message has {} top-level packets.", message.children().len());
     eprintln!("Message: {:?}", message);
 
