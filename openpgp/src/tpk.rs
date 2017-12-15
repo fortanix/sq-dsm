@@ -4,7 +4,7 @@ use std::io;
 use std::path::Path;
 use std::fs::File;
 
-use super::{Packet, Message, Signature, Key, UserID};
+use super::{Packet, Message, Signature, Key, UserID, Fingerprint};
 use super::parse::PacketParser;
 
 /// A transferable public key (TPK).
@@ -260,6 +260,11 @@ impl TPK {
         Ok(self)
     }
 
+    /// Returns the fingerprint.
+    pub fn fingerprint(&self) -> Fingerprint {
+        self.primary.fingerprint()
+    }
+
     /// Serialize the transferable public key into an OpenPGP message.
     pub fn to_message(self) -> Message {
         let mut p : Vec<Packet> = Vec::new();
@@ -364,6 +369,8 @@ mod test {
             let tpk = parse_tpk(bytes!("testy.pgp"),
                                 i == 0).unwrap();
             assert_eq!(tpk.primary.creation_time, 1511355130);
+            assert_eq!(tpk.fingerprint().to_hex(),
+                       "3E8877C877274692975189F5D03F6F865226FE8B");
 
             assert_eq!(tpk.userids.len(), 1, "number of userids");
             assert_eq!(tpk.userids[0].userid.value,
@@ -380,6 +387,8 @@ mod test {
             let tpk = parse_tpk(bytes!("testy-no-subkey.pgp"),
                                 i == 0).unwrap();
             assert_eq!(tpk.primary.creation_time, 1511355130);
+            assert_eq!(tpk.fingerprint().to_hex(),
+                       "3E8877C877274692975189F5D03F6F865226FE8B");
 
             assert_eq!(tpk.userids.len(), 1, "number of userids");
             assert_eq!(tpk.userids[0].userid.value,
