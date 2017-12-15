@@ -541,6 +541,78 @@ fn compressed_data_parser_test () {
     }
 }
 
+struct PacketParserBuilderSettings {
+    max_recursion_depth: u8,
+}
+
+pub struct PacketParserBuilder<R: BufferedReader> {
+    bio: R,
+    settings: PacketParserBuilderSettings,
+}
+
+
+const PACKET_PARSER_DEFAULTS : PacketParserBuilderSettings
+    = PacketParserBuilderSettings {
+        max_recursion_depth: MAX_RECURSION_DEPTH,
+    };
+
+impl<R: BufferedReader> PacketParserBuilder<R> {
+    pub fn from_buffered_reader(bio: R)
+            -> Result<PacketParserBuilder<R>, std::io::Error> {
+        Ok(PacketParserBuilder {
+            bio: bio,
+            settings: PACKET_PARSER_DEFAULTS
+        })
+    }
+
+    pub fn from_reader<'a, S: io::Read + 'a>(reader: S)
+            -> Result<PacketParserBuilder<BufferedReaderGeneric<S>>,
+                      std::io::Error> {
+        Ok(PacketParserBuilder {
+            bio: BufferedReaderGeneric::new(reader, None),
+            settings: PACKET_PARSER_DEFAULTS
+        })
+    }
+
+    pub fn from_file<P: AsRef<Path>>(path: P)
+            -> Result<PacketParserBuilder<BufferedReaderGeneric<File>>,
+                      std::io::Error> {
+        PacketParserBuilder::<BufferedReaderGeneric<File>>::from_reader(
+            File::open(path)?)
+    }
+
+    pub fn from_bytes<'a>(bytes: &'a [u8])
+            -> Result<PacketParserBuilder<BufferedReaderMemory<'a>>,
+                      std::io::Error> {
+        PacketParserBuilder::from_buffered_reader(
+            BufferedReaderMemory::new(bytes))
+    }
+
+    pub fn max_recursion_depth(mut self, value: u8)
+            -> PacketParserBuilder<R> {
+        self.settings.max_recursion_depth = value;
+        self
+    }
+
+    pub fn finalize<'a>(self)
+            -> Result<Option<PacketParser<'a>>, std::io::Error> where Self: 'a {
+        // Parse the first packet.
+        let pp = PacketParser::parse(self.bio)?;
+
+        if let PacketParserOrBufferedReader::PacketParser(mut pp) = pp {
+            // We successfully parsed the first packet's header.
+
+            // Override the defaults.
+            pp.max_recursion_depth = self.settings.max_recursion_depth;
+
+            Ok(Some(pp))
+        } else {
+            // `bio` is empty.  We're done.
+            Ok(None)
+        }
+    }
+}
+
 pub struct PacketParser<'a> {
     // The reader.
     //
@@ -605,40 +677,27 @@ impl <'a> PacketParser<'a> {
     /// default recursion depth, which is almost always reasonable.
     /// To manage the amount of recursion manually, just pass
     /// std::usize::MAX.
-    pub fn new<R: BufferedReader + 'a>(bio: R,
-                                       max_recursion_depth: Option<u8>)
+    pub fn from_buffered_reader<R: BufferedReader + 'a>(bio: R)
             -> Result<Option<PacketParser<'a>>, std::io::Error> {
-        // Parse the first packet.
-        let pp = PacketParser::parse(bio)?;
-
-        let r = if let PacketParserOrBufferedReader::PacketParser(mut pp) = pp {
-            // We successfully parsed the first packet's header.
-            pp.max_recursion_depth
-                = max_recursion_depth.unwrap_or(MAX_RECURSION_DEPTH);
-            Some(pp)
-        } else {
-            // `bio` is empty.  We're done.
-            None
-        };
-
-        return Ok(r);
+        PacketParserBuilder::from_buffered_reader(bio)?.finalize()
     }
 
     pub fn from_reader<R: io::Read + 'a>(reader: R)
             -> Result<Option<PacketParser<'a>>, std::io::Error> {
-        let bio = BufferedReaderGeneric::new(reader, None);
-        return Self::new(bio, None);
+        PacketParserBuilder::<BufferedReaderGeneric<R>>::from_reader(reader)?
+            .finalize()
     }
 
     pub fn from_file<P: AsRef<Path>>(path: P)
             -> Result<Option<PacketParser<'a>>, std::io::Error> {
-        Self::from_reader(File::open(path)?)
+        PacketParserBuilder::<BufferedReaderGeneric<File>>::from_file(path)?
+            .finalize()
     }
 
     pub fn from_bytes(bytes: &'a [u8])
             -> Result<Option<PacketParser<'a>>, std::io::Error> {
-        let bio = BufferedReaderMemory::new(bytes);
-        return Self::new(bio, None);
+        PacketParserBuilder::<BufferedReaderMemory<'a>>::from_bytes(bytes)?
+            .finalize()
     }
 
     /// Return a packet parser for the next OpenPGP packet in the
@@ -908,9 +967,7 @@ fn packet_parser_reader_interface() {
     // A message containing a compressed packet that contains a
     // literal packet.
     let path = path_to("compressed-data-algo-1.gpg");
-    let mut f = File::open(&path).expect(&path.to_string_lossy());
-    let bio = BufferedReaderGeneric::new(&mut f, None);
-    let pp = PacketParser::new(bio, None).unwrap().unwrap();
+    let pp = PacketParser::from_file(path).unwrap().unwrap();
 
     // The message has the form:
     //   [ compressed data [ literal data ] ]
@@ -965,7 +1022,10 @@ impl Message {
         let mut depth : isize = 0;
         let mut relative_position = 0;
 
-        let ppo = PacketParser::new(bio, max_recursion_depth)?;
+        let ppo = PacketParserBuilder::from_buffered_reader(bio)?
+            .max_recursion_depth(
+                max_recursion_depth.unwrap_or(MAX_RECURSION_DEPTH))
+            .finalize()?;
         if ppo.is_none() {
             // Empty message.
             return Ok(Message::from_packets(Vec::new()));
@@ -1054,8 +1114,8 @@ impl Message {
 #[cfg(test)]
 mod message_test {
     use super::path_to;
-    use super::{BufferedReaderMemory, BufferedReaderGeneric,
-                Message, Packet, PacketParser};
+    use super::{BufferedReaderGeneric, BufferedReaderMemory,
+                Message, Packet, PacketParser, PacketParserBuilder};
 
     use std::io::Read;
     use std::fs::File;
@@ -1153,7 +1213,9 @@ mod message_test {
         let bio = BufferedReaderGeneric::new(&mut f, None);
         let max_recursion_depth = 255;
         let mut ppo : Option<PacketParser>
-            = PacketParser::new(bio, Some(max_recursion_depth)).unwrap();
+            = PacketParserBuilder::from_buffered_reader(bio).unwrap()
+                .max_recursion_depth(max_recursion_depth)
+                .finalize().unwrap();
 
         let mut count : usize = 0;
         loop {
