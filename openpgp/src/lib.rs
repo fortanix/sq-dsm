@@ -8,9 +8,6 @@ extern crate num;
 #[macro_use]
 extern crate num_derive;
 
-#[macro_use]
-extern crate nom;
-
 extern crate sha1;
 
 pub mod armor;
@@ -138,7 +135,7 @@ impl Deref for CTBNew {
 
 #[derive(Debug)]
 #[derive(FromPrimitive)]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 pub enum PacketLengthType {
     OneOctet = 0,
     TwoOctets = 1,

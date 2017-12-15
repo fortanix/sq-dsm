@@ -38,39 +38,63 @@ const MAX_RECURSION_DEPTH : u8 = 16;
 
 // Packet headers.
 
-// Parse a CTB (as described in Section 4.2 of RFC4880) and return a
-// 'struct CTB'.  This function parses both new and old format ctbs.
-//
-// Example:
-//
-//   let (input, ctb) = ctb(data).unwrap();
-//   println!("header: {:?}", ctb);
-//   assert_eq!(ctb.tag, 11);
-named!(
-    ctb<CTB>,
-    bits!(
-        do_parse!(
-            tag_bits!(u8, 1, 1) >>
-            r: switch!(take_bits!(u8, 1),
-                       /* New format.  */
-                       1 => do_parse!(tag: take_bits!(u8, 6) >>
-                                      (CTB::New(CTBNew {
-                                          common: CTBCommon {
-                                              tag: FromPrimitive::from_u8(tag).unwrap()
-                                          },
-                                      }))) |
-                       /* Old format packet.  */
-                       0 => do_parse!(tag: take_bits!(u8, 4) >>
-                                      length_type: take_bits!(u8, 2) >>
-                                      (CTB::Old(CTBOld {
-                                          common: CTBCommon {
-                                              tag: FromPrimitive::from_u8(tag).unwrap()
-                                          },
-                                          length_type:
-                                            FromPrimitive::from_u8(length_type).unwrap(),
-                                      })))
-            ) >>
-            (r))));
+/// Parse a CTB (as described in Section 4.2 of RFC4880) and return a
+/// 'struct CTB'.  This function parses both new and old format ctbs.
+fn ctb(ptag: u8) -> Result<CTB, io::Error> {
+    // The top bit of the ptag must be set.
+    if ptag & 0b1000_0000 == 0 {
+        // XXX: Use a proper error.
+        return Err(io::Error::new(io::ErrorKind::UnexpectedEof,
+                                  "Malformed: msb of ptag not set."));
+    }
+
+    let new_format = ptag & 0b0100_0000 != 0;
+    let ctb = if new_format {
+        let tag = ptag & 0b0011_1111;
+        CTB::New(CTBNew {
+            common: CTBCommon {
+                tag: FromPrimitive::from_u8(tag).unwrap()
+            }})
+    } else {
+        let tag = (ptag & 0b0011_1100) >> 2;
+        let length_type = ptag & 0b0000_0011;
+
+        CTB::Old(CTBOld {
+            common: CTBCommon {
+                tag: FromPrimitive::from_u8(tag).unwrap()
+            },
+            length_type: FromPrimitive::from_u8(length_type).unwrap(),
+        })
+    };
+
+    Ok(ctb)
+}
+
+#[test]
+fn ctb_test() {
+    // 0x99 = public key packet
+    if let CTB::Old(ctb) = ctb(0x99).unwrap() {
+        assert_eq!(ctb.tag, Tag::PublicKey);
+        assert_eq!(ctb.length_type, PacketLengthType::TwoOctets);
+    } else {
+        panic!("Expected an old format packet.");
+    }
+
+    // 0xa3 = old compressed packet
+    if let CTB::Old(ctb) = ctb(0xa3).unwrap() {
+        assert_eq!(ctb.tag, Tag::CompressedData);
+        assert_eq!(ctb.length_type, PacketLengthType::Indeterminate);
+    } else {
+        panic!("Expected an old format packet.");
+    }
+
+    // 0xcb: new literal
+    if let CTB::New(ctb) = ctb(0xcb).unwrap() {
+        assert_eq!(ctb.tag, Tag::Literal);
+    } else {
+        panic!("Expected a new format packet.");
+    }
+}
 
 /// Decode a new format body length as described in Section 4.2.2 of RFC 4880.
 pub fn body_length_new_format<T: BufferedReader> (bio: &mut T)
@@ -163,20 +187,7 @@ fn body_length_old_format_test() {
 /// deserialized version and the rest input.
 fn header<R: BufferedReader> (bio: &mut R)
         -> Result<Header, std::io::Error> {
-    use nom::IResult;
-
-    let ctb = match ctb(bio.data_consume_hard(1)?) {
-        IResult::Done(_, ctb) => ctb,
-        // We know we have enough data.  But, this could fail if the
-        // header is malformed.  Specifically, if the first bit of the
-        // tag is not 1.
-        //
-        // XXX: Handle this error case correctly instead of panicking.
-        err @ _ => {
-            eprintln!("header: error: {:?}", err);
-            unreachable!();
-        },
-    };
+    let ctb = ctb(bio.data_consume_hard(1)?[0])?;
     let length = match ctb {
         CTB::New(_) => body_length_new_format(bio)?,
         CTB::Old(ref ctb) => body_length_old_format(bio, ctb.length_type)?,
