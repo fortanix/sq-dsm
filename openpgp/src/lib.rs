@@ -599,8 +599,20 @@ impl Fingerprint {
         }
     }
 
-    // Converts the fingerprint to its standard representation.
+    /// Converts the fingerprint to its standard representation.
+    ///
+    /// Returns the fingerprint suitable for human consumption.
     pub fn to_string(&self) -> String {
+        self.convert_to_string(true)
+    }
+
+    /// Converts the fingerprint to a hexadecimal number.
+    pub fn to_hex(&self) -> String {
+        self.convert_to_string(false)
+    }
+
+    /// Common code for the above functions.
+    fn convert_to_string(&self, pretty: bool) -> String {
         let raw = match self {
             &Fingerprint::V4(ref fp) => &fp[..],
             &Fingerprint::Invalid(ref fp) => &fp[..],
@@ -616,17 +628,19 @@ impl Fingerprint {
         let mut output = Vec::with_capacity(
             // Each byte results in to hex characters.
             raw.len() * 2
-            // Every 2 bytes of output, we insert a space.
-            + raw.len() / 2
-            // After 5 groups, there is another space.
-            + raw.len() / 10);
+            + if pretty {
+                // Every 2 bytes of output, we insert a space.
+                raw.len() / 2
+                // After 5 groups, there is another space.
+                + raw.len() / 10
+            } else { 0 });
 
         for (i, b) in raw.iter().enumerate() {
-            if i > 0 && i % 2 == 0 {
+            if pretty && i > 0 && i % 2 == 0 {
                 output.push(' ' as u8);
             }
 
-            if i > 0 && i % 10 == 0 {
+            if pretty && i > 0 && i % 10 == 0 {
                 output.push(' ' as u8);
             }
 
