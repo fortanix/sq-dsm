@@ -565,29 +565,6 @@ impl<R: BufferedReader> PacketParserBuilder<R> {
         })
     }
 
-    pub fn from_reader<'a, S: io::Read + 'a>(reader: S)
-            -> Result<PacketParserBuilder<BufferedReaderGeneric<S>>,
-                      std::io::Error> {
-        Ok(PacketParserBuilder {
-            bio: BufferedReaderGeneric::new(reader, None),
-            settings: PACKET_PARSER_DEFAULTS
-        })
-    }
-
-    pub fn from_file<P: AsRef<Path>>(path: P)
-            -> Result<PacketParserBuilder<BufferedReaderGeneric<File>>,
-                      std::io::Error> {
-        PacketParserBuilder::<BufferedReaderGeneric<File>>::from_reader(
-            File::open(path)?)
-    }
-
-    pub fn from_bytes<'a>(bytes: &'a [u8])
-            -> Result<PacketParserBuilder<BufferedReaderMemory<'a>>,
-                      std::io::Error> {
-        PacketParserBuilder::from_buffered_reader(
-            BufferedReaderMemory::new(bytes))
-    }
-
     pub fn max_recursion_depth(mut self, value: u8)
             -> PacketParserBuilder<R> {
         self.settings.max_recursion_depth = value;
@@ -610,6 +587,34 @@ impl<R: BufferedReader> PacketParserBuilder<R> {
             // `bio` is empty.  We're done.
             Ok(None)
         }
+    }
+}
+
+impl <'a, R: io::Read + 'a> PacketParserBuilder<BufferedReaderGeneric<R>> {
+    pub fn from_reader(reader: R)
+            -> Result<PacketParserBuilder<BufferedReaderGeneric<R>>,
+                      std::io::Error> {
+        Ok(PacketParserBuilder {
+            bio: BufferedReaderGeneric::new(reader, None),
+            settings: PACKET_PARSER_DEFAULTS
+        })
+    }
+}
+
+impl PacketParserBuilder<BufferedReaderGeneric<File>> {
+    pub fn from_file<P: AsRef<Path>>(path: P)
+            -> Result<PacketParserBuilder<BufferedReaderGeneric<File>>,
+                      std::io::Error> {
+        PacketParserBuilder::from_reader(File::open(path)?)
+    }
+}
+
+impl <'a> PacketParserBuilder<BufferedReaderMemory<'a>> {
+    pub fn from_bytes(bytes: &'a [u8])
+            -> Result<PacketParserBuilder<BufferedReaderMemory<'a>>,
+                      std::io::Error> {
+        PacketParserBuilder::from_buffered_reader(
+            BufferedReaderMemory::new(bytes))
     }
 }
 
@@ -684,20 +689,17 @@ impl <'a> PacketParser<'a> {
 
     pub fn from_reader<R: io::Read + 'a>(reader: R)
             -> Result<Option<PacketParser<'a>>, std::io::Error> {
-        PacketParserBuilder::<BufferedReaderGeneric<R>>::from_reader(reader)?
-            .finalize()
+        PacketParserBuilder::from_reader(reader)?.finalize()
     }
 
     pub fn from_file<P: AsRef<Path>>(path: P)
             -> Result<Option<PacketParser<'a>>, std::io::Error> {
-        PacketParserBuilder::<BufferedReaderGeneric<File>>::from_file(path)?
-            .finalize()
+        PacketParserBuilder::from_file(path)?.finalize()
     }
 
     pub fn from_bytes(bytes: &'a [u8])
             -> Result<Option<PacketParser<'a>>, std::io::Error> {
-        PacketParserBuilder::<BufferedReaderMemory<'a>>::from_bytes(bytes)?
-            .finalize()
+        PacketParserBuilder::from_bytes(bytes)?.finalize()
     }
 
     /// Return a packet parser for the next OpenPGP packet in the
