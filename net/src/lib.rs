@@ -237,7 +237,8 @@ impl AClient for Client<HttpsConnector<HttpConnector>> {
     }
 }
 
-type Result<T> = ::std::result::Result<T, Error>;
+/// Results for sequoia-net.
+pub type Result<T> = ::std::result::Result<T, Error>;
 
 /// Errors returned from the network routines.
 #[derive(Debug)]

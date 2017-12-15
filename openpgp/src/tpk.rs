@@ -285,7 +285,8 @@ impl TPK {
     }
 }
 
-type Result<T> = ::std::result::Result<T, Error>;
+/// Results for TPK.
+pub type Result<T> = ::std::result::Result<T, Error>;
 
 /// Errors returned from the key routines.
 #[derive(Debug)]
