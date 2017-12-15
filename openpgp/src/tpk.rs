@@ -1,8 +1,11 @@
 //! Transferable public keys.
 
 use std::io;
+use std::path::Path;
+use std::fs::File;
 
 use super::{Packet, Message, Signature, Key, UserID};
+use super::parse::PacketParser;
 
 /// A transferable public key (TPK).
 ///
@@ -30,8 +33,10 @@ pub struct UserIDBinding {
     signatures: Vec<Signature>,
 }
 
+// We use a state machine to extract a TPK from an OpenPGP message.
+// These are the states.
 #[derive(Debug)]
-enum States {
+enum TPKParserState {
     Start,
     TPK,
     UserID(UserIDBinding),
@@ -39,113 +44,195 @@ enum States {
     End,
 }
 
-impl TPK {
-    /// Returns the first TPK found in `m`.
-    pub fn from_message(m: Message) -> Result<Self> {
-        let mut state = States::Start;
-        let mut primary = None;
-        let mut userids = vec![];
-        let mut subkeys = vec![];
-        for p in m.into_children() {
-            state = match state {
-                States::Start => {
-                    /* Find the first public key packet.  */
-                    match p {
-                        Packet::PublicKey(pk) => {
-                            primary = Some(pk);
-                            States::TPK
-                        },
-                        _ => States::Start,
-                    }
-                },
-                States::TPK => {
-                    /* Find user id, or subkey packets.  */
-                    match p {
-                        Packet::PublicKey(_pk) => {
-                            States::End
-                        },
-                        Packet::UserID(uid) => {
-                            States::UserID(UserIDBinding{userid: uid, signatures: vec![]})
-                        },
-                        Packet::PublicSubkey(key) => {
-                            States::Subkey(SubkeyBinding{subkey: key, signatures: vec![]})
-                        },
-                        _ => States::TPK,
-                    }
-                },
-                States::UserID(mut u) => {
-                    /* Find signature packets.  */
-                    match p {
-                        Packet::PublicKey(_pk) => {
-                            States::End
-                        },
-                        Packet::UserID(uid) => {
-                            userids.push(u);
-                            States::UserID(UserIDBinding{userid: uid, signatures: vec![]})
-                        },
-                        Packet::PublicSubkey(key) => {
-                            userids.push(u);
-                            States::Subkey(SubkeyBinding{subkey: key, signatures: vec![]})
-                        },
-                        Packet::Signature(sig) => {
-                            u.signatures.push(sig);
-                            States::UserID(u)
-                        },
-                        _ => States::UserID(u),
-                    }
-                },
-                States::Subkey(mut s) => {
-                    /* Find signature packets.  */
-                    match p {
-                        Packet::PublicKey(_pk) => {
-                            States::End
-                        },
-                        Packet::UserID(uid) => {
-                            subkeys.push(s);
-                            States::UserID(UserIDBinding{userid: uid, signatures: vec![]})
-                        },
-                        Packet::PublicSubkey(key) => {
-                            subkeys.push(s);
-                            States::Subkey(SubkeyBinding{subkey: key, signatures: vec![]})
-                        },
-                        Packet::Signature(sig) => {
-                            s.signatures.push(sig);
-                            States::Subkey(s)
-                        },
-                        _ => States::Subkey(s),
-                    }
-                },
-                States::End => break,
-            };
-        }
+struct TPKParser {
+    state: TPKParserState,
+    primary: Option<Key>,
+    userids: Vec<UserIDBinding>,
+    subkeys: Vec<SubkeyBinding>,
+}
 
-        let mut tpk = if let Some(p) = primary {
-            TPK{primary: p, userids: userids, subkeys: subkeys}
+impl TPKParser {
+    // Initializes a parser.
+    fn new() -> TPKParser {
+        TPKParser {
+            state: TPKParserState::Start,
+            primary: None,
+            userids: vec![],
+            subkeys: vec![],
+        }
+    }
+
+    // Parses the next packet in the packet stream.
+    fn parse(mut self, p: Packet) -> Self {
+        self.state = match { self.state } {
+            TPKParserState::Start => {
+                /* Find the first public key packet.  */
+                match p {
+                    Packet::PublicKey(pk) => {
+                        self.primary = Some(pk);
+                        TPKParserState::TPK
+                    },
+                    _ => TPKParserState::Start,
+                }
+            },
+            TPKParserState::TPK => {
+                /* Find user id, or subkey packets.  */
+                match p {
+                    Packet::PublicKey(_pk) => {
+                        TPKParserState::End
+                    },
+                    Packet::UserID(uid) => {
+                        TPKParserState::UserID(
+                            UserIDBinding{userid: uid, signatures: vec![]})
+                    },
+                    Packet::PublicSubkey(key) => {
+                        TPKParserState::Subkey(
+                            SubkeyBinding{subkey: key, signatures: vec![]})
+                    },
+                    _ => TPKParserState::TPK,
+                }
+            },
+            TPKParserState::UserID(mut u) => {
+                /* Find signature packets.  */
+                match p {
+                    Packet::PublicKey(_pk) => {
+                        TPKParserState::End
+                    },
+                    Packet::UserID(uid) => {
+                        self.userids.push(u);
+                        TPKParserState::UserID(
+                            UserIDBinding{userid: uid, signatures: vec![]})
+                    },
+                    Packet::PublicSubkey(key) => {
+                        self.userids.push(u);
+                        TPKParserState::Subkey(
+                            SubkeyBinding{subkey: key, signatures: vec![]})
+                    },
+                    Packet::Signature(sig) => {
+                        u.signatures.push(sig);
+                        TPKParserState::UserID(u)
+                    },
+                    _ => TPKParserState::UserID(u),
+                }
+            },
+            TPKParserState::Subkey(mut s) => {
+                /* Find signature packets.  */
+                match p {
+                    Packet::PublicKey(_pk) => {
+                        TPKParserState::End
+                    },
+                    Packet::UserID(uid) => {
+                        self.subkeys.push(s);
+                        TPKParserState::UserID(
+                            UserIDBinding{userid: uid, signatures: vec![]})
+                    },
+                    Packet::PublicSubkey(key) => {
+                        self.subkeys.push(s);
+                        TPKParserState::Subkey(
+                            SubkeyBinding{subkey: key, signatures: vec![]})
+                    },
+                    Packet::Signature(sig) => {
+                        s.signatures.push(sig);
+                        TPKParserState::Subkey(s)
+                    },
+                    _ => TPKParserState::Subkey(s),
+                }
+            },
+            TPKParserState::End => TPKParserState::End,
+        };
+
+        self
+    }
+
+    // Returns whatever TPK was found.
+    fn finish(self) -> Result<TPK> {
+        let mut tpk = if let Some(p) = self.primary {
+            TPK {
+                primary: p,
+                userids: self.userids,
+                subkeys: self.subkeys
+            }
         } else {
             return Err(Error::NoKeyFound);
         };
 
-        match state {
-            States::UserID(u) => {
+        match self.state {
+            TPKParserState::UserID(u) => {
                 tpk.userids.push(u);
                 Ok(tpk)
             },
-            States::Subkey(s) => {
+            TPKParserState::Subkey(s) => {
                 tpk.subkeys.push(s);
                 Ok(tpk)
             },
-            States::End => Ok(tpk),
+            TPKParserState::End => Ok(tpk),
             _ => Err(Error::NoKeyFound),
         }.and_then(|tpk| tpk.canonicalize())
+    }
+}
+
+impl TPK {
+    /// Returns the first TPK found in the packet stream.
+    pub fn from_packet_parser(mut pp: PacketParser) -> Result<Self> {
+        let mut parser = TPKParser::new();
+        loop {
+            let (packet, ppo, _relative_position) = pp.next()?;
+            parser = parser.parse(packet);
+            match parser.state {
+                TPKParserState::End => break,
+                _ => true,
+            };
+
+            if ppo.is_none() {
+                break;
+            }
+            pp = ppo.unwrap();
+        }
+
+        parser.finish()
+    }
+
+    /// Returns the first TPK encountered in the reader.
+    pub fn from_reader<R: io::Read>(reader: R) -> Result<Self> {
+        let ppo = PacketParser::from_reader(reader)
+            .map_err(|e| Error::IoError(e))?;
+        if let Some(pp) = ppo {
+            TPK::from_packet_parser(pp)
+        } else {
+            TPKParser::new().finish()
+        }
+    }
+
+    /// Returns the first TPK encountered in the file.
+    pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
+        Self::from_reader(File::open(path)?)
+    }
+
+    /// Returns the first TPK found in `m`.
+    pub fn from_message(m: Message) -> Result<Self> {
+        let mut parser = TPKParser::new();
+        for p in m.into_children() {
+            parser = parser.parse(p);
+            match parser.state {
+                TPKParserState::End => break,
+                _ => true,
+            };
+        }
+
+        parser.finish()
     }
 
     /// Returns the first TPK found in `buf`.
     ///
     /// `buf` must be an OpenPGP encoded message.
     pub fn from_bytes(buf: &[u8]) -> Result<Self> {
-        Message::from_bytes(buf)
-            .map_err(|e| Error::IoError(e))
-            .and_then(Self::from_message)
+        let ppo = PacketParser::from_bytes(buf)
+            .map_err(|e| Error::IoError(e))?;
+        if let Some(pp) = ppo {
+            TPK::from_packet_parser(pp)
+        } else {
+            TPKParser::new().finish()
+        }
     }
 
     fn canonicalize(mut self) -> Result<Self> {
@@ -219,57 +306,88 @@ impl From<io::Error> for Error {
 
 #[cfg(test)]
 mod test {
-    use super::{Error, TPK, Message};
+    use super::{Error, TPK, Message, Result};
 
     macro_rules! bytes {
         ( $x:expr ) => { include_bytes!(concat!("../tests/data/keys/", $x)) };
     }
 
+    fn parse_tpk(data: &[u8], as_message: bool) -> Result<TPK> {
+        if as_message {
+            let m = Message::from_bytes(data).unwrap();
+            TPK::from_message(m)
+        } else {
+            TPK::from_bytes(data)
+        }
+    }
+
     #[test]
     fn broken() {
-        let m = Message::from_bytes(bytes!("testy-broken-no-pk.pgp")).unwrap();
-        if let Err(Error::NoKeyFound) = TPK::from_message(m) {
-            /* Pass.  */
-        } else {
-            panic!("Expected error, got none.");
-        }
+        for i in 0..2 {
+            let tpk = parse_tpk(bytes!("testy-broken-no-pk.pgp"),
+                                i == 0);
+            if let Err(Error::NoKeyFound) = tpk {
+                /* Pass.  */
+            } else {
+                panic!("Expected error, got none.");
+            }
 
-        let m = Message::from_bytes(bytes!("testy-broken-no-uid.pgp")).unwrap();
-        if let Err(Error::NoUserId) = TPK::from_message(m) {
-            /* Pass.  */
-        } else {
-            panic!("Expected error, got none.");
-        }
+            let tpk = parse_tpk(bytes!("testy-broken-no-uid.pgp"),
+                                i == 0);
+            if let Err(Error::NoUserId) = tpk {
+                /* Pass.  */
+            } else {
+                panic!("Expected error, got none.");
+            }
 
-        let m = Message::from_bytes(bytes!("testy-broken-no-sig-on-subkey.pgp")).unwrap();
-        let tpk = TPK::from_message(m).unwrap();
-        assert_eq!(tpk.subkeys.len(), 0);
+            // We have:
+            //
+            //   [ pk, user id, sig, subkey ]
+            let tpk = parse_tpk(bytes!("testy-broken-no-sig-on-subkey.pgp"),
+                                i == 0).unwrap();
+            eprintln!("{:?}", tpk);
+            assert_eq!(tpk.primary.creation_time, 1511355130);
+            assert_eq!(tpk.userids.len(), 1);
+            assert_eq!(tpk.userids[0].userid.value,
+                       &b"Testy McTestface <testy@example.org>"[..]);
+            assert_eq!(tpk.userids[0].signatures.len(), 1);
+            assert_eq!(tpk.userids[0].signatures[0].hash_prefix,
+                       [ 0xc6, 0x8f ]);
+            assert_eq!(tpk.subkeys.len(), 0);
+        }
     }
 
     #[test]
     fn basics() {
-        let m = Message::from_bytes(bytes!("testy.pgp")).unwrap();
-        let orig_dbg = format!("{:?}", m);
-        let tpk = TPK::from_message(m).unwrap();
-        //println!("{:?}", tpk);
+        for i in 0..2 {
+            let tpk = parse_tpk(bytes!("testy.pgp"),
+                                i == 0).unwrap();
+            assert_eq!(tpk.primary.creation_time, 1511355130);
 
-        assert_eq!(tpk.userids.len(), 1, "number of userids");
-        assert_eq!(String::from_utf8_lossy(&tpk.userids[0].userid.value),
-                   "Testy McTestface <testy@example.org>");
-        assert_eq!(tpk.subkeys.len(), 1, "number of subkeys");
+            assert_eq!(tpk.userids.len(), 1, "number of userids");
+            assert_eq!(tpk.userids[0].userid.value,
+                       &b"Testy McTestface <testy@example.org>"[..]);
+            assert_eq!(tpk.userids[0].signatures.len(), 1);
+            assert_eq!(tpk.userids[0].signatures[0].hash_prefix,
+                       [ 0xc6, 0x8f ]);
 
-        // XXX Messages cannot be compared.
-        assert_eq!(format!("{:?}", tpk.to_message()), orig_dbg);
+            assert_eq!(tpk.subkeys.len(), 1, "number of subkeys");
+            assert_eq!(tpk.subkeys[0].subkey.creation_time, 1511355130);
+            assert_eq!(tpk.subkeys[0].signatures[0].hash_prefix,
+                       [ 0xb7, 0xb9 ]);
 
-        let m = Message::from_bytes(bytes!("testy-no-subkey.pgp")).unwrap();
-        let orig_dbg = format!("{:?}", m);
-        let tpk = TPK::from_message(m).unwrap();
+            let tpk = parse_tpk(bytes!("testy-no-subkey.pgp"),
+                                i == 0).unwrap();
+            assert_eq!(tpk.primary.creation_time, 1511355130);
 
-        assert_eq!(tpk.userids.len(), 1, "number of userids");
-        assert_eq!(String::from_utf8_lossy(&tpk.userids[0].userid.value),
-                   "Testy McTestface <testy@example.org>");
-        assert_eq!(tpk.subkeys.len(), 0, "number of subkeys");
-        // XXX Messages cannot be compared.
-        assert_eq!(format!("{:?}", tpk.to_message()), orig_dbg);
+            assert_eq!(tpk.userids.len(), 1, "number of userids");
+            assert_eq!(tpk.userids[0].userid.value,
+                       &b"Testy McTestface <testy@example.org>"[..]);
+            assert_eq!(tpk.userids[0].signatures.len(), 1);
+            assert_eq!(tpk.userids[0].signatures[0].hash_prefix,
+                       [ 0xc6, 0x8f ]);
+
+            assert_eq!(tpk.subkeys.len(), 0, "number of subkeys");
+        }
     }
 }
