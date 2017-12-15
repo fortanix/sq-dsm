@@ -318,6 +318,17 @@ mod test {
         ( $x:expr ) => { include_bytes!(concat!("../tests/data/keys/", $x)) };
     }
 
+    macro_rules! assert_match {
+        ( $error: pat = $expr:expr ) => {
+            let x = $expr;
+            if let $error = x {
+                /* Pass.  */
+            } else {
+                panic!("Expected {}, got {:?}.", stringify!($error), x);
+            }
+        };
+    }
+
     fn parse_tpk(data: &[u8], as_message: bool) -> Result<TPK> {
         if as_message {
             let m = Message::from_bytes(data).unwrap();
@@ -332,19 +343,11 @@ mod test {
         for i in 0..2 {
             let tpk = parse_tpk(bytes!("testy-broken-no-pk.pgp"),
                                 i == 0);
-            if let Err(Error::NoKeyFound) = tpk {
-                /* Pass.  */
-            } else {
-                panic!("Expected error, got none.");
-            }
+            assert_match!(Err(Error::NoKeyFound) = tpk);
 
             let tpk = parse_tpk(bytes!("testy-broken-no-uid.pgp"),
                                 i == 0);
-            if let Err(Error::NoUserId) = tpk {
-                /* Pass.  */
-            } else {
-                panic!("Expected error, got none.");
-            }
+            assert_match!(Err(Error::NoUserId) = tpk);
 
             // We have:
             //
