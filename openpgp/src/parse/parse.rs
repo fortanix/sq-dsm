@@ -1,6 +1,7 @@
 use std;
 use std::io;
 use std::str;
+use std::path::Path;
 use std::fs::File;
 
 use num::FromPrimitive;
@@ -601,6 +602,23 @@ impl <'a> PacketParser<'a> {
         return Ok(r);
     }
 
+    pub fn from_reader<R: io::Read + 'a>(reader: R)
+            -> Result<Option<PacketParser<'a>>, std::io::Error> {
+        let bio = BufferedReaderGeneric::new(reader, None);
+        return Self::new(bio, None);
+    }
+
+    pub fn from_file<P: AsRef<Path>>(path: P)
+            -> Result<Option<PacketParser<'a>>, std::io::Error> {
+        Self::from_reader(File::open(path)?)
+    }
+
+    pub fn from_bytes(bytes: &'a [u8])
+            -> Result<Option<PacketParser<'a>>, std::io::Error> {
+        let bio = BufferedReaderMemory::new(bytes);
+        return Self::new(bio, None);
+    }
+
     /// Return a packet parser for the next OpenPGP packet in the
     /// stream.  If there are no packets left, then this function
     /// returns `bio`.
@@ -970,6 +988,12 @@ impl Message {
         }
 
         return Ok(Message { top_level: top_level });
+    }
+
+    pub fn from_reader<R: io::Read>(reader: R)
+             -> Result<Message, std::io::Error> {
+        let bio = BufferedReaderGeneric::new(reader, None);
+        Message::deserialize(bio, None)
     }
 
     pub fn from_file(mut file: File) -> Result<Message, std::io::Error> {
