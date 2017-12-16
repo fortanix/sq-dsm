@@ -152,6 +152,24 @@ pub trait BufferedReader : io::Read + fmt::Debug {
         return Ok(data);
     }
 
+    /// Like steal_eof, but instead of returning the data, the data is
+    /// discarded.
+    fn drop_eof(&mut self) -> Result<(), std::io::Error> {
+        loop {
+            match self.data_consume(DEFAULT_BUF_SIZE) {
+                Ok(ref buffer) =>
+                    if buffer.len() < DEFAULT_BUF_SIZE {
+                        // EOF.
+                        break;
+                    },
+                Err(err) =>
+                    return Err(err),
+            }
+        }
+
+        Ok(())
+    }
+
     fn into_inner<'a>(self: Box<Self>) -> Option<Box<BufferedReader + 'a>>
         where Self: 'a;
 }
@@ -232,6 +250,10 @@ impl <'a> BufferedReader for Box<BufferedReader + 'a> {
 
     fn steal_eof(&mut self) -> Result<Vec<u8>, std::io::Error> {
         return self.as_mut().steal_eof();
+    }
+
+    fn drop_eof(&mut self) -> Result<(), std::io::Error> {
+        return self.as_mut().drop_eof();
     }
 
     fn into_inner<'b>(self: Box<Self>) -> Option<Box<BufferedReader + 'b>>
