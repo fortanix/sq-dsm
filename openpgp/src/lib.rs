@@ -369,6 +369,22 @@ pub enum Packet {
     CompressedData(CompressedData),
 }
 
+impl Packet {
+    fn tag(&self) -> Tag {
+        match self {
+            &Packet::Unknown(ref packet) => packet.tag,
+            &Packet::Signature(_) => Tag::Signature,
+            &Packet::PublicKey(_) => Tag::PublicKey,
+            &Packet::PublicSubkey(_) => Tag::PublicSubkey,
+            &Packet::SecretKey(_) => Tag::SecretKey,
+            &Packet::SecretSubkey(_) => Tag::SecretSubkey,
+            &Packet::UserID(_) => Tag::UserID,
+            &Packet::Literal(_) => Tag::Literal,
+            &Packet::CompressedData(_) => Tag::CompressedData,
+        }
+    }
+}
+
 // Allow transparent access of common fields.
 impl<'a> Deref for Packet {
     type Target = PacketCommon;

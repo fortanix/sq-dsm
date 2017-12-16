@@ -1,5 +1,6 @@
 use std;
 use std::io;
+use std::cmp;
 use std::str;
 use std::path::Path;
 use std::fs::File;
@@ -556,6 +557,10 @@ struct PacketParserBuilderSettings {
     // Whether a packet's contents should be buffered or dropped when
     // the next packet is retrieved.
     buffer_unread_content: bool,
+
+    // Whether to trace the execute of the PacketParser.  (The output
+    // is sent to stderr.)
+    trace: bool,
 }
 
 pub struct PacketParserBuilder<R: BufferedReader> {
@@ -568,6 +573,7 @@ const PACKET_PARSER_DEFAULTS : PacketParserBuilderSettings
     = PacketParserBuilderSettings {
         max_recursion_depth: MAX_RECURSION_DEPTH,
         buffer_unread_content: false,
+        trace: false,
     };
 
 impl<R: BufferedReader> PacketParserBuilder<R> {
@@ -594,6 +600,11 @@ impl<R: BufferedReader> PacketParserBuilder<R> {
     pub fn drop_unread_content(mut self)
             -> PacketParserBuilder<R> {
         self.settings.buffer_unread_content = false;
+        self
+    }
+
+    pub fn trace(mut self) -> PacketParserBuilder<R> {
+        self.settings.trace = true;
         self
     }
 
@@ -690,6 +701,11 @@ impl <'a> std::fmt::Debug for PacketParser<'a> {
 enum PacketParserOrBufferedReader<'a> {
     PacketParser(PacketParser<'a>),
     BufferedReader(Box<BufferedReader + 'a>),
+}
+
+fn indent(depth: u8) -> &'static str {
+    let s = "                                                  ";
+    return &s[0..cmp::min(depth, s.len() as u8) as usize];
 }
 
 impl <'a> PacketParser<'a> {
@@ -815,6 +831,11 @@ impl <'a> PacketParser<'a> {
     pub fn next(mut self)
             -> Result<(Packet, Option<PacketParser<'a>>, isize),
                       std::io::Error> {
+        if self.settings.trace {
+            eprintln!("{}PacketParser::next({:?})",
+                      indent(self.recursion_depth), self.packet.tag());
+        }
+
         // Finish processng the current packet.
         self.finish();
 
@@ -835,7 +856,16 @@ impl <'a> PacketParser<'a> {
                 PacketParserOrBufferedReader::BufferedReader(reader2) => {
                     // We got EOF on the current container.  Pop it
                     // and try again.
+                    if settings.trace {
+                        eprintln!("{}PacketParser::next(): pop, depth: {}",
+                                  indent(recursion_depth), recursion_depth);
+                    }
+
                     if recursion_depth == 0 {
+                        if settings.trace {
+                            eprintln!("{}PacketParser::next(): done",
+                                      indent(recursion_depth));
+                        }
                         return Ok((packet, None, relative_position));
                     } else {
                         reader = reader2.into_inner().unwrap();
@@ -845,8 +875,15 @@ impl <'a> PacketParser<'a> {
                     }
                 },
                 PacketParserOrBufferedReader::PacketParser(mut pp) => {
+                    if settings.trace {
+                        eprintln!("{}PacketParser::next() -> {:?}",
+                                  indent(recursion_depth),
+                                  pp.packet.tag());
+                    }
+
                     pp.recursion_depth = recursion_depth;
                     pp.settings = settings;
+
                     return Ok((packet, Some(pp), relative_position));
                 }
             }
@@ -862,17 +899,46 @@ impl <'a> PacketParser<'a> {
     pub fn recurse(self)
             -> Result<(Packet, Option<PacketParser<'a>>, isize),
                       std::io::Error> {
+        if self.settings.trace {
+            eprintln!("{}PacketParser::recurse({:?})",
+                      indent(self.recursion_depth), self.packet.tag());
+        }
+
         match self.packet {
             // Packets that recurse.
             Packet::CompressedData(_) => {
-                if self.recursion_depth >= self.settings.max_recursion_depth
-                    || self.content_was_read {
+                if self.recursion_depth >= self.settings.max_recursion_depth {
+                    if self.settings.trace {
+                        eprintln!("{}PacketParser::recurse(): not recursing, \
+                                   into the {:?} packet, maximum recursion \
+                                   depth reached ({})",
+                                  indent(self.recursion_depth), self.packet.tag(),
+                                  self.settings.max_recursion_depth);
+                    }
+
+                    // Drop through.
+                } else if self.content_was_read {
+                    if self.settings.trace {
+                        eprintln!("{}PacketParser::recurse(): not recursing \
+                                   into the {:?} packet, some data was \
+                                   already read.",
+                                  indent(self.recursion_depth), self.packet.tag());
+                    }
+
                     // Drop through.
                 } else {
                     match PacketParser::parse(self.reader)? {
                         PacketParserOrBufferedReader::PacketParser(mut pp) => {
                             pp.recursion_depth = self.recursion_depth + 1;
                             pp.settings = self.settings;
+
+                            if pp.settings.trace {
+                                eprintln!("{}PacketParser::recurse(): \
+                                           recursing into the {:?}) packet.",
+                                          indent(self.recursion_depth),
+                                          self.packet.tag());
+                            }
+
                             return Ok((self.packet, Some(pp), 1));
                         },
                         PacketParserOrBufferedReader::BufferedReader(_) => {
@@ -888,6 +954,11 @@ impl <'a> PacketParser<'a> {
                 | Packet::SecretKey(_) | Packet::SecretSubkey(_)
                 | Packet::UserID(_) | Packet::Literal(_) => {
                 // Drop through.
+                if self.settings.trace {
+                    eprintln!("{}PacketParser::recurse(): A {:?} packet is \
+                               not a container, not recursing",
+                              indent(self.recursion_depth), self.packet.tag());
+                }
             },
         }
 
@@ -914,11 +985,20 @@ impl <'a> PacketParser<'a> {
 
     pub fn finish<'b>(&'b mut self) -> &'b Packet {
         if self.settings.buffer_unread_content {
+            if self.settings.trace {
+                eprintln!("{}PacketParser::finish({:?}): buffering unread content",
+                          indent(self.recursion_depth), self.packet.tag());
+            }
+
             if let Err(_err) = self.buffer_unread_content() {
                 // XXX: We should propagate the error.
                 unimplemented!();
             }
         } else {
+            if self.settings.trace {
+                eprintln!("{}PacketParser::finish({:?}): dropping unread content",
+                          indent(self.recursion_depth), self.packet.tag());
+            }
 
             self.reader.drop_eof().unwrap();
         }
