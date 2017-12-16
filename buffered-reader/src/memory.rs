@@ -66,6 +66,7 @@ impl<'a> BufferedReader for BufferedReaderMemory<'a> {
     }
 
     fn data_consume(&mut self, amount: usize) -> Result<&[u8], io::Error> {
+        let amount = cmp::min(amount, self.buffer.len() - self.cursor);
         return Ok(self.consume(amount));
     }
 
