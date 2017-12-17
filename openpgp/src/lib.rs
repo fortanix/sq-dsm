@@ -1,4 +1,40 @@
-//! OpenPGP data types and machinery.
+//! OpenPGP data types and associated machinery.
+//!
+//! This crate aims to provide a complete implementation of OpenPGP as
+//! defined by [RFC 4880] as well as several extensions (e.g., [RFC
+//! 6637], which describes ECC cryptography for OpenPGP).  This
+//! includes support for unbuffered message processing.
+//!
+//! A few features that the OpenPGP community considers to be
+//! deprecated (e.g., version 3 compatibility) have been left out as
+//! well as support for functionality that we consider to be not only
+//! completely useless, but also dangerous (e.g., support for
+//! [unhashed signature subpackets]).  We have also updated some
+//! OpenPGP defaults to avoid foot guns (e.g., this crate does not
+//! fallback to IDEA, but instead assumes all OpenPGP implementations
+//! understand AES).  If some functionality is missing, please file a
+//! bug report.
+//!
+//! A non-goal of this crate is support for any sort of high-level,
+//! bolted-on functionality.  For instance, [RFC 4880] does not define
+//! trust models, such as the web of trust, direct trust, or TOFU.
+//! Neither does this crate.  [RFC 4880] does specify some mechanisms
+//! for creating trust models (specifically, UserID certifications),
+//! and this crate does expose those mechanisms.
+//!
+//! We also try hard to avoid dictating how OpenPGP should be used.
+//! This doesn't mean that we don't have opinions about how OpenPGP
+//! should be used in a number of common scenarios (for instance,
+//! message validation).  But, in this crate, we refrain from
+//! expressing those opinions; we expose an opinionated, high-level
+//! interface in the [sequoia-core] and related crates.  In our
+//! opinion, you should generally use those crates instead of this
+//! one.
+//!
+//! [RFC 4880]: https://tools.ietf.org/html/rfc4880
+//! [RFC 6637]: https://tools.ietf.org/html/rfc6637
+//! [unhashed signature subpackets]: https://tools.ietf.org/html/rfc4880#section-5.2.3.2
+//! [sequoia-core]: ../sequoia-core
 
 extern crate buffered_reader;
 
@@ -420,10 +456,10 @@ impl<'a> DerefMut for Packet {
     }
 }
 
-/// A `Container` is a container that holds zero or more OpenPGP
-/// packets.  This is used both as a top-level for an OpenPGP message
-/// as well as by Packets that are containers (like a compressed data
-/// packet).
+/// Holds zero or more OpenPGP packets.
+///
+/// This is used by OpenPGP container packets, like the compressed
+/// data packet, to store the containing packets.
 #[derive(PartialEq)]
 pub struct Container {
     packets: Vec<Packet>,

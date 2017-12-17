@@ -35,11 +35,11 @@ const DEFAULT_BUF_SIZE: usize = 8 * 1024;
 pub trait BufferedReader : io::Read + fmt::Debug {
     /// Return the data in the internal buffer.  Normally, the
     /// returned buffer will contain *at least* `amount` bytes worth
-    /// of data.  Less data may be returned if the end of the file is
-    /// reached or an error occurs.  In these cases, any remaining
-    /// data is returned.  Note: the error is not discarded, but will
-    /// be returned when data is called and the internal buffer is
-    /// empty.
+    /// of data.  Less data may be returned if (and only if) the end
+    /// of the file is reached or an error occurs.  In these cases,
+    /// any remaining data is returned.  Note: the error is not
+    /// discarded, but will be returned when data is called and the
+    /// internal buffer is empty.
     ///
     /// This function does not advance the cursor.  Thus, multiple
     /// calls will return the same data.  To advance the cursor, use

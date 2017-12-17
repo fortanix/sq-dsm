@@ -509,7 +509,7 @@ fn compressed_data_parser_test () {
         assert_eq!(h.ctb.tag, Tag::CompressedData);
         assert_eq!(h.length, BodyLength::Indeterminate);
 
-        // We expect a compress packet containing a literal data
+        // We expect a compressed packet containing a literal data
         // packet, and that is it.
         let (compressed, ppo, relative_position)
             = compressed_data_parser(bio).unwrap().recurse().unwrap();
@@ -545,13 +545,14 @@ fn compressed_data_parser_test () {
     }
 }
 
+// A `PacketParser`'s settings.
 #[derive(Debug)]
-struct PacketParserBuilderSettings {
+struct PacketParserSettings {
     // The maximum allowed recursion depth.
     //
     // There is absolutely no reason that this should be more than
-    // 255.  Moreover, if it is too large, then a read from the
-    // pipeline will blow the stack.
+    // 255.  (GnuPG defaults to 32.)  Moreover, if it is too large,
+    // then a read from the reader pipeline could blow the stack.
     max_recursion_depth: u8,
 
     // Whether a packet's contents should be buffered or dropped when
@@ -563,20 +564,28 @@ struct PacketParserBuilderSettings {
     trace: bool,
 }
 
-pub struct PacketParserBuilder<R: BufferedReader> {
-    bio: R,
-    settings: PacketParserBuilderSettings,
-}
-
-
-const PACKET_PARSER_DEFAULTS : PacketParserBuilderSettings
-    = PacketParserBuilderSettings {
+// The default `PacketParser` settings.
+const PACKET_PARSER_DEFAULTS : PacketParserSettings
+    = PacketParserSettings {
         max_recursion_depth: MAX_RECURSION_DEPTH,
         buffer_unread_content: false,
         trace: false,
     };
 
+/// A builder for configuring a `PacketParser`.
+///
+/// Since the default settings are usually appropriate, this mechanism
+/// will only be needed in exceptional circumstances.  Instead use,
+/// for instance, `PacketParser::from_file` or
+/// `PacketParser::from_reader` to start parsing an OpenPGP message.
+pub struct PacketParserBuilder<R: BufferedReader> {
+    bio: R,
+    settings: PacketParserSettings,
+}
+
 impl<R: BufferedReader> PacketParserBuilder<R> {
+    /// Creates a `PacketParserBuilder` for an OpenPGP message stored
+    /// in a `BufferedReader` object.
     pub fn from_buffered_reader(bio: R)
             -> Result<PacketParserBuilder<R>, std::io::Error> {
         Ok(PacketParserBuilder {
@@ -585,29 +594,59 @@ impl<R: BufferedReader> PacketParserBuilder<R> {
         })
     }
 
+    /// Sets the maximum recursion depth.
+    ///
+    /// Setting this to 0 means that the `PacketParser` will never
+    /// recurse; it will only parse the top-level packets.
+    ///
+    /// This is a u8, because recursing more than 255 times makes no
+    /// sense.  The default is `MAX_RECURSION_DEPTH`.  (GnuPG defaults
+    /// to a maximum recursion depth of 32.)
     pub fn max_recursion_depth(mut self, value: u8)
             -> PacketParserBuilder<R> {
         self.settings.max_recursion_depth = value;
         self
     }
 
+    /// Causes `PacketParser::finish()` to buffer any unread content.
+    ///
+    /// The unread content is stored in the `Packet::content` Option.
     pub fn buffer_unread_content(mut self)
             -> PacketParserBuilder<R> {
         self.settings.buffer_unread_content = true;
         self
     }
 
+    /// Causes `PacketParser::finish()` to drop any unread content.
+    /// This is the default.
     pub fn drop_unread_content(mut self)
             -> PacketParserBuilder<R> {
         self.settings.buffer_unread_content = false;
         self
     }
 
+    /// Causes the `PacketParser` functionality to print a trace of
+    /// its execution on stderr.
     pub fn trace(mut self) -> PacketParserBuilder<R> {
         self.settings.trace = true;
         self
     }
 
+    /// Finishes configuring the `PacketParser` and returns an
+    /// `Option<PacketParser>`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use openpgp::parse::{PacketParser,PacketParserBuilder};
+    /// # f(include_bytes!("../../tests/data/messages/public-key.gpg"));
+    /// #
+    /// # fn f(message_data: &[u8])
+    /// #     -> Result<Option<PacketParser>, std::io::Error> {
+    /// let ppo = PacketParserBuilder::from_bytes(message_data)?.finalize()?;
+    /// # return Ok(ppo);
+    /// # }
+    /// ```
     pub fn finalize<'a>(self)
             -> Result<Option<PacketParser<'a>>, std::io::Error> where Self: 'a {
         // Parse the first packet.
@@ -626,6 +665,32 @@ impl<R: BufferedReader> PacketParserBuilder<R> {
         }
     }
 
+    /// Finishes configuring the `PacketParser` and returns a fully
+    /// parsed message.
+    ///
+    /// Note: calling this function does not change the default
+    /// settings `PacketParserSettings`.  Thus, by default, the
+    /// content of packets will *not* be buffered.
+    ///
+    /// Note: to avoid denial of service attacks, the `PacketParser`
+    /// interface should be preferred unless the size of the message
+    /// is known to fit in memory.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use openpgp::Message;
+    /// # use openpgp::parse::{PacketParser,PacketParserBuilder};
+    /// # f(include_bytes!("../../tests/data/messages/public-key.gpg"));
+    /// #
+    /// # fn f(message_data: &[u8])
+    /// #     -> Result<Message, std::io::Error> {
+    /// let message = PacketParserBuilder::from_bytes(message_data)?
+    ///     .buffer_unread_content()
+    ///     .deserialize()?;
+    /// # return Ok(message);
+    /// # }
+    /// ```
     pub fn deserialize(self)
             -> Result<Message, std::io::Error> {
         Message::assemble(self.finalize()?)
@@ -633,6 +698,8 @@ impl<R: BufferedReader> PacketParserBuilder<R> {
 }
 
 impl <'a, R: io::Read + 'a> PacketParserBuilder<BufferedReaderGeneric<R>> {
+    /// Creates a `PacketParserBuilder` for an OpenPGP message stored
+    /// in a `std::io::Read` object.
     pub fn from_reader(reader: R)
             -> Result<PacketParserBuilder<BufferedReaderGeneric<R>>,
                       std::io::Error> {
@@ -644,6 +711,8 @@ impl <'a, R: io::Read + 'a> PacketParserBuilder<BufferedReaderGeneric<R>> {
 }
 
 impl PacketParserBuilder<BufferedReaderGeneric<File>> {
+    /// Creates a `PacketParserBuilder` for an OpenPGP message stored
+    /// in the file named `path`.
     pub fn from_file<P: AsRef<Path>>(path: P)
             -> Result<PacketParserBuilder<BufferedReaderGeneric<File>>,
                       std::io::Error> {
@@ -652,6 +721,8 @@ impl PacketParserBuilder<BufferedReaderGeneric<File>> {
 }
 
 impl <'a> PacketParserBuilder<BufferedReaderMemory<'a>> {
+    /// Creates a `PacketParserBuilder` for an OpenPGP message stored
+    /// in specified buffer.
     pub fn from_bytes(bytes: &'a [u8])
             -> Result<PacketParserBuilder<BufferedReaderMemory<'a>>,
                       std::io::Error> {
@@ -660,7 +731,98 @@ impl <'a> PacketParserBuilder<BufferedReaderMemory<'a>> {
     }
 }
 
+/// A OpenPGP packet parser.
+///
+/// An OpenPGP message is a sequence of packets.  Some of the packets
+/// contain other packets.  These containers include encrypted packets
+/// (the SED and SEIP packets), and compressed packets.  This
+/// structure results in a tree.  The packets are laid out in
+/// depth-first order.
+///
+/// There are two major concerns that inform the design of the
+/// `PacketParser` API.
+///
+/// First, when processing a container, it is possible to either
+/// recurse into the container, and process its children, or treat the
+/// contents of the container as an opaque byte stream, and process
+/// the packet following the container.  The `PacketParser`
+/// abstraction allows the caller to choose the behavior by either
+/// calling the `recurse` method or the `next` method, as appropriate.
+/// OpenPGP doesn't impose any restrictions on the amount of nesting.
+/// So, to prevent a denial of service attack, the `PacketParser`
+/// implementation does not recurse more than `MAX_RECURSION_DEPTH`
+/// times, by default.
+///
+/// Second, packets can contain an effectively unbounded amount of
+/// data.  To avoid errors due to memory exhaustion, the
+/// `PacketParser` abstraction supports parsing packets while only
+/// buffering O(1) bytes of data.  To do this, a `PacketParser`
+/// initially only parses a packet's header (which is rarely more than
+/// a few kilobytes of data).  After inspecting that data, the caller
+/// can decide how to handle the packet's contents.  If the content is
+/// interesting, it can be streamed or buffered.  (To facilitate this,
+/// a `PacketParser` implements the `std::io::Read` and the
+/// `BufferedReader` traits.)  Streaming is possible not only for
+/// literal data packets, but also containers (other packets also
+/// support the interface, but just return EOF).  For instance,
+/// encryption can be stripped by saving the decrypted content of an
+/// encryption packet, which is just an OpenPGP message.
+///
+/// We explicitly choose to not use a callback-based API, but
+/// something that is closer to Rust's iterator API.  Unfortunately,
+/// because a `PacketParser` needs mutable access to the
+/// `BufferedReader` (so that the content can be streamed), only a
+/// single `PacketParser` item can be live at a time (without a fair
+/// amount of unsafe nastiness).  This is incompatible with Rust's
+/// iterator concept, which allows any number of items to be live at
+/// any time.  For instance:
+///
+/// ```rust
+/// let mut v = vec![1, 2, 3, 4];
+/// let mut iter = v.iter_mut();
+///
+/// let x = iter.next().unwrap();
+/// let y = iter.next().unwrap();
+///
+/// *x += 10; // This does not cause an error!
+/// *y += 10;
+/// ```
+///
+/// # Examples
+///
+/// Parse an OpenPGP message using a `PacketParser`:
+///
+/// ```rust
+/// # use openpgp::Packet;
+/// # use openpgp::parse::PacketParser;
+/// # f(include_bytes!("../../tests/data/messages/public-key.gpg"));
+/// #
+/// # fn f(message_data: &[u8]) -> Result<(), std::io::Error> {
+/// let mut ppo = PacketParser::from_bytes(message_data)?;
+/// while let Some(mut pp) = ppo {
+///     // Process the packet.
+///
+///     if let Packet::Literal(_) = pp.packet {
+///         // Send the content of any literal packets to stdout.
+///         std::io::copy(&mut pp, &mut std::io::stdout());
+///     }
+///
+///     // Get the next packet.
+///     let (_packet, tmp, _relative_position) = pp.recurse()?;
+///     ppo = tmp;
+/// }
+/// # return Ok(());
+/// # }
 pub struct PacketParser<'a> {
+    /// The packet that is being parsed.
+    pub packet: Packet,
+
+    /// This packet's recursion depth.
+    ///
+    /// A top-level packet has a recursion depth of 0.  Packets in a
+    /// top-level container have a recursion depth of 1, etc.
+    pub recursion_depth: u8,
+
     // The reader.
     //
     // We can't make `reader` generic, because the type of
@@ -676,78 +838,74 @@ pub struct PacketParser<'a> {
     // can't recurse, because we're missing some of the packet!
     content_was_read: bool,
 
-    // This packets recursion depth.  A top-level packet has a
-    // recursion depth of 0.
-    pub recursion_depth: u8,
-
-    // The packet that is being parsed.
-    pub packet: Packet,
-
-    settings: PacketParserBuilderSettings,
+    // The `PacketParser`'s settings
+    settings: PacketParserSettings,
 }
 
 impl <'a> std::fmt::Debug for PacketParser<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         f.debug_struct("PacketParser")
-            .field("reader", &self.reader)
             .field("packet", &self.packet)
-            .field("content_was_read", &self.content_was_read)
             .field("recursion_depth", &self.recursion_depth)
+            .field("reader", &self.reader)
+            .field("content_was_read", &self.content_was_read)
             .field("settings", &self.settings)
             .finish()
     }
 }
 
+// The return value of PacketParser::parse.
 enum PacketParserOrBufferedReader<'a> {
     PacketParser(PacketParser<'a>),
     BufferedReader(Box<BufferedReader + 'a>),
 }
 
+// Converts an indentation level to whitespace.
 fn indent(depth: u8) -> &'static str {
     let s = "                                                  ";
     return &s[0..cmp::min(depth, s.len() as u8) as usize];
 }
 
 impl <'a> PacketParser<'a> {
-    /// Start parsing an OpenPGP message.
+    /// Starts parsing an OpenPGP message stored in a `BufferedReader` object.
     ///
     /// This function returns a `PacketParser` for the first packet in
-    /// the stream.  (If the first packet is a container, this returns
-    /// the container; it does not recurse.)
-    ///
-    /// `max_recursion_depth` is the maximum recursion depth.  A
-    /// top-level packet has a recursion depth of 0.  Packets in a
-    /// top-level container have a recursion depth of 1.  Calling
-    /// `recurse()` on a `PacketParser` with the maximum recursion
-    /// depth cause `recurse()` to treat a container packet as if it
-    /// were not a container, and store the data inline.  Thus, 0
-    /// means recurse is equivalent to `next()`.  Pass `None` for the
-    /// default recursion depth, which is almost always reasonable.
-    /// To manage the amount of recursion manually, just pass
-    /// std::usize::MAX.
+    /// the stream.
     pub fn from_buffered_reader<R: BufferedReader + 'a>(bio: R)
             -> Result<Option<PacketParser<'a>>, std::io::Error> {
         PacketParserBuilder::from_buffered_reader(bio)?.finalize()
     }
 
+    /// Starts parsing an OpenPGP message stored in a `std::io::Read` object.
+    ///
+    /// This function returns a `PacketParser` for the first packet in
+    /// the stream.
     pub fn from_reader<R: io::Read + 'a>(reader: R)
             -> Result<Option<PacketParser<'a>>, std::io::Error> {
         PacketParserBuilder::from_reader(reader)?.finalize()
     }
 
+    /// Starts parsing an OpenPGP message stored in a file named `path`.
+    ///
+    /// This function returns a `PacketParser` for the first packet in
+    /// the stream.
     pub fn from_file<P: AsRef<Path>>(path: P)
             -> Result<Option<PacketParser<'a>>, std::io::Error> {
         PacketParserBuilder::from_file(path)?.finalize()
     }
 
+    /// Starts parsing an OpenPGP message stored in a buffer.
+    ///
+    /// This function returns a `PacketParser` for the first packet in
+    /// the stream.
     pub fn from_bytes(bytes: &'a [u8])
             -> Result<Option<PacketParser<'a>>, std::io::Error> {
         PacketParserBuilder::from_bytes(bytes)?.finalize()
     }
 
-    /// Return a packet parser for the next OpenPGP packet in the
-    /// stream.  If there are no packets left, then this function
-    /// returns `bio`.
+    // Returns a packet parser for the next OpenPGP packet in the
+    // stream.  If there are no packets left, this function returns
+    // `bio`.
     fn parse<R: BufferedReader + 'a>(mut bio: R)
             -> Result<PacketParserOrBufferedReader<'a>, std::io::Error> {
         // When header encounters an EOF, it returns an error.  But,
@@ -799,35 +957,43 @@ impl <'a> PacketParser<'a> {
         return Ok(PacketParserOrBufferedReader::PacketParser(result));
     }
 
-    /// Finish parsing the current packet and return it and a packet
-    /// parser for the next packet (if any).
+    /// Finishes parsing the current packet and returns the next one.
     ///
-    /// The last value in the returned tuple is the position of the
-    /// packet that is being parsed relative to the old packet.  Thus,
-    /// if the value is 0, they are siblings.  If the value is 1, the
-    /// old packet is a container and the new packet is its first
-    /// child.  If the value is -1, the new packet belongs is
-    /// contained in the old packet's grandparent.  The idea is
-    /// illustrated below:
+    /// This function finishes parsing the current packet.  By
+    /// default, any unread content is dropped.  It then creates a new
+    /// packet parser for the following packet.  That is, if the
+    /// current packet is a container, this function does *not*
+    /// recurse into the container, but skips any packets it contains.
     ///
-    /// #        ...
-    /// #         |
-    /// #       grandparent
-    /// #       |          \
-    /// #     parent       -1
-    /// #     |      \
-    /// #  packet    0
-    /// #     |
-    /// #     1
+    /// This return value is a tuple containing a `Packet` holding the
+    /// fully processed old packet, a `PacketParser` holding the new
+    /// packet, and an `isize` indicating the position of the new
+    /// packet relative to the old packet in the induced tree.
+    /// Specifically, if the relative position is 0, the two packets
+    /// are siblings.  If the value is 1, the old packet is a
+    /// container, and the new packet is its first child.  And, if the
+    /// value is -1, the new packet is contained in the old packet's
+    /// grandparent.  The idea is illustrated below:
     ///
-    /// Note, this function does not automatically recurse into a
-    /// container (for that functionality, use the recurse method).
-    /// Thus, if the current packet is, say, a compression packet,
-    /// then the next packet is NOT the first packet in the
-    /// compression container, but the packet following the
-    /// compression container.  If the current container is empty,
-    /// this function DOES pop that container off the container stack
-    /// and returns the following packet in the parent container.
+    /// ```nocompile
+    ///             ancestor
+    ///             |       \
+    ///            ...      -n
+    ///             |
+    ///           grandparent
+    ///           |          \
+    ///         parent       -1
+    ///         |      \
+    ///      packet    0
+    ///         |
+    ///         1
+    /// ```
+    ///
+    /// Note: since this function does not automatically recurse into
+    /// a container, the relative position will always be
+    /// non-positive.  If the current container is empty, this
+    /// function DOES pop that container off the container stack, and
+    /// returns the following packet in the parent container.
     pub fn next(mut self)
             -> Result<(Packet, Option<PacketParser<'a>>, isize),
                       std::io::Error> {
@@ -890,11 +1056,15 @@ impl <'a> PacketParser<'a> {
         };
     }
 
-    /// Like `next`, but if the current packet is a container (and we
-    /// haven't reached the maximum recursion depth, and the user
-    /// hasn't read the content), recurse into the container, and
-    /// return a `PacketParser` for its first child.  Otherwise,
-    /// return the next packet in the packet stream.  If we recurse,
+    /// Finishes parsing the current packet and returns the next one,
+    /// recursing if possible.
+    ///
+    /// This method is similar to the `next` method, but if the
+    /// current packet is a container (and we haven't reached the
+    /// maximum recursion depth, and the user hasn't started reading
+    /// the packet's contents), recurse into the container, and return
+    /// a `PacketParser` for its first child.  Otherwise, return the
+    /// next packet in the packet stream.  If this function recurses,
     /// then the relative position parameter is 1.
     pub fn recurse(self)
             -> Result<(Packet, Option<PacketParser<'a>>, isize),
@@ -966,8 +1136,38 @@ impl <'a> PacketParser<'a> {
         self.next()
     }
 
-    pub fn buffer_unread_content<'b>(&'b mut self)
-            -> Result<&'b [u8], io::Error> {
+    /// Causes the PacketParser to buffer the packet's contents.
+    ///
+    /// The packet's contents are stored in `packet.content`.  In
+    /// general, you should avoid buffering a packet's content and
+    /// prefer streaming its content unless you are certain that the
+    /// content is small.
+    ///
+    /// ```rust
+    /// # use openpgp::Packet;
+    /// # use openpgp::parse::PacketParser;
+    /// # use std::string::String;
+    /// # f(include_bytes!("../../tests/data/messages/public-key.gpg"));
+    /// #
+    /// # fn f(message_data: &[u8]) -> Result<(), std::io::Error> {
+    /// let mut ppo = PacketParser::from_bytes(message_data)?;
+    /// while let Some(mut pp) = ppo {
+    ///     // Process the packet.
+    ///
+    ///     if let Packet::Literal(_) = pp.packet {
+    ///         pp.buffer_unread_content();
+    ///         if let Some(ref content) = pp.packet.content {
+    ///             println!("{}", String::from_utf8_lossy(content));
+    ///         }
+    ///     }
+    ///
+    ///     // Get the next packet.
+    ///     let (_packet, tmp, _relative_position) = pp.recurse()?;
+    ///     ppo = tmp;
+    /// }
+    /// # return Ok(());
+    /// # }
+    pub fn buffer_unread_content(&mut self) -> Result<&[u8], io::Error> {
         let mut rest = self.reader.steal_eof().unwrap();
         if rest.len() > 0 {
             if let Some(mut content) = self.packet.content.take() {
@@ -983,6 +1183,10 @@ impl <'a> PacketParser<'a> {
         }
     }
 
+    /// Finishes parsing the current packet.
+    ///
+    /// By default, this drops any unread content.  Use, for instance,
+    /// `PacketParserBuild` to customize the default behavior.
     pub fn finish<'b>(&'b mut self) -> &'b Packet {
         if self.settings.buffer_unread_content {
             if self.settings.trace {
@@ -1007,6 +1211,12 @@ impl <'a> PacketParser<'a> {
     }
 }
 
+/// This interface allows a caller to read the content of a
+/// `PacketParser` using the `Read` interface.  This is essential to
+/// supporting streaming operation.
+///
+/// Note: it is safe to mix the use of the `std::io::Read` and
+/// `BufferedReader` interfaces.
 impl<'a> io::Read for PacketParser<'a> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, io::Error> {
         self.content_was_read = true;
@@ -1014,6 +1224,12 @@ impl<'a> io::Read for PacketParser<'a> {
     }
 }
 
+/// This interface allows a caller to read the content of a
+/// `PacketParser` using the `BufferedReader` interface.  This is
+/// essential to supporting streaming operation.
+///
+/// Note: it is safe to mix the use of the `std::io::Read` and
+/// `BufferedReader` interfaces.
 impl<'a> BufferedReader for PacketParser<'a> {
     fn data(&mut self, amount: usize) -> Result<&[u8], io::Error> {
         // There is no need to set `content_was_read`, because this
@@ -1144,8 +1360,20 @@ impl Container {
 }
 
 impl Message {
+    // Reads all of the packets from a `PacketParser`, and turns them
+    // into a message.  Note: this assumes that `ppo` points to a
+    // top-level packet.
     fn assemble<'a>(ppo: Option<PacketParser<'a>>)
             -> Result<Message, std::io::Error> {
+        // Things are not going to work out if we don't start with a
+        // top-level packet.  We should only pop until
+        // ppo.recursion_depth and leave the rest of the message, but
+        // it is heard to imagine that that is what the caller wants.
+        // Instead of hiding that error, fail fast.
+        if let Some(ref pp) = ppo {
+            assert_eq!(pp.recursion_depth, 0);
+        }
+
         // Create a top-level container.
         let mut top_level = Container::new();
 
@@ -1220,6 +1448,15 @@ impl Message {
         return Ok(Message { top_level: top_level });
     }
 
+    /// Deserializes an OpenPGP message stored in a `BufferedReader`
+    /// object.
+    ///
+    /// Although a `Message` is easier to use than a `PacketParser`,
+    /// this interface buffers the whole message in memory.  Thus, the
+    /// caller must be certain that the *deserialized* message is not
+    /// too large.
+    ///
+    /// Note: this interface *does* buffer the contents of packets.
     pub fn deserialize<R: BufferedReader>(bio: R)
             -> Result<Message, std::io::Error> {
         PacketParserBuilder::from_buffered_reader(bio)?
@@ -1227,6 +1464,10 @@ impl Message {
             .deserialize()
     }
 
+    /// Deserializes an OpenPGP message stored in a `std::io::Read`
+    /// object.
+    ///
+    /// See `from_buffered_reader` for more details and caveats.
     pub fn from_reader<R: io::Read>(reader: R)
              -> Result<Message, std::io::Error> {
         let bio = BufferedReaderGeneric::new(reader, None);
@@ -1238,6 +1479,9 @@ impl Message {
         Message::deserialize(bio)
     }
 
+    /// Deserializes an OpenPGP message stored in the provided buffer.
+    ///
+    /// See `from_buffered_reader` for more details and caveats.
     pub fn from_bytes(data: &[u8]) -> Result<Message, std::io::Error> {
         let bio = BufferedReaderMemory::new(data);
         Message::deserialize(bio)
@@ -1406,5 +1650,4 @@ mod message_test {
         let (_packet, ppo, _relative_position) = pp.next().unwrap();
         assert!(ppo.is_none());
     }
-
 }
