@@ -1496,7 +1496,7 @@ impl Message {
 #[cfg(test)]
 mod message_test {
     use super::path_to;
-    use super::{BufferedReaderGeneric, BufferedReaderMemory,
+    use super::{BufferedReaderGeneric,
                 Message, Packet, PacketParser, PacketParserBuilder};
 
     use std::io::Read;
