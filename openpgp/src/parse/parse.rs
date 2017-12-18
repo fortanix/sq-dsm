@@ -691,8 +691,7 @@ impl<R: BufferedReader> PacketParserBuilder<R> {
     /// # return Ok(message);
     /// # }
     /// ```
-    pub fn deserialize(self)
-            -> Result<Message, std::io::Error> {
+    pub fn deserialize(self) -> Result<Message, std::io::Error> {
         Message::assemble(self.finalize()?)
     }
 }
@@ -1457,7 +1456,7 @@ impl Message {
     /// too large.
     ///
     /// Note: this interface *does* buffer the contents of packets.
-    pub fn deserialize<R: BufferedReader>(bio: R)
+    pub fn from_buffered_reader<R: BufferedReader>(bio: R)
             -> Result<Message, std::io::Error> {
         PacketParserBuilder::from_buffered_reader(bio)?
             .buffer_unread_content()
@@ -1471,7 +1470,7 @@ impl Message {
     pub fn from_reader<R: io::Read>(reader: R)
              -> Result<Message, std::io::Error> {
         let bio = BufferedReaderGeneric::new(reader, None);
-        Message::deserialize(bio)
+        Message::from_buffered_reader(bio)
     }
 
     /// Deserializes an OpenPGP message stored in the file named by
@@ -1488,7 +1487,7 @@ impl Message {
     /// See `from_buffered_reader` for more details and caveats.
     pub fn from_bytes(data: &[u8]) -> Result<Message, std::io::Error> {
         let bio = BufferedReaderMemory::new(data);
-        Message::deserialize(bio)
+        Message::from_buffered_reader(bio)
     }
 }
 
@@ -1507,9 +1506,7 @@ mod message_test {
         // just rely on the fact that an assertion is not thrown.
 
         // A flat message.
-        let data = bytes!("public-key.gpg");
-        let bio = BufferedReaderMemory::new(data);
-        let message = Message::deserialize(bio).unwrap();
+        let message = Message::from_bytes(bytes!("public-key.gpg")).unwrap();
         eprintln!("Message has {} top-level packets.",
                   message.children().len());
         eprintln!("Message: {:?}", message);
