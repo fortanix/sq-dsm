@@ -207,12 +207,8 @@ impl Signature {
 
 #[test]
 fn subpacket_test_1 () {
-    use std::fs::File;
-
     let path = path_to("signed.gpg");
-    let mut f = File::open(&path).expect(&path.to_string_lossy());
-    let bio = BufferedReaderGeneric::new(&mut f, None);
-    let message = Message::deserialize(bio).unwrap();
+    let message = Message::from_file(&path).unwrap();
     eprintln!("Message has {} top-level packets.", message.children().len());
     eprintln!("Message: {:?}", message);
 

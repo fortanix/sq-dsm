@@ -1474,9 +1474,13 @@ impl Message {
         Message::deserialize(bio)
     }
 
-    pub fn from_file(mut file: File) -> Result<Message, std::io::Error> {
-        let bio = BufferedReaderGeneric::new(&mut file, None);
-        Message::deserialize(bio)
+    /// Deserializes an OpenPGP message stored in the file named by
+    /// `path`.
+    ///
+    /// See `from_buffered_reader` for more details and caveats.
+    pub fn from_file<P: AsRef<Path>>(path: P)
+            -> Result<Message, std::io::Error> {
+        Message::from_reader(File::open(path)?)
     }
 
     /// Deserializes an OpenPGP message stored in the provided buffer.
@@ -1524,9 +1528,7 @@ mod message_test {
         // A message containing a compressed packet that contains a
         // literal packet.
         let path = path_to("compressed-data-algo-1.gpg");
-        let mut f = File::open(&path).expect(&path.to_string_lossy());
-        let bio = BufferedReaderGeneric::new(&mut f, None);
-        let message = Message::deserialize(bio).unwrap();
+        let message = Message::from_file(&path).unwrap();
         eprintln!("Message has {} top-level packets.",
                   message.children().len());
         eprintln!("Message: {:?}", message);
@@ -1542,9 +1544,7 @@ mod message_test {
     #[test]
     fn deserialize_test_3 () {
         let path = path_to("signed.gpg");
-        let mut f = File::open(&path).expect(&path.to_string_lossy());
-        let bio = BufferedReaderGeneric::new(&mut f, None);
-        let message = Message::deserialize(bio).unwrap();
+        let message = Message::from_file(&path).unwrap();
         eprintln!("Message has {} top-level packets.",
                   message.children().len());
         eprintln!("Message: {:?}", message);

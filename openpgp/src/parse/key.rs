@@ -56,13 +56,8 @@ mod fingerprint_test {
 
     #[test]
     fn fingerprint_test () {
-        use std::fs::File;
-        use ::buffered_reader::*;
-
         let path = path_to("public-key.gpg");
-        let mut f = File::open(&path).expect(&path.to_string_lossy());
-        let bio = BufferedReaderGeneric::new(&mut f, None);
-        let message = Message::deserialize(bio).unwrap();
+        let message = Message::from_file(&path).unwrap();
 
         // The blob contains a public key and a three subkeys.
         let mut pki = 0;
