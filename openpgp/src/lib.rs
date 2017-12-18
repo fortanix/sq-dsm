@@ -50,7 +50,6 @@ pub mod armor;
 pub mod parse;
 pub mod tpk;
 pub mod types;
-pub mod partial_body;
 
 use std::ops::{Deref,DerefMut};
 

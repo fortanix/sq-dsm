@@ -8,9 +8,11 @@ use std::fs::File;
 use num::FromPrimitive;
 
 use ::buffered_reader::*;
-use super::partial_body::BufferedReaderPartialBodyFilter;
 
 use super::*;
+
+mod partial_body;
+use self::partial_body::BufferedReaderPartialBodyFilter;
 
 pub mod subpacket;
 pub mod key;
@@ -98,7 +100,7 @@ fn ctb_test() {
 }
 
 /// Decode a new format body length as described in Section 4.2.2 of RFC 4880.
-pub fn body_length_new_format<T: BufferedReader> (bio: &mut T)
+fn body_length_new_format<T: BufferedReader> (bio: &mut T)
       -> Result<BodyLength, std::io::Error> {
     let octet1 = bio.data_consume_hard(1)?[0];
     if octet1 < 192 {
