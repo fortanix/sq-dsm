@@ -146,6 +146,23 @@ pub enum Tag {
     Private2 = 62,
     Private3 = 63,
 }
+
+impl Tag {
+    /// Converts a numeric value to an `Option<Tag>`.
+    ///
+    /// Returns None, if the value is out of range (outside of 0-63).
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use openpgp::Tag;
+    ///
+    /// assert_eq!(Tag::from_numeric(1), Some(Tag::PKESK));
+    /// ```
+    pub fn from_numeric(value: u8) -> Option<Self> {
+        num::FromPrimitive::from_u8(value)
+    }
+}
 
 /// OpenPGP defines two packet formats: the old and the new format.
 /// They both include the packet's so-called tag.
@@ -176,6 +193,24 @@ pub enum PacketLengthType {
     TwoOctets = 1,
     FourOctets = 2,
     Indeterminate = 3,
+}
+
+impl PacketLengthType {
+    /// Converts a numeric value to an `Option<PacketLengthType>`.
+    ///
+    /// Returns None, if the value is out of range (outside of 0-3).
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use openpgp::PacketLengthType;
+    ///
+    /// assert_eq!(PacketLengthType::from_numeric(1),
+    ///            Some(PacketLengthType::TwoOctets));
+    /// ```
+    pub fn from_numeric(value: u8) -> Option<Self> {
+        num::FromPrimitive::from_u8(value)
+    }
 }
 
 #[derive(Debug)]

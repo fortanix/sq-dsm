@@ -5,8 +5,6 @@ use std::str;
 use std::path::Path;
 use std::fs::File;
 
-use num::FromPrimitive;
-
 use ::buffered_reader::*;
 
 use super::*;
@@ -56,7 +54,7 @@ fn ctb(ptag: u8) -> Result<CTB, io::Error> {
         let tag = ptag & 0b0011_1111;
         CTB::New(CTBNew {
             common: CTBCommon {
-                tag: FromPrimitive::from_u8(tag).unwrap()
+                tag: Tag::from_numeric(tag).unwrap()
             }})
     } else {
         let tag = (ptag & 0b0011_1100) >> 2;
@@ -64,9 +62,9 @@ fn ctb(ptag: u8) -> Result<CTB, io::Error> {
 
         CTB::Old(CTBOld {
             common: CTBCommon {
-                tag: FromPrimitive::from_u8(tag).unwrap()
+                tag: Tag::from_numeric(tag).unwrap()
             },
-            length_type: FromPrimitive::from_u8(length_type).unwrap(),
+            length_type: PacketLengthType::from_numeric(length_type).unwrap(),
         })
     };
 
