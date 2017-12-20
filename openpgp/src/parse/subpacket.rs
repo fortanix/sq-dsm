@@ -122,9 +122,9 @@ pub enum SubpacketTag {
 // one of `Signature`'s methods, like `Signature::issuer_fingerprint`.
 #[derive(Debug,Clone)]
 pub struct Subpacket<'a> {
-    critical: bool,
-    tag: SubpacketTag,
-    value: &'a str,
+    pub critical: bool,
+    pub tag: SubpacketTag,
+    pub value: &'a str,
 }
 
 /// Decode a subpacket length as described in Section 5.2.3.1 of RFC 4880.
