@@ -1,3 +1,51 @@
+//! OpenPGP signature packets include a set of key-value attributes
+//! called subpackets.  These subpackets are used to indicate when a
+//! signature was created, who created the signature, user &
+//! implementation preferences, etc.  The full details are in [Section
+//! 5.2.3.1 of RFC 4880].
+//!
+//! [Section 5.2.3.1 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.1
+//!
+//! The standard assigns each subpacket a numeric id, and describes
+//! the format of its value.  One subpacket is called Notation Data
+//! and is intended as a generic key-value store.  The combined size
+//! of the subpackets (including notation data) is limited to 64 KB.
+//!
+//! Subpackets and notations can be marked as critical.  If an OpenPGP
+//! implementation processes a packet that includes critical
+//! subpackets or notations that it does not understand, it is
+//! required to abort processing.  This allows for forwards compatible
+//! changes by indicating whether it is safe to ignore an unknown
+//! subpacket or notation.
+//!
+//! # Examples
+//!
+//! If a signature packet includes an issuer fingerprint subpacket,
+//! print it:
+//!
+//! ```rust
+//! # use openpgp::Packet;
+//! # use openpgp::parse::PacketParser;
+//! #
+//! # f(include_bytes!("../../tests/data/messages/signed.gpg"));
+//! #
+//! # fn f(message_data: &[u8]) -> Result<(), std::io::Error> {
+//! let mut ppo = PacketParser::from_bytes(message_data)?;
+//! while let Some(mut pp) = ppo {
+//!     if let Packet::Signature(ref sig) = pp.packet {
+//!         if let Some((_critical, fp)) = sig.issuer_fingerprint() {
+//!             eprintln!("Signature issued by: {}", fp.to_string());
+//!         }
+//!     }
+//!
+//!     // Get the next packet.
+//!     let (_packet, tmp, _relative_position) = pp.recurse()?;
+//!     ppo = tmp;
+//! }
+//! # Ok(())
+//! # }
+//! ```
+
 use std::io::Error;
 
 use super::*;
@@ -11,6 +59,9 @@ fn path_to(artifact: &str) -> PathBuf {
         .iter().collect()
 }
 
+/// The subpacket types specified by [Section 5.2.3.1 of RFC 4880].
+///
+/// [Section 5.2.3.1 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.1
 #[derive(Debug)]
 #[derive(FromPrimitive)]
 #[derive(ToPrimitive)]
@@ -65,6 +116,10 @@ pub enum SubpacketTag {
     Private110 = 110,
 }
 
+// Struct holding an arbitrary subpacket.
+//
+// The value is uninterpreted.  To get a well-structured value, use
+// one of `Signature`'s methods, like `Signature::issuer_fingerprint`.
 #[derive(Debug,Clone)]
 pub struct Subpacket<'a> {
     critical: bool,
@@ -92,6 +147,8 @@ fn subpacket_length(bio: &mut BufferedReaderMemory)
 }
 
 impl Signature {
+    // Initialize `Signature::hashed_area_parsed` from
+    // `Signature::hashed_area`, if necessary.
     fn subpackets_init(&self) -> Result<(), Error> {
         if self.hashed_area_parsed.borrow().is_some() {
             return Ok(());
@@ -141,6 +198,11 @@ impl Signature {
         return Ok(());
     }
 
+    /// Returns the specified subpacket.
+    ///
+    /// This is a generic method; the value is an unstructured byte
+    /// stream.  In general, you should prefer to use methods like
+    /// `Signature::issuer_fingerprint` to lookup specific subpackets.
     pub fn subpacket<'a>(&'a self, tag: u8) -> Option<(bool, &'a [u8])> {
         let _ = self.subpackets_init();
 
@@ -185,6 +247,9 @@ impl Signature {
     // SignatureTarget
     // EmbeddedSignature
 
+    /// Return the value of the Issuer Fingerprint subpacket.
+    ///
+    /// If the subpacket is not present, this returns `None`.
     pub fn issuer_fingerprint(&self) -> Option<(bool, Fingerprint)> {
         match self.subpacket(SubpacketTag::IssuerFingerprint as u8) {
             Some((critical, raw)) => {
