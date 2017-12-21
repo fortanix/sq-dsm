@@ -39,8 +39,11 @@ const MAX_RECURSION_DEPTH : u8 = 16;
 
 // Packet headers.
 
-/// Parse a CTB (as described in Section 4.2 of RFC4880) and return a
-/// 'struct CTB'.  This function parses both new and old format ctbs.
+/// Parses a CTB as described in [Section 4.2 of RFC 4880] and returns
+/// a [`CTB`].  This function parses both new and old format ctbs.
+///
+///   [Section 4.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.2
+///   [`CTB`]: ../enum.CTB
 pub fn ctb(ptag: u8) -> Result<CTB, io::Error> {
     // The top bit of the ptag must be set.
     if ptag & 0b1000_0000 == 0 {
@@ -97,7 +100,9 @@ fn ctb_test() {
     }
 }
 
-/// Decode a new format body length as described in Section 4.2.2 of RFC 4880.
+/// Decodes a new format body length as described in [Section 4.2.2 of RFC 4880].
+///
+///   [Section 4.2.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.2.2
 pub fn body_length_new_format<T: BufferedReader> (bio: &mut T)
         -> Result<BodyLength, std::io::Error> {
     let octet1 = bio.data_consume_hard(1)?[0];
@@ -146,7 +151,9 @@ fn body_length_new_format_test() {
     test(&[0xC5, 0xDD][..], BodyLength::Full(1693));
 }
 
-/// Decode an old format body length as described in Section 4.2.1 of RFC 4880.
+/// Decodes an old format body length as described in [Section 4.2.1 of RFC 4880].
+///
+///   [Section 4.2.1 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.2.1
 pub fn body_length_old_format<T: BufferedReader> (bio: &mut T,
                                                   length_type: PacketLengthType)
         -> Result<BodyLength, std::io::Error> {
@@ -183,9 +190,9 @@ fn body_length_old_format_test() {
          BodyLength::Indeterminate, &[1, 2, 3, 4][..]);
 }
 
-/// INPUT is a byte array that presumably contains an OpenPGP packet.
-/// This function parses the packet's header and returns a
-/// deserialized version and the rest input.
+/// Parses an OpenPGP packet's header as described in [Section 4.2 of RFC 4880].
+///
+///   [Section 4.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.2
 pub fn header<R: BufferedReader> (bio: &mut R)
         -> Result<Header, std::io::Error> {
     let ctb = ctb(bio.data_consume_hard(1)?[0])?;
