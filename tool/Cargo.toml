@@ -1,0 +1,14 @@
+[package]
+name = "sequoia-tool"
+version = "0.1.0"
+authors = ["Justus Winter <justus@pep-project.org>"]
+
+[dependencies]
+openpgp = { path = "../openpgp" }
+sequoia-core = { path = "../core" }
+sequoia-net = { path = "../net" }
+clap = "2.27.1"
+
+[[bin]]
+name = "sq"
+path = "src/usage.rs"

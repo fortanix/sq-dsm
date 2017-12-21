@@ -12,6 +12,7 @@ sequoia-core = { path = "core" }
 sequoia-ffi = { path = "ffi" }
 sequoia-net = { path = "net" }
 sequoia-store = { path = "store" }
+sequoia-tool = { path = "tool" }
 
 [lib]
 name = "sequoia"
