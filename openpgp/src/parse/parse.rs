@@ -202,7 +202,7 @@ fn unknown_parser<'a, R: BufferedReader + 'a>(bio: R, tag: Tag)
         packet: Packet::Unknown(Unknown {
             common: PacketCommon {
                 children: None,
-                content: None,
+                body: None,
             },
             tag: tag,
         }),
@@ -231,7 +231,7 @@ fn signature_parser<'a, R: BufferedReader + 'a>(mut bio: R)
         packet: Packet::Signature(Signature {
             common: PacketCommon {
                 children: None,
-                content: None,
+                body: None,
             },
             version: version,
             sigtype: sigtype,
@@ -297,7 +297,7 @@ fn key_parser<'a, R: BufferedReader + 'a>(mut bio: R, tag: Tag)
     let key = Key {
         common: PacketCommon {
             children: None,
-            content: None,
+            body: None,
         },
         version: version,
         creation_time: creation_time,
@@ -327,7 +327,7 @@ fn userid_parser<'a, R: BufferedReader + 'a>(mut bio: R)
         packet: Packet::UserID(UserID {
             common: PacketCommon {
                 children: None,
-                content: None,
+                body: None,
             },
             value: bio.steal_eof()?,
         }),
@@ -357,7 +357,7 @@ fn literal_parser<'a, R: BufferedReader + 'a>(mut bio: R)
         packet: Packet::Literal(Literal {
             common: PacketCommon {
                 children: None,
-                content: None,
+                body: None,
             },
             format: format,
             filename: filename,
@@ -467,7 +467,7 @@ fn compressed_data_parser<'a, R: BufferedReader + 'a>(mut bio: R)
                 packet: Packet::Unknown(Unknown {
                     common: PacketCommon {
                         children: None,
-                        content: None,
+                        body: None,
                     },
                     tag: Tag::CompressedData,
                 }),
@@ -483,7 +483,7 @@ fn compressed_data_parser<'a, R: BufferedReader + 'a>(mut bio: R)
         packet: Packet::CompressedData(CompressedData {
             common: PacketCommon {
                 children: None,
-                content: None,
+                body: None,
             },
             algo: algo,
         }),
@@ -1155,8 +1155,8 @@ impl <'a> PacketParser<'a> {
     ///
     ///     if let Packet::Literal(_) = pp.packet {
     ///         pp.buffer_unread_content();
-    ///         if let Some(ref content) = pp.packet.content {
-    ///             println!("{}", String::from_utf8_lossy(content));
+    ///         if let Some(ref body) = pp.packet.body {
+    ///             println!("{}", String::from_utf8_lossy(body));
     ///         }
     ///     }
     ///
@@ -1169,14 +1169,14 @@ impl <'a> PacketParser<'a> {
     pub fn buffer_unread_content(&mut self) -> Result<&[u8], io::Error> {
         let mut rest = self.reader.steal_eof().unwrap();
         if rest.len() > 0 {
-            if let Some(mut content) = self.packet.content.take() {
-                content.append(&mut rest);
-                self.packet.content = Some(content);
+            if let Some(mut body) = self.packet.body.take() {
+                body.append(&mut rest);
+                self.packet.body = Some(body);
             } else {
-                self.packet.content = Some(rest);
+                self.packet.body = Some(rest);
             }
 
-            Ok(&self.packet.content.as_ref().unwrap()[..])
+            Ok(&self.packet.body.as_ref().unwrap()[..])
         } else {
             Ok(&b""[..])
         }
@@ -1349,7 +1349,7 @@ fn packet_parser_reader_interface() {
     let (packet, ppo, _) = pp.recurse().unwrap();
     assert!(ppo.is_none());
     // Since we read all of the data, we expect content to be None.
-    assert!(packet.content.is_none());
+    assert!(packet.body.is_none());
 }
 
 impl Container {
@@ -1632,7 +1632,7 @@ mod message_test {
 
         // Get the rest of the content and put the initial byte that
         // we stole back.
-        let mut content = packet.content.take().unwrap();
+        let mut content = packet.body.take().unwrap();
         content.insert(0, data[0]);
 
         let content = &content.into_boxed_slice()[..];

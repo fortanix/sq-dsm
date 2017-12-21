@@ -265,15 +265,15 @@ pub enum BodyLength {
 #[derive(PartialEq)]
 pub struct PacketCommon {
     pub children: Option<Container>,
-    pub content: Option<Vec<u8>>,
+    pub body: Option<Vec<u8>>,
 }
 
 impl std::fmt::Debug for PacketCommon {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         f.debug_struct("Signature")
             .field("children", &self.children)
-            .field("content (bytes)",
-                   &self.content.as_ref().map(|content| content.len()))
+            .field("body (bytes)",
+                   &self.body.as_ref().map(|body| body.len()))
             .finish()
     }
 }
@@ -387,26 +387,25 @@ impl std::fmt::Debug for Literal {
             None
         };
 
-        let content = if let Some(ref content) = self.common.content {
-            &content[..]
+        let body = if let Some(ref body) = self.common.body {
+            &body[..]
         } else {
             &b""[..]
         };
 
         let threshold = 36;
-        let prefix =
-            &content[..std::cmp::min(threshold, content.len())];
+        let prefix = &body[..std::cmp::min(threshold, body.len())];
         let mut prefix_fmt = String::from_utf8_lossy(prefix).into_owned();
-        if content.len() > threshold {
+        if body.len() > threshold {
             prefix_fmt.push_str("...");
         }
-        prefix_fmt.push_str(&format!(" ({} bytes)", content.len())[..]);
+        prefix_fmt.push_str(&format!(" ({} bytes)", body.len())[..]);
 
         f.debug_struct("Literal")
             .field("format", &(self.format as char))
             .field("filename", &filename)
             .field("date", &self.date)
-            .field("content", &prefix_fmt)
+            .field("body", &prefix_fmt)
             .finish()
     }
 }
