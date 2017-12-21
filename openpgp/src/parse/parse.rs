@@ -41,7 +41,7 @@ const MAX_RECURSION_DEPTH : u8 = 16;
 
 /// Parse a CTB (as described in Section 4.2 of RFC4880) and return a
 /// 'struct CTB'.  This function parses both new and old format ctbs.
-fn ctb(ptag: u8) -> Result<CTB, io::Error> {
+pub fn ctb(ptag: u8) -> Result<CTB, io::Error> {
     // The top bit of the ptag must be set.
     if ptag & 0b1000_0000 == 0 {
         // XXX: Use a proper error.
@@ -98,8 +98,8 @@ fn ctb_test() {
 }
 
 /// Decode a new format body length as described in Section 4.2.2 of RFC 4880.
-fn body_length_new_format<T: BufferedReader> (bio: &mut T)
-      -> Result<BodyLength, std::io::Error> {
+pub fn body_length_new_format<T: BufferedReader> (bio: &mut T)
+        -> Result<BodyLength, std::io::Error> {
     let octet1 = bio.data_consume_hard(1)?[0];
     if octet1 < 192 {
         // One octet.
@@ -147,9 +147,9 @@ fn body_length_new_format_test() {
 }
 
 /// Decode an old format body length as described in Section 4.2.1 of RFC 4880.
-fn body_length_old_format<T: BufferedReader> (bio: &mut T,
-                                              length_type: PacketLengthType)
-                                              -> Result<BodyLength, std::io::Error> {
+pub fn body_length_old_format<T: BufferedReader> (bio: &mut T,
+                                                  length_type: PacketLengthType)
+        -> Result<BodyLength, std::io::Error> {
     match length_type {
         PacketLengthType::OneOctet =>
             return Ok(BodyLength::Full(bio.data_consume_hard(1)?[0] as u32)),
@@ -186,7 +186,7 @@ fn body_length_old_format_test() {
 /// INPUT is a byte array that presumably contains an OpenPGP packet.
 /// This function parses the packet's header and returns a
 /// deserialized version and the rest input.
-fn header<R: BufferedReader> (bio: &mut R)
+pub fn header<R: BufferedReader> (bio: &mut R)
         -> Result<Header, std::io::Error> {
     let ctb = ctb(bio.data_consume_hard(1)?[0])?;
     let length = match ctb {
