@@ -73,7 +73,7 @@ pub enum Tag {
     /* Symmetric-Key Encrypted Session Key Packet.  */
     SKESK = 3,
     /* One-Pass Signature Packet.  */
-    OnePassSig,
+    OnePassSig = 4,
     SecretKey = 5,
     PublicKey = 6,
     SecretSubkey = 7,
