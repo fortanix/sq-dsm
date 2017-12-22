@@ -15,6 +15,9 @@ use self::partial_body::BufferedReaderPartialBodyFilter;
 pub mod subpacket;
 pub mod key;
 
+mod message_parser;
+pub use self::message_parser::MessageParser;
+
 #[cfg(test)]
 macro_rules! bytes {
     ( $x:expr ) => { include_bytes!(concat!("../../tests/data/messages/", $x)) };
@@ -1497,7 +1500,7 @@ impl Message {
         Message::from_buffered_reader(bio)
     }
 }
-
+
 #[cfg(test)]
 mod message_test {
     use super::path_to;
