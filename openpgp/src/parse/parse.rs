@@ -694,11 +694,11 @@ impl<R: BufferedReader> PacketParserBuilder<R> {
     /// #     -> Result<Message, std::io::Error> {
     /// let message = PacketParserBuilder::from_bytes(message_data)?
     ///     .buffer_unread_content()
-    ///     .deserialize()?;
+    ///     .to_message()?;
     /// # return Ok(message);
     /// # }
     /// ```
-    pub fn deserialize(self) -> Result<Message, std::io::Error> {
+    pub fn to_message(self) -> Result<Message, std::io::Error> {
         Message::assemble(self.finalize()?)
     }
 }
@@ -1467,7 +1467,7 @@ impl Message {
             -> Result<Message, std::io::Error> {
         PacketParserBuilder::from_buffered_reader(bio)?
             .buffer_unread_content()
-            .deserialize()
+            .to_message()
     }
 
     /// Deserializes an OpenPGP message stored in a `std::io::Read`
@@ -1570,7 +1570,7 @@ mod message_test {
         let max_recursion_depth = 128;
         let message = PacketParserBuilder::from_file(path).unwrap()
             .max_recursion_depth(max_recursion_depth)
-            .deserialize().unwrap();
+            .to_message().unwrap();
 
         let mut count = 0;
         for (i, p) in message.descendants().enumerate() {
