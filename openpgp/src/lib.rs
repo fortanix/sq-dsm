@@ -651,6 +651,32 @@ impl std::fmt::Debug for Message {
             .finish()
     }
 }
+
+impl Container {
+    // Converts an indentation level to whitespace.
+    fn indent(depth: usize) -> &'static str {
+        use std::cmp;
+
+        let s = "                                                  ";
+        return &s[0..cmp::min(depth, s.len())];
+    }
+
+    pub fn pretty_print(&self, indent: usize) {
+        for (i, p) in self.packets.iter().enumerate() {
+            eprintln!("{}{}: {:?}",
+                      Self::indent(indent), i + 1, p);
+            if let Some(ref children) = self.packets[i].children {
+                children.pretty_print(indent + 1);
+            }
+        }
+    }
+}
+
+impl Message {
+    pub fn pretty_print(&self) {
+        self.top_level.pretty_print(0);
+    }
+}
 
 /// A `PacketIter` iterates over the *contents* of a packet in
 /// depth-first order.  It starts by returning the current packet.
