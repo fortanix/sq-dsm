@@ -380,7 +380,7 @@ pub struct PacketCommon {
 
 impl std::fmt::Debug for PacketCommon {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        f.debug_struct("Signature")
+        f.debug_struct("PacketCommon")
             .field("children", &self.children)
             .field("body (bytes)",
                    &self.body.as_ref().map(|body| body.len()))
