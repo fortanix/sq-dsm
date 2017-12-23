@@ -1177,7 +1177,7 @@ impl <'a> PacketParser<'a> {
     /// # return Ok(());
     /// # }
     pub fn buffer_unread_content(&mut self) -> Result<&[u8], io::Error> {
-        let mut rest = self.reader.steal_eof().unwrap();
+        let mut rest = self.steal_eof()?;
         if rest.len() > 0 {
             if let Some(mut body) = self.packet.body.take() {
                 body.append(&mut rest);
