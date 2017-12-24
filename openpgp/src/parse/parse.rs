@@ -521,7 +521,7 @@ fn compressed_data_parser_test () {
 
         // We expect a compressed packet containing a literal data
         // packet, and that is it.
-        let (compressed, ppo, relative_position)
+        let (compressed, _, ppo, _)
             = compressed_data_parser(bio).unwrap().recurse().unwrap();
 
         if let Packet::CompressedData(compressed) = compressed {
@@ -534,11 +534,11 @@ fn compressed_data_parser_test () {
         let mut pp = ppo.unwrap();
 
         // It is a child.
-        assert_eq!(relative_position, 1);
+        assert_eq!(pp.recursion_depth, 1);
 
         let content = pp.steal_eof().unwrap();
 
-        let (literal, ppo, _relative_position) = pp.recurse().unwrap();
+        let (literal, _, ppo, _) = pp.recurse().unwrap();
 
         if let Packet::Literal(literal) = literal {
             assert_eq!(literal.filename, None);
@@ -817,7 +817,7 @@ impl <'a> PacketParserBuilder<BufferedReaderMemory<'a>> {
 ///     }
 ///
 ///     // Get the next packet.
-///     let (_packet, tmp, _relative_position) = pp.recurse()?;
+///     let (_packet, _packet_depth, tmp, _pp_depth) = pp.recurse()?;
 ///     ppo = tmp;
 /// }
 /// # return Ok(());
@@ -966,25 +966,50 @@ impl <'a> PacketParser<'a> {
         return Ok(PacketParserOrBufferedReader::PacketParser(result));
     }
 
-    /// Finishes parsing the current packet and returns the next one.
+    /// Finishes parsing the current packet and starts parsing the
+    /// following one.
     ///
     /// This function finishes parsing the current packet.  By
-    /// default, any unread content is dropped.  It then creates a new
-    /// packet parser for the following packet.  That is, if the
+    /// default, any unread content is dropped.  (See
+    /// [`PacketParsererBuilder`] for how to configure this.)  It then
+    /// creates a new packet parser for the following packet.  If the
     /// current packet is a container, this function does *not*
     /// recurse into the container, but skips any packets it contains.
+    /// To recurse into the container, use the [`recurse()`] method.
     ///
-    /// This return value is a tuple containing a `Packet` holding the
-    /// fully processed old packet, a `PacketParser` holding the new
-    /// packet, and an `isize` indicating the position of the new
-    /// packet relative to the old packet in the induced tree.
-    /// Specifically, if the relative position is 0, the two packets
-    /// are siblings.  If the value is 1, the old packet is a
-    /// container, and the new packet is its first child.  And, if the
-    /// value is -1, the new packet is contained in the old packet's
-    /// grandparent.  The idea is illustrated below:
+    ///   [`PacketParsererBuilder`]: parse/struct.PacketParserBuilder.html
+    ///   [`recurse()`]: #method.recurse
     ///
-    /// ```nocompile
+    /// The return value is a tuple containing:
+    ///
+    ///   - A `Packet` holding the fully processed old packet;
+    ///
+    ///   - The old packet's recursion depth;
+    ///
+    ///   - A `PacketParser` holding the new packet;
+    ///
+    ///   - And, the recursion depth of the new packet.
+    ///
+    /// A recursion depth of 0 means that the packet is a top-level
+    /// packet, a recursion depth of 1 means that the packet is an
+    /// immediate child of a top-level-packet, etc.
+    ///
+    /// Since the packets are laid out in depth-first order and all
+    /// interior nodes are visited, we know that if the recursion
+    /// depth is the same, then the packets are siblings (they have a
+    /// common parent) and not, e.g., cousins (they have a common
+    /// grandparent).  This is because, if we move up the tree, the
+    /// only way to move back down is to first visit a new container
+    /// (e.g., an aunt).
+    ///
+    /// Using the two positions, we can compute the change in depth as
+    /// new_depth - old_depth.  Thus, if the change in depth is 0, the
+    /// two packets are siblings.  If the value is 1, the old packet
+    /// is a container, and the new packet is its first child.  And,
+    /// if the value is -1, the new packet is contained in the old
+    /// packet's grandparent.  The idea is illustrated below:
+    ///
+    /// ```text
     ///             ancestor
     ///             |       \
     ///            ...      -n
@@ -999,19 +1024,19 @@ impl <'a> PacketParser<'a> {
     /// ```
     ///
     /// Note: since this function does not automatically recurse into
-    /// a container, the relative position will always be
-    /// non-positive.  If the current container is empty, this
-    /// function DOES pop that container off the container stack, and
-    /// returns the following packet in the parent container.
+    /// a container, the change in depth will always be non-positive.
+    /// If the current container is empty, this function DOES pop that
+    /// container off the container stack, and returns the following
+    /// packet in the parent container.
     pub fn next(mut self)
-            -> Result<(Packet, Option<PacketParser<'a>>, isize),
+            -> Result<(Packet, isize, Option<PacketParser<'a>>, isize),
                       std::io::Error> {
         if self.settings.trace {
             eprintln!("{}PacketParser::next({:?})",
                       indent(self.recursion_depth), self.packet.tag());
         }
 
-        // Finish processng the current packet.
+        // Finish processing the current packet.
         self.finish();
 
         // Pop the packet's BufferedReader.
@@ -1022,8 +1047,8 @@ impl <'a> PacketParser<'a> {
         let packet = self.packet;
 
         // Now read the next packet.
+        let old_recursion_depth = self.recursion_depth;
         let mut recursion_depth = self.recursion_depth;
-        let mut relative_position = 0;
         loop {
             // Parse the next packet.
             let pp = PacketParser::parse(reader)?;
@@ -1041,10 +1066,10 @@ impl <'a> PacketParser<'a> {
                             eprintln!("{}PacketParser::next(): done",
                                       indent(recursion_depth));
                         }
-                        return Ok((packet, None, relative_position));
+                        return Ok((packet, old_recursion_depth as isize,
+                                   None, 0));
                     } else {
                         reader = reader2.into_inner().unwrap();
-                        relative_position -= 1;
                         assert!(recursion_depth > 0);
                         recursion_depth -= 1;
                     }
@@ -1059,24 +1084,30 @@ impl <'a> PacketParser<'a> {
                     pp.recursion_depth = recursion_depth;
                     pp.settings = settings;
 
-                    return Ok((packet, Some(pp), relative_position));
+                    return Ok((packet, old_recursion_depth as isize,
+                               Some(pp), recursion_depth as isize));
                 }
             }
         };
     }
 
-    /// Finishes parsing the current packet and returns the next one,
-    /// recursing if possible.
+    /// Finishes parsing the current packet and starts parsing the
+    /// next one, recursing if possible.
     ///
-    /// This method is similar to the `next` method, but if the
-    /// current packet is a container (and we haven't reached the
-    /// maximum recursion depth, and the user hasn't started reading
-    /// the packet's contents), recurse into the container, and return
-    /// a `PacketParser` for its first child.  Otherwise, return the
-    /// next packet in the packet stream.  If this function recurses,
-    /// then the relative position parameter is 1.
+    /// This method is similar to the [`next()`] method (see that
+    /// method for more details), but if the current packet is a
+    /// container (and we haven't reached the maximum recursion depth,
+    /// and the user hasn't started reading the packet's contents), we
+    /// recurse into the container, and return a `PacketParser` for
+    /// its first child.  Otherwise, we return the next packet in the
+    /// packet stream.  If this function recurses, then the new
+    /// packet's position will be old_position + 1; because we always
+    /// visit interior nodes, we can't recurse more than one level at
+    /// a time.
+    ///
+    ///   [`next()`]: #method.next
     pub fn recurse(self)
-            -> Result<(Packet, Option<PacketParser<'a>>, isize),
+            -> Result<(Packet, isize, Option<PacketParser<'a>>, isize),
                       std::io::Error> {
         if self.settings.trace {
             eprintln!("{}PacketParser::recurse({:?})",
@@ -1086,7 +1117,8 @@ impl <'a> PacketParser<'a> {
         match self.packet {
             // Packets that recurse.
             Packet::CompressedData(_) => {
-                if self.recursion_depth >= self.settings.max_recursion_depth {
+                if self.recursion_depth
+                    >= self.settings.max_recursion_depth {
                     if self.settings.trace {
                         eprintln!("{}PacketParser::recurse(): not recursing, \
                                    into the {:?} packet, maximum recursion \
@@ -1118,7 +1150,10 @@ impl <'a> PacketParser<'a> {
                                           self.packet.tag());
                             }
 
-                            return Ok((self.packet, Some(pp), 1));
+                            return Ok((self.packet,
+                                       self.recursion_depth as isize,
+                                       Some(pp),
+                                       self.recursion_depth as isize + 1));
                         },
                         PacketParserOrBufferedReader::BufferedReader(_) => {
                             // XXX: We immediately got an EOF!
@@ -1171,7 +1206,7 @@ impl <'a> PacketParser<'a> {
     ///     }
     ///
     ///     // Get the next packet.
-    ///     let (_packet, tmp, _relative_position) = pp.recurse()?;
+    ///     let (_packet, _packet_depth, tmp, _pp_depth) = pp.recurse()?;
     ///     ppo = tmp;
     /// }
     /// # return Ok(());
@@ -1326,12 +1361,18 @@ fn packet_parser_reader_interface() {
     let pp = PacketParser::from_file(path).unwrap().unwrap();
 
     // The message has the form:
+    //
     //   [ compressed data [ literal data ] ]
-    let (packet, ppo, relative_position) = pp.recurse().unwrap();
+    //
+    // packet is the compressed data packet; ppo is the literal data
+    // packet.
+    let (packet, packet_depth, ppo, pp_depth) = pp.recurse().unwrap();
     if let Packet::CompressedData(_) = packet {
     } else {
         panic!("Expected a compressed data packet.");
     }
+
+    let relative_position = pp_depth - packet_depth;
     assert_eq!(relative_position, 1);
 
     let mut pp = ppo.unwrap();
@@ -1356,7 +1397,7 @@ fn packet_parser_reader_interface() {
 
     // Make sure we can still get the next packet (which in this case
     // is just EOF).
-    let (packet, ppo, _) = pp.recurse().unwrap();
+    let (packet, _, ppo, _) = pp.recurse().unwrap();
     assert!(ppo.is_none());
     // Since we read all of the data, we expect content to be None.
     assert!(packet.body.is_none());
@@ -1377,7 +1418,7 @@ impl Message {
         // Things are not going to work out if we don't start with a
         // top-level packet.  We should only pop until
         // ppo.recursion_depth and leave the rest of the message, but
-        // it is heard to imagine that that is what the caller wants.
+        // it is hard to imagine that that is what the caller wants.
         // Instead of hiding that error, fail fast.
         if let Some(ref pp) = ppo {
             assert_eq!(pp.recursion_depth, 0);
@@ -1386,8 +1427,7 @@ impl Message {
         // Create a top-level container.
         let mut top_level = Container::new();
 
-        let mut depth : isize = 0;
-        let mut relative_position = 0;
+        let mut last_position = 0;
 
         if ppo.is_none() {
             // Empty message.
@@ -1396,30 +1436,28 @@ impl Message {
         let mut pp = ppo.unwrap();
 
         'outer: loop {
-            let (mut packet, mut ppo, mut relative_position2) = pp.recurse()?;
+            let (mut packet, mut position, mut ppo, _) = pp.recurse()?;
 
-            assert!(-depth <= relative_position);
+            let mut relative_position : isize = position - last_position;
             assert!(relative_position <= 1);
-            depth += relative_position;
 
-            // Find the right container.
+            // Find the right container for `packet`.
             let mut container = &mut top_level;
-            // If relative_position is 1, then we are creating a new
-            // container.
-            let traversal_depth
-                = depth - if relative_position > 0 { 1 } else { 0 };
-            if traversal_depth > 0 {
-                for _ in 1..traversal_depth + 1 {
-                    // Do a little dance to prevent container from
-                    // being reborrowed and preventing us from
-                    // assign to it.
-                    let tmp = container;
-                    let i = tmp.packets.len() - 1;
-                    assert!(tmp.packets[i].children.is_some());
-                    container = tmp.packets[i].children.as_mut().unwrap();
-                }
+            // If we recurse, don't create the new container here.
+            for _ in 0..(position - if relative_position > 0 { 1 } else { 0 }) {
+                // Do a little dance to prevent container from
+                // being reborrowed and preventing us from
+                // assigning to it.
+                let tmp = container;
+                let packets_len = tmp.packets.len();
+                let p = &mut tmp.packets[packets_len - 1];
+
+                container = p.children.as_mut().unwrap();
             }
 
+            if relative_position < 0 {
+                relative_position = 0;
+            }
 
             // If next packet will be inserted in the same container
             // or the current container's child, we don't need to walk
@@ -1440,17 +1478,21 @@ impl Message {
                     break 'outer;
                 }
 
-                relative_position = relative_position2;
                 pp = ppo.unwrap();
 
-                if relative_position < 0 {
+                last_position = position;
+                position = pp.recursion_depth as isize;
+                relative_position = position - last_position;
+                if position < last_position {
+                    // There was a pop, we need to restart from the
+                    // root.
                     break;
                 }
 
                 let result = pp.recurse()?;
                 packet = result.0;
-                ppo = result.1;
-                relative_position2 = result.2;
+                assert_eq!(position, result.1);
+                ppo = result.2;
             }
         }
 
@@ -1604,7 +1646,13 @@ mod message_test {
             if let Some(pp2) = ppo {
                 count += 1;
 
-                let (_packet, pp2, _position) = pp2.recurse().unwrap();
+                let (_packet, packet_depth, pp2, pp_depth)
+                    = pp2.recurse().unwrap();
+                eprintln!("{}, {}", packet_depth, pp_depth);
+                assert_eq!(packet_depth as usize, count - 1);
+                if pp2.is_some() {
+                    assert_eq!(pp_depth as usize, count);
+                }
                 ppo = pp2;
             } else {
                 break;
@@ -1637,7 +1685,7 @@ mod message_test {
 
         // recurse should now not recurse.  Since there is nothing
         // following the compressed packet, ppo should be None.
-        let (mut packet, ppo, _relative_position) = pp.next().unwrap();
+        let (mut packet, _, ppo, _) = pp.next().unwrap();
         assert!(ppo.is_none());
 
         // Get the rest of the content and put the initial byte that
@@ -1654,7 +1702,7 @@ mod message_test {
         }
 
         // And we're done...
-        let (_packet, ppo, _relative_position) = pp.next().unwrap();
+        let (_packet, _, ppo, _) = pp.next().unwrap();
         assert!(ppo.is_none());
     }
 }

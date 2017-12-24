@@ -132,9 +132,11 @@ impl<'a> MessageParser<'a> {
     }
 
     // Inserts the next packet into the `Message`.
-    fn insert_packet(&mut self, packet: Packet, position: usize) {
+    fn insert_packet(&mut self, packet: Packet, position: isize) {
         // Find the right container.
         let mut container = &mut self.message.top_level;
+
+        assert!(position >= 0);
 
         for i in 0..position {
             // The most recent child.
@@ -174,10 +176,9 @@ impl<'a> MessageParser<'a> {
         if self.returned_first {
             match self.ppo.take() {
                 Some (pp) => {
-                    let depth = pp.recursion_depth as usize;
                     match pp.recurse() {
-                        Ok((packet, ppo, _relative_position)) => {
-                            self.insert_packet(packet, depth);
+                        Ok((packet, position, ppo, _)) => {
+                            self.insert_packet(packet, position);
                             self.ppo = ppo;
                         },
                         Err(_) => {
@@ -211,10 +212,9 @@ impl<'a> MessageParser<'a> {
         if self.returned_first {
             match self.ppo.take() {
                 Some (pp) => {
-                    let depth = pp.recursion_depth as usize;
                     match pp.next() {
-                        Ok((packet, ppo, _relative_position)) => {
-                            self.insert_packet(packet, depth);
+                        Ok((packet, position, ppo, _)) => {
+                            self.insert_packet(packet, position);
                             self.ppo = ppo;
                         },
                         Err(_) => {

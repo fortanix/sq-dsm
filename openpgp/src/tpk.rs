@@ -176,7 +176,7 @@ impl TPK {
     pub fn from_packet_parser(mut pp: PacketParser) -> Result<Self> {
         let mut parser = TPKParser::new();
         loop {
-            let (packet, ppo, _relative_position) = pp.next()?;
+            let (packet, _, ppo, _) = pp.next()?;
             parser = parser.parse(packet);
             match parser.state {
                 TPKParserState::End => break,
