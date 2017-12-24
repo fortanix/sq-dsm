@@ -739,63 +739,29 @@ impl <'a> PacketParserBuilder<BufferedReaderMemory<'a>> {
             BufferedReaderMemory::new(bytes))
     }
 }
-
-/// A OpenPGP packet parser.
+
+/// A low-level OpenPGP message parser.
 ///
-/// An OpenPGP message is a sequence of packets.  Some of the packets
-/// contain other packets.  These containers include encrypted packets
-/// (the SED and SEIP packets), and compressed packets.  This
-/// structure results in a tree.  The packets are laid out in
-/// depth-first order.
+/// A `PacketParser` provides a low-level, iterator-like interface to
+/// parse OpenPGP messages.
 ///
-/// There are two major concerns that inform the design of the
-/// `PacketParser` API.
+/// For each iteration, the user is presented with a [`Packet`]
+/// corresponding to the last packet, a `PacketParser` for the next
+/// packet, and their positions within the message.
 ///
-/// First, when processing a container, it is possible to either
-/// recurse into the container, and process its children, or treat the
-/// contents of the container as an opaque byte stream, and process
-/// the packet following the container.  The `PacketParser`
-/// abstraction allows the caller to choose the behavior by either
-/// calling the `recurse` method or the `next` method, as appropriate.
-/// OpenPGP doesn't impose any restrictions on the amount of nesting.
-/// So, to prevent a denial of service attack, the `PacketParser`
-/// implementation does not recurse more than `MAX_RECURSION_DEPTH`
-/// times, by default.
+/// Using the `PacketParser`, the user is able to configure how the
+/// new packet will be parsed.  For instance, it is possible to stream
+/// the packet's contents (a `PacketParser` implements the
+/// `std::io::Read` and the `BufferedReader` traits), buffer them
+/// within the [`Packet`], or drop them.  The user can also decide to
+/// recurse into the packet, if it is a container, instead of getting
+/// the following packet.
 ///
-/// Second, packets can contain an effectively unbounded amount of
-/// data.  To avoid errors due to memory exhaustion, the
-/// `PacketParser` abstraction supports parsing packets while only
-/// buffering O(1) bytes of data.  To do this, a `PacketParser`
-/// initially only parses a packet's header (which is rarely more than
-/// a few kilobytes of data).  After inspecting that data, the caller
-/// can decide how to handle the packet's contents.  If the content is
-/// interesting, it can be streamed or buffered.  (To facilitate this,
-/// a `PacketParser` implements the `std::io::Read` and the
-/// `BufferedReader` traits.)  Streaming is possible not only for
-/// literal data packets, but also containers (other packets also
-/// support the interface, but just return EOF).  For instance,
-/// encryption can be stripped by saving the decrypted content of an
-/// encryption packet, which is just an OpenPGP message.
+/// See the `next()` and `recurse()` methods for more details.
 ///
-/// We explicitly choose to not use a callback-based API, but
-/// something that is closer to Rust's iterator API.  Unfortunately,
-/// because a `PacketParser` needs mutable access to the
-/// `BufferedReader` (so that the content can be streamed), only a
-/// single `PacketParser` item can be live at a time (without a fair
-/// amount of unsafe nastiness).  This is incompatible with Rust's
-/// iterator concept, which allows any number of items to be live at
-/// any time.  For instance:
-///
-/// ```rust
-/// let mut v = vec![1, 2, 3, 4];
-/// let mut iter = v.iter_mut();
-///
-/// let x = iter.next().unwrap();
-/// let y = iter.next().unwrap();
-///
-/// *x += 10; // This does not cause an error!
-/// *y += 10;
-/// ```
+///   [`next()`]: #method.next
+///   [`recurse()`]: #method.recurse
+///   [`Packet`]: ../struct.Packet.html
 ///
 /// # Examples
 ///
@@ -804,7 +770,7 @@ impl <'a> PacketParserBuilder<BufferedReaderMemory<'a>> {
 /// ```rust
 /// # use openpgp::Packet;
 /// # use openpgp::parse::PacketParser;
-/// # f(include_bytes!("../../tests/data/messages/public-key.gpg"));
+/// # let _ = f(include_bytes!("../../tests/data/messages/public-key.gpg"));
 /// #
 /// # fn f(message_data: &[u8]) -> Result<(), std::io::Error> {
 /// let mut ppo = PacketParser::from_bytes(message_data)?;
@@ -812,7 +778,7 @@ impl <'a> PacketParserBuilder<BufferedReaderMemory<'a>> {
 ///     // Process the packet.
 ///
 ///     if let Packet::Literal(_) = pp.packet {
-///         // Send the content of any literal packets to stdout.
+///         // Stream the content of any literal packets to stdout.
 ///         std::io::copy(&mut pp, &mut std::io::stdout());
 ///     }
 ///
@@ -1499,15 +1465,19 @@ impl Message {
         return Ok(Message { top_level: top_level });
     }
 
-    /// Deserializes an OpenPGP message stored in a `BufferedReader`
+    /// Deserializes the OpenPGP message stored in a `BufferedReader`
     /// object.
     ///
-    /// Although a `Message` is easier to use than a `PacketParser`,
-    /// this interface buffers the whole message in memory.  Thus, the
+    /// Although this method is easier to use to parse an OpenPGP
+    /// message than a [`PacketParser`] or a [`MessageParser`], this
+    /// interface buffers the whole message in memory.  Thus, the
     /// caller must be certain that the *deserialized* message is not
     /// too large.
     ///
     /// Note: this interface *does* buffer the contents of packets.
+    ///
+    ///   [`PacketParser`]: parse/struct.PacketParser.html
+    ///   [`MessageParser`]: parse/struct.MessageParser.html
     pub fn from_buffered_reader<R: BufferedReader>(bio: R)
             -> Result<Message, std::io::Error> {
         PacketParserBuilder::from_buffered_reader(bio)?
@@ -1515,7 +1485,7 @@ impl Message {
             .to_message()
     }
 
-    /// Deserializes an OpenPGP message stored in a `std::io::Read`
+    /// Deserializes the OpenPGP message stored in a `std::io::Read`
     /// object.
     ///
     /// See `from_buffered_reader` for more details and caveats.
@@ -1525,7 +1495,7 @@ impl Message {
         Message::from_buffered_reader(bio)
     }
 
-    /// Deserializes an OpenPGP message stored in the file named by
+    /// Deserializes the OpenPGP message stored in the file named by
     /// `path`.
     ///
     /// See `from_buffered_reader` for more details and caveats.
@@ -1534,7 +1504,7 @@ impl Message {
         Message::from_reader(File::open(path)?)
     }
 
-    /// Deserializes an OpenPGP message stored in the provided buffer.
+    /// Deserializes the OpenPGP message stored in the provided buffer.
     ///
     /// See `from_buffered_reader` for more details and caveats.
     pub fn from_bytes(data: &[u8]) -> Result<Message, std::io::Error> {
@@ -1609,7 +1579,7 @@ mod message_test {
 
     #[test]
     fn compression_quine_test_1 () {
-        // Use the Message::deserialize interface to parse an OpenPGP
+        // Use the Message::from_file interface to parse an OpenPGP
         // quine.
         let path = path_to("compression-quine.gpg");
         let max_recursion_depth = 128;

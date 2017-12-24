@@ -21,11 +21,11 @@ fn path_to(artifact: &str) -> PathBuf {
 }
 
 /// A `MessageParser` parses an OpenPGP message with the convenience
-/// of `Message::deserialize` and the flexibility of a `PacketParser`.
+/// of `Message::from_file` and the flexibility of a `PacketParser`.
 ///
-/// Like `Message::deserialize` (and unlike `PacketParser`), a
+/// Like `Message::from_file` (and unlike `PacketParser`), a
 /// `MessageParser` parses an OpenPGP message and returns a `Message`.
-/// But, unlike `Message::deserialize` (and like `PacketParser`), it
+/// But, unlike `Message::from_file` (and like `PacketParser`), it
 /// allows the caller to inspect each packet as it is being parsed.
 ///
 /// Thus, using a `MessageParser`, it is possible to decide on a
@@ -36,7 +36,7 @@ fn path_to(artifact: &str) -> PathBuf {
 ///
 /// If old packets don't need to be retained, then `PacketParser`
 /// should be preferred.  If no per-packet processing needs to be
-/// done, then `Message::deserialize` will be slightly faster.
+/// done, then `Message::from_file` will be slightly faster.
 ///
 /// Note: due to how lifetimes interact, it is not possible for the
 /// [`next()`] and [`recurse()`] methods to return a mutable reference
