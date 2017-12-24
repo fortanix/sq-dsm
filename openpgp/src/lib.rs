@@ -709,7 +709,9 @@ impl Message {
 }
 
 impl PacketCommon {
-    pub fn iter(&self) -> PacketIter {
+    /// Returns an iterator over all of the packet's descendants, in
+    /// depth-first order.
+    pub fn descendants(&self) -> PacketIter {
         return PacketIter {
             children: if let Some(ref container) = self.children {
                 container.packets.iter()
@@ -742,7 +744,7 @@ impl<'a> Iterator for PacketIter<'a> {
         // Get the next child and the iterator for its children.
         self.child = self.children.next();
         if let Some(child) = self.child {
-            self.grandchildren = Some(Box::new(child.iter()));
+            self.grandchildren = Some(Box::new(child.descendants()));
         }
 
         // First return the child itself.  Subsequent calls will
