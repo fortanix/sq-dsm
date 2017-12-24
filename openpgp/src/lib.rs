@@ -613,7 +613,7 @@ impl Packet {
     /// Tags are explained in [Section 4.3 of RFC 4880].
     ///
     ///   [Section 4.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.3
-    fn tag(&self) -> Tag {
+    pub fn tag(&self) -> Tag {
         match self {
             &Packet::Unknown(ref packet) => packet.tag,
             &Packet::Signature(_) => Tag::Signature,
