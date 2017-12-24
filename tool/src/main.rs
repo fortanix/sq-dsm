@@ -88,9 +88,28 @@ fn real_main() -> Result<(), io::Error> {
             } else {
                 input
             };
-            let m = openpgp::Message::from_reader(input);
-            for p in m.iter() {
-                writeln!(output, "{:?}", p).unwrap();
+
+            // Indent packets according to their recursion level.
+            let indent = "                                                  ";
+
+            let mut ppo
+                = openpgp::parse::PacketParserBuilder::from_reader(input)?
+                    .finalize()?;
+            while ppo.is_some() {
+                let mut pp = ppo.unwrap();
+
+                if let openpgp::Packet::Literal(_) = pp.packet {
+                    // XXX: We should actually stream this.  In fact,
+                    // we probably only want to print out the first
+                    // line or so and then print the total number of
+                    // bytes.
+                    pp.buffer_unread_content()?;
+                }
+                writeln!(output, "{}{:?}",
+                         &indent[0..pp.recursion_depth as usize], pp.packet)?;
+
+                let (_, _, ppo_tmp, _) = pp.recurse()?;
+                ppo = ppo_tmp;
             }
         },
         _ => {
