@@ -397,12 +397,23 @@ pub struct Header {
     pub length: BodyLength,
 }
 
+/// Holds an unknown packet.
+///
+/// This is used by the parser to hold packets that it doesn't know
+/// how to process rather than abort.
+///
+/// This packet effectively holds a binary blob.
 #[derive(PartialEq,Debug)]
 pub struct Unknown {
     pub common: PacketCommon,
     pub tag: Tag,
 }
 
+/// Holds a signature packet.
+///
+/// See [Section 5.2 of RFC 4880] for details.
+///
+///   [Section 5.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2
 #[derive(PartialEq)]
 pub struct Signature {
     pub common: PacketCommon,
@@ -439,6 +450,11 @@ impl std::fmt::Debug for Signature {
     }
 }
 
+/// Holds a public key, public subkey, private key or private subkey packet.
+///
+/// See [Section 5.5 of RFC 4880] for details.
+///
+///   [Section 5.5 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.5
 #[derive(PartialEq)]
 pub struct Key {
     pub common: PacketCommon,
@@ -462,6 +478,11 @@ impl std::fmt::Debug for Key {
     }
 }
 
+/// Holds a UserID packet.
+///
+/// See [Section 5.11 of RFC 4880] for details.
+///
+///   [Section 5.11 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.11
 #[derive(PartialEq)]
 pub struct UserID {
     pub common: PacketCommon,
@@ -478,6 +499,17 @@ impl std::fmt::Debug for UserID {
     }
 }
 
+/// Holds a literal packet.
+///
+/// A literal packet contains unstructured data.  Since the size can
+/// be very larged, it is advised to process messages containing such
+/// packets using a `PacketParser` or a `MessageParser` and process
+/// the data in a streaming manner rather than the
+/// `Message::from_file` interface.
+///
+/// See [Section 5.6 of RFC 4880] for details.
+///
+///   [Section 5.6 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.6
 #[derive(PartialEq)]
 pub struct Literal {
     pub common: PacketCommon,
@@ -522,6 +554,16 @@ impl std::fmt::Debug for Literal {
     }
 }
 
+/// Holds a compressed data packet.
+///
+/// A compressed data packet is a container.  See [Section 5.6 of RFC
+/// 4880] for details.
+///
+/// When the parser encounters a compressed data packet with an
+/// unknown compress algorithm, it returns an `Unknown` packet instead
+/// of a `CompressedData` packet.
+///
+/// [Section 5.6 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.6
 #[derive(PartialEq)]
 pub struct CompressedData {
     pub common: PacketCommon,
@@ -536,6 +578,21 @@ impl std::fmt::Debug for CompressedData {
     }
 }
 
+/// The OpenPGP packets that Sequoia understands.
+///
+/// The different OpenPGP packets are detailed in [Section 5 of RFC 4880].
+///
+/// The `Unknown` packet allows Sequoia to deal with packets that it
+/// doesn't understand.  The `Unknown` packet is basically a binary
+/// blob that includes the packet's tag.
+///
+/// The unknown packet is also used for packets that are understood,
+/// but use unsupported options.  For instance, when the packet parser
+/// encounters a compressed data packet with an unknown compression
+/// algorithm, it returns the packet in an `Unknown` packet rather
+/// than a `CompressedData` packet.
+///
+///   [Section 5 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5
 #[derive(Debug)]
 #[derive(PartialEq)]
 pub enum Packet {
@@ -551,6 +608,11 @@ pub enum Packet {
 }
 
 impl Packet {
+    /// Returns the `Packet's` corresponding OpenPGP tag.
+    ///
+    /// Tags are explained in [Section 4.3 of RFC 4880].
+    ///
+    ///   [Section 4.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.3
     fn tag(&self) -> Tag {
         match self {
             &Packet::Unknown(ref packet) => packet.tag,
@@ -611,6 +673,8 @@ pub struct Container {
 }
 
 impl Container {
+    /// Returns an iterator over the packet's descendants.  The
+    /// descendants are visited in depth-first order.
     pub fn descendants(&self) -> PacketIter {
         return PacketIter {
             // Iterate over each packet in the message.
@@ -620,10 +684,12 @@ impl Container {
         };
     }
 
+    /// Returns an iterator over the packet's immediate children.
     pub fn children<'a>(&'a self) -> std::slice::Iter<'a, Packet> {
         self.packets.iter()
     }
 
+    /// Returns an `IntoIter` over the packet's immediate children.
     pub fn into_children(self) -> std::vec::IntoIter<Packet> {
         self.packets.into_iter()
     }
@@ -638,6 +704,14 @@ impl std::fmt::Debug for Container {
 }
 
 /// A `Message` holds a deserialized OpenPGP message.
+///
+/// To deserialize an OpenPGP usage, use either [`PacketParser`],
+/// [`MessageParser`], or [`Message::from_file`] (or related
+/// routines).
+///
+///   [`PacketParser`]: parse/struct.PacketParser.html
+///   [`MessageParser`]: parse/struct.MessageParser.html
+///   [`Message::from_file`]: struct.Message.html#method.from_file
 pub struct Message {
     // At the top level, we have a sequence of packets, which may be
     // containers.
@@ -661,6 +735,11 @@ impl Container {
         return &s[0..cmp::min(depth, s.len())];
     }
 
+    // Pretty prints the container to stderr.
+    //
+    // This function is primarily intended for debugging purposes.
+    //
+    // `indent` is the number of spaces to indent the output.
     pub fn pretty_print(&self, indent: usize) {
         for (i, p) in self.packets.iter().enumerate() {
             eprintln!("{}{}: {:?}",
@@ -673,6 +752,9 @@ impl Container {
 }
 
 impl Message {
+    /// Pretty prints the message to stderr.
+    ///
+    /// This function is primarily intended for debugging purposes.
     pub fn pretty_print(&self) {
         self.top_level.pretty_print(0);
     }
@@ -691,18 +773,28 @@ pub struct PacketIter<'a> {
 }
 
 impl Message {
+    /// Turns a vector of [`Packets`] into a `Message`.
+    ///
+    /// This is a simple wrapper function; it does not process the
+    /// packets in any way.
+    ///
+    ///   [`Packets`]: struct.Packet.html
     pub fn from_packets(p: Vec<Packet>) -> Self {
         Message { top_level: Container { packets: p } }
     }
 
+    /// Returns an iterator over all of the packet's descendants, in
+    /// depth-first order.
     pub fn descendants(&self) -> PacketIter {
         self.top_level.descendants()
     }
 
+    /// Returns an iterator over the top-level packets.
     pub fn children<'a>(&'a self) -> std::slice::Iter<'a, Packet> {
         self.top_level.children()
     }
 
+    /// Returns an `IntoIter` over the top-level packets.
     pub fn into_children(self) -> std::vec::IntoIter<Packet> {
         self.top_level.into_children()
     }
@@ -753,6 +845,13 @@ impl<'a> Iterator for PacketIter<'a> {
     }
 }
 
+/// Holds a fingerprint.
+///
+/// A fingerprint uniquely identifies a public key.  For more details
+/// about how a fingerprint is generated, see [Section 12.2 of RFC
+/// 4880].
+///
+///   [Section 12.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-12.2
 pub enum Fingerprint {
     V4([u8;20]),
     // Used for holding fingerprints that we don't understand.  For

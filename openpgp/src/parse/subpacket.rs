@@ -18,6 +18,11 @@
 //! changes by indicating whether it is safe to ignore an unknown
 //! subpacket or notation.
 //!
+//! A number of methods are defined on the [`Signature`] struct for
+//! working with subpackets.
+//!
+//! [`Signature`]: ../../struct.Signature.html
+//!
 //! # Examples
 //!
 //! If a signature packet includes an issuer fingerprint subpacket,
@@ -116,10 +121,10 @@ pub enum SubpacketTag {
     Private110 = 110,
 }
 
-// Struct holding an arbitrary subpacket.
-//
-// The value is uninterpreted.  To get a well-structured value, use
-// one of `Signature`'s methods, like `Signature::issuer_fingerprint`.
+/// Struct holding an arbitrary subpacket.
+///
+/// The value is uninterpreted.  To get a well-structured value, use
+/// one of `Signature`'s methods, like `Signature::issuer_fingerprint`.
 #[derive(Debug,Clone)]
 pub struct Subpacket<'a> {
     pub critical: bool,
