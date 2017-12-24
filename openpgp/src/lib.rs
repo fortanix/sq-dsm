@@ -740,7 +740,7 @@ impl Container {
     // This function is primarily intended for debugging purposes.
     //
     // `indent` is the number of spaces to indent the output.
-    pub fn pretty_print(&self, indent: usize) {
+    fn pretty_print(&self, indent: usize) {
         for (i, p) in self.packets.iter().enumerate() {
             eprintln!("{}{}: {:?}",
                       Self::indent(indent), i + 1, p);
