@@ -460,13 +460,12 @@ fn compressed_data_parser<'a, R: BufferedReader<BufferedReaderState> + 'a>
         0 => {
             // Uncompressed.
             bio.consume(1);
-            // Our ownership convention is that each container
-            // pushes exactly one `BufferedReader` on the reader
-            // stack.  In this case, we need a pass-through
-            // filter.  We can emulate this using a Limitor.
-            Box::new(BufferedReaderLimitor::with_cookie(
-                bio, std::u64::MAX,
-                BufferedReaderState::new(recursion_depth)))
+            // XXX: If bio is already boxed (`buffered_reader`
+            // provides an impl of `BufferedReader` for
+            // `Box<BufferedReader>`, this is going to add another
+            // level of indirection.  It would be nice to avoid this
+            // level of indirection, but I have no idea how...
+            Box::new(bio)
         },
         1 => {
             // Zip.
@@ -957,14 +956,15 @@ impl <'a> PacketParser<'a> {
                     Box::new(BufferedReaderPartialBodyFilter::with_cookie(
                         bio, len,
                         BufferedReaderState::new(recursion_depth))),
-                BodyLength::Indeterminate =>
-                    // Our ownership convention is that each container
-                    // pushes exactly one `BufferedReader` on the reader
-                    // stack.  In this case, we need a pass-through
-                    // filter.  We can emulate this using a Limitor.
-                    Box::new(BufferedReaderLimitor::with_cookie(
-                        bio, std::u64::MAX,
-                        BufferedReaderState::new(recursion_depth))),
+                BodyLength::Indeterminate => {
+                    // XXX: If bio is already boxed (`buffered_reader`
+                    // provides an impl of `BufferedReader` for
+                    // `Box<BufferedReader>`, this is going to add
+                    // another level of indirection.  It would be nice
+                    // to avoid this level of indirection, but I have
+                    // no idea how...
+                    Box::new(bio)
+                },
         };
 
         let tag = header.ctb.tag;
