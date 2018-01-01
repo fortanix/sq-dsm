@@ -49,15 +49,6 @@ impl<T: BufferedReader<C>, C> std::fmt::Debug
     }
 }
 
-impl<T: BufferedReader<()>> BufferedReaderPartialBodyFilter<T, ()> {
-    /// Create a new BufferedReaderPartialBodyFilter object.
-    /// `partial_body_length` is the amount of data in the initial
-    /// partial body chunk.
-    pub fn new(reader: T, partial_body_length: u32) -> Self {
-        Self::with_cookie(reader, partial_body_length, ())
-    }
-}
-
 impl<T: BufferedReader<C>, C> BufferedReaderPartialBodyFilter<T, C> {
     /// Create a new BufferedReaderPartialBodyFilter object.
     /// `partial_body_length` is the amount of data in the initial

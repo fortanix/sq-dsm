@@ -206,7 +206,8 @@ pub fn header<R: BufferedReader<C>, C> (bio: &mut R)
     return Ok(Header { ctb: ctb, length: length });
 }
 
-fn unknown_parser<'a, R: BufferedReader<()> + 'a>(bio: R, tag: Tag)
+fn unknown_parser<'a, R: BufferedReader<BufferedReaderState> + 'a>
+        (bio: R, recursion_depth: usize, tag: Tag)
         -> Result<PacketParser<'a>, std::io::Error> {
     return Ok(PacketParser {
         packet: Packet::Unknown(Unknown {
@@ -218,12 +219,13 @@ fn unknown_parser<'a, R: BufferedReader<()> + 'a>(bio: R, tag: Tag)
         }),
         reader: Box::new(bio),
         content_was_read: false,
-        recursion_depth: 0,
+        recursion_depth: recursion_depth as u8,
         settings: PACKET_PARSER_DEFAULTS
     });
 }
 
-fn signature_parser<'a, R: BufferedReader<()> + 'a>(mut bio: R)
+fn signature_parser<'a, R: BufferedReader<BufferedReaderState> + 'a>
+        (mut bio: R, recursion_depth: usize)
         -> Result<PacketParser<'a>, std::io::Error> {
     let version = bio.data_consume_hard(1)?[0];
     let sigtype = bio.data_consume_hard(1)?[0];
@@ -255,7 +257,7 @@ fn signature_parser<'a, R: BufferedReader<()> + 'a>(mut bio: R)
         }),
         reader: Box::new(bio),
         content_was_read: false,
-        recursion_depth: 0,
+        recursion_depth: recursion_depth as u8,
         settings: PACKET_PARSER_DEFAULTS
     });
 }
@@ -265,13 +267,14 @@ fn signature_parser_test () {
     let data = bytes!("sig.gpg");
 
     {
-        let mut bio = BufferedReaderMemory::new(data);
+        let mut bio = BufferedReaderMemory::with_cookie(
+            data, BufferedReaderState::default());
 
         let header = header(&mut bio).unwrap();
         assert_eq!(header.ctb.tag, Tag::Signature);
         assert_eq!(header.length, BodyLength::Full(307));
 
-        let mut pp = signature_parser(bio).unwrap();
+        let mut pp = signature_parser(bio, 0).unwrap();
         let p = pp.finish();
         // eprintln!("packet: {:?}", p);
 
@@ -292,7 +295,8 @@ fn signature_parser_test () {
 
 // Parse the body of a public key, public subkey, secret key or secret
 // subkey packet.
-fn key_parser<'a, R: BufferedReader<()> + 'a>(mut bio: R, tag: Tag)
+fn key_parser<'a, R: BufferedReader<BufferedReaderState> + 'a>
+        (mut bio: R, recursion_depth: usize, tag: Tag)
         -> Result<PacketParser<'a>, std::io::Error> {
     assert!(tag == Tag::PublicKey
             || tag == Tag::PublicSubkey
@@ -325,13 +329,14 @@ fn key_parser<'a, R: BufferedReader<()> + 'a>(mut bio: R, tag: Tag)
         },
         reader: Box::new(bio),
         content_was_read: false,
-        recursion_depth: 0,
+        recursion_depth: recursion_depth as u8,
         settings: PACKET_PARSER_DEFAULTS
     });
 }
 
 // Parse the body of a user id packet.
-fn userid_parser<'a, R: BufferedReader<()> + 'a>(mut bio: R)
+fn userid_parser<'a, R: BufferedReader<BufferedReaderState> + 'a>
+        (mut bio: R, recursion_depth: usize)
         -> Result<PacketParser<'a>, std::io::Error> {
     return Ok(PacketParser {
         packet: Packet::UserID(UserID {
@@ -343,13 +348,14 @@ fn userid_parser<'a, R: BufferedReader<()> + 'a>(mut bio: R)
         }),
         reader: Box::new(bio),
         content_was_read: false,
-        recursion_depth: 0,
+        recursion_depth: recursion_depth as u8,
         settings: PACKET_PARSER_DEFAULTS
     });
 }
 
 /// Parse the body of a literal packet.
-fn literal_parser<'a, R: BufferedReader<()> + 'a>(mut bio: R)
+fn literal_parser<'a, R: BufferedReader<BufferedReaderState> + 'a>
+        (mut bio: R, recursion_depth: usize)
         -> Result<PacketParser<'a>, std::io::Error> {
     let format = bio.data_consume_hard(1)?[0];
     let filename_len = bio.data_consume_hard(1)?[0];
@@ -375,7 +381,7 @@ fn literal_parser<'a, R: BufferedReader<()> + 'a>(mut bio: R)
         }),
         reader: Box::new(bio),
         content_was_read: false,
-        recursion_depth: 0,
+        recursion_depth: recursion_depth as u8,
         settings: PACKET_PARSER_DEFAULTS
     });
 }
@@ -384,13 +390,14 @@ fn literal_parser<'a, R: BufferedReader<()> + 'a>(mut bio: R)
 fn literal_parser_test () {
     {
         let data = bytes!("literal-mode-b.gpg");
-        let mut bio = BufferedReaderMemory::new(data);
+        let mut bio = BufferedReaderMemory::with_cookie(
+            data, BufferedReaderState::default());
 
         let header = header(&mut bio).unwrap();
         assert_eq!(header.ctb.tag, Tag::Literal);
         assert_eq!(header.length, BodyLength::Full(18));
 
-        let mut pp = literal_parser(bio).unwrap();
+        let mut pp = literal_parser(bio, 0).unwrap();
         let content = pp.steal_eof().unwrap();
         let p = pp.finish();
         // eprintln!("{:?}", p);
@@ -406,16 +413,18 @@ fn literal_parser_test () {
 
     {
         let data = bytes!("literal-mode-t-partial-body.gpg");
-        let mut bio = BufferedReaderMemory::new(data);
+        let mut bio = BufferedReaderMemory::with_cookie(
+            data, BufferedReaderState::default());
 
         let header = header(&mut bio).unwrap();
         assert_eq!(header.ctb.tag, Tag::Literal);
         assert_eq!(header.length, BodyLength::Partial(4096));
 
         if let BodyLength::Partial(l) = header.length {
-            let bio2 = BufferedReaderPartialBodyFilter::new(bio, l);
+            let bio2 = BufferedReaderPartialBodyFilter::with_cookie(
+                bio, l, BufferedReaderState::default());
 
-            let mut pp = literal_parser(bio2).unwrap();
+            let mut pp = literal_parser(bio2, 1).unwrap();
             let content = pp.steal_eof().unwrap();
             let p = pp.finish();
             if let &Packet::Literal(ref p) = p {
@@ -437,7 +446,8 @@ fn literal_parser_test () {
 }
 
 // Parse the body of a compressed data packet.
-fn compressed_data_parser<'a, R: BufferedReader<()> + 'a>(mut bio: R)
+fn compressed_data_parser<'a, R: BufferedReader<BufferedReaderState> + 'a>
+        (mut bio: R, recursion_depth: usize)
         -> Result<PacketParser<'a>, std::io::Error> {
     let algo = bio.data_hard(1)?[0];
 
@@ -446,7 +456,7 @@ fn compressed_data_parser<'a, R: BufferedReader<()> + 'a>(mut bio: R)
     //   2          - ZLIB [RFC1950]
     //   3          - BZip2 [BZ2]
     //   100 to 110 - Private/Experimental algorithm
-    let bio : Box<BufferedReader<()>> = match algo {
+    let bio : Box<BufferedReader<BufferedReaderState>> = match algo {
         0 => {
             // Uncompressed.
             bio.consume(1);
@@ -454,22 +464,27 @@ fn compressed_data_parser<'a, R: BufferedReader<()> + 'a>(mut bio: R)
             // pushes exactly one `BufferedReader` on the reader
             // stack.  In this case, we need a pass-through
             // filter.  We can emulate this using a Limitor.
-            Box::new(BufferedReaderLimitor::new(bio, std::u64::MAX))
+            Box::new(BufferedReaderLimitor::with_cookie(
+                bio, std::u64::MAX,
+                BufferedReaderState::new(recursion_depth)))
         },
         1 => {
             // Zip.
             bio.consume(1);
-            Box::new(BufferedReaderDeflate::new(bio))
+            Box::new(BufferedReaderDeflate::with_cookie(
+                bio, BufferedReaderState::new(recursion_depth)))
         },
         2 => {
             // Zlib
             bio.consume(1);
-            Box::new(BufferedReaderZlib::new(bio))
+            Box::new(BufferedReaderZlib::with_cookie(
+                bio, BufferedReaderState::new(recursion_depth)))
         },
         3 => {
             // BZip2
             bio.consume(1);
-            Box::new(BufferedReaderBzip::new(bio))
+            Box::new(BufferedReaderBzip::with_cookie(
+                bio, BufferedReaderState::new(recursion_depth)))
         },
         _ => {
             // Unknown algo.  Return an unknown packet.
@@ -483,7 +498,7 @@ fn compressed_data_parser<'a, R: BufferedReader<()> + 'a>(mut bio: R)
                 }),
                 reader: Box::new(bio),
                 content_was_read: false,
-                recursion_depth: 0,
+                recursion_depth: recursion_depth as u8,
                 settings: PACKET_PARSER_DEFAULTS
             });
         }
@@ -499,7 +514,7 @@ fn compressed_data_parser<'a, R: BufferedReader<()> + 'a>(mut bio: R)
         }),
         reader: bio,
         content_was_read: false,
-        recursion_depth: 0,
+        recursion_depth: recursion_depth as u8,
         settings: PACKET_PARSER_DEFAULTS
     });
 }
@@ -513,7 +528,8 @@ fn compressed_data_parser_test () {
 
         let path = path_to(&format!("compressed-data-algo-{}.gpg", i)[..]);
         let mut f = File::open(&path).expect(&path.to_string_lossy());
-        let mut bio = BufferedReaderGeneric::new(&mut f, None);
+        let mut bio = BufferedReaderGeneric::with_cookie(
+            &mut f, None, BufferedReaderState::default());
 
         let h = header(&mut bio).unwrap();
         assert_eq!(h.ctb.tag, Tag::CompressedData);
@@ -522,7 +538,7 @@ fn compressed_data_parser_test () {
         // We expect a compressed packet containing a literal data
         // packet, and that is it.
         let (compressed, _, ppo, _)
-            = compressed_data_parser(bio).unwrap().recurse().unwrap();
+            = compressed_data_parser(bio, 0).unwrap().recurse().unwrap();
 
         if let Packet::CompressedData(compressed) = compressed {
             assert_eq!(compressed.algo, i);
@@ -588,16 +604,17 @@ const PACKET_PARSER_DEFAULTS : PacketParserSettings
 /// will only be needed in exceptional circumstances.  Instead use,
 /// for instance, `PacketParser::from_file` or
 /// `PacketParser::from_reader` to start parsing an OpenPGP message.
-pub struct PacketParserBuilder<R: BufferedReader<()>> {
+pub struct PacketParserBuilder<R: BufferedReader<BufferedReaderState>> {
     bio: R,
     settings: PacketParserSettings,
 }
 
-impl<R: BufferedReader<()>> PacketParserBuilder<R> {
+impl<R: BufferedReader<BufferedReaderState>> PacketParserBuilder<R> {
     /// Creates a `PacketParserBuilder` for an OpenPGP message stored
     /// in a `BufferedReader` object.
-    pub fn from_buffered_reader(bio: R)
+    pub fn from_buffered_reader(mut bio: R)
             -> Result<PacketParserBuilder<R>, std::io::Error> {
+        bio.cookie_set(BufferedReaderState::default());
         Ok(PacketParserBuilder {
             bio: bio,
             settings: PACKET_PARSER_DEFAULTS
@@ -660,7 +677,7 @@ impl<R: BufferedReader<()>> PacketParserBuilder<R> {
     pub fn finalize<'a>(self)
             -> Result<Option<PacketParser<'a>>, std::io::Error> where Self: 'a {
         // Parse the first packet.
-        let pp = PacketParser::parse(self.bio)?;
+        let pp = PacketParser::parse(self.bio, 0)?;
 
         if let PacketParserOrBufferedReader::PacketParser(mut pp) = pp {
             // We successfully parsed the first packet's header.
@@ -706,40 +723,76 @@ impl<R: BufferedReader<()>> PacketParserBuilder<R> {
     }
 }
 
-impl <'a, R: io::Read + 'a> PacketParserBuilder<BufferedReaderGeneric<R, ()>> {
+impl<'a, R: io::Read + 'a>
+        PacketParserBuilder<BufferedReaderGeneric<R, BufferedReaderState>> {
     /// Creates a `PacketParserBuilder` for an OpenPGP message stored
     /// in a `std::io::Read` object.
     pub fn from_reader(reader: R)
-            -> Result<PacketParserBuilder<BufferedReaderGeneric<R, ()>>,
+            -> Result<PacketParserBuilder<
+                          BufferedReaderGeneric<R, BufferedReaderState>>,
                       std::io::Error> {
         Ok(PacketParserBuilder {
-            bio: BufferedReaderGeneric::new(reader, None),
+            bio: BufferedReaderGeneric::with_cookie(
+                reader, None, BufferedReaderState::default()),
             settings: PACKET_PARSER_DEFAULTS
         })
     }
 }
 
-impl PacketParserBuilder<BufferedReaderGeneric<File, ()>> {
+impl PacketParserBuilder<BufferedReaderGeneric<File, BufferedReaderState>> {
     /// Creates a `PacketParserBuilder` for an OpenPGP message stored
     /// in the file named `path`.
     pub fn from_file<P: AsRef<Path>>(path: P)
-            -> Result<PacketParserBuilder<BufferedReaderGeneric<File, ()>>,
+            -> Result<PacketParserBuilder<
+                          BufferedReaderGeneric<File, BufferedReaderState>>,
                       std::io::Error> {
         PacketParserBuilder::from_reader(File::open(path)?)
     }
 }
 
-impl <'a> PacketParserBuilder<BufferedReaderMemory<'a, ()>> {
+impl <'a> PacketParserBuilder<BufferedReaderMemory<'a, BufferedReaderState>> {
     /// Creates a `PacketParserBuilder` for an OpenPGP message stored
     /// in specified buffer.
     pub fn from_bytes(bytes: &'a [u8])
-            -> Result<PacketParserBuilder<BufferedReaderMemory<'a, ()>>,
+            -> Result<PacketParserBuilder<
+                          BufferedReaderMemory<'a, BufferedReaderState>>,
                       std::io::Error> {
         PacketParserBuilder::from_buffered_reader(
-            BufferedReaderMemory::new(bytes))
+            BufferedReaderMemory::with_cookie(
+                bytes, BufferedReaderState::default()))
     }
 }
 
+#[derive(Clone, Copy, Debug)]
+pub struct BufferedReaderState {
+    // The top-level buffered reader is 0.
+    // The limitor for a top-level packet is 1.
+    // The filter for a top-level container packet is 1.
+    // The limitor for the child of a top-level packet is 2.
+    // The filter for the child of a top-level packet is 2.
+    //
+    // Thus, the filters that control the input for a packet at
+    // recursion depth n have level n + 1.
+    level: usize,
+}
+
+const BUFFERED_READER_STATE_TOP_LEVEL
+    : BufferedReaderState = BufferedReaderState { level: 0 };
+
+impl Default for BufferedReaderState {
+    fn default() -> Self {
+        BUFFERED_READER_STATE_TOP_LEVEL
+    }
+}
+
+impl BufferedReaderState {
+    fn new(recursion_depth: usize) -> BufferedReaderState {
+        BufferedReaderState {
+            level: recursion_depth + 1
+        }
+    }
+}
+
 /// A low-level OpenPGP message parser.
 ///
 /// A `PacketParser` provides a low-level, iterator-like interface to
@@ -807,7 +860,7 @@ pub struct PacketParser<'a> {
     // what happens when we parse a compressed data packet: we return
     // a Decompressor (in fact, the actual type is only known at
     // run-time!).
-    reader: Box<BufferedReader<()> + 'a>,
+    reader: Box<BufferedReader<BufferedReaderState> + 'a>,
 
     // Whether the caller read the packets content.  If so, then we
     // can't recurse, because we're missing some of the packet!
@@ -832,7 +885,7 @@ impl <'a> std::fmt::Debug for PacketParser<'a> {
 // The return value of PacketParser::parse.
 enum PacketParserOrBufferedReader<'a> {
     PacketParser(PacketParser<'a>),
-    BufferedReader(Box<BufferedReader<()> + 'a>),
+    BufferedReader(Box<BufferedReader<BufferedReaderState> + 'a>),
 }
 
 // Converts an indentation level to whitespace.
@@ -846,7 +899,7 @@ impl <'a> PacketParser<'a> {
     ///
     /// This function returns a `PacketParser` for the first packet in
     /// the stream.
-    pub fn from_buffered_reader<R: BufferedReader<()> + 'a>(bio: R)
+    pub fn from_buffered_reader<R: BufferedReader<BufferedReaderState> + 'a>(bio: R)
             -> Result<Option<PacketParser<'a>>, std::io::Error> {
         PacketParserBuilder::from_buffered_reader(bio)?.finalize()
     }
@@ -881,7 +934,8 @@ impl <'a> PacketParser<'a> {
     // Returns a packet parser for the next OpenPGP packet in the
     // stream.  If there are no packets left, this function returns
     // `bio`.
-    fn parse<R: BufferedReader<()> + 'a>(mut bio: R)
+    fn parse<R: BufferedReader<BufferedReaderState> + 'a>
+            (mut bio: R, recursion_depth: usize)
             -> Result<PacketParserOrBufferedReader<'a>, std::io::Error> {
         // When header encounters an EOF, it returns an error.  But,
         // we want to return None.  Try a one byte read.
@@ -893,40 +947,46 @@ impl <'a> PacketParser<'a> {
         }
 
         let header = header(&mut bio)?;
-
-        let bio : Box<BufferedReader<()>> = match header.length {
-            BodyLength::Full(len) =>
-                Box::new(BufferedReaderLimitor::new(bio, len as u64)),
-            BodyLength::Partial(len) =>
-                Box::new(BufferedReaderPartialBodyFilter::new(bio, len)),
-            BodyLength::Indeterminate =>
-                // Our ownership convention is that each container
-                // pushes exactly one `BufferedReader` on the reader
-                // stack.  In this case, we need a pass-through
-                // filter.  We can emulate this using a Limitor.
-                Box::new(BufferedReaderLimitor::new(bio, std::u64::MAX)),
+        let bio : Box<BufferedReader<BufferedReaderState>>
+            = match header.length {
+                BodyLength::Full(len) =>
+                    Box::new(BufferedReaderLimitor::with_cookie(
+                        bio, len as u64,
+                        BufferedReaderState::new(recursion_depth))),
+                BodyLength::Partial(len) =>
+                    Box::new(BufferedReaderPartialBodyFilter::with_cookie(
+                        bio, len,
+                        BufferedReaderState::new(recursion_depth))),
+                BodyLength::Indeterminate =>
+                    // Our ownership convention is that each container
+                    // pushes exactly one `BufferedReader` on the reader
+                    // stack.  In this case, we need a pass-through
+                    // filter.  We can emulate this using a Limitor.
+                    Box::new(BufferedReaderLimitor::with_cookie(
+                        bio, std::u64::MAX,
+                        BufferedReaderState::new(recursion_depth))),
         };
 
         let tag = header.ctb.tag;
         let result = match tag {
             Tag::Signature =>
-                signature_parser(bio)?,
+                signature_parser(bio, recursion_depth)?,
             Tag::PublicSubkey =>
-                key_parser(bio, tag)?,
+                key_parser(bio, recursion_depth, tag)?,
             Tag::PublicKey =>
-                key_parser(bio, tag)?,
+                key_parser(bio, recursion_depth, tag)?,
             Tag::SecretKey =>
-                key_parser(bio, tag)?,
+                key_parser(bio, recursion_depth, tag)?,
             Tag::SecretSubkey =>
-                key_parser(bio, tag)?,
+                key_parser(bio, recursion_depth, tag)?,
             Tag::UserID =>
-                userid_parser(bio)?,
+                userid_parser(bio, recursion_depth)?,
             Tag::Literal =>
-                literal_parser(bio)?,
+                literal_parser(bio, recursion_depth)?,
             Tag::CompressedData =>
-                compressed_data_parser(bio)?,
+                compressed_data_parser(bio, recursion_depth)?,
             _ =>
-                unknown_parser(bio, tag)?,
+                unknown_parser(bio, recursion_depth, tag)?,
         };
 
         return Ok(PacketParserOrBufferedReader::PacketParser(result));
@@ -1005,8 +1065,14 @@ impl <'a> PacketParser<'a> {
         // Finish processing the current packet.
         self.finish();
 
-        // Pop the packet's BufferedReader.
-        let mut reader = self.reader.into_inner().unwrap();
+        // Remove any filters that apply to the current packet parser.
+        // Normally, this is just a limitor of some sort.
+        let mut reader = self.reader;
+        assert!(reader.cookie_ref().level <= self.recursion_depth as usize + 1);
+        while reader.cookie_ref().level > self.recursion_depth as usize {
+            reader.drop_eof().unwrap();
+            reader = reader.into_inner().unwrap();
+        }
 
         // Stash some fields that we'll put in the new packet.
         let settings = self.settings;
@@ -1017,11 +1083,15 @@ impl <'a> PacketParser<'a> {
         let mut recursion_depth = self.recursion_depth;
         loop {
             // Parse the next packet.
-            let pp = PacketParser::parse(reader)?;
+            let pp = PacketParser::parse(reader, recursion_depth as usize)?;
             match pp {
                 PacketParserOrBufferedReader::BufferedReader(reader2) => {
-                    // We got EOF on the current container.  Pop it
-                    // and try again.
+                    // We got EOF on the current container.  The
+                    // container at recursion depth n is empty.  Pop
+                    // it and any filters for it, i.e., those at level
+                    // n (e.g., the limitor that caused us to hit
+                    // EOF), and then try again.
+
                     if settings.trace {
                         eprintln!("{}PacketParser::next(): pop, depth: {}",
                                   indent(recursion_depth), recursion_depth);
@@ -1035,9 +1105,32 @@ impl <'a> PacketParser<'a> {
                         return Ok((packet, old_recursion_depth as isize,
                                    None, 0));
                     } else {
-                        reader = reader2.into_inner().unwrap();
                         assert!(recursion_depth > 0);
+                        reader = reader2;
                         recursion_depth -= 1;
+
+                        // The top filter can't have a level larger
+                        // than n + 1 (but it is entirely possible
+                        // that it has a smaller level if there were
+                        // no constraints on it, e.g., the packet has
+                        // an indeterminate length).
+                        assert!(reader.cookie_ref().level
+                                <= recursion_depth as usize + 1);
+                        let mut pops = 0;
+                        while reader.cookie_ref().level
+                                == recursion_depth as usize + 1 {
+                            reader.drop_eof().unwrap();
+                            reader = reader.into_inner().unwrap();
+                            pops += 1;
+                        }
+
+                        if settings.trace {
+                            eprintln!("{}PacketParser::next: \
+                                       Popped {} readers; \
+                                       top reader's level: {}",
+                                      indent(recursion_depth), pops,
+                                      reader.cookie_ref().level);
+                        }
                     }
                 },
                 PacketParserOrBufferedReader::PacketParser(mut pp) => {
@@ -1047,7 +1140,6 @@ impl <'a> PacketParser<'a> {
                                   pp.packet.tag());
                     }
 
-                    pp.recursion_depth = recursion_depth;
                     pp.settings = settings;
 
                     return Ok((packet, old_recursion_depth as isize,
@@ -1104,16 +1196,17 @@ impl <'a> PacketParser<'a> {
 
                     // Drop through.
                 } else {
-                    match PacketParser::parse(self.reader)? {
+                    match PacketParser::parse(self.reader,
+                            self.recursion_depth as usize + 1)? {
                         PacketParserOrBufferedReader::PacketParser(mut pp) => {
-                            pp.recursion_depth = self.recursion_depth + 1;
                             pp.settings = self.settings;
 
                             if pp.settings.trace {
                                 eprintln!("{}PacketParser::recurse(): \
-                                           recursing into the {:?}) packet.",
+                                           recursed into the {:?}) packet, got a {:?}.",
                                           indent(self.recursion_depth),
-                                          self.packet.tag());
+                                          self.packet.tag(),
+                                          pp.packet.tag());
                             }
 
                             return Ok((self.packet,
@@ -1197,6 +1290,7 @@ impl <'a> PacketParser<'a> {
     ///
     /// By default, this drops any unread content.  Use, for instance,
     /// `PacketParserBuild` to customize the default behavior.
+    // Note: this function is public and may be called multiple times!
     pub fn finish<'b>(&'b mut self) -> &'b Packet {
         if self.settings.buffer_unread_content {
             if self.settings.trace {
@@ -1240,7 +1334,7 @@ impl<'a> io::Read for PacketParser<'a> {
 ///
 /// Note: it is safe to mix the use of the `std::io::Read` and
 /// `BufferedReader` interfaces.
-impl<'a> BufferedReader<()> for PacketParser<'a> {
+impl<'a> BufferedReader<BufferedReaderState> for PacketParser<'a> {
     fn data(&mut self, amount: usize) -> Result<&[u8], io::Error> {
         // There is no need to set `content_was_read`, because this
         // doesn't actually consume any data.
@@ -1306,20 +1400,22 @@ impl<'a> BufferedReader<()> for PacketParser<'a> {
         return self.reader.drop_eof();
     }
 
-    fn into_inner<'b>(self: Box<Self>) -> Option<Box<BufferedReader<()> + 'b>>
+    fn into_inner<'b>(self: Box<Self>)
+            -> Option<Box<BufferedReader<BufferedReaderState> + 'b>>
             where Self: 'b {
         None
     }
 
-    fn cookie_set(&mut self, cookie: ()) -> () {
+    fn cookie_set(&mut self, cookie: BufferedReaderState)
+            -> BufferedReaderState {
         self.reader.cookie_set(cookie)
     }
 
-    fn cookie_ref(&self) -> &() {
+    fn cookie_ref(&self) -> &BufferedReaderState {
         self.reader.cookie_ref()
     }
 
-    fn cookie_mut(&mut self) -> &mut () {
+    fn cookie_mut(&mut self) -> &mut BufferedReaderState {
         self.reader.cookie_mut()
     }
 }
@@ -1490,7 +1586,7 @@ impl Message {
     ///
     ///   [`PacketParser`]: parse/struct.PacketParser.html
     ///   [`MessageParser`]: parse/struct.MessageParser.html
-    pub fn from_buffered_reader<R: BufferedReader<()>>(bio: R)
+    pub fn from_buffered_reader<R: BufferedReader<BufferedReaderState>>(bio: R)
             -> Result<Message, std::io::Error> {
         PacketParserBuilder::from_buffered_reader(bio)?
             .buffer_unread_content()
@@ -1503,7 +1599,8 @@ impl Message {
     /// See `from_buffered_reader` for more details and caveats.
     pub fn from_reader<R: io::Read>(reader: R)
              -> Result<Message, std::io::Error> {
-        let bio = BufferedReaderGeneric::new(reader, None);
+        let bio = BufferedReaderGeneric::with_cookie(
+            reader, None, BufferedReaderState::default());
         Message::from_buffered_reader(bio)
     }
 
@@ -1520,7 +1617,8 @@ impl Message {
     ///
     /// See `from_buffered_reader` for more details and caveats.
     pub fn from_bytes(data: &[u8]) -> Result<Message, std::io::Error> {
-        let bio = BufferedReaderMemory::new(data);
+        let bio = BufferedReaderMemory::with_cookie(
+            data, BufferedReaderState::default());
         Message::from_buffered_reader(bio)
     }
 }
@@ -1528,11 +1626,9 @@ impl Message {
 #[cfg(test)]
 mod message_test {
     use super::path_to;
-    use super::{BufferedReaderGeneric,
-                Message, Packet, PacketParser, PacketParserBuilder};
+    use super::{Message, Packet, PacketParser, PacketParserBuilder};
 
     use std::io::Read;
-    use std::fs::File;
 
     #[test]
     fn deserialize_test_1 () {
@@ -1614,12 +1710,9 @@ mod message_test {
     fn compression_quine_test_2 () {
         // Use the iterator interface to parse an OpenPGP quine.
         let path = path_to("compression-quine.gpg");
-        let mut f = File::open(&path).expect(&path.to_string_lossy());
-
-        let bio = BufferedReaderGeneric::new(&mut f, None);
         let max_recursion_depth = 255;
         let mut ppo : Option<PacketParser>
-            = PacketParserBuilder::from_buffered_reader(bio).unwrap()
+            = PacketParserBuilder::from_file(path).unwrap()
                 .max_recursion_depth(max_recursion_depth)
                 .finalize().unwrap();
 

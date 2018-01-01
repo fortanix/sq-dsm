@@ -2,7 +2,8 @@ use std::io;
 use std::fs::File;
 use std::path::Path;
 
-use super::{PacketParserBuilder, PacketParser, Packet, Container, Message};
+use super::{PacketParserBuilder, PacketParser, Packet, Container, Message,
+            BufferedReaderState};
 use buffered_reader::{BufferedReader, BufferedReaderGeneric,
                       BufferedReaderMemory};
 
@@ -80,7 +81,7 @@ pub struct MessageParser<'a> {
     message: Message,
 }
 
-impl<R: BufferedReader<()>> PacketParserBuilder<R> {
+impl<R: BufferedReader<BufferedReaderState>> PacketParserBuilder<R> {
     /// Finishes configuring the `PacketParser` and returns a
     /// `MessageParser`.
     pub fn to_message_parser<'a>(self)
@@ -103,7 +104,7 @@ impl<'a> MessageParser<'a> {
 
     /// Creates a `MessageParser` to parse the OpenPGP message stored
     /// in the `BufferedReader` object.
-    pub fn from_buffered_reader<R: BufferedReader<()> + 'a>(bio: R)
+    pub fn from_buffered_reader<R: BufferedReader<BufferedReaderState> + 'a>(bio: R)
             -> Result<MessageParser<'a>, io::Error> {
         Self::from_packet_parser(PacketParser::from_buffered_reader(bio)?)
     }
@@ -112,7 +113,8 @@ impl<'a> MessageParser<'a> {
     /// in the `io::Read` object.
     pub fn from_reader<R: io::Read + 'a>(reader: R)
              -> Result<MessageParser<'a>, io::Error> {
-        let bio = BufferedReaderGeneric::new(reader, None);
+        let bio = BufferedReaderGeneric::with_cookie(
+            reader, None, BufferedReaderState::default());
         MessageParser::from_buffered_reader(bio)
     }
 
@@ -127,7 +129,8 @@ impl<'a> MessageParser<'a> {
     /// in the provided buffer.
     pub fn from_bytes(data: &'a [u8])
             -> Result<MessageParser<'a>, io::Error> {
-        let bio = BufferedReaderMemory::new(data);
+        let bio = BufferedReaderMemory::with_cookie(
+            data, BufferedReaderState::default());
         MessageParser::from_buffered_reader(bio)
     }
 
@@ -264,12 +267,8 @@ impl<'a> MessageParser<'a> {
 
 #[test]
 fn message_parser_test() {
-    let path = path_to("public-key.gpg");
-    let mut f = File::open(&path).expect(&path.to_string_lossy());
-    let bio = BufferedReaderGeneric::new(&mut f, None);
-
     let mut count = 0;
-    let mut mp = MessageParser::from_buffered_reader(bio).unwrap();
+    let mut mp = MessageParser::from_file(path_to("public-key.gpg")).unwrap();
     while mp.recurse() {
         count += 1;
     }
