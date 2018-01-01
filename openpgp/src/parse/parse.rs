@@ -106,7 +106,7 @@ fn ctb_test() {
 /// Decodes a new format body length as described in [Section 4.2.2 of RFC 4880].
 ///
 ///   [Section 4.2.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.2.2
-pub fn body_length_new_format<T: BufferedReader> (bio: &mut T)
+pub fn body_length_new_format<T: BufferedReader<C>, C> (bio: &mut T)
         -> Result<BodyLength, std::io::Error> {
     let octet1 = bio.data_consume_hard(1)?[0];
     if octet1 < 192 {
@@ -157,8 +157,8 @@ fn body_length_new_format_test() {
 /// Decodes an old format body length as described in [Section 4.2.1 of RFC 4880].
 ///
 ///   [Section 4.2.1 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.2.1
-pub fn body_length_old_format<T: BufferedReader> (bio: &mut T,
-                                                  length_type: PacketLengthType)
+pub fn body_length_old_format<T: BufferedReader<C>, C>
+        (bio: &mut T, length_type: PacketLengthType)
         -> Result<BodyLength, std::io::Error> {
     match length_type {
         PacketLengthType::OneOctet =>
@@ -196,7 +196,7 @@ fn body_length_old_format_test() {
 /// Parses an OpenPGP packet's header as described in [Section 4.2 of RFC 4880].
 ///
 ///   [Section 4.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.2
-pub fn header<R: BufferedReader> (bio: &mut R)
+pub fn header<R: BufferedReader<C>, C> (bio: &mut R)
         -> Result<Header, std::io::Error> {
     let ctb = ctb(bio.data_consume_hard(1)?[0])?;
     let length = match ctb {
@@ -206,7 +206,7 @@ pub fn header<R: BufferedReader> (bio: &mut R)
     return Ok(Header { ctb: ctb, length: length });
 }
 
-fn unknown_parser<'a, R: BufferedReader + 'a>(bio: R, tag: Tag)
+fn unknown_parser<'a, R: BufferedReader<()> + 'a>(bio: R, tag: Tag)
         -> Result<PacketParser<'a>, std::io::Error> {
     return Ok(PacketParser {
         packet: Packet::Unknown(Unknown {
@@ -223,7 +223,7 @@ fn unknown_parser<'a, R: BufferedReader + 'a>(bio: R, tag: Tag)
     });
 }
 
-fn signature_parser<'a, R: BufferedReader + 'a>(mut bio: R)
+fn signature_parser<'a, R: BufferedReader<()> + 'a>(mut bio: R)
         -> Result<PacketParser<'a>, std::io::Error> {
     let version = bio.data_consume_hard(1)?[0];
     let sigtype = bio.data_consume_hard(1)?[0];
@@ -292,7 +292,7 @@ fn signature_parser_test () {
 
 // Parse the body of a public key, public subkey, secret key or secret
 // subkey packet.
-fn key_parser<'a, R: BufferedReader + 'a>(mut bio: R, tag: Tag)
+fn key_parser<'a, R: BufferedReader<()> + 'a>(mut bio: R, tag: Tag)
         -> Result<PacketParser<'a>, std::io::Error> {
     assert!(tag == Tag::PublicKey
             || tag == Tag::PublicSubkey
@@ -331,7 +331,7 @@ fn key_parser<'a, R: BufferedReader + 'a>(mut bio: R, tag: Tag)
 }
 
 // Parse the body of a user id packet.
-fn userid_parser<'a, R: BufferedReader + 'a>(mut bio: R)
+fn userid_parser<'a, R: BufferedReader<()> + 'a>(mut bio: R)
         -> Result<PacketParser<'a>, std::io::Error> {
     return Ok(PacketParser {
         packet: Packet::UserID(UserID {
@@ -349,7 +349,7 @@ fn userid_parser<'a, R: BufferedReader + 'a>(mut bio: R)
 }
 
 /// Parse the body of a literal packet.
-fn literal_parser<'a, R: BufferedReader + 'a>(mut bio: R)
+fn literal_parser<'a, R: BufferedReader<()> + 'a>(mut bio: R)
         -> Result<PacketParser<'a>, std::io::Error> {
     let format = bio.data_consume_hard(1)?[0];
     let filename_len = bio.data_consume_hard(1)?[0];
@@ -437,7 +437,7 @@ fn literal_parser_test () {
 }
 
 // Parse the body of a compressed data packet.
-fn compressed_data_parser<'a, R: BufferedReader + 'a>(mut bio: R)
+fn compressed_data_parser<'a, R: BufferedReader<()> + 'a>(mut bio: R)
         -> Result<PacketParser<'a>, std::io::Error> {
     let algo = bio.data_hard(1)?[0];
 
@@ -446,7 +446,7 @@ fn compressed_data_parser<'a, R: BufferedReader + 'a>(mut bio: R)
     //   2          - ZLIB [RFC1950]
     //   3          - BZip2 [BZ2]
     //   100 to 110 - Private/Experimental algorithm
-    let bio : Box<BufferedReader> = match algo {
+    let bio : Box<BufferedReader<()>> = match algo {
         0 => {
             // Uncompressed.
             bio.consume(1);
@@ -588,12 +588,12 @@ const PACKET_PARSER_DEFAULTS : PacketParserSettings
 /// will only be needed in exceptional circumstances.  Instead use,
 /// for instance, `PacketParser::from_file` or
 /// `PacketParser::from_reader` to start parsing an OpenPGP message.
-pub struct PacketParserBuilder<R: BufferedReader> {
+pub struct PacketParserBuilder<R: BufferedReader<()>> {
     bio: R,
     settings: PacketParserSettings,
 }
 
-impl<R: BufferedReader> PacketParserBuilder<R> {
+impl<R: BufferedReader<()>> PacketParserBuilder<R> {
     /// Creates a `PacketParserBuilder` for an OpenPGP message stored
     /// in a `BufferedReader` object.
     pub fn from_buffered_reader(bio: R)
@@ -706,11 +706,11 @@ impl<R: BufferedReader> PacketParserBuilder<R> {
     }
 }
 
-impl <'a, R: io::Read + 'a> PacketParserBuilder<BufferedReaderGeneric<R>> {
+impl <'a, R: io::Read + 'a> PacketParserBuilder<BufferedReaderGeneric<R, ()>> {
     /// Creates a `PacketParserBuilder` for an OpenPGP message stored
     /// in a `std::io::Read` object.
     pub fn from_reader(reader: R)
-            -> Result<PacketParserBuilder<BufferedReaderGeneric<R>>,
+            -> Result<PacketParserBuilder<BufferedReaderGeneric<R, ()>>,
                       std::io::Error> {
         Ok(PacketParserBuilder {
             bio: BufferedReaderGeneric::new(reader, None),
@@ -719,21 +719,21 @@ impl <'a, R: io::Read + 'a> PacketParserBuilder<BufferedReaderGeneric<R>> {
     }
 }
 
-impl PacketParserBuilder<BufferedReaderGeneric<File>> {
+impl PacketParserBuilder<BufferedReaderGeneric<File, ()>> {
     /// Creates a `PacketParserBuilder` for an OpenPGP message stored
     /// in the file named `path`.
     pub fn from_file<P: AsRef<Path>>(path: P)
-            -> Result<PacketParserBuilder<BufferedReaderGeneric<File>>,
+            -> Result<PacketParserBuilder<BufferedReaderGeneric<File, ()>>,
                       std::io::Error> {
         PacketParserBuilder::from_reader(File::open(path)?)
     }
 }
 
-impl <'a> PacketParserBuilder<BufferedReaderMemory<'a>> {
+impl <'a> PacketParserBuilder<BufferedReaderMemory<'a, ()>> {
     /// Creates a `PacketParserBuilder` for an OpenPGP message stored
     /// in specified buffer.
     pub fn from_bytes(bytes: &'a [u8])
-            -> Result<PacketParserBuilder<BufferedReaderMemory<'a>>,
+            -> Result<PacketParserBuilder<BufferedReaderMemory<'a, ()>>,
                       std::io::Error> {
         PacketParserBuilder::from_buffered_reader(
             BufferedReaderMemory::new(bytes))
@@ -807,7 +807,7 @@ pub struct PacketParser<'a> {
     // what happens when we parse a compressed data packet: we return
     // a Decompressor (in fact, the actual type is only known at
     // run-time!).
-    reader: Box<BufferedReader + 'a>,
+    reader: Box<BufferedReader<()> + 'a>,
 
     // Whether the caller read the packets content.  If so, then we
     // can't recurse, because we're missing some of the packet!
@@ -832,7 +832,7 @@ impl <'a> std::fmt::Debug for PacketParser<'a> {
 // The return value of PacketParser::parse.
 enum PacketParserOrBufferedReader<'a> {
     PacketParser(PacketParser<'a>),
-    BufferedReader(Box<BufferedReader + 'a>),
+    BufferedReader(Box<BufferedReader<()> + 'a>),
 }
 
 // Converts an indentation level to whitespace.
@@ -846,7 +846,7 @@ impl <'a> PacketParser<'a> {
     ///
     /// This function returns a `PacketParser` for the first packet in
     /// the stream.
-    pub fn from_buffered_reader<R: BufferedReader + 'a>(bio: R)
+    pub fn from_buffered_reader<R: BufferedReader<()> + 'a>(bio: R)
             -> Result<Option<PacketParser<'a>>, std::io::Error> {
         PacketParserBuilder::from_buffered_reader(bio)?.finalize()
     }
@@ -881,7 +881,7 @@ impl <'a> PacketParser<'a> {
     // Returns a packet parser for the next OpenPGP packet in the
     // stream.  If there are no packets left, this function returns
     // `bio`.
-    fn parse<R: BufferedReader + 'a>(mut bio: R)
+    fn parse<R: BufferedReader<()> + 'a>(mut bio: R)
             -> Result<PacketParserOrBufferedReader<'a>, std::io::Error> {
         // When header encounters an EOF, it returns an error.  But,
         // we want to return None.  Try a one byte read.
@@ -894,7 +894,7 @@ impl <'a> PacketParser<'a> {
 
         let header = header(&mut bio)?;
 
-        let bio : Box<BufferedReader> = match header.length {
+        let bio : Box<BufferedReader<()>> = match header.length {
             BodyLength::Full(len) =>
                 Box::new(BufferedReaderLimitor::new(bio, len as u64)),
             BodyLength::Partial(len) =>
@@ -1240,7 +1240,7 @@ impl<'a> io::Read for PacketParser<'a> {
 ///
 /// Note: it is safe to mix the use of the `std::io::Read` and
 /// `BufferedReader` interfaces.
-impl<'a> BufferedReader for PacketParser<'a> {
+impl<'a> BufferedReader<()> for PacketParser<'a> {
     fn data(&mut self, amount: usize) -> Result<&[u8], io::Error> {
         // There is no need to set `content_was_read`, because this
         // doesn't actually consume any data.
@@ -1306,9 +1306,21 @@ impl<'a> BufferedReader for PacketParser<'a> {
         return self.reader.drop_eof();
     }
 
-    fn into_inner<'b>(self: Box<Self>) -> Option<Box<BufferedReader + 'b>>
+    fn into_inner<'b>(self: Box<Self>) -> Option<Box<BufferedReader<()> + 'b>>
             where Self: 'b {
         None
+    }
+
+    fn cookie_set(&mut self, cookie: ()) -> () {
+        self.reader.cookie_set(cookie)
+    }
+
+    fn cookie_ref(&self) -> &() {
+        self.reader.cookie_ref()
+    }
+
+    fn cookie_mut(&mut self) -> &mut () {
+        self.reader.cookie_mut()
     }
 }
 
@@ -1478,7 +1490,7 @@ impl Message {
     ///
     ///   [`PacketParser`]: parse/struct.PacketParser.html
     ///   [`MessageParser`]: parse/struct.MessageParser.html
-    pub fn from_buffered_reader<R: BufferedReader>(bio: R)
+    pub fn from_buffered_reader<R: BufferedReader<()>>(bio: R)
             -> Result<Message, std::io::Error> {
         PacketParserBuilder::from_buffered_reader(bio)?
             .buffer_unread_content()

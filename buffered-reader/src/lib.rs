@@ -31,7 +31,7 @@ const DEFAULT_BUF_SIZE: usize = 8 * 1024;
 /// to first copy it to a local buffer.  However, unlike `BufRead`,
 /// `BufferedReader` allows the caller to ensure that the internal
 /// buffer has a certain amount of data.
-pub trait BufferedReader : io::Read + fmt::Debug {
+pub trait BufferedReader<C> : io::Read + fmt::Debug {
     /// Return the data in the internal buffer.  Normally, the
     /// returned buffer will contain *at least* `amount` bytes worth
     /// of data.  Less data may be returned if (and only if) the end
@@ -169,8 +169,17 @@ pub trait BufferedReader : io::Read + fmt::Debug {
         Ok(())
     }
 
-    fn into_inner<'a>(self: Box<Self>) -> Option<Box<BufferedReader + 'a>>
+    fn into_inner<'a>(self: Box<Self>) -> Option<Box<BufferedReader<C> + 'a>>
         where Self: 'a;
+
+    /// Sets the `BufferedReader`'s cookie and returns the old value.
+    fn cookie_set(&mut self, cookie: C) -> C;
+
+    /// Returns a reference to the `BufferedReader`'s cookie.
+    fn cookie_ref(&self) -> &C;
+
+    /// Returns a mutable reference to the `BufferedReader`'s cookie.
+    fn cookie_mut(&mut self) -> &mut C;
 }
 
 /// This function implements the `std::io::Read::read` method in terms
@@ -196,8 +205,8 @@ pub trait BufferedReader : io::Read + fmt::Debug {
 ///
 /// but, alas, Rust doesn't like that ("error[E0119]: conflicting
 /// implementations of trait `std::io::Read` for type `&mut _`").
-pub fn buffered_reader_generic_read_impl<T: BufferedReader>
-    (bio: &mut T, buf: &mut [u8]) -> Result<usize, io::Error> {
+pub fn buffered_reader_generic_read_impl<T: BufferedReader<C>, C>
+        (bio: &mut T, buf: &mut [u8]) -> Result<usize, io::Error> {
     match bio.data_consume(buf.len()) {
         Ok(inner) => {
             let amount = cmp::min(buf.len(), inner.len());
@@ -209,7 +218,7 @@ pub fn buffered_reader_generic_read_impl<T: BufferedReader>
 }
 
 /// Make a `Box<BufferedReader>` look like a BufferedReader.
-impl <'a> BufferedReader for Box<BufferedReader + 'a> {
+impl <'a, C> BufferedReader<C> for Box<BufferedReader<C> + 'a> {
     fn data(&mut self, amount: usize) -> Result<&[u8], io::Error> {
         return self.as_mut().data(amount);
     }
@@ -255,10 +264,22 @@ impl <'a> BufferedReader for Box<BufferedReader + 'a> {
         return self.as_mut().drop_eof();
     }
 
-    fn into_inner<'b>(self: Box<Self>) -> Option<Box<BufferedReader + 'b>>
+    fn into_inner<'b>(self: Box<Self>) -> Option<Box<BufferedReader<C> + 'b>>
             where Self: 'b {
         // Strip the outer box.
         (*self).into_inner()
+    }
+
+    fn cookie_set(&mut self, cookie: C) -> C {
+        self.as_mut().cookie_set(cookie)
+    }
+
+    fn cookie_ref(&self) -> &C {
+        self.as_ref().cookie_ref()
+    }
+
+    fn cookie_mut(&mut self) -> &mut C {
+        self.as_mut().cookie_mut()
     }
 }
 
@@ -266,7 +287,7 @@ impl <'a> BufferedReader for Box<BufferedReader + 'a> {
 //
 //   for i in $(seq 0 9999); do printf "%04d\n" $i; done > buffered-reader-test.txt
 #[cfg(test)]
-fn buffered_reader_test_data_check<'a, T: BufferedReader + 'a>(bio: &mut T) {
+fn buffered_reader_test_data_check<'a, T: BufferedReader<C> + 'a, C>(bio: &mut T) {
     use std::str;
 
     for i in 0 .. 10000 {
@@ -308,7 +329,8 @@ mod test {
         // Try it again with a limitor.
         {
             let bio = BufferedReaderMemory::new(data);
-            let mut bio2 = BufferedReaderLimitor::new(bio, (data.len() / 2) as u64);
+            let mut bio2 = BufferedReaderLimitor::new(
+                bio, (data.len() / 2) as u64);
             let amount = {
                 bio2.data_eof().unwrap().len()
             };
@@ -319,7 +341,7 @@ mod test {
     }
 
     #[cfg(test)]
-    fn buffered_reader_read_test_aux<'a, T: BufferedReader + 'a>
+    fn buffered_reader_read_test_aux<'a, T: BufferedReader<C> + 'a, C>
         (mut bio: T, data: &[u8]) {
         let mut buffer = [0; 99];
 

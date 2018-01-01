@@ -9,7 +9,7 @@ use super::*;
 /// source that implements the `Read` trait.  This is sufficient when
 /// reading from a file, and it even works with a `&[u8]` (but
 /// `BufferedReaderMemory` is more efficient).
-pub struct BufferedReaderGeneric<T: io::Read> {
+pub struct BufferedReaderGeneric<T: io::Read, C> {
     buffer: Option<Box<[u8]>>,
     // The next byte to read in the buffer.
     cursor: usize,
@@ -22,9 +22,12 @@ pub struct BufferedReaderGeneric<T: io::Read> {
     saw_eof: bool,
     // The last error that we encountered, but have not yet returned.
     error: Option<io::Error>,
+
+    // The user settable cookie.
+    cookie: C,
 }
 
-impl<T: io::Read> fmt::Debug for BufferedReaderGeneric<T> {
+impl<T: io::Read, C> fmt::Debug for BufferedReaderGeneric<T, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let buffered_data = if let Some(ref buffer) = self.buffer {
             buffer.len() - self.cursor
@@ -41,13 +44,23 @@ impl<T: io::Read> fmt::Debug for BufferedReaderGeneric<T> {
     }
 }
 
-impl<T: io::Read> BufferedReaderGeneric<T> {
+impl<T: io::Read> BufferedReaderGeneric<T, ()> {
     /// Instantiate a new generic reader.  `reader` is the source to
     /// wrap.  `preferred_chuck_size` is the preferred chuck size.  If
     /// None, then the default will be used, which is usually what you
     /// want.
-    pub fn new(reader: T, preferred_chunk_size: Option<usize>)
-           -> BufferedReaderGeneric<T> {
+    pub fn new(reader: T, preferred_chunk_size: Option<usize>) -> Self {
+        Self::with_cookie(reader, preferred_chunk_size, ())
+    }
+}
+
+impl<T: io::Read, C> BufferedReaderGeneric<T, C> {
+    /// Like `new()`, but sets a cookie, which can be retrieved using
+    /// the `cookie_ref` and `cookie_mut` methods, and set using
+    /// the `cookie_set` method.
+    pub fn with_cookie(
+           reader: T, preferred_chunk_size: Option<usize>, cookie: C)
+           -> Self {
         BufferedReaderGeneric {
             buffer: None,
             cursor: 0,
@@ -57,6 +70,7 @@ impl<T: io::Read> BufferedReaderGeneric<T> {
             reader: Box::new(reader),
             saw_eof: false,
             error: None,
+            cookie: cookie,
         }
     }
 
@@ -172,13 +186,13 @@ impl<T: io::Read> BufferedReaderGeneric<T> {
     }
 }
 
-impl<T: io::Read> io::Read for BufferedReaderGeneric<T> {
+impl<T: io::Read, C> io::Read for BufferedReaderGeneric<T, C> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, io::Error> {
         return buffered_reader_generic_read_impl(self, buf);
     }
 }
 
-impl<T: io::Read> BufferedReader for BufferedReaderGeneric<T> {
+impl<T: io::Read, C> BufferedReader<C> for BufferedReaderGeneric<T, C> {
     fn data(&mut self, amount: usize) -> Result<&[u8], io::Error> {
         return self.data_helper(amount, false, false);
     }
@@ -198,7 +212,7 @@ impl<T: io::Read> BufferedReader for BufferedReaderGeneric<T> {
         if let Some(ref buffer) = self.buffer {
             assert!(self.cursor <= buffer.len());
             assert!(amount <= buffer.len() - self.cursor,
-                    "buffer contains just {} bytes, but you are trying to 
+                    "buffer contains just {} bytes, but you are trying to \
                     consume {} bytes.  Did you forget to call data()?",
                     buffer.len() - self.cursor, amount);
 
@@ -218,9 +232,23 @@ impl<T: io::Read> BufferedReader for BufferedReaderGeneric<T> {
         return self.data_helper(amount, true, true);
     }
 
-    fn into_inner<'b>(self: Box<Self>) -> Option<Box<BufferedReader + 'b>>
+    fn into_inner<'b>(self: Box<Self>) -> Option<Box<BufferedReader<C> + 'b>>
         where Self: 'b {
         None
+    }
+
+    fn cookie_set(&mut self, cookie: C) -> C {
+        use std::mem;
+
+        mem::replace(&mut self.cookie, cookie)
+    }
+
+    fn cookie_ref(&self) -> &C {
+        &self.cookie
+    }
+
+    fn cookie_mut(&mut self) -> &mut C {
+        &mut self.cookie
     }
 }
 

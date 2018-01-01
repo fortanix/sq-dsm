@@ -5,29 +5,53 @@ use super::*;
 
 /// A `BufferedReaderLimitor` limits the amount of data that can be
 /// read from a `BufferedReader`.
-#[derive(Debug)]
-pub struct BufferedReaderLimitor<T: BufferedReader> {
+pub struct BufferedReaderLimitor<T: BufferedReader<C>, C> {
     reader: T,
     limit: u64,
+
+    cookie: C,
 }
 
-impl<T: BufferedReader> BufferedReaderLimitor<T> {
-    pub fn new(reader: T, limit: u64) -> BufferedReaderLimitor<T> {
+impl<T: BufferedReader<C>, C> fmt::Debug for BufferedReaderLimitor<T, C> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("BufferedReaderLimitor")
+            .field("limit", &self.limit)
+            .field("reader", &self.reader)
+            .finish()
+    }
+}
+
+impl<T: BufferedReader<()>> BufferedReaderLimitor<T, ()> {
+    /// Instantiate a new limitor.  `reader` is the source to wrap.
+    /// `limit` is the maximum number of bytes that will be returned
+    /// from the source.
+    pub fn new(reader: T, limit: u64) -> Self {
+        Self::with_cookie(reader, limit, ())
+    }
+}
+
+impl<T: BufferedReader<C>, C> BufferedReaderLimitor<T, C> {
+    /// Like `new()`, but sets a cookie, which can be retrieved using
+    /// the `cookie_ref` and `cookie_mut` methods, and set using
+    /// the `cookie_set` method.
+    pub fn with_cookie(reader: T, limit: u64, cookie: C)
+            -> BufferedReaderLimitor<T, C> {
         BufferedReaderLimitor {
             reader: reader,
             limit: limit,
+            cookie: cookie,
         }
     }
 }
 
-impl<T: BufferedReader> io::Read for BufferedReaderLimitor<T> {
+impl<T: BufferedReader<C>, C> io::Read for BufferedReaderLimitor<T, C> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, io::Error> {
         let len = cmp::min(self.limit, buf.len() as u64) as usize;
         return self.reader.read(&mut buf[0..len]);
     }
 }
 
-impl<T: BufferedReader> BufferedReader for BufferedReaderLimitor<T> {
+impl<T: BufferedReader<C>, C> BufferedReader<C> for BufferedReaderLimitor<T, C> {
     /// Return the buffer.  Ensure that it contains at least `amount`
     /// bytes.
     fn data(&mut self, amount: usize) -> Result<&[u8], io::Error> {
@@ -75,9 +99,23 @@ impl<T: BufferedReader> BufferedReader for BufferedReaderLimitor<T> {
         return result;
     }
 
-    fn into_inner<'b>(self: Box<Self>) -> Option<Box<BufferedReader + 'b>>
+    fn into_inner<'b>(self: Box<Self>) -> Option<Box<BufferedReader<C> + 'b>>
             where Self: 'b {
         Some(Box::new(self.reader))
+    }
+
+    fn cookie_set(&mut self, cookie: C) -> C {
+        use std::mem;
+
+        mem::replace(&mut self.cookie, cookie)
+    }
+
+    fn cookie_ref(&self) -> &C {
+        &self.cookie
+    }
+
+    fn cookie_mut(&mut self) -> &mut C {
+        &mut self.cookie
     }
 }
 
@@ -87,7 +125,7 @@ fn buffered_reader_limitor_test() {
 
     /* Add a single limitor.  */
     {
-        let mut bio : Box<BufferedReader>
+        let mut bio : Box<BufferedReader<()>>
             = Box::new(BufferedReaderMemory::new(data));
 
         bio = {
@@ -125,15 +163,15 @@ fn buffered_reader_limitor_test() {
     /* Try with two limitors where the first one imposes the real
      * limit.  */
     {
-        let mut bio : Box<BufferedReader>
+        let mut bio : Box<BufferedReader<()>>
             = Box::new(BufferedReaderMemory::new(data));
 
         bio = {
-            let bio2 : Box<BufferedReader>
+            let bio2 : Box<BufferedReader<()>>
                 = Box::new(BufferedReaderLimitor::new(bio, 5));
             // We limit to 15 bytes, but bio2 will still limit us to 5
             // bytes.
-            let mut bio3 : Box<BufferedReader>
+            let mut bio3 : Box<BufferedReader<()>>
                 = Box::new(BufferedReaderLimitor::new(bio2, 15));
             {
                 let result = bio3.data(100).unwrap();

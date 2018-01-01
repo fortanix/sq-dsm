@@ -7,13 +7,16 @@ use std::io::{Error,ErrorKind};
 use super::*;
 
 /// A `BufferedReader` specialized for reading from memory buffers.
-pub struct BufferedReaderMemory<'a> {
+pub struct BufferedReaderMemory<'a, C> {
     buffer: &'a [u8],
     // The next byte to read in the buffer.
     cursor: usize,
+
+    // The user settable cookie.
+    cookie: C,
 }
 
-impl <'a> fmt::Debug for BufferedReaderMemory<'a> {
+impl<'a, C> fmt::Debug for BufferedReaderMemory<'a, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("BufferedReaderMemory")
             .field("buffer (bytes)", &&self.buffer.len())
@@ -22,11 +25,23 @@ impl <'a> fmt::Debug for BufferedReaderMemory<'a> {
     }
 }
 
-impl<'a> BufferedReaderMemory<'a> {
-    pub fn new(buffer: &'a [u8]) -> BufferedReaderMemory<'a> {
+impl<'a> BufferedReaderMemory<'a, ()> {
+    /// Instantiate a new memory-based reader.  `buffer` contains the
+    /// reader's contents.
+    pub fn new(buffer: &'a [u8]) -> Self {
+        Self::with_cookie(buffer, ())
+    }
+}
+
+impl<'a, C> BufferedReaderMemory<'a, C> {
+    /// Like `new()`, but sets a cookie, which can be retrieved using
+    /// the `cookie_ref` and `cookie_mut` methods, and set using
+    /// the `cookie_set` method.
+    pub fn with_cookie(buffer: &'a [u8], cookie: C) -> Self {
         BufferedReaderMemory {
             buffer: buffer,
             cursor: 0,
+            cookie: cookie,
         }
     }
 
@@ -37,7 +52,7 @@ impl<'a> BufferedReaderMemory<'a> {
     }
 }
 
-impl<'a> io::Read for BufferedReaderMemory<'a> {
+impl<'a, C> io::Read for BufferedReaderMemory<'a, C> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, io::Error> {
         let amount = cmp::min(buf.len(), self.buffer.len() - self.cursor);
         buf[0..amount].copy_from_slice(
@@ -47,7 +62,7 @@ impl<'a> io::Read for BufferedReaderMemory<'a> {
     }
 }
 
-impl<'a> BufferedReader for BufferedReaderMemory<'a> {
+impl<'a, C> BufferedReader<C> for BufferedReaderMemory<'a, C> {
     /// Return the buffer.  Ensure that it contains at least `amount`
     /// bytes.
     fn data(&mut self, _amount: usize) -> Result<&[u8], io::Error> {
@@ -77,9 +92,23 @@ impl<'a> BufferedReader for BufferedReaderMemory<'a> {
         return Ok(self.consume(amount));
     }
 
-    fn into_inner<'b>(self: Box<Self>) -> Option<Box<BufferedReader + 'b>>
+    fn into_inner<'b>(self: Box<Self>) -> Option<Box<BufferedReader<C> + 'b>>
             where Self: 'b {
         None
+    }
+
+    fn cookie_set(&mut self, cookie: C) -> C {
+        use std::mem;
+
+        mem::replace(&mut self.cookie, cookie)
+    }
+
+    fn cookie_ref(&self) -> &C {
+        &self.cookie
+    }
+
+    fn cookie_mut(&mut self) -> &mut C {
+        &mut self.cookie
     }
 }
 

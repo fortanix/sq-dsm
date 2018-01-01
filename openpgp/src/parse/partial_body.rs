@@ -9,8 +9,7 @@ use parse::body_length_new_format;
 
 /// A `BufferedReader` that transparently handles OpenPGP's chunking
 /// scheme.  This implicitly implements a limitor.
-#[derive(Debug)]
-pub struct BufferedReaderPartialBodyFilter<T: BufferedReader> {
+pub struct BufferedReaderPartialBodyFilter<T: BufferedReader<C>, C> {
     // The underlying reader.
     reader: T,
 
@@ -28,20 +27,49 @@ pub struct BufferedReaderPartialBodyFilter<T: BufferedReader> {
     buffer: Option<Box<[u8]>>,
     // The position within the buffer.
     cursor: usize,
+
+    // The user-defined cookie.
+    cookie: C,
 }
 
-impl<T: BufferedReader> BufferedReaderPartialBodyFilter<T> {
+impl<T: BufferedReader<C>, C> std::fmt::Debug
+        for BufferedReaderPartialBodyFilter<T, C> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        f.debug_struct("BufferedReaderPartialBodyFilter")
+            .field("reader", &self.reader)
+            .field("partial_body_length", &self.partial_body_length)
+            .field("last", &self.last)
+            .field("buffer (bytes left)",
+                   &if let Some(ref buffer) = self.buffer {
+                       Some(buffer.len())
+                   } else {
+                       None
+                   })
+            .finish()
+    }
+}
+
+impl<T: BufferedReader<()>> BufferedReaderPartialBodyFilter<T, ()> {
     /// Create a new BufferedReaderPartialBodyFilter object.
     /// `partial_body_length` is the amount of data in the initial
     /// partial body chunk.
-    pub fn new(reader: T, partial_body_length: u32)
-               -> BufferedReaderPartialBodyFilter<T> {
+    pub fn new(reader: T, partial_body_length: u32) -> Self {
+        Self::with_cookie(reader, partial_body_length, ())
+    }
+}
+
+impl<T: BufferedReader<C>, C> BufferedReaderPartialBodyFilter<T, C> {
+    /// Create a new BufferedReaderPartialBodyFilter object.
+    /// `partial_body_length` is the amount of data in the initial
+    /// partial body chunk.
+    pub fn with_cookie(reader: T, partial_body_length: u32, cookie: C) -> Self {
         BufferedReaderPartialBodyFilter {
             reader: reader,
             partial_body_length: partial_body_length,
             last: false,
             buffer: None,
             cursor: 0,
+            cookie: cookie,
         }
     }
 
@@ -246,13 +274,15 @@ impl<T: BufferedReader> BufferedReaderPartialBodyFilter<T> {
 
 }
 
-impl<T: BufferedReader> std::io::Read for BufferedReaderPartialBodyFilter<T> {
+impl<T: BufferedReader<C>, C> std::io::Read
+        for BufferedReaderPartialBodyFilter<T, C> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, std::io::Error> {
         return buffered_reader_generic_read_impl(self, buf);
     }
 }
 
-impl<T: BufferedReader> BufferedReader for BufferedReaderPartialBodyFilter<T> {
+impl<T: BufferedReader<C>, C> BufferedReader<C>
+        for BufferedReaderPartialBodyFilter<T, C> {
     /// Return the buffer.  Ensure that it contains at least `amount`
     /// bytes.
 
@@ -293,8 +323,22 @@ impl<T: BufferedReader> BufferedReader for BufferedReaderPartialBodyFilter<T> {
         return self.data_helper(amount, true, true);
     }
 
-    fn into_inner<'b>(self: Box<Self>) -> Option<Box<BufferedReader + 'b>>
+    fn into_inner<'b>(self: Box<Self>) -> Option<Box<BufferedReader<C> + 'b>>
             where Self: 'b {
         Some(Box::new(self.reader))
+    }
+
+    fn cookie_set(&mut self, cookie: C) -> C {
+        use std::mem;
+
+        mem::replace(&mut self.cookie, cookie)
+    }
+
+    fn cookie_ref(&self) -> &C {
+        &self.cookie
+    }
+
+    fn cookie_mut(&mut self) -> &mut C {
+        &mut self.cookie
     }
 }

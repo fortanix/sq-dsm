@@ -80,7 +80,7 @@ pub struct MessageParser<'a> {
     message: Message,
 }
 
-impl<R: BufferedReader> PacketParserBuilder<R> {
+impl<R: BufferedReader<()>> PacketParserBuilder<R> {
     /// Finishes configuring the `PacketParser` and returns a
     /// `MessageParser`.
     pub fn to_message_parser<'a>(self)
@@ -103,7 +103,7 @@ impl<'a> MessageParser<'a> {
 
     /// Creates a `MessageParser` to parse the OpenPGP message stored
     /// in the `BufferedReader` object.
-    pub fn from_buffered_reader<R: BufferedReader + 'a>(bio: R)
+    pub fn from_buffered_reader<R: BufferedReader<()> + 'a>(bio: R)
             -> Result<MessageParser<'a>, io::Error> {
         Self::from_packet_parser(PacketParser::from_buffered_reader(bio)?)
     }

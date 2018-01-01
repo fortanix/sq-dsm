@@ -133,7 +133,7 @@ pub struct Subpacket<'a> {
 }
 
 /// Decode a subpacket length as described in Section 5.2.3.1 of RFC 4880.
-fn subpacket_length(bio: &mut BufferedReaderMemory)
+fn subpacket_length(bio: &mut BufferedReaderMemory<()>)
       -> Result<u32, Error> {
     let octet1 = bio.data_consume_hard(1)?[0];
     if octet1 < 192 {
