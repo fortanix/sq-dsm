@@ -66,9 +66,9 @@ impl<T: BufferedReader<C>, C> BufferedReaderPartialBodyFilter<T, C> {
 
     // Make sure that the local buffer contains `amount` bytes.
     fn do_fill_buffer (&mut self, amount: usize) -> Result<(), std::io::Error> {
-        //println!("BufferedReaderPartialBodyFilter::do_fill_buffer(\
-        //          amount: {}) (partial body length: {}, last: {})",
-        //         amount, self.partial_body_length, self.last);
+        // eprintln!("BufferedReaderPartialBodyFilter::do_fill_buffer(\
+        //            amount: {}) (partial body length: {}, last: {})",
+        //           amount, self.partial_body_length, self.last);
 
         // We want to avoid double buffering as much as possible.
         // Thus, we only buffer as much as needed.
@@ -136,12 +136,12 @@ impl<T: BufferedReader<C>, C> BufferedReaderPartialBodyFilter<T, C> {
 
             match body_length_new_format(&mut self.reader) {
                 Ok(BodyLength::Full(len)) => {
-                    //println!("Last chuck: {} bytes", len);
+                    //println!("Last chunk: {} bytes", len);
                     self.last = true;
                     self.partial_body_length = len;
                 },
                 Ok(BodyLength::Partial(len)) => {
-                    //println!("Next chuck: {} bytes", len);
+                    //println!("Next chunk: {} bytes", len);
                     self.partial_body_length = len;
                 },
                 Ok(BodyLength::Indeterminate) => {
