@@ -171,6 +171,7 @@ impl Tag {
         num::FromPrimitive::from_u8(value)
     }
 
+    /// Converts a `Tag` to its corresponding numeric value.
     pub fn to_numeric(tag: Tag) -> u8 {
         num::ToPrimitive::to_u8(&tag).unwrap()
     }
@@ -319,7 +320,7 @@ pub enum BodyLength {
 }
 
 /// Fields used by multiple packet types.
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone)]
 pub struct PacketCommon {
     /// Used by container packets (such as the encryption and
     /// compression packets) to reference their immediate children.
@@ -407,7 +408,7 @@ pub struct Header {
 /// how to process rather than abort.
 ///
 /// This packet effectively holds a binary blob.
-#[derive(PartialEq,Debug)]
+#[derive(PartialEq, Clone, Debug)]
 pub struct Unknown {
     pub common: PacketCommon,
     pub tag: Tag,
@@ -418,7 +419,7 @@ pub struct Unknown {
 /// See [Section 5.2 of RFC 4880] for details.
 ///
 ///   [Section 5.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone)]
 pub struct Signature {
     pub common: PacketCommon,
     pub version: u8,
@@ -459,7 +460,7 @@ impl std::fmt::Debug for Signature {
 /// See [Section 5.5 of RFC 4880] for details.
 ///
 ///   [Section 5.5 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.5
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone)]
 pub struct Key {
     pub common: PacketCommon,
     pub version: u8,
@@ -487,7 +488,7 @@ impl std::fmt::Debug for Key {
 /// See [Section 5.11 of RFC 4880] for details.
 ///
 ///   [Section 5.11 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.11
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone)]
 pub struct UserID {
     pub common: PacketCommon,
     pub value: Vec<u8>,
@@ -514,7 +515,7 @@ impl std::fmt::Debug for UserID {
 /// See [Section 5.6 of RFC 4880] for details.
 ///
 ///   [Section 5.6 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.6
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone)]
 pub struct Literal {
     pub common: PacketCommon,
     pub format: u8,
@@ -568,7 +569,7 @@ impl std::fmt::Debug for Literal {
 /// of a `CompressedData` packet.
 ///
 /// [Section 5.6 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.6
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone)]
 pub struct CompressedData {
     pub common: PacketCommon,
     pub algo: u8,
@@ -598,7 +599,7 @@ impl std::fmt::Debug for CompressedData {
 ///
 ///   [Section 5 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5
 #[derive(Debug)]
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone)]
 pub enum Packet {
     Unknown(Unknown),
     Signature(Signature),
@@ -671,7 +672,7 @@ impl<'a> DerefMut for Packet {
 ///
 /// This is used by OpenPGP container packets, like the compressed
 /// data packet, to store the containing packets.
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone)]
 pub struct Container {
     packets: Vec<Packet>,
 }
@@ -716,6 +717,7 @@ impl std::fmt::Debug for Container {
 ///   [`PacketParser`]: parse/struct.PacketParser.html
 ///   [`MessageParser`]: parse/struct.MessageParser.html
 ///   [`Message::from_file`]: struct.Message.html#method.from_file
+#[derive(PartialEq, Clone)]
 pub struct Message {
     // At the top level, we have a sequence of packets, which may be
     // containers.
