@@ -54,8 +54,9 @@ pub fn ctb(ptag: u8) -> Result<CTB, io::Error> {
     // The top bit of the ptag must be set.
     if ptag & 0b1000_0000 == 0 {
         // XXX: Use a proper error.
-        return Err(io::Error::new(io::ErrorKind::UnexpectedEof,
-                                  "Malformed: msb of ptag not set."));
+        return Err(io::Error::new(
+            io::ErrorKind::UnexpectedEof,
+            format!("Malformed ctb: MSB of ptag ({:#010b} not set.", ptag)));
     }
 
     let new_format = ptag & 0b0100_0000 != 0;
