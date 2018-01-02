@@ -36,7 +36,6 @@ extern crate sequoia_net;
 use std::ffi::CStr;
 use std::ptr;
 use std::slice;
-use std::str;
 
 use openpgp::tpk::TPK;
 use openpgp::types::KeyId;
