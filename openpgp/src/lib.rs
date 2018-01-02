@@ -170,6 +170,10 @@ impl Tag {
     pub fn from_numeric(value: u8) -> Option<Self> {
         num::FromPrimitive::from_u8(value)
     }
+
+    pub fn to_numeric(tag: Tag) -> u8 {
+        num::ToPrimitive::to_u8(&tag).unwrap()
+    }
 }
 
 /// OpenPGP defines two packet formats: the old and the new format.
