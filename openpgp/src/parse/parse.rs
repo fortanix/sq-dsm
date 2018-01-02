@@ -228,6 +228,34 @@ fn unknown_parser<'a, R: BufferedReader<BufferedReaderState> + 'a>
     });
 }
 
+pub fn to_unknown_packet<R: io::Read>(reader: R)
+        -> Result<Unknown, io::Error> {
+    let mut reader = BufferedReaderGeneric::with_cookie(
+        reader, None, BufferedReaderState::default());
+    let header = header(&mut reader)?;
+
+    let reader : Box<BufferedReader<BufferedReaderState>>
+        = match header.length {
+            BodyLength::Full(len) =>
+                Box::new(BufferedReaderLimitor::with_cookie(
+                    reader, len as u64, BufferedReaderState::default())),
+            BodyLength::Partial(len) =>
+                Box::new(BufferedReaderPartialBodyFilter::with_cookie(
+                    reader, len, BufferedReaderState::default())),
+            _ => Box::new(reader),
+    };
+
+    let mut pp = unknown_parser(reader, 0, header.ctb.tag)?;
+    pp.buffer_unread_content()?;
+    pp.finish();
+
+    if let Packet::Unknown(packet) = pp.packet {
+        Ok(packet)
+    } else {
+        panic!("Internal inconsistency.");
+    }
+}
+
 fn signature_parser<'a, R: BufferedReader<BufferedReaderState> + 'a>
         (mut bio: R, recursion_depth: usize)
         -> Result<PacketParser<'a>, std::io::Error> {

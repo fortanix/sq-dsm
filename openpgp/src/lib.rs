@@ -46,10 +46,14 @@ extern crate num_derive;
 
 extern crate sha1;
 
+extern crate flate2;
+extern crate bzip2;
+
 pub mod armor;
 pub mod parse;
 pub mod tpk;
 pub mod types;
+pub mod serialize;
 
 use std::ops::{Deref,DerefMut};
 
