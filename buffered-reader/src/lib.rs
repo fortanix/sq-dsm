@@ -267,6 +267,8 @@ impl <'a> BufferedReader for Box<BufferedReader + 'a> {
 //   for i in $(seq 0 9999); do printf "%04d\n" $i; done > buffered-reader-test.txt
 #[cfg(test)]
 fn buffered_reader_test_data_check<'a, T: BufferedReader + 'a>(bio: &mut T) {
+    use std::str;
+
     for i in 0 .. 10000 {
         let consumed = {
             // Each number is 4 bytes plus a newline character.
