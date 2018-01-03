@@ -60,6 +60,15 @@ use std::ops::{Deref,DerefMut};
 use std::cell::RefCell;
 use std::collections::HashMap;
 
+#[cfg(test)]
+use std::path::PathBuf;
+
+#[cfg(test)]
+fn path_to(artifact: &str) -> PathBuf {
+    [env!("CARGO_MANIFEST_DIR"), "tests", "data", "messages", artifact]
+        .iter().collect()
+}
+
 /// The OpenPGP packet tags as defined in [Section 4.3 of RFC 4880].
 ///
 ///   [Section 4.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.3

@@ -328,6 +328,8 @@ mod serialize_test {
 
     #[test]
     fn serialize_test_1() {
+        // Test messages that contain exactly one top-level packet
+        // that is a literal packet.
         let filenames = [
             "literal-mode-b.gpg",
             "literal-mode-t-partial-body.gpg",
@@ -354,6 +356,8 @@ mod serialize_test {
 
     #[test]
     fn serialize_test_2() {
+        // Test messages that contain exactly one top-level packet
+        // that is a compressed data packet.
         let filenames = [
             // XXX: We assume that compression is deterministic across
             // implementations and that the same parameters are used
@@ -361,9 +365,10 @@ mod serialize_test {
             "compressed-data-algo-1.gpg",
             "compressed-data-algo-2.gpg",
             "compressed-data-algo-3.gpg",
-            // This uses the "no compression" compression algorithm,
+            // These use the "no compression" compression algorithm,
             // so this test should always be valid.
-            "recursive-1.gpg",
+            "recursive-2.gpg",
+            "recursive-3.gpg",
         ];
 
         for filename in filenames.iter() {
@@ -408,8 +413,6 @@ mod serialize_test {
             } else {
                 panic!("Expected a compressed data data packet.");
             }
-
-            break;
         }
     }
 
@@ -532,11 +535,6 @@ mod serialize_test {
             // Serialize the message into a buffer.
             let mut buffer = Vec::new();
             m.clone().serialize(&mut buffer).unwrap();
-
-            // use std::fs::File;
-            // use std::io::prelude::*;
-            // let mut file = File::create(format!("/tmp/foo.gpg", i)).unwrap();
-            // file.write_all(&buffer[..]).unwrap();
 
             // Reparse it.
             let m2 = PacketParserBuilder::from_bytes(&buffer[..]).unwrap()
