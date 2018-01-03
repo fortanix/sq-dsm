@@ -15,7 +15,7 @@ use tempdir::TempDir;
 /// A context with reasonable defaults can be created using
 /// `Context::new`:
 ///
-/// ```
+/// ```no_run
 /// # use sequoia_core::{Context, Result};
 /// # f().unwrap();
 /// # fn f() -> Result<()> {
@@ -32,6 +32,7 @@ use tempdir::TempDir;
 /// # f().unwrap();
 /// # fn f() -> Result<()> {
 /// let c = Context::configure("org.example.webmail")
+/// #           .ephemeral()
 ///             .network_policy(NetworkPolicy::Offline)
 ///             .build()?;
 /// # Ok(())
@@ -119,6 +120,7 @@ impl Context {
 /// # f().unwrap();
 /// # fn f() -> Result<()> {
 /// let c = Context::configure("org.example.webmail")
+/// #           .ephemeral()
 ///             .network_policy(NetworkPolicy::Offline)
 ///             .build()?;
 /// # Ok(())
