@@ -129,6 +129,13 @@ pub extern "system" fn sq_context_network_policy(ctx: Option<&Context>) -> uint8
     }
 }
 
+/// Returns whether or not this is an ephemeral context.
+#[no_mangle]
+pub extern "system" fn sq_context_ephemeral(ctx: Option<&Context>) -> uint8_t {
+    assert!(ctx.is_some());
+    if ctx.unwrap().ephemeral() { 1 } else { 0 }
+}
+
 
 /*  sequoia::Config.  */
 
@@ -185,6 +192,14 @@ pub extern "system" fn sq_config_network_policy(cfg: Option<&mut Config>,
         n => panic!("Bad policy: {}", n),
     });
 }
+
+/// Makes this context ephemeral.
+#[no_mangle]
+pub extern "system" fn sq_config_ephemeral(cfg: Option<&mut Config>) {
+    assert!(cfg.is_some());
+    cfg.unwrap().set_ephemeral();
+}
+
 
 /* openpgp::types.  */
 

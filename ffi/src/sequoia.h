@@ -94,6 +94,11 @@ const char *sq_context_lib(const struct sq_context *ctx);
 /*/
 uint8_t sq_context_network_policy(const struct sq_context *ctx);
 
+/*/
+/// Returns whether or not this is an ephemeral context.
+/*/
+uint8_t sq_context_ephemeral(const struct sq_context *ctx);
+
 
 /* sequoia::Config.  */
 
@@ -118,6 +123,11 @@ void sq_config_lib(struct sq_config *cfg, const char *lib);
 /// Sets the network policy.
 /*/
 void sq_config_network_policy(struct sq_config *cfg, uint8_t policy);
+
+/*/
+/// Makes this context ephemeral.
+/*/
+void sq_config_ephemeral(struct sq_config *cfg);
 
 
 /* sequoia::openpgp::types.  */

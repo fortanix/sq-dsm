@@ -1,9 +1,12 @@
 //! Core functionality.
 
+extern crate tempdir;
+
 use std::env;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
+use tempdir::TempDir;
 
 /// A `&Context` for Sequoia.
 ///
@@ -39,6 +42,8 @@ pub struct Context {
     home: PathBuf,
     lib: PathBuf,
     network_policy: NetworkPolicy,
+    ephemeral: bool,
+    temp_dir: Option<TempDir>,
 }
 
 /// Returns $PREXIX, or a reasonable default prefix.
@@ -73,6 +78,8 @@ impl Context {
                 .join(".sequoia"),
             lib: prefix().join("lib").join("sequoia"),
             network_policy: NetworkPolicy::Encrypted,
+            ephemeral: false,
+            temp_dir: None,
         })
     }
 
@@ -96,6 +103,10 @@ impl Context {
         &self.network_policy
     }
 
+    /// Returns whether or not this is an ephemeral context.
+    pub fn ephemeral(&self) -> bool {
+        self.ephemeral
+    }
 }
 
 /// Represents a `Context` configuration.
@@ -113,13 +124,37 @@ impl Context {
 /// # Ok(())
 /// # }
 /// ```
+///
+/// You can create ephemeral context that are useful for tests and
+/// one-shot programs:
+///
+/// ```
+/// # use sequoia_core::{Context, Result};
+/// # use std::path::Path;
+/// # f().unwrap();
+/// # fn f() -> Result<()> {
+/// let c = Context::configure("org.example.my.test")
+///             .ephemeral().build()?;
+/// let ephemeral_home = c.home().to_path_buf();
+/// // Do some tests.
+/// drop(c);
+/// assert!(! ephemeral_home.exists());
+/// # Ok(())
+/// # }
+/// ```
 pub struct Config(Context);
 
 impl Config {
     /// Finalizes the configuration and returns a `Context`.
     pub fn build(self) -> Result<Context> {
-        let c = self.0;
-        fs::create_dir_all(c.home())?;
+        let mut c = self.0;
+        if c.ephemeral {
+            let tmp = TempDir::new("sequoia")?;
+            c.home = tmp.path().clone().to_path_buf();
+            c.temp_dir = Some(tmp);
+        } else {
+            fs::create_dir_all(c.home())?;
+        }
         Ok(c)
     }
 
@@ -154,6 +189,17 @@ impl Config {
     /// Sets the network policy.
     pub fn set_network_policy(&mut self, policy: NetworkPolicy) {
         self.0.network_policy = policy;
+    }
+
+    /// Makes this context ephemeral.
+    pub fn ephemeral(mut self) -> Self {
+        self.set_ephemeral();
+        self
+    }
+
+    /// Makes this context ephemeral.
+    pub fn set_ephemeral(&mut self) {
+        self.0.ephemeral = true;
     }
 }
 
