@@ -699,6 +699,7 @@ impl Container {
             children: self.children(),
             child: None,
             grandchildren: None,
+            depth: 0,
         };
     }
 
@@ -789,6 +790,10 @@ pub struct PacketIter<'a> {
     child: Option<&'a Packet>,
     // The an iterator over the current child's children.
     grandchildren: Option<Box<PacketIter<'a>>>,
+
+    // The depth of the last returned packet.  This is used by the
+    // `paths` iter.
+    depth: usize,
 }
 
 impl Message {
@@ -832,6 +837,7 @@ impl PacketCommon {
             },
             child: None,
             grandchildren: None,
+            depth: 0,
         }
     }
 }
@@ -848,6 +854,7 @@ impl<'a> Iterator for PacketIter<'a> {
             // If the grandchild iterator is exhausted (grandchild is
             // None), then we need the next child.
             if grandchild.is_some() {
+                self.depth = grandchildren.depth + 1;
                 return grandchild;
             }
         }
@@ -860,7 +867,117 @@ impl<'a> Iterator for PacketIter<'a> {
 
         // First return the child itself.  Subsequent calls will
         // return its grandchildren.
+        self.depth = 0;
         return self.child;
+    }
+}
+
+pub struct PacketPathIter<'a> {
+    iter: PacketIter<'a>,
+
+    // The path to the most recently returned node relative to the
+    // start of the iterator.
+    path: Option<Vec<usize>>,
+}
+
+impl<'a> PacketIter<'a> {
+    /// Extends a `PacketIter` to also return each packet's path.
+    ///
+    /// This is similar to `enumerate`, but instead of counting, this
+    /// returns each packet's path in addition to a reference to the
+    /// packet.
+    pub fn paths(self) -> PacketPathIter<'a> {
+        PacketPathIter {
+            iter: self,
+            path: None,
+        }
+    }
+}
+
+impl<'a> Iterator for PacketPathIter<'a> {
+    type Item = (Vec<usize>, &'a Packet);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some(packet) = self.iter.next() {
+            if self.path.is_none() {
+                // Init.
+                let mut path = Vec::with_capacity(4);
+                path.push(0);
+                self.path = Some(path);
+            } else {
+                let mut path = self.path.take().unwrap();
+                let old_depth = path.len() - 1;
+
+                let depth = self.iter.depth;
+                if old_depth > depth {
+                    // We popped.
+                    path.truncate(depth + 1);
+                    path[depth] += 1;
+                } else if old_depth == depth {
+                    // Sibling.
+                    path[old_depth] += 1;
+                } else if old_depth + 1 == depth {
+                    // Recursion.
+                    path.push(0);
+                }
+                self.path = Some(path);
+            }
+            Some((self.path.as_ref().unwrap().clone(), packet))
+        } else {
+            None
+        }
+    }
+}
+
+#[test]
+fn packet_path_iter() {
+    fn paths(iter: std::slice::Iter<Packet>) -> Vec<Vec<usize>> {
+        let mut lpaths : Vec<Vec<usize>> = Vec::new();
+        for (i, packet) in iter.enumerate() {
+            let mut v = Vec::new();
+            v.push(i);
+            lpaths.push(v);
+
+            if let Some(ref children) = packet.children {
+                for mut path in paths(children.packets.iter()).into_iter() {
+                    path.insert(0, i);
+                    lpaths.push(path);
+                }
+            }
+        }
+        lpaths
+    }
+
+    for i in 1..5 {
+        let m = Message::from_file(
+            path_to(&format!("recursive-{}.gpg", i)[..])).unwrap();
+
+        let mut paths1 : Vec<Vec<usize>> = Vec::new();
+        for path in paths(m.children()).iter() {
+            paths1.push(path.clone());
+        }
+
+        let mut paths2 : Vec<Vec<usize>> = Vec::new();
+        for (path, packet) in m.descendants().paths() {
+            paths2.push(path);
+        }
+
+        if paths1 != paths2 {
+            eprintln!("Message:");
+            m.pretty_print();
+
+            eprintln!("Expected paths:");
+            for p in paths1 {
+                eprintln!("  {:?}", p);
+            }
+
+            eprintln!("Got paths:");
+            for p in paths2 {
+                eprintln!("  {:?}", p);
+            }
+
+            panic!("Something is broken.  Don't panic.");
+        }
     }
 }
 
