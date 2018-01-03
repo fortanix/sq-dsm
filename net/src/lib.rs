@@ -19,12 +19,14 @@
 //! # extern crate sequoia_net;
 //! # use openpgp::types::KeyId;
 //! # use sequoia_core::Context;
-//! # use sequoia_net::KeyServer;
-//! # fn main() {
-//! let ctx = Context::new("org.sequoia-pgp.example").unwrap();
-//! let mut ks = KeyServer::sks_pool(&ctx).unwrap();
+//! # use sequoia_net::{KeyServer, Result};
+//! # fn main() { f().unwrap(); }
+//! # fn f() -> Result<()> {
+//! let ctx = Context::new("org.sequoia-pgp.example")?;
+//! let mut ks = KeyServer::sks_pool(&ctx)?;
 //! let keyid = KeyId::from_hex("31855247603831FD").unwrap();
 //! println!("{:?}", ks.get(&keyid));
+//! Ok(())
 //! # }
 //! ```
 

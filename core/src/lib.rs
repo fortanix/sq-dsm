@@ -13,18 +13,26 @@ use std::path::{Path, PathBuf};
 /// `Context::new`:
 ///
 /// ```
-/// # use sequoia_core::Context;
-/// let c = Context::new("org.example.webmail").unwrap();
+/// # use sequoia_core::{Context, Result};
+/// # f().unwrap();
+/// # fn f() -> Result<()> {
+/// let c = Context::new("org.example.webmail")?;
+/// # Ok(())
+/// # }
 /// ```
 ///
 /// A context can be configured using the builder pattern with
 /// `Context::configure`:
 ///
 /// ```
-/// # use sequoia_core::{Context, NetworkPolicy};
+/// # use sequoia_core::{Context, NetworkPolicy, Result};
+/// # f().unwrap();
+/// # fn f() -> Result<()> {
 /// let c = Context::configure("org.example.webmail")
 ///             .network_policy(NetworkPolicy::Offline)
-///             .build().unwrap();
+///             .build()?;
+/// # Ok(())
+/// # }
 /// ```
 pub struct Context {
     domain: String,
@@ -96,10 +104,14 @@ impl Context {
 /// `Context::configure`:
 ///
 /// ```
-/// # use sequoia_core::{Context, NetworkPolicy};
+/// # use sequoia_core::{Context, NetworkPolicy, Result};
+/// # f().unwrap();
+/// # fn f() -> Result<()> {
 /// let c = Context::configure("org.example.webmail")
 ///             .network_policy(NetworkPolicy::Offline)
-///             .build().unwrap();
+///             .build()?;
+/// # Ok(())
+/// # }
 /// ```
 pub struct Config(Context);
 
