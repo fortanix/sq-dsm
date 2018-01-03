@@ -17,8 +17,3 @@ sequoia-tool = { path = "tool" }
 [lib]
 name = "sequoia"
 path = "src/lib.rs"
-
-[[bin]]
-doc = false
-name = "sequoia"
-path = "src/sequoia.rs"
