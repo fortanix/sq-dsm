@@ -181,15 +181,19 @@ impl KeyServer {
     }
 
     /// Sends the given key to the server.
-    ///
-    /// XXX: This should take a &TPK, but TPKs cannot be serialized at
-    /// the moment.
-    pub fn send(&mut self, key: &[u8]) -> Result<()> {
+    pub fn send(&mut self, key: &TPK) -> Result<()> {
+        use openpgp::armor::{Writer, Kind};
+
         let uri = format!("{}/pks/add", self.uri).parse()?;
+        let mut armored_blob = vec![];
+        {
+            let mut w = Writer::new(&mut armored_blob, Kind::PublicKey);
+            key.serialize(&mut w)?;
+        }
 
         // Prepare to send url-encoded data.
         let mut post_data = b"keytext=".to_vec();
-        post_data.extend_from_slice(percent_encode(key, KEYSERVER_ENCODE_SET)
+        post_data.extend_from_slice(percent_encode(&armored_blob, KEYSERVER_ENCODE_SET)
                                     .collect::<String>().as_bytes());
 
         let mut request = Request::new(Method::Post, uri);
