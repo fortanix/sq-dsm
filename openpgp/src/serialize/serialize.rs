@@ -624,43 +624,6 @@ mod serialize_test {
         // This tests creates the message, and then serializes and
         // reparses it.
 
-        fn make_lit(body: &[u8]) -> Packet {
-            Packet::Literal(Literal {
-                common: PacketCommon {
-                    body: Some(body.clone().to_vec()),
-                    children: None,
-                },
-                format: 't' as u8,
-                filename: None,
-                date: 0
-            })
-        }
-
-        fn make_cd(algo: u8, p: Packet, p2: Option<Packet>) -> Packet {
-            let mut children = Vec::new();
-            children.push(p);
-            if let Some(p) = p2 {
-                children.push(p);
-            }
-            Packet::CompressedData(CompressedData {
-                common: PacketCommon {
-                    body: None,
-                    children: Some(Container { packets: children }),
-                },
-                algo: algo,
-            })
-        }
-
-        fn make_userid(userid: &[u8]) -> Packet {
-            Packet::UserID(UserID {
-                common: PacketCommon {
-                    body: None,
-                    children: None,
-                },
-                value: userid.to_vec(),
-            })
-        }
-
         let mut messages = Vec::new();
 
         // 1: CompressedData(CompressedData { algo: 0 })
@@ -669,10 +632,11 @@ mod serialize_test {
         // 2: Literal(Literal { body: "three (5 bytes)" })
         let mut top_level = Vec::new();
         top_level.push(
-            make_cd(0,
-                    make_lit(&b"one"[..]),
-                    Some(make_lit(&b"two"[..]))));
-        top_level.push(make_lit(&b"three"[..]));
+            CompressedData::new(0)
+                .push(Literal::new('t').body(b"one".to_vec()).to_packet())
+                .push(Literal::new('t').body(b"two".to_vec()).to_packet())
+                .to_packet());
+        top_level.push(Literal::new('t').body(b"three".to_vec()).to_packet());
         messages.push(top_level);
 
         // 1: CompressedData(CompressedData { algo: 0 })
@@ -684,13 +648,16 @@ mod serialize_test {
         //   2: Literal(Literal { body: "four (4 bytes)" })
         let mut top_level = Vec::new();
         top_level.push(
-            make_cd(0,
-                make_cd(0,
-                    make_lit(&b"one"[..]),
-                    Some(make_lit(&b"two"[..]))),
-                Some(make_cd(0,
-                    make_lit(&b"three"[..]),
-                    Some(make_lit(&b"four"[..]))))));
+            CompressedData::new(0)
+                .push(CompressedData::new(0)
+                      .push(Literal::new('t').body(b"one".to_vec()).to_packet())
+                      .push(Literal::new('t').body(b"two".to_vec()).to_packet())
+                      .to_packet())
+                .push(CompressedData::new(0)
+                      .push(Literal::new('t').body(b"three".to_vec()).to_packet())
+                      .push(Literal::new('t').body(b"four".to_vec()).to_packet())
+                      .to_packet())
+                .to_packet());
         messages.push(top_level);
 
         // 1: CompressedData(CompressedData { algo: 0 })
@@ -705,19 +672,22 @@ mod serialize_test {
         //   2: Literal(Literal { body: "four (4 bytes)" })
         let mut top_level = Vec::new();
         top_level.push(
-            make_cd(0,
-                make_cd(0,
-                    make_cd(0,
-                        make_cd(0,
-                            make_lit(&b"one"[..]),
-                            Some(make_lit(&b"two"[..]))),
-                        None),
-                    None),
-                Some(make_cd(0,
-                    make_cd(0,
-                        make_lit(&b"three"[..]),
-                        None),
-                    Some(make_lit(&b"four"[..]))))));
+            CompressedData::new(0)
+                .push(CompressedData::new(0)
+                    .push(CompressedData::new(0)
+                        .push(CompressedData::new(0)
+                            .push(Literal::new('t').body(b"one".to_vec()).to_packet())
+                            .push(Literal::new('t').body(b"two".to_vec()).to_packet())
+                            .to_packet())
+                        .to_packet())
+                    .to_packet())
+                .push(CompressedData::new(0)
+                    .push(CompressedData::new(0)
+                        .push(Literal::new('t').body(b"three".to_vec()).to_packet())
+                        .to_packet())
+                    .push(Literal::new('t').body(b"four".to_vec()).to_packet())
+                    .to_packet())
+                .to_packet());
         messages.push(top_level);
 
         // 1: CompressedData(CompressedData { algo: 0 })
@@ -730,20 +700,24 @@ mod serialize_test {
         //  2: Literal(Literal { body: "six (3 bytes)" })
         let mut top_level = Vec::new();
         top_level.push(
-            make_cd(0,
-                    make_lit(&b"one"[..]),
-                    Some(make_lit(&b"two"[..]))));
-        top_level.push(make_lit(&b"three"[..]));
-        top_level.push(make_lit(&b"four"[..]));
+            CompressedData::new(0)
+                .push(Literal::new('t').body(b"one".to_vec()).to_packet())
+                .push(Literal::new('t').body(b"two".to_vec()).to_packet())
+                .to_packet());
         top_level.push(
-            make_cd(0,
-                    make_lit(&b"five"[..]),
-                    Some(make_lit(&b"six"[..]))));
+            Literal::new('t').body(b"three".to_vec()).to_packet());
+        top_level.push(
+            Literal::new('t').body(b"four".to_vec()).to_packet());
+        top_level.push(
+            CompressedData::new(0)
+                .push(Literal::new('t').body(b"five".to_vec()).to_packet())
+                .push(Literal::new('t').body(b"six".to_vec()).to_packet())
+                .to_packet());
         messages.push(top_level);
 
         // 1: UserID(UserID { value: "Foo" })
         let mut top_level = Vec::new();
-        top_level.push(make_userid(&b"Foo"[..]));
+        top_level.push(UserID::new().userid("Foo").to_packet());
         messages.push(top_level);
 
         for m in messages.into_iter() {

@@ -1583,12 +1583,6 @@ fn packet_parser_reader_interface() {
     assert!(packet.body.is_none());
 }
 
-impl Container {
-    fn new() -> Container {
-        Container { packets: Vec::with_capacity(8) }
-    }
-}
-
 impl Message {
     // Reads all of the packets from a `PacketParser`, and turns them
     // into a message.  Note: this assumes that `ppo` points to a

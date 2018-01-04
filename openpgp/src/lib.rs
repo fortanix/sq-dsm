@@ -55,6 +55,13 @@ pub mod tpk;
 pub mod types;
 pub mod serialize;
 
+mod unknown;
+mod signature;
+mod key;
+mod userid;
+mod literal;
+mod compressed_data;
+
 use std::ops::{Deref,DerefMut};
 
 use std::cell::RefCell;
@@ -406,6 +413,15 @@ impl std::fmt::Debug for PacketCommon {
     }
 }
 
+impl Default for PacketCommon {
+    fn default() -> PacketCommon {
+        PacketCommon {
+            children: None,
+            body: None,
+        }
+    }
+}
+
 /// An OpenPGP packet's header.
 #[derive(Debug)]
 pub struct Header {
@@ -429,6 +445,9 @@ pub struct Unknown {
 
 /// Holds a signature packet.
 ///
+/// Signature packets are used both for certification purposes as well
+/// as for document signing purposes.
+///
 /// See [Section 5.2 of RFC 4880] for details.
 ///
 ///   [Section 5.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2
@@ -449,25 +468,6 @@ pub struct Signature {
     pub mpis: Vec<u8>,
 }
 
-impl std::fmt::Debug for Signature {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        let hashed_area = format!("{} bytes", self.hashed_area.len());
-        let unhashed_area = format!("{} bytes", self.unhashed_area.len());
-        let mpis = format!("{} bytes", self.mpis.len());
-
-        f.debug_struct("Signature")
-            .field("version", &self.version)
-            .field("sigtype", &self.sigtype)
-            .field("pk_algo", &self.pk_algo)
-            .field("hash_algo", &self.hash_algo)
-            .field("hashed_area", &hashed_area)
-            .field("unhashed_area", &unhashed_area)
-            .field("hash_prefix", &self.hash_prefix)
-            .field("mpis", &mpis)
-            .finish()
-    }
-}
-
 /// Holds a public key, public subkey, private key or private subkey packet.
 ///
 /// See [Section 5.5 of RFC 4880] for details.
@@ -483,19 +483,6 @@ pub struct Key {
     pub mpis: Vec<u8>,
 }
 
-impl std::fmt::Debug for Key {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        let mpis = format!("{} bytes", self.mpis.len());
-
-        f.debug_struct("Key")
-            .field("version", &self.version)
-            .field("creation_time", &self.creation_time)
-            .field("pk_algo", &self.pk_algo)
-            .field("mpis", &mpis)
-            .finish()
-    }
-}
-
 /// Holds a UserID packet.
 ///
 /// See [Section 5.11 of RFC 4880] for details.
@@ -504,72 +491,40 @@ impl std::fmt::Debug for Key {
 #[derive(PartialEq, Clone)]
 pub struct UserID {
     pub common: PacketCommon,
+    /// The user id.
+    ///
+    /// According to [RFC 4880], the text is by convention UTF-8 encoded
+    /// and in "mail name-addr" form, i.e., "Name (Comment)
+    /// <email@example.com>".
+    ///
+    ///   [RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.11
+    ///
+    /// Use `UserID::default()` to get a UserID with a default settings.
     pub value: Vec<u8>,
-}
-
-impl std::fmt::Debug for UserID {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        let userid = String::from_utf8_lossy(&self.value[..]);
-
-        f.debug_struct("UserID")
-            .field("value", &userid)
-            .finish()
-    }
 }
 
 /// Holds a literal packet.
 ///
 /// A literal packet contains unstructured data.  Since the size can
-/// be very larged, it is advised to process messages containing such
+/// be very large, it is advised to process messages containing such
 /// packets using a `PacketParser` or a `MessageParser` and process
-/// the data in a streaming manner rather than the
-/// `Message::from_file` interface.
+/// the data in a streaming manner rather than the using the
+/// `Message::from_file` and related interfaces.
 ///
-/// See [Section 5.6 of RFC 4880] for details.
+/// See [Section 5.9 of RFC 4880] for details.
 ///
-///   [Section 5.6 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.6
+///   [Section 5.9 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.9
 #[derive(PartialEq, Clone)]
 pub struct Literal {
     pub common: PacketCommon,
     pub format: u8,
-    // filename is a string, but strings in Rust are valid UTF-8.
-    // There is no guarantee, however, that the filename is valid
-    // UTF-8.  Thus, we leave filename as a byte array.  It can be
-    // converted to a string using String::from_utf8() or
-    // String::from_utf8_lossy().
+    /// filename is a string, but strings in Rust are valid UTF-8.
+    /// There is no guarantee, however, that the filename is valid
+    /// UTF-8.  Thus, we leave filename as a byte array.  It can be
+    /// converted to a string using String::from_utf8() or
+    /// String::from_utf8_lossy().
     pub filename: Option<Vec<u8>>,
     pub date: u32,
-}
-
-impl std::fmt::Debug for Literal {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        let filename = if let Some(ref filename) = self.filename {
-            Some(String::from_utf8_lossy(filename))
-        } else {
-            None
-        };
-
-        let body = if let Some(ref body) = self.common.body {
-            &body[..]
-        } else {
-            &b""[..]
-        };
-
-        let threshold = 36;
-        let prefix = &body[..std::cmp::min(threshold, body.len())];
-        let mut prefix_fmt = String::from_utf8_lossy(prefix).into_owned();
-        if body.len() > threshold {
-            prefix_fmt.push_str("...");
-        }
-        prefix_fmt.push_str(&format!(" ({} bytes)", body.len())[..]);
-
-        f.debug_struct("Literal")
-            .field("format", &(self.format as char))
-            .field("filename", &filename)
-            .field("date", &self.date)
-            .field("body", &prefix_fmt)
-            .finish()
-    }
 }
 
 /// Holds a compressed data packet.
@@ -587,15 +542,7 @@ pub struct CompressedData {
     pub common: PacketCommon,
     pub algo: u8,
 }
-
-impl std::fmt::Debug for CompressedData {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        f.debug_struct("CompressedData")
-            .field("algo", &self.algo)
-            .finish()
-    }
-}
-
+
 /// The OpenPGP packets that Sequoia understands.
 ///
 /// The different OpenPGP packets are detailed in [Section 5 of RFC 4880].
@@ -691,6 +638,18 @@ pub struct Container {
 }
 
 impl Container {
+    fn new() -> Container {
+        Container { packets: Vec::with_capacity(8) }
+    }
+
+    fn push(&mut self, packet: Packet) {
+        self.packets.push(packet);
+    }
+
+    fn insert(&mut self, i: usize, packet: Packet) {
+        self.packets.insert(i, packet);
+    }
+
     /// Returns an iterator over the packet's descendants.  The
     /// descendants are visited in depth-first order.
     pub fn descendants(&self) -> PacketIter {
