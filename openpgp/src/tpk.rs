@@ -4,7 +4,7 @@ use std::io;
 use std::path::Path;
 use std::fs::File;
 
-use super::{Packet, Message, Signature, Key, UserID, Fingerprint};
+use super::{Packet, Message, Signature, Key, UserID, Fingerprint, Tag};
 use super::parse::PacketParser;
 
 /// A transferable public key (TPK).
@@ -287,6 +287,27 @@ impl TPK {
         }
 
         Message::from_packets(p)
+    }
+
+    /// Serialize the TPK.
+    pub fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
+        use super::serialize::*;
+        key_serialize(o, &self.primary, Tag::PublicKey)?;
+
+        for u in self.userids.iter() {
+            userid_serialize(o, &u.userid)?;
+            for s in u.signatures.iter() {
+                signature_serialize(o, s)?;
+            }
+        }
+
+        for k in self.subkeys.iter() {
+            key_serialize(o, &k.subkey, Tag::PublicSubkey)?;
+            for s in k.signatures.iter() {
+                signature_serialize(o, s)?;
+            }
+        }
+        Ok(())
     }
 }
 
