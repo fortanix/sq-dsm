@@ -128,6 +128,108 @@ pub fn ctb_old(tag: Tag, l: BodyLength) -> u8 {
     0b1000_0000u8 | (tag << 2) | len_encoding
 }
 
+/// Writes a serialized version of the specified `Unknown` packet to
+/// `o`.
+pub fn unknown_serialize<W: io::Write>(o: &mut W, u: &Unknown)
+        -> Result<(), io::Error> {
+    let body = if let Some(ref body) = u.common.body {
+        &body[..]
+    } else {
+        &b""[..]
+    };
+
+    write_byte(o, ctb_new(u.tag))?;
+    o.write_all(&body_length_new_format(
+        BodyLength::Full(body.len() as u32))[..])?;
+    o.write_all(&body[..])?;
+
+    Ok(())
+}
+
+/// Writes a serialized version of the specified `Signature` packet to
+/// `o`.
+///
+/// Note: this function does not computer the signature (which would
+/// require access to the private key); it assumes that sig.mpis is up
+/// to date.
+pub fn signature_serialize<W: io::Write>(o: &mut W, sig: &Signature)
+        -> Result<(), io::Error> {
+    let len = 1 // version
+        + 1 // signature type.
+        + 1 // pk algorithm
+        + 1 // hash algorithm
+        + 2 // hashed area size
+        + sig.hashed_area.len()
+        + 2 // unhashed area size
+        + sig.unhashed_area.len()
+        + 2 // hash prefix
+        + sig.mpis.len();
+
+    write_byte(o, ctb_new(Tag::Signature))?;
+    o.write_all(&body_length_new_format(BodyLength::Full(len as u32))[..])?;
+
+    // XXX: Return an error.
+    assert_eq!(sig.version, 4);
+    write_byte(o, sig.version)?;
+    write_byte(o, sig.sigtype)?;
+    write_byte(o, sig.pk_algo)?;
+    write_byte(o, sig.hash_algo)?;
+
+    // XXX: Return an error.
+    assert!(sig.hashed_area.len() <= std::u16::MAX as usize);
+    write_be_u16(o, sig.hashed_area.len() as u16)?;
+    o.write_all(&sig.hashed_area[..])?;
+
+    // XXX: Return an error.
+    assert!(sig.unhashed_area.len() <= std::u16::MAX as usize);
+    write_be_u16(o, sig.unhashed_area.len() as u16)?;
+    o.write_all(&sig.unhashed_area[..])?;
+
+    write_byte(o, sig.hash_prefix[0])?;
+    write_byte(o, sig.hash_prefix[1])?;
+
+    o.write_all(&sig.mpis[..])?;
+
+    Ok(())
+}
+
+/// Writes a serialized version of the specified `Key` packet to
+/// `o`.
+pub fn key_serialize<W: io::Write>(o: &mut W, key: &Key, tag: Tag)
+        -> Result<(), io::Error> {
+    assert!(tag == Tag::PublicKey
+            || tag == Tag::PublicSubkey
+            || tag == Tag::SecretKey
+            || tag == Tag::SecretSubkey);
+
+    let len = 1 + 4 + 1 + key.mpis.len();
+
+    write_byte(o, ctb_new(tag))?;
+    o.write_all(&body_length_new_format(BodyLength::Full(len as u32))[..])?;
+
+    // XXX: Return an error.
+    assert_eq!(key.version, 4);
+    write_byte(o, key.version)?;
+    write_be_u32(o, key.creation_time)?;
+    write_byte(o, key.pk_algo)?;
+    o.write_all(&key.mpis[..])?;
+
+    Ok(())
+}
+
+/// Writes a serialized version of the specified `userID` packet to
+/// `o`.
+pub fn userid_serialize<W: io::Write>(o: &mut W, userid: &UserID)
+        -> Result<(), io::Error> {
+    let len = userid.value.len();
+
+    write_byte(o, ctb_old(Tag::UserID, BodyLength::Full(len as u32)))?;
+    o.write_all(&body_length_old_format(BodyLength::Full(len as u32))[..])?;
+    o.write_all(&userid.value[..])?;
+
+    Ok(())
+}
+
 /// Writes a serialized version of the `Literal` data packet to `o`.
 pub fn literal_serialize<W: io::Write>(o: &mut W, l: &Literal)
         -> Result<(), io::Error> {
@@ -226,10 +328,17 @@ pub fn compressed_data_serialize<W: io::Write>(o: &mut W, cd: &CompressedData)
 /// packets, they are also serialized.
 fn packet_serialize<W: io::Write>(o: &mut W, p: &Packet)
         -> Result<(), io::Error> {
+    let tag = p.tag();
     match p {
-        &Packet::Literal(ref l) => literal_serialize(o, l),
-        &Packet::CompressedData(ref cd) => compressed_data_serialize(o, cd),
-        _ => unimplemented!(),
+        &Packet::Unknown(ref p) => unknown_serialize(o, p),
+        &Packet::Signature(ref p) => signature_serialize(o, p),
+        &Packet::PublicKey(ref p) => key_serialize(o, p, tag),
+        &Packet::PublicSubkey(ref p) => key_serialize(o, p, tag),
+        &Packet::SecretKey(ref p) => key_serialize(o, p, tag),
+        &Packet::SecretSubkey(ref p) => key_serialize(o, p, tag),
+        &Packet::UserID(ref p) => userid_serialize(o, p),
+        &Packet::Literal(ref p) => literal_serialize(o, p),
+        &Packet::CompressedData(ref p) => compressed_data_serialize(o, p),
     }
 }
 
@@ -328,71 +437,162 @@ mod serialize_test {
 
     #[test]
     fn serialize_test_1() {
-        // Test messages that contain exactly one top-level packet
-        // that is a literal packet.
+        // Given a packet in serialized form:
+        //
+        // - Parse and reserialize it;
+        //
+        // - Do a bitwise comparison (modulo the body length encoding)
+        //   of the original and reserialized data.
+        //
+        // Note: This test only works on messages with a single packet.
+        //
+        // Note: This test does not work with non-deterministic
+        // packets, like compressed data packets, since the serialized
+        // forms may be different.
+
         let filenames = [
             "literal-mode-b.gpg",
             "literal-mode-t-partial-body.gpg",
+
+            "sig.gpg",
+
+            "public-key-bare.gpg",
+            "public-subkey-bare.gpg",
+            "userid-bare.gpg",
         ];
 
         for filename in filenames.iter() {
+            // 1. Read the message byte stream into a local buffer.
             let path = path_to(filename);
             let mut data = Vec::new();
             File::open(&path).expect(&path.to_string_lossy())
                 .read_to_end(&mut data).expect("Reading test data");
+
+            // 2. Parse the message.
             let m = Message::from_bytes(&data[..]).unwrap();
 
-            let po = m.descendants().next();
-            if let Some(&Packet::Literal(ref l)) = po {
-                let mut buffer = Vec::new();
-                literal_serialize(&mut buffer, l).unwrap();
+            // The following test only works if the message has a
+            // single top-level packet.
+            assert_eq!(m.children().len(), 1);
 
-                packets_bitwise_compare(filename, &data[..], &buffer[..]);
-            } else {
-                panic!("Expected a literal data packet.");
+            // 3. Serialize the packet it into a local buffer.
+            let po = m.descendants().next();
+            let mut buffer = Vec::new();
+            match po.unwrap() {
+                &Packet::Literal(ref l) => {
+                    literal_serialize(&mut buffer, l).unwrap();
+                },
+                &Packet::Signature(ref s) => {
+                    signature_serialize(&mut buffer, s).unwrap();
+                },
+                &Packet::PublicKey(ref pk) => {
+                    key_serialize(&mut buffer, pk, Tag::PublicKey).unwrap();
+                },
+                &Packet::PublicSubkey(ref pk) => {
+                    key_serialize(&mut buffer, pk, Tag::PublicSubkey).unwrap();
+                },
+                &Packet::UserID(ref userid) => {
+                    userid_serialize(&mut buffer, userid).unwrap();
+                },
+                ref p => {
+                    panic!("Didn't expect a {:?} packet.", p.tag());
+                },
             }
+
+            // 4. Modulo the body length encoding, check that the
+            // reserialized content is identical to the original data.
+            packets_bitwise_compare(filename, &data[..], &buffer[..]);
         }
     }
 
     #[test]
-    fn serialize_test_2() {
-        // Test messages that contain exactly one top-level packet
-        // that is a compressed data packet.
+    fn serialize_test_1_unknown() {
+        // This is an variant of serialize_test_1 that tests the
+        // unknown packet serializer.
         let filenames = [
-            // XXX: We assume that compression is deterministic across
-            // implementations and that the same parameters are used
-            // by default.
             "compressed-data-algo-1.gpg",
             "compressed-data-algo-2.gpg",
             "compressed-data-algo-3.gpg",
-            // These use the "no compression" compression algorithm,
-            // so this test should always be valid.
             "recursive-2.gpg",
             "recursive-3.gpg",
         ];
 
         for filename in filenames.iter() {
+            // 1. Read the message byte stream into a local buffer.
             let path = path_to(filename);
             let mut data = Vec::new();
             File::open(&path).expect(&path.to_string_lossy())
                 .read_to_end(&mut data).expect("Reading test data");
+
+            // 2. Parse the message.
+            let u = to_unknown_packet(&data[..]).unwrap();
+
+            // 3. Serialize the packet it into a local buffer.
+            let mut data2 = Vec::new();
+            unknown_serialize(&mut data2, &u).unwrap();
+
+            // 4. Modulo the body length encoding, check that the
+            // reserialized content is identical to the original data.
+            packets_bitwise_compare(filename, &data[..], &data2[..]);
+        }
+
+    }
+
+    #[test]
+    fn serialize_test_2() {
+        // Given a packet in serialized form:
+        //
+        // - Parse, reserialize, and reparse it;
+        //
+        // - Compare the messages.
+        //
+        // Note: This test only works on messages with a single packet
+        // top-level packet.
+        //
+        // Note: serialize_test_1 is a better test, because it
+        // compares the serialized data, but serialize_test_1 doesn't
+        // work if the content is non-deterministic.
+        let filenames = [
+            "compressed-data-algo-1.gpg",
+            "compressed-data-algo-2.gpg",
+            "compressed-data-algo-3.gpg",
+            "recursive-2.gpg",
+            "recursive-3.gpg",
+        ];
+
+        for filename in filenames.iter() {
+            // 1. Read the message into a local buffer.
+            let path = path_to(filename);
+            let mut data = Vec::new();
+            File::open(&path).expect(&path.to_string_lossy())
+                .read_to_end(&mut data).expect("Reading test data");
+
+            // 2. Do a shallow parse of the messsage.  In other words,
+            // never recurse so that the resulting message only
+            // contains the top-level packets.  Any containers will
+            // have their raw content stored in packet.content.
             let m = PacketParserBuilder::from_bytes(&data[..]).unwrap()
                 .max_recursion_depth(0)
                 .buffer_unread_content()
                 //.trace()
                 .to_message().unwrap();
 
+            // 3. Get the first packet.
             let po = m.descendants().next();
             if let Some(&Packet::CompressedData(ref cd)) = po {
+                // 4. Serialize the container.
                 let mut buffer = Vec::new();
                 compressed_data_serialize(&mut buffer, cd).unwrap();
 
+                // 5. Reparse it.
                 let m2 = PacketParserBuilder::from_bytes(&buffer[..]).unwrap()
                     .max_recursion_depth(0)
                     .buffer_unread_content()
                     //.trace()
                     .to_message().unwrap();
 
+                // 6. Make sure the original message matches the
+                // serialized and reparsed message.
                 if m != m2 {
                     eprintln!("Orig:");
                     let p = m.children().next().unwrap();
@@ -419,7 +619,11 @@ mod serialize_test {
     // Create some crazy nesting structures, serialize the messages,
     // reparse them, and make sure we get the same result.
     #[test]
-    fn serialize_and_parse_1() {
+    fn serialize_test_3() {
+        // serialize_test_1 and serialize_test_2 parse a byte stream.
+        // This tests creates the message, and then serializes and
+        // reparses it.
+
         fn make_lit(body: &[u8]) -> Packet {
             Packet::Literal(Literal {
                 common: PacketCommon {
@@ -444,6 +648,16 @@ mod serialize_test {
                     children: Some(Container { packets: children }),
                 },
                 algo: algo,
+            })
+        }
+
+        fn make_userid(userid: &[u8]) -> Packet {
+            Packet::UserID(UserID {
+                common: PacketCommon {
+                    body: None,
+                    children: None,
+                },
+                value: userid.to_vec(),
             })
         }
 
@@ -527,21 +741,28 @@ mod serialize_test {
                     Some(make_lit(&b"six"[..]))));
         messages.push(top_level);
 
+        // 1: UserID(UserID { value: "Foo" })
+        let mut top_level = Vec::new();
+        top_level.push(make_userid(&b"Foo"[..]));
+        messages.push(top_level);
+
         for m in messages.into_iter() {
+            // 1. The message.
             let m = Message::from_packets(m);
 
             m.pretty_print();
 
-            // Serialize the message into a buffer.
+            // 2. Serialize the message into a buffer.
             let mut buffer = Vec::new();
             m.clone().serialize(&mut buffer).unwrap();
 
-            // Reparse it.
+            // 3. Reparse it.
             let m2 = PacketParserBuilder::from_bytes(&buffer[..]).unwrap()
                 //.trace()
                 .buffer_unread_content()
                 .to_message().unwrap();
 
+            // 4. Compare the messages.
             if m != m2 {
                 eprintln!("ORIG...");
                 m.pretty_print();
