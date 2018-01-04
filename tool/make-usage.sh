@@ -1,5 +1,7 @@
 #!/bin/sh
 
+sq=$1
+
 quote() {
     sed 's@^@//! @' | sed 's/ $//'
 }
@@ -12,30 +14,40 @@ end_code() {
     printf '```\n'
 }
 
-(
-    printf "A command-line frontend for Sequoia.
+dump_help() { # subcommand, indention
+    if [ -z "$1" ]
+    then
+	printf "\n# Usage\n\n"
+        set "" "#"
+    else
+	printf "\n$2 Subcommand$1\n\n"
+    fi
 
-# Usage
+    help="`$sq $1 --help`"
 
-"
     begin_code
-    sq --help
+    printf "$help\n" | tail -n +2
     end_code
 
-    sq --help |
-	sed -n '/^SUBCOMMANDS:/,$p' |
-	tail -n+2 |
-	while read command desc
-	do
-	    if [ "$command" = help ]; then
-		continue
-	    fi
+    if echo $help | fgrep -q SUBCOMMANDS
+    then
+        printf "$help\n" |
+            sed -n '/^SUBCOMMANDS:/,$p' |
+	    tail -n+2 |
+	    while read subcommand desc
+	    do
+	        if [ "$subcommand" = help ]; then
+		    continue
+	        fi
 
-	    printf "\n## Subcommand $command\n\n"
-	    begin_code
-	    sq $command --help
-	    end_code
-	done
+                dump_help "$1 $subcommand" "#$2"
+	    done
+    fi
+}
+
+(
+    printf "A command-line frontend for Sequoia.\n"
+    dump_help
 ) | quote
 
 printf '\ninclude!("main.rs");\n'
