@@ -1035,6 +1035,7 @@ fn packet_path_iter() {
 /// 4880].
 ///
 ///   [Section 12.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-12.2
+#[derive(PartialEq)]
 pub enum Fingerprint {
     V4([u8;20]),
     // Used for holding fingerprints that we don't understand.  For
