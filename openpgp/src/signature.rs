@@ -36,6 +36,7 @@ impl Signature {
             hashed_area: Vec::new(),
             hashed_area_parsed: RefCell::new(None),
             unhashed_area: Vec::new(),
+            unhashed_area_parsed: RefCell::new(None),
             hash_prefix: [0, 0],
             mpis: Vec::new(),
         }

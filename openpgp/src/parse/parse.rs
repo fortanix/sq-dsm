@@ -285,6 +285,7 @@ fn signature_parser<'a, R: BufferedReader<BufferedReaderState> + 'a>
             hashed_area: hashed_area,
             hashed_area_parsed: RefCell::new(None),
             unhashed_area: unhashed_area,
+            unhashed_area_parsed: RefCell::new(None),
             hash_prefix: [hash_prefix1, hash_prefix2],
             mpis: mpis,
         }),

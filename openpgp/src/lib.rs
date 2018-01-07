@@ -465,6 +465,7 @@ pub struct Signature {
     // content in hashed_area.
     hashed_area_parsed: RefCell<Option<HashMap<u8, (bool, u16, u16)>>>,
     pub unhashed_area: Vec<u8>,
+    unhashed_area_parsed: RefCell<Option<HashMap<u8, (bool, u16, u16)>>>,
     pub hash_prefix: [u8; 2],
     pub mpis: Vec<u8>,
 }

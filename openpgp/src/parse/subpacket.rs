@@ -173,46 +173,55 @@ impl Signature {
             return Ok(());
         }
 
-        let mut bio = BufferedReaderMemory::new(&self.hashed_area.as_slice());
+        fn process(data: &[u8])
+                -> Result<HashMap<u8, (bool, u16, u16)>, Error> {
+            let mut bio = BufferedReaderMemory::new(data);
+            let mut hash = HashMap::new();
 
-        let mut hash = HashMap::new();
+            while bio.data(1)?.len() > 0 {
+                let len = subpacket_length(&mut bio)?;
 
-        while bio.data(1)?.len() > 0 {
-            let len = subpacket_length(&mut bio)?;
+                if bio.total_out() + len as usize > data.len() {
+                    // Subpacket extends beyond the end of the hashed
+                    // area.  Skip it.
+                    eprintln!("Invalid subpacket: subpacket extends beyond \
+                               end of hashed area ([{}..{}); {}).",
+                              bio.total_out(), len, data.len());
+                    break;
+                }
 
-            if bio.total_out() + len as usize > self.hashed_area.len() {
-                // Subpacket extends beyond the end of the hashed
-                // area.  Skip it.
-                eprintln!("Invalid subpacket: subpacket extends beyond \
-                           end of hashed area ([{}..{}); {}).",
-                          bio.total_out(), len, self.hashed_area.len());
-                break;
+                if len == 0 {
+                    // Hmm, a zero length packet.  In that case, there is
+                    // no header.
+                    continue;
+                }
+
+                let tag : u8 = bio.data_consume_hard(1)?[0];
+                let len = len - 1;
+
+                // The critical bit is the high bit.  Extract it.
+                let critical = tag & (1 << 7) != 0;
+                // Then clear it from the type.
+                let tag = tag & !(1 << 7);
+
+                let start = bio.total_out();
+                assert!(start <= std::u16::MAX as usize);
+                assert!(len <= std::u16::MAX as u32);
+
+                hash.insert(tag, (critical, start as u16, len as u16));
+
+                // eprintln!("  {:?}: {:?}", SubpacketTag::from_numeric(tag), &data[start as usize..start as usize + len as usize]);
+
+                bio.consume(len as usize);
             }
 
-            if len == 0 {
-                // Hmm, a zero length packet.  In that case, there is
-                // no header.
-                continue;
-            }
-
-            let tag : u8 = bio.data_consume_hard(1)?[0];
-            let len = len - 1;
-
-            // The critical bit is the high bit.  Extract it.
-            let critical = tag & (1 << 7) != 0;
-            // Then clear it from the type.
-            let tag = tag & !(1 << 7);
-
-            let start = bio.total_out();
-            assert!(start <= std::u16::MAX as usize);
-            assert!(len <= std::u16::MAX as u32);
-
-            hash.insert(tag, (critical, bio.total_out() as u16, len as u16));
-
-            bio.consume(len as usize);
+            Ok(hash)
         }
 
-        *self.hashed_area_parsed.borrow_mut() = Some(hash);
+        *self.hashed_area_parsed.borrow_mut()
+            = Some(process(self.hashed_area.as_slice())?);
+        *self.unhashed_area_parsed.borrow_mut()
+            = Some(process(self.unhashed_area.as_slice())?);
 
         return Ok(());
     }
@@ -227,9 +236,28 @@ impl Signature {
 
         match self.hashed_area_parsed.borrow().as_ref().unwrap().get(&tag) {
             Some(&(critical, start, len)) =>
-                Some((critical,
-                      &self.hashed_area[start as usize
-                                        ..start as usize + len as usize])),
+                return Some(
+                    (critical,
+                     &self.hashed_area[start as usize
+                                       ..start as usize + len as usize])),
+            None => {},
+        }
+
+        // There are a couple of subpackets (ok, ) that we are
+        // willing to take from the unhashed area.  The others we
+        // ignore completely.
+        if !(SubpacketTag::from_numeric(tag) == Some(SubpacketTag::Issuer)
+             || (SubpacketTag::from_numeric(tag)
+                 == Some(SubpacketTag::EmbeddedSignature))) {
+            return None;
+        }
+
+        match self.unhashed_area_parsed.borrow().as_ref().unwrap().get(&tag) {
+            Some(&(critical, start, len)) =>
+                Some(
+                    (critical,
+                     &self.unhashed_area[start as usize
+                                         ..start as usize + len as usize])),
             None => None,
         }
     }
@@ -302,6 +330,7 @@ fn subpacket_test_1 () {
             count += 1;
 
             let mut got2 = false;
+            let mut got16 = false;
             let mut got33 = false;
 
             for i in 0..256 {
@@ -310,6 +339,9 @@ fn subpacket_test_1 () {
 
                     if i == 2 {
                         got2 = true;
+                        assert!(!critical);
+                    } else if i == 16 {
+                        got16 = true;
                         assert!(!critical);
                     } else if i == 33 {
                         got33 = true;
@@ -320,7 +352,7 @@ fn subpacket_test_1 () {
                 }
             }
 
-            assert!(got2 && got33);
+            assert!(got2 && got16 && got33);
 
             let fp = sig.issuer_fingerprint().unwrap().1.to_string();
             // eprintln!("Issuer: {}", fp);
