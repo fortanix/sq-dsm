@@ -1,11 +1,13 @@
 //! Transferable public keys.
 
 use std::io;
+use std::cmp::Ordering;
 use std::path::Path;
 use std::fs::File;
 
 use super::{Packet, Message, Signature, Key, UserID, Fingerprint, Tag};
 use super::parse::PacketParser;
+use super::serialize::{signature_serialize};
 
 /// A transferable public key (TPK).
 ///
@@ -14,14 +16,14 @@ use super::parse::PacketParser;
 /// uploaded to keyservers.
 ///
 /// [RFC 4880, section 11.1]: https://tools.ietf.org/html/rfc4880#section-11.1
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct TPK {
     primary: Key,
     userids: Vec<UserIDBinding>,
     subkeys: Vec<SubkeyBinding>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct SubkeyBinding {
     subkey: Key,
 
@@ -33,7 +35,7 @@ pub struct SubkeyBinding {
     certifications: Vec<Signature>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct UserIDBinding {
     userid: UserID,
 
@@ -306,6 +308,23 @@ impl TPK {
     }
 
     fn canonicalize(mut self) -> Result<Self> {
+        // Helper functions.
+
+        // Compare the creation time of two signatures.  Order them so
+        // that the more recent signature is first.
+        fn sig_cmp(a: &Signature, b: &Signature) -> Ordering {
+            b.signature_creation_time().cmp(&a.signature_creation_time())
+        }
+
+        // Turn a signature into a key for use by dedup.
+        fn sig_key(a: &mut Signature) -> Box<[u8]> {
+            let mut bytes = Vec::new();
+            // Serializing to a vector won't fail.
+            signature_serialize(&mut bytes, a).unwrap();
+            return bytes.into_boxed_slice();
+        }
+
+
         // Sanity checks.
 
         // - One or more User ID packets.
@@ -319,13 +338,161 @@ impl TPK {
             userid.selfsigs.len() > 0
         });
 
+        // XXX: Drop invalid self-signatures.
+
+        // Sort the signatures so that the current valid
+        // self-signature is first.
+        for userid in &mut self.userids {
+            userid.selfsigs.sort_by(sig_cmp);
+            userid.selfsigs.dedup_by_key(sig_key);
+
+            // There is no need to sort the certifications, but we do
+            // want to remove dups and sorting is a prerequisite.
+            userid.certifications.sort_by(sig_cmp);
+            userid.certifications.dedup_by_key(sig_key);
+        }
+
+        // First, we sort the bindings lexographically by user id in
+        // preparation for a dedup.
+        //
+        // Note: we cannot do the final sort here, because a user ID
+        // might appear multiple times, sometimes being marked as
+        // primary and sometimes not, for example.  In such a case,
+        // one copy might be sorted to the front and the other to the
+        // back, and the following dedup wouldn't combine the user
+        // ids!
+        self.userids.sort_by(|a, b| a.userid.value.cmp(&b.userid.value));
+
+        // Then, we dedup them.
+        self.userids.dedup_by(|a, b| {
+            if a.userid == b.userid {
+                // Merge the content of duplicate user ids.
+
+                // Recall: if a and b are equal, a will be dropped.
+                b.selfsigs.append(&mut a.selfsigs);
+                b.selfsigs.sort_by(sig_cmp);
+                b.selfsigs.dedup_by_key(sig_key);
+
+                b.certifications.append(&mut a.certifications);
+                b.certifications.sort_by(sig_cmp);
+                b.certifications.dedup_by_key(sig_key);
+
+                true
+            } else {
+                false
+            }
+        });
+
+        // Now, resort using the information provided in the self-sig.
+        //
+        // Recall: we know that there are no duplicates, and that
+        // self-signatures have been sorted.
+        //
+        // Order by:
+        //
+        //  - Whether the User IDs are marked as primary.
+        //
+        //  - The timestamp (reversed).
+        //
+        //  - The User IDs' lexographical order.
+        //
+        // Note: Comparing the lexographical order of the serialized form
+        // is useless since that will be the same as the User IDs'
+        // lexographical order.
+        self.userids.sort_by(|a, b| {
+            // Compare their primary status.
+            let a_primary = a.selfsigs[0].primary_userid();
+            let b_primary = b.selfsigs[0].primary_userid();
+
+            if a_primary.is_some() && b_primary.is_none() {
+                return Ordering::Less;
+            } else if a_primary.is_none() && b_primary.is_some() {
+                return Ordering::Greater;
+            } else if a_primary.is_some() && b_primary.is_some() {
+                // Both are marked as primary.  Fallback to the date.
+                let a_timestamp
+                    = a.selfsigs[0].signature_creation_time().unwrap_or(0);
+                let b_timestamp
+                    = b.selfsigs[0].signature_creation_time().unwrap_or(0);
+                // We want the more recent date first.
+                let cmp = b_timestamp.cmp(&a_timestamp);
+                if cmp != Ordering::Equal {
+                    return cmp;
+                }
+            }
+
+            // Fallback to a lexicographical comparison.
+            a.userid.value.cmp(&b.userid.value)
+        });
+
+
         // Drop invalid subkeys.
         self.subkeys.retain(|subkey| {
             // XXX Check binding signature.
             subkey.selfsigs.len() > 0
         });
 
+        // XXX: Drop invalid self-signatures / see if they are just
+        // out of place.
+
+        // Sort the signatures so that the current valid
+        // self-signature is first.
+        for subkey in &mut self.subkeys {
+            subkey.selfsigs.sort_by(sig_cmp);
+            subkey.selfsigs.dedup_by_key(sig_key);
+
+            // There is no need to sort the certifications, but we do
+            // want to remove dups and sorting is a prerequisite.
+            subkey.certifications.sort_by(sig_cmp);
+            subkey.certifications.dedup_by_key(sig_key);
+        }
+
+        // Sort the subkeys in preparation for a dedup.  As for the
+        // user ids, we can't do the final sort here, because we rely
+        // on the self-signatures.
+        self.subkeys.sort_by(|a, b| a.subkey.mpis.cmp(&b.subkey.mpis));
+
+        // And, dedup them.
+        self.subkeys.dedup_by(|a, b| {
+            if a.subkey == b.subkey {
+                // Recall: if a and b are equal, a will be dropped.
+                b.selfsigs.append(&mut a.selfsigs);
+                b.selfsigs.sort_by(sig_cmp);
+                b.selfsigs.dedup_by_key(sig_key);
+
+                b.certifications.append(&mut a.certifications);
+                b.certifications.sort_by(sig_cmp);
+                b.certifications.dedup_by_key(sig_key);
+
+                true
+            } else {
+                false
+            }
+        });
+
+        self.subkeys.sort_by(|a, b| {
+            // Features.
+            let a_features = a.selfsigs[0].features().unwrap_or(Vec::new());
+            let b_features = b.selfsigs[0].features().unwrap_or(Vec::new());
+            let cmp = a_features.cmp(&b_features);
+            if cmp != Ordering::Equal {
+                return cmp;
+            }
+
+            // Creation time (more recent first).
+            let cmp = b.subkey.creation_time.cmp(&a.subkey.creation_time);
+            if cmp != Ordering::Equal {
+                return cmp;
+            }
+
+            // Fallback to the lexicographical comparison.
+            a.subkey.mpis.cmp(&b.subkey.mpis)
+        });
+
+
         // XXX Do some more canonicalization.
+
+        // Collect revocation certs and designated revocation certs.
 
         Ok(self)
     }
