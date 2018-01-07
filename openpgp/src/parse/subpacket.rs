@@ -121,6 +121,20 @@ pub enum SubpacketTag {
     Private110 = 110,
 }
 
+impl SubpacketTag {
+    /// Converts a numeric value to an `Option<SubpacketTag>`.
+    ///
+    /// Returns None, if the value is out of range.
+    pub fn from_numeric(value: u8) -> Option<Self> {
+        num::FromPrimitive::from_u8(value)
+    }
+
+    /// Converts a `SubpacketTag` to its corresponding numeric value.
+    pub fn to_numeric(tag: SubpacketTag) -> u8 {
+        num::ToPrimitive::to_u8(&tag).unwrap()
+    }
+}
+
 /// Struct holding an arbitrary subpacket.
 ///
 /// The value is uninterpreted.  To get a well-structured value, use
