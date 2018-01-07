@@ -62,6 +62,7 @@ mod userid;
 mod literal;
 mod compressed_data;
 
+use std::fmt;
 use std::ops::{Deref,DerefMut};
 
 use std::cell::RefCell;
@@ -1001,6 +1002,14 @@ pub enum Fingerprint {
     // instance, we don't grok v3 fingerprints.  And, it is possible
     // that the Issuer subpacket contains the wrong number of bytes.
     Invalid(Box<[u8]>)
+}
+
+impl fmt::Debug for Fingerprint {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_tuple("Fingerprint")
+            .field(&self.to_string())
+            .finish()
+    }
 }
 
 impl Fingerprint {
