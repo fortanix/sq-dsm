@@ -262,14 +262,44 @@ impl Signature {
         }
     }
 
-    pub fn signature_create_time(&self) {
-        let _value = self.subpacket(SubpacketTag::SignatureCreationTime as u8);
-        unimplemented!();
+    pub fn signature_creation_time(&self) -> Option<u32> {
+        let value = self.subpacket(SubpacketTag::SignatureCreationTime as u8);
+        if let Some(value) = value {
+            if value.1.len() != 4 {
+                return None;
+            }
+
+            // The timestamp is in big endian format.
+            let t = value.1;
+            return Some((t[0] as u32) << 24 | (t[1] as u32) << 16
+                        | (t[2] as u32) << 8 | (t[3] as u32));
+        }
+        return None;
     }
 
     pub fn signature_expiration_time(&self) {
         let _value = self.subpacket(SubpacketTag::SignatureExpirationTime as u8);
         unimplemented!();
+    }
+
+    pub fn primary_userid(&self) -> Option<bool> {
+        let value = self.subpacket(SubpacketTag::PrimaryUserID as u8);
+        if let Some(value) = value {
+            if value.1.len() != 1 {
+                return None;
+            }
+            return Some(value.1[0] > 0);
+        }
+        return None;
+    }
+
+    pub fn features(&self) -> Option<Vec<u8>> {
+        let value = self.subpacket(SubpacketTag::Features as u8);
+        if let Some(value) = value {
+            Some(value.1.to_vec())
+        } else {
+            None
+        }
     }
 
     // ExportableCertification
@@ -293,6 +323,20 @@ impl Signature {
     // Features
     // SignatureTarget
     // EmbeddedSignature
+
+    /// Return the value of the Issuer subpacket.
+    ///
+    /// If the subpacket is not present, this returns `None`.
+    pub fn issuer(&self) -> Option<(bool, KeyID)> {
+        match self.subpacket(SubpacketTag::Issuer as u8) {
+            Some((critical, raw)) => {
+                Some((critical, KeyID::from_bytes(&raw[..])))
+            },
+            None => {
+                None
+            },
+        }
+    }
 
     /// Return the value of the Issuer Fingerprint subpacket.
     ///
