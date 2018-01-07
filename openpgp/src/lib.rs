@@ -452,7 +452,8 @@ pub struct Unknown {
 /// See [Section 5.2 of RFC 4880] for details.
 ///
 ///   [Section 5.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2
-#[derive(PartialEq, Clone)]
+// Note: we can't derive PartialEq, because it includes the cached data.
+#[derive(Clone)]
 pub struct Signature {
     pub common: PacketCommon,
     pub version: u8,

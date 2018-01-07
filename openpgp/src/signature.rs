@@ -4,6 +4,7 @@ use std::cell::RefCell;
 use PacketCommon;
 use Signature;
 use Packet;
+use serialize::signature_serialize;
 
 impl fmt::Debug for Signature {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -32,6 +33,33 @@ impl fmt::Debug for Signature {
             .field("hash_prefix", &self.hash_prefix)
             .field("mpis", &mpis)
             .finish()
+    }
+}
+
+impl PartialEq for Signature {
+    fn eq(&self, other: &Signature) -> bool {
+        // Comparing the relevant fields is error prone in case we add
+        // a field at some point.  Instead, we compare the serialized
+        // versions.  As a small optimization, we compare the MPIs.
+        // Note: two `Signatures` could be different even if they have
+        // the same MPI if the MPI was not invalidated when changing a
+        // field.
+        if self.mpis != other.mpis {
+            return false;
+        }
+
+        // Do a full check by serializing the fields.
+
+        // 4k should avoid reallocations most of the time.
+        let mut buffer = Vec::with_capacity(4096);
+
+        // Serializing to a vector can't fail.
+        signature_serialize(&mut buffer, self).unwrap();
+
+        let mut buffer2 = Vec::with_capacity(4096);
+        signature_serialize(&mut buffer2, other).unwrap();
+
+        return buffer == buffer2;
     }
 }
 
