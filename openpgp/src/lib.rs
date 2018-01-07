@@ -1088,4 +1088,115 @@ impl Fingerprint {
         // We know the content is valid UTF-8.
         String::from_utf8(output).unwrap()
     }
+
+    /// Converts the fingerprint to a key ID.
+    pub fn to_keyid(&self) -> KeyID {
+        match self {
+            &Fingerprint::V4(ref fp) =>
+                KeyID::from_bytes(&fp[fp.len() - 8..]),
+            &Fingerprint::Invalid(ref fp) => {
+                if fp.len() < 8 {
+                    KeyID::from_bytes(&[0; 8])
+                } else {
+                    KeyID::from_bytes(&fp[fp.len() - 8..])
+                }
+            }
+        }
+    }
+}
+
+/// Holds a KeyID.
+///
+/// A KeyID is a fingerprint fragment.  It identifies a public key,
+/// but is easy to forge.  For more details about how a KeyID is
+/// generated, see [Section 12.2 of RFC 4880].
+///
+///   [Section 12.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-12.2
+#[derive(PartialEq)]
+pub enum KeyID {
+    V4([u8;8]),
+    // Used for holding fingerprints that we don't understand.  For
+    // instance, we don't grok v3 fingerprints.  And, it is possible
+    // that the Issuer subpacket contains the wrong number of bytes.
+    Invalid(Box<[u8]>)
+}
+
+impl fmt::Debug for KeyID {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_tuple("KeyID")
+            .field(&self.to_string())
+            .finish()
+    }
+}
+
+impl KeyID {
+    /// Reads a binary key ID.
+    pub fn from_bytes(raw: &[u8]) -> KeyID {
+        if raw.len() == 8 {
+            let mut keyid : [u8; 8] = Default::default();
+            keyid.copy_from_slice(raw);
+            KeyID::V4(keyid)
+        } else {
+            KeyID::Invalid(raw.to_vec().into_boxed_slice())
+        }
+    }
+
+    /// Converts the key ID to its standard representation.
+    ///
+    /// Returns the fingerprint suitable for human consumption.
+    pub fn to_string(&self) -> String {
+        self.convert_to_string(true)
+    }
+
+    /// Converts the key ID to a hexadecimal number.
+    pub fn to_hex(&self) -> String {
+        self.convert_to_string(false)
+    }
+
+    /// Common code for the above functions.
+    fn convert_to_string(&self, pretty: bool) -> String {
+        let raw = match self {
+            &KeyID::V4(ref fp) => &fp[..],
+            &KeyID::Invalid(ref fp) => &fp[..],
+        };
+
+        // We currently only handle V4 key IDs, which look like:
+        //
+        //   AACB 3243 6300 52D9
+        //
+        // Since we have no idea how to format an invalid key ID, just
+        // format it like a V4 fingerprint and hope for the best.
+
+        let mut output = Vec::with_capacity(
+            // Each byte results in to hex characters.
+            raw.len() * 2
+            + if pretty {
+                // Every 2 bytes of output, we insert a space.
+                raw.len() / 2
+            } else { 0 });
+
+        for (i, b) in raw.iter().enumerate() {
+            if pretty && i > 0 && i % 2 == 0 {
+                output.push(' ' as u8);
+            }
+
+            let top = b >> 4;
+            let bottom = b & 0xFu8;
+
+            if top < 10u8 {
+                output.push('0' as u8 + top)
+            } else {
+                output.push('A' as u8 + (top - 10u8))
+            }
+
+            if bottom < 10u8 {
+                output.push('0' as u8 + bottom)
+            } else {
+                output.push('A' as u8 + (bottom - 10u8))
+            }
+        }
+
+        // We know the content is valid UTF-8.
+        String::from_utf8(output).unwrap()
+    }
 }

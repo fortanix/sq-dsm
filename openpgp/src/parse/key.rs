@@ -48,6 +48,12 @@ impl Key {
 
         Fingerprint::from_bytes(&m.digest().bytes()[..])
     }
+
+    // Computes and returns the key's key ID as per Section 12.2 of
+    // RFC 4880.
+    pub fn keyid(&self) -> KeyID {
+        self.fingerprint().to_keyid()
+    }
 }
 
 #[cfg(test)]
