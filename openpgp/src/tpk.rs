@@ -24,13 +24,24 @@ pub struct TPK {
 #[derive(Debug)]
 pub struct SubkeyBinding {
     subkey: Key,
-    signatures: Vec<Signature>,
+
+    // Self signatures.
+    selfsigs: Vec<Signature>,
+
+    // Third-party certifications.  (In general, this will only be by
+    // designated revokers.)
+    certifications: Vec<Signature>,
 }
 
 #[derive(Debug)]
 pub struct UserIDBinding {
     userid: UserID,
-    signatures: Vec<Signature>,
+
+    // Self signatures.
+    selfsigs: Vec<Signature>,
+
+    // Third-party certifications.
+    certifications: Vec<Signature>,
 }
 
 // We use a state machine to extract a TPK from an OpenPGP message.
@@ -83,11 +94,19 @@ impl TPKParser {
                     },
                     Packet::UserID(uid) => {
                         TPKParserState::UserID(
-                            UserIDBinding{userid: uid, signatures: vec![]})
+                            UserIDBinding{
+                                userid: uid,
+                                selfsigs: vec![],
+                                certifications: vec![],
+                            })
                     },
                     Packet::PublicSubkey(key) => {
                         TPKParserState::Subkey(
-                            SubkeyBinding{subkey: key, signatures: vec![]})
+                            SubkeyBinding{
+                                subkey: key,
+                                selfsigs: vec![],
+                                certifications: vec![],
+                            })
                     },
                     _ => TPKParserState::TPK,
                 }
@@ -101,15 +120,40 @@ impl TPKParser {
                     Packet::UserID(uid) => {
                         self.userids.push(u);
                         TPKParserState::UserID(
-                            UserIDBinding{userid: uid, signatures: vec![]})
+                            UserIDBinding{
+                                userid: uid,
+                                selfsigs: vec![],
+                                certifications: vec![],
+                            })
                     },
                     Packet::PublicSubkey(key) => {
                         self.userids.push(u);
                         TPKParserState::Subkey(
-                            SubkeyBinding{subkey: key, signatures: vec![]})
+                            SubkeyBinding{
+                                subkey: key,
+                                selfsigs: vec![],
+                                certifications: vec![],
+                            })
                     },
                     Packet::Signature(sig) => {
-                        u.signatures.push(sig);
+                        let primary = self.primary.as_ref().unwrap();
+                        let selfsig = if let Some((_critical, issuer))
+                                = sig.issuer_fingerprint() {
+                            issuer == primary.fingerprint()
+                        } else if let Some((_critical, issuer))
+                                = sig.issuer() {
+                            issuer == primary.keyid()
+                        } else {
+                            // No issuer.  XXX: Assume its a 3rd party
+                            // cert.  But, we should really just try
+                            // to reorder it.
+                            false
+                        };
+                        if selfsig {
+                            u.selfsigs.push(sig);
+                        } else {
+                            u.certifications.push(sig);
+                        }
                         TPKParserState::UserID(u)
                     },
                     _ => TPKParserState::UserID(u),
@@ -124,15 +168,41 @@ impl TPKParser {
                     Packet::UserID(uid) => {
                         self.subkeys.push(s);
                         TPKParserState::UserID(
-                            UserIDBinding{userid: uid, signatures: vec![]})
+                            UserIDBinding{
+                                userid: uid,
+                                selfsigs: vec![],
+                                certifications: vec![],
+                            })
                     },
                     Packet::PublicSubkey(key) => {
                         self.subkeys.push(s);
                         TPKParserState::Subkey(
-                            SubkeyBinding{subkey: key, signatures: vec![]})
+                            SubkeyBinding{
+                                subkey: key,
+                                selfsigs: vec![],
+                                certifications: vec![],
+                            })
                     },
                     Packet::Signature(sig) => {
-                        s.signatures.push(sig);
+                        let primary = self.primary.as_ref().unwrap();
+                        let selfsig = if let Some((_critical, issuer))
+                                = sig.issuer_fingerprint() {
+                            issuer == primary.fingerprint()
+                        } else if let Some((_critical, issuer))
+                                = sig.issuer() {
+                            issuer == primary.keyid()
+                        } else {
+                            // No issuer.  XXX: Assume its a 3rd party
+                            // cert.  But, we should really just try
+                            // to reorder it.
+                            false
+                        };
+                        if selfsig {
+                            s.selfsigs.push(sig);
+                        } else {
+                            s.certifications.push(sig);
+                        }
+
                         TPKParserState::Subkey(s)
                     },
                     _ => TPKParserState::Subkey(s),
@@ -243,16 +313,16 @@ impl TPK {
             return Err(Error::NoUserId);
         }
 
-        // Drop user ids.
+        // Drop invalid user ids.
         self.userids.retain(|userid| {
             // XXX Check binding signature.
-            userid.signatures.len() > 0
+            userid.selfsigs.len() > 0
         });
 
         // Drop invalid subkeys.
         self.subkeys.retain(|subkey| {
             // XXX Check binding signature.
-            subkey.signatures.len() > 0
+            subkey.selfsigs.len() > 0
         });
 
         // XXX Do some more canonicalization.
@@ -273,7 +343,10 @@ impl TPK {
 
         for u in self.userids.into_iter() {
             p.push(Packet::UserID(u.userid));
-            for s in u.signatures.into_iter() {
+            for s in u.selfsigs.into_iter() {
+                p.push(Packet::Signature(s));
+            }
+            for s in u.certifications.into_iter() {
                 p.push(Packet::Signature(s));
             }
         }
@@ -281,7 +354,10 @@ impl TPK {
         let subkeys = self.subkeys;
         for k in subkeys.into_iter() {
             p.push(Packet::PublicSubkey(k.subkey));
-            for s in k.signatures.into_iter() {
+            for s in k.selfsigs.into_iter() {
+                p.push(Packet::Signature(s));
+            }
+            for s in k.certifications.into_iter() {
                 p.push(Packet::Signature(s));
             }
         }
@@ -296,14 +372,20 @@ impl TPK {
 
         for u in self.userids.iter() {
             userid_serialize(o, &u.userid)?;
-            for s in u.signatures.iter() {
+            for s in u.selfsigs.iter() {
+                signature_serialize(o, s)?;
+            }
+            for s in u.certifications.iter() {
                 signature_serialize(o, s)?;
             }
         }
 
         for k in self.subkeys.iter() {
             key_serialize(o, &k.subkey, Tag::PublicSubkey)?;
-            for s in k.signatures.iter() {
+            for s in k.selfsigs.iter() {
+                signature_serialize(o, s)?;
+            }
+            for s in k.certifications.iter() {
                 signature_serialize(o, s)?;
             }
         }
@@ -380,8 +462,8 @@ mod test {
             assert_eq!(tpk.userids.len(), 1);
             assert_eq!(tpk.userids[0].userid.value,
                        &b"Testy McTestface <testy@example.org>"[..]);
-            assert_eq!(tpk.userids[0].signatures.len(), 1);
-            assert_eq!(tpk.userids[0].signatures[0].hash_prefix,
+            assert_eq!(tpk.userids[0].selfsigs.len(), 1);
+            assert_eq!(tpk.userids[0].selfsigs[0].hash_prefix,
                        [ 0xc6, 0x8f ]);
             assert_eq!(tpk.subkeys.len(), 0);
         }
@@ -399,13 +481,13 @@ mod test {
             assert_eq!(tpk.userids.len(), 1, "number of userids");
             assert_eq!(tpk.userids[0].userid.value,
                        &b"Testy McTestface <testy@example.org>"[..]);
-            assert_eq!(tpk.userids[0].signatures.len(), 1);
-            assert_eq!(tpk.userids[0].signatures[0].hash_prefix,
+            assert_eq!(tpk.userids[0].selfsigs.len(), 1);
+            assert_eq!(tpk.userids[0].selfsigs[0].hash_prefix,
                        [ 0xc6, 0x8f ]);
 
             assert_eq!(tpk.subkeys.len(), 1, "number of subkeys");
             assert_eq!(tpk.subkeys[0].subkey.creation_time, 1511355130);
-            assert_eq!(tpk.subkeys[0].signatures[0].hash_prefix,
+            assert_eq!(tpk.subkeys[0].selfsigs[0].hash_prefix,
                        [ 0xb7, 0xb9 ]);
 
             let tpk = parse_tpk(bytes!("testy-no-subkey.pgp"),
@@ -417,8 +499,8 @@ mod test {
             assert_eq!(tpk.userids.len(), 1, "number of userids");
             assert_eq!(tpk.userids[0].userid.value,
                        &b"Testy McTestface <testy@example.org>"[..]);
-            assert_eq!(tpk.userids[0].signatures.len(), 1);
-            assert_eq!(tpk.userids[0].signatures[0].hash_prefix,
+            assert_eq!(tpk.userids[0].selfsigs.len(), 1);
+            assert_eq!(tpk.userids[0].selfsigs[0].hash_prefix,
                        [ 0xc6, 0x8f ]);
 
             assert_eq!(tpk.subkeys.len(), 0, "number of subkeys");
