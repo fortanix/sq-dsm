@@ -558,6 +558,23 @@ impl TPK {
         }
         Ok(())
     }
+
+    /// Merges `other` into `self`.
+    ///
+    /// If `other` is a different key, then nothing is merged into
+    /// `self`, but `self` is still canonicalized.
+    pub fn merge(mut self, mut other: TPK) -> Result<Self> {
+        if self.primary != other.primary {
+            // The primary key is not the same.  There is nothing to
+            // do.
+            return self.canonicalize();
+        }
+
+        self.userids.append(&mut other.userids);
+        self.subkeys.append(&mut other.subkeys);
+
+        self.canonicalize()
+    }
 }
 
 /// Results for TPK.
@@ -672,5 +689,173 @@ mod test {
 
             assert_eq!(tpk.subkeys.len(), 0, "number of subkeys");
         }
+    }
+
+    #[test]
+    fn merge() {
+        let tpk_base = TPK::from_bytes(bytes!("bannon-base.gpg")).unwrap();
+
+        // When we merge it with itself, we should get the exact same
+        // thing.
+        let merged = tpk_base.clone().merge(tpk_base.clone()).unwrap();
+        assert_eq!(tpk_base, merged);
+
+        let tpk_add_uid_1
+            = TPK::from_bytes(bytes!("bannon-add-uid-1-whitehouse.gov.gpg"))
+                .unwrap();
+        let tpk_add_uid_2
+            = TPK::from_bytes(bytes!("bannon-add-uid-2-fox.com.gpg"))
+                .unwrap();
+        // Duplicate user id, but with a different self-sig.
+        let tpk_add_uid_3
+            = TPK::from_bytes(bytes!("bannon-add-uid-3-whitehouse.gov-dup.gpg"))
+                .unwrap();
+
+        let tpk_all_uids
+            = TPK::from_bytes(bytes!("bannon-all-uids.gpg"))
+            .unwrap();
+        // We have four User ID packets, but one has the same User ID,
+        // just with a different self-signature.
+        assert_eq!(tpk_all_uids.userids.len(), 3);
+
+        // Merge in order.
+        let merged = tpk_base.clone().merge(tpk_add_uid_1.clone()).unwrap()
+            .merge(tpk_add_uid_2.clone()).unwrap()
+            .merge(tpk_add_uid_3.clone()).unwrap();
+        assert_eq!(tpk_all_uids, merged);
+
+        // Merge in reverse order.
+        let merged = tpk_base.clone()
+            .merge(tpk_add_uid_3.clone()).unwrap()
+            .merge(tpk_add_uid_2.clone()).unwrap()
+            .merge(tpk_add_uid_1.clone()).unwrap();
+        assert_eq!(tpk_all_uids, merged);
+
+        let tpk_add_subkey_1
+            = TPK::from_bytes(bytes!("bannon-add-subkey-1.gpg")).unwrap();
+        let tpk_add_subkey_2
+            = TPK::from_bytes(bytes!("bannon-add-subkey-2.gpg")).unwrap();
+        let tpk_add_subkey_3
+            = TPK::from_bytes(bytes!("bannon-add-subkey-3.gpg")).unwrap();
+
+        let tpk_all_subkeys
+            = TPK::from_bytes(bytes!("bannon-all-subkeys.gpg")).unwrap();
+
+        // Merge the first user, then the second, then the third.
+        let merged = tpk_base.clone().merge(tpk_add_subkey_1.clone()).unwrap()
+            .merge(tpk_add_subkey_2.clone()).unwrap()
+            .merge(tpk_add_subkey_3.clone()).unwrap();
+        assert_eq!(tpk_all_subkeys, merged);
+
+        // Merge the third user, then the second, then the first.
+        let merged = tpk_base.clone().merge(tpk_add_subkey_3.clone()).unwrap()
+            .merge(tpk_add_subkey_2.clone()).unwrap()
+            .merge(tpk_add_subkey_1.clone()).unwrap();
+        assert_eq!(tpk_all_subkeys, merged);
+
+        // Merge alot.
+        let merged = tpk_base.clone()
+            .merge(tpk_add_subkey_1.clone()).unwrap()
+            .merge(tpk_add_subkey_1.clone()).unwrap()
+            .merge(tpk_add_subkey_3.clone()).unwrap()
+            .merge(tpk_add_subkey_1.clone()).unwrap()
+            .merge(tpk_add_subkey_2.clone()).unwrap()
+            .merge(tpk_add_subkey_3.clone()).unwrap()
+            .merge(tpk_add_subkey_3.clone()).unwrap()
+            .merge(tpk_add_subkey_1.clone()).unwrap()
+            .merge(tpk_add_subkey_2.clone()).unwrap();
+        assert_eq!(tpk_all_subkeys, merged);
+
+        let tpk_all
+            = TPK::from_bytes(bytes!("bannon-all-uids-subkeys.gpg"))
+            .unwrap();
+
+        // Merge all the subkeys with all the uids.
+        let merged = tpk_all_subkeys.clone()
+            .merge(tpk_all_uids.clone()).unwrap();
+        assert_eq!(tpk_all, merged);
+
+        // Merge all uids with all the subkeys.
+        let merged = tpk_all_uids.clone()
+            .merge(tpk_all_subkeys.clone()).unwrap();
+        assert_eq!(tpk_all, merged);
+
+        // All the subkeys and the uids in a mixed up order.
+        let merged = tpk_base.clone()
+            .merge(tpk_add_subkey_1.clone()).unwrap()
+            .merge(tpk_add_uid_2.clone()).unwrap()
+            .merge(tpk_add_uid_1.clone()).unwrap()
+            .merge(tpk_add_subkey_3.clone()).unwrap()
+            .merge(tpk_add_subkey_1.clone()).unwrap()
+            .merge(tpk_add_uid_3.clone()).unwrap()
+            .merge(tpk_add_subkey_2.clone()).unwrap()
+            .merge(tpk_add_subkey_1.clone()).unwrap()
+            .merge(tpk_add_uid_2.clone()).unwrap();
+        assert_eq!(tpk_all, merged);
+
+        // Certifications.
+        let tpk_donald_signs_base
+            = TPK::from_bytes(bytes!("bannon-the-donald-signs-base.gpg"))
+            .unwrap();
+        let tpk_donald_signs_all
+            = TPK::from_bytes(bytes!("bannon-the-donald-signs-all-uids.gpg"))
+            .unwrap();
+        let tpk_ivanka_signs_base
+            = TPK::from_bytes(bytes!("bannon-ivanka-signs-base.gpg"))
+            .unwrap();
+        let tpk_ivanka_signs_all
+            = TPK::from_bytes(bytes!("bannon-ivanka-signs-all-uids.gpg"))
+            .unwrap();
+
+        assert!(tpk_donald_signs_base.userids.len() == 1);
+        assert!(tpk_donald_signs_base.userids[0].selfsigs.len() == 1);
+        assert!(tpk_base.userids[0].certifications.len() == 0);
+        assert!(tpk_donald_signs_base.userids[0].certifications.len() == 1);
+
+        let merged = tpk_donald_signs_base.clone()
+            .merge(tpk_ivanka_signs_base.clone()).unwrap();
+        assert!(merged.userids.len() == 1);
+        assert!(merged.userids[0].selfsigs.len() == 1);
+        assert!(merged.userids[0].certifications.len() == 2);
+
+        let merged = tpk_donald_signs_base.clone()
+            .merge(tpk_donald_signs_all.clone()).unwrap();
+        assert!(merged.userids.len() == 3);
+        assert!(merged.userids[0].selfsigs.len() == 1);
+        // There should be two certifications from the Donald on the
+        // first user id.
+        assert!(merged.userids[0].certifications.len() == 2);
+        assert!(merged.userids[1].certifications.len() == 1);
+        assert!(merged.userids[2].certifications.len() == 1);
+
+        let merged = tpk_donald_signs_base.clone()
+            .merge(tpk_donald_signs_all.clone()).unwrap()
+            .merge(tpk_ivanka_signs_base.clone()).unwrap()
+            .merge(tpk_ivanka_signs_all.clone()).unwrap();
+        assert!(merged.userids.len() == 3);
+        assert!(merged.userids[0].selfsigs.len() == 1);
+        // There should be two certifications from each of the Donald
+        // and Ivanka on the first user id, and one each on the rest.
+        assert!(merged.userids[0].certifications.len() == 4);
+        assert!(merged.userids[1].certifications.len() == 2);
+        assert!(merged.userids[2].certifications.len() == 2);
+
+        // Same as above, but redundant.
+        let merged = tpk_donald_signs_base.clone()
+            .merge(tpk_ivanka_signs_base.clone()).unwrap()
+            .merge(tpk_donald_signs_all.clone()).unwrap()
+            .merge(tpk_donald_signs_all.clone()).unwrap()
+            .merge(tpk_ivanka_signs_all.clone()).unwrap()
+            .merge(tpk_ivanka_signs_base.clone()).unwrap()
+            .merge(tpk_donald_signs_all.clone()).unwrap()
+            .merge(tpk_donald_signs_all.clone()).unwrap()
+            .merge(tpk_ivanka_signs_all.clone()).unwrap();
+        assert!(merged.userids.len() == 3);
+        assert!(merged.userids[0].selfsigs.len() == 1);
+        // There should be two certifications from each of the Donald
+        // and Ivanka on the first user id, and one each on the rest.
+        assert!(merged.userids[0].certifications.len() == 4);
+        assert!(merged.userids[1].certifications.len() == 2);
+        assert!(merged.userids[2].certifications.len() == 2);
     }
 }
