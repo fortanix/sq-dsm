@@ -724,6 +724,34 @@ impl Fingerprint {
         }
     }
 
+    /// Reads a hexadecimal fingerprint.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use openpgp::Fingerprint;
+    /// let hex = "3E8877C877274692975189F5D03F6F865226FE8B";
+    /// let fp = Fingerprint::from_hex(hex);
+    /// assert!(fp.is_some());
+    /// assert_eq!(fp.unwrap().to_hex(), hex);
+    /// ```
+    pub fn from_hex(hex: &str) -> Option<Fingerprint> {
+        if hex.len() % 2 != 0 {
+            return None;
+        }
+
+        let mut raw = vec![];
+        for i in 0 .. hex.len() / 2 {
+            if let Ok(b) = u8::from_str_radix(&hex[i * 2 .. (i + 1) * 2], 16) {
+                raw.push(b);
+            } else {
+                return None;
+            }
+        }
+
+        Some(Fingerprint::from_bytes(&raw))
+    }
+
     /// Converts the fingerprint to its standard representation.
     ///
     /// Returns the fingerprint suitable for human consumption.
