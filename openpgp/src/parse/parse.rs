@@ -211,22 +211,25 @@ pub fn header<R: BufferedReader<C>, C> (bio: &mut R)
     return Ok(Header { ctb: ctb, length: length });
 }
 
-fn unknown_parser<'a, R: BufferedReader<BufferedReaderState> + 'a>
-        (bio: R, recursion_depth: usize, tag: Tag)
-        -> Result<PacketParser<'a>, std::io::Error> {
-    return Ok(PacketParser {
-        packet: Packet::Unknown(Unknown {
-            common: PacketCommon {
-                children: None,
-                body: None,
-            },
-            tag: tag,
-        }),
-        reader: Box::new(bio),
-        content_was_read: false,
-        recursion_depth: recursion_depth as u8,
-        settings: PACKET_PARSER_DEFAULTS
-    });
+impl Unknown {
+    // Parses the body of any packet and returns an Unknown.
+    fn parse<'a, R: BufferedReader<BufferedReaderState> + 'a>
+            (bio: R, recursion_depth: usize, tag: Tag)
+            -> Result<PacketParser<'a>, std::io::Error> {
+        return Ok(PacketParser {
+            packet: Packet::Unknown(Unknown {
+                common: PacketCommon {
+                    children: None,
+                    body: None,
+                },
+                tag: tag,
+            }),
+            reader: Box::new(bio),
+            content_was_read: false,
+            recursion_depth: recursion_depth as u8,
+            settings: PACKET_PARSER_DEFAULTS
+        });
+    }
 }
 
 pub fn to_unknown_packet<R: io::Read>(reader: R)
@@ -246,7 +249,7 @@ pub fn to_unknown_packet<R: io::Read>(reader: R)
             _ => Box::new(reader),
     };
 
-    let mut pp = unknown_parser(reader, 0, header.ctb.tag)?;
+    let mut pp = Unknown::parse(reader, 0, header.ctb.tag)?;
     pp.buffer_unread_content()?;
     pp.finish();
 
@@ -257,43 +260,46 @@ pub fn to_unknown_packet<R: io::Read>(reader: R)
     }
 }
 
-fn signature_parser<'a, R: BufferedReader<BufferedReaderState> + 'a>
-        (mut bio: R, recursion_depth: usize)
-        -> Result<PacketParser<'a>, std::io::Error> {
-    let version = bio.data_consume_hard(1)?[0];
-    let sigtype = bio.data_consume_hard(1)?[0];
-    let pk_algo = bio.data_consume_hard(1)?[0];
-    let hash_algo = bio.data_consume_hard(1)?[0];
-    let hashed_area_len = bio.read_be_u16()?;
-    let hashed_area = bio.steal(hashed_area_len as usize)?;
-    let unhashed_area_len = bio.read_be_u16()?;
-    let unhashed_area = bio.steal(unhashed_area_len as usize)?;
-    let hash_prefix1 = bio.data_consume_hard(1)?[0];
-    let hash_prefix2 = bio.data_consume_hard(1)?[0];
-    let mpis = bio.steal_eof()?;
+impl Signature {
+    // Parses the body of a signature packet.
+    fn parse<'a, R: BufferedReader<BufferedReaderState> + 'a>
+            (mut bio: R, recursion_depth: usize)
+            -> Result<PacketParser<'a>, std::io::Error> {
+        let version = bio.data_consume_hard(1)?[0];
+        let sigtype = bio.data_consume_hard(1)?[0];
+        let pk_algo = bio.data_consume_hard(1)?[0];
+        let hash_algo = bio.data_consume_hard(1)?[0];
+        let hashed_area_len = bio.read_be_u16()?;
+        let hashed_area = bio.steal(hashed_area_len as usize)?;
+        let unhashed_area_len = bio.read_be_u16()?;
+        let unhashed_area = bio.steal(unhashed_area_len as usize)?;
+        let hash_prefix1 = bio.data_consume_hard(1)?[0];
+        let hash_prefix2 = bio.data_consume_hard(1)?[0];
+        let mpis = bio.steal_eof()?;
 
-    return Ok(PacketParser {
-        packet: Packet::Signature(Signature {
-            common: PacketCommon {
-                children: None,
-                body: None,
-            },
-            version: version,
-            sigtype: sigtype,
-            pk_algo: pk_algo,
-            hash_algo: hash_algo,
-            hashed_area: hashed_area,
-            hashed_area_parsed: RefCell::new(None),
-            unhashed_area: unhashed_area,
-            unhashed_area_parsed: RefCell::new(None),
-            hash_prefix: [hash_prefix1, hash_prefix2],
-            mpis: mpis,
-        }),
-        reader: Box::new(bio),
-        content_was_read: false,
-        recursion_depth: recursion_depth as u8,
-        settings: PACKET_PARSER_DEFAULTS
-    });
+        return Ok(PacketParser {
+            packet: Packet::Signature(Signature {
+                common: PacketCommon {
+                    children: None,
+                    body: None,
+                },
+                version: version,
+                sigtype: sigtype,
+                pk_algo: pk_algo,
+                hash_algo: hash_algo,
+                hashed_area: hashed_area,
+                hashed_area_parsed: RefCell::new(None),
+                unhashed_area: unhashed_area,
+                unhashed_area_parsed: RefCell::new(None),
+                hash_prefix: [hash_prefix1, hash_prefix2],
+                mpis: mpis,
+            }),
+            reader: Box::new(bio),
+            content_was_read: false,
+            recursion_depth: recursion_depth as u8,
+            settings: PACKET_PARSER_DEFAULTS
+        });
+    }
 }
 
 #[test]
@@ -308,7 +314,7 @@ fn signature_parser_test () {
         assert_eq!(header.ctb.tag, Tag::Signature);
         assert_eq!(header.length, BodyLength::Full(307));
 
-        let mut pp = signature_parser(bio, 0).unwrap();
+        let mut pp = Signature::parse(bio, 0).unwrap();
         let p = pp.finish();
         // eprintln!("packet: {:?}", p);
 
@@ -327,97 +333,103 @@ fn signature_parser_test () {
     }
 }
 
-// Parse the body of a public key, public subkey, secret key or secret
-// subkey packet.
-fn key_parser<'a, R: BufferedReader<BufferedReaderState> + 'a>
-        (mut bio: R, recursion_depth: usize, tag: Tag)
-        -> Result<PacketParser<'a>, std::io::Error> {
-    assert!(tag == Tag::PublicKey
-            || tag == Tag::PublicSubkey
-            || tag == Tag::SecretKey
-            || tag == Tag::SecretSubkey);
+impl Key {
+    // Parses the body of a public key, public subkey, secret key or
+    // secret subkey packet.
+    fn parse<'a, R: BufferedReader<BufferedReaderState> + 'a>
+            (mut bio: R, recursion_depth: usize, tag: Tag)
+            -> Result<PacketParser<'a>, std::io::Error> {
+        assert!(tag == Tag::PublicKey
+                || tag == Tag::PublicSubkey
+                || tag == Tag::SecretKey
+                || tag == Tag::SecretSubkey);
 
-    let version = bio.data_consume_hard(1)?[0];
-    let creation_time = bio.read_be_u32()?;
-    let pk_algo = bio.data_consume_hard(1)?[0];
-    let mpis = bio.steal_eof()?;
+        let version = bio.data_consume_hard(1)?[0];
+        let creation_time = bio.read_be_u32()?;
+        let pk_algo = bio.data_consume_hard(1)?[0];
+        let mpis = bio.steal_eof()?;
 
-    let key = Key {
-        common: PacketCommon {
-            children: None,
-            body: None,
-        },
-        version: version,
-        creation_time: creation_time,
-        pk_algo: pk_algo,
-        mpis: mpis,
-    };
-
-    return Ok(PacketParser {
-        packet: match tag {
-            Tag::PublicKey => Packet::PublicKey(key),
-            Tag::PublicSubkey => Packet::PublicSubkey(key),
-            Tag::SecretKey => Packet::SecretKey(key),
-            Tag::SecretSubkey => Packet::SecretSubkey(key),
-            _ => unreachable!(),
-        },
-        reader: Box::new(bio),
-        content_was_read: false,
-        recursion_depth: recursion_depth as u8,
-        settings: PACKET_PARSER_DEFAULTS
-    });
-}
-
-// Parse the body of a user id packet.
-fn userid_parser<'a, R: BufferedReader<BufferedReaderState> + 'a>
-        (mut bio: R, recursion_depth: usize)
-        -> Result<PacketParser<'a>, std::io::Error> {
-    return Ok(PacketParser {
-        packet: Packet::UserID(UserID {
+        let key = Key {
             common: PacketCommon {
                 children: None,
                 body: None,
             },
-            value: bio.steal_eof()?,
-        }),
-        reader: Box::new(bio),
-        content_was_read: false,
-        recursion_depth: recursion_depth as u8,
-        settings: PACKET_PARSER_DEFAULTS
-    });
+            version: version,
+            creation_time: creation_time,
+            pk_algo: pk_algo,
+            mpis: mpis,
+        };
+
+        return Ok(PacketParser {
+            packet: match tag {
+                Tag::PublicKey => Packet::PublicKey(key),
+                Tag::PublicSubkey => Packet::PublicSubkey(key),
+                Tag::SecretKey => Packet::SecretKey(key),
+                Tag::SecretSubkey => Packet::SecretSubkey(key),
+                _ => unreachable!(),
+            },
+            reader: Box::new(bio),
+            content_was_read: false,
+            recursion_depth: recursion_depth as u8,
+            settings: PACKET_PARSER_DEFAULTS
+        });
+    }
 }
 
-/// Parse the body of a literal packet.
-fn literal_parser<'a, R: BufferedReader<BufferedReaderState> + 'a>
-        (mut bio: R, recursion_depth: usize)
-        -> Result<PacketParser<'a>, std::io::Error> {
-    let format = bio.data_consume_hard(1)?[0];
-    let filename_len = bio.data_consume_hard(1)?[0];
+impl UserID {
+    // Parses the body of a user id packet.
+    fn parse<'a, R: BufferedReader<BufferedReaderState> + 'a>
+            (mut bio: R, recursion_depth: usize)
+            -> Result<PacketParser<'a>, std::io::Error> {
+        return Ok(PacketParser {
+            packet: Packet::UserID(UserID {
+                common: PacketCommon {
+                    children: None,
+                    body: None,
+                },
+                value: bio.steal_eof()?,
+            }),
+            reader: Box::new(bio),
+            content_was_read: false,
+            recursion_depth: recursion_depth as u8,
+            settings: PACKET_PARSER_DEFAULTS
+        });
+    }
+}
 
-    let filename = if filename_len > 0 {
-        Some(bio.data_consume_hard(filename_len as usize)?
-               [0..filename_len as usize].to_vec())
-    } else {
-        None
-    };
+impl Literal {
+    /// Parses the body of a literal packet.
+    fn parse<'a, R: BufferedReader<BufferedReaderState> + 'a>
+            (mut bio: R, recursion_depth: usize)
+            -> Result<PacketParser<'a>, std::io::Error> {
+        let format = bio.data_consume_hard(1)?[0];
+        let filename_len = bio.data_consume_hard(1)?[0];
 
-    let date = bio.read_be_u32()?;
+        let filename = if filename_len > 0 {
+            Some(bio.data_consume_hard(filename_len as usize)?
+                   [0..filename_len as usize].to_vec())
+        } else {
+            None
+        };
 
-    return Ok(PacketParser {
-        packet: Packet::Literal(Literal {
-            common: PacketCommon {
-                children: None,
-                body: None,
-            },
-            format: format,
-            filename: filename,
-            date: date,
-        }),
-        reader: Box::new(bio),
-        content_was_read: false,
-        recursion_depth: recursion_depth as u8,
-        settings: PACKET_PARSER_DEFAULTS
-    });
+        let date = bio.read_be_u32()?;
+
+        return Ok(PacketParser {
+            packet: Packet::Literal(Literal {
+                common: PacketCommon {
+                    children: None,
+                    body: None,
+                },
+                format: format,
+                filename: filename,
+                date: date,
+            }),
+            reader: Box::new(bio),
+            content_was_read: false,
+            recursion_depth: recursion_depth as u8,
+            settings: PACKET_PARSER_DEFAULTS
+        });
+    }
 }
 
 #[test]
@@ -431,7 +443,7 @@ fn literal_parser_test () {
         assert_eq!(header.ctb.tag, Tag::Literal);
         assert_eq!(header.length, BodyLength::Full(18));
 
-        let mut pp = literal_parser(bio, 0).unwrap();
+        let mut pp = Literal::parse(bio, 0).unwrap();
         let content = pp.steal_eof().unwrap();
         let p = pp.finish();
         // eprintln!("{:?}", p);
@@ -458,7 +470,7 @@ fn literal_parser_test () {
             let bio2 = BufferedReaderPartialBodyFilter::with_cookie(
                 bio, l, BufferedReaderState::default());
 
-            let mut pp = literal_parser(bio2, 1).unwrap();
+            let mut pp = Literal::parse(bio2, 1).unwrap();
             let content = pp.steal_eof().unwrap();
             let p = pp.finish();
             if let &Packet::Literal(ref p) = p {
@@ -479,88 +491,90 @@ fn literal_parser_test () {
     }
 }
 
-// Parse the body of a compressed data packet.
-fn compressed_data_parser<'a, R: BufferedReader<BufferedReaderState> + 'a>
-        (mut bio: R, recursion_depth: usize)
-        -> Result<PacketParser<'a>, std::io::Error> {
-    let algo = bio.data_hard(1)?[0];
+impl CompressedData {
+    // Parses the body of a compressed data packet.
+    fn parse<'a, R: BufferedReader<BufferedReaderState> + 'a>
+            (mut bio: R, recursion_depth: usize)
+            -> Result<PacketParser<'a>, std::io::Error> {
+        let algo = bio.data_hard(1)?[0];
 
-    if TRACE {
-        eprintln!("compressed_data_parser(): \
-                   adding decompressor at recursion depth = {:?}",
-                  recursion_depth);
-    }
-
-    //   0          - Uncompressed
-    //   1          - ZIP [RFC1951]
-    //   2          - ZLIB [RFC1950]
-    //   3          - BZip2 [BZ2]
-    //   100 to 110 - Private/Experimental algorithm
-    let bio : Box<BufferedReader<BufferedReaderState>> = match algo {
-        0 => {
-            if TRACE {
-                eprintln!("compressed_data_parser(): Actually, no need \
-                           for a compression filter: this is an \
-                           \"uncompressed compression packet\"");
-            }
-            // Uncompressed.
-            bio.consume(1);
-            // XXX: If bio is already boxed (`buffered_reader`
-            // provides an impl of `BufferedReader` for
-            // `Box<BufferedReader>`, this is going to add another
-            // level of indirection.  It would be nice to avoid this
-            // level of indirection, but I have no idea how...
-            Box::new(bio)
-        },
-        1 => {
-            // Zip.
-            bio.consume(1);
-            Box::new(BufferedReaderDeflate::with_cookie(
-                bio, BufferedReaderState::new(recursion_depth)))
-        },
-        2 => {
-            // Zlib
-            bio.consume(1);
-            Box::new(BufferedReaderZlib::with_cookie(
-                bio, BufferedReaderState::new(recursion_depth)))
-        },
-        3 => {
-            // BZip2
-            bio.consume(1);
-            Box::new(BufferedReaderBzip::with_cookie(
-                bio, BufferedReaderState::new(recursion_depth)))
-        },
-        _ => {
-            // Unknown algo.  Return an unknown packet.
-            return Ok(PacketParser {
-                packet: Packet::Unknown(Unknown {
-                    common: PacketCommon {
-                        children: None,
-                        body: None,
-                    },
-                    tag: Tag::CompressedData,
-                }),
-                reader: Box::new(bio),
-                content_was_read: false,
-                recursion_depth: recursion_depth as u8,
-                settings: PACKET_PARSER_DEFAULTS
-            });
+        if TRACE {
+            eprintln!("compressed_data_parser(): \
+                       adding decompressor at recursion depth = {:?}",
+                      recursion_depth);
         }
-    };
 
-    return Ok(PacketParser {
-        packet: Packet::CompressedData(CompressedData {
-            common: PacketCommon {
-                children: None,
-                body: None,
+        //   0          - Uncompressed
+        //   1          - ZIP [RFC1951]
+        //   2          - ZLIB [RFC1950]
+        //   3          - BZip2 [BZ2]
+        //   100 to 110 - Private/Experimental algorithm
+        let bio : Box<BufferedReader<BufferedReaderState>> = match algo {
+            0 => {
+                if TRACE {
+                    eprintln!("compressed_data_parser(): Actually, no need \
+                               for a compression filter: this is an \
+                               \"uncompressed compression packet\"");
+                }
+                // Uncompressed.
+                bio.consume(1);
+                // XXX: If bio is already boxed (`buffered_reader`
+                // provides an impl of `BufferedReader` for
+                // `Box<BufferedReader>`, this is going to add another
+                // level of indirection.  It would be nice to avoid this
+                // level of indirection, but I have no idea how...
+                Box::new(bio)
             },
-            algo: algo,
-        }),
-        reader: bio,
-        content_was_read: false,
-        recursion_depth: recursion_depth as u8,
-        settings: PACKET_PARSER_DEFAULTS
-    });
+            1 => {
+                // Zip.
+                bio.consume(1);
+                Box::new(BufferedReaderDeflate::with_cookie(
+                    bio, BufferedReaderState::new(recursion_depth)))
+            },
+            2 => {
+                // Zlib
+                bio.consume(1);
+                Box::new(BufferedReaderZlib::with_cookie(
+                    bio, BufferedReaderState::new(recursion_depth)))
+            },
+            3 => {
+                // BZip2
+                bio.consume(1);
+                Box::new(BufferedReaderBzip::with_cookie(
+                    bio, BufferedReaderState::new(recursion_depth)))
+            },
+            _ => {
+                // Unknown algo.  Return an unknown packet.
+                return Ok(PacketParser {
+                    packet: Packet::Unknown(Unknown {
+                        common: PacketCommon {
+                            children: None,
+                            body: None,
+                        },
+                        tag: Tag::CompressedData,
+                    }),
+                    reader: Box::new(bio),
+                    content_was_read: false,
+                    recursion_depth: recursion_depth as u8,
+                    settings: PACKET_PARSER_DEFAULTS
+                });
+            }
+        };
+
+        return Ok(PacketParser {
+            packet: Packet::CompressedData(CompressedData {
+                common: PacketCommon {
+                    children: None,
+                    body: None,
+                },
+                algo: algo,
+            }),
+            reader: bio,
+            content_was_read: false,
+            recursion_depth: recursion_depth as u8,
+            settings: PACKET_PARSER_DEFAULTS
+        });
+    }
 }
 
 #[test]
@@ -582,7 +596,7 @@ fn compressed_data_parser_test () {
         // We expect a compressed packet containing a literal data
         // packet, and that is it.
         let (compressed, _, ppo, _)
-            = compressed_data_parser(bio, 0).unwrap().recurse().unwrap();
+            = CompressedData::parse(bio, 0).unwrap().recurse().unwrap();
 
         if let Packet::CompressedData(compressed) = compressed {
             assert_eq!(compressed.algo, i);
@@ -1047,23 +1061,23 @@ impl <'a> PacketParser<'a> {
         let tag = header.ctb.tag;
         let result = match tag {
             Tag::Signature =>
-                signature_parser(bio, recursion_depth)?,
+                Signature::parse(bio, recursion_depth)?,
             Tag::PublicSubkey =>
-                key_parser(bio, recursion_depth, tag)?,
+                Key::parse(bio, recursion_depth, tag)?,
             Tag::PublicKey =>
-                key_parser(bio, recursion_depth, tag)?,
+                Key::parse(bio, recursion_depth, tag)?,
             Tag::SecretKey =>
-                key_parser(bio, recursion_depth, tag)?,
+                Key::parse(bio, recursion_depth, tag)?,
             Tag::SecretSubkey =>
-                key_parser(bio, recursion_depth, tag)?,
+                Key::parse(bio, recursion_depth, tag)?,
             Tag::UserID =>
-                userid_parser(bio, recursion_depth)?,
+                UserID::parse(bio, recursion_depth)?,
             Tag::Literal =>
-                literal_parser(bio, recursion_depth)?,
+                Literal::parse(bio, recursion_depth)?,
             Tag::CompressedData =>
-                compressed_data_parser(bio, recursion_depth)?,
+                CompressedData::parse(bio, recursion_depth)?,
             _ =>
-                unknown_parser(bio, recursion_depth, tag)?,
+                Unknown::parse(bio, recursion_depth, tag)?,
         };
 
         if settings.trace {
