@@ -49,6 +49,12 @@ extern crate sha1;
 extern crate flate2;
 extern crate bzip2;
 
+use std::fmt;
+use std::ops::Deref;
+
+use std::cell::RefCell;
+use std::collections::HashMap;
+
 pub mod armor;
 pub mod parse;
 pub mod tpk;
@@ -61,22 +67,11 @@ mod key;
 mod userid;
 mod literal;
 mod compressed_data;
+mod packet;
+mod container;
+mod message;
+mod iter;
 
-use std::fmt;
-use std::ops::{Deref,DerefMut};
-
-use std::cell::RefCell;
-use std::collections::HashMap;
-
-#[cfg(test)]
-use std::path::PathBuf;
-
-#[cfg(test)]
-fn path_to(artifact: &str) -> PathBuf {
-    [env!("CARGO_MANIFEST_DIR"), "tests", "data", "messages", artifact]
-        .iter().collect()
-}
-
 /// The OpenPGP packet tags as defined in [Section 4.3 of RFC 4880].
 ///
 ///   [Section 4.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.3
@@ -596,41 +591,6 @@ impl Packet {
     }
 }
 
-// Allow transparent access of common fields.
-impl<'a> Deref for Packet {
-    type Target = PacketCommon;
-
-    fn deref(&self) -> &Self::Target {
-        match self {
-            &Packet::Unknown(ref packet) => &packet.common,
-            &Packet::Signature(ref packet) => &packet.common,
-            &Packet::PublicKey(ref packet) => &packet.common,
-            &Packet::PublicSubkey(ref packet) => &packet.common,
-            &Packet::SecretKey(ref packet) => &packet.common,
-            &Packet::SecretSubkey(ref packet) => &packet.common,
-            &Packet::UserID(ref packet) => &packet.common,
-            &Packet::Literal(ref packet) => &packet.common,
-            &Packet::CompressedData(ref packet) => &packet.common,
-        }
-    }
-}
-
-impl<'a> DerefMut for Packet {
-    fn deref_mut(&mut self) -> &mut PacketCommon {
-        match self {
-            &mut Packet::Unknown(ref mut packet) => &mut packet.common,
-            &mut Packet::Signature(ref mut packet) => &mut packet.common,
-            &mut Packet::PublicKey(ref mut packet) => &mut packet.common,
-            &mut Packet::PublicSubkey(ref mut packet) => &mut packet.common,
-            &mut Packet::SecretKey(ref mut packet) => &mut packet.common,
-            &mut Packet::SecretSubkey(ref mut packet) => &mut packet.common,
-            &mut Packet::UserID(ref mut packet) => &mut packet.common,
-            &mut Packet::Literal(ref mut packet) => &mut packet.common,
-            &mut Packet::CompressedData(ref mut packet) => &mut packet.common,
-        }
-    }
-}
-
 /// Holds zero or more OpenPGP packets.
 ///
 /// This is used by OpenPGP container packets, like the compressed
@@ -640,75 +600,27 @@ pub struct Container {
     packets: Vec<Packet>,
 }
 
+// This impl is here and not in the container module, because it is
+// supposed to private to the outside world, but functionality in this
+// crate should be able to use it.
 impl Container {
     fn new() -> Container {
         Container { packets: Vec::with_capacity(8) }
     }
 
+    // Adds a new packet to the container.
     fn push(&mut self, packet: Packet) {
         self.packets.push(packet);
     }
 
+    // Inserts a new packet to the container at a particular index.
+    // If `i` is 0, the new packet is insert at the front of the
+    // container.  If `i` is one, it is inserted after the first
+    // packet, etc.
     fn insert(&mut self, i: usize, packet: Packet) {
         self.packets.insert(i, packet);
     }
 
-    /// Returns an iterator over the packet's descendants.  The
-    /// descendants are visited in depth-first order.
-    pub fn descendants(&self) -> PacketIter {
-        return PacketIter {
-            // Iterate over each packet in the message.
-            children: self.children(),
-            child: None,
-            grandchildren: None,
-            depth: 0,
-        };
-    }
-
-    /// Returns an iterator over the packet's immediate children.
-    pub fn children<'a>(&'a self) -> std::slice::Iter<'a, Packet> {
-        self.packets.iter()
-    }
-
-    /// Returns an `IntoIter` over the packet's immediate children.
-    pub fn into_children(self) -> std::vec::IntoIter<Packet> {
-        self.packets.into_iter()
-    }
-}
-
-impl std::fmt::Debug for Container {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        f.debug_struct("Container")
-            .field("packets", &self.packets)
-            .finish()
-    }
-}
-
-/// A `Message` holds a deserialized OpenPGP message.
-///
-/// To deserialize an OpenPGP usage, use either [`PacketParser`],
-/// [`MessageParser`], or [`Message::from_file`] (or related
-/// routines).
-///
-///   [`PacketParser`]: parse/struct.PacketParser.html
-///   [`MessageParser`]: parse/struct.MessageParser.html
-///   [`Message::from_file`]: struct.Message.html#method.from_file
-#[derive(PartialEq, Clone)]
-pub struct Message {
-    // At the top level, we have a sequence of packets, which may be
-    // containers.
-    top_level: Container,
-}
-
-impl std::fmt::Debug for Message {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        f.debug_struct("Message")
-            .field("packets", &self.top_level.packets)
-            .finish()
-    }
-}
-
-impl Container {
     // Converts an indentation level to whitespace.
     fn indent(depth: usize) -> &'static str {
         use std::cmp;
@@ -733,13 +645,21 @@ impl Container {
     }
 }
 
-impl Message {
-    /// Pretty prints the message to stderr.
-    ///
-    /// This function is primarily intended for debugging purposes.
-    pub fn pretty_print(&self) {
-        self.top_level.pretty_print(0);
-    }
+
+/// A `Message` holds a deserialized OpenPGP message.
+///
+/// To deserialize an OpenPGP usage, use either [`PacketParser`],
+/// [`MessageParser`], or [`Message::from_file`] (or related
+/// routines).
+///
+///   [`PacketParser`]: parse/struct.PacketParser.html
+///   [`MessageParser`]: parse/struct.MessageParser.html
+///   [`Message::from_file`]: struct.Message.html#method.from_file
+#[derive(PartialEq, Clone)]
+pub struct Message {
+    // At the top level, we have a sequence of packets, which may be
+    // containers.
+    top_level: Container,
 }
 
 /// A `PacketIter` iterates over the *contents* of a packet in
@@ -758,236 +678,14 @@ pub struct PacketIter<'a> {
     depth: usize,
 }
 
-impl Message {
-    /// Turns a vector of [`Packets`] into a `Message`.
-    ///
-    /// This is a simple wrapper function; it does not process the
-    /// packets in any way.
-    ///
-    ///   [`Packets`]: struct.Packet.html
-    pub fn from_packets(p: Vec<Packet>) -> Self {
-        Message { top_level: Container { packets: p } }
-    }
-
-    /// Returns an iterator over all of the packet's descendants, in
-    /// depth-first order.
-    pub fn descendants(&self) -> PacketIter {
-        self.top_level.descendants()
-    }
-
-    /// Returns an iterator over the top-level packets.
-    pub fn children<'a>(&'a self) -> std::slice::Iter<'a, Packet> {
-        self.top_level.children()
-    }
-
-    /// Returns an `IntoIter` over the top-level packets.
-    pub fn into_children(self) -> std::vec::IntoIter<Packet> {
-        self.top_level.into_children()
-    }
-}
-
-impl PacketCommon {
-    /// Returns an iterator over all of the packet's descendants, in
-    /// depth-first order.
-    pub fn descendants(&self) -> PacketIter {
-        return PacketIter {
-            children: if let Some(ref container) = self.children {
-                container.packets.iter()
-            } else {
-                let empty_packet_slice : &[Packet] = &[][..];
-                empty_packet_slice.iter()
-            },
-            child: None,
-            grandchildren: None,
-            depth: 0,
-        }
-    }
-}
-
-impl<'a> Iterator for PacketIter<'a> {
-    type Item = &'a Packet;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        // If we don't have a grandchild iterator (self.grandchildren
-        // is None), then we are just starting, and we need to get the
-        // next child.
-        if let Some(ref mut grandchildren) = self.grandchildren {
-            let grandchild = grandchildren.next();
-            // If the grandchild iterator is exhausted (grandchild is
-            // None), then we need the next child.
-            if grandchild.is_some() {
-                self.depth = grandchildren.depth + 1;
-                return grandchild;
-            }
-        }
-
-        // Get the next child and the iterator for its children.
-        self.child = self.children.next();
-        if let Some(child) = self.child {
-            self.grandchildren = Some(Box::new(child.descendants()));
-        }
-
-        // First return the child itself.  Subsequent calls will
-        // return its grandchildren.
-        self.depth = 0;
-        return self.child;
-    }
-}
-
+/// Like `enumerate`, this augments the packet returned by a
+/// `PacketIter` with its `Path`.
 pub struct PacketPathIter<'a> {
     iter: PacketIter<'a>,
 
     // The path to the most recently returned node relative to the
     // start of the iterator.
     path: Option<Vec<usize>>,
-}
-
-impl<'a> PacketIter<'a> {
-    /// Extends a `PacketIter` to also return each packet's path.
-    ///
-    /// This is similar to `enumerate`, but instead of counting, this
-    /// returns each packet's path in addition to a reference to the
-    /// packet.
-    pub fn paths(self) -> PacketPathIter<'a> {
-        PacketPathIter {
-            iter: self,
-            path: None,
-        }
-    }
-}
-
-impl<'a> Iterator for PacketPathIter<'a> {
-    type Item = (Vec<usize>, &'a Packet);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if let Some(packet) = self.iter.next() {
-            if self.path.is_none() {
-                // Init.
-                let mut path = Vec::with_capacity(4);
-                path.push(0);
-                self.path = Some(path);
-            } else {
-                let mut path = self.path.take().unwrap();
-                let old_depth = path.len() - 1;
-
-                let depth = self.iter.depth;
-                if old_depth > depth {
-                    // We popped.
-                    path.truncate(depth + 1);
-                    path[depth] += 1;
-                } else if old_depth == depth {
-                    // Sibling.
-                    path[old_depth] += 1;
-                } else if old_depth + 1 == depth {
-                    // Recursion.
-                    path.push(0);
-                }
-                self.path = Some(path);
-            }
-            Some((self.path.as_ref().unwrap().clone(), packet))
-        } else {
-            None
-        }
-    }
-}
-
-impl Message {
-    /// Returns the packet at the location described by `pathspec`.
-    ///
-    /// `pathspec` is a slice of the form `[ 0, 1, 2 ]`.  Each element
-    /// is the index of packet in a container.  Thus, the previous
-    /// path specification means: return the third child of the second
-    /// child of the first top-level packet.  In other words, the
-    /// starred packet in the following tree:
-    ///
-    /// ```text
-    ///           Message
-    ///        /     |     \
-    ///       0      1      2  ...
-    ///     /   \
-    ///    /     \
-    ///  0         1  ...
-    ///        /   |   \  ...
-    ///       0    1    2
-    ///                 *
-    /// ```
-    ///
-    /// And, `[ 10 ]` means return the 11th top-level packet.
-    ///
-    /// Note: there is no packet at the root.  Thus, the path `[]`
-    /// returns None.
-    pub fn path_ref(&self, pathspec: &[usize]) -> Option<&Packet> {
-        let mut packet : Option<&Packet> = None;
-
-        let mut cont = Some(&self.top_level);
-        for i in pathspec {
-            if let Some(ref c) = cont.take() {
-                if *i < c.packets.len() {
-                    let p = &c.packets[*i];
-                    packet = Some(p);
-                    cont = p.children.as_ref();
-                    continue;
-                }
-            }
-
-            return None;
-        }
-        return packet;
-    }
-}
-
-// Tests the `paths`() iter and `path_ref`().
-#[test]
-fn packet_path_iter() {
-    fn paths(iter: std::slice::Iter<Packet>) -> Vec<Vec<usize>> {
-        let mut lpaths : Vec<Vec<usize>> = Vec::new();
-        for (i, packet) in iter.enumerate() {
-            let mut v = Vec::new();
-            v.push(i);
-            lpaths.push(v);
-
-            if let Some(ref children) = packet.children {
-                for mut path in paths(children.packets.iter()).into_iter() {
-                    path.insert(0, i);
-                    lpaths.push(path);
-                }
-            }
-        }
-        lpaths
-    }
-
-    for i in 1..5 {
-        let m = Message::from_file(
-            path_to(&format!("recursive-{}.gpg", i)[..])).unwrap();
-
-        let mut paths1 : Vec<Vec<usize>> = Vec::new();
-        for path in paths(m.children()).iter() {
-            paths1.push(path.clone());
-        }
-
-        let mut paths2 : Vec<Vec<usize>> = Vec::new();
-        for (path, packet) in m.descendants().paths() {
-            assert_eq!(Some(packet), m.path_ref(&path[..]));
-            paths2.push(path);
-        }
-
-        if paths1 != paths2 {
-            eprintln!("Message:");
-            m.pretty_print();
-
-            eprintln!("Expected paths:");
-            for p in paths1 {
-                eprintln!("  {:?}", p);
-            }
-
-            eprintln!("Got paths:");
-            for p in paths2 {
-                eprintln!("  {:?}", p);
-            }
-
-            panic!("Something is broken.  Don't panic.");
-        }
-    }
 }
 
 /// Holds a fingerprint.
