@@ -258,62 +258,63 @@ impl NetworkPolicy {
     }
 }
 
+#[macro_export]
+macro_rules! assert_match {
+    ( $error: pat = $expr:expr ) => {
+        let x = $expr;
+        if let $error = x {
+            /* Pass.  */
+        } else {
+            panic!("Expected {}, got {:?}.", stringify!($error), x);
+        }
+    };
+}
+
 #[cfg(test)]
 mod network_policy_test {
     use super::{Error, NetworkPolicy};
 
-    macro_rules! assert_match {
-        (  $result:expr, $error: pat ) => {
-            if let $error = $result {
-                /* Pass.  */
-            } else {
-                panic!("Expected {}, got {:?}.", stringify!($error), $result);
-            }
-        };
-    }
-
-
     #[test]
     fn offline() {
         let p = NetworkPolicy::Offline;
-        assert_match!(p.assert(NetworkPolicy::Anonymized),
-                      Err(Error::NetworkPolicyViolation(_)));
-        assert_match!(p.assert(NetworkPolicy::Encrypted),
-                      Err(Error::NetworkPolicyViolation(_)));
-        assert_match!(p.assert(NetworkPolicy::Insecure),
-                      Err(Error::NetworkPolicyViolation(_)));
+        assert_match!(
+            Err(Error::NetworkPolicyViolation(_)) = p.assert(NetworkPolicy::Anonymized));
+        assert_match!(
+            Err(Error::NetworkPolicyViolation(_)) = p.assert(NetworkPolicy::Encrypted));
+        assert_match!(
+            Err(Error::NetworkPolicyViolation(_)) = p.assert(NetworkPolicy::Insecure));
     }
 
     #[test]
     fn anonymized() {
         let p = NetworkPolicy::Anonymized;
-        assert_match!(p.assert(NetworkPolicy::Anonymized),
-                      Ok(()));
-        assert_match!(p.assert(NetworkPolicy::Encrypted),
-                      Err(Error::NetworkPolicyViolation(_)));
-        assert_match!(p.assert(NetworkPolicy::Insecure),
-                      Err(Error::NetworkPolicyViolation(_)));
+        assert_match!(
+            Ok(()) = p.assert(NetworkPolicy::Anonymized));
+        assert_match!(
+            Err(Error::NetworkPolicyViolation(_)) = p.assert(NetworkPolicy::Encrypted));
+        assert_match!(
+            Err(Error::NetworkPolicyViolation(_)) = p.assert(NetworkPolicy::Insecure));
     }
 
     #[test]
     fn encrypted() {
         let p = NetworkPolicy::Encrypted;
-        assert_match!(p.assert(NetworkPolicy::Anonymized),
-                      Ok(()));
-        assert_match!(p.assert(NetworkPolicy::Encrypted),
-                      Ok(()));
-        assert_match!(p.assert(NetworkPolicy::Insecure),
-                      Err(Error::NetworkPolicyViolation(_)));
+        assert_match!(
+            Ok(()) = p.assert(NetworkPolicy::Anonymized));
+        assert_match!(
+            Ok(()) = p.assert(NetworkPolicy::Encrypted));
+        assert_match!(
+            Err(Error::NetworkPolicyViolation(_)) = p.assert(NetworkPolicy::Insecure));
     }
 
     #[test]
     fn insecure() {
         let p = NetworkPolicy::Insecure;
-        assert_match!(p.assert(NetworkPolicy::Anonymized),
-                      Ok(()));
-        assert_match!(p.assert(NetworkPolicy::Encrypted),
-                      Ok(()));
-        assert_match!(p.assert(NetworkPolicy::Insecure),
-                      Ok(()));
+        assert_match!(
+            Ok(()) = p.assert(NetworkPolicy::Anonymized));
+        assert_match!(
+            Ok(()) = p.assert(NetworkPolicy::Encrypted));
+        assert_match!(
+            Ok(()) = p.assert(NetworkPolicy::Insecure));
     }
 }
