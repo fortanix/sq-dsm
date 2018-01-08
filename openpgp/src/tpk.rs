@@ -7,7 +7,6 @@ use std::fs::File;
 
 use super::{Packet, Message, Signature, Key, UserID, Fingerprint, Tag};
 use super::parse::PacketParser;
-use super::serialize::{signature_serialize};
 
 /// A transferable public key (TPK).
 ///
@@ -318,10 +317,7 @@ impl TPK {
 
         // Turn a signature into a key for use by dedup.
         fn sig_key(a: &mut Signature) -> Box<[u8]> {
-            let mut bytes = Vec::new();
-            // Serializing to a vector won't fail.
-            signature_serialize(&mut bytes, a).unwrap();
-            return bytes.into_boxed_slice();
+            a.to_vec().into_boxed_slice()
         }
 
 
@@ -534,26 +530,25 @@ impl TPK {
 
     /// Serialize the TPK.
     pub fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
-        use super::serialize::*;
-        key_serialize(o, &self.primary, Tag::PublicKey)?;
+        self.primary.serialize(o, Tag::PublicKey)?;
 
         for u in self.userids.iter() {
-            userid_serialize(o, &u.userid)?;
+            u.userid.serialize(o)?;
             for s in u.selfsigs.iter() {
-                signature_serialize(o, s)?;
+                s.serialize(o)?;
             }
             for s in u.certifications.iter() {
-                signature_serialize(o, s)?;
+                s.serialize(o)?;
             }
         }
 
         for k in self.subkeys.iter() {
-            key_serialize(o, &k.subkey, Tag::PublicSubkey)?;
+            k.subkey.serialize(o, Tag::PublicSubkey)?;
             for s in k.selfsigs.iter() {
-                signature_serialize(o, s)?;
+                s.serialize(o)?;
             }
             for s in k.certifications.iter() {
-                signature_serialize(o, s)?;
+                s.serialize(o)?;
             }
         }
         Ok(())

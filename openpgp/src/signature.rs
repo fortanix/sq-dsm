@@ -4,7 +4,6 @@ use std::cell::RefCell;
 use PacketCommon;
 use Signature;
 use Packet;
-use serialize::signature_serialize;
 
 impl fmt::Debug for Signature {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -49,17 +48,7 @@ impl PartialEq for Signature {
         }
 
         // Do a full check by serializing the fields.
-
-        // 4k should avoid reallocations most of the time.
-        let mut buffer = Vec::with_capacity(4096);
-
-        // Serializing to a vector can't fail.
-        signature_serialize(&mut buffer, self).unwrap();
-
-        let mut buffer2 = Vec::with_capacity(4096);
-        signature_serialize(&mut buffer2, other).unwrap();
-
-        return buffer == buffer2;
+        return self.to_vec() == other.to_vec();
     }
 }
 

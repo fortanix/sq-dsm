@@ -1,6 +1,5 @@
 use std::io;
 use std::cmp;
-use std::str;
 
 use super::*;
 
@@ -128,228 +127,318 @@ pub fn ctb_old(tag: Tag, l: BodyLength) -> u8 {
     0b1000_0000u8 | (tag << 2) | len_encoding
 }
 
-/// Writes a serialized version of the specified `Unknown` packet to
-/// `o`.
-pub fn unknown_serialize<W: io::Write>(o: &mut W, u: &Unknown)
-        -> Result<(), io::Error> {
-    let body = if let Some(ref body) = u.common.body {
-        &body[..]
-    } else {
-        &b""[..]
-    };
+impl Unknown {
+    /// Writes a serialized version of the specified `Unknown` packet
+    /// to `o`.
+    pub fn serialize<W: io::Write>(&self, o: &mut W)
+            -> Result<(), io::Error> {
+        let body = if let Some(ref body) = self.common.body {
+            &body[..]
+        } else {
+            &b""[..]
+        };
 
-    write_byte(o, ctb_new(u.tag))?;
-    o.write_all(&body_length_new_format(
-        BodyLength::Full(body.len() as u32))[..])?;
-    o.write_all(&body[..])?;
+        write_byte(o, ctb_new(self.tag))?;
+        o.write_all(&body_length_new_format(
+            BodyLength::Full(body.len() as u32))[..])?;
+        o.write_all(&body[..])?;
 
-    Ok(())
-}
-
-/// Writes a serialized version of the specified `Signature` packet to
-/// `o`.
-///
-/// Note: this function does not computer the signature (which would
-/// require access to the private key); it assumes that sig.mpis is up
-/// to date.
-pub fn signature_serialize<W: io::Write>(o: &mut W, sig: &Signature)
-        -> Result<(), io::Error> {
-    let len = 1 // version
-        + 1 // signature type.
-        + 1 // pk algorithm
-        + 1 // hash algorithm
-        + 2 // hashed area size
-        + sig.hashed_area.len()
-        + 2 // unhashed area size
-        + sig.unhashed_area.len()
-        + 2 // hash prefix
-        + sig.mpis.len();
-
-    write_byte(o, ctb_new(Tag::Signature))?;
-    o.write_all(&body_length_new_format(BodyLength::Full(len as u32))[..])?;
-
-    // XXX: Return an error.
-    assert_eq!(sig.version, 4);
-    write_byte(o, sig.version)?;
-    write_byte(o, sig.sigtype)?;
-    write_byte(o, sig.pk_algo)?;
-    write_byte(o, sig.hash_algo)?;
-
-    // XXX: Return an error.
-    assert!(sig.hashed_area.len() <= std::u16::MAX as usize);
-    write_be_u16(o, sig.hashed_area.len() as u16)?;
-    o.write_all(&sig.hashed_area[..])?;
-
-    // XXX: Return an error.
-    assert!(sig.unhashed_area.len() <= std::u16::MAX as usize);
-    write_be_u16(o, sig.unhashed_area.len() as u16)?;
-    o.write_all(&sig.unhashed_area[..])?;
-
-    write_byte(o, sig.hash_prefix[0])?;
-    write_byte(o, sig.hash_prefix[1])?;
-
-    o.write_all(&sig.mpis[..])?;
-
-    Ok(())
-}
-
-/// Writes a serialized version of the specified `Key` packet to
-/// `o`.
-pub fn key_serialize<W: io::Write>(o: &mut W, key: &Key, tag: Tag)
-        -> Result<(), io::Error> {
-    assert!(tag == Tag::PublicKey
-            || tag == Tag::PublicSubkey
-            || tag == Tag::SecretKey
-            || tag == Tag::SecretSubkey);
-
-    let len = 1 + 4 + 1 + key.mpis.len();
-
-    write_byte(o, ctb_new(tag))?;
-    o.write_all(&body_length_new_format(BodyLength::Full(len as u32))[..])?;
-
-    // XXX: Return an error.
-    assert_eq!(key.version, 4);
-    write_byte(o, key.version)?;
-    write_be_u32(o, key.creation_time)?;
-    write_byte(o, key.pk_algo)?;
-    o.write_all(&key.mpis[..])?;
-
-    Ok(())
-}
-
-/// Writes a serialized version of the specified `userID` packet to
-/// `o`.
-pub fn userid_serialize<W: io::Write>(o: &mut W, userid: &UserID)
-        -> Result<(), io::Error> {
-    let len = userid.value.len();
-
-    write_byte(o, ctb_old(Tag::UserID, BodyLength::Full(len as u32)))?;
-    o.write_all(&body_length_old_format(BodyLength::Full(len as u32))[..])?;
-    o.write_all(&userid.value[..])?;
-
-    Ok(())
-}
-
-/// Writes a serialized version of the `Literal` data packet to `o`.
-pub fn literal_serialize<W: io::Write>(o: &mut W, l: &Literal)
-        -> Result<(), io::Error> {
-    let body = if let Some(ref body) = l.common.body {
-        &body[..]
-    } else {
-        &b""[..]
-    };
-
-    if TRACE {
-        let prefix = &body[..cmp::min(body.len(), 20)];
-        eprintln!("literal_serialize({}{}, {} bytes)",
-                  String::from_utf8_lossy(prefix),
-                  if body.len() > 20 { "..." } else { "" },
-                  body.len());
+        Ok(())
     }
 
-    let filename = if let Some(ref filename) = l.filename {
-        let len = cmp::min(filename.len(), 255) as u8;
-        &filename[..len as usize]
-    } else {
-        &b""[..]
-    };
+    /// Serializes the packet to a vector.
+    pub fn to_vec(&self) -> Vec<u8> {
+        let mut o = Vec::with_capacity(4096);
+        // Writing to a vec can't fail.
+        self.serialize(&mut o).unwrap();
+        o
+    }
+}
 
-    let len = 1 + (1 + filename.len()) + 4 + body.len();
+impl Signature {
+    /// Writes a serialized version of the specified `Signature`
+    /// packet to `o`.
+    ///
+    /// Note: this function does not computer the signature (which
+    /// would require access to the private key); it assumes that
+    /// sig.mpis is up to date.
+    pub fn serialize<W: io::Write>(&self, o: &mut W)
+            -> Result<(), io::Error> {
+        let len = 1 // version
+            + 1 // signature type.
+            + 1 // pk algorithm
+            + 1 // hash algorithm
+            + 2 // hashed area size
+            + self.hashed_area.len()
+            + 2 // unhashed area size
+            + self.unhashed_area.len()
+            + 2 // hash prefix
+            + self.mpis.len();
 
-    write_byte(o, ctb_old(Tag::Literal, BodyLength::Full(len as u32)))?;
+        write_byte(o, ctb_new(Tag::Signature))?;
+        o.write_all(
+            &body_length_new_format(BodyLength::Full(len as u32))[..])?;
 
-    o.write_all(&body_length_old_format(BodyLength::Full(len as u32))[..])?;
+        // XXX: Return an error.
+        assert_eq!(self.version, 4);
+        write_byte(o, self.version)?;
+        write_byte(o, self.sigtype)?;
+        write_byte(o, self.pk_algo)?;
+        write_byte(o, self.hash_algo)?;
 
-    write_byte(o, l.format)?;
-    write_byte(o, filename.len() as u8)?;
-    o.write_all(filename)?;
-    write_be_u32(o, l.date)?;
-    o.write_all(body)?;
+        // XXX: Return an error.
+        assert!(self.hashed_area.len() <= std::u16::MAX as usize);
+        write_be_u16(o, self.hashed_area.len() as u16)?;
+        o.write_all(&self.hashed_area[..])?;
 
-    Ok(())
+        // XXX: Return an error.
+        assert!(self.unhashed_area.len() <= std::u16::MAX as usize);
+        write_be_u16(o, self.unhashed_area.len() as u16)?;
+        o.write_all(&self.unhashed_area[..])?;
+
+        write_byte(o, self.hash_prefix[0])?;
+        write_byte(o, self.hash_prefix[1])?;
+
+        o.write_all(&self.mpis[..])?;
+
+        Ok(())
+    }
+
+    /// Serializes the packet to a vector.
+    pub fn to_vec(&self) -> Vec<u8> {
+        let mut o = Vec::with_capacity(4096);
+        // Writing to a vec can't fail.
+        self.serialize(&mut o).unwrap();
+        o
+    }
+}
+
+impl Key {
+    /// Writes a serialized version of the specified `Key` packet to
+    /// `o`.
+    pub fn serialize<W: io::Write>(&self, o: &mut W, tag: Tag)
+            -> Result<(), io::Error> {
+        assert!(tag == Tag::PublicKey
+                || tag == Tag::PublicSubkey
+                || tag == Tag::SecretKey
+                || tag == Tag::SecretSubkey);
+
+        let len = 1 + 4 + 1 + self.mpis.len();
+
+        write_byte(o, ctb_new(tag))?;
+        o.write_all(&body_length_new_format(BodyLength::Full(len as u32))[..])?;
+
+        // XXX: Return an error.
+        assert_eq!(self.version, 4);
+        write_byte(o, self.version)?;
+        write_be_u32(o, self.creation_time)?;
+        write_byte(o, self.pk_algo)?;
+        o.write_all(&self.mpis[..])?;
+
+        Ok(())
+    }
+
+    /// Serializes the packet to a vector.
+    pub fn to_vec(&self, tag: Tag) -> Vec<u8> {
+        let mut o = Vec::with_capacity(4096);
+        // Writing to a vec can't fail.
+        self.serialize(&mut o, tag).unwrap();
+        o
+    }
+}
+
+impl UserID {
+    /// Writes a serialized version of the specified `userID` packet to
+    /// `o`.
+    pub fn serialize<W: io::Write>(&self, o: &mut W)
+            -> Result<(), io::Error> {
+        let len = self.value.len();
+
+        write_byte(o, ctb_old(Tag::UserID, BodyLength::Full(len as u32)))?;
+        o.write_all(&body_length_old_format(BodyLength::Full(len as u32))[..])?;
+        o.write_all(&self.value[..])?;
+
+        Ok(())
+    }
+
+    /// Serializes the packet to a vector.
+    pub fn to_vec(&self) -> Vec<u8> {
+        let mut o = Vec::with_capacity(16 + self.value.len());
+        // Writing to a vec can't fail.
+        self.serialize(&mut o).unwrap();
+        o
+    }
+}
+
+impl Literal {
+    /// Writes a serialized version of the `Literal` data packet to `o`.
+    pub fn serialize<W: io::Write>(&self, o: &mut W)
+            -> Result<(), io::Error> {
+        let body = if let Some(ref body) = self.common.body {
+            &body[..]
+        } else {
+            &b""[..]
+        };
+
+        if TRACE {
+            let prefix = &body[..cmp::min(body.len(), 20)];
+            eprintln!("literal_serialize({}{}, {} bytes)",
+                      String::from_utf8_lossy(prefix),
+                      if body.len() > 20 { "..." } else { "" },
+                      body.len());
+        }
+
+        let filename = if let Some(ref filename) = self.filename {
+            let len = cmp::min(filename.len(), 255) as u8;
+            &filename[..len as usize]
+        } else {
+            &b""[..]
+        };
+
+        let len = 1 + (1 + filename.len()) + 4 + body.len();
+
+        write_byte(o, ctb_old(Tag::Literal, BodyLength::Full(len as u32)))?;
+
+        o.write_all(&body_length_old_format(BodyLength::Full(len as u32))[..])?;
+
+        write_byte(o, self.format)?;
+        write_byte(o, filename.len() as u8)?;
+        o.write_all(filename)?;
+        write_be_u32(o, self.date)?;
+        o.write_all(body)?;
+
+        Ok(())
+    }
+
+    /// Serializes the packet to a vector.
+    pub fn to_vec(&self) -> Vec<u8> {
+        let mut o = Vec::with_capacity(
+            32 + self.common.body.as_ref().map(|b| b.len()).unwrap_or(0)
+            + self.filename.as_ref().map(|b| b.len()).unwrap_or(0));
+
+        // Writing to a vec can't fail.
+        self.serialize(&mut o).unwrap();
+        o
+    }
 }
 
-/// Writes a serialized version of the specified `CompressedData`
-/// packet to `o`.
-///
-/// This function works recursively: if the `CompressedData` packet
-/// contains any packets, they are also serialized.
-pub fn compressed_data_serialize<W: io::Write>(o: &mut W, cd: &CompressedData)
-        -> Result<(), io::Error> {
-    use flate2::Compression as FlateCompression;
-    use flate2::write::{DeflateEncoder, ZlibEncoder};
-    use bzip2::Compression as BzCompression;
-    use bzip2::write::BzEncoder;
+impl CompressedData {
+    /// Writes a serialized version of the specified `CompressedData`
+    /// packet to `o`.
+    ///
+    /// This function works recursively: if the `CompressedData` packet
+    /// contains any packets, they are also serialized.
+    pub fn serialize<W: io::Write>(&self, o: &mut W)
+            -> Result<(), io::Error> {
+        use flate2::Compression as FlateCompression;
+        use flate2::write::{DeflateEncoder, ZlibEncoder};
+        use bzip2::Compression as BzCompression;
+        use bzip2::write::BzEncoder;
 
-    if TRACE {
-        eprintln!("compress_data_serialize(algo: {}, {:?} children, {:?} bytes)",
-                  cd.algo,
-                  cd.common.children.as_ref().map(|cont| cont.children().len()),
-                  cd.common.body.as_ref().map(|body| body.len()));
+        if TRACE {
+            eprintln!("compress_data_serialize(\
+                       algo: {}, {:?} children, {:?} bytes)",
+                      self.algo,
+                      self.common.children.as_ref().map(
+                          |cont| cont.children().len()),
+                      self.common.body.as_ref().map(|body| body.len()));
+        }
+
+        // Packet header.
+        write_byte(o, ctb_new(Tag::CompressedData))?;
+        let mut o = PartialBodyFilter::new(o);
+
+        // Compressed data header.
+        write_byte(&mut o, self.algo)?;
+
+        // Create an appropriate filter.
+        let mut o : Box<io::Write> = match self.algo {
+            0 => Box::new(o),
+            1 => Box::new(DeflateEncoder::new(o, FlateCompression::default()))
+                    as Box<io::Write>,
+            2 => Box::new(ZlibEncoder::new(o, FlateCompression::default()))
+                    as Box<io::Write>,
+            3 => Box::new(BzEncoder::new(o, BzCompression::Default))
+                    as Box<io::Write>,
+            _ => unimplemented!(),
+        };
+
+        // Serialize the packets.
+        if let Some(ref children) = self.common.children {
+            for p in children.children() {
+                p.serialize(&mut o)?;
+            }
+        }
+
+        // Append the data.
+        if let Some(ref data) = self.common.body {
+            o.write_all(data)?;
+        }
+
+        Ok(())
     }
 
-    // Packet header.
-    write_byte(o, ctb_new(Tag::CompressedData))?;
-    let mut o = PartialBodyFilter::new(o);
+    /// Serializes the packet to a vector.
+    pub fn to_vec(&self) -> Vec<u8> {
+        let mut o = Vec::with_capacity(4 * 1024 * 1024);
 
-    // Compressed data header.
-    write_byte(&mut o, cd.algo)?;
+        // Writing to a vec can't fail.
+        self.serialize(&mut o).unwrap();
+        o.shrink_to_fit();
+        o
+    }
+}
 
-    // Create an appropriate filter.
-    let mut o : Box<io::Write> = match cd.algo {
-        0 => Box::new(o),
-        1 => Box::new(DeflateEncoder::new(o, FlateCompression::default()))
-                as Box<io::Write>,
-        2 => Box::new(ZlibEncoder::new(o, FlateCompression::default()))
-                as Box<io::Write>,
-        3 => Box::new(BzEncoder::new(o, BzCompression::Default))
-                as Box<io::Write>,
-        _ => unimplemented!(),
-    };
-
-    // Serialize the packets.
-    if let Some(ref children) = cd.common.children {
-        for p in children.children() {
-            packet_serialize(&mut o, p)?;
+impl Packet {
+    /// Writes a serialized version of the specified `Packet` to `o`.
+    ///
+    /// This function works recursively: if the packet contains any
+    /// packets, they are also serialized.
+    fn serialize<W: io::Write>(&self, o: &mut W)
+            -> Result<(), io::Error> {
+        let tag = self.tag();
+        match self {
+            &Packet::Unknown(ref p) => p.serialize(o),
+            &Packet::Signature(ref p) => p.serialize(o),
+            &Packet::PublicKey(ref p) => p.serialize(o, tag),
+            &Packet::PublicSubkey(ref p) => p.serialize(o, tag),
+            &Packet::SecretKey(ref p) => p.serialize(o, tag),
+            &Packet::SecretSubkey(ref p) => p.serialize(o, tag),
+            &Packet::UserID(ref p) => p.serialize(o),
+            &Packet::Literal(ref p) => p.serialize(o),
+            &Packet::CompressedData(ref p) => p.serialize(o),
         }
     }
 
-    // Append the data.
-    if let Some(ref data) = cd.common.body {
-        o.write_all(data)?;
-    }
+    /// Serializes the packet to a vector.
+    pub fn to_vec(&self) -> Vec<u8> {
+        let mut o = Vec::with_capacity(4 * 1024 * 1024);
 
-    Ok(())
-}
-
-/// Writes a serialized version of the specified `Packet` to `o`.
-///
-/// This function works recursively: if the packet contains any
-/// packets, they are also serialized.
-fn packet_serialize<W: io::Write>(o: &mut W, p: &Packet)
-        -> Result<(), io::Error> {
-    let tag = p.tag();
-    match p {
-        &Packet::Unknown(ref p) => unknown_serialize(o, p),
-        &Packet::Signature(ref p) => signature_serialize(o, p),
-        &Packet::PublicKey(ref p) => key_serialize(o, p, tag),
-        &Packet::PublicSubkey(ref p) => key_serialize(o, p, tag),
-        &Packet::SecretKey(ref p) => key_serialize(o, p, tag),
-        &Packet::SecretSubkey(ref p) => key_serialize(o, p, tag),
-        &Packet::UserID(ref p) => userid_serialize(o, p),
-        &Packet::Literal(ref p) => literal_serialize(o, p),
-        &Packet::CompressedData(ref p) => compressed_data_serialize(o, p),
+        // Writing to a vec can't fail.
+        self.serialize(&mut o).unwrap();
+        o.shrink_to_fit();
+        o
     }
 }
 
 impl Message {
     /// Writes a serialized version of the specified `Message` to `o`.
-    pub fn serialize<W: io::Write>(self, o: &mut W) -> Result<(), io::Error> {
+    pub fn serialize<W: io::Write>(&self, o: &mut W) -> Result<(), io::Error> {
         for p in self.children() {
-            packet_serialize(o, p)?;
+            p.serialize(o)?;
         }
 
         Ok(())
+    }
+
+    /// Serializes the packet to a vector.
+    pub fn to_vec(&self) -> Vec<u8> {
+        let mut o = Vec::with_capacity(4 * 1024 * 1024);
+
+        // Writing to a vec can't fail.
+        self.serialize(&mut o).unwrap();
+        o.shrink_to_fit();
+        o
     }
 }
 
@@ -480,19 +569,19 @@ mod serialize_test {
             let mut buffer = Vec::new();
             match po.unwrap() {
                 &Packet::Literal(ref l) => {
-                    literal_serialize(&mut buffer, l).unwrap();
+                    l.serialize(&mut buffer).unwrap();
                 },
                 &Packet::Signature(ref s) => {
-                    signature_serialize(&mut buffer, s).unwrap();
+                    s.serialize(&mut buffer).unwrap();
                 },
                 &Packet::PublicKey(ref pk) => {
-                    key_serialize(&mut buffer, pk, Tag::PublicKey).unwrap();
+                    pk.serialize(&mut buffer, Tag::PublicKey).unwrap();
                 },
                 &Packet::PublicSubkey(ref pk) => {
-                    key_serialize(&mut buffer, pk, Tag::PublicSubkey).unwrap();
+                    pk.serialize(&mut buffer, Tag::PublicSubkey).unwrap();
                 },
                 &Packet::UserID(ref userid) => {
-                    userid_serialize(&mut buffer, userid).unwrap();
+                    userid.serialize(&mut buffer).unwrap();
                 },
                 ref p => {
                     panic!("Didn't expect a {:?} packet.", p.tag());
@@ -528,8 +617,7 @@ mod serialize_test {
             let u = to_unknown_packet(&data[..]).unwrap();
 
             // 3. Serialize the packet it into a local buffer.
-            let mut data2 = Vec::new();
-            unknown_serialize(&mut data2, &u).unwrap();
+            let data2 = u.to_vec();
 
             // 4. Modulo the body length encoding, check that the
             // reserialized content is identical to the original data.
@@ -581,8 +669,7 @@ mod serialize_test {
             let po = m.descendants().next();
             if let Some(&Packet::CompressedData(ref cd)) = po {
                 // 4. Serialize the container.
-                let mut buffer = Vec::new();
-                compressed_data_serialize(&mut buffer, cd).unwrap();
+                let buffer = cd.to_vec();
 
                 // 5. Reparse it.
                 let m2 = PacketParserBuilder::from_bytes(&buffer[..]).unwrap()
