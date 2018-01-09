@@ -735,6 +735,17 @@ mod store_test {
     }
 
     #[test]
+    fn key_not_found() {
+        let ctx = core::Context::configure("org.sequoia-pgp.tests")
+            .ephemeral()
+            .network_policy(core::NetworkPolicy::Offline)
+            .build().unwrap();
+        let mut store = Store::open(&ctx, "default").unwrap();
+        let r = store.lookup("I do not exist");
+        assert_match!(Err(Error::NotFound) = r);
+    }
+
+    #[test]
     fn add_then_import_wrong_key() {
         let ctx = core::Context::configure("org.sequoia-pgp.tests")
             .ephemeral()

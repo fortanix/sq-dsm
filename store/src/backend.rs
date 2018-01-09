@@ -204,9 +204,15 @@ impl node::store::Server for StoreServer {
         let label = pry!(pry!(params.get()).get_label());
         let c = self.c.borrow();
 
-        let binding_id: i64 = sry!(c.query_row(
-            "SELECT id FROM bindings WHERE store = ?1 AND label = ?2",
-            &[&self.store_id, &label], |row| row.get(0)));
+        let binding_id: i64 = sry!(
+            c.query_row(
+                "SELECT id FROM bindings WHERE store = ?1 AND label = ?2",
+                &[&self.store_id, &label], |row| row.get(0))
+                .map_err(|e| match e {
+                    rusqlite::Error::QueryReturnedNoRows =>
+                        Error::NotFound,
+                    _ => Error::SqlError(e),
+                }));
 
         pry!(pry!(results.get().get_result()).set_ok(
             node::binding::ToClient::new(
