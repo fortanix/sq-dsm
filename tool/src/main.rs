@@ -10,11 +10,13 @@ use std::process::exit;
 extern crate openpgp;
 extern crate sequoia_core;
 extern crate sequoia_net;
+extern crate sequoia_store;
 
-use openpgp::armor;
+use openpgp::{armor, Fingerprint};
 use openpgp::tpk::TPK;
 use sequoia_core::{Context, Result, NetworkPolicy};
 use sequoia_net::KeyServer;
+use sequoia_store::Store;
 
 fn open_or_stdin(f: Option<&str>) -> Box<io::Read> {
     match f {
@@ -106,6 +108,50 @@ fn real_main() -> Result<()> {
                                      .long("dearmor")
                                      .short("A")
                                      .help("Remove ASCII Armor from input"))))
+        .subcommand(SubCommand::with_name("store")
+                    .about("Interacts with key stores")
+                    .arg(Arg::with_name("name").value_name("NAME")
+                         .required(true)
+                         .help("Name of the store"))
+                    .subcommand(SubCommand::with_name("add")
+                                .about("Add a key identified by fingerprint")
+                                .arg(Arg::with_name("label").value_name("LABEL")
+                                     .required(true)
+                                     .help("Label to use"))
+                                .arg(Arg::with_name("fingerprint").value_name("FINGERPRINT")
+                                     .required(true)
+                                     .help("Key to add")))
+                    .subcommand(SubCommand::with_name("import")
+                                .about("Imports a key")
+                                .arg(Arg::with_name("label").value_name("LABEL")
+                                     .required(true)
+                                     .help("Label to use"))
+                                .arg(Arg::with_name("input").value_name("FILE")
+                                     .long("input")
+                                     .short("i")
+                                     .help("Sets the input file to use"))
+                                .arg(Arg::with_name("dearmor")
+                                     .long("dearmor")
+                                     .short("A")
+                                     .help("Remove ASCII Armor from input")))
+                    .subcommand(SubCommand::with_name("export")
+                                .about("Exports a key")
+                                .arg(Arg::with_name("label").value_name("LABEL")
+                                     .required(true)
+                                     .help("Label to use"))
+                                .arg(Arg::with_name("output").value_name("FILE")
+                                     .long("output")
+                                     .short("o")
+                                     .help("Sets the output file to use"))
+                                .arg(Arg::with_name("armor")
+                                     .long("armor")
+                                     .short("A")
+                                     .help("Write armored data to file")))
+                    .subcommand(SubCommand::with_name("stats")
+                                .about("Get stats for the given label")
+                                .arg(Arg::with_name("label").value_name("LABEL")
+                                     .required(true)
+                                     .help("Label to use"))))
         .get_matches();
 
     let policy = match matches.value_of("policy") {
@@ -208,6 +254,59 @@ fn real_main() -> Result<()> {
                 },
                 _ => {
                     eprintln!("No keyserver subcommand given.");
+                    exit(1);
+                },
+            }
+        },
+        ("store",  Some(m)) => {
+            let mut store = Store::open(&ctx, m.value_of("name").unwrap())
+                .expect("Failed to open store");
+
+            match m.subcommand() {
+                ("add",  Some(m)) => {
+                    let fp = Fingerprint::from_hex(m.value_of("fingerprint").unwrap())
+                        .expect("Malformed fingerprint");
+                    store.add(m.value_of("label").unwrap(), &fp)
+                        .expect("Failed to add key");
+                },
+                ("import",  Some(m)) => {
+                    let mut input = open_or_stdin(m.value_of("input"));
+                    let mut input = if m.is_present("dearmor") {
+                        Box::new(armor::Reader::new(&mut input, armor::Kind::Any))
+                    } else {
+                        input
+                    };
+
+                    let tpk = TPK::from_reader(&mut input).
+                        expect("Malformed key");
+                    store.import(m.value_of("label").unwrap(), &tpk)
+                        .expect("Failed to import key");
+                },
+                ("export",  Some(m)) => {
+                    let tpk = store.lookup(m.value_of("label").unwrap())
+                        .expect("Failed to get the key")
+                        .tpk()
+                        .expect("Failed to get the key");
+
+                    let mut output = create_or_stdout(m.value_of("output"));
+                    let mut output = if m.is_present("armor") {
+                        Box::new(armor::Writer::new(&mut output, armor::Kind::PublicKey))
+                    } else {
+                        output
+                    };
+
+                    tpk.serialize(&mut output)
+                        .expect("Failed to write the key");
+                },
+                ("stats",  Some(m)) => {
+                    let binding = store.lookup(m.value_of("label").unwrap())
+                        .expect("Failed to get key");
+                    println!("Binding {:?}", binding.stats().expect("Failed to get stats"));
+                    let key = binding.key().expect("Failed to get key");
+                    println!("Key {:?}", key.stats().expect("Failed to get stats"));
+                },
+                _ => {
+                    eprintln!("No store subcommand given.");
                     exit(1);
                 },
             }

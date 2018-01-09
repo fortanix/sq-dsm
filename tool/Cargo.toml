@@ -7,6 +7,7 @@ authors = ["Justus Winter <justus@pep-project.org>"]
 openpgp = { path = "../openpgp" }
 sequoia-core = { path = "../core" }
 sequoia-net = { path = "../net" }
+sequoia-store = { path = "../store" }
 clap = "2.27.1"
 
 [[bin]]
