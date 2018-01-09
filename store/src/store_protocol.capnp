@@ -1,7 +1,7 @@
 @0xf4bd406fa822c9db;
 
 interface Node {
-  new @0 (home: Text, domain: Text, networkPolicy: NetworkPolicy, ephemeral: Bool, name: Text)
+  new @0 (domain: Text, networkPolicy: NetworkPolicy, ephemeral: Bool, name: Text)
          -> (result: Result(Store));
 
   interface Store {

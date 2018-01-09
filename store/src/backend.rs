@@ -1,7 +1,6 @@
 //! Storage backend.
 
 use std::cell::RefCell;
-use std::path::PathBuf;
 use std::rc::Rc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -53,7 +52,7 @@ impl ipc::Handler for Backend {
 
 
 struct NodeServer {
-    descriptor: ipc::Descriptor,
+    _descriptor: ipc::Descriptor,
     c: Rc<RefCell<Connection>>,
 }
 
@@ -67,7 +66,7 @@ impl NodeServer {
         c.execute_batch("PRAGMA foreign_keys = true;")?;
 
         Ok(NodeServer {
-            descriptor: descriptor,
+            _descriptor: descriptor,
             c: Rc::new(RefCell::new(c)),
         })
     }
@@ -80,10 +79,6 @@ impl node::Server for NodeServer {
            -> Promise<(), capnp::Error> {
         bind_results!(results);
         let params = pry!(params.get());
-        let home = pry!(params.get_home());
-        if PathBuf::from(home) != self.descriptor.home {
-            fail!(node::Error::Unspecified);
-        }
 
         // XXX maybe check ephemeral and use in-core sqlite db
 

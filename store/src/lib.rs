@@ -136,7 +136,6 @@ impl<'a> Store {
         handle.spawn(rpc_system.map_err(|_e| ()));
 
         let mut request = store.new_request();
-        request.get().set_home(&c.home().to_string_lossy());
         request.get().set_domain(c.domain());
         request.get().set_network_policy(c.network_policy().into());
         request.get().set_ephemeral(c.ephemeral());
