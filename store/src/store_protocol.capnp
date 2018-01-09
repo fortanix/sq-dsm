@@ -7,7 +7,7 @@ interface Node {
   interface Store {
     add @0 (label: Text, fingerprint: Text) -> (result: Result(Binding));
     lookup @1 (label: Text) -> (result: Result(Binding));
-    delete @2 ();
+    delete @2 () -> (result: Result(Unit));
     #iterate @3 (id: UInt32) -> (result: Result(Binding));
   }
 
@@ -15,7 +15,7 @@ interface Node {
     stats @0 () -> (result: Result(Stats));
     key @1 () -> (result: Result(Key));
     import @2 (key: Data, force: Bool) -> (result: Result(Data));
-    delete @3 ();
+    delete @3 () -> (result: Result(Unit));
     registerEncryption @4 () ->   (result: Result(Stats));
     registerVerification @5 () -> (result: Result(Stats));
   }
@@ -25,6 +25,9 @@ interface Node {
     tpk @1() -> (result: Result(Data));
     import @2 (key: Data) -> (result: Result(Data));
   }
+
+  # Unit struct.  Useful with Result.
+  struct Unit {}
 
   struct Stats {
     created @0 :Int64;

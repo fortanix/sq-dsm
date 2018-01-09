@@ -147,6 +147,14 @@ fn real_main() -> Result<()> {
                                      .long("armor")
                                      .short("A")
                                      .help("Write armored data to file")))
+                    .subcommand(SubCommand::with_name("delete")
+                                .about("Deletes bindings or stores")
+                                .arg(Arg::with_name("the-store")
+                                     .long("the-store")
+                                     .help("Delete the whole store"))
+                                .arg(Arg::with_name("label")
+                                     .value_name("LABEL")
+                                     .help("Delete binding with this label")))
                     .subcommand(SubCommand::with_name("stats")
                                 .about("Get stats for the given label")
                                 .arg(Arg::with_name("label").value_name("LABEL")
@@ -297,6 +305,20 @@ fn real_main() -> Result<()> {
 
                     tpk.serialize(&mut output)
                         .expect("Failed to write the key");
+                },
+                ("delete",  Some(m)) => {
+                    if m.is_present("label") == m.is_present("the-store") {
+                        eprintln!("Please specify either a label or --the-store.");
+                        exit(1);
+                    }
+
+                    if m.is_present("the-store") {
+                        store.delete().expect("Failed to delete the store");
+                    } else {
+                        let binding = store.lookup(m.value_of("label").unwrap())
+                            .expect("Failed to get key");
+                        binding.delete().expect("Failed to delete the binding");
+                    }
                 },
                 ("stats",  Some(m)) => {
                     let binding = store.lookup(m.value_of("label").unwrap())

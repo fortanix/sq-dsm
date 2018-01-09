@@ -212,6 +212,16 @@ impl node::store::Server for StoreServer {
                 .from_server::<capnp_rpc::Server>()));
         Promise::ok(())
     }
+
+    fn delete(&mut self,
+              _: node::store::DeleteParams,
+              mut results: node::store::DeleteResults)
+              -> Promise<(), capnp::Error> {
+        bind_results!(results);
+        sry!(self.c.borrow().execute("DELETE FROM stores WHERE id = ?1",
+                                     &[&self.id]));
+        Promise::ok(())
+    }
 }
 
 struct BindingServer {
@@ -325,6 +335,16 @@ impl node::binding::Server for BindingServer {
                       &[&blob, &key_id]));
 
         pry!(pry!(results.get().get_result()).set_ok(&blob[..]));
+        Promise::ok(())
+    }
+
+    fn delete(&mut self,
+              _: node::binding::DeleteParams,
+              mut results: node::binding::DeleteResults)
+              -> Promise<(), capnp::Error> {
+        bind_results!(results);
+        sry!(self.c.borrow().execute("DELETE FROM bindings WHERE id = ?1",
+                                     &[&self.id]));
         Promise::ok(())
     }
 
@@ -531,8 +551,8 @@ CREATE TABLE bindings (
     verification_last DEFAULT 0,
 
     UNIQUE(store, label),
-    FOREIGN KEY (store) REFERENCES stores(id),
-    FOREIGN KEY (key) REFERENCES keys(id));
+    FOREIGN KEY (store) REFERENCES stores(id) ON DELETE CASCADE,
+    FOREIGN KEY (key) REFERENCES keys(id) ON DELETE CASCADE);
 
 CREATE TABLE keys (
     id INTEGER PRIMARY KEY,

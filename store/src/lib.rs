@@ -237,6 +237,37 @@ impl Store {
         let binding = make_request!(self.core.borrow_mut(), request)?;
         Ok(Binding::new(self, label, binding))
     }
+
+    /// Deletes this store.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # extern crate openpgp;
+    /// # #[macro_use] extern crate sequoia_core;
+    /// # extern crate sequoia_store;
+    /// # use openpgp::Fingerprint;
+    /// # use sequoia_core::Context;
+    /// # use sequoia_store::{Store, Result, Error};
+    /// # fn main() { f().unwrap(); }
+    /// # fn f() -> Result<()> {
+    /// # let ctx = Context::configure("org.sequoia-pgp.demo.store")
+    /// #     .ephemeral().build()?;
+    /// let store = Store::open(&ctx, "default")?;
+    /// let fp = Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb");
+    /// store.add("Mister B.", &fp)?;
+    /// store.delete()?;
+    /// // ...
+    /// let store = Store::open(&ctx, "default")?;
+    /// let binding = store.lookup("Mister B.");
+    /// assert_match!(Err(Error::NotFound) = binding);
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn delete(self) -> Result<()> {
+        let request = self.store.delete_request();
+        make_request_map!(self.core.borrow_mut(), request, |_| Ok(()))
+    }
 }
 
 /// Represents an entry in a Store.
@@ -424,6 +455,35 @@ impl<'a> Binding<'a> {
             |data| TPK::from_bytes(data).map_err(|e| e.into()))
     }
 
+    /// Deletes this binding.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # extern crate openpgp;
+    /// # #[macro_use] extern crate sequoia_core;
+    /// # extern crate sequoia_store;
+    /// # use openpgp::Fingerprint;
+    /// # use sequoia_core::Context;
+    /// # use sequoia_store::{Store, Result, Error};
+    /// # fn main() { f().unwrap(); }
+    /// # fn f() -> Result<()> {
+    /// # let ctx = Context::configure("org.sequoia-pgp.demo.store")
+    /// #     .ephemeral().build()?;
+    /// let store = Store::open(&ctx, "default")?;
+    /// let fp = Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb");
+    /// let binding = store.add("Mister B.", &fp)?;
+    /// binding.delete()?;
+    /// let binding = store.lookup("Mister B.");
+    /// assert_match!(Err(Error::NotFound) = binding);
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn delete(self) -> Result<()> {
+        let request = self.binding.delete_request();
+        make_request_map!(self.store.core.borrow_mut(), request, |_| Ok(()))
+    }
+
     fn register_encryption(&self) -> Result<Stats> {
         #![allow(dead_code)]     // XXX use
         make_stats_request!(
@@ -446,6 +506,12 @@ impl<'a> Binding<'a> {
 pub struct Key<'a> {
     store: &'a Store,
     key: node::key::Client,
+}
+
+impl<'a> fmt::Debug for Key<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Key {{ }}")
+    }
 }
 
 impl<'a> Key<'a> {
@@ -699,6 +765,64 @@ mod store_test {
         let binding = store.add("Mister B.", &fp).unwrap();
         let r = binding.import(&tpk);
         assert_match!(Err(Error::Conflict) = r);
+    }
+
+
+    #[test]
+    fn delete_store_twice() {
+        let ctx = core::Context::configure("org.sequoia-pgp.tests")
+            .ephemeral()
+            .network_policy(core::NetworkPolicy::Offline)
+            .build().unwrap();
+        let s0 = Store::open(&ctx, "default").unwrap();
+        let s1 = Store::open(&ctx, "default").unwrap();
+        s0.delete().unwrap();
+        s1.delete().unwrap();
+    }
+
+    #[test]
+    fn delete_store_then_use() {
+        let ctx = core::Context::configure("org.sequoia-pgp.tests")
+            .ephemeral()
+            .network_policy(core::NetworkPolicy::Offline)
+            .build().unwrap();
+        let s0 = Store::open(&ctx, "default").unwrap();
+        let s1 = Store::open(&ctx, "default").unwrap();
+        s0.delete().unwrap();
+        let binding = s1.lookup("Foobarbaz");
+        assert_match!(Err(Error::NotFound) = binding);
+        let fp = Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb");
+        let binding = s1.add("Mister B.", &fp);
+        assert_match!(Err(Error::NotFound) = binding);
+    }
+
+    #[test]
+    fn delete_binding_twice() {
+        let ctx = core::Context::configure("org.sequoia-pgp.tests")
+            .ephemeral()
+            .network_policy(core::NetworkPolicy::Offline)
+            .build().unwrap();
+        let store = Store::open(&ctx, "default").unwrap();
+        let fp = Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb");
+        let b0 = store.add("Mister B.", &fp).unwrap();
+        let b1 = store.lookup("Mister B.").unwrap();
+        b0.delete().unwrap();
+        b1.delete().unwrap();
+    }
+
+    #[test]
+    fn delete_binding_then_use() {
+        let ctx = core::Context::configure("org.sequoia-pgp.tests")
+            .ephemeral()
+            .network_policy(core::NetworkPolicy::Offline)
+            .build().unwrap();
+        let store = Store::open(&ctx, "default").unwrap();
+        let fp = Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb");
+        let b0 = store.add("Mister B.", &fp).unwrap();
+        let b1 = store.lookup("Mister B.").unwrap();
+        b0.delete().unwrap();
+        assert_match!(Err(Error::NotFound) = b1.stats());
+        assert_match!(Err(Error::NotFound) = b1.key());
     }
 }
 
