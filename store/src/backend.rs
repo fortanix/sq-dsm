@@ -459,9 +459,9 @@ INSERT INTO version (id, version) VALUES (1, 1);
 
 CREATE TABLE stores (
     id INTEGER PRIMARY KEY,
-    domain TEXT,
+    domain TEXT NOT NULL,
     network_policy INTEGER NOT NULL,
-    name TEXT,
+    name TEXT NOT NULL,
     UNIQUE (domain, name));
 
 CREATE TABLE bindings (
