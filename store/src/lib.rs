@@ -7,7 +7,14 @@
 //!
 //! # Security considerations
 //!
-//! XXX
+//! Storing public keys potentially leaks communication partners.
+//! Protecting against adversaries inspecting the local storage is out
+//! of scope for Sequoia.  Please take the necessary precautions.
+//!
+//! Sequoia updates keys in compliance with the [network policy] used
+//! to create the store.
+//!
+//! [network policy]: ../sequoia_core/enum.NetworkPolicy.html
 //!
 //! # Example
 //!
@@ -58,11 +65,14 @@ use futures::{Future};
 use tokio_core::reactor::Core;
 
 extern crate openpgp;
+#[allow(unused_imports)]
+#[macro_use]
 extern crate sequoia_core;
 extern crate sequoia_net;
 
 use openpgp::Fingerprint;
 use openpgp::tpk::{self, TPK};
+use sequoia_core as core;
 use sequoia_core::Context;
 use sequoia_net::ipc;
 
@@ -106,6 +116,11 @@ impl<'a> Store {
     /// exist, it is created.  Stores are handles for objects
     /// maintained by a background service.  The background service
     /// associates state with this name.
+    ///
+    /// The store updates TPKs in compliance with the network policy
+    /// of the context that created the store in the first place.
+    /// Opening the store with a different network policy is
+    /// forbidden.
     pub fn open(c: &Context, name: &str) -> Result<Self> {
         let descriptor = descriptor(c);
         let mut core = tokio_core::reactor::Core::new()?;
@@ -123,6 +138,7 @@ impl<'a> Store {
         let mut request = store.new_request();
         request.get().set_home(&c.home().to_string_lossy());
         request.get().set_domain(c.domain());
+        request.get().set_network_policy(c.network_policy().into());
         request.get().set_ephemeral(c.ephemeral());
         request.get().set_name(name);
 
@@ -553,6 +569,8 @@ impl Stamps {
 /// Results for sequoia-store.
 pub type Result<T> = ::std::result::Result<T, Error>;
 
+/* Debug formatting and conversion from and to node::Error.  */
+
 impl fmt::Debug for node::Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "node::Error::{}",
@@ -562,6 +580,14 @@ impl fmt::Debug for node::Error {
                    &node::Error::Conflict => "Conflict",
                    &node::Error::SystemError => "SystemError",
                    &node::Error::MalformedKey => "MalformedKey",
+                   &node::Error::NetworkPolicyViolationOffline =>
+                       "NetworkPolicyViolation(Offline)",
+                   &node::Error::NetworkPolicyViolationAnonymized =>
+                       "NetworkPolicyViolation(Anonymized)",
+                   &node::Error::NetworkPolicyViolationEncrypted =>
+                       "NetworkPolicyViolation(Encrypted)",
+                   &node::Error::NetworkPolicyViolationInsecure =>
+                       "NetworkPolicyViolation(Insecure)",
                })
     }
 }
@@ -571,7 +597,19 @@ impl From<Error> for node::Error {
         match error {
             Error::NotFound => node::Error::NotFound,
             Error::Conflict => node::Error::Conflict,
-            Error::CoreError(_) => node::Error::SystemError,
+            Error::CoreError(e) => match e {
+                core::Error::NetworkPolicyViolation(p) => match p {
+                    core::NetworkPolicy::Offline =>
+                        node::Error::NetworkPolicyViolationOffline,
+                    core::NetworkPolicy::Anonymized =>
+                        node::Error::NetworkPolicyViolationAnonymized,
+                    core::NetworkPolicy::Encrypted =>
+                        node::Error::NetworkPolicyViolationEncrypted,
+                    core::NetworkPolicy::Insecure =>
+                        node::Error::NetworkPolicyViolationInsecure,
+                }
+                _ => node::Error::SystemError,
+            },
             Error::IoError(_) => node::Error::SystemError,
             Error::StoreError(_) => node::Error::SystemError,
             Error::ProtocolError => node::Error::SystemError,
@@ -579,6 +617,23 @@ impl From<Error> for node::Error {
             Error::TpkError(_) => node::Error::SystemError,
             Error::RpcError(_) => node::Error::SystemError,
             Error::SqlError(_) => node::Error::SystemError,
+        }
+    }
+}
+
+impl From<node::Error> for Error {
+    fn from(error: node::Error) -> Self {
+        match error {
+            node::Error::Conflict => Error::Conflict,
+            node::Error::NetworkPolicyViolationOffline =>
+                core::Error::NetworkPolicyViolation(core::NetworkPolicy::Offline).into(),
+            node::Error::NetworkPolicyViolationAnonymized =>
+                core::Error::NetworkPolicyViolation(core::NetworkPolicy::Anonymized).into(),
+            node::Error::NetworkPolicyViolationEncrypted =>
+                core::Error::NetworkPolicyViolation(core::NetworkPolicy::Encrypted).into(),
+            node::Error::NetworkPolicyViolationInsecure =>
+                core::Error::NetworkPolicyViolation(core::NetworkPolicy::Insecure).into(),
+            _ => Error::StoreError(error.into()),
         }
     }
 }
@@ -595,7 +650,7 @@ pub enum Error {
     CoreError(sequoia_core::Error),
     /// An `io::Error` occurred.
     IoError(io::Error),
-    /// xxx
+    /// XXX: This is a catch-all, and should go away soon.
     StoreError(node::Error),
     /// A protocol error occurred.
     ProtocolError,
@@ -612,15 +667,6 @@ pub enum Error {
 impl From<sequoia_core::Error> for Error {
     fn from(error: sequoia_core::Error) -> Self {
         Error::CoreError(error)
-    }
-}
-
-impl From<node::Error> for Error {
-    fn from(error: node::Error) -> Self {
-        match error {
-            node::Error::Conflict => Error::Conflict,
-            _ => Error::StoreError(error.into()),
-        }
     }
 }
 
@@ -652,3 +698,26 @@ impl From<rusqlite::Error> for Error {
         Error::SqlError(error)
     }
 }
+
+#[cfg(test)]
+mod store_test {
+    use super::{core, Store, Error};
+
+    #[test]
+    fn store_network_policy_mismatch() {
+        let ctx = core::Context::configure("org.sequoia-pgp.tests")
+            .ephemeral()
+            .network_policy(core::NetworkPolicy::Offline)
+            .build().unwrap();
+        // Create store.
+        Store::open(&ctx, "default").unwrap();
+
+        let ctx2 = core::Context::configure("org.sequoia-pgp.tests")
+            .home(ctx.home())
+            .network_policy(core::NetworkPolicy::Encrypted)
+            .build().unwrap();
+        let store = Store::open(&ctx2, "default");
+        assert_match!(Err(Error::CoreError(core::Error::NetworkPolicyViolation(_))) = store);
+    }
+}
+

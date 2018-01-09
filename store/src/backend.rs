@@ -15,10 +15,11 @@ use tokio_core;
 use tokio_io::io::ReadHalf;
 
 use openpgp::tpk::{self, TPK};
+use sequoia_core as core;
 use sequoia_net::ipc;
 
 use store_protocol_capnp::node;
-use super::Result;
+use super::{Result, Error};
 
 /// Makes backends.
 #[doc(hidden)]
@@ -88,6 +89,7 @@ impl node::Server for NodeServer {
 
         let store = sry!(StoreServer::new(self.c.clone(),
                                           pry!(params.get_domain()),
+                                          pry!(params.get_network_policy()).into(),
                                           pry!(params.get_name())));
         pry!(pry!(results.get().get_result()).set_ok(
             node::store::ToClient::new(store).from_server::<capnp_rpc::Server>()));
@@ -101,7 +103,8 @@ struct StoreServer {
 }
 
 impl StoreServer {
-    fn new(c: Rc<RefCell<Connection>>, domain: &str, name: &str) -> Result<Self> {
+    fn new(c: Rc<RefCell<Connection>>, domain: &str, policy: core::NetworkPolicy, name: &str)
+           -> Result<Self> {
         let mut server = StoreServer {
             c: c,
             store_id: 0,
@@ -109,12 +112,29 @@ impl StoreServer {
 
         {
             let c = server.c.borrow();
+
+            // We cannot implement ToSql and friends for
+            // core::NetworkPolicy, hence we need to do it by foot.
+            let p: u8 = (&policy).into();
+
             c.execute(
-                "INSERT OR IGNORE INTO stores (domain, name) VALUES (?1, ?2)",
-                &[&domain, &name])?;
-            server.store_id = c.query_row(
-                "SELECT id FROM stores WHERE domain = ?1 AND name = ?2",
-                &[&domain, &name], |row| row.get(0))?;
+                "INSERT OR IGNORE INTO stores (domain, network_policy, name) VALUES (?1, ?2, ?3)",
+                &[&domain, &p, &name])?;
+            let (id, store_policy): (i64, i64) = c.query_row(
+                "SELECT id, network_policy FROM stores WHERE domain = ?1 AND name = ?2",
+                &[&domain, &name], |row| (row.get(0), row.get(1)))?;
+
+            // We cannot implement FromSql and friends for
+            // core::NetworkPolicy, hence we need to do it by foot.
+            if store_policy < 0 || store_policy > 3 {
+                return Err(Error::ValueError);
+            }
+            let store_policy = core::NetworkPolicy::from(store_policy as u8);
+
+            if store_policy != policy {
+                return Err(core::Error::NetworkPolicyViolation(store_policy).into())
+            }
+            server.store_id = id;
         }
 
         Ok(server)
@@ -440,6 +460,7 @@ INSERT INTO version (id, version) VALUES (1, 1);
 CREATE TABLE stores (
     id INTEGER PRIMARY KEY,
     domain TEXT,
+    network_policy INTEGER NOT NULL,
     name TEXT,
     UNIQUE (domain, name));
 
@@ -524,4 +545,26 @@ fn compute_stats(q: &mut Query, mut stats: node::stats::Builder) -> Result<()> {
     stats.set_verification_first(verification_first);
     stats.set_verification_last(verification_last);
     Ok(())
+}
+
+impl<'a> From<&'a core::NetworkPolicy> for node::NetworkPolicy {
+    fn from(policy: &core::NetworkPolicy) -> Self {
+        match policy {
+            &core::NetworkPolicy::Offline    => node::NetworkPolicy::Offline,
+            &core::NetworkPolicy::Anonymized => node::NetworkPolicy::Anonymized,
+            &core::NetworkPolicy::Encrypted  => node::NetworkPolicy::Encrypted,
+            &core::NetworkPolicy::Insecure   => node::NetworkPolicy::Insecure,
+        }
+    }
+}
+
+impl From<node::NetworkPolicy> for core::NetworkPolicy {
+    fn from(policy: node::NetworkPolicy) -> Self {
+        match policy {
+            node::NetworkPolicy::Offline    => core::NetworkPolicy::Offline,
+            node::NetworkPolicy::Anonymized => core::NetworkPolicy::Anonymized,
+            node::NetworkPolicy::Encrypted  => core::NetworkPolicy::Encrypted,
+            node::NetworkPolicy::Insecure   => core::NetworkPolicy::Insecure,
+        }
+    }
 }

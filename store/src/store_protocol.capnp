@@ -1,7 +1,8 @@
 @0xf4bd406fa822c9db;
 
 interface Node {
-  new @0 (home: Text, domain: Text, ephemeral: Bool, name: Text) -> (result: Result(Store));
+  new @0 (home: Text, domain: Text, networkPolicy: NetworkPolicy, ephemeral: Bool, name: Text)
+         -> (result: Result(Store));
 
   interface Store {
     add @0 (label: Text, fingerprint: Text) -> (result: Result(Binding));
@@ -36,12 +37,23 @@ interface Node {
     verificationLast  @7 :Int64;
   }
 
+  enum NetworkPolicy {
+    offline @0;
+    anonymized @1;
+    encrypted @2;
+    insecure @3;
+  }
+
   enum Error {
     unspecified @0;
     notFound @1;
     conflict @2;
     systemError @3;
     malformedKey @4;
+    networkPolicyViolationOffline @5;
+    networkPolicyViolationAnonymized @6;
+    networkPolicyViolationEncrypted @7;
+    networkPolicyViolationInsecure @8;
   }
 
   struct Result(T) {
