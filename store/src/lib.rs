@@ -48,6 +48,7 @@ extern crate tokio_core;
 extern crate tokio_io;
 
 use std::cell::RefCell;
+use std::fmt;
 use std::io;
 use std::time::{SystemTime, Duration, UNIX_EPOCH};
 
@@ -87,8 +88,15 @@ pub fn descriptor(c: &Context) -> ipc::Descriptor {
 
 /// A public key store.
 pub struct Store {
+    name: String,
     core: RefCell<Core>,
     store: node::store::Client,
+}
+
+impl fmt::Debug for Store {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Store {{ name: {} }}", self.name)
+    }
 }
 
 impl<'a> Store {
@@ -119,7 +127,7 @@ impl<'a> Store {
         request.get().set_name(name);
 
         let store = make_request!(&mut core, request)?;
-        Ok(Store{core: RefCell::new(core), store: store})
+        Ok(Store{name: name.into(), core: RefCell::new(core), store: store})
     }
 
     /// Adds a key identified by fingerprint to the store.
@@ -545,7 +553,6 @@ impl Stamps {
 /// Results for sequoia-store.
 pub type Result<T> = ::std::result::Result<T, Error>;
 
-use std::fmt;
 impl fmt::Debug for node::Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "node::Error::{}",
