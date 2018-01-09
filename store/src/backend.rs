@@ -276,37 +276,46 @@ impl node::binding::Server for BindingServer {
         bind_results!(results);
         let force = pry!(params.get()).get_force();
 
+        // This is the key to import.
         let mut new = sry!(TPK::from_bytes(&pry!(pry!(params.get()).get_key())));
 
+        // Check in the database for the current key.
         let key_id = sry!(self.key_id());
         let (fingerprint, key): (String, Option<Vec<u8>>)
             = sry!(self.c.borrow().query_row(
                 "SELECT fingerprint, key FROM keys WHERE id = ?1",
                 &[&key_id],
                 |row| (row.get(0), row.get_checked(1).ok())));
-        if let Some(current) = key {
-            let current = sry!(TPK::from_bytes(&current));
 
+        // If we found one, convert it to TPK.
+        let current = if let Some(current) = key {
+            let current = sry!(TPK::from_bytes(&current));
             if current.fingerprint().to_hex() != fingerprint {
                 // Inconsistent database.
                 fail!(node::Error::SystemError);
             }
+            Some(current)
+        } else {
+            None
+        };
 
-            if current.fingerprint() != new.fingerprint() {
-                if force || new.is_signed_by(&current) {
-                    // Update binding, and retry.
-                    let key_id =
-                        sry!(get_key_id(&self.c.borrow(), new.fingerprint().to_hex().as_ref()));
-                    sry!(self.c.borrow()
-                         .execute("UPDATE bindings SET key = ?1 WHERE id = ?2",
-                                  &[&key_id, &self.id]));
-                    return self.import(params, results);
-                } else {
-                    fail!(node::Error::Conflict);
-                }
+        // Check for conflicts.
+        if new.fingerprint().to_hex() != fingerprint {
+            if force || (current.is_some() && new.is_signed_by(&current.unwrap())) {
+                // Update binding, and retry.
+                let key_id =
+                    sry!(get_key_id(&self.c.borrow(), new.fingerprint().to_hex().as_ref()));
+                sry!(self.c.borrow()
+                     .execute("UPDATE bindings SET key = ?1 WHERE id = ?2",
+                              &[&key_id, &self.id]));
+                return self.import(params, results);
             } else {
-                new = sry!(current.merge(new));
+                fail!(node::Error::Conflict);
             }
+        }
+
+        if current.is_some() {
+            new = sry!(current.unwrap().merge(new));
         }
 
         // Write key back to the database.

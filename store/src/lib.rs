@@ -704,7 +704,11 @@ impl From<rusqlite::Error> for Error {
 
 #[cfg(test)]
 mod store_test {
-    use super::{core, Store, Error};
+    use super::{core, Store, Error, TPK, Fingerprint};
+
+    macro_rules! bytes {
+        ( $x:expr ) => { include_bytes!(concat!("../../openpgp/tests/data/keys/", $x)) };
+    }
 
     #[test]
     fn store_network_policy_mismatch() {
@@ -721,6 +725,20 @@ mod store_test {
             .build().unwrap();
         let store = Store::open(&ctx2, "default");
         assert_match!(Err(Error::CoreError(core::Error::NetworkPolicyViolation(_))) = store);
+    }
+
+    #[test]
+    fn add_then_import_wrong_key() {
+        let ctx = core::Context::configure("org.sequoia-pgp.tests")
+            .ephemeral()
+            .network_policy(core::NetworkPolicy::Offline)
+            .build().unwrap();
+        let mut store = Store::open(&ctx, "default").unwrap();
+        let tpk = TPK::from_bytes(bytes!("testy.pgp")).unwrap();
+        let fp = Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb");
+        let binding = store.add("Mister B.", &fp).unwrap();
+        let r = binding.import(&tpk);
+        assert_match!(Err(Error::Conflict) = r);
     }
 }
 
