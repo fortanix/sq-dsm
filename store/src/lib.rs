@@ -171,7 +171,7 @@ impl<'a> Store {
         request.get().set_label(label);
         request.get().set_fingerprint(fingerprint.to_hex().as_ref());
         let binding = make_request!(self.core.borrow_mut(), request)?;
-        Ok(Binding::new(self, binding))
+        Ok(Binding::new(self, label, binding))
     }
 
     /// Imports a key into the store.
@@ -202,7 +202,7 @@ impl<'a> Store {
         request.get().set_label(label);
         request.get().set_fingerprint(fingerprint.to_hex().as_ref());
         let binding = make_request!(self.core.borrow_mut(), request)?;
-        let binding = Binding::new(self, binding);
+        let binding = Binding::new(self, label, binding);
         binding.import(tpk)
     }
 
@@ -235,7 +235,7 @@ impl<'a> Store {
         let mut request = self.store.lookup_request();
         request.get().set_label(label);
         let binding = make_request!(self.core.borrow_mut(), request)?;
-        Ok(Binding::new(self, binding))
+        Ok(Binding::new(self, label, binding))
     }
 }
 
@@ -245,13 +245,20 @@ impl<'a> Store {
 /// relation.  We make this explicit because we associate metadata
 /// with these pairs.
 pub struct Binding<'a> {
+    label: String,
     store: &'a Store,
     binding: node::binding::Client,
 }
 
+impl<'a> fmt::Debug for Binding<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Binding {{ label: {} }}", self.label)
+    }
+}
+
 impl<'a> Binding<'a> {
-    fn new(store: &'a Store, binding: node::binding::Client) -> Self {
-        Binding{store: store, binding: binding}
+    fn new(store: &'a Store, label: &str, binding: node::binding::Client) -> Self {
+        Binding{label: label.into(), store: store, binding: binding}
     }
 
     /// Returns stats for this binding.
