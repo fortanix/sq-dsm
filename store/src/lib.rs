@@ -143,7 +143,52 @@ impl Store {
         request.get().set_name(name);
 
         let store = make_request!(&mut core, request)?;
-        Ok(Store{name: name.into(), core: Rc::new(RefCell::new(core)), store: store})
+        Ok(Self::new(Rc::new(RefCell::new(core)), name, store))
+    }
+
+    fn new(core: Rc<RefCell<Core>>, name: &str, store: node::store::Client) -> Self {
+        Store{core: core, name: name.into(), store: store}
+    }
+
+    /// Lists all stores with the given prefix.
+    pub fn list(c: &Context, domain_prefix: &str) -> Result<StoreIter> {
+        let descriptor = descriptor(c);
+        let mut core = Core::new()?;
+        let handle = core.handle();
+
+        let mut rpc_system
+            = match descriptor.connect(&handle) {
+                Ok(r) => r,
+                Err(e) => return Err(e.into()),
+            };
+
+        let node: node::Client = rpc_system.bootstrap(Side::Server);
+        handle.spawn(rpc_system.map_err(|_e| ()));
+
+        let mut request = node.iter_request();
+        request.get().set_domain_prefix(domain_prefix);
+        let iter = make_request!(&mut core, request)?;
+        Ok(StoreIter{core: Rc::new(RefCell::new(core)), iter: iter})
+    }
+
+    /// Lists all keys in the common key pool.
+    pub fn list_keys(c: &Context) -> Result<KeyIter> {
+        let descriptor = descriptor(c);
+        let mut core = Core::new()?;
+        let handle = core.handle();
+
+        let mut rpc_system
+            = match descriptor.connect(&handle) {
+                Ok(r) => r,
+                Err(e) => return Err(e.into()),
+            };
+
+        let node: node::Client = rpc_system.bootstrap(Side::Server);
+        handle.spawn(rpc_system.map_err(|_e| ()));
+
+        let request = node.iter_keys_request();
+        let iter = make_request!(&mut core, request)?;
+        Ok(KeyIter{core: Rc::new(RefCell::new(core)), iter: iter})
     }
 
     /// Adds a key identified by fingerprint to the store.
@@ -268,6 +313,13 @@ impl Store {
     pub fn delete(self) -> Result<()> {
         let request = self.store.delete_request();
         make_request_map!(self.core.borrow_mut(), request, |_| Ok(()))
+    }
+
+    /// Lists all bindings.
+    pub fn iter(&self) -> Result<BindingIter> {
+        let request = self.store.iter_request();
+        let iter = make_request!(self.core.borrow_mut(), request)?;
+        Ok(BindingIter{core: self.core.clone(), iter: iter})
     }
 }
 
@@ -637,6 +689,115 @@ impl Stamps {
     }
 }
 
+/* Iterators.  */
+
+/// Iterates over stores.
+pub struct StoreIter {
+    core: Rc<RefCell<Core>>,
+    iter: node::store_iter::Client,
+}
+
+/// Items returned by `StoreIter`.
+#[derive(Debug)]
+pub struct StoreIterItem {
+    pub domain: String,
+    pub name: String,
+    pub network_policy: core::NetworkPolicy,
+    pub entries: usize,
+    pub store: Store,
+}
+
+impl Iterator for StoreIter {
+    type Item = StoreIterItem;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let request = self.iter.next_request();
+        let doit = || {
+            make_request_map!(
+                self.core.borrow_mut(), request,
+                |r: node::store_iter::item::Reader|
+                Ok(StoreIterItem{
+                    domain: r.get_domain()?.into(),
+                    name: r.get_name()?.into(),
+                    network_policy: r.get_network_policy()?.into(),
+                    entries: r.get_entries() as usize,
+                    store: Store::new(self.core.clone(), r.get_name()?, r.get_store()?),
+                }))
+        };
+        doit().ok()
+    }
+}
+
+/// Iterates over bindings in a store.
+pub struct BindingIter {
+    core: Rc<RefCell<Core>>,
+    iter: node::binding_iter::Client,
+}
+
+/// Items returned by `BindingIter`.
+#[derive(Debug)]
+pub struct BindingIterItem {
+    pub label: String,
+    pub fingerprint: openpgp::Fingerprint,
+    pub binding: Binding,
+}
+
+impl Iterator for BindingIter {
+    type Item = BindingIterItem;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let request = self.iter.next_request();
+        let doit = || {
+            make_request_map!(
+                self.core.borrow_mut(), request,
+                |r: node::binding_iter::item::Reader| {
+                    let label = String::from(r.get_label()?);
+                    let binding = Binding::new(self.core.clone(), &label, r.get_binding()?);
+                    Ok(BindingIterItem{
+                        label: label,
+                        fingerprint: openpgp::Fingerprint::from_hex(r.get_fingerprint()?).unwrap(),
+                        binding: binding,
+                    })
+                })
+        };
+        doit().ok()
+    }
+}
+
+/// Iterates over keys in the common key pool.
+pub struct KeyIter {
+    core: Rc<RefCell<Core>>,
+    iter: node::key_iter::Client,
+}
+
+/// Items returned by `KeyIter`.
+#[derive(Debug)]
+pub struct KeyIterItem {
+    pub fingerprint: openpgp::Fingerprint,
+    pub bindings: usize,
+    pub key: Key,
+}
+
+impl Iterator for KeyIter {
+    type Item = KeyIterItem;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let request = self.iter.next_request();
+        let doit = || {
+            make_request_map!(
+                self.core.borrow_mut(), request,
+                |r: node::key_iter::item::Reader| {
+                    Ok(KeyIterItem{
+                        fingerprint: openpgp::Fingerprint::from_hex(r.get_fingerprint()?).unwrap(),
+                        bindings: r.get_bindings() as usize,
+                        key: Key::new(self.core.clone(), r.get_key()?),
+                    })
+                })
+        };
+        doit().ok()
+    }
+}
+
 /* Error handling.  */
 
 /// Results for sequoia-store.
@@ -824,6 +985,81 @@ mod store_test {
         b0.delete().unwrap();
         assert_match!(Err(Error::NotFound) = b1.stats());
         assert_match!(Err(Error::NotFound) = b1.key());
+    }
+
+    fn make_some_stores() -> core::Context {
+        let ctx0 = core::Context::configure("org.sequoia-pgp.tests.foo")
+            .ephemeral()
+            .network_policy(core::NetworkPolicy::Offline)
+            .build().unwrap();
+        let store = Store::open(&ctx0, "default").unwrap();
+        let fp = Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb");
+        store.add("Mister B.", &fp).unwrap();
+        store.add("B4", &fp).unwrap();
+
+        Store::open(&ctx0, "another store").unwrap();
+
+        let ctx1 = core::Context::configure("org.sequoia-pgp.tests.bar")
+            .home(ctx0.home())
+            .network_policy(core::NetworkPolicy::Offline)
+            .build().unwrap();
+        let store = Store::open(&ctx1, "default").unwrap();
+        let fp = Fingerprint::from_bytes(b"cccccccccccccccccccc");
+        store.add("Mister C.", &fp).unwrap();
+
+        ctx0
+    }
+
+    #[test]
+    fn store_iterator() {
+        let ctx = make_some_stores();
+        let mut iter = Store::list(&ctx, "org.sequoia-pgp.tests.f").unwrap();
+        let item = iter.next().unwrap();
+        assert_eq!(item.domain, "org.sequoia-pgp.tests.foo");
+        assert_eq!(item.name, "default");
+        assert_eq!(item.network_policy, core::NetworkPolicy::Offline);
+        assert_eq!(item.entries, 2);
+        let fp = Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb");
+        item.store.add("Mister B.", &fp).unwrap();
+        let item = iter.next().unwrap();
+        assert_eq!(item.domain, "org.sequoia-pgp.tests.foo");
+        assert_eq!(item.name, "another store");
+        assert_eq!(item.network_policy, core::NetworkPolicy::Offline);
+        assert_eq!(item.entries, 0);
+        item.store.add("Mister B.", &fp).unwrap();
+        assert!(iter.next().is_none());
+    }
+
+    #[test]
+    fn binding_iterator() {
+        let ctx = make_some_stores();
+        let store = Store::open(&ctx, "default").unwrap();
+        let mut iter = store.iter().unwrap();
+        let item = iter.next().unwrap();
+        let fp = Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb");
+        assert_eq!(item.label, "Mister B.");
+        assert_eq!(item.fingerprint, fp);
+        item.binding.stats().unwrap();
+        let item = iter.next().unwrap();
+        assert_eq!(item.label, "B4");
+        assert_eq!(item.fingerprint, fp);
+        item.binding.stats().unwrap();
+        assert!(iter.next().is_none());
+    }
+
+    #[test]
+    fn key_iterator() {
+        let ctx = make_some_stores();
+        let mut iter = Store::list_keys(&ctx).unwrap();
+        let item = iter.next().unwrap();
+        assert_eq!(item.fingerprint, Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb"));
+        assert_eq!(item.bindings, 2);
+        item.key.stats().unwrap();
+        let item = iter.next().unwrap();
+        assert_eq!(item.fingerprint, Fingerprint::from_bytes(b"cccccccccccccccccccc"));
+        assert_eq!(item.bindings, 1);
+        item.key.stats().unwrap();
+        assert!(iter.next().is_none());
     }
 }
 

@@ -1,8 +1,13 @@
 /// A command-line frontend for Sequoia.
 
 extern crate clap;
+#[macro_use]
+extern crate prettytable;
 
 use clap::{Arg, App, SubCommand, AppSettings};
+use prettytable::Table;
+use prettytable::cell::Cell;
+use prettytable::row::Row;
 use std::fs::File;
 use std::io;
 use std::process::exit;
@@ -113,6 +118,8 @@ fn real_main() -> Result<()> {
                     .arg(Arg::with_name("name").value_name("NAME")
                          .required(true)
                          .help("Name of the store"))
+                    .subcommand(SubCommand::with_name("list")
+                                .about("Lists keys in the store"))
                     .subcommand(SubCommand::with_name("add")
                                 .about("Add a key identified by fingerprint")
                                 .arg(Arg::with_name("label").value_name("LABEL")
@@ -160,6 +167,18 @@ fn real_main() -> Result<()> {
                                 .arg(Arg::with_name("label").value_name("LABEL")
                                      .required(true)
                                      .help("Label to use"))))
+        .subcommand(SubCommand::with_name("list")
+                    .about("Lists key stores and known keys")
+                    .subcommand(SubCommand::with_name("stores")
+                                .about("Lists key stores")
+                                .arg(Arg::with_name("prefix").value_name("PREFIX")
+                                     .help("List only stores with the given domain prefix")))
+                    .subcommand(SubCommand::with_name("bindings")
+                                .about("Lists all bindings in all key stores")
+                                .arg(Arg::with_name("prefix").value_name("PREFIX")
+                                     .help("List only bindings from stores with the given domain prefix")))
+                    .subcommand(SubCommand::with_name("keys")
+                                .about("Lists all keys in the common key pool")))
         .get_matches();
 
     let policy = match matches.value_of("policy") {
@@ -271,6 +290,9 @@ fn real_main() -> Result<()> {
                 .expect("Failed to open store");
 
             match m.subcommand() {
+                ("list",  Some(_)) => {
+                    list_bindings(&store);
+                },
                 ("add",  Some(m)) => {
                     let fp = Fingerprint::from_hex(m.value_of("fingerprint").unwrap())
                         .expect("Malformed fingerprint");
@@ -333,6 +355,53 @@ fn real_main() -> Result<()> {
                 },
             }
         },
+        ("list",  Some(m)) => {
+            match m.subcommand() {
+                ("stores",  Some(m)) => {
+                    let mut table = Table::new();
+                    table.set_format(*prettytable::format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
+                    table.set_titles(row!["domain", "name", "network policy", "# of entries"]);
+
+                    for item in Store::list(&ctx, m.value_of("prefix").unwrap_or(""))
+                        .expect("Failed to iterate over stores") {
+                            table.add_row(Row::new(vec![
+                                Cell::new(&item.domain),
+                                Cell::new(&item.name),
+                                Cell::new(&format!("{:?}", item.network_policy)),
+                                Cell::new(&format!("{}", item.entries))])
+                            );
+                        }
+
+                    table.printstd();
+                },
+                ("bindings",  Some(m)) => {
+                    for item in Store::list(&ctx, m.value_of("prefix").unwrap_or(""))
+                        .expect("Failed to iterate over stores") {
+                            println!("Domain {:?} Name {:?}:", item.domain, item.name);
+                            list_bindings(&item.store);
+                        }
+                },
+                ("keys",  Some(_)) => {
+                    let mut table = Table::new();
+                    table.set_format(*prettytable::format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
+                    table.set_titles(row!["fingerprint", "# of bindings"]);
+
+                    for item in Store::list_keys(&ctx)
+                        .expect("Failed to iterate over keys") {
+                            table.add_row(Row::new(vec![
+                                Cell::new(&item.fingerprint.to_string()),
+                                Cell::new(&format!("{}", item.bindings))])
+                            );
+                        }
+
+                    table.printstd();
+                },
+                _ => {
+                    eprintln!("No list subcommand given.");
+                    exit(1);
+                },
+            }
+        },
         _ => {
             eprintln!("No subcommand given.");
             exit(1);
@@ -341,5 +410,18 @@ fn real_main() -> Result<()> {
 
     return Ok(())
 }
+
+fn list_bindings(store: &Store) {
+    let mut table = Table::new();
+    table.set_format(*prettytable::format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
+    table.set_titles(row!["label", "fingerprint"]);
+    for item in store.iter().expect("Failed to iterate over bindings") {
+        table.add_row(Row::new(vec![
+            Cell::new(&item.label),
+            Cell::new(&item.fingerprint.to_string())]));
+    }
+    table.printstd();
+}
+
 
 fn main() { real_main().expect("An error occured"); }

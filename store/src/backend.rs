@@ -107,6 +107,29 @@ impl node::Server for NodeServer {
             node::store::ToClient::new(store).from_server::<capnp_rpc::Server>()));
         Promise::ok(())
     }
+
+    fn iter(&mut self,
+            params: node::IterParams,
+            mut results: node::IterResults)
+            -> Promise<(), capnp::Error> {
+        bind_results!(results);
+        let prefix = pry!(pry!(params.get()).get_domain_prefix());
+        let iter = StoreIterServer::new(self.c.clone(), prefix);
+        pry!(pry!(results.get().get_result()).set_ok(
+            node::store_iter::ToClient::new(iter).from_server::<capnp_rpc::Server>()));
+        Promise::ok(())
+    }
+
+    fn iter_keys(&mut self,
+                 _: node::IterKeysParams,
+                 mut results: node::IterKeysResults)
+                 -> Promise<(), capnp::Error> {
+        bind_results!(results);
+        let iter = KeyIterServer::new(self.c.clone());
+        pry!(pry!(results.get().get_result()).set_ok(
+            node::key_iter::ToClient::new(iter).from_server::<capnp_rpc::Server>()));
+        Promise::ok(())
+    }
 }
 
 struct StoreServer {
@@ -212,6 +235,17 @@ impl node::store::Server for StoreServer {
         bind_results!(results);
         sry!(self.c.execute("DELETE FROM stores WHERE id = ?1",
                                      &[&self.id]));
+        Promise::ok(())
+    }
+
+    fn iter(&mut self,
+            _: node::store::IterParams,
+            mut results: node::store::IterResults)
+            -> Promise<(), capnp::Error> {
+        bind_results!(results);
+        let iter = BindingIterServer::new(self.c.clone(), self.id);
+        pry!(pry!(results.get().get_result()).set_ok(
+            node::binding_iter::ToClient::new(iter).from_server::<capnp_rpc::Server>()));
         Promise::ok(())
     }
 }
@@ -458,6 +492,137 @@ impl node::key::Server for KeyServer {
     }
 }
 
+/* Iterators.  */
+
+struct StoreIterServer {
+    c: Rc<Connection>,
+    prefix: String,
+    n: i64,
+}
+
+impl StoreIterServer {
+    fn new(c: Rc<Connection>, prefix: &str) -> Self {
+        StoreIterServer{c: c, prefix: String::from(prefix) + "%", n: 0}
+    }
+}
+
+impl node::store_iter::Server for StoreIterServer {
+    fn next(&mut self,
+            _: node::store_iter::NextParams,
+            mut results: node::store_iter::NextResults)
+            -> Promise<(), capnp::Error> {
+        bind_results!(results);
+        let (id, domain, name, network_policy): (i64, String, String, i64) =
+            sry!(self.c.query_row(
+                 "SELECT id, domain, name, network_policy FROM stores
+                      WHERE id > ?1 AND domain like ?2
+                      ORDER BY id LIMIT 1",
+                &[&self.n, &self.prefix],
+                |row| (row.get(0), row.get(1), row.get(2), row.get(3))));
+
+        let count: i64 =
+            sry!(self.c.query_row(
+                "SELECT count(*) FROM bindings WHERE store = ?1",
+                &[&id], |row| row.get(0)));
+        assert!(count >= 0);
+
+        // We cannot implement FromSql and friends for
+        // core::NetworkPolicy, hence we need to do it by foot.
+        if network_policy < 0 || network_policy > 3 {
+            fail!(node::Error::SystemError);
+        }
+        let network_policy = core::NetworkPolicy::from(network_policy as u8);
+
+        let mut entry = pry!(results.get().get_result()).init_ok();
+        entry.set_domain(&domain);
+        entry.set_name(&name);
+        entry.set_network_policy(network_policy.into());
+        entry.set_entries(count as u64);
+        entry.set_store(node::store::ToClient::new(
+            StoreServer::new(self.c.clone(), id)).from_server::<capnp_rpc::Server>());
+        self.n = id;
+        Promise::ok(())
+    }
+}
+
+struct BindingIterServer {
+    c: Rc<Connection>,
+    store_id: i64,
+    n: i64,
+}
+
+impl BindingIterServer {
+    fn new(c: Rc<Connection>, store_id: i64) -> Self {
+        BindingIterServer{c: c, store_id: store_id, n: 0}
+    }
+}
+
+impl node::binding_iter::Server for BindingIterServer {
+    fn next(&mut self,
+            _: node::binding_iter::NextParams,
+            mut results: node::binding_iter::NextResults)
+            -> Promise<(), capnp::Error> {
+        bind_results!(results);
+        let (id, label, fingerprint): (i64, String, String) =
+            sry!(self.c.query_row(
+                 "SELECT bindings.id, bindings.label, keys.fingerprint FROM bindings
+                      JOIN keys ON bindings.key = keys.id
+                      WHERE bindings.id > ?1 AND bindings.store = ?2
+                      ORDER BY bindings.id LIMIT 1",
+                &[&self.n, &self.store_id],
+                |row| (row.get(0), row.get(1), row.get(2))));
+
+        let mut entry = pry!(results.get().get_result()).init_ok();
+        entry.set_label(&label);
+        entry.set_fingerprint(&fingerprint);
+        entry.set_binding(node::binding::ToClient::new(
+            BindingServer::new(self.c.clone(), id)).from_server::<capnp_rpc::Server>());
+        self.n = id;
+        Promise::ok(())
+    }
+}
+
+struct KeyIterServer {
+    c: Rc<Connection>,
+    n: i64,
+}
+
+impl KeyIterServer {
+    fn new(c: Rc<Connection>) -> Self {
+        KeyIterServer{c: c, n: 0}
+    }
+}
+
+impl node::key_iter::Server for KeyIterServer {
+    fn next(&mut self,
+            _: node::key_iter::NextParams,
+            mut results: node::key_iter::NextResults)
+            -> Promise<(), capnp::Error> {
+        bind_results!(results);
+        let (id, fingerprint): (i64, String) =
+            sry!(self.c.query_row(
+                 "SELECT id, fingerprint FROM keys
+                      WHERE keys.id > ?1
+                      ORDER BY id LIMIT 1",
+                &[&self.n],
+                |row| (row.get(0), row.get(1))));
+
+        let count: i64 =
+            sry!(self.c.query_row(
+                "SELECT count(*) FROM bindings WHERE key = ?1",
+                &[&id], |row| row.get(0)));
+        assert!(count >= 0);
+
+        let mut entry = pry!(results.get().get_result()).init_ok();
+        entry.set_fingerprint(&fingerprint);
+        entry.set_bindings(count as u64);
+        entry.set_key(node::key::ToClient::new(
+            KeyServer::new(self.c.clone(), id)).from_server::<capnp_rpc::Server>());
+        self.n = id;
+        Promise::ok(())
+    }
+}
+
 /* Error handling.  */
 
 impl fmt::Debug for node::Error {
@@ -614,6 +779,12 @@ impl<'a> From<&'a core::NetworkPolicy> for node::NetworkPolicy {
             &core::NetworkPolicy::Encrypted  => node::NetworkPolicy::Encrypted,
             &core::NetworkPolicy::Insecure   => node::NetworkPolicy::Insecure,
         }
+    }
+}
+
+impl From<core::NetworkPolicy> for node::NetworkPolicy {
+    fn from(policy: core::NetworkPolicy) -> Self {
+        (&policy).into()
     }
 }
 

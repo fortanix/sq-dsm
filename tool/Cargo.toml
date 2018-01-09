@@ -9,6 +9,7 @@ sequoia-core = { path = "../core" }
 sequoia-net = { path = "../net" }
 sequoia-store = { path = "../store" }
 clap = "2.27.1"
+prettytable-rs = "0.6.7"
 
 [[bin]]
 name = "sq"

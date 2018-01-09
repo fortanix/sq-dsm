@@ -3,12 +3,14 @@
 interface Node {
   open @0 (domain: Text, networkPolicy: NetworkPolicy, ephemeral: Bool, name: Text)
          -> (result: Result(Store));
+  iter @1 (domainPrefix: Text) -> (result: Result(StoreIter));
+  iterKeys @2 () -> (result: Result(KeyIter));
 
   interface Store {
     add @0 (label: Text, fingerprint: Text) -> (result: Result(Binding));
     lookup @1 (label: Text) -> (result: Result(Binding));
     delete @2 () -> (result: Result(Unit));
-    #iterate @3 (id: UInt32) -> (result: Result(Binding));
+    iter @3 () -> (result: Result(BindingIter));
   }
 
   interface Binding {
@@ -24,6 +26,39 @@ interface Node {
     stats @0 () -> (result: Result(Stats));
     tpk @1() -> (result: Result(Data));
     import @2 (key: Data) -> (result: Result(Data));
+  }
+
+  # Iterators.
+  interface StoreIter {
+    next @0 () -> (result: Result(Item));
+
+    struct Item {
+      domain @0 :Text;
+      name @1 :Text;
+      networkPolicy @2 :NetworkPolicy;
+      entries @3 :UInt64;
+      store @4 :Store;
+    }
+  }
+
+  interface BindingIter {
+    next @0 () -> (result: Result(Item));
+
+    struct Item {
+      label @0 :Text;
+      fingerprint @1 :Text;
+      binding @2 :Binding;
+    }
+  }
+
+  interface KeyIter {
+    next @0 () -> (result: Result(Item));
+
+    struct Item {
+      fingerprint @0 :Text;
+      bindings @1 :UInt64;
+      key @2 :Key;
+    }
   }
 
   # Unit struct.  Useful with Result.

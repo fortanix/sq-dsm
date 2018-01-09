@@ -22,6 +22,7 @@
 //!     enarmor      Applies ASCII Armor to a file
 //!     help         Prints this message or the help of the given subcommand(s)
 //!     keyserver    Interacts with keyservers
+//!     list         Lists key stores and known keys
 //!     store        Interacts with key stores
 //! ```
 //!
@@ -135,6 +136,70 @@
 //!     -i, --input <FILE>    Sets the input file to use
 //! ```
 //!
+//! ## Subcommand list
+//!
+//! ```text
+//! Lists key stores and known keys
+//!
+//! USAGE:
+//!     sq list [SUBCOMMAND]
+//!
+//! FLAGS:
+//!     -h, --help       Prints help information
+//!     -V, --version    Prints version information
+//!
+//! SUBCOMMANDS:
+//!     bindings    Lists all bindings in all key stores
+//!     help        Prints this message or the help of the given subcommand(s)
+//!     keys        Lists all keys in the common key pool
+//!     stores      Lists key stores
+//! ```
+//!
+//! ### Subcommand list bindings
+//!
+//! ```text
+//! Lists all bindings in all key stores
+//!
+//! USAGE:
+//!     sq list bindings [PREFIX]
+//!
+//! FLAGS:
+//!     -h, --help       Prints help information
+//!     -V, --version    Prints version information
+//!
+//! ARGS:
+//!     <PREFIX>    List only bindings from stores with the given domain prefix
+//! ```
+//!
+//! ### Subcommand list keys
+//!
+//! ```text
+//! Lists all keys in the common key pool
+//!
+//! USAGE:
+//!     sq list keys
+//!
+//! FLAGS:
+//!     -h, --help       Prints help information
+//!     -V, --version    Prints version information
+//! ```
+//!
+//! ### Subcommand list stores
+//!
+//! ```text
+//! Lists key stores
+//!
+//! USAGE:
+//!     sq list stores [PREFIX]
+//!
+//! FLAGS:
+//!     -h, --help       Prints help information
+//!     -V, --version    Prints version information
+//!
+//! ARGS:
+//!     <PREFIX>    List only stores with the given domain prefix
+//! ```
+//!
 //! ## Subcommand store
 //!
 //! ```text
@@ -152,9 +217,11 @@
 //!
 //! SUBCOMMANDS:
 //!     add       Add a key identified by fingerprint
+//!     delete    Deletes bindings or stores
 //!     export    Exports a key
 //!     help      Prints this message or the help of the given subcommand(s)
 //!     import    Imports a key
+//!     list      Lists keys in the store
 //!     stats     Get stats for the given label
 //! ```
 //!
@@ -173,6 +240,23 @@
 //! ARGS:
 //!     <LABEL>          Label to use
 //!     <FINGERPRINT>    Key to add
+//! ```
+//!
+//! ### Subcommand store delete
+//!
+//! ```text
+//! Deletes bindings or stores
+//!
+//! USAGE:
+//!     sq store <NAME> delete [FLAGS] [LABEL]
+//!
+//! FLAGS:
+//!     -h, --help         Prints help information
+//!         --the-store    Delete the whole store
+//!     -V, --version      Prints version information
+//!
+//! ARGS:
+//!     <LABEL>    Delete binding with this label
 //! ```
 //!
 //! ### Subcommand store export
@@ -213,6 +297,19 @@
 //!
 //! ARGS:
 //!     <LABEL>    Label to use
+//! ```
+//!
+//! ### Subcommand store list
+//!
+//! ```text
+//! Lists keys in the store
+//!
+//! USAGE:
+//!     sq store <NAME> list
+//!
+//! FLAGS:
+//!     -h, --help       Prints help information
+//!     -V, --version    Prints version information
 //! ```
 //!
 //! ### Subcommand store stats
