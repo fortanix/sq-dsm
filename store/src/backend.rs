@@ -77,27 +77,20 @@ impl node::Server for NodeServer {
            params: node::NewParams,
            mut results: node::NewResults)
            -> Promise<(), capnp::Error> {
+        bind_results!(results);
         let params = pry!(params.get());
         let home = pry!(params.get_home());
         if PathBuf::from(home) != self.descriptor.home {
-            pry!(results.get().get_result()).set_err(node::Error::Unspecified);
-            return Promise::ok(());
+            fail!(node::Error::Unspecified);
         }
 
         // XXX maybe check ephemeral and use in-core sqlite db
 
-        let store = StoreServer::new(self.c.clone(),
-                                     pry!(params.get_domain()),
-                                     pry!(params.get_name()));
-        match store {
-            Ok(store) => {
-                pry!(pry!(results.get().get_result()).set_ok(
-                    node::store::ToClient::new(store).from_server::<capnp_rpc::Server>()));
-            },
-            Err(_e) => {
-                pry!(results.get().get_result()).set_err(node::Error::Unspecified);
-            }
-        };
+        let store = sry!(StoreServer::new(self.c.clone(),
+                                          pry!(params.get_domain()),
+                                          pry!(params.get_name())));
+        pry!(pry!(results.get().get_result()).set_ok(
+            node::store::ToClient::new(store).from_server::<capnp_rpc::Server>()));
         Promise::ok(())
     }
 }
