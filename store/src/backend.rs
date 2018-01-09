@@ -127,7 +127,7 @@ impl StoreServer {
             // We cannot implement FromSql and friends for
             // core::NetworkPolicy, hence we need to do it by foot.
             if store_policy < 0 || store_policy > 3 {
-                return Err(Error::ValueError);
+                return Err(Error::StoreError);
             }
             let store_policy = core::NetworkPolicy::from(store_policy as u8);
 

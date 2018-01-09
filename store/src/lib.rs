@@ -611,9 +611,9 @@ impl From<Error> for node::Error {
                 _ => node::Error::SystemError,
             },
             Error::IoError(_) => node::Error::SystemError,
-            Error::StoreError(_) => node::Error::SystemError,
+            Error::StoreError => node::Error::Unspecified,
             Error::ProtocolError => node::Error::SystemError,
-            Error::ValueError => node::Error::SystemError,
+            Error::MalformedKey => node::Error::MalformedKey,
             Error::TpkError(_) => node::Error::SystemError,
             Error::RpcError(_) => node::Error::SystemError,
             Error::SqlError(_) => node::Error::SystemError,
@@ -624,7 +624,11 @@ impl From<Error> for node::Error {
 impl From<node::Error> for Error {
     fn from(error: node::Error) -> Self {
         match error {
+            node::Error::Unspecified => Error::StoreError,
+            node::Error::NotFound => Error::NotFound,
             node::Error::Conflict => Error::Conflict,
+            node::Error::SystemError => Error::StoreError,
+            node::Error::MalformedKey => Error::MalformedKey,
             node::Error::NetworkPolicyViolationOffline =>
                 core::Error::NetworkPolicyViolation(core::NetworkPolicy::Offline).into(),
             node::Error::NetworkPolicyViolationAnonymized =>
@@ -633,7 +637,6 @@ impl From<node::Error> for Error {
                 core::Error::NetworkPolicyViolation(core::NetworkPolicy::Encrypted).into(),
             node::Error::NetworkPolicyViolationInsecure =>
                 core::Error::NetworkPolicyViolation(core::NetworkPolicy::Insecure).into(),
-            _ => Error::StoreError(error.into()),
         }
     }
 }
@@ -650,12 +653,13 @@ pub enum Error {
     CoreError(sequoia_core::Error),
     /// An `io::Error` occurred.
     IoError(io::Error),
-    /// XXX: This is a catch-all, and should go away soon.
-    StoreError(node::Error),
+    /// This is a catch-all for unspecified backend errors, and should
+    /// go away soon.
+    StoreError,
     /// A protocol error occurred.
     ProtocolError,
-    /// XXX
-    ValueError,
+    /// A TPK is malformed.
+    MalformedKey,
     /// A `openpgp::tpk::Error` occurred.
     TpkError(tpk::Error),
     /// A `capnp::Error` occurred.
