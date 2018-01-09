@@ -258,6 +258,31 @@ impl NetworkPolicy {
     }
 }
 
+impl<'a> From<&'a NetworkPolicy> for u8 {
+    fn from(policy: &NetworkPolicy) -> Self {
+        match policy {
+            &NetworkPolicy::Offline    => 0,
+            &NetworkPolicy::Anonymized => 1,
+            &NetworkPolicy::Encrypted  => 2,
+            &NetworkPolicy::Insecure   => 3,
+        }
+    }
+}
+
+
+// XXX: TryFrom would be nice.
+impl From<u8> for NetworkPolicy {
+    fn from(policy: u8) -> Self {
+        match policy {
+            0 => NetworkPolicy::Offline,
+            1 => NetworkPolicy::Anonymized,
+            2 => NetworkPolicy::Encrypted,
+            3 => NetworkPolicy::Insecure,
+            n => panic!("Bad policy: {}", n),
+        }
+    }
+}
+
 #[macro_export]
 macro_rules! assert_match {
     ( $error: pat = $expr:expr ) => {

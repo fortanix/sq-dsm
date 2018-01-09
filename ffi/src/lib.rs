@@ -41,7 +41,7 @@ use openpgp::tpk::TPK;
 use openpgp::types::KeyId;
 use self::libc::{uint8_t, uint64_t, c_char, size_t};
 use self::native_tls::Certificate;
-use sequoia_core::{Config, Context, NetworkPolicy};
+use sequoia_core::{Config, Context};
 use sequoia_net::KeyServer;
 
 /*  sequoia::Context.  */
@@ -121,12 +121,7 @@ pub extern "system" fn sq_context_lib(ctx: Option<&Context>) -> *const c_char {
 #[no_mangle]
 pub extern "system" fn sq_context_network_policy(ctx: Option<&Context>) -> uint8_t {
     assert!(ctx.is_some());
-    match ctx.unwrap().network_policy() {
-        &NetworkPolicy::Offline => 0,
-        &NetworkPolicy::Anonymized => 1,
-        &NetworkPolicy::Encrypted => 2,
-        &NetworkPolicy::Insecure => 3,
-    }
+    ctx.unwrap().network_policy().into()
 }
 
 /// Returns whether or not this is an ephemeral context.
@@ -184,13 +179,7 @@ pub extern "system" fn sq_config_lib(cfg: Option<&mut Config>,
 pub extern "system" fn sq_config_network_policy(cfg: Option<&mut Config>,
                                                 policy: uint8_t) {
     assert!(cfg.is_some());
-    cfg.unwrap().set_network_policy(match policy {
-        0 => NetworkPolicy::Offline,
-        1 => NetworkPolicy::Anonymized,
-        2 => NetworkPolicy::Encrypted,
-        3 => NetworkPolicy::Insecure,
-        n => panic!("Bad policy: {}", n),
-    });
+    cfg.unwrap().set_network_policy(policy.into());
 }
 
 /// Makes this context ephemeral.
