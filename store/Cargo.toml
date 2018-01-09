@@ -29,4 +29,5 @@ path = "src/lib.rs"
 [[bin]]
 name = "keystore"
 path = "src/server.rs"
+doc = false
 required-features = ["background-services"]
