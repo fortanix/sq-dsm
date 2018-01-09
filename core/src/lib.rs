@@ -47,7 +47,7 @@ pub struct Context {
     temp_dir: Option<TempDir>,
 }
 
-/// Returns $PREXIX, or a reasonable default prefix.
+/// Returns $PREXIX at compile-time, or a reasonable default prefix.
 fn prefix() -> PathBuf {
     /* XXX: Windows support.  */
     PathBuf::from(option_env!("PREFIX").unwrap_or("/usr/local"))
