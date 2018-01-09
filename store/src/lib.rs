@@ -135,7 +135,7 @@ impl<'a> Store {
         let store: node::Client = rpc_system.bootstrap(Side::Server);
         handle.spawn(rpc_system.map_err(|_e| ()));
 
-        let mut request = store.new_request();
+        let mut request = store.open_request();
         request.get().set_domain(c.domain());
         request.get().set_network_policy(c.network_policy().into());
         request.get().set_ephemeral(c.ephemeral());

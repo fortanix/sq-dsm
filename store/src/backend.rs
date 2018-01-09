@@ -73,10 +73,10 @@ impl NodeServer {
 }
 
 impl node::Server for NodeServer {
-    fn new(&mut self,
-           params: node::NewParams,
-           mut results: node::NewResults)
-           -> Promise<(), capnp::Error> {
+    fn open(&mut self,
+            params: node::OpenParams,
+            mut results: node::OpenResults)
+            -> Promise<(), capnp::Error> {
         bind_results!(results);
         let params = pry!(params.get());
 
