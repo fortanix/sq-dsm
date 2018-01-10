@@ -248,13 +248,37 @@ impl Key {
 }
 
 impl UserID {
-    /// Writes a serialized version of the specified `userID` packet to
+    /// Writes a serialized version of the specified `UserID` packet to
     /// `o`.
     pub fn serialize<W: io::Write>(&self, o: &mut W)
             -> Result<(), io::Error> {
         let len = self.value.len();
 
         write_byte(o, ctb_old(Tag::UserID, BodyLength::Full(len as u32)))?;
+        o.write_all(&body_length_old_format(BodyLength::Full(len as u32))[..])?;
+        o.write_all(&self.value[..])?;
+
+        Ok(())
+    }
+
+    /// Serializes the packet to a vector.
+    pub fn to_vec(&self) -> Vec<u8> {
+        let mut o = Vec::with_capacity(16 + self.value.len());
+        // Writing to a vec can't fail.
+        self.serialize(&mut o).unwrap();
+        o
+    }
+}
+
+impl UserAttribute {
+    /// Writes a serialized version of the specified `UserAttribute`
+    /// packet to `o`.
+    pub fn serialize<W: io::Write>(&self, o: &mut W)
+            -> Result<(), io::Error> {
+        let len = self.value.len();
+
+        write_byte(o,
+            ctb_old(Tag::UserAttribute, BodyLength::Full(len as u32)))?;
         o.write_all(&body_length_old_format(BodyLength::Full(len as u32))[..])?;
         o.write_all(&self.value[..])?;
 
@@ -405,6 +429,7 @@ impl Packet {
             &Packet::SecretKey(ref p) => p.serialize(o, tag),
             &Packet::SecretSubkey(ref p) => p.serialize(o, tag),
             &Packet::UserID(ref p) => p.serialize(o),
+            &Packet::UserAttribute(ref p) => p.serialize(o),
             &Packet::Literal(ref p) => p.serialize(o),
             &Packet::CompressedData(ref p) => p.serialize(o),
         }

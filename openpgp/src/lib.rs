@@ -65,6 +65,7 @@ mod unknown;
 mod signature;
 mod key;
 mod userid;
+mod user_attribute;
 mod literal;
 mod compressed_data;
 mod packet;
@@ -501,6 +502,19 @@ pub struct UserID {
     pub value: Vec<u8>,
 }
 
+/// Holds a UserAttribute packet.
+///
+/// See [Section 5.12 of RFC 4880] for details.
+///
+///   [Section 5.12 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.12
+#[derive(PartialEq, Clone)]
+pub struct UserAttribute {
+    pub common: PacketCommon,
+
+    /// The user attribute.
+    pub value: Vec<u8>,
+}
+
 /// Holds a literal packet.
 ///
 /// A literal packet contains unstructured data.  Since the size can
@@ -566,6 +580,7 @@ pub enum Packet {
     SecretKey(Key),
     SecretSubkey(Key),
     UserID(UserID),
+    UserAttribute(UserAttribute),
     Literal(Literal),
     CompressedData(CompressedData),
 }
@@ -585,6 +600,7 @@ impl Packet {
             &Packet::SecretKey(_) => Tag::SecretKey,
             &Packet::SecretSubkey(_) => Tag::SecretSubkey,
             &Packet::UserID(_) => Tag::UserID,
+            &Packet::UserAttribute(_) => Tag::UserAttribute,
             &Packet::Literal(_) => Tag::Literal,
             &Packet::CompressedData(_) => Tag::CompressedData,
         }

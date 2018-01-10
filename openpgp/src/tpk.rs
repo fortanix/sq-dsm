@@ -5,7 +5,8 @@ use std::cmp::Ordering;
 use std::path::Path;
 use std::fs::File;
 
-use super::{Packet, Message, Signature, Key, UserID, Fingerprint, Tag};
+use super::{Packet, Message, Signature, Key, UserID, UserAttribute,
+            Fingerprint, Tag};
 use super::parse::PacketParser;
 
 /// A transferable public key (TPK).
@@ -19,6 +20,7 @@ use super::parse::PacketParser;
 pub struct TPK {
     primary: Key,
     userids: Vec<UserIDBinding>,
+    user_attributes: Vec<UserAttributeBinding>,
     subkeys: Vec<SubkeyBinding>,
 }
 
@@ -45,6 +47,17 @@ pub struct UserIDBinding {
     certifications: Vec<Signature>,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct UserAttributeBinding {
+    user_attribute: UserAttribute,
+
+    // Self signatures.
+    selfsigs: Vec<Signature>,
+
+    // Third-party certifications.
+    certifications: Vec<Signature>,
+}
+
 // We use a state machine to extract a TPK from an OpenPGP message.
 // These are the states.
 #[derive(Debug)]
@@ -52,6 +65,7 @@ enum TPKParserState {
     Start,
     TPK,
     UserID(UserIDBinding),
+    UserAttribute(UserAttributeBinding),
     Subkey(SubkeyBinding),
     End,
 }
@@ -60,6 +74,7 @@ struct TPKParser {
     state: TPKParserState,
     primary: Option<Key>,
     userids: Vec<UserIDBinding>,
+    user_attributes: Vec<UserAttributeBinding>,
     subkeys: Vec<SubkeyBinding>,
 }
 
@@ -70,6 +85,7 @@ impl TPKParser {
             state: TPKParserState::Start,
             primary: None,
             userids: vec![],
+            user_attributes: vec![],
             subkeys: vec![],
         }
     }
@@ -88,7 +104,7 @@ impl TPKParser {
                 }
             },
             TPKParserState::TPK => {
-                /* Find user id, or subkey packets.  */
+                /* Find user id, user attribute, or subkey packets.  */
                 match p {
                     Packet::PublicKey(_pk) => {
                         TPKParserState::End
@@ -97,6 +113,14 @@ impl TPKParser {
                         TPKParserState::UserID(
                             UserIDBinding{
                                 userid: uid,
+                                selfsigs: vec![],
+                                certifications: vec![],
+                            })
+                    },
+                    Packet::UserAttribute(attribute) => {
+                        TPKParserState::UserAttribute(
+                            UserAttributeBinding{
+                                user_attribute: attribute,
                                 selfsigs: vec![],
                                 certifications: vec![],
                             })
@@ -113,7 +137,9 @@ impl TPKParser {
                 }
             },
             TPKParserState::UserID(mut u) => {
-                /* Find signature packets.  */
+                // Collect signatures.  If we encounter a user id,
+                // user attribute or subkey packet, then wrap up the
+                // binding for this user id.
                 match p {
                     Packet::PublicKey(_pk) => {
                         TPKParserState::End
@@ -123,6 +149,15 @@ impl TPKParser {
                         TPKParserState::UserID(
                             UserIDBinding{
                                 userid: uid,
+                                selfsigs: vec![],
+                                certifications: vec![],
+                            })
+                    },
+                    Packet::UserAttribute(attribute) => {
+                        self.userids.push(u);
+                        TPKParserState::UserAttribute(
+                            UserAttributeBinding{
+                                user_attribute: attribute,
                                 selfsigs: vec![],
                                 certifications: vec![],
                             })
@@ -160,8 +195,69 @@ impl TPKParser {
                     _ => TPKParserState::UserID(u),
                 }
             },
+            TPKParserState::UserAttribute(mut u) => {
+                // Collect signatures.  If we encounter a user id,
+                // user attribute or subkey packet, then wrap up the
+                // binding for this user attribute.
+                match p {
+                    Packet::PublicKey(_pk) => {
+                        TPKParserState::End
+                    },
+                    Packet::UserID(uid) => {
+                        self.user_attributes.push(u);
+                        TPKParserState::UserID(
+                            UserIDBinding{
+                                userid: uid,
+                                selfsigs: vec![],
+                                certifications: vec![],
+                            })
+                    },
+                    Packet::UserAttribute(attribute) => {
+                        self.user_attributes.push(u);
+                        TPKParserState::UserAttribute(
+                            UserAttributeBinding{
+                                user_attribute: attribute,
+                                selfsigs: vec![],
+                                certifications: vec![],
+                            })
+                    },
+                    Packet::PublicSubkey(key) => {
+                        self.user_attributes.push(u);
+                        TPKParserState::Subkey(
+                            SubkeyBinding{
+                                subkey: key,
+                                selfsigs: vec![],
+                                certifications: vec![],
+                            })
+                    },
+                    Packet::Signature(sig) => {
+                        let primary = self.primary.as_ref().unwrap();
+                        let selfsig = if let Some((_critical, issuer))
+                                = sig.issuer_fingerprint() {
+                            issuer == primary.fingerprint()
+                        } else if let Some((_critical, issuer))
+                                = sig.issuer() {
+                            issuer == primary.keyid()
+                        } else {
+                            // No issuer.  XXX: Assume its a 3rd party
+                            // cert.  But, we should really just try
+                            // to reorder it.
+                            false
+                        };
+                        if selfsig {
+                            u.selfsigs.push(sig);
+                        } else {
+                            u.certifications.push(sig);
+                        }
+                        TPKParserState::UserAttribute(u)
+                    },
+                    _ => TPKParserState::UserAttribute(u),
+                }
+            },
             TPKParserState::Subkey(mut s) => {
-                /* Find signature packets.  */
+                // Collect signatures.  If we encounter a user id,
+                // user attribute or subkey packet, then wrap up the
+                // binding for this subkey.
                 match p {
                     Packet::PublicKey(_pk) => {
                         TPKParserState::End
@@ -171,6 +267,15 @@ impl TPKParser {
                         TPKParserState::UserID(
                             UserIDBinding{
                                 userid: uid,
+                                selfsigs: vec![],
+                                certifications: vec![],
+                            })
+                    },
+                    Packet::UserAttribute(attribute) => {
+                        self.subkeys.push(s);
+                        TPKParserState::UserAttribute(
+                            UserAttributeBinding{
+                                user_attribute: attribute,
                                 selfsigs: vec![],
                                 certifications: vec![],
                             })
@@ -221,6 +326,7 @@ impl TPKParser {
             TPK {
                 primary: p,
                 userids: self.userids,
+                user_attributes: self.user_attributes,
                 subkeys: self.subkeys
             }
         } else {
@@ -230,6 +336,10 @@ impl TPKParser {
         match self.state {
             TPKParserState::UserID(u) => {
                 tpk.userids.push(u);
+                Ok(tpk)
+            },
+            TPKParserState::UserAttribute(u) => {
+                tpk.user_attributes.push(u);
                 Ok(tpk)
             },
             TPKParserState::Subkey(s) => {
@@ -422,6 +532,78 @@ impl TPK {
         });
 
 
+        // Drop invalid user attributes.
+        self.user_attributes.retain(|a| {
+            // XXX Check binding signature.
+            a.selfsigs.len() > 0
+        });
+
+        // XXX: Drop invalid self-signatures / see if they are just
+        // out of place.
+
+        // Sort the signatures so that the current valid
+        // self-signature is first.
+        for attribute in &mut self.user_attributes {
+            attribute.selfsigs.sort_by(sig_cmp);
+            attribute.selfsigs.dedup_by_key(sig_key);
+
+            // There is no need to sort the certifications, but we do
+            // want to remove dups and sorting is a prerequisite.
+            attribute.certifications.sort_by(sig_cmp);
+            attribute.certifications.dedup_by_key(sig_key);
+        }
+
+        // Sort the user attributes in preparation for a dedup.  As
+        // for the user ids, we can't do the final sort here, because
+        // we rely on the self-signatures.
+        self.user_attributes.sort_by(
+            |a, b| a.user_attribute.value.cmp(&b.user_attribute.value));
+
+        // And, dedup them.
+        self.user_attributes.dedup_by(|a, b| {
+            if a.user_attribute == b.user_attribute {
+                // Recall: if a and b are equal, a will be dropped.
+                b.selfsigs.append(&mut a.selfsigs);
+                b.selfsigs.sort_by(sig_cmp);
+                b.selfsigs.dedup_by_key(sig_key);
+
+                b.certifications.append(&mut a.certifications);
+                b.certifications.sort_by(sig_cmp);
+                b.certifications.dedup_by_key(sig_key);
+
+                true
+            } else {
+                false
+            }
+        });
+
+        self.user_attributes.sort_by(|a, b| {
+            // Compare their primary status.
+            let a_primary = a.selfsigs[0].primary_userid();
+            let b_primary = b.selfsigs[0].primary_userid();
+
+            if a_primary.is_some() && b_primary.is_none() {
+                return Ordering::Less;
+            } else if a_primary.is_none() && b_primary.is_some() {
+                return Ordering::Greater;
+            } else if a_primary.is_some() && b_primary.is_some() {
+                // Both are marked as primary.  Fallback to the date.
+                let a_timestamp
+                    = a.selfsigs[0].signature_creation_time().unwrap_or(0);
+                let b_timestamp
+                    = b.selfsigs[0].signature_creation_time().unwrap_or(0);
+                // We want the more recent date first.
+                let cmp = b_timestamp.cmp(&a_timestamp);
+                if cmp != Ordering::Equal {
+                    return cmp;
+                }
+            }
+
+            // Fallback to a lexicographical comparison.
+            a.user_attribute.value.cmp(&b.user_attribute.value)
+        });
+
+
         // Drop invalid subkeys.
         self.subkeys.retain(|subkey| {
             // XXX Check binding signature.
@@ -514,6 +696,16 @@ impl TPK {
             }
         }
 
+        for u in self.user_attributes.into_iter() {
+            p.push(Packet::UserAttribute(u.user_attribute));
+            for s in u.selfsigs.into_iter() {
+                p.push(Packet::Signature(s));
+            }
+            for s in u.certifications.into_iter() {
+                p.push(Packet::Signature(s));
+            }
+        }
+
         let subkeys = self.subkeys;
         for k in subkeys.into_iter() {
             p.push(Packet::PublicSubkey(k.subkey));
@@ -534,6 +726,16 @@ impl TPK {
 
         for u in self.userids.iter() {
             u.userid.serialize(o)?;
+            for s in u.selfsigs.iter() {
+                s.serialize(o)?;
+            }
+            for s in u.certifications.iter() {
+                s.serialize(o)?;
+            }
+        }
+
+        for u in self.user_attributes.iter() {
+            u.user_attribute.serialize(o)?;
             for s in u.selfsigs.iter() {
                 s.serialize(o)?;
             }
@@ -566,12 +768,14 @@ impl TPK {
         }
 
         self.userids.append(&mut other.userids);
+        self.user_attributes.append(&mut other.user_attributes);
         self.subkeys.append(&mut other.subkeys);
 
         self.canonicalize()
     }
 
-    /// Checks whether this key is signed by 'other'.
+    /// Checks whether at least one of this key's user ids (not user
+    /// attributes!) is signed by 'other'.
     pub fn is_signed_by(&self, other: &TPK) -> bool {
         let fp = other.fingerprint();
         for userid in self.userids.iter() {
@@ -659,6 +863,7 @@ mod test {
             assert_eq!(tpk.userids[0].selfsigs.len(), 1);
             assert_eq!(tpk.userids[0].selfsigs[0].hash_prefix,
                        [ 0xc6, 0x8f ]);
+            assert_eq!(tpk.user_attributes.len(), 0);
             assert_eq!(tpk.subkeys.len(), 0);
         }
     }
@@ -679,6 +884,8 @@ mod test {
             assert_eq!(tpk.userids[0].selfsigs[0].hash_prefix,
                        [ 0xc6, 0x8f ]);
 
+            assert_eq!(tpk.user_attributes.len(), 0);
+
             assert_eq!(tpk.subkeys.len(), 1, "number of subkeys");
             assert_eq!(tpk.subkeys[0].subkey.creation_time, 1511355130);
             assert_eq!(tpk.subkeys[0].selfsigs[0].hash_prefix,
@@ -689,6 +896,8 @@ mod test {
             assert_eq!(tpk.primary.creation_time, 1511355130);
             assert_eq!(tpk.fingerprint().to_hex(),
                        "3E8877C877274692975189F5D03F6F865226FE8B");
+
+            assert_eq!(tpk.user_attributes.len(), 0);
 
             assert_eq!(tpk.userids.len(), 1, "number of userids");
             assert_eq!(tpk.userids[0].userid.value,

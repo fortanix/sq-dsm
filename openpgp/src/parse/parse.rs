@@ -415,6 +415,27 @@ impl UserID {
     }
 }
 
+impl UserAttribute {
+    // Parses the body of a user attribute packet.
+    fn parse<'a, R: BufferedReader<BufferedReaderState> + 'a>
+            (mut bio: R, recursion_depth: usize)
+            -> Result<PacketParser<'a>, std::io::Error> {
+        return Ok(PacketParser {
+            packet: Packet::UserAttribute(UserAttribute {
+                common: PacketCommon {
+                    children: None,
+                    body: None,
+                },
+                value: bio.steal_eof()?,
+            }),
+            reader: Box::new(bio),
+            content_was_read: false,
+            recursion_depth: recursion_depth as u8,
+            settings: PACKET_PARSER_DEFAULTS
+        });
+    }
+}
+
 impl Literal {
     /// Parses the body of a literal packet.
     fn parse<'a, R: BufferedReader<BufferedReaderState> + 'a>
@@ -1079,6 +1100,8 @@ impl <'a> PacketParser<'a> {
                 Key::parse(bio, recursion_depth, tag)?,
             Tag::UserID =>
                 UserID::parse(bio, recursion_depth)?,
+            Tag::UserAttribute =>
+                UserAttribute::parse(bio, recursion_depth)?,
             Tag::Literal =>
                 Literal::parse(bio, recursion_depth)?,
             Tag::CompressedData =>
@@ -1349,7 +1372,8 @@ impl <'a> PacketParser<'a> {
             Packet::Unknown(_) | Packet::Signature(_)
                 | Packet::PublicKey(_) | Packet::PublicSubkey(_)
                 | Packet::SecretKey(_) | Packet::SecretSubkey(_)
-                | Packet::UserID(_) | Packet::Literal(_) => {
+                | Packet::UserID(_) | Packet::UserAttribute(_)
+                | Packet::Literal(_) => {
                 // Drop through.
                 if self.settings.trace {
                     eprintln!("{}PacketParser::recurse(): A {:?} packet is \

@@ -16,6 +16,7 @@ impl<'a> Deref for Packet {
             &Packet::SecretKey(ref packet) => &packet.common,
             &Packet::SecretSubkey(ref packet) => &packet.common,
             &Packet::UserID(ref packet) => &packet.common,
+            &Packet::UserAttribute(ref packet) => &packet.common,
             &Packet::Literal(ref packet) => &packet.common,
             &Packet::CompressedData(ref packet) => &packet.common,
         }
@@ -32,6 +33,7 @@ impl<'a> DerefMut for Packet {
             &mut Packet::SecretKey(ref mut packet) => &mut packet.common,
             &mut Packet::SecretSubkey(ref mut packet) => &mut packet.common,
             &mut Packet::UserID(ref mut packet) => &mut packet.common,
+            &mut Packet::UserAttribute(ref mut packet) => &mut packet.common,
             &mut Packet::Literal(ref mut packet) => &mut packet.common,
             &mut Packet::CompressedData(ref mut packet) => &mut packet.common,
         }
