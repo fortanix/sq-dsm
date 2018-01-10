@@ -183,8 +183,14 @@ impl Descriptor {
     }
 
     fn fork(&self, l: TcpListener) -> io::Result<()> {
+        // Convert to raw fd, then forget l so that it will not be
+        // closed when it is dropped.
+        let fd = l.as_raw_fd();
+        ::std::mem::forget(l);
+
         Command::new(&self.executable.clone().into_os_string())
-            .stdin(unsafe { Stdio::from_raw_fd(l.as_raw_fd()) })
+            // l will be closed here if the exec fails.
+            .stdin(unsafe { Stdio::from_raw_fd(fd) })
             .spawn()?;
         Ok(())
     }
