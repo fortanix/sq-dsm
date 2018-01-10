@@ -575,58 +575,8 @@ impl Stamps {
 /// Results for sequoia-store.
 pub type Result<T> = ::std::result::Result<T, Error>;
 
-/* Debug formatting and conversion from and to node::Error.  */
 
-impl fmt::Debug for node::Error {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "node::Error::{}",
-               match self {
-                   &node::Error::Unspecified => "Unspecified",
-                   &node::Error::NotFound => "NotFound",
-                   &node::Error::Conflict => "Conflict",
-                   &node::Error::SystemError => "SystemError",
-                   &node::Error::MalformedKey => "MalformedKey",
-                   &node::Error::NetworkPolicyViolationOffline =>
-                       "NetworkPolicyViolation(Offline)",
-                   &node::Error::NetworkPolicyViolationAnonymized =>
-                       "NetworkPolicyViolation(Anonymized)",
-                   &node::Error::NetworkPolicyViolationEncrypted =>
-                       "NetworkPolicyViolation(Encrypted)",
-                   &node::Error::NetworkPolicyViolationInsecure =>
-                       "NetworkPolicyViolation(Insecure)",
-               })
-    }
-}
-
-impl From<Error> for node::Error {
-    fn from(error: Error) -> Self {
-        match error {
-            Error::NotFound => node::Error::NotFound,
-            Error::Conflict => node::Error::Conflict,
-            Error::CoreError(e) => match e {
-                core::Error::NetworkPolicyViolation(p) => match p {
-                    core::NetworkPolicy::Offline =>
-                        node::Error::NetworkPolicyViolationOffline,
-                    core::NetworkPolicy::Anonymized =>
-                        node::Error::NetworkPolicyViolationAnonymized,
-                    core::NetworkPolicy::Encrypted =>
-                        node::Error::NetworkPolicyViolationEncrypted,
-                    core::NetworkPolicy::Insecure =>
-                        node::Error::NetworkPolicyViolationInsecure,
-                }
-                _ => node::Error::SystemError,
-            },
-            Error::IoError(_) => node::Error::SystemError,
-            Error::StoreError => node::Error::Unspecified,
-            Error::ProtocolError => node::Error::SystemError,
-            Error::MalformedKey => node::Error::MalformedKey,
-            Error::TpkError(_) => node::Error::SystemError,
-            Error::RpcError(_) => node::Error::SystemError,
-            Error::SqlError(_) => node::Error::SystemError,
-        }
-    }
-}
-
+// Converts from backend errors.
 impl From<node::Error> for Error {
     fn from(error: node::Error) -> Self {
         match error {
@@ -670,8 +620,6 @@ pub enum Error {
     TpkError(tpk::Error),
     /// A `capnp::Error` occurred.
     RpcError(capnp::Error),
-    /// A `rusqlite::Error` occurred.
-    SqlError(rusqlite::Error),
 }
 
 impl From<sequoia_core::Error> for Error {
@@ -700,12 +648,6 @@ impl From<capnp::Error> for Error {
 impl From<capnp::NotInSchema> for Error {
     fn from(_: capnp::NotInSchema) -> Self {
         Error::ProtocolError
-    }
-}
-
-impl From<rusqlite::Error> for Error {
-    fn from(error: rusqlite::Error) -> Self {
-        Error::SqlError(error)
     }
 }
 

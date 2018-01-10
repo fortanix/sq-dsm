@@ -1,6 +1,7 @@
 //! Storage backend.
 
 use std::cell::RefCell;
+use std::fmt;
 use std::rc::Rc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -18,7 +19,6 @@ use sequoia_core as core;
 use sequoia_net::ipc;
 
 use store_protocol_capnp::node;
-use super::{Result, Error};
 
 /// Makes backends.
 #[doc(hidden)]
@@ -122,12 +122,21 @@ impl StoreServer {
             // We cannot implement FromSql and friends for
             // core::NetworkPolicy, hence we need to do it by foot.
             if store_policy < 0 || store_policy > 3 {
-                return Err(Error::StoreError);
+                return Err(node::Error::SystemError);
             }
             let store_policy = core::NetworkPolicy::from(store_policy as u8);
 
             if store_policy != policy {
-                return Err(core::Error::NetworkPolicyViolation(store_policy).into())
+                return Err(match store_policy {
+                    core::NetworkPolicy::Offline =>
+                        node::Error::NetworkPolicyViolationOffline,
+                    core::NetworkPolicy::Anonymized =>
+                        node::Error::NetworkPolicyViolationAnonymized,
+                    core::NetworkPolicy::Encrypted =>
+                        node::Error::NetworkPolicyViolationEncrypted,
+                    core::NetworkPolicy::Insecure =>
+                        node::Error::NetworkPolicyViolationInsecure,
+                });
             }
             server.id = id;
         }
@@ -150,18 +159,6 @@ impl StoreServer {
         self.c.borrow()
             .execute_batch(DB_SCHEMA_1)?;
         Ok(self)
-    }
-}
-
-impl From<rusqlite::Error> for node::Error {
-    fn from(_error: rusqlite::Error) -> Self {
-        node::Error::Unspecified
-    }
-}
-
-impl From<tpk::Error> for node::Error {
-    fn from(_: tpk::Error) -> Self {
-        node::Error::MalformedKey
     }
 }
 
@@ -207,12 +204,7 @@ impl node::store::Server for StoreServer {
         let binding_id: i64 = sry!(
             c.query_row(
                 "SELECT id FROM bindings WHERE store = ?1 AND label = ?2",
-                &[&self.id, &label], |row| row.get(0))
-                .map_err(|e| match e {
-                    rusqlite::Error::QueryReturnedNoRows =>
-                        Error::NotFound,
-                    _ => Error::SqlError(e),
-                }));
+                &[&self.id, &label], |row| row.get(0)));
 
         pry!(pry!(results.get().get_result()).set_ok(
             node::binding::ToClient::new(
@@ -456,6 +448,54 @@ impl node::key::Server for KeyServer {
         Promise::ok(())
     }
 }
+
+/* Error handling.  */
+
+impl fmt::Debug for node::Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "node::Error::{}",
+               match self {
+                   &node::Error::Unspecified => "Unspecified",
+                   &node::Error::NotFound => "NotFound",
+                   &node::Error::Conflict => "Conflict",
+                   &node::Error::SystemError => "SystemError",
+                   &node::Error::MalformedKey => "MalformedKey",
+                   &node::Error::NetworkPolicyViolationOffline =>
+                       "NetworkPolicyViolation(Offline)",
+                   &node::Error::NetworkPolicyViolationAnonymized =>
+                       "NetworkPolicyViolation(Anonymized)",
+                   &node::Error::NetworkPolicyViolationEncrypted =>
+                       "NetworkPolicyViolation(Encrypted)",
+                   &node::Error::NetworkPolicyViolationInsecure =>
+                       "NetworkPolicyViolation(Insecure)",
+               })
+    }
+}
+
+/// Results for the backend.
+type Result<T> = ::std::result::Result<T, node::Error>;
+
+impl From<rusqlite::Error> for node::Error {
+    fn from(error: rusqlite::Error) -> Self {
+        match error {
+            rusqlite::Error::SqliteFailure(f, _) => match f.code {
+                rusqlite::ErrorCode::ConstraintViolation =>
+                    node::Error::NotFound,
+                _ => node::Error::SystemError,
+            },
+            rusqlite::Error::QueryReturnedNoRows =>
+                node::Error::NotFound,
+            _ => node::Error::SystemError,
+        }
+    }
+}
+
+impl From<tpk::Error> for node::Error {
+    fn from(_: tpk::Error) -> Self {
+        node::Error::MalformedKey
+    }
+}
+
 
 /* Database schemata and migrations.  */
 
