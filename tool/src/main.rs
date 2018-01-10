@@ -259,7 +259,7 @@ fn real_main() -> Result<()> {
             }
         },
         ("store",  Some(m)) => {
-            let mut store = Store::open(&ctx, m.value_of("name").unwrap())
+            let store = Store::open(&ctx, m.value_of("name").unwrap())
                 .expect("Failed to open store");
 
             match m.subcommand() {

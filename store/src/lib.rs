@@ -29,7 +29,7 @@
 //! # fn f() -> Result<()> {
 //! # let ctx = Context::configure("org.sequoia-pgp.demo.store")
 //! #     .ephemeral().build()?;
-//! let mut store = Store::open(&ctx, "default")?;
+//! let store = Store::open(&ctx, "default")?;
 //!
 //! let fp = Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb");
 //! let binding = store.add("Mister B.", &fp)?;
@@ -109,7 +109,7 @@ impl fmt::Debug for Store {
     }
 }
 
-impl<'a> Store {
+impl Store {
     /// Opens a store.
     ///
     /// Opens a store with the given name.  If the store does not
@@ -160,13 +160,13 @@ impl<'a> Store {
     /// # fn f() -> Result<()> {
     /// # let ctx = Context::configure("org.sequoia-pgp.demo.store")
     /// #     .ephemeral().build()?;
-    /// let mut store = Store::open(&ctx, "default")?;
+    /// let store = Store::open(&ctx, "default")?;
     /// let fp = Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb");
     /// store.add("Mister B.", &fp)?;
     /// # Ok(())
     /// # }
     /// ```
-    pub fn add(&'a mut self, label: &str, fingerprint: &Fingerprint) -> Result<Binding> {
+    pub fn add(&self, label: &str, fingerprint: &Fingerprint) -> Result<Binding> {
         let mut request = self.store.add_request();
         request.get().set_label(label);
         request.get().set_fingerprint(fingerprint.to_hex().as_ref());
@@ -191,12 +191,12 @@ impl<'a> Store {
     /// #     .ephemeral().build()?;
     /// # let tpk = TPK::from_bytes(
     /// #     include_bytes!("../../openpgp/tests/data/keys/testy.pgp")).unwrap();
-    /// let mut store = Store::open(&ctx, "default")?;
+    /// let store = Store::open(&ctx, "default")?;
     /// store.import("Testy McTestface", &tpk)?;
     /// # Ok(())
     /// # }
     /// ```
-    pub fn import(&'a mut self, label: &str, tpk: &TPK) -> Result<TPK> {
+    pub fn import(&self, label: &str, tpk: &TPK) -> Result<TPK> {
         let fingerprint = tpk.fingerprint();
         let mut request = self.store.add_request();
         request.get().set_label(label);
@@ -221,17 +221,17 @@ impl<'a> Store {
     /// # fn f() -> Result<()> {
     /// # let ctx = Context::configure("org.sequoia-pgp.demo.store")
     /// #     .ephemeral().build()?;
-    /// let mut store = Store::open(&ctx, "default")?;
+    /// let store = Store::open(&ctx, "default")?;
     /// let fp = Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb");
     /// store.add("Mister B.", &fp)?;
     /// drop(store);
     /// // ...
-    /// let mut store = Store::open(&ctx, "default")?;
+    /// let store = Store::open(&ctx, "default")?;
     /// let binding = store.lookup("Mister B.")?;
     /// # Ok(())
     /// # }
     /// ```
-    pub fn lookup(&'a mut self, label: &str) -> Result<Binding> {
+    pub fn lookup(&self, label: &str) -> Result<Binding> {
         let mut request = self.store.lookup_request();
         request.get().set_label(label);
         let binding = make_request!(self.core.borrow_mut(), request)?;
@@ -276,7 +276,7 @@ impl<'a> Binding<'a> {
     /// # fn f() -> Result<()> {
     /// # let ctx = Context::configure("org.sequoia-pgp.demo.store")
     /// #     .ephemeral().build()?;
-    /// let mut store = Store::open(&ctx, "default")?;
+    /// let store = Store::open(&ctx, "default")?;
     ///
     /// let fp = Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb");
     /// let binding = store.add("Mister B.", &fp)?;
@@ -347,7 +347,7 @@ impl<'a> Binding<'a> {
     /// #     include_bytes!("../../openpgp/tests/data/keys/testy-new.pgp")).unwrap();
     /// # let new_sig = TPK::from_bytes(
     /// #     include_bytes!("../../openpgp/tests/data/keys/testy-new-with-sig.pgp")).unwrap();
-    /// let mut store = Store::open(&ctx, "default")?;
+    /// let store = Store::open(&ctx, "default")?;
     /// store.import("Testy McTestface", &old)?;
     /// // later...
     /// let binding = store.lookup("Testy McTestface")?;
@@ -401,7 +401,7 @@ impl<'a> Binding<'a> {
     /// #     include_bytes!("../../openpgp/tests/data/keys/testy.pgp")).unwrap();
     /// # let new = TPK::from_bytes(
     /// #     include_bytes!("../../openpgp/tests/data/keys/testy-new.pgp")).unwrap();
-    /// let mut store = Store::open(&ctx, "default")?;
+    /// let store = Store::open(&ctx, "default")?;
     /// store.import("Testy McTestface", &old)?;
     /// // later...
     /// let binding = store.lookup("Testy McTestface")?;
@@ -494,7 +494,7 @@ impl<'a> Key<'a> {
     /// #     include_bytes!("../../openpgp/tests/data/keys/testy.pgp")).unwrap();
     /// # let new = TPK::from_bytes(
     /// #     include_bytes!("../../openpgp/tests/data/keys/testy-new.pgp")).unwrap();
-    /// let mut store = Store::open(&ctx, "default")?;
+    /// let store = Store::open(&ctx, "default")?;
     /// let fp = Fingerprint::from_hex("3E8877C877274692975189F5D03F6F865226FE8B").unwrap();
     /// let binding = store.add("Testy McTestface", &fp)?;
     /// let key = binding.key()?;
@@ -682,7 +682,7 @@ mod store_test {
             .ephemeral()
             .network_policy(core::NetworkPolicy::Offline)
             .build().unwrap();
-        let mut store = Store::open(&ctx, "default").unwrap();
+        let store = Store::open(&ctx, "default").unwrap();
         let r = store.lookup("I do not exist");
         assert_match!(Err(Error::NotFound) = r);
     }
@@ -693,7 +693,7 @@ mod store_test {
             .ephemeral()
             .network_policy(core::NetworkPolicy::Offline)
             .build().unwrap();
-        let mut store = Store::open(&ctx, "default").unwrap();
+        let store = Store::open(&ctx, "default").unwrap();
         let tpk = TPK::from_bytes(bytes!("testy.pgp")).unwrap();
         let fp = Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb");
         let binding = store.add("Mister B.", &fp).unwrap();
