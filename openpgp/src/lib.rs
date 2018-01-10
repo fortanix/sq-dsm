@@ -79,7 +79,7 @@ mod iter;
 /// The values correspond to the serialized format.  The packet types
 /// named `UnassignedXX` are not in use as of RFC 4880.
 ///
-/// Use [`Tag::from_numeric`] to translate a numeric value to a symbol
+/// Use [`Tag::from_numeric`] to translate a numeric value to a symbolic
 /// one.
 ///
 ///   [`Tag::from_numeric`]: enum.Tag.html#method.from_numeric
@@ -188,8 +188,8 @@ impl Tag {
     }
 
     /// Converts a `Tag` to its corresponding numeric value.
-    pub fn to_numeric(tag: Tag) -> u8 {
-        num::ToPrimitive::to_u8(&tag).unwrap()
+    pub fn to_numeric(self) -> u8 {
+        num::ToPrimitive::to_u8(&self).unwrap()
     }
 }
 
