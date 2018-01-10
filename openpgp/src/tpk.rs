@@ -4,6 +4,7 @@ use std::io;
 use std::cmp::Ordering;
 use std::path::Path;
 use std::fs::File;
+use std::slice;
 
 use super::{Packet, Message, Signature, Key, UserID, UserAttribute,
             Fingerprint, Tag};
@@ -36,6 +37,20 @@ pub struct SubkeyBinding {
     certifications: Vec<Signature>,
 }
 
+impl SubkeyBinding {
+    pub fn subkey(&self) -> &Key {
+        &self.subkey
+    }
+
+    pub fn selfsigs(&self) -> slice::Iter<Signature> {
+        self.selfsigs.iter()
+    }
+
+    pub fn certifications(&self) -> slice::Iter<Signature> {
+        self.certifications.iter()
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct UserIDBinding {
     userid: UserID,
@@ -47,6 +62,20 @@ pub struct UserIDBinding {
     certifications: Vec<Signature>,
 }
 
+impl UserIDBinding {
+    pub fn userid(&self) -> &UserID {
+        &self.userid
+    }
+
+    pub fn selfsigs(&self) -> slice::Iter<Signature> {
+        self.selfsigs.iter()
+    }
+
+    pub fn certifications(&self) -> slice::Iter<Signature> {
+        self.certifications.iter()
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct UserAttributeBinding {
     user_attribute: UserAttribute,
@@ -56,6 +85,20 @@ pub struct UserAttributeBinding {
 
     // Third-party certifications.
     certifications: Vec<Signature>,
+}
+
+impl UserAttributeBinding {
+    pub fn user_attribute(&self) -> &UserAttribute {
+        &self.user_attribute
+    }
+
+    pub fn selfsigs(&self) -> slice::Iter<Signature> {
+        self.selfsigs.iter()
+    }
+
+    pub fn certifications(&self) -> slice::Iter<Signature> {
+        self.certifications.iter()
+    }
 }
 
 // We use a state machine to extract a TPK from an OpenPGP message.
@@ -353,6 +396,22 @@ impl TPKParser {
 }
 
 impl TPK {
+    pub fn primary(&self) -> &Key {
+        &self.primary
+    }
+
+    pub fn userids(&self) -> slice::Iter<UserIDBinding> {
+        self.userids.iter()
+    }
+
+    pub fn user_attributes(&self) -> slice::Iter<UserAttributeBinding> {
+        self.user_attributes.iter()
+    }
+
+    pub fn subkeys(&self) -> slice::Iter<SubkeyBinding> {
+        self.subkeys.iter()
+    }
+
     /// Returns the first TPK found in the packet stream.
     pub fn from_packet_parser(mut pp: PacketParser) -> Result<Self> {
         let mut parser = TPKParser::new();
