@@ -94,7 +94,7 @@ impl node::Server for NodeServer {
 
 struct StoreServer {
     c: Rc<RefCell<Connection>>,
-    store_id: i64,
+    id: i64,
 }
 
 impl StoreServer {
@@ -102,7 +102,7 @@ impl StoreServer {
            -> Result<Self> {
         let mut server = StoreServer {
             c: c,
-            store_id: 0,
+            id: 0,
         }.init()?;
 
         {
@@ -129,7 +129,7 @@ impl StoreServer {
             if store_policy != policy {
                 return Err(core::Error::NetworkPolicyViolation(store_policy).into())
             }
-            server.store_id = id;
+            server.id = id;
         }
 
         Ok(server)
@@ -181,13 +181,13 @@ impl node::store::Server for StoreServer {
 
         sry!(c.execute("INSERT OR IGNORE INTO bindings (store, label, key, created)
                        VALUES (?, ?, ?, ?)",
-                       &[&self.store_id,
+                       &[&self.id,
                          &label,
                          &key_id,
                          &time]));
         let binding_id: i64 = sry!(c.query_row(
             "SELECT id FROM bindings WHERE store = ?1 AND label = ?2",
-            &[&self.store_id, &label], |row| row.get(0)));
+            &[&self.id, &label], |row| row.get(0)));
 
         pry!(pry!(results.get().get_result()).set_ok(
             node::binding::ToClient::new(
@@ -207,7 +207,7 @@ impl node::store::Server for StoreServer {
         let binding_id: i64 = sry!(
             c.query_row(
                 "SELECT id FROM bindings WHERE store = ?1 AND label = ?2",
-                &[&self.store_id, &label], |row| row.get(0))
+                &[&self.id, &label], |row| row.get(0))
                 .map_err(|e| match e {
                     rusqlite::Error::QueryReturnedNoRows =>
                         Error::NotFound,
