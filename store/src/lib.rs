@@ -489,7 +489,7 @@ impl<'a> Key<'a> {
     /// # fn main() { f().unwrap(); }
     /// # fn f() -> Result<()> {
     /// # let ctx = Context::configure("org.sequoia-pgp.demo.store")
-    /// #     /*.ephemeral()*/.build()?;
+    /// #     .ephemeral().build()?;
     /// # let old = TPK::from_bytes(
     /// #     include_bytes!("../../openpgp/tests/data/keys/testy.pgp")).unwrap();
     /// # let new = TPK::from_bytes(
