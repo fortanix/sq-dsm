@@ -265,7 +265,19 @@ impl Signature {
     fn parse<'a, R: BufferedReader<BufferedReaderState> + 'a>
             (mut bio: R, recursion_depth: usize)
             -> Result<PacketParser<'a>, std::io::Error> {
-        let version = bio.data_consume_hard(1)?[0];
+        let version = bio.data_hard(1)?[0];
+        if version != 4 {
+            if TRACE {
+                eprintln!("{}Signature::parse: Ignoring verion {} packet",
+                          indent(recursion_depth as u8), version);
+            }
+
+            // Unknown algo.  Return an unknown packet.
+            return Unknown::parse(bio, recursion_depth, Tag::Signature);
+        }
+
+        bio.consume(1);
+
         let sigtype = bio.data_consume_hard(1)?[0];
         let pk_algo = bio.data_consume_hard(1)?[0];
         let hash_algo = bio.data_consume_hard(1)?[0];
@@ -344,7 +356,13 @@ impl Key {
                 || tag == Tag::SecretKey
                 || tag == Tag::SecretSubkey);
 
-        let version = bio.data_consume_hard(1)?[0];
+        let version = bio.data_hard(1)?[0];
+        if version != 4 {
+            // We only support version 4 keys.
+            return Unknown::parse(bio, recursion_depth, tag);
+        }
+        bio.consume(1);
+
         let creation_time = bio.read_be_u32()?;
         let pk_algo = bio.data_consume_hard(1)?[0];
         let mpis = bio.steal_eof()?;
@@ -545,19 +563,8 @@ impl CompressedData {
             },
             _ => {
                 // Unknown algo.  Return an unknown packet.
-                return Ok(PacketParser {
-                    packet: Packet::Unknown(Unknown {
-                        common: PacketCommon {
-                            children: None,
-                            body: None,
-                        },
-                        tag: Tag::CompressedData,
-                    }),
-                    reader: Box::new(bio),
-                    content_was_read: false,
-                    recursion_depth: recursion_depth as u8,
-                    settings: PACKET_PARSER_DEFAULTS
-                });
+                return Unknown::parse(
+                    bio, recursion_depth, Tag::CompressedData);
             }
         };
 
@@ -1798,6 +1805,41 @@ mod message_test {
         }
         // We expect 6 packets.
         assert_eq!(count, 6);
+    }
+
+    // dkg's key contains packets from different OpenPGP
+    // implementations.  And, it even includes some v3 signatures.
+    //
+    // lutz's key is a v3 key.
+    #[test]
+    fn torture() {
+        let data = bytes!("../keys/dkg.gpg");
+        let mut mp = PacketParserBuilder::from_bytes(data).unwrap()
+            //.trace()
+            .buffer_unread_content()
+            .to_message_parser().unwrap();
+
+        while mp.recurse() {
+            //let pp = mp.ppo.as_mut().unwrap();
+            //eprintln!("{:?}", pp);
+        }
+        let message = mp.finish();
+        //message.pretty_print();
+        assert_eq!(message.children().len(), 1450);
+
+        let data = bytes!("../keys/lutz.gpg");
+        let mut mp = PacketParserBuilder::from_bytes(data).unwrap()
+            //.trace()
+            .buffer_unread_content()
+            .to_message_parser().unwrap();
+
+        while mp.recurse() {
+            let pp = mp.ppo.as_mut().unwrap();
+            eprintln!("{:?}", pp);
+        }
+        let message = mp.finish();
+        message.pretty_print();
+        assert_eq!(message.children().len(), 77);
     }
 
     #[test]
