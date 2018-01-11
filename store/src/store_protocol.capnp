@@ -67,12 +67,20 @@ interface Node {
   struct Stats {
     created @0 :Int64;
     updated @1 :Int64;
-    encryptionCount @2 :Int64;
-    encryptionFirst @3 :Int64;
-    encryptionLast  @4 :Int64;
-    verificationCount @5 :Int64;
-    verificationFirst @6 :Int64;
-    verificationLast  @7 :Int64;
+    message @2 :Log;
+    encryptionCount   @3 :Int64;
+    encryptionFirst   @4 :Int64;
+    encryptionLast    @5 :Int64;
+    verificationCount @6 :Int64;
+    verificationFirst @7 :Int64;
+    verificationLast  @8 :Int64;
+  }
+
+  struct Log {
+    timestamp @0 :Int64;
+    item @1 :Text;
+    message @2 :Text;
+    error @3 :Text;
   }
 
   enum NetworkPolicy {

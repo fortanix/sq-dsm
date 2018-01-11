@@ -65,7 +65,8 @@ pub trait Handler {
 }
 
 /// A factory for handlers.
-pub type HandlerFactory = fn(descriptor: Descriptor) -> Option<Box<Handler>>;
+pub type HandlerFactory = fn(descriptor: Descriptor,
+                             handle: tokio_core::reactor::Handle) -> Option<Box<Handler>>;
 
 /// A descriptor is used to connect to a service.
 #[derive(Clone)]
@@ -231,7 +232,7 @@ impl Server {
         /* XXX: It'd be nice to recycle this connection.  */
         drop(i);
 
-        let handler = (self.descriptor.factory)(self.descriptor.clone())
+        let handler = (self.descriptor.factory)(self.descriptor.clone(), self.core.handle())
             .ok_or(
                 io::Error::new(io::ErrorKind::BrokenPipe, "Failed to start server"))?;
 

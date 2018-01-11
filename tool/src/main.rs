@@ -387,14 +387,27 @@ fn real_main() -> Result<()> {
                 ("keys",  Some(_)) => {
                     let mut table = Table::new();
                     table.set_format(*prettytable::format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
-                    table.set_titles(row!["fingerprint", "# of bindings"]);
+                    table.set_titles(row!["fingerprint", "# of bindings", "updated", "status"]);
 
                     for item in Store::list_keys(&ctx)
                         .expect("Failed to iterate over keys") {
+                            let stats = item.key.stats()
+                                .expect("Failed to get stats");
                             table.add_row(Row::new(vec![
                                 Cell::new(&item.fingerprint.to_string()),
-                                Cell::new(&format!("{}", item.bindings))])
-                            );
+                                Cell::new(&format!("{}", item.bindings)),
+                                if let Some(ref t) = stats.updated {
+                                    Cell::new(&sequoia_store::format_system_time(t)
+                                              .expect("Failed to format timestamp"))
+                                } else {
+                                    Cell::new("")
+                                },
+                                if let Some(m) = stats.message {
+                                    Cell::new(&m.short())
+                                } else {
+                                    Cell::new("")
+                                },
+                            ]));
                         }
 
                     table.printstd();

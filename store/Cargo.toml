@@ -15,7 +15,9 @@ sequoia-net = { path = "../net" }
 capnp = "0.8"
 capnp-rpc = "0.8"
 futures = "0.1.17"
+rand = "0.3"
 rusqlite = "0.12.0"
+time = "0.1.38"
 tokio-core = "0.1.10"
 tokio-io = "0.1.4"
 

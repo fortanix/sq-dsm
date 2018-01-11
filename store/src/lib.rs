@@ -50,7 +50,9 @@ extern crate capnp;
 #[macro_use]
 extern crate capnp_rpc;
 extern crate futures;
+extern crate rand;
 extern crate rusqlite;
+extern crate time;
 extern crate tokio_core;
 extern crate tokio_io;
 
@@ -58,7 +60,7 @@ use std::cell::RefCell;
 use std::fmt;
 use std::io;
 use std::rc::Rc;
-use std::time::{SystemTime, Duration, UNIX_EPOCH};
+use std::time::{SystemTime, SystemTimeError, Duration, UNIX_EPOCH};
 
 use capnp::capability::Promise;
 use capnp_rpc::rpc_twoparty_capnp::Side;
@@ -659,11 +661,60 @@ pub struct Stats {
     /// Records the time this item was last updated.
     pub updated: Option<SystemTime>,
 
+    /// Result of the latest update.
+    pub message: Option<Log>,
+
     /// Records counters and timestamps of encryptions.
     pub encryption: Stamps,
 
     /// Records counters and timestamps of verifications.
     pub verification: Stamps,
+}
+
+#[derive(Debug)]
+pub struct Log {
+    pub timestamp: SystemTime,
+    pub item: String,
+    pub status: ::std::result::Result<String, (String, String)>,
+}
+
+impl Log {
+    fn new(timestamp: i64, item: &str, message: &str, error: &str) -> Option<Self> {
+        let timestamp = from_unix(timestamp)?;
+        if message == "" {
+            None
+        } else {
+            if error == "" {
+                Some(Log{
+                    timestamp: timestamp,
+                    item: item.into(),
+                    status: Err((message.into(), error.into())),
+                })
+            } else {
+                Some(Log{
+                    timestamp: timestamp,
+                    item: item.into(),
+                    status: Ok(message.into()),
+                })
+            }
+        }
+    }
+
+    /// Returns the message without context.
+    pub fn short(&self) -> String {
+        match self.status {
+            Ok(ref m) => m.clone(),
+            Err((ref m, ref e)) => format!("{}: {}", m, e),
+        }
+    }
+
+    /// Returns the message without context.
+    pub fn string(&self) -> Result<String> {
+        Ok(match self.status {
+            Ok(ref m) => format!("{}: {}", format_system_time(&self.timestamp)?, m),
+            Err((ref m, ref e)) => format!("{}: {}: {}", format_system_time(&self.timestamp)?, m, e),
+        })
+    }
 }
 
 /// Counter and timestamps.
@@ -798,6 +849,16 @@ impl Iterator for KeyIter {
     }
 }
 
+/// XXX Use the correct time type.
+///
+/// We should use time::Timespec and get rid of this function.
+pub fn format_system_time(t: &SystemTime) -> Result<String> {
+    let tm = time::at(time::Timespec::new(t.duration_since(UNIX_EPOCH)?.as_secs() as i64, 0));
+    Ok(time::strftime("%F %H:%M", &tm)
+       // Only parse errors can happen.
+       .unwrap())
+}
+
 /* Error handling.  */
 
 /// Results for sequoia-store.
@@ -875,6 +936,12 @@ impl From<capnp::Error> for Error {
 
 impl From<capnp::NotInSchema> for Error {
     fn from(_: capnp::NotInSchema) -> Self {
+        Error::ProtocolError
+    }
+}
+
+impl From<SystemTimeError> for Error {
+    fn from(_: SystemTimeError) -> Self {
         Error::ProtocolError
     }
 }
