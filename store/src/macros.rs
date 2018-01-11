@@ -86,10 +86,12 @@ macro_rules! make_request_map {
     }}
 }
 
-/// Behaves like try! for server functions.  Because it uses the
-/// 'results' parameter, it must be bound explicitly.
+/// These macros are for server functions.  Because they use the
+/// 'results' parameter, they must be bound explicitly at the
+/// beginning of the function.
 macro_rules! bind_results {
     ( $results: ident ) => {
+        /// Behaves like `return Err(_)` for server functions.
         #[allow(unused_macros)]
         macro_rules! fail {
             ( $expr:expr ) => {{
@@ -99,12 +101,17 @@ macro_rules! bind_results {
             }};
         }
 
+        /// Behaves like `try!` for server functions.
+        ///
+        /// If the given expression evaluates to Err(_), the error is
+        /// stored in the result and the function terminates.
         #[allow(unused_macros)]
         macro_rules! sry {
             ( $expr:expr ) => {{
                 match $expr {
                     Ok(x) => x,
                     Err(x) => {
+                        #[cfg(debug_assertions)]
                         eprintln!("{}:{}: {:?}", file!(), line!(), x);
                         pry!($results.get().get_result()).set_err(x.into());
                         return Promise::ok(());
