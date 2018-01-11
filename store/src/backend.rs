@@ -1,6 +1,5 @@
 //! Storage backend.
 
-use std::cell::RefCell;
 use std::fmt;
 use std::rc::Rc;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -53,7 +52,7 @@ impl ipc::Handler for Backend {
 
 struct NodeServer {
     _descriptor: ipc::Descriptor,
-    c: Rc<RefCell<Connection>>,
+    c: Rc<Connection>,
 }
 
 impl NodeServer {
@@ -67,7 +66,7 @@ impl NodeServer {
 
         Ok(NodeServer {
             _descriptor: descriptor,
-            c: Rc::new(RefCell::new(c)),
+            c: Rc::new(c),
         })
     }
 }
@@ -93,12 +92,12 @@ impl node::Server for NodeServer {
 }
 
 struct StoreServer {
-    c: Rc<RefCell<Connection>>,
+    c: Rc<Connection>,
     id: i64,
 }
 
 impl StoreServer {
-    fn new(c: Rc<RefCell<Connection>>, domain: &str, policy: core::NetworkPolicy, name: &str)
+    fn new(c: Rc<Connection>, domain: &str, policy: core::NetworkPolicy, name: &str)
            -> Result<Self> {
         let mut server = StoreServer {
             c: c,
@@ -106,16 +105,14 @@ impl StoreServer {
         }.init()?;
 
         {
-            let c = server.c.borrow();
-
             // We cannot implement ToSql and friends for
             // core::NetworkPolicy, hence we need to do it by foot.
             let p: u8 = (&policy).into();
 
-            c.execute(
+            server.c.execute(
                 "INSERT OR IGNORE INTO stores (domain, network_policy, name) VALUES (?1, ?2, ?3)",
                 &[&domain, &p, &name])?;
-            let (id, store_policy): (i64, i64) = c.query_row(
+            let (id, store_policy): (i64, i64) = server.c.query_row(
                 "SELECT id, network_policy FROM stores WHERE domain = ?1 AND name = ?2",
                 &[&domain, &name], |row| (row.get(0), row.get(1)))?;
 
@@ -145,7 +142,7 @@ impl StoreServer {
     }
 
     fn init(self) -> Result<Self> {
-        let v = self.c.borrow().query_row(
+        let v = self.c.query_row(
             "SELECT version FROM version WHERE id=1",
             &[], |row| row.get(0));
 
@@ -156,8 +153,7 @@ impl StoreServer {
             }
         }
 
-        self.c.borrow()
-            .execute_batch(DB_SCHEMA_1)?;
+        self.c.execute_batch(DB_SCHEMA_1)?;
         Ok(self)
     }
 }
@@ -172,17 +168,16 @@ impl node::store::Server for StoreServer {
         let fp = pry!(params.get_fingerprint());
         let label = pry!(params.get_label());
         let time = sry!(now());
-        let c = self.c.borrow();
 
-        let key_id = sry!(get_key_id(&c, fp));
+        let key_id = sry!(get_key_id(&self.c, fp));
 
-        sry!(c.execute("INSERT OR IGNORE INTO bindings (store, label, key, created)
-                       VALUES (?, ?, ?, ?)",
-                       &[&self.id,
-                         &label,
-                         &key_id,
-                         &time]));
-        let binding_id: i64 = sry!(c.query_row(
+        sry!(self.c.execute("INSERT OR IGNORE INTO bindings (store, label, key, created)
+                             VALUES (?, ?, ?, ?)",
+                            &[&self.id,
+                              &label,
+                              &key_id,
+                              &time]));
+        let binding_id: i64 = sry!(self.c.query_row(
             "SELECT id FROM bindings WHERE store = ?1 AND label = ?2",
             &[&self.id, &label], |row| row.get(0)));
 
@@ -199,10 +194,9 @@ impl node::store::Server for StoreServer {
               -> Promise<(), capnp::Error> {
         bind_results!(results);
         let label = pry!(pry!(params.get()).get_label());
-        let c = self.c.borrow();
 
         let binding_id: i64 = sry!(
-            c.query_row(
+            self.c.query_row(
                 "SELECT id FROM bindings WHERE store = ?1 AND label = ?2",
                 &[&self.id, &label], |row| row.get(0)));
 
@@ -218,19 +212,19 @@ impl node::store::Server for StoreServer {
               mut results: node::store::DeleteResults)
               -> Promise<(), capnp::Error> {
         bind_results!(results);
-        sry!(self.c.borrow().execute("DELETE FROM stores WHERE id = ?1",
+        sry!(self.c.execute("DELETE FROM stores WHERE id = ?1",
                                      &[&self.id]));
         Promise::ok(())
     }
 }
 
 struct BindingServer {
-    c: Rc<RefCell<Connection>>,
+    c: Rc<Connection>,
     id: i64,
 }
 
 impl BindingServer {
-    fn new(c: Rc<RefCell<Connection>>, id: i64) -> Self {
+    fn new(c: Rc<Connection>, id: i64) -> Self {
         BindingServer {
             c: c,
             id: id,
@@ -248,7 +242,7 @@ trait Query {
 
 impl Query for BindingServer {
     fn query(&mut self, column: &str) -> Result<i64> {
-        self.c.borrow().query_row(
+        self.c.query_row(
             format!("SELECT {} FROM bindings WHERE id = ?1", column).as_ref(),
             &[&self.id], |row| row.get(0)).map_err(|e| e.into())
     }
@@ -290,7 +284,7 @@ impl node::binding::Server for BindingServer {
         // Check in the database for the current key.
         let key_id = sry!(self.key_id());
         let (fingerprint, key): (String, Option<Vec<u8>>)
-            = sry!(self.c.borrow().query_row(
+            = sry!(self.c.query_row(
                 "SELECT fingerprint, key FROM keys WHERE id = ?1",
                 &[&key_id],
                 |row| (row.get(0), row.get_checked(1).ok())));
@@ -312,10 +306,9 @@ impl node::binding::Server for BindingServer {
             if force || (current.is_some() && new.is_signed_by(&current.unwrap())) {
                 // Update binding, and retry.
                 let key_id =
-                    sry!(get_key_id(&self.c.borrow(), new.fingerprint().to_hex().as_ref()));
-                sry!(self.c.borrow()
-                     .execute("UPDATE bindings SET key = ?1 WHERE id = ?2",
-                              &[&key_id, &self.id]));
+                    sry!(get_key_id(&self.c, new.fingerprint().to_hex().as_ref()));
+                sry!(self.c.execute("UPDATE bindings SET key = ?1 WHERE id = ?2",
+                                    &[&key_id, &self.id]));
                 return self.import(params, results);
             } else {
                 fail!(node::Error::Conflict);
@@ -330,9 +323,8 @@ impl node::binding::Server for BindingServer {
         let mut blob = vec![];
         sry!(new.serialize(&mut blob));
 
-        sry!(self.c.borrow()
-             .execute("UPDATE keys SET key = ?1 WHERE id = ?2",
-                      &[&blob, &key_id]));
+        sry!(self.c.execute("UPDATE keys SET key = ?1 WHERE id = ?2",
+                            &[&blob, &key_id]));
 
         pry!(pry!(results.get().get_result()).set_ok(&blob[..]));
         Promise::ok(())
@@ -343,7 +335,7 @@ impl node::binding::Server for BindingServer {
               mut results: node::binding::DeleteResults)
               -> Promise<(), capnp::Error> {
         bind_results!(results);
-        sry!(self.c.borrow().execute("DELETE FROM bindings WHERE id = ?1",
+        sry!(self.c.execute("DELETE FROM bindings WHERE id = ?1",
                                      &[&self.id]));
         Promise::ok(())
     }
@@ -354,10 +346,10 @@ impl node::binding::Server for BindingServer {
                            -> Promise<(), capnp::Error> {
         bind_results!(results);
         let key = sry!(self.key_id());
-        sry!(self.c.borrow()
+        sry!(self.c
              .execute("UPDATE bindings SET encryption_count = encryption_count + 1 WHERE id = ?1",
                       &[&self.id]));
-        sry!(self.c.borrow()
+        sry!(self.c
              .execute("UPDATE keys SET encryption_count = encryption_count + 1 WHERE id = ?1",
                       &[&key]));
 
@@ -371,10 +363,10 @@ impl node::binding::Server for BindingServer {
                              -> Promise<(), capnp::Error> {
         bind_results!(results);
         let key = sry!(self.key_id());
-        sry!(self.c.borrow()
+        sry!(self.c
              .execute("UPDATE bindings SET verification_count = verification_count + 1 WHERE id = ?1",
                       &[&self.id]));
-        sry!(self.c.borrow()
+        sry!(self.c
              .execute("UPDATE keys SET verification_count = verification_count + 1 WHERE id = ?1",
                       &[&key]));
 
@@ -384,12 +376,12 @@ impl node::binding::Server for BindingServer {
 }
 
 struct KeyServer {
-    c: Rc<RefCell<Connection>>,
+    c: Rc<Connection>,
     id: i64,
 }
 
 impl KeyServer {
-    fn new(c: Rc<RefCell<Connection>>, id: i64) -> Self {
+    fn new(c: Rc<Connection>, id: i64) -> Self {
         KeyServer {
             c: c,
             id: id,
@@ -399,7 +391,7 @@ impl KeyServer {
 
 impl Query for KeyServer {
     fn query(&mut self, column: &str) -> Result<i64> {
-        self.c.borrow().query_row(
+        self.c.query_row(
             format!("SELECT {} FROM keys WHERE id = ?1", column).as_ref(),
             &[&self.id], |row| row.get(0)).map_err(|e| e.into())
     }
@@ -421,7 +413,7 @@ impl node::key::Server for KeyServer {
            -> Promise<(), capnp::Error> {
         bind_results!(results);
         let key: Vec<u8> = sry!(
-            self.c.borrow().query_row(
+            self.c.query_row(
                 "SELECT key FROM keys WHERE id = ?1",
                 &[&self.id],
                 |row| row.get_checked(0).unwrap_or(vec![])));
@@ -437,7 +429,7 @@ impl node::key::Server for KeyServer {
         let mut new = sry!(TPK::from_bytes(&pry!(pry!(params.get()).get_key())));
 
         let (fingerprint, key): (String, Option<Vec<u8>>)
-            = sry!(self.c.borrow().query_row(
+            = sry!(self.c.query_row(
                 "SELECT fingerprint, key FROM keys WHERE id = ?1",
                 &[&self.id],
                 |row| (row.get(0), row.get_checked(1).ok())));
@@ -460,9 +452,8 @@ impl node::key::Server for KeyServer {
         let mut blob = vec![];
         sry!(new.serialize(&mut blob));
 
-        sry!(self.c.borrow()
-             .execute("UPDATE keys SET key = ?1 WHERE id = ?2",
-                      &[&blob, &self.id]));
+        sry!(self.c.execute("UPDATE keys SET key = ?1 WHERE id = ?2",
+                            &[&blob, &self.id]));
 
         pry!(pry!(results.get().get_result()).set_ok(&blob[..]));
         Promise::ok(())

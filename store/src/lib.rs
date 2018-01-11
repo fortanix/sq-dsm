@@ -57,6 +57,7 @@ extern crate tokio_io;
 use std::cell::RefCell;
 use std::fmt;
 use std::io;
+use std::rc::Rc;
 use std::time::{SystemTime, Duration, UNIX_EPOCH};
 
 use capnp::capability::Promise;
@@ -99,7 +100,7 @@ pub fn descriptor(c: &Context) -> ipc::Descriptor {
 /// A public key store.
 pub struct Store {
     name: String,
-    core: RefCell<Core>,
+    core: Rc<RefCell<Core>>,
     store: node::store::Client,
 }
 
@@ -142,7 +143,7 @@ impl Store {
         request.get().set_name(name);
 
         let store = make_request!(&mut core, request)?;
-        Ok(Store{name: name.into(), core: RefCell::new(core), store: store})
+        Ok(Store{name: name.into(), core: Rc::new(RefCell::new(core)), store: store})
     }
 
     /// Adds a key identified by fingerprint to the store.
@@ -171,7 +172,7 @@ impl Store {
         request.get().set_label(label);
         request.get().set_fingerprint(fingerprint.to_hex().as_ref());
         let binding = make_request!(self.core.borrow_mut(), request)?;
-        Ok(Binding::new(self, label, binding))
+        Ok(Binding::new(self.core.clone(), label, binding))
     }
 
     /// Imports a key into the store.
@@ -202,7 +203,7 @@ impl Store {
         request.get().set_label(label);
         request.get().set_fingerprint(fingerprint.to_hex().as_ref());
         let binding = make_request!(self.core.borrow_mut(), request)?;
-        let binding = Binding::new(self, label, binding);
+        let binding = Binding::new(self.core.clone(), label, binding);
         binding.import(tpk)
     }
 
@@ -235,7 +236,7 @@ impl Store {
         let mut request = self.store.lookup_request();
         request.get().set_label(label);
         let binding = make_request!(self.core.borrow_mut(), request)?;
-        Ok(Binding::new(self, label, binding))
+        Ok(Binding::new(self.core.clone(), label, binding))
     }
 
     /// Deletes this store.
@@ -275,21 +276,21 @@ impl Store {
 /// Stores map labels to TPKs.  A `Binding` represents a pair in this
 /// relation.  We make this explicit because we associate metadata
 /// with these pairs.
-pub struct Binding<'a> {
+pub struct Binding {
     label: String,
-    store: &'a Store,
+    core: Rc<RefCell<Core>>,
     binding: node::binding::Client,
 }
 
-impl<'a> fmt::Debug for Binding<'a> {
+impl fmt::Debug for Binding {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Binding {{ label: {} }}", self.label)
     }
 }
 
-impl<'a> Binding<'a> {
-    fn new(store: &'a Store, label: &str, binding: node::binding::Client) -> Self {
-        Binding{label: label.into(), store: store, binding: binding}
+impl Binding {
+    fn new(core: Rc<RefCell<Core>>, label: &str, binding: node::binding::Client) -> Self {
+        Binding{label: label.into(), core: core, binding: binding}
     }
 
     /// Returns stats for this binding.
@@ -324,15 +325,15 @@ impl<'a> Binding<'a> {
     /// # }
     /// ```
     pub fn stats(&self) -> Result<Stats> {
-        make_stats_request!(self.store.core.borrow_mut(),
+        make_stats_request!(self.core.borrow_mut(),
                             self.binding.stats_request())
     }
 
     /// Returns the `Key` of this binding.
     pub fn key(&self) -> Result<Key> {
-        make_request_map!(self.store.core.borrow_mut(),
+        make_request_map!(self.core.borrow_mut(),
                           self.binding.key_request(),
-                          |tpk| Ok(Key::new(self.store, tpk)))
+                          |tpk| Ok(Key::new(self.core.clone(), tpk)))
     }
 
     /// Returns the `Tpk` of this binding.
@@ -396,7 +397,7 @@ impl<'a> Binding<'a> {
         request.get().set_force(false);
         request.get().set_key(&blob);
         make_request_map!(
-            self.store.core.borrow_mut(),
+            self.core.borrow_mut(),
             request,
             |data| TPK::from_bytes(data).map_err(|e| e.into()))
     }
@@ -450,7 +451,7 @@ impl<'a> Binding<'a> {
         request.get().set_force(true);
         request.get().set_key(&blob);
         make_request_map!(
-            self.store.core.borrow_mut(),
+            self.core.borrow_mut(),
             request,
             |data| TPK::from_bytes(data).map_err(|e| e.into()))
     }
@@ -481,20 +482,20 @@ impl<'a> Binding<'a> {
     /// ```
     pub fn delete(self) -> Result<()> {
         let request = self.binding.delete_request();
-        make_request_map!(self.store.core.borrow_mut(), request, |_| Ok(()))
+        make_request_map!(self.core.borrow_mut(), request, |_| Ok(()))
     }
 
     fn register_encryption(&self) -> Result<Stats> {
         #![allow(dead_code)]     // XXX use
         make_stats_request!(
-            self.store.core.borrow_mut(),
+            self.core.borrow_mut(),
             self.binding.register_encryption_request())
     }
 
     fn register_verification(&self) -> Result<Stats> {
         #![allow(dead_code)]     // XXX use
         make_stats_request!(
-            self.store.core.borrow_mut(),
+            self.core.borrow_mut(),
             self.binding.register_verification_request())
     }
 }
@@ -503,32 +504,32 @@ impl<'a> Binding<'a> {
 ///
 /// A `Key` is a handle to a stored TPK.  We make this explicit
 /// because we associate metadata with TPKs.
-pub struct Key<'a> {
-    store: &'a Store,
+pub struct Key {
+    core: Rc<RefCell<Core>>,
     key: node::key::Client,
 }
 
-impl<'a> fmt::Debug for Key<'a> {
+impl fmt::Debug for Key {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Key {{ }}")
     }
 }
 
-impl<'a> Key<'a> {
-    fn new(store: &'a Store, key: node::key::Client) -> Self {
-        Key{store: store, key: key}
+impl Key {
+    fn new(core: Rc<RefCell<Core>>, key: node::key::Client) -> Self {
+        Key{core: core, key: key}
     }
 
     /// Returns the TPK.
     pub fn tpk(&self) -> Result<TPK> {
-        make_request_map!(self.store.core.borrow_mut(),
+        make_request_map!(self.core.borrow_mut(),
                           self.key.tpk_request(),
                           |tpk| TPK::from_bytes(tpk).map_err(|e| e.into()))
     }
 
     /// Returns stats for this key.
     pub fn stats(&self) -> Result<Stats> {
-        make_stats_request!(self.store.core.borrow_mut(),
+        make_stats_request!(self.core.borrow_mut(),
                             self.key.stats_request())
     }
 
@@ -577,7 +578,7 @@ impl<'a> Key<'a> {
         let mut request = self.key.import_request();
         request.get().set_key(&blob);
         make_request_map!(
-            self.store.core.borrow_mut(),
+            self.core.borrow_mut(),
             request,
             |data| TPK::from_bytes(data).map_err(|e| e.into()))
     }
