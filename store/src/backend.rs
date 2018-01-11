@@ -63,11 +63,29 @@ impl NodeServer {
         let c = Connection::open(db_path)?;
         c.execute_batch("PRAGMA secure_delete = true;")?;
         c.execute_batch("PRAGMA foreign_keys = true;")?;
+        Self::init(&c)?;
 
         Ok(NodeServer {
             _descriptor: descriptor,
             c: Rc::new(c),
         })
+    }
+
+    /// Initializes or migrates the database.
+    fn init(c: &Connection) -> Result<()> {
+        let v = c.query_row(
+            "SELECT version FROM version WHERE id=1",
+            &[], |row| row.get(0));
+
+        if let Ok(v) = v {
+            match v {
+                1 => return Ok(()),
+                _ => unimplemented!(),
+            }
+        }
+
+        c.execute_batch(DB_SCHEMA_1)?;
+        Ok(())
     }
 }
 
@@ -81,10 +99,10 @@ impl node::Server for NodeServer {
 
         // XXX maybe check ephemeral and use in-core sqlite db
 
-        let store = sry!(StoreServer::new(self.c.clone(),
-                                          pry!(params.get_domain()),
-                                          pry!(params.get_network_policy()).into(),
-                                          pry!(params.get_name())));
+        let store = sry!(StoreServer::open(self.c.clone(),
+                                           pry!(params.get_domain()),
+                                           pry!(params.get_network_policy()).into(),
+                                           pry!(params.get_name())));
         pry!(pry!(results.get().get_result()).set_ok(
             node::store::ToClient::new(store).from_server::<capnp_rpc::Server>()));
         Promise::ok(())
@@ -97,64 +115,44 @@ struct StoreServer {
 }
 
 impl StoreServer {
-    fn new(c: Rc<Connection>, domain: &str, policy: core::NetworkPolicy, name: &str)
-           -> Result<Self> {
-        let mut server = StoreServer {
-            c: c,
-            id: 0,
-        }.init()?;
-
-        {
-            // We cannot implement ToSql and friends for
-            // core::NetworkPolicy, hence we need to do it by foot.
-            let p: u8 = (&policy).into();
-
-            server.c.execute(
-                "INSERT OR IGNORE INTO stores (domain, network_policy, name) VALUES (?1, ?2, ?3)",
-                &[&domain, &p, &name])?;
-            let (id, store_policy): (i64, i64) = server.c.query_row(
-                "SELECT id, network_policy FROM stores WHERE domain = ?1 AND name = ?2",
-                &[&domain, &name], |row| (row.get(0), row.get(1)))?;
-
-            // We cannot implement FromSql and friends for
-            // core::NetworkPolicy, hence we need to do it by foot.
-            if store_policy < 0 || store_policy > 3 {
-                return Err(node::Error::SystemError);
-            }
-            let store_policy = core::NetworkPolicy::from(store_policy as u8);
-
-            if store_policy != policy {
-                return Err(match store_policy {
-                    core::NetworkPolicy::Offline =>
-                        node::Error::NetworkPolicyViolationOffline,
-                    core::NetworkPolicy::Anonymized =>
-                        node::Error::NetworkPolicyViolationAnonymized,
-                    core::NetworkPolicy::Encrypted =>
-                        node::Error::NetworkPolicyViolationEncrypted,
-                    core::NetworkPolicy::Insecure =>
-                        node::Error::NetworkPolicyViolationInsecure,
-                });
-            }
-            server.id = id;
-        }
-
-        Ok(server)
+    fn new(c: Rc<Connection>, id: i64) -> StoreServer {
+        StoreServer{c: c, id: id}
     }
 
-    fn init(self) -> Result<Self> {
-        let v = self.c.query_row(
-            "SELECT version FROM version WHERE id=1",
-            &[], |row| row.get(0));
+    fn open(c: Rc<Connection>, domain: &str, policy: core::NetworkPolicy, name: &str)
+           -> Result<Self> {
+        // We cannot implement ToSql and friends for
+        // core::NetworkPolicy, hence we need to do it by foot.
+        let p: u8 = (&policy).into();
 
-        if let Ok(v) = v {
-            match v {
-                1 => return Ok(self),
-                _ => unimplemented!(),
-            }
+        c.execute(
+            "INSERT OR IGNORE INTO stores (domain, network_policy, name) VALUES (?1, ?2, ?3)",
+            &[&domain, &p, &name])?;
+        let (id, store_policy): (i64, i64) = c.query_row(
+            "SELECT id, network_policy FROM stores WHERE domain = ?1 AND name = ?2",
+            &[&domain, &name], |row| (row.get(0), row.get(1)))?;
+
+        // We cannot implement FromSql and friends for
+        // core::NetworkPolicy, hence we need to do it by foot.
+        if store_policy < 0 || store_policy > 3 {
+            return Err(node::Error::SystemError);
+        }
+        let store_policy = core::NetworkPolicy::from(store_policy as u8);
+
+        if store_policy != policy {
+            return Err(match store_policy {
+                core::NetworkPolicy::Offline =>
+                    node::Error::NetworkPolicyViolationOffline,
+                core::NetworkPolicy::Anonymized =>
+                    node::Error::NetworkPolicyViolationAnonymized,
+                core::NetworkPolicy::Encrypted =>
+                    node::Error::NetworkPolicyViolationEncrypted,
+                core::NetworkPolicy::Insecure =>
+                    node::Error::NetworkPolicyViolationInsecure,
+            });
         }
 
-        self.c.execute_batch(DB_SCHEMA_1)?;
-        Ok(self)
+        Ok(Self::new(c, id))
     }
 }
 
