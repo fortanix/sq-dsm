@@ -58,8 +58,7 @@ use std::io;
 
 use sequoia_core::{Context, NetworkPolicy};
 use openpgp::tpk::{self, TPK};
-use openpgp::types::KeyId;
-use openpgp::{Message, armor};
+use openpgp::{Message, KeyID, armor};
 
 pub mod ipc;
 
@@ -156,9 +155,9 @@ impl KeyServer {
     }
 
     /// Retrieves the key with the given `keyid`.
-    pub fn get(&mut self, keyid: &KeyId) -> Result<TPK> {
+    pub fn get(&mut self, keyid: &KeyID) -> Result<TPK> {
         let uri = format!("{}/pks/lookup?op=get&options=mr&search=0x{}",
-                          self.uri, keyid.as_hex()).parse()?;
+                          self.uri, keyid.to_hex()).parse()?;
         let result = self.core.run(
             self.client.do_get(uri).and_then(|res| {
                 let status = res.status();

@@ -58,7 +58,6 @@ use std::collections::HashMap;
 pub mod armor;
 pub mod parse;
 pub mod tpk;
-pub mod types;
 pub mod serialize;
 
 mod unknown;

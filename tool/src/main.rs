@@ -250,11 +250,14 @@ fn real_main() -> Result<()> {
             match m.subcommand() {
                 ("get",  Some(m)) => {
                     let keyid = m.value_of("keyid").unwrap();
-                    let id = openpgp::types::KeyId::from_hex(keyid);
+                    let id = openpgp::KeyID::from_hex(keyid);
                     if id.is_none() {
-                        eprintln!("Malformed keyid: {:?}", keyid);
+                        eprintln!("Malformed key ID: \"{:?}\"\n\
+                                   (Note: only long Key IDs are supported.)",
+                                  keyid);
                         exit(1);
                     }
+                    let id = id.unwrap();
 
                     let mut output = create_or_stdout(m.value_of("output"));
                     let mut output = if m.is_present("armor") {
@@ -263,7 +266,7 @@ fn real_main() -> Result<()> {
                         output
                     };
 
-                    ks.get(&id.unwrap()).expect("An error occured")
+                    ks.get(&id).expect("An error occured")
                         .serialize(&mut output).expect("An error occured");
                 },
                 ("send",  Some(m)) => {
