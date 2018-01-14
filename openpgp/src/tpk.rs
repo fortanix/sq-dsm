@@ -216,11 +216,10 @@ impl TPKParser {
                     },
                     Packet::Signature(sig) => {
                         let primary = self.primary.as_ref().unwrap();
-                        let selfsig = if let Some((_critical, issuer))
+                        let selfsig = if let Some(issuer)
                                 = sig.issuer_fingerprint() {
                             issuer == primary.fingerprint()
-                        } else if let Some((_critical, issuer))
-                                = sig.issuer() {
+                        } else if let Some(issuer) = sig.issuer() {
                             issuer == primary.keyid()
                         } else {
                             // No issuer.  XXX: Assume its a 3rd party
@@ -275,11 +274,10 @@ impl TPKParser {
                     },
                     Packet::Signature(sig) => {
                         let primary = self.primary.as_ref().unwrap();
-                        let selfsig = if let Some((_critical, issuer))
+                        let selfsig = if let Some(issuer)
                                 = sig.issuer_fingerprint() {
                             issuer == primary.fingerprint()
-                        } else if let Some((_critical, issuer))
-                                = sig.issuer() {
+                        } else if let Some(issuer) = sig.issuer() {
                             issuer == primary.keyid()
                         } else {
                             // No issuer.  XXX: Assume its a 3rd party
@@ -334,11 +332,10 @@ impl TPKParser {
                     },
                     Packet::Signature(sig) => {
                         let primary = self.primary.as_ref().unwrap();
-                        let selfsig = if let Some((_critical, issuer))
+                        let selfsig = if let Some(issuer)
                                 = sig.issuer_fingerprint() {
                             issuer == primary.fingerprint()
-                        } else if let Some((_critical, issuer))
-                                = sig.issuer() {
+                        } else if let Some(issuer) = sig.issuer() {
                             issuer == primary.keyid()
                         } else {
                             // No issuer.  XXX: Assume its a 3rd party
@@ -709,8 +706,8 @@ impl TPK {
 
         self.subkeys.sort_by(|a, b| {
             // Features.
-            let a_features = a.selfsigs[0].features().unwrap_or(Vec::new());
-            let b_features = b.selfsigs[0].features().unwrap_or(Vec::new());
+            let a_features = a.selfsigs[0].features().unwrap_or(b"");
+            let b_features = b.selfsigs[0].features().unwrap_or(b"");
             let cmp = a_features.cmp(&b_features);
             if cmp != Ordering::Equal {
                 return cmp;
@@ -839,7 +836,7 @@ impl TPK {
         let fp = other.fingerprint();
         for userid in self.userids.iter() {
             for sig in userid.certifications.iter() {
-                if let Some((_, issuer)) = sig.issuer_fingerprint() {
+                if let Some(issuer) = sig.issuer_fingerprint() {
                     if issuer == fp {
                         return true
                     }

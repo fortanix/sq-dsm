@@ -14,9 +14,9 @@ impl fmt::Debug for Signature {
         // Get the issuer.  Prefer the issuer fingerprint to the
         // issuer keyid, which may be stored in the unhashed area.
         let issuer = if let Some(tmp) = self.issuer_fingerprint() {
-            tmp.1.to_string()
+            tmp.to_string()
         } else if let Some(tmp) = self.issuer() {
-            tmp.1.to_string()
+            tmp.to_string()
         } else {
             "Unknown".to_string()
         };
