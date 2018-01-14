@@ -44,7 +44,7 @@ extern crate num;
 #[macro_use]
 extern crate num_derive;
 
-extern crate sha1;
+extern crate nettle;
 
 extern crate flate2;
 extern crate bzip2;
@@ -72,6 +72,7 @@ mod packet;
 mod container;
 mod message;
 mod iter;
+mod hash;
 
 /// The OpenPGP packet tags as defined in [Section 4.3 of RFC 4880].
 ///
@@ -189,6 +190,54 @@ impl Tag {
     }
 
     /// Converts a `Tag` to its corresponding numeric value.
+    pub fn to_numeric(self) -> u8 {
+        num::ToPrimitive::to_u8(&self).unwrap()
+    }
+}
+
+/// The OpenPGP hash algorithms as defined in [Section 9.4 of RFC 4880].
+///
+///   [Section 9.4 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-9.4
+///
+/// The values correspond to the serialized format.
+///
+/// Use [`HashAlgo::from_numeric`] to translate a numeric value to a symbolic
+/// one.
+///
+///   [`HashAlgo::from_numeric`]: enum.HashAlgo.html#method.from_numeric
+#[derive(Debug)]
+#[derive(FromPrimitive)]
+#[derive(ToPrimitive)]
+// We need PartialEq so that assert_eq! works.
+#[derive(PartialEq)]
+#[derive(Clone, Copy)]
+pub enum HashAlgo {
+    MD5 = 1,
+    SHA1 = 2,
+    RIPEMD = 3,
+    SHA256 = 8,
+    SHA384 = 9,
+    SHA512 = 10,
+    SHA224 = 11,
+}
+
+impl HashAlgo {
+    /// Converts a numeric value to an `Option<HashAlgo>`.
+    ///
+    /// Returns None, if the value is out of range.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use openpgp::HashAlgo;
+    ///
+    /// assert_eq!(HashAlgo::from_numeric(2), Some(HashAlgo::SHA1));
+    /// ```
+    pub fn from_numeric(value: u8) -> Option<Self> {
+        num::FromPrimitive::from_u8(value)
+    }
+
+    /// Converts a `HashAlgo` to its corresponding numeric value.
     pub fn to_numeric(self) -> u8 {
         num::ToPrimitive::to_u8(&self).unwrap()
     }

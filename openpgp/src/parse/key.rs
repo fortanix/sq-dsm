@@ -1,5 +1,6 @@
 use super::*;
-use sha1;
+use nettle::Hash;
+use nettle::hash::insecure_do_not_use::Sha1;
 
 #[cfg(test)]
 use std::path::PathBuf;
@@ -14,39 +15,13 @@ impl Key {
     // Computes and returns the key's fingerprint as per Section 12.2
     // of RFC 4880.
     pub fn fingerprint(&self) -> Fingerprint {
-        let mut m = sha1::Sha1::new();
+        let mut h = Sha1::default();
 
-        // We hash 8 bytes plus the MPIs.  But, the len doesn't
-        // include the tag (1 byte) or the length (2 bytes).
-        let len = (9 - 3) + self.mpis.len();
+        self.hash(&mut h);
 
-        let mut header : Vec<u8> = Vec::with_capacity(9);
-
-        // Tag.
-        header.push(0x99);
-
-        // Length (big endian).
-        header.push(((len >> 8) & 0xFF) as u8);
-        header.push((len & 0xFF) as u8);
-
-        // Version.
-        header.push(4);
-
-        // Creation time.
-        header.push(((self.creation_time >> 24) & 0xFF) as u8);
-        header.push(((self.creation_time >> 16) & 0xFF) as u8);
-        header.push(((self.creation_time >> 8) & 0xFF) as u8);
-        header.push((self.creation_time & 0xFF) as u8);
-
-        // Algorithm.
-        header.push(self.pk_algo);
-
-        m.update(&header[..]);
-
-        // MPIs.
-        m.update(&self.mpis[..]);
-
-        Fingerprint::from_bytes(&m.digest().bytes()[..])
+        let mut digest = vec![0u8; h.digest_size()];
+        h.digest(&mut digest);
+        Fingerprint::from_bytes(digest.as_slice())
     }
 
     // Computes and returns the key's key ID as per Section 12.2 of
