@@ -885,6 +885,49 @@ impl KeyID {
         }
     }
 
+    /// Reads a hex-encoded Key ID.
+    pub fn from_hex(hex: &str) -> Option<KeyID> {
+        let nibbles = hex.as_bytes().iter().filter_map(|x| {
+            match *x as char {
+                '0' => Some(0u8),
+                '1' => Some(1u8),
+                '2' => Some(2u8),
+                '3' => Some(3u8),
+                '4' => Some(4u8),
+                '5' => Some(5u8),
+                '6' => Some(6u8),
+                '7' => Some(7u8),
+                '8' => Some(8u8),
+                '9' => Some(9u8),
+                'a' | 'A' => Some(10u8),
+                'b' | 'B' => Some(11u8),
+                'c' | 'C' => Some(12u8),
+                'd' | 'D' => Some(13u8),
+                'e' | 'E' => Some(14u8),
+                'f' | 'F' => Some(15u8),
+                ' ' => None,
+                _ => Some(255u8),
+            }
+        }).collect::<Vec<u8>>();
+
+        if nibbles.iter().any(|&b| b == 255u8) {
+            // Not a hex character.
+            return None;
+        }
+
+        // A KeyID is exactly 8 bytes long.
+        if nibbles.len() != 16 {
+            return None;
+        }
+
+        let bytes = nibbles.chunks(2).map(|nibbles| {
+            (nibbles[0] << 4) | nibbles[1]
+        }).collect::<Vec<u8>>();
+        assert_eq!(bytes.len(), 8);
+
+        Some(KeyID::from_bytes(&bytes[..]))
+    }
+
     /// Converts the key ID to its standard representation.
     ///
     /// Returns the fingerprint suitable for human consumption.
