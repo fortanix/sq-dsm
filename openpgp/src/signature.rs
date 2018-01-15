@@ -1,14 +1,12 @@
 use std::fmt;
-use std::cell::RefCell;
 
 use PacketCommon;
 use Signature;
 use Packet;
+use SubpacketArea;
 
 impl fmt::Debug for Signature {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let hashed_area = format!("{} bytes", self.hashed_area.len());
-        let unhashed_area = format!("{} bytes", self.unhashed_area.len());
         let mpis = format!("{} bytes", self.mpis.len());
 
         // Get the issuer.  Prefer the issuer fingerprint to the
@@ -27,8 +25,8 @@ impl fmt::Debug for Signature {
             .field("issuer", &issuer)
             .field("pk_algo", &self.pk_algo)
             .field("hash_algo", &self.hash_algo)
-            .field("hashed_area", &hashed_area)
-            .field("unhashed_area", &unhashed_area)
+            .field("hashed_area", &self.hashed_area)
+            .field("unhashed_area", &self.unhashed_area)
             .field("hash_prefix", &self.hash_prefix)
             .field("mpis", &mpis)
             .finish()
@@ -61,10 +59,8 @@ impl Signature {
             sigtype: sigtype,
             pk_algo: 0,
             hash_algo: 0,
-            hashed_area: Vec::new(),
-            hashed_area_parsed: RefCell::new(None),
-            unhashed_area: Vec::new(),
-            unhashed_area_parsed: RefCell::new(None),
+            hashed_area: SubpacketArea::empty(),
+            unhashed_area: SubpacketArea::empty(),
             hash_prefix: [0, 0],
             mpis: Vec::new(),
         }

@@ -13,6 +13,7 @@ mod partial_body;
 use self::partial_body::BufferedReaderPartialBodyFilter;
 
 pub mod subpacket;
+pub use self::subpacket::SubpacketArea;
 pub mod key;
 
 mod message_parser;
@@ -299,10 +300,8 @@ impl Signature {
                 sigtype: sigtype,
                 pk_algo: pk_algo,
                 hash_algo: hash_algo,
-                hashed_area: hashed_area,
-                hashed_area_parsed: RefCell::new(None),
-                unhashed_area: unhashed_area,
-                unhashed_area_parsed: RefCell::new(None),
+                hashed_area: SubpacketArea::new(hashed_area),
+                unhashed_area: SubpacketArea::new(unhashed_area),
                 hash_prefix: [hash_prefix1, hash_prefix2],
                 mpis: mpis,
             }),
@@ -335,8 +334,8 @@ fn signature_parser_test () {
             assert_eq!(p.sigtype, 0);
             assert_eq!(p.pk_algo, 1);
             assert_eq!(p.hash_algo, 10);
-            assert_eq!(p.hashed_area.len(), 29);
-            assert_eq!(p.unhashed_area.len(), 10);
+            assert_eq!(p.hashed_area.data.len(), 29);
+            assert_eq!(p.unhashed_area.data.len(), 10);
             assert_eq!(p.hash_prefix, [0x65u8, 0x74]);
             assert_eq!(p.mpis.len(), 258);
         } else {

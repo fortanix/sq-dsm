@@ -138,11 +138,164 @@ impl SubpacketTag {
 // Struct holding an arbitrary subpacket.
 //
 // The value is uninterpreted.
-#[derive(Debug)]
 struct SubpacketRaw<'a> {
     pub critical: bool,
     pub tag: u8,
     pub value: &'a [u8],
+}
+
+impl<'a> fmt::Debug for SubpacketRaw<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let value = if self.value.len() > 16 {
+            &self.value[..16]
+        } else {
+            self.value
+        };
+
+        f.debug_struct("SubpacketArea")
+            .field("critical", &self.critical)
+            .field("tag", &self.tag)
+            .field(&format!("value ({} bytes)", self.value.len())[..],
+                   &value)
+            .finish()
+    }
+}
+
+/// Subpacket area.
+#[derive(Clone)]
+pub struct SubpacketArea {
+    pub data: Vec<u8>,
+
+    // The subpacket area, but parsed so that the map is indexed by
+    // the subpacket tag, and the value corresponds to the *last*
+    // occurance of that subpacket in the subpacket area.
+    //
+    // Since self-referential structs are a no-no, we use (start, len)
+    // to reference the content in the area.
+    //
+    // This is an option, because we parse the subpacket area lazily.
+    parsed: RefCell<Option<HashMap<u8, (bool, u16, u16)>>>,
+}
+
+struct SubpacketAreaIter<'a> {
+    reader: BufferedReaderMemory<'a, ()>,
+    data: &'a [u8],
+}
+
+impl<'a> Iterator for SubpacketAreaIter<'a> {
+    // Start, length.
+    type Item = (usize, usize, SubpacketRaw<'a>);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let len = subpacket_length(&mut self.reader);
+        if len.is_err() {
+            return None;
+        }
+        let len = len.unwrap() as usize;
+
+        if self.reader.data(len).unwrap().len() < len {
+            // Subpacket extends beyond the end of the hashed
+            // area.  Skip it.
+            self.reader.drop_eof().unwrap();
+            eprintln!("Invalid subpacket: subpacket extends beyond \
+                       end of hashed area ({} bytes, but  {} bytes left).",
+                      len, self.reader.data(0).unwrap().len());
+            return None;
+        }
+
+        if len == 0 {
+            // Hmm, a zero length packet.  In that case, there is
+            // no header.
+            return self.next();
+        }
+
+        let tag = if let Ok(tag) = self.reader.data_consume_hard(1) {
+            tag[0]
+        } else {
+            return None;
+        };
+        let len = len - 1;
+
+        // The critical bit is the high bit.  Extract it.
+        let critical = tag & (1 << 7) != 0;
+        // Then clear it from the type.
+        let tag = tag & !(1 << 7);
+
+        let start = self.reader.total_out();
+        assert!(start <= std::u16::MAX as usize);
+        assert!(len <= std::u16::MAX as usize);
+
+        let _ = self.reader.consume(len);
+
+        Some((start, len,
+              SubpacketRaw {
+                  critical: critical,
+                  tag: tag,
+                  value: &self.data[start..start + len],
+              }))
+    }
+}
+
+impl SubpacketArea {
+    fn iter(&self) -> SubpacketAreaIter {
+        SubpacketAreaIter {
+            reader: BufferedReaderMemory::new(&self.data[..]),
+            data: &self.data[..],
+        }
+    }
+}
+
+impl fmt::Debug for SubpacketArea {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_map().entries(
+            self.iter().map(|(_start, _len, sb)| {
+                (SubpacketTag::from_numeric(sb.tag), sb)
+            }))
+            .finish()
+    }
+}
+
+impl SubpacketArea {
+    /// Returns a new subpacket area based on `data`.
+    pub fn new(data: Vec<u8>) -> SubpacketArea {
+        SubpacketArea { data: data, parsed: RefCell::new(None) }
+    }
+
+    /// Returns a empty subpacket area.
+    pub fn empty() -> SubpacketArea {
+        SubpacketArea::new(Vec::new())
+    }
+}
+
+impl SubpacketArea{
+    // Initialize `Signature::hashed_area_parsed` from
+    // `Signature::hashed_area`, if necessary.
+    fn cache_init(&self) {
+        if self.parsed.borrow().is_none() {
+            let mut hash = HashMap::new();
+            for (start, len, sb) in self.iter() {
+                hash.insert(sb.tag, (sb.critical, start as u16, len as u16));
+            }
+
+            *self.parsed.borrow_mut() = Some(hash);
+        }
+    }
+
+    // Returns the last subpacket, if any, with the specified tag.
+    fn lookup(&self, tag: u8) -> Option<SubpacketRaw> {
+        self.cache_init();
+
+        match self.parsed.borrow().as_ref().unwrap().get(&tag) {
+            Some(&(critical, start, len)) =>
+                return Some(SubpacketRaw {
+                    critical: critical,
+                    tag: tag,
+                    value: &self.data[
+                        start as usize..start as usize + len as usize]
+                }.into()),
+            None => None,
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -476,79 +629,10 @@ fn subpacket_length<C>(bio: &mut BufferedReaderMemory<C>)
 }
 
 impl Signature {
-    // Initialize `Signature::hashed_area_parsed` from
-    // `Signature::hashed_area`, if necessary.
-    fn subpackets_init(&self) -> Result<(), Error> {
-        if self.hashed_area_parsed.borrow().is_some() {
-            return Ok(());
-        }
-
-        fn process(data: &[u8])
-                -> Result<HashMap<u8, (bool, u16, u16)>, Error> {
-            let mut bio = BufferedReaderMemory::new(data);
-            let mut hash = HashMap::new();
-
-            while bio.data(1)?.len() > 0 {
-                let len = subpacket_length(&mut bio)?;
-
-                if bio.total_out() + len as usize > data.len() {
-                    // Subpacket extends beyond the end of the hashed
-                    // area.  Skip it.
-                    eprintln!("Invalid subpacket: subpacket extends beyond \
-                               end of hashed area ([{}..{}); {}).",
-                              bio.total_out(), len, data.len());
-                    break;
-                }
-
-                if len == 0 {
-                    // Hmm, a zero length packet.  In that case, there is
-                    // no header.
-                    continue;
-                }
-
-                let tag : u8 = bio.data_consume_hard(1)?[0];
-                let len = len - 1;
-
-                // The critical bit is the high bit.  Extract it.
-                let critical = tag & (1 << 7) != 0;
-                // Then clear it from the type.
-                let tag = tag & !(1 << 7);
-
-                let start = bio.total_out();
-                assert!(start <= std::u16::MAX as usize);
-                assert!(len <= std::u16::MAX as u32);
-
-                hash.insert(tag, (critical, start as u16, len as u16));
-
-                // eprintln!("  {:?}: {:?}", SubpacketTag::from_numeric(tag), &data[start as usize..start as usize + len as usize]);
-
-                bio.consume(len as usize);
-            }
-
-            Ok(hash)
-        }
-
-        *self.hashed_area_parsed.borrow_mut()
-            = Some(process(self.hashed_area.as_slice())?);
-        *self.unhashed_area_parsed.borrow_mut()
-            = Some(process(self.unhashed_area.as_slice())?);
-
-        return Ok(());
-    }
-
     /// Returns the *last* instance of the specified subpacket.
     fn subpacket<'a>(&'a self, tag: u8) -> Option<Subpacket<'a>> {
-        let _ = self.subpackets_init();
-
-        match self.hashed_area_parsed.borrow().as_ref().unwrap().get(&tag) {
-            Some(&(critical, start, len)) =>
-                return Some(SubpacketRaw {
-                    critical: critical,
-                    tag: tag,
-                    value: &self.hashed_area[
-                        start as usize..start as usize + len as usize]
-                }.into()),
-            None => {},
+        if let Some(sb) = self.hashed_area.lookup(tag) {
+            return Some(sb.into());
         }
 
         // There are a couple of subpackets that we are willing to
@@ -560,16 +644,7 @@ impl Signature {
             return None;
         }
 
-        match self.unhashed_area_parsed.borrow().as_ref().unwrap().get(&tag) {
-            Some(&(critical, start, len)) =>
-                return Some(SubpacketRaw {
-                    critical: critical,
-                    tag: tag,
-                    value: &self.unhashed_area[
-                        start as usize..start as usize + len as usize],
-                }.into()),
-            None => None,
-        }
+        self.unhashed_area.lookup(tag).map(|sb| sb.into())
     }
 
     /// Returns all instances of the specified subpacket.
@@ -579,48 +654,11 @@ impl Signature {
     /// is a reasonable approach for dealing with ambiguity.
     fn subpackets<'a>(&'a self, target: u8) -> Vec<Subpacket<'a>> {
         let mut result = Vec::new();
-        let data = &self.hashed_area;
-        let mut bio = BufferedReaderMemory::new(data);
 
-        // Note: we can unwrap safely, because we are reading from a
-        // memory-backed BufferedReader.
-        while bio.data(1).unwrap().len() > 0 {
-            let len = subpacket_length(&mut bio).unwrap();
-
-            if bio.total_out() + len as usize > data.len() {
-                // Subpacket extends beyond the end of the hashed
-                // area.  Skip it.
-                eprintln!("Invalid subpacket: subpacket extends beyond \
-                           end of hashed area ([{}..{}); {}).",
-                          bio.total_out(), len, data.len());
-                break;
+        for (_start, _len, sb) in self.hashed_area.iter() {
+            if sb.tag == target {
+                result.push(sb.into());
             }
-
-            if len == 0 {
-                // Hmm, a zero length packet.  In that case, there is
-                // no header.
-                continue;
-            }
-
-            let tag : u8 = bio.data_consume_hard(1).unwrap()[0];
-            let len = (len - 1) as usize;
-
-            // The critical bit is the high bit.  Extract it.
-            let critical = tag & (1 << 7) != 0;
-            // Then clear it from the type.
-            let tag = tag & !(1 << 7);
-
-            let start = bio.total_out();
-
-            if tag == target {
-                result.push(SubpacketRaw {
-                    critical: critical,
-                    tag: tag,
-                    value: &self.hashed_area[start..start + len],
-                }.into());
-            }
-
-            bio.consume(len as usize);
         }
 
         result

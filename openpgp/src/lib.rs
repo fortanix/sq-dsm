@@ -57,6 +57,8 @@ use std::collections::HashMap;
 
 pub mod armor;
 pub mod parse;
+use parse::SubpacketArea;
+
 pub mod tpk;
 pub mod serialize;
 
@@ -504,13 +506,8 @@ pub struct Signature {
     pub sigtype: u8,
     pub pk_algo: u8,
     pub hash_algo: u8,
-    pub hashed_area: Vec<u8>,
-    // We parse the subpackets on demand.  Since self-referential
-    // structs are a no-no, we use (start, len) to reference the
-    // content in hashed_area.
-    hashed_area_parsed: RefCell<Option<HashMap<u8, (bool, u16, u16)>>>,
-    pub unhashed_area: Vec<u8>,
-    unhashed_area_parsed: RefCell<Option<HashMap<u8, (bool, u16, u16)>>>,
+    pub hashed_area: parse::subpacket::SubpacketArea,
+    pub unhashed_area: parse::subpacket::SubpacketArea,
     pub hash_prefix: [u8; 2],
     pub mpis: Vec<u8>,
 }

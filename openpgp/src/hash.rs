@@ -92,13 +92,13 @@ impl Signature {
         header[3] = self.hash_algo;
 
         // The length of the hashed area, as a 16-bit endian number.
-        let len = self.hashed_area.len();
+        let len = self.hashed_area.data.len();
         header[4] = (len >> 8) as u8;
         header[5] = len as u8;
 
         hash.update(&header[..]);
 
-        hash.update(&self.hashed_area[..]);
+        hash.update(&self.hashed_area.data[..]);
 
         let mut trailer = [0u8; 6];
 
@@ -106,7 +106,7 @@ impl Signature {
         trailer[1] = 0xff;
         // The signature packet's length, not excluding the previous
         // two bytes and the length.
-        let len = header.len() + self.hashed_area.len();
+        let len = header.len() + self.hashed_area.data.len();
         trailer[2] = (len >> 24) as u8;
         trailer[3] = (len >> 16) as u8;
         trailer[4] = (len >> 8) as u8;

@@ -169,9 +169,9 @@ impl Signature {
             + 1 // pk algorithm
             + 1 // hash algorithm
             + 2 // hashed area size
-            + self.hashed_area.len()
+            + self.hashed_area.data.len()
             + 2 // unhashed area size
-            + self.unhashed_area.len()
+            + self.unhashed_area.data.len()
             + 2 // hash prefix
             + self.mpis.len();
 
@@ -187,14 +187,14 @@ impl Signature {
         write_byte(o, self.hash_algo)?;
 
         // XXX: Return an error.
-        assert!(self.hashed_area.len() <= std::u16::MAX as usize);
-        write_be_u16(o, self.hashed_area.len() as u16)?;
-        o.write_all(&self.hashed_area[..])?;
+        assert!(self.hashed_area.data.len() <= std::u16::MAX as usize);
+        write_be_u16(o, self.hashed_area.data.len() as u16)?;
+        o.write_all(&self.hashed_area.data[..])?;
 
         // XXX: Return an error.
-        assert!(self.unhashed_area.len() <= std::u16::MAX as usize);
-        write_be_u16(o, self.unhashed_area.len() as u16)?;
-        o.write_all(&self.unhashed_area[..])?;
+        assert!(self.unhashed_area.data.len() <= std::u16::MAX as usize);
+        write_be_u16(o, self.unhashed_area.data.len() as u16)?;
+        o.write_all(&self.unhashed_area.data[..])?;
 
         write_byte(o, self.hash_prefix[0])?;
         write_byte(o, self.hash_prefix[1])?;
