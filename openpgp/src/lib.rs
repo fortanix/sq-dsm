@@ -922,6 +922,21 @@ impl fmt::Debug for KeyID {
 }
 
 impl KeyID {
+    /// Converts a u64 to a KeyID.
+    pub fn new(data: u64) -> KeyID {
+        let bytes = [
+            (data >> (7 * 8)) as u8,
+            (data >> (6 * 8)) as u8,
+            (data >> (5 * 8)) as u8,
+            (data >> (4 * 8)) as u8,
+            (data >> (3 * 8)) as u8,
+            (data >> (2 * 8)) as u8,
+            (data >> (1 * 8)) as u8,
+            (data >> (0 * 8)) as u8
+        ];
+        Self::from_bytes(&bytes[..])
+    }
+
     /// Reads a binary key ID.
     pub fn from_bytes(raw: &[u8]) -> KeyID {
         if raw.len() == 8 {
