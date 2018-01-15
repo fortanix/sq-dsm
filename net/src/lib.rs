@@ -17,14 +17,14 @@
 //! # extern crate openpgp;
 //! # extern crate sequoia_core;
 //! # extern crate sequoia_net;
-//! # use openpgp::types::KeyId;
+//! # use openpgp::KeyID;
 //! # use sequoia_core::Context;
 //! # use sequoia_net::{KeyServer, Result};
 //! # fn main() { f().unwrap(); }
 //! # fn f() -> Result<()> {
 //! let ctx = Context::new("org.sequoia-pgp.example")?;
 //! let mut ks = KeyServer::sks_pool(&ctx)?;
-//! let keyid = KeyId::from_hex("31855247603831FD").unwrap();
+//! let keyid = KeyID::from_hex("31855247603831FD").unwrap();
 //! println!("{:?}", ks.get(&keyid));
 //! Ok(())
 //! # }

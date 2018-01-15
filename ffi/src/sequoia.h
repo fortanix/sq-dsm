@@ -130,20 +130,20 @@ void sq_config_network_policy(struct sq_config *cfg, uint8_t policy);
 void sq_config_ephemeral(struct sq_config *cfg);
 
 
-/* sequoia::openpgp::types.  */
+/* sequoia::openpgp::KeyID.  */
 
 /*/
-/// Uniquely identifies OpenPGP keys.
+/// Holds a KeyID.
 /*/
 struct sq_keyid;
 
 /*/
-/// Returns a KeyID with the given `id`.
+/// Reads a binary key ID.
 /*/
-struct sq_keyid *sq_keyid_new (uint64_t id);
+struct sq_keyid *sq_keyid_from_bytes (const uint8_t *id);
 
 /*/
-/// Returns a KeyID with the given `id` encoded as hexadecimal string.
+/// Reads a hex-encoded Key ID.
 /*/
 struct sq_keyid *sq_keyid_from_hex (const char *id);
 

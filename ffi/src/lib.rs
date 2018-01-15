@@ -38,8 +38,8 @@ use std::ptr;
 use std::slice;
 
 use openpgp::tpk::TPK;
-use openpgp::types::KeyId;
-use self::libc::{uint8_t, uint64_t, c_char, size_t};
+use openpgp::KeyID;
+use self::libc::{uint8_t, c_char, size_t};
 use self::native_tls::Certificate;
 use sequoia_core::{Config, Context};
 use sequoia_net::KeyServer;
@@ -190,27 +190,29 @@ pub extern "system" fn sq_config_ephemeral(cfg: Option<&mut Config>) {
 }
 
 
-/* openpgp::types.  */
+/* openpgp::KeyID.  */
 
-/// Returns a KeyID with the given `id`.
+/// Reads a binary key ID.
 #[no_mangle]
-pub extern "system" fn sq_keyid_new(id: uint64_t) -> *mut KeyId {
-    Box::into_raw(Box::new(KeyId::new(id)))
+pub extern "system" fn sq_keyid_from_bytes(id: *const uint8_t) -> *mut KeyID {
+    if id.is_null() { return ptr::null_mut() }
+    let id = unsafe { slice::from_raw_parts(id, 8) };
+    Box::into_raw(Box::new(KeyID::from_bytes(id)))
 }
 
-/// Returns a KeyID with the given `id` encoded as hexadecimal string.
+/// Reads a hex-encoded Key ID.
 #[no_mangle]
-pub extern "system" fn sq_keyid_from_hex(id: *const c_char) -> *mut KeyId {
+pub extern "system" fn sq_keyid_from_hex(id: *const c_char) -> *mut KeyID {
     if id.is_null() { return ptr::null_mut() }
     let id = unsafe { CStr::from_ptr(id).to_string_lossy() };
-    KeyId::from_hex(&id)
+    KeyID::from_hex(&id)
         .map(|id| Box::into_raw(Box::new(id)))
         .unwrap_or(ptr::null_mut())
 }
 
-/// Frees an `KeyId` object.
+/// Frees an `KeyID` object.
 #[no_mangle]
-pub extern "system" fn sq_keyid_free(keyid: *mut KeyId) {
+pub extern "system" fn sq_keyid_free(keyid: *mut KeyID) {
     if keyid.is_null() { return }
     unsafe {
         drop(Box::from_raw(keyid));
@@ -361,7 +363,7 @@ pub extern "system" fn sq_keyserver_free(ks: *mut KeyServer) {
 /// Returns `NULL` on errors.
 #[no_mangle]
 pub extern "system" fn sq_keyserver_get(ks: Option<&mut KeyServer>,
-                                        id: Option<&KeyId>) -> *mut TPK {
+                                        id: Option<&KeyID>) -> *mut TPK {
     if ks.is_none() || id.is_none() {
         return ptr::null_mut();
     }
