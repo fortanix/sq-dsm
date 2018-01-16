@@ -191,7 +191,7 @@ impl node::store::Server for StoreServer {
         let fp = pry!(params.get_fingerprint());
         let label = pry!(params.get_label());
 
-        let key_id = sry!(get_key_id(&self.c, fp));
+        let key_id = sry!(KeyServer::lookup(&self.c, fp));
 
         sry!(self.c.execute("INSERT OR IGNORE INTO bindings (store, label, key, created)
                              VALUES (?, ?, ?, ?)",
@@ -339,7 +339,7 @@ impl node::binding::Server for BindingServer {
             if force || (current.is_some() && new.is_signed_by(&current.unwrap())) {
                 // Update binding, and retry.
                 let key_id =
-                    sry!(get_key_id(&self.c, new.fingerprint().to_hex().as_ref()));
+                    sry!(KeyServer::lookup(&self.c, new.fingerprint().to_hex().as_ref()));
                 sry!(self.c.execute("UPDATE bindings SET key = ?1 WHERE id = ?2",
                                     &[&key_id, &self.id]));
                 return self.import(params, results);
@@ -418,6 +418,36 @@ impl KeyServer {
         KeyServer {
             c: c,
             id: id,
+        }
+    }
+
+    /// Looks up a fingerprint, creating a key if necessary.
+    ///
+    /// On success, the id of the key is returned.
+    fn lookup(c: &Connection, fp: &str) -> Result<i64> {
+        if let Ok(x) = c.query_row(
+            "SELECT id FROM keys WHERE fingerprint = ?1",
+            &[&fp], |row| row.get(0)) {
+            Ok(x)
+        } else {
+            let r = c.execute(
+                "INSERT INTO keys (fingerprint, created) VALUES (?1, ?2)",
+                &[&fp, &Timestamp::now()]);
+
+            // Some other mutator might race us to the insertion.
+            match r {
+                Err(rusqlite::Error::SqliteFailure(f, e)) => match f.code {
+                    // We lost.  Retry the lookup.
+                    rusqlite::ErrorCode::ConstraintViolation =>
+                        c.query_row(
+                            "SELECT id FROM keys WHERE fingerprint = ?1",
+                            &[&fp], |row| row.get(0)),
+                    // Raise otherwise.
+                    _ => Err(rusqlite::Error::SqliteFailure(f, e)),
+                },
+                Err(e) => Err(e),
+                Ok(_) => Ok(c.last_insert_rowid()),
+            }.map_err(|e| e.into())
         }
     }
 }
@@ -756,22 +786,6 @@ impl Add<Duration> for Timestamp {
 }
 
 /* Miscellaneous.  */
-
-/// Given a fingerprint, return the key id.
-fn get_key_id(c: &Connection, fp: &str) -> Result<i64> {
-    if let Ok(x) = c.query_row(
-        "SELECT id FROM keys WHERE fingerprint = ?1",
-        &[&fp], |row| row.get(0)) {
-        Ok(x)
-    } else {
-        c.execute(
-            "INSERT INTO keys (fingerprint, created) VALUES (?1, ?2)",
-            &[&fp, &Timestamp::now()])?;
-        c.query_row(
-            "SELECT id FROM keys WHERE fingerprint = ?1",
-            &[&fp], |row| row.get(0)).map_err(|e| e.into())
-    }
-}
 
 fn compute_stats(q: &mut Query, mut stats: node::stats::Builder) -> Result<()> {
     let created = q.query("created")?;
