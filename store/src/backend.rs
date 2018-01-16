@@ -1,14 +1,16 @@
 //! Storage backend.
 
 use std::fmt;
+use std::ops::Add;
 use std::rc::Rc;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{SystemTime, Duration, UNIX_EPOCH};
 
 use capnp::capability::Promise;
 use capnp;
 use capnp_rpc::rpc_twoparty_capnp::Side;
 use capnp_rpc::{self, RpcSystem, twoparty};
 use rusqlite::Connection;
+use rusqlite::types::{ToSql, ToSqlOutput};
 use rusqlite;
 use tokio_core;
 use tokio_io::io::ReadHalf;
@@ -188,7 +190,6 @@ impl node::store::Server for StoreServer {
         let params = pry!(params.get());
         let fp = pry!(params.get_fingerprint());
         let label = pry!(params.get_label());
-        let time = sry!(now());
 
         let key_id = sry!(get_key_id(&self.c, fp));
 
@@ -197,7 +198,7 @@ impl node::store::Server for StoreServer {
                             &[&self.id,
                               &label,
                               &key_id,
-                              &time]));
+                              &Timestamp::now()]));
         let binding_id: i64 = sry!(self.c.query_row(
             "SELECT id FROM bindings WHERE store = ?1 AND label = ?2",
             &[&self.id, &label], |row| row.get(0)));
@@ -726,6 +727,34 @@ CREATE TABLE keys (
     UNIQUE (fingerprint));
 ";
 
+/* Timestamps.  */
+
+/// A serializable system time.
+struct Timestamp(SystemTime);
+
+impl Timestamp {
+    fn now() -> Self {
+        Timestamp(SystemTime::now())
+    }
+}
+
+impl ToSql for Timestamp {
+    fn to_sql(&self) -> rusqlite::Result<ToSqlOutput> {
+        match self.0.duration_since(UNIX_EPOCH) {
+            Ok(n) => Ok(ToSqlOutput::from(n.as_secs() as i64)),
+            Err(_) => Err(rusqlite::Error::IntegralValueOutOfRange(0, 0)),
+        }
+    }
+}
+
+impl Add<Duration> for Timestamp {
+    type Output = Timestamp;
+
+    fn add(self, other: Duration) -> Timestamp {
+        Timestamp(self.0 + other)
+    }
+}
+
 /* Miscellaneous.  */
 
 /// Given a fingerprint, return the key id.
@@ -737,17 +766,10 @@ fn get_key_id(c: &Connection, fp: &str) -> Result<i64> {
     } else {
         c.execute(
             "INSERT INTO keys (fingerprint, created) VALUES (?1, ?2)",
-            &[&fp, &now()?])?;
+            &[&fp, &Timestamp::now()])?;
         c.query_row(
             "SELECT id FROM keys WHERE fingerprint = ?1",
             &[&fp], |row| row.get(0)).map_err(|e| e.into())
-    }
-}
-
-fn now() -> Result<i64> {
-    match SystemTime::now().duration_since(UNIX_EPOCH) {
-        Ok(n) => Ok(n.as_secs() as i64),
-        Err(_) => Err(node::Error::SystemError.into()),
     }
 }
 
