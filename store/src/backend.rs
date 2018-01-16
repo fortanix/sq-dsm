@@ -269,15 +269,17 @@ impl BindingServer {
     }
 }
 
-trait Query {
-    fn query(&mut self, column: &str) -> Result<i64>;
-}
-
 impl Query for BindingServer {
-    fn query(&mut self, column: &str) -> Result<i64> {
-        self.c.query_row(
-            format!("SELECT {} FROM bindings WHERE id = ?1", column).as_ref(),
-            &[&self.id], |row| row.get(0)).map_err(|e| e.into())
+    fn table_name() -> &'static str {
+        "bindings"
+    }
+
+    fn id(&self) -> i64 {
+        self.id
+    }
+
+    fn connection(&self) -> Rc<Connection> {
+        self.c.clone()
     }
 }
 
@@ -287,7 +289,7 @@ impl node::binding::Server for BindingServer {
              mut results: node::binding::StatsResults)
              -> Promise<(), capnp::Error> {
         bind_results!(results);
-        sry!(compute_stats(self, pry!(results.get().get_result()).init_ok()));
+        sry!(self.query_stats(pry!(results.get().get_result()).init_ok()));
         Promise::ok(())
     }
 
@@ -386,7 +388,7 @@ impl node::binding::Server for BindingServer {
              .execute("UPDATE keys SET encryption_count = encryption_count + 1 WHERE id = ?1",
                       &[&key]));
 
-        sry!(compute_stats(self, pry!(results.get().get_result()).init_ok()));
+        sry!(self.query_stats( pry!(results.get().get_result()).init_ok()));
         Promise::ok(())
     }
 
@@ -403,7 +405,7 @@ impl node::binding::Server for BindingServer {
              .execute("UPDATE keys SET verification_count = verification_count + 1 WHERE id = ?1",
                       &[&key]));
 
-        sry!(compute_stats(self, pry!(results.get().get_result()).init_ok()));
+        sry!(self.query_stats( pry!(results.get().get_result()).init_ok()));
         Promise::ok(())
     }
 }
@@ -453,10 +455,16 @@ impl KeyServer {
 }
 
 impl Query for KeyServer {
-    fn query(&mut self, column: &str) -> Result<i64> {
-        self.c.query_row(
-            format!("SELECT {} FROM keys WHERE id = ?1", column).as_ref(),
-            &[&self.id], |row| row.get(0)).map_err(|e| e.into())
+    fn table_name() -> &'static str {
+        "keys"
+    }
+
+    fn id(&self) -> i64 {
+        self.id
+    }
+
+    fn connection(&self) -> Rc<Connection> {
+        self.c.clone()
     }
 }
 
@@ -466,7 +474,7 @@ impl node::key::Server for KeyServer {
              mut results: node::key::StatsResults)
              -> Promise<(), capnp::Error> {
         bind_results!(results);
-        sry!(compute_stats(self, pry!(results.get().get_result()).init_ok()));
+        sry!(self.query_stats( pry!(results.get().get_result()).init_ok()));
         Promise::ok(())
     }
 
@@ -520,6 +528,39 @@ impl node::key::Server for KeyServer {
 
         pry!(pry!(results.get().get_result()).set_ok(&blob[..]));
         Promise::ok(())
+    }
+}
+
+/// Common code for BindingServer and KeyServer.
+trait Query {
+    fn table_name() -> &'static str;
+    fn id(&self) -> i64;
+    fn connection(&self) -> Rc<Connection>;
+
+    fn query(&mut self, column: &str) -> Result<i64> {
+        self.connection().query_row(
+            &format!("SELECT {} FROM {} WHERE id = ?1", column, Self::table_name()),
+            &[&self.id()], |row| row.get(0)).map_err(|e| e.into())
+    }
+
+    fn query_stats(&mut self, mut stats: node::stats::Builder) -> Result<()> {
+        let created = self.query("created")?;
+        let updated = self.query("updated")?;
+        let encryption_count = self.query("encryption_count")?;
+        let encryption_first = self.query("encryption_first")?;
+        let encryption_last = self.query("encryption_last")?;
+        let verification_count = self.query("verification_count")?;
+        let verification_first = self.query("verification_first")?;
+        let verification_last = self.query("verification_last")?;
+        stats.set_created(created);
+        stats.set_updated(updated);
+        stats.set_encryption_count(encryption_count);
+        stats.set_encryption_first(encryption_first);
+        stats.set_encryption_last(encryption_last);
+        stats.set_verification_count(verification_count);
+        stats.set_verification_first(verification_first);
+        stats.set_verification_last(verification_last);
+        Ok(())
     }
 }
 
@@ -786,26 +827,6 @@ impl Add<Duration> for Timestamp {
 }
 
 /* Miscellaneous.  */
-
-fn compute_stats(q: &mut Query, mut stats: node::stats::Builder) -> Result<()> {
-    let created = q.query("created")?;
-    let updated = q.query("updated")?;
-    let encryption_count = q.query("encryption_count")?;
-    let encryption_first = q.query("encryption_first")?;
-    let encryption_last = q.query("encryption_last")?;
-    let verification_count = q.query("verification_count")?;
-    let verification_first = q.query("verification_first")?;
-    let verification_last = q.query("verification_last")?;
-    stats.set_created(created);
-    stats.set_updated(updated);
-    stats.set_encryption_count(encryption_count);
-    stats.set_encryption_first(encryption_first);
-    stats.set_encryption_last(encryption_last);
-    stats.set_verification_count(verification_count);
-    stats.set_verification_first(verification_first);
-    stats.set_verification_last(verification_last);
-    Ok(())
-}
 
 impl<'a> From<&'a core::NetworkPolicy> for node::NetworkPolicy {
     fn from(policy: &core::NetworkPolicy) -> Self {
