@@ -3,6 +3,7 @@
 extern crate clap;
 #[macro_use]
 extern crate prettytable;
+extern crate time;
 
 use clap::{Arg, App, SubCommand, AppSettings};
 use prettytable::Table;
@@ -413,8 +414,7 @@ fn real_main() -> Result<()> {
                                 Cell::new(&item.fingerprint.to_string()),
                                 Cell::new(&format!("{}", item.bindings)),
                                 if let Some(ref t) = stats.updated {
-                                    Cell::new(&sequoia_store::format_system_time(t)
-                                              .expect("Failed to format timestamp"))
+                                    Cell::new(&format_time(t))
                                 } else {
                                     Cell::new("")
                                 },
@@ -462,13 +462,17 @@ fn print_log(iter: LogIter) {
 
     for entry in iter {
         table.add_row(Row::new(vec![
-            Cell::new(&sequoia_store::format_system_time(&entry.timestamp)
-                      .expect("Failed to format timestamp")),
+            Cell::new(&format_time(&entry.timestamp)),
             Cell::new(&entry.slug),
             Cell::new(&entry.short())]));
     }
 
     table.printstd();
+}
+
+fn format_time(t: &time::Timespec) -> String {
+    time::strftime("%F %H:%M", &time::at(*t))
+    .unwrap() // Only parse errors can happen.
 }
 
 fn main() { real_main().expect("An error occured"); }

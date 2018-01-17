@@ -500,13 +500,23 @@ impl node::binding::Server for BindingServer {
                            mut results: node::binding::RegisterEncryptionResults)
                            -> Promise<(), capnp::Error> {
         bind_results!(results);
+        let now = Timestamp::now();
         let key = sry!(self.key_id());
+
         sry!(self.c
-             .execute("UPDATE bindings SET encryption_count = encryption_count + 1 WHERE id = ?1",
-                      &[&self.id]));
+             .execute("UPDATE bindings
+                       SET encryption_count = encryption_count + 1,
+                           encryption_first = coalesce(encryption_first, ?2),
+                           encryption_last = ?2
+                       WHERE id = ?1",
+                      &[&self.id, &now]));
         sry!(self.c
-             .execute("UPDATE keys SET encryption_count = encryption_count + 1 WHERE id = ?1",
-                      &[&key]));
+             .execute("UPDATE keys
+                       SET encryption_count = encryption_count + 1,
+                           encryption_first = coalesce(encryption_first, ?2),
+                           encryption_last = ?2
+                       WHERE id = ?1",
+                      &[&key, &now]));
 
         sry!(self.query_stats( pry!(results.get().get_result()).init_ok()));
         Promise::ok(())
@@ -517,13 +527,23 @@ impl node::binding::Server for BindingServer {
                              mut results: node::binding::RegisterVerificationResults)
                              -> Promise<(), capnp::Error> {
         bind_results!(results);
+        let now = Timestamp::now();
         let key = sry!(self.key_id());
+
         sry!(self.c
-             .execute("UPDATE bindings SET verification_count = verification_count + 1 WHERE id = ?1",
-                      &[&self.id]));
+             .execute("UPDATE bindings
+                       SET verification_count = verification_count + 1,
+                           verification_first = coalesce(verification_first, ?2),
+                           verification_last = ?2
+                       WHERE id = ?1",
+                      &[&self.id, &now]));
         sry!(self.c
-             .execute("UPDATE keys SET verification_count = verification_count + 1 WHERE id = ?1",
-                      &[&key]));
+             .execute("UPDATE keys
+                       SET verification_count = verification_count + 1,
+                           verification_first = coalesce(verification_first, ?2),
+                           verification_last = ?2
+                       WHERE id = ?1",
+                      &[&key, &now]));
 
         sry!(self.query_stats( pry!(results.get().get_result()).init_ok()));
         Promise::ok(())
@@ -834,22 +854,49 @@ trait Query {
     }
 
     fn query_stats(&mut self, mut stats: node::stats::Builder) -> Result<()> {
-        let created = self.query("created")?;
-        let updated = self.query("updated")?;
-        let encryption_count = self.query("encryption_count")?;
-        let encryption_first = self.query("encryption_first")?;
-        let encryption_last = self.query("encryption_last")?;
-        let verification_count = self.query("verification_count")?;
-        let verification_first = self.query("verification_first")?;
-        let verification_last = self.query("verification_last")?;
+        let (
+            created, updated,
+            encryption_count, encryption_first, encryption_last,
+            verification_count, verification_first, verification_last,
+        ): (i64, Option<i64>,
+            i64, Option<i64>, Option<i64>,
+            i64, Option<i64>, Option<i64>)
+            = self.connection().query_row(
+                &format!("SELECT
+                          created,
+                          updated,
+                          encryption_count,
+                          encryption_first,
+                          encryption_last,
+                          verification_count,
+                          verification_first,
+                          verification_last
+                          FROM {0}
+                          WHERE id = ?1", Self::table_name()),
+                &[&self.id()], |row| (row.get(0), row.get(1),
+                                      row.get(2), row.get(3), row.get(4),
+                                      row.get(5), row.get(6), row.get(7)))?;
+        macro_rules! set_some {
+            ( $object: ident) => {
+                macro_rules! set {
+                    ($setter: ident, $value: expr ) => {{
+                        if let Some(value) = $value {
+                            $object.$setter(value);
+                        }
+                    }}
+                }
+            }
+        }
+
+        set_some!(stats);
         stats.set_created(created);
-        stats.set_updated(updated);
+        set!(set_updated, updated);
         stats.set_encryption_count(encryption_count);
-        stats.set_encryption_first(encryption_first);
-        stats.set_encryption_last(encryption_last);
+        set!(set_encryption_first, encryption_first);
+        set!(set_encryption_last, encryption_last);
         stats.set_verification_count(verification_count);
-        stats.set_verification_first(verification_first);
-        stats.set_verification_last(verification_last);
+        set!(set_verification_first, verification_first);
+        set!(set_verification_last, verification_last);
         Ok(())
     }
 }
@@ -1075,14 +1122,14 @@ CREATE TABLE bindings (
     key INTEGER NOT NULL,
 
     created INTEGER NOT NULL,
-    updated DEFAULT 0,
+    updated INTEGER NULL,
 
     encryption_count DEFAULT 0,
-    encryption_first DEFAULT 0,
-    encryption_last DEFAULT 0,
+    encryption_first INTEGER NULL,
+    encryption_last INTEGER NULL,
     verification_count DEFAULT 0,
-    verification_first DEFAULT 0,
-    verification_last DEFAULT 0,
+    verification_first INTEGER NULL,
+    verification_last INTEGER NULL,
 
     UNIQUE(store, label),
     FOREIGN KEY (store) REFERENCES stores(id) ON DELETE CASCADE,
@@ -1094,15 +1141,15 @@ CREATE TABLE keys (
     key BLOB,
 
     created INTEGER NOT NULL,
-    updated DEFAULT 0,
+    updated INTEGER NULL,
     update_at INTEGER NOT NULL,
 
     encryption_count DEFAULT 0,
-    encryption_first DEFAULT 0,
-    encryption_last DEFAULT 0,
+    encryption_first INTEGER NULL,
+    encryption_last INTEGER NULL,
     verification_count DEFAULT 0,
-    verification_first DEFAULT 0,
-    verification_last DEFAULT 0,
+    verification_first INTEGER NULL,
+    verification_last INTEGER NULL,
 
     UNIQUE (fingerprint));
 

@@ -37,10 +37,10 @@
 //! println!("Binding {:?}", binding.stats()?);
 //! // prints:
 //! // Binding Stats {
-//! //     created: Some(SystemTime { tv_sec: 1513704042, tv_nsec: 0 }),
+//! //     created: Some(Timespec { tv_sec: 1513704042, tv_nsec: 0 }),
 //! //     updated: None,
-//! //     encryption: Stamps { count: 0, first: None, latest: None },
-//! //     verification: Stamps { count: 0, first: None, latest: None }
+//! //     encryption: Stamps { count: 0, first: None, last: None },
+//! //     verification: Stamps { count: 0, first: None, last: None }
 //! // }
 //! # Ok(())
 //! # }
@@ -60,11 +60,11 @@ use std::cell::RefCell;
 use std::fmt;
 use std::io;
 use std::rc::Rc;
-use std::time::{SystemTime, SystemTimeError, Duration, UNIX_EPOCH};
 
 use capnp::capability::Promise;
 use capnp_rpc::rpc_twoparty_capnp::Side;
 use futures::{Future};
+use time::Timespec;
 use tokio_core::reactor::Core;
 
 extern crate openpgp;
@@ -397,10 +397,10 @@ impl Binding {
     /// println!("Binding {:?}", binding.stats()?);
     /// // prints:
     /// // Binding Stats {
-    /// //     created: Some(SystemTime { tv_sec: 1513704042, tv_nsec: 0 }),
+    /// //     created: Some(Timespec { tv_sec: 1513704042, tv_nsec: 0 }),
     /// //     updated: None,
-    /// //     encryption: Stamps { count: 0, first: None, latest: None },
-    /// //     verification: Stamps { count: 0, first: None, latest: None }
+    /// //     encryption: Stamps { count: 0, first: None, last: None },
+    /// //     verification: Stamps { count: 0, first: None, last: None }
     /// // }
     /// # Ok(())
     /// # }
@@ -680,12 +680,12 @@ impl Key {
 }
 
 
-/// Returns `t` as SystemTime.
-fn from_unix(t: i64) -> Option<SystemTime> {
-    if t <= 0 {
+/// Returns `t` as Timespec.
+fn from_unix(t: i64) -> Option<Timespec> {
+    if t == 0 {
         None
     } else {
-        Some(UNIX_EPOCH + Duration::new(t as u64, 0))
+        Some(Timespec::new(t, 0))
     }
 }
 
@@ -697,10 +697,10 @@ fn from_unix(t: i64) -> Option<SystemTime> {
 #[derive(Debug)]
 pub struct Stats {
     /// Records the time this item was created.
-    pub created: Option<SystemTime>,
+    pub created: Option<Timespec>,
 
     /// Records the time this item was last updated.
-    pub updated: Option<SystemTime>,
+    pub updated: Option<Timespec>,
 
     /// Records counters and timestamps of encryptions.
     pub encryption: Stamps,
@@ -711,7 +711,7 @@ pub struct Stats {
 
 #[derive(Debug)]
 pub struct Log {
-    pub timestamp: SystemTime,
+    pub timestamp: Timespec,
     pub store: Option<Store>,
     pub binding: Option<Binding>,
     pub key: Option<Key>,
@@ -757,15 +757,17 @@ impl Log {
     }
 
     /// Returns the message with timestamp and context.
-    pub fn full(&self) -> Result<String> {
-        Ok(match self.status {
+    pub fn full(&self) -> String {
+        let timestamp =
+            time::strftime("%F %H:%M", &time::at(self.timestamp))
+            .unwrap(); // Only parse errors can happen.
+
+        match self.status {
             Ok(ref m) => format!(
-                "{}: {}: {}",
-                format_system_time(&self.timestamp)?, self.slug,m),
+                "{}: {}: {}", timestamp, self.slug,m),
             Err((ref m, ref e)) => format!(
-                "{}: {}: {}: {}",
-                format_system_time(&self.timestamp)?, self.slug, m, e),
-        })
+                "{}: {}: {}: {}", timestamp, self.slug, m, e),
+        }
     }
 }
 
@@ -776,18 +778,18 @@ pub struct Stamps {
     pub count: usize,
 
     /// Records the time when this has been used first.
-    pub first:  Option<SystemTime>,
+    pub first:  Option<Timespec>,
 
     /// Records the time when this has been used last.
-    pub latest: Option<SystemTime>,
+    pub last: Option<Timespec>,
 }
 
 impl Stamps {
-    fn new(count: i64, first: i64, latest: i64) -> Self {
+    fn new(count: i64, first: Option<Timespec>, last: Option<Timespec>) -> Self {
         Stamps {
             count: count as usize,
-            first: from_unix(first),
-            latest: from_unix(latest),
+            first: first,
+            last: last,
         }
     }
 }
@@ -935,16 +937,6 @@ impl Iterator for LogIter {
     }
 }
 
-/// XXX Use the correct time type.
-///
-/// We should use time::Timespec and get rid of this function.
-pub fn format_system_time(t: &SystemTime) -> Result<String> {
-    let tm = time::at(time::Timespec::new(t.duration_since(UNIX_EPOCH)?.as_secs() as i64, 0));
-    Ok(time::strftime("%F %H:%M", &tm)
-       // Only parse errors can happen.
-       .unwrap())
-}
-
 /* Error handling.  */
 
 /// Results for sequoia-store.
@@ -1022,12 +1014,6 @@ impl From<capnp::Error> for Error {
 
 impl From<capnp::NotInSchema> for Error {
     fn from(_: capnp::NotInSchema) -> Self {
-        Error::ProtocolError
-    }
-}
-
-impl From<SystemTimeError> for Error {
-    fn from(_: SystemTimeError) -> Self {
         Error::ProtocolError
     }
 }
@@ -1175,6 +1161,42 @@ mod store_test {
 
         ctx0
     }
+
+    #[test]
+    fn stats() {
+        let ctx = make_some_stores();
+        let store = Store::open(&ctx, "default").unwrap();
+        let fp = Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb");
+        let binding = store.add("Mister B.", &fp).unwrap();
+
+        let stats0 = binding.stats().unwrap();
+        assert_match!(Some(_) = stats0.created);
+        assert_match!(None = stats0.updated);
+        assert_eq!(stats0.encryption.count, 0);
+        assert_match!(None = stats0.encryption.first);
+        assert_match!(None = stats0.encryption.last);
+        assert_eq!(stats0.verification.count, 0);
+        assert_match!(None = stats0.verification.first);
+        assert_match!(None = stats0.verification.last);
+
+        binding.register_encryption().unwrap();
+        binding.register_encryption().unwrap();
+        binding.register_verification().unwrap();
+
+        let stats1 = binding.stats().unwrap();
+        assert_match!(Some(_) = stats1.created);
+        assert_eq!(stats0.created, stats1.created);
+        assert_match!(None = stats1.updated);
+        assert_eq!(stats1.encryption.count, 2);
+        assert_match!(Some(_) = stats1.encryption.first);
+        assert_match!(Some(_) = stats1.encryption.last);
+        assert!(stats1.encryption.first <= stats1.encryption.last);
+        assert_eq!(stats1.verification.count, 1);
+        assert_match!(Some(_) = stats1.verification.first);
+        assert_match!(Some(_) = stats1.verification.last);
+        assert_eq!(stats1.verification.first, stats1.verification.last);
+    }
+
 
     #[test]
     fn store_iterator() {
