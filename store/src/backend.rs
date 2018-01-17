@@ -224,17 +224,8 @@ impl node::store::Server for StoreServer {
         let fp = pry!(params.get_fingerprint());
         let label = pry!(params.get_label());
 
-        let key_id = sry!(KeyServer::lookup(&self.c, fp));
-
-        sry!(self.c.execute("INSERT OR IGNORE INTO bindings (store, label, key, created)
-                             VALUES (?, ?, ?, ?)",
-                            &[&self.id,
-                              &label,
-                              &key_id,
-                              &Timestamp::now()]));
-        let binding_id: i64 = sry!(self.c.query_row(
-            "SELECT id FROM bindings WHERE store = ?1 AND label = ?2",
-            &[&self.id, &label], |row| row.get(0)));
+        let binding_id = sry!(
+            BindingServer::lookup_or_create(&self.c, self.id, label, fp));
 
         pry!(pry!(results.get().get_result()).set_ok(
             node::binding::ToClient::new(
@@ -299,6 +290,50 @@ impl BindingServer {
 
     fn key_id(&mut self) -> Result<i64> {
         self.query("key")
+    }
+
+
+    /// Looks up a binding, creating a key if necessary.
+    ///
+    /// On success, the id of the binding is returned.
+    fn lookup_or_create(c: &Connection, store: i64, label: &str, fp: &str)
+                        -> Result<i64> {
+        let key_id = KeyServer::lookup_or_create(c, fp)?;
+        if let Ok((binding, key)) = c.query_row(
+            "SELECT id, key FROM bindings WHERE store = ?1 AND label = ?2",
+            &[&store, &label], |row| -> (i64, i64) {(row.get(0), row.get(1))}) {
+            if key == key_id {
+                Ok(binding)
+            } else {
+                Err(node::Error::Conflict)
+            }
+        } else {
+            let r = c.execute(
+                "INSERT INTO bindings (store, label, key, created)
+                 VALUES (?, ?, ?, ?)",
+                &[&store, &label, &key_id, &Timestamp::now()]);
+
+            // Some other mutator might race us to the insertion.
+            match r {
+                Err(rusqlite::Error::SqliteFailure(f, _)) => match f.code {
+                    // We lost.  Retry the lookup.
+                    rusqlite::ErrorCode::ConstraintViolation => {
+                        let (binding, key): (i64, i64) = c.query_row(
+                            "SELECT id, key FROM bindings WHERE store = ?1 AND label = ?2",
+                            &[&store, &label], |row| (row.get(0), row.get(1)))?;
+                        if key == key_id {
+                            Ok(binding)
+                        } else {
+                            Err(node::Error::Conflict)
+                        }
+                    },
+                    // Raise otherwise.
+                    _ => Err(node::Error::SystemError),
+                },
+                Err(_) => Err(node::Error::SystemError),
+                Ok(_) => Ok(c.last_insert_rowid()),
+            }.map_err(|e| e.into())
+        }
     }
 }
 
@@ -374,7 +409,8 @@ impl node::binding::Server for BindingServer {
             if force || (current.is_some() && new.is_signed_by(&current.unwrap())) {
                 // Update binding, and retry.
                 let key_id =
-                    sry!(KeyServer::lookup(&self.c, new.fingerprint().to_hex().as_ref()));
+                    sry!(KeyServer::lookup_or_create(
+                        &self.c, new.fingerprint().to_hex().as_ref()));
                 sry!(self.c.execute("UPDATE bindings SET key = ?1 WHERE id = ?2",
                                     &[&key_id, &self.id]));
                 return self.import(params, results);
@@ -459,7 +495,7 @@ impl KeyServer {
     /// Looks up a fingerprint, creating a key if necessary.
     ///
     /// On success, the id of the key is returned.
-    fn lookup(c: &Connection, fp: &str) -> Result<i64> {
+    fn lookup_or_create(c: &Connection, fp: &str) -> Result<i64> {
         if let Ok(x) = c.query_row(
             "SELECT id FROM keys WHERE fingerprint = ?1",
             &[&fp], |row| row.get(0)) {

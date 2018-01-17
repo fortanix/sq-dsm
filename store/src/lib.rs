@@ -996,6 +996,19 @@ mod store_test {
         assert_match!(Err(Error::Conflict) = r);
     }
 
+    #[test]
+    fn add_then_add_different_key() {
+        let ctx = core::Context::configure("org.sequoia-pgp.tests")
+            .ephemeral()
+            .network_policy(core::NetworkPolicy::Offline)
+            .build().unwrap();
+        let store = Store::open(&ctx, "default").unwrap();
+        let b = Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb");
+        store.add("Mister B.", &b).unwrap();
+        let c = Fingerprint::from_bytes(b"cccccccccccccccccccc");
+        assert_match!(Err(Error::Conflict)
+                      = store.add("Mister B.", &c));
+    }
 
     #[test]
     fn delete_store_twice() {
