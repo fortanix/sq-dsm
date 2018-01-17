@@ -11,6 +11,21 @@ use nettle::Hash;
 use nettle::hash::insecure_do_not_use::Sha1;
 use nettle::hash::{Sha224, Sha256, Sha384, Sha512};
 
+// Returns a fresh hash context.
+pub fn hash_context(hash_algo: HashAlgo) -> Box<Hash> {
+    match hash_algo {
+        HashAlgo::SHA1 => Box::new(Sha1::default()),
+        HashAlgo::SHA224 => Box::new(Sha224::default()),
+        HashAlgo::SHA256 => Box::new(Sha256::default()),
+        HashAlgo::SHA384 => Box::new(Sha384::default()),
+        HashAlgo::SHA512 => Box::new(Sha512::default()),
+        algo => {
+            eprintln!("algo {:?} not implemented", algo);
+            unimplemented!();
+        },
+    }
+}
+
 impl UserID {
     // Update the Hash with a hash of the key.
     pub fn hash<H: Hash>(&self, hash: &mut H) {
@@ -118,26 +133,11 @@ impl Signature {
 
 /// Hashing-related functionality.
 impl Signature {
-    // Initializes a hash context and returns the hash's size in
-    // bytes.
-    fn hash_init(&self) -> Box<Hash> {
-        match HashAlgo::from_numeric(self.hash_algo).unwrap() {
-            HashAlgo::SHA1 => Box::new(Sha1::default()),
-            HashAlgo::SHA224 => Box::new(Sha224::default()),
-            HashAlgo::SHA256 => Box::new(Sha256::default()),
-            HashAlgo::SHA384 => Box::new(Sha384::default()),
-            HashAlgo::SHA512 => Box::new(Sha512::default()),
-            algo => {
-                eprintln!("algo {:?} not implemented", algo);
-                unimplemented!();
-            },
-        }
-    }
-
     // Return the message digest of the primary key binding over the
     // specified primary key, subkey, and signature.
     pub fn primary_key_binding_hash(&self, key: &Key) -> Vec<u8> {
-        let mut h = self.hash_init();
+        let mut h
+            = hash_context(HashAlgo::from_numeric(self.hash_algo).unwrap());
 
         key.hash(&mut h);
         self.hash(&mut h);
@@ -151,7 +151,8 @@ impl Signature {
     // specified primary key, subkey, and signature.
     pub fn subkey_binding_hash(&self, key: &Key, subkey: &Key)
             -> Vec<u8> {
-        let mut h = self.hash_init();
+        let mut h
+            = hash_context(HashAlgo::from_numeric(self.hash_algo).unwrap());
 
         key.hash(&mut h);
         subkey.hash(&mut h);
@@ -166,7 +167,8 @@ impl Signature {
     // specified primary key, user ID, and signature.
     pub fn userid_binding_hash(&self, key: &Key, userid: &UserID)
             -> Vec<u8> {
-        let mut h = self.hash_init();
+        let mut h
+            = hash_context(HashAlgo::from_numeric(self.hash_algo).unwrap());
 
         key.hash(&mut h);
         userid.hash(&mut h);
@@ -181,7 +183,8 @@ impl Signature {
     // the specified primary key, user attribute, and signature.
     pub fn user_attribute_binding_hash(&self, key: &Key, ua: &UserAttribute)
             -> Vec<u8> {
-        let mut h = self.hash_init();
+        let mut h
+            = hash_context(HashAlgo::from_numeric(self.hash_algo).unwrap());
 
         key.hash(&mut h);
         ua.hash(&mut h);

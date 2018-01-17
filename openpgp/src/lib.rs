@@ -62,6 +62,7 @@ use parse::SubpacketArea;
 pub mod tpk;
 pub mod serialize;
 
+pub mod hash;
 mod unknown;
 mod signature;
 mod key;
@@ -73,7 +74,6 @@ mod packet;
 mod container;
 mod message;
 mod iter;
-mod hash;
 
 /// The OpenPGP packet tags as defined in [Section 4.3 of RFC 4880].
 ///
