@@ -63,6 +63,9 @@ pub mod tpk;
 pub mod serialize;
 
 pub mod hash;
+pub mod symmetric;
+
+mod s2k;
 mod unknown;
 mod signature;
 mod key;
@@ -70,6 +73,7 @@ mod userid;
 mod user_attribute;
 mod literal;
 mod compressed_data;
+mod skesk;
 mod packet;
 mod container;
 mod message;
@@ -239,6 +243,56 @@ impl HashAlgo {
     }
 
     /// Converts a `HashAlgo` to its corresponding numeric value.
+    pub fn to_numeric(self) -> u8 {
+        num::ToPrimitive::to_u8(&self).unwrap()
+    }
+}
+
+/// The symmetric-key algorithms as defined in [Section 9.2 of RFC 4880].
+///
+///   [Section 9.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-9.2
+///
+/// The values correspond to the serialized format.
+///
+/// Use [`SymmetricAlgo::from_numeric`] to translate a numeric value
+/// to a symbolic one.
+///
+///   [`SymmetricAlgo::from_numeric`]: enum.SymmetricAlgo.html#method.from_numeric
+#[derive(Debug)]
+#[derive(FromPrimitive)]
+#[derive(ToPrimitive)]
+// We need PartialEq so that assert_eq! works.
+#[derive(PartialEq)]
+#[derive(Clone, Copy)]
+pub enum SymmetricAlgo {
+    Unencrypted = 0,
+    IDEA = 1,
+    TripleDES = 2,
+    CAST5 = 3,
+    Blowfish = 4,
+    AES128 = 7,
+    AES192 = 8,
+    AES256 = 9,
+    Twofish = 10,
+}
+
+impl SymmetricAlgo {
+    /// Converts a numeric value to an `Option<SymmetricAlgo>`.
+    ///
+    /// Returns None, if the value is out of range.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use openpgp::SymmetricAlgo;
+    ///
+    /// assert_eq!(SymmetricAlgo::from_numeric(9), Some(SymmetricAlgo::AES256));
+    /// ```
+    pub fn from_numeric(value: u8) -> Option<Self> {
+        num::FromPrimitive::from_u8(value)
+    }
+
+    /// Converts a `SymmetricAlgo` to its corresponding numeric value.
     pub fn to_numeric(self) -> u8 {
         num::ToPrimitive::to_u8(&self).unwrap()
     }
@@ -478,6 +532,13 @@ pub struct Header {
     pub length: BodyLength,
 }
 
+#[derive(PartialEq, Clone, Debug)]
+pub struct S2K {
+    hash_algo: u8,
+    salt: Option<[u8; 8]>,
+    coded_count: Option<u8>,
+}
+
 /// Holds an unknown packet.
 ///
 /// This is used by the parser to hold packets that it doesn't know
@@ -599,6 +660,16 @@ pub struct CompressedData {
     pub common: PacketCommon,
     pub algo: u8,
 }
+
+#[derive(PartialEq, Clone, Debug)]
+pub struct SKESK {
+    pub common: PacketCommon,
+    pub version: u8,
+    pub symm_algo: u8,
+    pub s2k: S2K,
+    // The encrypted session key.
+    pub esk: Vec<u8>,
+}
 
 /// The OpenPGP packets that Sequoia understands.
 ///
@@ -628,6 +699,7 @@ pub enum Packet {
     UserAttribute(UserAttribute),
     Literal(Literal),
     CompressedData(CompressedData),
+    SKESK(SKESK),
 }
 
 impl Packet {
@@ -648,6 +720,7 @@ impl Packet {
             &Packet::UserAttribute(_) => Tag::UserAttribute,
             &Packet::Literal(_) => Tag::Literal,
             &Packet::CompressedData(_) => Tag::CompressedData,
+            &Packet::SKESK(_) => Tag::SKESK,
         }
     }
 }
@@ -662,8 +735,8 @@ pub struct Container {
 }
 
 // This impl is here and not in the container module, because it is
-// supposed to private to the outside world, but functionality in this
-// crate should be able to use it.
+// supposed to be private to the outside world, but functionality in
+// this crate should be able to use it.
 impl Container {
     fn new() -> Container {
         Container { packets: Vec::with_capacity(8) }

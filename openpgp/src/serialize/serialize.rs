@@ -127,6 +127,44 @@ pub fn ctb_old(tag: Tag, l: BodyLength) -> u8 {
     0b1000_0000u8 | (tag << 2) | len_encoding
 }
 
+impl S2K {
+    // Return the length of the serialized S2K data structure.
+    pub fn serialized_len(&self) -> usize {
+        1 // Mode.
+            + 1 // Hash algo.
+            // Salt.
+            + if let Some(salt) = self.salt { salt.len() } else { 0 }
+            // Coded count.
+            + if let Some(_) = self.coded_count { 1 } else { 0 }
+    }
+
+    /// Writes a serialized version of the specified `S2K`
+    /// packet to `o`.
+    pub fn serialize<W: io::Write>(&self, o: &mut W)
+            -> Result<(), io::Error> {
+        let mode = if self.salt.is_some() && self.coded_count.is_some() {
+            3
+        } else if self.coded_count.is_some() && !self.salt.is_some() {
+            panic!("s2k: Can't have an iteration count without a salt.");
+        } else if self.salt.is_some() {
+            1
+        } else {
+            0
+        };
+
+        write_byte(o, mode)?;
+        write_byte(o, self.hash_algo)?;
+        if let Some(salt) = self.salt {
+            o.write(&salt[..])?;
+        }
+        if let Some(cc) = self.coded_count {
+            write_byte(o, cc)?;
+        }
+
+        Ok(())
+    }
+}
+
 impl Unknown {
     /// Writes a serialized version of the specified `Unknown` packet
     /// to `o`.
@@ -345,7 +383,7 @@ impl Literal {
         o
     }
 }
-
+
 impl CompressedData {
     /// Writes a serialized version of the specified `CompressedData`
     /// packet to `o`.
@@ -413,6 +451,35 @@ impl CompressedData {
     }
 }
 
+impl SKESK {
+    /// Writes a serialized version of the specified `SKESK`
+    /// packet to `o`.
+    pub fn serialize<W: io::Write>(&self, o: &mut W)
+                                   -> Result<(), io::Error> {
+        if self.version != 4 {
+            panic!("SKESK:serialize: Don't know how to serialize \
+                    non-version 4 packets.");
+        }
+
+        let len =
+            1 // Version
+            + 1 // Algo
+            + self.s2k.serialized_len() // s2k.
+            + self.esk.len(); // ESK.
+
+        write_byte(o, ctb_new(Tag::SKESK))?;
+        o.write_all(&body_length_new_format(
+            BodyLength::Full(len as u32))[..])?;
+
+        write_byte(o, self.version)?;
+        write_byte(o, self.symm_algo)?;
+        self.s2k.serialize(o).unwrap();
+        o.write(&self.esk[..])?;
+
+        Ok(())
+    }
+}
+
 impl Packet {
     /// Writes a serialized version of the specified `Packet` to `o`.
     ///
@@ -432,6 +499,7 @@ impl Packet {
             &Packet::UserAttribute(ref p) => p.serialize(o),
             &Packet::Literal(ref p) => p.serialize(o),
             &Packet::CompressedData(ref p) => p.serialize(o),
+            &Packet::SKESK(ref p) => p.serialize(o),
         }
     }
 
@@ -515,7 +583,8 @@ mod serialize_test {
     // Does a bit-wise comparison of two packets ignoring the CTB
     // format, the body length encoding, and whether partial body
     // length encoding was used.
-    fn packets_bitwise_compare(filename: &str, expected: &[u8], got: &[u8]) {
+    fn packets_bitwise_compare(filename: &str, packet: &Packet,
+                               expected: &[u8], got: &[u8]) {
         let expected = to_unknown_packet(expected).unwrap();
         let got = to_unknown_packet(got).unwrap();
 
@@ -542,6 +611,7 @@ mod serialize_test {
                       expected_body.len(), binary_pp(&expected_body));
             eprintln!("Got ({} bytes):\n{}",
                       got_body.len(), binary_pp(&got_body));
+            eprintln!("Packet: {:#?}", packet);
             fail = true;
         }
         if fail {
@@ -573,6 +643,17 @@ mod serialize_test {
             "public-key-bare.gpg",
             "public-subkey-bare.gpg",
             "userid-bare.gpg",
+
+            "s2k/mode-0-password-1234.gpg",
+            "s2k/mode-0-password-1234.gpg",
+            "s2k/mode-1-password-123456-1.gpg",
+            "s2k/mode-1-password-foobar-2.gpg",
+            "s2k/mode-3-aes128-password-0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789.gpg",
+            "s2k/mode-3-aes192-password-123.gpg",
+            "s2k/mode-3-encrypted-key-password-bgtyhn.gpg",
+            "s2k/mode-3-password-9876-2.gpg",
+            "s2k/mode-3-password-qwerty-1.gpg",
+            "s2k/mode-3-twofish-password-0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789.gpg",
         ];
 
         for filename in filenames.iter() {
@@ -590,9 +671,9 @@ mod serialize_test {
             assert_eq!(m.children().len(), 1);
 
             // 3. Serialize the packet it into a local buffer.
-            let po = m.descendants().next();
+            let p = m.descendants().next().unwrap();
             let mut buffer = Vec::new();
-            match po.unwrap() {
+            match p {
                 &Packet::Literal(ref l) => {
                     l.serialize(&mut buffer).unwrap();
                 },
@@ -608,6 +689,9 @@ mod serialize_test {
                 &Packet::UserID(ref userid) => {
                     userid.serialize(&mut buffer).unwrap();
                 },
+                &Packet::SKESK(ref skesk) => {
+                    skesk.serialize(&mut buffer).unwrap();
+                },
                 ref p => {
                     panic!("Didn't expect a {:?} packet.", p.tag());
                 },
@@ -615,7 +699,7 @@ mod serialize_test {
 
             // 4. Modulo the body length encoding, check that the
             // reserialized content is identical to the original data.
-            packets_bitwise_compare(filename, &data[..], &buffer[..]);
+            packets_bitwise_compare(filename, p, &data[..], &buffer[..]);
         }
     }
 
@@ -646,7 +730,8 @@ mod serialize_test {
 
             // 4. Modulo the body length encoding, check that the
             // reserialized content is identical to the original data.
-            packets_bitwise_compare(filename, &data[..], &data2[..]);
+            packets_bitwise_compare(filename, &Packet::Unknown(u),
+                                    &data[..], &data2[..]);
         }
 
     }

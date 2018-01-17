@@ -57,7 +57,7 @@ pub fn ctb(ptag: u8) -> Result<CTB, io::Error> {
         // XXX: Use a proper error.
         return Err(io::Error::new(
             io::ErrorKind::UnexpectedEof,
-            format!("Malformed ctb: MSB of ptag ({:#010b} not set.", ptag)));
+            format!("Malformed ctb: MSB of ptag ({:#010b}) not set.", ptag)));
     }
 
     let new_format = ptag & 0b0100_0000 != 0;
@@ -210,6 +210,40 @@ pub fn header<R: BufferedReader<C>, C> (bio: &mut R)
         CTB::Old(ref ctb) => body_length_old_format(bio, ctb.length_type)?,
     };
     return Ok(Header { ctb: ctb, length: length });
+}
+
+impl S2K {
+    pub fn parse<'a, R: BufferedReader<BufferedReaderState> + 'a>
+            (bio: &mut R) -> Result<S2K, std::io::Error> {
+        let s2k_type = bio.data_consume_hard(1)?[0];
+
+        if s2k_type != 0 && s2k_type != 1 && s2k_type != 3 {
+            // XXX: How do we best deal with unknown s2k schemes?
+            unimplemented!();
+        }
+
+        let algo = bio.data_consume_hard(1)?[0];
+
+        let mut salt = Some([0u8; 8]);
+        if s2k_type == 1 || s2k_type == 3 {
+            salt.as_mut().unwrap().copy_from_slice(
+                &bio.data_consume_hard(8)?[..8]);
+        } else {
+            salt = None;
+        }
+
+        let coded_count = if s2k_type == 3 {
+            Some(bio.data_consume_hard(1)?[0])
+        } else {
+            None
+        };
+
+        Ok(S2K {
+            hash_algo: algo,
+            salt: salt,
+            coded_count: coded_count
+        })
+    }
 }
 
 impl Unknown {
@@ -655,6 +689,108 @@ fn compressed_data_parser_test () {
 
     }
 }
+
+impl SKESK {
+    /// Parses the body of an SKESK packet.
+    pub fn parse<'a, R: BufferedReader<BufferedReaderState> + 'a>
+            (mut bio: R, recursion_depth: usize)
+            -> Result<PacketParser<'a>, std::io::Error> {
+        let version = bio.data_hard(1)?[0];
+        if version != 4 {
+            // We only support version 4 keys.
+            return Unknown::parse(bio, recursion_depth, Tag::SKESK);
+        }
+        bio.consume(1);
+
+        let symm_algo = bio.data_consume_hard(1)?[0];
+        let s2k = S2K::parse(&mut bio)?;
+        let esk = bio.steal_eof()?;
+
+        return Ok(PacketParser {
+            packet: Packet::SKESK(SKESK {
+                common: PacketCommon {
+                    children: None,
+                    body: None,
+                },
+                version: version,
+                symm_algo: symm_algo,
+                s2k: s2k,
+                esk: esk,
+            }),
+            reader: Box::new(bio),
+            content_was_read: false,
+            recursion_depth: recursion_depth as u8,
+            settings: PACKET_PARSER_DEFAULTS
+        });
+    }
+}
+
+#[test]
+fn skesk_parser_test() {
+    struct Test<'a> {
+        filename: &'a str,
+        s2k: S2K,
+        cipher_algo: SymmetricAlgo,
+        password: &'a [u8],
+        key_hex: &'a str,
+    };
+
+    let tests = [
+            Test {
+                filename: "s2k/mode-3-encrypted-key-password-bgtyhn.gpg",
+                cipher_algo: SymmetricAlgo::AES128,
+                s2k: S2K {
+                    hash_algo: 2,
+                    salt: Some([0x82, 0x59, 0xa0, 0x6e, 0x98, 0xda, 0x94, 0x1c]),
+                    coded_count: Some(238),
+                },
+                password: &b"bgtyhn"[..],
+                key_hex: "474E5C373BA18AF0A499FCAFE6093F131DF636F6A3812B9A8AE707F1F0214AE9",
+            },
+    ];
+
+    fn to_hex(s: &[u8]) -> String {
+        use std::fmt::Write;
+
+        let mut result = String::new();
+        for b in s.iter() {
+            write!(&mut result, "{:02X}", b).unwrap();
+        }
+        result
+    }
+
+    for test in tests.iter() {
+        let path = path_to(test.filename);
+        let mut f = File::open(&path).expect(&path.to_string_lossy());
+        let mut bio = BufferedReaderGeneric::with_cookie(
+            &mut f, None, BufferedReaderState::default());
+
+        let h = header(&mut bio).unwrap();
+        assert_eq!(h.ctb.tag, Tag::SKESK);
+
+        let (packet, _, _, _)
+            = SKESK::parse(bio, 0).unwrap().next().unwrap();
+
+        if let Packet::SKESK(skesk) = packet {
+            eprintln!("{:?}", skesk);
+
+            assert_eq!(skesk.symm_algo,
+                       SymmetricAlgo::to_numeric(test.cipher_algo));
+            assert_eq!(skesk.s2k, test.s2k);
+
+            let key = skesk.decrypt(test.password);
+            if let Some((_symm_algo, key)) = key {
+                let key = to_hex(&key[..]);
+                assert_eq!(&key[..], &test.key_hex[..]);
+            } else {
+                panic!("Session key: None!");
+            }
+        } else {
+            unreachable!();
+        }
+    }
+}
+
 
 // A `PacketParser`'s settings.
 #[derive(Debug)]
@@ -1105,6 +1241,8 @@ impl <'a> PacketParser<'a> {
                 Literal::parse(bio, recursion_depth)?,
             Tag::CompressedData =>
                 CompressedData::parse(bio, recursion_depth)?,
+            Tag::SKESK =>
+                SKESK::parse(bio, recursion_depth)?,
             _ =>
                 Unknown::parse(bio, recursion_depth, tag)?,
         };
@@ -1372,7 +1510,7 @@ impl <'a> PacketParser<'a> {
                 | Packet::PublicKey(_) | Packet::PublicSubkey(_)
                 | Packet::SecretKey(_) | Packet::SecretSubkey(_)
                 | Packet::UserID(_) | Packet::UserAttribute(_)
-                | Packet::Literal(_) => {
+                | Packet::Literal(_) | Packet::SKESK(_) => {
                 // Drop through.
                 if self.settings.trace {
                     eprintln!("{}PacketParser::recurse(): A {:?} packet is \
