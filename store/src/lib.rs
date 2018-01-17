@@ -23,12 +23,12 @@
 //! # extern crate sequoia_core;
 //! # extern crate sequoia_store;
 //! # use openpgp::Fingerprint;
-//! # use sequoia_core::Context;
+//! # use sequoia_core::{Context, NetworkPolicy};
 //! # use sequoia_store::{Store, Result};
 //! # fn main() { f().unwrap(); }
 //! # fn f() -> Result<()> {
 //! # let ctx = Context::configure("org.sequoia-pgp.demo.store")
-//! #     .ephemeral().build()?;
+//! #     .network_policy(NetworkPolicy::Offline).ephemeral().build()?;
 //! let store = Store::open(&ctx, "default")?;
 //!
 //! let fp = Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb");
@@ -200,12 +200,12 @@ impl Store {
     /// # extern crate sequoia_core;
     /// # extern crate sequoia_store;
     /// # use openpgp::Fingerprint;
-    /// # use sequoia_core::Context;
+    /// # use sequoia_core::{Context, NetworkPolicy};
     /// # use sequoia_store::{Store, Result};
     /// # fn main() { f().unwrap(); }
     /// # fn f() -> Result<()> {
     /// # let ctx = Context::configure("org.sequoia-pgp.demo.store")
-    /// #     .ephemeral().build()?;
+    /// #     .network_policy(NetworkPolicy::Offline).ephemeral().build()?;
     /// let store = Store::open(&ctx, "default")?;
     /// let fp = Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb");
     /// store.add("Mister B.", &fp)?;
@@ -229,12 +229,12 @@ impl Store {
     /// # extern crate sequoia_core;
     /// # extern crate sequoia_store;
     /// # use openpgp::tpk::TPK;
-    /// # use sequoia_core::Context;
+    /// # use sequoia_core::{Context, NetworkPolicy};
     /// # use sequoia_store::{Store, Result};
     /// # fn main() { f().unwrap(); }
     /// # fn f() -> Result<()> {
     /// # let ctx = Context::configure("org.sequoia-pgp.demo.store")
-    /// #     .ephemeral().build()?;
+    /// #     .network_policy(NetworkPolicy::Offline).ephemeral().build()?;
     /// # let tpk = TPK::from_bytes(
     /// #     include_bytes!("../../openpgp/tests/data/keys/testy.pgp")).unwrap();
     /// let store = Store::open(&ctx, "default")?;
@@ -261,12 +261,12 @@ impl Store {
     /// # extern crate sequoia_core;
     /// # extern crate sequoia_store;
     /// # use openpgp::Fingerprint;
-    /// # use sequoia_core::Context;
+    /// # use sequoia_core::{Context, NetworkPolicy};
     /// # use sequoia_store::{Store, Result};
     /// # fn main() { f().unwrap(); }
     /// # fn f() -> Result<()> {
     /// # let ctx = Context::configure("org.sequoia-pgp.demo.store")
-    /// #     .ephemeral().build()?;
+    /// #     .network_policy(NetworkPolicy::Offline).ephemeral().build()?;
     /// let store = Store::open(&ctx, "default")?;
     /// let fp = Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb");
     /// store.add("Mister B.", &fp)?;
@@ -293,12 +293,12 @@ impl Store {
     /// # #[macro_use] extern crate sequoia_core;
     /// # extern crate sequoia_store;
     /// # use openpgp::Fingerprint;
-    /// # use sequoia_core::Context;
+    /// # use sequoia_core::{Context, NetworkPolicy};
     /// # use sequoia_store::{Store, Result, Error};
     /// # fn main() { f().unwrap(); }
     /// # fn f() -> Result<()> {
     /// # let ctx = Context::configure("org.sequoia-pgp.demo.store")
-    /// #     .ephemeral().build()?;
+    /// #     .network_policy(NetworkPolicy::Offline).ephemeral().build()?;
     /// let store = Store::open(&ctx, "default")?;
     /// let fp = Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb");
     /// store.add("Mister B.", &fp)?;
@@ -354,12 +354,12 @@ impl Binding {
     /// # extern crate sequoia_core;
     /// # extern crate sequoia_store;
     /// # use openpgp::Fingerprint;
-    /// # use sequoia_core::Context;
+    /// # use sequoia_core::{Context, NetworkPolicy};
     /// # use sequoia_store::{Store, Result};
     /// # fn main() { f().unwrap(); }
     /// # fn f() -> Result<()> {
     /// # let ctx = Context::configure("org.sequoia-pgp.demo.store")
-    /// #     .ephemeral().build()?;
+    /// #     .network_policy(NetworkPolicy::Offline).ephemeral().build()?;
     /// let store = Store::open(&ctx, "default")?;
     ///
     /// let fp = Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb");
@@ -419,12 +419,12 @@ impl Binding {
     /// # #[macro_use] extern crate sequoia_core;
     /// # extern crate sequoia_store;
     /// # use openpgp::tpk::TPK;
-    /// # use sequoia_core::Context;
+    /// # use sequoia_core::{Context, NetworkPolicy};
     /// # use sequoia_store::{Store, Result, Error};
     /// # fn main() { f().unwrap(); }
     /// # fn f() -> Result<()> {
     /// # let ctx = Context::configure("org.sequoia-pgp.demo.store")
-    /// #     .ephemeral().build()?;
+    /// #     .network_policy(NetworkPolicy::Offline).ephemeral().build()?;
     /// # let old = TPK::from_bytes(
     /// #     include_bytes!("../../openpgp/tests/data/keys/testy.pgp")).unwrap();
     /// # let new = TPK::from_bytes(
@@ -475,12 +475,12 @@ impl Binding {
     /// # #[macro_use] extern crate sequoia_core;
     /// # extern crate sequoia_store;
     /// # use openpgp::tpk::TPK;
-    /// # use sequoia_core::Context;
+    /// # use sequoia_core::{Context, NetworkPolicy};
     /// # use sequoia_store::{Store, Result, Error};
     /// # fn main() { f().unwrap(); }
     /// # fn f() -> Result<()> {
     /// # let ctx = Context::configure("org.sequoia-pgp.demo.store")
-    /// #     .ephemeral().build()?;
+    /// #     .network_policy(NetworkPolicy::Offline).ephemeral().build()?;
     /// # let old = TPK::from_bytes(
     /// #     include_bytes!("../../openpgp/tests/data/keys/testy.pgp")).unwrap();
     /// # let new = TPK::from_bytes(
@@ -517,12 +517,12 @@ impl Binding {
     /// # #[macro_use] extern crate sequoia_core;
     /// # extern crate sequoia_store;
     /// # use openpgp::Fingerprint;
-    /// # use sequoia_core::Context;
+    /// # use sequoia_core::{Context, NetworkPolicy};
     /// # use sequoia_store::{Store, Result, Error};
     /// # fn main() { f().unwrap(); }
     /// # fn f() -> Result<()> {
     /// # let ctx = Context::configure("org.sequoia-pgp.demo.store")
-    /// #     .ephemeral().build()?;
+    /// #     .network_policy(NetworkPolicy::Offline).ephemeral().build()?;
     /// let store = Store::open(&ctx, "default")?;
     /// let fp = Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb");
     /// let binding = store.add("Mister B.", &fp)?;
@@ -603,12 +603,12 @@ impl Key {
     /// # extern crate sequoia_store;
     /// # use openpgp::Fingerprint;
     /// # use openpgp::tpk::TPK;
-    /// # use sequoia_core::Context;
+    /// # use sequoia_core::{Context, NetworkPolicy};
     /// # use sequoia_store::{Store, Result, Error};
     /// # fn main() { f().unwrap(); }
     /// # fn f() -> Result<()> {
     /// # let ctx = Context::configure("org.sequoia-pgp.demo.store")
-    /// #     .ephemeral().build()?;
+    /// #     .network_policy(NetworkPolicy::Offline).ephemeral().build()?;
     /// # let old = TPK::from_bytes(
     /// #     include_bytes!("../../openpgp/tests/data/keys/testy.pgp")).unwrap();
     /// # let new = TPK::from_bytes(
