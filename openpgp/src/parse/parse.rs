@@ -213,8 +213,8 @@ pub fn header<R: BufferedReader<C>, C> (bio: &mut R)
 }
 
 impl Unknown {
-    // Parses the body of any packet and returns an Unknown.
-    fn parse<'a, R: BufferedReader<BufferedReaderState> + 'a>
+    /// Parses the body of any packet and returns an Unknown.
+    pub fn parse<'a, R: BufferedReader<BufferedReaderState> + 'a>
             (bio: R, recursion_depth: usize, tag: Tag)
             -> Result<PacketParser<'a>, std::io::Error> {
         return Ok(PacketParser {
@@ -262,8 +262,8 @@ pub fn to_unknown_packet<R: io::Read>(reader: R)
 }
 
 impl Signature {
-    // Parses the body of a signature packet.
-    fn parse<'a, R: BufferedReader<BufferedReaderState> + 'a>
+    /// Parses the body of a signature packet.
+    pub fn parse<'a, R: BufferedReader<BufferedReaderState> + 'a>
             (mut bio: R, recursion_depth: usize)
             -> Result<PacketParser<'a>, std::io::Error> {
         let version = bio.data_hard(1)?[0];
@@ -345,9 +345,9 @@ fn signature_parser_test () {
 }
 
 impl Key {
-    // Parses the body of a public key, public subkey, secret key or
-    // secret subkey packet.
-    fn parse<'a, R: BufferedReader<BufferedReaderState> + 'a>
+    /// Parses the body of a public key, public subkey, secret key or
+    /// secret subkey packet.
+    pub fn parse<'a, R: BufferedReader<BufferedReaderState> + 'a>
             (mut bio: R, recursion_depth: usize, tag: Tag)
             -> Result<PacketParser<'a>, std::io::Error> {
         assert!(tag == Tag::PublicKey
@@ -394,8 +394,8 @@ impl Key {
 }
 
 impl UserID {
-    // Parses the body of a user id packet.
-    fn parse<'a, R: BufferedReader<BufferedReaderState> + 'a>
+    /// Parses the body of a user id packet.
+    pub fn parse<'a, R: BufferedReader<BufferedReaderState> + 'a>
             (mut bio: R, recursion_depth: usize)
             -> Result<PacketParser<'a>, std::io::Error> {
         return Ok(PacketParser {
@@ -415,8 +415,8 @@ impl UserID {
 }
 
 impl UserAttribute {
-    // Parses the body of a user attribute packet.
-    fn parse<'a, R: BufferedReader<BufferedReaderState> + 'a>
+    /// Parses the body of a user attribute packet.
+    pub fn parse<'a, R: BufferedReader<BufferedReaderState> + 'a>
             (mut bio: R, recursion_depth: usize)
             -> Result<PacketParser<'a>, std::io::Error> {
         return Ok(PacketParser {
@@ -437,7 +437,7 @@ impl UserAttribute {
 
 impl Literal {
     /// Parses the body of a literal packet.
-    fn parse<'a, R: BufferedReader<BufferedReaderState> + 'a>
+    pub fn parse<'a, R: BufferedReader<BufferedReaderState> + 'a>
             (mut bio: R, recursion_depth: usize)
             -> Result<PacketParser<'a>, std::io::Error> {
         let format = bio.data_consume_hard(1)?[0];
@@ -530,8 +530,8 @@ fn literal_parser_test () {
 }
 
 impl CompressedData {
-    // Parses the body of a compressed data packet.
-    fn parse<'a, R: BufferedReader<BufferedReaderState> + 'a>
+    /// Parses the body of a compressed data packet.
+    pub fn parse<'a, R: BufferedReader<BufferedReaderState> + 'a>
             (mut bio: R, recursion_depth: usize)
             -> Result<PacketParser<'a>, std::io::Error> {
         let algo = bio.data_hard(1)?[0];
