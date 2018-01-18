@@ -21,7 +21,7 @@ use openpgp::{armor, Fingerprint};
 use openpgp::tpk::TPK;
 use sequoia_core::{Context, Result, NetworkPolicy};
 use sequoia_net::KeyServer;
-use sequoia_store::Store;
+use sequoia_store::{Store, LogIter};
 
 fn open_or_stdin(f: Option<&str>) -> Box<io::Read> {
     match f {
@@ -166,7 +166,12 @@ fn real_main() -> Result<()> {
                                 .about("Get stats for the given label")
                                 .arg(Arg::with_name("label").value_name("LABEL")
                                      .required(true)
-                                     .help("Label to use"))))
+                                     .help("Label to use")))
+                    .subcommand(SubCommand::with_name("log")
+                                .about("Lists the keystore log")
+                                .arg(Arg::with_name("label")
+                                     .value_name("LABEL")
+                                     .help("List messages related to this label"))))
         .subcommand(SubCommand::with_name("list")
                     .about("Lists key stores and known keys")
                     .subcommand(SubCommand::with_name("stores")
@@ -178,7 +183,9 @@ fn real_main() -> Result<()> {
                                 .arg(Arg::with_name("prefix").value_name("PREFIX")
                                      .help("List only bindings from stores with the given domain prefix")))
                     .subcommand(SubCommand::with_name("keys")
-                                .about("Lists all keys in the common key pool")))
+                                .about("Lists all keys in the common key pool"))
+                    .subcommand(SubCommand::with_name("log")
+                                .about("Lists the server log")))
         .get_matches();
 
     let policy = match matches.value_of("policy") {
@@ -352,6 +359,15 @@ fn real_main() -> Result<()> {
                     let key = binding.key().expect("Failed to get key");
                     println!("Key {:?}", key.stats().expect("Failed to get stats"));
                 },
+                ("log",  Some(m)) => {
+                    if m.is_present("label") {
+                        let binding = store.lookup(m.value_of("label").unwrap())
+                            .expect("No such key");
+                        print_log(binding.log().expect("Failed to get log"));
+                    } else {
+                        print_log(store.log().expect("Failed to get log"));
+                    }
+                },
                 _ => {
                     eprintln!("No store subcommand given.");
                     exit(1);
@@ -402,15 +418,15 @@ fn real_main() -> Result<()> {
                                 } else {
                                     Cell::new("")
                                 },
-                                if let Some(m) = stats.message {
-                                    Cell::new(&m.short())
-                                } else {
-                                    Cell::new("")
-                                },
+                                Cell::new("")
                             ]));
                         }
 
                     table.printstd();
+                },
+                ("log",  Some(_)) => {
+                    print_log(Store::server_log(&ctx)
+                              .expect("Failed to iterate over stores"));
                 },
                 _ => {
                     eprintln!("No list subcommand given.");
@@ -439,5 +455,20 @@ fn list_bindings(store: &Store) {
     table.printstd();
 }
 
+fn print_log(iter: LogIter) {
+    let mut table = Table::new();
+    table.set_format(*prettytable::format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
+    table.set_titles(row!["timestamp", "slug", "message"]);
+
+    for entry in iter {
+        table.add_row(Row::new(vec![
+            Cell::new(&sequoia_store::format_system_time(&entry.timestamp)
+                      .expect("Failed to format timestamp")),
+            Cell::new(&entry.slug),
+            Cell::new(&entry.short())]));
+    }
+
+    table.printstd();
+}
 
 fn main() { real_main().expect("An error occured"); }

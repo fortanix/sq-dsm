@@ -43,14 +43,9 @@ macro_rules! make_stats_request {
                     let r = match r {
                         /* The Result.  */
                         Which::Ok(Ok(s)) => {
-                            let msg = pry!(s.get_message());
                             Ok(Stats{
                                 created: from_unix(s.get_created()),
                                 updated: from_unix(s.get_updated()),
-                                message: Log::new(msg.get_timestamp(),
-                                                  pry!(msg.get_item()),
-                                                  pry!(msg.get_message()),
-                                                  pry!(msg.get_error())),
                                 encryption: Stamps::new(s.get_encryption_count(),
                                                         s.get_encryption_first(),
                                                         s.get_encryption_last()),

@@ -193,6 +193,26 @@ impl Store {
         Ok(KeyIter{core: Rc::new(RefCell::new(core)), iter: iter})
     }
 
+    /// Lists all log entries.
+    pub fn server_log(c: &Context) -> Result<LogIter> {
+        let descriptor = descriptor(c);
+        let mut core = Core::new()?;
+        let handle = core.handle();
+
+        let mut rpc_system
+            = match descriptor.connect(&handle) {
+                Ok(r) => r,
+                Err(e) => return Err(e.into()),
+            };
+
+        let node: node::Client = rpc_system.bootstrap(Side::Server);
+        handle.spawn(rpc_system.map_err(|_e| ()));
+
+        let request = node.log_request();
+        let iter = make_request!(&mut core, request)?;
+        Ok(LogIter{core: Rc::new(RefCell::new(core)), iter: iter})
+    }
+
     /// Adds a key identified by fingerprint to the store.
     ///
     /// # Example
@@ -322,6 +342,13 @@ impl Store {
         let request = self.store.iter_request();
         let iter = make_request!(self.core.borrow_mut(), request)?;
         Ok(BindingIter{core: self.core.clone(), iter: iter})
+    }
+
+    /// Lists all log entries related to this store.
+    pub fn log(&self) -> Result<LogIter> {
+        let request = self.store.log_request();
+        let iter = make_request!(self.core.borrow_mut(), request)?;
+        Ok(LogIter{core: self.core.clone(), iter: iter})
     }
 }
 
@@ -552,6 +579,13 @@ impl Binding {
             self.core.borrow_mut(),
             self.binding.register_verification_request())
     }
+
+    /// Lists all log entries related to this binding.
+    pub fn log(&self) -> Result<LogIter> {
+        let request = self.binding.log_request();
+        let iter = make_request!(self.core.borrow_mut(), request)?;
+        Ok(LogIter{core: self.core.clone(), iter: iter})
+    }
 }
 
 /// Represents a key in a store.
@@ -636,6 +670,13 @@ impl Key {
             request,
             |data| TPK::from_bytes(data).map_err(|e| e.into()))
     }
+
+    /// Lists all log entries related to this key.
+    pub fn log(&self) -> Result<LogIter> {
+        let request = self.key.log_request();
+        let iter = make_request!(self.core.borrow_mut(), request)?;
+        Ok(LogIter{core: self.core.clone(), iter: iter})
+    }
 }
 
 
@@ -661,9 +702,6 @@ pub struct Stats {
     /// Records the time this item was last updated.
     pub updated: Option<SystemTime>,
 
-    /// Result of the latest update.
-    pub message: Option<Log>,
-
     /// Records counters and timestamps of encryptions.
     pub encryption: Stamps,
 
@@ -674,30 +712,32 @@ pub struct Stats {
 #[derive(Debug)]
 pub struct Log {
     pub timestamp: SystemTime,
-    pub item: String,
+    pub store: Option<Store>,
+    pub binding: Option<Binding>,
+    pub key: Option<Key>,
+    pub slug: String,
     pub status: ::std::result::Result<String, (String, String)>,
 }
 
 impl Log {
-    fn new(timestamp: i64, item: &str, message: &str, error: &str) -> Option<Self> {
+    fn new(timestamp: i64,
+           store: Option<Store>, binding: Option<Binding>, key: Option<Key>,
+           slug: &str, message: &str, error: Option<&str>)
+           -> Option<Self> {
         let timestamp = from_unix(timestamp)?;
-        if message == "" {
-            None
-        } else {
-            if error == "" {
-                Some(Log{
-                    timestamp: timestamp,
-                    item: item.into(),
-                    status: Err((message.into(), error.into())),
-                })
+
+        Some(Log{
+            timestamp: timestamp,
+            store: store,
+            binding: binding,
+            key: key,
+            slug: slug.into(),
+            status: if let Some(error) = error {
+                Err((message.into(), error.into()))
             } else {
-                Some(Log{
-                    timestamp: timestamp,
-                    item: item.into(),
-                    status: Ok(message.into()),
-                })
-            }
-        }
+                Ok(message.into())
+            },
+        })
     }
 
     /// Returns the message without context.
@@ -708,11 +748,23 @@ impl Log {
         }
     }
 
-    /// Returns the message without context.
-    pub fn string(&self) -> Result<String> {
+    /// Returns the message with some context.
+    pub fn string(&self) -> String {
+        match self.status {
+            Ok(ref m) => format!("{}: {}", self.slug, m),
+            Err((ref m, ref e)) => format!("{}: {}: {}", self.slug, m, e),
+        }
+    }
+
+    /// Returns the message with timestamp and context.
+    pub fn full(&self) -> Result<String> {
         Ok(match self.status {
-            Ok(ref m) => format!("{}: {}", format_system_time(&self.timestamp)?, m),
-            Err((ref m, ref e)) => format!("{}: {}: {}", format_system_time(&self.timestamp)?, m, e),
+            Ok(ref m) => format!(
+                "{}: {}: {}",
+                format_system_time(&self.timestamp)?, self.slug,m),
+            Err((ref m, ref e)) => format!(
+                "{}: {}: {}: {}",
+                format_system_time(&self.timestamp)?, self.slug, m, e),
         })
     }
 }
@@ -844,6 +896,40 @@ impl Iterator for KeyIter {
                         key: Key::new(self.core.clone(), r.get_key()?),
                     })
                 })
+        };
+        doit().ok()
+    }
+}
+
+/// Iterates over keys in the common key pool.
+pub struct LogIter {
+    core: Rc<RefCell<Core>>,
+    iter: node::log_iter::Client,
+}
+
+impl Iterator for LogIter {
+    type Item = Log;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let request = self.iter.next_request();
+        let doit = || {
+            make_request_map!(
+                self.core.borrow_mut(), request,
+                |r: node::log_iter::entry::Reader|
+                Log::new(r.get_timestamp(),
+                         r.get_store().ok().map(
+                             |cap| Store::new(self.core.clone(), &"", cap)),
+                         r.get_binding().ok().map(
+                             |cap| Binding::new(self.core.clone(), &"", cap)),
+                         r.get_key().ok().map(
+                             |cap| Key::new(self.core.clone(), cap)),
+                         r.get_slug()?,
+                         r.get_message()?,
+                         if r.has_error() {
+                             r.get_error().ok()
+                         } else {
+                             None
+                         }).ok_or(Error::StoreError))
         };
         doit().ok()
     }

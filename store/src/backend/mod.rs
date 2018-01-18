@@ -30,6 +30,9 @@ use sequoia_net::ipc;
 
 use store_protocol_capnp::node;
 
+// Logging.
+mod log;
+
 /* Configuration and policy.  */
 
 /// Minimum sleep time.
@@ -96,19 +99,19 @@ impl NodeServer {
         let c = Connection::open(db_path)?;
         c.execute_batch("PRAGMA secure_delete = true;")?;
         c.execute_batch("PRAGMA foreign_keys = true;")?;
-        Self::init(&c)?;
-
         let server = NodeServer {
             _descriptor: descriptor,
             c: Rc::new(c),
         };
+        server.init()?;
+
         KeyServer::start_housekeeping(server.c.clone(), handle)?;
         Ok(server)
     }
 
     /// Initializes or migrates the database.
-    fn init(c: &Connection) -> Result<()> {
-        let v = c.query_row(
+    fn init(&self) -> Result<()> {
+        let v = self.c.query_row(
             "SELECT version FROM version WHERE id=1",
             &[], |row| row.get(0));
 
@@ -119,7 +122,9 @@ impl NodeServer {
             }
         }
 
-        c.execute_batch(DB_SCHEMA_1)?;
+        self.c.execute_batch(DB_SCHEMA_1)?;
+        log::message(&self.c, log::Refers::to(), "server",
+                     "Created database version 1")?;
         Ok(())
     }
 }
@@ -165,11 +170,36 @@ impl node::Server for NodeServer {
             node::key_iter::ToClient::new(iter).from_server::<capnp_rpc::Server>()));
         Promise::ok(())
     }
+
+    fn log(&mut self,
+           _: node::LogParams,
+           mut results: node::LogResults)
+           -> Promise<(), capnp::Error> {
+        bind_results!(results);
+        let iter = log::IterServer::new(self.c.clone(), log::Selector::All);
+        pry!(pry!(results.get().get_result()).set_ok(
+            node::log_iter::ToClient::new(iter).from_server::<capnp_rpc::Server>()));
+        Promise::ok(())
+    }
 }
 
 struct StoreServer {
     c: Rc<Connection>,
     id: i64,
+}
+
+impl Query for StoreServer {
+    fn table_name() -> &'static str {
+        "stores"
+    }
+
+    fn id(&self) -> i64 {
+        self.id
+    }
+
+    fn connection(&self) -> Rc<Connection> {
+        self.c.clone()
+    }
 }
 
 impl StoreServer {
@@ -224,8 +254,17 @@ impl node::store::Server for StoreServer {
         let fp = pry!(params.get_fingerprint());
         let label = pry!(params.get_label());
 
-        let binding_id = sry!(
+        let (binding_id, key_id, created) = sry!(
             BindingServer::lookup_or_create(&self.c, self.id, label, fp));
+
+        if created {
+            sry!(log::message(
+                &self.c,
+                log::Refers::to().store(self.id).binding(binding_id).key(key_id),
+                &self.slug(),
+                &format!("New binding {} -> {}", label, fp)));
+        }
+
 
         pry!(pry!(results.get().get_result()).set_ok(
             node::binding::ToClient::new(
@@ -273,6 +312,17 @@ impl node::store::Server for StoreServer {
             node::binding_iter::ToClient::new(iter).from_server::<capnp_rpc::Server>()));
         Promise::ok(())
     }
+
+    fn log(&mut self,
+           _: node::store::LogParams,
+           mut results: node::store::LogResults)
+           -> Promise<(), capnp::Error> {
+        bind_results!(results);
+        let iter = log::IterServer::new(self.c.clone(), log::Selector::Store(self.id));
+        pry!(pry!(results.get().get_result()).set_ok(
+            node::log_iter::ToClient::new(iter).from_server::<capnp_rpc::Server>()));
+        Promise::ok(())
+    }
 }
 
 struct BindingServer {
@@ -295,15 +345,16 @@ impl BindingServer {
 
     /// Looks up a binding, creating a key if necessary.
     ///
-    /// On success, the id of the binding is returned.
+    /// On success, the id of the binding and the key is returned, and
+    /// whether or not the entry was just created.
     fn lookup_or_create(c: &Connection, store: i64, label: &str, fp: &str)
-                        -> Result<i64> {
+                        -> Result<(i64, i64, bool)> {
         let key_id = KeyServer::lookup_or_create(c, fp)?;
         if let Ok((binding, key)) = c.query_row(
             "SELECT id, key FROM bindings WHERE store = ?1 AND label = ?2",
             &[&store, &label], |row| -> (i64, i64) {(row.get(0), row.get(1))}) {
             if key == key_id {
-                Ok(binding)
+                Ok((binding, key_id, false))
             } else {
                 Err(node::Error::Conflict)
             }
@@ -322,7 +373,7 @@ impl BindingServer {
                             "SELECT id, key FROM bindings WHERE store = ?1 AND label = ?2",
                             &[&store, &label], |row| (row.get(0), row.get(1)))?;
                         if key == key_id {
-                            Ok(binding)
+                            Ok((binding, key_id, false))
                         } else {
                             Err(node::Error::Conflict)
                         }
@@ -331,7 +382,7 @@ impl BindingServer {
                     _ => Err(node::Error::SystemError),
                 },
                 Err(_) => Err(node::Error::SystemError),
-                Ok(_) => Ok(c.last_insert_rowid()),
+                Ok(_) => Ok((c.last_insert_rowid(), key_id, true)),
             }.map_err(|e| e.into())
         }
     }
@@ -477,6 +528,17 @@ impl node::binding::Server for BindingServer {
         sry!(self.query_stats( pry!(results.get().get_result()).init_ok()));
         Promise::ok(())
     }
+
+    fn log(&mut self,
+           _: node::binding::LogParams,
+           mut results: node::binding::LogResults)
+           -> Promise<(), capnp::Error> {
+        bind_results!(results);
+        let iter = log::IterServer::new(self.c.clone(), log::Selector::Binding(self.id));
+        pry!(pry!(results.get().get_result()).set_ok(
+            node::log_iter::ToClient::new(iter).from_server::<capnp_rpc::Server>()));
+        Promise::ok(())
+    }
 }
 
 struct KeyServer {
@@ -563,21 +625,24 @@ impl KeyServer {
 
     /// Records a successful key update.
     fn success(&self, message: &str, next: Duration) -> Result<()> {
-        let logid = log(&self.c, &self.slug(), message)?;
-        self.c.execute("UPDATE keys SET updated = ?2, log = ?3, update_at = ?4
+        log::message(&self.c, log::Refers::to().key(self.id),
+                     &self.slug(), message)?;
+        self.c.execute("UPDATE keys
+                        SET updated = ?2, update_at = ?3
                         WHERE id = ?1",
                        &[&self.id, &Timestamp::now(),
-                         &logid,
                          &(Timestamp::now() + next)])?;
         Ok(())
     }
 
     /// Records an unsuccessful key update.
-    fn error(&self, message: &str, err: &str, next: Duration) -> Result<()> {
-        let logid = error(&self.c, &self.slug(), message, err)?;
-        self.c.execute("UPDATE keys SET log = ?2, update_at = ?3
+    fn error(&self, message: &str, error: &str, next: Duration) -> Result<()> {
+        log::error(&self.c, log::Refers::to().key(self.id),
+                   &self.slug(), message, error)?;
+        self.c.execute("UPDATE keys
+                        SET update_at = ?2
                         WHERE id = ?1",
-                       &[&self.id, &logid,
+                       &[&self.id,
                          &(Timestamp::now() + next)])?;
         Ok(())
     }
@@ -739,6 +804,17 @@ impl node::key::Server for KeyServer {
         pry!(pry!(results.get().get_result()).set_ok(&blob[..]));
         Promise::ok(())
     }
+
+    fn log(&mut self,
+           _: node::key::LogParams,
+           mut results: node::key::LogResults)
+           -> Promise<(), capnp::Error> {
+        bind_results!(results);
+        let iter = log::IterServer::new(self.c.clone(), log::Selector::Key(self.id));
+        pry!(pry!(results.get().get_result()).set_ok(
+            node::log_iter::ToClient::new(iter).from_server::<capnp_rpc::Server>()));
+        Promise::ok(())
+    }
 }
 
 /// Common code for BindingServer and KeyServer.
@@ -760,19 +836,6 @@ trait Query {
     fn query_stats(&mut self, mut stats: node::stats::Builder) -> Result<()> {
         let created = self.query("created")?;
         let updated = self.query("updated")?;
-        let (timestamp, item, message, error): (i64, String, String, String)
-            = self.connection().query_row(
-                &format!("SELECT log.timestamp, log.item, log.message, log.error FROM log
-                          JOIN {0} on log.id = {0}.log
-                          WHERE {0}.id = ?1", Self::table_name()),
-                &[&self.id()], |row| (row.get(0), row.get(1), row.get(2),
-                                      row.get_checked(1).unwrap_or("".into())))
-            .or_else(|err| match err {
-                // No log messages.
-                rusqlite::Error::QueryReturnedNoRows =>
-                    Ok((0, "".into(), "".into(), "".into())),
-                _ => Err(err),
-            })?;
         let encryption_count = self.query("encryption_count")?;
         let encryption_first = self.query("encryption_first")?;
         let encryption_last = self.query("encryption_last")?;
@@ -787,11 +850,6 @@ trait Query {
         stats.set_verification_count(verification_count);
         stats.set_verification_first(verification_first);
         stats.set_verification_last(verification_last);
-        let mut msg = stats.init_message();
-        msg.set_timestamp(timestamp);
-        msg.set_item(&item);
-        msg.set_message(&message);
-        msg.set_error(&error);
         Ok(())
     }
 }
@@ -1010,13 +1068,6 @@ CREATE TABLE stores (
     name TEXT NOT NULL,
     UNIQUE (domain, name));
 
-CREATE TABLE log (
-    id INTEGER PRIMARY KEY,
-    timestamp INTEGER NOT NULL,
-    item TEXT NOT NULL,
-    message TEXT NOT NULL,
-    error TEXT NULL);
-
 CREATE TABLE bindings (
     id INTEGER PRIMARY KEY,
     store INTEGER NOT NULL,
@@ -1025,7 +1076,6 @@ CREATE TABLE bindings (
 
     created INTEGER NOT NULL,
     updated DEFAULT 0,
-    log INTEGER NULL,
 
     encryption_count DEFAULT 0,
     encryption_first DEFAULT 0,
@@ -1036,8 +1086,7 @@ CREATE TABLE bindings (
 
     UNIQUE(store, label),
     FOREIGN KEY (store) REFERENCES stores(id) ON DELETE CASCADE,
-    FOREIGN KEY (key) REFERENCES keys(id) ON DELETE CASCADE
-    FOREIGN KEY (log) REFERENCES log(id));
+    FOREIGN KEY (key) REFERENCES keys(id) ON DELETE CASCADE);
 
 CREATE TABLE keys (
     id INTEGER PRIMARY KEY,
@@ -1046,7 +1095,6 @@ CREATE TABLE keys (
 
     created INTEGER NOT NULL,
     updated DEFAULT 0,
-    log INTEGER NULL,
     update_at INTEGER NOT NULL,
 
     encryption_count DEFAULT 0,
@@ -1056,8 +1104,21 @@ CREATE TABLE keys (
     verification_first DEFAULT 0,
     verification_last DEFAULT 0,
 
-    UNIQUE (fingerprint),
-    FOREIGN KEY (log) REFERENCES log(id));
+    UNIQUE (fingerprint));
+
+CREATE TABLE log (
+    id INTEGER PRIMARY KEY,
+    timestamp INTEGER NOT NULL,
+    level INTEGER NOT NULL,
+    store INTEGER NULL,
+    binding INTEGER NULL,
+    key INTEGER NULL,
+    slug TEXT NOT NULL,
+    message TEXT NOT NULL,
+    error TEXT NULL,
+    FOREIGN KEY (store) REFERENCES stores(id) ON DELETE SET NULL,
+    FOREIGN KEY (binding) REFERENCES bindings(id) ON DELETE SET NULL,
+    FOREIGN KEY (key) REFERENCES keys(id) ON DELETE SET NULL);
 ";
 
 /* Timestamps.  */
@@ -1086,22 +1147,6 @@ impl Add<Duration> for Timestamp {
     fn add(self, other: Duration) -> Timestamp {
         Timestamp(self.0 + other)
     }
-}
-
-/* Logging.  */
-
-/// Writes a log message to the log.
-fn log(c: &Rc<Connection>, item: &str, message: &str) -> Result<i64> {
-    c.execute("INSERT INTO log (timestamp, item, message) VALUES (?1, ?2, ?3)",
-              &[&Timestamp::now(), &item, &message])?;
-    Ok(c.last_insert_rowid())
-}
-
-/// Writes an error message to the log.
-fn error(c: &Rc<Connection>, item: &str, message: &str, error: &str) -> Result<i64> {
-    c.execute("INSERT INTO log (timestamp, item, message, error) VALUES (?1, ?2, ?3, ?4)",
-              &[&Timestamp::now(), &item, &message, &error])?;
-    Ok(c.last_insert_rowid())
 }
 
 /* Miscellaneous.  */
