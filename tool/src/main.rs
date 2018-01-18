@@ -380,39 +380,39 @@ fn real_main() -> Result<()> {
                 ("stores",  Some(m)) => {
                     let mut table = Table::new();
                     table.set_format(*prettytable::format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
-                    table.set_titles(row!["domain", "name", "network policy", "# of entries"]);
+                    table.set_titles(row!["domain", "name", "network policy"]);
 
-                    for item in Store::list(&ctx, m.value_of("prefix").unwrap_or(""))
+                    for (domain, name, network_policy, _)
+                        in Store::list(&ctx, m.value_of("prefix").unwrap_or(""))
                         .expect("Failed to iterate over stores") {
                             table.add_row(Row::new(vec![
-                                Cell::new(&item.domain),
-                                Cell::new(&item.name),
-                                Cell::new(&format!("{:?}", item.network_policy)),
-                                Cell::new(&format!("{}", item.entries))])
-                            );
+                                Cell::new(&domain),
+                                Cell::new(&name),
+                                Cell::new(&format!("{:?}", network_policy))
+                            ]));
                         }
 
                     table.printstd();
                 },
                 ("bindings",  Some(m)) => {
-                    for item in Store::list(&ctx, m.value_of("prefix").unwrap_or(""))
+                    for (domain, name, _, store)
+                        in Store::list(&ctx, m.value_of("prefix").unwrap_or(""))
                         .expect("Failed to iterate over stores") {
-                            println!("Domain {:?} Name {:?}:", item.domain, item.name);
-                            list_bindings(&item.store);
+                            println!("Domain {:?} Name {:?}:", domain, name);
+                            list_bindings(&store);
                         }
                 },
                 ("keys",  Some(_)) => {
                     let mut table = Table::new();
                     table.set_format(*prettytable::format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
-                    table.set_titles(row!["fingerprint", "# of bindings", "updated", "status"]);
+                    table.set_titles(row!["fingerprint", "updated", "status"]);
 
-                    for item in Store::list_keys(&ctx)
+                    for (fingerprint, key) in Store::list_keys(&ctx)
                         .expect("Failed to iterate over keys") {
-                            let stats = item.key.stats()
+                            let stats = key.stats()
                                 .expect("Failed to get stats");
                             table.add_row(Row::new(vec![
-                                Cell::new(&item.fingerprint.to_string()),
-                                Cell::new(&format!("{}", item.bindings)),
+                                Cell::new(&fingerprint.to_string()),
                                 if let Some(ref t) = stats.updated {
                                     Cell::new(&format_time(t))
                                 } else {
@@ -447,10 +447,10 @@ fn list_bindings(store: &Store) {
     let mut table = Table::new();
     table.set_format(*prettytable::format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
     table.set_titles(row!["label", "fingerprint"]);
-    for item in store.iter().expect("Failed to iterate over bindings") {
+    for (label, fingerprint, _) in store.iter().expect("Failed to iterate over bindings") {
         table.add_row(Row::new(vec![
-            Cell::new(&item.label),
-            Cell::new(&item.fingerprint.to_string())]));
+            Cell::new(&label),
+            Cell::new(&fingerprint.to_string())]));
     }
     table.printstd();
 }

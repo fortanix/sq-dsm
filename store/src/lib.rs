@@ -802,18 +802,8 @@ pub struct StoreIter {
     iter: node::store_iter::Client,
 }
 
-/// Items returned by `StoreIter`.
-#[derive(Debug)]
-pub struct StoreIterItem {
-    pub domain: String,
-    pub name: String,
-    pub network_policy: core::NetworkPolicy,
-    pub entries: usize,
-    pub store: Store,
-}
-
 impl Iterator for StoreIter {
-    type Item = StoreIterItem;
+    type Item = (String, String, core::NetworkPolicy, Store);
 
     fn next(&mut self) -> Option<Self::Item> {
         let request = self.iter.next_request();
@@ -821,13 +811,11 @@ impl Iterator for StoreIter {
             make_request_map!(
                 self.core.borrow_mut(), request,
                 |r: node::store_iter::item::Reader|
-                Ok(StoreIterItem{
-                    domain: r.get_domain()?.into(),
-                    name: r.get_name()?.into(),
-                    network_policy: r.get_network_policy()?.into(),
-                    entries: r.get_entries() as usize,
-                    store: Store::new(self.core.clone(), r.get_name()?, r.get_store()?),
-                }))
+                Ok((
+                    r.get_domain()?.into(),
+                    r.get_name()?.into(),
+                    r.get_network_policy()?.into(),
+                    Store::new(self.core.clone(), r.get_name()?, r.get_store()?))))
         };
         doit().ok()
     }
@@ -839,31 +827,18 @@ pub struct BindingIter {
     iter: node::binding_iter::Client,
 }
 
-/// Items returned by `BindingIter`.
-#[derive(Debug)]
-pub struct BindingIterItem {
-    pub label: String,
-    pub fingerprint: openpgp::Fingerprint,
-    pub binding: Binding,
-}
-
 impl Iterator for BindingIter {
-    type Item = BindingIterItem;
+    type Item = (String, openpgp::Fingerprint, Binding);
 
     fn next(&mut self) -> Option<Self::Item> {
         let request = self.iter.next_request();
         let doit = || {
             make_request_map!(
                 self.core.borrow_mut(), request,
-                |r: node::binding_iter::item::Reader| {
-                    let label = String::from(r.get_label()?);
-                    let binding = Binding::new(self.core.clone(), &label, r.get_binding()?);
-                    Ok(BindingIterItem{
-                        label: label,
-                        fingerprint: openpgp::Fingerprint::from_hex(r.get_fingerprint()?).unwrap(),
-                        binding: binding,
-                    })
-                })
+                |r: node::binding_iter::item::Reader|
+                Ok((String::from(r.get_label()?),
+                    openpgp::Fingerprint::from_hex(r.get_fingerprint()?).unwrap(),
+                    Binding::new(self.core.clone(), r.get_label()?, r.get_binding()?))))
         };
         doit().ok()
     }
@@ -875,29 +850,17 @@ pub struct KeyIter {
     iter: node::key_iter::Client,
 }
 
-/// Items returned by `KeyIter`.
-#[derive(Debug)]
-pub struct KeyIterItem {
-    pub fingerprint: openpgp::Fingerprint,
-    pub bindings: usize,
-    pub key: Key,
-}
-
 impl Iterator for KeyIter {
-    type Item = KeyIterItem;
+    type Item = (openpgp::Fingerprint, Key);
 
     fn next(&mut self) -> Option<Self::Item> {
         let request = self.iter.next_request();
         let doit = || {
             make_request_map!(
                 self.core.borrow_mut(), request,
-                |r: node::key_iter::item::Reader| {
-                    Ok(KeyIterItem{
-                        fingerprint: openpgp::Fingerprint::from_hex(r.get_fingerprint()?).unwrap(),
-                        bindings: r.get_bindings() as usize,
-                        key: Key::new(self.core.clone(), r.get_key()?),
-                    })
-                })
+                |r: node::key_iter::item::Reader|
+                Ok((openpgp::Fingerprint::from_hex(r.get_fingerprint()?).unwrap(),
+                    Key::new(self.core.clone(), r.get_key()?))))
         };
         doit().ok()
     }
@@ -1202,19 +1165,17 @@ mod store_test {
     fn store_iterator() {
         let ctx = make_some_stores();
         let mut iter = Store::list(&ctx, "org.sequoia-pgp.tests.f").unwrap();
-        let item = iter.next().unwrap();
-        assert_eq!(item.domain, "org.sequoia-pgp.tests.foo");
-        assert_eq!(item.name, "default");
-        assert_eq!(item.network_policy, core::NetworkPolicy::Offline);
-        assert_eq!(item.entries, 2);
+        let (domain, name, network_policy, store) = iter.next().unwrap();
+        assert_eq!(domain, "org.sequoia-pgp.tests.foo");
+        assert_eq!(name, "default");
+        assert_eq!(network_policy, core::NetworkPolicy::Offline);
         let fp = Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb");
-        item.store.add("Mister B.", &fp).unwrap();
-        let item = iter.next().unwrap();
-        assert_eq!(item.domain, "org.sequoia-pgp.tests.foo");
-        assert_eq!(item.name, "another store");
-        assert_eq!(item.network_policy, core::NetworkPolicy::Offline);
-        assert_eq!(item.entries, 0);
-        item.store.add("Mister B.", &fp).unwrap();
+        store.add("Mister B.", &fp).unwrap();
+        let (domain, name, network_policy, store) = iter.next().unwrap();
+        assert_eq!(domain, "org.sequoia-pgp.tests.foo");
+        assert_eq!(name, "another store");
+        assert_eq!(network_policy, core::NetworkPolicy::Offline);
+        store.add("Mister B.", &fp).unwrap();
         assert!(iter.next().is_none());
     }
 
@@ -1223,15 +1184,15 @@ mod store_test {
         let ctx = make_some_stores();
         let store = Store::open(&ctx, "default").unwrap();
         let mut iter = store.iter().unwrap();
-        let item = iter.next().unwrap();
+        let (label, fingerprint, binding) = iter.next().unwrap();
         let fp = Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb");
-        assert_eq!(item.label, "Mister B.");
-        assert_eq!(item.fingerprint, fp);
-        item.binding.stats().unwrap();
-        let item = iter.next().unwrap();
-        assert_eq!(item.label, "B4");
-        assert_eq!(item.fingerprint, fp);
-        item.binding.stats().unwrap();
+        assert_eq!(label, "Mister B.");
+        assert_eq!(fingerprint, fp);
+        binding.stats().unwrap();
+        let (label, fingerprint, binding) = iter.next().unwrap();
+        assert_eq!(label, "B4");
+        assert_eq!(fingerprint, fp);
+        binding.stats().unwrap();
         assert!(iter.next().is_none());
     }
 
@@ -1239,14 +1200,12 @@ mod store_test {
     fn key_iterator() {
         let ctx = make_some_stores();
         let mut iter = Store::list_keys(&ctx).unwrap();
-        let item = iter.next().unwrap();
-        assert_eq!(item.fingerprint, Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb"));
-        assert_eq!(item.bindings, 2);
-        item.key.stats().unwrap();
-        let item = iter.next().unwrap();
-        assert_eq!(item.fingerprint, Fingerprint::from_bytes(b"cccccccccccccccccccc"));
-        assert_eq!(item.bindings, 1);
-        item.key.stats().unwrap();
+        let (fingerprint, key) = iter.next().unwrap();
+        assert_eq!(fingerprint, Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb"));
+        key.stats().unwrap();
+        let (fingerprint, key) = iter.next().unwrap();
+        assert_eq!(fingerprint, Fingerprint::from_bytes(b"cccccccccccccccccccc"));
+        key.stats().unwrap();
         assert!(iter.next().is_none());
     }
 }

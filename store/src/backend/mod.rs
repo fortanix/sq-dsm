@@ -930,12 +930,6 @@ impl node::store_iter::Server for StoreIterServer {
                 &[&self.n, &self.prefix],
                 |row| (row.get(0), row.get(1), row.get(2), row.get(3))));
 
-        let count: i64 =
-            sry!(self.c.query_row(
-                "SELECT count(*) FROM bindings WHERE store = ?1",
-                &[&id], |row| row.get(0)));
-        assert!(count >= 0);
-
         // We cannot implement FromSql and friends for
         // core::NetworkPolicy, hence we need to do it by foot.
         if network_policy < 0 || network_policy > 3 {
@@ -947,7 +941,6 @@ impl node::store_iter::Server for StoreIterServer {
         entry.set_domain(&domain);
         entry.set_name(&name);
         entry.set_network_policy(network_policy.into());
-        entry.set_entries(count as u64);
         entry.set_store(node::store::ToClient::new(
             StoreServer::new(self.c.clone(), id)).from_server::<capnp_rpc::Server>());
         self.n = id;
@@ -1017,15 +1010,8 @@ impl node::key_iter::Server for KeyIterServer {
                 &[&self.n],
                 |row| (row.get(0), row.get(1))));
 
-        let count: i64 =
-            sry!(self.c.query_row(
-                "SELECT count(*) FROM bindings WHERE key = ?1",
-                &[&id], |row| row.get(0)));
-        assert!(count >= 0);
-
         let mut entry = pry!(results.get().get_result()).init_ok();
         entry.set_fingerprint(&fingerprint);
-        entry.set_bindings(count as u64);
         entry.set_key(node::key::ToClient::new(
             KeyServer::new(self.c.clone(), id)).from_server::<capnp_rpc::Server>());
         self.n = id;

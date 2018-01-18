@@ -40,8 +40,7 @@ interface Node {
       domain @0 :Text;
       name @1 :Text;
       networkPolicy @2 :NetworkPolicy;
-      entries @3 :UInt64;
-      store @4 :Store;
+      store @3 :Store;
     }
   }
 
@@ -60,8 +59,7 @@ interface Node {
 
     struct Item {
       fingerprint @0 :Text;
-      bindings @1 :UInt64;
-      key @2 :Key;
+      key @1 :Key;
     }
   }
 
