@@ -100,7 +100,7 @@ impl node::log_iter::Server for IterServer {
             store, binding, key,
             slug, message, error
         ): (
-            ID, i64,
+            ID, Timestamp,
             Option<ID>, Option<ID>, Option<ID>,
             String, String, Option<String>
         ) = sry!(match self.selector {
@@ -164,7 +164,7 @@ impl node::log_iter::Server for IterServer {
         });
 
         let mut entry = pry!(results.get().get_result()).init_ok();
-        entry.set_timestamp(timestamp);
+        entry.set_timestamp(timestamp.unix());
 
         if let Some(store) = store {
             entry.set_store(node::store::ToClient::new(

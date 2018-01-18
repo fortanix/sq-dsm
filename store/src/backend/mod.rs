@@ -3,9 +3,9 @@
 use std::cmp;
 use std::fmt;
 use std::io;
-use std::ops::Add;
+use std::ops::{Add, Sub};
 use std::rc::Rc;
-use std::time::{SystemTime, Duration, UNIX_EPOCH};
+use time::{Timespec, Duration, now_utc};
 
 use capnp::capability::Promise;
 use capnp;
@@ -37,19 +37,19 @@ mod log;
 
 /// Minimum sleep time.
 fn min_sleep_time() -> Duration {
-    Duration::new(60 * 5, 0) // 5 minutes.
+    Duration::minutes(5)
 }
 
 /// Interval after which all keys should be refreshed once.
 fn refresh_interval() -> Duration {
-    Duration::new(60 * 60 * 24 * 7, 0) // A week.
+    Duration::weeks(1)
 }
 
 /// Returns a value from the uniform distribution over [0, 2*d).
 ///
 /// This function is used to randomize key refresh times.
 fn random_duration(d: Duration) -> Duration {
-    Duration::new(Range::new(0, 2 * d.as_secs()).ind_sample(&mut thread_rng()), 0)
+    Duration::seconds(Range::new(0, 2 * d.num_seconds()).ind_sample(&mut thread_rng()))
 }
 
 /* Entry point.  */
@@ -669,23 +669,22 @@ impl KeyServer {
 
     /// Returns when the next key using the given policy should be updated.
     fn next_update_at(c: &Rc<Connection>, network_policy: core::NetworkPolicy)
-                      -> Option<SystemTime> {
+                      -> Option<Timestamp> {
         let network_policy_u8 = u8::from(&network_policy);
 
         // Select the key that was updated least recently.
-        let update_at: Option<i64> = c.query_row(
+        c.query_row(
             "SELECT keys.update_at FROM keys
                  JOIN bindings on keys.id = bindings.key
                  JOIN stores on stores.id = bindings.store
                  WHERE stores.network_policy = ?1
                  ORDER BY keys.update_at LIMIT 1",
-            &[&network_policy_u8], |row| row.get(0)).ok();
-        update_at.map(|secs| UNIX_EPOCH + Duration::new(secs as u64, 0))
+            &[&network_policy_u8], |row| -> Timestamp {row.get(0)}).ok()
     }
 
     /// Returns the number of keys using the given policy.
     fn need_update(c: &Rc<Connection>, network_policy: core::NetworkPolicy)
-                   -> Result<u32> {
+                   -> Result<i32> {
         let network_policy_u8 = u8::from(&network_policy);
 
         let count: i64 = c.query_row(
@@ -695,7 +694,7 @@ impl KeyServer {
                  WHERE stores.network_policy >= ?1",
             &[&network_policy_u8], |row| row.get(0))?;
         assert!(count >= 0);
-        Ok(count as u32)
+        Ok(count as i32)
     }
 
     /// Updates the key that was least recently updated.
@@ -743,7 +742,7 @@ impl KeyServer {
             // For now, we only update keys with this network policy.
             let network_policy = core::NetworkPolicy::Encrypted;
 
-            let now = SystemTime::now();
+            let now = Timestamp::now();
             let sleep_for =
                 if let Some(at) = Self::next_update_at(&c, network_policy) {
                     if at <= now {
@@ -754,14 +753,16 @@ impl KeyServer {
                         min_sleep_time()
                     } else {
                         assert!(at > now);
-                        cmp::max(min_sleep_time(), at.duration_since(now).unwrap())
+                        cmp::max(min_sleep_time(), at - now)
                     }
                 } else {
                     min_sleep_time()
                 };
-            assert!(sleep_for > Duration::new(0, 0));
+            assert!(sleep_for > Duration::seconds(0));
 
-            Timeout::new(random_duration(sleep_for), &h)
+            Timeout::new(
+                ::std::time::Duration::new(random_duration(sleep_for).num_seconds() as u64, 0),
+                &h)
                 .unwrap() // XXX: May fail if the eventloop expired.
                 .then(move |timeout| {
                     if timeout.is_ok() {
@@ -1209,20 +1210,29 @@ impl FromSql for ID {
 /* Timestamps.  */
 
 /// A serializable system time.
-struct Timestamp(SystemTime);
+#[derive(PartialEq, PartialOrd)]
+struct Timestamp(Timespec);
 
 impl Timestamp {
     fn now() -> Self {
-        Timestamp(SystemTime::now())
+        Timestamp(now_utc().to_timespec())
+    }
+
+    /// Converts to unix time.
+    fn unix(&self) -> i64 {
+        self.0.sec
     }
 }
 
 impl ToSql for Timestamp {
     fn to_sql(&self) -> rusqlite::Result<ToSqlOutput> {
-        match self.0.duration_since(UNIX_EPOCH) {
-            Ok(n) => Ok(ToSqlOutput::from(n.as_secs() as i64)),
-            Err(_) => Err(rusqlite::Error::IntegralValueOutOfRange(0, 0)),
-        }
+        Ok(ToSqlOutput::from(self.0.sec))
+    }
+}
+
+impl FromSql for Timestamp {
+    fn column_result(value: ValueRef) -> FromSqlResult<Self> {
+        value.as_i64().map(|t| Timestamp(Timespec::new(t, 0)))
     }
 }
 
@@ -1231,6 +1241,14 @@ impl Add<Duration> for Timestamp {
 
     fn add(self, other: Duration) -> Timestamp {
         Timestamp(self.0 + other)
+    }
+}
+
+impl Sub<Timestamp> for Timestamp {
+    type Output = Duration;
+
+    fn sub(self, other: Self) -> Self::Output {
+        self.0 - other.0
     }
 }
 
