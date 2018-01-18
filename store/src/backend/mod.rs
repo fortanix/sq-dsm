@@ -16,7 +16,7 @@ use futures::future::{loop_fn, Loop};
 use rand::distributions::{IndependentSample, Range};
 use rand::thread_rng;
 use rusqlite::Connection;
-use rusqlite::types::{ToSql, ToSqlOutput};
+use rusqlite::types::{ToSql, ToSqlOutput, FromSql, FromSqlResult, ValueRef};
 use rusqlite;
 use tokio_core::reactor::{Handle, Timeout};
 use tokio_core;
@@ -185,7 +185,7 @@ impl node::Server for NodeServer {
 
 struct StoreServer {
     c: Rc<Connection>,
-    id: i64,
+    id: ID,
 }
 
 impl Query for StoreServer {
@@ -193,7 +193,7 @@ impl Query for StoreServer {
         "stores"
     }
 
-    fn id(&self) -> i64 {
+    fn id(&self) -> ID {
         self.id
     }
 
@@ -203,7 +203,7 @@ impl Query for StoreServer {
 }
 
 impl StoreServer {
-    fn new(c: Rc<Connection>, id: i64) -> StoreServer {
+    fn new(c: Rc<Connection>, id: ID) -> StoreServer {
         StoreServer{c: c, id: id}
     }
 
@@ -216,7 +216,7 @@ impl StoreServer {
         c.execute(
             "INSERT OR IGNORE INTO stores (domain, network_policy, name) VALUES (?1, ?2, ?3)",
             &[&domain, &p, &name])?;
-        let (id, store_policy): (i64, i64) = c.query_row(
+        let (id, store_policy): (ID, i64) = c.query_row(
             "SELECT id, network_policy FROM stores WHERE domain = ?1 AND name = ?2",
             &[&domain, &name], |row| (row.get(0), row.get(1)))?;
 
@@ -280,7 +280,7 @@ impl node::store::Server for StoreServer {
         bind_results!(results);
         let label = pry!(pry!(params.get()).get_label());
 
-        let binding_id: i64 = sry!(
+        let binding_id: ID = sry!(
             self.c.query_row(
                 "SELECT id FROM bindings WHERE store = ?1 AND label = ?2",
                 &[&self.id, &label], |row| row.get(0)));
@@ -327,19 +327,19 @@ impl node::store::Server for StoreServer {
 
 struct BindingServer {
     c: Rc<Connection>,
-    id: i64,
+    id: ID,
 }
 
 impl BindingServer {
-    fn new(c: Rc<Connection>, id: i64) -> Self {
+    fn new(c: Rc<Connection>, id: ID) -> Self {
         BindingServer {
             c: c,
             id: id,
         }
     }
 
-    fn key_id(&mut self) -> Result<i64> {
-        self.query("key")
+    fn key_id(&mut self) -> Result<ID> {
+        self.query("key").map(|id| id.into())
     }
 
 
@@ -347,12 +347,12 @@ impl BindingServer {
     ///
     /// On success, the id of the binding and the key is returned, and
     /// whether or not the entry was just created.
-    fn lookup_or_create(c: &Connection, store: i64, label: &str, fp: &str)
-                        -> Result<(i64, i64, bool)> {
+    fn lookup_or_create(c: &Connection, store: ID, label: &str, fp: &str)
+                        -> Result<(ID, ID, bool)> {
         let key_id = KeyServer::lookup_or_create(c, fp)?;
         if let Ok((binding, key)) = c.query_row(
             "SELECT id, key FROM bindings WHERE store = ?1 AND label = ?2",
-            &[&store, &label], |row| -> (i64, i64) {(row.get(0), row.get(1))}) {
+            &[&store, &label], |row| -> (ID, ID) {(row.get(0), row.get(1))}) {
             if key == key_id {
                 Ok((binding, key_id, false))
             } else {
@@ -369,7 +369,7 @@ impl BindingServer {
                 Err(rusqlite::Error::SqliteFailure(f, _)) => match f.code {
                     // We lost.  Retry the lookup.
                     rusqlite::ErrorCode::ConstraintViolation => {
-                        let (binding, key): (i64, i64) = c.query_row(
+                        let (binding, key): (ID, ID) = c.query_row(
                             "SELECT id, key FROM bindings WHERE store = ?1 AND label = ?2",
                             &[&store, &label], |row| (row.get(0), row.get(1)))?;
                         if key == key_id {
@@ -382,7 +382,7 @@ impl BindingServer {
                     _ => Err(node::Error::SystemError),
                 },
                 Err(_) => Err(node::Error::SystemError),
-                Ok(_) => Ok((c.last_insert_rowid(), key_id, true)),
+                Ok(_) => Ok((ID::from(c.last_insert_rowid()), key_id, true)),
             }.map_err(|e| e.into())
         }
     }
@@ -393,7 +393,7 @@ impl Query for BindingServer {
         "bindings"
     }
 
-    fn id(&self) -> i64 {
+    fn id(&self) -> ID {
         self.id
     }
 
@@ -563,11 +563,11 @@ impl node::binding::Server for BindingServer {
 
 struct KeyServer {
     c: Rc<Connection>,
-    id: i64,
+    id: ID,
 }
 
 impl KeyServer {
-    fn new(c: Rc<Connection>, id: i64) -> Self {
+    fn new(c: Rc<Connection>, id: ID) -> Self {
         KeyServer {
             c: c,
             id: id,
@@ -577,7 +577,7 @@ impl KeyServer {
     /// Looks up a fingerprint, creating a key if necessary.
     ///
     /// On success, the id of the key is returned.
-    fn lookup_or_create(c: &Connection, fp: &str) -> Result<i64> {
+    fn lookup_or_create(c: &Connection, fp: &str) -> Result<ID> {
         if let Ok(x) = c.query_row(
             "SELECT id FROM keys WHERE fingerprint = ?1",
             &[&fp], |row| row.get(0)) {
@@ -599,7 +599,7 @@ impl KeyServer {
                     _ => Err(rusqlite::Error::SqliteFailure(f, e)),
                 },
                 Err(e) => Err(e),
-                Ok(_) => Ok(c.last_insert_rowid()),
+                Ok(_) => Ok(c.last_insert_rowid().into()),
             }.map_err(|e| e.into())
         }
     }
@@ -704,7 +704,7 @@ impl KeyServer {
         let network_policy_u8 = u8::from(&network_policy);
 
         // Select the key that was updated least recently.
-        let (id, fingerprint): (i64, String) = c.query_row(
+        let (id, fingerprint): (ID, String) = c.query_row(
             "SELECT keys.id, keys.fingerprint FROM keys
                  JOIN bindings on keys.id = bindings.key
                  JOIN stores on stores.id = bindings.store
@@ -781,7 +781,7 @@ impl Query for KeyServer {
         "keys"
     }
 
-    fn id(&self) -> i64 {
+    fn id(&self) -> ID {
         self.id
     }
 
@@ -840,11 +840,11 @@ impl node::key::Server for KeyServer {
 /// Common code for BindingServer and KeyServer.
 trait Query {
     fn table_name() -> &'static str;
-    fn id(&self) -> i64;
+    fn id(&self) -> ID;
     fn connection(&self) -> Rc<Connection>;
 
     fn slug(&self) -> String {
-        format!("{}::{}", Self::table_name(), self.id())
+        format!("{}::{}", Self::table_name(), self.id().0)
     }
 
     fn query(&mut self, column: &str) -> Result<i64> {
@@ -906,12 +906,12 @@ trait Query {
 struct StoreIterServer {
     c: Rc<Connection>,
     prefix: String,
-    n: i64,
+    n: ID,
 }
 
 impl StoreIterServer {
     fn new(c: Rc<Connection>, prefix: &str) -> Self {
-        StoreIterServer{c: c, prefix: String::from(prefix) + "%", n: 0}
+        StoreIterServer{c: c, prefix: String::from(prefix) + "%", n: ID::null()}
     }
 }
 
@@ -921,7 +921,7 @@ impl node::store_iter::Server for StoreIterServer {
             mut results: node::store_iter::NextResults)
             -> Promise<(), capnp::Error> {
         bind_results!(results);
-        let (id, domain, name, network_policy): (i64, String, String, i64) =
+        let (id, domain, name, network_policy): (ID, String, String, i64) =
             sry!(self.c.query_row(
                  "SELECT id, domain, name, network_policy FROM stores
                       WHERE id > ?1 AND domain like ?2
@@ -956,13 +956,13 @@ impl node::store_iter::Server for StoreIterServer {
 
 struct BindingIterServer {
     c: Rc<Connection>,
-    store_id: i64,
-    n: i64,
+    store_id: ID,
+    n: ID,
 }
 
 impl BindingIterServer {
-    fn new(c: Rc<Connection>, store_id: i64) -> Self {
-        BindingIterServer{c: c, store_id: store_id, n: 0}
+    fn new(c: Rc<Connection>, store_id: ID) -> Self {
+        BindingIterServer{c: c, store_id: store_id, n: ID::null()}
     }
 }
 
@@ -972,7 +972,7 @@ impl node::binding_iter::Server for BindingIterServer {
             mut results: node::binding_iter::NextResults)
             -> Promise<(), capnp::Error> {
         bind_results!(results);
-        let (id, label, fingerprint): (i64, String, String) =
+        let (id, label, fingerprint): (ID, String, String) =
             sry!(self.c.query_row(
                  "SELECT bindings.id, bindings.label, keys.fingerprint FROM bindings
                       JOIN keys ON bindings.key = keys.id
@@ -993,12 +993,12 @@ impl node::binding_iter::Server for BindingIterServer {
 
 struct KeyIterServer {
     c: Rc<Connection>,
-    n: i64,
+    n: ID,
 }
 
 impl KeyIterServer {
     fn new(c: Rc<Connection>) -> Self {
-        KeyIterServer{c: c, n: 0}
+        KeyIterServer{c: c, n: ID::null()}
     }
 }
 
@@ -1008,7 +1008,7 @@ impl node::key_iter::Server for KeyIterServer {
             mut results: node::key_iter::NextResults)
             -> Promise<(), capnp::Error> {
         bind_results!(results);
-        let (id, fingerprint): (i64, String) =
+        let (id, fingerprint): (ID, String) =
             sry!(self.c.query_row(
                  "SELECT id, fingerprint FROM keys
                       WHERE keys.id > ?1
@@ -1167,6 +1167,44 @@ CREATE TABLE log (
     FOREIGN KEY (binding) REFERENCES bindings(id) ON DELETE SET NULL,
     FOREIGN KEY (key) REFERENCES keys(id) ON DELETE SET NULL);
 ";
+
+/// Represents a row id.
+///
+/// This is used to represent handles to stored objects.
+#[derive(Copy, Clone, PartialEq)]
+pub struct ID(i64);
+
+impl ID {
+    /// Returns ID(0).
+    ///
+    /// This is smaller than all valid ids.
+    fn null() -> Self {
+        ID(0)
+    }
+
+    /// Returns the largest id.
+    fn max() -> Self {
+        ID(::std::i64::MAX)
+    }
+}
+
+impl From<i64> for ID {
+    fn from(id: i64) -> Self {
+        ID(id)
+    }
+}
+
+impl ToSql for ID {
+    fn to_sql(&self) -> rusqlite::Result<ToSqlOutput> {
+        Ok(ToSqlOutput::from(self.0))
+    }
+}
+
+impl FromSql for ID {
+    fn column_result(value: ValueRef) -> FromSqlResult<Self> {
+        value.as_i64().map(|id| id.into())
+    }
+}
 
 /* Timestamps.  */
 
