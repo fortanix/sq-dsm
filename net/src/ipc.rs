@@ -198,7 +198,12 @@ impl Descriptor {
 
     fn spawn(&self, l: TcpListener) -> io::Result<()> {
         let descriptor = self.clone();
-        thread::spawn(move || Server::new(descriptor)?.serve_listener(l));
+        thread::spawn(move || -> io::Result<()> {
+            Ok(Server::new(descriptor)
+               .expect("Failed to spawn server") // XXX
+               .serve_listener(l)
+               .expect("Failed to spawn server")) // XXX
+        });
         Ok(())
     }
 }
