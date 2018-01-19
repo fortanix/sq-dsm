@@ -19,8 +19,8 @@
 //! # External vs internal servers
 //!
 //! These servers can be either in external processes, or co-located
-//! within the current process.  In either case, other processes may
-//! connect to the server.
+//! within the current process.  We will first start an external
+//! process, and fall back to starting a thread instead.
 //!
 //! # Note
 //!
@@ -94,6 +94,24 @@ impl Descriptor {
 
     /// Connect to a descriptor, starting the server if necessary.
     pub fn connect(&self, handle: &tokio_core::reactor::Handle) -> io::Result<RpcSystem<Side>> {
+        let do_connect =
+            move |cookie: Cookie, mut s: TcpStream| -> io::Result<RpcSystem<Side>> {
+            cookie.send(&mut s)?;
+
+            /* Tokioize.  */
+            let stream = net::TcpStream::from_stream(s, &handle)?;
+            stream.set_nodelay(true)?;
+            let (reader, writer) = stream.split();
+
+            let network =
+                Box::new(twoparty::VatNetwork::new(reader, writer,
+                                                   Side::Client,
+                                                   Default::default()));
+            let rpc_system = RpcSystem::new(network, None);
+
+            Ok(rpc_system)
+        };
+
         let mut file = fs::OpenOptions::new()
             .read(true)
             .write(true)
@@ -115,21 +133,8 @@ impl Descriptor {
             }
 
             let stream = TcpStream::connect(addr.unwrap());
-            if let Ok(mut s) = stream {
-                cookie.send(&mut s)?;
-
-                /* Tokioize.  */
-                let stream = net::TcpStream::from_stream(s, &handle)?;
-                stream.set_nodelay(true)?;
-                let (reader, writer) = stream.split();
-
-                let network =
-                    Box::new(twoparty::VatNetwork::new(reader, writer,
-                                                       Side::Client,
-                                                       Default::default()));
-                let rpc_system = RpcSystem::new(network, None);
-
-                Ok(rpc_system)
+            if let Ok(s) = stream {
+                do_connect(cookie, s)
             } else {
                 /* Failed to connect.  Invalidate the cookie and try again.  */
                 file.set_len(0)?;
@@ -138,20 +143,35 @@ impl Descriptor {
             }
         } else {
             let cookie = Cookie::new()?;
-            let addr = self.start(true).or(self.start(false))?;
-            let mut stream = TcpStream::connect(addr)?;
-            cookie.send(&mut stream)?;
+            for external in [true, false].iter() {
+                let addr = match self.start(*external) {
+                    Ok(a) => a,
+                    Err(e) => if *external {
+                        // Try to spawn a thread next.
+                        continue;
+                    } else {
+                        // Failed to spawn a thread.
+                        return Err(e);
+                    }
+                };
 
-            /* XXX: It'd be nice not to waste this connection.  */
-            drop(stream);
+                let mut stream = TcpStream::connect(addr)?;
+                cookie.send(&mut stream)?;
 
-            /* Write connection information to file.  */
-            file.set_len(0)?;
-            cookie.send(&mut file)?;
-            write!(file, "{}:{}", LOCALHOST, addr.port())?;
-            drop(file);
+                /* XXX: It'd be nice not to waste this connection.  */
+                drop(stream);
 
-            self.connect(handle)
+                if *external {
+                    /* Write connection information to file.  */
+                    file.set_len(0)?;
+                    cookie.send(&mut file)?;
+                    write!(file, "{}:{}", LOCALHOST, addr.port())?;
+                }
+                drop(file);
+
+                return do_connect(cookie, TcpStream::connect(addr)?);
+            }
+            unreachable!();
         }
     }
 
