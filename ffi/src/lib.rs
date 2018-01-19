@@ -124,6 +124,13 @@ pub extern "system" fn sq_context_network_policy(ctx: Option<&Context>) -> uint8
     ctx.unwrap().network_policy().into()
 }
 
+/// Returns the IPC policy.
+#[no_mangle]
+pub extern "system" fn sq_context_ipc_policy(ctx: Option<&Context>) -> uint8_t {
+    assert!(ctx.is_some());
+    ctx.unwrap().ipc_policy().into()
+}
+
 /// Returns whether or not this is an ephemeral context.
 #[no_mangle]
 pub extern "system" fn sq_context_ephemeral(ctx: Option<&Context>) -> uint8_t {
@@ -180,6 +187,14 @@ pub extern "system" fn sq_config_network_policy(cfg: Option<&mut Config>,
                                                 policy: uint8_t) {
     assert!(cfg.is_some());
     cfg.unwrap().set_network_policy(policy.into());
+}
+
+/// Sets the IPC policy.
+#[no_mangle]
+pub extern "system" fn sq_config_ipc_policy(cfg: Option<&mut Config>,
+                                            policy: uint8_t) {
+    assert!(cfg.is_some());
+    cfg.unwrap().set_ipc_policy(policy.into());
 }
 
 /// Makes this context ephemeral.

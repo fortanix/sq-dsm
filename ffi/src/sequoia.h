@@ -46,6 +46,65 @@ struct sq_config;
 #define SQ_NETWORK_POLICY_INSECURE	3
 
 /*/
+/// IPC policy for Sequoia.
+///
+/// With this policy you can control how Sequoia starts background
+/// servers.
+/*/
+
+/*/
+/// External background servers only.
+///
+/// We will always use external background servers.  If starting
+/// one fails, the operation will fail.
+///
+/// The advantage is that we never spawn a thread.
+///
+/// The disadvantage is that we need to locate the background
+/// server to start.  If you are distribute Sequoia with your
+/// application, make sure to include the binaries, and to
+/// configure the Context so that `context.lib()` points to the
+/// directory containing the binaries.
+/*/
+#define SQ_IPC_POLICY_EXTERNAL	0
+
+/*/
+/// Internal background servers only.
+///
+/// We will always use internal background servers.  It is very
+/// unlikely that this fails.
+///
+/// The advantage is that this method is very robust.  If you
+/// distribute Sequoia with your application, you do not need to
+/// ship the binary, and it does not matter what `context.lib()`
+/// points to.  This is very robust and convenient.
+///
+/// The disadvantage is that we spawn a thread in your
+/// application.  Threads may play badly with `fork(2)`, file
+/// handles, and locks.  If you are not doing anything fancy,
+/// however, and only use fork-then-exec, you should be okay.
+/*/
+#define SQ_IPC_POLICY_INTERNAL	1
+
+/*/
+/// Prefer external, fall back to internal.
+///
+/// We will first try to use an external background server, but
+/// fall back on an internal one should that fail.
+///
+/// The advantage is that if Sequoia is properly set up to find
+/// the background servers, we will use these and get the
+/// advantages of that approach.  Because we fail back on using an
+/// internal server, we gain the robustness of that approach.
+///
+/// The disadvantage is that we may or may not spawn a thread in
+/// your application.  If this is unacceptable in your
+/// environment, use the `External` policy.
+/*/
+#define SQ_IPC_POLICY_ROBUST	2
+
+
+/*/
 /// Creates a Context with reasonable defaults.
 ///
 /// `domain` should uniquely identify your application, it is strongly

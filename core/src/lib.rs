@@ -43,6 +43,7 @@ pub struct Context {
     home: PathBuf,
     lib: PathBuf,
     network_policy: NetworkPolicy,
+    ipc_policy: IPCPolicy,
     ephemeral: bool,
     temp_dir: Option<TempDir>,
 }
@@ -79,6 +80,7 @@ impl Context {
                 .join(".sequoia"),
             lib: prefix().join("lib").join("sequoia"),
             network_policy: NetworkPolicy::Encrypted,
+            ipc_policy: IPCPolicy::Robust,
             ephemeral: false,
             temp_dir: None,
         })
@@ -102,6 +104,11 @@ impl Context {
     /// Returns the network policy.
     pub fn network_policy(&self) -> &NetworkPolicy {
         &self.network_policy
+    }
+
+    /// Returns the IPC policy.
+    pub fn ipc_policy(&self) -> &IPCPolicy {
+        &self.ipc_policy
     }
 
     /// Returns whether or not this is an ephemeral context.
@@ -193,6 +200,17 @@ impl Config {
         self.0.network_policy = policy;
     }
 
+    /// Sets the IPC policy.
+    pub fn ipc_policy(mut self, policy: IPCPolicy) -> Self {
+        self.set_ipc_policy(policy);
+        self
+    }
+
+    /// Sets the IPC policy.
+    pub fn set_ipc_policy(&mut self, policy: IPCPolicy) {
+        self.0.ipc_policy = policy;
+    }
+
     /// Makes this context ephemeral.
     pub fn ephemeral(mut self) -> Self {
         self.set_ephemeral();
@@ -278,7 +296,84 @@ impl From<u8> for NetworkPolicy {
             1 => NetworkPolicy::Anonymized,
             2 => NetworkPolicy::Encrypted,
             3 => NetworkPolicy::Insecure,
-            n => panic!("Bad policy: {}", n),
+            n => panic!("Bad network policy: {}", n),
+        }
+    }
+}
+
+/* IPC policy.  */
+
+/// IPC policy for Sequoia.
+///
+/// With this policy you can control how Sequoia starts background
+/// servers.
+#[derive(PartialEq, Debug, Copy, Clone)]
+pub enum IPCPolicy {
+    /// External background servers only.
+    ///
+    /// We will always use external background servers.  If starting
+    /// one fails, the operation will fail.
+    ///
+    /// The advantage is that we never spawn a thread.
+    ///
+    /// The disadvantage is that we need to locate the background
+    /// server to start.  If you are distribute Sequoia with your
+    /// application, make sure to include the binaries, and to
+    /// configure the Context so that `context.lib()` points to the
+    /// directory containing the binaries.
+    External,
+
+    /// Internal background servers only.
+    ///
+    /// We will always use internal background servers.  It is very
+    /// unlikely that this fails.
+    ///
+    /// The advantage is that this method is very robust.  If you
+    /// distribute Sequoia with your application, you do not need to
+    /// ship the binary, and it does not matter what `context.lib()`
+    /// points to.  This is very robust and convenient.
+    ///
+    /// The disadvantage is that we spawn a thread in your
+    /// application.  Threads may play badly with `fork(2)`, file
+    /// handles, and locks.  If you are not doing anything fancy,
+    /// however, and only use fork-then-exec, you should be okay.
+    Internal,
+
+    /// Prefer external, fall back to internal.
+    ///
+    /// We will first try to use an external background server, but
+    /// fall back on an internal one should that fail.
+    ///
+    /// The advantage is that if Sequoia is properly set up to find
+    /// the background servers, we will use these and get the
+    /// advantages of that approach.  Because we fail back on using an
+    /// internal server, we gain the robustness of that approach.
+    ///
+    /// The disadvantage is that we may or may not spawn a thread in
+    /// your application.  If this is unacceptable in your
+    /// environment, use the `External` policy.
+    Robust,
+}
+
+impl<'a> From<&'a IPCPolicy> for u8 {
+    fn from(policy: &IPCPolicy) -> Self {
+        match policy {
+            &IPCPolicy::External => 0,
+            &IPCPolicy::Internal => 1,
+            &IPCPolicy::Robust => 2,
+        }
+    }
+}
+
+
+// XXX: TryFrom would be nice.
+impl From<u8> for IPCPolicy {
+    fn from(policy: u8) -> Self {
+        match policy {
+            0 => IPCPolicy::External,
+            1 => IPCPolicy::Internal,
+            2 => IPCPolicy::Robust,
+            n => panic!("Bad IPC policy: {}", n),
         }
     }
 }
