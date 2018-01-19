@@ -1007,6 +1007,20 @@ mod store_test {
     }
 
     #[test]
+    fn import_key() {
+        let ctx = core::Context::configure("org.sequoia-pgp.tests")
+            .ephemeral()
+            .network_policy(core::NetworkPolicy::Offline)
+            .build().unwrap();
+        let store = Store::open(&ctx, "default").unwrap();
+        let tpk = TPK::from_bytes(bytes!("testy.pgp")).unwrap();
+        store.import("Mr. McTestface", &tpk).unwrap();
+        let binding = store.lookup("Mr. McTestface").unwrap();
+        let tpk_retrieved = binding.tpk().unwrap();
+        assert_eq!(tpk.fingerprint(), tpk_retrieved.fingerprint());
+    }
+
+    #[test]
     fn key_not_found() {
         let ctx = core::Context::configure("org.sequoia-pgp.tests")
             .ephemeral()
