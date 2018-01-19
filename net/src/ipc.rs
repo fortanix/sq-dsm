@@ -22,6 +22,15 @@
 //! within the current process.  We will first start an external
 //! process, and fall back to starting a thread instead.
 //!
+//! Using an external process is the preferred option.  It allows us
+//! to continuously update the keys in the keystore, for example.  It
+//! also means that we do not spawn a thread in your process, which is
+//! frowned upon for various reasons.
+//!
+//! Please see [IPCPolicy] for more information.
+//!
+//! [IPCPolicy]: ../../sequoia_core/enum.IPCPolicy.html
+//!
 //! # Note
 //!
 //! Windows support is currently not implemented, but should be
@@ -56,6 +65,8 @@ use std::os::unix::io::AsRawFd;
 
 use std::thread;
 
+use sequoia_core as core;
+
 /// Servers need to implement this trait.
 pub trait Handler {
     /// Called on every connection.
@@ -71,6 +82,7 @@ pub type HandlerFactory = fn(descriptor: Descriptor,
 /// A descriptor is used to connect to a service.
 #[derive(Clone)]
 pub struct Descriptor {
+    ipc_policy: core::IPCPolicy,
     pub home: PathBuf,
     pub rendezvous: PathBuf,
     executable: PathBuf,
@@ -82,10 +94,12 @@ const LOCALHOST: &str = "127.0.0.1";
 impl Descriptor {
     /// Create a descriptor given its rendezvous point, the path to
     /// the servers executable file, and a handler factory.
-    pub fn new(home: PathBuf, rendezvous: PathBuf, executable: PathBuf, factory: HandlerFactory)
+    pub fn new(ctx: &core::Context, rendezvous: PathBuf,
+               executable: PathBuf, factory: HandlerFactory)
                -> Self {
         Descriptor {
-            home: home,
+            home: ctx.home().into(),
+            ipc_policy: *ctx.ipc_policy(),
             rendezvous: rendezvous,
             executable: executable,
             factory: factory,
@@ -144,9 +158,20 @@ impl Descriptor {
         } else {
             let cookie = Cookie::new()?;
             for external in [true, false].iter() {
+                // Implement the IPC pocicy.
+                if self.ipc_policy == core::IPCPolicy::Internal && *external {
+                    // Do not try to fork.
+                    continue;
+                }
+
                 let addr = match self.start(*external) {
                     Ok(a) => a,
                     Err(e) => if *external {
+                        if self.ipc_policy == core::IPCPolicy::External {
+                            // Fail!
+                            return Err(e);
+                        }
+
                         // Try to spawn a thread next.
                         continue;
                     } else {
@@ -210,6 +235,8 @@ impl Descriptor {
         ::std::mem::forget(l);
 
         Command::new(&self.executable.clone().into_os_string())
+            .arg("--home")
+            .arg(self.home.to_string_lossy().into_owned())
             // l will be closed here if the exec fails.
             .stdin(unsafe { Stdio::from_raw_fd(fd) })
             .spawn()?;

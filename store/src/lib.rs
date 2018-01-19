@@ -92,7 +92,7 @@ mod backend;
 #[doc(hidden)]
 pub fn descriptor(c: &Context) -> ipc::Descriptor {
     ipc::Descriptor::new(
-        c.home().to_path_buf(),
+        c,
         c.home().join("S.keystore"),
         c.lib().join("keystore"),
         backend::factory,
