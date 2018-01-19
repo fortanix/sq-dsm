@@ -1,4 +1,22 @@
-//! Core functionality.
+//! Contexts and errors.
+//!
+//! Sequoia tries to be useful for a wide variety of applications.
+//! Therefore, we need you to provide a little information about the
+//! context you are using Sequoia in.
+//!
+/// # Example
+///
+/// A context with reasonable defaults can be created using
+/// `Context::new`:
+///
+/// ```no_run
+/// # use sequoia_core::{Context, Result};
+/// # f().unwrap();
+/// # fn f() -> Result<()> {
+/// let c = Context::new("org.example.webmail")?;
+/// # Ok(())
+/// # }
+/// ```
 
 extern crate tempdir;
 
@@ -8,7 +26,7 @@ use std::io;
 use std::path::{Path, PathBuf};
 use tempdir::TempDir;
 
-/// A `&Context` for Sequoia.
+/// A `Context` for Sequoia.
 ///
 /// # Example
 ///
