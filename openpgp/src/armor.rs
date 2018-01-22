@@ -571,6 +571,40 @@ impl<W: Read> Read for Reader<W> {
     }
 }
 
+#[macro_export]
+/// Constructs a reader from an armored string literal.
+///
+/// # Example
+///
+/// ```
+/// use std::io::Read;
+/// #[macro_use] extern crate openpgp;
+/// use openpgp::armor;
+/// # use std::io::Result;
+/// # fn main() { f().unwrap(); }
+/// # fn f() -> Result<()> {
+///
+/// let mut reader = armored!(
+///     "-----BEGIN PGP ARMORED FILE-----
+///
+///      SGVsbG8gd29ybGQh
+///      =s4Gu
+///      -----END PGP ARMORED FILE-----"
+/// );
+///
+/// let mut content = String::new();
+/// reader.read_to_string(&mut content)?;
+/// assert_eq!(content, "Hello world!");
+/// # Ok(())
+/// # }
+/// ```
+macro_rules! armored {
+    ($data:expr) => {{
+        use ::std::io::Cursor;
+        armor::Reader::new(Cursor::new(&$data), armor::Kind::Any)
+    }};
+}
+
 const CRC24_INIT: u32 = 0xB704CE;
 const CRC24_POLY: u32 = 0x1864CFB;
 
