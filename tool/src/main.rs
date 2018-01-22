@@ -1,11 +1,13 @@
 /// A command-line frontend for Sequoia.
 
 extern crate clap;
+extern crate failure;
 #[macro_use]
 extern crate prettytable;
 extern crate time;
 
 use clap::{Arg, App, SubCommand, AppSettings};
+use failure::ResultExt;
 use prettytable::Table;
 use prettytable::cell::Cell;
 use prettytable::row::Row;
@@ -20,25 +22,25 @@ extern crate sequoia_store;
 
 use openpgp::{armor, Fingerprint};
 use openpgp::tpk::TPK;
-use sequoia_core::{Context, Result, NetworkPolicy};
+use sequoia_core::{Context, NetworkPolicy};
 use sequoia_net::KeyServer;
 use sequoia_store::{Store, LogIter};
 
-fn open_or_stdin(f: Option<&str>) -> Box<io::Read> {
+fn open_or_stdin(f: Option<&str>) -> Result<Box<io::Read>, failure::Error> {
     match f {
-        Some(f) => Box::new(File::open(f).unwrap()),
-        None => Box::new(io::stdin()),
+        Some(f) => Ok(Box::new(File::open(f)?)),
+        None => Ok(Box::new(io::stdin())),
     }
 }
 
-fn create_or_stdout(f: Option<&str>) -> Box<io::Write> {
+fn create_or_stdout(f: Option<&str>) -> Result<Box<io::Write>, failure::Error> {
     match f {
-        Some(f) => Box::new(File::create(f).unwrap()),
-        None => Box::new(io::stdout()),
+        Some(f) => Ok(Box::new(File::create(f)?)),
+        None => Ok(Box::new(io::stdout())),
     }
 }
 
-fn real_main() -> Result<()> {
+fn real_main() -> Result<(), failure::Error> {
     let matches = App::new("sq")
         .version("0.1.0")
         .about("Sequoia is an implementation of OpenPGP.  This is a command-line frontend.")
@@ -205,20 +207,20 @@ fn real_main() -> Result<()> {
 
     match matches.subcommand() {
         ("enarmor",  Some(m)) => {
-            let mut input = open_or_stdin(m.value_of("input"));
-            let mut output = create_or_stdout(m.value_of("output"));
+            let mut input = open_or_stdin(m.value_of("input"))?;
+            let mut output = create_or_stdout(m.value_of("output"))?;
             let mut filter = armor::Writer::new(&mut output, armor::Kind::File);
-            io::copy(&mut input, &mut filter).unwrap();
+            io::copy(&mut input, &mut filter)?;
         },
         ("dearmor",  Some(m)) => {
-            let mut input = open_or_stdin(m.value_of("input"));
-            let mut output = create_or_stdout(m.value_of("output"));
+            let mut input = open_or_stdin(m.value_of("input"))?;
+            let mut output = create_or_stdout(m.value_of("output"))?;
             let mut filter = armor::Reader::new(&mut input, armor::Kind::Any);
-            io::copy(&mut filter, &mut output).unwrap();
+            io::copy(&mut filter, &mut output)?;
         },
         ("dump",  Some(m)) => {
-            let mut input = open_or_stdin(m.value_of("input"));
-            let mut output = create_or_stdout(m.value_of("output"));
+            let mut input = open_or_stdin(m.value_of("input"))?;
+            let mut output = create_or_stdout(m.value_of("output"))?;
             let input = if m.is_present("dearmor") {
                 Box::new(armor::Reader::new(&mut input, armor::Kind::Any))
             } else {
@@ -253,32 +255,34 @@ fn real_main() -> Result<()> {
                 KeyServer::new(&ctx, &uri)
             } else {
                 KeyServer::sks_pool(&ctx)
-            }.expect("Malformed keyserver URI");
+            }.context("Malformed keyserver URI")?;
 
             match m.subcommand() {
                 ("get",  Some(m)) => {
                     let keyid = m.value_of("keyid").unwrap();
                     let id = openpgp::KeyID::from_hex(keyid);
                     if id.is_none() {
-                        eprintln!("Malformed key ID: \"{:?}\"\n\
+                        eprintln!("Malformed key ID: {:?}\n\
                                    (Note: only long Key IDs are supported.)",
                                   keyid);
                         exit(1);
                     }
                     let id = id.unwrap();
 
-                    let mut output = create_or_stdout(m.value_of("output"));
+                    let mut output = create_or_stdout(m.value_of("output"))?;
                     let mut output = if m.is_present("armor") {
                         Box::new(armor::Writer::new(&mut output, armor::Kind::PublicKey))
                     } else {
                         output
                     };
 
-                    ks.get(&id).expect("An error occured")
-                        .serialize(&mut output).expect("An error occured");
+                    ks.get(&id)
+                        .context("Failed to retrieve key")?
+                    .serialize(&mut output)
+                        .context("Failed to serialize key")?;
                 },
                 ("send",  Some(m)) => {
-                    let mut input = open_or_stdin(m.value_of("input"));
+                    let mut input = open_or_stdin(m.value_of("input"))?;
                     let mut input = if m.is_present("dearmor") {
                         Box::new(armor::Reader::new(&mut input, armor::Kind::Any))
                     } else {
@@ -286,9 +290,10 @@ fn real_main() -> Result<()> {
                     };
 
                     let tpk = TPK::from_reader(&mut input).
-                        expect("Malformed key");
+                        context("Malformed key")?;
 
-                    ks.send(&tpk).expect("An error occured");
+                    ks.send(&tpk)
+                        .context("Failed to send key to server")?;
                 },
                 _ => {
                     eprintln!("No keyserver subcommand given.");
@@ -298,46 +303,39 @@ fn real_main() -> Result<()> {
         },
         ("store",  Some(m)) => {
             let store = Store::open(&ctx, m.value_of("name").unwrap())
-                .expect("Failed to open store");
+                .context("Failed to open the store")?;
 
             match m.subcommand() {
                 ("list",  Some(_)) => {
-                    list_bindings(&store);
+                    list_bindings(&store)?;
                 },
                 ("add",  Some(m)) => {
                     let fp = Fingerprint::from_hex(m.value_of("fingerprint").unwrap())
                         .expect("Malformed fingerprint");
-                    store.add(m.value_of("label").unwrap(), &fp)
-                        .expect("Failed to add key");
+                    store.add(m.value_of("label").unwrap(), &fp)?;
                 },
                 ("import",  Some(m)) => {
-                    let mut input = open_or_stdin(m.value_of("input"));
+                    let mut input = open_or_stdin(m.value_of("input"))?;
                     let mut input = if m.is_present("dearmor") {
                         Box::new(armor::Reader::new(&mut input, armor::Kind::Any))
                     } else {
                         input
                     };
 
-                    let tpk = TPK::from_reader(&mut input).
-                        expect("Malformed key");
-                    store.import(m.value_of("label").unwrap(), &tpk)
-                        .expect("Failed to import key");
+                    let tpk = TPK::from_reader(&mut input)?;
+                    store.import(m.value_of("label").unwrap(), &tpk)?;
                 },
                 ("export",  Some(m)) => {
-                    let tpk = store.lookup(m.value_of("label").unwrap())
-                        .expect("Failed to get the key")
-                        .tpk()
-                        .expect("Failed to get the key");
+                    let tpk = store.lookup(m.value_of("label").unwrap())?.tpk()?;
 
-                    let mut output = create_or_stdout(m.value_of("output"));
+                    let mut output = create_or_stdout(m.value_of("output"))?;
                     let mut output = if m.is_present("armor") {
                         Box::new(armor::Writer::new(&mut output, armor::Kind::PublicKey))
                     } else {
                         output
                     };
 
-                    tpk.serialize(&mut output)
-                        .expect("Failed to write the key");
+                    tpk.serialize(&mut output)?;
                 },
                 ("delete",  Some(m)) => {
                     if m.is_present("label") == m.is_present("the-store") {
@@ -346,27 +344,26 @@ fn real_main() -> Result<()> {
                     }
 
                     if m.is_present("the-store") {
-                        store.delete().expect("Failed to delete the store");
+                        store.delete().context("Failed to delete the store")?;
                     } else {
                         let binding = store.lookup(m.value_of("label").unwrap())
-                            .expect("Failed to get key");
-                        binding.delete().expect("Failed to delete the binding");
+                            .context("Failed to get key")?;
+                        binding.delete().context("Failed to delete the binding")?;
                     }
                 },
                 ("stats",  Some(m)) => {
-                    let binding = store.lookup(m.value_of("label").unwrap())
-                        .expect("Failed to get key");
-                    println!("Binding {:?}", binding.stats().expect("Failed to get stats"));
-                    let key = binding.key().expect("Failed to get key");
-                    println!("Key {:?}", key.stats().expect("Failed to get stats"));
+                    let binding = store.lookup(m.value_of("label").unwrap())?;
+                    println!("Binding {:?}", binding.stats().context("Failed to get stats")?);
+                    let key = binding.key().context("Failed to get key")?;
+                    println!("Key {:?}", key.stats().context("Failed to get stats")?);
                 },
                 ("log",  Some(m)) => {
                     if m.is_present("label") {
                         let binding = store.lookup(m.value_of("label").unwrap())
-                            .expect("No such key");
-                        print_log(binding.log().expect("Failed to get log"));
+                            .context("No such key")?;
+                        print_log(binding.log().context("Failed to get log")?);
                     } else {
-                        print_log(store.log().expect("Failed to get log"));
+                        print_log(store.log().context("Failed to get log")?);
                     }
                 },
                 _ => {
@@ -383,8 +380,7 @@ fn real_main() -> Result<()> {
                     table.set_titles(row!["domain", "name", "network policy"]);
 
                     for (domain, name, network_policy, _)
-                        in Store::list(&ctx, m.value_of("prefix").unwrap_or(""))
-                        .expect("Failed to iterate over stores") {
+                        in Store::list(&ctx, m.value_of("prefix").unwrap_or(""))? {
                             table.add_row(Row::new(vec![
                                 Cell::new(&domain),
                                 Cell::new(&name),
@@ -396,10 +392,9 @@ fn real_main() -> Result<()> {
                 },
                 ("bindings",  Some(m)) => {
                     for (domain, name, _, store)
-                        in Store::list(&ctx, m.value_of("prefix").unwrap_or(""))
-                        .expect("Failed to iterate over stores") {
+                        in Store::list(&ctx, m.value_of("prefix").unwrap_or(""))? {
                             println!("Domain {:?} Name {:?}:", domain, name);
-                            list_bindings(&store);
+                            list_bindings(&store)?;
                         }
                 },
                 ("keys",  Some(_)) => {
@@ -407,10 +402,9 @@ fn real_main() -> Result<()> {
                     table.set_format(*prettytable::format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
                     table.set_titles(row!["fingerprint", "updated", "status"]);
 
-                    for (fingerprint, key) in Store::list_keys(&ctx)
-                        .expect("Failed to iterate over keys") {
+                    for (fingerprint, key) in Store::list_keys(&ctx)? {
                             let stats = key.stats()
-                                .expect("Failed to get stats");
+                                .context("Failed to get key stats")?;
                             table.add_row(Row::new(vec![
                                 Cell::new(&fingerprint.to_string()),
                                 if let Some(ref t) = stats.updated {
@@ -425,8 +419,7 @@ fn real_main() -> Result<()> {
                     table.printstd();
                 },
                 ("log",  Some(_)) => {
-                    print_log(Store::server_log(&ctx)
-                              .expect("Failed to iterate over stores"));
+                    print_log(Store::server_log(&ctx)?);
                 },
                 _ => {
                     eprintln!("No list subcommand given.");
@@ -443,16 +436,17 @@ fn real_main() -> Result<()> {
     return Ok(())
 }
 
-fn list_bindings(store: &Store) {
+fn list_bindings(store: &Store) -> Result<(), failure::Error> {
     let mut table = Table::new();
     table.set_format(*prettytable::format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
     table.set_titles(row!["label", "fingerprint"]);
-    for (label, fingerprint, _) in store.iter().expect("Failed to iterate over bindings") {
+    for (label, fingerprint, _) in store.iter()? {
         table.add_row(Row::new(vec![
             Cell::new(&label),
             Cell::new(&fingerprint.to_string())]));
     }
     table.printstd();
+    Ok(())
 }
 
 fn print_log(iter: LogIter) {
@@ -475,4 +469,9 @@ fn format_time(t: &time::Timespec) -> String {
     .unwrap() // Only parse errors can happen.
 }
 
-fn main() { real_main().expect("An error occured"); }
+fn main() {
+    if let Err(e) = real_main() {
+        eprintln!("{}", e);
+        exit(2);
+    }
+}

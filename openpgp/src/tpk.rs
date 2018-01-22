@@ -1,5 +1,6 @@
 //! Transferable public keys.
 
+use failure;
 use std::io;
 use std::cmp::Ordering;
 use std::path::Path;
@@ -370,7 +371,7 @@ impl TPKParser {
                 subkeys: self.subkeys
             }
         } else {
-            return Err(Error::NoKeyFound);
+            return Err(Error::NoKeyFound.into());
         };
 
         match self.state {
@@ -387,7 +388,7 @@ impl TPKParser {
                 Ok(tpk)
             },
             TPKParserState::End => Ok(tpk),
-            _ => Err(Error::NoKeyFound),
+            _ => Err(Error::NoKeyFound.into()),
         }.and_then(|tpk| tpk.canonicalize())
     }
 }
@@ -431,8 +432,7 @@ impl TPK {
 
     /// Returns the first TPK encountered in the reader.
     pub fn from_reader<R: io::Read>(reader: R) -> Result<Self> {
-        let ppo = PacketParser::from_reader(reader)
-            .map_err(|e| Error::IoError(e))?;
+        let ppo = PacketParser::from_reader(reader)?;
         if let Some(pp) = ppo {
             TPK::from_packet_parser(pp)
         } else {
@@ -463,8 +463,7 @@ impl TPK {
     ///
     /// `buf` must be an OpenPGP encoded message.
     pub fn from_bytes(buf: &[u8]) -> Result<Self> {
-        let ppo = PacketParser::from_bytes(buf)
-            .map_err(|e| Error::IoError(e))?;
+        let ppo = PacketParser::from_bytes(buf)?;
         if let Some(pp) = ppo {
             TPK::from_packet_parser(pp)
         } else {
@@ -491,7 +490,7 @@ impl TPK {
 
         // - One or more User ID packets.
         if self.userids.len() == 0 {
-            return Err(Error::NoUserId);
+            return Err(Error::NoUserId.into());
         }
 
         // Drop invalid user ids.
@@ -848,23 +847,17 @@ impl TPK {
 }
 
 /// Results for TPK.
-pub type Result<T> = ::std::result::Result<T, Error>;
+pub type Result<T> = ::std::result::Result<T, failure::Error>;
 
+#[derive(Fail, Debug)]
 /// Errors returned from the key routines.
-#[derive(Debug)]
 pub enum Error {
+    #[fail(display = "No key found")]
     /// No key found in OpenPGP message.
     NoKeyFound,
+    #[fail(display = "No UID found")]
     /// No user id found.
     NoUserId,
-    /// An `io::Error` occured.
-    IoError(io::Error),
-}
-
-impl From<io::Error> for Error {
-    fn from(error: io::Error) -> Self {
-        Error::IoError(error)
-    }
 }
 
 #[cfg(test)]
@@ -900,11 +893,13 @@ mod test {
         for i in 0..2 {
             let tpk = parse_tpk(bytes!("testy-broken-no-pk.pgp"),
                                 i == 0);
-            assert_match!(Err(Error::NoKeyFound) = tpk);
+            assert_match!(Error::NoKeyFound
+                          = tpk.err().unwrap().downcast::<Error>().unwrap());
 
             let tpk = parse_tpk(bytes!("testy-broken-no-uid.pgp"),
                                 i == 0);
-            assert_match!(Err(Error::NoUserId) = tpk);
+            assert_match!(Error::NoUserId
+                          = tpk.err().unwrap().downcast::<Error>().unwrap());
 
             // We have:
             //

@@ -36,6 +36,9 @@
 //! [unhashed signature subpackets]: https://tools.ietf.org/html/rfc4880#section-5.2.3.2
 //! [sequoia-core]: ../sequoia_core
 
+#[macro_use]
+extern crate failure;
+
 extern crate buffered_reader;
 
 // For #[derive(FromPrimitive)]

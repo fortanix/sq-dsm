@@ -14,6 +14,7 @@ sequoia-core = { path = "../core" }
 sequoia-net = { path = "../net" }
 capnp = "0.8"
 capnp-rpc = "0.8"
+failure = "0.1.1"
 futures = "0.1.17"
 rand = "0.3"
 rusqlite = "0.12.0"

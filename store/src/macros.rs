@@ -16,15 +16,15 @@ macro_rules! make_request {
 
         let r: std::result::Result<Result<_>, capnp::Error> = $core.run(
             $request.send().promise
-                .and_then(|response| {
+                .and_then(|response| -> Promise<Result<_>, capnp::Error> {
                     let r = pry!(pry!(pry!(response.get()).get_result()).which());
                     let r = match r {
                         /* The Result.  */
                         Which::Ok(Ok(x)) => Ok(x),
-                        Which::Err(Ok(e)) => Err(e.into()),
+                        Which::Err(Ok(e)) => Err(failure::Error::from(e)),
                         /* Protocol violations.  */
-                        Which::Ok(Err(e)) => Err(e.into()),
-                        Which::Err(Err(e)) => Err(e.into()),
+                        Which::Ok(Err(e)) => Err(failure::Error::from(e)),
+                        Which::Err(Err(e)) => Err(failure::Error::from(e)),
                     };
                     Promise::ok(r)
                 }));
@@ -38,7 +38,7 @@ macro_rules! make_stats_request {
 
         let r: std::result::Result<Result<_>, capnp::Error> = $core.run(
             $request.send().promise
-                .and_then(|response| {
+                .and_then(|response| -> Promise<Result<_>, capnp::Error> {
                     let r = pry!(pry!(pry!(response.get()).get_result()).which());
                     let r = match r {
                         /* The Result.  */
@@ -54,10 +54,10 @@ macro_rules! make_stats_request {
                                                           from_unix(s.get_verification_last())),
                             })
                         },
-                        Which::Err(Ok(e)) => Err(e.into()),
+                        Which::Err(Ok(e)) => Err(failure::Error::from(e)),
                         /* Protocol violations.  */
-                        Which::Ok(Err(e)) => Err(e.into()),
-                        Which::Err(Err(e)) => Err(e.into()),
+                        Which::Ok(Err(e)) => Err(failure::Error::from(e)),
+                        Which::Err(Err(e)) => Err(failure::Error::from(e)),
                     };
                     Promise::ok(r)
                 }));
@@ -72,15 +72,15 @@ macro_rules! make_request_map {
 
         let r: std::result::Result<Result<_>, capnp::Error> = $core.run(
             $request.send().promise
-                .and_then(|response| {
+                .and_then(|response| -> Promise<Result<_>, capnp::Error> {
                     let r = pry!(pry!(pry!(response.get()).get_result()).which());
                     let r = match r {
                         /* The Result.  */
                         Which::Ok(Ok(x)) => $map(x),
-                        Which::Err(Ok(e)) => Err(e.into()),
+                        Which::Err(Ok(e)) => Err(failure::Error::from(e)),
                         /* Protocol violations.  */
-                        Which::Ok(Err(e)) => Err(e.into()),
-                        Which::Err(Err(e)) => Err(e.into()),
+                        Which::Ok(Err(e)) => Err(failure::Error::from(e)),
+                        Which::Err(Err(e)) => Err(failure::Error::from(e)),
                     };
                     Promise::ok(r)
                 }));

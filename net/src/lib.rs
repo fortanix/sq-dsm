@@ -33,6 +33,8 @@
 extern crate openpgp;
 extern crate sequoia_core;
 
+#[macro_use]
+extern crate failure;
 extern crate futures;
 extern crate hyper;
 extern crate hyper_tls;
@@ -54,10 +56,9 @@ use self::native_tls::{Certificate, TlsConnector};
 use self::tokio_core::reactor::Core;
 use std::convert::From;
 use std::io::{Cursor, Read};
-use std::io;
 
 use sequoia_core::{Context, NetworkPolicy};
-use openpgp::tpk::{self, TPK};
+use openpgp::tpk::TPK;
 use openpgp::{Message, KeyID, armor};
 
 pub mod ipc;
@@ -93,7 +94,7 @@ impl KeyServer {
                                                         &core.handle())?)
                          .build(&core.handle()))
             },
-            _ => return Err(Error::MalformedUri),
+            _ => return Err(Error::MalformedUri.into()),
         };
 
         Self::make(ctx, core, client, uri)
@@ -174,14 +175,14 @@ impl KeyServer {
                         r.read_to_end(&mut key)?;
                         Ok(key)
                     },
-                    StatusCode::NotFound => Err(Error::NotFound),
-                    n => Err(Error::from(n)),
+                    StatusCode::NotFound => Err(Error::NotFound.into()),
+                    n => Err(Error::HttpStatus(n).into()),
                 }
-            Err(e) => Err(Error::HyperError(e)),
+            Err(e) => Err(Error::HyperError(e).into()),
         };
 
         let m = Message::from_bytes(&key?)?;
-        TPK::from_message(m).map_err(|e| Error::KeysError(e))
+        TPK::from_message(m)
     }
 
     /// Sends the given key to the server.
@@ -216,10 +217,10 @@ impl KeyServer {
             Ok((status, _body)) =>
                 match status {
                     StatusCode::Ok => Ok(()),
-                    StatusCode::NotFound => Err(Error::ProtocolViolation),
-                    n => Err(Error::from(n)),
+                    StatusCode::NotFound => Err(Error::ProtocolViolation.into()),
+                    n => Err(Error::HttpStatus(n).into()),
                 }
-            Err(e) => Err(Error::HyperError(e)),
+            Err(e) => Err(Error::HyperError(e).into()),
         }
     }
 }
@@ -248,73 +249,33 @@ impl AClient for Client<HttpsConnector<HttpConnector>> {
 }
 
 /// Results for sequoia-net.
-pub type Result<T> = ::std::result::Result<T, Error>;
+pub type Result<T> = ::std::result::Result<T, failure::Error>;
 
+#[derive(Fail, Debug)]
 /// Errors returned from the network routines.
-#[derive(Debug)]
 pub enum Error {
     /// A requested key was not found.
+    #[fail(display = "Key not found")]
     NotFound,
     /// A given keyserver URI was malformed.
+    #[fail(display = "Malformed URI")]
     MalformedUri,
     /// The server provided malformed data.
+    #[fail(display = "Malformed response from server")]
     MalformedResponse,
     /// A communication partner violated the protocol.
+    #[fail(display = "Protocol violation")]
     ProtocolViolation,
-    /// There was an error parsing the key.
-    KeysError(tpk::Error),
-    /// A `sequoia_core::Error` occured.
-    CoreError(sequoia_core::Error),
     /// Encountered an unexpected low-level http status.
+    #[fail(display = "Error communicating with server")]
     HttpStatus(hyper::StatusCode),
-    /// An `io::Error` occured.
-    IoError(io::Error),
-    /// A `hyper::error::UriError` occured.
+    /// A `hyper::error::UriError` occurred.
+    #[fail(display = "URI Error")]
     UriError(hyper::error::UriError),
-    /// A `hyper::Error` occured.
+    /// A `hyper::Error` occurred.
+    #[fail(display = "Hyper Error")]
     HyperError(hyper::Error),
-    /// A `native_tls::Error` occured.
+    /// A `native_tls::Error` occurred.
+    #[fail(display = "TLS Error")]
     TlsError(native_tls::Error),
-}
-
-impl From<tpk::Error> for Error {
-    fn from(e: tpk::Error) -> Self {
-        Error::KeysError(e)
-    }
-}
-
-impl From<sequoia_core::Error> for Error {
-    fn from(e: sequoia_core::Error) -> Self {
-        Error::CoreError(e)
-    }
-}
-
-impl From<hyper::StatusCode> for Error {
-    fn from(status: hyper::StatusCode) -> Self {
-        Error::HttpStatus(status)
-    }
-}
-
-impl From<io::Error> for Error {
-    fn from(error: io::Error) -> Self {
-        Error::IoError(error)
-    }
-}
-
-impl From<hyper::Error> for Error {
-    fn from(error: hyper::Error) -> Self {
-        Error::HyperError(error)
-    }
-}
-
-impl From<hyper::error::UriError> for Error {
-    fn from(error: hyper::error::UriError) -> Self {
-        Error::UriError(error)
-    }
-}
-
-impl From<native_tls::Error> for Error {
-    fn from(error: native_tls::Error) -> Self {
-        Error::TlsError(error)
-    }
 }

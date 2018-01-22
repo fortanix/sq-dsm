@@ -51,6 +51,8 @@
 extern crate capnp;
 #[macro_use]
 extern crate capnp_rpc;
+#[macro_use]
+extern crate failure;
 extern crate futures;
 extern crate rand;
 extern crate rusqlite;
@@ -60,7 +62,6 @@ extern crate tokio_io;
 
 use std::cell::RefCell;
 use std::fmt;
-use std::io;
 use std::rc::Rc;
 
 use capnp::capability::Promise;
@@ -76,7 +77,7 @@ extern crate sequoia_core;
 extern crate sequoia_net;
 
 use openpgp::Fingerprint;
-use openpgp::tpk::{self, TPK};
+use openpgp::tpk::TPK;
 use sequoia_core as core;
 use sequoia_core::Context;
 use sequoia_net::ipc;
@@ -338,7 +339,7 @@ impl Store {
     /// // ...
     /// let store = Store::open(&ctx, "default")?;
     /// let binding = store.lookup("Mister B.");
-    /// assert_match!(Err(Error::NotFound) = binding);
+    /// assert!(binding.is_err()); // not found
     /// # Ok(())
     /// # }
     /// ```
@@ -479,7 +480,7 @@ impl Binding {
     /// // later...
     /// let binding = store.lookup("Testy McTestface")?;
     /// let r = binding.import(&new);
-    /// assert_match!(Err(Error::Conflict) = r); // no signature from old on new
+    /// assert!(r.is_err()); // no signature from old on new
     /// let r = binding.import(&new_sig)?;
     /// assert_eq!(new.fingerprint(), r.fingerprint());
     /// # Ok(())
@@ -535,7 +536,7 @@ impl Binding {
     /// // later...
     /// let binding = store.lookup("Testy McTestface")?;
     /// let r = binding.import(&new);
-    /// assert_match!(Err(Error::Conflict) = r); // no signature from old on new
+    /// assert!(r.is_err()); // no signature from old on new
     /// let r = binding.rotate(&new)?;
     /// assert_eq!(new.fingerprint(), r.fingerprint());
     /// # Ok(())
@@ -575,7 +576,7 @@ impl Binding {
     /// let binding = store.add("Mister B.", &fp)?;
     /// binding.delete()?;
     /// let binding = store.lookup("Mister B.");
-    /// assert_match!(Err(Error::NotFound) = binding);
+    /// assert!(binding.is_err()); // not found
     /// # Ok(())
     /// # }
     /// ```
@@ -676,7 +677,7 @@ impl Key {
     /// let r = key.import(&old)?;
     /// assert_eq!(r.fingerprint(), old.fingerprint());
     /// let r = key.import(&new);
-    /// assert_match!(Err(Error::Conflict) = r);
+    /// assert!(r.is_err()); // conflict
     /// # Ok(())
     /// # }
     /// ```
@@ -914,7 +915,7 @@ impl Iterator for LogIter {
                              r.get_error().ok()
                          } else {
                              None
-                         }).ok_or(Error::StoreError))
+                         }).ok_or(Error::StoreError.into()))
         };
         doit().ok()
     }
@@ -923,18 +924,18 @@ impl Iterator for LogIter {
 /* Error handling.  */
 
 /// Results for sequoia-store.
-pub type Result<T> = ::std::result::Result<T, Error>;
+pub type Result<T> = ::std::result::Result<T, failure::Error>;
 
 
 // Converts from backend errors.
-impl From<node::Error> for Error {
+impl From<node::Error> for failure::Error {
     fn from(error: node::Error) -> Self {
         match error {
-            node::Error::Unspecified => Error::StoreError,
-            node::Error::NotFound => Error::NotFound,
-            node::Error::Conflict => Error::Conflict,
-            node::Error::SystemError => Error::StoreError,
-            node::Error::MalformedKey => Error::MalformedKey,
+            node::Error::Unspecified => Error::StoreError.into(),
+            node::Error::NotFound => Error::NotFound.into(),
+            node::Error::Conflict => Error::Conflict.into(),
+            node::Error::SystemError => Error::StoreError.into(),
+            node::Error::MalformedKey => Error::MalformedKey.into(),
             node::Error::NetworkPolicyViolationOffline =>
                 core::Error::NetworkPolicyViolation(core::NetworkPolicy::Offline).into(),
             node::Error::NetworkPolicyViolationAnonymized =>
@@ -947,48 +948,30 @@ impl From<node::Error> for Error {
     }
 }
 
-
+#[derive(Fail, Debug)]
 /// Errors returned from the store.
-#[derive(Debug)]
 pub enum Error {
     /// A requested key was not found.
+    #[fail(display = "Key not found")]
     NotFound,
     /// The new key is in conflict with the current key.
+    #[fail(display = "New key conflicts with the current key")]
     Conflict,
-    /// A `sequoia_core::Error` occurred.
-    CoreError(sequoia_core::Error),
-    /// An `io::Error` occurred.
-    IoError(io::Error),
     /// This is a catch-all for unspecified backend errors, and should
     /// go away soon.
+    #[fail(display = "Unspecified store error")]
     StoreError,
     /// A protocol error occurred.
+    #[fail(display = "Unspecified protocol error")]
     ProtocolError,
     /// A TPK is malformed.
+    #[fail(display = "Malformed key")]
     MalformedKey,
-    /// A `openpgp::tpk::Error` occurred.
-    TpkError(tpk::Error),
     /// A `capnp::Error` occurred.
+    #[fail(display = "Internal RPC error")]
     RpcError(capnp::Error),
 }
 
-impl From<sequoia_core::Error> for Error {
-    fn from(error: sequoia_core::Error) -> Self {
-        Error::CoreError(error)
-    }
-}
-
-impl From<io::Error> for Error {
-    fn from(error: io::Error) -> Self {
-        Error::IoError(error)
-    }
-}
-
-impl From<tpk::Error> for Error {
-    fn from(error: tpk::Error) -> Self {
-        Error::TpkError(error)
-    }
-}
 impl From<capnp::Error> for Error {
     fn from(error: capnp::Error) -> Self {
         Error::RpcError(error)
@@ -1025,7 +1008,8 @@ mod store_test {
             .ipc_policy(core::IPCPolicy::Internal)
             .build().unwrap();
         let store = Store::open(&ctx2, "default");
-        assert_match!(Err(Error::CoreError(core::Error::NetworkPolicyViolation(_))) = store);
+        assert_match!(core::Error::NetworkPolicyViolation(_)
+                      = store.err().unwrap().downcast::<core::Error>().unwrap());
     }
 
     #[test]
@@ -1052,7 +1036,8 @@ mod store_test {
             .build().unwrap();
         let store = Store::open(&ctx, "default").unwrap();
         let r = store.lookup("I do not exist");
-        assert_match!(Err(Error::NotFound) = r);
+        assert_match!(Error::NotFound
+                      = r.err().unwrap().downcast::<Error>().unwrap());
     }
 
     #[test]
@@ -1067,7 +1052,8 @@ mod store_test {
         let fp = Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb");
         let binding = store.add("Mister B.", &fp).unwrap();
         let r = binding.import(&tpk);
-        assert_match!(Err(Error::Conflict) = r);
+        assert_match!(Error::Conflict
+                      = r.err().unwrap().downcast::<Error>().unwrap());
     }
 
     #[test]
@@ -1081,8 +1067,9 @@ mod store_test {
         let b = Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb");
         store.add("Mister B.", &b).unwrap();
         let c = Fingerprint::from_bytes(b"cccccccccccccccccccc");
-        assert_match!(Err(Error::Conflict)
-                      = store.add("Mister B.", &c));
+        assert_match!(Error::Conflict
+                      = store.add("Mister B.", &c)
+                      .err().unwrap().downcast::<Error>().unwrap());
     }
 
     #[test]
@@ -1109,10 +1096,12 @@ mod store_test {
         let s1 = Store::open(&ctx, "default").unwrap();
         s0.delete().unwrap();
         let binding = s1.lookup("Foobarbaz");
-        assert_match!(Err(Error::NotFound) = binding);
+        assert_match!(Error::NotFound
+                      = binding.err().unwrap().downcast::<Error>().unwrap());
         let fp = Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb");
         let binding = s1.add("Mister B.", &fp);
-        assert_match!(Err(Error::NotFound) = binding);
+        assert_match!(Error::NotFound
+                      = binding.err().unwrap().downcast::<Error>().unwrap());
     }
 
     #[test]
@@ -1142,8 +1131,10 @@ mod store_test {
         let b0 = store.add("Mister B.", &fp).unwrap();
         let b1 = store.lookup("Mister B.").unwrap();
         b0.delete().unwrap();
-        assert_match!(Err(Error::NotFound) = b1.stats());
-        assert_match!(Err(Error::NotFound) = b1.key());
+        assert_match!(Error::NotFound
+                      = b1.stats().err().unwrap().downcast::<Error>().unwrap());
+        assert_match!(Error::NotFound
+                      = b1.key().err().unwrap().downcast::<Error>().unwrap());
     }
 
     fn make_some_stores() -> core::Context {

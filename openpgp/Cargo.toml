@@ -7,6 +7,7 @@ authors = ["Neal H. Walfield <neal@gnu.org>"]
 buffered-reader = { path = "../buffered-reader" }
 base64 = "0.8.0"
 bzip2 = "0.3.2"
+failure = "0.1.1"
 flate2 = "0.2"
 nettle = { git = "https://gitlab.com/sequoia-pgp/nettle-rs.git" }
 num = "0.1.40"

@@ -1,5 +1,6 @@
 //! Storage backend.
 
+use failure;
 use std::cmp;
 use std::fmt;
 use std::io;
@@ -1057,6 +1058,18 @@ impl From<rusqlite::Error> for node::Error {
                 node::Error::NotFound,
             _ => node::Error::SystemError,
         }
+    }
+}
+
+impl From<failure::Error> for node::Error {
+    fn from(e: failure::Error) -> Self {
+        let e = e.downcast::<tpk::Error>();
+        if e.is_ok() {
+            return node::Error::MalformedKey;
+        }
+
+        //let e = e.err().unwrap().downcast::<...>();
+        node::Error::SystemError
     }
 }
 

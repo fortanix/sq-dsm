@@ -7,6 +7,7 @@ authors = ["Justus Winter <justus@pep-project.org>"]
 openpgp = { path = "../openpgp" }
 sequoia-core = { path = "../core" }
 
+failure = "0.1.1"
 fs2 = "0.4.2"
 futures = "0.1"
 hyper = "0.11"
