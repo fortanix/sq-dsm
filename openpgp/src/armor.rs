@@ -107,8 +107,8 @@ impl Kind {
 }
 
 /// A filter that applies ASCII Armor to the data written to it.
-pub struct Writer<'a, W: 'a + Write> {
-    sink: &'a mut W,
+pub struct Writer<W: Write> {
+    sink: W,
     kind: Kind,
     stash: Vec<u8>,
     column: usize,
@@ -117,7 +117,7 @@ pub struct Writer<'a, W: 'a + Write> {
     finalized: bool,
 }
 
-impl<'a, W: Write> Writer<'a, W> {
+impl<W: Write> Writer<W> {
     /// Constructs a new filter for the given type of data.
     ///
     /// # Example
@@ -146,7 +146,7 @@ impl<'a, W: Write> Writer<'a, W> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn new(inner: &'a mut W, kind: Kind) -> Self {
+    pub fn new(inner: W, kind: Kind) -> Self {
         assert!(kind != Kind::Any);
         Writer {
             sink: inner,
@@ -219,7 +219,7 @@ impl<'a, W: Write> Writer<'a, W> {
     }
 }
 
-impl<'a, W: Write> Write for Writer<'a, W> {
+impl<W: Write> Write for Writer<W> {
     fn write(&mut self, buf: &[u8]) -> Result<usize> {
         self.initialize()?;
         if self.finalized {
@@ -288,15 +288,15 @@ impl<'a, W: Write> Write for Writer<'a, W> {
     }
 }
 
-impl<'a, W: Write> Drop for Writer<'a, W> {
+impl<W: Write> Drop for Writer<W> {
     fn drop(&mut self) {
         let _ = self.finalize();
     }
 }
 
 /// A filter that strips ASCII Armor from a stream of data.
-pub struct Reader<'a, R: 'a + Read> {
-    source: &'a mut R,
+pub struct Reader<R: Read> {
+    source: R,
     kind: Kind,
     stash: Vec<u8>,
     crc: CRC,
@@ -305,7 +305,7 @@ pub struct Reader<'a, R: 'a + Read> {
     finalized: bool,
 }
 
-impl<'a, R: Read> Reader<'a, R> {
+impl<R: Read> Reader<R> {
     /// Constructs a new filter for the given type of data.
     ///
     /// # Example
@@ -334,7 +334,7 @@ impl<'a, R: Read> Reader<'a, R> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn new(inner: &'a mut R, kind: Kind) -> Self {
+    pub fn new(inner: R, kind: Kind) -> Self {
         Reader {
             source: inner,
             kind: kind,
@@ -486,7 +486,7 @@ fn find_footer(buf: &[u8]) -> Option<usize> {
     None
 }
 
-impl<'a, W: Read> Read for Reader<'a, W> {
+impl<W: Read> Read for Reader<W> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
         self.initialize()?;
         if self.finalized { return Ok(0) }
