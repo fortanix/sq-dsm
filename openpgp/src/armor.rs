@@ -1,5 +1,6 @@
-//! Handling ASCII Armor (see [RFC 4880, section
-//! 6](https://tools.ietf.org/html/rfc4880#section-6)).
+//! Handling ASCII Armor (see [RFC 4880, section 6]).
+//!
+//! [RFC 4880, section 6]: https://tools.ietf.org/html/rfc4880#section-6
 //!
 //! # Scope
 //!
@@ -42,9 +43,10 @@ const LINE_LENGTH: usize = 64;
 
 const LINE_ENDING: &str = "\n";
 
-/// Specifies the type of data that is to be encoded (see [RFC 4880,
-/// section 6.2](https://tools.ietf.org/html/rfc4880#section-6.2)).
-#[derive(Copy, Clone, PartialEq)]
+/// Specifies the type of data (see [RFC 4880, section 6.2]).
+///
+/// [RFC 4880, section 6.2]: https://tools.ietf.org/html/rfc4880#section-6.2
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Kind {
     /// A generic OpenPGP message.
     Message,
@@ -63,6 +65,7 @@ pub enum Kind {
 }
 
 impl Kind {
+    /// Autodetects the kind of data.
     fn detect(blurb: &[u8]) -> Option<Self> {
         if blurb.len() < 16 || ! blurb.starts_with(b"-----BEGIN PGP ") {
             return None;
@@ -115,7 +118,34 @@ pub struct Writer<'a, W: 'a + Write> {
 }
 
 impl<'a, W: Write> Writer<'a, W> {
-    /// Construct a new filter for the given type of data.
+    /// Constructs a new filter for the given type of data.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use std::io::Write;
+    /// # extern crate openpgp;
+    /// # use openpgp::armor::{Writer, Kind};
+    /// # use std::io::{self, Result};
+    /// # fn main() { f().unwrap(); }
+    /// # fn f() -> Result<()> {
+    /// let mut buffer = io::Cursor::new(vec![]);
+    /// {
+    ///     let mut writer = Writer::new(&mut buffer, Kind::File);
+    ///     writer.write_all(b"Hello world!")?;
+    ///     // writer is drop()ed here.
+    /// }
+    /// assert_eq!(
+    ///     String::from_utf8_lossy(buffer.get_ref()),
+    ///     "-----BEGIN PGP ARMORED FILE-----
+    ///
+    /// SGVsbG8gd29ybGQh
+    /// =s4Gu
+    /// -----END PGP ARMORED FILE-----
+    /// ");
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn new(inner: &'a mut W, kind: Kind) -> Self {
         assert!(kind != Kind::Any);
         Writer {
@@ -129,7 +159,7 @@ impl<'a, W: Write> Writer<'a, W> {
         }
     }
 
-    /// Write the header if not already done.
+    /// Writes the header if not already done.
     fn initialize(&mut self) -> Result<()> {
         if self.initialized { return Ok(()) }
 
@@ -140,9 +170,11 @@ impl<'a, W: Write> Writer<'a, W> {
         Ok(())
     }
 
-    /// Write the footer.  No more data can be written after this
-    /// call.  If this is not called explicitly, the header is written
-    /// once the writer is dropped.
+    /// Writes the footer.
+    ///
+    /// No more data can be written after this call.  If this is not
+    /// called explicitly, the header is written once the writer is
+    /// dropped.
     pub fn finalize(&mut self) -> Result<()> {
         self.initialize()?;
         if self.finalized {
@@ -176,7 +208,7 @@ impl<'a, W: Write> Writer<'a, W> {
         Ok(())
     }
 
-    /// Insert a line break if necessary.
+    /// Inserts a line break if necessary.
     fn linebreak(&mut self) -> Result<()> {
         assert!(self.column <= LINE_LENGTH);
         if self.column == LINE_LENGTH {
@@ -274,7 +306,34 @@ pub struct Reader<'a, R: 'a + Read> {
 }
 
 impl<'a, R: Read> Reader<'a, R> {
-    /// Construct a new filter for the given type of data.
+    /// Constructs a new filter for the given type of data.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use std::io::Read;
+    /// # extern crate openpgp;
+    /// # use openpgp::armor::{Reader, Kind};
+    /// # use std::io::{self, Result};
+    /// # fn main() { f().unwrap(); }
+    /// # fn f() -> Result<()> {
+    /// let data =
+    ///     "-----BEGIN PGP ARMORED FILE-----
+    ///
+    ///      SGVsbG8gd29ybGQh
+    ///      =s4Gu
+    ///      -----END PGP ARMORED FILE-----";
+    ///
+    /// let mut cursor = io::Cursor::new(&data);
+    /// let mut reader = Reader::new(&mut cursor, Kind::Any);
+    ///
+    /// let mut content = String::new();
+    /// reader.read_to_string(&mut content)?;
+    /// assert_eq!(content, "Hello world!");
+    /// assert_eq!(reader.kind(), Kind::File);
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn new(inner: &'a mut R, kind: Kind) -> Self {
         Reader {
             source: inner,
@@ -287,13 +346,14 @@ impl<'a, R: Read> Reader<'a, R> {
         }
     }
 
-    /// Return the kind of data this reader is for.  Useful in
-    /// combination with 'Kind::Any'.
+    /// Returns the kind of data this reader is for.
+    ///
+    /// Useful in combination with `Kind::Any`.
     pub fn kind(&self) -> Kind {
         self.kind
     }
 
-    /// Consume the header if not already done.
+    /// Consumes the header if not already done.
     fn initialize(&mut self) -> Result<()> {
         if self.initialized { return Ok(()) }
 
@@ -330,8 +390,9 @@ impl<'a, R: Read> Reader<'a, R> {
         Ok(())
     }
 
-    /// Consume the footer.  No more data can be read after this
-    /// call.
+    /// Consumes the footer.
+    ///
+    /// No more data can be read after this call.
     fn finalize(&mut self, buf: &[u8]) -> Result<()> {
         if self.finalized {
             return Err(Error::new(ErrorKind::BrokenPipe, "Reader is finalized."));
@@ -371,7 +432,7 @@ impl<'a, R: Read> Reader<'a, R> {
         Ok(())
     }
 
-    /// Consume a linebreak.
+    /// Consumes a linebreak.
     fn linebreak(&mut self) -> Result<()> {
         if self.line()? != 0 {
             return Err(Error::new(ErrorKind::InvalidInput, "Expected newline."));
@@ -379,7 +440,7 @@ impl<'a, R: Read> Reader<'a, R> {
         Ok(())
     }
 
-    /// Consume a line, returning the number of non-whitespace bytes.
+    /// Consumes a line, returning the number of non-whitespace bytes.
     fn line(&mut self) -> Result<usize> {
         let mut buf = [0; 1];
         let mut c = 0;
@@ -406,7 +467,7 @@ fn is_ascii_whitespace(c: u8) -> bool {
     c == ' ' as u8 || c == '\n' as u8 || c == '\r' as u8 || c == '\t' as u8
 }
 
-/// Look for the CRC sum or the footer.
+/// Looks for the CRC sum or the footer.
 fn find_footer(buf: &[u8]) -> Option<usize> {
     if buf.len() == 0 {
         return None;
@@ -517,8 +578,9 @@ struct CRC {
     n: u32,
 }
 
-/// Computes the CRC-24, (see [RFC 4880, section
-/// 6.1](https://tools.ietf.org/html/rfc4880#section-6.1)).
+/// Computess the CRC-24, (see [RFC 4880, section 6.1]).
+///
+/// [RFC 4880, section 6.1]: https://tools.ietf.org/html/rfc4880#section-6.1
 impl CRC {
     fn new() -> Self {
         CRC { n: CRC24_INIT }
