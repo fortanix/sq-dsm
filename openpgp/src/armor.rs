@@ -31,7 +31,7 @@
 
 extern crate base64;
 use std::io::{Read, Write};
-use std::io::{Error, ErrorKind};
+use std::io::{Result, Error, ErrorKind};
 use std::cmp::min;
 
 /// The encoded output stream must be represented in lines of no more
@@ -130,7 +130,7 @@ impl<'a, W: Write> Writer<'a, W> {
     }
 
     /// Write the header if not already done.
-    fn initialize(&mut self) -> Result<(), Error> {
+    fn initialize(&mut self) -> Result<()> {
         if self.initialized { return Ok(()) }
 
         write!(self.sink, "{}{}{}", self.kind.begin(),
@@ -143,7 +143,7 @@ impl<'a, W: Write> Writer<'a, W> {
     /// Write the footer.  No more data can be written after this
     /// call.  If this is not called explicitly, the header is written
     /// once the writer is dropped.
-    pub fn finalize(&mut self) -> Result<(), Error> {
+    pub fn finalize(&mut self) -> Result<()> {
         self.initialize()?;
         if self.finalized {
             return Err(Error::new(ErrorKind::BrokenPipe, "Writer is finalized."));
@@ -177,7 +177,7 @@ impl<'a, W: Write> Writer<'a, W> {
     }
 
     /// Insert a line break if necessary.
-    fn linebreak(&mut self) -> Result<(), Error> {
+    fn linebreak(&mut self) -> Result<()> {
         assert!(self.column <= LINE_LENGTH);
         if self.column == LINE_LENGTH {
             write!(self.sink, "{}", LINE_ENDING)?;
@@ -188,7 +188,7 @@ impl<'a, W: Write> Writer<'a, W> {
 }
 
 impl<'a, W: Write> Write for Writer<'a, W> {
-    fn write(&mut self, buf: &[u8]) -> Result<usize, Error> {
+    fn write(&mut self, buf: &[u8]) -> Result<usize> {
         self.initialize()?;
         if self.finalized {
             return Err(Error::new(ErrorKind::BrokenPipe, "Writer is finalized."));
@@ -251,7 +251,7 @@ impl<'a, W: Write> Write for Writer<'a, W> {
         Ok(written)
     }
 
-    fn flush(&mut self) -> Result<(), Error> {
+    fn flush(&mut self) -> Result<()> {
         self.sink.flush()
     }
 }
@@ -294,7 +294,7 @@ impl<'a, R: Read> Reader<'a, R> {
     }
 
     /// Consume the header if not already done.
-    fn initialize(&mut self) -> Result<(), Error> {
+    fn initialize(&mut self) -> Result<()> {
         if self.initialized { return Ok(()) }
 
         let buf = if self.kind == Kind::Any {
@@ -332,7 +332,7 @@ impl<'a, R: Read> Reader<'a, R> {
 
     /// Consume the footer.  No more data can be read after this
     /// call.
-    fn finalize(&mut self, buf: &[u8]) -> Result<(), Error> {
+    fn finalize(&mut self, buf: &[u8]) -> Result<()> {
         if self.finalized {
             return Err(Error::new(ErrorKind::BrokenPipe, "Reader is finalized."));
         }
@@ -372,7 +372,7 @@ impl<'a, R: Read> Reader<'a, R> {
     }
 
     /// Consume a linebreak.
-    fn linebreak(&mut self) -> Result<(), Error> {
+    fn linebreak(&mut self) -> Result<()> {
         if self.line()? != 0 {
             return Err(Error::new(ErrorKind::InvalidInput, "Expected newline."));
         }
@@ -380,7 +380,7 @@ impl<'a, R: Read> Reader<'a, R> {
     }
 
     /// Consume a line, returning the number of non-whitespace bytes.
-    fn line(&mut self) -> Result<usize, Error> {
+    fn line(&mut self) -> Result<usize> {
         let mut buf = [0; 1];
         let mut c = 0;
 
@@ -426,7 +426,7 @@ fn find_footer(buf: &[u8]) -> Option<usize> {
 }
 
 impl<'a, W: Read> Read for Reader<'a, W> {
-    fn read(&mut self, buf: &mut [u8]) -> Result<usize, Error> {
+    fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
         self.initialize()?;
         if self.finalized { return Ok(0) }
 
