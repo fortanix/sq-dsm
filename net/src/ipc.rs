@@ -39,6 +39,7 @@
 extern crate fs2;
 use self::fs2::FileExt;
 
+use failure;
 use std::fs;
 use std::io::{self, Read, Write};
 use std::net::{SocketAddr, AddrParseError, TcpStream, TcpListener};
@@ -240,6 +241,10 @@ impl Descriptor {
         Command::new(&self.executable.clone().into_os_string())
             .arg("--home")
             .arg(self.ctx.home().to_string_lossy().into_owned())
+            .arg("--lib")
+            .arg(self.ctx.home().to_string_lossy().into_owned())
+            .arg("--ephemeral")
+            .arg(format!("{}", self.ctx.ephemeral()))
             // l will be closed here if the exec fails.
             .stdin(unsafe { Stdio::from_raw_fd(fd) })
             .spawn()?;
@@ -273,9 +278,58 @@ impl Server {
         })
     }
 
-    /// Turn the current process into an descriptor.  External servers
-    /// must call this early on.  Expects 'stdin' to be a listening
-    /// TCP socket.
+    /// Creates a Context from `env::args()`.
+    pub fn context() -> Result<core::Context, failure::Error> {
+        use std::env::args;
+        let args: Vec<String> = args().collect();
+
+        if args.len() != 7 || args[1] != "--home"
+            || args[3] != "--lib" || args[5] != "--ephemeral" {
+                return Err(format_err!(
+                    "Usage: {} --home <HOMEDIR> --lib <LIBDIR> \
+                     --ephemeral true|false", args[0]));
+            }
+
+        let mut cfg = core::Context::configure("org.sequoia.api.server")
+            .home(&args[2]).lib(&args[4]);
+
+        if let Ok(ephemeral) = args[6].parse() {
+            if ephemeral {
+                cfg.set_ephemeral();
+            }
+        } else {
+            return Err(format_err!(
+                "Expected 'true' or 'false' for --ephemeral, got: {}",
+                args[6]));
+        }
+
+        cfg.build()
+    }
+
+    /// Turns this process into a server.
+    ///
+    /// External servers must call this early on.  Expects 'stdin' to
+    /// be a listening TCP socket.
+    ///
+    /// # Example
+    ///
+    /// ```compile_fail
+    /// // We cannot run this because sequoia-store is not built yet.
+    /// extern crate sequoia_core;
+    /// extern crate sequoia_net;
+    /// extern crate sequoia_store;
+    ///
+    /// use sequoia_net::ipc::Server;
+    ///
+    /// fn main() {
+    ///     let ctx = Server::context()
+    ///         .expect("Failed to create context");
+    ///     Server::new(sequoia_store::descriptor(&ctx))
+    ///         .expect("Failed to create server")
+    ///         .serve()
+    ///         .expect("Failed to start server");
+    /// }
+    /// ```
     pub fn serve(&mut self) -> io::Result<()> {
         self.serve_listener(unsafe { TcpListener::from_raw_fd(0) })
     }
