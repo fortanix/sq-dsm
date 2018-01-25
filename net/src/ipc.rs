@@ -82,9 +82,8 @@ pub type HandlerFactory = fn(descriptor: Descriptor,
 /// A descriptor is used to connect to a service.
 #[derive(Clone)]
 pub struct Descriptor {
-    ipc_policy: core::IPCPolicy,
-    pub home: PathBuf,
-    pub rendezvous: PathBuf,
+    ctx: core::Context,
+    rendezvous: PathBuf,
     executable: PathBuf,
     factory: HandlerFactory,
 }
@@ -98,12 +97,16 @@ impl Descriptor {
                executable: PathBuf, factory: HandlerFactory)
                -> Self {
         Descriptor {
-            home: ctx.home().into(),
-            ipc_policy: *ctx.ipc_policy(),
+            ctx: ctx.clone(),
             rendezvous: rendezvous,
             executable: executable,
             factory: factory,
         }
+    }
+
+    /// Returns the context.
+    pub fn context(&self) -> &core::Context {
+        &self.ctx
     }
 
     /// Connect to a descriptor, starting the server if necessary.
@@ -159,7 +162,7 @@ impl Descriptor {
             let cookie = Cookie::new()?;
             for external in [true, false].iter() {
                 // Implement the IPC pocicy.
-                if self.ipc_policy == core::IPCPolicy::Internal && *external {
+                if *self.ctx.ipc_policy() == core::IPCPolicy::Internal && *external {
                     // Do not try to fork.
                     continue;
                 }
@@ -167,7 +170,7 @@ impl Descriptor {
                 let addr = match self.start(*external) {
                     Ok(a) => a,
                     Err(e) => if *external {
-                        if self.ipc_policy == core::IPCPolicy::External {
+                        if *self.ctx.ipc_policy() == core::IPCPolicy::External {
                             // Fail!
                             return Err(e);
                         }
@@ -236,7 +239,7 @@ impl Descriptor {
 
         Command::new(&self.executable.clone().into_os_string())
             .arg("--home")
-            .arg(self.home.to_string_lossy().into_owned())
+            .arg(self.ctx.home().to_string_lossy().into_owned())
             // l will be closed here if the exec fails.
             .stdin(unsafe { Stdio::from_raw_fd(fd) })
             .spawn()?;

@@ -94,7 +94,7 @@ struct NodeServer {
 
 impl NodeServer {
     fn new(descriptor: ipc::Descriptor, handle: Handle) -> Result<Self> {
-        let mut db_path = descriptor.home.clone();
+        let mut db_path = descriptor.context().home().to_path_buf();
         db_path.push("keystore.sqlite");
 
         let c = Connection::open(db_path)?;
