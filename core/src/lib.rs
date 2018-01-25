@@ -121,8 +121,7 @@ impl Context {
     pub fn configure(domain: &str) -> Config {
         Config(Context {
             domain: String::from(domain),
-            home: env::home_dir().unwrap_or(env::temp_dir())
-                .join(".sequoia"),
+            home: PathBuf::from(""),  // Defer computation of default.
             lib: prefix().join("lib").join("sequoia"),
             network_policy: NetworkPolicy::Encrypted,
             ipc_policy: IPCPolicy::Robust,
@@ -202,11 +201,26 @@ impl Config {
     /// Finalizes the configuration and returns a `Context`.
     pub fn build(self) -> Result<Context> {
         let mut c = self.0;
-        if c.ephemeral {
+
+        // As a special case, we defer the computation of the default
+        // home, because env::home_dir() may fail.
+        let home_not_set = c.home == PathBuf::from("");
+
+        // If we have an ephemeral home, and home is not explicitly
+        // set, create a temporary directory.  Ephemeral contexts can
+        // share home directories, e.g. client and server processes
+        // share one home.
+        if c.ephemeral && home_not_set {
             let tmp = TempDir::new("sequoia")?;
             c.home = tmp.into_path();
             c.cleanup = true;
         } else {
+            if home_not_set {
+                c.home =
+                    env::home_dir().ok_or(
+                        format_err!("Failed to get users home directory"))?
+                .join(".sequoia");
+            }
             fs::create_dir_all(c.home())?;
         }
         Ok(c)
