@@ -66,7 +66,31 @@ pub struct Context {
     network_policy: NetworkPolicy,
     ipc_policy: IPCPolicy,
     ephemeral: bool,
-    temp_dir: Option<TempDir>,
+    cleanup: bool,
+}
+
+impl Clone for Context {
+    fn clone(&self) -> Self {
+        Context {
+            domain: self.domain.clone(),
+            home: self.home.clone(),
+            lib: self.lib.clone(),
+            network_policy: self.network_policy,
+            ipc_policy: self.ipc_policy,
+            ephemeral: self.ephemeral,
+            cleanup: false, // Prevent cleanup.
+        }
+    }
+}
+
+impl Drop for Context {
+    fn drop(&mut self) {
+        use std::fs::remove_dir_all;
+
+        if self.ephemeral && self.cleanup {
+            let _ = remove_dir_all(&self.home);
+        }
+    }
 }
 
 /// Returns $PREXIX at compile-time, or a reasonable default prefix.
@@ -103,7 +127,7 @@ impl Context {
             network_policy: NetworkPolicy::Encrypted,
             ipc_policy: IPCPolicy::Robust,
             ephemeral: false,
-            temp_dir: None,
+            cleanup: false,
         })
     }
 
@@ -180,8 +204,8 @@ impl Config {
         let mut c = self.0;
         if c.ephemeral {
             let tmp = TempDir::new("sequoia")?;
-            c.home = tmp.path().clone().to_path_buf();
-            c.temp_dir = Some(tmp);
+            c.home = tmp.into_path();
+            c.cleanup = true;
         } else {
             fs::create_dir_all(c.home())?;
         }
