@@ -7,6 +7,7 @@ authors = ["Justus Winter <justus@pep-project.org>"]
 openpgp = { path = "../openpgp" }
 sequoia-core = { path = "../core" }
 
+capnp-rpc = "0.8"
 failure = "0.1.1"
 fs2 = "0.4.2"
 futures = "0.1"
@@ -21,4 +22,4 @@ percent-encoding = "1.0.1"
 rand = "0.3"
 tokio-core = "0.1"
 tokio-io = "0.1.4"
-capnp-rpc = "0.8"
+url = "1.6.0"
