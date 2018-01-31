@@ -841,6 +841,12 @@ pub enum Fingerprint {
     Invalid(Box<[u8]>)
 }
 
+impl fmt::Display for Fingerprint {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.to_string())
+    }
+}
+
 impl fmt::Debug for Fingerprint {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_tuple("Fingerprint")

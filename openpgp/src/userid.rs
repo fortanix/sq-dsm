@@ -4,6 +4,13 @@ use PacketCommon;
 use UserID;
 use Packet;
 
+impl fmt::Display for UserID {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let userid = String::from_utf8_lossy(&self.value[..]);
+        write!(f, "{}", userid)
+    }
+}
+
 impl fmt::Debug for UserID {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let userid = String::from_utf8_lossy(&self.value[..]);
