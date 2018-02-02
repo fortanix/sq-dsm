@@ -648,12 +648,12 @@ mod serialize_test {
             "s2k/mode-0-password-1234.gpg",
             "s2k/mode-1-password-123456-1.gpg",
             "s2k/mode-1-password-foobar-2.gpg",
-            "s2k/mode-3-aes128-password-0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789.gpg",
+            "s2k/mode-3-aes128-password-13-times-0123456789.gpg",
             "s2k/mode-3-aes192-password-123.gpg",
             "s2k/mode-3-encrypted-key-password-bgtyhn.gpg",
             "s2k/mode-3-password-9876-2.gpg",
             "s2k/mode-3-password-qwerty-1.gpg",
-            "s2k/mode-3-twofish-password-0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789.gpg",
+            "s2k/mode-3-twofish-password-13-times-0123456789.gpg",
         ];
 
         for filename in filenames.iter() {

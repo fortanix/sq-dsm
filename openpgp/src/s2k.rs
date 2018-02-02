@@ -194,7 +194,7 @@ mod test {
                 key_hex: "915E96FC694E7F90A6850B740125EA005199C725F3BD27E3",
             },
             Test {
-                filename: "mode-3-twofish-password-0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789.gpg",
+                filename: "mode-3-twofish-password-13-times-0123456789.gpg",
                 cipher_algo: SymmetricAlgo::Twofish,
                 s2k: S2K {
                     hash_algo: 2,
@@ -205,7 +205,7 @@ mod test {
                 key_hex: "EA264FADA5A859C40D88A159B344ECF1F51FF327FDB3C558B0A7DC299777173E",
             },
             Test {
-                filename: "mode-3-aes128-password-0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789.gpg",
+                filename: "mode-3-aes128-password-13-times-0123456789.gpg",
                 cipher_algo: SymmetricAlgo::AES128,
                 s2k: S2K {
                     hash_algo: 2,
