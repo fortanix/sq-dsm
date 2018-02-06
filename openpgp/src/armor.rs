@@ -579,7 +579,6 @@ impl<W: Read> Read for Reader<W> {
 /// ```
 /// use std::io::Read;
 /// #[macro_use] extern crate openpgp;
-/// use openpgp::armor;
 /// # use std::io::Result;
 /// # fn main() { f().unwrap(); }
 /// # fn f() -> Result<()> {
@@ -601,7 +600,8 @@ impl<W: Read> Read for Reader<W> {
 macro_rules! armored {
     ($data:expr) => {{
         use ::std::io::Cursor;
-        armor::Reader::new(Cursor::new(&$data), armor::Kind::Any)
+        $crate::armor::Reader::new(Cursor::new(&$data),
+                                   $crate::armor::Kind::Any)
     }};
 }
 
