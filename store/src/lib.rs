@@ -936,6 +936,8 @@ impl From<node::Error> for failure::Error {
             node::Error::Conflict => Error::Conflict.into(),
             node::Error::SystemError => Error::StoreError.into(),
             node::Error::MalformedKey => Error::MalformedKey.into(),
+            node::Error::MalformedFingerprint =>
+                Error::MalformedFingerprint.into(),
             node::Error::NetworkPolicyViolationOffline =>
                 core::Error::NetworkPolicyViolation(core::NetworkPolicy::Offline).into(),
             node::Error::NetworkPolicyViolationAnonymized =>
@@ -967,6 +969,9 @@ pub enum Error {
     /// A TPK is malformed.
     #[fail(display = "Malformed key")]
     MalformedKey,
+    /// A fingerprint is malformed.
+    #[fail(display = "Malformed fingerprint")]
+    MalformedFingerprint,
     /// A `capnp::Error` occurred.
     #[fail(display = "Internal RPC error")]
     RpcError(capnp::Error),

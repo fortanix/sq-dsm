@@ -1031,6 +1031,7 @@ impl fmt::Debug for node::Error {
                    &node::Error::Conflict => "Conflict",
                    &node::Error::SystemError => "SystemError",
                    &node::Error::MalformedKey => "MalformedKey",
+                   &node::Error::MalformedFingerprint => "MalformedFingerprint",
                    &node::Error::NetworkPolicyViolationOffline =>
                        "NetworkPolicyViolation(Offline)",
                    &node::Error::NetworkPolicyViolationAnonymized =>

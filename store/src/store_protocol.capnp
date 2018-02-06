@@ -115,6 +115,7 @@ interface Node {
     networkPolicyViolationAnonymized @6;
     networkPolicyViolationEncrypted @7;
     networkPolicyViolationInsecure @8;
+    malformedFingerprint @9;
   }
 
   struct Result(T) {
