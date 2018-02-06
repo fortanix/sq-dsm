@@ -201,6 +201,17 @@ impl Query for StoreServer {
     fn connection(&self) -> Rc<Connection> {
         self.c.clone()
     }
+
+    fn slug(&self) -> String {
+        self.c.query_row(
+            "SELECT domain, name FROM stores WHERE id = ?1",
+            &[&self.id], |row| -> String {
+                format!("{}:{}", row.get::<_, String>(0), row.get::<_, String>(1))
+            })
+            .unwrap_or(
+                format!("{}::{}", Self::table_name(), self.id().0)
+            )
+    }
 }
 
 impl StoreServer {
@@ -265,7 +276,7 @@ impl node::store::Server for StoreServer {
                 &self.c,
                 log::Refers::to().store(self.id).binding(binding_id).key(key_id),
                 &self.slug(),
-                &format!("New binding {} -> {}", label, fp)));
+                &format!("New binding {} -> {}", label, fp.to_keyid())));
         }
 
 
@@ -402,6 +413,17 @@ impl Query for BindingServer {
 
     fn connection(&self) -> Rc<Connection> {
         self.c.clone()
+    }
+
+    fn slug(&self) -> String {
+        self.c.query_row(
+            "SELECT label FROM bindings WHERE id = ?1",
+            &[&self.id], |row| -> String {
+                row.get(0)
+            })
+            .unwrap_or(
+                format!("{}::{}", Self::table_name(), self.id().0)
+            )
     }
 }
 
@@ -793,6 +815,18 @@ impl Query for KeyServer {
     fn connection(&self) -> Rc<Connection> {
         self.c.clone()
     }
+
+    fn slug(&self) -> String {
+        self.c.query_row(
+            "SELECT fingerprint FROM keys WHERE id = ?1",
+            &[&self.id], |row| -> String { row.get(0) })
+            .ok()
+            .and_then(|fp| Fingerprint::from_hex(&fp))
+            .map(|fp| fp.to_keyid().to_string())
+            .unwrap_or(
+                format!("{}::{}", Self::table_name(), self.id().0)
+            )
+    }
 }
 
 impl node::key::Server for KeyServer {
@@ -847,10 +881,7 @@ trait Query {
     fn table_name() -> &'static str;
     fn id(&self) -> ID;
     fn connection(&self) -> Rc<Connection>;
-
-    fn slug(&self) -> String {
-        format!("{}::{}", Self::table_name(), self.id().0)
-    }
+    fn slug(&self) -> String;
 
     fn query(&mut self, column: &str) -> Result<i64> {
         self.connection().query_row(
