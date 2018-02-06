@@ -23,7 +23,7 @@ use tokio_core::reactor::{Handle, Timeout};
 use tokio_core;
 use tokio_io::io::ReadHalf;
 
-use openpgp;
+use openpgp::{self, Fingerprint};
 use openpgp::tpk::{self, TPK};
 use sequoia_core as core;
 use sequoia_net as net;
@@ -253,10 +253,12 @@ impl node::store::Server for StoreServer {
         bind_results!(results);
         let params = pry!(params.get());
         let fp = pry!(params.get_fingerprint());
+        let fp = sry!(Fingerprint::from_hex(fp)
+                      .ok_or(node::Error::MalformedFingerprint));
         let label = pry!(params.get_label());
 
         let (binding_id, key_id, created) = sry!(
-            BindingServer::lookup_or_create(&self.c, self.id, label, fp));
+            BindingServer::lookup_or_create(&self.c, self.id, label, &fp));
 
         if created {
             sry!(log::message(
@@ -348,7 +350,7 @@ impl BindingServer {
     ///
     /// On success, the id of the binding and the key is returned, and
     /// whether or not the entry was just created.
-    fn lookup_or_create(c: &Connection, store: ID, label: &str, fp: &str)
+    fn lookup_or_create(c: &Connection, store: ID, label: &str, fp: &Fingerprint)
                         -> Result<(ID, ID, bool)> {
         let key_id = KeyServer::lookup_or_create(c, fp)?;
         if let Ok((binding, key)) = c.query_row(
@@ -462,7 +464,7 @@ impl node::binding::Server for BindingServer {
                 // Update binding, and retry.
                 let key_id =
                     sry!(KeyServer::lookup_or_create(
-                        &self.c, new.fingerprint().to_hex().as_ref()));
+                        &self.c, &new.fingerprint()));
                 sry!(self.c.execute("UPDATE bindings SET key = ?1 WHERE id = ?2",
                                     &[&key_id, &self.id]));
                 return self.import(params, results);
@@ -578,7 +580,8 @@ impl KeyServer {
     /// Looks up a fingerprint, creating a key if necessary.
     ///
     /// On success, the id of the key is returned.
-    fn lookup_or_create(c: &Connection, fp: &str) -> Result<ID> {
+    fn lookup_or_create(c: &Connection, fp: &Fingerprint) -> Result<ID> {
+        let fp = fp.to_hex();
         if let Ok(x) = c.query_row(
             "SELECT id FROM keys WHERE fingerprint = ?1",
             &[&fp], |row| row.get(0)) {
