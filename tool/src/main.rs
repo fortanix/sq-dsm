@@ -361,9 +361,9 @@ fn real_main() -> Result<(), failure::Error> {
                     if m.is_present("label") {
                         let binding = store.lookup(m.value_of("label").unwrap())
                             .context("No such key")?;
-                        print_log(binding.log().context("Failed to get log")?);
+                        print_log(binding.log().context("Failed to get log")?, false);
                     } else {
-                        print_log(store.log().context("Failed to get log")?);
+                        print_log(store.log().context("Failed to get log")?, true);
                     }
                 },
                 _ => {
@@ -419,7 +419,7 @@ fn real_main() -> Result<(), failure::Error> {
                     table.printstd();
                 },
                 ("log",  Some(_)) => {
-                    print_log(Store::server_log(&ctx)?);
+                    print_log(Store::server_log(&ctx)?, true);
                 },
                 _ => {
                     eprintln!("No list subcommand given.");
@@ -449,16 +449,22 @@ fn list_bindings(store: &Store) -> Result<(), failure::Error> {
     Ok(())
 }
 
-fn print_log(iter: LogIter) {
+fn print_log(iter: LogIter, with_slug: bool) {
     let mut table = Table::new();
     table.set_format(*prettytable::format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
-    table.set_titles(row!["timestamp", "slug", "message"]);
+    let mut head = row!["timestamp", "message"];
+    if with_slug {
+        head.insert_cell(1, Cell::new("slug"));
+    }
+    table.set_titles(head);
 
     for entry in iter {
-        table.add_row(Row::new(vec![
-            Cell::new(&format_time(&entry.timestamp)),
-            Cell::new(&entry.slug),
-            Cell::new(&entry.short())]));
+        let mut row = row![&format_time(&entry.timestamp),
+                           &entry.short()];
+        if with_slug {
+            row.insert_cell(1, Cell::new(&entry.slug));
+        }
+        table.add_row(row);
     }
 
     table.printstd();
