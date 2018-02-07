@@ -37,9 +37,9 @@ main (int argc, char **argv)
   if (b == MAP_FAILED)
     error (1, errno, "mmap");
 
-  tpk = sq_tpk_from_bytes (b, st.st_size);
+  tpk = sq_tpk_from_bytes (ctx, b, st.st_size);
   if (tpk == NULL)
-    error (1, 0, "sq_tpk_from_bytes failed");
+    error (1, 0, "sq_tpk_from_bytes: %s", sq_last_strerror (ctx));
 
   sq_tpk_dump (tpk);
   sq_tpk_free (tpk);

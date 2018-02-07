@@ -20,6 +20,18 @@
 struct sq_context;
 
 /*/
+/// Returns the last error message.
+///
+/// The returned value must be freed with `sq_string_free`.
+/*/
+char *sq_last_strerror (const struct sq_context *ctx);
+
+/*/
+/// Frees a string returned from Sequoia.
+/*/
+void sq_string_free (char *s);
+
+/*/
 /// Represents a `Context` configuration.
 /*/
 struct sq_config;
@@ -230,7 +242,8 @@ struct sq_tpk;
 ///
 /// `buf` must be an OpenPGP encoded message.
 /*/
-struct sq_tpk *sq_tpk_from_bytes (const char *b, size_t len);
+struct sq_tpk *sq_tpk_from_bytes (struct sq_context *ctx,
+				  const char *b, size_t len);
 
 /*/
 /// Frees the TPK.

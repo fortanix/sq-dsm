@@ -25,15 +25,25 @@
 //! Objects created using a context must not outlive that context.
 //! Similarly, iterators must not outlive the object they are created
 //! from.
+//!
+//! # Error handling
+//!
+//! Sequoia will panic if you provide bad arguments, e.g. hand a
+//! `NULL` pointer to a function that does not explicitly allow this.
+//!
+//! Failing functions return `NULL`.  Functions that require a
+//! `Context` return complex errors.  Complex errors are stored in the
+//! `Context`, and can be retrieved using `sq_last_strerror`.
 
 
+extern crate failure;
 extern crate libc;
 extern crate native_tls;
 extern crate openpgp;
 extern crate sequoia_core;
 extern crate sequoia_net;
 
-use std::ffi::CStr;
+use std::ffi::{CString, CStr};
 use std::ptr;
 use std::slice;
 
@@ -41,10 +51,74 @@ use openpgp::tpk::TPK;
 use openpgp::KeyID;
 use self::libc::{uint8_t, c_char, size_t};
 use self::native_tls::Certificate;
-use sequoia_core::{Config, Context};
+use sequoia_core as core;
+use sequoia_core::Config;
 use sequoia_net::KeyServer;
 
-/*  sequoia::Context.  */
+/// Wraps a Context and provides an error slot.
+#[doc(hidden)]
+pub struct Context {
+    c: core::Context,
+    e: Option<Box<failure::Error>>,
+}
+
+impl Context {
+    fn new(c: core::Context) -> Self {
+        Context{c: c, e: None}
+    }
+}
+
+/// Like try! for ffi glue.
+///
+/// Unwraps the given expression.  On failure, stashes the error in
+/// the context and returns NULL.
+macro_rules! fry {
+    ($ctx:expr, $expr:expr) => {
+        match $expr {
+            Ok(v) => v,
+            Err(e) => {
+                $ctx.e = Some(Box::new(e));
+                return ptr::null_mut();
+            },
+        }
+    };
+}
+
+/// Like try! for ffi glue, then box into raw pointer.
+///
+/// Unwraps the given expression.  On success, it boxes the value
+/// and turns it into a raw pointer.  On failure, stashes the
+/// error in the context and returns NULL.
+macro_rules! fry_box {
+    ($ctx:expr, $expr:expr) => {
+        Box::into_raw(Box::new(fry!($ctx, $expr)))
+    }
+}
+
+/// Returns the last error message.
+///
+/// The returned value must be freed with `sq_string_free`.
+#[no_mangle]
+pub extern "system" fn sq_last_strerror(ctx: Option<&Context>)
+                                        -> *mut c_char {
+    let ctx = ctx.expect("Context is NULL");
+    match ctx.e {
+        Some(ref e) =>
+            CString::new(format!("{}", e))
+            .map(|s| s.into_raw())
+            .unwrap_or(CString::new("Failed to convert error into string")
+                       .unwrap().into_raw()),
+        None => ptr::null_mut(),
+    }
+}
+
+/// Frees a string returned from Sequoia.
+#[no_mangle]
+pub extern "system" fn sq_string_free(s: *mut c_char) {
+    if ! s.is_null() {
+        unsafe { drop(CString::from_raw(s)) }
+    }
+}
 
 /// Creates a Context with reasonable defaults.
 ///
@@ -61,8 +135,8 @@ pub extern "system" fn sq_context_new(domain: *const c_char)
         CStr::from_ptr(domain).to_string_lossy()
     };
 
-    if let Ok(context) = Context::new(&domain) {
-        Box::into_raw(Box::new(context))
+    if let Ok(context) = core::Context::new(&domain) {
+        Box::into_raw(Box::new(Context::new(context)))
     } else {
         ptr::null_mut()
     }
@@ -93,49 +167,49 @@ pub extern "system" fn sq_context_configure(domain: *const c_char)
         CStr::from_ptr(domain).to_string_lossy()
     };
 
-    Box::into_raw(Box::new(Context::configure(&domain)))
+    Box::into_raw(Box::new(core::Context::configure(&domain)))
 }
 
 /// Returns the domain of the context.
 #[no_mangle]
 pub extern "system" fn sq_context_domain(ctx: Option<&Context>) -> *const c_char {
     assert!(ctx.is_some());
-    ctx.unwrap().domain().as_bytes().as_ptr() as *const c_char
+    ctx.unwrap().c.domain().as_bytes().as_ptr() as *const c_char
 }
 
 /// Returns the directory containing shared state.
 #[no_mangle]
 pub extern "system" fn sq_context_home(ctx: Option<&Context>) -> *const c_char {
     assert!(ctx.is_some());
-    ctx.unwrap().home().to_string_lossy().as_ptr() as *const c_char
+    ctx.unwrap().c.home().to_string_lossy().as_ptr() as *const c_char
 }
 
 /// Returns the directory containing backend servers.
 #[no_mangle]
 pub extern "system" fn sq_context_lib(ctx: Option<&Context>) -> *const c_char {
     assert!(ctx.is_some());
-    ctx.unwrap().lib().to_string_lossy().as_bytes().as_ptr() as *const c_char
+    ctx.unwrap().c.lib().to_string_lossy().as_bytes().as_ptr() as *const c_char
 }
 
 /// Returns the network policy.
 #[no_mangle]
 pub extern "system" fn sq_context_network_policy(ctx: Option<&Context>) -> uint8_t {
     assert!(ctx.is_some());
-    ctx.unwrap().network_policy().into()
+    ctx.unwrap().c.network_policy().into()
 }
 
 /// Returns the IPC policy.
 #[no_mangle]
 pub extern "system" fn sq_context_ipc_policy(ctx: Option<&Context>) -> uint8_t {
     assert!(ctx.is_some());
-    ctx.unwrap().ipc_policy().into()
+    ctx.unwrap().c.ipc_policy().into()
 }
 
 /// Returns whether or not this is an ephemeral context.
 #[no_mangle]
 pub extern "system" fn sq_context_ephemeral(ctx: Option<&Context>) -> uint8_t {
     assert!(ctx.is_some());
-    if ctx.unwrap().ephemeral() { 1 } else { 0 }
+    if ctx.unwrap().c.ephemeral() { 1 } else { 0 }
 }
 
 
@@ -151,7 +225,7 @@ pub extern "system" fn sq_config_build(cfg: Option<&mut Config>)
     let cfg = unsafe { Box::from_raw(cfg.unwrap()) };
 
     if let Ok(context) = cfg.build() {
-        Box::into_raw(Box::new(context))
+        Box::into_raw(Box::new(Context::new(context)))
     } else {
         ptr::null_mut()
     }
@@ -241,16 +315,16 @@ pub extern "system" fn sq_keyid_free(keyid: *mut KeyID) {
 ///
 /// `buf` must be an OpenPGP encoded message.
 #[no_mangle]
-pub extern "system" fn sq_tpk_from_bytes(b: *const uint8_t, len: size_t) -> *mut TPK {
+pub extern "system" fn sq_tpk_from_bytes(ctx: Option<&mut Context>,
+                                         b: *const uint8_t, len: size_t)
+                                         -> *mut TPK {
+    let ctx = ctx.expect("Context is NULL");
     assert!(!b.is_null());
     let buf = unsafe {
         slice::from_raw_parts(b, len as usize)
     };
-    if let Ok(tpk) = TPK::from_bytes(buf) {
-        Box::into_raw(Box::new(tpk))
-    } else {
-        ptr::null_mut()
-    }
+
+    fry_box!(ctx, TPK::from_bytes(buf))
 }
 
 /// Frees the TPK.
@@ -283,22 +357,14 @@ pub extern "system" fn sq_tpk_dump(tpk: *mut TPK) {
 ///
 /// Returns `NULL` on errors.
 #[no_mangle]
-pub extern "system" fn sq_keyserver_new(ctx: Option<&Context>,
+pub extern "system" fn sq_keyserver_new(ctx: Option<&mut Context>,
                                         uri: *const c_char) -> *mut KeyServer {
+    let ctx = ctx.expect("Context is NULL");
     let uri = unsafe {
         if uri.is_null() { None } else { Some(CStr::from_ptr(uri)) }
     };
 
-    if ctx.is_none() || uri.is_none() {
-        return ptr::null_mut();
-    }
-    let ks = KeyServer::new(ctx.unwrap(), &uri.unwrap().to_string_lossy());
-
-    if let Ok(ks) = ks {
-        Box::into_raw(Box::new(ks))
-    } else {
-        ptr::null_mut()
-    }
+    fry_box!(ctx, KeyServer::new(&ctx.c, &uri.unwrap().to_string_lossy()))
 }
 
 /// Returns a handle for the given URI.
@@ -308,15 +374,16 @@ pub extern "system" fn sq_keyserver_new(ctx: Option<&Context>,
 /// size `len` used to authenticate the server.
 ///
 /// Returns `NULL` on errors.
-pub extern "system" fn sq_keyserver_with_cert(ctx: Option<&Context>,
+pub extern "system" fn sq_keyserver_with_cert(ctx: Option<&mut Context>,
                                               uri: *const c_char,
                                               cert: *const uint8_t,
                                               len: size_t) -> *mut KeyServer {
+    let ctx = ctx.expect("Context is NULL");
     let uri = unsafe {
         if uri.is_null() { None } else { Some(CStr::from_ptr(uri)) }
     };
 
-    if ctx.is_none() || uri.is_none() || cert.is_null() {
+    if uri.is_none() || cert.is_null() {
         return ptr::null_mut();
     }
 
@@ -324,20 +391,11 @@ pub extern "system" fn sq_keyserver_with_cert(ctx: Option<&Context>,
         slice::from_raw_parts(cert, len as usize)
     };
 
-    let cert = Certificate::from_der(cert);
-    if cert.is_err() {
-        return ptr::null_mut();
-    }
-
-    let ks = KeyServer::with_cert(ctx.unwrap(),
-                                  &uri.unwrap().to_string_lossy(),
-                                  cert.unwrap());
-
-    if let Ok(ks) = ks {
-        Box::into_raw(Box::new(ks))
-    } else {
-        ptr::null_mut()
-    }
+    let cert = fry!(ctx, Certificate::from_der(cert)
+                    .map_err(|e| e.into()));
+    fry_box!(ctx, KeyServer::with_cert(&ctx.c,
+                                       &uri.unwrap().to_string_lossy(),
+                                       cert))
 }
 
 /// Returns a handle for the SKS keyserver pool.
@@ -353,7 +411,7 @@ pub extern "system" fn sq_keyserver_sks_pool(ctx: Option<&Context>) -> *mut KeyS
         return ptr::null_mut();
     }
 
-    let ks = KeyServer::sks_pool(ctx.unwrap());
+    let ks = KeyServer::sks_pool(&ctx.unwrap().c);
 
     if let Ok(ks) = ks {
         Box::into_raw(Box::new(ks))
