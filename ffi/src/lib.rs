@@ -77,7 +77,7 @@ use std::slice;
 
 use openpgp::tpk::TPK;
 use openpgp::KeyID;
-use self::libc::{uint8_t, c_char, size_t};
+use self::libc::{uint8_t, c_char, size_t, c_long};
 use self::native_tls::Certificate;
 use sequoia_core as core;
 use sequoia_core::Config;
@@ -99,16 +99,26 @@ impl Context {
 /// Like try! for ffi glue.
 ///
 /// Unwraps the given expression.  On failure, stashes the error in
-/// the context and returns NULL.
-macro_rules! fry {
-    ($ctx:expr, $expr:expr) => {
+/// the context and returns $or.
+macro_rules! fry_or {
+    ($ctx:expr, $expr:expr, $or:expr) => {
         match $expr {
             Ok(v) => v,
             Err(e) => {
                 $ctx.e = Some(Box::new(e));
-                return ptr::null_mut();
+                return $or;
             },
         }
+    };
+}
+
+/// Like try! for ffi glue.
+///
+/// Unwraps the given expression.  On failure, stashes the error in
+/// the context and returns NULL.
+macro_rules! fry {
+    ($ctx:expr, $expr:expr) => {
+        fry_or!($ctx, $expr, ptr::null_mut())
     };
 }
 
@@ -463,4 +473,19 @@ pub extern "system" fn sq_keyserver_get(ctx: Option<&mut Context>,
     let id = id.expect("KeyID is NULL");
 
     fry_box!(ctx, ks.get(&id))
+}
+
+/// Sends the given key to the server.
+///
+/// Returns != 0 on errors.
+#[no_mangle]
+pub extern "system" fn sq_keyserver_send(ctx: Option<&mut Context>,
+                                         ks: Option<&mut KeyServer>,
+                                         tpk: Option<&TPK>) -> c_long {
+    let ctx = ctx.expect("Context is NULL");
+    let ks = ks.expect("KeyServer is NULL");
+    let tpk = tpk.expect("TPK is NULL");
+
+    fry_or!(ctx, ks.send(tpk), 1);
+    0 // Success!
 }
