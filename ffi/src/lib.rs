@@ -34,6 +34,27 @@
 //! Failing functions return `NULL`.  Functions that require a
 //! `Context` return complex errors.  Complex errors are stored in the
 //! `Context`, and can be retrieved using `sq_last_strerror`.
+//!
+//! # Example
+//!
+//! ```text
+//! #include <sequoia.h>
+//!
+//! struct sq_context *ctx;
+//! struct sq_tpk *tpk;
+//!
+//! ctx = sq_context_new("org.sequoia-pgp.example");
+//! if (ctx == NULL)
+//!   error (1, 0, "Initializing sequoia failed.");
+//!
+//! tpk = sq_tpk_from_bytes (ctx, buf, len);
+//! if (tpk == NULL)
+//!   error (1, 0, "sq_tpk_from_bytes: %s", sq_last_strerror (ctx));
+//!
+//! sq_tpk_dump (tpk);
+//! sq_tpk_free (tpk);
+//! sq_context_free (ctx);
+//! ```
 
 
 extern crate failure;
