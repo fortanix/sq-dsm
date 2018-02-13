@@ -412,6 +412,7 @@ pub extern "system" fn sq_keyserver_new(ctx: Option<&mut Context>,
 /// size `len` used to authenticate the server.
 ///
 /// Returns `NULL` on errors.
+#[no_mangle]
 pub extern "system" fn sq_keyserver_with_cert(ctx: Option<&mut Context>,
                                               uri: *const c_char,
                                               cert: *const uint8_t,
