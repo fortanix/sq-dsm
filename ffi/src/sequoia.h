@@ -17,14 +17,14 @@
 /// if (ctx == NULL) { ... }
 /// ```
 /*/
-struct sq_context;
+typedef struct sq_context *sq_context_t;
 
 /*/
 /// Returns the last error message.
 ///
 /// The returned value must be freed with `sq_string_free`.
 /*/
-char *sq_last_strerror (const struct sq_context *ctx);
+char *sq_last_strerror (const sq_context_t ctx);
 
 /*/
 /// Frees a string returned from Sequoia.
@@ -34,7 +34,7 @@ void sq_string_free (char *s);
 /*/
 /// Represents a `Context` configuration.
 /*/
-struct sq_config;
+typedef struct sq_config *sq_config_t;
 
 /*/
 /// Network policy for Sequoia.
@@ -125,12 +125,12 @@ struct sq_config;
 ///
 /// Returns `NULL` on errors.
 /*/
-struct sq_context *sq_context_new(const char *domain);
+sq_context_t sq_context_new(const char *domain);
 
 /*/
 /// Frees a context.
 /*/
-void sq_context_free(struct sq_context *context);
+void sq_context_free(sq_context_t context);
 
 /*/
 /// Creates a Context that can be configured.
@@ -143,32 +143,32 @@ void sq_context_free(struct sq_context *context);
 /// modified.  A configuration has to be finalized using
 /// `sq_config_build()` in order to turn it into a Context.
 /*/
-struct sq_config *sq_context_configure(const char *domain);
+sq_config_t sq_context_configure(const char *domain);
 
 /*/
 /// Returns the domain of the context.
 /*/
-const char *sq_context_domain(const struct sq_context *ctx);
+const char *sq_context_domain(const sq_context_t ctx);
 
 /*/
 /// Returns the directory containing shared state.
 /*/
-const char *sq_context_home(const struct sq_context *ctx);
+const char *sq_context_home(const sq_context_t ctx);
 
 /*/
 /// Returns the directory containing backend servers.
 /*/
-const char *sq_context_lib(const struct sq_context *ctx);
+const char *sq_context_lib(const sq_context_t ctx);
 
 /*/
 /// Returns the network policy.
 /*/
-uint8_t sq_context_network_policy(const struct sq_context *ctx);
+uint8_t sq_context_network_policy(const sq_context_t ctx);
 
 /*/
 /// Returns whether or not this is an ephemeral context.
 /*/
-uint8_t sq_context_ephemeral(const struct sq_context *ctx);
+uint8_t sq_context_ephemeral(const sq_context_t ctx);
 
 
 /* sequoia::Config.  */
@@ -178,27 +178,27 @@ uint8_t sq_context_ephemeral(const struct sq_context *ctx);
 ///
 /// Consumes `cfg`.  Returns `NULL` on errors.
 /*/
-struct sq_context *sq_config_build(struct sq_config *cfg);
+sq_context_t sq_config_build(sq_config_t cfg);
 
 /*/
 /// Sets the directory containing shared state.
 /*/
-void sq_config_home(struct sq_config *cfg, const char *home);
+void sq_config_home(sq_config_t cfg, const char *home);
 
 /*/
 /// Sets the directory containing backend servers.
 /*/
-void sq_config_lib(struct sq_config *cfg, const char *lib);
+void sq_config_lib(sq_config_t cfg, const char *lib);
 
 /*/
 /// Sets the network policy.
 /*/
-void sq_config_network_policy(struct sq_config *cfg, uint8_t policy);
+void sq_config_network_policy(sq_config_t cfg, uint8_t policy);
 
 /*/
 /// Makes this context ephemeral.
 /*/
-void sq_config_ephemeral(struct sq_config *cfg);
+void sq_config_ephemeral(sq_config_t cfg);
 
 
 /* sequoia::openpgp::KeyID.  */
@@ -206,22 +206,22 @@ void sq_config_ephemeral(struct sq_config *cfg);
 /*/
 /// Holds a KeyID.
 /*/
-struct sq_keyid;
+typedef struct sq_keyid *sq_keyid_t;
 
 /*/
 /// Reads a binary key ID.
 /*/
-struct sq_keyid *sq_keyid_from_bytes (const uint8_t *id);
+sq_keyid_t sq_keyid_from_bytes (const uint8_t *id);
 
 /*/
 /// Reads a hex-encoded Key ID.
 /*/
-struct sq_keyid *sq_keyid_from_hex (const char *id);
+sq_keyid_t sq_keyid_from_hex (const char *id);
 
 /*/
 /// Frees a keyid object.
 /*/
-void sq_keyid_free (struct sq_keyid *keyid);
+void sq_keyid_free (sq_keyid_t keyid);
 
 
 /* sequoia::keys.  */
@@ -235,25 +235,25 @@ void sq_keyid_free (struct sq_keyid *keyid);
 ///
 /// [RFC 4880, section 11.1]: https://tools.ietf.org/html/rfc4880#section-11.1
 /*/
-struct sq_tpk;
+typedef struct sq_tpk *sq_tpk_t;
 
 /*/
 /// Returns the first TPK found in `buf`.
 ///
 /// `buf` must be an OpenPGP encoded message.
 /*/
-struct sq_tpk *sq_tpk_from_bytes (struct sq_context *ctx,
-				  const char *b, size_t len);
+sq_tpk_t sq_tpk_from_bytes (sq_context_t ctx,
+			    const char *b, size_t len);
 
 /*/
 /// Frees the TPK.
 /*/
-void sq_tpk_free (struct sq_tpk *tpk);
+void sq_tpk_free (sq_tpk_t tpk);
 
 /*/
 /// Dumps the TPK.
 /*/
-void sq_tpk_dump (const struct sq_tpk *tpk);
+void sq_tpk_dump (const sq_tpk_t tpk);
 
 
 /* sequoia::net.  */
@@ -261,7 +261,7 @@ void sq_tpk_dump (const struct sq_tpk *tpk);
 /*/
 /// For accessing keyservers using HKP.
 /*/
-struct sq_keyserver;
+typedef struct sq_keyserver *sq_keyserver_t;
 
 /*/
 /// Returns a handle for the given URI.
@@ -271,8 +271,8 @@ struct sq_keyserver;
 ///
 /// Returns `NULL` on errors.
 /*/
-struct sq_keyserver *sq_keyserver_new (struct sq_context *ctx,
-				       const char *uri);
+sq_keyserver_t sq_keyserver_new (sq_context_t ctx,
+				 const char *uri);
 
 /*/
 /// Returns a handle for the given URI.
@@ -283,10 +283,10 @@ struct sq_keyserver *sq_keyserver_new (struct sq_context *ctx,
 ///
 /// Returns `NULL` on errors.
 /*/
-struct sq_keyserver *sq_keyserver_with_cert (struct sq_context *ctx,
-					     const char *uri,
-					     const uint8_t *cert,
-					     size_t len);
+sq_keyserver_t sq_keyserver_with_cert (sq_context_t ctx,
+				       const char *uri,
+				       const uint8_t *cert,
+				       size_t len);
 
 /*/
 /// Returns a handle for the SKS keyserver pool.
@@ -297,20 +297,20 @@ struct sq_keyserver *sq_keyserver_with_cert (struct sq_context *ctx,
 ///
 /// Returns `NULL` on errors.
 /*/
-struct sq_keyserver *sq_keyserver_sks_pool (struct sq_context *ctx);
+sq_keyserver_t sq_keyserver_sks_pool (sq_context_t ctx);
 
 /*/
 /// Frees a keyserver object.
 /*/
-void sq_keyserver_free (struct sq_keyserver *ks);
+void sq_keyserver_free (sq_keyserver_t ks);
 
 /*/
 /// Retrieves the key with the given `keyid`.
 ///
 /// Returns `NULL` on errors.
 /*/
-struct sq_tpk *sq_keyserver_get (struct sq_context *ctx,
-				 struct sq_keyserver *ks,
-				 const struct sq_keyid *id);
+sq_tpk_t sq_keyserver_get (sq_context_t ctx,
+			   sq_keyserver_t ks,
+			   const sq_keyid_t id);
 
 #endif

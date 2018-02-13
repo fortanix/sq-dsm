@@ -16,8 +16,8 @@ main (int argc, char **argv)
   struct stat st;
   int fd;
   char *b;
-  struct sq_context *ctx;
-  struct sq_tpk *tpk;
+  sq_context_t ctx;
+  sq_tpk_t tpk;
 
   if (argc != 2)
     error (1, 0, "Usage: %s <file>", argv[0]);
