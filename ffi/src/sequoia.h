@@ -271,7 +271,7 @@ struct sq_keyserver;
 ///
 /// Returns `NULL` on errors.
 /*/
-struct sq_keyserver *sq_keyserver_new (const struct sq_context *ctx,
+struct sq_keyserver *sq_keyserver_new (struct sq_context *ctx,
 				       const char *uri);
 
 /*/
@@ -283,7 +283,7 @@ struct sq_keyserver *sq_keyserver_new (const struct sq_context *ctx,
 ///
 /// Returns `NULL` on errors.
 /*/
-struct sq_keyserver *sq_keyserver_with_cert (const struct sq_context *ctx,
+struct sq_keyserver *sq_keyserver_with_cert (struct sq_context *ctx,
 					     const char *uri,
 					     const uint8_t *cert,
 					     size_t len);
@@ -297,7 +297,7 @@ struct sq_keyserver *sq_keyserver_with_cert (const struct sq_context *ctx,
 ///
 /// Returns `NULL` on errors.
 /*/
-struct sq_keyserver *sq_keyserver_sks_pool (const struct sq_context *ctx);
+struct sq_keyserver *sq_keyserver_sks_pool (struct sq_context *ctx);
 
 /*/
 /// Frees a keyserver object.
@@ -309,7 +309,8 @@ void sq_keyserver_free (struct sq_keyserver *ks);
 ///
 /// Returns `NULL` on errors.
 /*/
-struct sq_tpk *sq_keyserver_get (struct sq_keyserver *ks,
+struct sq_tpk *sq_keyserver_get (struct sq_context *ctx,
+				 struct sq_keyserver *ks,
 				 const struct sq_keyid *id);
 
 #endif

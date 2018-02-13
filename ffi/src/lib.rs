@@ -18,7 +18,14 @@
 //! Sequoia objects are opaque objects.  They are created in
 //! constructors, and must be freed when no longer needed.
 //!
-//! Strings must be UTF-8 encoded and zero-terminated.
+//! Pointers handed to Sequoia must not be `NULL`, destructors are
+//! exempt from this rule.  Freeing `NULL` is a nop.
+//!
+//! Enumeration-like values must be in the valid range.
+//!
+//! Strings must be UTF-8 encoded and zero-terminated.  Malformed
+//! characters will be substituted, and the result is likely not what
+//! you expect.
 //!
 //! # Lifetimes
 //!
@@ -427,18 +434,10 @@ pub extern "system" fn sq_keyserver_with_cert(ctx: Option<&mut Context>,
 ///
 /// Returns `NULL` on errors.
 #[no_mangle]
-pub extern "system" fn sq_keyserver_sks_pool(ctx: Option<&Context>) -> *mut KeyServer {
-    if ctx.is_none() {
-        return ptr::null_mut();
-    }
-
-    let ks = KeyServer::sks_pool(&ctx.unwrap().c);
-
-    if let Ok(ks) = ks {
-        Box::into_raw(Box::new(ks))
-    } else {
-        ptr::null_mut()
-    }
+pub extern "system" fn sq_keyserver_sks_pool(ctx: Option<&mut Context>)
+                                             -> *mut KeyServer {
+    let ctx = ctx.expect("Context is NULL");
+    fry_box!(ctx, KeyServer::sks_pool(&ctx.c))
 }
 
 /// Frees a keyserver object.
@@ -456,13 +455,12 @@ pub extern "system" fn sq_keyserver_free(ks: *mut KeyServer) {
 ///
 /// Returns `NULL` on errors.
 #[no_mangle]
-pub extern "system" fn sq_keyserver_get(ks: Option<&mut KeyServer>,
+pub extern "system" fn sq_keyserver_get(ctx: Option<&mut Context>,
+                                        ks: Option<&mut KeyServer>,
                                         id: Option<&KeyID>) -> *mut TPK {
-    if ks.is_none() || id.is_none() {
-        return ptr::null_mut();
-    }
+    let ctx = ctx.expect("Context is NULL");
+    let ks = ks.expect("KeyServer is NULL");
+    let id = id.expect("KeyID is NULL");
 
-    ks.unwrap().get(id.as_ref().unwrap())
-        .map(|id| Box::into_raw(Box::new(id)))
-        .unwrap_or(ptr::null_mut())
+    fry_box!(ctx, ks.get(&id))
 }
