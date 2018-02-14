@@ -18,7 +18,7 @@
 //! A context can be configured using the builder pattern with
 //! `sq_context_configure`:
 //!
-//! ```
+//! ```text
 //! sq_config_t cfg;
 //! sq_context_t ctx;
 //!
