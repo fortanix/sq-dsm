@@ -18,17 +18,17 @@ fn path_to(artifact: &str) -> PathBuf {
         .iter().collect()
 }
 
-fn write_byte<W: io::Write>(o: &mut W, b: u8) -> Result<(), io::Error> {
+fn write_byte<W: io::Write>(o: &mut W, b: u8) -> io::Result<()> {
     let b : [u8; 1] = [b; 1];
     o.write_all(&b[..])
 }
 
-fn write_be_u16<W: io::Write>(o: &mut W, n: u16) -> Result<(), io::Error> {
+fn write_be_u16<W: io::Write>(o: &mut W, n: u16) -> io::Result<()> {
     let b : [u8; 2] = [ ((n >> 8) & 0xFF) as u8, (n & 0xFF) as u8 ];
     o.write_all(&b[..])
 }
 
-fn write_be_u32<W: io::Write>(o: &mut W, n: u32) -> Result<(), io::Error> {
+fn write_be_u32<W: io::Write>(o: &mut W, n: u32) -> io::Result<()> {
     let b : [u8; 4] = [ (n >> 24) as u8, ((n >> 16) & 0xFF) as u8,
                          ((n >> 8) & 0xFF) as u8, (n & 0xFF) as u8 ];
     o.write_all(&b[..])
@@ -140,8 +140,7 @@ impl S2K {
 
     /// Writes a serialized version of the specified `S2K`
     /// packet to `o`.
-    pub fn serialize<W: io::Write>(&self, o: &mut W)
-            -> Result<(), io::Error> {
+    pub fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
         let mode = if self.salt.is_some() && self.coded_count.is_some() {
             3
         } else if self.coded_count.is_some() && !self.salt.is_some() {
@@ -168,8 +167,7 @@ impl S2K {
 impl Unknown {
     /// Writes a serialized version of the specified `Unknown` packet
     /// to `o`.
-    pub fn serialize<W: io::Write>(&self, o: &mut W)
-            -> Result<(), io::Error> {
+    pub fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
         let body = if let Some(ref body) = self.common.body {
             &body[..]
         } else {
@@ -200,8 +198,7 @@ impl Signature {
     /// Note: this function does not computer the signature (which
     /// would require access to the private key); it assumes that
     /// sig.mpis is up to date.
-    pub fn serialize<W: io::Write>(&self, o: &mut W)
-            -> Result<(), io::Error> {
+    pub fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
         let len = 1 // version
             + 1 // signature type.
             + 1 // pk algorithm
@@ -254,8 +251,7 @@ impl Signature {
 impl Key {
     /// Writes a serialized version of the specified `Key` packet to
     /// `o`.
-    pub fn serialize<W: io::Write>(&self, o: &mut W, tag: Tag)
-            -> Result<(), io::Error> {
+    pub fn serialize<W: io::Write>(&self, o: &mut W, tag: Tag) -> Result<()> {
         assert!(tag == Tag::PublicKey
                 || tag == Tag::PublicSubkey
                 || tag == Tag::SecretKey
@@ -288,8 +284,7 @@ impl Key {
 impl UserID {
     /// Writes a serialized version of the specified `UserID` packet to
     /// `o`.
-    pub fn serialize<W: io::Write>(&self, o: &mut W)
-            -> Result<(), io::Error> {
+    pub fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
         let len = self.value.len();
 
         write_byte(o, ctb_old(Tag::UserID, BodyLength::Full(len as u32)))?;
@@ -311,8 +306,7 @@ impl UserID {
 impl UserAttribute {
     /// Writes a serialized version of the specified `UserAttribute`
     /// packet to `o`.
-    pub fn serialize<W: io::Write>(&self, o: &mut W)
-            -> Result<(), io::Error> {
+    pub fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
         let len = self.value.len();
 
         write_byte(o,
@@ -334,8 +328,7 @@ impl UserAttribute {
 
 impl Literal {
     /// Writes a serialized version of the `Literal` data packet to `o`.
-    pub fn serialize<W: io::Write>(&self, o: &mut W)
-            -> Result<(), io::Error> {
+    pub fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
         let body = if let Some(ref body) = self.common.body {
             &body[..]
         } else {
@@ -390,8 +383,7 @@ impl CompressedData {
     ///
     /// This function works recursively: if the `CompressedData` packet
     /// contains any packets, they are also serialized.
-    pub fn serialize<W: io::Write>(&self, o: &mut W)
-            -> Result<(), io::Error> {
+    pub fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
         use flate2::Compression as FlateCompression;
         use flate2::write::{DeflateEncoder, ZlibEncoder};
         use bzip2::Compression as BzCompression;
@@ -454,8 +446,7 @@ impl CompressedData {
 impl SKESK {
     /// Writes a serialized version of the specified `SKESK`
     /// packet to `o`.
-    pub fn serialize<W: io::Write>(&self, o: &mut W)
-                                   -> Result<(), io::Error> {
+    pub fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
         if self.version != 4 {
             panic!("SKESK:serialize: Don't know how to serialize \
                     non-version 4 packets.");
@@ -485,8 +476,7 @@ impl Packet {
     ///
     /// This function works recursively: if the packet contains any
     /// packets, they are also serialized.
-    fn serialize<W: io::Write>(&self, o: &mut W)
-            -> Result<(), io::Error> {
+    fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
         let tag = self.tag();
         match self {
             &Packet::Unknown(ref p) => p.serialize(o),
@@ -516,7 +506,7 @@ impl Packet {
 
 impl Message {
     /// Writes a serialized version of the specified `Message` to `o`.
-    pub fn serialize<W: io::Write>(&self, o: &mut W) -> Result<(), io::Error> {
+    pub fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
         for p in self.children() {
             p.serialize(o)?;
         }

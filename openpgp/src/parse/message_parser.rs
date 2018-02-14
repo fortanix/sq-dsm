@@ -2,6 +2,8 @@ use std::io;
 use std::fs::File;
 use std::path::Path;
 
+use Result;
+
 use super::{PacketParserBuilder, PacketParser, Packet, Container, Message,
             BufferedReaderState};
 use buffered_reader::{BufferedReader, BufferedReaderGeneric,
@@ -55,10 +57,11 @@ fn path_to(artifact: &str) -> PathBuf {
 /// # Examples
 ///
 /// ```rust
+/// # use openpgp::Result;
 /// # use openpgp::parse::MessageParser;
 /// # let _ = f(include_bytes!("../../tests/data/messages/public-key.gpg"));
 /// #
-/// # fn f(message_data: &[u8]) -> Result<(), std::io::Error> {
+/// # fn f(message_data: &[u8]) -> Result<()> {
 /// let mut mp = MessageParser::from_bytes(message_data)?;
 /// while mp.recurse() {
 ///     let pp = mp.ppo.as_mut().unwrap();
@@ -84,8 +87,7 @@ pub struct MessageParser<'a> {
 impl<R: BufferedReader<BufferedReaderState>> PacketParserBuilder<R> {
     /// Finishes configuring the `PacketParser` and returns a
     /// `MessageParser`.
-    pub fn to_message_parser<'a>(self)
-            -> Result<MessageParser<'a>, io::Error>
+    pub fn to_message_parser<'a>(self) -> Result<MessageParser<'a>>
             where Self: 'a {
         MessageParser::from_packet_parser(self.finalize()?)
     }
@@ -94,7 +96,7 @@ impl<R: BufferedReader<BufferedReaderState>> PacketParserBuilder<R> {
 impl<'a> MessageParser<'a> {
     // Creates a `MessageParser` from a *fresh* `PacketParser`.
     fn from_packet_parser(ppo: Option<PacketParser<'a>>)
-            -> Result<MessageParser<'a>, io::Error> {
+            -> Result<MessageParser<'a>> {
         Ok(MessageParser {
             message: Message { top_level: Container::new() },
             ppo: ppo,
@@ -105,14 +107,14 @@ impl<'a> MessageParser<'a> {
     /// Creates a `MessageParser` to parse the OpenPGP message stored
     /// in the `BufferedReader` object.
     pub fn from_buffered_reader<R: BufferedReader<BufferedReaderState> + 'a>(bio: R)
-            -> Result<MessageParser<'a>, io::Error> {
+            -> Result<MessageParser<'a>> {
         Self::from_packet_parser(PacketParser::from_buffered_reader(bio)?)
     }
 
     /// Creates a `MessageParser` to parse the OpenPGP message stored
     /// in the `io::Read` object.
     pub fn from_reader<R: io::Read + 'a>(reader: R)
-             -> Result<MessageParser<'a>, io::Error> {
+             -> Result<MessageParser<'a>> {
         let bio = BufferedReaderGeneric::with_cookie(
             reader, None, BufferedReaderState::default());
         MessageParser::from_buffered_reader(bio)
@@ -121,14 +123,14 @@ impl<'a> MessageParser<'a> {
     /// Creates a `MessageParser` to parse the OpenPGP message stored
     /// in the file named by `path`.
     pub fn from_file<P: AsRef<Path>>(path: P)
-            -> Result<MessageParser<'a>, io::Error> {
+            -> Result<MessageParser<'a>> {
         MessageParser::from_reader(File::open(path)?)
     }
 
     /// Creates a `MessageParser` to parse the OpenPGP message stored
     /// in the provided buffer.
     pub fn from_bytes(data: &'a [u8])
-            -> Result<MessageParser<'a>, io::Error> {
+            -> Result<MessageParser<'a>> {
         let bio = BufferedReaderMemory::with_cookie(
             data, BufferedReaderState::default());
         MessageParser::from_buffered_reader(bio)

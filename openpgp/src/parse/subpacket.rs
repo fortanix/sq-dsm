@@ -29,12 +29,13 @@
 //! print it:
 //!
 //! ```rust
+//! # use openpgp::Result;
 //! # use openpgp::Packet;
 //! # use openpgp::parse::PacketParser;
 //! #
 //! # f(include_bytes!("../../tests/data/messages/signed.gpg"));
 //! #
-//! # fn f(message_data: &[u8]) -> Result<(), std::io::Error> {
+//! # fn f(message_data: &[u8]) -> Result<()> {
 //! let mut ppo = PacketParser::from_bytes(message_data)?;
 //! while let Some(mut pp) = ppo {
 //!     if let Packet::Signature(ref sig) = pp.packet {
@@ -50,8 +51,6 @@
 //! # Ok(())
 //! # }
 //! ```
-
-use std::io::Error;
 
 use super::*;
 
@@ -611,7 +610,7 @@ impl<'a> From<SubpacketRaw<'a>> for Subpacket<'a> {
 
 /// Decode a subpacket length as described in Section 5.2.3.1 of RFC 4880.
 fn subpacket_length<C>(bio: &mut BufferedReaderMemory<C>)
-      -> Result<u32, Error> {
+      -> Result<u32> {
     let octet1 = bio.data_consume_hard(1)?[0];
     if octet1 < 192 {
         // One octet.

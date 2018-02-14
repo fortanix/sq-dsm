@@ -53,8 +53,8 @@ extern crate flate2;
 extern crate bzip2;
 
 use std::fmt;
+use std::io;
 use std::ops::Deref;
-
 use std::cell::RefCell;
 use std::collections::HashMap;
 
@@ -81,7 +81,20 @@ mod packet;
 mod container;
 mod message;
 mod iter;
+
+pub type Result<T> = ::std::result::Result<T, failure::Error>;
 
+#[derive(Fail, Debug)]
+/// Errors returned by this module.
+pub enum Error {
+    /// A malformed packet.
+    #[fail(display = "Malformed packet: {}", _0)]
+    MalformedPacket(String),
+
+    #[fail(display = "{}", _0)]
+    Io(#[cause] io::Error),
+}
+
 /// The OpenPGP packet tags as defined in [Section 4.3 of RFC 4880].
 ///
 ///   [Section 4.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.3
