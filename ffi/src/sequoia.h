@@ -224,6 +224,44 @@ sq_keyid_t sq_keyid_from_hex (const char *id);
 void sq_keyid_free (sq_keyid_t keyid);
 
 
+/* sequoia::openpgp::Fingerprint.  */
+
+/*/
+/// Holds a fingerprint.
+/*/
+typedef struct sq_fingerprint *sq_fingerprint_t;
+
+/*/
+/// Reads a binary fingerprint.
+/*/
+sq_fingerprint_t sq_fingerprint_from_bytes (const uint8_t *buf, size_t len);
+
+/*/
+/// Reads a hexadecimal fingerprint.
+/*/
+sq_fingerprint_t sq_fingerprint_from_hex (const char *hex);
+
+/*/
+/// Frees a sq_fingerprint_t.
+/*/
+void sq_fingerprint_free (sq_fingerprint_t fp);
+
+/*/
+/// Converts the fingerprint to its standard representation.
+/*/
+char *sq_fingerprint_to_string (const sq_fingerprint_t fp);
+
+/*/
+/// Converts the fingerprint to a hexadecimal number.
+/*/
+char *sq_fingerprint_to_hex (const sq_fingerprint_t fp);
+
+/*/
+/// Converts the fingerprint to a key ID.
+/*/
+sq_keyid_t sq_fingerprint_to_keyid (const sq_fingerprint_t fp);
+
+
 /* sequoia::keys.  */
 
 /*/

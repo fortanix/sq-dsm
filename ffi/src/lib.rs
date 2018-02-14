@@ -76,7 +76,7 @@ use std::ptr;
 use std::slice;
 
 use openpgp::tpk::TPK;
-use openpgp::KeyID;
+use openpgp::{Fingerprint, KeyID};
 use self::libc::{uint8_t, c_char, size_t, c_long};
 use self::native_tls::Certificate;
 use sequoia_core as core;
@@ -344,6 +344,69 @@ pub extern "system" fn sq_keyid_free(keyid: *mut KeyID) {
     unsafe {
         drop(Box::from_raw(keyid));
     }
+}
+
+
+/* sequoia::openpgp::Fingerprint.  */
+
+/// Reads a binary fingerprint.
+#[no_mangle]
+pub extern "system" fn sq_fingerprint_from_bytes(buf: *const uint8_t,
+                                                 len: size_t)
+                                                 -> *mut Fingerprint {
+    assert!(!buf.is_null());
+    let buf = unsafe {
+        slice::from_raw_parts(buf, len as usize)
+    };
+    Box::into_raw(Box::new(Fingerprint::from_bytes(buf)))
+}
+
+/// Reads a hexadecimal fingerprint.
+#[no_mangle]
+pub extern "system" fn sq_fingerprint_from_hex(hex: *const c_char)
+                                               -> *mut Fingerprint {
+    assert!(!hex.is_null());
+    let hex = unsafe { CStr::from_ptr(hex).to_string_lossy() };
+    Fingerprint::from_hex(&hex)
+        .map(|fp| Box::into_raw(Box::new(fp)))
+        .unwrap_or(ptr::null_mut())
+}
+
+/// Frees a sq_fingerprint_t.
+#[no_mangle]
+pub extern "system" fn sq_fingerprint_free(fp: *mut Fingerprint) {
+    if fp.is_null() { return }
+    unsafe {
+        drop(Box::from_raw(fp));
+    }
+}
+
+/// Converts the fingerprint to its standard representation.
+#[no_mangle]
+pub extern "system" fn sq_fingerprint_to_string(fp: Option<&Fingerprint>)
+                                                -> *mut c_char {
+    let fp = fp.expect("Fingerprint is NULL");
+    CString::new(fp.to_string())
+        .unwrap() // Errors only on internal nul bytes.
+        .into_raw()
+}
+
+/// Converts the fingerprint to a hexadecimal number.
+#[no_mangle]
+pub extern "system" fn sq_fingerprint_to_hex(fp: Option<&Fingerprint>)
+                                             -> *mut c_char {
+    let fp = fp.expect("Fingerprint is NULL");
+    CString::new(fp.to_hex())
+        .unwrap() // Errors only on internal nul bytes.
+        .into_raw()
+}
+
+/// Converts the fingerprint to a key ID.
+#[no_mangle]
+pub extern "system" fn sq_fingerprint_to_keyid(fp: Option<&Fingerprint>)
+                                               -> *mut KeyID {
+    let fp = fp.expect("Fingerprint is NULL");
+    Box::into_raw(Box::new(fp.to_keyid()))
 }
 
 
