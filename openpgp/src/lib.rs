@@ -94,6 +94,23 @@ pub enum Error {
     #[fail(display = "{}", _0)]
     Io(#[cause] io::Error),
 }
+
+// A helpful debugging function.
+#[allow(dead_code)]
+fn to_hex(s: &[u8], pretty: bool) -> String {
+    use std::fmt::Write;
+
+    let mut result = String::new();
+    for (i, b) in s.iter().enumerate() {
+        // Add spaces every four digits to make the output more
+        // readable.
+        if pretty && i > 0 && i % 2 == 0 {
+            write!(&mut result, " ").unwrap();
+        }
+        write!(&mut result, "{:02X}", b).unwrap();
+    }
+    result
+}
 
 /// The OpenPGP packet tags as defined in [Section 4.3 of RFC 4880].
 ///

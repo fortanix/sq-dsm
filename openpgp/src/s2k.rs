@@ -93,6 +93,7 @@ impl S2K {
 mod test {
     use super::*;
 
+    use to_hex;
     use Tag;
     use SymmetricAlgo;
     use SKESK;
@@ -217,16 +218,6 @@ mod test {
             },
         ];
 
-        fn to_hex(s: &[u8]) -> String {
-            use std::fmt::Write;
-
-            let mut result = String::new();
-            for b in s.iter() {
-                write!(&mut result, "{:02X}", b).unwrap();
-            }
-            result
-        }
-
         for test in tests.iter() {
             let path = path_to(test.filename);
             let mut f = File::open(&path).expect(&path.to_string_lossy());
@@ -252,7 +243,7 @@ mod test {
                         SymmetricAlgo::from_numeric(skesk.symm_algo).unwrap())
                         .unwrap());
                 if let Some(key) = key {
-                    let key = to_hex(&key[..]);
+                    let key = to_hex(&key[..], false);
                     assert_eq!(key, test.key_hex);
                 } else {
                     panic!("Session key: None!");

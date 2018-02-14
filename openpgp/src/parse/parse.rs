@@ -751,16 +751,6 @@ fn skesk_parser_test() {
             },
     ];
 
-    fn to_hex(s: &[u8]) -> String {
-        use std::fmt::Write;
-
-        let mut result = String::new();
-        for b in s.iter() {
-            write!(&mut result, "{:02X}", b).unwrap();
-        }
-        result
-    }
-
     for test in tests.iter() {
         let path = path_to(test.filename);
         let mut f = File::open(&path).expect(&path.to_string_lossy());
@@ -782,7 +772,7 @@ fn skesk_parser_test() {
 
             let key = skesk.decrypt(test.password);
             if let Some((_symm_algo, key)) = key {
-                let key = to_hex(&key[..]);
+                let key = to_hex(&key[..], false);
                 assert_eq!(&key[..], &test.key_hex[..]);
             } else {
                 panic!("Session key: None!");
