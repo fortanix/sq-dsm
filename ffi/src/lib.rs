@@ -68,6 +68,7 @@ extern crate libc;
 extern crate native_tls;
 extern crate sequoia_core;
 extern crate sequoia_net;
+extern crate sequoia_store;
 
 /// Like try! for ffi glue.
 ///
@@ -106,6 +107,14 @@ macro_rules! fry_box {
     }
 }
 
+/// Box, then turn into raw pointer.
+macro_rules! box_raw {
+    ($expr:expr) => {
+        Box::into_raw(Box::new($expr))
+    }
+}
+
 pub mod core;
 pub mod openpgp;
 pub mod net;
+pub mod store;
