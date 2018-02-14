@@ -317,12 +317,12 @@ pub extern "system" fn sq_config_ephemeral(cfg: Option<&mut Config>) {
 }
 
 
-/* openpgp::KeyID.  */
+/* sequoia::openpgp::KeyID.  */
 
 /// Reads a binary key ID.
 #[no_mangle]
 pub extern "system" fn sq_keyid_from_bytes(id: *const uint8_t) -> *mut KeyID {
-    if id.is_null() { return ptr::null_mut() }
+    assert!(!id.is_null());
     let id = unsafe { slice::from_raw_parts(id, 8) };
     Box::into_raw(Box::new(KeyID::from_bytes(id)))
 }
@@ -330,7 +330,7 @@ pub extern "system" fn sq_keyid_from_bytes(id: *const uint8_t) -> *mut KeyID {
 /// Reads a hex-encoded Key ID.
 #[no_mangle]
 pub extern "system" fn sq_keyid_from_hex(id: *const c_char) -> *mut KeyID {
-    if id.is_null() { return ptr::null_mut() }
+    assert!(!id.is_null());
     let id = unsafe { CStr::from_ptr(id).to_string_lossy() };
     KeyID::from_hex(&id)
         .map(|id| Box::into_raw(Box::new(id)))
@@ -344,6 +344,26 @@ pub extern "system" fn sq_keyid_free(keyid: *mut KeyID) {
     unsafe {
         drop(Box::from_raw(keyid));
     }
+}
+
+/// Converts the KeyID to its standard representation.
+#[no_mangle]
+pub extern "system" fn sq_keyid_to_string(id: Option<&KeyID>)
+                                          -> *mut c_char {
+    let id = id.expect("KeyID is NULL");
+    CString::new(id.to_string())
+        .unwrap() // Errors only on internal nul bytes.
+        .into_raw()
+}
+
+/// Converts the KeyID to a hexadecimal number.
+#[no_mangle]
+pub extern "system" fn sq_keyid_to_hex(id: Option<&KeyID>)
+                                       -> *mut c_char {
+    let id = id.expect("KeyID is NULL");
+    CString::new(id.to_hex())
+        .unwrap() // Errors only on internal nul bytes.
+        .into_raw()
 }
 
 

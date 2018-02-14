@@ -219,9 +219,19 @@ sq_keyid_t sq_keyid_from_bytes (const uint8_t *id);
 sq_keyid_t sq_keyid_from_hex (const char *id);
 
 /*/
-/// Frees a keyid object.
+/// Frees a sq_keyid_t.
 /*/
 void sq_keyid_free (sq_keyid_t keyid);
+
+/*/
+/// Converts the KeyID to its standard representation.
+/*/
+char *sq_keyid_to_string (const sq_keyid_t fp);
+
+/*/
+/// Converts the KeyID to a hexadecimal number.
+/*/
+char *sq_keyid_to_hex (const sq_keyid_t fp);
 
 
 /* sequoia::openpgp::Fingerprint.  */
