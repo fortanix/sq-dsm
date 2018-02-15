@@ -23,10 +23,9 @@
 //! ```
 
 
-use libc::{uint8_t, c_char, size_t, c_long};
+use libc::{uint8_t, c_char, c_long};
 use std::ffi::{CStr, CString};
 use std::ptr;
-use std::slice;
 
 extern crate openpgp;
 
