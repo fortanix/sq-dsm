@@ -452,7 +452,7 @@ impl Binding {
     /// carry a valid signature from the current key, an
     /// `Error::Conflict` is returned, and you have to resolve the
     /// conflict, either by ignoring the new key, or by using
-    /// `TPK::rotate` to force a rotation.
+    /// `Binding::rotate` to force a rotation.
     ///
     /// # Example
     ///
@@ -507,10 +507,10 @@ impl Binding {
     /// known to Sequoia, and should be used instead of `tpk`.
     ///
     /// Use this function to resolve conflicts returned from
-    /// `TPK::import`.  Make sure that you have authenticated `tpk`
-    /// properly.  How to do that depends on your thread model.  You
-    /// could simply ask Alice to call her communication partner Bob
-    /// and confirm that he rotated his keys.
+    /// `Binding::import`.  Make sure that you have authenticated
+    /// `tpk` properly.  How to do that depends on your thread model.
+    /// You could simply ask Alice to call her communication partner
+    /// Bob and confirm that he rotated his keys.
     ///
     /// # Example
     ///
@@ -887,7 +887,7 @@ impl Iterator for KeyIter {
     }
 }
 
-/// Iterates over keys in the common key pool.
+/// Iterates over logs.
 pub struct LogIter {
     core: Rc<RefCell<Core>>,
     iter: node::log_iter::Client,
