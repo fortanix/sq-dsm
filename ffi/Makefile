@@ -23,15 +23,12 @@ all: build
 
 .PHONY: build
 build:
-	sed -e 's|VERSION|$(VERSION)|g' \
-	    -e 's|PREFIX|$(shell pwd)|g' \
-            -e 's|libdir=.*|libdir='"$(CARGO_TARGET_DIR)"'/debug|g' \
-		sequoia.pc.in \
-		> $(CARGO_TARGET_DIR)/debug/sequoia.pc
+	$(MAKE) -Clang/python build
 
 # Testing and examples.
 .PHONY: test check
 test check:
+	$(MAKE) -Clang/python test
 
 .PHONY: examples
 examples:
@@ -40,6 +37,7 @@ examples:
 # Installation.
 .PHONY: build-release
 build-release:
+	$(MAKE) -Clang/python build-release
 
 .PHONY: install
 install:
@@ -62,9 +60,12 @@ install:
 		$(DESTDIR)$(PREFIX)/lib/libsequoia_ffi.so
 	$(INSTALL) $(CARGO_TARGET_DIR)/release/libsequoia_ffi.a \
 		$(DESTDIR)$(PREFIX)/lib/libsequoia_ffi.a
+	# Now the bindings.
+	$(MAKE) -Clang/python install
 
 # Housekeeping.
 .PHONY: clean
 clean:
 	rm -f sequoia.pc
 	$(MAKE) -Cexamples clean
+	$(MAKE) -Clang/python clean

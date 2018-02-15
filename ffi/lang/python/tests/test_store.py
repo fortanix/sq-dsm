@@ -1,0 +1,47 @@
+from sequoia.prelude import Context, Store, Fingerprint
+
+def test_open():
+    c = Context("org.sequoia-pgp.tests", ephemeral=True)
+    Store.open(c, "default")
+
+def test_add():
+    c = Context("org.sequoia-pgp.tests", ephemeral=True)
+    s = Store.open(c, "default")
+    fp = Fingerprint.from_hex("7DCA58B54EB143169DDEE15F247F6DABC84914FE")
+    s.add("Ἀριστοτέλης", fp)
+
+def test_iterate():
+    c = Context("org.sequoia-pgp.tests", ephemeral=True)
+    s = Store.open(c, "default")
+    fp = Fingerprint.from_hex("7DCA58B54EB143169DDEE15F247F6DABC84914FE")
+    s.add("Ἀριστοτέλης", fp)
+    l = list(s.iter())
+    assert len(l) == 1
+    l = list(Store.list_keys(c))
+    assert len(l) == 1
+    fpi, key = l[0]
+    assert fpi == fp
+
+def test_logs():
+    c = Context("org.sequoia-pgp.tests", ephemeral=True)
+    s = Store.open(c, "default")
+    fp = Fingerprint.from_hex("7DCA58B54EB143169DDEE15F247F6DABC84914FE")
+    b = s.add("Ἀριστοτέλης", fp)
+    l = list(s.iter())
+    assert len(l) == 1
+
+    # global logs
+    logs = list(Store.server_log(c))
+    assert len(logs) > 0
+
+    # per store logs
+    logs = list(s.log())
+    assert len(logs) > 0
+
+    # per binding logs
+    logs = list(b.log())
+    assert len(logs) > 0
+
+    # per key logs
+    logs = list(b.key().log())
+    assert len(logs) > 0

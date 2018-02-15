@@ -105,6 +105,20 @@ use `make install`.  The latter target honors `PREFIX` and `DESTDIR`.
 Finally, to return your source tree to its pristine state, run `make
 clean`.
 
+Bindings
+--------
+
+### Python
+
+The FFI crate contains Python bindings.  To disable building, testing,
+and installing the Python bindings, use `make PYTHON=disable`.
+
+To build the Python bindings, you will need cffi and pytest for Python3.
+
+Debian:
+
+    $ apt install python3-cffi python3-pytest
+
 Getting help
 ============
 
