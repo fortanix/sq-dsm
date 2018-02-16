@@ -31,6 +31,8 @@ use sequoia_net::ipc;
 
 use store_protocol_capnp::node;
 
+use super::Result;
+
 // Logging.
 mod log;
 
@@ -235,21 +237,13 @@ impl StoreServer {
         // We cannot implement FromSql and friends for
         // core::NetworkPolicy, hence we need to do it by foot.
         if store_policy < 0 || store_policy > 3 {
-            return Err(node::Error::SystemError);
+            return Err(super::Error::ProtocolError.into());
         }
         let store_policy = core::NetworkPolicy::from(store_policy as u8);
 
         if store_policy != policy {
-            return Err(match store_policy {
-                core::NetworkPolicy::Offline =>
-                    node::Error::NetworkPolicyViolationOffline,
-                core::NetworkPolicy::Anonymized =>
-                    node::Error::NetworkPolicyViolationAnonymized,
-                core::NetworkPolicy::Encrypted =>
-                    node::Error::NetworkPolicyViolationEncrypted,
-                core::NetworkPolicy::Insecure =>
-                    node::Error::NetworkPolicyViolationInsecure,
-            });
+            return Err(core::Error::NetworkPolicyViolation(store_policy)
+                       .into());
         }
 
         Ok(Self::new(c, id))
@@ -370,7 +364,7 @@ impl BindingServer {
             if key == key_id {
                 Ok((binding, key_id, false))
             } else {
-                Err(node::Error::Conflict)
+                Err(super::Error::Conflict.into())
             }
         } else {
             let r = c.execute(
@@ -649,11 +643,11 @@ impl KeyServer {
 
             if current.fingerprint().to_hex() != fingerprint {
                 // Inconsistent database.
-                return Err(node::Error::SystemError);
+                return Err(node::Error::SystemError.into());
             }
 
             if current.fingerprint() != new.fingerprint() {
-                return Err(node::Error::Conflict);
+                return Err(node::Error::Conflict.into());
             }
 
             new = current.merge(new)?;
@@ -1078,9 +1072,6 @@ impl fmt::Debug for node::Error {
     }
 }
 
-/// Results for the backend.
-type Result<T> = ::std::result::Result<T, node::Error>;
-
 impl From<rusqlite::Error> for node::Error {
     fn from(error: rusqlite::Error) -> Self {
         match error {
@@ -1098,12 +1089,49 @@ impl From<rusqlite::Error> for node::Error {
 
 impl From<failure::Error> for node::Error {
     fn from(e: failure::Error) -> Self {
-        let e = e.downcast::<tpk::Error>();
-        if e.is_ok() {
+        if e.downcast_ref::<tpk::Error>().is_some() {
             return node::Error::MalformedKey;
         }
 
-        //let e = e.err().unwrap().downcast::<...>();
+        if let Some(e) = e.downcast_ref::<super::Error>() {
+            return match e {
+                &super::Error::NotFound => node::Error::NotFound,
+                &super::Error::Conflict => node::Error::Conflict,
+                _ => unreachable!(),
+            }
+        }
+
+        if let Some(e) = e.downcast_ref::<core::Error>() {
+            return match e {
+                &core::Error::NetworkPolicyViolation(p) =>
+                    match p {
+                        core::NetworkPolicy::Offline =>
+                            node::Error::NetworkPolicyViolationOffline,
+                        core::NetworkPolicy::Anonymized =>
+                            node::Error::NetworkPolicyViolationAnonymized,
+                        core::NetworkPolicy::Encrypted =>
+                            node::Error::NetworkPolicyViolationEncrypted,
+                        core::NetworkPolicy::Insecure =>
+                            node::Error::NetworkPolicyViolationInsecure,
+                    },
+                _ => unreachable!(),
+            }
+        }
+
+        if let Some(e) = e.downcast_ref::<rusqlite::Error>() {
+            return match e {
+                &rusqlite::Error::SqliteFailure(f, _) => match f.code {
+                    rusqlite::ErrorCode::ConstraintViolation =>
+                        node::Error::NotFound,
+                    _ => node::Error::SystemError,
+                },
+                &rusqlite::Error::QueryReturnedNoRows =>
+                    node::Error::NotFound,
+                _ => node::Error::SystemError,
+            }
+        }
+
+        eprintln!("Error not converted: {:?}", e);
         node::Error::SystemError
     }
 }
