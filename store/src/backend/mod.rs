@@ -13,7 +13,7 @@ use capnp;
 use capnp_rpc::rpc_twoparty_capnp::Side;
 use capnp_rpc::{self, RpcSystem, twoparty};
 use futures::Future;
-use futures::future::{loop_fn, Loop};
+use futures::future::{self, loop_fn, Loop};
 use rand::distributions::{IndependentSample, Range};
 use rand::thread_rng;
 use rusqlite::Connection;
@@ -717,8 +717,12 @@ impl KeyServer {
         Ok(count as i32)
     }
 
-    /// Updates the key that was least recently updated.
-    fn update(c: &Rc<Connection>, network_policy: core::NetworkPolicy) -> Result<()> {
+    /// Helper for `update`.
+    fn update_helper(c: &Rc<Connection>, handle: &Handle,
+                     network_policy: core::NetworkPolicy)
+                     -> Result<(KeyServer,
+                                openpgp::KeyID,
+                                net::async::KeyServer)> {
         assert!(network_policy != core::NetworkPolicy::Offline);
         let network_policy_u8 = u8::from(&network_policy);
 
@@ -730,66 +734,85 @@ impl KeyServer {
                  WHERE stores.network_policy >= ?1
                    AND keys.update_at < ?2
                  ORDER BY keys.update_at LIMIT 1",
-            &[&network_policy_u8, &Timestamp::now()], |row| (row.get(0), row.get(1)))?;
+            &[&network_policy_u8, &Timestamp::now()], |row| (row.get(0),
+                                                             row.get(1)))?;
         let fingerprint = openpgp::Fingerprint::from_hex(&fingerprint)
             .ok_or(node::Error::SystemError)?;
 
-        let key = KeyServer::new(c.clone(), id);
-        let doit = || -> Result<()> {
-            let ctx = core::Context::configure("org.sequoia-pgp.store")
-                .network_policy(network_policy).build()?;
-            let mut keyserver = net::KeyServer::sks_pool(&ctx)?;
+        let ctx = core::Context::configure("org.sequoia-pgp.store")
+            .network_policy(network_policy).build()?;
+        let keyserver = net::async::KeyServer::sks_pool(&ctx, handle)?;
 
-            // Get key and merge it into the database.
-            let tpk = keyserver.get(&fingerprint.to_keyid())?;
-            key.merge(tpk)?;
-            Ok(())
+        Ok((KeyServer::new(c.clone(), id),
+            fingerprint.to_keyid(),
+            keyserver))
+    }
+
+    /// Updates the key that was least recently updated.
+    fn update(c: &Rc<Connection>, handle: &Handle,
+              network_policy: core::NetworkPolicy)
+              -> Box<Future<Item=Duration, Error=failure::Error> + 'static> {
+        let (key, id, mut keyserver)
+            = match Self::update_helper(c, handle, network_policy) {
+            Ok((key, id, keyserver)) => (key, id, keyserver),
+            Err(e) => return Box::new(future::err(e.into())),
         };
-        let next = refresh_interval() / Self::need_update(c, network_policy)?;
-        if let Err(e) = doit() {
-            key.error("Update unsuccessful", &format!("{:?}", e), next / 2).unwrap_or(());
+
+        let c = c.clone();
+        let now = Timestamp::now();
+        let at = Self::next_update_at(&c, network_policy)
+            .unwrap_or(now + min_sleep_time());
+
+        if at <= now {
+            Box::new(
+                keyserver.get(&id)
+                    .then(move |tpk| {
+                        let next = Self::need_update(&c, network_policy)
+                            .map(|c| refresh_interval() / c)
+                            .unwrap_or(min_sleep_time());
+
+                        if let Err(e) = tpk.map(|t| key.merge(t)) {
+                            key.error("Update unsuccessful",
+                                      &format!("{:?}", e), next / 2)
+                                .unwrap_or(());
+                        } else {
+                            key.success("Update successful", next)
+                                .unwrap_or(());
+                        }
+
+                        future::ok(next)
+                    }))
         } else {
-            key.success("Update successful", next).unwrap_or(());
+            assert!(at > now);
+            Box::new(future::ok(cmp::max(min_sleep_time(), at - now)))
         }
-        Ok(())
     }
 
     /// Starts the periodic housekeeping.
     fn start_housekeeping(c: Rc<Connection>, handle: Handle) -> Result<()> {
-        let h = handle.clone();
+        let h0 = handle.clone();
 
         let forever = loop_fn(0, move |_| {
             // For now, we only update keys with this network policy.
             let network_policy = core::NetworkPolicy::Encrypted;
 
-            let now = Timestamp::now();
-            let sleep_for =
-                if let Some(at) = Self::next_update_at(&c, network_policy) {
-                    if at <= now {
-                        if let Err(e) = Self::update(&c, network_policy) {
-                            #[cfg(debug_assertions)]
-                            eprintln!("Odd. Updating failed: {:?}", e);
-                        }
-                        min_sleep_time()
-                    } else {
-                        assert!(at > now);
-                        cmp::max(min_sleep_time(), at - now)
-                    }
-                } else {
-                    min_sleep_time()
-                };
-            assert!(sleep_for > Duration::seconds(0));
+            let h1 = h0.clone();
 
-            Timeout::new(
-                ::std::time::Duration::new(random_duration(sleep_for).num_seconds() as u64, 0),
-                &h)
-                .unwrap() // XXX: May fail if the eventloop expired.
-                .then(move |timeout| {
-                    if timeout.is_ok() {
-                        Ok(Loop::Continue(0))
-                    } else {
-                        Ok(Loop::Break(()))
-                    }
+            Self::update(&c, &h0, network_policy)
+                .then(move |d| {
+                    let d = d.unwrap_or(min_sleep_time());
+                     Timeout::new(
+                         ::std::time::Duration::new(random_duration(d)
+                                                    .num_seconds() as u64, 0),
+                         &h1)
+                     .unwrap() // XXX: May fail if the eventloop expired.
+                     .then(move |timeout| {
+                         if timeout.is_ok() {
+                             Ok(Loop::Continue(0))
+                         } else {
+                             Ok(Loop::Break(()))
+                         }
+                     })
                 })
         });
         handle.spawn(forever);
@@ -1272,7 +1295,7 @@ impl FromSql for ID {
 /* Timestamps.  */
 
 /// A serializable system time.
-#[derive(PartialEq, PartialOrd)]
+#[derive(Clone, Copy, PartialEq, PartialOrd)]
 struct Timestamp(Timespec);
 
 impl Timestamp {
