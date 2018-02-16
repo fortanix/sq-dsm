@@ -1,7 +1,7 @@
 # Makefile for examples written in C.
 
 TARGETS = example keyserver configure
-CFLAGS  = -I../src -O0 -g -Wall
+CFLAGS  = -I../include -O0 -g -Wall
 LDFLAGS = -L../../target/debug -lsequoia_ffi
 
 all: $(TARGETS)
@@ -9,4 +9,4 @@ all: $(TARGETS)
 clean:
 	rm -f $(TARGETS)
 
-$(TARGETS): ../src/sequoia.h
+$(TARGETS): ../include/sequoia.h
