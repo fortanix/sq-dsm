@@ -4,9 +4,8 @@ use failure;
 use std::cmp;
 use std::fmt;
 use std::io;
-use std::ops::{Add, Sub};
 use std::rc::Rc;
-use time::{Timespec, Duration, now_utc};
+use time::Duration;
 
 use capnp::capability::Promise;
 use capnp;
@@ -17,7 +16,6 @@ use futures::future::{self, loop_fn, Loop};
 use rand::distributions::{IndependentSample, Range};
 use rand::thread_rng;
 use rusqlite::Connection;
-use rusqlite::types::{ToSql, ToSqlOutput, FromSql, FromSqlResult, ValueRef};
 use rusqlite;
 use tokio_core::reactor::{Handle, Timeout};
 use tokio_core;
@@ -32,6 +30,10 @@ use sequoia_net::ipc;
 use store_protocol_capnp::node;
 
 use super::Result;
+
+// Data types for working with `rusqlite`.
+pub mod support;
+use self::support::{ID, Timestamp};
 
 // Logging.
 mod log;
@@ -211,7 +213,7 @@ impl Query for StoreServer {
                 format!("{}:{}", row.get::<_, String>(0), row.get::<_, String>(1))
             })
             .unwrap_or(
-                format!("{}::{}", Self::table_name(), self.id().0)
+                format!("{}::{}", Self::table_name(), self.id())
             )
     }
 }
@@ -416,7 +418,7 @@ impl Query for BindingServer {
                 row.get(0)
             })
             .unwrap_or(
-                format!("{}::{}", Self::table_name(), self.id().0)
+                format!("{}::{}", Self::table_name(), self.id())
             )
     }
 }
@@ -841,7 +843,7 @@ impl Query for KeyServer {
             .and_then(|fp| Fingerprint::from_hex(&fp))
             .map(|fp| fp.to_keyid().to_string())
             .unwrap_or(
-                format!("{}::{}", Self::table_name(), self.id().0)
+                format!("{}::{}", Self::table_name(), self.id())
             )
     }
 }
@@ -1253,89 +1255,6 @@ CREATE TABLE log (
     FOREIGN KEY (binding) REFERENCES bindings(id) ON DELETE SET NULL,
     FOREIGN KEY (key) REFERENCES keys(id) ON DELETE SET NULL);
 ";
-
-/// Represents a row id.
-///
-/// This is used to represent handles to stored objects.
-#[derive(Copy, Clone, PartialEq)]
-pub struct ID(i64);
-
-impl ID {
-    /// Returns ID(0).
-    ///
-    /// This is smaller than all valid ids.
-    fn null() -> Self {
-        ID(0)
-    }
-
-    /// Returns the largest id.
-    fn max() -> Self {
-        ID(::std::i64::MAX)
-    }
-}
-
-impl From<i64> for ID {
-    fn from(id: i64) -> Self {
-        ID(id)
-    }
-}
-
-impl ToSql for ID {
-    fn to_sql(&self) -> rusqlite::Result<ToSqlOutput> {
-        Ok(ToSqlOutput::from(self.0))
-    }
-}
-
-impl FromSql for ID {
-    fn column_result(value: ValueRef) -> FromSqlResult<Self> {
-        value.as_i64().map(|id| id.into())
-    }
-}
-
-/* Timestamps.  */
-
-/// A serializable system time.
-#[derive(Clone, Copy, PartialEq, PartialOrd)]
-struct Timestamp(Timespec);
-
-impl Timestamp {
-    fn now() -> Self {
-        Timestamp(now_utc().to_timespec())
-    }
-
-    /// Converts to unix time.
-    fn unix(&self) -> i64 {
-        self.0.sec
-    }
-}
-
-impl ToSql for Timestamp {
-    fn to_sql(&self) -> rusqlite::Result<ToSqlOutput> {
-        Ok(ToSqlOutput::from(self.0.sec))
-    }
-}
-
-impl FromSql for Timestamp {
-    fn column_result(value: ValueRef) -> FromSqlResult<Self> {
-        value.as_i64().map(|t| Timestamp(Timespec::new(t, 0)))
-    }
-}
-
-impl Add<Duration> for Timestamp {
-    type Output = Timestamp;
-
-    fn add(self, other: Duration) -> Timestamp {
-        Timestamp(self.0 + other)
-    }
-}
-
-impl Sub<Timestamp> for Timestamp {
-    type Output = Duration;
-
-    fn sub(self, other: Self) -> Self::Output {
-        self.0 - other.0
-    }
-}
 
 /* Miscellaneous.  */
 
