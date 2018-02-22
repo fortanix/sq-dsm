@@ -334,6 +334,26 @@ impl Store {
     }
 }
 
+/// Makes a stats request and parses the result.
+macro_rules! make_stats_request {
+    ( $core: expr, $request: expr ) => {{
+        make_request_map!(
+            $core, $request,
+            |s: node::stats::Reader| Ok(Stats{
+                created: from_unix(s.get_created()),
+                updated: from_unix(s.get_updated()),
+                encryption: Stamps::new(
+                    s.get_encryption_count(),
+                    from_unix(s.get_encryption_first()),
+                    from_unix(s.get_encryption_last())),
+                verification: Stamps::new(
+                    s.get_verification_count(),
+                    from_unix(s.get_verification_first()),
+                    from_unix(s.get_verification_last())),
+            }))
+    }}
+}
+
 /// Represents an entry in a Store.
 ///
 /// Stores map labels to TPKs.  A `Binding` represents a pair in this

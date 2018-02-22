@@ -32,40 +32,6 @@ macro_rules! make_request {
     }}
 }
 
-macro_rules! make_stats_request {
-    ( $core: expr, $request: expr ) => {{
-        use node::result::Which;
-
-        let r: std::result::Result<Result<_>, capnp::Error> = $core.run(
-            $request.send().promise
-                .and_then(|response| -> Promise<Result<_>, capnp::Error> {
-                    let r = pry!(pry!(pry!(response.get()).get_result()).which());
-                    let r = match r {
-                        /* The Result.  */
-                        Which::Ok(Ok(s)) => {
-                            Ok(Stats{
-                                created: from_unix(s.get_created()),
-                                updated: from_unix(s.get_updated()),
-                                encryption: Stamps::new(s.get_encryption_count(),
-                                                        from_unix(s.get_encryption_first()),
-                                                        from_unix(s.get_encryption_last())),
-                                verification: Stamps::new(s.get_verification_count(),
-                                                          from_unix(s.get_verification_first()),
-                                                          from_unix(s.get_verification_last())),
-                            })
-                        },
-                        Which::Err(Ok(e)) => Err(failure::Error::from(e)),
-                        /* Protocol violations.  */
-                        Which::Ok(Err(e)) => Err(failure::Error::from(e)),
-                        Which::Err(Err(e)) => Err(failure::Error::from(e)),
-                    };
-                    Promise::ok(r)
-                }));
-        r?
-    }}
-}
-
-
 macro_rules! make_request_map {
     ( $core: expr, $request: expr, $map: expr ) => {{
         use node::result::Which;
