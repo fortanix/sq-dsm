@@ -116,6 +116,24 @@ impl fmt::Debug for Store {
 }
 
 impl Store {
+    /// Establishes a connection to the backend.
+    fn connect(c: &Context) -> Result<(Core, node::Client)> {
+        let descriptor = descriptor(c);
+        let core = Core::new()?;
+        let handle = core.handle();
+
+        let mut rpc_system
+            = match descriptor.connect(&handle) {
+                Ok(r) => r,
+                Err(e) => return Err(e.into()),
+            };
+
+        let client: node::Client = rpc_system.bootstrap(Side::Server);
+        handle.spawn(rpc_system.map_err(|_e| ()));
+
+        Ok((core, client))
+    }
+
     /// Opens a store.
     ///
     /// Opens a store with the given name.  If the store does not
@@ -128,20 +146,9 @@ impl Store {
     /// Opening the store with a different network policy is
     /// forbidden.
     pub fn open(c: &Context, name: &str) -> Result<Self> {
-        let descriptor = descriptor(c);
-        let mut core = tokio_core::reactor::Core::new()?;
-        let handle = core.handle();
+        let (mut core, client) = Self::connect(c)?;
 
-        let mut rpc_system
-            = match descriptor.connect(&handle) {
-                Ok(r) => r,
-                Err(e) => return Err(e.into()),
-            };
-
-        let store: node::Client = rpc_system.bootstrap(Side::Server);
-        handle.spawn(rpc_system.map_err(|_e| ()));
-
-        let mut request = store.open_request();
+        let mut request = client.open_request();
         request.get().set_domain(c.domain());
         request.get().set_network_policy(c.network_policy().into());
         request.get().set_ephemeral(c.ephemeral());
@@ -157,20 +164,8 @@ impl Store {
 
     /// Lists all stores with the given prefix.
     pub fn list(c: &Context, domain_prefix: &str) -> Result<StoreIter> {
-        let descriptor = descriptor(c);
-        let mut core = Core::new()?;
-        let handle = core.handle();
-
-        let mut rpc_system
-            = match descriptor.connect(&handle) {
-                Ok(r) => r,
-                Err(e) => return Err(e.into()),
-            };
-
-        let node: node::Client = rpc_system.bootstrap(Side::Server);
-        handle.spawn(rpc_system.map_err(|_e| ()));
-
-        let mut request = node.iter_request();
+        let (mut core, client) = Self::connect(c)?;
+        let mut request = client.iter_request();
         request.get().set_domain_prefix(domain_prefix);
         let iter = make_request!(&mut core, request)?;
         Ok(StoreIter{core: Rc::new(RefCell::new(core)), iter: iter})
@@ -178,40 +173,16 @@ impl Store {
 
     /// Lists all keys in the common key pool.
     pub fn list_keys(c: &Context) -> Result<KeyIter> {
-        let descriptor = descriptor(c);
-        let mut core = Core::new()?;
-        let handle = core.handle();
-
-        let mut rpc_system
-            = match descriptor.connect(&handle) {
-                Ok(r) => r,
-                Err(e) => return Err(e.into()),
-            };
-
-        let node: node::Client = rpc_system.bootstrap(Side::Server);
-        handle.spawn(rpc_system.map_err(|_e| ()));
-
-        let request = node.iter_keys_request();
+        let (mut core, client) = Self::connect(c)?;
+        let request = client.iter_keys_request();
         let iter = make_request!(&mut core, request)?;
         Ok(KeyIter{core: Rc::new(RefCell::new(core)), iter: iter})
     }
 
     /// Lists all log entries.
     pub fn server_log(c: &Context) -> Result<LogIter> {
-        let descriptor = descriptor(c);
-        let mut core = Core::new()?;
-        let handle = core.handle();
-
-        let mut rpc_system
-            = match descriptor.connect(&handle) {
-                Ok(r) => r,
-                Err(e) => return Err(e.into()),
-            };
-
-        let node: node::Client = rpc_system.bootstrap(Side::Server);
-        handle.spawn(rpc_system.map_err(|_e| ()));
-
-        let request = node.log_request();
+        let (mut core, client) = Self::connect(c)?;
+        let request = client.log_request();
         let iter = make_request!(&mut core, request)?;
         Ok(LogIter{core: Rc::new(RefCell::new(core)), iter: iter})
     }
