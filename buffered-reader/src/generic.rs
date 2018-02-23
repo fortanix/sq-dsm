@@ -193,6 +193,14 @@ impl<T: io::Read, C> io::Read for BufferedReaderGeneric<T, C> {
 }
 
 impl<T: io::Read, C> BufferedReader<C> for BufferedReaderGeneric<T, C> {
+    fn buffer(&self) -> &[u8] {
+        if let Some(ref buffer) = self.buffer {
+            &buffer[self.cursor..]
+        } else {
+            &b""[..]
+        }
+    }
+
     fn data(&mut self, amount: usize) -> Result<&[u8], io::Error> {
         return self.data_helper(amount, false, false);
     }
@@ -260,27 +268,81 @@ impl<T: io::Read, C> BufferedReader<C> for BufferedReaderGeneric<T, C> {
     }
 }
 
-#[test]
-fn buffered_reader_generic_test() {
-    // Test reading from a file.
-    {
-        use std::path::PathBuf;
-        use std::fs::File;
+#[cfg(test)]
+mod test {
+    use super::*;
 
-        let path : PathBuf = [env!("CARGO_MANIFEST_DIR"),
-                              "src", "buffered-reader-test.txt"]
-            .iter().collect();
-        let mut f = File::open(&path).expect(&path.to_string_lossy());
-        let mut bio = BufferedReaderGeneric::new(&mut f, None);
+    #[test]
+    fn buffered_reader_generic_test() {
+        // Test reading from a file.
+        {
+            use std::path::PathBuf;
+            use std::fs::File;
 
-        buffered_reader_test_data_check(&mut bio);
+            let path : PathBuf = [env!("CARGO_MANIFEST_DIR"),
+                                  "src", "buffered-reader-test.txt"]
+                .iter().collect();
+            let mut f = File::open(&path).expect(&path.to_string_lossy());
+            let mut bio = BufferedReaderGeneric::new(&mut f, None);
+
+            buffered_reader_test_data_check(&mut bio);
+        }
+
+        // Same test, but as a slice.
+        {
+            let mut data : &[u8] = include_bytes!("buffered-reader-test.txt");
+            let mut bio = BufferedReaderGeneric::new(&mut data, None);
+
+            buffered_reader_test_data_check(&mut bio);
+        }
     }
 
-    // Same test, but as a slice.
-    {
-        let mut data : &[u8] = include_bytes!("buffered-reader-test.txt");
-        let mut bio = BufferedReaderGeneric::new(&mut data, None);
+    // Test that buffer() returns the same data as data().
+    #[test]
+    fn buffer_test() {
+        // Test vector.
+        let size = 10 * DEFAULT_BUF_SIZE;
+        let mut input = Vec::with_capacity(size);
+        let mut v = 0u8;
+        for _ in 0..size {
+            input.push(v);
+            if v == std::u8::MAX {
+                v = 0;
+            } else {
+                v += 1;
+            }
+        }
 
-        buffered_reader_test_data_check(&mut bio);
+        let mut reader = BufferedReaderGeneric::new(&input[..], None);
+
+        // Gather some stats to make it easier to figure out whether
+        // this test is working.
+        let stats_count =  2 * DEFAULT_BUF_SIZE;
+        let mut stats = vec![0usize; stats_count];
+
+        for i in 0..input.len() {
+            let data = reader.data(DEFAULT_BUF_SIZE + 1).unwrap().to_vec();
+            assert!(data.len() > 0);
+            assert_eq!(data, reader.buffer());
+            // And, we may as well check to make sure we read the
+            // right data.
+            assert_eq!(data, &input[i..i+data.len()]);
+
+            stats[cmp::min(data.len(), stats_count - 1)] += 1;
+
+            // Consume one byte and see what happens.
+            reader.consume(1);
+        }
+
+        if false {
+            for i in 0..stats.len() {
+                if stats[i] > 0 {
+                    if i == stats.len() - 1 {
+                        eprint!(">=");
+                    }
+                    eprintln!("{}: {}", i, stats[i]);
+                }
+            }
+        }
     }
 }

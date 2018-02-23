@@ -22,7 +22,7 @@ pub struct BufferedReaderPartialBodyFilter<T: BufferedReader<C>, C> {
     last: bool,
 
     // Sometimes we have to double buffer.  This happens if the caller
-    // requests X bytes and that chuck straddles a partial body length
+    // requests X bytes and that chunk straddles a partial body length
     // boundary.
     buffer: Option<Box<[u8]>>,
     // The position within the buffer.
@@ -274,8 +274,15 @@ impl<T: BufferedReader<C>, C> std::io::Read
 
 impl<T: BufferedReader<C>, C> BufferedReader<C>
         for BufferedReaderPartialBodyFilter<T, C> {
-    /// Return the buffer.  Ensure that it contains at least `amount`
-    /// bytes.
+    fn buffer(&self) -> &[u8] {
+        if let Some(ref buffer) = self.buffer {
+            &buffer[self.cursor..]
+        } else {
+            let buf = self.reader.buffer();
+            &buf[..cmp::min(buf.len(),
+                            self.partial_body_length as usize)]
+        }
+    }
 
     // Due to the mixing of usize (for lengths) and u32 (for OpenPGP),
     // we require that usize is at least as large as u32.

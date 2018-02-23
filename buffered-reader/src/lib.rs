@@ -32,6 +32,12 @@ const DEFAULT_BUF_SIZE: usize = 8 * 1024;
 /// `BufferedReader` allows the caller to ensure that the internal
 /// buffer has a certain amount of data.
 pub trait BufferedReader<C> : io::Read + fmt::Debug {
+    /// Returns a reference to the internal buffer.
+    ///
+    /// Note: this will return the same data as self.data(0), but it
+    /// does so without mutable borrowing self.
+    fn buffer(&self) -> &[u8];
+
     /// Return the data in the internal buffer.  Normally, the
     /// returned buffer will contain *at least* `amount` bytes worth
     /// of data.  Less data may be returned if (and only if) the end
@@ -112,8 +118,8 @@ pub trait BufferedReader<C> : io::Read + fmt::Debug {
                     -> Result<&[u8], std::io::Error>;
 
 
-    // This is a convenient function that effectively combines
-    // data_hard() and consume().
+    /// This is a convenient function that effectively combines
+    /// data_hard() and consume().
     fn data_consume_hard(&mut self, amount: usize) -> Result<&[u8], io::Error>;
 
     /// A convenience function for reading a 16-bit unsigned integer
@@ -132,7 +138,7 @@ pub trait BufferedReader<C> : io::Read + fmt::Debug {
     }
 
     /// Reads and consumes `amount` bytes, and returns them in a
-    /// caller owned buffer.  Implementations may optimize this to
+    /// caller-owned buffer.  Implementations may optimize this to
     /// avoid a copy.
     fn steal(&mut self, amount: usize) -> Result<Vec<u8>, std::io::Error> {
         let mut data = self.data_consume_hard(amount)?;
@@ -230,6 +236,10 @@ pub fn buffered_reader_generic_read_impl<T: BufferedReader<C>, C>
 
 /// Make a `Box<BufferedReader>` look like a BufferedReader.
 impl <'a, C> BufferedReader<C> for Box<BufferedReader<C> + 'a> {
+    fn buffer(&self) -> &[u8] {
+        return self.as_ref().buffer();
+    }
+
     fn data(&mut self, amount: usize) -> Result<&[u8], io::Error> {
         return self.as_mut().data(amount);
     }

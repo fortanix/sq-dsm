@@ -63,6 +63,10 @@ impl<'a, C> io::Read for BufferedReaderMemory<'a, C> {
 }
 
 impl<'a, C> BufferedReader<C> for BufferedReaderMemory<'a, C> {
+    fn buffer(&self) -> &[u8] {
+        &self.buffer[self.cursor..]
+    }
+
     /// Return the buffer.  Ensure that it contains at least `amount`
     /// bytes.
     fn data(&mut self, _amount: usize) -> Result<&[u8], io::Error> {
@@ -120,10 +124,46 @@ impl<'a, C> BufferedReader<C> for BufferedReaderMemory<'a, C> {
     }
 }
 
-#[test]
-fn buffered_reader_memory_test () {
-    let data : &[u8] = include_bytes!("buffered-reader-test.txt");
-    let mut bio = BufferedReaderMemory::new(data);
+#[cfg(test)]
+mod test {
+    use super::*;
+    #[test]
+    fn buffered_reader_memory_test () {
+        let data : &[u8] = include_bytes!("buffered-reader-test.txt");
+        let mut bio = BufferedReaderMemory::new(data);
 
-    buffered_reader_test_data_check(&mut bio);
+        buffered_reader_test_data_check(&mut bio);
+    }
+
+    // Test that buffer() returns the same data as data().
+    #[test]
+    fn buffer_test() {
+        // Test vector.  A BufferedReaderMemory returns all unconsumed
+        // data.  So, use a relatively small buffer size.
+        let size = DEFAULT_BUF_SIZE;
+        let mut input = Vec::with_capacity(size);
+        let mut v = 0u8;
+        for _ in 0..size {
+            input.push(v);
+            if v == std::u8::MAX {
+                v = 0;
+            } else {
+                v += 1;
+            }
+        }
+
+        let mut reader = BufferedReaderMemory::new(&input[..]);
+
+        for i in 0..input.len() {
+            let data = reader.data(DEFAULT_BUF_SIZE + 1).unwrap().to_vec();
+            assert!(data.len() > 0);
+            assert_eq!(data, reader.buffer());
+            // And, we may as well check to make sure we read the
+            // right data.
+            assert_eq!(data, &input[i..i+data.len()]);
+
+            // Consume one byte and see what happens.
+            reader.consume(1);
+        }
+    }
 }

@@ -1614,6 +1614,10 @@ impl<'a> io::Read for PacketParser<'a> {
 /// Note: it is safe to mix the use of the `std::io::Read` and
 /// `BufferedReader` interfaces.
 impl<'a> BufferedReader<BufferedReaderState> for PacketParser<'a> {
+    fn buffer(&self) -> &[u8] {
+        return self.reader.buffer();
+    }
+
     fn data(&mut self, amount: usize) -> io::Result<&[u8]> {
         // There is no need to set `content_was_read`, because this
         // doesn't actually consume any data.

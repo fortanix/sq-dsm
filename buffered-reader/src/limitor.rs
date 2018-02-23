@@ -52,6 +52,13 @@ impl<T: BufferedReader<C>, C> io::Read for BufferedReaderLimitor<T, C> {
 }
 
 impl<T: BufferedReader<C>, C> BufferedReader<C> for BufferedReaderLimitor<T, C> {
+    fn buffer(&self) -> &[u8] {
+        let buf = self.reader.buffer();
+        &buf[..cmp::min(buf.len(),
+                        cmp::min(std::usize::MAX as u64,
+                                 self.limit) as usize)]
+    }
+
     /// Return the buffer.  Ensure that it contains at least `amount`
     /// bytes.
     fn data(&mut self, amount: usize) -> Result<&[u8], io::Error> {
@@ -127,86 +134,143 @@ impl<T: BufferedReader<C>, C> BufferedReader<C> for BufferedReaderLimitor<T, C> 
     }
 }
 
-#[test]
-fn buffered_reader_limitor_test() {
-    let data : &[u8] = b"01234567890123456789";
+#[cfg(test)]
+mod test {
+    use super::*;
 
-    /* Add a single limitor.  */
-    {
-        let mut bio : Box<BufferedReader<()>>
-            = Box::new(BufferedReaderMemory::new(data));
+    #[test]
+    fn buffered_reader_limitor_test() {
+        let data : &[u8] = b"01234567890123456789";
 
-        bio = {
-            let mut bio2 = Box::new(BufferedReaderLimitor::new(bio, 5));
-            {
-                let result = bio2.data(5).unwrap();
-                assert_eq!(result.len(), 5);
-                assert_eq!(result, &b"01234"[..]);
-            }
-            bio2.consume(5);
-            {
-                let result = bio2.data(1).unwrap();
-                assert_eq!(result.len(), 0);
-                assert_eq!(result, &b""[..]);
-            }
-
-            bio2.into_inner().unwrap()
-        };
-
+        /* Add a single limitor.  */
         {
+            let mut bio : Box<BufferedReader<()>>
+                = Box::new(BufferedReaderMemory::new(data));
+
+            bio = {
+                let mut bio2 = Box::new(BufferedReaderLimitor::new(bio, 5));
+                {
+                    let result = bio2.data(5).unwrap();
+                    assert_eq!(result.len(), 5);
+                    assert_eq!(result, &b"01234"[..]);
+                }
+                bio2.consume(5);
+                {
+                    let result = bio2.data(1).unwrap();
+                    assert_eq!(result.len(), 0);
+                    assert_eq!(result, &b""[..]);
+                }
+
+                bio2.into_inner().unwrap()
+            };
+
             {
-                let result = bio.data(15).unwrap();
-                assert_eq!(result.len(), 15);
-                assert_eq!(result, &b"567890123456789"[..]);
+                {
+                    let result = bio.data(15).unwrap();
+                    assert_eq!(result.len(), 15);
+                    assert_eq!(result, &b"567890123456789"[..]);
+                }
+                bio.consume(15);
+                {
+                    let result = bio.data(1).unwrap();
+                    assert_eq!(result.len(), 0);
+                    assert_eq!(result, &b""[..]);
+                }
             }
-            bio.consume(15);
+        }
+
+        /* Try with two limitors where the first one imposes the real
+         * limit.  */
+        {
+            let mut bio : Box<BufferedReader<()>>
+                = Box::new(BufferedReaderMemory::new(data));
+
+            bio = {
+                let bio2 : Box<BufferedReader<()>>
+                    = Box::new(BufferedReaderLimitor::new(bio, 5));
+                // We limit to 15 bytes, but bio2 will still limit us to 5
+                // bytes.
+                let mut bio3 : Box<BufferedReader<()>>
+                    = Box::new(BufferedReaderLimitor::new(bio2, 15));
+                {
+                    let result = bio3.data(100).unwrap();
+                    assert_eq!(result.len(), 5);
+                    assert_eq!(result, &b"01234"[..]);
+                }
+                bio3.consume(5);
+                {
+                    let result = bio3.data(1).unwrap();
+                    assert_eq!(result.len(), 0);
+                    assert_eq!(result, &b""[..]);
+                }
+
+                bio3.into_inner().unwrap().into_inner().unwrap()
+            };
+
             {
-                let result = bio.data(1).unwrap();
-                assert_eq!(result.len(), 0);
-                assert_eq!(result, &b""[..]);
+                {
+                    let result = bio.data(15).unwrap();
+                    assert_eq!(result.len(), 15);
+                    assert_eq!(result, &b"567890123456789"[..]);
+                }
+                bio.consume(15);
+                {
+                    let result = bio.data(1).unwrap();
+                    assert_eq!(result.len(), 0);
+                    assert_eq!(result, &b""[..]);
+                }
             }
         }
     }
 
-    /* Try with two limitors where the first one imposes the real
-     * limit.  */
-    {
-        let mut bio : Box<BufferedReader<()>>
-            = Box::new(BufferedReaderMemory::new(data));
-
-        bio = {
-            let bio2 : Box<BufferedReader<()>>
-                = Box::new(BufferedReaderLimitor::new(bio, 5));
-            // We limit to 15 bytes, but bio2 will still limit us to 5
-            // bytes.
-            let mut bio3 : Box<BufferedReader<()>>
-                = Box::new(BufferedReaderLimitor::new(bio2, 15));
-            {
-                let result = bio3.data(100).unwrap();
-                assert_eq!(result.len(), 5);
-                assert_eq!(result, &b"01234"[..]);
+    // Test that buffer() returns the same data as data().
+    #[test]
+    fn buffer_test() {
+        // Test vector.
+        let size = 10 * DEFAULT_BUF_SIZE;
+        let mut input = Vec::with_capacity(size);
+        let mut v = 0u8;
+        for _ in 0..size {
+            input.push(v);
+            if v == std::u8::MAX {
+                v = 0;
+            } else {
+                v += 1;
             }
-            bio3.consume(5);
-            {
-                let result = bio3.data(1).unwrap();
-                assert_eq!(result.len(), 0);
-                assert_eq!(result, &b""[..]);
-            }
+        }
 
-            bio3.into_inner().unwrap().into_inner().unwrap()
-        };
+        let reader = BufferedReaderGeneric::new(&input[..], None);
+        let size = size / 2;
+        let input = &input[..size];
+        let mut reader = BufferedReaderLimitor::new(reader, input.len() as u64);
 
-        {
-            {
-                let result = bio.data(15).unwrap();
-                assert_eq!(result.len(), 15);
-                assert_eq!(result, &b"567890123456789"[..]);
-            }
-            bio.consume(15);
-            {
-                let result = bio.data(1).unwrap();
-                assert_eq!(result.len(), 0);
-                assert_eq!(result, &b""[..]);
+        // Gather some stats to make it easier to figure out whether
+        // this test is working.
+        let stats_count =  2 * DEFAULT_BUF_SIZE;
+        let mut stats = vec![0usize; stats_count];
+
+        for i in 0..input.len() {
+            let data = reader.data(DEFAULT_BUF_SIZE + 1).unwrap().to_vec();
+            assert!(data.len() > 0);
+            assert_eq!(data, reader.buffer());
+            // And, we may as well check to make sure we read the
+            // right data.
+            assert_eq!(data, &input[i..i+data.len()]);
+
+            stats[cmp::min(data.len(), stats_count - 1)] += 1;
+
+            // Consume one byte and see what happens.
+            reader.consume(1);
+        }
+
+        if false {
+            for i in 0..stats.len() {
+                if stats[i] > 0 {
+                    if i == stats.len() - 1 {
+                        eprint!(">=");
+                    }
+                    eprintln!("{}: {}", i, stats[i]);
+                }
             }
         }
     }
