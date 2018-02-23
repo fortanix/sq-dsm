@@ -59,11 +59,16 @@ macro_rules! make_request_map {
 /// beginning of the function.
 macro_rules! bind_results {
     ( $results: ident ) => {
+        #[allow(unused)]
+        const DEBUG_BACKEND_ERRORS: bool = false;
+
         /// Behaves like `return Err(_)` for server functions.
         #[allow(unused_macros)]
         macro_rules! fail {
             ( $expr:expr ) => {{
-                eprintln!("{}:{}: {:?}", file!(), line!(), $expr);
+                if DEBUG_BACKEND_ERRORS {
+                    eprintln!("{}:{}: {:?}", file!(), line!(), $expr);
+                }
                 pry!($results.get().get_result()).set_err($expr);
                 return Promise::ok(());
             }};
@@ -79,8 +84,9 @@ macro_rules! bind_results {
                 match $expr {
                     Ok(x) => x,
                     Err(x) => {
-                        #[cfg(debug_assertions)]
-                        eprintln!("{}:{}: {:?}", file!(), line!(), x);
+                        if DEBUG_BACKEND_ERRORS {
+                            eprintln!("{}:{}: {:?}", file!(), line!(), x);
+                        }
                         pry!($results.get().get_result()).set_err(x.into());
                         return Promise::ok(());
                     },
