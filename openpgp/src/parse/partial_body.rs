@@ -314,6 +314,14 @@ impl<T: BufferedReader<C>, C> BufferedReader<C>
         return self.data_helper(amount, true, true);
     }
 
+    fn get_mut(&mut self) -> Option<&mut BufferedReader<C>> {
+        Some(&mut self.reader)
+    }
+
+    fn get_ref(&self) -> Option<&BufferedReader<C>> {
+        Some(&self.reader)
+    }
+
     fn into_inner<'b>(self: Box<Self>) -> Option<Box<BufferedReader<C> + 'b>>
             where Self: 'b {
         Some(Box::new(self.reader))

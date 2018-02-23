@@ -88,10 +88,18 @@ impl<R: BufferedReader<C>, C> BufferedReader<C>
         return self.reader.steal_eof();
     }
 
+    fn get_mut(&mut self) -> Option<&mut BufferedReader<C>> {
+        Some(self.reader.reader.get_mut())
+    }
+
+    fn get_ref(&self) -> Option<&BufferedReader<C>> {
+        Some(self.reader.reader.get_ref())
+    }
+
     fn into_inner<'b>(self: Box<Self>)
             -> Option<Box<BufferedReader<C> + 'b>> where Self: 'b {
         // Strip the outer box.
-        Some(Box::new((*self).reader.reader.into_inner()))
+        Some(Box::new(self.reader.reader.into_inner()))
     }
 
     fn cookie_set(&mut self, cookie: C) -> C {
@@ -188,10 +196,18 @@ impl<R: BufferedReader<C>, C> BufferedReader<C>
         return self.reader.steal_eof();
     }
 
+    fn get_mut(&mut self) -> Option<&mut BufferedReader<C>> {
+        Some(self.reader.reader.get_mut())
+    }
+
+    fn get_ref(&self) -> Option<&BufferedReader<C>> {
+        Some(self.reader.reader.get_ref())
+    }
+
     fn into_inner<'b>(self: Box<Self>)
             -> Option<Box<BufferedReader<C> + 'b>> where Self: 'b {
         // Strip the outer box.
-        Some(Box::new((*self).reader.reader.into_inner()))
+        Some(Box::new(self.reader.reader.into_inner()))
     }
 
     fn cookie_set(&mut self, cookie: C) -> C {
@@ -287,10 +303,18 @@ impl<R: BufferedReader<C>, C> BufferedReader<C> for BufferedReaderBzip<R, C> {
         return self.reader.steal_eof();
     }
 
+    fn get_mut(&mut self) -> Option<&mut BufferedReader<C>> {
+        Some(self.reader.reader.get_mut())
+    }
+
+    fn get_ref(&self) -> Option<&BufferedReader<C>> {
+        Some(self.reader.reader.get_ref())
+    }
+
     fn into_inner<'b>(self: Box<Self>)
             -> Option<Box<BufferedReader<C> + 'b>> where Self: 'b {
         // Strip the outer box.
-        Some(Box::new((*self).reader.reader.into_inner()))
+        Some(Box::new(self.reader.reader.into_inner()))
     }
 
     fn cookie_set(&mut self, cookie: C) -> C {

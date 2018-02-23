@@ -1678,6 +1678,14 @@ impl<'a> BufferedReader<BufferedReaderState> for PacketParser<'a> {
         return self.reader.drop_eof();
     }
 
+    fn get_mut(&mut self) -> Option<&mut BufferedReader<BufferedReaderState>> {
+        None
+    }
+
+    fn get_ref(&self) -> Option<&BufferedReader<BufferedReaderState>> {
+        None
+    }
+
     fn into_inner<'b>(self: Box<Self>)
             -> Option<Box<BufferedReader<BufferedReaderState> + 'b>>
             where Self: 'b {

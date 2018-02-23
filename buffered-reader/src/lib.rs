@@ -172,6 +172,17 @@ pub trait BufferedReader<C> : io::Read + fmt::Debug {
     fn into_inner<'a>(self: Box<Self>) -> Option<Box<BufferedReader<C> + 'a>>
         where Self: 'a;
 
+    /// Returns a mutable reference to the inner `BufferedReader`, if
+    /// any.
+    ///
+    /// It is a very bad idea to read any data from the inner
+    /// `BufferedReader`, but it can sometimes be useful to get the
+    /// cookie.
+    fn get_mut(&mut self) -> Option<&mut BufferedReader<C>>;
+
+    /// Returns a reference to the inner `BufferedReader`.
+    fn get_ref(&self) -> Option<&BufferedReader<C>>;
+
     /// Sets the `BufferedReader`'s cookie and returns the old value.
     fn cookie_set(&mut self, cookie: C) -> C;
 
@@ -262,6 +273,16 @@ impl <'a, C> BufferedReader<C> for Box<BufferedReader<C> + 'a> {
 
     fn drop_eof(&mut self) -> Result<(), std::io::Error> {
         return self.as_mut().drop_eof();
+    }
+
+    fn get_mut(&mut self) -> Option<&mut BufferedReader<C>> {
+        // Strip the outer box.
+        self.as_mut().get_mut()
+    }
+
+    fn get_ref(&self) -> Option<&BufferedReader<C>> {
+        // Strip the outer box.
+        self.as_ref().get_ref()
     }
 
     fn into_inner<'b>(self: Box<Self>) -> Option<Box<BufferedReader<C> + 'b>>

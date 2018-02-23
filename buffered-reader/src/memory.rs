@@ -92,6 +92,14 @@ impl<'a, C> BufferedReader<C> for BufferedReaderMemory<'a, C> {
         return Ok(self.consume(amount));
     }
 
+    fn get_mut(&mut self) -> Option<&mut BufferedReader<C>> {
+        None
+    }
+
+    fn get_ref(&self) -> Option<&BufferedReader<C>> {
+        None
+    }
+
     fn into_inner<'b>(self: Box<Self>) -> Option<Box<BufferedReader<C> + 'b>>
             where Self: 'b {
         None
