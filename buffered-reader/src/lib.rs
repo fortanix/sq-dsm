@@ -11,11 +11,13 @@ use std::fmt;
 mod generic;
 mod memory;
 mod limitor;
+mod eof;
 mod decompress;
 
 pub use self::generic::BufferedReaderGeneric;
 pub use self::memory::BufferedReaderMemory;
 pub use self::limitor::BufferedReaderLimitor;
+pub use self::eof::BufferedReaderEOF;
 pub use self::decompress::BufferedReaderDeflate;
 pub use self::decompress::BufferedReaderZlib;
 pub use self::decompress::BufferedReaderBzip;
