@@ -771,7 +771,7 @@ fn skesk_parser_test() {
             assert_eq!(skesk.s2k, test.s2k);
 
             let key = skesk.decrypt(test.password);
-            if let Some((_symm_algo, key)) = key {
+            if let Ok((_symm_algo, key)) = key {
                 let key = to_hex(&key[..], false);
                 assert_eq!(&key[..], &test.key_hex[..]);
             } else {

@@ -91,6 +91,24 @@ pub enum Error {
     #[fail(display = "Malformed packet: {}", _0)]
     MalformedPacket(String),
 
+    #[fail(display = "Unknown packet type: {}", _0)]
+    UnknownPacketTag(u8),
+
+    #[fail(display = "Unknown hash algorithm: {}", _0)]
+    UnknownHashAlgorithm(u8),
+
+    #[fail(display = "Unknown symmetric algorithm: {}", _0)]
+    UnknownSymmetricAlgorithm(u8),
+
+    #[fail(display = "Unsupported hash algorithm: {}", _0)]
+    UnsupportedHashAlgorithm(u8),
+
+    #[fail(display = "Unsupported symmetric algorithm: {}", _0)]
+    UnsupportedSymmetricAlgorithm(u8),
+
+    #[fail(display = "Invalid password")]
+    InvalidPassword,
+
     #[fail(display = "{}", _0)]
     Io(#[cause] io::Error),
 }
@@ -221,10 +239,14 @@ impl Tag {
     /// ```rust
     /// use openpgp::Tag;
     ///
-    /// assert_eq!(Tag::from_numeric(1), Some(Tag::PKESK));
+    /// assert_eq!(Tag::from_numeric(1).unwrap(), Tag::PKESK);
     /// ```
-    pub fn from_numeric(value: u8) -> Option<Self> {
-        num::FromPrimitive::from_u8(value)
+    pub fn from_numeric(value: u8) -> Result<Self> {
+        if let Some(algo) = num::FromPrimitive::from_u8(value) {
+            Ok(algo)
+        } else {
+            Err(Error::UnknownPacketTag(value).into())
+        }
     }
 
     /// Converts a `Tag` to its corresponding numeric value.
@@ -269,12 +291,15 @@ impl HashAlgo {
     /// ```rust
     /// use openpgp::HashAlgo;
     ///
-    /// assert_eq!(HashAlgo::from_numeric(2), Some(HashAlgo::SHA1));
+    /// assert_eq!(HashAlgo::from_numeric(2).unwrap(), HashAlgo::SHA1);
     /// ```
-    pub fn from_numeric(value: u8) -> Option<Self> {
-        num::FromPrimitive::from_u8(value)
+    pub fn from_numeric(value: u8) -> Result<Self> {
+        if let Some(algo) = num::FromPrimitive::from_u8(value) {
+            Ok(algo)
+        } else {
+            Err(Error::UnknownHashAlgorithm(value).into())
+        }
     }
-
     /// Converts a `HashAlgo` to its corresponding numeric value.
     pub fn to_numeric(self) -> u8 {
         num::ToPrimitive::to_u8(&self).unwrap()
@@ -319,10 +344,15 @@ impl SymmetricAlgo {
     /// ```rust
     /// use openpgp::SymmetricAlgo;
     ///
-    /// assert_eq!(SymmetricAlgo::from_numeric(9), Some(SymmetricAlgo::AES256));
+    /// assert_eq!(SymmetricAlgo::from_numeric(9).unwrap(),
+    ///            SymmetricAlgo::AES256);
     /// ```
-    pub fn from_numeric(value: u8) -> Option<Self> {
-        num::FromPrimitive::from_u8(value)
+    pub fn from_numeric(value: u8) -> Result<Self> {
+        if let Some(algo) = num::FromPrimitive::from_u8(value) {
+            Ok(algo)
+        } else {
+            Err(Error::UnknownSymmetricAlgorithm(value).into())
+        }
     }
 
     /// Converts a `SymmetricAlgo` to its corresponding numeric value.

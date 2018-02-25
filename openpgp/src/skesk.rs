@@ -1,3 +1,4 @@
+use Result;
 use SymmetricAlgo;
 use SKESK;
 use Packet;
@@ -15,12 +16,11 @@ impl SKESK {
     }
 
     /// Returns the session key.
-    pub fn decrypt(self, password: &[u8]) -> Option<(u8, Vec<u8>)> {
-        let symm_algo = SymmetricAlgo::from_numeric(self.symm_algo)?;
-        let key = self.s2k.s2k(password, symmetric_key_size(symm_algo)?)?;
+    pub fn decrypt(&self, password: &[u8]) -> Result<(u8, Vec<u8>)> {
+        let key = self.s2k.s2k(password, symmetric_key_size(self.symm_algo)?)?;
 
         if self.esk.len() == 0 {
-            return Some((self.symm_algo, key));
+            return Ok((self.symm_algo, key));
         }
 
         /// XXX: We only support AES128 right now.  Ideally, we'd have
@@ -36,15 +36,10 @@ impl SKESK {
 
         assert!(sk.len() > 0);
         let symm_algo = sk[0];
-        let key_len
-            = if let Some(symm_algo) = SymmetricAlgo::from_numeric(symm_algo) {
-                symmetric_key_size(symm_algo)
-            } else {
-                None
-            }.unwrap_or(sk.len() - 1);
+        let key_len = symmetric_key_size(symm_algo).unwrap_or(sk.len() - 1);
 
         let key = sk[1..1 + key_len].to_vec();
 
-        return Some((symm_algo, key));
+        return Ok((symm_algo, key));
     }
 }

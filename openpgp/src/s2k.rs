@@ -3,6 +3,7 @@ use std::cmp;
 use nettle::Hash;
 
 use hash::hash_context;
+use Result;
 use HashAlgo;
 use S2K;
 
@@ -18,30 +19,24 @@ impl S2K {
     }
 
     /// Convert the string to a key using the S2K's paramters.
-    pub fn s2k(&self, string: &[u8], key_size: usize) -> Option<Vec<u8>> {
-        let mut hs = if let Some(algo)
-                = HashAlgo::from_numeric(self.hash_algo) {
-            let h = hash_context(algo);
+    pub fn s2k(&self, string: &[u8], key_size: usize) -> Result<Vec<u8>> {
+        let algo = HashAlgo::from_numeric(self.hash_algo)?;
+        let h = hash_context(algo);
 
-            // If the digest length is shorter than the key length,
-            // then we need to concatenate multiple hashes, each
-            // preloaded with i 0s.
-            let contexts = (key_size + h.digest_size() - 1) / h.digest_size();
+        // If the digest length is shorter than the key length,
+        // then we need to concatenate multiple hashes, each
+        // preloaded with i 0s.
+        let contexts = (key_size + h.digest_size() - 1) / h.digest_size();
 
-            let mut hs = Vec::with_capacity(contexts);
+        let mut hs = Vec::with_capacity(contexts);
+        hs.push(h);
+
+        let zeros = vec![0u8; contexts - 1];
+        for i in 1..contexts {
+            let mut h = hash_context(algo);
+            h.update(&zeros[..i]);
             hs.push(h);
-
-            let zeros = vec![0u8; contexts - 1];
-            for i in 1..contexts {
-                let mut h = hash_context(algo);
-                h.update(&zeros[..i]);
-                hs.push(h);
-            }
-
-            hs
-        } else {
-            return None;
-        };
+        }
 
         fn update(hs: &mut Vec<Box<Hash>>, data: &[u8]) {
             for h in hs {
@@ -85,7 +80,7 @@ impl S2K {
             start = end;
         }
 
-        Some(digest)
+        Ok(digest)
     }
 }
 
@@ -239,10 +234,8 @@ mod test {
 
                 let key = skesk.s2k.s2k(
                     test.password,
-                    symmetric_key_size(
-                        SymmetricAlgo::from_numeric(skesk.symm_algo).unwrap())
-                        .unwrap());
-                if let Some(key) = key {
+                    symmetric_key_size(skesk.symm_algo).unwrap());
+                if let Ok(key) = key {
                     let key = to_hex(&key[..], false);
                     assert_eq!(key, test.key_hex);
                 } else {
