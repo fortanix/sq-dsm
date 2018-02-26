@@ -147,6 +147,11 @@ void sq_log_iter_free (sq_log_iter_t iter);
 sq_log_iter_t sq_store_server_log (sq_context_t ctx);
 
 /*/
+/// Lists all keys in the common key pool.
+/*/
+sq_key_iter_t sq_store_list_keys (sq_context_t ctx);
+
+/*/
 /// Opens a store.
 ///
 /// Opens a store with the given name.  If the store does not

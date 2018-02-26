@@ -99,7 +99,7 @@ pub extern "system" fn sq_store_iter_free(iter: *mut StoreIter) {
     };
 }
 
-/// Lists all keys with the given prefix.
+/// Lists all keys in the common key pool.
 #[no_mangle]
 pub extern "system" fn sq_store_list_keys(ctx: Option<&mut Context>)
                                           -> *mut KeyIter {
