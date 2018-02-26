@@ -264,7 +264,7 @@ impl Unknown {
             reader: Box::new(bio),
             content_was_read: false,
             recursion_depth: recursion_depth as u8,
-            settings: PACKET_PARSER_DEFAULTS
+            settings: PacketParserSettings::default(),
         });
     }
 }
@@ -344,7 +344,7 @@ impl Signature {
             reader: Box::new(bio),
             content_was_read: false,
             recursion_depth: recursion_depth as u8,
-            settings: PACKET_PARSER_DEFAULTS
+            settings: PacketParserSettings::default(),
         });
     }
 }
@@ -424,7 +424,7 @@ impl Key {
             reader: Box::new(bio),
             content_was_read: false,
             recursion_depth: recursion_depth as u8,
-            settings: PACKET_PARSER_DEFAULTS
+            settings: PacketParserSettings::default(),
         });
     }
 }
@@ -445,7 +445,7 @@ impl UserID {
             reader: Box::new(bio),
             content_was_read: false,
             recursion_depth: recursion_depth as u8,
-            settings: PACKET_PARSER_DEFAULTS
+            settings: PacketParserSettings::default(),
         });
     }
 }
@@ -466,7 +466,7 @@ impl UserAttribute {
             reader: Box::new(bio),
             content_was_read: false,
             recursion_depth: recursion_depth as u8,
-            settings: PACKET_PARSER_DEFAULTS
+            settings: PacketParserSettings::default(),
         });
     }
 }
@@ -501,7 +501,7 @@ impl Literal {
             reader: Box::new(bio),
             content_was_read: false,
             recursion_depth: recursion_depth as u8,
-            settings: PACKET_PARSER_DEFAULTS
+            settings: PacketParserSettings::default(),
         });
     }
 }
@@ -635,7 +635,7 @@ impl CompressedData {
             reader: bio,
             content_was_read: false,
             recursion_depth: recursion_depth as u8,
-            settings: PACKET_PARSER_DEFAULTS
+            settings: PacketParserSettings::default(),
         });
     }
 }
@@ -722,7 +722,7 @@ impl SKESK {
             reader: Box::new(bio),
             content_was_read: false,
             recursion_depth: recursion_depth as u8,
-            settings: PACKET_PARSER_DEFAULTS
+            settings: PacketParserSettings::default(),
         });
     }
 }
@@ -804,12 +804,15 @@ struct PacketParserSettings {
 }
 
 // The default `PacketParser` settings.
-const PACKET_PARSER_DEFAULTS : PacketParserSettings
-    = PacketParserSettings {
-        max_recursion_depth: MAX_RECURSION_DEPTH,
-        buffer_unread_content: false,
-        trace: TRACE,
-    };
+impl Default for PacketParserSettings {
+    fn default() -> Self {
+        PacketParserSettings {
+            max_recursion_depth: MAX_RECURSION_DEPTH,
+            buffer_unread_content: false,
+            trace: TRACE,
+        }
+    }
+}
 
 /// A builder for configuring a `PacketParser`.
 ///
@@ -830,7 +833,7 @@ impl<R: BufferedReader<BufferedReaderState>> PacketParserBuilder<R> {
         bio.cookie_set(BufferedReaderState::default());
         Ok(PacketParserBuilder {
             bio: bio,
-            settings: PACKET_PARSER_DEFAULTS
+            settings: PacketParserSettings::default(),
         })
     }
 
@@ -954,7 +957,7 @@ impl<'a, R: io::Read + 'a>
         Ok(PacketParserBuilder {
             bio: BufferedReaderGeneric::with_cookie(
                 reader, None, BufferedReaderState::default()),
-            settings: PACKET_PARSER_DEFAULTS
+            settings: PacketParserSettings::default(),
         })
     }
 }
@@ -981,7 +984,7 @@ impl <'a> PacketParserBuilder<BufferedReaderMemory<'a, BufferedReaderState>> {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy)]
 pub struct BufferedReaderState {
     // The top-level buffered reader is 0.
     // The limitor for a top-level packet is 1.
@@ -994,12 +997,19 @@ pub struct BufferedReaderState {
     level: usize,
 }
 
-const BUFFERED_READER_STATE_TOP_LEVEL
-    : BufferedReaderState = BufferedReaderState { level: 0 };
+impl fmt::Debug for BufferedReaderState {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("BufferedReaderState")
+            .field("level", &self.level)
+            .finish()
+    }
+}
 
 impl Default for BufferedReaderState {
     fn default() -> Self {
-        BUFFERED_READER_STATE_TOP_LEVEL
+        BufferedReaderState {
+            level: 0,
+        }
     }
 }
 
