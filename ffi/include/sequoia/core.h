@@ -3,6 +3,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include <limits.h>
 
 /* sequoia::Context.  */
 
@@ -41,20 +42,25 @@ typedef struct sq_config *sq_config_t;
 /// With this policy you can control how Sequoia accesses remote
 /// systems.
 /*/
+typedef enum sq_network_policy {
+  /* Do not contact remote systems.  */
+  SQ_NETWORK_POLICY_OFFLINE = 0,
 
-/* Do not contact remote systems.  */
-#define SQ_NETWORK_POLICY_OFFLINE	0
+  /* Only contact remote systems using anonymization techniques like
+   * TOR.  */
+  SQ_NETWORK_POLICY_ANONYMIZED = 1,
 
-/* Only contact remote systems using anonymization techniques
- * like TOR.  */
-#define SQ_NETWORK_POLICY_ANONYMIZED	1
+  /* Only contact remote systems using transports offering
+   * encryption and authentication like TLS.  */
+  SQ_NETWORK_POLICY_ENCRYPTED = 2,
 
-/* Only contact remote systems using transports offering
- * encryption and authentication like TLS.  */
-#define SQ_NETWORK_POLICY_ENCRYPTED	2
+  /* Contact remote systems even with insecure transports.  */
+  SQ_NETWORK_POLICY_INSECURE = 3,
 
-/* Contact remote systems even with insecure transports.  */
-#define SQ_NETWORK_POLICY_INSECURE	3
+  /* Dummy value to make sure the enumeration has a defined size.  Do
+     not use this value.  */
+  SQ_NETWORK_POLICY_FORCE_WIDTH = INT_MAX,
+} sq_network_policy_t;
 
 /*/
 /// IPC policy for Sequoia.
@@ -62,57 +68,62 @@ typedef struct sq_config *sq_config_t;
 /// With this policy you can control how Sequoia starts background
 /// servers.
 /*/
+typedef enum sq_ipc_policy {
+  /*/
+  /// External background servers only.
+  ///
+  /// We will always use external background servers.  If starting
+  /// one fails, the operation will fail.
+  ///
+  /// The advantage is that we never spawn a thread.
+  ///
+  /// The disadvantage is that we need to locate the background
+  /// server to start.  If you are distribute Sequoia with your
+  /// application, make sure to include the binaries, and to
+  /// configure the Context so that `context.lib()` points to the
+  /// directory containing the binaries.
+  /*/
+  SQ_IPC_POLICY_EXTERNAL = 0,
 
-/*/
-/// External background servers only.
-///
-/// We will always use external background servers.  If starting
-/// one fails, the operation will fail.
-///
-/// The advantage is that we never spawn a thread.
-///
-/// The disadvantage is that we need to locate the background
-/// server to start.  If you are distribute Sequoia with your
-/// application, make sure to include the binaries, and to
-/// configure the Context so that `context.lib()` points to the
-/// directory containing the binaries.
-/*/
-#define SQ_IPC_POLICY_EXTERNAL	0
+  /*/
+  /// Internal background servers only.
+  ///
+  /// We will always use internal background servers.  It is very
+  /// unlikely that this fails.
+  ///
+  /// The advantage is that this method is very robust.  If you
+  /// distribute Sequoia with your application, you do not need to
+  /// ship the binary, and it does not matter what `context.lib()`
+  /// points to.  This is very robust and convenient.
+  ///
+  /// The disadvantage is that we spawn a thread in your
+  /// application.  Threads may play badly with `fork(2)`, file
+  /// handles, and locks.  If you are not doing anything fancy,
+  /// however, and only use fork-then-exec, you should be okay.
+  /*/
+  SQ_IPC_POLICY_INTERNAL = 1,
 
-/*/
-/// Internal background servers only.
-///
-/// We will always use internal background servers.  It is very
-/// unlikely that this fails.
-///
-/// The advantage is that this method is very robust.  If you
-/// distribute Sequoia with your application, you do not need to
-/// ship the binary, and it does not matter what `context.lib()`
-/// points to.  This is very robust and convenient.
-///
-/// The disadvantage is that we spawn a thread in your
-/// application.  Threads may play badly with `fork(2)`, file
-/// handles, and locks.  If you are not doing anything fancy,
-/// however, and only use fork-then-exec, you should be okay.
-/*/
-#define SQ_IPC_POLICY_INTERNAL	1
+  /*/
+  /// Prefer external, fall back to internal.
+  ///
+  /// We will first try to use an external background server, but
+  /// fall back on an internal one should that fail.
+  ///
+  /// The advantage is that if Sequoia is properly set up to find
+  /// the background servers, we will use these and get the
+  /// advantages of that approach.  Because we fail back on using an
+  /// internal server, we gain the robustness of that approach.
+  ///
+  /// The disadvantage is that we may or may not spawn a thread in
+  /// your application.  If this is unacceptable in your
+  /// environment, use the `External` policy.
+  /*/
+  SQ_IPC_POLICY_ROBUST = 2,
 
-/*/
-/// Prefer external, fall back to internal.
-///
-/// We will first try to use an external background server, but
-/// fall back on an internal one should that fail.
-///
-/// The advantage is that if Sequoia is properly set up to find
-/// the background servers, we will use these and get the
-/// advantages of that approach.  Because we fail back on using an
-/// internal server, we gain the robustness of that approach.
-///
-/// The disadvantage is that we may or may not spawn a thread in
-/// your application.  If this is unacceptable in your
-/// environment, use the `External` policy.
-/*/
-#define SQ_IPC_POLICY_ROBUST	2
+  /* Dummy value to make sure the enumeration has a defined size.  Do
+     not use this value.  */
+  SQ_IPC_POLICY_FORCE_WIDTH = INT_MAX,
+} sq_ipc_policy_t;
 
 
 /*/
@@ -162,7 +173,12 @@ const char *sq_context_lib(const sq_context_t ctx);
 /*/
 /// Returns the network policy.
 /*/
-uint8_t sq_context_network_policy(const sq_context_t ctx);
+sq_network_policy_t sq_context_network_policy(const sq_context_t ctx);
+
+/*/
+/// Returns the IPC policy.
+/*/
+sq_ipc_policy_t sq_context_ipc_policy(const sq_context_t ctx);
 
 /*/
 /// Returns whether or not this is an ephemeral context.
@@ -192,7 +208,12 @@ void sq_config_lib(sq_config_t cfg, const char *lib);
 /*/
 /// Sets the network policy.
 /*/
-void sq_config_network_policy(sq_config_t cfg, uint8_t policy);
+void sq_config_network_policy(sq_config_t cfg, sq_network_policy_t policy);
+
+/*/
+/// Sets the IPC policy.
+/*/
+void sq_config_ipc_policy(sq_config_t cfg, sq_ipc_policy_t policy);
 
 /*/
 /// Makes this context ephemeral.

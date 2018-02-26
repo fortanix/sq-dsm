@@ -30,7 +30,7 @@
 use failure;
 use std::ffi::{CString, CStr};
 use std::ptr;
-use libc::{uint8_t, c_char};
+use libc::{uint8_t, c_char, c_int};
 
 use sequoia_core as core;
 use sequoia_core::Config;
@@ -146,16 +146,16 @@ pub extern "system" fn sq_context_lib(ctx: Option<&Context>) -> *const c_char {
 
 /// Returns the network policy.
 #[no_mangle]
-pub extern "system" fn sq_context_network_policy(ctx: Option<&Context>) -> uint8_t {
+pub extern "system" fn sq_context_network_policy(ctx: Option<&Context>) -> c_int {
     assert!(ctx.is_some());
-    ctx.unwrap().c.network_policy().into()
+    u8::from(ctx.unwrap().c.network_policy()) as c_int
 }
 
 /// Returns the IPC policy.
 #[no_mangle]
-pub extern "system" fn sq_context_ipc_policy(ctx: Option<&Context>) -> uint8_t {
+pub extern "system" fn sq_context_ipc_policy(ctx: Option<&Context>) -> c_int {
     assert!(ctx.is_some());
-    ctx.unwrap().c.ipc_policy().into()
+    u8::from(ctx.unwrap().c.ipc_policy()) as c_int
 }
 
 /// Returns whether or not this is an ephemeral context.
@@ -211,17 +211,23 @@ pub extern "system" fn sq_config_lib(cfg: Option<&mut Config>,
 /// Sets the network policy.
 #[no_mangle]
 pub extern "system" fn sq_config_network_policy(cfg: Option<&mut Config>,
-                                                policy: uint8_t) {
+                                                policy: c_int) {
     assert!(cfg.is_some());
-    cfg.unwrap().set_network_policy(policy.into());
+    if policy < 0 || policy > 3 {
+        panic!("Bad network policy: {}", policy);
+    }
+    cfg.unwrap().set_network_policy((policy as u8).into());
 }
 
 /// Sets the IPC policy.
 #[no_mangle]
 pub extern "system" fn sq_config_ipc_policy(cfg: Option<&mut Config>,
-                                            policy: uint8_t) {
+                                            policy: c_int) {
     assert!(cfg.is_some());
-    cfg.unwrap().set_ipc_policy(policy.into());
+    if policy < 0 || policy > 2 {
+        panic!("Bad ipc policy: {}", policy);
+    }
+    cfg.unwrap().set_ipc_policy((policy as u8).into());
 }
 
 /// Makes this context ephemeral.
