@@ -35,6 +35,11 @@ char *sq_keyid_to_string (const sq_keyid_t fp);
 /*/
 char *sq_keyid_to_hex (const sq_keyid_t fp);
 
+/*/
+/// Compares KeyIDs.
+/*/
+int sq_keyid_equal (const sq_keyid_t a, const sq_keyid_t b);
+
 
 /* sequoia::openpgp::Fingerprint.  */
 
@@ -72,6 +77,11 @@ char *sq_fingerprint_to_hex (const sq_fingerprint_t fp);
 /// Converts the fingerprint to a key ID.
 /*/
 sq_keyid_t sq_fingerprint_to_keyid (const sq_fingerprint_t fp);
+
+/*/
+/// Compares Fingerprints.
+/*/
+int sq_fingerprint_equal (const sq_fingerprint_t a, const sq_fingerprint_t b);
 
 
 /* sequoia::keys.  */

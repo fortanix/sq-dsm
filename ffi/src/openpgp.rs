@@ -61,6 +61,16 @@ pub extern "system" fn sq_keyid_to_hex(id: Option<&KeyID>)
         .into_raw()
 }
 
+/// Compares KeyIDs.
+#[no_mangle]
+pub extern "system" fn sq_keyid_equal(a: Option<&KeyID>,
+                                      b: Option<&KeyID>)
+                                      -> bool {
+    let a = a.expect("KeyID 'a' is NULL");
+    let b = b.expect("KeyID 'b' is NULL");
+    a == b
+}
+
 
 /* sequoia::openpgp::Fingerprint.  */
 
@@ -122,6 +132,16 @@ pub extern "system" fn sq_fingerprint_to_keyid(fp: Option<&Fingerprint>)
                                                -> *mut KeyID {
     let fp = fp.expect("Fingerprint is NULL");
     Box::into_raw(Box::new(fp.to_keyid()))
+}
+
+/// Compares Fingerprints.
+#[no_mangle]
+pub extern "system" fn sq_fingerprint_equal(a: Option<&Fingerprint>,
+                                            b: Option<&Fingerprint>)
+                                            -> bool {
+    let a = a.expect("Fingerprint 'a' is NULL");
+    let b = b.expect("Fingerprint 'b' is NULL");
+    a == b
 }
 
 
