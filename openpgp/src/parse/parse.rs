@@ -830,7 +830,7 @@ impl<R: BufferedReader<BufferedReaderState>> PacketParserBuilder<R> {
     /// in a `BufferedReader` object.
     pub fn from_buffered_reader(mut bio: R)
             -> Result<PacketParserBuilder<R>> {
-        bio.cookie_set(BufferedReaderState::default());
+        bio.cookie_mut().level = 0;
         Ok(PacketParserBuilder {
             bio: bio,
             settings: PacketParserSettings::default(),
