@@ -129,6 +129,50 @@ fn to_hex(s: &[u8], pretty: bool) -> String {
     }
     result
 }
+
+// A helpful function for converting a hexadecimal string to binary.
+// This function skips whitespace if `skip_whipspace` is set.
+#[allow(dead_code)]
+fn from_hex(hex: &str, skip_whitespace: bool) -> Option<Vec<u8>> {
+    let nibbles = hex.as_bytes().iter().filter_map(|x| {
+        match *x as char {
+            '0' => Some(0u8),
+            '1' => Some(1u8),
+            '2' => Some(2u8),
+            '3' => Some(3u8),
+            '4' => Some(4u8),
+            '5' => Some(5u8),
+            '6' => Some(6u8),
+            '7' => Some(7u8),
+            '8' => Some(8u8),
+            '9' => Some(9u8),
+            'a' | 'A' => Some(10u8),
+            'b' | 'B' => Some(11u8),
+            'c' | 'C' => Some(12u8),
+            'd' | 'D' => Some(13u8),
+            'e' | 'E' => Some(14u8),
+            'f' | 'F' => Some(15u8),
+            ' ' if skip_whitespace => None,
+            _ => Some(255u8),
+        }
+    }).collect::<Vec<u8>>();
+
+    if nibbles.iter().any(|&b| b == 255u8) {
+        // Not a hex character.
+        return None;
+    }
+
+    // We need an even number of nibbles.
+    if nibbles.len() % 2 != 0 {
+        return None;
+    }
+
+    let bytes = nibbles.chunks(2).map(|nibbles| {
+        (nibbles[0] << 4) | nibbles[1]
+    }).collect::<Vec<u8>>();
+
+    Some(bytes)
+}
 
 /// The OpenPGP packet tags as defined in [Section 4.3 of RFC 4880].
 ///
@@ -929,6 +973,8 @@ impl Fingerprint {
 
     /// Reads a hexadecimal fingerprint.
     ///
+    /// This function ignores whitespace.
+    ///
     /// # Example
     ///
     /// ```
@@ -939,20 +985,7 @@ impl Fingerprint {
     /// assert_eq!(fp.unwrap().to_hex(), hex);
     /// ```
     pub fn from_hex(hex: &str) -> Option<Fingerprint> {
-        if hex.len() % 2 != 0 {
-            return None;
-        }
-
-        let mut raw = vec![];
-        for i in 0 .. hex.len() / 2 {
-            if let Ok(b) = u8::from_str_radix(&hex[i * 2 .. (i + 1) * 2], 16) {
-                raw.push(b);
-            } else {
-                return None;
-            }
-        }
-
-        Some(Fingerprint::from_bytes(&raw))
+        Some(Fingerprint::from_bytes(&from_hex(hex, true)?[..]))
     }
 
     /// Converts the fingerprint to its standard representation.
@@ -1095,43 +1128,12 @@ impl KeyID {
 
     /// Reads a hex-encoded Key ID.
     pub fn from_hex(hex: &str) -> Option<KeyID> {
-        let nibbles = hex.as_bytes().iter().filter_map(|x| {
-            match *x as char {
-                '0' => Some(0u8),
-                '1' => Some(1u8),
-                '2' => Some(2u8),
-                '3' => Some(3u8),
-                '4' => Some(4u8),
-                '5' => Some(5u8),
-                '6' => Some(6u8),
-                '7' => Some(7u8),
-                '8' => Some(8u8),
-                '9' => Some(9u8),
-                'a' | 'A' => Some(10u8),
-                'b' | 'B' => Some(11u8),
-                'c' | 'C' => Some(12u8),
-                'd' | 'D' => Some(13u8),
-                'e' | 'E' => Some(14u8),
-                'f' | 'F' => Some(15u8),
-                ' ' => None,
-                _ => Some(255u8),
-            }
-        }).collect::<Vec<u8>>();
-
-        if nibbles.iter().any(|&b| b == 255u8) {
-            // Not a hex character.
-            return None;
-        }
+        let bytes = from_hex(hex, true)?;
 
         // A KeyID is exactly 8 bytes long.
-        if nibbles.len() != 16 {
+        if bytes.len() != 8 {
             return None;
         }
-
-        let bytes = nibbles.chunks(2).map(|nibbles| {
-            (nibbles[0] << 4) | nibbles[1]
-        }).collect::<Vec<u8>>();
-        assert_eq!(bytes.len(), 8);
 
         Some(KeyID::from_bytes(&bytes[..]))
     }
