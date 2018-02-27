@@ -720,13 +720,30 @@ pub struct Stats {
     pub verification: Stamps,
 }
 
+/// Represents a log entry.
 #[derive(Debug)]
 pub struct Log {
+    /// Records the time of the entry.
     pub timestamp: Timespec,
+
+    /// Relates the entry to a store.
     pub store: Option<Store>,
+
+    /// Relates the entry to a binding.
     pub binding: Option<Binding>,
+
+    /// Relates the entry to a key.
     pub key: Option<Key>,
+
+    /// Relates the entry to some object.
+    ///
+    /// This is a human-readable description of what this log entry is
+    /// mainly concerned with.
     pub slug: String,
+
+    /// Holds the result of the operation.
+    ///
+    /// This is either `Ok(Message)`, or `Err((Message, Error))`.
     pub status: ::std::result::Result<String, (String, String)>,
 }
 
