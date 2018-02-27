@@ -175,10 +175,20 @@ pub extern "system" fn sq_tpk_free(tpk: *mut TPK) {
 }
 
 /// Dumps the TPK.
+///
+/// XXX Remove this.
 #[no_mangle]
 pub extern "system" fn sq_tpk_dump(tpk: *mut TPK) {
     assert!(!tpk.is_null());
     unsafe {
         println!("{:?}", *tpk);
     }
+}
+
+/// Returns the fingerprint.
+#[no_mangle]
+pub extern "system" fn sq_tpk_fingerprint(tpk: Option<&TPK>)
+                                          -> *mut Fingerprint {
+    let tpk = tpk.expect("TPK is NULL");
+    box_raw!(tpk.fingerprint())
 }

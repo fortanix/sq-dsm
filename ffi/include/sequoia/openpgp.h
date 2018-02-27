@@ -115,4 +115,9 @@ void sq_tpk_free (sq_tpk_t tpk);
 /*/
 void sq_tpk_dump (const sq_tpk_t tpk);
 
+/*/
+/// Returns the fingerprint.
+/*/
+sq_fingerprint_t sq_tpk_fingerprint (const sq_tpk_t tpk);
+
 #endif
