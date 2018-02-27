@@ -43,6 +43,53 @@ void sq_key_free (sq_key_t key);
 /*/
 /// Represents a log entry.
 /*/
+struct sq_log {
+  /*/
+  /// Records the time of the entry.
+  /*/
+  uint64_t timestamp;
+
+  /*/
+  /// Relates the entry to a store.
+  ///
+  /// May be `NULL`.
+  /*/
+  sq_store_t store;
+
+  /*/
+  /// Relates the entry to a binding.
+  ///
+  /// May be `NULL`.
+  /*/
+  sq_binding_t binding;
+
+  /*/
+  /// Relates the entry to a key.
+  ///
+  /// May be `NULL`.
+  /*/
+  sq_key_t key;
+
+  /*/
+  /// Relates the entry to some object.
+  ///
+  /// This is a human-readable description of what this log entry is
+  /// mainly concerned with.
+  /*/
+  char *slug;
+
+  /*/
+  /// Holds the log message.
+  /*/
+  char *status;
+
+  /*/
+  /// Holds the error message, if any.
+  ///
+  /// May be `NULL`.
+  /*/
+  char *error;
+};
 typedef struct sq_log *sq_log_t;
 
 /*/
@@ -51,8 +98,49 @@ typedef struct sq_log *sq_log_t;
 void sq_log_free (sq_log_t log);
 
 /*/
+/// Counter and timestamps.
+/*/
+struct sq_stamps {
+  /*/
+  /// Counts how many times this has been used.
+  /*/
+  uint64_t count;
+
+  /*/
+  /// Records the time when this has been used first.
+  /*/
+  uint64_t first;
+
+  /*/
+  /// Records the time when this has been used last.
+  /*/
+  uint64_t last;
+};
+
+/*/
 /// Represents binding or key stats.
 /*/
+struct sq_stats {
+  /*/
+  /// Records the time this item was created.
+  /*/
+  uint64_t created;
+
+  /*/
+  /// Records the time this item was last updated.
+  /*/
+  uint64_t updated;
+
+  /*/
+  /// Records counters and timestamps of encryptions.
+  /*/
+  struct sq_stamps encryption;
+
+  /*/
+  /// Records counters and timestamps of verifications.
+  /*/
+  struct sq_stamps verification;
+};
 typedef struct sq_stats *sq_stats_t;
 
 /*/

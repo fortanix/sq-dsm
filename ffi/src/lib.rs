@@ -114,6 +114,13 @@ macro_rules! box_raw {
     }
 }
 
+/// Box an Option<T>, then turn into raw pointer.
+macro_rules! maybe_box_raw {
+    ($expr:expr) => {
+        $expr.map(|x| box_raw!(x)).unwrap_or(ptr::null_mut())
+    }
+}
+
 pub mod core;
 pub mod openpgp;
 pub mod net;

@@ -23,7 +23,7 @@
 //! ```
 
 
-use libc::{uint8_t, c_char, c_long};
+use libc::{uint8_t, uint64_t, c_char, c_long};
 use std::ffi::{CStr, CString};
 use std::ptr;
 
@@ -32,10 +32,10 @@ extern crate openpgp;
 use self::openpgp::tpk::TPK;
 use self::openpgp::Fingerprint;
 use sequoia_store::{
-    Store, StoreIter, Binding, BindingIter, Key, KeyIter, Stats, Log, LogIter,
+    self, Store, StoreIter, Binding, BindingIter, Key, KeyIter, LogIter,
 };
 
-use super::core::Context;
+use super::core::{Context, sq_string_free};
 
 
 /// Lists all stores with the given prefix.
@@ -147,6 +147,14 @@ pub extern "system" fn sq_key_iter_free(iter: *mut KeyIter) {
     };
 }
 
+
+fn cstring(s: &str) -> *mut c_char {
+    CString::new(s)
+        .map(|c| c.into_raw())
+        // Fails only on internal nul bytes.
+        .unwrap_or(ptr::null_mut())
+}
+
 /// Returns the next log entry.
 ///
 /// Returns `NULL` on exhaustion.
@@ -155,8 +163,21 @@ pub extern "system" fn sq_log_iter_next(iter: Option<&mut LogIter>)
                                         -> *mut Log {
     let iter = iter.expect("Iterator is NULL");
     match iter.next() {
-        Some(entry) => {
-            box_raw!(entry)
+        Some(e) => {
+            let (status, error) = match e.status {
+                Ok(s) => (cstring(&s), ptr::null_mut()),
+                Err((s, e)) => (cstring(&s), cstring(&e)),
+            };
+
+            box_raw!(Log{
+                timestamp: e.timestamp.sec as uint64_t,
+                store: maybe_box_raw!(e.store),
+                binding: maybe_box_raw!(e.binding),
+                key: maybe_box_raw!(e.key),
+                slug: cstring(&e.slug),
+                status: status,
+                error: error,
+            })
         },
         None => ptr::null_mut(),
     }
@@ -356,9 +377,16 @@ pub extern "system" fn sq_key_free(key: *mut Key) {
 #[no_mangle]
 pub extern "system" fn sq_log_free(log: *mut Log) {
     if log.is_null() { return };
-    unsafe {
-        drop(Box::from_raw(log))
+    let log = unsafe {
+        Box::from_raw(log)
     };
+    sq_store_free(log.store);
+    sq_binding_free(log.binding);
+    sq_key_free(log.key);
+    sq_string_free(log.slug);
+    sq_string_free(log.status);
+    sq_string_free(log.error);
+    drop(log)
 }
 
 /// Returns the `sq_stats_t` of this binding.
@@ -369,7 +397,7 @@ pub extern "system" fn sq_binding_stats(ctx: Option<&mut Context>,
     let ctx = ctx.expect("Context is NULL");
     let binding = binding.expect("Binding is NULL");
 
-    fry_box!(ctx, binding.stats())
+    box_raw!(Stats::new(fry!(ctx, binding.stats())))
 }
 
 /// Returns the `sq_key_t` of this binding.
@@ -484,7 +512,7 @@ pub extern "system" fn sq_key_stats(ctx: Option<&mut Context>,
     let ctx = ctx.expect("Context is NULL");
     let key = key.expect("Key is NULL");
 
-    fry_box!(ctx, key.stats())
+    box_raw!(Stats::new(fry!(ctx, key.stats())))
 }
 
 /// Returns the `sq_tpk_t`.
@@ -537,4 +565,95 @@ pub extern "system" fn sq_stats_free(stats: *mut Stats) {
     unsafe {
         drop(Box::from_raw(stats))
     };
+}
+
+/// Counter and timestamps.
+#[repr(C)]
+pub struct Stamps {
+    /// Counts how many times this has been used.
+    pub count: uint64_t,
+
+    /// Records the time when this has been used first.
+    pub first:  uint64_t,
+
+    /// Records the time when this has been used last.
+    pub last: uint64_t,
+}
+
+impl Stamps {
+    fn new(s: &sequoia_store::Stamps) -> Stamps {
+        Stamps{
+            count: s.count as uint64_t,
+            first: s.first.map(|t| t.sec).unwrap_or(0)
+                as uint64_t,
+            last: s.last.map(|t| t.sec).unwrap_or(0)
+                as uint64_t,
+        }
+    }
+}
+
+/// Statistics about bindings and stored keys.
+///
+/// We collect some data about binginds and stored keys.  This
+/// information can be used to make informed decisions about key
+/// transitions.
+#[repr(C)]
+pub struct Stats {
+    /// Records the time this item was created.
+    pub created: uint64_t,
+
+    /// Records the time this item was last updated.
+    pub updated: uint64_t,
+
+    /// Records counters and timestamps of encryptions.
+    pub encryption: Stamps,
+
+    /// Records counters and timestamps of verifications.
+    pub verification: Stamps,
+}
+
+impl Stats {
+    fn new(s: sequoia_store::Stats) -> Stats {
+        Stats {
+            created: s.created.map(|t| t.sec).unwrap_or(0) as uint64_t,
+            updated: s.updated.map(|t| t.sec).unwrap_or(0) as uint64_t,
+            encryption: Stamps::new(&s.encryption),
+            verification: Stamps::new(&s.verification),
+        }
+    }
+}
+
+#[repr(C)]
+pub struct Log {
+    /// Records the time of the entry.
+    pub timestamp: uint64_t,
+
+    /// Relates the entry to a store.
+    ///
+    /// May be `NULL`.
+    pub store: *mut Store,
+
+    /// Relates the entry to a binding.
+    ///
+    /// May be `NULL`.
+    pub binding: *mut Binding,
+
+    /// Relates the entry to a key.
+    ///
+    /// May be `NULL`.
+    pub key: *mut Key,
+
+    /// Relates the entry to some object.
+    ///
+    /// This is a human-readable description of what this log entry is
+    /// mainly concerned with.
+    pub slug: *mut c_char,
+
+    /// Holds the log message.
+    pub status: *mut c_char,
+
+    /// Holds the error message, if any.
+    ///
+    /// May be `NULL`.
+    pub error: *mut c_char,
 }
