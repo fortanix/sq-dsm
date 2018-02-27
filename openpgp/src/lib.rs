@@ -87,6 +87,9 @@ pub type Result<T> = ::std::result::Result<T, failure::Error>;
 #[derive(Fail, Debug)]
 /// Errors returned by this module.
 pub enum Error {
+    #[fail(display = "Invalid operation: {}", _0)]
+    InvalidOperation(String),
+
     /// A malformed packet.
     #[fail(display = "Malformed packet: {}", _0)]
     MalformedPacket(String),
@@ -108,6 +111,9 @@ pub enum Error {
 
     #[fail(display = "Invalid password")]
     InvalidPassword,
+
+    #[fail(display = "Invalid session key: {}", _0)]
+    InvalidSessionKey(String),
 
     #[fail(display = "{}", _0)]
     Io(#[cause] io::Error),
@@ -777,6 +783,31 @@ pub struct SKESK {
     // The encrypted session key.
     pub esk: Vec<u8>,
 }
+
+/// Holds an encrypted data packet.
+///
+/// An encrypted data packet is a container.  See [Section 5.13 of RFC
+/// 4880] for details.
+///
+/// [Section 5.13 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.13
+#[derive(PartialEq, Clone, Debug)]
+pub struct SEIP {
+    pub common: PacketCommon,
+    pub version: u8,
+}
+
+/// Holds an MDC packet.
+///
+/// A modification detection code packet.  This packet appears after a
+/// SEIP packet.  See [Section 5.14 of RFC 4880] for details.
+///
+/// [Section 5.14 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.14
+#[derive(PartialEq, Clone, Debug)]
+pub struct MDC {
+    pub common: PacketCommon,
+    pub computed_hash: [u8; 20],
+    pub hash: [u8; 20],
+}
 
 /// The OpenPGP packets that Sequoia understands.
 ///
@@ -807,6 +838,8 @@ pub enum Packet {
     Literal(Literal),
     CompressedData(CompressedData),
     SKESK(SKESK),
+    SEIP(SEIP),
+    MDC(MDC),
 }
 
 impl Packet {
@@ -828,6 +861,8 @@ impl Packet {
             &Packet::Literal(_) => Tag::Literal,
             &Packet::CompressedData(_) => Tag::CompressedData,
             &Packet::SKESK(_) => Tag::SKESK,
+            &Packet::SEIP(_) => Tag::SEIP,
+            &Packet::MDC(_) => Tag::MDC,
         }
     }
 }

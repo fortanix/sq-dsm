@@ -20,6 +20,8 @@ impl<'a> Deref for Packet {
             &Packet::Literal(ref packet) => &packet.common,
             &Packet::CompressedData(ref packet) => &packet.common,
             &Packet::SKESK(ref packet) => &packet.common,
+            &Packet::SEIP(ref packet) => &packet.common,
+            &Packet::MDC(ref packet) => &packet.common,
         }
     }
 }
@@ -38,6 +40,8 @@ impl<'a> DerefMut for Packet {
             &mut Packet::Literal(ref mut packet) => &mut packet.common,
             &mut Packet::CompressedData(ref mut packet) => &mut packet.common,
             &mut Packet::SKESK(ref mut packet) => &mut packet.common,
+            &mut Packet::SEIP(ref mut packet) => &mut packet.common,
+            &mut Packet::MDC(ref mut packet) => &mut packet.common,
         }
     }
 }

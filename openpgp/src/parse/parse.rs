@@ -1,12 +1,20 @@
 use std;
 use std::io;
+use std::io::prelude::*;
 use std::cmp;
 use std::str;
+use std::mem;
 use std::path::Path;
 use std::fs::File;
 
 use ::buffered_reader::*;
 use Error;
+use HashAlgo;
+use symmetric::{symmetric_block_size, Decryptor, BufferedReaderDecryptor};
+
+use buffered_reader::BufferedReaderGeneric;
+use buffered_reader::BufferedReaderEOF;
+
 
 use super::*;
 
@@ -19,6 +27,9 @@ pub mod key;
 
 mod message_parser;
 pub use self::message_parser::MessageParser;
+
+mod hashed_reader;
+pub use self::hashed_reader::HashedReader;
 
 // Whether to trace execution by default (on stderr).
 const TRACE : bool = false;
@@ -263,6 +274,7 @@ impl Unknown {
             }),
             reader: Box::new(bio),
             content_was_read: false,
+            decrypted: false,
             recursion_depth: recursion_depth as u8,
             settings: PacketParserSettings::default(),
         });
@@ -343,6 +355,7 @@ impl Signature {
             }),
             reader: Box::new(bio),
             content_was_read: false,
+            decrypted: true,
             recursion_depth: recursion_depth as u8,
             settings: PacketParserSettings::default(),
         });
@@ -423,6 +436,7 @@ impl Key {
             },
             reader: Box::new(bio),
             content_was_read: false,
+            decrypted: true,
             recursion_depth: recursion_depth as u8,
             settings: PacketParserSettings::default(),
         });
@@ -444,6 +458,7 @@ impl UserID {
             }),
             reader: Box::new(bio),
             content_was_read: false,
+            decrypted: true,
             recursion_depth: recursion_depth as u8,
             settings: PacketParserSettings::default(),
         });
@@ -465,6 +480,7 @@ impl UserAttribute {
             }),
             reader: Box::new(bio),
             content_was_read: false,
+            decrypted: true,
             recursion_depth: recursion_depth as u8,
             settings: PacketParserSettings::default(),
         });
@@ -500,6 +516,7 @@ impl Literal {
             }),
             reader: Box::new(bio),
             content_was_read: false,
+            decrypted: true,
             recursion_depth: recursion_depth as u8,
             settings: PacketParserSettings::default(),
         });
@@ -634,6 +651,7 @@ impl CompressedData {
             }),
             reader: bio,
             content_was_read: false,
+            decrypted: true,
             recursion_depth: recursion_depth as u8,
             settings: PacketParserSettings::default(),
         });
@@ -721,6 +739,99 @@ impl SKESK {
             }),
             reader: Box::new(bio),
             content_was_read: false,
+            decrypted: true,
+            recursion_depth: recursion_depth as u8,
+            settings: PacketParserSettings::default()
+        });
+    }
+}
+
+impl SEIP {
+    /// Parses the body of a SEIP packet.
+    pub fn parse<'a, R: BufferedReader<BufferedReaderState> + 'a>
+            (mut bio: R, recursion_depth: usize)
+            -> Result<PacketParser<'a>> {
+        let version = bio.data(1)?[0];
+        if version != 1 {
+            return Unknown::parse(bio, recursion_depth, Tag::SEIP);
+        }
+        bio.consume(1);
+
+        return Ok(PacketParser {
+            packet: Packet::SEIP(SEIP {
+                common: PacketCommon {
+                    children: None,
+                    body: None,
+                },
+                version: version,
+            }),
+            reader: Box::new(bio),
+            content_was_read: false,
+            decrypted: false,
+            recursion_depth: recursion_depth as u8,
+            settings: PacketParserSettings::default(),
+        });
+    }
+}
+
+impl MDC {
+    /// Parses the body of an MDC packet.
+    pub fn parse<'a, R: BufferedReader<BufferedReaderState> + 'a>
+            (mut bio: R, recursion_depth: usize)
+             -> Result<PacketParser<'a>> {
+        // Find the HashedReader pushed by the containing SEIP packet.
+        // In a well-formed message, this will be the outer most
+        // HashedReader on the BufferedReader stack: we pushed it
+        // there when we started decrypting the SEIP packet, and an
+        // MDC packet is the last packet in a SEIP container.
+        // Nevertheless, we take some basic precautions to check
+        // whether it is really the matching HashedReader.
+
+        let mut hash = None;
+        {
+            let mut r : Option<&mut BufferedReader<BufferedReaderState>>
+                = Some(&mut bio);
+            while let Some(bio) = r {
+                {
+                    let state = bio.cookie_mut();
+                    if state.hashes_for == HashesFor::MDC {
+                        if state.hashes.len() > 0 {
+                            let (a, h) = state.hashes.pop().unwrap();
+                            assert_eq!(a, HashAlgo::SHA1);
+                            hash = Some(h);
+                        }
+
+                        // If the outer most HashedReader is not the
+                        // matching HashedReader, then the message is
+                        // malformed.
+                        break;
+                    }
+                }
+
+                r = bio.get_mut();
+            }
+        }
+
+        let mut computed_hash : [u8; 20] = Default::default();
+        if let Some(mut hash) = hash {
+            hash.digest(&mut computed_hash);
+        }
+
+        let mut hash : [u8; 20] = Default::default();
+        hash.copy_from_slice(&bio.data_consume_hard(20)?[..]);
+
+        return Ok(PacketParser {
+            packet: Packet::MDC(MDC {
+                common: PacketCommon {
+                    children: None,
+                    body: None,
+                },
+                computed_hash: computed_hash,
+                hash: hash,
+            }),
+            reader: Box::new(bio),
+            content_was_read: false,
+            decrypted: true,
             recursion_depth: recursion_depth as u8,
             settings: PacketParserSettings::default(),
         });
@@ -984,7 +1095,17 @@ impl <'a> PacketParserBuilder<BufferedReaderMemory<'a, BufferedReaderState>> {
     }
 }
 
-#[derive(Clone, Copy)]
+use nettle::Hash;
+
+/// What the hash in the BUfferedReaderState is for.  Currently, it
+/// can only be for an MDC packet, but eventually we'll use it to
+/// check whether the hash is for a signature packet.
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub enum HashesFor {
+    Nothing,
+    MDC,
+}
+
 pub struct BufferedReaderState {
     // The top-level buffered reader is 0.
     // The limitor for a top-level packet is 1.
@@ -995,12 +1116,21 @@ pub struct BufferedReaderState {
     // Thus, the filters that control the input for a packet at
     // recursion depth n have level n + 1.
     level: usize,
+
+    hashes_for: HashesFor,
+    hashes: Vec<(HashAlgo, Box<Hash>)>,
 }
 
 impl fmt::Debug for BufferedReaderState {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let algos = self.hashes.iter()
+            .map(|&(algo, _)| algo)
+            .collect::<Vec<HashAlgo>>();
+
         f.debug_struct("BufferedReaderState")
             .field("level", &self.level)
+            .field("hashes_for", &self.hashes_for)
+            .field("hashes", &algos)
             .finish()
     }
 }
@@ -1009,6 +1139,8 @@ impl Default for BufferedReaderState {
     fn default() -> Self {
         BufferedReaderState {
             level: 0,
+            hashes_for: HashesFor::Nothing,
+            hashes: vec![],
         }
     }
 }
@@ -1016,7 +1148,9 @@ impl Default for BufferedReaderState {
 impl BufferedReaderState {
     fn new(recursion_depth: usize) -> BufferedReaderState {
         BufferedReaderState {
-            level: recursion_depth + 1
+            level: recursion_depth + 1,
+            hashes_for: HashesFor::Nothing,
+            hashes: vec![],
         }
     }
 }
@@ -1094,6 +1228,9 @@ pub struct PacketParser<'a> {
     // Whether the caller read the packets content.  If so, then we
     // can't recurse, because we're missing some of the packet!
     content_was_read: bool,
+
+    // Whether the content has been decrypted.
+    decrypted: bool,
 
     // The `PacketParser`'s settings
     settings: PacketParserSettings,
@@ -1244,6 +1381,10 @@ impl <'a> PacketParser<'a> {
                 CompressedData::parse(bio, recursion_depth)?,
             Tag::SKESK =>
                 SKESK::parse(bio, recursion_depth)?,
+            Tag::SEIP =>
+                SEIP::parse(bio, recursion_depth)?,
+            Tag::MDC =>
+                MDC::parse(bio, recursion_depth)?,
             _ =>
                 Unknown::parse(bio, recursion_depth, tag)?,
         };
@@ -1401,6 +1542,13 @@ impl <'a> PacketParser<'a> {
                         while reader.cookie_ref().level
                                 == recursion_depth as usize + 1 {
                             reader.drop_eof().unwrap();
+                            if settings.trace {
+                                eprintln!("{}PacketParser::next: dropping: {:?}",
+                                          indent(recursion_depth), reader);
+                                eprintln!("{}  cookie: {:?}",
+                                          indent(recursion_depth),
+                                          reader.cookie_ref());
+                            }
                             reader = reader.into_inner().unwrap();
                             pops += 1;
                         }
@@ -1457,7 +1605,7 @@ impl <'a> PacketParser<'a> {
 
         match self.packet {
             // Packets that recurse.
-            Packet::CompressedData(_) => {
+            Packet::CompressedData(_) | Packet::SEIP(_) if self.decrypted => {
                 if self.recursion_depth
                     >= self.settings.max_recursion_depth {
                     if self.settings.trace {
@@ -1504,12 +1652,15 @@ impl <'a> PacketParser<'a> {
                     }
                 }
             },
+            // decrypted should always be true.
+            Packet::CompressedData(_) => unreachable!(),
             // Packets that don't recurse.
             Packet::Unknown(_) | Packet::Signature(_)
                 | Packet::PublicKey(_) | Packet::PublicSubkey(_)
                 | Packet::SecretKey(_) | Packet::SecretSubkey(_)
                 | Packet::UserID(_) | Packet::UserAttribute(_)
-                | Packet::Literal(_) | Packet::SKESK(_) => {
+                | Packet::Literal(_) | Packet::SKESK(_)
+                | Packet::SEIP(_) | Packet::MDC(_) => {
                 // Drop through.
                 if self.settings.trace {
                     eprintln!("{}PacketParser::recurse(): A {:?} packet is \
@@ -1775,6 +1926,192 @@ fn packet_parser_reader_interface() {
     assert!(ppo.is_none());
     // Since we read all of the data, we expect content to be None.
     assert!(packet.body.is_none());
+}
+
+impl<'a> PacketParser<'a> {
+    // Tries to decrypt the current packet.
+    //
+    // On success, this function pushes one or more readers onto the
+    // `PacketParser`'s reader stack, and sets the packet's
+    // `decrypted` flag.
+    //
+    // If this function is called on a packet that does not contain
+    // encrypted data, or some of the data was already read, then it
+    // returns `Error::InvalidOperation`.
+    pub fn decrypt(&mut self, algo: u8, key: &[u8])
+        -> Result<()>
+    {
+        if self.content_was_read {
+            return Err(Error::InvalidOperation(
+                format!("Packet's content has already been read.")).into());
+        }
+        if self.decrypted {
+            return Err(Error::InvalidOperation(
+                format!("Packet not encrypted.")).into());
+        }
+
+        if let Packet::SEIP(_) = self.packet {
+            // Get the first blocksize plus two bytes and check
+            // whether we can decrypt them using the provided key.
+            // Don't actually comsume them in case we can't.
+            let bl = symmetric_block_size(algo)?;
+
+            {
+                let mut dec = Decryptor::new(
+                    algo, key, &self.reader.data_hard(bl + 2)?[..bl + 2])?;
+                let mut header = vec![ 0u8; bl + 2 ];
+                dec.read(&mut header)?;
+
+                if !(header[bl - 2] == header[bl]
+                     && header[bl - 1] == header[bl + 1]) {
+                    return Err(Error::InvalidSessionKey(
+                        format!("Last two 16-bit quantities don't match: {}",
+                                ::to_hex(&header[..], false)))
+                               .into());
+                }
+            }
+
+            // Ok, we can decrypt the data.  Push a Decryptor and a
+            // HashedReader on the `BufferedReader` stack.
+
+            let reader = mem::replace(
+                &mut self.reader,
+                Box::new(BufferedReaderEOF::with_cookie(Default::default())));
+
+            // This can't fail, because we create a decryptor above
+            // with the same parameters.
+            let mut reader = BufferedReaderDecryptor::with_cookie(
+                algo, key, reader, BufferedReaderState::default()).unwrap();
+            reader.cookie_mut().level = self.recursion_depth as usize + 1;
+
+            eprintln!("Adding decryptor at level {}",
+                      reader.cookie_ref().level);
+
+            // And the hasher.
+            let mut reader = HashedReader::new(
+                reader, HashesFor::MDC, vec![HashAlgo::SHA1]);
+            reader.cookie_mut().level = self.recursion_depth as usize + 1;
+
+            eprintln!("Adding hashed reader at level {}",
+                      reader.cookie_ref().level);
+
+            self.reader = Box::new(reader);
+
+            // Consume the header.  This shouldn't fail, because it
+            // worked when reading the header.
+            self.reader.data_consume_hard(bl + 2).unwrap();
+
+            self.decrypted = true;
+
+            Ok(())
+        } else {
+            Err(Error::InvalidOperation(
+                format!("Can't decrypt {:?} packets.",
+                        self.packet.tag())).into())
+        }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    use std::path::PathBuf;
+    fn path_to(artifact: &str) -> PathBuf {
+        [env!("CARGO_MANIFEST_DIR"), "tests", "data", "messages", artifact]
+            .iter().collect()
+    }
+
+    #[test]
+    fn decrypt_test_1() {
+        struct Test<'a> {
+            filename: &'a str,
+            algo: SymmetricAlgo,
+            key_hex: &'a str,
+        }
+
+        let expected = bytes!("a-cypherpunks-manifesto.txt");
+
+        let tests = [
+            Test {
+                filename: "encrypted-aes256-password-123.gpg",
+                algo: SymmetricAlgo::AES256,
+                key_hex: "7EF4F08C44F780BEA866961423306166B8912C43352F3D9617F745E4E3939710",
+            },
+            Test {
+                filename: "encrypted-aes192-password-123456.gpg",
+                algo: SymmetricAlgo::AES192,
+                key_hex: "B2F747F207EFF198A6C826F1D398DE037986218ED468DB61",
+            },
+            Test {
+                filename: "encrypted-aes128-password-123456789.gpg",
+                algo: SymmetricAlgo::AES128,
+                key_hex: "AC0553096429260B4A90B1CEC842D6A0",
+            },
+            Test {
+                filename: "encrypted-twofish-password-red-fish-blue-fish.gpg",
+                algo: SymmetricAlgo::Twofish,
+                key_hex: "96AFE1EDFA7C9CB7E8B23484C718015E5159CFA268594180D4DB68B2543393CB",
+            },
+        ];
+
+        for test in tests.iter() {
+            let path = path_to(test.filename);
+            let mut pp = PacketParserBuilder::from_file(&path).unwrap()
+                .buffer_unread_content()
+                .finalize()
+                .expect(&format!("Error reading {}", test.filename)[..])
+                .expect("Empty message");
+
+            loop {
+                if let Packet::SEIP(_) = pp.packet {
+                    let key = ::from_hex(test.key_hex, false).unwrap();
+
+                    pp.decrypt(test.algo.to_numeric(), &key[..]).unwrap();
+
+                    // SEIP packet.
+                    let (packet, _, pp, _) = pp.recurse().unwrap();
+                    assert_eq!(packet.tag(), Tag::SEIP);
+                    let pp = pp.expect(
+                        "Expected an compressed or literal packet, got EOF");
+
+                    // Literal packet, optionally compressed
+                    let (mut packet, _, mut pp, _) = pp.recurse().unwrap();
+                    if let Packet::CompressedData(_) = packet {
+                        let pp_tmp = pp.expect(
+                            "Expected a literal packet, got EOF");
+                        let (packet_tmp, _, pp_tmp, _)
+                            = pp_tmp.recurse().unwrap();
+                        packet = packet_tmp;
+                        pp = pp_tmp;
+                    }
+                    assert_eq!(packet.tag(), Tag::Literal);
+                    assert_eq!(&packet.body.as_ref().unwrap()[..],
+                               &expected[..]);
+                    let pp = pp.expect("Expected an MDC packet, got EOF");
+
+                    // MDC packet.
+                    let (packet, _, pp, _) = pp.recurse().unwrap();
+                    if let Packet::MDC(mdc) = packet {
+                        assert_eq!(mdc.computed_hash, mdc.hash);
+                    } else {
+                        panic!("Expected an MDC packet!");
+                    }
+
+                    // EOF.
+                    assert!(pp.is_none());
+
+                    break;
+                }
+
+                // This will blow up if we reach the end of the message.
+                // But, that is what we want: we stop when we get to a
+                // SEIP packet.
+                let (_, _, pp_tmp, _) = pp.recurse().unwrap();
+                pp = pp_tmp.unwrap();
+            }
+        }
+    }
 }
 
 impl Message {

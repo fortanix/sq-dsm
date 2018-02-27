@@ -2,10 +2,11 @@ use std::cmp;
 
 use nettle::Hash;
 
-use hash::hash_context;
 use Result;
 use HashAlgo;
 use S2K;
+
+use hash::hash_context;
 
 impl S2K {
     /// Return the interation count.

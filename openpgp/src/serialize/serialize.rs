@@ -470,6 +470,41 @@ impl SKESK {
         Ok(())
     }
 }
+
+impl SEIP {
+    /// Writes a serialized version of the specified `SEIP`
+    /// packet to `o`.
+    pub fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
+        if let Some(ref _children) = self.common.children {
+            unimplemented!("XXX: Serialize and encrypt the content.");
+        } else {
+            // XXX: We assume that the content is encrypted.
+            let body_len
+                = self.common.body.as_ref().map(|b| b.len()).unwrap_or(0);
+
+            write_byte(o, ctb_new(Tag::SEIP))?;
+            o.write_all(&body_length_new_format(
+                BodyLength::Full(body_len as u32))[..])?;
+            if let Some(ref body) = self.common.body {
+                o.write(&body[..])?;
+            }
+        }
+
+        Ok(())
+    }
+}
+
+impl MDC {
+    /// Writes a serialized version of the specified `MDC`
+    /// packet to `o`.
+    pub fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
+        write_byte(o, ctb_new(Tag::MDC))?;
+        o.write_all(&body_length_new_format(
+            BodyLength::Full(20u32))[..])?;
+        o.write_all(&self.hash[..])?;
+        Ok(())
+    }
+}
 
 impl Packet {
     /// Writes a serialized version of the specified `Packet` to `o`.
@@ -490,6 +525,8 @@ impl Packet {
             &Packet::Literal(ref p) => p.serialize(o),
             &Packet::CompressedData(ref p) => p.serialize(o),
             &Packet::SKESK(ref p) => p.serialize(o),
+            &Packet::SEIP(ref p) => p.serialize(o),
+            &Packet::MDC(ref p) => p.serialize(o),
         }
     }
 
