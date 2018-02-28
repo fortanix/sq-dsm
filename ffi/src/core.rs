@@ -28,9 +28,16 @@
 //! ```
 
 use failure;
+use std::fs::File;
 use std::ffi::{CString, CStr};
+use std::io::{Read, Write, Cursor};
+use std::path::Path;
 use std::ptr;
-use libc::{uint8_t, c_char, c_int};
+use std::slice;
+use libc::{uint8_t, c_char, c_int, size_t, ssize_t};
+
+#[cfg(unix)]
+use std::os::unix::io::FromRawFd;
 
 use sequoia_core as core;
 use sequoia_core::Config;
@@ -236,4 +243,128 @@ pub extern "system" fn sq_config_ipc_policy(cfg: Option<&mut Config>,
 pub extern "system" fn sq_config_ephemeral(cfg: Option<&mut Config>) {
     assert!(cfg.is_some());
     cfg.unwrap().set_ephemeral();
+}
+
+/* Reader and writer.  */
+
+/// Opens a file returning a reader.
+#[no_mangle]
+pub extern "system" fn sq_reader_from_file(ctx: Option<&mut Context>,
+                                           filename: *const c_char)
+                                           -> *mut Box<Read> {
+    let ctx = ctx.expect("Context is NULL");
+    assert!(! filename.is_null());
+    let filename = unsafe {
+        CStr::from_ptr(filename).to_string_lossy().into_owned()
+    };
+    fry_box!(ctx, File::open(Path::new(&filename))
+             .map(|r| Box::new(r))
+             .map_err(|e| e.into()))
+}
+
+/// Opens a file descriptor returning a reader.
+#[cfg(unix)]
+#[no_mangle]
+pub extern "system" fn sq_reader_from_fd(fd: c_int)
+                                         -> *mut Box<Read> {
+    box_raw!(Box::new(unsafe { File::from_raw_fd(fd) }))
+}
+
+/// Creates a reader from a buffer.
+#[no_mangle]
+pub extern "system" fn sq_reader_from_bytes(buf: *const uint8_t,
+                                            len: size_t)
+                                            -> *mut Box<Read> {
+    assert!(!buf.is_null());
+    let buf = unsafe {
+        slice::from_raw_parts(buf, len as usize)
+    };
+    box_raw!(Box::new(Cursor::new(buf)))
+}
+
+/// Frees a reader.
+#[no_mangle]
+pub extern "system" fn sq_reader_free(reader: *mut Box<Read>) {
+    if reader.is_null() { return }
+    unsafe {
+        drop(Box::from_raw(reader));
+    }
+}
+
+/// Reads up to `len` bytes into `buf`.
+#[no_mangle]
+pub extern "system" fn sq_reader_read(ctx: Option<&mut Context>,
+                                      reader: Option<&mut Box<Read>>,
+                                      buf: *mut uint8_t, len: size_t)
+                                      -> ssize_t {
+    let ctx = ctx.expect("Context is NULL");
+    let reader = reader.expect("Reader is NULL");
+    assert!(!buf.is_null());
+    let buf = unsafe {
+        slice::from_raw_parts_mut(buf, len as usize)
+    };
+    fry_or!(ctx, reader.read(buf).map_err(|e| e.into()), -1) as ssize_t
+}
+
+
+/// Opens a file returning a writer.
+///
+/// The file will be created if it does not exist, or be truncated
+/// otherwise.  If you need more control, use `sq_writer_from_fd`.
+#[no_mangle]
+pub extern "system" fn sq_writer_from_file(ctx: Option<&mut Context>,
+                                           filename: *const c_char)
+                                           -> *mut Box<Write> {
+    let ctx = ctx.expect("Context is NULL");
+    assert!(! filename.is_null());
+    let filename = unsafe {
+        CStr::from_ptr(filename).to_string_lossy().into_owned()
+    };
+    fry_box!(ctx, File::create(Path::new(&filename))
+             .map(|r| Box::new(r))
+             .map_err(|e| e.into()))
+}
+
+/// Opens a file descriptor returning a writer.
+#[cfg(unix)]
+#[no_mangle]
+pub extern "system" fn sq_writer_from_fd(fd: c_int)
+                                         -> *mut Box<Write> {
+    box_raw!(Box::new(unsafe { File::from_raw_fd(fd) }))
+}
+
+/// Creates a writer from a buffer.
+#[no_mangle]
+pub extern "system" fn sq_writer_from_bytes(buf: *mut uint8_t,
+                                            len: size_t)
+                                            -> *mut Box<Write> {
+    assert!(!buf.is_null());
+    let buf = unsafe {
+        slice::from_raw_parts_mut(buf, len as usize)
+    };
+    box_raw!(Box::new(Cursor::new(buf)))
+}
+
+/// Frees a writer.
+#[no_mangle]
+pub extern "system" fn sq_writer_free(writer: *mut Box<Write>) {
+    if writer.is_null() { return }
+    unsafe {
+        drop(Box::from_raw(writer));
+    }
+}
+
+/// Writes up to `len` bytes into `buf`.
+#[no_mangle]
+pub extern "system" fn sq_writer_write(ctx: Option<&mut Context>,
+                                       writer: Option<&mut Box<Write>>,
+                                       buf: *const uint8_t, len: size_t)
+                                       -> ssize_t {
+    let ctx = ctx.expect("Context is NULL");
+    let writer = writer.expect("Writer is NULL");
+    assert!(!buf.is_null());
+    let buf = unsafe {
+        slice::from_raw_parts(buf, len as usize)
+    };
+    fry_or!(ctx, writer.write(buf).map_err(|e| e.into()), -1) as ssize_t
 }
