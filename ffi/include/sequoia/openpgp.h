@@ -84,6 +84,69 @@ sq_keyid_t sq_fingerprint_to_keyid (const sq_fingerprint_t fp);
 int sq_fingerprint_equal (const sq_fingerprint_t a, const sq_fingerprint_t b);
 
 
+/* openpgp::armor.  */
+
+/*/
+/// Specifies the type of data (see [RFC 4880, section 6.2]).
+///
+/// [RFC 4880, section 6.2]: https://tools.ietf.org/html/rfc4880#section-6.2
+/*/
+typedef enum sq_armor_kind {
+  /*/
+  /// A generic OpenPGP message.
+  /*/
+  SQ_ARMOR_KIND_MESSAGE,
+
+  /*/
+  /// A transferable public key.
+  /*/
+  SQ_ARMOR_KIND_PUBLICKEY,
+
+  /*/
+  /// A transferable secret key.
+  /*/
+  SQ_ARMOR_KIND_PRIVATEKEY,
+
+  /*/
+  /// Alias for PrivateKey.
+  /*/
+  SQ_ARMOR_KIND_SECRETKEY,
+
+  /*/
+  /// A detached signature.
+  /*/
+  SQ_ARMOR_KIND_SIGNATURE,
+
+  /*/
+  /// A generic file.  This is a GnuPG extension.
+  /*/
+  SQ_ARMOR_KIND_FILE,
+
+  /*/
+  /// When reading an Armored file, accept any type.
+  /*/
+  SQ_ARMOR_KIND_ANY,
+
+  /* Dummy value to make sure the enumeration has a defined size.  Do
+     not use this value.  */
+  SQ_ARMOR_KIND_FORCE_WIDTH = INT_MAX,
+} sq_armor_kind_t;
+
+/*/
+/// Constructs a new filter for the given type of data.
+///
+/// A filter that strips ASCII Armor from a stream of data.
+/*/
+sq_reader_t sq_armor_reader_new (sq_reader_t inner, sq_armor_kind_t kind);
+
+/*/
+/// Constructs a new filter for the given type of data.
+///
+/// A filter that applies ASCII Armor to the data written to it.
+/*/
+sq_writer_t sq_armor_writer_new (sq_writer_t inner, sq_armor_kind_t kind);
+
+
 /* sequoia::keys.  */
 
 /*/
@@ -96,6 +159,12 @@ int sq_fingerprint_equal (const sq_fingerprint_t a, const sq_fingerprint_t b);
 /// [RFC 4880, section 11.1]: https://tools.ietf.org/html/rfc4880#section-11.1
 /*/
 typedef struct sq_tpk *sq_tpk_t;
+
+/*/
+/// Returns the first TPK encountered in the reader.
+/*/
+sq_tpk_t sq_tpk_from_reader (sq_context_t ctx,
+			     sq_reader_t reader);
 
 /*/
 /// Returns the first TPK found in `buf`.

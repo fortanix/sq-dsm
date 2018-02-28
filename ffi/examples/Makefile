@@ -1,6 +1,6 @@
 # Makefile for examples written in C.
 
-TARGETS = example keyserver configure
+TARGETS = example keyserver configure reader
 CFLAGS  = -I../include -O0 -g -Wall
 LDFLAGS = -L../../target/debug -lsequoia_ffi
 

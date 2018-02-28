@@ -3,12 +3,13 @@
 use std::ffi::{CString, CStr};
 use std::ptr;
 use std::slice;
-use libc::{uint8_t, c_char, size_t};
+use std::io::{Read, Write};
+use libc::{uint8_t, c_char, c_int, size_t};
 
 extern crate openpgp;
 
 use self::openpgp::tpk::TPK;
-use self::openpgp::{Fingerprint, KeyID};
+use self::openpgp::{armor, Fingerprint, KeyID};
 
 use super::core::Context;
 
@@ -145,7 +146,59 @@ pub extern "system" fn sq_fingerprint_equal(a: Option<&Fingerprint>,
 }
 
 
+/* openpgp::armor.  */
+
+fn int_to_kind(kind: c_int) -> armor::Kind {
+    match kind {
+        0 => armor::Kind::Message,
+        1 => armor::Kind::PublicKey,
+        2 => armor::Kind::PrivateKey,
+        3 => armor::Kind::SecretKey,
+        4 => armor::Kind::Signature,
+        5 => armor::Kind::File,
+        6 => armor::Kind::Any,
+        _ => panic!("Bad kind: {}", kind),
+    }
+}
+
+/// Constructs a new filter for the given type of data.
+///
+/// A filter that strips ASCII Armor from a stream of data.
+#[no_mangle]
+pub extern "system" fn sq_armor_reader_new(inner: Option<&'static mut Box<Read>>,
+                                           kind: c_int)
+                                           -> *mut Box<Read> {
+    let inner = inner.expect("Inner is NULL");
+    let kind = int_to_kind(kind);
+
+    box_raw!(Box::new(armor::Reader::new(inner, kind)))
+}
+
+/// Constructs a new filter for the given type of data.
+///
+/// A filter that applies ASCII Armor to the data written to it.
+#[no_mangle]
+pub extern "system" fn sq_armor_writer_new(inner: Option<&'static mut Box<Write>>,
+                                           kind: c_int)
+                                           -> *mut Box<Write> {
+    let inner = inner.expect("Inner is NULL");
+    let kind = int_to_kind(kind);
+
+    box_raw!(Box::new(armor::Writer::new(inner, kind)))
+}
+
+
 /* sequoia::keys.  */
+
+/// Returns the first TPK encountered in the reader.
+#[no_mangle]
+pub extern "system" fn sq_tpk_from_reader(ctx: Option<&mut Context>,
+                                          reader: Option<&mut Box<Read>>)
+                                          -> *mut TPK {
+    let ctx = ctx.expect("Context is NULL");
+    let reader = reader.expect("Reader is NULL");
+    fry_box!(ctx, TPK::from_reader(reader))
+}
 
 /// Returns the first TPK found in `buf`.
 ///
