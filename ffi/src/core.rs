@@ -98,6 +98,7 @@ pub extern "system" fn sq_context_new(domain: *const c_char)
 /// Frees a context.
 #[no_mangle]
 pub extern "system" fn sq_context_free(context: *mut Context) {
+    if context.is_null() { return }
     unsafe {
         drop(Box::from_raw(context));
     }
