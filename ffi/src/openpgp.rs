@@ -9,8 +9,9 @@ use libc::{uint8_t, c_char, c_int, size_t};
 extern crate openpgp;
 
 use self::openpgp::tpk::TPK;
-use self::openpgp::{armor, Fingerprint, KeyID};
+use self::openpgp::{armor, Fingerprint, KeyID, Message};
 
+use super::error::Status;
 use super::core::Context;
 
 /* sequoia::openpgp::KeyID.  */
@@ -188,6 +189,83 @@ pub extern "system" fn sq_armor_writer_new(inner: Option<&'static mut Box<Write>
 }
 
 
+/* openpgp::Message.  */
+
+/// Deserializes the OpenPGP message stored in a `std::io::Read`
+/// object.
+///
+/// Although this method is easier to use to parse an OpenPGP
+/// message than a `PacketParser` or a `MessageParser`, this
+/// interface buffers the whole message in memory.  Thus, the
+/// caller must be certain that the *deserialized* message is not
+/// too large.
+///
+/// Note: this interface *does* buffer the contents of packets.
+#[no_mangle]
+pub extern "system" fn sq_message_from_reader(ctx: Option<&mut Context>,
+                                              reader: Option<&mut Box<Read>>)
+                                              -> *mut Message {
+    let ctx = ctx.expect("Context is NULL");
+    let reader = reader.expect("Reader is NULL");
+    fry_box!(ctx, Message::from_reader(reader))
+}
+
+/// Deserializes the OpenPGP message stored in the file named by
+/// `filename`.
+///
+/// See `sq_message_from_reader` for more details and caveats.
+#[no_mangle]
+pub extern "system" fn sq_message_from_file(ctx: Option<&mut Context>,
+                                            filename: *const c_char)
+                                            -> *mut Message {
+    let ctx = ctx.expect("Context is NULL");
+    assert!(! filename.is_null());
+    let filename = unsafe {
+        CStr::from_ptr(filename).to_string_lossy().into_owned()
+    };
+    fry_box!(ctx, Message::from_file(&filename))
+}
+
+/// Deserializes the OpenPGP message stored in the provided buffer.
+///
+/// See `sq_message_from_reader` for more details and caveats.
+#[no_mangle]
+pub extern "system" fn sq_message_from_bytes(ctx: Option<&mut Context>,
+                                             b: *const uint8_t, len: size_t)
+                                             -> *mut Message {
+    let ctx = ctx.expect("Context is NULL");
+    assert!(!b.is_null());
+    let buf = unsafe {
+        slice::from_raw_parts(b, len as usize)
+    };
+
+    fry_box!(ctx, Message::from_bytes(buf))
+}
+
+/// Frees the message.
+#[no_mangle]
+pub extern "system" fn sq_message_free(message: *mut Message) {
+    if message.is_null() {
+        return
+    }
+    unsafe {
+        drop(Box::from_raw(message));
+    }
+}
+
+/// Serializes the message.
+#[no_mangle]
+pub extern "system" fn sq_message_serialize(ctx: Option<&mut Context>,
+                                            message: Option<&Message>,
+                                            writer: Option<&mut Box<Write>>)
+                                            -> Status {
+    let ctx = ctx.expect("Context is NULL");
+    let message = message.expect("Message is NULL");
+    let writer = writer.expect("Writer is NULL");
+    fry_status!(ctx, message.serialize(writer))
+}
+
+
 /* sequoia::keys.  */
 
 /// Returns the first TPK encountered in the reader.
@@ -198,6 +276,32 @@ pub extern "system" fn sq_tpk_from_reader(ctx: Option<&mut Context>,
     let ctx = ctx.expect("Context is NULL");
     let reader = reader.expect("Reader is NULL");
     fry_box!(ctx, TPK::from_reader(reader))
+}
+
+/// Returns the first TPK encountered in the file.
+#[no_mangle]
+pub extern "system" fn sq_tpk_from_file(ctx: Option<&mut Context>,
+                                        filename: *const c_char)
+                                        -> *mut TPK {
+    let ctx = ctx.expect("Context is NULL");
+    assert!(! filename.is_null());
+    let filename = unsafe {
+        CStr::from_ptr(filename).to_string_lossy().into_owned()
+    };
+    fry_box!(ctx, TPK::from_file(&filename))
+}
+
+/// Returns the first TPK found in `m`.
+///
+/// Consumes `m`.
+#[no_mangle]
+pub extern "system" fn sq_tpk_from_message(ctx: Option<&mut Context>,
+                                           m: *mut Message)
+                                           -> *mut TPK {
+    let ctx = ctx.expect("Context is NULL");
+    assert!(! m.is_null());
+    let m = unsafe { Box::from_raw(m) };
+    fry_box!(ctx, TPK::from_message(*m))
 }
 
 /// Returns the first TPK found in `buf`.
@@ -227,15 +331,44 @@ pub extern "system" fn sq_tpk_free(tpk: *mut TPK) {
     }
 }
 
+/// Serializes the TPK.
+#[no_mangle]
+pub extern "system" fn sq_tpk_serialize(ctx: Option<&mut Context>,
+                                        tpk: Option<&TPK>,
+                                        writer: Option<&mut Box<Write>>)
+                                        -> Status {
+    let ctx = ctx.expect("Context is NULL");
+    let tpk = tpk.expect("TPK is NULL");
+    let writer = writer.expect("Writer is NULL");
+    fry_status!(ctx, tpk.serialize(writer))
+}
+
+/// Merges `other` into `tpk`.
+///
+/// If `other` is a different key, then nothing is merged into
+/// `tpk`, but `tpk` is still canonicalized.
+///
+/// Consumes `tpk` and `other`.
+#[no_mangle]
+pub extern "system" fn sq_tpk_merge(ctx: Option<&mut Context>,
+                                    tpk: *mut TPK,
+                                    other: *mut TPK)
+                                    -> *mut TPK {
+    let ctx = ctx.expect("Context is NULL");
+    assert!(! tpk.is_null());
+    let tpk = unsafe { Box::from_raw(tpk) };
+    assert!(! other.is_null());
+    let other = unsafe { Box::from_raw(other) };
+    fry_box!(ctx, tpk.merge(*other))
+}
+
 /// Dumps the TPK.
 ///
 /// XXX Remove this.
 #[no_mangle]
-pub extern "system" fn sq_tpk_dump(tpk: *mut TPK) {
-    assert!(!tpk.is_null());
-    unsafe {
-        println!("{:?}", *tpk);
-    }
+pub extern "system" fn sq_tpk_dump(tpk: Option<&TPK>) {
+    let tpk = tpk.expect("TPK is NULL");
+    println!("{:?}", *tpk);
 }
 
 /// Returns the fingerprint.

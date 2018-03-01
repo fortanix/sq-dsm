@@ -147,7 +147,59 @@ sq_reader_t sq_armor_reader_new (sq_reader_t inner, sq_armor_kind_t kind);
 sq_writer_t sq_armor_writer_new (sq_writer_t inner, sq_armor_kind_t kind);
 
 
-/* sequoia::keys.  */
+/* openpgp::Message.  */
+
+/*/
+/// A `Message` holds a deserialized OpenPGP message.
+/*/
+typedef struct sq_message *sq_message_t;
+
+/*/
+/// Deserializes the OpenPGP message stored in a `std::io::Read`
+/// object.
+///
+/// Although this method is easier to use to parse an OpenPGP
+/// message than a `PacketParser` or a `MessageParser`, this
+/// interface buffers the whole message in memory.  Thus, the
+/// caller must be certain that the *deserialized* message is not
+/// too large.
+///
+/// Note: this interface *does* buffer the contents of packets.
+/*/
+sq_message_t sq_message_from_reader (sq_context_t ctx,
+                                     sq_reader_t reader);
+
+/*/
+/// Deserializes the OpenPGP message stored in the file named by
+/// `filename`.
+///
+/// See `sq_message_from_reader` for more details and caveats.
+/*/
+sq_message_t sq_message_from_file (sq_context_t ctx,
+                                   const char *filename);
+
+/*/
+/// Deserializes the OpenPGP message stored in the provided buffer.
+///
+/// See `sq_message_from_reader` for more details and caveats.
+/*/
+sq_message_t sq_message_from_bytes (sq_context_t ctx,
+                                    const char *b, size_t len);
+
+/*/
+/// Frees the message.
+/*/
+void sq_message_free (sq_message_t message);
+
+/*/
+/// Serializes the message.
+/*/
+sq_status_t sq_message_serialize (sq_context_t ctx,
+                                  const sq_message_t message,
+                                  sq_writer_t writer);
+
+
+/* openpgp::tpk.  */
 
 /*/
 /// A transferable public key (TPK).
@@ -167,6 +219,20 @@ sq_tpk_t sq_tpk_from_reader (sq_context_t ctx,
 			     sq_reader_t reader);
 
 /*/
+/// Returns the first TPK encountered in the file.
+/*/
+sq_tpk_t sq_tpk_from_file (sq_context_t ctx,
+                           const char *filename);
+
+/*/
+/// Returns the first TPK found in `m`.
+///
+/// Consumes `m`.
+/*/
+sq_tpk_t sq_tpk_from_message (sq_context_t ctx,
+                              sq_message_t m);
+
+/*/
 /// Returns the first TPK found in `buf`.
 ///
 /// `buf` must be an OpenPGP encoded message.
@@ -178,6 +244,25 @@ sq_tpk_t sq_tpk_from_bytes (sq_context_t ctx,
 /// Frees the TPK.
 /*/
 void sq_tpk_free (sq_tpk_t tpk);
+
+/*/
+/// Serializes the TPK.
+/*/
+sq_status_t sq_tpk_serialize (sq_context_t ctx,
+                              const sq_tpk_t tpk,
+                              sq_writer_t writer);
+
+/*/
+/// Merges `other` into `tpk`.
+///
+/// If `other` is a different key, then nothing is merged into
+/// `tpk`, but `tpk` is still canonicalized.
+///
+/// Consumes `tpk` and `other`.
+/*/
+sq_tpk_t sq_tpk_merge (sq_context_t ctx,
+                       sq_tpk_t tpk,
+                       sq_tpk_t other);
 
 /*/
 /// Dumps the TPK.
