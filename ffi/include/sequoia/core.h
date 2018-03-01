@@ -21,11 +21,11 @@
 typedef struct sq_context *sq_context_t;
 
 /*/
-/// Returns the last error message.
+/// Returns the last error.
 ///
-/// The returned value must be freed with `sq_string_free`.
+/// Returns and removes the last error from the context.
 /*/
-char *sq_last_strerror (const sq_context_t ctx);
+sq_error_t sq_context_last_error (sq_context_t ctx);
 
 /*/
 /// Frees a string returned from Sequoia.

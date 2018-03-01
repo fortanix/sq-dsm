@@ -277,7 +277,7 @@ sq_binding_t sq_store_lookup (sq_context_t ctx, sq_store_t store,
 ///
 /// Consumes `store`.  Returns != 0 on error.
 /*/
-long sq_store_delete (sq_store_t store);
+sq_status_t sq_store_delete (sq_store_t store);
 
 /*/
 /// Lists all bindings.
@@ -348,7 +348,7 @@ sq_tpk_t sq_binding_rotate (sq_context_t ctx, sq_binding_t binding,
 ///
 /// Consumes `binding`.  Returns != 0 on error.
 /*/
-long sq_binding_delete (sq_binding_t binding);
+sq_status_t sq_binding_delete (sq_binding_t binding);
 
 /*/
 /// Lists all log entries related to this binding.

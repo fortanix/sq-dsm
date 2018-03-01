@@ -55,21 +55,14 @@ impl Context {
     }
 }
 
-/// Returns the last error message.
+/// Returns the last error.
 ///
-/// The returned value must be freed with `sq_string_free`.
+/// Returns and removes the last error from the context.
 #[no_mangle]
-pub extern "system" fn sq_last_strerror(ctx: Option<&Context>)
-                                        -> *mut c_char {
+pub extern "system" fn sq_context_last_error(ctx: Option<&mut Context>)
+                                             -> *mut failure::Error {
     let ctx = ctx.expect("Context is NULL");
-    match ctx.e {
-        Some(ref e) =>
-            CString::new(format!("{}", e))
-            .map(|s| s.into_raw())
-            .unwrap_or(CString::new("Failed to convert error into string")
-                       .unwrap().into_raw()),
-        None => ptr::null_mut(),
-    }
+    maybe_box_raw!(ctx.e.take())
 }
 
 /// Frees a string returned from Sequoia.

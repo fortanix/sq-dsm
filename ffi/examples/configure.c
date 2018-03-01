@@ -1,4 +1,5 @@
 #define _GNU_SOURCE
+#include <assert.h>
 #include <error.h>
 #include <errno.h>
 #include <stdio.h>
@@ -20,8 +21,15 @@ main (int argc, char **argv)
 
   ks = sq_keyserver_sks_pool (ctx);
   if (ks == NULL)
-    error (0, 0, "Initializing Keyserver failed as expected: %s",
-	   sq_last_strerror (ctx));
+    {
+      sq_error_t err = sq_context_last_error (ctx);
+      assert (sq_error_status (err) == SQ_STATUS_NETWORK_POLICY_VIOLATION);
+      char *msg = sq_error_string (err);
+      error (0, 0, "Initializing KeyServer failed as expected: %s",
+             msg);
+      sq_string_free (msg);
+      sq_error_free (err);
+    }
   else
     error (1, 0, "This should not be allowed");
 

@@ -40,11 +40,17 @@ main (int argc, char **argv)
 
   reader = sq_reader_from_bytes (b, st.st_size);
   if (reader == NULL)
-    error (1, 0, "sq_reader_from_bytes: %s", sq_last_strerror (ctx));
+    {
+      sq_error_t err = sq_context_last_error (ctx);
+      error (1, 0, "sq_reader_from_bytes: %s", sq_error_string (err));
+    }
 
   tpk = sq_tpk_from_reader (ctx, reader);
   if (tpk == NULL)
-    error (1, 0, "sq_tpk_from_reader: %s", sq_last_strerror (ctx));
+    {
+      sq_error_t err = sq_context_last_error (ctx);
+      error (1, 0, "sq_tpk_from_reader: %s", sq_error_string (err));
+    }
 
   sq_tpk_dump (tpk);
   sq_tpk_free (tpk);

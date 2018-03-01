@@ -72,6 +72,24 @@ extern crate sequoia_store;
 
 /// Like try! for ffi glue.
 ///
+/// Evaluates the given expression.  On success, evaluate to
+/// `Status.Success`.  On failure, stashes the error in the context and
+/// evaluate to the appropriate Status code.
+macro_rules! fry_status {
+    ($ctx:expr, $expr:expr) => {
+        match $expr {
+            Ok(_) => Status::Success,
+            Err(e) => {
+                let status = Status::from(&e);
+                $ctx.e = Some(e);
+                status
+            },
+        }
+    };
+}
+
+/// Like try! for ffi glue.
+///
 /// Unwraps the given expression.  On failure, stashes the error in
 /// the context and returns $or.
 macro_rules! fry_or {
@@ -121,6 +139,7 @@ macro_rules! maybe_box_raw {
     }
 }
 
+pub mod error;
 pub mod core;
 pub mod openpgp;
 pub mod net;

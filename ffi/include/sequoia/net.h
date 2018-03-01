@@ -63,8 +63,8 @@ sq_tpk_t sq_keyserver_get (sq_context_t ctx,
 ///
 /// Returns != 0 on errors.
 /*/
-int sq_keyserver_send (sq_context_t ctx,
-		       sq_keyserver_t ks,
-		       const sq_tpk_t tpk);
+sq_status_t sq_keyserver_send (sq_context_t ctx,
+			       sq_keyserver_t ks,
+			       const sq_tpk_t tpk);
 
 #endif

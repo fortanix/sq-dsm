@@ -23,7 +23,7 @@
 //! ```
 
 
-use libc::{uint8_t, uint64_t, c_char, c_long};
+use libc::{uint8_t, uint64_t, c_char};
 use std::ffi::{CStr, CString};
 use std::ptr;
 
@@ -35,6 +35,7 @@ use sequoia_store::{
     self, Store, StoreIter, Binding, BindingIter, Key, KeyIter, LogIter,
 };
 
+use super::error::Status;
 use super::core::{Context, sq_string_free};
 
 
@@ -284,15 +285,14 @@ pub extern "system" fn sq_store_lookup(ctx: Option<&mut Context>,
 #[no_mangle]
 pub extern "system" fn sq_store_delete(ctx: Option<&mut Context>,
                                        store: *mut Store)
-                                       -> c_long {
+                                       -> Status {
     let ctx = ctx.expect("Context is NULL");
     assert!(! store.is_null());
     let store = unsafe {
         Box::from_raw(store)
     };
 
-    fry_or!(ctx, store.delete(), 1);
-    0
+    fry_status!(ctx, store.delete())
 }
 
 /// Lists all bindings.
@@ -482,15 +482,14 @@ pub extern "system" fn sq_binding_rotate(ctx: Option<&mut Context>,
 #[no_mangle]
 pub extern "system" fn sq_binding_delete(ctx: Option<&mut Context>,
                                          binding: *mut Binding)
-                                         -> c_long {
+                                         -> Status {
     let ctx = ctx.expect("Context is NULL");
     assert!(! binding.is_null());
     let binding = unsafe {
         Box::from_raw(binding)
     };
 
-    fry_or!(ctx, binding.delete(), 1);
-    0
+    fry_status!(ctx, binding.delete())
 }
 
 /// Lists all log entries related to this binding.

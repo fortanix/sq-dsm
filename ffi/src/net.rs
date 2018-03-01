@@ -25,7 +25,7 @@
 //! tpk = sq_keyserver_get (ctx, ks, id);
 //! ```
 
-use libc::{uint8_t, c_char, size_t, c_long};
+use libc::{uint8_t, c_char, size_t};
 use native_tls::Certificate;
 use std::ffi::CStr;
 use std::ptr;
@@ -37,6 +37,7 @@ use self::openpgp::tpk::TPK;
 use self::openpgp::KeyID;
 use sequoia_net::KeyServer;
 
+use super::error::Status;
 use super::core::Context;
 
 /// Returns a handle for the given URI.
@@ -133,11 +134,11 @@ pub extern "system" fn sq_keyserver_get(ctx: Option<&mut Context>,
 #[no_mangle]
 pub extern "system" fn sq_keyserver_send(ctx: Option<&mut Context>,
                                          ks: Option<&mut KeyServer>,
-                                         tpk: Option<&TPK>) -> c_long {
+                                         tpk: Option<&TPK>)
+                                         -> Status {
     let ctx = ctx.expect("Context is NULL");
     let ks = ks.expect("KeyServer is NULL");
     let tpk = tpk.expect("TPK is NULL");
 
-    fry_or!(ctx, ks.send(tpk), 1);
-    0 // Success!
+    fry_status!(ctx, ks.send(tpk))
 }
