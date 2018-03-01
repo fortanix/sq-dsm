@@ -293,10 +293,10 @@ pub enum Error {
     /// The network policy was violated by the given action.
     #[fail(display = "Unmet network policy requirement: {}", _0)]
     NetworkPolicyViolation(NetworkPolicy),
-    #[fail(display = "IO error: {}", error)]
-    IoError { error: io::Error },
-    #[fail(display = "An unknown error has occurred.")]
-    UnknownError,
+
+    /// An `io::Error` occurred.
+    #[fail(display = "{}", _0)]
+    IoError(#[cause] io::Error),
 }
 
 /* Network policy.  */
