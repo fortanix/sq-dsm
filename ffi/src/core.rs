@@ -46,7 +46,7 @@ use sequoia_core::Config;
 #[doc(hidden)]
 pub struct Context {
     pub(crate) c: core::Context,
-    pub(crate) e: Option<Box<failure::Error>>,
+    pub(crate) e: Option<failure::Error>,
 }
 
 impl Context {

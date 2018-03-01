@@ -79,7 +79,7 @@ macro_rules! fry_or {
         match $expr {
             Ok(v) => v,
             Err(e) => {
-                $ctx.e = Some(Box::new(e));
+                $ctx.e = Some(e);
                 return $or;
             },
         }
