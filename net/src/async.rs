@@ -7,13 +7,14 @@ use failure;
 use futures::{future, Future, Stream};
 use hyper::client::{FutureResponse, HttpConnector};
 use hyper::header::{ContentLength, ContentType};
-use hyper::{Client, Uri, StatusCode, Request, Method};
+use hyper::{self, Client, StatusCode, Request, Method};
 use hyper_tls::HttpsConnector;
 use native_tls::{Certificate, TlsConnector};
 use percent_encoding::{percent_encode, DEFAULT_ENCODE_SET};
 use std::convert::From;
 use std::io::Cursor;
 use tokio_core::reactor::Handle;
+use url::Url;
 
 use openpgp::tpk::TPK;
 use openpgp::{KeyID, armor};
@@ -32,7 +33,7 @@ define_encode_set! {
 /// For accessing keyservers using HKP.
 pub struct KeyServer {
     client: Box<AClient>,
-    uri: Uri,
+    uri: Url,
 }
 
 const DNS_WORKER: usize = 4;
@@ -40,11 +41,11 @@ const DNS_WORKER: usize = 4;
 impl KeyServer {
     /// Returns a handle for the given URI.
     pub fn new(ctx: &Context, uri: &str, handle: &Handle) -> Result<Self> {
-        let uri: Uri = uri.parse()?;
+        let uri: Url = uri.parse()?;
 
         let client: Box<AClient> = match uri.scheme() {
-            Some("hkp") => Box::new(Client::new(handle)),
-            Some("hkps") => {
+            "hkp" => Box::new(Client::new(handle)),
+            "hkps" => {
                 Box::new(Client::configure()
                          .connector(HttpsConnector::new(DNS_WORKER, handle)?)
                          .build(handle))
@@ -60,7 +61,7 @@ impl KeyServer {
     /// `cert` is used to authenticate the server.
     pub fn with_cert(ctx: &Context, uri: &str, cert: Certificate,
                      handle: &Handle) -> Result<Self> {
-        let uri: Uri = uri.parse()?;
+        let uri: Url = uri.parse()?;
 
         let client: Box<AClient> = {
             let mut ssl = TlsConnector::builder()?;
@@ -90,16 +91,17 @@ impl KeyServer {
     }
 
     /// Common code for the above functions.
-    fn make(ctx: &Context, client: Box<AClient>, uri: Uri) -> Result<Self> {
-        let s = uri.scheme().ok_or(Error::MalformedUri)?;
+    fn make(ctx: &Context, client: Box<AClient>, uri: Url) -> Result<Self> {
+        let s = uri.scheme();
         match s {
             "hkp" => ctx.network_policy().assert(NetworkPolicy::Insecure),
             "hkps" => ctx.network_policy().assert(NetworkPolicy::Encrypted),
-            _ => unreachable!()
+            _ => return Err(Error::MalformedUri.into())
         }?;
         let uri =
             format!("{}://{}:{}",
-                    match s {"hkp" => "http", "hkps" => "https", _ => unreachable!()},
+                    match s {"hkp" => "http", "hkps" => "https",
+                             _ => unreachable!()},
                     uri.host().ok_or(Error::MalformedUri)?,
                     match s {
                         "hkp" => uri.port().or(Some(11371)),
@@ -113,8 +115,9 @@ impl KeyServer {
     /// Retrieves the key with the given `keyid`.
     pub fn get(&mut self, keyid: &KeyID)
                -> Box<Future<Item=TPK, Error=failure::Error> + 'static> {
-        let uri = format!("{}/pks/lookup?op=get&options=mr&search=0x{}",
-                          self.uri, keyid.to_hex()).parse();
+        let uri = self.uri.join(
+            &format!("pks/lookup?op=get&options=mr&search=0x{}",
+                     keyid.to_hex()));
         if let Err(e) = uri {
             // This shouldn't happen, but better safe than sorry.
             return Box::new(future::err(Error::from(e).into()));
@@ -143,7 +146,7 @@ impl KeyServer {
         use openpgp::armor::{Writer, Kind};
 
         let uri =
-            match format!("{}/pks/add", self.uri).parse() {
+            match self.uri.join("pks/add") {
                 Err(e) =>
                 // This shouldn't happen, but better safe than sorry.
                     return Box::new(future::err(Error::from(e).into())),
@@ -163,7 +166,7 @@ impl KeyServer {
         post_data.extend_from_slice(percent_encode(&armored_blob, KEYSERVER_ENCODE_SET)
                                     .collect::<String>().as_bytes());
 
-        let mut request = Request::new(Method::Post, uri);
+        let mut request = Request::new(Method::Post, url2uri(uri));
         request.headers_mut().set(ContentType::form_url_encoded());
         request.headers_mut().set(ContentLength(post_data.len() as u64));
         request.set_body(post_data);
@@ -181,13 +184,13 @@ impl KeyServer {
 }
 
 trait AClient {
-    fn do_get(&mut self, uri: Uri) -> FutureResponse;
+    fn do_get(&mut self, uri: Url) -> FutureResponse;
     fn do_request(&mut self, request: Request) -> FutureResponse;
 }
 
 impl AClient for Client<HttpConnector> {
-    fn do_get(&mut self, uri: Uri) -> FutureResponse {
-        self.get(uri)
+    fn do_get(&mut self, uri: Url) -> FutureResponse {
+        self.get(url2uri(uri))
     }
     fn do_request(&mut self, request: Request) -> FutureResponse {
         self.request(request)
@@ -195,10 +198,14 @@ impl AClient for Client<HttpConnector> {
 }
 
 impl AClient for Client<HttpsConnector<HttpConnector>> {
-    fn do_get(&mut self, uri: Uri) -> FutureResponse {
-        self.get(uri)
+    fn do_get(&mut self, uri: Url) -> FutureResponse {
+        self.get(url2uri(uri))
     }
     fn do_request(&mut self, request: Request) -> FutureResponse {
         self.request(request)
     }
+}
+
+pub(crate) fn url2uri(uri: Url) -> hyper::Uri {
+    format!("{}", uri).parse().unwrap()
 }

@@ -43,21 +43,24 @@ extern crate tokio_core;
 extern crate tokio_io;
 #[macro_use]
 extern crate percent_encoding;
+extern crate url;
 
 extern crate capnp_rpc;
 
 use hyper::client::{FutureResponse, HttpConnector};
-use hyper::{Client, Uri, Request};
+use hyper::{Client, Request};
 use hyper_tls::HttpsConnector;
 use native_tls::Certificate;
 use std::convert::From;
 use tokio_core::reactor::Core;
+use url::Url;
 
 use openpgp::KeyID;
 use openpgp::tpk::TPK;
 use sequoia_core::Context;
 
 pub mod async;
+use async::url2uri;
 pub mod ipc;
 
 /// For accessing keyservers using HKP.
@@ -111,13 +114,13 @@ impl KeyServer {
 }
 
 trait AClient {
-    fn do_get(&mut self, uri: Uri) -> FutureResponse;
+    fn do_get(&mut self, uri: Url) -> FutureResponse;
     fn do_request(&mut self, request: Request) -> FutureResponse;
 }
 
 impl AClient for Client<HttpConnector> {
-    fn do_get(&mut self, uri: Uri) -> FutureResponse {
-        self.get(uri)
+    fn do_get(&mut self, uri: Url) -> FutureResponse {
+        self.get(url2uri(uri))
     }
     fn do_request(&mut self, request: Request) -> FutureResponse {
         self.request(request)
@@ -125,8 +128,8 @@ impl AClient for Client<HttpConnector> {
 }
 
 impl AClient for Client<HttpsConnector<HttpConnector>> {
-    fn do_get(&mut self, uri: Uri) -> FutureResponse {
-        self.get(uri)
+    fn do_get(&mut self, uri: Url) -> FutureResponse {
+        self.get(url2uri(uri))
     }
     fn do_request(&mut self, request: Request) -> FutureResponse {
         self.request(request)
@@ -156,7 +159,7 @@ pub enum Error {
     HttpStatus(hyper::StatusCode),
     /// A `hyper::error::UriError` occurred.
     #[fail(display = "URI Error")]
-    UriError(hyper::error::UriError),
+    UriError(url::ParseError),
     /// A `hyper::Error` occurred.
     #[fail(display = "Hyper Error")]
     HyperError(hyper::Error),
@@ -171,8 +174,8 @@ impl From<hyper::Error> for Error {
     }
 }
 
-impl From<hyper::error::UriError> for Error {
-    fn from(e: hyper::error::UriError) -> Error {
+impl From<url::ParseError> for Error {
+    fn from(e: url::ParseError) -> Error {
         Error::UriError(e)
     }
 }
