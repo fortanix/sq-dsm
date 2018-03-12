@@ -10,5 +10,8 @@ bzip2 = "0.3.2"
 failure = "0.1.1"
 flate2 = "0.2"
 nettle = { git = "https://gitlab.com/sequoia-pgp/nettle-rs.git" }
-num = "0.1.40"
 num-derive = "0.1.41"
+
+[dependencies.num]
+version = "0.1.40"
+default-features = false
