@@ -5,10 +5,10 @@ authors = ["Neal H. Walfield <neal@gnu.org>"]
 
 [dependencies]
 buffered-reader = { path = "../buffered-reader" }
-base64 = "0.8.0"
+base64 = "0.9.0"
 bzip2 = "0.3.2"
 failure = "0.1.1"
-flate2 = "0.2"
+flate2 = "1.0.1"
 nettle = { git = "https://gitlab.com/sequoia-pgp/nettle-rs.git" }
 num-derive = "0.1.41"
 
