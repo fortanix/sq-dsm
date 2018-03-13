@@ -2,6 +2,12 @@
 name = "sequoia"
 version = "0.1.0"
 authors = ["Neal H. Walfield <neal@gnu.org>"]
+documentation = "https://docs.sequoia-pgp.org/"
+homepage = "https://sequoia-pgp.org/"
+repository = "https://gitlab.com/sequoia-pgp/sequoia"
+readme = "README.md"
+publish = false # not yet...
+
 
 [workspace]
 
