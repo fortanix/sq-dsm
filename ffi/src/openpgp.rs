@@ -43,6 +43,14 @@ pub extern "system" fn sq_keyid_free(keyid: *mut KeyID) {
     }
 }
 
+/// Clones the KeyID.
+#[no_mangle]
+pub extern "system" fn sq_keyid_clone(id: Option<&KeyID>)
+                                      -> *mut KeyID {
+    let id = id.expect("KeyID is NULL");
+    box_raw!(id.clone())
+}
+
 /// Converts the KeyID to its standard representation.
 #[no_mangle]
 pub extern "system" fn sq_keyid_to_string(id: Option<&KeyID>)
@@ -106,6 +114,14 @@ pub extern "system" fn sq_fingerprint_free(fp: *mut Fingerprint) {
     unsafe {
         drop(Box::from_raw(fp));
     }
+}
+
+/// Clones the Fingerprint.
+#[no_mangle]
+pub extern "system" fn sq_fingerprint_clone(fp: Option<&Fingerprint>)
+                                            -> *mut Fingerprint {
+    let fp = fp.expect("Fingerprint is NULL");
+    box_raw!(fp.clone())
 }
 
 /// Converts the fingerprint to its standard representation.
@@ -253,6 +269,14 @@ pub extern "system" fn sq_message_free(message: *mut Message) {
     }
 }
 
+/// Clones the Message.
+#[no_mangle]
+pub extern "system" fn sq_message_clone(message: Option<&Message>)
+                                        -> *mut Message {
+    let message = message.expect("Message is NULL");
+    box_raw!(message.clone())
+}
+
 /// Serializes the message.
 #[no_mangle]
 pub extern "system" fn sq_message_serialize(ctx: Option<&mut Context>,
@@ -329,6 +353,24 @@ pub extern "system" fn sq_tpk_free(tpk: *mut TPK) {
     unsafe {
         drop(Box::from_raw(tpk));
     }
+}
+
+/// Clones the TPK.
+#[no_mangle]
+pub extern "system" fn sq_tpk_clone(tpk: Option<&TPK>)
+                                    -> *mut TPK {
+    let tpk = tpk.expect("TPK is NULL");
+    box_raw!(tpk.clone())
+}
+
+/// Compares TPKs.
+#[no_mangle]
+pub extern "system" fn sq_tpk_equal(a: Option<&TPK>,
+                                    b: Option<&TPK>)
+                                    -> bool {
+    let a = a.expect("TPK 'a' is NULL");
+    let b = b.expect("TPK 'b' is NULL");
+    a == b
 }
 
 /// Serializes the TPK.

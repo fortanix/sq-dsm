@@ -26,6 +26,11 @@ sq_keyid_t sq_keyid_from_hex (const char *id);
 void sq_keyid_free (sq_keyid_t keyid);
 
 /*/
+/// Clones the KeyID.
+/*/
+sq_keyid_t sq_keyid_clone (sq_keyid_t keyid);
+
+/*/
 /// Converts the KeyID to its standard representation.
 /*/
 char *sq_keyid_to_string (const sq_keyid_t fp);
@@ -62,6 +67,11 @@ sq_fingerprint_t sq_fingerprint_from_hex (const char *hex);
 /// Frees a sq_fingerprint_t.
 /*/
 void sq_fingerprint_free (sq_fingerprint_t fp);
+
+/*/
+/// Clones the Fingerprint.
+/*/
+sq_fingerprint_t sq_fingerprint_clone (sq_fingerprint_t fingerprint);
 
 /*/
 /// Converts the fingerprint to its standard representation.
@@ -192,6 +202,11 @@ sq_message_t sq_message_from_bytes (sq_context_t ctx,
 void sq_message_free (sq_message_t message);
 
 /*/
+/// Clones the Message.
+/*/
+sq_message_t sq_message_clone (sq_message_t message);
+
+/*/
 /// Serializes the message.
 /*/
 sq_status_t sq_message_serialize (sq_context_t ctx,
@@ -244,6 +259,16 @@ sq_tpk_t sq_tpk_from_bytes (sq_context_t ctx,
 /// Frees the TPK.
 /*/
 void sq_tpk_free (sq_tpk_t tpk);
+
+/*/
+/// Clones the TPK.
+/*/
+sq_tpk_t sq_tpk_clone (sq_tpk_t tpk);
+
+/*/
+/// Compares TPKs.
+/*/
+int sq_tpk_equal (const sq_tpk_t a, const sq_tpk_t b);
 
 /*/
 /// Serializes the TPK.
