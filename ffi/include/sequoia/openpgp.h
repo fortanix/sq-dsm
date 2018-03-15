@@ -31,6 +31,11 @@ void sq_keyid_free (sq_keyid_t keyid);
 sq_keyid_t sq_keyid_clone (sq_keyid_t keyid);
 
 /*/
+/// Hashes the KeyID.
+/*/
+uint64_t sq_keyid_hash (sq_keyid_t keyid);
+
+/*/
 /// Converts the KeyID to its standard representation.
 /*/
 char *sq_keyid_to_string (const sq_keyid_t fp);
@@ -72,6 +77,11 @@ void sq_fingerprint_free (sq_fingerprint_t fp);
 /// Clones the Fingerprint.
 /*/
 sq_fingerprint_t sq_fingerprint_clone (sq_fingerprint_t fingerprint);
+
+/*/
+/// Hashes the Fingerprint.
+/*/
+uint64_t sq_fingerprint_hash (sq_fingerprint_t fingerprint);
 
 /*/
 /// Converts the fingerprint to its standard representation.

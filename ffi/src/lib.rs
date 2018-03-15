@@ -64,11 +64,16 @@
 //! ```
 
 extern crate failure;
+#[macro_use]
+extern crate lazy_static;
 extern crate libc;
 extern crate native_tls;
 extern crate sequoia_core;
 extern crate sequoia_net;
 extern crate sequoia_store;
+
+use std::collections::hash_map::{DefaultHasher, RandomState};
+use std::hash::BuildHasher;
 
 /// Like try! for ffi glue.
 ///
@@ -137,6 +142,17 @@ macro_rules! maybe_box_raw {
     ($expr:expr) => {
         $expr.map(|x| box_raw!(x)).unwrap_or(ptr::null_mut())
     }
+}
+
+/// Builds hashers for computing hashes.
+///
+/// This is used to derive Hasher instances for computing hashes of
+/// objects so that they can be used in hash tables by foreign code.
+pub(crate) fn build_hasher() -> DefaultHasher {
+    lazy_static! {
+        static ref RANDOM_STATE: RandomState = RandomState::new();
+    }
+    RANDOM_STATE.build_hasher()
 }
 
 pub mod error;

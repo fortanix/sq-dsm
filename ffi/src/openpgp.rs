@@ -1,16 +1,18 @@
 //! XXX
 
 use std::ffi::{CString, CStr};
+use std::hash::{Hash, Hasher};
 use std::ptr;
 use std::slice;
 use std::io::{Read, Write};
-use libc::{uint8_t, c_char, c_int, size_t};
+use libc::{uint8_t, uint64_t, c_char, c_int, size_t};
 
 extern crate openpgp;
 
 use self::openpgp::tpk::TPK;
 use self::openpgp::{armor, Fingerprint, KeyID, Message};
 
+use super::build_hasher;
 use super::error::Status;
 use super::core::Context;
 
@@ -49,6 +51,16 @@ pub extern "system" fn sq_keyid_clone(id: Option<&KeyID>)
                                       -> *mut KeyID {
     let id = id.expect("KeyID is NULL");
     box_raw!(id.clone())
+}
+
+/// Hashes the KeyID.
+#[no_mangle]
+pub extern "system" fn sq_keyid_hash(id: Option<&KeyID>)
+                                     -> uint64_t {
+    let id = id.expect("KeyID is NULL");
+    let mut hasher = build_hasher();
+    id.hash(&mut hasher);
+    hasher.finish()
 }
 
 /// Converts the KeyID to its standard representation.
@@ -122,6 +134,16 @@ pub extern "system" fn sq_fingerprint_clone(fp: Option<&Fingerprint>)
                                             -> *mut Fingerprint {
     let fp = fp.expect("Fingerprint is NULL");
     box_raw!(fp.clone())
+}
+
+/// Hashes the Fingerprint.
+#[no_mangle]
+pub extern "system" fn sq_fingerprint_hash(fp: Option<&Fingerprint>)
+                                           -> uint64_t {
+    let fp = fp.expect("Fingerprint is NULL");
+    let mut hasher = build_hasher();
+    fp.hash(&mut hasher);
+    hasher.finish()
 }
 
 /// Converts the fingerprint to its standard representation.
