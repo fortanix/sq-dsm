@@ -40,6 +40,7 @@ build:
 test check:
 	$(CARGO) test --all
 	$(MAKE) -Cffi test
+	$(MAKE) examples
 
 .PHONY: examples
 examples:
