@@ -105,7 +105,7 @@ target/dist/sequoia-$(VERSION).tar: target/dist/sequoia-$(VERSION)
 .PHONY: dist-test dist-check
 dist-test dist-check: target/dist/sequoia-$(VERSION).tar.xz
 	rm -rf target/dist-check/sequoia-$(VERSION)
-	mkdir target/dist-check
+	mkdir -p target/dist-check
 	$(TAR) xf $< -C target/dist-check
 	cd target/dist-check/sequoia-$(VERSION) && \
 		CARGO_HOME=$$(mktemp -d) $(MAKE) test
