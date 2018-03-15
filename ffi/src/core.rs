@@ -79,19 +79,26 @@ pub extern "system" fn sq_string_free(s: *mut c_char) {
 /// suggested to use a reversed fully qualified domain name that is
 /// associated with your application.  `domain` must not be `NULL`.
 ///
-/// Returns `NULL` on errors.
+/// Returns `NULL` on errors.  If `errp` is not `NULL`, the error is
+/// stored there.
 #[no_mangle]
-pub extern "system" fn sq_context_new(domain: *const c_char)
+pub extern "system" fn sq_context_new(domain: *const c_char,
+                                      errp: Option<&mut *mut failure::Error>)
                                       -> *mut Context {
     assert!(! domain.is_null());
     let domain = unsafe {
         CStr::from_ptr(domain).to_string_lossy()
     };
 
-    if let Ok(context) = core::Context::new(&domain) {
-        Box::into_raw(Box::new(Context::new(context)))
-    } else {
-        ptr::null_mut()
+    match core::Context::new(&domain) {
+        Ok(context) =>
+            box_raw!(Context::new(context)),
+        Err(e) => {
+            if let Some(errp) = errp {
+                *errp = box_raw!(e);
+            }
+            ptr::null_mut()
+        },
     }
 }
 
@@ -171,17 +178,24 @@ pub extern "system" fn sq_context_ephemeral(ctx: Option<&Context>) -> uint8_t {
 
 /// Finalizes the configuration and return a `Context`.
 ///
-/// Consumes `cfg`.  Returns `NULL` on errors.
+/// Consumes `cfg`.  Returns `NULL` on errors. Returns `NULL` on
+/// errors.  If `errp` is not `NULL`, the error is stored there.
 #[no_mangle]
-pub extern "system" fn sq_config_build(cfg: Option<&mut Config>)
+pub extern "system" fn sq_config_build(cfg: Option<&mut Config>,
+                                       errp: Option<&mut *mut failure::Error>)
                                        -> *mut Context {
     assert!(cfg.is_some());
     let cfg = unsafe { Box::from_raw(cfg.unwrap()) };
 
-    if let Ok(context) = cfg.build() {
-        Box::into_raw(Box::new(Context::new(context)))
-    } else {
-        ptr::null_mut()
+    match cfg.build() {
+        Ok(context) =>
+            box_raw!(Context::new(context)),
+        Err(e) => {
+            if let Some(errp) = errp {
+                *errp = box_raw!(e);
+            }
+            ptr::null_mut()
+        },
     }
 }
 

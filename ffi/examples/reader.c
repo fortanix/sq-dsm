@@ -16,6 +16,7 @@ main (int argc, char **argv)
   struct stat st;
   int fd;
   uint8_t *b;
+  sq_error_t err;
   sq_context_t ctx;
   sq_reader_t reader;
   sq_tpk_t tpk;
@@ -23,9 +24,10 @@ main (int argc, char **argv)
   if (argc != 2)
     error (1, 0, "Usage: %s <file>", argv[0]);
 
-  ctx = sq_context_new("org.sequoia-pgp.example");
+  ctx = sq_context_new("org.sequoia-pgp.example", &err);
   if (ctx == NULL)
-    error (1, 0, "Initializing sequoia failed.");
+    error (1, 0, "Initializing sequoia failed: %s",
+           sq_error_string (err));
 
   if (stat (argv[1], &st))
     error (1, errno, "%s", argv[1]);

@@ -9,15 +9,17 @@
 int
 main (int argc, char **argv)
 {
+  sq_error_t err;
   sq_config_t cfg;
   sq_context_t ctx;
   sq_keyserver_t ks;
 
   cfg = sq_context_configure ("org.sequoia-pgp.example");
   sq_config_network_policy (cfg, SQ_NETWORK_POLICY_OFFLINE);
-  ctx = sq_config_build (cfg);
+  ctx = sq_config_build (cfg, &err);
   if (ctx == NULL)
-    error (1, 0, "Initializing sequoia failed.");
+    error (1, 0, "Initializing sequoia failed: %s",
+           sq_error_string (err));
 
   ks = sq_keyserver_sks_pool (ctx);
   if (ks == NULL)

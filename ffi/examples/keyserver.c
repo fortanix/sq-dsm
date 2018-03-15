@@ -8,14 +8,16 @@
 int
 main (int argc, char **argv)
 {
+  sq_error_t err;
   sq_context_t ctx;
   sq_keyid_t id;
   sq_keyserver_t ks;
   sq_tpk_t tpk;
 
-  ctx = sq_context_new ("org.sequoia-pgp.example");
+  ctx = sq_context_new ("org.sequoia-pgp.example", &err);
   if (ctx == NULL)
-    error (1, 0, "Initializing sequoia failed.");
+    error (1, 0, "Initializing sequoia failed: %s",
+           sq_error_string (err));
 
   ks = sq_keyserver_sks_pool (ctx);
   if (ks == NULL)

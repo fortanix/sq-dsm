@@ -134,9 +134,10 @@ typedef enum sq_ipc_policy {
 /// suggested to use a reversed fully qualified domain name that is
 /// associated with your application.  `domain` must not be `NULL`.
 ///
-/// Returns `NULL` on errors.
+/// Returns `NULL` on errors.  If `errp` is not `NULL`, the error is
+/// stored there.
 /*/
-sq_context_t sq_context_new(const char *domain);
+sq_context_t sq_context_new(const char *domain, sq_error_t *errp);
 
 /*/
 /// Frees a context.
@@ -192,9 +193,10 @@ uint8_t sq_context_ephemeral(const sq_context_t ctx);
 /*/
 /// Finalizes the configuration and return a `Context`.
 ///
-/// Consumes `cfg`.  Returns `NULL` on errors.
+/// Consumes `cfg`.  Returns `NULL` on errors. Returns `NULL` on
+/// errors.  If `errp` is not `NULL`, the error is stored there.
 /*/
-sq_context_t sq_config_build(sq_config_t cfg);
+sq_context_t sq_config_build(sq_config_t cfg, sq_error_t *errp);
 
 /*/
 /// Sets the directory containing shared state.
