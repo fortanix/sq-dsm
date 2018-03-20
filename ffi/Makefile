@@ -43,6 +43,8 @@ install:
 		$(DESTDIR)$(PREFIX)/lib/libsequoia.so.$(VERSION)
 	ln -fs libsequoia.so.$(VERSION) \
 		$(DESTDIR)$(PREFIX)/lib/libsequoia.so.$(VERSION_MAJOR)
+	$(INSTALL) ../target/release/libsequoia_ffi.a \
+		$(DESTDIR)$(PREFIX)/lib/libsequoia.a
 
 # Housekeeping.
 .PHONY: clean
