@@ -21,8 +21,6 @@ XZ		?= xz
 GPG		?= gpg
 
 VERSION		?= $(shell grep '^version = ' Cargo.toml | cut -d'"' -f2)
-LIB_VERSION	?= $(shell grep '^version = ' ffi/Cargo.toml | cut -d'"' -f2)
-LIB_VERSION_MAJ	= $(shell echo $(LIB_VERSION) | cut -d'.' -f1)
 
 # Make sure subprocesses pick these up.
 export PREFIX
@@ -64,16 +62,6 @@ build-release:
 
 .PHONY: install
 install: build-release
-	$(INSTALL) -d $(DESTDIR)$(PREFIX)/include
-	$(INSTALL) -t $(DESTDIR)$(PREFIX)/include ffi/include/sequoia.h
-	$(INSTALL) -d $(DESTDIR)$(PREFIX)/include/sequoia
-	$(INSTALL) -t $(DESTDIR)$(PREFIX)/include/sequoia \
-		ffi/include/sequoia/*.h
-	$(INSTALL) -d $(DESTDIR)$(PREFIX)/lib
-	$(INSTALL) target/release/libsequoia_ffi.so \
-		$(DESTDIR)$(PREFIX)/lib/libsequoia.so.$(LIB_VERSION)
-	ln -fs libsequoia.so.$(LIB_VERSION) \
-		$(DESTDIR)$(PREFIX)/lib/libsequoia.so.$(LIB_VERSION_MAJ)
 	$(INSTALL) -d $(DESTDIR)$(PREFIX)/lib/sequoia
 	$(INSTALL) -t $(DESTDIR)$(PREFIX)/lib/sequoia target/release/keystore
 	$(INSTALL) -d $(DESTDIR)$(PREFIX)/bin
