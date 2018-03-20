@@ -939,9 +939,12 @@ pub struct PacketParserBuilder<R: BufferedReader<BufferedReaderState>> {
 impl<R: BufferedReader<BufferedReaderState>> PacketParserBuilder<R> {
     /// Creates a `PacketParserBuilder` for an OpenPGP message stored
     /// in a `BufferedReader` object.
+    ///
+    /// Note: this clears the `level` field of the
+    /// `BufferedReaderState` cookie.
     pub fn from_buffered_reader(mut bio: R)
             -> Result<PacketParserBuilder<R>> {
-        bio.cookie_mut().level = 0;
+        bio.cookie_mut().level = None;
         Ok(PacketParserBuilder {
             bio: bio,
             settings: PacketParserSettings::default(),
@@ -1107,15 +1110,50 @@ pub enum HashesFor {
 }
 
 pub struct BufferedReaderState {
-    // The top-level buffered reader is 0.
-    // The limitor for a top-level packet is 1.
-    // The filter for a top-level container packet is 1.
-    // The limitor for the child of a top-level packet is 2.
-    // The filter for the child of a top-level packet is 2.
+    // `BufferedReader`s managed by a `PacketParser` have
+    // `Some(level)`; an external `BufferedReader` (i.e., the
+    // underlying `BufferedReader`) has no level.
     //
-    // Thus, the filters that control the input for a packet at
-    // recursion depth n have level n + 1.
-    level: usize,
+    // Before parsing a top-level packet, we may push a
+    // `BufferedReaderLimitor` in front of the external
+    // `BufferedReader`.  Such `BufferedReader`s are assigned a level
+    // of 0.
+    //
+    // When a top-level packet (i.e., a packet with a recursion depth
+    // of 0) reads from the `BufferedReader` stack, the top
+    // `BufferedReader` will have a level of at most 0.
+    //
+    // If the top-level packet is a container, say, a `CompressedData`
+    // packet, then it pushes a decompression filter with a level of 0
+    // onto the `BufferedReader` stack, and it recursively invokes the
+    // parser.
+    //
+    // When the parser encounters the `CompressedData`'s first child,
+    // say, a `Literal` packet, it pushes a `BufferedReaderLimitor` on
+    // the `BufferedReader` stack with a level of 1.  Then, a
+    // `PacketParser` for the `Literal` data packet is created with a
+    // recursion depth of 1.
+    //
+    // There are several things to note:
+    //
+    //   - When a `PacketParser` with a recursion depth of N reads
+    //     from the `BufferedReader` stack, the top `BufferedReader`'s
+    //     level is (at most) N.
+    //
+    //     - Because we sometimes don't need to push a limitor
+    //       (specifically, when the length is indeterminate), the
+    //       `BufferedReader` at the top of the stack may have a level
+    //       less than the current `PacketParser`'s recursion depth.
+    //
+    //   - When a packet at depth N is a container that filters the
+    //     data, it pushes a `BufferedReader` at level N onto the
+    //     `BufferedReader` stack.
+    //
+    //   - When we finish parsing a packet at depth N, we pop all
+    //     `BufferedReader`s from the `BufferedReader` stack that are
+    //     at level N.  The intuition is: the `BufferedReaders` at
+    //     level N are associated with the packet at depth N.
+    level: Option<usize>,
 
     hashes_for: HashesFor,
     hashes: Vec<(HashAlgo, Box<Hash>)>,
@@ -1138,7 +1176,7 @@ impl fmt::Debug for BufferedReaderState {
 impl Default for BufferedReaderState {
     fn default() -> Self {
         BufferedReaderState {
-            level: 0,
+            level: None,
             hashes_for: HashesFor::Nothing,
             hashes: vec![],
         }
@@ -1148,7 +1186,7 @@ impl Default for BufferedReaderState {
 impl BufferedReaderState {
     fn new(recursion_depth: usize) -> BufferedReaderState {
         BufferedReaderState {
-            level: recursion_depth + 1,
+            level: Some(recursion_depth),
             hashes_for: HashesFor::Nothing,
             hashes: vec![],
         }
@@ -1461,124 +1499,105 @@ impl <'a> PacketParser<'a> {
     /// packet in the parent container.
     pub fn next(mut self)
             -> Result<(Packet, isize, Option<PacketParser<'a>>, isize)> {
+        // Pop's the readers at the current level.
+        //
+        // This function does NOT do anything with self.packet or
+        // self.recursion_depth!  (We can't adjust
+        // self.recursion_depth, because when we pop the top-level
+        // packet, we would have to set self.recursion_depth to -1,
+        // which is not possible since recursion_depth is unsigned.)
+        fn pop(slf: &mut PacketParser) {
+            slf.finish();
+
+            let depth = slf.recursion_depth as usize;
+
+            // Remove any `BufferedReader`s that belong to the
+            // processed packet.  This includes any input limitors
+            // (e.g., a `BufferedReaderLimitor`), and, if the current
+            // packet is a container, it includes any output filters
+            // (e.g., for a SEIP packet, a `Decryptor`).
+            let mut reader
+                = mem::replace(&mut slf.reader,
+                               Box::new(BufferedReaderEOF::with_cookie(
+                                   BufferedReaderState::new(depth))));
+            let mut popped = 0;
+            while let Some(level) = reader.cookie_ref().level {
+                assert!(level <= depth);
+
+                if level == depth {
+                    popped += 1;
+                    reader.drop_eof().unwrap();
+                    reader = reader.into_inner().unwrap();
+                } else {
+                    break;
+                }
+            }
+            if slf.settings.trace {
+                eprintln!("{}PacketParser::next: \
+                           Cleaning up processed packet's readers: \
+                           popped {} readers at level {}; \
+                           top reader is now at level {:?}",
+                          indent(depth as u8),
+                          popped, depth, reader.cookie_ref().level);
+            }
+            slf.reader = reader;
+        }
+
         if self.settings.trace {
             eprintln!("{}PacketParser::next: Finished processing {:?} packet \
-                       (recursion depth: {}, reader level {}",
+                       (recursion depth: {}, reader level {:?}",
                       indent(self.recursion_depth),
                       self.packet.tag(), self.recursion_depth,
                       self.reader.cookie_ref().level);
         }
 
-        // Finish processing the current packet.
-        self.finish();
+        let orig_depth = self.recursion_depth as usize;
 
-        // Remove any filters that apply to the current packet parser.
-        // Normally, this is just a limitor of some sort.
-        let mut reader = self.reader;
-        assert!(reader.cookie_ref().level <= self.recursion_depth as usize + 1);
-        while reader.cookie_ref().level > self.recursion_depth as usize {
-            if self.settings.trace {
-                eprintln!("{}PacketParser::next: popping level {} reader",
-                          indent(self.recursion_depth),
-                          reader.cookie_ref().level);
-            }
-            reader.drop_eof().unwrap();
-            reader = reader.into_inner().unwrap();
-        }
-        if self.settings.trace {
-           eprintln!("{}PacketParser::next: New top reader is at level {}",
-                     indent(self.recursion_depth),
-                     reader.cookie_ref().level);
-        }
-
-        // Stash some fields that we'll put in the new packet.
-        let settings = self.settings;
-        let packet = self.packet;
+        pop(&mut self);
 
         // Now read the next packet.
-        let old_recursion_depth = self.recursion_depth;
-        let mut recursion_depth = self.recursion_depth;
         loop {
             // Parse the next packet.
-            let pp = PacketParser::parse(reader, &settings,
-                                         recursion_depth as usize)?;
+            let pp = PacketParser::parse(self.reader, &self.settings,
+                                         self.recursion_depth as usize)?;
             match pp {
-                PacketParserOrBufferedReader::BufferedReader(reader2) => {
+                PacketParserOrBufferedReader::BufferedReader(reader) => {
                     // We got EOF on the current container.  The
                     // container at recursion depth n is empty.  Pop
                     // it and any filters for it, i.e., those at level
                     // n (e.g., the limitor that caused us to hit
                     // EOF), and then try again.
 
-                    if settings.trace {
+                    if self.settings.trace {
                         eprintln!("{}PacketParser::next(): \
                                    got EOF reading next packet at depth {}, \
                                    popping container",
-                                  indent(recursion_depth), recursion_depth);
+                                  indent(self.recursion_depth),
+                                  self.recursion_depth);
                     }
 
-                    if recursion_depth == 0 {
-                        if settings.trace {
+                    if self.recursion_depth == 0 {
+                        if self.settings.trace {
                             eprintln!("{}PacketParser::next(): \
                                        Popped top-level container, done \
-                                       reading message",
-                                      indent(recursion_depth));
+                                       reading message.",
+                                      indent(self.recursion_depth));
                         }
-                        return Ok((packet, old_recursion_depth as isize,
+                        return Ok((self.packet, orig_depth as isize,
                                    None, 0));
                     } else {
-                        assert!(recursion_depth > 0);
-                        reader = reader2;
-                        recursion_depth -= 1;
-
-                        // The top filter can't have a level larger
-                        // than n + 1 (but it is entirely possible
-                        // that it has a smaller level if there were
-                        // no constraints on it, e.g., the packet has
-                        // an indeterminate length).
-                        assert!(reader.cookie_ref().level
-                                <= recursion_depth as usize + 1);
-                        let mut pops = 0;
-                        while reader.cookie_ref().level
-                                == recursion_depth as usize + 1 {
-                            reader.drop_eof().unwrap();
-                            if settings.trace {
-                                eprintln!("{}PacketParser::next: dropping: {:?}",
-                                          indent(recursion_depth), reader);
-                                eprintln!("{}  cookie: {:?}",
-                                          indent(recursion_depth),
-                                          reader.cookie_ref());
-                            }
-                            reader = reader.into_inner().unwrap();
-                            pops += 1;
-                        }
-
-                        if settings.trace {
-                            eprintln!("{}PacketParser::next: \
-                                       Popped {} readers; \
-                                       top reader's level: {}",
-                                      indent(recursion_depth), pops,
-                                      reader.cookie_ref().level);
-                        }
+                        self.reader = reader;
+                        self.recursion_depth -= 1;
+                        pop(&mut self);
                     }
                 },
                 PacketParserOrBufferedReader::PacketParser(mut pp) => {
-                    if settings.trace {
-                        eprintln!("{}PacketParser::next() -> \
-                                   {:?} at depth {}, level {:?}",
-                                  indent(recursion_depth),
-                                  pp.packet.tag(),
-                                  recursion_depth,
-                                  pp.cookie_ref().level);
-                    }
-
-                    pp.settings = settings;
-
-                    return Ok((packet, old_recursion_depth as isize,
-                               Some(pp), recursion_depth as isize));
+                    pp.settings = self.settings;
+                    return Ok((self.packet, orig_depth as isize,
+                               Some(pp), self.recursion_depth as isize));
                 }
             }
-        };
+        }
     }
 
     /// Finishes parsing the current packet and starts parsing the
@@ -1982,17 +2001,17 @@ impl<'a> PacketParser<'a> {
             // with the same parameters.
             let mut reader = BufferedReaderDecryptor::with_cookie(
                 algo, key, reader, BufferedReaderState::default()).unwrap();
-            reader.cookie_mut().level = self.recursion_depth as usize + 1;
+            reader.cookie_mut().level = Some(self.recursion_depth as usize);
 
-            eprintln!("Adding decryptor at level {}",
+            eprintln!("Adding decryptor at level {:?}",
                       reader.cookie_ref().level);
 
             // And the hasher.
             let mut reader = HashedReader::new(
                 reader, HashesFor::MDC, vec![HashAlgo::SHA1]);
-            reader.cookie_mut().level = self.recursion_depth as usize + 1;
+            reader.cookie_mut().level = Some(self.recursion_depth as usize);
 
-            eprintln!("Adding hashed reader at level {}",
+            eprintln!("Adding hashed reader at level {:?}",
                       reader.cookie_ref().level);
 
             self.reader = Box::new(reader);
