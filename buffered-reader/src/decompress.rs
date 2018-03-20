@@ -40,7 +40,7 @@ impl<R: BufferedReader<C>, C> io::Read for BufferedReaderDeflate<R, C> {
 impl <R: BufferedReader<C>, C> fmt::Debug for BufferedReaderDeflate<R, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("BufferedReaderDeflate")
-            .field("reader", self.reader.reader.get_ref())
+            .field("reader", &self.get_ref().unwrap())
             .finish()
     }
 }
@@ -152,7 +152,7 @@ impl<R: BufferedReader<C>, C> io::Read for BufferedReaderZlib<R, C> {
 impl <R: BufferedReader<C>, C> fmt::Debug for BufferedReaderZlib<R, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("BufferedReaderZlib")
-            .field("reader", self.reader.reader.get_ref())
+            .field("reader", &self.get_ref().unwrap())
             .finish()
     }
 }
@@ -264,7 +264,7 @@ impl<R: BufferedReader<C>, C> io::Read for BufferedReaderBzip<R, C> {
 impl <R: BufferedReader<C>, C> fmt::Debug for BufferedReaderBzip<R, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("BufferedReaderBzip")
-            .field("reader", self.reader.reader.get_ref())
+            .field("reader", &self.get_ref().unwrap())
             .finish()
     }
 }
