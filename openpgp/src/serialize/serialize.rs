@@ -337,7 +337,7 @@ impl Literal {
 
         if TRACE {
             let prefix = &body[..cmp::min(body.len(), 20)];
-            eprintln!("literal_serialize({}{}, {} bytes)",
+            eprintln!("Literal::serialize({}{}, {} bytes)",
                       String::from_utf8_lossy(prefix),
                       if body.len() > 20 { "..." } else { "" },
                       body.len());
@@ -390,7 +390,7 @@ impl CompressedData {
         use bzip2::write::BzEncoder;
 
         if TRACE {
-            eprintln!("compress_data_serialize(\
+            eprintln!("CompressedData::serialize(\
                        algo: {}, {:?} children, {:?} bytes)",
                       self.algo,
                       self.common.children.as_ref().map(
@@ -786,6 +786,8 @@ mod serialize_test {
         ];
 
         for filename in filenames.iter() {
+            eprintln!("{}...", filename);
+
             // 1. Read the message into a local buffer.
             let path = path_to(filename);
             let mut data = Vec::new();
