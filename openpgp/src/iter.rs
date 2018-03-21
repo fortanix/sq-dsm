@@ -60,14 +60,26 @@ impl Container {
 }
 
 impl Message {
-    /// Turns a vector of [`Packets`] into a `Message`.
+    /// Turns a vector of [`Packet`s] into a `Message`.
     ///
     /// This is a simple wrapper function; it does not process the
     /// packets in any way.
     ///
-    ///   [`Packets`]: struct.Packet.html
+    ///   [`Packet`s]: struct.Packet.html
     pub fn from_packets(p: Vec<Packet>) -> Self {
         Message { top_level: Container { packets: p } }
+    }
+
+    /// Turns a  [`Packet`] into a `Message`.
+    ///
+    /// This is a simple wrapper function; it does not process the
+    /// packets in any way.
+    ///
+    ///   [`Packet`]: struct.Packet.html
+    pub fn from_packet(p: Packet) -> Self {
+        let mut top_level = Vec::with_capacity(1);
+        top_level.push(p);
+        Self::from_packets(top_level)
     }
 
     /// Returns an iterator over all of the packet's descendants, in
