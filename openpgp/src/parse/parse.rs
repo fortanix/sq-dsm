@@ -321,7 +321,7 @@ impl Signature {
                           indent(recursion_depth as u8), version);
             }
 
-            // Unknown algo.  Return an unknown packet.
+            // Unknown version.  Return an unknown packet.
             return Unknown::parse(bio, recursion_depth, Tag::Signature);
         }
 
