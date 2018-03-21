@@ -408,12 +408,9 @@ impl CompressedData {
         // Create an appropriate filter.
         let mut o : Box<io::Write> = match self.algo {
             0 => Box::new(o),
-            1 => Box::new(DeflateEncoder::new(o, FlateCompression::default()))
-                    as Box<io::Write>,
-            2 => Box::new(ZlibEncoder::new(o, FlateCompression::default()))
-                    as Box<io::Write>,
-            3 => Box::new(BzEncoder::new(o, BzCompression::Default))
-                    as Box<io::Write>,
+            1 => Box::new(DeflateEncoder::new(o, FlateCompression::default())),
+            2 => Box::new(ZlibEncoder::new(o, FlateCompression::default())),
+            3 => Box::new(BzEncoder::new(o, BzCompression::Default)),
             _ => unimplemented!(),
         };
 
