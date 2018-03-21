@@ -71,7 +71,7 @@
 //!     wants a `Message`; if the OpenPGP message is parsed in place,
 //!     then using a `PacketParser` is better.
 //!
-//!   - The [`Message::from_file`] (and related metods) is the most
+//!   - The [`Message::from_file`] (and related methods) is the most
 //!     convenient, but least flexible way to parse an OpenPGP
 //!     message.  Whereas a `MessageParser` allows the caller to
 //!     determine how to handle individual packets, the
