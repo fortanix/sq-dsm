@@ -876,52 +876,6 @@ pub struct Container {
     packets: Vec<Packet>,
 }
 
-// This impl is here and not in the container module, because it is
-// supposed to be private to the outside world, but functionality in
-// this crate should be able to use it.
-impl Container {
-    fn new() -> Container {
-        Container { packets: Vec::with_capacity(8) }
-    }
-
-    // Adds a new packet to the container.
-    fn push(&mut self, packet: Packet) {
-        self.packets.push(packet);
-    }
-
-    // Inserts a new packet to the container at a particular index.
-    // If `i` is 0, the new packet is insert at the front of the
-    // container.  If `i` is one, it is inserted after the first
-    // packet, etc.
-    fn insert(&mut self, i: usize, packet: Packet) {
-        self.packets.insert(i, packet);
-    }
-
-    // Converts an indentation level to whitespace.
-    fn indent(depth: usize) -> &'static str {
-        use std::cmp;
-
-        let s = "                                                  ";
-        return &s[0..cmp::min(depth, s.len())];
-    }
-
-    // Pretty prints the container to stderr.
-    //
-    // This function is primarily intended for debugging purposes.
-    //
-    // `indent` is the number of spaces to indent the output.
-    fn pretty_print(&self, indent: usize) {
-        for (i, p) in self.packets.iter().enumerate() {
-            eprintln!("{}{}: {:?}",
-                      Self::indent(indent), i + 1, p);
-            if let Some(ref children) = self.packets[i].children {
-                children.pretty_print(indent + 1);
-            }
-        }
-    }
-}
-
-
 /// A `Message` holds a deserialized OpenPGP message.
 ///
 /// To deserialize an OpenPGP usage, use either [`PacketParser`],
