@@ -1093,7 +1093,7 @@ impl <'a> PacketParserBuilder<BufferedReaderMemory<'a, BufferedReaderState>> {
 
 use nettle::Hash;
 
-/// What the hash in the BUfferedReaderState is for.  Currently, it
+/// What the hash in the BufferedReaderState is for.  Currently, it
 /// can only be for an MDC packet, but eventually we'll use it to
 /// check whether the hash is for a signature packet.
 #[derive(Clone, Copy, PartialEq, Debug)]
