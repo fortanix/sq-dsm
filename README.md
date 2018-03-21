@@ -13,10 +13,16 @@ dependency in your `Cargo.toml` file as with any other project.  Note
 that we depend on a number of C libraries, which must be present along
 with their development packages.
 
-To build Sequoia, you need a Rust toolchain and a few libraries. To
-install those on a Debian system, do:
+To build Sequoia, you need a Rust toolchain and a few libraries. You can install
+the needed libraries with one of the following commands:
 
-    # apt install git rustc cargo clang make pkg-config nettle-dev libssl-dev capnproto libsqlite3-dev
+Debian:
+
+    $ sudo apt install git rustc cargo clang make pkg-config nettle-dev libssl-dev capnproto libsqlite3-dev
+
+Arch Linux:
+
+    $ sudo pacman -S git cargo clang make pkg-config nettle openssl capnproto sqlite3 --needed
 
 Furthermore, we also provide a C API, and bindings to other languages.
 We also consider the needs of packagers in times where distribution
