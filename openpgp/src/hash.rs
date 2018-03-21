@@ -198,7 +198,7 @@ impl Signature {
 
 #[cfg(test)]
 mod test {
-    use tpk::TPK;
+    use TPK;
 
     macro_rules! bytes {
         ( $x:expr ) => { include_bytes!(concat!("../tests/data/keys/", $x)) };

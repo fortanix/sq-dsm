@@ -891,6 +891,21 @@ pub struct Message {
     // containers.
     top_level: Container,
 }
+
+/// A transferable public key (TPK).
+///
+/// A TPK (see [RFC 4880, section 11.1]) can be used to verify
+/// signatures and encrypt data.  It can be stored in a keystore and
+/// uploaded to keyservers.
+///
+/// [RFC 4880, section 11.1]: https://tools.ietf.org/html/rfc4880#section-11.1
+#[derive(Debug, Clone, PartialEq)]
+pub struct TPK {
+    primary: Key,
+    userids: Vec<tpk::UserIDBinding>,
+    user_attributes: Vec<tpk::UserAttributeBinding>,
+    subkeys: Vec<tpk::SubkeyBinding>,
+}
 
 /// A `PacketIter` iterates over the *contents* of a packet in
 /// depth-first order.  It starts by returning the current packet.

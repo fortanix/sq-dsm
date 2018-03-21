@@ -49,7 +49,7 @@ fn main() {
     println!();
 
     // Parse into TPK.
-    let tpk = openpgp::tpk::TPK::from_message(message).unwrap();
+    let tpk = openpgp::TPK::from_message(message).unwrap();
     println!("Fingerprint: {}", tpk.fingerprint());
 
     // List userids.

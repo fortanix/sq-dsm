@@ -33,7 +33,7 @@ use std::slice;
 
 extern crate openpgp;
 
-use self::openpgp::tpk::TPK;
+use self::openpgp::TPK;
 use self::openpgp::KeyID;
 use sequoia_net::KeyServer;
 

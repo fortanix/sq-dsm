@@ -9,7 +9,7 @@ use libc::{uint8_t, uint64_t, c_char, c_int, size_t};
 
 extern crate openpgp;
 
-use self::openpgp::tpk::TPK;
+use self::openpgp::TPK;
 use self::openpgp::{armor, Fingerprint, KeyID, Message};
 
 use super::build_hasher;

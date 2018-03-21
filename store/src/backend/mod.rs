@@ -21,8 +21,7 @@ use tokio_core::reactor::{Handle, Timeout};
 use tokio_core;
 use tokio_io::io::ReadHalf;
 
-use openpgp::{self, Fingerprint};
-use openpgp::tpk::{self, TPK};
+use openpgp::{self, tpk, TPK, Fingerprint};
 use sequoia_core as core;
 use sequoia_net as net;
 use sequoia_net::ipc;

@@ -21,7 +21,7 @@ extern crate sequoia_net;
 extern crate sequoia_store;
 
 use openpgp::{armor, Fingerprint};
-use openpgp::tpk::TPK;
+use openpgp::TPK;
 use sequoia_core::{Context, NetworkPolicy};
 use sequoia_net::KeyServer;
 use sequoia_store::{Store, LogIter};

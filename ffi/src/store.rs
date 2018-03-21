@@ -29,7 +29,7 @@ use std::ptr;
 
 extern crate openpgp;
 
-use self::openpgp::tpk::TPK;
+use self::openpgp::TPK;
 use self::openpgp::Fingerprint;
 use sequoia_store::{
     self, Store, StoreIter, Binding, BindingIter, Key, KeyIter, LogIter,

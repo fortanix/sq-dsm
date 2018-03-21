@@ -7,24 +7,9 @@ use std::path::Path;
 use std::fs::File;
 use std::slice;
 
-use super::{Packet, Message, Signature, Key, UserID, UserAttribute,
+use super::{TPK, Packet, Message, Signature, Key, UserID, UserAttribute,
             Fingerprint, Tag};
 use super::parse::PacketParser;
-
-/// A transferable public key (TPK).
-///
-/// A TPK (see [RFC 4880, section 11.1]) can be used to verify
-/// signatures and encrypt data.  It can be stored in a keystore and
-/// uploaded to keyservers.
-///
-/// [RFC 4880, section 11.1]: https://tools.ietf.org/html/rfc4880#section-11.1
-#[derive(Debug, Clone, PartialEq)]
-pub struct TPK {
-    primary: Key,
-    userids: Vec<UserIDBinding>,
-    user_attributes: Vec<UserAttributeBinding>,
-    subkeys: Vec<SubkeyBinding>,
-}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct SubkeyBinding {

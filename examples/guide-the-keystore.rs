@@ -43,7 +43,7 @@ fn main() {
     let ctx = core::Context::new("org.sequoia-pgp.guide").unwrap();
 
     // Parse TPK.
-    let tpk = openpgp::tpk::TPK::from_reader(&mut reader).unwrap();
+    let tpk = openpgp::TPK::from_reader(&mut reader).unwrap();
 
     // Open a store.
     let store = store::Store::open(&ctx, "default").unwrap();

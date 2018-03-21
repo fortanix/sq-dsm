@@ -56,7 +56,7 @@ use tokio_core::reactor::Core;
 use url::Url;
 
 use openpgp::KeyID;
-use openpgp::tpk::TPK;
+use openpgp::TPK;
 use sequoia_core::Context;
 
 pub mod async;

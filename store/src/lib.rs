@@ -77,7 +77,7 @@ extern crate sequoia_core;
 extern crate sequoia_net;
 
 use openpgp::Fingerprint;
-use openpgp::tpk::TPK;
+use openpgp::TPK;
 use sequoia_core as core;
 use sequoia_core::Context;
 use sequoia_net::ipc;
@@ -225,7 +225,7 @@ impl Store {
     /// # extern crate openpgp;
     /// # extern crate sequoia_core;
     /// # extern crate sequoia_store;
-    /// # use openpgp::tpk::TPK;
+    /// # use openpgp::TPK;
     /// # use sequoia_core::{Context, NetworkPolicy, IPCPolicy};
     /// # use sequoia_store::{Store, Result};
     /// # fn main() { f().unwrap(); }
@@ -450,7 +450,7 @@ impl Binding {
     /// # extern crate openpgp;
     /// # #[macro_use] extern crate sequoia_core;
     /// # extern crate sequoia_store;
-    /// # use openpgp::tpk::TPK;
+    /// # use openpgp::TPK;
     /// # use sequoia_core::{Context, NetworkPolicy, IPCPolicy};
     /// # use sequoia_store::{Store, Result, Error};
     /// # fn main() { f().unwrap(); }
@@ -508,7 +508,7 @@ impl Binding {
     /// # extern crate openpgp;
     /// # #[macro_use] extern crate sequoia_core;
     /// # extern crate sequoia_store;
-    /// # use openpgp::tpk::TPK;
+    /// # use openpgp::TPK;
     /// # use sequoia_core::{Context, NetworkPolicy, IPCPolicy};
     /// # use sequoia_store::{Store, Result, Error};
     /// # fn main() { f().unwrap(); }
@@ -647,7 +647,7 @@ impl Key {
     /// # #[macro_use] extern crate sequoia_core;
     /// # extern crate sequoia_store;
     /// # use openpgp::Fingerprint;
-    /// # use openpgp::tpk::TPK;
+    /// # use openpgp::TPK;
     /// # use sequoia_core::{Context, NetworkPolicy, IPCPolicy};
     /// # use sequoia_store::{Store, Result, Error};
     /// # fn main() { f().unwrap(); }

@@ -16,7 +16,7 @@ use std::io::Cursor;
 use tokio_core::reactor::Handle;
 use url::Url;
 
-use openpgp::tpk::TPK;
+use openpgp::TPK;
 use openpgp::{KeyID, armor};
 use sequoia_core::{Context, NetworkPolicy};
 
