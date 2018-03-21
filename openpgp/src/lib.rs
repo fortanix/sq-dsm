@@ -138,7 +138,6 @@ fn to_hex(s: &[u8], pretty: bool) -> String {
 
 // A helpful function for converting a hexadecimal string to binary.
 // This function skips whitespace if `skip_whipspace` is set.
-#[allow(dead_code)]
 fn from_hex(hex: &str, skip_whitespace: bool) -> Option<Vec<u8>> {
     let nibbles = hex.as_bytes().iter().filter_map(|x| {
         match *x as char {
