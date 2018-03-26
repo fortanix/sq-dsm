@@ -1,5 +1,6 @@
 //! XXX
 
+use failure;
 use std::ffi::{CString, CStr};
 use std::hash::{Hash, Hasher};
 use std::ptr;
@@ -9,8 +10,8 @@ use libc::{uint8_t, uint64_t, c_char, c_int, size_t};
 
 extern crate openpgp;
 
-use self::openpgp::TPK;
-use self::openpgp::{armor, Fingerprint, KeyID, Message};
+use self::openpgp::{armor, Fingerprint, KeyID, Message, TPK, Packet};
+use self::openpgp::parse::{PacketParser};
 
 use super::build_hasher;
 use super::error::Status;
@@ -441,4 +442,361 @@ pub extern "system" fn sq_tpk_fingerprint(tpk: Option<&TPK>)
                                           -> *mut Fingerprint {
     let tpk = tpk.expect("TPK is NULL");
     box_raw!(tpk.fingerprint())
+}
+
+/* openpgp::Packet.  */
+
+/// Returns the `Packet's` corresponding OpenPGP tag.
+///
+/// Tags are explained in [Section 4.3 of RFC 4880].
+///
+///   [Section 4.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.3
+#[no_mangle]
+pub extern "system" fn sq_packet_tag(p: Option<&Packet>)
+                                     -> uint8_t {
+    let p = p.expect("Packet is NULL");
+    p.tag() as uint8_t
+}
+
+/// Returns the session key.
+///
+/// `key` of size `key_len` must be a buffer large enough to hold the
+/// session key.  If `key` is NULL, or not large enough, then the key
+/// is not written to it.  Either way, `key_len` is set to the size of
+/// the session key.
+#[no_mangle]
+pub extern "system" fn sq_skesk_decrypt(ctx: Option<&mut Context>,
+                                        skesk: Option<&Packet>,
+                                        passphrase: *const uint8_t,
+                                        passphrase_len: size_t,
+                                        algo: Option<&mut uint8_t>, // XXX
+                                        key: *mut uint8_t,
+                                        key_len: Option<&mut size_t>)
+                                        -> Status {
+    let ctx = ctx.expect("Context is NULL");
+    let skesk = skesk.expect("SKESK is NULL");
+    assert!(!passphrase.is_null());
+    let passphrase = unsafe {
+        slice::from_raw_parts(passphrase, passphrase_len as usize)
+    };
+    let algo = algo.expect("Algo is NULL");
+    let key_len = key_len.expect("Key length is NULL");
+
+    if let &Packet::SKESK(ref skesk) = skesk {
+        match skesk.decrypt(passphrase) {
+            Ok((a, k)) => {
+                *algo = a;
+                if !key.is_null() && *key_len >= k.len() {
+                    unsafe {
+                        ::std::ptr::copy(k.as_ptr(),
+                                         key,
+                                         k.len());
+                    }
+                }
+                *key_len = k.len();
+                Status::Success
+            },
+            Err(e) => fry_status!(ctx, Err::<(), failure::Error>(e)),
+        }
+    } else {
+        panic!("Not a SKESK packet");
+    }
+}
+
+/* openpgp::parse.  */
+
+/// Starts parsing an OpenPGP message stored in a `sq_reader_t` object.
+///
+/// This function returns a `PacketParser` for the first packet in
+/// the stream.
+#[no_mangle]
+pub extern "system" fn sq_packet_parser_from_reader<'a>
+    (ctx: Option<&mut Context>, reader: Option<&'a mut Box<'a + Read>>)
+     -> *mut PacketParser<'a> {
+    let ctx = ctx.expect("Context is NULL");
+    let reader = reader.expect("Reader is NULL");
+    fry!(ctx, PacketParser::from_reader(reader))
+        .map(|v| box_raw!(v))
+        .unwrap_or(ptr::null_mut())
+}
+
+/// Starts parsing an OpenPGP message stored in a file named `path`.
+///
+/// This function returns a `PacketParser` for the first packet in
+/// the stream.
+#[no_mangle]
+pub extern "system" fn sq_packet_parser_from_file
+    (ctx: Option<&mut Context>, filename: *const c_char)
+     -> *mut PacketParser {
+    let ctx = ctx.expect("Context is NULL");
+    assert!(! filename.is_null());
+    let filename = unsafe {
+        CStr::from_ptr(filename).to_string_lossy().into_owned()
+    };
+    fry!(ctx, PacketParser::from_file(&filename))
+        .map(|v| box_raw!(v))
+        .unwrap_or(ptr::null_mut())
+}
+
+/// Starts parsing an OpenPGP message stored in a buffer.
+///
+/// This function returns a `PacketParser` for the first packet in
+/// the stream.
+#[no_mangle]
+pub extern "system" fn sq_packet_parser_from_bytes
+    (ctx: Option<&mut Context>, b: *const uint8_t, len: size_t)
+     -> *mut PacketParser {
+    let ctx = ctx.expect("Context is NULL");
+    assert!(!b.is_null());
+    let buf = unsafe {
+        slice::from_raw_parts(b, len as usize)
+    };
+
+    fry!(ctx, PacketParser::from_bytes(buf))
+        .map(|v| box_raw!(v))
+        .unwrap_or(ptr::null_mut())
+}
+
+/// Frees the packet parser.
+#[no_mangle]
+pub extern "system" fn sq_packet_parser_free(pp: *mut PacketParser) {
+    if pp.is_null() { return }
+    unsafe {
+        drop(Box::from_raw(pp));
+    }
+}
+
+/// Returns a reference to the packet that is being parsed.
+#[no_mangle]
+pub extern "system" fn sq_packet_parser_packet
+    (pp: Option<&PacketParser>)
+     -> *const Packet {
+    let pp = pp.expect("PacketParser is NULL");
+    &pp.packet
+}
+
+/// Returns the current packet's recursion depth.
+///
+/// A top-level packet has a recursion depth of 0.  Packets in a
+/// top-level container have a recursion depth of 1, etc.
+#[no_mangle]
+pub extern "system" fn sq_packet_parser_recursion_depth
+    (pp: Option<&PacketParser>)
+     -> uint8_t {
+    let pp = pp.expect("PacketParser is NULL");
+    pp.recursion_depth
+}
+
+/// Finishes parsing the current packet and starts parsing the
+/// following one.
+///
+/// This function finishes parsing the current packet.  By
+/// default, any unread content is dropped.  (See
+/// [`PacketParsererBuilder`] for how to configure this.)  It then
+/// creates a new packet parser for the following packet.  If the
+/// current packet is a container, this function does *not*
+/// recurse into the container, but skips any packets it contains.
+/// To recurse into the container, use the [`recurse()`] method.
+///
+///   [`PacketParsererBuilder`]: parse/struct.PacketParserBuilder.html
+///   [`recurse()`]: #method.recurse
+///
+/// The return value is a tuple containing:
+///
+///   - A `Packet` holding the fully processed old packet;
+///
+///   - The old packet's recursion depth;
+///
+///   - A `PacketParser` holding the new packet;
+///
+///   - And, the recursion depth of the new packet.
+///
+/// A recursion depth of 0 means that the packet is a top-level
+/// packet, a recursion depth of 1 means that the packet is an
+/// immediate child of a top-level-packet, etc.
+///
+/// Since the packets are serialized in depth-first order and all
+/// interior nodes are visited, we know that if the recursion
+/// depth is the same, then the packets are siblings (they have a
+/// common parent) and not, e.g., cousins (they have a common
+/// grandparent).  This is because, if we move up the tree, the
+/// only way to move back down is to first visit a new container
+/// (e.g., an aunt).
+///
+/// Using the two positions, we can compute the change in depth as
+/// new_depth - old_depth.  Thus, if the change in depth is 0, the
+/// two packets are siblings.  If the value is 1, the old packet
+/// is a container, and the new packet is its first child.  And,
+/// if the value is -1, the new packet is contained in the old
+/// packet's grandparent.  The idea is illustrated below:
+///
+/// ```text
+///             ancestor
+///             |       \
+///            ...      -n
+///             |
+///           grandparent
+///           |          \
+///         parent       -1
+///         |      \
+///      packet    0
+///         |
+///         1
+/// ```
+///
+/// Note: since this function does not automatically recurse into
+/// a container, the change in depth will always be non-positive.
+/// If the current container is empty, this function DOES pop that
+/// container off the container stack, and returns the following
+/// packet in the parent container.
+///
+/// The items of the tuple are returned in out-parameters.  If you do
+/// not wish to receive the value, pass `NULL` as the parameter.
+///
+/// Consumes the given packet parser.
+#[no_mangle]
+pub extern "system" fn sq_packet_parser_next<'a>
+    (ctx: Option<&mut Context>,
+     pp: *mut PacketParser<'a>,
+     old_packet: Option<&mut *mut Packet>,
+     old_recursion_level: Option<&mut isize>,
+     ppo: Option<&mut *mut PacketParser<'a>>,
+     new_recursion_level: Option<&mut isize>)
+     -> Status {
+    let ctx = ctx.expect("Context is NULL");
+    assert!(! pp.is_null());
+    let pp = unsafe {
+        Box::from_raw(pp)
+    };
+
+    match pp.next() {
+        Ok((old_p, old_rl, pp, new_rl)) => {
+            if let Some(p) = old_packet {
+                *p = box_raw!(old_p);
+            }
+            if let Some(p) = old_recursion_level {
+                *p = old_rl;
+            }
+            if let Some(p) = ppo {
+                *p = maybe_box_raw!(pp);
+            }
+            if let Some(p) = new_recursion_level {
+                *p = new_rl;
+            }
+            Status::Success
+        },
+        Err(e) => fry_status!(ctx, Err::<(), failure::Error>(e)),
+    }
+}
+
+/// Finishes parsing the current packet and starts parsing the
+/// next one, recursing if possible.
+///
+/// This method is similar to the [`next()`] method (see that
+/// method for more details), but if the current packet is a
+/// container (and we haven't reached the maximum recursion depth,
+/// and the user hasn't started reading the packet's contents), we
+/// recurse into the container, and return a `PacketParser` for
+/// its first child.  Otherwise, we return the next packet in the
+/// packet stream.  If this function recurses, then the new
+/// packet's position will be old_position + 1; because we always
+/// visit interior nodes, we can't recurse more than one level at
+/// a time.
+///
+///   [`next()`]: #method.next
+///
+/// The items of the tuple are returned in out-parameters.  If you do
+/// not wish to receive the value, pass `NULL` as the parameter.
+///
+/// Consumes the given packet parser.
+#[no_mangle]
+pub extern "system" fn sq_packet_parser_recurse<'a>
+    (ctx: Option<&mut Context>,
+     pp: *mut PacketParser<'a>,
+     old_packet: Option<&mut *mut Packet>,
+     old_recursion_level: Option<&mut isize>,
+     ppo: Option<&mut *mut PacketParser<'a>>,
+     new_recursion_level: Option<&mut isize>)
+     -> Status {
+    let ctx = ctx.expect("Context is NULL");
+    assert!(! pp.is_null());
+    let pp = unsafe {
+        Box::from_raw(pp)
+    };
+
+    match pp.recurse() {
+        Ok((old_p, old_rl, pp, new_rl)) => {
+            if let Some(p) = old_packet {
+                *p = box_raw!(old_p);
+            }
+            if let Some(p) = old_recursion_level {
+                *p = old_rl;
+            }
+            if let Some(p) = ppo {
+                *p = maybe_box_raw!(pp);
+            }
+            if let Some(p) = new_recursion_level {
+                *p = new_rl;
+            }
+            Status::Success
+        },
+        Err(e) => fry_status!(ctx, Err::<(), failure::Error>(e)),
+    }
+}
+
+/// Causes the PacketParser to buffer the packet's contents.
+///
+/// The packet's contents are stored in `packet.content`.  In
+/// general, you should avoid buffering a packet's content and
+/// prefer streaming its content unless you are certain that the
+/// content is small.
+#[no_mangle]
+pub extern "system" fn sq_packet_parser_buffer_unread_content<'a>
+    (ctx: Option<&mut Context>,
+     pp: Option<&mut PacketParser<'a>>,
+     len: Option<&mut usize>)
+     -> *const uint8_t {
+    let ctx = ctx.expect("Context is NULL");
+    let pp = pp.expect("PacketParser is NULL");
+    let len = len.expect("Length pointer is NULL");
+    let buf = fry!(ctx, pp.buffer_unread_content());
+    *len = buf.len();
+    buf.as_ptr()
+}
+
+/// Finishes parsing the current packet.
+///
+/// By default, this drops any unread content.  Use, for instance,
+/// `PacketParserBuild` to customize the default behavior.
+#[no_mangle]
+pub extern "system" fn sq_packet_parser_finish<'a>
+    (ctx: Option<&mut Context>, pp: Option<&mut PacketParser<'a>>)
+     -> *const Packet {
+    let _ctx = ctx.expect("Context is NULL");
+    let pp = pp.expect("PacketParser is NULL");
+    pp.finish()
+}
+
+/// Tries to decrypt the current packet.
+///
+/// On success, this function pushes one or more readers onto the
+/// `PacketParser`'s reader stack, and sets the packet's
+/// `decrypted` flag.
+///
+/// If this function is called on a packet that does not contain
+/// encrypted data, or some of the data was already read, then it
+/// returns `Error::InvalidOperation`.
+#[no_mangle]
+pub extern "system" fn sq_packet_parser_decrypt<'a>
+    (ctx: Option<&mut Context>,
+     pp: Option<&mut PacketParser<'a>>,
+     algo: uint8_t, // XXX
+     key: *const uint8_t, key_len: size_t)
+     -> Status {
+    let ctx = ctx.expect("Context is NULL");
+    let pp = pp.expect("PacketParser is NULL");
+    let key = unsafe {
+        slice::from_raw_parts(key, key_len as usize)
+    };
+    fry_status!(ctx, pp.decrypt(algo as u8, key))
 }
