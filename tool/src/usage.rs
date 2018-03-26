@@ -18,6 +18,7 @@
 //!
 //! SUBCOMMANDS:
 //!     dearmor      Removes ASCII Armor from a file
+//!     decrypt      Decrypts an OpenPGP message
 //!     dump         Lists OpenPGP packets
 //!     enarmor      Applies ASCII Armor to a file
 //!     help         Prints this message or the help of the given subcommand(s)
@@ -35,6 +36,25 @@
 //!     sq dearmor [OPTIONS]
 //!
 //! FLAGS:
+//!     -h, --help       Prints help information
+//!     -V, --version    Prints version information
+//!
+//! OPTIONS:
+//!     -i, --input <FILE>     Sets the input file to use
+//!     -o, --output <FILE>    Sets the output file to use
+//! ```
+//!
+//! ## Subcommand decrypt
+//!
+//! ```text
+//! Decrypts an OpenPGP message
+//!
+//! USAGE:
+//!     sq decrypt [FLAGS] [OPTIONS]
+//!
+//! FLAGS:
+//!     -A, --dearmor    Remove ASCII Armor from input
+//!         --dump       Print a packet dump to stderr
 //!     -h, --help       Prints help information
 //!     -V, --version    Prints version information
 //!
