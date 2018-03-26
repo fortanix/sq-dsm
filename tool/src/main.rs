@@ -41,6 +41,10 @@ fn create_or_stdout(f: Option<&str>) -> Result<Box<io::Write>, failure::Error> {
     }
 }
 
+// Indent packets according to their recursion level.
+const INDENT: &'static str
+    = "                                                  ";
+
 fn real_main() -> Result<(), failure::Error> {
     let matches = cli::build().get_matches();
 
@@ -80,9 +84,6 @@ fn real_main() -> Result<(), failure::Error> {
                 input
             };
 
-            // Indent packets according to their recursion level.
-            let indent = "                                                  ";
-
             let mut ppo
                 = openpgp::parse::PacketParserBuilder::from_reader(input)?
                     .finalize()?;
@@ -97,7 +98,7 @@ fn real_main() -> Result<(), failure::Error> {
                     pp.buffer_unread_content()?;
                 }
                 writeln!(output, "{}{:?}",
-                         &indent[0..pp.recursion_depth as usize], pp.packet)?;
+                         &INDENT[0..pp.recursion_depth as usize], pp.packet)?;
 
                 let (_, _, ppo_tmp, _) = pp.recurse()?;
                 ppo = ppo_tmp;
