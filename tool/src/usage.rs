@@ -152,6 +152,7 @@
 //!     bindings    Lists all bindings in all key stores
 //!     help        Prints this message or the help of the given subcommand(s)
 //!     keys        Lists all keys in the common key pool
+//!     log         Lists the server log
 //!     stores      Lists key stores
 //! ```
 //!
@@ -178,6 +179,19 @@
 //!
 //! USAGE:
 //!     sq list keys
+//!
+//! FLAGS:
+//!     -h, --help       Prints help information
+//!     -V, --version    Prints version information
+//! ```
+//!
+//! ### Subcommand list log
+//!
+//! ```text
+//! Lists the server log
+//!
+//! USAGE:
+//!     sq list log
 //!
 //! FLAGS:
 //!     -h, --help       Prints help information
@@ -222,6 +236,7 @@
 //!     help      Prints this message or the help of the given subcommand(s)
 //!     import    Imports a key
 //!     list      Lists keys in the store
+//!     log       Lists the keystore log
 //!     stats     Get stats for the given label
 //! ```
 //!
@@ -310,6 +325,22 @@
 //! FLAGS:
 //!     -h, --help       Prints help information
 //!     -V, --version    Prints version information
+//! ```
+//!
+//! ### Subcommand store log
+//!
+//! ```text
+//! Lists the keystore log
+//!
+//! USAGE:
+//!     sq store <NAME> log [LABEL]
+//!
+//! FLAGS:
+//!     -h, --help       Prints help information
+//!     -V, --version    Prints version information
+//!
+//! ARGS:
+//!     <LABEL>    List messages related to this label
 //! ```
 //!
 //! ### Subcommand store stats
