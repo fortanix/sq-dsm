@@ -2,6 +2,7 @@
 name = "sequoia-tool"
 version = "0.1.0"
 authors = ["Justus Winter <justus@pep-project.org>"]
+build = "build.rs"
 
 [dependencies]
 openpgp = { path = "../openpgp" }
@@ -12,6 +13,9 @@ clap = "2.27.1"
 failure = "0.1.1"
 prettytable-rs = "0.6.7"
 time = "0.1.38"
+
+[build-dependencies]
+clap = "2.27.1"
 
 [[bin]]
 name = "sq"
