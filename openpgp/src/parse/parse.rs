@@ -1952,15 +1952,15 @@ fn packet_parser_reader_interface() {
 }
 
 impl<'a> PacketParser<'a> {
-    // Tries to decrypt the current packet.
-    //
-    // On success, this function pushes one or more readers onto the
-    // `PacketParser`'s reader stack, and sets the packet's
-    // `decrypted` flag.
-    //
-    // If this function is called on a packet that does not contain
-    // encrypted data, or some of the data was already read, then it
-    // returns `Error::InvalidOperation`.
+    /// Tries to decrypt the current packet.
+    ///
+    /// On success, this function pushes one or more readers onto the
+    /// `PacketParser`'s reader stack, and sets the packet's
+    /// `decrypted` flag.
+    ///
+    /// If this function is called on a packet that does not contain
+    /// encrypted data, or some of the data was already read, then it
+    /// returns `Error::InvalidOperation`.
     pub fn decrypt(&mut self, algo: u8, key: &[u8])
         -> Result<()>
     {
