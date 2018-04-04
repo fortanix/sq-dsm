@@ -4,7 +4,7 @@
 PREFIX		?= /usr/local
 DESTDIR		?=
 
-VERSION		?= $(shell grep '^version = ' Cargo.toml | cut -d'"' -f2)
+VERSION		?= $(shell grep '^version[[:space:]]*=[[:space:]]*' Cargo.toml | cut -d'"' -f2)
 VERSION_MAJOR	= $(shell echo $(VERSION) | cut -d'.' -f1)
 
 # Tools.

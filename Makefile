@@ -21,7 +21,7 @@ TAR		?= tar
 XZ		?= xz
 GPG		?= gpg
 
-VERSION		?= $(shell grep '^version = ' Cargo.toml | cut -d'"' -f2)
+VERSION		?= $(shell grep '^version[[:space:]]*=[[:space:]]*' Cargo.toml | cut -d'"' -f2)
 
 # Make sure subprocesses pick these up.
 export PREFIX
