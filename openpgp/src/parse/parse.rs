@@ -58,47 +58,48 @@ const MAX_RECURSION_DEPTH : u8 = 16;
 
 // Packet headers.
 
-/// Parses a CTB as described in [Section 4.2 of RFC 4880] and returns
-/// a [`CTB`].  This function parses both new and old format ctbs.
-///
-///   [Section 4.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.2
-///   [`CTB`]: ../enum.CTB
-pub fn ctb(ptag: u8) -> Result<CTB> {
-    // The top bit of the ptag must be set.
-    if ptag & 0b1000_0000 == 0 {
-        // XXX: Use a proper error.
-        return Err(
-            Error::MalformedPacket(
-                format!("Malformed ctb: MSB of ptag ({:#010b}) not set.", ptag)
-            ).into());
+impl CTB {
+    /// Parses a CTB as described in [Section 4.2 of RFC 4880].  This
+    /// function parses both new and old format ctbs.
+    ///
+    ///   [Section 4.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.2
+    pub fn from_ptag(ptag: u8) -> Result<CTB> {
+        // The top bit of the ptag must be set.
+        if ptag & 0b1000_0000 == 0 {
+            // XXX: Use a proper error.
+            return Err(
+                Error::MalformedPacket(
+                    format!("Malformed ctb: MSB of ptag ({:#010b}) not set.", ptag)
+                ).into());
+        }
+
+        let new_format = ptag & 0b0100_0000 != 0;
+        let ctb = if new_format {
+            let tag = ptag & 0b0011_1111;
+            CTB::New(CTBNew {
+                common: CTBCommon {
+                    tag: Tag::from_numeric(tag).unwrap()
+                }})
+        } else {
+            let tag = (ptag & 0b0011_1100) >> 2;
+            let length_type = ptag & 0b0000_0011;
+
+            CTB::Old(CTBOld {
+                common: CTBCommon {
+                    tag: Tag::from_numeric(tag).unwrap()
+                },
+                length_type: PacketLengthType::from_numeric(length_type).unwrap(),
+            })
+        };
+
+        Ok(ctb)
     }
-
-    let new_format = ptag & 0b0100_0000 != 0;
-    let ctb = if new_format {
-        let tag = ptag & 0b0011_1111;
-        CTB::New(CTBNew {
-            common: CTBCommon {
-                tag: Tag::from_numeric(tag).unwrap()
-            }})
-    } else {
-        let tag = (ptag & 0b0011_1100) >> 2;
-        let length_type = ptag & 0b0000_0011;
-
-        CTB::Old(CTBOld {
-            common: CTBCommon {
-                tag: Tag::from_numeric(tag).unwrap()
-            },
-            length_type: PacketLengthType::from_numeric(length_type).unwrap(),
-        })
-    };
-
-    Ok(ctb)
 }
 
 #[test]
-fn ctb_test() {
+fn ctb() {
     // 0x99 = public key packet
-    if let CTB::Old(ctb) = ctb(0x99).unwrap() {
+    if let CTB::Old(ctb) = CTB::from_ptag(0x99).unwrap() {
         assert_eq!(ctb.tag, Tag::PublicKey);
         assert_eq!(ctb.length_type, PacketLengthType::TwoOctets);
     } else {
@@ -106,7 +107,7 @@ fn ctb_test() {
     }
 
     // 0xa3 = old compressed packet
-    if let CTB::Old(ctb) = ctb(0xa3).unwrap() {
+    if let CTB::Old(ctb) = CTB::from_ptag(0xa3).unwrap() {
         assert_eq!(ctb.tag, Tag::CompressedData);
         assert_eq!(ctb.length_type, PacketLengthType::Indeterminate);
     } else {
@@ -114,7 +115,7 @@ fn ctb_test() {
     }
 
     // 0xcb: new literal
-    if let CTB::New(ctb) = ctb(0xcb).unwrap() {
+    if let CTB::New(ctb) = CTB::from_ptag(0xcb).unwrap() {
         assert_eq!(ctb.tag, Tag::Literal);
     } else {
         panic!("Expected a new format packet.");
@@ -217,7 +218,7 @@ fn body_length_old_format_test() {
 ///   [Section 4.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.2
 pub fn header<R: BufferedReader<C>, C> (bio: &mut R)
         -> Result<Header> {
-    let ctb = ctb(bio.data_consume_hard(1)?[0])?;
+    let ctb = CTB::from_ptag(bio.data_consume_hard(1)?[0])?;
     let length = match ctb {
         CTB::New(_) => body_length_new_format(bio)?,
         CTB::Old(ref ctb) => body_length_old_format(bio, ctb.length_type)?,
