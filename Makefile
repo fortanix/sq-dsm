@@ -3,6 +3,7 @@
 # Configuration.
 PREFIX		?= /usr/local
 DESTDIR		?=
+CARGO_FLAGS	?=
 
 # Signing source distributions.
 SIGN_WITH	?= XXXXXXXXXXXXXXXX
@@ -25,30 +26,32 @@ VERSION		?= $(shell grep '^version = ' Cargo.toml | cut -d'"' -f2)
 # Make sure subprocesses pick these up.
 export PREFIX
 export DESTDIR
+export CARGO_FLAGS
 
 all: build ffi/examples
 
 .PHONY: build
 build:
-	$(CARGO) build --all
+	$(CARGO) build $(CARGO_FLAGS) --all
 	$(MAKE) -Cffi build
 
 # Testing and examples.
 .PHONY: test check
 test check:
-	$(CARGO) test --all
+	$(CARGO) test $(CARGO_FLAGS) --all
 	$(MAKE) -Cffi test
 	$(MAKE) examples
 
 .PHONY: examples
 examples:
-	$(CARGO) build --examples
+	$(CARGO) build $(CARGO_FLAGS) --examples
 	$(MAKE) -Cffi examples
 
 # Documentation.
 .PHONY: doc
 doc:
-	$(CARGO) doc --no-deps --all
+	$(CARGO) doc $(CARGO_FLAGS) --no-deps --all
+	$(CARGO) doc $(CARGO_FLAGS) --no-deps --package nettle
 
 .PHONY: deploy-doc
 deploy-doc: doc
@@ -57,7 +60,7 @@ deploy-doc: doc
 # Installation.
 .PHONY: build-release
 build-release:
-	$(CARGO) build --release --all
+	$(CARGO) build $(CARGO_FLAGS) --release --all
 	$(MAKE) -Cffi build-release
 
 .PHONY: install
@@ -76,7 +79,7 @@ target/dist/sequoia-$(VERSION):
 	$(GIT) clone . target/dist/sequoia-$(VERSION)
 	cd target/dist/sequoia-$(VERSION) && \
 		mkdir .cargo && \
-		$(CARGO) vendor \
+		$(CARGO) vendor $(CARGO_FLAGS) \
 			| sed 's/^directory = ".*"$$/directory = "vendor"/' \
 			> .cargo/config && \
 		rm -rf .git
