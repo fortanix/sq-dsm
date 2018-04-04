@@ -5,7 +5,6 @@ use std::io::{Error,ErrorKind};
 
 use buffered_reader::{buffered_reader_generic_read_impl, BufferedReader};
 use super::BodyLength;
-use parse::body_length_new_format;
 
 /// A `BufferedReader` that transparently handles OpenPGP's chunking
 /// scheme.  This implicitly implements a limitor.
@@ -134,7 +133,7 @@ impl<T: BufferedReader<C>, C> BufferedReaderPartialBodyFilter<T, C> {
             // Read the next partial body length header.
             assert_eq!(self.partial_body_length, 0);
 
-            match body_length_new_format(&mut self.reader) {
+            match BodyLength::parse_new_format(&mut self.reader) {
                 Ok(BodyLength::Full(len)) => {
                     //println!("Last chunk: {} bytes", len);
                     self.last = true;

@@ -122,36 +122,58 @@ fn ctb() {
     }
 }
 
-/// Decodes a new format body length as described in [Section 4.2.2 of RFC 4880].
-///
-///   [Section 4.2.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.2.2
-pub fn body_length_new_format<T: BufferedReader<C>, C> (bio: &mut T)
-        -> io::Result<BodyLength> {
-    let octet1 = bio.data_consume_hard(1)?[0];
-    if octet1 < 192 {
-        // One octet.
-        return Ok(BodyLength::Full(octet1 as u32));
-    }
-    if 192 <= octet1 && octet1 < 224 {
-        // Two octets length.
-        let octet2 = bio.data_consume_hard(1)?[0];
-        return Ok(BodyLength::Full(((octet1 as u32 - 192) << 8) + octet2 as u32 + 192));
-    }
-    if 224 <= octet1 && octet1 < 255 {
-        // Partial body length.
-        return Ok(BodyLength::Partial(1 << (octet1 & 0x1F)));
+impl BodyLength {
+    /// Decodes a new format body length as described in [Section
+    /// 4.2.2 of RFC 4880].
+    ///
+    ///   [Section 4.2.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.2.2
+    pub fn parse_new_format<T: BufferedReader<C>, C> (bio: &mut T)
+                                                     -> io::Result<BodyLength> {
+        let octet1 = bio.data_consume_hard(1)?[0];
+        if octet1 < 192 {
+            // One octet.
+            return Ok(BodyLength::Full(octet1 as u32));
+        }
+        if 192 <= octet1 && octet1 < 224 {
+            // Two octets length.
+            let octet2 = bio.data_consume_hard(1)?[0];
+            return Ok(BodyLength::Full(((octet1 as u32 - 192) << 8) + octet2 as u32 + 192));
+        }
+        if 224 <= octet1 && octet1 < 255 {
+            // Partial body length.
+            return Ok(BodyLength::Partial(1 << (octet1 & 0x1F)));
+        }
+
+        assert_eq!(octet1, 255);
+        // Five octets.
+        return Ok(BodyLength::Full(bio.read_be_u32()?));
     }
 
-    assert_eq!(octet1, 255);
-    // Five octets.
-    return Ok(BodyLength::Full(bio.read_be_u32()?));
+    /// Decodes an old format body length as described in [Section
+    /// 4.2.1 of RFC 4880].
+    ///
+    ///   [Section 4.2.1 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.2.1
+    pub fn parse_old_format<T: BufferedReader<C>, C>
+        (bio: &mut T, length_type: PacketLengthType)
+         -> Result<BodyLength> {
+        match length_type {
+            PacketLengthType::OneOctet =>
+                return Ok(BodyLength::Full(bio.data_consume_hard(1)?[0] as u32)),
+            PacketLengthType::TwoOctets =>
+                return Ok(BodyLength::Full(bio.read_be_u16()? as u32)),
+            PacketLengthType::FourOctets =>
+                return Ok(BodyLength::Full(bio.read_be_u32()? as u32)),
+            PacketLengthType::Indeterminate =>
+                return Ok(BodyLength::Indeterminate),
+        }
+    }
 }
 
 #[test]
-fn body_length_new_format_test() {
+fn body_length_new_format() {
     fn test(input: &[u8], expected_result: BodyLength) {
         assert_eq!(
-            body_length_new_format(
+            BodyLength::parse_new_format(
                 &mut BufferedReaderMemory::new(input)).unwrap(),
             expected_result);
     }
@@ -174,30 +196,13 @@ fn body_length_new_format_test() {
     test(&[0xC5, 0xDD][..], BodyLength::Full(1693));
 }
 
-/// Decodes an old format body length as described in [Section 4.2.1 of RFC 4880].
-///
-///   [Section 4.2.1 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.2.1
-pub fn body_length_old_format<T: BufferedReader<C>, C>
-        (bio: &mut T, length_type: PacketLengthType)
-        -> Result<BodyLength> {
-    match length_type {
-        PacketLengthType::OneOctet =>
-            return Ok(BodyLength::Full(bio.data_consume_hard(1)?[0] as u32)),
-        PacketLengthType::TwoOctets =>
-            return Ok(BodyLength::Full(bio.read_be_u16()? as u32)),
-        PacketLengthType::FourOctets =>
-            return Ok(BodyLength::Full(bio.read_be_u32()? as u32)),
-        PacketLengthType::Indeterminate =>
-            return Ok(BodyLength::Indeterminate),
-    }
-}
-
 #[test]
-fn body_length_old_format_test() {
+fn body_length_old_format() {
     fn test(input: &[u8], plt: PacketLengthType,
             expected_result: BodyLength, expected_rest: &[u8]) {
         let mut bio = BufferedReaderMemory::new(input);
-        assert_eq!(body_length_old_format(&mut bio, plt).unwrap(), expected_result);
+        assert_eq!(BodyLength::parse_old_format(&mut bio, plt).unwrap(),
+                   expected_result);
         let rest = bio.data_eof();
         assert_eq!(rest.unwrap(), expected_rest);
     }
@@ -220,8 +225,8 @@ pub fn header<R: BufferedReader<C>, C> (bio: &mut R)
         -> Result<Header> {
     let ctb = CTB::from_ptag(bio.data_consume_hard(1)?[0])?;
     let length = match ctb {
-        CTB::New(_) => body_length_new_format(bio)?,
-        CTB::Old(ref ctb) => body_length_old_format(bio, ctb.length_type)?,
+        CTB::New(_) => BodyLength::parse_new_format(bio)?,
+        CTB::Old(ref ctb) => BodyLength::parse_old_format(bio, ctb.length_type)?,
     };
     return Ok(Header { ctb: ctb, length: length });
 }
