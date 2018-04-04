@@ -93,12 +93,13 @@ mod test {
     use Tag;
     use SymmetricAlgo;
     use SKESK;
+    use Header;
     use Packet;
 
     use std::fs::File;
 
     use buffered_reader::BufferedReaderGeneric;
-    use parse::{header, BufferedReaderState};
+    use parse::BufferedReaderState;
     use symmetric::symmetric_key_size;
 
     use std::path::PathBuf;
@@ -220,7 +221,7 @@ mod test {
             let mut bio = BufferedReaderGeneric::with_cookie(
                 &mut f, None, BufferedReaderState::default());
 
-            let h = header(&mut bio).unwrap();
+            let h = Header::parse(&mut bio).unwrap();
             assert_eq!(h.ctb.tag, Tag::SKESK);
 
             let (packet, _, _, _)

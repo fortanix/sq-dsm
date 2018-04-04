@@ -218,17 +218,19 @@ fn body_length_old_format() {
          BodyLength::Indeterminate, &[1, 2, 3, 4][..]);
 }
 
-/// Parses an OpenPGP packet's header as described in [Section 4.2 of RFC 4880].
-///
-///   [Section 4.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.2
-pub fn header<R: BufferedReader<C>, C> (bio: &mut R)
-        -> Result<Header> {
-    let ctb = CTB::from_ptag(bio.data_consume_hard(1)?[0])?;
-    let length = match ctb {
-        CTB::New(_) => BodyLength::parse_new_format(bio)?,
-        CTB::Old(ref ctb) => BodyLength::parse_old_format(bio, ctb.length_type)?,
-    };
-    return Ok(Header { ctb: ctb, length: length });
+impl Header {
+    /// Parses an OpenPGP packet's header as described in [Section 4.2 of RFC 4880].
+    ///
+    ///   [Section 4.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.2
+    pub fn parse<R: BufferedReader<C>, C> (bio: &mut R)
+                                           -> Result<Header> {
+        let ctb = CTB::from_ptag(bio.data_consume_hard(1)?[0])?;
+        let length = match ctb {
+            CTB::New(_) => BodyLength::parse_new_format(bio)?,
+            CTB::Old(ref ctb) => BodyLength::parse_old_format(bio, ctb.length_type)?,
+        };
+        return Ok(Header { ctb: ctb, length: length });
+    }
 }
 
 impl S2K {
@@ -291,7 +293,7 @@ pub fn to_unknown_packet<R: io::Read>(reader: R)
         -> Result<Unknown> {
     let mut reader = BufferedReaderGeneric::with_cookie(
         reader, None, BufferedReaderState::default());
-    let header = header(&mut reader)?;
+    let header = Header::parse(&mut reader)?;
 
     let reader : Box<BufferedReader<BufferedReaderState>>
         = match header.length {
@@ -376,7 +378,7 @@ fn signature_parser_test () {
         let mut bio = BufferedReaderMemory::with_cookie(
             data, BufferedReaderState::default());
 
-        let header = header(&mut bio).unwrap();
+        let header = Header::parse(&mut bio).unwrap();
         assert_eq!(header.ctb.tag, Tag::Signature);
         assert_eq!(header.length, BodyLength::Full(307));
 
@@ -536,7 +538,7 @@ fn literal_parser_test () {
         let mut bio = BufferedReaderMemory::with_cookie(
             data, BufferedReaderState::default());
 
-        let header = header(&mut bio).unwrap();
+        let header = Header::parse(&mut bio).unwrap();
         assert_eq!(header.ctb.tag, Tag::Literal);
         assert_eq!(header.length, BodyLength::Full(18));
 
@@ -559,7 +561,7 @@ fn literal_parser_test () {
         let mut bio = BufferedReaderMemory::with_cookie(
             data, BufferedReaderState::default());
 
-        let header = header(&mut bio).unwrap();
+        let header = Header::parse(&mut bio).unwrap();
         assert_eq!(header.ctb.tag, Tag::Literal);
         assert_eq!(header.length, BodyLength::Partial(4096));
 
@@ -676,7 +678,7 @@ fn compressed_data_parser_test () {
         let mut bio = BufferedReaderGeneric::with_cookie(
             &mut f, None, BufferedReaderState::default());
 
-        let h = header(&mut bio).unwrap();
+        let h = Header::parse(&mut bio).unwrap();
         assert_eq!(h.ctb.tag, Tag::CompressedData);
         assert_eq!(h.length, BodyLength::Indeterminate);
 
@@ -874,7 +876,7 @@ fn skesk_parser_test() {
         let mut bio = BufferedReaderGeneric::with_cookie(
             &mut f, None, BufferedReaderState::default());
 
-        let h = header(&mut bio).unwrap();
+        let h = Header::parse(&mut bio).unwrap();
         assert_eq!(h.ctb.tag, Tag::SKESK);
 
         let (packet, _, _, _)
@@ -1353,7 +1355,7 @@ impl <'a> PacketParser<'a> {
                 PacketParserOrBufferedReader::BufferedReader(Box::new(bio)));
         }
 
-        let header = header(&mut bio)?;
+        let header = Header::parse(&mut bio)?;
         if settings.trace {
             eprintln!("{}PacketParser::parse(depth: {}, level: {:?}): \
                        Parsing a {:?} packet.",
