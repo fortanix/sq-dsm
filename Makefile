@@ -51,6 +51,7 @@ examples:
 .PHONY: doc
 doc:
 	$(CARGO) doc $(CARGO_FLAGS) --no-deps --all
+	$(CARGO) doc $(CARGO_FLAGS) --no-deps --package nettle
 
 .PHONY: deploy-doc
 deploy-doc: doc
