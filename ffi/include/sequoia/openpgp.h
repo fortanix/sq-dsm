@@ -462,6 +462,36 @@ void sq_packet_free (sq_packet_t p);
 sq_tag_t sq_packet_tag (sq_packet_t p);
 
 /*/
+/// Computes and returns the key's fingerprint as per Section 12.2
+/// of RFC 4880.
+/*/
+sq_fingerprint_t sq_p_key_fingerprint (sq_p_key_t p);
+
+/*/
+/// Computes and returns the key's key ID as per Section 12.2 of RFC
+/// 4880.
+/*/
+sq_keyid_t sq_p_key_keyid (sq_p_key_t p);
+
+/*/
+/// Returns the value of the User ID Packet.
+///
+/// The returned pointer is valid until `uid` is deallocated.  If
+/// `value_len` is not `NULL`, the size of value is stored there.
+/*/
+const uint8_t *sq_user_id_value (sq_user_id_t uid,
+				 size_t *value_len);
+
+/*/
+/// Returns the value of the User Attribute Packet.
+///
+/// The returned pointer is valid until `ua` is deallocated.  If
+/// `value_len` is not `NULL`, the size of value is stored there.
+/*/
+const uint8_t *sq_user_attribute_value (sq_user_attribute_t ua,
+					size_t *value_len);
+
+/*/
 /// Returns the session key.
 ///
 /// `key` of size `key_len` must be a buffer large enough to hold the

@@ -468,6 +468,74 @@ pub extern "system" fn sq_packet_tag(p: Option<&Packet>)
     tag as uint8_t
 }
 
+/// Computes and returns the key's fingerprint as per Section 12.2
+/// of RFC 4880.
+#[no_mangle]
+pub extern "system" fn sq_p_key_fingerprint(key: Option<&Packet>)
+                                            -> *mut Fingerprint {
+    let key = key.expect("Key is NULL");
+    match key {
+        &Packet::PublicKey(ref key) => box_raw!(key.fingerprint()),
+        &Packet::PublicSubkey(ref key) => box_raw!(key.fingerprint()),
+        &Packet::SecretKey(ref key) => box_raw!(key.fingerprint()),
+        &Packet::SecretSubkey(ref key) => box_raw!(key.fingerprint()),
+        _ => panic!("Not a Key packet"),
+    }
+}
+
+/// Computes and returns the key's key ID as per Section 12.2 of RFC
+/// 4880.
+#[no_mangle]
+pub extern "system" fn sq_p_key_keyid(key: Option<&Packet>)
+                                      -> *mut KeyID {
+    let key = key.expect("Key is NULL");
+    match key {
+        &Packet::PublicKey(ref key) => box_raw!(key.keyid()),
+        &Packet::PublicSubkey(ref key) => box_raw!(key.keyid()),
+        &Packet::SecretKey(ref key) => box_raw!(key.keyid()),
+        &Packet::SecretSubkey(ref key) => box_raw!(key.keyid()),
+        _ => panic!("Not a Key packet"),
+    }
+}
+
+/// Returns the value of the User ID Packet.
+///
+/// The returned pointer is valid until `uid` is deallocated.  If
+/// `value_len` is not `NULL`, the size of value is stored there.
+#[no_mangle]
+pub extern "system" fn sq_user_id_value(uid: Option<&Packet>,
+                                        value_len: Option<&mut size_t>)
+                                        -> *const uint8_t {
+    let uid = uid.expect("UserID is NULL");
+    if let &Packet::UserID(ref uid) = uid {
+        if let Some(p) = value_len {
+            *p = uid.value.len();
+        }
+        uid.value.as_ptr()
+    } else {
+        panic!("Not a UserID packet");
+    }
+}
+
+/// Returns the value of the User Attribute Packet.
+///
+/// The returned pointer is valid until `ua` is deallocated.  If
+/// `value_len` is not `NULL`, the size of value is stored there.
+#[no_mangle]
+pub extern "system" fn sq_user_attribute_value(ua: Option<&Packet>,
+                                               value_len: Option<&mut size_t>)
+                                               -> *const uint8_t {
+    let ua = ua.expect("UserAttribute is NULL");
+    if let &Packet::UserAttribute(ref ua) = ua {
+        if let Some(p) = value_len {
+            *p = ua.value.len();
+        }
+        ua.value.as_ptr()
+    } else {
+        panic!("Not a UserAttribute packet");
+    }
+}
+
 /// Returns the session key.
 ///
 /// `key` of size `key_len` must be a buffer large enough to hold the
