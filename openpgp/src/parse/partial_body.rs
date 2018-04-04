@@ -149,7 +149,7 @@ impl<T: BufferedReader<C>, C> BufferedReaderPartialBodyFilter<T, C> {
                     unreachable!();
                 },
                 Err(e) => {
-                    //println!("Err reading next chuck: {:?}", e);
+                    //println!("Err reading next chunk: {:?}", e);
                     err = Some(e);
                     break;
                 }
