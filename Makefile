@@ -51,7 +51,6 @@ examples:
 .PHONY: doc
 doc:
 	$(CARGO) doc $(CARGO_FLAGS) --no-deps --all
-	$(CARGO) doc $(CARGO_FLAGS) --no-deps --package nettle
 
 .PHONY: deploy-doc
 deploy-doc: doc
@@ -99,7 +98,7 @@ dist-test dist-check: target/dist/sequoia-$(VERSION).tar.xz
 	mkdir -p target/dist-check
 	$(TAR) xf $< -C target/dist-check
 	cd target/dist-check/sequoia-$(VERSION) && \
-		CARGO_HOME=$$(mktemp -d) $(MAKE) test
+		CARGO_HOME=$$(mktemp -d) $(MAKE) test CARGO_FLAGS=--frozen
 	rm -rf target/dist-check/sequoia-$(VERSION)
 
 # Housekeeping.
