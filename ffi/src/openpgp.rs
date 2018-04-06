@@ -446,6 +446,15 @@ pub extern "system" fn sq_tpk_fingerprint(tpk: Option<&TPK>)
 
 /* openpgp::Packet.  */
 
+/// Frees the Packet.
+#[no_mangle]
+pub extern "system" fn sq_packet_free(p: *mut Packet) {
+    if p.is_null() { return }
+    unsafe {
+        drop(Box::from_raw(p));
+    }
+}
+
 /// Returns the `Packet's` corresponding OpenPGP tag.
 ///
 /// Tags are explained in [Section 4.3 of RFC 4880].

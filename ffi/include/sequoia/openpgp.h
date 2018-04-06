@@ -443,6 +443,11 @@ typedef union sq_packet {
 } sq_packet_t;
 
 /*/
+/// Frees the Packet.
+/*/
+void sq_packet_free (sq_packet_t p);
+
+/*/
 /// Returns the `Packet's` corresponding OpenPGP tag.
 ///
 /// Tags are explained in [Section 4.3 of RFC 4880].
