@@ -12,8 +12,8 @@ fn path_to(artifact: &str) -> PathBuf {
 }
 
 impl Key {
-    // Computes and returns the key's fingerprint as per Section 12.2
-    // of RFC 4880.
+    /// Computes and returns the key's fingerprint as per Section 12.2
+    /// of RFC 4880.
     pub fn fingerprint(&self) -> Fingerprint {
         let mut h = Sha1::default();
 
@@ -24,8 +24,8 @@ impl Key {
         Fingerprint::from_bytes(digest.as_slice())
     }
 
-    // Computes and returns the key's key ID as per Section 12.2 of
-    // RFC 4880.
+    /// Computes and returns the key's key ID as per Section 12.2 of
+    /// RFC 4880.
     pub fn keyid(&self) -> KeyID {
         self.fingerprint().to_keyid()
     }
