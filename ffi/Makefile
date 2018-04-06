@@ -48,11 +48,13 @@ install: sequoia.pc
 		include/sequoia/*.h
 	$(INSTALL) -d $(DESTDIR)$(PREFIX)/lib
 	$(INSTALL) ../target/release/libsequoia_ffi.so \
-		$(DESTDIR)$(PREFIX)/lib/libsequoia.so.$(VERSION)
-	ln -fs libsequoia.so.$(VERSION) \
-		$(DESTDIR)$(PREFIX)/lib/libsequoia.so.$(VERSION_MAJOR)
+		$(DESTDIR)$(PREFIX)/lib/libsequoia_ffi.so.$(VERSION)
+	ln -fs libsequoia_ffi.so.$(VERSION) \
+		$(DESTDIR)$(PREFIX)/lib/libsequoia_ffi.so.$(VERSION_MAJOR)
+	ln -fs libsequoia_ffi.so.$(VERSION) \
+		$(DESTDIR)$(PREFIX)/lib/libsequoia_ffi.so
 	$(INSTALL) ../target/release/libsequoia_ffi.a \
-		$(DESTDIR)$(PREFIX)/lib/libsequoia.a
+		$(DESTDIR)$(PREFIX)/lib/libsequoia_ffi.a
 
 # Housekeeping.
 .PHONY: clean

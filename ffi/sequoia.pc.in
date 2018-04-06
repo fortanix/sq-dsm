@@ -1,4 +1,5 @@
 prefix=PREFIX
+libdir=${prefix}/lib
 includedir=${prefix}/include
 
 Name: Sequoia
@@ -7,3 +8,4 @@ URL: https://sequoia-pgp.org/
 Version: VERSION
 Requires.private: nettle sqlite3 openssl
 Cflags: -I${includedir}
+Libs: -L${libdir} -lsequoia_ffi
