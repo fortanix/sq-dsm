@@ -63,7 +63,7 @@ pub mod ctb;
 use ctb::{CTB, CTBOld, CTBNew, CTBCommon, PacketLengthType};
 
 pub mod packet;
-use packet::{BodyLength, PacketCommon, Header};
+use packet::{BodyLength, PacketCommon, Header, Container};
 
 pub mod parse;
 use parse::SubpacketArea;
@@ -83,7 +83,6 @@ mod user_attribute;
 mod literal;
 mod compressed_data;
 mod skesk;
-mod container;
 mod message;
 mod iter;
 
@@ -635,15 +634,6 @@ impl Packet {
             &Packet::MDC(_) => Tag::MDC,
         }
     }
-}
-
-/// Holds zero or more OpenPGP packets.
-///
-/// This is used by OpenPGP container packets, like the compressed
-/// data packet, to store the containing packets.
-#[derive(PartialEq, Clone)]
-pub struct Container {
-    packets: Vec<Packet>,
 }
 
 /// A `Message` holds a deserialized OpenPGP message.
