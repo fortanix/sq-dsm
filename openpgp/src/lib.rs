@@ -84,7 +84,6 @@ mod literal;
 mod compressed_data;
 mod skesk;
 mod message;
-mod iter;
 
 pub type Result<T> = ::std::result::Result<T, failure::Error>;
 
