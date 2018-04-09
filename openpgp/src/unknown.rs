@@ -1,5 +1,4 @@
 use Tag;
-use PacketCommon;
 use Unknown;
 use Packet;
 
@@ -7,7 +6,7 @@ impl Unknown {
     /// Returns a new `Unknown` packet.
     pub fn new(tag: Tag) -> Self {
         Unknown {
-            common: PacketCommon::default(),
+            common: Default::default(),
             tag: tag,
         }
     }

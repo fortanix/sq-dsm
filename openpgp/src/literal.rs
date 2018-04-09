@@ -2,7 +2,6 @@ use std::fmt;
 use std::cmp;
 
 use Literal;
-use PacketCommon;
 use Packet;
 
 impl fmt::Debug for Literal {
@@ -40,7 +39,7 @@ impl Literal {
     /// Returns a new `Literal` packet.
     pub fn new(format: char) -> Literal {
         Literal {
-            common: PacketCommon::default(),
+            common: Default::default(),
             format: format as u8,
             filename: None,
             date: 0

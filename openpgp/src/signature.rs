@@ -1,6 +1,5 @@
 use std::fmt;
 
-use PacketCommon;
 use Signature;
 use Packet;
 use SubpacketArea;
@@ -54,7 +53,7 @@ impl Signature {
     /// Returns a new `Signature` packet.
     pub fn new(sigtype: u8) ->  Self {
         Signature {
-            common: PacketCommon::default(),
+            common: Default::default(),
             version: 4,
             sigtype: sigtype,
             pk_algo: 0,

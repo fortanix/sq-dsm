@@ -1,6 +1,5 @@
 use std::fmt;
 
-use PacketCommon;
 use UserID;
 use Packet;
 
@@ -25,7 +24,7 @@ impl UserID {
     /// Returns a new `UserID` packet.
     pub fn new() -> UserID {
         UserID {
-            common: PacketCommon::default(),
+            common: Default::default(),
             value: Vec::new(),
         }
     }

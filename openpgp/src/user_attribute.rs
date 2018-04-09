@@ -1,6 +1,5 @@
 use std::fmt;
 
-use PacketCommon;
 use UserAttribute;
 use Packet;
 
@@ -16,7 +15,7 @@ impl UserAttribute {
     /// Returns a new `UserAttribute` packet.
     pub fn new() -> UserAttribute {
         UserAttribute {
-            common: PacketCommon::default(),
+            common: Default::default(),
             value: Vec::new(),
         }
     }

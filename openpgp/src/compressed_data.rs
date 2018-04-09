@@ -1,6 +1,5 @@
 use std::fmt;
 
-use PacketCommon;
 use CompressedData;
 use Packet;
 use Container;
@@ -17,7 +16,7 @@ impl CompressedData {
     /// Returns a new `CompressedData` packet.
     pub fn new(algo: u8) -> Self {
         CompressedData {
-            common: PacketCommon::default(),
+            common: Default::default(),
             algo: algo,
         }
     }

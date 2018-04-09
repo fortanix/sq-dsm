@@ -1,7 +1,6 @@
 use std::fmt;
 
 use Tag;
-use PacketCommon;
 use Key;
 use Packet;
 
@@ -23,7 +22,7 @@ impl Key {
     /// public key, a public key, a private key, or a private subkey.
     pub fn new() -> Self {
         Key {
-            common: PacketCommon::default(),
+            common: Default::default(),
             version: 4,
             creation_time: 0,
             pk_algo: 0,
