@@ -13,7 +13,7 @@ use Packet;
 
 // Allow transparent access of common fields.
 impl<'a> Deref for Packet {
-    type Target = PacketCommon;
+    type Target = Common;
 
     fn deref(&self) -> &Self::Target {
         match self {
@@ -35,7 +35,7 @@ impl<'a> Deref for Packet {
 }
 
 impl<'a> DerefMut for Packet {
-    fn deref_mut(&mut self) -> &mut PacketCommon {
+    fn deref_mut(&mut self) -> &mut Common {
         match self {
             &mut Packet::Unknown(ref mut packet) => &mut packet.common,
             &mut Packet::Signature(ref mut packet) => &mut packet.common,
@@ -86,7 +86,7 @@ pub enum BodyLength {
 
 /// Fields used by multiple packet types.
 #[derive(PartialEq, Clone)]
-pub struct PacketCommon {
+pub struct Common {
     /// Used by container packets (such as the encryption and
     /// compression packets) to reference their immediate children.
     /// This results in a tree structure.
@@ -148,9 +148,9 @@ pub struct PacketCommon {
     pub body: Option<Vec<u8>>,
 }
 
-impl fmt::Debug for PacketCommon {
+impl fmt::Debug for Common {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("PacketCommon")
+        f.debug_struct("Common")
             .field("children", &self.children)
             .field("body (bytes)",
                    &self.body.as_ref().map(|body| body.len()))
@@ -158,16 +158,16 @@ impl fmt::Debug for PacketCommon {
     }
 }
 
-impl Default for PacketCommon {
-    fn default() -> PacketCommon {
-        PacketCommon {
+impl Default for Common {
+    fn default() -> Common {
+        Common {
             children: None,
             body: None,
         }
     }
 }
 
-impl PacketCommon {
+impl Common {
     /// Returns an iterator over all of the packet's descendants, in
     /// depth-first order.
     pub fn descendants(&self) -> PacketIter {

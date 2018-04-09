@@ -63,7 +63,7 @@ pub mod ctb;
 use ctb::{CTB, CTBOld, CTBNew, CTBCommon, PacketLengthType};
 
 pub mod packet;
-use packet::{BodyLength, PacketCommon, Header, Container};
+use packet::{BodyLength, Header, Container};
 
 pub mod parse;
 use parse::SubpacketArea;
@@ -428,7 +428,7 @@ pub struct S2K {
 /// This packet effectively holds a binary blob.
 #[derive(PartialEq, Clone, Debug)]
 pub struct Unknown {
-    pub common: PacketCommon,
+    pub common: packet::Common,
     pub tag: Tag,
 }
 
@@ -443,7 +443,7 @@ pub struct Unknown {
 // Note: we can't derive PartialEq, because it includes the cached data.
 #[derive(Clone)]
 pub struct Signature {
-    pub common: PacketCommon,
+    pub common: packet::Common,
     pub version: u8,
     pub sigtype: u8,
     pub pk_algo: u8,
@@ -461,7 +461,7 @@ pub struct Signature {
 ///   [Section 5.5 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.5
 #[derive(PartialEq, Clone)]
 pub struct Key {
-    pub common: PacketCommon,
+    pub common: packet::Common,
     pub version: u8,
     /* When the key was created.  */
     pub creation_time: u32,
@@ -476,7 +476,7 @@ pub struct Key {
 ///   [Section 5.11 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.11
 #[derive(PartialEq, Clone)]
 pub struct UserID {
-    pub common: PacketCommon,
+    pub common: packet::Common,
     /// The user id.
     ///
     /// According to [RFC 4880], the text is by convention UTF-8 encoded
@@ -496,7 +496,7 @@ pub struct UserID {
 ///   [Section 5.12 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.12
 #[derive(PartialEq, Clone)]
 pub struct UserAttribute {
-    pub common: PacketCommon,
+    pub common: packet::Common,
 
     /// The user attribute.
     pub value: Vec<u8>,
@@ -515,7 +515,7 @@ pub struct UserAttribute {
 ///   [Section 5.9 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.9
 #[derive(PartialEq, Clone)]
 pub struct Literal {
-    pub common: PacketCommon,
+    pub common: packet::Common,
     pub format: u8,
     /// filename is a string, but strings in Rust are valid UTF-8.
     /// There is no guarantee, however, that the filename is valid
@@ -538,13 +538,13 @@ pub struct Literal {
 /// [Section 5.6 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.6
 #[derive(PartialEq, Clone)]
 pub struct CompressedData {
-    pub common: PacketCommon,
+    pub common: packet::Common,
     pub algo: u8,
 }
 
 #[derive(PartialEq, Clone, Debug)]
 pub struct SKESK {
-    pub common: PacketCommon,
+    pub common: packet::Common,
     pub version: u8,
     pub symm_algo: u8,
     pub s2k: S2K,
@@ -560,7 +560,7 @@ pub struct SKESK {
 /// [Section 5.13 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.13
 #[derive(PartialEq, Clone, Debug)]
 pub struct SEIP {
-    pub common: PacketCommon,
+    pub common: packet::Common,
     pub version: u8,
 }
 
@@ -572,7 +572,7 @@ pub struct SEIP {
 /// [Section 5.14 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.14
 #[derive(PartialEq, Clone, Debug)]
 pub struct MDC {
-    pub common: PacketCommon,
+    pub common: packet::Common,
     pub computed_hash: [u8; 20],
     pub hash: [u8; 20],
 }
