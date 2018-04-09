@@ -468,6 +468,24 @@ pub extern "system" fn sq_packet_tag(p: Option<&Packet>)
     tag as uint8_t
 }
 
+/// Returns the parsed `Packet's` corresponding OpenPGP tag.
+///
+/// Returns the packets tag, but only if it was successfully
+/// parsed into the corresponding packet type.  If e.g. a
+/// Signature Packet uses some unsupported methods, it is parsed
+/// into an `Packet::Unknown`.  `tag()` returns `SQ_TAG_SIGNATURE`,
+/// whereas `kind()` returns `0`.
+#[no_mangle]
+pub extern "system" fn sq_packet_kind(p: Option<&Packet>)
+                                      -> uint8_t {
+    let p = p.expect("Packet is NULL");
+    if let Some(kind) = p.kind() {
+        kind.into()
+    } else {
+        0
+    }
+}
+
 /// Computes and returns the key's fingerprint as per Section 12.2
 /// of RFC 4880.
 #[no_mangle]

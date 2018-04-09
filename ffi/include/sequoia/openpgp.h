@@ -462,6 +462,17 @@ void sq_packet_free (sq_packet_t p);
 sq_tag_t sq_packet_tag (sq_packet_t p);
 
 /*/
+/// Returns the parsed `Packet's` corresponding OpenPGP tag.
+///
+/// Returns the packets tag, but only if it was successfully
+/// parsed into the corresponding packet type.  If e.g. a
+/// Signature Packet uses some unsupported methods, it is parsed
+/// into an `Packet::Unknown`.  `tag()` returns `SQ_TAG_SIGNATURE`,
+/// whereas `kind()` returns `0`.
+/*/
+sq_tag_t sq_packet_kind (sq_packet_t p);
+
+/*/
 /// Computes and returns the key's fingerprint as per Section 12.2
 /// of RFC 4880.
 /*/

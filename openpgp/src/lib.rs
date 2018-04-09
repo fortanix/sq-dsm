@@ -544,6 +544,33 @@ impl Packet {
             &Packet::MDC(_) => Tag::MDC,
         }
     }
+
+    /// Returns the parsed `Packet's` corresponding OpenPGP tag.
+    ///
+    /// Returns the packets tag, but only if it was successfully
+    /// parsed into the corresponding packet type.  If e.g. a
+    /// Signature Packet uses some unsupported methods, it is parsed
+    /// into an `Packet::Unknown`.  `tag()` returns `Tag::Signature`,
+    /// whereas `kind()` returns `None`.
+    pub fn kind(&self) -> Option<Tag> {
+        match self {
+            &Packet::Unknown(_) => None,
+            &Packet::Signature(_) => Some(Tag::Signature),
+            &Packet::OnePassSig(_) => Some(Tag::OnePassSig),
+            &Packet::PublicKey(_) => Some(Tag::PublicKey),
+            &Packet::PublicSubkey(_) => Some(Tag::PublicSubkey),
+            &Packet::SecretKey(_) => Some(Tag::SecretKey),
+            &Packet::SecretSubkey(_) => Some(Tag::SecretSubkey),
+            &Packet::UserID(_) => Some(Tag::UserID),
+            &Packet::UserAttribute(_) => Some(Tag::UserAttribute),
+            &Packet::Literal(_) => Some(Tag::Literal),
+            &Packet::CompressedData(_) => Some(Tag::CompressedData),
+            &Packet::PKESK(_) => Some(Tag::PKESK),
+            &Packet::SKESK(_) => Some(Tag::SKESK),
+            &Packet::SEIP(_) => Some(Tag::SEIP),
+            &Packet::MDC(_) => Some(Tag::MDC),
+        }
+    }
 }
 
 /// A `PacketPile` holds a deserialized sequence of OpenPGP messages.
