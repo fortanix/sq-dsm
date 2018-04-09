@@ -1,4 +1,6 @@
-//! Handling ASCII Armor (see [RFC 4880, section 6]).
+//! ASCII Armor.
+//!
+//! This module deals with ASCII Armored data (see [RFC 4880, section 6]).
 //!
 //! [RFC 4880, section 6]: https://tools.ietf.org/html/rfc4880#section-6
 //!

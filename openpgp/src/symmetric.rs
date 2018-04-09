@@ -1,3 +1,5 @@
+//! Symmetric encryption.
+
 use std::io;
 use std::cmp;
 use std::fmt;

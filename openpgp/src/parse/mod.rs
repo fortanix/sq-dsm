@@ -1,4 +1,4 @@
-//! An OpenPGP packet parser.
+//! OpenPGP packet parser.
 //!
 //! An OpenPGP message is a sequence of packets.  Some of the packets
 //! contain other packets.  These containers include encrypted packets
