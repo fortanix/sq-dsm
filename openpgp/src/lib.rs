@@ -667,32 +667,6 @@ pub struct TPK {
     subkeys: Vec<tpk::SubkeyBinding>,
 }
 
-/// A `PacketIter` iterates over the *contents* of a packet in
-/// depth-first order.  It starts by returning the current packet.
-pub struct PacketIter<'a> {
-    // An iterator over the current message's children.
-    children: std::slice::Iter<'a, Packet>,
-    // The current child (i.e., the last value returned by
-    // children.next()).
-    child: Option<&'a Packet>,
-    // The an iterator over the current child's children.
-    grandchildren: Option<Box<PacketIter<'a>>>,
-
-    // The depth of the last returned packet.  This is used by the
-    // `paths` iter.
-    depth: usize,
-}
-
-/// Like `enumerate`, this augments the packet returned by a
-/// `PacketIter` with its `Path`.
-pub struct PacketPathIter<'a> {
-    iter: PacketIter<'a>,
-
-    // The path to the most recently returned node relative to the
-    // start of the iterator.
-    path: Option<Vec<usize>>,
-}
-
 /// Holds a fingerprint.
 ///
 /// A fingerprint uniquely identifies a public key.  For more details
