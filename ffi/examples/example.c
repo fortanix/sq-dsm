@@ -15,7 +15,7 @@ main (int argc, char **argv)
 {
   struct stat st;
   int fd;
-  char *b;
+  uint8_t *b;
   sq_error_t err;
   sq_context_t ctx;
   sq_tpk_t tpk;

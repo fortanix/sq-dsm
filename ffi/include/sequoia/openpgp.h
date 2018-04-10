@@ -204,7 +204,7 @@ sq_message_t sq_message_from_file (sq_context_t ctx,
 /// See `sq_message_from_reader` for more details and caveats.
 /*/
 sq_message_t sq_message_from_bytes (sq_context_t ctx,
-                                    const char *b, size_t len);
+                                    const uint8_t *b, size_t len);
 
 /*/
 /// Frees the message.
@@ -263,7 +263,7 @@ sq_tpk_t sq_tpk_from_message (sq_context_t ctx,
 /// `buf` must be an OpenPGP encoded message.
 /*/
 sq_tpk_t sq_tpk_from_bytes (sq_context_t ctx,
-			    const char *b, size_t len);
+			    const uint8_t *b, size_t len);
 
 /*/
 /// Frees the TPK.
@@ -516,7 +516,7 @@ sq_packet_parser_t sq_packet_parser_from_file (sq_context_t ctx,
 /// the stream.
 /*/
 sq_packet_parser_t sq_packet_parser_from_bytes (sq_context_t ctx,
-                                                const char *b, size_t len);
+                                                const uint8_t *b, size_t len);
 
 /*/
 /// Frees the packet parser.
