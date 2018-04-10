@@ -1388,12 +1388,6 @@ impl <'a> PacketParser<'a> {
                         BufferedReaderState::new(recursion_depth)))
                 },
                 BodyLength::Indeterminate => {
-                    // XXX: If bio is already boxed (`buffered_reader`
-                    // provides an impl of `BufferedReader` for
-                    // `Box<BufferedReader>`, this is going to add
-                    // another level of indirection.  It would be nice
-                    // to avoid this level of indirection, but I have
-                    // no idea how...
                     if settings.trace {
                         eprintln!("{}PacketParser::parse(): Indeterminate \
                                    length packet, not adding a limitor.",
