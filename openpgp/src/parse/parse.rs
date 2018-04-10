@@ -289,7 +289,7 @@ impl Unknown {
     }
 }
 
-pub fn to_unknown_packet<R: io::Read>(reader: R)
+pub fn to_unknown_packet<R: Read>(reader: R)
         -> Result<Unknown> {
     let mut reader = BufferedReaderGeneric::with_cookie(
         reader, None, BufferedReaderState::default());
@@ -299,7 +299,7 @@ pub fn to_unknown_packet<R: io::Read>(reader: R)
         = match header.length {
             BodyLength::Full(len) =>
                 Box::new(BufferedReaderLimitor::with_cookie(
-                    reader, len as u64, BufferedReaderState::default())),
+                    Box::new(reader), len as u64, BufferedReaderState::default())),
             BodyLength::Partial(len) =>
                 Box::new(BufferedReaderPartialBodyFilter::with_cookie(
                     reader, len, BufferedReaderState::default())),

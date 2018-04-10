@@ -361,7 +361,7 @@ mod test {
 
         // Try it again with a limitor.
         {
-            let bio = BufferedReaderMemory::new(data);
+            let bio = Box::new(BufferedReaderMemory::new(data));
             let mut bio2 = BufferedReaderLimitor::new(
                 bio, (data.len() / 2) as u64);
             let amount = {
