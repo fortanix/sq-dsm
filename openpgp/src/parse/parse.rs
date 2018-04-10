@@ -1016,7 +1016,7 @@ impl<R: BufferedReader<BufferedReaderState>> PacketParserBuilder<R> {
     pub fn finalize<'a>(self)
             -> Result<Option<PacketParser<'a>>> where Self: 'a {
         // Parse the first packet.
-        let pp = PacketParser::parse(self.bio, &self.settings, 0)?;
+        let pp = PacketParser::parse(Box::new(self.bio), &self.settings, 0)?;
 
         if let PacketParserOrBufferedReader::PacketParser(mut pp) = pp {
             // We successfully parsed the first packet's header.
@@ -1339,8 +1339,8 @@ impl <'a> PacketParser<'a> {
     // Returns a packet parser for the next OpenPGP packet in the
     // stream.  If there are no packets left, this function returns
     // `bio`.
-    fn parse<R: BufferedReader<BufferedReaderState> + 'a>
-            (mut bio: R, settings: &PacketParserSettings,
+    fn parse(mut bio: Box<BufferedReader<BufferedReaderState> + 'a>,
+             settings: &PacketParserSettings,
              recursion_depth: usize)
             -> Result<PacketParserOrBufferedReader<'a>> {
         // When header encounters an EOF, it returns an error.  But,
@@ -1352,7 +1352,7 @@ impl <'a> PacketParser<'a> {
                           recursion_depth);
             }
             return Ok(
-                PacketParserOrBufferedReader::BufferedReader(Box::new(bio)));
+                PacketParserOrBufferedReader::BufferedReader(bio));
         }
 
         let header = Header::parse(&mut bio)?;
@@ -1399,7 +1399,7 @@ impl <'a> PacketParser<'a> {
                                    length packet, not adding a limitor.",
                                   indent(recursion_depth as u8));
                     }
-                    Box::new(bio)
+                    bio
                 },
         };
 
