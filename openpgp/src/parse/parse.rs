@@ -988,7 +988,7 @@ impl<R: BufferedReader<BufferedReaderState>> PacketParserBuilder<R> {
         // Parse the first packet.
         let pp = PacketParser::parse(Box::new(self.bio), &self.settings, 0)?;
 
-        if let PacketParserOrBufferedReader::PacketParser(mut pp) = pp {
+        if let ParserResult::Success(mut pp) = pp {
             // We successfully parsed the first packet's header.
 
             // Override the defaults.
@@ -1258,9 +1258,9 @@ impl <'a> std::fmt::Debug for PacketParser<'a> {
 }
 
 // The return value of PacketParser::parse.
-enum PacketParserOrBufferedReader<'a> {
-    PacketParser(PacketParser<'a>),
-    BufferedReader(Box<BufferedReader<BufferedReaderState> + 'a>),
+enum ParserResult<'a> {
+    Success(PacketParser<'a>),
+    EOF(Box<BufferedReader<BufferedReaderState> + 'a>),
 }
 
 // Converts an indentation level to whitespace.
@@ -1312,7 +1312,7 @@ impl <'a> PacketParser<'a> {
     fn parse(mut bio: Box<BufferedReader<BufferedReaderState> + 'a>,
              settings: &PacketParserSettings,
              recursion_depth: usize)
-            -> Result<PacketParserOrBufferedReader<'a>> {
+            -> Result<ParserResult<'a>> {
         // When header encounters an EOF, it returns an error.  But,
         // we want to return None.  Try a one byte read.
         if bio.data(1)?.len() == 0 {
@@ -1322,7 +1322,7 @@ impl <'a> PacketParser<'a> {
                           recursion_depth);
             }
             return Ok(
-                PacketParserOrBufferedReader::BufferedReader(bio));
+                ParserResult::EOF(Box::new(bio)));
         }
 
         let header = Header::parse(&mut bio)?;
@@ -1404,7 +1404,7 @@ impl <'a> PacketParser<'a> {
                       result.reader.cookie_ref().level);
         }
 
-        return Ok(PacketParserOrBufferedReader::PacketParser(result));
+        return Ok(ParserResult::Success(result));
     }
 
     /// Finishes parsing the current packet and starts parsing the
@@ -1532,7 +1532,7 @@ impl <'a> PacketParser<'a> {
             let pp = PacketParser::parse(self.reader, &self.settings,
                                          self.recursion_depth as usize)?;
             match pp {
-                PacketParserOrBufferedReader::BufferedReader(reader) => {
+                ParserResult::EOF(reader) => {
                     // We got EOF on the current container.  The
                     // container at recursion depth n is empty.  Pop
                     // it and any filters for it, i.e., those at level
@@ -1562,7 +1562,7 @@ impl <'a> PacketParser<'a> {
                         pop(&mut self);
                     }
                 },
-                PacketParserOrBufferedReader::PacketParser(mut pp) => {
+                ParserResult::Success(mut pp) => {
                     pp.settings = self.settings;
                     return Ok((self.packet, orig_depth as isize,
                                Some(pp), self.recursion_depth as isize));
@@ -1621,7 +1621,7 @@ impl <'a> PacketParser<'a> {
                 } else {
                     match PacketParser::parse(self.reader, &self.settings,
                             self.recursion_depth as usize + 1)? {
-                        PacketParserOrBufferedReader::PacketParser(mut pp) => {
+                        ParserResult::Success(mut pp) => {
                             pp.settings = self.settings;
 
                             if pp.settings.trace {
@@ -1637,7 +1637,7 @@ impl <'a> PacketParser<'a> {
                                        Some(pp),
                                        self.recursion_depth as isize + 1));
                         },
-                        PacketParserOrBufferedReader::BufferedReader(_) => {
+                        ParserResult::EOF(_) => {
                             // XXX: We immediately got an EOF!
                             unimplemented!();
                         },
