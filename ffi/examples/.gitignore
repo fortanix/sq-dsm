@@ -2,3 +2,4 @@ configure
 example
 keyserver
 reader
+parser
