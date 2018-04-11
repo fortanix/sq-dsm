@@ -274,10 +274,7 @@ impl Unknown {
             -> Result<PacketParser<'a>> {
         return Ok(PacketParser {
             packet: Packet::Unknown(Unknown {
-                common: PacketCommon {
-                    children: None,
-                    body: None,
-                },
+                common: Default::default(),
                 tag: tag,
             }),
             reader: Box::new(bio),
@@ -348,10 +345,7 @@ impl Signature {
 
         return Ok(PacketParser {
             packet: Packet::Signature(Signature {
-                common: PacketCommon {
-                    children: None,
-                    body: None,
-                },
+                common: Default::default(),
                 version: version,
                 sigtype: sigtype,
                 pk_algo: pk_algo,
@@ -424,10 +418,7 @@ impl Key {
         let mpis = bio.steal_eof()?;
 
         let key = Key {
-            common: PacketCommon {
-                children: None,
-                body: None,
-            },
+            common: Default::default(),
             version: version,
             creation_time: creation_time,
             pk_algo: pk_algo,
@@ -458,10 +449,7 @@ impl UserID {
             -> Result<PacketParser<'a>> {
         return Ok(PacketParser {
             packet: Packet::UserID(UserID {
-                common: PacketCommon {
-                    children: None,
-                    body: None,
-                },
+                common: Default::default(),
                 value: bio.steal_eof()?,
             }),
             reader: Box::new(bio),
@@ -480,10 +468,7 @@ impl UserAttribute {
             -> Result<PacketParser<'a>> {
         return Ok(PacketParser {
             packet: Packet::UserAttribute(UserAttribute {
-                common: PacketCommon {
-                    children: None,
-                    body: None,
-                },
+                common: Default::default(),
                 value: bio.steal_eof()?,
             }),
             reader: Box::new(bio),
@@ -514,10 +499,7 @@ impl Literal {
 
         return Ok(PacketParser {
             packet: Packet::Literal(Literal {
-                common: PacketCommon {
-                    children: None,
-                    body: None,
-                },
+                common: Default::default(),
                 format: format,
                 filename: filename,
                 date: date,
@@ -651,10 +633,7 @@ impl CompressedData {
 
         return Ok(PacketParser {
             packet: Packet::CompressedData(CompressedData {
-                common: PacketCommon {
-                    children: None,
-                    body: None,
-                },
+                common: Default::default(),
                 algo: algo,
             }),
             reader: bio,
@@ -736,10 +715,7 @@ impl SKESK {
 
         return Ok(PacketParser {
             packet: Packet::SKESK(SKESK {
-                common: PacketCommon {
-                    children: None,
-                    body: None,
-                },
+                common: Default::default(),
                 version: version,
                 symm_algo: symm_algo,
                 s2k: s2k,
@@ -767,10 +743,7 @@ impl SEIP {
 
         return Ok(PacketParser {
             packet: Packet::SEIP(SEIP {
-                common: PacketCommon {
-                    children: None,
-                    body: None,
-                },
+                common: Default::default(),
                 version: version,
             }),
             reader: Box::new(bio),
@@ -830,10 +803,7 @@ impl MDC {
 
         return Ok(PacketParser {
             packet: Packet::MDC(MDC {
-                common: PacketCommon {
-                    children: None,
-                    body: None,
-                },
+                common: Default::default(),
                 computed_hash: computed_hash,
                 hash: hash,
             }),
