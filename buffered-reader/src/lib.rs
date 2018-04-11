@@ -11,12 +11,14 @@ use std::fmt;
 mod generic;
 mod memory;
 mod limitor;
+mod dup;
 mod eof;
 mod decompress;
 
 pub use self::generic::BufferedReaderGeneric;
 pub use self::memory::BufferedReaderMemory;
 pub use self::limitor::BufferedReaderLimitor;
+pub use self::dup::BufferedReaderDup;
 pub use self::eof::BufferedReaderEOF;
 pub use self::decompress::BufferedReaderDeflate;
 pub use self::decompress::BufferedReaderZlib;
@@ -116,6 +118,9 @@ pub trait BufferedReader<C> : io::Read + fmt::Debug {
 
     /// This is a convenient function that effectively combines data()
     /// and consume().
+    ///
+    /// If less than `amount` bytes are available, this consumes only
+    /// what is available.
     fn data_consume(&mut self, amount: usize)
                     -> Result<&[u8], std::io::Error>;
 
