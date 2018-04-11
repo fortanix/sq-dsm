@@ -367,9 +367,6 @@ mod tests {
 
     quickcheck! {
         fn s2k_roundtrip(s2k: S2K) -> bool {
-            use buffered_reader::BufferedReaderGeneric;
-            use parse::BufferedReaderState;
-
             eprintln!("in {:?}", s2k);
             use std::io::Cursor;
 
@@ -380,11 +377,8 @@ mod tests {
             eprintln!("raw: {:?}", buf);
 
             assert_eq!(buf.len(), l);
-            let r = Cursor::new(buf.into_boxed_slice());
-            let mut bio = BufferedReaderGeneric::with_cookie(
-                r, None, BufferedReaderState::default());
-
-            let s = S2K::parse(&mut bio).unwrap();
+            let mut r = Cursor::new(buf.into_boxed_slice());
+            let s = S2K::parse_naked(&mut r).unwrap();
             eprintln!("out {:?}", s);
 
             s2k == s
