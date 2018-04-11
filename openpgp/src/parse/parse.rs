@@ -1,6 +1,7 @@
 use std;
 use std::io;
 use std::io::prelude::*;
+use std::iter;
 use std::cmp;
 use std::str;
 use std::mem;
@@ -81,6 +82,91 @@ macro_rules! bind_ptry {
             };
         }
     };
+}
+
+// Packet maps.
+
+/// Map created during parsing.
+///
+/// If configured to do so, a `PacketParser` will create a map that
+/// charts the byte-stream, describing where the information was
+/// extracted from.
+#[derive(Clone, Debug)]
+pub struct Map {
+    length: usize,
+    entries: Vec<Entry>,
+    header: Vec<u8>,
+    data: Vec<u8>,
+}
+
+#[derive(Clone, Debug)]
+struct Entry {
+    offset: usize,
+    length: usize,
+    field: &'static str,
+}
+
+impl Map {
+    /// Creates a new map.
+    fn new(header: Vec<u8>) -> Self {
+        Map {
+            length: 0,
+            entries: Vec::new(),
+            header: header,
+            data: Vec::new(),
+        }
+    }
+
+    /// Adds a field to the map.
+    fn add(&mut self, field: &'static str, length: usize) {
+        self.entries.push(Entry {
+            offset: self.length, length: length, field: field
+        });
+        self.length += length;
+    }
+
+    /// Finalizes the map providing the actual data.
+    fn finalize(&mut self, data: Vec<u8>) {
+        self.data = data;
+    }
+
+    /// Creates an iterator over the map.
+    ///
+    /// Items returned are a small string indicating what kind of
+    /// information is extracted (e.g. "header", or "version"), and a
+    /// slice containing the actual bytes.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use openpgp::Result;
+    /// # use openpgp::parse::{PacketParser,PacketParserBuilder};
+    /// # f();
+    /// #
+    /// # fn f() -> Result<()> {
+    /// let msg = b"\xcb\x12t\x00\x00\x00\x00\x00Hello world.";
+    /// let ppo = PacketParserBuilder::from_bytes(msg)?
+    ///     .map(true).finalize()?;
+    /// let map = ppo.unwrap().map.unwrap();
+    /// assert_eq!(map.iter().collect::<Vec<(&str, &[u8])>>(),
+    ///            [("header", &b"\xcb\x12"[..]),
+    ///             ("format", b"t"),
+    ///             ("filename_len", b"\x00"),
+    ///             ("date", b"\x00\x00\x00\x00"),
+    ///             ("body", b"Hello world.")]);
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn iter<'a>(&'a self)
+                    -> Box<'a + iter::Iterator<Item=(&'static str, &'a [u8])>> {
+        let len = self.data.len();
+        Box::new(
+            iter::once(("header", self.header.as_slice()))
+                .chain(self.entries.iter().map(move |e| {
+                    (e.field,
+                     &self.data[e.offset..cmp::min(len, e.offset + e.length)])
+                })))
+    }
 }
 
 // Packet headers.
@@ -329,7 +415,7 @@ pub fn to_unknown_packet<R: Read>(reader: R)
     };
 
     let parser = PacketParser::new(
-        reader, Default::default(), 0, header);
+        reader, Default::default(), 0, header, None);
     let mut pp = Unknown::parse(parser)?;
     pp.buffer_unread_content()?;
     pp.finish();
@@ -1030,6 +1116,9 @@ struct PacketParserSettings {
     // Whether to trace the execute of the PacketParser.  (The output
     // is sent to stderr.)
     trace: bool,
+
+    // Whether or not to create a map.
+    map: bool,
 }
 
 // The default `PacketParser` settings.
@@ -1039,6 +1128,7 @@ impl Default for PacketParserSettings {
             max_recursion_depth: MAX_RECURSION_DEPTH,
             buffer_unread_content: false,
             trace: TRACE,
+            map: false,
         }
     }
 }
@@ -1104,6 +1194,14 @@ impl<R: BufferedReader<Cookie>> PacketParserBuilder<R> {
     /// its execution on stderr.
     pub fn trace(mut self) -> PacketParserBuilder<R> {
         self.settings.trace = true;
+        self
+    }
+
+    /// Controls mapping.
+    ///
+    /// Note that enabling mapping buffers all the data.
+    pub fn map(mut self, enable: bool) -> PacketParserBuilder<R> {
+        self.settings.map = enable;
         self
     }
 
@@ -1450,6 +1548,9 @@ pub struct PacketParser<'a> {
 
     // The cookie.
     cookie: Cookie,
+
+    /// A map of this packet.
+    pub map: Option<Map>,
 }
 
 // PacketParser states.
@@ -1485,6 +1586,7 @@ impl <'a> std::fmt::Debug for PacketParser<'a> {
             .field("state", &self.state)
             .field("content_was_read", &self.content_was_read)
             .field("settings", &self.settings)
+            .field("map", &self.map)
             .finish()
     }
 }
@@ -1534,7 +1636,8 @@ impl <'a> PacketParser<'a> {
 
     fn new(inner: Box<'a + BufferedReader<Cookie>>,
            settings: PacketParserSettings,
-           recursion_depth: u8, header: Header) -> Self {
+           recursion_depth: u8, header: Header,
+           header_bytes: Option<Vec<u8>>) -> Self {
         PacketParser {
             packet: Packet::Unknown(Unknown {
                 common: Default::default(),
@@ -1549,6 +1652,7 @@ impl <'a> PacketParser<'a> {
             settings: settings,
             header: header,
             cookie: Default::default(),
+            map: header_bytes.map(|h| Map::new(h)),
         }
     }
 
@@ -1557,7 +1661,7 @@ impl <'a> PacketParser<'a> {
         PacketParser::new(inner, Default::default(), 0, Header {
             ctb: CTB::new(Tag::Reserved),
             length: BodyLength::Full(0),
-        })
+        }, None)
     }
 
     fn decrypted(mut self, v: bool) -> Self {
@@ -1575,11 +1679,33 @@ impl <'a> PacketParser<'a> {
                 BufferedReaderEOF::with_cookie(Default::default()))));
 
         match state {
-            State::Header(reader) => {
+            State::Header(mut reader) => {
                 let total_out = reader.total_out();
+                let inner = if self.settings.map {
+                    // Read the body for the map.  Note that
+                    // `total_out` does not account for the body.
+                    //
+                    // XXX avoid the extra copy.
+                    let body = reader.steal_eof()?;
+                    if body.len() > 0 {
+                        self.field("body", body.len());
+                    }
 
-                // This is a BufferedReaderDup, so this cannot fail.
-                let mut inner = reader.into_inner().unwrap();
+                    // This is a BufferedReaderDup, so this cannot fail.
+                    let mut inner = reader.into_inner().unwrap();
+
+                    // Combine the header with the body for the map.
+                    let mut data = Vec::with_capacity(total_out + body.len());
+                    inner.data_hard(total_out)?;
+                    data.extend_from_slice(&inner.buffer()[..total_out]);
+                    data.extend(body);
+                    self.map.as_mut().unwrap().finalize(data);
+
+                    inner
+                } else {
+                    // This is a BufferedReaderDup, so this cannot fail.
+                    reader.into_inner().unwrap()
+                };
 
                 // Apply the given function.
                 let (inner, result) = fun(inner, total_out)?;
@@ -1612,8 +1738,10 @@ impl <'a> PacketParser<'a> {
         Unknown::parse(self)
     }
 
-    fn field(&mut self, _name: &'static str, _size: usize) {
-        // Nothing yet...
+    fn field(&mut self, name: &'static str, size: usize) {
+        if let Some(ref mut map) = self.map {
+            map.add(name, size)
+        }
     }
 
     fn parse_u8(&mut self, name: &'static str) -> io::Result<u8> {
@@ -1747,7 +1875,15 @@ impl <'a> PacketParser<'a> {
             Cookie::hashing(
                 &mut bio, false, recursion_depth as isize - 1);
         }
-        bio.consume(consumed);
+
+        // Save header for the map.
+        let header_bytes = if settings.map {
+            Some(Vec::from(&bio.data_consume_hard(consumed)?[..consumed]))
+        } else {
+            // Or not.
+            bio.consume(consumed);
+            None
+        };
 
         let bio : Box<BufferedReader<Cookie>>
             = match header.length {
@@ -1791,7 +1927,7 @@ impl <'a> PacketParser<'a> {
 
         let tag = header.ctb.tag;
         let parser = PacketParser::new(bio, (*settings).clone(), recursion_depth as u8,
-                                       header);
+                                       header, header_bytes);
         let mut result = match tag {
             Tag::Signature =>           Signature::parse(parser, computed_hash),
             Tag::OnePassSig =>          OnePassSig::parse(parser),
