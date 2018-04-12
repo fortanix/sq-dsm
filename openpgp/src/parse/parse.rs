@@ -12,10 +12,6 @@ use Error;
 use HashAlgo;
 use symmetric::{symmetric_block_size, Decryptor, BufferedReaderDecryptor};
 
-use buffered_reader::BufferedReaderGeneric;
-use buffered_reader::BufferedReaderEOF;
-
-
 use super::*;
 
 mod partial_body;
