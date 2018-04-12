@@ -230,8 +230,8 @@ impl Header {
 }
 
 impl S2K {
-    pub fn parse<'a, R: BufferedReader<BufferedReaderState> + 'a>
-            (bio: &mut R) -> Result<S2K> {
+    pub fn parse<'a, R>(bio: &mut R) -> Result<S2K>
+        where R: 'a + BufferedReader<BufferedReaderState> {
         let s2k_type = bio.data_consume_hard(1)?[0];
 
         if s2k_type != 0 && s2k_type != 1 && s2k_type != 3 {
@@ -265,9 +265,9 @@ impl S2K {
 
 impl Unknown {
     /// Parses the body of any packet and returns an Unknown.
-    pub fn parse<'a, R: BufferedReader<BufferedReaderState> + 'a>
-            (bio: R, recursion_depth: usize, tag: Tag)
-            -> Result<PacketParser<'a>> {
+    pub fn parse<'a, R>(bio: R, recursion_depth: usize, tag: Tag)
+                        -> Result<PacketParser<'a>>
+        where R: 'a + BufferedReader<BufferedReaderState> {
         return Ok(PacketParser {
             packet: Packet::Unknown(Unknown {
                 common: Default::default(),
@@ -312,9 +312,9 @@ pub fn to_unknown_packet<R: Read>(reader: R)
 
 impl Signature {
     /// Parses the body of a signature packet.
-    pub fn parse<'a, R: BufferedReader<BufferedReaderState> + 'a>
-            (mut bio: R, recursion_depth: usize)
-            -> Result<PacketParser<'a>> {
+    pub fn parse<'a, R>(mut bio: R, recursion_depth: usize)
+                        -> Result<PacketParser<'a>>
+        where R: 'a + BufferedReader<BufferedReaderState> {
         let version = bio.data_hard(1)?[0];
         if version != 4 {
             if TRACE {
@@ -394,9 +394,9 @@ fn signature_parser_test () {
 impl Key {
     /// Parses the body of a public key, public subkey, secret key or
     /// secret subkey packet.
-    pub fn parse<'a, R: BufferedReader<BufferedReaderState> + 'a>
-            (mut bio: R, recursion_depth: usize, tag: Tag)
-            -> Result<PacketParser<'a>> {
+    pub fn parse<'a, R>(mut bio: R, recursion_depth: usize, tag: Tag)
+                        -> Result<PacketParser<'a>>
+        where R: 'a + BufferedReader<BufferedReaderState> {
         assert!(tag == Tag::PublicKey
                 || tag == Tag::PublicSubkey
                 || tag == Tag::SecretKey
@@ -440,9 +440,9 @@ impl Key {
 
 impl UserID {
     /// Parses the body of a user id packet.
-    pub fn parse<'a, R: BufferedReader<BufferedReaderState> + 'a>
-            (mut bio: R, recursion_depth: usize)
-            -> Result<PacketParser<'a>> {
+    pub fn parse<'a, R>(mut bio: R, recursion_depth: usize)
+                        -> Result<PacketParser<'a>>
+        where R: 'a + BufferedReader<BufferedReaderState> {
         return Ok(PacketParser {
             packet: Packet::UserID(UserID {
                 common: Default::default(),
@@ -459,9 +459,9 @@ impl UserID {
 
 impl UserAttribute {
     /// Parses the body of a user attribute packet.
-    pub fn parse<'a, R: BufferedReader<BufferedReaderState> + 'a>
-            (mut bio: R, recursion_depth: usize)
-            -> Result<PacketParser<'a>> {
+    pub fn parse<'a, R>(mut bio: R, recursion_depth: usize)
+                        -> Result<PacketParser<'a>>
+        where R: 'a + BufferedReader<BufferedReaderState> {
         return Ok(PacketParser {
             packet: Packet::UserAttribute(UserAttribute {
                 common: Default::default(),
@@ -478,9 +478,9 @@ impl UserAttribute {
 
 impl Literal {
     /// Parses the body of a literal packet.
-    pub fn parse<'a, R: BufferedReader<BufferedReaderState> + 'a>
-            (mut bio: R, recursion_depth: usize)
-            -> Result<PacketParser<'a>> {
+    pub fn parse<'a, R>(mut bio: R, recursion_depth: usize)
+                        -> Result<PacketParser<'a>>
+        where R: 'a + BufferedReader<BufferedReaderState> {
         let format = bio.data_consume_hard(1)?[0];
         let filename_len = bio.data_consume_hard(1)?[0];
 
@@ -570,9 +570,9 @@ fn literal_parser_test () {
 
 impl CompressedData {
     /// Parses the body of a compressed data packet.
-    pub fn parse<'a, R: BufferedReader<BufferedReaderState> + 'a>
-            (mut bio: R, recursion_depth: usize)
-            -> Result<PacketParser<'a>> {
+    pub fn parse<'a, R>(mut bio: R, recursion_depth: usize)
+                        -> Result<PacketParser<'a>>
+        where R: 'a + BufferedReader<BufferedReaderState> {
         let algo = bio.data_hard(1)?[0];
 
         if TRACE {
@@ -695,9 +695,9 @@ fn compressed_data_parser_test () {
 
 impl SKESK {
     /// Parses the body of an SKESK packet.
-    pub fn parse<'a, R: BufferedReader<BufferedReaderState> + 'a>
-            (mut bio: R, recursion_depth: usize)
-            -> Result<PacketParser<'a>> {
+    pub fn parse<'a, R>(mut bio: R, recursion_depth: usize)
+                        -> Result<PacketParser<'a>>
+        where R: 'a + BufferedReader<BufferedReaderState> {
         let version = bio.data_hard(1)?[0];
         if version != 4 {
             // We only support version 4 keys.
@@ -728,9 +728,9 @@ impl SKESK {
 
 impl SEIP {
     /// Parses the body of a SEIP packet.
-    pub fn parse<'a, R: BufferedReader<BufferedReaderState> + 'a>
-            (mut bio: R, recursion_depth: usize)
-            -> Result<PacketParser<'a>> {
+    pub fn parse<'a, R>(mut bio: R, recursion_depth: usize)
+                        -> Result<PacketParser<'a>>
+        where R: 'a + BufferedReader<BufferedReaderState> {
         let version = bio.data(1)?[0];
         if version != 1 {
             return Unknown::parse(bio, recursion_depth, Tag::SEIP);
@@ -753,9 +753,9 @@ impl SEIP {
 
 impl MDC {
     /// Parses the body of an MDC packet.
-    pub fn parse<'a, R: BufferedReader<BufferedReaderState> + 'a>
-            (mut bio: R, recursion_depth: usize)
-             -> Result<PacketParser<'a>> {
+    pub fn parse<'a, R>(mut bio: R, recursion_depth: usize)
+                        -> Result<PacketParser<'a>>
+        where R: 'a + BufferedReader<BufferedReaderState> {
         // Find the HashedReader pushed by the containing SEIP packet.
         // In a well-formed message, this will be the outer most
         // HashedReader on the BufferedReader stack: we pushed it
