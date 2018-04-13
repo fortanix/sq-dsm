@@ -90,16 +90,10 @@ mod test {
     use super::*;
 
     use to_hex;
-    use Tag;
     use SymmetricAlgo;
-    use SKESK;
-    use Header;
     use Packet;
+    use super::super::parse::PacketParser;
 
-    use std::fs::File;
-
-    use buffered_reader::BufferedReaderGeneric;
-    use parse::BufferedReaderState;
     use symmetric::symmetric_key_size;
 
     use std::path::PathBuf;
@@ -217,19 +211,8 @@ mod test {
 
         for test in tests.iter() {
             let path = path_to(test.filename);
-            let mut f = File::open(&path).expect(&path.to_string_lossy());
-            let mut bio = BufferedReaderGeneric::with_cookie(
-                &mut f, None, BufferedReaderState::default());
-
-            let h = Header::parse(&mut bio).unwrap();
-            assert_eq!(h.ctb.tag, Tag::SKESK);
-
-            let (packet, _, _, _)
-                = SKESK::parse(bio, 0).unwrap().next().unwrap();
-
-            if let Packet::SKESK(skesk) = packet {
-                eprintln!("{:?}", skesk);
-
+            let mut pp = PacketParser::from_file(path).unwrap().unwrap();
+            if let Packet::SKESK(ref skesk) = pp.packet {
                 assert_eq!(skesk.symm_algo,
                            SymmetricAlgo::to_numeric(test.cipher_algo));
                 assert_eq!(skesk.s2k, test.s2k);
@@ -244,8 +227,12 @@ mod test {
                     panic!("Session key: None!");
                 }
             } else {
-                unreachable!();
+                panic!("Wrong packet!");
             }
+
+            // Get the next packet.
+            let (_packet, _packet_depth, tmp, _pp_depth) = pp.next().unwrap();
+            assert!(tmp.is_none());
         }
     }
 }
