@@ -195,7 +195,7 @@ impl Signature {
     /// Writes a serialized version of the specified `Signature`
     /// packet to `o`.
     ///
-    /// Note: this function does not computer the signature (which
+    /// Note: this function does not compute the signature (which
     /// would require access to the private key); it assumes that
     /// sig.mpis is up to date.
     pub fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {

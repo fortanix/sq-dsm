@@ -106,7 +106,8 @@ impl<R: BufferedReader<BufferedReaderState>>
     }
 
     fn data_consume(&mut self, amount: usize) -> Result<&[u8], io::Error> {
-        // See consume() for an explanation of these acrobatics.
+        // See consume() for an explanation of the following
+        // acrobatics.
 
         let mut state = self.cookie_set(BufferedReaderState::default());
 
@@ -128,7 +129,8 @@ impl<R: BufferedReader<BufferedReaderState>>
     }
 
     fn data_consume_hard(&mut self, amount: usize) -> Result<&[u8], io::Error> {
-        // See consume() for an explanation of these acrobatics.
+        // See consume() for an explanation of the following
+        // acrobatics.
 
         let mut state = self.cookie_set(BufferedReaderState::default());
 
