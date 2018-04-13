@@ -11,6 +11,10 @@ use HashAlgo;
 use parse::{BufferedReaderState, HashesFor};
 use hash::hash_context;
 
+use super::indent;
+
+const TRACE : bool = false;
+
 #[derive(Debug)]
 pub struct HashedReader<R: BufferedReader<BufferedReaderState>> {
     reader: R,
@@ -38,10 +42,20 @@ impl<R: BufferedReader<BufferedReaderState>> HashedReader<R> {
 
 impl BufferedReaderState {
     fn hash_update(&mut self, data: &[u8]) {
+        if TRACE {
+            eprintln!("{}hash_update({} bytes, {} hashes)",
+                      indent(cmp::max(0, self.level.unwrap_or(0)) as u8),
+                      data.len(), self.hashes.len());
+        }
+
         for &mut (algo, ref mut h) in &mut self.hashes {
-            if false {
-                eprintln!("{:?} hashing {} bytes: {}.", algo,
-                          data.len(), ::to_hex(data, true));
+            if TRACE {
+                eprintln!("{}hash_update: {:?} hashing {} bytes.",
+                          indent(cmp::max(0, self.level.unwrap_or(0)) as u8),
+                          algo, data.len());
+                if false {
+                    eprintln!("{}", ::to_hex(data, true));
+                }
             }
             h.update(data);
         }
@@ -109,7 +123,7 @@ impl<R: BufferedReader<BufferedReaderState>>
             assert!(data.len() >= got);
             Ok(data)
         } else {
-            panic!("data_consume returned less than data!");
+            panic!("reader.data_consume() returned less than reader.data()!");
         }
     }
 

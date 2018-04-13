@@ -44,6 +44,12 @@ fn path_to(artifact: &str) -> PathBuf {
         .iter().collect()
 }
 
+// Converts an indentation level to whitespace.
+fn indent(depth: u8) -> &'static str {
+    let s = "                                                  ";
+    return &s[0..cmp::min(depth, s.len() as u8) as usize];
+}
+
 /// The default amount of acceptable nesting.  Typically, we expect a
 /// message to looking like:
 ///
@@ -1257,12 +1263,6 @@ impl <'a> std::fmt::Debug for PacketParser<'a> {
 enum ParserResult<'a> {
     Success(PacketParser<'a>),
     EOF(Box<BufferedReader<BufferedReaderState> + 'a>),
-}
-
-// Converts an indentation level to whitespace.
-fn indent(depth: u8) -> &'static str {
-    let s = "                                                  ";
-    return &s[0..cmp::min(depth, s.len() as u8) as usize];
 }
 
 impl <'a> PacketParser<'a> {

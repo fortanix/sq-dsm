@@ -5,6 +5,8 @@ use std::io::{Error,ErrorKind};
 
 use buffered_reader::{buffered_reader_generic_read_impl, BufferedReader};
 use super::BodyLength;
+const TRACE : bool = false;
+
 
 /// A `BufferedReader` that transparently handles OpenPGP's chunking
 /// scheme.  This implicitly implements a limitor.
@@ -65,9 +67,11 @@ impl<T: BufferedReader<C>, C> BufferedReaderPartialBodyFilter<T, C> {
 
     // Make sure that the local buffer contains `amount` bytes.
     fn do_fill_buffer (&mut self, amount: usize) -> Result<(), std::io::Error> {
-        // eprintln!("BufferedReaderPartialBodyFilter::do_fill_buffer(\
-        //            amount: {}) (partial body length: {}, last: {})",
-        //           amount, self.partial_body_length, self.last);
+        if TRACE {
+            eprintln!("BufferedReaderPartialBodyFilter::do_fill_buffer(\
+                       amount: {}) (partial body length: {}, last: {})",
+                      amount, self.partial_body_length, self.last);
+        }
 
         // We want to avoid double buffering as much as possible.
         // Thus, we only buffer as much as needed.
@@ -98,15 +102,20 @@ impl<T: BufferedReader<C>, C> BufferedReaderPartialBodyFilter<T, C> {
                 self.partial_body_length as usize,
                 // Space left in the buffer.
                 buffer.len() - amount_buffered);
-            //println!("Trying to buffer {} bytes (partial body length: {}; space: {})",
-            //         to_read, self.partial_body_length,
-            //         buffer.len() - amount_buffered);
+            if TRACE {
+                eprintln!("Trying to buffer {} bytes \
+                           (partial body length: {}; space: {})",
+                          to_read, self.partial_body_length,
+                          buffer.len() - amount_buffered);
+            }
             if to_read > 0 {
                 let result = self.reader.read(
                     &mut buffer[amount_buffered..amount_buffered + to_read]);
                 match result {
                     Ok(did_read) => {
-                        //println!("Buffered {} bytes", did_read);
+                        if TRACE {
+                            eprintln!("Buffered {} bytes", did_read);
+                        }
                         amount_buffered += did_read;
                         self.partial_body_length -= did_read as u32;
 
@@ -118,7 +127,9 @@ impl<T: BufferedReader<C>, C> BufferedReaderPartialBodyFilter<T, C> {
                         }
                     },
                     Err(e) => {
-                        //println!("Err reading: {:?}", e);
+                        if TRACE {
+                            eprintln!("Err reading: {:?}", e);
+                        }
                         err = Some(e);
                         break;
                     },
