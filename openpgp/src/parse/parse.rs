@@ -281,6 +281,7 @@ impl Unknown {
             }),
             reader: Box::new(bio),
             content_was_read: false,
+            finished: false,
             decrypted: false,
             recursion_depth: recursion_depth as u8,
             settings: PacketParserSettings::default(),
@@ -359,6 +360,7 @@ impl Signature {
             }),
             reader: Box::new(bio),
             content_was_read: false,
+            finished: false,
             decrypted: true,
             recursion_depth: recursion_depth as u8,
             settings: PacketParserSettings::default(),
@@ -437,6 +439,7 @@ impl Key {
             },
             reader: Box::new(bio),
             content_was_read: false,
+            finished: false,
             decrypted: true,
             recursion_depth: recursion_depth as u8,
             settings: PacketParserSettings::default(),
@@ -456,6 +459,7 @@ impl UserID {
             }),
             reader: Box::new(bio),
             content_was_read: false,
+            finished: false,
             decrypted: true,
             recursion_depth: recursion_depth as u8,
             settings: PacketParserSettings::default(),
@@ -475,6 +479,7 @@ impl UserAttribute {
             }),
             reader: Box::new(bio),
             content_was_read: false,
+            finished: false,
             decrypted: true,
             recursion_depth: recursion_depth as u8,
             settings: PacketParserSettings::default(),
@@ -508,6 +513,7 @@ impl Literal {
             }),
             reader: Box::new(bio),
             content_was_read: false,
+            finished: false,
             decrypted: true,
             recursion_depth: recursion_depth as u8,
             settings: PacketParserSettings::default(),
@@ -640,6 +646,7 @@ impl CompressedData {
             }),
             reader: bio,
             content_was_read: false,
+            finished: false,
             decrypted: true,
             recursion_depth: recursion_depth as u8,
             settings: PacketParserSettings::default(),
@@ -725,6 +732,7 @@ impl SKESK {
             }),
             reader: Box::new(bio),
             content_was_read: false,
+            finished: false,
             decrypted: true,
             recursion_depth: recursion_depth as u8,
             settings: PacketParserSettings::default()
@@ -750,6 +758,7 @@ impl SEIP {
             }),
             reader: Box::new(bio),
             content_was_read: false,
+            finished: false,
             decrypted: false,
             recursion_depth: recursion_depth as u8,
             settings: PacketParserSettings::default(),
@@ -811,6 +820,7 @@ impl MDC {
             }),
             reader: Box::new(bio),
             content_was_read: false,
+            finished: false,
             decrypted: true,
             recursion_depth: recursion_depth as u8,
             settings: PacketParserSettings::default(),
@@ -1239,6 +1249,9 @@ pub struct PacketParser<'a> {
     // Whether the caller read the packets content.  If so, then we
     // can't recurse, because we're missing some of the packet!
     content_was_read: bool,
+
+    // Whether PacketParser::finish has been called.
+    finished: bool,
 
     // Whether the content has been decrypted.
     decrypted: bool,
@@ -1716,17 +1729,17 @@ impl <'a> PacketParser<'a> {
     /// `PacketParserBuild` to customize the default behavior.
     // Note: this function is public and may be called multiple times!
     pub fn finish<'b>(&'b mut self) -> &'b Packet {
-        if self.settings.trace {
-            eprintln!("{}PacketParser::finish({:?}, depth: {}, level: {:?})",
-                      indent(self.recursion_depth),
-                      self.packet.tag(), self.recursion_depth,
-                      self.reader.cookie_ref().level);
+        if self.finished {
+            return &mut self.packet;
         }
 
         if self.settings.buffer_unread_content {
             if self.settings.trace {
-                eprintln!("{}PacketParser::finish(): Buffering unread content.",
-                          indent(self.recursion_depth));
+                eprintln!("{}PacketParser::finish({:?} at depth {}): \
+                           buffering {} bytes of unread content",
+                          indent(self.recursion_depth), self.packet.tag(),
+                          self.recursion_depth,
+                          self.reader.data_eof().unwrap().len());
             }
 
             if let Err(_err) = self.buffer_unread_content() {
@@ -1735,12 +1748,17 @@ impl <'a> PacketParser<'a> {
             }
         } else {
             if self.settings.trace {
-                eprintln!("{}PacketParser::finish(): Dropping unread content.",
-                          indent(self.recursion_depth));
+                eprintln!("{}PacketParser::finish({:?} at depth {}): \
+                           dropping {} bytes of unread content",
+                          indent(self.recursion_depth), self.packet.tag(),
+                          self.recursion_depth,
+                          self.reader.data_eof().unwrap().len());
             }
 
             self.reader.drop_eof().unwrap();
         }
+
+        self.finished = true;
 
         return &mut self.packet;
     }
