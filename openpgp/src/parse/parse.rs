@@ -532,10 +532,7 @@ impl OnePassSig {
 
         return Ok(PacketParser {
             packet: Packet::OnePassSig(OnePassSig {
-                common: PacketCommon {
-                    children: None,
-                    body: None,
-                },
+                common: Default::default(),
                 version: version,
                 sigtype: sigtype,
                 hash_algo: hash_algo,

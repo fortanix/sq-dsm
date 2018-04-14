@@ -466,7 +466,7 @@ pub struct Signature {
 ///   [Section 5.4 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.4
 #[derive(Clone)]
 pub struct OnePassSig {
-    pub common: PacketCommon,
+    pub common: packet::Common,
     pub version: u8,
     pub sigtype: u8,
     pub hash_algo: u8,
