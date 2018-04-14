@@ -77,6 +77,7 @@ pub mod symmetric;
 mod s2k;
 mod unknown;
 mod signature;
+mod one_pass_sig;
 mod key;
 mod userid;
 mod user_attribute;
@@ -452,6 +453,26 @@ pub struct Signature {
     pub unhashed_area: parse::subpacket::SubpacketArea,
     pub hash_prefix: [u8; 2],
     pub mpis: Vec<u8>,
+
+    // When used in conjunction with a one-pass signature, this is the
+    // hash computed over the enclosed message.
+    pub computed_hash: Option<(HashAlgo, Vec<u8>)>,
+}
+
+/// Holds a one-pass signature packet.
+///
+/// See [Section 5.4 of RFC 4880] for details.
+///
+///   [Section 5.4 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.4
+#[derive(Clone)]
+pub struct OnePassSig {
+    pub common: PacketCommon,
+    pub version: u8,
+    pub sigtype: u8,
+    pub hash_algo: u8,
+    pub pk_algo: u8,
+    pub issuer: [u8; 8],
+    pub last: u8,
 }
 
 /// Holds a public key, public subkey, private key or private subkey packet.
@@ -597,6 +618,7 @@ pub struct MDC {
 pub enum Packet {
     Unknown(Unknown),
     Signature(Signature),
+    OnePassSig(OnePassSig),
     PublicKey(Key),
     PublicSubkey(Key),
     SecretKey(Key),
@@ -620,6 +642,7 @@ impl Packet {
         match self {
             &Packet::Unknown(ref packet) => packet.tag,
             &Packet::Signature(_) => Tag::Signature,
+            &Packet::OnePassSig(_) => Tag::OnePassSig,
             &Packet::PublicKey(_) => Tag::PublicKey,
             &Packet::PublicSubkey(_) => Tag::PublicSubkey,
             &Packet::SecretKey(_) => Tag::SecretKey,

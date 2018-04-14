@@ -19,6 +19,7 @@ impl<'a> Deref for Packet {
         match self {
             &Packet::Unknown(ref packet) => &packet.common,
             &Packet::Signature(ref packet) => &packet.common,
+            &Packet::OnePassSig(ref packet) => &packet.common,
             &Packet::PublicKey(ref packet) => &packet.common,
             &Packet::PublicSubkey(ref packet) => &packet.common,
             &Packet::SecretKey(ref packet) => &packet.common,
@@ -39,6 +40,7 @@ impl<'a> DerefMut for Packet {
         match self {
             &mut Packet::Unknown(ref mut packet) => &mut packet.common,
             &mut Packet::Signature(ref mut packet) => &mut packet.common,
+            &mut Packet::OnePassSig(ref mut packet) => &mut packet.common,
             &mut Packet::PublicKey(ref mut packet) => &mut packet.common,
             &mut Packet::PublicSubkey(ref mut packet) => &mut packet.common,
             &mut Packet::SecretKey(ref mut packet) => &mut packet.common,

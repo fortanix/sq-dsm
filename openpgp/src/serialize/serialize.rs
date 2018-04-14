@@ -248,6 +248,47 @@ impl Signature {
     }
 }
 
+impl OnePassSig {
+    /// Writes a serialized version of the specified `OnePassSig`
+    /// packet to `o`.
+    pub fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
+        let len = 1 // version
+            + 1 // signature type.
+            + 1 // hash algorithm
+            + 1 // pk algorithm
+            + 8 // issuer
+            + 1 // last
+            ;
+
+        write_byte(o, ctb_new(Tag::OnePassSig))?;
+        o.write_all(
+            &body_length_new_format(BodyLength::Full(len as u32))[..])?;
+
+        if self.version != 3 {
+            return Err(Error::InvalidOperation(
+                format!("OnePassSig: unsupported version ({})",
+                        self.version)).into());
+        }
+
+        write_byte(o, self.version)?;
+        write_byte(o, self.sigtype)?;
+        write_byte(o, self.hash_algo)?;
+        write_byte(o, self.pk_algo)?;
+        o.write_all(&self.issuer[..])?;
+        write_byte(o, self.last)?;
+
+        Ok(())
+    }
+
+    /// Serializes the packet to a vector.
+    pub fn to_vec(&self) -> Vec<u8> {
+        let mut o = Vec::with_capacity(32);
+        // Writing to a vec can't fail.
+        self.serialize(&mut o).unwrap();
+        o
+    }
+}
+
 impl Key {
     /// Writes a serialized version of the specified `Key` packet to
     /// `o`.
@@ -513,6 +554,7 @@ impl Packet {
         match self {
             &Packet::Unknown(ref p) => p.serialize(o),
             &Packet::Signature(ref p) => p.serialize(o),
+            &Packet::OnePassSig(ref p) => p.serialize(o),
             &Packet::PublicKey(ref p) => p.serialize(o, tag),
             &Packet::PublicSubkey(ref p) => p.serialize(o, tag),
             &Packet::SecretKey(ref p) => p.serialize(o, tag),

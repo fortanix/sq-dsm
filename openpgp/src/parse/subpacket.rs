@@ -540,7 +540,7 @@ impl<'a> From<SubpacketRaw<'a>> for Subpacket<'a> {
                 // A signature packet.
                 let bio = BufferedReaderMemory::with_cookie(
                     raw.value, BufferedReaderState::default());
-                if let Ok(pp) = Signature::parse(bio, 0) {
+                if let Ok(pp) = Signature::parse(bio, 0, None) {
                     if let Ok((packet, _, _, _)) = pp.next() {
                         Some(SubpacketValue::EmbeddedSignature(packet))
                     } else {

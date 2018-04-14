@@ -43,16 +43,26 @@ impl<R: BufferedReader<BufferedReaderState>> HashedReader<R> {
 impl BufferedReaderState {
     fn hash_update(&mut self, data: &[u8]) {
         if TRACE {
-            eprintln!("{}hash_update({} bytes, {} hashes)",
+            eprintln!("{}hash_update({} bytes, {} hashes, enabled: {})",
                       indent(cmp::max(0, self.level.unwrap_or(0)) as u8),
-                      data.len(), self.hashes.len());
+                      data.len(), self.hashes.len(), self.hashing);
+        }
+
+        if ! self.hashing {
+            if TRACE {
+                eprintln!("{}  hash_update: NOT hashing {} bytes: {}.",
+                          indent(cmp::max(0, self.level.unwrap_or(0)) as u8),
+                          data.len(), ::to_hex(data, true));
+            }
+
+            return;
         }
 
         for &mut (algo, ref mut h) in &mut self.hashes {
             if TRACE {
-                eprintln!("{}hash_update: {:?} hashing {} bytes.",
+                eprintln!("{}  hash_update({:?}): {:?} hashing {} bytes.",
                           indent(cmp::max(0, self.level.unwrap_or(0)) as u8),
-                          algo, data.len());
+                          self.hashes_for, algo, data.len());
                 if false {
                     eprintln!("{}", ::to_hex(data, true));
                 }

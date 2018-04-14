@@ -5,12 +5,14 @@ use std::io::{Error,ErrorKind};
 
 use buffered_reader::{buffered_reader_generic_read_impl, BufferedReader};
 use super::BodyLength;
+use super::BufferedReaderState;
+
 const TRACE : bool = false;
 
 
 /// A `BufferedReader` that transparently handles OpenPGP's chunking
 /// scheme.  This implicitly implements a limitor.
-pub struct BufferedReaderPartialBodyFilter<T: BufferedReader<C>, C> {
+pub struct BufferedReaderPartialBodyFilter<T: BufferedReader<BufferedReaderState>> {
     // The underlying reader.
     reader: T,
 
@@ -30,16 +32,22 @@ pub struct BufferedReaderPartialBodyFilter<T: BufferedReader<C>, C> {
     cursor: usize,
 
     // The user-defined cookie.
-    cookie: C,
+    cookie: BufferedReaderState,
+
+    // Whether to include the headers in any hash directly over the
+    // current packet.  If not, calls BufferedReaderState::hashing at
+    // the current level to disable hashing while reading headers.
+    hash_headers: bool,
 }
 
-impl<T: BufferedReader<C>, C> std::fmt::Debug
-        for BufferedReaderPartialBodyFilter<T, C> {
+impl<T: BufferedReader<BufferedReaderState>> std::fmt::Debug
+        for BufferedReaderPartialBodyFilter<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         f.debug_struct("BufferedReaderPartialBodyFilter")
             .field("reader", &self.reader)
             .field("partial_body_length", &self.partial_body_length)
             .field("last", &self.last)
+            .field("hash headers", &self.hash_headers)
             .field("buffer (bytes left)",
                    &if let Some(ref buffer) = self.buffer {
                        Some(buffer.len())
@@ -50,11 +58,12 @@ impl<T: BufferedReader<C>, C> std::fmt::Debug
     }
 }
 
-impl<T: BufferedReader<C>, C> BufferedReaderPartialBodyFilter<T, C> {
+impl<T: BufferedReader<BufferedReaderState>> BufferedReaderPartialBodyFilter<T> {
     /// Create a new BufferedReaderPartialBodyFilter object.
     /// `partial_body_length` is the amount of data in the initial
     /// partial body chunk.
-    pub fn with_cookie(reader: T, partial_body_length: u32, cookie: C) -> Self {
+    pub fn with_cookie(reader: T, partial_body_length: u32,
+                       hash_headers: bool, cookie: BufferedReaderState) -> Self {
         BufferedReaderPartialBodyFilter {
             reader: reader,
             partial_body_length: partial_body_length,
@@ -62,6 +71,7 @@ impl<T: BufferedReader<C>, C> BufferedReaderPartialBodyFilter<T, C> {
             buffer: None,
             cursor: 0,
             cookie: cookie,
+            hash_headers: hash_headers,
         }
     }
 
@@ -144,7 +154,28 @@ impl<T: BufferedReader<C>, C> BufferedReaderPartialBodyFilter<T, C> {
             // Read the next partial body length header.
             assert_eq!(self.partial_body_length, 0);
 
-            match BodyLength::parse_new_format(&mut self.reader) {
+            // Disable hashing, if necessary.
+            if ! self.hash_headers {
+                if let Some(level) = self.reader.cookie_ref().level {
+                    BufferedReaderState::hashing(
+                        &mut self.reader, false, level);
+                }
+            }
+
+            if TRACE {
+                eprintln!("Reading next chunk's header (hashing: {}, level: {:?})",
+                          self.hash_headers, self.reader.cookie_ref().level);
+            }
+            let body_length = BodyLength::parse_new_format(&mut self.reader);
+
+            if ! self.hash_headers {
+                if let Some(level) = self.reader.cookie_ref().level {
+                    BufferedReaderState::hashing(
+                        &mut self.reader, true, level);
+                }
+            }
+
+            match body_length {
                 Ok(BodyLength::Full(len)) => {
                     //println!("Last chunk: {} bytes", len);
                     self.last = true;
@@ -224,9 +255,11 @@ impl<T: BufferedReader<C>, C> BufferedReaderPartialBodyFilter<T, C> {
                 match result {
                     Ok(buffer) => {
                         let amount_buffered =
-                            std::cmp::min(buffer.len(), self.partial_body_length as usize);
+                            std::cmp::min(buffer.len(),
+                                          self.partial_body_length as usize);
                         if hard && amount_buffered < amount {
-                            return Err(Error::new(ErrorKind::UnexpectedEof, "unepxected EOF"));
+                            return Err(Error::new(ErrorKind::UnexpectedEof,
+                                                  "unexpected EOF"));
                         } else {
                             if and_consume {
                                 self.partial_body_length -=
@@ -275,15 +308,15 @@ impl<T: BufferedReader<C>, C> BufferedReaderPartialBodyFilter<T, C> {
 
 }
 
-impl<T: BufferedReader<C>, C> std::io::Read
-        for BufferedReaderPartialBodyFilter<T, C> {
+impl<T: BufferedReader<BufferedReaderState>> std::io::Read
+        for BufferedReaderPartialBodyFilter<T> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, std::io::Error> {
         return buffered_reader_generic_read_impl(self, buf);
     }
 }
 
-impl<T: BufferedReader<C>, C> BufferedReader<C>
-        for BufferedReaderPartialBodyFilter<T, C> {
+impl<T: BufferedReader<BufferedReaderState>> BufferedReader<BufferedReaderState>
+        for BufferedReaderPartialBodyFilter<T> {
     fn buffer(&self) -> &[u8] {
         if let Some(ref buffer) = self.buffer {
             &buffer[self.cursor..]
@@ -331,30 +364,30 @@ impl<T: BufferedReader<C>, C> BufferedReader<C>
         return self.data_helper(amount, true, true);
     }
 
-    fn get_mut(&mut self) -> Option<&mut BufferedReader<C>> {
+    fn get_mut(&mut self) -> Option<&mut BufferedReader<BufferedReaderState>> {
         Some(&mut self.reader)
     }
 
-    fn get_ref(&self) -> Option<&BufferedReader<C>> {
+    fn get_ref(&self) -> Option<&BufferedReader<BufferedReaderState>> {
         Some(&self.reader)
     }
 
-    fn into_inner<'b>(self: Box<Self>) -> Option<Box<BufferedReader<C> + 'b>>
+    fn into_inner<'b>(self: Box<Self>) -> Option<Box<BufferedReader<BufferedReaderState> + 'b>>
             where Self: 'b {
         Some(Box::new(self.reader))
     }
 
-    fn cookie_set(&mut self, cookie: C) -> C {
+    fn cookie_set(&mut self, cookie: BufferedReaderState) -> BufferedReaderState {
         use std::mem;
 
         mem::replace(&mut self.cookie, cookie)
     }
 
-    fn cookie_ref(&self) -> &C {
+    fn cookie_ref(&self) -> &BufferedReaderState {
         &self.cookie
     }
 
-    fn cookie_mut(&mut self) -> &mut C {
+    fn cookie_mut(&mut self) -> &mut BufferedReaderState {
         &mut self.cookie
     }
 }

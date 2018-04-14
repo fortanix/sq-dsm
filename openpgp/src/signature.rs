@@ -26,7 +26,13 @@ impl fmt::Debug for Signature {
             .field("hash_algo", &self.hash_algo)
             .field("hashed_area", &self.hashed_area)
             .field("unhashed_area", &self.unhashed_area)
-            .field("hash_prefix", &self.hash_prefix)
+            .field("hash_prefix", &::to_hex(&self.hash_prefix, false))
+            .field("computed_hash",
+                   &if let Some((algo, ref hash)) = self.computed_hash {
+                       Some((algo, ::to_hex(&hash[..], false)))
+                   } else {
+                       None
+                   })
             .field("mpis", &mpis)
             .finish()
     }
@@ -62,6 +68,8 @@ impl Signature {
             unhashed_area: SubpacketArea::empty(),
             hash_prefix: [0, 0],
             mpis: Vec::new(),
+
+            computed_hash: Default::default(),
         }
     }
 

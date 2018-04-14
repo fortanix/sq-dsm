@@ -302,7 +302,7 @@ pub fn to_unknown_packet<R: Read>(reader: R)
                     Box::new(reader), len as u64, BufferedReaderState::default())),
             BodyLength::Partial(len) =>
                 Box::new(BufferedReaderPartialBodyFilter::with_cookie(
-                    reader, len, BufferedReaderState::default())),
+                    reader, len, true, BufferedReaderState::default())),
             _ => Box::new(reader),
     };
 
@@ -319,9 +319,11 @@ pub fn to_unknown_packet<R: Read>(reader: R)
 
 impl Signature {
     /// Parses the body of a signature packet.
-    pub fn parse<'a, R>(mut bio: R, recursion_depth: usize)
-                        -> Result<PacketParser<'a>>
-        where R: 'a + BufferedReader<BufferedReaderState> {
+    pub fn parse<'a, R>(mut bio: R, recursion_depth: usize,
+                        computed_hash: Option<(HashAlgo, Box<Hash>)>)
+        -> Result<PacketParser<'a>>
+        where R: 'a + BufferedReader<BufferedReaderState>
+    {
         let version = bio.data_hard(1)?[0];
         if version != 4 {
             if TRACE {
@@ -333,8 +335,71 @@ impl Signature {
             return Unknown::parse(bio, recursion_depth, Tag::Signature);
         }
 
-        bio.consume(1);
+        let computed_hash = if let Some((algo, mut hash)) = computed_hash {
+            // A version 4 signature packet is laid out as follows:
+            //
+            //   version - 1 byte                    \
+            //   sigtype - 1 byte                     \
+            //   pk_algo - 1 byte                      \
+            //   hash_algo - 1 byte                      Included in the hash
+            //   hashed_area_len - 2 bytes (big endian)/
+            //   hashed_area                         _/
+            //   ...                                 <- Not included in the hash
 
+            let header_amount = {
+                let header = bio.data_hard(6)?;
+                let hashed_area_len =
+                    ((header[4] as usize) << 8) + (header[5] as usize);
+
+                6 + hashed_area_len
+            };
+
+            let header
+                = &bio.data_hard(header_amount as usize)?[..header_amount];
+
+            if false {
+                eprintln!("Signature::parse:: Hashing header ({} bytes): {}",
+                          header.len(), to_hex(header, true));
+            }
+
+            hash.update(header);
+
+            // A version 4 signature trailer is:
+            //
+            //   version - 1 byte
+            //   0xFF (constant) - 1 byte
+            //   amount - 4 bytes (big endian)
+            //
+            // The amount field is the amount of hashed from this
+            // packet (this excludes the message content, and this
+            // trailer).
+            //
+            // See https://tools.ietf.org/html/rfc4880#section-5.2.4
+            let trailer : [ u8; 6 ] = [
+                0x04,
+                0xFF,
+                ((header_amount >> 24) & 0xff) as u8,
+                ((header_amount >> 16) & 0xff) as u8,
+                ((header_amount >>  8) & 0xff) as u8,
+                ((header_amount >>  0) & 0xff) as u8
+            ];
+            hash.update(&trailer[..]);
+
+            if false {
+                eprintln!("Signature::parse:: Hashing trailer ({} bytes): {}",
+                          trailer.len(), to_hex(&trailer[..], true));
+            }
+
+            let mut digest = vec![0u8; hash.digest_size()];
+            hash.digest(&mut digest);
+
+            Some((algo, digest))
+        } else {
+            None
+        };
+
+        // Version.
+        bio.consume(1);
         let sigtype = bio.data_consume_hard(1)?[0];
         let pk_algo = bio.data_consume_hard(1)?[0];
         let hash_algo = bio.data_consume_hard(1)?[0];
@@ -357,6 +422,7 @@ impl Signature {
                 unhashed_area: SubpacketArea::new(unhashed_area),
                 hash_prefix: [hash_prefix1, hash_prefix2],
                 mpis: mpis,
+                computed_hash: computed_hash,
             }),
             reader: Box::new(bio),
             content_was_read: false,
@@ -380,7 +446,7 @@ fn signature_parser_test () {
         assert_eq!(header.ctb.tag, Tag::Signature);
         assert_eq!(header.length, BodyLength::Full(307));
 
-        let mut pp = Signature::parse(bio, 0).unwrap();
+        let mut pp = Signature::parse(bio, 0, None).unwrap();
         let p = pp.finish();
         // eprintln!("packet: {:?}", p);
 
@@ -396,6 +462,185 @@ fn signature_parser_test () {
         } else {
             unreachable!();
         }
+    }
+}
+
+impl OnePassSig {
+    pub fn parse<'a, R: BufferedReader<BufferedReaderState> + 'a>
+            (mut reader: R, recursion_depth: usize)
+            -> Result<PacketParser<'a>> {
+        let version = reader.data_hard(1)?[0];
+        if version != 3 {
+            if TRACE {
+                eprintln!("{}OnePassSig::parse: Ignoring verion {} packet",
+                          indent(recursion_depth as u8), version);
+            }
+
+            // Unknown algo.  Return an unknown packet.
+            return Unknown::parse(reader, recursion_depth, Tag::OnePassSig);
+        }
+
+        reader.consume(1);
+
+        let sigtype = reader.data_consume_hard(1)?[0];
+        let hash_algo = reader.data_consume_hard(1)?[0];
+        let pk_algo = reader.data_consume_hard(1)?[0];
+        let mut issuer = [0u8; 8];
+        issuer.copy_from_slice(&reader.data_consume_hard(8)?[..8]);
+        let last = reader.data_consume_hard(1)?[0];
+
+        // We create an empty hashed reader even if we don't support
+        // the hash algorithm so that we have something to match
+        // against when we get to the Signature packet.
+        let mut algos = Vec::new();
+        if let Ok(hash_algo) = HashAlgo::from_numeric(hash_algo) {
+            algos.push(hash_algo);
+        }
+
+        // We can't push the HashedReader on the BufferedReader stack:
+        // when we finish processing this OnePassSig packet, it will
+        // be popped.  Instead, we need to insert it at the next
+        // higher level.  Unfortunately, this isn't possible.  But,
+        // since we're done reading the current packet, we can pop the
+        // readers associated with it, and then push the HashedReader.
+        // This is a bit of a layering violation, but I (Neal) can't
+        // think of a more elegant solution.
+
+        assert!(reader.cookie_ref().level <= Some(recursion_depth as isize));
+        let reader = buffered_reader_stack_pop(Box::new(reader),
+                                               recursion_depth as isize);
+
+        let mut reader = HashedReader::new(
+            reader, HashesFor::Signature, algos);
+        reader.cookie_mut().level = Some(recursion_depth as isize - 1);
+
+        if TRACE {
+            eprintln!("{}OnePassSig::parse: Pushed a hashed reader, level {:?}",
+                      indent(recursion_depth as u8),
+                      reader.cookie_mut().level);
+        }
+
+        // We add an empty limitor on top of the hashed reader,
+        // because when we are done processing a packet,
+        // PacketParser::finish discards any unread data from the top
+        // reader.  Since the top reader is the HashedReader, this
+        // discards any following packets.  To prevent this, we push a
+        // Limitor on the reader stack.
+        let mut reader = BufferedReaderLimitor::with_cookie(
+            Box::new(reader), 0, BufferedReaderState::default());
+        reader.cookie_mut().level = Some(recursion_depth as isize);
+
+        return Ok(PacketParser {
+            packet: Packet::OnePassSig(OnePassSig {
+                common: PacketCommon {
+                    children: None,
+                    body: None,
+                },
+                version: version,
+                sigtype: sigtype,
+                hash_algo: hash_algo,
+                pk_algo: pk_algo,
+                issuer: issuer,
+                last: last,
+            }),
+            reader: Box::new(reader),
+            content_was_read: false,
+            finished: false,
+            decrypted: true,
+            recursion_depth: recursion_depth as u8,
+            settings: PacketParserSettings::default(),
+        });
+    }
+}
+
+#[test]
+fn one_pass_sig_parser_test () {
+    // This test assumes that the first packet is a OnePassSig packet.
+    let data = bytes!("signed-1.gpg");
+
+    let mut reader = BufferedReaderMemory::with_cookie(
+        data, BufferedReaderState::default());
+
+    let header = Header::parse(&mut reader).unwrap();
+    assert_eq!(header.ctb.tag, Tag::OnePassSig);
+    assert_eq!(header.length, BodyLength::Full(13));
+
+    let mut pp = OnePassSig::parse(reader, 0).unwrap();
+    let p = pp.finish();
+    // eprintln!("packet: {:?}", p);
+
+    if let &Packet::OnePassSig(ref p) = p {
+        assert_eq!(p.version, 3);
+        assert_eq!(p.sigtype, 0);
+        assert_eq!(p.hash_algo, 10);
+        assert_eq!(p.pk_algo, 1);
+        assert_eq!(to_hex(&p.issuer[..], false), "7223B56678E02528");
+        assert_eq!(p.last, 1);
+    } else {
+        unreachable!();
+    }
+}
+
+#[test]
+fn one_pass_sig_test () {
+    struct Test<'a> {
+        filename: &'a str,
+        hash_prefix: Vec<[u8; 2]>,
+    };
+
+    let tests = [
+            Test {
+                filename: "signed-1.gpg",
+                hash_prefix: vec![ [ 0x83, 0xF5 ] ],
+            },
+            Test {
+                filename: "signed-2-partial-body.gpg",
+                hash_prefix: vec![ [ 0x2F, 0xBE ] ],
+            },
+            Test {
+                filename: "signed-3-partial-body-multiple-sigs.gpg",
+                hash_prefix: vec![ [ 0x29, 0x64 ], [ 0xff, 0x7d ] ],
+            },
+    ];
+
+    for test in tests.iter() {
+        eprintln!("Trying {}...", test.filename);
+        let mut pp = PacketParser::from_file(path_to(test.filename))
+            .expect(&format!("Reading {}", test.filename)[..]);
+
+        let mut one_pass_sigs = 0;
+        let mut sigs = 0;
+
+        while let Some(tmp) = pp {
+            if let Packet::OnePassSig(_) = tmp.packet {
+                one_pass_sigs += 1;
+            } else if let Packet::Signature(ref sig) = tmp.packet {
+                eprintln!("  {}:\n  prefix: expected: {}, in sig: {}",
+                          test.filename,
+                          to_hex(&test.hash_prefix[sigs][..], false),
+                          to_hex(&sig.hash_prefix[..], false));
+                eprintln!("  computed hash: {}",
+                          to_hex(&sig.computed_hash.as_ref().unwrap().1, false));
+
+                assert_eq!(test.hash_prefix[sigs], sig.hash_prefix);
+                assert_eq!(&test.hash_prefix[sigs][..],
+                           &sig.computed_hash.as_ref().unwrap().1[..2]);
+
+                sigs += 1;
+            } else if one_pass_sigs > 0 {
+                assert_eq!(one_pass_sigs, test.hash_prefix.len(),
+                           "Number of OnePassSig packets does not match \
+                            number of expected OnePassSig packets.");
+            }
+
+            let (_, _, tmp, _) = tmp.recurse().expect("Parsing message");
+            pp = tmp;
+        }
+        assert_eq!(one_pass_sigs, sigs,
+                   "Number of OnePassSig packets does not match \
+                    number of signature packets.");
+
+        eprintln!("done.");
     }
 }
 
@@ -490,8 +735,18 @@ impl UserAttribute {
 impl Literal {
     /// Parses the body of a literal packet.
     pub fn parse<'a, R>(mut bio: R, recursion_depth: usize)
-                        -> Result<PacketParser<'a>>
-        where R: 'a + BufferedReader<BufferedReaderState> {
+        -> Result<PacketParser<'a>>
+        where R: 'a + BufferedReader<BufferedReaderState>
+    {
+        // Directly hashing a literal data packet is... strange.
+        // Neither the packet's header, the packet's meta-data nor the
+        // length encoding information is included in the hash.
+
+        // Disable anything that is directly hashing this packet,
+        // i.e., any HashedReaders at level recursion_depth - 1.
+        BufferedReaderState::hashing(
+            &mut bio, false, recursion_depth as isize - 1);
+
         let format = bio.data_consume_hard(1)?[0];
         let filename_len = bio.data_consume_hard(1)?[0];
 
@@ -503,6 +758,9 @@ impl Literal {
         };
 
         let date = bio.read_be_u32()?;
+
+        BufferedReaderState::hashing(
+            &mut bio, true, recursion_depth as isize - 1);
 
         return Ok(PacketParser {
             packet: Packet::Literal(Literal {
@@ -557,7 +815,7 @@ fn literal_parser_test () {
 
         if let BodyLength::Partial(l) = header.length {
             let bio2 = BufferedReaderPartialBodyFilter::with_cookie(
-                bio, l, BufferedReaderState::default());
+                bio, l, false, BufferedReaderState::default());
 
             let mut pp = Literal::parse(bio2, 1).unwrap();
             let content = pp.steal_eof().unwrap();
@@ -1086,10 +1344,11 @@ use nettle::Hash;
 /// What the hash in the BufferedReaderState is for.  Currently, it
 /// can only be for an MDC packet, but eventually we'll use it to
 /// check whether the hash is for a signature packet.
-#[derive(Clone, Copy, PartialEq, Debug)]
+#[derive(Clone, PartialEq, Debug)]
 pub enum HashesFor {
     Nothing,
     MDC,
+    Signature,
 }
 
 pub struct BufferedReaderState {
@@ -1136,9 +1395,15 @@ pub struct BufferedReaderState {
     //     `BufferedReader`s from the `BufferedReader` stack that are
     //     at level N.  The intuition is: the `BufferedReaders` at
     //     level N are associated with the packet at depth N.
-    level: Option<usize>,
+    //
+    //   - If a OnePassSig packet occurs at the top level, then we
+    //     need to push a HashedReader above the current level.  The
+    //     top level is level 0, thus we push the HashedReader at
+    //     level -1.
+    level: Option<isize>,
 
     hashes_for: HashesFor,
+    hashing: bool,
     hashes: Vec<(HashAlgo, Box<Hash>)>,
 }
 
@@ -1160,6 +1425,7 @@ impl Default for BufferedReaderState {
     fn default() -> Self {
         BufferedReaderState {
             level: None,
+            hashing: true,
             hashes_for: HashesFor::Nothing,
             hashes: vec![],
         }
@@ -1169,11 +1435,72 @@ impl Default for BufferedReaderState {
 impl BufferedReaderState {
     fn new(recursion_depth: usize) -> BufferedReaderState {
         BufferedReaderState {
-            level: Some(recursion_depth),
+            level: Some(recursion_depth as isize),
+            hashing: true,
             hashes_for: HashesFor::Nothing,
             hashes: vec![],
         }
     }
+}
+
+impl BufferedReaderState {
+    // Enables or disables signature hashers (HashesFor::Signature) at
+    // level `level`.
+    //
+    // Thus to disable the hashing of a level 3 literal packet's
+    // meta-data, we disable hashing at level 2.
+    fn hashing<R: BufferedReader<BufferedReaderState>>(
+        reader: &mut R, enabled: bool, level: isize)
+    {
+        let mut reader : Option<&mut BufferedReader<BufferedReaderState>>
+            = Some(reader);
+        while let Some(r) = reader {
+            {
+                let cookie = r.cookie_mut();
+                if let Some(br_level) = cookie.level {
+                    if br_level < level {
+                        break;
+                    }
+                    if br_level == level
+                        && cookie.hashes_for == HashesFor::Signature {
+                        cookie.hashing = enabled;
+                    }
+                } else {
+                    break;
+                }
+            }
+            reader = r.get_mut();
+        }
+    }
+}
+
+// Pops readers from a buffered reader stack at the specified level.
+//
+// If the reader stack is owned by a PacketParser, it is up to the
+// caller to adjust PacketParser::recursion_depth, etc. appropriately!
+fn buffered_reader_stack_pop<'a>(
+    mut reader: Box<BufferedReader<BufferedReaderState> + 'a>, depth: isize)
+    -> Box<BufferedReader<BufferedReaderState> + 'a>
+{
+    while let Some(level) = reader.cookie_ref().level {
+        assert!(level <= depth);
+
+        if level >= depth {
+            if TRACE {
+                eprintln!("{}buffered_reader_stack_pop: popping level {:?} reader: {:?}",
+                          indent(depth as u8),
+                          reader.cookie_ref().level,
+                          reader);
+            }
+
+            reader.drop_eof().unwrap();
+            reader = reader.into_inner().unwrap();
+        } else {
+            break;
+        }
+    }
+
+    reader
 }
 
 /// A low-level OpenPGP message parser.
@@ -1334,12 +1661,93 @@ impl <'a> PacketParser<'a> {
                 ParserResult::EOF(Box::new(bio)));
         }
 
+        // When computing a hash for a signature, most of the
+        // signature packet should not be included in the hash.  That
+        // is:
+        //
+        //    [ one pass sig ] [ ... message ... ] [ sig ]
+        //                     ^^^^^^^^^^^^^^^^^^^
+        //                        hash only this
+        //
+        // (The special logic for the Signature packet is in
+        // Signature::parse.)
+        //
+        // To avoid this, we use a Dup reader to figure out if the
+        // next packet is a sig packet without consuming the headers,
+        // which would cause the headers to be hashed.  If so, we
+        // extract the hash context.
+        let mut bio = BufferedReaderDup::with_cookie(
+            bio, BufferedReaderState::default());
+
         let header = Header::parse(&mut bio)?;
-        if settings.trace {
-            eprintln!("{}PacketParser::parse(depth: {}, level: {:?}): \
-                       Parsing a {:?} packet.",
-                      indent(recursion_depth as u8), recursion_depth,
-                      bio.cookie_ref().level, header.ctb.tag);
+        let tag = header.ctb.tag;
+
+        let mut computed_hash = None;
+        if tag == Tag::Signature {
+            // Ok, the next packet is a Signature packet.  Get the
+            // nearest, valid OneSigPass packet.
+            if settings.trace {
+                eprintln!("{}PacketParser::parse(): Got a Signature packet, \
+                           looking for a matching OnePassSig packet",
+                          indent(recursion_depth as u8));
+            }
+
+            // We know that the top reader is not a HashedReader (it's
+            // a BufferedReaderDup).  So, start with it's child.
+            let mut r = bio.get_mut();
+            while let Some(tmp) = r {
+                {
+                    let cookie = tmp.cookie_mut();
+
+                    assert!(cookie.level.unwrap_or(-1)
+                            <= recursion_depth as isize);
+                    // The HashedReader has to be at level
+                    // 'recursion_depth - 1'.
+                    if cookie.level.is_none()
+                        || cookie.level.unwrap()
+                           < recursion_depth as isize - 1 {
+                        break
+                    }
+
+                    if cookie.hashes_for == HashesFor::Signature {
+                        assert_eq!(cookie.hashes.len(), 1);
+
+                        let (algo, hash) = cookie.hashes.pop().unwrap();
+                        eprintln!("{}PacketParser::parse(): \
+                                   popped a {:?} HashedReader",
+                                  indent(recursion_depth as u8), algo);
+                        cookie.hashes_for = HashesFor::Nothing;
+                        computed_hash = Some((algo, hash));
+
+                        break;
+                    }
+                }
+
+                r = tmp.get_mut();
+            }
+        }
+
+        // We've extracted the hash context (if required).  Now, we
+        // rip off the BufferedReaderDup and actually consume the
+        // header.
+        let consumed = bio.total_out();
+        let mut bio = Box::new(bio).into_inner().unwrap();
+
+        // If we have multiple one pass signature packets in a row,
+        // then we (XXX: incorrectly!, but gpg doesn't support this
+        // case either) assume that only the last one pass signature
+        // packet has the `last` bit set and therefore the one pass
+        // signature packets should not be included in any preceeding
+        // one pass signature packet's hashes.
+        if tag == Tag::Literal || tag == Tag::OnePassSig
+            || tag == Tag::Signature {
+            BufferedReaderState::hashing(
+                &mut bio, false, recursion_depth as isize - 1);
+        }
+        bio.consume(consumed);
+        if tag == Tag::Literal {
+            BufferedReaderState::hashing(
+                &mut bio, true, recursion_depth as isize - 1);
         }
 
         let bio : Box<BufferedReader<BufferedReaderState>>
@@ -1364,6 +1772,12 @@ impl <'a> PacketParser<'a> {
                     }
                     Box::new(BufferedReaderPartialBodyFilter::with_cookie(
                         bio, len,
+                        // When hashing a literal data packet, we only
+                        // hash the packet's contents; we don't hash
+                        // the literal data packet's meta-data or the
+                        // length information, which includes the
+                        // partial body headers.
+                        tag != Tag::Literal,
                         BufferedReaderState::new(recursion_depth)))
                 },
                 BodyLength::Indeterminate => {
@@ -1376,10 +1790,12 @@ impl <'a> PacketParser<'a> {
                 },
         };
 
-        let tag = header.ctb.tag;
-        let result = match tag {
+
+        let mut result = match tag {
             Tag::Signature =>
-                Signature::parse(bio, recursion_depth)?,
+                Signature::parse(bio, recursion_depth, computed_hash)?,
+            Tag::OnePassSig =>
+                OnePassSig::parse(bio, recursion_depth)?,
             Tag::PublicSubkey =>
                 Key::parse(bio, recursion_depth, tag)?,
             Tag::PublicKey =>
@@ -1405,6 +1821,11 @@ impl <'a> PacketParser<'a> {
             _ =>
                 Unknown::parse(bio, recursion_depth, tag)?,
         };
+
+        if tag == Tag::OnePassSig {
+            BufferedReaderState::hashing(
+                &mut result.reader, true, recursion_depth as isize - 1);
+        }
 
         if settings.trace {
             eprintln!("{}PacketParser::parse() -> {:?}, depth: {}, level: {:?}.",
@@ -1480,50 +1901,6 @@ impl <'a> PacketParser<'a> {
     /// packet in the parent container.
     pub fn next(mut self)
             -> Result<(Packet, isize, Option<PacketParser<'a>>, isize)> {
-        // Pops the readers at the current level.
-        //
-        // This function does NOT do anything with self.packet or
-        // self.recursion_depth!  (We can't adjust
-        // self.recursion_depth, because when we pop the top-level
-        // packet, we would have to set self.recursion_depth to -1,
-        // which is not possible since recursion_depth is unsigned.)
-        fn pop(slf: &mut PacketParser) {
-            slf.finish();
-
-            let depth = slf.recursion_depth as usize;
-
-            // Remove any `BufferedReader`s that belong to the
-            // processed packet.  This includes any input limitors
-            // (e.g., a `BufferedReaderLimitor`), and, if the current
-            // packet is a container, it includes any output filters
-            // (e.g., for a SEIP packet, a `Decryptor`).
-            let mut reader
-                = mem::replace(&mut slf.reader,
-                               Box::new(BufferedReaderEOF::with_cookie(
-                                   BufferedReaderState::new(depth))));
-            let mut popped = 0;
-            while let Some(level) = reader.cookie_ref().level {
-                assert!(level <= depth);
-
-                if level == depth {
-                    popped += 1;
-                    reader.drop_eof().unwrap();
-                    reader = reader.into_inner().unwrap();
-                } else {
-                    break;
-                }
-            }
-            if slf.settings.trace {
-                eprintln!("{}PacketParser::next: \
-                           Cleaning up processed packet's readers: \
-                           popped {} readers at level {}; \
-                           top reader is now at level {:?}.",
-                          indent(depth as u8),
-                          popped, depth, reader.cookie_ref().level);
-            }
-            slf.reader = reader;
-        }
-
         if self.settings.trace {
             eprintln!("{}PacketParser::next({:?}, depth: {}, level: {:?}).",
                       indent(self.recursion_depth),
@@ -1533,7 +1910,9 @@ impl <'a> PacketParser<'a> {
 
         let orig_depth = self.recursion_depth as usize;
 
-        pop(&mut self);
+        self.finish();
+        self.reader = buffered_reader_stack_pop(
+            self.reader, self.recursion_depth as isize);
 
         // Now read the next packet.
         loop {
@@ -1568,7 +1947,9 @@ impl <'a> PacketParser<'a> {
                     } else {
                         self.reader = reader;
                         self.recursion_depth -= 1;
-                        pop(&mut self);
+                        self.finish();
+                        self.reader = buffered_reader_stack_pop(
+                            self.reader, self.recursion_depth as isize);
                     }
                 },
                 ParserResult::Success(mut pp) => {
@@ -1656,7 +2037,7 @@ impl <'a> PacketParser<'a> {
             // decrypted should always be true.
             Packet::CompressedData(_) => unreachable!(),
             // Packets that don't recurse.
-            Packet::Unknown(_) | Packet::Signature(_)
+            Packet::Unknown(_) | Packet::Signature(_) | Packet::OnePassSig(_)
                 | Packet::PublicKey(_) | Packet::PublicSubkey(_)
                 | Packet::SecretKey(_) | Packet::SecretSubkey(_)
                 | Packet::UserID(_) | Packet::UserAttribute(_)
@@ -1991,7 +2372,7 @@ impl<'a> PacketParser<'a> {
             // with the same parameters.
             let mut reader = BufferedReaderDecryptor::with_cookie(
                 algo, key, reader, BufferedReaderState::default()).unwrap();
-            reader.cookie_mut().level = Some(self.recursion_depth as usize);
+            reader.cookie_mut().level = Some(self.recursion_depth as isize);
 
             if self.settings.trace {
                 eprintln!("{}PacketParser::decrypt: Pushing Decryptor, \
@@ -2003,7 +2384,7 @@ impl<'a> PacketParser<'a> {
             // And the hasher.
             let mut reader = HashedReader::new(
                 reader, HashesFor::MDC, vec![HashAlgo::SHA1]);
-            reader.cookie_mut().level = Some(self.recursion_depth as usize);
+            reader.cookie_mut().level = Some(self.recursion_depth as isize);
 
             if self.settings.trace {
                 eprintln!("{}PacketParser::decrypt: Pushing HashedReader, \
@@ -2073,6 +2454,8 @@ mod test {
         ];
 
         for test in tests.iter() {
+            eprintln!("Decrypting {}", test.filename);
+
             let path = path_to(test.filename);
             let mut pp = PacketParserBuilder::from_file(&path).unwrap()
                 .buffer_unread_content()
@@ -2110,7 +2493,8 @@ mod test {
                     // MDC packet.
                     let (packet, _, pp, _) = pp.recurse().unwrap();
                     if let Packet::MDC(mdc) = packet {
-                        assert_eq!(mdc.computed_hash, mdc.hash);
+                        assert_eq!(mdc.computed_hash, mdc.hash,
+                                   "MDC doesn't match");
                     } else {
                         panic!("Expected an MDC packet!");
                     }
