@@ -388,18 +388,8 @@ fn signature_parser_test () {
     let data = bytes!("sig.gpg");
 
     {
-        let mut bio = BufferedReaderMemory::with_cookie(
-            data, BufferedReaderState::default());
-
-        let header = Header::parse(&mut bio).unwrap();
-        assert_eq!(header.ctb.tag, Tag::Signature);
-        assert_eq!(header.length, BodyLength::Full(307));
-
-        let mut pp = Signature::parse(bio, 0, None).unwrap();
-        let p = pp.finish();
-        // eprintln!("packet: {:?}", p);
-
-        if let &Packet::Signature(ref p) = p {
+        let pp = PacketParser::from_bytes(data).unwrap().unwrap();
+        if let Packet::Signature(ref p) = pp.packet {
             assert_eq!(p.version, 4);
             assert_eq!(p.sigtype, 0);
             assert_eq!(p.pk_algo, 1);
@@ -409,7 +399,7 @@ fn signature_parser_test () {
             assert_eq!(p.hash_prefix, [0x65u8, 0x74]);
             assert_eq!(p.mpis.raw.len(), 258);
         } else {
-            unreachable!();
+            panic!("Wrong packet!");
         }
     }
 }
@@ -731,14 +721,7 @@ impl Literal {
 fn literal_parser_test () {
     {
         let data = bytes!("literal-mode-b.gpg");
-        let mut bio = BufferedReaderMemory::with_cookie(
-            data, BufferedReaderState::default());
-
-        let header = Header::parse(&mut bio).unwrap();
-        assert_eq!(header.ctb.tag, Tag::Literal);
-        assert_eq!(header.length, BodyLength::Full(18));
-
-        let mut pp = Literal::parse(bio, 0).unwrap();
+        let mut pp = PacketParser::from_bytes(data).unwrap().unwrap();
         let content = pp.steal_eof().unwrap();
         let p = pp.finish();
         // eprintln!("{:?}", p);
@@ -748,40 +731,26 @@ fn literal_parser_test () {
             assert_eq!(p.date, 1507458744);
             assert_eq!(content, b"FOOBAR");
         } else {
-            unreachable!();
+            panic!("Wrong packet!");
         }
     }
 
     {
         let data = bytes!("literal-mode-t-partial-body.gpg");
-        let mut bio = BufferedReaderMemory::with_cookie(
-            data, BufferedReaderState::default());
+        let mut pp = PacketParser::from_bytes(data).unwrap().unwrap();
+        let content = pp.steal_eof().unwrap();
+        let p = pp.finish();
+        if let &Packet::Literal(ref p) = p {
+            assert_eq!(p.format, 't' as u8);
+            assert_eq!(p.filename.as_ref().unwrap()[..],
+                       b"manifesto.txt"[..]);
+            assert_eq!(p.date, 1508000649);
 
-        let header = Header::parse(&mut bio).unwrap();
-        assert_eq!(header.ctb.tag, Tag::Literal);
-        assert_eq!(header.length, BodyLength::Partial(4096));
+            let expected = bytes!("a-cypherpunks-manifesto.txt");
 
-        if let BodyLength::Partial(l) = header.length {
-            let bio2 = BufferedReaderPartialBodyFilter::with_cookie(
-                bio, l, false, BufferedReaderState::default());
-
-            let mut pp = Literal::parse(bio2, 1).unwrap();
-            let content = pp.steal_eof().unwrap();
-            let p = pp.finish();
-            if let &Packet::Literal(ref p) = p {
-                assert_eq!(p.format, 't' as u8);
-                assert_eq!(p.filename.as_ref().unwrap()[..],
-                           b"manifesto.txt"[..]);
-                assert_eq!(p.date, 1508000649);
-
-                let expected = bytes!("a-cypherpunks-manifesto.txt");
-
-                assert_eq!(&content[..], &expected[..]);
-            } else {
-                unreachable!();
-            }
+            assert_eq!(&content[..], &expected[..]);
         } else {
-            unreachable!();
+            panic!("Wrong packet!");
         }
     }
 }
@@ -865,27 +834,18 @@ fn compressed_data_parser_test () {
     let expected = bytes!("a-cypherpunks-manifesto.txt");
 
     for i in 1..4 {
-        use std::fs::File;
-
         let path = path_to(&format!("compressed-data-algo-{}.gpg", i)[..]);
-        let mut f = File::open(&path).expect(&path.to_string_lossy());
-        let mut bio = BufferedReaderGeneric::with_cookie(
-            &mut f, None, BufferedReaderState::default());
-
-        let h = Header::parse(&mut bio).unwrap();
-        assert_eq!(h.ctb.tag, Tag::CompressedData);
-        assert_eq!(h.length, BodyLength::Indeterminate);
+        let mut pp = PacketParser::from_file(path).unwrap().unwrap();
 
         // We expect a compressed packet containing a literal data
         // packet, and that is it.
-        let (compressed, _, ppo, _)
-            = CompressedData::parse(bio, 0).unwrap().recurse().unwrap();
-
-        if let Packet::CompressedData(compressed) = compressed {
+        if let Packet::CompressedData(ref compressed) = pp.packet {
             assert_eq!(compressed.algo, i);
         } else {
-            unreachable!();
+            panic!("Wrong packet!");
         }
+
+        let (_packet, _packet_depth, ppo, _pp_depth) = pp.recurse().unwrap();
 
         // ppo should be the literal data packet.
         let mut pp = ppo.unwrap();
@@ -903,12 +863,11 @@ fn compressed_data_parser_test () {
             assert_eq!(literal.date, 1509219866);
             assert_eq!(content, expected.to_vec());
         } else {
-            unreachable!();
+            panic!("Wrong packet!");
         }
 
         // And, we're done...
         assert!(ppo.is_none());
-
     }
 }
 
@@ -1060,17 +1019,8 @@ fn skesk_parser_test() {
 
     for test in tests.iter() {
         let path = path_to(test.filename);
-        let mut f = File::open(&path).expect(&path.to_string_lossy());
-        let mut bio = BufferedReaderGeneric::with_cookie(
-            &mut f, None, BufferedReaderState::default());
-
-        let h = Header::parse(&mut bio).unwrap();
-        assert_eq!(h.ctb.tag, Tag::SKESK);
-
-        let (packet, _, _, _)
-            = SKESK::parse(bio, 0).unwrap().next().unwrap();
-
-        if let Packet::SKESK(skesk) = packet {
+        let mut pp = PacketParser::from_file(path).unwrap().unwrap();
+        if let Packet::SKESK(ref skesk) = pp.packet {
             eprintln!("{:?}", skesk);
 
             assert_eq!(skesk.symm_algo, test.cipher_algo);
@@ -1086,7 +1036,7 @@ fn skesk_parser_test() {
                 }
             }
         } else {
-            unreachable!();
+            panic!("Wrong packet!");
         }
     }
 }
