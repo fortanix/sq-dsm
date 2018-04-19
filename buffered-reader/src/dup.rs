@@ -10,8 +10,8 @@ use super::*;
 /// Note: this will likely cause the underlying stream to buffer as
 /// much data as you read.  Thus, it should only be used for peeking
 /// at the underlying `BufferedReader`.
-pub struct BufferedReaderDup<R: BufferedReader<C>, C> {
-    reader: R,
+pub struct BufferedReaderDup<'a, C> {
+    reader: Box<'a + BufferedReader<C>>,
 
     // The number of bytes that have been consumed.
     cursor: usize,
@@ -20,7 +20,7 @@ pub struct BufferedReaderDup<R: BufferedReader<C>, C> {
     cookie: C,
 }
 
-impl<R: BufferedReader<C>, C> fmt::Debug for BufferedReaderDup<R, C> {
+impl<'a, C> fmt::Debug for BufferedReaderDup<'a, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("BufferedReaderDup")
             .field("reader", &self.reader)
@@ -29,19 +29,19 @@ impl<R: BufferedReader<C>, C> fmt::Debug for BufferedReaderDup<R, C> {
     }
 }
 
-impl<R: BufferedReader<()>> BufferedReaderDup<R, ()> {
+impl<'a> BufferedReaderDup<'a, ()> {
     /// Instantiate a new memory-based reader.  `buffer` contains the
     /// reader's contents.
-    pub fn new(reader: R) -> Self {
+    pub fn new(reader: Box<'a + BufferedReader<()>>) -> Self {
         Self::with_cookie(reader, ())
     }
 }
 
-impl<R: BufferedReader<C>, C> BufferedReaderDup<R, C> {
+impl<'a, C> BufferedReaderDup<'a, C> {
     /// Like `new()`, but sets a cookie, which can be retrieved using
     /// the `cookie_ref` and `cookie_mut` methods, and set using
     /// the `cookie_set` method.
-    pub fn with_cookie(reader: R, cookie: C) -> Self {
+    pub fn with_cookie(reader: Box<'a + BufferedReader<C>>, cookie: C) -> Self {
         BufferedReaderDup {
             reader: reader,
             cursor: 0,
@@ -56,7 +56,7 @@ impl<R: BufferedReader<C>, C> BufferedReaderDup<R, C> {
     }
 }
 
-impl<R: BufferedReader<C>, C> io::Read for BufferedReaderDup<R, C> {
+impl<'a, C> io::Read for BufferedReaderDup<'a, C> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, io::Error> {
         let data = self.reader.data(self.cursor + buf.len())?;
         assert!(data.len() >= self.cursor);
@@ -71,7 +71,7 @@ impl<R: BufferedReader<C>, C> io::Read for BufferedReaderDup<R, C> {
     }
 }
 
-impl<R: BufferedReader<C>, C> BufferedReader<C> for BufferedReaderDup<R, C> {
+impl<'a, C> BufferedReader<C> for BufferedReaderDup<'a, C> {
     fn buffer(&self) -> &[u8] {
         let data = self.reader.buffer();
         assert!(data.len() >= self.cursor);
@@ -118,7 +118,7 @@ impl<R: BufferedReader<C>, C> BufferedReader<C> for BufferedReaderDup<R, C> {
 
     fn into_inner<'b>(self: Box<Self>) -> Option<Box<BufferedReader<C> + 'b>>
             where Self: 'b {
-        Some(Box::new(self.reader))
+        Some(self.reader)
     }
 
     fn cookie_set(&mut self, cookie: C) -> C {
@@ -144,7 +144,7 @@ mod test {
     fn buffered_reader_memory_test () {
         let data : &[u8] = include_bytes!("buffered-reader-test.txt");
         let reader = BufferedReaderMemory::new(data);
-        let mut reader = BufferedReaderDup::new(reader);
+        let mut reader = BufferedReaderDup::new(Box::new(reader));
 
         buffered_reader_test_data_check(&mut reader);
 
@@ -180,7 +180,7 @@ mod test {
         }
 
         let reader = BufferedReaderMemory::new(&input[..]);
-        let mut reader = BufferedReaderDup::new(reader);
+        let mut reader = BufferedReaderDup::new(Box::new(reader));
 
         for i in 0..input.len() {
             let data = reader.data(DEFAULT_BUF_SIZE + 1).unwrap().to_vec();
