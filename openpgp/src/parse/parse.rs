@@ -1708,9 +1708,11 @@ impl <'a> PacketParser<'a> {
                         assert_eq!(cookie.hashes.len(), 1);
 
                         let (algo, hash) = cookie.hashes.pop().unwrap();
-                        eprintln!("{}PacketParser::parse(): \
-                                   popped a {:?} HashedReader",
-                                  indent(recursion_depth as u8), algo);
+                        if settings.trace {
+                            eprintln!("{}PacketParser::parse(): \
+                                       popped a {:?} HashedReader",
+                                      indent(recursion_depth as u8), algo);
+                        }
                         cookie.hashes_for = HashesFor::Nothing;
                         computed_hash = Some((algo, hash));
 
