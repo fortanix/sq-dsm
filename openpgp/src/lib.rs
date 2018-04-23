@@ -94,7 +94,10 @@ mod userid;
 mod user_attribute;
 mod literal;
 mod compressed_data;
+
 mod skesk;
+use skesk::SKESK;
+
 mod message;
 mod constants;
 
@@ -460,16 +463,6 @@ pub struct Literal {
 pub struct CompressedData {
     pub common: packet::Common,
     pub algo: u8,
-}
-
-#[derive(PartialEq, Clone, Debug)]
-pub struct SKESK {
-    pub common: packet::Common,
-    pub version: u8,
-    pub symm_algo: SymmetricAlgo,
-    pub s2k: S2K,
-    // The encrypted session key.
-    pub esk: Vec<u8>,
 }
 
 /// Holds an encrypted data packet.

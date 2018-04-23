@@ -1127,12 +1127,14 @@ fn skesk_parser_test() {
             assert_eq!(skesk.symm_algo, test.cipher_algo);
             assert_eq!(skesk.s2k, test.s2k);
 
-            let key = skesk.decrypt(test.password);
-            if let Ok((_symm_algo, key)) = key {
-                let key = to_hex(&key[..], false);
-                assert_eq!(&key[..], &test.key_hex[..]);
-            } else {
-                panic!("Session key: None!");
+            match skesk.decrypt(test.password) {
+                Ok((_symm_algo, key)) => {
+                    let key = to_hex(&key[..], false);
+                    assert_eq!(&key[..], &test.key_hex[..]);
+                }
+                Err(e) => {
+                    panic!("No session key, got: {:?}", e);
+                }
             }
         } else {
             unreachable!();

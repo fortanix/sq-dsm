@@ -1,12 +1,19 @@
 use Result;
-use SymmetricAlgo;
-use SKESK;
 use Packet;
+use S2K;
+use Error;
+use symmetric::SymmetricAlgo;
+use packet::Common;
 
-use nettle::Cipher;
-use nettle::cipher::Aes128;
-use nettle::Mode;
-use nettle::mode::Cfb;
+#[derive(PartialEq, Clone, Debug)]
+pub struct SKESK {
+    pub common: Common,
+    pub version: u8,
+    pub symm_algo: SymmetricAlgo,
+    pub s2k: S2K,
+    // The encrypted session key.
+    pub esk: Vec<u8>,
+}
 
 impl SKESK {
     /// Convert the `SKESK` struct to a `Packet`.
@@ -14,31 +21,36 @@ impl SKESK {
         Packet::SKESK(self)
     }
 
-    /// Returns the session key.
+    /// Derives the key inside this SKESK from `password`. Returns a tuple of the symmetric cipher
+    /// to use with the key and the key itself.
     pub fn decrypt(&self, password: &[u8]) -> Result<(SymmetricAlgo, Vec<u8>)> {
         let key = self.s2k.derive_key(password, self.symm_algo.key_size()?)?;
 
         if self.esk.len() == 0 {
-            return Ok((self.symm_algo, key));
+            // No ESK, we return the derived key.
+
+            match self.s2k {
+                S2K::Simple{ .. } =>
+                    Err(Error::InvalidOperation("SKESK: Cannot use Simple S2K without ESK".into()).into()),
+                _ => Ok((self.symm_algo, key)),
+            }
+        } else {
+            // Use the derived key to decrypt the ESK. Unlike SEP & SEIP we have
+            // to use plain CFB here.
+            let blk_sz = self.symm_algo.block_size()?;
+            let mut iv = vec![0u8; blk_sz];
+            let mut dec  = self.symm_algo.make_decrypt_cfb(&key[..])?;
+            let mut plain = vec![0u8; self.esk.len()];
+            let cipher = &self.esk[..];
+
+            for (pl,ct) in plain[..].chunks_mut(blk_sz).zip(cipher.chunks(blk_sz)) {
+                dec.decrypt(&mut iv[..], pl, ct);
+            }
+
+            let sym = SymmetricAlgo::from(plain[0]);
+            let key = plain[1..].to_vec();
+
+            Ok((sym, key))
         }
-
-        /// XXX: We only support AES128 right now.  Ideally, we'd have
-        /// a function like hash_context to get a generic decryptor,
-        /// but the Nettle wrapper needs to be changed a bit.
-        assert_eq!(self.symm_algo, SymmetricAlgo::AES128);
-
-        let mut dec = Cfb::<Aes128>::with_encrypt_key(&key[..]);
-
-        let mut iv = vec![0u8; Aes128::BLOCK_SIZE];
-        let mut sk = vec![0u8; self.esk.len()];
-        dec.decrypt(&mut iv[..], &mut sk[..], &self.esk[..]);
-
-        assert!(sk.len() > 0);
-        let symm_algo: SymmetricAlgo = sk[0].into();
-        let key_len = symm_algo.key_size().unwrap_or(sk.len() - 1);
-
-        let key = sk[1..1 + key_len].to_vec();
-
-        return Ok((symm_algo, key));
     }
 }
