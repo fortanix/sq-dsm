@@ -3,10 +3,7 @@ use std::cmp;
 use nettle::Hash;
 
 use Result;
-use HashAlgo;
 use S2K;
-
-use hash::hash_context;
 
 impl S2K {
     /// Return the interation count.
@@ -21,8 +18,7 @@ impl S2K {
 
     /// Convert the string to a key using the S2K's paramters.
     pub fn s2k(&self, string: &[u8], key_size: usize) -> Result<Vec<u8>> {
-        let algo = HashAlgo::from_numeric(self.hash_algo)?;
-        let h = hash_context(algo);
+        let h = self.hash_algo.context()?;
 
         // If the digest length is shorter than the key length,
         // then we need to concatenate multiple hashes, each
@@ -34,7 +30,7 @@ impl S2K {
 
         let zeros = vec![0u8; contexts - 1];
         for i in 1..contexts {
-            let mut h = hash_context(algo);
+            let mut h = self.hash_algo.context()?;
             h.update(&zeros[..i]);
             hs.push(h);
         }
@@ -91,10 +87,9 @@ mod test {
 
     use to_hex;
     use SymmetricAlgo;
+    use HashAlgo;
     use Packet;
     use super::super::parse::PacketParser;
-
-    use symmetric::symmetric_key_size;
 
     use std::path::PathBuf;
     fn path_to(artifact: &str) -> PathBuf {
@@ -123,7 +118,7 @@ mod test {
                 filename: "mode-0-password-1234.gpg",
                 cipher_algo: SymmetricAlgo::AES256,
                 s2k: S2K {
-                    hash_algo: 2,
+                    hash_algo: HashAlgo::SHA1,
                     salt: None,
                     coded_count: None,
                 },
@@ -134,7 +129,7 @@ mod test {
                 filename: "mode-1-password-123456-1.gpg",
                 cipher_algo: SymmetricAlgo::AES256,
                 s2k: S2K {
-                    hash_algo: 2,
+                    hash_algo: HashAlgo::SHA1,
                     salt: Some([0xa8, 0x42, 0xa7, 0xa9, 0x59, 0xfa, 0x42, 0x2a]),
                     coded_count: None,
                 },
@@ -145,7 +140,7 @@ mod test {
                 filename: "mode-1-password-foobar-2.gpg",
                 cipher_algo: SymmetricAlgo::AES256,
                 s2k: S2K {
-                    hash_algo: 2,
+                    hash_algo: HashAlgo::SHA1,
                     salt: Some([0xbc, 0x95, 0x58, 0x45, 0x81, 0x3c, 0x7c, 0x37]),
                     coded_count: None,
                 },
@@ -156,7 +151,7 @@ mod test {
                 filename: "mode-3-password-qwerty-1.gpg",
                 cipher_algo: SymmetricAlgo::AES256,
                 s2k: S2K {
-                    hash_algo: 2,
+                    hash_algo: HashAlgo::SHA1,
                     salt: Some([0x78, 0x45, 0xf0, 0x5b, 0x55, 0xf7, 0xb4, 0x9e]),
                     coded_count: Some(241),
                 },
@@ -167,7 +162,7 @@ mod test {
                 filename: "mode-3-password-9876-2.gpg",
                 cipher_algo: SymmetricAlgo::AES256,
                 s2k: S2K {
-                    hash_algo: 2,
+                    hash_algo: HashAlgo::SHA1,
                     salt: Some([0xb9, 0x67, 0xea, 0x96, 0x53, 0xdb, 0x6a, 0xc8]),
                     coded_count: Some(43),
                 },
@@ -178,7 +173,7 @@ mod test {
                 filename: "mode-3-aes192-password-123.gpg",
                 cipher_algo: SymmetricAlgo::AES192,
                 s2k: S2K {
-                    hash_algo: 2,
+                    hash_algo: HashAlgo::SHA1,
                     salt: Some([0x8f, 0x81, 0x74, 0xc5, 0xd9, 0x61, 0xc7, 0x79]),
                     coded_count: Some(238),
                 },
@@ -189,7 +184,7 @@ mod test {
                 filename: "mode-3-twofish-password-13-times-0123456789.gpg",
                 cipher_algo: SymmetricAlgo::Twofish,
                 s2k: S2K {
-                    hash_algo: 2,
+                    hash_algo: HashAlgo::SHA1,
                     salt: Some([0x51, 0xed, 0xfc, 0x15, 0x45, 0x40, 0x65, 0xac]),
                     coded_count: Some(238),
                 },
@@ -200,7 +195,7 @@ mod test {
                 filename: "mode-3-aes128-password-13-times-0123456789.gpg",
                 cipher_algo: SymmetricAlgo::AES128,
                 s2k: S2K {
-                    hash_algo: 2,
+                    hash_algo: HashAlgo::SHA1,
                     salt: Some([0x06, 0xe4, 0x61, 0x5c, 0xa4, 0x48, 0xf9, 0xdd]),
                     coded_count: Some(238),
                 },
@@ -213,13 +208,12 @@ mod test {
             let path = path_to(test.filename);
             let mut pp = PacketParser::from_file(path).unwrap().unwrap();
             if let Packet::SKESK(ref skesk) = pp.packet {
-                assert_eq!(skesk.symm_algo,
-                           SymmetricAlgo::to_numeric(test.cipher_algo));
+                assert_eq!(skesk.symm_algo, test.cipher_algo);
                 assert_eq!(skesk.s2k, test.s2k);
 
                 let key = skesk.s2k.s2k(
                     test.password,
-                    symmetric_key_size(skesk.symm_algo).unwrap());
+                    skesk.symm_algo.key_size().unwrap());
                 if let Ok(key) = key {
                     let key = to_hex(&key[..], false);
                     assert_eq!(key, test.key_hex);

@@ -9,7 +9,6 @@ use buffered_reader::buffered_reader_generic_read_impl;
 
 use HashAlgo;
 use parse::{BufferedReaderState, HashesFor};
-use hash::hash_context;
 
 use super::indent;
 
@@ -28,8 +27,8 @@ impl<R: BufferedReader<BufferedReaderState>> HashedReader<R> {
     pub fn new(reader: R, hashes_for: HashesFor, algos: Vec<HashAlgo>)
             -> Self {
         let mut cookie = BufferedReaderState::default();
-        for algo in &algos {
-            cookie.hashes.push((*algo, hash_context(*algo)));
+        for &algo in &algos {
+            cookie.hashes.push((algo, algo.context().unwrap()));
         }
         cookie.hashes_for = hashes_for;
 

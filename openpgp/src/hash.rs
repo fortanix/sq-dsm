@@ -1,30 +1,150 @@
 //! Functionality to hash packets, and generate hashes.
 
-use HashAlgo;
-
 use UserID;
 use UserAttribute;
 use Key;
 use Signature;
+use Error;
+use Result;
+
+use std::str::FromStr;
+use std::result;
+use std::fmt;
 
 use nettle::Hash;
-use nettle::hash::insecure_do_not_use::Sha1;
-use nettle::hash::{Sha224, Sha256, Sha384, Sha512};
+use quickcheck::{Arbitrary, Gen};
 
-// Returns a fresh hash context.
-pub fn hash_context(hash_algo: HashAlgo) -> Box<Hash> {
-    match hash_algo {
-        HashAlgo::SHA1 => Box::new(Sha1::default()),
-        HashAlgo::SHA224 => Box::new(Sha224::default()),
-        HashAlgo::SHA256 => Box::new(Sha256::default()),
-        HashAlgo::SHA384 => Box::new(Sha384::default()),
-        HashAlgo::SHA512 => Box::new(Sha512::default()),
-        algo => {
-            eprintln!("algo {:?} not implemented", algo);
-            unimplemented!();
-        },
+/// The OpenPGP hash algorithms as defined in [Section 9.4 of RFC 4880].
+///
+///   [Section 9.4 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-9.4
+///
+/// The values correspond to the serialized format.
+#[derive(Clone,Copy,PartialEq,Eq,Debug)]
+pub enum HashAlgo {
+    MD5,
+    SHA1,
+    RipeMD,
+    SHA256,
+    SHA384,
+    SHA512,
+    SHA224,
+    Private(u8),
+    Unknown(u8),
+}
+
+impl From<u8> for HashAlgo {
+    fn from(u: u8) -> Self {
+        match u {
+            1 => HashAlgo::MD5,
+            2 => HashAlgo::SHA1,
+            3 => HashAlgo::RipeMD,
+            8 => HashAlgo::SHA256,
+            9 => HashAlgo::SHA384,
+            10 => HashAlgo::SHA512,
+            11 => HashAlgo::SHA224,
+            100...110 => HashAlgo::Private(u),
+            u => HashAlgo::Unknown(u),
+        }
     }
 }
+
+impl Into<u8> for HashAlgo {
+    fn into(self) -> u8 {
+        match self {
+            HashAlgo::MD5 => 1,
+            HashAlgo::SHA1 => 2,
+            HashAlgo::RipeMD => 3,
+            HashAlgo::SHA256 => 8,
+            HashAlgo::SHA384 => 9,
+            HashAlgo::SHA512 => 10,
+            HashAlgo::SHA224 => 11,
+            HashAlgo::Private(u) => u,
+            HashAlgo::Unknown(u) => u,
+        }
+    }
+}
+
+impl FromStr for HashAlgo {
+    type Err = ();
+
+    fn from_str(s: &str) -> result::Result<Self, ()> {
+        if s == "MD5" {
+            Ok(HashAlgo::MD5)
+        } else if s == "SHA1" {
+            Ok(HashAlgo::SHA1)
+        } else if s == "RipeMD160" {
+            Ok(HashAlgo::RipeMD)
+        } else if s == "SHA256" {
+            Ok(HashAlgo::SHA256)
+        } else if s == "SHA384" {
+            Ok(HashAlgo::SHA384)
+        } else if s == "SHA512" {
+            Ok(HashAlgo::SHA512)
+        } else if s == "SHA224" {
+            Ok(HashAlgo::SHA224)
+        } else {
+            Err(())
+        }
+    }
+}
+
+impl fmt::Display for HashAlgo {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            HashAlgo::MD5 => f.write_str("MD5"),
+            HashAlgo::SHA1 => f.write_str("SHA1"),
+            HashAlgo::RipeMD => f.write_str("RipeMD160"),
+            HashAlgo::SHA256 => f.write_str("SHA256"),
+            HashAlgo::SHA384 => f.write_str("SHA384"),
+            HashAlgo::SHA512 => f.write_str("SHA512"),
+            HashAlgo::SHA224 => f.write_str("SHA224"),
+            HashAlgo::Private(u) =>
+                f.write_fmt(format_args!("Private/Experimental hash algorithm {}",u)),
+            HashAlgo::Unknown(u) =>
+                f.write_fmt(format_args!("Unknown hash algorithm {}",u)),
+        }
+    }
+}
+
+impl HashAlgo {
+    pub fn is_supported(self) -> bool {
+        match self {
+            HashAlgo::SHA1 => true,
+            HashAlgo::SHA224 => true,
+            HashAlgo::SHA256 => true,
+            HashAlgo::SHA384 => true,
+            HashAlgo::SHA512 => true,
+            HashAlgo::RipeMD => false,
+            HashAlgo::MD5 => false,
+            HashAlgo::Private(_) => false,
+            HashAlgo::Unknown(_) => false,
+        }
+    }
+
+    pub fn context(self) -> Result<Box<Hash>> {
+        use nettle::hash::*;
+        use nettle::hash::insecure_do_not_use::Sha1;
+
+        match self {
+            HashAlgo::SHA1 => Ok(Box::new(Sha1::default())),
+            HashAlgo::SHA224 => Ok(Box::new(Sha224::default())),
+            HashAlgo::SHA256 => Ok(Box::new(Sha256::default())),
+            HashAlgo::SHA384 => Ok(Box::new(Sha384::default())),
+            HashAlgo::SHA512 => Ok(Box::new(Sha512::default())),
+            HashAlgo::MD5 | HashAlgo::RipeMD =>
+                Err(Error::UnknownHashAlgorithm(self.into()).into()),
+            HashAlgo::Private(x) | HashAlgo::Unknown(x) =>
+                Err(Error::UnknownHashAlgorithm(x).into()),
+        }
+    }
+}
+
+impl Arbitrary for HashAlgo {
+    fn arbitrary<G: Gen>(g: &mut G) -> Self {
+        u8::arbitrary(g).into()
+    }
+}
+
 
 impl UserID {
     // Update the Hash with a hash of the key.
@@ -104,7 +224,7 @@ impl Signature {
         header[0] = 4;
         header[1] = self.sigtype;
         header[2] = self.pk_algo;
-        header[3] = self.hash_algo;
+        header[3] = self.hash_algo.into();
 
         // The length of the hashed area, as a 16-bit endian number.
         let len = self.hashed_area.data.len();
@@ -136,8 +256,8 @@ impl Signature {
     // Return the message digest of the primary key binding over the
     // specified primary key, subkey, and signature.
     pub fn primary_key_binding_hash(&self, key: &Key) -> Vec<u8> {
-        let mut h
-            = hash_context(HashAlgo::from_numeric(self.hash_algo).unwrap());
+        let h: HashAlgo = self.hash_algo.into();
+        let mut h: Box<Hash> = h.context().unwrap();
 
         key.hash(&mut h);
         self.hash(&mut h);
@@ -151,8 +271,8 @@ impl Signature {
     // specified primary key, subkey, and signature.
     pub fn subkey_binding_hash(&self, key: &Key, subkey: &Key)
             -> Vec<u8> {
-        let mut h
-            = hash_context(HashAlgo::from_numeric(self.hash_algo).unwrap());
+        let h: HashAlgo = self.hash_algo.into();
+        let mut h: Box<Hash> = h.context().unwrap();
 
         key.hash(&mut h);
         subkey.hash(&mut h);
@@ -167,8 +287,8 @@ impl Signature {
     // specified primary key, user ID, and signature.
     pub fn userid_binding_hash(&self, key: &Key, userid: &UserID)
             -> Vec<u8> {
-        let mut h
-            = hash_context(HashAlgo::from_numeric(self.hash_algo).unwrap());
+        let h: HashAlgo = self.hash_algo.into();
+        let mut h: Box<Hash> = h.context().unwrap();
 
         key.hash(&mut h);
         userid.hash(&mut h);
@@ -183,8 +303,8 @@ impl Signature {
     // the specified primary key, user attribute, and signature.
     pub fn user_attribute_binding_hash(&self, key: &Key, ua: &UserAttribute)
             -> Vec<u8> {
-        let mut h
-            = hash_context(HashAlgo::from_numeric(self.hash_algo).unwrap());
+        let h: HashAlgo = self.hash_algo.into();
+        let mut h: Box<Hash> = h.context().unwrap();
 
         key.hash(&mut h);
         ua.hash(&mut h);
@@ -198,6 +318,7 @@ impl Signature {
 
 #[cfg(test)]
 mod test {
+    use super::*;
     use TPK;
 
     macro_rules! bytes {
@@ -264,5 +385,42 @@ mod test {
         let (_userid_sigs, ua_sigs, _subkey_sigs)
             = check(TPK::from_bytes(bytes!("dkg.gpg")).unwrap());
         assert!(ua_sigs > 0);
+    }
+
+    quickcheck! {
+        fn hash_roundtrip(hash: HashAlgo) -> bool {
+            let val: u8 = hash.clone().into();
+            hash == HashAlgo::from(val)
+        }
+    }
+
+    quickcheck! {
+        fn hash_roundtrip_str(hash: HashAlgo) -> bool {
+            match hash {
+                HashAlgo::Private(_) | HashAlgo::Unknown(_) => true,
+                hash => {
+                    let s = format!("{}",hash);
+                    hash == HashAlgo::from_str(&s).unwrap()
+                }
+            }
+        }
+    }
+
+    quickcheck! {
+        fn hash_display(hash: HashAlgo) -> bool {
+            let s = format!("{}",hash);
+            !s.is_empty()
+        }
+    }
+
+    quickcheck! {
+        fn hash_parse(hash: HashAlgo) -> bool {
+            match hash {
+                HashAlgo::Unknown(u) => u == 0 || (u > 11 && u < 100) ||
+                    u > 110 || (u >= 4 && u <= 7) || u == 0,
+                HashAlgo::Private(u) => u >= 100 && u <= 110,
+                _ => true
+            }
+        }
     }
 }

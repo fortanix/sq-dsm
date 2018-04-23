@@ -52,6 +52,13 @@ extern crate nettle;
 extern crate flate2;
 extern crate bzip2;
 
+#[cfg(test)]
+#[macro_use]
+extern crate quickcheck;
+
+#[cfg(not(test))]
+extern crate quickcheck;
+
 use std::fmt;
 use std::io;
 use std::cell::RefCell;
@@ -71,8 +78,10 @@ use parse::SubpacketArea;
 pub mod tpk;
 pub mod serialize;
 
-pub mod hash;
+mod hash;
+pub use hash::HashAlgo;
 pub mod symmetric;
+pub use symmetric::SymmetricAlgo;
 
 mod s2k;
 mod unknown;
@@ -85,6 +94,7 @@ mod literal;
 mod compressed_data;
 mod skesk;
 mod message;
+mod constants;
 
 pub type Result<T> = ::std::result::Result<T, failure::Error>;
 
@@ -308,115 +318,9 @@ impl Tag {
     }
 }
 
-/// The OpenPGP hash algorithms as defined in [Section 9.4 of RFC 4880].
-///
-///   [Section 9.4 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-9.4
-///
-/// The values correspond to the serialized format.
-///
-/// Use [`HashAlgo::from_numeric`] to translate a numeric value to a symbolic
-/// one.
-///
-///   [`HashAlgo::from_numeric`]: enum.HashAlgo.html#method.from_numeric
-#[derive(Debug)]
-#[derive(FromPrimitive)]
-#[derive(ToPrimitive)]
-// We need PartialEq so that assert_eq! works.
-#[derive(PartialEq)]
-#[derive(Clone, Copy)]
-pub enum HashAlgo {
-    MD5 = 1,
-    SHA1 = 2,
-    RIPEMD = 3,
-    SHA256 = 8,
-    SHA384 = 9,
-    SHA512 = 10,
-    SHA224 = 11,
-}
-
-impl HashAlgo {
-    /// Converts a numeric value to an `Option<HashAlgo>`.
-    ///
-    /// Returns None, if the value is out of range.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use openpgp::HashAlgo;
-    ///
-    /// assert_eq!(HashAlgo::from_numeric(2).unwrap(), HashAlgo::SHA1);
-    /// ```
-    pub fn from_numeric(value: u8) -> Result<Self> {
-        if let Some(algo) = num::FromPrimitive::from_u8(value) {
-            Ok(algo)
-        } else {
-            Err(Error::UnknownHashAlgorithm(value).into())
-        }
-    }
-    /// Converts a `HashAlgo` to its corresponding numeric value.
-    pub fn to_numeric(self) -> u8 {
-        num::ToPrimitive::to_u8(&self).unwrap()
-    }
-}
-
-/// The symmetric-key algorithms as defined in [Section 9.2 of RFC 4880].
-///
-///   [Section 9.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-9.2
-///
-/// The values correspond to the serialized format.
-///
-/// Use [`SymmetricAlgo::from_numeric`] to translate a numeric value
-/// to a symbolic one.
-///
-///   [`SymmetricAlgo::from_numeric`]: enum.SymmetricAlgo.html#method.from_numeric
-#[derive(Debug)]
-#[derive(FromPrimitive)]
-#[derive(ToPrimitive)]
-// We need PartialEq so that assert_eq! works.
-#[derive(PartialEq)]
-#[derive(Clone, Copy)]
-pub enum SymmetricAlgo {
-    Unencrypted = 0,
-    IDEA = 1,
-    TripleDES = 2,
-    CAST5 = 3,
-    Blowfish = 4,
-    AES128 = 7,
-    AES192 = 8,
-    AES256 = 9,
-    Twofish = 10,
-}
-
-impl SymmetricAlgo {
-    /// Converts a numeric value to an `Option<SymmetricAlgo>`.
-    ///
-    /// Returns None, if the value is out of range.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use openpgp::SymmetricAlgo;
-    ///
-    /// assert_eq!(SymmetricAlgo::from_numeric(9).unwrap(),
-    ///            SymmetricAlgo::AES256);
-    /// ```
-    pub fn from_numeric(value: u8) -> Result<Self> {
-        if let Some(algo) = num::FromPrimitive::from_u8(value) {
-            Ok(algo)
-        } else {
-            Err(Error::UnknownSymmetricAlgorithm(value).into())
-        }
-    }
-
-    /// Converts a `SymmetricAlgo` to its corresponding numeric value.
-    pub fn to_numeric(self) -> u8 {
-        num::ToPrimitive::to_u8(&self).unwrap()
-    }
-}
-
 #[derive(PartialEq, Clone, Debug)]
 pub struct S2K {
-    hash_algo: u8,
+    hash_algo: HashAlgo,
     salt: Option<[u8; 8]>,
     coded_count: Option<u8>,
 }
@@ -448,7 +352,7 @@ pub struct Signature {
     pub version: u8,
     pub sigtype: u8,
     pub pk_algo: u8,
-    pub hash_algo: u8,
+    pub hash_algo: HashAlgo,
     pub hashed_area: parse::subpacket::SubpacketArea,
     pub unhashed_area: parse::subpacket::SubpacketArea,
     pub hash_prefix: [u8; 2],
@@ -469,7 +373,7 @@ pub struct OnePassSig {
     pub common: packet::Common,
     pub version: u8,
     pub sigtype: u8,
-    pub hash_algo: u8,
+    pub hash_algo: HashAlgo,
     pub pk_algo: u8,
     pub issuer: [u8; 8],
     pub last: u8,
@@ -567,7 +471,7 @@ pub struct CompressedData {
 pub struct SKESK {
     pub common: packet::Common,
     pub version: u8,
-    pub symm_algo: u8,
+    pub symm_algo: SymmetricAlgo,
     pub s2k: S2K,
     // The encrypted session key.
     pub esk: Vec<u8>,

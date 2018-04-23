@@ -494,7 +494,7 @@ pub extern "system" fn sq_skesk_decrypt(ctx: Option<&mut Context>,
     if let &Packet::SKESK(ref skesk) = skesk {
         match skesk.decrypt(passphrase) {
             Ok((a, k)) => {
-                *algo = a;
+                *algo = a.into();
                 if !key.is_null() && *key_len >= k.len() {
                     unsafe {
                         ::std::ptr::copy(k.as_ptr(),
@@ -807,5 +807,5 @@ pub extern "system" fn sq_packet_parser_decrypt<'a>
     let key = unsafe {
         slice::from_raw_parts(key, key_len as usize)
     };
-    fry_status!(ctx, pp.decrypt(algo as u8, key))
+    fry_status!(ctx, pp.decrypt((algo as u8).into(), key))
 }

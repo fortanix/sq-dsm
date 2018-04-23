@@ -11,6 +11,7 @@ failure = "0.1.1"
 flate2 = "1.0.1"
 nettle = { git = "https://gitlab.com/sequoia-pgp/nettle-rs.git" }
 num-derive = "0.1.41"
+quickcheck = "0.6"
 
 [dependencies.num]
 version = "0.1.40"

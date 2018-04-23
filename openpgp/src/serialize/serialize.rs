@@ -152,7 +152,7 @@ impl S2K {
         };
 
         write_byte(o, mode)?;
-        write_byte(o, self.hash_algo)?;
+        write_byte(o, self.hash_algo.into())?;
         if let Some(salt) = self.salt {
             o.write(&salt[..])?;
         }
@@ -219,7 +219,7 @@ impl Signature {
         write_byte(o, self.version)?;
         write_byte(o, self.sigtype)?;
         write_byte(o, self.pk_algo)?;
-        write_byte(o, self.hash_algo)?;
+        write_byte(o, self.hash_algo.into())?;
 
         // XXX: Return an error.
         assert!(self.hashed_area.data.len() <= std::u16::MAX as usize);
@@ -272,7 +272,7 @@ impl OnePassSig {
 
         write_byte(o, self.version)?;
         write_byte(o, self.sigtype)?;
-        write_byte(o, self.hash_algo)?;
+        write_byte(o, self.hash_algo.into())?;
         write_byte(o, self.pk_algo)?;
         o.write_all(&self.issuer[..])?;
         write_byte(o, self.last)?;
@@ -501,8 +501,8 @@ impl SKESK {
             BodyLength::Full(len as u32))[..])?;
 
         write_byte(o, self.version)?;
-        write_byte(o, self.symm_algo)?;
-        self.s2k.serialize(o).unwrap();
+        write_byte(o, self.symm_algo.into())?;
+        self.s2k.serialize(o)?;
         o.write(&self.esk[..])?;
 
         Ok(())

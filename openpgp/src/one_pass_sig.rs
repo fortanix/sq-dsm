@@ -3,6 +3,7 @@ use std::fmt;
 use OnePassSig;
 use Packet;
 use KeyID;
+use HashAlgo;
 
 impl fmt::Debug for OnePassSig {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -33,7 +34,7 @@ impl OnePassSig {
             common: Default::default(),
             version: 3,
             sigtype: sigtype,
-            hash_algo: 0,
+            hash_algo: HashAlgo::Unknown(0),
             pk_algo: 0,
             issuer: [0u8; 8],
             last: 1,
@@ -53,7 +54,7 @@ impl OnePassSig {
     }
 
     /// Sets the hash algorithm.
-    pub fn hash_algo(mut self, algo: u8) -> Self {
+    pub fn hash_algo(mut self, algo: HashAlgo) -> Self {
         self.hash_algo = algo;
         self
     }

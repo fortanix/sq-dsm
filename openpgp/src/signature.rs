@@ -3,6 +3,7 @@ use std::fmt;
 use Signature;
 use Packet;
 use SubpacketArea;
+use HashAlgo;
 
 impl fmt::Debug for Signature {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -63,7 +64,7 @@ impl Signature {
             version: 4,
             sigtype: sigtype,
             pk_algo: 0,
-            hash_algo: 0,
+            hash_algo: HashAlgo::Unknown(0),
             hashed_area: SubpacketArea::empty(),
             unhashed_area: SubpacketArea::empty(),
             hash_prefix: [0, 0],
@@ -87,7 +88,7 @@ impl Signature {
     }
 
     /// Sets the hash algorithm.
-    pub fn hash_algo(mut self, algo: u8) -> Self {
+    pub fn hash_algo(mut self, algo: HashAlgo) -> Self {
         // XXX: Do we invalidate the signature data?
         self.hash_algo = algo;
         self

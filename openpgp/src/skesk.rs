@@ -2,7 +2,6 @@ use Result;
 use SymmetricAlgo;
 use SKESK;
 use Packet;
-use symmetric::symmetric_key_size;
 
 use nettle::Cipher;
 use nettle::cipher::Aes128;
@@ -16,8 +15,8 @@ impl SKESK {
     }
 
     /// Returns the session key.
-    pub fn decrypt(&self, password: &[u8]) -> Result<(u8, Vec<u8>)> {
-        let key = self.s2k.s2k(password, symmetric_key_size(self.symm_algo)?)?;
+    pub fn decrypt(&self, password: &[u8]) -> Result<(SymmetricAlgo, Vec<u8>)> {
+        let key = self.s2k.s2k(password, self.symm_algo.key_size()?)?;
 
         if self.esk.len() == 0 {
             return Ok((self.symm_algo, key));
@@ -26,7 +25,7 @@ impl SKESK {
         /// XXX: We only support AES128 right now.  Ideally, we'd have
         /// a function like hash_context to get a generic decryptor,
         /// but the Nettle wrapper needs to be changed a bit.
-        assert_eq!(self.symm_algo, SymmetricAlgo::AES128.to_numeric());
+        assert_eq!(self.symm_algo, SymmetricAlgo::AES128);
 
         let mut dec = Cfb::<Aes128>::with_encrypt_key(&key[..]);
 
@@ -35,8 +34,8 @@ impl SKESK {
         dec.decrypt(&mut iv[..], &mut sk[..], &self.esk[..]);
 
         assert!(sk.len() > 0);
-        let symm_algo = sk[0];
-        let key_len = symmetric_key_size(symm_algo).unwrap_or(sk.len() - 1);
+        let symm_algo: SymmetricAlgo = sk[0].into();
+        let key_len = symm_algo.key_size().unwrap_or(sk.len() - 1);
 
         let key = sk[1..1 + key_len].to_vec();
 

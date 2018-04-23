@@ -6,55 +6,161 @@ use std::fmt;
 
 use Result;
 use Error;
-use SymmetricAlgo;
 
 use buffered_reader::BufferedReader;
 use buffered_reader::BufferedReaderGeneric;
 
 use nettle::Cipher;
-use nettle::cipher::{Aes128, Aes192, Aes256, Twofish};
 use nettle::Mode;
-use nettle::mode::Cfb;
 
-pub fn symmetric_key_size(algo: u8) -> Result<usize> {
-    match SymmetricAlgo::from_numeric(algo)? {
-        // SymmetricAlgo::IDEA =>
-        // SymmetricAlgo::TripleDES =>
-        // SymmetricAlgo::CAST5 =>
-        // SymmetricAlgo::Blowfish =>
-        SymmetricAlgo::AES128 => Ok(Aes128::KEY_SIZE),
-        SymmetricAlgo::AES192 => Ok(Aes192::KEY_SIZE),
-        SymmetricAlgo::AES256 => Ok(Aes256::KEY_SIZE),
-        SymmetricAlgo::Twofish => Ok(Twofish::KEY_SIZE),
-        _ => Err(Error::UnsupportedSymmetricAlgorithm(algo).into()),
+use quickcheck::{Arbitrary,Gen};
+
+/// The symmetric-key algorithms as defined in [Section 9.2 of RFC 4880].
+///
+///   [Section 9.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-9.2
+///
+/// The values can be converted into and from their corresponding values of the serialized format.
+///
+/// Use [`SymmetricAlgo::into`] to translate a numeric value
+/// to a symbolic one.
+///
+///   [`SymmetricAlgo::from`]: enum.SymmetricAlgo.html#method.from
+#[derive(Clone,Copy,PartialEq,Eq,Debug)]
+pub enum SymmetricAlgo {
+    Unencrypted,
+    IDEA,
+    TripleDES,
+    CAST5,
+    Blowfish,
+    AES128,
+    AES192,
+    AES256,
+    Twofish,
+    Private(u8),
+    Unknown(u8),
+}
+
+impl From<u8> for SymmetricAlgo {
+    fn from(u: u8) -> Self {
+        match u {
+            0 => SymmetricAlgo::Unencrypted,
+            1 => SymmetricAlgo::IDEA,
+            2 => SymmetricAlgo::TripleDES,
+            3 => SymmetricAlgo::CAST5,
+            4 => SymmetricAlgo::Blowfish,
+            7 => SymmetricAlgo::AES128,
+            8 => SymmetricAlgo::AES192,
+            9 => SymmetricAlgo::AES256,
+            10 => SymmetricAlgo::Twofish,
+            100...110 => SymmetricAlgo::Private(u),
+            u => SymmetricAlgo::Unknown(u),
+        }
     }
 }
-pub fn symmetric_block_size(algo: u8) -> Result<usize> {
-    match SymmetricAlgo::from_numeric(algo)? {
-        SymmetricAlgo::AES128 => Ok(Aes128::BLOCK_SIZE),
-        SymmetricAlgo::AES192 => Ok(Aes192::BLOCK_SIZE),
-        SymmetricAlgo::AES256 => Ok(Aes256::BLOCK_SIZE),
-        SymmetricAlgo::Twofish => Ok(Twofish::BLOCK_SIZE),
-        // SymmetricAlgo::IDEA =>
-        // SymmetricAlgo::TripleDES =>
-        // SymmetricAlgo::CAST5 =>
-        // SymmetricAlgo::Blowfish =>
-        _ => Err(Error::UnsupportedSymmetricAlgorithm(algo).into()),
+
+impl Into<u8> for SymmetricAlgo {
+    fn into(self) -> u8 {
+        match self {
+            SymmetricAlgo::Unencrypted => 0,
+            SymmetricAlgo::IDEA => 1,
+            SymmetricAlgo::TripleDES => 2,
+            SymmetricAlgo::CAST5 => 3,
+            SymmetricAlgo::Blowfish => 4,
+            SymmetricAlgo::AES128 => 7,
+            SymmetricAlgo::AES192 => 8,
+            SymmetricAlgo::AES256 => 9,
+            SymmetricAlgo::Twofish => 10,
+            SymmetricAlgo::Private(u) => u,
+            SymmetricAlgo::Unknown(u) => u,
+        }
     }
 }
 
-pub fn symmetric_init(algo: u8, key: &[u8])
-        -> Result<Box<Mode>> {
-    match SymmetricAlgo::from_numeric(algo)? {
-        SymmetricAlgo::AES128 =>
-            Ok(Box::new(Cfb::<Aes128>::with_encrypt_key(&key[..]))),
-        SymmetricAlgo::AES192 =>
-            Ok(Box::new(Cfb::<Aes192>::with_encrypt_key(&key[..]))),
-        SymmetricAlgo::AES256 =>
-            Ok(Box::new(Cfb::<Aes256>::with_encrypt_key(&key[..]))),
-        SymmetricAlgo::Twofish =>
-            Ok(Box::new(Cfb::<Twofish>::with_encrypt_key(&key[..]))),
-        _ => Err(Error::UnsupportedSymmetricAlgorithm(algo).into()),
+impl fmt::Display for SymmetricAlgo {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            SymmetricAlgo::Unencrypted =>
+                f.write_str("Unencrypted"),
+            SymmetricAlgo::IDEA =>
+                f.write_str("IDEA"),
+            SymmetricAlgo::TripleDES =>
+                f.write_str("TipleDES (EDE-DES, 168 bit key derived from 192))"),
+            SymmetricAlgo::CAST5 =>
+                f.write_str("CAST5 (128 bit key, 16 rounds)"),
+            SymmetricAlgo::Blowfish =>
+                f.write_str("Blowfish (128 bit key, 16 rounds)"),
+            SymmetricAlgo::AES128 =>
+                f.write_str("AES with 128-bit key"),
+            SymmetricAlgo::AES192 =>
+                f.write_str("AES with 192-bit key"),
+            SymmetricAlgo::AES256 =>
+                f.write_str("AES with 256-bit key"),
+            SymmetricAlgo::Twofish =>
+                f.write_str("Twofish with 256-bit key"),
+            SymmetricAlgo::Private(u) =>
+                f.write_fmt(format_args!("Private/Experimental symmetric key algorithm {}",u)),
+            SymmetricAlgo::Unknown(u) =>
+                f.write_fmt(format_args!("Unknown symmetric key algorithm {}",u)),
+        }
+    }
+}
+
+impl Arbitrary for SymmetricAlgo {
+    fn arbitrary<G: Gen>(g: &mut G) -> Self {
+        u8::arbitrary(g).into()
+    }
+}
+
+impl SymmetricAlgo {
+    pub fn key_size(self) -> Result<usize> {
+        use nettle::cipher;
+        match self {
+            SymmetricAlgo::AES128 => Ok(cipher::Aes128::KEY_SIZE),
+            SymmetricAlgo::AES192 => Ok(cipher::Aes192::KEY_SIZE),
+            SymmetricAlgo::AES256 => Ok(cipher::Aes256::KEY_SIZE),
+            SymmetricAlgo::Twofish => Ok(cipher::Twofish::KEY_SIZE),
+            _ => Err(Error::UnsupportedSymmetricAlgorithm(self.into()).into()),
+        }
+    }
+    pub fn block_size(self) -> Result<usize> {
+        use nettle::cipher;
+        match self {
+            SymmetricAlgo::AES128 => Ok(cipher::Aes128::BLOCK_SIZE),
+            SymmetricAlgo::AES192 => Ok(cipher::Aes192::BLOCK_SIZE),
+            SymmetricAlgo::AES256 => Ok(cipher::Aes256::BLOCK_SIZE),
+            SymmetricAlgo::Twofish => Ok(cipher::Twofish::BLOCK_SIZE),
+            _ => Err(Error::UnsupportedSymmetricAlgorithm(self.into()).into()),
+        }
+    }
+
+    pub fn make_encrypt_cfb(self, key: &[u8]) -> Result<Box<Mode>> {
+        use nettle::{mode,cipher};
+        match self {
+            SymmetricAlgo::AES128 =>
+                Ok(Box::new(mode::Cfb::<cipher::Aes128>::with_encrypt_key(&key[..]))),
+            SymmetricAlgo::AES192 =>
+                Ok(Box::new(mode::Cfb::<cipher::Aes192>::with_encrypt_key(&key[..]))),
+            SymmetricAlgo::AES256 =>
+                Ok(Box::new(mode::Cfb::<cipher::Aes256>::with_encrypt_key(&key[..]))),
+            SymmetricAlgo::Twofish =>
+                Ok(Box::new(mode::Cfb::<cipher::Twofish>::with_encrypt_key(&key[..]))),
+            _ => Err(Error::UnsupportedSymmetricAlgorithm(self.into()).into()),
+        }
+    }
+
+    pub fn make_decrypt_cfb(self, key: &[u8]) -> Result<Box<Mode>> {
+        use nettle::{mode,cipher};
+        match self {
+            SymmetricAlgo::AES128 =>
+                Ok(Box::new(mode::Cfb::<cipher::Aes128>::with_decrypt_key(&key[..]))),
+            SymmetricAlgo::AES192 =>
+                Ok(Box::new(mode::Cfb::<cipher::Aes192>::with_decrypt_key(&key[..]))),
+            SymmetricAlgo::AES256 =>
+                Ok(Box::new(mode::Cfb::<cipher::Aes256>::with_decrypt_key(&key[..]))),
+            SymmetricAlgo::Twofish =>
+                Ok(Box::new(mode::Cfb::<cipher::Twofish>::with_decrypt_key(&key[..]))),
+            _ => Err(Error::UnsupportedSymmetricAlgorithm(self.into()).into())
+        }
     }
 }
 
@@ -73,9 +179,9 @@ pub struct Decryptor<R: io::Read> {
 impl<R: io::Read> Decryptor<R> {
     /// Instantiate a new symmetric decryptor.  `reader` is the source
     /// to wrap.
-    pub fn new(algo: u8, key: &[u8], source: R) -> Result<Self> {
-        let dec = symmetric_init(algo, key)?;
-        let block_size = symmetric_key_size(algo)?;
+    pub fn new(algo: SymmetricAlgo, key: &[u8], source: R) -> Result<Self> {
+        let dec = algo.make_decrypt_cfb(key)?;
+        let block_size = algo.key_size()?;
 
         Ok(Decryptor {
             source: source,
@@ -215,7 +321,7 @@ pub struct BufferedReaderDecryptor<R: BufferedReader<C>, C> {
 impl <R: BufferedReader<()>> BufferedReaderDecryptor<R, ()> {
     /// Instantiate a new symmetric decryptor.  `reader` is the source
     /// to wrap.
-    pub fn new(algo: u8, key: &[u8], reader: R) -> Result<Self> {
+    pub fn new(algo: SymmetricAlgo, key: &[u8], reader: R) -> Result<Self> {
         Self::with_cookie(algo, key, reader, ())
     }
 }
@@ -224,7 +330,7 @@ impl <R: BufferedReader<C>, C> BufferedReaderDecryptor<R, C> {
     /// Like `new()`, but sets a cookie, which can be retrieved using
     /// the `cookie_ref` and `cookie_mut` methods, and set using
     /// the `cookie_set` method.
-    pub fn with_cookie(algo: u8, key: &[u8], reader: R, cookie: C)
+    pub fn with_cookie(algo: SymmetricAlgo, key: &[u8], reader: R, cookie: C)
         -> Result<Self>
     {
         Ok(BufferedReaderDecryptor {
@@ -318,5 +424,34 @@ impl<R: BufferedReader<C>, C> BufferedReader<C>
 
     fn cookie_mut(&mut self) -> &mut C {
         self.reader.cookie_mut()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    quickcheck! {
+        fn sym_roundtrip(sym: SymmetricAlgo) -> bool {
+            let val: u8 = sym.clone().into();
+            sym == SymmetricAlgo::from(val)
+        }
+    }
+
+    quickcheck! {
+        fn sym_display(sym: SymmetricAlgo) -> bool {
+            let s = format!("{}",sym);
+            !s.is_empty()
+        }
+    }
+
+    quickcheck! {
+        fn sym_parse(sym: SymmetricAlgo) -> bool {
+            match sym {
+                SymmetricAlgo::Unknown(u) => u == 5 || u == 6 || u > 110 || (u > 10 && u < 100),
+                SymmetricAlgo::Private(u) => u >= 100 && u <= 110,
+                _ => true
+            }
+        }
     }
 }

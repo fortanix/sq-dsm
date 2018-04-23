@@ -75,7 +75,7 @@ fn decrypt(input: &mut io::Read, output: &mut io::Write, dump: bool)
                         let pass = rpassword::prompt_password_stderr(
                             "Enter passphrase to decrypt message: ")?;
                         match skesk.decrypt(pass.into_bytes().as_ref()) {
-                            Ok((algo, key)) => State::Decrypted(algo, key),
+                            Ok((algo, key)) => State::Decrypted(algo.into(), key),
                             Err(e) => {
                                 eprintln!("Decryption failed: {}", e);
                                 State::Start
@@ -88,7 +88,7 @@ fn decrypt(input: &mut io::Read, output: &mut io::Write, dump: bool)
             // Look for an SEIP packet.
             State::Decrypted(algo, key) =>
                 if let Packet::SEIP(_) = pp.packet {
-	            pp.decrypt(algo, &key[..])?;
+	            pp.decrypt(algo.into(), &key[..])?;
                     State::Deciphered
                 } else {
                     State::Decrypted(algo, key)

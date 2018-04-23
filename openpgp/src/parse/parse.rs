@@ -10,7 +10,7 @@ use std::fs::File;
 use ::buffered_reader::*;
 use Error;
 use HashAlgo;
-use symmetric::{symmetric_block_size, Decryptor, BufferedReaderDecryptor};
+use symmetric::{SymmetricAlgo, Decryptor, BufferedReaderDecryptor};
 
 use super::*;
 
@@ -262,7 +262,7 @@ impl S2K {
         };
 
         Ok(S2K {
-            hash_algo: algo,
+            hash_algo: algo.into(),
             salt: salt,
             coded_count: coded_count
         })
@@ -417,7 +417,7 @@ impl Signature {
                 version: version,
                 sigtype: sigtype,
                 pk_algo: pk_algo,
-                hash_algo: hash_algo,
+                hash_algo: hash_algo.into(),
                 hashed_area: SubpacketArea::new(hashed_area),
                 unhashed_area: SubpacketArea::new(unhashed_area),
                 hash_prefix: [hash_prefix1, hash_prefix2],
@@ -454,7 +454,7 @@ fn signature_parser_test () {
             assert_eq!(p.version, 4);
             assert_eq!(p.sigtype, 0);
             assert_eq!(p.pk_algo, 1);
-            assert_eq!(p.hash_algo, 10);
+            assert_eq!(p.hash_algo, HashAlgo::SHA512);
             assert_eq!(p.hashed_area.data.len(), 29);
             assert_eq!(p.unhashed_area.data.len(), 10);
             assert_eq!(p.hash_prefix, [0x65u8, 0x74]);
@@ -493,7 +493,9 @@ impl OnePassSig {
         // the hash algorithm so that we have something to match
         // against when we get to the Signature packet.
         let mut algos = Vec::new();
-        if let Ok(hash_algo) = HashAlgo::from_numeric(hash_algo) {
+        let hash_algo = HashAlgo::from(hash_algo);
+
+        if hash_algo.is_supported() {
             algos.push(hash_algo);
         }
 
@@ -535,7 +537,7 @@ impl OnePassSig {
                 common: Default::default(),
                 version: version,
                 sigtype: sigtype,
-                hash_algo: hash_algo,
+                hash_algo: hash_algo.into(),
                 pk_algo: pk_algo,
                 issuer: issuer,
                 last: last,
@@ -569,7 +571,7 @@ fn one_pass_sig_parser_test () {
     if let &Packet::OnePassSig(ref p) = p {
         assert_eq!(p.version, 3);
         assert_eq!(p.sigtype, 0);
-        assert_eq!(p.hash_algo, 10);
+        assert_eq!(p.hash_algo, HashAlgo::SHA512);
         assert_eq!(p.pk_algo, 1);
         assert_eq!(to_hex(&p.issuer[..], false), "7223B56678E02528");
         assert_eq!(p.last, 1);
@@ -981,7 +983,7 @@ impl SKESK {
             packet: Packet::SKESK(SKESK {
                 common: Default::default(),
                 version: version,
-                symm_algo: symm_algo,
+                symm_algo: symm_algo.into(),
                 s2k: s2k,
                 esk: esk,
             }),
@@ -1098,7 +1100,7 @@ fn skesk_parser_test() {
                 filename: "s2k/mode-3-encrypted-key-password-bgtyhn.gpg",
                 cipher_algo: SymmetricAlgo::AES128,
                 s2k: S2K {
-                    hash_algo: 2,
+                    hash_algo: HashAlgo::SHA1,
                     salt: Some([0x82, 0x59, 0xa0, 0x6e, 0x98, 0xda, 0x94, 0x1c]),
                     coded_count: Some(238),
                 },
@@ -1122,8 +1124,7 @@ fn skesk_parser_test() {
         if let Packet::SKESK(skesk) = packet {
             eprintln!("{:?}", skesk);
 
-            assert_eq!(skesk.symm_algo,
-                       SymmetricAlgo::to_numeric(test.cipher_algo));
+            assert_eq!(skesk.symm_algo, test.cipher_algo);
             assert_eq!(skesk.s2k, test.s2k);
 
             let key = skesk.decrypt(test.password);
@@ -2325,7 +2326,7 @@ impl<'a> PacketParser<'a> {
     /// If this function is called on a packet that does not contain
     /// encrypted data, or some of the data was already read, then it
     /// returns `Error::InvalidOperation`.
-    pub fn decrypt(&mut self, algo: u8, key: &[u8])
+    pub fn decrypt(&mut self, algo: SymmetricAlgo, key: &[u8])
         -> Result<()>
     {
         if self.content_was_read {
@@ -2341,7 +2342,7 @@ impl<'a> PacketParser<'a> {
             // Get the first blocksize plus two bytes and check
             // whether we can decrypt them using the provided key.
             // Don't actually comsume them in case we can't.
-            let bl = symmetric_block_size(algo)?;
+            let bl = algo.block_size()?;
 
             {
                 let mut dec = Decryptor::new(
@@ -2464,7 +2465,7 @@ mod test {
                 if let Packet::SEIP(_) = pp.packet {
                     let key = ::from_hex(test.key_hex, false).unwrap();
 
-                    pp.decrypt(test.algo.to_numeric(), &key[..]).unwrap();
+                    pp.decrypt(test.algo, &key[..]).unwrap();
 
                     // SEIP packet.
                     let (packet, _, pp, _) = pp.recurse().unwrap();
