@@ -84,6 +84,8 @@ pub mod symmetric;
 pub use symmetric::SymmetricAlgo;
 
 mod s2k;
+use s2k::S2K;
+
 mod unknown;
 mod signature;
 mod one_pass_sig;
@@ -316,13 +318,6 @@ impl Tag {
     pub fn to_numeric(self) -> u8 {
         num::ToPrimitive::to_u8(&self).unwrap()
     }
-}
-
-#[derive(PartialEq, Clone, Debug)]
-pub struct S2K {
-    hash_algo: HashAlgo,
-    salt: Option<[u8; 8]>,
-    coded_count: Option<u8>,
 }
 
 /// Holds an unknown packet.

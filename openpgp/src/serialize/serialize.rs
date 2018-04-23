@@ -128,36 +128,34 @@ pub fn ctb_old(tag: Tag, l: BodyLength) -> u8 {
 }
 
 impl S2K {
-    // Return the length of the serialized S2K data structure.
+    /// Return the length of the serialized S2K data structure.
     pub fn serialized_len(&self) -> usize {
-        1 // Mode.
-            + 1 // Hash algo.
-            // Salt.
-            + if let Some(salt) = self.salt { salt.len() } else { 0 }
-            // Coded count.
-            + if let Some(_) = self.coded_count { 1 } else { 0 }
+        match self {
+            &S2K::Simple{ .. } => 2,
+            &S2K::Salted{ .. } => 2 + 8,
+            &S2K::Iterated{ .. } => 2 + 8 + 1,
+            &S2K::Private(_) | &S2K::Unknown(_) => 1,
+        }
     }
 
-    /// Writes a serialized version of the specified `S2K`
-    /// packet to `o`.
-    pub fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
-        let mode = if self.salt.is_some() && self.coded_count.is_some() {
-            3
-        } else if self.coded_count.is_some() && !self.salt.is_some() {
-            panic!("s2k: Can't have an iteration count without a salt.");
-        } else if self.salt.is_some() {
-            1
-        } else {
-            0
-        };
-
-        write_byte(o, mode)?;
-        write_byte(o, self.hash_algo.into())?;
-        if let Some(salt) = self.salt {
-            o.write(&salt[..])?;
-        }
-        if let Some(cc) = self.coded_count {
-            write_byte(o, cc)?;
+    /// Serializes this S2K instance.
+    pub fn serialize<W: io::Write>(self, w: &mut W) -> Result<()> {
+        match self {
+            S2K::Simple{ hash } => {
+                w.write_all(&[0, hash.into()])?;
+            }
+            S2K::Salted{ hash, salt } => {
+                w.write_all(&[1, hash.into()])?;
+                w.write_all(&salt[..])?;
+            }
+            S2K::Iterated{ hash, salt, iterations } => {
+                w.write_all(&[3, hash.into()])?;
+                w.write_all(&salt[..])?;
+                w.write_all(&[S2K::encode_count(iterations)?])?;
+            }
+            S2K::Private(s2k) | S2K::Unknown(s2k) => {
+                w.write_all(&[s2k])?;
+            }
         }
 
         Ok(())

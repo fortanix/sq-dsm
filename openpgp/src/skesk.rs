@@ -16,7 +16,7 @@ impl SKESK {
 
     /// Returns the session key.
     pub fn decrypt(&self, password: &[u8]) -> Result<(SymmetricAlgo, Vec<u8>)> {
-        let key = self.s2k.s2k(password, self.symm_algo.key_size()?)?;
+        let key = self.s2k.derive_key(password, self.symm_algo.key_size()?)?;
 
         if self.esk.len() == 0 {
             return Ok((self.symm_algo, key));

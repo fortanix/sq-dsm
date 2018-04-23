@@ -236,39 +236,39 @@ impl Header {
 }
 
 impl S2K {
-    pub fn parse<'a, R>(bio: &mut R) -> Result<S2K>
-        where R: 'a + BufferedReader<BufferedReaderState> {
-        let s2k_type = bio.data_consume_hard(1)?[0];
-
-        if s2k_type != 0 && s2k_type != 1 && s2k_type != 3 {
-            // XXX: How do we best deal with unknown s2k schemes?
-            unimplemented!();
-        }
-
-        let algo = bio.data_consume_hard(1)?[0];
-
-        let mut salt = Some([0u8; 8]);
-        if s2k_type == 1 || s2k_type == 3 {
-            salt.as_mut().unwrap().copy_from_slice(
-                &bio.data_consume_hard(8)?[..8]);
-        } else {
-            salt = None;
-        }
-
-        let coded_count = if s2k_type == 3 {
-            Some(bio.data_consume_hard(1)?[0])
-        } else {
-            None
+    /// Reads a S2K from `r`.
+    pub fn parse<'a, R>(r: &mut R) -> Result<Self>
+    where R: 'a + BufferedReader<BufferedReaderState> {
+        let s2k = r.data_consume_hard(1)?[0];
+        let ret = match s2k {
+            0 => S2K::Simple{
+                hash: HashAlgo::from(r.data_consume_hard(1)?[0]),
+            },
+            1 => S2K::Salted{
+                hash: HashAlgo::from(r.data_consume_hard(1)?[0]),
+                salt: Self::read_salt(r)?,
+            },
+            3 => S2K::Iterated{
+                hash: HashAlgo::from(r.data_consume_hard(1)?[0]),
+                salt: Self::read_salt(r)?,
+                iterations: S2K::decode_count(r.data_consume_hard(1)?[0]),
+            },
+            100...110 => S2K::Private(s2k),
+            u => S2K::Unknown(u),
         };
 
-        Ok(S2K {
-            hash_algo: algo.into(),
-            salt: salt,
-            coded_count: coded_count
-        })
+        Ok(ret)
+    }
+
+    fn read_salt<'a, R>(r: &mut R) -> Result<[u8; 8]>
+    where R: 'a + BufferedReader<BufferedReaderState> {
+        let mut b = [0u8; 8];
+        b.copy_from_slice(&r.data_consume_hard(8)?[0..8]);
+
+        Ok(b)
     }
 }
-
+
 impl Unknown {
     /// Parses the body of any packet and returns an Unknown.
     pub fn parse<'a, R>(bio: R, recursion_depth: usize, tag: Tag)
@@ -976,7 +976,7 @@ impl SKESK {
         bio.consume(1);
 
         let symm_algo = bio.data_consume_hard(1)?[0];
-        let s2k = S2K::parse(&mut bio)?;
+        let s2k = s2k::S2K::parse(&mut bio)?;
         let esk = bio.steal_eof()?;
 
         return Ok(PacketParser {
@@ -1099,10 +1099,10 @@ fn skesk_parser_test() {
             Test {
                 filename: "s2k/mode-3-encrypted-key-password-bgtyhn.gpg",
                 cipher_algo: SymmetricAlgo::AES128,
-                s2k: S2K {
-                    hash_algo: HashAlgo::SHA1,
-                    salt: Some([0x82, 0x59, 0xa0, 0x6e, 0x98, 0xda, 0x94, 0x1c]),
-                    coded_count: Some(238),
+                s2k: S2K::Iterated {
+                    hash: HashAlgo::SHA1,
+                    salt: [0x82, 0x59, 0xa0, 0x6e, 0x98, 0xda, 0x94, 0x1c],
+                    iterations: S2K::decode_count(238),
                 },
                 password: &b"bgtyhn"[..],
                 key_hex: "474E5C373BA18AF0A499FCAFE6093F131DF636F6A3812B9A8AE707F1F0214AE9",
