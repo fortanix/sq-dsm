@@ -4,6 +4,7 @@ use OnePassSig;
 use Packet;
 use KeyID;
 use HashAlgo;
+use serialize::Serialize;
 
 impl fmt::Debug for OnePassSig {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

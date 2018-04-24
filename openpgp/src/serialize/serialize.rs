@@ -127,6 +127,65 @@ pub fn ctb_old(tag: Tag, l: BodyLength) -> u8 {
     0b1000_0000u8 | (tag << 2) | len_encoding
 }
 
+/// Packet serialization.
+///
+/// This interfaces serializes packets and packet trees.
+pub trait Serialize {
+    /// Writes a serialized version of the packet to `o`.
+    fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()>;
+
+    /// Serializes the packet to a vector.
+    fn to_vec(&self) -> Vec<u8> {
+        let mut o = Vec::with_capacity(4096);
+        // Writing to a vec can't fail.
+        self.serialize(&mut o).unwrap();
+        o
+    }
+}
+
+/// Key packet serialization.
+///
+/// This interfaces serializes key packets.
+pub trait SerializeKey {
+    /// Writes a serialized version of the key packet to `o`.
+    ///
+    /// Tag identifies the kind of packet to write.
+    fn serialize<W: io::Write>(&self, o: &mut W, tag: Tag) -> Result<()>;
+
+    /// Serializes the packet to a vector.
+    fn to_vec(&self, tag: Tag) -> Vec<u8> {
+        let mut o = Vec::with_capacity(4096);
+        // Writing to a vec can't fail.
+        self.serialize(&mut o, tag).unwrap();
+        o
+    }
+}
+
+impl Serialize for S2K {
+    /// Serializes this S2K instance.
+    fn serialize<W: io::Write>(&self, w: &mut W) -> Result<()> {
+        match self {
+            &S2K::Simple{ hash } => {
+                w.write_all(&[0, hash.into()])?;
+            }
+            &S2K::Salted{ hash, salt } => {
+                w.write_all(&[1, hash.into()])?;
+                w.write_all(&salt[..])?;
+            }
+            &S2K::Iterated{ hash, salt, iterations } => {
+                w.write_all(&[3, hash.into()])?;
+                w.write_all(&salt[..])?;
+                w.write_all(&[S2K::encode_count(iterations)?])?;
+            }
+            &S2K::Private(s2k) | &S2K::Unknown(s2k) => {
+                w.write_all(&[s2k])?;
+            }
+        }
+
+        Ok(())
+    }
+}
+
 impl S2K {
     /// Return the length of the serialized S2K data structure.
     pub fn serialized_len(&self) -> usize {
@@ -137,35 +196,12 @@ impl S2K {
             &S2K::Private(_) | &S2K::Unknown(_) => 1,
         }
     }
-
-    /// Serializes this S2K instance.
-    pub fn serialize<W: io::Write>(self, w: &mut W) -> Result<()> {
-        match self {
-            S2K::Simple{ hash } => {
-                w.write_all(&[0, hash.into()])?;
-            }
-            S2K::Salted{ hash, salt } => {
-                w.write_all(&[1, hash.into()])?;
-                w.write_all(&salt[..])?;
-            }
-            S2K::Iterated{ hash, salt, iterations } => {
-                w.write_all(&[3, hash.into()])?;
-                w.write_all(&salt[..])?;
-                w.write_all(&[S2K::encode_count(iterations)?])?;
-            }
-            S2K::Private(s2k) | S2K::Unknown(s2k) => {
-                w.write_all(&[s2k])?;
-            }
-        }
-
-        Ok(())
-    }
 }
 
-impl Unknown {
+impl Serialize for Unknown {
     /// Writes a serialized version of the specified `Unknown` packet
     /// to `o`.
-    pub fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
+    fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
         let body = if let Some(ref body) = self.common.body {
             &body[..]
         } else {
@@ -179,24 +215,16 @@ impl Unknown {
 
         Ok(())
     }
-
-    /// Serializes the packet to a vector.
-    pub fn to_vec(&self) -> Vec<u8> {
-        let mut o = Vec::with_capacity(4096);
-        // Writing to a vec can't fail.
-        self.serialize(&mut o).unwrap();
-        o
-    }
 }
 
-impl Signature {
+impl Serialize for Signature {
     /// Writes a serialized version of the specified `Signature`
     /// packet to `o`.
     ///
     /// Note: this function does not compute the signature (which
     /// would require access to the private key); it assumes that
     /// sig.mpis is up to date.
-    pub fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
+    fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
         let len = 1 // version
             + 1 // signature type.
             + 1 // pk algorithm
@@ -236,20 +264,12 @@ impl Signature {
 
         Ok(())
     }
-
-    /// Serializes the packet to a vector.
-    pub fn to_vec(&self) -> Vec<u8> {
-        let mut o = Vec::with_capacity(4096);
-        // Writing to a vec can't fail.
-        self.serialize(&mut o).unwrap();
-        o
-    }
 }
 
-impl OnePassSig {
+impl Serialize for OnePassSig {
     /// Writes a serialized version of the specified `OnePassSig`
     /// packet to `o`.
-    pub fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
+    fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
         let len = 1 // version
             + 1 // signature type.
             + 1 // hash algorithm
@@ -279,7 +299,7 @@ impl OnePassSig {
     }
 
     /// Serializes the packet to a vector.
-    pub fn to_vec(&self) -> Vec<u8> {
+    fn to_vec(&self) -> Vec<u8> {
         let mut o = Vec::with_capacity(32);
         // Writing to a vec can't fail.
         self.serialize(&mut o).unwrap();
@@ -287,10 +307,10 @@ impl OnePassSig {
     }
 }
 
-impl Key {
+impl SerializeKey for Key {
     /// Writes a serialized version of the specified `Key` packet to
     /// `o`.
-    pub fn serialize<W: io::Write>(&self, o: &mut W, tag: Tag) -> Result<()> {
+    fn serialize<W: io::Write>(&self, o: &mut W, tag: Tag) -> Result<()> {
         assert!(tag == Tag::PublicKey
                 || tag == Tag::PublicSubkey
                 || tag == Tag::SecretKey
@@ -310,20 +330,12 @@ impl Key {
 
         Ok(())
     }
-
-    /// Serializes the packet to a vector.
-    pub fn to_vec(&self, tag: Tag) -> Vec<u8> {
-        let mut o = Vec::with_capacity(4096);
-        // Writing to a vec can't fail.
-        self.serialize(&mut o, tag).unwrap();
-        o
-    }
 }
 
-impl UserID {
+impl Serialize for UserID {
     /// Writes a serialized version of the specified `UserID` packet to
     /// `o`.
-    pub fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
+    fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
         let len = self.value.len();
 
         write_byte(o, ctb_old(Tag::UserID, BodyLength::Full(len as u32)))?;
@@ -334,7 +346,7 @@ impl UserID {
     }
 
     /// Serializes the packet to a vector.
-    pub fn to_vec(&self) -> Vec<u8> {
+    fn to_vec(&self) -> Vec<u8> {
         let mut o = Vec::with_capacity(16 + self.value.len());
         // Writing to a vec can't fail.
         self.serialize(&mut o).unwrap();
@@ -342,10 +354,10 @@ impl UserID {
     }
 }
 
-impl UserAttribute {
+impl Serialize for UserAttribute {
     /// Writes a serialized version of the specified `UserAttribute`
     /// packet to `o`.
-    pub fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
+    fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
         let len = self.value.len();
 
         write_byte(o,
@@ -357,7 +369,7 @@ impl UserAttribute {
     }
 
     /// Serializes the packet to a vector.
-    pub fn to_vec(&self) -> Vec<u8> {
+    fn to_vec(&self) -> Vec<u8> {
         let mut o = Vec::with_capacity(16 + self.value.len());
         // Writing to a vec can't fail.
         self.serialize(&mut o).unwrap();
@@ -365,9 +377,9 @@ impl UserAttribute {
     }
 }
 
-impl Literal {
+impl Serialize for Literal {
     /// Writes a serialized version of the `Literal` data packet to `o`.
-    pub fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
+    fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
         let body = if let Some(ref body) = self.common.body {
             &body[..]
         } else {
@@ -405,7 +417,7 @@ impl Literal {
     }
 
     /// Serializes the packet to a vector.
-    pub fn to_vec(&self) -> Vec<u8> {
+    fn to_vec(&self) -> Vec<u8> {
         let mut o = Vec::with_capacity(
             32 + self.common.body.as_ref().map(|b| b.len()).unwrap_or(0)
             + self.filename.as_ref().map(|b| b.len()).unwrap_or(0));
@@ -416,13 +428,13 @@ impl Literal {
     }
 }
 
-impl CompressedData {
+impl Serialize for CompressedData {
     /// Writes a serialized version of the specified `CompressedData`
     /// packet to `o`.
     ///
     /// This function works recursively: if the `CompressedData` packet
     /// contains any packets, they are also serialized.
-    pub fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
+    fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
         use flate2::Compression as FlateCompression;
         use flate2::write::{DeflateEncoder, ZlibEncoder};
         use bzip2::Compression as BzCompression;
@@ -469,7 +481,7 @@ impl CompressedData {
     }
 
     /// Serializes the packet to a vector.
-    pub fn to_vec(&self) -> Vec<u8> {
+    fn to_vec(&self) -> Vec<u8> {
         let mut o = Vec::with_capacity(4 * 1024 * 1024);
 
         // Writing to a vec can't fail.
@@ -479,10 +491,10 @@ impl CompressedData {
     }
 }
 
-impl SKESK {
+impl Serialize for SKESK {
     /// Writes a serialized version of the specified `SKESK`
     /// packet to `o`.
-    pub fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
+    fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
         if self.version != 4 {
             panic!("SKESK:serialize: Don't know how to serialize \
                     non-version 4 packets.");
@@ -507,10 +519,10 @@ impl SKESK {
     }
 }
 
-impl SEIP {
+impl Serialize for SEIP {
     /// Writes a serialized version of the specified `SEIP`
     /// packet to `o`.
-    pub fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
+    fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
         if let Some(ref _children) = self.common.children {
             unimplemented!("XXX: Serialize and encrypt the content.");
         } else {
@@ -530,10 +542,10 @@ impl SEIP {
     }
 }
 
-impl MDC {
+impl Serialize for MDC {
     /// Writes a serialized version of the specified `MDC`
     /// packet to `o`.
-    pub fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
+    fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
         write_byte(o, ctb_new(Tag::MDC))?;
         o.write_all(&body_length_new_format(
             BodyLength::Full(20u32))[..])?;
@@ -542,7 +554,7 @@ impl MDC {
     }
 }
 
-impl Packet {
+impl Serialize for Packet {
     /// Writes a serialized version of the specified `Packet` to `o`.
     ///
     /// This function works recursively: if the packet contains any
@@ -568,7 +580,7 @@ impl Packet {
     }
 
     /// Serializes the packet to a vector.
-    pub fn to_vec(&self) -> Vec<u8> {
+    fn to_vec(&self) -> Vec<u8> {
         let mut o = Vec::with_capacity(4 * 1024 * 1024);
 
         // Writing to a vec can't fail.
@@ -578,9 +590,9 @@ impl Packet {
     }
 }
 
-impl Message {
+impl Serialize for Message {
     /// Writes a serialized version of the specified `Message` to `o`.
-    pub fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
+    fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
         for p in self.children() {
             p.serialize(o)?;
         }
@@ -589,7 +601,7 @@ impl Message {
     }
 
     /// Serializes the packet to a vector.
-    pub fn to_vec(&self) -> Vec<u8> {
+    fn to_vec(&self) -> Vec<u8> {
         let mut o = Vec::with_capacity(4 * 1024 * 1024);
 
         // Writing to a vec can't fail.

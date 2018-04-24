@@ -12,6 +12,7 @@ extern crate openpgp;
 
 use self::openpgp::{armor, Fingerprint, KeyID, Message, TPK, Packet};
 use self::openpgp::parse::{PacketParser};
+use self::openpgp::serialize::Serialize;
 
 use super::build_hasher;
 use super::error::Status;

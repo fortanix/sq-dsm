@@ -10,6 +10,7 @@ use std::slice;
 use super::{TPK, Packet, Message, Signature, Key, UserID, UserAttribute,
             Fingerprint, Tag};
 use super::parse::PacketParser;
+use super::serialize::{Serialize, SerializeKey};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct SubkeyBinding {

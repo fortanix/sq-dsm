@@ -230,6 +230,7 @@ mod tests {
     use symmetric::SymmetricAlgo;
     use Packet;
     use super::super::parse::PacketParser;
+    use super::super::serialize::Serialize;
 
     use std::path::PathBuf;
     fn path_to(artifact: &str) -> PathBuf {

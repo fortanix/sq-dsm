@@ -4,6 +4,7 @@ use Signature;
 use Packet;
 use SubpacketArea;
 use HashAlgo;
+use serialize::Serialize;
 
 impl fmt::Debug for Signature {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
