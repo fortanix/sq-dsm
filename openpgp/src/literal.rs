@@ -124,7 +124,7 @@ impl Literal {
     /// Note: the date is stored in big endian format.  The timestamp
     /// should be provided in the default endianness.
     pub fn date(mut self, timestamp: u32) -> Literal {
-        self.date = timestamp.to_be();
+        self.date = timestamp;
         self
     }
 
