@@ -8,6 +8,7 @@ use std::path::Path;
 use std::fs::File;
 
 use ::buffered_reader::*;
+use mpis::MPIs;
 use Error;
 use HashAlgo;
 use symmetric::{SymmetricAlgo, Decryptor, BufferedReaderDecryptor};
@@ -421,7 +422,7 @@ impl Signature {
                 hashed_area: SubpacketArea::new(hashed_area),
                 unhashed_area: SubpacketArea::new(unhashed_area),
                 hash_prefix: [hash_prefix1, hash_prefix2],
-                mpis: mpis,
+                mpis: MPIs::parse(mpis),
                 computed_hash: computed_hash,
             }),
             reader: Box::new(bio),
@@ -458,7 +459,7 @@ fn signature_parser_test () {
             assert_eq!(p.hashed_area.data.len(), 29);
             assert_eq!(p.unhashed_area.data.len(), 10);
             assert_eq!(p.hash_prefix, [0x65u8, 0x74]);
-            assert_eq!(p.mpis.len(), 258);
+            assert_eq!(p.mpis.raw.len(), 258);
         } else {
             unreachable!();
         }
@@ -670,7 +671,7 @@ impl Key {
             version: version,
             creation_time: creation_time,
             pk_algo: pk_algo,
-            mpis: mpis,
+            mpis: MPIs::parse(mpis),
         };
 
         return Ok(PacketParser {

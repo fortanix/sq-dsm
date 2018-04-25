@@ -1,18 +1,19 @@
 use std::fmt;
 
+use mpis::MPIs;
+
 use Tag;
 use Key;
 use Packet;
 
 impl fmt::Debug for Key {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let mpis = format!("{} bytes", self.mpis.len());
-
         f.debug_struct("Key")
+            .field("filterprint", &self.fingerprint())
             .field("version", &self.version)
             .field("creation_time", &self.creation_time)
             .field("pk_algo", &self.pk_algo)
-            .field("mpis", &mpis)
+            .field("mpis", &self.mpis)
             .finish()
     }
 }
@@ -26,7 +27,7 @@ impl Key {
             version: 4,
             creation_time: 0,
             pk_algo: 0,
-            mpis: Vec::new(),
+            mpis: MPIs::new(),
         }
     }
 

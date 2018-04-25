@@ -74,6 +74,7 @@ use packet::{BodyLength, Header, Container};
 
 pub mod parse;
 use parse::SubpacketArea;
+pub mod mpis;
 
 pub mod tpk;
 pub mod serialize;
@@ -136,6 +137,9 @@ pub enum Error {
 
     #[fail(display = "Invalid session key: {}", _0)]
     InvalidSessionKey(String),
+
+    #[fail(display = "Malformed MPI: {}", _0)]
+    MalformedMPI(String),
 
     #[fail(display = "{}", _0)]
     Io(#[cause] io::Error),
@@ -357,7 +361,7 @@ pub struct Signature {
     pub hashed_area: parse::subpacket::SubpacketArea,
     pub unhashed_area: parse::subpacket::SubpacketArea,
     pub hash_prefix: [u8; 2],
-    pub mpis: Vec<u8>,
+    pub mpis: mpis::MPIs,
 
     // When used in conjunction with a one-pass signature, this is the
     // hash computed over the enclosed message.
@@ -392,7 +396,7 @@ pub struct Key {
     /* When the key was created.  */
     pub creation_time: u32,
     pub pk_algo: u8,
-    pub mpis: Vec<u8>,
+    pub mpis: mpis::MPIs,
 }
 
 /// Holds a UserID packet.

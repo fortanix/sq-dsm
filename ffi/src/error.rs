@@ -89,6 +89,9 @@ pub enum Status {
     UserIDNotFound = -14,
 
     // XXX: Skipping InvalidArgument = -15.
+
+    /// Malformed MPI.
+    MalformedMPI = -16,
 }
 
 impl<'a> From<&'a failure::Error> for Status {
@@ -124,6 +127,8 @@ impl<'a> From<&'a failure::Error> for Status {
                     Status::InvalidPassword,
                 &openpgp::Error::InvalidSessionKey(_) =>
                     Status::InvalidSessionKey,
+                &openpgp::Error::MalformedMPI(_) =>
+                    Status::MalformedMPI,
                 &openpgp::Error::Io(_) =>
                     Status::IoError,
             }

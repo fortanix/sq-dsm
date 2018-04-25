@@ -255,7 +255,7 @@ impl Serialize for Signature {
             + 2 // unhashed area size
             + self.unhashed_area.data.len()
             + 2 // hash prefix
-            + self.mpis.len();
+            + self.mpis.raw.len();
 
         CTB::new(Tag::Signature).serialize(o)?;
         BodyLength::Full(len as u32).serialize(o)?;
@@ -280,7 +280,7 @@ impl Serialize for Signature {
         write_byte(o, self.hash_prefix[0])?;
         write_byte(o, self.hash_prefix[1])?;
 
-        o.write_all(&self.mpis[..])?;
+        o.write_all(&self.mpis.raw[..])?;
 
         Ok(())
     }
@@ -335,7 +335,7 @@ impl SerializeKey for Key {
                 || tag == Tag::SecretKey
                 || tag == Tag::SecretSubkey);
 
-        let len = 1 + 4 + 1 + self.mpis.len();
+        let len = 1 + 4 + 1 + self.mpis.raw.len();
 
         CTB::new(tag).serialize(o)?;
         BodyLength::Full(len as u32).serialize(o)?;
@@ -345,7 +345,7 @@ impl SerializeKey for Key {
         write_byte(o, self.version)?;
         write_be_u32(o, self.creation_time)?;
         write_byte(o, self.pk_algo)?;
-        o.write_all(&self.mpis[..])?;
+        o.write_all(&self.mpis.raw[..])?;
 
         Ok(())
     }

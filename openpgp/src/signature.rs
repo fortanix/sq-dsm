@@ -6,10 +6,10 @@ use SubpacketArea;
 use HashAlgo;
 use serialize::Serialize;
 
+use mpis::MPIs;
+
 impl fmt::Debug for Signature {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let mpis = format!("{} bytes", self.mpis.len());
-
         // Get the issuer.  Prefer the issuer fingerprint to the
         // issuer keyid, which may be stored in the unhashed area.
         let issuer = if let Some(tmp) = self.issuer_fingerprint() {
@@ -35,7 +35,7 @@ impl fmt::Debug for Signature {
                    } else {
                        None
                    })
-            .field("mpis", &mpis)
+            .field("mpis", &self.mpis)
             .finish()
     }
 }
@@ -69,7 +69,7 @@ impl Signature {
             hashed_area: SubpacketArea::empty(),
             unhashed_area: SubpacketArea::empty(),
             hash_prefix: [0, 0],
-            mpis: Vec::new(),
+            mpis: MPIs::new(),
 
             computed_hash: Default::default(),
         }
