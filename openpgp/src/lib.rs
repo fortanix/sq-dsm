@@ -101,6 +101,8 @@ use skesk::SKESK;
 
 mod message;
 mod constants;
+pub use constants::PublicKeyAlgorithm;
+pub use constants::CompressionAlgorithm;
 
 pub type Result<T> = ::std::result::Result<T, failure::Error>;
 
@@ -123,11 +125,17 @@ pub enum Error {
     #[fail(display = "Unknown hash algorithm: {}", _0)]
     UnknownHashAlgorithm(u8),
 
+    #[fail(display = "Unknown public key algorithm: {}", _0)]
+    UnknownPublicKeyAlgorithm(u8),
+
     #[fail(display = "Unknown symmetric algorithm: {}", _0)]
     UnknownSymmetricAlgorithm(u8),
 
     #[fail(display = "Unsupported hash algorithm: {}", _0)]
     UnsupportedHashAlgorithm(u8),
+
+    #[fail(display = "Unsupported public key algorithm: {}", _0)]
+    UnsupportedPublicKeyAlgorithm(u8),
 
     #[fail(display = "Unsupported symmetric algorithm: {}", _0)]
     UnsupportedSymmetricAlgorithm(u8),
@@ -140,6 +148,9 @@ pub enum Error {
 
     #[fail(display = "Malformed MPI: {}", _0)]
     MalformedMPI(String),
+
+    #[fail(display = "Bad signature: {}", _0)]
+    BadSignature(String),
 
     #[fail(display = "{}", _0)]
     Io(#[cause] io::Error),

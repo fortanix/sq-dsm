@@ -67,11 +67,17 @@ pub enum Status {
     /// Unknown hash algorithm.
     UnknownHashAlgorithm = -7,
 
+    /// Unknown public key algorithm.
+    UnknownPublicKeyAlgorithm = -17,
+
     /// Unknown symmetric algorithm.
     UnknownSymmetricAlgorithm = -8,
 
     /// Unsupported hash algorithm.
     UnsupportedHashAlgorithm = -9,
+
+    /// Unsupported public key algorithm.
+    UnsupportedPublicKeyAlgorithm = -18,
 
     /// Unsupported symmetric algorithm.
     UnsupportedSymmetricAlgorithm = -10,
@@ -92,6 +98,12 @@ pub enum Status {
 
     /// Malformed MPI.
     MalformedMPI = -16,
+
+    // XXX: Skipping UnknownPublicKeyAlgorithm = -17.
+    // XXX: Skipping UnsupportedPublicKeyAlgorithm = -18
+
+    /// Bad signature.
+    BadSignature = -19,
 }
 
 impl<'a> From<&'a failure::Error> for Status {
@@ -117,10 +129,14 @@ impl<'a> From<&'a failure::Error> for Status {
                     Status::UnknownPacketTag,
                 &openpgp::Error::UnknownHashAlgorithm(_) =>
                     Status::UnknownHashAlgorithm,
+                &openpgp::Error::UnknownPublicKeyAlgorithm(_) =>
+                    Status::UnknownPublicKeyAlgorithm,
                 &openpgp::Error::UnknownSymmetricAlgorithm(_) =>
                     Status::UnknownSymmetricAlgorithm,
                 &openpgp::Error::UnsupportedHashAlgorithm(_) =>
                     Status::UnsupportedHashAlgorithm,
+                &openpgp::Error::UnsupportedPublicKeyAlgorithm(_) =>
+                    Status::UnsupportedPublicKeyAlgorithm,
                 &openpgp::Error::UnsupportedSymmetricAlgorithm(_) =>
                     Status::UnsupportedSymmetricAlgorithm,
                 &openpgp::Error::InvalidPassword =>
@@ -129,6 +145,8 @@ impl<'a> From<&'a failure::Error> for Status {
                     Status::InvalidSessionKey,
                 &openpgp::Error::MalformedMPI(_) =>
                     Status::MalformedMPI,
+                &openpgp::Error::BadSignature(_) =>
+                    Status::BadSignature,
                 &openpgp::Error::Io(_) =>
                     Status::IoError,
             }

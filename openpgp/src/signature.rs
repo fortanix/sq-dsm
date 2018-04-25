@@ -1,13 +1,33 @@
 use std::fmt;
 
+use Error;
+use Result;
+use HashAlgo;
+use PublicKeyAlgorithm;
 use Signature;
+use Key;
 use Packet;
 use SubpacketArea;
-use HashAlgo;
 use serialize::Serialize;
 
 use mpis::MPIs;
 
+use nettle::rsa;
+use nettle::rsa::ASN1_OID_SHA1;
+use nettle::rsa::ASN1_OID_SHA256;
+use nettle::rsa::ASN1_OID_SHA384;
+use nettle::rsa::ASN1_OID_SHA512;
+use nettle::rsa::ASN1_OID_SHA224;
+use nettle::rsa::verify_digest_pkcs1;
+
+#[cfg(test)]
+use std::path::PathBuf;
+
+#[cfg(test)]
+fn path_to(artifact: &str) -> PathBuf {
+    [env!("CARGO_MANIFEST_DIR"), "tests", "data", artifact]
+        .iter().collect()
+}
 impl fmt::Debug for Signature {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         // Get the issuer.  Prefer the issuer fingerprint to the
@@ -97,11 +117,175 @@ impl Signature {
 
     // XXX: Add subpacket handling.
 
-    // XXX: Add signature generation and validation support.
+    // XXX: Add signature generation.
+
+    pub fn verify_hash(&self, key: &Key, hash_algo: HashAlgo, hash: &[u8])
+        -> Result<bool>
+    {
+        // Extract the public key.
+        let key_mpis = key.mpis.values()?;
+        let key = match PublicKeyAlgorithm::from(self.pk_algo) {
+            PublicKeyAlgorithm::RsaEncryptSign
+            | PublicKeyAlgorithm::RsaSign => {
+                if key_mpis.len() != 2 {
+                    return Err(
+                        Error::MalformedPacket(
+                            format!("Key: Expected 2 MPIs for an RSA key, got {}",
+                                    key_mpis.len())).into());
+                }
+
+                rsa::PublicKey::new(key_mpis[0], key_mpis[1])?
+            },
+            _ => {
+                return Err(
+                    Error::UnsupportedPublicKeyAlgorithm(self.pk_algo)
+                        .into());
+            }
+        };
+
+        // Extract the signature.
+        let sig_mpi = {
+            let sig_mpis = self.mpis.values()?;
+
+            if sig_mpis.len() != 1 {
+                return Err(
+                    Error::MalformedPacket(
+                        format!("Signature: Expected 1 MPI, got {}",
+                                sig_mpis.len())).into());
+            }
+
+            sig_mpis[0]
+        };
+
+        // As described in [Section 5.2.2 and 5.2.3 of RFC 4880],
+        // to verify the signature, we need to encode the
+        // signature data in a PKCS1-v1.5 packet.
+        //
+        //   [Section 5.2.2 and 5.2.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.2
+        match hash_algo {
+            HashAlgo::MD5 =>
+                return Err(
+                    Error::BadSignature("MD5 is insecure".to_string())
+                        .into()),
+            HashAlgo::SHA1 =>
+                verify_digest_pkcs1(&key, hash, ASN1_OID_SHA1, sig_mpi),
+            HashAlgo::SHA256 =>
+                verify_digest_pkcs1(&key, hash, ASN1_OID_SHA256, sig_mpi),
+            HashAlgo::SHA384 =>
+                verify_digest_pkcs1(&key, hash, ASN1_OID_SHA384, sig_mpi),
+            HashAlgo::SHA512 =>
+                verify_digest_pkcs1(&key, hash, ASN1_OID_SHA512, sig_mpi),
+            HashAlgo::SHA224 =>
+                verify_digest_pkcs1(&key, hash, ASN1_OID_SHA224, sig_mpi),
+            _ =>
+                return Err(
+                    Error::UnsupportedHashAlgorithm(hash_algo.into())
+                        .into()),
+        }
+    }
+
+    /// Returns whether `key` generated the signature.
+    ///
+    /// This function does not check whether `key` can generate valid
+    /// signatures.  It is up to the caller to make sure the key is
+    /// not revoked, not expired, has a valid self-signature, has a
+    /// subkey binding signature (if appropriate), has the signing
+    /// capability, etc.
+    pub fn verify(&self, key: &Key) -> Result<bool> {
+        if let Some((hash_algo, ref hash)) = self.computed_hash {
+            self.verify_hash(key, hash_algo, hash)
+        } else {
+            Err(Error::BadSignature("Hash not computed.".to_string()).into())
+        }
+    }
 
 
     /// Convert the `Signature` struct to a `Packet`.
     pub fn to_packet(self) -> Packet {
         Packet::Signature(self)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    use TPK;
+    use parse::PacketParser;
+
+    #[test]
+    fn signature_verification_test() {
+        struct Test<'a> {
+            key: &'a str,
+            data: &'a str,
+            good: usize,
+        };
+
+        let tests = [
+            Test {
+                key: &"neal.pgp"[..],
+                data: &"signed-1.gpg"[..],
+                good: 1,
+            },
+            Test {
+                key: &"neal.pgp"[..],
+                data: &"signed-1-sha1-neal.gpg"[..],
+                good: 1,
+            },
+            Test {
+                key: &"testy.pgp"[..],
+                data: &"signed-1-sha256-testy.gpg"[..],
+                good: 1,
+            },
+            // Check with the wrong key.
+            Test {
+                key: &"neal.pgp"[..],
+                data: &"signed-1-sha256-testy.gpg"[..],
+                good: 0,
+            },
+            Test {
+                key: &"neal.pgp"[..],
+                data: &"signed-2-partial-body.gpg"[..],
+                good: 1,
+            },
+        ];
+
+        for test in tests.iter() {
+            eprintln!("{}, expect {} good signatures:",
+                      test.data, test.good);
+
+            let tpk = TPK::from_file(
+                path_to(&format!("keys/{}", test.key)[..])).unwrap();
+
+            let mut good = 0;
+            let mut ppo = PacketParser::from_file(
+                path_to(&format!("messages/{}", test.data)[..])).unwrap();
+            while let Some(mut pp) = ppo {
+                if let Packet::Signature(ref sig) = pp.packet {
+                    let result = sig.verify(tpk.primary()).unwrap();
+                    eprintln!("  Primary {:?}: {:?}",
+                              tpk.primary().fingerprint(), result);
+                    if result {
+                        good += 1;
+                    }
+
+                    for sk in &tpk.subkeys {
+                        let result = sig.verify(sk.subkey()).unwrap();
+                        eprintln!("   Subkey {:?}: {:?}",
+                                  sk.subkey().fingerprint(), result);
+                        if result {
+                            good += 1;
+                        }
+                    }
+                }
+
+                // Get the next packet.
+                let (_packet, _packet_depth, tmp, _pp_depth)
+                    = pp.recurse().unwrap();
+                ppo = tmp;
+            }
+
+            assert_eq!(good, test.good, "Signature verification failed.");
+        }
     }
 }
