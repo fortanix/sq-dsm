@@ -6,7 +6,8 @@
 
 use num;
 use std::ops::Deref;
-use super::{Tag};
+use super::{Tag, Error, Result};
+use packet::BodyLength;
 
 /// OpenPGP defines two packet formats: the old and the new format.
 /// They both include the packet's so-called tag.
@@ -27,6 +28,17 @@ pub struct CTBCommon {
 #[derive(Debug)]
 pub struct CTBNew {
     pub common: CTBCommon,
+}
+
+impl CTBNew {
+    /// Constructs a new-style CTB.
+    pub fn new(tag: Tag) -> Self {
+        CTBNew {
+            common: CTBCommon {
+                tag: tag,
+            },
+        }
+    }
 }
 
 // Allow transparent access of common fields.
@@ -84,6 +96,51 @@ pub struct CTBOld {
     pub length_type: PacketLengthType,
 }
 
+impl CTBOld {
+    /// Constructs a old-style CTB.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::InvalidArgument`] if the tag or body length
+    /// cannot be expressed using an old-style CTB.
+    ///
+    /// [`Error::InvalidArgument`]: ../enum.Error.html#variant.InvalidArgument
+    pub fn new(tag: Tag, length: BodyLength) -> Result<Self> {
+        // Only tags 0-15 are supported.
+        if Tag::to_numeric(tag) > 15 {
+            return Err(Error::InvalidArgument(
+                format!("Only tags 0-15 are supported, got: {:?} ({})",
+                        tag, Tag::to_numeric(tag))).into());
+        }
+
+        let length_type = match length {
+            // Assume an optimal encoding.
+            BodyLength::Full(l) => {
+                match l {
+                    // One octet length.
+                    0 ... 0xFF => PacketLengthType::OneOctet,
+                    // Two octet length.
+                    0x1_00 ... 0xFF_FF => PacketLengthType::TwoOctets,
+                    // Four octet length,
+                    _ => PacketLengthType::FourOctets,
+                }
+            },
+            BodyLength::Partial(_) =>
+                return Err(Error::InvalidArgument(
+                    "Partial body lengths are not support for old format packets".
+                        into()).into()),
+            BodyLength::Indeterminate =>
+                PacketLengthType::Indeterminate,
+        };
+        Ok(CTBOld {
+            common: CTBCommon {
+                tag: tag,
+            },
+            length_type: length_type,
+        })
+    }
+}
+
 // Allow transparent access of common fields.
 impl Deref for CTBOld {
     type Target = CTBCommon;
@@ -106,6 +163,13 @@ impl Deref for CTBOld {
 pub enum CTB {
     New(CTBNew),
     Old(CTBOld),
+}
+
+impl CTB {
+    /// Constructs a new-style CTB.
+    pub fn new(tag: Tag) -> Self {
+        CTB::New(CTBNew::new(tag))
+    }
 }
 
 // Allow transparent access of common fields.
