@@ -5,9 +5,10 @@ use std::fmt;
 use std::io;
 use std::cmp;
 
+use Error;
 use Result;
 use ::BodyLength;
-use super::{writer, write_byte, body_length_new_format};
+use super::{writer, write_byte, Serialize};
 
 // Compute the log2 of an integer.  (This is simply the most
 // significant bit.)  Note: log2(0) = -Inf, but this function returns
@@ -99,8 +100,16 @@ impl<'a, C: 'a> PartialBodyFilter<'a, C> {
             if l > std::u32::MAX as usize {
                 unimplemented!();
             }
-            inner.write_all(
-                &body_length_new_format(BodyLength::Full(l as u32))[..])?;
+            BodyLength::Full(l as u32).serialize(inner).map_err(
+                |e| match e.downcast::<Error>()
+                    .expect("Unexpected error encoding full length") {
+                    Error::InvalidArgument(s) =>
+                        panic!("Error encoding full length: {}", s),
+                    Error::Io(e) =>
+                        e,
+                    _ =>
+                        panic!("Unexpected error encoding full length"),
+                })?;
 
             // Write the body.
             inner.write_all(&self.buffer[..])?;

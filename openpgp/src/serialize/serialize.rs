@@ -36,64 +36,91 @@ fn write_be_u32<W: io::Write>(o: &mut W, n: u32) -> io::Result<()> {
     o.write_all(&b[..])
 }
 
-/// Returns a new format body length header appropriate for the given
-/// body length.
-///
-/// Note: the returned byte stream does not include a ctb header.
-pub fn body_length_new_format(l: BodyLength) -> Vec<u8> {
-    let mut buffer = Vec::with_capacity(5);
-    match l {
-        BodyLength::Full(l) => {
-            if l <= 191 {
-                // Writing to a Vec can never fail.
-                write_byte(&mut buffer, l as u8).unwrap();
-            } else if l < 8383 {
-                let v = l - 192;
-                let v = v + (192 << 8);
-                write_be_u16(&mut buffer, v as u16).unwrap();
-            } else {
-                write_be_u32(&mut buffer, l).unwrap();
-            }
-        },
-        BodyLength::Partial(_) => {
-            unimplemented!();
-        },
-        BodyLength::Indeterminate => {
-            panic!("BodyLength::Indeterminate not supported by new format packets.");
-        },
-    }
+impl Serialize for BodyLength {
+    /// Emits the length encoded for use with new-style CTBs.
+    ///
+    /// Note: the CTB itself is not emitted.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::InvalidArgument`] if invoked on
+    /// [`BodyLength::Indeterminate`].  If you want to serialize an
+    /// old-style length, use [`serialize_old(..)`].
+    ///
+    /// [`Error::InvalidArgument`]: ../enum.Error.html#variant.InvalidArgument
+    /// [`BodyLength::Indeterminate`]: ../packet/enum.BodyLength.html#variant.Indeterminate
+    /// [`serialize_old(..)`]: #method.serialize_old
+    fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
+        let mut buffer = Vec::with_capacity(5);
+        match self {
+            &BodyLength::Full(l) => {
+                if l <= 191 {
+                    // Writing to a Vec can never fail.
+                    write_byte(&mut buffer, l as u8).unwrap();
+                } else if l < 8383 {
+                    let v = l - 192;
+                    let v = v + (192 << 8);
+                    write_be_u16(&mut buffer, v as u16).unwrap();
+                } else {
+                    write_be_u32(&mut buffer, l).unwrap();
+                }
+            },
+            &BodyLength::Partial(_) => {
+                unimplemented!();
+            },
+            &BodyLength::Indeterminate =>
+                return Err(Error::InvalidArgument(
+                    "Partial body lengths are not support for new format packets".
+                        into()).into()),
+        }
 
-    buffer
+        o.write_all(&buffer)?;
+        Ok(())
+    }
 }
 
-/// Returns an old format body length header appropriate for the given
-/// body length.
-///
-/// Note: the returned byte stream does not include a ctb header.
-pub fn body_length_old_format(l: BodyLength) -> Vec<u8> {
-    // Assume an optimal encoding is desired.
-    let mut buffer = Vec::with_capacity(4);
-    match l {
-        BodyLength::Full(l) => {
-            match l {
-                // One octet length.
-                // write_byte can't fail for a Vec.
-                0 ... 0xFF =>
-                    write_byte(&mut buffer, l as u8).unwrap(),
-                // Two octet length.
-                0x1_00 ... 0xFF_FF =>
-                    write_be_u16(&mut buffer, l as u16).unwrap(),
-                // Four octet length,
-                _ =>
-                    write_be_u32(&mut buffer, l as u32).unwrap(),
-            }
-        },
-        BodyLength::Indeterminate => {},
-        BodyLength::Partial(_) =>
-            panic!("old format CTB don't supported partial body length encoding."),
-    }
+impl BodyLength {
+    /// Emits the length encoded for use with old-style CTBs.
+    ///
+    /// Note: the CTB itself is not emitted.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::InvalidArgument`] if invoked on
+    /// [`BodyLength::Partial`].  If you want to serialize an
+    /// new-style length, use [`serialize(..)`].
+    ///
+    /// [`Error::InvalidArgument`]: ../enum.Error.html#variant.InvalidArgument
+    /// [`BodyLength::Partial`]: ../packet/enum.BodyLength.html#variant.Partial
+    /// [`serialize(..)`]: #impl-Serialize
+    pub fn serialize_old<W: io::Write>(&self, o: &mut W) -> Result<()> {
+        // Assume an optimal encoding is desired.
+        let mut buffer = Vec::with_capacity(4);
+        match self {
+            &BodyLength::Full(l) => {
+                match l {
+                    // One octet length.
+                    // write_byte can't fail for a Vec.
+                    0 ... 0xFF =>
+                        write_byte(&mut buffer, l as u8).unwrap(),
+                    // Two octet length.
+                    0x1_00 ... 0xFF_FF =>
+                        write_be_u16(&mut buffer, l as u16).unwrap(),
+                    // Four octet length,
+                    _ =>
+                        write_be_u32(&mut buffer, l as u32).unwrap(),
+                }
+            },
+            &BodyLength::Indeterminate => {},
+            &BodyLength::Partial(_) =>
+                return Err(Error::InvalidArgument(
+                    "Partial body lengths are not support for old format packets".
+                        into()).into()),
+        }
 
-    buffer
+        o.write_all(&buffer)?;
+        Ok(())
+    }
 }
 
 impl Serialize for CTBNew {
@@ -204,8 +231,7 @@ impl Serialize for Unknown {
         };
 
         CTB::new(self.tag).serialize(o)?;
-        o.write_all(&body_length_new_format(
-            BodyLength::Full(body.len() as u32))[..])?;
+        BodyLength::Full(body.len() as u32).serialize(o)?;
         o.write_all(&body[..])?;
 
         Ok(())
@@ -232,8 +258,7 @@ impl Serialize for Signature {
             + self.mpis.len();
 
         CTB::new(Tag::Signature).serialize(o)?;
-        o.write_all(
-            &body_length_new_format(BodyLength::Full(len as u32))[..])?;
+        BodyLength::Full(len as u32).serialize(o)?;
 
         // XXX: Return an error.
         assert_eq!(self.version, 4);
@@ -274,8 +299,7 @@ impl Serialize for OnePassSig {
             ;
 
         CTB::new(Tag::OnePassSig).serialize(o)?;
-        o.write_all(
-            &body_length_new_format(BodyLength::Full(len as u32))[..])?;
+        BodyLength::Full(len as u32).serialize(o)?;
 
         if self.version != 3 {
             return Err(Error::InvalidOperation(
@@ -314,7 +338,7 @@ impl SerializeKey for Key {
         let len = 1 + 4 + 1 + self.mpis.len();
 
         CTB::new(tag).serialize(o)?;
-        o.write_all(&body_length_new_format(BodyLength::Full(len as u32))[..])?;
+        BodyLength::Full(len as u32).serialize(o)?;
 
         // XXX: Return an error.
         assert_eq!(self.version, 4);
@@ -334,7 +358,7 @@ impl Serialize for UserID {
         let len = self.value.len();
 
         CTB::new(Tag::UserID).serialize(o)?;
-        o.write_all(&body_length_new_format(BodyLength::Full(len as u32))[..])?;
+        BodyLength::Full(len as u32).serialize(o)?;
         o.write_all(&self.value[..])?;
 
         Ok(())
@@ -356,7 +380,7 @@ impl Serialize for UserAttribute {
         let len = self.value.len();
 
         CTB::new(Tag::UserAttribute).serialize(o)?;
-        o.write_all(&body_length_new_format(BodyLength::Full(len as u32))[..])?;
+        BodyLength::Full(len as u32).serialize(o)?;
         o.write_all(&self.value[..])?;
 
         Ok(())
@@ -387,8 +411,7 @@ impl Literal {
             let len = 1 + (1 + filename.len()) + 4
                 + self.common.body.as_ref().map(|b| b.len()).unwrap_or(0);
             CTB::new(Tag::Literal).serialize(o)?;
-            o.write_all(&body_length_new_format(
-                BodyLength::Full(len as u32))[..])?;
+            BodyLength::Full(len as u32).serialize(o)?;
         }
         write_byte(o, self.format)?;
         write_byte(o, filename.len() as u8)?;
@@ -494,8 +517,7 @@ impl Serialize for SKESK {
             + self.esk.len(); // ESK.
 
         CTB::new(Tag::SKESK).serialize(o)?;
-        o.write_all(&body_length_new_format(
-            BodyLength::Full(len as u32))[..])?;
+        BodyLength::Full(len as u32).serialize(o)?;
 
         write_byte(o, self.version)?;
         write_byte(o, self.symm_algo.into())?;
@@ -518,8 +540,7 @@ impl Serialize for SEIP {
                 = self.common.body.as_ref().map(|b| b.len()).unwrap_or(0);
 
             CTB::new(Tag::SEIP).serialize(o)?;
-            o.write_all(&body_length_new_format(
-                BodyLength::Full(body_len as u32))[..])?;
+            BodyLength::Full(body_len as u32).serialize(o)?;
             if let Some(ref body) = self.common.body {
                 o.write(&body[..])?;
             }
@@ -534,8 +555,7 @@ impl Serialize for MDC {
     /// packet to `o`.
     fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
         CTB::new(Tag::MDC).serialize(o)?;
-        o.write_all(&body_length_new_format(
-            BodyLength::Full(20u32))[..])?;
+        BodyLength::Full(20).serialize(o)?;
         o.write_all(&self.hash[..])?;
         Ok(())
     }
