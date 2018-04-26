@@ -340,8 +340,8 @@ impl Serialize for UserID {
     fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
         let len = self.value.len();
 
-        write_byte(o, ctb_old(Tag::UserID, BodyLength::Full(len as u32)))?;
-        o.write_all(&body_length_old_format(BodyLength::Full(len as u32))[..])?;
+        write_byte(o, ctb_new(Tag::UserID))?;
+        o.write_all(&body_length_new_format(BodyLength::Full(len as u32))[..])?;
         o.write_all(&self.value[..])?;
 
         Ok(())
@@ -362,9 +362,8 @@ impl Serialize for UserAttribute {
     fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
         let len = self.value.len();
 
-        write_byte(o,
-            ctb_old(Tag::UserAttribute, BodyLength::Full(len as u32)))?;
-        o.write_all(&body_length_old_format(BodyLength::Full(len as u32))[..])?;
+        write_byte(o, ctb_new(Tag::UserAttribute))?;
+        o.write_all(&body_length_new_format(BodyLength::Full(len as u32))[..])?;
         o.write_all(&self.value[..])?;
 
         Ok(())
@@ -394,9 +393,8 @@ impl Literal {
         if write_tag {
             let len = 1 + (1 + filename.len()) + 4
                 + self.common.body.as_ref().map(|b| b.len()).unwrap_or(0);
-            write_byte(o, ctb_old(Tag::Literal,
-                                  BodyLength::Full(len as u32)))?;
-            o.write_all(&body_length_old_format(
+            write_byte(o, ctb_new(Tag::Literal))?;
+            o.write_all(&body_length_new_format(
                 BodyLength::Full(len as u32))[..])?;
         }
         write_byte(o, self.format)?;
