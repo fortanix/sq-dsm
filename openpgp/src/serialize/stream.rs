@@ -725,7 +725,6 @@ mod test {
             write!(ls, "three").unwrap();
         }
 
-        ::std::fs::File::create("/tmp/p").unwrap().write_all(&o).unwrap();
         let m = Message::from_packets(reference);
         let m2 = Message::from_bytes(&o).unwrap();
         if m != m2 {
