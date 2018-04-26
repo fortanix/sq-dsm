@@ -58,7 +58,7 @@ impl Deref for CTBNew {
 ///   [Section 4.2.1 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.2.1
 ///   [old CTB]: ./CTBOld.t.html
 #[derive(Debug)]
-#[derive(FromPrimitive)]
+#[derive(FromPrimitive, ToPrimitive)]
 #[derive(Clone, Copy, PartialEq)]
 pub enum PacketLengthType {
     OneOctet = 0,
@@ -82,6 +82,10 @@ impl PacketLengthType {
     /// ```
     pub fn from_numeric(value: u8) -> Option<Self> {
         num::FromPrimitive::from_u8(value)
+    }
+
+    pub fn to_numeric(&self) -> u8 {
+        num::ToPrimitive::to_u8(self).unwrap()
     }
 }
 

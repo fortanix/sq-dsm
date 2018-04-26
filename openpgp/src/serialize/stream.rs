@@ -13,10 +13,10 @@ use {
     Signature,
     Tag,
 };
+use ctb::CTB;
 use super::{
     PartialBodyFilter,
     Serialize,
-    ctb_new,
     writer,
 };
 
@@ -85,7 +85,7 @@ impl<'a> ArbitraryWriter<'a> {
     pub fn new(mut inner: writer::Stack<'a, Cookie>, tag: Tag)
                -> Result<writer::Stack<'a, Cookie>> {
         let level = inner.cookie_ref().level + 1;
-        inner.write_u8(ctb_new(tag))?;
+        CTB::new(tag).serialize(&mut inner)?;
         Ok(Box::new(ArbitraryWriter {
             inner: PartialBodyFilter::new(inner, Cookie::new(level))
         }))
@@ -404,7 +404,7 @@ impl<'a> LiteralWriter<'a> {
         }
 
         // Not hashed by the signature_writer (see above).
-        inner.write_u8(ctb_new(Tag::Literal))?;
+        CTB::new(Tag::Literal).serialize(&mut inner)?;
 
         // Neither is any framing added by the PartialBodyFilter.
         let mut inner
@@ -519,7 +519,7 @@ impl<'a> Compressor<'a> {
         let level = inner.cookie_ref().level + 1;
 
         // Packet header.
-        inner.write_u8(ctb_new(Tag::CompressedData))?;
+        CTB::new(Tag::CompressedData).serialize(&mut inner)?;
 
         let mut inner: writer::Stack<'a, Cookie>
             = PartialBodyFilter::new(inner, Cookie::new(level));
@@ -600,7 +600,7 @@ impl<'a> Ecryptor<'a> {
     pub fn new(mut inner: writer::Stack<'a, Cookie>, _template: &SEIP)
                -> Result<writer::Stack<'a, Cookie>> {
         let level = inner.cookie_ref().level + 1;
-        inner.write_u8(ctb_new(Tag::SEIP))?;
+        CTB::new(Tag::SEIP).serialize(&mut inner)?;
         // XXX: Install a filter that encrypts.
         Ok(Box::new(Self{
             inner: PartialBodyFilter::new(Box::new(inner), Cookie::new(level))
@@ -725,6 +725,7 @@ mod test {
             write!(ls, "three").unwrap();
         }
 
+        ::std::fs::File::create("/tmp/p").unwrap().write_all(&o).unwrap();
         let m = Message::from_packets(reference);
         let m2 = Message::from_bytes(&o).unwrap();
         if m != m2 {

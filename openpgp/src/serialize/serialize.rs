@@ -96,37 +96,30 @@ pub fn body_length_old_format(l: BodyLength) -> Vec<u8> {
     buffer
 }
 
-/// Returns a new format CTB.
-pub fn ctb_new(tag: Tag) -> u8 {
-    0b1100_0000u8 | Tag::to_numeric(tag)
+impl Serialize for CTBNew {
+    fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
+        o.write_all(&[0b1100_0000u8 | Tag::to_numeric(self.common.tag)])?;
+        Ok(())
+    }
 }
 
-/// Returns an old format CTB.
-pub fn ctb_old(tag: Tag, l: BodyLength) -> u8 {
-    let len_encoding : u8 = match l {
-        // Assume an optimal encoding.
-        BodyLength::Full(l) => {
-            match l {
-                // One octet length.
-                0 ... 0xFF => 0,
-                // Two octet length.
-                0x1_00 ... 0xFF_FF => 1,
-                // Four octet length,
-                _ => 2,
-            }
-        },
-        BodyLength::Partial(_) => {
-            panic!("Partial body lengths are not support for old format packets.");
-        },
-        BodyLength::Indeterminate => 3,
-    };
-    assert!(len_encoding <= 3);
+impl Serialize for CTBOld {
+    fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
+        let tag = Tag::to_numeric(self.common.tag);
+        let length_type = self.length_type.to_numeric();
+        o.write_all(&[0b1000_0000u8 | (tag << 2) | length_type])?;
+        Ok(())
+    }
+}
 
-    let tag = Tag::to_numeric(tag);
-    // Only tags 0-15 are supported.
-    assert!(tag < 16);
-
-    0b1000_0000u8 | (tag << 2) | len_encoding
+impl Serialize for CTB {
+    fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
+        match self {
+            &CTB::New(ref c) => c.serialize(o),
+            &CTB::Old(ref c) => c.serialize(o),
+        }?;
+        Ok(())
+    }
 }
 
 /// Packet serialization.
@@ -210,7 +203,7 @@ impl Serialize for Unknown {
             &b""[..]
         };
 
-        write_byte(o, ctb_new(self.tag))?;
+        CTB::new(self.tag).serialize(o)?;
         o.write_all(&body_length_new_format(
             BodyLength::Full(body.len() as u32))[..])?;
         o.write_all(&body[..])?;
@@ -238,7 +231,7 @@ impl Serialize for Signature {
             + 2 // hash prefix
             + self.mpis.len();
 
-        write_byte(o, ctb_new(Tag::Signature))?;
+        CTB::new(Tag::Signature).serialize(o)?;
         o.write_all(
             &body_length_new_format(BodyLength::Full(len as u32))[..])?;
 
@@ -280,7 +273,7 @@ impl Serialize for OnePassSig {
             + 1 // last
             ;
 
-        write_byte(o, ctb_new(Tag::OnePassSig))?;
+        CTB::new(Tag::OnePassSig).serialize(o)?;
         o.write_all(
             &body_length_new_format(BodyLength::Full(len as u32))[..])?;
 
@@ -320,7 +313,7 @@ impl SerializeKey for Key {
 
         let len = 1 + 4 + 1 + self.mpis.len();
 
-        write_byte(o, ctb_new(tag))?;
+        CTB::new(tag).serialize(o)?;
         o.write_all(&body_length_new_format(BodyLength::Full(len as u32))[..])?;
 
         // XXX: Return an error.
@@ -340,7 +333,7 @@ impl Serialize for UserID {
     fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
         let len = self.value.len();
 
-        write_byte(o, ctb_new(Tag::UserID))?;
+        CTB::new(Tag::UserID).serialize(o)?;
         o.write_all(&body_length_new_format(BodyLength::Full(len as u32))[..])?;
         o.write_all(&self.value[..])?;
 
@@ -362,7 +355,7 @@ impl Serialize for UserAttribute {
     fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
         let len = self.value.len();
 
-        write_byte(o, ctb_new(Tag::UserAttribute))?;
+        CTB::new(Tag::UserAttribute).serialize(o)?;
         o.write_all(&body_length_new_format(BodyLength::Full(len as u32))[..])?;
         o.write_all(&self.value[..])?;
 
@@ -393,7 +386,7 @@ impl Literal {
         if write_tag {
             let len = 1 + (1 + filename.len()) + 4
                 + self.common.body.as_ref().map(|b| b.len()).unwrap_or(0);
-            write_byte(o, ctb_new(Tag::Literal))?;
+            CTB::new(Tag::Literal).serialize(o)?;
             o.write_all(&body_length_new_format(
                 BodyLength::Full(len as u32))[..])?;
         }
@@ -500,7 +493,7 @@ impl Serialize for SKESK {
             + self.s2k.serialized_len() // s2k.
             + self.esk.len(); // ESK.
 
-        write_byte(o, ctb_new(Tag::SKESK))?;
+        CTB::new(Tag::SKESK).serialize(o)?;
         o.write_all(&body_length_new_format(
             BodyLength::Full(len as u32))[..])?;
 
@@ -524,7 +517,7 @@ impl Serialize for SEIP {
             let body_len
                 = self.common.body.as_ref().map(|b| b.len()).unwrap_or(0);
 
-            write_byte(o, ctb_new(Tag::SEIP))?;
+            CTB::new(Tag::SEIP).serialize(o)?;
             o.write_all(&body_length_new_format(
                 BodyLength::Full(body_len as u32))[..])?;
             if let Some(ref body) = self.common.body {
@@ -540,7 +533,7 @@ impl Serialize for MDC {
     /// Writes a serialized version of the specified `MDC`
     /// packet to `o`.
     fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
-        write_byte(o, ctb_new(Tag::MDC))?;
+        CTB::new(Tag::MDC).serialize(o)?;
         o.write_all(&body_length_new_format(
             BodyLength::Full(20u32))[..])?;
         o.write_all(&self.hash[..])?;
