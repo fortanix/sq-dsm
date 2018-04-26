@@ -37,6 +37,7 @@ pub extern "system" fn sq_error_status(error: Option<&failure::Error>)
     error.into()
 }
 
+/// XXX: Reorder and name-space before release.
 #[repr(C)]
 pub enum Status {
     /// The operation was successful.
@@ -50,6 +51,9 @@ pub enum Status {
 
     /// An IO error occurred.
     IoError = -3,
+
+    /// A given argument is invalid.
+    InvalidArgument = -15,
 
     /// The requested operation is invalid.
     InvalidOperation = -4,
@@ -83,6 +87,8 @@ pub enum Status {
 
     /// User ID not found.
     UserIDNotFound = -14,
+
+    // XXX: Skipping InvalidArgument = -15.
 }
 
 impl<'a> From<&'a failure::Error> for Status {
@@ -98,6 +104,8 @@ impl<'a> From<&'a failure::Error> for Status {
 
         if let Some(e) = e.downcast_ref::<openpgp::Error>() {
             return match e {
+                &openpgp::Error::InvalidArgument(_) =>
+                    Status::InvalidArgument,
                 &openpgp::Error::InvalidOperation(_) =>
                     Status::InvalidOperation,
                 &openpgp::Error::MalformedPacket(_) =>

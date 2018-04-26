@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <limits.h>
 
+/* XXX: Reorder and name-space before release.  */
 typedef enum sq_status {
   /*/
   /// The operation was successful.
@@ -25,6 +26,11 @@ typedef enum sq_status {
   /// An IO error occurred.
   /*/
   SQ_STATUS_IO_ERROR = -3,
+
+  /*/
+  /// A given argument is invalid.
+  /*/
+  SQ_STATUS_INVALID_ARGUMENT = -15,
 
   /*/
   /// The requested operation is invalid.

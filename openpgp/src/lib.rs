@@ -106,6 +106,9 @@ pub type Result<T> = ::std::result::Result<T, failure::Error>;
 #[derive(Fail, Debug)]
 /// Errors returned by this module.
 pub enum Error {
+    #[fail(display = "Invalid argument: {}", _0)]
+    InvalidArgument(String),
+
     #[fail(display = "Invalid operation: {}", _0)]
     InvalidOperation(String),
 
