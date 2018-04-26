@@ -1,11 +1,13 @@
 //! Encodes a byte stream using OpenPGP's partial body encoding.
 
 use std;
+use std::fmt;
 use std::io;
 use std::cmp;
 
+use Result;
 use ::BodyLength;
-use super::{write_byte, body_length_new_format};
+use super::{writer, write_byte, body_length_new_format};
 
 // Compute the log2 of an integer.  (This is simply the most
 // significant bit.)  Note: log2(0) = -Inf, but this function returns
@@ -33,9 +35,16 @@ fn log2_test() {
     }
 }
 
-pub struct PartialBodyFilter<W: io::Write> {
+pub struct PartialBodyFilter<'a, C: 'a> {
     // The underlying writer.
-    inner: W,
+    //
+    // Because this writer implements `Drop`, we cannot move the inner
+    // writer out of this writer.  We therefore wrap it with `Option`
+    // so that we can `take()` it.
+    inner: Option<writer::Stack<'a, C>>,
+
+    // The cookie.
+    cookie: C,
 
     // The buffer.
     buffer: Vec<u8>,
@@ -54,17 +63,18 @@ const PARTIAL_BODY_FILTER_MAX_CHUNK_SIZE : u32 = 1 << 30;
 // lots of small partial body packets, which is annoying.
 const PARTIAL_BODY_FILTER_BUFFER_THRESHOLD : usize = 4 * 1024 * 1024;
 
-impl<W: io::Write> PartialBodyFilter<W> {
+impl<'a, C: 'a> PartialBodyFilter<'a, C> {
     /// Returns a new partial body encoder.
-    pub fn new(inner: W) -> Self {
+    pub fn new(inner: writer::Stack<'a, C>, cookie: C) -> writer::Stack<'a, C> {
         let buffer_threshold = PARTIAL_BODY_FILTER_BUFFER_THRESHOLD;
         let max_chunk_size = PARTIAL_BODY_FILTER_MAX_CHUNK_SIZE;
-        PartialBodyFilter {
-            inner: inner,
+        Box::new(PartialBodyFilter {
+            inner: Some(inner),
+            cookie: cookie,
             buffer: Vec::with_capacity(buffer_threshold as usize),
             buffer_threshold: buffer_threshold,
             max_chunk_size: max_chunk_size,
-        }
+        })
     }
 
     // Writes out any full chunks between `self.buffer` and `other`.
@@ -73,7 +83,12 @@ impl<W: io::Write> PartialBodyFilter<W> {
     // If `done` is set, then flushes any data, and writes the end of
     // the partial body encoding.
     fn write_out(&mut self, other: &[u8], done: bool)
-            -> Result<(), io::Error> {
+                 -> io::Result<()> {
+        if self.inner.is_none() {
+            return Ok(());
+        }
+        let mut inner = self.inner.as_mut().unwrap();
+
         if done {
             // We're done.  The last header MUST be a non-partial body
             // header.  We have to write it even if it is 0 bytes
@@ -84,13 +99,13 @@ impl<W: io::Write> PartialBodyFilter<W> {
             if l > std::u32::MAX as usize {
                 unimplemented!();
             }
-            self.inner.write_all(
+            inner.write_all(
                 &body_length_new_format(BodyLength::Full(l as u32))[..])?;
 
             // Write the body.
-            self.inner.write_all(&self.buffer[..])?;
+            inner.write_all(&self.buffer[..])?;
             self.buffer.clear();
-            self.inner.write_all(other)?;
+            inner.write_all(other)?;
         } else {
             // Write a partial body length header.
 
@@ -116,18 +131,18 @@ impl<W: io::Write> PartialBodyFilter<W> {
                     }
 
                     // Write out the chunk.
-                    write_byte(&mut self.inner, size_byte)?;
-                    self.inner.write_all(chunk)?;
+                    write_byte(&mut inner, size_byte)?;
+                    inner.write_all(chunk)?;
                 }
 
                 // In between, we have to see if we have a whole
                 // chunk.
                 if i == 0 && rest.len() + other.len() >= chunk_size {
-                    write_byte(&mut self.inner, size_byte)?;
-                    self.inner.write_all(&rest[..])?;
+                    write_byte(&mut inner, size_byte)?;
+                    inner.write_all(&rest[..])?;
                     let amount = chunk_size - rest.len();
 
-                    self.inner.write_all(&other[..amount])?;
+                    inner.write_all(&other[..amount])?;
                     rest = other[amount..].to_vec();
                 }
 
@@ -139,8 +154,8 @@ impl<W: io::Write> PartialBodyFilter<W> {
     }
 }
 
-impl<W: io::Write> io::Write for PartialBodyFilter<W> {
-    fn write(&mut self, buf: &[u8]) -> Result<usize, io::Error> {
+impl<'a, C: 'a> io::Write for PartialBodyFilter<'a, C> {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         // If we can write out a chunk, avoid an extra copy.
         if buf.len() >= self.buffer.capacity() - self.buffer.len() {
             self.write_out(buf, false)?;
@@ -152,14 +167,59 @@ impl<W: io::Write> io::Write for PartialBodyFilter<W> {
 
     // XXX: The API says that `flush` is supposed to flush any
     // internal buffers to disk.  We don't do that.
-    fn flush(&mut self) -> Result<(), io::Error> {
+    fn flush(&mut self) -> io::Result<()> {
         self.write_out(&b""[..], false)
     }
 }
 
-impl<W: io::Write> Drop for PartialBodyFilter<W> {
+impl<'a, C: 'a> Drop for PartialBodyFilter<'a, C> {
     // Make sure the internal buffer is flushed.
     fn drop(&mut self) {
         let _ = self.write_out(&b""[..], true);
+    }
+}
+
+impl<'a, C: 'a> fmt::Debug for PartialBodyFilter<'a, C> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("PartialBodyFilter")
+            .field("inner", &self.inner)
+            .finish()
+    }
+}
+
+impl<'a, C: 'a> writer::Stackable<'a, C> for PartialBodyFilter<'a, C> {
+    fn into_inner(mut self: Box<Self>) -> Result<Option<writer::Stack<'a, C>>> {
+        self.write_out(&b""[..], true)?;
+        Ok(self.inner.take())
+    }
+    fn pop(&mut self) -> Result<Option<writer::Stack<'a, C>>> {
+        self.write_out(&b""[..], true)?;
+        Ok(self.inner.take())
+    }
+    fn mount(&mut self, new: writer::Stack<'a, C>) {
+        self.inner = Some(new);
+    }
+    fn inner_mut(&mut self) -> Option<&mut writer::Stackable<'a, C>> {
+        if let Some(ref mut i) = self.inner {
+            Some(i)
+        } else {
+            None
+        }
+    }
+    fn inner_ref(&self) -> Option<&writer::Stackable<'a, C>> {
+        if let Some(ref i) = self.inner {
+            Some(i)
+        } else {
+            None
+        }
+    }
+    fn cookie_set(&mut self, cookie: C) -> C {
+        ::std::mem::replace(&mut self.cookie, cookie)
+    }
+    fn cookie_ref(&self) -> &C {
+        &self.cookie
+    }
+    fn cookie_mut(&mut self) -> &mut C {
+        &mut self.cookie
     }
 }

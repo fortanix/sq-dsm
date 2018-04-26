@@ -1,10 +1,12 @@
-use std::io;
+use std::io::{self, Write};
 use std::cmp;
 
 use super::*;
 
 mod partial_body;
 use self::partial_body::PartialBodyFilter;
+mod writer;
+pub mod stream;
 
 // Whether to trace the modules execution (on stderr).
 const TRACE : bool = false;
@@ -377,6 +379,34 @@ impl Serialize for UserAttribute {
     }
 }
 
+impl Literal {
+    /// Writes the headers of the `Literal` data packet to `o`.
+    fn serialize_headers<W: io::Write>(&self, o: &mut W,
+                                       write_tag: bool)
+                                       -> Result<()> {
+        let filename = if let Some(ref filename) = self.filename {
+            let len = cmp::min(filename.len(), 255) as u8;
+            &filename[..len as usize]
+        } else {
+            &b""[..]
+        };
+
+        if write_tag {
+            let len = 1 + (1 + filename.len()) + 4
+                + self.common.body.as_ref().map(|b| b.len()).unwrap_or(0);
+            write_byte(o, ctb_old(Tag::Literal,
+                                  BodyLength::Full(len as u32)))?;
+            o.write_all(&body_length_old_format(
+                BodyLength::Full(len as u32))[..])?;
+        }
+        write_byte(o, self.format)?;
+        write_byte(o, filename.len() as u8)?;
+        o.write_all(filename)?;
+        write_be_u32(o, self.date)?;
+        Ok(())
+    }
+}
+
 impl Serialize for Literal {
     /// Writes a serialized version of the `Literal` data packet to `o`.
     fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
@@ -394,23 +424,7 @@ impl Serialize for Literal {
                       body.len());
         }
 
-        let filename = if let Some(ref filename) = self.filename {
-            let len = cmp::min(filename.len(), 255) as u8;
-            &filename[..len as usize]
-        } else {
-            &b""[..]
-        };
-
-        let len = 1 + (1 + filename.len()) + 4 + body.len();
-
-        write_byte(o, ctb_old(Tag::Literal, BodyLength::Full(len as u32)))?;
-
-        o.write_all(&body_length_old_format(BodyLength::Full(len as u32))[..])?;
-
-        write_byte(o, self.format)?;
-        write_byte(o, filename.len() as u8)?;
-        o.write_all(filename)?;
-        write_be_u32(o, self.date)?;
+        self.serialize_headers(o, true)?;
         o.write_all(body)?;
 
         Ok(())
@@ -435,11 +449,6 @@ impl Serialize for CompressedData {
     /// This function works recursively: if the `CompressedData` packet
     /// contains any packets, they are also serialized.
     fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
-        use flate2::Compression as FlateCompression;
-        use flate2::write::{DeflateEncoder, ZlibEncoder};
-        use bzip2::Compression as BzCompression;
-        use bzip2::write::BzEncoder;
-
         if TRACE {
             eprintln!("CompressedData::serialize(\
                        algo: {}, {:?} children, {:?} bytes)",
@@ -449,21 +458,8 @@ impl Serialize for CompressedData {
                       self.common.body.as_ref().map(|body| body.len()));
         }
 
-        // Packet header.
-        write_byte(o, ctb_new(Tag::CompressedData))?;
-        let mut o = PartialBodyFilter::new(o);
-
-        // Compressed data header.
-        write_byte(&mut o, self.algo)?;
-
-        // Create an appropriate filter.
-        let mut o : Box<io::Write> = match self.algo {
-            0 => Box::new(o),
-            1 => Box::new(DeflateEncoder::new(o, FlateCompression::default())),
-            2 => Box::new(ZlibEncoder::new(o, FlateCompression::default())),
-            3 => Box::new(BzEncoder::new(o, BzCompression::Default)),
-            _ => unimplemented!(),
-        };
+        let o = stream::wrap(o);
+        let mut o = stream::Compressor::new(o, self.algo)?;
 
         // Serialize the packets.
         if let Some(ref children) = self.common.children {

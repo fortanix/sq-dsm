@@ -751,6 +751,17 @@ impl fmt::Debug for KeyID {
     }
 }
 
+impl From<KeyID> for Vec<u8> {
+    fn from(id: KeyID) -> Self {
+        let mut r = Vec::with_capacity(8);
+        match id {
+            KeyID::V4(ref b) => r.extend_from_slice(b),
+            KeyID::Invalid(ref b) => r.extend_from_slice(b),
+        }
+        r
+    }
+}
+
 impl KeyID {
     /// Converts a u64 to a KeyID.
     pub fn new(data: u64) -> KeyID {
