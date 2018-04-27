@@ -2,23 +2,11 @@ use std::fmt;
 
 use quickcheck::{Arbitrary, Gen};
 
-/*
- * 9.1.  Public-Key Algorithms
- *
- * ID           Algorithm
- * --           ---------
- * 1          - RSA (Encrypt or Sign) [HAC]
- * 2          - RSA Encrypt-Only [HAC]
- * 3          - RSA Sign-Only [HAC]
- * 16         - Elgamal (Encrypt-Only) [ELGAMAL] [HAC]
- * 17         - DSA (Digital Signature Algorithm) [FIPS186] [HAC]
- * 18         - Reserved for Elliptic Curve
- * 19         - Reserved for ECDSA
- * 20         - Reserved (formerly Elgamal Encrypt or Sign)
- * 21         - Reserved for Diffie-Hellman (X9.42,
- *              as defined for IETF-S/MIME)
- * 100 to 110 - Private/Experimental algorithm
- */
+/// The OpenPGP public key algorithms as defined in [Section 9.1 of RFC 4880].
+///
+///   [Section 9.1 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-9.1
+///
+/// The values correspond to the serialized format.
 #[derive(Clone,Copy,PartialEq,Eq,Debug)]
 pub enum PublicKeyAlgorithm {
     RsaEncryptSign,
@@ -85,18 +73,11 @@ impl Arbitrary for PublicKeyAlgorithm {
     }
 }
 
-
-/*
- * 9.3.  Compression Algorithms
- *
- * ID           Algorithm
- * --           ---------
- * 0          - Uncompressed
- * 1          - ZIP [RFC1951]
- * 2          - ZLIB [RFC1950]
- * 3          - BZip2 [BZ2]
- * 100 to 110 - Private/Experimental algorithm
- */
+/// The OpenPGP compression algorithms as defined in [Section 9.3 of RFC 4880].
+///
+///   [Section 9.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-9.3
+///
+/// The values correspond to the serialized format.
 #[derive(Clone,Copy,PartialEq,Eq,Debug)]
 pub enum CompressionAlgorithm {
     Uncompressed,
