@@ -136,14 +136,15 @@ impl BodyLength {
 
 impl Serialize for CTBNew {
     fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
-        o.write_all(&[0b1100_0000u8 | Tag::to_numeric(self.common.tag)])?;
+        let tag: u8 = self.common.tag.into();
+        o.write_all(&[0b1100_0000u8 | tag])?;
         Ok(())
     }
 }
 
 impl Serialize for CTBOld {
     fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
-        let tag = Tag::to_numeric(self.common.tag);
+        let tag: u8 = self.common.tag.into();
         let length_type = self.length_type.to_numeric();
         o.write_all(&[0b1000_0000u8 | (tag << 2) | length_type])?;
         Ok(())

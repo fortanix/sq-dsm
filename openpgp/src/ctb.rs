@@ -110,11 +110,13 @@ impl CTBOld {
     ///
     /// [`Error::InvalidArgument`]: ../enum.Error.html#variant.InvalidArgument
     pub fn new(tag: Tag, length: BodyLength) -> Result<Self> {
+        let n: u8 = tag.into();
+
         // Only tags 0-15 are supported.
-        if Tag::to_numeric(tag) > 15 {
+        if n > 15 {
             return Err(Error::InvalidArgument(
                 format!("Only tags 0-15 are supported, got: {:?} ({})",
-                        tag, Tag::to_numeric(tag))).into());
+                        tag, n)).into());
         }
 
         let length_type = match length {

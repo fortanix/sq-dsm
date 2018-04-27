@@ -465,7 +465,8 @@ pub extern "system" fn sq_packet_free(p: *mut Packet) {
 pub extern "system" fn sq_packet_tag(p: Option<&Packet>)
                                      -> uint8_t {
     let p = p.expect("Packet is NULL");
-    p.tag().to_numeric() as uint8_t
+    let tag: u8 = p.tag().into();
+    tag as uint8_t
 }
 
 /// Returns the session key.

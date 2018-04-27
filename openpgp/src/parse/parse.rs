@@ -81,7 +81,7 @@ impl CTB {
             let tag = ptag & 0b0011_1111;
             CTB::New(CTBNew {
                 common: CTBCommon {
-                    tag: Tag::from_numeric(tag).unwrap()
+                    tag: tag.into()
                 }})
         } else {
             let tag = (ptag & 0b0011_1100) >> 2;
@@ -89,7 +89,7 @@ impl CTB {
 
             CTB::Old(CTBOld {
                 common: CTBCommon {
-                    tag: Tag::from_numeric(tag).unwrap()
+                    tag: tag.into(),
                 },
                 length_type: PacketLengthType::from_numeric(length_type).unwrap(),
             })
