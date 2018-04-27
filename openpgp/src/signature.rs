@@ -13,11 +13,6 @@ use serialize::Serialize;
 use mpis::MPIs;
 
 use nettle::rsa;
-use nettle::rsa::ASN1_OID_SHA1;
-use nettle::rsa::ASN1_OID_SHA256;
-use nettle::rsa::ASN1_OID_SHA384;
-use nettle::rsa::ASN1_OID_SHA512;
-use nettle::rsa::ASN1_OID_SHA224;
 use nettle::rsa::verify_digest_pkcs1;
 
 #[cfg(test)]
@@ -162,26 +157,7 @@ impl Signature {
         // signature data in a PKCS1-v1.5 packet.
         //
         //   [Section 5.2.2 and 5.2.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.2
-        match hash_algo {
-            HashAlgo::MD5 =>
-                return Err(
-                    Error::BadSignature("MD5 is insecure".to_string())
-                        .into()),
-            HashAlgo::SHA1 =>
-                verify_digest_pkcs1(&key, hash, ASN1_OID_SHA1, sig_mpi),
-            HashAlgo::SHA256 =>
-                verify_digest_pkcs1(&key, hash, ASN1_OID_SHA256, sig_mpi),
-            HashAlgo::SHA384 =>
-                verify_digest_pkcs1(&key, hash, ASN1_OID_SHA384, sig_mpi),
-            HashAlgo::SHA512 =>
-                verify_digest_pkcs1(&key, hash, ASN1_OID_SHA512, sig_mpi),
-            HashAlgo::SHA224 =>
-                verify_digest_pkcs1(&key, hash, ASN1_OID_SHA224, sig_mpi),
-            _ =>
-                return Err(
-                    Error::UnsupportedHashAlgorithm(hash_algo.into())
-                        .into()),
-        }
+        verify_digest_pkcs1(&key, hash, hash_algo.oid()?, sig_mpi)
     }
 
     /// Returns whether `key` generated the signature.

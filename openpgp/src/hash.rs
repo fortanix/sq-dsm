@@ -137,6 +137,22 @@ impl HashAlgo {
                 Err(Error::UnknownHashAlgorithm(x).into()),
         }
     }
+
+    pub fn oid(self) -> Result<&'static [u8]> {
+        use nettle::rsa;
+
+        match self {
+            HashAlgo::SHA1 => Ok(rsa::ASN1_OID_SHA1),
+            HashAlgo::SHA224 => Ok(rsa::ASN1_OID_SHA224),
+            HashAlgo::SHA256 => Ok(rsa::ASN1_OID_SHA256),
+            HashAlgo::SHA384 => Ok(rsa::ASN1_OID_SHA384),
+            HashAlgo::SHA512 => Ok(rsa::ASN1_OID_SHA512),
+            HashAlgo::MD5 | HashAlgo::RipeMD =>
+                Err(Error::UnknownHashAlgorithm(self.into()).into()),
+            HashAlgo::Private(x) | HashAlgo::Unknown(x) =>
+                Err(Error::UnknownHashAlgorithm(x).into()),
+        }
+    }
 }
 
 impl Arbitrary for HashAlgo {
