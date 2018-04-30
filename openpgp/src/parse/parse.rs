@@ -2515,7 +2515,75 @@ mod test {
         }
     }
 }
+
+/// An iterator over a packet stream.
+///
+/// This iterator recurses into any containers.
+///
+/// Because parsing packets may result in an error, users of this
+/// iterator should call iter.error() when they receive None to
+/// determine if the iterator stopped due to an error or because the
+/// packet stream was really exhausted.
+pub struct PacketParserIter<'a> {
+    ppo: Option<PacketParser<'a>>,
+    error: Option<failure::Error>,
+}
 
+impl<'a> Iterator for PacketParserIter<'a> {
+    type Item = Packet;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.error.is_some() {
+            return None;
+        }
+
+        let ppo = self.ppo.take();
+        if let Some(pp) = ppo {
+            match pp.recurse() {
+                Ok((packet, _, ppo_tmp, _)) => {
+                    self.ppo = ppo_tmp;
+                    Some(packet)
+                },
+                Err(err) => {
+                    self.error = Some(err);
+                    None
+                },
+            }
+        } else {
+            None
+        }
+    }
+}
+
+impl<'a> IterError for PacketParserIter<'a> {
+    /// Returns any pending error.
+    fn error(&mut self) -> Option<failure::Error> {
+        self.error.take()
+    }
+}
+
+impl<'a> IntoIterator for PacketParser<'a> {
+    type Item = Packet;
+    type IntoIter = PacketParserIter<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        PacketParserIter {
+            ppo: Some(self),
+            error: None,
+        }
+    }
+}
+
+#[test]
+fn packet_parser_iter_test() {
+    let pp = PacketParser::from_file(
+        path_to("compressed-data-algo-1.gpg")).unwrap().unwrap();
+
+    let tags : Vec<Tag> = pp.into_iter().map(|p| p.tag()).collect();
+    assert_eq!(&[ Tag::CompressedData, Tag::Literal ][..],
+               &tags[..]);
+}
+
 impl Message {
     // Reads all of the packets from a `PacketParser`, and turns them
     // into a message.  Note: this assumes that `ppo` points to a
