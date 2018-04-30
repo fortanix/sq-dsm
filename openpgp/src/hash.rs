@@ -148,7 +148,7 @@ impl HashAlgo {
             HashAlgo::SHA384 => Ok(rsa::ASN1_OID_SHA384),
             HashAlgo::SHA512 => Ok(rsa::ASN1_OID_SHA512),
             HashAlgo::MD5 | HashAlgo::RipeMD =>
-                Err(Error::UnknownHashAlgorithm(self.into()).into()),
+                Err(Error::UnsupportedHashAlgorithm(self.into()).into()),
             HashAlgo::Private(x) | HashAlgo::Unknown(x) =>
                 Err(Error::UnknownHashAlgorithm(x).into()),
         }
