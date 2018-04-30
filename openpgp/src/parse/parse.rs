@@ -336,69 +336,6 @@ impl Signature {
             return Unknown::parse(bio, recursion_depth, Tag::Signature);
         }
 
-        let computed_hash = if let Some((algo, mut hash)) = computed_hash {
-            // A version 4 signature packet is laid out as follows:
-            //
-            //   version - 1 byte                    \
-            //   sigtype - 1 byte                     \
-            //   pk_algo - 1 byte                      \
-            //   hash_algo - 1 byte                      Included in the hash
-            //   hashed_area_len - 2 bytes (big endian)/
-            //   hashed_area                         _/
-            //   ...                                 <- Not included in the hash
-
-            let header_amount = {
-                let header = bio.data_hard(6)?;
-                let hashed_area_len =
-                    ((header[4] as usize) << 8) + (header[5] as usize);
-
-                6 + hashed_area_len
-            };
-
-            let header
-                = &bio.data_hard(header_amount as usize)?[..header_amount];
-
-            if false {
-                eprintln!("Signature::parse:: Hashing header ({} bytes): {}",
-                          header.len(), to_hex(header, true));
-            }
-
-            hash.update(header);
-
-            // A version 4 signature trailer is:
-            //
-            //   version - 1 byte
-            //   0xFF (constant) - 1 byte
-            //   amount - 4 bytes (big endian)
-            //
-            // The amount field is the amount of hashed from this
-            // packet (this excludes the message content, and this
-            // trailer).
-            //
-            // See https://tools.ietf.org/html/rfc4880#section-5.2.4
-            let trailer : [ u8; 6 ] = [
-                0x04,
-                0xFF,
-                ((header_amount >> 24) & 0xff) as u8,
-                ((header_amount >> 16) & 0xff) as u8,
-                ((header_amount >>  8) & 0xff) as u8,
-                ((header_amount >>  0) & 0xff) as u8
-            ];
-            hash.update(&trailer[..]);
-
-            if false {
-                eprintln!("Signature::parse:: Hashing trailer ({} bytes): {}",
-                          trailer.len(), to_hex(&trailer[..], true));
-            }
-
-            let mut digest = vec![0u8; hash.digest_size()];
-            hash.digest(&mut digest);
-
-            Some((algo, digest))
-        } else {
-            None
-        };
-
         // Version.
         bio.consume(1);
         let sigtype = bio.data_consume_hard(1)?[0];
@@ -412,19 +349,30 @@ impl Signature {
         let hash_prefix2 = bio.data_consume_hard(1)?[0];
         let mpis = bio.steal_eof()?;
 
+        let mut sig = Signature {
+            common: Default::default(),
+            version: version,
+            sigtype: sigtype,
+            pk_algo: pk_algo,
+            hash_algo: hash_algo.into(),
+            hashed_area: SubpacketArea::new(hashed_area),
+            unhashed_area: SubpacketArea::new(unhashed_area),
+            hash_prefix: [hash_prefix1, hash_prefix2],
+            mpis: MPIs::parse(mpis),
+            computed_hash: None,
+        };
+
+        if let Some((algo, mut hash)) = computed_hash {
+            sig.hash(&mut hash);
+
+            let mut digest = vec![0u8; hash.digest_size()];
+            hash.digest(&mut digest);
+
+            sig.computed_hash = Some((algo, digest));
+        }
+
         return Ok(PacketParser {
-            packet: Packet::Signature(Signature {
-                common: Default::default(),
-                version: version,
-                sigtype: sigtype,
-                pk_algo: pk_algo,
-                hash_algo: hash_algo.into(),
-                hashed_area: SubpacketArea::new(hashed_area),
-                unhashed_area: SubpacketArea::new(unhashed_area),
-                hash_prefix: [hash_prefix1, hash_prefix2],
-                mpis: MPIs::parse(mpis),
-                computed_hash: computed_hash,
-            }),
+            packet: Packet::Signature(sig),
             reader: Box::new(bio),
             content_was_read: false,
             finished: false,

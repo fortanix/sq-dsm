@@ -234,6 +234,16 @@ impl Key {
 impl Signature {
     // Adds the `Signature` to the provided hash context.
     pub fn hash<H: Hash>(&self, hash: &mut H) {
+        // A version 4 signature packet is laid out as follows:
+        //
+        //   version - 1 byte                    \
+        //   sigtype - 1 byte                     \
+        //   pk_algo - 1 byte                      \
+        //   hash_algo - 1 byte                      Included in the hash
+        //   hashed_area_len - 2 bytes (big endian)/
+        //   hashed_area                         _/
+        //   ...                                 <- Not included in the hash
+
         let mut header = [0u8; 6];
 
         // Version.
@@ -251,6 +261,17 @@ impl Signature {
 
         hash.update(&self.hashed_area.data[..]);
 
+        // A version 4 signature trailer is:
+        //
+        //   version - 1 byte
+        //   0xFF (constant) - 1 byte
+        //   amount - 4 bytes (big endian)
+        //
+        // The amount field is the amount of hashed from this
+        // packet (this excludes the message content, and this
+        // trailer).
+        //
+        // See https://tools.ietf.org/html/rfc4880#section-5.2.4
         let mut trailer = [0u8; 6];
 
         trailer[0] = 0x4;
