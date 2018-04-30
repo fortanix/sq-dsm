@@ -143,6 +143,25 @@ impl<I: iter::Iterator<Item=Packet> + IterError> TPKParser<I> {
     }
 }
 
+pub struct KeyIter<'a> {
+    tpk: &'a TPK,
+    primary: bool,
+    subkey_iter: slice::Iter<'a, SubkeyBinding>,
+}
+
+impl<'a> Iterator for KeyIter<'a> {
+    type Item = &'a Key;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if ! self.primary {
+            self.primary = true;
+            Some(self.tpk.primary())
+        } else {
+            self.subkey_iter.next().map(|sk_binding| &sk_binding.subkey)
+        }
+    }
+}
+
 impl<I: iter::Iterator<Item=Packet>> TPKParser<I> {
     /// Initializes a parser.
     pub fn new(iter: I) -> Self {
@@ -579,6 +598,14 @@ impl TPK {
 
     pub fn subkeys(&self) -> slice::Iter<SubkeyBinding> {
         self.subkeys.iter()
+    }
+
+    pub fn keys(&self) -> KeyIter {
+        KeyIter {
+            tpk: self,
+            primary: false,
+            subkey_iter: self.subkeys()
+        }
     }
 
     /// Returns the first TPK found in the packet stream.
@@ -1033,6 +1060,13 @@ mod test {
                 panic!("Expected {}, got {:?}.", stringify!($error), x);
             }
         };
+    }
+
+    #[test]
+    fn key_iter_test() {
+        let key = TPK::from_bytes(bytes!("neal.pgp")).unwrap();
+        assert_eq!(1 + key.subkeys().count(),
+                   key.keys().count());
     }
 
     fn parse_tpk(data: &[u8], as_message: bool) -> Result<TPK> {
