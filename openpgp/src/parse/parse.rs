@@ -263,7 +263,7 @@ impl Header {
 impl S2K {
     pub fn parse_naked<R: io::Read>(r: R) -> io::Result<Self> {
         let bio = BufferedReaderGeneric::with_cookie(
-            r, None, BufferedReaderState::default());
+            r, None, Cookie::default());
         let mut parser = PacketParser::new_naked(Box::new(bio));
         Self::parse(&mut parser)
     }
@@ -314,17 +314,17 @@ impl Unknown {
 pub fn to_unknown_packet<R: Read>(reader: R)
         -> Result<Unknown> {
     let mut reader = BufferedReaderGeneric::with_cookie(
-        reader, None, BufferedReaderState::default());
+        reader, None, Cookie::default());
     let header = Header::parse(&mut reader)?;
 
-    let reader : Box<BufferedReader<BufferedReaderState>>
+    let reader : Box<BufferedReader<Cookie>>
         = match header.length {
             BodyLength::Full(len) =>
                 Box::new(BufferedReaderLimitor::with_cookie(
-                    Box::new(reader), len as u64, BufferedReaderState::default())),
+                    Box::new(reader), len as u64, Cookie::default())),
             BodyLength::Partial(len) =>
                 Box::new(BufferedReaderPartialBodyFilter::with_cookie(
-                    reader, len, true, BufferedReaderState::default())),
+                    reader, len, true, Cookie::default())),
             _ => Box::new(reader),
     };
 
@@ -344,7 +344,7 @@ pub fn to_unknown_packet<R: Read>(reader: R)
 impl Signature {
     fn parse_naked(value: &[u8]) -> Result<Packet> {
         let bio = BufferedReaderMemory::with_cookie(
-            value, BufferedReaderState::default());
+            value, Cookie::default());
         let parser = PacketParser::new_naked(Box::new(bio));
 
         let mut pp = Signature::parse(parser, None)?;
@@ -503,7 +503,7 @@ impl OnePassSig {
                 // discards any following packets.  To prevent this, we push a
                 // Limitor on the reader stack.
                 let mut reader = BufferedReaderLimitor::with_cookie(
-                    Box::new(reader), 0, BufferedReaderState::default());
+                    Box::new(reader), 0, Cookie::default());
                 reader.cookie_mut().level = Some(recursion_depth as isize);
 
                 pp.state = State::Body(Box::new(reader));
@@ -710,7 +710,7 @@ impl Literal {
             bio.data_consume_hard(total_out).unwrap();
 
             // Enable hashing of the body.
-            BufferedReaderState::hashing(
+            Cookie::hashing(
                 &mut bio, true, recursion_depth as isize - 1);
             Ok((bio, ()))
         })?;
@@ -792,7 +792,7 @@ impl CompressedData {
             // fail.
             bio.data_consume_hard(total_out).unwrap();
 
-            let bio : Box<BufferedReader<BufferedReaderState>> = match algo {
+            let bio : Box<BufferedReader<Cookie>> = match algo {
                 0 => {
                     if TRACE {
                         eprintln!("CompressedData::parse(): Actually, no need \
@@ -805,17 +805,17 @@ impl CompressedData {
                 1 => {
                     // Zip.
                     Box::new(BufferedReaderDeflate::with_cookie(
-                        bio, BufferedReaderState::new(recursion_depth)))
+                        bio, Cookie::new(recursion_depth)))
                 },
                 2 => {
                     // Zlib
                     Box::new(BufferedReaderZlib::with_cookie(
-                        bio, BufferedReaderState::new(recursion_depth)))
+                        bio, Cookie::new(recursion_depth)))
                 },
                 3 => {
                     // BZip2
                     Box::new(BufferedReaderBzip::with_cookie(
-                        bio, BufferedReaderState::new(recursion_depth)))
+                        bio, Cookie::new(recursion_depth)))
                 },
                 _ => unreachable!(), // Validated above.
             };
@@ -930,7 +930,7 @@ impl MDC {
 
         let mut computed_hash : [u8; 20] = Default::default();
         {
-            let mut r : Option<&mut BufferedReader<BufferedReaderState>>
+            let mut r : Option<&mut BufferedReader<Cookie>>
                 = pp.get_mut();
             while let Some(bio) = r {
                 {
@@ -1049,17 +1049,17 @@ impl Default for PacketParserSettings {
 /// will only be needed in exceptional circumstances.  Instead use,
 /// for instance, `PacketParser::from_file` or
 /// `PacketParser::from_reader` to start parsing an OpenPGP message.
-pub struct PacketParserBuilder<R: BufferedReader<BufferedReaderState>> {
+pub struct PacketParserBuilder<R: BufferedReader<Cookie>> {
     bio: R,
     settings: PacketParserSettings,
 }
 
-impl<R: BufferedReader<BufferedReaderState>> PacketParserBuilder<R> {
+impl<R: BufferedReader<Cookie>> PacketParserBuilder<R> {
     /// Creates a `PacketParserBuilder` for an OpenPGP message stored
     /// in a `BufferedReader` object.
     ///
     /// Note: this clears the `level` field of the
-    /// `BufferedReaderState` cookie.
+    /// `Cookie` cookie.
     pub fn from_buffered_reader(mut bio: R)
             -> Result<PacketParserBuilder<R>> {
         bio.cookie_mut().level = None;
@@ -1173,45 +1173,45 @@ impl<R: BufferedReader<BufferedReaderState>> PacketParserBuilder<R> {
 }
 
 impl<'a, R: io::Read + 'a>
-        PacketParserBuilder<BufferedReaderGeneric<R, BufferedReaderState>> {
+        PacketParserBuilder<BufferedReaderGeneric<R, Cookie>> {
     /// Creates a `PacketParserBuilder` for an OpenPGP message stored
     /// in a `std::io::Read` object.
     pub fn from_reader(reader: R)
             -> Result<PacketParserBuilder<
-                          BufferedReaderGeneric<R, BufferedReaderState>>> {
+                          BufferedReaderGeneric<R, Cookie>>> {
         Ok(PacketParserBuilder {
             bio: BufferedReaderGeneric::with_cookie(
-                reader, None, BufferedReaderState::default()),
+                reader, None, Cookie::default()),
             settings: PacketParserSettings::default(),
         })
     }
 }
 
-impl PacketParserBuilder<BufferedReaderGeneric<File, BufferedReaderState>> {
+impl PacketParserBuilder<BufferedReaderGeneric<File, Cookie>> {
     /// Creates a `PacketParserBuilder` for an OpenPGP message stored
     /// in the file named `path`.
     pub fn from_file<P: AsRef<Path>>(path: P)
             -> Result<PacketParserBuilder<
-                          BufferedReaderGeneric<File, BufferedReaderState>>> {
+                          BufferedReaderGeneric<File, Cookie>>> {
         PacketParserBuilder::from_reader(File::open(path)?)
     }
 }
 
-impl <'a> PacketParserBuilder<BufferedReaderMemory<'a, BufferedReaderState>> {
+impl <'a> PacketParserBuilder<BufferedReaderMemory<'a, Cookie>> {
     /// Creates a `PacketParserBuilder` for an OpenPGP message stored
     /// in specified buffer.
     pub fn from_bytes(bytes: &'a [u8])
             -> Result<PacketParserBuilder<
-                          BufferedReaderMemory<'a, BufferedReaderState>>> {
+                          BufferedReaderMemory<'a, Cookie>>> {
         PacketParserBuilder::from_buffered_reader(
             BufferedReaderMemory::with_cookie(
-                bytes, BufferedReaderState::default()))
+                bytes, Cookie::default()))
     }
 }
 
 use nettle::Hash;
 
-/// What the hash in the BufferedReaderState is for.
+/// What the hash in the Cookie is for.
 #[derive(Clone, PartialEq, Debug)]
 pub enum HashesFor {
     Nothing,
@@ -1219,7 +1219,7 @@ pub enum HashesFor {
     Signature,
 }
 
-pub struct BufferedReaderState {
+pub struct Cookie {
     // `BufferedReader`s managed by a `PacketParser` have
     // `Some(level)`; an external `BufferedReader` (i.e., the
     // underlying `BufferedReader`) has no level.
@@ -1275,13 +1275,13 @@ pub struct BufferedReaderState {
     hashes: Vec<(HashAlgo, Box<Hash>)>,
 }
 
-impl fmt::Debug for BufferedReaderState {
+impl fmt::Debug for Cookie {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let algos = self.hashes.iter()
             .map(|&(algo, _)| algo)
             .collect::<Vec<HashAlgo>>();
 
-        f.debug_struct("BufferedReaderState")
+        f.debug_struct("Cookie")
             .field("level", &self.level)
             .field("hashes_for", &self.hashes_for)
             .field("hashes", &algos)
@@ -1289,9 +1289,9 @@ impl fmt::Debug for BufferedReaderState {
     }
 }
 
-impl Default for BufferedReaderState {
+impl Default for Cookie {
     fn default() -> Self {
-        BufferedReaderState {
+        Cookie {
             level: None,
             hashing: true,
             hashes_for: HashesFor::Nothing,
@@ -1300,9 +1300,9 @@ impl Default for BufferedReaderState {
     }
 }
 
-impl BufferedReaderState {
-    fn new(recursion_depth: usize) -> BufferedReaderState {
-        BufferedReaderState {
+impl Cookie {
+    fn new(recursion_depth: usize) -> Cookie {
+        Cookie {
             level: Some(recursion_depth as isize),
             hashing: true,
             hashes_for: HashesFor::Nothing,
@@ -1311,15 +1311,15 @@ impl BufferedReaderState {
     }
 }
 
-impl BufferedReaderState {
+impl Cookie {
     // Enables or disables signature hashers (HashesFor::Signature) at
     // level `level`.
     //
     // Thus to disable the hashing of a level 3 literal packet's
     // meta-data, we disable hashing at level 2.
-    fn hashing(reader: &mut BufferedReader<BufferedReaderState>,
+    fn hashing(reader: &mut BufferedReader<Cookie>,
                enabled: bool, level: isize) {
-        let mut reader : Option<&mut BufferedReader<BufferedReaderState>>
+        let mut reader : Option<&mut BufferedReader<Cookie>>
             = Some(reader);
         while let Some(r) = reader {
             {
@@ -1346,8 +1346,8 @@ impl BufferedReaderState {
 // If the reader stack is owned by a PacketParser, it is up to the
 // caller to adjust PacketParser::recursion_depth, etc. appropriately!
 fn buffered_reader_stack_pop<'a>(
-    mut reader: Box<BufferedReader<BufferedReaderState> + 'a>, depth: isize)
-    -> Box<BufferedReader<BufferedReaderState> + 'a>
+    mut reader: Box<BufferedReader<Cookie> + 'a>, depth: isize)
+    -> Box<BufferedReader<Cookie> + 'a>
 {
     while let Some(level) = reader.cookie_ref().level {
         assert!(level <= depth);
@@ -1449,7 +1449,7 @@ pub struct PacketParser<'a> {
     settings: PacketParserSettings,
 
     // The cookie.
-    cookie: BufferedReaderState,
+    cookie: Cookie,
 }
 
 // PacketParser states.
@@ -1462,7 +1462,7 @@ enum State<'a> {
     // While we are parsing the framing and headers, we dup the inner
     // reader so that if the parsing fails, we return an unknown
     // packet with the body intact.
-    Header(Box<BufferedReaderDup<'a, BufferedReaderState>>),
+    Header(Box<BufferedReaderDup<'a, Cookie>>),
 
     // The inner reader.
     //
@@ -1473,7 +1473,7 @@ enum State<'a> {
     // what happens when we parse a compressed data packet: we return
     // a Decompressor (in fact, the actual type is only known at
     // run-time!).
-    Body(Box<'a + BufferedReader<BufferedReaderState>>),
+    Body(Box<'a + BufferedReader<Cookie>>),
 }
 
 impl <'a> std::fmt::Debug for PacketParser<'a> {
@@ -1492,7 +1492,7 @@ impl <'a> std::fmt::Debug for PacketParser<'a> {
 // The return value of PacketParser::parse.
 enum ParserResult<'a> {
     Success(PacketParser<'a>),
-    EOF(Box<BufferedReader<BufferedReaderState> + 'a>),
+    EOF(Box<BufferedReader<Cookie> + 'a>),
 }
 
 impl <'a> PacketParser<'a> {
@@ -1500,7 +1500,7 @@ impl <'a> PacketParser<'a> {
     ///
     /// This function returns a `PacketParser` for the first packet in
     /// the stream.
-    pub fn from_buffered_reader<R: BufferedReader<BufferedReaderState> + 'a>(bio: R)
+    pub fn from_buffered_reader<R: BufferedReader<Cookie> + 'a>(bio: R)
             -> Result<Option<PacketParser<'a>>> {
         PacketParserBuilder::from_buffered_reader(bio)?.finalize()
     }
@@ -1532,7 +1532,7 @@ impl <'a> PacketParser<'a> {
         PacketParserBuilder::from_bytes(bytes)?.finalize()
     }
 
-    fn new(inner: Box<'a + BufferedReader<BufferedReaderState>>,
+    fn new(inner: Box<'a + BufferedReader<Cookie>>,
            settings: PacketParserSettings,
            recursion_depth: u8, header: Header) -> Self {
         PacketParser {
@@ -1552,7 +1552,7 @@ impl <'a> PacketParser<'a> {
         }
     }
 
-    fn new_naked(inner: Box<'a + BufferedReader<BufferedReaderState>>)
+    fn new_naked(inner: Box<'a + BufferedReader<Cookie>>)
                  -> Self {
         PacketParser::new(inner, Default::default(), 0, Header {
             ctb: CTB::new(Tag::Reserved),
@@ -1566,8 +1566,8 @@ impl <'a> PacketParser<'a> {
     }
 
     fn commit_then<F, R>(&mut self, mut fun: F) -> Result<R>
-        where F: FnMut(Box<'a + BufferedReader<BufferedReaderState>>, usize)
-                    -> Result<(Box<'a + BufferedReader<BufferedReaderState>>, R)> {
+        where F: FnMut(Box<'a + BufferedReader<Cookie>>, usize)
+                    -> Result<(Box<'a + BufferedReader<Cookie>>, R)> {
         // Steal the reader.
         let state = ::std::mem::replace(
             &mut self.state,
@@ -1646,7 +1646,7 @@ impl <'a> PacketParser<'a> {
     // Returns a packet parser for the next OpenPGP packet in the
     // stream.  If there are no packets left, this function returns
     // `bio`.
-    fn parse(mut bio: Box<BufferedReader<BufferedReaderState> + 'a>,
+    fn parse(mut bio: Box<BufferedReader<Cookie> + 'a>,
              settings: &PacketParserSettings,
              recursion_depth: usize)
             -> Result<ParserResult<'a>> {
@@ -1678,7 +1678,7 @@ impl <'a> PacketParser<'a> {
         // which would cause the headers to be hashed.  If so, we
         // extract the hash context.
         let mut bio = BufferedReaderDup::with_cookie(
-            bio, BufferedReaderState::default());
+            bio, Cookie::default());
 
         let header = Header::parse(&mut bio)?;
         let tag = header.ctb.tag;
@@ -1744,12 +1744,12 @@ impl <'a> PacketParser<'a> {
         // one pass signature packet's hashes.
         if tag == Tag::Literal || tag == Tag::OnePassSig
             || tag == Tag::Signature {
-            BufferedReaderState::hashing(
+            Cookie::hashing(
                 &mut bio, false, recursion_depth as isize - 1);
         }
         bio.consume(consumed);
 
-        let bio : Box<BufferedReader<BufferedReaderState>>
+        let bio : Box<BufferedReader<Cookie>>
             = match header.length {
                 BodyLength::Full(len) => {
                     if settings.trace {
@@ -1760,7 +1760,7 @@ impl <'a> PacketParser<'a> {
                     }
                     Box::new(BufferedReaderLimitor::with_cookie(
                         bio, len as u64,
-                        BufferedReaderState::new(recursion_depth)))
+                        Cookie::new(recursion_depth)))
                 },
                 BodyLength::Partial(len) => {
                     if settings.trace {
@@ -1777,7 +1777,7 @@ impl <'a> PacketParser<'a> {
                         // length information, which includes the
                         // partial body headers.
                         tag != Tag::Literal,
-                        BufferedReaderState::new(recursion_depth)))
+                        Cookie::new(recursion_depth)))
                 },
                 BodyLength::Indeterminate => {
                     if settings.trace {
@@ -1810,7 +1810,7 @@ impl <'a> PacketParser<'a> {
         }?;
 
         if tag == Tag::OnePassSig {
-            BufferedReaderState::hashing(
+            Cookie::hashing(
                 &mut result, true, recursion_depth as isize - 1);
         }
 
@@ -2169,7 +2169,7 @@ impl<'a> io::Read for PacketParser<'a> {
 ///
 /// Note: it is safe to mix the use of the `std::io::Read` and
 /// `BufferedReader` interfaces.
-impl<'a> BufferedReader<BufferedReaderState> for PacketParser<'a> {
+impl<'a> BufferedReader<Cookie> for PacketParser<'a> {
     fn buffer(&self) -> &[u8] {
         match self.state {
             State::Header(ref reader) => reader.buffer(),
@@ -2284,14 +2284,14 @@ impl<'a> BufferedReader<BufferedReaderState> for PacketParser<'a> {
         }
     }
 
-    fn get_mut(&mut self) -> Option<&mut BufferedReader<BufferedReaderState>> {
+    fn get_mut(&mut self) -> Option<&mut BufferedReader<Cookie>> {
         Some(match self.state {
             State::Header(ref mut reader) => reader.as_mut(),
             State::Body(ref mut reader) => reader,
         })
     }
 
-    fn get_ref(&self) -> Option<&BufferedReader<BufferedReaderState>> {
+    fn get_ref(&self) -> Option<&BufferedReader<Cookie>> {
         Some(match self.state {
             State::Header(ref reader) => reader.as_ref(),
             State::Body(ref reader) => reader,
@@ -2299,21 +2299,21 @@ impl<'a> BufferedReader<BufferedReaderState> for PacketParser<'a> {
     }
 
     fn into_inner<'b>(self: Box<Self>)
-            -> Option<Box<BufferedReader<BufferedReaderState> + 'b>>
+            -> Option<Box<BufferedReader<Cookie> + 'b>>
             where Self: 'b {
         None
     }
 
-    fn cookie_set(&mut self, cookie: BufferedReaderState)
-            -> BufferedReaderState {
+    fn cookie_set(&mut self, cookie: Cookie)
+            -> Cookie {
         ::std::mem::replace(&mut self.cookie, cookie)
     }
 
-    fn cookie_ref(&self) -> &BufferedReaderState {
+    fn cookie_ref(&self) -> &Cookie {
         &self.cookie
     }
 
-    fn cookie_mut(&mut self) -> &mut BufferedReaderState {
+    fn cookie_mut(&mut self) -> &mut Cookie {
         &mut self.cookie
     }
 }
@@ -2434,7 +2434,7 @@ impl<'a> PacketParser<'a> {
             // This can't fail, because we create a decryptor above
             // with the same parameters.
             let mut reader = BufferedReaderDecryptor::with_cookie(
-                algo, key, reader, BufferedReaderState::default()).unwrap();
+                algo, key, reader, Cookie::default()).unwrap();
             reader.cookie_mut().level = Some(self.recursion_depth as isize);
 
             if self.settings.trace {
@@ -2747,7 +2747,7 @@ impl Message {
     ///
     ///   [`PacketParser`]: parse/struct.PacketParser.html
     ///   [`MessageParser`]: parse/struct.MessageParser.html
-    pub fn from_buffered_reader<R: BufferedReader<BufferedReaderState>>(bio: R)
+    pub fn from_buffered_reader<R: BufferedReader<Cookie>>(bio: R)
             -> Result<Message> {
         PacketParserBuilder::from_buffered_reader(bio)?
             .buffer_unread_content()
@@ -2760,7 +2760,7 @@ impl Message {
     /// See `from_buffered_reader` for more details and caveats.
     pub fn from_reader<R: io::Read>(reader: R) -> Result<Message> {
         let bio = BufferedReaderGeneric::with_cookie(
-            reader, None, BufferedReaderState::default());
+            reader, None, Cookie::default());
         Message::from_buffered_reader(bio)
     }
 
@@ -2777,7 +2777,7 @@ impl Message {
     /// See `from_buffered_reader` for more details and caveats.
     pub fn from_bytes(data: &[u8]) -> Result<Message> {
         let bio = BufferedReaderMemory::with_cookie(
-            data, BufferedReaderState::default());
+            data, Cookie::default());
         Message::from_buffered_reader(bio)
     }
 }

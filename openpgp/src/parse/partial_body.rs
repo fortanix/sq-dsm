@@ -5,14 +5,14 @@ use std::io::{Error,ErrorKind};
 
 use buffered_reader::{buffered_reader_generic_read_impl, BufferedReader};
 use super::BodyLength;
-use super::BufferedReaderState;
+use super::Cookie;
 
 const TRACE : bool = false;
 
 
 /// A `BufferedReader` that transparently handles OpenPGP's chunking
 /// scheme.  This implicitly implements a limitor.
-pub struct BufferedReaderPartialBodyFilter<T: BufferedReader<BufferedReaderState>> {
+pub struct BufferedReaderPartialBodyFilter<T: BufferedReader<Cookie>> {
     // The underlying reader.
     reader: T,
 
@@ -32,15 +32,15 @@ pub struct BufferedReaderPartialBodyFilter<T: BufferedReader<BufferedReaderState
     cursor: usize,
 
     // The user-defined cookie.
-    cookie: BufferedReaderState,
+    cookie: Cookie,
 
     // Whether to include the headers in any hash directly over the
-    // current packet.  If not, calls BufferedReaderState::hashing at
+    // current packet.  If not, calls Cookie::hashing at
     // the current level to disable hashing while reading headers.
     hash_headers: bool,
 }
 
-impl<T: BufferedReader<BufferedReaderState>> std::fmt::Debug
+impl<T: BufferedReader<Cookie>> std::fmt::Debug
         for BufferedReaderPartialBodyFilter<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         f.debug_struct("BufferedReaderPartialBodyFilter")
@@ -58,12 +58,12 @@ impl<T: BufferedReader<BufferedReaderState>> std::fmt::Debug
     }
 }
 
-impl<T: BufferedReader<BufferedReaderState>> BufferedReaderPartialBodyFilter<T> {
+impl<T: BufferedReader<Cookie>> BufferedReaderPartialBodyFilter<T> {
     /// Create a new BufferedReaderPartialBodyFilter object.
     /// `partial_body_length` is the amount of data in the initial
     /// partial body chunk.
     pub fn with_cookie(reader: T, partial_body_length: u32,
-                       hash_headers: bool, cookie: BufferedReaderState) -> Self {
+                       hash_headers: bool, cookie: Cookie) -> Self {
         BufferedReaderPartialBodyFilter {
             reader: reader,
             partial_body_length: partial_body_length,
@@ -157,7 +157,7 @@ impl<T: BufferedReader<BufferedReaderState>> BufferedReaderPartialBodyFilter<T> 
             // Disable hashing, if necessary.
             if ! self.hash_headers {
                 if let Some(level) = self.reader.cookie_ref().level {
-                    BufferedReaderState::hashing(
+                    Cookie::hashing(
                         &mut self.reader, false, level);
                 }
             }
@@ -170,7 +170,7 @@ impl<T: BufferedReader<BufferedReaderState>> BufferedReaderPartialBodyFilter<T> 
 
             if ! self.hash_headers {
                 if let Some(level) = self.reader.cookie_ref().level {
-                    BufferedReaderState::hashing(
+                    Cookie::hashing(
                         &mut self.reader, true, level);
                 }
             }
@@ -308,14 +308,14 @@ impl<T: BufferedReader<BufferedReaderState>> BufferedReaderPartialBodyFilter<T> 
 
 }
 
-impl<T: BufferedReader<BufferedReaderState>> std::io::Read
+impl<T: BufferedReader<Cookie>> std::io::Read
         for BufferedReaderPartialBodyFilter<T> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, std::io::Error> {
         return buffered_reader_generic_read_impl(self, buf);
     }
 }
 
-impl<T: BufferedReader<BufferedReaderState>> BufferedReader<BufferedReaderState>
+impl<T: BufferedReader<Cookie>> BufferedReader<Cookie>
         for BufferedReaderPartialBodyFilter<T> {
     fn buffer(&self) -> &[u8] {
         if let Some(ref buffer) = self.buffer {
@@ -364,30 +364,30 @@ impl<T: BufferedReader<BufferedReaderState>> BufferedReader<BufferedReaderState>
         return self.data_helper(amount, true, true);
     }
 
-    fn get_mut(&mut self) -> Option<&mut BufferedReader<BufferedReaderState>> {
+    fn get_mut(&mut self) -> Option<&mut BufferedReader<Cookie>> {
         Some(&mut self.reader)
     }
 
-    fn get_ref(&self) -> Option<&BufferedReader<BufferedReaderState>> {
+    fn get_ref(&self) -> Option<&BufferedReader<Cookie>> {
         Some(&self.reader)
     }
 
-    fn into_inner<'b>(self: Box<Self>) -> Option<Box<BufferedReader<BufferedReaderState> + 'b>>
+    fn into_inner<'b>(self: Box<Self>) -> Option<Box<BufferedReader<Cookie> + 'b>>
             where Self: 'b {
         Some(Box::new(self.reader))
     }
 
-    fn cookie_set(&mut self, cookie: BufferedReaderState) -> BufferedReaderState {
+    fn cookie_set(&mut self, cookie: Cookie) -> Cookie {
         use std::mem;
 
         mem::replace(&mut self.cookie, cookie)
     }
 
-    fn cookie_ref(&self) -> &BufferedReaderState {
+    fn cookie_ref(&self) -> &Cookie {
         &self.cookie
     }
 
-    fn cookie_mut(&mut self) -> &mut BufferedReaderState {
+    fn cookie_mut(&mut self) -> &mut Cookie {
         &mut self.cookie
     }
 }

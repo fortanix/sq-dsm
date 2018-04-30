@@ -12,25 +12,25 @@ use buffered_reader::buffered_reader_generic_read_impl;
 
 use Result;
 use HashAlgo;
-use parse::{BufferedReaderState, HashesFor};
+use parse::{Cookie, HashesFor};
 
 use super::indent;
 
 const TRACE : bool = false;
 
 #[derive(Debug)]
-pub struct HashedReader<R: BufferedReader<BufferedReaderState>> {
+pub struct HashedReader<R: BufferedReader<Cookie>> {
     reader: R,
-    cookie: BufferedReaderState,
+    cookie: Cookie,
 }
 
-impl<R: BufferedReader<BufferedReaderState>> HashedReader<R> {
+impl<R: BufferedReader<Cookie>> HashedReader<R> {
     /// Instantiates a new hashed reader.  `hashes_for` is the hash's
     /// purpose.  `algos` is a list of algorithms for which we should
     /// compute the hash.
     pub fn new(reader: R, hashes_for: HashesFor, algos: Vec<HashAlgo>)
             -> Self {
-        let mut cookie = BufferedReaderState::default();
+        let mut cookie = Cookie::default();
         for &algo in &algos {
             cookie.hashes.push((algo, algo.context().unwrap()));
         }
@@ -43,7 +43,7 @@ impl<R: BufferedReader<BufferedReaderState>> HashedReader<R> {
     }
 }
 
-impl BufferedReaderState {
+impl Cookie {
     fn hash_update(&mut self, data: &[u8]) {
         if TRACE {
             eprintln!("{}hash_update({} bytes, {} hashes, enabled: {})",
@@ -75,7 +75,7 @@ impl BufferedReaderState {
     }
 }
 
-impl<T: BufferedReader<BufferedReaderState>> io::Read for HashedReader<T> {
+impl<T: BufferedReader<Cookie>> io::Read for HashedReader<T> {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         return buffered_reader_generic_read_impl(self, buf);
     }
@@ -83,8 +83,8 @@ impl<T: BufferedReader<BufferedReaderState>> io::Read for HashedReader<T> {
 
 // Wrap a BufferedReader so that any data that is consumed is added to
 // the hash.
-impl<R: BufferedReader<BufferedReaderState>>
-        BufferedReader<BufferedReaderState> for HashedReader<R> {
+impl<R: BufferedReader<Cookie>>
+        BufferedReader<Cookie> for HashedReader<R> {
     fn buffer(&self) -> &[u8] {
         self.reader.buffer()
     }
@@ -101,7 +101,7 @@ impl<R: BufferedReader<BufferedReaderState>>
         // We need to take the state rather than get a mutable
         // reference to it, because self.reader.buffer() requires a
         // reference as well.
-        let mut state = self.cookie_set(BufferedReaderState::default());
+        let mut state = self.cookie_set(Cookie::default());
 
         {
             // The inner buffered reader must return at least `amount`
@@ -122,7 +122,7 @@ impl<R: BufferedReader<BufferedReaderState>>
         // See consume() for an explanation of the following
         // acrobatics.
 
-        let mut state = self.cookie_set(BufferedReaderState::default());
+        let mut state = self.cookie_set(Cookie::default());
 
         let got = {
             let data = self.reader.data(amount)?;
@@ -145,7 +145,7 @@ impl<R: BufferedReader<BufferedReaderState>>
         // See consume() for an explanation of the following
         // acrobatics.
 
-        let mut state = self.cookie_set(BufferedReaderState::default());
+        let mut state = self.cookie_set(Cookie::default());
 
         {
             let data = self.reader.data_hard(amount)?;
@@ -160,34 +160,34 @@ impl<R: BufferedReader<BufferedReaderState>>
         result
     }
 
-    fn get_mut(&mut self) -> Option<&mut BufferedReader<BufferedReaderState>> {
+    fn get_mut(&mut self) -> Option<&mut BufferedReader<Cookie>> {
         Some(&mut self.reader)
     }
 
-    fn get_ref(&self) -> Option<&BufferedReader<BufferedReaderState>> {
+    fn get_ref(&self) -> Option<&BufferedReader<Cookie>> {
         Some(&self.reader)
     }
 
     fn into_inner<'b>(self: Box<Self>)
-            -> Option<Box<BufferedReader<BufferedReaderState> + 'b>>
+            -> Option<Box<BufferedReader<Cookie> + 'b>>
             where Self: 'b {
         Some(Box::new(self.reader))
     }
 
-    fn cookie_set(&mut self, cookie: BufferedReaderState) -> BufferedReaderState {
+    fn cookie_set(&mut self, cookie: Cookie) -> Cookie {
         mem::replace(&mut self.cookie, cookie)
     }
 
-    fn cookie_ref(&self) -> &BufferedReaderState {
+    fn cookie_ref(&self) -> &Cookie {
         &self.cookie
     }
 
-    fn cookie_mut(&mut self) -> &mut BufferedReaderState {
+    fn cookie_mut(&mut self) -> &mut Cookie {
         &mut self.cookie
     }
 }
 
-impl HashedReader<BufferedReaderGeneric<File, BufferedReaderState>> {
+impl HashedReader<BufferedReaderGeneric<File, Cookie>> {
     /// Hash the specified file.
     ///
     /// This is useful when verifying detached signatures.

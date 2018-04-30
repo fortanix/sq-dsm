@@ -5,7 +5,7 @@ use std::path::Path;
 use Result;
 
 use super::{PacketParserBuilder, PacketParser, Packet, Container, Message,
-            BufferedReaderState};
+            Cookie};
 use buffered_reader::{BufferedReader, BufferedReaderGeneric,
                       BufferedReaderMemory};
 
@@ -84,7 +84,7 @@ pub struct MessageParser<'a> {
     message: Message,
 }
 
-impl<R: BufferedReader<BufferedReaderState>> PacketParserBuilder<R> {
+impl<R: BufferedReader<Cookie>> PacketParserBuilder<R> {
     /// Finishes configuring the `PacketParser` and returns a
     /// `MessageParser`.
     pub fn to_message_parser<'a>(self) -> Result<MessageParser<'a>>
@@ -106,7 +106,7 @@ impl<'a> MessageParser<'a> {
 
     /// Creates a `MessageParser` to parse the OpenPGP message stored
     /// in the `BufferedReader` object.
-    pub fn from_buffered_reader<R: BufferedReader<BufferedReaderState> + 'a>(bio: R)
+    pub fn from_buffered_reader<R: BufferedReader<Cookie> + 'a>(bio: R)
             -> Result<MessageParser<'a>> {
         Self::from_packet_parser(PacketParser::from_buffered_reader(bio)?)
     }
@@ -116,7 +116,7 @@ impl<'a> MessageParser<'a> {
     pub fn from_reader<R: io::Read + 'a>(reader: R)
              -> Result<MessageParser<'a>> {
         let bio = BufferedReaderGeneric::with_cookie(
-            reader, None, BufferedReaderState::default());
+            reader, None, Cookie::default());
         MessageParser::from_buffered_reader(bio)
     }
 
@@ -132,7 +132,7 @@ impl<'a> MessageParser<'a> {
     pub fn from_bytes(data: &'a [u8])
             -> Result<MessageParser<'a>> {
         let bio = BufferedReaderMemory::with_cookie(
-            data, BufferedReaderState::default());
+            data, Cookie::default());
         MessageParser::from_buffered_reader(bio)
     }
 
