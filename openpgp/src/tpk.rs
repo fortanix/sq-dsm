@@ -6,11 +6,17 @@ use std::cmp::Ordering;
 use std::path::Path;
 use std::fs::File;
 use std::slice;
+use std::mem;
+use std::iter;
+
+use IterError;
 
 use super::{TPK, Packet, Message, Signature, Key, UserID, UserAttribute,
             Fingerprint, Tag};
 use super::parse::PacketParser;
 use super::serialize::{Serialize, SerializeKey};
+
+const TRACE : bool = false;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct SubkeyBinding {
@@ -100,7 +106,9 @@ enum TPKParserState {
     End,
 }
 
-struct TPKParser {
+pub struct TPKParser<I: iter::Iterator<Item=Packet>> {
+    packet_iter: Option<I>,
+
     state: TPKParserState,
     primary: Option<Key>,
     userids: Vec<UserIDBinding>,
@@ -108,10 +116,10 @@ struct TPKParser {
     subkeys: Vec<SubkeyBinding>,
 }
 
-impl TPKParser {
-    // Initializes a parser.
-    fn new() -> TPKParser {
+impl<I: iter::Iterator<Item=Packet>> Default for TPKParser<I> {
+    fn default() -> Self {
         TPKParser {
+            packet_iter: None,
             state: TPKParserState::Start,
             primary: None,
             userids: vec![],
@@ -119,27 +127,91 @@ impl TPKParser {
             subkeys: vec![],
         }
     }
+}
 
-    // Parses the next packet in the packet stream.
-    fn parse(mut self, p: Packet) -> Self {
-        self.state = match { self.state } {
+impl<I: iter::Iterator<Item=Packet> + IterError> TPKParser<I> {
+    /// Returns any pending error.
+    ///
+    /// This interface is useful, because using an iterator, the
+    /// caller cannot distinguish between no more items and an error.
+    pub fn error(&mut self) -> Option<failure::Error> {
+        if let &mut Some(ref mut i) = &mut self.packet_iter {
+            i.error()
+        } else {
+            None
+        }
+    }
+}
+
+impl<I: iter::Iterator<Item=Packet>> TPKParser<I> {
+    /// Initializes a parser.
+    pub fn new(iter: I) -> Self {
+        let mut parser : Self = Default::default();
+        parser.packet_iter = Some(iter);
+        parser
+    }
+
+    // Resets the parser so that it starts parsing a new packet.
+    //
+    // Returns the old state.  Note: the packet iterator is preserved.
+    fn reset(&mut self) -> Self {
+        // We need to preserve `packet_iter`.
+        let mut orig = mem::replace(self, Default::default());
+        self.packet_iter = orig.packet_iter.take();
+        orig
+    }
+
+    // Parses the next packet in the packet stream.  If th
+    fn parse(&mut self, p: Packet) -> Option<TPK> {
+        let mut result : Option<TPK> = None;
+
+        if TRACE {
+            eprintln!("TPKParser::parse(packet: {:?}): state = {:?}",
+                      p.tag(), self.state);
+        }
+
+        self.state = match mem::replace(&mut self.state, TPKParserState::End) {
             TPKParserState::Start => {
-                /* Find the first public key packet.  */
+                // Skip packets until we find a public key packet.
                 match p {
                     Packet::PublicKey(pk) => {
+                        if TRACE {
+                            eprintln!("TPKParser::parse: Found primary key: {}.",
+                                      pk.fingerprint());
+                        }
+
                         self.primary = Some(pk);
                         TPKParserState::TPK
                     },
-                    _ => TPKParserState::Start,
+                    _ => {
+                        if TRACE {
+                            eprintln!("TPKParser::parse: Skipping {:?} \
+                                       which is unexpected in this state.",
+                                      p.tag());
+                        }
+
+                        TPKParserState::Start
+                    },
                 }
             },
             TPKParserState::TPK => {
                 /* Find user id, user attribute, or subkey packets.  */
                 match p {
-                    Packet::PublicKey(_pk) => {
-                        TPKParserState::End
+                    Packet::PublicKey(pk) => {
+                        if TRACE {
+                            eprintln!("TPKParser::parse: Found primary key: {}.",
+                                      pk.fingerprint());
+                        }
+
+                        result = self.tpk(Some(pk));
+                        TPKParserState::TPK
                     },
                     Packet::UserID(uid) => {
+                        if TRACE {
+                            eprintln!("TPKParser::parse: Found user id: {}.",
+                                      String::from_utf8_lossy(&uid.value[..]));
+                        }
+
                         TPKParserState::UserID(
                             UserIDBinding{
                                 userid: uid,
@@ -148,6 +220,10 @@ impl TPKParser {
                             })
                     },
                     Packet::UserAttribute(attribute) => {
+                        if TRACE {
+                            eprintln!("TPKParser::parse: Found user attribute.");
+                        }
+
                         TPKParserState::UserAttribute(
                             UserAttributeBinding{
                                 user_attribute: attribute,
@@ -156,6 +232,11 @@ impl TPKParser {
                             })
                     },
                     Packet::PublicSubkey(key) => {
+                        if TRACE {
+                            eprintln!("TPKParser::parse: Found subkey {}.",
+                                      key.fingerprint());
+                        }
+
                         TPKParserState::Subkey(
                             SubkeyBinding{
                                 subkey: key,
@@ -171,10 +252,22 @@ impl TPKParser {
                 // user attribute or subkey packet, then wrap up the
                 // binding for this user id.
                 match p {
-                    Packet::PublicKey(_pk) => {
-                        TPKParserState::End
+                    Packet::PublicKey(pk) => {
+                        if TRACE {
+                            eprintln!("TPKParser::parse: Found primary key: {}.",
+                                      pk.fingerprint());
+                        }
+
+                        self.userids.push(u);
+                        result = self.tpk(Some(pk));
+                        TPKParserState::TPK
                     },
                     Packet::UserID(uid) => {
+                        if TRACE {
+                            eprintln!("TPKParser::parse: Found user id: {}.",
+                                      String::from_utf8_lossy(&uid.value[..]));
+                        }
+
                         self.userids.push(u);
                         TPKParserState::UserID(
                             UserIDBinding{
@@ -184,6 +277,10 @@ impl TPKParser {
                             })
                     },
                     Packet::UserAttribute(attribute) => {
+                        if TRACE {
+                            eprintln!("TPKParser::parse: Found user attribute.");
+                        }
+
                         self.userids.push(u);
                         TPKParserState::UserAttribute(
                             UserAttributeBinding{
@@ -193,6 +290,11 @@ impl TPKParser {
                             })
                     },
                     Packet::PublicSubkey(key) => {
+                        if TRACE {
+                            eprintln!("TPKParser::parse: Found subkey {}.",
+                                      key.fingerprint());
+                        }
+
                         self.userids.push(u);
                         TPKParserState::Subkey(
                             SubkeyBinding{
@@ -229,10 +331,22 @@ impl TPKParser {
                 // user attribute or subkey packet, then wrap up the
                 // binding for this user attribute.
                 match p {
-                    Packet::PublicKey(_pk) => {
-                        TPKParserState::End
+                    Packet::PublicKey(pk) => {
+                        if TRACE {
+                            eprintln!("TPKParser::parse: Found primary key: {}.",
+                                      pk.fingerprint());
+                        }
+
+                        self.user_attributes.push(u);
+                        result = self.tpk(Some(pk));
+                        TPKParserState::TPK
                     },
                     Packet::UserID(uid) => {
+                        if TRACE {
+                            eprintln!("TPKParser::parse: Found user id: {}.",
+                                      String::from_utf8_lossy(&uid.value[..]));
+                        }
+
                         self.user_attributes.push(u);
                         TPKParserState::UserID(
                             UserIDBinding{
@@ -242,6 +356,10 @@ impl TPKParser {
                             })
                     },
                     Packet::UserAttribute(attribute) => {
+                        if TRACE {
+                            eprintln!("TPKParser::parse: Found user attribute.");
+                        }
+
                         self.user_attributes.push(u);
                         TPKParserState::UserAttribute(
                             UserAttributeBinding{
@@ -251,6 +369,11 @@ impl TPKParser {
                             })
                     },
                     Packet::PublicSubkey(key) => {
+                        if TRACE {
+                            eprintln!("TPKParser::parse: Found subkey {}.",
+                                      key.fingerprint());
+                        }
+
                         self.user_attributes.push(u);
                         TPKParserState::Subkey(
                             SubkeyBinding{
@@ -287,10 +410,22 @@ impl TPKParser {
                 // user attribute or subkey packet, then wrap up the
                 // binding for this subkey.
                 match p {
-                    Packet::PublicKey(_pk) => {
-                        TPKParserState::End
+                    Packet::PublicKey(pk) => {
+                        if TRACE {
+                            eprintln!("TPKParser::parse: Found primary key: {}.",
+                                      pk.fingerprint());
+                        }
+
+                        self.subkeys.push(s);
+                        result = self.tpk(Some(pk));
+                        TPKParserState::TPK
                     },
                     Packet::UserID(uid) => {
+                        if TRACE {
+                            eprintln!("TPKParser::parse: Found user id: {}.",
+                                      String::from_utf8_lossy(&uid.value[..]));
+                        }
+
                         self.subkeys.push(s);
                         TPKParserState::UserID(
                             UserIDBinding{
@@ -300,6 +435,10 @@ impl TPKParser {
                             })
                     },
                     Packet::UserAttribute(attribute) => {
+                        if TRACE {
+                            eprintln!("TPKParser::parse: Found user attribute.");
+                        }
+
                         self.subkeys.push(s);
                         TPKParserState::UserAttribute(
                             UserAttributeBinding{
@@ -309,6 +448,11 @@ impl TPKParser {
                             })
                     },
                     Packet::PublicSubkey(key) => {
+                        if TRACE {
+                            eprintln!("TPKParser::parse: Found subkey {}.",
+                                      key.fingerprint());
+                        }
+
                         self.subkeys.push(s);
                         TPKParserState::Subkey(
                             SubkeyBinding{
@@ -341,41 +485,82 @@ impl TPKParser {
                     _ => TPKParserState::Subkey(s),
                 }
             },
-            TPKParserState::End => TPKParserState::End,
+            TPKParserState::End => {
+                // We've reach the EOF.  There is nothing to do.
+                TPKParserState::End
+            }
         };
 
-        self
+        if TRACE {
+            eprintln!("TPKParser::parse => state = {:?}, result: {:?}",
+                      self.state,
+                      result.as_ref().map(|tpk| tpk.primary().fingerprint()));
+        }
+
+        result
     }
 
-    // Returns whatever TPK was found.
-    fn finish(self) -> Result<TPK> {
-        let mut tpk = if let Some(p) = self.primary {
+    // Finalizes the current TPK and returns it.  Sets the parse up to
+    // begin parsing the next TPK.
+    fn tpk(&mut self, pk: Option<Key>) -> Option<TPK> {
+        let mut orig = self.reset();
+
+        let mut tpk = if let Some(pk) = orig.primary.take() {
             TPK {
-                primary: p,
-                userids: self.userids,
-                user_attributes: self.user_attributes,
-                subkeys: self.subkeys
+                primary: pk,
+                userids: orig.userids,
+                user_attributes: orig.user_attributes,
+                subkeys: orig.subkeys
             }
         } else {
-            return Err(Error::NoKeyFound.into());
+            return None;
         };
 
-        match self.state {
+        let tpko = match orig.state {
             TPKParserState::UserID(u) => {
                 tpk.userids.push(u);
-                Ok(tpk)
+                Some(tpk)
             },
             TPKParserState::UserAttribute(u) => {
                 tpk.user_attributes.push(u);
-                Ok(tpk)
+                Some(tpk)
             },
             TPKParserState::Subkey(s) => {
                 tpk.subkeys.push(s);
-                Ok(tpk)
+                Some(tpk)
             },
-            TPKParserState::End => Ok(tpk),
-            _ => Err(Error::NoKeyFound.into()),
-        }.and_then(|tpk| tpk.canonicalize())
+            TPKParserState::End =>
+                Some(tpk),
+            _ => None,
+        }.and_then(|tpk| Some(tpk.canonicalize()));
+
+        self.primary = pk;
+
+        tpko
+    }
+}
+
+impl<I: iter::Iterator<Item=Packet>> Iterator for TPKParser<I> {
+    type Item = TPK;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some(mut i) = self.packet_iter.take() {
+            while let Some(packet) = i.next() {
+                if let Some(tpk) = self.parse(packet) {
+                    if TRACE {
+                        eprintln!("TPKParser::next => {}",
+                                  tpk.primary().fingerprint());
+                    }
+                    self.packet_iter = Some(i);
+                    return Some(tpk);
+                }
+            }
+        }
+
+        if TRACE {
+            eprintln!("TPKParser::next: EOF.");
+        }
+        return self.tpk(None);
     }
 }
 
@@ -397,23 +582,17 @@ impl TPK {
     }
 
     /// Returns the first TPK found in the packet stream.
-    pub fn from_packet_parser(mut pp: PacketParser) -> Result<Self> {
-        let mut parser = TPKParser::new();
-        loop {
-            let (packet, _, ppo, _) = pp.next()?;
-            parser = parser.parse(packet);
-            match parser.state {
-                TPKParserState::End => break,
-                _ => true,
-            };
-
-            if ppo.is_none() {
-                break;
+    pub fn from_packet_parser(pp: PacketParser) -> Result<Self> {
+        let mut parser = TPKParser::new(pp.into_iter());
+        if let Some(tpk) = parser.next() {
+            if let Some(err) = parser.error() {
+                Err(err)
+            } else {
+                Ok(tpk)
             }
-            pp = ppo.unwrap();
+        } else {
+            Err(Error::NoKeyFound.into())
         }
-
-        parser.finish()
     }
 
     /// Returns the first TPK encountered in the reader.
@@ -422,7 +601,7 @@ impl TPK {
         if let Some(pp) = ppo {
             TPK::from_packet_parser(pp)
         } else {
-            TPKParser::new().finish()
+            Err(Error::NoKeyFound.into())
         }
     }
 
@@ -433,16 +612,12 @@ impl TPK {
 
     /// Returns the first TPK found in `m`.
     pub fn from_message(m: Message) -> Result<Self> {
-        let mut parser = TPKParser::new();
-        for p in m.into_children() {
-            parser = parser.parse(p);
-            match parser.state {
-                TPKParserState::End => break,
-                _ => true,
-            };
+        let mut i = TPKParser::new(m.into_children());
+        if let Some(tpk) = i.next() {
+            Ok(tpk)
+        } else {
+            Err(Error::NoKeyFound.into())
         }
-
-        parser.finish()
     }
 
     /// Returns the first TPK found in `buf`.
@@ -453,11 +628,11 @@ impl TPK {
         if let Some(pp) = ppo {
             TPK::from_packet_parser(pp)
         } else {
-            TPKParser::new().finish()
+            Err(Error::NoKeyFound.into())
         }
     }
 
-    fn canonicalize(mut self) -> Result<Self> {
+    fn canonicalize(mut self) -> Self {
         // Helper functions.
 
         // Compare the creation time of two signatures.  Order them so
@@ -473,11 +648,6 @@ impl TPK {
 
 
         // Sanity checks.
-
-        // - One or more User ID packets.
-        if self.userids.len() == 0 {
-            return Err(Error::NoUserId.into());
-        }
 
         // Drop invalid user ids.
         self.userids.retain(|userid| {
@@ -713,7 +883,7 @@ impl TPK {
 
         // Collect revocation certs and designated revocation certs.
 
-        Ok(self)
+        self
     }
 
     /// Returns the fingerprint.
@@ -805,14 +975,14 @@ impl TPK {
         if self.primary != other.primary {
             // The primary key is not the same.  There is nothing to
             // do.
-            return self.canonicalize();
+            return Ok(self.canonicalize());
         }
 
         self.userids.append(&mut other.userids);
         self.user_attributes.append(&mut other.user_attributes);
         self.subkeys.append(&mut other.subkeys);
 
-        self.canonicalize()
+        Ok(self.canonicalize())
     }
 
     /// Checks whether at least one of this key's user ids (not user
@@ -882,10 +1052,11 @@ mod test {
             assert_match!(Error::NoKeyFound
                           = tpk.err().unwrap().downcast::<Error>().unwrap());
 
+            // According to 4880, a TPK must have a UserID.  But, we
+            // don't require it.
             let tpk = parse_tpk(bytes!("testy-broken-no-uid.pgp"),
                                 i == 0);
-            assert_match!(Error::NoUserId
-                          = tpk.err().unwrap().downcast::<Error>().unwrap());
+            assert!(tpk.is_ok());
 
             // We have:
             //
