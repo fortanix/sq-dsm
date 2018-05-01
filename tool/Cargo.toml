@@ -21,3 +21,7 @@ clap = "2.27.1"
 [[bin]]
 name = "sq"
 path = "src/usage.rs"
+
+[[bin]]
+name = "sqv"
+path = "src/sqv.rs"
