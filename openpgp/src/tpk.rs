@@ -8,6 +8,7 @@ use std::fs::File;
 use std::slice;
 use std::mem;
 use std::iter;
+use std::fmt;
 
 use IterError;
 
@@ -96,7 +97,6 @@ impl UserAttributeBinding {
 
 // We use a state machine to extract a TPK from an OpenPGP message.
 // These are the states.
-#[derive(Debug)]
 enum TPKParserState {
     Start,
     TPK,
@@ -104,6 +104,34 @@ enum TPKParserState {
     UserAttribute(UserAttributeBinding),
     Subkey(SubkeyBinding),
     End,
+}
+
+impl fmt::Debug for TPKParserState {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            &TPKParserState::Start => f.debug_struct("Start").finish(),
+            &TPKParserState::TPK => f.debug_struct("TPK").finish(),
+            &TPKParserState::UserID(ref binding) =>
+                f.debug_struct("UserID")
+                .field("userid", &binding.userid)
+                .field("self-sigs", &binding.selfsigs.len())
+                .field("certifications", &binding.certifications.len())
+                .finish(),
+            &TPKParserState::UserAttribute(ref binding) =>
+                f.debug_struct("UserAttribute")
+                .field("userid", &binding.user_attribute)
+                .field("self-sigs", &binding.selfsigs.len())
+                .field("certifications", &binding.certifications.len())
+                .finish(),
+            &TPKParserState::Subkey(ref binding) =>
+                f.debug_struct("Subkey")
+                .field("subkey", &binding.subkey)
+                .field("self-sigs", &binding.selfsigs.len())
+                .field("certifications", &binding.certifications.len())
+                .finish(),
+            &TPKParserState::End => f.debug_struct("End").finish(),
+        }
+    }
 }
 
 pub struct TPKParser<I: iter::Iterator<Item=Packet>> {
@@ -185,7 +213,7 @@ impl<I: iter::Iterator<Item=Packet>> TPKParser<I> {
         let mut result : Option<TPK> = None;
 
         if TRACE {
-            eprintln!("TPKParser::parse(packet: {:?}): state = {:?}",
+            eprintln!("TPKParser::parse(packet: {:?}): current state: {:?}",
                       p.tag(), self.state);
         }
 
@@ -511,7 +539,7 @@ impl<I: iter::Iterator<Item=Packet>> TPKParser<I> {
         };
 
         if TRACE {
-            eprintln!("TPKParser::parse => state = {:?}, result: {:?}",
+            eprintln!("TPKParser::parse => new state: {:?}, result: {:?}",
                       self.state,
                       result.as_ref().map(|tpk| tpk.primary().fingerprint()));
         }
