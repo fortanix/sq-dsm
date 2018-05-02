@@ -564,6 +564,9 @@ impl<I: iter::Iterator<Item=Packet>> TPKParser<I> {
         };
 
         let tpko = match orig.state {
+            TPKParserState::TPK => {
+                Some(tpk)
+            },
             TPKParserState::UserID(u) => {
                 tpk.userids.push(u);
                 Some(tpk)
@@ -1162,6 +1165,16 @@ mod test {
 
             assert_eq!(tpk.subkeys.len(), 0, "number of subkeys");
         }
+    }
+
+    #[test]
+    fn only_a_public_key() {
+        // Make sure the TPK parser can parse a key that just consists
+        // of a public key---no signatures, no user ids, nothing.
+        let tpk = TPK::from_bytes(bytes!("testy-only-a-pk.pgp")).unwrap();
+        assert_eq!(tpk.userids.len(), 0);
+        assert_eq!(tpk.user_attributes.len(), 0);
+        assert_eq!(tpk.subkeys.len(), 0);
     }
 
     #[test]
