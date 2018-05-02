@@ -8,7 +8,6 @@
 //! ```
 //! use std::io::Read;
 //! #[macro_use] extern crate openpgp;
-//! use openpgp::armor;
 //! # use std::io::Result;
 //! # fn main() { f().unwrap(); }
 //! # fn f() -> Result<()> {
