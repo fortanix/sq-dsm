@@ -5,7 +5,6 @@
 
 extern crate clap;
 extern crate failure;
-#[macro_use]
 extern crate time;
 
 extern crate openpgp;
