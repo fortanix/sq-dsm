@@ -219,7 +219,6 @@ fn real_main() -> Result<(), failure::Error> {
                     let keyid = key.keyid();
                     for &(_, ref issuer, _) in &sigs {
                         if *issuer == keyid {
-                            eprintln!("want subkey {}", keyid);
                             want = Some(keyid);
                             break;
                         }
