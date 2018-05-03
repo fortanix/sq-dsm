@@ -9,7 +9,7 @@ use Packet;
 impl fmt::Debug for Key {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("Key")
-            .field("filterprint", &self.fingerprint())
+            .field("fingerprint", &self.fingerprint())
             .field("version", &self.version)
             .field("creation_time", &self.creation_time)
             .field("pk_algo", &self.pk_algo)
