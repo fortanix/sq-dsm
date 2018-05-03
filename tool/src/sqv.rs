@@ -14,9 +14,8 @@ use std::process::exit;
 
 use clap::{App, Arg, AppSettings};
 
-use openpgp::{HashAlgo, TPK, Packet, Signature, KeyID};
+use openpgp::{HashAlgo, TPK, Packet, Signature, KeyID, Message};
 use openpgp::parse::PacketParser;
-use openpgp::tpk::TPKParser;
 use openpgp::parse::HashedReader;
 
 // The argument parser.
@@ -49,6 +48,32 @@ fn cli_build() -> App<'static, 'static> {
         .arg(Arg::with_name("trace")
              .help("Trace execution.")
              .long("trace"))
+}
+
+/// Given a vector of signatures, the keyid of the (sub)key that
+/// created the signature, and a TPK containing this (sub)key,
+/// store (or merge) that TPK in the vector.
+fn remember_tpk(sigs: &mut Vec<(Signature, KeyID, Option<TPK>)>,
+                keyid: &KeyID, tpk: &TPK, trace: bool) {
+    for &mut (_, ref issuer, ref mut issuer_tpko) in sigs.iter_mut() {
+        if *issuer == *keyid {
+            if let Some(issuer_tpk) = issuer_tpko.take() {
+                if trace {
+                    eprintln!("Found key {} again.  Merging.",
+                              issuer);
+                }
+
+                *issuer_tpko
+                    = issuer_tpk.merge(tpk.clone()).ok();
+            } else {
+                if trace {
+                    eprintln!("Found key {}.", issuer);
+                }
+
+                *issuer_tpko = Some(tpk.clone());
+            }
+        }
+    }
 }
 
 fn real_main() -> Result<(), failure::Error> {
@@ -152,37 +177,70 @@ fn real_main() -> Result<(), failure::Error> {
     for filename in matches.values_of_os("keyring")
         .expect("No keyring specified.")
     {
+        // Load the keyring.
+        let mut ppo = PacketParser::from_file(filename)?;
+
+        // We store packets in an accumulator until we are sure that
+        // we want to build and use a TPK.
+        let mut acc = vec![];
+
+        // Do we want it?  If so, what is the KeyID of the (sub)key?
+        let mut want = None;
+
         // Iterate over each TPK in the keyring.
-        if let Some(pp) = PacketParser::from_file(filename)? {
-            for tpk in TPKParser::new(pp.into_iter()) {
-                // Iterate over each key in each TPK.
-                for key in tpk.keys() {
+        while let Some(pp) = ppo {
+            match pp.packet {
+                Packet::PublicKey(ref key) => {
+                    // A new TPK starts here.  Check if we want the
+                    // current one.
+                    if let Some(ref keyid) = want {
+                        // Build the TPK...
+                        let tpk = TPK::from_message(Message::from_packets(acc))?;
+                        acc = vec![];
+
+                        // ... and remember it.
+                        remember_tpk(&mut sigs, keyid, &tpk, trace);
+                    }
+
+                    // Reset accumulator.
+                    acc.clear();
+                    want = None;
+
+                    // Now, see if we need the new key.
                     let keyid = key.keyid();
-
-                    // Now, see if we need the key.
-                    for &mut (_, ref issuer, ref mut issuer_tpko) in &mut sigs {
+                    for &(_, ref issuer, _) in &sigs {
                         if *issuer == keyid {
-                            if let Some(issuer_tpk) = issuer_tpko.take() {
-                                if trace {
-                                    eprintln!("Found key {} again.  Merging.",
-                                              issuer);
-                                }
-
-                                *issuer_tpko
-                                    = issuer_tpk.merge(tpk.clone()).ok();
-                            } else {
-                                if trace {
-                                    eprintln!("Found key {}.", issuer);
-                                }
-
-                                *issuer_tpko = Some(tpk.clone());
-                            }
+                            want = Some(keyid);
+                            break;
                         }
                     }
-                }
+                },
+                Packet::PublicSubkey(ref key) => {
+                    // Now, see if we need the new key.
+                    let keyid = key.keyid();
+                    for &(_, ref issuer, _) in &sigs {
+                        if *issuer == keyid {
+                            eprintln!("want subkey {}", keyid);
+                            want = Some(keyid);
+                            break;
+                        }
+                    }
+                },
+                _ => (),
             }
-        } else {
-            eprintln!("File is empty.");
+
+            // Get the next packet, and remember the current one.
+            let (packet, _packet_depth, tmp, _pp_depth) = pp.recurse()?;
+            acc.push(packet);
+            ppo = tmp;
+        }
+
+        // This was the last TPK.  Check if we want it.
+        if let Some(ref keyid) = want {
+            // Build the TPK...
+            let tpk = TPK::from_message(Message::from_packets(acc))?;
+            // ... and remember it.
+            remember_tpk(&mut sigs, keyid, &tpk, trace);
         }
     }
 
