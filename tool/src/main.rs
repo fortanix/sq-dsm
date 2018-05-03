@@ -42,10 +42,6 @@ fn create_or_stdout(f: Option<&str>) -> Result<Box<io::Write>, failure::Error> {
     }
 }
 
-// Indent packets according to their recursion level.
-const INDENT: &'static str
-    = "                                                  ";
-
 fn real_main() -> Result<(), failure::Error> {
     let matches = cli::build().get_matches();
 
@@ -90,31 +86,12 @@ fn real_main() -> Result<(), failure::Error> {
         ("dump",  Some(m)) => {
             let mut input = open_or_stdin(m.value_of("input"))?;
             let mut output = create_or_stdout(m.value_of("output"))?;
-            let input = if m.is_present("dearmor") {
+            let mut input = if m.is_present("dearmor") {
                 Box::new(armor::Reader::new(&mut input, armor::Kind::Any))
             } else {
                 input
             };
-
-            let mut ppo
-                = openpgp::parse::PacketParserBuilder::from_reader(input)?
-                    .finalize()?;
-            while ppo.is_some() {
-                let mut pp = ppo.unwrap();
-
-                if let openpgp::Packet::Literal(_) = pp.packet {
-                    // XXX: We should actually stream this.  In fact,
-                    // we probably only want to print out the first
-                    // line or so and then print the total number of
-                    // bytes.
-                    pp.buffer_unread_content()?;
-                }
-                writeln!(output, "{}{:?}",
-                         &INDENT[0..pp.recursion_depth as usize], pp.packet)?;
-
-                let (_, _, ppo_tmp, _) = pp.recurse()?;
-                ppo = ppo_tmp;
-            }
+            commands::dump(&mut input, &mut output, m.is_present("hex"))?;
         },
         ("keyserver",  Some(m)) => {
             let mut ks = if let Some(uri) = m.value_of("server") {
