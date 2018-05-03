@@ -1039,22 +1039,6 @@ impl TPK {
 
         Ok(self.canonicalize())
     }
-
-    /// Checks whether at least one of this key's user ids (not user
-    /// attributes!) is signed by 'other'.
-    pub fn is_signed_by(&self, other: &TPK) -> bool {
-        let fp = other.fingerprint();
-        for userid in self.userids.iter() {
-            for sig in userid.certifications.iter() {
-                if let Some(issuer) = sig.issuer_fingerprint() {
-                    if issuer == fp {
-                        return true
-                    }
-                }
-            }
-        }
-        return false
-    }
 }
 
 /// Results for TPK.

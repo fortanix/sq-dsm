@@ -434,10 +434,6 @@ impl Binding {
     /// The returned key contains all packets known to Sequoia, and
     /// should be used instead of `tpk`.
     ///
-    /// If the new key does not match the current key, but carries a
-    /// valid signature from the current key, it replaces the current
-    /// key.  This provides a natural way for key rotations.
-    ///
     /// If the new key does not match the current key, and it does not
     /// carry a valid signature from the current key, an
     /// `Error::Conflict` is returned, and you have to resolve the
@@ -463,16 +459,12 @@ impl Binding {
     /// #     include_bytes!("../../openpgp/tests/data/keys/testy.pgp")).unwrap();
     /// # let new = TPK::from_bytes(
     /// #     include_bytes!("../../openpgp/tests/data/keys/testy-new.pgp")).unwrap();
-    /// # let new_sig = TPK::from_bytes(
-    /// #     include_bytes!("../../openpgp/tests/data/keys/testy-new-with-sig.pgp")).unwrap();
     /// let store = Store::open(&ctx, "default")?;
     /// store.import("Testy McTestface", &old)?;
     /// // later...
     /// let binding = store.lookup("Testy McTestface")?;
     /// let r = binding.import(&new);
-    /// assert!(r.is_err()); // no signature from old on new
-    /// let r = binding.import(&new_sig)?;
-    /// assert_eq!(new.fingerprint(), r.fingerprint());
+    /// assert!(r.is_err()); // Conflict!
     /// # Ok(())
     /// # }
     /// ```
@@ -526,7 +518,7 @@ impl Binding {
     /// // later...
     /// let binding = store.lookup("Testy McTestface")?;
     /// let r = binding.import(&new);
-    /// assert!(r.is_err()); // no signature from old on new
+    /// assert!(r.is_err()); // Conflict!
     /// let r = binding.rotate(&new)?;
     /// assert_eq!(new.fingerprint(), r.fingerprint());
     /// # Ok(())

@@ -477,7 +477,7 @@ impl node::binding::Server for BindingServer {
 
         // Check for conflicts.
         if new.fingerprint().to_hex() != fingerprint {
-            if force || (current.is_some() && new.is_signed_by(&current.unwrap())) {
+            if force {
                 // Update binding, and retry.
                 let key_id =
                     sry!(KeyServer::lookup_or_create(
