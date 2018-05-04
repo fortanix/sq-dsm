@@ -204,7 +204,7 @@ impl CTB {
                 common: CTBCommon {
                     tag: tag.into(),
                 },
-                length_type: PacketLengthType::from_numeric(length_type).unwrap(),
+                length_type: PacketLengthType::try_from(length_type)?,
             })
         };
 

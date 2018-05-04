@@ -41,12 +41,6 @@ extern crate failure;
 
 extern crate buffered_reader;
 
-// For #[derive(FromPrimitive)]
-extern crate num;
-
-#[macro_use]
-extern crate num_derive;
-
 extern crate nettle;
 
 extern crate flate2;

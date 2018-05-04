@@ -145,7 +145,7 @@ impl Serialize for CTBNew {
 impl Serialize for CTBOld {
     fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
         let tag: u8 = self.common.tag.into();
-        let length_type = self.length_type.to_numeric();
+        let length_type: u8 = self.length_type.into();
         o.write_all(&[0b1000_0000u8 | (tag << 2) | length_type])?;
         Ok(())
     }

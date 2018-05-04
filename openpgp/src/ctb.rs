@@ -4,7 +4,6 @@
 //!
 //!   [Section 4.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.2
 
-use num;
 use std::ops::Deref;
 use super::{Tag, Error, Result};
 use packet::BodyLength;
@@ -58,34 +57,37 @@ impl Deref for CTBNew {
 ///   [Section 4.2.1 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.2.1
 ///   [old CTB]: ./CTBOld.t.html
 #[derive(Debug)]
-#[derive(FromPrimitive, ToPrimitive)]
 #[derive(Clone, Copy, PartialEq)]
 pub enum PacketLengthType {
-    OneOctet = 0,
-    TwoOctets = 1,
-    FourOctets = 2,
-    Indeterminate = 3,
+    OneOctet,
+    TwoOctets,
+    FourOctets,
+    Indeterminate,
 }
 
-impl PacketLengthType {
-    /// Converts a numeric value to an `Option<PacketLengthType>`.
-    ///
-    /// Returns None, if the value is out of range (outside of 0-3).
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use openpgp::ctb::PacketLengthType;
-    ///
-    /// assert_eq!(PacketLengthType::from_numeric(1),
-    ///            Some(PacketLengthType::TwoOctets));
-    /// ```
-    pub fn from_numeric(value: u8) -> Option<Self> {
-        num::FromPrimitive::from_u8(value)
+// XXX: TryFrom is nightly only.
+impl /* TryFrom<u8> for */ PacketLengthType {
+    /* type Error = failure::Error; */
+    pub fn try_from(u: u8) -> Result<Self> {
+        match u {
+            0 => Ok(PacketLengthType::OneOctet),
+            1 => Ok(PacketLengthType::TwoOctets),
+            2 => Ok(PacketLengthType::FourOctets),
+            3 => Ok(PacketLengthType::Indeterminate),
+            _ => Err(Error::InvalidArgument(
+                format!("Invalid packet length: {}", u)).into()),
+        }
     }
+}
 
-    pub fn to_numeric(&self) -> u8 {
-        num::ToPrimitive::to_u8(self).unwrap()
+impl From<PacketLengthType> for u8 {
+    fn from(l: PacketLengthType) -> Self {
+        match l {
+            PacketLengthType::OneOctet => 0,
+            PacketLengthType::TwoOctets => 1,
+            PacketLengthType::FourOctets => 2,
+            PacketLengthType::Indeterminate => 3,
+        }
     }
 }
 
