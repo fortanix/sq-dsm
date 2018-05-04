@@ -53,6 +53,7 @@
 //! ```
 
 use super::*;
+use quickcheck::{Arbitrary, Gen};
 
 #[cfg(test)]
 use std::path::PathBuf;
@@ -67,79 +68,148 @@ fn path_to(artifact: &str) -> PathBuf {
 ///
 /// [Section 5.2.3.1 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.1
 #[derive(Debug)]
-#[derive(FromPrimitive)]
-#[derive(ToPrimitive)]
 #[derive(PartialEq, Eq, Hash)]
 #[derive(Clone, Copy)]
 pub enum SubpacketTag {
-    Reserved0 = 0,
-    Reserved1 = 1,
-    SignatureCreationTime = 2,
-    SignatureExpirationTime = 3,
-    ExportableCertification = 4,
-    TrustSignature = 5,
-    RegularExpression = 6,
-    Revocable = 7,
-    Reserved8 = 8,
-    KeyExpirationTime = 9,
-    PlaceholderForBackwardCompatibility = 10,
-    PreferredSymmetricAlgorithms = 11,
-    RevocationKey = 12,
-    Reserved13 = 13,
-    Reserved14 = 14,
-    Reserved15 = 15,
-    Issuer = 16,
-    Reserved17 = 17,
-    Reserved18 = 18,
-    Reserved19 = 19,
-    NotationData = 20,
-    PreferredHashAlgorithms = 21,
-    PreferredCompressionAlgorithms = 22,
-    KeyServerPreferences = 23,
-    PreferredKeyServer = 24,
-    PrimaryUserID = 25,
-    PolicyURI = 26,
-    KeyFlags = 27,
-    SignersUserID = 28,
-    ReasonForRevocation = 29,
-    Features = 30,
-    SignatureTarget = 31,
-    EmbeddedSignature = 32,
+    SignatureCreationTime,
+    SignatureExpirationTime,
+    ExportableCertification,
+    TrustSignature,
+    RegularExpression,
+    Revocable,
+    KeyExpirationTime,
+    PlaceholderForBackwardCompatibility,
+    PreferredSymmetricAlgorithms,
+    RevocationKey,
+    Issuer,
+    NotationData,
+    PreferredHashAlgorithms,
+    PreferredCompressionAlgorithms,
+    KeyServerPreferences,
+    PreferredKeyServer,
+    PrimaryUserID,
+    PolicyURI,
+    KeyFlags,
+    SignersUserID,
+    ReasonForRevocation,
+    Features,
+    SignatureTarget,
+    EmbeddedSignature,
     // Added in RFC 4880bis.
-    IssuerFingerprint = 33,
-    Private100 = 100,
-    Private101 = 101,
-    Private102 = 102,
-    Private103 = 103,
-    Private104 = 104,
-    Private105 = 105,
-    Private106 = 106,
-    Private107 = 107,
-    Private108 = 108,
-    Private109 = 109,
-    Private110 = 110,
+    IssuerFingerprint,
+    Reserved(u8),
+    Private(u8),
+    Unknown(u8),
 }
 
-impl SubpacketTag {
-    /// Converts a numeric value to an `Option<SubpacketTag>`.
-    ///
-    /// Returns None, if the value is out of range.
-    pub fn from_numeric(value: u8) -> Option<Self> {
-        num::FromPrimitive::from_u8(value)
-    }
-
-    /// Converts a `SubpacketTag` to its corresponding numeric value.
-    pub fn to_numeric(tag: SubpacketTag) -> u8 {
-        num::ToPrimitive::to_u8(&tag).unwrap()
+impl From<u8> for SubpacketTag {
+    fn from(u: u8) -> Self {
+        match u {
+            2 => SubpacketTag::SignatureCreationTime,
+            3 => SubpacketTag::SignatureExpirationTime,
+            4 => SubpacketTag::ExportableCertification,
+            5 => SubpacketTag::TrustSignature,
+            6 => SubpacketTag::RegularExpression,
+            7 => SubpacketTag::Revocable,
+            9 => SubpacketTag::KeyExpirationTime,
+            10 => SubpacketTag::PlaceholderForBackwardCompatibility,
+            11 => SubpacketTag::PreferredSymmetricAlgorithms,
+            12 => SubpacketTag::RevocationKey,
+            16 => SubpacketTag::Issuer,
+            20 => SubpacketTag::NotationData,
+            21 => SubpacketTag::PreferredHashAlgorithms,
+            22 => SubpacketTag::PreferredCompressionAlgorithms,
+            23 => SubpacketTag::KeyServerPreferences,
+            24 => SubpacketTag::PreferredKeyServer,
+            25 => SubpacketTag::PrimaryUserID,
+            26 => SubpacketTag::PolicyURI,
+            27 => SubpacketTag::KeyFlags,
+            28 => SubpacketTag::SignersUserID,
+            29 => SubpacketTag::ReasonForRevocation,
+            30 => SubpacketTag::Features,
+            31 => SubpacketTag::SignatureTarget,
+            32 => SubpacketTag::EmbeddedSignature,
+            33 => SubpacketTag::IssuerFingerprint,
+            0| 1| 8| 13| 14| 15| 17| 18| 19 => SubpacketTag::Reserved(u),
+            100...110 => SubpacketTag::Private(u),
+            _ => SubpacketTag::Unknown(u),
+        }
     }
 }
+
+impl From<SubpacketTag> for u8 {
+    fn from(t: SubpacketTag) -> Self {
+        match t {
+            SubpacketTag::SignatureCreationTime => 2,
+            SubpacketTag::SignatureExpirationTime => 3,
+            SubpacketTag::ExportableCertification => 4,
+            SubpacketTag::TrustSignature => 5,
+            SubpacketTag::RegularExpression => 6,
+            SubpacketTag::Revocable => 7,
+            SubpacketTag::KeyExpirationTime => 9,
+            SubpacketTag::PlaceholderForBackwardCompatibility => 10,
+            SubpacketTag::PreferredSymmetricAlgorithms => 11,
+            SubpacketTag::RevocationKey => 12,
+            SubpacketTag::Issuer => 16,
+            SubpacketTag::NotationData => 20,
+            SubpacketTag::PreferredHashAlgorithms => 21,
+            SubpacketTag::PreferredCompressionAlgorithms => 22,
+            SubpacketTag::KeyServerPreferences => 23,
+            SubpacketTag::PreferredKeyServer => 24,
+            SubpacketTag::PrimaryUserID => 25,
+            SubpacketTag::PolicyURI => 26,
+            SubpacketTag::KeyFlags => 27,
+            SubpacketTag::SignersUserID => 28,
+            SubpacketTag::ReasonForRevocation => 29,
+            SubpacketTag::Features => 30,
+            SubpacketTag::SignatureTarget => 31,
+            SubpacketTag::EmbeddedSignature => 32,
+            SubpacketTag::IssuerFingerprint => 33,
+            SubpacketTag::Reserved(u) => u,
+            SubpacketTag::Private(u) => u,
+            SubpacketTag::Unknown(u) => u,
+        }
+    }
+}
+
+impl Arbitrary for SubpacketTag {
+    fn arbitrary<G: Gen>(g: &mut G) -> Self {
+        u8::arbitrary(g).into()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    quickcheck! {
+        fn roundtrip(tag: SubpacketTag) -> bool {
+            let val: u8 = tag.clone().into();
+            tag == SubpacketTag::from(val)
+        }
+    }
+
+    quickcheck! {
+        fn parse(tag: SubpacketTag) -> bool {
+            match tag {
+                SubpacketTag::Reserved(u) =>
+                    (u == 0 || u == 1 || u == 8
+                     || u == 13 || u == 14 || u == 15
+                     || u == 17 || u == 18 || u == 19),
+                SubpacketTag::Private(u) => u >= 100 && u <= 110,
+                SubpacketTag::Unknown(u) => (u > 33 && u < 100) || u > 110,
+                _ => true
+            }
+        }
+    }
+}
+
 
 // Struct holding an arbitrary subpacket.
 //
 // The value is uninterpreted.
 struct SubpacketRaw<'a> {
     pub critical: bool,
-    pub tag: Option<SubpacketTag>,
+    pub tag: SubpacketTag,
     pub value: &'a [u8],
 }
 
@@ -229,7 +299,7 @@ impl<'a> Iterator for SubpacketAreaIter<'a> {
         Some((start, len,
               SubpacketRaw {
                   critical: critical,
-                  tag: SubpacketTag::from_numeric(tag),
+                  tag: tag.into(),
                   value: &self.data[start..start + len],
               }))
     }
@@ -273,9 +343,7 @@ impl SubpacketArea{
         if self.parsed.borrow().is_none() {
             let mut hash = HashMap::new();
             for (start, len, sb) in self.iter() {
-                if let Some(tag) = sb.tag {
-                    hash.insert(tag, (sb.critical, start as u16, len as u16));
-                }
+                hash.insert(sb.tag, (sb.critical, start as u16, len as u16));
             }
 
             *self.parsed.borrow_mut() = Some(hash);
@@ -290,7 +358,7 @@ impl SubpacketArea{
             Some(&(critical, start, len)) =>
                 return Some(SubpacketRaw {
                     critical: critical,
-                    tag: Some(tag),
+                    tag: tag,
                     value: &self.data[
                         start as usize..start as usize + len as usize]
                 }.into()),
@@ -375,19 +443,19 @@ impl<'a> From<SubpacketRaw<'a>> for Subpacket<'a> {
     fn from(raw: SubpacketRaw<'a>) -> Self {
         let value : Option<SubpacketValue>
                 = match raw.tag {
-            Some(SubpacketTag::SignatureCreationTime) =>
+            SubpacketTag::SignatureCreationTime =>
                 // The timestamp is in big endian format.
                 from_be_u32(raw.value).map(|v| {
                     SubpacketValue::SignatureCreationTime(v)
                 }),
 
-            Some(SubpacketTag::SignatureExpirationTime) =>
+            SubpacketTag::SignatureExpirationTime =>
                 // The time delta is in big endian format.
                 from_be_u32(raw.value).map(|v| {
                     SubpacketValue::SignatureExpirationTime(v)
                 }),
 
-            Some(SubpacketTag::ExportableCertification) =>
+            SubpacketTag::ExportableCertification =>
                 // One u8 holding a bool.
                 if raw.value.len() == 1 {
                     Some(SubpacketValue::ExportableCertification(
@@ -396,7 +464,7 @@ impl<'a> From<SubpacketRaw<'a>> for Subpacket<'a> {
                     None
                 },
 
-            Some(SubpacketTag::TrustSignature) =>
+            SubpacketTag::TrustSignature =>
                 // Two u8s.
                 if raw.value.len() == 2 {
                     Some(SubpacketValue::TrustSignature(
@@ -405,14 +473,14 @@ impl<'a> From<SubpacketRaw<'a>> for Subpacket<'a> {
                     None
                 },
 
-            Some(SubpacketTag::RegularExpression) => {
+            SubpacketTag::RegularExpression => {
                 let trim = if raw.value.len() > 0
                     && raw.value[raw.value.len() - 1] == 0 { 1 } else { 0 };
                 Some(SubpacketValue::RegularExpression(
                     &raw.value[..raw.value.len() - trim]))
             },
 
-            Some(SubpacketTag::Revocable) =>
+            SubpacketTag::Revocable =>
                 // One u8 holding a bool.
                 if raw.value.len() == 1 {
                     Some(SubpacketValue::Revocable(raw.value[0] != 0u8))
@@ -420,18 +488,18 @@ impl<'a> From<SubpacketRaw<'a>> for Subpacket<'a> {
                     None
                 },
 
-            Some(SubpacketTag::KeyExpirationTime) =>
+            SubpacketTag::KeyExpirationTime =>
                 // The time delta is in big endian format.
                 from_be_u32(raw.value).map(|v| {
                     SubpacketValue::KeyExpirationTime(v)
                 }),
 
-            Some(SubpacketTag::PreferredSymmetricAlgorithms) =>
+            SubpacketTag::PreferredSymmetricAlgorithms =>
                 // array of one-octet values.
                 Some(SubpacketValue::PreferredSymmetricAlgorithms(
                     raw.value)),
 
-            Some(SubpacketTag::RevocationKey) =>
+            SubpacketTag::RevocationKey =>
                 // 1 octet of class, 1 octet of pk algorithm, 20 bytes
                 // for a v4 fingerprint and 32 bytes for a v5
                 // fingerprint.
@@ -445,11 +513,11 @@ impl<'a> From<SubpacketRaw<'a>> for Subpacket<'a> {
                     None
                 },
 
-            Some(SubpacketTag::Issuer) =>
+            SubpacketTag::Issuer =>
                 Some(SubpacketValue::Issuer(
                     KeyID::from_bytes(&raw.value[..]))),
 
-            Some(SubpacketTag::NotationData) =>
+            SubpacketTag::NotationData =>
                 if raw.value.len() > 8 {
                     let flags = from_be_u32(raw.value).unwrap();
                     let name_len
@@ -471,26 +539,26 @@ impl<'a> From<SubpacketRaw<'a>> for Subpacket<'a> {
                     None
                 },
 
-            Some(SubpacketTag::PreferredHashAlgorithms) =>
+            SubpacketTag::PreferredHashAlgorithms =>
                 // array of one-octet values.
                 Some(SubpacketValue::PreferredHashAlgorithms(
                     raw.value)),
 
-            Some(SubpacketTag::PreferredCompressionAlgorithms) =>
+            SubpacketTag::PreferredCompressionAlgorithms =>
                 // array of one-octet values.
                 Some(SubpacketValue::PreferredCompressionAlgorithms(
                     raw.value)),
 
-            Some(SubpacketTag::KeyServerPreferences) =>
+            SubpacketTag::KeyServerPreferences =>
                 // N octets of flags.
                 Some(SubpacketValue::KeyServerPreferences(raw.value)),
 
-            Some(SubpacketTag::PreferredKeyServer) =>
+            SubpacketTag::PreferredKeyServer =>
                 // String.
                 Some(SubpacketValue::PreferredKeyServer(
                     raw.value)),
 
-            Some(SubpacketTag::PrimaryUserID) =>
+            SubpacketTag::PrimaryUserID =>
                 // 1 octet, Boolean
                 if raw.value.len() == 1 {
                     Some(SubpacketValue::PrimaryUserID(
@@ -499,19 +567,19 @@ impl<'a> From<SubpacketRaw<'a>> for Subpacket<'a> {
                     None
                 },
 
-            Some(SubpacketTag::PolicyURI) =>
+            SubpacketTag::PolicyURI =>
                 // String.
                 Some(SubpacketValue::PolicyURI(raw.value)),
 
-            Some(SubpacketTag::KeyFlags) =>
+            SubpacketTag::KeyFlags =>
                 // N octets of flags.
                 Some(SubpacketValue::KeyFlags(raw.value)),
 
-            Some(SubpacketTag::SignersUserID) =>
+            SubpacketTag::SignersUserID =>
                 // String.
                 Some(SubpacketValue::SignersUserID(raw.value)),
 
-            Some(SubpacketTag::ReasonForRevocation) =>
+            SubpacketTag::ReasonForRevocation =>
                 // 1 octet of revocation code, N octets of reason string
                 if raw.value.len() >= 1 {
                     Some(SubpacketValue::ReasonForRevocation(
@@ -520,11 +588,11 @@ impl<'a> From<SubpacketRaw<'a>> for Subpacket<'a> {
                     None
                 },
 
-            Some(SubpacketTag::Features) =>
+            SubpacketTag::Features =>
                 // N octets of flags
                 Some(SubpacketValue::Features(raw.value)),
 
-            Some(SubpacketTag::SignatureTarget) =>
+            SubpacketTag::SignatureTarget =>
                 // 1 octet public-key algorithm, 1 octet hash algorithm,
                 // N octets hash
                 if raw.value.len() > 2 {
@@ -538,7 +606,7 @@ impl<'a> From<SubpacketRaw<'a>> for Subpacket<'a> {
                     None
                 },
 
-            Some(SubpacketTag::EmbeddedSignature) => {
+            SubpacketTag::EmbeddedSignature => {
                 // A signature packet.
                 if let Ok(p) = Signature::parse_naked(&raw.value) {
                     Some(SubpacketValue::EmbeddedSignature(p))
@@ -547,7 +615,7 @@ impl<'a> From<SubpacketRaw<'a>> for Subpacket<'a> {
                 }
             },
 
-            Some(SubpacketTag::IssuerFingerprint) => {
+            SubpacketTag::IssuerFingerprint => {
                 let version = raw.value.get(0);
                 if let Some(version) = version {
                     if *version == 4 {
@@ -561,28 +629,10 @@ impl<'a> From<SubpacketRaw<'a>> for Subpacket<'a> {
                 }
             },
 
-            Some(SubpacketTag::Reserved0)
-                    | Some(SubpacketTag::Reserved1)
-                    | Some(SubpacketTag::Reserved8)
-                    | Some(SubpacketTag::Reserved13)
-                    | Some(SubpacketTag::PlaceholderForBackwardCompatibility)
-                    | Some(SubpacketTag::Reserved14)
-                    | Some(SubpacketTag::Reserved15)
-                    | Some(SubpacketTag::Reserved17)
-                    | Some(SubpacketTag::Reserved18)
-                    | Some(SubpacketTag::Reserved19)
-                    | Some(SubpacketTag::Private100)
-                    | Some(SubpacketTag::Private101)
-                    | Some(SubpacketTag::Private102)
-                    | Some(SubpacketTag::Private103)
-                    | Some(SubpacketTag::Private104)
-                    | Some(SubpacketTag::Private105)
-                    | Some(SubpacketTag::Private106)
-                    | Some(SubpacketTag::Private107)
-                    | Some(SubpacketTag::Private108)
-                    | Some(SubpacketTag::Private109)
-                    | Some(SubpacketTag::Private110)
-                    | None =>
+            SubpacketTag::Reserved(_)
+                    | SubpacketTag::PlaceholderForBackwardCompatibility
+                    | SubpacketTag::Private(_)
+                    | SubpacketTag::Unknown(_) =>
                 // Unknown tag.
                 Some(SubpacketValue::Unknown(raw.value)),
             };
@@ -590,14 +640,14 @@ impl<'a> From<SubpacketRaw<'a>> for Subpacket<'a> {
         if let Some(value) = value {
             Subpacket {
                 critical: raw.critical,
-                tag: raw.tag.unwrap(), // XXX
+                tag: raw.tag,
                 value: value,
             }
         } else {
             // Invalid.
             Subpacket {
                 critical: raw.critical,
-                tag: raw.tag.unwrap(), // XXX
+                tag: raw.tag,
                 value: SubpacketValue::Invalid(raw.value),
             }
         }
@@ -650,7 +700,7 @@ impl Signature {
         let mut result = Vec::new();
 
         for (_start, _len, sb) in self.hashed_area.iter() {
-            if sb.tag.unwrap() == target { // XXX
+            if sb.tag == target {
                 result.push(sb.into());
             }
         }
@@ -1275,8 +1325,8 @@ fn subpacket_test_1 () {
             let mut got16 = false;
             let mut got33 = false;
 
-            for i in 0..34 { //xxx
-                if let Some(sb) = sig.subpacket(SubpacketTag::from_numeric(i).unwrap()) { // XXX
+            for i in 0..255 {
+                if let Some(sb) = sig.subpacket(i.into()) {
                     if i == 2 {
                         got2 = true;
                         assert!(!sb.critical);
