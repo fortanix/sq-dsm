@@ -69,7 +69,7 @@ fn path_to(artifact: &str) -> PathBuf {
 #[derive(Debug)]
 #[derive(FromPrimitive)]
 #[derive(ToPrimitive)]
-#[derive(PartialEq)]
+#[derive(PartialEq, Eq, Hash)]
 #[derive(Clone, Copy)]
 pub enum SubpacketTag {
     Reserved0 = 0,
@@ -139,7 +139,7 @@ impl SubpacketTag {
 // The value is uninterpreted.
 struct SubpacketRaw<'a> {
     pub critical: bool,
-    pub tag: u8,
+    pub tag: Option<SubpacketTag>,
     pub value: &'a [u8],
 }
 
@@ -173,7 +173,7 @@ pub struct SubpacketArea {
     // to reference the content in the area.
     //
     // This is an option, because we parse the subpacket area lazily.
-    parsed: RefCell<Option<HashMap<u8, (bool, u16, u16)>>>,
+    parsed: RefCell<Option<HashMap<SubpacketTag, (bool, u16, u16)>>>,
 }
 
 struct SubpacketAreaIter<'a> {
@@ -229,7 +229,7 @@ impl<'a> Iterator for SubpacketAreaIter<'a> {
         Some((start, len,
               SubpacketRaw {
                   critical: critical,
-                  tag: tag,
+                  tag: SubpacketTag::from_numeric(tag),
                   value: &self.data[start..start + len],
               }))
     }
@@ -248,7 +248,7 @@ impl fmt::Debug for SubpacketArea {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_map().entries(
             self.iter().map(|(_start, _len, sb)| {
-                (SubpacketTag::from_numeric(sb.tag), sb)
+                (sb.tag, sb)
             }))
             .finish()
     }
@@ -273,7 +273,9 @@ impl SubpacketArea{
         if self.parsed.borrow().is_none() {
             let mut hash = HashMap::new();
             for (start, len, sb) in self.iter() {
-                hash.insert(sb.tag, (sb.critical, start as u16, len as u16));
+                if let Some(tag) = sb.tag {
+                    hash.insert(tag, (sb.critical, start as u16, len as u16));
+                }
             }
 
             *self.parsed.borrow_mut() = Some(hash);
@@ -281,14 +283,14 @@ impl SubpacketArea{
     }
 
     // Returns the last subpacket, if any, with the specified tag.
-    fn lookup(&self, tag: u8) -> Option<SubpacketRaw> {
+    fn lookup(&self, tag: SubpacketTag) -> Option<SubpacketRaw> {
         self.cache_init();
 
         match self.parsed.borrow().as_ref().unwrap().get(&tag) {
             Some(&(critical, start, len)) =>
                 return Some(SubpacketRaw {
                     critical: critical,
-                    tag: tag,
+                    tag: Some(tag),
                     value: &self.data[
                         start as usize..start as usize + len as usize]
                 }.into()),
@@ -345,7 +347,7 @@ pub enum SubpacketValue<'a> {
 #[derive(Debug, PartialEq, Clone)]
 pub struct Subpacket<'a> {
     pub critical: bool,
-    pub tag: u8,
+    pub tag: SubpacketTag,
     pub value: SubpacketValue<'a>,
 }
 
@@ -372,7 +374,7 @@ fn from_be_u32(value: &[u8]) -> Option<u32> {
 impl<'a> From<SubpacketRaw<'a>> for Subpacket<'a> {
     fn from(raw: SubpacketRaw<'a>) -> Self {
         let value : Option<SubpacketValue>
-                = match SubpacketTag::from_numeric(raw.tag) {
+                = match raw.tag {
             Some(SubpacketTag::SignatureCreationTime) =>
                 // The timestamp is in big endian format.
                 from_be_u32(raw.value).map(|v| {
@@ -588,14 +590,14 @@ impl<'a> From<SubpacketRaw<'a>> for Subpacket<'a> {
         if let Some(value) = value {
             Subpacket {
                 critical: raw.critical,
-                tag: raw.tag,
+                tag: raw.tag.unwrap(), // XXX
                 value: value,
             }
         } else {
             // Invalid.
             Subpacket {
                 critical: raw.critical,
-                tag: raw.tag,
+                tag: raw.tag.unwrap(), // XXX
                 value: SubpacketValue::Invalid(raw.value),
             }
         }
@@ -623,7 +625,7 @@ fn subpacket_length<C>(bio: &mut BufferedReaderMemory<C>)
 
 impl Signature {
     /// Returns the *last* instance of the specified subpacket.
-    fn subpacket<'a>(&'a self, tag: u8) -> Option<Subpacket<'a>> {
+    fn subpacket<'a>(&'a self, tag: SubpacketTag) -> Option<Subpacket<'a>> {
         if let Some(sb) = self.hashed_area.lookup(tag) {
             return Some(sb.into());
         }
@@ -631,9 +633,8 @@ impl Signature {
         // There are a couple of subpackets that we are willing to
         // take from the unhashed area.  The others we ignore
         // completely.
-        if !(SubpacketTag::from_numeric(tag) == Some(SubpacketTag::Issuer)
-             || (SubpacketTag::from_numeric(tag)
-                 == Some(SubpacketTag::EmbeddedSignature))) {
+        if !(tag == SubpacketTag::Issuer
+             || tag == SubpacketTag::EmbeddedSignature) {
             return None;
         }
 
@@ -645,11 +646,11 @@ impl Signature {
     /// In general, you only want to do this for NotationData.
     /// Otherwise, taking the last instance of a specified subpacket
     /// is a reasonable approach for dealing with ambiguity.
-    fn subpackets<'a>(&'a self, target: u8) -> Vec<Subpacket<'a>> {
+    fn subpackets<'a>(&'a self, target: SubpacketTag) -> Vec<Subpacket<'a>> {
         let mut result = Vec::new();
 
         for (_start, _len, sb) in self.hashed_area.iter() {
-            if sb.tag == target {
+            if sb.tag.unwrap() == target { // XXX
                 result.push(sb.into());
             }
         }
@@ -669,7 +670,7 @@ impl Signature {
     pub fn signature_creation_time(&self) -> Option<u32> {
         // 4-octet time field
         if let Some(sb)
-                = self.subpacket(SubpacketTag::SignatureCreationTime as u8) {
+                = self.subpacket(SubpacketTag::SignatureCreationTime) {
             if let SubpacketValue::SignatureCreationTime(v) = sb.value {
                 Some(v)
             } else {
@@ -692,7 +693,7 @@ impl Signature {
     pub fn signature_expiration_time(&self) -> Option<u32> {
         // 4-octet time field
         if let Some(sb)
-                = self.subpacket(SubpacketTag::SignatureExpirationTime as u8) {
+                = self.subpacket(SubpacketTag::SignatureExpirationTime) {
             if let SubpacketValue::SignatureExpirationTime(v) = sb.value {
                 Some(v)
             } else {
@@ -715,7 +716,7 @@ impl Signature {
     pub fn exportable_certification(&self) -> Option<bool> {
         // 1 octet of exportability, 0 for not, 1 for exportable
         if let Some(sb)
-                = self.subpacket(SubpacketTag::ExportableCertification as u8) {
+                = self.subpacket(SubpacketTag::ExportableCertification) {
             if let SubpacketValue::ExportableCertification(v) = sb.value {
                 Some(v)
             } else {
@@ -758,7 +759,7 @@ impl Signature {
     pub fn trust_signature(&self) -> Option<(u8, u8)> {
         // 1 octet "level" (depth), 1 octet of trust amount
         if let Some(sb)
-                = self.subpacket(SubpacketTag::TrustSignature as u8) {
+                = self.subpacket(SubpacketTag::TrustSignature) {
             if let SubpacketValue::TrustSignature(v) = sb.value {
                 Some(v)
             } else {
@@ -782,7 +783,7 @@ impl Signature {
     pub fn regular_expression(&self) -> Option<&[u8]> {
         // null-terminated regular expression
         if let Some(sb)
-                = self.subpacket(SubpacketTag::RegularExpression as u8) {
+                = self.subpacket(SubpacketTag::RegularExpression) {
             if let SubpacketValue::RegularExpression(v) = sb.value {
                 Some(v)
             } else {
@@ -805,7 +806,7 @@ impl Signature {
     pub fn revocable(&self) -> Option<bool> {
         // 1 octet of revocability, 0 for not, 1 for revocable
         if let Some(sb)
-                = self.subpacket(SubpacketTag::Revocable as u8) {
+                = self.subpacket(SubpacketTag::Revocable) {
             if let SubpacketValue::Revocable(v) = sb.value {
                 Some(v)
             } else {
@@ -828,7 +829,7 @@ impl Signature {
     pub fn key_expiration_time(&self) -> Option<u32> {
         // 4-octet time field
         if let Some(sb)
-                = self.subpacket(SubpacketTag::KeyExpirationTime as u8) {
+                = self.subpacket(SubpacketTag::KeyExpirationTime) {
             if let SubpacketValue::KeyExpirationTime(v) = sb.value {
                 Some(v)
             } else {
@@ -853,7 +854,7 @@ impl Signature {
         // array of one-octet values
         if let Some(sb)
                 = self.subpacket(
-                    SubpacketTag::PreferredSymmetricAlgorithms as u8) {
+                    SubpacketTag::PreferredSymmetricAlgorithms) {
             if let SubpacketValue::PreferredSymmetricAlgorithms(v)
                     = sb.value {
                 Some(v)
@@ -877,7 +878,7 @@ impl Signature {
         // 1 octet of class, 1 octet of public-key algorithm ID, 20 or
         // 32 octets of fingerprint.
         if let Some(sb)
-                = self.subpacket(SubpacketTag::RevocationKey as u8) {
+                = self.subpacket(SubpacketTag::RevocationKey) {
             if let SubpacketValue::RevocationKey(v) = sb.value {
                 Some(v)
             } else {
@@ -905,7 +906,7 @@ impl Signature {
     pub fn issuer(&self) -> Option<KeyID> {
         // 8-octet Key ID
         if let Some(sb)
-                = self.subpacket(SubpacketTag::Issuer as u8) {
+                = self.subpacket(SubpacketTag::Issuer) {
             if let SubpacketValue::Issuer(v) = sb.value {
                 Some(v)
             } else {
@@ -929,7 +930,7 @@ impl Signature {
         // 2 octets of value length (N),
         // M octets of name data,
         // N octets of value data
-        self.subpackets(SubpacketTag::NotationData as u8)
+        self.subpackets(SubpacketTag::NotationData)
             .into_iter().filter_map(|sb| {
                 if let SubpacketValue::NotationData(v) = sb.value {
                     Some(v)
@@ -954,7 +955,7 @@ impl Signature {
         // array of one-octet values
         if let Some(sb)
                 = self.subpacket(
-                    SubpacketTag::PreferredHashAlgorithms as u8) {
+                    SubpacketTag::PreferredHashAlgorithms) {
             if let SubpacketValue::PreferredHashAlgorithms(v) = sb.value {
                 Some(v)
             } else {
@@ -979,7 +980,7 @@ impl Signature {
         // array of one-octet values
         if let Some(sb)
                 = self.subpacket(
-                    SubpacketTag::PreferredCompressionAlgorithms as u8) {
+                    SubpacketTag::PreferredCompressionAlgorithms) {
             if let SubpacketValue::PreferredCompressionAlgorithms(v)
                     = sb.value {
                 Some(v)
@@ -1002,7 +1003,7 @@ impl Signature {
     pub fn key_server_preferences(&self) -> Option<&[u8]> {
         // N octets of flags
         if let Some(sb)
-                = self.subpacket(SubpacketTag::KeyServerPreferences as u8) {
+                = self.subpacket(SubpacketTag::KeyServerPreferences) {
             if let SubpacketValue::KeyServerPreferences(v) = sb.value {
                 Some(v)
             } else {
@@ -1027,7 +1028,7 @@ impl Signature {
     pub fn preferred_key_server(&self) -> Option<&[u8]> {
         // String
         if let Some(sb)
-                = self.subpacket(SubpacketTag::PreferredKeyServer as u8) {
+                = self.subpacket(SubpacketTag::PreferredKeyServer) {
             if let SubpacketValue::PreferredKeyServer(v) = sb.value {
                 Some(v)
             } else {
@@ -1050,7 +1051,7 @@ impl Signature {
     pub fn primary_userid(&self) -> Option<bool> {
         // 1 octet, Boolean
         if let Some(sb)
-                = self.subpacket(SubpacketTag::PrimaryUserID as u8) {
+                = self.subpacket(SubpacketTag::PrimaryUserID) {
             if let SubpacketValue::PrimaryUserID(v) = sb.value {
                 Some(v)
             } else {
@@ -1071,7 +1072,7 @@ impl Signature {
     pub fn policy_uri(&self) -> Option<&[u8]> {
         // String
         if let Some(sb)
-                = self.subpacket(SubpacketTag::PolicyURI as u8) {
+                = self.subpacket(SubpacketTag::PolicyURI) {
             if let SubpacketValue::PolicyURI(v) = sb.value {
                 Some(v)
             } else {
@@ -1095,7 +1096,7 @@ impl Signature {
     pub fn key_flags(&self) -> Option<&[u8]> {
         // N octets of flags
         if let Some(sb)
-                = self.subpacket(SubpacketTag::KeyFlags as u8) {
+                = self.subpacket(SubpacketTag::KeyFlags) {
             if let SubpacketValue::KeyFlags(v) = sb.value {
                 Some(v)
             } else {
@@ -1118,7 +1119,7 @@ impl Signature {
     pub fn signers_user_id(&self) -> Option<&[u8]> {
         // String
         if let Some(sb)
-                = self.subpacket(SubpacketTag::SignersUserID as u8) {
+                = self.subpacket(SubpacketTag::SignersUserID) {
             if let SubpacketValue::SignersUserID(v) = sb.value {
                 Some(v)
             } else {
@@ -1139,7 +1140,7 @@ impl Signature {
     pub fn reason_for_revocation(&self) -> Option<(u8, &[u8])> {
         // 1 octet of revocation code, N octets of reason string
         if let Some(sb)
-                = self.subpacket(SubpacketTag::ReasonForRevocation as u8) {
+                = self.subpacket(SubpacketTag::ReasonForRevocation) {
             if let SubpacketValue::ReasonForRevocation(v) = sb.value {
                 Some(v)
             } else {
@@ -1162,7 +1163,7 @@ impl Signature {
     pub fn features(&self) -> Option<&[u8]> {
         // N octets of flags
         if let Some(sb)
-                = self.subpacket(SubpacketTag::Features as u8) {
+                = self.subpacket(SubpacketTag::Features) {
             if let SubpacketValue::Features(v) = sb.value {
                 Some(v)
             } else {
@@ -1189,7 +1190,7 @@ impl Signature {
         // 1 octet public-key algorithm, 1 octet hash algorithm, N
         // octets hash
         if let Some(sb)
-                = self.subpacket(SubpacketTag::SignatureTarget as u8) {
+                = self.subpacket(SubpacketTag::SignatureTarget) {
             if let SubpacketValue::SignatureTarget(v) = sb.value {
                 Some(v)
             } else {
@@ -1214,7 +1215,7 @@ impl Signature {
     pub fn embedded_signature(&self) -> Option<Packet> {
         // 1 signature packet body
         if let Some(sb)
-                = self.subpacket(SubpacketTag::EmbeddedSignature as u8) {
+                = self.subpacket(SubpacketTag::EmbeddedSignature) {
             if let SubpacketValue::EmbeddedSignature(v) = sb.value {
                 Some(v)
             } else {
@@ -1246,7 +1247,7 @@ impl Signature {
     pub fn issuer_fingerprint(&self) -> Option<Fingerprint> {
         // 1 octet key version number, N octets of fingerprint
         if let Some(sb)
-                = self.subpacket(SubpacketTag::IssuerFingerprint as u8) {
+                = self.subpacket(SubpacketTag::IssuerFingerprint) {
             if let SubpacketValue::IssuerFingerprint(v) = sb.value {
                 Some(v)
             } else {
@@ -1274,8 +1275,8 @@ fn subpacket_test_1 () {
             let mut got16 = false;
             let mut got33 = false;
 
-            for i in 0..256 {
-                if let Some(sb) = sig.subpacket(i as u8) {
+            for i in 0..34 { //xxx
+                if let Some(sb) = sig.subpacket(SubpacketTag::from_numeric(i).unwrap()) { // XXX
                     if i == 2 {
                         got2 = true;
                         assert!(!sb.critical);
@@ -1362,92 +1363,92 @@ fn subpacket_test_2() {
         // }
 
         assert_eq!(sig.signature_creation_time(), Some(1515791508));
-        assert_eq!(sig.subpacket(SubpacketTag::SignatureCreationTime as u8),
+        assert_eq!(sig.subpacket(SubpacketTag::SignatureCreationTime),
                    Some(Subpacket {
                        critical: false,
-                       tag: SubpacketTag::SignatureCreationTime as u8,
+                       tag: SubpacketTag::SignatureCreationTime,
                        value: SubpacketValue::SignatureCreationTime(1515791508)
                    }));
 
         assert_eq!(sig.key_expiration_time(), Some(63072000));
-        assert_eq!(sig.subpacket(SubpacketTag::KeyExpirationTime as u8),
+        assert_eq!(sig.subpacket(SubpacketTag::KeyExpirationTime),
                    Some(Subpacket {
                        critical: false,
-                       tag: SubpacketTag::KeyExpirationTime as u8,
+                       tag: SubpacketTag::KeyExpirationTime,
                        value: SubpacketValue::KeyExpirationTime(63072000)
                    }));
 
         assert_eq!(sig.preferred_symmetric_algorithms(),
                    Some(&[9, 8, 7, 2][..]));
-        assert_eq!(sig.subpacket(SubpacketTag::PreferredSymmetricAlgorithms as u8),
+        assert_eq!(sig.subpacket(SubpacketTag::PreferredSymmetricAlgorithms),
                    Some(Subpacket {
                        critical: false,
-                       tag: SubpacketTag::PreferredSymmetricAlgorithms as u8,
+                       tag: SubpacketTag::PreferredSymmetricAlgorithms,
                        value: SubpacketValue::PreferredSymmetricAlgorithms(
                            &[9, 8, 7, 2][..])
                    }));
 
         assert_eq!(sig.preferred_hash_algorithms(),
                    Some(&[8, 9, 10, 11, 2][..]));
-        assert_eq!(sig.subpacket(SubpacketTag::PreferredHashAlgorithms as u8),
+        assert_eq!(sig.subpacket(SubpacketTag::PreferredHashAlgorithms),
                    Some(Subpacket {
                        critical: false,
-                       tag: SubpacketTag::PreferredHashAlgorithms as u8,
+                       tag: SubpacketTag::PreferredHashAlgorithms,
                        value: SubpacketValue::PreferredHashAlgorithms(
                            &[8, 9, 10, 11, 2][..])
                    }));
 
         assert_eq!(sig.preferred_compression_algorithms(),
                    Some(&[2, 3, 1][..]));
-        assert_eq!(sig.subpacket(SubpacketTag::PreferredCompressionAlgorithms as u8),
+        assert_eq!(sig.subpacket(SubpacketTag::PreferredCompressionAlgorithms),
                    Some(Subpacket {
                        critical: false,
-                       tag: SubpacketTag::PreferredCompressionAlgorithms as u8,
+                       tag: SubpacketTag::PreferredCompressionAlgorithms,
                        value: SubpacketValue::PreferredCompressionAlgorithms(
                            &[2, 3, 1][..])
                    }));
 
         assert_eq!(sig.key_server_preferences(), Some(&[0x80][..]));
-        assert_eq!(sig.subpacket(SubpacketTag::KeyServerPreferences as u8),
+        assert_eq!(sig.subpacket(SubpacketTag::KeyServerPreferences),
                    Some(Subpacket {
                        critical: false,
-                       tag: SubpacketTag::KeyServerPreferences as u8,
+                       tag: SubpacketTag::KeyServerPreferences,
                        value: SubpacketValue::KeyServerPreferences(
                            &[0x80][..])
                    }));
 
         assert_eq!(sig.key_flags(), Some(&[0x03][..]));
-        assert_eq!(sig.subpacket(SubpacketTag::KeyFlags as u8),
+        assert_eq!(sig.subpacket(SubpacketTag::KeyFlags),
                    Some(Subpacket {
                        critical: false,
-                       tag: SubpacketTag::KeyFlags as u8,
+                       tag: SubpacketTag::KeyFlags,
                        value: SubpacketValue::KeyFlags(&[0x03][..])
                    }));
 
         assert_eq!(sig.features(), Some(&[0x01][..]));
-        assert_eq!(sig.subpacket(SubpacketTag::Features as u8),
+        assert_eq!(sig.subpacket(SubpacketTag::Features),
                    Some(Subpacket {
                        critical: false,
-                       tag: SubpacketTag::Features as u8,
+                       tag: SubpacketTag::Features,
                        value: SubpacketValue::Features(&[0x01][..])
                    }));
 
         let keyid = KeyID::from_hex("F004 B9A4 5C58 6126").unwrap();
         assert_eq!(sig.issuer(), Some(keyid.clone()));
-        assert_eq!(sig.subpacket(SubpacketTag::Issuer as u8),
+        assert_eq!(sig.subpacket(SubpacketTag::Issuer),
                    Some(Subpacket {
                        critical: false,
-                       tag: SubpacketTag::Issuer as u8,
+                       tag: SubpacketTag::Issuer,
                        value: SubpacketValue::Issuer(keyid)
                    }));
 
         let fp = Fingerprint::from_hex(
             "361A96BDE1A65B6D6C25AE9FF004B9A45C586126").unwrap();
         assert_eq!(sig.issuer_fingerprint(), Some(fp.clone()));
-        assert_eq!(sig.subpacket(SubpacketTag::IssuerFingerprint as u8),
+        assert_eq!(sig.subpacket(SubpacketTag::IssuerFingerprint),
                    Some(Subpacket {
                        critical: false,
-                       tag: SubpacketTag::IssuerFingerprint as u8,
+                       tag: SubpacketTag::IssuerFingerprint,
                        value: SubpacketValue::IssuerFingerprint(fp)
                    }));
 
@@ -1457,16 +1458,16 @@ fn subpacket_test_2() {
             value: "midshipman".as_bytes()
         };
         assert_eq!(sig.notation_data(), vec![n.clone()]);
-        assert_eq!(sig.subpacket(SubpacketTag::NotationData as u8),
+        assert_eq!(sig.subpacket(SubpacketTag::NotationData),
                    Some(Subpacket {
                        critical: false,
-                       tag: SubpacketTag::NotationData as u8,
+                       tag: SubpacketTag::NotationData,
                        value: SubpacketValue::NotationData(n.clone())
                    }));
-        assert_eq!(sig.subpackets(SubpacketTag::NotationData as u8),
+        assert_eq!(sig.subpackets(SubpacketTag::NotationData),
                    vec![(Subpacket {
                        critical: false,
-                       tag: SubpacketTag::NotationData as u8,
+                       tag: SubpacketTag::NotationData,
                        value: SubpacketValue::NotationData(n.clone())
                    })]);
     } else {
@@ -1487,18 +1488,18 @@ fn subpacket_test_2() {
         // }
 
         assert_eq!(sig.signature_creation_time(), Some(1515791490));
-        assert_eq!(sig.subpacket(SubpacketTag::SignatureCreationTime as u8),
+        assert_eq!(sig.subpacket(SubpacketTag::SignatureCreationTime),
                    Some(Subpacket {
                        critical: false,
-                       tag: SubpacketTag::SignatureCreationTime as u8,
+                       tag: SubpacketTag::SignatureCreationTime,
                        value: SubpacketValue::SignatureCreationTime(1515791490)
                    }));
 
         assert_eq!(sig.exportable_certification(), Some(false));
-        assert_eq!(sig.subpacket(SubpacketTag::ExportableCertification as u8),
+        assert_eq!(sig.subpacket(SubpacketTag::ExportableCertification),
                    Some(Subpacket {
                        critical: false,
-                       tag: SubpacketTag::ExportableCertification as u8,
+                       tag: SubpacketTag::ExportableCertification,
                        value: SubpacketValue::ExportableCertification(false)
                    }));
     }
@@ -1521,56 +1522,56 @@ fn subpacket_test_2() {
         // }
 
         assert_eq!(sig.signature_creation_time(), Some(1515791376));
-        assert_eq!(sig.subpacket(SubpacketTag::SignatureCreationTime as u8),
+        assert_eq!(sig.subpacket(SubpacketTag::SignatureCreationTime),
                    Some(Subpacket {
                        critical: false,
-                       tag: SubpacketTag::SignatureCreationTime as u8,
+                       tag: SubpacketTag::SignatureCreationTime,
                        value: SubpacketValue::SignatureCreationTime(1515791376)
                    }));
 
         assert_eq!(sig.revocable(), Some(false));
-        assert_eq!(sig.subpacket(SubpacketTag::Revocable as u8),
+        assert_eq!(sig.subpacket(SubpacketTag::Revocable),
                    Some(Subpacket {
                        critical: false,
-                       tag: SubpacketTag::Revocable as u8,
+                       tag: SubpacketTag::Revocable,
                        value: SubpacketValue::Revocable(false)
                    }));
 
         let fp = Fingerprint::from_hex(
             "361A96BDE1A65B6D6C25AE9FF004B9A45C586126").unwrap();
         assert_eq!(sig.revocation_key(), Some((128, 1, fp.clone())));
-        assert_eq!(sig.subpacket(SubpacketTag::RevocationKey as u8),
+        assert_eq!(sig.subpacket(SubpacketTag::RevocationKey),
                    Some(Subpacket {
                        critical: false,
-                       tag: SubpacketTag::RevocationKey as u8,
+                       tag: SubpacketTag::RevocationKey,
                        value: SubpacketValue::RevocationKey((0x80, 1, fp))
                    }));
 
 
         let keyid = KeyID::from_hex("CEAD 0621 0934 7957").unwrap();
         assert_eq!(sig.issuer(), Some(keyid.clone()));
-        assert_eq!(sig.subpacket(SubpacketTag::Issuer as u8),
+        assert_eq!(sig.subpacket(SubpacketTag::Issuer),
                    Some(Subpacket {
                        critical: false,
-                       tag: SubpacketTag::Issuer as u8,
+                       tag: SubpacketTag::Issuer,
                        value: SubpacketValue::Issuer(keyid)
                    }));
 
         let fp = Fingerprint::from_hex(
             "B59B8817F519DCE10AFD85E4CEAD062109347957").unwrap();
         assert_eq!(sig.issuer_fingerprint(), Some(fp.clone()));
-        assert_eq!(sig.subpacket(SubpacketTag::IssuerFingerprint as u8),
+        assert_eq!(sig.subpacket(SubpacketTag::IssuerFingerprint),
                    Some(Subpacket {
                        critical: false,
-                       tag: SubpacketTag::IssuerFingerprint as u8,
+                       tag: SubpacketTag::IssuerFingerprint,
                        value: SubpacketValue::IssuerFingerprint(fp)
                    }));
 
         // This signature does not contain any notation data.
         assert_eq!(sig.notation_data(), vec![]);
-        assert_eq!(sig.subpacket(SubpacketTag::NotationData as u8),
+        assert_eq!(sig.subpacket(SubpacketTag::NotationData),
                    None);
-        assert_eq!(sig.subpackets(SubpacketTag::NotationData as u8),
+        assert_eq!(sig.subpackets(SubpacketTag::NotationData),
                    vec![]);
     } else {
         panic!("Expected signature!");
@@ -1585,19 +1586,19 @@ fn subpacket_test_2() {
         // }
 
         assert_eq!(sig.signature_creation_time(), Some(1515886658));
-        assert_eq!(sig.subpacket(SubpacketTag::SignatureCreationTime as u8),
+        assert_eq!(sig.subpacket(SubpacketTag::SignatureCreationTime),
                    Some(Subpacket {
                        critical: false,
-                       tag: SubpacketTag::SignatureCreationTime as u8,
+                       tag: SubpacketTag::SignatureCreationTime,
                        value: SubpacketValue::SignatureCreationTime(1515886658)
                    }));
 
         assert_eq!(sig.reason_for_revocation(),
                    Some((0, &b"Forgot to set a sig expiration."[..])));
-        assert_eq!(sig.subpacket(SubpacketTag::ReasonForRevocation as u8),
+        assert_eq!(sig.subpacket(SubpacketTag::ReasonForRevocation),
                    Some(Subpacket {
                        critical: false,
-                       tag: SubpacketTag::ReasonForRevocation as u8,
+                       tag: SubpacketTag::ReasonForRevocation,
                        value: SubpacketValue::ReasonForRevocation(
                            (0, &b"Forgot to set a sig expiration."[..]))
                    }));
@@ -1610,10 +1611,10 @@ fn subpacket_test_2() {
         // has multiple notations.
 
         assert_eq!(sig.signature_creation_time(), Some(1515791467));
-        assert_eq!(sig.subpacket(SubpacketTag::SignatureCreationTime as u8),
+        assert_eq!(sig.subpacket(SubpacketTag::SignatureCreationTime),
                    Some(Subpacket {
                        critical: false,
-                       tag: SubpacketTag::SignatureCreationTime as u8,
+                       tag: SubpacketTag::SignatureCreationTime,
                        value: SubpacketValue::SignatureCreationTime(1515791467)
                    }));
 
@@ -1637,29 +1638,29 @@ fn subpacket_test_2() {
         assert_eq!(sig.notation_data(), vec![n1.clone(), n2.clone(), n3.clone()]);
 
         // We expect only the last notation.
-        assert_eq!(sig.subpacket(SubpacketTag::NotationData as u8),
+        assert_eq!(sig.subpacket(SubpacketTag::NotationData),
                    Some(Subpacket {
                        critical: false,
-                       tag: SubpacketTag::NotationData as u8,
+                       tag: SubpacketTag::NotationData,
                        value: SubpacketValue::NotationData(n3.clone())
                    }));
 
         // We expect all three notations, in order.
-        assert_eq!(sig.subpackets(SubpacketTag::NotationData as u8),
+        assert_eq!(sig.subpackets(SubpacketTag::NotationData),
                    vec![
                        Subpacket {
                            critical: false,
-                           tag: SubpacketTag::NotationData as u8,
+                           tag: SubpacketTag::NotationData,
                            value: SubpacketValue::NotationData(n1)
                        },
                        Subpacket {
                            critical: false,
-                           tag: SubpacketTag::NotationData as u8,
+                           tag: SubpacketTag::NotationData,
                            value: SubpacketValue::NotationData(n2)
                        },
                        Subpacket {
                            critical: false,
-                           tag: SubpacketTag::NotationData as u8,
+                           tag: SubpacketTag::NotationData,
                            value: SubpacketValue::NotationData(n3)
                        },
                    ]);
@@ -1682,28 +1683,28 @@ fn subpacket_test_2() {
         // }
 
         assert_eq!(sig.signature_creation_time(), Some(1515791223));
-        assert_eq!(sig.subpacket(SubpacketTag::SignatureCreationTime as u8),
+        assert_eq!(sig.subpacket(SubpacketTag::SignatureCreationTime),
                    Some(Subpacket {
                        critical: false,
-                       tag: SubpacketTag::SignatureCreationTime as u8,
+                       tag: SubpacketTag::SignatureCreationTime,
                        value: SubpacketValue::SignatureCreationTime(1515791223)
                    }));
 
         assert_eq!(sig.trust_signature(), Some((2, 120)));
-        assert_eq!(sig.subpacket(SubpacketTag::TrustSignature as u8),
+        assert_eq!(sig.subpacket(SubpacketTag::TrustSignature),
                    Some(Subpacket {
                        critical: false,
-                       tag: SubpacketTag::TrustSignature as u8,
+                       tag: SubpacketTag::TrustSignature,
                        value: SubpacketValue::TrustSignature((2, 120))
                    }));
 
         // Note: our parser strips the trailing NUL.
         let regex = &b"<[^>]+[@.]navy\\.mil>$"[..];
         assert_eq!(sig.regular_expression(), Some(regex));
-        assert_eq!(sig.subpacket(SubpacketTag::RegularExpression as u8),
+        assert_eq!(sig.subpacket(SubpacketTag::RegularExpression),
                    Some(Subpacket {
                        critical: true,
-                       tag: SubpacketTag::RegularExpression as u8,
+                       tag: SubpacketTag::RegularExpression,
                        value: SubpacketValue::RegularExpression(regex)
                    }));
     }
@@ -1730,34 +1731,34 @@ fn subpacket_test_2() {
         // }
 
         assert_eq!(sig.key_expiration_time(), Some(63072000));
-        assert_eq!(sig.subpacket(SubpacketTag::KeyExpirationTime as u8),
+        assert_eq!(sig.subpacket(SubpacketTag::KeyExpirationTime),
                    Some(Subpacket {
                        critical: false,
-                       tag: SubpacketTag::KeyExpirationTime as u8,
+                       tag: SubpacketTag::KeyExpirationTime,
                        value: SubpacketValue::KeyExpirationTime(63072000)
                    }));
 
         let keyid = KeyID::from_hex("CEAD 0621 0934 7957").unwrap();
         assert_eq!(sig.issuer(), Some(keyid.clone()));
-        assert_eq!(sig.subpacket(SubpacketTag::Issuer as u8),
+        assert_eq!(sig.subpacket(SubpacketTag::Issuer),
                    Some(Subpacket {
                        critical: false,
-                       tag: SubpacketTag::Issuer as u8,
+                       tag: SubpacketTag::Issuer,
                        value: SubpacketValue::Issuer(keyid)
                    }));
 
         let fp = Fingerprint::from_hex(
             "B59B8817F519DCE10AFD85E4CEAD062109347957").unwrap();
         assert_eq!(sig.issuer_fingerprint(), Some(fp.clone()));
-        assert_eq!(sig.subpacket(SubpacketTag::IssuerFingerprint as u8),
+        assert_eq!(sig.subpacket(SubpacketTag::IssuerFingerprint),
                    Some(Subpacket {
                        critical: false,
-                       tag: SubpacketTag::IssuerFingerprint as u8,
+                       tag: SubpacketTag::IssuerFingerprint,
                        value: SubpacketValue::IssuerFingerprint(fp)
                    }));
 
         assert!(sig.embedded_signature().is_some());
-        assert!(sig.subpacket(SubpacketTag::EmbeddedSignature as u8)
+        assert!(sig.subpacket(SubpacketTag::EmbeddedSignature)
                 .is_some());
     }
 
