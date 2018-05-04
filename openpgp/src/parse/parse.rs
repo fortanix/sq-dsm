@@ -13,6 +13,9 @@ use mpis::MPIs;
 use Error;
 use HashAlgo;
 use symmetric::{SymmetricAlgo, Decryptor, BufferedReaderDecryptor};
+use constants::{
+    CompressionAlgorithm,
+};
 
 use super::*;
 
@@ -855,7 +858,8 @@ impl CompressedData {
     fn parse<'a>(mut pp: PacketParser<'a>)
                  -> Result<PacketParser<'a>> {
         bind_ptry!(pp);
-        let algo = ptry!(pp.parse_u8("algo"));
+        let algo: CompressionAlgorithm =
+            ptry!(pp.parse_u8("algo")).into();
 
         if TRACE {
             eprintln!("CompressedData::parse(): \
@@ -863,13 +867,11 @@ impl CompressedData {
                       pp.recursion_depth);
         }
 
-        //   0          - Uncompressed
-        //   1          - ZIP [RFC1951]
-        //   2          - ZLIB [RFC1950]
-        //   3          - BZip2 [BZ2]
-        //   100 to 110 - Private/Experimental algorithm
-        if algo > 3 {
-            return pp.fail("unknown compression algorithm");
+        match algo {
+            CompressionAlgorithm::Unknown(_) |
+            CompressionAlgorithm::Private(_) =>
+                return pp.fail("unknown compression algorithm"),
+            _ => (),
         }
 
         let recursion_depth = pp.recursion_depth as usize;
@@ -879,30 +881,23 @@ impl CompressedData {
             bio.data_consume_hard(total_out).unwrap();
 
             let bio : Box<BufferedReader<Cookie>> = match algo {
-                0 => {
+                CompressionAlgorithm::Uncompressed => {
                     if TRACE {
                         eprintln!("CompressedData::parse(): Actually, no need \
                                    for a compression filter: this is an \
                                    \"uncompressed compression packet\".");
                     }
-                    // Uncompressed.
                     bio
                 },
-                1 => {
-                    // Zip.
+                CompressionAlgorithm::Zip =>
                     Box::new(BufferedReaderDeflate::with_cookie(
-                        bio, Cookie::new(recursion_depth)))
-                },
-                2 => {
-                    // Zlib
+                        bio, Cookie::new(recursion_depth))),
+                CompressionAlgorithm::Zlib =>
                     Box::new(BufferedReaderZlib::with_cookie(
-                        bio, Cookie::new(recursion_depth)))
-                },
-                3 => {
-                    // BZip2
+                        bio, Cookie::new(recursion_depth))),
+                CompressionAlgorithm::BZip2 =>
                     Box::new(BufferedReaderBzip::with_cookie(
-                        bio, Cookie::new(recursion_depth)))
-                },
+                        bio, Cookie::new(recursion_depth))),
                 _ => unreachable!(), // Validated above.
             };
 
@@ -927,7 +922,7 @@ fn compressed_data_parser_test () {
         // We expect a compressed packet containing a literal data
         // packet, and that is it.
         if let Packet::CompressedData(ref compressed) = pp.packet {
-            assert_eq!(compressed.algo, i);
+            assert_eq!(compressed.algo, i.into());
         } else {
             panic!("Wrong packet!");
         }

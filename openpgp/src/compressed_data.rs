@@ -3,6 +3,7 @@ use std::fmt;
 use CompressedData;
 use Packet;
 use Container;
+use constants::CompressionAlgorithm;
 
 impl fmt::Debug for CompressedData {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -14,7 +15,7 @@ impl fmt::Debug for CompressedData {
 
 impl CompressedData {
     /// Returns a new `CompressedData` packet.
-    pub fn new(algo: u8) -> Self {
+    pub fn new(algo: CompressionAlgorithm) -> Self {
         CompressedData {
             common: Default::default(),
             algo: algo,

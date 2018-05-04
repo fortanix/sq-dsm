@@ -19,6 +19,9 @@ use super::{
     Serialize,
     writer,
 };
+use constants::{
+    CompressionAlgorithm,
+};
 
 /// Cookie must be public because the writers are.
 #[doc(hidden)]
@@ -495,12 +498,14 @@ impl<'a> writer::Stackable<'a, Cookie> for LiteralWriter<'a> {
 ///
 /// ```
 /// use openpgp::serialize::stream::{wrap, Compressor, LiteralWriter};
+/// use openpgp::CompressionAlgorithm;
 /// # use openpgp::Result;
 /// # f().unwrap();
 /// # fn f() -> Result<()> {
 /// let mut o = vec![];
 /// {
-///     let w = Compressor::new(wrap(&mut o), 0 /* no compression */)?;
+///     let w = Compressor::new(wrap(&mut o),
+///                             CompressionAlgorithm::Uncompressed)?;
 ///     let mut w = LiteralWriter::new(w, 't', None, 0)?;
 ///     w.write_all(b"Hello world.")?;
 /// }
@@ -514,7 +519,7 @@ pub struct Compressor<'a> {
 
 impl<'a> Compressor<'a> {
     /// Creates a new compressor using the given algorithm.
-    pub fn new(mut inner: writer::Stack<'a, Cookie>, algo: u8)
+    pub fn new(mut inner: writer::Stack<'a, Cookie>, algo: CompressionAlgorithm)
                -> Result<writer::Stack<'a, Cookie>> {
         let level = inner.cookie_ref().level + 1;
 
@@ -525,14 +530,18 @@ impl<'a> Compressor<'a> {
             = PartialBodyFilter::new(inner, Cookie::new(level));
 
         // Compressed data header.
-        inner.write_u8(algo)?;
+        inner.write_u8(algo.into())?;
 
         // Create an appropriate filter.
         let inner: writer::Stack<'a, Cookie> = match algo {
-            0 => writer::Identity::new(inner, Cookie::new(level)),
-            1 => writer::ZIP::new(inner, Cookie::new(level)),
-            2 => writer::ZLIB::new(inner, Cookie::new(level)),
-            3 => writer::BZ::new(inner, Cookie::new(level)),
+            CompressionAlgorithm::Uncompressed =>
+                writer::Identity::new(inner, Cookie::new(level)),
+            CompressionAlgorithm::Zip =>
+                writer::ZIP::new(inner, Cookie::new(level)),
+            CompressionAlgorithm::Zlib =>
+                writer::ZLIB::new(inner, Cookie::new(level)),
+            CompressionAlgorithm::BZip2 =>
+                writer::BZ::new(inner, Cookie::new(level)),
             _ => unimplemented!(),
         };
 
@@ -705,7 +714,7 @@ mod test {
         // 2: Literal(Literal { body: "three (5 bytes)" })
         let mut reference = Vec::new();
         reference.push(
-            CompressedData::new(0)
+            CompressedData::new(CompressionAlgorithm::Uncompressed)
                 .push(Literal::new('t').body(b"one".to_vec()).to_packet())
                 .push(Literal::new('t').body(b"two".to_vec()).to_packet())
                 .to_packet());
@@ -713,7 +722,8 @@ mod test {
 
         let mut o = vec![];
         {
-            let c = Compressor::new(wrap(&mut o), 0).unwrap();
+            let c = Compressor::new(
+                wrap(&mut o), CompressionAlgorithm::Uncompressed).unwrap();
             let mut ls = LiteralWriter::new(c, 't', None, 0).unwrap();
             write!(ls, "one").unwrap();
             let c = ls.into_inner().unwrap().unwrap(); // Pop the LiteralWriter.
@@ -749,12 +759,12 @@ mod test {
         //   2: Literal(Literal { body: "four (4 bytes)" })
         let mut reference = Vec::new();
         reference.push(
-            CompressedData::new(0)
-                .push(CompressedData::new(0)
+            CompressedData::new(CompressionAlgorithm::Uncompressed)
+                .push(CompressedData::new(CompressionAlgorithm::Uncompressed)
                       .push(Literal::new('t').body(b"one".to_vec()).to_packet())
                       .push(Literal::new('t').body(b"two".to_vec()).to_packet())
                       .to_packet())
-                .push(CompressedData::new(0)
+                .push(CompressedData::new(CompressionAlgorithm::Uncompressed)
                       .push(Literal::new('t').body(b"three".to_vec()).to_packet())
                       .push(Literal::new('t').body(b"four".to_vec()).to_packet())
                       .to_packet())
@@ -762,8 +772,10 @@ mod test {
 
         let mut o = vec![];
         {
-            let c0 = Compressor::new(wrap(&mut o), 0).unwrap();
-            let c = Compressor::new(c0, 0).unwrap();
+            let c0 = Compressor::new(
+                wrap(&mut o), CompressionAlgorithm::Uncompressed).unwrap();
+            let c = Compressor::new(
+                c0, CompressionAlgorithm::Uncompressed).unwrap();
             let mut ls = LiteralWriter::new(c, 't', None, 0).unwrap();
             write!(ls, "one").unwrap();
             let c = ls.into_inner().unwrap().unwrap();
@@ -771,7 +783,8 @@ mod test {
             write!(ls, "two").unwrap();
             let c = ls.into_inner().unwrap().unwrap();
             let c0 = c.into_inner().unwrap().unwrap();
-            let c = Compressor::new(c0, 0).unwrap();
+            let c = Compressor::new(
+                c0, CompressionAlgorithm::Uncompressed).unwrap();
             let mut ls = LiteralWriter::new(c, 't', None, 0).unwrap();
             write!(ls, "three").unwrap();
             let c = ls.into_inner().unwrap().unwrap();
@@ -796,7 +809,8 @@ mod test {
         zeros.resize(4 * 1024, 0);
         let mut o = vec![];
         {
-            let c = Compressor::new(wrap(&mut o), 3).unwrap();
+            let c = Compressor::new(wrap(&mut o),
+                                    CompressionAlgorithm::BZip2).unwrap();
             let mut ls = LiteralWriter::new(c, 't', None, 0).unwrap();
             // Write 64 megabytes of zeroes.
             for _ in 0 .. 16 * 1024 {

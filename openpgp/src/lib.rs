@@ -367,7 +367,7 @@ pub struct Literal {
 #[derive(PartialEq, Clone)]
 pub struct CompressedData {
     pub common: packet::Common,
-    pub algo: u8,
+    pub algo: CompressionAlgorithm,
 }
 
 /// Holds an encrypted data packet.

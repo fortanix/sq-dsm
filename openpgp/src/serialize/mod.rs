@@ -926,7 +926,7 @@ mod serialize_test {
         // 2: Literal(Literal { body: "three (5 bytes)" })
         let mut top_level = Vec::new();
         top_level.push(
-            CompressedData::new(0)
+            CompressedData::new(CompressionAlgorithm::Uncompressed)
                 .push(Literal::new('t').body(b"one".to_vec()).to_packet())
                 .push(Literal::new('t').body(b"two".to_vec()).to_packet())
                 .to_packet());
@@ -942,12 +942,12 @@ mod serialize_test {
         //   2: Literal(Literal { body: "four (4 bytes)" })
         let mut top_level = Vec::new();
         top_level.push(
-            CompressedData::new(0)
-                .push(CompressedData::new(0)
+            CompressedData::new(CompressionAlgorithm::Uncompressed)
+                .push(CompressedData::new(CompressionAlgorithm::Uncompressed)
                       .push(Literal::new('t').body(b"one".to_vec()).to_packet())
                       .push(Literal::new('t').body(b"two".to_vec()).to_packet())
                       .to_packet())
-                .push(CompressedData::new(0)
+                .push(CompressedData::new(CompressionAlgorithm::Uncompressed)
                       .push(Literal::new('t').body(b"three".to_vec()).to_packet())
                       .push(Literal::new('t').body(b"four".to_vec()).to_packet())
                       .to_packet())
@@ -966,17 +966,17 @@ mod serialize_test {
         //   2: Literal(Literal { body: "four (4 bytes)" })
         let mut top_level = Vec::new();
         top_level.push(
-            CompressedData::new(0)
-                .push(CompressedData::new(0)
-                    .push(CompressedData::new(0)
-                        .push(CompressedData::new(0)
+            CompressedData::new(CompressionAlgorithm::Uncompressed)
+                .push(CompressedData::new(CompressionAlgorithm::Uncompressed)
+                    .push(CompressedData::new(CompressionAlgorithm::Uncompressed)
+                        .push(CompressedData::new(CompressionAlgorithm::Uncompressed)
                             .push(Literal::new('t').body(b"one".to_vec()).to_packet())
                             .push(Literal::new('t').body(b"two".to_vec()).to_packet())
                             .to_packet())
                         .to_packet())
                     .to_packet())
-                .push(CompressedData::new(0)
-                    .push(CompressedData::new(0)
+                .push(CompressedData::new(CompressionAlgorithm::Uncompressed)
+                    .push(CompressedData::new(CompressionAlgorithm::Uncompressed)
                         .push(Literal::new('t').body(b"three".to_vec()).to_packet())
                         .to_packet())
                     .push(Literal::new('t').body(b"four".to_vec()).to_packet())
@@ -994,7 +994,7 @@ mod serialize_test {
         //  2: Literal(Literal { body: "six (3 bytes)" })
         let mut top_level = Vec::new();
         top_level.push(
-            CompressedData::new(0)
+            CompressedData::new(CompressionAlgorithm::Uncompressed)
                 .push(Literal::new('t').body(b"one".to_vec()).to_packet())
                 .push(Literal::new('t').body(b"two".to_vec()).to_packet())
                 .to_packet());
@@ -1003,7 +1003,7 @@ mod serialize_test {
         top_level.push(
             Literal::new('t').body(b"four".to_vec()).to_packet());
         top_level.push(
-            CompressedData::new(0)
+            CompressedData::new(CompressionAlgorithm::Uncompressed)
                 .push(Literal::new('t').body(b"five".to_vec()).to_packet())
                 .push(Literal::new('t').body(b"six".to_vec()).to_packet())
                 .to_packet());
