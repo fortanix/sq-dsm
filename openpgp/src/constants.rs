@@ -32,9 +32,9 @@ impl From<u8> for PublicKeyAlgorithm {
     }
 }
 
-impl Into<u8> for PublicKeyAlgorithm {
-    fn into(self) -> u8 {
-        match self {
+impl From<PublicKeyAlgorithm> for u8 {
+    fn from(p: PublicKeyAlgorithm) -> u8 {
+        match p {
             PublicKeyAlgorithm::RsaEncryptSign => 1,
             PublicKeyAlgorithm::RsaEncrypt => 2,
             PublicKeyAlgorithm::RsaSign => 3,
@@ -101,9 +101,9 @@ impl From<u8> for CompressionAlgorithm {
     }
 }
 
-impl Into<u8> for CompressionAlgorithm {
-    fn into(self) -> u8 {
-        match self {
+impl From<CompressionAlgorithm> for u8 {
+    fn from(c: CompressionAlgorithm) -> u8 {
+        match c {
             CompressionAlgorithm::Uncompressed => 0,
             CompressionAlgorithm::Zip => 1,
             CompressionAlgorithm::Zlib => 2,

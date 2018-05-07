@@ -58,9 +58,9 @@ impl From<u8> for SymmetricAlgo {
     }
 }
 
-impl Into<u8> for SymmetricAlgo {
-    fn into(self) -> u8 {
-        match self {
+impl From<SymmetricAlgo> for u8 {
+    fn from(s: SymmetricAlgo) -> u8 {
+        match s {
             SymmetricAlgo::Unencrypted => 0,
             SymmetricAlgo::IDEA => 1,
             SymmetricAlgo::TripleDES => 2,

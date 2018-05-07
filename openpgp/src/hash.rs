@@ -48,9 +48,9 @@ impl From<u8> for HashAlgo {
     }
 }
 
-impl Into<u8> for HashAlgo {
-    fn into(self) -> u8 {
-        match self {
+impl From<HashAlgo> for u8 {
+    fn from(h: HashAlgo) -> u8 {
+        match h {
             HashAlgo::MD5 => 1,
             HashAlgo::SHA1 => 2,
             HashAlgo::RipeMD => 3,

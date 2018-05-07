@@ -68,9 +68,9 @@ impl From<u8> for Tag {
     }
 }
 
-impl Into<u8> for Tag {
-    fn into(self) -> u8 {
-        match self {
+impl From<Tag> for u8 {
+    fn from(t: Tag) -> u8 {
+        match t {
             Tag::Reserved => 0,
             Tag::PKESK => 1,
             Tag::Signature => 2,
