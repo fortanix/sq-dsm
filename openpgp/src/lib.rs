@@ -277,7 +277,7 @@ pub struct OnePassSig {
     pub sigtype: SignatureType,
     pub hash_algo: HashAlgo,
     pub pk_algo: PublicKeyAlgorithm,
-    pub issuer: [u8; 8],
+    pub issuer: KeyID,
     pub last: bool,
 }
 
@@ -703,6 +703,14 @@ impl KeyID {
         }
 
         Some(KeyID::from_bytes(&bytes[..]))
+    }
+
+    /// Returns a reference to the raw KeyID.
+    pub fn as_slice(&self) -> &[u8] {
+        match self {
+            &KeyID::V4(ref id) => id,
+            &KeyID::Invalid(ref id) => id,
+        }
     }
 
     /// Converts the key ID to its standard representation.

@@ -173,11 +173,9 @@ impl<'a> Signer<'a> {
         // packet.
         let mut ops = OnePassSig::new(template.sigtype)
             .pk_algo(template.pk_algo)
-            .hash_algo(template.hash_algo);
-        let issuer_len = ops.issuer.len();
-        ops.issuer.as_mut().clone_from_slice(
-            &Vec::from(template.issuer_fingerprint().unwrap() // XXX
-                       .to_keyid()).as_slice()[..issuer_len]);
+            .hash_algo(template.hash_algo)
+            .issuer(template.issuer_fingerprint().unwrap() // XXX
+                    .to_keyid());
         ops.last = true;
         ops.serialize(&mut inner)?;
         algos.push(HashAlgo::from(template.hash_algo));

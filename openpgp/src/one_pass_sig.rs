@@ -15,7 +15,7 @@ impl fmt::Debug for OnePassSig {
             .field("sigtype", &self.sigtype)
             .field("hash_algo", &self.hash_algo)
             .field("pk_algo", &self.pk_algo)
-            .field("issuer", &KeyID::from_bytes(&self.issuer[..]))
+            .field("issuer", &self.issuer)
             .field("last", &self.last)
             .finish()
     }
@@ -39,7 +39,7 @@ impl OnePassSig {
             sigtype: sigtype,
             hash_algo: HashAlgo::Unknown(0),
             pk_algo: PublicKeyAlgorithm::Unknown(0),
-            issuer: [0u8; 8],
+            issuer: KeyID::new(0),
             last: true,
         }
     }
@@ -59,6 +59,18 @@ impl OnePassSig {
     /// Sets the hash algorithm.
     pub fn hash_algo(mut self, algo: HashAlgo) -> Self {
         self.hash_algo = algo;
+        self
+    }
+
+    /// Sets the issuer.
+    pub fn issuer(mut self, issuer: KeyID) -> Self {
+        self.issuer = issuer;
+        self
+    }
+
+    /// Sets the last flag.
+    pub fn last(mut self, last: bool) -> Self {
+        self.last = last;
         self
     }
 
