@@ -324,7 +324,7 @@ impl Serialize for OnePassSig {
         write_byte(o, self.hash_algo.into())?;
         write_byte(o, self.pk_algo.into())?;
         o.write_all(&self.issuer[..])?;
-        write_byte(o, self.last)?;
+        write_byte(o, if self.last { 1 } else { 0 })?;
 
         Ok(())
     }

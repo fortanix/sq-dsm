@@ -40,7 +40,7 @@ impl OnePassSig {
             hash_algo: HashAlgo::Unknown(0),
             pk_algo: PublicKeyAlgorithm::Unknown(0),
             issuer: [0u8; 8],
-            last: 1,
+            last: true,
         }
     }
 

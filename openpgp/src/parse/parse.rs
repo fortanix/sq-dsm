@@ -609,7 +609,7 @@ impl OnePassSig {
             hash_algo: hash_algo.into(),
             pk_algo: pk_algo.into(),
             issuer: issuer,
-            last: last,
+            last: last > 0,
         }))
     }
 }
@@ -629,7 +629,7 @@ fn one_pass_sig_parser_test () {
         assert_eq!(p.hash_algo, HashAlgo::SHA512);
         assert_eq!(p.pk_algo, PublicKeyAlgorithm::RsaEncryptSign);
         assert_eq!(to_hex(&p.issuer[..], false), "7223B56678E02528");
-        assert_eq!(p.last, 1);
+        assert_eq!(p.last, true);
     } else {
         panic!("Wrong packet!");
     }

@@ -178,7 +178,7 @@ impl<'a> Signer<'a> {
         ops.issuer.as_mut().clone_from_slice(
             &Vec::from(template.issuer_fingerprint().unwrap() // XXX
                        .to_keyid()).as_slice()[..issuer_len]);
-        ops.last = 1;
+        ops.last = true;
         ops.serialize(&mut inner)?;
         algos.push(HashAlgo::from(template.hash_algo));
 
