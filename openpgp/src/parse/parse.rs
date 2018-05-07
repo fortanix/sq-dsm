@@ -63,7 +63,7 @@ fn indent(depth: u8) -> &'static str {
 /// So, this should be more than enough.
 const MAX_RECURSION_DEPTH : u8 = 16;
 
-/// Binds a parser providing a local 'rtry!' macro.
+/// Binds a parser providing a local 'ptry!' macro.
 macro_rules! bind_ptry {
     ($parser:expr) => {
 
