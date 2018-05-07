@@ -95,8 +95,13 @@ use skesk::SKESK;
 
 mod message;
 mod constants;
-pub use constants::PublicKeyAlgorithm;
-pub use constants::CompressionAlgorithm;
+// XXX: Do we really want to put that into the toplevel?  Why not make
+// constants public?
+pub use constants::{
+    PublicKeyAlgorithm,
+    CompressionAlgorithm,
+    SignatureType,
+};
 mod tag;
 pub use tag::Tag;
 
@@ -247,7 +252,7 @@ pub struct Unknown {
 pub struct Signature {
     pub common: packet::Common,
     pub version: u8,
-    pub sigtype: u8,
+    pub sigtype: SignatureType,
     pub pk_algo: PublicKeyAlgorithm,
     pub hash_algo: HashAlgo,
     pub hashed_area: parse::subpacket::SubpacketArea,
@@ -269,7 +274,7 @@ pub struct Signature {
 pub struct OnePassSig {
     pub common: packet::Common,
     pub version: u8,
-    pub sigtype: u8,
+    pub sigtype: SignatureType,
     pub hash_algo: HashAlgo,
     pub pk_algo: PublicKeyAlgorithm,
     pub issuer: [u8; 8],

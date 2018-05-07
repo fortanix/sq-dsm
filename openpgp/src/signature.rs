@@ -5,6 +5,7 @@ use Result;
 use HashAlgo;
 use PublicKeyAlgorithm;
 use Signature;
+use SignatureType;
 use Key;
 use Packet;
 use SubpacketArea;
@@ -74,7 +75,7 @@ impl PartialEq for Signature {
 
 impl Signature {
     /// Returns a new `Signature` packet.
-    pub fn new(sigtype: u8) ->  Self {
+    pub fn new(sigtype: SignatureType) ->  Self {
         Signature {
             common: Default::default(),
             version: 4,
@@ -91,7 +92,7 @@ impl Signature {
     }
 
     /// Sets the signature type.
-    pub fn sigtype(mut self, t: u8) -> Self {
+    pub fn sigtype(mut self, t: SignatureType) -> Self {
         self.sigtype = t;
         self
     }

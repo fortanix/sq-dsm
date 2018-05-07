@@ -480,7 +480,7 @@ impl Signature {
         let mut sig = Signature {
             common: Default::default(),
             version: version,
-            sigtype: sigtype,
+            sigtype: sigtype.into(),
             pk_algo: pk_algo.into(),
             hash_algo: hash_algo.into(),
             hashed_area: SubpacketArea::new(hashed_area),
@@ -513,7 +513,7 @@ fn signature_parser_test () {
         assert_eq!(pp.header.length, BodyLength::Full(307));
         if let Packet::Signature(ref p) = pp.packet {
             assert_eq!(p.version, 4);
-            assert_eq!(p.sigtype, 0);
+            assert_eq!(p.sigtype, SignatureType::Binary);
             assert_eq!(p.pk_algo, PublicKeyAlgorithm::RsaEncryptSign);
             assert_eq!(p.hash_algo, HashAlgo::SHA512);
             assert_eq!(p.hashed_area.data.len(), 29);
@@ -605,7 +605,7 @@ impl OnePassSig {
         pp.ok(Packet::OnePassSig(OnePassSig {
             common: Default::default(),
             version: version,
-            sigtype: sigtype,
+            sigtype: sigtype.into(),
             hash_algo: hash_algo.into(),
             pk_algo: pk_algo.into(),
             issuer: issuer,
@@ -625,7 +625,7 @@ fn one_pass_sig_parser_test () {
 
     if let &Packet::OnePassSig(ref p) = p {
         assert_eq!(p.version, 3);
-        assert_eq!(p.sigtype, 0);
+        assert_eq!(p.sigtype, SignatureType::Binary);
         assert_eq!(p.hash_algo, HashAlgo::SHA512);
         assert_eq!(p.pk_algo, PublicKeyAlgorithm::RsaEncryptSign);
         assert_eq!(to_hex(&p.issuer[..], false), "7223B56678E02528");

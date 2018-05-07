@@ -5,6 +5,7 @@ use Packet;
 use KeyID;
 use HashAlgo;
 use PublicKeyAlgorithm;
+use SignatureType;
 use serialize::Serialize;
 
 impl fmt::Debug for OnePassSig {
@@ -31,7 +32,7 @@ impl PartialEq for OnePassSig {
 
 impl OnePassSig {
     /// Returns a new `Signature` packet.
-    pub fn new(sigtype: u8) ->  Self {
+    pub fn new(sigtype: SignatureType) ->  Self {
         OnePassSig {
             common: Default::default(),
             version: 3,
@@ -44,7 +45,7 @@ impl OnePassSig {
     }
 
     /// Sets the signature type.
-    pub fn sigtype(mut self, t: u8) -> Self {
+    pub fn sigtype(mut self, t: SignatureType) -> Self {
         self.sigtype = t;
         self
     }

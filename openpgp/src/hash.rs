@@ -248,7 +248,7 @@ impl Signature {
 
         // Version.
         header[0] = 4;
-        header[1] = self.sigtype;
+        header[1] = self.sigtype.into();
         header[2] = self.pk_algo.into();
         header[3] = self.hash_algo.into();
 

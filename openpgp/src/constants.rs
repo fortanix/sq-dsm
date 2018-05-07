@@ -135,6 +135,133 @@ impl Arbitrary for CompressionAlgorithm {
     }
 }
 
+/// Signature type as defined in [Section 5.2.1 of RFC 4880].
+///
+///   [Section 5.2.1 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.1
+///
+/// The values correspond to the serialized format.
+#[derive(Clone,Copy,PartialEq,Eq,Debug)]
+pub enum SignatureType {
+    // Signatures over data.
+    Binary,
+    Text,
+    Standalone,
+
+    // Certifications (signatures over keys).
+    GenericCertificate,
+    PersonaCertificate,
+    CasualCertificate,
+    PositiveCertificate,
+
+    // Binding signatures.
+    SubkeyBinding,
+    PrimaryKeyBinding,
+    DirectKey,
+
+    // Revocations.
+    KeyRevocation,
+    SubkeyRevocation,
+    CertificateRevocation,
+
+    // Miscellaneous.
+    Timestamp,
+    Confirmation,
+
+    // Catchall.
+    Unknown(u8),
+}
+
+impl From<u8> for SignatureType {
+    fn from(u: u8) -> Self {
+        match u {
+            0x00 => SignatureType::Binary,
+            0x01 => SignatureType::Text,
+            0x02 => SignatureType::Standalone,
+            0x10 => SignatureType::GenericCertificate,
+            0x11 => SignatureType::PersonaCertificate,
+            0x12 => SignatureType::CasualCertificate,
+            0x13 => SignatureType::PositiveCertificate,
+            0x18 => SignatureType::SubkeyBinding,
+            0x19 => SignatureType::PrimaryKeyBinding,
+            0x1f => SignatureType::DirectKey,
+            0x20 => SignatureType::KeyRevocation,
+            0x28 => SignatureType::SubkeyRevocation,
+            0x30 => SignatureType::CertificateRevocation,
+            0x40 => SignatureType::Timestamp,
+            0x50 => SignatureType::Confirmation,
+            _ => SignatureType::Unknown(u),
+        }
+    }
+}
+
+impl From<SignatureType> for u8 {
+    fn from(t: SignatureType) -> Self {
+        match t {
+            SignatureType::Binary => 0x00,
+            SignatureType::Text => 0x01,
+            SignatureType::Standalone => 0x02,
+            SignatureType::GenericCertificate => 0x10,
+            SignatureType::PersonaCertificate => 0x11,
+            SignatureType::CasualCertificate => 0x12,
+            SignatureType::PositiveCertificate => 0x13,
+            SignatureType::SubkeyBinding => 0x18,
+            SignatureType::PrimaryKeyBinding => 0x19,
+            SignatureType::DirectKey => 0x1f,
+            SignatureType::KeyRevocation => 0x20,
+            SignatureType::SubkeyRevocation => 0x28,
+            SignatureType::CertificateRevocation => 0x30,
+            SignatureType::Timestamp => 0x40,
+            SignatureType::Confirmation => 0x50,
+            SignatureType::Unknown(u) => u,
+        }
+    }
+}
+
+impl fmt::Display for SignatureType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            SignatureType::Binary =>
+                f.write_str("Binary"),
+            SignatureType::Text =>
+                f.write_str("Text"),
+            SignatureType::Standalone =>
+                f.write_str("Standalone"),
+            SignatureType::GenericCertificate =>
+                f.write_str("GenericCertificate"),
+            SignatureType::PersonaCertificate =>
+                f.write_str("PersonaCertificate"),
+            SignatureType::CasualCertificate =>
+                f.write_str("CasualCertificate"),
+            SignatureType::PositiveCertificate =>
+                f.write_str("PositiveCertificate"),
+            SignatureType::SubkeyBinding =>
+                f.write_str("SubkeyBinding"),
+            SignatureType::PrimaryKeyBinding =>
+                f.write_str("PrimaryKeyBinding"),
+            SignatureType::DirectKey =>
+                f.write_str("DirectKey"),
+            SignatureType::KeyRevocation =>
+                f.write_str("KeyRevocation"),
+            SignatureType::SubkeyRevocation =>
+                f.write_str("SubkeyRevocation"),
+            SignatureType::CertificateRevocation =>
+                f.write_str("CertificateRevocation"),
+            SignatureType::Timestamp =>
+                f.write_str("Timestamp"),
+            SignatureType::Confirmation =>
+                f.write_str("Confirmation"),
+            SignatureType::Unknown(u) =>
+                f.write_fmt(format_args!("Unknown signature type {}",u)),
+        }
+    }
+}
+
+impl Arbitrary for SignatureType {
+    fn arbitrary<G: Gen>(g: &mut G) -> Self {
+        u8::arbitrary(g).into()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -185,6 +312,20 @@ mod tests {
                 PublicKeyAlgorithm::Private(u) => u >= 100 && u <= 110,
                 _ => true
             }
+        }
+    }
+
+    quickcheck! {
+        fn sigtype_roundtrip(t: SignatureType) -> bool {
+            let val: u8 = t.clone().into();
+            t == SignatureType::from(val)
+        }
+    }
+
+    quickcheck! {
+        fn sigtype_display(t: SignatureType) -> bool {
+            let s = format!("{}", t);
+            !s.is_empty()
         }
     }
 }
