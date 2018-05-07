@@ -131,7 +131,7 @@ pub enum Error {
     UnsupportedHashAlgorithm(u8),
 
     #[fail(display = "Unsupported public key algorithm: {}", _0)]
-    UnsupportedPublicKeyAlgorithm(u8),
+    UnsupportedPublicKeyAlgorithm(PublicKeyAlgorithm),
 
     #[fail(display = "Unsupported symmetric algorithm: {}", _0)]
     UnsupportedSymmetricAlgorithm(u8),
@@ -248,7 +248,7 @@ pub struct Signature {
     pub common: packet::Common,
     pub version: u8,
     pub sigtype: u8,
-    pub pk_algo: u8,
+    pub pk_algo: PublicKeyAlgorithm,
     pub hash_algo: HashAlgo,
     pub hashed_area: parse::subpacket::SubpacketArea,
     pub unhashed_area: parse::subpacket::SubpacketArea,
@@ -271,7 +271,7 @@ pub struct OnePassSig {
     pub version: u8,
     pub sigtype: u8,
     pub hash_algo: HashAlgo,
-    pub pk_algo: u8,
+    pub pk_algo: PublicKeyAlgorithm,
     pub issuer: [u8; 8],
     pub last: u8,
 }
@@ -287,7 +287,7 @@ pub struct Key {
     pub version: u8,
     /* When the key was created.  */
     pub creation_time: u32,
-    pub pk_algo: u8,
+    pub pk_algo: PublicKeyAlgorithm,
     pub mpis: mpis::MPIs,
 }
 

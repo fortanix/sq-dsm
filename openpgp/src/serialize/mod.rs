@@ -276,7 +276,7 @@ impl Serialize for Signature {
         assert_eq!(self.version, 4);
         write_byte(o, self.version)?;
         write_byte(o, self.sigtype)?;
-        write_byte(o, self.pk_algo)?;
+        write_byte(o, self.pk_algo.into())?;
         write_byte(o, self.hash_algo.into())?;
 
         // XXX: Return an error.
@@ -322,7 +322,7 @@ impl Serialize for OnePassSig {
         write_byte(o, self.version)?;
         write_byte(o, self.sigtype)?;
         write_byte(o, self.hash_algo.into())?;
-        write_byte(o, self.pk_algo)?;
+        write_byte(o, self.pk_algo.into())?;
         o.write_all(&self.issuer[..])?;
         write_byte(o, self.last)?;
 
@@ -356,7 +356,7 @@ impl SerializeKey for Key {
         assert_eq!(self.version, 4);
         write_byte(o, self.version)?;
         write_be_u32(o, self.creation_time)?;
-        write_byte(o, self.pk_algo)?;
+        write_byte(o, self.pk_algo.into())?;
         o.write_all(&self.mpis.raw[..])?;
 
         Ok(())

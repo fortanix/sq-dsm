@@ -4,6 +4,7 @@ use OnePassSig;
 use Packet;
 use KeyID;
 use HashAlgo;
+use PublicKeyAlgorithm;
 use serialize::Serialize;
 
 impl fmt::Debug for OnePassSig {
@@ -36,7 +37,7 @@ impl OnePassSig {
             version: 3,
             sigtype: sigtype,
             hash_algo: HashAlgo::Unknown(0),
-            pk_algo: 0,
+            pk_algo: PublicKeyAlgorithm::Unknown(0),
             issuer: [0u8; 8],
             last: 1,
         }
@@ -49,7 +50,7 @@ impl OnePassSig {
     }
 
     /// Sets the public key algorithm.
-    pub fn pk_algo(mut self, algo: u8) -> Self {
+    pub fn pk_algo(mut self, algo: PublicKeyAlgorithm) -> Self {
         self.pk_algo = algo;
         self
     }

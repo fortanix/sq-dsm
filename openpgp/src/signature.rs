@@ -79,7 +79,7 @@ impl Signature {
             common: Default::default(),
             version: 4,
             sigtype: sigtype,
-            pk_algo: 0,
+            pk_algo: PublicKeyAlgorithm::Unknown(0),
             hash_algo: HashAlgo::Unknown(0),
             hashed_area: SubpacketArea::empty(),
             unhashed_area: SubpacketArea::empty(),
@@ -97,7 +97,7 @@ impl Signature {
     }
 
     /// Sets the public key algorithm.
-    pub fn pk_algo(mut self, algo: u8) -> Self {
+    pub fn pk_algo(mut self, algo: PublicKeyAlgorithm) -> Self {
         // XXX: Do we invalidate the signature data?
         self.pk_algo = algo;
         self

@@ -5,6 +5,7 @@ use mpis::MPIs;
 use Tag;
 use Key;
 use Packet;
+use PublicKeyAlgorithm;
 
 impl fmt::Debug for Key {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -26,7 +27,7 @@ impl Key {
             common: Default::default(),
             version: 4,
             creation_time: 0,
-            pk_algo: 0,
+            pk_algo: PublicKeyAlgorithm::Unknown(0),
             mpis: MPIs::new(),
         }
     }
@@ -44,7 +45,7 @@ impl Key {
     }
 
     /// Sets the public key algorithm.
-    pub fn pk_algo(mut self, pk_algo: u8) -> Self {
+    pub fn pk_algo(mut self, pk_algo: PublicKeyAlgorithm) -> Self {
         self.pk_algo = pk_algo;
         self
     }

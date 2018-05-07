@@ -481,7 +481,7 @@ impl Signature {
             common: Default::default(),
             version: version,
             sigtype: sigtype,
-            pk_algo: pk_algo,
+            pk_algo: pk_algo.into(),
             hash_algo: hash_algo.into(),
             hashed_area: SubpacketArea::new(hashed_area),
             unhashed_area: SubpacketArea::new(unhashed_area),
@@ -505,6 +505,7 @@ impl Signature {
 
 #[test]
 fn signature_parser_test () {
+    use PublicKeyAlgorithm;
     let data = bytes!("sig.gpg");
 
     {
@@ -513,7 +514,7 @@ fn signature_parser_test () {
         if let Packet::Signature(ref p) = pp.packet {
             assert_eq!(p.version, 4);
             assert_eq!(p.sigtype, 0);
-            assert_eq!(p.pk_algo, 1);
+            assert_eq!(p.pk_algo, PublicKeyAlgorithm::RsaEncryptSign);
             assert_eq!(p.hash_algo, HashAlgo::SHA512);
             assert_eq!(p.hashed_area.data.len(), 29);
             assert_eq!(p.unhashed_area.data.len(), 10);
@@ -606,7 +607,7 @@ impl OnePassSig {
             version: version,
             sigtype: sigtype,
             hash_algo: hash_algo.into(),
-            pk_algo: pk_algo,
+            pk_algo: pk_algo.into(),
             issuer: issuer,
             last: last,
         }))
@@ -615,6 +616,7 @@ impl OnePassSig {
 
 #[test]
 fn one_pass_sig_parser_test () {
+    use PublicKeyAlgorithm;
     // This test assumes that the first packet is a OnePassSig packet.
     let data = bytes!("signed-1.gpg");
     let mut pp = PacketParser::from_bytes(data).unwrap().unwrap();
@@ -625,7 +627,7 @@ fn one_pass_sig_parser_test () {
         assert_eq!(p.version, 3);
         assert_eq!(p.sigtype, 0);
         assert_eq!(p.hash_algo, HashAlgo::SHA512);
-        assert_eq!(p.pk_algo, 1);
+        assert_eq!(p.pk_algo, PublicKeyAlgorithm::RsaEncryptSign);
         assert_eq!(to_hex(&p.issuer[..], false), "7223B56678E02528");
         assert_eq!(p.last, 1);
     } else {
@@ -723,7 +725,7 @@ impl Key {
             common: Default::default(),
             version: version,
             creation_time: creation_time,
-            pk_algo: pk_algo,
+            pk_algo: pk_algo.into(),
             mpis: MPIs::parse(mpis),
         };
 

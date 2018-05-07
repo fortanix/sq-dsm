@@ -222,7 +222,7 @@ impl Key {
         header.push((self.creation_time & 0xFF) as u8);
 
         // Algorithm.
-        header.push(self.pk_algo);
+        header.push(self.pk_algo.into());
 
         hash.update(&header[..]);
 
@@ -249,7 +249,7 @@ impl Signature {
         // Version.
         header[0] = 4;
         header[1] = self.sigtype;
-        header[2] = self.pk_algo;
+        header[2] = self.pk_algo.into();
         header[3] = self.hash_algo.into();
 
         // The length of the hashed area, as a 16-bit endian number.

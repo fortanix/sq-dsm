@@ -215,7 +215,7 @@ impl<'a> Signer<'a> {
             let header: [ u8; 6 ] = [
                 self.signature.version,
                 self.signature.sigtype,
-                self.signature.pk_algo,
+                self.signature.pk_algo.into(),
                 self.signature.hash_algo.into(),
                 ((self.signature.hashed_area.data.len() >> 8) & 0xff) as u8,
                 ((self.signature.hashed_area.data.len() >> 0) & 0xff) as u8,
