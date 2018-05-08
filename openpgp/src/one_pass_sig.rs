@@ -40,7 +40,7 @@ impl OnePassSig {
             hash_algo: HashAlgo::Unknown(0),
             pk_algo: PublicKeyAlgorithm::Unknown(0),
             issuer: KeyID::new(0),
-            last: true,
+            last: 1,
         }
     }
 
@@ -70,7 +70,7 @@ impl OnePassSig {
 
     /// Sets the last flag.
     pub fn last(mut self, last: bool) -> Self {
-        self.last = last;
+        self.last = if last { 1 } else { 0 };
         self
     }
 

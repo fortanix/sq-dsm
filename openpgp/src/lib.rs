@@ -278,7 +278,7 @@ pub struct OnePassSig {
     pub hash_algo: HashAlgo,
     pub pk_algo: PublicKeyAlgorithm,
     pub issuer: KeyID,
-    pub last: bool,
+    pub last: u8,
 }
 
 /// Holds a public key, public subkey, private key or private subkey packet.

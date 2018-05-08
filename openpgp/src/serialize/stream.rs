@@ -176,7 +176,7 @@ impl<'a> Signer<'a> {
             .hash_algo(template.hash_algo)
             .issuer(template.issuer_fingerprint().unwrap() // XXX
                     .to_keyid());
-        ops.last = true;
+        ops.last = 1;
         ops.serialize(&mut inner)?;
         algos.push(HashAlgo::from(template.hash_algo));
 
