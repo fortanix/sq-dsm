@@ -425,11 +425,100 @@ impl<R: BufferedReader<C>, C> BufferedReader<C>
     }
 }
 
+/// A `Write`r for symmetrically encrypting data.
+pub struct Encryptor<W: io::Write> {
+    inner: W,
+
+    cipher: Box<Mode>,
+    block_size: usize,
+    iv: Vec<u8>,
+    // Up to a block of unencrypted data.
+    buffer: Vec<u8>,
+    // A place to write encrypted data into.
+    scratch: Vec<u8>,
+}
+
+impl<W: io::Write> Encryptor<W> {
+    /// Instantiate a new symmetric encryptor.
+    pub fn new(algo: SymmetricAlgo, key: &[u8], sink: W) -> Result<Self> {
+        let cipher = algo.make_encrypt_cfb(key)?;
+        let block_size = algo.block_size()?;
+        let mut scratch = Vec::with_capacity(block_size);
+        unsafe { scratch.set_len(block_size); }
+
+        Ok(Encryptor {
+            inner: sink,
+            cipher: cipher,
+            block_size: block_size,
+            iv: vec![0u8; block_size],
+            buffer: Vec::with_capacity(block_size),
+            scratch: scratch,
+        })
+    }
+}
+
+impl<W: io::Write> io::Write for Encryptor<W> {
+    fn write(&mut self, mut buf: &[u8]) -> io::Result<usize> {
+        let amount = buf.len();
+
+        // First, fill the buffer if there is something in it.
+        if self.buffer.len() > 0 {
+            let n = cmp::min(buf.len(), self.block_size - self.buffer.len());
+            self.buffer.extend_from_slice(&buf[..n]);
+            assert!(self.buffer.len() <= self.block_size);
+            buf = &buf[n..];
+
+            // And possibly encrypt the block.
+            if self.buffer.len() == self.block_size {
+                self.cipher.encrypt(&mut self.iv, &mut self.scratch, &self.buffer);
+                self.buffer.clear();
+                self.inner.write_all(&self.scratch)?;
+            }
+        }
+
+        // Then, encrypt all whole blocks.
+        // XXX: If this turns out to be too slow, encrypt larger chunks.
+        for block in buf.chunks(self.block_size) {
+            if block.len() == self.block_size {
+                // Complete block.
+                self.cipher.encrypt(&mut self.iv, &mut self.scratch, block);
+                self.inner.write_all(&self.scratch)?;
+            } else {
+                // Stash for later.
+                assert!(self.buffer.is_empty());
+                self.buffer.extend_from_slice(block);
+            }
+        }
+
+        Ok(amount)
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        // It is not clear how we can implement this, because we can
+        // only operate on block sizes.  We will, however, ask our
+        // inner writer to flush.
+        self.inner.flush()
+    }
+}
+
+impl<W: io::Write> Drop for Encryptor<W> {
+    fn drop(&mut self) {
+        if self.buffer.len() > 0 {
+            unsafe { self.scratch.set_len(self.buffer.len()) }
+            self.cipher.encrypt(&mut self.iv, &mut self.scratch, &self.buffer);
+            // Unfortunately, we cannot handle errors here.  If error
+            // handling is a concern, we need to implement
+            // into_inner() and properly return errors there.
+            let _ = self.inner.write_all(&self.scratch);
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::fs::File;
-    use std::io::Read;
+    use std::io::{Read, Write};
 
     quickcheck! {
         fn sym_roundtrip(sym: SymmetricAlgo) -> bool {
@@ -491,6 +580,45 @@ mod tests {
             }
 
             assert_eq!(&PLAINTEXT[..], &plaintext[..]);
+        }
+    }
+
+    /// This test is designed to test the buffering logic in Encryptor
+    /// by writing directly to it.
+    #[test]
+    fn encryptor() {
+        let basedir = ::std::env::current_exe().unwrap()
+            .parent().unwrap().parent().unwrap()
+            .parent().unwrap().parent().unwrap()
+            .join("openpgp/tests/data/raw");
+
+        for algo in [SymmetricAlgo::AES128,
+                     SymmetricAlgo::AES192,
+                     SymmetricAlgo::AES256].iter() {
+            // The keys are [0, 1, 2, ...].
+            let mut key = vec![0u8; algo.key_size().unwrap()];
+            for i in 0..key.len() {
+                key[0] = i as u8;
+            }
+
+            let mut ciphertext = Vec::new();
+            {
+                let mut encryptor = Encryptor::new(*algo, &key, &mut ciphertext)
+                    .unwrap();
+
+                // Write bytewise to test the buffer logic.
+                for b in PLAINTEXT.chunks(1) {
+                    encryptor.write_all(b).unwrap();
+                }
+            }
+
+            let mut cipherfile
+                = File::open(basedir.join(
+                    format!("a-cypherpunks-manifesto.aes{}.key_ascending_from_0",
+                            algo.key_size().unwrap() * 8))).unwrap();
+            let mut reference = Vec::new();
+            cipherfile.read_to_end(&mut reference).unwrap();
+            assert_eq!(&reference[..], &ciphertext[..]);
         }
     }
 }
