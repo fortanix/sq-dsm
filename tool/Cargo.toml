@@ -20,8 +20,8 @@ clap = "2.27.1"
 
 [[bin]]
 name = "sq"
-path = "src/usage.rs"
+path = "src/sq-usage.rs"
 
 [[bin]]
 name = "sqv"
-path = "src/sqv.rs"
+path = "src/sqv-usage.rs"

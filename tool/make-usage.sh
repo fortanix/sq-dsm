@@ -1,6 +1,6 @@
 #!/bin/sh
 
-sq=$1
+tool=$1
 
 quote() {
     sed 's@^@//! @' | sed 's/ $//'
@@ -23,7 +23,7 @@ dump_help() { # subcommand, indention
 	printf "\n$2 Subcommand$1\n\n"
     fi
 
-    help="`$sq $1 --help`"
+    help="`$tool $1 --help`"
 
     begin_code
     printf "$help\n" | tail -n +2
@@ -50,4 +50,4 @@ dump_help() { # subcommand, indention
     dump_help
 ) | quote
 
-printf '\ninclude!("main.rs");\n'
+printf '\ninclude!("'"$(basename $tool)"'.rs");\n'

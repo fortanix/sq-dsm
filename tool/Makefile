@@ -1,13 +1,10 @@
 CARGO	?= cargo
 SQ	?= ../target/debug/sq
+SQV	?= ../target/debug/sqv
 
-all: sq src/usage.rs
+all: src/sq-usage.rs src/sqv-usage.rs
 
-sq: ../target/debug/sq
-
-.PHONY: ../target/debug/sq
-../target/debug/sq:
-	$(CARGO) build
-
-src/usage.rs: make-usage.sh $(SQ)
+src/sq-usage.rs: make-usage.sh $(SQ)
 	sh make-usage.sh $(SQ) >$@
+src/sqv-usage.rs: make-usage.sh $(SQV)
+	sh make-usage.sh $(SQV) >$@

@@ -381,4 +381,4 @@
 //!     <LABEL>    Label to use
 //! ```
 
-include!("main.rs");
+include!("sq.rs");
