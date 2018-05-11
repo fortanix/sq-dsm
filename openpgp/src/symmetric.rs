@@ -430,6 +430,8 @@ impl<R: BufferedReader<C>, C> BufferedReader<C>
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs::File;
+    use std::io::Read;
 
     quickcheck! {
         fn sym_roundtrip(sym: SymmetricAlgo) -> bool {
@@ -452,6 +454,45 @@ mod tests {
                 SymmetricAlgo::Private(u) => u >= 100 && u <= 110,
                 _ => true
             }
+        }
+    }
+
+    const PLAINTEXT: &[u8]
+        = include_bytes!("../tests/data/messages/a-cypherpunks-manifesto.txt");
+
+    /// This test is designed to test the buffering logic in Decryptor
+    /// by reading directly from it (i.e. without any buffering
+    /// introduced by the BufferedReaderDecryptor or any other source
+    /// of buffering).
+    #[test]
+    fn decryptor() {
+        let basedir = ::std::env::current_exe().unwrap()
+            .parent().unwrap().parent().unwrap()
+            .parent().unwrap().parent().unwrap()
+            .join("openpgp/tests/data/raw");
+
+        for algo in [SymmetricAlgo::AES128,
+                     SymmetricAlgo::AES192,
+                     SymmetricAlgo::AES256].iter() {
+            // The keys are [0, 1, 2, ...].
+            let mut key = vec![0u8; algo.key_size().unwrap()];
+            for i in 0..key.len() {
+                key[0] = i as u8;
+            }
+
+            let ciphertext
+                = File::open(basedir.join(
+                    format!("a-cypherpunks-manifesto.aes{}.key_ascending_from_0",
+                            algo.key_size().unwrap() * 8))).unwrap();
+            let decryptor = Decryptor::new(*algo, &key, ciphertext).unwrap();
+
+            // Read bytewise to test the buffer logic.
+            let mut plaintext = Vec::new();
+            for b in decryptor.bytes() {
+                plaintext.push(b.unwrap());
+            }
+
+            assert_eq!(&PLAINTEXT[..], &plaintext[..]);
         }
     }
 }
