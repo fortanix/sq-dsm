@@ -237,9 +237,8 @@ impl<R: io::Read> io::Read for Decryptor<R> {
         // 1. Copy any buffered data.
         if self.buffer.len() > 0 {
             let to_copy = cmp::min(self.buffer.len(), plaintext.len());
-            for (i, b) in self.buffer.drain(..to_copy).enumerate() {
-                plaintext[i] = b;
-            }
+            &plaintext[..to_copy].copy_from_slice(&self.buffer[..to_copy]);
+            self.buffer.drain(..to_copy);
             pos = to_copy;
         }
 
@@ -302,9 +301,8 @@ impl<R: io::Read> io::Read for Decryptor<R> {
 
         self.dec.decrypt(&mut self.iv, &mut self.buffer, &ciphertext[..]);
 
-        for (i, b) in self.buffer.drain(..to_copy).enumerate() {
-            plaintext[pos + i] = b;
-        }
+        &plaintext[pos..pos + to_copy].copy_from_slice(&self.buffer[..to_copy]);
+        self.buffer.drain(..to_copy);
 
         pos += to_copy;
 
