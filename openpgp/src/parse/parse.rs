@@ -2615,40 +2615,39 @@ mod test {
             .iter().collect()
     }
 
+    const DECRYPT_PLAINTEXT: &[u8] = bytes!("a-cypherpunks-manifesto.txt");
+
+    struct DecryptTest<'a> {
+        filename: &'a str,
+        algo: SymmetricAlgo,
+        key_hex: &'a str,
+    }
+    const DECRYPT_TESTS: [DecryptTest; 4] = [
+        DecryptTest {
+            filename: "encrypted-aes256-password-123.gpg",
+            algo: SymmetricAlgo::AES256,
+            key_hex: "7EF4F08C44F780BEA866961423306166B8912C43352F3D9617F745E4E3939710",
+        },
+        DecryptTest {
+            filename: "encrypted-aes192-password-123456.gpg",
+            algo: SymmetricAlgo::AES192,
+            key_hex: "B2F747F207EFF198A6C826F1D398DE037986218ED468DB61",
+        },
+        DecryptTest {
+            filename: "encrypted-aes128-password-123456789.gpg",
+            algo: SymmetricAlgo::AES128,
+            key_hex: "AC0553096429260B4A90B1CEC842D6A0",
+        },
+        DecryptTest {
+            filename: "encrypted-twofish-password-red-fish-blue-fish.gpg",
+            algo: SymmetricAlgo::Twofish,
+            key_hex: "96AFE1EDFA7C9CB7E8B23484C718015E5159CFA268594180D4DB68B2543393CB",
+        },
+    ];
+
     #[test]
     fn decrypt_test_1() {
-        struct Test<'a> {
-            filename: &'a str,
-            algo: SymmetricAlgo,
-            key_hex: &'a str,
-        }
-
-        let expected = bytes!("a-cypherpunks-manifesto.txt");
-
-        let tests = [
-            Test {
-                filename: "encrypted-aes256-password-123.gpg",
-                algo: SymmetricAlgo::AES256,
-                key_hex: "7EF4F08C44F780BEA866961423306166B8912C43352F3D9617F745E4E3939710",
-            },
-            Test {
-                filename: "encrypted-aes192-password-123456.gpg",
-                algo: SymmetricAlgo::AES192,
-                key_hex: "B2F747F207EFF198A6C826F1D398DE037986218ED468DB61",
-            },
-            Test {
-                filename: "encrypted-aes128-password-123456789.gpg",
-                algo: SymmetricAlgo::AES128,
-                key_hex: "AC0553096429260B4A90B1CEC842D6A0",
-            },
-            Test {
-                filename: "encrypted-twofish-password-red-fish-blue-fish.gpg",
-                algo: SymmetricAlgo::Twofish,
-                key_hex: "96AFE1EDFA7C9CB7E8B23484C718015E5159CFA268594180D4DB68B2543393CB",
-            },
-        ];
-
-        for test in tests.iter() {
+        for test in DECRYPT_TESTS.iter() {
             eprintln!("Decrypting {}", test.filename);
 
             let path = path_to(test.filename);
@@ -2682,8 +2681,84 @@ mod test {
                     }
                     assert_eq!(packet.tag(), Tag::Literal);
                     assert_eq!(&packet.body.as_ref().unwrap()[..],
-                               &expected[..]);
+                               &DECRYPT_PLAINTEXT[..]);
                     let pp = pp.expect("Expected an MDC packet, got EOF");
+
+                    // MDC packet.
+                    let (packet, _, pp, _) = pp.recurse().unwrap();
+                    if let Packet::MDC(mdc) = packet {
+                        assert_eq!(mdc.computed_hash, mdc.hash,
+                                   "MDC doesn't match");
+                    } else {
+                        panic!("Expected an MDC packet!");
+                    }
+
+                    // EOF.
+                    assert!(pp.is_none());
+
+                    break;
+                }
+
+                // This will blow up if we reach the end of the message.
+                // But, that is what we want: we stop when we get to a
+                // SEIP packet.
+                let (_, _, pp_tmp, _) = pp.recurse().unwrap();
+                pp = pp_tmp.unwrap();
+            }
+        }
+    }
+
+    /// Like the above test, but streams the literal packet.
+    #[test]
+    fn decrypt_test_2() {
+        for test in DECRYPT_TESTS.iter() {
+            eprintln!("Decrypting {}", test.filename);
+
+            let path = path_to(test.filename);
+            let mut pp = PacketParserBuilder::from_file(&path).unwrap()
+                .finalize()
+                .expect(&format!("Error reading {}", test.filename)[..])
+                .expect("Empty message");
+
+            loop {
+                if let Packet::SEIP(_) = pp.packet {
+                    let key = ::from_hex(test.key_hex, false).unwrap();
+
+                    pp.decrypt(test.algo, &key[..]).unwrap();
+
+                    // SEIP packet.
+                    let (packet, _, pp, _) = pp.recurse().unwrap();
+                    assert_eq!(packet.tag(), Tag::SEIP);
+                    let mut pp = pp.expect(
+                        "Expected an compressed or literal packet, got EOF");
+
+                    // Literal packet, optionally compressed
+                    if let Packet::CompressedData(_) = pp.packet {
+                        let (_, _, pp_tmp, _)
+                            = pp.recurse().unwrap();
+                        let pp_tmp = pp_tmp.expect(
+                            "Expected a literal packet, got EOF");
+                        pp = pp_tmp;
+                    }
+
+                    // Literal packet.
+                    if let Packet::Literal(_) = pp.packet {
+                        // Stream the content.
+                        let mut body = Vec::new();
+                        loop {
+                            let mut b = [0];
+                            if pp.read(&mut b).unwrap() == 0 {
+                                break;
+                            }
+                            body.push(b[0]);
+                        }
+                        assert_eq!(&body[..], &DECRYPT_PLAINTEXT[..]);
+                    } else {
+                        panic!("Expected an Literal packet!");
+                    }
+                    let (_, _, pp_tmp, _)
+                        = pp.recurse().unwrap();
+                    let pp = pp_tmp.expect("Expected an MDC packet, got EOF");
 
                     // MDC packet.
                     let (packet, _, pp, _) = pp.recurse().unwrap();
