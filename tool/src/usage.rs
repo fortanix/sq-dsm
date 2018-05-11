@@ -56,6 +56,7 @@
 //!     -A, --dearmor    Remove ASCII Armor from input
 //!         --dump       Print a packet dump to stderr
 //!     -h, --help       Prints help information
+//!     -x, --hex        Print a hexdump (implies --dump)
 //!     -V, --version    Prints version information
 //!
 //! OPTIONS:
@@ -74,6 +75,7 @@
 //! FLAGS:
 //!     -A, --dearmor    Remove ASCII Armor from input
 //!     -h, --help       Prints help information
+//!     -x, --hex        Print a hexdump
 //!     -V, --version    Prints version information
 //!
 //! OPTIONS:

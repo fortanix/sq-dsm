@@ -61,7 +61,6 @@ fn real_main() -> Result<(), failure::Error> {
 
     match matches.subcommand() {
         ("decrypt",  Some(m)) => {
-            let dump = m.is_present("dump");
             let mut input = open_or_stdin(m.value_of("input"))?;
             let mut output = create_or_stdout(m.value_of("output"))?;
             let mut input = if m.is_present("dearmor") {
@@ -69,7 +68,8 @@ fn real_main() -> Result<(), failure::Error> {
             } else {
                 input
             };
-            commands::decrypt(&mut input, &mut output, dump)?;
+            commands::decrypt(&mut input, &mut output,
+                              m.is_present("dump"), m.is_present("hex"))?;
         },
         ("enarmor",  Some(m)) => {
             let mut input = open_or_stdin(m.value_of("input"))?;

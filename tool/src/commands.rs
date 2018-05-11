@@ -9,7 +9,8 @@ use openpgp::{Packet, Tag};
 const INDENT: &'static str
     = "                                                  ";
 
-pub fn decrypt(input: &mut io::Read, output: &mut io::Write, dump: bool)
+pub fn decrypt(input: &mut io::Read, output: &mut io::Write,
+               dump: bool, map: bool)
            -> Result<(), failure::Error> {
     #[derive(PartialEq)]
     enum State {
@@ -19,9 +20,24 @@ pub fn decrypt(input: &mut io::Read, output: &mut io::Write, dump: bool)
         Done,
     }
     let mut state = State::Start;
-    let mut ppo = openpgp::parse::PacketParser::from_reader(input)?;
+    let mut ppo
+        = openpgp::parse::PacketParserBuilder::from_reader(input)?
+        .map(map).finalize()?;
 
     while let Some(mut pp) = ppo {
+        if dump || map {
+            eprintln!("{}{:?}",
+                      &INDENT[0..pp.recursion_depth as usize], pp.packet);
+        }
+
+        if let Some(ref map) = pp.map {
+            let mut hd = HexDumper::new();
+            for (field, bytes) in map.iter() {
+                hd.print(bytes, field);
+            }
+            println!();
+        }
+
         state = match state {
             // Look for an PKESK or SKESK packet.
             State::Start =>
@@ -71,11 +87,6 @@ pub fn decrypt(input: &mut io::Read, output: &mut io::Write, dump: bool)
             // encrypted packets.
             State::Done => State::Done,
         };
-
-        if dump {
-            eprintln!("{}{:?}",
-                      &INDENT[0..pp.recursion_depth as usize], pp.packet);
-        }
 
         let (_, _, ppo_tmp, _) = pp.recurse()?;
         ppo = ppo_tmp;
