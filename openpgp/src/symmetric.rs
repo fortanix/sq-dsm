@@ -181,7 +181,7 @@ impl<R: io::Read> Decryptor<R> {
     /// to wrap.
     pub fn new(algo: SymmetricAlgo, key: &[u8], source: R) -> Result<Self> {
         let dec = algo.make_decrypt_cfb(key)?;
-        let block_size = algo.key_size()?;
+        let block_size = algo.block_size()?;
 
         Ok(Decryptor {
             source: source,
