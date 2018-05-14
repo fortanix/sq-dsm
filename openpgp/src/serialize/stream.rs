@@ -2,18 +2,22 @@
 
 use std::fmt;
 use std::io::{self, Write};
-use nettle::Hash;
+use nettle::{Hash, Yarrow};
 
 use {
+    Error,
     HashAlgo,
     Literal,
+    MDC,
     OnePassSig,
     Result,
-    SEIP,
+    SKESK,
     Signature,
     Tag,
 };
 use ctb::CTB;
+use packet::BodyLength;
+use symmetric::SymmetricAlgo;
 use super::{
     PartialBodyFilter,
     Serialize,
@@ -594,46 +598,125 @@ impl<'a> writer::Stackable<'a, Cookie> for Compressor<'a> {
 }
 
 /// Encrypts a packet stream.
-///
-/// XXX: It doesn't.
-pub struct Ecryptor<'a> {
-    inner: writer::Stack<'a, Cookie>,
+pub struct Encryptor<'a> {
+    inner: Option<writer::Stack<'a, Cookie>>,
+    hash: Box<Hash>,
+    cookie: Cookie,
 }
 
-impl<'a> Ecryptor<'a> {
+impl<'a> Encryptor<'a> {
     /// Creates a new encryptor.
     ///
-    /// XXX: ... that doesn't encrypt.
-    pub fn new(mut inner: writer::Stack<'a, Cookie>, _template: &SEIP)
+    /// XXX: Some configuration, asymmetric encryption.
+    pub fn new(mut inner: writer::Stack<'a, Cookie>, password: &str)
                -> Result<writer::Stack<'a, Cookie>> {
         let level = inner.cookie_ref().level + 1;
+        let algo = SymmetricAlgo::AES128;
+
+        // Write the SKESK packet.
+        let skesk = SKESK{
+            common: Default::default(),
+            version: 4,
+            symm_algo: algo,
+            s2k: Default::default(),
+            esk: vec![],
+        };
+        skesk.serialize(&mut inner)?;
+
+        // Write the SEIP packet.
         CTB::new(Tag::SEIP).serialize(&mut inner)?;
-        // XXX: Install a filter that encrypts.
-        Ok(Box::new(Self{
-            inner: PartialBodyFilter::new(Box::new(inner), Cookie::new(level))
-        }))
+        let mut inner: writer::Stack<'a, Cookie>
+            = PartialBodyFilter::new(inner, Cookie::new(level));
+        inner.write(&[1])?; // Version.
+
+        // Assuming 'algo' is good, this cannot fail.
+        let encryptor = writer::Encryptor::new(
+            inner,
+            Cookie::new(level),
+            algo,
+            &skesk.s2k.derive_key(password.as_bytes(),
+                                  algo.key_size().unwrap()).unwrap(),
+        ).unwrap();
+
+        // The hash for the MDC must include the initialization
+        // vector, hence we build the object here.
+        let mut encryptor = Box::new(Self{
+            inner: Some(encryptor),
+            hash: HashAlgo::SHA1.context().unwrap(),
+            cookie: Cookie::new(level),
+        });
+
+        // Write the initialization vector, and the quick-check bytes.
+        let mut iv = vec![0; algo.block_size().unwrap()];
+        Yarrow::default().random(&mut iv);
+        encryptor.write_all(&iv)?;
+        encryptor.write_all(&iv[iv.len() - 2..])?;
+
+        Ok(encryptor)
+    }
+
+    /// Emits the MDC packet and recovers the original writer.
+    fn emit_mdc(&mut self) -> Result<writer::Stack<'a, Cookie>> {
+        if let Some(mut w) = self.inner.take() {
+            // Write the MDC, which must be the last packet inside the
+            // encrypted packet stream.  The hash includes the MDC's
+            // CTB and length octet.
+            let mut header = Vec::new();
+            CTB::new(Tag::MDC).serialize(&mut header)?;
+            BodyLength::Full(20).serialize(&mut header)?;
+
+            self.hash.update(&header);
+            MDC::new(&mut self.hash).serialize(&mut w)?;
+
+            // Now recover the original writer.  First, strip the
+            // Encryptor.
+            let mut w = w.into_inner()?.unwrap();
+            // And the partial body filter.
+            let mut w = w.into_inner()?.unwrap();
+
+            Ok(w)
+        } else {
+            Err(Error::InvalidOperation(
+                "Inner writer already taken".into()).into())
+        }
     }
 }
 
-impl<'a> fmt::Debug for Ecryptor<'a> {
+impl<'a> Drop for Encryptor<'a> {
+    fn drop(&mut self) {
+        let _ = self.emit_mdc();
+    }
+}
+
+impl<'a> fmt::Debug for Encryptor<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("Ecryptor")
+        f.debug_struct("Encryptor")
             .field("inner", &self.inner)
             .finish()
     }
 }
 
-impl<'a> Write for Ecryptor<'a> {
+impl<'a> Write for Encryptor<'a> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        self.inner.write(buf)
+        let written = match self.inner.as_mut() {
+            Some(ref mut w) => w.write(buf),
+            None => Ok(buf.len()),
+        };
+        if let Ok(amount) = written {
+            self.hash.update(&buf[..amount]);
+        }
+        written
     }
 
     fn flush(&mut self) -> io::Result<()> {
-        self.inner.flush()
+        match self.inner.as_mut() {
+            Some(ref mut w) => w.flush(),
+            None => Ok(()),
+        }
     }
 }
 
-impl<'a> writer::Stackable<'a, Cookie> for Ecryptor<'a> {
+impl<'a> writer::Stackable<'a, Cookie> for Encryptor<'a> {
     fn pop(&mut self) -> Result<Option<writer::Stack<'a, Cookie>>> {
         unimplemented!()
     }
@@ -642,22 +725,30 @@ impl<'a> writer::Stackable<'a, Cookie> for Ecryptor<'a> {
         unimplemented!()
     }
     fn inner_ref(&self) -> Option<&writer::Stackable<'a, Cookie>> {
-        self.inner.inner_ref()
+        if let Some(ref i) = self.inner {
+            Some(i)
+        } else {
+            None
+        }
     }
     fn inner_mut(&mut self) -> Option<&mut writer::Stackable<'a, Cookie>> {
-        self.inner.inner_mut()
+        if let Some(ref mut i) = self.inner {
+            Some(i)
+        } else {
+            None
+        }
     }
-    fn into_inner(self: Box<Self>) -> Result<Option<writer::Stack<'a, Cookie>>> {
-        Box::new(self.inner).into_inner()
+    fn into_inner(mut self: Box<Self>) -> Result<Option<writer::Stack<'a, Cookie>>> {
+        Ok(Some(self.emit_mdc()?))
     }
     fn cookie_set(&mut self, cookie: Cookie) -> Cookie {
-        self.inner.cookie_set(cookie)
+        ::std::mem::replace(&mut self.cookie, cookie)
     }
     fn cookie_ref(&self) -> &Cookie {
-        self.inner.cookie_ref()
+        &self.cookie
     }
     fn cookie_mut(&mut self) -> &mut Cookie {
-        self.inner.cookie_mut()
+        &mut self.cookie
     }
 }
 
@@ -865,5 +956,90 @@ mod test {
             // Next?
             ppo = tmp;
         }
+    }
+
+    #[test]
+    fn encryptor() {
+        let password = "streng geheim";
+        let message = b"Hello world.";
+
+        // Write a simple encrypted message...
+        let mut o = vec![];
+        {
+            let encryptor = Encryptor::new(wrap(&mut o), password)
+                .unwrap();
+            let mut literal = LiteralWriter::new(encryptor, 'b', None, 0)
+                .unwrap();
+            literal.write_all(message).unwrap();
+        }
+
+        // ... and recover it.
+        #[derive(Debug, PartialEq)]
+        enum State {
+            Start,
+            Decrypted(u8, Vec<u8>),
+            Deciphered,
+            MDC,
+            Done,
+        }
+        let mut state = State::Start;
+        let mut ppo = PacketParser::from_bytes(&o).unwrap();
+        while let Some(mut pp) = ppo {
+            state = match state {
+                // Look for the SKESK packet.
+                State::Start =>
+                    if let Packet::SKESK(ref skesk) = pp.packet {
+                        match skesk.decrypt(password.as_bytes()) {
+                            Ok((algo, key))
+                                => State::Decrypted(algo.into(), key),
+                            Err(e) =>
+                                panic!("Decryption failed: {}", e),
+                        }
+                    } else {
+                        panic!("Unexpected packet: {:?}", pp.packet)
+                    },
+
+                // Look for the SEIP packet.
+                State::Decrypted(algo, key) =>
+                    if let Packet::SEIP(_) = pp.packet {
+	                pp.decrypt(algo.into(), &key[..]).unwrap();
+                        //let mut dbg = ::std::fs::File::create("/tmp/q").unwrap();
+                        //::std::io::copy(&mut pp, &mut dbg).unwrap();
+                        //panic!();
+                        State::Deciphered
+                    } else {
+                        panic!("Unexpected packet: {:?}", pp.packet)
+                    },
+
+                // Look for the literal data packet.
+                State::Deciphered =>
+                    if let Packet::Literal(_) = pp.packet {
+                        let mut body = Vec::new();
+                        pp.read_to_end(&mut body).unwrap();
+                        assert_eq!(&body, message);
+                        State::MDC
+                    } else {
+                        panic!("Unexpected packet: {:?}", pp.packet)
+                    },
+
+                // Look for the MDC packet.
+                State::MDC =>
+                    if let Packet::MDC(ref mdc) = pp.packet {
+                        assert_eq!(mdc.hash, mdc.computed_hash);
+                        State::Done
+                    } else {
+                        panic!("Unexpected packet: {:?}", pp.packet)
+                    },
+
+                State::Done =>
+                    panic!("Unexpected packet: {:?}", pp.packet),
+            };
+
+            // Next?
+            let (_, _, tmp, _) = pp.recurse().unwrap();
+            ppo = tmp;
+        }
+
+        assert_eq!(state, State::Done);
     }
 }

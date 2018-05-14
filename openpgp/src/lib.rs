@@ -396,6 +396,19 @@ pub struct MDC {
     pub computed_hash: [u8; 20],
     pub hash: [u8; 20],
 }
+
+impl MDC {
+    pub fn new(hash: &mut nettle::Hash) -> Self {
+        let mut mdc = MDC {
+            common: Default::default(),
+            computed_hash: Default::default(),
+            hash: Default::default(),
+        };
+
+        hash.digest(&mut mdc.hash[..]);
+        mdc
+    }
+}
 
 /// The OpenPGP packets that Sequoia understands.
 ///

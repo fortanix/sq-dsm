@@ -7,6 +7,7 @@ use flate2::write::{DeflateEncoder, ZlibEncoder};
 use std::fmt;
 use std::io;
 
+use symmetric::{self, SymmetricAlgo};
 use Result;
 
 /// A stack of writers.
@@ -430,6 +431,68 @@ impl<'a, C> io::Write for BZ<'a, C> {
 
 impl<'a, C> Stackable<'a, C> for BZ<'a, C> {
     fn into_inner(self: Box<Self>) -> Result<Option<Stack<'a, C>>> {
+        let inner = self.inner.inner.finish()?;
+        Ok(Some(inner))
+    }
+    fn pop(&mut self) -> Result<Option<Stack<'a, C>>> {
+        unimplemented!()
+    }
+    fn mount(&mut self, _new: Stack<'a, C>) {
+        unimplemented!()
+    }
+    fn inner_mut(&mut self) -> Option<&mut Stackable<'a, C>> {
+        self.inner.inner_mut()
+    }
+    fn inner_ref(&self) -> Option<&Stackable<'a, C>> {
+        self.inner.inner_ref()
+    }
+    fn cookie_set(&mut self, cookie: C) -> C {
+        self.inner.cookie_set(cookie)
+    }
+    fn cookie_ref(&self) -> &C {
+        self.inner.cookie_ref()
+    }
+    fn cookie_mut(&mut self) -> &mut C {
+        self.inner.cookie_mut()
+    }
+}
+
+/// Encrypting writer.
+pub struct Encryptor<'a, C> {
+    inner: Generic<symmetric::Encryptor<Stack<'a, C>>, C>,
+}
+
+impl<'a, C> Encryptor<'a, C> {
+    pub fn new(inner: Stack<'a, C>, cookie: C, algo: SymmetricAlgo, key: &[u8])
+               -> Result<Box<Self>> {
+        Ok(Box::new(Encryptor {
+            inner: Generic::new_unboxed(
+                symmetric::Encryptor::new(algo, key, inner)?,
+                cookie),
+        }))
+    }
+}
+
+impl<'a, C:> fmt::Debug for Encryptor<'a, C> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("writer::Encryptor")
+            .field("inner", &self.inner)
+            .finish()
+    }
+}
+
+impl<'a, C> io::Write for Encryptor<'a, C> {
+    fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+        self.inner.write(bytes)
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        self.inner.flush()
+    }
+}
+
+impl<'a, C> Stackable<'a, C> for Encryptor<'a, C> {
+    fn into_inner(mut self: Box<Self>) -> Result<Option<Stack<'a, C>>> {
         let inner = self.inner.inner.finish()?;
         Ok(Some(inner))
     }
