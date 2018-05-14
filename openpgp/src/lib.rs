@@ -79,7 +79,7 @@ pub mod symmetric;
 pub use symmetric::SymmetricAlgo;
 
 mod s2k;
-use s2k::S2K;
+pub use s2k::S2K;
 
 mod unknown;
 mod signature;
@@ -91,7 +91,7 @@ mod literal;
 mod compressed_data;
 
 mod skesk;
-use skesk::SKESK;
+pub use skesk::SKESK;
 
 mod message;
 mod constants;
