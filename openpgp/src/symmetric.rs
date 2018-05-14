@@ -427,7 +427,7 @@ impl<R: BufferedReader<C>, C> BufferedReader<C>
 
 /// A `Write`r for symmetrically encrypting data.
 pub struct Encryptor<W: io::Write> {
-    inner: W,
+    inner: Option<W>,
 
     cipher: Box<Mode>,
     block_size: usize,
@@ -447,7 +447,7 @@ impl<W: io::Write> Encryptor<W> {
         unsafe { scratch.set_len(block_size); }
 
         Ok(Encryptor {
-            inner: sink,
+            inner: Some(sink),
             cipher: cipher,
             block_size: block_size,
             iv: vec![0u8; block_size],
@@ -455,10 +455,31 @@ impl<W: io::Write> Encryptor<W> {
             scratch: scratch,
         })
     }
+
+    /// Finish encryption and write last partial block.
+    pub fn finish(&mut self) -> Result<W> {
+        if let Some(mut inner) = self.inner.take() {
+            if self.buffer.len() > 0 {
+                unsafe { self.scratch.set_len(self.buffer.len()) }
+                self.cipher.encrypt(&mut self.iv, &mut self.scratch, &self.buffer);
+                self.buffer.clear();
+                inner.write_all(&self.scratch)?;
+            }
+            Ok(inner)
+        } else {
+            Err(io::Error::new(io::ErrorKind::BrokenPipe,
+                               "Inner writer was taken").into())
+        }
+    }
 }
 
 impl<W: io::Write> io::Write for Encryptor<W> {
     fn write(&mut self, mut buf: &[u8]) -> io::Result<usize> {
+        if self.inner.is_none() {
+            return Err(io::Error::new(io::ErrorKind::BrokenPipe,
+                                      "Inner writer was taken"));
+        }
+        let inner = self.inner.as_mut().unwrap();
         let amount = buf.len();
 
         // First, fill the buffer if there is something in it.
@@ -472,7 +493,7 @@ impl<W: io::Write> io::Write for Encryptor<W> {
             if self.buffer.len() == self.block_size {
                 self.cipher.encrypt(&mut self.iv, &mut self.scratch, &self.buffer);
                 self.buffer.clear();
-                self.inner.write_all(&self.scratch)?;
+                inner.write_all(&self.scratch)?;
             }
         }
 
@@ -482,7 +503,7 @@ impl<W: io::Write> io::Write for Encryptor<W> {
             if block.len() == self.block_size {
                 // Complete block.
                 self.cipher.encrypt(&mut self.iv, &mut self.scratch, block);
-                self.inner.write_all(&self.scratch)?;
+                inner.write_all(&self.scratch)?;
             } else {
                 // Stash for later.
                 assert!(self.buffer.is_empty());
@@ -497,20 +518,21 @@ impl<W: io::Write> io::Write for Encryptor<W> {
         // It is not clear how we can implement this, because we can
         // only operate on block sizes.  We will, however, ask our
         // inner writer to flush.
-        self.inner.flush()
+        if let Some(ref mut inner) = self.inner {
+            inner.flush()
+        } else {
+            Err(io::Error::new(io::ErrorKind::BrokenPipe,
+                               "Inner writer was taken"))
+        }
     }
 }
 
 impl<W: io::Write> Drop for Encryptor<W> {
     fn drop(&mut self) {
-        if self.buffer.len() > 0 {
-            unsafe { self.scratch.set_len(self.buffer.len()) }
-            self.cipher.encrypt(&mut self.iv, &mut self.scratch, &self.buffer);
-            // Unfortunately, we cannot handle errors here.  If error
-            // handling is a concern, we need to implement
-            // into_inner() and properly return errors there.
-            let _ = self.inner.write_all(&self.scratch);
-        }
+        // Unfortunately, we cannot handle errors here.  If error
+        // handling is a concern, call finish() and properly handle
+        // errors there.
+        let _ = self.finish();
     }
 }
 
