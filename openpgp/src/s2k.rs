@@ -4,7 +4,7 @@ use HashAlgo;
 
 use std::fmt;
 
-use nettle::Hash;
+use nettle::{Hash, Yarrow};
 use quickcheck::{Arbitrary,Gen};
 
 /// String-to-Key (S2K) specifiers.
@@ -32,6 +32,19 @@ pub enum S2K {
     Private(u8),
     /// Unknown S2K algorithm
     Unknown(u8),
+}
+
+// XXX: Check defaults.
+impl Default for S2K {
+    fn default() -> Self {
+        let mut salt = [0u8; 8];
+        Yarrow::default().random(&mut salt);
+        S2K::Iterated{
+            hash: HashAlgo::SHA256,
+            salt: salt,
+            iterations: 26214400, // XXX: Calibrate somehow.
+        }
+    }
 }
 
 impl S2K {
