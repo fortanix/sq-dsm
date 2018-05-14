@@ -548,11 +548,12 @@ impl Serialize for SEIP {
             unimplemented!("XXX: Serialize and encrypt the content.");
         } else {
             // XXX: We assume that the content is encrypted.
-            let body_len
-                = self.common.body.as_ref().map(|b| b.len()).unwrap_or(0);
+            let body_len = 1
+                + self.common.body.as_ref().map(|b| b.len()).unwrap_or(0);
 
             CTB::new(Tag::SEIP).serialize(o)?;
             BodyLength::Full(body_len as u32).serialize(o)?;
+            o.write(&[self.version])?;
             if let Some(ref body) = self.common.body {
                 o.write(&body[..])?;
             }
