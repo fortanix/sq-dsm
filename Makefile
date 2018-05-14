@@ -68,7 +68,7 @@ install: build-release
 	$(INSTALL) -d $(DESTDIR)$(PREFIX)/lib/sequoia
 	$(INSTALL) -t $(DESTDIR)$(PREFIX)/lib/sequoia target/release/keystore
 	$(INSTALL) -d $(DESTDIR)$(PREFIX)/bin
-	$(INSTALL) -t $(DESTDIR)$(PREFIX)/bin target/release/sq
+	$(INSTALL) -t $(DESTDIR)$(PREFIX)/bin target/release/sq target/release/sqv
 	$(MAKE) -Cffi install
 
 # Infrastructure for creating source distributions.
