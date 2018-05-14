@@ -141,6 +141,9 @@ pub enum Error {
     #[fail(display = "Unsupported symmetric algorithm: {}", _0)]
     UnsupportedSymmetricAlgorithm(u8),
 
+    #[fail(display = "Unsupported signature type: {}", _0)]
+    UnsupportedSignatureType(u8),
+
     #[fail(display = "Invalid password")]
     InvalidPassword,
 
@@ -632,7 +635,7 @@ impl Fingerprint {
 /// generated, see [Section 12.2 of RFC 4880].
 ///
 ///   [Section 12.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-12.2
-#[derive(PartialEq, Clone, Hash)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Hash)]
 pub enum KeyID {
     V4([u8;8]),
     // Used for holding fingerprints that we don't understand.  For

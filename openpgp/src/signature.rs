@@ -7,6 +7,8 @@ use PublicKeyAlgorithm;
 use Signature;
 use SignatureType;
 use Key;
+use UserID;
+use UserAttribute;
 use Packet;
 use SubpacketArea;
 use serialize::Serialize;
@@ -18,6 +20,8 @@ use nettle::rsa::verify_digest_pkcs1;
 
 #[cfg(test)]
 use std::path::PathBuf;
+
+const TRACE : bool = false;
 
 #[cfg(test)]
 fn path_to(artifact: &str) -> PathBuf {
@@ -161,14 +165,21 @@ impl Signature {
         verify_digest_pkcs1(&key, hash, hash_algo.oid()?, sig_mpi)
     }
 
-    /// Returns whether `key` generated the signature.
+    /// Returns whether `key` made the signature.
     ///
-    /// This function does not check whether `key` can generate valid
-    /// signatures.  It is up to the caller to make sure the key is
+    /// This function does not check whether `key` can made valid
+    /// signatures; it is up to the caller to make sure the key is
     /// not revoked, not expired, has a valid self-signature, has a
     /// subkey binding signature (if appropriate), has the signing
     /// capability, etc.
     pub fn verify(&self, key: &Key) -> Result<bool> {
+        if !(self.sigtype == SignatureType::Binary
+             || self.sigtype == SignatureType::Text
+             || self.sigtype == SignatureType::Standalone) {
+            return Err(Error::UnsupportedSignatureType(
+                self.sigtype.into()).into());
+        }
+
         if let Some((hash_algo, ref hash)) = self.computed_hash {
             self.verify_hash(key, hash_algo, hash)
         } else {
@@ -176,6 +187,155 @@ impl Signature {
         }
     }
 
+    /// Verifies the primary key binding.
+    ///
+    /// `self` is the primary key binding signature, `signer` is the
+    /// key that allegedly made the signature, and `pk` is the primary
+    /// key.
+    ///
+    /// For a self-signature, `signer` and `pk` will be the same.
+    pub fn verify_primary_key_binding(&self, signer: &Key, pk: &Key)
+        -> Result<bool>
+    {
+        if self.sigtype != SignatureType::DirectKey {
+            return Err(Error::UnsupportedSignatureType(
+                self.sigtype.into()).into());
+        }
+
+        let hash = self.primary_key_binding_hash(pk);
+        self.verify_hash(signer, self.hash_algo, &hash[..])
+    }
+
+    /// Verifies the subkey binding.
+    ///
+    /// `self` is the subkey key binding signature, `signer` is the
+    /// key that allegedly made the signature, `pk` is the primary
+    /// key, and `subkey` is the subkey.
+    ///
+    /// For a self-signature, `signer` and `pk` will be the same.
+    ///
+    /// If the signature indicates that this is a `Signing` capable
+    /// subkey, then the back signature is also verified.  If it is
+    /// missing or can't be verified, then this function returns
+    /// false.
+    pub fn verify_subkey_binding(&self, signer: &Key, pk: &Key, subkey: &Key)
+        -> Result<bool>
+    {
+        if self.sigtype != SignatureType::SubkeyBinding {
+            return Err(Error::UnsupportedSignatureType(
+                self.sigtype.into()).into());
+        }
+
+        let hash = self.subkey_binding_hash(pk, subkey);
+        if self.verify_hash(signer, self.hash_algo, &hash[..])? {
+            // The signature is good, but we may still need to verify
+            // the back sig.
+        } else {
+            return Ok(false);
+        }
+
+        let signing_capable = if let Some(flags) = self.key_flags() {
+            if flags.len() >= 1 {
+                (flags[0] & 0x02) != 0
+            } else {
+                // The sign capability is in the first byte.  This is
+                // too short.  Missing flags default to 0.
+                false
+            }
+        } else {
+            // No flags are present.  Missing flags default to 0.
+            false
+        };
+
+        if ! signing_capable {
+            // No backsig required.
+            return Ok(true)
+        }
+
+        let mut backsig_ok = false;
+        if let Some(Packet::Signature(backsig)) = self.embedded_signature() {
+            if backsig.sigtype != SignatureType::PrimaryKeyBinding {
+                return Err(Error::UnsupportedSignatureType(
+                    self.sigtype.into()).into());
+            } else {
+                // We can't use backsig.verify_subkey_binding.
+                let hash = backsig.subkey_binding_hash(pk, &subkey);
+                match backsig.verify_hash(&subkey, backsig.hash_algo, &hash[..])
+                {
+                    Ok(true) => {
+                        if TRACE {
+                            eprintln!("{} / {}: Backsig is good!",
+                                      pk.keyid(), subkey.keyid());
+                        }
+                        backsig_ok = true;
+                    },
+                    Ok(false) => {
+                        if TRACE {
+                            eprintln!("{} / {}: Backsig is bad!",
+                                      pk.keyid(), subkey.keyid());
+                        }
+                    },
+                    Err(err) => {
+                        if TRACE {
+                            eprintln!("{} / {}: Error validating backsig: {}",
+                                      pk.keyid(), subkey.keyid(),
+                                      err);
+                        }
+                    },
+                }
+            }
+        }
+
+        Ok(backsig_ok)
+    }
+
+    /// Verifies the user id binding.
+    ///
+    /// `self` is the user id binding signature, `signer` is the key
+    /// that allegedly made the signature, `pk` is the primary key,
+    /// and `userid` is the user id.
+    ///
+    /// For a self-signature, `signer` and `pk` will be the same.
+    pub fn verify_userid_binding(&self, signer: &Key,
+                                 pk: &Key, userid: &UserID)
+        -> Result<bool>
+    {
+        if !(self.sigtype == SignatureType::GenericCertificate
+             || self.sigtype == SignatureType::PersonaCertificate
+             || self.sigtype == SignatureType::CasualCertificate
+             || self.sigtype == SignatureType::PositiveCertificate
+             || self.sigtype == SignatureType::CertificateRevocation) {
+            return Err(Error::UnsupportedSignatureType(
+                self.sigtype.into()).into());
+        }
+
+        let hash = self.userid_binding_hash(pk, userid);
+        self.verify_hash(signer, self.hash_algo, &hash[..])
+    }
+
+    /// Verifies the user attribute binding.
+    ///
+    /// `self` is the user attribute binding signature, `signer` is
+    /// the key that allegedly made the signature, `pk` is the primary
+    /// key, and `ua` is the user attribute.
+    ///
+    /// For a self-signature, `signer` and `pk` will be the same.
+    pub fn verify_user_attribute_binding(&self, signer: &Key,
+                                         pk: &Key, ua: &UserAttribute)
+        -> Result<bool>
+    {
+        if !(self.sigtype == SignatureType::GenericCertificate
+             || self.sigtype == SignatureType::PersonaCertificate
+             || self.sigtype == SignatureType::CasualCertificate
+             || self.sigtype == SignatureType::PositiveCertificate
+             || self.sigtype == SignatureType::CertificateRevocation) {
+            return Err(Error::UnsupportedSignatureType(
+                self.sigtype.into()).into());
+        }
+
+        let hash = self.user_attribute_binding_hash(pk, ua);
+        self.verify_hash(signer, self.hash_algo, &hash[..])
+    }
 
     /// Convert the `Signature` struct to a `Packet`.
     pub fn to_packet(self) -> Packet {

@@ -82,6 +82,9 @@ pub enum Status {
     /// Unsupported symmetric algorithm.
     UnsupportedSymmetricAlgorithm = -10,
 
+    /// Unsupport signature type.
+    UnsupportedSignatureType = -20,
+
     /// Invalid password.
     InvalidPassword = -11,
 
@@ -104,6 +107,8 @@ pub enum Status {
 
     /// Bad signature.
     BadSignature = -19,
+
+    // XXX: Skipping UnsupportedSignatureType = -20
 }
 
 impl<'a> From<&'a failure::Error> for Status {
@@ -139,6 +144,8 @@ impl<'a> From<&'a failure::Error> for Status {
                     Status::UnsupportedPublicKeyAlgorithm,
                 &openpgp::Error::UnsupportedSymmetricAlgorithm(_) =>
                     Status::UnsupportedSymmetricAlgorithm,
+                &openpgp::Error::UnsupportedSignatureType(_) =>
+                    Status::UnsupportedSignatureType,
                 &openpgp::Error::InvalidPassword =>
                     Status::InvalidPassword,
                 &openpgp::Error::InvalidSessionKey(_) =>

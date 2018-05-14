@@ -705,15 +705,152 @@ impl TPK {
         }
 
 
-        // Sanity checks.
+        // The very first thing that we do is verify the
+        // self-signatures.  There are a few things that we need to be
+        // aware of:
+        //
+        //  - Signature may be invalid.  These should be dropped.
+        //
+        //  - Signature may be out of order.  These should be
+        //    reordered so that we have the latest self-signature and
+        //    we don't drop an userid or subkey that is actually
+        //    valid.
 
-        // Drop invalid user ids.
+        // Collect bad signatures here.  Below, we'll test whether
+        // they are just out of order by checking them against all
+        // userids and subkeys.
+        let mut bad = Vec::new();
+
+        for binding in self.userids.iter_mut() {
+            for sig in mem::replace(&mut binding.selfsigs, Vec::new())
+                .into_iter()
+            {
+                if let Ok(true) = sig.verify_userid_binding(
+                    &self.primary, &self.primary, &binding.userid) {
+                    binding.selfsigs.push(sig);
+                } else {
+                    if TRACE {
+                        eprintln!("Sig {:02X}{:02X}, type = {} \
+                                   doesn't belong to user id \"{}\"",
+                                  sig.hash_prefix[0], sig.hash_prefix[1],
+                                  sig.sigtype, binding.userid);
+                    }
+                    bad.push(sig);
+                }
+            }
+        }
+
+        for binding in self.user_attributes.iter_mut() {
+            for sig in mem::replace(&mut binding.selfsigs, Vec::new())
+                .into_iter()
+            {
+                if let Ok(true) = sig.verify_user_attribute_binding(
+                    &self.primary, &self.primary, &binding.user_attribute) {
+                    binding.selfsigs.push(sig);
+                } else {
+                    if TRACE {
+                        eprintln!("Sig {:02X}{:02X}, type = {} \
+                                   doesn't belong to user attribute",
+                                  sig.hash_prefix[0], sig.hash_prefix[1],
+                                  sig.sigtype);
+                    }
+                    bad.push(sig);
+                }
+            }
+        }
+
+        for binding in self.subkeys.iter_mut() {
+            for sig in mem::replace(&mut binding.selfsigs, Vec::new())
+                .into_iter()
+            {
+                if let Ok(true) = sig.verify_subkey_binding(
+                    &self.primary, &self.primary, &binding.subkey) {
+                    binding.selfsigs.push(sig);
+                } else {
+                    if TRACE {
+                        eprintln!("Sig {:02X}{:02X}, type = {} \
+                                   doesn't belong to subkey {}",
+                                  sig.hash_prefix[0], sig.hash_prefix[1],
+                                  sig.sigtype, binding.subkey.keyid());
+                    }
+                    bad.push(sig);
+                }
+            }
+        }
+
+        // See if the signatures that didn't validate are just out of
+        // place.
+        'outer: for sig in mem::replace(&mut bad, Vec::new()) {
+            for binding in self.userids.iter_mut() {
+                if let Ok(true) = sig.verify_userid_binding(
+                    &self.primary, &self.primary, &binding.userid) {
+                    if TRACE {
+                        eprintln!("Sig {:02X}{:02X} was out of place. \
+                                   Belongs to: {} / \"{:?}\".",
+                                  sig.hash_prefix[0], sig.hash_prefix[1],
+                                  self.primary.keyid(), binding.userid);
+                    }
+
+                    binding.selfsigs.push(sig);
+                    continue 'outer;
+                }
+            }
+
+            for binding in self.user_attributes.iter_mut() {
+                if let Ok(true) = sig.verify_user_attribute_binding(
+                    &self.primary, &self.primary, &binding.user_attribute) {
+                    if TRACE {
+                        eprintln!("Sig {:02X}{:02X} was out of place. \
+                                   Belongs to: {}'s user attribute.",
+                                  sig.hash_prefix[0], sig.hash_prefix[1],
+                                  self.primary.keyid());
+                    }
+
+                    binding.selfsigs.push(sig);
+                    continue 'outer;
+                }
+            }
+
+            for binding in self.subkeys.iter_mut() {
+                if let Ok(true) = sig.verify_subkey_binding(
+                    &self.primary, &self.primary, &binding.subkey) {
+                    if TRACE {
+                        eprintln!("Sig {:02X}{:02X} was out of place. \
+                                   Belongs to: {} / {}.",
+                                  sig.hash_prefix[0], sig.hash_prefix[1],
+                                  self.primary.keyid(),
+                                  binding.subkey.keyid());
+                    }
+
+                    binding.selfsigs.push(sig);
+                    continue 'outer;
+                }
+            }
+
+            bad.push(sig);
+        }
+
+        if bad.len() > 0 && TRACE {
+            eprintln!("{}: ignoring {} bad self-signatures",
+                      self.primary.keyid(), bad.len());
+        }
+
+        // Only keep user ids / user attributes / subkeys with at
+        // least one valid self-signature.
         self.userids.retain(|userid| {
-            // XXX Check binding signature.
             userid.selfsigs.len() > 0
         });
 
-        // XXX: Drop invalid self-signatures.
+        self.user_attributes.retain(|ua| {
+            ua.selfsigs.len() > 0
+        });
+
+        self.subkeys.retain(|subkey| {
+            subkey.selfsigs.len() > 0
+        });
+
+
+        // Sanity checks.
 
         // Sort the signatures so that the current valid
         // self-signature is first.
@@ -801,15 +938,6 @@ impl TPK {
         });
 
 
-        // Drop invalid user attributes.
-        self.user_attributes.retain(|a| {
-            // XXX Check binding signature.
-            a.selfsigs.len() > 0
-        });
-
-        // XXX: Drop invalid self-signatures / see if they are just
-        // out of place.
-
         // Sort the signatures so that the current valid
         // self-signature is first.
         for attribute in &mut self.user_attributes {
@@ -872,15 +1000,6 @@ impl TPK {
             a.user_attribute.value.cmp(&b.user_attribute.value)
         });
 
-
-        // Drop invalid subkeys.
-        self.subkeys.retain(|subkey| {
-            // XXX Check binding signature.
-            subkey.selfsigs.len() > 0
-        });
-
-        // XXX: Drop invalid self-signatures / see if they are just
-        // out of place.
 
         // Sort the signatures so that the current valid
         // self-signature is first.
@@ -1060,7 +1179,9 @@ pub enum Error {
 
 #[cfg(test)]
 mod test {
-    use super::{Error, TPK, Message, Result};
+    use super::*;
+
+    use KeyID;
 
     macro_rules! bytes {
         ( $x:expr ) => { include_bytes!(concat!("../tests/data/keys/", $x)) };
@@ -1075,13 +1196,6 @@ mod test {
                 panic!("Expected {}, got {:?}.", stringify!($error), x);
             }
         };
-    }
-
-    #[test]
-    fn key_iter_test() {
-        let key = TPK::from_bytes(bytes!("neal.pgp")).unwrap();
-        assert_eq!(1 + key.subkeys().count(),
-                   key.keys().count());
     }
 
     fn parse_tpk(data: &[u8], as_message: bool) -> Result<TPK> {
@@ -1343,5 +1457,121 @@ mod test {
         assert!(merged.userids[0].certifications.len() == 4);
         assert!(merged.userids[1].certifications.len() == 2);
         assert!(merged.userids[2].certifications.len() == 2);
+    }
+
+    #[test]
+    fn key_iter_test() {
+        let key = TPK::from_bytes(bytes!("neal.pgp")).unwrap();
+        assert_eq!(1 + key.subkeys().count(),
+                   key.keys().count());
+    }
+
+    #[test]
+    fn out_of_order_self_sigs_test() {
+        // neal-out-of-order.pgp contains all of the self-signatures,
+        // but some are out of order.  The canonicalization step
+        // should reorder them.
+        //
+        // original order/new order:
+        //
+        //  1/ 1. pk
+        //  2/ 2. user id #1: neal@walfield.org (good)
+        //  3/ 3. sig over user ID #1
+        //
+        //  4/ 4. user id #2: neal@gnupg.org (good)
+        //  5/ 7. sig over user ID #3
+        //  6/ 5. sig over user ID #2
+        //
+        //  7/ 6. user id #3: neal@g10code.com (bad)
+        //
+        //  8/ 8. user ID #4: neal@pep.foundation (bad)
+        //  9/11. sig over user ID #5
+        //
+        // 10/10. user id #5: neal@pep-project.org (bad)
+        // 11/ 9. sig over user ID #4
+        //
+        // 12/12. user ID #6: neal@sequoia-pgp.org (good)
+        // 13/13. sig over user ID #6
+        //
+        // ----------------------------------------------
+        //
+        // 14/14. signing subkey #1: 7223B56678E02528 (good)
+        // 15/15. sig over subkey #1
+        // 16/16. sig over subkey #1
+        //
+        // 17/17. encryption subkey #2: C2B819056C652598 (good)
+        // 18/18. sig over subkey #2
+        // 19/21. sig over subkey #3
+        // 20/22. sig over subkey #3
+        //
+        // 21/20. auth subkey #3: A3506AFB820ABD08 (bad)
+        // 22/19. sig over subkey #2
+
+        let tpk = TPK::from_bytes(bytes!("neal-sigs-out-of-order.pgp")).unwrap();
+
+        let mut userids = tpk.userids()
+            .map(|u| String::from_utf8_lossy(&u.userid.value[..]).into_owned())
+            .collect::<Vec<String>>();
+        userids.sort();
+
+        assert_eq!(userids,
+                   &[ "Neal H. Walfield <neal@g10code.com>",
+                      "Neal H. Walfield <neal@gnupg.org>",
+                      "Neal H. Walfield <neal@pep-project.org>",
+                      "Neal H. Walfield <neal@pep.foundation>",
+                      "Neal H. Walfield <neal@sequoia-pgp.org>",
+                      "Neal H. Walfield <neal@walfield.org>",
+                   ][..]);
+
+        let mut subkeys = tpk.subkeys()
+            .map(|sk| Some(sk.subkey.keyid()))
+            .collect::<Vec<Option<KeyID>>>();
+        subkeys.sort();
+        assert_eq!(subkeys,
+                   &[ KeyID::from_hex(&"7223B56678E02528"[..]),
+                      KeyID::from_hex(&"A3506AFB820ABD08"[..]),
+                      KeyID::from_hex(&"C2B819056C652598"[..]),
+                   ][..]);
+
+        // DKG's key has all of the self-signatures moved to the last
+        // subkey; all user ids/user attributes/subkeys have nothing.
+        let tpk = TPK::from_bytes(bytes!("dkg-sigs-out-of-order.pgp")).unwrap();
+
+        let mut userids = tpk.userids()
+            .map(|u| String::from_utf8_lossy(&u.userid.value[..]).into_owned())
+            .collect::<Vec<String>>();
+        userids.sort();
+
+        assert_eq!(userids,
+                   &[ "Daniel Kahn Gillmor <dkg-debian.org@fifthhorseman.net>",
+                      "Daniel Kahn Gillmor <dkg@aclu.org>",
+                      "Daniel Kahn Gillmor <dkg@astro.columbia.edu>",
+                      "Daniel Kahn Gillmor <dkg@debian.org>",
+                      "Daniel Kahn Gillmor <dkg@fifthhorseman.net>",
+                      "Daniel Kahn Gillmor <dkg@openflows.com>",
+                   ][..]);
+
+        assert_eq!(tpk.user_attributes.len(), 1);
+
+        let mut subkeys = tpk.subkeys()
+            .map(|sk| Some(sk.subkey.keyid()))
+            .collect::<Vec<Option<KeyID>>>();
+        subkeys.sort();
+        assert_eq!(subkeys,
+                   &[ KeyID::from_hex(&"1075 8EBD BD7C FAB5"[..]),
+                      KeyID::from_hex(&"1258 68EA 4BFA 08E4"[..]),
+                      KeyID::from_hex(&"1498 ADC6 C192 3237"[..]),
+                      KeyID::from_hex(&"24EC FF5A FF68 370A"[..]),
+                      KeyID::from_hex(&"3714 7292 14D5 DA70"[..]),
+                      KeyID::from_hex(&"3B7A A7F0 14E6 9B5A"[..]),
+                      KeyID::from_hex(&"5B58 DCF9 C341 6611"[..]),
+                      KeyID::from_hex(&"A524 01B1 1BFD FA5C"[..]),
+                      KeyID::from_hex(&"A70A 96E1 439E A852"[..]),
+                      KeyID::from_hex(&"C61B D3EC 2148 4CFF"[..]),
+                      KeyID::from_hex(&"CAEF A883 2167 5333"[..]),
+                      KeyID::from_hex(&"DC10 4C4E 0CA7 57FB"[..]),
+                      KeyID::from_hex(&"E3A3 2229 449B 0350"[..]),
+                   ][..]);
+
     }
 }
