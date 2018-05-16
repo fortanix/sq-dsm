@@ -9,8 +9,7 @@ use std::slice;
 use std::mem;
 use std::iter;
 use std::fmt;
-
-use IterError;
+use std::vec;
 
 use super::{TPK, Packet, Message, Signature, Key, UserID, UserAttribute,
             Fingerprint, Tag};
@@ -134,8 +133,18 @@ impl fmt::Debug for TPKParserState {
     }
 }
 
-pub struct TPKParser<I: iter::Iterator<Item=Packet>> {
-    packet_iter: Option<I>,
+// A TPKParser can read packets from either an Iterator or a
+// PacketParser.  Ideally, we'it would just take an iterator, but we
+// want to be able to handle errors, which iterators hide.
+enum PacketSource<'a, I: Iterator<Item=Packet>> {
+    EOF,
+    Error(failure::Error),
+    PacketParser(PacketParser<'a>),
+    Iter(I),
+}
+
+pub struct TPKParser<'a, I: Iterator<Item=Packet>> {
+    source: PacketSource<'a, I>,
 
     state: TPKParserState,
     primary: Option<Key>,
@@ -144,10 +153,10 @@ pub struct TPKParser<I: iter::Iterator<Item=Packet>> {
     subkeys: Vec<SubkeyBinding>,
 }
 
-impl<I: iter::Iterator<Item=Packet>> Default for TPKParser<I> {
+impl<'a, I: Iterator<Item=Packet>> Default for TPKParser<'a, I> {
     fn default() -> Self {
         TPKParser {
-            packet_iter: None,
+            source: PacketSource::EOF,
             state: TPKParserState::Start,
             primary: None,
             userids: vec![],
@@ -157,16 +166,18 @@ impl<I: iter::Iterator<Item=Packet>> Default for TPKParser<I> {
     }
 }
 
-impl<I: iter::Iterator<Item=Packet> + IterError> TPKParser<I> {
+impl<'a, I: iter::Iterator<Item=Packet>> TPKParser<'a, I> {
     /// Returns any pending error.
     ///
     /// This interface is useful, because using an iterator, the
     /// caller cannot distinguish between no more items and an error.
     pub fn error(&mut self) -> Option<failure::Error> {
-        if let &mut Some(ref mut i) = &mut self.packet_iter {
-            i.error()
-        } else {
-            None
+        match mem::replace(&mut self.source, PacketSource::EOF) {
+            PacketSource::Error(err) => Some(err),
+            other => {
+                self.source = other;
+                None
+            }
         }
     }
 }
@@ -190,11 +201,23 @@ impl<'a> Iterator for KeyIter<'a> {
     }
 }
 
-impl<I: iter::Iterator<Item=Packet>> TPKParser<I> {
+// When using a `PacketParser`, we never use the `Iter` variant.
+// Nevertheless, we need to provide a concrete type.
+// vec::IntoIter<Packet> is about as good as any other.
+impl<'a> TPKParser<'a, vec::IntoIter<Packet>> {
     /// Initializes a parser.
-    pub fn new(iter: I) -> Self {
+    pub fn from_packet_parser(pp: PacketParser<'a>) -> Self {
         let mut parser : Self = Default::default();
-        parser.packet_iter = Some(iter);
+        parser.source = PacketSource::PacketParser(pp);
+        parser
+    }
+}
+
+impl<'a, I: Iterator<Item=Packet>> TPKParser<'a, I> {
+    /// Initializes a parser.
+    pub fn from_iter(iter: I) -> Self {
+        let mut parser : Self = Default::default();
+        parser.source = PacketSource::Iter(iter);
         parser
     }
 
@@ -202,13 +225,16 @@ impl<I: iter::Iterator<Item=Packet>> TPKParser<I> {
     //
     // Returns the old state.  Note: the packet iterator is preserved.
     fn reset(&mut self) -> Self {
-        // We need to preserve `packet_iter`.
+        // We need to preserve `source`.
         let mut orig = mem::replace(self, Default::default());
-        self.packet_iter = orig.packet_iter.take();
+        self.source = mem::replace(&mut orig.source, PacketSource::EOF);
         orig
     }
 
-    // Parses the next packet in the packet stream.  If th
+    // Parses the next packet in the packet stream.
+    //
+    // If we complete parsing a TPK, returns the TPK.  Otherwise,
+    // returns None.
     fn parse(&mut self, p: Packet) -> Option<TPK> {
         let mut result : Option<TPK> = None;
 
@@ -590,27 +616,60 @@ impl<I: iter::Iterator<Item=Packet>> TPKParser<I> {
     }
 }
 
-impl<I: iter::Iterator<Item=Packet>> Iterator for TPKParser<I> {
+impl<'a, I: Iterator<Item=Packet>> Iterator for TPKParser<'a, I> {
     type Item = TPK;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if let Some(mut i) = self.packet_iter.take() {
-            while let Some(packet) = i.next() {
-                if let Some(tpk) = self.parse(packet) {
+        loop {
+            match mem::replace(&mut self.source, PacketSource::EOF) {
+                PacketSource::EOF => {
                     if TRACE {
-                        eprintln!("TPKParser::next => {}",
-                                  tpk.primary().fingerprint());
+                        eprintln!("TPKParser::next: EOF.");
                     }
-                    self.packet_iter = Some(i);
-                    return Some(tpk);
-                }
+
+                    return self.tpk(None);
+                },
+                PacketSource::Error(_) => return None,
+                PacketSource::PacketParser(pp) => {
+                    match pp.next() {
+                        Ok((packet, _, ppo, _)) => {
+                            if let Some(pp) = ppo {
+                                self.source = PacketSource::PacketParser(pp);
+                            }
+
+                            if let Some(tpk) = self.parse(packet) {
+                                if TRACE {
+                                    eprintln!("TPKParser::next => {}",
+                                              tpk.primary().fingerprint());
+                                }
+                                return Some(tpk);
+                            }
+                        },
+                        Err(err) => {
+                            self.source = PacketSource::Error(err);
+                            return None;
+                        }
+                    }
+                },
+                PacketSource::Iter(mut iter) => {
+                    match iter.next() {
+                        Some(packet) => {
+                            self.source = PacketSource::Iter(iter);
+                            if let Some(tpk) = self.parse(packet) {
+                                if TRACE {
+                                    eprintln!("TPKParser::next => {}",
+                                              tpk.primary().fingerprint());
+                                }
+                                return Some(tpk);
+                            }
+                        },
+                        None => {
+                            return self.tpk(None);
+                        }
+                    }
+                },
             }
         }
-
-        if TRACE {
-            eprintln!("TPKParser::next: EOF.");
-        }
-        return self.tpk(None);
     }
 }
 
@@ -641,9 +700,9 @@ impl TPK {
 
     /// Returns the first TPK found in the packet stream.
     pub fn from_packet_parser(pp: PacketParser) -> Result<Self> {
-        let mut parser = TPKParser::new(pp.into_iter());
+        let mut parser = TPKParser::from_packet_parser(pp);
         if let Some(tpk) = parser.next() {
-            if let Some(err) = parser.error() {
+            if let PacketSource::Error(err) = parser.source {
                 Err(err)
             } else {
                 Ok(tpk)
@@ -670,11 +729,10 @@ impl TPK {
 
     /// Returns the first TPK found in `m`.
     pub fn from_message(m: Message) -> Result<Self> {
-        let mut i = TPKParser::new(m.into_children());
-        if let Some(tpk) = i.next() {
-            Ok(tpk)
-        } else {
-            Err(Error::NoKeyFound.into())
+        let mut i = TPKParser::from_iter(m.into_children());
+        match i.next() {
+            Some(tpk) => Ok(tpk),
+            None => Err(Error::NoKeyFound.into()),
         }
     }
 
