@@ -7,7 +7,6 @@ use std::path::Path;
 use std::fs::File;
 use std::slice;
 use std::mem;
-use std::iter;
 use std::fmt;
 use std::vec;
 
@@ -138,7 +137,6 @@ impl fmt::Debug for TPKParserState {
 // want to be able to handle errors, which iterators hide.
 enum PacketSource<'a, I: Iterator<Item=Packet>> {
     EOF,
-    Error(failure::Error),
     PacketParser(PacketParser<'a>),
     Iter(I),
 }
@@ -162,22 +160,6 @@ impl<'a, I: Iterator<Item=Packet>> Default for TPKParser<'a, I> {
             userids: vec![],
             user_attributes: vec![],
             subkeys: vec![],
-        }
-    }
-}
-
-impl<'a, I: iter::Iterator<Item=Packet>> TPKParser<'a, I> {
-    /// Returns any pending error.
-    ///
-    /// This interface is useful, because using an iterator, the
-    /// caller cannot distinguish between no more items and an error.
-    pub fn error(&mut self) -> Option<failure::Error> {
-        match mem::replace(&mut self.source, PacketSource::EOF) {
-            PacketSource::Error(err) => Some(err),
-            other => {
-                self.source = other;
-                None
-            }
         }
     }
 }
@@ -617,7 +599,7 @@ impl<'a, I: Iterator<Item=Packet>> TPKParser<'a, I> {
 }
 
 impl<'a, I: Iterator<Item=Packet>> Iterator for TPKParser<'a, I> {
-    type Item = TPK;
+    type Item = Result<TPK>;
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
@@ -627,9 +609,8 @@ impl<'a, I: Iterator<Item=Packet>> Iterator for TPKParser<'a, I> {
                         eprintln!("TPKParser::next: EOF.");
                     }
 
-                    return self.tpk(None);
+                    return self.tpk(None).map(|tpk| Ok(tpk));
                 },
-                PacketSource::Error(_) => return None,
                 PacketSource::PacketParser(pp) => {
                     match pp.next() {
                         Ok((packet, _, ppo, _)) => {
@@ -642,12 +623,11 @@ impl<'a, I: Iterator<Item=Packet>> Iterator for TPKParser<'a, I> {
                                     eprintln!("TPKParser::next => {}",
                                               tpk.primary().fingerprint());
                                 }
-                                return Some(tpk);
+                                return Some(Ok(tpk));
                             }
                         },
                         Err(err) => {
-                            self.source = PacketSource::Error(err);
-                            return None;
+                            return Some(Err(err));
                         }
                     }
                 },
@@ -660,11 +640,11 @@ impl<'a, I: Iterator<Item=Packet>> Iterator for TPKParser<'a, I> {
                                     eprintln!("TPKParser::next => {}",
                                               tpk.primary().fingerprint());
                                 }
-                                return Some(tpk);
+                                return Some(Ok(tpk));
                             }
                         },
                         None => {
-                            return self.tpk(None);
+                            return self.tpk(None).map(|tpk| Ok(tpk));
                         }
                     }
                 },
@@ -701,12 +681,8 @@ impl TPK {
     /// Returns the first TPK found in the packet stream.
     pub fn from_packet_parser(pp: PacketParser) -> Result<Self> {
         let mut parser = TPKParser::from_packet_parser(pp);
-        if let Some(tpk) = parser.next() {
-            if let PacketSource::Error(err) = parser.source {
-                Err(err)
-            } else {
-                Ok(tpk)
-            }
+        if let Some(tpk_result) = parser.next() {
+            tpk_result
         } else {
             Err(Error::NoKeyFound.into())
         }
@@ -731,7 +707,8 @@ impl TPK {
     pub fn from_message(m: Message) -> Result<Self> {
         let mut i = TPKParser::from_iter(m.into_children());
         match i.next() {
-            Some(tpk) => Ok(tpk),
+            Some(Ok(tpk)) => Ok(tpk),
+            Some(Err(err)) => Err(err),
             None => Err(Error::NoKeyFound.into()),
         }
     }
