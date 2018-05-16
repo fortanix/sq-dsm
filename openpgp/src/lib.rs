@@ -160,16 +160,6 @@ pub enum Error {
     Io(#[cause] io::Error),
 }
 
-/// Returns any pending error.
-///
-/// This interface is useful, because using an iterator, the caller
-/// cannot distinguish between no more items and an error.
-pub trait IterError {
-    fn error(&mut self) -> Option<failure::Error> {
-        None
-    }
-}
-
 // A helpful debugging function.
 #[allow(dead_code)]
 fn to_hex(s: &[u8], pretty: bool) -> String {
