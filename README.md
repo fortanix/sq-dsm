@@ -20,6 +20,10 @@ Debian:
 
     $ sudo apt install git rustc cargo clang make pkg-config nettle-dev libssl-dev capnproto libsqlite3-dev
 
+Note: the verion of Nettle in Debian 9 (Debian Stable as of 2018), is
+too old.  Instead, you need at least version 3.4, which is available
+from Debian testing.
+
 Arch Linux:
 
     $ sudo pacman -S git cargo clang make pkg-config nettle openssl capnproto sqlite3 --needed
