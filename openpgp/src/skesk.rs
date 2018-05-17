@@ -1,19 +1,9 @@
 use Result;
-use Packet;
 use S2K;
 use Error;
 use SymmetricAlgorithm;
-use packet::Common;
-
-#[derive(PartialEq, Clone, Debug)]
-pub struct SKESK {
-    pub common: Common,
-    pub version: u8,
-    pub symm_algo: SymmetricAlgorithm,
-    pub s2k: S2K,
-    // The encrypted session key.
-    pub esk: Vec<u8>,
-}
+use SKESK;
+use Packet;
 
 impl SKESK {
     /// Convert the `SKESK` struct to a `Packet`.
