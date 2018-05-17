@@ -433,8 +433,16 @@ impl Unknown {
     }
 }
 
-pub fn to_unknown_packet<R: Read>(reader: R)
-        -> Result<Unknown> {
+// Read the next packet as an unknown packet.
+//
+// The `reader` must point to the packet's header.  This buffers the
+// packet's contents.
+//
+// Note: we only need this for testing purposes in a different module.
+#[cfg(test)]
+pub(crate) fn to_unknown_packet<R: Read>(reader: R)
+    -> Result<Unknown>
+{
     let mut reader = BufferedReaderGeneric::with_cookie(
         reader, None, Cookie::default());
     let header = Header::parse(&mut reader)?;
