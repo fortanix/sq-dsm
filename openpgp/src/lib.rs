@@ -65,7 +65,8 @@ use packet::{BodyLength, Header, Container};
 
 pub mod parse;
 use parse::SubpacketArea;
-pub mod mpis;
+mod mpis;
+pub use mpis::MPIs;
 
 pub mod tpk;
 pub mod serialize;
@@ -245,7 +246,7 @@ pub struct Signature {
     pub hashed_area: parse::subpacket::SubpacketArea,
     pub unhashed_area: parse::subpacket::SubpacketArea,
     pub hash_prefix: [u8; 2],
-    pub mpis: mpis::MPIs,
+    pub mpis: MPIs,
 
     // When used in conjunction with a one-pass signature, this is the
     // hash computed over the enclosed message.
@@ -280,7 +281,7 @@ pub struct Key {
     /* When the key was created.  */
     pub creation_time: u32,
     pub pk_algo: PublicKeyAlgorithm,
-    pub mpis: mpis::MPIs,
+    pub mpis: MPIs,
 }
 
 /// Holds a UserID packet.

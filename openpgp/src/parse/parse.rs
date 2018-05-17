@@ -10,9 +10,9 @@ use std::path::Path;
 use std::fs::File;
 
 use ::buffered_reader::*;
-use mpis::MPIs;
 use {
     Result,
+    MPIs,
     SymmetricAlgorithm,
     CTB,
     CTBCommon,

@@ -2,6 +2,7 @@ use std::fmt;
 
 use Error;
 use Result;
+use MPIs;
 use HashAlgorithm;
 use PublicKeyAlgorithm;
 use Signature;
@@ -12,8 +13,6 @@ use UserAttribute;
 use Packet;
 use SubpacketArea;
 use serialize::Serialize;
-
-use mpis::MPIs;
 
 use nettle::rsa;
 use nettle::rsa::verify_digest_pkcs1;

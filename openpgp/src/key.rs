@@ -1,7 +1,6 @@
 use std::fmt;
 
-use mpis::MPIs;
-
+use MPIs;
 use Tag;
 use Key;
 use Packet;
