@@ -74,7 +74,103 @@ impl Arbitrary for PublicKeyAlgorithm {
         u8::arbitrary(g).into()
     }
 }
+
+/// The symmetric-key algorithms as defined in [Section 9.2 of RFC 4880].
+///
+///   [Section 9.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-9.2
+///
+/// The values can be converted into and from their corresponding values of the serialized format.
+///
+/// Use [`SymmetricAlgo::into`] to translate a numeric value
+/// to a symbolic one.
+///
+///   [`SymmetricAlgo::from`]: enum.SymmetricAlgo.html#method.from
+#[derive(Clone,Copy,PartialEq,Eq,Debug)]
+pub enum SymmetricAlgo {
+    Unencrypted,
+    IDEA,
+    TripleDES,
+    CAST5,
+    Blowfish,
+    AES128,
+    AES192,
+    AES256,
+    Twofish,
+    Private(u8),
+    Unknown(u8),
+}
 
+impl From<u8> for SymmetricAlgo {
+    fn from(u: u8) -> Self {
+        match u {
+            0 => SymmetricAlgo::Unencrypted,
+            1 => SymmetricAlgo::IDEA,
+            2 => SymmetricAlgo::TripleDES,
+            3 => SymmetricAlgo::CAST5,
+            4 => SymmetricAlgo::Blowfish,
+            7 => SymmetricAlgo::AES128,
+            8 => SymmetricAlgo::AES192,
+            9 => SymmetricAlgo::AES256,
+            10 => SymmetricAlgo::Twofish,
+            100...110 => SymmetricAlgo::Private(u),
+            u => SymmetricAlgo::Unknown(u),
+        }
+    }
+}
+
+impl From<SymmetricAlgo> for u8 {
+    fn from(s: SymmetricAlgo) -> u8 {
+        match s {
+            SymmetricAlgo::Unencrypted => 0,
+            SymmetricAlgo::IDEA => 1,
+            SymmetricAlgo::TripleDES => 2,
+            SymmetricAlgo::CAST5 => 3,
+            SymmetricAlgo::Blowfish => 4,
+            SymmetricAlgo::AES128 => 7,
+            SymmetricAlgo::AES192 => 8,
+            SymmetricAlgo::AES256 => 9,
+            SymmetricAlgo::Twofish => 10,
+            SymmetricAlgo::Private(u) => u,
+            SymmetricAlgo::Unknown(u) => u,
+        }
+    }
+}
+
+impl fmt::Display for SymmetricAlgo {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            SymmetricAlgo::Unencrypted =>
+                f.write_str("Unencrypted"),
+            SymmetricAlgo::IDEA =>
+                f.write_str("IDEA"),
+            SymmetricAlgo::TripleDES =>
+                f.write_str("TipleDES (EDE-DES, 168 bit key derived from 192))"),
+            SymmetricAlgo::CAST5 =>
+                f.write_str("CAST5 (128 bit key, 16 rounds)"),
+            SymmetricAlgo::Blowfish =>
+                f.write_str("Blowfish (128 bit key, 16 rounds)"),
+            SymmetricAlgo::AES128 =>
+                f.write_str("AES with 128-bit key"),
+            SymmetricAlgo::AES192 =>
+                f.write_str("AES with 192-bit key"),
+            SymmetricAlgo::AES256 =>
+                f.write_str("AES with 256-bit key"),
+            SymmetricAlgo::Twofish =>
+                f.write_str("Twofish with 256-bit key"),
+            SymmetricAlgo::Private(u) =>
+                f.write_fmt(format_args!("Private/Experimental symmetric key algorithm {}",u)),
+            SymmetricAlgo::Unknown(u) =>
+                f.write_fmt(format_args!("Unknown symmetric key algorithm {}",u)),
+        }
+    }
+}
+
+impl Arbitrary for SymmetricAlgo {
+    fn arbitrary<G: Gen>(g: &mut G) -> Self {
+        u8::arbitrary(g).into()
+    }
+}
+
 /// The OpenPGP compression algorithms as defined in [Section 9.3 of RFC 4880].
 ///
 ///   [Section 9.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-9.3
@@ -385,6 +481,31 @@ mod tests {
             match comp {
                 CompressionAlgorithm::Unknown(u) => u > 110 || (u > 3 && u < 100),
                 CompressionAlgorithm::Private(u) => u >= 100 && u <= 110,
+                _ => true
+            }
+        }
+    }
+
+
+    quickcheck! {
+        fn sym_roundtrip(sym: SymmetricAlgo) -> bool {
+            let val: u8 = sym.clone().into();
+            sym == SymmetricAlgo::from(val)
+        }
+    }
+
+    quickcheck! {
+        fn sym_display(sym: SymmetricAlgo) -> bool {
+            let s = format!("{}",sym);
+            !s.is_empty()
+        }
+    }
+
+    quickcheck! {
+        fn sym_parse(sym: SymmetricAlgo) -> bool {
+            match sym {
+                SymmetricAlgo::Unknown(u) => u == 5 || u == 6 || u > 110 || (u > 10 && u < 100),
+                SymmetricAlgo::Private(u) => u >= 100 && u <= 110,
                 _ => true
             }
         }

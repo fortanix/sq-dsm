@@ -13,6 +13,7 @@ use ::buffered_reader::*;
 use mpis::MPIs;
 use {
     Result,
+    SymmetricAlgo,
     CTB,
     CTBCommon,
     CTBOld,
@@ -41,7 +42,7 @@ use {
     Message,
     KeyID
 };
-use symmetric::{SymmetricAlgo, Decryptor, BufferedReaderDecryptor};
+use symmetric::{Decryptor, BufferedReaderDecryptor};
 
 mod partial_body;
 use self::partial_body::BufferedReaderPartialBodyFilter;

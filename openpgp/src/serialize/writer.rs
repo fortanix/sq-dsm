@@ -7,8 +7,11 @@ use flate2::write::{DeflateEncoder, ZlibEncoder};
 use std::fmt;
 use std::io;
 
-use symmetric::{self, SymmetricAlgo};
-use Result;
+use symmetric;
+use {
+    Result,
+    SymmetricAlgo,
+};
 
 /// A stack of writers.
 ///

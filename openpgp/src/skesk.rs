@@ -2,7 +2,7 @@ use Result;
 use Packet;
 use S2K;
 use Error;
-use symmetric::SymmetricAlgo;
+use SymmetricAlgo;
 use packet::Common;
 
 #[derive(PartialEq, Clone, Debug)]

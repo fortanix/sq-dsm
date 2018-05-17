@@ -73,7 +73,6 @@ pub mod serialize;
 
 mod hash;
 pub mod symmetric;
-pub use symmetric::SymmetricAlgo;
 
 mod s2k;
 pub use s2k::S2K;
@@ -96,6 +95,7 @@ mod constants;
 // constants public?
 pub use constants::{
     PublicKeyAlgorithm,
+    SymmetricAlgo,
     CompressionAlgorithm,
     HashAlgorithm,
     SignatureType,

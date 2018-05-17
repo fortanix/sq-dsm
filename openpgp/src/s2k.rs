@@ -240,7 +240,7 @@ mod tests {
     use super::*;
 
     use to_hex;
-    use symmetric::SymmetricAlgo;
+    use SymmetricAlgo;
     use Packet;
     use parse::PacketParser;
     use serialize::Serialize;

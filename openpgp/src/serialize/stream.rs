@@ -6,6 +6,7 @@ use nettle::{Hash, Yarrow};
 
 use {
     Error,
+    SymmetricAlgo,
     HashAlgorithm,
     Literal,
     MDC,
@@ -17,7 +18,6 @@ use {
 };
 use ctb::CTB;
 use packet::BodyLength;
-use symmetric::SymmetricAlgo;
 use super::{
     PartialBodyFilter,
     Serialize,
