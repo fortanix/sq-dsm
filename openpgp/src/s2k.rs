@@ -240,7 +240,7 @@ mod tests {
     use super::*;
 
     use to_hex;
-    use SymmetricAlgo;
+    use SymmetricAlgorithm;
     use Packet;
     use parse::PacketParser;
     use serialize::Serialize;
@@ -256,7 +256,7 @@ mod tests {
         struct Test<'a> {
             filename: &'a str,
             s2k: S2K,
-            cipher_algo: SymmetricAlgo,
+            cipher_algo: SymmetricAlgorithm,
             password: &'a [u8],
             key_hex: &'a str,
         };
@@ -270,14 +270,14 @@ mod tests {
         let tests = [
             Test {
                 filename: "mode-0-password-1234.gpg",
-                cipher_algo: SymmetricAlgo::AES256,
+                cipher_algo: SymmetricAlgorithm::AES256,
                 s2k: S2K::Simple{ hash: HashAlgorithm::SHA1, },
                 password: &b"1234"[..],
                 key_hex: "7110EDA4D09E062AA5E4A390B0A572AC0D2C0220F352B0D292B65164C2A67301",
             },
             Test {
                 filename: "mode-1-password-123456-1.gpg",
-                cipher_algo: SymmetricAlgo::AES256,
+                cipher_algo: SymmetricAlgorithm::AES256,
                 s2k: S2K::Salted{
                     hash: HashAlgorithm::SHA1,
                     salt: [0xa8, 0x42, 0xa7, 0xa9, 0x59, 0xfa, 0x42, 0x2a],
@@ -287,7 +287,7 @@ mod tests {
             },
             Test {
                 filename: "mode-1-password-foobar-2.gpg",
-                cipher_algo: SymmetricAlgo::AES256,
+                cipher_algo: SymmetricAlgorithm::AES256,
                 s2k: S2K::Salted{
                     hash: HashAlgorithm::SHA1,
                     salt: [0xbc, 0x95, 0x58, 0x45, 0x81, 0x3c, 0x7c, 0x37],
@@ -297,7 +297,7 @@ mod tests {
             },
             Test {
                 filename: "mode-3-password-qwerty-1.gpg",
-                cipher_algo: SymmetricAlgo::AES256,
+                cipher_algo: SymmetricAlgorithm::AES256,
                 s2k: S2K::Iterated {
                     hash: HashAlgorithm::SHA1,
                     salt: [0x78, 0x45, 0xf0, 0x5b, 0x55, 0xf7, 0xb4, 0x9e],
@@ -308,7 +308,7 @@ mod tests {
             },
             Test {
                 filename: "mode-3-password-9876-2.gpg",
-                cipher_algo: SymmetricAlgo::AES256,
+                cipher_algo: SymmetricAlgorithm::AES256,
                 s2k: S2K::Iterated {
                     hash: HashAlgorithm::SHA1,
                     salt: [0xb9, 0x67, 0xea, 0x96, 0x53, 0xdb, 0x6a, 0xc8],
@@ -319,7 +319,7 @@ mod tests {
             },
             Test {
                 filename: "mode-3-aes192-password-123.gpg",
-                cipher_algo: SymmetricAlgo::AES192,
+                cipher_algo: SymmetricAlgorithm::AES192,
                 s2k: S2K::Iterated {
                     hash: HashAlgorithm::SHA1,
                     salt: [0x8f, 0x81, 0x74, 0xc5, 0xd9, 0x61, 0xc7, 0x79],
@@ -330,7 +330,7 @@ mod tests {
             },
             Test {
                 filename: "mode-3-twofish-password-13-times-0123456789.gpg",
-                cipher_algo: SymmetricAlgo::Twofish,
+                cipher_algo: SymmetricAlgorithm::Twofish,
                 s2k: S2K::Iterated {
                     hash: HashAlgorithm::SHA1,
                     salt: [0x51, 0xed, 0xfc, 0x15, 0x45, 0x40, 0x65, 0xac],
@@ -341,7 +341,7 @@ mod tests {
             },
             Test {
                 filename: "mode-3-aes128-password-13-times-0123456789.gpg",
-                cipher_algo: SymmetricAlgo::AES128,
+                cipher_algo: SymmetricAlgorithm::AES128,
                 s2k: S2K::Iterated {
                     hash: HashAlgorithm::SHA1,
                     salt: [0x06, 0xe4, 0x61, 0x5c, 0xa4, 0x48, 0xf9, 0xdd],

@@ -2,14 +2,14 @@ use Result;
 use Packet;
 use S2K;
 use Error;
-use SymmetricAlgo;
+use SymmetricAlgorithm;
 use packet::Common;
 
 #[derive(PartialEq, Clone, Debug)]
 pub struct SKESK {
     pub common: Common,
     pub version: u8,
-    pub symm_algo: SymmetricAlgo,
+    pub symm_algo: SymmetricAlgorithm,
     pub s2k: S2K,
     // The encrypted session key.
     pub esk: Vec<u8>,
@@ -23,7 +23,9 @@ impl SKESK {
 
     /// Derives the key inside this SKESK from `password`. Returns a tuple of the symmetric cipher
     /// to use with the key and the key itself.
-    pub fn decrypt(&self, password: &[u8]) -> Result<(SymmetricAlgo, Vec<u8>)> {
+    pub fn decrypt(&self, password: &[u8])
+        -> Result<(SymmetricAlgorithm, Vec<u8>)>
+    {
         let key = self.s2k.derive_key(password, self.symm_algo.key_size()?)?;
 
         if self.esk.len() == 0 {
@@ -47,7 +49,7 @@ impl SKESK {
                 dec.decrypt(&mut iv[..], pl, ct);
             }
 
-            let sym = SymmetricAlgo::from(plain[0]);
+            let sym = SymmetricAlgorithm::from(plain[0]);
             let key = plain[1..].to_vec();
 
             Ok((sym, key))

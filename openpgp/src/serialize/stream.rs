@@ -6,7 +6,7 @@ use nettle::{Hash, Yarrow};
 
 use {
     Error,
-    SymmetricAlgo,
+    SymmetricAlgorithm,
     HashAlgorithm,
     Literal,
     MDC,
@@ -611,7 +611,7 @@ impl<'a> Encryptor<'a> {
     pub fn new(mut inner: writer::Stack<'a, Cookie>, password: &str)
                -> Result<writer::Stack<'a, Cookie>> {
         let level = inner.cookie_ref().level + 1;
-        let algo = SymmetricAlgo::AES128;
+        let algo = SymmetricAlgorithm::AES128;
 
         // Write the SKESK packet.
         let skesk = SKESK{

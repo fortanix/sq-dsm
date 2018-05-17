@@ -10,7 +10,7 @@ use std::io;
 use symmetric;
 use {
     Result,
-    SymmetricAlgo,
+    SymmetricAlgorithm,
 };
 
 /// A stack of writers.
@@ -466,8 +466,10 @@ pub struct Encryptor<'a, C> {
 }
 
 impl<'a, C> Encryptor<'a, C> {
-    pub fn new(inner: Stack<'a, C>, cookie: C, algo: SymmetricAlgo, key: &[u8])
-               -> Result<Box<Self>> {
+    pub fn new(inner: Stack<'a, C>, cookie: C, algo: SymmetricAlgorithm,
+               key: &[u8])
+        -> Result<Box<Self>>
+    {
         Ok(Box::new(Encryptor {
             inner: Generic::new_unboxed(
                 symmetric::Encryptor::new(algo, key, inner)?,

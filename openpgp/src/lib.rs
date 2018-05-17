@@ -95,7 +95,7 @@ mod constants;
 // constants public?
 pub use constants::{
     PublicKeyAlgorithm,
-    SymmetricAlgo,
+    SymmetricAlgorithm,
     CompressionAlgorithm,
     HashAlgorithm,
     SignatureType,

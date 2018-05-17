@@ -13,7 +13,7 @@ use ::buffered_reader::*;
 use mpis::MPIs;
 use {
     Result,
-    SymmetricAlgo,
+    SymmetricAlgorithm,
     CTB,
     CTBCommon,
     CTBOld,
@@ -1081,7 +1081,7 @@ fn skesk_parser_test() {
     struct Test<'a> {
         filename: &'a str,
         s2k: S2K,
-        cipher_algo: SymmetricAlgo,
+        cipher_algo: SymmetricAlgorithm,
         password: &'a [u8],
         key_hex: &'a str,
     };
@@ -1089,7 +1089,7 @@ fn skesk_parser_test() {
     let tests = [
             Test {
                 filename: "s2k/mode-3-encrypted-key-password-bgtyhn.gpg",
-                cipher_algo: SymmetricAlgo::AES128,
+                cipher_algo: SymmetricAlgorithm::AES128,
                 s2k: S2K::Iterated {
                     hash: HashAlgorithm::SHA1,
                     salt: [0x82, 0x59, 0xa0, 0x6e, 0x98, 0xda, 0x94, 0x1c],
@@ -2547,7 +2547,7 @@ impl<'a> PacketParser<'a> {
     /// If this function is called on a packet that does not contain
     /// encrypted data, or some of the data was already read, then it
     /// returns `Error::InvalidOperation`.
-    pub fn decrypt(&mut self, algo: SymmetricAlgo, key: &[u8])
+    pub fn decrypt(&mut self, algo: SymmetricAlgorithm, key: &[u8])
         -> Result<()>
     {
         if self.content_was_read {
@@ -2648,28 +2648,28 @@ mod test {
 
     struct DecryptTest<'a> {
         filename: &'a str,
-        algo: SymmetricAlgo,
+        algo: SymmetricAlgorithm,
         key_hex: &'a str,
     }
     const DECRYPT_TESTS: [DecryptTest; 4] = [
         DecryptTest {
             filename: "encrypted-aes256-password-123.gpg",
-            algo: SymmetricAlgo::AES256,
+            algo: SymmetricAlgorithm::AES256,
             key_hex: "7EF4F08C44F780BEA866961423306166B8912C43352F3D9617F745E4E3939710",
         },
         DecryptTest {
             filename: "encrypted-aes192-password-123456.gpg",
-            algo: SymmetricAlgo::AES192,
+            algo: SymmetricAlgorithm::AES192,
             key_hex: "B2F747F207EFF198A6C826F1D398DE037986218ED468DB61",
         },
         DecryptTest {
             filename: "encrypted-aes128-password-123456789.gpg",
-            algo: SymmetricAlgo::AES128,
+            algo: SymmetricAlgorithm::AES128,
             key_hex: "AC0553096429260B4A90B1CEC842D6A0",
         },
         DecryptTest {
             filename: "encrypted-twofish-password-red-fish-blue-fish.gpg",
-            algo: SymmetricAlgo::Twofish,
+            algo: SymmetricAlgorithm::Twofish,
             key_hex: "96AFE1EDFA7C9CB7E8B23484C718015E5159CFA268594180D4DB68B2543393CB",
         },
     ];

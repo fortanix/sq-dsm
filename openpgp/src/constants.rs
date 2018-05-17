@@ -81,12 +81,12 @@ impl Arbitrary for PublicKeyAlgorithm {
 ///
 /// The values can be converted into and from their corresponding values of the serialized format.
 ///
-/// Use [`SymmetricAlgo::into`] to translate a numeric value
+/// Use [`SymmetricAlgorithm::into`] to translate a numeric value
 /// to a symbolic one.
 ///
-///   [`SymmetricAlgo::from`]: enum.SymmetricAlgo.html#method.from
+///   [`SymmetricAlgorithm::from`]: enum.SymmetricAlgorithm.html#method.from
 #[derive(Clone,Copy,PartialEq,Eq,Debug)]
-pub enum SymmetricAlgo {
+pub enum SymmetricAlgorithm {
     Unencrypted,
     IDEA,
     TripleDES,
@@ -100,72 +100,72 @@ pub enum SymmetricAlgo {
     Unknown(u8),
 }
 
-impl From<u8> for SymmetricAlgo {
+impl From<u8> for SymmetricAlgorithm {
     fn from(u: u8) -> Self {
         match u {
-            0 => SymmetricAlgo::Unencrypted,
-            1 => SymmetricAlgo::IDEA,
-            2 => SymmetricAlgo::TripleDES,
-            3 => SymmetricAlgo::CAST5,
-            4 => SymmetricAlgo::Blowfish,
-            7 => SymmetricAlgo::AES128,
-            8 => SymmetricAlgo::AES192,
-            9 => SymmetricAlgo::AES256,
-            10 => SymmetricAlgo::Twofish,
-            100...110 => SymmetricAlgo::Private(u),
-            u => SymmetricAlgo::Unknown(u),
+            0 => SymmetricAlgorithm::Unencrypted,
+            1 => SymmetricAlgorithm::IDEA,
+            2 => SymmetricAlgorithm::TripleDES,
+            3 => SymmetricAlgorithm::CAST5,
+            4 => SymmetricAlgorithm::Blowfish,
+            7 => SymmetricAlgorithm::AES128,
+            8 => SymmetricAlgorithm::AES192,
+            9 => SymmetricAlgorithm::AES256,
+            10 => SymmetricAlgorithm::Twofish,
+            100...110 => SymmetricAlgorithm::Private(u),
+            u => SymmetricAlgorithm::Unknown(u),
         }
     }
 }
 
-impl From<SymmetricAlgo> for u8 {
-    fn from(s: SymmetricAlgo) -> u8 {
+impl From<SymmetricAlgorithm> for u8 {
+    fn from(s: SymmetricAlgorithm) -> u8 {
         match s {
-            SymmetricAlgo::Unencrypted => 0,
-            SymmetricAlgo::IDEA => 1,
-            SymmetricAlgo::TripleDES => 2,
-            SymmetricAlgo::CAST5 => 3,
-            SymmetricAlgo::Blowfish => 4,
-            SymmetricAlgo::AES128 => 7,
-            SymmetricAlgo::AES192 => 8,
-            SymmetricAlgo::AES256 => 9,
-            SymmetricAlgo::Twofish => 10,
-            SymmetricAlgo::Private(u) => u,
-            SymmetricAlgo::Unknown(u) => u,
+            SymmetricAlgorithm::Unencrypted => 0,
+            SymmetricAlgorithm::IDEA => 1,
+            SymmetricAlgorithm::TripleDES => 2,
+            SymmetricAlgorithm::CAST5 => 3,
+            SymmetricAlgorithm::Blowfish => 4,
+            SymmetricAlgorithm::AES128 => 7,
+            SymmetricAlgorithm::AES192 => 8,
+            SymmetricAlgorithm::AES256 => 9,
+            SymmetricAlgorithm::Twofish => 10,
+            SymmetricAlgorithm::Private(u) => u,
+            SymmetricAlgorithm::Unknown(u) => u,
         }
     }
 }
 
-impl fmt::Display for SymmetricAlgo {
+impl fmt::Display for SymmetricAlgorithm {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            SymmetricAlgo::Unencrypted =>
+            SymmetricAlgorithm::Unencrypted =>
                 f.write_str("Unencrypted"),
-            SymmetricAlgo::IDEA =>
+            SymmetricAlgorithm::IDEA =>
                 f.write_str("IDEA"),
-            SymmetricAlgo::TripleDES =>
+            SymmetricAlgorithm::TripleDES =>
                 f.write_str("TipleDES (EDE-DES, 168 bit key derived from 192))"),
-            SymmetricAlgo::CAST5 =>
+            SymmetricAlgorithm::CAST5 =>
                 f.write_str("CAST5 (128 bit key, 16 rounds)"),
-            SymmetricAlgo::Blowfish =>
+            SymmetricAlgorithm::Blowfish =>
                 f.write_str("Blowfish (128 bit key, 16 rounds)"),
-            SymmetricAlgo::AES128 =>
+            SymmetricAlgorithm::AES128 =>
                 f.write_str("AES with 128-bit key"),
-            SymmetricAlgo::AES192 =>
+            SymmetricAlgorithm::AES192 =>
                 f.write_str("AES with 192-bit key"),
-            SymmetricAlgo::AES256 =>
+            SymmetricAlgorithm::AES256 =>
                 f.write_str("AES with 256-bit key"),
-            SymmetricAlgo::Twofish =>
+            SymmetricAlgorithm::Twofish =>
                 f.write_str("Twofish with 256-bit key"),
-            SymmetricAlgo::Private(u) =>
+            SymmetricAlgorithm::Private(u) =>
                 f.write_fmt(format_args!("Private/Experimental symmetric key algorithm {}",u)),
-            SymmetricAlgo::Unknown(u) =>
+            SymmetricAlgorithm::Unknown(u) =>
                 f.write_fmt(format_args!("Unknown symmetric key algorithm {}",u)),
         }
     }
 }
 
-impl Arbitrary for SymmetricAlgo {
+impl Arbitrary for SymmetricAlgorithm {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
         u8::arbitrary(g).into()
     }
@@ -488,24 +488,26 @@ mod tests {
 
 
     quickcheck! {
-        fn sym_roundtrip(sym: SymmetricAlgo) -> bool {
+        fn sym_roundtrip(sym: SymmetricAlgorithm) -> bool {
             let val: u8 = sym.clone().into();
-            sym == SymmetricAlgo::from(val)
+            sym == SymmetricAlgorithm::from(val)
         }
     }
 
     quickcheck! {
-        fn sym_display(sym: SymmetricAlgo) -> bool {
+        fn sym_display(sym: SymmetricAlgorithm) -> bool {
             let s = format!("{}",sym);
             !s.is_empty()
         }
     }
 
     quickcheck! {
-        fn sym_parse(sym: SymmetricAlgo) -> bool {
+        fn sym_parse(sym: SymmetricAlgorithm) -> bool {
             match sym {
-                SymmetricAlgo::Unknown(u) => u == 5 || u == 6 || u > 110 || (u > 10 && u < 100),
-                SymmetricAlgo::Private(u) => u >= 100 && u <= 110,
+                SymmetricAlgorithm::Unknown(u) =>
+                    u == 5 || u == 6 || u > 110 || (u > 10 && u < 100),
+                SymmetricAlgorithm::Private(u) =>
+                    u >= 100 && u <= 110,
                 _ => true
             }
         }
@@ -530,7 +532,8 @@ mod tests {
         fn pk_parse(pk: PublicKeyAlgorithm) -> bool {
             match pk {
                 PublicKeyAlgorithm::Unknown(u) =>
-                    u == 0 || u > 110 || (u >= 4 && u <= 15) || (u >= 18 && u < 100),
+                    u == 0 || u > 110 || (u >= 4 && u <= 15)
+                    || (u >= 18 && u < 100),
                 PublicKeyAlgorithm::Private(u) => u >= 100 && u <= 110,
                 _ => true
             }
