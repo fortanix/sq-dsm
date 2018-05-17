@@ -21,7 +21,7 @@ use {
     BodyLength,
     S2K,
     Error,
-    HashAlgo,
+    HashAlgorithm,
     CompressionAlgorithm,
     Tag,
     Header,
@@ -386,14 +386,14 @@ impl S2K {
         let s2k = pp.parse_u8("s2k_type")?;
         let ret = match s2k {
             0 => S2K::Simple{
-                hash: HashAlgo::from(pp.parse_u8("s2k_hash_algo")?),
+                hash: HashAlgorithm::from(pp.parse_u8("s2k_hash_algo")?),
             },
             1 => S2K::Salted{
-                hash: HashAlgo::from(pp.parse_u8("s2k_hash_algo")?),
+                hash: HashAlgorithm::from(pp.parse_u8("s2k_hash_algo")?),
                 salt: Self::read_salt(pp)?,
             },
             3 => S2K::Iterated{
-                hash: HashAlgo::from(pp.parse_u8("s2k_hash_algo")?),
+                hash: HashAlgorithm::from(pp.parse_u8("s2k_hash_algo")?),
                 salt: Self::read_salt(pp)?,
                 iterations: S2K::decode_count(pp.parse_u8("s2k_count")?),
             },
@@ -473,7 +473,7 @@ impl Signature {
 
     /// Parses the body of a signature packet.
     fn parse<'a>(mut pp: PacketParser<'a>,
-                 computed_hash: Option<(HashAlgo, Box<Hash>)>)
+                 computed_hash: Option<(HashAlgorithm, Box<Hash>)>)
                  -> Result<PacketParser<'a>> {
         bind_ptry!(pp);
 
@@ -541,7 +541,7 @@ fn signature_parser_test () {
             assert_eq!(p.version, 4);
             assert_eq!(p.sigtype, SignatureType::Binary);
             assert_eq!(p.pk_algo, PublicKeyAlgorithm::RsaEncryptSign);
-            assert_eq!(p.hash_algo, HashAlgo::SHA512);
+            assert_eq!(p.hash_algo, HashAlgorithm::SHA512);
             assert_eq!(p.hashed_area.data.len(), 29);
             assert_eq!(p.unhashed_area.data.len(), 10);
             assert_eq!(p.hash_prefix, [0x65u8, 0x74]);
@@ -580,7 +580,7 @@ impl OnePassSig {
         // the hash algorithm so that we have something to match
         // against when we get to the Signature packet.
         let mut algos = Vec::new();
-        let hash_algo = HashAlgo::from(hash_algo);
+        let hash_algo = HashAlgorithm::from(hash_algo);
 
         if hash_algo.is_supported() {
             algos.push(hash_algo);
@@ -654,7 +654,7 @@ fn one_pass_sig_parser_test () {
     if let &Packet::OnePassSig(ref p) = p {
         assert_eq!(p.version, 3);
         assert_eq!(p.sigtype, SignatureType::Binary);
-        assert_eq!(p.hash_algo, HashAlgo::SHA512);
+        assert_eq!(p.hash_algo, HashAlgorithm::SHA512);
         assert_eq!(p.pk_algo, PublicKeyAlgorithm::RsaEncryptSign);
         assert_eq!(p.issuer.to_hex(), "7223B56678E02528");
         assert_eq!(p.last, 1);
@@ -1049,7 +1049,7 @@ impl MDC {
                     if state.hashes_for == HashesFor::MDC {
                         if state.hashes.len() > 0 {
                             let (a, mut h) = state.hashes.pop().unwrap();
-                            assert_eq!(a, HashAlgo::SHA1);
+                            assert_eq!(a, HashAlgorithm::SHA1);
                             h.digest(&mut computed_hash);
                         }
 
@@ -1090,7 +1090,7 @@ fn skesk_parser_test() {
                 filename: "s2k/mode-3-encrypted-key-password-bgtyhn.gpg",
                 cipher_algo: SymmetricAlgo::AES128,
                 s2k: S2K::Iterated {
-                    hash: HashAlgo::SHA1,
+                    hash: HashAlgorithm::SHA1,
                     salt: [0x82, 0x59, 0xa0, 0x6e, 0x98, 0xda, 0x94, 0x1c],
                     iterations: S2K::decode_count(238),
                 },
@@ -1395,14 +1395,14 @@ pub struct Cookie {
 
     hashes_for: HashesFor,
     hashing: bool,
-    hashes: Vec<(HashAlgo, Box<Hash>)>,
+    hashes: Vec<(HashAlgorithm, Box<Hash>)>,
 }
 
 impl fmt::Debug for Cookie {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let algos = self.hashes.iter()
             .map(|&(algo, _)| algo)
-            .collect::<Vec<HashAlgo>>();
+            .collect::<Vec<HashAlgorithm>>();
 
         f.debug_struct("Cookie")
             .field("level", &self.level)
@@ -2607,7 +2607,7 @@ impl<'a> PacketParser<'a> {
 
             // And the hasher.
             let mut reader = HashedReader::new(
-                reader, HashesFor::MDC, vec![HashAlgo::SHA1]);
+                reader, HashesFor::MDC, vec![HashAlgorithm::SHA1]);
             reader.cookie_mut().level = Some(self.recursion_depth as isize);
 
             if self.settings.trace {

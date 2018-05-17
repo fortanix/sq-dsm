@@ -2,7 +2,7 @@ use std::fmt;
 
 use Error;
 use Result;
-use HashAlgo;
+use HashAlgorithm;
 use PublicKeyAlgorithm;
 use Signature;
 use SignatureType;
@@ -85,7 +85,7 @@ impl Signature {
             version: 4,
             sigtype: sigtype,
             pk_algo: PublicKeyAlgorithm::Unknown(0),
-            hash_algo: HashAlgo::Unknown(0),
+            hash_algo: HashAlgorithm::Unknown(0),
             hashed_area: SubpacketArea::empty(),
             unhashed_area: SubpacketArea::empty(),
             hash_prefix: [0, 0],
@@ -109,7 +109,7 @@ impl Signature {
     }
 
     /// Sets the hash algorithm.
-    pub fn hash_algo(mut self, algo: HashAlgo) -> Self {
+    pub fn hash_algo(mut self, algo: HashAlgorithm) -> Self {
         // XXX: Do we invalidate the signature data?
         self.hash_algo = algo;
         self
@@ -119,7 +119,7 @@ impl Signature {
 
     // XXX: Add signature generation.
 
-    pub fn verify_hash(&self, key: &Key, hash_algo: HashAlgo, hash: &[u8])
+    pub fn verify_hash(&self, key: &Key, hash_algo: HashAlgorithm, hash: &[u8])
         -> Result<bool>
     {
         // Extract the public key.

@@ -143,7 +143,7 @@ impl Arbitrary for CompressionAlgorithm {
 ///
 /// The values correspond to the serialized format.
 #[derive(Clone,Copy,PartialEq,Eq,Debug)]
-pub enum HashAlgo {
+pub enum HashAlgorithm {
     MD5,
     SHA1,
     RipeMD,
@@ -155,81 +155,81 @@ pub enum HashAlgo {
     Unknown(u8),
 }
 
-impl From<u8> for HashAlgo {
+impl From<u8> for HashAlgorithm {
     fn from(u: u8) -> Self {
         match u {
-            1 => HashAlgo::MD5,
-            2 => HashAlgo::SHA1,
-            3 => HashAlgo::RipeMD,
-            8 => HashAlgo::SHA256,
-            9 => HashAlgo::SHA384,
-            10 => HashAlgo::SHA512,
-            11 => HashAlgo::SHA224,
-            100...110 => HashAlgo::Private(u),
-            u => HashAlgo::Unknown(u),
+            1 => HashAlgorithm::MD5,
+            2 => HashAlgorithm::SHA1,
+            3 => HashAlgorithm::RipeMD,
+            8 => HashAlgorithm::SHA256,
+            9 => HashAlgorithm::SHA384,
+            10 => HashAlgorithm::SHA512,
+            11 => HashAlgorithm::SHA224,
+            100...110 => HashAlgorithm::Private(u),
+            u => HashAlgorithm::Unknown(u),
         }
     }
 }
 
-impl From<HashAlgo> for u8 {
-    fn from(h: HashAlgo) -> u8 {
+impl From<HashAlgorithm> for u8 {
+    fn from(h: HashAlgorithm) -> u8 {
         match h {
-            HashAlgo::MD5 => 1,
-            HashAlgo::SHA1 => 2,
-            HashAlgo::RipeMD => 3,
-            HashAlgo::SHA256 => 8,
-            HashAlgo::SHA384 => 9,
-            HashAlgo::SHA512 => 10,
-            HashAlgo::SHA224 => 11,
-            HashAlgo::Private(u) => u,
-            HashAlgo::Unknown(u) => u,
+            HashAlgorithm::MD5 => 1,
+            HashAlgorithm::SHA1 => 2,
+            HashAlgorithm::RipeMD => 3,
+            HashAlgorithm::SHA256 => 8,
+            HashAlgorithm::SHA384 => 9,
+            HashAlgorithm::SHA512 => 10,
+            HashAlgorithm::SHA224 => 11,
+            HashAlgorithm::Private(u) => u,
+            HashAlgorithm::Unknown(u) => u,
         }
     }
 }
 
-impl FromStr for HashAlgo {
+impl FromStr for HashAlgorithm {
     type Err = ();
 
     fn from_str(s: &str) -> result::Result<Self, ()> {
         if s == "MD5" {
-            Ok(HashAlgo::MD5)
+            Ok(HashAlgorithm::MD5)
         } else if s == "SHA1" {
-            Ok(HashAlgo::SHA1)
+            Ok(HashAlgorithm::SHA1)
         } else if s == "RipeMD160" {
-            Ok(HashAlgo::RipeMD)
+            Ok(HashAlgorithm::RipeMD)
         } else if s == "SHA256" {
-            Ok(HashAlgo::SHA256)
+            Ok(HashAlgorithm::SHA256)
         } else if s == "SHA384" {
-            Ok(HashAlgo::SHA384)
+            Ok(HashAlgorithm::SHA384)
         } else if s == "SHA512" {
-            Ok(HashAlgo::SHA512)
+            Ok(HashAlgorithm::SHA512)
         } else if s == "SHA224" {
-            Ok(HashAlgo::SHA224)
+            Ok(HashAlgorithm::SHA224)
         } else {
             Err(())
         }
     }
 }
 
-impl fmt::Display for HashAlgo {
+impl fmt::Display for HashAlgorithm {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            HashAlgo::MD5 => f.write_str("MD5"),
-            HashAlgo::SHA1 => f.write_str("SHA1"),
-            HashAlgo::RipeMD => f.write_str("RipeMD160"),
-            HashAlgo::SHA256 => f.write_str("SHA256"),
-            HashAlgo::SHA384 => f.write_str("SHA384"),
-            HashAlgo::SHA512 => f.write_str("SHA512"),
-            HashAlgo::SHA224 => f.write_str("SHA224"),
-            HashAlgo::Private(u) =>
+            HashAlgorithm::MD5 => f.write_str("MD5"),
+            HashAlgorithm::SHA1 => f.write_str("SHA1"),
+            HashAlgorithm::RipeMD => f.write_str("RipeMD160"),
+            HashAlgorithm::SHA256 => f.write_str("SHA256"),
+            HashAlgorithm::SHA384 => f.write_str("SHA384"),
+            HashAlgorithm::SHA512 => f.write_str("SHA512"),
+            HashAlgorithm::SHA224 => f.write_str("SHA224"),
+            HashAlgorithm::Private(u) =>
                 f.write_fmt(format_args!("Private/Experimental hash algorithm {}",u)),
-            HashAlgo::Unknown(u) =>
+            HashAlgorithm::Unknown(u) =>
                 f.write_fmt(format_args!("Unknown hash algorithm {}",u)),
         }
     }
 }
 
-impl Arbitrary for HashAlgo {
+impl Arbitrary for HashAlgorithm {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
         u8::arbitrary(g).into()
     }
@@ -433,37 +433,37 @@ mod tests {
 
 
     quickcheck! {
-        fn hash_roundtrip(hash: HashAlgo) -> bool {
+        fn hash_roundtrip(hash: HashAlgorithm) -> bool {
             let val: u8 = hash.clone().into();
-            hash == HashAlgo::from(val)
+            hash == HashAlgorithm::from(val)
         }
     }
 
     quickcheck! {
-        fn hash_roundtrip_str(hash: HashAlgo) -> bool {
+        fn hash_roundtrip_str(hash: HashAlgorithm) -> bool {
             match hash {
-                HashAlgo::Private(_) | HashAlgo::Unknown(_) => true,
+                HashAlgorithm::Private(_) | HashAlgorithm::Unknown(_) => true,
                 hash => {
                     let s = format!("{}",hash);
-                    hash == HashAlgo::from_str(&s).unwrap()
+                    hash == HashAlgorithm::from_str(&s).unwrap()
                 }
             }
         }
     }
 
     quickcheck! {
-        fn hash_display(hash: HashAlgo) -> bool {
+        fn hash_display(hash: HashAlgorithm) -> bool {
             let s = format!("{}",hash);
             !s.is_empty()
         }
     }
 
     quickcheck! {
-        fn hash_parse(hash: HashAlgo) -> bool {
+        fn hash_parse(hash: HashAlgorithm) -> bool {
             match hash {
-                HashAlgo::Unknown(u) => u == 0 || (u > 11 && u < 100) ||
+                HashAlgorithm::Unknown(u) => u == 0 || (u > 11 && u < 100) ||
                     u > 110 || (u >= 4 && u <= 7) || u == 0,
-                HashAlgo::Private(u) => u >= 100 && u <= 110,
+                HashAlgorithm::Private(u) => u >= 100 && u <= 110,
                 _ => true
             }
         }

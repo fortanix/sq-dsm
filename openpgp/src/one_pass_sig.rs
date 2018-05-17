@@ -3,7 +3,7 @@ use std::fmt;
 use OnePassSig;
 use Packet;
 use KeyID;
-use HashAlgo;
+use HashAlgorithm;
 use PublicKeyAlgorithm;
 use SignatureType;
 use serialize::Serialize;
@@ -37,7 +37,7 @@ impl OnePassSig {
             common: Default::default(),
             version: 3,
             sigtype: sigtype,
-            hash_algo: HashAlgo::Unknown(0),
+            hash_algo: HashAlgorithm::Unknown(0),
             pk_algo: PublicKeyAlgorithm::Unknown(0),
             issuer: KeyID::new(0),
             last: 1,
@@ -57,7 +57,7 @@ impl OnePassSig {
     }
 
     /// Sets the hash algorithm.
-    pub fn hash_algo(mut self, algo: HashAlgo) -> Self {
+    pub fn hash_algo(mut self, algo: HashAlgorithm) -> Self {
         self.hash_algo = algo;
         self
     }

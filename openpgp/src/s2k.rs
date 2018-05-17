@@ -1,6 +1,6 @@
 use Error;
 use Result;
-use HashAlgo;
+use HashAlgorithm;
 
 use std::fmt;
 
@@ -16,15 +16,15 @@ use quickcheck::{Arbitrary,Gen};
 #[derive(Clone,Copy,PartialEq,Eq,Debug)]
 pub enum S2K {
     /// Simply hashes the password.
-    Simple{ hash: HashAlgo },
+    Simple{ hash: HashAlgorithm },
     /// Hashes the password with a public `salt` value.
     Salted{
-        hash: HashAlgo,
+        hash: HashAlgorithm,
         salt: [u8; 8],
     },
     /// Repeatently hashes the password with a public `salt` value.
     Iterated{
-        hash: HashAlgo,
+        hash: HashAlgorithm,
         salt: [u8; 8],
         iterations: u32,
     },
@@ -40,7 +40,7 @@ impl Default for S2K {
         let mut salt = [0u8; 8];
         Yarrow::default().random(&mut salt);
         S2K::Iterated{
-            hash: HashAlgo::SHA256,
+            hash: HashAlgorithm::SHA256,
             salt: salt,
             iterations: 26214400, // XXX: Calibrate somehow.
         }
@@ -218,13 +218,13 @@ impl fmt::Display for S2K {
 impl Arbitrary for S2K {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
         match g.gen_range(0, 5) {
-            0 => S2K::Simple{ hash: HashAlgo::arbitrary(g) },
+            0 => S2K::Simple{ hash: HashAlgorithm::arbitrary(g) },
             1 => S2K::Salted{
-                hash: HashAlgo::arbitrary(g),
+                hash: HashAlgorithm::arbitrary(g),
                 salt: g.gen(),
             },
             2 => S2K::Iterated{
-                hash: HashAlgo::arbitrary(g),
+                hash: HashAlgorithm::arbitrary(g),
                 salt: g.gen(),
                 iterations: S2K::nearest_iteration_count(g.gen()),
             },
@@ -271,7 +271,7 @@ mod tests {
             Test {
                 filename: "mode-0-password-1234.gpg",
                 cipher_algo: SymmetricAlgo::AES256,
-                s2k: S2K::Simple{ hash: HashAlgo::SHA1, },
+                s2k: S2K::Simple{ hash: HashAlgorithm::SHA1, },
                 password: &b"1234"[..],
                 key_hex: "7110EDA4D09E062AA5E4A390B0A572AC0D2C0220F352B0D292B65164C2A67301",
             },
@@ -279,7 +279,7 @@ mod tests {
                 filename: "mode-1-password-123456-1.gpg",
                 cipher_algo: SymmetricAlgo::AES256,
                 s2k: S2K::Salted{
-                    hash: HashAlgo::SHA1,
+                    hash: HashAlgorithm::SHA1,
                     salt: [0xa8, 0x42, 0xa7, 0xa9, 0x59, 0xfa, 0x42, 0x2a],
                 },
                 password: &b"123456"[..],
@@ -289,7 +289,7 @@ mod tests {
                 filename: "mode-1-password-foobar-2.gpg",
                 cipher_algo: SymmetricAlgo::AES256,
                 s2k: S2K::Salted{
-                    hash: HashAlgo::SHA1,
+                    hash: HashAlgorithm::SHA1,
                     salt: [0xbc, 0x95, 0x58, 0x45, 0x81, 0x3c, 0x7c, 0x37],
                 },
                 password: &b"foobar"[..],
@@ -299,7 +299,7 @@ mod tests {
                 filename: "mode-3-password-qwerty-1.gpg",
                 cipher_algo: SymmetricAlgo::AES256,
                 s2k: S2K::Iterated {
-                    hash: HashAlgo::SHA1,
+                    hash: HashAlgorithm::SHA1,
                     salt: [0x78, 0x45, 0xf0, 0x5b, 0x55, 0xf7, 0xb4, 0x9e],
                     iterations: S2K::decode_count(241),
                 },
@@ -310,7 +310,7 @@ mod tests {
                 filename: "mode-3-password-9876-2.gpg",
                 cipher_algo: SymmetricAlgo::AES256,
                 s2k: S2K::Iterated {
-                    hash: HashAlgo::SHA1,
+                    hash: HashAlgorithm::SHA1,
                     salt: [0xb9, 0x67, 0xea, 0x96, 0x53, 0xdb, 0x6a, 0xc8],
                     iterations: S2K::decode_count(43),
                 },
@@ -321,7 +321,7 @@ mod tests {
                 filename: "mode-3-aes192-password-123.gpg",
                 cipher_algo: SymmetricAlgo::AES192,
                 s2k: S2K::Iterated {
-                    hash: HashAlgo::SHA1,
+                    hash: HashAlgorithm::SHA1,
                     salt: [0x8f, 0x81, 0x74, 0xc5, 0xd9, 0x61, 0xc7, 0x79],
                     iterations: S2K::decode_count(238),
                 },
@@ -332,7 +332,7 @@ mod tests {
                 filename: "mode-3-twofish-password-13-times-0123456789.gpg",
                 cipher_algo: SymmetricAlgo::Twofish,
                 s2k: S2K::Iterated {
-                    hash: HashAlgo::SHA1,
+                    hash: HashAlgorithm::SHA1,
                     salt: [0x51, 0xed, 0xfc, 0x15, 0x45, 0x40, 0x65, 0xac],
                     iterations: S2K::decode_count(238),
                 },
@@ -343,7 +343,7 @@ mod tests {
                 filename: "mode-3-aes128-password-13-times-0123456789.gpg",
                 cipher_algo: SymmetricAlgo::AES128,
                 s2k: S2K::Iterated {
-                    hash: HashAlgo::SHA1,
+                    hash: HashAlgorithm::SHA1,
                     salt: [0x06, 0xe4, 0x61, 0x5c, 0xa4, 0x48, 0xf9, 0xdd],
                     iterations: S2K::decode_count(238),
                 },

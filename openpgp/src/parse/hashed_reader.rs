@@ -11,7 +11,7 @@ use buffered_reader::BufferedReaderGeneric;
 use buffered_reader::buffered_reader_generic_read_impl;
 
 use Result;
-use HashAlgo;
+use HashAlgorithm;
 use parse::{Cookie, HashesFor};
 
 use super::indent;
@@ -28,7 +28,7 @@ impl<R: BufferedReader<Cookie>> HashedReader<R> {
     /// Instantiates a new hashed reader.  `hashes_for` is the hash's
     /// purpose.  `algos` is a list of algorithms for which we should
     /// compute the hash.
-    pub fn new(reader: R, hashes_for: HashesFor, algos: Vec<HashAlgo>)
+    pub fn new(reader: R, hashes_for: HashesFor, algos: Vec<HashAlgorithm>)
             -> Self {
         let mut cookie = Cookie::default();
         for &algo in &algos {
@@ -191,8 +191,8 @@ impl HashedReader<BufferedReaderGeneric<File, Cookie>> {
     /// Hash the specified file.
     ///
     /// This is useful when verifying detached signatures.
-    pub fn file<P: AsRef<Path>>(path: P, algos: &[HashAlgo])
-        -> Result<Vec<(HashAlgo, Box<Hash>)>>
+    pub fn file<P: AsRef<Path>>(path: P, algos: &[HashAlgorithm])
+        -> Result<Vec<(HashAlgorithm, Box<Hash>)>>
     {
         let reader
             = BufferedReaderGeneric::with_cookie(
@@ -228,21 +228,21 @@ mod test {
     fn hash_test_1() {
         struct Test<'a> {
             data: &'a [u8],
-            algos: Vec<HashAlgo>,
+            algos: Vec<HashAlgorithm>,
             expected: Vec<&'a str>,
         };
 
         let tests = [
             Test {
                 data: &b"foobar\n"[..],
-                algos: vec![ HashAlgo::SHA1 ],
+                algos: vec![ HashAlgorithm::SHA1 ],
                 expected: vec![ "988881adc9fc3655077dc2d4d757d480b5ea0e11" ],
             },
             Test {
                 data: &b"0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789\n"[..],
-                algos: vec![ HashAlgo::SHA1, HashAlgo::SHA224,
-                            HashAlgo::SHA256, HashAlgo::SHA384,
-                            HashAlgo::SHA512 ],
+                algos: vec![ HashAlgorithm::SHA1, HashAlgorithm::SHA224,
+                            HashAlgorithm::SHA256, HashAlgorithm::SHA384,
+                            HashAlgorithm::SHA512 ],
                 expected: vec![
                     "1d12c55b3a85daab4776a1df41a8f30ada099e11",
                     "a4c1bde77c682a0e9e30c6afdd1ece2397ffeec61dde2a0eaa23191e",
@@ -281,7 +281,7 @@ mod test {
     #[test]
     fn hash_file_test() {
         let algos =
-            [ HashAlgo::SHA1, HashAlgo::SHA512, HashAlgo::SHA1 ];
+            [ HashAlgorithm::SHA1, HashAlgorithm::SHA512, HashAlgorithm::SHA1 ];
         let digests =
             [ "7945E3DA269C25C04F9EF435A5C0F25D9662C771",
                "DDE60DB05C3958AF1E576CD006A7F3D2C343DD8C8DECE789A15D148DF90E6E0D1454DE734F8343502CA93759F22C8F6221BE35B6BDE9728BD12D289122437CB1",

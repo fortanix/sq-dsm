@@ -6,7 +6,7 @@ use nettle::{Hash, Yarrow};
 
 use {
     Error,
-    HashAlgo,
+    HashAlgorithm,
     Literal,
     MDC,
     OnePassSig,
@@ -160,7 +160,7 @@ pub struct Signer<'a> {
     // digests.
     inner: Option<writer::Stack<'a, Cookie>>,
     signature: Signature,
-    hashes: Vec<(HashAlgo, Box<Hash>)>,
+    hashes: Vec<(HashAlgorithm, Box<Hash>)>,
     cookie: Cookie,
 }
 
@@ -182,7 +182,7 @@ impl<'a> Signer<'a> {
                     .to_keyid());
         ops.last = 1;
         ops.serialize(&mut inner)?;
-        algos.push(HashAlgo::from(template.hash_algo));
+        algos.push(HashAlgorithm::from(template.hash_algo));
 
         let mut hashes = Vec::with_capacity(n);
         for algo in algos {
@@ -642,7 +642,7 @@ impl<'a> Encryptor<'a> {
         // vector, hence we build the object here.
         let mut encryptor = Box::new(Self{
             inner: Some(encryptor),
-            hash: HashAlgo::SHA1.context().unwrap(),
+            hash: HashAlgorithm::SHA1.context().unwrap(),
             cookie: Cookie::new(level),
         });
 

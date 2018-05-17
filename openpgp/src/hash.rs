@@ -1,6 +1,6 @@
 //! Functionality to hash packets, and generate hashes.
 
-use HashAlgo;
+use HashAlgorithm;
 use UserID;
 use UserAttribute;
 use Key;
@@ -10,18 +10,18 @@ use Result;
 
 use nettle::Hash;
 
-impl HashAlgo {
+impl HashAlgorithm {
     pub fn is_supported(self) -> bool {
         match self {
-            HashAlgo::SHA1 => true,
-            HashAlgo::SHA224 => true,
-            HashAlgo::SHA256 => true,
-            HashAlgo::SHA384 => true,
-            HashAlgo::SHA512 => true,
-            HashAlgo::RipeMD => false,
-            HashAlgo::MD5 => false,
-            HashAlgo::Private(_) => false,
-            HashAlgo::Unknown(_) => false,
+            HashAlgorithm::SHA1 => true,
+            HashAlgorithm::SHA224 => true,
+            HashAlgorithm::SHA256 => true,
+            HashAlgorithm::SHA384 => true,
+            HashAlgorithm::SHA512 => true,
+            HashAlgorithm::RipeMD => false,
+            HashAlgorithm::MD5 => false,
+            HashAlgorithm::Private(_) => false,
+            HashAlgorithm::Unknown(_) => false,
         }
     }
 
@@ -30,14 +30,14 @@ impl HashAlgo {
         use nettle::hash::insecure_do_not_use::Sha1;
 
         match self {
-            HashAlgo::SHA1 => Ok(Box::new(Sha1::default())),
-            HashAlgo::SHA224 => Ok(Box::new(Sha224::default())),
-            HashAlgo::SHA256 => Ok(Box::new(Sha256::default())),
-            HashAlgo::SHA384 => Ok(Box::new(Sha384::default())),
-            HashAlgo::SHA512 => Ok(Box::new(Sha512::default())),
-            HashAlgo::MD5 | HashAlgo::RipeMD =>
+            HashAlgorithm::SHA1 => Ok(Box::new(Sha1::default())),
+            HashAlgorithm::SHA224 => Ok(Box::new(Sha224::default())),
+            HashAlgorithm::SHA256 => Ok(Box::new(Sha256::default())),
+            HashAlgorithm::SHA384 => Ok(Box::new(Sha384::default())),
+            HashAlgorithm::SHA512 => Ok(Box::new(Sha512::default())),
+            HashAlgorithm::MD5 | HashAlgorithm::RipeMD =>
                 Err(Error::UnknownHashAlgorithm(self.into()).into()),
-            HashAlgo::Private(x) | HashAlgo::Unknown(x) =>
+            HashAlgorithm::Private(x) | HashAlgorithm::Unknown(x) =>
                 Err(Error::UnknownHashAlgorithm(x).into()),
         }
     }
@@ -46,14 +46,14 @@ impl HashAlgo {
         use nettle::rsa;
 
         match self {
-            HashAlgo::SHA1 => Ok(rsa::ASN1_OID_SHA1),
-            HashAlgo::SHA224 => Ok(rsa::ASN1_OID_SHA224),
-            HashAlgo::SHA256 => Ok(rsa::ASN1_OID_SHA256),
-            HashAlgo::SHA384 => Ok(rsa::ASN1_OID_SHA384),
-            HashAlgo::SHA512 => Ok(rsa::ASN1_OID_SHA512),
-            HashAlgo::MD5 | HashAlgo::RipeMD =>
+            HashAlgorithm::SHA1 => Ok(rsa::ASN1_OID_SHA1),
+            HashAlgorithm::SHA224 => Ok(rsa::ASN1_OID_SHA224),
+            HashAlgorithm::SHA256 => Ok(rsa::ASN1_OID_SHA256),
+            HashAlgorithm::SHA384 => Ok(rsa::ASN1_OID_SHA384),
+            HashAlgorithm::SHA512 => Ok(rsa::ASN1_OID_SHA512),
+            HashAlgorithm::MD5 | HashAlgorithm::RipeMD =>
                 Err(Error::UnsupportedHashAlgorithm(self.into()).into()),
-            HashAlgo::Private(x) | HashAlgo::Unknown(x) =>
+            HashAlgorithm::Private(x) | HashAlgorithm::Unknown(x) =>
                 Err(Error::UnknownHashAlgorithm(x).into()),
         }
     }
@@ -190,7 +190,7 @@ impl Signature {
     // Return the message digest of the primary key binding over the
     // specified primary key, subkey, and signature.
     pub fn primary_key_binding_hash(&self, key: &Key) -> Vec<u8> {
-        let h: HashAlgo = self.hash_algo.into();
+        let h: HashAlgorithm = self.hash_algo.into();
         let mut h: Box<Hash> = h.context().unwrap();
 
         key.hash(&mut h);
@@ -205,7 +205,7 @@ impl Signature {
     // specified primary key, subkey, and signature.
     pub fn subkey_binding_hash(&self, key: &Key, subkey: &Key)
             -> Vec<u8> {
-        let h: HashAlgo = self.hash_algo.into();
+        let h: HashAlgorithm = self.hash_algo.into();
         let mut h: Box<Hash> = h.context().unwrap();
 
         key.hash(&mut h);
@@ -221,7 +221,7 @@ impl Signature {
     // specified primary key, user ID, and signature.
     pub fn userid_binding_hash(&self, key: &Key, userid: &UserID)
             -> Vec<u8> {
-        let h: HashAlgo = self.hash_algo.into();
+        let h: HashAlgorithm = self.hash_algo.into();
         let mut h: Box<Hash> = h.context().unwrap();
 
         key.hash(&mut h);
@@ -237,7 +237,7 @@ impl Signature {
     // the specified primary key, user attribute, and signature.
     pub fn user_attribute_binding_hash(&self, key: &Key, ua: &UserAttribute)
             -> Vec<u8> {
-        let h: HashAlgo = self.hash_algo.into();
+        let h: HashAlgorithm = self.hash_algo.into();
         let mut h: Box<Hash> = h.context().unwrap();
 
         key.hash(&mut h);

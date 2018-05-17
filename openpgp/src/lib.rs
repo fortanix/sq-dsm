@@ -97,7 +97,7 @@ mod constants;
 pub use constants::{
     PublicKeyAlgorithm,
     CompressionAlgorithm,
-    HashAlgo,
+    HashAlgorithm,
     SignatureType,
 };
 mod tag;
@@ -245,7 +245,7 @@ pub struct Signature {
     pub version: u8,
     pub sigtype: SignatureType,
     pub pk_algo: PublicKeyAlgorithm,
-    pub hash_algo: HashAlgo,
+    pub hash_algo: HashAlgorithm,
     pub hashed_area: parse::subpacket::SubpacketArea,
     pub unhashed_area: parse::subpacket::SubpacketArea,
     pub hash_prefix: [u8; 2],
@@ -253,7 +253,7 @@ pub struct Signature {
 
     // When used in conjunction with a one-pass signature, this is the
     // hash computed over the enclosed message.
-    pub computed_hash: Option<(HashAlgo, Vec<u8>)>,
+    pub computed_hash: Option<(HashAlgorithm, Vec<u8>)>,
 }
 
 /// Holds a one-pass signature packet.
@@ -266,7 +266,7 @@ pub struct OnePassSig {
     pub common: packet::Common,
     pub version: u8,
     pub sigtype: SignatureType,
-    pub hash_algo: HashAlgo,
+    pub hash_algo: HashAlgorithm,
     pub pk_algo: PublicKeyAlgorithm,
     pub issuer: KeyID,
     pub last: u8,
