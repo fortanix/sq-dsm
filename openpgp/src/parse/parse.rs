@@ -374,16 +374,24 @@ impl Header {
     }
 }
 
+// Note: this method is only used in a test in the s2k module.  This
+// means that we get a warning about it being unused in !cfg(test).
+// We can't add the #[cfg(test)] attribute to the method; we can only
+// add it to the impl block.
+#[cfg(test)]
 impl S2K {
-    pub fn parse_naked<R: io::Read>(r: R) -> io::Result<Self> {
+    // Reads an S2K from `r`.
+    pub(crate) fn parse_naked<R: io::Read>(r: R) -> io::Result<Self> {
         let bio = BufferedReaderGeneric::with_cookie(
             r, None, Cookie::default());
         let mut parser = PacketParser::new_naked(Box::new(bio));
         Self::parse(&mut parser)
     }
+}
 
-    /// Reads a S2K from `r`.
-    pub(crate) fn parse<'a>(pp: &mut PacketParser<'a>) -> io::Result<Self> {
+impl S2K {
+    /// Reads an S2K from `pp`.
+    fn parse<'a>(pp: &mut PacketParser<'a>) -> io::Result<Self> {
         let s2k = pp.parse_u8("s2k_type")?;
         let ret = match s2k {
             0 => S2K::Simple{
