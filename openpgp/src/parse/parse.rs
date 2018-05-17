@@ -1828,8 +1828,7 @@ impl <'a> PacketParser<'a> {
                           indent(recursion_depth as u8),
                           recursion_depth);
             }
-            return Ok(
-                ParserResult::EOF(Box::new(bio)));
+            return Ok(ParserResult::EOF(bio));
         }
 
         // When computing a hash for a signature, most of the
