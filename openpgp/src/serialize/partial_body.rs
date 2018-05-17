@@ -101,14 +101,21 @@ impl<'a, C: 'a> PartialBodyFilter<'a, C> {
                 unimplemented!();
             }
             BodyLength::Full(l as u32).serialize(inner).map_err(
-                |e| match e.downcast::<Error>()
-                    .expect("Unexpected error encoding full length") {
-                    Error::InvalidArgument(s) =>
-                        panic!("Error encoding full length: {}", s),
-                    Error::Io(e) =>
-                        e,
-                    _ =>
-                        panic!("Unexpected error encoding full length"),
+                |e| {
+                    match e.downcast::<io::Error>() {
+                        Ok(err) => err,
+                        Err(e) => {
+                            match e.downcast::<Error>()
+                                .expect("Unexpected error encoding full length")
+                            {
+                                Error::InvalidArgument(s) =>
+                                    panic!("Error encoding full length: {}", s),
+                                _ =>
+                                    panic!("Unexpected error encoding \
+                                            full length"),
+                            }
+                        }
+                    }
                 })?;
 
             // Write the body.

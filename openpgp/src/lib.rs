@@ -54,7 +54,6 @@ extern crate quickcheck;
 extern crate quickcheck;
 
 use std::fmt;
-use std::io;
 
 pub mod armor;
 
@@ -153,9 +152,6 @@ pub enum Error {
 
     #[fail(display = "Bad signature: {}", _0)]
     BadSignature(String),
-
-    #[fail(display = "{}", _0)]
-    Io(#[cause] io::Error),
 }
 
 // A helpful debugging function.
