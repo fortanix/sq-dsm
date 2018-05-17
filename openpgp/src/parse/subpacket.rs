@@ -52,8 +52,21 @@
 //! # }
 //! ```
 
-use super::*;
+use std::cell::RefCell;
+use std::collections::HashMap;
+use std::fmt;
+
 use quickcheck::{Arbitrary, Gen};
+
+use buffered_reader::{BufferedReader, BufferedReaderMemory};
+
+use {
+    Result,
+    Signature,
+    Packet,
+    Fingerprint,
+    KeyID,
+};
 
 #[cfg(test)]
 use std::path::PathBuf;
@@ -291,8 +304,8 @@ impl<'a> Iterator for SubpacketAreaIter<'a> {
         let tag = tag & !(1 << 7);
 
         let start = self.reader.total_out();
-        assert!(start <= std::u16::MAX as usize);
-        assert!(len <= std::u16::MAX as usize);
+        assert!(start <= ::std::u16::MAX as usize);
+        assert!(len <= ::std::u16::MAX as usize);
 
         let _ = self.reader.consume(len);
 
@@ -1311,6 +1324,8 @@ impl Signature {
 
 #[test]
 fn subpacket_test_1 () {
+    use Message;
+
     let path = path_to("signed.gpg");
     let message = Message::from_file(&path).unwrap();
     eprintln!("Message has {} top-level packets.", message.children().len());
@@ -1362,6 +1377,8 @@ fn subpacket_test_1 () {
 
 #[test]
 fn subpacket_test_2() {
+    use Message;
+
     //   Test #    Subpacket
     // 1 2 3 4 5 6   SignatureCreationTime
     //               * SignatureExpirationTime

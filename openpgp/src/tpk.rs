@@ -10,8 +10,17 @@ use std::mem;
 use std::fmt;
 use std::vec;
 
-use super::{TPK, Packet, Message, Signature, Key, UserID, UserAttribute,
-            Fingerprint, Tag};
+use {
+    Tag,
+    Signature,
+    Key,
+    UserID,
+    UserAttribute,
+    Packet,
+    Message,
+    TPK,
+    Fingerprint,
+};
 use super::parse::PacketParser;
 use super::serialize::{Serialize, SerializeKey};
 

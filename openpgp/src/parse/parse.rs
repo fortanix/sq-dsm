@@ -5,19 +5,43 @@ use std::iter;
 use std::cmp;
 use std::str;
 use std::mem;
+use std::fmt;
 use std::path::Path;
 use std::fs::File;
 
 use ::buffered_reader::*;
 use mpis::MPIs;
-use Error;
-use HashAlgo;
-use symmetric::{SymmetricAlgo, Decryptor, BufferedReaderDecryptor};
-use constants::{
+use {
+    Result,
+    CTB,
+    CTBCommon,
+    CTBOld,
+    CTBNew,
+    PacketLengthType,
+    BodyLength,
+    S2K,
+    Error,
+    HashAlgo,
     CompressionAlgorithm,
+    Tag,
+    Header,
+    Unknown,
+    Signature,
+    OnePassSig,
+    Key,
+    UserID,
+    UserAttribute,
+    Literal,
+    CompressedData,
+    SKESK,
+    SEIP,
+    MDC,
+    Packet,
+    Container,
+    Message,
+    KeyID
 };
-
-use super::*;
+use symmetric::{SymmetricAlgo, Decryptor, BufferedReaderDecryptor};
 
 mod partial_body;
 use self::partial_body::BufferedReaderPartialBodyFilter;
@@ -506,6 +530,8 @@ impl Signature {
 #[test]
 fn signature_parser_test () {
     use PublicKeyAlgorithm;
+    use SignatureType;
+
     let data = bytes!("sig.gpg");
 
     {
@@ -616,7 +642,9 @@ impl OnePassSig {
 
 #[test]
 fn one_pass_sig_parser_test () {
+    use SignatureType;
     use PublicKeyAlgorithm;
+
     // This test assumes that the first packet is a OnePassSig packet.
     let data = bytes!("signed-1.gpg");
     let mut pp = PacketParser::from_bytes(data).unwrap().unwrap();
@@ -672,10 +700,10 @@ fn one_pass_sig_test () {
             } else if let Packet::Signature(ref sig) = tmp.packet {
                 eprintln!("  {}:\n  prefix: expected: {}, in sig: {}",
                           test.filename,
-                          to_hex(&test.hash_prefix[sigs][..], false),
-                          to_hex(&sig.hash_prefix[..], false));
+                          ::to_hex(&test.hash_prefix[sigs][..], false),
+                          ::to_hex(&sig.hash_prefix[..], false));
                 eprintln!("  computed hash: {}",
-                          to_hex(&sig.computed_hash.as_ref().unwrap().1, false));
+                          ::to_hex(&sig.computed_hash.as_ref().unwrap().1, false));
 
                 assert_eq!(test.hash_prefix[sigs], sig.hash_prefix);
                 assert_eq!(&test.hash_prefix[sigs][..],
@@ -1082,7 +1110,7 @@ fn skesk_parser_test() {
 
             match skesk.decrypt(test.password) {
                 Ok((_symm_algo, key)) => {
-                    let key = to_hex(&key[..], false);
+                    let key = ::to_hex(&key[..], false);
                     assert_eq!(&key[..], &test.key_hex[..]);
                 }
                 Err(e) => {
@@ -2924,8 +2952,7 @@ impl Message {
 
 #[cfg(test)]
 mod message_test {
-    use super::path_to;
-    use super::{Message, Packet, PacketParser, PacketParserBuilder};
+    use super::*;
 
     use std::io::Read;
 

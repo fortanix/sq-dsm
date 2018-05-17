@@ -5,7 +5,12 @@
 //!   [Section 4.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.2
 
 use std::ops::Deref;
-use super::{Tag, Error, Result};
+
+use {
+    Tag,
+    Error,
+    Result
+};
 use packet::BodyLength;
 
 /// OpenPGP defines two packet formats: the old and the new format.

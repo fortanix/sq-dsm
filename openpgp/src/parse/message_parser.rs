@@ -2,10 +2,13 @@ use std::io;
 use std::fs::File;
 use std::path::Path;
 
-use Result;
-
-use super::{PacketParserBuilder, PacketParser, Packet, Container, Message,
-            Cookie};
+use {
+    Result,
+    Packet,
+    Container,
+    Message,
+};
+use parse::{PacketParserBuilder, PacketParser, Cookie};
 use buffered_reader::{BufferedReader, BufferedReaderGeneric,
                       BufferedReaderMemory};
 

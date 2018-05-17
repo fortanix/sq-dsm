@@ -55,8 +55,6 @@ extern crate quickcheck;
 
 use std::fmt;
 use std::io;
-use std::cell::RefCell;
-use std::collections::HashMap;
 
 pub mod armor;
 

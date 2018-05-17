@@ -1,6 +1,11 @@
-use super::*;
 use nettle::Hash;
 use nettle::hash::insecure_do_not_use::Sha1;
+
+use {
+    Key,
+    KeyID,
+    Fingerprint,
+};
 
 #[cfg(test)]
 use std::path::PathBuf;
@@ -34,6 +39,9 @@ impl Key {
 #[cfg(test)]
 mod fingerprint_test {
     use super::*;
+
+    use Packet;
+    use Message;
 
     #[test]
     fn fingerprint_test () {

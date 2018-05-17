@@ -4,8 +4,8 @@ use std::io;
 use std::io::{Error,ErrorKind};
 
 use buffered_reader::{buffered_reader_generic_read_impl, BufferedReader};
-use super::BodyLength;
-use super::Cookie;
+use BodyLength;
+use parse::Cookie;
 
 const TRACE : bool = false;
 
