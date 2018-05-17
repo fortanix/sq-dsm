@@ -1,4 +1,6 @@
 use std::fmt;
+use std::str::FromStr;
+use std::result;
 
 use quickcheck::{Arbitrary, Gen};
 
@@ -134,7 +136,105 @@ impl Arbitrary for CompressionAlgorithm {
         u8::arbitrary(g).into()
     }
 }
+
+/// The OpenPGP hash algorithms as defined in [Section 9.4 of RFC 4880].
+///
+///   [Section 9.4 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-9.4
+///
+/// The values correspond to the serialized format.
+#[derive(Clone,Copy,PartialEq,Eq,Debug)]
+pub enum HashAlgo {
+    MD5,
+    SHA1,
+    RipeMD,
+    SHA256,
+    SHA384,
+    SHA512,
+    SHA224,
+    Private(u8),
+    Unknown(u8),
+}
 
+impl From<u8> for HashAlgo {
+    fn from(u: u8) -> Self {
+        match u {
+            1 => HashAlgo::MD5,
+            2 => HashAlgo::SHA1,
+            3 => HashAlgo::RipeMD,
+            8 => HashAlgo::SHA256,
+            9 => HashAlgo::SHA384,
+            10 => HashAlgo::SHA512,
+            11 => HashAlgo::SHA224,
+            100...110 => HashAlgo::Private(u),
+            u => HashAlgo::Unknown(u),
+        }
+    }
+}
+
+impl From<HashAlgo> for u8 {
+    fn from(h: HashAlgo) -> u8 {
+        match h {
+            HashAlgo::MD5 => 1,
+            HashAlgo::SHA1 => 2,
+            HashAlgo::RipeMD => 3,
+            HashAlgo::SHA256 => 8,
+            HashAlgo::SHA384 => 9,
+            HashAlgo::SHA512 => 10,
+            HashAlgo::SHA224 => 11,
+            HashAlgo::Private(u) => u,
+            HashAlgo::Unknown(u) => u,
+        }
+    }
+}
+
+impl FromStr for HashAlgo {
+    type Err = ();
+
+    fn from_str(s: &str) -> result::Result<Self, ()> {
+        if s == "MD5" {
+            Ok(HashAlgo::MD5)
+        } else if s == "SHA1" {
+            Ok(HashAlgo::SHA1)
+        } else if s == "RipeMD160" {
+            Ok(HashAlgo::RipeMD)
+        } else if s == "SHA256" {
+            Ok(HashAlgo::SHA256)
+        } else if s == "SHA384" {
+            Ok(HashAlgo::SHA384)
+        } else if s == "SHA512" {
+            Ok(HashAlgo::SHA512)
+        } else if s == "SHA224" {
+            Ok(HashAlgo::SHA224)
+        } else {
+            Err(())
+        }
+    }
+}
+
+impl fmt::Display for HashAlgo {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            HashAlgo::MD5 => f.write_str("MD5"),
+            HashAlgo::SHA1 => f.write_str("SHA1"),
+            HashAlgo::RipeMD => f.write_str("RipeMD160"),
+            HashAlgo::SHA256 => f.write_str("SHA256"),
+            HashAlgo::SHA384 => f.write_str("SHA384"),
+            HashAlgo::SHA512 => f.write_str("SHA512"),
+            HashAlgo::SHA224 => f.write_str("SHA224"),
+            HashAlgo::Private(u) =>
+                f.write_fmt(format_args!("Private/Experimental hash algorithm {}",u)),
+            HashAlgo::Unknown(u) =>
+                f.write_fmt(format_args!("Unknown hash algorithm {}",u)),
+        }
+    }
+}
+
+impl Arbitrary for HashAlgo {
+    fn arbitrary<G: Gen>(g: &mut G) -> Self {
+        u8::arbitrary(g).into()
+    }
+}
+
 /// Signature type as defined in [Section 5.2.1 of RFC 4880].
 ///
 ///   [Section 5.2.1 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.1
@@ -290,6 +390,7 @@ mod tests {
         }
     }
 
+
     quickcheck! {
         fn pk_roundtrip(pk: PublicKeyAlgorithm) -> bool {
             let val: u8 = pk.clone().into();
@@ -315,6 +416,7 @@ mod tests {
         }
     }
 
+
     quickcheck! {
         fn sigtype_roundtrip(t: SignatureType) -> bool {
             let val: u8 = t.clone().into();
@@ -326,6 +428,44 @@ mod tests {
         fn sigtype_display(t: SignatureType) -> bool {
             let s = format!("{}", t);
             !s.is_empty()
+        }
+    }
+
+
+    quickcheck! {
+        fn hash_roundtrip(hash: HashAlgo) -> bool {
+            let val: u8 = hash.clone().into();
+            hash == HashAlgo::from(val)
+        }
+    }
+
+    quickcheck! {
+        fn hash_roundtrip_str(hash: HashAlgo) -> bool {
+            match hash {
+                HashAlgo::Private(_) | HashAlgo::Unknown(_) => true,
+                hash => {
+                    let s = format!("{}",hash);
+                    hash == HashAlgo::from_str(&s).unwrap()
+                }
+            }
+        }
+    }
+
+    quickcheck! {
+        fn hash_display(hash: HashAlgo) -> bool {
+            let s = format!("{}",hash);
+            !s.is_empty()
+        }
+    }
+
+    quickcheck! {
+        fn hash_parse(hash: HashAlgo) -> bool {
+            match hash {
+                HashAlgo::Unknown(u) => u == 0 || (u > 11 && u < 100) ||
+                    u > 110 || (u >= 4 && u <= 7) || u == 0,
+                HashAlgo::Private(u) => u >= 100 && u <= 110,
+                _ => true
+            }
         }
     }
 }

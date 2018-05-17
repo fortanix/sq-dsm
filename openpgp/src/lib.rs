@@ -72,7 +72,6 @@ pub mod tpk;
 pub mod serialize;
 
 mod hash;
-pub use hash::HashAlgo;
 pub mod symmetric;
 pub use symmetric::SymmetricAlgo;
 
@@ -98,6 +97,7 @@ mod constants;
 pub use constants::{
     PublicKeyAlgorithm,
     CompressionAlgorithm,
+    HashAlgo,
     SignatureType,
 };
 mod tag;
