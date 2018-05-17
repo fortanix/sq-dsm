@@ -176,8 +176,7 @@ impl Signature {
         if !(self.sigtype == SignatureType::Binary
              || self.sigtype == SignatureType::Text
              || self.sigtype == SignatureType::Standalone) {
-            return Err(Error::UnsupportedSignatureType(
-                self.sigtype.into()).into());
+            return Err(Error::UnsupportedSignatureType(self.sigtype).into());
         }
 
         if let Some((hash_algo, ref hash)) = self.computed_hash {
@@ -198,8 +197,7 @@ impl Signature {
         -> Result<bool>
     {
         if self.sigtype != SignatureType::DirectKey {
-            return Err(Error::UnsupportedSignatureType(
-                self.sigtype.into()).into());
+            return Err(Error::UnsupportedSignatureType(self.sigtype).into());
         }
 
         let hash = self.primary_key_binding_hash(pk);
@@ -222,8 +220,7 @@ impl Signature {
         -> Result<bool>
     {
         if self.sigtype != SignatureType::SubkeyBinding {
-            return Err(Error::UnsupportedSignatureType(
-                self.sigtype.into()).into());
+            return Err(Error::UnsupportedSignatureType(self.sigtype).into());
         }
 
         let hash = self.subkey_binding_hash(pk, subkey);
@@ -255,8 +252,7 @@ impl Signature {
         let mut backsig_ok = false;
         if let Some(Packet::Signature(backsig)) = self.embedded_signature() {
             if backsig.sigtype != SignatureType::PrimaryKeyBinding {
-                return Err(Error::UnsupportedSignatureType(
-                    self.sigtype.into()).into());
+                return Err(Error::UnsupportedSignatureType(self.sigtype).into());
             } else {
                 // We can't use backsig.verify_subkey_binding.
                 let hash = backsig.subkey_binding_hash(pk, &subkey);
@@ -305,8 +301,7 @@ impl Signature {
              || self.sigtype == SignatureType::CasualCertificate
              || self.sigtype == SignatureType::PositiveCertificate
              || self.sigtype == SignatureType::CertificateRevocation) {
-            return Err(Error::UnsupportedSignatureType(
-                self.sigtype.into()).into());
+            return Err(Error::UnsupportedSignatureType(self.sigtype).into());
         }
 
         let hash = self.userid_binding_hash(pk, userid);
@@ -329,8 +324,7 @@ impl Signature {
              || self.sigtype == SignatureType::CasualCertificate
              || self.sigtype == SignatureType::PositiveCertificate
              || self.sigtype == SignatureType::CertificateRevocation) {
-            return Err(Error::UnsupportedSignatureType(
-                self.sigtype.into()).into());
+            return Err(Error::UnsupportedSignatureType(self.sigtype).into());
         }
 
         let hash = self.user_attribute_binding_hash(pk, ua);

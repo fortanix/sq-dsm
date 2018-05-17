@@ -119,28 +119,28 @@ pub enum Error {
     MalformedPacket(String),
 
     #[fail(display = "Unknown packet type: {}", _0)]
-    UnknownPacketTag(u8),
+    UnknownPacketTag(Tag),
 
     #[fail(display = "Unknown hash algorithm: {}", _0)]
-    UnknownHashAlgorithm(u8),
+    UnknownHashAlgorithm(HashAlgorithm),
 
     #[fail(display = "Unknown public key algorithm: {}", _0)]
-    UnknownPublicKeyAlgorithm(u8),
+    UnknownPublicKeyAlgorithm(PublicKeyAlgorithm),
 
     #[fail(display = "Unknown symmetric algorithm: {}", _0)]
-    UnknownSymmetricAlgorithm(u8),
+    UnknownSymmetricAlgorithm(SymmetricAlgorithm),
 
     #[fail(display = "Unsupported hash algorithm: {}", _0)]
-    UnsupportedHashAlgorithm(u8),
+    UnsupportedHashAlgorithm(HashAlgorithm),
 
     #[fail(display = "Unsupported public key algorithm: {}", _0)]
     UnsupportedPublicKeyAlgorithm(PublicKeyAlgorithm),
 
     #[fail(display = "Unsupported symmetric algorithm: {}", _0)]
-    UnsupportedSymmetricAlgorithm(u8),
+    UnsupportedSymmetricAlgorithm(SymmetricAlgorithm),
 
     #[fail(display = "Unsupported signature type: {}", _0)]
-    UnsupportedSignatureType(u8),
+    UnsupportedSignatureType(SignatureType),
 
     #[fail(display = "Invalid password")]
     InvalidPassword,

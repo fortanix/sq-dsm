@@ -22,7 +22,7 @@ impl SymmetricAlgorithm {
             SymmetricAlgorithm::AES192 => Ok(cipher::Aes192::KEY_SIZE),
             SymmetricAlgorithm::AES256 => Ok(cipher::Aes256::KEY_SIZE),
             SymmetricAlgorithm::Twofish => Ok(cipher::Twofish::KEY_SIZE),
-            _ => Err(Error::UnsupportedSymmetricAlgorithm(self.into()).into()),
+            _ => Err(Error::UnsupportedSymmetricAlgorithm(self).into()),
         }
     }
     pub fn block_size(self) -> Result<usize> {
@@ -32,7 +32,7 @@ impl SymmetricAlgorithm {
             SymmetricAlgorithm::AES192 => Ok(cipher::Aes192::BLOCK_SIZE),
             SymmetricAlgorithm::AES256 => Ok(cipher::Aes256::BLOCK_SIZE),
             SymmetricAlgorithm::Twofish => Ok(cipher::Twofish::BLOCK_SIZE),
-            _ => Err(Error::UnsupportedSymmetricAlgorithm(self.into()).into()),
+            _ => Err(Error::UnsupportedSymmetricAlgorithm(self).into()),
         }
     }
 
@@ -51,7 +51,7 @@ impl SymmetricAlgorithm {
             SymmetricAlgorithm::Twofish =>
                 Ok(Box::new(
                     mode::Cfb::<cipher::Twofish>::with_encrypt_key(&key[..]))),
-            _ => Err(Error::UnsupportedSymmetricAlgorithm(self.into()).into()),
+            _ => Err(Error::UnsupportedSymmetricAlgorithm(self).into()),
         }
     }
 
@@ -70,7 +70,7 @@ impl SymmetricAlgorithm {
             SymmetricAlgorithm::Twofish =>
                 Ok(Box::new(
                     mode::Cfb::<cipher::Twofish>::with_decrypt_key(&key[..]))),
-            _ => Err(Error::UnsupportedSymmetricAlgorithm(self.into()).into())
+            _ => Err(Error::UnsupportedSymmetricAlgorithm(self).into())
         }
     }
 }

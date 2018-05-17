@@ -36,9 +36,9 @@ impl HashAlgorithm {
             HashAlgorithm::SHA384 => Ok(Box::new(Sha384::default())),
             HashAlgorithm::SHA512 => Ok(Box::new(Sha512::default())),
             HashAlgorithm::MD5 | HashAlgorithm::RipeMD =>
-                Err(Error::UnknownHashAlgorithm(self.into()).into()),
-            HashAlgorithm::Private(x) | HashAlgorithm::Unknown(x) =>
-                Err(Error::UnknownHashAlgorithm(x).into()),
+                Err(Error::UnsupportedHashAlgorithm(self).into()),
+            HashAlgorithm::Private(_) | HashAlgorithm::Unknown(_) =>
+                Err(Error::UnknownHashAlgorithm(self).into()),
         }
     }
 
@@ -53,8 +53,8 @@ impl HashAlgorithm {
             HashAlgorithm::SHA512 => Ok(rsa::ASN1_OID_SHA512),
             HashAlgorithm::MD5 | HashAlgorithm::RipeMD =>
                 Err(Error::UnsupportedHashAlgorithm(self.into()).into()),
-            HashAlgorithm::Private(x) | HashAlgorithm::Unknown(x) =>
-                Err(Error::UnknownHashAlgorithm(x).into()),
+            HashAlgorithm::Private(_) | HashAlgorithm::Unknown(_) =>
+                Err(Error::UnknownHashAlgorithm(self).into()),
         }
     }
 }
