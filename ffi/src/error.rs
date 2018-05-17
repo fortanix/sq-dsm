@@ -154,8 +154,6 @@ impl<'a> From<&'a failure::Error> for Status {
                     Status::MalformedMPI,
                 &openpgp::Error::BadSignature(_) =>
                     Status::BadSignature,
-                &openpgp::Error::Io(_) =>
-                    Status::IoError,
             }
         }
 
