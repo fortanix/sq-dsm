@@ -516,7 +516,6 @@ impl Signature {
         let hash_prefix1 = ptry!(pp.parse_u8("hash_prefix1"));
         let hash_prefix2 = ptry!(pp.parse_u8("hash_prefix2"));
         let mpis = ptry!(pp.parse_bytes_eof("mpis"));
-        pp.commit()?;
 
         let mut sig = Signature {
             common: Default::default(),
