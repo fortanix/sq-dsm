@@ -270,25 +270,28 @@ impl BodyLength {
     ///
     ///   [Section 4.2.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.2.2
     pub fn parse_new_format<T: BufferedReader<C>, C> (bio: &mut T)
-                                                     -> io::Result<BodyLength> {
-        let octet1 = bio.data_consume_hard(1)?[0];
-        if octet1 < 192 {
-            // One octet.
-            return Ok(BodyLength::Full(octet1 as u32));
+        -> io::Result<BodyLength>
+    {
+        let octet1 : u8 = bio.data_consume_hard(1)?[0];
+        match octet1 {
+            0...191 => // One octet.
+                Ok(BodyLength::Full(octet1 as u32)),
+            192...223 => { // Two octets length.
+                let octet2 = bio.data_consume_hard(1)?[0];
+                Ok(BodyLength::Full(((octet1 as u32 - 192) << 8)
+                                    + octet2 as u32 + 192))
+            },
+            224...254 => // Partial body length.
+                Ok(BodyLength::Partial(1 << (octet1 & 0x1F))),
+            255 => // Five octets.
+                Ok(BodyLength::Full(bio.read_be_u32()?)),
+            _ =>
+                // The rust compiler doesn't yet check whether an
+                // integer is covered.
+                //
+                // https://github.com/rust-lang/rfcs/issues/1550
+                unreachable!(),
         }
-        if 192 <= octet1 && octet1 < 224 {
-            // Two octets length.
-            let octet2 = bio.data_consume_hard(1)?[0];
-            return Ok(BodyLength::Full(((octet1 as u32 - 192) << 8) + octet2 as u32 + 192));
-        }
-        if 224 <= octet1 && octet1 < 255 {
-            // Partial body length.
-            return Ok(BodyLength::Partial(1 << (octet1 & 0x1F)));
-        }
-
-        assert_eq!(octet1, 255);
-        // Five octets.
-        return Ok(BodyLength::Full(bio.read_be_u32()?));
     }
 
     /// Decodes an old format body length as described in [Section
