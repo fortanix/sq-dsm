@@ -444,10 +444,11 @@ impl Unknown {
 
 // Read the next packet as an unknown packet.
 //
-// The `reader` must point to the packet's header.  This buffers the
-// packet's contents.
+// The `reader` must point to the packet's header, i.e., the CTB.
+// This buffers the packet's contents.
 //
-// Note: we only need this for testing purposes in a different module.
+// Note: we only need this function for testing purposes in a
+// different module.
 #[cfg(test)]
 pub(crate) fn to_unknown_packet<R: Read>(reader: R) -> Result<Unknown>
 {
@@ -480,6 +481,10 @@ pub(crate) fn to_unknown_packet<R: Read>(reader: R) -> Result<Unknown>
 }
 
 impl Signature {
+    // Parses a Signature packet without any OpenPGP framing.  That
+    // is, the first byte of `value` is the Signature packet's version
+    // field, not the ctb.  Also, any length encoding information has
+    // been removed.
     fn parse_naked(value: &[u8]) -> Result<Packet> {
         let bio = BufferedReaderMemory::with_cookie(
             value, Cookie::default());
@@ -777,7 +782,6 @@ impl Key {
         let pk_algo = ptry!(pp.parse_u8("pk_algo"));
         let mpis = ptry!(pp.parse_bytes_eof("mpis"));
 
-        let tag = pp.header.ctb.tag;
         let key = Key {
             common: Default::default(),
             version: version,
@@ -786,6 +790,7 @@ impl Key {
             mpis: MPIs::parse(mpis),
         };
 
+        let tag = pp.header.ctb.tag;
         pp.ok(match tag {
             Tag::PublicKey => Packet::PublicKey(key),
             Tag::PublicSubkey => Packet::PublicSubkey(key),
@@ -826,6 +831,8 @@ impl UserAttribute {
 
 impl Literal {
     /// Parses the body of a literal packet.
+    ///
+    /// Condition: Hashing has been disabled by the callee.
     fn parse<'a>(mut pp: PacketParser<'a>) -> Result<PacketParser<'a>>
     {
         bind_ptry!(pp);
@@ -833,8 +840,6 @@ impl Literal {
         // Directly hashing a literal data packet is... strange.
         // Neither the packet's header, the packet's meta-data nor the
         // length encoding information is included in the hash.
-        //
-        // Condition: Hashing has been disabled by the callee.
 
         let format = ptry!(pp.parse_u8("format"));
         let filename_len = ptry!(pp.parse_u8("filename_len"));
@@ -1613,14 +1618,6 @@ enum State<'a> {
     Header(Box<BufferedReaderDup<'a, Cookie>>),
 
     // The inner reader.
-    //
-    // We can't make `reader` generic, because the type of
-    // `BufferedReader` that is returned is not a function of the
-    // arguments, and Rust figures out a generic's type by looking at
-    // the calling site, not the function's implementation.  Consider
-    // what happens when we parse a compressed data packet: we return
-    // a Decompressor (in fact, the actual type is only known at
-    // run-time!).
     Body(Box<'a + BufferedReader<Cookie>>),
 }
 
@@ -1682,6 +1679,9 @@ impl <'a> PacketParser<'a> {
         PacketParserBuilder::from_bytes(bytes)?.finalize()
     }
 
+    // Returns a `PacketParser` to parse an OpenPGP packet.  `inner`
+    // points to the start of the OpenPGP framing information, i.e.,
+    // the CTB.
     fn new(inner: Box<'a + BufferedReader<Cookie>>,
            settings: PacketParserSettings,
            recursion_depth: u8, header: Header,
@@ -1705,6 +1705,11 @@ impl <'a> PacketParser<'a> {
         }
     }
 
+    // Returns a `PacketParser` that parses a bare packet.  That is,
+    // `inner` points to the start of the packet; the OpenPGP framing
+    // has already been processed, and `inner` already includes any
+    // required filters (e.g., a `BufferedReaderPartialBodyFilter`,
+    // etc.).
     fn new_naked(inner: Box<'a + BufferedReader<Cookie>>) -> Self {
         PacketParser::new(inner, Default::default(), 0,
                           Header {
@@ -1719,6 +1724,20 @@ impl <'a> PacketParser<'a> {
         self
     }
 
+    // Transition from State::Header to State::Body.
+    //
+    // Calling `commit()` means that the packet's header has been
+    // completely and correctly parsed; all that is left is the
+    // packet's body.
+    //
+    // This function may only be called once per PacketParser.
+    //
+    // `fun` is a callback that takes the underlying `BufferedReader`
+    // (out of which the header was read), and the header's length.
+    // The callback should return a `BufferedReader` that points to
+    // the start of the packet's body (in the simplest case, this
+    // means consuming the specified number of bytes from the reader),
+    // and this function's return value.
     fn commit_then<F, R>(&mut self, mut fun: F) -> Result<R>
         where F: FnMut(Box<'a + BufferedReader<Cookie>>, usize)
                     -> Result<(Box<'a + BufferedReader<Cookie>>, R)>
@@ -1769,6 +1788,8 @@ impl <'a> PacketParser<'a> {
         }
     }
 
+    // Calls `commit_then()` and just consumes the bytes belonging to
+    // the packet's header (i.e., the number of bytes read).
     fn commit(&mut self) -> Result<()> {
         self.commit_then(|mut reader, total_out| {
             // We know the data has been read, so this cannot fail.
@@ -1777,6 +1798,8 @@ impl <'a> PacketParser<'a> {
         })
     }
 
+    // Returns a `PacketParser` over the packet's body, committing the
+    // `PacketParser`, if necessary.
     fn ok(mut self, packet: Packet) -> Result<PacketParser<'a>> {
         if let State::Header(_) = self.state {
             self.commit()?;
@@ -1785,6 +1808,8 @@ impl <'a> PacketParser<'a> {
         Ok(self)
     }
 
+    // Something went wrong while parsing the packet's header.  Aborts
+    // and returns an Unknown packet instead.
     fn fail(self, _reason: &'static str) -> Result<PacketParser<'a>> {
         Unknown::parse(self)
     }
