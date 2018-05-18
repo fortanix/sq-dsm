@@ -201,7 +201,7 @@ impl Map {
 
 impl CTB {
     /// Parses a CTB as described in [Section 4.2 of RFC 4880].  This
-    /// function parses both new and old format ctbs.
+    /// function parses both new and old format CTBs.
     ///
     ///   [Section 4.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.2
     pub fn from_ptag(ptag: u8) -> Result<CTB> {
@@ -210,7 +210,8 @@ impl CTB {
             // XXX: Use a proper error.
             return Err(
                 Error::MalformedPacket(
-                    format!("Malformed ctb: MSB of ptag ({:#010b}) not set.", ptag)
+                    format!("Malformed ctb: MSB of ptag ({:#010b}) not set.",
+                            ptag)
                 ).into());
         }
 
@@ -296,16 +297,17 @@ impl BodyLength {
     ///   [Section 4.2.1 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.2.1
     pub fn parse_old_format<T: BufferedReader<C>, C>
         (bio: &mut T, length_type: PacketLengthType)
-         -> Result<BodyLength> {
+         -> Result<BodyLength>
+    {
         match length_type {
             PacketLengthType::OneOctet =>
-                return Ok(BodyLength::Full(bio.data_consume_hard(1)?[0] as u32)),
+                Ok(BodyLength::Full(bio.data_consume_hard(1)?[0] as u32)),
             PacketLengthType::TwoOctets =>
-                return Ok(BodyLength::Full(bio.read_be_u16()? as u32)),
+                Ok(BodyLength::Full(bio.read_be_u16()? as u32)),
             PacketLengthType::FourOctets =>
-                return Ok(BodyLength::Full(bio.read_be_u32()? as u32)),
+                Ok(BodyLength::Full(bio.read_be_u32()? as u32)),
             PacketLengthType::Indeterminate =>
-                return Ok(BodyLength::Indeterminate),
+                Ok(BodyLength::Indeterminate),
         }
     }
 }
@@ -360,15 +362,18 @@ fn body_length_old_format() {
 }
 
 impl Header {
-    /// Parses an OpenPGP packet's header as described in [Section 4.2 of RFC 4880].
+    /// Parses an OpenPGP packet's header as described in [Section 4.2
+    /// of RFC 4880].
     ///
     ///   [Section 4.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.2
     pub fn parse<R: BufferedReader<C>, C> (bio: &mut R)
-                                           -> Result<Header> {
+        -> Result<Header>
+    {
         let ctb = CTB::from_ptag(bio.data_consume_hard(1)?[0])?;
         let length = match ctb {
             CTB::New(_) => BodyLength::parse_new_format(bio)?,
-            CTB::Old(ref ctb) => BodyLength::parse_old_format(bio, ctb.length_type)?,
+            CTB::Old(ref ctb) =>
+                BodyLength::parse_old_format(bio, ctb.length_type)?,
         };
         return Ok(Header { ctb: ctb, length: length });
     }
@@ -391,17 +396,18 @@ impl S2K {
 
 impl S2K {
     /// Reads an S2K from `pp`.
-    fn parse<'a>(pp: &mut PacketParser<'a>) -> io::Result<Self> {
+    fn parse<'a>(pp: &mut PacketParser<'a>) -> io::Result<Self>
+    {
         let s2k = pp.parse_u8("s2k_type")?;
         let ret = match s2k {
-            0 => S2K::Simple{
+            0 => S2K::Simple {
                 hash: HashAlgorithm::from(pp.parse_u8("s2k_hash_algo")?),
             },
-            1 => S2K::Salted{
+            1 => S2K::Salted {
                 hash: HashAlgorithm::from(pp.parse_u8("s2k_hash_algo")?),
                 salt: Self::read_salt(pp)?,
             },
-            3 => S2K::Iterated{
+            3 => S2K::Iterated {
                 hash: HashAlgorithm::from(pp.parse_u8("s2k_hash_algo")?),
                 salt: Self::read_salt(pp)?,
                 iterations: S2K::decode_count(pp.parse_u8("s2k_count")?),
@@ -423,8 +429,8 @@ impl S2K {
 
 impl Unknown {
     /// Parses the body of any packet and returns an Unknown.
-    fn parse<'a>(pp: PacketParser<'a>)
-                 -> Result<PacketParser<'a>> {
+    fn parse<'a>(pp: PacketParser<'a>) -> Result<PacketParser<'a>>
+    {
         let tag = pp.header.ctb.tag;
         pp.decrypted(false).ok(Packet::Unknown(Unknown {
             common: Default::default(),
@@ -440,8 +446,7 @@ impl Unknown {
 //
 // Note: we only need this for testing purposes in a different module.
 #[cfg(test)]
-pub(crate) fn to_unknown_packet<R: Read>(reader: R)
-    -> Result<Unknown>
+pub(crate) fn to_unknown_packet<R: Read>(reader: R) -> Result<Unknown>
 {
     let mut reader = BufferedReaderGeneric::with_cookie(
         reader, None, Cookie::default());
@@ -488,10 +493,11 @@ impl Signature {
         }
     }
 
-    /// Parses the body of a signature packet.
+    // Parses a signature packet.
     fn parse<'a>(mut pp: PacketParser<'a>,
                  computed_hash: Option<(HashAlgorithm, Box<Hash>)>)
-                 -> Result<PacketParser<'a>> {
+        -> Result<PacketParser<'a>>
+    {
         bind_ptry!(pp);
 
         let version = ptry!(pp.parse_u8("version"));
@@ -508,11 +514,13 @@ impl Signature {
         let pk_algo = ptry!(pp.parse_u8("pk_algo"));
         let hash_algo = ptry!(pp.parse_u8("hash_algo"));
         let hashed_area_len = ptry!(pp.parse_be_u16("hashed_area_len"));
-        let hashed_area = ptry!(pp.parse_bytes("hashed_area",
-                                            hashed_area_len as usize));
+        let hashed_area
+            = ptry!(pp.parse_bytes("hashed_area",
+                                   hashed_area_len as usize));
         let unhashed_area_len = ptry!(pp.parse_be_u16("unhashed_area_len"));
-        let unhashed_area = ptry!(pp.parse_bytes("unhashed_area",
-                                              unhashed_area_len as usize));
+        let unhashed_area
+            = ptry!(pp.parse_bytes("unhashed_area",
+                                   unhashed_area_len as usize));
         let hash_prefix1 = ptry!(pp.parse_u8("hash_prefix1"));
         let hash_prefix2 = ptry!(pp.parse_u8("hash_prefix2"));
         let mpis = ptry!(pp.parse_bytes_eof("mpis"));
@@ -570,7 +578,8 @@ fn signature_parser_test () {
 
 impl OnePassSig {
     fn parse<'a>(mut pp: PacketParser<'a>)
-                 -> Result<PacketParser<'a>> {
+        -> Result<PacketParser<'a>>
+    {
         bind_ptry!(pp);
 
         let version = ptry!(pp.parse_u8("version"));
@@ -614,7 +623,8 @@ impl OnePassSig {
                 // think of a more elegant solution.
 
                 let recursion_depth = pp.recursion_depth;
-                assert!(reader.cookie_ref().level <= Some(recursion_depth as isize));
+                assert!(reader.cookie_ref().level
+                        <= Some(recursion_depth as isize));
                 let reader = buffered_reader_stack_pop(Box::new(reader),
                                                        recursion_depth as isize);
 
@@ -623,7 +633,8 @@ impl OnePassSig {
                 reader.cookie_mut().level = Some(recursion_depth as isize - 1);
 
                 if TRACE {
-                    eprintln!("{}OnePassSig::parse: Pushed a hashed reader, level {:?}",
+                    eprintln!("{}OnePassSig::parse: \
+                               Pushed a hashed reader, level {:?}",
                               indent(recursion_depth as u8),
                               reader.cookie_mut().level);
                 }
@@ -746,8 +757,7 @@ fn one_pass_sig_test () {
 impl Key {
     /// Parses the body of a public key, public subkey, secret key or
     /// secret subkey packet.
-    fn parse<'a>(mut pp: PacketParser<'a>)
-                 -> Result<PacketParser<'a>> {
+    fn parse<'a>(mut pp: PacketParser<'a>) -> Result<PacketParser<'a>> {
         bind_ptry!(pp);
         let tag = pp.header.ctb.tag;
         assert!(tag == Tag::PublicKey
@@ -785,8 +795,7 @@ impl Key {
 
 impl UserID {
     /// Parses the body of a user id packet.
-    fn parse<'a>(mut pp: PacketParser<'a>)
-                 -> Result<PacketParser<'a>> {
+    fn parse<'a>(mut pp: PacketParser<'a>) -> Result<PacketParser<'a>> {
         bind_ptry!(pp);
 
         let value = ptry!(pp.parse_bytes_eof("value"));
@@ -800,8 +809,7 @@ impl UserID {
 
 impl UserAttribute {
     /// Parses the body of a user attribute packet.
-    fn parse<'a>(mut pp: PacketParser<'a>)
-                 -> Result<PacketParser<'a>> {
+    fn parse<'a>(mut pp: PacketParser<'a>) -> Result<PacketParser<'a>> {
         bind_ptry!(pp);
 
         let value = ptry!(pp.parse_bytes_eof("value"));
@@ -815,8 +823,8 @@ impl UserAttribute {
 
 impl Literal {
     /// Parses the body of a literal packet.
-    fn parse<'a>(mut pp: PacketParser<'a>)
-                 -> Result<PacketParser<'a>> {
+    fn parse<'a>(mut pp: PacketParser<'a>) -> Result<PacketParser<'a>>
+    {
         bind_ptry!(pp);
 
         // Directly hashing a literal data packet is... strange.
@@ -836,8 +844,7 @@ impl Literal {
 
         let date = ptry!(pp.parse_be_u32("date"));
 
-        // Consume the header is consumed while hashing is
-        // disabled.
+        // The header is consumed while hashing is disabled.
         let recursion_depth = pp.recursion_depth;
         pp.commit_then(|mut bio, total_out| {
             // We know the data has been read, so this cannot
@@ -901,8 +908,7 @@ fn literal_parser_test () {
 
 impl CompressedData {
     /// Parses the body of a compressed data packet.
-    fn parse<'a>(mut pp: PacketParser<'a>)
-                 -> Result<PacketParser<'a>> {
+    fn parse<'a>(mut pp: PacketParser<'a>) -> Result<PacketParser<'a>> {
         bind_ptry!(pp);
         let algo: CompressionAlgorithm =
             ptry!(pp.parse_u8("algo")).into();
@@ -1000,9 +1006,8 @@ fn compressed_data_parser_test () {
 }
 
 impl SKESK {
-    /// Parses the body of an SKESK packet.
-    fn parse<'a>(mut pp: PacketParser<'a>)
-                 -> Result<PacketParser<'a>> {
+    /// Parses the body of an SK-ESK packet.
+    fn parse<'a>(mut pp: PacketParser<'a>) -> Result<PacketParser<'a>> {
         bind_ptry!(pp);
         let version = ptry!(pp.parse_u8("version"));
         if version != 4 {
@@ -1026,8 +1031,7 @@ impl SKESK {
 
 impl SEIP {
     /// Parses the body of a SEIP packet.
-    fn parse<'a>(mut pp: PacketParser<'a>)
-                 -> Result<PacketParser<'a>> {
+    fn parse<'a>(mut pp: PacketParser<'a>) -> Result<PacketParser<'a>> {
         bind_ptry!(pp);
         let version = ptry!(pp.parse_u8("version"));
         if version != 1 {
@@ -1043,8 +1047,7 @@ impl SEIP {
 
 impl MDC {
     /// Parses the body of an MDC packet.
-    fn parse<'a>(mut pp: PacketParser<'a>)
-                 -> Result<PacketParser<'a>> {
+    fn parse<'a>(mut pp: PacketParser<'a>) -> Result<PacketParser<'a>> {
         bind_ptry!(pp);
 
         // Find the HashedReader pushed by the containing SEIP packet.
@@ -1338,7 +1341,7 @@ impl PacketParserBuilder<BufferedReaderGeneric<File, Cookie>> {
 
 impl <'a> PacketParserBuilder<BufferedReaderMemory<'a, Cookie>> {
     /// Creates a `PacketParserBuilder` for an OpenPGP message stored
-    /// in specified buffer.
+    /// in the specified buffer.
     pub fn from_bytes(bytes: &'a [u8])
             -> Result<PacketParserBuilder<
                           BufferedReaderMemory<'a, Cookie>>> {
@@ -1598,12 +1601,12 @@ pub struct PacketParser<'a> {
 //
 // Parsing is divided in two phases.  First, we parse the framing and
 // the header as we understand them.  Then, we surrender control to
-// the callee to parse the packets body as she sees fit.
+// the callee to parse the packet's body as she sees fit.
 #[derive(Debug)]
 enum State<'a> {
     // While we are parsing the framing and headers, we dup the inner
-    // reader so that if the parsing fails, we return an unknown
-    // packet with the body intact.
+    // reader so that if the parsing fails, we can return an unknown
+    // packet with all of the data as is.
     Header(Box<BufferedReaderDup<'a, Cookie>>),
 
     // The inner reader.
@@ -1639,7 +1642,8 @@ enum ParserResult<'a> {
 }
 
 impl <'a> PacketParser<'a> {
-    /// Starts parsing an OpenPGP message stored in a `BufferedReader` object.
+    /// Starts parsing an OpenPGP message stored in a `BufferedReader`
+    /// object.
     ///
     /// This function returns a `PacketParser` for the first packet in
     /// the stream.
@@ -1678,7 +1682,8 @@ impl <'a> PacketParser<'a> {
     fn new(inner: Box<'a + BufferedReader<Cookie>>,
            settings: PacketParserSettings,
            recursion_depth: u8, header: Header,
-           header_bytes: Option<Vec<u8>>) -> Self {
+           header_bytes: Option<Vec<u8>>) -> Self
+    {
         PacketParser {
             packet: Packet::Unknown(Unknown {
                 common: Default::default(),
@@ -1697,12 +1702,13 @@ impl <'a> PacketParser<'a> {
         }
     }
 
-    fn new_naked(inner: Box<'a + BufferedReader<Cookie>>)
-                 -> Self {
-        PacketParser::new(inner, Default::default(), 0, Header {
-            ctb: CTB::new(Tag::Reserved),
-            length: BodyLength::Full(0),
-        }, None)
+    fn new_naked(inner: Box<'a + BufferedReader<Cookie>>) -> Self {
+        PacketParser::new(inner, Default::default(), 0,
+                          Header {
+                              ctb: CTB::new(Tag::Reserved),
+                              length: BodyLength::Full(0),
+                          },
+                          None)
     }
 
     fn decrypted(mut self, v: bool) -> Self {
@@ -1712,7 +1718,8 @@ impl <'a> PacketParser<'a> {
 
     fn commit_then<F, R>(&mut self, mut fun: F) -> Result<R>
         where F: FnMut(Box<'a + BufferedReader<Cookie>>, usize)
-                    -> Result<(Box<'a + BufferedReader<Cookie>>, R)> {
+                    -> Result<(Box<'a + BufferedReader<Cookie>>, R)>
+    {
         // Steal the reader.
         let state = ::std::mem::replace(
             &mut self.state,
@@ -1802,7 +1809,7 @@ impl <'a> PacketParser<'a> {
 
     fn parse_bytes(&mut self, name: &'static str, amount: usize)
              -> io::Result<Vec<u8>> {
-        self.field(name,  amount);
+        self.field(name, amount);
         self.steal(amount)
     }
 
@@ -1812,7 +1819,7 @@ impl <'a> PacketParser<'a> {
         Ok(r)
     }
 
-    // Returns a packet parser for the next OpenPGP packet in the
+    // Returns a `PacketParser` for the next OpenPGP packet in the
     // stream.  If there are no packets left, this function returns
     // `bio`.
     fn parse(mut bio: Box<BufferedReader<Cookie> + 'a>,
@@ -1966,23 +1973,24 @@ impl <'a> PacketParser<'a> {
         };
 
         let tag = header.ctb.tag;
-        let parser = PacketParser::new(bio, (*settings).clone(), recursion_depth as u8,
+        let parser = PacketParser::new(bio, (*settings).clone(),
+                                       recursion_depth as u8,
                                        header, header_bytes);
         let mut result = match tag {
             Tag::Signature =>           Signature::parse(parser, computed_hash),
             Tag::OnePassSig =>          OnePassSig::parse(parser),
-            Tag::PublicSubkey =>	Key::parse(parser),
-            Tag::PublicKey =>		Key::parse(parser),
-            Tag::SecretKey =>		Key::parse(parser),
-            Tag::SecretSubkey =>	Key::parse(parser),
-            Tag::UserID =>		UserID::parse(parser),
-            Tag::UserAttribute =>	UserAttribute::parse(parser),
-            Tag::Literal =>		Literal::parse(parser),
-            Tag::CompressedData =>	CompressedData::parse(parser),
-            Tag::SKESK =>		SKESK::parse(parser),
-            Tag::SEIP =>		SEIP::parse(parser),
-            Tag::MDC =>			MDC::parse(parser),
-            _ =>			Unknown::parse(parser),
+            Tag::PublicSubkey =>        Key::parse(parser),
+            Tag::PublicKey =>           Key::parse(parser),
+            Tag::SecretKey =>           Key::parse(parser),
+            Tag::SecretSubkey =>        Key::parse(parser),
+            Tag::UserID =>              UserID::parse(parser),
+            Tag::UserAttribute =>       UserAttribute::parse(parser),
+            Tag::Literal =>             Literal::parse(parser),
+            Tag::CompressedData =>      CompressedData::parse(parser),
+            Tag::SKESK =>               SKESK::parse(parser),
+            Tag::SEIP =>                SEIP::parse(parser),
+            Tag::MDC =>                 MDC::parse(parser),
+            _ =>                        Unknown::parse(parser),
         }?;
 
         if tag == Tag::OnePassSig {
@@ -2187,16 +2195,18 @@ impl <'a> PacketParser<'a> {
                         match self.state {
                             State::Body(reader) =>
                                 match PacketParser::parse(reader, &self.settings,
-                                                          self.recursion_depth as usize + 1)? {
+                                                          self.recursion_depth
+                                                          as usize + 1)? {
                                     ParserResult::Success(mut pp) => {
                                         pp.settings = self.settings;
 
                                         if pp.settings.trace {
                                             eprintln!("{}PacketParser::recurse(): \
-                                                       Recursed into the {:?} packet, \
-                                                       got a {:?}.",
+                                                       Recursed into the {:?} \
+                                                       packet, got a {:?}.",
                                                       indent(self.recursion_depth + 1),
-                                                      self.packet.tag(), pp.packet.tag());
+                                                      self.packet.tag(),
+                                                      pp.packet.tag());
                                         }
 
                                         return Ok((self.packet,

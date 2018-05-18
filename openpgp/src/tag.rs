@@ -30,7 +30,7 @@ pub enum Tag {
     PublicSubkey,
     UserAttribute,
     /// Sym. Encrypted and Integrity Protected Data Packet.
-    SEIP ,
+    SEIP,
     /// Modification Detection Code Packet.
     MDC,
     /// Unassigned packets (as of RFC4880).
@@ -135,9 +135,9 @@ impl fmt::Display for Tag {
             Tag::MDC =>
                 f.write_str("Modification Detection Code Packet"),
             Tag::Private(u) =>
-                f.write_fmt(format_args!("Private/Experimental Packet {}",u)),
+                f.write_fmt(format_args!("Private/Experimental Packet {}", u)),
             Tag::Unknown(u) =>
-                f.write_fmt(format_args!("Unknown Packet {}",u)),
+                f.write_fmt(format_args!("Unknown Packet {}", u)),
         }
     }
 }

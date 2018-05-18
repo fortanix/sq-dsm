@@ -349,7 +349,7 @@ impl SubpacketArea {
     }
 }
 
-impl SubpacketArea{
+impl SubpacketArea {
     // Initialize `Signature::hashed_area_parsed` from
     // `Signature::hashed_area`, if necessary.
     fn cache_init(&self) {
