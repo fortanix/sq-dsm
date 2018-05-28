@@ -230,20 +230,7 @@ impl Signature {
             return Ok(false);
         }
 
-        let signing_capable = if let Some(flags) = self.key_flags() {
-            if flags.len() >= 1 {
-                (flags[0] & 0x02) != 0
-            } else {
-                // The sign capability is in the first byte.  This is
-                // too short.  Missing flags default to 0.
-                false
-            }
-        } else {
-            // No flags are present.  Missing flags default to 0.
-            false
-        };
-
-        if ! signing_capable {
+        if ! self.key_flags().can_sign() {
             // No backsig required.
             return Ok(true)
         }

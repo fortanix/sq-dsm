@@ -686,6 +686,72 @@ fn subpacket_length<C>(bio: &mut BufferedReaderMemory<C>)
     return Ok(bio.read_be_u32()?);
 }
 
+/// Describes how a key may be used, and stores additional
+/// information.
+pub struct KeyFlags<'a>(Option<&'a [u8]>);
+
+impl<'a> KeyFlags<'a> {
+    pub fn can_certify(&self) -> bool {
+        self.0.and_then(|v| v.get(0))
+            .map(|v0| v0 & KEY_FLAG_CERTIFY > 0).unwrap_or(false)
+    }
+
+    pub fn can_sign(&self) -> bool {
+        self.0.and_then(|v| v.get(0))
+            .map(|v0| v0 & KEY_FLAG_SIGN > 0).unwrap_or(false)
+    }
+
+    pub fn can_encrypt_for_transport(&self) -> bool {
+        self.0.and_then(|v| v.get(0))
+            .map(|v0| v0 & KEY_FLAG_ENCRYPT_FOR_TRANSPORT > 0).unwrap_or(false)
+    }
+
+    pub fn can_encrypt_at_rest(&self) -> bool {
+        self.0.and_then(|v| v.get(0))
+            .map(|v0| v0 & KEY_FLAG_ENCRYPT_AT_REST > 0).unwrap_or(false)
+    }
+
+    pub fn can_authenticate(&self) -> bool {
+        self.0.and_then(|v| v.get(0))
+            .map(|v0| v0 & KEY_FLAG_AUTHENTICATE > 0).unwrap_or(false)
+    }
+
+    pub fn is_split_key(&self) -> bool {
+        self.0.and_then(|v| v.get(0))
+            .map(|v0| v0 & KEY_FLAG_SPLIT_KEY > 0).unwrap_or(false)
+    }
+
+    pub fn is_group_key(&self) -> bool {
+        self.0.and_then(|v| v.get(0))
+            .map(|v0| v0 & KEY_FLAG_GROUP_KEY > 0).unwrap_or(false)
+    }
+}
+
+// Numeric key capability flags.
+
+/// This key may be used to certify other keys.
+const KEY_FLAG_CERTIFY: u8 = 0x01;
+
+/// This key may be used to sign data.
+const KEY_FLAG_SIGN: u8 = 0x02;
+
+/// This key may be used to encrypt communications.
+const KEY_FLAG_ENCRYPT_FOR_TRANSPORT: u8 = 0x04;
+
+/// This key may be used to encrypt storage.
+const KEY_FLAG_ENCRYPT_AT_REST: u8 = 0x08;
+
+/// The private component of this key may have been split by a
+/// secret-sharing mechanism.
+const KEY_FLAG_SPLIT_KEY: u8 = 0x10;
+
+/// This key may be used for authentication.
+const KEY_FLAG_AUTHENTICATE: u8 = 0x20;
+
+/// The private component of this key may be in the possession of more
+/// than one person.
+const KEY_FLAG_GROUP_KEY: u8 = 0x80;
+
 impl Signature {
     /// Returns the *last* instance of the specified subpacket.
     fn subpacket<'a>(&'a self, tag: SubpacketTag) -> Option<Subpacket<'a>> {
@@ -1156,18 +1222,20 @@ impl Signature {
     ///
     /// Note: if the signature contains multiple instances of this
     /// subpacket, only the last one is considered.
-    pub fn key_flags(&self) -> Option<&[u8]> {
+    pub fn key_flags(&self) -> KeyFlags {
         // N octets of flags
-        if let Some(sb)
+        KeyFlags(
+            if let Some(sb)
                 = self.subpacket(SubpacketTag::KeyFlags) {
-            if let SubpacketValue::KeyFlags(v) = sb.value {
-                Some(v)
-            } else {
-                None
-            }
-        } else {
-            None
-        }
+                    if let SubpacketValue::KeyFlags(v) = sb.value {
+                        Some(v)
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+        )
     }
 
     /// Returns the value of the Signer's UserID subpacket, which
@@ -1484,7 +1552,7 @@ fn subpacket_test_2() {
                            &[0x80][..])
                    }));
 
-        assert_eq!(sig.key_flags(), Some(&[0x03][..]));
+        assert!(sig.key_flags().can_certify() && sig.key_flags().can_sign());
         assert_eq!(sig.subpacket(SubpacketTag::KeyFlags),
                    Some(Subpacket {
                        critical: false,
