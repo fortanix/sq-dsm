@@ -7,7 +7,6 @@ use buffered_reader::BufferedReaderGeneric;
 use buffered_reader::BufferedReaderMemory;
 
 use Result;
-use Message;
 use parse::PacketParser;
 use parse::PacketParserSettings;
 use parse::ParserResult;
@@ -117,36 +116,6 @@ impl<R: BufferedReader<Cookie>> PacketParserBuilder<R> {
             // `bio` is empty.  We're done.
             Ok(None)
         }
-    }
-
-    /// Finishes configuring the `PacketParser` and returns a fully
-    /// parsed message.
-    ///
-    /// Note: calling this function does not change the default
-    /// settings `PacketParserSettings`.  Thus, by default, the
-    /// content of packets will *not* be buffered.
-    ///
-    /// Note: to avoid denial of service attacks, the `PacketParser`
-    /// interface should be preferred unless the size of the message
-    /// is known to fit in memory.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// # use openpgp::Result;
-    /// # use openpgp::Message;
-    /// # use openpgp::parse::{PacketParser,PacketParserBuilder};
-    /// # f(include_bytes!("../../tests/data/messages/public-key.gpg"));
-    /// #
-    /// # fn f(message_data: &[u8]) -> Result<Message> {
-    /// let message = PacketParserBuilder::from_bytes(message_data)?
-    ///     .buffer_unread_content()
-    ///     .to_message()?;
-    /// # return Ok(message);
-    /// # }
-    /// ```
-    pub fn to_message(self) -> Result<Message> {
-        Message::assemble(self.finalize()?)
     }
 }
 
