@@ -23,6 +23,40 @@ pub struct SKESK {
 }
 
 impl SKESK {
+    /// Creates a new SKESK packet.
+    ///
+    /// The given symmetric algorithm must match the algorithm that is
+    /// used to encrypt the payload, and is also used to encrypt the
+    /// given session key.
+    pub fn new(algo: SymmetricAlgorithm, s2k: S2K,
+               session_key: &[u8], password: &[u8])
+               -> Result<SKESK> {
+        // Derive key and make a cipher.
+        let key = s2k.derive_key(password, algo.key_size()?)?;
+        let mut cipher = algo.make_encrypt_cfb(&key[..])?;
+        let block_size = algo.block_size()?;
+        let mut iv = vec![0u8; block_size];
+
+        // We need to prefix the cipher specifier to the session key.
+        let mut psk = Vec::with_capacity(1 + session_key.len());
+        psk.push(algo.into());
+        psk.extend_from_slice(session_key);
+        let mut esk = vec![0u8; psk.len()];
+
+        for (pt, ct) in psk[..].chunks(block_size)
+            .zip(esk.chunks_mut(block_size)) {
+                cipher.encrypt(&mut iv[..], ct, pt);
+        }
+
+        Ok(SKESK{
+            common: Default::default(),
+            version: 4,
+            symm_algo: algo,
+            s2k: s2k,
+            esk: esk,
+        })
+    }
+
     /// Convert the `SKESK` struct to a `Packet`.
     pub fn to_packet(self) -> Packet {
         Packet::SKESK(self)
