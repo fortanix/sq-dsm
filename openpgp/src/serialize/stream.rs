@@ -11,10 +11,12 @@ use {
     Literal,
     MDC,
     OnePassSig,
+    PKESK,
     Result,
     SKESK,
     Signature,
     Tag,
+    TPK,
 };
 use ctb::CTB;
 use packet::BodyLength;
@@ -604,20 +606,133 @@ pub struct Encryptor<'a> {
     cookie: Cookie,
 }
 
+/// Specifies whether to encrypt for archival purposes or for
+/// transport.
+pub enum EncryptionMode {
+    /// Encrypt data for long-term storage.
+    ///
+    /// This should be used for things that should be decryptable for
+    /// a long period of time, e.g. backups, archives, etc.
+    AtRest,
+
+    /// Encrypt data for transport.
+    ///
+    /// This should be used to protect a message in transit.  The
+    /// recipient is expected to take additional steps if she wants to
+    /// be able to decrypt it later on, e.g. store the decrypted
+    /// session key, or re-encrypt the session key with a different
+    /// key.
+    ForTransport,
+}
+
 impl<'a> Encryptor<'a> {
     /// Creates a new encryptor.
     ///
-    /// XXX: Some configuration, asymmetric encryption.
+    /// The stream will be encrypted using a generated session key,
+    /// which will be encrypted using the given passwords, and all
+    /// encryption-capable subkeys of the given TPKs.
+    ///
+    /// The stream is encrypted using AES256, regardless of any key
+    /// preferences.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// #[macro_use] extern crate openpgp; // For armored!
+    /// use openpgp::serialize::stream::{
+    ///     wrap, Encryptor, EncryptionMode, LiteralWriter,
+    /// };
+    /// # use openpgp::Result;
+    /// # fn main() { f().unwrap(); }
+    /// # fn f() -> Result<()> {
+    /// let tpk = openpgp::TPK::from_reader(armored!(
+    /// #   &( // We do some acrobatics here to abbreviate the TPK.
+    ///     "-----BEGIN PGP PUBLIC KEY BLOCK-----
+    ///
+    ///      mQENBFpxtsABCADZcBa1Q3ZLZnju18o0+t8LoQuIIeyeUQ0H45y6xUqyrD5HSkVM
+    /// #    ".to_owned() /*
+    ///      ...
+    /// #    */ +"
+    /// #    VGQs6IHLq70mAizBJ4VznUVqVOh/NhOlapXi6/TKpjHvttdg45o6Pgqa0Kx64luT
+    /// #    ZY+TEKyILcdBdhr3CzsEILnQst5jadgMvU9fnT/EkJIvxtWPlUzU5R7nnALO626x
+    /// #    2M5Pj3k0h3ZNHMmYQQtReX/RP/xUh2SfOYG6i/MCclIlee8BXHB9k0bW2NAX2W7H
+    /// #    rLDGPm1LzmyqxFGDvDvfPlYZ5nN2cbGsv3w75LDzv75kMhVnkZsrUjnHjVRzFq7q
+    /// #    fSIpxlvJMEMKSIJ/TFztQoOBO5OlBb5qzYPpABEBAAG0F+G8iM+BzrnPg8+Ezr/P
+    /// #    hM6tzrvOt8+CiQFUBBMBCAA+FiEEfcpYtU6xQxad3uFfJH9tq8hJFP4FAlpxtsAC
+    /// #    GwMFCQPCZwAFCwkIBwIGFQgJCgsCBBYCAwECHgECF4AACgkQJH9tq8hJFP49hgf+
+    /// #    IKvec0RkD9EHSLFc6AKDm/knaI4AIH0isZTz9jRCF8H/j3h8QVUE+/0jtCcyvR6F
+    /// #    TGVSfO3pelDPYGIjDFI3aA6H/UlhZWzYRXZ+QQRrV0zwvLna3XjiW8ib3Ky+5bpQ
+    /// #    0uVeee30u+U3SnaCL9QB4+UvwVvAxRuk49Z0Q8TsRrQyQNYpeZDN7uNrvA134cf6
+    /// #    6pLUvzPG4lMLIvSXFuHou704EhT7NS3wAzFtjMrsLLieVqtbEi/kBaJTQSZQwjVB
+    /// #    sE/Z8lp1heKw/33Br3cB63n4cTf0FdoFywDBhCAMU7fKboU5xBpm5bQJ4ck6j6w+
+    /// #    BKG1FiQRR6PCUeb6GjxVOrkBDQRacbbAAQgAw538MMb/pRdpt7PTgBCedw+rU9fh
+    /// #    onZYKwmCO7wz5VrVf8zIVvWKxhX6fBTSAy8mxaYbeL/3woQ9Leuo8f0PQNs9zw1N
+    /// #    mdH+cnm2KQmL9l7/HQKMLgEAu/0C/q7ii/j8OMYitaMUyrwy+OzW3nCal/uJHIfj
+    /// #    bdKx29MbKgF/zaBs8mhTvf/Tu0rIVNDPEicwijDEolGSGebZxdGdHJA31uayMHDK
+    /// #    /mwySJViMZ8b+Lzc/dRgNbQoY6yjsjso7U9OZpQK1fooHOSQS6iLsSSsZLcGPD+7
+    /// #    m7j3jwq68SIJPMsu0O8hdjFWL4Cfj815CwptAxRGkp00CIusAabO7m8DzwARAQAB
+    /// #    iQE2BBgBCAAgFiEEfcpYtU6xQxad3uFfJH9tq8hJFP4FAlpxtsACGwwACgkQJH9t
+    /// #    q8hJFP5rmQgAoYOUXolTiQmWipJTdMG/VZ5X7mL8JiBWAQ11K1o01cZCMlziyHnJ
+    /// #    xJ6Mqjb6wAFpYBtqysJG/vfjc/XEoKgfFs7+zcuEnt41xJQ6tl/L0VTxs+tEwjZu
+    /// #    Rp/owB9GCkqN9+xNEnlH77TLW1UisW+l0F8CJ2WFOj4lk9rcXcLlEdGmXfWIlVCb
+    /// #    2/o0DD+HDNsF8nWHpDEy0mcajkgIUTvXQaDXKbccX6Wgep8dyBP7YucGmRPd9Z6H
+    /// #    bGeT3KvlJlH5kthQ9shsmT14gYwGMR6rKpNUXmlpetkjqUK7pGVaHGgJWUZ9QPGU
+    ///      awwPdWWvZSyXJAPZ9lC5sTKwMJDwIxILug==
+    ///      =lAie
+    ///      -----END PGP PUBLIC KEY BLOCK-----"
+    /// # )
+    /// )).unwrap();
+    /// let mut o = vec![];
+    /// let encryptor = Encryptor::new(wrap(&mut o),
+    ///                                &["совершенно секретно".as_bytes()],
+    ///                                &[&tpk],
+    ///                                EncryptionMode::AtRest)
+    ///     .expect("Failed to create encryptor");
+    /// let mut w = LiteralWriter::new(encryptor, 't', None, 0)?;
+    /// w.write_all(b"Hello world.")?;
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn new(mut inner: writer::Stack<'a, Cookie>,
-               passwords: &[&[u8]])
+               passwords: &[&[u8]], tpks: &[&TPK],
+               encryption_mode: EncryptionMode)
                -> Result<writer::Stack<'a, Cookie>> {
         let mut rng = Yarrow::default();
         let level = inner.cookie_ref().level + 1;
-        let algo = SymmetricAlgorithm::AES128;
+        let algo = SymmetricAlgorithm::AES256;
 
         // Generate a session key.
         let mut sk = vec![0; algo.key_size().unwrap()];
         rng.random(&mut sk);
+
+        // Write the PKESK packet(s).
+        for tpk in tpks {
+            let subkeys = tpk.subkeys().filter(|skb| {
+                // The first signature is the most recent binding
+                // signature.
+                skb.selfsigs().next()
+                    .map(|sig| match encryption_mode {
+                        EncryptionMode::AtRest =>
+                            sig.key_flags().can_encrypt_at_rest(),
+                        EncryptionMode::ForTransport =>
+                            sig.key_flags().can_encrypt_for_transport(),
+                    })
+                    .unwrap_or(false)
+            });
+
+            let mut count = 0;
+            for key in subkeys {
+                let skesk = PKESK::new(algo, &sk, key.subkey())?;
+                skesk.serialize(&mut inner)?;
+                count += 1;
+            }
+
+            if count == 0 {
+                return Err(Error::InvalidOperation(
+                    format!("Key {} has no suitable encryption subkey",
+                            tpk)).into());
+            }
+        }
 
         // Write the SKESK packet(s).
         for password in passwords {
@@ -969,7 +1084,8 @@ mod test {
         // Write a simple encrypted message...
         let mut o = vec![];
         {
-            let encryptor = Encryptor::new(wrap(&mut o), &passwords)
+            let encryptor = Encryptor::new(wrap(&mut o), &passwords, &[],
+                                           EncryptionMode::ForTransport)
                 .unwrap();
             let mut literal = LiteralWriter::new(encryptor, 'b', None, 0)
                 .unwrap();
