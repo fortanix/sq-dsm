@@ -5,11 +5,16 @@
 //!   [Section 4 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4
 
 use std::fmt;
-use std::ops::{Deref,DerefMut};
+use std::ops::{Deref, DerefMut};
 use std::slice;
 use std::vec;
-use ctb::{CTB};
+use std::io;
+
+use Result;
 use Packet;
+use ctb::{CTB, PacketLengthType};
+
+use buffered_reader::BufferedReader;
 
 // Allow transparent access of common fields.
 impl<'a> Deref for Packet {
@@ -55,7 +60,7 @@ impl<'a> DerefMut for Packet {
         }
     }
 }
-
+
 /// The size of a packet.
 ///
 /// A packet's size can be expressed in three different ways.  Either
@@ -86,6 +91,110 @@ pub enum BodyLength {
     Indeterminate,
 }
 
+impl BodyLength {
+    /// Decodes a new format body length as described in [Section
+    /// 4.2.2 of RFC 4880].
+    ///
+    ///   [Section 4.2.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.2.2
+    pub fn parse_new_format<T: BufferedReader<C>, C> (bio: &mut T)
+        -> io::Result<BodyLength>
+    {
+        let octet1 : u8 = bio.data_consume_hard(1)?[0];
+        match octet1 {
+            0...191 => // One octet.
+                Ok(BodyLength::Full(octet1 as u32)),
+            192...223 => { // Two octets length.
+                let octet2 = bio.data_consume_hard(1)?[0];
+                Ok(BodyLength::Full(((octet1 as u32 - 192) << 8)
+                                    + octet2 as u32 + 192))
+            },
+            224...254 => // Partial body length.
+                Ok(BodyLength::Partial(1 << (octet1 & 0x1F))),
+            255 => // Five octets.
+                Ok(BodyLength::Full(bio.read_be_u32()?)),
+            _ =>
+                // The rust compiler doesn't yet check whether an
+                // integer is covered.
+                //
+                // https://github.com/rust-lang/rfcs/issues/1550
+                unreachable!(),
+        }
+    }
+
+    /// Decodes an old format body length as described in [Section
+    /// 4.2.1 of RFC 4880].
+    ///
+    ///   [Section 4.2.1 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.2.1
+    pub fn parse_old_format<T: BufferedReader<C>, C>
+        (bio: &mut T, length_type: PacketLengthType)
+         -> Result<BodyLength>
+    {
+        match length_type {
+            PacketLengthType::OneOctet =>
+                Ok(BodyLength::Full(bio.data_consume_hard(1)?[0] as u32)),
+            PacketLengthType::TwoOctets =>
+                Ok(BodyLength::Full(bio.read_be_u16()? as u32)),
+            PacketLengthType::FourOctets =>
+                Ok(BodyLength::Full(bio.read_be_u32()? as u32)),
+            PacketLengthType::Indeterminate =>
+                Ok(BodyLength::Indeterminate),
+        }
+    }
+}
+
+#[test]
+fn body_length_new_format() {
+    use buffered_reader::BufferedReaderMemory;
+
+    fn test(input: &[u8], expected_result: BodyLength) {
+        assert_eq!(
+            BodyLength::parse_new_format(
+                &mut BufferedReaderMemory::new(input)).unwrap(),
+            expected_result);
+    }
+
+    // Examples from Section 4.2.3 of RFC4880.
+
+    // Example #1.
+    test(&[0x64][..], BodyLength::Full(100));
+
+    // Example #2.
+    test(&[0xC5, 0xFB][..], BodyLength::Full(1723));
+
+    // Example #3.
+    test(&[0xFF, 0x00, 0x01, 0x86, 0xA0][..], BodyLength::Full(100000));
+
+    // Example #4.
+    test(&[0xEF][..], BodyLength::Partial(32768));
+    test(&[0xE1][..], BodyLength::Partial(2));
+    test(&[0xF0][..], BodyLength::Partial(65536));
+    test(&[0xC5, 0xDD][..], BodyLength::Full(1693));
+}
+
+#[test]
+fn body_length_old_format() {
+    use buffered_reader::BufferedReaderMemory;
+
+    fn test(input: &[u8], plt: PacketLengthType,
+            expected_result: BodyLength, expected_rest: &[u8]) {
+        let mut bio = BufferedReaderMemory::new(input);
+        assert_eq!(BodyLength::parse_old_format(&mut bio, plt).unwrap(),
+                   expected_result);
+        let rest = bio.data_eof();
+        assert_eq!(rest.unwrap(), expected_rest);
+    }
+
+    test(&[1], PacketLengthType::OneOctet, BodyLength::Full(1), &b""[..]);
+    test(&[1, 2], PacketLengthType::TwoOctets,
+         BodyLength::Full((1 << 8) + 2), &b""[..]);
+    test(&[1, 2, 3, 4], PacketLengthType::FourOctets,
+         BodyLength::Full((1 << 24) + (2 << 16) + (3 << 8) + 4), &b""[..]);
+    test(&[1, 2, 3, 4, 5, 6], PacketLengthType::FourOctets,
+         BodyLength::Full((1 << 24) + (2 << 16) + (3 << 8) + 4), &[5, 6][..]);
+    test(&[1, 2, 3, 4], PacketLengthType::Indeterminate,
+         BodyLength::Indeterminate, &[1, 2, 3, 4][..]);
+}
+
 /// Fields used by multiple packet types.
 #[derive(PartialEq, Clone)]
 pub struct Common {
@@ -186,7 +295,7 @@ impl Common {
         }
     }
 }
-
+
 /// An OpenPGP packet's header.
 #[derive(Debug)]
 pub struct Header {
@@ -196,6 +305,24 @@ pub struct Header {
     pub length: BodyLength,
 }
 
+impl Header {
+    /// Parses an OpenPGP packet's header as described in [Section 4.2
+    /// of RFC 4880].
+    ///
+    ///   [Section 4.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.2
+    pub fn parse<R: BufferedReader<C>, C> (bio: &mut R)
+        -> Result<Header>
+    {
+        let ctb = CTB::from_ptag(bio.data_consume_hard(1)?[0])?;
+        let length = match ctb {
+            CTB::New(_) => BodyLength::parse_new_format(bio)?,
+            CTB::Old(ref ctb) =>
+                BodyLength::parse_old_format(bio, ctb.length_type)?,
+        };
+        return Ok(Header { ctb: ctb, length: length });
+    }
+}
+
 /// Holds zero or more OpenPGP packets.
 ///
 /// This is used by OpenPGP container packets, like the compressed
@@ -276,7 +403,7 @@ impl Container {
         }
     }
 }
-
+
 /// A `PacketIter` iterates over the *contents* of a packet in
 /// depth-first order.  It starts by returning the current packet.
 pub struct PacketIter<'a> {

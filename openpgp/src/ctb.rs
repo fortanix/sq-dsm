@@ -196,3 +196,68 @@ impl Deref for CTB {
         }
     }
 }
+
+impl CTB {
+    /// Parses a CTB as described in [Section 4.2 of RFC 4880].  This
+    /// function parses both new and old format CTBs.
+    ///
+    ///   [Section 4.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.2
+    pub fn from_ptag(ptag: u8) -> Result<CTB> {
+        // The top bit of the ptag must be set.
+        if ptag & 0b1000_0000 == 0 {
+            // XXX: Use a proper error.
+            return Err(
+                Error::MalformedPacket(
+                    format!("Malformed ctb: MSB of ptag ({:#010b}) not set.",
+                            ptag)
+                ).into());
+        }
+
+        let new_format = ptag & 0b0100_0000 != 0;
+        let ctb = if new_format {
+            let tag = ptag & 0b0011_1111;
+            CTB::New(CTBNew {
+                common: CTBCommon {
+                    tag: tag.into()
+                }})
+        } else {
+            let tag = (ptag & 0b0011_1100) >> 2;
+            let length_type = ptag & 0b0000_0011;
+
+            CTB::Old(CTBOld {
+                common: CTBCommon {
+                    tag: tag.into(),
+                },
+                length_type: PacketLengthType::try_from(length_type)?,
+            })
+        };
+
+        Ok(ctb)
+    }
+}
+
+#[test]
+fn ctb() {
+    // 0x99 = public key packet
+    if let CTB::Old(ctb) = CTB::from_ptag(0x99).unwrap() {
+        assert_eq!(ctb.tag, Tag::PublicKey);
+        assert_eq!(ctb.length_type, PacketLengthType::TwoOctets);
+    } else {
+        panic!("Expected an old format packet.");
+    }
+
+    // 0xa3 = old compressed packet
+    if let CTB::Old(ctb) = CTB::from_ptag(0xa3).unwrap() {
+        assert_eq!(ctb.tag, Tag::CompressedData);
+        assert_eq!(ctb.length_type, PacketLengthType::Indeterminate);
+    } else {
+        panic!("Expected an old format packet.");
+    }
+
+    // 0xcb: new literal
+    if let CTB::New(ctb) = CTB::from_ptag(0xcb).unwrap() {
+        assert_eq!(ctb.tag, Tag::Literal);
+    } else {
+        panic!("Expected a new format packet.");
+    }
+}

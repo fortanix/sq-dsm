@@ -56,7 +56,7 @@ extern crate quickcheck;
 pub mod armor;
 
 pub mod ctb;
-use ctb::{CTB, CTBOld, CTBNew, CTBCommon, PacketLengthType};
+use ctb::{CTB, CTBOld, CTBNew};
 
 pub mod packet;
 use packet::{BodyLength, Header, Container};
