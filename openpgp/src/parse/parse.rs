@@ -854,16 +854,10 @@ impl Literal {
 
         // The header is consumed while hashing is disabled.
         let recursion_depth = pp.recursion_depth;
-        pp.commit_then(|mut bio, total_out| {
-            // We know the data has been read, so this cannot
-            // fail.
-            bio.data_consume_hard(total_out).unwrap();
+        pp.commit()?;
 
-            // Enable hashing of the body.
-            Cookie::hashing(
-                &mut bio, true, recursion_depth as isize - 1);
-            Ok((bio, ()))
-        })?;
+        // Enable hashing of the body.
+        Cookie::hashing(pp.mut_reader(), true, recursion_depth as isize - 1);
 
         pp.ok(Packet::Literal(Literal {
             common: Default::default(),
@@ -935,34 +929,30 @@ impl CompressedData {
         }
 
         let recursion_depth = pp.recursion_depth as usize;
-        pp.commit_then(|mut bio, total_out| {
-            // We know the data has been read, so this cannot
-            // fail.
-            bio.data_consume_hard(total_out).unwrap();
+        pp.commit()?;
 
-            let bio : Box<BufferedReader<Cookie>> = match algo {
-                CompressionAlgorithm::Uncompressed => {
-                    if TRACE {
-                        eprintln!("CompressedData::parse(): Actually, no need \
-                                   for a compression filter: this is an \
-                                   \"uncompressed compression packet\".");
-                    }
-                    bio
-                },
-                CompressionAlgorithm::Zip =>
-                    Box::new(BufferedReaderDeflate::with_cookie(
-                        bio, Cookie::new(recursion_depth))),
-                CompressionAlgorithm::Zlib =>
-                    Box::new(BufferedReaderZlib::with_cookie(
-                        bio, Cookie::new(recursion_depth))),
-                CompressionAlgorithm::BZip2 =>
-                    Box::new(BufferedReaderBzip::with_cookie(
-                        bio, Cookie::new(recursion_depth))),
-                _ => unreachable!(), // Validated above.
-            };
-
-            Ok((bio, ()))
-        })?;
+        let reader = pp.take_reader();
+        let reader = match algo {
+            CompressionAlgorithm::Uncompressed => {
+                if TRACE {
+                    eprintln!("CompressedData::parse(): Actually, no need \
+                               for a compression filter: this is an \
+                               \"uncompressed compression packet\".");
+                }
+                reader
+            },
+            CompressionAlgorithm::Zip =>
+                Box::new(BufferedReaderDeflate::with_cookie(
+                    reader, Cookie::new(recursion_depth))),
+            CompressionAlgorithm::Zlib =>
+                Box::new(BufferedReaderZlib::with_cookie(
+                    reader, Cookie::new(recursion_depth))),
+            CompressionAlgorithm::BZip2 =>
+                Box::new(BufferedReaderBzip::with_cookie(
+                    reader, Cookie::new(recursion_depth))),
+            _ => unreachable!(), // Validated above.
+        };
+        pp.set_reader(reader);
 
         pp.ok(Packet::CompressedData(CompressedData {
             common: Default::default(),
@@ -1719,6 +1709,37 @@ impl <'a> PacketParser<'a> {
                           None)
     }
 
+    // Return the reader stack, replacing it with a
+    // `BufferedReaderEOF` reader.
+    //
+    // This function may only be called when the `PacketParser` is in
+    // State::Body.
+    fn take_reader(&mut self) -> Box<BufferedReader<Cookie> + 'a> {
+        self.set_reader(
+            Box::new(BufferedReaderEOF::with_cookie(Default::default())))
+    }
+
+    // Replaces the reader stack.
+    //
+    // This function may only be called when the `PacketParser` is in
+    // State::Body.
+    fn set_reader(&mut self, reader: Box<BufferedReader<Cookie> + 'a>)
+        -> Box<BufferedReader<Cookie> + 'a>
+    {
+        match mem::replace(&mut self.state, State::Body(reader)) {
+            State::Body(reader) => reader,
+            State::Header(_) => unreachable!(),
+        }
+    }
+
+    // Returns a mutable reference to the reader stack.
+    fn mut_reader(&mut self) -> &mut BufferedReader<Cookie> {
+        match self.state {
+            State::Body(ref mut reader) => reader,
+            State::Header(_) => unreachable!(),
+        }
+    }
+
     fn decrypted(mut self, v: bool) -> Self {
         self.decrypted = v;
         self
@@ -1732,16 +1753,9 @@ impl <'a> PacketParser<'a> {
     //
     // This function may only be called once per PacketParser.
     //
-    // `fun` is a callback that takes the underlying `BufferedReader`
-    // (out of which the header was read), and the header's length.
-    // The callback should return a `BufferedReader` that points to
-    // the start of the packet's body (in the simplest case, this
-    // means consuming the specified number of bytes from the reader),
-    // and this function's return value.
-    fn commit_then<F, R>(&mut self, mut fun: F) -> Result<R>
-        where F: FnMut(Box<'a + BufferedReader<Cookie>>, usize)
-                    -> Result<(Box<'a + BufferedReader<Cookie>>, R)>
-    {
+    // This function consumes the bytes belonging to
+    // the packet's header (i.e., the number of bytes read).
+    fn commit(&mut self) -> Result<()> {
         // Steal the reader.
         let state = ::std::mem::replace(
             &mut self.state,
@@ -1751,7 +1765,7 @@ impl <'a> PacketParser<'a> {
         match state {
             State::Header(mut reader) => {
                 let total_out = reader.total_out();
-                let inner = if self.settings.map {
+                let mut inner = if self.settings.map {
                     // Read the body for the map.  Note that
                     // `total_out` does not account for the body.
                     //
@@ -1777,25 +1791,15 @@ impl <'a> PacketParser<'a> {
                     reader.into_inner().unwrap()
                 };
 
-                // Apply the given function.
-                let (inner, result) = fun(inner, total_out)?;
+                // We know the data has been read, so this cannot fail.
+                inner.data_consume_hard(total_out).unwrap();
 
                 self.state = State::Body(inner);
-                Ok(result)
+                Ok(())
             },
             State::Body(_) =>
                 panic!("PacketParser already committed"),
         }
-    }
-
-    // Calls `commit_then()` and just consumes the bytes belonging to
-    // the packet's header (i.e., the number of bytes read).
-    fn commit(&mut self) -> Result<()> {
-        self.commit_then(|mut reader, total_out| {
-            // We know the data has been read, so this cannot fail.
-            reader.data_consume_hard(total_out).unwrap();
-            Ok((reader, ()))
-        })
     }
 
     // Returns a `PacketParser` over the packet's body, committing the
