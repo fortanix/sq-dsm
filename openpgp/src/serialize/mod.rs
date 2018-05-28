@@ -160,6 +160,27 @@ impl Serialize for CTB {
         Ok(())
     }
 }
+
+impl Serialize for KeyID {
+    /// Writes a serialized version of the specified `KeyID` to `o`.
+    fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
+        let raw = match self {
+            &KeyID::V4(ref fp) => &fp[..],
+            &KeyID::Invalid(ref fp) => &fp[..],
+        };
+        o.write_all(raw)?;
+        Ok(())
+    }
+
+    /// Serializes the packet to a vector.
+    fn to_vec(&self) -> Vec<u8> {
+        let mut o = Vec::with_capacity(8);
+        // Writing to a vec can't fail.
+        self.serialize(&mut o).unwrap();
+        o
+    }
+}
+
 
 /// Packet serialization.
 ///
