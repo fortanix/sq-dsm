@@ -1395,6 +1395,10 @@ impl <'a> PacketParser<'a> {
     // the packet's header (i.e., the number of bytes read).
     fn commit(&mut self) -> Result<()> {
         // Steal the reader.
+        //
+        // Note: we can't use self.take_reader(), because that only
+        // works once we are in the body state.  Also, it returns a
+        // Box<BufferedReader> and we need the BufferedReaderDup.
         let state = ::std::mem::replace(
             &mut self.state,
             State::Body(Box::new(
@@ -2277,18 +2281,9 @@ impl<'a> PacketParser<'a> {
             // Ok, we can decrypt the data.  Push a Decryptor and a
             // HashedReader on the `BufferedReader` stack.
 
-            let reader =
-            match self.state {
-                State::Body(ref mut reader) =>
-                    mem::replace(
-                        reader,
-                        Box::new(BufferedReaderEOF::with_cookie(Default::default()))),
-                State::Header(_) =>
-                    panic!("Header not parsed"),
-            };
-
             // This can't fail, because we create a decryptor above
             // with the same parameters.
+            let reader = self.take_reader();
             let mut reader = BufferedReaderDecryptor::with_cookie(
                 algo, key, reader, Cookie::default()).unwrap();
             reader.cookie_mut().level = Some(self.recursion_depth as isize);
