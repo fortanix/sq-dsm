@@ -84,6 +84,7 @@ mod user_attribute;
 mod literal;
 mod compressed_data;
 mod skesk;
+pub use skesk::SKESK;
 
 mod message;
 mod constants;
@@ -366,23 +367,6 @@ pub struct CompressedData {
 pub struct SEIP {
     pub common: packet::Common,
     pub version: u8,
-}
-
-/// Holds an symmetrically encrypted session key.
-///
-/// Holds an symmetrically encrypted session key.  The session key is
-/// needed to decrypt the actual ciphertext.  See [Section 5.3 of RFC
-/// 4880] for details.
-///
-/// [Section 5.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.3
-#[derive(PartialEq, Clone, Debug)]
-pub struct SKESK {
-    pub common: packet::Common,
-    pub version: u8,
-    pub symm_algo: SymmetricAlgorithm,
-    pub s2k: S2K,
-    // The encrypted session key.
-    pub esk: Vec<u8>,
 }
 
 /// Holds an MDC packet.

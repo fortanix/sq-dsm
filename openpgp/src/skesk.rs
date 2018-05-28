@@ -2,8 +2,25 @@ use Result;
 use S2K;
 use Error;
 use SymmetricAlgorithm;
-use SKESK;
+use packet;
 use Packet;
+
+/// Holds an symmetrically encrypted session key.
+///
+/// Holds an symmetrically encrypted session key.  The session key is
+/// needed to decrypt the actual ciphertext.  See [Section 5.3 of RFC
+/// 4880] for details.
+///
+/// [Section 5.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.3
+#[derive(PartialEq, Clone, Debug)]
+pub struct SKESK {
+    pub common: packet::Common,
+    pub version: u8,
+    pub symm_algo: SymmetricAlgorithm,
+    pub s2k: S2K,
+    // The encrypted session key.
+    pub esk: Vec<u8>,
+}
 
 impl SKESK {
     /// Convert the `SKESK` struct to a `Packet`.
