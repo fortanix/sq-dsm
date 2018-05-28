@@ -662,6 +662,12 @@ impl<'a, I: Iterator<Item=Packet>> Iterator for TPKParser<'a, I> {
     }
 }
 
+impl fmt::Display for TPK {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.primary.fingerprint())
+    }
+}
+
 impl TPK {
     pub fn primary(&self) -> &Key {
         &self.primary
