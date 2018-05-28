@@ -84,13 +84,15 @@ fn indent(depth: u8) -> &'static str {
 /// So, this should be more than enough.
 const MAX_RECURSION_DEPTH : u8 = 16;
 
-/// Binds a parser providing a local 'ptry!' macro.
-macro_rules! bind_ptry {
+/// Creates a local marco called pp_try! that returns an Unknown
+/// packet instead of an Error like try! on parsing-related errors.
+/// (Errors like read errors are still returned as usual.)
+///
+/// If you want to fail like this in a non-try! context, use
+/// pp.fail("reason").
+macro_rules! make_pp_try {
     ($parser:expr) => {
-
-        /// Handles errors like try!, returns Unknown packet on
-        /// truncation.
-        macro_rules! ptry {
+        macro_rules! pp_try {
             ($e:expr) => {
                 match $e {
                     Ok(b) => {
@@ -317,9 +319,9 @@ impl Signature {
                  computed_hash: Option<(HashAlgorithm, Box<Hash>)>)
         -> Result<PacketParser<'a>>
     {
-        bind_ptry!(pp);
+        make_pp_try!(pp);
 
-        let version = ptry!(pp.parse_u8("version"));
+        let version = pp_try!(pp.parse_u8("version"));
 
         if version != 4 {
             if TRACE {
@@ -329,20 +331,20 @@ impl Signature {
             return pp.fail("unknown version");
         }
 
-        let sigtype = ptry!(pp.parse_u8("sigtype"));
-        let pk_algo = ptry!(pp.parse_u8("pk_algo"));
-        let hash_algo = ptry!(pp.parse_u8("hash_algo"));
-        let hashed_area_len = ptry!(pp.parse_be_u16("hashed_area_len"));
+        let sigtype = pp_try!(pp.parse_u8("sigtype"));
+        let pk_algo = pp_try!(pp.parse_u8("pk_algo"));
+        let hash_algo = pp_try!(pp.parse_u8("hash_algo"));
+        let hashed_area_len = pp_try!(pp.parse_be_u16("hashed_area_len"));
         let hashed_area
-            = ptry!(pp.parse_bytes("hashed_area",
+            = pp_try!(pp.parse_bytes("hashed_area",
                                    hashed_area_len as usize));
-        let unhashed_area_len = ptry!(pp.parse_be_u16("unhashed_area_len"));
+        let unhashed_area_len = pp_try!(pp.parse_be_u16("unhashed_area_len"));
         let unhashed_area
-            = ptry!(pp.parse_bytes("unhashed_area",
+            = pp_try!(pp.parse_bytes("unhashed_area",
                                    unhashed_area_len as usize));
-        let hash_prefix1 = ptry!(pp.parse_u8("hash_prefix1"));
-        let hash_prefix2 = ptry!(pp.parse_u8("hash_prefix2"));
-        let mpis = ptry!(pp.parse_bytes_eof("mpis"));
+        let hash_prefix1 = pp_try!(pp.parse_u8("hash_prefix1"));
+        let hash_prefix2 = pp_try!(pp.parse_u8("hash_prefix2"));
+        let mpis = pp_try!(pp.parse_bytes_eof("mpis"));
 
         let mut sig = Signature {
             common: Default::default(),
@@ -399,9 +401,9 @@ impl OnePassSig {
     fn parse<'a>(mut pp: PacketParser<'a>)
         -> Result<PacketParser<'a>>
     {
-        bind_ptry!(pp);
+        make_pp_try!(pp);
 
-        let version = ptry!(pp.parse_u8("version"));
+        let version = pp_try!(pp.parse_u8("version"));
         if version != 3 {
             if TRACE {
                 eprintln!("{}OnePassSig::parse: Ignoring verion {} packet",
@@ -412,12 +414,12 @@ impl OnePassSig {
             return pp.fail("unknown version");
         }
 
-        let sigtype = ptry!(pp.parse_u8("sigtype"));
-        let hash_algo = ptry!(pp.parse_u8("hash_algo"));
-        let pk_algo = ptry!(pp.parse_u8("pk_algo"));
+        let sigtype = pp_try!(pp.parse_u8("sigtype"));
+        let hash_algo = pp_try!(pp.parse_u8("hash_algo"));
+        let pk_algo = pp_try!(pp.parse_u8("pk_algo"));
         let mut issuer = [0u8; 8];
-        issuer.copy_from_slice(&ptry!(pp.parse_bytes("issuer", 8)));
-        let last = ptry!(pp.parse_u8("last"));
+        issuer.copy_from_slice(&pp_try!(pp.parse_bytes("issuer", 8)));
+        let last = pp_try!(pp.parse_u8("last"));
         pp.commit()?;
 
         // We create an empty hashed reader even if we don't support
@@ -577,21 +579,21 @@ impl Key {
     /// Parses the body of a public key, public subkey, secret key or
     /// secret subkey packet.
     fn parse<'a>(mut pp: PacketParser<'a>) -> Result<PacketParser<'a>> {
-        bind_ptry!(pp);
+        make_pp_try!(pp);
         let tag = pp.header.ctb.tag;
         assert!(tag == Tag::PublicKey
                 || tag == Tag::PublicSubkey
                 || tag == Tag::SecretKey
                 || tag == Tag::SecretSubkey);
-        let version = ptry!(pp.parse_u8("version"));
+        let version = pp_try!(pp.parse_u8("version"));
         if version != 4 {
             // We only support version 4 keys.
             return pp.fail("unknown version");
         }
 
-        let creation_time = ptry!(pp.parse_be_u32("creation_time"));
-        let pk_algo = ptry!(pp.parse_u8("pk_algo"));
-        let mpis = ptry!(pp.parse_bytes_eof("mpis"));
+        let creation_time = pp_try!(pp.parse_be_u32("creation_time"));
+        let pk_algo = pp_try!(pp.parse_u8("pk_algo"));
+        let mpis = pp_try!(pp.parse_bytes_eof("mpis"));
 
         let key = Key {
             common: Default::default(),
@@ -615,9 +617,9 @@ impl Key {
 impl UserID {
     /// Parses the body of a user id packet.
     fn parse<'a>(mut pp: PacketParser<'a>) -> Result<PacketParser<'a>> {
-        bind_ptry!(pp);
+        make_pp_try!(pp);
 
-        let value = ptry!(pp.parse_bytes_eof("value"));
+        let value = pp_try!(pp.parse_bytes_eof("value"));
 
         pp.ok(Packet::UserID(UserID {
             common: Default::default(),
@@ -629,9 +631,9 @@ impl UserID {
 impl UserAttribute {
     /// Parses the body of a user attribute packet.
     fn parse<'a>(mut pp: PacketParser<'a>) -> Result<PacketParser<'a>> {
-        bind_ptry!(pp);
+        make_pp_try!(pp);
 
-        let value = ptry!(pp.parse_bytes_eof("value"));
+        let value = pp_try!(pp.parse_bytes_eof("value"));
 
         pp.ok(Packet::UserAttribute(UserAttribute {
             common: Default::default(),
@@ -646,22 +648,22 @@ impl Literal {
     /// Condition: Hashing has been disabled by the callee.
     fn parse<'a>(mut pp: PacketParser<'a>) -> Result<PacketParser<'a>>
     {
-        bind_ptry!(pp);
+        make_pp_try!(pp);
 
         // Directly hashing a literal data packet is... strange.
         // Neither the packet's header, the packet's meta-data nor the
         // length encoding information is included in the hash.
 
-        let format = ptry!(pp.parse_u8("format"));
-        let filename_len = ptry!(pp.parse_u8("filename_len"));
+        let format = pp_try!(pp.parse_u8("format"));
+        let filename_len = pp_try!(pp.parse_u8("filename_len"));
 
         let filename = if filename_len > 0 {
-            Some(ptry!(pp.parse_bytes("filename", filename_len as usize)))
+            Some(pp_try!(pp.parse_bytes("filename", filename_len as usize)))
         } else {
             None
         };
 
-        let date = ptry!(pp.parse_be_u32("date"));
+        let date = pp_try!(pp.parse_be_u32("date"));
 
         // The header is consumed while hashing is disabled.
         let recursion_depth = pp.recursion_depth;
@@ -722,9 +724,9 @@ fn literal_parser_test () {
 impl CompressedData {
     /// Parses the body of a compressed data packet.
     fn parse<'a>(mut pp: PacketParser<'a>) -> Result<PacketParser<'a>> {
-        bind_ptry!(pp);
+        make_pp_try!(pp);
         let algo: CompressionAlgorithm =
-            ptry!(pp.parse_u8("algo")).into();
+            pp_try!(pp.parse_u8("algo")).into();
 
         if TRACE {
             eprintln!("CompressedData::parse(): \
@@ -817,16 +819,16 @@ fn compressed_data_parser_test () {
 impl SKESK {
     /// Parses the body of an SK-ESK packet.
     fn parse<'a>(mut pp: PacketParser<'a>) -> Result<PacketParser<'a>> {
-        bind_ptry!(pp);
-        let version = ptry!(pp.parse_u8("version"));
+        make_pp_try!(pp);
+        let version = pp_try!(pp.parse_u8("version"));
         if version != 4 {
             // We only support version 4 keys.
             return pp.fail("unknown version");
         }
 
-        let symm_algo = ptry!(pp.parse_u8("symm_algo"));
-        let s2k = ptry!(S2K::parse(&mut pp));
-        let esk = ptry!(pp.parse_bytes_eof("esk"));
+        let symm_algo = pp_try!(pp.parse_u8("symm_algo"));
+        let s2k = pp_try!(S2K::parse(&mut pp));
+        let esk = pp_try!(pp.parse_bytes_eof("esk"));
 
         pp.ok(Packet::SKESK(SKESK {
             common: Default::default(),
@@ -841,8 +843,8 @@ impl SKESK {
 impl SEIP {
     /// Parses the body of a SEIP packet.
     fn parse<'a>(mut pp: PacketParser<'a>) -> Result<PacketParser<'a>> {
-        bind_ptry!(pp);
-        let version = ptry!(pp.parse_u8("version"));
+        make_pp_try!(pp);
+        let version = pp_try!(pp.parse_u8("version"));
         if version != 1 {
             return pp.fail("unknown version");
         }
@@ -857,7 +859,7 @@ impl SEIP {
 impl MDC {
     /// Parses the body of an MDC packet.
     fn parse<'a>(mut pp: PacketParser<'a>) -> Result<PacketParser<'a>> {
-        bind_ptry!(pp);
+        make_pp_try!(pp);
 
         // Find the HashedReader pushed by the containing SEIP packet.
         // In a well-formed message, this will be the outer most
@@ -893,7 +895,7 @@ impl MDC {
         }
 
         let mut hash : [u8; 20] = Default::default();
-        hash.copy_from_slice(&ptry!(pp.parse_bytes("hash", 20)));
+        hash.copy_from_slice(&pp_try!(pp.parse_bytes("hash", 20)));
 
         pp.ok(Packet::MDC(MDC {
             common: Default::default(),
