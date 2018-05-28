@@ -14,12 +14,11 @@ pub fn decrypt(input: &mut io::Read, output: &mut io::Write,
            -> Result<(), failure::Error> {
     #[derive(PartialEq)]
     enum State {
-        Start,
-        Decrypted(u8, Vec<u8>),
+        Start(Vec<()>, Vec<openpgp::SKESK>),
         Deciphered,
         Done,
     }
-    let mut state = State::Start;
+    let mut state = State::Start(vec![], vec![]);
     let mut ppo
         = openpgp::parse::PacketParserBuilder::from_reader(input)?
         .map(map).finalize()?;
@@ -40,7 +39,7 @@ pub fn decrypt(input: &mut io::Read, output: &mut io::Write,
 
         state = match state {
             // Look for an PKESK or SKESK packet.
-            State::Start =>
+            State::Start(pkesks, mut skesks) =>
                 match pp.packet {
                     Packet::Unknown(ref u) => {
                         match u.tag {
@@ -49,29 +48,37 @@ pub fn decrypt(input: &mut io::Read, output: &mut io::Write,
                                            supported."),
                             _ => (),
                         }
-                        State::Start
+                        State::Start(pkesks, skesks)
                     },
                     Packet::SKESK(ref skesk) => {
-                        let pass = rpassword::prompt_password_stderr(
-                            "Enter passphrase to decrypt message: ")?;
-                        match skesk.decrypt(pass.into_bytes().as_ref()) {
-                            Ok((algo, key)) => State::Decrypted(algo.into(), key),
-                            Err(e) => {
-                                eprintln!("Decryption failed: {}", e);
-                                State::Start
-                            },
-                        }
+                        // xxx do after recurse and avoid clone
+                        skesks.push(skesk.clone());
+                        State::Start(pkesks, skesks)
                     },
-                    _ => State::Start,
-                },
+                    Packet::SEIP(_) => {
+                        let mut state = None;
+                        for _pkesk in pkesks.iter() {
+                            // XXX try to decrypt those
+                        }
+                        if ! skesks.is_empty() {
+                            let pass = rpassword::prompt_password_stderr(
+                                "Enter passphrase to decrypt message: ")?
+                                .into_bytes();
 
-            // Look for an SEIP packet.
-            State::Decrypted(algo, key) =>
-                if let Packet::SEIP(_) = pp.packet {
-	            pp.decrypt(algo.into(), &key[..])?;
-                    State::Deciphered
-                } else {
-                    State::Decrypted(algo, key)
+                            for skesk in skesks.iter() {
+                                let (algo, key) =
+                                    skesk.decrypt(&pass)?;
+
+	                        let r = pp.decrypt(algo, &key[..]);
+                                if r.is_ok() {
+                                    state = Some(State::Deciphered);
+                                    break;
+                                }
+                            }
+                        }
+                        state.unwrap_or(State::Start(pkesks, skesks))
+                    },
+                    _ => State::Start(pkesks, skesks),
                 },
 
             // Look for the literal data packet.

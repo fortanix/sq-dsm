@@ -608,20 +608,23 @@ impl<'a> Encryptor<'a> {
     /// Creates a new encryptor.
     ///
     /// XXX: Some configuration, asymmetric encryption.
-    pub fn new(mut inner: writer::Stack<'a, Cookie>, password: &str)
+    pub fn new(mut inner: writer::Stack<'a, Cookie>,
+               passwords: &[&[u8]])
                -> Result<writer::Stack<'a, Cookie>> {
+        let mut rng = Yarrow::default();
         let level = inner.cookie_ref().level + 1;
         let algo = SymmetricAlgorithm::AES128;
 
-        // Write the SKESK packet.
-        let skesk = SKESK{
-            common: Default::default(),
-            version: 4,
-            symm_algo: algo,
-            s2k: Default::default(),
-            esk: vec![],
-        };
-        skesk.serialize(&mut inner)?;
+        // Generate a session key.
+        let mut sk = vec![0; algo.key_size().unwrap()];
+        rng.random(&mut sk);
+
+        // Write the SKESK packet(s).
+        for password in passwords {
+            let skesk = SKESK::new(algo, Default::default(),
+                                   &sk, password).unwrap();
+            skesk.serialize(&mut inner)?;
+        }
 
         // Write the SEIP packet.
         CTB::new(Tag::SEIP).serialize(&mut inner)?;
@@ -634,8 +637,7 @@ impl<'a> Encryptor<'a> {
             inner,
             Cookie::new(level),
             algo,
-            &skesk.s2k.derive_key(password.as_bytes(),
-                                  algo.key_size().unwrap()).unwrap(),
+            &sk,
         ).unwrap();
 
         // The hash for the MDC must include the initialization
@@ -648,7 +650,7 @@ impl<'a> Encryptor<'a> {
 
         // Write the initialization vector, and the quick-check bytes.
         let mut iv = vec![0; algo.block_size().unwrap()];
-        Yarrow::default().random(&mut iv);
+        rng.random(&mut iv);
         encryptor.write_all(&iv)?;
         encryptor.write_all(&iv[iv.len() - 2..])?;
 
@@ -960,86 +962,110 @@ mod test {
 
     #[test]
     fn encryptor() {
-        let password = "streng geheim";
+        let passwords = ["streng geheim".as_bytes(),
+                         "top secret".as_bytes()];
         let message = b"Hello world.";
 
         // Write a simple encrypted message...
         let mut o = vec![];
         {
-            let encryptor = Encryptor::new(wrap(&mut o), password)
+            let encryptor = Encryptor::new(wrap(&mut o), &passwords)
                 .unwrap();
             let mut literal = LiteralWriter::new(encryptor, 'b', None, 0)
                 .unwrap();
             literal.write_all(message).unwrap();
         }
 
-        // ... and recover it.
+        let mut dbg = ::std::fs::File::create("/tmp/q").unwrap();
+        dbg.write_all(&o).unwrap();
+
+        // ... and recover it...
         #[derive(Debug, PartialEq)]
         enum State {
             Start,
-            Decrypted(u8, Vec<u8>),
+            Decrypted(Vec<(u8, Vec<u8>)>),
             Deciphered,
             MDC,
             Done,
         }
-        let mut state = State::Start;
-        let mut ppo = PacketParser::from_bytes(&o).unwrap();
-        while let Some(mut pp) = ppo {
-            state = match state {
-                // Look for the SKESK packet.
-                State::Start =>
-                    if let Packet::SKESK(ref skesk) = pp.packet {
-                        match skesk.decrypt(password.as_bytes()) {
-                            Ok((algo, key))
-                                => State::Decrypted(algo.into(), key),
-                            Err(e) =>
-                                panic!("Decryption failed: {}", e),
-                        }
-                    } else {
-                        panic!("Unexpected packet: {:?}", pp.packet)
-                    },
 
-                // Look for the SEIP packet.
-                State::Decrypted(algo, key) =>
-                    if let Packet::SEIP(_) = pp.packet {
-	                pp.decrypt(algo.into(), &key[..]).unwrap();
-                        //let mut dbg = ::std::fs::File::create("/tmp/q").unwrap();
-                        //::std::io::copy(&mut pp, &mut dbg).unwrap();
-                        //panic!();
-                        State::Deciphered
-                    } else {
-                        panic!("Unexpected packet: {:?}", pp.packet)
-                    },
+        // ... with every password.
+        for password in &passwords {
+            let mut state = State::Start;
+            let mut ppo = PacketParser::from_bytes(&o).unwrap();
+            while let Some(mut pp) = ppo {
+                state = match state {
+                    // Look for the SKESK packet.
+                    State::Start =>
+                        if let Packet::SKESK(ref skesk) = pp.packet {
+                            match skesk.decrypt(password) {
+                                Ok((algo, key))
+                                    => State::Decrypted(
+                                        vec![(algo.into(), key)]),
+                                Err(e) =>
+                                    panic!("Decryption failed: {}", e),
+                            }
+                        } else {
+                            panic!("Unexpected packet: {:?}", pp.packet)
+                        },
 
-                // Look for the literal data packet.
-                State::Deciphered =>
-                    if let Packet::Literal(_) = pp.packet {
-                        let mut body = Vec::new();
-                        pp.read_to_end(&mut body).unwrap();
-                        assert_eq!(&body, message);
-                        State::MDC
-                    } else {
-                        panic!("Unexpected packet: {:?}", pp.packet)
-                    },
+                    // Look for the SEIP packet.
+                    State::Decrypted(mut keys) =>
+                        match pp.packet {
+                            Packet::SEIP(_) =>
+                                loop {
+                                    if let Some((algo, key)) = keys.pop() {
+	                                let r = pp.decrypt(algo.into(),
+                                                           &key[..]);
+                                        if r.is_ok() {
+                                            break State::Deciphered;
+                                        }
+                                    } else {
+                                        panic!("seip decryption failed");
+                                    }
+                                },
+                            Packet::SKESK(ref skesk) =>
+                                match skesk.decrypt(password) {
+                                    Ok((algo, key)) => {
+                                        keys.push((algo.into(), key));
+                                        State::Decrypted(keys)
+                                    },
+                                    Err(e) =>
+                                        panic!("Decryption failed: {}", e),
+                                },
+                            _ =>
+                                panic!("Unexpected packet: {:?}", pp.packet),
+                        },
 
-                // Look for the MDC packet.
-                State::MDC =>
-                    if let Packet::MDC(ref mdc) = pp.packet {
-                        assert_eq!(mdc.hash, mdc.computed_hash);
-                        State::Done
-                    } else {
-                        panic!("Unexpected packet: {:?}", pp.packet)
-                    },
+                    // Look for the literal data packet.
+                    State::Deciphered =>
+                        if let Packet::Literal(_) = pp.packet {
+                            let mut body = Vec::new();
+                            pp.read_to_end(&mut body).unwrap();
+                            assert_eq!(&body, message);
+                            State::MDC
+                        } else {
+                            panic!("Unexpected packet: {:?}", pp.packet)
+                        },
 
-                State::Done =>
-                    panic!("Unexpected packet: {:?}", pp.packet),
-            };
+                    // Look for the MDC packet.
+                    State::MDC =>
+                        if let Packet::MDC(ref mdc) = pp.packet {
+                            assert_eq!(mdc.hash, mdc.computed_hash);
+                            State::Done
+                        } else {
+                            panic!("Unexpected packet: {:?}", pp.packet)
+                        },
 
-            // Next?
-            let (_, _, tmp, _) = pp.recurse().unwrap();
-            ppo = tmp;
+                    State::Done =>
+                        panic!("Unexpected packet: {:?}", pp.packet),
+                };
+
+                // Next?
+                let (_, _, tmp, _) = pp.recurse().unwrap();
+                ppo = tmp;
+            }
+            assert_eq!(state, State::Done);
         }
-
-        assert_eq!(state, State::Done);
     }
 }
