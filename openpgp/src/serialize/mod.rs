@@ -545,6 +545,33 @@ impl Serialize for CompressedData {
     }
 }
 
+impl Serialize for PKESK {
+    /// Writes a serialized version of the specified `PKESK`
+    /// packet to `o`.
+    fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
+        if self.version != 3 {
+            panic!("PKESK:serialize: Don't know how to serialize \
+                    non-version 3 packets.");
+        }
+
+        let len =
+            1 // Version
+            + 8 // Recipient's key id
+            + 1 // Algo
+            + self.esk.len(); // ESK.
+
+        CTB::new(Tag::PKESK).serialize(o)?;
+        BodyLength::Full(len as u32).serialize(o)?;
+
+        write_byte(o, self.version)?;
+        self.recipient.serialize(o)?;
+        write_byte(o, self.pk_algo.into())?;
+        self.esk.serialize(o)?;
+
+        Ok(())
+    }
+}
+
 impl Serialize for SKESK {
     /// Writes a serialized version of the specified `SKESK`
     /// packet to `o`.

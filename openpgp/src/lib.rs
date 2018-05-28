@@ -85,6 +85,8 @@ mod literal;
 mod compressed_data;
 mod skesk;
 pub use skesk::SKESK;
+mod pkesk;
+pub use pkesk::PKESK;
 
 mod message;
 mod constants;
