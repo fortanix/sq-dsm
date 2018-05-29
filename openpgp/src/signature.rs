@@ -88,7 +88,7 @@ impl Signature {
             hashed_area: SubpacketArea::empty(),
             unhashed_area: SubpacketArea::empty(),
             hash_prefix: [0, 0],
-            mpis: MPIs::new(),
+            mpis: MPIs::empty(),
 
             computed_hash: Default::default(),
         }

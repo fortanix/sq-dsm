@@ -71,8 +71,8 @@ impl Ord for MPIs {
 }
 
 impl MPIs {
-    /// Returns a new MPIs object contain no MPIs.
-    pub fn new() -> MPIs {
+    /// Returns a new MPIs object containing no MPIs.
+    pub fn empty() -> MPIs {
         MPIs::parse(Vec::new())
     }
 

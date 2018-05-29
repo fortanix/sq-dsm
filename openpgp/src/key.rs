@@ -27,7 +27,7 @@ impl Key {
             version: 4,
             creation_time: 0,
             pk_algo: PublicKeyAlgorithm::Unknown(0),
-            mpis: MPIs::new(),
+            mpis: MPIs::empty(),
         }
     }
 
