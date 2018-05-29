@@ -2068,12 +2068,11 @@ impl<'a> BufferedReader<Cookie> for PacketParser<'a> {
     }
 
     fn get_mut(&mut self) -> Option<&mut BufferedReader<Cookie>> {
-        self.content_was_read = true;
-        Some(&mut self.reader)
+        None
     }
 
     fn get_ref(&self) -> Option<&BufferedReader<Cookie>> {
-        Some(&self.reader)
+        None
     }
 
     fn into_inner<'b>(self: Box<Self>)
