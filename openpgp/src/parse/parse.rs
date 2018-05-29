@@ -111,9 +111,6 @@ struct PacketHeaderParser<'a> {
     // The `PacketParser`'s settings
     settings: PacketParserSettings,
 
-    // The cookie.
-    cookie: Cookie,
-
     /// A map of this packet.
     map: Option<Map>,
 }
@@ -170,7 +167,6 @@ impl<'a> PacketHeaderParser<'a> {
             header: header,
             recursion_depth: recursion_depth,
             settings: settings,
-            cookie: Default::default(),
             map: header_bytes.map(|h| Map::new(h)),
         }
     }
@@ -239,7 +235,6 @@ impl<'a> PacketHeaderParser<'a> {
             decrypted: true,
             finished: false,
             settings: self.settings,
-            cookie: self.cookie,
             map: self.map,
         })
     }
@@ -1395,9 +1390,6 @@ pub struct PacketParser<'a> {
     // The `PacketParser`'s settings
     settings: PacketParserSettings,
 
-    // The cookie.
-    cookie: Cookie,
-
     /// A map of this packet.
     pub map: Option<Map>,
 }
@@ -2092,15 +2084,15 @@ impl<'a> BufferedReader<Cookie> for PacketParser<'a> {
 
     fn cookie_set(&mut self, cookie: Cookie)
             -> Cookie {
-        ::std::mem::replace(&mut self.cookie, cookie)
+        self.reader.cookie_set(cookie)
     }
 
     fn cookie_ref(&self) -> &Cookie {
-        &self.cookie
+        self.reader.cookie_ref()
     }
 
     fn cookie_mut(&mut self) -> &mut Cookie {
-        &mut self.cookie
+        self.reader.cookie_mut()
     }
 }
 
