@@ -87,6 +87,8 @@ mod skesk;
 pub use skesk::SKESK;
 mod pkesk;
 pub use pkesk::PKESK;
+mod reader;
+pub use reader::Reader;
 
 mod message;
 mod constants;
