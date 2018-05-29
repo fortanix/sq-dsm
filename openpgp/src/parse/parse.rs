@@ -84,15 +84,15 @@ fn indent(depth: u8) -> &'static str {
 /// So, this should be more than enough.
 const MAX_RECURSION_DEPTH : u8 = 16;
 
-/// Creates a local marco called pp_try! that returns an Unknown
+/// Creates a local marco called php_try! that returns an Unknown
 /// packet instead of an Error like try! on parsing-related errors.
 /// (Errors like read errors are still returned as usual.)
 ///
 /// If you want to fail like this in a non-try! context, use
-/// pp.fail("reason").
-macro_rules! make_pp_try {
+/// php.fail("reason").
+macro_rules! make_php_try {
     ($parser:expr) => {
-        macro_rules! pp_try {
+        macro_rules! php_try {
             ($e:expr) => {
                 match $e {
                     Ok(b) => {
@@ -205,28 +205,28 @@ impl S2K {
     pub(crate) fn parse_naked<R: io::Read>(r: R) -> io::Result<Self> {
         let bio = BufferedReaderGeneric::with_cookie(
             r, None, Cookie::default());
-        let mut parser = PacketParser::new_naked(Box::new(bio));
+        let mut parser = PacketHeaderParser::new_naked(Box::new(bio));
         Self::parse(&mut parser)
     }
 }
 
 impl S2K {
-    /// Reads an S2K from `pp`.
-    fn parse<'a>(pp: &mut PacketParser<'a>) -> io::Result<Self>
+    /// Reads an S2K from `php`.
+    fn parse<'a>(php: &mut PacketHeaderParser<'a>) -> io::Result<Self>
     {
-        let s2k = pp.parse_u8("s2k_type")?;
+        let s2k = php.parse_u8("s2k_type")?;
         let ret = match s2k {
             0 => S2K::Simple {
-                hash: HashAlgorithm::from(pp.parse_u8("s2k_hash_algo")?),
+                hash: HashAlgorithm::from(php.parse_u8("s2k_hash_algo")?),
             },
             1 => S2K::Salted {
-                hash: HashAlgorithm::from(pp.parse_u8("s2k_hash_algo")?),
-                salt: Self::read_salt(pp)?,
+                hash: HashAlgorithm::from(php.parse_u8("s2k_hash_algo")?),
+                salt: Self::read_salt(php)?,
             },
             3 => S2K::Iterated {
-                hash: HashAlgorithm::from(pp.parse_u8("s2k_hash_algo")?),
-                salt: Self::read_salt(pp)?,
-                iterations: S2K::decode_count(pp.parse_u8("s2k_count")?),
+                hash: HashAlgorithm::from(php.parse_u8("s2k_hash_algo")?),
+                salt: Self::read_salt(php)?,
+                iterations: S2K::decode_count(php.parse_u8("s2k_count")?),
             },
             100...110 => S2K::Private(s2k),
             u => S2K::Unknown(u),
@@ -235,9 +235,9 @@ impl S2K {
         Ok(ret)
     }
 
-    fn read_salt<'a,>(pp: &mut PacketParser<'a>) -> io::Result<[u8; 8]> {
+    fn read_salt<'a,>(php: &mut PacketHeaderParser<'a>) -> io::Result<[u8; 8]> {
         let mut b = [0u8; 8];
-        b.copy_from_slice(&pp.parse_bytes("s2k_salt", 8)?);
+        b.copy_from_slice(&php.parse_bytes("s2k_salt", 8)?);
 
         Ok(b)
     }
@@ -245,13 +245,13 @@ impl S2K {
 
 impl Unknown {
     /// Parses the body of any packet and returns an Unknown.
-    fn parse<'a>(pp: PacketParser<'a>) -> Result<PacketParser<'a>>
+    fn parse<'a>(php: PacketHeaderParser<'a>) -> Result<PacketParser<'a>>
     {
-        let tag = pp.header.ctb.tag;
-        pp.decrypted(false).ok(Packet::Unknown(Unknown {
+        let tag = php.header.ctb.tag;
+        php.ok(Packet::Unknown(Unknown {
             common: Default::default(),
             tag: tag,
-        }))
+        })).map(|pp| pp.decrypted(false))
     }
 }
 
@@ -280,7 +280,7 @@ pub(crate) fn to_unknown_packet<R: Read>(reader: R) -> Result<Unknown>
             _ => Box::new(reader),
     };
 
-    let parser = PacketParser::new(
+    let parser = PacketHeaderParser::new(
         reader, Default::default(), 0, header, None);
     let mut pp = Unknown::parse(parser)?;
     pp.buffer_unread_content()?;
@@ -301,7 +301,7 @@ impl Signature {
     fn parse_naked(value: &[u8]) -> Result<Packet> {
         let bio = BufferedReaderMemory::with_cookie(
             value, Cookie::default());
-        let parser = PacketParser::new_naked(Box::new(bio));
+        let parser = PacketHeaderParser::new_naked(Box::new(bio));
 
         let mut pp = Signature::parse(parser, None)?;
         pp.buffer_unread_content()?;
@@ -315,36 +315,36 @@ impl Signature {
     }
 
     // Parses a signature packet.
-    fn parse<'a>(mut pp: PacketParser<'a>,
+    fn parse<'a>(mut php: PacketHeaderParser<'a>,
                  computed_hash: Option<(HashAlgorithm, Box<Hash>)>)
         -> Result<PacketParser<'a>>
     {
-        make_pp_try!(pp);
+        make_php_try!(php);
 
-        let version = pp_try!(pp.parse_u8("version"));
+        let version = php_try!(php.parse_u8("version"));
 
         if version != 4 {
             if TRACE {
                 eprintln!("{}Signature::parse: Ignoring verion {} packet.",
-                          indent(pp.recursion_depth as u8), version);
+                          indent(php.recursion_depth as u8), version);
             }
-            return pp.fail("unknown version");
+            return php.fail("unknown version");
         }
 
-        let sigtype = pp_try!(pp.parse_u8("sigtype"));
-        let pk_algo = pp_try!(pp.parse_u8("pk_algo"));
-        let hash_algo = pp_try!(pp.parse_u8("hash_algo"));
-        let hashed_area_len = pp_try!(pp.parse_be_u16("hashed_area_len"));
+        let sigtype = php_try!(php.parse_u8("sigtype"));
+        let pk_algo = php_try!(php.parse_u8("pk_algo"));
+        let hash_algo = php_try!(php.parse_u8("hash_algo"));
+        let hashed_area_len = php_try!(php.parse_be_u16("hashed_area_len"));
         let hashed_area
-            = pp_try!(pp.parse_bytes("hashed_area",
+            = php_try!(php.parse_bytes("hashed_area",
                                    hashed_area_len as usize));
-        let unhashed_area_len = pp_try!(pp.parse_be_u16("unhashed_area_len"));
+        let unhashed_area_len = php_try!(php.parse_be_u16("unhashed_area_len"));
         let unhashed_area
-            = pp_try!(pp.parse_bytes("unhashed_area",
+            = php_try!(php.parse_bytes("unhashed_area",
                                    unhashed_area_len as usize));
-        let hash_prefix1 = pp_try!(pp.parse_u8("hash_prefix1"));
-        let hash_prefix2 = pp_try!(pp.parse_u8("hash_prefix2"));
-        let mpis = pp_try!(pp.parse_bytes_eof("mpis"));
+        let hash_prefix1 = php_try!(php.parse_u8("hash_prefix1"));
+        let hash_prefix2 = php_try!(php.parse_u8("hash_prefix2"));
+        let mpis = php_try!(php.parse_bytes_eof("mpis"));
 
         let mut sig = Signature {
             common: Default::default(),
@@ -368,7 +368,7 @@ impl Signature {
             sig.computed_hash = Some((algo, digest));
         }
 
-        pp.ok(Packet::Signature(sig))
+        php.ok(Packet::Signature(sig))
     }
 }
 
@@ -398,29 +398,38 @@ fn signature_parser_test () {
 }
 
 impl OnePassSig {
-    fn parse<'a>(mut pp: PacketParser<'a>)
+    fn parse<'a>(mut php: PacketHeaderParser<'a>)
         -> Result<PacketParser<'a>>
     {
-        make_pp_try!(pp);
+        make_php_try!(php);
 
-        let version = pp_try!(pp.parse_u8("version"));
+        let version = php_try!(php.parse_u8("version"));
         if version != 3 {
             if TRACE {
                 eprintln!("{}OnePassSig::parse: Ignoring verion {} packet",
-                          indent(pp.recursion_depth as u8), version);
+                          indent(php.recursion_depth as u8), version);
             }
 
             // Unknown version.  Return an unknown packet.
-            return pp.fail("unknown version");
+            return php.fail("unknown version");
         }
 
-        let sigtype = pp_try!(pp.parse_u8("sigtype"));
-        let hash_algo = pp_try!(pp.parse_u8("hash_algo"));
-        let pk_algo = pp_try!(pp.parse_u8("pk_algo"));
+        let sigtype = php_try!(php.parse_u8("sigtype"));
+        let hash_algo = php_try!(php.parse_u8("hash_algo"));
+        let pk_algo = php_try!(php.parse_u8("pk_algo"));
         let mut issuer = [0u8; 8];
-        issuer.copy_from_slice(&pp_try!(pp.parse_bytes("issuer", 8)));
-        let last = pp_try!(pp.parse_u8("last"));
-        pp.commit()?;
+        issuer.copy_from_slice(&php_try!(php.parse_bytes("issuer", 8)));
+        let last = php_try!(php.parse_u8("last"));
+
+        let mut pp = php.ok(Packet::OnePassSig(OnePassSig {
+            common: Default::default(),
+            version: version,
+            sigtype: sigtype.into(),
+            hash_algo: hash_algo.into(),
+            pk_algo: pk_algo.into(),
+            issuer: KeyID::from_bytes(&issuer),
+            last: last,
+        }))?;
 
         // We create an empty hashed reader even if we don't support
         // the hash algorithm so that we have something to match
@@ -432,59 +441,45 @@ impl OnePassSig {
             algos.push(hash_algo);
         }
 
-        match pp.state {
-            State::Body(reader) => {
-                // We can't push the HashedReader on the BufferedReader stack:
-                // when we finish processing this OnePassSig packet, it will
-                // be popped.  Instead, we need to insert it at the next
-                // higher level.  Unfortunately, this isn't possible.  But,
-                // since we're done reading the current packet, we can pop the
-                // readers associated with it, and then push the HashedReader.
-                // This is a bit of a layering violation, but I (Neal) can't
-                // think of a more elegant solution.
+        // We can't push the HashedReader on the BufferedReader stack:
+        // when we finish processing this OnePassSig packet, it will
+        // be popped.  Instead, we need to insert it at the next
+        // higher level.  Unfortunately, this isn't possible.  But,
+        // since we're done reading the current packet, we can pop the
+        // readers associated with it, and then push the HashedReader.
+        // This is a bit of a layering violation, but I (Neal) can't
+        // think of a more elegant solution.
 
-                let recursion_depth = pp.recursion_depth;
-                assert!(reader.cookie_ref().level
-                        <= Some(recursion_depth as isize));
-                let reader = buffered_reader_stack_pop(Box::new(reader),
-                                                       recursion_depth as isize);
+        let recursion_depth = pp.recursion_depth;
+        assert!(pp.reader.cookie_ref().level
+                <= Some(recursion_depth as isize));
+        let reader = buffered_reader_stack_pop(Box::new(pp.take_reader()),
+                                               recursion_depth as isize);
 
-                let mut reader = HashedReader::new(
-                    reader, HashesFor::Signature, algos);
-                reader.cookie_mut().level = Some(recursion_depth as isize - 1);
+        let mut reader = HashedReader::new(
+            reader, HashesFor::Signature, algos);
+        reader.cookie_mut().level = Some(recursion_depth as isize - 1);
 
-                if TRACE {
-                    eprintln!("{}OnePassSig::parse: \
-                               Pushed a hashed reader, level {:?}",
-                              indent(recursion_depth as u8),
-                              reader.cookie_mut().level);
-                }
-
-                // We add an empty limitor on top of the hashed reader,
-                // because when we are done processing a packet,
-                // PacketParser::finish discards any unread data from the top
-                // reader.  Since the top reader is the HashedReader, this
-                // discards any following packets.  To prevent this, we push a
-                // Limitor on the reader stack.
-                let mut reader = BufferedReaderLimitor::with_cookie(
-                    Box::new(reader), 0, Cookie::default());
-                reader.cookie_mut().level = Some(recursion_depth as isize);
-
-                pp.state = State::Body(Box::new(reader));
-            },
-            State::Header(_) =>
-                unreachable!("committed above"),
+        if TRACE {
+            eprintln!("{}OnePassSig::parse: \
+                       Pushed a hashed reader, level {:?}",
+                      indent(recursion_depth as u8),
+                      reader.cookie_mut().level);
         }
 
-        pp.ok(Packet::OnePassSig(OnePassSig {
-            common: Default::default(),
-            version: version,
-            sigtype: sigtype.into(),
-            hash_algo: hash_algo.into(),
-            pk_algo: pk_algo.into(),
-            issuer: KeyID::from_bytes(&issuer),
-            last: last,
-        }))
+        // We add an empty limitor on top of the hashed reader,
+        // because when we are done processing a packet,
+        // PacketParser::finish discards any unread data from the top
+        // reader.  Since the top reader is the HashedReader, this
+        // discards any following packets.  To prevent this, we push a
+        // Limitor on the reader stack.
+        let mut reader = BufferedReaderLimitor::with_cookie(
+            Box::new(reader), 0, Cookie::default());
+        reader.cookie_mut().level = Some(recursion_depth as isize);
+
+        pp.reader = Box::new(reader);
+
+        Ok(pp)
     }
 }
 
@@ -578,22 +573,22 @@ fn one_pass_sig_test () {
 impl Key {
     /// Parses the body of a public key, public subkey, secret key or
     /// secret subkey packet.
-    fn parse<'a>(mut pp: PacketParser<'a>) -> Result<PacketParser<'a>> {
-        make_pp_try!(pp);
-        let tag = pp.header.ctb.tag;
+    fn parse<'a>(mut php: PacketHeaderParser<'a>) -> Result<PacketParser<'a>> {
+        make_php_try!(php);
+        let tag = php.header.ctb.tag;
         assert!(tag == Tag::PublicKey
                 || tag == Tag::PublicSubkey
                 || tag == Tag::SecretKey
                 || tag == Tag::SecretSubkey);
-        let version = pp_try!(pp.parse_u8("version"));
+        let version = php_try!(php.parse_u8("version"));
         if version != 4 {
             // We only support version 4 keys.
-            return pp.fail("unknown version");
+            return php.fail("unknown version");
         }
 
-        let creation_time = pp_try!(pp.parse_be_u32("creation_time"));
-        let pk_algo = pp_try!(pp.parse_u8("pk_algo"));
-        let mpis = pp_try!(pp.parse_bytes_eof("mpis"));
+        let creation_time = php_try!(php.parse_be_u32("creation_time"));
+        let pk_algo = php_try!(php.parse_u8("pk_algo"));
+        let mpis = php_try!(php.parse_bytes_eof("mpis"));
 
         let key = Key {
             common: Default::default(),
@@ -603,8 +598,8 @@ impl Key {
             mpis: MPIs::parse(mpis),
         };
 
-        let tag = pp.header.ctb.tag;
-        pp.ok(match tag {
+        let tag = php.header.ctb.tag;
+        php.ok(match tag {
             Tag::PublicKey => Packet::PublicKey(key),
             Tag::PublicSubkey => Packet::PublicSubkey(key),
             Tag::SecretKey => Packet::SecretKey(key),
@@ -616,12 +611,12 @@ impl Key {
 
 impl UserID {
     /// Parses the body of a user id packet.
-    fn parse<'a>(mut pp: PacketParser<'a>) -> Result<PacketParser<'a>> {
-        make_pp_try!(pp);
+    fn parse<'a>(mut php: PacketHeaderParser<'a>) -> Result<PacketParser<'a>> {
+        make_php_try!(php);
 
-        let value = pp_try!(pp.parse_bytes_eof("value"));
+        let value = php_try!(php.parse_bytes_eof("value"));
 
-        pp.ok(Packet::UserID(UserID {
+        php.ok(Packet::UserID(UserID {
             common: Default::default(),
             value: value,
         }))
@@ -630,12 +625,12 @@ impl UserID {
 
 impl UserAttribute {
     /// Parses the body of a user attribute packet.
-    fn parse<'a>(mut pp: PacketParser<'a>) -> Result<PacketParser<'a>> {
-        make_pp_try!(pp);
+    fn parse<'a>(mut php: PacketHeaderParser<'a>) -> Result<PacketParser<'a>> {
+        make_php_try!(php);
 
-        let value = pp_try!(pp.parse_bytes_eof("value"));
+        let value = php_try!(php.parse_bytes_eof("value"));
 
-        pp.ok(Packet::UserAttribute(UserAttribute {
+        php.ok(Packet::UserAttribute(UserAttribute {
             common: Default::default(),
             value: value,
         }))
@@ -646,38 +641,38 @@ impl Literal {
     /// Parses the body of a literal packet.
     ///
     /// Condition: Hashing has been disabled by the callee.
-    fn parse<'a>(mut pp: PacketParser<'a>) -> Result<PacketParser<'a>>
+    fn parse<'a>(mut php: PacketHeaderParser<'a>) -> Result<PacketParser<'a>>
     {
-        make_pp_try!(pp);
+        make_php_try!(php);
 
         // Directly hashing a literal data packet is... strange.
         // Neither the packet's header, the packet's meta-data nor the
         // length encoding information is included in the hash.
 
-        let format = pp_try!(pp.parse_u8("format"));
-        let filename_len = pp_try!(pp.parse_u8("filename_len"));
+        let format = php_try!(php.parse_u8("format"));
+        let filename_len = php_try!(php.parse_u8("filename_len"));
 
         let filename = if filename_len > 0 {
-            Some(pp_try!(pp.parse_bytes("filename", filename_len as usize)))
+            Some(php_try!(php.parse_bytes("filename", filename_len as usize)))
         } else {
             None
         };
 
-        let date = pp_try!(pp.parse_be_u32("date"));
+        let date = php_try!(php.parse_be_u32("date"));
 
         // The header is consumed while hashing is disabled.
-        let recursion_depth = pp.recursion_depth;
-        pp.commit()?;
-
-        // Enable hashing of the body.
-        Cookie::hashing(pp.mut_reader(), true, recursion_depth as isize - 1);
-
-        pp.ok(Packet::Literal(Literal {
+        let recursion_depth = php.recursion_depth;
+        let mut php = php.ok(Packet::Literal(Literal {
             common: Default::default(),
             format: format,
             filename: filename,
             date: date,
-        }))
+        }))?;
+
+        // Enable hashing of the body.
+        Cookie::hashing(php.mut_reader(), true, recursion_depth as isize - 1);
+
+        Ok(php)
     }
 }
 
@@ -723,26 +718,29 @@ fn literal_parser_test () {
 
 impl CompressedData {
     /// Parses the body of a compressed data packet.
-    fn parse<'a>(mut pp: PacketParser<'a>) -> Result<PacketParser<'a>> {
-        make_pp_try!(pp);
+    fn parse<'a>(mut php: PacketHeaderParser<'a>) -> Result<PacketParser<'a>> {
+        make_php_try!(php);
         let algo: CompressionAlgorithm =
-            pp_try!(pp.parse_u8("algo")).into();
+            php_try!(php.parse_u8("algo")).into();
 
         if TRACE {
             eprintln!("CompressedData::parse(): \
                        Adding decompressor, recursion depth = {:?}.",
-                      pp.recursion_depth);
+                      php.recursion_depth);
         }
 
         match algo {
             CompressionAlgorithm::Unknown(_) |
             CompressionAlgorithm::Private(_) =>
-                return pp.fail("unknown compression algorithm"),
+                return php.fail("unknown compression algorithm"),
             _ => (),
         }
 
-        let recursion_depth = pp.recursion_depth as usize;
-        pp.commit()?;
+        let recursion_depth = php.recursion_depth as usize;
+        let mut pp = php.ok(Packet::CompressedData(CompressedData {
+            common: Default::default(),
+            algo: algo,
+        }))?;
 
         let reader = pp.take_reader();
         let reader = match algo {
@@ -767,10 +765,7 @@ impl CompressedData {
         };
         pp.set_reader(reader);
 
-        pp.ok(Packet::CompressedData(CompressedData {
-            common: Default::default(),
-            algo: algo,
-        }))
+        Ok(pp)
     }
 }
 
@@ -818,19 +813,19 @@ fn compressed_data_parser_test () {
 
 impl SKESK {
     /// Parses the body of an SK-ESK packet.
-    fn parse<'a>(mut pp: PacketParser<'a>) -> Result<PacketParser<'a>> {
-        make_pp_try!(pp);
-        let version = pp_try!(pp.parse_u8("version"));
+    fn parse<'a>(mut php: PacketHeaderParser<'a>) -> Result<PacketParser<'a>> {
+        make_php_try!(php);
+        let version = php_try!(php.parse_u8("version"));
         if version != 4 {
             // We only support version 4 keys.
-            return pp.fail("unknown version");
+            return php.fail("unknown version");
         }
 
-        let symm_algo = pp_try!(pp.parse_u8("symm_algo"));
-        let s2k = pp_try!(S2K::parse(&mut pp));
-        let esk = pp_try!(pp.parse_bytes_eof("esk"));
+        let symm_algo = php_try!(php.parse_u8("symm_algo"));
+        let s2k = php_try!(S2K::parse(&mut php));
+        let esk = php_try!(php.parse_bytes_eof("esk"));
 
-        pp.ok(Packet::SKESK(SKESK {
+        php.ok(Packet::SKESK(SKESK {
             common: Default::default(),
             version: version,
             symm_algo: symm_algo.into(),
@@ -842,24 +837,24 @@ impl SKESK {
 
 impl SEIP {
     /// Parses the body of a SEIP packet.
-    fn parse<'a>(mut pp: PacketParser<'a>) -> Result<PacketParser<'a>> {
-        make_pp_try!(pp);
-        let version = pp_try!(pp.parse_u8("version"));
+    fn parse<'a>(mut php: PacketHeaderParser<'a>) -> Result<PacketParser<'a>> {
+        make_php_try!(php);
+        let version = php_try!(php.parse_u8("version"));
         if version != 1 {
-            return pp.fail("unknown version");
+            return php.fail("unknown version");
         }
 
-        pp.decrypted(false).ok(Packet::SEIP(SEIP {
+        php.ok(Packet::SEIP(SEIP {
             common: Default::default(),
             version: version,
-        }))
+        })).map(|pp| pp.decrypted(false))
     }
 }
 
 impl MDC {
     /// Parses the body of an MDC packet.
-    fn parse<'a>(mut pp: PacketParser<'a>) -> Result<PacketParser<'a>> {
-        make_pp_try!(pp);
+    fn parse<'a>(mut php: PacketHeaderParser<'a>) -> Result<PacketParser<'a>> {
+        make_php_try!(php);
 
         // Find the HashedReader pushed by the containing SEIP packet.
         // In a well-formed message, this will be the outer most
@@ -872,7 +867,7 @@ impl MDC {
         let mut computed_hash : [u8; 20] = Default::default();
         {
             let mut r : Option<&mut BufferedReader<Cookie>>
-                = pp.get_mut();
+                = Some(&mut php.reader);
             while let Some(bio) = r {
                 {
                     let state = bio.cookie_mut();
@@ -895,9 +890,9 @@ impl MDC {
         }
 
         let mut hash : [u8; 20] = Default::default();
-        hash.copy_from_slice(&pp_try!(pp.parse_bytes("hash", 20)));
+        hash.copy_from_slice(&php_try!(php.parse_bytes("hash", 20)));
 
-        pp.ok(Packet::MDC(MDC {
+        php.ok(Packet::MDC(MDC {
             common: Default::default(),
             computed_hash: computed_hash,
             hash: hash,
@@ -1147,6 +1142,177 @@ impl Default for PacketParserSettings {
         }
     }
 }
+
+// Used to parse an OpenPGP packet's header (note: in this case, the
+// header means a Packet's fixed data, not the OpenPGP framing
+// information, such as the CTB, and length information).
+//
+// This struct is not exposed to the user.  Instead, when a header has
+// been successfully parsed, a `PacketParser` is returned.
+struct PacketHeaderParser<'a> {
+    // The reader stack wrapped in a BufferedReaderDup so that if
+    // there is a parse error, we can abort and still return an
+    // Unknown packet.
+    reader: BufferedReaderDup<'a, Cookie>,
+
+    // The current packet's header.
+    header: Header,
+
+    // This packet's recursion depth.
+    //
+    // A top-level packet has a recursion depth of 0.  Packets in a
+    // top-level container have a recursion depth of 1, etc.
+    recursion_depth: u8,
+
+    // The `PacketParser`'s settings
+    settings: PacketParserSettings,
+
+    // The cookie.
+    cookie: Cookie,
+
+    /// A map of this packet.
+    map: Option<Map>,
+}
+
+impl <'a> std::fmt::Debug for PacketHeaderParser<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        f.debug_struct("PacketHeaderParser")
+            .field("header", &self.header)
+            .field("recursion_depth", &self.recursion_depth)
+            .field("reader", &self.reader)
+            .field("settings", &self.settings)
+            .field("map", &self.map)
+            .finish()
+    }
+}
+
+impl<'a> PacketHeaderParser<'a> {
+    // Returns a `PacketHeaderParser` to parse an OpenPGP packet.
+    // `inner` points to the start of the OpenPGP framing information,
+    // i.e., the CTB.
+    fn new(inner: Box<'a + BufferedReader<Cookie>>,
+           settings: PacketParserSettings,
+           recursion_depth: u8, header: Header,
+           header_bytes: Option<Vec<u8>>) -> Self
+    {
+        PacketHeaderParser {
+            reader: BufferedReaderDup::with_cookie(inner, Default::default()),
+            header: header,
+            recursion_depth: recursion_depth,
+            settings: settings,
+            cookie: Default::default(),
+            map: header_bytes.map(|h| Map::new(h)),
+        }
+    }
+
+    // Returns a `PacketHeaderParser` that parses a bare packet.  That
+    // is, `inner` points to the start of the packet; the OpenPGP
+    // framing has already been processed, and `inner` already
+    // includes any required filters (e.g., a
+    // `BufferedReaderPartialBodyFilter`, etc.).
+    fn new_naked(inner: Box<'a + BufferedReader<Cookie>>) -> Self {
+        PacketHeaderParser::new(inner, Default::default(), 0,
+                                Header {
+                                    ctb: CTB::new(Tag::Reserved),
+                                    length: BodyLength::Full(0),
+                                },
+                                None)
+    }
+
+    // Consumes the bytes belonging to the packet's header (i.e., the
+    // number of bytes read) from the reader, and returns a
+    // `PacketParser` that can be returned to the user.
+    //
+    // Only call this function if the packet's header has been
+    // completely and correctly parsed.  If a failure occurs while
+    // parsing the header, use `fail()` instead.
+    fn ok(mut self, packet: Packet) -> Result<PacketParser<'a>> {
+        let total_out = self.reader.total_out();
+
+        let mut reader = if self.settings.map {
+            // Read the body for the map.  Note that
+            // `total_out` does not account for the body.
+            //
+            // XXX avoid the extra copy.
+            let body = self.reader.steal_eof()?;
+            if body.len() > 0 {
+                self.field("body", body.len());
+            }
+
+            // This is a BufferedReaderDup, so this cannot fail.
+            let mut inner = Box::new(self.reader).into_inner().unwrap();
+
+            // Combine the header with the body for the map.
+            let mut data = Vec::with_capacity(total_out + body.len());
+            // We know that the inner reader must have at least
+            // `total_out` bytes buffered, otherwise we could never
+            // have read that much from the `BufferedReaderDup`.
+            data.extend_from_slice(&inner.buffer()[..total_out]);
+            data.extend(body);
+            self.map.as_mut().unwrap().finalize(data);
+
+            inner
+        } else {
+            // This is a BufferedReaderDup, so this cannot fail.
+            Box::new(self.reader).into_inner().unwrap()
+        };
+
+        // We know the data has been read, so this cannot fail.
+        reader.data_consume_hard(total_out).unwrap();
+
+        Ok(PacketParser {
+            header: self.header,
+            packet: packet,
+            recursion_depth: self.recursion_depth,
+            reader: reader,
+            content_was_read: false,
+            decrypted: true,
+            finished: false,
+            settings: self.settings,
+            cookie: self.cookie,
+            map: self.map,
+        })
+    }
+
+    // Something went wrong while parsing the packet's header.  Aborts
+    // and returns an Unknown packet instead.
+    fn fail(self, _reason: &'static str) -> Result<PacketParser<'a>> {
+        Unknown::parse(self)
+    }
+
+    fn field(&mut self, name: &'static str, size: usize) {
+        if let Some(ref mut map) = self.map {
+            map.add(name, size)
+        }
+    }
+
+    fn parse_u8(&mut self, name: &'static str) -> io::Result<u8> {
+        self.field(name, 1);
+        Ok(self.reader.data_consume_hard(1)?[0])
+    }
+
+    fn parse_be_u16(&mut self, name: &'static str) -> io::Result<u16> {
+        self.field(name, 2);
+        self.reader.read_be_u16()
+    }
+
+    fn parse_be_u32(&mut self, name: &'static str) -> io::Result<u32> {
+        self.field(name, 4);
+        self.reader.read_be_u32()
+    }
+
+    fn parse_bytes(&mut self, name: &'static str, amount: usize)
+             -> io::Result<Vec<u8>> {
+        self.field(name, amount);
+        self.reader.steal(amount)
+    }
+
+    fn parse_bytes_eof(&mut self, name: &'static str) -> io::Result<Vec<u8>> {
+        let r = self.reader.steal_eof()?;
+        self.field(name, r.len());
+        Ok(r)
+    }
+}
 
 /// A low-level OpenPGP message parser.
 ///
@@ -1210,8 +1376,7 @@ pub struct PacketParser<'a> {
     /// top-level container have a recursion depth of 1, etc.
     pub recursion_depth: u8,
 
-    // Either parsing or done.
-    state: State<'a>,
+    reader: Box<BufferedReader<Cookie> + 'a>,
 
     // Whether the caller read the packets content.  If so, then we
     // can't recurse, because we're missing some of the packet!
@@ -1233,29 +1398,13 @@ pub struct PacketParser<'a> {
     pub map: Option<Map>,
 }
 
-// PacketParser states.
-//
-// Parsing is divided in two phases.  First, we parse the framing and
-// the header as we understand them.  Then, we surrender control to
-// the callee to parse the packet's body as she sees fit.
-#[derive(Debug)]
-enum State<'a> {
-    // While we are parsing the framing and headers, we dup the inner
-    // reader so that if the parsing fails, we can return an unknown
-    // packet with all of the data as is.
-    Header(Box<BufferedReaderDup<'a, Cookie>>),
-
-    // The inner reader.
-    Body(Box<'a + BufferedReader<Cookie>>),
-}
-
 impl <'a> std::fmt::Debug for PacketParser<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         f.debug_struct("PacketParser")
-            .field("header", &self.packet)
+            .field("header", &self.header)
             .field("packet", &self.packet)
             .field("recursion_depth", &self.recursion_depth)
-            .field("state", &self.state)
+            .field("decrypted", &self.decrypted)
             .field("content_was_read", &self.content_was_read)
             .field("settings", &self.settings)
             .field("map", &self.map)
@@ -1307,46 +1456,6 @@ impl <'a> PacketParser<'a> {
         PacketParserBuilder::from_bytes(bytes)?.finalize()
     }
 
-    // Returns a `PacketParser` to parse an OpenPGP packet.  `inner`
-    // points to the start of the OpenPGP framing information, i.e.,
-    // the CTB.
-    fn new(inner: Box<'a + BufferedReader<Cookie>>,
-           settings: PacketParserSettings,
-           recursion_depth: u8, header: Header,
-           header_bytes: Option<Vec<u8>>) -> Self
-    {
-        PacketParser {
-            packet: Packet::Unknown(Unknown {
-                common: Default::default(),
-                tag: Tag::Reserved,
-            }),
-            recursion_depth: recursion_depth,
-            state: State::Header(Box::new(
-                BufferedReaderDup::with_cookie(inner, Default::default()))),
-            content_was_read: false,
-            finished: false,
-            decrypted: true,
-            settings: settings,
-            header: header,
-            cookie: Default::default(),
-            map: header_bytes.map(|h| Map::new(h)),
-        }
-    }
-
-    // Returns a `PacketParser` that parses a bare packet.  That is,
-    // `inner` points to the start of the packet; the OpenPGP framing
-    // has already been processed, and `inner` already includes any
-    // required filters (e.g., a `BufferedReaderPartialBodyFilter`,
-    // etc.).
-    fn new_naked(inner: Box<'a + BufferedReader<Cookie>>) -> Self {
-        PacketParser::new(inner, Default::default(), 0,
-                          Header {
-                              ctb: CTB::new(Tag::Reserved),
-                              length: BodyLength::Full(0),
-                          },
-                          None)
-    }
-
     // Return the reader stack, replacing it with a
     // `BufferedReaderEOF` reader.
     //
@@ -1364,133 +1473,19 @@ impl <'a> PacketParser<'a> {
     fn set_reader(&mut self, reader: Box<BufferedReader<Cookie> + 'a>)
         -> Box<BufferedReader<Cookie> + 'a>
     {
-        match mem::replace(&mut self.state, State::Body(reader)) {
-            State::Body(reader) => reader,
-            State::Header(_) => unreachable!(),
-        }
+        mem::replace(&mut self.reader, reader)
     }
 
     // Returns a mutable reference to the reader stack.
     fn mut_reader(&mut self) -> &mut BufferedReader<Cookie> {
-        match self.state {
-            State::Body(ref mut reader) => reader,
-            State::Header(_) => unreachable!(),
-        }
+        &mut self.reader
     }
 
+    // Mark the packet's contents (packet.common.body) as being
+    // decrypted (true) or encrypted (false).
     fn decrypted(mut self, v: bool) -> Self {
         self.decrypted = v;
         self
-    }
-
-    // Transition from State::Header to State::Body.
-    //
-    // Calling `commit()` means that the packet's header has been
-    // completely and correctly parsed; all that is left is the
-    // packet's body.
-    //
-    // This function may only be called once per PacketParser.
-    //
-    // This function consumes the bytes belonging to
-    // the packet's header (i.e., the number of bytes read).
-    fn commit(&mut self) -> Result<()> {
-        // Steal the reader.
-        //
-        // Note: we can't use self.take_reader(), because that only
-        // works once we are in the body state.  Also, it returns a
-        // Box<BufferedReader> and we need the BufferedReaderDup.
-        let state = ::std::mem::replace(
-            &mut self.state,
-            State::Body(Box::new(
-                BufferedReaderEOF::with_cookie(Default::default()))));
-
-        match state {
-            State::Header(mut reader) => {
-                let total_out = reader.total_out();
-                let mut inner = if self.settings.map {
-                    // Read the body for the map.  Note that
-                    // `total_out` does not account for the body.
-                    //
-                    // XXX avoid the extra copy.
-                    let body = reader.steal_eof()?;
-                    if body.len() > 0 {
-                        self.field("body", body.len());
-                    }
-
-                    // This is a BufferedReaderDup, so this cannot fail.
-                    let mut inner = reader.into_inner().unwrap();
-
-                    // Combine the header with the body for the map.
-                    let mut data = Vec::with_capacity(total_out + body.len());
-                    inner.data_hard(total_out)?;
-                    data.extend_from_slice(&inner.buffer()[..total_out]);
-                    data.extend(body);
-                    self.map.as_mut().unwrap().finalize(data);
-
-                    inner
-                } else {
-                    // This is a BufferedReaderDup, so this cannot fail.
-                    reader.into_inner().unwrap()
-                };
-
-                // We know the data has been read, so this cannot fail.
-                inner.data_consume_hard(total_out).unwrap();
-
-                self.state = State::Body(inner);
-                Ok(())
-            },
-            State::Body(_) =>
-                panic!("PacketParser already committed"),
-        }
-    }
-
-    // Returns a `PacketParser` over the packet's body, committing the
-    // `PacketParser`, if necessary.
-    fn ok(mut self, packet: Packet) -> Result<PacketParser<'a>> {
-        if let State::Header(_) = self.state {
-            self.commit()?;
-        }
-        self.packet = packet;
-        Ok(self)
-    }
-
-    // Something went wrong while parsing the packet's header.  Aborts
-    // and returns an Unknown packet instead.
-    fn fail(self, _reason: &'static str) -> Result<PacketParser<'a>> {
-        Unknown::parse(self)
-    }
-
-    fn field(&mut self, name: &'static str, size: usize) {
-        if let Some(ref mut map) = self.map {
-            map.add(name, size)
-        }
-    }
-
-    fn parse_u8(&mut self, name: &'static str) -> io::Result<u8> {
-        self.field(name, 1);
-        Ok(self.data_consume_hard(1)?[0])
-    }
-
-    fn parse_be_u16(&mut self, name: &'static str) -> io::Result<u16> {
-        self.field(name, 2);
-        self.read_be_u16()
-    }
-
-    fn parse_be_u32(&mut self, name: &'static str) -> io::Result<u32> {
-        self.field(name, 4);
-        self.read_be_u32()
-    }
-
-    fn parse_bytes(&mut self, name: &'static str, amount: usize)
-             -> io::Result<Vec<u8>> {
-        self.field(name, amount);
-        self.steal(amount)
-    }
-
-    fn parse_bytes_eof(&mut self, name: &'static str) -> io::Result<Vec<u8>> {
-        let r = self.steal_eof()?;
-        self.field(name, r.len());
-        Ok(r)
     }
 
     // Returns a `PacketParser` for the next OpenPGP packet in the
@@ -1647,9 +1642,9 @@ impl <'a> PacketParser<'a> {
         };
 
         let tag = header.ctb.tag;
-        let parser = PacketParser::new(bio, (*settings).clone(),
-                                       recursion_depth as u8,
-                                       header, header_bytes);
+        let parser = PacketHeaderParser::new(bio, (*settings).clone(),
+                                             recursion_depth as u8,
+                                             header, header_bytes);
         let mut result = match tag {
             Tag::Signature =>           Signature::parse(parser, computed_hash),
             Tag::OnePassSig =>          OnePassSig::parse(parser),
@@ -1756,14 +1751,8 @@ impl <'a> PacketParser<'a> {
         let orig_depth = self.recursion_depth as usize;
 
         self.finish();
-        let mut reader = match self.state {
-            State::Body(reader) =>
-                buffered_reader_stack_pop(
-                    reader, self.recursion_depth as isize),
-            State::Header(_) =>
-                panic!("Header not parsed")
-        };
-
+        let mut reader = buffered_reader_stack_pop(
+            self.reader, self.recursion_depth as isize);
 
         // Now read the next packet.
         loop {
@@ -1796,17 +1785,12 @@ impl <'a> PacketParser<'a> {
                         return Ok((self.packet, orig_depth as isize,
                                    None, 0));
                     } else {
-                        self.state = State::Body(reader_);
+                        self.reader = reader_;
                         self.recursion_depth -= 1;
                         self.finish();
                         // XXX self.content_was_read = false;
-                        reader = match self.state {
-                            State::Body(reader) =>
-                                buffered_reader_stack_pop(
-                                    reader, self.recursion_depth as isize),
-                            State::Header(_) =>
-                                panic!("Header not parsed")
-                        };
+                        reader = buffered_reader_stack_pop(
+                            self.reader, self.recursion_depth as isize);
                     }
                 },
                 ParserResult::Success(mut pp) => {
@@ -1866,36 +1850,31 @@ impl <'a> PacketParser<'a> {
 
                     // Drop through.
                 } else {
-                        match self.state {
-                            State::Body(reader) =>
-                                match PacketParser::parse(reader, &self.settings,
-                                                          self.recursion_depth
-                                                          as usize + 1)? {
-                                    ParserResult::Success(mut pp) => {
-                                        pp.settings = self.settings;
+                    match PacketParser::parse(self.reader, &self.settings,
+                                              self.recursion_depth
+                                              as usize + 1)? {
+                        ParserResult::Success(mut pp) => {
+                            pp.settings = self.settings;
 
-                                        if pp.settings.trace {
-                                            eprintln!("{}PacketParser::recurse(): \
-                                                       Recursed into the {:?} \
-                                                       packet, got a {:?}.",
-                                                      indent(self.recursion_depth + 1),
-                                                      self.packet.tag(),
-                                                      pp.packet.tag());
-                                        }
+                            if pp.settings.trace {
+                                eprintln!("{}PacketParser::recurse(): \
+                                           Recursed into the {:?} \
+                                           packet, got a {:?}.",
+                                          indent(self.recursion_depth + 1),
+                                          self.packet.tag(),
+                                          pp.packet.tag());
+                            }
 
-                                        return Ok((self.packet,
-                                                   self.recursion_depth as isize,
-                                                   Some(pp),
-                                                   self.recursion_depth as isize + 1));
-                                    },
-                                    ParserResult::EOF(_) => {
-                                        unimplemented!("We immediately got an EOF!");
-                                    },
-                                },
-                            State::Header(_) =>
-                                panic!("Header not parsed"),
-                        };
+                            return Ok((self.packet,
+                                       self.recursion_depth as isize,
+                                       Some(pp),
+                                       self.recursion_depth as isize + 1));
+                        },
+                        ParserResult::EOF(_) => {
+                            unimplemented!("We immediately got an EOF!");
+                        },
                     }
+                }
             },
             // decrypted should always be true.
             Packet::CompressedData(_) => unreachable!(),
@@ -2031,131 +2010,74 @@ impl<'a> io::Read for PacketParser<'a> {
 /// `BufferedReader` interfaces.
 impl<'a> BufferedReader<Cookie> for PacketParser<'a> {
     fn buffer(&self) -> &[u8] {
-        match self.state {
-            State::Header(ref reader) => reader.buffer(),
-            State::Body(ref reader) => reader.buffer(),
-        }
+        self.reader.buffer()
     }
 
     fn data(&mut self, amount: usize) -> io::Result<&[u8]> {
         // There is no need to set `content_was_read`, because this
         // doesn't actually consume any data.
-        match self.state {
-            State::Header(ref mut reader) => reader.data(amount),
-            State::Body(ref mut reader) => reader.data(amount),
-        }
+        self.reader.data(amount)
     }
 
     fn data_hard(&mut self, amount: usize) -> io::Result<&[u8]> {
         // There is no need to set `content_was_read`, because this
         // doesn't actually consume any data.
-        match self.state {
-            State::Header(ref mut reader) => reader.data_hard(amount),
-            State::Body(ref mut reader) => reader.data_hard(amount),
-        }
+        self.reader.data_hard(amount)
     }
 
     fn data_eof(&mut self) -> io::Result<&[u8]> {
         // There is no need to set `content_was_read`, because this
         // doesn't actually consume any data.
-        match self.state {
-            State::Header(ref mut reader) => reader.data_eof(),
-            State::Body(ref mut reader) => reader.data_eof(),
-        }
+        self.reader.data_eof()
     }
 
     fn consume(&mut self, amount: usize) -> &[u8] {
-        match self.state {
-            State::Header(ref mut reader) => reader.consume(amount),
-            State::Body(ref mut reader) => {
-                self.content_was_read |= amount > 0;
-                reader.consume(amount)
-            },
-        }
+        self.content_was_read |= amount > 0;
+        self.reader.consume(amount)
     }
 
     fn data_consume(&mut self, amount: usize) -> io::Result<&[u8]> {
-        match self.state {
-            State::Header(ref mut reader) => reader.data_consume(amount),
-            State::Body(ref mut reader) => {
-                self.content_was_read |= amount > 0;
-                reader.data_consume(amount)
-            },
-        }
+        self.content_was_read |= amount > 0;
+        self.reader.data_consume(amount)
     }
 
     fn data_consume_hard(&mut self, amount: usize) -> io::Result<&[u8]> {
-        match self.state {
-            State::Header(ref mut reader) => reader.data_consume_hard(amount),
-            State::Body(ref mut reader) => {
-                self.content_was_read |= amount > 0;
-                reader.data_consume_hard(amount)
-            },
-        }
+        self.content_was_read |= amount > 0;
+        self.reader.data_consume_hard(amount)
     }
 
     fn read_be_u16(&mut self) -> io::Result<u16> {
-        match self.state {
-            State::Header(ref mut reader) => reader.read_be_u16(),
-            State::Body(ref mut reader) => {
-                self.content_was_read = true;
-                reader.read_be_u16()
-            },
-        }
+        self.content_was_read = true;
+        self.reader.read_be_u16()
     }
 
     fn read_be_u32(&mut self) -> io::Result<u32> {
-        match self.state {
-            State::Header(ref mut reader) => reader.read_be_u32(),
-            State::Body(ref mut reader) => {
-                self.content_was_read = true;
-                reader.read_be_u32()
-            },
-        }
+        self.content_was_read = true;
+        self.reader.read_be_u32()
     }
 
     fn steal(&mut self, amount: usize) -> io::Result<Vec<u8>> {
-        match self.state {
-            State::Header(ref mut reader) => reader.steal(amount),
-            State::Body(ref mut reader) => {
-                self.content_was_read |= amount > 0;
-                reader.steal(amount)
-            },
-        }
+        self.content_was_read |= amount > 0;
+        self.reader.steal(amount)
     }
 
     fn steal_eof(&mut self) -> io::Result<Vec<u8>> {
-        match self.state {
-            State::Header(ref mut reader) => reader.steal_eof(),
-            State::Body(ref mut reader) => {
-                self.content_was_read = true;
-                reader.steal_eof()
-            },
-        }
+        self.content_was_read = true;
+        self.reader.steal_eof()
     }
 
     fn drop_eof(&mut self) -> io::Result<()> {
-        match self.state {
-            State::Header(ref mut reader) => reader.drop_eof(),
-            State::Body(ref mut reader) => {
-                self.content_was_read = true;
-                reader.drop_eof()
-            },
-        }
+        self.content_was_read = true;
+        self.reader.drop_eof()
     }
 
     fn get_mut(&mut self) -> Option<&mut BufferedReader<Cookie>> {
-        Some(match self.state {
-            State::Header(ref mut reader) => reader.as_mut(),
-            State::Body(ref mut reader) => reader,
-        })
+        self.content_was_read = true;
+        Some(&mut self.reader)
     }
 
     fn get_ref(&self) -> Option<&BufferedReader<Cookie>> {
-        Some(match self.state {
-            State::Header(ref reader) => reader.as_ref(),
-            State::Body(ref reader) => reader,
-        })
+        Some(&self.reader)
     }
 
     fn into_inner<'b>(self: Box<Self>)
@@ -2311,7 +2233,7 @@ impl<'a> PacketParser<'a> {
             // worked when reading the header.
             reader.data_consume_hard(bl + 2).unwrap();
 
-            self.state = State::Body(Box::new(reader));
+            self.reader = Box::new(reader);
             self.decrypted = true;
 
             Ok(())
