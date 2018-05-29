@@ -61,13 +61,9 @@ fn real_main() -> Result<(), failure::Error> {
 
     match matches.subcommand() {
         ("decrypt",  Some(m)) => {
-            let mut input = open_or_stdin(m.value_of("input"))?;
+            let input = open_or_stdin(m.value_of("input"))?;
             let mut output = create_or_stdout(m.value_of("output"))?;
-            let mut input = if m.is_present("dearmor") {
-                Box::new(armor::Reader::new(&mut input, armor::Kind::Any))
-            } else {
-                input
-            };
+            let mut input = openpgp::Reader::from_reader(input)?;
             commands::decrypt(&mut input, &mut output,
                               m.is_present("dump"), m.is_present("hex"))?;
         },
@@ -84,13 +80,9 @@ fn real_main() -> Result<(), failure::Error> {
             io::copy(&mut filter, &mut output)?;
         },
         ("dump",  Some(m)) => {
-            let mut input = open_or_stdin(m.value_of("input"))?;
+            let input = open_or_stdin(m.value_of("input"))?;
             let mut output = create_or_stdout(m.value_of("output"))?;
-            let mut input = if m.is_present("dearmor") {
-                Box::new(armor::Reader::new(&mut input, armor::Kind::Any))
-            } else {
-                input
-            };
+            let mut input = openpgp::Reader::from_reader(input)?;
             commands::dump(&mut input, &mut output, m.is_present("hex"))?;
         },
         ("keyserver",  Some(m)) => {
@@ -125,12 +117,8 @@ fn real_main() -> Result<(), failure::Error> {
                         .context("Failed to serialize key")?;
                 },
                 ("send",  Some(m)) => {
-                    let mut input = open_or_stdin(m.value_of("input"))?;
-                    let mut input = if m.is_present("dearmor") {
-                        Box::new(armor::Reader::new(&mut input, armor::Kind::Any))
-                    } else {
-                        input
-                    };
+                    let input = open_or_stdin(m.value_of("input"))?;
+                    let mut input = openpgp::Reader::from_reader(input)?;
 
                     let tpk = TPK::from_reader(&mut input).
                         context("Malformed key")?;
@@ -158,12 +146,8 @@ fn real_main() -> Result<(), failure::Error> {
                     store.add(m.value_of("label").unwrap(), &fp)?;
                 },
                 ("import",  Some(m)) => {
-                    let mut input = open_or_stdin(m.value_of("input"))?;
-                    let mut input = if m.is_present("dearmor") {
-                        Box::new(armor::Reader::new(&mut input, armor::Kind::Any))
-                    } else {
-                        input
-                    };
+                    let input = open_or_stdin(m.value_of("input"))?;
+                    let mut input = openpgp::Reader::from_reader(input)?;
 
                     let tpk = TPK::from_reader(&mut input)?;
                     store.import(m.value_of("label").unwrap(), &tpk)?;

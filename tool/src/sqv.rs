@@ -106,7 +106,8 @@ fn real_main() -> Result<(), failure::Error> {
     // .unwrap() is safe, because "sig-file" is required.
     let sig_file = matches.value_of_os("sig-file").unwrap();
 
-    let mut ppo = PacketParser::from_file(sig_file)?;
+    let mut ppo = PacketParser::from_reader(
+        openpgp::Reader::from_file(sig_file)?)?;
 
     let mut sigs : Vec<(Signature, KeyID, Option<TPK>)> = Vec::new();
 
@@ -175,7 +176,8 @@ fn real_main() -> Result<(), failure::Error> {
         .expect("No keyring specified.")
     {
         // Load the keyring.
-        let mut ppo = PacketParser::from_file(filename)?;
+        let mut ppo = PacketParser::from_reader(
+            openpgp::Reader::from_file(filename)?)?;
 
         // We store packets in an accumulator until we are sure that
         // we want to build and use a TPK.

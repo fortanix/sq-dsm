@@ -53,7 +53,6 @@
 //!     sq decrypt [FLAGS] [OPTIONS]
 //!
 //! FLAGS:
-//!     -A, --dearmor    Remove ASCII Armor from input
 //!         --dump       Print a packet dump to stderr
 //!     -h, --help       Prints help information
 //!     -x, --hex        Print a hexdump (implies --dump)
@@ -73,7 +72,6 @@
 //!     sq dump [FLAGS] [OPTIONS]
 //!
 //! FLAGS:
-//!     -A, --dearmor    Remove ASCII Armor from input
 //!     -h, --help       Prints help information
 //!     -x, --hex        Print a hexdump
 //!     -V, --version    Prints version information
@@ -147,10 +145,9 @@
 //! Sends a key
 //!
 //! USAGE:
-//!     sq keyserver send [FLAGS] [OPTIONS]
+//!     sq keyserver send [OPTIONS]
 //!
 //! FLAGS:
-//!     -A, --dearmor    Remove ASCII Armor from input
 //!     -h, --help       Prints help information
 //!     -V, --version    Prints version information
 //!
@@ -322,10 +319,9 @@
 //! Imports a key
 //!
 //! USAGE:
-//!     sq store <NAME> import [FLAGS] [OPTIONS] <LABEL>
+//!     sq store <NAME> import [OPTIONS] <LABEL>
 //!
 //! FLAGS:
-//!     -A, --dearmor    Remove ASCII Armor from input
 //!     -h, --help       Prints help information
 //!     -V, --version    Prints version information
 //!
