@@ -8,7 +8,10 @@ use std::mem;
 use std::fmt;
 use std::path::Path;
 
+use nettle::Hash;
+
 use ::buffered_reader::*;
+
 use {
     Result,
     MPIs,
@@ -84,6 +87,37 @@ fn indent(depth: u8) -> &'static str {
 /// So, this should be more than enough.
 const MAX_RECURSION_DEPTH : u8 = 16;
 
+// Used to parse an OpenPGP packet's header (note: in this case, the
+// header means a Packet's fixed data, not the OpenPGP framing
+// information, such as the CTB, and length information).
+//
+// This struct is not exposed to the user.  Instead, when a header has
+// been successfully parsed, a `PacketParser` is returned.
+struct PacketHeaderParser<'a> {
+    // The reader stack wrapped in a BufferedReaderDup so that if
+    // there is a parse error, we can abort and still return an
+    // Unknown packet.
+    reader: BufferedReaderDup<'a, Cookie>,
+
+    // The current packet's header.
+    header: Header,
+
+    // This packet's recursion depth.
+    //
+    // A top-level packet has a recursion depth of 0.  Packets in a
+    // top-level container have a recursion depth of 1, etc.
+    recursion_depth: u8,
+
+    // The `PacketParser`'s settings
+    settings: PacketParserSettings,
+
+    // The cookie.
+    cookie: Cookie,
+
+    /// A map of this packet.
+    map: Option<Map>,
+}
+
 /// Creates a local marco called php_try! that returns an Unknown
 /// packet instead of an Error like try! on parsing-related errors.
 /// (Errors like read errors are still returned as usual.)
@@ -108,6 +142,342 @@ macro_rules! make_php_try {
             };
         }
     };
+}
+
+impl <'a> std::fmt::Debug for PacketHeaderParser<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        f.debug_struct("PacketHeaderParser")
+            .field("header", &self.header)
+            .field("recursion_depth", &self.recursion_depth)
+            .field("reader", &self.reader)
+            .field("settings", &self.settings)
+            .field("map", &self.map)
+            .finish()
+    }
+}
+
+impl<'a> PacketHeaderParser<'a> {
+    // Returns a `PacketHeaderParser` to parse an OpenPGP packet.
+    // `inner` points to the start of the OpenPGP framing information,
+    // i.e., the CTB.
+    fn new(inner: Box<'a + BufferedReader<Cookie>>,
+           settings: PacketParserSettings,
+           recursion_depth: u8, header: Header,
+           header_bytes: Option<Vec<u8>>) -> Self
+    {
+        PacketHeaderParser {
+            reader: BufferedReaderDup::with_cookie(inner, Default::default()),
+            header: header,
+            recursion_depth: recursion_depth,
+            settings: settings,
+            cookie: Default::default(),
+            map: header_bytes.map(|h| Map::new(h)),
+        }
+    }
+
+    // Returns a `PacketHeaderParser` that parses a bare packet.  That
+    // is, `inner` points to the start of the packet; the OpenPGP
+    // framing has already been processed, and `inner` already
+    // includes any required filters (e.g., a
+    // `BufferedReaderPartialBodyFilter`, etc.).
+    fn new_naked(inner: Box<'a + BufferedReader<Cookie>>) -> Self {
+        PacketHeaderParser::new(inner, Default::default(), 0,
+                                Header {
+                                    ctb: CTB::new(Tag::Reserved),
+                                    length: BodyLength::Full(0),
+                                },
+                                None)
+    }
+
+    // Consumes the bytes belonging to the packet's header (i.e., the
+    // number of bytes read) from the reader, and returns a
+    // `PacketParser` that can be returned to the user.
+    //
+    // Only call this function if the packet's header has been
+    // completely and correctly parsed.  If a failure occurs while
+    // parsing the header, use `fail()` instead.
+    fn ok(mut self, packet: Packet) -> Result<PacketParser<'a>> {
+        let total_out = self.reader.total_out();
+
+        let mut reader = if self.settings.map {
+            // Read the body for the map.  Note that
+            // `total_out` does not account for the body.
+            //
+            // XXX avoid the extra copy.
+            let body = self.reader.steal_eof()?;
+            if body.len() > 0 {
+                self.field("body", body.len());
+            }
+
+            // This is a BufferedReaderDup, so this cannot fail.
+            let mut inner = Box::new(self.reader).into_inner().unwrap();
+
+            // Combine the header with the body for the map.
+            let mut data = Vec::with_capacity(total_out + body.len());
+            // We know that the inner reader must have at least
+            // `total_out` bytes buffered, otherwise we could never
+            // have read that much from the `BufferedReaderDup`.
+            data.extend_from_slice(&inner.buffer()[..total_out]);
+            data.extend(body);
+            self.map.as_mut().unwrap().finalize(data);
+
+            inner
+        } else {
+            // This is a BufferedReaderDup, so this cannot fail.
+            Box::new(self.reader).into_inner().unwrap()
+        };
+
+        // We know the data has been read, so this cannot fail.
+        reader.data_consume_hard(total_out).unwrap();
+
+        Ok(PacketParser {
+            header: self.header,
+            packet: packet,
+            recursion_depth: self.recursion_depth,
+            reader: reader,
+            content_was_read: false,
+            decrypted: true,
+            finished: false,
+            settings: self.settings,
+            cookie: self.cookie,
+            map: self.map,
+        })
+    }
+
+    // Something went wrong while parsing the packet's header.  Aborts
+    // and returns an Unknown packet instead.
+    fn fail(self, _reason: &'static str) -> Result<PacketParser<'a>> {
+        Unknown::parse(self)
+    }
+
+    fn field(&mut self, name: &'static str, size: usize) {
+        if let Some(ref mut map) = self.map {
+            map.add(name, size)
+        }
+    }
+
+    fn parse_u8(&mut self, name: &'static str) -> io::Result<u8> {
+        self.field(name, 1);
+        Ok(self.reader.data_consume_hard(1)?[0])
+    }
+
+    fn parse_be_u16(&mut self, name: &'static str) -> io::Result<u16> {
+        self.field(name, 2);
+        self.reader.read_be_u16()
+    }
+
+    fn parse_be_u32(&mut self, name: &'static str) -> io::Result<u32> {
+        self.field(name, 4);
+        self.reader.read_be_u32()
+    }
+
+    fn parse_bytes(&mut self, name: &'static str, amount: usize)
+             -> io::Result<Vec<u8>> {
+        self.field(name, amount);
+        self.reader.steal(amount)
+    }
+
+    fn parse_bytes_eof(&mut self, name: &'static str) -> io::Result<Vec<u8>> {
+        let r = self.reader.steal_eof()?;
+        self.field(name, r.len());
+        Ok(r)
+    }
+}
+
+
+/// What the hash in the Cookie is for.
+#[derive(Clone, PartialEq, Debug)]
+pub enum HashesFor {
+    Nothing,
+    MDC,
+    Signature,
+}
+
+
+pub struct Cookie {
+    // `BufferedReader`s managed by a `PacketParser` have
+    // `Some(level)`; an external `BufferedReader` (i.e., the
+    // underlying `BufferedReader`) has no level.
+    //
+    // Before parsing a top-level packet, we may push a
+    // `BufferedReaderLimitor` in front of the external
+    // `BufferedReader`.  Such `BufferedReader`s are assigned a level
+    // of 0.
+    //
+    // When a top-level packet (i.e., a packet with a recursion depth
+    // of 0) reads from the `BufferedReader` stack, the top
+    // `BufferedReader` will have a level of at most 0.
+    //
+    // If the top-level packet is a container, say, a `CompressedData`
+    // packet, then it pushes a decompression filter with a level of 0
+    // onto the `BufferedReader` stack, and it recursively invokes the
+    // parser.
+    //
+    // When the parser encounters the `CompressedData`'s first child,
+    // say, a `Literal` packet, it pushes a `BufferedReaderLimitor` on
+    // the `BufferedReader` stack with a level of 1.  Then, a
+    // `PacketParser` for the `Literal` data packet is created with a
+    // recursion depth of 1.
+    //
+    // There are several things to note:
+    //
+    //   - When a `PacketParser` with a recursion depth of N reads
+    //     from the `BufferedReader` stack, the top `BufferedReader`'s
+    //     level is (at most) N.
+    //
+    //     - Because we sometimes don't need to push a limitor
+    //       (specifically, when the length is indeterminate), the
+    //       `BufferedReader` at the top of the stack may have a level
+    //       less than the current `PacketParser`'s recursion depth.
+    //
+    //   - When a packet at depth N is a container that filters the
+    //     data, it pushes a `BufferedReader` at level N onto the
+    //     `BufferedReader` stack.
+    //
+    //   - When we finish parsing a packet at depth N, we pop all
+    //     `BufferedReader`s from the `BufferedReader` stack that are
+    //     at level N.  The intuition is: the `BufferedReaders` at
+    //     level N are associated with the packet at depth N.
+    //
+    //   - If a OnePassSig packet occurs at the top level, then we
+    //     need to push a HashedReader above the current level.  The
+    //     top level is level 0, thus we push the HashedReader at
+    //     level -1.
+    level: Option<isize>,
+
+    hashes_for: HashesFor,
+    hashing: bool,
+    hashes: Vec<(HashAlgorithm, Box<Hash>)>,
+}
+
+impl fmt::Debug for Cookie {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let algos = self.hashes.iter()
+            .map(|&(algo, _)| algo)
+            .collect::<Vec<HashAlgorithm>>();
+
+        f.debug_struct("Cookie")
+            .field("level", &self.level)
+            .field("hashes_for", &self.hashes_for)
+            .field("hashes", &algos)
+            .finish()
+    }
+}
+
+impl Default for Cookie {
+    fn default() -> Self {
+        Cookie {
+            level: None,
+            hashing: true,
+            hashes_for: HashesFor::Nothing,
+            hashes: vec![],
+        }
+    }
+}
+
+impl Cookie {
+    fn new(recursion_depth: usize) -> Cookie {
+        Cookie {
+            level: Some(recursion_depth as isize),
+            hashing: true,
+            hashes_for: HashesFor::Nothing,
+            hashes: vec![],
+        }
+    }
+}
+
+impl Cookie {
+    // Enables or disables signature hashers (HashesFor::Signature) at
+    // level `level`.
+    //
+    // Thus to disable the hashing of a level 3 literal packet's
+    // meta-data, we disable hashing at level 2.
+    fn hashing(reader: &mut BufferedReader<Cookie>,
+               enabled: bool, level: isize) {
+        let mut reader : Option<&mut BufferedReader<Cookie>>
+            = Some(reader);
+        while let Some(r) = reader {
+            {
+                let cookie = r.cookie_mut();
+                if let Some(br_level) = cookie.level {
+                    if br_level < level {
+                        break;
+                    }
+                    if br_level == level
+                        && cookie.hashes_for == HashesFor::Signature {
+                        cookie.hashing = enabled;
+                    }
+                } else {
+                    break;
+                }
+            }
+            reader = r.get_mut();
+        }
+    }
+}
+
+// Pops readers from a buffered reader stack at the specified level.
+//
+// If the reader stack is owned by a PacketParser, it is up to the
+// caller to adjust PacketParser::recursion_depth, etc. appropriately!
+fn buffered_reader_stack_pop<'a>(
+    mut reader: Box<BufferedReader<Cookie> + 'a>, depth: isize)
+    -> Box<BufferedReader<Cookie> + 'a>
+{
+    while let Some(level) = reader.cookie_ref().level {
+        assert!(level <= depth);
+
+        if level >= depth {
+            if TRACE {
+                eprintln!("{}buffered_reader_stack_pop: popping level {:?} reader: {:?}",
+                          indent(depth as u8),
+                          reader.cookie_ref().level,
+                          reader);
+            }
+
+            reader.drop_eof().unwrap();
+            reader = reader.into_inner().unwrap();
+        } else {
+            break;
+        }
+    }
+
+    reader
+}
+
+
+// A `PacketParser`'s settings.
+#[derive(Clone, Debug)]
+struct PacketParserSettings {
+    // The maximum allowed recursion depth.
+    //
+    // There is absolutely no reason that this should be more than
+    // 255.  (GnuPG defaults to 32.)  Moreover, if it is too large,
+    // then a read from the reader pipeline could blow the stack.
+    max_recursion_depth: u8,
+
+    // Whether a packet's contents should be buffered or dropped when
+    // the next packet is retrieved.
+    buffer_unread_content: bool,
+
+    // Whether to trace the execute of the PacketParser.  (The output
+    // is sent to stderr.)
+    trace: bool,
+
+    // Whether or not to create a map.
+    map: bool,
+}
+
+// The default `PacketParser` settings.
+impl Default for PacketParserSettings {
+    fn default() -> Self {
+        PacketParserSettings {
+            max_recursion_depth: MAX_RECURSION_DEPTH,
+            buffer_unread_content: false,
+            trace: TRACE,
+            map: false,
+        }
+    }
 }
 
 // Packet maps.
@@ -948,372 +1318,6 @@ fn skesk_parser_test() {
     }
 }
 
-use nettle::Hash;
-
-/// What the hash in the Cookie is for.
-#[derive(Clone, PartialEq, Debug)]
-pub enum HashesFor {
-    Nothing,
-    MDC,
-    Signature,
-}
-
-pub struct Cookie {
-    // `BufferedReader`s managed by a `PacketParser` have
-    // `Some(level)`; an external `BufferedReader` (i.e., the
-    // underlying `BufferedReader`) has no level.
-    //
-    // Before parsing a top-level packet, we may push a
-    // `BufferedReaderLimitor` in front of the external
-    // `BufferedReader`.  Such `BufferedReader`s are assigned a level
-    // of 0.
-    //
-    // When a top-level packet (i.e., a packet with a recursion depth
-    // of 0) reads from the `BufferedReader` stack, the top
-    // `BufferedReader` will have a level of at most 0.
-    //
-    // If the top-level packet is a container, say, a `CompressedData`
-    // packet, then it pushes a decompression filter with a level of 0
-    // onto the `BufferedReader` stack, and it recursively invokes the
-    // parser.
-    //
-    // When the parser encounters the `CompressedData`'s first child,
-    // say, a `Literal` packet, it pushes a `BufferedReaderLimitor` on
-    // the `BufferedReader` stack with a level of 1.  Then, a
-    // `PacketParser` for the `Literal` data packet is created with a
-    // recursion depth of 1.
-    //
-    // There are several things to note:
-    //
-    //   - When a `PacketParser` with a recursion depth of N reads
-    //     from the `BufferedReader` stack, the top `BufferedReader`'s
-    //     level is (at most) N.
-    //
-    //     - Because we sometimes don't need to push a limitor
-    //       (specifically, when the length is indeterminate), the
-    //       `BufferedReader` at the top of the stack may have a level
-    //       less than the current `PacketParser`'s recursion depth.
-    //
-    //   - When a packet at depth N is a container that filters the
-    //     data, it pushes a `BufferedReader` at level N onto the
-    //     `BufferedReader` stack.
-    //
-    //   - When we finish parsing a packet at depth N, we pop all
-    //     `BufferedReader`s from the `BufferedReader` stack that are
-    //     at level N.  The intuition is: the `BufferedReaders` at
-    //     level N are associated with the packet at depth N.
-    //
-    //   - If a OnePassSig packet occurs at the top level, then we
-    //     need to push a HashedReader above the current level.  The
-    //     top level is level 0, thus we push the HashedReader at
-    //     level -1.
-    level: Option<isize>,
-
-    hashes_for: HashesFor,
-    hashing: bool,
-    hashes: Vec<(HashAlgorithm, Box<Hash>)>,
-}
-
-impl fmt::Debug for Cookie {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let algos = self.hashes.iter()
-            .map(|&(algo, _)| algo)
-            .collect::<Vec<HashAlgorithm>>();
-
-        f.debug_struct("Cookie")
-            .field("level", &self.level)
-            .field("hashes_for", &self.hashes_for)
-            .field("hashes", &algos)
-            .finish()
-    }
-}
-
-impl Default for Cookie {
-    fn default() -> Self {
-        Cookie {
-            level: None,
-            hashing: true,
-            hashes_for: HashesFor::Nothing,
-            hashes: vec![],
-        }
-    }
-}
-
-impl Cookie {
-    fn new(recursion_depth: usize) -> Cookie {
-        Cookie {
-            level: Some(recursion_depth as isize),
-            hashing: true,
-            hashes_for: HashesFor::Nothing,
-            hashes: vec![],
-        }
-    }
-}
-
-impl Cookie {
-    // Enables or disables signature hashers (HashesFor::Signature) at
-    // level `level`.
-    //
-    // Thus to disable the hashing of a level 3 literal packet's
-    // meta-data, we disable hashing at level 2.
-    fn hashing(reader: &mut BufferedReader<Cookie>,
-               enabled: bool, level: isize) {
-        let mut reader : Option<&mut BufferedReader<Cookie>>
-            = Some(reader);
-        while let Some(r) = reader {
-            {
-                let cookie = r.cookie_mut();
-                if let Some(br_level) = cookie.level {
-                    if br_level < level {
-                        break;
-                    }
-                    if br_level == level
-                        && cookie.hashes_for == HashesFor::Signature {
-                        cookie.hashing = enabled;
-                    }
-                } else {
-                    break;
-                }
-            }
-            reader = r.get_mut();
-        }
-    }
-}
-
-// Pops readers from a buffered reader stack at the specified level.
-//
-// If the reader stack is owned by a PacketParser, it is up to the
-// caller to adjust PacketParser::recursion_depth, etc. appropriately!
-fn buffered_reader_stack_pop<'a>(
-    mut reader: Box<BufferedReader<Cookie> + 'a>, depth: isize)
-    -> Box<BufferedReader<Cookie> + 'a>
-{
-    while let Some(level) = reader.cookie_ref().level {
-        assert!(level <= depth);
-
-        if level >= depth {
-            if TRACE {
-                eprintln!("{}buffered_reader_stack_pop: popping level {:?} reader: {:?}",
-                          indent(depth as u8),
-                          reader.cookie_ref().level,
-                          reader);
-            }
-
-            reader.drop_eof().unwrap();
-            reader = reader.into_inner().unwrap();
-        } else {
-            break;
-        }
-    }
-
-    reader
-}
-
-// A `PacketParser`'s settings.
-#[derive(Clone, Debug)]
-struct PacketParserSettings {
-    // The maximum allowed recursion depth.
-    //
-    // There is absolutely no reason that this should be more than
-    // 255.  (GnuPG defaults to 32.)  Moreover, if it is too large,
-    // then a read from the reader pipeline could blow the stack.
-    max_recursion_depth: u8,
-
-    // Whether a packet's contents should be buffered or dropped when
-    // the next packet is retrieved.
-    buffer_unread_content: bool,
-
-    // Whether to trace the execute of the PacketParser.  (The output
-    // is sent to stderr.)
-    trace: bool,
-
-    // Whether or not to create a map.
-    map: bool,
-}
-
-// The default `PacketParser` settings.
-impl Default for PacketParserSettings {
-    fn default() -> Self {
-        PacketParserSettings {
-            max_recursion_depth: MAX_RECURSION_DEPTH,
-            buffer_unread_content: false,
-            trace: TRACE,
-            map: false,
-        }
-    }
-}
-
-// Used to parse an OpenPGP packet's header (note: in this case, the
-// header means a Packet's fixed data, not the OpenPGP framing
-// information, such as the CTB, and length information).
-//
-// This struct is not exposed to the user.  Instead, when a header has
-// been successfully parsed, a `PacketParser` is returned.
-struct PacketHeaderParser<'a> {
-    // The reader stack wrapped in a BufferedReaderDup so that if
-    // there is a parse error, we can abort and still return an
-    // Unknown packet.
-    reader: BufferedReaderDup<'a, Cookie>,
-
-    // The current packet's header.
-    header: Header,
-
-    // This packet's recursion depth.
-    //
-    // A top-level packet has a recursion depth of 0.  Packets in a
-    // top-level container have a recursion depth of 1, etc.
-    recursion_depth: u8,
-
-    // The `PacketParser`'s settings
-    settings: PacketParserSettings,
-
-    // The cookie.
-    cookie: Cookie,
-
-    /// A map of this packet.
-    map: Option<Map>,
-}
-
-impl <'a> std::fmt::Debug for PacketHeaderParser<'a> {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        f.debug_struct("PacketHeaderParser")
-            .field("header", &self.header)
-            .field("recursion_depth", &self.recursion_depth)
-            .field("reader", &self.reader)
-            .field("settings", &self.settings)
-            .field("map", &self.map)
-            .finish()
-    }
-}
-
-impl<'a> PacketHeaderParser<'a> {
-    // Returns a `PacketHeaderParser` to parse an OpenPGP packet.
-    // `inner` points to the start of the OpenPGP framing information,
-    // i.e., the CTB.
-    fn new(inner: Box<'a + BufferedReader<Cookie>>,
-           settings: PacketParserSettings,
-           recursion_depth: u8, header: Header,
-           header_bytes: Option<Vec<u8>>) -> Self
-    {
-        PacketHeaderParser {
-            reader: BufferedReaderDup::with_cookie(inner, Default::default()),
-            header: header,
-            recursion_depth: recursion_depth,
-            settings: settings,
-            cookie: Default::default(),
-            map: header_bytes.map(|h| Map::new(h)),
-        }
-    }
-
-    // Returns a `PacketHeaderParser` that parses a bare packet.  That
-    // is, `inner` points to the start of the packet; the OpenPGP
-    // framing has already been processed, and `inner` already
-    // includes any required filters (e.g., a
-    // `BufferedReaderPartialBodyFilter`, etc.).
-    fn new_naked(inner: Box<'a + BufferedReader<Cookie>>) -> Self {
-        PacketHeaderParser::new(inner, Default::default(), 0,
-                                Header {
-                                    ctb: CTB::new(Tag::Reserved),
-                                    length: BodyLength::Full(0),
-                                },
-                                None)
-    }
-
-    // Consumes the bytes belonging to the packet's header (i.e., the
-    // number of bytes read) from the reader, and returns a
-    // `PacketParser` that can be returned to the user.
-    //
-    // Only call this function if the packet's header has been
-    // completely and correctly parsed.  If a failure occurs while
-    // parsing the header, use `fail()` instead.
-    fn ok(mut self, packet: Packet) -> Result<PacketParser<'a>> {
-        let total_out = self.reader.total_out();
-
-        let mut reader = if self.settings.map {
-            // Read the body for the map.  Note that
-            // `total_out` does not account for the body.
-            //
-            // XXX avoid the extra copy.
-            let body = self.reader.steal_eof()?;
-            if body.len() > 0 {
-                self.field("body", body.len());
-            }
-
-            // This is a BufferedReaderDup, so this cannot fail.
-            let mut inner = Box::new(self.reader).into_inner().unwrap();
-
-            // Combine the header with the body for the map.
-            let mut data = Vec::with_capacity(total_out + body.len());
-            // We know that the inner reader must have at least
-            // `total_out` bytes buffered, otherwise we could never
-            // have read that much from the `BufferedReaderDup`.
-            data.extend_from_slice(&inner.buffer()[..total_out]);
-            data.extend(body);
-            self.map.as_mut().unwrap().finalize(data);
-
-            inner
-        } else {
-            // This is a BufferedReaderDup, so this cannot fail.
-            Box::new(self.reader).into_inner().unwrap()
-        };
-
-        // We know the data has been read, so this cannot fail.
-        reader.data_consume_hard(total_out).unwrap();
-
-        Ok(PacketParser {
-            header: self.header,
-            packet: packet,
-            recursion_depth: self.recursion_depth,
-            reader: reader,
-            content_was_read: false,
-            decrypted: true,
-            finished: false,
-            settings: self.settings,
-            cookie: self.cookie,
-            map: self.map,
-        })
-    }
-
-    // Something went wrong while parsing the packet's header.  Aborts
-    // and returns an Unknown packet instead.
-    fn fail(self, _reason: &'static str) -> Result<PacketParser<'a>> {
-        Unknown::parse(self)
-    }
-
-    fn field(&mut self, name: &'static str, size: usize) {
-        if let Some(ref mut map) = self.map {
-            map.add(name, size)
-        }
-    }
-
-    fn parse_u8(&mut self, name: &'static str) -> io::Result<u8> {
-        self.field(name, 1);
-        Ok(self.reader.data_consume_hard(1)?[0])
-    }
-
-    fn parse_be_u16(&mut self, name: &'static str) -> io::Result<u16> {
-        self.field(name, 2);
-        self.reader.read_be_u16()
-    }
-
-    fn parse_be_u32(&mut self, name: &'static str) -> io::Result<u32> {
-        self.field(name, 4);
-        self.reader.read_be_u32()
-    }
-
-    fn parse_bytes(&mut self, name: &'static str, amount: usize)
-             -> io::Result<Vec<u8>> {
-        self.field(name, amount);
-        self.reader.steal(amount)
-    }
-
-    fn parse_bytes_eof(&mut self, name: &'static str) -> io::Result<Vec<u8>> {
-        let r = self.reader.steal_eof()?;
-        self.field(name, r.len());
-        Ok(r)
-    }
-}
-
 /// A low-level OpenPGP message parser.
 ///
 /// A `PacketParser` provides a low-level, iterator-like interface to
