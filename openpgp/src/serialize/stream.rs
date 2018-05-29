@@ -1092,9 +1092,6 @@ mod test {
             literal.write_all(message).unwrap();
         }
 
-        let mut dbg = ::std::fs::File::create("/tmp/q").unwrap();
-        dbg.write_all(&o).unwrap();
-
         // ... and recover it...
         #[derive(Debug, PartialEq)]
         enum State {
