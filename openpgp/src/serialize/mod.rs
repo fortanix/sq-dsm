@@ -181,6 +181,17 @@ impl Serialize for KeyID {
     }
 }
 
+impl Serialize for MPIs {
+    fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
+        o.write_all(&self.raw)?;
+        Ok(())
+    }
+
+    fn to_vec(&self) -> Vec<u8> {
+        self.raw.clone()
+    }
+}
+
 
 /// Packet serialization.
 ///

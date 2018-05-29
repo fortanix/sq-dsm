@@ -1,6 +1,7 @@
 use std::fmt;
 use std::cell::RefCell;
 use std::cmp;
+use quickcheck::{Arbitrary, Gen};
 
 use Error;
 use Result;
@@ -76,6 +77,37 @@ impl MPIs {
         MPIs::parse(Vec::new())
     }
 
+    /// Returns a new MPIs object containing the MPIs given as list of
+    /// slices.
+    pub fn new(mpis: &[&[u8]]) -> MPIs {
+        let mut raw = Vec::with_capacity(
+            mpis.iter().map(|m| 2 + m.len()).sum());
+
+        for &mpi in mpis.iter() {
+            // First, compute the length in bits.
+            let mut l = mpi.len() as u16 * 8;
+            let mut o = 0;
+
+            // Strip leading zeros.
+            for &b in mpi {
+                l -= b.leading_zeros() as u16;
+                if b != 0 {
+                    break;
+                }
+                o += 1;
+            }
+
+            // Write length as big endian.
+            raw.push((l >> 8) as u8);
+            raw.push((l >> 0) as u8);
+
+            // Write the MPI skipping zero octets.
+            raw.extend_from_slice(&mpi[o..]);
+        }
+
+        MPIs::parse(raw)
+    }
+
     /// Parses an OpenPGP formatted array of MPIs.
     ///
     /// See [Section 3.2 of RFC 4880] for details.
@@ -105,6 +137,9 @@ impl MPIs {
             let start_offset = raw.total_out();
 
             let bytes = (bits + 7) / 8;
+            if bytes == 0 {
+                break;
+            }
             let value = &raw.data_consume_hard(bytes)?[..bytes];
 
             if TRACE {
@@ -171,11 +206,23 @@ impl MPIs {
                 Error::MalformedMPI("parsing error".to_string()).into());
         }
     }
+
+    /// Returns the length of the encoded MPIs.
+    pub fn len(&self) -> usize {
+        self.raw.len()
+    }
+}
+
+impl Arbitrary for MPIs {
+    fn arbitrary<G: Gen>(g: &mut G) -> Self {
+        MPIs::new(&[&<Vec<u8>>::arbitrary(g), &<Vec<u8>>::arbitrary(g)])
+    }
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
+    use serialize::Serialize;
 
     #[test]
     fn mpis_parse_test() {
@@ -198,4 +245,12 @@ mod test {
         // not 2).
         assert!(MPIs::parse(b"\x00\x02\x01".to_vec()).values().is_err());
     }
+
+    quickcheck! {
+        fn roundtrip(mpis: MPIs) -> bool {
+            let raw = mpis.to_vec();
+            mpis == MPIs::parse(raw)
+        }
+    }
+
 }
