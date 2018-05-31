@@ -1,9 +1,13 @@
-use failure;
+use failure::{self, ResultExt};
 use std::io;
 use rpassword;
 
 extern crate openpgp;
 use openpgp::{Packet, Tag};
+use openpgp::serialize::stream::{
+    wrap, LiteralWriter, Encryptor, EncryptionMode,
+};
+extern crate sequoia_store as store;
 
 // Indent packets according to their recursion level.
 const INDENT: &'static str
@@ -113,6 +117,46 @@ pub fn decrypt(input: &mut io::Read, output: &mut io::Write,
     if state != State::Done {
         return Err(failure::err_msg("Decryption failed."));
     }
+    Ok(())
+}
+
+pub fn encrypt(store: &mut store::Store,
+               input: &mut io::Read, output: &mut io::Write,
+               npasswords: usize, recipients: Vec<&str>)
+               -> Result<(), failure::Error> {
+    let mut tpks = Vec::with_capacity(recipients.len());
+    for r in recipients {
+        tpks.push(store.lookup(r).context("No such key found")?.tpk()?);
+    }
+    let mut passwords = Vec::with_capacity(npasswords);
+    for n in 0..npasswords {
+        let nprompt = format!("Enter passphrase {}: ", n + 1);
+        passwords.push(rpassword::prompt_password_stderr(
+            if npasswords > 1 {
+                &nprompt
+            } else {
+                "Enter passphrase: "
+            })?);
+    }
+
+    // Build a vector of references to hand to Encryptor.
+    let recipients: Vec<&openpgp::TPK> = tpks.iter().collect();
+    let passwords_: Vec<&[u8]> =
+        passwords.iter().map(|p| p.as_bytes()).collect();
+
+    // We want to encrypt a literal data packet.
+    let encryptor = Encryptor::new(wrap(output),
+                                   &passwords_,
+                                   &recipients,
+                                   EncryptionMode::AtRest)
+        .context("Failed to create encryptor")?;
+    let mut literal_writer = LiteralWriter::new(encryptor, 'b', None, 0)
+        .context("Failed to create literal writer")?;
+
+    // Finally, copy stdin to our writer stack to encrypt the data.
+    io::copy(input, &mut literal_writer)
+        .context("Failed to encrypt")?;
+
     Ok(())
 }
 

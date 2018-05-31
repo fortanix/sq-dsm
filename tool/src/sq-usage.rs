@@ -22,6 +22,7 @@
 //!     decrypt      Decrypts an OpenPGP message
 //!     dump         Lists OpenPGP packets
 //!     enarmor      Applies ASCII Armor to a file
+//!     encrypt      Encrypts a message
 //!     help         Prints this message or the help of the given subcommand(s)
 //!     keyserver    Interacts with keyservers
 //!     list         Lists key stores and known keys
@@ -97,6 +98,26 @@
 //! OPTIONS:
 //!     -i, --input <FILE>     Sets the input file to use
 //!     -o, --output <FILE>    Sets the output file to use
+//! ```
+//!
+//! ## Subcommand encrypt
+//!
+//! ```text
+//! Encrypts a message
+//!
+//! USAGE:
+//!     sq encrypt [FLAGS] [OPTIONS]
+//!
+//! FLAGS:
+//!     -A, --armor        Write armored data to file
+//!     -h, --help         Prints help information
+//!     -s, --symmetric    Encrypt with a password (can be given multiple times)
+//!     -V, --version      Prints version information
+//!
+//! OPTIONS:
+//!     -i, --input <FILE>            Sets the input file to use
+//!     -o, --output <FILE>           Sets the output file to use
+//!     -r, --recipient <LABEL>...    Recipient to encrypt for (can be given multiple times)
 //! ```
 //!
 //! ## Subcommand keyserver
