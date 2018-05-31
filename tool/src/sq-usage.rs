@@ -15,6 +15,7 @@
 //! OPTIONS:
 //!     -d, --domain <DOMAIN>            Sets the domain to use
 //!     -p, --policy <NETWORK-POLICY>    Sets the network policy to use
+//!     -s, --store <STORE>              Sets the store to use (default: 'default')
 //!
 //! SUBCOMMANDS:
 //!     dearmor      Removes ASCII Armor from a file
@@ -239,14 +240,11 @@
 //! Interacts with key stores
 //!
 //! USAGE:
-//!     sq store <NAME> [SUBCOMMAND]
+//!     sq store [SUBCOMMAND]
 //!
 //! FLAGS:
 //!     -h, --help       Prints help information
 //!     -V, --version    Prints version information
-//!
-//! ARGS:
-//!     <NAME>    Name of the store
 //!
 //! SUBCOMMANDS:
 //!     add       Add a key identified by fingerprint
@@ -265,7 +263,7 @@
 //! Add a key identified by fingerprint
 //!
 //! USAGE:
-//!     sq store <NAME> add <LABEL> <FINGERPRINT>
+//!     sq store add <LABEL> <FINGERPRINT>
 //!
 //! FLAGS:
 //!     -h, --help       Prints help information
@@ -282,7 +280,7 @@
 //! Deletes bindings or stores
 //!
 //! USAGE:
-//!     sq store <NAME> delete [FLAGS] [LABEL]
+//!     sq store delete [FLAGS] [LABEL]
 //!
 //! FLAGS:
 //!     -h, --help         Prints help information
@@ -299,7 +297,7 @@
 //! Exports a key
 //!
 //! USAGE:
-//!     sq store <NAME> export [FLAGS] [OPTIONS] <LABEL>
+//!     sq store export [FLAGS] [OPTIONS] <LABEL>
 //!
 //! FLAGS:
 //!     -A, --armor      Write armored data to file
@@ -319,7 +317,7 @@
 //! Imports a key
 //!
 //! USAGE:
-//!     sq store <NAME> import [OPTIONS] <LABEL>
+//!     sq store import [OPTIONS] <LABEL>
 //!
 //! FLAGS:
 //!     -h, --help       Prints help information
@@ -338,7 +336,7 @@
 //! Lists keys in the store
 //!
 //! USAGE:
-//!     sq store <NAME> list
+//!     sq store list
 //!
 //! FLAGS:
 //!     -h, --help       Prints help information
@@ -351,7 +349,7 @@
 //! Lists the keystore log
 //!
 //! USAGE:
-//!     sq store <NAME> log [LABEL]
+//!     sq store log [LABEL]
 //!
 //! FLAGS:
 //!     -h, --help       Prints help information
@@ -367,7 +365,7 @@
 //! Get stats for the given label
 //!
 //! USAGE:
-//!     sq store <NAME> stats <LABEL>
+//!     sq store stats <LABEL>
 //!
 //! FLAGS:
 //!     -h, --help       Prints help information

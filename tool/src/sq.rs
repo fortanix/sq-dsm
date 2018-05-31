@@ -58,6 +58,7 @@ fn real_main() -> Result<(), failure::Error> {
     };
     let ctx = Context::configure(matches.value_of("domain").unwrap_or("org.sequoia-pgp.sq"))
         .network_policy(policy).build()?;
+    let store_name = matches.value_of("store").unwrap_or("default");
 
     match matches.subcommand() {
         ("decrypt",  Some(m)) => {
@@ -133,7 +134,7 @@ fn real_main() -> Result<(), failure::Error> {
             }
         },
         ("store",  Some(m)) => {
-            let store = Store::open(&ctx, m.value_of("name").unwrap())
+            let store = Store::open(&ctx, store_name)
                 .context("Failed to open the store")?;
 
             match m.subcommand() {
