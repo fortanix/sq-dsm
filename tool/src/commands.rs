@@ -30,6 +30,7 @@ pub fn decrypt(input: &mut io::Read, output: &mut io::Write,
         }
 
         if let Some(ref map) = pp.map {
+            eprintln!();
             let mut hd = HexDumper::new();
             for (field, bytes) in map.iter() {
                 hd.print(bytes, field);
@@ -41,20 +42,6 @@ pub fn decrypt(input: &mut io::Read, output: &mut io::Write,
             // Look for an PKESK or SKESK packet.
             State::Start(pkesks, mut skesks) =>
                 match pp.packet {
-                    Packet::Unknown(ref u) => {
-                        match u.tag {
-                            Tag::PKESK =>
-                                eprintln!("Decryption using PKESK not yet \
-                                           supported."),
-                            _ => (),
-                        }
-                        State::Start(pkesks, skesks)
-                    },
-                    Packet::SKESK(ref skesk) => {
-                        // xxx do after recurse and avoid clone
-                        skesks.push(skesk.clone());
-                        State::Start(pkesks, skesks)
-                    },
                     Packet::SEIP(_) => {
                         let mut state = None;
                         for _pkesk in pkesks.iter() {
@@ -95,8 +82,32 @@ pub fn decrypt(input: &mut io::Read, output: &mut io::Write,
             State::Done => State::Done,
         };
 
-        let (_, _, ppo_tmp, _) = pp.recurse()?;
+        let (packet, _, ppo_tmp, _) = pp.recurse()?;
         ppo = ppo_tmp;
+
+        state = match state {
+            // Look for an PKESK or SKESK packet.
+            State::Start(pkesks, mut skesks) =>
+                match packet {
+                    Packet::Unknown(u) => {
+                        match u.tag {
+                            Tag::PKESK =>
+                                eprintln!("Decryption using PKESK not yet \
+                                           supported."),
+                            _ => (),
+                        }
+                        State::Start(pkesks, skesks)
+                    },
+                    Packet::SKESK(skesk) => {
+                        skesks.push(skesk);
+                        State::Start(pkesks, skesks)
+                    },
+                    _ => State::Start(pkesks, skesks),
+                },
+
+            // Do nothing in all other states.
+            s => s,
+        };
     }
 
     if state != State::Done {
