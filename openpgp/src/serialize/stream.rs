@@ -722,9 +722,10 @@ impl<'a> Encryptor<'a> {
 
             let mut count = 0;
             for key in subkeys {
-                let skesk = PKESK::new(algo, &sk, key.subkey())?;
-                skesk.serialize(&mut inner)?;
-                count += 1;
+                if let Ok(skesk) = PKESK::new(algo, &sk, key.subkey()) {
+                    skesk.serialize(&mut inner)?;
+                    count += 1;
+                }
             }
 
             if count == 0 {
