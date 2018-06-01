@@ -18,6 +18,12 @@ impl fmt::Debug for Key {
     }
 }
 
+impl fmt::Display for Key {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.fingerprint())
+    }
+}
+
 impl Key {
     /// Returns a new `Key` packet.  This can be used to hold either a
     /// public key, a public key, a private key, or a private subkey.
