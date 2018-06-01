@@ -35,11 +35,8 @@ impl Key {
     ///
     /// A Unix timestamp is the number of seconds since the Unix
     /// epoch.
-    ///
-    /// Note: the date is stored in big endian format.  The timestamp
-    /// should be provided in the default endianness.
     pub fn creation_time(mut self, timestamp: u32) -> Self {
-        self.creation_time = timestamp.to_be();
+        self.creation_time = timestamp;
         self
     }
 

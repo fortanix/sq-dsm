@@ -120,9 +120,6 @@ impl Literal {
     ///
     /// A Unix timestamp is the number of seconds since the Unix
     /// epoch.
-    ///
-    /// Note: the date is stored in big endian format.  The timestamp
-    /// should be provided in the default endianness.
     pub fn date(mut self, timestamp: u32) -> Literal {
         self.date = timestamp;
         self
