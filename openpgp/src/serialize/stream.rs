@@ -707,7 +707,9 @@ impl<'a> Encryptor<'a> {
 
         // Write the PKESK packet(s).
         for tpk in tpks {
+            // XXX: Handle encryption-capable primary keys.
             let subkeys = tpk.subkeys().filter(|skb| {
+                let key = skb.subkey();
                 // The first signature is the most recent binding
                 // signature.
                 skb.selfsigs().next()
@@ -716,7 +718,10 @@ impl<'a> Encryptor<'a> {
                             sig.key_flags().can_encrypt_at_rest(),
                         EncryptionMode::ForTransport =>
                             sig.key_flags().can_encrypt_for_transport(),
-                    })
+                    }
+                         // Check expiry.
+                         && ! sig.signature_is_expired()
+                         && ! sig.key_is_expired(key))
                     .unwrap_or(false)
             });
 
