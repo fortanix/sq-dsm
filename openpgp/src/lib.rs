@@ -53,6 +53,8 @@ extern crate quickcheck;
 #[cfg(not(test))]
 extern crate quickcheck;
 
+extern crate time;
+
 pub mod armor;
 
 pub mod ctb;

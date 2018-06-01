@@ -11,3 +11,4 @@ failure = "0.1.1"
 flate2 = "1.0.1"
 nettle = { git = "https://gitlab.com/sequoia-pgp/nettle-rs.git" }
 quickcheck = "0.6"
+time = "0.1.38"

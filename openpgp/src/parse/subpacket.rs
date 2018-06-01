@@ -55,6 +55,7 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt;
+use time;
 
 use quickcheck::{Arbitrary, Gen};
 
@@ -65,6 +66,7 @@ use {
     Signature,
     Packet,
     Fingerprint,
+    Key,
     KeyID,
 };
 
@@ -862,6 +864,42 @@ impl Signature {
         }
     }
 
+    /// Returns whether or not the signature is expired.
+    ///
+    /// Note that [Section 5.2.3.4 of RFC 4880] states that "[[A
+    /// Signature Creation Time subpacket]] MUST be present in the
+    /// hashed area."  Consequently, if such a packet does not exist,
+    /// but a "Signature Expiration Time" subpacket exists, we
+    /// conservatively treat the signature as expired, because there
+    /// is no way to evaluate the expiration time.
+    ///
+    ///  [Section 5.2.3.4 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.4
+    pub fn signature_is_expired(&self) -> bool {
+        self.signature_is_expired_at(time::now_utc())
+    }
+
+    /// Returns whether or not the signature is expired at the given time.
+    ///
+    /// Note that [Section 5.2.3.4 of RFC 4880] states that "[[A
+    /// Signature Creation Time subpacket]] MUST be present in the
+    /// hashed area."  Consequently, if such a packet does not exist,
+    /// but a "Signature Expiration Time" subpacket exists, we
+    /// conservatively treat the signature as expired, because there
+    /// is no way to evaluate the expiration time.
+    ///
+    ///  [Section 5.2.3.4 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.4
+    pub fn signature_is_expired_at(&self, tm: time::Tm) -> bool {
+        match (self.signature_creation_time(), self.signature_expiration_time())
+        {
+            (Some(c), Some(e)) =>
+                ((c + e) as i64) <= tm.to_timespec().sec,
+            (None, Some(_)) =>
+                true, // No creation time, treat as always expired.
+            (_, None) =>
+                false, // No expiration time, does not expire.
+        }
+    }
+
     /// Returns the value of the Exportable Certification subpacket,
     /// which contains whether the certification should be exported
     /// (i.e., whether the packet is *not* a local signature).
@@ -995,6 +1033,29 @@ impl Signature {
             }
         } else {
             None
+        }
+    }
+
+    /// Returns whether or not the key is expired.
+    ///
+    /// See [Section 5.2.3.6 of RFC 4880].
+    ///
+    ///  [Section 5.2.3.6 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.6
+    pub fn key_is_expired(&self, key: &Key) -> bool {
+        self.key_is_expired_at(key, time::now_utc())
+    }
+
+    /// Returns whether or not the key is expired at the given time.
+    ///
+    /// See [Section 5.2.3.6 of RFC 4880].
+    ///
+    ///  [Section 5.2.3.6 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.6
+    pub fn key_is_expired_at(&self, key: &Key, tm: time::Tm) -> bool {
+        match self.key_expiration_time() {
+            Some(e) =>
+                ((key.creation_time + e) as i64) <= tm.to_timespec().sec,
+            None =>
+                false, // No expiration time, does not expire.
         }
     }
 
@@ -1508,7 +1569,10 @@ fn subpacket_test_2() {
         = Message::from_file(path_to("../keys/subpackets/shaw.gpg")).unwrap();
 
     // Test #1
-    if let Some(&Packet::Signature(ref sig)) = message.children().nth(2) {
+    if let (Some(&Packet::PublicKey(ref key)),
+            Some(&Packet::Signature(ref sig)))
+        = (message.children().nth(0), message.children().nth(2))
+    {
         //  tag: 2, SignatureCreationTime(1515791508) }
         //  tag: 9, KeyExpirationTime(63072000) }
         //  tag: 11, PreferredSymmetricAlgorithms([9, 8, 7, 2]) }
@@ -1534,6 +1598,9 @@ fn subpacket_test_2() {
                        value: SubpacketValue::SignatureCreationTime(1515791508)
                    }));
 
+        // The signature does not expire.
+        assert!(! sig.signature_is_expired());
+
         assert_eq!(sig.key_expiration_time(), Some(63072000));
         assert_eq!(sig.subpacket(SubpacketTag::KeyExpirationTime),
                    Some(Subpacket {
@@ -1541,6 +1608,12 @@ fn subpacket_test_2() {
                        tag: SubpacketTag::KeyExpirationTime,
                        value: SubpacketValue::KeyExpirationTime(63072000)
                    }));
+
+        // Check key expiration.
+        assert!(! sig.key_is_expired_at(key, time::at_utc(time::Timespec::new(
+            key.creation_time as i64 + 63072000 - 1, 0))));
+        assert!(sig.key_is_expired_at(key, time::at_utc(time::Timespec::new(
+            key.creation_time as i64 + 63072000, 0))));
 
         assert_eq!(sig.preferred_symmetric_algorithms(),
                    Some(&[9, 8, 7, 2][..]));
