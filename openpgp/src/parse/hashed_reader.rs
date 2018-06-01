@@ -1,16 +1,12 @@
 use std::io;
 use std::cmp;
 use std::mem;
-use std::fs::File;
-use std::path::Path;
 
 use nettle::Hash;
 
 use buffered_reader::BufferedReader;
-use buffered_reader::BufferedReaderGeneric;
 use buffered_reader::buffered_reader_generic_read_impl;
 
-use Result;
 use HashAlgorithm;
 use parse::{Cookie, HashesFor};
 
@@ -19,7 +15,7 @@ use super::indent;
 const TRACE : bool = false;
 
 #[derive(Debug)]
-pub struct HashedReader<R: BufferedReader<Cookie>> {
+pub(crate) struct HashedReader<R: BufferedReader<Cookie>> {
     reader: R,
     cookie: Cookie,
 }
@@ -187,42 +183,12 @@ impl<R: BufferedReader<Cookie>>
     }
 }
 
-impl HashedReader<BufferedReaderGeneric<File, Cookie>> {
-    /// Hash the specified file.
-    ///
-    /// This is useful when verifying detached signatures.
-    pub fn file<P: AsRef<Path>>(path: P, algos: &[HashAlgorithm])
-        -> Result<Vec<(HashAlgorithm, Box<Hash>)>>
-    {
-        let reader
-            = BufferedReaderGeneric::with_cookie(
-                File::open(path)?, None, Default::default());
-
-        let mut reader
-            = HashedReader::new(reader, HashesFor::Signature, algos.to_vec());
-
-        // Hash all of the data.
-        reader.drop_eof()?;
-
-        let hashes = mem::replace(&mut reader.cookie_mut().hashes, Vec::new());
-
-        return Ok(hashes);
-    }
-}
-
 #[cfg(test)]
 mod test {
-    use std::path::PathBuf;
-
     use super::*;
 
     use buffered_reader::BufferedReader;
     use buffered_reader::BufferedReaderGeneric;
-
-    fn path_to(artifact: &str) -> PathBuf {
-        [env!("CARGO_MANIFEST_DIR"), "tests", "data", "messages", artifact]
-            .iter().collect()
-    }
 
     #[test]
     fn hash_test_1() {
@@ -276,29 +242,5 @@ mod test {
                            "{}: Algo: {:?}", i, algo);
             }
         }
-    }
-
-    #[test]
-    fn hash_file_test() {
-        let algos =
-            [ HashAlgorithm::SHA1, HashAlgorithm::SHA512, HashAlgorithm::SHA1 ];
-        let digests =
-            [ "7945E3DA269C25C04F9EF435A5C0F25D9662C771",
-               "DDE60DB05C3958AF1E576CD006A7F3D2C343DD8C8DECE789A15D148DF90E6E0D1454DE734F8343502CA93759F22C8F6221BE35B6BDE9728BD12D289122437CB1",
-               "7945E3DA269C25C04F9EF435A5C0F25D9662C771" ];
-
-        let result =
-            HashedReader::file(
-                path_to("a-cypherpunks-manifesto.txt"), &algos[..])
-            .unwrap();
-
-        for ((expected_algo, expected_digest), (algo, mut hash)) in
-            algos.into_iter().zip(digests.into_iter()).zip(result) {
-                let mut digest = vec![0u8; hash.digest_size()];
-                hash.digest(&mut digest);
-
-                assert_eq!(*expected_algo, algo);
-                assert_eq!(*expected_digest, ::to_hex(&digest[..], false));
-            }
     }
 }

@@ -51,7 +51,7 @@ mod message_parser;
 pub use self::message_parser::MessageParser;
 
 mod hashed_reader;
-pub use self::hashed_reader::HashedReader;
+pub(crate) use self::hashed_reader::HashedReader;
 
 mod packet_parser_builder;
 pub use self::packet_parser_builder::PacketParserBuilder;
@@ -141,7 +141,7 @@ macro_rules! make_php_try {
     };
 }
 
-impl <'a> std::fmt::Debug for PacketHeaderParser<'a> {
+impl<'a> std::fmt::Debug for PacketHeaderParser<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         f.debug_struct("PacketHeaderParser")
             .field("header", &self.header)
@@ -289,7 +289,7 @@ pub enum HashesFor {
 }
 
 
-pub struct Cookie {
+pub(crate) struct Cookie {
     // `BufferedReader`s managed by a `PacketParser` have
     // `Some(level)`; an external `BufferedReader` (i.e., the
     // underlying `BufferedReader`) has no level.
@@ -342,7 +342,7 @@ pub struct Cookie {
 
     hashes_for: HashesFor,
     hashing: bool,
-    hashes: Vec<(HashAlgorithm, Box<Hash>)>,
+    pub(crate) hashes: Vec<(HashAlgorithm, Box<Hash>)>,
 }
 
 impl fmt::Debug for Cookie {
@@ -1415,12 +1415,12 @@ enum ParserResult<'a> {
 }
 
 impl <'a> PacketParser<'a> {
-    /// Starts parsing an OpenPGP message stored in a `BufferedReader`
-    /// object.
-    ///
-    /// This function returns a `PacketParser` for the first packet in
-    /// the stream.
-    pub fn from_buffered_reader<R: BufferedReader<Cookie> + 'a>(bio: R)
+    // Starts parsing an OpenPGP message stored in a `BufferedReader`
+    // object.
+    //
+    // This function returns a `PacketParser` for the first packet in
+    // the stream.
+    pub(crate) fn from_buffered_reader(bio: Box<BufferedReader<Cookie> + 'a>)
             -> Result<Option<PacketParser<'a>>> {
         PacketParserBuilder::from_buffered_reader(bio)?.finalize()
     }

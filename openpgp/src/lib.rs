@@ -109,6 +109,15 @@ pub use tag::Tag;
 mod fingerprint;
 mod keyid;
 
+#[cfg(test)]
+use std::path::PathBuf;
+
+#[cfg(test)]
+fn path_to(artifact: &str) -> PathBuf {
+    [env!("CARGO_MANIFEST_DIR"), "tests", "data", "messages", artifact]
+        .iter().collect()
+}
+
 pub type Result<T> = ::std::result::Result<T, failure::Error>;
 
 #[derive(Fail, Debug)]
@@ -523,3 +532,61 @@ pub enum KeyID {
     // that the Issuer subpacket contains the wrong number of bytes.
     Invalid(Box<[u8]>)
 }
+
+use std::path::Path;
+use nettle::Hash;
+
+/// Hash the specified file.
+///
+/// This is useful when verifying detached signatures.
+pub fn hash_file<P: AsRef<Path>>(path: P, algos: &[HashAlgorithm])
+    -> Result<Vec<(HashAlgorithm, Box<Hash>)>>
+{
+    use std::mem;
+    use std::fs::File;
+
+    use ::parse::HashedReader;
+    use ::parse::HashesFor;
+
+    use buffered_reader::BufferedReader;
+    use buffered_reader::BufferedReaderGeneric;
+
+    let reader
+        = BufferedReaderGeneric::with_cookie(
+            File::open(path)?, None, Default::default());
+
+    let mut reader
+        = HashedReader::new(reader, HashesFor::Signature, algos.to_vec());
+
+    // Hash all of the data.
+    reader.drop_eof()?;
+
+    let hashes = mem::replace(&mut reader.cookie_mut().hashes, Vec::new());
+
+    return Ok(hashes);
+}
+
+
+#[test]
+fn hash_file_test() {
+    let algos =
+        [ HashAlgorithm::SHA1, HashAlgorithm::SHA512, HashAlgorithm::SHA1 ];
+    let digests =
+        [ "7945E3DA269C25C04F9EF435A5C0F25D9662C771",
+           "DDE60DB05C3958AF1E576CD006A7F3D2C343DD8C8DECE789A15D148DF90E6E0D1454DE734F8343502CA93759F22C8F6221BE35B6BDE9728BD12D289122437CB1",
+           "7945E3DA269C25C04F9EF435A5C0F25D9662C771" ];
+
+    let result =
+        hash_file(path_to("a-cypherpunks-manifesto.txt"), &algos[..])
+        .unwrap();
+
+    for ((expected_algo, expected_digest), (algo, mut hash)) in
+        algos.into_iter().zip(digests.into_iter()).zip(result) {
+            let mut digest = vec![0u8; hash.digest_size()];
+            hash.digest(&mut digest);
+
+            assert_eq!(*expected_algo, algo);
+            assert_eq!(*expected_digest, ::to_hex(&digest[..], false));
+        }
+}
+

@@ -129,7 +129,14 @@ impl Message {
     }
 
 
-    /// Deserializes the OpenPGP message stored in a `BufferedReader`
+    pub(crate) fn from_buffered_reader<'a>(bio: Box<'a + BufferedReader<Cookie>>)
+            -> Result<Message> {
+        PacketParserBuilder::from_buffered_reader(bio)?
+            .buffer_unread_content()
+            .to_message()
+    }
+
+    /// Deserializes the OpenPGP message stored in a `std::io::Read`
     /// object.
     ///
     /// Although this method is easier to use to parse an OpenPGP
@@ -142,43 +149,33 @@ impl Message {
     ///
     ///   [`PacketParser`]: parse/struct.PacketParser.html
     ///   [`MessageParser`]: parse/struct.MessageParser.html
-    pub fn from_buffered_reader<R: BufferedReader<Cookie>>(bio: R)
-            -> Result<Message> {
-        PacketParserBuilder::from_buffered_reader(bio)?
-            .buffer_unread_content()
-            .to_message()
-    }
-
-    /// Deserializes the OpenPGP message stored in a `std::io::Read`
-    /// object.
-    ///
-    /// See `from_buffered_reader` for more details and caveats.
-    pub fn from_reader<R: io::Read>(reader: R) -> Result<Message> {
+    pub fn from_reader<'a, R: 'a + io::Read>(reader: R) -> Result<Message> {
         let bio = BufferedReaderGeneric::with_cookie(
             reader, None, Cookie::default());
-        Message::from_buffered_reader(bio)
+        Message::from_buffered_reader(Box::new(bio))
     }
 
     /// Deserializes the OpenPGP message stored in the file named by
     /// `path`.
     ///
-    /// See `from_buffered_reader` for more details and caveats.
+    /// See `from_reader` for more details and caveats.
     pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Message> {
         Message::from_reader(File::open(path)?)
     }
 
     /// Deserializes the OpenPGP message stored in the provided buffer.
     ///
-    /// See `from_buffered_reader` for more details and caveats.
+    /// See `from_reader` for more details and caveats.
     pub fn from_bytes(data: &[u8]) -> Result<Message> {
         let bio = BufferedReaderMemory::with_cookie(
             data, Cookie::default());
-        Message::from_buffered_reader(bio)
+        Message::from_buffered_reader(Box::new(bio))
     }
 
-    // Reads all of the packets from a `PacketParser`, and turns them
-    // into a message.  Note: this assumes that `ppo` points to a
-    // top-level packet.
+    /// Reads all of the packets from a `PacketParser`, and turns them
+    /// into a message.
+    ///
+    /// Note: this assumes that `ppo` points to a top-level packet.
     pub fn from_packet_parser<'a>(ppo: Option<PacketParser<'a>>)
         -> Result<Message>
     {
@@ -267,7 +264,7 @@ impl Message {
     }
 }
 
-impl<R: BufferedReader<Cookie>> PacketParserBuilder<R> {
+impl<'a> PacketParserBuilder<'a> {
     /// Finishes configuring the `PacketParser` and returns a fully
     /// parsed message.
     ///

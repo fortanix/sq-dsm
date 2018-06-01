@@ -18,19 +18,19 @@ use parse::Cookie;
 /// will only be needed in exceptional circumstances.  Instead use,
 /// for instance, `PacketParser::from_file` or
 /// `PacketParser::from_reader` to start parsing an OpenPGP message.
-pub struct PacketParserBuilder<R: BufferedReader<Cookie>> {
-    bio: R,
+pub struct PacketParserBuilder<'a> {
+    bio: Box<'a + BufferedReader<Cookie>>,
     settings: PacketParserSettings,
 }
 
-impl<R: BufferedReader<Cookie>> PacketParserBuilder<R> {
-    /// Creates a `PacketParserBuilder` for an OpenPGP message stored
-    /// in a `BufferedReader` object.
-    ///
-    /// Note: this clears the `level` field of the
-    /// `Cookie` cookie.
-    pub fn from_buffered_reader(mut bio: R)
-            -> Result<PacketParserBuilder<R>> {
+impl<'a> PacketParserBuilder<'a> {
+    // Creates a `PacketParserBuilder` for an OpenPGP message stored
+    // in a `BufferedReader` object.
+    //
+    // Note: this clears the `level` field of the
+    // `Cookie` cookie.
+    pub(crate) fn from_buffered_reader(mut bio: Box<'a + BufferedReader<Cookie>>)
+            -> Result<Self> {
         bio.cookie_mut().level = None;
         Ok(PacketParserBuilder {
             bio: bio,
@@ -46,8 +46,7 @@ impl<R: BufferedReader<Cookie>> PacketParserBuilder<R> {
     /// This is a u8, because recursing more than 255 times makes no
     /// sense.  The default is `MAX_RECURSION_DEPTH`.  (GnuPG defaults
     /// to a maximum recursion depth of 32.)
-    pub fn max_recursion_depth(mut self, value: u8)
-            -> PacketParserBuilder<R> {
+    pub fn max_recursion_depth(mut self, value: u8) -> Self {
         self.settings.max_recursion_depth = value;
         self
     }
@@ -55,23 +54,21 @@ impl<R: BufferedReader<Cookie>> PacketParserBuilder<R> {
     /// Causes `PacketParser::finish()` to buffer any unread content.
     ///
     /// The unread content is stored in the `Packet::content` Option.
-    pub fn buffer_unread_content(mut self)
-            -> PacketParserBuilder<R> {
+    pub fn buffer_unread_content(mut self) -> Self {
         self.settings.buffer_unread_content = true;
         self
     }
 
     /// Causes `PacketParser::finish()` to drop any unread content.
     /// This is the default.
-    pub fn drop_unread_content(mut self)
-            -> PacketParserBuilder<R> {
+    pub fn drop_unread_content(mut self) -> Self {
         self.settings.buffer_unread_content = false;
         self
     }
 
     /// Causes the `PacketParser` functionality to print a trace of
     /// its execution on stderr.
-    pub fn trace(mut self) -> PacketParserBuilder<R> {
+    pub fn trace(mut self) -> Self {
         self.settings.trace = true;
         self
     }
@@ -79,7 +76,7 @@ impl<R: BufferedReader<Cookie>> PacketParserBuilder<R> {
     /// Controls mapping.
     ///
     /// Note that enabling mapping buffers all the data.
-    pub fn map(mut self, enable: bool) -> PacketParserBuilder<R> {
+    pub fn map(mut self, enable: bool) -> Self {
         self.settings.map = enable;
         self
     }
@@ -100,7 +97,7 @@ impl<R: BufferedReader<Cookie>> PacketParserBuilder<R> {
     /// # return Ok(ppo);
     /// # }
     /// ```
-    pub fn finalize<'a>(self)
+    pub fn finalize(self)
             -> Result<Option<PacketParser<'a>>> where Self: 'a {
         // Parse the first packet.
         let pp = PacketParser::parse(Box::new(self.bio), &self.settings, 0)?;
@@ -119,39 +116,32 @@ impl<R: BufferedReader<Cookie>> PacketParserBuilder<R> {
     }
 }
 
-impl<'a, R: io::Read + 'a>
-        PacketParserBuilder<BufferedReaderGeneric<R, Cookie>> {
+impl<'a> PacketParserBuilder<'a> {
     /// Creates a `PacketParserBuilder` for an OpenPGP message stored
     /// in a `std::io::Read` object.
-    pub fn from_reader(reader: R)
-            -> Result<PacketParserBuilder<
-                          BufferedReaderGeneric<R, Cookie>>> {
+    pub fn from_reader<R: io::Read + 'a>(reader: R) -> Result<Self> {
         Ok(PacketParserBuilder {
-            bio: BufferedReaderGeneric::with_cookie(
-                reader, None, Cookie::default()),
+            bio: Box::new(BufferedReaderGeneric::with_cookie(
+                reader, None, Cookie::default())),
             settings: PacketParserSettings::default(),
         })
     }
 }
 
-impl PacketParserBuilder<BufferedReaderGeneric<File, Cookie>> {
+impl<'a> PacketParserBuilder<'a> {
     /// Creates a `PacketParserBuilder` for an OpenPGP message stored
     /// in the file named `path`.
-    pub fn from_file<P: AsRef<Path>>(path: P)
-            -> Result<PacketParserBuilder<
-                          BufferedReaderGeneric<File, Cookie>>> {
+    pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
         PacketParserBuilder::from_reader(File::open(path)?)
     }
 }
 
-impl <'a> PacketParserBuilder<BufferedReaderMemory<'a, Cookie>> {
+impl<'a> PacketParserBuilder<'a> {
     /// Creates a `PacketParserBuilder` for an OpenPGP message stored
     /// in the specified buffer.
-    pub fn from_bytes(bytes: &'a [u8])
-            -> Result<PacketParserBuilder<
-                          BufferedReaderMemory<'a, Cookie>>> {
+    pub fn from_bytes(bytes: &'a [u8]) -> Result<PacketParserBuilder> {
         PacketParserBuilder::from_buffered_reader(
-            BufferedReaderMemory::with_cookie(
-                bytes, Cookie::default()))
+            Box::new(BufferedReaderMemory::with_cookie(
+                bytes, Cookie::default())))
     }
 }

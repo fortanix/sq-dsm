@@ -223,18 +223,8 @@ impl<R: io::Read> io::Read for Decryptor<R> {
 
 /// A `BufferedReader` that decrypts symmetrically-encrypted data as
 /// it is read.
-pub struct BufferedReaderDecryptor<R: BufferedReader<C>, C> {
+pub(crate) struct BufferedReaderDecryptor<R: BufferedReader<C>, C> {
     reader: BufferedReaderGeneric<Decryptor<R>, C>,
-}
-
-impl <R: BufferedReader<()>> BufferedReaderDecryptor<R, ()> {
-    /// Instantiate a new symmetric decryptor.  `reader` is the source
-    /// to wrap.
-    pub fn new(algo: SymmetricAlgorithm, key: &[u8], reader: R)
-        -> Result<Self>
-    {
-        Self::with_cookie(algo, key, reader, ())
-    }
 }
 
 impl <R: BufferedReader<C>, C> BufferedReaderDecryptor<R, C> {

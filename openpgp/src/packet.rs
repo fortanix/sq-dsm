@@ -96,7 +96,7 @@ impl BodyLength {
     /// 4.2.2 of RFC 4880].
     ///
     ///   [Section 4.2.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.2.2
-    pub fn parse_new_format<T: BufferedReader<C>, C> (bio: &mut T)
+    pub(crate) fn parse_new_format<T: BufferedReader<C>, C> (bio: &mut T)
         -> io::Result<BodyLength>
     {
         let octet1 : u8 = bio.data_consume_hard(1)?[0];
@@ -125,7 +125,7 @@ impl BodyLength {
     /// 4.2.1 of RFC 4880].
     ///
     ///   [Section 4.2.1 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.2.1
-    pub fn parse_old_format<T: BufferedReader<C>, C>
+    pub(crate) fn parse_old_format<T: BufferedReader<C>, C>
         (bio: &mut T, length_type: PacketLengthType)
          -> Result<BodyLength>
     {
@@ -310,7 +310,7 @@ impl Header {
     /// of RFC 4880].
     ///
     ///   [Section 4.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.2
-    pub fn parse<R: BufferedReader<C>, C> (bio: &mut R)
+    pub(crate) fn parse<R: BufferedReader<C>, C> (bio: &mut R)
         -> Result<Header>
     {
         let ctb = CTB::from_ptag(bio.data_consume_hard(1)?[0])?;

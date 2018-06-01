@@ -12,7 +12,7 @@ const TRACE : bool = false;
 
 /// A `BufferedReader` that transparently handles OpenPGP's chunking
 /// scheme.  This implicitly implements a limitor.
-pub struct BufferedReaderPartialBodyFilter<T: BufferedReader<Cookie>> {
+pub(crate) struct BufferedReaderPartialBodyFilter<T: BufferedReader<Cookie>> {
     // The underlying reader.
     reader: T,
 
