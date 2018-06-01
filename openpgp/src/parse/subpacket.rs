@@ -690,6 +690,35 @@ fn subpacket_length<C>(bio: &mut BufferedReaderMemory<C>)
 /// information.
 pub struct KeyFlags<'a>(Option<&'a [u8]>);
 
+impl<'a> fmt::Debug for KeyFlags<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        if self.can_certify() {
+            f.write_str("C")?;
+        }
+        if self.can_sign() {
+            f.write_str("S")?;
+        }
+        if self.can_encrypt_for_transport() {
+            f.write_str("Et")?;
+        }
+        if self.can_encrypt_at_rest() {
+            f.write_str("Er")?;
+        }
+        if self.can_authenticate() {
+            f.write_str("A")?;
+        }
+        if self.is_split_key() {
+            f.write_str("S")?;
+        }
+        if self.is_group_key() {
+            f.write_str("G")?;
+        }
+
+        Ok(())
+    }
+}
+
+
 impl<'a> KeyFlags<'a> {
     pub fn can_certify(&self) -> bool {
         self.0.and_then(|v| v.get(0))
