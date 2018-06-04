@@ -1,256 +1,383 @@
 use std::fmt;
-use std::cell::RefCell;
-use std::cmp;
 use quickcheck::{Arbitrary, Gen};
 
-use Error;
-use Result;
+use constants::{
+    SymmetricAlgorithm,
+    HashAlgorithm,
+};
 
-use buffered_reader::BufferedReader;
-use buffered_reader::BufferedReaderMemory;
+use nettle::Hash;
 
-const TRACE: bool = false;
-
-#[derive(Clone)]
-pub struct MPIs {
-    pub raw: Vec<u8>,
-
-    // A vector of (start, length) tuples into `raw`, one for each
-    // MPI.
-    parsed: RefCell<Option<Vec<(usize, usize)>>>,
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct MPI {
+    pub bits: usize,
+    pub value: Box<[u8]>,
 }
 
-impl fmt::Debug for MPIs {
+impl MPI {
+    // Update the Hash with a hash of the MPIs.
+    pub fn hash<H: Hash>(&self, hash: &mut H) {
+        let len = &[(self.bits >> 8) as u8 & 0xFF, self.bits as u8];
+
+        hash.update(len);
+        hash.update(&self.value);
+    }
+}
+
+impl fmt::Debug for MPI {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self.values() {
-            Ok(values) => {
-                f.debug_list()
-                    .entries(values.iter().map(
-                        |v| format!("{} bits: {}",
-                                    v.len() * 8
-                                    - if v.len() > 0 {
-                                          v[0].leading_zeros() as usize
-                                      } else {
-                                          0
-                                      },
-                                    ::to_hex(v, true))))
-                    .finish()
-            },
-            Err(error) => {
-                f.write_str(&format!("Invalid MPI ({})", error))
-            }
-        }
+        f.write_fmt(format_args!(
+                "{} bits: {}",self.bits, ::to_hex(&*self.value, true)))
     }
 }
 
-impl PartialEq for MPIs {
-    fn eq(&self, other: &MPIs) -> bool {
-        self.raw == other.raw
-    }
-}
+#[derive(Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
+pub enum MPIs {
+    // XXX
+    None,
 
-impl Eq for MPIs {}
+    RSAPublicKey{ e: MPI, n: MPI },
+    RSASecretKey{ d: MPI, p: MPI, q: MPI, u: MPI },
+    RSACiphertext{ c: MPI },
+    RSASignature{ s: MPI },
 
-impl PartialOrd for MPIs {
-    fn partial_cmp(&self, other: &MPIs) -> Option<cmp::Ordering> {
-        // We use a lexographical ordering, not a numerical one.  A
-        // numerical ordering would be more natural, but it's not
-        // clear how to order two MPI arrays that have a different
-        // number of elements, for instance.  A lexicographical
-        // ordering is enough for a stable sort, however, which is our
-        // primary concern.
-        self.raw.partial_cmp(&other.raw)
-    }
-}
+    DSAPublicKey{ p: MPI, q: MPI, g: MPI, y: MPI },
+    DSASecretKey{ x: MPI },
+    DSASignature{ r: MPI, s: MPI },
 
-impl Ord for MPIs {
-    fn cmp(&self, other: &MPIs) -> cmp::Ordering {
-        // See PartialOrd::partial_cmp for why we use lexographical
-        // ordering.
-        self.raw.cmp(&other.raw)
-    }
+    ElgamalPublicKey{ p: MPI, g: MPI, y: MPI },
+    ElgamalSecretKey{ x: MPI },
+    ElgamalCiphertext{ e: MPI, c: MPI },
+
+    EdDSAPublicKey{ curve: Box<[u8]>, q: MPI },
+    EdDSASecretKey{ scalar: MPI },
+    EdDSASignature{ r: MPI, s: MPI },
+
+    ECDSAPublicKey{ curve: Box<[u8]>, q: MPI },
+    ECDSASecretKey{ scalar: MPI },
+    ECDSASignature{ r: MPI, s: MPI },
+
+    ECDHPublicKey{
+        curve: Box<[u8]>, q: MPI,
+        hash: HashAlgorithm, sym: SymmetricAlgorithm
+    },
+    ECDHSecretKey{ scalar: MPI },
+    ECDHCiphertext{ e: MPI, key: Box<[u8]> },
 }
 
 impl MPIs {
-    /// Returns a new MPIs object containing no MPIs.
-    pub fn empty() -> MPIs {
-        MPIs::parse(Vec::new())
+    pub fn empty() -> Self {
+        MPIs::None
     }
 
-    /// Returns a new MPIs object containing the MPIs given as list of
-    /// slices.
-    pub fn new(mpis: &[&[u8]]) -> MPIs {
-        let mut raw = Vec::with_capacity(
-            mpis.iter().map(|m| 2 + m.len()).sum());
+    pub fn serialized_len(&self) -> usize {
+        use MPIs::*;
 
-        for &mpi in mpis.iter() {
-            // First, compute the length in bits.
-            let mut l = mpi.len() as u16 * 8;
-            let mut o = 0;
+        match self {
+            &None => 0,
 
-            // Strip leading zeros.
-            for &b in mpi {
-                l -= b.leading_zeros() as u16;
-                if b != 0 {
-                    break;
-                }
-                o += 1;
-            }
+            &RSAPublicKey{ ref e, ref n } => 2 + e.value.len() + 2 + n.value.len(),
+            &RSASecretKey{ ref d, ref p, ref q, ref u } =>
+                2 + d.value.len() + 2 + q.value.len() +
+                2 + p.value.len() + 2 + u.value.len(),
+            &RSACiphertext{ ref c } => 2 + c.value.len(),
+            &RSASignature{ ref s } => 2 + s.value.len(),
 
-            // Write length as big endian.
-            raw.push((l >> 8) as u8);
-            raw.push((l >> 0) as u8);
+            &DSAPublicKey{ ref p, ref q, ref g, ref y } =>
+                2 + p.value.len() + 2 + q.value.len() +
+                2 + g.value.len() + 2 + y.value.len(),
+            &DSASecretKey{ ref x } => 2 + x.value.len(),
+            &DSASignature{ ref r, ref s } => 2 + r.value.len() + 2 + s.value.len(),
 
-            // Write the MPI skipping zero octets.
-            raw.extend_from_slice(&mpi[o..]);
-        }
+            &ElgamalPublicKey{ ref p, ref g, ref y } =>
+                2 + p.value.len() +
+                2 + g.value.len() + 2 + y.value.len(),
+            &ElgamalSecretKey{ ref x } => 2 + x.value.len(),
+            &ElgamalCiphertext{ ref e, ref c } => 2 + e.value.len() + 2 + c.value.len(),
 
-        MPIs::parse(raw)
-    }
+            &EdDSAPublicKey{ ref curve, ref q } => 2 + q.value.len() + 1 + curve.len(),
+            &EdDSASecretKey{ ref scalar } => 2 + scalar.value.len(),
+            &EdDSASignature{ ref r, ref s } => 2 + r.value.len() + 2 + s.value.len(),
 
-    /// Parses an OpenPGP formatted array of MPIs.
-    ///
-    /// See [Section 3.2 of RFC 4880] for details.
-    ///
-    ///   [Section 3.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-3.2
-    pub fn parse(raw: Vec<u8>) -> MPIs {
-        MPIs {
-            raw: raw,
-            parsed: RefCell::new(None)
+            &ECDSAPublicKey{ ref curve, ref q } => 2 + q.value.len() + 1 + curve.len(),
+            &ECDSASecretKey{ ref scalar } => 2 + scalar.value.len(),
+            &ECDSASignature{ ref r, ref s } => 2 + r.value.len() + 2 + s.value.len(),
+
+            &ECDHPublicKey{ ref curve, ref q,.. } =>
+                1 + curve.len() + 2 + q.value.len() + 1 + 1,
+            &ECDHSecretKey{ ref scalar } => 2 + scalar.value.len(),
+            &ECDHCiphertext{ ref e, ref key } => 2 + e.value.len() + 1 + key.len(),
         }
     }
 
-    // Parses self.raw and caches the result in self.parsed, if
-    // necessary.
-    fn do_parse(&self) -> Result<()> {
-        if self.parsed.borrow().is_some() {
-            // Already parsed.  We're done.
-            return Ok(());
+    // Update the Hash with a hash of the MPIs.
+    pub fn hash<H: Hash>(&self, hash: &mut H) {
+        use MPIs::*;
+
+        match self {
+            &None => {}
+
+            &RSAPublicKey{ ref e, ref n } => {
+                n.hash(hash);
+                e.hash(hash);
+            }
+
+            &RSASecretKey{ ref d, ref p, ref q, ref u } => {
+                d.hash(hash);
+                p.hash(hash);
+                q.hash(hash);
+                u.hash(hash);
+            }
+
+            &RSACiphertext{ ref c } => {
+                c.hash(hash);
+            }
+
+            &RSASignature{ ref s } => {
+                s.hash(hash);
+            }
+
+            &DSAPublicKey{ ref p, ref q, ref g, ref y } => {
+                p.hash(hash);
+                q.hash(hash);
+                g.hash(hash);
+                y.hash(hash);
+            }
+
+            &DSASecretKey{ ref x } => {
+                x.hash(hash);
+            }
+
+            &DSASignature{ ref r, ref s } => {
+                r.hash(hash);
+                s.hash(hash);
+            }
+
+            &ElgamalPublicKey{ ref p, ref g, ref y } => {
+                p.hash(hash);
+                g.hash(hash);
+                y.hash(hash);
+            }
+
+            &ElgamalSecretKey{ ref x } => {
+                x.hash(hash);
+            }
+
+            &ElgamalCiphertext{ ref e, ref c } => {
+                e.hash(hash);
+                c.hash(hash);
+            }
+
+            &EdDSAPublicKey{ ref curve, ref q } => {
+                hash.update(&[curve.len() as u8]);
+                hash.update(&curve);
+                q.hash(hash);
+            }
+
+            &EdDSASecretKey{ ref scalar } => {
+                scalar.hash(hash);
+            }
+
+            &EdDSASignature{ ref r, ref s } => {
+                r.hash(hash);
+                s.hash(hash);
+             }
+
+            &ECDSAPublicKey{ ref curve, ref q } => {
+                hash.update(&[curve.len() as u8]);
+                hash.update(&curve);
+                q.hash(hash);
+             }
+
+            &ECDSASecretKey{ ref scalar } => {
+                scalar.hash(hash);
+            }
+
+            &ECDSASignature{ ref r, ref s } => {
+                r.hash(hash);
+                s.hash(hash);
+            }
+
+            &ECDHPublicKey{ ref curve, ref q, hash: h, sym } => {
+                // curve
+                hash.update(&[curve.len() as u8]);
+                hash.update(&curve);
+
+                // point MPI
+                q.hash(hash);
+
+                // KDF
+                hash.update(&[3u8, 1u8, u8::from(h), u8::from(sym)]);
+             }
+
+            &ECDHSecretKey{ ref scalar } => {
+                scalar.hash(hash);
+            }
+
+            &ECDHCiphertext{ ref e, ref key } => {
+                e.hash(hash);
+
+                // key
+                hash.update(&[key.len() as u8]);
+                hash.update(&key);
+            }
         }
-
-        let mut raw = BufferedReaderMemory::new(&self.raw[..]);
-        let mut parsed = Vec::new();
-
-        while raw.data(1)?.len() > 0 {
-            let bits = raw.read_be_u16()? as usize;
-
-            let start_offset = raw.total_out();
-
-            let bytes = (bits + 7) / 8;
-            if bytes == 0 {
-                break;
-            }
-            let value = &raw.data_consume_hard(bytes)?[..bytes];
-
-            if TRACE {
-                eprintln!("bits: {}, value: {}",
-                          bits, ::to_hex(value, true));
-            }
-
-            parsed.push((start_offset, bytes));
-
-            let unused_bits = bytes * 8 - bits;
-            assert_eq!(bytes * 8 - unused_bits, bits);
-
-            if TRACE {
-                eprintln!("unused bits: {}", unused_bits);
-            }
-
-            // Make sure the unused bits are zeroed.
-            if unused_bits > 0 {
-                let mask = !((1 << (8 - unused_bits)) - 1);
-                let unused_value = value[0] & mask;
-
-                if TRACE {
-                    eprintln!("mask: {:08b} & first byte: {:08b} \
-                               = unused value: {:08b}",
-                              mask, value[0], unused_value);
-                }
-
-                if unused_value != 0 {
-                    return Err(Error::MalformedMPI(
-                        format!("{} unused bits not zeroed: ({:x})",
-                                unused_bits, unused_value)).into());
-                }
-            }
-
-            let first_used_bit = 8 - unused_bits;
-            if value[0] & (1 << (first_used_bit - 1)) == 0 {
-                return Err(Error::MalformedMPI(
-                    format!("leading bit is not set: \
-                             expected bit {} to be set in {:8b} ({:x})",
-                            first_used_bit, value[0], value[0])).into());
-            }
-        }
-
-        *self.parsed.borrow_mut() = Some(parsed);
-
-        return Ok(());
     }
+}
 
-    /// Returns the MPIs.
-    ///
-    /// If an error occurs while parsing the MPIs, that is returned.
-    pub fn values(&self) -> Result<Vec<&[u8]>> {
-        self.do_parse()?;
+impl Arbitrary for MPI {
+    fn arbitrary<G: Gen>(g: &mut G) -> Self {
+        use std::io::Cursor;
 
-        if let Some(parsed) = self.parsed.borrow().as_ref() {
-            let mut mpis = Vec::new();
-            for &(start, len) in parsed {
-                mpis.push(&self.raw[start..start + len]);
+        loop {
+            let mut buf = <Vec<u8>>::arbitrary(g);
+
+            if !buf.is_empty() && buf[0] != 0 {
+                let len = buf.len() * 8 - buf.first().unwrap_or(&0).leading_zeros() as usize;
+                buf.insert(0, ((len >> 8) & 0xff) as u8);
+                buf.insert(1, (len & 0xff) as u8);
+
+                let mut cur = Cursor::new(buf);
+                return MPI::parse_naked(&mut cur).unwrap();
             }
-
-            return Ok(mpis);
-        } else {
-            return Err(
-                Error::MalformedMPI("parsing error".to_string()).into());
         }
-    }
-
-    /// Returns the length of the encoded MPIs.
-    pub fn len(&self) -> usize {
-        self.raw.len()
     }
 }
 
 impl Arbitrary for MPIs {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
-        MPIs::new(&[&<Vec<u8>>::arbitrary(g), &<Vec<u8>>::arbitrary(g)])
+        match g.gen_range(0, 19) {
+           // None,
+
+            0 => MPIs::RSAPublicKey{
+                e: MPI::arbitrary(g),
+                n: MPI::arbitrary(g)
+            },
+            1 => MPIs::RSASecretKey{
+                d: MPI::arbitrary(g),
+                p: MPI::arbitrary(g),
+                q: MPI::arbitrary(g),
+                u: MPI::arbitrary(g)
+            },
+            2 => MPIs::RSACiphertext{ c: MPI::arbitrary(g) },
+            3 => MPIs::RSASignature{ s: MPI::arbitrary(g) },
+
+            4 => MPIs::DSAPublicKey{
+                p: MPI::arbitrary(g),
+                q: MPI::arbitrary(g),
+                g: MPI::arbitrary(g),
+                y: MPI::arbitrary(g)
+            },
+            5 => MPIs::DSASecretKey{ x: MPI::arbitrary(g) },
+            6 => MPIs::DSASignature{
+                r: MPI::arbitrary(g),
+                s: MPI::arbitrary(g)
+            },
+
+            7 => MPIs::ElgamalPublicKey{
+                p: MPI::arbitrary(g),
+                g: MPI::arbitrary(g),
+                y: MPI::arbitrary(g) },
+            8 => MPIs::ElgamalSecretKey{ x: MPI::arbitrary(g) },
+            9 => MPIs::ElgamalCiphertext{
+                e: MPI::arbitrary(g),
+                c: MPI::arbitrary(g)
+            },
+
+            10 => MPIs::EdDSAPublicKey{
+                curve: <Vec<u8>>::arbitrary(g).into_boxed_slice(),
+                q: MPI::arbitrary(g)
+            },
+            11 => MPIs::EdDSASecretKey{ scalar: MPI::arbitrary(g) },
+            12 => MPIs::EdDSASignature{
+                r: MPI::arbitrary(g),
+                s: MPI::arbitrary(g)
+            },
+
+            13 => MPIs::ECDSAPublicKey{
+                curve: <Vec<u8>>::arbitrary(g).into_boxed_slice(),
+                q: MPI::arbitrary(g)
+            },
+            14 => MPIs::ECDSASecretKey{ scalar: MPI::arbitrary(g) },
+            15 => MPIs::ECDSASignature{ r: MPI::arbitrary(g), s: MPI::arbitrary(g) },
+
+            16 => MPIs::ECDHPublicKey{
+                curve: <Vec<u8>>::arbitrary(g).into_boxed_slice(),
+                q: MPI::arbitrary(g),
+                hash: HashAlgorithm::arbitrary(g),
+                sym: SymmetricAlgorithm::arbitrary(g)
+            },
+            17 => MPIs::ECDHSecretKey{ scalar: MPI::arbitrary(g) },
+            18 => MPIs::ECDHCiphertext{
+                e: MPI::arbitrary(g),
+                key: <Vec<u8>>::arbitrary(g).into_boxed_slice()
+            },
+            _ => unreachable!(),
+        }
     }
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use super::*;
-    use serialize::Serialize;
-
-    #[test]
-    fn mpis_parse_test() {
-        // The number 1.
-        let mpis = MPIs::parse(b"\x00\x01\x01".to_vec());
-        let mpis = mpis.values().unwrap();
-        assert_eq!(mpis.len(), 1);
-        assert_eq!(mpis[0].len(), 1);
-        assert_eq!(mpis[0][0], 1);
-
-        // The number 511.
-        let mpis = MPIs::parse(b"\x00\x09\x01\xff".to_vec());
-        let mpis = mpis.values().unwrap();
-        assert_eq!(mpis.len(), 1);
-        assert_eq!(mpis[0].len(), 2);
-        assert_eq!(mpis[0][0], 1);
-        assert_eq!(mpis[0][1], 0xff);
-
-        // The number 1, incorrectly encoded (the length should be 1,
-        // not 2).
-        assert!(MPIs::parse(b"\x00\x02\x01".to_vec()).values().is_err());
-    }
 
     quickcheck! {
-        fn roundtrip(mpis: MPIs) -> bool {
-            let raw = mpis.to_vec();
-            mpis == MPIs::parse(raw)
+        fn round_trip(mpis: MPIs) -> bool {
+            use std::io::Cursor;
+            use PublicKeyAlgorithm::*;
+            use serialize::Serialize;
+
+            let buf = Vec::<u8>::default();
+            let mut cur = Cursor::new(buf);
+
+            mpis.serialize(&mut cur).unwrap();
+
+            let mpis2 = match &mpis {
+                MPIs::None => unreachable!(),
+                MPIs::RSAPublicKey{ .. } =>
+                    MPIs::parse_public_key_naked(RSAEncryptSign, cur.into_inner()).unwrap(),
+                MPIs::DSAPublicKey{ .. } =>
+                    MPIs::parse_public_key_naked(DSA, cur.into_inner()).unwrap(),
+                MPIs::ElgamalPublicKey{ .. } =>
+                    MPIs::parse_public_key_naked(ElgamalEncrypt, cur.into_inner()).unwrap(),
+                MPIs::EdDSAPublicKey{ .. } =>
+                    MPIs::parse_public_key_naked(EdDSA, cur.into_inner()).unwrap(),
+                MPIs::ECDSAPublicKey{ .. } =>
+                    MPIs::parse_public_key_naked(ECDSA, cur.into_inner()).unwrap(),
+                MPIs::ECDHPublicKey{ .. } =>
+                    MPIs::parse_public_key_naked(ECDH, cur.into_inner()).unwrap(),
+
+                MPIs::RSASecretKey{ .. } =>
+                    MPIs::parse_secret_key_naked(RSAEncryptSign, cur.into_inner()).unwrap(),
+                MPIs::DSASecretKey{ .. } =>
+                    MPIs::parse_secret_key_naked(DSA, cur.into_inner()).unwrap(),
+                MPIs::EdDSASecretKey{ .. } =>
+                    MPIs::parse_secret_key_naked(EdDSA, cur.into_inner()).unwrap(),
+                MPIs::ECDSASecretKey{ .. } =>
+                    MPIs::parse_secret_key_naked(ECDSA, cur.into_inner()).unwrap(),
+                MPIs::ECDHSecretKey{ .. } =>
+                    MPIs::parse_secret_key_naked(ECDH, cur.into_inner()).unwrap(),
+                MPIs::ElgamalSecretKey{ .. } =>
+                    MPIs::parse_secret_key_naked(ElgamalEncrypt, cur.into_inner()).unwrap(),
+
+                MPIs::RSASignature{ .. } =>
+                    MPIs::parse_signature_naked(RSAEncryptSign, cur.into_inner()).unwrap(),
+                MPIs::DSASignature{ .. } =>
+                    MPIs::parse_signature_naked(DSA, cur.into_inner()).unwrap(),
+                MPIs::EdDSASignature{ .. } =>
+                    MPIs::parse_signature_naked(EdDSA, cur.into_inner()).unwrap(),
+                MPIs::ECDSASignature{ .. } =>
+                    MPIs::parse_signature_naked(ECDSA, cur.into_inner()).unwrap(),
+
+                MPIs::RSACiphertext{ .. } =>
+                    MPIs::parse_ciphertext_naked(RSAEncryptSign, cur.into_inner()).unwrap(),
+                MPIs::ElgamalCiphertext{ .. } =>
+                    MPIs::parse_ciphertext_naked(ElgamalEncrypt, cur.into_inner()).unwrap(),
+                MPIs::ECDHCiphertext{ .. } =>
+                    MPIs::parse_ciphertext_naked(ECDH, cur.into_inner()).unwrap(),
+            };
+
+            mpis == mpis2
         }
     }
-
 }

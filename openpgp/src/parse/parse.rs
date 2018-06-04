@@ -15,6 +15,7 @@ use ::buffered_reader::*;
 use {
     Result,
     MPIs,
+    MPI,
     SymmetricAlgorithm,
     CTB,
     BodyLength,
@@ -22,6 +23,7 @@ use {
     Error,
     HashAlgorithm,
     CompressionAlgorithm,
+    PublicKeyAlgorithm,
     Tag,
     Header,
     Unknown,
@@ -36,7 +38,8 @@ use {
     SEIP,
     MDC,
     Packet,
-    KeyID
+    KeyID,
+
 };
 use symmetric::{Decryptor, BufferedReaderDecryptor};
 
@@ -699,7 +702,7 @@ impl Signature {
         }
 
         let sigtype = php_try!(php.parse_u8("sigtype"));
-        let pk_algo = php_try!(php.parse_u8("pk_algo"));
+        let pk_algo: PublicKeyAlgorithm = php_try!(php.parse_u8("pk_algo")).into();
         let hash_algo = php_try!(php.parse_u8("hash_algo"));
         let hashed_area_len = php_try!(php.parse_be_u16("hashed_area_len"));
         let hashed_area
@@ -711,7 +714,7 @@ impl Signature {
                                    unhashed_area_len as usize));
         let hash_prefix1 = php_try!(php.parse_u8("hash_prefix1"));
         let hash_prefix2 = php_try!(php.parse_u8("hash_prefix2"));
-        let mpis = php_try!(php.parse_bytes_eof("mpis"));
+        let mpis = MPIs::parse_signature(pk_algo, &mut php)?;
 
         let mut sig = Signature {
             common: Default::default(),
@@ -722,7 +725,7 @@ impl Signature {
             hashed_area: SubpacketArea::new(hashed_area),
             unhashed_area: SubpacketArea::new(unhashed_area),
             hash_prefix: [hash_prefix1, hash_prefix2],
-            mpis: MPIs::parse(mpis),
+            mpis: mpis,
             computed_hash: None,
         };
 
@@ -752,12 +755,12 @@ fn signature_parser_test () {
         if let Packet::Signature(ref p) = pp.packet {
             assert_eq!(p.version, 4);
             assert_eq!(p.sigtype, SignatureType::Binary);
-            assert_eq!(p.pk_algo, PublicKeyAlgorithm::RsaEncryptSign);
+            assert_eq!(p.pk_algo, PublicKeyAlgorithm::RSAEncryptSign);
             assert_eq!(p.hash_algo, HashAlgorithm::SHA512);
             assert_eq!(p.hashed_area.data.len(), 29);
             assert_eq!(p.unhashed_area.data.len(), 10);
             assert_eq!(p.hash_prefix, [0x65u8, 0x74]);
-            assert_eq!(p.mpis.raw.len(), 258);
+            assert_eq!(p.mpis.serialized_len(), 258);
         } else {
             panic!("Wrong packet!");
         }
@@ -865,7 +868,7 @@ fn one_pass_sig_parser_test () {
         assert_eq!(p.version, 3);
         assert_eq!(p.sigtype, SignatureType::Binary);
         assert_eq!(p.hash_algo, HashAlgorithm::SHA512);
-        assert_eq!(p.pk_algo, PublicKeyAlgorithm::RsaEncryptSign);
+        assert_eq!(p.pk_algo, PublicKeyAlgorithm::RSAEncryptSign);
         assert_eq!(p.issuer.to_hex(), "7223B56678E02528");
         assert_eq!(p.last, 1);
     } else {
@@ -954,15 +957,15 @@ impl Key {
         }
 
         let creation_time = php_try!(php.parse_be_u32("creation_time"));
-        let pk_algo = php_try!(php.parse_u8("pk_algo"));
-        let mpis = php_try!(php.parse_bytes_eof("mpis"));
+        let pk_algo: PublicKeyAlgorithm = php_try!(php.parse_u8("pk_algo")).into();
+        let mpis = MPIs::parse_public_key(pk_algo, &mut php)?;
 
         let key = Key {
             common: Default::default(),
             version: version,
             creation_time: creation_time,
-            pk_algo: pk_algo.into(),
-            mpis: MPIs::parse(mpis),
+            pk_algo: pk_algo,
+            mpis: mpis,
         };
 
         let tag = php.header.ctb.tag;
@@ -1313,6 +1316,417 @@ fn skesk_parser_test() {
             panic!("Wrong packet!");
         }
     }
+}
+
+impl MPI {
+    // Reads an MPI from `r`.
+    pub(crate) fn parse_naked<R: io::Read>(r: R) -> Result<Self> {
+        let bio = BufferedReaderGeneric::with_cookie(
+            r, None, Cookie::default());
+        let mut parser = PacketHeaderParser::new_naked(Box::new(bio));
+        Self::parse("(none)", &mut parser)
+    }
+}
+
+impl MPI {
+    /// Parses an OpenPGP MPI.
+    ///
+    /// See [Section 3.2 of RFC 4880] for details.
+    ///
+    ///   [Section 3.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-3.2
+    fn parse<'a>(name: &'static str, php: &mut PacketHeaderParser<'a>) -> Result<Self> {
+        let bits = php.parse_be_u16("mpi-len")? as usize;
+        let bytes = (bits + 7) / 8;
+        let value = Vec::from(&php.parse_bytes(name, bytes)?[..bytes]);
+
+        if TRACE {
+            eprintln!("bits: {}, value: {}",
+                      bits, ::to_hex(&value, true));
+        }
+
+        let unused_bits = bytes * 8 - bits;
+        assert_eq!(bytes * 8 - unused_bits, bits);
+
+        if TRACE {
+            eprintln!("unused bits: {}", unused_bits);
+        }
+
+        // Make sure the unused bits are zeroed.
+        if unused_bits > 0 {
+            let mask = !((1 << (8 - unused_bits)) - 1);
+            let unused_value = value[0] & mask;
+
+            if TRACE {
+                eprintln!("mask: {:08b} & first byte: {:08b} \
+                               = unused value: {:08b}",
+                               mask, value[0], unused_value);
+            }
+
+            if unused_value != 0 {
+                return Err(Error::MalformedMPI(
+                        format!("{} unused bits not zeroed: ({:x})",
+                        unused_bits, unused_value)).into());
+            }
+        }
+
+        let first_used_bit = 8 - unused_bits;
+        if value[0] & (1 << (first_used_bit - 1)) == 0 {
+            return Err(Error::MalformedMPI(
+                    format!("leading bit is not set: \
+                             expected bit {} to be set in {:8b} ({:x})",
+                             first_used_bit, value[0], value[0])).into());
+        }
+
+        Ok(MPI{
+            bits: bits,
+            value: value.into_boxed_slice()
+        })
+    }
+}
+impl MPIs {
+    pub fn parse_public_key_naked<T: AsRef<[u8]>>(algo: PublicKeyAlgorithm, buf: T)
+        -> Result<Self> {
+        use std::io::Cursor;
+
+        let cur = Cursor::new(buf);
+        let bio = BufferedReaderGeneric::with_cookie(
+            cur, None, Cookie::default());
+        let mut php = PacketHeaderParser::new_naked(Box::new(bio));
+        Self::parse_public_key(algo, &mut php)
+    }
+
+    /// Parses an set of OpenPGP MPI.
+    ///
+    /// See [Section 3.2 of RFC 4880] for details.
+    ///
+    ///   [Section 3.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-3.2
+    fn parse_public_key<'a>(algo: PublicKeyAlgorithm, php: &mut PacketHeaderParser<'a>)
+        -> Result<Self> {
+        use PublicKeyAlgorithm::*;
+
+        match algo {
+            RSAEncryptSign | RSAEncrypt | RSASign => {
+                let n = MPI::parse("rsa_public_n", php)?;
+                let e = MPI::parse("rsa_public_e", php)?;
+
+                Ok(MPIs::RSAPublicKey{ e: e, n: n })
+            }
+
+            DSA => {
+                let p = MPI::parse("dsa_public_p", php)?;
+                let q = MPI::parse("dsa_public_q", php)?;
+                let g = MPI::parse("dsa_public_g", php)?;
+                let y = MPI::parse("dsa_public_y", php)?;
+
+                Ok(MPIs::DSAPublicKey{
+                    p: p,
+                    q: q,
+                    g: g,
+                    y: y,
+                })
+            }
+
+            ElgamalEncrypt | ElgamalEncryptSign => {
+                let p = MPI::parse("elgamal_public_p", php)?;
+                let g = MPI::parse("elgamal_public_g", php)?;
+                let y = MPI::parse("elgamal_public_y", php)?;
+
+                Ok(MPIs::ElgamalPublicKey{
+                    p: p,
+                    g: g,
+                    y: y,
+                })
+            }
+
+            EdDSA => {
+                let curve_len = php.parse_u8("curve-len")? as usize;
+                let curve = Vec::from(&php.parse_bytes("curve", curve_len)?[..curve_len]);
+                let q = MPI::parse("eddsa_public", php)?;
+
+                Ok(MPIs::EdDSAPublicKey{
+                    curve: curve.into_boxed_slice(),
+                    q: q
+                })
+            }
+
+            ECDSA => {
+                let curve_len = php.parse_u8("curve-len")? as usize;
+                let curve = Vec::from(&php.parse_bytes("curve", curve_len)?[..curve_len]);
+                let q = MPI::parse("ecdsa_public", php)?;
+
+                Ok(MPIs::ECDSAPublicKey{
+                    curve: curve.into_boxed_slice(),
+                    q: q
+                })
+            }
+
+            ECDH => {
+                let curve_len = php.parse_u8("curve-len")? as usize;
+                let curve = Vec::from(&php.parse_bytes("curve", curve_len)?[..curve_len]);
+                let q = MPI::parse("ecdh_public", php)?;
+                let kdf_len = php.parse_u8("kdf")?;
+
+                if kdf_len != 3 {
+                    return Err(Error::MalformedPacket(
+                            "wrong kdf length".into()).into());
+                }
+
+                let _reserved = php.parse_u8("kdf-reserved")?;
+                let hash: HashAlgorithm = php.parse_u8("kdf-hash")?.into();
+                let sym: SymmetricAlgorithm = php.parse_u8("kdf-sym")?.into();
+
+                Ok(MPIs::ECDHPublicKey{
+                    curve: curve.into_boxed_slice(),
+                    q: q,
+                    hash: hash,
+                    sym: sym
+                })
+            }
+
+            Unknown(p) | Private(p) => {
+                Err(Error::UnknownPublicKeyAlgorithm(p.into()).into())
+            }
+        }
+    }
+
+    pub fn parse_secret_key_naked<T: AsRef<[u8]>>(algo: PublicKeyAlgorithm, buf: T)
+        -> Result<Self> {
+        use std::io::Cursor;
+
+        let cur = Cursor::new(buf);
+        let bio = BufferedReaderGeneric::with_cookie(
+            cur, None, Cookie::default());
+        let mut php = PacketHeaderParser::new_naked(Box::new(bio));
+        Self::parse_secret_key(algo, &mut php)
+    }
+
+    fn parse_secret_key<'a>(algo: PublicKeyAlgorithm, php: &mut PacketHeaderParser<'a>)
+        -> Result<Self> {
+        use PublicKeyAlgorithm::*;
+
+        match algo {
+            RSAEncryptSign | RSAEncrypt | RSASign => {
+                let d = MPI::parse("rsa_secret_d", php)?;
+                let p = MPI::parse("rsa_secret_p", php)?;
+                let q = MPI::parse("rsa_secret_q", php)?;
+                let u = MPI::parse("rsa_secret_u", php)?;
+
+                Ok(MPIs::RSASecretKey{
+                    d: d,
+                    p: p,
+                    q: q,
+                    u: u,
+                })
+            }
+
+            DSA => {
+                let x = MPI::parse("dsa_secret", php)?;
+
+                Ok(MPIs::DSASecretKey{
+                    x: x,
+                })
+            }
+
+            ElgamalEncrypt | ElgamalEncryptSign => {
+                let x = MPI::parse("elgamal_secret", php)?;
+
+                Ok(MPIs::ElgamalSecretKey{
+                    x: x,
+                })
+            }
+
+            EdDSA => {
+                Ok(MPIs::EdDSASecretKey{
+                    scalar: MPI::parse("eddsa_secret", php)?
+                })
+            }
+
+            ECDSA => {
+                Ok(MPIs::ECDSASecretKey{
+                    scalar: MPI::parse("ecdsa_secret", php)?
+                })
+            }
+
+            ECDH => {
+                Ok(MPIs::ECDHSecretKey{ scalar: MPI::parse("ecdh_secret", php)? })
+            }
+
+            Unknown(p) | Private(p) => {
+                Err(Error::UnknownPublicKeyAlgorithm(p.into()).into())
+            }
+        }
+    }
+
+    pub fn parse_ciphertext_naked<T: AsRef<[u8]>>(algo: PublicKeyAlgorithm, buf: T)
+        -> Result<Self> {
+        use std::io::Cursor;
+
+        let cur = Cursor::new(buf);
+        let bio = BufferedReaderGeneric::with_cookie(
+            cur, None, Cookie::default());
+        let mut php = PacketHeaderParser::new_naked(Box::new(bio));
+        Self::parse_ciphertext(algo, &mut php)
+    }
+
+    fn parse_ciphertext<'a>(algo: PublicKeyAlgorithm, php: &mut PacketHeaderParser<'a>)
+        -> Result<Self> {
+        use PublicKeyAlgorithm::*;
+
+        match algo {
+            RSAEncryptSign | RSAEncrypt => {
+                let c = MPI::parse("rsa_ciphertext", php)?;
+
+                Ok(MPIs::RSACiphertext{
+                    c: c,
+                })
+            }
+
+            ElgamalEncrypt | ElgamalEncryptSign => {
+                let e = MPI::parse("elgamal_e", php)?;
+                let c = MPI::parse("elgamal_c", php)?;
+
+                Ok(MPIs::ElgamalCiphertext{
+                    e: e,
+                    c: c,
+                })
+            }
+
+            ECDH => {
+                let e = MPI::parse("ecdh_e", php)?;
+                let key_len = php.parse_u8("ecdh_key_len")? as usize;
+                let key = Vec::from(&php.parse_bytes("ecdh_key", key_len)?[..key_len]);
+
+                Ok(MPIs::ECDHCiphertext{
+                    e: e, key: key.into_boxed_slice()
+                })
+            }
+
+            Unknown(p) | Private(p) => {
+                Err(Error::UnknownPublicKeyAlgorithm(p.into()).into())
+            }
+
+            RSASign | DSA | EdDSA | ECDSA => {
+                Err(Error::UnknownPublicKeyAlgorithm(algo).into())
+            }
+        }
+    }
+
+    pub fn parse_signature_naked<T: AsRef<[u8]>>(algo: PublicKeyAlgorithm, buf: T)
+        -> Result<Self> {
+        use std::io::Cursor;
+
+        let cur = Cursor::new(buf);
+        let bio = BufferedReaderGeneric::with_cookie(
+            cur, None, Cookie::default());
+        let mut php = PacketHeaderParser::new_naked(Box::new(bio));
+        Self::parse_signature(algo, &mut php)
+    }
+
+    fn parse_signature<'a>(algo: PublicKeyAlgorithm, php: &mut PacketHeaderParser<'a>)
+        -> Result<Self> {
+        use PublicKeyAlgorithm::*;
+
+        match algo {
+            RSAEncryptSign | RSASign => {
+                let s = MPI::parse("rsa_signature", php)?;
+
+                Ok(MPIs::RSASignature{
+                    s: s,
+                })
+            }
+
+            DSA => {
+                let r = MPI::parse("dsa_signature_r", php)?;
+                let s = MPI::parse("dsa_signature_s", php)?;
+
+                Ok(MPIs::DSASignature{
+                    r: r,
+                    s: s,
+                })
+            }
+
+            EdDSA => {
+                let r = MPI::parse("eddsa_signature_r", php)?;
+                let s = MPI::parse("eddsa_signature_s", php)?;
+
+                Ok(MPIs::EdDSASignature{
+                    r: r,
+                    s: s,
+                })
+            }
+
+            ECDSA => {
+                let r = MPI::parse("ecdsa_signature_r", php)?;
+                let s = MPI::parse("ecdsa_signature_s", php)?;
+
+                Ok(MPIs::ECDSASignature{
+                    r: r,
+                    s: s,
+                })
+            }
+
+            Unknown(p) | Private(p) => {
+                Err(Error::UnknownPublicKeyAlgorithm(p.into()).into())
+            }
+
+            RSAEncrypt | ElgamalEncrypt | ElgamalEncryptSign | ECDH => {
+                Err(Error::UnknownPublicKeyAlgorithm(algo).into())
+            }
+        }
+    }
+}
+
+#[test]
+fn mpis_parse_test() {
+    use std::io::Cursor;
+    use PublicKeyAlgorithm::*;
+
+    // Dummy RSA public key.
+    {
+        let buf = b"\x00\x01\x01\x00\x02\x02".to_vec();
+        let cur = Cursor::new(buf);
+        let bio = BufferedReaderGeneric::with_cookie(
+            cur, None, Cookie::default());
+        let mut parser = PacketHeaderParser::new_naked(Box::new(bio));
+        let mpis = MPIs::parse_public_key(RSAEncrypt, &mut parser).unwrap();
+
+        //assert_eq!(mpis.serialized_len(), 6);
+        match &mpis {
+            &MPIs::RSAPublicKey{ ref n, ref e } => {
+                assert_eq!(n.bits, 1);
+                assert_eq!(n.value[0], 1);
+                assert_eq!(n.value.len(), 1);
+                assert_eq!(e.bits, 2);
+                assert_eq!(e.value[0], 2);
+                assert_eq!(e.value.len(), 1);
+            }
+
+            _ => assert!(false),
+        }
+    }
+
+    // The number 2.
+    {
+        let buf = b"\x00\x02\x02".to_vec();
+        let cur = Cursor::new(buf);
+        let bio = BufferedReaderGeneric::with_cookie(
+            cur, None, Cookie::default());
+        let mut parser = PacketHeaderParser::new_naked(Box::new(bio));
+        let mpis = MPIs::parse_ciphertext(RSAEncrypt, &mut parser).unwrap();
+
+        assert_eq!(mpis.serialized_len(), 3);
+    }
+/*
+    // The number 511.
+    let mpi = MPI::parse_naked(Cursor::new(b"\x00\x09\x01\xff".to_vec())).unwrap();
+    assert_eq!(mpi.value.len(), 2);
+    assert_eq!(mpi.bits, 9);
+    assert_eq!(mpi.value[0], 1);
+    assert_eq!(mpi.value[1], 0xff);
+
+    // The number 1, incorrectly encoded (the length should be 1,
+    // not 2).
+    assert!(MPI::parse_naked(Cursor::new(b"\x00\x02\x01".to_vec())).is_err());*/
 }
 
 /// A low-level OpenPGP message parser.

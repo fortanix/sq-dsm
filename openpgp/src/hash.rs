@@ -98,7 +98,7 @@ impl Key {
     pub fn hash<H: Hash>(&self, hash: &mut H) {
         // We hash 8 bytes plus the MPIs.  But, the len doesn't
         // include the tag (1 byte) or the length (2 bytes).
-        let len = (9 - 3) + self.mpis.raw.len();
+        let len = (9 - 3) + self.mpis.serialized_len();
 
         let mut header : Vec<u8> = Vec::with_capacity(9);
 
@@ -124,7 +124,7 @@ impl Key {
         hash.update(&header[..]);
 
         // MPIs.
-        hash.update(&self.mpis.raw[..]);
+        self.mpis.hash(hash);
     }
 }
 

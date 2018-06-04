@@ -182,13 +182,140 @@ impl Serialize for KeyID {
 }
 
 impl Serialize for MPIs {
-    fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
-        o.write_all(&self.raw)?;
-        Ok(())
-    }
+    fn serialize<W: io::Write>(&self, w: &mut W) -> Result<()> {
+        use MPIs::*;
 
-    fn to_vec(&self) -> Vec<u8> {
-        self.raw.clone()
+        match self {
+            &RSAPublicKey{ ref e, ref n } => {
+                write_be_u16(w, n.bits as u16)?;
+                w.write_all(&*n.value)?;
+
+                write_be_u16(w, e.bits as u16)?;
+                w.write_all(&*e.value)?;
+            }
+            &RSASecretKey{ ref d, ref p, ref q, ref u } => {
+                write_be_u16(w, d.bits as u16)?;
+                w.write_all(&*d.value)?;
+
+                write_be_u16(w, p.bits as u16)?;
+                w.write_all(&*p.value)?;
+
+                write_be_u16(w, q.bits as u16)?;
+                w.write_all(&*q.value)?;
+
+                write_be_u16(w, u.bits as u16)?;
+                w.write_all(&*u.value)?;
+            }
+            &RSACiphertext{ ref c } => {
+                write_be_u16(w, c.bits as u16)?;
+                w.write_all(&*c.value)?;
+            }
+            &RSASignature{ ref s } => {
+                write_be_u16(w, s.bits as u16)?;
+                w.write_all(&*s.value)?;
+            }
+            &DSAPublicKey{ ref p, ref q, ref g, ref y } => {
+                write_be_u16(w, p.bits as u16)?;
+                w.write_all(&*p.value)?;
+
+                write_be_u16(w, q.bits as u16)?;
+                w.write_all(&*q.value)?;
+
+                write_be_u16(w, g.bits as u16)?;
+                w.write_all(&*g.value)?;
+
+                write_be_u16(w, y.bits as u16)?;
+                w.write_all(&*y.value)?;
+            }
+            &DSASecretKey{ ref x } => {
+                write_be_u16(w, x.bits as u16)?;
+                w.write_all(&*x.value)?;
+            }
+            &DSASignature{ ref r, ref s } => {
+                write_be_u16(w, r.bits as u16)?;
+                w.write_all(&*r.value)?;
+
+                write_be_u16(w, s.bits as u16)?;
+                w.write_all(&*s.value)?;
+            }
+            &ElgamalPublicKey{ ref p, ref g, ref y } => {
+                write_be_u16(w, p.bits as u16)?;
+                w.write_all(&*p.value)?;
+
+                write_be_u16(w, g.bits as u16)?;
+                w.write_all(&*g.value)?;
+
+                write_be_u16(w, y.bits as u16)?;
+                w.write_all(&*y.value)?;
+            }
+            &ElgamalSecretKey{ ref x } => {
+                write_be_u16(w, x.bits as u16)?;
+                w.write_all(&*x.value)?;
+            }
+            &ElgamalCiphertext{ ref e, ref c } => {
+                write_be_u16(w, e.bits as u16)?;
+                w.write_all(&*e.value)?;
+
+                write_be_u16(w, c.bits as u16)?;
+                w.write_all(&*c.value)?;
+            }
+            &EdDSAPublicKey{ ref curve, ref q } => {
+                w.write_all(&[curve.len() as u8])?;
+                w.write_all(&*curve)?;
+
+                write_be_u16(w, q.bits as u16)?;
+                w.write_all(&*q.value)?;
+            }
+            &EdDSASecretKey{ ref scalar } => {
+                write_be_u16(w, scalar.bits as u16)?;
+                w.write_all(&*scalar.value)?;
+            }
+            &EdDSASignature{ ref r, ref s } => {
+                write_be_u16(w, r.bits as u16)?;
+                w.write_all(&*r.value)?;
+
+                write_be_u16(w, s.bits as u16)?;
+                w.write_all(&*s.value)?;
+            }
+            &ECDSAPublicKey{ ref curve, ref q } => {
+                w.write_all(&[curve.len() as u8])?;
+                w.write_all(&curve)?;
+
+                write_be_u16(w, q.bits as u16)?;
+                w.write_all(&*q.value)?;
+            }
+            &ECDSASecretKey{ ref scalar } => {
+                write_be_u16(w, scalar.bits as u16)?;
+                w.write_all(&*scalar.value)?;
+            }
+            &ECDSASignature{ ref r, ref s } => {
+                write_be_u16(w, r.bits as u16)?;
+                w.write_all(&*r.value)?;
+                write_be_u16(w, s.bits as u16)?;
+                w.write_all(&*s.value)?;
+            }
+            &ECDHPublicKey{ ref curve, ref q, hash, sym } => {
+                w.write_all(&[curve.len() as u8])?;
+                w.write_all(&curve)?;
+                write_be_u16(w, q.bits as u16)?;
+                w.write_all(&*q.value)?;
+                w.write_all(&[3u8, 1u8, u8::from(hash), u8::from(sym)])?;
+            }
+            &ECDHSecretKey{ ref scalar } => {
+                write_be_u16(w, scalar.bits as u16)?;
+                w.write_all(&*scalar.value)?;
+            }
+            &ECDHCiphertext{ ref e, ref key } => {
+                write_be_u16(w, e.bits as u16)?;
+                w.write_all(&*e.value)?;
+                w.write_all(&[key.len() as u8])?;
+                w.write_all(&key)?;
+            }
+
+            &None => unreachable!(),
+        }
+
+        Ok(())
     }
 }
 
@@ -306,7 +433,7 @@ impl Serialize for Signature {
             + 2 // unhashed area size
             + self.unhashed_area.data.len()
             + 2 // hash prefix
-            + self.mpis.raw.len();
+            + self.mpis.serialized_len();
 
         CTB::new(Tag::Signature).serialize(o)?;
         BodyLength::Full(len as u32).serialize(o)?;
@@ -338,7 +465,7 @@ impl Serialize for Signature {
         write_byte(o, self.hash_prefix[0])?;
         write_byte(o, self.hash_prefix[1])?;
 
-        o.write_all(&self.mpis.raw[..])?;
+        self.mpis.serialize(o)?;
 
         Ok(())
     }
@@ -407,7 +534,7 @@ impl SerializeKey for Key {
                 || tag == Tag::SecretKey
                 || tag == Tag::SecretSubkey);
 
-        let len = 1 + 4 + 1 + self.mpis.raw.len();
+        let len = 1 + 4 + 1 + self.mpis.serialized_len();
 
         CTB::new(tag).serialize(o)?;
         BodyLength::Full(len as u32).serialize(o)?;
@@ -420,7 +547,7 @@ impl SerializeKey for Key {
         write_byte(o, self.version)?;
         write_be_u32(o, self.creation_time)?;
         write_byte(o, self.pk_algo.into())?;
-        o.write_all(&self.mpis.raw[..])?;
+        self.mpis.serialize(o)?;
 
         Ok(())
     }
@@ -597,7 +724,7 @@ impl Serialize for PKESK {
             1 // Version
             + 8 // Recipient's key id
             + 1 // Algo
-            + self.esk.len(); // ESK.
+            + self.esk.serialized_len(); // ESK.
 
         CTB::new(Tag::PKESK).serialize(o)?;
         BodyLength::Full(len as u32).serialize(o)?;

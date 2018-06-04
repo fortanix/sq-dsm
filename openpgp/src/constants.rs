@@ -9,61 +9,75 @@ use quickcheck::{Arbitrary, Gen};
 ///   [Section 9.1 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-9.1
 ///
 /// The values correspond to the serialized format.
-#[derive(Clone,Copy,PartialEq,Eq,Debug)]
+#[derive(Clone,Copy,PartialEq,Eq,Debug,PartialOrd,Ord)]
 pub enum PublicKeyAlgorithm {
-    RsaEncryptSign,
-    RsaEncrypt,
-    RsaSign,
-    Elgamal,
-    Dsa,
+    RSAEncryptSign,
+    RSAEncrypt,
+    RSASign,
+    ElgamalEncrypt,
+    DSA,
+    ECDH,
+    ECDSA,
+    ElgamalEncryptSign,
+    EdDSA,
     Private(u8),
     Unknown(u8),
 }
 
 impl From<u8> for PublicKeyAlgorithm {
     fn from(u: u8) -> Self {
+        use PublicKeyAlgorithm::*;
         match u {
-            1 => PublicKeyAlgorithm::RsaEncryptSign,
-            2 => PublicKeyAlgorithm::RsaEncrypt,
-            3 => PublicKeyAlgorithm::RsaSign,
-            16 => PublicKeyAlgorithm::Elgamal,
-            17 => PublicKeyAlgorithm::Dsa,
-            100...110 => PublicKeyAlgorithm::Private(u),
-            u => PublicKeyAlgorithm::Unknown(u),
+            1 => RSAEncryptSign,
+            2 => RSAEncrypt,
+            3 => RSASign,
+            16 => ElgamalEncrypt,
+            17 => DSA,
+            18 => ECDH,
+            19 => ECDSA,
+            20 => ElgamalEncryptSign,
+            22 => EdDSA,
+            100...110 => Private(u),
+            u => Unknown(u),
         }
     }
 }
 
 impl From<PublicKeyAlgorithm> for u8 {
     fn from(p: PublicKeyAlgorithm) -> u8 {
+        use PublicKeyAlgorithm::*;
         match p {
-            PublicKeyAlgorithm::RsaEncryptSign => 1,
-            PublicKeyAlgorithm::RsaEncrypt => 2,
-            PublicKeyAlgorithm::RsaSign => 3,
-            PublicKeyAlgorithm::Elgamal => 16,
-            PublicKeyAlgorithm::Dsa => 17,
-            PublicKeyAlgorithm::Private(u) => u,
-            PublicKeyAlgorithm::Unknown(u) => u,
+            RSAEncryptSign => 1,
+            RSAEncrypt => 2,
+            RSASign => 3,
+            ElgamalEncrypt => 16,
+            DSA => 17,
+            ECDH => 18,
+            ECDSA => 19,
+            ElgamalEncryptSign => 20,
+            EdDSA => 22,
+            Private(u) => u,
+            Unknown(u) => u,
         }
     }
 }
 
 impl fmt::Display for PublicKeyAlgorithm {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use PublicKeyAlgorithm::*;
         match *self {
-            PublicKeyAlgorithm::RsaEncryptSign =>
-                f.write_str("RSA (Encrypt or Sign)"),
-            PublicKeyAlgorithm::RsaEncrypt =>
-                f.write_str("RSA Encrypt-Only"),
-            PublicKeyAlgorithm::RsaSign =>
-                f.write_str("RSA Sign-Only"),
-            PublicKeyAlgorithm::Elgamal =>
-                f.write_str("Elgamal (Encrypt-Only)"),
-            PublicKeyAlgorithm::Dsa =>
-                f.write_str("DSA (Digital Signature Algorithm)"),
-            PublicKeyAlgorithm::Private(u) =>
+            RSAEncryptSign => f.write_str("RSA (Encrypt or Sign)"),
+            RSAEncrypt => f.write_str("RSA Encrypt-Only"),
+            RSASign => f.write_str("RSA Sign-Only"),
+            ElgamalEncrypt => f.write_str("Elgamal (Encrypt-Only)"),
+            DSA => f.write_str("DSA (Digital Signature Algorithm)"),
+            ECDSA => f.write_str("ECDSA public key algorithm"),
+            ElgamalEncryptSign => f.write_str("Elgamal (Encrypt or Sign)"),
+            ECDH => f.write_str("ECDH public key algorithm"),
+            EdDSA => f.write_str("EdDSA Edwards-curve Digital Signature Algorithm)"),
+            Private(u) =>
                 f.write_fmt(format_args!("Private/Experimental public key algorithm {}",u)),
-            PublicKeyAlgorithm::Unknown(u) =>
+            Unknown(u) =>
                 f.write_fmt(format_args!("Unknown public key algorithm {}",u)),
         }
     }
@@ -85,7 +99,7 @@ impl Arbitrary for PublicKeyAlgorithm {
 /// to a symbolic one.
 ///
 ///   [`SymmetricAlgorithm::from`]: enum.SymmetricAlgorithm.html#method.from
-#[derive(Clone,Copy,PartialEq,Eq,Debug)]
+#[derive(Clone,Copy,PartialEq,Eq,Debug,PartialOrd,Ord)]
 pub enum SymmetricAlgorithm {
     Unencrypted,
     IDEA,
@@ -176,7 +190,7 @@ impl Arbitrary for SymmetricAlgorithm {
 ///   [Section 9.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-9.3
 ///
 /// The values correspond to the serialized format.
-#[derive(Clone,Copy,PartialEq,Eq,Debug)]
+#[derive(Clone,Copy,PartialEq,Eq,Debug,PartialOrd,Ord)]
 pub enum CompressionAlgorithm {
     Uncompressed,
     Zip,
@@ -238,7 +252,7 @@ impl Arbitrary for CompressionAlgorithm {
 ///   [Section 9.4 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-9.4
 ///
 /// The values correspond to the serialized format.
-#[derive(Clone,Copy,PartialEq,Eq,Debug)]
+#[derive(Clone,Copy,PartialEq,Eq,Debug,PartialOrd,Ord)]
 pub enum HashAlgorithm {
     MD5,
     SHA1,

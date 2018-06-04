@@ -121,67 +121,41 @@ impl Signature {
     pub fn verify_hash(&self, key: &Key, hash_algo: HashAlgorithm, hash: &[u8])
         -> Result<bool>
     {
-        // Extract the signature.
-        let sig_mpis = self.mpis.values()?;
+        use PublicKeyAlgorithm::*;
+        use MPIs::*;
 
-        // Extract the public key.
-        let key_mpis = key.mpis.values()?;
+        let pk: PublicKeyAlgorithm = self.pk_algo.into();
 
-        // Verify the signature.
-        match PublicKeyAlgorithm::from(self.pk_algo) {
-            PublicKeyAlgorithm::RsaEncryptSign
-            | PublicKeyAlgorithm::RsaSign => {
-                if key_mpis.len() != 2 {
-                    return Err(
-                        Error::MalformedPacket(
-                            format!("Key: Expected 2 MPIs for an RSA key, got {}",
-                                    key_mpis.len())).into());
-                }
-
-                if sig_mpis.len() != 1 {
-                    return Err(
-                        Error::MalformedPacket(
-                            format!("Signature: Expected 1 MPI, got {}",
-                                    sig_mpis.len())).into());
-                }
-
-                let key = rsa::PublicKey::new(key_mpis[0], key_mpis[1])?;
+        match (pk, &key.mpis, &self.mpis) {
+            (RSAEncryptSign, &RSAPublicKey{ ref e, ref n }, &RSASignature{ ref s }) => {
+                let key = rsa::PublicKey::new(&n.value, &e.value)?;
 
                 // As described in [Section 5.2.2 and 5.2.3 of RFC 4880],
                 // to verify the signature, we need to encode the
                 // signature data in a PKCS1-v1.5 packet.
                 //
-                //   [Section 5.2.2 and 5.2.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.2
-                verify_digest_pkcs1(&key, hash, hash_algo.oid()?, sig_mpis[0])
-            },
-            PublicKeyAlgorithm::Dsa => {
-                if key_mpis.len() != 4 {
-                    return Err(
-                        Error::MalformedPacket(
-                            format!("Key: Expected 4 MPIs for an DSA key, got {}",
-                                    key_mpis.len())).into());
-                }
-
-                if sig_mpis.len() != 2 {
-                    return Err(
-                        Error::MalformedPacket(
-                            format!("Signature: Expected 2 MPIs, got {}",
-                                    sig_mpis.len())).into());
-                }
-
-                let key = dsa::PublicKey::new(key_mpis[3]);
-                let params = dsa::Params::new(key_mpis[0],  // p
-                                              key_mpis[1],  // q
-                                              key_mpis[2]); // g
-                let signature = dsa::Signature::new(sig_mpis[0],  // r
-                                                    sig_mpis[1]); // s
-                Ok(dsa::verify(&params, &key, hash, &signature))
-            },
-            _ => {
-                Err(
-                    Error::UnsupportedPublicKeyAlgorithm(self.pk_algo)
-                        .into())
+                //   [Section 5.2.2 and 5.2.3 of RFC 4880]:
+                //   https://tools.ietf.org/html/rfc4880#section-5.2.2
+                verify_digest_pkcs1(&key, hash, hash_algo.oid()?, &s.value)
             }
+
+            (DSA, &DSAPublicKey{ ref y, ref p, ref q, ref g }, &DSASignature{ ref s, ref r }) => {
+                let key = dsa::PublicKey::new(&y.value);
+                let params = dsa::Params::new(&p.value, &q.value, &g.value);
+                let signature = dsa::Signature::new(&r.value, &s.value);
+
+                Ok(dsa::verify(&params, &key, hash, &signature))
+            }
+
+            (EdDSA, &EdDSAPublicKey{ .. }, &EdDSASignature{ .. }) =>
+                Err(Error::UnsupportedPublicKeyAlgorithm(self.pk_algo).into()),
+
+            (ECDSA, &ECDSAPublicKey{ .. }, &ECDSASignature{ .. }) =>
+                Err(Error::UnsupportedPublicKeyAlgorithm(self.pk_algo).into()),
+
+            _ => Err(Error::MalformedPacket(format!(
+                "unsupported combination of algorithm {:?}, key {:?} and signature {:?}.",
+                pk, key.mpis, self.mpis)).into())
         }
     }
 

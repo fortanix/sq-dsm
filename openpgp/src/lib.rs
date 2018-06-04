@@ -66,7 +66,7 @@ use packet::{BodyLength, Header, Container};
 pub mod parse;
 use parse::SubpacketArea;
 mod mpis;
-pub use mpis::MPIs;
+pub use mpis::{MPIs,MPI};
 
 pub mod tpk;
 pub mod serialize;

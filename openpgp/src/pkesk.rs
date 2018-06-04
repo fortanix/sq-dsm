@@ -32,16 +32,25 @@ impl PKESK {
     pub fn new(algo: SymmetricAlgorithm,
                session_key: &[u8], recipient: &Key)
                -> Result<PKESK> {
+        use PublicKeyAlgorithm::*;
+
         let mut rng = Yarrow::default();
-        let key_mpis = recipient.mpis.values()?;
 
         // For the encryption operation, we need a buffer of a
         // specific size.
         let buffer_size = match recipient.pk_algo {
-            PublicKeyAlgorithm::RsaEncryptSign |
-            PublicKeyAlgorithm::RsaEncrypt =>
+            RSAEncryptSign | RSAEncrypt =>
                 // For RSA, use the size of the modulus.
-                key_mpis[0].len(),
+                match &recipient.mpis {
+                    &MPIs::RSAPublicKey{ ref n,.. } => n.value.len(),
+                    _ => {
+                        return Err(
+                            Error::MalformedPacket(
+                                format!(
+                                    "Key: Expected RSA public key, got {:?}",
+                                    recipient.mpis)).into());
+                    }
+                },
             algo =>
                 return Err(Error::UnsupportedPublicKeyAlgorithm(algo).into()),
         };
@@ -62,32 +71,38 @@ impl PKESK {
         psk.push((checksum >> 0) as u8);
 
         match recipient.pk_algo {
-            PublicKeyAlgorithm::RsaEncryptSign |
-            PublicKeyAlgorithm::RsaEncrypt => {
+            RSAEncryptSign | RSAEncrypt => {
                 // Extract the public recipient.
-                if key_mpis.len() != 2 {
-                    return Err(
-                        Error::MalformedPacket(
-                            format!(
-                                "Key: Expected 2 MPIs for an RSA key, got {}",
-                                key_mpis.len())).into());
+                match &recipient.mpis {
+                    &MPIs::RSAPublicKey{ ref e, ref n } => {
+                        let pk = rsa::PublicKey::new(&n.value, &e.value)?;
+                        rsa::encrypt_pkcs1(&pk, &mut rng, &psk, &mut esk)?;
+                    }
+
+                    _ => {
+                        return Err(
+                            Error::MalformedPacket(
+                                format!(
+                                    "Key: Expected RSA public key, got {:?}",
+                                    recipient.mpis)).into());
+                    }
                 }
-
-                let pk = rsa::PublicKey::new(key_mpis[0], key_mpis[1])?;
-                rsa::encrypt_pkcs1(&pk, &mut rng,
-                                   &psk, &mut esk)?;
-
             },
             algo =>
                 return Err(Error::UnsupportedPublicKeyAlgorithm(algo).into()),
         }
+
+        // parse_ciphertext_naked() expects a MPI
+        let esk_len = esk.len() * 8 - esk[0].leading_zeros() as usize;
+        esk.insert(0, ((esk_len >> 8) & 0xff) as u8);
+        esk.insert(1, (esk_len & 0xff) as u8);
 
         Ok(PKESK{
             common: Default::default(),
             version: 3,
             recipient: recipient.keyid(),
             pk_algo: recipient.pk_algo,
-            esk: MPIs::new(&[&esk]),
+            esk: MPIs::parse_ciphertext_naked(recipient.pk_algo, esk)?,
         })
     }
 }
