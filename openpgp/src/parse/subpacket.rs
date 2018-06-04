@@ -874,8 +874,8 @@ impl Signature {
     /// is no way to evaluate the expiration time.
     ///
     ///  [Section 5.2.3.4 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.4
-    pub fn signature_is_expired(&self) -> bool {
-        self.signature_is_expired_at(time::now_utc())
+    pub fn signature_expired(&self) -> bool {
+        self.signature_expired_at(time::now_utc())
     }
 
     /// Returns whether or not the signature is expired at the given time.
@@ -888,7 +888,7 @@ impl Signature {
     /// is no way to evaluate the expiration time.
     ///
     ///  [Section 5.2.3.4 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.4
-    pub fn signature_is_expired_at(&self, tm: time::Tm) -> bool {
+    pub fn signature_expired_at(&self, tm: time::Tm) -> bool {
         match (self.signature_creation_time(), self.signature_expiration_time())
         {
             (Some(c), Some(e)) =>
@@ -1041,8 +1041,8 @@ impl Signature {
     /// See [Section 5.2.3.6 of RFC 4880].
     ///
     ///  [Section 5.2.3.6 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.6
-    pub fn key_is_expired(&self, key: &Key) -> bool {
-        self.key_is_expired_at(key, time::now_utc())
+    pub fn key_expired(&self, key: &Key) -> bool {
+        self.key_expired_at(key, time::now_utc())
     }
 
     /// Returns whether or not the key is expired at the given time.
@@ -1050,7 +1050,7 @@ impl Signature {
     /// See [Section 5.2.3.6 of RFC 4880].
     ///
     ///  [Section 5.2.3.6 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.6
-    pub fn key_is_expired_at(&self, key: &Key, tm: time::Tm) -> bool {
+    pub fn key_expired_at(&self, key: &Key, tm: time::Tm) -> bool {
         match self.key_expiration_time() {
             Some(e) =>
                 ((key.creation_time + e) as i64) <= tm.to_timespec().sec,
@@ -1599,7 +1599,7 @@ fn subpacket_test_2() {
                    }));
 
         // The signature does not expire.
-        assert!(! sig.signature_is_expired());
+        assert!(! sig.signature_expired());
 
         assert_eq!(sig.key_expiration_time(), Some(63072000));
         assert_eq!(sig.subpacket(SubpacketTag::KeyExpirationTime),
@@ -1610,9 +1610,9 @@ fn subpacket_test_2() {
                    }));
 
         // Check key expiration.
-        assert!(! sig.key_is_expired_at(key, time::at_utc(time::Timespec::new(
+        assert!(! sig.key_expired_at(key, time::at_utc(time::Timespec::new(
             key.creation_time as i64 + 63072000 - 1, 0))));
-        assert!(sig.key_is_expired_at(key, time::at_utc(time::Timespec::new(
+        assert!(sig.key_expired_at(key, time::at_utc(time::Timespec::new(
             key.creation_time as i64 + 63072000, 0))));
 
         assert_eq!(sig.preferred_symmetric_algorithms(),

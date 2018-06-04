@@ -720,8 +720,8 @@ impl<'a> Encryptor<'a> {
                             sig.key_flags().can_encrypt_for_transport(),
                     }
                          // Check expiry.
-                         && ! sig.signature_is_expired()
-                         && ! sig.key_is_expired(key))
+                         && ! sig.signature_expired()
+                         && ! sig.key_expired(key))
                     .unwrap_or(false)
             });
 
