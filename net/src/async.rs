@@ -5,9 +5,9 @@
 
 use failure;
 use futures::{future, Future, Stream};
-use hyper::client::{FutureResponse, HttpConnector};
-use hyper::header::{ContentLength, ContentType};
-use hyper::{self, Client, StatusCode, Request, Method};
+use hyper::client::{ResponseFuture, HttpConnector};
+use hyper::header::{CONTENT_LENGTH, CONTENT_TYPE, HeaderValue};
+use hyper::{self, Client, Body, StatusCode, Request};
 use hyper_tls::HttpsConnector;
 use native_tls::{Certificate, TlsConnector};
 use percent_encoding::{percent_encode, DEFAULT_ENCODE_SET};
@@ -40,15 +40,14 @@ const DNS_WORKER: usize = 4;
 
 impl KeyServer {
     /// Returns a handle for the given URI.
-    pub fn new(ctx: &Context, uri: &str, handle: &Handle) -> Result<Self> {
+    pub fn new(ctx: &Context, uri: &str, _handle: &Handle) -> Result<Self> {
         let uri: Url = uri.parse()?;
 
         let client: Box<AClient> = match uri.scheme() {
-            "hkp" => Box::new(Client::new(handle)),
+            "hkp" => Box::new(Client::new()),
             "hkps" => {
-                Box::new(Client::configure()
-                         .connector(HttpsConnector::new(DNS_WORKER, handle)?)
-                         .build(handle))
+                Box::new(Client::builder()
+                         .build(HttpsConnector::new(DNS_WORKER)?))
             },
             _ => return Err(Error::MalformedUri.into()),
         };
@@ -60,7 +59,7 @@ impl KeyServer {
     ///
     /// `cert` is used to authenticate the server.
     pub fn with_cert(ctx: &Context, uri: &str, cert: Certificate,
-                     handle: &Handle) -> Result<Self> {
+                     _handle: &Handle) -> Result<Self> {
         let uri: Url = uri.parse()?;
 
         let client: Box<AClient> = {
@@ -68,11 +67,10 @@ impl KeyServer {
             ssl.add_root_certificate(cert)?;
             let ssl = ssl.build()?;
 
-            let mut http = HttpConnector::new(DNS_WORKER, handle);
+            let mut http = HttpConnector::new(DNS_WORKER);
             http.enforce_http(false);
-            Box::new(Client::configure()
-                     .connector(HttpsConnector::from((http, ssl)))
-                     .build(handle))
+            Box::new(Client::builder()
+                     .build(HttpsConnector::from((http, ssl))))
         };
 
         Self::make(ctx, client, uri)
@@ -127,14 +125,16 @@ impl KeyServer {
                  .from_err()
                  .and_then(|res| {
                      let status = res.status();
-                     res.body().concat2().from_err()
+                     res.into_body().concat2().from_err()
                          .and_then(move |body| match status {
-                             StatusCode::Ok => {
+                             StatusCode::OK => {
                                  let c = Cursor::new(body.as_ref());
-                                 let r = armor::Reader::new(c, armor::Kind::PublicKey);
+                                 let r = armor::Reader::new(
+                                     c, armor::Kind::PublicKey);
                                  future::done(TPK::from_reader(r))
                              },
-                             StatusCode::NotFound => future::err(Error::NotFound.into()),
+                             StatusCode::NOT_FOUND =>
+                                 future::err(Error::NotFound.into()),
                              n => future::err(Error::HttpStatus(n).into()),
                          })
                  }))
@@ -165,18 +165,28 @@ impl KeyServer {
         let mut post_data = b"keytext=".to_vec();
         post_data.extend_from_slice(percent_encode(&armored_blob, KEYSERVER_ENCODE_SET)
                                     .collect::<String>().as_bytes());
+        let length = post_data.len();
 
-        let mut request = Request::new(Method::Post, url2uri(uri));
-        request.headers_mut().set(ContentType::form_url_encoded());
-        request.headers_mut().set(ContentLength(post_data.len() as u64));
-        request.set_body(post_data);
+        let mut request = match Request::post(url2uri(uri))
+            .body(Body::from(post_data))
+        {
+            Ok(r) => r,
+            Err(e) => return Box::new(future::err(Error::from(e).into())),
+        };
+        request.headers_mut().insert(
+            CONTENT_TYPE,
+            HeaderValue::from_static("application/x-www-form-urlencoded"));
+        request.headers_mut().insert(
+            CONTENT_LENGTH,
+            HeaderValue::from_str(&format!("{}", length))
+                .expect("cannot fail: only ASCII characters"));
 
         Box::new(self.client.do_request(request)
                  .from_err()
                  .and_then(|res| {
                      match res.status() {
-                         StatusCode::Ok => future::ok(()),
-                         StatusCode::NotFound => future::err(Error::ProtocolViolation.into()),
+                         StatusCode::OK => future::ok(()),
+                         StatusCode::NOT_FOUND => future::err(Error::ProtocolViolation.into()),
                          n => future::err(Error::HttpStatus(n).into()),
                      }
                  }))
@@ -184,24 +194,24 @@ impl KeyServer {
 }
 
 trait AClient {
-    fn do_get(&mut self, uri: Url) -> FutureResponse;
-    fn do_request(&mut self, request: Request) -> FutureResponse;
+    fn do_get(&mut self, uri: Url) -> ResponseFuture;
+    fn do_request(&mut self, request: Request<Body>) -> ResponseFuture;
 }
 
 impl AClient for Client<HttpConnector> {
-    fn do_get(&mut self, uri: Url) -> FutureResponse {
+    fn do_get(&mut self, uri: Url) -> ResponseFuture {
         self.get(url2uri(uri))
     }
-    fn do_request(&mut self, request: Request) -> FutureResponse {
+    fn do_request(&mut self, request: Request<Body>) -> ResponseFuture {
         self.request(request)
     }
 }
 
 impl AClient for Client<HttpsConnector<HttpConnector>> {
-    fn do_get(&mut self, uri: Url) -> FutureResponse {
+    fn do_get(&mut self, uri: Url) -> ResponseFuture {
         self.get(url2uri(uri))
     }
-    fn do_request(&mut self, request: Request) -> FutureResponse {
+    fn do_request(&mut self, request: Request<Body>) -> ResponseFuture {
         self.request(request)
     }
 }

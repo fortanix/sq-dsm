@@ -36,6 +36,7 @@ extern crate sequoia_core;
 #[macro_use]
 extern crate failure;
 extern crate futures;
+extern crate http;
 extern crate hyper;
 extern crate hyper_tls;
 extern crate native_tls;
@@ -47,8 +48,8 @@ extern crate url;
 
 extern crate capnp_rpc;
 
-use hyper::client::{FutureResponse, HttpConnector};
-use hyper::{Client, Request};
+use hyper::client::{ResponseFuture, HttpConnector};
+use hyper::{Client, Request, Body};
 use hyper_tls::HttpsConnector;
 use native_tls::Certificate;
 use std::convert::From;
@@ -114,24 +115,24 @@ impl KeyServer {
 }
 
 trait AClient {
-    fn do_get(&mut self, uri: Url) -> FutureResponse;
-    fn do_request(&mut self, request: Request) -> FutureResponse;
+    fn do_get(&mut self, uri: Url) -> ResponseFuture;
+    fn do_request(&mut self, request: Request<Body>) -> ResponseFuture;
 }
 
 impl AClient for Client<HttpConnector> {
-    fn do_get(&mut self, uri: Url) -> FutureResponse {
+    fn do_get(&mut self, uri: Url) -> ResponseFuture {
         self.get(url2uri(uri))
     }
-    fn do_request(&mut self, request: Request) -> FutureResponse {
+    fn do_request(&mut self, request: Request<Body>) -> ResponseFuture {
         self.request(request)
     }
 }
 
 impl AClient for Client<HttpsConnector<HttpConnector>> {
-    fn do_get(&mut self, uri: Url) -> FutureResponse {
+    fn do_get(&mut self, uri: Url) -> ResponseFuture {
         self.get(url2uri(uri))
     }
-    fn do_request(&mut self, request: Request) -> FutureResponse {
+    fn do_request(&mut self, request: Request<Body>) -> ResponseFuture {
         self.request(request)
     }
 }
@@ -160,12 +161,21 @@ pub enum Error {
     /// A `hyper::error::UriError` occurred.
     #[fail(display = "URI Error")]
     UriError(url::ParseError),
+    /// A `http::Error` occurred.
+    #[fail(display = "http Error")]
+    HttpError(http::Error),
     /// A `hyper::Error` occurred.
     #[fail(display = "Hyper Error")]
     HyperError(hyper::Error),
     /// A `native_tls::Error` occurred.
     #[fail(display = "TLS Error")]
     TlsError(native_tls::Error),
+}
+
+impl From<http::Error> for Error {
+    fn from(e: http::Error) -> Error {
+        Error::HttpError(e)
+    }
 }
 
 impl From<hyper::Error> for Error {

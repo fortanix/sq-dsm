@@ -1,4 +1,5 @@
 extern crate futures;
+extern crate http;
 extern crate hyper;
 extern crate rand;
 extern crate url;
@@ -7,8 +8,9 @@ use futures::Stream;
 use futures::future::Future;
 use futures::sync::oneshot;
 
-use hyper::header::ContentLength;
-use hyper::server::{Http, Request, Response, Service};
+use http::{Request, Response};
+use hyper::{Server, Body};
+use hyper::service::service_fn;
 use hyper::{Method, StatusCode};
 use rand::Rng;
 use rand::os::OsRng;
@@ -25,8 +27,6 @@ use openpgp::TPK;
 use openpgp::{Fingerprint, KeyID};
 use sequoia_core::{Context, NetworkPolicy};
 use sequoia_net::KeyServer;
-
-struct HKPServer;
 
 const RESPONSE: &'static str = "-----BEGIN PGP PUBLIC KEY BLOCK-----
 
@@ -63,61 +63,53 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
 const FP: &'static str = "3E8877C877274692975189F5D03F6F865226FE8B";
 const ID: &'static str = "D03F6F865226FE8B";
 
-impl Service for HKPServer {
-    type Request = Request;
-    type Response = Response;
-    type Error = hyper::Error;
-    type Future = Box<Future<Item=Self::Response, Error=Self::Error>>;
-
-    fn call(&self, req: Request) -> Self::Future {
-        match (req.method(), req.path()) {
-            (&Method::Get, "/pks/lookup") => {
-                if let Some(args) = req.query() {
-                    for (key, value) in url::form_urlencoded::parse(args.as_bytes()) {
-                        match key.clone().into_owned().as_ref() {
-                            "op" => assert_eq!(value, "get"),
-                            "options" => assert_eq!(value, "mr"),
-                            "search" => assert_eq!(value, "0xD03F6F865226FE8B"),
-                            _ => panic!("Bad query: {}:{}", key, value),
-                        }
+fn service(req: Request<Body>)
+           -> Box<Future<Item=Response<Body>, Error=hyper::Error> + Send> {
+    let (parts, body) = req.into_parts();
+    match (parts.method, parts.uri.path()) {
+        (Method::GET, "/pks/lookup") => {
+            if let Some(args) = parts.uri.query() {
+                for (key, value) in url::form_urlencoded::parse(args.as_bytes()) {
+                    match key.clone().into_owned().as_ref() {
+                        "op" => assert_eq!(value, "get"),
+                        "options" => assert_eq!(value, "mr"),
+                        "search" => assert_eq!(value, "0xD03F6F865226FE8B"),
+                        _ => panic!("Bad query: {}:{}", key, value),
                     }
-                } else {
-                    panic!("Expected query string");
                 }
+            } else {
+                panic!("Expected query string");
+            }
 
-                Box::new(futures::future::ok(Response::new()
-                    .with_header(ContentLength(RESPONSE.len() as u64))
-                    .with_body(RESPONSE)))
-            },
-            (&Method::Post, "/pks/add") => {
-                Box::new(
-                    req.body().concat2()
-		        .map(|b| {
-                            for (key, value) in url::form_urlencoded::parse(b.as_ref()) {
-                                match key.clone().into_owned().as_ref() {
-                                    "keytext" => {
-			                let key = TPK::from_reader(
-                                            Reader::new(Cursor::new(value.into_owned()),
-                                                        Kind::Any)).unwrap();
-                                        assert_eq!(
-                                            key.fingerprint(),
-                                            Fingerprint::from_hex(FP)
-                                                .unwrap());
-                                    },
-                                    _ => panic!("Bad post: {}:{}", key, value),
-                                }
-		            }
+            Box::new(futures::future::ok(Response::new(Body::from(RESPONSE))))
+        },
+        (Method::POST, "/pks/add") => {
+            Box::new(
+                body.concat2()
+		    .map(|b| {
+                        for (key, value) in url::form_urlencoded::parse(b.as_ref()) {
+                            match key.clone().into_owned().as_ref() {
+                                "keytext" => {
+			            let key = TPK::from_reader(
+                                        Reader::new(Cursor::new(value.into_owned()),
+                                                    Kind::Any)).unwrap();
+                                    assert_eq!(
+                                        key.fingerprint(),
+                                        Fingerprint::from_hex(FP)
+                                            .unwrap());
+                                },
+                                _ => panic!("Bad post: {}:{}", key, value),
+                            }
+		        }
 
-                            Response::new()
-                                .with_header(ContentLength("Ok".len() as u64))
-                                .with_body("Ok")
-                        }))
-            },
-            _ => {
-                Box::new(futures::future::ok(Response::new()
-                                             .with_status(StatusCode::NotFound)))
-            },
-        }
+                        Response::new(Body::from("Ok"))
+                    }))
+        },
+        _ => {
+            Box::new(futures::future::ok(Response::builder()
+                                         .status(StatusCode::NOT_FOUND)
+                                         .body(Body::from("Not found")).unwrap()))
+        },
     }
 }
 
@@ -125,25 +117,26 @@ impl Service for HKPServer {
 ///
 /// Returns the address, a channel to drop() to kill the server, and
 /// the thread handle to join the server thread.
-fn start_server() -> (SocketAddr, oneshot::Sender<()>, thread::JoinHandle<()>) {
-    let (keep_going, done) = oneshot::channel::<()>();
+fn start_server() -> SocketAddr {
     let (tx, rx) = oneshot::channel::<SocketAddr>();
-    let t = thread::spawn(move || {
-        let server = loop {
+    thread::spawn(move || {
+        let (addr, server) = loop {
             let port = OsRng::new().unwrap().next_u32() as u16;
-            if let Ok(s) = Http::new().bind(
-                &SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), port),
-                || Ok(HKPServer)) {
-                break s;
+            let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
+                                       port);
+            if let Ok(s) = Server::try_bind(&addr) {
+                break (addr, s);
             }
         };
-        tx.send(server.local_addr().unwrap()).unwrap();
-        server.run_until(done.map_err(|_| ())).unwrap();
+
+        tx.send(addr).unwrap();
+        hyper::rt::run(server
+                       .serve(|| service_fn(service))
+                       .map_err(|e| panic!(e)));
     });
 
     let addr = rx.wait().unwrap();
-
-    (addr, keep_going, t)
+    addr
 }
 
 #[test]
@@ -154,7 +147,7 @@ fn get() {
         .build().unwrap();
 
     // Start server.
-    let (addr, keep_going, t) = start_server();
+    let addr = start_server();
 
     let mut keyserver =
         KeyServer::new(&ctx, &format!("hkp://{}", addr)).unwrap();
@@ -163,10 +156,6 @@ fn get() {
 
     assert_eq!(key.fingerprint(),
                Fingerprint::from_hex(FP).unwrap());
-
-    // Kill server, join.
-    drop(keep_going);
-    t.join().unwrap();
 }
 
 #[test]
@@ -177,15 +166,11 @@ fn send() {
         .build().unwrap();
 
     // Start server.
-    let (addr, keep_going, t) = start_server();
-
+    let addr = start_server();
+    eprintln!("{}", format!("hkp://{}", addr));
     let mut keyserver =
         KeyServer::new(&ctx, &format!("hkp://{}", addr)).unwrap();
     let key = TPK::from_reader(Reader::new(Cursor::new(RESPONSE),
                                            Kind::Any)).unwrap();
     keyserver.send(&key).unwrap();
-
-    // Kill server, join.
-    drop(keep_going);
-    t.join().unwrap();
 }
