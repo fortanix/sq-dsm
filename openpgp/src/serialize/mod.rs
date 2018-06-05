@@ -289,6 +289,14 @@ impl Serialize for Signature {
     /// Note: this function does not compute the signature (which
     /// would require access to the private key); it assumes that
     /// sig.mpis is up to date.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::InvalidArgument`] if invoked on a
+    /// non-version 4 signature, or if either the hashed-area or the
+    /// unhashed-area exceeds the size limit of 2^16.
+    ///
+    /// [`Error::InvalidArgument`]: enum.Error.html#variant.InvalidArgument
     fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
         let len = 1 // version
             + 1 // signature type.
@@ -304,20 +312,27 @@ impl Serialize for Signature {
         CTB::new(Tag::Signature).serialize(o)?;
         BodyLength::Full(len as u32).serialize(o)?;
 
-        // XXX: Return an error.
-        assert_eq!(self.version, 4);
+        if self.version != 4 {
+            return Err(Error::InvalidArgument(
+                "Don't know how to serialize \
+                 non-version 4 packets.".into()).into());
+        }
         write_byte(o, self.version)?;
         write_byte(o, self.sigtype.into())?;
         write_byte(o, self.pk_algo.into())?;
         write_byte(o, self.hash_algo.into())?;
 
-        // XXX: Return an error.
-        assert!(self.hashed_area.data.len() <= std::u16::MAX as usize);
+        if self.hashed_area.data.len() > std::u16::MAX as usize {
+            return Err(Error::InvalidArgument(
+                "Hashed area too large".into()).into());
+        }
         write_be_u16(o, self.hashed_area.data.len() as u16)?;
         o.write_all(&self.hashed_area.data[..])?;
 
-        // XXX: Return an error.
-        assert!(self.unhashed_area.data.len() <= std::u16::MAX as usize);
+        if self.unhashed_area.data.len() > std::u16::MAX as usize {
+            return Err(Error::InvalidArgument(
+                "Unhashed area too large".into()).into());
+        }
         write_be_u16(o, self.unhashed_area.data.len() as u16)?;
         o.write_all(&self.unhashed_area.data[..])?;
 
@@ -333,6 +348,13 @@ impl Serialize for Signature {
 impl Serialize for OnePassSig {
     /// Writes a serialized version of the specified `OnePassSig`
     /// packet to `o`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::InvalidArgument`] if invoked on a
+    /// non-version 3 one-pass-signature packet.
+    ///
+    /// [`Error::InvalidArgument`]: enum.Error.html#variant.InvalidArgument
     fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
         let len = 1 // version
             + 1 // signature type.
@@ -346,9 +368,9 @@ impl Serialize for OnePassSig {
         BodyLength::Full(len as u32).serialize(o)?;
 
         if self.version != 3 {
-            return Err(Error::InvalidOperation(
-                format!("OnePassSig: unsupported version ({})",
-                        self.version)).into());
+            return Err(Error::InvalidArgument(
+                "Don't know how to serialize \
+                 non-version 3 packets.".into()).into());
         }
 
         write_byte(o, self.version)?;
@@ -373,6 +395,13 @@ impl Serialize for OnePassSig {
 impl SerializeKey for Key {
     /// Writes a serialized version of the specified `Key` packet to
     /// `o`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::InvalidArgument`] if invoked on a
+    /// non-version 4 key.
+    ///
+    /// [`Error::InvalidArgument`]: enum.Error.html#variant.InvalidArgument
     fn serialize<W: io::Write>(&self, o: &mut W, tag: Tag) -> Result<()> {
         assert!(tag == Tag::PublicKey
                 || tag == Tag::PublicSubkey
@@ -384,8 +413,11 @@ impl SerializeKey for Key {
         CTB::new(tag).serialize(o)?;
         BodyLength::Full(len as u32).serialize(o)?;
 
-        // XXX: Return an error.
-        assert_eq!(self.version, 4);
+        if self.version != 4 {
+            return Err(Error::InvalidArgument(
+                "Don't know how to serialize \
+                 non-version 4 packets.".into()).into());
+        }
         write_byte(o, self.version)?;
         write_be_u32(o, self.creation_time)?;
         write_byte(o, self.pk_algo.into())?;
@@ -548,10 +580,18 @@ impl Serialize for CompressedData {
 impl Serialize for PKESK {
     /// Writes a serialized version of the specified `PKESK`
     /// packet to `o`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::InvalidArgument`] if invoked on a
+    /// non-version 3 PKESK packet.
+    ///
+    /// [`Error::InvalidArgument`]: enum.Error.html#variant.InvalidArgument
     fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
         if self.version != 3 {
-            panic!("PKESK:serialize: Don't know how to serialize \
-                    non-version 3 packets.");
+            return Err(Error::InvalidArgument(
+                "Don't know how to serialize \
+                 non-version 3 packets.".into()).into());
         }
 
         let len =
@@ -575,10 +615,18 @@ impl Serialize for PKESK {
 impl Serialize for SKESK {
     /// Writes a serialized version of the specified `SKESK`
     /// packet to `o`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::InvalidArgument`] if invoked on a
+    /// non-version 4 SKESK packet.
+    ///
+    /// [`Error::InvalidArgument`]: enum.Error.html#variant.InvalidArgument
     fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
         if self.version != 4 {
-            panic!("SKESK:serialize: Don't know how to serialize \
-                    non-version 4 packets.");
+            return Err(Error::InvalidArgument(
+                "Don't know how to serialize \
+                 non-version 4 packets.".into()).into());
         }
 
         let len =
