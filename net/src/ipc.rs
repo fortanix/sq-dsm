@@ -391,7 +391,7 @@ impl Server {
 struct Cookie(Vec<u8>);
 
 extern crate rand;
-use self::rand::Rng;
+use self::rand::RngCore;
 use self::rand::os::OsRng;
 
 const COOKIE_SIZE: usize = 32;

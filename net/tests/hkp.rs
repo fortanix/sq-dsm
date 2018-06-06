@@ -12,7 +12,7 @@ use http::{Request, Response};
 use hyper::{Server, Body};
 use hyper::service::service_fn;
 use hyper::{Method, StatusCode};
-use rand::Rng;
+use rand::RngCore;
 use rand::os::OsRng;
 use std::io::Cursor;
 use std::net::{SocketAddr, IpAddr, Ipv4Addr};

@@ -13,7 +13,7 @@ use capnp_rpc::rpc_twoparty_capnp::Side;
 use capnp_rpc::{self, RpcSystem, twoparty};
 use futures::Future;
 use futures::future::{self, loop_fn, Loop};
-use rand::distributions::{IndependentSample, Range};
+use rand::distributions::{Distribution, Uniform};
 use rand::thread_rng;
 use rusqlite::Connection;
 use rusqlite;
@@ -53,7 +53,9 @@ fn refresh_interval() -> Duration {
 ///
 /// This function is used to randomize key refresh times.
 fn random_duration(d: Duration) -> Duration {
-    Duration::seconds(Range::new(0, 2 * d.num_seconds()).ind_sample(&mut thread_rng()))
+    let s = Uniform::from(0..2 * d.num_seconds())
+        .sample(&mut thread_rng());
+    Duration::seconds(s)
 }
 
 /* Entry point.  */
