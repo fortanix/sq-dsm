@@ -26,6 +26,7 @@
 //!     help         Prints this message or the help of the given subcommand(s)
 //!     keyserver    Interacts with keyservers
 //!     list         Lists key stores and known keys
+//!     split        Splits a message into OpenPGP packets
 //!     store        Interacts with key stores
 //! ```
 //!
@@ -253,6 +254,24 @@
 //!
 //! ARGS:
 //!     <PREFIX>    List only stores with the given domain prefix
+//! ```
+//!
+//! ## Subcommand split
+//!
+//! ```text
+//! Splits a message into OpenPGP packets
+//!
+//! USAGE:
+//!     sq split [OPTIONS]
+//!
+//! FLAGS:
+//!     -h, --help       Prints help information
+//!     -V, --version    Prints version information
+//!
+//! OPTIONS:
+//!     -i, --input <FILE>     Sets the input file to use
+//!     -p, --prefix <FILE>    Sets the prefix to use for output files (defaults to the input filename with a dash, or
+//!                            'output')
 //! ```
 //!
 //! ## Subcommand store

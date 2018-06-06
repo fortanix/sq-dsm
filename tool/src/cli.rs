@@ -97,6 +97,18 @@ pub fn build() -> App<'static, 'static> {
                          .long("hex")
                          .short("x")
                          .help("Print a hexdump")))
+        .subcommand(SubCommand::with_name("split")
+                    .about("Splits a message into OpenPGP packets")
+                    .arg(Arg::with_name("input").value_name("FILE")
+                         .long("input")
+                         .short("i")
+                         .help("Sets the input file to use"))
+                    .arg(Arg::with_name("prefix").value_name("FILE")
+                         .long("prefix")
+                         .short("p")
+                         .help("Sets the prefix to use for output files \
+                                (defaults to the input filename with a dash, \
+                                or 'output')")))
         .subcommand(SubCommand::with_name("keyserver")
                     .about("Interacts with keyservers")
                     .arg(Arg::with_name("server").value_name("URI")

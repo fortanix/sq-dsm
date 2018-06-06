@@ -105,6 +105,14 @@ fn real_main() -> Result<(), failure::Error> {
             let mut input = openpgp::Reader::from_reader(input)?;
             commands::dump(&mut input, &mut output, m.is_present("hex"))?;
         },
+        ("split",  Some(m)) => {
+            let input = open_or_stdin(m.value_of("input"))?;
+            let prefix = m.value_of("prefix").map(|p| p.to_owned()).
+                unwrap_or(
+                    m.value_of("input").unwrap_or("output").to_owned() + "-");
+            let mut input = openpgp::Reader::from_reader(input)?;
+            commands::split(&mut input, &prefix)?;
+        },
         ("keyserver",  Some(m)) => {
             let mut ks = if let Some(uri) = m.value_of("server") {
                 KeyServer::new(&ctx, &uri)

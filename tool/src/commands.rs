@@ -1,5 +1,7 @@
 use failure::{self, ResultExt};
-use std::io;
+use std::cmp::Ordering;
+use std::fs::File;
+use std::io::{self, Write};
 use rpassword;
 
 extern crate openpgp;
@@ -193,6 +195,49 @@ pub fn dump(input: &mut io::Read, output: &mut io::Write, map: bool)
     Ok(())
 }
 
+pub fn split(input: &mut io::Read, prefix: &str)
+             -> Result<(), failure::Error> {
+    // We (ab)use the mapping feature to create byte-accurate dumps of
+    // nested packets.
+    let mut ppo =
+        openpgp::parse::PacketParserBuilder::from_reader(input)?
+        .map(true).finalize()?;
+
+    // This encodes our position in the tree.
+    let mut pos = vec![0];
+
+    while let Some(pp) = ppo {
+        if let Some(ref map) = pp.map {
+            let filename = format!(
+                "{}{}--{:?}", prefix,
+                pos.iter().map(|n| format!("{}", n))
+                    .collect::<Vec<String>>().join("-"),
+                pp.packet.tag());
+            let mut sink = File::create(filename)
+                .context("Failed to create output file")?;
+
+            // Write all the bytes.
+            for (_, buf) in map.iter() {
+                sink.write_all(buf)?;
+            }
+        }
+
+        let (_, old_depth, ppo_, new_depth) = pp.recurse()?;
+        ppo = ppo_;
+
+        // Update pos.
+        match old_depth.cmp(&new_depth) {
+            Ordering::Less =>
+                pos.push(0),
+            Ordering::Equal =>
+                *pos.last_mut().unwrap() += 1,
+            Ordering::Greater => {
+                pos.pop();
+            },
+        }
+    }
+    Ok(())
+}
 
 struct HexDumper {
     offset: usize,
