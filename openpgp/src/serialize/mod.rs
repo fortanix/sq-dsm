@@ -81,7 +81,7 @@ impl Serialize for BodyLength {
             },
             &BodyLength::Indeterminate =>
                 return Err(Error::InvalidArgument(
-                    "Partial body lengths are not support for new format packets".
+                    "Indeterminate lengths are not support for new format packets".
                         into()).into()),
         }
 
@@ -98,7 +98,7 @@ impl BodyLength {
     /// # Errors
     ///
     /// Returns [`Error::InvalidArgument`] if invoked on
-    /// [`BodyLength::Partial`].  If you want to serialize an
+    /// [`BodyLength::Partial`].  If you want to serialize a
     /// new-style length, use [`serialize(..)`].
     ///
     /// [`Error::InvalidArgument`]: ../enum.Error.html#variant.InvalidArgument
@@ -191,7 +191,6 @@ impl Serialize for MPIs {
         self.raw.clone()
     }
 }
-
 
 /// Packet serialization.
 ///
@@ -211,7 +210,7 @@ pub trait Serialize {
 
 /// Key packet serialization.
 ///
-/// This interfaces serializes key packets.
+/// This interface serializes key packets.
 pub trait SerializeKey {
     /// Writes a serialized version of the key packet to `o`.
     ///

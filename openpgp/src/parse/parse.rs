@@ -205,7 +205,8 @@ impl<'a> PacketHeaderParser<'a> {
                 self.field("body", body.len());
             }
 
-            // This is a BufferedReaderDup, so this cannot fail.
+            // This is a BufferedReaderDup, so this always has an
+            // inner.
             let mut inner = Box::new(self.reader).into_inner().unwrap();
 
             // Combine the header with the body for the map.
@@ -219,7 +220,8 @@ impl<'a> PacketHeaderParser<'a> {
 
             inner
         } else {
-            // This is a BufferedReaderDup, so this cannot fail.
+            // This is a BufferedReaderDup, so this always has an
+            // inner.
             Box::new(self.reader).into_inner().unwrap()
         };
 
@@ -1027,7 +1029,7 @@ impl Literal {
 
         // The header is consumed while hashing is disabled.
         let recursion_depth = php.recursion_depth;
-        let mut php = php.ok(Packet::Literal(Literal {
+        let mut pp = php.ok(Packet::Literal(Literal {
             common: Default::default(),
             format: format,
             filename: filename,
@@ -1035,9 +1037,9 @@ impl Literal {
         }))?;
 
         // Enable hashing of the body.
-        Cookie::hashing(php.mut_reader(), true, recursion_depth as isize - 1);
+        Cookie::hashing(pp.mut_reader(), true, recursion_depth as isize - 1);
 
-        Ok(php)
+        Ok(pp)
     }
 }
 
@@ -1095,8 +1097,8 @@ impl CompressedData {
         }
 
         match algo {
-            CompressionAlgorithm::Unknown(_) |
-            CompressionAlgorithm::Private(_) =>
+            CompressionAlgorithm::Unknown(_)
+            | CompressionAlgorithm::Private(_) =>
                 return php.fail("unknown compression algorithm"),
             _ => (),
         }
@@ -1377,7 +1379,7 @@ pub struct PacketParser<'a> {
 
     reader: Box<BufferedReader<Cookie> + 'a>,
 
-    // Whether the caller read the packets content.  If so, then we
+    // Whether the caller read the packet's content.  If so, then we
     // can't recurse, because we're missing some of the packet!
     content_was_read: bool,
 
@@ -1574,6 +1576,7 @@ impl <'a> PacketParser<'a> {
         // rip off the BufferedReaderDup and actually consume the
         // header.
         let consumed = bio.total_out();
+        // A BufferedReaderDup always has an inner.
         let mut bio = Box::new(bio).into_inner().unwrap();
 
         // If we have multiple one pass signature packets in a row,

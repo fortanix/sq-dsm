@@ -15,13 +15,16 @@ use {
 
 /// A stack of writers.
 ///
-/// We use trait objects as unit of composition.  This is a compiler
-/// limitation, we may use impl trait in the future.
+/// We use trait objects as the unit of composition.  This is a
+/// compiler limitation, we may use impl trait in the future.
 pub type Stack<'a, C> = Box<'a + Stackable<'a, C>>;
 
 /// Makes a writer stackable and provides convenience functions.
 pub trait Stackable<'a, C> : io::Write + fmt::Debug {
     /// Recovers the inner stackable.
+    ///
+    /// This can fail if the current `Stackable` has buffered data
+    /// that hasn't been written to the underlying `Stackable`.
     fn into_inner(self: Box<Self>) -> Result<Option<Stack<'a, C>>>;
 
     /// Pops the stackable from the stack, detaching it.

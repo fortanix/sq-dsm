@@ -188,7 +188,7 @@ impl Signature {
 /// Hashing-related functionality.
 impl Signature {
     // Return the message digest of the primary key binding over the
-    // specified primary key, subkey, and signature.
+    // specified primary key.
     pub fn primary_key_binding_hash(&self, key: &Key) -> Vec<u8> {
         let h: HashAlgorithm = self.hash_algo.into();
         let mut h: Box<Hash> = h.context().unwrap();
@@ -202,7 +202,7 @@ impl Signature {
     }
 
     // Return the message digest of the subkey binding over the
-    // specified primary key, subkey, and signature.
+    // specified primary key and subkey.
     pub fn subkey_binding_hash(&self, key: &Key, subkey: &Key)
             -> Vec<u8> {
         let h: HashAlgorithm = self.hash_algo.into();

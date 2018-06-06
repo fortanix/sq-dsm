@@ -1134,7 +1134,7 @@ mod test {
                             Packet::SEIP(_) =>
                                 loop {
                                     if let Some((algo, key)) = keys.pop() {
-	                                let r = pp.decrypt(algo.into(),
+                                        let r = pp.decrypt(algo.into(),
                                                            &key[..]);
                                         if r.is_ok() {
                                             break State::Deciphered;
