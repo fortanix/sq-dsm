@@ -70,13 +70,6 @@ impl<'a> DerefMut for Packet {
 /// [Section 4.2 of RFC 4880] for more details.
 ///
 ///   [Section 4.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.2
-///
-/// If the packet is chunked, then the `x` in `Partial(x)` indicates
-/// the number of bytes remaining in the current chunk.  The chunk is
-/// followed by another new format length header, which can be read
-/// using [`body_length_new_format`()].
-///
-///   [`body_length_new_format`()]: ./parse/fn.body_length_new_format.html
 #[derive(Debug)]
 // We need PartialEq so that assert_eq! works.
 #[derive(PartialEq)]
