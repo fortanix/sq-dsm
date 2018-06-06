@@ -10,7 +10,7 @@ use libc::{uint8_t, uint64_t, c_char, c_int, size_t};
 
 extern crate openpgp;
 
-use self::openpgp::{armor, Fingerprint, KeyID, Message, TPK, Packet};
+use self::openpgp::{armor, Fingerprint, KeyID, PacketPile, TPK, Packet};
 use self::openpgp::parse::{PacketParser};
 use self::openpgp::serialize::Serialize;
 
@@ -229,88 +229,88 @@ pub extern "system" fn sq_armor_writer_new(inner: Option<&'static mut Box<Write>
 }
 
 
-/* openpgp::Message.  */
+/* openpgp::PacketPile.  */
 
 /// Deserializes the OpenPGP message stored in a `std::io::Read`
 /// object.
 ///
 /// Although this method is easier to use to parse an OpenPGP
-/// message than a `PacketParser` or a `MessageParser`, this
+/// message than a `PacketParser` or a `PacketPileParser`, this
 /// interface buffers the whole message in memory.  Thus, the
 /// caller must be certain that the *deserialized* message is not
 /// too large.
 ///
 /// Note: this interface *does* buffer the contents of packets.
 #[no_mangle]
-pub extern "system" fn sq_message_from_reader(ctx: Option<&mut Context>,
-                                              reader: Option<&mut Box<Read>>)
-                                              -> *mut Message {
+pub extern "system" fn sq_packet_pile_from_reader(ctx: Option<&mut Context>,
+                                                  reader: Option<&mut Box<Read>>)
+                                                  -> *mut PacketPile {
     let ctx = ctx.expect("Context is NULL");
     let reader = reader.expect("Reader is NULL");
-    fry_box!(ctx, Message::from_reader(reader))
+    fry_box!(ctx, PacketPile::from_reader(reader))
 }
 
 /// Deserializes the OpenPGP message stored in the file named by
 /// `filename`.
 ///
-/// See `sq_message_from_reader` for more details and caveats.
+/// See `sq_packet_pile_from_reader` for more details and caveats.
 #[no_mangle]
-pub extern "system" fn sq_message_from_file(ctx: Option<&mut Context>,
-                                            filename: *const c_char)
-                                            -> *mut Message {
+pub extern "system" fn sq_packet_pile_from_file(ctx: Option<&mut Context>,
+                                                filename: *const c_char)
+                                                -> *mut PacketPile {
     let ctx = ctx.expect("Context is NULL");
     assert!(! filename.is_null());
     let filename = unsafe {
         CStr::from_ptr(filename).to_string_lossy().into_owned()
     };
-    fry_box!(ctx, Message::from_file(&filename))
+    fry_box!(ctx, PacketPile::from_file(&filename))
 }
 
 /// Deserializes the OpenPGP message stored in the provided buffer.
 ///
-/// See `sq_message_from_reader` for more details and caveats.
+/// See `sq_packet_pile_from_reader` for more details and caveats.
 #[no_mangle]
-pub extern "system" fn sq_message_from_bytes(ctx: Option<&mut Context>,
-                                             b: *const uint8_t, len: size_t)
-                                             -> *mut Message {
+pub extern "system" fn sq_packet_pile_from_bytes(ctx: Option<&mut Context>,
+                                                 b: *const uint8_t, len: size_t)
+                                                 -> *mut PacketPile {
     let ctx = ctx.expect("Context is NULL");
     assert!(!b.is_null());
     let buf = unsafe {
         slice::from_raw_parts(b, len as usize)
     };
 
-    fry_box!(ctx, Message::from_bytes(buf))
+    fry_box!(ctx, PacketPile::from_bytes(buf))
 }
 
-/// Frees the message.
+/// Frees the packet_pile.
 #[no_mangle]
-pub extern "system" fn sq_message_free(message: *mut Message) {
-    if message.is_null() {
+pub extern "system" fn sq_packet_pile_free(packet_pile: *mut PacketPile) {
+    if packet_pile.is_null() {
         return
     }
     unsafe {
-        drop(Box::from_raw(message));
+        drop(Box::from_raw(packet_pile));
     }
 }
 
-/// Clones the Message.
+/// Clones the PacketPile.
 #[no_mangle]
-pub extern "system" fn sq_message_clone(message: Option<&Message>)
-                                        -> *mut Message {
-    let message = message.expect("Message is NULL");
-    box_raw!(message.clone())
+pub extern "system" fn sq_packet_pile_clone(packet_pile: Option<&PacketPile>)
+                                            -> *mut PacketPile {
+    let packet_pile = packet_pile.expect("PacketPile is NULL");
+    box_raw!(packet_pile.clone())
 }
 
-/// Serializes the message.
+/// Serializes the packet pile.
 #[no_mangle]
-pub extern "system" fn sq_message_serialize(ctx: Option<&mut Context>,
-                                            message: Option<&Message>,
-                                            writer: Option<&mut Box<Write>>)
-                                            -> Status {
+pub extern "system" fn sq_packet_pile_serialize(ctx: Option<&mut Context>,
+                                                packet_pile: Option<&PacketPile>,
+                                                writer: Option<&mut Box<Write>>)
+                                                -> Status {
     let ctx = ctx.expect("Context is NULL");
-    let message = message.expect("Message is NULL");
+    let packet_pile = packet_pile.expect("PacketPile is NULL");
     let writer = writer.expect("Writer is NULL");
-    fry_status!(ctx, message.serialize(writer))
+    fry_status!(ctx, packet_pile.serialize(writer))
 }
 
 
@@ -343,18 +343,18 @@ pub extern "system" fn sq_tpk_from_file(ctx: Option<&mut Context>,
 ///
 /// Consumes `m`.
 #[no_mangle]
-pub extern "system" fn sq_tpk_from_message(ctx: Option<&mut Context>,
-                                           m: *mut Message)
-                                           -> *mut TPK {
+pub extern "system" fn sq_tpk_from_packet_pile(ctx: Option<&mut Context>,
+                                               m: *mut PacketPile)
+                                               -> *mut TPK {
     let ctx = ctx.expect("Context is NULL");
     assert!(! m.is_null());
     let m = unsafe { Box::from_raw(m) };
-    fry_box!(ctx, TPK::from_message(*m))
+    fry_box!(ctx, TPK::from_packet_pile(*m))
 }
 
 /// Returns the first TPK found in `buf`.
 ///
-/// `buf` must be an OpenPGP encoded message.
+/// `buf` must be an OpenPGP-encoded TPK.
 #[no_mangle]
 pub extern "system" fn sq_tpk_from_bytes(ctx: Option<&mut Context>,
                                          b: *const uint8_t, len: size_t)
@@ -516,7 +516,8 @@ pub extern "system" fn sq_skesk_decrypt(ctx: Option<&mut Context>,
 
 /* openpgp::parse.  */
 
-/// Starts parsing an OpenPGP message stored in a `sq_reader_t` object.
+/// Starts parsing OpenPGP packets stored in a `sq_reader_t`
+/// object.
 ///
 /// This function returns a `PacketParser` for the first packet in
 /// the stream.
@@ -531,7 +532,7 @@ pub extern "system" fn sq_packet_parser_from_reader<'a>
         .unwrap_or(ptr::null_mut())
 }
 
-/// Starts parsing an OpenPGP message stored in a file named `path`.
+/// Starts parsing OpenPGP packets stored in a file named `path`.
 ///
 /// This function returns a `PacketParser` for the first packet in
 /// the stream.
@@ -549,7 +550,7 @@ pub extern "system" fn sq_packet_parser_from_file
         .unwrap_or(ptr::null_mut())
 }
 
-/// Starts parsing an OpenPGP message stored in a buffer.
+/// Starts parsing OpenPGP packets stored in a buffer.
 ///
 /// This function returns a `PacketParser` for the first packet in
 /// the stream.

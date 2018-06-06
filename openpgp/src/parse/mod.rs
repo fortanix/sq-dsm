@@ -13,7 +13,7 @@
 //! recurse into the container, and process its children, or treat the
 //! contents of the container as an opaque byte stream, and process
 //! the packet following the container.  The low-level
-//! [`PacketParser`] and mid-level [`MessageParser`] abstractions
+//! [`PacketParser`] and mid-level [`PacketPileParser`] abstractions
 //! allow the caller to choose the behavior by either calling the
 //! `recurse()` method or the `next()` method, as appropriate.
 //! OpenPGP doesn't impose any restrictions on the amount of nesting.
@@ -22,7 +22,7 @@
 //!
 //! Second, packets can contain an effectively unbounded amount of
 //! data.  To avoid errors due to memory exhaustion, the
-//! [`PacketParser`] and [`MessageParser`] abstractions support
+//! [`PacketParser`] and [`PacketPileParser`] abstractions support
 //! parsing packets in a streaming manner, i.e., never buffering more
 //! than O(1) bytes of data.  To do this, the parsers initially only
 //! parse a packet's header (which is rarely more than a few kilobytes
@@ -61,22 +61,22 @@
 //!     time.  What is done with those packets is completely up to the
 //!     caller.
 //!
-//!   - The [`MessageParser`] abstraction builds on the
+//!   - The [`PacketPileParser`] abstraction builds on the
 //!     [`PacketParser`] abstraction and provides a similar interface.
-//!     However, after each iteration, the `MessageParser` adds the
-//!     packet to a [`Message`], which is returned once the message is
+//!     However, after each iteration, the `PacketPileParser` adds the
+//!     packet to a [`PacketPile`], which is returned once the packets are
 //!     completely processed.
 //!
 //!     This interface should only be used if the caller actually
-//!     wants a `Message`; if the OpenPGP message is parsed in place,
+//!     wants a `PacketPile`; if the OpenPGP message is parsed in place,
 //!     then using a `PacketParser` is better.
 //!
-//!   - The [`Message::from_file`] (and related methods) is the most
-//!     convenient, but least flexible way to parse an OpenPGP
-//!     message.  Whereas a `MessageParser` allows the caller to
+//!   - The [`PacketPile::from_file`] (and related methods) is the most
+//!     convenient, but least flexible way to parse a sequence of OpenPGP
+//!     packets.  Whereas a `PacketPileParser` allows the caller to
 //!     determine how to handle individual packets, the
-//!     [`Message::from_file`] parses the whole message at once and
-//!     returns a [`Message`].
+//!     [`PacketPile::from_file`] parses the whole message at once and
+//!     returns a [`PacketPile`].
 //!
 //!     This interface should only be used if the caller is certain
 //!     that the parsed message will fit in memory.
@@ -85,9 +85,9 @@
 //! [`PacketParserBuilder`].
 //!
 //!   [`PacketParser`]: struct.PacketParser.html
-//!   [`MessageParser`]: struct.MessageParser.html
-//!   [`Message`]: ../struct.Message.html
-//!   [`Message::from_file`]: ../struct.Message.html#method.from_file
+//!   [`PacketPileParser`]: struct.PacketPileParser.html
+//!   [`PacketPile`]: ../struct.PacketPile.html
+//!   [`PacketPile::from_file`]: ../struct.PacketPile.html#method.from_file
 //!   [`PacketParserBuilder`]: struct.PacketParserBuilder.html
 
 // Hack so that the file doesn't have to be named mod.rs.

@@ -1482,15 +1482,15 @@ impl Signature {
 
 #[test]
 fn subpacket_test_1 () {
-    use Message;
+    use PacketPile;
 
     let path = path_to("signed.gpg");
-    let message = Message::from_file(&path).unwrap();
-    eprintln!("Message has {} top-level packets.", message.children().len());
-    eprintln!("Message: {:?}", message);
+    let pile = PacketPile::from_file(&path).unwrap();
+    eprintln!("PacketPile has {} top-level packets.", pile.children().len());
+    eprintln!("PacketPile: {:?}", pile);
 
     let mut count = 0;
-    for p in message.descendants() {
+    for p in pile.descendants() {
         if let &Packet::Signature(ref sig) = p {
             count += 1;
 
@@ -1535,7 +1535,7 @@ fn subpacket_test_1 () {
 
 #[test]
 fn subpacket_test_2() {
-    use Message;
+    use PacketPile;
 
     //   Test #    Subpacket
     // 1 2 3 4 5 6   SignatureCreationTime
@@ -1565,13 +1565,13 @@ fn subpacket_test_2() {
     //
     // XXX: The subpackets marked with * are not tested.
 
-    let message
-        = Message::from_file(path_to("../keys/subpackets/shaw.gpg")).unwrap();
+    let pile = PacketPile::from_file(
+        path_to("../keys/subpackets/shaw.gpg")).unwrap();
 
     // Test #1
     if let (Some(&Packet::PublicKey(ref key)),
             Some(&Packet::Signature(ref sig)))
-        = (message.children().nth(0), message.children().nth(2))
+        = (pile.children().nth(0), pile.children().nth(2))
     {
         //  tag: 2, SignatureCreationTime(1515791508) }
         //  tag: 9, KeyExpirationTime(63072000) }
@@ -1712,7 +1712,7 @@ fn subpacket_test_2() {
     }
 
     // Test #2
-    if let Some(&Packet::Signature(ref sig)) = message.children().nth(3) {
+    if let Some(&Packet::Signature(ref sig)) = pile.children().nth(3) {
         // tag: 2, SignatureCreationTime(1515791490)
         // tag: 4, ExportableCertification(false)
         // tag: 16, Issuer(KeyID("CEAD 0621 0934 7957"))
@@ -1741,11 +1741,11 @@ fn subpacket_test_2() {
                    }));
     }
 
-    let message
-        = Message::from_file(path_to("../keys/subpackets/marven.gpg")).unwrap();
+    let pile = PacketPile::from_file(
+        path_to("../keys/subpackets/marven.gpg")).unwrap();
 
     // Test #3
-    if let Some(&Packet::Signature(ref sig)) = message.children().nth(1) {
+    if let Some(&Packet::Signature(ref sig)) = pile.children().nth(1) {
         // tag: 2, SignatureCreationTime(1515791376)
         // tag: 7, Revocable(false)
         // tag: 12, RevocationKey((128, 1, Fingerprint("361A 96BD E1A6 5B6D 6C25  AE9F F004 B9A4 5C58 6126")))
@@ -1815,7 +1815,7 @@ fn subpacket_test_2() {
     }
 
     // Test #4
-    if let Some(&Packet::Signature(ref sig)) = message.children().nth(6) {
+    if let Some(&Packet::Signature(ref sig)) = pile.children().nth(6) {
         // for i in 0..256 {
         //     if let Some(sb) = sig.subpacket(i as u8) {
         //         eprintln!("  {:?}", sb);
@@ -1843,7 +1843,7 @@ fn subpacket_test_2() {
 
 
     // Test #5
-    if let Some(&Packet::Signature(ref sig)) = message.children().nth(7) {
+    if let Some(&Packet::Signature(ref sig)) = pile.children().nth(7) {
         // The only thing interesting about this signature is that it
         // has multiple notations.
 
@@ -1904,7 +1904,7 @@ fn subpacket_test_2() {
     }
 
     // # Test 6
-    if let Some(&Packet::Signature(ref sig)) = message.children().nth(8) {
+    if let Some(&Packet::Signature(ref sig)) = pile.children().nth(8) {
         // A trusted signature.
 
         // tag: 2, SignatureCreationTime(1515791223)
@@ -1947,7 +1947,7 @@ fn subpacket_test_2() {
     }
 
     // Test #7
-    if let Some(&Packet::Signature(ref sig)) = message.children().nth(11) {
+    if let Some(&Packet::Signature(ref sig)) = pile.children().nth(11) {
         // A subkey self-sig, which contains an embedded signature.
         //  tag: 2, SignatureCreationTime(1515798986)
         //  tag: 9, KeyExpirationTime(63072000)
@@ -1999,7 +1999,7 @@ fn subpacket_test_2() {
                 .is_some());
     }
 
-//     for (i, p) in message.children().enumerate() {
+//     for (i, p) in pile.children().enumerate() {
 //         if let &Packet::Signature(ref sig) = p {
 //             eprintln!("{:?}: {:?}", i, sig);
 //             for j in 0..256 {

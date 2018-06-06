@@ -95,7 +95,7 @@ pub use pkesk::PKESK;
 mod reader;
 pub use reader::Reader;
 
-mod message;
+mod packet_pile;
 pub mod constants;
 use constants::{
     PublicKeyAlgorithm,
@@ -340,9 +340,9 @@ pub struct UserAttribute {
 ///
 /// A literal packet contains unstructured data.  Since the size can
 /// be very large, it is advised to process messages containing such
-/// packets using a `PacketParser` or a `MessageParser` and process
+/// packets using a `PacketParser` or a `PacketPileParser` and process
 /// the data in a streaming manner rather than the using the
-/// `Message::from_file` and related interfaces.
+/// `PacketPile::from_file` and related interfaces.
 ///
 /// See [Section 5.9 of RFC 4880] for details.
 ///
@@ -474,17 +474,17 @@ impl Packet {
     }
 }
 
-/// A `Message` holds a deserialized OpenPGP message.
+/// A `PacketPile` holds a deserialized sequence of OpenPGP messages.
 ///
 /// To deserialize an OpenPGP usage, use either [`PacketParser`],
-/// [`MessageParser`], or [`Message::from_file`] (or related
+/// [`PacketPileParser`], or [`PacketPile::from_file`] (or related
 /// routines).
 ///
 ///   [`PacketParser`]: parse/struct.PacketParser.html
-///   [`MessageParser`]: parse/struct.MessageParser.html
-///   [`Message::from_file`]: struct.Message.html#method.from_file
+///   [`PacketPileParser`]: parse/struct.PacketPileParser.html
+///   [`PacketPile::from_file`]: struct.PacketPile.html#method.from_file
 #[derive(PartialEq, Clone)]
-pub struct Message {
+pub struct PacketPile {
     // At the top level, we have a sequence of packets, which may be
     // containers.
     top_level: Container,

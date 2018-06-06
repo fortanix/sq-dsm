@@ -908,8 +908,8 @@ impl<'a> writer::Stackable<'a, Cookie> for Encryptor<'a> {
 #[cfg(test)]
 mod test {
     use std::io::Read;
-    use super::super::{Message, Packet, CompressedData};
-    use super::super::parse::PacketParser;
+    use {Packet, PacketPile, CompressedData};
+    use parse::PacketParser;
     use super::*;
 
     macro_rules! bytes {
@@ -977,13 +977,13 @@ mod test {
             write!(ls, "three").unwrap();
         }
 
-        let m = Message::from_packets(reference);
-        let m2 = Message::from_bytes(&o).unwrap();
-        if m != m2 {
+        let pile = PacketPile::from_packets(reference);
+        let pile2 = PacketPile::from_bytes(&o).unwrap();
+        if pile != pile2 {
             eprintln!("REFERENCE...");
-            m.pretty_print();
+            pile.pretty_print();
             eprintln!("REPARSED...");
-            m2.pretty_print();
+            pile2.pretty_print();
             panic!("Reparsed packet does not match reference packet!");
         }
     }
@@ -1034,13 +1034,13 @@ mod test {
             write!(ls, "four").unwrap();
         }
 
-        let m = Message::from_packets(reference);
-        let m2 = Message::from_bytes(&o).unwrap();
-        if m != m2 {
+        let pile = PacketPile::from_packets(reference);
+        let pile2 = PacketPile::from_bytes(&o).unwrap();
+        if pile != pile2 {
             eprintln!("REFERENCE...");
-            m.pretty_print();
+            pile.pretty_print();
             eprintln!("REPARSED...");
-            m2.pretty_print();
+            pile2.pretty_print();
             panic!("Reparsed packet does not match reference packet!");
         }
     }

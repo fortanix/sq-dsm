@@ -53,8 +53,8 @@ pub mod subpacket;
 pub use self::subpacket::SubpacketArea;
 pub mod key;
 
-mod message_parser;
-pub use self::message_parser::MessageParser;
+mod packet_pile_parser;
+pub use self::packet_pile_parser::PacketPileParser;
 
 mod hashed_reader;
 pub(crate) use self::hashed_reader::HashedReader;

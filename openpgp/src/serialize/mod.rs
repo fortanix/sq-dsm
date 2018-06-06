@@ -810,8 +810,8 @@ impl Serialize for Packet {
     }
 }
 
-impl Serialize for Message {
-    /// Writes a serialized version of the specified `Message` to `o`.
+impl Serialize for PacketPile {
+    /// Writes a serialized version of the specified `PacketPile` to `o`.
     fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
         for p in self.children() {
             p.serialize(o)?;
@@ -960,14 +960,14 @@ mod serialize_test {
                 .read_to_end(&mut data).expect("Reading test data");
 
             // 2. Parse the message.
-            let m = Message::from_bytes(&data[..]).unwrap();
+            let pile = PacketPile::from_bytes(&data[..]).unwrap();
 
             // The following test only works if the message has a
             // single top-level packet.
-            assert_eq!(m.children().len(), 1);
+            assert_eq!(pile.children().len(), 1);
 
             // 3. Serialize the packet it into a local buffer.
-            let p = m.descendants().next().unwrap();
+            let p = pile.descendants().next().unwrap();
             let mut buffer = Vec::new();
             match p {
                 &Packet::Literal(ref l) => {
@@ -1067,43 +1067,43 @@ mod serialize_test {
             // never recurse so that the resulting message only
             // contains the top-level packets.  Any containers will
             // have their raw content stored in packet.content.
-            let m = PacketParserBuilder::from_bytes(&data[..]).unwrap()
+            let pile = PacketParserBuilder::from_bytes(&data[..]).unwrap()
                 .max_recursion_depth(0)
                 .buffer_unread_content()
                 //.trace()
-                .to_message().unwrap();
+                .to_packet_pile().unwrap();
 
             // 3. Get the first packet.
-            let po = m.descendants().next();
+            let po = pile.descendants().next();
             if let Some(&Packet::CompressedData(ref cd)) = po {
                 // 4. Serialize the container.
                 let buffer = cd.to_vec();
 
                 // 5. Reparse it.
-                let m2 = PacketParserBuilder::from_bytes(&buffer[..]).unwrap()
+                let pile2 = PacketParserBuilder::from_bytes(&buffer[..]).unwrap()
                     .max_recursion_depth(0)
                     .buffer_unread_content()
                     //.trace()
-                    .to_message().unwrap();
+                    .to_packet_pile().unwrap();
 
                 // 6. Make sure the original message matches the
                 // serialized and reparsed message.
-                if m != m2 {
+                if pile != pile2 {
                     eprintln!("Orig:");
-                    let p = m.children().next().unwrap();
+                    let p = pile.children().next().unwrap();
                     eprintln!("{:?}", p);
                     let body = &p.body.as_ref().unwrap()[..];
                     eprintln!("Body: {}", body.len());
                     eprintln!("{}", binary_pp(body));
 
                     eprintln!("Reparsed:");
-                    let p = m2.children().next().unwrap();
+                    let p = pile2.children().next().unwrap();
                     eprintln!("{:?}", p);
                     let body = &p.body.as_ref().unwrap()[..];
                     eprintln!("Body: {}", body.len());
                     eprintln!("{}", binary_pp(body));
 
-                    assert_eq!(m, m2);
+                    assert_eq!(pile, pile2);
                 }
             } else {
                 panic!("Expected a compressed data data packet.");
@@ -1217,26 +1217,26 @@ mod serialize_test {
 
         for m in messages.into_iter() {
             // 1. The message.
-            let m = Message::from_packets(m);
+            let pile = PacketPile::from_packets(m);
 
-            m.pretty_print();
+            pile.pretty_print();
 
             // 2. Serialize the message into a buffer.
             let mut buffer = Vec::new();
-            m.clone().serialize(&mut buffer).unwrap();
+            pile.clone().serialize(&mut buffer).unwrap();
 
             // 3. Reparse it.
-            let m2 = PacketParserBuilder::from_bytes(&buffer[..]).unwrap()
+            let pile2 = PacketParserBuilder::from_bytes(&buffer[..]).unwrap()
                 //.trace()
                 .buffer_unread_content()
-                .to_message().unwrap();
+                .to_packet_pile().unwrap();
 
             // 4. Compare the messages.
-            if m != m2 {
+            if pile != pile2 {
                 eprintln!("ORIG...");
-                m.pretty_print();
+                pile.pretty_print();
                 eprintln!("REPARSED...");
-                m2.pretty_print();
+                pile2.pretty_print();
                 panic!("Reparsed packet does not match original packet!");
             }
         }

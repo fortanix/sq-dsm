@@ -13,7 +13,7 @@ use std::process::exit;
 
 use clap::{App, Arg, AppSettings};
 
-use openpgp::{TPK, Packet, Signature, KeyID, Message};
+use openpgp::{TPK, Packet, Signature, KeyID, PacketPile};
 use openpgp::constants::HashAlgorithm;
 use openpgp::parse::PacketParser;
 
@@ -194,7 +194,7 @@ fn real_main() -> Result<(), failure::Error> {
                     // current one.
                     if let Some(ref keyid) = want {
                         // Build the TPK...
-                        let tpk = TPK::from_message(Message::from_packets(acc))?;
+                        let tpk = TPK::from_packet_pile(PacketPile::from_packets(acc))?;
                         acc = vec![];
 
                         // ... and remember it.
@@ -236,7 +236,7 @@ fn real_main() -> Result<(), failure::Error> {
         // This was the last TPK.  Check if we want it.
         if let Some(ref keyid) = want {
             // Build the TPK...
-            let tpk = TPK::from_message(Message::from_packets(acc))?;
+            let tpk = TPK::from_packet_pile(PacketPile::from_packets(acc))?;
             // ... and remember it.
             remember_tpk(&mut sigs, keyid, &tpk, trace);
         }

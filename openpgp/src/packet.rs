@@ -195,15 +195,15 @@ pub struct Common {
     /// compression packets) to reference their immediate children.
     /// This results in a tree structure.
     ///
-    /// This is automatically populated when using the `Message`
-    /// deserialization routines, e.g., [`Message::from_file`].  By
+    /// This is automatically populated when using the `PacketPile`
+    /// deserialization routines, e.g., [`PacketPile::from_file`].  By
     /// default, it is *not* automatically filled in by the
     /// [`PacketParser`] deserialization routines; this needs to be
     /// done manually.
     ///
-    ///   [`Message`]: ../struct.Message.html
-    ///   [`Message::from_file`]: ../struct.Message.html#method.from_file
-    ///   [`PacketParser`]: ../parse/struct.PacketParser.html
+    ///   [`PacketPile`]: ../struct.PacketPile.html
+    ///   [`PacketPile::from_file`]: ../struct.PacketPile.html#method.from_file
+    ///   [`PacketParser`]: ../struct.PacketParser.html
     pub children: Option<Container>,
 
     /// Holds a packet's body.
@@ -214,12 +214,12 @@ pub struct Common {
     ///
     /// A packet's body is stored here either when configured via
     /// [`PacketParserBuilder::buffer_unread_content`], when one of
-    /// the [`Message`] deserialization routines is used, or on demand
+    /// the [`PacketPile`] deserialization routines is used, or on demand
     /// for a particular packet using the
     /// [`PacketParser::buffer_unread_content`] method.
     ///
     ///   [`PacketParserBuilder::buffer_unread_content`]: ../parse/struct.PacketParserBuilder.html#method.buffer_unread_content
-    ///   [`Message`]: ../struct.Message.html
+    ///   [`PacketPile`]: ../struct.PacketPile.html
     ///   [`PacketParser::buffer_unread_content`]: ../parse/struct.PacketParser.html#method.buffer_unread_content
     ///
     /// There are three different types of packets:
@@ -507,7 +507,8 @@ impl<'a> Iterator for PacketPathIter<'a> {
 #[test]
 fn packet_path_iter() {
     use std::path::PathBuf;
-    use super::Message;
+
+    use PacketPile;
 
     fn path_to(artifact: &str) -> PathBuf {
         [env!("CARGO_MANIFEST_DIR"), "tests", "data", "messages", artifact]
@@ -532,23 +533,23 @@ fn packet_path_iter() {
     }
 
     for i in 1..5 {
-        let m = Message::from_file(
+        let pile = PacketPile::from_file(
             path_to(&format!("recursive-{}.gpg", i)[..])).unwrap();
 
         let mut paths1 : Vec<Vec<usize>> = Vec::new();
-        for path in paths(m.children()).iter() {
+        for path in paths(pile.children()).iter() {
             paths1.push(path.clone());
         }
 
         let mut paths2 : Vec<Vec<usize>> = Vec::new();
-        for (path, packet) in m.descendants().paths() {
-            assert_eq!(Some(packet), m.path_ref(&path[..]));
+        for (path, packet) in pile.descendants().paths() {
+            assert_eq!(Some(packet), pile.path_ref(&path[..]));
             paths2.push(path);
         }
 
         if paths1 != paths2 {
-            eprintln!("Message:");
-            m.pretty_print();
+            eprintln!("PacketPile:");
+            pile.pretty_print();
 
             eprintln!("Expected paths:");
             for p in paths1 {

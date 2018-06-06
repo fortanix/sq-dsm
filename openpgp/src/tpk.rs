@@ -17,7 +17,7 @@ use {
     UserID,
     UserAttribute,
     Packet,
-    Message,
+    PacketPile,
     TPK,
     Fingerprint,
 };
@@ -718,9 +718,9 @@ impl TPK {
         Self::from_reader(File::open(path)?)
     }
 
-    /// Returns the first TPK found in `m`.
-    pub fn from_message(m: Message) -> Result<Self> {
-        let mut i = TPKParser::from_iter(m.into_children());
+    /// Returns the first TPK found in the `PacketPile`.
+    pub fn from_packet_pile(p: PacketPile) -> Result<Self> {
+        let mut i = TPKParser::from_iter(p.into_children());
         match i.next() {
             Some(Ok(tpk)) => Ok(tpk),
             Some(Err(err)) => Err(err),
@@ -1119,7 +1119,7 @@ impl TPK {
     }
 
     /// Serialize the transferable public key into an OpenPGP message.
-    pub fn to_message(self) -> Message {
+    pub fn to_packet_pile(self) -> PacketPile {
         let mut p : Vec<Packet> = Vec::new();
 
         p.push(Packet::PublicKey(self.primary));
@@ -1155,7 +1155,7 @@ impl TPK {
             }
         }
 
-        Message::from_packets(p)
+        PacketPile::from_packets(p)
     }
 
     /// Serialize the TPK.
@@ -1250,8 +1250,8 @@ mod test {
 
     fn parse_tpk(data: &[u8], as_message: bool) -> Result<TPK> {
         if as_message {
-            let m = Message::from_bytes(data).unwrap();
-            TPK::from_message(m)
+            let pile = PacketPile::from_bytes(data).unwrap();
+            TPK::from_packet_pile(pile)
         } else {
             TPK::from_bytes(data)
         }

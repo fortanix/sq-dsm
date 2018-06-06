@@ -38,10 +38,10 @@ fn main() {
     );
 
     // Parse message.
-    let message = openpgp::Message::from_reader(&mut reader).unwrap();
+    let pile = openpgp::PacketPile::from_reader(&mut reader).unwrap();
 
     // Iterate over children.
-    for (i, p) in message.children().enumerate() {
+    for (i, p) in pile.children().enumerate() {
         println!("{}: {:?}", i, p);
     }
 
@@ -49,7 +49,7 @@ fn main() {
     println!();
 
     // Parse into TPK.
-    let tpk = openpgp::TPK::from_message(message).unwrap();
+    let tpk = openpgp::TPK::from_packet_pile(pile).unwrap();
     println!("Fingerprint: {}", tpk.fingerprint());
 
     // List userids.
