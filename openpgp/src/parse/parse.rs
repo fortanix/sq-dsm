@@ -1336,7 +1336,7 @@ fn skesk_parser_test() {
 ///
 ///   [`next()`]: #method.next
 ///   [`recurse()`]: #method.recurse
-///   [`Packet`]: ../struct.Packet.html
+///   [`Packet`]: ../enum.Packet.html
 ///
 /// # Examples
 ///
@@ -1687,7 +1687,7 @@ impl <'a> PacketParser<'a> {
     /// recurse into the container, but skips any packets it contains.
     /// To recurse into the container, use the [`recurse()`] method.
     ///
-    ///   [`PacketParsererBuilder`]: parse/struct.PacketParserBuilder.html
+    ///   [`PacketParsererBuilder`]: struct.PacketParserBuilder.html
     ///   [`recurse()`]: #method.recurse
     ///
     /// The return value is a tuple containing:

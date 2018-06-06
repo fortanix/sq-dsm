@@ -201,9 +201,9 @@ pub struct Common {
     /// [`PacketParser`] deserialization routines; this needs to be
     /// done manually.
     ///
-    ///   [`Message`]: ./struct.Message.html
-    ///   [`Message::from_file`]: ./struct.Message.html#method.from_file
-    ///   [`PacketParser`]: ./struct.PacketParser.html
+    ///   [`Message`]: ../struct.Message.html
+    ///   [`Message::from_file`]: ../struct.Message.html#method.from_file
+    ///   [`PacketParser`]: ../parse/struct.PacketParser.html
     pub children: Option<Container>,
 
     /// Holds a packet's body.
@@ -218,9 +218,9 @@ pub struct Common {
     /// for a particular packet using the
     /// [`PacketParser::buffer_unread_content`] method.
     ///
-    ///   [`PacketParserBuilder::buffer_unread_content`]: parse/struct.PacketParserBuilder.html#method.buffer_unread_content
-    ///   [`Message`]: struct.Message.html
-    ///   [`PacketParser::buffer_unread_content`]: parse/struct.PacketParser.html#method.buffer_unread_content
+    ///   [`PacketParserBuilder::buffer_unread_content`]: ../parse/struct.PacketParserBuilder.html#method.buffer_unread_content
+    ///   [`Message`]: ../struct.Message.html
+    ///   [`PacketParser::buffer_unread_content`]: ../parse/struct.PacketParser.html#method.buffer_unread_content
     ///
     /// There are three different types of packets:
     ///
@@ -228,8 +228,8 @@ pub struct Common {
     ///     don't actually have a body.  These packets don't use this
     ///     field.
     ///
-    ///   [`UserID`]: struct.UserID.html
-    ///   [`Signature`]: struct.Signature.html
+    ///   [`UserID`]: ../struct.UserID.html
+    ///   [`Signature`]: ../struct.Signature.html
     ///
     ///   - One packet, the literal data packet, includes unstructured
     ///     data.  That data can be stored here.
@@ -243,7 +243,7 @@ pub struct Common {
     ///     deserialization routines, since the content is just an
     ///     OpenPGP message.)
     ///
-    ///   [`PacketParser::next`]: parse/struct.PacketParser.html#method.next
+    ///   [`PacketParser::next`]: ../parse/struct.PacketParser.html#method.next
     ///
     /// Note: if some of a packet's data is processed, and the
     /// `PacketParser` is configured to buffer unread content, then

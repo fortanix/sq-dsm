@@ -45,7 +45,7 @@ impl Message {
     /// This is a simple wrapper function; it does not process the
     /// packets in any way.
     ///
-    ///   [`Packet`s]: struct.Packet.html
+    ///   [`Packet`s]: enum.Packet.html
     pub fn from_packets(p: Vec<Packet>) -> Self {
         Message { top_level: Container { packets: p } }
     }
@@ -55,7 +55,7 @@ impl Message {
     /// This is a simple wrapper function; it does not process the
     /// packets in any way.
     ///
-    ///   [`Packet`]: struct.Packet.html
+    ///   [`Packet`]: enum.Packet.html
     pub fn from_packet(p: Packet) -> Self {
         let mut top_level = Vec::with_capacity(1);
         top_level.push(p);
