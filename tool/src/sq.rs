@@ -30,14 +30,16 @@ mod commands;
 
 fn open_or_stdin(f: Option<&str>) -> Result<Box<io::Read>, failure::Error> {
     match f {
-        Some(f) => Ok(Box::new(File::open(f)?)),
+        Some(f) => Ok(Box::new(File::open(f)
+                               .context("Failed to open input file")?)),
         None => Ok(Box::new(io::stdin())),
     }
 }
 
 fn create_or_stdout(f: Option<&str>) -> Result<Box<io::Write>, failure::Error> {
     match f {
-        Some(f) => Ok(Box::new(File::create(f)?)),
+        Some(f) => Ok(Box::new(File::create(f)
+                               .context("Failed to create output file")?)),
         None => Ok(Box::new(io::stdout())),
     }
 }
