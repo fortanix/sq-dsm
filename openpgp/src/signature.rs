@@ -14,7 +14,7 @@ use Packet;
 use SubpacketArea;
 use serialize::Serialize;
 
-use nettle::rsa;
+use nettle::{dsa, rsa};
 use nettle::rsa::verify_digest_pkcs1;
 
 #[cfg(test)]
@@ -121,9 +121,14 @@ impl Signature {
     pub fn verify_hash(&self, key: &Key, hash_algo: HashAlgorithm, hash: &[u8])
         -> Result<bool>
     {
+        // Extract the signature.
+        let sig_mpis = self.mpis.values()?;
+
         // Extract the public key.
         let key_mpis = key.mpis.values()?;
-        let key = match PublicKeyAlgorithm::from(self.pk_algo) {
+
+        // Verify the signature.
+        match PublicKeyAlgorithm::from(self.pk_algo) {
             PublicKeyAlgorithm::RsaEncryptSign
             | PublicKeyAlgorithm::RsaSign => {
                 if key_mpis.len() != 2 {
@@ -133,35 +138,51 @@ impl Signature {
                                     key_mpis.len())).into());
                 }
 
-                rsa::PublicKey::new(key_mpis[0], key_mpis[1])?
+                if sig_mpis.len() != 1 {
+                    return Err(
+                        Error::MalformedPacket(
+                            format!("Signature: Expected 1 MPI, got {}",
+                                    sig_mpis.len())).into());
+                }
+
+                let key = rsa::PublicKey::new(key_mpis[0], key_mpis[1])?;
+
+                // As described in [Section 5.2.2 and 5.2.3 of RFC 4880],
+                // to verify the signature, we need to encode the
+                // signature data in a PKCS1-v1.5 packet.
+                //
+                //   [Section 5.2.2 and 5.2.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.2
+                verify_digest_pkcs1(&key, hash, hash_algo.oid()?, sig_mpis[0])
+            },
+            PublicKeyAlgorithm::Dsa => {
+                if key_mpis.len() != 4 {
+                    return Err(
+                        Error::MalformedPacket(
+                            format!("Key: Expected 4 MPIs for an DSA key, got {}",
+                                    key_mpis.len())).into());
+                }
+
+                if sig_mpis.len() != 2 {
+                    return Err(
+                        Error::MalformedPacket(
+                            format!("Signature: Expected 2 MPIs, got {}",
+                                    sig_mpis.len())).into());
+                }
+
+                let key = dsa::PublicKey::new(key_mpis[3]);
+                let params = dsa::Params::new(key_mpis[0],  // p
+                                              key_mpis[1],  // q
+                                              key_mpis[2]); // g
+                let signature = dsa::Signature::new(sig_mpis[0],  // r
+                                                    sig_mpis[1]); // s
+                Ok(dsa::verify(&params, &key, hash, &signature))
             },
             _ => {
-                return Err(
+                Err(
                     Error::UnsupportedPublicKeyAlgorithm(self.pk_algo)
-                        .into());
+                        .into())
             }
-        };
-
-        // Extract the signature.
-        let sig_mpi = {
-            let sig_mpis = self.mpis.values()?;
-
-            if sig_mpis.len() != 1 {
-                return Err(
-                    Error::MalformedPacket(
-                        format!("Signature: Expected 1 MPI, got {}",
-                                sig_mpis.len())).into());
-            }
-
-            sig_mpis[0]
-        };
-
-        // As described in [Section 5.2.2 and 5.2.3 of RFC 4880],
-        // to verify the signature, we need to encode the
-        // signature data in a PKCS1-v1.5 packet.
-        //
-        //   [Section 5.2.2 and 5.2.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.2
-        verify_digest_pkcs1(&key, hash, hash_algo.oid()?, sig_mpi)
+        }
     }
 
     /// Returns whether `key` made the signature.
@@ -352,6 +373,11 @@ mod test {
             Test {
                 key: &"testy.pgp"[..],
                 data: &"signed-1-sha256-testy.gpg"[..],
+                good: 1,
+            },
+            Test {
+                key: &"dennis-simon-anton.pgp"[..],
+                data: &"signed-1-dsa.pgp"[..],
                 good: 1,
             },
             // Check with the wrong key.
