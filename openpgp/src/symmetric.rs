@@ -18,6 +18,8 @@ impl SymmetricAlgorithm {
     pub fn key_size(self) -> Result<usize> {
         use nettle::cipher;
         match self {
+            SymmetricAlgorithm::TripleDES => Ok(cipher::Des3::KEY_SIZE),
+            SymmetricAlgorithm::Blowfish => Ok(cipher::Blowfish::KEY_SIZE),
             SymmetricAlgorithm::AES128 => Ok(cipher::Aes128::KEY_SIZE),
             SymmetricAlgorithm::AES192 => Ok(cipher::Aes192::KEY_SIZE),
             SymmetricAlgorithm::AES256 => Ok(cipher::Aes256::KEY_SIZE),
@@ -28,6 +30,8 @@ impl SymmetricAlgorithm {
     pub fn block_size(self) -> Result<usize> {
         use nettle::cipher;
         match self {
+            SymmetricAlgorithm::TripleDES => Ok(cipher::Des3::BLOCK_SIZE),
+            SymmetricAlgorithm::Blowfish => Ok(cipher::Blowfish::BLOCK_SIZE),
             SymmetricAlgorithm::AES128 => Ok(cipher::Aes128::BLOCK_SIZE),
             SymmetricAlgorithm::AES192 => Ok(cipher::Aes192::BLOCK_SIZE),
             SymmetricAlgorithm::AES256 => Ok(cipher::Aes256::BLOCK_SIZE),
@@ -39,6 +43,12 @@ impl SymmetricAlgorithm {
     pub fn make_encrypt_cfb(self, key: &[u8]) -> Result<Box<Mode>> {
         use nettle::{mode,cipher};
         match self {
+            SymmetricAlgorithm::TripleDES =>
+                Ok(Box::new(
+                    mode::Cfb::<cipher::Des3>::with_encrypt_key(&key[..]))),
+            SymmetricAlgorithm::Blowfish =>
+                Ok(Box::new(
+                    mode::Cfb::<cipher::Blowfish>::with_encrypt_key(&key[..]))),
             SymmetricAlgorithm::AES128 =>
                 Ok(Box::new(
                     mode::Cfb::<cipher::Aes128>::with_encrypt_key(&key[..]))),
@@ -58,6 +68,12 @@ impl SymmetricAlgorithm {
     pub fn make_decrypt_cfb(self, key: &[u8]) -> Result<Box<Mode>> {
         use nettle::{mode,cipher};
         match self {
+            SymmetricAlgorithm::TripleDES =>
+                Ok(Box::new(
+                    mode::Cfb::<cipher::Des3>::with_decrypt_key(&key[..]))),
+            SymmetricAlgorithm::Blowfish =>
+                Ok(Box::new(
+                    mode::Cfb::<cipher::Blowfish>::with_decrypt_key(&key[..]))),
             SymmetricAlgorithm::AES128 =>
                 Ok(Box::new(
                     mode::Cfb::<cipher::Aes128>::with_decrypt_key(&key[..]))),
@@ -521,6 +537,43 @@ mod tests {
             let mut reference = Vec::new();
             cipherfile.read_to_end(&mut reference).unwrap();
             assert_eq!(&reference[..], &ciphertext[..]);
+        }
+    }
+
+    /// This test tries to encrypt, then decrypt some data.
+    #[test]
+    fn roundtrip() {
+        use std::io::Cursor;
+        use nettle::Yarrow;
+        let mut rng = Yarrow::default();
+
+        for algo in [SymmetricAlgorithm::TripleDES,
+                     SymmetricAlgorithm::Blowfish,
+                     SymmetricAlgorithm::AES128,
+                     SymmetricAlgorithm::AES192,
+                     SymmetricAlgorithm::AES256,
+                     SymmetricAlgorithm::Twofish].iter() {
+            let mut key = vec![0; algo.key_size().unwrap()];
+            rng.random(&mut key);
+
+            let mut ciphertext = Vec::new();
+            {
+                let mut encryptor = Encryptor::new(*algo, &key, &mut ciphertext)
+                    .unwrap();
+
+                encryptor.write_all(PLAINTEXT).unwrap();
+            }
+
+            let mut plaintext = Vec::new();
+            {
+                let mut decryptor = Decryptor::new(*algo, &key,
+                                                   Cursor::new(&mut ciphertext))
+                    .unwrap();
+
+                decryptor.read_to_end(&mut plaintext).unwrap();
+            }
+
+            assert_eq!(&plaintext[..], &PLAINTEXT[..]);
         }
     }
 }
