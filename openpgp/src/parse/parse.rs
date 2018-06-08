@@ -1335,7 +1335,7 @@ impl MPI {
     ///
     ///   [Section 3.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-3.2
     fn parse<'a>(name: &'static str, php: &mut PacketHeaderParser<'a>) -> Result<Self> {
-        let bits = php.parse_be_u16("mpi-len")? as usize;
+        let bits = php.parse_be_u16("mpi_len")? as usize;
         let bytes = (bits + 7) / 8;
         let value = Vec::from(&php.parse_bytes(name, bytes)?[..bytes]);
 
@@ -1439,7 +1439,7 @@ impl MPIs {
             }
 
             EdDSA => {
-                let curve_len = php.parse_u8("curve-len")? as usize;
+                let curve_len = php.parse_u8("curve_len")? as usize;
                 let curve = Vec::from(&php.parse_bytes("curve", curve_len)?[..curve_len]);
                 let q = MPI::parse("eddsa_public", php)?;
 
@@ -1450,7 +1450,7 @@ impl MPIs {
             }
 
             ECDSA => {
-                let curve_len = php.parse_u8("curve-len")? as usize;
+                let curve_len = php.parse_u8("curve_len")? as usize;
                 let curve = Vec::from(&php.parse_bytes("curve", curve_len)?[..curve_len]);
                 let q = MPI::parse("ecdsa_public", php)?;
 
@@ -1461,7 +1461,7 @@ impl MPIs {
             }
 
             ECDH => {
-                let curve_len = php.parse_u8("curve-len")? as usize;
+                let curve_len = php.parse_u8("curve_len")? as usize;
                 let curve = Vec::from(&php.parse_bytes("curve", curve_len)?[..curve_len]);
                 let q = MPI::parse("ecdh_public", php)?;
                 let kdf_len = php.parse_u8("kdf")?;
@@ -1471,9 +1471,9 @@ impl MPIs {
                             "wrong kdf length".into()).into());
                 }
 
-                let _reserved = php.parse_u8("kdf-reserved")?;
-                let hash: HashAlgorithm = php.parse_u8("kdf-hash")?.into();
-                let sym: SymmetricAlgorithm = php.parse_u8("kdf-sym")?.into();
+                let _reserved = php.parse_u8("kdf_reserved")?;
+                let hash: HashAlgorithm = php.parse_u8("kdf_hash")?.into();
+                let sym: SymmetricAlgorithm = php.parse_u8("kdf_sym")?.into();
 
                 Ok(MPIs::ECDHPublicKey{
                     curve: curve.into_boxed_slice(),
