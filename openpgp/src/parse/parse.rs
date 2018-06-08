@@ -1385,7 +1385,42 @@ impl MPI {
             value: value.into_boxed_slice()
         })
     }
+
+    /// Dissects this MPI describing a point into the individual
+    /// coordinates.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Error::UnsupportedEllipticCurve` if the curve is not
+    /// supported, `Error::InvalidArgument` if the point is
+    /// formatted incorrectly.
+    pub fn decode_point(&self, curve: &Curve) -> Result<(&[u8], &[u8])> {
+        // Length of one coordinate in bytes, rounded up.
+        let coordinate_length = (curve.len()? + 7) / 8;
+
+        // Check length of Q.
+        let expected_length =
+            1 // 0x04.
+            + (2 // (x, y)
+               * coordinate_length);
+
+        if self.value.len() != expected_length {
+            return Err(Error::InvalidArgument(
+                format!("Invalid length of MPI: {} (expected {})",
+                        self.value.len(), expected_length)).into());
+        }
+
+        if self.value[0] != 0x04 {
+            return Err(Error::InvalidArgument(
+                format!("Bad prefix: {:x} (expected 0x04)", self.value[0]))
+                       .into());
+        }
+
+        Ok((&self.value[1..1 + coordinate_length],
+            &self.value[1 + coordinate_length..]))
+    }
 }
+
 impl MPIs {
     pub fn parse_public_key_naked<T: AsRef<[u8]>>(algo: PublicKeyAlgorithm, buf: T)
         -> Result<Self> {
