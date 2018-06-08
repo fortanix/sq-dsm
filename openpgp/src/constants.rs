@@ -4,9 +4,11 @@ use std::result;
 
 use quickcheck::{Arbitrary, Gen};
 
-/// The OpenPGP public key algorithms as defined in [Section 9.1 of RFC 4880].
+/// The OpenPGP public key algorithms as defined in [Section 9.1 of
+/// RFC 4880], and [Section 5 of RFC 6637].
 ///
 ///   [Section 9.1 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-9.1
+///   [Section 5 of RFC 6637]: https://tools.ietf.org/html/rfc6637
 ///
 /// The values correspond to the serialized format.
 #[derive(Clone,Copy,PartialEq,Eq,Debug,PartialOrd,Ord)]
