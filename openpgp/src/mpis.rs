@@ -73,6 +73,8 @@ impl MPIs {
     pub fn serialized_len(&self) -> usize {
         use MPIs::*;
 
+        // Fields are mostly MPIs that consist of two octets length plus the big endian value
+        // itself. All other field types are commented.
         match self {
             &None => 0,
 
@@ -95,18 +97,31 @@ impl MPIs {
             &ElgamalSecretKey{ ref x } => 2 + x.value.len(),
             &ElgamalCiphertext{ ref e, ref c } => 2 + e.value.len() + 2 + c.value.len(),
 
-            &EdDSAPublicKey{ ref curve, ref q } => 2 + q.value.len() + 1 + curve.len(),
+            &EdDSAPublicKey{ ref curve, ref q } =>
+                2 + q.value.len() +
+                // one length octet plus the ASN.1 OID
+                1 + curve.len(),
             &EdDSASecretKey{ ref scalar } => 2 + scalar.value.len(),
             &EdDSASignature{ ref r, ref s } => 2 + r.value.len() + 2 + s.value.len(),
 
-            &ECDSAPublicKey{ ref curve, ref q } => 2 + q.value.len() + 1 + curve.len(),
+            &ECDSAPublicKey{ ref curve, ref q } =>
+                2 + q.value.len() +
+                // one length octet plus the ASN.1 OID
+                1 + curve.len(),
             &ECDSASecretKey{ ref scalar } => 2 + scalar.value.len(),
             &ECDSASignature{ ref r, ref s } => 2 + r.value.len() + 2 + s.value.len(),
 
             &ECDHPublicKey{ ref curve, ref q,.. } =>
-                1 + curve.len() + 2 + q.value.len() + 1 + 1,
+                // one length octet plus the ASN.1 OID
+                1 + curve.len() +
+                2 + q.value.len() +
+                // one octet length, one reserved and two algorithm identifier.
+                4,
             &ECDHSecretKey{ ref scalar } => 2 + scalar.value.len(),
-            &ECDHCiphertext{ ref e, ref key } => 2 + e.value.len() + 1 + key.len(),
+            &ECDHCiphertext{ ref e, ref key } =>
+                2 + e.value.len() +
+                // one length octet plus ephemeral key
+                1 + key.len(),
         }
     }
 
