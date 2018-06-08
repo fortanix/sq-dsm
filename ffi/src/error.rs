@@ -70,6 +70,9 @@ pub enum Status {
     /// Unknown public key algorithm.
     UnknownPublicKeyAlgorithm = -17,
 
+    /// Unknown elliptic curve.
+    UnknownEllipticCurve = -21,
+
     /// Unknown symmetric algorithm.
     UnknownSymmetricAlgorithm = -8,
 
@@ -109,6 +112,7 @@ pub enum Status {
     BadSignature = -19,
 
     // XXX: Skipping UnsupportedSignatureType = -20
+    // XXX: Skipping UnknownEllipticCurve = -21
 }
 
 impl<'a> From<&'a failure::Error> for Status {
@@ -136,6 +140,8 @@ impl<'a> From<&'a failure::Error> for Status {
                     Status::UnknownHashAlgorithm,
                 &openpgp::Error::UnknownPublicKeyAlgorithm(_) =>
                     Status::UnknownPublicKeyAlgorithm,
+                &openpgp::Error::UnknownEllipticCurve(_) =>
+                    Status::UnknownEllipticCurve,
                 &openpgp::Error::UnknownSymmetricAlgorithm(_) =>
                     Status::UnknownSymmetricAlgorithm,
                 &openpgp::Error::UnsupportedHashAlgorithm(_) =>

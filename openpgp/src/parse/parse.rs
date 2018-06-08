@@ -41,6 +41,9 @@ use {
     KeyID,
 
 };
+use constants::{
+    Curve,
+};
 use symmetric::{Decryptor, BufferedReaderDecryptor};
 
 mod partial_body;
@@ -1440,29 +1443,29 @@ impl MPIs {
 
             EdDSA => {
                 let curve_len = php.parse_u8("curve_len")? as usize;
-                let curve = Vec::from(&php.parse_bytes("curve", curve_len)?[..curve_len]);
+                let curve = php.parse_bytes("curve", curve_len)?;
                 let q = MPI::parse("eddsa_public", php)?;
 
                 Ok(MPIs::EdDSAPublicKey{
-                    curve: curve.into_boxed_slice(),
+                    curve: Curve::from_oid(&curve)?,
                     q: q
                 })
             }
 
             ECDSA => {
                 let curve_len = php.parse_u8("curve_len")? as usize;
-                let curve = Vec::from(&php.parse_bytes("curve", curve_len)?[..curve_len]);
+                let curve = php.parse_bytes("curve", curve_len)?;
                 let q = MPI::parse("ecdsa_public", php)?;
 
                 Ok(MPIs::ECDSAPublicKey{
-                    curve: curve.into_boxed_slice(),
+                    curve: Curve::from_oid(&curve)?,
                     q: q
                 })
             }
 
             ECDH => {
                 let curve_len = php.parse_u8("curve_len")? as usize;
-                let curve = Vec::from(&php.parse_bytes("curve", curve_len)?[..curve_len]);
+                let curve = php.parse_bytes("curve", curve_len)?;
                 let q = MPI::parse("ecdh_public", php)?;
                 let kdf_len = php.parse_u8("kdf")?;
 
@@ -1476,7 +1479,7 @@ impl MPIs {
                 let sym: SymmetricAlgorithm = php.parse_u8("kdf_sym")?.into();
 
                 Ok(MPIs::ECDHPublicKey{
-                    curve: curve.into_boxed_slice(),
+                    curve: Curve::from_oid(&curve)?,
                     q: q,
                     hash: hash,
                     sym: sym

@@ -4,6 +4,9 @@ use std::result;
 
 use quickcheck::{Arbitrary, Gen};
 
+use Error;
+use Result;
+
 /// The OpenPGP public key algorithms as defined in [Section 9.1 of
 /// RFC 4880], and [Section 5 of RFC 6637].
 ///
@@ -88,6 +91,103 @@ impl fmt::Display for PublicKeyAlgorithm {
 impl Arbitrary for PublicKeyAlgorithm {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
         u8::arbitrary(g).into()
+    }
+}
+
+/// Elliptic curves used in OpenPGP.
+///
+/// `PublicKeyAlgorithm` does not differentiate between elliptic
+/// curves.  Instead, the curve is specified using an OID prepended to
+/// the key material.  We provide this type to be able to match on the
+/// curves.
+#[derive(Debug, Copy, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Curve {
+    /// NIST curve P-256.
+    NistP256,
+    /// NIST curve P-384.
+    NistP384,
+    /// NIST curve P-521.
+    NistP521,
+    /// brainpoolP256r1.
+    BrainpoolP256,
+    /// brainpoolP512r1.
+    BrainpoolP512,
+    /// D.J. Bernstein's "Twisted" Edwards curve Ed25519.
+    Ed25519,
+    /// Elliptic curve Diffie-Hellman using D.J. Bernstein's Curve25519.
+    Cv25519,
+}
+
+const NIST_P256_OID: &[u8] = &[0x2A, 0x86, 0x48, 0xCE, 0x3D, 0x03, 0x01, 0x07];
+const NIST_P384_OID: &[u8] = &[0x2B, 0x81, 0x04, 0x00, 0x22];
+const NIST_P521_OID: &[u8] = &[0x2B, 0x81, 0x04, 0x00, 0x23];
+const BRAINPOOL_P256_OID: &[u8] =
+    &[0x2B, 0x24, 0x03, 0x03, 0x02, 0x08, 0x01, 0x01, 0x07];
+const BRAINPOOL_P512_OID: &[u8] =
+    &[0x2B, 0x24, 0x03, 0x03, 0x02, 0x08, 0x01, 0x01, 0x0D];
+const ED25519_OID: &[u8] =
+    &[0x2B, 0x06, 0x01, 0x04, 0x01, 0xDA, 0x47, 0x0F, 0x01];
+const CV25519_OID: &[u8] =
+    &[0x2B, 0x06, 0x01, 0x04, 0x01, 0x97, 0x55, 0x01, 0x05, 0x01];
+
+impl Curve {
+    /// Parses the given OID.
+    pub fn from_oid(oid: &[u8]) -> Result<Curve> {
+        // Match on OIDs, see section 11 of RFC6637.
+        match oid {
+            NIST_P256_OID => Ok(Curve::NistP256),
+            NIST_P384_OID => Ok(Curve::NistP384),
+            NIST_P521_OID => Ok(Curve::NistP521),
+            BRAINPOOL_P256_OID => Ok(Curve::BrainpoolP256),
+            BRAINPOOL_P512_OID => Ok(Curve::BrainpoolP512),
+            ED25519_OID => Ok(Curve::Ed25519),
+            CV25519_OID => Ok(Curve::Cv25519),
+            oid =>
+                Err(Error::UnknownEllipticCurve(
+                    format!("Unknown curve with OID: {:?}", oid))
+                    .into()),
+        }
+    }
+
+    /// Returns this curves OID.
+    pub fn oid(&self) -> &[u8] {
+        match self {
+            &Curve::NistP256 => NIST_P256_OID,
+            &Curve::NistP384 => NIST_P384_OID,
+            &Curve::NistP521 => NIST_P521_OID,
+            &Curve::BrainpoolP256 => BRAINPOOL_P256_OID,
+            &Curve::BrainpoolP512 => BRAINPOOL_P512_OID,
+            &Curve::Ed25519 => ED25519_OID,
+            &Curve::Cv25519 => CV25519_OID,
+        }
+    }
+
+    /// Returns the length of a coordinate in bits.
+    pub fn len(&self) -> usize {
+        match self {
+            &Curve::NistP256 => 256,
+            &Curve::NistP384 => 384,
+            &Curve::NistP521 => 521,
+            &Curve::BrainpoolP256 => 256,
+            &Curve::BrainpoolP512 => 512,
+            &Curve::Ed25519 => 256,
+            &Curve::Cv25519 => 256,
+        }
+    }
+}
+
+impl Arbitrary for Curve {
+    fn arbitrary<G: Gen>(g: &mut G) -> Self {
+        match u8::arbitrary(g) % 7 {
+            0 => Curve::NistP256,
+            1 => Curve::NistP384,
+            2 => Curve::NistP521,
+            3 => Curve::BrainpoolP256,
+            4 => Curve::BrainpoolP512,
+            5 => Curve::Ed25519,
+            6 => Curve::Cv25519,
+            _ => unreachable!(),
+        }
     }
 }
 
@@ -553,6 +653,13 @@ mod tests {
                 PublicKeyAlgorithm::Private(u) => u >= 100 && u <= 110,
                 _ => true
             }
+        }
+    }
+
+
+    quickcheck! {
+        fn curve_roundtrip(curve: Curve) -> bool {
+            curve == Curve::from_oid(curve.oid()).unwrap()
         }
     }
 

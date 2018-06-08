@@ -142,6 +142,9 @@ pub enum Error {
     #[fail(display = "Unknown public key algorithm: {}", _0)]
     UnknownPublicKeyAlgorithm(PublicKeyAlgorithm),
 
+    #[fail(display = "Unknown elliptic curve: {}", _0)]
+    UnknownEllipticCurve(String),
+
     #[fail(display = "Unknown symmetric algorithm: {}", _0)]
     UnknownSymmetricAlgorithm(SymmetricAlgorithm),
 

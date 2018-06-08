@@ -260,8 +260,8 @@ impl Serialize for MPIs {
                 w.write_all(&*c.value)?;
             }
             &EdDSAPublicKey{ ref curve, ref q } => {
-                w.write_all(&[curve.len() as u8])?;
-                w.write_all(&*curve)?;
+                w.write_all(&[curve.oid().len() as u8])?;
+                w.write_all(curve.oid())?;
 
                 write_be_u16(w, q.bits as u16)?;
                 w.write_all(&*q.value)?;
@@ -278,8 +278,8 @@ impl Serialize for MPIs {
                 w.write_all(&*s.value)?;
             }
             &ECDSAPublicKey{ ref curve, ref q } => {
-                w.write_all(&[curve.len() as u8])?;
-                w.write_all(&curve)?;
+                w.write_all(&[curve.oid().len() as u8])?;
+                w.write_all(curve.oid())?;
 
                 write_be_u16(w, q.bits as u16)?;
                 w.write_all(&*q.value)?;
@@ -295,8 +295,8 @@ impl Serialize for MPIs {
                 w.write_all(&*s.value)?;
             }
             &ECDHPublicKey{ ref curve, ref q, hash, sym } => {
-                w.write_all(&[curve.len() as u8])?;
-                w.write_all(&curve)?;
+                w.write_all(&[curve.oid().len() as u8])?;
+                w.write_all(curve.oid())?;
                 write_be_u16(w, q.bits as u16)?;
                 w.write_all(&*q.value)?;
                 w.write_all(&[3u8, 1u8, u8::from(hash), u8::from(sym)])?;

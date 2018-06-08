@@ -4,6 +4,7 @@ use quickcheck::{Arbitrary, Gen};
 use constants::{
     SymmetricAlgorithm,
     HashAlgorithm,
+    Curve,
 };
 
 use nettle::Hash;
@@ -49,16 +50,16 @@ pub enum MPIs {
     ElgamalSecretKey{ x: MPI },
     ElgamalCiphertext{ e: MPI, c: MPI },
 
-    EdDSAPublicKey{ curve: Box<[u8]>, q: MPI },
+    EdDSAPublicKey{ curve: Curve, q: MPI },
     EdDSASecretKey{ scalar: MPI },
     EdDSASignature{ r: MPI, s: MPI },
 
-    ECDSAPublicKey{ curve: Box<[u8]>, q: MPI },
+    ECDSAPublicKey{ curve: Curve, q: MPI },
     ECDSASecretKey{ scalar: MPI },
     ECDSASignature{ r: MPI, s: MPI },
 
     ECDHPublicKey{
-        curve: Box<[u8]>, q: MPI,
+        curve: Curve, q: MPI,
         hash: HashAlgorithm, sym: SymmetricAlgorithm
     },
     ECDHSecretKey{ scalar: MPI },
@@ -100,20 +101,20 @@ impl MPIs {
             &EdDSAPublicKey{ ref curve, ref q } =>
                 2 + q.value.len() +
                 // one length octet plus the ASN.1 OID
-                1 + curve.len(),
+                1 + curve.oid().len(),
             &EdDSASecretKey{ ref scalar } => 2 + scalar.value.len(),
             &EdDSASignature{ ref r, ref s } => 2 + r.value.len() + 2 + s.value.len(),
 
             &ECDSAPublicKey{ ref curve, ref q } =>
                 2 + q.value.len() +
                 // one length octet plus the ASN.1 OID
-                1 + curve.len(),
+                1 + curve.oid().len(),
             &ECDSASecretKey{ ref scalar } => 2 + scalar.value.len(),
             &ECDSASignature{ ref r, ref s } => 2 + r.value.len() + 2 + s.value.len(),
 
             &ECDHPublicKey{ ref curve, ref q,.. } =>
                 // one length octet plus the ASN.1 OID
-                1 + curve.len() +
+                1 + curve.oid().len() +
                 2 + q.value.len() +
                 // one octet length, one reserved and two algorithm identifier.
                 4,
@@ -184,8 +185,8 @@ impl MPIs {
             }
 
             &EdDSAPublicKey{ ref curve, ref q } => {
-                hash.update(&[curve.len() as u8]);
-                hash.update(&curve);
+                hash.update(&[curve.oid().len() as u8]);
+                hash.update(curve.oid());
                 q.hash(hash);
             }
 
@@ -199,8 +200,8 @@ impl MPIs {
              }
 
             &ECDSAPublicKey{ ref curve, ref q } => {
-                hash.update(&[curve.len() as u8]);
-                hash.update(&curve);
+                hash.update(&[curve.oid().len() as u8]);
+                hash.update(curve.oid());
                 q.hash(hash);
              }
 
@@ -215,8 +216,8 @@ impl MPIs {
 
             &ECDHPublicKey{ ref curve, ref q, hash: h, sym } => {
                 // curve
-                hash.update(&[curve.len() as u8]);
-                hash.update(&curve);
+                hash.update(&[curve.oid().len() as u8]);
+                hash.update(curve.oid());
 
                 // point MPI
                 q.hash(hash);
@@ -300,7 +301,7 @@ impl Arbitrary for MPIs {
             },
 
             10 => MPIs::EdDSAPublicKey{
-                curve: <Vec<u8>>::arbitrary(g).into_boxed_slice(),
+                curve: Curve::arbitrary(g),
                 q: MPI::arbitrary(g)
             },
             11 => MPIs::EdDSASecretKey{ scalar: MPI::arbitrary(g) },
@@ -310,14 +311,14 @@ impl Arbitrary for MPIs {
             },
 
             13 => MPIs::ECDSAPublicKey{
-                curve: <Vec<u8>>::arbitrary(g).into_boxed_slice(),
-                q: MPI::arbitrary(g)
+                curve: Curve::arbitrary(g),
+                q: MPI::arbitrary(g),
             },
             14 => MPIs::ECDSASecretKey{ scalar: MPI::arbitrary(g) },
             15 => MPIs::ECDSASignature{ r: MPI::arbitrary(g), s: MPI::arbitrary(g) },
 
             16 => MPIs::ECDHPublicKey{
-                curve: <Vec<u8>>::arbitrary(g).into_boxed_slice(),
+                curve: Curve::arbitrary(g),
                 q: MPI::arbitrary(g),
                 hash: HashAlgorithm::arbitrary(g),
                 sym: SymmetricAlgorithm::arbitrary(g)
