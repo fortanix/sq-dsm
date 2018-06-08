@@ -181,133 +181,100 @@ impl Serialize for KeyID {
     }
 }
 
+impl Serialize for MPI {
+    fn serialize<W: io::Write>(&self, w: &mut W) -> Result<()> {
+        write_be_u16(w, self.bits as u16)?;
+        w.write_all(&self.value)?;
+        Ok(())
+    }
+}
+
 impl Serialize for MPIs {
     fn serialize<W: io::Write>(&self, w: &mut W) -> Result<()> {
         use MPIs::*;
 
         match self {
             &RSAPublicKey{ ref e, ref n } => {
-                write_be_u16(w, n.bits as u16)?;
-                w.write_all(&*n.value)?;
-
-                write_be_u16(w, e.bits as u16)?;
-                w.write_all(&*e.value)?;
+                n.serialize(w)?;
+                e.serialize(w)?;
             }
             &RSASecretKey{ ref d, ref p, ref q, ref u } => {
-                write_be_u16(w, d.bits as u16)?;
-                w.write_all(&*d.value)?;
-
-                write_be_u16(w, p.bits as u16)?;
-                w.write_all(&*p.value)?;
-
-                write_be_u16(w, q.bits as u16)?;
-                w.write_all(&*q.value)?;
-
-                write_be_u16(w, u.bits as u16)?;
-                w.write_all(&*u.value)?;
+                d.serialize(w)?;
+                p.serialize(w)?;
+                q.serialize(w)?;
+                u.serialize(w)?;
             }
             &RSACiphertext{ ref c } => {
-                write_be_u16(w, c.bits as u16)?;
-                w.write_all(&*c.value)?;
+                c.serialize(w)?;
             }
             &RSASignature{ ref s } => {
-                write_be_u16(w, s.bits as u16)?;
-                w.write_all(&*s.value)?;
+                s.serialize(w)?;
             }
             &DSAPublicKey{ ref p, ref q, ref g, ref y } => {
-                write_be_u16(w, p.bits as u16)?;
-                w.write_all(&*p.value)?;
-
-                write_be_u16(w, q.bits as u16)?;
-                w.write_all(&*q.value)?;
-
-                write_be_u16(w, g.bits as u16)?;
-                w.write_all(&*g.value)?;
-
-                write_be_u16(w, y.bits as u16)?;
-                w.write_all(&*y.value)?;
+                p.serialize(w)?;
+                q.serialize(w)?;
+                g.serialize(w)?;
+                y.serialize(w)?;
             }
             &DSASecretKey{ ref x } => {
-                write_be_u16(w, x.bits as u16)?;
-                w.write_all(&*x.value)?;
+                x.serialize(w)?;
             }
             &DSASignature{ ref r, ref s } => {
-                write_be_u16(w, r.bits as u16)?;
-                w.write_all(&*r.value)?;
-
-                write_be_u16(w, s.bits as u16)?;
-                w.write_all(&*s.value)?;
+                r.serialize(w)?;
+                s.serialize(w)?;
             }
             &ElgamalPublicKey{ ref p, ref g, ref y } => {
-                write_be_u16(w, p.bits as u16)?;
-                w.write_all(&*p.value)?;
-
-                write_be_u16(w, g.bits as u16)?;
-                w.write_all(&*g.value)?;
-
-                write_be_u16(w, y.bits as u16)?;
-                w.write_all(&*y.value)?;
+                p.serialize(w)?;
+                g.serialize(w)?;
+                y.serialize(w)?;
             }
             &ElgamalSecretKey{ ref x } => {
-                write_be_u16(w, x.bits as u16)?;
-                w.write_all(&*x.value)?;
+                x.serialize(w)?;
             }
             &ElgamalCiphertext{ ref e, ref c } => {
-                write_be_u16(w, e.bits as u16)?;
-                w.write_all(&*e.value)?;
-
-                write_be_u16(w, c.bits as u16)?;
-                w.write_all(&*c.value)?;
+                e.serialize(w)?;
+                c.serialize(w)?;
             }
             &EdDSAPublicKey{ ref curve, ref q } => {
                 w.write_all(&[curve.oid().len() as u8])?;
                 w.write_all(curve.oid())?;
 
-                write_be_u16(w, q.bits as u16)?;
-                w.write_all(&*q.value)?;
+                q.serialize(w)?;
             }
             &EdDSASecretKey{ ref scalar } => {
-                write_be_u16(w, scalar.bits as u16)?;
-                w.write_all(&*scalar.value)?;
+                scalar.serialize(w)?;
             }
             &EdDSASignature{ ref r, ref s } => {
-                write_be_u16(w, r.bits as u16)?;
-                w.write_all(&*r.value)?;
-
-                write_be_u16(w, s.bits as u16)?;
-                w.write_all(&*s.value)?;
+                r.serialize(w)?;
+                s.serialize(w)?;
             }
             &ECDSAPublicKey{ ref curve, ref q } => {
                 w.write_all(&[curve.oid().len() as u8])?;
                 w.write_all(curve.oid())?;
 
-                write_be_u16(w, q.bits as u16)?;
-                w.write_all(&*q.value)?;
+                q.serialize(w)?;
             }
             &ECDSASecretKey{ ref scalar } => {
-                write_be_u16(w, scalar.bits as u16)?;
-                w.write_all(&*scalar.value)?;
+                scalar.serialize(w)?;
             }
             &ECDSASignature{ ref r, ref s } => {
-                write_be_u16(w, r.bits as u16)?;
-                w.write_all(&*r.value)?;
-                write_be_u16(w, s.bits as u16)?;
-                w.write_all(&*s.value)?;
+                r.serialize(w)?;
+                s.serialize(w)?;
             }
             &ECDHPublicKey{ ref curve, ref q, hash, sym } => {
                 w.write_all(&[curve.oid().len() as u8])?;
                 w.write_all(curve.oid())?;
-                write_be_u16(w, q.bits as u16)?;
-                w.write_all(&*q.value)?;
+
+                q.serialize(w)?;
+
                 w.write_all(&[3u8, 1u8, u8::from(hash), u8::from(sym)])?;
             }
             &ECDHSecretKey{ ref scalar } => {
-                write_be_u16(w, scalar.bits as u16)?;
-                w.write_all(&*scalar.value)?;
+                scalar.serialize(w)?;
             }
             &ECDHCiphertext{ ref e, ref key } => {
-                write_be_u16(w, e.bits as u16)?;
-                w.write_all(&*e.value)?;
+                e.serialize(w)?;
+
                 w.write_all(&[key.len() as u8])?;
                 w.write_all(&key)?;
             }
