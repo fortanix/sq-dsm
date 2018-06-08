@@ -1,5 +1,6 @@
 use std::fmt;
 
+use constants::Curve;
 use Error;
 use Result;
 use MPIs;
@@ -14,7 +15,7 @@ use Packet;
 use SubpacketArea;
 use serialize::Serialize;
 
-use nettle::{dsa, rsa};
+use nettle::{dsa, ecdsa, rsa};
 use nettle::rsa::verify_digest_pkcs1;
 
 #[cfg(test)]
@@ -150,8 +151,25 @@ impl Signature {
             (EdDSA, &EdDSAPublicKey{ .. }, &EdDSASignature{ .. }) =>
                 Err(Error::UnsupportedPublicKeyAlgorithm(self.pk_algo).into()),
 
-            (ECDSA, &ECDSAPublicKey{ .. }, &ECDSASignature{ .. }) =>
-                Err(Error::UnsupportedPublicKeyAlgorithm(self.pk_algo).into()),
+            (ECDSA, &ECDSAPublicKey{ ref curve, ref q },
+             &ECDSASignature{ ref s, ref r }) => {
+                let (x, y) = q.decode_point(curve)?;
+                let key = match curve {
+                    Curve::NistP256 =>
+                        ecdsa::PublicKey::new::<ecdsa::Secp256r1>(x, y)?,
+                    Curve::NistP384 =>
+                        ecdsa::PublicKey::new::<ecdsa::Secp384r1>(x, y)?,
+                    Curve::NistP521 =>
+                        ecdsa::PublicKey::new::<ecdsa::Secp521r1>(x, y)?,
+                    _ =>
+                        return Err(
+                            Error::UnsupportedEllipticCurve(curve.clone())
+                                .into()),
+                };
+
+                let signature = dsa::Signature::new(&r.value, &s.value);
+                Ok(ecdsa::verify(&key, hash, &signature))
+            },
 
             _ => Err(Error::MalformedPacket(format!(
                 "unsupported combination of algorithm {:?}, key {:?} and signature {:?}.",
@@ -352,6 +370,21 @@ mod test {
             Test {
                 key: &"dennis-simon-anton.pgp"[..],
                 data: &"signed-1-dsa.pgp"[..],
+                good: 1,
+            },
+            Test {
+                key: &"erika-corinna-daniela-simone-antonia-nistp256.pgp"[..],
+                data: &"signed-1-ecdsa-nistp256.pgp"[..],
+                good: 1,
+            },
+            Test {
+                key: &"erika-corinna-daniela-simone-antonia-nistp384.pgp"[..],
+                data: &"signed-1-ecdsa-nistp384.pgp"[..],
+                good: 1,
+            },
+            Test {
+                key: &"erika-corinna-daniela-simone-antonia-nistp521.pgp"[..],
+                data: &"signed-1-ecdsa-nistp521.pgp"[..],
                 good: 1,
             },
             // Check with the wrong key.
