@@ -1,3 +1,8 @@
+//! Constants used in OpenPGP.
+//!
+//! This module defines enumerations describing algorithms used in
+//! OpenPGP.
+
 use std::fmt;
 use std::str::FromStr;
 use std::result;

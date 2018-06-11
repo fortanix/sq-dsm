@@ -13,7 +13,8 @@ use std::process::exit;
 
 use clap::{App, Arg, AppSettings};
 
-use openpgp::{HashAlgorithm, TPK, Packet, Signature, KeyID, Message};
+use openpgp::{TPK, Packet, Signature, KeyID, Message};
+use openpgp::constants::HashAlgorithm;
 use openpgp::parse::PacketParser;
 
 // The argument parser.

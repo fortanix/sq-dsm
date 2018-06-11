@@ -93,10 +93,8 @@ mod reader;
 pub use reader::Reader;
 
 mod message;
-mod constants;
-// XXX: Do we really want to put that into the toplevel?  Why not make
-// constants public?
-pub use constants::{
+pub mod constants;
+use constants::{
     PublicKeyAlgorithm,
     SymmetricAlgorithm,
     CompressionAlgorithm,

@@ -16,14 +16,10 @@ use {
     Result,
     MPIs,
     MPI,
-    SymmetricAlgorithm,
     CTB,
     BodyLength,
     S2K,
     Error,
-    HashAlgorithm,
-    CompressionAlgorithm,
-    PublicKeyAlgorithm,
     Tag,
     Header,
     Unknown,
@@ -42,7 +38,11 @@ use {
 
 };
 use constants::{
+    CompressionAlgorithm,
     Curve,
+    HashAlgorithm,
+    PublicKeyAlgorithm,
+    SymmetricAlgorithm,
 };
 use symmetric::{Decryptor, BufferedReaderDecryptor};
 

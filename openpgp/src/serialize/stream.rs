@@ -6,7 +6,6 @@ use nettle::{Hash, Yarrow};
 
 use {
     Error,
-    SymmetricAlgorithm,
     HashAlgorithm,
     Literal,
     MDC,
@@ -27,6 +26,7 @@ use super::{
 };
 use constants::{
     CompressionAlgorithm,
+    SymmetricAlgorithm,
 };
 
 /// Cookie must be public because the writers are.
@@ -502,7 +502,7 @@ impl<'a> writer::Stackable<'a, Cookie> for LiteralWriter<'a> {
 ///
 /// ```
 /// use openpgp::serialize::stream::{wrap, Compressor, LiteralWriter};
-/// use openpgp::CompressionAlgorithm;
+/// use openpgp::constants::CompressionAlgorithm;
 /// # use openpgp::Result;
 /// # f().unwrap();
 /// # fn f() -> Result<()> {
