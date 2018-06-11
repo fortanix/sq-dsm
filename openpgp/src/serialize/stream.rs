@@ -2,11 +2,13 @@
 
 use std::fmt;
 use std::io::{self, Write};
+use std::iter;
 use nettle::{Hash, Yarrow};
 
 use {
     Error,
     HashAlgorithm,
+    Key,
     Literal,
     MDC,
     OnePassSig,
@@ -707,27 +709,55 @@ impl<'a> Encryptor<'a> {
 
         // Write the PKESK packet(s).
         for tpk in tpks {
-            // XXX: Handle encryption-capable primary keys.
-            let subkeys = tpk.subkeys().filter(|skb| {
+            // We need to find all applicable encryption (sub)keys.
+            let can_encrypt = |key: &Key, sig: &Signature| -> bool {
+                (match encryption_mode {
+                    EncryptionMode::AtRest =>
+                        sig.key_flags().can_encrypt_at_rest(),
+                    EncryptionMode::ForTransport =>
+                        sig.key_flags().can_encrypt_for_transport(),
+                }
+                 // Check expiry.
+                 && ! sig.signature_expired()
+                 && ! sig.key_expired(key))
+            };
+
+            // Gather all encryption-capable subkeys.
+            let subkeys = tpk.subkeys().filter_map(|skb| {
                 let key = skb.subkey();
                 // The first signature is the most recent binding
                 // signature.
-                skb.selfsigs().next()
-                    .map(|sig| match encryption_mode {
-                        EncryptionMode::AtRest =>
-                            sig.key_flags().can_encrypt_at_rest(),
-                        EncryptionMode::ForTransport =>
-                            sig.key_flags().can_encrypt_for_transport(),
+                if skb.selfsigs().next()
+                    .map(|sig| can_encrypt(key, sig))
+                    .unwrap_or(false) {
+                        Some(key)
+                    } else {
+                        None
                     }
-                         // Check expiry.
-                         && ! sig.signature_expired()
-                         && ! sig.key_expired(key))
-                    .unwrap_or(false)
             });
 
+            // Check if the primary key is encryption-capable.
+            let primary_can_encrypt =
+                // The key capabilities are defined by the most recent
+                // binding signature of the primary user id (or the
+                // most recent user id binding if no user id is marked
+                // as primary).  In any case, this is the first user id.
+                tpk.userids().next().map(|ub| {
+                    ub.selfsigs().next()
+                        .map(|sig| can_encrypt(tpk.primary(), sig))
+                        .unwrap_or(false)
+                }).unwrap_or(false);
+
+            // If the primary key is encryption-capable, prepend to
+            // subkeys via iterator magic.
+            let keys =
+                iter::once(tpk.primary())
+                .filter(|_| primary_can_encrypt)
+                .chain(subkeys);
+
             let mut count = 0;
-            for key in subkeys {
-                if let Ok(pkesk) = PKESK::new(algo, &sk, key.subkey()) {
+            for key in keys {
+                if let Ok(pkesk) = PKESK::new(algo, &sk, key) {
                     pkesk.serialize(&mut inner)?;
                     count += 1;
                 }
