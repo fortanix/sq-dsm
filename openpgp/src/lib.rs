@@ -142,9 +142,6 @@ pub enum Error {
     #[fail(display = "Unknown public key algorithm: {}", _0)]
     UnknownPublicKeyAlgorithm(PublicKeyAlgorithm),
 
-    #[fail(display = "Unknown elliptic curve: {}", _0)]
-    UnknownEllipticCurve(String),
-
     #[fail(display = "Unknown symmetric algorithm: {}", _0)]
     UnknownSymmetricAlgorithm(SymmetricAlgorithm),
 
@@ -153,6 +150,9 @@ pub enum Error {
 
     #[fail(display = "Unsupported public key algorithm: {}", _0)]
     UnsupportedPublicKeyAlgorithm(PublicKeyAlgorithm),
+
+    #[fail(display = "Unsupported elliptic curve: {}", _0)]
+    UnsupportedEllipticCurve(constants::Curve),
 
     #[fail(display = "Unsupported symmetric algorithm: {}", _0)]
     UnsupportedSymmetricAlgorithm(SymmetricAlgorithm),

@@ -100,7 +100,7 @@ impl Arbitrary for PublicKeyAlgorithm {
 /// curves.  Instead, the curve is specified using an OID prepended to
 /// the key material.  We provide this type to be able to match on the
 /// curves.
-#[derive(Debug, Copy, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Curve {
     /// NIST curve P-256.
     NistP256,
@@ -116,6 +116,27 @@ pub enum Curve {
     Ed25519,
     /// Elliptic curve Diffie-Hellman using D.J. Bernstein's Curve25519.
     Cv25519,
+    /// Unknown curve.
+    Unknown(Box<[u8]>),
+}
+
+impl fmt::Display for Curve {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use self::Curve::*;
+        match *self {
+            NistP256 => f.write_str("NIST curve P-256"),
+            NistP384 => f.write_str("NIST curve P-384"),
+            NistP521 => f.write_str("NIST curve P-521"),
+            BrainpoolP256 => f.write_str("brainpoolP256r1"),
+            BrainpoolP512 => f.write_str("brainpoolP512r1"),
+            Ed25519
+                => f.write_str("D.J. Bernstein's \"Twisted\" Edwards curve Ed25519"),
+            Cv25519
+                => f.write_str("Elliptic curve Diffie-Hellman using D.J. Bernstein's Curve25519"),
+            Unknown(ref oid)
+             => write!(f, "Unknown curve (OID: {:?})", oid),
+        }
+    }
 }
 
 const NIST_P256_OID: &[u8] = &[0x2A, 0x86, 0x48, 0xCE, 0x3D, 0x03, 0x01, 0x07];
@@ -132,20 +153,17 @@ const CV25519_OID: &[u8] =
 
 impl Curve {
     /// Parses the given OID.
-    pub fn from_oid(oid: &[u8]) -> Result<Curve> {
+    pub fn from_oid(oid: &[u8]) -> Curve {
         // Match on OIDs, see section 11 of RFC6637.
         match oid {
-            NIST_P256_OID => Ok(Curve::NistP256),
-            NIST_P384_OID => Ok(Curve::NistP384),
-            NIST_P521_OID => Ok(Curve::NistP521),
-            BRAINPOOL_P256_OID => Ok(Curve::BrainpoolP256),
-            BRAINPOOL_P512_OID => Ok(Curve::BrainpoolP512),
-            ED25519_OID => Ok(Curve::Ed25519),
-            CV25519_OID => Ok(Curve::Cv25519),
-            oid =>
-                Err(Error::UnknownEllipticCurve(
-                    format!("Unknown curve with OID: {:?}", oid))
-                    .into()),
+            NIST_P256_OID => Curve::NistP256,
+            NIST_P384_OID => Curve::NistP384,
+            NIST_P521_OID => Curve::NistP521,
+            BRAINPOOL_P256_OID => Curve::BrainpoolP256,
+            BRAINPOOL_P512_OID => Curve::BrainpoolP512,
+            ED25519_OID => Curve::Ed25519,
+            CV25519_OID => Curve::Cv25519,
+            oid => Curve::Unknown(Vec::from(oid).into_boxed_slice()),
         }
     }
 
@@ -159,26 +177,35 @@ impl Curve {
             &Curve::BrainpoolP512 => BRAINPOOL_P512_OID,
             &Curve::Ed25519 => ED25519_OID,
             &Curve::Cv25519 => CV25519_OID,
+            &Curve::Unknown(ref oid) => oid,
         }
     }
 
     /// Returns the length of a coordinate in bits.
-    pub fn len(&self) -> usize {
+    ///
+    /// # Errors
+    ///
+    /// Returns `Error::UnsupportedEllipticCurve` if the curve is not
+    /// supported.
+    pub fn len(&self) -> Result<usize> {
         match self {
-            &Curve::NistP256 => 256,
-            &Curve::NistP384 => 384,
-            &Curve::NistP521 => 521,
-            &Curve::BrainpoolP256 => 256,
-            &Curve::BrainpoolP512 => 512,
-            &Curve::Ed25519 => 256,
-            &Curve::Cv25519 => 256,
+            &Curve::NistP256 => Ok(256),
+            &Curve::NistP384 => Ok(384),
+            &Curve::NistP521 => Ok(521),
+            &Curve::BrainpoolP256 => Ok(256),
+            &Curve::BrainpoolP512 => Ok(512),
+            &Curve::Ed25519 => Ok(256),
+            &Curve::Cv25519 => Ok(256),
+            &Curve::Unknown(_) =>
+                Err(Error::UnsupportedEllipticCurve(self.clone())
+                    .into()),
         }
     }
 }
 
 impl Arbitrary for Curve {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
-        match u8::arbitrary(g) % 7 {
+        match u8::arbitrary(g) % 8 {
             0 => Curve::NistP256,
             1 => Curve::NistP384,
             2 => Curve::NistP521,
@@ -186,6 +213,7 @@ impl Arbitrary for Curve {
             4 => Curve::BrainpoolP512,
             5 => Curve::Ed25519,
             6 => Curve::Cv25519,
+            7 => Curve::Unknown(Vec::<u8>::arbitrary(g).into_boxed_slice()),
             _ => unreachable!(),
         }
     }
@@ -659,7 +687,7 @@ mod tests {
 
     quickcheck! {
         fn curve_roundtrip(curve: Curve) -> bool {
-            curve == Curve::from_oid(curve.oid()).unwrap()
+            curve == Curve::from_oid(curve.oid())
         }
     }
 

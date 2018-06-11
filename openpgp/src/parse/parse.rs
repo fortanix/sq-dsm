@@ -1447,7 +1447,7 @@ impl MPIs {
                 let q = MPI::parse("eddsa_public", php)?;
 
                 Ok(MPIs::EdDSAPublicKey{
-                    curve: Curve::from_oid(&curve)?,
+                    curve: Curve::from_oid(&curve),
                     q: q
                 })
             }
@@ -1458,7 +1458,7 @@ impl MPIs {
                 let q = MPI::parse("ecdsa_public", php)?;
 
                 Ok(MPIs::ECDSAPublicKey{
-                    curve: Curve::from_oid(&curve)?,
+                    curve: Curve::from_oid(&curve),
                     q: q
                 })
             }
@@ -1479,7 +1479,7 @@ impl MPIs {
                 let sym: SymmetricAlgorithm = php.parse_u8("kdf_sym")?.into();
 
                 Ok(MPIs::ECDHPublicKey{
-                    curve: Curve::from_oid(&curve)?,
+                    curve: Curve::from_oid(&curve),
                     q: q,
                     hash: hash,
                     sym: sym
