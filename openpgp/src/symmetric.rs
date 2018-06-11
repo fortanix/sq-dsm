@@ -24,6 +24,9 @@ impl SymmetricAlgorithm {
             SymmetricAlgorithm::AES192 => Ok(cipher::Aes192::KEY_SIZE),
             SymmetricAlgorithm::AES256 => Ok(cipher::Aes256::KEY_SIZE),
             SymmetricAlgorithm::Twofish => Ok(cipher::Twofish::KEY_SIZE),
+            SymmetricAlgorithm::Camellia128 => Ok(cipher::Camellia128::KEY_SIZE),
+            SymmetricAlgorithm::Camellia192 => Ok(cipher::Camellia192::KEY_SIZE),
+            SymmetricAlgorithm::Camellia256 => Ok(cipher::Camellia256::KEY_SIZE),
             _ => Err(Error::UnsupportedSymmetricAlgorithm(self).into()),
         }
     }
@@ -36,6 +39,9 @@ impl SymmetricAlgorithm {
             SymmetricAlgorithm::AES192 => Ok(cipher::Aes192::BLOCK_SIZE),
             SymmetricAlgorithm::AES256 => Ok(cipher::Aes256::BLOCK_SIZE),
             SymmetricAlgorithm::Twofish => Ok(cipher::Twofish::BLOCK_SIZE),
+            SymmetricAlgorithm::Camellia128 => Ok(cipher::Camellia128::BLOCK_SIZE),
+            SymmetricAlgorithm::Camellia192 => Ok(cipher::Camellia192::BLOCK_SIZE),
+            SymmetricAlgorithm::Camellia256 => Ok(cipher::Camellia256::BLOCK_SIZE),
             _ => Err(Error::UnsupportedSymmetricAlgorithm(self).into()),
         }
     }
@@ -61,6 +67,15 @@ impl SymmetricAlgorithm {
             SymmetricAlgorithm::Twofish =>
                 Ok(Box::new(
                     mode::Cfb::<cipher::Twofish>::with_encrypt_key(&key[..]))),
+            SymmetricAlgorithm::Camellia128 =>
+                Ok(Box::new(
+                    mode::Cfb::<cipher::Camellia128>::with_encrypt_key(&key[..]))),
+            SymmetricAlgorithm::Camellia192 =>
+                Ok(Box::new(
+                    mode::Cfb::<cipher::Camellia192>::with_encrypt_key(&key[..]))),
+            SymmetricAlgorithm::Camellia256 =>
+                Ok(Box::new(
+                    mode::Cfb::<cipher::Camellia256>::with_encrypt_key(&key[..]))),
             _ => Err(Error::UnsupportedSymmetricAlgorithm(self).into()),
         }
     }
@@ -86,6 +101,15 @@ impl SymmetricAlgorithm {
             SymmetricAlgorithm::Twofish =>
                 Ok(Box::new(
                     mode::Cfb::<cipher::Twofish>::with_decrypt_key(&key[..]))),
+            SymmetricAlgorithm::Camellia128 =>
+                Ok(Box::new(
+                    mode::Cfb::<cipher::Camellia128>::with_decrypt_key(&key[..]))),
+            SymmetricAlgorithm::Camellia192 =>
+                Ok(Box::new(
+                    mode::Cfb::<cipher::Camellia192>::with_decrypt_key(&key[..]))),
+            SymmetricAlgorithm::Camellia256 =>
+                Ok(Box::new(
+                    mode::Cfb::<cipher::Camellia256>::with_decrypt_key(&key[..]))),
             _ => Err(Error::UnsupportedSymmetricAlgorithm(self).into())
         }
     }
@@ -552,7 +576,10 @@ mod tests {
                      SymmetricAlgorithm::AES128,
                      SymmetricAlgorithm::AES192,
                      SymmetricAlgorithm::AES256,
-                     SymmetricAlgorithm::Twofish].iter() {
+                     SymmetricAlgorithm::Twofish,
+                     SymmetricAlgorithm::Camellia128,
+                     SymmetricAlgorithm::Camellia192,
+                     SymmetricAlgorithm::Camellia256].iter() {
             let mut key = vec![0; algo.key_size().unwrap()];
             rng.random(&mut key);
 

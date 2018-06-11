@@ -245,6 +245,9 @@ pub enum SymmetricAlgorithm {
     AES192,
     AES256,
     Twofish,
+    Camellia128,
+    Camellia192,
+    Camellia256,
     Private(u8),
     Unknown(u8),
 }
@@ -261,6 +264,9 @@ impl From<u8> for SymmetricAlgorithm {
             8 => SymmetricAlgorithm::AES192,
             9 => SymmetricAlgorithm::AES256,
             10 => SymmetricAlgorithm::Twofish,
+            11 => SymmetricAlgorithm::Camellia128,
+            12 => SymmetricAlgorithm::Camellia192,
+            13 => SymmetricAlgorithm::Camellia256,
             100...110 => SymmetricAlgorithm::Private(u),
             u => SymmetricAlgorithm::Unknown(u),
         }
@@ -279,6 +285,9 @@ impl From<SymmetricAlgorithm> for u8 {
             SymmetricAlgorithm::AES192 => 8,
             SymmetricAlgorithm::AES256 => 9,
             SymmetricAlgorithm::Twofish => 10,
+            SymmetricAlgorithm::Camellia128 => 11,
+            SymmetricAlgorithm::Camellia192 => 12,
+            SymmetricAlgorithm::Camellia256 => 13,
             SymmetricAlgorithm::Private(u) => u,
             SymmetricAlgorithm::Unknown(u) => u,
         }
@@ -306,6 +315,12 @@ impl fmt::Display for SymmetricAlgorithm {
                 f.write_str("AES with 256-bit key"),
             SymmetricAlgorithm::Twofish =>
                 f.write_str("Twofish with 256-bit key"),
+            SymmetricAlgorithm::Camellia128 =>
+                f.write_str("Camellia with 128-bit key"),
+            SymmetricAlgorithm::Camellia192 =>
+                f.write_str("Camellia with 192-bit key"),
+            SymmetricAlgorithm::Camellia256 =>
+                f.write_str("Camellia with 256-bit key"),
             SymmetricAlgorithm::Private(u) =>
                 f.write_fmt(format_args!("Private/Experimental symmetric key algorithm {}",u)),
             SymmetricAlgorithm::Unknown(u) =>
