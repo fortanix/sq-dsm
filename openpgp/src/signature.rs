@@ -15,7 +15,7 @@ use Packet;
 use SubpacketArea;
 use serialize::Serialize;
 
-use nettle::{dsa, ecdsa, rsa};
+use nettle::{dsa, ecdsa, ed25519, rsa};
 use nettle::rsa::verify_digest_pkcs1;
 
 #[cfg(test)]
@@ -148,8 +148,32 @@ impl Signature {
                 Ok(dsa::verify(&params, &key, hash, &signature))
             }
 
-            (EdDSA, &EdDSAPublicKey{ .. }, &EdDSASignature{ .. }) =>
-                Err(Error::UnsupportedPublicKeyAlgorithm(self.pk_algo).into()),
+            (EdDSA, &EdDSAPublicKey{ ref curve, ref q },
+             &EdDSASignature{ ref r, ref s }) => match curve {
+                Curve::Ed25519 => {
+                    if q.value[0] != 0x40 {
+                        return Err(Error::MalformedPacket(
+                            "Invalid point encoding".into()).into());
+                    }
+
+                    // OpenPGP encodes R and S separately, but our
+                    // cryptographic library expects them to be
+                    // concatenated.
+                    let mut signature =
+                        Vec::with_capacity(ed25519::ED25519_SIGNATURE_SIZE);
+                    signature.extend_from_slice(&r.value);
+                    signature.extend_from_slice(&s.value);
+                    if signature.len() != ed25519::ED25519_SIGNATURE_SIZE {
+                        return Err(Error::MalformedPacket(
+                            "Invalid signature size".into()).into());
+                    }
+
+                    ed25519::verify(&q.value[1..], hash, &signature)
+                },
+                _ =>
+                    Err(Error::UnsupportedEllipticCurve(curve.clone())
+                        .into()),
+            },
 
             (ECDSA, &ECDSAPublicKey{ ref curve, ref q },
              &ECDSASignature{ ref s, ref r }) => {
@@ -385,6 +409,11 @@ mod test {
             Test {
                 key: &"erika-corinna-daniela-simone-antonia-nistp521.pgp"[..],
                 data: &"signed-1-ecdsa-nistp521.pgp"[..],
+                good: 1,
+            },
+            Test {
+                key: &"emmelie-dorothea-dina-samantha-awina-ed25519.pgp"[..],
+                data: &"signed-1-eddsa-ed25519.pgp"[..],
                 good: 1,
             },
             // Check with the wrong key.
