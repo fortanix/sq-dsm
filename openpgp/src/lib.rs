@@ -2,8 +2,9 @@
 //!
 //! This crate aims to provide a complete implementation of OpenPGP as
 //! defined by [RFC 4880] as well as several extensions (e.g., [RFC
-//! 6637], which describes ECC cryptography for OpenPGP).  This
-//! includes support for unbuffered message processing.
+//! 6637], which describes ECC cryptography for OpenPGP, and [RFC
+//! 4880bis], the draft of the next OpenPGP standard).  This includes
+//! support for unbuffered message processing.
 //!
 //! A few features that the OpenPGP community considers to be
 //! deprecated (e.g., version 3 compatibility) have been left out as
@@ -33,6 +34,7 @@
 //!
 //! [RFC 4880]: https://tools.ietf.org/html/rfc4880
 //! [RFC 6637]: https://tools.ietf.org/html/rfc6637
+//! [RFC 4880bis]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-04
 //! [unhashed signature subpackets]: https://tools.ietf.org/html/rfc4880#section-5.2.3.2
 //! [sequoia-core]: ../sequoia_core
 
