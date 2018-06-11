@@ -230,10 +230,10 @@ impl Arbitrary for Curve {
 ///
 /// The values can be converted into and from their corresponding values of the serialized format.
 ///
-/// Use [`SymmetricAlgorithm::into`] to translate a numeric value
-/// to a symbolic one.
+/// Use [`SymmetricAlgorithm::from`] to translate a numeric value to a
+/// symbolic one.
 ///
-///   [`SymmetricAlgorithm::from`]: enum.SymmetricAlgorithm.html#method.from
+///   [`SymmetricAlgorithm::from`]: https://doc.rust-lang.org/std/convert/trait.From.html
 #[derive(Clone,Copy,PartialEq,Eq,Debug,PartialOrd,Ord)]
 pub enum SymmetricAlgorithm {
     Unencrypted,
