@@ -58,7 +58,8 @@ impl PKESK {
         // We need to prefix the cipher specifier to the session key,
         // and a checksum.
         let mut psk = Vec::with_capacity(buffer_size);
-        let mut esk = vec![0u8; buffer_size];
+        // The ESK will be prefixed by a two-octet length.
+        let mut esk = vec![0u8; buffer_size + 2];
         psk.push(algo.into());
         psk.extend_from_slice(session_key);
 
@@ -76,7 +77,7 @@ impl PKESK {
                 match &recipient.mpis {
                     &MPIs::RSAPublicKey{ ref e, ref n } => {
                         let pk = rsa::PublicKey::new(&n.value, &e.value)?;
-                        rsa::encrypt_pkcs1(&pk, &mut rng, &psk, &mut esk)?;
+                        rsa::encrypt_pkcs1(&pk, &mut rng, &psk, &mut esk[2..])?;
                     }
 
                     _ => {
@@ -93,9 +94,9 @@ impl PKESK {
         }
 
         // parse_ciphertext_naked() expects a MPI
-        let esk_len = esk.len() * 8 - esk[0].leading_zeros() as usize;
-        esk.insert(0, ((esk_len >> 8) & 0xff) as u8);
-        esk.insert(1, (esk_len & 0xff) as u8);
+        let esk_len = buffer_size * 8 - esk[2].leading_zeros() as usize;
+        esk[0] = (esk_len >> 8) as u8;
+        esk[1] = (esk_len >> 0) as u8;
 
         Ok(PKESK{
             common: Default::default(),
