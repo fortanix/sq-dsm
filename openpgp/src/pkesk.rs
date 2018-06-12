@@ -56,8 +56,8 @@ impl PKESK {
         };
 
         // We need to prefix the cipher specifier to the session key,
-        // and a checksum.
-        let mut psk = Vec::with_capacity(buffer_size);
+        // and a two-octet checksum.
+        let mut psk = Vec::with_capacity(1 + session_key.len() + 2);
         // The ESK will be prefixed by a two-octet length.
         let mut esk = vec![0u8; buffer_size + 2];
         psk.push(algo.into());
