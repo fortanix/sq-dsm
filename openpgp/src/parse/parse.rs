@@ -2334,7 +2334,7 @@ impl <'a> PacketParser<'a> {
                 | Packet::PublicKey(_) | Packet::PublicSubkey(_)
                 | Packet::SecretKey(_) | Packet::SecretSubkey(_)
                 | Packet::UserID(_) | Packet::UserAttribute(_)
-                | Packet::Literal(_) | Packet::SKESK(_)
+                | Packet::Literal(_) | Packet::PKESK(_) | Packet::SKESK(_)
                 | Packet::SEIP(_) | Packet::MDC(_) => {
                 // Drop through.
                 if self.settings.trace {

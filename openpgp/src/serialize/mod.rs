@@ -793,6 +793,7 @@ impl Serialize for Packet {
             &Packet::UserAttribute(ref p) => p.serialize(o),
             &Packet::Literal(ref p) => p.serialize(o),
             &Packet::CompressedData(ref p) => p.serialize(o),
+            &Packet::PKESK(ref p) => p.serialize(o),
             &Packet::SKESK(ref p) => p.serialize(o),
             &Packet::SEIP(ref p) => p.serialize(o),
             &Packet::MDC(ref p) => p.serialize(o),
