@@ -105,7 +105,7 @@ use constants::{
     SignatureType,
 };
 mod tag;
-pub use tag::Tag;
+use tag::Tag;
 
 mod fingerprint;
 mod keyid;

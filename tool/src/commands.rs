@@ -5,7 +5,8 @@ use std::io::{self, Write};
 use rpassword;
 
 extern crate openpgp;
-use openpgp::{Packet, Tag};
+use openpgp::Packet;
+use openpgp::packet::Tag;
 use openpgp::serialize::stream::{
     wrap, LiteralWriter, Encryptor, EncryptionMode,
 };

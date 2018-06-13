@@ -16,6 +16,8 @@ use ctb::{CTB, PacketLengthType};
 
 use buffered_reader::BufferedReader;
 
+pub use tag::Tag;
+
 // Allow transparent access of common fields.
 impl<'a> Deref for Packet {
     type Target = Common;

@@ -71,7 +71,7 @@ pub fn wrap<'a, W: 'a + io::Write>(w: W) -> writer::Stack<'a, Cookie> {
 /// # Example
 ///
 /// ```
-/// use openpgp::Tag;
+/// use openpgp::packet::Tag;
 /// use openpgp::serialize::stream::{wrap, ArbitraryWriter};
 /// # use openpgp::Result;
 /// # f().unwrap();

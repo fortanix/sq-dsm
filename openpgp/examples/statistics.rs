@@ -13,8 +13,8 @@ use std::fs::File;
 extern crate buffered_reader;
 use buffered_reader::BufferedReaderGeneric;
 extern crate openpgp;
-use openpgp::{Packet, Tag};
-use openpgp::packet::BodyLength;
+use openpgp::Packet;
+use openpgp::packet::{BodyLength, Tag};
 use openpgp::parse::PacketParser;
 
 fn main() {
