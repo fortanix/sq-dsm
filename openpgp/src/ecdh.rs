@@ -270,6 +270,7 @@ mod tests {
             ciphertext: &'static [u8],
         }
 
+        // These are the test vectors from RFC3394.
         const TESTS: &[Test] = &[
             Test {
                 algo: SymmetricAlgorithm::AES128,
