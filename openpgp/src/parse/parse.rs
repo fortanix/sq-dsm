@@ -14,8 +14,6 @@ use ::buffered_reader::*;
 
 use {
     Result,
-    MPIs,
-    MPI,
     CTB,
     BodyLength,
     S2K,
@@ -44,6 +42,7 @@ use constants::{
     PublicKeyAlgorithm,
     SymmetricAlgorithm,
 };
+use mpis::{MPI, MPIs};
 use symmetric::{Decryptor, BufferedReaderDecryptor};
 
 mod partial_body;

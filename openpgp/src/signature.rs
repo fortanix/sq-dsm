@@ -3,7 +3,7 @@ use std::fmt;
 use constants::Curve;
 use Error;
 use Result;
-use MPIs;
+use mpis::MPIs;
 use HashAlgorithm;
 use PublicKeyAlgorithm;
 use Signature;
@@ -123,7 +123,7 @@ impl Signature {
         -> Result<bool>
     {
         use PublicKeyAlgorithm::*;
-        use MPIs::*;
+        use mpis::MPIs::*;
 
         let pk: PublicKeyAlgorithm = self.pk_algo.into();
 

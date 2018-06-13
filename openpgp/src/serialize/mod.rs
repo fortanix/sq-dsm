@@ -181,7 +181,7 @@ impl Serialize for KeyID {
     }
 }
 
-impl Serialize for MPI {
+impl Serialize for mpis::MPI {
     fn serialize<W: io::Write>(&self, w: &mut W) -> Result<()> {
         write_be_u16(w, self.bits as u16)?;
         w.write_all(&self.value)?;
@@ -189,9 +189,9 @@ impl Serialize for MPI {
     }
 }
 
-impl Serialize for MPIs {
+impl Serialize for mpis::MPIs {
     fn serialize<W: io::Write>(&self, w: &mut W) -> Result<()> {
-        use MPIs::*;
+        use mpis::MPIs::*;
 
         match self {
             &RSAPublicKey{ ref e, ref n } => {

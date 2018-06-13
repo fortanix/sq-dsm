@@ -1,3 +1,5 @@
+//! Multi Precision Integers.
+
 use std::fmt;
 use quickcheck::{Arbitrary, Gen};
 
@@ -9,6 +11,7 @@ use constants::{
 
 use nettle::Hash;
 
+/// Holds a single MPI.
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct MPI {
     pub bits: usize,
@@ -53,6 +56,10 @@ impl fmt::Debug for MPI {
     }
 }
 
+/// Holds one or more MPIs.
+///
+/// Provides a typed and structured way of storing multiple MPIs (and
+/// the occasional elliptic curve) in packets.
 #[derive(Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub enum MPIs {
     // XXX
@@ -93,7 +100,7 @@ impl MPIs {
     }
 
     pub fn serialized_len(&self) -> usize {
-        use MPIs::*;
+        use self::MPIs::*;
 
         // Fields are mostly MPIs that consist of two octets length plus the big endian value
         // itself. All other field types are commented.
@@ -149,7 +156,7 @@ impl MPIs {
 
     // Update the Hash with a hash of the MPIs.
     pub fn hash<H: Hash>(&self, hash: &mut H) {
-        use MPIs::*;
+        use self::MPIs::*;
 
         match self {
             &None => {}

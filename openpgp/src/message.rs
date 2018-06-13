@@ -263,7 +263,7 @@ mod tests {
     use PublicKeyAlgorithm;
     use SignatureType;
     use S2K;
-    use MPIs;
+    use mpis::MPIs;
     use CompressedData;
     use Literal;
     use OnePassSig;
