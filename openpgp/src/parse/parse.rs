@@ -1523,7 +1523,7 @@ impl MPIs {
                 let curve_len = php.parse_u8("curve_len")? as usize;
                 let curve = php.parse_bytes("curve", curve_len)?;
                 let q = MPI::parse("ecdh_public", php)?;
-                let kdf_len = php.parse_u8("kdf")?;
+                let kdf_len = php.parse_u8("kdf_len")?;
 
                 if kdf_len != 3 {
                     return Err(Error::MalformedPacket(
