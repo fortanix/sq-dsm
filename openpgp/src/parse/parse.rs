@@ -717,7 +717,7 @@ impl Signature {
                                    unhashed_area_len as usize));
         let hash_prefix1 = php_try!(php.parse_u8("hash_prefix1"));
         let hash_prefix2 = php_try!(php.parse_u8("hash_prefix2"));
-        let mpis = MPIs::parse_signature(pk_algo, &mut php)?;
+        let mpis = php_try!(MPIs::parse_signature(pk_algo, &mut php));
 
         let mut sig = Signature {
             common: Default::default(),
@@ -961,7 +961,7 @@ impl Key {
 
         let creation_time = php_try!(php.parse_be_u32("creation_time"));
         let pk_algo: PublicKeyAlgorithm = php_try!(php.parse_u8("pk_algo")).into();
-        let mpis = MPIs::parse_public_key(pk_algo, &mut php)?;
+        let mpis = php_try!(MPIs::parse_public_key(pk_algo, &mut php));
 
         let key = Key {
             common: Default::default(),
