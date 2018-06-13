@@ -1532,7 +1532,7 @@ impl MPIs {
 
                 let _reserved = php.parse_u8("kdf_reserved")?;
                 let hash: HashAlgorithm = php.parse_u8("kdf_hash")?.into();
-                let sym: SymmetricAlgorithm = php.parse_u8("kdf_sym")?.into();
+                let sym: SymmetricAlgorithm = php.parse_u8("kek_symm")?.into();
 
                 Ok(MPIs::ECDHPublicKey{
                     curve: Curve::from_oid(&curve),
