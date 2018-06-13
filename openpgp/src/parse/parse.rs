@@ -624,7 +624,7 @@ impl Unknown {
         php.ok(Packet::Unknown(Unknown {
             common: Default::default(),
             tag: tag,
-        })).map(|pp| pp.decrypted(false))
+        })).map(|pp| pp.set_decrypted(false))
     }
 }
 
@@ -1220,7 +1220,7 @@ impl SEIP {
         php.ok(Packet::SEIP(SEIP {
             common: Default::default(),
             version: version,
-        })).map(|pp| pp.decrypted(false))
+        })).map(|pp| pp.set_decrypted(false))
     }
 }
 
@@ -1933,9 +1933,15 @@ impl <'a> PacketParser<'a> {
 
     // Mark the packet's contents (packet.common.body) as being
     // decrypted (true) or encrypted (false).
-    fn decrypted(mut self, v: bool) -> Self {
+    fn set_decrypted(mut self, v: bool) -> Self {
         self.decrypted = v;
         self
+    }
+
+    // Returns whether the packet's contents (packet.common.body) are
+    // decrypted.
+    pub fn decrypted(self) -> bool {
+        self.decrypted
     }
 
     // Returns a `PacketParser` for the next OpenPGP packet in the
