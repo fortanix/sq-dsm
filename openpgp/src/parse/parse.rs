@@ -1344,6 +1344,7 @@ fn skesk_parser_test() {
 
 impl MPI {
     // Reads an MPI from `r`.
+    #[cfg(test)]
     pub(crate) fn parse_naked<R: io::Read>(r: R) -> Result<Self> {
         let bio = BufferedReaderGeneric::with_cookie(
             r, None, Cookie::default());

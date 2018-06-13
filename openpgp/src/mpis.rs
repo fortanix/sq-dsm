@@ -16,6 +16,27 @@ pub struct MPI {
 }
 
 impl MPI {
+    /// Creates a new MPI.
+    ///
+    /// This function takes care of leading zeros.
+    pub fn new(value: &[u8]) -> Self {
+        let mut leading_zeros = 0;
+        for b in value {
+            leading_zeros += b.leading_zeros() as usize;
+            if *b != 0 {
+                break;
+            }
+        }
+
+        let offset = leading_zeros / 8;
+        let value = Vec::from(&value[offset..]).into_boxed_slice();
+
+        MPI {
+            bits: value.len() * 8 - leading_zeros % 8,
+            value: value,
+        }
+    }
+
     // Update the Hash with a hash of the MPIs.
     pub fn hash<H: Hash>(&self, hash: &mut H) {
         let len = &[(self.bits >> 8) as u8 & 0xFF, self.bits as u8];
@@ -243,18 +264,11 @@ impl MPIs {
 
 impl Arbitrary for MPI {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
-        use std::io::Cursor;
-
         loop {
-            let mut buf = <Vec<u8>>::arbitrary(g);
+            let buf = <Vec<u8>>::arbitrary(g);
 
             if !buf.is_empty() && buf[0] != 0 {
-                let len = buf.len() * 8 - buf.first().unwrap_or(&0).leading_zeros() as usize;
-                buf.insert(0, ((len >> 8) & 0xff) as u8);
-                buf.insert(1, (len & 0xff) as u8);
-
-                let mut cur = Cursor::new(buf);
-                return MPI::parse_naked(&mut cur).unwrap();
+                break MPI::new(&buf);
             }
         }
     }
@@ -336,6 +350,17 @@ impl Arbitrary for MPIs {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    quickcheck! {
+        fn mpi_roundtrip(mpi: MPI) -> bool {
+            use std::io::Cursor;
+            use serialize::Serialize;
+
+            let mut buf = Vec::new();
+            mpi.serialize(&mut buf).unwrap();
+            MPI::parse_naked(Cursor::new(buf)).unwrap() == mpi
+        }
+    }
 
     quickcheck! {
         fn round_trip(mpis: MPIs) -> bool {
