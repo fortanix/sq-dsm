@@ -40,7 +40,7 @@ impl MPI {
         }
     }
 
-    // Update the Hash with a hash of the MPIs.
+    /// Update the Hash with a hash of the MPIs.
     pub fn hash<H: Hash>(&self, hash: &mut H) {
         let len = &[(self.bits >> 8) as u8 & 0xFF, self.bits as u8];
 
