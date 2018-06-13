@@ -5,6 +5,7 @@ use mpis::{MPI, MPIs};
 use PublicKeyAlgorithm;
 use Result;
 use SymmetricAlgorithm;
+use ecdh;
 use nettle::{rsa, Yarrow};
 use packet;
 
@@ -71,6 +72,10 @@ impl PKESK {
                     }
                 }
             },
+
+            ECDH => {
+                ecdh::wrap_session_key(recipient, &psk)?
+            }
             algo =>
                 return Err(Error::UnsupportedPublicKeyAlgorithm(algo).into()),
         };

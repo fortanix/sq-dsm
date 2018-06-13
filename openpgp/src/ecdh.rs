@@ -1,12 +1,118 @@
-//! Support code for Elliptic Curve Diffie Hellman as used in OpenPGP.
+//! Elliptic Curve Diffie-Hellman.
 
 use Error;
+use Key;
 use Result;
 use constants::{
+    Curve,
     HashAlgorithm,
     SymmetricAlgorithm,
+    PublicKeyAlgorithm,
 };
-use nettle::{cipher, mode, Mode};
+use mpis::{MPI, MPIs};
+use nettle::{cipher, curve25519, mode, Mode, Yarrow};
+
+/// Wraps a session key using Elliptic Curve Diffie-Hellman.
+pub fn wrap_session_key(recipient: &Key, session_key: &[u8]) -> Result<MPIs> {
+    if let MPIs::ECDHPublicKey {
+        ref curve, ref q, ref hash, ref sym
+    } = recipient.mpis {
+        let mut rng = Yarrow::default();
+        match curve {
+            Curve::Cv25519 => {
+                // Obtain the authenticated recipient public key R
+                if q.value.len() != 1 + curve25519::CURVE25519_SIZE {
+                    return Err(Error::MalformedPacket(
+                        "Bad size of Cv25519 public key".into()).into());
+                }
+
+                if q.value[0] != 0x40 {
+                    return Err(Error::MalformedPacket(
+                        "Bad encoding of Cv25519 public key".into()).into());
+                }
+                #[allow(non_snake_case)]
+                let R = &q.value[1..];
+
+                // Generate an ephemeral key pair {v, V=vG}
+                let mut v = [0; curve25519::CURVE25519_SIZE];
+                rng.random(&mut v);
+                // Note: Nettle ignores the most significant and the three
+                // least significant bits, therefore every value is a valid
+                // secret key.
+
+                // Compute the public key.  We need to add an encoding
+                // octet in front of the key.
+                #[allow(non_snake_case)]
+                let mut VB = [0; 1 + curve25519::CURVE25519_SIZE];
+                curve25519::mul_g(&mut VB[1..], &v)
+                    .expect("buffers are of the wrong size");
+
+                // Compute the shared point S = vR;
+                #[allow(non_snake_case)]
+                let mut S = [0; curve25519::CURVE25519_SIZE];
+                curve25519::mul(&mut S, &v, R)
+                    .expect("buffers are of the wrong size");
+
+                // m = symm_alg_ID || session key || checksum || pkcs5_padding;
+                let mut m = Vec::with_capacity(40);
+                m.extend_from_slice(session_key);
+                pkcs5_pad(&mut m, 40);
+                // Note: We always pad up to 40 bytes to obfuscate the
+                // length of the symmetric key.
+
+                // Param = curve_OID_len || curve_OID ||
+                // public_key_alg_ID || 03 || 01 || KDF_hash_ID ||
+                // KEK_alg_ID for AESKeyWrap || "Anonymous Sender    " ||
+                // recipient_fingerprint;
+                let mut param = Vec::with_capacity(
+                    1 + curve.oid().len() // Length and Curve OID,
+                        + 1               // Public key algorithm ID,
+                        + 4               // KDF parameters,
+                        + 20              // "Anonymous Sender    ",
+                        + 20);            // Recipients key fingerprint.
+
+                param.push(curve.oid().len() as u8);
+                param.extend_from_slice(curve.oid());
+                param.push(PublicKeyAlgorithm::ECDH.into());
+                param.push(3);
+                param.push(1);
+                param.push((*hash).into());
+                param.push((*sym).into());
+                param.extend_from_slice(b"Anonymous Sender    ");
+                param.extend_from_slice(recipient.fingerprint().as_slice());
+                assert_eq!(param.len(),
+                           1 + curve.oid().len() // Length and Curve OID,
+                           + 1                   // Public key algorithm ID,
+                           + 4                   // KDF parameters,
+                           + 20                  // "Anonymous Sender    ",
+                           + 20);                // Recipients key fingerprint.
+
+                // Z_len = the key size for the KEK_alg_ID used with AESKeyWrap
+                // Compute Z = KDF( S, Z_len, Param );
+                #[allow(non_snake_case)]
+                let Z = kdf(&S, sym.key_size()?, *hash, &param)?;
+
+                // Compute C = AESKeyWrap( Z, m ) as per [RFC3394]
+                #[allow(non_snake_case)]
+                let C = aes_key_wrap(*sym, &Z, &m)?;
+
+                // VB = convert point V to the octet string
+                VB[0] = 0x40; // Native encoding of the point.
+
+                // Output (MPI(VB) || len(C) || C).
+                Ok(MPIs::ECDHCiphertext {
+                    e: MPI::new(&VB),
+                    key: C.into_boxed_slice(),
+                })
+            },
+
+            _ =>
+                Err(Error::UnsupportedEllipticCurve(curve.clone()).into()),
+        }
+    } else {
+        Err(Error::InvalidArgument("Expected an ECDHPublicKey".into()).into())
+    }
+}
 
 /// Derives a secret key for session key wrapping.
 ///
