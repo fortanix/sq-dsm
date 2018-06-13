@@ -46,6 +46,14 @@ impl Fingerprint {
         Some(Fingerprint::from_bytes(&::from_hex(hex, true)?[..]))
     }
 
+    /// Returns a reference to the raw Fingerprint.
+    pub fn as_slice(&self) -> &[u8] {
+        match self {
+            &Fingerprint::V4(ref fp) => fp,
+            &Fingerprint::Invalid(ref fp) => fp,
+        }
+    }
+
     /// Converts the fingerprint to its standard representation.
     ///
     /// Returns the fingerprint suitable for human consumption.
