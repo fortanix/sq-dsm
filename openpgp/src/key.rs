@@ -5,6 +5,9 @@ use Tag;
 use Key;
 use Packet;
 use PublicKeyAlgorithm;
+use SymmetricAlgorithm;
+use s2k::S2K;
+use Result;
 
 impl fmt::Debug for Key {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -14,6 +17,7 @@ impl fmt::Debug for Key {
             .field("creation_time", &self.creation_time)
             .field("pk_algo", &self.pk_algo)
             .field("mpis", &self.mpis)
+            .field("secret", &self.secret)
             .finish()
     }
 }
@@ -34,6 +38,7 @@ impl Key {
             creation_time: 0,
             pk_algo: PublicKeyAlgorithm::Unknown(0),
             mpis: MPIs::empty(),
+            secret: None,
         }
     }
 
@@ -63,6 +68,88 @@ impl Key {
                          Tag::SecretKey, or Tag::SecretSubkey. \
                          Got: Tag::{:?}",
                         tag),
+        }
+    }
+}
+
+/// Holds the secret potion of a OpenPGP secret key or secret subkey packet.
+///
+/// This type allows postponing the decryption of the secret key until we need to use it.
+#[derive(PartialEq, Clone, Debug)]
+pub enum SecretKey {
+    Unencrypted{ mpis: MPIs },
+    Encrypted{
+        s2k: S2K,
+        algorithm: SymmetricAlgorithm,
+        /// encryptes MPIs prefixed with the IV.
+        ciphertext: Box<[u8]>,
+    },
+}
+
+impl SecretKey {
+    /// Decrypts this secret key using `passwd`. The SecretKey type does not know what kind of key
+    /// it is, so `pk_algo` is needed to parse the correct number of MPIs.
+    pub fn decrypt(&mut self, pk_algo: PublicKeyAlgorithm, passwd: &[u8]) -> Result<()> {
+        use std::io::{Cursor, Read};
+        use symmetric::Decryptor;
+
+        let new = match &*self {
+            &SecretKey::Unencrypted{ .. } => None,
+            &SecretKey::Encrypted{ ref s2k, algorithm, ref ciphertext } => {
+                let key = s2k.derive_key(passwd, algorithm.key_size()?)?
+                    .into_boxed_slice();
+                let mut cur = Cursor::new(ciphertext);
+                let mut dec = Decryptor::new(algorithm, &key, cur)?;
+                let mut trash = vec![0u8; algorithm.block_size()?];
+
+                dec.read_exact(&mut trash)?;
+                let mpis = MPIs::parse_chksumd_secret_key(pk_algo, &mut dec)?;
+
+                Some(SecretKey::Unencrypted{ mpis: mpis })
+            }
+        };
+
+        if let Some(new) = new {
+            *self = new;
+        }
+
+        Ok(())
+    }
+
+    pub fn is_encrypted(&self) -> bool {
+        match self {
+            &SecretKey::Encrypted{ .. } => true,
+            &SecretKey::Unencrypted{ .. } => false,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use mpis::MPIs;
+    use TPK;
+    use SecretKey;
+    use std::path::PathBuf;
+
+    fn path_to(artifact: &str) -> PathBuf {
+        [env!("CARGO_MANIFEST_DIR"), "tests", "data", "keys", artifact]
+            .iter().collect()
+    }
+
+    #[test]
+    fn encrypted_rsa_key() {
+        let mut tpk = TPK::from_file(
+            path_to("testy-new-encrypted-with-123.pgp")).unwrap();
+        let pair = tpk.primary_mut();
+        let secret = pair.secret.as_mut().unwrap();
+
+        assert!(secret.is_encrypted());
+        secret.decrypt(pair.pk_algo, &b"123"[..]).unwrap();
+        assert!(!secret.is_encrypted());
+
+        match secret {
+            &mut SecretKey::Unencrypted{ mpis: MPIs::RSASecretKey{ .. } } => {}
+            _ => { unreachable!() }
         }
     }
 }

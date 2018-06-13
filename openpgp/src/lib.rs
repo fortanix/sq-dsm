@@ -83,6 +83,7 @@ mod unknown;
 mod signature;
 mod one_pass_sig;
 mod key;
+pub use key::SecretKey;
 mod userid;
 mod user_attribute;
 mod literal;
@@ -312,6 +313,7 @@ pub struct Key {
     pub creation_time: u32,
     pub pk_algo: PublicKeyAlgorithm,
     pub mpis: mpis::MPIs,
+    pub secret: Option<SecretKey>,
 }
 
 /// Holds a UserID packet.

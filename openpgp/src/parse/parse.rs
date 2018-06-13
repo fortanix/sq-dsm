@@ -33,7 +33,7 @@ use {
     MDC,
     Packet,
     KeyID,
-
+    SecretKey,
 };
 use constants::{
     CompressionAlgorithm,
@@ -967,6 +967,9 @@ impl Key {
     /// Parses the body of a public key, public subkey, secret key or
     /// secret subkey packet.
     fn parse<'a>(mut php: PacketHeaderParser<'a>) -> Result<PacketParser<'a>> {
+        use std::io::Cursor;
+        use serialize::Serialize;
+
         make_php_try!(php);
         let tag = php.header.ctb.tag;
         assert!(tag == Tag::PublicKey
@@ -981,7 +984,55 @@ impl Key {
 
         let creation_time = php_try!(php.parse_be_u32("creation_time"));
         let pk_algo: PublicKeyAlgorithm = php_try!(php.parse_u8("pk_algo")).into();
-        let mpis = php_try!(MPIs::parse_public_key(pk_algo, &mut php));
+        let mpis = MPIs::parse_public_key(pk_algo, &mut php)?;
+        let secret = if tag == Tag::SecretKey || tag == Tag::SecretSubkey {
+            let s2k_usage = php.parse_u8("s2k_usage")?;
+            let sec = match s2k_usage {
+                // Unencrypted
+                0 => {
+                    let sec = MPIs::parse_secret_key(pk_algo, &mut php)?;
+                    let their_chksum = php.parse_be_u16("checksum")?;
+                    let mut cur = Cursor::new(Vec::default());
+
+                    sec.serialize(&mut cur)?;
+                    let our_chksum: usize = cur.into_inner()
+                        .into_iter().map(|x| x as usize).sum();
+
+                    if our_chksum as u16 & 0xffff != their_chksum {
+                        return php.fail("wrong secret key checksum");
+                    }
+
+                    SecretKey::Unencrypted{ mpis: sec }
+                }
+                // Encrypted & MD5 for key derivation: unsupported
+                1...253 => {
+                    return php.fail("unsupported secret key encryption");
+                }
+                // Encrypted, S2K & SHA-1 checksum
+                254 => {
+                    let sk: SymmetricAlgorithm = php.parse_u8("symm_algo")?.into();
+                    let s2k = php_try!(S2K::parse(&mut php));
+                    let mut cipher = php.parse_bytes_eof("encrypted_mpis")?;
+
+                    SecretKey::Encrypted{
+                        s2k: s2k,
+                        algorithm: sk,
+                        ciphertext: cipher.into_boxed_slice(),
+                    }
+                }
+                // Encrypted, S2K & mod 65536 checksum: unsupported
+                255 => {
+                    return php.fail("unsupported secret key encryption");
+                }
+                 _ => unreachable!()
+            };
+
+            Some(sec)
+        } else if tag == Tag::PublicKey || tag == Tag::PublicSubkey {
+            None
+        } else {
+            unimplemented!()
+        };
 
         let key = Key {
             common: Default::default(),
@@ -989,6 +1040,7 @@ impl Key {
             creation_time: creation_time,
             pk_algo: pk_algo,
             mpis: mpis,
+            secret: secret,
         };
 
         let tag = php.header.ctb.tag;
@@ -1573,6 +1625,41 @@ impl MPIs {
             Unknown(p) | Private(p) => {
                 Err(Error::UnknownPublicKeyAlgorithm(p.into()).into())
             }
+        }
+    }
+
+    /// Parses secret key MPIs for `algo` plus their SHA1 checksum. Fails if the
+    /// checksum is wrong.
+    pub fn parse_chksumd_secret_key<T: Read>(algo: PublicKeyAlgorithm, cur: T)
+        -> Result<Self> {
+        use std::io::Cursor;
+        use serialize::Serialize;
+        use nettle::Hash;
+        use nettle::hash::insecure_do_not_use::Sha1;
+
+        // read mpis
+        let bio = BufferedReaderGeneric::with_cookie(
+            cur, None, Cookie::default());
+        let mut php = PacketHeaderParser::new_naked(Box::new(bio));
+        let mpis = Self::parse_secret_key(algo, &mut php)?;
+
+        // read expected sha1 hash of the mpis
+        let their_chksum = php.parse_bytes("checksum", 20)?;
+        let mut cur = Cursor::new(vec![]);
+
+        // compute sha1 hash
+        mpis.serialize(&mut cur)?;
+        let buf = cur.into_inner();
+        let mut hsh = Sha1::default();
+
+        hsh.update(&buf);
+        let mut our_chksum = [0u8; 20];
+        hsh.digest(&mut our_chksum);
+
+        if our_chksum != their_chksum[..] {
+            Err(Error::MalformedMPI("checksum wrong".to_string()).into())
+        } else {
+            Ok(mpis)
         }
     }
 

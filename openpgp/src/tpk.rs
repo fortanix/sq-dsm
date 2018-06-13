@@ -310,7 +310,7 @@ impl<'a, I: Iterator<Item=Packet>> TPKParser<'a, I> {
             TPKParserState::Start => {
                 // Skip packets until we find a public key packet.
                 match p {
-                    Packet::PublicKey(pk) => {
+                    Packet::PublicKey(pk) | Packet::SecretKey(pk) => {
                         if TRACE {
                             eprintln!("TPKParser::parse: Found primary key: {}.",
                                       pk.fingerprint());
@@ -367,7 +367,7 @@ impl<'a, I: Iterator<Item=Packet>> TPKParser<'a, I> {
                                 certifications: vec![],
                             })
                     },
-                    Packet::PublicSubkey(key) => {
+                    Packet::PublicSubkey(key) | Packet::SecretSubkey(key)=> {
                         if TRACE {
                             eprintln!("TPKParser::parse: Found subkey {}.",
                                       key.fingerprint());
@@ -425,7 +425,7 @@ impl<'a, I: Iterator<Item=Packet>> TPKParser<'a, I> {
                                 certifications: vec![],
                             })
                     },
-                    Packet::PublicSubkey(key) => {
+                    Packet::PublicSubkey(key) | Packet::SecretSubkey(key) => {
                         if TRACE {
                             eprintln!("TPKParser::parse: Found subkey {}.",
                                       key.fingerprint());
@@ -504,7 +504,7 @@ impl<'a, I: Iterator<Item=Packet>> TPKParser<'a, I> {
                                 certifications: vec![],
                             })
                     },
-                    Packet::PublicSubkey(key) => {
+                    Packet::PublicSubkey(key) | Packet::SecretSubkey(key) => {
                         if TRACE {
                             eprintln!("TPKParser::parse: Found subkey {}.",
                                       key.fingerprint());
@@ -583,7 +583,7 @@ impl<'a, I: Iterator<Item=Packet>> TPKParser<'a, I> {
                                 certifications: vec![],
                             })
                     },
-                    Packet::PublicSubkey(key) => {
+                    Packet::PublicSubkey(key) | Packet::SecretSubkey(key) => {
                         if TRACE {
                             eprintln!("TPKParser::parse: Found subkey {}.",
                                       key.fingerprint());
@@ -749,6 +749,11 @@ impl TPK {
     /// Returns a reference to the primary key.
     pub fn primary(&self) -> &Key {
         &self.primary
+    }
+
+    #[cfg(test)]
+    pub fn primary_mut(&mut self) -> &mut Key {
+        &mut self.primary
     }
 
     /// Returns an iterator over the TPK's valid `UserIDBinding`s.
