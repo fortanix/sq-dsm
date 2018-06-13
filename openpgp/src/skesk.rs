@@ -1,5 +1,5 @@
 use Result;
-use S2K;
+use s2k::S2K;
 use Error;
 use SymmetricAlgorithm;
 use packet;

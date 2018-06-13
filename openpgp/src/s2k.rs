@@ -1,3 +1,11 @@
+//! String-to-Key (S2K) specifiers.
+//!
+//! String-to-key (S2K) specifiers are used to convert passphrase
+//! strings into symmetric-key encryption/decryption keys.  See
+//! [Section 3.7 of RFC 4880].
+//!
+//!   [Section 3.7 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-3.7
+
 use Error;
 use Result;
 use HashAlgorithm;
@@ -9,10 +17,11 @@ use quickcheck::{Arbitrary,Gen};
 
 /// String-to-Key (S2K) specifiers.
 ///
-/// String-to-key (S2K) specifiers are used to convert passphrase strings
-/// into symmetric-key encryption/decryption keys.
+/// String-to-key (S2K) specifiers are used to convert passphrase
+/// strings into symmetric-key encryption/decryption keys.  See
+/// [Section 3.7 of RFC 4880].
 ///
-/// See RFC4880, section 3.7
+///   [Section 3.7 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-3.7
 #[derive(Clone,Copy,PartialEq,Eq,Debug)]
 pub enum S2K {
     /// Simply hashes the password.

@@ -16,7 +16,7 @@ use {
     Result,
     CTB,
     BodyLength,
-    S2K,
+    s2k::S2K,
     Error,
     Tag,
     Header,

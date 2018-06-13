@@ -262,7 +262,7 @@ mod tests {
     use SymmetricAlgorithm;
     use PublicKeyAlgorithm;
     use SignatureType;
-    use S2K;
+    use s2k::S2K;
     use mpis::MPIs;
     use CompressedData;
     use Literal;

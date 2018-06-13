@@ -75,8 +75,7 @@ pub mod serialize;
 mod hash;
 pub mod symmetric;
 
-mod s2k;
-pub use s2k::S2K;
+pub mod s2k;
 
 mod unknown;
 mod signature;

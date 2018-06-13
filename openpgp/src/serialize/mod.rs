@@ -18,6 +18,7 @@ mod partial_body;
 use self::partial_body::PartialBodyFilter;
 mod writer;
 pub mod stream;
+use s2k::S2K;
 
 // Whether to trace the modules execution (on stderr).
 const TRACE : bool = false;
