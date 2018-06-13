@@ -113,6 +113,8 @@ pub enum Status {
 
     // XXX: Skipping UnsupportedSignatureType = -20
     // XXX: Skipping UnsupportedEllipticCurve = -21
+
+    MalformedMessage = -22,
 }
 
 impl<'a> From<&'a failure::Error> for Status {
@@ -160,6 +162,8 @@ impl<'a> From<&'a failure::Error> for Status {
                     Status::MalformedMPI,
                 &openpgp::Error::BadSignature(_) =>
                     Status::BadSignature,
+                &openpgp::Error::MalformedMessage(_) =>
+                    Status::MalformedMessage,
             }
         }
 

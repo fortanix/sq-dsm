@@ -96,6 +96,8 @@ mod reader;
 pub use reader::Reader;
 
 mod packet_pile;
+mod message;
+
 pub mod constants;
 use constants::{
     PublicKeyAlgorithm,
@@ -172,6 +174,9 @@ pub enum Error {
 
     #[fail(display = "Bad signature: {}", _0)]
     BadSignature(String),
+
+    #[fail(display = "Malformed Message: {}", _0)]
+    MalformedMessage(String),
 }
 
 // A helpful debugging function.
@@ -482,6 +487,9 @@ impl Packet {
 /// [`PacketPileParser`], or [`PacketPile::from_file`] (or related
 /// routines).
 ///
+/// Normally, you'll want to convert the `PacketPile` to a TPK or a
+/// `Message`.
+///
 ///   [`PacketParser`]: parse/struct.PacketParser.html
 ///   [`PacketPileParser`]: parse/struct.PacketPileParser.html
 ///   [`PacketPile::from_file`]: struct.PacketPile.html#method.from_file
@@ -505,6 +513,19 @@ pub struct TPK {
     userids: Vec<tpk::UserIDBinding>,
     user_attributes: Vec<tpk::UserAttributeBinding>,
     subkeys: Vec<tpk::SubkeyBinding>,
+}
+
+/// An OpenPGP message.
+///
+/// An OpenPGP message is a structured sequence of OpenPGP packets.
+/// Basically, it's an optionally encrypted, optionally signed literal
+/// data packet.  The exact structure is defined in [Section 11.3 of RFC
+/// 4880].
+///
+///   [Section 11.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-11.3
+pub struct Message {
+    // A message is just a validated packet pile.
+    pile: PacketPile,
 }
 
 /// Holds a fingerprint.
