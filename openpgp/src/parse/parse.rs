@@ -135,12 +135,33 @@ macro_rules! make_php_try {
                     Ok(b) => {
                         Ok(b)
                     },
-                    Err(e) =>
-                        if let io::ErrorKind::UnexpectedEof = e.kind() {
-                            return $parser.fail("truncated")
-                        } else {
-                            Err(e)
-                        },
+                    Err(e) => {
+                        // XXX: Ugh, this is getting unwieldy, and we
+                        // are loosing information for no good reason.
+                        // Why not simply pass the error to fail()?
+                        // Otoh, currently the information isn't even
+                        // stored.
+                        let e = match e.downcast::<io::Error>() {
+                            Ok(e) =>
+                                if let io::ErrorKind::UnexpectedEof = e.kind() {
+                                    return $parser.fail("truncated")
+                                } else {
+                                    e.into()
+                                },
+                            Err(e) => e,
+                        };
+                        let e = match e.downcast::<Error>() {
+                            Ok(e) => match e {
+                                Error::MalformedMPI(_) =>
+                                    return $parser.fail("malformed MPI"),
+                                _ =>
+                                    e.into(),
+                            },
+                            Err(e) => e,
+                        };
+
+                        Err(e)
+                    },
                 }?
             };
         }
@@ -259,28 +280,28 @@ impl<'a> PacketHeaderParser<'a> {
         }
     }
 
-    fn parse_u8(&mut self, name: &'static str) -> io::Result<u8> {
+    fn parse_u8(&mut self, name: &'static str) -> Result<u8> {
         self.field(name, 1);
         Ok(self.reader.data_consume_hard(1)?[0])
     }
 
-    fn parse_be_u16(&mut self, name: &'static str) -> io::Result<u16> {
+    fn parse_be_u16(&mut self, name: &'static str) -> Result<u16> {
         self.field(name, 2);
-        self.reader.read_be_u16()
+        Ok(self.reader.read_be_u16()?)
     }
 
-    fn parse_be_u32(&mut self, name: &'static str) -> io::Result<u32> {
+    fn parse_be_u32(&mut self, name: &'static str) -> Result<u32> {
         self.field(name, 4);
-        self.reader.read_be_u32()
+        Ok(self.reader.read_be_u32()?)
     }
 
     fn parse_bytes(&mut self, name: &'static str, amount: usize)
-             -> io::Result<Vec<u8>> {
+                   -> Result<Vec<u8>> {
         self.field(name, amount);
-        self.reader.steal(amount)
+        Ok(self.reader.steal(amount)?)
     }
 
-    fn parse_bytes_eof(&mut self, name: &'static str) -> io::Result<Vec<u8>> {
+    fn parse_bytes_eof(&mut self, name: &'static str) -> Result<Vec<u8>> {
         let r = self.reader.steal_eof()?;
         self.field(name, r.len());
         Ok(r)
@@ -575,7 +596,7 @@ impl Map {
 #[cfg(test)]
 impl S2K {
     // Reads an S2K from `r`.
-    pub(crate) fn parse_naked<R: io::Read>(r: R) -> io::Result<Self> {
+    pub(crate) fn parse_naked<R: io::Read>(r: R) -> Result<Self> {
         let bio = BufferedReaderGeneric::with_cookie(
             r, None, Cookie::default());
         let mut parser = PacketHeaderParser::new_naked(Box::new(bio));
@@ -585,7 +606,7 @@ impl S2K {
 
 impl S2K {
     /// Reads an S2K from `php`.
-    fn parse<'a>(php: &mut PacketHeaderParser<'a>) -> io::Result<Self>
+    fn parse<'a>(php: &mut PacketHeaderParser<'a>) -> Result<Self>
     {
         let s2k = php.parse_u8("s2k_type")?;
         let ret = match s2k {
@@ -608,7 +629,7 @@ impl S2K {
         Ok(ret)
     }
 
-    fn read_salt<'a,>(php: &mut PacketHeaderParser<'a>) -> io::Result<[u8; 8]> {
+    fn read_salt<'a,>(php: &mut PacketHeaderParser<'a>) -> Result<[u8; 8]> {
         let mut b = [0u8; 8];
         b.copy_from_slice(&php.parse_bytes("s2k_salt", 8)?);
 
