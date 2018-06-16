@@ -22,11 +22,12 @@ use {
     TPK,
     Fingerprint,
 };
-use super::parse::PacketParser;
-use super::serialize::{Serialize, SerializeKey};
+use parse::PacketParser;
+use serialize::{Serialize, SerializeKey};
 
 const TRACE : bool = false;
 
+/// A subkey and any associated signatures.
 #[derive(Debug, Clone, PartialEq)]
 pub struct SubkeyBinding {
     subkey: Key,
@@ -40,19 +41,28 @@ pub struct SubkeyBinding {
 }
 
 impl SubkeyBinding {
+    /// The key.
     pub fn subkey(&self) -> &Key {
         &self.subkey
     }
 
+    /// The self-signatures.
+    ///
+    /// All self-signatures have been validated, and the newest
+    /// self-signature is first.
     pub fn selfsigs(&self) -> slice::Iter<Signature> {
         self.selfsigs.iter()
     }
 
+    /// Any third-party certifications.
+    ///
+    /// The signatures have *not* been validated.
     pub fn certifications(&self) -> slice::Iter<Signature> {
         self.certifications.iter()
     }
 }
 
+/// A User ID and any associated signatures.
 #[derive(Debug, Clone, PartialEq)]
 pub struct UserIDBinding {
     userid: UserID,
@@ -65,19 +75,28 @@ pub struct UserIDBinding {
 }
 
 impl UserIDBinding {
+    /// The User ID.
     pub fn userid(&self) -> &UserID {
         &self.userid
     }
 
+    /// The self-signatures.
+    ///
+    /// The self-signatures have been validated, and the newest
+    /// self-signature is first.
     pub fn selfsigs(&self) -> slice::Iter<Signature> {
         self.selfsigs.iter()
     }
 
+    /// Any third-party certifications.
+    ///
+    /// The signatures have *not* been validated.
     pub fn certifications(&self) -> slice::Iter<Signature> {
         self.certifications.iter()
     }
 }
 
+/// A User Attribute and any associated signatures.
 #[derive(Debug, Clone, PartialEq)]
 pub struct UserAttributeBinding {
     user_attribute: UserAttribute,
@@ -90,21 +109,52 @@ pub struct UserAttributeBinding {
 }
 
 impl UserAttributeBinding {
+    /// The User attribute.
     pub fn user_attribute(&self) -> &UserAttribute {
         &self.user_attribute
     }
 
+    /// The self-signatures.
+    ///
+    /// The self-signatures have been validated, and the newest
+    /// self-signature is first.
     pub fn selfsigs(&self) -> slice::Iter<Signature> {
         self.selfsigs.iter()
     }
 
+    /// Any third-party certifications.
+    ///
+    /// The signatures have *not* been validated.
     pub fn certifications(&self) -> slice::Iter<Signature> {
         self.certifications.iter()
     }
 }
 
-// We use a state machine to extract a TPK from an OpenPGP message.
-// These are the states.
+/// An iterator over all `Key`s (both the primary key and any subkeys)
+/// in a TPK.
+///
+/// Returned by TPK::keys().
+pub struct KeyIter<'a> {
+    tpk: &'a TPK,
+    primary: bool,
+    subkey_iter: slice::Iter<'a, SubkeyBinding>,
+}
+
+impl<'a> Iterator for KeyIter<'a> {
+    type Item = &'a Key;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if ! self.primary {
+            self.primary = true;
+            Some(self.tpk.primary())
+        } else {
+            self.subkey_iter.next().map(|sk_binding| &sk_binding.subkey)
+        }
+    }
+}
+
+// We use a state machine to extract a TPK from a sequence of OpenPGP
+// packets.  These are the states.
 enum TPKParserState {
     Start,
     TPK,
@@ -151,6 +201,43 @@ enum PacketSource<'a, I: Iterator<Item=Packet>> {
     Iter(I),
 }
 
+/// An iterator over a sequence of TPKs (e.g., an OpenPGP keyring).
+///
+/// The source of packets can either be a `PacketParser` or an
+/// iterator over `Packet`s.  (In the latter case, the underlying
+/// parser is not able to propagate errors.  Thus, this is only
+/// appropriate for in-memory structures, like a vector of `Packet`s
+/// or a `PacketPile`.)
+///
+/// # Example
+///
+/// ```rust
+/// # extern crate openpgp;
+/// # use openpgp::Result;
+/// # use openpgp::parse::PacketParser;
+/// use openpgp::tpk::TPKParser;
+///
+/// # fn main() { f().unwrap(); }
+/// # fn f() -> Result<()> {
+/// #     let ppo = PacketParser::from_bytes(&b""[..])?;
+/// #     if let Some(pp) = ppo {
+/// for tpko in TPKParser::from_packet_parser(pp) {
+///     match tpko {
+///         Ok(tpk) => {
+///             println!("Key: {}", tpk.primary());
+///             for binding in tpk.userids() {
+///                 println!("User ID: {}", binding.userid());
+///             }
+///         }
+///         Err(err) => {
+///             eprintln!("Error reading keyring: {}", err);
+///         }
+///     }
+/// }
+/// #     }
+/// #     Ok(())
+/// # }
+/// ```
 pub struct TPKParser<'a, I: Iterator<Item=Packet>> {
     source: PacketSource<'a, I>,
 
@@ -177,25 +264,6 @@ impl<'a, I: Iterator<Item=Packet>> Default for TPKParser<'a, I> {
     }
 }
 
-pub struct KeyIter<'a> {
-    tpk: &'a TPK,
-    primary: bool,
-    subkey_iter: slice::Iter<'a, SubkeyBinding>,
-}
-
-impl<'a> Iterator for KeyIter<'a> {
-    type Item = &'a Key;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if ! self.primary {
-            self.primary = true;
-            Some(self.tpk.primary())
-        } else {
-            self.subkey_iter.next().map(|sk_binding| &sk_binding.subkey)
-        }
-    }
-}
-
 // When using a `PacketParser`, we never use the `Iter` variant.
 // Nevertheless, we need to provide a concrete type.
 // vec::IntoIter<Packet> is about as good as any other.
@@ -209,7 +277,7 @@ impl<'a> TPKParser<'a, vec::IntoIter<Packet>> {
 }
 
 impl<'a, I: Iterator<Item=Packet>> TPKParser<'a, I> {
-    /// Initializes a parser.
+    /// Initializes a TPKParser from an iterator over Packets.
     pub fn from_iter(iter: I) -> Self {
         let mut parser : Self = Default::default();
         parser.source = PacketSource::Iter(iter);
@@ -678,22 +746,40 @@ impl fmt::Display for TPK {
 }
 
 impl TPK {
+    /// Returns a reference to the primary key.
     pub fn primary(&self) -> &Key {
         &self.primary
     }
 
+    /// Returns an iterator over the TPK's valid `UserIDBinding`s.
+    ///
+    /// A valid `UserIDBinding` has at least one good self-signature.
     pub fn userids(&self) -> slice::Iter<UserIDBinding> {
         self.userids.iter()
     }
 
+    /// Returns an iterator over the TPK's valid `UserAttributeBinding`s.
+    ///
+    /// A valid `UserIDAttributeBinding` has at least one good
+    /// self-signature.
     pub fn user_attributes(&self) -> slice::Iter<UserAttributeBinding> {
         self.user_attributes.iter()
     }
 
+    /// Returns an iterator over the TPK's valid subkeys.
+    ///
+    /// A valid `SubkeyBinding` has at least one good self-signature.
     pub fn subkeys(&self) -> slice::Iter<SubkeyBinding> {
         self.subkeys.iter()
     }
 
+    /// Returns an iterator over all of the TPK's valid keys.
+    ///
+    /// That is, this returns an iterator over the primary key and any
+    /// subkeys.  Note: since a primary key is different from a
+    /// binding, the iterator is over `Key`s and not `SubkeyBindings`.
+    ///
+    /// A valid `Key` has at least one good self-signature.
     pub fn keys(&self) -> KeyIter {
         KeyIter {
             tpk: self,
@@ -772,7 +858,7 @@ impl TPK {
         //
         //  - Signature may be out of order.  These should be
         //    reordered so that we have the latest self-signature and
-        //    we don't drop an userid or subkey that is actually
+        //    we don't drop a userid or subkey that is actually
         //    valid.
 
         // Collect bad signatures here.  Below, we'll test whether

@@ -507,7 +507,44 @@ pub struct PacketPile {
 /// signatures and encrypt data.  It can be stored in a keystore and
 /// uploaded to keyservers.
 ///
+/// TPKs are always canonicalized in the sense that only elements
+/// (user id, user attribute, subkey) with at least one valid
+/// self-signature are preserved.  Also, invalid self-signatures are
+/// dropped.  The self-signatures are sorted so that the newest
+/// self-signature comes first.  User IDs are sorted so that the first
+/// `UserID` is the primary User ID.  Third-party certifications are
+/// *not* validated, as the keys are not available; they are simply
+/// passed through as is.
+///
 /// [RFC 4880, section 11.1]: https://tools.ietf.org/html/rfc4880#section-11.1
+///
+/// # Example
+///
+/// ```rust
+/// # extern crate openpgp;
+/// # use openpgp::Result;
+/// # use openpgp::parse::PacketParser;
+/// use openpgp::TPK;
+///
+/// # fn main() { f().unwrap(); }
+/// # fn f() -> Result<()> {
+/// #     let ppo = PacketParser::from_bytes(&b""[..])?;
+/// #     if let Some(pp) = ppo {
+/// match TPK::from_packet_parser(pp) {
+///     Ok(tpk) => {
+///         println!("Key: {}", tpk.primary());
+///         for binding in tpk.userids() {
+///             println!("User ID: {}", binding.userid());
+///         }
+///     }
+///     Err(err) => {
+///         eprintln!("Error parsing TPK: {}", err);
+///     }
+/// }
+///
+/// #     }
+/// #     Ok(())
+/// # }
 #[derive(Debug, Clone, PartialEq)]
 pub struct TPK {
     primary: Key,
