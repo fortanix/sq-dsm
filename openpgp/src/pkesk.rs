@@ -80,7 +80,6 @@ impl PKESK {
                 return Err(Error::UnsupportedPublicKeyAlgorithm(algo).into()),
         };
 
-
         Ok(PKESK{
             common: Default::default(),
             version: 3,

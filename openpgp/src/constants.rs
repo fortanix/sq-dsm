@@ -172,7 +172,7 @@ impl Curve {
         }
     }
 
-    /// Returns this curves OID.
+    /// Returns this curve's OID.
     pub fn oid(&self) -> &[u8] {
         match self {
             &Curve::NistP256 => NIST_P256_OID,

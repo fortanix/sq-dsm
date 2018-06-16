@@ -143,7 +143,7 @@ impl fmt::Debug for TPKParserState {
 }
 
 // A TPKParser can read packets from either an Iterator or a
-// PacketParser.  Ideally, we'it would just take an iterator, but we
+// PacketParser.  Ideally, we would just take an iterator, but we
 // want to be able to handle errors, which iterators hide.
 enum PacketSource<'a, I: Iterator<Item=Packet>> {
     EOF,
@@ -565,7 +565,7 @@ impl<'a, I: Iterator<Item=Packet>> TPKParser<'a, I> {
         result
     }
 
-    // Finalizes the current TPK and returns it.  Sets the parse up to
+    // Finalizes the current TPK and returns it.  Sets the parser up to
     // begin parsing the next TPK.
     fn tpk(&mut self, pk: Option<Key>) -> Option<TPK> {
         let mut orig = self.reset();
@@ -731,7 +731,7 @@ impl TPK {
 
     /// Returns the first TPK found in `buf`.
     ///
-    /// `buf` must be an OpenPGP encoded message.
+    /// `buf` must be an OpenPGP-encoded message.
     pub fn from_bytes(buf: &[u8]) -> Result<Self> {
         let ppo = PacketParser::from_bytes(buf)?;
         if let Some(pp) = ppo {
@@ -1114,12 +1114,12 @@ impl TPK {
         self
     }
 
-    /// Returns the fingerprint.
+    /// Returns the TPK's fingerprint.
     pub fn fingerprint(&self) -> Fingerprint {
         self.primary.fingerprint()
     }
 
-    /// Serialize the transferable public key into an OpenPGP message.
+    /// Converts the TPK into a `PacketPile`.
     pub fn to_packet_pile(self) -> PacketPile {
         let mut p : Vec<Packet> = Vec::new();
 
@@ -1159,7 +1159,7 @@ impl TPK {
         PacketPile::from_packets(p)
     }
 
-    /// Serialize the TPK.
+    /// Serializes the TPK.
     pub fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
         self.primary.serialize(o, Tag::PublicKey)?;
 

@@ -1443,8 +1443,10 @@ impl MPI {
 }
 
 impl MPIs {
-    pub fn parse_public_key_naked<T: AsRef<[u8]>>(algo: PublicKeyAlgorithm, buf: T)
-        -> Result<Self> {
+    pub fn parse_public_key_naked<T: AsRef<[u8]>>(
+        algo: PublicKeyAlgorithm, buf: T)
+        -> Result<Self>
+    {
         use std::io::Cursor;
 
         let cur = Cursor::new(buf);
@@ -1454,13 +1456,15 @@ impl MPIs {
         Self::parse_public_key(algo, &mut php)
     }
 
-    /// Parses an set of OpenPGP MPI.
+    /// Parses a set of OpenPGP MPIs.
     ///
     /// See [Section 3.2 of RFC 4880] for details.
     ///
     ///   [Section 3.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-3.2
-    fn parse_public_key<'a>(algo: PublicKeyAlgorithm, php: &mut PacketHeaderParser<'a>)
-        -> Result<Self> {
+    fn parse_public_key<'a>(algo: PublicKeyAlgorithm,
+                            php: &mut PacketHeaderParser<'a>)
+        -> Result<Self>
+    {
         use PublicKeyAlgorithm::*;
 
         match algo {
@@ -1548,8 +1552,10 @@ impl MPIs {
         }
     }
 
-    pub fn parse_secret_key_naked<T: AsRef<[u8]>>(algo: PublicKeyAlgorithm, buf: T)
-        -> Result<Self> {
+    pub fn parse_secret_key_naked<T: AsRef<[u8]>>(algo: PublicKeyAlgorithm,
+                                                  buf: T)
+        -> Result<Self>
+    {
         use std::io::Cursor;
 
         let cur = Cursor::new(buf);
@@ -1559,8 +1565,10 @@ impl MPIs {
         Self::parse_secret_key(algo, &mut php)
     }
 
-    fn parse_secret_key<'a>(algo: PublicKeyAlgorithm, php: &mut PacketHeaderParser<'a>)
-        -> Result<Self> {
+    fn parse_secret_key<'a>(algo: PublicKeyAlgorithm,
+                            php: &mut PacketHeaderParser<'a>)
+        -> Result<Self>
+    {
         use PublicKeyAlgorithm::*;
 
         match algo {
@@ -1670,8 +1678,10 @@ impl MPIs {
         }
     }
 
-    pub fn parse_signature_naked<T: AsRef<[u8]>>(algo: PublicKeyAlgorithm, buf: T)
-        -> Result<Self> {
+    pub fn parse_signature_naked<T: AsRef<[u8]>>(
+        algo: PublicKeyAlgorithm, buf: T)
+        -> Result<Self>
+    {
         use std::io::Cursor;
 
         let cur = Cursor::new(buf);
@@ -1681,8 +1691,10 @@ impl MPIs {
         Self::parse_signature(algo, &mut php)
     }
 
-    fn parse_signature<'a>(algo: PublicKeyAlgorithm, php: &mut PacketHeaderParser<'a>)
-        -> Result<Self> {
+    fn parse_signature<'a>(algo: PublicKeyAlgorithm,
+                           php: &mut PacketHeaderParser<'a>)
+        -> Result<Self>
+    {
         use PublicKeyAlgorithm::*;
 
         match algo {
