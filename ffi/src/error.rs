@@ -94,11 +94,10 @@ pub enum Status {
     /// Invalid session key.
     InvalidSessionKey = -12,
 
-    /// Key not found.
-    KeyNotFound = -13,
+    /// Malformed TPK.
+    MalformedTPK = -13,
 
-    /// User ID not found.
-    UserIDNotFound = -14,
+    // XXX: -14 was UserIDNotFound.
 
     // XXX: Skipping InvalidArgument = -15.
 
@@ -164,15 +163,8 @@ impl<'a> From<&'a failure::Error> for Status {
                     Status::BadSignature,
                 &openpgp::Error::MalformedMessage(_) =>
                     Status::MalformedMessage,
-            }
-        }
-
-        if let Some(e) = e.downcast_ref::<openpgp::tpk::Error>() {
-            return match e {
-                &openpgp::tpk::Error::NoKeyFound =>
-                    Status::KeyNotFound,
-                &openpgp::tpk::Error::NoUserId =>
-                    Status::UserIDNotFound,
+                &openpgp::Error::MalformedTPK(_) =>
+                    Status::MalformedTPK,
             }
         }
 

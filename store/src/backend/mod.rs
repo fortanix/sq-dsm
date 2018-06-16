@@ -21,7 +21,7 @@ use tokio_core::reactor::{Handle, Timeout};
 use tokio_core;
 use tokio_io::io::ReadHalf;
 
-use openpgp::{self, tpk, TPK, Fingerprint};
+use openpgp::{self, TPK, Fingerprint};
 use sequoia_core as core;
 use sequoia_net as net;
 use sequoia_net::ipc;
@@ -1084,7 +1084,7 @@ impl fmt::Debug for node::Error {
                    &node::Error::NotFound => "NotFound",
                    &node::Error::Conflict => "Conflict",
                    &node::Error::SystemError => "SystemError",
-                   &node::Error::MalformedKey => "MalformedKey",
+                   &node::Error::MalformedTPK => "MalformedTPK",
                    &node::Error::MalformedFingerprint => "MalformedFingerprint",
                    &node::Error::NetworkPolicyViolationOffline =>
                        "NetworkPolicyViolation(Offline)",
@@ -1115,8 +1115,12 @@ impl From<rusqlite::Error> for node::Error {
 
 impl From<failure::Error> for node::Error {
     fn from(e: failure::Error) -> Self {
-        if e.downcast_ref::<tpk::Error>().is_some() {
-            return node::Error::MalformedKey;
+        if let Some(e) = e.downcast_ref::<openpgp::Error>() {
+            return match e {
+                &openpgp::Error::MalformedTPK(_) =>
+                    node::Error::MalformedTPK,
+                _ => node::Error::SystemError,
+            }
         }
 
         if let Some(e) = e.downcast_ref::<super::Error>() {
@@ -1162,9 +1166,13 @@ impl From<failure::Error> for node::Error {
     }
 }
 
-impl From<tpk::Error> for node::Error {
-    fn from(_: tpk::Error) -> Self {
-        node::Error::MalformedKey
+impl From<openpgp::Error> for node::Error {
+    fn from(e: openpgp::Error) -> Self {
+        match e {
+            openpgp::Error::MalformedTPK(_) =>
+                node::Error::MalformedTPK,
+            _ => node::Error::SystemError,
+        }
     }
 }
 

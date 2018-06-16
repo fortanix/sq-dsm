@@ -110,7 +110,7 @@ interface Node {
     notFound @1;
     conflict @2;
     systemError @3;
-    malformedKey @4;
+    malformedTPK @4;
     networkPolicyViolationOffline @5;
     networkPolicyViolationAnonymized @6;
     networkPolicyViolationEncrypted @7;

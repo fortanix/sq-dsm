@@ -934,7 +934,7 @@ impl From<node::Error> for failure::Error {
             node::Error::NotFound => Error::NotFound.into(),
             node::Error::Conflict => Error::Conflict.into(),
             node::Error::SystemError => Error::StoreError.into(),
-            node::Error::MalformedKey => Error::MalformedKey.into(),
+            node::Error::MalformedTPK => Error::MalformedTPK.into(),
             node::Error::MalformedFingerprint =>
                 Error::MalformedFingerprint.into(),
             node::Error::NetworkPolicyViolationOffline =>
@@ -966,8 +966,8 @@ pub enum Error {
     #[fail(display = "Unspecified protocol error")]
     ProtocolError,
     /// A TPK is malformed.
-    #[fail(display = "Malformed key")]
-    MalformedKey,
+    #[fail(display = "Malformed TPK")]
+    MalformedTPK,
     /// A fingerprint is malformed.
     #[fail(display = "Malformed fingerprint")]
     MalformedFingerprint,

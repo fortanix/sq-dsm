@@ -1,6 +1,5 @@
 //! Transferable public keys.
 
-use failure;
 use std::io;
 use std::cmp::Ordering;
 use std::path::Path;
@@ -11,6 +10,8 @@ use std::fmt;
 use std::vec;
 
 use {
+    Error,
+    Result,
     Tag,
     Signature,
     Key,
@@ -699,7 +700,7 @@ impl TPK {
         if let Some(tpk_result) = parser.next() {
             tpk_result
         } else {
-            Err(Error::NoKeyFound.into())
+            Err(Error::MalformedTPK("No data".into()).into())
         }
     }
 
@@ -709,7 +710,7 @@ impl TPK {
         if let Some(pp) = ppo {
             TPK::from_packet_parser(pp)
         } else {
-            Err(Error::NoKeyFound.into())
+            Err(Error::MalformedTPK("No data".into()).into())
         }
     }
 
@@ -724,7 +725,7 @@ impl TPK {
         match i.next() {
             Some(Ok(tpk)) => Ok(tpk),
             Some(Err(err)) => Err(err),
-            None => Err(Error::NoKeyFound.into()),
+            None => Err(Error::MalformedTPK("No data".into()).into()),
         }
     }
 
@@ -736,7 +737,7 @@ impl TPK {
         if let Some(pp) = ppo {
             TPK::from_packet_parser(pp)
         } else {
-            Err(Error::NoKeyFound.into())
+            Err(Error::MalformedTPK("No data".into()).into())
         }
     }
 
@@ -1213,20 +1214,6 @@ impl TPK {
     }
 }
 
-/// Results for TPK.
-pub type Result<T> = ::std::result::Result<T, failure::Error>;
-
-#[derive(Fail, Debug)]
-/// Errors returned from the key routines.
-pub enum Error {
-    #[fail(display = "No key found")]
-    /// No key found in OpenPGP message.
-    NoKeyFound,
-    #[fail(display = "No UID found")]
-    /// No user id found.
-    NoUserId,
-}
-
 #[cfg(test)]
 mod test {
     use super::*;
@@ -1262,7 +1249,7 @@ mod test {
         for i in 0..2 {
             let tpk = parse_tpk(bytes!("testy-broken-no-pk.pgp"),
                                 i == 0);
-            assert_match!(Error::NoKeyFound
+            assert_match!(Error::MalformedTPK(_)
                           = tpk.err().unwrap().downcast::<Error>().unwrap());
 
             // According to 4880, a TPK must have a UserID.  But, we

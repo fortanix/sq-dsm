@@ -175,6 +175,9 @@ pub enum Error {
 
     #[fail(display = "Malformed Message: {}", _0)]
     MalformedMessage(String),
+
+    #[fail(display = "Malformed TPK: {}", _0)]
+    MalformedTPK(String),
 }
 
 // A helpful debugging function.
