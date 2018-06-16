@@ -159,6 +159,8 @@ pub struct TPKParser<'a, I: Iterator<Item=Packet>> {
     userids: Vec<UserIDBinding>,
     user_attributes: Vec<UserAttributeBinding>,
     subkeys: Vec<SubkeyBinding>,
+
+    saw_error: bool,
 }
 
 impl<'a, I: Iterator<Item=Packet>> Default for TPKParser<'a, I> {
@@ -170,6 +172,7 @@ impl<'a, I: Iterator<Item=Packet>> Default for TPKParser<'a, I> {
             userids: vec![],
             user_attributes: vec![],
             subkeys: vec![],
+            saw_error: false,
         }
     }
 }
@@ -612,6 +615,10 @@ impl<'a, I: Iterator<Item=Packet>> Iterator for TPKParser<'a, I> {
     type Item = Result<TPK>;
 
     fn next(&mut self) -> Option<Self::Item> {
+        if self.saw_error {
+            return None;
+        }
+
         loop {
             match mem::replace(&mut self.source, PacketSource::EOF) {
                 PacketSource::EOF => {
@@ -637,6 +644,7 @@ impl<'a, I: Iterator<Item=Packet>> Iterator for TPKParser<'a, I> {
                             }
                         },
                         Err(err) => {
+                            self.saw_error = true;
                             return Some(Err(err));
                         }
                     }
