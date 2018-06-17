@@ -70,7 +70,8 @@ impl PacketPile {
         self.top_level.pretty_print(0);
     }
 
-    /// Returns the packet at the location described by `pathspec`.
+    /// Returns a reference to the packet at the location described by
+    /// `pathspec`.
     ///
     /// `pathspec` is a slice of the form `[ 0, 1, 2 ]`.  Each element
     /// is the index of packet in a container.  Thus, the previous
@@ -111,6 +112,32 @@ impl PacketPile {
             return None;
         }
         return packet;
+    }
+
+    /// Returns a mutable reference to the packet at the location
+    /// described by `pathspec`.
+    ///
+    /// See the description of the `path_spec` for more details.
+    pub fn path_ref_mut(&mut self, pathspec: &[usize]) -> Option<&mut Packet> {
+        let mut container = &mut self.top_level;
+
+        for (level, &i) in pathspec.iter().enumerate() {
+            let tmp = container;
+
+            if i >= tmp.packets.len() {
+                return None;
+            }
+
+            let p = &mut tmp.packets[i];
+
+            if level == pathspec.len() - 1 {
+                return Some(p)
+            }
+
+            container = p.children.as_mut().unwrap();
+        }
+
+        None
     }
 
     /// Replaces the specified packets at the location described by
@@ -404,6 +431,7 @@ mod message_test {
     use CompressionAlgorithm;
     use Literal;
     use CompressedData;
+    use SEIP;
     use packet::Tag;
 
     use std::io::Read;
@@ -592,6 +620,81 @@ mod message_test {
         // And we're done...
         let (_packet, _, ppo, _) = pp.next().unwrap();
         assert!(ppo.is_none());
+    }
+
+    #[test]
+    fn path_ref() {
+        // 0: SEIP
+        //  0: CompressedData
+        //   0: Literal("one")
+        //   1: Literal("two")
+        //   2: Literal("three")
+        //   3: Literal("four")
+        let mut packets : Vec<Packet> = Vec::new();
+
+        let text = [ &b"one"[..], &b"two"[..],
+                      &b"three"[..], &b"four"[..] ].to_vec();
+
+        let mut cd = CompressedData::new(CompressionAlgorithm::Uncompressed);
+        for t in text.iter() {
+            cd = cd.push(Literal::new('t').body(t.to_vec()).to_packet())
+        }
+
+        let mut seip = SEIP {
+            common: Default::default(),
+            version: 0
+        };
+        seip.common.children = Some(Container::new());
+        seip.common.children.as_mut().unwrap().push(cd.to_packet());
+        packets.push(Packet::SEIP(seip));
+
+        eprintln!("{:#?}", packets);
+
+        let mut pile = PacketPile::from_packets(packets);
+
+        assert_eq!(pile.path_ref(&[ 0 ]).unwrap().tag(), Tag::SEIP);
+        assert_eq!(pile.path_ref_mut(&[ 0 ]).unwrap().tag(), Tag::SEIP);
+        assert_eq!(pile.path_ref(&[ 0, 0 ]).unwrap().tag(),
+                   Tag::CompressedData);
+        assert_eq!(pile.path_ref_mut(&[ 0, 0 ]).unwrap().tag(),
+                   Tag::CompressedData);
+
+        for (i, t) in text.iter().enumerate() {
+            assert_eq!(pile.path_ref(&[ 0, 0, i ]).unwrap().tag(),
+                       Tag::Literal);
+            assert_eq!(pile.path_ref_mut(&[ 0, 0, i ]).unwrap().tag(),
+                       Tag::Literal);
+
+            assert_eq!(pile.path_ref(&[ 0, 0, i ]).unwrap().body,
+                       Some(t.to_vec()));
+            assert_eq!(pile.path_ref_mut(&[ 0, 0, i ]).unwrap().body,
+                       Some(t.to_vec()));
+        }
+
+        // Try a few out of bounds accesses.
+        assert!(pile.path_ref(&[ 0, 0, 4 ]).is_none());
+        assert!(pile.path_ref_mut(&[ 0, 0, 4 ]).is_none());
+
+        assert!(pile.path_ref(&[ 0, 0, 5 ]).is_none());
+        assert!(pile.path_ref_mut(&[ 0, 0, 5 ]).is_none());
+
+        assert!(pile.path_ref(&[ 0, 1 ]).is_none());
+        assert!(pile.path_ref_mut(&[ 0, 1 ]).is_none());
+
+        assert!(pile.path_ref(&[ 0, 2 ]).is_none());
+        assert!(pile.path_ref_mut(&[ 0, 2 ]).is_none());
+
+        assert!(pile.path_ref(&[ 1 ]).is_none());
+        assert!(pile.path_ref_mut(&[ 1 ]).is_none());
+
+        assert!(pile.path_ref(&[ 2 ]).is_none());
+        assert!(pile.path_ref_mut(&[ 2 ]).is_none());
+
+        assert!(pile.path_ref(&[ 0, 1, 0 ]).is_none());
+        assert!(pile.path_ref_mut(&[ 0, 1, 0 ]).is_none());
+
+        assert!(pile.path_ref(&[ 0, 2, 0 ]).is_none());
+        assert!(pile.path_ref_mut(&[ 0, 2, 0 ]).is_none());
     }
 
     #[test]
