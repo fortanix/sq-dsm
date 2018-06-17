@@ -9,6 +9,11 @@ impl fmt::Debug for CompressedData {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("CompressedData")
             .field("algo", &self.algo)
+            .field("children",
+                   &self.common.children.as_ref()
+                       .map(|c| &c.packets).unwrap_or(&Vec::new()))
+            .field("body (bytes)",
+                   &self.common.body.as_ref().unwrap_or(&b"".to_vec()).len())
             .finish()
     }
 }
