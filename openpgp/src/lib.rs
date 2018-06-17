@@ -178,6 +178,9 @@ pub enum Error {
 
     #[fail(display = "Malformed TPK: {}", _0)]
     MalformedTPK(String),
+
+    #[fail(display = "Index out of range")]
+    IndexOutOfRange,
 }
 
 // A helpful debugging function.

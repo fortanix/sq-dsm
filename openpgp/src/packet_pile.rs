@@ -10,6 +10,7 @@ use buffered_reader::BufferedReaderGeneric;
 use buffered_reader::BufferedReaderMemory;
 
 use Result;
+use Error;
 use Packet;
 use packet::{Container, PacketIter};
 use PacketPile;
@@ -110,6 +111,106 @@ impl PacketPile {
             return None;
         }
         return packet;
+    }
+
+    /// Replaces the specified packets at the location described by
+    /// `pathspec` with `packets`.
+    ///
+    /// If a packet is a container, the sub-tree rooted at the
+    /// container is removed.
+    ///
+    /// Note: the number of packets to remove need not match the
+    /// number of packets to insert.
+    ///
+    /// The removed packets are returned.
+    ///
+    /// If the path was invalid, then `Error::IndexOutOfRange` is
+    /// returned instead.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # extern crate openpgp;
+    /// # use openpgp::{Result, constants::CompressionAlgorithm,
+    /// #     Packet, PacketPile, Literal, CompressedData};
+    ///
+    /// # fn main() { f().unwrap(); }
+    /// # fn f() -> Result<()> {
+    /// // A compressed data packet that contains a literal data packet.
+    /// let mut pile = PacketPile::from_packet(
+    ///     CompressedData::new(CompressionAlgorithm::Uncompressed)
+    ///         .push(Literal::new('t').body(b"old".to_vec()).to_packet())
+    ///         .to_packet());
+    ///
+    /// // Replace the literal data packet.
+    /// pile.replace(
+    ///     &[ 0, 0 ], 1,
+    ///     [ Literal::new('t').body(b"new".to_vec()).to_packet() ]
+    ///         .to_vec())
+    ///     .unwrap();
+    /// # if let Some(Packet::Literal(lit)) = pile.path_ref(&[0, 0]) {
+    /// #     assert_eq!(lit.common.body, Some(b"new".to_vec()),
+    /// #                "{:#?}", lit);
+    /// # } else {
+    /// #     panic!("Unexpected packet!");
+    /// # }
+    /// #     Ok(())
+    /// # }
+    /// ```
+    pub fn replace(&mut self, pathspec: &[usize], count: usize,
+                   mut packets: Vec<Packet>)
+        -> Result<Vec<Packet>>
+    {
+        let mut container = &mut self.top_level;
+
+        for (level, &i) in pathspec.iter().enumerate() {
+            let tmp = container;
+
+            if level == pathspec.len() - 1 {
+                if i + count > tmp.packets.len() {
+                    return Err(Error::IndexOutOfRange.into());
+                }
+
+                // Out with the old...
+                let old = tmp.packets
+                    .drain(i..i + count)
+                    .collect::<Vec<Packet>>();
+                assert_eq!(old.len(), count);
+
+                // In with the new...
+
+                let mut tail = tmp.packets
+                    .drain(i..)
+                    .collect::<Vec<Packet>>();
+
+                tmp.packets.append(&mut packets);
+                tmp.packets.append(&mut tail);
+
+                return Ok(old)
+            }
+
+            if i >= tmp.packets.len() {
+                return Err(Error::IndexOutOfRange.into());
+            }
+
+            let p = &mut tmp.packets[i];
+            if p.children.is_none() {
+                match p {
+                    Packet::CompressedData(_) | Packet::SEIP(_) => {
+                        // We have a container with no children.
+                        // That's okay.  We can create the container.
+                        p.children = Some(Container::new());
+                    },
+                    _ => {
+                        return Err(Error::IndexOutOfRange.into());
+                    }
+                }
+            }
+
+            container = p.children.as_mut().unwrap();
+        }
+
+        return Err(Error::IndexOutOfRange.into());
     }
 
     /// Returns an iterator over all of the packet's descendants, in
@@ -300,6 +401,11 @@ impl<'a> PacketParserBuilder<'a> {
 mod message_test {
     use super::*;
 
+    use CompressionAlgorithm;
+    use Literal;
+    use CompressedData;
+    use packet::Tag;
+
     use std::io::Read;
 
     #[test]
@@ -486,5 +592,158 @@ mod message_test {
         // And we're done...
         let (_packet, _, ppo, _) = pp.next().unwrap();
         assert!(ppo.is_none());
+    }
+
+    #[test]
+    fn replace() {
+        // 0: Literal("one")
+        // =>
+        // 0: Literal("two")
+        let mut packets : Vec<Packet> = Vec::new();
+        packets.push(Literal::new('t').body(b"one".to_vec()).to_packet());
+
+        assert!(packets.iter().map(|p| p.tag()).collect::<Vec<Tag>>()
+                == [ Tag::Literal ]);
+
+        let mut pile = PacketPile::from_packets(packets.clone());
+        pile.replace(
+            &[ 0 ], 1,
+            [ Literal::new('t').body(b"two".to_vec()).to_packet()
+            ].to_vec()).unwrap();
+
+        let children = pile.into_children().collect::<Vec<Packet>>();
+        assert_eq!(children.len(), 1, "{:#?}", children);
+        if let Packet::Literal(ref literal) = children[0] {
+            assert_eq!(literal.common.body, Some(b"two".to_vec()),
+                       "{:#?}", literal);
+        } else {
+            panic!("WTF");
+        }
+
+        // We start with four packets, and replace some of them with
+        // up to 3 packets.
+        let initial
+            = [ &b"one"[..], &b"two"[..], &b"three"[..], &b"four"[..] ].to_vec();
+        let inserted
+            = [ &b"a"[..], &b"b"[..], &b"c"[..] ].to_vec();
+
+        let mut packets : Vec<Packet> = Vec::new();
+        for text in initial.iter() {
+            packets.push(Literal::new('t').body(text.to_vec()).to_packet())
+        }
+
+        for start in 0..initial.len() + 1 {
+            for delete in 0..initial.len() - start + 1 {
+                for insert in 0..inserted.len() + 1 {
+                    let mut pile = PacketPile::from_packets(packets.clone());
+
+                    let mut replacement : Vec<Packet> = Vec::new();
+                    for &text in inserted[0..insert].iter() {
+                        replacement.push(
+                            Literal::new('t').body(text.to_vec()).to_packet())
+                    }
+
+                    pile.replace(&[ start ], delete, replacement).unwrap();
+
+                    let values = pile
+                        .children()
+                        .map(|p| {
+                            if let Packet::Literal(ref literal) = p {
+                                &literal.common.body.as_ref().unwrap()[..]
+                            } else {
+                                panic!("Expected a literal packet, got: {:?}", p);
+                            }
+                        })
+                        .collect::<Vec<&[u8]>>();
+
+                    assert_eq!(values.len(), initial.len() - delete + insert);
+
+                    assert_eq!(values[..start],
+                               initial[..start]);
+                    assert_eq!(values[start..start + insert],
+                               inserted[..insert]);
+                    assert_eq!(values[start + insert..],
+                               initial[start + delete..]);
+                }
+            }
+        }
+
+
+        // Like above, but the packets to replace are not at the
+        // top-level, but in a compressed data packet.
+
+        let initial
+            = [ &b"one"[..], &b"two"[..], &b"three"[..], &b"four"[..] ].to_vec();
+        let inserted
+            = [ &b"a"[..], &b"b"[..], &b"c"[..] ].to_vec();
+
+        let mut cd = CompressedData::new(CompressionAlgorithm::Uncompressed);
+        for l in initial.iter() {
+            cd = cd.push(Literal::new('t').body(l.to_vec()).to_packet())
+        }
+
+        for start in 0..initial.len() + 1 {
+            for delete in 0..initial.len() - start + 1 {
+                for insert in 0..inserted.len() + 1 {
+                    let mut pile = PacketPile::from_packets(
+                        vec![ cd.clone().to_packet() ]);
+
+                    let mut replacement : Vec<Packet> = Vec::new();
+                    for &text in inserted[0..insert].iter() {
+                        replacement.push(
+                            Literal::new('t').body(text.to_vec()).to_packet())
+                    }
+
+                    pile.replace(&[ 0, start ], delete, replacement).unwrap();
+
+                    let top_level = pile.children().collect::<Vec<&Packet>>();
+                    assert_eq!(top_level.len(), 1);
+
+                    let values = top_level[0]
+                        .children.as_ref().unwrap().children()
+                        .map(|p| {
+                            if let Packet::Literal(ref literal) = p {
+                                &literal.common.body.as_ref().unwrap()[..]
+                            } else {
+                                panic!("Expected a literal packet, got: {:?}", p);
+                            }
+                        })
+                        .collect::<Vec<&[u8]>>();
+
+                    assert_eq!(values.len(), initial.len() - delete + insert);
+
+                    assert_eq!(values[..start],
+                               initial[..start]);
+                    assert_eq!(values[start..start + insert],
+                               inserted[..insert]);
+                    assert_eq!(values[start + insert..],
+                               initial[start + delete..]);
+                }
+            }
+        }
+
+        // Make sure out-of-range accesses error out.
+        let mut packets : Vec<Packet> = Vec::new();
+        packets.push(Literal::new('t').body(b"one".to_vec()).to_packet());
+        let mut pile = PacketPile::from_packets(packets.clone());
+
+        assert!(pile.replace(&[ 1 ], 0, Vec::new()).is_ok());
+        assert!(pile.replace(&[ 2 ], 0, Vec::new()).is_err());
+        assert!(pile.replace(&[ 0 ], 2, Vec::new()).is_err());
+        assert!(pile.replace(&[ 0, 0 ], 0, Vec::new()).is_err());
+        assert!(pile.replace(&[ 0, 1 ], 0, Vec::new()).is_err());
+
+        // Try the same thing, but with a container.
+        let mut packets : Vec<Packet> = Vec::new();
+        packets.push(CompressedData::new(CompressionAlgorithm::Uncompressed)
+                     .to_packet());
+        let mut pile = PacketPile::from_packets(packets.clone());
+
+        assert!(pile.replace(&[ 1 ], 0, Vec::new()).is_ok());
+        assert!(pile.replace(&[ 2 ], 0, Vec::new()).is_err());
+        assert!(pile.replace(&[ 0 ], 2, Vec::new()).is_err());
+        // Since this is a container, this should be okay.
+        assert!(pile.replace(&[ 0, 0 ], 0, Vec::new()).is_ok());
+        assert!(pile.replace(&[ 0, 1 ], 0, Vec::new()).is_err());
     }
 }

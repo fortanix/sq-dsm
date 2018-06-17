@@ -114,6 +114,8 @@ pub enum Status {
     // XXX: Skipping UnsupportedEllipticCurve = -21
 
     MalformedMessage = -22,
+
+    IndexOutOfRange = -23,
 }
 
 impl<'a> From<&'a failure::Error> for Status {
@@ -165,6 +167,8 @@ impl<'a> From<&'a failure::Error> for Status {
                     Status::MalformedMessage,
                 &openpgp::Error::MalformedTPK(_) =>
                     Status::MalformedTPK,
+                &openpgp::Error::IndexOutOfRange =>
+                    Status::IndexOutOfRange,
             }
         }
 
