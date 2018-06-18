@@ -27,6 +27,7 @@ macro_rules! bytes {
 use std::path::PathBuf;
 
 #[cfg(test)]
+#[allow(dead_code)]
 fn path_to(artifact: &str) -> PathBuf {
     [env!("CARGO_MANIFEST_DIR"), "tests", "data", "messages", artifact]
         .iter().collect()
@@ -434,8 +435,6 @@ mod message_test {
     use SEIP;
     use packet::Tag;
 
-    use std::io::Read;
-
     #[test]
     fn deserialize_test_1 () {
         // XXX: This test should be more thorough.  Right now, we mostly
@@ -456,6 +455,7 @@ mod message_test {
         assert_eq!(count, 61);
     }
 
+    #[cfg(feature = "compression-deflate")]
     #[test]
     fn deserialize_test_2 () {
         // A message containing a compressed packet that contains a
@@ -474,6 +474,7 @@ mod message_test {
         assert_eq!(count, 2);
     }
 
+    #[cfg(feature = "compression-deflate")]
     #[test]
     fn deserialize_test_3 () {
         let path = path_to("signed.gpg");
@@ -526,6 +527,7 @@ mod message_test {
         assert_eq!(pile.children().len(), 77);
     }
 
+    #[cfg(feature = "compression-deflate")]
     #[test]
     fn compression_quine_test_1 () {
         // Use the PacketPile::from_file interface to parse an OpenPGP
@@ -547,6 +549,7 @@ mod message_test {
         assert_eq!(count, 1 + max_recursion_depth);
     }
 
+    #[cfg(feature = "compression-deflate")]
     #[test]
     fn compression_quine_test_2 () {
         // Use the iterator interface to parse an OpenPGP quine.
@@ -577,8 +580,10 @@ mod message_test {
         assert_eq!(count, 1 + max_recursion_depth as usize);
     }
 
+    #[cfg(feature = "compression-deflate")]
     #[test]
     fn consume_content_1 () {
+        use std::io::Read;
         // A message containing a compressed packet that contains a
         // literal packet.  When we read some of the compressed
         // packet, we expect recurse() to not recurse.

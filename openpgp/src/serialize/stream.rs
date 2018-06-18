@@ -542,10 +542,13 @@ impl<'a> Compressor<'a> {
         let inner: writer::Stack<'a, Cookie> = match algo {
             CompressionAlgorithm::Uncompressed =>
                 writer::Identity::new(inner, Cookie::new(level)),
+            #[cfg(feature = "compression-deflate")]
             CompressionAlgorithm::Zip =>
                 writer::ZIP::new(inner, Cookie::new(level)),
+            #[cfg(feature = "compression-deflate")]
             CompressionAlgorithm::Zlib =>
                 writer::ZLIB::new(inner, Cookie::new(level)),
+            #[cfg(feature = "compression-bzip2")]
             CompressionAlgorithm::BZip2 =>
                 writer::BZ::new(inner, Cookie::new(level)),
             _ => unimplemented!(),
@@ -1045,6 +1048,7 @@ mod test {
         }
     }
 
+    #[cfg(feature = "compression-deflate")]
     #[test]
     fn stream_big() {
         let mut zeros = Vec::<u8>::new();

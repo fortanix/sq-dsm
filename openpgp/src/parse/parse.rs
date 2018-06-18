@@ -1122,11 +1122,19 @@ impl CompressedData {
                       php.recursion_depth);
         }
 
+        #[allow(unreachable_patterns)]
         match algo {
+            CompressionAlgorithm::Uncompressed => (),
+            #[cfg(feature = "compression-deflate")]
+            CompressionAlgorithm::Zip
+                | CompressionAlgorithm::Zlib => (),
+            #[cfg(feature = "compression-bzip2")]
+            CompressionAlgorithm::BZip2 => (),
             CompressionAlgorithm::Unknown(_)
             | CompressionAlgorithm::Private(_) =>
                 return php.fail("unknown compression algorithm"),
-            _ => (),
+            _ =>
+                return php.fail("unsupported compression algorithm"),
         }
 
         let recursion_depth = php.recursion_depth as usize;
@@ -1143,14 +1151,18 @@ impl CompressedData {
                                for a compression filter: this is an \
                                \"uncompressed compression packet\".");
                 }
+                let _ = recursion_depth;
                 reader
             },
+            #[cfg(feature = "compression-deflate")]
             CompressionAlgorithm::Zip =>
                 Box::new(BufferedReaderDeflate::with_cookie(
                     reader, Cookie::new(recursion_depth))),
+            #[cfg(feature = "compression-deflate")]
             CompressionAlgorithm::Zlib =>
                 Box::new(BufferedReaderZlib::with_cookie(
                     reader, Cookie::new(recursion_depth))),
+            #[cfg(feature = "compression-bzip2")]
             CompressionAlgorithm::BZip2 =>
                 Box::new(BufferedReaderBzip::with_cookie(
                     reader, Cookie::new(recursion_depth))),
@@ -1162,11 +1174,19 @@ impl CompressedData {
     }
 }
 
+#[cfg(any(feature = "compression-deflate", feature = "compression-bzip2"))]
 #[test]
 fn compressed_data_parser_test () {
     let expected = bytes!("a-cypherpunks-manifesto.txt");
 
     for i in 1..4 {
+        match CompressionAlgorithm::from(i) {
+            #[cfg(feature = "compression-deflate")]
+            CompressionAlgorithm::Zip | CompressionAlgorithm::Zlib => (),
+            #[cfg(feature = "compression-bzip2")]
+            CompressionAlgorithm::BZip2 => (),
+            _ => continue,
+        }
         let path = path_to(&format!("compressed-data-algo-{}.gpg", i)[..]);
         let mut pp = PacketParser::from_file(path).unwrap().unwrap();
 
@@ -2591,6 +2611,7 @@ impl<'a> BufferedReader<Cookie> for PacketParser<'a> {
 
 // Check that we can use the read interface to stream the contents of
 // a packet.
+#[cfg(feature = "compression-deflate")]
 #[test]
 fn packet_parser_reader_interface() {
     // We need the Read trait.

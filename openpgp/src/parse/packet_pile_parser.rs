@@ -13,6 +13,7 @@ use buffered_reader::{BufferedReader, BufferedReaderGeneric,
                       BufferedReaderMemory};
 
 #[cfg(test)]
+#[allow(unused_macros)]
 macro_rules! bytes {
     ( $x:expr ) => { include_bytes!(concat!("../../tests/data/messages/", $x)) };
 }
@@ -282,6 +283,7 @@ fn message_parser_test() {
 
 // Check that we can use the read interface to stream the contents of
 // a packet.
+#[cfg(feature = "compression-deflate")]
 #[test]
 fn message_parser_reader_interface() {
     use std::io::Read;

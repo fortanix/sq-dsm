@@ -1480,6 +1480,7 @@ impl Signature {
     }
 }
 
+#[cfg(feature = "compression-deflate")]
 #[test]
 fn subpacket_test_1 () {
     use PacketPile;

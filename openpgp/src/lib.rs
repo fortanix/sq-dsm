@@ -45,7 +45,9 @@ extern crate buffered_reader;
 
 extern crate nettle;
 
+#[cfg(feature = "compression-deflate")]
 extern crate flate2;
+#[cfg(feature = "compression-bzip2")]
 extern crate bzip2;
 
 #[cfg(test)]

@@ -4,11 +4,19 @@ version = "0.1.0"
 authors = ["Neal H. Walfield <neal@gnu.org>"]
 
 [dependencies]
-buffered-reader = { path = "../buffered-reader" }
+buffered-reader = { path = "../buffered-reader", default-features = false }
 base64 = "0.9.0"
-bzip2 = "0.3.2"
+bzip2 = { version = "0.3.2", optional = true }
 failure = "0.1.1"
-flate2 = "1.0.1"
+flate2 = { version = "1.0.1", optional = true }
 nettle = { git = "https://gitlab.com/sequoia-pgp/nettle-rs.git" }
 quickcheck = "0.6"
 time = "0.1.38"
+
+[features]
+default = ["compression"]
+
+# The compression algorithms.
+compression = ["compression-deflate", "compression-bzip2"]
+compression-deflate = ["flate2", "buffered-reader/compression-deflate"]
+compression-bzip2 = ["bzip2", "buffered-reader/compression-bzip2"]

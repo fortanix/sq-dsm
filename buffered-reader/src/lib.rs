@@ -1,6 +1,8 @@
 //! An improved `BufRead` interface.
 
+#[cfg(feature = "compression-deflate")]
 extern crate flate2;
+#[cfg(feature = "compression-bzip2")]
 extern crate bzip2;
 
 use std::io;
@@ -13,16 +15,22 @@ mod memory;
 mod limitor;
 mod dup;
 mod eof;
-mod decompress;
+#[cfg(feature = "compression-deflate")]
+mod decompress_deflate;
+#[cfg(feature = "compression-bzip2")]
+mod decompress_bzip2;
 
 pub use self::generic::BufferedReaderGeneric;
 pub use self::memory::BufferedReaderMemory;
 pub use self::limitor::BufferedReaderLimitor;
 pub use self::dup::BufferedReaderDup;
 pub use self::eof::BufferedReaderEOF;
-pub use self::decompress::BufferedReaderDeflate;
-pub use self::decompress::BufferedReaderZlib;
-pub use self::decompress::BufferedReaderBzip;
+#[cfg(feature = "compression-deflate")]
+pub use self::decompress_deflate::BufferedReaderDeflate;
+#[cfg(feature = "compression-deflate")]
+pub use self::decompress_deflate::BufferedReaderZlib;
+#[cfg(feature = "compression-bzip2")]
+pub use self::decompress_bzip2::BufferedReaderBzip;
 
 // The default buffer size.
 const DEFAULT_BUF_SIZE: usize = 8 * 1024;

@@ -24,6 +24,7 @@ use std::path::PathBuf;
 const TRACE : bool = false;
 
 #[cfg(test)]
+#[allow(dead_code)]
 fn path_to(artifact: &str) -> PathBuf {
     [env!("CARGO_MANIFEST_DIR"), "tests", "data", artifact]
         .iter().collect()
@@ -362,13 +363,14 @@ impl Signature {
 
 #[cfg(test)]
 mod test {
-    use super::*;
-
-    use TPK;
-    use parse::PacketParser;
-
+    #[cfg(feature = "compression-deflate")]
     #[test]
     fn signature_verification_test() {
+        use super::*;
+
+        use TPK;
+        use parse::PacketParser;
+
         struct Test<'a> {
             key: &'a str,
             data: &'a str,

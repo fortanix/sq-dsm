@@ -4,5 +4,13 @@ version = "0.1.0"
 authors = ["Neal H. Walfield <neal@gnu.org>"]
 
 [dependencies]
-bzip2 = "0.3.2"
-flate2 = "1.0.1"
+bzip2 = { version = "0.3.2", optional = true }
+flate2 = { version = "1.0.1", optional = true }
+
+[features]
+default = ["compression"]
+
+# The compression algorithms.
+compression = ["compression-deflate", "compression-bzip2"]
+compression-deflate = ["flate2"]
+compression-bzip2 = ["bzip2"]
