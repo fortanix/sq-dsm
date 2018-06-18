@@ -782,11 +782,25 @@ pub extern "system" fn sq_packet_parser_buffer_unread_content<'a>
 /// `PacketParserBuild` to customize the default behavior.
 #[no_mangle]
 pub extern "system" fn sq_packet_parser_finish<'a>
-    (ctx: Option<&mut Context>, pp: Option<&mut PacketParser<'a>>)
-     -> *const Packet {
-    let _ctx = ctx.expect("Context is NULL");
+    (ctx: Option<&mut Context>, pp: Option<&mut PacketParser<'a>>,
+     packet: Option<&mut *const Packet>)
+     -> Status
+{
+    let ctx = ctx.expect("Context is NULL");
     let pp = pp.expect("PacketParser is NULL");
-    pp.finish()
+    match pp.finish() {
+        Ok(p) => {
+            if let Some(out_p) = packet {
+                *out_p = p;
+            }
+            Status::Success
+        },
+        Err(e) => {
+            let status = Status::from(&e);
+            ctx.e = Some(e);
+            status
+        },
+    }
 }
 
 /// Tries to decrypt the current packet.

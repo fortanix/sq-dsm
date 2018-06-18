@@ -659,8 +659,9 @@ uint8_t *sq_packet_parser_buffer_unread_content (sq_context_t ctx,
 /// By default, this drops any unread content.  Use, for instance,
 /// `PacketParserBuild` to customize the default behavior.
 /*/
-sq_packet_t sq_packet_parser_finish (sq_context_t ctx,
-                                     sq_packet_parser_t pp);
+sq_status_t sq_packet_parser_finish (sq_context_t ctx,
+                                     sq_packet_parser_t pp,
+				     sq_packet_t **packet);
 
 /*/
 /// Tries to decrypt the current packet.

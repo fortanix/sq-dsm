@@ -677,7 +677,7 @@ pub(crate) fn to_unknown_packet<R: Read>(reader: R) -> Result<Unknown>
         reader, Default::default(), 0, header, None);
     let mut pp = Unknown::parse(parser)?;
     pp.buffer_unread_content()?;
-    pp.finish();
+    pp.finish()?;
 
     if let Packet::Unknown(packet) = pp.packet {
         Ok(packet)
@@ -698,7 +698,7 @@ impl Signature {
 
         let mut pp = Signature::parse(parser, None)?;
         pp.buffer_unread_content()?;
-        pp.finish();
+        pp.finish()?;
 
         match pp.packet {
             Packet::Signature(_) => Ok(pp.packet),
@@ -884,7 +884,7 @@ fn one_pass_sig_parser_test () {
     // This test assumes that the first packet is a OnePassSig packet.
     let data = bytes!("signed-1.gpg");
     let mut pp = PacketParser::from_bytes(data).unwrap().unwrap();
-    let p = pp.finish();
+    let p = pp.finish().unwrap();
     // eprintln!("packet: {:?}", p);
 
     if let &Packet::OnePassSig(ref p) = p {
@@ -1076,7 +1076,7 @@ fn literal_parser_test () {
         let mut pp = PacketParser::from_bytes(data).unwrap().unwrap();
         assert_eq!(pp.header.length, BodyLength::Full(18));
         let content = pp.steal_eof().unwrap();
-        let p = pp.finish();
+        let p = pp.finish().unwrap();
         // eprintln!("{:?}", p);
         if let &Packet::Literal(ref p) = p {
             assert_eq!(p.format, 'b' as u8);
@@ -1093,7 +1093,7 @@ fn literal_parser_test () {
         let mut pp = PacketParser::from_bytes(data).unwrap().unwrap();
         assert_eq!(pp.header.length, BodyLength::Partial(4096));
         let content = pp.steal_eof().unwrap();
-        let p = pp.finish();
+        let p = pp.finish().unwrap();
         if let &Packet::Literal(ref p) = p {
             assert_eq!(p.format, 't' as u8);
             assert_eq!(p.filename.as_ref().unwrap()[..],
@@ -2244,7 +2244,7 @@ impl <'a> PacketParser<'a> {
 
         let orig_depth = self.recursion_depth as usize;
 
-        self.finish();
+        self.finish()?;
         let mut reader = buffered_reader_stack_pop(
             self.reader, self.recursion_depth as isize)?;
 
@@ -2281,7 +2281,7 @@ impl <'a> PacketParser<'a> {
                     } else {
                         self.reader = reader_;
                         self.recursion_depth -= 1;
-                        self.finish();
+                        self.finish()?;
                         // XXX self.content_was_read = false;
                         reader = buffered_reader_stack_pop(
                             self.reader, self.recursion_depth as isize)?;
@@ -2446,9 +2446,9 @@ impl <'a> PacketParser<'a> {
     /// By default, this drops any unread content.  Use, for instance,
     /// `PacketParserBuild` to customize the default behavior.
     // Note: this function is public and may be called multiple times!
-    pub fn finish<'b>(&'b mut self) -> &'b Packet {
+    pub fn finish<'b>(&'b mut self) -> Result<&'b Packet> {
         if self.finished {
-            return &mut self.packet;
+            return Ok(&mut self.packet);
         }
 
         let recursion_depth = self.recursion_depth;
@@ -2462,10 +2462,7 @@ impl <'a> PacketParser<'a> {
                           self.data_eof().unwrap().len());
             }
 
-            if let Err(_err) = self.buffer_unread_content() {
-                // XXX: We should propagate the error.
-                unimplemented!();
-            }
+            self.buffer_unread_content()?;
         } else {
             if self.settings.trace {
                 eprintln!("{}PacketParser::finish({:?} at depth {}): \
@@ -2475,12 +2472,12 @@ impl <'a> PacketParser<'a> {
                           self.data_eof().unwrap().len());
             }
 
-            self.drop_eof().unwrap();
+            self.drop_eof()?;
         }
 
         self.finished = true;
 
-        return &mut self.packet;
+        Ok(&mut self.packet)
     }
 }
 
