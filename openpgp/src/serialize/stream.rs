@@ -1132,7 +1132,7 @@ mod test {
         #[derive(Debug, PartialEq)]
         enum State {
             Start,
-            Decrypted(Vec<(u8, Vec<u8>)>),
+            Decrypted(Vec<(SymmetricAlgorithm, Vec<u8>)>),
             Deciphered,
             MDC,
             Done,
@@ -1150,7 +1150,7 @@ mod test {
                             match skesk.decrypt(password) {
                                 Ok((algo, key))
                                     => State::Decrypted(
-                                        vec![(algo.into(), key)]),
+                                        vec![(algo, key)]),
                                 Err(e) =>
                                     panic!("Decryption failed: {}", e),
                             }
@@ -1164,8 +1164,7 @@ mod test {
                             Packet::SEIP(_) =>
                                 loop {
                                     if let Some((algo, key)) = keys.pop() {
-                                        let r = pp.decrypt(algo.into(),
-                                                           &key[..]);
+                                        let r = pp.decrypt(algo, &key[..]);
                                         if r.is_ok() {
                                             break State::Deciphered;
                                         }
@@ -1176,7 +1175,7 @@ mod test {
                             Packet::SKESK(ref skesk) =>
                                 match skesk.decrypt(password) {
                                     Ok((algo, key)) => {
-                                        keys.push((algo.into(), key));
+                                        keys.push((algo, key));
                                         State::Decrypted(keys)
                                     },
                                     Err(e) =>
