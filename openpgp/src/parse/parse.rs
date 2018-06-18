@@ -1360,6 +1360,10 @@ impl MPI {
     ///   [Section 3.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-3.2
     fn parse<'a>(name: &'static str, php: &mut PacketHeaderParser<'a>) -> Result<Self> {
         let bits = php.parse_be_u16("mpi_len")? as usize;
+        if bits == 0 {
+            return Ok(MPI{ bits: 0, value: vec![].into_boxed_slice()});
+        }
+
         let bytes = (bits + 7) / 8;
         let value = Vec::from(&php.parse_bytes(name, bytes)?[..bytes]);
 
