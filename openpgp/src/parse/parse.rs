@@ -445,7 +445,7 @@ impl Cookie {
 // caller to adjust PacketParser::recursion_depth, etc. appropriately!
 fn buffered_reader_stack_pop<'a>(
     mut reader: Box<BufferedReader<Cookie> + 'a>, depth: isize)
-    -> Box<BufferedReader<Cookie> + 'a>
+    -> Result<Box<BufferedReader<Cookie> + 'a>>
 {
     while let Some(level) = reader.cookie_ref().level {
         assert!(level <= depth);
@@ -458,14 +458,14 @@ fn buffered_reader_stack_pop<'a>(
                           reader);
             }
 
-            reader.drop_eof().unwrap();
+            reader.drop_eof()?;
             reader = reader.into_inner().unwrap();
         } else {
             break;
         }
     }
 
-    reader
+    Ok(reader)
 }
 
 
@@ -847,7 +847,7 @@ impl OnePassSig {
         assert!(pp.reader.cookie_ref().level
                 <= Some(recursion_depth as isize));
         let reader = buffered_reader_stack_pop(Box::new(pp.take_reader()),
-                                               recursion_depth as isize);
+                                               recursion_depth as isize)?;
 
         let mut reader = HashedReader::new(
             reader, HashesFor::Signature, algos);
@@ -2246,7 +2246,7 @@ impl <'a> PacketParser<'a> {
 
         self.finish();
         let mut reader = buffered_reader_stack_pop(
-            self.reader, self.recursion_depth as isize);
+            self.reader, self.recursion_depth as isize)?;
 
         // Now read the next packet.
         loop {
@@ -2284,7 +2284,7 @@ impl <'a> PacketParser<'a> {
                         self.finish();
                         // XXX self.content_was_read = false;
                         reader = buffered_reader_stack_pop(
-                            self.reader, self.recursion_depth as isize);
+                            self.reader, self.recursion_depth as isize)?;
                     }
                 },
                 ParserResult::Success(mut pp) => {
