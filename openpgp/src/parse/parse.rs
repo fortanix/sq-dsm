@@ -2668,6 +2668,12 @@ impl<'a> PacketParser<'a> {
                 format!("Packet not encrypted.")).into());
         }
 
+        if algo.key_size()? != key.len () {
+            return Err(Error::InvalidOperation(
+                format!("Bad key size: {} expected: {}",
+                        key.len(), algo.key_size()?)).into());
+        }
+
         if let Packet::SEIP(_) = self.packet {
             // Get the first blocksize plus two bytes and check
             // whether we can decrypt them using the provided key.
