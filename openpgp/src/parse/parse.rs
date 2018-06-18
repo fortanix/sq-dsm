@@ -2361,7 +2361,8 @@ impl <'a> PacketParser<'a> {
                                        self.recursion_depth as isize + 1));
                         },
                         ParserResult::EOF(_) => {
-                            unimplemented!("We immediately got an EOF!");
+                            return Err(Error::MalformedPacket(
+                                "Container is truncated".into()).into());
                         },
                     }
                 }
