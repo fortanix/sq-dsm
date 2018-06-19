@@ -51,32 +51,8 @@ pub fn wrap_session_key(recipient: &Key, session_key: &[u8]) -> Result<MPIs> {
                 // Note: We always pad up to 40 bytes to obfuscate the
                 // length of the symmetric key.
 
-                // Param = curve_OID_len || curve_OID ||
-                // public_key_alg_ID || 03 || 01 || KDF_hash_ID ||
-                // KEK_alg_ID for AESKeyWrap || "Anonymous Sender    " ||
-                // recipient_fingerprint;
-                let mut param = Vec::with_capacity(
-                    1 + curve.oid().len() // Length and Curve OID,
-                        + 1               // Public key algorithm ID,
-                        + 4               // KDF parameters,
-                        + 20              // "Anonymous Sender    ",
-                        + 20);            // Recipients key fingerprint.
-
-                param.push(curve.oid().len() as u8);
-                param.extend_from_slice(curve.oid());
-                param.push(PublicKeyAlgorithm::ECDH.into());
-                param.push(3);
-                param.push(1);
-                param.push((*hash).into());
-                param.push((*sym).into());
-                param.extend_from_slice(b"Anonymous Sender    ");
-                param.extend_from_slice(recipient.fingerprint().as_slice());
-                assert_eq!(param.len(),
-                           1 + curve.oid().len() // Length and Curve OID,
-                           + 1                   // Public key algorithm ID,
-                           + 4                   // KDF parameters,
-                           + 20                  // "Anonymous Sender    ",
-                           + 20);                // Recipients key fingerprint.
+                // Compute KDF input.
+                let param = make_param(recipient, curve, hash, sym);
 
                 // Z_len = the key size for the KEK_alg_ID used with AESKeyWrap
                 // Compute Z = KDF( S, Z_len, Param );
@@ -103,6 +79,40 @@ pub fn wrap_session_key(recipient: &Key, session_key: &[u8]) -> Result<MPIs> {
     } else {
         Err(Error::InvalidArgument("Expected an ECDHPublicKey".into()).into())
     }
+}
+
+fn make_param(recipient: &Key, curve: &Curve, hash: &HashAlgorithm,
+              sym: &SymmetricAlgorithm) -> Vec<u8> {
+    // Param = curve_OID_len || curve_OID ||
+    // public_key_alg_ID || 03 || 01 || KDF_hash_ID ||
+    // KEK_alg_ID for AESKeyWrap || "Anonymous Sender    " ||
+    // recipient_fingerprint;
+    let fp = recipient.fingerprint();
+
+    let mut param = Vec::with_capacity(
+        1 + curve.oid().len()        // Length and Curve OID,
+            + 1                      // Public key algorithm ID,
+            + 4                      // KDF parameters,
+            + 20                     // "Anonymous Sender    ",
+            + fp.as_slice().len());  // Recipients key fingerprint.
+
+    param.push(curve.oid().len() as u8);
+    param.extend_from_slice(curve.oid());
+    param.push(PublicKeyAlgorithm::ECDH.into());
+    param.push(3);
+    param.push(1);
+    param.push((*hash).into());
+    param.push((*sym).into());
+    param.extend_from_slice(b"Anonymous Sender    ");
+    param.extend_from_slice(fp.as_slice());
+    assert_eq!(param.len(),
+               1 + curve.oid().len()    // Length and Curve OID,
+               + 1                      // Public key algorithm ID,
+               + 4                      // KDF parameters,
+               + 20                     // "Anonymous Sender    ",
+               + fp.as_slice().len());  // Recipients key fingerprint.
+
+    param
 }
 
 /// Derives a secret key for session key wrapping.
