@@ -14,11 +14,15 @@ use Packet;
 /// [Section 5.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.3
 #[derive(PartialEq, Clone, Debug)]
 pub struct SKESK {
+    /// CTB header fields.
     pub common: packet::Common,
+    /// Packet version. Must be 4.
     pub version: u8,
+    /// Symmetric algorithm used to encrypt the session key.
     pub symm_algo: SymmetricAlgorithm,
+    /// Key derivation method for the symmetric key.
     pub s2k: S2K,
-    // The encrypted session key.
+    /// The encrypted session key.
     pub esk: Vec<u8>,
 }
 

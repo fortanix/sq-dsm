@@ -79,6 +79,7 @@ impl<'a> DerefMut for Packet {
 #[derive(PartialEq)]
 #[derive(Clone, Copy)]
 pub enum BodyLength {
+    /// Packet size is fully known.
     Full(u32),
     /// The parameter is the number of bytes in the current chunk.
     /// This type is only used with new format packets.

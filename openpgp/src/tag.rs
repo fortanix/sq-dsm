@@ -9,25 +9,37 @@ use quickcheck::{Arbitrary, Gen};
 /// The values correspond to the serialized format.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Tag {
+    /// Reserved Packet tag.
     Reserved,
     /// Public-Key Encrypted Session Key Packet.
     PKESK,
+    /// Signature Packet.
     Signature,
     /// Symmetric-Key Encrypted Session Key Packet.
     SKESK,
     /// One-Pass Signature Packet.
     OnePassSig,
+    /// Secret-Key Packet.
     SecretKey,
+    /// Public-Key Packet.
     PublicKey,
+    /// Secret-Subkey Packet.
     SecretSubkey,
+    /// Compressed Data Packet.
     CompressedData,
     /// Symmetrically Encrypted Data Packet.
     SED,
+    /// Marker Packet (Obsolete Literal Packet).
     Marker,
+    /// Literal Data Packet.
     Literal,
+    /// Trust Packet.
     Trust,
+    /// User ID Packet.
     UserID,
+    /// Public-Subkey Packet.
     PublicSubkey,
+    /// User Attribute Packet.
     UserAttribute,
     /// Sym. Encrypted and Integrity Protected Data Packet.
     SEIP,

@@ -85,32 +85,74 @@ fn path_to(artifact: &str) -> PathBuf {
 #[derive(Debug)]
 #[derive(PartialEq, Eq, Hash)]
 #[derive(Clone, Copy)]
+#[allow(missing_docs)]
 pub enum SubpacketTag {
+    /// The time the signature was made.
     SignatureCreationTime,
+    /// The validity period of the signature.
     SignatureExpirationTime,
+    /// This subpacket denotes whether a certification signature is
+    /// "exportable", to be used by other users than the signature's issuer.
     ExportableCertification,
+    /// Signer asserts that the key is not only valid but also trustworthy at
+    /// the specified level.
     TrustSignature,
+    /// Used in conjunction with trust Signature packets (of level > 0) to
+    /// limit the scope of trust that is extended.
     RegularExpression,
+    /// Signature's revocability status.
     Revocable,
+    /// The validity period of the key.
     KeyExpirationTime,
+    /// Deprecated
     PlaceholderForBackwardCompatibility,
+    /// Symmetric algorithm numbers that indicate which algorithms the key
+    /// holder prefers to use.
     PreferredSymmetricAlgorithms,
+    /// Authorizes the specified key to issue revocation signatures for this
+    /// key.
     RevocationKey,
+    /// The OpenPGP Key ID of the key issuing the signature.
     Issuer,
+    /// This subpacket describes a "notation" on the signature that the
+    /// issuer wishes to make.
     NotationData,
+    /// Message digest algorithm numbers that indicate which algorithms the
+    /// key holder prefers to receive.
     PreferredHashAlgorithms,
+    /// Compression algorithm numbers that indicate which algorithms the key
+    /// holder prefers to use.
     PreferredCompressionAlgorithms,
+    /// This is a list of one-bit flags that indicate preferences that the
+    /// key holder has about how the key is handled on a key server.
     KeyServerPreferences,
+    /// This is a URI of a key server that the key holder prefers be used for
+    /// updates.
     PreferredKeyServer,
+    /// This is a flag in a User ID's self-signature that states whether this
+    /// User ID is the main User ID for this key.
     PrimaryUserID,
+    /// This subpacket contains a URI of a document that describes the policy
+    /// under which the signature was issued.
     PolicyURI,
+    /// This subpacket contains a list of binary flags that hold information
+    /// about a key.
     KeyFlags,
+    /// This subpacket allows a keyholder to state which User ID is
+    /// responsible for the signing.
     SignersUserID,
+    /// This subpacket is used only in key revocation and certification
+    /// revocation signatures.
     ReasonForRevocation,
+    /// The Features subpacket denotes which advanced OpenPGP features a
+    /// user's implementation supports.
     Features,
+    /// This subpacket identifies a specific target signature to which a
+    /// signature refers.
     SignatureTarget,
+    /// This subpacket contains a complete Signature packet body
     EmbeddedSignature,
-    // Added in RFC 4880bis.
+    /// Added in RFC 4880bis.
     IssuerFingerprint,
     Reserved(u8),
     Private(u8),
@@ -248,6 +290,7 @@ impl<'a> fmt::Debug for SubpacketRaw<'a> {
 /// Subpacket area.
 #[derive(Clone)]
 pub struct SubpacketArea {
+    /// Raw, unparsed subpacket data.
     pub data: Vec<u8>,
 
     // The subpacket area, but parsed so that the map is indexed by
@@ -382,6 +425,7 @@ impl SubpacketArea {
     }
 }
 
+/// Payload of a NotationData subpacket.
 #[derive(Debug, PartialEq, Clone)]
 pub struct NotationData<'a> {
     flags: u32,
@@ -391,46 +435,79 @@ pub struct NotationData<'a> {
 
 /// Struct holding an arbitrary subpacket.
 ///
-/// The value is well structured.
+/// The value is well structured. See `SubpacketTag` for a description of these
+/// tags.
 #[derive(Debug, PartialEq, Clone)]
 pub enum SubpacketValue<'a> {
-    // The subpacket is unknown.
+    /// The subpacket is unknown.
     Unknown(&'a [u8]),
-    // The packet is present, but the value is structured incorrectly.
+    /// The packet is present, but the value is structured incorrectly.
     Invalid(&'a [u8]),
 
+    /// 4-octet time field
     SignatureCreationTime(u32),
+    /// 4-octet time field
     SignatureExpirationTime(u32),
+    /// 1 octet of exportability, 0 for not, 1 for exportable
     ExportableCertification(bool),
+    /// 1 octet "level" (depth), 1 octet of trust amount
     TrustSignature((u8, u8)),
+    /// null-terminated regular expression
     RegularExpression(&'a [u8]),
+    /// 1 octet of revocability, 0 for not, 1 for revocable
     Revocable(bool),
+    /// 4-octet time field.
     KeyExpirationTime(u32),
+    /// array of one-octet values
     PreferredSymmetricAlgorithms(&'a [u8]),
+    /// 1 octet of class, 1 octet of public-key algorithm ID, 20 octets of
+    /// fingerprint
     RevocationKey((u8, u8, Fingerprint)),
+    /// 8-octet Key ID
     Issuer(KeyID),
+    /// The notation has a name and a value, each of
+    /// which are strings of octets.
     NotationData(NotationData<'a>),
+    /// array of one-octet values
     PreferredHashAlgorithms(&'a [u8]),
+    /// array of one-octet values
     PreferredCompressionAlgorithms(&'a [u8]),
+    /// N octets of flags
     KeyServerPreferences(&'a [u8]),
+    /// String (URL)
     PreferredKeyServer(&'a [u8]),
+    /// 1 octet, Boolean
     PrimaryUserID(bool),
+    /// String (URL)
     PolicyURI(&'a [u8]),
+    /// N octets of flags
     KeyFlags(&'a [u8]),
+    /// String
     SignersUserID(&'a [u8]),
+    /// 1 octet of revocation code, N octets of reason string
     ReasonForRevocation((u8, &'a [u8])),
+    /// N octets of flags
     Features(&'a [u8]),
+    /// 1 octet public-key algorithm, 1 octet hash algorithm, N octets hash
     SignatureTarget((u8, u8, &'a [u8])),
+    /// 1 signature packet body
     /// This is a packet rather than a `Signature`, because we also
     /// want to return an `Unknown` packet.
     EmbeddedSignature(Packet),
+    /// 20 octet V4 fingerprint.
     IssuerFingerprint(Fingerprint),
 }
 
+/// Signature subpacket specified by [Section 5.2.3.1 of RFC 4880].
+///
+/// [Section 5.2.3.1 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.1
 #[derive(Debug, PartialEq, Clone)]
 pub struct Subpacket<'a> {
+    /// Critical flag.
     pub critical: bool,
+    /// Packet type.
     pub tag: SubpacketTag,
+    /// Packet value, must match packet type.
     pub value: SubpacketValue<'a>,
 }
 
@@ -722,36 +799,45 @@ impl<'a> fmt::Debug for KeyFlags<'a> {
 
 
 impl<'a> KeyFlags<'a> {
+    /// This key may be used to certify other keys.
     pub fn can_certify(&self) -> bool {
         self.0.and_then(|v| v.get(0))
             .map(|v0| v0 & KEY_FLAG_CERTIFY > 0).unwrap_or(false)
     }
 
+    /// This key may be used to sign data.
     pub fn can_sign(&self) -> bool {
         self.0.and_then(|v| v.get(0))
             .map(|v0| v0 & KEY_FLAG_SIGN > 0).unwrap_or(false)
     }
 
+    /// This key may be used to encrypt communications.
     pub fn can_encrypt_for_transport(&self) -> bool {
         self.0.and_then(|v| v.get(0))
             .map(|v0| v0 & KEY_FLAG_ENCRYPT_FOR_TRANSPORT > 0).unwrap_or(false)
     }
 
+    /// This key may be used to encrypt storage.
     pub fn can_encrypt_at_rest(&self) -> bool {
         self.0.and_then(|v| v.get(0))
             .map(|v0| v0 & KEY_FLAG_ENCRYPT_AT_REST > 0).unwrap_or(false)
     }
 
+    /// This key may be used for authentication.
     pub fn can_authenticate(&self) -> bool {
         self.0.and_then(|v| v.get(0))
             .map(|v0| v0 & KEY_FLAG_AUTHENTICATE > 0).unwrap_or(false)
     }
 
+    /// The private component of this key may have been split
+    /// by a secret-sharing mechanism.
     pub fn is_split_key(&self) -> bool {
         self.0.and_then(|v| v.get(0))
             .map(|v0| v0 & KEY_FLAG_SPLIT_KEY > 0).unwrap_or(false)
     }
 
+    /// The private component of this key may be in the
+    /// possession of more than one person.
     pub fn is_group_key(&self) -> bool {
         self.0.and_then(|v| v.get(0))
             .map(|v0| v0 & KEY_FLAG_GROUP_KEY > 0).unwrap_or(false)

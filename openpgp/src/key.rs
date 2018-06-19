@@ -77,11 +77,18 @@ impl Key {
 /// This type allows postponing the decryption of the secret key until we need to use it.
 #[derive(PartialEq, Clone, Debug)]
 pub enum SecretKey {
-    Unencrypted{ mpis: MPIs },
+    /// Unencrypted secret key. Can be used as-is.
+    Unencrypted{
+        /// MPIs of the secret key. Must be a *SecretKey enum variant.
+        mpis: MPIs
+    },
+    /// The secret key is encrypted with a password.
     Encrypted{
+        /// Key derivation mechanism to use.
         s2k: S2K,
+        /// Symmetric algorithm used for encryption the secret key.
         algorithm: SymmetricAlgorithm,
-        /// encryptes MPIs prefixed with the IV.
+        /// Encrypted MPIs prefixed with the IV.
         ciphertext: Box<[u8]>,
     },
 }
@@ -116,6 +123,7 @@ impl SecretKey {
         Ok(())
     }
 
+    /// Returns true, if this secret key is encrypted.
     pub fn is_encrypted(&self) -> bool {
         match self {
             &SecretKey::Encrypted{ .. } => true,

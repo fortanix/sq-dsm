@@ -25,16 +25,24 @@ use quickcheck::{Arbitrary,Gen};
 #[derive(Clone,Copy,PartialEq,Eq,Debug)]
 pub enum S2K {
     /// Simply hashes the password.
-    Simple{ hash: HashAlgorithm },
+    Simple{
+        /// Hash used for key derivation.
+        hash: HashAlgorithm
+    },
     /// Hashes the password with a public `salt` value.
     Salted{
+        /// Hash used for key derivation.
         hash: HashAlgorithm,
+        /// Public salt value mixed into the password.
         salt: [u8; 8],
     },
     /// Repeatently hashes the password with a public `salt` value.
     Iterated{
+        /// Hash used for key derivation.
         hash: HashAlgorithm,
+        /// Public salt value mixed into the password.
         salt: [u8; 8],
+        /// Number of hash function invocations.
         iterations: u32,
     },
     /// Private S2K algorithm

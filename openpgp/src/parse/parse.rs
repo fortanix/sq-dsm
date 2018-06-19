@@ -313,6 +313,7 @@ impl<'a> PacketHeaderParser<'a> {
 
 /// What the hash in the Cookie is for.
 #[derive(Clone, PartialEq, Debug)]
+#[allow(missing_docs)]
 pub enum HashesFor {
     Nothing,
     MDC,
@@ -1668,18 +1669,18 @@ impl <'a> std::fmt::Debug for PacketParser<'a> {
     }
 }
 
-// The return value of PacketParser::parse.
+/// The return value of PacketParser::parse.
 enum ParserResult<'a> {
     Success(PacketParser<'a>),
     EOF(Box<BufferedReader<Cookie> + 'a>),
 }
 
 impl <'a> PacketParser<'a> {
-    // Starts parsing an OpenPGP message stored in a `BufferedReader`
-    // object.
-    //
-    // This function returns a `PacketParser` for the first packet in
-    // the stream.
+    /// Starts parsing an OpenPGP message stored in a `BufferedReader`
+    /// object.
+    ///
+    /// This function returns a `PacketParser` for the first packet in
+    /// the stream.
     pub(crate) fn from_buffered_reader(bio: Box<BufferedReader<Cookie> + 'a>)
             -> Result<Option<PacketParser<'a>>> {
         PacketParserBuilder::from_buffered_reader(bio)?.finalize()
@@ -1712,47 +1713,47 @@ impl <'a> PacketParser<'a> {
         PacketParserBuilder::from_bytes(bytes)?.finalize()
     }
 
-    // Return the reader stack, replacing it with a
-    // `BufferedReaderEOF` reader.
-    //
-    // This function may only be called when the `PacketParser` is in
-    // State::Body.
+    /// Return the reader stack, replacing it with a
+    /// `BufferedReaderEOF` reader.
+    ///
+    /// This function may only be called when the `PacketParser` is in
+    /// State::Body.
     fn take_reader(&mut self) -> Box<BufferedReader<Cookie> + 'a> {
         self.set_reader(
             Box::new(BufferedReaderEOF::with_cookie(Default::default())))
     }
 
-    // Replaces the reader stack.
-    //
-    // This function may only be called when the `PacketParser` is in
-    // State::Body.
+    /// Replaces the reader stack.
+    ///
+    /// This function may only be called when the `PacketParser` is in
+    /// State::Body.
     fn set_reader(&mut self, reader: Box<BufferedReader<Cookie> + 'a>)
         -> Box<BufferedReader<Cookie> + 'a>
     {
         mem::replace(&mut self.reader, reader)
     }
 
-    // Returns a mutable reference to the reader stack.
+    /// Returns a mutable reference to the reader stack.
     fn mut_reader(&mut self) -> &mut BufferedReader<Cookie> {
         &mut self.reader
     }
 
-    // Mark the packet's contents (packet.common.body) as being
-    // decrypted (true) or encrypted (false).
+    /// Mark the packet's contents (packet.common.body) as being
+    /// decrypted (true) or encrypted (false).
     fn set_decrypted(mut self, v: bool) -> Self {
         self.decrypted = v;
         self
     }
 
-    // Returns whether the packet's contents (packet.common.body) are
-    // decrypted.
+    /// Returns whether the packet's contents (packet.common.body) are
+    /// decrypted.
     pub fn decrypted(self) -> bool {
         self.decrypted
     }
 
-    // Returns a `PacketParser` for the next OpenPGP packet in the
-    // stream.  If there are no packets left, this function returns
-    // `bio`.
+    /// Returns a `PacketParser` for the next OpenPGP packet in the
+    /// stream.  If there are no packets left, this function returns
+    /// `bio`.
     fn parse(mut bio: Box<BufferedReader<Cookie> + 'a>,
              settings: &PacketParserSettings,
              recursion_depth: usize)

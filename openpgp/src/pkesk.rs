@@ -17,11 +17,15 @@ use packet;
 ///   [Section 5.1 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.1
 #[derive(PartialEq, Clone, Debug)]
 pub struct PKESK {
+    /// CTB header fields.
     pub common: packet::Common,
+    /// Packet version. Must be 3.
     pub version: u8,
+    /// Key ID of the key this is encrypted to.
     pub recipient: KeyID,
+    /// Public key algorithm used to encrypt the session key.
     pub pk_algo: PublicKeyAlgorithm,
-    // The encrypted session key.
+    /// The encrypted session key.
     pub esk: MPIs,
 }
 

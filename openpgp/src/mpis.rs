@@ -14,7 +14,9 @@ use nettle::Hash;
 /// Holds a single MPI.
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct MPI {
+    /// Length of the integer in bits.
     pub bits: usize,
+    /// Integer value as big-endian.
     pub value: Box<[u8]>,
 }
 
@@ -62,43 +64,156 @@ impl fmt::Debug for MPI {
 /// the occasional elliptic curve) in packets.
 #[derive(Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub enum MPIs {
-    // XXX
+    /// Invlaid, empty value.
     None,
 
-    RSAPublicKey{ e: MPI, n: MPI },
-    RSASecretKey{ d: MPI, p: MPI, q: MPI, u: MPI },
-    RSACiphertext{ c: MPI },
-    RSASignature{ s: MPI },
-
-    DSAPublicKey{ p: MPI, q: MPI, g: MPI, y: MPI },
-    DSASecretKey{ x: MPI },
-    DSASignature{ r: MPI, s: MPI },
-
-    ElgamalPublicKey{ p: MPI, g: MPI, y: MPI },
-    ElgamalSecretKey{ x: MPI },
-    ElgamalCiphertext{ e: MPI, c: MPI },
-
-    EdDSAPublicKey{ curve: Curve, q: MPI },
-    EdDSASecretKey{ scalar: MPI },
-    EdDSASignature{ r: MPI, s: MPI },
-
-    ECDSAPublicKey{ curve: Curve, q: MPI },
-    ECDSASecretKey{ scalar: MPI },
-    ECDSASignature{ r: MPI, s: MPI },
-
-    ECDHPublicKey{
-        curve: Curve, q: MPI,
-        hash: HashAlgorithm, sym: SymmetricAlgorithm
+    /// RSA public key.
+    RSAPublicKey{
+        /// Public exponent
+        e: MPI,
+        /// Public modulo N = pq.
+        n: MPI
     },
-    ECDHSecretKey{ scalar: MPI },
-    ECDHCiphertext{ e: MPI, key: Box<[u8]> },
+    /// RSA secret key.
+    RSASecretKey{
+        /// Secret exponent, inverse of e in Phi(N).
+        d: MPI,
+        /// Larger secret prime.
+        p: MPI,
+        /// Smaller secret prime.
+        q: MPI,
+        /// Inverse of p mod q.
+        u: MPI
+    },
+    /// RSA ciphertext.
+    RSACiphertext{
+        /// Ciphertext m^e mod N.
+        c: MPI
+    },
+    /// RSA signature.
+    RSASignature{
+        /// Signature m^d mod N.
+        s: MPI
+    },
+
+    /// NIST DSA public key.
+    DSAPublicKey{
+        /// Prime of the ring Zp.
+        p: MPI,
+        /// Order of `g` in Zp.
+        q: MPI,
+        /// Public generator of Zp.
+        g: MPI,
+        /// Public key g^x mod p.
+        y: MPI
+    },
+    /// NIST DSA secret key.
+    DSASecretKey{
+        /// Secret key log_g(y) in Zp.
+        x: MPI
+    },
+    /// NIST DSA signature
+    DSASignature{
+        /// `r` value.
+        r: MPI,
+        /// `s` value.
+        s: MPI
+    },
+
+    /// Elgamal public key.
+    ElgamalPublicKey{
+        /// Prime of the ring Zp.
+        p: MPI,
+        /// Generator of Zp.
+        g: MPI,
+        /// Public key g^x mod p.
+        y: MPI
+    },
+    /// Elgamal secret key.
+    ElgamalSecretKey{
+        /// Secret key log_g(y) in Zp.
+        x: MPI
+    },
+    /// Elgamal ciphertext
+    ElgamalCiphertext{
+        /// Ephemeral key.
+        e: MPI,
+        /// Ciphertext.
+        c: MPI
+    },
+
+    /// DJBs "Twisted" Edwards curve DSA public key.
+    EdDSAPublicKey{
+        /// Curve we're using. Must be curve 25519.
+        curve: Curve,
+        /// Public point.
+        q: MPI
+    },
+    /// DJBs "Twisted" Edwards curve DSA secret key.
+    EdDSASecretKey{
+        /// Secret scalar.
+        scalar: MPI
+    },
+    /// DJBs "Twisted" Edwards curve DSA signature.
+    EdDSASignature{
+        /// `r` value.
+        r: MPI,
+        /// `s` value.
+        s: MPI
+    },
+
+    /// NISTs Elliptic curve DSA public key.
+    ECDSAPublicKey{
+        /// Curve we're using.
+        curve: Curve,
+        /// Public point.
+        q: MPI
+    },
+    /// NISTs Elliptic curve DSA secret key.
+    ECDSASecretKey{
+        /// Secret scalar.
+        scalar: MPI
+    },
+    /// NISTs Elliptic curve DSA signature.
+    ECDSASignature{
+        /// `r` value.
+        r: MPI,
+        /// `s` value.
+        s: MPI
+    },
+
+    /// Elliptic curve Elgamal public key.
+    ECDHPublicKey{
+        /// Curve we're using.
+        curve: Curve,
+        /// Public point.
+        q: MPI,
+        /// Hash algorithm used for key derivation.
+        hash: HashAlgorithm,
+        /// Algorithm used w/the derived key.
+        sym: SymmetricAlgorithm
+    },
+    /// Elliptic curve Elgamal public key.
+    ECDHSecretKey{
+        /// Secret scalar.
+        scalar: MPI
+    },
+    /// Elliptic curve Elgamal public key.
+    ECDHCiphertext{
+        /// Ephemeral key.
+        e: MPI,
+        /// Symmetrically encrypted poition.
+        key: Box<[u8]>
+    },
 }
 
 impl MPIs {
+    /// Create a `None` MPIs instance.
     pub fn empty() -> Self {
         MPIs::None
     }
 
+    /// Number of octets all MPIs of this instance occupy when serialized.
     pub fn serialized_len(&self) -> usize {
         use self::MPIs::*;
 
@@ -154,7 +269,7 @@ impl MPIs {
         }
     }
 
-    // Update the Hash with a hash of the MPIs.
+    /// Update the Hash with a hash of the MPIs.
     pub fn hash<H: Hash>(&self, hash: &mut H) {
         use self::MPIs::*;
 

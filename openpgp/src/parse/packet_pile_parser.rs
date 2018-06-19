@@ -78,13 +78,13 @@ fn path_to(artifact: &str) -> PathBuf {
 /// ```
 #[derive(Debug)]
 pub struct PacketPileParser<'a> {
-    // The current packet.
+    /// The current packet.
     pub ppo: Option<PacketParser<'a>>,
 
-    // Whether the first packet has been returned.
+    /// Whether the first packet has been returned.
     returned_first: bool,
 
-    // The packet pile that has been assembled so far.
+    /// The packet pile that has been assembled so far.
     pile: PacketPile,
 }
 
@@ -98,7 +98,7 @@ impl<'a> PacketParserBuilder<'a> {
 }
 
 impl<'a> PacketPileParser<'a> {
-    // Creates a `PacketPileParser` from a *fresh* `PacketParser`.
+    /// Creates a `PacketPileParser` from a *fresh* `PacketParser`.
     fn from_packet_parser(ppo: Option<PacketParser<'a>>)
             -> Result<PacketPileParser<'a>> {
         Ok(PacketPileParser {
@@ -108,8 +108,8 @@ impl<'a> PacketPileParser<'a> {
         })
     }
 
-    // Creates a `PacketPileParser` to parse the OpenPGP message stored
-    // in the `BufferedReader` object.
+    /// Creates a `PacketPileParser` to parse the OpenPGP message stored
+    /// in the `BufferedReader` object.
     pub(crate) fn from_buffered_reader(bio: Box<BufferedReader<Cookie> + 'a>)
             -> Result<PacketPileParser<'a>> {
         Self::from_packet_parser(PacketParser::from_buffered_reader(bio)?)
@@ -140,7 +140,7 @@ impl<'a> PacketPileParser<'a> {
         PacketPileParser::from_buffered_reader(bio)
     }
 
-    // Inserts the next packet into the `PacketPile`.
+    /// Inserts the next packet into the `PacketPile`.
     fn insert_packet(&mut self, packet: Packet, position: isize) {
         // Find the right container.
         let mut container = &mut self.pile.top_level;
@@ -281,8 +281,8 @@ fn message_parser_test() {
     assert_eq!(count, 61);
 }
 
-// Check that we can use the read interface to stream the contents of
-// a packet.
+/// Check that we can use the read interface to stream the contents of
+/// a packet.
 #[cfg(feature = "compression-deflate")]
 #[test]
 fn message_parser_reader_interface() {

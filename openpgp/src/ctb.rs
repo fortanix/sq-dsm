@@ -21,6 +21,7 @@ use packet::BodyLength;
 ///   [Section 4.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.2
 #[derive(Debug)]
 pub struct CTBCommon {
+    /// RFC4880 Packet tag
     pub tag: Tag,
 }
 
@@ -31,6 +32,7 @@ pub struct CTBCommon {
 ///   [Section 4.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.2
 #[derive(Debug)]
 pub struct CTBNew {
+    /// Packet CTB fields
     pub common: CTBCommon,
 }
 
@@ -64,15 +66,22 @@ impl Deref for CTBNew {
 #[derive(Debug)]
 #[derive(Clone, Copy, PartialEq)]
 pub enum PacketLengthType {
+    /// A one-octet Body Length header encodes a length of 0 to 191 octets.
     OneOctet,
+    /// A two-octet Body Length header encodes a length of 192 to 8383 octets.
     TwoOctets,
+    /// A five-octet Body Length header consists of a single octet holding
+    /// the value 255, followed by a four-octet scalar.
     FourOctets,
+    /// A Partial Body Length header is one octet long and encodes the length
+    /// of only part of the data packet.
     Indeterminate,
 }
 
 // XXX: TryFrom is nightly only.
 impl /* TryFrom<u8> for */ PacketLengthType {
     /* type Error = failure::Error; */
+    /// Mirrors the nightly only TryFrom trait.
     pub fn try_from(u: u8) -> Result<Self> {
         match u {
             0 => Ok(PacketLengthType::OneOctet),
@@ -103,7 +112,9 @@ impl From<PacketLengthType> for u8 {
 ///   [Section 4.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.2
 #[derive(Debug)]
 pub struct CTBOld {
+    /// Common CTB fields.
     pub common: CTBCommon,
+    /// Type of length sepcifier.
     pub length_type: PacketLengthType,
 }
 
@@ -174,7 +185,9 @@ impl Deref for CTBOld {
 /// Note: CTB stands for Cipher Type Byte.
 #[derive(Debug)]
 pub enum CTB {
+    /// New (current) packet header format.
     New(CTBNew),
+    /// Old PGP 2.6 header format.
     Old(CTBOld),
 }
 

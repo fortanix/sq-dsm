@@ -1,3 +1,5 @@
+//! Functions for parsing MPIs.
+
 use std::io::Read;
 use {
     Result,
@@ -15,6 +17,11 @@ use parse::{
 };
 
 impl MPIs {
+    /// Parses a set of OpenPGP MPIs representing a public key.
+    ///
+    /// See [Section 3.2 of RFC 4880] for details.
+    ///
+    ///   [Section 3.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-3.2
     pub fn parse_public_key_naked<T: AsRef<[u8]>>(
         algo: PublicKeyAlgorithm, buf: T)
         -> Result<Self>
@@ -28,7 +35,7 @@ impl MPIs {
         Self::parse_public_key(algo, &mut php)
     }
 
-    /// Parses a set of OpenPGP MPIs.
+    /// Parses a set of OpenPGP MPIs representing a public key.
     ///
     /// See [Section 3.2 of RFC 4880] for details.
     ///
@@ -159,6 +166,11 @@ impl MPIs {
         }
     }
 
+    /// Parses a set of OpenPGP MPIs representing a secret key.
+    ///
+    /// See [Section 3.2 of RFC 4880] for details.
+    ///
+    ///   [Section 3.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-3.2
     pub fn parse_secret_key_naked<T: AsRef<[u8]>>(algo: PublicKeyAlgorithm,
                                                   buf: T)
         -> Result<Self>
@@ -172,6 +184,11 @@ impl MPIs {
         Self::parse_secret_key(algo, &mut php)
     }
 
+    /// Parses a set of OpenPGP MPIs representing a secret key.
+    ///
+    /// See [Section 3.2 of RFC 4880] for details.
+    ///
+    ///   [Section 3.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-3.2
     pub(crate) fn parse_secret_key<'a>(algo: PublicKeyAlgorithm,
                                        php: &mut PacketHeaderParser<'a>)
         -> Result<Self>
@@ -232,6 +249,12 @@ impl MPIs {
         }
     }
 
+    /// Parses a set of OpenPGP MPIs representing a ciphertext.
+    ///
+    /// Expects MPIs for a public key algorithm `algo`s ciphertext.
+    /// See [Section 3.2 of RFC 4880] for details.
+    ///
+    ///   [Section 3.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-3.2
     pub fn parse_ciphertext_naked<T: AsRef<[u8]>>(algo: PublicKeyAlgorithm,
                                                   buf: T)
         -> Result<Self> {
@@ -244,6 +267,12 @@ impl MPIs {
         Self::parse_ciphertext(algo, &mut php)
     }
 
+    /// Parses a set of OpenPGP MPIs representing a ciphertext.
+    ///
+    /// Expects MPIs for a public key algorithm `algo`s ciphertext.
+    /// See [Section 3.2 of RFC 4880] for details.
+    ///
+    ///   [Section 3.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-3.2
     pub(crate) fn parse_ciphertext<'a>(algo: PublicKeyAlgorithm,
                                        php: &mut PacketHeaderParser<'a>)
         -> Result<Self> {
@@ -289,6 +318,12 @@ impl MPIs {
         }
     }
 
+    /// Parses a set of OpenPGP MPIs representing a signature.
+    ///
+    /// Expects MPIs for a public key algorithm `algo`s signature.
+    /// See [Section 3.2 of RFC 4880] for details.
+    ///
+    ///   [Section 3.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-3.2
     pub fn parse_signature_naked<T: AsRef<[u8]>>(
         algo: PublicKeyAlgorithm, buf: T)
         -> Result<Self>
@@ -302,6 +337,12 @@ impl MPIs {
         Self::parse_signature(algo, &mut php)
     }
 
+    /// Parses a set of OpenPGP MPIs representing a signature.
+    ///
+    /// Expects MPIs for a public key algorithm `algo`s signature.
+    /// See [Section 3.2 of RFC 4880] for details.
+    ///
+    ///   [Section 3.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-3.2
     pub(crate) fn parse_signature<'a>(algo: PublicKeyAlgorithm,
                                       php: &mut PacketHeaderParser<'a>)
         -> Result<Self>

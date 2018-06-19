@@ -21,16 +21,27 @@ use Result;
 /// The values correspond to the serialized format.
 #[derive(Clone,Copy,PartialEq,Eq,Debug,PartialOrd,Ord)]
 pub enum PublicKeyAlgorithm {
+    /// RSA (Encrypt or Sign)
     RSAEncryptSign,
+    /// RSA Encrypt-Only
     RSAEncrypt,
+    /// RSA Sign-Only
     RSASign,
+    /// Elgamal (Encrypt-Only)
     ElgamalEncrypt,
+    /// DSA (Digital Signature Algorithm)
     DSA,
+    /// Elliptic curve DH
     ECDH,
+    /// Elliptic curve DSA
     ECDSA,
+    /// Elgamal (Encrypt or Sign)
     ElgamalEncryptSign,
+    /// "Twisted" Edwards curve DSA
     EdDSA,
+    /// Private algorithm identifier.
     Private(u8),
+    /// Unknown algorithm identifier.
     Unknown(u8),
 }
 
@@ -236,19 +247,33 @@ impl Arbitrary for Curve {
 ///   [`SymmetricAlgorithm::from`]: https://doc.rust-lang.org/std/convert/trait.From.html
 #[derive(Clone,Copy,PartialEq,Eq,Debug,PartialOrd,Ord)]
 pub enum SymmetricAlgorithm {
+    /// Null encryption.
     Unencrypted,
+    /// IDEA block cipher.
     IDEA,
+    /// 3-DES in EDE configuration.
     TripleDES,
+    /// CAST5/CAST128 block cipher.
     CAST5,
+    /// Scheiner et.al. Blowfish block cipher.
     Blowfish,
+    /// 10 round AES.
     AES128,
+    /// 12 round AES.
     AES192,
+    /// 14 round AES.
     AES256,
+    /// Twofish block cipher.
     Twofish,
+    /// 18 rounds of NESSIEs Camellia.
     Camellia128,
+    /// 24 rounds of NESSIEs Camellia w/192 bit keys.
     Camellia192,
+    /// 24 rounds of NESSIEs Camellia w/256 bit keys.
     Camellia256,
+    /// Private algorithm identifier.
     Private(u8),
+    /// Unknown algorithm identifier.
     Unknown(u8),
 }
 
@@ -342,11 +367,17 @@ impl Arbitrary for SymmetricAlgorithm {
 /// The values correspond to the serialized format.
 #[derive(Clone,Copy,PartialEq,Eq,Debug,PartialOrd,Ord)]
 pub enum CompressionAlgorithm {
+    /// Null compression.
     Uncompressed,
+    /// DEFLATE
     Zip,
+    /// ZLIB
     Zlib,
+    /// bzip2
     BZip2,
+    /// Private compression algorithm identifier.
     Private(u8),
+    /// Unknown compression algorithm identifier.
     Unknown(u8),
 }
 
@@ -404,14 +435,23 @@ impl Arbitrary for CompressionAlgorithm {
 /// The values correspond to the serialized format.
 #[derive(Clone,Copy,PartialEq,Eq,Debug,PartialOrd,Ord)]
 pub enum HashAlgorithm {
+    /// Rivest et.al. message digest 5.
     MD5,
+    /// NIST Secure Hash Algorithm (deprecated)
     SHA1,
+    /// RIPEMD-160
     RipeMD,
+    /// 256 bit version of SHA2
     SHA256,
+    /// 384 bit version of SHA2
     SHA384,
+    /// 512 bit version of SHA2
     SHA512,
+    /// 224 bit version of SHA2
     SHA224,
+    /// Private hash algorithm identifier.
     Private(u8),
+    /// Unknown hash algorithm identifier.
     Unknown(u8),
 }
 
@@ -502,32 +542,42 @@ impl Arbitrary for HashAlgorithm {
 /// The values correspond to the serialized format.
 #[derive(Clone,Copy,PartialEq,Eq,Debug)]
 pub enum SignatureType {
-    // Signatures over data.
+    /// Signature of a binary document.
     Binary,
+    /// Signature of a canonical text document.
     Text,
+    /// Standalone signature.
     Standalone,
 
-    // Certifications (signatures over keys).
+    /// Generic certification of a User ID and Public-Key packet.
     GenericCertificate,
+    /// Persona certification of a User ID and Public-Key packet.
     PersonaCertificate,
+    /// Casual certification of a User ID and Public-Key packet.
     CasualCertificate,
+    /// Positive certification of a User ID and Public-Key packet.
     PositiveCertificate,
 
-    // Binding signatures.
+    /// Subkey Binding Signature
     SubkeyBinding,
+    /// Primary Key Binding Signature
     PrimaryKeyBinding,
+    /// Signature directly on a key
     DirectKey,
 
-    // Revocations.
+    /// Key revocation signature
     KeyRevocation,
+    /// Subkey revocation signature
     SubkeyRevocation,
+    /// Certification revocation signature
     CertificateRevocation,
 
-    // Miscellaneous.
+    /// Timestamp signature.
     Timestamp,
+    /// Third-Party Confirmation signature.
     Confirmation,
 
-    // Catchall.
+    /// Catchall.
     Unknown(u8),
 }
 

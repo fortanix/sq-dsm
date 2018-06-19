@@ -1,3 +1,5 @@
+//! Helper functions for OpenPGP Key parsing.
+
 use nettle::Hash;
 use nettle::hash::insecure_do_not_use::Sha1;
 

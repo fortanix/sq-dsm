@@ -38,6 +38,8 @@
 //! [unhashed signature subpackets]: https://tools.ietf.org/html/rfc4880#section-5.2.3.2
 //! [sequoia-core]: ../sequoia_core
 
+#![warn(missing_docs)]
+
 #[macro_use]
 extern crate failure;
 
@@ -122,14 +124,17 @@ fn path_to(artifact: &str) -> PathBuf {
         .iter().collect()
 }
 
+/// Crate result specialization.
 pub type Result<T> = ::std::result::Result<T, failure::Error>;
 
 #[derive(Fail, Debug)]
 /// Errors returned by this module.
 pub enum Error {
+    /// Invalid argument.
     #[fail(display = "Invalid argument: {}", _0)]
     InvalidArgument(String),
 
+    /// Invalid operation.
     #[fail(display = "Invalid operation: {}", _0)]
     InvalidOperation(String),
 
@@ -137,56 +142,72 @@ pub enum Error {
     #[fail(display = "Malformed packet: {}", _0)]
     MalformedPacket(String),
 
+    /// Unknown packet tag.
     #[fail(display = "Unknown packet type: {}", _0)]
     UnknownPacketTag(Tag),
 
+    /// Unknown hash algorithm identifier.
     #[fail(display = "Unknown hash algorithm: {}", _0)]
     UnknownHashAlgorithm(HashAlgorithm),
 
+    /// Unknown public key algorithm identifier.
     #[fail(display = "Unknown public key algorithm: {}", _0)]
     UnknownPublicKeyAlgorithm(PublicKeyAlgorithm),
 
+    /// Unknown symmetric algorithm identifier.
     #[fail(display = "Unknown symmetric algorithm: {}", _0)]
     UnknownSymmetricAlgorithm(SymmetricAlgorithm),
 
+    /// Unsupported hash algorithm identifier.
     #[fail(display = "Unsupported hash algorithm: {}", _0)]
     UnsupportedHashAlgorithm(HashAlgorithm),
 
+    /// Unsupported public key algorithm identifier.
     #[fail(display = "Unsupported public key algorithm: {}", _0)]
     UnsupportedPublicKeyAlgorithm(PublicKeyAlgorithm),
 
+    /// Unsupported elliptic curve ASN.1 OID.
     #[fail(display = "Unsupported elliptic curve: {}", _0)]
     UnsupportedEllipticCurve(constants::Curve),
 
+    /// Unsupported symmetric key algorithm.
     #[fail(display = "Unsupported symmetric algorithm: {}", _0)]
     UnsupportedSymmetricAlgorithm(SymmetricAlgorithm),
 
+    /// Unsupported signature type.
     #[fail(display = "Unsupported signature type: {}", _0)]
     UnsupportedSignatureType(SignatureType),
 
+    /// Invalid password.
     #[fail(display = "Invalid password")]
     InvalidPassword,
 
+    /// Invalid session key.
     #[fail(display = "Invalid session key: {}", _0)]
     InvalidSessionKey(String),
 
+    /// Malformed MPI.
     #[fail(display = "Malformed MPI: {}", _0)]
     MalformedMPI(String),
 
+    /// Bad signature.
     #[fail(display = "Bad signature: {}", _0)]
     BadSignature(String),
 
+    /// Malformed message.
     #[fail(display = "Malformed Message: {}", _0)]
     MalformedMessage(String),
 
+    /// Malformed tranferable public key.
     #[fail(display = "Malformed TPK: {}", _0)]
     MalformedTPK(String),
 
+    /// Index out of range.
     #[fail(display = "Index out of range")]
     IndexOutOfRange,
 }
 
-// A helpful debugging function.
+/// A helpful debugging function.
 #[allow(dead_code)]
 fn to_hex(s: &[u8], pretty: bool) -> String {
     use std::fmt::Write;
@@ -203,8 +224,8 @@ fn to_hex(s: &[u8], pretty: bool) -> String {
     result
 }
 
-// A helpful function for converting a hexadecimal string to binary.
-// This function skips whitespace if `skip_whipspace` is set.
+/// A helpful function for converting a hexadecimal string to binary.
+/// This function skips whitespace if `skip_whipspace` is set.
 fn from_hex(hex: &str, skip_whitespace: bool) -> Option<Vec<u8>> {
     let nibbles = hex.as_bytes().iter().filter_map(|x| {
         match *x as char {
@@ -254,7 +275,9 @@ fn from_hex(hex: &str, skip_whitespace: bool) -> Option<Vec<u8>> {
 /// This packet effectively holds a binary blob.
 #[derive(PartialEq, Clone, Debug)]
 pub struct Unknown {
+    /// CTB packet header fields.
     pub common: packet::Common,
+    /// Packet tag.
     pub tag: Tag,
 }
 
@@ -269,18 +292,27 @@ pub struct Unknown {
 // Note: we can't derive PartialEq, because it includes the cached data.
 #[derive(Clone)]
 pub struct Signature {
+    /// CTB packet header fields.
     pub common: packet::Common,
+    /// Version of the signature packet. Must be 4.
     pub version: u8,
+    /// Type of signature.
     pub sigtype: SignatureType,
+    /// Public-key algorithm used for this signature.
     pub pk_algo: PublicKeyAlgorithm,
+    /// Hash algorithm used to compute the signature.
     pub hash_algo: HashAlgorithm,
+    /// Subpackets that are part of the signature.
     pub hashed_area: parse::subpacket::SubpacketArea,
+    /// Subpackets _not_ that are part of the signature.
     pub unhashed_area: parse::subpacket::SubpacketArea,
+    /// Lower 16 bits of the signed hash value.
     pub hash_prefix: [u8; 2],
+    /// Signature MPIs. Must be a *Signature variant.
     pub mpis: mpis::MPIs,
 
-    // When used in conjunction with a one-pass signature, this is the
-    // hash computed over the enclosed message.
+    /// When used in conjunction with a one-pass signature, this is the
+    /// hash computed over the enclosed message.
     pub computed_hash: Option<(HashAlgorithm, Vec<u8>)>,
 }
 
@@ -291,12 +323,20 @@ pub struct Signature {
 ///   [Section 5.4 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.4
 #[derive(Clone)]
 pub struct OnePassSig {
+    /// CTB packet header fields.
     pub common: packet::Common,
+    /// One-pass-signature packet version. Must be 3.
     pub version: u8,
+    /// Type of the signature.
     pub sigtype: SignatureType,
+    /// Hash algorithm used to compute the signature.
     pub hash_algo: HashAlgorithm,
+    /// Public key algorithm of this signature.
     pub pk_algo: PublicKeyAlgorithm,
+    /// Key ID of the signing key.
     pub issuer: KeyID,
+    /// A one-octet number holding a flag showing whether the signature
+    /// is nested.
     pub last: u8,
 }
 
@@ -307,12 +347,17 @@ pub struct OnePassSig {
 ///   [Section 5.5 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.5
 #[derive(PartialEq, Clone)]
 pub struct Key {
+    /// CTB packet header fields.
     pub common: packet::Common,
+    /// Version of the key packet. Must be 4.
     pub version: u8,
-    /* When the key was created.  */
+    /// When the key was created.
     pub creation_time: u32,
+    /// Public key algorithm of this signature.
     pub pk_algo: PublicKeyAlgorithm,
+    /// Public key MPIs. Must be a *PublicKey variant.
     pub mpis: mpis::MPIs,
+    /// Optional secret part of the key.
     pub secret: Option<SecretKey>,
 }
 
@@ -323,6 +368,7 @@ pub struct Key {
 ///   [Section 5.11 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.11
 #[derive(PartialEq, Clone)]
 pub struct UserID {
+    /// CTB packet header fields.
     pub common: packet::Common,
     /// The user id.
     ///
@@ -343,6 +389,7 @@ pub struct UserID {
 ///   [Section 5.12 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.12
 #[derive(PartialEq, Clone)]
 pub struct UserAttribute {
+    /// CTB packet header fields.
     pub common: packet::Common,
 
     /// The user attribute.
@@ -362,7 +409,9 @@ pub struct UserAttribute {
 ///   [Section 5.9 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.9
 #[derive(PartialEq, Clone)]
 pub struct Literal {
+    /// CTB packet header fields.
     pub common: packet::Common,
+    /// A one-octet field that describes how the data is formatted.
     pub format: u8,
     /// filename is a string, but strings in Rust are valid UTF-8.
     /// There is no guarantee, however, that the filename is valid
@@ -370,6 +419,8 @@ pub struct Literal {
     /// converted to a string using String::from_utf8() or
     /// String::from_utf8_lossy().
     pub filename: Option<Vec<u8>>,
+    /// A four-octet number that indicates a date associated with the
+    /// literal data.
     pub date: u32,
 }
 
@@ -385,7 +436,9 @@ pub struct Literal {
 /// [Section 5.6 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.6
 #[derive(PartialEq, Clone)]
 pub struct CompressedData {
+    /// CTB packet header fields.
     pub common: packet::Common,
+    /// Algorithm used to compress the payload.
     pub algo: CompressionAlgorithm,
 }
 
@@ -397,7 +450,9 @@ pub struct CompressedData {
 /// [Section 5.13 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.13
 #[derive(PartialEq, Clone, Debug)]
 pub struct SEIP {
+    /// CTB packet header fields.
     pub common: packet::Common,
+    /// SEIP version. Must be 1.
     pub version: u8,
 }
 
@@ -409,12 +464,16 @@ pub struct SEIP {
 /// [Section 5.14 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.14
 #[derive(PartialEq, Clone, Debug)]
 pub struct MDC {
+    /// CTB packet header fields.
     pub common: packet::Common,
+    /// Our SHA-1 hash.
     pub computed_hash: [u8; 20],
+    /// A 20-octet SHA-1 hash of the preceding plaintext data.
     pub hash: [u8; 20],
 }
 
 impl MDC {
+    /// Creates a new MDC packet for the data hashed into `hash` Hash context.
     pub fn new(hash: &mut nettle::Hash) -> Self {
         let mut mdc = MDC {
             common: Default::default(),
@@ -445,20 +504,35 @@ impl MDC {
 #[derive(Debug)]
 #[derive(PartialEq, Clone)]
 pub enum Packet {
+    /// Unknown packet.
     Unknown(Unknown),
+    /// Signature packet.
     Signature(Signature),
+    /// One pass signature packet.
     OnePassSig(OnePassSig),
+    /// Public key packet.
     PublicKey(Key),
+    /// Public subkey packet.
     PublicSubkey(Key),
+    /// Public/Secret key pair.
     SecretKey(Key),
+    /// Public/Secret subkey pair.
     SecretSubkey(Key),
+    /// User ID packet.
     UserID(UserID),
+    /// User attribute packet.
     UserAttribute(UserAttribute),
+    /// Literal data packet.
     Literal(Literal),
+    /// Compressed literal data packet.
     CompressedData(CompressedData),
+    /// Public key encrypted data packet.
     PKESK(PKESK),
+    /// Symmetric key encrypted data packet.
     SKESK(SKESK),
+    /// Signed and encrypted, integrity protected data packet.
     SEIP(SEIP),
+    /// Modification detection code packet.
     MDC(MDC),
 }
 
@@ -503,8 +577,8 @@ impl Packet {
 ///   [`PacketPile::from_file`]: struct.PacketPile.html#method.from_file
 #[derive(PartialEq, Clone)]
 pub struct PacketPile {
-    // At the top level, we have a sequence of packets, which may be
-    // containers.
+    /// At the top level, we have a sequence of packets, which may be
+    /// containers.
     top_level: Container,
 }
 
@@ -569,7 +643,7 @@ pub struct TPK {
 ///
 ///   [Section 11.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-11.3
 pub struct Message {
-    // A message is just a validated packet pile.
+    /// A message is just a validated packet pile.
     pile: PacketPile,
 }
 
@@ -582,10 +656,11 @@ pub struct Message {
 ///   [Section 12.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-12.2
 #[derive(PartialEq, Clone, Hash)]
 pub enum Fingerprint {
+    /// 20 byte SHA-1 hash.
     V4([u8;20]),
-    // Used for holding fingerprints that we don't understand.  For
-    // instance, we don't grok v3 fingerprints.  And, it is possible
-    // that the Issuer subpacket contains the wrong number of bytes.
+    /// Used for holding fingerprints that we don't understand.  For
+    /// instance, we don't grok v3 fingerprints.  And, it is possible
+    /// that the Issuer subpacket contains the wrong number of bytes.
     Invalid(Box<[u8]>)
 }
 
@@ -598,10 +673,11 @@ pub enum Fingerprint {
 ///   [Section 12.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-12.2
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Hash)]
 pub enum KeyID {
+    /// Lower 8 byte SHA-1 hash.
     V4([u8;8]),
-    // Used for holding fingerprints that we don't understand.  For
-    // instance, we don't grok v3 fingerprints.  And, it is possible
-    // that the Issuer subpacket contains the wrong number of bytes.
+    /// Used for holding fingerprints that we don't understand.  For
+    /// instance, we don't grok v3 fingerprints.  And, it is possible
+    /// that the Issuer subpacket contains the wrong number of bytes.
     Invalid(Box<[u8]>)
 }
 

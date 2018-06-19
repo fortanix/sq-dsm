@@ -120,6 +120,7 @@ impl Signature {
 
     // XXX: Add signature generation.
 
+    /// Verifies this signature against `hash`.
     pub fn verify_hash(&self, key: &Key, hash_algo: HashAlgorithm, hash: &[u8])
         -> Result<bool>
     {

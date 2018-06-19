@@ -11,6 +11,7 @@ use Result;
 use nettle::Hash;
 
 impl HashAlgorithm {
+    /// Whether Sequoia supports this algorithm.
     pub fn is_supported(self) -> bool {
         match self {
             HashAlgorithm::SHA1 => true,
@@ -25,6 +26,8 @@ impl HashAlgorithm {
         }
     }
 
+    /// Creates a new Nettle hash context for this algorith. Fails if Sequoia
+    /// does not support this algorithm. See `is_supported`.
     pub fn context(self) -> Result<Box<Hash>> {
         use nettle::hash::*;
         use nettle::hash::insecure_do_not_use::Sha1;
@@ -42,6 +45,7 @@ impl HashAlgorithm {
         }
     }
 
+    /// Reutrns the ASN.1 OID of this hash algorithm.
     pub fn oid(self) -> Result<&'static [u8]> {
         use nettle::rsa;
 
@@ -60,7 +64,7 @@ impl HashAlgorithm {
 }
 
 impl UserID {
-    // Update the Hash with a hash of the key.
+    /// Update the Hash with a hash of the key.
     pub fn hash<H: Hash>(&self, hash: &mut H) {
         let mut header = [0; 5];
 
@@ -77,7 +81,7 @@ impl UserID {
 }
 
 impl UserAttribute {
-    // Update the Hash with a hash of the key.
+    /// Update the Hash with a hash of the key.
     pub fn hash<H: Hash>(&self, hash: &mut H) {
         let mut header = [0; 5];
 
@@ -94,7 +98,7 @@ impl UserAttribute {
 }
 
 impl Key {
-    // Update the Hash with a hash of the key.
+    /// Update the Hash with a hash of the key.
     pub fn hash<H: Hash>(&self, hash: &mut H) {
         // We hash 8 bytes plus the MPIs.  But, the len doesn't
         // include the tag (1 byte) or the length (2 bytes).
@@ -129,7 +133,7 @@ impl Key {
 }
 
 impl Signature {
-    // Adds the `Signature` to the provided hash context.
+    /// Adds the `Signature` to the provided hash context.
     pub fn hash<H: Hash>(&self, hash: &mut H) {
         // A version 4 signature packet is laid out as follows:
         //
@@ -187,8 +191,8 @@ impl Signature {
 
 /// Hashing-related functionality.
 impl Signature {
-    // Return the message digest of the primary key binding over the
-    // specified primary key.
+    /// Return the message digest of the primary key binding over the
+    /// specified primary key.
     pub fn primary_key_binding_hash(&self, key: &Key) -> Vec<u8> {
         let h: HashAlgorithm = self.hash_algo.into();
         let mut h: Box<Hash> = h.context().unwrap();
@@ -201,8 +205,8 @@ impl Signature {
         return digest;
     }
 
-    // Return the message digest of the subkey binding over the
-    // specified primary key and subkey.
+    /// Return the message digest of the subkey binding over the
+    /// specified primary key and subkey.
     pub fn subkey_binding_hash(&self, key: &Key, subkey: &Key)
             -> Vec<u8> {
         let h: HashAlgorithm = self.hash_algo.into();
@@ -217,8 +221,8 @@ impl Signature {
         return digest;
     }
 
-    // Return the message digest of the user ID binding over the
-    // specified primary key, user ID, and signature.
+    /// Return the message digest of the user ID binding over the
+    /// specified primary key, user ID, and signature.
     pub fn userid_binding_hash(&self, key: &Key, userid: &UserID)
             -> Vec<u8> {
         let h: HashAlgorithm = self.hash_algo.into();
@@ -233,8 +237,8 @@ impl Signature {
         return digest;
     }
 
-    // Return the message digest of the user attribute binding over
-    // the specified primary key, user attribute, and signature.
+    /// Return the message digest of the user attribute binding over
+    /// the specified primary key, user attribute, and signature.
     pub fn user_attribute_binding_hash(&self, key: &Key, ua: &UserAttribute)
             -> Vec<u8> {
         let h: HashAlgorithm = self.hash_algo.into();
