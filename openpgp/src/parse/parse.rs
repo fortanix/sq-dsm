@@ -34,6 +34,7 @@ use {
     Packet,
     KeyID,
     SecretKey,
+    PKESK,
 };
 use constants::{
     CompressionAlgorithm,
@@ -559,7 +560,7 @@ impl Map {
     ///
     /// ```
     /// # use openpgp::Result;
-    /// # use openpgp::parse::{PacketParser,PacketParserBuilder};
+    /// # use openpgp::parse::{PacketParser, PacketParserBuilder};
     /// # f();
     /// #
     /// # fn f() -> Result<()> {
@@ -1910,6 +1911,31 @@ fn mpis_parse_test() {
     // not 2).
     assert!(MPI::parse_naked(Cursor::new(b"\x00\x02\x01".to_vec())).is_err());*/
 }
+
+impl PKESK {
+    /// Parses the body of an PK-ESK packet.
+    fn parse<'a>(mut php: PacketHeaderParser<'a>) -> Result<PacketParser<'a>> {
+        make_php_try!(php);
+        let version = php_try!(php.parse_u8("version"));
+        if version != 3 {
+            // We only support version 3 packets.
+            return php.fail("unknown version");
+        }
+
+        let mut keyid = [0u8; 8];
+        keyid.copy_from_slice(&php_try!(php.parse_bytes("keyid", 8)));
+        let pk_algo: PublicKeyAlgorithm = php_try!(php.parse_u8("pk_algo")).into();
+        let mpis = MPIs::parse_ciphertext(pk_algo, &mut php)?;
+
+        php.ok(Packet::PKESK(PKESK {
+            common: Default::default(),
+            version: version,
+            pk_algo: pk_algo,
+            recipient: KeyID::from_bytes(&keyid),
+            esk: mpis,
+        }))
+    }
+}
 
 /// A low-level OpenPGP message parser.
 ///
@@ -2258,6 +2284,7 @@ impl <'a> PacketParser<'a> {
             Tag::SKESK =>               SKESK::parse(parser),
             Tag::SEIP =>                SEIP::parse(parser),
             Tag::MDC =>                 MDC::parse(parser),
+            Tag::PKESK =>               PKESK::parse(parser),
             _ =>                        Unknown::parse(parser),
         }?;
 

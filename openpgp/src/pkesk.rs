@@ -88,4 +88,109 @@ impl PKESK {
             esk: esk,
         })
     }
+
+    /// Decrypts the ESK and returns the session key and symmetric algorithm
+    /// used to encrypt the following payload.
+    pub fn decrypt(&self, recipient_pub: &MPIs, recipient_sec: &MPIs)
+        -> Result<(SymmetricAlgorithm,Box<[u8]>)>
+    {
+        use PublicKeyAlgorithm::*;
+        use mpis::MPIs::*;
+        use nettle::rsa;
+
+        match (self.pk_algo, recipient_pub, recipient_sec, &self.esk) {
+            (RSAEncryptSign, &RSAPublicKey{ ref e, ref n },
+             &RSASecretKey{ ref p, ref q, ref d,.. },
+             &RSACiphertext{ ref c }) => {
+                let public = rsa::PublicKey::new(&n.value, &e.value)?;
+                let secret = rsa::PrivateKey::new(&d.value, &p.value,
+                                                  &q.value, Option::None)?;
+                let mut rand = Yarrow::default();
+                let plain = rsa::decrypt_pkcs1(&public, &secret, &mut rand,
+                                               &c.value)?;
+                let key_rgn = 1..(plain.len() - 2);
+                let symm_algo: SymmetricAlgorithm = plain[0].into();
+                let mut key = vec![0u8; symm_algo.key_size()?];
+
+                if key.len() != symm_algo.key_size()? {
+                    return Err(Error::MalformedPacket(
+                            format!("session key has the wrong size")).into());
+                }
+
+                key.copy_from_slice(&plain[key_rgn]);
+
+                let our_checksum: usize = key.iter().map(|&x| x as usize).sum();
+                let their_checksum = (plain[plain.len() - 2] as usize) << 8 |
+                                     (plain[plain.len() - 1] as usize);
+
+                if their_checksum == our_checksum & 0xffff {
+                    Ok((symm_algo, key.into_boxed_slice()))
+                } else {
+                    Err(Error::MalformedPacket(format!("key checksum wrong"))
+                        .into())
+                }
+            }
+
+            (ElgamalEncrypt, &ElgamalPublicKey{ .. },
+             &ElgamalSecretKey{ .. },
+             &ElgamalCiphertext{ .. }) =>
+                Err(Error::UnknownPublicKeyAlgorithm(self.pk_algo).into()),
+
+            (ECDH, ECDHPublicKey{ .. }, ECDHSecretKey{ .. },
+             ECDHCiphertext{ .. }) =>
+                Err(Error::UnknownPublicKeyAlgorithm(self.pk_algo).into()),
+
+            (algo, public, secret, cipher) =>
+                Err(Error::MalformedPacket(format!(
+                    "unsupported combination of algorithm {:?}, key pair {:?}/{:?} and ciphertext {:?}",
+                    algo, public, secret, cipher)).into()),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use nettle::Yarrow;
+    use TPK;
+    use PacketPile;
+    use SecretKey;
+    use Packet;
+    use std::path::PathBuf;
+
+    fn path_to_key(artifact: &str) -> PathBuf {
+        [env!("CARGO_MANIFEST_DIR"), "tests", "data", "keys", artifact]
+            .iter().collect()
+    }
+
+    fn path_to_msg(artifact: &str) -> PathBuf {
+        [env!("CARGO_MANIFEST_DIR"), "tests", "data", "messages", artifact]
+            .iter().collect()
+    }
+
+    #[test]
+    fn encrypt_rsa() {
+        let mut rand = Yarrow::default();
+        let mut sk = [0u8; 128 / 8];
+        let tpk = TPK::from_file(
+            path_to_key("testy-private.pgp")).unwrap();
+        let pile = PacketPile::from_file(
+            path_to_msg("encrypted-to-testy.gpg")).unwrap();
+        let pair = tpk.subkeys().next().unwrap().subkey();
+
+        if let Some(SecretKey::Unencrypted{ mpis: ref sec }) = pair.secret {
+            rand.random(&mut sk);
+
+            let pkg = pile.descendants().skip(0).next().clone();
+
+            if let Some(Packet::PKESK(ref pkesk)) = pkg {
+                let plain = pkesk.decrypt(&pair.mpis, sec).unwrap();
+
+                eprintln!("plain: {:?}", plain);
+            } else {
+                panic!("message is not a PKESK packet");
+            }
+        } else {
+            panic!("secret key is encrypted/missing");
+        }
+    }
 }
