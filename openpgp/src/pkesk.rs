@@ -150,7 +150,6 @@ impl PKESK {
 
 #[cfg(test)]
 mod tests {
-    use nettle::Yarrow;
     use TPK;
     use PacketPile;
     use SecretKey;
@@ -168,9 +167,7 @@ mod tests {
     }
 
     #[test]
-    fn encrypt_rsa() {
-        let mut rand = Yarrow::default();
-        let mut sk = [0u8; 128 / 8];
+    fn decrypt_rsa() {
         let tpk = TPK::from_file(
             path_to_key("testy-private.pgp")).unwrap();
         let pile = PacketPile::from_file(
@@ -178,8 +175,6 @@ mod tests {
         let pair = tpk.subkeys().next().unwrap().subkey();
 
         if let Some(SecretKey::Unencrypted{ mpis: ref sec }) = pair.secret {
-            rand.random(&mut sk);
-
             let pkg = pile.descendants().skip(0).next().clone();
 
             if let Some(Packet::PKESK(ref pkesk)) = pkg {
