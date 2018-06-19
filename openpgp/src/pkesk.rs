@@ -112,7 +112,7 @@ impl PKESK {
                 let symm_algo: SymmetricAlgorithm = plain[0].into();
                 let mut key = vec![0u8; symm_algo.key_size()?];
 
-                if key.len() != symm_algo.key_size()? {
+                if key_rgn.len() != symm_algo.key_size()? {
                     return Err(Error::MalformedPacket(
                             format!("session key has the wrong size")).into());
                 }
