@@ -142,6 +142,34 @@ pub fn pkcs5_pad(buf: &mut Vec<u8>, target_len: usize) {
     assert_eq!(buf.len(), target_len);
 }
 
+/// Removes PKCS5 padding from a session key.
+///
+/// See [Section 8 of RFC 6637].
+///
+///   [Section 8 of RFC 6637]: https://tools.ietf.org/html/rfc6637#section-8
+pub fn pkcs5_unpad(buf: &mut Vec<u8>, target_len: usize) -> Result<()> {
+    if buf.len() > 0xff {
+        return Err(Error::InvalidArgument("message too large".into()).into());
+    }
+
+    if buf.len() < target_len {
+        return Err(Error::InvalidArgument("message too small".into()).into());
+    }
+
+    let mut good = true;
+    let missing = (buf.len() - target_len) as u8;
+    for &b in &buf[target_len..] {
+        good = b == missing && good;
+    }
+
+    if good {
+        buf.truncate(target_len);
+        Ok(())
+    } else {
+        Err(Error::InvalidArgument("bad padding".into()).into())
+    }
+}
+
 /// Wraps a key using the AES Key Wrap Algorithm.
 ///
 /// See [RFC 3394].
@@ -352,10 +380,14 @@ mod tests {
         let mut v = Vec::from(&[0, 0, 0][..]);
         pkcs5_pad(&mut v, 8);
         assert_eq!(&v, &[0, 0, 0, 5, 5, 5, 5, 5]);
+        pkcs5_unpad(&mut v, 3).unwrap();
+        assert_eq!(&v, &[0, 0, 0]);
 
         let mut v = Vec::new();
         pkcs5_pad(&mut v, 8);
         assert_eq!(&v, &[8, 8, 8, 8, 8, 8, 8, 8]);
+        pkcs5_unpad(&mut v, 0).unwrap();
+        assert_eq!(&v, &[]);
     }
 
     #[test]
