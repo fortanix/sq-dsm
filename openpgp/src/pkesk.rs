@@ -98,7 +98,9 @@ impl PKESK {
         use mpis::MPIs::*;
         use nettle::rsa;
 
-        match (self.pk_algo, &recipient.mpis, recipient_sec, &self.esk) {
+        let plain = match
+            (self.pk_algo, &recipient.mpis, recipient_sec, &self.esk)
+        {
             (RSAEncryptSign, &RSAPublicKey{ ref e, ref n },
              &RSASecretKey{ ref p, ref q, ref d,.. },
              &RSACiphertext{ ref c }) => {
@@ -106,44 +108,47 @@ impl PKESK {
                 let secret = rsa::PrivateKey::new(&d.value, &p.value,
                                                   &q.value, Option::None)?;
                 let mut rand = Yarrow::default();
-                let plain = rsa::decrypt_pkcs1(&public, &secret, &mut rand,
-                                               &c.value)?;
-                let key_rgn = 1..(plain.len() - 2);
-                let symm_algo: SymmetricAlgorithm = plain[0].into();
-                let mut key = vec![0u8; symm_algo.key_size()?];
-
-                if key_rgn.len() != symm_algo.key_size()? {
-                    return Err(Error::MalformedPacket(
-                            format!("session key has the wrong size")).into());
-                }
-
-                key.copy_from_slice(&plain[key_rgn]);
-
-                let our_checksum: usize = key.iter().map(|&x| x as usize).sum();
-                let their_checksum = (plain[plain.len() - 2] as usize) << 8 |
-                                     (plain[plain.len() - 1] as usize);
-
-                if their_checksum == our_checksum & 0xffff {
-                    Ok((symm_algo, key.into_boxed_slice()))
-                } else {
-                    Err(Error::MalformedPacket(format!("key checksum wrong"))
-                        .into())
-                }
+                rsa::decrypt_pkcs1(&public, &secret, &mut rand, &c.value)?
             }
 
             (ElgamalEncrypt, &ElgamalPublicKey{ .. },
              &ElgamalSecretKey{ .. },
              &ElgamalCiphertext{ .. }) =>
-                Err(Error::UnknownPublicKeyAlgorithm(self.pk_algo).into()),
+                return Err(
+                    Error::UnknownPublicKeyAlgorithm(self.pk_algo).into()),
 
             (ECDH, ECDHPublicKey{ .. }, ECDHSecretKey{ .. },
              ECDHCiphertext{ .. }) =>
-                Err(Error::UnknownPublicKeyAlgorithm(self.pk_algo).into()),
+                return Err(
+                    Error::UnknownPublicKeyAlgorithm(self.pk_algo).into()),
 
             (algo, public, secret, cipher) =>
-                Err(Error::MalformedPacket(format!(
+                return Err(Error::MalformedPacket(format!(
                     "unsupported combination of algorithm {:?}, key pair {:?}/{:?} and ciphertext {:?}",
                     algo, public, secret, cipher)).into()),
+        };
+
+        let key_rgn = 1..(plain.len() - 2);
+        let symm_algo: SymmetricAlgorithm = plain[0].into();
+        let mut key = vec![0u8; symm_algo.key_size()?];
+
+        if key_rgn.len() != symm_algo.key_size()? {
+            return Err(Error::MalformedPacket(
+                format!("session key has the wrong size")).into());
+        }
+
+        key.copy_from_slice(&plain[key_rgn]);
+
+        let our_checksum
+            = key.iter().map(|&x| x as usize).sum::<usize>() & 0xffff;
+        let their_checksum = (plain[plain.len() - 2] as usize) << 8
+            | (plain[plain.len() - 1] as usize);
+
+        if their_checksum == our_checksum {
+            Ok((symm_algo, key.into_boxed_slice()))
+        } else {
+            Err(Error::MalformedPacket(format!("key checksum wrong"))
+                .into())
         }
     }
 }
