@@ -91,14 +91,14 @@ impl PKESK {
 
     /// Decrypts the ESK and returns the session key and symmetric algorithm
     /// used to encrypt the following payload.
-    pub fn decrypt(&self, recipient_pub: &MPIs, recipient_sec: &MPIs)
+    pub fn decrypt(&self, recipient: &Key, recipient_sec: &MPIs)
         -> Result<(SymmetricAlgorithm,Box<[u8]>)>
     {
         use PublicKeyAlgorithm::*;
         use mpis::MPIs::*;
         use nettle::rsa;
 
-        match (self.pk_algo, recipient_pub, recipient_sec, &self.esk) {
+        match (self.pk_algo, &recipient.mpis, recipient_sec, &self.esk) {
             (RSAEncryptSign, &RSAPublicKey{ ref e, ref n },
              &RSASecretKey{ ref p, ref q, ref d,.. },
              &RSACiphertext{ ref c }) => {
@@ -178,7 +178,7 @@ mod tests {
             let pkg = pile.descendants().skip(0).next().clone();
 
             if let Some(Packet::PKESK(ref pkesk)) = pkg {
-                let plain = pkesk.decrypt(&pair.mpis, sec).unwrap();
+                let plain = pkesk.decrypt(&pair, sec).unwrap();
 
                 eprintln!("plain: {:?}", plain);
             } else {
