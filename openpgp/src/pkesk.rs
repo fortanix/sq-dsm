@@ -117,8 +117,7 @@ impl PKESK {
 
             (ECDH, ECDHPublicKey{ .. }, ECDHSecretKey{ .. },
              ECDHCiphertext{ .. }) =>
-                return Err(
-                    Error::UnknownPublicKeyAlgorithm(self.pk_algo).into()),
+                ecdh::unwrap_session_key(recipient, recipient_sec, &self.esk)?,
 
             (algo, public, secret, cipher) =>
                 return Err(Error::MalformedPacket(format!(
@@ -175,6 +174,29 @@ mod tests {
             path_to_key("testy-private.pgp")).unwrap();
         let pile = PacketPile::from_file(
             path_to_msg("encrypted-to-testy.gpg")).unwrap();
+        let pair = tpk.subkeys().next().unwrap().subkey();
+
+        if let Some(SecretKey::Unencrypted{ mpis: ref sec }) = pair.secret {
+            let pkg = pile.descendants().skip(0).next().clone();
+
+            if let Some(Packet::PKESK(ref pkesk)) = pkg {
+                let plain = pkesk.decrypt(&pair, sec).unwrap();
+
+                eprintln!("plain: {:?}", plain);
+            } else {
+                panic!("message is not a PKESK packet");
+            }
+        } else {
+            panic!("secret key is encrypted/missing");
+        }
+    }
+
+    #[test]
+    fn decrypt_ecdh_cv25519() {
+        let tpk = TPK::from_file(
+            path_to_key("testy-new-private.pgp")).unwrap();
+        let pile = PacketPile::from_file(
+            path_to_msg("encrypted-to-testy-new.pgp")).unwrap();
         let pair = tpk.subkeys().next().unwrap().subkey();
 
         if let Some(SecretKey::Unencrypted{ mpis: ref sec }) = pair.secret {

@@ -81,6 +81,69 @@ pub fn wrap_session_key(recipient: &Key, session_key: &[u8]) -> Result<MPIs> {
     }
 }
 
+/// Unwraps a session key using Elliptic Curve Diffie-Hellman.
+pub fn unwrap_session_key(recipient: &Key, recipient_sec: &MPIs,
+                          ciphertext: &MPIs)
+                          -> Result<Box<[u8]>> {
+    if let (MPIs::ECDHPublicKey {
+        ref curve, ref hash, ref sym, ..
+    }, MPIs::ECDHSecretKey {
+        ref scalar,
+    }, MPIs::ECDHCiphertext {
+        ref e, ref key,
+    }) = (&recipient.mpis, recipient_sec, ciphertext) {
+        match curve {
+            Curve::Cv25519 => {
+                // Get the public part V of the ephemeral key.
+                #[allow(non_snake_case)]
+                let V = e.decode_point(curve)?.0;
+
+                // Get the secret part r of our key.
+                if scalar.value.len() != curve25519::CURVE25519_SIZE {
+                    return Err(Error::MalformedPacket(
+                        format!("Bad size of Curve25519 private key: {} \
+                                 expected: {}", scalar.value.len(),
+                                curve25519::CURVE25519_SIZE)).into());
+                }
+
+                // Reverse the scalar.  See
+                // https://lists.gnupg.org/pipermail/gnupg-devel/2018-February/033437.html.
+                let mut r_reversed = Vec::with_capacity(scalar.value.len());
+                r_reversed.extend_from_slice(&scalar.value);
+                &mut r_reversed.reverse();
+                let r = &r_reversed;
+
+                // Compute the shared point S = rV = rvG, where (r,R)
+                // is the recipient's key pair.
+                #[allow(non_snake_case)]
+                let mut S = [0; curve25519::CURVE25519_SIZE];
+                curve25519::mul(&mut S, r, V)
+                    .expect("buffers are of the wrong size");
+
+                // Compute KDF input.
+                let param = make_param(recipient, curve, hash, sym);
+
+                // Z_len = the key size for the KEK_alg_ID used with AESKeyWrap
+                // Compute Z = KDF( S, Z_len, Param );
+                #[allow(non_snake_case)]
+                let Z = kdf(&S, sym.key_size()?, *hash, &param)?;
+
+                // Compute m = AESKeyUnwrap( Z, C ) as per [RFC3394]
+                let mut m = aes_key_unwrap(*sym, &Z, key)?;
+                let cipher = SymmetricAlgorithm::from(m[0]);
+                pkcs5_unpad(&mut m, 1 + cipher.key_size()? + 2)?;
+
+                Ok(m.into_boxed_slice())
+            },
+
+            _ =>
+                Err(Error::UnsupportedEllipticCurve(curve.clone()).into()),
+        }
+    } else {
+        Err(Error::InvalidArgument("Expected an ECDHPublicKey".into()).into())
+    }
+}
+
 fn make_param(recipient: &Key, curve: &Curve, hash: &HashAlgorithm,
               sym: &SymmetricAlgorithm) -> Vec<u8> {
     // Param = curve_OID_len || curve_OID ||
