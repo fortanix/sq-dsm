@@ -1495,29 +1495,56 @@ impl MPI {
     /// supported, `Error::InvalidArgument` if the point is
     /// formatted incorrectly.
     pub fn decode_point(&self, curve: &Curve) -> Result<(&[u8], &[u8])> {
-        // Length of one coordinate in bytes, rounded up.
-        let coordinate_length = (curve.len()? + 7) / 8;
+        use nettle::{ed25519, curve25519};
+        use self::Curve::*;
+        match &curve {
+            Ed25519 | Cv25519 => {
+                assert_eq!(curve25519::CURVE25519_SIZE,
+                           ed25519::ED25519_KEY_SIZE);
+                // This curve uses a custom compression format which
+                // only contains the X coordinate.
+                if self.value.len() != 1 + curve25519::CURVE25519_SIZE {
+                    return Err(Error::MalformedPacket(
+                        format!("Bad size of Curve25519 key: {} expected: {}",
+                                self.value.len(),
+                                1 + curve25519::CURVE25519_SIZE)).into());
+                }
 
-        // Check length of Q.
-        let expected_length =
-            1 // 0x04.
-            + (2 // (x, y)
-               * coordinate_length);
+                if self.value[0] != 0x40 {
+                    return Err(Error::MalformedPacket(
+                        "Bad encoding of Curve25519 key".into()).into());
+                }
 
-        if self.value.len() != expected_length {
-            return Err(Error::InvalidArgument(
-                format!("Invalid length of MPI: {} (expected {})",
-                        self.value.len(), expected_length)).into());
+                Ok((&self.value[1..], &[]))
+            },
+
+            _ => {
+
+                // Length of one coordinate in bytes, rounded up.
+                let coordinate_length = (curve.len()? + 7) / 8;
+
+                // Check length of Q.
+                let expected_length =
+                    1 // 0x04.
+                    + (2 // (x, y)
+                       * coordinate_length);
+
+                if self.value.len() != expected_length {
+                    return Err(Error::InvalidArgument(
+                        format!("Invalid length of MPI: {} (expected {})",
+                                self.value.len(), expected_length)).into());
+                }
+
+                if self.value[0] != 0x04 {
+                    return Err(Error::InvalidArgument(
+                        format!("Bad prefix: {:x} (expected 0x04)", self.value[0]))
+                               .into());
+                }
+
+                Ok((&self.value[1..1 + coordinate_length],
+                    &self.value[1 + coordinate_length..]))
+            },
         }
-
-        if self.value[0] != 0x04 {
-            return Err(Error::InvalidArgument(
-                format!("Bad prefix: {:x} (expected 0x04)", self.value[0]))
-                       .into());
-        }
-
-        Ok((&self.value[1..1 + coordinate_length],
-            &self.value[1 + coordinate_length..]))
     }
 }
 

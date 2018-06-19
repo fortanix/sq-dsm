@@ -21,17 +21,8 @@ pub fn wrap_session_key(recipient: &Key, session_key: &[u8]) -> Result<MPIs> {
         match curve {
             Curve::Cv25519 => {
                 // Obtain the authenticated recipient public key R
-                if q.value.len() != 1 + curve25519::CURVE25519_SIZE {
-                    return Err(Error::MalformedPacket(
-                        "Bad size of Cv25519 public key".into()).into());
-                }
-
-                if q.value[0] != 0x40 {
-                    return Err(Error::MalformedPacket(
-                        "Bad encoding of Cv25519 public key".into()).into());
-                }
                 #[allow(non_snake_case)]
-                let R = &q.value[1..];
+                let R = q.decode_point(curve)?.0;
 
                 // Generate an ephemeral key pair {v, V=vG}
                 let mut v = [0; curve25519::CURVE25519_SIZE];
