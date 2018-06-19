@@ -43,10 +43,8 @@ impl PKESK {
         psk.extend_from_slice(session_key);
 
         // Compute the sum modulo 65536.
-        let mut checksum: u32 = 0;
-        for b in session_key {
-            checksum = (checksum + *b as u32) % ::std::u16::MAX as u32;
-        }
+        let checksum
+            = session_key.iter().map(|&x| x as usize).sum::<usize>() & 0xffff;
         psk.push((checksum >> 8) as u8);
         psk.push((checksum >> 0) as u8);
 
