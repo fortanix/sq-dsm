@@ -13,15 +13,12 @@ use super::{writer, write_byte, Serialize};
 // Compute the log2 of an integer.  (This is simply the most
 // significant bit.)  Note: log2(0) = -Inf, but this function returns
 // log2(0) as 0 (which is the closest number that we can represent).
-fn log2(mut x: u32) -> usize {
-    for i in 0..32 {
-        x /= 2;
-        if x == 0 {
-            return i;
-        }
+fn log2(x: u32) -> usize {
+    if x == 0 {
+        0
+    } else {
+        31 - x.leading_zeros() as usize
     }
-
-    return 31;
 }
 
 #[test]
