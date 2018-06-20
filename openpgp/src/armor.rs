@@ -423,7 +423,7 @@ impl<R: Read> Reader<R> {
 
             /* Update offset, skip whitespace.  */
             off += 5;
-            while off < footer.len() && is_ascii_whitespace(footer[off]) {
+            while off < footer.len() && footer[off].is_ascii_whitespace() {
                 off += 1;
             }
         }
@@ -466,11 +466,6 @@ impl<R: Read> Reader<R> {
     }
 }
 
-/* XXX: Use u8.is_ascii_whitespace() once out of nightlies.  */
-fn is_ascii_whitespace(c: u8) -> bool {
-    c == ' ' as u8 || c == '\n' as u8 || c == '\r' as u8 || c == '\t' as u8
-}
-
 /// Looks for the CRC sum or the footer.
 fn find_footer(buf: &[u8]) -> Option<usize> {
     if buf.len() == 0 {
@@ -482,8 +477,8 @@ fn find_footer(buf: &[u8]) -> Option<usize> {
     }
 
     for i in 0..buf.len() - 1 {
-        if is_ascii_whitespace(buf[i]) && (buf[i+1] == '=' as u8
-                                           || buf[i+1] == '-' as u8) {
+        if buf[i].is_ascii_whitespace() && (buf[i+1] == '=' as u8
+                                            || buf[i+1] == '-' as u8) {
             return Some(i + 1);
         }
     }
@@ -522,7 +517,7 @@ impl<W: Read> Read for Reader<W> {
             /* We may have to get some more until we have a multiple
              * of four non-whitespace ASCII characters.  */
             loop {
-                let n = &raw.iter().filter(|c| ! is_ascii_whitespace(**c)).count();
+                let n = &raw.iter().filter(|c| ! (**c).is_ascii_whitespace()).count();
                 if n % 4 == 0 { break }
 
                 /* Get some more bytes.  */
