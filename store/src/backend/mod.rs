@@ -100,7 +100,7 @@ struct NodeServer {
 impl NodeServer {
     fn new(descriptor: ipc::Descriptor, handle: Handle) -> Result<Self> {
         let mut db_path = descriptor.context().home().to_path_buf();
-        db_path.push("keystore.sqlite");
+        db_path.push("public-key-store.sqlite");
 
         let c = Connection::open(db_path)?;
         c.execute_batch("PRAGMA secure_delete = true;")?;

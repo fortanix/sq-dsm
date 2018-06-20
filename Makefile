@@ -66,7 +66,7 @@ build-release:
 .PHONY: install
 install: build-release
 	$(INSTALL) -d $(DESTDIR)$(PREFIX)/lib/sequoia
-	$(INSTALL) -t $(DESTDIR)$(PREFIX)/lib/sequoia target/release/keystore
+	$(INSTALL) -t $(DESTDIR)$(PREFIX)/lib/sequoia target/release/sequoia-public-key-store
 	$(INSTALL) -d $(DESTDIR)$(PREFIX)/bin
 	$(INSTALL) -t $(DESTDIR)$(PREFIX)/bin target/release/sq target/release/sqv
 	$(MAKE) -Cffi install

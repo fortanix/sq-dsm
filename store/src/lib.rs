@@ -95,8 +95,8 @@ pub mod backend;
 pub fn descriptor(c: &Context) -> ipc::Descriptor {
     ipc::Descriptor::new(
         c,
-        c.home().join("S.keystore"),
-        c.lib().join("keystore"),
+        c.home().join("public-key-store.cookie"),
+        c.lib().join("sequoia-public-key-store"),
         backend::factory,
     )
 }

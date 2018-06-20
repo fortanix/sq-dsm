@@ -30,7 +30,7 @@ name = "sequoia_store"
 path = "src/lib.rs"
 
 [[bin]]
-name = "keystore"
+name = "sequoia-public-key-store"
 path = "src/server.rs"
 doc = false
 required-features = ["background-services"]
