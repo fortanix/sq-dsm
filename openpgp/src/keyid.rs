@@ -1,5 +1,6 @@
 use std::fmt;
 
+use Fingerprint;
 use KeyID;
 
 impl fmt::Display for KeyID {
@@ -59,11 +60,13 @@ impl KeyID {
         let bytes = ::from_hex(hex, true)?;
 
         // A KeyID is exactly 8 bytes long.
-        if bytes.len() != 8 {
-            return None;
+        if bytes.len() == 8 {
+            Some(KeyID::from_bytes(&bytes[..]))
+        } else {
+            // Maybe a fingerprint was given.  Try to parse it and
+            // convert it to a KeyID.
+            Some(Fingerprint::from_hex(hex)?.to_keyid())
         }
-
-        Some(KeyID::from_bytes(&bytes[..]))
     }
 
     /// Returns a reference to the raw KeyID.
