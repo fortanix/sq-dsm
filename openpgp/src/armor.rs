@@ -451,13 +451,11 @@ impl<R: Read> Reader<R> {
 
         loop {
             self.source.read_exact(&mut buf)?;
-            if buf[0] == '\r' as u8 {
-                self.source.read_exact(&mut buf)?;
+            if ! buf[0].is_ascii_whitespace() {
+                c += 1;
             }
 
-            if buf[0] != '\n' as u8 {
-                c += 1;
-            } else {
+            if buf[0] == '\n' as u8 {
                 break;
             }
         }
