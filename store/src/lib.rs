@@ -88,7 +88,7 @@ use store_protocol_capnp::node;
 /// Macros managing requests and responses.
 #[macro_use] mod macros;
 
-pub mod backend;
+pub(crate) mod backend;
 
 /// Returns the service descriptor.
 #[doc(hidden)]
