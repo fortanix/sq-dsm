@@ -167,61 +167,61 @@ sq_reader_t sq_armor_reader_new (sq_reader_t inner, sq_armor_kind_t kind);
 sq_writer_t sq_armor_writer_new (sq_writer_t inner, sq_armor_kind_t kind);
 
 
-/* openpgp::Message.  */
+/* openpgp::PacketPile.  */
 
 /*/
-/// A `Message` holds a deserialized OpenPGP message.
+/// A `PacketPile` holds a deserialized OpenPGP message.
 /*/
-typedef struct sq_message *sq_message_t;
+typedef struct sq_packet_pile *sq_packet_pile_t;
 
 /*/
 /// Deserializes the OpenPGP message stored in a `std::io::Read`
 /// object.
 ///
 /// Although this method is easier to use to parse an OpenPGP
-/// message than a `PacketParser` or a `MessageParser`, this
-/// interface buffers the whole message in memory.  Thus, the
-/// caller must be certain that the *deserialized* message is not
+/// packet pile than a `PacketParser` or a `PacketPileParser`, this
+/// interface buffers the whole packet pile in memory.  Thus, the
+/// caller must be certain that the *deserialized* packet pile is not
 /// too large.
 ///
 /// Note: this interface *does* buffer the contents of packets.
 /*/
-sq_message_t sq_message_from_reader (sq_context_t ctx,
-                                     sq_reader_t reader);
+sq_packet_pile_t sq_packet_pile_from_reader (sq_context_t ctx,
+					     sq_reader_t reader);
 
 /*/
-/// Deserializes the OpenPGP message stored in the file named by
+/// Deserializes the OpenPGP packet pile stored in the file named by
 /// `filename`.
 ///
-/// See `sq_message_from_reader` for more details and caveats.
+/// See `sq_packet_pile_from_reader` for more details and caveats.
 /*/
-sq_message_t sq_message_from_file (sq_context_t ctx,
-                                   const char *filename);
+sq_packet_pile_t sq_packet_pile_from_file (sq_context_t ctx,
+					   const char *filename);
 
 /*/
-/// Deserializes the OpenPGP message stored in the provided buffer.
+/// Deserializes the OpenPGP packet pile stored in the provided buffer.
 ///
-/// See `sq_message_from_reader` for more details and caveats.
+/// See `sq_packet_pile_from_reader` for more details and caveats.
 /*/
-sq_message_t sq_message_from_bytes (sq_context_t ctx,
-                                    const uint8_t *b, size_t len);
+sq_packet_pile_t sq_packet_pile_from_bytes (sq_context_t ctx,
+					    const uint8_t *b, size_t len);
 
 /*/
-/// Frees the message.
+/// Frees the packet pile.
 /*/
-void sq_message_free (sq_message_t message);
+void sq_packet_pile_free (sq_packet_pile_t message);
 
 /*/
-/// Clones the Message.
+/// Clones the packet pile.
 /*/
-sq_message_t sq_message_clone (sq_message_t message);
+sq_packet_pile_t sq_packet_pile_clone (sq_packet_pile_t message);
 
 /*/
-/// Serializes the message.
+/// Serializes the packet pile.
 /*/
-sq_status_t sq_message_serialize (sq_context_t ctx,
-                                  const sq_message_t message,
-                                  sq_writer_t writer);
+sq_status_t sq_packet_pile_serialize (sq_context_t ctx,
+				      const sq_packet_pile_t message,
+				      sq_writer_t writer);
 
 
 /* openpgp::tpk.  */
@@ -254,13 +254,13 @@ sq_tpk_t sq_tpk_from_file (sq_context_t ctx,
 ///
 /// Consumes `m`.
 /*/
-sq_tpk_t sq_tpk_from_message (sq_context_t ctx,
-                              sq_message_t m);
+sq_tpk_t sq_tpk_from_packet_pile (sq_context_t ctx,
+				  sq_packet_pile_t m);
 
 /*/
 /// Returns the first TPK found in `buf`.
 ///
-/// `buf` must be an OpenPGP encoded message.
+/// `buf` must be an OpenPGP-encoded TPK.
 /*/
 sq_tpk_t sq_tpk_from_bytes (sq_context_t ctx,
 			    const uint8_t *b, size_t len);
