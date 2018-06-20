@@ -45,7 +45,7 @@ impl HashAlgorithm {
         }
     }
 
-    /// Reutrns the ASN.1 OID of this hash algorithm.
+    /// Returns the ASN.1 OID of this hash algorithm.
     pub fn oid(self) -> Result<&'static [u8]> {
         use nettle::rsa;
 
