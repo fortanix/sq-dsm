@@ -63,6 +63,8 @@
 //! sq_context_free (ctx);
 //! ```
 
+#![warn(missing_docs)]
+
 extern crate failure;
 #[macro_use]
 extern crate lazy_static;

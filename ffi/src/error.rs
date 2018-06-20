@@ -1,4 +1,4 @@
-/// Maps various errors to status codes.
+//! Maps various errors to status codes.
 
 use failure;
 use std::io;
@@ -113,8 +113,10 @@ pub enum Status {
     // XXX: Skipping UnsupportedSignatureType = -20
     // XXX: Skipping UnsupportedEllipticCurve = -21
 
+    /// Malformed message.
     MalformedMessage = -22,
 
+    /// Index out of range.
     IndexOutOfRange = -23,
 }
 

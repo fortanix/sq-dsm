@@ -30,6 +30,8 @@
 //! # }
 //! ```
 
+#![warn(missing_docs)]
+
 extern crate openpgp;
 extern crate sequoia_core;
 

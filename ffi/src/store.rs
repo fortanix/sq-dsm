@@ -622,6 +622,7 @@ impl Stats {
     }
 }
 
+/// Represents a log entry.
 #[repr(C)]
 pub struct Log {
     /// Records the time of the entry.
