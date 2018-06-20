@@ -384,9 +384,9 @@ impl<R: Read> Reader<R> {
         if buf != self.kind.begin().into_bytes() {
             return Err(Error::new(ErrorKind::InvalidInput, "Invalid ASCII Armor header."));
         }
-        self.linebreak()?;
+        self.consume_linebreak()?;
 
-        while self.line()? != 0 {
+        while self.consume_line()? != 0 {
             /* Swallow headers.  */
         }
 
@@ -437,15 +437,15 @@ impl<R: Read> Reader<R> {
     }
 
     /// Consumes a linebreak.
-    fn linebreak(&mut self) -> Result<()> {
-        if self.line()? != 0 {
+    fn consume_linebreak(&mut self) -> Result<()> {
+        if self.consume_line()? != 0 {
             return Err(Error::new(ErrorKind::InvalidInput, "Expected newline."));
         }
         Ok(())
     }
 
     /// Consumes a line, returning the number of non-whitespace bytes.
-    fn line(&mut self) -> Result<usize> {
+    fn consume_line(&mut self) -> Result<usize> {
         let mut buf = [0; 1];
         let mut c = 0;
 
