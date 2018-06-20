@@ -465,7 +465,7 @@ sq_tag_t sq_packet_tag (sq_packet_t p);
 /// the session key.
 /*/
 sq_status_t sq_skesk_decrypt (sq_context_t ctx, sq_skesk_t skesk,
-                              const uint8_t *passphrase, size_t passphrase_len,
+                              const uint8_t *password, size_t password_len,
                               uint8_t *algo, /* XXX */
                               uint8_t *key, size_t *key_len);
 

@@ -478,23 +478,23 @@ pub extern "system" fn sq_packet_tag(p: Option<&Packet>)
 #[no_mangle]
 pub extern "system" fn sq_skesk_decrypt(ctx: Option<&mut Context>,
                                         skesk: Option<&Packet>,
-                                        passphrase: *const uint8_t,
-                                        passphrase_len: size_t,
+                                        password: *const uint8_t,
+                                        password_len: size_t,
                                         algo: Option<&mut uint8_t>, // XXX
                                         key: *mut uint8_t,
                                         key_len: Option<&mut size_t>)
                                         -> Status {
     let ctx = ctx.expect("Context is NULL");
     let skesk = skesk.expect("SKESK is NULL");
-    assert!(!passphrase.is_null());
-    let passphrase = unsafe {
-        slice::from_raw_parts(passphrase, passphrase_len as usize)
+    assert!(!password.is_null());
+    let password = unsafe {
+        slice::from_raw_parts(password, password_len as usize)
     };
     let algo = algo.expect("Algo is NULL");
     let key_len = key_len.expect("Key length is NULL");
 
     if let &Packet::SKESK(ref skesk) = skesk {
-        match skesk.decrypt(passphrase) {
+        match skesk.decrypt(password) {
             Ok((a, k)) => {
                 *algo = a.into();
                 if !key.is_null() && *key_len >= k.len() {

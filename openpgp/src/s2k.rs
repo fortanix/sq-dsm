@@ -1,6 +1,6 @@
 //! String-to-Key (S2K) specifiers.
 //!
-//! String-to-key (S2K) specifiers are used to convert passphrase
+//! String-to-key (S2K) specifiers are used to convert password
 //! strings into symmetric-key encryption/decryption keys.  See
 //! [Section 3.7 of RFC 4880].
 //!
@@ -17,7 +17,7 @@ use quickcheck::{Arbitrary,Gen};
 
 /// String-to-Key (S2K) specifiers.
 ///
-/// String-to-key (S2K) specifiers are used to convert passphrase
+/// String-to-key (S2K) specifiers are used to convert password
 /// strings into symmetric-key encryption/decryption keys.  See
 /// [Section 3.7 of RFC 4880].
 ///

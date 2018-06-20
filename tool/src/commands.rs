@@ -56,7 +56,7 @@ pub fn decrypt(input: &mut io::Read, output: &mut io::Write,
                         }
                         if ! skesks.is_empty() {
                             let pass = rpassword::prompt_password_stderr(
-                                "Enter passphrase to decrypt message: ")?
+                                "Enter password to decrypt message: ")?
                                 .into_bytes();
 
                             for skesk in skesks.iter() {
@@ -133,12 +133,12 @@ pub fn encrypt(store: &mut store::Store,
     }
     let mut passwords = Vec::with_capacity(npasswords);
     for n in 0..npasswords {
-        let nprompt = format!("Enter passphrase {}: ", n + 1);
+        let nprompt = format!("Enter password {}: ", n + 1);
         passwords.push(rpassword::prompt_password_stderr(
             if npasswords > 1 {
                 &nprompt
             } else {
-                "Enter passphrase: "
+                "Enter password: "
             })?);
     }
 

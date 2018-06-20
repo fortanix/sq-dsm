@@ -94,16 +94,18 @@ pub enum SecretKey {
 }
 
 impl SecretKey {
-    /// Decrypts this secret key using `passwd`. The SecretKey type does not know what kind of key
-    /// it is, so `pk_algo` is needed to parse the correct number of MPIs.
-    pub fn decrypt(&mut self, pk_algo: PublicKeyAlgorithm, passwd: &[u8]) -> Result<()> {
+    /// Decrypts this secret key using `password`. The SecretKey type
+    /// does not know what kind of key it is, so `pk_algo` is needed
+    /// to parse the correct number of MPIs.
+    pub fn decrypt(&mut self, pk_algo: PublicKeyAlgorithm, password: &[u8])
+                   -> Result<()> {
         use std::io::{Cursor, Read};
         use symmetric::Decryptor;
 
         let new = match &*self {
             &SecretKey::Unencrypted { .. } => None,
             &SecretKey::Encrypted { ref s2k, algorithm, ref ciphertext } => {
-                let key = s2k.derive_key(passwd, algorithm.key_size()?)?
+                let key = s2k.derive_key(password, algorithm.key_size()?)?
                     .into_boxed_slice();
                 let mut cur = Cursor::new(ciphertext);
                 let mut dec = Decryptor::new(algorithm, &key, cur)?;
