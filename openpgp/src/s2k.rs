@@ -25,24 +25,24 @@ use quickcheck::{Arbitrary,Gen};
 #[derive(Clone,Copy,PartialEq,Eq,Debug)]
 pub enum S2K {
     /// Simply hashes the password.
-    Simple{
+    Simple {
         /// Hash used for key derivation.
         hash: HashAlgorithm
     },
     /// Hashes the password with a public `salt` value.
-    Salted{
+    Salted {
         /// Hash used for key derivation.
         hash: HashAlgorithm,
         /// Public salt value mixed into the password.
         salt: [u8; 8],
     },
     /// Repeatently hashes the password with a public `salt` value.
-    Iterated{
+    Iterated {
         /// Hash used for key derivation.
         hash: HashAlgorithm,
         /// Public salt value mixed into the password.
         salt: [u8; 8],
-        /// Number of hash function invocations.
+        /// Number of bytes to hash.
         iterations: u32,
     },
     /// Private S2K algorithm
@@ -56,7 +56,7 @@ impl Default for S2K {
     fn default() -> Self {
         let mut salt = [0u8; 8];
         Yarrow::default().random(&mut salt);
-        S2K::Iterated{
+        S2K::Iterated {
             hash: HashAlgorithm::SHA256,
             salt: salt,
             iterations: 26214400, // XXX: Calibrate somehow.
@@ -69,8 +69,8 @@ impl S2K {
     pub fn derive_key(&self, string: &[u8], key_size: usize)
     -> Result<Vec<u8>> {
         match self {
-            &S2K::Simple{ hash } | &S2K::Salted{ hash,.. }
-            | &S2K::Iterated{ hash,.. } => {
+            &S2K::Simple { hash } | &S2K::Salted { hash,.. }
+            | &S2K::Iterated { hash,.. } => {
                 let mut hash = hash.context()?;
 
                 // If the digest length is shorter than the key length,
@@ -85,14 +85,14 @@ impl S2K {
                     hash.update(&zeros[..]);
 
                     match self {
-                        &S2K::Simple{ .. } => {
+                        &S2K::Simple { .. } => {
                             hash.update(string);
                         }
-                        &S2K::Salted{ ref salt,.. } => {
+                        &S2K::Salted { ref salt,.. } => {
                             hash.update(salt);
                             hash.update(string);
                         }
-                        &S2K::Iterated{ ref salt, iterations,.. } => {
+                        &S2K::Iterated { ref salt, iterations, .. } => {
                             // Independent of what the iteration count is, we
                             // always hash the whole salt and password once.
                             // The iteration value counts the _bytes_ to be

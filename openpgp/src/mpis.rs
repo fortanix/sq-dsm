@@ -68,14 +68,14 @@ pub enum MPIs {
     None,
 
     /// RSA public key.
-    RSAPublicKey{
+    RSAPublicKey {
         /// Public exponent
         e: MPI,
         /// Public modulo N = pq.
         n: MPI
     },
     /// RSA secret key.
-    RSASecretKey{
+    RSASecretKey {
         /// Secret exponent, inverse of e in Phi(N).
         d: MPI,
         /// Larger secret prime.
@@ -86,18 +86,18 @@ pub enum MPIs {
         u: MPI
     },
     /// RSA ciphertext.
-    RSACiphertext{
+    RSACiphertext {
         /// Ciphertext m^e mod N.
         c: MPI
     },
     /// RSA signature.
-    RSASignature{
+    RSASignature {
         /// Signature m^d mod N.
         s: MPI
     },
 
     /// NIST DSA public key.
-    DSAPublicKey{
+    DSAPublicKey {
         /// Prime of the ring Zp.
         p: MPI,
         /// Order of `g` in Zp.
@@ -108,12 +108,12 @@ pub enum MPIs {
         y: MPI
     },
     /// NIST DSA secret key.
-    DSASecretKey{
+    DSASecretKey {
         /// Secret key log_g(y) in Zp.
         x: MPI
     },
     /// NIST DSA signature
-    DSASignature{
+    DSASignature {
         /// `r` value.
         r: MPI,
         /// `s` value.
@@ -121,7 +121,7 @@ pub enum MPIs {
     },
 
     /// Elgamal public key.
-    ElgamalPublicKey{
+    ElgamalPublicKey {
         /// Prime of the ring Zp.
         p: MPI,
         /// Generator of Zp.
@@ -130,12 +130,12 @@ pub enum MPIs {
         y: MPI
     },
     /// Elgamal secret key.
-    ElgamalSecretKey{
+    ElgamalSecretKey {
         /// Secret key log_g(y) in Zp.
         x: MPI
     },
     /// Elgamal ciphertext
-    ElgamalCiphertext{
+    ElgamalCiphertext {
         /// Ephemeral key.
         e: MPI,
         /// Ciphertext.
@@ -143,19 +143,19 @@ pub enum MPIs {
     },
 
     /// DJBs "Twisted" Edwards curve DSA public key.
-    EdDSAPublicKey{
+    EdDSAPublicKey {
         /// Curve we're using. Must be curve 25519.
         curve: Curve,
         /// Public point.
         q: MPI
     },
     /// DJBs "Twisted" Edwards curve DSA secret key.
-    EdDSASecretKey{
+    EdDSASecretKey {
         /// Secret scalar.
         scalar: MPI
     },
     /// DJBs "Twisted" Edwards curve DSA signature.
-    EdDSASignature{
+    EdDSASignature {
         /// `r` value.
         r: MPI,
         /// `s` value.
@@ -163,14 +163,14 @@ pub enum MPIs {
     },
 
     /// NISTs Elliptic curve DSA public key.
-    ECDSAPublicKey{
+    ECDSAPublicKey {
         /// Curve we're using.
         curve: Curve,
         /// Public point.
         q: MPI
     },
     /// NISTs Elliptic curve DSA secret key.
-    ECDSASecretKey{
+    ECDSASecretKey {
         /// Secret scalar.
         scalar: MPI
     },
@@ -183,7 +183,7 @@ pub enum MPIs {
     },
 
     /// Elliptic curve Elgamal public key.
-    ECDHPublicKey{
+    ECDHPublicKey {
         /// Curve we're using.
         curve: Curve,
         /// Public point.
@@ -194,12 +194,12 @@ pub enum MPIs {
         sym: SymmetricAlgorithm
     },
     /// Elliptic curve Elgamal public key.
-    ECDHSecretKey{
+    ECDHSecretKey {
         /// Secret scalar.
         scalar: MPI
     },
     /// Elliptic curve Elgamal public key.
-    ECDHCiphertext{
+    ECDHCiphertext {
         /// Ephemeral key.
         e: MPI,
         /// Symmetrically encrypted poition.
@@ -217,52 +217,57 @@ impl MPIs {
     pub fn serialized_len(&self) -> usize {
         use self::MPIs::*;
 
-        // Fields are mostly MPIs that consist of two octets length plus the big endian value
-        // itself. All other field types are commented.
+        // Fields are mostly MPIs that consist of two octets length
+        // plus the big endian value itself. All other field types are
+        // commented.
         match self {
             &None => 0,
 
-            &RSAPublicKey{ ref e, ref n } => 2 + e.value.len() + 2 + n.value.len(),
-            &RSASecretKey{ ref d, ref p, ref q, ref u } =>
+            &RSAPublicKey { ref e, ref n } =>
+                2 + e.value.len() + 2 + n.value.len(),
+            &RSASecretKey { ref d, ref p, ref q, ref u } =>
                 2 + d.value.len() + 2 + q.value.len() +
                 2 + p.value.len() + 2 + u.value.len(),
-            &RSACiphertext{ ref c } => 2 + c.value.len(),
-            &RSASignature{ ref s } => 2 + s.value.len(),
+            &RSACiphertext { ref c } => 2 + c.value.len(),
+            &RSASignature { ref s } => 2 + s.value.len(),
 
-            &DSAPublicKey{ ref p, ref q, ref g, ref y } =>
+            &DSAPublicKey { ref p, ref q, ref g, ref y } =>
                 2 + p.value.len() + 2 + q.value.len() +
                 2 + g.value.len() + 2 + y.value.len(),
-            &DSASecretKey{ ref x } => 2 + x.value.len(),
-            &DSASignature{ ref r, ref s } => 2 + r.value.len() + 2 + s.value.len(),
+            &DSASecretKey { ref x } => 2 + x.value.len(),
+            &DSASignature { ref r, ref s } =>
+                2 + r.value.len() + 2 + s.value.len(),
 
-            &ElgamalPublicKey{ ref p, ref g, ref y } =>
+            &ElgamalPublicKey { ref p, ref g, ref y } =>
                 2 + p.value.len() +
                 2 + g.value.len() + 2 + y.value.len(),
-            &ElgamalSecretKey{ ref x } => 2 + x.value.len(),
-            &ElgamalCiphertext{ ref e, ref c } => 2 + e.value.len() + 2 + c.value.len(),
+            &ElgamalSecretKey { ref x } => 2 + x.value.len(),
+            &ElgamalCiphertext { ref e, ref c } =>
+                2 + e.value.len() + 2 + c.value.len(),
 
-            &EdDSAPublicKey{ ref curve, ref q } =>
+            &EdDSAPublicKey { ref curve, ref q } =>
                 2 + q.value.len() +
                 // one length octet plus the ASN.1 OID
                 1 + curve.oid().len(),
-            &EdDSASecretKey{ ref scalar } => 2 + scalar.value.len(),
-            &EdDSASignature{ ref r, ref s } => 2 + r.value.len() + 2 + s.value.len(),
+            &EdDSASecretKey { ref scalar } => 2 + scalar.value.len(),
+            &EdDSASignature { ref r, ref s } =>
+                2 + r.value.len() + 2 + s.value.len(),
 
-            &ECDSAPublicKey{ ref curve, ref q } =>
+            &ECDSAPublicKey { ref curve, ref q } =>
                 2 + q.value.len() +
                 // one length octet plus the ASN.1 OID
                 1 + curve.oid().len(),
-            &ECDSASecretKey{ ref scalar } => 2 + scalar.value.len(),
-            &ECDSASignature{ ref r, ref s } => 2 + r.value.len() + 2 + s.value.len(),
+            &ECDSASecretKey { ref scalar } => 2 + scalar.value.len(),
+            &ECDSASignature { ref r, ref s } => 2 + r.value.len() + 2 + s.value.len(),
 
-            &ECDHPublicKey{ ref curve, ref q,.. } =>
+            &ECDHPublicKey { ref curve, ref q,.. } =>
                 // one length octet plus the ASN.1 OID
                 1 + curve.oid().len() +
                 2 + q.value.len() +
                 // one octet length, one reserved and two algorithm identifier.
                 4,
-            &ECDHSecretKey{ ref scalar } => 2 + scalar.value.len(),
-            &ECDHCiphertext{ ref e, ref key } =>
+            &ECDHSecretKey { ref scalar } => 2 + scalar.value.len(),
+            &ECDHCiphertext { ref e, ref key } =>
                 2 + e.value.len() +
                 // one length octet plus ephemeral key
                 1 + key.len(),
@@ -276,88 +281,88 @@ impl MPIs {
         match self {
             &None => {}
 
-            &RSAPublicKey{ ref e, ref n } => {
+            &RSAPublicKey { ref e, ref n } => {
                 n.hash(hash);
                 e.hash(hash);
             }
 
-            &RSASecretKey{ ref d, ref p, ref q, ref u } => {
+            &RSASecretKey { ref d, ref p, ref q, ref u } => {
                 d.hash(hash);
                 p.hash(hash);
                 q.hash(hash);
                 u.hash(hash);
             }
 
-            &RSACiphertext{ ref c } => {
+            &RSACiphertext { ref c } => {
                 c.hash(hash);
             }
 
-            &RSASignature{ ref s } => {
+            &RSASignature { ref s } => {
                 s.hash(hash);
             }
 
-            &DSAPublicKey{ ref p, ref q, ref g, ref y } => {
+            &DSAPublicKey { ref p, ref q, ref g, ref y } => {
                 p.hash(hash);
                 q.hash(hash);
                 g.hash(hash);
                 y.hash(hash);
             }
 
-            &DSASecretKey{ ref x } => {
+            &DSASecretKey { ref x } => {
                 x.hash(hash);
             }
 
-            &DSASignature{ ref r, ref s } => {
+            &DSASignature { ref r, ref s } => {
                 r.hash(hash);
                 s.hash(hash);
             }
 
-            &ElgamalPublicKey{ ref p, ref g, ref y } => {
+            &ElgamalPublicKey { ref p, ref g, ref y } => {
                 p.hash(hash);
                 g.hash(hash);
                 y.hash(hash);
             }
 
-            &ElgamalSecretKey{ ref x } => {
+            &ElgamalSecretKey { ref x } => {
                 x.hash(hash);
             }
 
-            &ElgamalCiphertext{ ref e, ref c } => {
+            &ElgamalCiphertext { ref e, ref c } => {
                 e.hash(hash);
                 c.hash(hash);
             }
 
-            &EdDSAPublicKey{ ref curve, ref q } => {
+            &EdDSAPublicKey { ref curve, ref q } => {
                 hash.update(&[curve.oid().len() as u8]);
                 hash.update(curve.oid());
                 q.hash(hash);
             }
 
-            &EdDSASecretKey{ ref scalar } => {
+            &EdDSASecretKey { ref scalar } => {
                 scalar.hash(hash);
             }
 
-            &EdDSASignature{ ref r, ref s } => {
+            &EdDSASignature { ref r, ref s } => {
                 r.hash(hash);
                 s.hash(hash);
              }
 
-            &ECDSAPublicKey{ ref curve, ref q } => {
+            &ECDSAPublicKey { ref curve, ref q } => {
                 hash.update(&[curve.oid().len() as u8]);
                 hash.update(curve.oid());
                 q.hash(hash);
              }
 
-            &ECDSASecretKey{ ref scalar } => {
+            &ECDSASecretKey { ref scalar } => {
                 scalar.hash(hash);
             }
 
-            &ECDSASignature{ ref r, ref s } => {
+            &ECDSASignature { ref r, ref s } => {
                 r.hash(hash);
                 s.hash(hash);
             }
 
-            &ECDHPublicKey{ ref curve, ref q, hash: h, sym } => {
+            &ECDHPublicKey { ref curve, ref q, hash: h, sym } => {
                 // curve
                 hash.update(&[curve.oid().len() as u8]);
                 hash.update(curve.oid());
@@ -369,11 +374,11 @@ impl MPIs {
                 hash.update(&[3u8, 1u8, u8::from(h), u8::from(sym)]);
              }
 
-            &ECDHSecretKey{ ref scalar } => {
+            &ECDHSecretKey { ref scalar } => {
                 scalar.hash(hash);
             }
 
-            &ECDHCiphertext{ ref e, ref key } => {
+            &ECDHCiphertext { ref e, ref key } => {
                 e.hash(hash);
 
                 // key
@@ -401,66 +406,68 @@ impl Arbitrary for MPIs {
         match g.gen_range(0, 19) {
            // None,
 
-            0 => MPIs::RSAPublicKey{
+            0 => MPIs::RSAPublicKey {
                 e: MPI::arbitrary(g),
                 n: MPI::arbitrary(g)
             },
-            1 => MPIs::RSASecretKey{
+            1 => MPIs::RSASecretKey {
                 d: MPI::arbitrary(g),
                 p: MPI::arbitrary(g),
                 q: MPI::arbitrary(g),
                 u: MPI::arbitrary(g)
             },
-            2 => MPIs::RSACiphertext{ c: MPI::arbitrary(g) },
-            3 => MPIs::RSASignature{ s: MPI::arbitrary(g) },
+            2 => MPIs::RSACiphertext { c: MPI::arbitrary(g) },
+            3 => MPIs::RSASignature { s: MPI::arbitrary(g) },
 
-            4 => MPIs::DSAPublicKey{
+            4 => MPIs::DSAPublicKey {
                 p: MPI::arbitrary(g),
                 q: MPI::arbitrary(g),
                 g: MPI::arbitrary(g),
                 y: MPI::arbitrary(g)
             },
-            5 => MPIs::DSASecretKey{ x: MPI::arbitrary(g) },
+            5 => MPIs::DSASecretKey { x: MPI::arbitrary(g) },
             6 => MPIs::DSASignature{
                 r: MPI::arbitrary(g),
                 s: MPI::arbitrary(g)
             },
 
-            7 => MPIs::ElgamalPublicKey{
+            7 => MPIs::ElgamalPublicKey {
                 p: MPI::arbitrary(g),
                 g: MPI::arbitrary(g),
                 y: MPI::arbitrary(g) },
-            8 => MPIs::ElgamalSecretKey{ x: MPI::arbitrary(g) },
-            9 => MPIs::ElgamalCiphertext{
+            8 => MPIs::ElgamalSecretKey { x: MPI::arbitrary(g) },
+            9 => MPIs::ElgamalCiphertext {
                 e: MPI::arbitrary(g),
                 c: MPI::arbitrary(g)
             },
 
-            10 => MPIs::EdDSAPublicKey{
+            10 => MPIs::EdDSAPublicKey {
                 curve: Curve::arbitrary(g),
                 q: MPI::arbitrary(g)
             },
-            11 => MPIs::EdDSASecretKey{ scalar: MPI::arbitrary(g) },
-            12 => MPIs::EdDSASignature{
+            11 => MPIs::EdDSASecretKey { scalar: MPI::arbitrary(g) },
+            12 => MPIs::EdDSASignature {
                 r: MPI::arbitrary(g),
                 s: MPI::arbitrary(g)
             },
 
-            13 => MPIs::ECDSAPublicKey{
+            13 => MPIs::ECDSAPublicKey {
                 curve: Curve::arbitrary(g),
                 q: MPI::arbitrary(g),
             },
-            14 => MPIs::ECDSASecretKey{ scalar: MPI::arbitrary(g) },
-            15 => MPIs::ECDSASignature{ r: MPI::arbitrary(g), s: MPI::arbitrary(g) },
+            14 => MPIs::ECDSASecretKey { scalar: MPI::arbitrary(g) },
+            15 => MPIs::ECDSASignature {
+                r: MPI::arbitrary(g), s: MPI::arbitrary(g)
+            },
 
-            16 => MPIs::ECDHPublicKey{
+            16 => MPIs::ECDHPublicKey {
                 curve: Curve::arbitrary(g),
                 q: MPI::arbitrary(g),
                 hash: HashAlgorithm::arbitrary(g),
                 sym: SymmetricAlgorithm::arbitrary(g)
             },
-            17 => MPIs::ECDHSecretKey{ scalar: MPI::arbitrary(g) },
-            18 => MPIs::ECDHCiphertext{
+            17 => MPIs::ECDHSecretKey { scalar: MPI::arbitrary(g) },
+            18 => MPIs::ECDHCiphertext {
                 e: MPI::arbitrary(g),
                 key: <Vec<u8>>::arbitrary(g).into_boxed_slice()
             },
@@ -497,46 +504,64 @@ mod tests {
 
             let mpis2 = match &mpis {
                 MPIs::None => unreachable!(),
-                MPIs::RSAPublicKey{ .. } =>
-                    MPIs::parse_public_key_naked(RSAEncryptSign, cur.into_inner()).unwrap(),
-                MPIs::DSAPublicKey{ .. } =>
-                    MPIs::parse_public_key_naked(DSA, cur.into_inner()).unwrap(),
-                MPIs::ElgamalPublicKey{ .. } =>
-                    MPIs::parse_public_key_naked(ElgamalEncrypt, cur.into_inner()).unwrap(),
-                MPIs::EdDSAPublicKey{ .. } =>
-                    MPIs::parse_public_key_naked(EdDSA, cur.into_inner()).unwrap(),
-                MPIs::ECDSAPublicKey{ .. } =>
-                    MPIs::parse_public_key_naked(ECDSA, cur.into_inner()).unwrap(),
-                MPIs::ECDHPublicKey{ .. } =>
-                    MPIs::parse_public_key_naked(ECDH, cur.into_inner()).unwrap(),
+                MPIs::RSAPublicKey { .. } =>
+                    MPIs::parse_public_key_naked(
+                        RSAEncryptSign, cur.into_inner()).unwrap(),
+                MPIs::DSAPublicKey { .. } =>
+                    MPIs::parse_public_key_naked(
+                        DSA, cur.into_inner()).unwrap(),
+                MPIs::ElgamalPublicKey { .. } =>
+                    MPIs::parse_public_key_naked(
+                        ElgamalEncrypt, cur.into_inner()).unwrap(),
+                MPIs::EdDSAPublicKey { .. } =>
+                    MPIs::parse_public_key_naked(
+                        EdDSA, cur.into_inner()).unwrap(),
+                MPIs::ECDSAPublicKey { .. } =>
+                    MPIs::parse_public_key_naked(
+                        ECDSA, cur.into_inner()).unwrap(),
+                MPIs::ECDHPublicKey { .. } =>
+                    MPIs::parse_public_key_naked(
+                        ECDH, cur.into_inner()).unwrap(),
 
-                MPIs::RSASecretKey{ .. } =>
-                    MPIs::parse_secret_key_naked(RSAEncryptSign, cur.into_inner()).unwrap(),
-                MPIs::DSASecretKey{ .. } =>
-                    MPIs::parse_secret_key_naked(DSA, cur.into_inner()).unwrap(),
-                MPIs::EdDSASecretKey{ .. } =>
-                    MPIs::parse_secret_key_naked(EdDSA, cur.into_inner()).unwrap(),
-                MPIs::ECDSASecretKey{ .. } =>
-                    MPIs::parse_secret_key_naked(ECDSA, cur.into_inner()).unwrap(),
-                MPIs::ECDHSecretKey{ .. } =>
-                    MPIs::parse_secret_key_naked(ECDH, cur.into_inner()).unwrap(),
-                MPIs::ElgamalSecretKey{ .. } =>
-                    MPIs::parse_secret_key_naked(ElgamalEncrypt, cur.into_inner()).unwrap(),
+                MPIs::RSASecretKey { .. } =>
+                    MPIs::parse_secret_key_naked(
+                        RSAEncryptSign, cur.into_inner()).unwrap(),
+                MPIs::DSASecretKey { .. } =>
+                    MPIs::parse_secret_key_naked(
+                        DSA, cur.into_inner()).unwrap(),
+                MPIs::EdDSASecretKey { .. } =>
+                    MPIs::parse_secret_key_naked(
+                        EdDSA, cur.into_inner()).unwrap(),
+                MPIs::ECDSASecretKey { .. } =>
+                    MPIs::parse_secret_key_naked(
+                        ECDSA, cur.into_inner()).unwrap(),
+                MPIs::ECDHSecretKey { .. } =>
+                    MPIs::parse_secret_key_naked(
+                        ECDH, cur.into_inner()).unwrap(),
+                MPIs::ElgamalSecretKey { .. } =>
+                    MPIs::parse_secret_key_naked(
+                        ElgamalEncrypt, cur.into_inner()).unwrap(),
 
-                MPIs::RSASignature{ .. } =>
-                    MPIs::parse_signature_naked(RSAEncryptSign, cur.into_inner()).unwrap(),
-                MPIs::DSASignature{ .. } =>
-                    MPIs::parse_signature_naked(DSA, cur.into_inner()).unwrap(),
-                MPIs::EdDSASignature{ .. } =>
-                    MPIs::parse_signature_naked(EdDSA, cur.into_inner()).unwrap(),
-                MPIs::ECDSASignature{ .. } =>
-                    MPIs::parse_signature_naked(ECDSA, cur.into_inner()).unwrap(),
+                MPIs::RSASignature { .. } =>
+                    MPIs::parse_signature_naked(
+                        RSAEncryptSign, cur.into_inner()).unwrap(),
+                MPIs::DSASignature { .. } =>
+                    MPIs::parse_signature_naked(
+                        DSA, cur.into_inner()).unwrap(),
+                MPIs::EdDSASignature { .. } =>
+                    MPIs::parse_signature_naked(
+                        EdDSA, cur.into_inner()).unwrap(),
+                MPIs::ECDSASignature { .. } =>
+                    MPIs::parse_signature_naked(
+                        ECDSA, cur.into_inner()).unwrap(),
 
-                MPIs::RSACiphertext{ .. } =>
-                    MPIs::parse_ciphertext_naked(RSAEncryptSign, cur.into_inner()).unwrap(),
-                MPIs::ElgamalCiphertext{ .. } =>
-                    MPIs::parse_ciphertext_naked(ElgamalEncrypt, cur.into_inner()).unwrap(),
-                MPIs::ECDHCiphertext{ .. } =>
+                MPIs::RSACiphertext { .. } =>
+                    MPIs::parse_ciphertext_naked(
+                        RSAEncryptSign, cur.into_inner()).unwrap(),
+                MPIs::ElgamalCiphertext { .. } =>
+                    MPIs::parse_ciphertext_naked(
+                        ElgamalEncrypt, cur.into_inner()).unwrap(),
+                MPIs::ECDHCiphertext { .. } =>
                     MPIs::parse_ciphertext_naked(ECDH, cur.into_inner()).unwrap(),
             };
 

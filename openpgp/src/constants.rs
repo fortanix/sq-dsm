@@ -257,11 +257,11 @@ pub enum SymmetricAlgorithm {
     CAST5,
     /// Scheiner et.al. Blowfish block cipher.
     Blowfish,
-    /// 10 round AES.
+    /// 10-round AES.
     AES128,
-    /// 12 round AES.
+    /// 12-round AES.
     AES192,
-    /// 14 round AES.
+    /// 14-round AES.
     AES256,
     /// Twofish block cipher.
     Twofish,
@@ -441,13 +441,13 @@ pub enum HashAlgorithm {
     SHA1,
     /// RIPEMD-160
     RipeMD,
-    /// 256 bit version of SHA2
+    /// 256-bit version of SHA2
     SHA256,
-    /// 384 bit version of SHA2
+    /// 384-bit version of SHA2
     SHA384,
-    /// 512 bit version of SHA2
+    /// 512-bit version of SHA2
     SHA512,
-    /// 224 bit version of SHA2
+    /// 224-bit version of SHA2
     SHA224,
     /// Private hash algorithm identifier.
     Private(u8),
@@ -542,9 +542,9 @@ impl Arbitrary for HashAlgorithm {
 /// The values correspond to the serialized format.
 #[derive(Clone,Copy,PartialEq,Eq,Debug)]
 pub enum SignatureType {
-    /// Signature of a binary document.
+    /// Signature over a binary document.
     Binary,
-    /// Signature of a canonical text document.
+    /// Signature over a canonical text document.
     Text,
     /// Standalone signature.
     Standalone,

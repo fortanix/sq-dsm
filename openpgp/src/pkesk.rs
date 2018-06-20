@@ -94,7 +94,7 @@ impl PKESK {
     /// Decrypts the ESK and returns the session key and symmetric algorithm
     /// used to encrypt the following payload.
     pub fn decrypt(&self, recipient: &Key, recipient_sec: &MPIs)
-        -> Result<(SymmetricAlgorithm,Box<[u8]>)>
+        -> Result<(SymmetricAlgorithm, Box<[u8]>)>
     {
         use PublicKeyAlgorithm::*;
         use mpis::MPIs::*;
@@ -117,7 +117,7 @@ impl PKESK {
              &ElgamalSecretKey{ .. },
              &ElgamalCiphertext{ .. }) =>
                 return Err(
-                    Error::UnknownPublicKeyAlgorithm(self.pk_algo).into()),
+                    Error::UnsupportedPublicKeyAlgorithm(self.pk_algo).into()),
 
             (ECDH, ECDHPublicKey{ .. }, ECDHSecretKey{ .. },
              ECDHCiphertext{ .. }) =>

@@ -1713,7 +1713,7 @@ impl <'a> PacketParser<'a> {
         PacketParserBuilder::from_bytes(bytes)?.finalize()
     }
 
-    /// Return the reader stack, replacing it with a
+    /// Returns the reader stack, replacing it with a
     /// `BufferedReaderEOF` reader.
     ///
     /// This function may only be called when the `PacketParser` is in
@@ -1738,7 +1738,7 @@ impl <'a> PacketParser<'a> {
         &mut self.reader
     }
 
-    /// Mark the packet's contents (packet.common.body) as being
+    /// Marks the packet's contents (packet.common.body) as being
     /// decrypted (true) or encrypted (false).
     fn set_decrypted(mut self, v: bool) -> Self {
         self.decrypted = v;

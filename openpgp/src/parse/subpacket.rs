@@ -435,8 +435,8 @@ pub struct NotationData<'a> {
 
 /// Struct holding an arbitrary subpacket.
 ///
-/// The value is well structured. See `SubpacketTag` for a description of these
-/// tags.
+/// The value is well structured.  See `SubpacketTag` for a
+/// description of these tags.
 #[derive(Debug, PartialEq, Clone)]
 pub enum SubpacketValue<'a> {
     /// The subpacket is unknown.
@@ -452,13 +452,13 @@ pub enum SubpacketValue<'a> {
     ExportableCertification(bool),
     /// 1 octet "level" (depth), 1 octet of trust amount
     TrustSignature((u8, u8)),
-    /// null-terminated regular expression
+    /// Null-terminated regular expression
     RegularExpression(&'a [u8]),
     /// 1 octet of revocability, 0 for not, 1 for revocable
     Revocable(bool),
     /// 4-octet time field.
     KeyExpirationTime(u32),
-    /// array of one-octet values
+    /// Array of one-octet values
     PreferredSymmetricAlgorithms(&'a [u8]),
     /// 1 octet of class, 1 octet of public-key algorithm ID, 20 octets of
     /// fingerprint
@@ -466,11 +466,11 @@ pub enum SubpacketValue<'a> {
     /// 8-octet Key ID
     Issuer(KeyID),
     /// The notation has a name and a value, each of
-    /// which are strings of octets.
+    /// which are strings of octets..
     NotationData(NotationData<'a>),
-    /// array of one-octet values
+    /// Array of one-octet values
     PreferredHashAlgorithms(&'a [u8]),
-    /// array of one-octet values
+    /// Array of one-octet values
     PreferredCompressionAlgorithms(&'a [u8]),
     /// N octets of flags
     KeyServerPreferences(&'a [u8]),
@@ -488,13 +488,14 @@ pub enum SubpacketValue<'a> {
     ReasonForRevocation((u8, &'a [u8])),
     /// N octets of flags
     Features(&'a [u8]),
-    /// 1 octet public-key algorithm, 1 octet hash algorithm, N octets hash
+    /// 1-octet public-key algorithm, 1 octet hash algorithm, N octets hash
     SignatureTarget((u8, u8, &'a [u8])),
-    /// 1 signature packet body
+    /// An embedded signature.
+    ///
     /// This is a packet rather than a `Signature`, because we also
     /// want to return an `Unknown` packet.
     EmbeddedSignature(Packet),
-    /// 20 octet V4 fingerprint.
+    /// 20-octet V4 fingerprint.
     IssuerFingerprint(Fingerprint),
 }
 
@@ -830,13 +831,13 @@ impl<'a> KeyFlags<'a> {
     }
 
     /// The private component of this key may have been split
-    /// by a secret-sharing mechanism.
+    /// using a secret-sharing mechanism.
     pub fn is_split_key(&self) -> bool {
         self.0.and_then(|v| v.get(0))
             .map(|v0| v0 & KEY_FLAG_SPLIT_KEY > 0).unwrap_or(false)
     }
 
-    /// The private component of this key may be in the
+    /// The private component of this key may be in
     /// possession of more than one person.
     pub fn is_group_key(&self) -> bool {
         self.0.and_then(|v| v.get(0))

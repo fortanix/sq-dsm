@@ -78,12 +78,12 @@ impl Key {
 #[derive(PartialEq, Clone, Debug)]
 pub enum SecretKey {
     /// Unencrypted secret key. Can be used as-is.
-    Unencrypted{
+    Unencrypted {
         /// MPIs of the secret key. Must be a *SecretKey enum variant.
         mpis: MPIs
     },
     /// The secret key is encrypted with a password.
-    Encrypted{
+    Encrypted {
         /// Key derivation mechanism to use.
         s2k: S2K,
         /// Symmetric algorithm used for encryption the secret key.
@@ -101,8 +101,8 @@ impl SecretKey {
         use symmetric::Decryptor;
 
         let new = match &*self {
-            &SecretKey::Unencrypted{ .. } => None,
-            &SecretKey::Encrypted{ ref s2k, algorithm, ref ciphertext } => {
+            &SecretKey::Unencrypted { .. } => None,
+            &SecretKey::Encrypted { ref s2k, algorithm, ref ciphertext } => {
                 let key = s2k.derive_key(passwd, algorithm.key_size()?)?
                     .into_boxed_slice();
                 let mut cur = Cursor::new(ciphertext);
@@ -123,11 +123,11 @@ impl SecretKey {
         Ok(())
     }
 
-    /// Returns true, if this secret key is encrypted.
+    /// Returns true if this secret key is encrypted.
     pub fn is_encrypted(&self) -> bool {
         match self {
-            &SecretKey::Encrypted{ .. } => true,
-            &SecretKey::Unencrypted{ .. } => false,
+            &SecretKey::Encrypted { .. } => true,
+            &SecretKey::Unencrypted { .. } => false,
         }
     }
 }
@@ -156,7 +156,8 @@ mod tests {
         assert!(!secret.is_encrypted());
 
         match secret {
-            &mut SecretKey::Unencrypted{ mpis: MPIs::RSASecretKey{ .. } } => {}
+            &mut SecretKey::Unencrypted { mpis: MPIs::RSASecretKey { .. } } =>
+                {}
             _ => { unreachable!() }
         }
     }

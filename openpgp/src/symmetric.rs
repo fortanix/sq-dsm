@@ -15,8 +15,8 @@ use nettle::Cipher;
 use nettle::Mode;
 
 impl SymmetricAlgorithm {
-    /// Length of a key for this algorithm in bytes. Fails if Sequoia does not
-    /// support this algorithm.
+    /// Length of a key for this algorithm in bytes.  Fails if Sequoia
+    /// does not support this algorithm.
     pub fn key_size(self) -> Result<usize> {
         use nettle::cipher;
         match self {
@@ -33,8 +33,8 @@ impl SymmetricAlgorithm {
         }
     }
 
-    /// Length of a block for this algorithm in bytes. Fails if Sequoia does not
-    /// support this algorithm.
+    /// Length of a block for this algorithm in bytes.  Fails if
+    /// Sequoia does not support this algorithm.
     pub fn block_size(self) -> Result<usize> {
         use nettle::cipher;
         match self {

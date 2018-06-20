@@ -191,7 +191,7 @@ impl Signature {
 
 /// Hashing-related functionality.
 impl Signature {
-    /// Return the message digest of the primary key binding over the
+    /// Returns the message digest of the primary key binding over the
     /// specified primary key.
     pub fn primary_key_binding_hash(&self, key: &Key) -> Vec<u8> {
         let h: HashAlgorithm = self.hash_algo.into();
@@ -205,7 +205,7 @@ impl Signature {
         return digest;
     }
 
-    /// Return the message digest of the subkey binding over the
+    /// Returns the message digest of the subkey binding over the
     /// specified primary key and subkey.
     pub fn subkey_binding_hash(&self, key: &Key, subkey: &Key)
             -> Vec<u8> {
@@ -221,7 +221,7 @@ impl Signature {
         return digest;
     }
 
-    /// Return the message digest of the user ID binding over the
+    /// Returns the message digest of the user ID binding over the
     /// specified primary key, user ID, and signature.
     pub fn userid_binding_hash(&self, key: &Key, userid: &UserID)
             -> Vec<u8> {
@@ -237,7 +237,7 @@ impl Signature {
         return digest;
     }
 
-    /// Return the message digest of the user attribute binding over
+    /// Returns the message digest of the user attribute binding over
     /// the specified primary key, user attribute, and signature.
     pub fn user_attribute_binding_hash(&self, key: &Key, ua: &UserAttribute)
             -> Vec<u8> {
