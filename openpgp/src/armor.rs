@@ -101,10 +101,6 @@ impl Kind {
         format!("-----BEGIN PGP {}-----", self.blurb())
     }
 
-    fn begin_len(&self) -> usize {
-        20 + self.blurb().len()
-    }
-
     fn end(&self) -> String {
         format!("-----END PGP {}-----", self.blurb())
     }
@@ -299,6 +295,9 @@ impl<W: Write> Drop for Writer<W> {
 }
 
 /// A filter that strips ASCII Armor from a stream of data.
+///
+/// The reader ignores any data in front of the armored data, as long
+/// as the line the header is in is only prefixed by whitespace.
 pub struct Reader<R: Read> {
     source: R,
     kind: Kind,
@@ -361,30 +360,34 @@ impl<R: Read> Reader<R> {
     fn initialize(&mut self) -> Result<()> {
         if self.initialized { return Ok(()) }
 
-        let buf = if self.kind == Kind::Any {
-            let peek = 17;
-            let mut buf: Vec<u8> = vec![0; peek];
-            self.source.read_exact(&mut buf)?;
-
-            if let Some(k) = Kind::detect(&buf) {
-                self.kind = k;
-            } else {
-                return Err(Error::new(ErrorKind::InvalidInput, "Invalid ASCII Armor header."));
+        // Look for the header, skipping any garbage in the process.
+        'search: loop {
+            let line = self.read_line()?;
+            if line.len() < 27 {
+                // Line is too short to contain the shortest header.
+                continue;
             }
 
-            buf.resize(self.kind.begin_len(), 0);
-            self.source.read_exact(&mut buf[peek..])?;
-            buf
-        } else {
-            let mut buf: Vec<u8> = vec![0; self.kind.begin_len()];
-            self.source.read_exact(&mut buf)?;
-            buf
-        };
+            for i in 0..line.len() - 27 {
+                if let Some(kind) = Kind::detect(&line[i..]) {
+                    if self.kind == Kind::Any {
+                        // Found any!
+                        self.kind = kind;
+                        break 'search;
+                    }
 
-        if buf != self.kind.begin().into_bytes() {
-            return Err(Error::new(ErrorKind::InvalidInput, "Invalid ASCII Armor header."));
+                    if self.kind == kind {
+                        // Found it!
+                        break 'search;
+                    }
+                }
+
+                if ! line[i].is_ascii_whitespace() {
+                    // Non-whitespace prefix.
+                    continue 'search;
+                }
+            }
         }
-        self.consume_linebreak()?;
 
         while self.consume_line()? != 0 {
             /* Swallow headers.  */
@@ -436,14 +439,6 @@ impl<R: Read> Reader<R> {
         Ok(())
     }
 
-    /// Consumes a linebreak.
-    fn consume_linebreak(&mut self) -> Result<()> {
-        if self.consume_line()? != 0 {
-            return Err(Error::new(ErrorKind::InvalidInput, "Expected newline."));
-        }
-        Ok(())
-    }
-
     /// Consumes a line, returning the number of non-whitespace bytes.
     fn consume_line(&mut self) -> Result<usize> {
         let mut buf = [0; 1];
@@ -461,6 +456,24 @@ impl<R: Read> Reader<R> {
         }
 
         Ok(c)
+    }
+
+    /// Reads a line, returning it as a byte vector without the newline.
+    fn read_line(&mut self) -> Result<Vec<u8>> {
+        let mut line = Vec::new();
+        let mut buf = [0; 1];
+
+        loop {
+            self.source.read_exact(&mut buf)?;
+
+            if buf[0] == '\n' as u8 {
+                break;
+            }
+
+            line.push(buf[0]);
+        }
+
+        Ok(line)
     }
 }
 
@@ -778,6 +791,40 @@ mod test {
         let e = r.read(&mut buf);
         assert!(r.kind() == Kind::File);
         assert!(e.is_ok());
+    }
+
+    #[test]
+    fn dearmor_with_garbage() {
+        use std::io::Cursor;
+
+        // Get some valid data.
+        let mut armored = Vec::new();
+        File::open("tests/data/armor/test-3.with-headers.asc")
+            .unwrap()
+            .read_to_end(&mut armored)
+            .unwrap();
+
+        // Slap some garbage in front and make sure it still reads ok.
+        let mut garbage = Vec::new();
+        write!(&mut garbage, "Some\ngarbage\nlines\n\t\r  ").unwrap();
+        garbage.extend_from_slice(&armored);
+
+        let mut r = Reader::new(Cursor::new(&garbage), Kind::Any);
+        let mut buf = [0; 5];
+        let e = r.read(&mut buf);
+        assert!(r.kind() == Kind::File);
+        assert!(e.is_ok());
+
+        // Again, but this time add a non-whitespace character in the
+        // line of the header.
+        let mut garbage = Vec::new();
+        write!(&mut garbage, "Some\ngarbage\nlines\n\t.\r  ").unwrap();
+        garbage.extend_from_slice(&armored);
+
+        let mut r = Reader::new(Cursor::new(&garbage), Kind::Any);
+        let mut buf = [0; 5];
+        let e = r.read(&mut buf);
+        assert!(e.is_err());
     }
 
     #[test]
