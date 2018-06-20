@@ -54,7 +54,7 @@ impl MPI {
 impl fmt::Debug for MPI {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.write_fmt(format_args!(
-                "{} bits: {}",self.bits, ::to_hex(&*self.value, true)))
+                "{} bits: {}", self.bits, ::to_hex(&*self.value, true)))
     }
 }
 
@@ -260,7 +260,7 @@ impl MPIs {
             &ECDSASecretKey { ref scalar } => 2 + scalar.value.len(),
             &ECDSASignature { ref r, ref s } => 2 + r.value.len() + 2 + s.value.len(),
 
-            &ECDHPublicKey { ref curve, ref q,.. } =>
+            &ECDHPublicKey { ref curve, ref q, .. } =>
                 // one length octet plus the ASN.1 OID
                 1 + curve.oid().len() +
                 2 + q.value.len() +

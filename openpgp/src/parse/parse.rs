@@ -631,7 +631,7 @@ impl S2K {
         Ok(ret)
     }
 
-    fn read_salt<'a,>(php: &mut PacketHeaderParser<'a>) -> Result<[u8; 8]> {
+    fn read_salt<'a>(php: &mut PacketHeaderParser<'a>) -> Result<[u8; 8]> {
         let mut b = [0u8; 8];
         b.copy_from_slice(&php.parse_bytes("s2k_salt", 8)?);
 

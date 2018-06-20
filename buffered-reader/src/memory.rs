@@ -2,7 +2,7 @@ use std::io;
 use std::fmt;
 use std::cmp;
 
-use std::io::{Error,ErrorKind};
+use std::io::{Error, ErrorKind};
 
 use super::*;
 

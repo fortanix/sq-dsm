@@ -90,7 +90,7 @@ impl SKESK {
             let mut plain = vec![0u8; self.esk.len()];
             let cipher = &self.esk[..];
 
-            for (pl,ct) in plain[..].chunks_mut(blk_sz).zip(cipher.chunks(blk_sz)) {
+            for (pl, ct) in plain[..].chunks_mut(blk_sz).zip(cipher.chunks(blk_sz)) {
                 dec.decrypt(&mut iv[..], pl, ct);
             }
 

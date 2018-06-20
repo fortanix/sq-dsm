@@ -173,7 +173,7 @@ mod tests {
 
     quickcheck! {
         fn display(tag: Tag) -> bool {
-            let s = format!("{}",tag);
+            let s = format!("{}", tag);
             !s.is_empty()
         }
     }

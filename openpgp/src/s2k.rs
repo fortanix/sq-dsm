@@ -13,7 +13,7 @@ use HashAlgorithm;
 use std::fmt;
 
 use nettle::{Hash, Yarrow};
-use quickcheck::{Arbitrary,Gen};
+use quickcheck::{Arbitrary, Gen};
 
 /// String-to-Key (S2K) specifiers.
 ///
@@ -22,7 +22,7 @@ use quickcheck::{Arbitrary,Gen};
 /// [Section 3.7 of RFC 4880].
 ///
 ///   [Section 3.7 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-3.7
-#[derive(Clone,Copy,PartialEq,Eq,Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum S2K {
     /// Simply hashes the password.
     Simple {
@@ -69,8 +69,8 @@ impl S2K {
     pub fn derive_key(&self, string: &[u8], key_size: usize)
     -> Result<Vec<u8>> {
         match self {
-            &S2K::Simple { hash } | &S2K::Salted { hash,.. }
-            | &S2K::Iterated { hash,.. } => {
+            &S2K::Simple { hash } | &S2K::Salted { hash, .. }
+            | &S2K::Iterated { hash, .. } => {
                 let mut hash = hash.context()?;
 
                 // If the digest length is shorter than the key length,
@@ -88,7 +88,7 @@ impl S2K {
                         &S2K::Simple { .. } => {
                             hash.update(string);
                         }
-                        &S2K::Salted { ref salt,.. } => {
+                        &S2K::Salted { ref salt, .. } => {
                             hash.update(salt);
                             hash.update(string);
                         }
@@ -176,7 +176,7 @@ impl S2K {
         // eeee.mmmm -> (16 + mmmm) * 2^(6 + e)
 
         let msb = 32 - iters.leading_zeros();
-        let (mantissa_mask,tail_mask) = match msb {
+        let (mantissa_mask, tail_mask) = match msb {
             0...10 => {
                 return Err(Error::MalformedPacket(
                         format!("S2K: cannot encode iteration count of {}",
@@ -218,7 +218,7 @@ impl fmt::Display for S2K {
             }
             S2K::Iterated{ hash, salt, iterations, } => {
                 f.write_fmt(
-                    format_args!("Iterated and Salted S2K with {},\
+                    format_args!("Iterated and Salted S2K with {}, \
                       salt {:x}{:x}{:x}{:x}{:x}{:x}{:x}{:x} and {} iterations",
                     hash,
                     salt[0], salt[1], salt[2], salt[3],
@@ -226,8 +226,8 @@ impl fmt::Display for S2K {
                     iterations))
             }
             S2K::Private(u) =>
-                f.write_fmt(format_args!("Private/Experimental S2K {}",u)),
-            S2K::Unknown(u) => f.write_fmt(format_args!("Unknown S2K {}",u)),
+                f.write_fmt(format_args!("Private/Experimental S2K {}", u)),
+            S2K::Unknown(u) => f.write_fmt(format_args!("Unknown S2K {}", u)),
         }
     }
 }
@@ -417,7 +417,7 @@ mod tests {
 
     quickcheck! {
         fn s2k_display(s2k: S2K) -> bool {
-            let s = format!("{}",s2k);
+            let s = format!("{}", s2k);
             !s.is_empty()
         }
     }

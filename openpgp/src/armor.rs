@@ -24,7 +24,7 @@
 //!
 //! # Example
 //!
-//! ```rust,no_run
+//! ```rust, no_run
 //! use std::fs::File;
 //! use openpgp::armor::{Reader, Kind};
 //!

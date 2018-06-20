@@ -88,7 +88,7 @@ impl<'a> PacketParserBuilder<'a> {
     ///
     /// ```rust
     /// # use openpgp::Result;
-    /// # use openpgp::parse::{PacketParser,PacketParserBuilder};
+    /// # use openpgp::parse::{PacketParser, PacketParserBuilder};
     /// # f(include_bytes!("../../tests/data/messages/public-key.gpg"));
     /// #
     /// # fn f(message_data: &[u8])

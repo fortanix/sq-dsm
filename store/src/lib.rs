@@ -784,7 +784,7 @@ impl Log {
 
         match self.status {
             Ok(ref m) => format!(
-                "{}: {}: {}", timestamp, self.slug,m),
+                "{}: {}: {}", timestamp, self.slug, m),
             Err((ref m, ref e)) => format!(
                 "{}: {}: {}: {}", timestamp, self.slug, m, e),
         }

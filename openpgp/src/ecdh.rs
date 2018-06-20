@@ -113,7 +113,7 @@ pub fn unwrap_session_key(recipient: &Key, recipient_sec: &MPIs,
                 &mut r_reversed.reverse();
                 let r = &r_reversed;
 
-                // Compute the shared point S = rV = rvG, where (r,R)
+                // Compute the shared point S = rV = rvG, where (r, R)
                 // is the recipient's key pair.
                 #[allow(non_snake_case)]
                 let mut S = [0; curve25519::CURVE25519_SIZE];

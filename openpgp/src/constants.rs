@@ -19,7 +19,7 @@ use Result;
 ///   [Section 5 of RFC 6637]: https://tools.ietf.org/html/rfc6637
 ///
 /// The values correspond to the serialized format.
-#[derive(Clone,Copy,PartialEq,Eq,Debug,PartialOrd,Ord)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub enum PublicKeyAlgorithm {
     /// RSA (Encrypt or Sign)
     RSAEncryptSign,
@@ -97,9 +97,9 @@ impl fmt::Display for PublicKeyAlgorithm {
             ECDH => f.write_str("ECDH public key algorithm"),
             EdDSA => f.write_str("EdDSA Edwards-curve Digital Signature Algorithm)"),
             Private(u) =>
-                f.write_fmt(format_args!("Private/Experimental public key algorithm {}",u)),
+                f.write_fmt(format_args!("Private/Experimental public key algorithm {}", u)),
             Unknown(u) =>
-                f.write_fmt(format_args!("Unknown public key algorithm {}",u)),
+                f.write_fmt(format_args!("Unknown public key algorithm {}", u)),
         }
     }
 }
@@ -245,7 +245,7 @@ impl Arbitrary for Curve {
 /// symbolic one.
 ///
 ///   [`SymmetricAlgorithm::from`]: https://doc.rust-lang.org/std/convert/trait.From.html
-#[derive(Clone,Copy,PartialEq,Eq,Debug,PartialOrd,Ord)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub enum SymmetricAlgorithm {
     /// Null encryption.
     Unencrypted,
@@ -347,9 +347,9 @@ impl fmt::Display for SymmetricAlgorithm {
             SymmetricAlgorithm::Camellia256 =>
                 f.write_str("Camellia with 256-bit key"),
             SymmetricAlgorithm::Private(u) =>
-                f.write_fmt(format_args!("Private/Experimental symmetric key algorithm {}",u)),
+                f.write_fmt(format_args!("Private/Experimental symmetric key algorithm {}", u)),
             SymmetricAlgorithm::Unknown(u) =>
-                f.write_fmt(format_args!("Unknown symmetric key algorithm {}",u)),
+                f.write_fmt(format_args!("Unknown symmetric key algorithm {}", u)),
         }
     }
 }
@@ -365,7 +365,7 @@ impl Arbitrary for SymmetricAlgorithm {
 ///   [Section 9.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-9.3
 ///
 /// The values correspond to the serialized format.
-#[derive(Clone,Copy,PartialEq,Eq,Debug,PartialOrd,Ord)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub enum CompressionAlgorithm {
     /// Null compression.
     Uncompressed,
@@ -415,9 +415,9 @@ impl fmt::Display for CompressionAlgorithm {
             CompressionAlgorithm::Zlib => f.write_str("ZLIB"),
             CompressionAlgorithm::BZip2 => f.write_str("BZip2"),
             CompressionAlgorithm::Private(u) =>
-                f.write_fmt(format_args!("Private/Experimental compression algorithm {}",u)),
+                f.write_fmt(format_args!("Private/Experimental compression algorithm {}", u)),
             CompressionAlgorithm::Unknown(u) =>
-                f.write_fmt(format_args!("Unknown comppression algorithm {}",u)),
+                f.write_fmt(format_args!("Unknown comppression algorithm {}", u)),
         }
     }
 }
@@ -433,7 +433,7 @@ impl Arbitrary for CompressionAlgorithm {
 ///   [Section 9.4 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-9.4
 ///
 /// The values correspond to the serialized format.
-#[derive(Clone,Copy,PartialEq,Eq,Debug,PartialOrd,Ord)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub enum HashAlgorithm {
     /// Rivest et.al. message digest 5.
     MD5,
@@ -522,9 +522,9 @@ impl fmt::Display for HashAlgorithm {
             HashAlgorithm::SHA512 => f.write_str("SHA512"),
             HashAlgorithm::SHA224 => f.write_str("SHA224"),
             HashAlgorithm::Private(u) =>
-                f.write_fmt(format_args!("Private/Experimental hash algorithm {}",u)),
+                f.write_fmt(format_args!("Private/Experimental hash algorithm {}", u)),
             HashAlgorithm::Unknown(u) =>
-                f.write_fmt(format_args!("Unknown hash algorithm {}",u)),
+                f.write_fmt(format_args!("Unknown hash algorithm {}", u)),
         }
     }
 }
@@ -540,7 +540,7 @@ impl Arbitrary for HashAlgorithm {
 ///   [Section 5.2.1 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.1
 ///
 /// The values correspond to the serialized format.
-#[derive(Clone,Copy,PartialEq,Eq,Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum SignatureType {
     /// Signature over a binary document.
     Binary,
@@ -661,7 +661,7 @@ impl fmt::Display for SignatureType {
             SignatureType::Confirmation =>
                 f.write_str("Confirmation"),
             SignatureType::Unknown(u) =>
-                f.write_fmt(format_args!("Unknown signature type {}",u)),
+                f.write_fmt(format_args!("Unknown signature type {}", u)),
         }
     }
 }
@@ -685,7 +685,7 @@ mod tests {
 
     quickcheck! {
         fn comp_display(comp: CompressionAlgorithm) -> bool {
-            let s = format!("{}",comp);
+            let s = format!("{}", comp);
             !s.is_empty()
         }
     }
@@ -710,7 +710,7 @@ mod tests {
 
     quickcheck! {
         fn sym_display(sym: SymmetricAlgorithm) -> bool {
-            let s = format!("{}",sym);
+            let s = format!("{}", sym);
             !s.is_empty()
         }
     }
@@ -737,7 +737,7 @@ mod tests {
 
     quickcheck! {
         fn pk_display(pk: PublicKeyAlgorithm) -> bool {
-            let s = format!("{}",pk);
+            let s = format!("{}", pk);
             !s.is_empty()
         }
     }
@@ -789,7 +789,7 @@ mod tests {
             match hash {
                 HashAlgorithm::Private(_) | HashAlgorithm::Unknown(_) => true,
                 hash => {
-                    let s = format!("{}",hash);
+                    let s = format!("{}", hash);
                     hash == HashAlgorithm::from_str(&s).unwrap()
                 }
             }
@@ -798,7 +798,7 @@ mod tests {
 
     quickcheck! {
         fn hash_display(hash: HashAlgorithm) -> bool {
-            let s = format!("{}",hash);
+            let s = format!("{}", hash);
             !s.is_empty()
         }
     }

@@ -104,7 +104,7 @@ impl PKESK {
             (self.pk_algo, &recipient.mpis, recipient_sec, &self.esk)
         {
             (RSAEncryptSign, &RSAPublicKey{ ref e, ref n },
-             &RSASecretKey{ ref p, ref q, ref d,.. },
+             &RSASecretKey{ ref p, ref q, ref d, .. },
              &RSACiphertext{ ref c }) => {
                 let public = rsa::PublicKey::new(&n.value, &e.value)?;
                 let secret = rsa::PrivateKey::new(&d.value, &p.value,

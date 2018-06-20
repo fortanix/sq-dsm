@@ -6,7 +6,7 @@ extern crate flate2;
 extern crate bzip2;
 
 use std::io;
-use std::io::{Error,ErrorKind};
+use std::io::{Error, ErrorKind};
 use std::cmp;
 use std::fmt;
 

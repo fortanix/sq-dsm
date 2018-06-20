@@ -1,7 +1,7 @@
 use std;
 use std::cmp;
 use std::io;
-use std::io::{Error,ErrorKind};
+use std::io::{Error, ErrorKind};
 
 use buffered_reader::{buffered_reader_generic_read_impl, BufferedReader};
 use BodyLength;
