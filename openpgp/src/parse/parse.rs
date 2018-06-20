@@ -313,8 +313,7 @@ impl<'a> PacketHeaderParser<'a> {
 
 /// What the hash in the Cookie is for.
 #[derive(Clone, PartialEq, Debug)]
-#[allow(missing_docs)]
-pub enum HashesFor {
+pub(crate) enum HashesFor {
     Nothing,
     MDC,
     Signature,
