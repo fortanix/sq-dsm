@@ -5,6 +5,13 @@ Sequoia is a cool new OpenPGP implementation.  It consists of several
 crates, providing both a low-level and a high-level API for dealing
 with OpenPGP data.
 
+LICENSE
+=======
+
+Sequoia is licensed under the GNU General Public License version 3 or
+any later version.  See the file LICENSE.txt or visit
+https://www.gnu.org/licenses/gpl-3.0.html for details.
+
 Building Sequoia
 ================
 
