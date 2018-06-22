@@ -93,7 +93,7 @@ mod literal;
 mod compressed_data;
 mod skesk;
 pub use skesk::SKESK;
-pub mod ecdh;
+pub(crate) mod ecdh;
 mod pkesk;
 pub use pkesk::PKESK;
 mod reader;
