@@ -6,12 +6,12 @@ use Result;
 use mpis::MPIs;
 use HashAlgorithm;
 use PublicKeyAlgorithm;
-use Signature;
 use SignatureType;
 use Key;
 use UserID;
 use UserAttribute;
 use Packet;
+use packet;
 use subpacket::SubpacketArea;
 use serialize::Serialize;
 
@@ -29,6 +29,42 @@ fn path_to(artifact: &str) -> PathBuf {
     [env!("CARGO_MANIFEST_DIR"), "tests", "data", artifact]
         .iter().collect()
 }
+
+/// Holds a signature packet.
+///
+/// Signature packets are used both for certification purposes as well
+/// as for document signing purposes.
+///
+/// See [Section 5.2 of RFC 4880] for details.
+///
+///   [Section 5.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2
+// Note: we can't derive PartialEq, because it includes the cached data.
+#[derive(Clone)]
+pub struct Signature {
+    /// CTB packet header fields.
+    pub common: packet::Common,
+    /// Version of the signature packet. Must be 4.
+    pub version: u8,
+    /// Type of signature.
+    pub sigtype: SignatureType,
+    /// Public-key algorithm used for this signature.
+    pub pk_algo: PublicKeyAlgorithm,
+    /// Hash algorithm used to compute the signature.
+    pub hash_algo: HashAlgorithm,
+    /// Subpackets that are part of the signature.
+    pub hashed_area: SubpacketArea,
+    /// Subpackets _not_ that are part of the signature.
+    pub unhashed_area: SubpacketArea,
+    /// Lower 16 bits of the signed hash value.
+    pub hash_prefix: [u8; 2],
+    /// Signature MPIs. Must be a *Signature variant.
+    pub mpis: MPIs,
+
+    /// When used in conjunction with a one-pass signature, this is the
+    /// hash computed over the enclosed message.
+    pub computed_hash: Option<(HashAlgorithm, Vec<u8>)>,
+}
+
 impl fmt::Debug for Signature {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         // Get the issuer.  Prefer the issuer fingerprint to the

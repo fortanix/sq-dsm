@@ -84,6 +84,7 @@ pub mod s2k;
 
 mod unknown;
 mod signature;
+pub use signature::Signature;
 mod one_pass_sig;
 mod key;
 pub use key::SecretKey;
@@ -280,41 +281,6 @@ pub struct Unknown {
     pub common: packet::Common,
     /// Packet tag.
     pub tag: Tag,
-}
-
-/// Holds a signature packet.
-///
-/// Signature packets are used both for certification purposes as well
-/// as for document signing purposes.
-///
-/// See [Section 5.2 of RFC 4880] for details.
-///
-///   [Section 5.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2
-// Note: we can't derive PartialEq, because it includes the cached data.
-#[derive(Clone)]
-pub struct Signature {
-    /// CTB packet header fields.
-    pub common: packet::Common,
-    /// Version of the signature packet. Must be 4.
-    pub version: u8,
-    /// Type of signature.
-    pub sigtype: SignatureType,
-    /// Public-key algorithm used for this signature.
-    pub pk_algo: PublicKeyAlgorithm,
-    /// Hash algorithm used to compute the signature.
-    pub hash_algo: HashAlgorithm,
-    /// Subpackets that are part of the signature.
-    pub hashed_area: subpacket::SubpacketArea,
-    /// Subpackets _not_ that are part of the signature.
-    pub unhashed_area: subpacket::SubpacketArea,
-    /// Lower 16 bits of the signed hash value.
-    pub hash_prefix: [u8; 2],
-    /// Signature MPIs. Must be a *Signature variant.
-    pub mpis: mpis::MPIs,
-
-    /// When used in conjunction with a one-pass signature, this is the
-    /// hash computed over the enclosed message.
-    pub computed_hash: Option<(HashAlgorithm, Vec<u8>)>,
 }
 
 /// Holds a one-pass signature packet.
