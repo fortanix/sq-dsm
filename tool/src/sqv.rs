@@ -10,6 +10,7 @@ extern crate time;
 extern crate openpgp;
 
 use std::process::exit;
+use std::fs::File;
 
 use clap::{App, Arg, AppSettings};
 
@@ -169,7 +170,7 @@ fn real_main() -> Result<(), failure::Error> {
     let file = matches.value_of_os("file").unwrap();
     let hash_algos : Vec<HashAlgorithm>
         = sigs.iter().map(|&(ref sig, _, _)| sig.hash_algo).collect();
-    let hashes = openpgp::hash_file(file, &hash_algos[..])?;
+    let hashes = openpgp::hash_file(File::open(file)?, &hash_algos[..])?;
 
     // Find the keys.
     for filename in matches.values_of_os("keyring")

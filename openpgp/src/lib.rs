@@ -682,17 +682,16 @@ pub enum KeyID {
     Invalid(Box<[u8]>)
 }
 
-use std::path::Path;
+use std::io::Read;
 use nettle::Hash;
 
 /// Hash the specified file.
 ///
 /// This is useful when verifying detached signatures.
-pub fn hash_file<P: AsRef<Path>>(path: P, algos: &[HashAlgorithm])
+pub fn hash_file<R: Read>(reader: R, algos: &[HashAlgorithm])
     -> Result<Vec<(HashAlgorithm, Box<Hash>)>>
 {
     use std::mem;
-    use std::fs::File;
 
     use ::parse::HashedReader;
     use ::parse::HashesFor;
@@ -702,7 +701,7 @@ pub fn hash_file<P: AsRef<Path>>(path: P, algos: &[HashAlgorithm])
 
     let reader
         = BufferedReaderGeneric::with_cookie(
-            File::open(path)?, None, Default::default());
+            reader, None, Default::default());
 
     let mut reader
         = HashedReader::new(reader, HashesFor::Signature, algos.to_vec());
@@ -718,6 +717,8 @@ pub fn hash_file<P: AsRef<Path>>(path: P, algos: &[HashAlgorithm])
 
 #[test]
 fn hash_file_test() {
+    use std::fs::File;
+
     let algos =
         [ HashAlgorithm::SHA1, HashAlgorithm::SHA512, HashAlgorithm::SHA1 ];
     let digests =
@@ -726,7 +727,8 @@ fn hash_file_test() {
            "7945E3DA269C25C04F9EF435A5C0F25D9662C771" ];
 
     let result =
-        hash_file(path_to("a-cypherpunks-manifesto.txt"), &algos[..])
+        hash_file(File::open(path_to("a-cypherpunks-manifesto.txt")).unwrap(),
+                  &algos[..])
         .unwrap();
 
     for ((expected_algo, expected_digest), (algo, mut hash)) in
