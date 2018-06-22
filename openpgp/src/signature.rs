@@ -127,9 +127,7 @@ impl Signature {
         use PublicKeyAlgorithm::*;
         use mpis::MPIs::*;
 
-        let pk: PublicKeyAlgorithm = self.pk_algo.into();
-
-        match (pk, &key.mpis, &self.mpis) {
+        match (self.pk_algo, &key.mpis, &self.mpis) {
             (RSAEncryptSign, &RSAPublicKey{ ref e, ref n }, &RSASignature{ ref s }) => {
                 let key = rsa::PublicKey::new(&n.value, &e.value)?;
 
@@ -199,7 +197,7 @@ impl Signature {
 
             _ => Err(Error::MalformedPacket(format!(
                 "unsupported combination of algorithm {:?}, key {:?} and signature {:?}.",
-                pk, key.mpis, self.mpis)).into())
+                self.pk_algo, key.mpis, self.mpis)).into())
         }
     }
 
