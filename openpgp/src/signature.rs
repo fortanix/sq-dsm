@@ -3,7 +3,7 @@ use std::fmt;
 use constants::Curve;
 use Error;
 use Result;
-use mpis::MPIs;
+use mpis::{MPI, MPIs};
 use HashAlgorithm;
 use PublicKeyAlgorithm;
 use SignatureType;
@@ -15,7 +15,7 @@ use packet;
 use subpacket::SubpacketArea;
 use serialize::Serialize;
 
-use nettle::{dsa, ecdsa, ed25519, rsa};
+use nettle::{dsa, ecdsa, ed25519, Hash, rsa, Yarrow};
 use nettle::rsa::verify_digest_pkcs1;
 
 #[cfg(test)]
@@ -154,7 +154,118 @@ impl Signature {
 
     // XXX: Add subpacket handling.
 
-    // XXX: Add signature generation.
+    /// Signs `hash` using `signer`.
+    pub fn sign_hash(&mut self, signer: &Key, signer_sec: &MPIs,
+                     hash_algo: HashAlgorithm, mut hash: Box<Hash>)
+                     -> Result<()> {
+        use PublicKeyAlgorithm::*;
+        use mpis::MPIs::*;
+
+        let mut rng = Yarrow::default();
+
+        // Fill out some fields, then hash the packet.
+        self.pk_algo = signer.pk_algo;
+        self.hash_algo = hash_algo;
+        self.hash(&mut hash);
+
+        // Compute the digest.
+        let mut digest = vec![0u8; hash.digest_size()];
+        hash.digest(&mut digest);
+        self.hash_prefix[0] = digest[0];
+        self.hash_prefix[1] = digest[1];
+
+        self.mpis = match (signer.pk_algo, &signer.mpis, signer_sec) {
+            (RSAEncryptSign,
+             &RSAPublicKey { ref e, ref n },
+             &RSASecretKey { ref p, ref q, ref d, .. }) => {
+                let public = rsa::PublicKey::new(&n.value, &e.value)?;
+                let secret = rsa::PrivateKey::new(&d.value, &p.value,
+                                                  &q.value, Option::None)?;
+
+                // The signature has the length of the modulus.
+                let mut sig = vec![0u8; n.value.len()];
+
+                // As described in [Section 5.2.2 and 5.2.3 of RFC 4880],
+                // to verify the signature, we need to encode the
+                // signature data in a PKCS1-v1.5 packet.
+                //
+                //   [Section 5.2.2 and 5.2.3 of RFC 4880]:
+                //   https://tools.ietf.org/html/rfc4880#section-5.2.2
+                rsa::sign_digest_pkcs1(&public, &secret, &digest, hash_algo.oid()?,
+                                       &mut rng, &mut sig)?;
+
+                MPIs::RSASignature {
+                    s: MPI::new(&sig),
+                }
+            },
+
+            (DSA,
+             &DSAPublicKey { ref p, ref q, ref g, .. },
+             &DSASecretKey { ref x }) => {
+                let params = dsa::Params::new(&p.value, &q.value, &g.value);
+                let secret = dsa::PrivateKey::new(&x.value);
+
+                let sig = dsa::sign(&params, &secret, &digest, &mut rng)?;
+
+                MPIs::DSASignature {
+                    r: MPI::new(&sig.r()),
+                    s: MPI::new(&sig.s()),
+                }
+            },
+
+            (EdDSA,
+             &EdDSAPublicKey { ref curve, ref q },
+             &EdDSASecretKey { ref scalar }) => match curve {
+                Curve::Ed25519 => {
+                    let public = q.decode_point(&Curve::Ed25519)?.0;
+
+                    let mut sig = vec![0; ed25519::ED25519_SIGNATURE_SIZE];
+                    ed25519::sign(public, &scalar.value, &digest, &mut sig)?;
+
+                    MPIs::EdDSASignature {
+                        r: MPI::new(&sig[..32]),
+                        s: MPI::new(&sig[32..]),
+                    }
+                },
+                _ => return Err(
+                    Error::UnsupportedEllipticCurve(curve.clone()).into()),
+            },
+
+            (ECDSA,
+             &ECDSAPublicKey { ref curve, .. },
+             &ECDSASecretKey { ref scalar }) => {
+                let secret = match curve {
+                    Curve::NistP256 =>
+                        ecdsa::PrivateKey::new::<ecdsa::Secp256r1>(
+                            &scalar.value)?,
+                    Curve::NistP384 =>
+                        ecdsa::PrivateKey::new::<ecdsa::Secp384r1>(
+                            &scalar.value)?,
+                    Curve::NistP521 =>
+                        ecdsa::PrivateKey::new::<ecdsa::Secp521r1>(
+                            &scalar.value)?,
+                    _ =>
+                        return Err(
+                            Error::UnsupportedEllipticCurve(curve.clone())
+                                .into()),
+                };
+
+                let sig = ecdsa::sign(&secret, &digest, &mut rng);
+
+                MPIs::ECDSASignature {
+                    r: MPI::new(&sig.r()),
+                    s: MPI::new(&sig.s()),
+                }
+            },
+
+            _ => return Err(Error::InvalidArgument(format!(
+                "unsupported combination of algorithm {:?}, key {:?}, \
+                 and secret key {:?}",
+                self.pk_algo, signer, signer_sec)).into()),
+        };
+
+        Ok(())
+    }
 
     /// Verifies the signature against `hash`.
     pub fn verify_hash(&self, key: &Key, hash_algo: HashAlgorithm, hash: &[u8])
@@ -398,12 +509,12 @@ impl Signature {
 
 #[cfg(test)]
 mod test {
+    use super::*;
+    use TPK;
+
     #[cfg(feature = "compression-deflate")]
     #[test]
     fn signature_verification_test() {
-        use super::*;
-
-        use TPK;
         use parse::PacketParser;
 
         struct Test<'a> {
@@ -502,6 +613,48 @@ mod test {
             }
 
             assert_eq!(good, test.good, "Signature verification failed.");
+        }
+    }
+
+    #[test]
+    fn sign_verify() {
+        use key::SecretKey;
+
+        let hash_algo = HashAlgorithm::SHA512;
+        let mut hash = vec![0; hash_algo.context().unwrap().digest_size()];
+        Yarrow::default().random(&mut hash);
+
+        for key in &[
+            "keys/testy-private.pgp",
+            "keys/dennis-simon-anton-private.pgp",
+            "keys/erika-corinna-daniela-simone-antonia-nistp256-private.pgp",
+            "keys/erika-corinna-daniela-simone-antonia-nistp384-private.pgp",
+            "keys/erika-corinna-daniela-simone-antonia-nistp521-private.pgp",
+            "keys/emmelie-dorothea-dina-samantha-awina-ed25519-private.pgp",
+        ] {
+            let tpk = TPK::from_file(path_to(key)).unwrap();
+            let pair = tpk.primary();
+
+            if let Some(SecretKey::Unencrypted{ mpis: ref sec }) = pair.secret {
+                let mut sig = Signature::new(SignatureType::Binary);
+                let mut hash = hash_algo.context().unwrap();
+
+                // Make signature.
+                sig.sign_hash(&pair, sec, hash_algo, hash).unwrap();
+
+                // Good signature.
+                let mut hash = hash_algo.context().unwrap();
+                sig.hash(&mut hash);
+                let mut digest = vec![0u8; hash.digest_size()];
+                hash.digest(&mut digest);
+                assert!(sig.verify_hash(&pair, hash_algo, &digest).unwrap());
+
+                // Bad signature.
+                digest[0] ^= 0xff;
+                assert!(! sig.verify_hash(&pair, hash_algo, &digest).unwrap());
+            } else {
+                panic!("secret key is encrypted/missing");
+            }
         }
     }
 }
