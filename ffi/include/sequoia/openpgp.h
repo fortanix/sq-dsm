@@ -125,11 +125,6 @@ typedef enum sq_armor_kind {
   /*/
   /// A transferable secret key.
   /*/
-  SQ_ARMOR_KIND_PRIVATEKEY,
-
-  /*/
-  /// Alias for PrivateKey.
-  /*/
   SQ_ARMOR_KIND_SECRETKEY,
 
   /*/

@@ -193,11 +193,10 @@ fn int_to_kind(kind: c_int) -> armor::Kind {
     match kind {
         0 => armor::Kind::Message,
         1 => armor::Kind::PublicKey,
-        2 => armor::Kind::PrivateKey,
-        3 => armor::Kind::SecretKey,
-        4 => armor::Kind::Signature,
-        5 => armor::Kind::File,
-        6 => armor::Kind::Any,
+        2 => armor::Kind::SecretKey,
+        3 => armor::Kind::Signature,
+        4 => armor::Kind::File,
+        5 => armor::Kind::Any,
         _ => panic!("Bad kind: {}", kind),
     }
 }

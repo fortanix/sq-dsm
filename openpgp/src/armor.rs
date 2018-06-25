@@ -57,8 +57,6 @@ pub enum Kind {
     /// A transferable public key.
     PublicKey,
     /// A transferable secret key.
-    PrivateKey,
-    /// Alias for PrivateKey.
     SecretKey,
     /// A detached signature.
     Signature,
@@ -89,7 +87,6 @@ impl Kind {
         match self {
             &Kind::Message => "MESSAGE",
             &Kind::PublicKey => "PUBLIC KEY BLOCK",
-            &Kind::PrivateKey => "PRIVATE KEY BLOCK",
             &Kind::SecretKey => "PRIVATE KEY BLOCK",
             &Kind::Signature => "SIGNATURE",
             &Kind::File => "ARMORED FILE",
