@@ -36,6 +36,7 @@ extern crate base64;
 use std::io::{Read, Write};
 use std::io::{Result, Error, ErrorKind};
 use std::cmp::min;
+use quickcheck::{Arbitrary, Gen};
 
 /// The encoded output stream must be represented in lines of no more
 /// than 76 characters each (see (see [RFC 4880, section
@@ -64,6 +65,20 @@ pub enum Kind {
     File,
     /// When reading an Armored file, accept any type.
     Any,
+}
+
+impl Arbitrary for Kind {
+    fn arbitrary<G: Gen>(g: &mut G) -> Self {
+        use self::Kind::*;
+        match u8::arbitrary(g) % 5 {
+            0 => Message,
+            1 => PublicKey,
+            2 => SecretKey,
+            3 => Signature,
+            4 => File,
+            _ => unreachable!(),
+        }
+    }
 }
 
 impl Kind {
@@ -365,7 +380,7 @@ impl<R: Read> Reader<R> {
                 continue;
             }
 
-            for i in 0..line.len() - 27 {
+            for i in 0..(line.len() - 27 + 1) {
                 if let Some(kind) = Kind::detect(&line[i..]) {
                     if self.kind == Kind::Any {
                         // Found any!
@@ -855,6 +870,29 @@ mod test {
             }
 
             assert_eq!(&bin, &dearmored);
+        }
+    }
+
+    quickcheck! {
+        fn roundtrip(kind: Kind, payload: Vec<u8>) -> bool {
+            use std::io::Cursor;
+
+            let mut encoded = Vec::new();
+            Writer::new(&mut encoded, kind)
+                .write_all(&payload)
+                .unwrap();
+
+            let mut recovered = Vec::new();
+            Reader::new(Cursor::new(&encoded), kind)
+                .read_to_end(&mut recovered)
+                .unwrap();
+
+            let mut recovered_any = Vec::new();
+            Reader::new(Cursor::new(&encoded), Kind::Any)
+                .read_to_end(&mut recovered_any)
+                .unwrap();
+
+            payload == recovered && payload == recovered_any
         }
     }
 }
