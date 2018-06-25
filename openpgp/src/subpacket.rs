@@ -57,6 +57,7 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt;
+use std::io;
 use time;
 
 use quickcheck::{Arbitrary, Gen};
@@ -64,7 +65,6 @@ use quickcheck::{Arbitrary, Gen};
 use buffered_reader::{BufferedReader, BufferedReaderMemory};
 
 use {
-    Result,
     Signature,
     Packet,
     Fingerprint,
@@ -316,7 +316,7 @@ impl<'a> Iterator for SubpacketAreaIter<'a> {
     type Item = (usize, usize, SubpacketRaw<'a>);
 
     fn next(&mut self) -> Option<Self::Item> {
-        let len = subpacket_length(&mut self.reader);
+        let len = SubpacketLength::parse(&mut self.reader);
         if len.is_err() {
             return None;
         }
@@ -749,23 +749,70 @@ impl<'a> From<SubpacketRaw<'a>> for Subpacket<'a> {
     }
 }
 
-/// Decode a subpacket length as described in Section 5.2.3.1 of RFC 4880.
-fn subpacket_length<C>(bio: &mut BufferedReaderMemory<C>)
-      -> Result<u32> {
-    let octet1 = bio.data_consume_hard(1)?[0];
-    if octet1 < 192 {
-        // One octet.
-        return Ok(octet1 as u32);
-    }
-    if 192 <= octet1 && octet1 < 255 {
-        // Two octets length.
-        let octet2 = bio.data_consume_hard(1)?[0];
-        return Ok(((octet1 as u32 - 192) << 8) + octet2 as u32 + 192);
+pub(crate) type SubpacketLength = u32;
+pub(crate) trait SubpacketLengthTrait {
+    /// Parses a subpacket length.
+    fn parse<C>(bio: &mut BufferedReaderMemory<C>) -> io::Result<u32>;
+    /// Writes the subpacket length to `w`.
+    fn serialize<W: io::Write>(&self, sink: &mut W) -> io::Result<()>;
+    /// Returns the length of the serialized subpacket length.
+    fn len(&self) -> usize;
+}
+
+impl SubpacketLengthTrait for SubpacketLength {
+    fn parse<C>(bio: &mut BufferedReaderMemory<C>) -> io::Result<u32> {
+        let octet1 = bio.data_consume_hard(1)?[0];
+        if octet1 < 192 {
+            // One octet.
+            return Ok(octet1 as u32);
+        }
+        if 192 <= octet1 && octet1 < 255 {
+            // Two octets length.
+            let octet2 = bio.data_consume_hard(1)?[0];
+            return Ok(((octet1 as u32 - 192) << 8) + octet2 as u32 + 192);
+        }
+
+        // Five octets.
+        assert_eq!(octet1, 255);
+        Ok(bio.read_be_u32()?)
     }
 
-    // Five octets.
-    assert_eq!(octet1, 255);
-    return Ok(bio.read_be_u32()?);
+    fn serialize<W: io::Write>(&self, sink: &mut W) -> io::Result<()> {
+        let v = *self;
+        if v < 192 {
+            sink.write_all(&[v as u8])
+        } else if v < 16320 {
+            let v = v - 192 + (192 << 8);
+            sink.write_all(&[(v >> 8) as u8,
+                             (v >> 0) as u8])
+        } else {
+            sink.write_all(&[(v >> 24) as u8,
+                             (v >> 16) as u8,
+                             (v >> 8) as u8,
+                             (v >> 0) as u8])
+        }
+    }
+
+    fn len(&self) -> usize {
+        if *self < 192 {
+            1
+        } else if *self < 16320 {
+            2
+        } else {
+            5
+        }
+    }
+}
+
+#[cfg(test)]
+quickcheck! {
+    fn length_roundtrip(length: SubpacketLength) -> bool {
+        let mut encoded = Vec::new();
+        length.serialize(&mut encoded).unwrap();
+        assert_eq!(encoded.len(), length.len());
+        let mut reader = BufferedReaderMemory::new(&encoded);
+        SubpacketLength::parse(&mut reader).unwrap() == length
+    }
 }
 
 /// Describes how a key may be used, and stores additional
