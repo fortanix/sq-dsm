@@ -49,8 +49,7 @@ use symmetric::{Decryptor, BufferedReaderDecryptor};
 mod partial_body;
 use self::partial_body::BufferedReaderPartialBodyFilter;
 
-pub mod subpacket;
-pub use self::subpacket::SubpacketArea;
+use subpacket::SubpacketArea;
 pub mod key;
 
 mod packet_pile_parser;
@@ -694,7 +693,7 @@ impl Signature {
     // is, the first byte of `value` is the Signature packet's version
     // field, not the ctb.  Also, any length encoding information has
     // been removed.
-    fn parse_naked(value: &[u8]) -> Result<Packet> {
+    pub(crate) fn parse_naked(value: &[u8]) -> Result<Packet> {
         let bio = BufferedReaderMemory::with_cookie(
             value, Cookie::default());
         let parser = PacketHeaderParser::new_naked(Box::new(bio));

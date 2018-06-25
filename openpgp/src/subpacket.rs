@@ -1,3 +1,5 @@
+//! Signature subpackets.
+//!
 //! OpenPGP signature packets include a set of key-value attributes
 //! called subpackets.  These subpackets are used to indicate when a
 //! signature was created, who created the signature, user &
@@ -21,7 +23,7 @@
 //! A number of methods are defined on the [`Signature`] struct for
 //! working with subpackets.
 //!
-//! [`Signature`]: ../../struct.Signature.html
+//! [`Signature`]: ../struct.Signature.html
 //!
 //! # Examples
 //!
@@ -33,7 +35,7 @@
 //! # use openpgp::Packet;
 //! # use openpgp::parse::PacketParser;
 //! #
-//! # f(include_bytes!("../../tests/data/messages/signed.gpg"));
+//! # f(include_bytes!("../tests/data/messages/signed.gpg"));
 //! #
 //! # fn f(message_data: &[u8]) -> Result<()> {
 //! let mut ppo = PacketParser::from_bytes(message_data)?;

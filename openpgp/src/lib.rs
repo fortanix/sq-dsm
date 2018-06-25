@@ -69,9 +69,9 @@ use ctb::{CTB, CTBOld, CTBNew};
 
 pub mod packet;
 use packet::{BodyLength, Header, Container};
+pub mod subpacket;
 
 pub mod parse;
-use parse::SubpacketArea;
 pub mod mpis;
 
 pub mod tpk;
@@ -304,9 +304,9 @@ pub struct Signature {
     /// Hash algorithm used to compute the signature.
     pub hash_algo: HashAlgorithm,
     /// Subpackets that are part of the signature.
-    pub hashed_area: parse::subpacket::SubpacketArea,
+    pub hashed_area: subpacket::SubpacketArea,
     /// Subpackets _not_ that are part of the signature.
-    pub unhashed_area: parse::subpacket::SubpacketArea,
+    pub unhashed_area: subpacket::SubpacketArea,
     /// Lower 16 bits of the signed hash value.
     pub hash_prefix: [u8; 2],
     /// Signature MPIs. Must be a *Signature variant.

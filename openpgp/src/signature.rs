@@ -12,7 +12,7 @@ use Key;
 use UserID;
 use UserAttribute;
 use Packet;
-use SubpacketArea;
+use subpacket::SubpacketArea;
 use serialize::Serialize;
 
 use nettle::{dsa, ecdsa, ed25519, rsa};
