@@ -18,6 +18,7 @@
 //!     -s, --store <STORE>              Sets the store to use (default: 'default')
 //!
 //! SUBCOMMANDS:
+//!     autocrypt    Autocrypt support
 //!     dearmor      Removes ASCII Armor from a file
 //!     decrypt      Decrypts an OpenPGP message
 //!     dump         Lists OpenPGP packets
@@ -28,6 +29,40 @@
 //!     list         Lists key stores and known keys
 //!     split        Splits a message into OpenPGP packets
 //!     store        Interacts with key stores
+//! ```
+//!
+//! ## Subcommand autocrypt
+//!
+//! ```text
+//! Autocrypt support
+//!
+//! USAGE:
+//!     sq autocrypt [SUBCOMMAND]
+//!
+//! FLAGS:
+//!     -h, --help       Prints help information
+//!     -V, --version    Prints version information
+//!
+//! SUBCOMMANDS:
+//!     decode    Converts Autocrypt-encoded keys to OpenPGP TPKs
+//!     help      Prints this message or the help of the given subcommand(s)
+//! ```
+//!
+//! ### Subcommand autocrypt decode
+//!
+//! ```text
+//! Converts Autocrypt-encoded keys to OpenPGP TPKs
+//!
+//! USAGE:
+//!     sq autocrypt decode [OPTIONS]
+//!
+//! FLAGS:
+//!     -h, --help       Prints help information
+//!     -V, --version    Prints version information
+//!
+//! OPTIONS:
+//!     -i, --input <FILE>     Sets the input file to use
+//!     -o, --output <FILE>    Sets the output file to use
 //! ```
 //!
 //! ## Subcommand dearmor

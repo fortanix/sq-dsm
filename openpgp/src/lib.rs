@@ -62,6 +62,7 @@ extern crate quickcheck;
 extern crate time;
 
 pub mod armor;
+pub mod autocrypt;
 
 pub mod ctb;
 use ctb::{CTB, CTBOld, CTBNew};

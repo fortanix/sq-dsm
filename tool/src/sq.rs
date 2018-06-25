@@ -20,7 +20,7 @@ extern crate sequoia_core;
 extern crate sequoia_net;
 extern crate sequoia_store;
 
-use openpgp::{armor, Fingerprint, TPK};
+use openpgp::{armor, autocrypt, Fingerprint, TPK};
 use sequoia_core::{Context, NetworkPolicy};
 use sequoia_net::KeyServer;
 use sequoia_store::{Store, LogIter};
@@ -101,6 +101,27 @@ fn real_main() -> Result<(), failure::Error> {
             let mut filter = armor::Reader::new(&mut input, armor::Kind::Any);
             io::copy(&mut filter, &mut output)?;
         },
+        ("autocrypt", Some(m)) => {
+            match m.subcommand() {
+                ("decode",  Some(m)) => {
+                    let mut input = open_or_stdin(m.value_of("input"))?;
+                    let mut output = create_or_stdout(m.value_of("output"))?;
+                    let ac = autocrypt::AutocryptHeaders::from_reader(input)?;
+                    for h in &ac.headers {
+                        if let Some(ref tpk) = h.key {
+                            let mut filter = armor::Writer::new(
+                                &mut output, armor::Kind::PublicKey);
+                            tpk.serialize(&mut filter)?;
+                        }
+                    }
+                }
+                _ => {
+                    eprintln!("No autocrypt subcommand given.");
+                    exit(1);
+                }
+            }
+        },
+
         ("dump",  Some(m)) => {
             let input = open_or_stdin(m.value_of("input"))?;
             let mut output = create_or_stdout(m.value_of("output"))?;
