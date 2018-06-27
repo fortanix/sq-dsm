@@ -64,7 +64,7 @@ impl fmt::Debug for MPI {
 /// the occasional elliptic curve) in packets.
 #[derive(Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub enum MPIs {
-    /// Invlaid, empty value.
+    /// Invalid, empty value.
     None,
 
     /// RSA public key.
