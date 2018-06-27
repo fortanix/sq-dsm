@@ -435,6 +435,23 @@ pub struct NotationData<'a> {
     value: &'a [u8],
 }
 
+impl<'a> NotationData<'a> {
+    /// Returns the flags.
+    pub fn flags(&self) -> u32 {
+        self.flags
+    }
+
+    /// Returns the name.
+    pub fn name(&self) -> &'a [u8] {
+        self.name
+    }
+
+    /// Returns the value.
+    pub fn value(&self) -> &'a [u8] {
+        self.value
+    }
+}
+
 /// Struct holding an arbitrary subpacket.
 ///
 /// The value is well structured.  See `SubpacketTag` for a
