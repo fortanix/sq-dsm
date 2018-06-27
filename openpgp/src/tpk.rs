@@ -268,11 +268,33 @@ impl<'a, I: Iterator<Item=Packet>> Default for TPKParser<'a, I> {
 // Nevertheless, we need to provide a concrete type.
 // vec::IntoIter<Packet> is about as good as any other.
 impl<'a> TPKParser<'a, vec::IntoIter<Packet>> {
-    /// Initializes a parser.
-    pub fn from_packet_parser(pp: PacketParser<'a>) -> Self {
+    /// Initializes a `TPKParser` from a `PacketParser`.
+    fn from_packet_parsero(ppo: Option<PacketParser<'a>>) -> Self {
         let mut parser : Self = Default::default();
-        parser.source = PacketSource::PacketParser(pp);
+        if let Some(pp) = ppo {
+            parser.source = PacketSource::PacketParser(pp);
+        }
         parser
+    }
+
+    /// Initializes a `TPKParser` from a `PacketParser`.
+    pub fn from_packet_parser(pp: PacketParser<'a>) -> Self {
+        Self::from_packet_parsero(Some(pp))
+    }
+
+    /// Initializes a `TPKParser` from a `Read`er.
+    pub fn from_reader<R: 'a + io::Read>(reader: R) -> Result<Self> {
+        Ok(Self::from_packet_parsero(PacketParser::from_reader(reader)?))
+    }
+
+    /// Initializes a `TPKParser` from a `File`.
+    pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
+        Ok(Self::from_packet_parsero(PacketParser::from_file(path)?))
+    }
+
+    /// Initializes a `TPKParser` from a byte string.
+    pub fn from_bytes(data: &'a [u8]) -> Result<Self> {
+        Ok(Self::from_packet_parsero(PacketParser::from_bytes(data)?))
     }
 }
 
