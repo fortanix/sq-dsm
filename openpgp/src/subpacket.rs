@@ -518,6 +518,50 @@ pub enum SubpacketValue<'a> {
     IssuerFingerprint(Fingerprint),
 }
 
+impl<'a> SubpacketValue<'a> {
+    /// Returns the length of the serialized value.
+    pub fn len(&self) -> SubpacketLength {
+        use self::SubpacketValue::*;
+        (match self {
+            SignatureCreationTime(_) => 4,
+            SignatureExpirationTime(_) => 4,
+            ExportableCertification(_) => 1,
+            TrustSignature(_) => 2,
+            RegularExpression(re) => re.len() + 1 /* terminator */,
+            Revocable(_) => 1,
+            KeyExpirationTime(_) => 4,
+            PreferredSymmetricAlgorithms(p) => p.len(),
+            RevocationKey((_, _, ref fp)) => 1 + 1 + fp.as_slice().len(),
+            Issuer(_) => 8,
+            NotationData(nd) => 4 + 2 + 2 + nd.name.len() + nd.value.len(),
+            PreferredHashAlgorithms(p) => p.len(),
+            PreferredCompressionAlgorithms(p) => p.len(),
+            KeyServerPreferences(p) => p.len(),
+            PreferredKeyServer(p) => p.len(),
+            PrimaryUserID(_) => 1,
+            PolicyURI(p) => p.len(),
+            KeyFlags(f) => f.len(),
+            SignersUserID(u) => u.len(),
+            ReasonForRevocation((_, r)) => 1 + r.len(),
+            Features(f) => f.len(),
+            SignatureTarget((_, _, h)) => 1 + 1 + h.len(),
+            EmbeddedSignature(p) => {
+                use serialize::Serialize;
+                let mut w = Vec::new();
+                p.serialize(&mut w).unwrap();
+                w.len()
+            },
+            IssuerFingerprint(ref fp) => match fp {
+                Fingerprint::V4(_) => 1 + 20,
+                // Educated guess for unknown versions.
+                Fingerprint::Invalid(_) => 1 + fp.as_slice().len(),
+            },
+            Unknown(u) => u.len(),
+            Invalid(i) => i.len(),
+        } as u32)
+    }
+}
+
 /// Signature subpacket specified by [Section 5.2.3.1 of RFC 4880].
 ///
 /// [Section 5.2.3.1 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.1
@@ -529,6 +573,57 @@ pub struct Subpacket<'a> {
     pub tag: SubpacketTag,
     /// Packet value, must match packet type.
     pub value: SubpacketValue<'a>,
+}
+
+impl<'a> Subpacket<'a> {
+    /// Creates a new subpacket.
+    pub fn new(value: SubpacketValue<'a>, critical: bool) -> Result<Subpacket<'a>> {
+        use self::SubpacketValue::*;
+        Ok(Subpacket {
+            critical: critical,
+            tag: match value {
+                SignatureCreationTime(_) => SubpacketTag::SignatureCreationTime,
+                SignatureExpirationTime(_) =>
+                    SubpacketTag::SignatureExpirationTime,
+                ExportableCertification(_) =>
+                    SubpacketTag::ExportableCertification,
+                TrustSignature(_) => SubpacketTag::TrustSignature,
+                RegularExpression(_) => SubpacketTag::RegularExpression,
+                Revocable(_) => SubpacketTag::Revocable,
+                KeyExpirationTime(_) => SubpacketTag::KeyExpirationTime,
+                PreferredSymmetricAlgorithms(_) =>
+                    SubpacketTag::PreferredSymmetricAlgorithms,
+                RevocationKey(_) => SubpacketTag::RevocationKey,
+                Issuer(_) => SubpacketTag::Issuer,
+                NotationData(_) => SubpacketTag::NotationData,
+                PreferredHashAlgorithms(_) =>
+                    SubpacketTag::PreferredHashAlgorithms,
+                PreferredCompressionAlgorithms(_) =>
+                    SubpacketTag::PreferredCompressionAlgorithms,
+                KeyServerPreferences(_) => SubpacketTag::KeyServerPreferences,
+                PreferredKeyServer(_) => SubpacketTag::PreferredKeyServer,
+                PrimaryUserID(_) => SubpacketTag::PrimaryUserID,
+                PolicyURI(_) => SubpacketTag::PolicyURI,
+                KeyFlags(_) => SubpacketTag::KeyFlags,
+                SignersUserID(_) => SubpacketTag::SignersUserID,
+                ReasonForRevocation(_) => SubpacketTag::ReasonForRevocation,
+                Features(_) => SubpacketTag::Features,
+                SignatureTarget(_) => SubpacketTag::SignatureTarget,
+                EmbeddedSignature(_) => SubpacketTag::EmbeddedSignature,
+                IssuerFingerprint(_) => SubpacketTag::IssuerFingerprint,
+                _ => return Err(Error::InvalidArgument(
+                    "Unknown or invalid subpacket value".into()).into()),
+            },
+            value: value,
+        })
+    }
+
+    /// Returns the length of the serialized subpacket.
+    pub fn len(&self) -> usize {
+        let value_len = self.value.len();
+        1 + value_len.len() + value_len as usize
+
+    }
 }
 
 fn from_be_u16(value: &[u8]) -> Option<u16> {
