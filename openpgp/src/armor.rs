@@ -426,12 +426,16 @@ impl<R: Read> Reader<R> {
         let mut off = 0;
 
         /* Look for CRC.  The CRC is optional.  */
-        if footer.len() >= 6 && footer[0] == '=' as u8 {
+        if footer.len() >= 6 && footer[0] == '=' as u8
+            && footer[1..5].iter().all(is_base64_char)
+        {
             /* Found.  */
             let crc = match base64::decode_config(&footer[1..5], base64::MIME) {
                 Ok(d) => d,
                 Err(e) => return Err(Error::new(ErrorKind::InvalidInput, e)),
             };
+
+            assert_eq!(crc.len(), 3);
             self.expect_crc = Some((crc[0] as u32) << 16
                                    | (crc[1] as u32) << 8
                                    | crc[2] as u32);
@@ -487,6 +491,11 @@ impl<R: Read> Reader<R> {
 
         Ok(line)
     }
+}
+
+/// Checks whether the given byte is in the base64 character set.
+fn is_base64_char(b: &u8) -> bool {
+    b.is_ascii_alphanumeric() || *b == '+' as u8 || *b == '/' as u8
 }
 
 /// Looks for the CRC sum or the footer.
