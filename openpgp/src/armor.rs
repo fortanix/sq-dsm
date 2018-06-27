@@ -84,17 +84,25 @@ impl Arbitrary for Kind {
 impl Kind {
     /// Autodetects the kind of data.
     fn detect(blurb: &[u8]) -> Option<Self> {
-        if blurb.len() < 16 || ! blurb.starts_with(b"-----BEGIN PGP ") {
+        if blurb.len() < "-----BEGIN PGP MESSAGE-----".len()
+            || ! blurb.starts_with(b"-----BEGIN PGP ")
+        {
             return None;
         }
 
-        match &blurb[15..17] {
-            b"ME" => Some(Kind::Message),
-            b"PU" => Some(Kind::PublicKey),
-            b"PR" => Some(Kind::SecretKey),
-            b"SI" => Some(Kind::Signature),
-            b"AR" => Some(Kind::File),
-            _ => None,
+        let kind = &blurb[15..];
+        if kind.starts_with(b"MESSAGE-----") {
+            Some(Kind::Message)
+        } else if kind.starts_with(b"PUBLIC KEY BLOCK-----") {
+            Some(Kind::PublicKey)
+        } else if kind.starts_with(b"PRIVATE KEY BLOCK-----") {
+            Some(Kind::SecretKey)
+        } else if kind.starts_with(b"SIGNATURE-----") {
+            Some(Kind::Signature)
+        } else if kind.starts_with(b"ARMORED FILE-----") {
+            Some(Kind::File)
+        } else {
+            None
         }
     }
 
