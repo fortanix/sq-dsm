@@ -19,6 +19,9 @@ use self::partial_body::PartialBodyFilter;
 mod writer;
 pub mod stream;
 use s2k::S2K;
+use subpacket::{
+    Subpacket, SubpacketValue, SubpacketLengthTrait,
+};
 
 // Whether to trace the modules execution (on stderr).
 const TRACE : bool = false;
@@ -383,6 +386,98 @@ impl Serialize for Unknown {
         BodyLength::Full(body.len() as u32).serialize(o)?;
         o.write_all(&body[..])?;
 
+        Ok(())
+    }
+}
+
+impl<'a> Serialize for Subpacket<'a> {
+    fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
+        let tag = u8::from(self.tag)
+            | if self.critical { 1 << 7 } else { 0 };
+        let len = 1 + self.value.len();
+
+        len.serialize(o)?;
+        o.write_all(&[tag])?;
+        self.value.serialize(o)
+    }
+}
+
+impl<'a> Serialize for SubpacketValue<'a> {
+    fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
+        use self::SubpacketValue::*;
+        match self {
+            SignatureCreationTime(t) =>
+                write_be_u32(o, *t)?,
+            SignatureExpirationTime(t) =>
+                write_be_u32(o, *t)?,
+            ExportableCertification(e) =>
+                o.write_all(&[if *e { 1 } else { 0 }])?,
+            TrustSignature((level, amount)) =>
+                o.write_all(&[*level, *amount])?,
+            RegularExpression(ref re) => {
+                o.write_all(re)?;
+                o.write_all(&[0])?;
+            },
+            Revocable(r) =>
+                o.write_all(&[if *r { 1 } else { 0 }])?,
+            KeyExpirationTime(t) =>
+                write_be_u32(o, *t)?,
+            PreferredSymmetricAlgorithms(ref p) =>
+                o.write_all(p)?,
+            RevocationKey((class, pk_algo, ref fp)) => {
+                o.write_all(&[*class, *pk_algo])?;
+                o.write_all(fp.as_slice())?;
+            },
+            Issuer(ref id) =>
+                o.write_all(id.as_slice())?,
+            NotationData(nd) => {
+                write_be_u32(o, nd.flags())?;
+                write_be_u16(o, nd.name().len() as u16)?;
+                write_be_u16(o, nd.value().len() as u16)?;
+                o.write_all(nd.name())?;
+                o.write_all(nd.value())?;
+            },
+            PreferredHashAlgorithms(ref p) =>
+                o.write_all(p)?,
+            PreferredCompressionAlgorithms(ref p) =>
+                o.write_all(p)?,
+            KeyServerPreferences(ref p) =>
+                o.write_all(p)?,
+            PreferredKeyServer(ref p) =>
+                o.write_all(p)?,
+            PrimaryUserID(p) =>
+                o.write_all(&[if *p { 1 } else { 0 }])?,
+            PolicyURI(ref p) =>
+                o.write_all(p)?,
+            KeyFlags(ref f) =>
+                o.write_all(f)?,
+            SignersUserID(ref uid) =>
+                o.write_all(uid)?,
+            ReasonForRevocation((c, ref r)) => {
+                o.write_all(&[*c])?;
+                o.write_all(r)?;
+            },
+            Features(ref f) =>
+                o.write_all(f)?,
+            SignatureTarget((pk_algo, hash_algo, ref hash)) => {
+                o.write_all(&[*pk_algo, *hash_algo])?;
+                o.write_all(hash)?;
+            },
+            EmbeddedSignature(ref p) =>
+                p.serialize(o)?,
+            IssuerFingerprint(ref fp) => match fp {
+                Fingerprint::V4(_) => {
+                    o.write_all(&[4])?;
+                    o.write_all(fp.as_slice())?;
+                },
+                _ => return Err(Error::InvalidArgument(
+                    "Unknown kind of fingerprint".into()).into()),
+            }
+            Unknown(ref raw) =>
+                o.write_all(raw)?,
+            Invalid(ref raw) =>
+                o.write_all(raw)?,
+        }
         Ok(())
     }
 }
