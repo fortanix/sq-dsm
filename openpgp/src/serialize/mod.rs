@@ -236,6 +236,10 @@ impl Serialize for mpis::MPIs {
                 e.serialize(w)?;
                 c.serialize(w)?;
             }
+            &ElgamalSignature{ ref r, ref s } => {
+                r.serialize(w)?;
+                s.serialize(w)?;
+            }
             &EdDSAPublicKey{ ref curve, ref q } => {
                 w.write_all(&[curve.oid().len() as u8])?;
                 w.write_all(curve.oid())?;

@@ -141,6 +141,13 @@ pub enum MPIs {
         /// Ciphertext.
         c: MPI
     },
+    /// Elgamal signature
+    ElgamalSignature {
+        /// `r` value.
+        r: MPI,
+        /// `s` value.
+        s: MPI
+    },
 
     /// DJBs "Twisted" Edwards curve DSA public key.
     EdDSAPublicKey {
@@ -244,6 +251,8 @@ impl MPIs {
             &ElgamalSecretKey { ref x } => 2 + x.value.len(),
             &ElgamalCiphertext { ref e, ref c } =>
                 2 + e.value.len() + 2 + c.value.len(),
+            &ElgamalSignature { ref r, ref s } =>
+                2 + r.value.len() + 2 + s.value.len(),
 
             &EdDSAPublicKey { ref curve, ref q } =>
                 2 + q.value.len() +
@@ -330,6 +339,11 @@ impl MPIs {
             &ElgamalCiphertext { ref e, ref c } => {
                 e.hash(hash);
                 c.hash(hash);
+            }
+
+            &ElgamalSignature { ref r, ref s } => {
+                r.hash(hash);
+                s.hash(hash);
             }
 
             &EdDSAPublicKey { ref curve, ref q } => {
@@ -548,6 +562,9 @@ mod tests {
                 MPIs::DSASignature { .. } =>
                     MPIs::parse_signature_naked(
                         DSA, cur.into_inner()).unwrap(),
+                MPIs::ElgamalSignature { .. } =>
+                    MPIs::parse_signature_naked(
+                        ElgamalEncryptSign, cur.into_inner()).unwrap(),
                 MPIs::EdDSASignature { .. } =>
                     MPIs::parse_signature_naked(
                         EdDSA, cur.into_inner()).unwrap(),

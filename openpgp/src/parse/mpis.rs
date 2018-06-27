@@ -368,6 +368,16 @@ impl MPIs {
                 })
             }
 
+            ElgamalEncryptSign => {
+                let r = MPI::parse("elgamal_signature_r", php)?;
+                let s = MPI::parse("elgamal_signature_s", php)?;
+
+                Ok(MPIs::ElgamalSignature{
+                    r: r,
+                    s: s,
+                })
+            }
+
             EdDSA => {
                 let r = MPI::parse("eddsa_signature_r", php)?;
                 let s = MPI::parse("eddsa_signature_s", php)?;
@@ -392,7 +402,7 @@ impl MPIs {
                 Err(Error::UnknownPublicKeyAlgorithm(p.into()).into())
             }
 
-            RSAEncrypt | ElgamalEncrypt | ElgamalEncryptSign | ECDH => {
+            RSAEncrypt | ElgamalEncrypt | ECDH => {
                 Err(Error::UnknownPublicKeyAlgorithm(algo).into())
             }
         }
