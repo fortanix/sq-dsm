@@ -248,6 +248,8 @@ pub struct TPKParser<'a, I: Iterator<Item=Packet>> {
     subkeys: Vec<SubkeyBinding>,
 
     saw_error: bool,
+
+    filter: Vec<Box<Fn(&TPK, bool) -> bool + 'a>>,
 }
 
 impl<'a, I: Iterator<Item=Packet>> Default for TPKParser<'a, I> {
@@ -260,6 +262,7 @@ impl<'a, I: Iterator<Item=Packet>> Default for TPKParser<'a, I> {
             user_attributes: vec![],
             subkeys: vec![],
             saw_error: false,
+            filter: vec![],
         }
     }
 }
@@ -304,6 +307,85 @@ impl<'a, I: Iterator<Item=Packet>> TPKParser<'a, I> {
         let mut parser : Self = Default::default();
         parser.source = PacketSource::Iter(iter);
         parser
+    }
+
+    /// Filters the TPKs prior to validation.
+    ///
+    /// By default, the `TPKParser` only returns valdiated `TPK`s.
+    /// Checking that a `TPK`'s self-signatures are valid, however, is
+    /// computationally expensive, and not always necessary.  For
+    /// example, when looking for a small number of `TPK`s in a large
+    /// keyring, most `TPK`s can be immediately discarded.  That is,
+    /// it is more efficient to filter, validate, and double check,
+    /// than to validate and filter.  (It is necessary to double
+    /// check, because the check might have been on an invalid part.
+    /// For example, if searching for a key with a particular key ID,
+    /// a matching subkey might not have any self signatures.)
+    ///
+    /// If the `TPKParser` gave out unvalidated `TPK`s, and provided
+    /// an interface to validate them, then the caller could implement
+    /// this first-validate-double-check pattern.  Giving out
+    /// unvalidated `TPK`s, however, is too dangerous: inevitably, a
+    /// `TPK` will be used without having been validated in a context
+    /// where it should have been.
+    ///
+    /// This function avoids this class of bugs while still providing
+    /// a mechanism to filter `TPK`s prior to validation: the caller
+    /// provides a callback, that is invoked on the *unvalidated*
+    /// `TPK`.  If the callback returns `true`, then the parser
+    /// validates the `TPK`, and invokes the callback *a second time*
+    /// to make sure the `TPK` is really wanted.  If the callback
+    /// returns false, then the `TPK` is skipped.
+    ///
+    /// Note: calling this function multiple times on a single
+    /// `TPKParser` will install multiple filters.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # extern crate openpgp;
+    /// # use openpgp::Result;
+    /// # use openpgp::parse::PacketParser;
+    /// use openpgp::tpk::TPKParser;
+    /// use openpgp::TPK;
+    /// use openpgp::KeyID;
+    ///
+    /// # fn main() { f().unwrap(); }
+    /// # fn f() -> Result<()> {
+    /// #     let ppo = PacketParser::from_bytes(&b""[..])?;
+    /// #     let some_keyid = KeyID::from_hex("C2B819056C652598").unwrap();
+    /// #     if let Some(pp) = ppo {
+    /// for tpkr in TPKParser::from_packet_parser(pp)
+    ///     .unvalidated_tpk_filter(|tpk, _| {
+    ///         if tpk.primary().keyid() == some_keyid {
+    ///             return true;
+    ///         }
+    ///         for binding in tpk.subkeys() {
+    ///             if binding.subkey().keyid() == some_keyid {
+    ///                 return true;
+    ///             }
+    ///         }
+    ///         false
+    ///     })
+    /// {
+    ///     match tpkr {
+    ///         Ok(tpk) => {
+    ///             // The TPK contains the subkey.
+    ///         }
+    ///         Err(err) => {
+    ///             eprintln!("Error reading keyring: {}", err);
+    ///         }
+    ///     }
+    /// }
+    /// #     }
+    /// #     Ok(())
+    /// # }
+    /// ```
+    pub fn unvalidated_tpk_filter<F: 'a>(mut self, filter: F) -> Self
+        where F: Fn(&TPK, bool) -> bool
+    {
+        self.filter.push(Box::new(filter));
+        self
     }
 
     // Resets the parser so that it starts parsing a new packet.
@@ -693,7 +775,24 @@ impl<'a, I: Iterator<Item=Packet>> TPKParser<'a, I> {
             TPKParserState::End =>
                 Some(tpk),
             _ => None,
-        }.and_then(|tpk| Some(tpk.canonicalize()));
+        }.and_then(|tpk| {
+            for filter in &self.filter {
+                if !filter(&tpk, false) {
+                    return None;
+                }
+            }
+
+            let tpk = tpk.canonicalize();
+
+            // Make sure it is still okay.
+            for filter in &self.filter {
+                if !filter(&tpk, true) {
+                    return None;
+                }
+            }
+
+            Some(tpk)
+        });
 
         self.primary = pk;
 
