@@ -33,8 +33,13 @@
 //! ```
 
 extern crate base64;
+use buffered_reader::{
+    BufferedReader, BufferedReaderGeneric, BufferedReaderMemory,
+};
+use std::fs::File;
 use std::io::{Read, Write};
 use std::io::{Result, Error, ErrorKind};
+use std::path::Path;
 use std::cmp::min;
 use quickcheck::{Arbitrary, Gen};
 
@@ -123,6 +128,16 @@ impl Kind {
 
     fn end(&self) -> String {
         format!("-----END PGP {}-----", self.blurb())
+    }
+
+    /// Returns the maximal size of the footer with CRC.
+    fn footer_max_len(&self) -> usize {
+        (5    // CRC
+         + 4  // CR NL CR NL
+         + 18 // "-----END PGP -----"
+         + self.blurb().len()
+         + 2  // CR NL
+        )
     }
 }
 
@@ -318,17 +333,17 @@ impl<W: Write> Drop for Writer<W> {
 ///
 /// The reader ignores any data in front of the armored data, as long
 /// as the line the header is in is only prefixed by whitespace.
-pub struct Reader<R: Read> {
-    source: R,
+pub struct Reader<'a> {
+    source: Box<'a + BufferedReader<()>>,
     kind: Kind,
-    stash: Vec<u8>,
+    buffer: Vec<u8>,
     crc: CRC,
     expect_crc: Option<u32>,
     initialized: bool,
     finalized: bool,
 }
 
-impl<R: Read> Reader<R> {
+impl<'a> Reader<'a> {
     /// Constructs a new filter for the given type of data.
     ///
     /// # Example
@@ -357,11 +372,45 @@ impl<R: Read> Reader<R> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn new(inner: R, kind: Kind) -> Self {
+    pub fn new<R>(inner: R, kind: Kind) -> Self
+        where R: 'a + Read
+    {
+        Self::from_buffered_reader(
+            Box::new(BufferedReaderGeneric::new(inner, None)),
+            kind)
+    }
+
+    /// Creates a `Reader` from an `io::Read`er.
+    pub fn from_reader<R>(reader: R, kind: Kind) -> Self
+        where R: 'a + Read
+    {
+        Self::from_buffered_reader(
+            Box::new(BufferedReaderGeneric::new(reader, None)),
+            kind)
+    }
+
+    /// Creates a `Reader` from a file.
+    pub fn from_file<P>(path: P, kind: Kind) -> Result<Self>
+        where P: AsRef<Path>
+    {
+        Ok(Self::from_buffered_reader(
+            Box::new(BufferedReaderGeneric::new(File::open(path)?, None)),
+            kind))
+    }
+
+    /// Creates a `Reader` from a buffer.
+    pub fn from_bytes(bytes: &'a [u8], kind: Kind) -> Self {
+        Self::from_buffered_reader(
+            Box::new(BufferedReaderMemory::new(bytes)),
+            kind)
+    }
+
+    pub(crate) fn from_buffered_reader(inner: Box<'a + BufferedReader<()>>,
+                                       kind: Kind) -> Self {
         Reader {
-            source: inner,
+            source: Box::new(BufferedReaderGeneric::new(inner, None)),
             kind: kind,
-            stash: Vec::<u8>::with_capacity(2),
+            buffer: Vec::<u8>::with_capacity(1024),
             crc: CRC::new(),
             expect_crc: None,
             initialized: false,
@@ -417,24 +466,12 @@ impl<R: Read> Reader<R> {
         Ok(())
     }
 
-    /// Consumes the footer.
-    ///
-    /// No more data can be read after this call.
-    fn finalize(&mut self, buf: &[u8]) -> Result<()> {
-        if self.finalized {
-            return Err(Error::new(ErrorKind::BrokenPipe, "Reader is finalized."));
-        }
-
-        let mut rest = Vec::new();
-        self.source.read_to_end(&mut rest)?;
-
-        let mut footer = Vec::new();
-        footer.extend(buf);
-        footer.extend(&rest);
+    /// Parses the footer.
+    fn finalize(footer: &[u8], kind: Kind) -> Result<Option<u32>> {
         let mut off = 0;
 
         /* Look for CRC.  The CRC is optional.  */
-        if footer.len() >= 6 && footer[0] == '=' as u8
+        let crc = if footer.len() >= 6 && footer[0] == '=' as u8
             && footer[1..5].iter().all(is_base64_char)
         {
             /* Found.  */
@@ -444,23 +481,27 @@ impl<R: Read> Reader<R> {
             };
 
             assert_eq!(crc.len(), 3);
-            self.expect_crc = Some((crc[0] as u32) << 16
-                                   | (crc[1] as u32) << 8
-                                   | crc[2] as u32);
+            let crc =
+                (crc[0] as u32) << 16
+                | (crc[1] as u32) << 8
+                | crc[2] as u32;
 
             /* Update offset, skip whitespace.  */
             off += 5;
             while off < footer.len() && footer[off].is_ascii_whitespace() {
                 off += 1;
             }
-        }
 
-        if ! footer[off..].starts_with(&self.kind.end().into_bytes()) {
+            Some(crc)
+        } else {
+            None
+        };
+
+        if ! footer[off..].starts_with(&kind.end().into_bytes()) {
             return Err(Error::new(ErrorKind::InvalidInput, "Invalid ASCII Armor footer."));
         }
 
-        self.finalized = true;
-        Ok(())
+        Ok(crc)
     }
 
     /// Consumes a line, returning the number of non-whitespace bytes.
@@ -506,77 +547,126 @@ fn is_base64_char(b: &u8) -> bool {
     b.is_ascii_alphanumeric() || *b == '+' as u8 || *b == '/' as u8
 }
 
-/// Looks for the CRC sum or the footer.
-fn find_footer(buf: &[u8]) -> Option<usize> {
-    if buf.len() == 0 {
+/// Checks whether the given slice looks like an armor footer.  If so,
+/// returns the size of the footer.
+fn is_footer(buf: &[u8], reference: &[u8]) -> Option<usize> {
+    if buf.len() < reference.len() {
         return None;
     }
 
-    if buf[0] == '=' as u8 || buf[0] == '-' as u8 {
-        return Some(0);
+    let mut off = 0;
+
+    // Look for CRC.  The CRC is optional.
+    if buf.len() >= 6 && buf[0] == '=' as u8
+        && buf[1..5].iter().all(is_base64_char)
+    {
+        // Found.  Update offset, skip whitespace.
+        off += 5;
+        while off < buf.len() && buf[off].is_ascii_whitespace() {
+            off += 1;
+        }
     }
 
-    for i in 0..buf.len() - 1 {
-        if buf[i].is_ascii_whitespace() && (buf[i+1] == '=' as u8
-                                            || buf[i+1] == '-' as u8) {
-            return Some(i + 1);
+    if buf[off..].starts_with(reference) {
+        Some(off + reference.len())
+    } else {
+        None
+    }
+}
+
+/// Looks for the footer, returning the footer's offset, and the end
+/// of the footer.
+fn find_footer(buf: &[u8], kind: Kind) -> Option<(usize, usize)> {
+    let reference = kind.end().into_bytes();
+
+    if buf.len() < reference.len() {
+        return None;
+    }
+
+    for i in 0..buf.len() - reference.len() {
+        if let Some(length) = is_footer(&buf[i..], &reference) {
+            // Found footer at offset i.
+            return Some((i, i + length));
         }
     }
     None
 }
 
-impl<W: Read> Read for Reader<W> {
+impl<'a> Read for Reader<'a> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
         self.initialize()?;
-        if self.finalized { return Ok(0) }
 
         /* How much did we get?  */
         let mut read = 0;
 
-        /* See if there are stashed bytes, and use them.  */
-        assert!(self.stash.len() < 3);
-        while self.stash.len() > 0 && buf.len() > read {
-            buf[read] = self.stash.pop().unwrap();
-            read += 1;
+        // First, use what we have in the buffer.
+        let amount = min(buf.len(), self.buffer.len());
+        &mut buf[..amount].copy_from_slice(&self.buffer[..amount]);
+        self.buffer.drain(..amount);
+        read += amount;
+
+        // If we could satisfy the read from the buffer, we're done.
+        if read == buf.len() {
+            return Ok(read);
+        }
+        assert_eq!(self.buffer.len(), 0);
+
+        // Our buffer is drained.  If we are finalized, nothing more
+        // can be read.
+        if self.finalized {
+            return Ok(read);
         }
 
-        /* Try to get enough bytes to fill buf, account for bytes
-         * filled using the stash, round up.  */
-        let mut raw: Vec<u8> = vec![0; (buf.len() - read + 2) / 3 * 4];
-        let got = self.source.read(&mut raw)?;
-        raw.truncate(got);
+        let (consumed, decoded) = {
+            // We may have to get some more until we have a
+            // multiple of four non-whitespace ASCII characters.
+            let mut get_more = 0;
 
-        /* Check if we see the footer.  If so, we're almost done.  */
-        let decoded = if let Some(n) = find_footer(&raw) {
-            self.finalize(&raw[n..])?;
-            match base64::decode_config(&raw[..n], base64::MIME) {
-                Ok(d) => d,
-                Err(e) => return Err(Error::new(ErrorKind::InvalidInput, e)),
-            }
-        } else {
-            /* We may have to get some more until we have a multiple
-             * of four non-whitespace ASCII characters.  */
+            // Keep track of how much we got last time to detect
+            // hitting EOF.
+            let mut got = 0;
+
             loop {
-                let n = &raw.iter().filter(|c| ! (**c).is_ascii_whitespace()).count();
-                if n % 4 == 0 { break }
+                // Try to get enough bytes to fill buf, account for
+                // bytes filled using our buffer, round up, and add
+                // enough for the footer.
+                let raw = self.source.data((buf.len() - read + 2) / 3 * 4
+                                           + self.kind.footer_max_len()
+                                           + get_more)?;
 
-                /* Get some more bytes.  */
-                let mut m: Vec<u8> = vec![0; 4 - n % 4];
-                let got = self.source.read(&mut m)?;
-                if got == 0 {
-                    /* Tough.  This will fail in the decoder.  */
-                    break;
+                if raw.len() == got {
+                    return Err(Error::new(ErrorKind::UnexpectedEof,
+                                          "Armor footer is missing"));
+                } else {
+                    got = raw.len();
                 }
-                m.truncate(got);
-                raw.append(&mut m);
-            }
 
-            match base64::decode_config(&raw, base64::MIME) {
-                Ok(d) => d,
-                Err(e) => return Err(Error::new(ErrorKind::InvalidInput, e)),
+                // Check if we see the footer.  If so, we're almost done.
+                if let Some((n, end)) = find_footer(&raw, self.kind) {
+                    self.expect_crc = Reader::finalize(&raw[n..], self.kind)?;
+                    self.finalized = true;
+                    match base64::decode_config(&raw[..n], base64::MIME) {
+                        Ok(d) => break (end, d),
+                        Err(e) =>
+                            return Err(Error::new(ErrorKind::InvalidInput, e)),
+                    }
+                } else {
+                    let n = &raw.iter().filter(
+                        |c| ! (**c).is_ascii_whitespace()).count();
+                    if n % 4 == 0 {
+                        // Success, try to decode it.
+                        match base64::decode_config(&raw, base64::MIME) {
+                            Ok(d) => break (raw.len(), d),
+                            Err(e) => return Err(Error::new(ErrorKind::InvalidInput, e)),
+                        }
+                    }
+
+                    // Get some more bytes.
+                    get_more += 4 - n % 4;
+                }
             }
         };
-
+        self.source.consume(consumed);
         self.crc.update(&decoded);
 
         /* Check how much we got vs how much was requested.  */
@@ -584,20 +674,15 @@ impl<W: Read> Read for Reader<W> {
             &mut buf[read..read + decoded.len()].copy_from_slice(&decoded);
             read += decoded.len();
         } else {
-            /* We got more than we wanted, spill the surplus into our
-             * stash.  */
+            // We got more than we wanted, spill the surplus into our
+            // buffer.
             let spill = decoded.len() - (buf.len() - read);
-            assert!(spill < 3);
 
             &mut buf[read..read + decoded.len() - spill].copy_from_slice(
                 &decoded[..decoded.len() - spill]);
-
-            for c in &decoded[decoded.len() - spill..] {
-                self.stash.push(*c);
-            }
-            assert!(self.stash.len() < 3);
-            self.stash.reverse();
             read += decoded.len() - spill;
+
+            self.buffer.extend_from_slice(&decoded[decoded.len() - spill..]);
         }
 
         /* If we are finalized, we may have found a crc sum.  */
@@ -609,6 +694,8 @@ impl<W: Read> Read for Reader<W> {
         Ok(read)
     }
 }
+
+// XXX: impl BufferedReader for Reader
 
 #[macro_export]
 /// Constructs a reader from an armored string literal.
