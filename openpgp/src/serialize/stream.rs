@@ -651,13 +651,10 @@ impl<'a> Encryptor<'a> {
     /// # fn main() { f().unwrap(); }
     /// # fn f() -> Result<()> {
     /// let tpk = openpgp::TPK::from_reader(armored!(
-    /// #   &( // We do some acrobatics here to abbreviate the TPK.
+    /// #   // We do some acrobatics here to abbreviate the TPK.
     ///     "-----BEGIN PGP PUBLIC KEY BLOCK-----
     ///
     ///      mQENBFpxtsABCADZcBa1Q3ZLZnju18o0+t8LoQuIIeyeUQ0H45y6xUqyrD5HSkVM
-    /// #    ".to_owned() /*
-    ///      ...
-    /// #    */ +"
     /// #    VGQs6IHLq70mAizBJ4VznUVqVOh/NhOlapXi6/TKpjHvttdg45o6Pgqa0Kx64luT
     /// #    ZY+TEKyILcdBdhr3CzsEILnQst5jadgMvU9fnT/EkJIvxtWPlUzU5R7nnALO626x
     /// #    2M5Pj3k0h3ZNHMmYQQtReX/RP/xUh2SfOYG6i/MCclIlee8BXHB9k0bW2NAX2W7H
@@ -682,10 +679,13 @@ impl<'a> Encryptor<'a> {
     /// #    Rp/owB9GCkqN9+xNEnlH77TLW1UisW+l0F8CJ2WFOj4lk9rcXcLlEdGmXfWIlVCb
     /// #    2/o0DD+HDNsF8nWHpDEy0mcajkgIUTvXQaDXKbccX6Wgep8dyBP7YucGmRPd9Z6H
     /// #    bGeT3KvlJlH5kthQ9shsmT14gYwGMR6rKpNUXmlpetkjqUK7pGVaHGgJWUZ9QPGU
-    ///      awwPdWWvZSyXJAPZ9lC5sTKwMJDwIxILug==
-    ///      =lAie
+    /// #    awwPdWWvZSyXJAPZ9lC5sTKwMJDwIxILug==
+    /// #    =lAie
+    /// #    -----END PGP PUBLIC KEY BLOCK-----"
+    /// #    /*
+    ///      ...
     ///      -----END PGP PUBLIC KEY BLOCK-----"
-    /// # )
+    /// #    */
     /// )).unwrap();
     /// let mut o = vec![];
     /// let encryptor = Encryptor::new(wrap(&mut o),
