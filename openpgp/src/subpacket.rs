@@ -73,6 +73,10 @@ use {
     Key,
     KeyID,
 };
+use constants::{
+    HashAlgorithm,
+    PublicKeyAlgorithm,
+};
 
 #[cfg(test)]
 use std::path::PathBuf;
@@ -1253,6 +1257,28 @@ const KEY_FLAG_AUTHENTICATE: u8 = 0x20;
 /// than one person.
 const KEY_FLAG_GROUP_KEY: u8 = 0x80;
 
+/// Converts structured time to OpenPGP time.
+fn tm2pgp(t: time::Tm) -> Result<u32> {
+    let epoch = t.to_timespec().sec;
+    if epoch > ::std::u32::MAX as i64 {
+        return Err(Error::InvalidArgument(
+            format!("Time exceeds u32 epoch: {:?}", t))
+                   .into());
+    }
+    Ok(epoch as u32)
+}
+
+/// Converts structured duration to OpenPGP duration.
+fn duration2pgp(d: time::Duration) -> Result<u32> {
+    let secs = d.num_seconds();
+    if secs > ::std::u32::MAX as i64 {
+        return Err(Error::InvalidArgument(
+            format!("Duration exceeds u32 epoch: {:?}", d))
+                   .into());
+    }
+    Ok(secs as u32)
+}
+
 impl Signature {
     /// Returns the *last* instance of the specified subpacket.
     fn subpacket<'a>(&'a self, tag: SubpacketTag) -> Option<Subpacket<'a>> {
@@ -1311,6 +1337,14 @@ impl Signature {
         }
     }
 
+    /// Sets the value of the Creation Time subpacket.
+    pub fn set_signature_creation_time(&mut self, creation_time: time::Tm)
+                                       -> Result<()> {
+        self.hashed_area.replace(Subpacket::new(
+            SubpacketValue::SignatureCreationTime(tm2pgp(creation_time)?),
+            true)?)
+    }
+
     /// Returns the value of the Signature Expiration Time subpacket,
     /// which contains when the signature expires as the number of
     /// seconds after its creation.
@@ -1331,6 +1365,22 @@ impl Signature {
             }
         } else {
             None
+        }
+    }
+
+    /// Sets the value of the Signature Expiration Time subpacket.
+    ///
+    /// If `None` is given, any expiration subpacket is removed.
+    pub fn set_signature_expiration_time(&mut self,
+                                         expiration: Option<time::Duration>)
+                                       -> Result<()> {
+        if let Some(e) = expiration {
+            self.hashed_area.replace(Subpacket::new(
+                SubpacketValue::SignatureExpirationTime(duration2pgp(e)?),
+                true)?)
+        } else {
+            self.hashed_area.remove_all(SubpacketTag::SignatureExpirationTime);
+            Ok(())
         }
     }
 
@@ -1393,6 +1443,16 @@ impl Signature {
         }
     }
 
+    /// Sets the value of the Exportable Certification subpacket,
+    /// which contains whether the certification should be exported
+    /// (i.e., whether the packet is *not* a local signature).
+    pub fn set_exportable_certification(&mut self, exportable: bool)
+                                        -> Result<()> {
+        self.hashed_area.replace(Subpacket::new(
+            SubpacketValue::ExportableCertification(exportable),
+            true)?)
+    }
+
     /// Returns the value of the Trust Signature subpacket.
     ///
     /// The return value is a tuple consisting of the level or depth
@@ -1436,6 +1496,15 @@ impl Signature {
         }
     }
 
+    /// Sets the value of the Trust Signature subpacket.
+    pub fn set_trust_signature(&mut self, depth: u8, amount: u8)
+                               -> Result<()> {
+        self.hashed_area.replace(Subpacket::new(
+            SubpacketValue::TrustSignature((depth, amount)),
+            true)?)
+    }
+
+
     /// Returns the value of the Regular Expression subpacket.
     ///
     /// This automatically strips any trailing NUL byte from the
@@ -1458,6 +1527,13 @@ impl Signature {
         } else {
             None
         }
+    }
+
+    /// Sets the value of the Regular Expression subpacket.
+    pub fn set_regular_expression(&mut self, re: &[u8]) -> Result<()> {
+        self.hashed_area.replace(Subpacket::new(
+            SubpacketValue::RegularExpression(re),
+            true)?)
     }
 
     /// Returns the value of the Revocable subpacket, which indicates
@@ -1483,6 +1559,15 @@ impl Signature {
         }
     }
 
+    /// Sets the value of the Revocable subpacket, which indicates
+    /// whether the signature is revocable, i.e., whether revocation
+    /// certificates for this signature should be ignored.
+    pub fn set_revocable(&mut self, revocable: bool) -> Result<()> {
+        self.hashed_area.replace(Subpacket::new(
+            SubpacketValue::Revocable(revocable),
+            true)?)
+    }
+
     /// Returns the value of the Key Expiration Time subpacket, which
     /// contains when the referenced key expires as the number of
     /// seconds after the key's creation.
@@ -1503,6 +1588,24 @@ impl Signature {
             }
         } else {
             None
+        }
+    }
+
+    /// Sets the value of the Key Expiration Time subpacket, which
+    /// contains when the referenced key expires as the number of
+    /// seconds after the key's creation.
+    ///
+    /// If `None` is given, any expiration subpacket is removed.
+    pub fn set_key_expiration_time(&mut self,
+                                   expiration: Option<time::Duration>)
+                                   -> Result<()> {
+        if let Some(e) = expiration {
+            self.hashed_area.replace(Subpacket::new(
+                SubpacketValue::KeyExpirationTime(duration2pgp(e)?),
+                true)?)
+        } else {
+            self.hashed_area.remove_all(SubpacketTag::KeyExpirationTime);
+            Ok(())
         }
     }
 
@@ -1555,6 +1658,17 @@ impl Signature {
         }
     }
 
+    /// Sets the value of the Preferred Symmetric Algorithms
+    /// subpacket, which contains the list of symmetric algorithms
+    /// that the key holder prefers, ordered according by the key
+    /// holder's preference.
+    pub fn set_preferred_symmetric_algorithms(&mut self, preferences: &[u8])
+                                              -> Result<()> {
+        self.hashed_area.replace(Subpacket::new(
+            SubpacketValue::PreferredSymmetricAlgorithms(preferences),
+            true)?)
+    }
+
     /// Returns the value of the Revocation Key subpacket, which
     /// contains a designated revoker.
     ///
@@ -1576,6 +1690,15 @@ impl Signature {
         } else {
             None
         }
+    }
+
+    /// Sets the value of the Revocation Key subpacket, which contains
+    /// a designated revoker.
+    pub fn set_revocation_key(&mut self, class: u8, pk_algo: PublicKeyAlgorithm,
+                              fp: Fingerprint) -> Result<()> {
+        self.hashed_area.replace(Subpacket::new(
+            SubpacketValue::RevocationKey((class, pk_algo.into(), fp)),
+            true)?)
     }
 
     /// Returns the value of the Issuer subpacket, which contains the
@@ -1604,6 +1727,14 @@ impl Signature {
         } else {
             None
         }
+    }
+
+    /// Sets the value of the Issuer subpacket, which contains the
+    /// KeyID of the key that allegedly created this signature.
+    pub fn set_issuer(&mut self, id: KeyID) -> Result<()> {
+        self.hashed_area.replace(Subpacket::new(
+            SubpacketValue::Issuer(id),
+            true)?)
     }
 
     /// Returns the value of all Notation Data packets.
@@ -1655,6 +1786,17 @@ impl Signature {
         }
     }
 
+    /// Sets the value of the Preferred Hash Algorithms subpacket,
+    /// which contains the list of hash algorithms that the key
+    /// holders prefers, ordered according by the key holder's
+    /// preference.
+    pub fn set_preferred_hash_algorithms(&mut self, preferences: &[u8])
+                                         -> Result<()> {
+        self.hashed_area.replace(Subpacket::new(
+            SubpacketValue::PreferredHashAlgorithms(preferences),
+            true)?)
+    }
+
     /// Returns the value of the Preferred Compression Algorithms
     /// subpacket, which contains the list of compression algorithms
     /// that the key holder prefers, ordered according by the key
@@ -1681,6 +1823,17 @@ impl Signature {
         }
     }
 
+    /// Sets the value of the Preferred Compression Algorithms
+    /// subpacket, which contains the list of compression algorithms
+    /// that the key holder prefers, ordered according by the key
+    /// holder's preference.
+    pub fn set_preferred_compression_algorithms(&mut self, preferences: &[u8])
+                                                -> Result<()> {
+        self.hashed_area.replace(Subpacket::new(
+            SubpacketValue::PreferredCompressionAlgorithms(preferences),
+            true)?)
+    }
+
     /// Returns the value of the Key Server Preferences subpacket,
     /// which contains the key holder's key server preferences.
     ///
@@ -1701,6 +1854,15 @@ impl Signature {
         } else {
             None
         }
+    }
+
+    /// Sets the value of the Key Server Preferences subpacket, which
+    /// contains the key holder's key server preferences.
+    pub fn set_key_server_preferences(&mut self, preferences: &[u8])
+                                      -> Result<()> {
+        self.hashed_area.replace(Subpacket::new(
+            SubpacketValue::KeyServerPreferences(preferences),
+            true)?)
     }
 
     /// Returns the value of the Preferred Key Server subpacket, which
@@ -1728,6 +1890,15 @@ impl Signature {
         }
     }
 
+    /// Sets the value of the Preferred Key Server subpacket, which
+    /// contains the user's preferred key server for updates.
+    pub fn set_preferred_key_server(&mut self, uri: &[u8])
+                                    -> Result<()> {
+        self.hashed_area.replace(Subpacket::new(
+            SubpacketValue::PreferredKeyServer(uri),
+            true)?)
+    }
+
     /// Returns the value of the Primary UserID subpacket, which
     /// indicates whether the referenced UserID should be considered
     /// the user's primary User ID.
@@ -1751,6 +1922,15 @@ impl Signature {
         }
     }
 
+    /// Sets the value of the Primary UserID subpacket, which
+    /// indicates whether the referenced UserID should be considered
+    /// the user's primary User ID.
+    pub fn set_primary_userid(&mut self, primary: bool) -> Result<()> {
+        self.hashed_area.replace(Subpacket::new(
+            SubpacketValue::PrimaryUserID(primary),
+            true)?)
+    }
+
     /// Returns the value of the Policy URI subpacket.
     ///
     /// If the subpacket is not present or malformed, this returns
@@ -1770,6 +1950,13 @@ impl Signature {
         } else {
             None
         }
+    }
+
+    /// Sets the value of the Policy URI subpacket.
+    pub fn set_policy_uri(&mut self, uri: &[u8]) -> Result<()> {
+        self.hashed_area.replace(Subpacket::new(
+            SubpacketValue::PolicyURI(uri),
+            true)?)
     }
 
     /// Returns the value of the Key Flags subpacket, which contains
@@ -1798,6 +1985,16 @@ impl Signature {
         )
     }
 
+    /// Sets the value of the Key Flags subpacket, which contains
+    /// information about the referenced key, in particular, how it is
+    /// used (certification, signing, encryption, authentication), and
+    /// how it is stored (split, held by multiple people).
+    pub fn set_key_flags(&mut self, flags: &KeyFlags) -> Result<()> {
+        self.hashed_area.replace(Subpacket::new(
+            SubpacketValue::KeyFlags(flags.0.unwrap_or(&[])),
+            true)?)
+    }
+
     /// Returns the value of the Signer's UserID subpacket, which
     /// contains the User ID that the key holder considers responsible
     /// for the signature.
@@ -1821,6 +2018,15 @@ impl Signature {
         }
     }
 
+    /// Sets the value of the Signer's UserID subpacket, which
+    /// contains the User ID that the key holder considers responsible
+    /// for the signature.
+    pub fn set_signers_user_id(&mut self, uid: &[u8]) -> Result<()> {
+        self.hashed_area.replace(Subpacket::new(
+            SubpacketValue::SignersUserID(uid),
+            true)?)
+    }
+
     /// Returns the value of the Reason for Revocation subpacket.
     ///
     /// If the subpacket is not present or malformed, this returns
@@ -1840,6 +2046,14 @@ impl Signature {
         } else {
             None
         }
+    }
+
+    /// Sets the value of the Reason for Revocation subpacket.
+    pub fn set_reason_for_revocation(&mut self, code: u8, reason: &[u8])
+                                     -> Result<()> {
+        self.hashed_area.replace(Subpacket::new(
+            SubpacketValue::ReasonForRevocation((code, reason)),
+            true)?)
     }
 
     /// Returns the value of the Features subpacket, which contains a
@@ -1863,6 +2077,15 @@ impl Signature {
         } else {
             None
         }
+    }
+
+    /// Sets the value of the Features subpacket, which contains a
+    /// list of features that the user's OpenPGP implementation
+    /// supports.
+    pub fn set_features(&mut self, features: &[u8]) -> Result<()> {
+        self.hashed_area.replace(Subpacket::new(
+            SubpacketValue::Features(features),
+            true)?)
     }
 
     /// Returns the value of the Signature Target subpacket, which
@@ -1892,6 +2115,19 @@ impl Signature {
         }
     }
 
+    /// Sets the value of the Signature Target subpacket, which
+    /// contains the hash of the referenced signature packet.
+    pub fn set_signature_target(&mut self,
+                                pk_algo: PublicKeyAlgorithm,
+                                hash_algo: HashAlgorithm,
+                                digest: &[u8])
+                                -> Result<()> {
+        self.hashed_area.replace(Subpacket::new(
+            SubpacketValue::SignatureTarget((pk_algo.into(), hash_algo.into(),
+                                             digest)),
+            true)?)
+    }
+
     /// Returns the value of the Embedded Signature subpacket, which
     /// contains a signature.
     ///
@@ -1915,6 +2151,15 @@ impl Signature {
         } else {
             None
         }
+    }
+
+    /// Sets the value of the Embedded Signature subpacket, which
+    /// contains a signature.
+    pub fn set_embedded_signature(&mut self, signature: Signature)
+                                  -> Result<()> {
+        self.hashed_area.replace(Subpacket::new(
+            SubpacketValue::EmbeddedSignature(signature.to_packet()),
+            true)?)
     }
 
     /// Returns the value of the Issuer Fingerprint subpacket, which
@@ -1948,6 +2193,143 @@ impl Signature {
             None
         }
     }
+
+
+    /// Sets the value of the Issuer Fingerprint subpacket, which
+    /// contains the fingerprint of the key that allegedly created
+    /// this signature.
+    pub fn set_issuer_fingerprint(&mut self, fp: Fingerprint) -> Result<()> {
+        self.hashed_area.replace(Subpacket::new(
+            SubpacketValue::IssuerFingerprint(fp),
+            true)?)
+    }
+}
+
+
+#[test]
+fn accessors() {
+    use mpis::{MPIs, MPI};
+
+    let pk_algo = PublicKeyAlgorithm::EdDSA;
+    let hash_algo = HashAlgorithm::SHA512;
+    let mut sig = Signature::new(::constants::SignatureType::Binary)
+        .pk_algo(pk_algo)
+        .hash_algo(hash_algo);
+
+    // Fake some MPIs to make the serialization code happy.
+    sig.mpis = MPIs::EdDSASignature {
+        r: MPI::new(b"byte sequence of length 32 bytes"),
+        s: MPI::new(b"byte sequence of length 32 bytes"),
+    };
+
+    let now = time::now();
+    sig.set_signature_creation_time(now).unwrap();
+    assert_eq!(sig.signature_creation_time(),
+               Some(now.to_timespec().sec as u32));
+
+    let five_minutes = time::Duration::minutes(5);
+    let ten_minutes = time::Duration::minutes(10);
+    sig.set_signature_expiration_time(Some(five_minutes)).unwrap();
+    assert_eq!(sig.signature_expiration_time(),
+               Some(five_minutes.num_seconds() as u32));
+
+    assert!(!sig.signature_expired());
+    assert!(!sig.signature_expired_at(now));
+    assert!(sig.signature_expired_at(now + ten_minutes));
+
+    sig.set_signature_expiration_time(None).unwrap();
+    assert_eq!(sig.signature_expiration_time(), None);
+    assert!(!sig.signature_expired());
+    assert!(!sig.signature_expired_at(now));
+    assert!(!sig.signature_expired_at(now + ten_minutes));
+
+    sig.set_exportable_certification(true).unwrap();
+    assert_eq!(sig.exportable_certification(), Some(true));
+    sig.set_exportable_certification(false).unwrap();
+    assert_eq!(sig.exportable_certification(), Some(false));
+
+    sig.set_trust_signature(2, 3).unwrap();
+    assert_eq!(sig.trust_signature(), Some((2, 3)));
+
+    sig.set_regular_expression(b"foobar").unwrap();
+    assert_eq!(sig.regular_expression(), Some(&b"foobar"[..]));
+
+    sig.set_revocable(true).unwrap();
+    assert_eq!(sig.revocable(), Some(true));
+    sig.set_revocable(false).unwrap();
+    assert_eq!(sig.revocable(), Some(false));
+
+    let key = ::Key::new().creation_time(now.to_timespec().sec as u32);
+    sig.set_key_expiration_time(Some(five_minutes)).unwrap();
+    assert_eq!(sig.key_expiration_time(),
+               Some(five_minutes.num_seconds() as u32));
+
+    assert!(!sig.key_expired(&key));
+    assert!(!sig.key_expired_at(&key, now));
+    assert!(sig.key_expired_at(&key, now + ten_minutes));
+
+    sig.set_key_expiration_time(None).unwrap();
+    assert_eq!(sig.key_expiration_time(), None);
+    assert!(!sig.key_expired(&key));
+    assert!(!sig.key_expired_at(&key, now));
+    assert!(!sig.key_expired_at(&key, now + ten_minutes));
+
+    sig.set_preferred_symmetric_algorithms(b"foobar").unwrap();
+    assert_eq!(sig.preferred_symmetric_algorithms(), Some(&b"foobar"[..]));
+
+    let fp = Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb");
+    sig.set_revocation_key(2, pk_algo, fp.clone()).unwrap();
+    assert_eq!(sig.revocation_key(),
+               Some((2, pk_algo.into(), fp.clone())));
+
+    sig.set_issuer(fp.to_keyid()).unwrap();
+    assert_eq!(sig.issuer(), Some(fp.to_keyid()));
+
+    sig.set_preferred_hash_algorithms(b"foobar").unwrap();
+    assert_eq!(sig.preferred_hash_algorithms(), Some(&b"foobar"[..]));
+
+    sig.set_preferred_compression_algorithms(b"foobar").unwrap();
+    assert_eq!(sig.preferred_compression_algorithms(), Some(&b"foobar"[..]));
+
+    sig.set_key_server_preferences(b"foobar").unwrap();
+    assert_eq!(sig.key_server_preferences(), Some(&b"foobar"[..]));
+
+    sig.set_primary_userid(true).unwrap();
+    assert_eq!(sig.primary_userid(), Some(true));
+    sig.set_primary_userid(false).unwrap();
+    assert_eq!(sig.primary_userid(), Some(false));
+
+    sig.set_policy_uri(b"foobar").unwrap();
+    assert_eq!(sig.policy_uri(), Some(&b"foobar"[..]));
+
+    let key_flags = KeyFlags::default()
+        .configure()
+        .can_certify(true)
+        .can_sign(true);
+    sig.set_key_flags(&key_flags.as_keyflags()).unwrap();
+    assert_eq!(sig.key_flags(), key_flags.as_keyflags());
+
+    sig.set_signers_user_id(b"foobar").unwrap();
+    assert_eq!(sig.signers_user_id(), Some(&b"foobar"[..]));
+
+    sig.set_reason_for_revocation(3, b"foobar").unwrap();
+    assert_eq!(sig.reason_for_revocation(), Some((3, &b"foobar"[..])));
+
+    sig.set_features(b"foobar").unwrap();
+    assert_eq!(sig.features(), Some(&b"foobar"[..]));
+
+    let digest = vec![0; hash_algo.context().unwrap().digest_size()];
+    sig.set_signature_target(pk_algo, hash_algo, &digest).unwrap();
+    assert_eq!(sig.signature_target(), Some((pk_algo.into(),
+                                             hash_algo.into(),
+                                             &digest[..])));
+
+    let embedded_sig = sig.clone();
+    sig.set_embedded_signature(embedded_sig.clone()).unwrap();
+    assert_eq!(sig.embedded_signature(), Some(Packet::Signature(embedded_sig)));
+
+    sig.set_issuer_fingerprint(fp.clone()).unwrap();
+    assert_eq!(sig.issuer_fingerprint(), Some(fp));
 }
 
 #[cfg(feature = "compression-deflate")]
