@@ -65,6 +65,8 @@ use quickcheck::{Arbitrary, Gen};
 use buffered_reader::{BufferedReader, BufferedReaderMemory};
 
 use {
+    Error,
+    Result,
     Signature,
     Packet,
     Fingerprint,
@@ -410,6 +412,11 @@ impl SubpacketArea {
         }
     }
 
+    /// Invalidates the cache.
+    fn cache_invalidate(&self) {
+        *self.parsed.borrow_mut() = None;
+    }
+
     // Returns the last subpacket, if any, with the specified tag.
     fn lookup(&self, tag: SubpacketTag) -> Option<SubpacketRaw> {
         self.cache_init();
@@ -424,6 +431,68 @@ impl SubpacketArea {
                 }.into()),
             None => None,
         }
+    }
+
+    /// Adds the given subpacket.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Error::MalformedPacket` if adding the packet makes
+    /// the subpacket area exceed the size limit.
+    pub fn add(&mut self, packet: Subpacket) -> Result<()> {
+        use serialize::Serialize;
+
+        if self.data.len() + packet.len() > ::std::u16::MAX as usize {
+            return Err(Error::MalformedPacket(
+                "Subpacket area exceeds maximum size".into()).into());
+        }
+
+        self.cache_invalidate();
+        packet.serialize(&mut self.data)
+    }
+
+    /// Adds the given subpacket, replacing all other subpackets with
+    /// the same tag.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Error::MalformedPacket` if adding the packet makes
+    /// the subpacket area exceed the size limit.
+    pub fn replace(&mut self, packet: Subpacket) -> Result<()> {
+        let old = self.remove_all(packet.tag);
+        if let Err(e) = self.add(packet) {
+            // Restore old state.
+            self.data = old;
+            return Err(e);
+        }
+        Ok(())
+    }
+
+    /// Removes all subpackets with the given tag.
+    ///
+    /// Returns the old subpacket area, so that it can be restored if
+    /// necessary.
+    pub fn remove_all(&mut self, tag: SubpacketTag) -> Vec<u8> {
+        let mut new = Vec::new();
+
+        // Copy all but the matching subpackets.
+        for (_, _, raw) in self.iter() {
+            if raw.tag == tag {
+                // Drop.
+                continue;
+            }
+
+            let l: SubpacketLength = 1 + raw.value.len() as u32;
+            let tag = u8::from(raw.tag)
+                | if raw.critical { 1 << 7 } else { 0 };
+
+            l.serialize(&mut new).unwrap();
+            new.push(tag);
+            new.extend_from_slice(raw.value);
+        }
+
+        self.cache_invalidate();
+        ::std::mem::replace(&mut self.data, new)
     }
 }
 
