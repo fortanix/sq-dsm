@@ -339,9 +339,8 @@ impl MPIs {
                 })
             }
 
-            RSASign | DSA | EdDSA | ECDSA => {
-                Err(Error::UnknownPublicKeyAlgorithm(algo).into())
-            }
+            RSASign | DSA | EdDSA | ECDSA => Err(Error::InvalidArgument(
+                format!("not an encryption algorithm: {:?}", algo)).into()),
         }
     }
 
@@ -438,9 +437,8 @@ impl MPIs {
                 })
             }
 
-            RSAEncrypt | ElgamalEncrypt | ECDH => {
-                Err(Error::UnknownPublicKeyAlgorithm(algo).into())
-            }
+            RSAEncrypt | ElgamalEncrypt | ECDH => Err(Error::InvalidArgument(
+                format!("not a signature algorithm: {:?}", algo)).into()),
         }
     }
 }
