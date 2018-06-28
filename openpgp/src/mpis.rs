@@ -212,6 +212,14 @@ pub enum MPIs {
         /// Symmetrically encrypted poition.
         key: Box<[u8]>
     },
+
+    /// Unknown number of MPIs for an unknown algorithm.
+    Unknown {
+        /// The successfully parsed MPIs.
+        mpis: Box<[MPI]>,
+        /// Any data that failed to parse.
+        rest: Box<[u8]>,
+    },
 }
 
 impl MPIs {
@@ -280,6 +288,10 @@ impl MPIs {
                 2 + e.value.len() +
                 // one length octet plus ephemeral key
                 1 + key.len(),
+
+            &Unknown { ref mpis, ref rest } =>
+                mpis.iter().map(|m| 2 + m.value.len()).sum::<usize>()
+                + rest.len(),
         }
     }
 
@@ -398,6 +410,13 @@ impl MPIs {
                 // key
                 hash.update(&[key.len() as u8]);
                 hash.update(&key);
+            }
+
+            &Unknown { ref mpis, ref rest } => {
+                for mpi in mpis.iter() {
+                    mpi.hash(hash);
+                }
+                hash.update(rest);
             }
         }
     }
@@ -580,6 +599,8 @@ mod tests {
                         ElgamalEncrypt, cur.into_inner()).unwrap(),
                 MPIs::ECDHCiphertext { .. } =>
                     MPIs::parse_ciphertext_naked(ECDH, cur.into_inner()).unwrap(),
+
+                MPIs::Unknown { .. } => unreachable!(),
             };
 
             mpis == mpis2

@@ -285,6 +285,13 @@ impl Serialize for mpis::MPIs {
             }
 
             &None => unreachable!(),
+
+            &Unknown { ref mpis, ref rest } => {
+                for mpi in mpis.iter() {
+                    mpi.serialize(w)?;
+                }
+                w.write_all(rest)?;
+            }
         }
 
         Ok(())

@@ -125,8 +125,17 @@ impl MPIs {
                 })
             }
 
-            Unknown(p) | Private(p) => {
-                Err(Error::UnknownPublicKeyAlgorithm(p.into()).into())
+            Unknown(_) | Private(_) => {
+                let mut mpis = Vec::new();
+                while let Ok(mpi) = MPI::parse("unknown_parameter", php) {
+                    mpis.push(mpi);
+                }
+                let mut rest = php.parse_bytes_eof("rest")?;
+
+                Ok(MPIs::Unknown {
+                    mpis: mpis.into_boxed_slice(),
+                    rest: rest.into_boxed_slice(),
+                })
             }
         }
     }
@@ -243,8 +252,17 @@ impl MPIs {
                     scalar: MPI::parse("ecdh_secret", php)? })
             }
 
-            Unknown(p) | Private(p) => {
-                Err(Error::UnknownPublicKeyAlgorithm(p.into()).into())
+            Unknown(_) | Private(_) => {
+                let mut mpis = Vec::new();
+                while let Ok(mpi) = MPI::parse("unknown_parameter", php) {
+                    mpis.push(mpi);
+                }
+                let mut rest = php.parse_bytes_eof("rest")?;
+
+                Ok(MPIs::Unknown {
+                    mpis: mpis.into_boxed_slice(),
+                    rest: rest.into_boxed_slice(),
+                })
             }
         }
     }
@@ -308,8 +326,17 @@ impl MPIs {
                 })
             }
 
-            Unknown(p) | Private(p) => {
-                Err(Error::UnknownPublicKeyAlgorithm(p.into()).into())
+            Unknown(_) | Private(_) => {
+                let mut mpis = Vec::new();
+                while let Ok(mpi) = MPI::parse("unknown_parameter", php) {
+                    mpis.push(mpi);
+                }
+                let mut rest = php.parse_bytes_eof("rest")?;
+
+                Ok(MPIs::Unknown {
+                    mpis: mpis.into_boxed_slice(),
+                    rest: rest.into_boxed_slice(),
+                })
             }
 
             RSASign | DSA | EdDSA | ECDSA => {
@@ -398,8 +425,17 @@ impl MPIs {
                 })
             }
 
-            Unknown(p) | Private(p) => {
-                Err(Error::UnknownPublicKeyAlgorithm(p.into()).into())
+            Unknown(_) | Private(_) => {
+                let mut mpis = Vec::new();
+                while let Ok(mpi) = MPI::parse("unknown_parameter", php) {
+                    mpis.push(mpi);
+                }
+                let mut rest = php.parse_bytes_eof("rest")?;
+
+                Ok(MPIs::Unknown {
+                    mpis: mpis.into_boxed_slice(),
+                    rest: rest.into_boxed_slice(),
+                })
             }
 
             RSAEncrypt | ElgamalEncrypt | ECDH => {
