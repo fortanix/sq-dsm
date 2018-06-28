@@ -1,0 +1,12 @@
+This key keyring contains two keys in the following order: "Justus",
+"Neal".
+
+Justus's key includes all of Neal's subkeys.  When Justus's key is
+canonicalized, Neal's subkeys should be dropped.
+
+If an application looks for Neal's signing subkey and either doesn't
+validate the keys or only filters on the unvalidated keys, then it
+will not find the right key.
+
+This was fixed in sqv in commit
+1d63e71a839bf68f50cb7f4c1942f0d0b1eccfca.
