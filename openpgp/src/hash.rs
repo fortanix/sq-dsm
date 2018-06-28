@@ -177,7 +177,7 @@ impl Signature {
 
         trailer[0] = 0x4;
         trailer[1] = 0xff;
-        // The signature packet's length, not excluding the previous
+        // The signature packet's length, not including the previous
         // two bytes and the length.
         let len = header.len() + self.hashed_area.data.len();
         trailer[2] = (len >> 24) as u8;
