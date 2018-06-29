@@ -3,6 +3,7 @@
 use std::fmt;
 use std::io::{self, Write};
 use std::iter;
+use time;
 use nettle::{Hash, Yarrow};
 
 use {
@@ -14,6 +15,7 @@ use {
     OnePassSig,
     PKESK,
     Result,
+    SecretKey,
     SKESK,
     Signature,
     Tag,
@@ -28,6 +30,7 @@ use super::{
 };
 use constants::{
     CompressionAlgorithm,
+    SignatureType,
     SymmetricAlgorithm,
 };
 
@@ -163,8 +166,8 @@ pub struct Signer<'a> {
     // take our inner reader.  If that happens, we only update the
     // digests.
     inner: Option<writer::Stack<'a, Cookie>>,
-    signature: Signature,
-    hashes: Vec<(HashAlgorithm, Box<Hash>)>,
+    keys: Vec<&'a Key>,
+    hash: Box<Hash>,
     cookie: Cookie,
 }
 
@@ -173,31 +176,84 @@ impl<'a> Signer<'a> {
     ///
     /// XXX: Currently, the writer depends on a template to create the
     /// signature, because we cannot compute signatures yet.
-    pub fn new(mut inner: writer::Stack<'a, Cookie>, template: &Signature)
+    pub fn new(mut inner: writer::Stack<'a, Cookie>, signers: &[&'a TPK])
                -> Result<writer::Stack<'a, Cookie>> {
-        let n = 1;  // XXX generalize
-        let mut algos = Vec::new();
-        // First, construct and serialize an one pass signature
-        // packet.
-        let mut ops = OnePassSig::new(template.sigtype)
-            .pk_algo(template.pk_algo)
-            .hash_algo(template.hash_algo)
-            .issuer(template.issuer_fingerprint().unwrap() // XXX
-                    .to_keyid());
-        ops.last = 1;
-        ops.serialize(&mut inner)?;
-        algos.push(HashAlgorithm::from(template.hash_algo));
+        // Just always use SHA512.
+        let hash_algo = HashAlgorithm::SHA512;
+        let mut signing_keys = Vec::new();
 
-        let mut hashes = Vec::with_capacity(n);
-        for algo in algos {
-            hashes.push((algo, algo.context()?));
+        for tsk in signers {
+            // We need to find all (sub)keys capable of signing.
+            let can_sign = |key: &Key, sig: &Signature| -> bool {
+                sig.key_flags().can_sign()
+                // Check expiry.
+                    && ! sig.signature_expired()
+                    && ! sig.key_expired(key)
+            };
+
+            // Gather all signing-capable subkeys.
+            let subkeys = tsk.subkeys().filter_map(|skb| {
+                let key = skb.subkey();
+                // The first signature is the most recent binding
+                // signature.
+                if skb.selfsigs().next()
+                    .map(|sig| can_sign(key, sig))
+                    .unwrap_or(false) {
+                        Some(key)
+                    } else {
+                        None
+                    }
+            });
+
+            // Check if the primary key is signing-capable.
+            let primary_can_sign =
+            // The key capabilities are defined by the most recent
+            // binding signature of the primary user id (or the
+            // most recent user id binding if no user id is marked
+            // as primary).  In any case, this is the first user id.
+                tsk.userids().next().map(|ub| {
+                    ub.selfsigs().next()
+                        .map(|sig| can_sign(tsk.primary(), sig))
+                        .unwrap_or(false)
+                }).unwrap_or(false);
+
+            // If the primary key is signing-capable, prepend to
+            // subkeys via iterator magic.
+            let keys =
+                iter::once(tsk.primary())
+                .filter(|_| primary_can_sign)
+                .chain(subkeys);
+
+            // For every suitable key, check if we have a secret key.
+            for key in keys {
+                if let Some(ref secret) = key.secret.as_ref() {
+                    if let &SecretKey::Unencrypted { .. } = secret {
+                        // Success!
+                        signing_keys.push(key);
+                    }
+                }
+            }
         }
-        // xxx: sort hashes
+
+        // For every key we collected, build and emit a one pass
+        // signature packet.
+        for (i, key) in signing_keys.iter().enumerate() {
+            let mut ops = OnePassSig::new(SignatureType::Binary)
+                .pk_algo(key.pk_algo)
+                .hash_algo(hash_algo)
+                .issuer(key.fingerprint().to_keyid());
+
+            if i == signing_keys.len() - 1 {
+                ops.last = 1;
+            }
+            ops.serialize(&mut inner)?;
+        }
+
         let level = inner.cookie_ref().level + 1;
         Ok(Box::new(Signer {
             inner: Some(inner),
-            signature: template.clone(),
-            hashes: hashes,
+            keys: signing_keys,
+            hash: hash_algo.context()?,
             cookie: Cookie {
                 level: level,
                 private: Private::Signer,
@@ -206,65 +262,40 @@ impl<'a> Signer<'a> {
     }
 
     fn emit_signatures(&mut self) -> Result<()> {
-        if let Private::Signer = self.cookie.private {
-            let (_, ref mut hash) = self.hashes[0];	// xxx clone hash
+        if let Some(ref mut sink) = self.inner {
+            // Emit the signatures in reverse, so that the
+            // one-pass-signature and signature packets "bracket" the
+            // message.
+            while let Some(key) = self.keys.pop() {
+                // Part of the signature packet is hashed in,
+                // therefore we need to clone the hash.
+                let mut hash = self.hash.clone();
 
-            // A version 4 signature packet is laid out as follows:
-            //
-            //   version - 1 byte                    \
-            //   sigtype - 1 byte                     \
-            //   pk_algo - 1 byte                      \
-            //   hash_algo - 1 byte                      Included in the hash
-            //   hashed_area_len - 2 bytes (big endian)/
-            //   hashed_area                         _/
-            //   ...                                 <- Not included in the hash
-            let header: [ u8; 6 ] = [
-                self.signature.version,
-                self.signature.sigtype.into(),
-                self.signature.pk_algo.into(),
-                self.signature.hash_algo.into(),
-                ((self.signature.hashed_area.data.len() >> 8) & 0xff) as u8,
-                ((self.signature.hashed_area.data.len() >> 0) & 0xff) as u8,
-            ];
-            hash.update(&header);
-            hash.update(&self.signature.hashed_area.data);
+                // Make and hash a signature packet.
+                let mut sig = Signature::new(SignatureType::Binary);
+                sig.set_signature_creation_time(time::now())
+                    .expect("Failed to set creation time");
+                sig.set_issuer_fingerprint(key.fingerprint())
+                    .expect("Failed to set issuer fingerprint");
+                // Some versions of GnuPG require the Issuer subpacket
+                // to be present.
+                sig.set_issuer(key.keyid())
+                    .expect("Failed to set issuer");
 
-            // A version 4 signature trailer is:
-            //
-            //   version - 1 byte
-            //   0xFF (constant) - 1 byte
-            //   amount - 4 bytes (big endian)
-            //
-            // The amount field is the amount of hashed from this
-            // packet (this excludes the message content, and this
-            // trailer).
-            //
-            // See https://tools.ietf.org/html/rfc4880#section-5.2.4
-            let header_amount = 6 + self.signature.hashed_area.data.len();
-            let trailer: [ u8; 6 ] = [
-                0x04,
-                0xFF,
-                ((header_amount >> 24) & 0xff) as u8,
-                ((header_amount >> 16) & 0xff) as u8,
-                ((header_amount >>  8) & 0xff) as u8,
-                ((header_amount >>  0) & 0xff) as u8
-            ];
-            hash.update(&trailer);
+                // Compute the signature.
+                if let &SecretKey::Unencrypted { mpis: ref sec } =
+                    key.secret.as_ref().expect("validated in constructor")
+                {
+                    sig.sign_hash(&key, sec, HashAlgorithm::SHA512, hash)?;
+                } else {
+                    panic!("validated in constructor");
+                }
 
-            let mut digest = vec![0u8; hash.digest_size()];
-            hash.digest(&mut digest);
-
-            self.signature.hash_prefix[0] = digest[0];
-            self.signature.hash_prefix[1] = digest[1];
-
-            if let Some(ref mut w) = self.inner {
-                self.signature.serialize(w)
-            } else {
-                Ok(())
+                // And emit the packet.
+                sig.serialize(sink)?;
             }
-        } else {
-            panic!("bad cookie")
         }
+        Ok(())
     }
 }
 
@@ -293,9 +324,7 @@ impl<'a> Write for Signer<'a> {
         };
 
         if let Ok(amount) = written {
-            for &mut (_, ref mut h) in self.hashes.iter_mut() {
-                h.update(&buf[..amount]);
-            }
+            self.hash.update(&buf[..amount]);
         }
 
         written
@@ -916,7 +945,7 @@ mod test {
     use super::*;
 
     macro_rules! bytes {
-        ( $x:expr ) => { include_bytes!(concat!("../../tests/data/messages/", $x)) };
+        ( $x:expr ) => { include_bytes!(concat!("../../tests/data/", $x)) };
     }
 
     #[test]
@@ -1068,51 +1097,44 @@ mod test {
 
     #[test]
     fn signature() {
-        // signed-1.gpg contains: [ one-pass-sig ][ literal ][ signature ].
-        let (mut one_pass_sig, mut literal, mut signature) = (None, None, None);
-        let mut ppo = PacketParser::from_bytes(bytes!("signed-1.gpg")).unwrap();
-        while let Some(mut pp) = ppo {
-            pp.buffer_unread_content().unwrap();
-            // Get the packet.
-            let (packet, _packet_depth, tmp, _pp_depth) = pp.next().unwrap();
-            match packet {
-                Packet::Literal(l) => literal = Some(l),
-                Packet::OnePassSig(o) => one_pass_sig = Some(o),
-                Packet::Signature(s) => signature = Some(s),
-                _ => unreachable!(),
-            };
-            // Next?
-            ppo = tmp;
-        }
-        let (one_pass_sig, literal, signature)
-            = (one_pass_sig.unwrap(), literal.unwrap(), signature.unwrap());
+        use std::collections::HashMap;
+        use Fingerprint;
 
-        let mut signature_blinded = signature.clone();
-        signature_blinded.hash_prefix = [0, 0];
+        let mut tsks: HashMap<Fingerprint, TPK> = HashMap::new();
+        let tsk = TPK::from_bytes(bytes!("keys/testy-private.pgp")).unwrap();
+        tsks.insert(tsk.fingerprint(), tsk);
+        let tsk = TPK::from_bytes(bytes!("keys/testy-new-private.pgp")).unwrap();
+        tsks.insert(tsk.fingerprint(), tsk);
+
         let mut o = vec![];
         {
-            let c = Signer::new(wrap(&mut o), &signature_blinded)
+            let signer = Signer::new(
+                wrap(&mut o),
+                &tsks.iter().map(|(_, tsk)| tsk).collect::<Vec<&TPK>>())
                 .unwrap();
-            let mut ls = LiteralWriter::new(
-                c, literal.format as char, literal.filename.as_ref().map(|f| f.as_slice()),
-                literal.date).unwrap();
-            ls.write_all(literal.common.body.as_ref().unwrap()).unwrap();
+            let mut ls = LiteralWriter::new(signer, 't', None, 0).unwrap();
+            ls.write_all(b"Tis, tis, tis.  Tis is important.").unwrap();
+            let signer = ls.into_inner().unwrap().unwrap();
+            let _ = signer.into_inner().unwrap().unwrap();
         }
 
         let mut ppo = PacketParser::from_bytes(&o).unwrap();
-        while let Some(mut pp) = ppo {
-            pp.buffer_unread_content().unwrap();
-            // Get the packet.
-            let (packet, _packet_depth, tmp, _pp_depth) = pp.next().unwrap();
-            match packet {
-                Packet::Literal(l) => assert_eq!(l, literal),
-                Packet::OnePassSig(o) => assert_eq!(o, one_pass_sig),
-                Packet::Signature(s) => assert_eq!(s, signature),
-                _ => unreachable!(),
-            };
-            // Next?
+        let mut good = 0;
+        while let Some(pp) = ppo {
+            if let Packet::Signature(ref sig) = pp.packet {
+                let tpk = tsks.get(&sig.issuer_fingerprint().unwrap())
+                    .unwrap();
+                let result = sig.verify(tpk.primary()).unwrap();
+                assert!(result);
+                good += 1;
+            }
+
+            // Get the next packet.
+            let (_packet, _packet_depth, tmp, _pp_depth)
+                = pp.recurse().unwrap();
             ppo = tmp;
         }
+        assert_eq!(good, 2);
     }
 
     #[test]
