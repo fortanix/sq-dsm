@@ -282,7 +282,7 @@ impl<'a> fmt::Debug for SubpacketRaw<'a> {
             self.value
         };
 
-        f.debug_struct("SubpacketArea")
+        f.debug_struct("SubpacketRaw")
             .field("critical", &self.critical)
             .field("tag", &self.tag)
             .field(&format!("value ({} bytes)", self.value.len())[..],
