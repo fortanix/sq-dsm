@@ -1307,9 +1307,9 @@ impl Signature {
         }
     }
 
-    /// Returns the value of the Regular Expression subpacket, which
-    /// indicates whether the signature is revocable, i.e., whether
-    /// revocation certificates for this signature should be ignored.
+    /// Returns the value of the Revocable subpacket, which indicates
+    /// whether the signature is revocable, i.e., whether revocation
+    /// certificates for this signature should be ignored.
     ///
     /// If the subpacket is not present or malformed, this returns
     /// `None`.
