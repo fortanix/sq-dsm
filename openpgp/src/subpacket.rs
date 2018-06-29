@@ -614,11 +614,14 @@ impl<'a> SubpacketValue<'a> {
             ReasonForRevocation((_, r)) => 1 + r.len(),
             Features(f) => f.len(),
             SignatureTarget((_, _, h)) => 1 + 1 + h.len(),
-            EmbeddedSignature(p) => {
-                use serialize::Serialize;
-                let mut w = Vec::new();
-                p.serialize(&mut w).unwrap();
-                w.len()
+            EmbeddedSignature(p) => match p {
+                &Packet::Signature(ref sig) => {
+                    let mut w = Vec::new();
+                    sig.serialize_naked(&mut w).unwrap();
+                    w.len()
+                },
+                // Bogus.
+                _ => 0,
             },
             IssuerFingerprint(ref fp) => match fp {
                 Fingerprint::V4(_) => 1 + 20,

@@ -463,8 +463,11 @@ impl<'a> Serialize for SubpacketValue<'a> {
                 o.write_all(&[*pk_algo, *hash_algo])?;
                 o.write_all(hash)?;
             },
-            EmbeddedSignature(ref p) =>
-                p.serialize(o)?,
+            EmbeddedSignature(ref p) => match p {
+                &Packet::Signature(ref sig) => sig.serialize_naked(o)?,
+                _ => return Err(Error::InvalidArgument(
+                    format!("Not a signature: {:?}", p)).into()),
+            },
             IssuerFingerprint(ref fp) => match fp {
                 Fingerprint::V4(_) => {
                     o.write_all(&[4])?;
@@ -512,6 +515,26 @@ impl Serialize for Signature {
         CTB::new(Tag::Signature).serialize(o)?;
         BodyLength::Full(len as u32).serialize(o)?;
 
+        self.serialize_naked(o)
+    }
+}
+
+impl Signature {
+    /// Writes a serialized version of the specified `Signature`
+    /// packet without framing to `o`.
+    ///
+    /// Note: this function does not compute the signature (which
+    /// would require access to the private key); it assumes that
+    /// sig.mpis is up to date.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::InvalidArgument`] if invoked on a
+    /// non-version 4 signature, or if either the hashed-area or the
+    /// unhashed-area exceeds the size limit of 2^16.
+    ///
+    /// [`Error::InvalidArgument`]: enum.Error.html#variant.InvalidArgument
+    pub(crate) fn serialize_naked<W: io::Write>(&self, o: &mut W) -> Result<()> {
         if self.version != 4 {
             return Err(Error::InvalidArgument(
                 "Don't know how to serialize \
