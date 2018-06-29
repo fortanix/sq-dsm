@@ -378,9 +378,9 @@ impl SubpacketArea {
 
 impl fmt::Debug for SubpacketArea {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_map().entries(
+        f.debug_list().entries(
             self.iter().map(|(_start, _len, sb)| {
-                (sb.tag, sb)
+                Subpacket::from(sb)
             }))
             .finish()
     }
@@ -675,7 +675,7 @@ impl<'a> SubpacketValue<'a> {
 /// Signature subpacket specified by [Section 5.2.3.1 of RFC 4880].
 ///
 /// [Section 5.2.3.1 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.1
-#[derive(Debug, PartialEq, Clone)]
+#[derive(PartialEq, Clone)]
 pub struct Subpacket<'a> {
     /// Critical flag.
     pub critical: bool,
@@ -683,6 +683,18 @@ pub struct Subpacket<'a> {
     pub tag: SubpacketTag,
     /// Packet value, must match packet type.
     pub value: SubpacketValue<'a>,
+}
+
+impl<'a> fmt::Debug for Subpacket<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let mut s = f.debug_struct("Subpacket");
+
+        if self.critical {
+            s.field("critical", &self.critical);
+        }
+        s.field("value", &self.value);
+        s.finish()
+    }
 }
 
 impl<'a> Subpacket<'a> {
