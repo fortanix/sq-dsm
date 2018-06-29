@@ -1713,7 +1713,7 @@ impl Signature {
     }
 
     /// Returns the value of the Signature Target subpacket, which
-    /// contains the hash of hash of the referenced signature packet.
+    /// contains the hash of the referenced signature packet.
     ///
     /// This is used, for instance, by a signature revocation
     /// certification to designate the signature that is being
