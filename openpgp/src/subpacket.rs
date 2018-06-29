@@ -1020,6 +1020,32 @@ quickcheck! {
 /// information.
 pub struct KeyFlags<'a>(Option<&'a [u8]>);
 
+impl<'a> Default for KeyFlags<'a> {
+    fn default() -> Self {
+        KeyFlags(None)
+    }
+}
+
+impl<'a> PartialEq for KeyFlags<'a> {
+    fn eq<'b>(&self, other: &'b KeyFlags) -> bool {
+        // To deal with unknown flags, we do a bitwise comparison.
+        // First, we need to bring both flag fields to the same
+        // length.
+        let len = ::std::cmp::max(self.0.map(|v| v.len()).unwrap_or(0),
+                                  other.0.map(|v| v.len()).unwrap_or(0));
+        let mut mine = vec![0; len];
+        let mut hers = vec![0; len];
+        if let Some(v) = self.0 {
+            &mut mine[..v.len()].copy_from_slice(&v);
+        }
+        if let Some(v) = other.0 {
+            &mut hers[..v.len()].copy_from_slice(&v);
+        }
+
+        mine == hers
+    }
+}
+
 impl<'a> fmt::Debug for KeyFlags<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         if self.can_certify() {
