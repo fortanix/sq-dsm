@@ -632,6 +632,44 @@ impl<'a> SubpacketValue<'a> {
             Invalid(i) => i.len(),
         } as u32)
     }
+
+    /// Returns the subpacket tag for this value.
+    pub fn tag(&self) -> Result<SubpacketTag> {
+        use self::SubpacketValue::*;
+        match &self {
+            SignatureCreationTime(_) => Ok(SubpacketTag::SignatureCreationTime),
+            SignatureExpirationTime(_) =>
+                Ok(SubpacketTag::SignatureExpirationTime),
+            ExportableCertification(_) =>
+                Ok(SubpacketTag::ExportableCertification),
+            TrustSignature(_) => Ok(SubpacketTag::TrustSignature),
+            RegularExpression(_) => Ok(SubpacketTag::RegularExpression),
+            Revocable(_) => Ok(SubpacketTag::Revocable),
+            KeyExpirationTime(_) => Ok(SubpacketTag::KeyExpirationTime),
+            PreferredSymmetricAlgorithms(_) =>
+                Ok(SubpacketTag::PreferredSymmetricAlgorithms),
+            RevocationKey(_) => Ok(SubpacketTag::RevocationKey),
+            Issuer(_) => Ok(SubpacketTag::Issuer),
+            NotationData(_) => Ok(SubpacketTag::NotationData),
+            PreferredHashAlgorithms(_) =>
+                Ok(SubpacketTag::PreferredHashAlgorithms),
+            PreferredCompressionAlgorithms(_) =>
+                Ok(SubpacketTag::PreferredCompressionAlgorithms),
+            KeyServerPreferences(_) => Ok(SubpacketTag::KeyServerPreferences),
+            PreferredKeyServer(_) => Ok(SubpacketTag::PreferredKeyServer),
+            PrimaryUserID(_) => Ok(SubpacketTag::PrimaryUserID),
+            PolicyURI(_) => Ok(SubpacketTag::PolicyURI),
+            KeyFlags(_) => Ok(SubpacketTag::KeyFlags),
+            SignersUserID(_) => Ok(SubpacketTag::SignersUserID),
+            ReasonForRevocation(_) => Ok(SubpacketTag::ReasonForRevocation),
+            Features(_) => Ok(SubpacketTag::Features),
+            SignatureTarget(_) => Ok(SubpacketTag::SignatureTarget),
+            EmbeddedSignature(_) => Ok(SubpacketTag::EmbeddedSignature),
+            IssuerFingerprint(_) => Ok(SubpacketTag::IssuerFingerprint),
+            _ => Err(Error::InvalidArgument(
+                "Unknown or invalid subpacket value".into()).into()),
+        }
+    }
 }
 
 /// Signature subpacket specified by [Section 5.2.3.1 of RFC 4880].
@@ -650,42 +688,9 @@ pub struct Subpacket<'a> {
 impl<'a> Subpacket<'a> {
     /// Creates a new subpacket.
     pub fn new(value: SubpacketValue<'a>, critical: bool) -> Result<Subpacket<'a>> {
-        use self::SubpacketValue::*;
         Ok(Subpacket {
             critical: critical,
-            tag: match value {
-                SignatureCreationTime(_) => SubpacketTag::SignatureCreationTime,
-                SignatureExpirationTime(_) =>
-                    SubpacketTag::SignatureExpirationTime,
-                ExportableCertification(_) =>
-                    SubpacketTag::ExportableCertification,
-                TrustSignature(_) => SubpacketTag::TrustSignature,
-                RegularExpression(_) => SubpacketTag::RegularExpression,
-                Revocable(_) => SubpacketTag::Revocable,
-                KeyExpirationTime(_) => SubpacketTag::KeyExpirationTime,
-                PreferredSymmetricAlgorithms(_) =>
-                    SubpacketTag::PreferredSymmetricAlgorithms,
-                RevocationKey(_) => SubpacketTag::RevocationKey,
-                Issuer(_) => SubpacketTag::Issuer,
-                NotationData(_) => SubpacketTag::NotationData,
-                PreferredHashAlgorithms(_) =>
-                    SubpacketTag::PreferredHashAlgorithms,
-                PreferredCompressionAlgorithms(_) =>
-                    SubpacketTag::PreferredCompressionAlgorithms,
-                KeyServerPreferences(_) => SubpacketTag::KeyServerPreferences,
-                PreferredKeyServer(_) => SubpacketTag::PreferredKeyServer,
-                PrimaryUserID(_) => SubpacketTag::PrimaryUserID,
-                PolicyURI(_) => SubpacketTag::PolicyURI,
-                KeyFlags(_) => SubpacketTag::KeyFlags,
-                SignersUserID(_) => SubpacketTag::SignersUserID,
-                ReasonForRevocation(_) => SubpacketTag::ReasonForRevocation,
-                Features(_) => SubpacketTag::Features,
-                SignatureTarget(_) => SubpacketTag::SignatureTarget,
-                EmbeddedSignature(_) => SubpacketTag::EmbeddedSignature,
-                IssuerFingerprint(_) => SubpacketTag::IssuerFingerprint,
-                _ => return Err(Error::InvalidArgument(
-                    "Unknown or invalid subpacket value".into()).into()),
-            },
+            tag: value.tag()?,
             value: value,
         })
     }
