@@ -421,8 +421,8 @@ impl SubpacketArea {
         *self.parsed.borrow_mut() = None;
     }
 
-    // Returns the last subpacket, if any, with the specified tag.
-    fn lookup(&self, tag: SubpacketTag) -> Option<SubpacketRaw> {
+    /// Returns the last subpacket, if any, with the specified tag.
+    pub fn lookup(&self, tag: SubpacketTag) -> Option<Subpacket> {
         self.cache_init();
 
         match self.parsed.borrow().as_ref().unwrap().get(&tag) {
@@ -1283,7 +1283,7 @@ impl Signature {
     /// Returns the *last* instance of the specified subpacket.
     fn subpacket<'a>(&'a self, tag: SubpacketTag) -> Option<Subpacket<'a>> {
         if let Some(sb) = self.hashed_area.lookup(tag) {
-            return Some(sb.into());
+            return Some(sb);
         }
 
         // There are a couple of subpackets that we are willing to
@@ -1294,7 +1294,7 @@ impl Signature {
             return None;
         }
 
-        self.unhashed_area.lookup(tag).map(|sb| sb.into())
+        self.unhashed_area.lookup(tag)
     }
 
     /// Returns all instances of the specified subpacket.
