@@ -621,7 +621,7 @@ pub struct Message {
 /// 4880].
 ///
 ///   [Section 12.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-12.2
-#[derive(PartialEq, Clone, Hash)]
+#[derive(PartialEq, Eq, Clone, Hash)]
 pub enum Fingerprint {
     /// 20 byte SHA-1 hash.
     V4([u8;20]),
