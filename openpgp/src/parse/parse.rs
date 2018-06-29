@@ -584,8 +584,9 @@ impl Map {
         Box::new(
             iter::once(("header", self.header.as_slice()))
                 .chain(self.entries.iter().map(move |e| {
-                    (e.field,
-                     &self.data[e.offset..cmp::min(len, e.offset + e.length)])
+                    let start = cmp::min(len, e.offset);
+                    let end = cmp::min(len, e.offset + e.length);
+                    (e.field, &self.data[start..end])
                 })))
     }
 }
