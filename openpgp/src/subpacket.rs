@@ -1119,6 +1119,113 @@ impl<'a> KeyFlags<'a> {
         self.0.and_then(|v| v.get(0))
             .map(|v0| v0 & KEY_FLAG_GROUP_KEY > 0).unwrap_or(false)
     }
+
+    /// Creates a flags object that can be modified.
+    pub fn configure(&self) -> OwnedKeyFlags {
+        let mut flags = Vec::new();
+        if let Some(f) = self.0 {
+            flags.extend_from_slice(f);
+        }
+        OwnedKeyFlags(flags)
+    }
+}
+
+/// Owned version of [`KeyFlags`].
+///
+///   [`KeyFlags`]: struct.keyflags.html
+pub struct OwnedKeyFlags(Vec<u8>);
+
+impl OwnedKeyFlags {
+    /// Grows the vector to the given length.
+    fn grow(&mut self, target: usize) {
+        while self.0.len() < target {
+            self.0.push(0);
+        }
+    }
+
+    /// Sets whether or not this key may be used to certify other keys.
+    pub fn can_certify(mut self, v: bool) -> Self {
+        self.grow(1);
+        if v {
+            self.0[0] |= KEY_FLAG_CERTIFY;
+        } else {
+            self.0[0] &= !KEY_FLAG_CERTIFY;
+        }
+        self
+    }
+
+    /// Sets whether or not this key may be used to sign data.
+    pub fn can_sign(mut self, v: bool) -> Self {
+        self.grow(1);
+        if v {
+            self.0[0] |= KEY_FLAG_SIGN;
+        } else {
+            self.0[0] &= !KEY_FLAG_SIGN;
+        }
+        self
+    }
+
+    /// Sets whether or not this key may be used to encrypt communications.
+    pub fn can_encrypt_for_transport(mut self, v: bool) -> Self {
+        self.grow(1);
+        if v {
+            self.0[0] |= KEY_FLAG_ENCRYPT_FOR_TRANSPORT;
+        } else {
+            self.0[0] &= !KEY_FLAG_ENCRYPT_FOR_TRANSPORT;
+        }
+        self
+    }
+
+    /// Sets whether or not this key may be used to encrypt storage.
+    pub fn can_encrypt_at_rest(mut self, v: bool) -> Self {
+        self.grow(1);
+        if v {
+            self.0[0] |= KEY_FLAG_ENCRYPT_AT_REST;
+        } else {
+            self.0[0] &= !KEY_FLAG_ENCRYPT_AT_REST;
+        }
+        self
+    }
+
+    /// Sets whether or not this key may be used for authentication.
+    pub fn can_authenticate(mut self, v: bool) -> Self {
+        self.grow(1);
+        if v {
+            self.0[0] |= KEY_FLAG_AUTHENTICATE;
+        } else {
+            self.0[0] &= !KEY_FLAG_AUTHENTICATE;
+        }
+        self
+    }
+
+    /// Sets whether or not the private component of this key may have been split
+    /// using a secret-sharing mechanism.
+    pub fn is_split_key(mut self, v: bool) -> Self {
+        self.grow(1);
+        if v {
+            self.0[0] |= KEY_FLAG_SPLIT_KEY;
+        } else {
+            self.0[0] &= !KEY_FLAG_SPLIT_KEY;
+        }
+        self
+    }
+
+    /// Sets whether or not the private component of this key may be in
+    /// possession of more than one person.
+    pub fn is_group_key(mut self, v: bool) -> Self {
+        self.grow(1);
+        if v {
+            self.0[0] |= KEY_FLAG_GROUP_KEY;
+        } else {
+            self.0[0] &= !KEY_FLAG_GROUP_KEY;
+        }
+        self
+    }
+
+    /// Returns a `KeyFlags`.
+    pub fn as_keyflags(&self) -> KeyFlags {
+        KeyFlags(Some(&self.0))
+    }
 }
 
 // Numeric key capability flags.
