@@ -293,14 +293,11 @@ impl<'a> Signer<'a> {
 
                 // Make and hash a signature packet.
                 let mut sig = Signature::new(SignatureType::Binary);
-                sig.set_signature_creation_time(time::now())
-                    .expect("Failed to set creation time");
-                sig.set_issuer_fingerprint(key.fingerprint())
-                    .expect("Failed to set issuer fingerprint");
+                sig.set_signature_creation_time(time::now())?;
+                sig.set_issuer_fingerprint(key.fingerprint())?;
                 // Some versions of GnuPG require the Issuer subpacket
                 // to be present.
-                sig.set_issuer(key.keyid())
-                    .expect("Failed to set issuer");
+                sig.set_issuer(key.keyid())?;
 
                 // Compute the signature.
                 if let &SecretKey::Unencrypted { mpis: ref sec } =
