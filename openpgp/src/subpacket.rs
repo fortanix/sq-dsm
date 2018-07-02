@@ -1022,35 +1022,30 @@ quickcheck! {
 
 /// Describes how a key may be used, and stores additional
 /// information.
-pub struct KeyFlags<'a>(Option<&'a [u8]>);
+pub struct KeyFlags(Vec<u8>);
 
-impl<'a> Default for KeyFlags<'a> {
+impl Default for KeyFlags {
     fn default() -> Self {
-        KeyFlags(None)
+        KeyFlags(vec![0])
     }
 }
 
-impl<'a> PartialEq for KeyFlags<'a> {
-    fn eq<'b>(&self, other: &'b KeyFlags) -> bool {
+impl PartialEq for KeyFlags {
+    fn eq(&self, other: &KeyFlags) -> bool {
         // To deal with unknown flags, we do a bitwise comparison.
         // First, we need to bring both flag fields to the same
         // length.
-        let len = ::std::cmp::max(self.0.map(|v| v.len()).unwrap_or(0),
-                                  other.0.map(|v| v.len()).unwrap_or(0));
+        let len = ::std::cmp::max(self.0.len(), other.0.len());
         let mut mine = vec![0; len];
         let mut hers = vec![0; len];
-        if let Some(v) = self.0 {
-            &mut mine[..v.len()].copy_from_slice(&v);
-        }
-        if let Some(v) = other.0 {
-            &mut hers[..v.len()].copy_from_slice(&v);
-        }
+        &mut mine[..self.0.len()].copy_from_slice(&self.0);
+        &mut hers[..other.0.len()].copy_from_slice(&other.0);
 
         mine == hers
     }
 }
 
-impl<'a> fmt::Debug for KeyFlags<'a> {
+impl fmt::Debug for KeyFlags {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         if self.can_certify() {
             f.write_str("C")?;
@@ -1079,67 +1074,7 @@ impl<'a> fmt::Debug for KeyFlags<'a> {
 }
 
 
-impl<'a> KeyFlags<'a> {
-    /// This key may be used to certify other keys.
-    pub fn can_certify(&self) -> bool {
-        self.0.and_then(|v| v.get(0))
-            .map(|v0| v0 & KEY_FLAG_CERTIFY > 0).unwrap_or(false)
-    }
-
-    /// This key may be used to sign data.
-    pub fn can_sign(&self) -> bool {
-        self.0.and_then(|v| v.get(0))
-            .map(|v0| v0 & KEY_FLAG_SIGN > 0).unwrap_or(false)
-    }
-
-    /// This key may be used to encrypt communications.
-    pub fn can_encrypt_for_transport(&self) -> bool {
-        self.0.and_then(|v| v.get(0))
-            .map(|v0| v0 & KEY_FLAG_ENCRYPT_FOR_TRANSPORT > 0).unwrap_or(false)
-    }
-
-    /// This key may be used to encrypt storage.
-    pub fn can_encrypt_at_rest(&self) -> bool {
-        self.0.and_then(|v| v.get(0))
-            .map(|v0| v0 & KEY_FLAG_ENCRYPT_AT_REST > 0).unwrap_or(false)
-    }
-
-    /// This key may be used for authentication.
-    pub fn can_authenticate(&self) -> bool {
-        self.0.and_then(|v| v.get(0))
-            .map(|v0| v0 & KEY_FLAG_AUTHENTICATE > 0).unwrap_or(false)
-    }
-
-    /// The private component of this key may have been split
-    /// using a secret-sharing mechanism.
-    pub fn is_split_key(&self) -> bool {
-        self.0.and_then(|v| v.get(0))
-            .map(|v0| v0 & KEY_FLAG_SPLIT_KEY > 0).unwrap_or(false)
-    }
-
-    /// The private component of this key may be in
-    /// possession of more than one person.
-    pub fn is_group_key(&self) -> bool {
-        self.0.and_then(|v| v.get(0))
-            .map(|v0| v0 & KEY_FLAG_GROUP_KEY > 0).unwrap_or(false)
-    }
-
-    /// Creates a flags object that can be modified.
-    pub fn configure(&self) -> OwnedKeyFlags {
-        let mut flags = Vec::new();
-        if let Some(f) = self.0 {
-            flags.extend_from_slice(f);
-        }
-        OwnedKeyFlags(flags)
-    }
-}
-
-/// Owned version of [`KeyFlags`].
-///
-///   [`KeyFlags`]: struct.keyflags.html
-pub struct OwnedKeyFlags(Vec<u8>);
-
-impl OwnedKeyFlags {
+impl KeyFlags {
     /// Grows the vector to the given length.
     fn grow(&mut self, target: usize) {
         while self.0.len() < target {
@@ -1147,8 +1082,15 @@ impl OwnedKeyFlags {
         }
     }
 
+    /// This key may be used to certify other keys.
+    pub fn can_certify(&self) -> bool {
+        self.0.get(0)
+            .map(|v0| v0 & KEY_FLAG_CERTIFY > 0).unwrap_or(false)
+    }
+
+
     /// Sets whether or not this key may be used to certify other keys.
-    pub fn can_certify(mut self, v: bool) -> Self {
+    pub fn set_certify(mut self, v: bool) -> Self {
         self.grow(1);
         if v {
             self.0[0] |= KEY_FLAG_CERTIFY;
@@ -1158,8 +1100,15 @@ impl OwnedKeyFlags {
         self
     }
 
+    /// This key may be used to sign data.
+    pub fn can_sign(&self) -> bool {
+        self.0.get(0)
+            .map(|v0| v0 & KEY_FLAG_SIGN > 0).unwrap_or(false)
+    }
+
+
     /// Sets whether or not this key may be used to sign data.
-    pub fn can_sign(mut self, v: bool) -> Self {
+    pub fn set_sign(mut self, v: bool) -> Self {
         self.grow(1);
         if v {
             self.0[0] |= KEY_FLAG_SIGN;
@@ -1169,8 +1118,14 @@ impl OwnedKeyFlags {
         self
     }
 
+    /// This key may be used to encrypt communications.
+    pub fn can_encrypt_for_transport(&self) -> bool {
+        self.0.get(0)
+            .map(|v0| v0 & KEY_FLAG_ENCRYPT_FOR_TRANSPORT > 0).unwrap_or(false)
+    }
+
     /// Sets whether or not this key may be used to encrypt communications.
-    pub fn can_encrypt_for_transport(mut self, v: bool) -> Self {
+    pub fn set_encrypt_for_transport(mut self, v: bool) -> Self {
         self.grow(1);
         if v {
             self.0[0] |= KEY_FLAG_ENCRYPT_FOR_TRANSPORT;
@@ -1180,8 +1135,14 @@ impl OwnedKeyFlags {
         self
     }
 
+    /// This key may be used to encrypt storage.
+    pub fn can_encrypt_at_rest(&self) -> bool {
+        self.0.get(0)
+            .map(|v0| v0 & KEY_FLAG_ENCRYPT_AT_REST > 0).unwrap_or(false)
+    }
+
     /// Sets whether or not this key may be used to encrypt storage.
-    pub fn can_encrypt_at_rest(mut self, v: bool) -> Self {
+    pub fn set_encrypt_at_rest(mut self, v: bool) -> Self {
         self.grow(1);
         if v {
             self.0[0] |= KEY_FLAG_ENCRYPT_AT_REST;
@@ -1191,8 +1152,14 @@ impl OwnedKeyFlags {
         self
     }
 
+    /// This key may be used for authentication.
+    pub fn can_authenticate(&self) -> bool {
+        self.0.get(0)
+            .map(|v0| v0 & KEY_FLAG_AUTHENTICATE > 0).unwrap_or(false)
+    }
+
     /// Sets whether or not this key may be used for authentication.
-    pub fn can_authenticate(mut self, v: bool) -> Self {
+    pub fn set_authenticate(mut self, v: bool) -> Self {
         self.grow(1);
         if v {
             self.0[0] |= KEY_FLAG_AUTHENTICATE;
@@ -1202,9 +1169,16 @@ impl OwnedKeyFlags {
         self
     }
 
+    /// The private component of this key may have been split
+    /// using a secret-sharing mechanism.
+    pub fn is_split_key(&self) -> bool {
+        self.0.get(0)
+            .map(|v0| v0 & KEY_FLAG_SPLIT_KEY > 0).unwrap_or(false)
+    }
+
     /// Sets whether or not the private component of this key may have been split
     /// using a secret-sharing mechanism.
-    pub fn is_split_key(mut self, v: bool) -> Self {
+    pub fn set_split_key(mut self, v: bool) -> Self {
         self.grow(1);
         if v {
             self.0[0] |= KEY_FLAG_SPLIT_KEY;
@@ -1214,9 +1188,16 @@ impl OwnedKeyFlags {
         self
     }
 
+    /// The private component of this key may be in
+    /// possession of more than one person.
+    pub fn is_group_key(&self) -> bool {
+        self.0.get(0)
+            .map(|v0| v0 & KEY_FLAG_GROUP_KEY > 0).unwrap_or(false)
+    }
+
     /// Sets whether or not the private component of this key may be in
     /// possession of more than one person.
-    pub fn is_group_key(mut self, v: bool) -> Self {
+    pub fn set_group_key(mut self, v: bool) -> Self {
         self.grow(1);
         if v {
             self.0[0] |= KEY_FLAG_GROUP_KEY;
@@ -1224,11 +1205,6 @@ impl OwnedKeyFlags {
             self.0[0] &= !KEY_FLAG_GROUP_KEY;
         }
         self
-    }
-
-    /// Returns a `KeyFlags`.
-    pub fn as_keyflags(&self) -> KeyFlags {
-        KeyFlags(Some(&self.0))
     }
 }
 
@@ -1971,18 +1947,15 @@ impl Signature {
     /// subpacket, only the last one is considered.
     pub fn key_flags(&self) -> KeyFlags {
         // N octets of flags
-        KeyFlags(
-            if let Some(sb)
-                = self.subpacket(SubpacketTag::KeyFlags) {
-                    if let SubpacketValue::KeyFlags(v) = sb.value {
-                        Some(v)
-                    } else {
-                        None
-                    }
-                } else {
-                    None
-                }
-        )
+        if let Some(sb) = self.subpacket(SubpacketTag::KeyFlags) {
+            if let SubpacketValue::KeyFlags(v) = sb.value {
+                KeyFlags(v.to_vec())
+            } else {
+                KeyFlags::default()
+            }
+        } else {
+            KeyFlags::default()
+        }
     }
 
     /// Sets the value of the Key Flags subpacket, which contains
@@ -1991,7 +1964,7 @@ impl Signature {
     /// how it is stored (split, held by multiple people).
     pub fn set_key_flags(&mut self, flags: &KeyFlags) -> Result<()> {
         self.hashed_area.replace(Subpacket::new(
-            SubpacketValue::KeyFlags(flags.0.unwrap_or(&[])),
+            SubpacketValue::KeyFlags(&flags.0),
             true)?)
     }
 
@@ -2303,11 +2276,10 @@ fn accessors() {
     assert_eq!(sig.policy_uri(), Some(&b"foobar"[..]));
 
     let key_flags = KeyFlags::default()
-        .configure()
-        .can_certify(true)
-        .can_sign(true);
-    sig.set_key_flags(&key_flags.as_keyflags()).unwrap();
-    assert_eq!(sig.key_flags(), key_flags.as_keyflags());
+        .set_certify(true)
+        .set_sign(true);
+    sig.set_key_flags(&key_flags).unwrap();
+    assert_eq!(sig.key_flags(), key_flags);
 
     sig.set_signers_user_id(b"foobar").unwrap();
     assert_eq!(sig.signers_user_id(), Some(&b"foobar"[..]));
