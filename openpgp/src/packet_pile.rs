@@ -14,7 +14,7 @@ use Error;
 use Packet;
 use packet::{Container, PacketIter};
 use PacketPile;
-use parse::PacketParser;
+use parse::PacketParserResult;
 use parse::PacketParserBuilder;
 use parse::Cookie;
 
@@ -304,8 +304,8 @@ impl PacketPile {
     /// Reads all of the packets from a `PacketParser`, and turns them
     /// into a message.
     ///
-    /// Note: this assumes that `ppo` points to a top-level packet.
-    pub fn from_packet_parser<'a>(ppo: Option<PacketParser<'a>>)
+    /// Note: this assumes that `ppr` points to a top-level packet.
+    pub fn from_packet_parser<'a>(ppr: PacketParserResult<'a>)
         -> Result<PacketPile>
     {
         // Things are not going to work out if we don't start with a
@@ -313,7 +313,7 @@ impl PacketPile {
         // ppo.recursion_depth and leave the rest of the message, but
         // it is hard to imagine that that is what the caller wants.
         // Instead of hiding that error, fail fast.
-        if let Some(ref pp) = ppo {
+        if let PacketParserResult::Some(ref pp) = ppr {
             assert_eq!(pp.recursion_depth, 0);
         }
 
@@ -322,14 +322,14 @@ impl PacketPile {
 
         let mut last_position = 0;
 
-        if ppo.is_none() {
+        if ppr.is_none() {
             // Empty message.
             return Ok(PacketPile::from_packets(Vec::new()));
         }
-        let mut pp = ppo.unwrap();
+        let mut pp = ppr.unwrap();
 
         'outer: loop {
-            let (mut packet, mut position, mut ppo, _) = pp.recurse()?;
+            let (mut packet, mut position, mut ppr, _) = pp.recurse()?;
 
             let mut relative_position : isize = position - last_position;
             assert!(relative_position <= 1);
@@ -367,11 +367,11 @@ impl PacketPile {
 
                 container.packets.push(packet);
 
-                if ppo.is_none() {
+                if ppr.is_none() {
                     break 'outer;
                 }
 
-                pp = ppo.unwrap();
+                pp = ppr.unwrap();
 
                 last_position = position;
                 position = pp.recursion_depth as isize;
@@ -385,7 +385,7 @@ impl PacketPile {
                 let result = pp.recurse()?;
                 packet = result.0;
                 assert_eq!(position, result.1);
-                ppo = result.2;
+                ppr = result.2;
             }
         }
 
@@ -434,6 +434,7 @@ mod message_test {
     use CompressedData;
     use SEIP;
     use packet::Tag;
+    use parse::PacketParser;
 
     #[test]
     fn deserialize_test_1 () {
@@ -519,8 +520,13 @@ mod message_test {
             .to_packet_pile_parser().unwrap();
 
         while ppp.recurse() {
-            let pp = ppp.ppo.as_mut().unwrap();
-            eprintln!("{:?}", pp);
+            if let PacketParserResult::Some(ref pp) = ppp.ppr {
+                eprintln!("{:?}", pp);
+            } else {
+                // If PacketPileParser::recurse returns true, then
+                // ppp.ppr is not EOF.
+                unreachable!();
+            }
         }
         let pile = ppp.finish();
         pile.pretty_print();
@@ -555,14 +561,14 @@ mod message_test {
         // Use the iterator interface to parse an OpenPGP quine.
         let path = path_to("compression-quine.gpg");
         let max_recursion_depth = 255;
-        let mut ppo : Option<PacketParser>
+        let mut ppr : PacketParserResult
             = PacketParserBuilder::from_file(path).unwrap()
                 .max_recursion_depth(max_recursion_depth)
                 .finalize().unwrap();
 
         let mut count : usize = 0;
         loop {
-            if let Some(pp2) = ppo {
+            if let PacketParserResult::Some(pp2) = ppr {
                 count += 1;
 
                 let (_packet, packet_depth, pp2, pp_depth)
@@ -572,7 +578,7 @@ mod message_test {
                 if pp2.is_some() {
                     assert_eq!(pp_depth as usize, count);
                 }
-                ppo = pp2;
+                ppr = pp2;
             } else {
                 break;
             }
@@ -588,12 +594,12 @@ mod message_test {
         // literal packet.  When we read some of the compressed
         // packet, we expect recurse() to not recurse.
 
-        let ppo = PacketParserBuilder::from_file(
+        let ppr = PacketParserBuilder::from_file(
                 path_to("compressed-data-algo-1.gpg")).unwrap()
             .buffer_unread_content()
             .finalize().unwrap();
 
-        let mut pp = ppo.unwrap();
+        let mut pp = ppr.unwrap();
         if let Packet::CompressedData(_) = pp.packet {
         } else {
             panic!("Expected a compressed packet!");
@@ -605,9 +611,9 @@ mod message_test {
         assert_eq!(amount, 1);
 
         // recurse should now not recurse.  Since there is nothing
-        // following the compressed packet, ppo should be None.
-        let (mut packet, _, ppo, _) = pp.next().unwrap();
-        assert!(ppo.is_none());
+        // following the compressed packet, ppr should be EOF.
+        let (mut packet, _, ppr, _) = pp.next().unwrap();
+        assert!(ppr.is_none());
 
         // Get the rest of the content and put the initial byte that
         // we stole back.
@@ -615,16 +621,16 @@ mod message_test {
         content.insert(0, data[0]);
 
         let content = &content.into_boxed_slice()[..];
-        let ppo = PacketParser::from_bytes(content).unwrap();
-        let pp = ppo.unwrap();
+        let ppr = PacketParser::from_bytes(content).unwrap();
+        let pp = ppr.unwrap();
         if let Packet::Literal(_) = pp.packet {
         } else {
             panic!("Expected a literal packet!");
         }
 
         // And we're done...
-        let (_packet, _, ppo, _) = pp.next().unwrap();
-        assert!(ppo.is_none());
+        let (_packet, _, ppr, _) = pp.next().unwrap();
+        assert!(ppr.is_none());
     }
 
     #[test]

@@ -515,7 +515,10 @@ mod test {
     #[cfg(feature = "compression-deflate")]
     #[test]
     fn signature_verification_test() {
-        use parse::PacketParser;
+        use super::*;
+
+        use TPK;
+        use parse::{PacketParserResult, PacketParser};
 
         struct Test<'a> {
             key: &'a str,
@@ -585,9 +588,9 @@ mod test {
                 path_to(&format!("keys/{}", test.key)[..])).unwrap();
 
             let mut good = 0;
-            let mut ppo = PacketParser::from_file(
+            let mut ppr = PacketParser::from_file(
                 path_to(&format!("messages/{}", test.data)[..])).unwrap();
-            while let Some(mut pp) = ppo {
+            while let PacketParserResult::Some(mut pp) = ppr {
                 if let Packet::Signature(ref sig) = pp.packet {
                     let result = sig.verify(tpk.primary()).unwrap();
                     eprintln!("  Primary {:?}: {:?}",
@@ -609,7 +612,7 @@ mod test {
                 // Get the next packet.
                 let (_packet, _packet_depth, tmp, _pp_depth)
                     = pp.recurse().unwrap();
-                ppo = tmp;
+                ppr = tmp;
             }
 
             assert_eq!(good, test.good, "Signature verification failed.");

@@ -15,7 +15,7 @@ use buffered_reader::BufferedReaderGeneric;
 extern crate openpgp;
 use openpgp::Packet;
 use openpgp::packet::{BodyLength, Tag};
-use openpgp::parse::PacketParser;
+use openpgp::parse::{PacketParserResult, PacketParser};
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -47,11 +47,11 @@ fn main() {
         File::open(&args[1]).expect("Failed to open file"),
         Some(128 * 1024 * 1024) // Use a large buffer.
     );
-    let mut ppo = PacketParser::from_reader(br)
+    let mut ppr = PacketParser::from_reader(br)
         .expect("Failed to create reader");
 
     // Iterate over all packets.
-    while let Some(pp) = ppo {
+    while let PacketParserResult::Some(pp) = ppr {
         // While the packet is in the parser, get some data for later.
         let size = match pp.header.length {
             BodyLength::Full(n) => Some(n),
@@ -61,7 +61,7 @@ fn main() {
         // Get the packet and advance the parser.
         let (packet, _, tmp, _) = pp.next()
             .expect("Failed to get next packet");
-        ppo = tmp;
+        ppr = tmp;
 
         packet_count += 1;
         if let Some(n) = size {

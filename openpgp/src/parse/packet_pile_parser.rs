@@ -8,7 +8,12 @@ use {
     Container,
     PacketPile,
 };
-use parse::{PacketParserBuilder, PacketParser, Cookie};
+use parse::{
+    PacketParserBuilder,
+    PacketParserResult,
+    PacketParser,
+    Cookie
+};
 use buffered_reader::{BufferedReader, BufferedReaderGeneric,
                       BufferedReaderMemory};
 
@@ -68,7 +73,7 @@ fn path_to(artifact: &str) -> PathBuf {
 /// # fn f(message_data: &[u8]) -> Result<()> {
 /// let mut ppp = PacketPileParser::from_bytes(message_data)?;
 /// while ppp.recurse() {
-///     let pp = ppp.ppo.as_mut().unwrap();
+///     let pp = ppp.ppr.as_mut().unwrap();
 ///     eprintln!("{:?}", pp);
 /// }
 /// let message = ppp.finish();
@@ -79,7 +84,7 @@ fn path_to(artifact: &str) -> PathBuf {
 #[derive(Debug)]
 pub struct PacketPileParser<'a> {
     /// The current packet.
-    pub ppo: Option<PacketParser<'a>>,
+    pub ppr: PacketParserResult<'a>,
 
     /// Whether the first packet has been returned.
     returned_first: bool,
@@ -99,11 +104,12 @@ impl<'a> PacketParserBuilder<'a> {
 
 impl<'a> PacketPileParser<'a> {
     /// Creates a `PacketPileParser` from a *fresh* `PacketParser`.
-    fn from_packet_parser(ppo: Option<PacketParser<'a>>)
-            -> Result<PacketPileParser<'a>> {
+    fn from_packet_parser(ppr: PacketParserResult<'a>)
+        -> Result<PacketPileParser<'a>>
+    {
         Ok(PacketPileParser {
             pile: PacketPile { top_level: Container::new() },
-            ppo: ppo,
+            ppr: ppr,
             returned_first: false,
         })
     }
@@ -183,19 +189,21 @@ impl<'a> PacketPileParser<'a> {
     /// `PacketParser` can be accessed as `self.ppo`.
     pub fn recurse(&mut self) -> bool {
         if self.returned_first {
-            match self.ppo.take() {
-                Some (pp) => {
+            match self.ppr.take() {
+                PacketParserResult::Some(pp) => {
                     match pp.recurse() {
-                        Ok((packet, position, ppo, _)) => {
+                        Ok((packet, position, ppr, _)) => {
                             self.insert_packet(packet, position);
-                            self.ppo = ppo;
-                        },
+                            self.ppr = ppr;
+                        }
                         Err(_) => {
-                            self.ppo = None;
+                            // XXX: What should we do with the error?
                         }
                     }
-                },
-                None => {},
+                }
+                eof @ PacketParserResult::EOF(_) => {
+                    self.ppr = eof;
+                }
             }
         } else {
             self.returned_first = true;
@@ -219,19 +227,21 @@ impl<'a> PacketPileParser<'a> {
     /// `PacketParser` can be accessed as `self.ppo`.
     pub fn next(&mut self) -> bool {
         if self.returned_first {
-            match self.ppo.take() {
-                Some (pp) => {
+            match self.ppr.take() {
+                PacketParserResult::Some(pp) => {
                     match pp.next() {
-                        Ok((packet, position, ppo, _)) => {
+                        Ok((packet, position, ppr, _)) => {
                             self.insert_packet(packet, position);
-                            self.ppo = ppo;
-                        },
+                            self.ppr = ppr;
+                        }
                         Err(_) => {
-                            self.ppo = None;
+                            // XXX: What should we do with the error?
                         }
                     }
                 },
-                None => {},
+                eof @ PacketParserResult::EOF(_) => {
+                    self.ppr = eof
+                },
             }
         } else {
             self.returned_first = true;
@@ -245,7 +255,7 @@ impl<'a> PacketPileParser<'a> {
     /// A top-level packet has a recursion depth of 0.  Packets in a
     /// top-level container have a recursion depth of 1.  Etc.
     pub fn recursion_depth(&self) -> Option<u8> {
-        if let Some(ref pp) = self.ppo {
+        if let PacketParserResult::Some(ref pp) = self.ppr {
             Some(pp.recursion_depth)
         } else {
             None
@@ -254,7 +264,7 @@ impl<'a> PacketPileParser<'a> {
 
     /// Returns whether the message has been completely parsed.
     pub fn is_done(&self) -> bool {
-        self.ppo.is_none()
+        self.ppr.is_none()
     }
 
     /// Finishes parsing the message and returns the assembled
@@ -296,7 +306,7 @@ fn message_parser_reader_interface() {
     let mut mp = PacketPileParser::from_file(path).unwrap();
     let mut count = 0;
     while mp.recurse() {
-        let pp = mp.ppo.as_mut().unwrap();
+        let pp = mp.ppr.as_mut().unwrap();
         count += 1;
         if let Packet::Literal(_) = pp.packet {
             assert_eq!(count, 2);

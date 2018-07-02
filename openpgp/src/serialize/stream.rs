@@ -941,7 +941,7 @@ impl<'a> writer::Stackable<'a, Cookie> for Encryptor<'a> {
 mod test {
     use std::io::Read;
     use {Packet, PacketPile, CompressedData};
-    use parse::PacketParser;
+    use parse::{PacketParserResult, PacketParser};
     use super::*;
 
     macro_rules! bytes {
@@ -1118,9 +1118,9 @@ mod test {
             let _ = signer.into_inner().unwrap().unwrap();
         }
 
-        let mut ppo = PacketParser::from_bytes(&o).unwrap();
+        let mut ppr = PacketParser::from_bytes(&o).unwrap();
         let mut good = 0;
-        while let Some(pp) = ppo {
+        while let PacketParserResult::Some(mut pp) = ppr {
             if let Packet::Signature(ref sig) = pp.packet {
                 let tpk = tsks.get(&sig.issuer_fingerprint().unwrap())
                     .unwrap();
@@ -1132,7 +1132,7 @@ mod test {
             // Get the next packet.
             let (_packet, _packet_depth, tmp, _pp_depth)
                 = pp.recurse().unwrap();
-            ppo = tmp;
+            ppr = tmp;
         }
         assert_eq!(good, 2);
     }
@@ -1167,8 +1167,8 @@ mod test {
         // ... with every password.
         for password in &passwords {
             let mut state = State::Start;
-            let mut ppo = PacketParser::from_bytes(&o).unwrap();
-            while let Some(mut pp) = ppo {
+            let mut ppr = PacketParser::from_bytes(&o).unwrap();
+            while let PacketParserResult::Some(mut pp) = ppr {
                 state = match state {
                     // Look for the SKESK packet.
                     State::Start =>
@@ -1237,7 +1237,7 @@ mod test {
 
                 // Next?
                 let (_, _, tmp, _) = pp.recurse().unwrap();
-                ppo = tmp;
+                ppr = tmp;
             }
             assert_eq!(state, State::Done);
         }

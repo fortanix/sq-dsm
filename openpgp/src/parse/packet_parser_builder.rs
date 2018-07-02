@@ -7,7 +7,9 @@ use buffered_reader::BufferedReaderGeneric;
 use buffered_reader::BufferedReaderMemory;
 
 use Result;
+use parse::PacketParserResult;
 use parse::PacketParser;
+use parse::PacketParserEOF;
 use parse::PacketParserSettings;
 use parse::ParserResult;
 use parse::Cookie;
@@ -88,17 +90,21 @@ impl<'a> PacketParserBuilder<'a> {
     ///
     /// ```rust
     /// # use openpgp::Result;
-    /// # use openpgp::parse::{PacketParser, PacketParserBuilder};
+    /// # use openpgp::parse::{
+    /// #     PacketParserResult, PacketParser, PacketParserBuilder
+    /// # };
     /// # f(include_bytes!("../../tests/data/messages/public-key.gpg"));
     /// #
     /// # fn f(message_data: &[u8])
-    /// #     -> Result<Option<PacketParser>> {
-    /// let ppo = PacketParserBuilder::from_bytes(message_data)?.finalize()?;
-    /// # return Ok(ppo);
+    /// #     -> Result<PacketParserResult> {
+    /// let ppr = PacketParserBuilder::from_bytes(message_data)?.finalize()?;
+    /// # return Ok(ppr);
     /// # }
     /// ```
     pub fn finalize(self)
-            -> Result<Option<PacketParser<'a>>> where Self: 'a {
+        -> Result<PacketParserResult<'a>>
+        where Self: 'a
+    {
         // Parse the first packet.
         let pp = PacketParser::parse(Box::new(self.bio), &self.settings, 0)?;
 
@@ -108,10 +114,10 @@ impl<'a> PacketParserBuilder<'a> {
             // Override the defaults.
             pp.settings = self.settings;
 
-            Ok(Some(pp))
+            Ok(PacketParserResult::Some(pp))
         } else {
             // `bio` is empty.  We're done.
-            Ok(None)
+            Ok(PacketParserResult::EOF(PacketParserEOF::default()))
         }
     }
 }

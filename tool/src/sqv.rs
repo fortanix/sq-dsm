@@ -16,7 +16,7 @@ use clap::{App, Arg, AppSettings};
 
 use openpgp::{TPK, Packet, Signature, KeyID};
 use openpgp::constants::HashAlgorithm;
-use openpgp::parse::PacketParser;
+use openpgp::parse::{PacketParserResult, PacketParser};
 use openpgp::tpk::TPKParser;
 
 // The argument parser.
@@ -82,7 +82,7 @@ fn real_main() -> Result<(), failure::Error> {
     // .unwrap() is safe, because "sig-file" is required.
     let sig_file = matches.value_of_os("sig-file").unwrap();
 
-    let mut ppo = PacketParser::from_reader(
+    let mut ppr = PacketParser::from_reader(
         openpgp::Reader::from_file(sig_file)?)?;
 
     let mut sigs : Vec<(Signature, KeyID, Option<TPK>)> = Vec::new();
@@ -92,7 +92,7 @@ fn real_main() -> Result<(), failure::Error> {
     // sigs.
     let mut sig_i = 0;
 
-    while let Some(pp) = ppo {
+    while let PacketParserResult::Some(pp) = ppr {
         match pp.packet {
             Packet::Signature(ref sig) => {
                 sig_i += 1;
@@ -129,8 +129,8 @@ fn real_main() -> Result<(), failure::Error> {
             }
         }
 
-        let (_packet_tmp, _, ppo_tmp, _) = pp.recurse().unwrap();
-        ppo = ppo_tmp;
+        let (_packet_tmp, _, ppr_tmp, _) = pp.recurse().unwrap();
+        ppr = ppr_tmp;
     }
 
     if sigs.len() == 0 {

@@ -7,6 +7,7 @@ use rpassword;
 extern crate openpgp;
 use openpgp::Packet;
 use openpgp::packet::Tag;
+use openpgp::parse::PacketParserResult;
 use openpgp::serialize::stream::{
     wrap, LiteralWriter, Encryptor, EncryptionMode,
 };
@@ -26,11 +27,11 @@ pub fn decrypt(input: &mut io::Read, output: &mut io::Write,
         Done,
     }
     let mut state = State::Start(vec![], vec![]);
-    let mut ppo
+    let mut ppr
         = openpgp::parse::PacketParserBuilder::from_reader(input)?
         .map(map).finalize()?;
 
-    while let Some(mut pp) = ppo {
+    while let PacketParserResult::Some(mut pp) = ppr {
         if dump || map {
             eprintln!("{}{:?}",
                       &INDENT[0..pp.recursion_depth as usize], pp.packet);
@@ -89,8 +90,8 @@ pub fn decrypt(input: &mut io::Read, output: &mut io::Write,
             State::Done => State::Done,
         };
 
-        let (packet, _, ppo_tmp, _) = pp.recurse()?;
-        ppo = ppo_tmp;
+        let (packet, _, ppr_tmp, _) = pp.recurse()?;
+        ppr = ppr_tmp;
 
         state = match state {
             // Look for an PKESK or SKESK packet.
@@ -165,11 +166,11 @@ pub fn encrypt(store: &mut store::Store,
 
 pub fn dump(input: &mut io::Read, output: &mut io::Write, map: bool)
         -> Result<(), failure::Error> {
-    let mut ppo
+    let mut ppr
         = openpgp::parse::PacketParserBuilder::from_reader(input)?
         .map(map).finalize()?;
 
-    while let Some(mut pp) = ppo {
+    while let PacketParserResult::Some(mut pp) = ppr {
         if let Some(ref map) = pp.map {
             let mut hd = HexDumper::new();
             writeln!(output, "{}{:?}\n",
@@ -190,8 +191,8 @@ pub fn dump(input: &mut io::Read, output: &mut io::Write, map: bool)
                      &INDENT[0..pp.recursion_depth as usize], pp.packet)?;
         }
 
-        let (_, _, ppo_, _) = pp.recurse()?;
-        ppo = ppo_;
+        let (_, _, ppr_, _) = pp.recurse()?;
+        ppr = ppr_;
     }
     Ok(())
 }
@@ -200,14 +201,14 @@ pub fn split(input: &mut io::Read, prefix: &str)
              -> Result<(), failure::Error> {
     // We (ab)use the mapping feature to create byte-accurate dumps of
     // nested packets.
-    let mut ppo =
+    let mut ppr =
         openpgp::parse::PacketParserBuilder::from_reader(input)?
         .map(true).finalize()?;
 
     // This encodes our position in the tree.
     let mut pos = vec![0];
 
-    while let Some(pp) = ppo {
+    while let PacketParserResult::Some(pp) = ppr {
         if let Some(ref map) = pp.map {
             let filename = format!(
                 "{}{}--{:?}", prefix,
@@ -223,8 +224,8 @@ pub fn split(input: &mut io::Read, prefix: &str)
             }
         }
 
-        let (_, old_depth, ppo_, new_depth) = pp.recurse()?;
-        ppo = ppo_;
+        let (_, old_depth, ppr_, new_depth) = pp.recurse()?;
+        ppr = ppr_;
 
         // Update pos.
         match old_depth.cmp(&new_depth) {

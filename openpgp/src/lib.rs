@@ -571,14 +571,13 @@ pub struct PacketPile {
 /// ```rust
 /// # extern crate openpgp;
 /// # use openpgp::Result;
-/// # use openpgp::parse::PacketParser;
+/// # use openpgp::parse::{PacketParserResult, PacketParser};
 /// use openpgp::TPK;
 ///
 /// # fn main() { f().unwrap(); }
 /// # fn f() -> Result<()> {
-/// #     let ppo = PacketParser::from_bytes(&b""[..])?;
-/// #     if let Some(pp) = ppo {
-/// match TPK::from_packet_parser(pp) {
+/// #     let ppr = PacketParser::from_bytes(&b""[..])?;
+/// match TPK::from_packet_parser(ppr) {
 ///     Ok(tpk) => {
 ///         println!("Key: {}", tpk.primary());
 ///         for binding in tpk.userids() {
@@ -590,7 +589,6 @@ pub struct PacketPile {
 ///     }
 /// }
 ///
-/// #     }
 /// #     Ok(())
 /// # }
 #[derive(Debug, Clone, PartialEq)]

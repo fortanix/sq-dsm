@@ -926,17 +926,17 @@ fn one_pass_sig_test () {
 
     for test in tests.iter() {
         eprintln!("Trying {}...", test.filename);
-        let mut pp = PacketParserBuilder::from_file(path_to(test.filename))
+        let mut ppr = PacketParserBuilder::from_file(path_to(test.filename))
             .expect(&format!("Reading {}", test.filename)[..])
             .finalize().unwrap();
 
         let mut one_pass_sigs = 0;
         let mut sigs = 0;
 
-        while let Some(tmp) = pp {
-            if let Packet::OnePassSig(_) = tmp.packet {
+        while let PacketParserResult::Some(pp) = ppr {
+            if let Packet::OnePassSig(_) = pp.packet {
                 one_pass_sigs += 1;
-            } else if let Packet::Signature(ref sig) = tmp.packet {
+            } else if let Packet::Signature(ref sig) = pp.packet {
                 eprintln!("  {}:\n  prefix: expected: {}, in sig: {}",
                           test.filename,
                           ::to_hex(&test.hash_prefix[sigs][..], false),
@@ -955,8 +955,8 @@ fn one_pass_sig_test () {
                             number of expected OnePassSig packets.");
             }
 
-            let (_, _, tmp, _) = tmp.recurse().expect("Parsing message");
-            pp = tmp;
+            let (_, _, tmp, _) = pp.recurse().expect("Parsing message");
+            ppr = tmp;
         }
         assert_eq!(one_pass_sigs, sigs,
                    "Number of OnePassSig packets does not match \
@@ -1603,12 +1603,12 @@ impl PKESK {
 /// ```rust
 /// # use openpgp::Result;
 /// # use openpgp::Packet;
-/// # use openpgp::parse::PacketParser;
+/// # use openpgp::parse::{PacketParserResult, PacketParser};
 /// # let _ = f(include_bytes!("../../tests/data/messages/public-key.gpg"));
 /// #
 /// # fn f(message_data: &[u8]) -> Result<()> {
-/// let mut ppo = PacketParser::from_bytes(message_data)?;
-/// while let Some(mut pp) = ppo {
+/// let mut ppr = PacketParser::from_bytes(message_data)?;
+/// while let PacketParserResult::Some(mut pp) = ppr {
 ///     // Process the packet.
 ///
 ///     if let Packet::Literal(_) = pp.packet {
@@ -1618,7 +1618,7 @@ impl PKESK {
 ///
 ///     // Get the next packet.
 ///     let (_packet, _packet_depth, tmp, _pp_depth) = pp.recurse()?;
-///     ppo = tmp;
+///     ppr = tmp;
 /// }
 /// # return Ok(());
 /// # }
@@ -1674,6 +1674,120 @@ enum ParserResult<'a> {
     EOF(Box<BufferedReader<Cookie> + 'a>),
 }
 
+/// Information about the stream of packets parsed by the
+/// `PacketParser`.
+#[derive(Debug, Clone)]
+pub struct PacketParserEOF {
+}
+
+impl Default for PacketParserEOF {
+    fn default() -> Self {
+        PacketParserEOF {
+        }
+    }
+}
+
+impl PacketParserEOF {
+    /// Copies the important information in `pp` into a new
+    /// `PacketParserEOF` instance.
+    fn new(_pp: &PacketParser) -> Self {
+        PacketParserEOF {
+        }
+    }
+}
+
+/// The return type of `PacketParser::next`() and
+/// `PacketParser::recurse`().
+///
+/// We don't use an `Option`, because when we reach the end of the
+/// packet sequence, some information about the message needs to
+/// remain accessible.
+#[derive(Debug)]
+pub enum PacketParserResult<'a> {
+    /// A `PacketParser` for the next packet.
+    Some(PacketParser<'a>),
+    /// Information about a fully parsed packet sequence.
+    EOF(PacketParserEOF),
+}
+
+impl<'a> PacketParserResult<'a> {
+    /// Like `Option::is_none`().
+    pub fn is_none(&self) -> bool {
+        if let PacketParserResult::EOF(_) = self {
+            true
+        } else {
+            false
+        }
+    }
+
+    /// An alias for `is_none`().
+    pub fn is_eof(&self) -> bool {
+        Self::is_none(self)
+    }
+
+    /// Like `Option::is_some`().
+    pub fn is_some(&self) -> bool {
+        ! Self::is_none(self)
+    }
+
+    /// Like `Option::expect`().
+    pub fn expect(self, msg: &str) -> PacketParser<'a> {
+        if let PacketParserResult::Some(pp) = self {
+            return pp;
+        } else {
+            panic!("{}", msg);
+        }
+    }
+
+    /// Like `Option::unwrap`().
+    pub fn unwrap(self) -> PacketParser<'a> {
+        self.expect("called `PacketParserResult::unwrap()` on a \
+                     `PacketParserResult::PacketParserEOF` value")
+    }
+
+    /// Like `Option::as_ref`().
+    pub fn as_ref(&self) -> Option<&PacketParser<'a>> {
+        if let PacketParserResult::Some(ref pp) = self {
+            Some(pp)
+        } else {
+            None
+        }
+    }
+
+    /// Like `Option::as_mut`().
+    pub fn as_mut(&mut self) -> Option<&mut PacketParser<'a>> {
+        if let PacketParserResult::Some(ref mut pp) = self {
+            Some(pp)
+        } else {
+            None
+        }
+    }
+
+    /// Like `Option::take`().
+    ///
+    /// If `self` is a `PacketParserEOF`, then a copy of that value,
+    /// not the default `PacketParserEOF`, is returned.
+    pub fn take(&mut self) -> Self {
+        match self {
+            PacketParserResult::Some(_) =>
+                mem::replace(self, PacketParserResult::EOF(
+                    PacketParserEOF::default())),
+            PacketParserResult::EOF(ref eof) =>
+                PacketParserResult::EOF(eof.clone())
+        }
+    }
+
+    /// Like `Option::map`().
+    pub fn map<U, F>(self, f: F) -> Option<U>
+        where F: FnOnce(PacketParser<'a>) -> U
+    {
+        match self {
+            PacketParserResult::Some(x) => Some(f(x)),
+            PacketParserResult::EOF(_) => None,
+        }
+    }
+}
+
 impl <'a> PacketParser<'a> {
     /// Starts parsing an OpenPGP message stored in a `BufferedReader`
     /// object.
@@ -1681,7 +1795,7 @@ impl <'a> PacketParser<'a> {
     /// This function returns a `PacketParser` for the first packet in
     /// the stream.
     pub(crate) fn from_buffered_reader(bio: Box<BufferedReader<Cookie> + 'a>)
-            -> Result<Option<PacketParser<'a>>> {
+            -> Result<PacketParserResult<'a>> {
         PacketParserBuilder::from_buffered_reader(bio)?.finalize()
     }
 
@@ -1690,7 +1804,7 @@ impl <'a> PacketParser<'a> {
     /// This function returns a `PacketParser` for the first packet in
     /// the stream.
     pub fn from_reader<R: io::Read + 'a>(reader: R)
-            -> Result<Option<PacketParser<'a>>> {
+            -> Result<PacketParserResult<'a>> {
         PacketParserBuilder::from_reader(reader)?.finalize()
     }
 
@@ -1699,7 +1813,7 @@ impl <'a> PacketParser<'a> {
     /// This function returns a `PacketParser` for the first packet in
     /// the stream.
     pub fn from_file<P: AsRef<Path>>(path: P)
-            -> Result<Option<PacketParser<'a>>> {
+            -> Result<PacketParserResult<'a>> {
         PacketParserBuilder::from_file(path)?.finalize()
     }
 
@@ -1708,7 +1822,7 @@ impl <'a> PacketParser<'a> {
     /// This function returns a `PacketParser` for the first packet in
     /// the stream.
     pub fn from_bytes(bytes: &'a [u8])
-            -> Result<Option<PacketParser<'a>>> {
+            -> Result<PacketParserResult<'a>> {
         PacketParserBuilder::from_bytes(bytes)?.finalize()
     }
 
@@ -2002,7 +2116,8 @@ impl <'a> PacketParser<'a> {
     /// container off the container stack, and returns the following
     /// packet in the parent container.
     pub fn next(mut self)
-            -> Result<(Packet, isize, Option<PacketParser<'a>>, isize)> {
+        -> Result<(Packet, isize, PacketParserResult<'a>, isize)>
+    {
         if self.settings.trace {
             eprintln!("{}PacketParser::next({:?}, depth: {}, level: {:?}).",
                       indent(self.recursion_depth),
@@ -2014,14 +2129,17 @@ impl <'a> PacketParser<'a> {
 
         self.finish()?;
         let mut reader = buffered_reader_stack_pop(
-            self.reader, self.recursion_depth as isize)?;
+            mem::replace(&mut self.reader,
+                         Box::new(BufferedReaderEOF::with_cookie(
+                             Default::default()))),
+            self.recursion_depth as isize)?;
 
         // Now read the next packet.
         loop {
             // Parse the next packet.
-            let pp = PacketParser::parse(reader, &self.settings,
-                                         self.recursion_depth as usize)?;
-            match pp {
+            let ppr = PacketParser::parse(reader, &self.settings,
+                                          self.recursion_depth as usize)?;
+            match ppr {
                 ParserResult::EOF(reader_) => {
                     // We got EOF on the current container.  The
                     // container at recursion depth n is empty.  Pop
@@ -2044,21 +2162,23 @@ impl <'a> PacketParser<'a> {
                                        reading message.",
                                       indent(self.recursion_depth));
                         }
-                        return Ok((self.packet, orig_depth as isize,
-                                   None, 0));
+                        let eof = PacketParserResult::EOF(
+                            PacketParserEOF::new(&self));
+                        return Ok((self.packet, orig_depth as isize, eof, 0));
                     } else {
-                        self.reader = reader_;
                         self.recursion_depth -= 1;
                         self.finish()?;
                         // XXX self.content_was_read = false;
                         reader = buffered_reader_stack_pop(
-                            self.reader, self.recursion_depth as isize)?;
+                            reader_, self.recursion_depth as isize)?;
                     }
                 },
                 ParserResult::Success(mut pp) => {
                     pp.settings = self.settings;
-                    return Ok((self.packet, orig_depth as isize,
-                               Some(pp), self.recursion_depth as isize));
+                    return Ok((self.packet,
+                               orig_depth as isize,
+                               PacketParserResult::Some(pp),
+                               self.recursion_depth as isize));
                 }
             }
         }
@@ -2080,7 +2200,8 @@ impl <'a> PacketParser<'a> {
     ///
     ///   [`next()`]: #method.next
     pub fn recurse(self)
-            -> Result<(Packet, isize, Option<PacketParser<'a>>, isize)> {
+        -> Result<(Packet, isize, PacketParserResult<'a>, isize)>
+    {
         if self.settings.trace {
             eprintln!("{}PacketParser::recurse({:?}, depth: {}, level: {:?})",
                       indent(self.recursion_depth),
@@ -2129,7 +2250,7 @@ impl <'a> PacketParser<'a> {
 
                             return Ok((self.packet,
                                        self.recursion_depth as isize,
-                                       Some(pp),
+                                       PacketParserResult::Some(pp),
                                        self.recursion_depth as isize + 1));
                         },
                         ParserResult::EOF(_) => {
@@ -2171,13 +2292,13 @@ impl <'a> PacketParser<'a> {
     /// ```rust
     /// # use openpgp::Result;
     /// # use openpgp::Packet;
-    /// # use openpgp::parse::PacketParser;
+    /// # use openpgp::parse::{PacketParserResult, PacketParser};
     /// # use std::string::String;
     /// # f(include_bytes!("../../tests/data/messages/public-key.gpg"));
     /// #
     /// # fn f(message_data: &[u8]) -> Result<()> {
-    /// let mut ppo = PacketParser::from_bytes(message_data)?;
-    /// while let Some(mut pp) = ppo {
+    /// let mut ppr = PacketParser::from_bytes(message_data)?;
+    /// while let PacketParserResult::Some(mut pp) = ppr {
     ///     // Process the packet.
     ///
     ///     if let Packet::Literal(_) = pp.packet {
@@ -2189,7 +2310,7 @@ impl <'a> PacketParser<'a> {
     ///
     ///     // Get the next packet.
     ///     let (_packet, _packet_depth, tmp, _pp_depth) = pp.recurse()?;
-    ///     ppo = tmp;
+    ///     ppr = tmp;
     /// }
     /// # return Ok(());
     /// # }

@@ -33,13 +33,13 @@
 //! ```rust
 //! # use openpgp::Result;
 //! # use openpgp::Packet;
-//! # use openpgp::parse::PacketParser;
+//! # use openpgp::parse::{PacketParserResult, PacketParser};
 //! #
 //! # f(include_bytes!("../tests/data/messages/signed.gpg"));
 //! #
 //! # fn f(message_data: &[u8]) -> Result<()> {
-//! let mut ppo = PacketParser::from_bytes(message_data)?;
-//! while let Some(mut pp) = ppo {
+//! let mut ppr = PacketParser::from_bytes(message_data)?;
+//! while let PacketParserResult::Some(mut pp) = ppr {
 //!     if let Packet::Signature(ref sig) = pp.packet {
 //!         if let Some(fp) = sig.issuer_fingerprint() {
 //!             eprintln!("Signature issued by: {}", fp.to_string());
@@ -48,7 +48,7 @@
 //!
 //!     // Get the next packet.
 //!     let (_packet, _packet_depth, tmp, _pp_depth) = pp.recurse()?;
-//!     ppo = tmp;
+//!     ppr = tmp;
 //! }
 //! # Ok(())
 //! # }

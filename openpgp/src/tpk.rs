@@ -22,7 +22,7 @@ use {
     TPK,
     Fingerprint,
 };
-use parse::PacketParser;
+use parse::{PacketParserResult, PacketParser};
 use serialize::{Serialize, SerializeKey};
 
 const TRACE : bool = false;
@@ -214,14 +214,13 @@ enum PacketSource<'a, I: Iterator<Item=Packet>> {
 /// ```rust
 /// # extern crate openpgp;
 /// # use openpgp::Result;
-/// # use openpgp::parse::PacketParser;
+/// # use openpgp::parse::{PacketParserResult, PacketParser};
 /// use openpgp::tpk::TPKParser;
 ///
 /// # fn main() { f().unwrap(); }
 /// # fn f() -> Result<()> {
-/// #     let ppo = PacketParser::from_bytes(&b""[..])?;
-/// #     if let Some(pp) = ppo {
-/// for tpko in TPKParser::from_packet_parser(pp) {
+/// #     let ppr = PacketParser::from_bytes(&b""[..])?;
+/// for tpko in TPKParser::from_packet_parser(ppr) {
 ///     match tpko {
 ///         Ok(tpk) => {
 ///             println!("Key: {}", tpk.primary());
@@ -234,7 +233,6 @@ enum PacketSource<'a, I: Iterator<Item=Packet>> {
 ///         }
 ///     }
 /// }
-/// #     }
 /// #     Ok(())
 /// # }
 /// ```
@@ -272,32 +270,27 @@ impl<'a, I: Iterator<Item=Packet>> Default for TPKParser<'a, I> {
 // vec::IntoIter<Packet> is about as good as any other.
 impl<'a> TPKParser<'a, vec::IntoIter<Packet>> {
     /// Initializes a `TPKParser` from a `PacketParser`.
-    fn from_packet_parsero(ppo: Option<PacketParser<'a>>) -> Self {
+    pub fn from_packet_parser(ppr: PacketParserResult<'a>) -> Self {
         let mut parser : Self = Default::default();
-        if let Some(pp) = ppo {
+        if let PacketParserResult::Some(pp) = ppr {
             parser.source = PacketSource::PacketParser(pp);
         }
         parser
     }
 
-    /// Initializes a `TPKParser` from a `PacketParser`.
-    pub fn from_packet_parser(pp: PacketParser<'a>) -> Self {
-        Self::from_packet_parsero(Some(pp))
-    }
-
     /// Initializes a `TPKParser` from a `Read`er.
     pub fn from_reader<R: 'a + io::Read>(reader: R) -> Result<Self> {
-        Ok(Self::from_packet_parsero(PacketParser::from_reader(reader)?))
+        Ok(Self::from_packet_parser(PacketParser::from_reader(reader)?))
     }
 
     /// Initializes a `TPKParser` from a `File`.
     pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
-        Ok(Self::from_packet_parsero(PacketParser::from_file(path)?))
+        Ok(Self::from_packet_parser(PacketParser::from_file(path)?))
     }
 
     /// Initializes a `TPKParser` from a byte string.
     pub fn from_bytes(data: &'a [u8]) -> Result<Self> {
-        Ok(Self::from_packet_parsero(PacketParser::from_bytes(data)?))
+        Ok(Self::from_packet_parser(PacketParser::from_bytes(data)?))
     }
 }
 
@@ -352,10 +345,9 @@ impl<'a, I: Iterator<Item=Packet>> TPKParser<'a, I> {
     ///
     /// # fn main() { f().unwrap(); }
     /// # fn f() -> Result<()> {
-    /// #     let ppo = PacketParser::from_bytes(&b""[..])?;
+    /// #     let ppr = PacketParser::from_bytes(&b""[..])?;
     /// #     let some_keyid = KeyID::from_hex("C2B819056C652598").unwrap();
-    /// #     if let Some(pp) = ppo {
-    /// for tpkr in TPKParser::from_packet_parser(pp)
+    /// for tpkr in TPKParser::from_packet_parser(ppr)
     ///     .unvalidated_tpk_filter(|tpk, _| {
     ///         if tpk.primary().keyid() == some_keyid {
     ///             return true;
@@ -377,7 +369,6 @@ impl<'a, I: Iterator<Item=Packet>> TPKParser<'a, I> {
     ///         }
     ///     }
     /// }
-    /// #     }
     /// #     Ok(())
     /// # }
     /// ```
@@ -819,8 +810,8 @@ impl<'a, I: Iterator<Item=Packet>> Iterator for TPKParser<'a, I> {
                 },
                 PacketSource::PacketParser(pp) => {
                     match pp.next() {
-                        Ok((packet, _, ppo, _)) => {
-                            if let Some(pp) = ppo {
+                        Ok((packet, _, ppr, _)) => {
+                            if let PacketParserResult::Some(pp) = ppr {
                                 self.source = PacketSource::PacketParser(pp);
                             }
 
@@ -915,8 +906,8 @@ impl TPK {
     }
 
     /// Returns the first TPK found in the packet stream.
-    pub fn from_packet_parser(pp: PacketParser) -> Result<Self> {
-        let mut parser = TPKParser::from_packet_parser(pp);
+    pub fn from_packet_parser(ppr: PacketParserResult) -> Result<Self> {
+        let mut parser = TPKParser::from_packet_parser(ppr);
         if let Some(tpk_result) = parser.next() {
             tpk_result
         } else {
@@ -926,12 +917,7 @@ impl TPK {
 
     /// Returns the first TPK encountered in the reader.
     pub fn from_reader<R: io::Read>(reader: R) -> Result<Self> {
-        let ppo = PacketParser::from_reader(reader)?;
-        if let Some(pp) = ppo {
-            TPK::from_packet_parser(pp)
-        } else {
-            Err(Error::MalformedTPK("No data".into()).into())
-        }
+        TPK::from_packet_parser(PacketParser::from_reader(reader)?)
     }
 
     /// Returns the first TPK encountered in the file.
@@ -953,12 +939,7 @@ impl TPK {
     ///
     /// `buf` must be an OpenPGP-encoded message.
     pub fn from_bytes(buf: &[u8]) -> Result<Self> {
-        let ppo = PacketParser::from_bytes(buf)?;
-        if let Some(pp) = ppo {
-            TPK::from_packet_parser(pp)
-        } else {
-            Err(Error::MalformedTPK("No data".into()).into())
-        }
+        TPK::from_packet_parser(PacketParser::from_bytes(buf)?)
     }
 
     fn canonicalize(mut self) -> Self {
