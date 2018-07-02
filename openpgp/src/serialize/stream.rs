@@ -1179,7 +1179,7 @@ mod test {
 
         let mut ppr = PacketParser::from_bytes(&o).unwrap();
         let mut good = 0;
-        while let PacketParserResult::Some(mut pp) = ppr {
+        while let PacketParserResult::Some(pp) = ppr {
             if let Packet::Signature(ref sig) = pp.packet {
                 let tpk = tsks.get(&sig.issuer_fingerprint().unwrap())
                     .unwrap();
