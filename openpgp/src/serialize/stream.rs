@@ -168,6 +168,7 @@ pub struct Signer<'a> {
     // digests.
     inner: Option<writer::Stack<'a, Cookie>>,
     keys: Vec<&'a Key>,
+    detached: bool,
     hash: Box<Hash>,
     cookie: Cookie,
 }
@@ -196,8 +197,41 @@ impl<'a> Signer<'a> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn new(mut inner: writer::Stack<'a, Cookie>, signers: &[&'a TPK])
+    pub fn new(inner: writer::Stack<'a, Cookie>, signers: &[&'a TPK])
                -> Result<writer::Stack<'a, Cookie>> {
+        Self::make(inner, signers, false)
+    }
+
+    /// Creates a signer for a detached signature.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use openpgp::serialize::stream::{wrap, Signer, LiteralWriter};
+    /// # use openpgp::{Result, TPK};
+    /// # let tsk = TPK::from_bytes(include_bytes!(
+    /// #     "../../tests/data/keys/testy-new-private.pgp"))
+    /// #     .unwrap();
+    /// # f(tsk).unwrap();
+    /// # fn f(tsk: TPK) -> Result<()> {
+    /// let mut o = vec![];
+    /// {
+    ///     let mut signer = Signer::detached(wrap(&mut o), &[&tsk])?;
+    ///     signer.write_all(b"Make it so, number one!")?;
+    ///     // In reality, just io::copy() the file to be signed.
+    ///     let _ = signer.into_inner()?.unwrap();
+    /// }
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn detached(inner: writer::Stack<'a, Cookie>, signers: &[&'a TPK])
+                    -> Result<writer::Stack<'a, Cookie>> {
+        Self::make(inner, signers, true)
+    }
+
+    fn make(mut inner: writer::Stack<'a, Cookie>, signers: &[&'a TPK],
+            detached: bool)
+            -> Result<writer::Stack<'a, Cookie>> {
         // Just always use SHA512.
         let hash_algo = HashAlgorithm::SHA512;
         let mut signing_keys = Vec::new();
@@ -255,24 +289,27 @@ impl<'a> Signer<'a> {
             }
         }
 
-        // For every key we collected, build and emit a one pass
-        // signature packet.
-        for (i, key) in signing_keys.iter().enumerate() {
-            let mut ops = OnePassSig::new(SignatureType::Binary)
-                .pk_algo(key.pk_algo)
-                .hash_algo(hash_algo)
-                .issuer(key.fingerprint().to_keyid());
+        if ! detached {
+            // For every key we collected, build and emit a one pass
+            // signature packet.
+            for (i, key) in signing_keys.iter().enumerate() {
+                let mut ops = OnePassSig::new(SignatureType::Binary)
+                    .pk_algo(key.pk_algo)
+                    .hash_algo(hash_algo)
+                    .issuer(key.fingerprint().to_keyid());
 
-            if i == signing_keys.len() - 1 {
-                ops.last = 1;
+                if i == signing_keys.len() - 1 {
+                    ops.last = 1;
+                }
+                ops.serialize(&mut inner)?;
             }
-            ops.serialize(&mut inner)?;
         }
 
         let level = inner.cookie_ref().level + 1;
         Ok(Box::new(Signer {
             inner: Some(inner),
             keys: signing_keys,
+            detached: detached,
             hash: hash_algo.context()?,
             cookie: Cookie {
                 level: level,
@@ -334,7 +371,12 @@ impl<'a> fmt::Debug for Signer<'a> {
 impl<'a> Write for Signer<'a> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         let written = match self.inner.as_mut() {
-            Some(ref mut w) => w.write(buf),
+            // If we are creating a normal signature, pass data
+            // through.
+            Some(ref mut w) if ! self.detached => w.write(buf),
+            // If we are creating a detached signature, just hash all
+            // bytes.
+            Some(_) => Ok(buf.len()),
             // When we are popped off the stack, we have no inner
             // writer.  Just hash all bytes.
             None => Ok(buf.len()),
