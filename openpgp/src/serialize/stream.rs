@@ -153,8 +153,9 @@ impl<'a> writer::Stackable<'a, Cookie> for ArbitraryWriter<'a> {
 
 /// Signs a packet stream.
 ///
-/// Writes a one-pass-signature packet, then hashes the data stream,
-/// then writes a signature packet.
+/// For every signing key, a signer writes a one-pass-signature
+/// packet, then hashes and emits the data stream, then for every key
+/// writes a signature packet.
 pub struct Signer<'a> {
     // The underlying writer.
     //
@@ -172,10 +173,29 @@ pub struct Signer<'a> {
 }
 
 impl<'a> Signer<'a> {
-    /// Creates a writer.
+    /// Creates a signer.
     ///
-    /// XXX: Currently, the writer depends on a template to create the
-    /// signature, because we cannot compute signatures yet.
+    /// # Example
+    ///
+    /// ```
+    /// use openpgp::serialize::stream::{wrap, Signer, LiteralWriter};
+    /// # use openpgp::{Result, TPK};
+    /// # let tsk = TPK::from_bytes(include_bytes!(
+    /// #     "../../tests/data/keys/testy-new-private.pgp"))
+    /// #     .unwrap();
+    /// # f(tsk).unwrap();
+    /// # fn f(tsk: TPK) -> Result<()> {
+    /// let mut o = vec![];
+    /// {
+    ///     let signer = Signer::new(wrap(&mut o), &[&tsk])?;
+    ///     let mut ls = LiteralWriter::new(signer, 't', None, 0)?;
+    ///     ls.write_all(b"Make it so, number one!")?;
+    ///     let signer = ls.into_inner()?.unwrap();
+    ///     let _ = signer.into_inner()?.unwrap();
+    /// }
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn new(mut inner: writer::Stack<'a, Cookie>, signers: &[&'a TPK])
                -> Result<writer::Stack<'a, Cookie>> {
         // Just always use SHA512.
