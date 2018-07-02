@@ -145,7 +145,7 @@
 //!     sq encrypt [FLAGS] [OPTIONS]
 //!
 //! FLAGS:
-//!     -A, --armor        Write armored data to file
+//!     -B, --binary       Emit unencoded OpenPGP data
 //!     -h, --help         Prints help information
 //!     -s, --symmetric    Encrypt with a password (can be given multiple times)
 //!     -V, --version      Prints version information
@@ -186,7 +186,7 @@
 //!     sq keyserver get [FLAGS] [OPTIONS] <KEYID>
 //!
 //! FLAGS:
-//!     -A, --armor      Write armored data to file
+//!     -B, --binary     Emit unencoded OpenPGP data
 //!     -h, --help       Prints help information
 //!     -V, --version    Prints version information
 //!
@@ -375,7 +375,7 @@
 //!     sq store export [FLAGS] [OPTIONS] <LABEL>
 //!
 //! FLAGS:
-//!     -A, --armor      Write armored data to file
+//!     -B, --binary     Emit unencoded OpenPGP data
 //!     -h, --help       Prints help information
 //!     -V, --version    Prints version information
 //!
