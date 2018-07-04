@@ -77,6 +77,10 @@ use constants::{
     HashAlgorithm,
     PublicKeyAlgorithm,
 };
+use conversions::{
+    Time,
+    Duration,
+};
 
 #[cfg(test)]
 use std::path::PathBuf;
@@ -1233,28 +1237,6 @@ const KEY_FLAG_AUTHENTICATE: u8 = 0x20;
 /// than one person.
 const KEY_FLAG_GROUP_KEY: u8 = 0x80;
 
-/// Converts structured time to OpenPGP time.
-fn tm2pgp(t: time::Tm) -> Result<u32> {
-    let epoch = t.to_timespec().sec;
-    if epoch > ::std::u32::MAX as i64 {
-        return Err(Error::InvalidArgument(
-            format!("Time exceeds u32 epoch: {:?}", t))
-                   .into());
-    }
-    Ok(epoch as u32)
-}
-
-/// Converts structured duration to OpenPGP duration.
-fn duration2pgp(d: time::Duration) -> Result<u32> {
-    let secs = d.num_seconds();
-    if secs > ::std::u32::MAX as i64 {
-        return Err(Error::InvalidArgument(
-            format!("Duration exceeds u32 epoch: {:?}", d))
-                   .into());
-    }
-    Ok(secs as u32)
-}
-
 impl Signature {
     /// Returns the *last* instance of the specified subpacket.
     fn subpacket<'a>(&'a self, tag: SubpacketTag) -> Option<Subpacket<'a>> {
@@ -1317,7 +1299,7 @@ impl Signature {
     pub fn set_signature_creation_time(&mut self, creation_time: time::Tm)
                                        -> Result<()> {
         self.hashed_area.replace(Subpacket::new(
-            SubpacketValue::SignatureCreationTime(tm2pgp(creation_time)?),
+            SubpacketValue::SignatureCreationTime(creation_time.to_pgp()?),
             true)?)
     }
 
@@ -1352,7 +1334,7 @@ impl Signature {
                                        -> Result<()> {
         if let Some(e) = expiration {
             self.hashed_area.replace(Subpacket::new(
-                SubpacketValue::SignatureExpirationTime(duration2pgp(e)?),
+                SubpacketValue::SignatureExpirationTime(e.to_pgp()?),
                 true)?)
         } else {
             self.hashed_area.remove_all(SubpacketTag::SignatureExpirationTime);
@@ -1577,7 +1559,7 @@ impl Signature {
                                    -> Result<()> {
         if let Some(e) = expiration {
             self.hashed_area.replace(Subpacket::new(
-                SubpacketValue::KeyExpirationTime(duration2pgp(e)?),
+                SubpacketValue::KeyExpirationTime(e.to_pgp()?),
                 true)?)
         } else {
             self.hashed_area.remove_all(SubpacketTag::KeyExpirationTime);
