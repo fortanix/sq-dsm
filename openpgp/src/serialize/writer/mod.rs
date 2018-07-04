@@ -19,26 +19,70 @@ use {
 };
 
 /// A stack of writers.
-///
-/// We use trait objects as the unit of composition.  This is a
-/// compiler limitation, we may use impl trait in the future.
-pub type Stack<'a, C> = Box<'a + Stackable<'a, C>>;
+#[derive(Debug)]
+pub struct Stack<'a, C>(BoxStack<'a, C>);
+
+impl<'a, C> Stack<'a, C> {
+    pub(crate) fn from(bs: BoxStack<'a, C>) -> Self {
+        Stack(bs)
+    }
+
+    pub(crate) fn as_ref(&self) -> &BoxStack<'a, C> {
+        &self.0
+    }
+
+    pub(crate) fn as_mut(&mut self) -> &mut BoxStack<'a, C> {
+        &mut self.0
+    }
+
+    /// Finalizes this writer, returning the underlying writer.
+    pub fn finalize(self) -> Result<Option<Stack<'a, C>>> {
+        Ok(self.0.into_inner()?.map(|bs| Self::from(bs)))
+    }
+
+    /// Finalizes all writers, tearing down the whole stack.
+    pub fn finalize_all(self) -> Result<()> {
+        let mut stack = self;
+        while let Some(s) = stack.finalize()? {
+            stack = s;
+        }
+        Ok(())
+    }
+}
+
+impl<'a, C> io::Write for Stack<'a, C> {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        self.0.write(buf)
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        self.0.flush()
+    }
+}
+
+impl<'a, C> From<Stack<'a, C>> for BoxStack<'a, C> {
+    fn from(s: Stack<'a, C>) -> Self {
+        s.0
+    }
+}
+
+pub(crate) type BoxStack<'a, C> = Box<'a + Stackable<'a, C>>;
 
 /// Makes a writer stackable and provides convenience functions.
-pub trait Stackable<'a, C> : io::Write + fmt::Debug {
+pub(crate) trait Stackable<'a, C> : io::Write + fmt::Debug {
     /// Recovers the inner stackable.
     ///
     /// This can fail if the current `Stackable` has buffered data
     /// that hasn't been written to the underlying `Stackable`.
-    fn into_inner(self: Box<Self>) -> Result<Option<Stack<'a, C>>>;
+    fn into_inner(self: Box<Self>) -> Result<Option<BoxStack<'a, C>>>;
 
     /// Pops the stackable from the stack, detaching it.
     ///
     /// Returns the detached stack.
-    fn pop(&mut self) -> Result<Option<Stack<'a, C>>>;
+    fn pop(&mut self) -> Result<Option<BoxStack<'a, C>>>;
 
     /// Sets the inner stackable.
-    fn mount(&mut self, new: Stack<'a, C>);
+    fn mount(&mut self, new: BoxStack<'a, C>);
 
     /// Returns a mutable reference to the inner `Writer`, if
     /// any.
@@ -80,16 +124,16 @@ pub trait Stackable<'a, C> : io::Write + fmt::Debug {
 }
 
 /// Make a `Box<Stackable>` look like a Stackable.
-impl <'a, C> Stackable<'a, C> for Stack<'a, C> {
-    fn into_inner(self: Box<Self>) -> Result<Option<Stack<'a, C>>> {
+impl <'a, C> Stackable<'a, C> for BoxStack<'a, C> {
+    fn into_inner(self: Box<Self>) -> Result<Option<BoxStack<'a, C>>> {
         (*self).into_inner()
     }
     /// Recovers the inner stackable.
-    fn pop(&mut self) -> Result<Option<Stack<'a, C>>> {
+    fn pop(&mut self) -> Result<Option<BoxStack<'a, C>>> {
         self.as_mut().pop()
     }
     /// Sets the inner stackable.
-    fn mount(&mut self, new: Stack<'a, C>) {
+    fn mount(&mut self, new: BoxStack<'a, C>) {
         self.as_mut().mount(new);
     }
     fn inner_mut(&mut self) -> Option<&mut Stackable<'a, C>> {
@@ -111,7 +155,7 @@ impl <'a, C> Stackable<'a, C> for Stack<'a, C> {
 
 /// Maps a function over the stack of writers.
 #[allow(dead_code)]
-pub fn map<C, F>(head: &Stackable<C>, mut fun: F)
+pub(crate) fn map<C, F>(head: &Stackable<C>, mut fun: F)
     where F: FnMut(&Stackable<C>) -> bool {
     let mut ow = Some(head);
     while let Some(w) = ow {
@@ -124,7 +168,7 @@ pub fn map<C, F>(head: &Stackable<C>, mut fun: F)
 
 /// Maps a function over the stack of mutable writers.
 #[allow(dead_code)]
-pub fn map_mut<C, F>(head: &mut Stackable<C>, mut fun: F)
+pub(crate) fn map_mut<C, F>(head: &mut Stackable<C>, mut fun: F)
     where F: FnMut(&mut Stackable<C>) -> bool {
     let mut ow = Some(head);
     while let Some(w) = ow {
@@ -137,7 +181,7 @@ pub fn map_mut<C, F>(head: &mut Stackable<C>, mut fun: F)
 
 /// Dumps the writer stack.
 #[allow(dead_code)]
-pub fn dump<C>(head: &Stackable<C>) {
+pub(crate) fn dump<C>(head: &Stackable<C>) {
     let mut depth = 0;
     map(head, |w| {
         eprintln!("{}: {:?}", depth, w);
@@ -146,15 +190,17 @@ pub fn dump<C>(head: &Stackable<C>) {
     });
 }
 
+/// The identity writer just relays anything written.
 pub struct Identity<'a, C> {
-    inner: Option<Stack<'a, C>>,
+    inner: Option<BoxStack<'a, C>>,
     cookie: C,
 }
 
 impl<'a, C: 'a> Identity<'a, C> {
+    /// Makes an identity writer.
     pub fn new(inner: Stack<'a, C>, cookie: C)
                   -> Stack<'a, C> {
-        Box::new(Self{inner: Some(inner), cookie: cookie})
+        Stack::from(Box::new(Self{inner: Some(inner.into()), cookie: cookie}))
     }
 }
 
@@ -184,15 +230,15 @@ impl<'a, C> io::Write for Identity<'a, C> {
 
 impl<'a, C> Stackable<'a, C> for Identity<'a, C> {
     /// Recovers the inner stackable.
-    fn into_inner(self: Box<Self>) -> Result<Option<Stack<'a, C>>> {
+    fn into_inner(self: Box<Self>) -> Result<Option<BoxStack<'a, C>>> {
         Ok(self.inner)
     }
     /// Recovers the inner stackable.
-    fn pop(&mut self) -> Result<Option<Stack<'a, C>>> {
+    fn pop(&mut self) -> Result<Option<BoxStack<'a, C>>> {
         Ok(self.inner.take())
     }
     /// Sets the inner stackable.
-    fn mount(&mut self, new: Stack<'a, C>) {
+    fn mount(&mut self, new: BoxStack<'a, C>) {
         self.inner = Some(new);
     }
     fn inner_ref(&self) -> Option<&Stackable<'a, C>> {
@@ -227,8 +273,9 @@ pub struct Generic<W: io::Write, C> {
 }
 
 impl<'a, W: 'a + io::Write, C: 'a> Generic<W, C> {
+    /// Wraps an `io::Write`r.
     pub fn new(inner: W, cookie: C) -> Stack<'a, C> {
-        Box::new(Self::new_unboxed(inner, cookie))
+        Stack::from(Box::new(Self::new_unboxed(inner.into(), cookie)))
     }
 
     fn new_unboxed(inner: W, cookie: C) -> Self {
@@ -258,15 +305,15 @@ impl<W: io::Write, C> io::Write for Generic<W, C> {
 
 impl<'a, W: io::Write, C> Stackable<'a, C> for Generic<W, C> {
     /// Recovers the inner stackable.
-    fn into_inner(self: Box<Self>) -> Result<Option<Stack<'a, C>>> {
+    fn into_inner(self: Box<Self>) -> Result<Option<BoxStack<'a, C>>> {
         Ok(None)
     }
     /// Recovers the inner stackable.
-    fn pop(&mut self) -> Result<Option<Stack<'a, C>>> {
+    fn pop(&mut self) -> Result<Option<BoxStack<'a, C>>> {
         Ok(None)
     }
     /// Sets the inner stackable.
-    fn mount(&mut self, _new: Stack<'a, C>) {
+    fn mount(&mut self, _new: BoxStack<'a, C>) {
     }
     fn inner_mut(&mut self) -> Option<&mut Stackable<'a, C>> {
         None
@@ -287,24 +334,25 @@ impl<'a, W: io::Write, C> Stackable<'a, C> for Generic<W, C> {
 
 
 /// Encrypting writer.
-pub struct Encryptor<'a, C> {
-    inner: Generic<symmetric::Encryptor<Stack<'a, C>>, C>,
+pub struct Encryptor<'a, C: 'a> {
+    inner: Generic<symmetric::Encryptor<BoxStack<'a, C>>, C>,
 }
 
-impl<'a, C> Encryptor<'a, C> {
+impl<'a, C: 'a> Encryptor<'a, C> {
+    /// Makes an encrypting writer.
     pub fn new(inner: Stack<'a, C>, cookie: C, algo: SymmetricAlgorithm,
                key: &[u8])
-        -> Result<Box<Self>>
+        -> Result<Stack<'a, C>>
     {
-        Ok(Box::new(Encryptor {
+        Ok(Stack::from(Box::new(Encryptor {
             inner: Generic::new_unboxed(
-                symmetric::Encryptor::new(algo, key, inner)?,
+                symmetric::Encryptor::new(algo, key, inner.into())?,
                 cookie),
-        }))
+        })))
     }
 }
 
-impl<'a, C:> fmt::Debug for Encryptor<'a, C> {
+impl<'a, C: 'a> fmt::Debug for Encryptor<'a, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("writer::Encryptor")
             .field("inner", &self.inner)
@@ -312,7 +360,7 @@ impl<'a, C:> fmt::Debug for Encryptor<'a, C> {
     }
 }
 
-impl<'a, C> io::Write for Encryptor<'a, C> {
+impl<'a, C: 'a> io::Write for Encryptor<'a, C> {
     fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
         self.inner.write(bytes)
     }
@@ -322,15 +370,15 @@ impl<'a, C> io::Write for Encryptor<'a, C> {
     }
 }
 
-impl<'a, C> Stackable<'a, C> for Encryptor<'a, C> {
-    fn into_inner(mut self: Box<Self>) -> Result<Option<Stack<'a, C>>> {
+impl<'a, C: 'a> Stackable<'a, C> for Encryptor<'a, C> {
+    fn into_inner(mut self: Box<Self>) -> Result<Option<BoxStack<'a, C>>> {
         let inner = self.inner.inner.finish()?;
         Ok(Some(inner))
     }
-    fn pop(&mut self) -> Result<Option<Stack<'a, C>>> {
+    fn pop(&mut self) -> Result<Option<BoxStack<'a, C>>> {
         unimplemented!()
     }
-    fn mount(&mut self, _new: Stack<'a, C>) {
+    fn mount(&mut self, _new: BoxStack<'a, C>) {
         unimplemented!()
     }
     fn inner_mut(&mut self) -> Option<&mut Stackable<'a, C>> {
@@ -365,15 +413,15 @@ mod test {
         let mut inner = Vec::new();
         {
             let mut w = Generic::new(&mut inner, Cookie { state: "happy" });
-            assert_eq!(w.cookie_ref().state, "happy");
-            dump(&w);
+            assert_eq!(w.as_ref().cookie_ref().state, "happy");
+            dump(w.as_ref());
 
-            w.cookie_mut().state = "sad";
-            assert_eq!(w.cookie_ref().state, "sad");
+            w.as_mut().cookie_mut().state = "sad";
+            assert_eq!(w.as_ref().cookie_ref().state, "sad");
 
             w.write_all(b"be happy").unwrap();
             let mut count = 0;
-            map_mut(&mut w, |g| {
+            map_mut(w.as_mut(), |g| {
                 let new = Cookie { state: "happy" };
                 let old = g.cookie_set(new);
                 assert_eq!(old.state, "sad");
@@ -381,7 +429,7 @@ mod test {
                 true
             });
             assert_eq!(count, 1);
-            assert_eq!(w.cookie_ref().state, "happy");
+            assert_eq!(w.as_ref().cookie_ref().state, "happy");
         }
         assert_eq!(&inner, b"be happy");
     }
@@ -391,13 +439,13 @@ mod test {
         let mut inner = Vec::new();
         {
             let w = Generic::new(&mut inner, Cookie { state: "happy" });
-            dump(&w);
+            dump(w.as_ref());
 
             let w = Identity::new(w, Cookie { state: "happy" });
-            dump(&w);
+            dump(w.as_ref());
 
             let mut count = 0;
-            map(&w, |g| {
+            map(w.as_ref(), |g| {
                 assert_eq!(g.cookie_ref().state, "happy");
                 count += 1;
                 true

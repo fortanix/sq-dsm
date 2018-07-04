@@ -4,24 +4,25 @@ use std::fmt;
 use std::io;
 
 use Result;
-use super::{Generic, Stack, Stackable};
+use super::{Generic, Stack, BoxStack, Stackable};
 
 /// ZIPing writer.
-pub struct ZIP<'a, C> {
-    inner: Generic<DeflateEncoder<Stack<'a, C>>, C>,
+pub struct ZIP<'a, C: 'a> {
+    inner: Generic<DeflateEncoder<BoxStack<'a, C>>, C>,
 }
 
-impl<'a, C> ZIP<'a, C> {
-    pub fn new(inner: Stack<'a, C>, cookie: C) -> Box<Self> {
-        Box::new(ZIP {
+impl<'a, C: 'a> ZIP<'a, C> {
+    /// Makes a ZIP compressing writer.
+    pub fn new(inner: Stack<'a, C>, cookie: C) -> Stack<'a, C> {
+        Stack::from(Box::new(ZIP {
             inner: Generic::new_unboxed(
-                DeflateEncoder::new(inner, FlateCompression::default()),
+                DeflateEncoder::new(inner.into(), FlateCompression::default()),
                 cookie),
-        })
+        }))
     }
 }
 
-impl<'a, C:> fmt::Debug for ZIP<'a, C> {
+impl<'a, C: 'a> fmt::Debug for ZIP<'a, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("writer::ZIP")
             .field("inner", &self.inner)
@@ -29,7 +30,7 @@ impl<'a, C:> fmt::Debug for ZIP<'a, C> {
     }
 }
 
-impl<'a, C> io::Write for ZIP<'a, C> {
+impl<'a, C: 'a> io::Write for ZIP<'a, C> {
     fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
         self.inner.write(bytes)
     }
@@ -39,15 +40,15 @@ impl<'a, C> io::Write for ZIP<'a, C> {
     }
 }
 
-impl<'a, C> Stackable<'a, C> for ZIP<'a, C> {
-    fn into_inner(self: Box<Self>) -> Result<Option<Stack<'a, C>>> {
+impl<'a, C: 'a> Stackable<'a, C> for ZIP<'a, C> {
+    fn into_inner(self: Box<Self>) -> Result<Option<BoxStack<'a, C>>> {
         let inner = self.inner.inner.finish()?;
         Ok(Some(inner))
     }
-    fn pop(&mut self) -> Result<Option<Stack<'a, C>>> {
+    fn pop(&mut self) -> Result<Option<BoxStack<'a, C>>> {
         unimplemented!()
     }
-    fn mount(&mut self, _new: Stack<'a, C>) {
+    fn mount(&mut self, _new: BoxStack<'a, C>) {
         unimplemented!()
     }
     fn inner_mut(&mut self) -> Option<&mut Stackable<'a, C>> {
@@ -68,17 +69,18 @@ impl<'a, C> Stackable<'a, C> for ZIP<'a, C> {
 }
 
 /// ZLIBing writer.
-pub struct ZLIB<'a, C> {
-    inner: Generic<ZlibEncoder<Stack<'a, C>>, C>,
+pub struct ZLIB<'a, C: 'a> {
+    inner: Generic<ZlibEncoder<BoxStack<'a, C>>, C>,
 }
 
-impl<'a, C> ZLIB<'a, C> {
-    pub fn new(inner: Stack<'a, C>, cookie: C) -> Box<Self> {
-        Box::new(ZLIB {
+impl<'a, C: 'a> ZLIB<'a, C> {
+    /// Makes a ZLIB compressing writer.
+    pub fn new(inner: Stack<'a, C>, cookie: C) -> Stack<'a, C> {
+        Stack::from(Box::new(ZLIB {
             inner: Generic::new_unboxed(
-                ZlibEncoder::new(inner, FlateCompression::default()),
+                ZlibEncoder::new(inner.into(), FlateCompression::default()),
                 cookie),
-        })
+        }))
     }
 }
 
@@ -90,7 +92,7 @@ impl<'a, C:> fmt::Debug for ZLIB<'a, C> {
     }
 }
 
-impl<'a, C> io::Write for ZLIB<'a, C> {
+impl<'a, C: 'a> io::Write for ZLIB<'a, C> {
     fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
         self.inner.write(bytes)
     }
@@ -100,15 +102,15 @@ impl<'a, C> io::Write for ZLIB<'a, C> {
     }
 }
 
-impl<'a, C> Stackable<'a, C> for ZLIB<'a, C> {
-    fn into_inner(self: Box<Self>) -> Result<Option<Stack<'a, C>>> {
+impl<'a, C: 'a> Stackable<'a, C> for ZLIB<'a, C> {
+    fn into_inner(self: Box<Self>) -> Result<Option<BoxStack<'a, C>>> {
         let inner = self.inner.inner.finish()?;
         Ok(Some(inner))
     }
-    fn pop(&mut self) -> Result<Option<Stack<'a, C>>> {
+    fn pop(&mut self) -> Result<Option<BoxStack<'a, C>>> {
         unimplemented!()
     }
-    fn mount(&mut self, _new: Stack<'a, C>) {
+    fn mount(&mut self, _new: BoxStack<'a, C>) {
         unimplemented!()
     }
     fn inner_mut(&mut self) -> Option<&mut Stackable<'a, C>> {

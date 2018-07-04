@@ -74,6 +74,7 @@ pub fn wrap<'a, W: 'a + io::Write>(w: W) -> writer::Stack<'a, Cookie> {
 /// # Example
 ///
 /// ```
+/// use std::io::Write;
 /// use openpgp::packet::Tag;
 /// use openpgp::serialize::stream::{wrap, ArbitraryWriter};
 /// # use openpgp::Result;
@@ -91,18 +92,18 @@ pub fn wrap<'a, W: 'a + io::Write>(w: W) -> writer::Stack<'a, Cookie> {
 /// # Ok(())
 /// # }
 pub struct ArbitraryWriter<'a> {
-    inner: writer::Stack<'a, Cookie>,
+    inner: writer::BoxStack<'a, Cookie>,
 }
 
 impl<'a> ArbitraryWriter<'a> {
     /// Creates a new writer with the given tag.
     pub fn new(mut inner: writer::Stack<'a, Cookie>, tag: Tag)
                -> Result<writer::Stack<'a, Cookie>> {
-        let level = inner.cookie_ref().level + 1;
+        let level = inner.as_ref().cookie_ref().level + 1;
         CTB::new(tag).serialize(&mut inner)?;
-        Ok(Box::new(ArbitraryWriter {
-            inner: PartialBodyFilter::new(inner, Cookie::new(level))
-        }))
+        Ok(writer::Stack::from(Box::new(ArbitraryWriter {
+            inner: PartialBodyFilter::new(inner, Cookie::new(level)).into()
+        })))
     }
 }
 
@@ -124,14 +125,14 @@ impl<'a> Write for ArbitraryWriter<'a> {
 }
 
 impl<'a> writer::Stackable<'a, Cookie> for ArbitraryWriter<'a> {
-    fn into_inner(self: Box<Self>) -> Result<Option<writer::Stack<'a, Cookie>>> {
+    fn into_inner(self: Box<Self>) -> Result<Option<writer::BoxStack<'a, Cookie>>> {
         Box::new(self.inner).into_inner()
     }
-    fn pop(&mut self) -> Result<Option<writer::Stack<'a, Cookie>>> {
+    fn pop(&mut self) -> Result<Option<writer::BoxStack<'a, Cookie>>> {
         unimplemented!()
     }
     /// Sets the inner stackable.
-    fn mount(&mut self, _new: writer::Stack<'a, Cookie>) {
+    fn mount(&mut self, _new: writer::BoxStack<'a, Cookie>) {
         unimplemented!()
     }
     fn inner_ref(&self) -> Option<&writer::Stackable<'a, Cookie>> {
@@ -166,7 +167,7 @@ pub struct Signer<'a> {
     // Furthermore, the LiteralWriter will pop us off the stack, and
     // take our inner reader.  If that happens, we only update the
     // digests.
-    inner: Option<writer::Stack<'a, Cookie>>,
+    inner: Option<writer::BoxStack<'a, Cookie>>,
     keys: Vec<&'a Key>,
     detached: bool,
     hash: Box<Hash>,
@@ -179,6 +180,7 @@ impl<'a> Signer<'a> {
     /// # Example
     ///
     /// ```
+    /// use std::io::Write;
     /// use openpgp::serialize::stream::{wrap, Signer, LiteralWriter};
     /// # use openpgp::{Result, TPK};
     /// # let tsk = TPK::from_bytes(include_bytes!(
@@ -191,8 +193,7 @@ impl<'a> Signer<'a> {
     ///     let signer = Signer::new(wrap(&mut o), &[&tsk])?;
     ///     let mut ls = LiteralWriter::new(signer, 't', None, 0)?;
     ///     ls.write_all(b"Make it so, number one!")?;
-    ///     let signer = ls.into_inner()?.unwrap();
-    ///     let _ = signer.into_inner()?.unwrap();
+    ///     ls.finalize_all()?;
     /// }
     /// # Ok(())
     /// # }
@@ -207,6 +208,7 @@ impl<'a> Signer<'a> {
     /// # Example
     ///
     /// ```
+    /// use std::io::Write;
     /// use openpgp::serialize::stream::{wrap, Signer, LiteralWriter};
     /// # use openpgp::{Result, TPK};
     /// # let tsk = TPK::from_bytes(include_bytes!(
@@ -219,7 +221,7 @@ impl<'a> Signer<'a> {
     ///     let mut signer = Signer::detached(wrap(&mut o), &[&tsk])?;
     ///     signer.write_all(b"Make it so, number one!")?;
     ///     // In reality, just io::copy() the file to be signed.
-    ///     let _ = signer.into_inner()?.unwrap();
+    ///     signer.finalize_all()?;
     /// }
     /// # Ok(())
     /// # }
@@ -229,9 +231,10 @@ impl<'a> Signer<'a> {
         Self::make(inner, signers, true)
     }
 
-    fn make(mut inner: writer::Stack<'a, Cookie>, signers: &[&'a TPK],
+    fn make(inner: writer::Stack<'a, Cookie>, signers: &[&'a TPK],
             detached: bool)
             -> Result<writer::Stack<'a, Cookie>> {
+        let mut inner = writer::BoxStack::from(inner);
         // Just always use SHA512.
         let hash_algo = HashAlgorithm::SHA512;
         let mut signing_keys = Vec::new();
@@ -306,7 +309,7 @@ impl<'a> Signer<'a> {
         }
 
         let level = inner.cookie_ref().level + 1;
-        Ok(Box::new(Signer {
+        Ok(writer::Stack::from(Box::new(Signer {
             inner: Some(inner),
             keys: signing_keys,
             detached: detached,
@@ -315,7 +318,7 @@ impl<'a> Signer<'a> {
                 level: level,
                 private: Private::Signer,
             },
-        }))
+        })))
     }
 
     fn emit_signatures(&mut self) -> Result<()> {
@@ -400,10 +403,10 @@ impl<'a> Write for Signer<'a> {
 }
 
 impl<'a> writer::Stackable<'a, Cookie> for Signer<'a> {
-    fn pop(&mut self) -> Result<Option<writer::Stack<'a, Cookie>>> {
+    fn pop(&mut self) -> Result<Option<writer::BoxStack<'a, Cookie>>> {
         Ok(self.inner.take())
     }
-    fn mount(&mut self, new: writer::Stack<'a, Cookie>) {
+    fn mount(&mut self, new: writer::BoxStack<'a, Cookie>) {
         self.inner = Some(new);
     }
     fn inner_mut(&mut self) -> Option<&mut writer::Stackable<'a, Cookie>> {
@@ -421,7 +424,7 @@ impl<'a> writer::Stackable<'a, Cookie> for Signer<'a> {
         }
     }
     fn into_inner(mut self: Box<Self>)
-                  -> Result<Option<writer::Stack<'a, Cookie>>> {
+                  -> Result<Option<writer::BoxStack<'a, Cookie>>> {
         self.emit_signatures()?;
         Ok(self.inner.take())
     }
@@ -445,6 +448,7 @@ impl<'a> writer::Stackable<'a, Cookie> for Signer<'a> {
 /// # Example
 ///
 /// ```
+/// use std::io::Write;
 /// use openpgp::serialize::stream::{wrap, LiteralWriter};
 /// # use openpgp::Result;
 /// # f().unwrap();
@@ -459,15 +463,16 @@ impl<'a> writer::Stackable<'a, Cookie> for Signer<'a> {
 /// # }
 /// ```
 pub struct LiteralWriter<'a> {
-    inner: writer::Stack<'a, Cookie>,
-    signature_writer: Option<writer::Stack<'a, Cookie>>,
+    inner: writer::BoxStack<'a, Cookie>,
+    signature_writer: Option<writer::BoxStack<'a, Cookie>>,
 }
 
 impl<'a> LiteralWriter<'a> {
     /// Creates a new literal writer.
-    pub fn new(mut inner: writer::Stack<'a, Cookie>,
+    pub fn new(inner: writer::Stack<'a, Cookie>,
                format: char, filename: Option<&[u8]>, date: u32)
                -> Result<writer::Stack<'a, Cookie>> {
+        let mut inner = writer::BoxStack::from(inner);
         let level = inner.cookie_ref().level + 1;
 
         let mut template = Literal::new(format).date(date);
@@ -505,15 +510,15 @@ impl<'a> LiteralWriter<'a> {
 
         // Neither is any framing added by the PartialBodyFilter.
         let mut inner
-            = PartialBodyFilter::new(inner, Cookie::new(level));
+            = PartialBodyFilter::new(writer::Stack::from(inner), Cookie::new(level));
 
         // Nor the headers.
         template.serialize_headers(&mut inner, false)?;
 
-        Ok(Box::new(Self {
-            inner: inner,
+        Ok(writer::Stack::from(Box::new(Self {
+            inner: inner.into(),
             signature_writer: signature_writer,
-        }))
+        })))
     }
 }
 
@@ -544,7 +549,7 @@ impl<'a> Write for LiteralWriter<'a> {
 
 impl<'a> writer::Stackable<'a, Cookie> for LiteralWriter<'a> {
     fn into_inner(mut self: Box<Self>)
-                  -> Result<Option<writer::Stack<'a, Cookie>>> {
+                  -> Result<Option<writer::BoxStack<'a, Cookie>>> {
         let signer = self.signature_writer.take();
         let stack = self.inner
             .into_inner()?.unwrap(); // Peel off the PartialBodyFilter.
@@ -559,11 +564,11 @@ impl<'a> writer::Stackable<'a, Cookie> for LiteralWriter<'a> {
         }
     }
 
-    fn pop(&mut self) -> Result<Option<writer::Stack<'a, Cookie>>> {
+    fn pop(&mut self) -> Result<Option<writer::BoxStack<'a, Cookie>>> {
         unimplemented!()
     }
     /// Sets the inner stackable.
-    fn mount(&mut self, _new: writer::Stack<'a, Cookie>) {
+    fn mount(&mut self, _new: writer::BoxStack<'a, Cookie>) {
         unimplemented!()
     }
     fn inner_ref(&self) -> Option<&writer::Stackable<'a, Cookie>> {
@@ -591,6 +596,7 @@ impl<'a> writer::Stackable<'a, Cookie> for LiteralWriter<'a> {
 /// # Example
 ///
 /// ```
+/// use std::io::Write;
 /// use openpgp::serialize::stream::{wrap, Compressor, LiteralWriter};
 /// use openpgp::constants::CompressionAlgorithm;
 /// # use openpgp::Result;
@@ -608,23 +614,25 @@ impl<'a> writer::Stackable<'a, Cookie> for LiteralWriter<'a> {
 /// # Ok(())
 /// # }
 pub struct Compressor<'a> {
-    inner: writer::Stack<'a, Cookie>,
+    inner: writer::BoxStack<'a, Cookie>,
 }
 
 impl<'a> Compressor<'a> {
     /// Creates a new compressor using the given algorithm.
-    pub fn new(mut inner: writer::Stack<'a, Cookie>, algo: CompressionAlgorithm)
+    pub fn new(inner: writer::Stack<'a, Cookie>, algo: CompressionAlgorithm)
                -> Result<writer::Stack<'a, Cookie>> {
+        let mut inner = writer::BoxStack::from(inner);
         let level = inner.cookie_ref().level + 1;
 
         // Packet header.
         CTB::new(Tag::CompressedData).serialize(&mut inner)?;
 
         let mut inner: writer::Stack<'a, Cookie>
-            = PartialBodyFilter::new(inner, Cookie::new(level));
+            = PartialBodyFilter::new(writer::Stack::from(inner),
+                                     Cookie::new(level));
 
         // Compressed data header.
-        inner.write_u8(algo.into())?;
+        inner.as_mut().write_u8(algo.into())?;
 
         // Create an appropriate filter.
         let inner: writer::Stack<'a, Cookie> = match algo {
@@ -642,7 +650,7 @@ impl<'a> Compressor<'a> {
             _ => unimplemented!(),
         };
 
-        Ok(Box::new(Self{inner: inner}))
+        Ok(writer::Stack::from(Box::new(Self{inner: inner.into()})))
     }
 }
 
@@ -665,14 +673,14 @@ impl<'a> io::Write for Compressor<'a> {
 }
 
 impl<'a> writer::Stackable<'a, Cookie> for Compressor<'a> {
-    fn into_inner(self: Box<Self>) -> Result<Option<writer::Stack<'a, Cookie>>> {
+    fn into_inner(self: Box<Self>) -> Result<Option<writer::BoxStack<'a, Cookie>>> {
         Box::new(self.inner).into_inner()?.unwrap().into_inner()
     }
-    fn pop(&mut self) -> Result<Option<writer::Stack<'a, Cookie>>> {
+    fn pop(&mut self) -> Result<Option<writer::BoxStack<'a, Cookie>>> {
         unimplemented!()
     }
     /// Sets the inner stackable.
-    fn mount(&mut self, _new: writer::Stack<'a, Cookie>) {
+    fn mount(&mut self, _new: writer::BoxStack<'a, Cookie>) {
         unimplemented!()
     }
     fn inner_ref(&self) -> Option<&writer::Stackable<'a, Cookie>> {
@@ -694,7 +702,7 @@ impl<'a> writer::Stackable<'a, Cookie> for Compressor<'a> {
 
 /// Encrypts a packet stream.
 pub struct Encryptor<'a> {
-    inner: Option<writer::Stack<'a, Cookie>>,
+    inner: Option<writer::BoxStack<'a, Cookie>>,
     hash: Box<Hash>,
     cookie: Cookie,
 }
@@ -731,6 +739,7 @@ impl<'a> Encryptor<'a> {
     /// # Example
     ///
     /// ```
+    /// use std::io::Write;
     /// #[macro_use] extern crate openpgp; // For armored!
     /// use openpgp::serialize::stream::{
     ///     wrap, Encryptor, EncryptionMode, LiteralWriter,
@@ -791,7 +800,7 @@ impl<'a> Encryptor<'a> {
                encryption_mode: EncryptionMode)
                -> Result<writer::Stack<'a, Cookie>> {
         let mut rng = Yarrow::default();
-        let level = inner.cookie_ref().level + 1;
+        let level = inner.as_ref().cookie_ref().level + 1;
         let algo = SymmetricAlgorithm::AES256;
 
         // Generate a session key.
@@ -870,13 +879,12 @@ impl<'a> Encryptor<'a> {
 
         // Write the SEIP packet.
         CTB::new(Tag::SEIP).serialize(&mut inner)?;
-        let mut inner: writer::Stack<'a, Cookie>
-            = PartialBodyFilter::new(inner, Cookie::new(level));
+        let mut inner = PartialBodyFilter::new(inner, Cookie::new(level));
         inner.write(&[1])?; // Version.
 
         // Assuming 'algo' is good, this cannot fail.
         let encryptor = writer::Encryptor::new(
-            inner,
+            inner.into(),
             Cookie::new(level),
             algo,
             &sk,
@@ -884,11 +892,11 @@ impl<'a> Encryptor<'a> {
 
         // The hash for the MDC must include the initialization
         // vector, hence we build the object here.
-        let mut encryptor = Box::new(Self{
-            inner: Some(encryptor),
+        let mut encryptor = writer::Stack::from(Box::new(Self{
+            inner: Some(encryptor.into()),
             hash: HashAlgorithm::SHA1.context().unwrap(),
             cookie: Cookie::new(level),
-        });
+        }));
 
         // Write the initialization vector, and the quick-check bytes.
         let mut iv = vec![0; algo.block_size().unwrap()];
@@ -900,7 +908,7 @@ impl<'a> Encryptor<'a> {
     }
 
     /// Emits the MDC packet and recovers the original writer.
-    fn emit_mdc(&mut self) -> Result<writer::Stack<'a, Cookie>> {
+    fn emit_mdc(&mut self) -> Result<writer::BoxStack<'a, Cookie>> {
         if let Some(mut w) = self.inner.take() {
             // Write the MDC, which must be the last packet inside the
             // encrypted packet stream.  The hash includes the MDC's
@@ -961,11 +969,11 @@ impl<'a> Write for Encryptor<'a> {
 }
 
 impl<'a> writer::Stackable<'a, Cookie> for Encryptor<'a> {
-    fn pop(&mut self) -> Result<Option<writer::Stack<'a, Cookie>>> {
+    fn pop(&mut self) -> Result<Option<writer::BoxStack<'a, Cookie>>> {
         unimplemented!()
     }
     /// Sets the inner stackable.
-    fn mount(&mut self, _new: writer::Stack<'a, Cookie>) {
+    fn mount(&mut self, _new: writer::BoxStack<'a, Cookie>) {
         unimplemented!()
     }
     fn inner_ref(&self) -> Option<&writer::Stackable<'a, Cookie>> {
@@ -982,7 +990,7 @@ impl<'a> writer::Stackable<'a, Cookie> for Encryptor<'a> {
             None
         }
     }
-    fn into_inner(mut self: Box<Self>) -> Result<Option<writer::Stack<'a, Cookie>>> {
+    fn into_inner(mut self: Box<Self>) -> Result<Option<writer::BoxStack<'a, Cookie>>> {
         Ok(Some(self.emit_mdc()?))
     }
     fn cookie_set(&mut self, cookie: Cookie) -> Cookie {
@@ -1059,11 +1067,11 @@ mod test {
                 wrap(&mut o), CompressionAlgorithm::Uncompressed).unwrap();
             let mut ls = LiteralWriter::new(c, 't', None, 0).unwrap();
             write!(ls, "one").unwrap();
-            let c = ls.into_inner().unwrap().unwrap(); // Pop the LiteralWriter.
+            let c = ls.finalize().unwrap().unwrap(); // Pop the LiteralWriter.
             let mut ls = LiteralWriter::new(c, 't', None, 0).unwrap();
             write!(ls, "two").unwrap();
-            let c = ls.into_inner().unwrap().unwrap(); // Pop the LiteralWriter.
-            let c = c.into_inner().unwrap().unwrap(); // Pop the Compressor.
+            let c = ls.finalize().unwrap().unwrap(); // Pop the LiteralWriter.
+            let c = c.finalize().unwrap().unwrap(); // Pop the Compressor.
             let mut ls = LiteralWriter::new(c, 't', None, 0).unwrap();
             write!(ls, "three").unwrap();
         }
@@ -1111,16 +1119,16 @@ mod test {
                 c0, CompressionAlgorithm::Uncompressed).unwrap();
             let mut ls = LiteralWriter::new(c, 't', None, 0).unwrap();
             write!(ls, "one").unwrap();
-            let c = ls.into_inner().unwrap().unwrap();
+            let c = ls.finalize().unwrap().unwrap();
             let mut ls = LiteralWriter::new(c, 't', None, 0).unwrap();
             write!(ls, "two").unwrap();
-            let c = ls.into_inner().unwrap().unwrap();
-            let c0 = c.into_inner().unwrap().unwrap();
+            let c = ls.finalize().unwrap().unwrap();
+            let c0 = c.finalize().unwrap().unwrap();
             let c = Compressor::new(
                 c0, CompressionAlgorithm::Uncompressed).unwrap();
             let mut ls = LiteralWriter::new(c, 't', None, 0).unwrap();
             write!(ls, "three").unwrap();
-            let c = ls.into_inner().unwrap().unwrap();
+            let c = ls.finalize().unwrap().unwrap();
             let mut ls = LiteralWriter::new(c, 't', None, 0).unwrap();
             write!(ls, "four").unwrap();
         }
@@ -1173,8 +1181,8 @@ mod test {
                 .unwrap();
             let mut ls = LiteralWriter::new(signer, 't', None, 0).unwrap();
             ls.write_all(b"Tis, tis, tis.  Tis is important.").unwrap();
-            let signer = ls.into_inner().unwrap().unwrap();
-            let _ = signer.into_inner().unwrap().unwrap();
+            let signer = ls.finalize().unwrap().unwrap();
+            let _ = signer.finalize().unwrap().unwrap();
         }
 
         let mut ppr = PacketParser::from_bytes(&o).unwrap();

@@ -4,24 +4,25 @@ use std::fmt;
 use std::io;
 
 use Result;
-use super::{Generic, Stack, Stackable};
+use super::{Generic, Stack, BoxStack, Stackable};
 
 /// BZing writer.
-pub struct BZ<'a, C> {
-    inner: Generic<BzEncoder<Stack<'a, C>>, C>,
+pub struct BZ<'a, C: 'a> {
+    inner: Generic<BzEncoder<BoxStack<'a, C>>, C>,
 }
 
-impl<'a, C> BZ<'a, C> {
-    pub fn new(inner: Stack<'a, C>, cookie: C) -> Box<Self> {
-        Box::new(BZ {
+impl<'a, C: 'a> BZ<'a, C> {
+    /// Makes a BZ compressing writer.
+    pub fn new(inner: Stack<'a, C>, cookie: C) -> Stack<'a, C> {
+        Stack::from(Box::new(BZ {
             inner: Generic::new_unboxed(
-                BzEncoder::new(inner, BzCompression::Default),
+                BzEncoder::new(inner.into(), BzCompression::Default),
                 cookie),
-        })
+        }))
     }
 }
 
-impl<'a, C:> fmt::Debug for BZ<'a, C> {
+impl<'a, C: 'a> fmt::Debug for BZ<'a, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("writer::BZ")
             .field("inner", &self.inner)
@@ -29,7 +30,7 @@ impl<'a, C:> fmt::Debug for BZ<'a, C> {
     }
 }
 
-impl<'a, C> io::Write for BZ<'a, C> {
+impl<'a, C: 'a> io::Write for BZ<'a, C> {
     fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
         self.inner.write(bytes)
     }
@@ -39,15 +40,15 @@ impl<'a, C> io::Write for BZ<'a, C> {
     }
 }
 
-impl<'a, C> Stackable<'a, C> for BZ<'a, C> {
-    fn into_inner(self: Box<Self>) -> Result<Option<Stack<'a, C>>> {
+impl<'a, C: 'a> Stackable<'a, C> for BZ<'a, C> {
+    fn into_inner(self: Box<Self>) -> Result<Option<BoxStack<'a, C>>> {
         let inner = self.inner.inner.finish()?;
         Ok(Some(inner))
     }
-    fn pop(&mut self) -> Result<Option<Stack<'a, C>>> {
+    fn pop(&mut self) -> Result<Option<BoxStack<'a, C>>> {
         unimplemented!()
     }
-    fn mount(&mut self, _new: Stack<'a, C>) {
+    fn mount(&mut self, _new: BoxStack<'a, C>) {
         unimplemented!()
     }
     fn inner_mut(&mut self) -> Option<&mut Stackable<'a, C>> {

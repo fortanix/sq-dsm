@@ -45,11 +45,6 @@ fn main() {
         .expect("Failed to sign data");
 
     // Teardown the stack to ensure all the data is written.
-    let signer = literal.into_inner()
-        .expect("Failed to write data")
-        .unwrap();
-
-    let _ = signer.into_inner()
-        .expect("Failed to write data")
-        .unwrap();
+    literal.finalize_all()
+        .expect("Failed to write data");
 }

@@ -39,7 +39,7 @@ pub struct PartialBodyFilter<'a, C: 'a> {
     // Because this writer implements `Drop`, we cannot move the inner
     // writer out of this writer.  We therefore wrap it with `Option`
     // so that we can `take()` it.
-    inner: Option<writer::Stack<'a, C>>,
+    inner: Option<writer::BoxStack<'a, C>>,
 
     // The cookie.
     cookie: C,
@@ -66,13 +66,13 @@ impl<'a, C: 'a> PartialBodyFilter<'a, C> {
     pub fn new(inner: writer::Stack<'a, C>, cookie: C) -> writer::Stack<'a, C> {
         let buffer_threshold = PARTIAL_BODY_FILTER_BUFFER_THRESHOLD;
         let max_chunk_size = PARTIAL_BODY_FILTER_MAX_CHUNK_SIZE;
-        Box::new(PartialBodyFilter {
-            inner: Some(inner),
+        writer::Stack::from(Box::new(PartialBodyFilter {
+            inner: Some(inner.into()),
             cookie: cookie,
             buffer: Vec::with_capacity(buffer_threshold as usize),
             buffer_threshold: buffer_threshold,
             max_chunk_size: max_chunk_size,
-        })
+        }))
     }
 
     // Writes out any full chunks between `self.buffer` and `other`.
@@ -201,15 +201,15 @@ impl<'a, C: 'a> fmt::Debug for PartialBodyFilter<'a, C> {
 }
 
 impl<'a, C: 'a> writer::Stackable<'a, C> for PartialBodyFilter<'a, C> {
-    fn into_inner(mut self: Box<Self>) -> Result<Option<writer::Stack<'a, C>>> {
+    fn into_inner(mut self: Box<Self>) -> Result<Option<writer::BoxStack<'a, C>>> {
         self.write_out(&b""[..], true)?;
         Ok(self.inner.take())
     }
-    fn pop(&mut self) -> Result<Option<writer::Stack<'a, C>>> {
+    fn pop(&mut self) -> Result<Option<writer::BoxStack<'a, C>>> {
         self.write_out(&b""[..], true)?;
         Ok(self.inner.take())
     }
-    fn mount(&mut self, new: writer::Stack<'a, C>) {
+    fn mount(&mut self, new: writer::BoxStack<'a, C>) {
         self.inner = Some(new);
     }
     fn inner_mut(&mut self) -> Option<&mut writer::Stackable<'a, C>> {

@@ -16,7 +16,7 @@ use super::*;
 
 mod partial_body;
 use self::partial_body::PartialBodyFilter;
-mod writer;
+pub mod writer;
 pub mod stream;
 use s2k::S2K;
 use subpacket::{
