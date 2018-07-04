@@ -308,11 +308,25 @@ impl Signature {
                     // concatenated.
                     let mut signature =
                         Vec::with_capacity(ed25519::ED25519_SIGNATURE_SIZE);
+
+                    // We need to zero-pad them at the front, because
+                    // the MPI encoding drops leading zero bytes.
+                    let half = ed25519::ED25519_SIGNATURE_SIZE / 2;
+                    for _ in 0..half - r.value.len() {
+                        signature.push(0);
+                    }
                     signature.extend_from_slice(&r.value);
+                    for _ in 0..half - s.value.len() {
+                        signature.push(0);
+                    }
                     signature.extend_from_slice(&s.value);
+
+                    // Let's see if we got it right.
                     if signature.len() != ed25519::ED25519_SIGNATURE_SIZE {
                         return Err(Error::MalformedPacket(
-                            "Invalid signature size".into()).into());
+                            format!(
+                                "Invalid signature size: {}, r: {:?}, s: {:?}",
+                                signature.len(), &r.value, &s.value)).into());
                     }
 
                     ed25519::verify(&q.value[1..], hash, &signature)
