@@ -7,6 +7,7 @@ use std::str;
 use std::mem;
 use std::fmt;
 use std::path::Path;
+use time;
 
 use nettle::Hash;
 
@@ -43,6 +44,7 @@ use constants::{
     PublicKeyAlgorithm,
     SymmetricAlgorithm,
 };
+use conversions::Time;
 use mpis::{MPI, MPIs};
 use symmetric::{Decryptor, BufferedReaderDecryptor};
 
@@ -1040,7 +1042,7 @@ impl Key {
         let key = Key {
             common: Default::default(),
             version: version,
-            creation_time: creation_time,
+            creation_time: time::Tm::from_pgp(creation_time),
             pk_algo: pk_algo,
             mpis: mpis,
             secret: secret,

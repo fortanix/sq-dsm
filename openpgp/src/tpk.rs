@@ -1447,6 +1447,7 @@ mod test {
 
     #[test]
     fn broken() {
+        use conversions::Time;
         for i in 0..2 {
             let tpk = parse_tpk(bytes!("testy-broken-no-pk.pgp"),
                                 i == 0);
@@ -1465,7 +1466,7 @@ mod test {
             let tpk = parse_tpk(bytes!("testy-broken-no-sig-on-subkey.pgp"),
                                 i == 0).unwrap();
             eprintln!("{:?}", tpk);
-            assert_eq!(tpk.primary.creation_time, 1511355130);
+            assert_eq!(tpk.primary.creation_time.to_pgp().unwrap(), 1511355130);
             assert_eq!(tpk.userids.len(), 1);
             assert_eq!(tpk.userids[0].userid.value,
                        &b"Testy McTestface <testy@example.org>"[..]);
@@ -1479,10 +1480,11 @@ mod test {
 
     #[test]
     fn basics() {
+        use conversions::Time;
         for i in 0..2 {
             let tpk = parse_tpk(bytes!("testy.pgp"),
                                 i == 0).unwrap();
-            assert_eq!(tpk.primary.creation_time, 1511355130);
+            assert_eq!(tpk.primary.creation_time.to_pgp().unwrap(), 1511355130);
             assert_eq!(tpk.fingerprint().to_hex(),
                        "3E8877C877274692975189F5D03F6F865226FE8B");
 
@@ -1496,13 +1498,14 @@ mod test {
             assert_eq!(tpk.user_attributes.len(), 0);
 
             assert_eq!(tpk.subkeys.len(), 1, "number of subkeys");
-            assert_eq!(tpk.subkeys[0].subkey.creation_time, 1511355130);
+            assert_eq!(tpk.subkeys[0].subkey.creation_time.to_pgp().unwrap(),
+                       1511355130);
             assert_eq!(tpk.subkeys[0].selfsigs[0].hash_prefix,
                        [ 0xb7, 0xb9 ]);
 
             let tpk = parse_tpk(bytes!("testy-no-subkey.pgp"),
                                 i == 0).unwrap();
-            assert_eq!(tpk.primary.creation_time, 1511355130);
+            assert_eq!(tpk.primary.creation_time.to_pgp().unwrap(), 1511355130);
             assert_eq!(tpk.fingerprint().to_hex(),
                        "3E8877C877274692975189F5D03F6F865226FE8B");
 

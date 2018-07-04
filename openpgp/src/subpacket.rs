@@ -1584,7 +1584,7 @@ impl Signature {
     pub fn key_expired_at(&self, key: &Key, tm: time::Tm) -> bool {
         match self.key_expiration_time() {
             Some(e) =>
-                ((key.creation_time + e) as i64) <= tm.to_timespec().sec,
+                key.creation_time + time::Duration::seconds(e as i64) <= tm,
             None =>
                 false, // No expiration time, does not expire.
         }
@@ -2214,7 +2214,7 @@ fn accessors() {
     sig.set_revocable(false).unwrap();
     assert_eq!(sig.revocable(), Some(false));
 
-    let key = ::Key::new().creation_time(now.to_timespec().sec as u32);
+    let key = ::Key::new().creation_time(now);
     sig.set_key_expiration_time(Some(five_minutes)).unwrap();
     assert_eq!(sig.key_expiration_time(),
                Some(five_minutes.num_seconds() as u32));
@@ -2342,6 +2342,7 @@ fn subpacket_test_1 () {
 
 #[test]
 fn subpacket_test_2() {
+    use conversions::Time;
     use PacketPile;
 
     //   Test #    Subpacket
@@ -2418,9 +2419,9 @@ fn subpacket_test_2() {
 
         // Check key expiration.
         assert!(! sig.key_expired_at(key, time::at_utc(time::Timespec::new(
-            key.creation_time as i64 + 63072000 - 1, 0))));
+            key.creation_time.to_pgp().unwrap() as i64 + 63072000 - 1, 0))));
         assert!(sig.key_expired_at(key, time::at_utc(time::Timespec::new(
-            key.creation_time as i64 + 63072000, 0))));
+            key.creation_time.to_pgp().unwrap() as i64 + 63072000, 0))));
 
         assert_eq!(sig.preferred_symmetric_algorithms(),
                    Some(&[9, 8, 7, 2][..]));

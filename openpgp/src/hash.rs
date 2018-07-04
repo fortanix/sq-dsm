@@ -7,6 +7,7 @@ use Key;
 use Signature;
 use Error;
 use Result;
+use conversions::Time;
 
 use nettle::Hash;
 
@@ -117,10 +118,12 @@ impl Key {
         header.push(4);
 
         // Creation time.
-        header.push(((self.creation_time >> 24) & 0xFF) as u8);
-        header.push(((self.creation_time >> 16) & 0xFF) as u8);
-        header.push(((self.creation_time >> 8) & 0xFF) as u8);
-        header.push((self.creation_time & 0xFF) as u8);
+        let creation_time = self.creation_time.to_pgp()
+            .unwrap_or(0);
+        header.push((creation_time >> 24) as u8);
+        header.push((creation_time >> 16) as u8);
+        header.push((creation_time >> 8) as u8);
+        header.push((creation_time >> 0) as u8);
 
         // Algorithm.
         header.push(self.pk_algo.into());

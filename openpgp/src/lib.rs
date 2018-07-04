@@ -321,7 +321,7 @@ pub struct Key {
     /// Version of the key packet. Must be 4.
     pub version: u8,
     /// When the key was created.
-    pub creation_time: u32,
+    pub creation_time: time::Tm,
     /// Public key algorithm of this signature.
     pub pk_algo: PublicKeyAlgorithm,
     /// Public key MPIs. Must be a *PublicKey variant.

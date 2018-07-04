@@ -1,4 +1,5 @@
 use std::fmt;
+use time;
 
 use mpis::MPIs;
 use Tag;
@@ -14,7 +15,7 @@ impl fmt::Debug for Key {
         f.debug_struct("Key")
             .field("fingerprint", &self.fingerprint())
             .field("version", &self.version)
-            .field("creation_time", &self.creation_time)
+            .field("creation_time", &format!("{}", self.creation_time.rfc3339()))
             .field("pk_algo", &self.pk_algo)
             .field("mpis", &self.mpis)
             .field("secret", &self.secret)
@@ -35,7 +36,7 @@ impl Key {
         Key {
             common: Default::default(),
             version: 4,
-            creation_time: 0,
+            creation_time: time::now(),
             pk_algo: PublicKeyAlgorithm::Unknown(0),
             mpis: MPIs::empty(),
             secret: None,
@@ -46,7 +47,7 @@ impl Key {
     ///
     /// A Unix timestamp is the number of seconds since the Unix
     /// epoch.
-    pub fn creation_time(mut self, timestamp: u32) -> Self {
+    pub fn creation_time(mut self, timestamp: time::Tm) -> Self {
         self.creation_time = timestamp;
         self
     }

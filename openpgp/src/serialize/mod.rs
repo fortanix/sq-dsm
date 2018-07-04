@@ -22,6 +22,7 @@ use s2k::S2K;
 use subpacket::{
     Subpacket, SubpacketValue, SubpacketLengthTrait,
 };
+use conversions::Time;
 
 // Whether to trace the modules execution (on stderr).
 const TRACE : bool = false;
@@ -642,7 +643,7 @@ impl SerializeKey for Key {
                  non-version 4 packets.".into()).into());
         }
         write_byte(o, self.version)?;
-        write_be_u32(o, self.creation_time)?;
+        write_be_u32(o, self.creation_time.to_pgp()?)?;
         write_byte(o, self.pk_algo.into())?;
         self.mpis.serialize(o)?;
 
