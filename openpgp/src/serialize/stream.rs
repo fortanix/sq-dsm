@@ -65,6 +65,13 @@ pub fn wrap<'a, W: 'a + io::Write>(w: W) -> writer::Stack<'a, Cookie> {
 }
 
 
+impl<'a> From<&'a mut io::Write> for writer::Stack<'a, Cookie> {
+    fn from(w: &'a mut io::Write) -> Self {
+        writer::Generic::new(w, Cookie::new(0))
+    }
+}
+
+
 /// Writes an arbitrary packet.
 ///
 /// This writer can be used to construct arbitrary OpenPGP packets.
