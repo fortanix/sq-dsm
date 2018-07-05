@@ -175,6 +175,9 @@ impl Signature {
         self.hash_prefix[1] = digest[1];
 
         self.mpis = match (signer.pk_algo, &signer.mpis, signer_sec) {
+            (RSASign,
+             &RSAPublicKey { ref e, ref n },
+             &RSASecretKey { ref p, ref q, ref d, .. }) |
             (RSAEncryptSign,
              &RSAPublicKey { ref e, ref n },
              &RSASecretKey { ref p, ref q, ref d, .. }) => {
@@ -275,7 +278,12 @@ impl Signature {
         use mpis::MPIs::*;
 
         match (self.pk_algo, &key.mpis, &self.mpis) {
-            (RSAEncryptSign, &RSAPublicKey{ ref e, ref n }, &RSASignature{ ref s }) => {
+            (RSASign,
+             &RSAPublicKey{ ref e, ref n },
+             &RSASignature{ ref s }) |
+            (RSAEncryptSign,
+             &RSAPublicKey{ ref e, ref n },
+             &RSASignature{ ref s })=> {
                 let key = rsa::PublicKey::new(&n.value, &e.value)?;
 
                 // As described in [Section 5.2.2 and 5.2.3 of RFC 4880],
