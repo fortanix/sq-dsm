@@ -989,14 +989,14 @@ impl Key {
 
         let creation_time = php_try!(php.parse_be_u32("creation_time"));
         let pk_algo: PublicKeyAlgorithm = php_try!(php.parse_u8("pk_algo")).into();
-        let mpis = MPIs::parse_public_key(pk_algo, &mut php)?;
+        let mpis = php_try!(MPIs::parse_public_key(pk_algo, &mut php));
         let secret = if tag == Tag::SecretKey || tag == Tag::SecretSubkey {
-            let s2k_usage = php.parse_u8("s2k_usage")?;
+            let s2k_usage = php_try!(php.parse_u8("s2k_usage"));
             let sec = match s2k_usage {
                 // Unencrypted
                 0 => {
-                    let sec = MPIs::parse_secret_key(pk_algo, &mut php)?;
-                    let their_chksum = php.parse_be_u16("checksum")?;
+                    let sec = php_try!(MPIs::parse_secret_key(pk_algo, &mut php));
+                    let their_chksum = php_try!(php.parse_be_u16("checksum"));
                     let mut cur = Cursor::new(Vec::default());
 
                     sec.serialize(&mut cur)?;
@@ -1015,9 +1015,9 @@ impl Key {
                 }
                 // Encrypted, S2K & SHA-1 checksum
                 254 => {
-                    let sk: SymmetricAlgorithm = php.parse_u8("symm_algo")?.into();
+                    let sk: SymmetricAlgorithm = php_try!(php.parse_u8("symm_algo")).into();
                     let s2k = php_try!(S2K::parse(&mut php));
-                    let mut cipher = php.parse_bytes_eof("encrypted_mpis")?;
+                    let mut cipher = php_try!(php.parse_bytes_eof("encrypted_mpis"));
 
                     SecretKey::Encrypted{
                         s2k: s2k,
