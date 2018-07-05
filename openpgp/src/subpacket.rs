@@ -579,7 +579,7 @@ pub enum SubpacketValue<'a> {
     /// String (URL)
     PolicyURI(&'a [u8]),
     /// N octets of flags
-    KeyFlags(&'a [u8]),
+    KeyFlags(KeyFlags),
     /// String
     SignersUserID(&'a [u8]),
     /// 1 octet of revocation code, N octets of reason string
@@ -619,7 +619,7 @@ impl<'a> SubpacketValue<'a> {
             PreferredKeyServer(p) => p.len(),
             PrimaryUserID(_) => 1,
             PolicyURI(p) => p.len(),
-            KeyFlags(f) => f.len(),
+            KeyFlags(f) => f.0.len(),
             SignersUserID(u) => u.len(),
             ReasonForRevocation((_, r)) => 1 + r.len(),
             Features(f) => f.len(),
@@ -881,7 +881,7 @@ impl<'a> From<SubpacketRaw<'a>> for Subpacket<'a> {
 
             SubpacketTag::KeyFlags =>
                 // N octets of flags.
-                Some(SubpacketValue::KeyFlags(raw.value)),
+                Some(SubpacketValue::KeyFlags(KeyFlags(raw.value.to_vec()))),
 
             SubpacketTag::SignersUserID =>
                 // String.
@@ -1030,6 +1030,7 @@ quickcheck! {
 
 /// Describes how a key may be used, and stores additional
 /// information.
+#[derive(Clone)]
 pub struct KeyFlags(Vec<u8>);
 
 impl Default for KeyFlags {
@@ -1088,6 +1089,11 @@ impl KeyFlags {
         while self.0.len() < target {
             self.0.push(0);
         }
+    }
+
+    /// Returns a slice referencing the raw values.
+    pub(crate) fn as_slice(&self) -> &[u8] {
+        &self.0
     }
 
     /// This key may be used to certify other keys.
@@ -1941,7 +1947,7 @@ impl Signature {
         // N octets of flags
         if let Some(sb) = self.subpacket(SubpacketTag::KeyFlags) {
             if let SubpacketValue::KeyFlags(v) = sb.value {
-                KeyFlags(v.to_vec())
+                v
             } else {
                 KeyFlags::default()
             }
@@ -1956,7 +1962,7 @@ impl Signature {
     /// how it is stored (split, held by multiple people).
     pub fn set_key_flags(&mut self, flags: &KeyFlags) -> Result<()> {
         self.hashed_area.replace(Subpacket::new(
-            SubpacketValue::KeyFlags(&flags.0),
+            SubpacketValue::KeyFlags(flags.clone()),
             true)?)
     }
 
@@ -2509,7 +2515,8 @@ fn subpacket_test_2() {
                    Some(Subpacket {
                        critical: false,
                        tag: SubpacketTag::KeyFlags,
-                       value: SubpacketValue::KeyFlags(&[0x03][..])
+                       value: SubpacketValue::KeyFlags(
+                           KeyFlags::default().set_certify(true).set_sign(true))
                    }));
 
         assert_eq!(sig.features(), Some(&[0x01][..]));
