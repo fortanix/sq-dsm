@@ -585,7 +585,7 @@ pub enum SubpacketValue<'a> {
     /// 1 octet of revocation code, N octets of reason string
     ReasonForRevocation((u8, &'a [u8])),
     /// N octets of flags
-    Features(&'a [u8]),
+    Features(Features),
     /// 1-octet public-key algorithm, 1 octet hash algorithm, N octets hash
     SignatureTarget((u8, u8, &'a [u8])),
     /// An embedded signature.
@@ -622,7 +622,7 @@ impl<'a> SubpacketValue<'a> {
             KeyFlags(f) => f.0.len(),
             SignersUserID(u) => u.len(),
             ReasonForRevocation((_, r)) => 1 + r.len(),
-            Features(f) => f.len(),
+            Features(f) => f.0.len(),
             SignatureTarget((_, _, h)) => 1 + 1 + h.len(),
             EmbeddedSignature(p) => match p {
                 &Packet::Signature(ref sig) => {
@@ -898,7 +898,7 @@ impl<'a> From<SubpacketRaw<'a>> for Subpacket<'a> {
 
             SubpacketTag::Features =>
                 // N octets of flags
-                Some(SubpacketValue::Features(raw.value)),
+                Some(SubpacketValue::Features(Features(raw.value.to_vec()))),
 
             SubpacketTag::SignatureTarget =>
                 // 1 octet public-key algorithm, 1 octet hash algorithm,
@@ -1246,6 +1246,79 @@ const KEY_FLAG_AUTHENTICATE: u8 = 0x20;
 /// The private component of this key may be in the possession of more
 /// than one person.
 const KEY_FLAG_GROUP_KEY: u8 = 0x80;
+
+
+/// Describes features supported by an OpenPGP implementation.
+#[derive(Clone)]
+pub struct Features(Vec<u8>);
+
+impl Default for Features {
+    fn default() -> Self {
+        Features(vec![0])
+    }
+}
+
+impl PartialEq for Features {
+    fn eq(&self, other: &Features) -> bool {
+        // To deal with unknown flags, we do a bitwise comparison.
+        // First, we need to bring both flag fields to the same
+        // length.
+        let len = ::std::cmp::max(self.0.len(), other.0.len());
+        let mut mine = vec![0; len];
+        let mut hers = vec![0; len];
+        &mut mine[..self.0.len()].copy_from_slice(&self.0);
+        &mut hers[..other.0.len()].copy_from_slice(&other.0);
+
+        mine == hers
+    }
+}
+
+impl fmt::Debug for Features {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        if self.supports_mdc() {
+            f.write_str("MDC")?;
+        }
+
+        Ok(())
+    }
+}
+
+impl Features {
+    /// Grows the vector to the given length.
+    fn grow(&mut self, target: usize) {
+        while self.0.len() < target {
+            self.0.push(0);
+        }
+    }
+
+    /// Returns a slice referencing the raw values.
+    pub(crate) fn as_slice(&self) -> &[u8] {
+        &self.0
+    }
+
+    /// Whether or not MDC is supported.
+    pub fn supports_mdc(&self) -> bool {
+        self.0.get(0)
+            .map(|v0| v0 & FEATURE_FLAG_MDC > 0).unwrap_or(false)
+    }
+
+
+    /// Sets whether or not MDC is supported.
+    pub fn set_mdc(mut self, v: bool) -> Self {
+        self.grow(1);
+        if v {
+            self.0[0] |= FEATURE_FLAG_MDC;
+        } else {
+            self.0[0] &= !FEATURE_FLAG_MDC;
+        }
+        self
+    }
+}
+
+/// The private component of this key may be in the possession of more
+/// than one person.
+const FEATURE_FLAG_MDC: u8 = 0x01;
+
 
 impl Signature {
     /// Returns the *last* instance of the specified subpacket.
@@ -2036,26 +2109,26 @@ impl Signature {
     ///
     /// Note: if the signature contains multiple instances of this
     /// subpacket, only the last one is considered.
-    pub fn features(&self) -> Option<&[u8]> {
+    pub fn features(&self) -> Features {
         // N octets of flags
         if let Some(sb)
                 = self.subpacket(SubpacketTag::Features) {
             if let SubpacketValue::Features(v) = sb.value {
-                Some(v)
+                v
             } else {
-                None
+                Features::default()
             }
         } else {
-            None
+            Features::default()
         }
     }
 
     /// Sets the value of the Features subpacket, which contains a
     /// list of features that the user's OpenPGP implementation
     /// supports.
-    pub fn set_features(&mut self, features: &[u8]) -> Result<()> {
+    pub fn set_features(&mut self, features: &Features) -> Result<()> {
         self.hashed_area.replace(Subpacket::new(
-            SubpacketValue::Features(features),
+            SubpacketValue::Features(features.clone()),
             true)?)
     }
 
@@ -2293,8 +2366,9 @@ fn accessors() {
     sig.set_reason_for_revocation(3, b"foobar").unwrap();
     assert_eq!(sig.reason_for_revocation(), Some((3, &b"foobar"[..])));
 
-    sig.set_features(b"foobar").unwrap();
-    assert_eq!(sig.features(), Some(&b"foobar"[..]));
+    let feats = Features::default().set_mdc(true);
+    sig.set_features(&feats).unwrap();
+    assert_eq!(sig.features(), feats);
 
     let digest = vec![0; hash_algo.context().unwrap().digest_size()];
     sig.set_signature_target(pk_algo, hash_algo, &digest).unwrap();
@@ -2519,12 +2593,13 @@ fn subpacket_test_2() {
                            KeyFlags::default().set_certify(true).set_sign(true))
                    }));
 
-        assert_eq!(sig.features(), Some(&[0x01][..]));
+        assert_eq!(sig.features(), Features::default().set_mdc(true));
         assert_eq!(sig.subpacket(SubpacketTag::Features),
                    Some(Subpacket {
                        critical: false,
                        tag: SubpacketTag::Features,
-                       value: SubpacketValue::Features(&[0x01][..])
+                       value: SubpacketValue::Features(
+                           Features::default().set_mdc(true))
                    }));
 
         let keyid = KeyID::from_hex("F004 B9A4 5C58 6126").unwrap();

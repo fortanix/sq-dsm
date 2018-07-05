@@ -1298,9 +1298,9 @@ impl TPK {
 
         self.subkeys.sort_by(|a, b| {
             // Features.
-            let a_features = a.selfsigs[0].features().unwrap_or(b"");
-            let b_features = b.selfsigs[0].features().unwrap_or(b"");
-            let cmp = a_features.cmp(&b_features);
+            let a_features = a.selfsigs[0].features();
+            let b_features = b.selfsigs[0].features();
+            let cmp = a_features.as_slice().cmp(b_features.as_slice());
             if cmp != Ordering::Equal {
                 return cmp;
             }
