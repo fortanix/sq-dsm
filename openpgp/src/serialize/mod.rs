@@ -427,7 +427,9 @@ impl<'a> Serialize for SubpacketValue<'a> {
             KeyExpirationTime(t) =>
                 write_be_u32(o, t.to_pgp()?)?,
             PreferredSymmetricAlgorithms(ref p) =>
-                o.write_all(p)?,
+                for a in p {
+                    o.write_all(&[(*a).into()])?;
+                },
             RevocationKey((class, pk_algo, ref fp)) => {
                 o.write_all(&[*class, *pk_algo])?;
                 o.write_all(fp.as_slice())?;
@@ -442,9 +444,13 @@ impl<'a> Serialize for SubpacketValue<'a> {
                 o.write_all(nd.value())?;
             },
             PreferredHashAlgorithms(ref p) =>
-                o.write_all(p)?,
+                for a in p {
+                    o.write_all(&[(*a).into()])?;
+                },
             PreferredCompressionAlgorithms(ref p) =>
-                o.write_all(p)?,
+                for a in p {
+                    o.write_all(&[(*a).into()])?;
+                },
             KeyServerPreferences(ref p) =>
                 o.write_all(p)?,
             PreferredKeyServer(ref p) =>

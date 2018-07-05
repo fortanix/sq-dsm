@@ -74,8 +74,10 @@ use {
     KeyID,
 };
 use constants::{
+    CompressionAlgorithm,
     HashAlgorithm,
     PublicKeyAlgorithm,
+    SymmetricAlgorithm,
 };
 use conversions::{
     Time,
@@ -555,7 +557,7 @@ pub enum SubpacketValue<'a> {
     /// 4-octet time field.
     KeyExpirationTime(time::Duration),
     /// Array of one-octet values
-    PreferredSymmetricAlgorithms(&'a [u8]),
+    PreferredSymmetricAlgorithms(Vec<SymmetricAlgorithm>),
     /// 1 octet of class, 1 octet of public-key algorithm ID, 20 octets of
     /// fingerprint
     RevocationKey((u8, u8, Fingerprint)),
@@ -565,9 +567,9 @@ pub enum SubpacketValue<'a> {
     /// which are strings of octets..
     NotationData(NotationData<'a>),
     /// Array of one-octet values
-    PreferredHashAlgorithms(&'a [u8]),
+    PreferredHashAlgorithms(Vec<HashAlgorithm>),
     /// Array of one-octet values
-    PreferredCompressionAlgorithms(&'a [u8]),
+    PreferredCompressionAlgorithms(Vec<CompressionAlgorithm>),
     /// N octets of flags
     KeyServerPreferences(&'a [u8]),
     /// String (URL)
@@ -803,7 +805,7 @@ impl<'a> From<SubpacketRaw<'a>> for Subpacket<'a> {
             SubpacketTag::PreferredSymmetricAlgorithms =>
                 // array of one-octet values.
                 Some(SubpacketValue::PreferredSymmetricAlgorithms(
-                    raw.value)),
+                    raw.value.iter().map(|o| (*o).into()).collect())),
 
             SubpacketTag::RevocationKey =>
                 // 1 octet of class, 1 octet of pk algorithm, 20 bytes
@@ -848,12 +850,12 @@ impl<'a> From<SubpacketRaw<'a>> for Subpacket<'a> {
             SubpacketTag::PreferredHashAlgorithms =>
                 // array of one-octet values.
                 Some(SubpacketValue::PreferredHashAlgorithms(
-                    raw.value)),
+                    raw.value.iter().map(|o| (*o).into()).collect())),
 
             SubpacketTag::PreferredCompressionAlgorithms =>
                 // array of one-octet values.
                 Some(SubpacketValue::PreferredCompressionAlgorithms(
-                    raw.value)),
+                    raw.value.iter().map(|o| (*o).into()).collect())),
 
             SubpacketTag::KeyServerPreferences =>
                 // N octets of flags.
@@ -1602,7 +1604,8 @@ impl Signature {
     ///
     /// Note: if the signature contains multiple instances of this
     /// subpacket, only the last one is considered.
-    pub fn preferred_symmetric_algorithms(&self) -> Option<&[u8]> {
+    pub fn preferred_symmetric_algorithms(&self)
+                                          -> Option<Vec<SymmetricAlgorithm>> {
         // array of one-octet values
         if let Some(sb)
                 = self.subpacket(
@@ -1622,7 +1625,8 @@ impl Signature {
     /// subpacket, which contains the list of symmetric algorithms
     /// that the key holder prefers, ordered according by the key
     /// holder's preference.
-    pub fn set_preferred_symmetric_algorithms(&mut self, preferences: &[u8])
+    pub fn set_preferred_symmetric_algorithms(&mut self,
+                                              preferences: Vec<SymmetricAlgorithm>)
                                               -> Result<()> {
         self.hashed_area.replace(Subpacket::new(
             SubpacketValue::PreferredSymmetricAlgorithms(preferences),
@@ -1731,7 +1735,7 @@ impl Signature {
     ///
     /// Note: if the signature contains multiple instances of this
     /// subpacket, only the last one is considered.
-    pub fn preferred_hash_algorithms(&self) -> Option<&[u8]> {
+    pub fn preferred_hash_algorithms(&self) -> Option<Vec<HashAlgorithm>> {
         // array of one-octet values
         if let Some(sb)
                 = self.subpacket(
@@ -1750,7 +1754,8 @@ impl Signature {
     /// which contains the list of hash algorithms that the key
     /// holders prefers, ordered according by the key holder's
     /// preference.
-    pub fn set_preferred_hash_algorithms(&mut self, preferences: &[u8])
+    pub fn set_preferred_hash_algorithms(&mut self,
+                                         preferences: Vec<HashAlgorithm>)
                                          -> Result<()> {
         self.hashed_area.replace(Subpacket::new(
             SubpacketValue::PreferredHashAlgorithms(preferences),
@@ -1767,7 +1772,9 @@ impl Signature {
     ///
     /// Note: if the signature contains multiple instances of this
     /// subpacket, only the last one is considered.
-    pub fn preferred_compression_algorithms(&self) -> Option<&[u8]> {
+    pub fn preferred_compression_algorithms(&self)
+                                            -> Option<Vec<CompressionAlgorithm>>
+    {
         // array of one-octet values
         if let Some(sb)
                 = self.subpacket(
@@ -1787,7 +1794,8 @@ impl Signature {
     /// subpacket, which contains the list of compression algorithms
     /// that the key holder prefers, ordered according by the key
     /// holder's preference.
-    pub fn set_preferred_compression_algorithms(&mut self, preferences: &[u8])
+    pub fn set_preferred_compression_algorithms(&mut self,
+                                                preferences: Vec<CompressionAlgorithm>)
                                                 -> Result<()> {
         self.hashed_area.replace(Subpacket::new(
             SubpacketValue::PreferredCompressionAlgorithms(preferences),
@@ -2230,8 +2238,11 @@ fn accessors() {
     assert!(!sig.key_expired_at(&key, now));
     assert!(!sig.key_expired_at(&key, now + ten_minutes));
 
-    sig.set_preferred_symmetric_algorithms(b"foobar").unwrap();
-    assert_eq!(sig.preferred_symmetric_algorithms(), Some(&b"foobar"[..]));
+    let pref = vec![SymmetricAlgorithm::AES256,
+                    SymmetricAlgorithm::AES192,
+                    SymmetricAlgorithm::AES128];
+    sig.set_preferred_symmetric_algorithms(pref.clone()).unwrap();
+    assert_eq!(sig.preferred_symmetric_algorithms(), Some(pref));
 
     let fp = Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb");
     sig.set_revocation_key(2, pk_algo, fp.clone()).unwrap();
@@ -2241,11 +2252,17 @@ fn accessors() {
     sig.set_issuer(fp.to_keyid()).unwrap();
     assert_eq!(sig.issuer(), Some(fp.to_keyid()));
 
-    sig.set_preferred_hash_algorithms(b"foobar").unwrap();
-    assert_eq!(sig.preferred_hash_algorithms(), Some(&b"foobar"[..]));
+    let pref = vec![HashAlgorithm::SHA512,
+                    HashAlgorithm::SHA384,
+                    HashAlgorithm::SHA256];
+    sig.set_preferred_hash_algorithms(pref.clone()).unwrap();
+    assert_eq!(sig.preferred_hash_algorithms(), Some(pref));
 
-    sig.set_preferred_compression_algorithms(b"foobar").unwrap();
-    assert_eq!(sig.preferred_compression_algorithms(), Some(&b"foobar"[..]));
+    let pref = vec![CompressionAlgorithm::BZip2,
+                    CompressionAlgorithm::Zlib,
+                    CompressionAlgorithm::Zip];
+    sig.set_preferred_compression_algorithms(pref.clone()).unwrap();
+    assert_eq!(sig.preferred_compression_algorithms(), Some(pref));
 
     sig.set_key_server_preferences(b"foobar").unwrap();
     assert_eq!(sig.key_server_preferences(), Some(&b"foobar"[..]));
@@ -2431,34 +2448,52 @@ fn subpacket_test_2() {
             key.creation_time + time::Duration::seconds(63072000)));
 
         assert_eq!(sig.preferred_symmetric_algorithms(),
-                   Some(&[9, 8, 7, 2][..]));
+                   Some(vec![SymmetricAlgorithm::AES256,
+                             SymmetricAlgorithm::AES192,
+                             SymmetricAlgorithm::AES128,
+                             SymmetricAlgorithm::TripleDES]));
         assert_eq!(sig.subpacket(SubpacketTag::PreferredSymmetricAlgorithms),
                    Some(Subpacket {
                        critical: false,
                        tag: SubpacketTag::PreferredSymmetricAlgorithms,
                        value: SubpacketValue::PreferredSymmetricAlgorithms(
-                           &[9, 8, 7, 2][..])
-                   }));
+                           vec![SymmetricAlgorithm::AES256,
+                                SymmetricAlgorithm::AES192,
+                                SymmetricAlgorithm::AES128,
+                                SymmetricAlgorithm::TripleDES]
+                       )}));
 
         assert_eq!(sig.preferred_hash_algorithms(),
-                   Some(&[8, 9, 10, 11, 2][..]));
+                   Some(vec![HashAlgorithm::SHA256,
+                             HashAlgorithm::SHA384,
+                             HashAlgorithm::SHA512,
+                             HashAlgorithm::SHA224,
+                             HashAlgorithm::SHA1]));
         assert_eq!(sig.subpacket(SubpacketTag::PreferredHashAlgorithms),
                    Some(Subpacket {
                        critical: false,
                        tag: SubpacketTag::PreferredHashAlgorithms,
                        value: SubpacketValue::PreferredHashAlgorithms(
-                           &[8, 9, 10, 11, 2][..])
-                   }));
+                           vec![HashAlgorithm::SHA256,
+                                HashAlgorithm::SHA384,
+                                HashAlgorithm::SHA512,
+                                HashAlgorithm::SHA224,
+                                HashAlgorithm::SHA1]
+                       )}));
 
         assert_eq!(sig.preferred_compression_algorithms(),
-                   Some(&[2, 3, 1][..]));
+                   Some(vec![CompressionAlgorithm::Zlib,
+                             CompressionAlgorithm::BZip2,
+                             CompressionAlgorithm::Zip]));
         assert_eq!(sig.subpacket(SubpacketTag::PreferredCompressionAlgorithms),
                    Some(Subpacket {
                        critical: false,
                        tag: SubpacketTag::PreferredCompressionAlgorithms,
                        value: SubpacketValue::PreferredCompressionAlgorithms(
-                           &[2, 3, 1][..])
-                   }));
+                           vec![CompressionAlgorithm::Zlib,
+                                CompressionAlgorithm::BZip2,
+                                CompressionAlgorithm::Zip]
+                       )}));
 
         assert_eq!(sig.key_server_preferences(), Some(&[0x80][..]));
         assert_eq!(sig.subpacket(SubpacketTag::KeyServerPreferences),
