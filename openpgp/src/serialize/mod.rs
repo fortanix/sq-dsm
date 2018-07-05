@@ -22,7 +22,10 @@ use s2k::S2K;
 use subpacket::{
     Subpacket, SubpacketValue, SubpacketLengthTrait,
 };
-use conversions::Time;
+use conversions::{
+    Time,
+    Duration,
+};
 
 // Whether to trace the modules execution (on stderr).
 const TRACE : bool = false;
@@ -408,9 +411,9 @@ impl<'a> Serialize for SubpacketValue<'a> {
         use self::SubpacketValue::*;
         match self {
             SignatureCreationTime(t) =>
-                write_be_u32(o, *t)?,
+                write_be_u32(o, t.to_pgp()?)?,
             SignatureExpirationTime(t) =>
-                write_be_u32(o, *t)?,
+                write_be_u32(o, t.to_pgp()?)?,
             ExportableCertification(e) =>
                 o.write_all(&[if *e { 1 } else { 0 }])?,
             TrustSignature((level, amount)) =>
@@ -422,7 +425,7 @@ impl<'a> Serialize for SubpacketValue<'a> {
             Revocable(r) =>
                 o.write_all(&[if *r { 1 } else { 0 }])?,
             KeyExpirationTime(t) =>
-                write_be_u32(o, *t)?,
+                write_be_u32(o, t.to_pgp()?)?,
             PreferredSymmetricAlgorithms(ref p) =>
                 o.write_all(p)?,
             RevocationKey((class, pk_algo, ref fp)) => {

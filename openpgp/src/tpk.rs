@@ -8,6 +8,7 @@ use std::slice;
 use std::mem;
 use std::fmt;
 use std::vec;
+use time;
 
 use {
     Error,
@@ -956,6 +957,9 @@ impl TPK {
             a.to_vec().into_boxed_slice()
         }
 
+        // Fallback time.
+        let time_zero = time::at_utc(time::Timespec::new(0, 0));
+
 
         // The very first thing that we do is verify the
         // self-signatures.  There are a few things that we need to be
@@ -1175,9 +1179,11 @@ impl TPK {
             } else if a_primary.is_some() && b_primary.is_some() {
                 // Both are marked as primary.  Fallback to the date.
                 let a_timestamp
-                    = a.selfsigs[0].signature_creation_time().unwrap_or(0);
+                    = a.selfsigs[0].signature_creation_time()
+                    .unwrap_or(time_zero);
                 let b_timestamp
-                    = b.selfsigs[0].signature_creation_time().unwrap_or(0);
+                    = b.selfsigs[0].signature_creation_time()
+                    .unwrap_or(time_zero);
                 // We want the more recent date first.
                 let cmp = b_timestamp.cmp(&a_timestamp);
                 if cmp != Ordering::Equal {
@@ -1238,9 +1244,11 @@ impl TPK {
             } else if a_primary.is_some() && b_primary.is_some() {
                 // Both are marked as primary.  Fallback to the date.
                 let a_timestamp
-                    = a.selfsigs[0].signature_creation_time().unwrap_or(0);
+                    = a.selfsigs[0].signature_creation_time()
+                    .unwrap_or(time_zero);
                 let b_timestamp
-                    = b.selfsigs[0].signature_creation_time().unwrap_or(0);
+                    = b.selfsigs[0].signature_creation_time()
+                    .unwrap_or(time_zero);
                 // We want the more recent date first.
                 let cmp = b_timestamp.cmp(&a_timestamp);
                 if cmp != Ordering::Equal {
