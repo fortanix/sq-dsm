@@ -251,8 +251,8 @@ impl<'a> Signer<'a> {
             let can_sign = |key: &Key, sig: &Signature| -> bool {
                 sig.key_flags().can_sign()
                 // Check expiry.
-                    && ! sig.signature_expired()
-                    && ! sig.key_expired(key)
+                    && sig.signature_alive()
+                    && sig.key_alive(key)
             };
 
             // Gather all signing-capable subkeys.
@@ -825,8 +825,8 @@ impl<'a> Encryptor<'a> {
                         sig.key_flags().can_encrypt_for_transport(),
                 }
                  // Check expiry.
-                 && ! sig.signature_expired()
-                 && ! sig.key_expired(key))
+                 && sig.signature_alive()
+                 && sig.key_alive(key))
             };
 
             // Gather all encryption-capable subkeys.
