@@ -1,4 +1,4 @@
-//! https://preview.sequoia-pgp.org/guide/getting-started/
+//! https://sequoia-pgp.org/guide/getting-started/
 
 #[macro_use] // For armored!
 extern crate openpgp;

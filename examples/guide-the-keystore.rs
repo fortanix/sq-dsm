@@ -1,4 +1,4 @@
-//! https://preview.sequoia-pgp.org/guide/the-keystore/
+//! https://sequoia-pgp.org/guide/the-keystore/
 
 #[macro_use] // For armored!
 extern crate openpgp;
