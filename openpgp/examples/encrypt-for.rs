@@ -11,13 +11,21 @@ use openpgp::serialize::stream::{
 
 fn main() {
     let args: Vec<String> = env::args().collect();
-    if args.len() < 2 {
+    if args.len() < 3 {
         panic!("A simple encryption filter.\n\n\
-                Usage: {} <keyfile> [<keyfile>...] <input >output\n", args[0]);
+                Usage: {} [at-rest|for-transport] <keyfile> [<keyfile>...] <input >output\n", args[0]);
     }
 
+    let mode = match args[1].as_ref() {
+        "at-rest" => EncryptionMode::AtRest,
+        "for-transport" => EncryptionMode::ForTransport,
+        x => panic!("invalid mode: {:?}, \
+                     must be either 'at rest' or 'for transport'",
+                    x),
+    };
+
     // Read the transferable public keys from the given files.
-    let tpks: Vec<openpgp::TPK> = args[1..].iter().map(|f| {
+    let tpks: Vec<openpgp::TPK> = args[2..].iter().map(|f| {
         openpgp::TPK::from_reader(
             // Use an openpgp::Reader so that we accept both armored
             // and plain PGP data.
@@ -37,7 +45,7 @@ fn main() {
     let encryptor = Encryptor::new(wrap(sink),
                                    &[], // No symmetric encryption.
                                    &recipients,
-                                   EncryptionMode::AtRest)
+                                   mode)
         .expect("Failed to create encryptor");
     let mut literal_writer = LiteralWriter::new(encryptor, 't', None, 0)
         .expect("Failed to create literal writer");
