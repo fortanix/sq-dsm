@@ -1461,6 +1461,41 @@ impl Signature {
         }
     }
 
+    /// Returns whether or not the signature is alive, i.e. the
+    /// creation time has passed, but the expiration time has not.
+    ///
+    /// Note that [Section 5.2.3.4 of RFC 4880] states that "[[A
+    /// Signature Creation Time subpacket]] MUST be present in the
+    /// hashed area."  Consequently, if such a packet does not exist,
+    /// but a "Signature Expiration Time" subpacket exists, we
+    /// conservatively treat the signature as expired, because there
+    /// is no way to evaluate the expiration time.
+    ///
+    ///  [Section 5.2.3.4 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.4
+    pub fn signature_alive(&self) -> bool {
+        self.signature_alive_at(time::now_utc())
+    }
+
+    /// Returns whether or not the signature is alive at the given
+    /// time, i.e. the creation time has passed, but the expiration
+    /// time has not.
+    ///
+    /// Note that [Section 5.2.3.4 of RFC 4880] states that "[[A
+    /// Signature Creation Time subpacket]] MUST be present in the
+    /// hashed area."  Consequently, if such a packet does not exist,
+    /// but a "Signature Expiration Time" subpacket exists, we
+    /// conservatively treat the signature as expired, because there
+    /// is no way to evaluate the expiration time.
+    ///
+    ///  [Section 5.2.3.4 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.4
+    pub fn signature_alive_at(&self, tm: time::Tm) -> bool {
+        if let Some(creation_time) = self.signature_creation_time() {
+            creation_time <= tm && ! self.signature_expired_at(tm)
+        } else {
+            false
+        }
+    }
+
     /// Returns the value of the Exportable Certification subpacket,
     /// which contains whether the certification should be exported
     /// (i.e., whether the packet is *not* a local signature).
@@ -1671,6 +1706,27 @@ impl Signature {
             None =>
                 false, // No expiration time, does not expire.
         }
+    }
+
+    /// Returns whether or not the given key is alive, i.e. the
+    /// creation time has passed, but the expiration time has not.
+    ///
+    /// See [Section 5.2.3.6 of RFC 4880].
+    ///
+    ///  [Section 5.2.3.6 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.6
+    pub fn key_alive(&self, key: &Key) -> bool {
+        self.key_alive_at(key, time::now_utc())
+    }
+
+    /// Returns whether or not the given key is alive at the given
+    /// time, i.e. the creation time has passed, but the expiration
+    /// time has not.
+    ///
+    /// See [Section 5.2.3.6 of RFC 4880].
+    ///
+    ///  [Section 5.2.3.6 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.6
+    pub fn key_alive_at(&self, key: &Key, tm: time::Tm) -> bool {
+        key.creation_time <= tm && ! self.key_expired_at(key, tm)
     }
 
     /// Returns the value of the Preferred Symmetric Algorithms
@@ -2281,11 +2337,21 @@ fn accessors() {
     assert!(!sig.signature_expired_at(now));
     assert!(sig.signature_expired_at(now + ten_minutes));
 
+    assert!(sig.signature_alive());
+    assert!(sig.signature_alive_at(now));
+    assert!(!sig.signature_alive_at(now - five_minutes));
+    assert!(!sig.signature_alive_at(now + ten_minutes));
+
     sig.set_signature_expiration_time(None).unwrap();
     assert_eq!(sig.signature_expiration_time(), None);
     assert!(!sig.signature_expired());
     assert!(!sig.signature_expired_at(now));
     assert!(!sig.signature_expired_at(now + ten_minutes));
+
+    assert!(sig.signature_alive());
+    assert!(sig.signature_alive_at(now));
+    assert!(!sig.signature_alive_at(now - five_minutes));
+    assert!(sig.signature_alive_at(now + ten_minutes));
 
     sig.set_exportable_certification(true).unwrap();
     assert_eq!(sig.exportable_certification(), Some(true));
@@ -2311,11 +2377,21 @@ fn accessors() {
     assert!(!sig.key_expired_at(&key, now));
     assert!(sig.key_expired_at(&key, now + ten_minutes));
 
+    assert!(sig.key_alive(&key));
+    assert!(sig.key_alive_at(&key, now));
+    assert!(!sig.key_alive_at(&key, now - five_minutes));
+    assert!(!sig.key_alive_at(&key, now + ten_minutes));
+
     sig.set_key_expiration_time(None).unwrap();
     assert_eq!(sig.key_expiration_time(), None);
     assert!(!sig.key_expired(&key));
     assert!(!sig.key_expired_at(&key, now));
     assert!(!sig.key_expired_at(&key, now + ten_minutes));
+
+    assert!(sig.key_alive(&key));
+    assert!(sig.key_alive_at(&key, now));
+    assert!(!sig.key_alive_at(&key, now - five_minutes));
+    assert!(sig.key_alive_at(&key, now + ten_minutes));
 
     let pref = vec![SymmetricAlgorithm::AES256,
                     SymmetricAlgorithm::AES192,
