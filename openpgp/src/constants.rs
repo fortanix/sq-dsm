@@ -17,8 +17,6 @@ use Result;
 ///
 ///   [Section 9.1 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-9.1
 ///   [Section 5 of RFC 6637]: https://tools.ietf.org/html/rfc6637
-///
-/// The values correspond to the serialized format.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub enum PublicKeyAlgorithm {
     /// RSA (Encrypt or Sign)
@@ -363,8 +361,6 @@ impl Arbitrary for SymmetricAlgorithm {
 /// The OpenPGP compression algorithms as defined in [Section 9.3 of RFC 4880].
 ///
 ///   [Section 9.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-9.3
-///
-/// The values correspond to the serialized format.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub enum CompressionAlgorithm {
     /// Null compression.
@@ -431,8 +427,6 @@ impl Arbitrary for CompressionAlgorithm {
 /// The OpenPGP hash algorithms as defined in [Section 9.4 of RFC 4880].
 ///
 ///   [Section 9.4 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-9.4
-///
-/// The values correspond to the serialized format.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub enum HashAlgorithm {
     /// Rivest et.al. message digest 5.
@@ -538,8 +532,6 @@ impl Arbitrary for HashAlgorithm {
 /// Signature type as defined in [Section 5.2.1 of RFC 4880].
 ///
 ///   [Section 5.2.1 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.1
-///
-/// The values correspond to the serialized format.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum SignatureType {
     /// Signature over a binary document.
