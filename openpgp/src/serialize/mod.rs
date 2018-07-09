@@ -464,7 +464,7 @@ impl<'a> Serialize for SubpacketValue<'a> {
             SignersUserID(ref uid) =>
                 o.write_all(uid)?,
             ReasonForRevocation { ref code, ref reason } => {
-                o.write_all(&[*code])?;
+                o.write_all(&[(*code).into()])?;
                 o.write_all(reason)?;
             },
             Features(ref f) =>

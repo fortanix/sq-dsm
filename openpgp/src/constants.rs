@@ -664,6 +664,95 @@ impl Arbitrary for SignatureType {
     }
 }
 
+/// Describes the reason for a revocation.
+///
+/// See the description of revocation subpackets [Section 5.2.3.23 of RFC 4880].
+///
+///   [Section 5.2.3.23 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.23
+#[derive(Clone, Copy, PartialEq, Eq, Debug, PartialOrd, Ord)]
+pub enum ReasonForRevocation {
+    /// No reason specified (key revocations or cert revocations)
+    Unspecified,
+
+    /// Key is superseded (key revocations)
+    KeySuperseeded,
+
+    /// Key material has been compromised (key revocations)
+    KeyCompromised,
+
+    /// Key is retired and no longer used (key revocations)
+    KeyRetired,
+
+    /// User ID information is no longer valid (cert revocations)
+    UIDRetired,
+
+    /// Private reason identifier.
+    Private(u8),
+
+    /// Unknown reason identifier.
+    Unknown(u8),
+}
+
+impl From<u8> for ReasonForRevocation {
+    fn from(u: u8) -> Self {
+        use self::ReasonForRevocation::*;
+        match u {
+            0 => Unspecified,
+            1 => KeySuperseeded,
+            2 => KeyCompromised,
+            3 => KeyRetired,
+            32 => UIDRetired,
+            100...110 => Private(u),
+            u => Unknown(u),
+        }
+    }
+}
+
+impl From<ReasonForRevocation> for u8 {
+    fn from(r: ReasonForRevocation) -> u8 {
+        use self::ReasonForRevocation::*;
+        match r {
+            Unspecified => 0,
+            KeySuperseeded => 1,
+            KeyCompromised => 2,
+            KeyRetired => 3,
+            UIDRetired => 32,
+            Private(u) => u,
+            Unknown(u) => u,
+        }
+    }
+}
+
+impl fmt::Display for ReasonForRevocation {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use self::ReasonForRevocation::*;
+        match *self {
+            Unspecified =>
+                f.write_str("No reason specified"),
+            KeySuperseeded =>
+                f.write_str("Key is superseded"),
+            KeyCompromised =>
+                f.write_str("Key material has been compromised"),
+            KeyRetired =>
+                f.write_str("Key is retired and no longer used"),
+            UIDRetired =>
+                f.write_str("User ID information is no longer valid"),
+            Private(u) =>
+                f.write_fmt(format_args!(
+                    "Private/Experimental revocation reason {}", u)),
+            Unknown(u) =>
+                f.write_fmt(format_args!(
+                    "Unknown revocation reason {}", u)),
+        }
+    }
+}
+
+impl Arbitrary for ReasonForRevocation {
+    fn arbitrary<G: Gen>(g: &mut G) -> Self {
+        u8::arbitrary(g).into()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -801,6 +890,34 @@ mod tests {
                 HashAlgorithm::Unknown(u) => u == 0 || (u > 11 && u < 100) ||
                     u > 110 || (u >= 4 && u <= 7) || u == 0,
                 HashAlgorithm::Private(u) => u >= 100 && u <= 110,
+                _ => true
+            }
+        }
+    }
+
+    quickcheck! {
+        fn rfr_roundtrip(rfr: ReasonForRevocation) -> bool {
+            let val: u8 = rfr.clone().into();
+            rfr == ReasonForRevocation::from(val)
+        }
+    }
+
+    quickcheck! {
+        fn rfr_display(rfr: ReasonForRevocation) -> bool {
+            let s = format!("{}", rfr);
+            !s.is_empty()
+        }
+    }
+
+    quickcheck! {
+        fn rfr_parse(rfr: ReasonForRevocation) -> bool {
+            match rfr {
+                ReasonForRevocation::Unknown(u) =>
+                    (u > 3 && u < 32)
+                    || (u > 32 && u < 100)
+                    || u > 110,
+                ReasonForRevocation::Private(u) =>
+                    u >= 100 && u <= 110,
                 _ => true
             }
         }

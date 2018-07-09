@@ -77,6 +77,7 @@ use constants::{
     CompressionAlgorithm,
     HashAlgorithm,
     PublicKeyAlgorithm,
+    ReasonForRevocation,
     SymmetricAlgorithm,
 };
 use conversions::{
@@ -616,7 +617,7 @@ pub enum SubpacketValue<'a> {
     /// 1 octet of revocation code, N octets of reason string
     ReasonForRevocation {
         /// Machine-readable reason for revocation.
-        code: u8,
+        code: ReasonForRevocation,
 
         /// Human-readable reason for revocation.
         reason: &'a [u8],
@@ -937,7 +938,7 @@ impl<'a> From<SubpacketRaw<'a>> for Subpacket<'a> {
                 // 1 octet of revocation code, N octets of reason string
                 if raw.value.len() >= 1 {
                     Some(SubpacketValue::ReasonForRevocation {
-                        code: raw.value[0],
+                        code: raw.value[0].into(),
                         reason: &raw.value[1..],
                     })
                 } else {
@@ -2190,7 +2191,8 @@ impl Signature {
     ///
     /// Note: if the signature contains multiple instances of this
     /// subpacket, only the last one is considered.
-    pub fn reason_for_revocation(&self) -> Option<(u8, &[u8])> {
+    pub fn reason_for_revocation(&self)
+                                 -> Option<(ReasonForRevocation, &[u8])> {
         // 1 octet of revocation code, N octets of reason string
         if let Some(sb) = self.subpacket(SubpacketTag::ReasonForRevocation) {
             if let SubpacketValue::ReasonForRevocation {
@@ -2206,7 +2208,8 @@ impl Signature {
     }
 
     /// Sets the value of the Reason for Revocation subpacket.
-    pub fn set_reason_for_revocation(&mut self, code: u8, reason: &[u8])
+    pub fn set_reason_for_revocation(&mut self, code: ReasonForRevocation,
+                                     reason: &[u8])
                                      -> Result<()> {
         self.hashed_area.replace(Subpacket::new(
             SubpacketValue::ReasonForRevocation {
@@ -2505,8 +2508,10 @@ fn accessors() {
     sig.set_signers_user_id(b"foobar").unwrap();
     assert_eq!(sig.signers_user_id(), Some(&b"foobar"[..]));
 
-    sig.set_reason_for_revocation(3, b"foobar").unwrap();
-    assert_eq!(sig.reason_for_revocation(), Some((3, &b"foobar"[..])));
+    sig.set_reason_for_revocation(ReasonForRevocation::KeyRetired,
+                                  b"foobar").unwrap();
+    assert_eq!(sig.reason_for_revocation(),
+               Some((ReasonForRevocation::KeyRetired, &b"foobar"[..])));
 
     let feats = Features::default().set_mdc(true);
     sig.set_features(&feats).unwrap();
@@ -2916,13 +2921,14 @@ fn subpacket_test_2() {
                    }));
 
         assert_eq!(sig.reason_for_revocation(),
-                   Some((0, &b"Forgot to set a sig expiration."[..])));
+                   Some((ReasonForRevocation::Unspecified,
+                         &b"Forgot to set a sig expiration."[..])));
         assert_eq!(sig.subpacket(SubpacketTag::ReasonForRevocation),
                    Some(Subpacket {
                        critical: false,
                        tag: SubpacketTag::ReasonForRevocation,
                        value: SubpacketValue::ReasonForRevocation {
-                           code: 0,
+                           code: ReasonForRevocation::Unspecified,
                            reason: &b"Forgot to set a sig expiration."[..],
                        },
                    }));
