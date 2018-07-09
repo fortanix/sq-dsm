@@ -452,7 +452,7 @@ impl<'a> Serialize for SubpacketValue<'a> {
                     o.write_all(&[(*a).into()])?;
                 },
             KeyServerPreferences(ref p) =>
-                o.write_all(p)?,
+                o.write_all(p.as_slice())?,
             PreferredKeyServer(ref p) =>
                 o.write_all(p)?,
             PrimaryUserID(p) =>

@@ -603,7 +603,7 @@ pub enum SubpacketValue<'a> {
     /// Array of one-octet values
     PreferredCompressionAlgorithms(Vec<CompressionAlgorithm>),
     /// N octets of flags
-    KeyServerPreferences(&'a [u8]),
+    KeyServerPreferences(KeyServerPreferences),
     /// String (URL)
     PreferredKeyServer(&'a [u8]),
     /// 1 octet, Boolean
@@ -660,7 +660,7 @@ impl<'a> SubpacketValue<'a> {
             NotationData(nd) => 4 + 2 + 2 + nd.name.len() + nd.value.len(),
             PreferredHashAlgorithms(p) => p.len(),
             PreferredCompressionAlgorithms(p) => p.len(),
-            KeyServerPreferences(p) => p.len(),
+            KeyServerPreferences(p) => p.as_slice().len(),
             PreferredKeyServer(p) => p.len(),
             PrimaryUserID(_) => 1,
             PolicyURI(p) => p.len(),
@@ -906,7 +906,8 @@ impl<'a> From<SubpacketRaw<'a>> for Subpacket<'a> {
 
             SubpacketTag::KeyServerPreferences =>
                 // N octets of flags.
-                Some(SubpacketValue::KeyServerPreferences(raw.value)),
+                Some(SubpacketValue::KeyServerPreferences(
+                    KeyServerPreferences(raw.value.to_vec()))),
 
             SubpacketTag::PreferredKeyServer =>
                 // String.
@@ -1366,6 +1367,80 @@ impl Features {
 /// The private component of this key may be in the possession of more
 /// than one person.
 const FEATURE_FLAG_MDC: u8 = 0x01;
+
+
+/// Describes preferences regarding key servers.
+#[derive(Clone)]
+pub struct KeyServerPreferences(Vec<u8>);
+
+impl Default for KeyServerPreferences {
+    fn default() -> Self {
+        KeyServerPreferences(vec![0])
+    }
+}
+
+impl PartialEq for KeyServerPreferences {
+    fn eq(&self, other: &KeyServerPreferences) -> bool {
+        // To deal with unknown flags, we do a bitwise comparison.
+        // First, we need to bring both flag fields to the same
+        // length.
+        let len = ::std::cmp::max(self.0.len(), other.0.len());
+        let mut mine = vec![0; len];
+        let mut hers = vec![0; len];
+        &mut mine[..self.0.len()].copy_from_slice(&self.0);
+        &mut hers[..other.0.len()].copy_from_slice(&other.0);
+
+        mine == hers
+    }
+}
+
+impl fmt::Debug for KeyServerPreferences {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        if self.no_modify() {
+            f.write_str("no modify")?;
+        }
+
+        Ok(())
+    }
+}
+
+impl KeyServerPreferences {
+    /// Grows the vector to the given length.
+    fn grow(&mut self, target: usize) {
+        while self.0.len() < target {
+            self.0.push(0);
+        }
+    }
+
+    /// Returns a slice referencing the raw values.
+    pub(crate) fn as_slice(&self) -> &[u8] {
+        &self.0
+    }
+
+    /// Whether or not the key on the key severs should only be
+    /// modified by the owner or server administrator.
+    pub fn no_modify(&self) -> bool {
+        self.0.get(0)
+            .map(|v0| v0 & KEYSERVER_PREFERENCE_NO_MODIFY > 0).unwrap_or(false)
+    }
+
+
+    /// Sets whether or not the key on the key severs should only be
+    /// modified by the owner or server administrator.
+    pub fn set_no_modify(mut self, v: bool) -> Self {
+        self.grow(1);
+        if v {
+            self.0[0] |= KEYSERVER_PREFERENCE_NO_MODIFY;
+        } else {
+            self.0[0] &= !KEYSERVER_PREFERENCE_NO_MODIFY;
+        }
+        self
+    }
+}
+
+/// The private component of this key may be in the possession of more
+/// than one person.
+const KEYSERVER_PREFERENCE_NO_MODIFY: u8 = 0x80;
 
 
 impl Signature {
@@ -2002,23 +2077,23 @@ impl Signature {
     ///
     /// Note: if the signature contains multiple instances of this
     /// subpacket, only the last one is considered.
-    pub fn key_server_preferences(&self) -> Option<&[u8]> {
+    pub fn key_server_preferences(&self) -> KeyServerPreferences {
         // N octets of flags
-        if let Some(sb)
-                = self.subpacket(SubpacketTag::KeyServerPreferences) {
+        if let Some(sb) = self.subpacket(SubpacketTag::KeyServerPreferences) {
             if let SubpacketValue::KeyServerPreferences(v) = sb.value {
-                Some(v)
+                v
             } else {
-                None
+                KeyServerPreferences::default()
             }
         } else {
-            None
+            KeyServerPreferences::default()
         }
     }
 
     /// Sets the value of the Key Server Preferences subpacket, which
     /// contains the key holder's key server preferences.
-    pub fn set_key_server_preferences(&mut self, preferences: &[u8])
+    pub fn set_key_server_preferences(&mut self,
+                                      preferences: KeyServerPreferences)
                                       -> Result<()> {
         self.hashed_area.replace(Subpacket::new(
             SubpacketValue::KeyServerPreferences(preferences),
@@ -2488,8 +2563,10 @@ fn accessors() {
     sig.set_preferred_compression_algorithms(pref.clone()).unwrap();
     assert_eq!(sig.preferred_compression_algorithms(), Some(pref));
 
-    sig.set_key_server_preferences(b"foobar").unwrap();
-    assert_eq!(sig.key_server_preferences(), Some(&b"foobar"[..]));
+    let pref = KeyServerPreferences::default()
+        .set_no_modify(true);
+    sig.set_key_server_preferences(pref.clone()).unwrap();
+    assert_eq!(sig.key_server_preferences(), pref);
 
     sig.set_primary_userid(true).unwrap();
     assert_eq!(sig.primary_userid(), Some(true));
@@ -2722,13 +2799,14 @@ fn subpacket_test_2() {
                                 CompressionAlgorithm::Zip]
                        )}));
 
-        assert_eq!(sig.key_server_preferences(), Some(&[0x80][..]));
+        assert_eq!(sig.key_server_preferences(),
+                   KeyServerPreferences::default().set_no_modify(true));
         assert_eq!(sig.subpacket(SubpacketTag::KeyServerPreferences),
                    Some(Subpacket {
                        critical: false,
                        tag: SubpacketTag::KeyServerPreferences,
                        value: SubpacketValue::KeyServerPreferences(
-                           &[0x80][..])
+                           KeyServerPreferences::default().set_no_modify(true)),
                    }));
 
         assert!(sig.key_flags().can_certify() && sig.key_flags().can_sign());
