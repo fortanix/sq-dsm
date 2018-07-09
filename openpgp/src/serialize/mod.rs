@@ -416,8 +416,8 @@ impl<'a> Serialize for SubpacketValue<'a> {
                 write_be_u32(o, t.to_pgp()?)?,
             ExportableCertification(e) =>
                 o.write_all(&[if *e { 1 } else { 0 }])?,
-            TrustSignature((level, amount)) =>
-                o.write_all(&[*level, *amount])?,
+            TrustSignature { ref level, ref trust } =>
+                o.write_all(&[*level, *trust])?,
             RegularExpression(ref re) => {
                 o.write_all(re)?;
                 o.write_all(&[0])?;
@@ -430,8 +430,8 @@ impl<'a> Serialize for SubpacketValue<'a> {
                 for a in p {
                     o.write_all(&[(*a).into()])?;
                 },
-            RevocationKey((class, pk_algo, ref fp)) => {
-                o.write_all(&[*class, *pk_algo])?;
+            RevocationKey { ref class, ref pk_algo, ref fp } => {
+                o.write_all(&[*class, (*pk_algo).into()])?;
                 o.write_all(fp.as_slice())?;
             },
             Issuer(ref id) =>
@@ -463,15 +463,15 @@ impl<'a> Serialize for SubpacketValue<'a> {
                 o.write_all(f.as_slice())?,
             SignersUserID(ref uid) =>
                 o.write_all(uid)?,
-            ReasonForRevocation((c, ref r)) => {
-                o.write_all(&[*c])?;
-                o.write_all(r)?;
+            ReasonForRevocation { ref code, ref reason } => {
+                o.write_all(&[*code])?;
+                o.write_all(reason)?;
             },
             Features(ref f) =>
                 o.write_all(f.as_slice())?,
-            SignatureTarget((pk_algo, hash_algo, ref hash)) => {
-                o.write_all(&[*pk_algo, *hash_algo])?;
-                o.write_all(hash)?;
+            SignatureTarget { pk_algo, hash_algo, ref digest } => {
+                o.write_all(&[(*pk_algo).into(), (*hash_algo).into()])?;
+                o.write_all(digest)?;
             },
             EmbeddedSignature(ref p) => match p {
                 &Packet::Signature(ref sig) => sig.serialize_naked(o)?,

@@ -549,7 +549,26 @@ pub enum SubpacketValue<'a> {
     /// 1 octet of exportability, 0 for not, 1 for exportable
     ExportableCertification(bool),
     /// 1 octet "level" (depth), 1 octet of trust amount
-    TrustSignature((u8, u8)),
+    TrustSignature {
+        /// Trust level, or depth.
+        ///
+        /// Level 0 has the same meaning as an ordinary validity
+        /// signature.  Level 1 means that the signed key is asserted
+        /// to be a valid trusted introducer, with the 2nd octet of
+        /// the body specifying the degree of trust.  Level 2 means
+        /// that the signed key is asserted to be trusted to issue
+        /// level 1 trust signatures, i.e., that it is a "meta
+        /// introducer".
+        level: u8,
+
+        /// Trust amount.
+        ///
+        /// This is interpreted such that values less than 120
+        /// indicate partial trust and values of 120 or greater
+        /// indicate complete trust.  Implementations SHOULD emit
+        /// values of 60 for partial trust and 120 for complete trust.
+        trust: u8,
+    },
     /// Null-terminated regular expression
     RegularExpression(&'a [u8]),
     /// 1 octet of revocability, 0 for not, 1 for revocable
@@ -560,7 +579,19 @@ pub enum SubpacketValue<'a> {
     PreferredSymmetricAlgorithms(Vec<SymmetricAlgorithm>),
     /// 1 octet of class, 1 octet of public-key algorithm ID, 20 octets of
     /// fingerprint
-    RevocationKey((u8, u8, Fingerprint)),
+    RevocationKey {
+        /// Class octet must have bit 0x80 set.  If the bit 0x40 is
+        /// set, then this means that the revocation information is
+        /// sensitive.  Other bits are for future expansion to other
+        /// kinds of authorizations.
+        class: u8,
+
+        /// XXX: RFC4880 says nothing about this.
+        pk_algo: PublicKeyAlgorithm,
+
+        /// Fingerprint of authorized key.
+        fp: Fingerprint,
+    },
     /// 8-octet Key ID
     Issuer(KeyID),
     /// The notation has a name and a value, each of
@@ -583,11 +614,24 @@ pub enum SubpacketValue<'a> {
     /// String
     SignersUserID(&'a [u8]),
     /// 1 octet of revocation code, N octets of reason string
-    ReasonForRevocation((u8, &'a [u8])),
+    ReasonForRevocation {
+        /// Machine-readable reason for revocation.
+        code: u8,
+
+        /// Human-readable reason for revocation.
+        reason: &'a [u8],
+    },
     /// N octets of flags
     Features(Features),
     /// 1-octet public-key algorithm, 1 octet hash algorithm, N octets hash
-    SignatureTarget((u8, u8, &'a [u8])),
+    SignatureTarget {
+        /// Public-key algorithm of the target signature.
+        pk_algo: PublicKeyAlgorithm,
+        /// Hash algorithm of the target signature.
+        hash_algo: HashAlgorithm,
+        /// Hash digest of the target signature.
+        digest: &'a [u8],
+    },
     /// An embedded signature.
     ///
     /// This is a packet rather than a `Signature`, because we also
@@ -605,12 +649,12 @@ impl<'a> SubpacketValue<'a> {
             SignatureCreationTime(_) => 4,
             SignatureExpirationTime(_) => 4,
             ExportableCertification(_) => 1,
-            TrustSignature(_) => 2,
+            TrustSignature { .. } => 2,
             RegularExpression(re) => re.len() + 1 /* terminator */,
             Revocable(_) => 1,
             KeyExpirationTime(_) => 4,
             PreferredSymmetricAlgorithms(p) => p.len(),
-            RevocationKey((_, _, ref fp)) => 1 + 1 + fp.as_slice().len(),
+            RevocationKey { ref fp, .. } => 1 + 1 + fp.as_slice().len(),
             Issuer(_) => 8,
             NotationData(nd) => 4 + 2 + 2 + nd.name.len() + nd.value.len(),
             PreferredHashAlgorithms(p) => p.len(),
@@ -621,9 +665,9 @@ impl<'a> SubpacketValue<'a> {
             PolicyURI(p) => p.len(),
             KeyFlags(f) => f.0.len(),
             SignersUserID(u) => u.len(),
-            ReasonForRevocation((_, r)) => 1 + r.len(),
+            ReasonForRevocation { ref reason, .. } => 1 + reason.len(),
             Features(f) => f.0.len(),
-            SignatureTarget((_, _, h)) => 1 + 1 + h.len(),
+            SignatureTarget { ref digest, .. } => 1 + 1 + digest.len(),
             EmbeddedSignature(p) => match p {
                 &Packet::Signature(ref sig) => {
                     let mut w = Vec::new();
@@ -652,13 +696,13 @@ impl<'a> SubpacketValue<'a> {
                 Ok(SubpacketTag::SignatureExpirationTime),
             ExportableCertification(_) =>
                 Ok(SubpacketTag::ExportableCertification),
-            TrustSignature(_) => Ok(SubpacketTag::TrustSignature),
+            TrustSignature { .. } => Ok(SubpacketTag::TrustSignature),
             RegularExpression(_) => Ok(SubpacketTag::RegularExpression),
             Revocable(_) => Ok(SubpacketTag::Revocable),
             KeyExpirationTime(_) => Ok(SubpacketTag::KeyExpirationTime),
             PreferredSymmetricAlgorithms(_) =>
                 Ok(SubpacketTag::PreferredSymmetricAlgorithms),
-            RevocationKey(_) => Ok(SubpacketTag::RevocationKey),
+            RevocationKey { .. } => Ok(SubpacketTag::RevocationKey),
             Issuer(_) => Ok(SubpacketTag::Issuer),
             NotationData(_) => Ok(SubpacketTag::NotationData),
             PreferredHashAlgorithms(_) =>
@@ -671,9 +715,9 @@ impl<'a> SubpacketValue<'a> {
             PolicyURI(_) => Ok(SubpacketTag::PolicyURI),
             KeyFlags(_) => Ok(SubpacketTag::KeyFlags),
             SignersUserID(_) => Ok(SubpacketTag::SignersUserID),
-            ReasonForRevocation(_) => Ok(SubpacketTag::ReasonForRevocation),
+            ReasonForRevocation { .. } => Ok(SubpacketTag::ReasonForRevocation),
             Features(_) => Ok(SubpacketTag::Features),
-            SignatureTarget(_) => Ok(SubpacketTag::SignatureTarget),
+            SignatureTarget { .. } => Ok(SubpacketTag::SignatureTarget),
             EmbeddedSignature(_) => Ok(SubpacketTag::EmbeddedSignature),
             IssuerFingerprint(_) => Ok(SubpacketTag::IssuerFingerprint),
             _ => Err(Error::InvalidArgument(
@@ -774,8 +818,10 @@ impl<'a> From<SubpacketRaw<'a>> for Subpacket<'a> {
             SubpacketTag::TrustSignature =>
                 // Two u8s.
                 if raw.value.len() == 2 {
-                    Some(SubpacketValue::TrustSignature(
-                        (raw.value[0], raw.value[1])))
+                    Some(SubpacketValue::TrustSignature {
+                        level: raw.value[0],
+                        trust: raw.value[1],
+                    })
                 } else {
                     None
                 },
@@ -812,11 +858,11 @@ impl<'a> From<SubpacketRaw<'a>> for Subpacket<'a> {
                 // for a v4 fingerprint and 32 bytes for a v5
                 // fingerprint.
                 if raw.value.len() > 2 {
-                    let class = raw.value[0];
-                    let pk_algo = raw.value[1];
-                    let fp = Fingerprint::from_bytes(&raw.value[2..]);
-
-                    Some(SubpacketValue::RevocationKey((class, pk_algo, fp)))
+                    Some(SubpacketValue::RevocationKey {
+                        class: raw.value[0],
+                        pk_algo: raw.value[1].into(),
+                        fp: Fingerprint::from_bytes(&raw.value[2..]),
+                    })
                 } else {
                     None
                 },
@@ -890,8 +936,10 @@ impl<'a> From<SubpacketRaw<'a>> for Subpacket<'a> {
             SubpacketTag::ReasonForRevocation =>
                 // 1 octet of revocation code, N octets of reason string
                 if raw.value.len() >= 1 {
-                    Some(SubpacketValue::ReasonForRevocation(
-                        (raw.value[0], &raw.value[1..])))
+                    Some(SubpacketValue::ReasonForRevocation {
+                        code: raw.value[0],
+                        reason: &raw.value[1..],
+                    })
                 } else {
                     None
                 },
@@ -904,12 +952,11 @@ impl<'a> From<SubpacketRaw<'a>> for Subpacket<'a> {
                 // 1 octet public-key algorithm, 1 octet hash algorithm,
                 // N octets hash
                 if raw.value.len() > 2 {
-                    let pk_algo = raw.value[0];
-                    let hash_algo = raw.value[1];
-                    let hash = &raw.value[2..];
-
-                    Some(SubpacketValue::SignatureTarget(
-                        (pk_algo, hash_algo, hash)))
+                    Some(SubpacketValue::SignatureTarget {
+                        pk_algo: raw.value[0].into(),
+                        hash_algo: raw.value[1].into(),
+                        digest: &raw.value[2..],
+                    })
                 } else {
                     None
                 },
@@ -1560,10 +1607,9 @@ impl Signature {
     /// subpacket, only the last one is considered.
     pub fn trust_signature(&self) -> Option<(u8, u8)> {
         // 1 octet "level" (depth), 1 octet of trust amount
-        if let Some(sb)
-                = self.subpacket(SubpacketTag::TrustSignature) {
-            if let SubpacketValue::TrustSignature(v) = sb.value {
-                Some(v)
+        if let Some(sb) = self.subpacket(SubpacketTag::TrustSignature) {
+            if let SubpacketValue::TrustSignature{ level, trust } = sb.value {
+                Some((level, trust))
             } else {
                 None
             }
@@ -1573,10 +1619,13 @@ impl Signature {
     }
 
     /// Sets the value of the Trust Signature subpacket.
-    pub fn set_trust_signature(&mut self, depth: u8, amount: u8)
+    pub fn set_trust_signature(&mut self, level: u8, trust: u8)
                                -> Result<()> {
         self.hashed_area.replace(Subpacket::new(
-            SubpacketValue::TrustSignature((depth, amount)),
+            SubpacketValue::TrustSignature {
+                level: level,
+                trust: trust,
+            },
             true)?)
     }
 
@@ -1776,13 +1825,16 @@ impl Signature {
     ///
     /// Note: if the signature contains multiple instances of this
     /// subpacket, only the last one is considered.
-    pub fn revocation_key(&self) -> Option<(u8, u8, Fingerprint)> {
+    pub fn revocation_key(&self) -> Option<(u8,
+                                            PublicKeyAlgorithm,
+                                            Fingerprint)> {
         // 1 octet of class, 1 octet of public-key algorithm ID, 20 or
         // 32 octets of fingerprint.
-        if let Some(sb)
-                = self.subpacket(SubpacketTag::RevocationKey) {
-            if let SubpacketValue::RevocationKey(v) = sb.value {
-                Some(v)
+        if let Some(sb) = self.subpacket(SubpacketTag::RevocationKey) {
+            if let SubpacketValue::RevocationKey {
+                class, pk_algo, fp,
+            } = sb.value {
+                Some((class, pk_algo, fp))
             } else {
                 None
             }
@@ -1796,7 +1848,11 @@ impl Signature {
     pub fn set_revocation_key(&mut self, class: u8, pk_algo: PublicKeyAlgorithm,
                               fp: Fingerprint) -> Result<()> {
         self.hashed_area.replace(Subpacket::new(
-            SubpacketValue::RevocationKey((class, pk_algo.into(), fp)),
+            SubpacketValue::RevocationKey {
+                class: class,
+                pk_algo: pk_algo,
+                fp: fp,
+            },
             true)?)
     }
 
@@ -2136,10 +2192,11 @@ impl Signature {
     /// subpacket, only the last one is considered.
     pub fn reason_for_revocation(&self) -> Option<(u8, &[u8])> {
         // 1 octet of revocation code, N octets of reason string
-        if let Some(sb)
-                = self.subpacket(SubpacketTag::ReasonForRevocation) {
-            if let SubpacketValue::ReasonForRevocation(v) = sb.value {
-                Some(v)
+        if let Some(sb) = self.subpacket(SubpacketTag::ReasonForRevocation) {
+            if let SubpacketValue::ReasonForRevocation {
+                code, reason,
+            } = sb.value {
+                Some((code, reason))
             } else {
                 None
             }
@@ -2152,7 +2209,10 @@ impl Signature {
     pub fn set_reason_for_revocation(&mut self, code: u8, reason: &[u8])
                                      -> Result<()> {
         self.hashed_area.replace(Subpacket::new(
-            SubpacketValue::ReasonForRevocation((code, reason)),
+            SubpacketValue::ReasonForRevocation {
+                code: code,
+                reason: reason,
+            },
             true)?)
     }
 
@@ -2200,13 +2260,16 @@ impl Signature {
     ///
     /// Note: if the signature contains multiple instances of this
     /// subpacket, only the last one is considered.
-    pub fn signature_target(&self) -> Option<(u8, u8, &[u8])> {
+    pub fn signature_target(&self) -> Option<(PublicKeyAlgorithm,
+                                              HashAlgorithm,
+                                              &[u8])> {
         // 1 octet public-key algorithm, 1 octet hash algorithm, N
         // octets hash
-        if let Some(sb)
-                = self.subpacket(SubpacketTag::SignatureTarget) {
-            if let SubpacketValue::SignatureTarget(v) = sb.value {
-                Some(v)
+        if let Some(sb) = self.subpacket(SubpacketTag::SignatureTarget) {
+            if let SubpacketValue::SignatureTarget {
+                pk_algo, hash_algo, digest,
+            } = sb.value {
+                Some((pk_algo, hash_algo, digest))
             } else {
                 None
             }
@@ -2223,8 +2286,11 @@ impl Signature {
                                 digest: &[u8])
                                 -> Result<()> {
         self.hashed_area.replace(Subpacket::new(
-            SubpacketValue::SignatureTarget((pk_algo.into(), hash_algo.into(),
-                                             digest)),
+            SubpacketValue::SignatureTarget {
+                pk_algo: pk_algo,
+                hash_algo: hash_algo,
+                digest: digest
+            },
             true)?)
     }
 
@@ -2788,12 +2854,17 @@ fn subpacket_test_2() {
 
         let fp = Fingerprint::from_hex(
             "361A96BDE1A65B6D6C25AE9FF004B9A45C586126").unwrap();
-        assert_eq!(sig.revocation_key(), Some((128, 1, fp.clone())));
+        assert_eq!(sig.revocation_key(),
+                   Some((128, PublicKeyAlgorithm::RSAEncryptSign, fp.clone())));
         assert_eq!(sig.subpacket(SubpacketTag::RevocationKey),
                    Some(Subpacket {
                        critical: false,
                        tag: SubpacketTag::RevocationKey,
-                       value: SubpacketValue::RevocationKey((0x80, 1, fp))
+                       value: SubpacketValue::RevocationKey {
+                           class: 0x80,
+                           pk_algo: PublicKeyAlgorithm::RSAEncryptSign,
+                           fp: fp,
+                       },
                    }));
 
 
@@ -2850,8 +2921,10 @@ fn subpacket_test_2() {
                    Some(Subpacket {
                        critical: false,
                        tag: SubpacketTag::ReasonForRevocation,
-                       value: SubpacketValue::ReasonForRevocation(
-                           (0, &b"Forgot to set a sig expiration."[..]))
+                       value: SubpacketValue::ReasonForRevocation {
+                           code: 0,
+                           reason: &b"Forgot to set a sig expiration."[..],
+                       },
                    }));
     }
 
@@ -2950,7 +3023,10 @@ fn subpacket_test_2() {
                    Some(Subpacket {
                        critical: false,
                        tag: SubpacketTag::TrustSignature,
-                       value: SubpacketValue::TrustSignature((2, 120))
+                       value: SubpacketValue::TrustSignature {
+                           level: 2,
+                           trust: 120,
+                       },
                    }));
 
         // Note: our parser strips the trailing NUL.
