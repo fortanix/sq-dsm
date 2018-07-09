@@ -152,8 +152,6 @@ impl Signature {
         self
     }
 
-    // XXX: Add subpacket handling.
-
     /// Signs `hash` using `signer`.
     pub fn sign_hash(&mut self, signer: &Key, signer_sec: &MPIs,
                      hash_algo: HashAlgorithm, mut hash: Box<Hash>)
