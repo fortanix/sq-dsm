@@ -30,6 +30,7 @@ use super::{
 };
 use constants::{
     CompressionAlgorithm,
+    DataFormat,
     SignatureType,
     SymmetricAlgorithm,
 };
@@ -189,6 +190,7 @@ impl<'a> Signer<'a> {
     ///
     /// ```
     /// use std::io::Write;
+    /// use openpgp::constants::DataFormat;
     /// use openpgp::serialize::stream::{wrap, Signer, LiteralWriter};
     /// # use openpgp::{Result, TPK};
     /// # let tsk = TPK::from_bytes(include_bytes!(
@@ -199,7 +201,7 @@ impl<'a> Signer<'a> {
     /// let mut o = vec![];
     /// {
     ///     let signer = Signer::new(wrap(&mut o), &[&tsk])?;
-    ///     let mut ls = LiteralWriter::new(signer, 't', None, None)?;
+    ///     let mut ls = LiteralWriter::new(signer, DataFormat::Text, None, None)?;
     ///     ls.write_all(b"Make it so, number one!")?;
     ///     ls.finalize_all()?;
     /// }
@@ -457,13 +459,14 @@ impl<'a> writer::Stackable<'a, Cookie> for Signer<'a> {
 ///
 /// ```
 /// use std::io::Write;
+/// use openpgp::constants::DataFormat;
 /// use openpgp::serialize::stream::{wrap, LiteralWriter};
 /// # use openpgp::Result;
 /// # f().unwrap();
 /// # fn f() -> Result<()> {
 /// let mut o = vec![];
 /// {
-///     let mut w = LiteralWriter::new(wrap(&mut o), 't', None, None)?;
+///     let mut w = LiteralWriter::new(wrap(&mut o), DataFormat::Text, None, None)?;
 ///     w.write_all(b"Hello world.")?;
 /// }
 /// assert_eq!(b"\xcb\x12t\x00\x00\x00\x00\x00Hello world.", o.as_slice());
@@ -487,7 +490,9 @@ impl<'a> LiteralWriter<'a> {
     /// If `date` is `None`, then the earliest representable time will
     /// be used as a dummy value.
     pub fn new(inner: writer::Stack<'a, Cookie>,
-               format: char, filename: Option<&[u8]>, date: Option<time::Tm>)
+               format: DataFormat,
+               filename: Option<&[u8]>,
+               date: Option<time::Tm>)
                -> Result<writer::Stack<'a, Cookie>> {
         let mut inner = writer::BoxStack::from(inner);
         let level = inner.cookie_ref().level + 1;
@@ -615,6 +620,7 @@ impl<'a> writer::Stackable<'a, Cookie> for LiteralWriter<'a> {
 ///
 /// ```
 /// use std::io::Write;
+/// use openpgp::constants::DataFormat;
 /// use openpgp::serialize::stream::{wrap, Compressor, LiteralWriter};
 /// use openpgp::constants::CompressionAlgorithm;
 /// # use openpgp::Result;
@@ -624,7 +630,7 @@ impl<'a> writer::Stackable<'a, Cookie> for LiteralWriter<'a> {
 /// {
 ///     let w = Compressor::new(wrap(&mut o),
 ///                             CompressionAlgorithm::Uncompressed)?;
-///     let mut w = LiteralWriter::new(w, 't', None, None)?;
+///     let mut w = LiteralWriter::new(w, DataFormat::Text, None, None)?;
 ///     w.write_all(b"Hello world.")?;
 /// }
 /// assert_eq!(b"\xc8\x15\x00\xcb\x12t\x00\x00\x00\x00\x00Hello world.",
@@ -759,6 +765,7 @@ impl<'a> Encryptor<'a> {
     /// ```
     /// use std::io::Write;
     /// #[macro_use] extern crate openpgp; // For armored!
+    /// use openpgp::constants::DataFormat;
     /// use openpgp::serialize::stream::{
     ///     wrap, Encryptor, EncryptionMode, LiteralWriter,
     /// };
@@ -808,7 +815,7 @@ impl<'a> Encryptor<'a> {
     ///                                &[&tpk],
     ///                                EncryptionMode::AtRest)
     ///     .expect("Failed to create encryptor");
-    /// let mut w = LiteralWriter::new(encryptor, 't', None, None)?;
+    /// let mut w = LiteralWriter::new(encryptor, DataFormat::Text, None, None)?;
     /// w.write_all(b"Hello world.")?;
     /// # Ok(())
     /// # }
@@ -1028,6 +1035,7 @@ mod test {
     use {Packet, PacketPile, CompressedData};
     use parse::{PacketParserResult, PacketParser};
     use super::*;
+    use constants::DataFormat::Text as T;
 
     macro_rules! bytes {
         ( $x:expr ) => { include_bytes!(concat!("../../tests/data/", $x)) };
@@ -1046,7 +1054,7 @@ mod test {
 
         let mut pp = PacketParser::from_bytes(&o).unwrap().unwrap();
         if let Packet::Literal(ref l) = pp.packet {
-                assert_eq!(l.format, 't' as u8);
+                assert_eq!(l.format, DataFormat::Text);
                 assert_eq!(l.filename, None);
                 assert_eq!(l.date, time::Tm::from_pgp(0));
         } else {
@@ -1074,23 +1082,23 @@ mod test {
         let mut reference = Vec::new();
         reference.push(
             CompressedData::new(CompressionAlgorithm::Uncompressed)
-                .push(Literal::new('t').body(b"one".to_vec()).to_packet())
-                .push(Literal::new('t').body(b"two".to_vec()).to_packet())
+                .push(Literal::new(T).body(b"one".to_vec()).to_packet())
+                .push(Literal::new(T).body(b"two".to_vec()).to_packet())
                 .to_packet());
-        reference.push(Literal::new('t').body(b"three".to_vec()).to_packet());
+        reference.push(Literal::new(T).body(b"three".to_vec()).to_packet());
 
         let mut o = vec![];
         {
             let c = Compressor::new(
                 wrap(&mut o), CompressionAlgorithm::Uncompressed).unwrap();
-            let mut ls = LiteralWriter::new(c, 't', None, None).unwrap();
+            let mut ls = LiteralWriter::new(c, T, None, None).unwrap();
             write!(ls, "one").unwrap();
             let c = ls.finalize().unwrap().unwrap(); // Pop the LiteralWriter.
-            let mut ls = LiteralWriter::new(c, 't', None, None).unwrap();
+            let mut ls = LiteralWriter::new(c, T, None, None).unwrap();
             write!(ls, "two").unwrap();
             let c = ls.finalize().unwrap().unwrap(); // Pop the LiteralWriter.
             let c = c.finalize().unwrap().unwrap(); // Pop the Compressor.
-            let mut ls = LiteralWriter::new(c, 't', None, None).unwrap();
+            let mut ls = LiteralWriter::new(c, T, None, None).unwrap();
             write!(ls, "three").unwrap();
         }
 
@@ -1120,12 +1128,12 @@ mod test {
         reference.push(
             CompressedData::new(CompressionAlgorithm::Uncompressed)
                 .push(CompressedData::new(CompressionAlgorithm::Uncompressed)
-                      .push(Literal::new('t').body(b"one".to_vec()).to_packet())
-                      .push(Literal::new('t').body(b"two".to_vec()).to_packet())
+                      .push(Literal::new(T).body(b"one".to_vec()).to_packet())
+                      .push(Literal::new(T).body(b"two".to_vec()).to_packet())
                       .to_packet())
                 .push(CompressedData::new(CompressionAlgorithm::Uncompressed)
-                      .push(Literal::new('t').body(b"three".to_vec()).to_packet())
-                      .push(Literal::new('t').body(b"four".to_vec()).to_packet())
+                      .push(Literal::new(T).body(b"three".to_vec()).to_packet())
+                      .push(Literal::new(T).body(b"four".to_vec()).to_packet())
                       .to_packet())
                 .to_packet());
 
@@ -1135,19 +1143,19 @@ mod test {
                 wrap(&mut o), CompressionAlgorithm::Uncompressed).unwrap();
             let c = Compressor::new(
                 c0, CompressionAlgorithm::Uncompressed).unwrap();
-            let mut ls = LiteralWriter::new(c, 't', None, None).unwrap();
+            let mut ls = LiteralWriter::new(c, T, None, None).unwrap();
             write!(ls, "one").unwrap();
             let c = ls.finalize().unwrap().unwrap();
-            let mut ls = LiteralWriter::new(c, 't', None, None).unwrap();
+            let mut ls = LiteralWriter::new(c, T, None, None).unwrap();
             write!(ls, "two").unwrap();
             let c = ls.finalize().unwrap().unwrap();
             let c0 = c.finalize().unwrap().unwrap();
             let c = Compressor::new(
                 c0, CompressionAlgorithm::Uncompressed).unwrap();
-            let mut ls = LiteralWriter::new(c, 't', None, None).unwrap();
+            let mut ls = LiteralWriter::new(c, T, None, None).unwrap();
             write!(ls, "three").unwrap();
             let c = ls.finalize().unwrap().unwrap();
-            let mut ls = LiteralWriter::new(c, 't', None, None).unwrap();
+            let mut ls = LiteralWriter::new(c, T, None, None).unwrap();
             write!(ls, "four").unwrap();
         }
 
@@ -1171,7 +1179,7 @@ mod test {
         {
             let c = Compressor::new(wrap(&mut o),
                                     CompressionAlgorithm::BZip2).unwrap();
-            let mut ls = LiteralWriter::new(c, 't', None, None).unwrap();
+            let mut ls = LiteralWriter::new(c, T, None, None).unwrap();
             // Write 64 megabytes of zeroes.
             for _ in 0 .. 16 * 1024 {
                 ls.write_all(&zeros).unwrap();
@@ -1197,7 +1205,7 @@ mod test {
                 wrap(&mut o),
                 &tsks.iter().map(|(_, tsk)| tsk).collect::<Vec<&TPK>>())
                 .unwrap();
-            let mut ls = LiteralWriter::new(signer, 't', None, None).unwrap();
+            let mut ls = LiteralWriter::new(signer, T, None, None).unwrap();
             ls.write_all(b"Tis, tis, tis.  Tis is important.").unwrap();
             let signer = ls.finalize().unwrap().unwrap();
             let _ = signer.finalize().unwrap().unwrap();
@@ -1234,7 +1242,8 @@ mod test {
             let encryptor = Encryptor::new(wrap(&mut o), &passwords, &[],
                                            EncryptionMode::ForTransport)
                 .unwrap();
-            let mut literal = LiteralWriter::new(encryptor, 'b', None, None)
+            let mut literal = LiteralWriter::new(encryptor, DataFormat::Binary,
+                                                 None, None)
                 .unwrap();
             literal.write_all(message).unwrap();
         }

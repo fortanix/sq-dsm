@@ -753,6 +753,97 @@ impl Arbitrary for ReasonForRevocation {
     }
 }
 
+
+/// Describes the format of the body of a literal data packet.
+///
+/// See the description of literal data packets [Section 5.9 of RFC 4880].
+///
+///   [Section 5.9 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.9
+#[derive(Clone, Copy, PartialEq, Eq, Debug, PartialOrd, Ord)]
+pub enum DataFormat {
+    /// Binary data.
+    Binary,
+
+    /// Text data.
+    Text,
+
+    /// Text data, probably valid UTF-8.
+    Unicode,
+
+    /// MIME message.
+    ///
+    /// This is defined in [Section 5.10 of RFC4880bis].
+    ///
+    ///   [Section 5.10 of RFC4880bis]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-04#section-5.10
+    MIME,
+
+    /// Unknown format specifier.
+    Unknown(char),
+}
+
+impl From<u8> for DataFormat {
+    fn from(u: u8) -> Self {
+        (u as char).into()
+    }
+}
+
+impl From<char> for DataFormat {
+    fn from(c: char) -> Self {
+        use self::DataFormat::*;
+        match c {
+            'b' => Binary,
+            't' => Text,
+            'u' => Unicode,
+            'm' => MIME,
+            c => Unknown(c),
+        }
+    }
+}
+
+impl From<DataFormat> for u8 {
+    fn from(f: DataFormat) -> u8 {
+        char::from(f) as u8
+    }
+}
+
+impl From<DataFormat> for char {
+    fn from(f: DataFormat) -> char {
+        use self::DataFormat::*;
+        match f {
+            Binary => 'b',
+            Text => 't',
+            Unicode => 'u',
+            MIME => 'm',
+            Unknown(c) => c,
+        }
+    }
+}
+
+impl fmt::Display for DataFormat {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use self::DataFormat::*;
+        match *self {
+            Binary =>
+                f.write_str("Binary data"),
+            Text =>
+                f.write_str("Text data"),
+            Unicode =>
+                f.write_str("Text data (UTF-8)"),
+            MIME =>
+                f.write_str("MIME message body part"),
+            Unknown(c) =>
+                f.write_fmt(format_args!(
+                    "Unknown data format identifier {:?}", c)),
+        }
+    }
+}
+
+impl Arbitrary for DataFormat {
+    fn arbitrary<G: Gen>(g: &mut G) -> Self {
+        u8::arbitrary(g).into()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -918,6 +1009,30 @@ mod tests {
                     || u > 110,
                 ReasonForRevocation::Private(u) =>
                     u >= 100 && u <= 110,
+                _ => true
+            }
+        }
+    }
+
+    quickcheck! {
+        fn df_roundtrip(df: DataFormat) -> bool {
+            let val: u8 = df.clone().into();
+            df == DataFormat::from(val)
+        }
+    }
+
+    quickcheck! {
+        fn df_display(df: DataFormat) -> bool {
+            let s = format!("{}", df);
+            !s.is_empty()
+        }
+    }
+
+    quickcheck! {
+        fn df_parse(df: DataFormat) -> bool {
+            match df {
+                DataFormat::Unknown(u) =>
+                    u != 'b' && u != 't' && u != 'u' && u != 'm',
                 _ => true
             }
         }

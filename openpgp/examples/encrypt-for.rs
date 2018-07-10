@@ -5,6 +5,7 @@ use std::io;
 
 extern crate openpgp;
 use openpgp::armor;
+use openpgp::constants::DataFormat;
 use openpgp::serialize::stream::{
     wrap, LiteralWriter, Encryptor, EncryptionMode,
 };
@@ -47,7 +48,8 @@ fn main() {
                                    &recipients,
                                    mode)
         .expect("Failed to create encryptor");
-    let mut literal_writer = LiteralWriter::new(encryptor, 't', None, None)
+    let mut literal_writer = LiteralWriter::new(encryptor, DataFormat::Binary,
+                                                None, None)
         .expect("Failed to create literal writer");
 
     // Finally, copy stdin to our writer stack to encrypt the data.

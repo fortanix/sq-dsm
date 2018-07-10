@@ -107,6 +107,7 @@ mod message;
 
 pub mod constants;
 use constants::{
+    DataFormat,
     PublicKeyAlgorithm,
     SymmetricAlgorithm,
     CompressionAlgorithm,
@@ -381,7 +382,7 @@ pub struct Literal {
     /// CTB packet header fields.
     pub common: packet::Common,
     /// A one-octet field that describes how the data is formatted.
-    pub format: u8,
+    pub format: DataFormat,
     /// filename is a string, but strings in Rust are valid UTF-8.
     /// There is no guarantee, however, that the filename is valid
     /// UTF-8.  Thus, we leave filename as a byte array.  It can be

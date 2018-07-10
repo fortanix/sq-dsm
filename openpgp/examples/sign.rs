@@ -5,6 +5,7 @@ use std::io;
 
 extern crate openpgp;
 use openpgp::armor;
+use openpgp::constants::DataFormat;
 use openpgp::serialize::stream::{wrap, LiteralWriter, Signer};
 
 fn main() {
@@ -37,7 +38,7 @@ fn main() {
 
     // Then, create a literal writer to wrap the data in a literal
     // message packet.
-    let mut literal = LiteralWriter::new(signer, 'b', None, None)
+    let mut literal = LiteralWriter::new(signer, DataFormat::Binary, None, None)
         .expect("Failed to create literal writer");
 
     // Finally, just copy all the data.

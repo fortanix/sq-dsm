@@ -2,6 +2,7 @@ use std::fmt;
 use std::cmp;
 use time;
 
+use constants::DataFormat;
 use conversions::Time;
 use Literal;
 use Packet;
@@ -29,7 +30,7 @@ impl fmt::Debug for Literal {
         prefix_fmt.push_str(&format!(" ({} bytes)", body.len())[..]);
 
         f.debug_struct("Literal")
-            .field("format", &(self.format as char))
+            .field("format", &self.format)
             .field("filename", &filename)
             .field("date", &self.date)
             .field("body", &prefix_fmt)
@@ -39,10 +40,10 @@ impl fmt::Debug for Literal {
 
 impl Literal {
     /// Returns a new `Literal` packet.
-    pub fn new(format: char) -> Literal {
+    pub fn new(format: DataFormat) -> Literal {
         Literal {
             common: Default::default(),
-            format: format as u8,
+            format: format,
             filename: None,
             date: time::Tm::from_pgp(0),
         }
@@ -59,7 +60,7 @@ impl Literal {
     /// This is a hint that the content is probably text; the encoding
     /// is not specified.
     pub fn text(mut self) -> Literal {
-        self.format = 't' as u8;
+        self.format = DataFormat::Text;
         self
     }
 
@@ -67,7 +68,7 @@ impl Literal {
     ///
     /// This is a hint that the content is probably UTF-8 encoded.
     pub fn utf8(mut self) -> Literal {
-        self.format = 'u' as u8;
+        self.format = DataFormat::Unicode;
         self
     }
 
@@ -75,7 +76,7 @@ impl Literal {
     ///
     /// This is a hint that the content is probably binary data.
     pub fn binary(mut self) -> Literal {
-        self.format = 'b' as u8;
+        self.format = DataFormat::Binary;
         self
     }
 
@@ -84,7 +85,7 @@ impl Literal {
     /// This is specified in RFC 4880bis, which has not yet been
     /// standardized.
     pub fn mime(mut self) -> Literal {
-        self.format = 'm' as u8;
+        self.format = DataFormat::MIME;
         self
     }
 

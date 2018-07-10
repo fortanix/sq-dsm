@@ -1114,7 +1114,7 @@ impl Literal {
         let recursion_depth = php.recursion_depth;
         let mut pp = php.ok(Packet::Literal(Literal {
             common: Default::default(),
-            format: format,
+            format: format.into(),
             filename: filename,
             date: time::Tm::from_pgp(date),
         }))?;
@@ -1128,6 +1128,7 @@ impl Literal {
 
 #[test]
 fn literal_parser_test () {
+    use constants::DataFormat;
     {
         let data = bytes!("literal-mode-b.gpg");
         let mut pp = PacketParser::from_bytes(data).unwrap().unwrap();
@@ -1136,7 +1137,7 @@ fn literal_parser_test () {
         let p = pp.finish().unwrap();
         // eprintln!("{:?}", p);
         if let &Packet::Literal(ref p) = p {
-            assert_eq!(p.format, 'b' as u8);
+            assert_eq!(p.format, DataFormat::Binary);
             assert_eq!(p.filename.as_ref().unwrap()[..], b"foobar"[..]);
             assert_eq!(p.date, time::Tm::from_pgp(1507458744));
             assert_eq!(content, b"FOOBAR");
@@ -1152,7 +1153,7 @@ fn literal_parser_test () {
         let content = pp.steal_eof().unwrap();
         let p = pp.finish().unwrap();
         if let &Packet::Literal(ref p) = p {
-            assert_eq!(p.format, 't' as u8);
+            assert_eq!(p.format, DataFormat::Text);
             assert_eq!(p.filename.as_ref().unwrap()[..],
                        b"manifesto.txt"[..]);
             assert_eq!(p.date, time::Tm::from_pgp(1508000649));
@@ -1234,6 +1235,8 @@ impl CompressedData {
 #[cfg(any(feature = "compression-deflate", feature = "compression-bzip2"))]
 #[test]
 fn compressed_data_parser_test () {
+    use constants::DataFormat;
+
     let expected = bytes!("a-cypherpunks-manifesto.txt");
 
     for i in 1..4 {
@@ -1269,7 +1272,7 @@ fn compressed_data_parser_test () {
 
         if let Packet::Literal(literal) = literal {
             assert_eq!(literal.filename, None);
-            assert_eq!(literal.format, 'b' as u8);
+            assert_eq!(literal.format, DataFormat::Binary);
             assert_eq!(literal.date, time::Tm::from_pgp(1509219866));
             assert_eq!(content, expected.to_vec());
         } else {

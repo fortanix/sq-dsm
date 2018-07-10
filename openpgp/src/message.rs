@@ -257,6 +257,7 @@ impl Message {
 mod tests {
     use super::*;
 
+    use constants::DataFormat::Text;
     use HashAlgorithm;
     use CompressionAlgorithm;
     use SymmetricAlgorithm;
@@ -284,7 +285,7 @@ mod tests {
         // 0: Literal
         // => good.
         let mut packets = Vec::new();
-        packets.push(Literal::new('t').body(b"data".to_vec()).to_packet());
+        packets.push(Literal::new(Text).body(b"data".to_vec()).to_packet());
 
         let message = Message::from_packets(packets);
         assert!(message.is_ok(), "{:?}", message);
@@ -298,7 +299,7 @@ mod tests {
         let mut packets = Vec::new();
         packets.push(
             CompressedData::new(CompressionAlgorithm::Uncompressed)
-                .push(Literal::new('t').body(b"inner".to_vec()).to_packet())
+                .push(Literal::new(Text).body(b"inner".to_vec()).to_packet())
                 .to_packet());
 
         let message = Message::from_packets(packets);
@@ -311,8 +312,8 @@ mod tests {
         let mut packets = Vec::new();
         packets.push(
             CompressedData::new(CompressionAlgorithm::Uncompressed)
-                .push(Literal::new('t').body(b"inner one".to_vec()).to_packet())
-                .push(Literal::new('t').body(b"inner two".to_vec()).to_packet())
+                .push(Literal::new(Text).body(b"inner one".to_vec()).to_packet())
+                .push(Literal::new(Text).body(b"inner two".to_vec()).to_packet())
                 .to_packet());
 
         let message = Message::from_packets(packets);
@@ -325,9 +326,9 @@ mod tests {
         let mut packets = Vec::new();
         packets.push(
             CompressedData::new(CompressionAlgorithm::Uncompressed)
-                .push(Literal::new('t').body(b"inner".to_vec()).to_packet())
+                .push(Literal::new(Text).body(b"inner".to_vec()).to_packet())
                 .to_packet());
-        packets.push(Literal::new('t').body(b"outer".to_vec()).to_packet());
+        packets.push(Literal::new(Text).body(b"outer".to_vec()).to_packet());
 
         let message = Message::from_packets(packets);
         assert!(message.is_err(), "{:?}", message);
@@ -340,7 +341,7 @@ mod tests {
         packets.push(
             CompressedData::new(CompressionAlgorithm::Uncompressed)
                 .push(CompressedData::new(CompressionAlgorithm::Uncompressed)
-                      .push(Literal::new('t').body(b"inner".to_vec())
+                      .push(Literal::new(Text).body(b"inner".to_vec())
                             .to_packet())
                       .to_packet())
                 .to_packet());
@@ -364,7 +365,7 @@ mod tests {
         // => bad.
         let mut packets : Vec<Packet> = Vec::new();
         packets.push(OnePassSig::new(SignatureType::Binary).to_packet());
-        packets.push(Literal::new('t').body(b"inner".to_vec()).to_packet());
+        packets.push(Literal::new(Text).body(b"inner".to_vec()).to_packet());
 
         let message = Message::from_packets(packets);
         assert!(message.is_err(), "{:?}", message);
@@ -375,7 +376,7 @@ mod tests {
         // => good.
         let mut packets : Vec<Packet> = Vec::new();
         packets.push(OnePassSig::new(SignatureType::Binary).to_packet());
-        packets.push(Literal::new('t').body(b"inner".to_vec()).to_packet());
+        packets.push(Literal::new(Text).body(b"inner".to_vec()).to_packet());
         packets.push(Signature::new(SignatureType::Binary).to_packet());
 
         let message = Message::from_packets(packets);
@@ -388,7 +389,7 @@ mod tests {
         // => bad.
         let mut packets : Vec<Packet> = Vec::new();
         packets.push(OnePassSig::new(SignatureType::Binary).to_packet());
-        packets.push(Literal::new('t').body(b"inner".to_vec()).to_packet());
+        packets.push(Literal::new(Text).body(b"inner".to_vec()).to_packet());
         packets.push(Signature::new(SignatureType::Binary).to_packet());
         packets.push(Signature::new(SignatureType::Binary).to_packet());
 
@@ -404,7 +405,7 @@ mod tests {
         let mut packets : Vec<Packet> = Vec::new();
         packets.push(OnePassSig::new(SignatureType::Binary).to_packet());
         packets.push(OnePassSig::new(SignatureType::Binary).to_packet());
-        packets.push(Literal::new('t').body(b"inner".to_vec()).to_packet());
+        packets.push(Literal::new(Text).body(b"inner".to_vec()).to_packet());
         packets.push(Signature::new(SignatureType::Binary).to_packet());
         packets.push(Signature::new(SignatureType::Binary).to_packet());
 
@@ -421,8 +422,8 @@ mod tests {
         let mut packets : Vec<Packet> = Vec::new();
         packets.push(OnePassSig::new(SignatureType::Binary).to_packet());
         packets.push(OnePassSig::new(SignatureType::Binary).to_packet());
-        packets.push(Literal::new('t').body(b"inner".to_vec()).to_packet());
-        packets.push(Literal::new('t').body(b"inner".to_vec()).to_packet());
+        packets.push(Literal::new(Text).body(b"inner".to_vec()).to_packet());
+        packets.push(Literal::new(Text).body(b"inner".to_vec()).to_packet());
         packets.push(Signature::new(SignatureType::Binary).to_packet());
         packets.push(Signature::new(SignatureType::Binary).to_packet());
 
@@ -441,7 +442,7 @@ mod tests {
         packets.push(OnePassSig::new(SignatureType::Binary).to_packet());
         packets.push(
             CompressedData::new(CompressionAlgorithm::Uncompressed)
-                .push(Literal::new('t').body(b"inner".to_vec()).to_packet())
+                .push(Literal::new(Text).body(b"inner".to_vec()).to_packet())
                 .to_packet());
         packets.push(Signature::new(SignatureType::Binary).to_packet());
         packets.push(Signature::new(SignatureType::Binary).to_packet());
@@ -465,7 +466,7 @@ mod tests {
         // => good.
         let mut packets : Vec<Packet> = Vec::new();
         packets.push(Signature::new(SignatureType::Binary).to_packet());
-        packets.push(Literal::new('t').body(b"inner".to_vec()).to_packet());
+        packets.push(Literal::new(Text).body(b"inner".to_vec()).to_packet());
 
         let message = Message::from_packets(packets);
         assert!(message.is_ok(), "{:?}", message);
@@ -477,7 +478,7 @@ mod tests {
         let mut packets : Vec<Packet> = Vec::new();
         packets.push(Signature::new(SignatureType::Binary).to_packet());
         packets.push(Signature::new(SignatureType::Binary).to_packet());
-        packets.push(Literal::new('t').body(b"inner".to_vec()).to_packet());
+        packets.push(Literal::new(Text).body(b"inner".to_vec()).to_packet());
 
         let message = Message::from_packets(packets);
         assert!(message.is_ok(), "{:?}", message);
@@ -504,7 +505,7 @@ mod tests {
         // 0: SK-ESK
         // 1: Literal
         // => bad.
-        packets.push(Literal::new('t').body(b"inner".to_vec()).to_packet());
+        packets.push(Literal::new(Text).body(b"inner".to_vec()).to_packet());
 
         assert!(packets.iter().map(|p| p.tag()).collect::<Vec<Tag>>()
                 == [ Tag::SKESK, Tag::Literal ]);
@@ -522,7 +523,7 @@ mod tests {
         };
         seip.common.children = Some(Container::new());
         seip.common.children.as_mut().unwrap().push(
-            Literal::new('t').body(b"inner".to_vec()).to_packet());
+            Literal::new(Text).body(b"inner".to_vec()).to_packet());
         packets[1] = Packet::SEIP(seip);
 
         assert!(packets.iter().map(|p| p.tag()).collect::<Vec<Tag>>()
@@ -597,7 +598,7 @@ mod tests {
         // => bad.
         packets.remove(3);
         packets[2].children.as_mut().unwrap().push(
-            Literal::new('t').body(b"inner two".to_vec()).to_packet());
+            Literal::new(Text).body(b"inner two".to_vec()).to_packet());
 
         assert!(packets.iter().map(|p| p.tag()).collect::<Vec<Tag>>()
                 == [ Tag::SKESK, Tag::SKESK, Tag::SEIP ]);
