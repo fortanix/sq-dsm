@@ -5,6 +5,7 @@ use std::io::{self, Write};
 use rpassword;
 
 extern crate openpgp;
+use openpgp::constants::DataFormat;
 use openpgp::Packet;
 use openpgp::packet::Tag;
 use openpgp::parse::PacketParserResult;
@@ -154,7 +155,8 @@ pub fn encrypt(store: &mut store::Store,
                                    &recipients,
                                    EncryptionMode::AtRest)
         .context("Failed to create encryptor")?;
-    let mut literal_writer = LiteralWriter::new(encryptor, 'b', None, None)
+    let mut literal_writer = LiteralWriter::new(encryptor, DataFormat::Binary,
+                                                None, None)
         .context("Failed to create literal writer")?;
 
     // Finally, copy stdin to our writer stack to encrypt the data.
