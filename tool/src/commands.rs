@@ -154,7 +154,7 @@ pub fn encrypt(store: &mut store::Store,
                                    &recipients,
                                    EncryptionMode::AtRest)
         .context("Failed to create encryptor")?;
-    let mut literal_writer = LiteralWriter::new(encryptor, 'b', None, 0)
+    let mut literal_writer = LiteralWriter::new(encryptor, 'b', None, None)
         .context("Failed to create literal writer")?;
 
     // Finally, copy stdin to our writer stack to encrypt the data.

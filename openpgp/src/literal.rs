@@ -1,6 +1,8 @@
 use std::fmt;
 use std::cmp;
+use time;
 
+use conversions::Time;
 use Literal;
 use Packet;
 
@@ -42,7 +44,7 @@ impl Literal {
             common: Default::default(),
             format: format as u8,
             filename: None,
-            date: 0
+            date: time::Tm::from_pgp(0),
         }
     }
 
@@ -120,7 +122,7 @@ impl Literal {
     ///
     /// A Unix timestamp is the number of seconds since the Unix
     /// epoch.
-    pub fn date(mut self, timestamp: u32) -> Literal {
+    pub fn date(mut self, timestamp: time::Tm) -> Literal {
         self.date = timestamp;
         self
     }

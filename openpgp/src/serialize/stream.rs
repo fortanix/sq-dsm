@@ -33,6 +33,7 @@ use constants::{
     SignatureType,
     SymmetricAlgorithm,
 };
+use conversions::Time;
 
 /// Cookie must be public because the writers are.
 #[doc(hidden)]
@@ -198,7 +199,7 @@ impl<'a> Signer<'a> {
     /// let mut o = vec![];
     /// {
     ///     let signer = Signer::new(wrap(&mut o), &[&tsk])?;
-    ///     let mut ls = LiteralWriter::new(signer, 't', None, 0)?;
+    ///     let mut ls = LiteralWriter::new(signer, 't', None, None)?;
     ///     ls.write_all(b"Make it so, number one!")?;
     ///     ls.finalize_all()?;
     /// }
@@ -462,7 +463,7 @@ impl<'a> writer::Stackable<'a, Cookie> for Signer<'a> {
 /// # fn f() -> Result<()> {
 /// let mut o = vec![];
 /// {
-///     let mut w = LiteralWriter::new(wrap(&mut o), 't', None, 0)?;
+///     let mut w = LiteralWriter::new(wrap(&mut o), 't', None, None)?;
 ///     w.write_all(b"Hello world.")?;
 /// }
 /// assert_eq!(b"\xcb\x12t\x00\x00\x00\x00\x00Hello world.", o.as_slice());
@@ -476,13 +477,23 @@ pub struct LiteralWriter<'a> {
 
 impl<'a> LiteralWriter<'a> {
     /// Creates a new literal writer.
+    ///
+    /// `format`, `filename`, and `date` will be emitted as part of
+    /// the literal packets headers.  Note that these headers will not
+    /// be authenticated by signatures (but will be authenticated by a
+    /// SEIP/MDC container), and are therefore unreliable and should
+    /// not be trusted.
+    ///
+    /// If `date` is `None`, then the earliest representable time will
+    /// be used as a dummy value.
     pub fn new(inner: writer::Stack<'a, Cookie>,
-               format: char, filename: Option<&[u8]>, date: u32)
+               format: char, filename: Option<&[u8]>, date: Option<time::Tm>)
                -> Result<writer::Stack<'a, Cookie>> {
         let mut inner = writer::BoxStack::from(inner);
         let level = inner.cookie_ref().level + 1;
 
-        let mut template = Literal::new(format).date(date);
+        let mut template = Literal::new(format)
+            .date(date.unwrap_or(time::Tm::from_pgp(0)));
 
         if let Some(f) = filename {
             template = template.filename_from_bytes(f);
@@ -613,7 +624,7 @@ impl<'a> writer::Stackable<'a, Cookie> for LiteralWriter<'a> {
 /// {
 ///     let w = Compressor::new(wrap(&mut o),
 ///                             CompressionAlgorithm::Uncompressed)?;
-///     let mut w = LiteralWriter::new(w, 't', None, 0)?;
+///     let mut w = LiteralWriter::new(w, 't', None, None)?;
 ///     w.write_all(b"Hello world.")?;
 /// }
 /// assert_eq!(b"\xc8\x15\x00\xcb\x12t\x00\x00\x00\x00\x00Hello world.",
@@ -797,7 +808,7 @@ impl<'a> Encryptor<'a> {
     ///                                &[&tpk],
     ///                                EncryptionMode::AtRest)
     ///     .expect("Failed to create encryptor");
-    /// let mut w = LiteralWriter::new(encryptor, 't', None, 0)?;
+    /// let mut w = LiteralWriter::new(encryptor, 't', None, None)?;
     /// w.write_all(b"Hello world.")?;
     /// # Ok(())
     /// # }
@@ -1037,7 +1048,7 @@ mod test {
         if let Packet::Literal(ref l) = pp.packet {
                 assert_eq!(l.format, 't' as u8);
                 assert_eq!(l.filename, None);
-                assert_eq!(l.date, 0);
+                assert_eq!(l.date, time::Tm::from_pgp(0));
         } else {
             panic!("Unexpected packet type.");
         }
@@ -1072,14 +1083,14 @@ mod test {
         {
             let c = Compressor::new(
                 wrap(&mut o), CompressionAlgorithm::Uncompressed).unwrap();
-            let mut ls = LiteralWriter::new(c, 't', None, 0).unwrap();
+            let mut ls = LiteralWriter::new(c, 't', None, None).unwrap();
             write!(ls, "one").unwrap();
             let c = ls.finalize().unwrap().unwrap(); // Pop the LiteralWriter.
-            let mut ls = LiteralWriter::new(c, 't', None, 0).unwrap();
+            let mut ls = LiteralWriter::new(c, 't', None, None).unwrap();
             write!(ls, "two").unwrap();
             let c = ls.finalize().unwrap().unwrap(); // Pop the LiteralWriter.
             let c = c.finalize().unwrap().unwrap(); // Pop the Compressor.
-            let mut ls = LiteralWriter::new(c, 't', None, 0).unwrap();
+            let mut ls = LiteralWriter::new(c, 't', None, None).unwrap();
             write!(ls, "three").unwrap();
         }
 
@@ -1124,19 +1135,19 @@ mod test {
                 wrap(&mut o), CompressionAlgorithm::Uncompressed).unwrap();
             let c = Compressor::new(
                 c0, CompressionAlgorithm::Uncompressed).unwrap();
-            let mut ls = LiteralWriter::new(c, 't', None, 0).unwrap();
+            let mut ls = LiteralWriter::new(c, 't', None, None).unwrap();
             write!(ls, "one").unwrap();
             let c = ls.finalize().unwrap().unwrap();
-            let mut ls = LiteralWriter::new(c, 't', None, 0).unwrap();
+            let mut ls = LiteralWriter::new(c, 't', None, None).unwrap();
             write!(ls, "two").unwrap();
             let c = ls.finalize().unwrap().unwrap();
             let c0 = c.finalize().unwrap().unwrap();
             let c = Compressor::new(
                 c0, CompressionAlgorithm::Uncompressed).unwrap();
-            let mut ls = LiteralWriter::new(c, 't', None, 0).unwrap();
+            let mut ls = LiteralWriter::new(c, 't', None, None).unwrap();
             write!(ls, "three").unwrap();
             let c = ls.finalize().unwrap().unwrap();
-            let mut ls = LiteralWriter::new(c, 't', None, 0).unwrap();
+            let mut ls = LiteralWriter::new(c, 't', None, None).unwrap();
             write!(ls, "four").unwrap();
         }
 
@@ -1160,7 +1171,7 @@ mod test {
         {
             let c = Compressor::new(wrap(&mut o),
                                     CompressionAlgorithm::BZip2).unwrap();
-            let mut ls = LiteralWriter::new(c, 't', None, 0).unwrap();
+            let mut ls = LiteralWriter::new(c, 't', None, None).unwrap();
             // Write 64 megabytes of zeroes.
             for _ in 0 .. 16 * 1024 {
                 ls.write_all(&zeros).unwrap();
@@ -1186,7 +1197,7 @@ mod test {
                 wrap(&mut o),
                 &tsks.iter().map(|(_, tsk)| tsk).collect::<Vec<&TPK>>())
                 .unwrap();
-            let mut ls = LiteralWriter::new(signer, 't', None, 0).unwrap();
+            let mut ls = LiteralWriter::new(signer, 't', None, None).unwrap();
             ls.write_all(b"Tis, tis, tis.  Tis is important.").unwrap();
             let signer = ls.finalize().unwrap().unwrap();
             let _ = signer.finalize().unwrap().unwrap();
@@ -1223,7 +1234,7 @@ mod test {
             let encryptor = Encryptor::new(wrap(&mut o), &passwords, &[],
                                            EncryptionMode::ForTransport)
                 .unwrap();
-            let mut literal = LiteralWriter::new(encryptor, 'b', None, 0)
+            let mut literal = LiteralWriter::new(encryptor, 'b', None, None)
                 .unwrap();
             literal.write_all(message).unwrap();
         }

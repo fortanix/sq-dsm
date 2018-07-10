@@ -37,7 +37,7 @@ fn main() {
 
     // Then, create a literal writer to wrap the data in a literal
     // message packet.
-    let mut literal = LiteralWriter::new(signer, 'b', None, 0)
+    let mut literal = LiteralWriter::new(signer, 'b', None, None)
         .expect("Failed to create literal writer");
 
     // Finally, just copy all the data.

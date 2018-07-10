@@ -390,7 +390,7 @@ pub struct Literal {
     pub filename: Option<Vec<u8>>,
     /// A four-octet number that indicates a date associated with the
     /// literal data.
-    pub date: u32,
+    pub date: time::Tm,
 }
 
 /// Holds a compressed data packet.

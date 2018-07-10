@@ -47,7 +47,7 @@ fn main() {
                                    &recipients,
                                    mode)
         .expect("Failed to create encryptor");
-    let mut literal_writer = LiteralWriter::new(encryptor, 't', None, 0)
+    let mut literal_writer = LiteralWriter::new(encryptor, 't', None, None)
         .expect("Failed to create literal writer");
 
     // Finally, copy stdin to our writer stack to encrypt the data.

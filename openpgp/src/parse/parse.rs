@@ -1116,7 +1116,7 @@ impl Literal {
             common: Default::default(),
             format: format,
             filename: filename,
-            date: date,
+            date: time::Tm::from_pgp(date),
         }))?;
 
         // Enable hashing of the body.
@@ -1138,7 +1138,7 @@ fn literal_parser_test () {
         if let &Packet::Literal(ref p) = p {
             assert_eq!(p.format, 'b' as u8);
             assert_eq!(p.filename.as_ref().unwrap()[..], b"foobar"[..]);
-            assert_eq!(p.date, 1507458744);
+            assert_eq!(p.date, time::Tm::from_pgp(1507458744));
             assert_eq!(content, b"FOOBAR");
         } else {
             panic!("Wrong packet!");
@@ -1155,7 +1155,7 @@ fn literal_parser_test () {
             assert_eq!(p.format, 't' as u8);
             assert_eq!(p.filename.as_ref().unwrap()[..],
                        b"manifesto.txt"[..]);
-            assert_eq!(p.date, 1508000649);
+            assert_eq!(p.date, time::Tm::from_pgp(1508000649));
 
             let expected = bytes!("a-cypherpunks-manifesto.txt");
 
@@ -1270,7 +1270,7 @@ fn compressed_data_parser_test () {
         if let Packet::Literal(literal) = literal {
             assert_eq!(literal.filename, None);
             assert_eq!(literal.format, 'b' as u8);
-            assert_eq!(literal.date, 1509219866);
+            assert_eq!(literal.date, time::Tm::from_pgp(1509219866));
             assert_eq!(content, expected.to_vec());
         } else {
             panic!("Wrong packet!");

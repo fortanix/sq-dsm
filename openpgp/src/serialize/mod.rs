@@ -771,7 +771,7 @@ impl Literal {
         write_byte(o, self.format)?;
         write_byte(o, filename.len() as u8)?;
         o.write_all(filename)?;
-        write_be_u32(o, self.date)?;
+        write_be_u32(o, self.date.to_pgp()?)?;
         Ok(())
     }
 }
