@@ -63,14 +63,14 @@ impl KeyServer {
         let uri: Url = uri.parse()?;
 
         let client: Box<AClient> = {
-            let mut ssl = TlsConnector::builder()?;
-            ssl.add_root_certificate(cert)?;
-            let ssl = ssl.build()?;
+            let mut tls = TlsConnector::builder();
+            tls.add_root_certificate(cert);
+            let tls = tls.build()?;
 
             let mut http = HttpConnector::new(DNS_WORKER);
             http.enforce_http(false);
             Box::new(Client::builder()
-                     .build(HttpsConnector::from((http, ssl))))
+                     .build(HttpsConnector::from((http, tls))))
         };
 
         Self::make(ctx, client, uri)
