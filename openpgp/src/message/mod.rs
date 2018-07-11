@@ -1,213 +1,23 @@
 use std::fmt;
 use std::path::Path;
-use std::iter;
 
 use Result;
 use Error;
-use Tag;
 use Packet;
 use PacketPile;
 use Message;
+
+mod lexer;
+mod grammar;
+
+use self::lexer::Lexer;
+use self::grammar::MessageParser;
 
 impl fmt::Debug for Message {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("Message")
             .field("pile", &self.pile)
             .finish()
-    }
-}
-
-// This is a helper function to signal that an `PacketPile` is not a
-// `Message`.
-macro_rules! bad {
-    ($msg:expr) => ({
-        return Err(Error::MalformedMessage(
-            format!("Invalid OpenPGP message: {}", $msg.to_string())
-                .into()).into())
-    });
-}
-
-// The grammar for an encrypt part is:
-//
-//   ESK :- Public-Key Encrypted Session Key Packet |
-//          Symmetric-Key Encrypted Session Key Packet.
-//
-//   ESK Sequence :- ESK | ESK Sequence, ESK.
-//
-//   Encrypted Data :- Symmetrically Encrypted Data Packet |
-//         Symmetrically Encrypted Integrity Protected Data Packet
-//
-//   Encrypted Message :- Encrypted Data | ESK Sequence, Encrypted Data.
-//
-// See https://tools.ietf.org/html/rfc4880#section-11.3
-//
-// In other words: zero or more ESKs followed by exactly one SEIP or
-// SED packet.
-fn is_encrypted_part<'a, I>(mut po: Option<&'a Packet>, mut iter: I,
-                            depth: usize)
-    -> Result<()>
-    where I: Iterator<Item=&'a Packet>
-{
-    if po.is_none() {
-        po = iter.next();
-    }
-
-    while let Some(p) = po {
-        // We match by tag so that we correctly handle Unknown
-        // packets.
-        match p.tag() {
-            Tag::PKESK | Tag::SKESK => (),
-
-            tag @ Tag::SEIP | tag @ Tag::SED => {
-                // This has to be the last packet.
-                let tail : Vec<&Packet> = iter.collect();
-                if tail.len() > 0 {
-                    bad!(format!(
-                        "{} should be the last packet in an encrypted part, \
-                         but followed by {} packets ({:?}).",
-                        tag, tail.len(),
-                        tail.iter().map(|p| p.tag()).collect::<Vec<Tag>>()));
-                }
-
-                // XXX: We assume that if a SEIP or SED packet has a
-                // body, then the body is encrypted.
-                if p.body.is_some() {
-                    return Ok(());
-                } else if let Some(ref children) = p.children {
-                    return is_message(None, children.children(), depth + 1);
-                } else {
-                    bad!("an encrypted part cannot be empty.");
-                }
-            },
-
-            tag @ _ =>
-                bad!(format!("while parsing an encrypted part: \
-                              unexpected packet ({})",
-                             tag)),
-        }
-
-        po = iter.next();
-    }
-
-    bad!("encrypted part missing a SEIP or SED packet.");
-}
-
-fn is_one_pass_signed_part<'a, I>(mut po: Option<&'a Packet>, mut iter: I,
-                                  depth: usize)
-    -> Result<()>
-    where I: Iterator<Item=&'a Packet>
-{
-    if po.is_none() {
-        po = iter.next();
-    }
-
-    let mut ops = 0;
-    let mut saw_message = false;
-
-    while let Some(p) = po {
-        // We match by tag so that we correctly handle Unknown
-        // packets.
-        match p.tag() {
-            Tag::OnePassSig => {
-                if saw_message {
-                    bad!("One Pass Signature packet should not follow \
-                          a message.");
-                }
-                ops += 1;
-            },
-            Tag::Signature => {
-                if !saw_message {
-                    bad!("Signature packet encountered \
-                          before a signed message.");
-                }
-                if ops == 0 {
-                    bad!("Unbalanced signature: more Signature than \
-                          One Pass Signature packets.");
-                }
-                ops -= 1;
-            }
-            _ => {
-                if saw_message {
-                    bad!("A signature is only allowed over a single message.");
-                }
-                saw_message = true;
-                is_message(Some(p), iter::empty(), depth + 1)?
-            },
-        }
-
-        po = iter.next();
-    }
-
-    if !(ops == 0 && saw_message) {
-        bad!(format!("Unbalanced signature: missing {} signature packets",
-                     ops));
-    }
-
-    Ok(())
-}
-
-fn is_message<'a, I>(mut po: Option<&'a Packet>, mut iter: I, depth: usize)
-    -> Result<()>
-    where I: Iterator<Item=&'a Packet>
-{
-    if po.is_none() {
-        po = iter.next();
-    }
-
-    let tag = po.and_then(|p| Some(p.tag()));
-
-    match tag {
-        None =>
-            bad!("an empty message is not a valid OpenPGP message."),
-
-        Some(Tag::PublicKey) =>
-            bad!("it appears to be a TPK."),
-
-        Some(Tag::SecretKey) =>
-            bad!("it appears to be a TSK."),
-
-        Some(Tag::PKESK) | Some(Tag::SKESK)
-            | Some(Tag::SEIP) | Some(Tag::SED) =>
-            is_encrypted_part(po, iter, depth + 1),
-
-        Some(Tag::OnePassSig) =>
-            is_one_pass_signed_part(po, iter, depth + 1),
-
-        Some(Tag::Signature) => {
-            // Signature Packet, OpenPGP Message
-            is_message(None, iter, depth + 1)
-        },
-
-        Some(Tag::CompressedData) => {
-            if iter.next().is_some() {
-                bad!("a compressed packet may not be \
-                      followed by another packet.");
-            }
-
-            let p = po.unwrap();
-            if p.body.is_some() {
-                // XXX: The body is still compressed.  Assume it is
-                // okay.
-                Ok(())
-            } else if let Some(ref children) = p.children {
-                is_message(None, children.children(), depth + 1)
-            } else {
-                bad!("empty compressed data packet.");
-            }
-        },
-
-        Some(Tag::Literal) => {
-            if iter.next().is_some() {
-                bad!("a literal packet may not be \
-                      followed by another packet.");
-            }
-
-            Ok(())
-        },
-
-        _ => {
-            bad!(format!("{:?} is invalid.", tag));
-        },
     }
 }
 
@@ -225,8 +35,15 @@ impl Message {
     ///
     ///   [Section 11.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-11.3
     pub fn from_packet_pile(pile: PacketPile) -> Result<Self> {
-        is_message(None, pile.children(), 0)
-            .and_then(|_| Ok(Message { pile: pile } ))
+        let r = MessageParser::new().parse(Lexer::from_packet_pile(&pile)?);
+        match r {
+            Ok(_) => Ok(Message { pile: pile }),
+            /// We really want to squash the lexer's error: it is an
+            /// internal detail that may change, and meaningless even
+            /// to an immediate user of this crate.
+            Err(err) => Err(Error::MalformedMessage(
+                format!("Invalid OpenPGP message: {:?}", err).into()).into())
+        }
     }
 
     /// Converts the vector of `Packets` to a `Message`.
@@ -265,6 +82,7 @@ mod tests {
     use SignatureType;
     use s2k::S2K;
     use mpis::MPIs;
+    use Tag;
     use CompressedData;
     use Literal;
     use OnePassSig;
@@ -274,6 +92,123 @@ mod tests {
     use SEIP;
     use KeyID;
     use Container;
+
+    #[test]
+    fn tokens() {
+        use self::lexer::{Token, Lexer};
+        use self::lexer::Token::*;
+        use self::grammar::MessageParser;
+
+        struct TestVector<'a> {
+            s: &'a [Token],
+            result: bool,
+        }
+
+        let test_vectors = [
+            TestVector {
+                s: &[Literal][..],
+                result: true,
+            },
+            TestVector {
+                s: &[CompressedData, Literal, Pop],
+                result: true,
+            },
+            TestVector {
+                s: &[CompressedData, CompressedData, Literal,
+                     Pop, Pop],
+                result: true,
+            },
+            TestVector {
+                s: &[SEIP, Literal, Pop],
+                result: true,
+            },
+            TestVector {
+                s: &[CompressedData, SEIP, Literal, Pop, Pop],
+                result: true,
+            },
+            TestVector {
+                s: &[CompressedData, SEIP, CompressedData, Literal,
+                     Pop, Pop, Pop],
+                result: true,
+            },
+            TestVector {
+                s: &[SEIP, Pop],
+                result: false,
+            },
+            TestVector {
+                s: &[SKESK, SEIP, Literal, Pop],
+                result: true,
+            },
+            TestVector {
+                s: &[PKESK, SEIP, Literal, Pop],
+                result: true,
+            },
+            TestVector {
+                s: &[SKESK, SKESK, SEIP, Literal, Pop],
+                result: true,
+            },
+
+            TestVector {
+                s: &[OPS, Literal, SIG],
+                result: true,
+            },
+            TestVector {
+                s: &[OPS, OPS, Literal, SIG, SIG],
+                result: true,
+            },
+            TestVector {
+                s: &[OPS, OPS, Literal, SIG],
+                result: false,
+            },
+            TestVector {
+                s: &[OPS, OPS, SEIP, OPS, SEIP, Literal, Pop,
+                     SIG, Pop, SIG, SIG],
+                result: true,
+            },
+
+            TestVector {
+                s: &[CompressedData, OpaqueContent],
+                result: false,
+            },
+            TestVector {
+                s: &[CompressedData, OpaqueContent, Pop],
+                result: true,
+            },
+            TestVector {
+                s: &[CompressedData, CompressedData, OpaqueContent, Pop, Pop],
+                result: true,
+            },
+            TestVector {
+                s: &[SEIP, CompressedData, OpaqueContent, Pop, Pop],
+                result: true,
+            },
+            TestVector {
+                s: &[SEIP, OpaqueContent, Pop],
+                result: true,
+            },
+        ];
+
+        for v in test_vectors.into_iter() {
+            eprintln!("Parsing: {:?}", v.s);
+            match MessageParser::new().parse(Lexer::from_tokens(v.s))
+            {
+                Ok(r) => {
+                    println!("Parsed as {:?} {}",
+                             r,
+                             if v.result { "(expected)" }
+                             else { "UNEXPECTED!" });
+                    assert!(v.result);
+                },
+                Err(e) => {
+                    println!("Parse error: {:?} {}",
+                             e,
+                             if v.result { "UNEXPECTED!" }
+                             else { "(expected)" });
+                    assert!(! v.result);
+                }
+            }
+        }
+    }
 
     #[test]
     fn basic() {
