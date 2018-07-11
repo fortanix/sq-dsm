@@ -21,7 +21,7 @@ fn main() {
         "at-rest" => EncryptionMode::AtRest,
         "for-transport" => EncryptionMode::ForTransport,
         x => panic!("invalid mode: {:?}, \
-                     must be either 'at rest' or 'for transport'",
+                     must be either 'at-rest' or 'for-transport'",
                     x),
     };
 
