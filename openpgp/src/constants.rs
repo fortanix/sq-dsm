@@ -675,7 +675,7 @@ pub enum ReasonForRevocation {
     Unspecified,
 
     /// Key is superseded (key revocations)
-    KeySuperseeded,
+    KeySuperseded,
 
     /// Key material has been compromised (key revocations)
     KeyCompromised,
@@ -698,7 +698,7 @@ impl From<u8> for ReasonForRevocation {
         use self::ReasonForRevocation::*;
         match u {
             0 => Unspecified,
-            1 => KeySuperseeded,
+            1 => KeySuperseded,
             2 => KeyCompromised,
             3 => KeyRetired,
             32 => UIDRetired,
@@ -713,7 +713,7 @@ impl From<ReasonForRevocation> for u8 {
         use self::ReasonForRevocation::*;
         match r {
             Unspecified => 0,
-            KeySuperseeded => 1,
+            KeySuperseded => 1,
             KeyCompromised => 2,
             KeyRetired => 3,
             UIDRetired => 32,
@@ -729,7 +729,7 @@ impl fmt::Display for ReasonForRevocation {
         match *self {
             Unspecified =>
                 f.write_str("No reason specified"),
-            KeySuperseeded =>
+            KeySuperseded =>
                 f.write_str("Key is superseded"),
             KeyCompromised =>
                 f.write_str("Key material has been compromised"),
