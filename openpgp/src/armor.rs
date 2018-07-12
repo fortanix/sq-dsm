@@ -618,22 +618,21 @@ impl<'a> Read for Reader<'a> {
         }
 
         let (consumed, decoded) = {
-            // We may have to get some more until we have a
+            // Try to get enough bytes to fill buf, account for bytes
+            // filled using our buffer, round up, and add enough for
+            // the footer.
+            //
+            // Later, we may have to get some more until we have a
             // multiple of four non-whitespace ASCII characters.
-            let mut get_more = 0;
+            let mut want = (buf.len() - read + 2) / 3 * 4
+                + self.kind.footer_max_len();
 
             // Keep track of how much we got last time to detect
             // hitting EOF.
             let mut got = 0;
 
             loop {
-                // Try to get enough bytes to fill buf, account for
-                // bytes filled using our buffer, round up, and add
-                // enough for the footer.
-                let raw = self.source.data((buf.len() - read + 2) / 3 * 4
-                                           + self.kind.footer_max_len()
-                                           + get_more)?;
-
+                let raw = self.source.data(want)?;
                 if raw.len() == got {
                     return Err(Error::new(ErrorKind::UnexpectedEof,
                                           "Armor footer is missing"));
@@ -662,7 +661,7 @@ impl<'a> Read for Reader<'a> {
                     }
 
                     // Get some more bytes.
-                    get_more += 4 - n % 4;
+                    want = got + 4 - n % 4;
                 }
             }
         };
@@ -974,6 +973,25 @@ mod test {
             }
 
             assert_eq!(&bin, &dearmored);
+        }
+    }
+
+    #[test]
+    fn dearmor_yuge() {
+        let mut file =
+            File::open("tests/data/keys/yuge-key-so-yuge-the-yugest.asc")
+            .unwrap();
+        let mut r = Reader::new(&mut file, Kind::Any);
+        let mut dearmored = Vec::<u8>::new();
+        r.read_to_end(&mut dearmored).unwrap();
+
+        let mut file =
+            File::open("tests/data/keys/yuge-key-so-yuge-the-yugest.asc")
+            .unwrap();
+        let r = Reader::new(&mut file, Kind::Any);
+        let mut dearmored = Vec::<u8>::new();
+        for c in r.bytes() {
+            dearmored.push(c.unwrap());
         }
     }
 
