@@ -38,9 +38,9 @@ impl Message {
         let r = MessageParser::new().parse(Lexer::from_packet_pile(&pile)?);
         match r {
             Ok(_) => Ok(Message { pile: pile }),
-            /// We really want to squash the lexer's error: it is an
-            /// internal detail that may change, and meaningless even
-            /// to an immediate user of this crate.
+            // We really want to squash the lexer's error: it is an
+            // internal detail that may change, and meaningless even
+            // to an immediate user of this crate.
             Err(err) => Err(Error::MalformedMessage(
                 format!("Invalid OpenPGP message: {:?}", err).into()).into())
         }
