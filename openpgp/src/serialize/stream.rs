@@ -345,8 +345,8 @@ impl<'a> Signer<'a> {
                 let mut sig = Signature::new(SignatureType::Binary);
                 sig.set_signature_creation_time(time::now())?;
                 sig.set_issuer_fingerprint(key.fingerprint())?;
-                // Some versions of GnuPG require the Issuer subpacket
-                // to be present.
+                // GnuPG up to (and including) 2.2.8 requires the
+                // Issuer subpacket to be present.
                 sig.set_issuer(key.keyid())?;
 
                 // Compute the signature.
