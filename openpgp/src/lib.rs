@@ -134,7 +134,7 @@ fn path_to(artifact: &str) -> PathBuf {
 /// Crate result specialization.
 pub type Result<T> = ::std::result::Result<T, failure::Error>;
 
-#[derive(Fail, Debug)]
+#[derive(Fail, Debug, Clone)]
 /// Errors returned by this module.
 pub enum Error {
     /// Invalid argument.
