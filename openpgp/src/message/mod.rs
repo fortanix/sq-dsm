@@ -1,5 +1,19 @@
+//! OpenPGP Message support.
+//!
+//! An OpenPGP message is a sequence of OpenPGP packets that
+//! corresponds to an optionally signed, optionally encrypted,
+//! optionally compressed literal data packet.  The exact format of an
+//! OpenPGP message is described in [Section 11.3 of RFC 4880].
+//!
+//! This module provides support for validating and working with
+//! OpenPGP messages.
+//!
+//! [Section 11.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-11.3
+
 use std::fmt;
 use std::path::Path;
+
+use failure;
 
 use Result;
 use Error;
@@ -7,12 +21,263 @@ use Packet;
 use PacketPile;
 use Message;
 
+use packet::Tag;
+
 mod lexer;
 mod grammar;
 
-use self::lexer::Lexer;
+use self::lexer::{Lexer, LexicalError};
+pub use self::lexer::Token;
+
+use lalrpop_util::ParseError;
+
 use self::grammar::MessageParser;
 
+/// Errors that MessageValidator::check may return.
+#[derive(Debug, Clone)]
+pub enum MessageParserError {
+    /// A parser error.
+    Parser(ParseError<usize, Token, LexicalError>),
+    /// An OpenPGP error.
+    OpenPGP(Error),
+}
+
+impl From<MessageParserError> for failure::Error {
+    fn from(err: MessageParserError) -> Self {
+        match err {
+            MessageParserError::Parser(p) => p.into(),
+            MessageParserError::OpenPGP(p) => p.into(),
+        }
+    }
+}
+
+
+/// Whether a packet sequence is a valid OpenPGP Message.
+#[derive(Debug)]
+pub enum MessageValidity {
+    /// The packet sequence is a valid OpenPGP message.
+    Message,
+    /// The packet sequence appears to be a valid OpenPGP message that
+    /// has been truncated, i.e., the packet sequence is a valid
+    /// prefix of an OpenPGP message.
+    MessagePrefix,
+    /// The message is definitely not valid.
+    Error(failure::Error),
+}
+
+impl MessageValidity {
+    /// Returns whether the packet sequence is a valid message.
+    ///
+    /// Note: a `MessageValidator` will only return this after
+    /// `MessageValidator::finish` has been called.
+    pub fn is_message(&self) -> bool {
+        if let MessageValidity::Message = self {
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Returns whether the packet sequence forms a valid message
+    /// prefix.
+    ///
+    /// Note: a `MessageValidator` will only return this before
+    /// `MessageValidator::finish` has been called.
+    pub fn is_message_prefix(&self) -> bool {
+        if let MessageValidity::MessagePrefix = self {
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Returns whether the packet sequence is definitely not a valid
+    /// OpenPGP Message.
+    pub fn is_err(&self) -> bool {
+        if let MessageValidity::Error(_) = self {
+            true
+        } else {
+            false
+        }
+    }
+}
+
+/// Used to help validate a packet sequence is a valid OpenPGP message.
+#[derive(Debug)]
+pub struct MessageValidator {
+    tokens: Vec<Token>,
+    finished: bool,
+    // Once a raw token is pushed, this is set to None and pushing
+    // packet Tags is no longer supported.
+    depth: Option<usize>,
+
+    // If we know that the packet sequence is invalid.
+    error: Option<MessageParserError>,
+}
+
+impl Default for MessageValidator {
+    fn default() -> Self {
+        MessageValidator::new()
+    }
+}
+
+impl MessageValidator {
+    /// Instantiates a new `MessageValidator`.
+    pub fn new() -> Self {
+        MessageValidator {
+            tokens: vec![],
+            finished: false,
+            depth: Some(0),
+            error: None,
+        }
+    }
+
+    /// Returns whether the packet sequence is a valid message.
+    ///
+    /// Note: a `MessageValidator` will only return this after
+    /// `MessageValidator::finish` has been called.
+    pub fn is_message(&self) -> bool {
+        self.check().is_message()
+    }
+
+    /// Returns whether the packet sequence forms a valid message
+    /// prefix.
+    ///
+    /// Note: a `MessageValidator` will only return this before
+    /// `MessageValidator::finish` has been called.
+    pub fn is_message_prefix(&self) -> bool {
+        self.check().is_message_prefix()
+    }
+
+    /// Returns whether the packet sequence is definitely not a valid
+    /// OpenPGP Message.
+    pub fn is_err(&self) -> bool {
+        self.check().is_err()
+    }
+
+    /// Adds a token to the token stream.
+    #[cfg(test)]
+    pub(crate) fn push_raw(&mut self, token: Token) {
+        assert!(!self.finished);
+
+        if self.error.is_some() {
+            return;
+        }
+
+        self.depth = None;
+        self.tokens.push(token);
+    }
+
+    /// Add the token `token` at depth `depth` to the token stream.
+    ///
+    /// Note: top-level packets are at depth 0, their immediate
+    /// children are a depth 1, etc.
+    ///
+    /// The token *must* correspond to a packet; this function will
+    /// panic if `token` is Token::Pop.
+    pub fn push_token(&mut self, token: Token, depth: usize) {
+        assert!(!self.finished);
+        assert!(self.depth.is_some());
+        assert!(token != Token::Pop);
+
+        if self.error.is_some() {
+            return;
+        }
+
+        // We popped one or more containers.
+        if self.depth.unwrap() > depth {
+            for _ in 1..self.depth.unwrap() - depth + 1 {
+                self.tokens.push(Token::Pop);
+            }
+        }
+        self.depth = Some(depth);
+
+        self.tokens.push(token);
+    }
+
+    /// Add a packet of type `tag` at depth `depth` to the token
+    /// stream.
+    ///
+    /// Note: top-level packets are at depth 0.
+    pub fn push(&mut self, tag: Tag, depth: usize) {
+        let token = match tag {
+            Tag::Literal => Token::Literal,
+            Tag::CompressedData => Token::CompressedData,
+            Tag::SKESK => Token::SKESK,
+            Tag::PKESK => Token::PKESK,
+            Tag::SEIP => Token::SEIP,
+            Tag::MDC => Token::MDC,
+            Tag::OnePassSig => Token::OPS,
+            Tag::Signature => Token::SIG,
+            _ => {
+                // Unknown token.
+                self.error = Some(MessageParserError::OpenPGP(
+                    Error::MalformedMessage(
+                        format!("Invalid OpenPGP message: unexpected packet: {:?}",
+                                tag).into())));
+                self.tokens.clear();
+                return;
+            }
+        };
+
+        self.push_token(token, depth)
+    }
+
+    /// Note that the entire message has been seen.
+    pub fn finish(&mut self) {
+        assert!(!self.finished);
+
+        if let Some(depth) = self.depth {
+            // Pop any containers.
+            for _ in 0..depth {
+                self.tokens.push(Token::Pop);
+            }
+        }
+
+        self.finished = true;
+    }
+
+    /// Returns whether the token stream corresponds to a valid
+    /// OpenPGP message.
+    ///
+    /// This returns a tri-state: if the message is valid, it returns
+    /// MessageValidity::Message, if the message is invalid, then it
+    /// returns MessageValidity::Error.  If the message could be
+    /// valid, then it returns MessageValidity::MessagePrefix.
+    ///
+    /// Note: if MessageValidator::finish() *hasn't* been called, then
+    /// this function will only ever return either
+    /// MessageValidity::MessagePrefix or MessageValidity::Error.  Once
+    /// MessageValidity::finish() has been called, then only
+    /// MessageValidity::Message or MessageValidity::Bad will be called.
+    pub fn check(&self) -> MessageValidity {
+        if let Some(ref err) = self.error {
+            return MessageValidity::Error((*err).clone().into());
+        }
+
+        let r = MessageParser::new().parse(
+            Lexer::from_tokens(&self.tokens[..]));
+
+        if self.finished {
+            match r {
+                Ok(_) => MessageValidity::Message,
+                Err(ref err) =>
+                    MessageValidity::Error(
+                        MessageParserError::Parser((*err).clone()).into()),
+            }
+        } else {
+            match r {
+                Ok(_) => MessageValidity::MessagePrefix,
+                Err(ParseError::UnrecognizedToken { token: None, .. }) =>
+                    MessageValidity::MessagePrefix,
+                Err(ref err) =>
+                    MessageValidity::Error(
+                        MessageParserError::Parser((*err).clone()).into()),
+            }
+        }
+    }
+}
+
 impl fmt::Debug for Message {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("Message")
@@ -35,14 +300,32 @@ impl Message {
     ///
     ///   [Section 11.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-11.3
     pub fn from_packet_pile(pile: PacketPile) -> Result<Self> {
-        let r = MessageParser::new().parse(Lexer::from_packet_pile(&pile)?);
-        match r {
-            Ok(_) => Ok(Message { pile: pile }),
+        let mut v = MessageValidator::new();
+        for (path, packet) in pile.descendants().paths() {
+            v.push(packet.tag(), path.len() - 1);
+
+            match packet {
+                Packet::CompressedData(_) | Packet::SEIP(_) => {
+                    // If a container's content is not unpacked, then
+                    // we treat the content as an opaque message.
+
+                    if packet.children.is_none() && packet.body.is_some() {
+                        v.push_token(Token::OpaqueContent,
+                                     path.len() - 1 + 1);
+                    }
+                }
+                _ => {}
+            }
+        }
+        v.finish();
+
+        match v.check() {
+            MessageValidity::Message => Ok(Message { pile: pile }),
+            MessageValidity::MessagePrefix => unreachable!(),
             // We really want to squash the lexer's error: it is an
             // internal detail that may change, and meaningless even
             // to an immediate user of this crate.
-            Err(err) => Err(Error::MalformedMessage(
-                format!("Invalid OpenPGP message: {:?}", err).into()).into())
+            MessageValidity::Error(e) => Err(e.into()),
         }
     }
 
@@ -93,6 +376,17 @@ mod tests {
     use MDC;
     use KeyID;
     use Container;
+
+    macro_rules! assert_match {
+        ( $error: pat = $expr:expr ) => {
+            let x = $expr;
+            if let $error = x {
+                /* Pass.  */
+            } else {
+                panic!("Expected {}, got {:?}.", stringify!($error), x);
+            }
+        };
+    }
 
     #[test]
     fn tokens() {
@@ -190,9 +484,118 @@ mod tests {
         ];
 
         for v in test_vectors.into_iter() {
+            if v.result {
+                let mut l = MessageValidator::new();
+                for token in v.s.iter() {
+                    l.push_raw(*token);
+                    assert_match!(MessageValidity::MessagePrefix = l.check());
+                }
+
+                l.finish();
+                assert_match!(MessageValidity::Message = l.check());
+            }
+
             match MessageParser::new().parse(Lexer::from_tokens(v.s)) {
                 Ok(r) => assert!(v.result, "Parsing: {:?} => {:?}", v.s, r),
                 Err(e) => assert!(! v.result, "Parsing: {:?} => {:?}", v.s, e),
+            }
+        }
+    }
+
+    #[test]
+    fn tags() {
+        use Tag::*;
+
+        struct TestVector<'a> {
+            s: &'a [(Tag, usize)],
+            result: bool,
+        }
+
+        let test_vectors = [
+            TestVector {
+                s: &[(Literal, 0)][..],
+                result: true,
+            },
+            TestVector {
+                s: &[(CompressedData, 0), (Literal, 1)],
+                result: true,
+            },
+            TestVector {
+                s: &[(CompressedData, 0), (CompressedData, 1), (Literal, 2)],
+                result: true,
+            },
+            TestVector {
+                s: &[(SEIP, 0), (Literal, 1), (MDC, 1)],
+                result: true,
+            },
+            TestVector {
+                s: &[(CompressedData, 0), (SEIP, 1), (Literal, 2), (MDC, 2)],
+                result: true,
+            },
+            TestVector {
+                s: &[(CompressedData, 0), (SEIP, 1),
+                     (CompressedData, 2), (Literal, 3), (MDC, 2)],
+                result: true,
+            },
+            TestVector {
+                s: &[(CompressedData, 0), (SEIP, 1),
+                     (CompressedData, 2), (Literal, 3), (MDC, 3)],
+                result: false,
+            },
+            TestVector {
+                s: &[(SEIP, 0), (MDC, 0)],
+                result: false,
+            },
+            TestVector {
+                s: &[(SKESK, 0), (SEIP, 0), (Literal, 1), (MDC, 1)],
+                result: true,
+            },
+            TestVector {
+                s: &[(PKESK, 0), (SEIP, 0), (Literal, 1), (MDC, 1)],
+                result: true,
+            },
+            TestVector {
+                s: &[(SKESK, 0), (SKESK, 0), (SEIP, 0), (Literal, 1), (MDC, 1)],
+                result: true,
+            },
+
+            TestVector {
+                s: &[(OnePassSig, 0), (Literal, 0), (Signature, 0)],
+                result: true,
+            },
+            TestVector {
+                s: &[(OnePassSig, 0), (OnePassSig, 0), (Literal, 0),
+                     (Signature, 0), (Signature, 0)],
+                result: true,
+            },
+            TestVector {
+                s: &[(OnePassSig, 0), (OnePassSig, 0), (Literal, 0),
+                     (Signature, 0)],
+                result: false,
+            },
+            TestVector {
+                s: &[(OnePassSig, 0), (OnePassSig, 0), (SEIP, 0),
+                     (OnePassSig, 1), (SEIP, 1), (Literal, 2), (MDC, 2),
+                     (Signature, 1), (MDC, 1), (Signature, 0), (Signature, 0)],
+                result: true,
+            },
+        ];
+
+        for v in test_vectors.into_iter() {
+            let mut l = MessageValidator::new();
+            for (token, depth) in v.s.iter() {
+                l.push(*token, *depth);
+                if v.result {
+                    assert_match!(MessageValidity::MessagePrefix = l.check());
+                }
+            }
+
+            l.finish();
+
+            if v.result {
+                assert_match!(MessageValidity::Message = l.check());
+            } else {
+                assert_match!(MessageValidity::Error(_) = l.check());
             }
         }
     }

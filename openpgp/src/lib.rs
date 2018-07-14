@@ -105,7 +105,7 @@ mod reader;
 pub use reader::Reader;
 
 mod packet_pile;
-mod message;
+pub mod message;
 
 pub mod constants;
 use constants::{
