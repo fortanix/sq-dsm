@@ -19,6 +19,7 @@ pub enum Token {
     SKESK,
     PKESK,
     SEIP,
+    MDC,
 
     OPS,
     SIG,
@@ -89,6 +90,7 @@ impl<'input> Lexer<'input> {
                 Packet::SKESK(_) => t.push(Token::SKESK),
                 Packet::PKESK(_) => t.push(Token::PKESK),
                 Packet::SEIP(_) => t.push(Token::SEIP),
+                Packet::MDC(_) => t.push(Token::MDC),
                 Packet::OnePassSig(_) => t.push(Token::OPS),
                 Packet::Signature(_) => t.push(Token::SIG),
 

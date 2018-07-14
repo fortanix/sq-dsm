@@ -17,7 +17,8 @@ CompressedData: () = {
 };
 
 SeipPart: () = {
-    SEIP Message POP,
+    SEIP Message MDC POP,
+    SEIP OPAQUE_CONTENT POP,
 }
 
 // An encrypted part is 0 or more ESKs followed by a SEIP packet.
@@ -59,6 +60,7 @@ extern {
         SKESK => lexer::Token::SKESK,
         PKESK => lexer::Token::PKESK,
         SEIP => lexer::Token::SEIP,
+        MDC => lexer::Token::MDC,
         OPS => lexer::Token::OPS,
         SIG => lexer::Token::SIG,
         POP => lexer::Token::Pop,

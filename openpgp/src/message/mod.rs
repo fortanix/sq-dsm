@@ -90,6 +90,7 @@ mod tests {
     use SKESK;
     use PKESK;
     use SEIP;
+    use MDC;
     use KeyID;
     use Container;
 
@@ -119,32 +120,32 @@ mod tests {
                 result: true,
             },
             TestVector {
-                s: &[SEIP, Literal, Pop],
+                s: &[SEIP, Literal, MDC, Pop],
                 result: true,
             },
             TestVector {
-                s: &[CompressedData, SEIP, Literal, Pop, Pop],
+                s: &[CompressedData, SEIP, Literal, MDC, Pop, Pop],
                 result: true,
             },
             TestVector {
                 s: &[CompressedData, SEIP, CompressedData, Literal,
-                     Pop, Pop, Pop],
+                     Pop, MDC, Pop, Pop],
                 result: true,
             },
             TestVector {
-                s: &[SEIP, Pop],
+                s: &[SEIP, MDC, Pop],
                 result: false,
             },
             TestVector {
-                s: &[SKESK, SEIP, Literal, Pop],
+                s: &[SKESK, SEIP, Literal, MDC, Pop],
                 result: true,
             },
             TestVector {
-                s: &[PKESK, SEIP, Literal, Pop],
+                s: &[PKESK, SEIP, Literal, MDC, Pop],
                 result: true,
             },
             TestVector {
-                s: &[SKESK, SKESK, SEIP, Literal, Pop],
+                s: &[SKESK, SKESK, SEIP, Literal, MDC, Pop],
                 result: true,
             },
 
@@ -161,8 +162,8 @@ mod tests {
                 result: false,
             },
             TestVector {
-                s: &[OPS, OPS, SEIP, OPS, SEIP, Literal, Pop,
-                     SIG, Pop, SIG, SIG],
+                s: &[OPS, OPS, SEIP, OPS, SEIP, Literal, MDC, Pop,
+                     SIG, MDC, Pop, SIG, SIG],
                 result: true,
             },
 
@@ -179,7 +180,7 @@ mod tests {
                 result: true,
             },
             TestVector {
-                s: &[SEIP, CompressedData, OpaqueContent, Pop, Pop],
+                s: &[SEIP, CompressedData, OpaqueContent, Pop, MDC, Pop],
                 result: true,
             },
             TestVector {
@@ -189,23 +190,9 @@ mod tests {
         ];
 
         for v in test_vectors.into_iter() {
-            eprintln!("Parsing: {:?}", v.s);
-            match MessageParser::new().parse(Lexer::from_tokens(v.s))
-            {
-                Ok(r) => {
-                    println!("Parsed as {:?} {}",
-                             r,
-                             if v.result { "(expected)" }
-                             else { "UNEXPECTED!" });
-                    assert!(v.result);
-                },
-                Err(e) => {
-                    println!("Parse error: {:?} {}",
-                             e,
-                             if v.result { "UNEXPECTED!" }
-                             else { "(expected)" });
-                    assert!(! v.result);
-                }
+            match MessageParser::new().parse(Lexer::from_tokens(v.s)) {
+                Ok(r) => assert!(v.result, "Parsing: {:?} => {:?}", v.s, r),
+                Err(e) => assert!(! v.result, "Parsing: {:?} => {:?}", v.s, e),
             }
         }
     }
@@ -451,6 +438,7 @@ mod tests {
         // 0: SK-ESK
         // 1: SEIP
         //  0: Literal
+        //  1: MDC
         // => good.
         let mut seip = SEIP {
             common: Default::default(),
@@ -459,6 +447,8 @@ mod tests {
         seip.common.children = Some(Container::new());
         seip.common.children.as_mut().unwrap().push(
             Literal::new(Text).body(b"inner".to_vec()).to_packet());
+        seip.common.children.as_mut().unwrap().push(
+            MDC::for_hash(Default::default()).to_packet());
         packets[1] = Packet::SEIP(seip);
 
         assert!(packets.iter().map(|p| p.tag()).collect::<Vec<Tag>>()
@@ -470,6 +460,7 @@ mod tests {
         // 0: SK-ESK
         // 1: SEIP
         //  0: Literal
+        //  1: MDC
         // 2: SK-ESK
         // => bad.
         let skesk = packets[0].clone();
@@ -485,6 +476,7 @@ mod tests {
         // 1: SK-ESK
         // 2: SEIP
         //  0: Literal
+        //  1: MDC
         // => good.
         packets.swap(1, 2);
 
@@ -498,8 +490,10 @@ mod tests {
         // 1: SK-ESK
         // 2: SEIP
         //  0: Literal
+        //  1: MDC
         // 3: SEIP
         //  0: Literal
+        //  1: MDC
         // => bad.
         let seip = packets[2].clone();
         packets.push(seip);
@@ -514,10 +508,10 @@ mod tests {
         // 1: SK-ESK
         // 2: SEIP
         //  0: Literal
+        //  1: MDC
         // 3: Literal
         // => bad.
-        packets[3]
-            = packets[3].children.as_mut().unwrap().packets.pop().unwrap();
+        packets[3] = Literal::new(Text).body(b"inner".to_vec()).to_packet();
 
         assert!(packets.iter().map(|p| p.tag()).collect::<Vec<Tag>>()
                 == [ Tag::SKESK, Tag::SKESK, Tag::SEIP, Tag::Literal ]);
@@ -529,7 +523,8 @@ mod tests {
         // 1: SK-ESK
         // 2: SEIP
         //  0: Literal
-        //  1: Literal
+        //  1: MDC
+        //  2: Literal
         // => bad.
         packets.remove(3);
         packets[2].children.as_mut().unwrap().push(
