@@ -447,14 +447,25 @@ pub struct MDC {
 impl MDC {
     /// Creates a new MDC packet for the data hashed into `hash` Hash context.
     pub fn new(hash: &mut nettle::Hash) -> Self {
-        let mut mdc = MDC {
-            common: Default::default(),
-            computed_hash: Default::default(),
-            hash: Default::default(),
-        };
+        let mut value : [u8; 20] = Default::default();
+        hash.digest(&mut value[..]);
 
-        hash.digest(&mut mdc.hash[..]);
-        mdc
+        Self::for_hash(value)
+    }
+
+    /// Creates an MDC packet containing the hash value `hash`.
+    pub fn for_hash(hash: [u8; 20]) -> Self {
+        MDC {
+            common: Default::default(),
+            // All 0s.
+            computed_hash: Default::default(),
+            hash: hash,
+        }
+    }
+
+    /// Convert the `MDC` struct to a `Packet`.
+    pub fn to_packet(self) -> Packet {
+        Packet::MDC(self)
     }
 }
 
