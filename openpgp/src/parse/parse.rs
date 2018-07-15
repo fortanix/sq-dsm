@@ -117,8 +117,8 @@ pub(crate) struct PacketHeaderParser<'a> {
     // top-level container have a recursion depth of 1, etc.
     recursion_depth: u8,
 
-    // The `PacketParser`'s settings
-    settings: PacketParserSettings,
+    // The `PacketParser`'s state.
+    state: PacketParserState,
 
     /// A map of this packet.
     map: Option<Map>,
@@ -177,7 +177,7 @@ impl<'a> std::fmt::Debug for PacketHeaderParser<'a> {
             .field("header", &self.header)
             .field("recursion_depth", &self.recursion_depth)
             .field("reader", &self.reader)
-            .field("settings", &self.settings)
+            .field("state", &self.state)
             .field("map", &self.map)
             .finish()
     }
@@ -188,7 +188,7 @@ impl<'a> PacketHeaderParser<'a> {
     // `inner` points to the start of the OpenPGP framing information,
     // i.e., the CTB.
     fn new(inner: Box<'a + BufferedReader<Cookie>>,
-           settings: PacketParserSettings,
+           state: PacketParserState,
            recursion_depth: u8, header: Header,
            header_bytes: Option<Vec<u8>>) -> Self
     {
@@ -196,7 +196,7 @@ impl<'a> PacketHeaderParser<'a> {
             reader: BufferedReaderDup::with_cookie(inner, Default::default()),
             header: header,
             recursion_depth: recursion_depth,
-            settings: settings,
+            state: state,
             map: header_bytes.map(|h| Map::new(h)),
         }
     }
@@ -207,7 +207,9 @@ impl<'a> PacketHeaderParser<'a> {
     // includes any required filters (e.g., a
     // `BufferedReaderPartialBodyFilter`, etc.).
     fn new_naked(inner: Box<'a + BufferedReader<Cookie>>) -> Self {
-        PacketHeaderParser::new(inner, Default::default(), 0,
+        PacketHeaderParser::new(inner,
+                                PacketParserState::new(Default::default()),
+                                0,
                                 Header {
                                     ctb: CTB::new(Tag::Reserved),
                                     length: BodyLength::Full(0),
@@ -225,7 +227,7 @@ impl<'a> PacketHeaderParser<'a> {
     fn ok(mut self, packet: Packet) -> Result<PacketParser<'a>> {
         let total_out = self.reader.total_out();
 
-        let mut reader = if self.settings.map {
+        let mut reader = if self.state.settings.map {
             // Read the body for the map.  Note that
             // `total_out` does not account for the body.
             //
@@ -266,8 +268,8 @@ impl<'a> PacketHeaderParser<'a> {
             content_was_read: false,
             decrypted: true,
             finished: false,
-            settings: self.settings,
             map: self.map,
+            state: self.state,
         })
     }
 
@@ -679,7 +681,7 @@ pub(crate) fn to_unknown_packet<R: Read>(reader: R) -> Result<Unknown>
     };
 
     let parser = PacketHeaderParser::new(
-        reader, Default::default(), 0, header, None);
+        reader, PacketParserState::new(Default::default()), 0, header, None);
     let mut pp = Unknown::parse(parser)?;
     pp.buffer_unread_content()?;
     pp.finish()?;
@@ -1578,6 +1580,22 @@ impl PKESK {
     }
 }
 
+// State that lives for the life of the packet parser, not the life of
+// an individual packet.
+#[derive(Debug, Clone)]
+struct PacketParserState {
+    // The `PacketParser`'s settings
+    settings: PacketParserSettings,
+}
+
+impl PacketParserState {
+    fn new(settings: PacketParserSettings) -> Self {
+        PacketParserState {
+            settings: settings,
+        }
+    }
+}
+
 /// A low-level OpenPGP message parser.
 ///
 /// A `PacketParser` provides a low-level, iterator-like interface to
@@ -1652,11 +1670,10 @@ pub struct PacketParser<'a> {
     // Whether the content has been decrypted.
     decrypted: bool,
 
-    // The `PacketParser`'s settings
-    settings: PacketParserSettings,
-
     /// A map of this packet.
     pub map: Option<Map>,
+
+    state: PacketParserState,
 }
 
 impl <'a> std::fmt::Debug for PacketParser<'a> {
@@ -1667,7 +1684,7 @@ impl <'a> std::fmt::Debug for PacketParser<'a> {
             .field("recursion_depth", &self.recursion_depth)
             .field("decrypted", &self.decrypted)
             .field("content_was_read", &self.content_was_read)
-            .field("settings", &self.settings)
+            .field("settings", &self.state.settings)
             .field("map", &self.map)
             .finish()
     }
@@ -1873,13 +1890,15 @@ impl <'a> PacketParser<'a> {
     /// stream.  If there are no packets left, this function returns
     /// `bio`.
     fn parse(mut bio: Box<BufferedReader<Cookie> + 'a>,
-             settings: &PacketParserSettings,
+             state: &PacketParserState,
              recursion_depth: usize)
             -> Result<ParserResult<'a>> {
+        let trace = state.settings.trace;
+
         // When header encounters an EOF, it returns an error.  But,
         // we want to return None.  Try a one byte read.
         if bio.data(1)?.len() == 0 {
-            if settings.trace {
+            if trace {
                 eprintln!("{}PacketParser::parse(depth: {}) -> EOF.",
                           indent(recursion_depth as u8),
                           recursion_depth);
@@ -1912,7 +1931,7 @@ impl <'a> PacketParser<'a> {
         if tag == Tag::Signature {
             // Ok, the next packet is a Signature packet.  Get the
             // nearest, valid OneSigPass packet.
-            if settings.trace {
+            if trace {
                 eprintln!("{}PacketParser::parse(): Got a Signature packet, \
                            looking for a matching OnePassSig packet",
                           indent(recursion_depth as u8));
@@ -1937,7 +1956,7 @@ impl <'a> PacketParser<'a> {
 
                     if cookie.hashes_for == HashesFor::Signature {
                         if let Some((algo, hash)) = cookie.hashes.pop() {
-                            if settings.trace {
+                            if trace {
                                 eprintln!("{}PacketParser::parse(): \
                                            popped a {:?} HashedReader",
                                           indent(recursion_depth as u8), algo);
@@ -1973,7 +1992,7 @@ impl <'a> PacketParser<'a> {
         }
 
         // Save header for the map.
-        let header_bytes = if settings.map {
+        let header_bytes = if state.settings.map {
             Some(Vec::from(&bio.data_consume_hard(consumed)?[..consumed]))
         } else {
             // Or not.
@@ -1984,7 +2003,7 @@ impl <'a> PacketParser<'a> {
         let bio : Box<BufferedReader<Cookie>>
             = match header.length {
                 BodyLength::Full(len) => {
-                    if settings.trace {
+                    if trace {
                         eprintln!("{}PacketParser::parse(): \
                                    Pushing a limitor ({} bytes), level: {}.",
                                   indent(recursion_depth as u8), len,
@@ -1995,7 +2014,7 @@ impl <'a> PacketParser<'a> {
                         Cookie::new(recursion_depth)))
                 },
                 BodyLength::Partial(len) => {
-                    if settings.trace {
+                    if trace {
                         eprintln!("{}PacketParser::parse(): Pushing a \
                                    partial body chunk decoder, level: {}.",
                                   indent(recursion_depth as u8),
@@ -2012,7 +2031,7 @@ impl <'a> PacketParser<'a> {
                         Cookie::new(recursion_depth)))
                 },
                 BodyLength::Indeterminate => {
-                    if settings.trace {
+                    if trace {
                         eprintln!("{}PacketParser::parse(): Indeterminate \
                                    length packet, not adding a limitor.",
                                   indent(recursion_depth as u8));
@@ -2021,10 +2040,12 @@ impl <'a> PacketParser<'a> {
                 },
         };
 
+
         let tag = header.ctb.tag;
-        let parser = PacketHeaderParser::new(bio, (*settings).clone(),
+        let parser = PacketHeaderParser::new(bio, (*state).clone(),
                                              recursion_depth as u8,
                                              header, header_bytes);
+
         let mut result = match tag {
             Tag::Signature =>           Signature::parse(parser, computed_hash),
             Tag::OnePassSig =>          OnePassSig::parse(parser),
@@ -2048,7 +2069,7 @@ impl <'a> PacketParser<'a> {
                 &mut result, true, recursion_depth as isize - 1);
         }
 
-        if settings.trace {
+        if trace {
             eprintln!("{}PacketParser::parse() -> {:?}, depth: {}, level: {:?}.",
                       indent(recursion_depth as u8), result.packet.tag(),
                       result.recursion_depth,
@@ -2123,7 +2144,9 @@ impl <'a> PacketParser<'a> {
     pub fn next(mut self)
         -> Result<(Packet, isize, PacketParserResult<'a>, isize)>
     {
-        if self.settings.trace {
+        let trace = self.state.settings.trace;
+
+        if trace {
             eprintln!("{}PacketParser::next({:?}, depth: {}, level: {:?}).",
                       indent(self.recursion_depth),
                       self.packet.tag(), self.recursion_depth,
@@ -2142,7 +2165,7 @@ impl <'a> PacketParser<'a> {
         // Now read the next packet.
         loop {
             // Parse the next packet.
-            let ppr = PacketParser::parse(reader, &self.settings,
+            let ppr = PacketParser::parse(reader, &self.state,
                                           self.recursion_depth as usize)?;
             match ppr {
                 ParserResult::EOF(reader_) => {
@@ -2152,7 +2175,7 @@ impl <'a> PacketParser<'a> {
                     // n (e.g., the limitor that caused us to hit
                     // EOF), and then try again.
 
-                    if self.settings.trace {
+                    if trace {
                         eprintln!("{}PacketParser::next(): \
                                    Got EOF trying to read the next packet, \
                                    popping container at depth {}.",
@@ -2161,7 +2184,7 @@ impl <'a> PacketParser<'a> {
                     }
 
                     if self.recursion_depth == 0 {
-                        if self.settings.trace {
+                        if trace {
                             eprintln!("{}PacketParser::next(): \
                                        Popped top-level container, done \
                                        reading message.",
@@ -2178,8 +2201,7 @@ impl <'a> PacketParser<'a> {
                             reader_, self.recursion_depth as isize)?;
                     }
                 },
-                ParserResult::Success(mut pp) => {
-                    pp.settings = self.settings;
+                ParserResult::Success(pp) => {
                     return Ok((self.packet,
                                orig_depth as isize,
                                PacketParserResult::Some(pp),
@@ -2207,7 +2229,9 @@ impl <'a> PacketParser<'a> {
     pub fn recurse(self)
         -> Result<(Packet, isize, PacketParserResult<'a>, isize)>
     {
-        if self.settings.trace {
+        let trace = self.state.settings.trace;
+
+        if trace {
             eprintln!("{}PacketParser::recurse({:?}, depth: {}, level: {:?})",
                       indent(self.recursion_depth),
                       self.packet.tag(), self.recursion_depth,
@@ -2218,18 +2242,18 @@ impl <'a> PacketParser<'a> {
             // Packets that recurse.
             Packet::CompressedData(_) | Packet::SEIP(_) if self.decrypted => {
                 if self.recursion_depth
-                    >= self.settings.max_recursion_depth {
-                    if self.settings.trace {
+                    >= self.state.settings.max_recursion_depth {
+                    if trace {
                         eprintln!("{}PacketParser::recurse(): Not recursing \
                                    into the {:?} packet, maximum recursion \
                                    depth ({}) reached.",
                                   indent(self.recursion_depth), self.packet.tag(),
-                                  self.settings.max_recursion_depth);
+                                  self.state.settings.max_recursion_depth);
                     }
 
                     // Drop through.
                 } else if self.content_was_read {
-                    if self.settings.trace {
+                    if trace {
                         eprintln!("{}PacketParser::recurse(): Not recursing \
                                    into the {:?} packet, some data was \
                                    already read.",
@@ -2238,13 +2262,13 @@ impl <'a> PacketParser<'a> {
 
                     // Drop through.
                 } else {
-                    match PacketParser::parse(self.reader, &self.settings,
+                    match PacketParser::parse(self.reader, &self.state,
                                               self.recursion_depth
                                               as usize + 1)? {
                         ParserResult::Success(mut pp) => {
-                            pp.settings = self.settings;
+                            pp.state = self.state;
 
-                            if pp.settings.trace {
+                            if trace {
                                 eprintln!("{}PacketParser::recurse(): \
                                            Recursed into the {:?} \
                                            packet, got a {:?}.",
@@ -2275,7 +2299,7 @@ impl <'a> PacketParser<'a> {
                 | Packet::Literal(_) | Packet::PKESK(_) | Packet::SKESK(_)
                 | Packet::SEIP(_) | Packet::MDC(_) => {
                 // Drop through.
-                if self.settings.trace {
+                if trace {
                     eprintln!("{}PacketParser::recurse(): A {:?} packet is \
                                not a container, not recursing.",
                               indent(self.recursion_depth), self.packet.tag());
@@ -2341,14 +2365,16 @@ impl <'a> PacketParser<'a> {
     /// `PacketParserBuild` to customize the default behavior.
     // Note: this function is public and may be called multiple times!
     pub fn finish<'b>(&'b mut self) -> Result<&'b Packet> {
+        let trace = self.state.settings.trace;
+
         if self.finished {
             return Ok(&mut self.packet);
         }
 
         let recursion_depth = self.recursion_depth;
 
-        if self.settings.buffer_unread_content {
-            if self.settings.trace {
+        if self.state.settings.buffer_unread_content {
+            if trace {
                 eprintln!("{}PacketParser::finish({:?} at depth {}): \
                            buffering {} bytes of unread content",
                           indent(recursion_depth), self.packet.tag(),
@@ -2358,7 +2384,7 @@ impl <'a> PacketParser<'a> {
 
             self.buffer_unread_content()?;
         } else {
-            if self.settings.trace {
+            if trace {
                 eprintln!("{}PacketParser::finish({:?} at depth {}): \
                            dropping {} bytes of unread content",
                           indent(recursion_depth), self.packet.tag(),
@@ -2556,6 +2582,8 @@ impl<'a> PacketParser<'a> {
     pub fn decrypt(&mut self, algo: SymmetricAlgorithm, key: &[u8])
         -> Result<()>
     {
+        let trace = self.state.settings.trace;
+
         if self.content_was_read {
             return Err(Error::InvalidOperation(
                 format!("Packet's content has already been read.")).into());
@@ -2602,7 +2630,7 @@ impl<'a> PacketParser<'a> {
                 algo, key, reader, Cookie::default()).unwrap();
             reader.cookie_mut().level = Some(self.recursion_depth as isize);
 
-            if self.settings.trace {
+            if trace {
                 eprintln!("{}PacketParser::decrypt: Pushing Decryptor, \
                            level {:?}.",
                           indent(self.recursion_depth),
@@ -2614,7 +2642,7 @@ impl<'a> PacketParser<'a> {
                 reader, HashesFor::MDC, vec![HashAlgorithm::SHA1]);
             reader.cookie_mut().level = Some(self.recursion_depth as isize);
 
-            if self.settings.trace {
+            if trace {
                 eprintln!("{}PacketParser::decrypt: Pushing HashedReader, \
                            level {:?}.",
                           indent(self.recursion_depth),

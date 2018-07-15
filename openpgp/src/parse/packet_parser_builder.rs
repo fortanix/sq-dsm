@@ -10,6 +10,7 @@ use Result;
 use parse::PacketParserResult;
 use parse::PacketParser;
 use parse::PacketParserEOF;
+use parse::PacketParserState;
 use parse::PacketParserSettings;
 use parse::ParserResult;
 use parse::Cookie;
@@ -105,14 +106,16 @@ impl<'a> PacketParserBuilder<'a> {
         -> Result<PacketParserResult<'a>>
         where Self: 'a
     {
+        let state = PacketParserState::new(self.settings.clone());
+
         // Parse the first packet.
-        let pp = PacketParser::parse(Box::new(self.bio), &self.settings, 0)?;
+        let pp = PacketParser::parse(Box::new(self.bio), &state, 0)?;
 
         if let ParserResult::Success(mut pp) = pp {
             // We successfully parsed the first packet's header.
 
             // Override the defaults.
-            pp.settings = self.settings;
+            pp.state = state;
 
             Ok(PacketParserResult::Some(pp))
         } else {
