@@ -106,21 +106,18 @@ impl<'a> PacketParserBuilder<'a> {
         -> Result<PacketParserResult<'a>>
         where Self: 'a
     {
-        let state = PacketParserState::new(self.settings.clone());
+        let state = PacketParserState::new(self.settings);
 
         // Parse the first packet.
-        let pp = PacketParser::parse(Box::new(self.bio), &state, 0)?;
-
-        if let ParserResult::Success(mut pp) = pp {
-            // We successfully parsed the first packet's header.
-
-            // Override the defaults.
-            pp.state = state;
-
-            Ok(PacketParserResult::Some(pp))
-        } else {
-            // `bio` is empty.  We're done.
-            Ok(PacketParserResult::EOF(PacketParserEOF::default()))
+        match PacketParser::parse(Box::new(self.bio), state, 0)? {
+            ParserResult::Success(pp) => {
+                // We successfully parsed the first packet's header.
+                Ok(PacketParserResult::Some(pp))
+            },
+            ParserResult::EOF((_reader, state)) => {
+                // `bio` is empty.  We're done.
+                Ok(PacketParserResult::EOF(PacketParserEOF::new(state)))
+            }
         }
     }
 }

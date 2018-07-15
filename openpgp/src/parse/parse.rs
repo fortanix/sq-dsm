@@ -1582,7 +1582,7 @@ impl PKESK {
 
 // State that lives for the life of the packet parser, not the life of
 // an individual packet.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 struct PacketParserState {
     // The `PacketParser`'s settings
     settings: PacketParserSettings,
@@ -1693,7 +1693,7 @@ impl <'a> std::fmt::Debug for PacketParser<'a> {
 /// The return value of PacketParser::parse.
 enum ParserResult<'a> {
     Success(PacketParser<'a>),
-    EOF(Box<BufferedReader<Cookie> + 'a>),
+    EOF((Box<BufferedReader<Cookie> + 'a>, PacketParserState)),
 }
 
 /// Information about the stream of packets parsed by the
@@ -1712,7 +1712,7 @@ impl Default for PacketParserEOF {
 impl PacketParserEOF {
     /// Copies the important information in `pp` into a new
     /// `PacketParserEOF` instance.
-    fn new(_pp: &PacketParser) -> Self {
+    fn new(_state: PacketParserState) -> Self {
         PacketParserEOF {
         }
     }
@@ -1787,16 +1787,14 @@ impl<'a> PacketParserResult<'a> {
 
     /// Like `Option::take`().
     ///
-    /// If `self` is a `PacketParserEOF`, then a copy of that value,
-    /// not the default `PacketParserEOF`, is returned.
+    /// `self` is replaced with a `PacketParserEOF` with default
+    /// values.
     pub fn take(&mut self) -> Self {
-        match self {
-            PacketParserResult::Some(_) =>
-                mem::replace(self, PacketParserResult::EOF(
-                    PacketParserEOF::default())),
-            PacketParserResult::EOF(ref eof) =>
-                PacketParserResult::EOF(eof.clone())
-        }
+        mem::replace(
+            self,
+            PacketParserResult::EOF(
+                PacketParserEOF::new(
+                    PacketParserState::new(Default::default()))))
     }
 
     /// Like `Option::map`().
@@ -1890,7 +1888,7 @@ impl <'a> PacketParser<'a> {
     /// stream.  If there are no packets left, this function returns
     /// `bio`.
     fn parse(mut bio: Box<BufferedReader<Cookie> + 'a>,
-             state: &PacketParserState,
+             state: PacketParserState,
              recursion_depth: usize)
             -> Result<ParserResult<'a>> {
         let trace = state.settings.trace;
@@ -1903,7 +1901,7 @@ impl <'a> PacketParser<'a> {
                           indent(recursion_depth as u8),
                           recursion_depth);
             }
-            return Ok(ParserResult::EOF(bio));
+            return Ok(ParserResult::EOF((bio, state)));
         }
 
         // When computing a hash for a signature, most of the
@@ -2042,7 +2040,7 @@ impl <'a> PacketParser<'a> {
 
 
         let tag = header.ctb.tag;
-        let parser = PacketHeaderParser::new(bio, (*state).clone(),
+        let parser = PacketHeaderParser::new(bio, state,
                                              recursion_depth as u8,
                                              header, header_bytes);
 
@@ -2165,10 +2163,10 @@ impl <'a> PacketParser<'a> {
         // Now read the next packet.
         loop {
             // Parse the next packet.
-            let ppr = PacketParser::parse(reader, &self.state,
+            let ppr = PacketParser::parse(reader, self.state,
                                           self.recursion_depth as usize)?;
             match ppr {
-                ParserResult::EOF(reader_) => {
+                ParserResult::EOF((reader_, state_)) => {
                     // We got EOF on the current container.  The
                     // container at recursion depth n is empty.  Pop
                     // it and any filters for it, i.e., those at level
@@ -2191,10 +2189,11 @@ impl <'a> PacketParser<'a> {
                                       indent(self.recursion_depth));
                         }
                         let eof = PacketParserResult::EOF(
-                            PacketParserEOF::new(&self));
+                            PacketParserEOF::new(state_));
                         return Ok((self.packet, orig_depth as isize, eof, 0));
                     } else {
                         self.recursion_depth -= 1;
+                        self.state = state_;
                         self.finish()?;
                         // XXX self.content_was_read = false;
                         reader = buffered_reader_stack_pop(
@@ -2262,12 +2261,10 @@ impl <'a> PacketParser<'a> {
 
                     // Drop through.
                 } else {
-                    match PacketParser::parse(self.reader, &self.state,
+                    match PacketParser::parse(self.reader, self.state,
                                               self.recursion_depth
                                               as usize + 1)? {
                         ParserResult::Success(mut pp) => {
-                            pp.state = self.state;
-
                             if trace {
                                 eprintln!("{}PacketParser::recurse(): \
                                            Recursed into the {:?} \
