@@ -118,6 +118,9 @@ pub enum Status {
 
     /// Index out of range.
     IndexOutOfRange = -23,
+
+    /// TPK not supported.
+    UnsupportedTPK = -24,
 }
 
 impl<'a> From<&'a failure::Error> for Status {
@@ -171,6 +174,8 @@ impl<'a> From<&'a failure::Error> for Status {
                     Status::MalformedTPK,
                 &openpgp::Error::IndexOutOfRange =>
                     Status::IndexOutOfRange,
+                &openpgp::Error::UnsupportedTPK(_) =>
+                    Status::UnsupportedTPK,
             }
         }
 

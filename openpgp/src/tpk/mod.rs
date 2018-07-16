@@ -9,6 +9,7 @@ use std::mem;
 use std::fmt;
 use std::vec;
 use time;
+use failure;
 
 use {
     Error,
@@ -18,6 +19,7 @@ use {
     Key,
     UserID,
     UserAttribute,
+    Unknown,
     Packet,
     PacketPile,
     TPK,
@@ -27,6 +29,269 @@ use {
 use parse::{PacketParserResult, PacketParser};
 use serialize::{Serialize, SerializeKey};
 use constants::PublicKeyAlgorithm;
+
+mod lexer;
+mod grammar;
+
+use self::lexer::Lexer;
+pub use self::lexer::Token;
+
+use lalrpop_util::ParseError;
+
+use self::grammar::TPKParser as TPKLowLevelParser;
+
+// Converts a ParseError<usize, Token, Error> to a
+// ParseError<usize, Tag, Error>.
+//
+// Justification: a Token is a tuple containing a Tag and a Packet.
+// This function essentially drops the Packet.  Dropping the packet is
+// necessary, because packets are not async, but Fail, which we want
+// to convert ParseErrors to, is.  Since we don't need the packet in
+// general anyways, changing the Token to a Tag is a simple and
+// sufficient fix.  Unfortunately, this conversion is a bit ugly and
+// will break if lalrpop ever extends ParseError.
+fn parse_error_downcast(e: ParseError<usize, Token, Error>)
+    -> ParseError<usize, Tag, Error>
+{
+    match e {
+        ParseError::UnrecognizedToken {
+            token: Some((start, t, end)),
+            expected,
+        } => ParseError::UnrecognizedToken {
+            token: Some((start, t.into(), end)),
+            expected,
+        },
+        ParseError::UnrecognizedToken {
+            token: None,
+            expected,
+        } => ParseError::UnrecognizedToken {
+            token: None,
+            expected,
+        },
+
+        ParseError::ExtraToken {
+            token: (start, t, end),
+        } => ParseError::ExtraToken {
+            token: (start, t.into(), end),
+        },
+
+        ParseError::InvalidToken { location }
+        => ParseError::InvalidToken { location },
+
+        ParseError::User { error }
+        => ParseError::User { error },
+    }
+}
+
+fn parse_error_to_openpgp_error(e: ParseError<usize, Tag, Error>) -> Error
+{
+    match e {
+        ParseError::User { error } => error,
+        e => Error::MalformedTPK(format!("{}", e)),
+    }
+}
+
+/// Errors that TPKValidator::check may return.
+#[derive(Debug, Clone)]
+pub enum TPKParserError {
+    /// A parser error.
+    Parser(ParseError<usize, Tag, Error>),
+    /// An OpenPGP error.
+    OpenPGP(Error),
+}
+
+impl From<TPKParserError> for failure::Error {
+    fn from(err: TPKParserError) -> Self {
+        match err {
+            TPKParserError::Parser(p) => p.into(),
+            TPKParserError::OpenPGP(p) => p.into(),
+        }
+    }
+}
+
+/// Whether a packet sequence is a valid TPK.
+#[derive(Debug)]
+pub enum TPKValidity {
+    /// The packet sequence is a valid TPK.
+    TPK,
+    /// The packet sequence is a valid TPK prefix.
+    TPKPrefix,
+    /// The packet sequence is definitely not a TPK.
+    Error(failure::Error),
+}
+
+impl TPKValidity {
+    /// Returns whether the packet sequence is a valid TPK.
+    ///
+    /// Note: a `TPKValidator` will only return this after
+    /// `TPKValidator::finish` has been called.
+    pub fn is_tpk(&self) -> bool {
+        if let TPKValidity::TPK = self {
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Returns whether the packet sequence is a valid TPK prefix.
+    ///
+    /// Note: a `TPKValidator` will only return this before
+    /// `TPKValidator::finish` has been called.
+    pub fn is_tpk_prefix(&self) -> bool {
+        if let TPKValidity::TPKPrefix = self {
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Returns whether the packet sequence is definitely not a valid
+    /// TPK.
+    pub fn is_err(&self) -> bool {
+        if let TPKValidity::Error(_) = self {
+            true
+        } else {
+            false
+        }
+    }
+}
+
+/// Used to help validate that a packet sequence is a valid TPK.
+#[derive(Debug)]
+pub struct TPKValidator {
+    tokens: Vec<Token>,
+    finished: bool,
+
+    // If we know that the packet sequence is invalid.
+    error: Option<TPKParserError>,
+}
+
+impl Default for TPKValidator {
+    fn default() -> Self {
+        TPKValidator::new()
+    }
+}
+
+impl TPKValidator {
+    /// Instantiates a new `TPKValidator`.
+    pub fn new() -> Self {
+        TPKValidator {
+            tokens: vec![],
+            finished: false,
+            error: None,
+        }
+    }
+
+    /// Returns whether the packet sequence is a valid TPK.
+    ///
+    /// Note: a `TPKValidator` will only return this after
+    /// `TPKValidator::finish` has been called.
+    pub fn is_tpk(&self) -> bool {
+        self.check().is_tpk()
+    }
+
+    /// Returns whether the packet sequence forms a valid TPK
+    /// prefix.
+    ///
+    /// Note: a `TPKValidator` will only return this before
+    /// `TPKValidator::finish` has been called.
+    pub fn is_tpk_prefix(&self) -> bool {
+        self.check().is_tpk_prefix()
+    }
+
+    /// Returns whether the packet sequence is definitely not a valid
+    /// TPK.
+    pub fn is_err(&self) -> bool {
+        self.check().is_err()
+    }
+
+    /// Add the token `token` to the token stream.
+    pub fn push_token(&mut self, token: Token) {
+        assert!(!self.finished);
+
+        if self.error.is_some() {
+            return;
+        }
+
+        self.tokens.push(token);
+    }
+
+    /// Add a packet of type `tag` to the token stream.
+    pub fn push(&mut self, tag: Tag) {
+        let token = match tag {
+            Tag::PublicKey => Token::PublicKey(None),
+            Tag::SecretKey => Token::SecretKey(None),
+            Tag::PublicSubkey => Token::PublicSubkey(None),
+            Tag::SecretSubkey => Token::SecretSubkey(None),
+            Tag::UserID => Token::UserID(None),
+            Tag::UserAttribute => Token::UserAttribute(None),
+            Tag::Signature => Token::Signature(None),
+            _ => {
+                // Unknown token.
+                self.error = Some(TPKParserError::OpenPGP(
+                    Error::MalformedMessage(
+                        format!("Invalid OpenPGP message: unexpected packet: {:?}",
+                                tag).into())));
+                self.tokens.clear();
+                return;
+            }
+        };
+
+        self.push_token(token)
+    }
+
+    /// Note that the entire message has been seen.
+    ///
+    /// This function may only be called once.
+    ///
+    /// Once called, this function will no longer return
+    /// `TPKValidity::TPKPrefix`.
+    pub fn finish(&mut self) {
+        assert!(!self.finished);
+        self.finished = true;
+    }
+
+    /// Returns whether the token stream corresponds to a valid
+    /// TPK.
+    ///
+    /// This returns a tri-state: if the packet sequence is a valid
+    /// TPK, it returns TPKValidity::TPK, if the packet sequence is
+    /// invalid, then it returns TPKValidity::Error.  If the packet
+    /// sequence could be valid, then it returns
+    /// TPKValidity::TPKPrefix.
+    ///
+    /// Note: if TPKValidator::finish() *hasn't* been called, then
+    /// this function will only ever return either
+    /// TPKValidity::TPKPrefix or TPKValidity::Error.  Once
+    /// TPKValidity::finish() has been called, then only
+    /// TPKValidity::TPK or TPKValidity::Bad will be called.
+    pub fn check(&self) -> TPKValidity {
+        if let Some(ref err) = self.error {
+            return TPKValidity::Error((*err).clone().into());
+        }
+
+        let r = TPKLowLevelParser::new().parse(
+            Lexer::from_tokens(&self.tokens[..]));
+
+        if self.finished {
+            match r {
+                Ok(_) => TPKValidity::TPK,
+                Err(err) =>
+                    TPKValidity::Error(
+                        TPKParserError::Parser(parse_error_downcast(err)).into()),
+            }
+        } else {
+            match r {
+                Ok(_) => TPKValidity::TPKPrefix,
+                Err(ParseError::UnrecognizedToken { token: None, .. }) =>
+                    TPKValidity::TPKPrefix,
+                Err(err) =>
+                    TPKValidity::Error(
+                        TPKParserError::Parser(parse_error_downcast(err)).into()),
+            }
+        }
+    }
+}
 
 const TRACE : bool = false;
 
@@ -214,6 +479,14 @@ impl UserAttributeBinding {
     }
 }
 
+/// A User Attribute and any associated signatures.
+#[derive(Debug, Clone, PartialEq)]
+pub struct UnknownBinding {
+    unknown: Unknown,
+
+    sigs: Vec<Signature>,
+}
+
 /// An iterator over all `Key`s (both the primary key and any subkeys)
 /// in a TPK.
 ///
@@ -233,45 +506,6 @@ impl<'a> Iterator for KeyIter<'a> {
             Some(self.tpk.primary())
         } else {
             self.subkey_iter.next().map(|sk_binding| &sk_binding.subkey)
-        }
-    }
-}
-
-// We use a state machine to extract a TPK from a sequence of OpenPGP
-// packets.  These are the states.
-enum TPKParserState {
-    Start,
-    TPK,
-    UserID(UserIDBinding),
-    UserAttribute(UserAttributeBinding),
-    Subkey(SubkeyBinding),
-    End,
-}
-
-impl fmt::Debug for TPKParserState {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            &TPKParserState::Start => f.debug_struct("Start").finish(),
-            &TPKParserState::TPK => f.debug_struct("TPK").finish(),
-            &TPKParserState::UserID(ref binding) =>
-                f.debug_struct("UserID")
-                .field("userid", &binding.userid)
-                .field("self-sigs", &binding.selfsigs.len())
-                .field("certifications", &binding.certifications.len())
-                .finish(),
-            &TPKParserState::UserAttribute(ref binding) =>
-                f.debug_struct("UserAttribute")
-                .field("userid", &binding.user_attribute)
-                .field("self-sigs", &binding.selfsigs.len())
-                .field("certifications", &binding.certifications.len())
-                .finish(),
-            &TPKParserState::Subkey(ref binding) =>
-                f.debug_struct("Subkey")
-                .field("subkey", &binding.subkey)
-                .field("self-sigs", &binding.selfsigs.len())
-                .field("certifications", &binding.certifications.len())
-                .finish(),
-            &TPKParserState::End => f.debug_struct("End").finish(),
         }
     }
 }
@@ -323,11 +557,7 @@ enum PacketSource<'a, I: Iterator<Item=Packet>> {
 pub struct TPKParser<'a, I: Iterator<Item=Packet>> {
     source: PacketSource<'a, I>,
 
-    state: TPKParserState,
-    primary: Option<Key>,
-    userids: Vec<UserIDBinding>,
-    user_attributes: Vec<UserAttributeBinding>,
-    subkeys: Vec<SubkeyBinding>,
+    packets: Vec<Packet>,
 
     saw_error: bool,
 
@@ -338,11 +568,7 @@ impl<'a, I: Iterator<Item=Packet>> Default for TPKParser<'a, I> {
     fn default() -> Self {
         TPKParser {
             source: PacketSource::EOF,
-            state: TPKParserState::Start,
-            primary: None,
-            userids: vec![],
-            user_attributes: vec![],
-            subkeys: vec![],
+            packets: vec![],
             saw_error: false,
             filter: vec![],
         }
@@ -463,6 +689,24 @@ impl<'a, I: Iterator<Item=Packet>> TPKParser<'a, I> {
         self
     }
 
+    // Parses the next packet in the packet stream.
+    //
+    // If we complete parsing a TPK, returns the TPK.  Otherwise,
+    // returns None.
+    fn parse(&mut self, p: Packet) -> Result<Option<TPK>> {
+        if self.packets.len() > 0 {
+            match p.tag() {
+                Tag::PublicKey | Tag::SecretKey => {
+                    return self.tpk(Some(p));
+                },
+                _ => {},
+            }
+        }
+
+        self.packets.push(p);
+        Ok(None)
+    }
+
     // Resets the parser so that it starts parsing a new packet.
     //
     // Returns the old state.  Note: the packet iterator is preserved.
@@ -473,393 +717,99 @@ impl<'a, I: Iterator<Item=Packet>> TPKParser<'a, I> {
         orig
     }
 
-    // Parses the next packet in the packet stream.
-    //
-    // If we complete parsing a TPK, returns the TPK.  Otherwise,
-    // returns None.
-    fn parse(&mut self, p: Packet) -> Option<TPK> {
-        let mut result : Option<TPK> = None;
-
-        if TRACE {
-            eprintln!("TPKParser::parse(packet: {:?}): current state: {:?}",
-                      p.tag(), self.state);
-        }
-
-        self.state = match mem::replace(&mut self.state, TPKParserState::End) {
-            TPKParserState::Start => {
-                // Skip packets until we find a public key packet.
-                match p {
-                    Packet::PublicKey(pk) | Packet::SecretKey(pk) => {
-                        if TRACE {
-                            eprintln!("TPKParser::parse: Found primary key: {}.",
-                                      pk.fingerprint());
-                        }
-
-                        self.primary = Some(pk);
-                        TPKParserState::TPK
-                    },
-                    _ => {
-                        if TRACE {
-                            eprintln!("TPKParser::parse: Skipping {:?} \
-                                       which is unexpected in this state.",
-                                      p.tag());
-                        }
-
-                        TPKParserState::Start
-                    },
-                }
-            },
-            TPKParserState::TPK => {
-                /* Find user id, user attribute, or subkey packets.  */
-                match p {
-                    Packet::PublicKey(pk) => {
-                        if TRACE {
-                            eprintln!("TPKParser::parse: Found primary key: {}.",
-                                      pk.fingerprint());
-                        }
-
-                        result = self.tpk(Some(pk));
-                        TPKParserState::TPK
-                    },
-                    Packet::UserID(uid) => {
-                        if TRACE {
-                            eprintln!("TPKParser::parse: Found user id: {}.",
-                                      String::from_utf8_lossy(&uid.value[..]));
-                        }
-
-                        TPKParserState::UserID(
-                            UserIDBinding{
-                                userid: uid,
-                                selfsigs: vec![],
-                                certifications: vec![],
-                            })
-                    },
-                    Packet::UserAttribute(attribute) => {
-                        if TRACE {
-                            eprintln!("TPKParser::parse: Found user attribute.");
-                        }
-
-                        TPKParserState::UserAttribute(
-                            UserAttributeBinding{
-                                user_attribute: attribute,
-                                selfsigs: vec![],
-                                certifications: vec![],
-                            })
-                    },
-                    Packet::PublicSubkey(key) | Packet::SecretSubkey(key)=> {
-                        if TRACE {
-                            eprintln!("TPKParser::parse: Found subkey {}.",
-                                      key.fingerprint());
-                        }
-
-                        TPKParserState::Subkey(
-                            SubkeyBinding{
-                                subkey: key,
-                                selfsigs: vec![],
-                                certifications: vec![],
-                            })
-                    },
-                    _ => TPKParserState::TPK,
-                }
-            },
-            TPKParserState::UserID(mut u) => {
-                // Collect signatures.  If we encounter a user id,
-                // user attribute or subkey packet, then wrap up the
-                // binding for this user id.
-                match p {
-                    Packet::PublicKey(pk) => {
-                        if TRACE {
-                            eprintln!("TPKParser::parse: Found primary key: {}.",
-                                      pk.fingerprint());
-                        }
-
-                        self.userids.push(u);
-                        result = self.tpk(Some(pk));
-                        TPKParserState::TPK
-                    },
-                    Packet::UserID(uid) => {
-                        if TRACE {
-                            eprintln!("TPKParser::parse: Found user id: {}.",
-                                      String::from_utf8_lossy(&uid.value[..]));
-                        }
-
-                        self.userids.push(u);
-                        TPKParserState::UserID(
-                            UserIDBinding{
-                                userid: uid,
-                                selfsigs: vec![],
-                                certifications: vec![],
-                            })
-                    },
-                    Packet::UserAttribute(attribute) => {
-                        if TRACE {
-                            eprintln!("TPKParser::parse: Found user attribute.");
-                        }
-
-                        self.userids.push(u);
-                        TPKParserState::UserAttribute(
-                            UserAttributeBinding{
-                                user_attribute: attribute,
-                                selfsigs: vec![],
-                                certifications: vec![],
-                            })
-                    },
-                    Packet::PublicSubkey(key) | Packet::SecretSubkey(key) => {
-                        if TRACE {
-                            eprintln!("TPKParser::parse: Found subkey {}.",
-                                      key.fingerprint());
-                        }
-
-                        self.userids.push(u);
-                        TPKParserState::Subkey(
-                            SubkeyBinding{
-                                subkey: key,
-                                selfsigs: vec![],
-                                certifications: vec![],
-                            })
-                    },
-                    Packet::Signature(sig) => {
-                        let primary = self.primary.as_ref().unwrap();
-                        let selfsig = if let Some(issuer)
-                                = sig.issuer_fingerprint() {
-                            issuer == primary.fingerprint()
-                        } else if let Some(issuer) = sig.issuer() {
-                            issuer == primary.keyid()
-                        } else {
-                            // No issuer.  XXX: Assume its a 3rd party
-                            // cert.  But, we should really just try
-                            // to reorder it.
-                            false
-                        };
-                        if selfsig {
-                            u.selfsigs.push(sig);
-                        } else {
-                            u.certifications.push(sig);
-                        }
-                        TPKParserState::UserID(u)
-                    },
-                    _ => TPKParserState::UserID(u),
-                }
-            },
-            TPKParserState::UserAttribute(mut u) => {
-                // Collect signatures.  If we encounter a user id,
-                // user attribute or subkey packet, then wrap up the
-                // binding for this user attribute.
-                match p {
-                    Packet::PublicKey(pk) => {
-                        if TRACE {
-                            eprintln!("TPKParser::parse: Found primary key: {}.",
-                                      pk.fingerprint());
-                        }
-
-                        self.user_attributes.push(u);
-                        result = self.tpk(Some(pk));
-                        TPKParserState::TPK
-                    },
-                    Packet::UserID(uid) => {
-                        if TRACE {
-                            eprintln!("TPKParser::parse: Found user id: {}.",
-                                      String::from_utf8_lossy(&uid.value[..]));
-                        }
-
-                        self.user_attributes.push(u);
-                        TPKParserState::UserID(
-                            UserIDBinding{
-                                userid: uid,
-                                selfsigs: vec![],
-                                certifications: vec![],
-                            })
-                    },
-                    Packet::UserAttribute(attribute) => {
-                        if TRACE {
-                            eprintln!("TPKParser::parse: Found user attribute.");
-                        }
-
-                        self.user_attributes.push(u);
-                        TPKParserState::UserAttribute(
-                            UserAttributeBinding{
-                                user_attribute: attribute,
-                                selfsigs: vec![],
-                                certifications: vec![],
-                            })
-                    },
-                    Packet::PublicSubkey(key) | Packet::SecretSubkey(key) => {
-                        if TRACE {
-                            eprintln!("TPKParser::parse: Found subkey {}.",
-                                      key.fingerprint());
-                        }
-
-                        self.user_attributes.push(u);
-                        TPKParserState::Subkey(
-                            SubkeyBinding{
-                                subkey: key,
-                                selfsigs: vec![],
-                                certifications: vec![],
-                            })
-                    },
-                    Packet::Signature(sig) => {
-                        let primary = self.primary.as_ref().unwrap();
-                        let selfsig = if let Some(issuer)
-                                = sig.issuer_fingerprint() {
-                            issuer == primary.fingerprint()
-                        } else if let Some(issuer) = sig.issuer() {
-                            issuer == primary.keyid()
-                        } else {
-                            // No issuer.  XXX: Assume its a 3rd party
-                            // cert.  But, we should really just try
-                            // to reorder it.
-                            false
-                        };
-                        if selfsig {
-                            u.selfsigs.push(sig);
-                        } else {
-                            u.certifications.push(sig);
-                        }
-                        TPKParserState::UserAttribute(u)
-                    },
-                    _ => TPKParserState::UserAttribute(u),
-                }
-            },
-            TPKParserState::Subkey(mut s) => {
-                // Collect signatures.  If we encounter a user id,
-                // user attribute or subkey packet, then wrap up the
-                // binding for this subkey.
-                match p {
-                    Packet::PublicKey(pk) => {
-                        if TRACE {
-                            eprintln!("TPKParser::parse: Found primary key: {}.",
-                                      pk.fingerprint());
-                        }
-
-                        self.subkeys.push(s);
-                        result = self.tpk(Some(pk));
-                        TPKParserState::TPK
-                    },
-                    Packet::UserID(uid) => {
-                        if TRACE {
-                            eprintln!("TPKParser::parse: Found user id: {}.",
-                                      String::from_utf8_lossy(&uid.value[..]));
-                        }
-
-                        self.subkeys.push(s);
-                        TPKParserState::UserID(
-                            UserIDBinding{
-                                userid: uid,
-                                selfsigs: vec![],
-                                certifications: vec![],
-                            })
-                    },
-                    Packet::UserAttribute(attribute) => {
-                        if TRACE {
-                            eprintln!("TPKParser::parse: Found user attribute.");
-                        }
-
-                        self.subkeys.push(s);
-                        TPKParserState::UserAttribute(
-                            UserAttributeBinding{
-                                user_attribute: attribute,
-                                selfsigs: vec![],
-                                certifications: vec![],
-                            })
-                    },
-                    Packet::PublicSubkey(key) | Packet::SecretSubkey(key) => {
-                        if TRACE {
-                            eprintln!("TPKParser::parse: Found subkey {}.",
-                                      key.fingerprint());
-                        }
-
-                        self.subkeys.push(s);
-                        TPKParserState::Subkey(
-                            SubkeyBinding{
-                                subkey: key,
-                                selfsigs: vec![],
-                                certifications: vec![],
-                            })
-                    },
-                    Packet::Signature(sig) => {
-                        let primary = self.primary.as_ref().unwrap();
-                        let selfsig = if let Some(issuer)
-                                = sig.issuer_fingerprint() {
-                            issuer == primary.fingerprint()
-                        } else if let Some(issuer) = sig.issuer() {
-                            issuer == primary.keyid()
-                        } else {
-                            // No issuer.  XXX: Assume its a 3rd party
-                            // cert.  But, we should really just try
-                            // to reorder it.
-                            false
-                        };
-                        if selfsig {
-                            s.selfsigs.push(sig);
-                        } else {
-                            s.certifications.push(sig);
-                        }
-
-                        TPKParserState::Subkey(s)
-                    },
-                    _ => TPKParserState::Subkey(s),
-                }
-            },
-            TPKParserState::End => {
-                // We've reach the EOF.  There is nothing to do.
-                TPKParserState::End
-            }
-        };
-
-        if TRACE {
-            eprintln!("TPKParser::parse => new state: {:?}, result: {:?}",
-                      self.state,
-                      result.as_ref().map(|tpk| tpk.primary().fingerprint()));
-        }
-
-        result
-    }
-
     // Finalizes the current TPK and returns it.  Sets the parser up to
     // begin parsing the next TPK.
-    fn tpk(&mut self, pk: Option<Key>) -> Option<TPK> {
-        let mut orig = self.reset();
+    fn tpk(&mut self, pk: Option<Packet>) -> Result<Option<TPK>> {
+        let orig = self.reset();
 
-        let mut tpk = if let Some(pk) = orig.primary.take() {
-            TPK {
-                primary: pk,
-                userids: orig.userids,
-                user_attributes: orig.user_attributes,
-                subkeys: orig.subkeys
-            }
-        } else {
-            return None;
-        };
+        if let Some(pk) = pk {
+            self.packets.push(pk);
+        }
 
-        let tpko = match orig.state {
-            TPKParserState::TPK => {
-                Some(tpk)
-            },
-            TPKParserState::UserID(u) => {
-                tpk.userids.push(u);
-                Some(tpk)
-            },
-            TPKParserState::UserAttribute(u) => {
-                tpk.user_attributes.push(u);
-                Some(tpk)
-            },
-            TPKParserState::Subkey(s) => {
-                tpk.subkeys.push(s);
-                Some(tpk)
-            },
-            TPKParserState::End =>
-                Some(tpk),
-            _ => None,
+        let packets = orig.packets.len();
+        let tokens = orig.packets
+            .into_iter()
+            .filter_map(|p| p.into())
+            .collect::<Vec<Token>>();
+        if tokens.len() != packets {
+            // There was at least one packet that doesn't belong in a
+            // TPK.  Fail now.
+            return Err(Error::UnsupportedTPK(
+                "Packet sequence includes non-TPK packets.".into()).into());
+        }
+
+        let tpko = match TPKLowLevelParser::new()
+            .parse(Lexer::from_tokens(&tokens[..]))
+        {
+            Ok(tpko) => tpko,
+            Err(e) => return Err(
+                parse_error_to_openpgp_error(
+                    parse_error_downcast(e)).into()),
         }.and_then(|tpk| {
             for filter in &self.filter {
-                if !filter(&tpk, false) {
+                if !filter(&tpk, true) {
                     return None;
                 }
             }
 
+            Some(tpk)
+        }).and_then(|mut tpk| {
+            fn split_sigs(primary: &Fingerprint, sigs: Vec<Signature>)
+                          -> (Vec<Signature>, Vec<Signature>)
+            {
+                let mut selfsigs = vec![];
+                let mut certifications = vec![];
+
+                let primary_keyid = primary.to_keyid();
+
+                for sig in sigs.into_iter() {
+                    let is_selfsig =
+                        sig.issuer_fingerprint()
+                            .map(|fp| fp == *primary)
+                            .unwrap_or(false)
+                        || sig.issuer()
+                            .map(|keyid| keyid == primary_keyid)
+                            .unwrap_or(false);
+
+                    if is_selfsig {
+                        selfsigs.push(sig);
+                    } else {
+                        certifications.push(sig);
+                    }
+                }
+
+                (selfsigs, certifications)
+            }
+
+            // The parser puts all of the signatures on the
+            // certifications.  Split them now.
+            let primary_fp = tpk.primary.fingerprint();
+
+            for mut b in tpk.userids.iter_mut() {
+                let (selfsigs, certifications)
+                    = split_sigs(&primary_fp,
+                                 mem::replace(&mut b.certifications, vec![]));
+                b.selfsigs = selfsigs;
+                b.certifications = certifications;
+            }
+            for mut b in tpk.user_attributes.iter_mut() {
+                let (selfsigs, certifications)
+                    = split_sigs(&primary_fp,
+                                 mem::replace(&mut b.certifications, vec![]));
+                b.selfsigs = selfsigs;
+                b.certifications = certifications;
+            }
+            for mut b in tpk.subkeys.iter_mut() {
+                let (selfsigs, certifications)
+                    = split_sigs(&primary_fp,
+                                 mem::replace(&mut b.certifications, vec![]));
+                b.selfsigs = selfsigs;
+                b.certifications = certifications;
+            }
+
             let tpk = tpk.canonicalize();
 
-            // Make sure it is still okay.
+            // Make sure it is still wanted.
             for filter in &self.filter {
                 if !filter(&tpk, true) {
                     return None;
@@ -869,9 +819,7 @@ impl<'a, I: Iterator<Item=Packet>> TPKParser<'a, I> {
             Some(tpk)
         });
 
-        self.primary = pk;
-
-        tpko
+        Ok(tpko)
     }
 }
 
@@ -879,10 +827,6 @@ impl<'a, I: Iterator<Item=Packet>> Iterator for TPKParser<'a, I> {
     type Item = Result<TPK>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.saw_error {
-            return None;
-        }
-
         loop {
             match mem::replace(&mut self.source, PacketSource::EOF) {
                 PacketSource::EOF => {
@@ -890,7 +834,14 @@ impl<'a, I: Iterator<Item=Packet>> Iterator for TPKParser<'a, I> {
                         eprintln!("TPKParser::next: EOF.");
                     }
 
-                    return self.tpk(None).map(|tpk| Ok(tpk));
+                    if self.packets.len() == 0 {
+                        return None;
+                    }
+                    match self.tpk(None) {
+                        Ok(Some(tpk)) => return Some(Ok(tpk)),
+                        Ok(None) => return None,
+                        Err(err) => return Some(Err(err)),
+                    }
                 },
                 PacketSource::PacketParser(pp) => {
                     match pp.next() {
@@ -899,12 +850,10 @@ impl<'a, I: Iterator<Item=Packet>> Iterator for TPKParser<'a, I> {
                                 self.source = PacketSource::PacketParser(pp);
                             }
 
-                            if let Some(tpk) = self.parse(packet) {
-                                if TRACE {
-                                    eprintln!("TPKParser::next => {}",
-                                              tpk.primary().fingerprint());
-                                }
-                                return Some(Ok(tpk));
+                            match self.parse(packet) {
+                                Ok(Some(tpk)) => return Some(Ok(tpk)),
+                                Ok(None) => (),
+                                Err(err) => return Some(Err(err)),
                             }
                         },
                         Err(err) => {
@@ -914,20 +863,25 @@ impl<'a, I: Iterator<Item=Packet>> Iterator for TPKParser<'a, I> {
                     }
                 },
                 PacketSource::Iter(mut iter) => {
-                    match iter.next() {
+                    let r = match iter.next() {
                         Some(packet) => {
                             self.source = PacketSource::Iter(iter);
-                            if let Some(tpk) = self.parse(packet) {
-                                if TRACE {
-                                    eprintln!("TPKParser::next => {}",
-                                              tpk.primary().fingerprint());
-                                }
-                                return Some(Ok(tpk));
-                            }
-                        },
-                        None => {
-                            return self.tpk(None).map(|tpk| Ok(tpk));
+                            self.parse(packet)
                         }
+                        None if self.packets.len() == 0 => Ok(None),
+                        None => self.tpk(None),
+                    };
+
+                    match r {
+                        Ok(Some(tpk)) => {
+                            if TRACE {
+                                eprintln!("TPKParser::next => {}",
+                                          tpk.primary().fingerprint());
+                            }
+                            return Some(Ok(tpk));
+                        }
+                        Ok(None) => (),
+                        Err(err) => return Some(Err(err)),
                     }
                 },
             }
@@ -960,6 +914,7 @@ impl TPK {
             userids: vec![uid_sig],
             user_attributes: vec![],
             subkeys: vec![key_sig],
+            unknowns: vec![],
         })
     }
 
@@ -1540,7 +1495,7 @@ mod test {
     use KeyID;
 
     macro_rules! bytes {
-        ( $x:expr ) => { include_bytes!(concat!("../tests/data/keys/", $x)) };
+        ( $x:expr ) => { include_bytes!(concat!("../../tests/data/keys/", $x)) };
     }
 
     macro_rules! assert_match {
@@ -1552,6 +1507,147 @@ mod test {
                 panic!("Expected {}, got {:?}.", stringify!($error), x);
             }
         };
+    }
+
+    #[test]
+    fn tokens() {
+        use self::lexer::{Token, Lexer};
+        use self::lexer::Token::*;
+        use self::grammar::TPKParser;
+
+        struct TestVector<'a> {
+            s: &'a [Token],
+            result: bool,
+        }
+
+        let test_vectors = [
+            TestVector {
+                s: &[ PublicKey(None) ][..],
+                result: true,
+            },
+            TestVector {
+                s: &[ SecretKey(None) ][..],
+                result: true,
+            },
+            TestVector {
+                s: &[ PublicKey(None), Signature(None) ],
+                result: true,
+            },
+            TestVector {
+                s: &[ PublicKey(None), Signature(None), Signature(None) ],
+                result: true,
+            },
+
+            TestVector {
+                s: &[ PublicKey(None), Signature(None), Signature(None),
+                     UserID(None) ],
+                result: true,
+            },
+            TestVector {
+                s: &[ PublicKey(None), Signature(None), Signature(None),
+                     UserID(None), Signature(None) ],
+                result: true,
+            },
+            TestVector {
+                s: &[ PublicKey(None), Signature(None), Signature(None),
+                     UserAttribute(None) ],
+                result: true,
+            },
+            TestVector {
+                s: &[ PublicKey(None), Signature(None), Signature(None),
+                     UserAttribute(None), Signature(None) ],
+                result: true,
+            },
+            TestVector {
+                s: &[ PublicKey(None), Signature(None), Signature(None),
+                     PublicSubkey(None) ],
+                result: true,
+            },
+            TestVector {
+                s: &[ PublicKey(None), Signature(None), Signature(None),
+                     PublicSubkey(None), Signature(None) ],
+                result: true,
+            },
+            TestVector {
+                s: &[ PublicKey(None), Signature(None), Signature(None),
+                     SecretSubkey(None) ],
+                result: true,
+            },
+            TestVector {
+                s: &[ PublicKey(None), Signature(None), Signature(None),
+                     SecretSubkey(None), Signature(None) ],
+                result: true,
+            },
+
+            TestVector {
+                s: &[ PublicKey(None), Signature(None), Signature(None),
+                      SecretSubkey(None), Signature(None),
+                      SecretSubkey(None), Signature(None),
+                      SecretSubkey(None), Signature(None),
+                      SecretSubkey(None), Signature(None),
+                      SecretSubkey(None), Signature(None),
+                      UserID(None), Signature(None),
+                        Signature(None), Signature(None),
+                      SecretSubkey(None), Signature(None),
+                      UserAttribute(None), Signature(None),
+                      Signature(None), Signature(None),
+                      SecretSubkey(None), Signature(None),
+                      UserID(None),
+                      UserAttribute(None), Signature(None),
+                        Signature(None), Signature(None),
+                ],
+                result: true,
+            },
+
+            TestVector {
+                s: &[ PublicKey(None), Signature(None), Signature(None),
+                      PublicKey(None), Signature(None), Signature(None),
+                ],
+                result: false,
+            },
+            TestVector {
+                s: &[ PublicKey(None), Signature(None), Signature(None),
+                      SecretKey(None), Signature(None), Signature(None),
+                ],
+                result: false,
+            },
+            TestVector {
+                s: &[ SecretKey(None), Signature(None), Signature(None),
+                      SecretKey(None), Signature(None), Signature(None),
+                ],
+                result: false,
+            },
+            TestVector {
+                s: &[ SecretKey(None), Signature(None), Signature(None),
+                      PublicKey(None), Signature(None), Signature(None),
+                ],
+                result: false,
+            },
+            TestVector {
+                s: &[ SecretSubkey(None), Signature(None), Signature(None),
+                      PublicSubkey(None), Signature(None), Signature(None),
+                ],
+                result: false,
+            },
+        ];
+
+        for v in test_vectors.into_iter() {
+            if v.result {
+                let mut l = TPKValidator::new();
+                for token in v.s.into_iter() {
+                    l.push_token((*token).clone());
+                    assert_match!(TPKValidity::TPKPrefix = l.check());
+                }
+
+                l.finish();
+                assert_match!(TPKValidity::TPK = l.check());
+            }
+
+            match TPKParser::new().parse(Lexer::from_tokens(v.s)) {
+                Ok(r) => assert!(v.result, "Parsing: {:?} => {:?}", v.s, r),
+                Err(e) => assert!(! v.result, "Parsing: {:?} => {:?}", v.s, e),
+            }
+        }
     }
 
     fn parse_tpk(data: &[u8], as_message: bool) -> Result<TPK> {
@@ -1583,7 +1679,6 @@ mod test {
             //   [ pk, user id, sig, subkey ]
             let tpk = parse_tpk(bytes!("testy-broken-no-sig-on-subkey.pgp"),
                                 i == 0).unwrap();
-            eprintln!("{:?}", tpk);
             assert_eq!(tpk.primary.creation_time.to_pgp().unwrap(), 1511355130);
             assert_eq!(tpk.userids.len(), 1);
             assert_eq!(tpk.userids[0].userid.value,
@@ -1953,5 +2048,89 @@ mod test {
         let t2 = TPK::from_reader(r).unwrap();
 
         assert_eq!(t1.public_keys().fingerprint(), t2.fingerprint());
+    }
+
+    // lutz's key is a v3 key.
+    //
+    // dkg's includes some v3 signatures.
+    #[test]
+    fn v3_packets() {
+        let dkg = bytes!("dkg.gpg");
+        let lutz = bytes!("lutz.gpg");
+
+        // v3 primary keys are not supported.
+        let tpk = TPK::from_bytes(lutz);
+        assert_match!(Error::UnsupportedTPK(_)
+                      = tpk.err().unwrap().downcast::<Error>().unwrap());
+
+        let tpk = TPK::from_bytes(dkg);
+        assert!(tpk.is_ok(), "dkg.gpg: {:?}", tpk);
+    }
+
+    #[test]
+    fn keyring_with_v3_public_keys() {
+        let dkg = bytes!("dkg.gpg");
+        let lutz = bytes!("lutz.gpg");
+
+        let tpk = TPK::from_bytes(dkg);
+        assert!(tpk.is_ok(), "dkg.gpg: {:?}", tpk);
+
+        // Key ring with two good keys
+        let mut combined = vec![];
+        combined.extend_from_slice(&dkg[..]);
+        combined.extend_from_slice(&dkg[..]);
+        let tpks = TPKParser::from_bytes(&combined[..]).unwrap()
+            .map(|tpkr| tpkr.is_ok())
+            .collect::<Vec<bool>>();
+        assert_eq!(tpks, &[ true, true ]);
+
+        // Key ring with a good key, and a bad key.
+        let mut combined = vec![];
+        combined.extend_from_slice(&dkg[..]);
+        combined.extend_from_slice(&lutz[..]);
+        let tpks = TPKParser::from_bytes(&combined[..]).unwrap()
+            .map(|tpkr| tpkr.is_ok())
+            .collect::<Vec<bool>>();
+        assert_eq!(tpks, &[ true, false ]);
+
+        // Key ring with a bad key, and a good key.
+        let mut combined = vec![];
+        combined.extend_from_slice(&lutz[..]);
+        combined.extend_from_slice(&dkg[..]);
+        let tpks = TPKParser::from_bytes(&combined[..]).unwrap()
+            .map(|tpkr| tpkr.is_ok())
+            .collect::<Vec<bool>>();
+        assert_eq!(tpks, &[ false, true ]);
+
+        // Key ring with a good key, a bad key, and a good key.
+        let mut combined = vec![];
+        combined.extend_from_slice(&dkg[..]);
+        combined.extend_from_slice(&lutz[..]);
+        combined.extend_from_slice(&dkg[..]);
+        let tpks = TPKParser::from_bytes(&combined[..]).unwrap()
+            .map(|tpkr| tpkr.is_ok())
+            .collect::<Vec<bool>>();
+        assert_eq!(tpks, &[ true, false, true ]);
+
+        // Key ring with a good key, a bad key, and a bad key.
+        let mut combined = vec![];
+        combined.extend_from_slice(&dkg[..]);
+        combined.extend_from_slice(&lutz[..]);
+        combined.extend_from_slice(&lutz[..]);
+        let tpks = TPKParser::from_bytes(&combined[..]).unwrap()
+            .map(|tpkr| tpkr.is_ok())
+            .collect::<Vec<bool>>();
+        assert_eq!(tpks, &[ true, false, false ]);
+
+        // Key ring with a good key, a bad key, a bad key, and a good key.
+        let mut combined = vec![];
+        combined.extend_from_slice(&dkg[..]);
+        combined.extend_from_slice(&lutz[..]);
+        combined.extend_from_slice(&lutz[..]);
+        combined.extend_from_slice(&dkg[..]);
+        let tpks = TPKParser::from_bytes(&combined[..]).unwrap()
+            .map(|tpkr| tpkr.is_ok())
+            .collect::<Vec<bool>>();
+        assert_eq!(tpks, &[ true, false, false, true ]);
     }
 }

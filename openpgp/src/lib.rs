@@ -212,6 +212,14 @@ pub enum Error {
     #[fail(display = "Malformed TPK: {}", _0)]
     MalformedTPK(String),
 
+    /// Unsupported TPK.
+    ///
+    /// This usually occurs, because the primary key is in an
+    /// unsupported format.  In particular, Sequoia does not support
+    /// version 3 keys.
+    #[fail(display = "Unsupported TPK: {}", _0)]
+    UnsupportedTPK(String),
+
     /// Index out of range.
     #[fail(display = "Index out of range")]
     IndexOutOfRange,
@@ -643,6 +651,7 @@ pub struct TPK {
     userids: Vec<tpk::UserIDBinding>,
     user_attributes: Vec<tpk::UserAttributeBinding>,
     subkeys: Vec<tpk::SubkeyBinding>,
+    unknowns: Vec<tpk::UnknownBinding>,
 }
 
 /// An OpenPGP message.
