@@ -174,20 +174,29 @@ pub trait BufferedReader<C> : io::Read + fmt::Debug {
 
     /// Like steal_eof, but instead of returning the data, the data is
     /// discarded.
-    fn drop_eof(&mut self) -> Result<(), std::io::Error> {
+    ///
+    /// One success, returns whether any data (i.e., at least one
+    /// byte) was discarded.
+    fn drop_eof(&mut self) -> Result<bool, std::io::Error> {
+        let mut at_least_one_byte = false;
         loop {
             match self.data_consume(DEFAULT_BUF_SIZE) {
-                Ok(ref buffer) =>
+                Ok(ref buffer) => {
+                    if buffer.len() > 0 {
+                        at_least_one_byte = true;
+                    }
+
                     if buffer.len() < DEFAULT_BUF_SIZE {
                         // EOF.
                         break;
-                    },
+                    }
+                }
                 Err(err) =>
                     return Err(err),
             }
         }
 
-        Ok(())
+        Ok(at_least_one_byte)
     }
 
     fn into_inner<'a>(self: Box<Self>) -> Option<Box<BufferedReader<C> + 'a>>
@@ -296,7 +305,7 @@ impl <'a, C> BufferedReader<C> for Box<BufferedReader<C> + 'a> {
         return self.as_mut().steal_eof();
     }
 
-    fn drop_eof(&mut self) -> Result<(), std::io::Error> {
+    fn drop_eof(&mut self) -> Result<bool, std::io::Error> {
         return self.as_mut().drop_eof();
     }
 

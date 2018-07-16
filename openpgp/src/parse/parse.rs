@@ -2475,7 +2475,7 @@ impl<'a> BufferedReader<Cookie> for PacketParser<'a> {
         self.reader.steal_eof()
     }
 
-    fn drop_eof(&mut self) -> io::Result<()> {
+    fn drop_eof(&mut self) -> io::Result<bool> {
         self.content_was_read = true;
         self.reader.drop_eof()
     }
