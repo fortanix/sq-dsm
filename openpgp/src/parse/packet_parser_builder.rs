@@ -110,8 +110,9 @@ impl<'a> PacketParserBuilder<'a> {
 
         // Parse the first packet.
         match PacketParser::parse(Box::new(self.bio), state, 0)? {
-            ParserResult::Success(pp) => {
+            ParserResult::Success(mut pp) => {
                 // We successfully parsed the first packet's header.
+                pp.state.message_validator.push(pp.packet.tag(), 0);
                 Ok(PacketParserResult::Some(pp))
             },
             ParserResult::EOF((_reader, state)) => {

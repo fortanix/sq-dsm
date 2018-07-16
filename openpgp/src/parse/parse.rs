@@ -47,6 +47,8 @@ use constants::{
 use conversions::Time;
 use mpis::{MPI, MPIs};
 use symmetric::{Decryptor, BufferedReaderDecryptor};
+use message;
+use message::MessageValidator;
 
 mod partial_body;
 use self::partial_body::BufferedReaderPartialBodyFilter;
@@ -1586,12 +1588,16 @@ impl PKESK {
 struct PacketParserState {
     // The `PacketParser`'s settings
     settings: PacketParserSettings,
+
+    /// Whether the packet sequence is a valid OpenPGP Message.
+    message_validator: MessageValidator,
 }
 
 impl PacketParserState {
     fn new(settings: PacketParserSettings) -> Self {
         PacketParserState {
             settings: settings,
+            message_validator: Default::default(),
         }
     }
 }
@@ -1698,23 +1704,27 @@ enum ParserResult<'a> {
 
 /// Information about the stream of packets parsed by the
 /// `PacketParser`.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct PacketParserEOF {
-}
-
-impl Default for PacketParserEOF {
-    fn default() -> Self {
-        PacketParserEOF {
-        }
-    }
+    state: PacketParserState,
 }
 
 impl PacketParserEOF {
     /// Copies the important information in `pp` into a new
     /// `PacketParserEOF` instance.
-    fn new(_state: PacketParserState) -> Self {
+    fn new(mut state: PacketParserState) -> Self {
+        state.message_validator.finish();
+
         PacketParserEOF {
+            state: state,
         }
+    }
+
+    /// Whether the message is an OpenPGP Message.
+    ///
+    /// As opposed to a TPK or just a bunch of packets.
+    pub fn is_message(&self) -> bool {
+        self.state.message_validator.is_message()
     }
 }
 
@@ -1882,6 +1892,16 @@ impl <'a> PacketParser<'a> {
     /// decrypted.
     pub fn decrypted(self) -> bool {
         self.decrypted
+    }
+
+    /// Returns whether the message appears to be an OpenPGP Message.
+    ///
+    /// Only when the whole message has been processed is it possible
+    /// to say whether the message is definitely an OpenPGP Message.
+    /// Before that, it is only possible to say that the message is a
+    /// valid prefix or definitely not an OpenPGP message.
+    pub fn possible_message(&self) -> bool {
+        self.state.message_validator.check().is_message_prefix()
     }
 
     /// Returns a `PacketParser` for the next OpenPGP packet in the
@@ -2200,7 +2220,9 @@ impl <'a> PacketParser<'a> {
                             reader_, self.recursion_depth as isize)?;
                     }
                 },
-                ParserResult::Success(pp) => {
+                ParserResult::Success(mut pp) => {
+                    pp.state.message_validator.push(
+                        pp.packet.tag(), self.recursion_depth as usize);
                     return Ok((self.packet,
                                orig_depth as isize,
                                PacketParserResult::Some(pp),
@@ -2273,6 +2295,10 @@ impl <'a> PacketParser<'a> {
                                           self.packet.tag(),
                                           pp.packet.tag());
                             }
+
+                            pp.state.message_validator.push(
+                                pp.packet.tag(),
+                                self.recursion_depth as usize + 1);
 
                             return Ok((self.packet,
                                        self.recursion_depth as isize,
@@ -2370,7 +2396,7 @@ impl <'a> PacketParser<'a> {
 
         let recursion_depth = self.recursion_depth;
 
-        if self.state.settings.buffer_unread_content {
+        let unread_content = if self.state.settings.buffer_unread_content {
             if trace {
                 eprintln!("{}PacketParser::finish({:?} at depth {}): \
                            buffering {} bytes of unread content",
@@ -2379,7 +2405,7 @@ impl <'a> PacketParser<'a> {
                           self.data_eof().unwrap().len());
             }
 
-            self.buffer_unread_content()?;
+            self.buffer_unread_content()?.len() > 0
         } else {
             if trace {
                 eprintln!("{}PacketParser::finish({:?} at depth {}): \
@@ -2389,7 +2415,20 @@ impl <'a> PacketParser<'a> {
                           self.data_eof().unwrap().len());
             }
 
-            self.drop_eof()?;
+            self.drop_eof()?
+        };
+
+        if unread_content {
+            match self.packet.tag() {
+                Tag::SEIP | Tag::SED | Tag::CompressedData => {
+                    // We didn't (full) process a container's content.  Add
+                    // this as opaque conent to the message validator.
+                    self.state.message_validator.push_token(
+                        message::Token::OpaqueContent,
+                        recursion_depth as usize + 1);
+                }
+                _ => {},
+            }
         }
 
         self.finished = true;
@@ -2837,6 +2876,77 @@ mod test {
                 // SEIP packet.
                 let (_, _, pp_tmp, _) = pp.recurse().unwrap();
                 pp = pp_tmp.unwrap();
+            }
+        }
+    }
+
+    #[test]
+    fn message_validator() {
+        for test in DECRYPT_TESTS.iter() {
+            let path = path_to(test.filename);
+            let mut ppr = PacketParserBuilder::from_file(&path).unwrap()
+                .finalize()
+                .expect(&format!("Error reading {}", test.filename)[..]);
+
+            // Make sure we actually decrypted...
+            let mut saw_literal = false;
+            while let PacketParserResult::Some(mut pp) = ppr {
+                assert!(pp.possible_message());
+
+                match pp.packet {
+                    Packet::SEIP(_) => {
+                        let key = ::from_hex(test.key_hex, false).unwrap();
+                        pp.decrypt(test.algo, &key[..]).unwrap();
+                    },
+                    Packet::Literal(_) => {
+                        assert!(! saw_literal);
+                        saw_literal = true;
+                    },
+                    _ => {},
+                }
+
+                let (_, _, ppr_tmp, _) = pp.recurse().unwrap();
+                ppr = ppr_tmp;
+            }
+            assert!(saw_literal);
+            if let PacketParserResult::EOF(eof) = ppr {
+                assert!(eof.is_message());
+            } else {
+                unreachable!();
+            }
+        }
+    }
+
+    #[test]
+    fn message_validator_opaque_content() {
+        for test in DECRYPT_TESTS.iter() {
+            let path = path_to(test.filename);
+            let mut ppr = PacketParserBuilder::from_file(&path).unwrap()
+                .finalize()
+                .expect(&format!("Error reading {}", test.filename)[..]);
+
+            // Make sure we actually decrypted...
+            let mut saw_literal = false;
+            while let PacketParserResult::Some(mut pp) = ppr {
+                assert!(pp.possible_message());
+
+                match pp.packet {
+                    Packet::Literal(_) => {
+                        assert!(! saw_literal);
+                        saw_literal = true;
+                    },
+                    _ => {},
+                }
+
+                let (_, _, ppr_tmp, _) = pp.recurse().unwrap();
+                ppr = ppr_tmp;
+            }
+            assert!(! saw_literal);
+            if let PacketParserResult::EOF(eof) = ppr {
+                eprintln!("eof: {:?}", eof);
+                assert!(eof.is_message());
+            } else {
+                unreachable!();
             }
         }
     }
