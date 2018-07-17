@@ -175,8 +175,8 @@ pub trait BufferedReader<C> : io::Read + fmt::Debug {
     /// Like steal_eof, but instead of returning the data, the data is
     /// discarded.
     ///
-    /// One success, returns whether any data (i.e., at least one
-    /// byte) was discarded.
+    /// On success, returns whether any data (i.e., at least one byte)
+    /// was discarded.
     fn drop_eof(&mut self) -> Result<bool, std::io::Error> {
         let mut at_least_one_byte = false;
         loop {
