@@ -404,8 +404,13 @@ typedef enum sq_tag {
 /*/
 typedef struct sq_unknown *sq_unknown_t;
 typedef struct sq_signature *sq_signature_t;
+typedef struct sq_one_pass_sig *sq_one_pass_sig_t;
+typedef struct sq_p_key *sq_p_key_t;
+typedef struct sq_user_id *sq_user_id_t;
+typedef struct sq_user_attribute *sq_user_attribute_t;
 typedef struct sq_literal *sq_literal_t;
 typedef struct sq_compressed_data *sq_compressed_data_t;
+typedef struct sq_pkesk *sq_pkesk_t;
 typedef struct sq_skesk *sq_skesk_t;
 typedef struct sq_seip *sq_seip_t;
 typedef struct sq_mdc *sq_mdc_t;
@@ -430,8 +435,13 @@ typedef struct sq_mdc *sq_mdc_t;
 typedef union sq_packet {
   sq_unknown_t unknown;
   sq_signature_t signature;
+  sq_one_pass_sig_t one_pass_sig;
+  sq_p_key_t key;
+  sq_user_id_t user_id;
+  sq_user_attribute_t user_attribute;
   sq_literal_t literal;
   sq_compressed_data_t compressed_data;
+  sq_pkesk_t pkesk;
   sq_skesk_t skesk;
   sq_seip_t seip;
   sq_mdc_t mdc;
