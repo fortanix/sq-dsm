@@ -31,16 +31,13 @@ examples:
 .PHONY: build-release
 build-release:
 
-sequoia.pc: sequoia.pc.in
-	sed -e 's|VERSION|$(VERSION)|g' \
-	    -e 's|PREFIX|$(PREFIX)|g' \
-		$< >$@
-
 .PHONY: install
 install: sequoia.pc
 	$(INSTALL) -d $(DESTDIR)$(PREFIX)/share/pkgconfig
-	$(INSTALL) -t $(DESTDIR)$(PREFIX)/share/pkgconfig \
-		sequoia.pc
+	sed -e 's|VERSION|$(VERSION)|g' \
+	    -e 's|PREFIX|$(PREFIX)|g' \
+		sequoia.pc \
+		> $(DESTDIR)$(PREFIX)/share/pkgconfig/sequoia.pc
 	$(INSTALL) -d $(DESTDIR)$(PREFIX)/include
 	$(INSTALL) -t $(DESTDIR)$(PREFIX)/include include/sequoia.h
 	$(INSTALL) -d $(DESTDIR)$(PREFIX)/include/sequoia
