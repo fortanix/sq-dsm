@@ -281,6 +281,18 @@ sq_writer_t sq_writer_from_fd (int fd);
 sq_writer_t sq_writer_from_bytes (uint8_t *buf, size_t len);
 
 /*/
+/// Creates an allocating writer.
+///
+/// This writer allocates memory using `malloc`, and stores the
+/// pointer to the memory and the number of bytes written to the given
+/// locations `buf`, and `len`.  Both must either be set to zero, or
+/// reference a chunk of memory allocated using libc's heap allocator.
+/// The caller is responsible to `free` it once the writer has been
+/// destroyed.
+/*/
+sq_writer_t sq_writer_alloc (void **buf, size_t *len);
+
+/*/
 /// Frees a writer.
 /*/
 void sq_writer_free (sq_writer_t writer);

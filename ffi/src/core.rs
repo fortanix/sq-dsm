@@ -30,11 +30,11 @@
 use failure;
 use std::fs::File;
 use std::ffi::{CString, CStr};
-use std::io::{Read, Write, Cursor};
+use std::io::{self, Read, Write, Cursor};
 use std::path::Path;
 use std::ptr;
 use std::slice;
-use libc::{uint8_t, c_char, c_int, size_t, ssize_t};
+use libc::{uint8_t, c_void, c_char, c_int, size_t, ssize_t, realloc};
 
 #[cfg(unix)]
 use std::os::unix::io::FromRawFd;
@@ -350,6 +350,60 @@ pub extern "system" fn sq_writer_from_bytes(buf: *mut uint8_t,
         slice::from_raw_parts_mut(buf, len as usize)
     };
     box_raw!(Box::new(Cursor::new(buf)))
+}
+
+/// Creates an allocating writer.
+///
+/// This writer allocates memory using `malloc`, and stores the
+/// pointer to the memory and the number of bytes written to the given
+/// locations `buf`, and `len`.  Both must either be set to zero, or
+/// reference a chunk of memory allocated using libc's heap allocator.
+/// The caller is responsible to `free` it once the writer has been
+/// destroyed.
+#[no_mangle]
+pub extern "system" fn sq_writer_alloc(buf: Option<&'static mut *mut c_void>,
+                                       len: Option<&'static mut size_t>)
+                                       -> *mut Box<Write> {
+    let buf = buf.expect("BUF is NULL");
+    let len = len.expect("LEN is NULL");
+
+    box_raw!(Box::new(WriterAlloc {
+        buf: buf,
+        len: len,
+    }))
+}
+
+struct WriterAlloc {
+    buf: &'static mut *mut c_void,
+    len: &'static mut size_t,
+}
+
+impl Write for WriterAlloc {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        let old_len = *self.len;
+        let new_len = old_len + buf.len();
+
+        let new = unsafe {
+            realloc(*self.buf, new_len)
+        };
+        if new.is_null() {
+            return Err(io::Error::new(io::ErrorKind::Other, "out of memory"));
+        }
+
+        *self.buf = new;
+        *self.len = new_len;
+
+        let sl = unsafe {
+            slice::from_raw_parts_mut(new as *mut u8, new_len)
+        };
+        &mut sl[old_len..].copy_from_slice(buf);
+        Ok(buf.len())
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        // Do nothing.
+        Ok(())
+    }
 }
 
 /// Frees a writer.
