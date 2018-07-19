@@ -40,6 +40,6 @@ fn main() {
         .expect("Failed to sign data");
 
     // Teardown the stack to ensure all the data is written.
-    signer.finalize_all()
+    signer.finalize()
         .expect("Failed to write data");
 }

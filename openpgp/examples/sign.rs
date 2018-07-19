@@ -46,6 +46,6 @@ fn main() {
         .expect("Failed to sign data");
 
     // Teardown the stack to ensure all the data is written.
-    literal.finalize_all()
+    literal.finalize()
         .expect("Failed to write data");
 }

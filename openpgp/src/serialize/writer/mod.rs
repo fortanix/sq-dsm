@@ -36,14 +36,14 @@ impl<'a, C> Stack<'a, C> {
     }
 
     /// Finalizes this writer, returning the underlying writer.
-    pub fn finalize(self) -> Result<Option<Stack<'a, C>>> {
+    pub fn finalize_one(self) -> Result<Option<Stack<'a, C>>> {
         Ok(self.0.into_inner()?.map(|bs| Self::from(bs)))
     }
 
     /// Finalizes all writers, tearing down the whole stack.
-    pub fn finalize_all(self) -> Result<()> {
+    pub fn finalize(self) -> Result<()> {
         let mut stack = self;
-        while let Some(s) = stack.finalize()? {
+        while let Some(s) = stack.finalize_one()? {
             stack = s;
         }
         Ok(())

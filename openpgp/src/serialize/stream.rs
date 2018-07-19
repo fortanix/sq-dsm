@@ -203,7 +203,7 @@ impl<'a> Signer<'a> {
     ///     let signer = Signer::new(wrap(&mut o), &[&tsk])?;
     ///     let mut ls = LiteralWriter::new(signer, DataFormat::Text, None, None)?;
     ///     ls.write_all(b"Make it so, number one!")?;
-    ///     ls.finalize_all()?;
+    ///     ls.finalize()?;
     /// }
     /// # Ok(())
     /// # }
@@ -231,7 +231,7 @@ impl<'a> Signer<'a> {
     ///     let mut signer = Signer::detached(wrap(&mut o), &[&tsk])?;
     ///     signer.write_all(b"Make it so, number one!")?;
     ///     // In reality, just io::copy() the file to be signed.
-    ///     signer.finalize_all()?;
+    ///     signer.finalize()?;
     /// }
     /// # Ok(())
     /// # }
@@ -1093,11 +1093,11 @@ mod test {
                 wrap(&mut o), CompressionAlgorithm::Uncompressed).unwrap();
             let mut ls = LiteralWriter::new(c, T, None, None).unwrap();
             write!(ls, "one").unwrap();
-            let c = ls.finalize().unwrap().unwrap(); // Pop the LiteralWriter.
+            let c = ls.finalize_one().unwrap().unwrap(); // Pop the LiteralWriter.
             let mut ls = LiteralWriter::new(c, T, None, None).unwrap();
             write!(ls, "two").unwrap();
-            let c = ls.finalize().unwrap().unwrap(); // Pop the LiteralWriter.
-            let c = c.finalize().unwrap().unwrap(); // Pop the Compressor.
+            let c = ls.finalize_one().unwrap().unwrap(); // Pop the LiteralWriter.
+            let c = c.finalize_one().unwrap().unwrap(); // Pop the Compressor.
             let mut ls = LiteralWriter::new(c, T, None, None).unwrap();
             write!(ls, "three").unwrap();
         }
@@ -1145,16 +1145,16 @@ mod test {
                 c0, CompressionAlgorithm::Uncompressed).unwrap();
             let mut ls = LiteralWriter::new(c, T, None, None).unwrap();
             write!(ls, "one").unwrap();
-            let c = ls.finalize().unwrap().unwrap();
+            let c = ls.finalize_one().unwrap().unwrap();
             let mut ls = LiteralWriter::new(c, T, None, None).unwrap();
             write!(ls, "two").unwrap();
-            let c = ls.finalize().unwrap().unwrap();
-            let c0 = c.finalize().unwrap().unwrap();
+            let c = ls.finalize_one().unwrap().unwrap();
+            let c0 = c.finalize_one().unwrap().unwrap();
             let c = Compressor::new(
                 c0, CompressionAlgorithm::Uncompressed).unwrap();
             let mut ls = LiteralWriter::new(c, T, None, None).unwrap();
             write!(ls, "three").unwrap();
-            let c = ls.finalize().unwrap().unwrap();
+            let c = ls.finalize_one().unwrap().unwrap();
             let mut ls = LiteralWriter::new(c, T, None, None).unwrap();
             write!(ls, "four").unwrap();
         }
@@ -1207,8 +1207,8 @@ mod test {
                 .unwrap();
             let mut ls = LiteralWriter::new(signer, T, None, None).unwrap();
             ls.write_all(b"Tis, tis, tis.  Tis is important.").unwrap();
-            let signer = ls.finalize().unwrap().unwrap();
-            let _ = signer.finalize().unwrap().unwrap();
+            let signer = ls.finalize_one().unwrap().unwrap();
+            let _ = signer.finalize_one().unwrap().unwrap();
         }
 
         let mut ppr = PacketParser::from_bytes(&o).unwrap();
