@@ -84,6 +84,14 @@ sq_fingerprint_t sq_fingerprint_clone (sq_fingerprint_t fingerprint);
 uint64_t sq_fingerprint_hash (sq_fingerprint_t fingerprint);
 
 /*/
+/// Returns a reference to the raw Fingerprint.
+///
+/// This returns a reference to the internal buffer that is valid as
+/// long as the fingerprint is.
+/*/
+uint8_t *sq_fingerprint_as_bytes (const sq_fingerprint_t fp, size_t *fp_len);
+
+/*/
 /// Converts the fingerprint to its standard representation.
 /*/
 char *sq_fingerprint_to_string (const sq_fingerprint_t fp);

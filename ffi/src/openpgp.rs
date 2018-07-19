@@ -148,6 +148,20 @@ pub extern "system" fn sq_fingerprint_hash(fp: Option<&Fingerprint>)
     hasher.finish()
 }
 
+/// Returns a reference to the raw Fingerprint.
+///
+/// This returns a reference to the internal buffer that is valid as
+/// long as the fingerprint is.
+#[no_mangle]
+pub extern "system" fn sq_fingerprint_as_bytes(fp: Option<&Fingerprint>, fp_len: Option<&mut size_t>)
+                                             -> *const uint8_t {
+    let fp = fp.expect("Fingerprint is NULL");
+    if let Some(p) = fp_len {
+        *p = fp.as_slice().len();
+    }
+    fp.as_slice().as_ptr()
+}
+
 /// Converts the fingerprint to its standard representation.
 #[no_mangle]
 pub extern "system" fn sq_fingerprint_to_string(fp: Option<&Fingerprint>)
