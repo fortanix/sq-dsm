@@ -3,3 +3,4 @@
 *~
 Cargo.lock
 .gdb_history
+/openpgp/src/message/grammar.rs
