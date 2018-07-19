@@ -22,9 +22,11 @@ use {
     PacketPile,
     TPK,
     Fingerprint,
+    TSK,
 };
 use parse::{PacketParserResult, PacketParser};
 use serialize::{Serialize, SerializeKey};
+use constants::PublicKeyAlgorithm;
 
 const TRACE : bool = false;
 
@@ -42,6 +44,46 @@ pub struct SubkeyBinding {
 }
 
 impl SubkeyBinding {
+    /// Creates a new subkey binding signature. The subkey can be used for
+    /// encrypting transport and expires in three years.
+    pub fn new(subkey: Key, primary_key: &Key) -> Result<Self> {
+        use subpacket::KeyFlags;
+        use constants::HashAlgorithm;
+        use SignatureType;
+        use SecretKey;
+
+        let mut sig = Signature::new(SignatureType::SubkeyBinding);
+
+        sig.set_key_flags(&KeyFlags::default().set_encrypt_for_transport(true))?;
+        sig.set_signature_creation_time(time::now())?;
+        sig.set_key_expiration_time(Some(time::Duration::weeks(3 * 52)))?;
+        sig.set_issuer_fingerprint(primary_key.fingerprint())?;
+        sig.set_issuer(primary_key.fingerprint().to_keyid())?;
+
+        let mut hash = HashAlgorithm::SHA512.context()?;
+
+        primary_key.hash(&mut hash);
+        subkey.hash(&mut hash);
+
+        match primary_key.secret {
+            Some(SecretKey::Unencrypted{ ref mpis }) => {
+                sig.sign_hash(primary_key, mpis, HashAlgorithm::SHA512, hash)?;
+            }
+            Some(SecretKey::Encrypted{ .. }) => {
+                return Err(Error::InvalidOperation("Secret key is encrypted".into()).into());
+            }
+            None => {
+                return Err(Error::InvalidOperation("No secret key".into()).into());
+            }
+        }
+
+        Ok(SubkeyBinding{
+            subkey: subkey,
+            selfsigs: vec![sig],
+            certifications: vec![],
+        })
+    }
+
     /// The key.
     pub fn subkey(&self) -> &Key {
         &self.subkey
@@ -76,7 +118,48 @@ pub struct UserIDBinding {
 }
 
 impl UserIDBinding {
-    /// The User ID.
+    /// Creates a new self-signature binding `uid` to `key`, certified by `signer`. The signature
+    /// asserts that the bound key can sign and certify and expires in three years.
+    pub fn new(key: &Key, uid: UserID, signer: &Key) -> Result<Self> {
+        use subpacket::KeyFlags;
+        use constants::HashAlgorithm;
+        use SignatureType;
+        use SecretKey;
+
+        let mut sig = Signature::new(SignatureType::PositiveCertificate);
+
+        sig.set_key_flags(&KeyFlags::default().set_certify(true).set_sign(true))?;
+        sig.set_signature_creation_time(time::now())?;
+        sig.set_key_expiration_time(Some(time::Duration::weeks(3 * 52)))?;
+        sig.set_issuer_fingerprint(signer.fingerprint())?;
+        sig.set_issuer(signer.fingerprint().to_keyid())?;
+        sig.set_preferred_hash_algorithms(vec![HashAlgorithm::SHA512])?;
+
+        let mut hash = HashAlgorithm::SHA512.context()?;
+
+        key.hash(&mut hash);
+        uid.hash(&mut hash);
+
+        match signer.secret {
+            Some(SecretKey::Unencrypted{ ref mpis }) => {
+                sig.sign_hash(signer, mpis, HashAlgorithm::SHA512, hash)?;
+            }
+            Some(SecretKey::Encrypted{ .. }) => {
+                return Err(Error::InvalidOperation("Secret key is encrypted".into()).into());
+            }
+            None => {
+                return Err(Error::InvalidOperation("No secret key".into()).into());
+            }
+        }
+
+        Ok(UserIDBinding{
+            userid: uid,
+            selfsigs: vec![sig],
+            certifications: vec![],
+        })
+    }
+
+    /// Returns the user id certified by this binding.
     pub fn userid(&self) -> &UserID {
         &self.userid
     }
@@ -859,6 +942,27 @@ impl fmt::Display for TPK {
 }
 
 impl TPK {
+    /// Generates a new RSA 3072 bit key with UID `primary_uid`.
+    pub fn new(primary_uid: &str) -> Result<Self> {
+        use packet::Common;
+
+        let primary = Key::new(PublicKeyAlgorithm::RSASign)?;
+        let uid = UserID{
+            common: Common::default(),
+            value: primary_uid.as_bytes().into(),
+        };
+        let uid_sig = UserIDBinding::new(&primary, uid, &primary)?;
+        let encryption_key = Key::new(PublicKeyAlgorithm::RSAEncrypt)?;
+        let key_sig = SubkeyBinding::new(encryption_key, &primary)?;
+
+        Ok(TPK{
+            primary: primary,
+            userids: vec![uid_sig],
+            user_attributes: vec![],
+            subkeys: vec![key_sig],
+        })
+    }
+
     /// Returns a reference to the primary key.
     pub fn primary(&self) -> &Key {
         &self.primary

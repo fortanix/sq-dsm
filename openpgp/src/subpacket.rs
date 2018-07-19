@@ -2513,7 +2513,7 @@ fn accessors() {
     sig.set_revocable(false).unwrap();
     assert_eq!(sig.revocable(), Some(false));
 
-    let key = ::Key::new().creation_time(now);
+    let key = ::Key::default().creation_time(now);
     sig.set_key_expiration_time(Some(five_minutes)).unwrap();
     assert_eq!(sig.key_expiration_time(), Some(five_minutes));
 

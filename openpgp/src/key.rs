@@ -29,10 +29,8 @@ impl fmt::Display for Key {
     }
 }
 
-impl Key {
-    /// Returns a new `Key` packet.  This can be used to hold either a
-    /// public key, a public key, a private key, or a private subkey.
-    pub fn new() -> Self {
+impl Default for Key {
+    fn default() -> Self {
         Key {
             common: Default::default(),
             version: 4,
@@ -41,6 +39,105 @@ impl Key {
             mpis: MPIs::empty(),
             secret: None,
         }
+    }
+}
+
+impl Key {
+    /// Returns a new `Key` packet.  This can be used to hold either a
+    /// public key, a public key, a private key, or a private subkey.
+    pub fn new(pk_algo: PublicKeyAlgorithm) -> Result<Self> {
+        use nettle::{
+            rsa,
+            Yarrow,
+            ed25519,ed25519::ED25519_KEY_SIZE,
+            curve25519,curve25519::CURVE25519_SIZE,
+        };
+        use mpis::MPI;
+        use constants::{HashAlgorithm, SymmetricAlgorithm, Curve};
+        use PublicKeyAlgorithm::*;
+        use Error;
+
+        let (mpis, secret) = match pk_algo {
+            RSASign | RSAEncrypt | RSAEncryptSign => {
+                let mut rng = Yarrow::default();
+                let (public,private) = rsa::generate_keypair(&mut rng, 3072)?;
+                let (p,q,u) = private.as_rfc4880();
+                let public_mpis = MPIs::RSAPublicKey{
+                    e: MPI::new(&*public.e()),
+                    n: MPI::new(&*public.n()),
+                };
+                let private_mpis = MPIs::RSASecretKey{
+                    d: MPI::new(&*private.d()),
+                    p: MPI::new(&*p),
+                    q: MPI::new(&*q),
+                    u: MPI::new(&*u),
+                };
+                let sec = Some(SecretKey::Unencrypted{
+                    mpis: private_mpis
+                });
+
+                (public_mpis, sec)
+            }
+
+            EdDSA => {
+                let mut rng = Yarrow::default();
+                let mut public = [0u8; ED25519_KEY_SIZE];
+                let mut private = [0u8; ED25519_KEY_SIZE];
+
+                rng.random(&mut private);
+                ed25519::public_key(&mut public, &private)?;
+
+                let public_mpis = MPIs::EdDSAPublicKey{
+                    curve: Curve::Ed25519,
+                    q: MPI::new(&public),
+                };
+                let private_mpis = MPIs::EdDSASecretKey{
+                    scalar: MPI::new(&private),
+                };
+                let sec = Some(SecretKey::Unencrypted{
+                    mpis: private_mpis,
+                });
+
+                (public_mpis, sec)
+            }
+
+            ECDH => {
+                let mut rng = Yarrow::default();
+                let mut public = [0u8; CURVE25519_SIZE];
+                let mut private = [0u8; CURVE25519_SIZE];
+
+                rng.random(&mut private);
+                curve25519::mul_g(&mut public, &private)?;
+
+                let public_mpis = MPIs::ECDHPublicKey{
+                    curve: Curve::Cv25519,
+                    q: MPI::new(&public),
+                    hash: HashAlgorithm::SHA256,
+                    sym: SymmetricAlgorithm::AES256,
+                };
+                let private_mpis = MPIs::ECDHSecretKey{
+                    scalar: MPI::new(&private),
+                };
+                let sec = Some(SecretKey::Unencrypted{
+                    mpis: private_mpis,
+                });
+
+                (public_mpis, sec)
+            }
+
+            pk => {
+                return Err(Error::UnsupportedPublicKeyAlgorithm(pk).into());
+            }
+        };
+
+        Ok(Key {
+            common: Default::default(),
+            version: 4,
+            creation_time: time::now(),
+            pk_algo: pk_algo,
+            mpis: mpis,
+            secret: secret,
+        })
     }
 
     /// Sets the literal packet's date field using a Unix timestamp.
