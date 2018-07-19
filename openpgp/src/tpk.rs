@@ -1525,6 +1525,12 @@ impl TPK {
 
         Ok(self.canonicalize())
     }
+
+    /// Cast the public key into a secret key that allows using the secret parts of the containing
+    /// keys.
+    pub fn into_tsk(self) -> TSK {
+        TSK::from_tpk(self)
+    }
 }
 
 #[cfg(test)]
@@ -1926,5 +1932,26 @@ mod test {
                       KeyID::from_hex(&"E3A3 2229 449B 0350"[..]),
                    ][..]);
 
+    }
+
+    #[test]
+    fn generate_tpk() {
+        use std::io;
+        use armor;
+
+        let t1 = TPK::new("test1@example.com").unwrap().into_tsk();
+        let mut cur = io::Cursor::new(Vec::default());
+
+        {
+            let mut a = armor::Writer::new(&mut cur, armor::Kind::SecretKey);
+            t1.serialize(&mut a).unwrap();
+        }
+
+        cur.set_position(0);
+
+        let r = armor::Reader::from_reader(&mut cur, armor::Kind::SecretKey);
+        let t2 = TPK::from_reader(r).unwrap();
+
+        assert_eq!(t1.public_keys().fingerprint(), t2.fingerprint());
     }
 }

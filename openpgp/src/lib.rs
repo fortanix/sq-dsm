@@ -121,6 +121,9 @@ use tag::Tag;
 
 mod fingerprint;
 mod keyid;
+
+mod tsk;
+use tsk::TSK;
 
 #[cfg(test)]
 use std::path::PathBuf;
