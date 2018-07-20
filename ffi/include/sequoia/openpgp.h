@@ -733,4 +733,113 @@ sq_status_t sq_packet_parser_decrypt (sq_context_t ctx,
                                       uint8_t algo, /* XXX */
                                       uint8_t *key, size_t key_len);
 
+typedef struct sq_writer_stack *sq_writer_stack_t;
+
+/*/
+/// Wraps a `std::io::Write`r for use with the streaming subsystem.
+///
+/// XXX: This interface will likely change.
+/*/
+sq_writer_stack_t sq_writer_stack_wrap (sq_writer_t writer);
+
+/*/
+/// Writes up to `len` bytes of `buf` into `writer`.
+o/*/
+ssize_t sq_writer_stack_write (sq_context_t ctx, sq_writer_stack_t writer,
+                               const uint8_t *buf, size_t len);
+
+/*/
+/// Finalizes this writer, returning the underlying writer.
+/*/
+sq_writer_stack_t sq_writer_stack_finalize_one (sq_context_t ctx,
+                                                sq_writer_stack_t writer);
+
+/*/
+/// Finalizes all writers, tearing down the whole stack.
+/*/
+sq_status_t sq_writer_stack_finalize (sq_context_t ctx,
+                                      sq_writer_stack_t writer);
+
+/*/
+/// Writes an arbitrary packet.
+///
+/// This writer can be used to construct arbitrary OpenPGP packets.
+/// The body will be written using partial length encoding, or, if the
+/// body is short, using full length encoding.
+/*/
+sq_writer_stack_t sq_arbitrary_writer_new (sq_context_t ctx,
+                                           sq_writer_stack_t inner,
+                                           sq_tag_t tag);
+
+/*/
+/// Signs a packet stream.
+///
+/// For every signing key, a signer writes a one-pass-signature
+/// packet, then hashes and emits the data stream, then for every key
+/// writes a signature packet.
+/*/
+sq_writer_stack_t sq_signer_new (sq_context_t ctx,
+                                 sq_writer_stack_t inner,
+                                 sq_tpk_t *signers, size_t signers_len);
+
+/*/
+/// Creates a signer for a detached signature.
+/*/
+sq_writer_stack_t sq_signer_new_detached (sq_context_t ctx,
+                                          sq_writer_stack_t inner,
+                                          sq_tpk_t *signers,
+                                          size_t signers_len);
+
+/*/
+/// Writes a literal data packet.
+///
+/// The body will be written using partial length encoding, or, if the
+/// body is short, using full length encoding.
+/*/
+sq_writer_stack_t sq_literal_writer_new (sq_context_t ctx,
+                                         sq_writer_stack_t inner);
+
+/*/
+/// Specifies whether to encrypt for archival purposes or for
+/// transport.
+/*/
+typedef enum sq_encryption_mode {
+  /*/
+  /// Encrypt data for long-term storage.
+  ///
+  /// This should be used for things that should be decryptable for
+  /// a long period of time, e.g. backups, archives, etc.
+  /*/
+  SQ_ENCRYPTION_MODE_AT_REST = 0,
+
+  /*/
+  /// Encrypt data for transport.
+  ///
+  /// This should be used to protect a message in transit.  The
+  /// recipient is expected to take additional steps if she wants to
+  /// be able to decrypt it later on, e.g. store the decrypted
+  /// session key, or re-encrypt the session key with a different
+  /// key.
+  /*/
+  SQ_ENCRYPTION_MODE_FOR_TRANSPORT = 1,
+} sq_encryption_mode_t;
+
+/*/
+/// Creates a new encryptor.
+///
+/// The stream will be encrypted using a generated session key,
+/// which will be encrypted using the given passwords, and all
+/// encryption-capable subkeys of the given TPKs.
+///
+/// The stream is encrypted using AES256, regardless of any key
+/// preferences.
+/*/
+sq_writer_stack_t sq_encryptor_new (sq_context_t ctx,
+                                    sq_writer_stack_t inner,
+                                    char **passwords,
+                                    size_t passwords_len,
+                                    sq_tpk_t *recipients,
+                                    size_t recipients_len,
+                                    sq_encryption_mode_t mode);
+
 #endif

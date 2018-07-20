@@ -6,13 +6,16 @@ use std::hash::{Hash, Hasher};
 use std::ptr;
 use std::slice;
 use std::io::{Read, Write};
-use libc::{uint8_t, uint64_t, c_char, c_int, size_t};
+use libc::{uint8_t, uint64_t, c_char, c_int, size_t, ssize_t};
 
 extern crate openpgp;
 
 use self::openpgp::{armor, Fingerprint, KeyID, PacketPile, TPK, Packet};
 use self::openpgp::parse::{PacketParser};
 use self::openpgp::serialize::Serialize;
+use self::openpgp::constants::{
+    DataFormat,
+};
 
 use super::build_hasher;
 use super::error::Status;
@@ -924,4 +927,224 @@ pub extern "system" fn sq_packet_parser_decrypt<'a>
         slice::from_raw_parts(key, key_len as usize)
     };
     fry_status!(ctx, pp.decrypt((algo as u8).into(), key))
+}
+
+use self::openpgp::serialize::{
+    writer,
+    stream::{
+        wrap,
+        Cookie,
+        ArbitraryWriter,
+        Signer,
+        LiteralWriter,
+        EncryptionMode,
+        Encryptor,
+    },
+};
+
+
+/// Wraps a `std::io::Write`r for use with the streaming subsystem.
+///
+/// XXX: This interface will likely change.
+#[no_mangle]
+pub extern "system" fn sq_writer_stack_wrap
+    (writer: *mut Box<Write>)
+     -> *mut writer::Stack<'static, Cookie>
+{
+    assert!(!writer.is_null());
+    let writer = unsafe {
+        Box::from_raw(writer)
+    };
+    box_raw!(wrap(writer))
+}
+
+/// Writes up to `len` bytes of `buf` into `writer`.
+#[no_mangle]
+pub extern "system" fn sq_writer_stack_write
+    (ctx: Option<&mut Context>,
+     writer: Option<&mut writer::Stack<'static, Cookie>>,
+     buf: *const uint8_t, len: size_t)
+     -> ssize_t
+{
+    let ctx = ctx.expect("Context is NULL");
+    let writer = writer.expect("Writer is NULL");
+    assert!(!buf.is_null());
+    let buf = unsafe {
+        slice::from_raw_parts(buf, len as usize)
+    };
+    fry_or!(ctx, writer.write(buf).map_err(|e| e.into()), -1) as ssize_t
+}
+
+/// Finalizes this writer, returning the underlying writer.
+#[no_mangle]
+pub extern "system" fn sq_writer_stack_finalize_one
+    (ctx: Option<&mut Context>,
+     writer: *mut writer::Stack<'static, Cookie>)
+     -> *mut writer::Stack<'static, Cookie>
+{
+    let ctx = ctx.expect("Context is NULL");
+    if !writer.is_null() {
+        let writer = unsafe {
+            Box::from_raw(writer)
+        };
+        maybe_box_raw!(fry!(ctx, writer.finalize_one()))
+    } else {
+        ptr::null_mut()
+    }
+}
+
+/// Finalizes all writers, tearing down the whole stack.
+#[no_mangle]
+pub extern "system" fn sq_writer_stack_finalize
+    (ctx: Option<&mut Context>,
+     writer: *mut writer::Stack<'static, Cookie>)
+     -> Status
+{
+    let ctx = ctx.expect("Context is NULL");
+    if !writer.is_null() {
+        let writer = unsafe {
+            Box::from_raw(writer)
+        };
+        fry_status!(ctx, writer.finalize())
+    } else {
+        Status::Success
+    }
+}
+
+/// Writes an arbitrary packet.
+///
+/// This writer can be used to construct arbitrary OpenPGP packets.
+/// The body will be written using partial length encoding, or, if the
+/// body is short, using full length encoding.
+#[no_mangle]
+pub extern "system" fn sq_arbitrary_writer_new
+    (ctx: Option<&mut Context>,
+     inner: *mut writer::Stack<'static, Cookie>,
+     tag: uint8_t)
+     -> *mut writer::Stack<'static, Cookie>
+{
+    let ctx = ctx.expect("Context is NULL");
+    assert!(!inner.is_null());
+    let inner = unsafe {
+        Box::from_raw(inner)
+    };
+    fry_box!(ctx, ArbitraryWriter::new(*inner, tag.into()))
+}
+
+/// Signs a packet stream.
+///
+/// For every signing key, a signer writes a one-pass-signature
+/// packet, then hashes and emits the data stream, then for every key
+/// writes a signature packet.
+#[no_mangle]
+pub extern "system" fn sq_signer_new
+    (ctx: Option<&mut Context>,
+     inner: *mut writer::Stack<'static, Cookie>,
+     signers: Option<&&'static TPK>, signers_len: size_t)
+     -> *mut writer::Stack<'static, Cookie>
+{
+    let ctx = ctx.expect("Context is NULL");
+    assert!(!inner.is_null());
+    let inner = unsafe {
+        Box::from_raw(inner)
+    };
+    let signers = signers.expect("Signers is NULL");
+    let signers = unsafe {
+        slice::from_raw_parts(signers, signers_len)
+    };
+    fry_box!(ctx, Signer::new(*inner, &signers))
+}
+
+/// Creates a signer for a detached signature.
+#[no_mangle]
+pub extern "system" fn sq_signer_new_detached
+    (ctx: Option<&mut Context>,
+     inner: *mut writer::Stack<'static, Cookie>,
+     signers: Option<&&'static TPK>, signers_len: size_t)
+     -> *mut writer::Stack<'static, Cookie>
+{
+    let ctx = ctx.expect("Context is NULL");
+    assert!(!inner.is_null());
+    let inner = unsafe {
+        Box::from_raw(inner)
+    };
+    let signers = signers.expect("Signers is NULL");
+    let signers = unsafe {
+        slice::from_raw_parts(signers, signers_len)
+    };
+    fry_box!(ctx, Signer::detached(*inner, &signers))
+}
+
+/// Writes a literal data packet.
+///
+/// The body will be written using partial length encoding, or, if the
+/// body is short, using full length encoding.
+#[no_mangle]
+pub extern "system" fn sq_literal_writer_new
+    (ctx: Option<&mut Context>,
+     inner: *mut writer::Stack<'static, Cookie>)
+     -> *mut writer::Stack<'static, Cookie>
+{
+    let ctx = ctx.expect("Context is NULL");
+    assert!(!inner.is_null());
+    let inner = unsafe {
+        Box::from_raw(inner)
+    };
+    fry_box!(ctx, LiteralWriter::new(*inner,
+                                     DataFormat::Binary,
+                                     None,
+                                     None))
+}
+
+/// Creates a new encryptor.
+///
+/// The stream will be encrypted using a generated session key,
+/// which will be encrypted using the given passwords, and all
+/// encryption-capable subkeys of the given TPKs.
+///
+/// The stream is encrypted using AES256, regardless of any key
+/// preferences.
+#[no_mangle]
+pub extern "system" fn sq_encryptor_new
+    (ctx: Option<&mut Context>,
+     inner: *mut writer::Stack<'static, Cookie>,
+     passwords: Option<&*const c_char>, passwords_len: size_t,
+     recipients: Option<&&TPK>, recipients_len: size_t,
+     encryption_mode: uint8_t)
+     -> *mut writer::Stack<'static, Cookie>
+{
+    let ctx = ctx.expect("Context is NULL");
+    assert!(!inner.is_null());
+    let inner = unsafe {
+        Box::from_raw(inner)
+    };
+    let mut passwords_ = Vec::new();
+    if passwords_len > 0 {
+        let passwords = passwords.expect("Passwords is NULL");
+        let passwords = unsafe {
+            slice::from_raw_parts(passwords, passwords_len)
+        };
+        for password in passwords {
+            passwords_.push(unsafe {
+                CStr::from_ptr(*password)
+            }.to_bytes());
+        }
+    }
+    let recipients = if recipients_len > 0 {
+        let recipients = recipients.expect("Recipients is NULL");
+        unsafe {
+            slice::from_raw_parts(recipients, recipients_len)
+        }
+    } else {
+        &[]
+    };
+    let encryption_mode = match encryption_mode {
+        0 => EncryptionMode::AtRest,
+        1 => EncryptionMode::ForTransport,
+        _ => panic!("Bad encryption mode: {}", encryption_mode),
+    };
+    fry_box!(ctx, Encryptor::new(*inner,
+                                 &passwords_,
+                                 &recipients,
+                                 encryption_mode))
 }
