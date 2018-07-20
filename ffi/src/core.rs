@@ -361,7 +361,7 @@ pub extern "system" fn sq_writer_free(writer: *mut Box<Write>) {
     }
 }
 
-/// Writes up to `len` bytes into `buf`.
+/// Writes up to `len` bytes of `buf` into `writer`.
 #[no_mangle]
 pub extern "system" fn sq_writer_write(ctx: Option<&mut Context>,
                                        writer: Option<&mut Box<Write>>,

@@ -286,7 +286,7 @@ sq_writer_t sq_writer_from_bytes (uint8_t *buf, size_t len);
 void sq_writer_free (sq_writer_t writer);
 
 /*/
-/// Writes up to `len` bytes into `buf`.
+/// Writes up to `len` bytes of `buf` into `writer`.
 /*/
 ssize_t sq_writer_write (sq_context_t ctx, sq_writer_t writer,
                          const uint8_t *buf, size_t len);
