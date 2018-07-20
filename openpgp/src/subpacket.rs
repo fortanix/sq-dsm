@@ -1575,6 +1575,8 @@ impl Signature {
     pub fn signature_expired_at(&self, tm: time::Tm) -> bool {
         match (self.signature_creation_time(), self.signature_expiration_time())
         {
+            (Some(_), Some(e)) if e.num_seconds() == 0 =>
+                false, // Zero expiration time, does not expire.
             (Some(c), Some(e)) =>
                 (c + e) <= tm,
             (None, Some(_)) =>
@@ -1826,6 +1828,8 @@ impl Signature {
     ///  [Section 5.2.3.6 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.6
     pub fn key_expired_at(&self, key: &Key, tm: time::Tm) -> bool {
         match self.key_expiration_time() {
+            Some(e) if e.num_seconds() == 0 =>
+                false, // Zero expiration time, does not expire.
             Some(e) =>
                 key.creation_time + e <= tm,
             None =>
