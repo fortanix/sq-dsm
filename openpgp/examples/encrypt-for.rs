@@ -55,4 +55,6 @@ fn main() {
     // Finally, copy stdin to our writer stack to encrypt the data.
     io::copy(&mut io::stdin(), &mut literal_writer)
         .expect("Failed to encrypt");
+
+    literal_writer.finalize().unwrap();
 }
