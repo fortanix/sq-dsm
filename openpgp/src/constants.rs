@@ -22,8 +22,12 @@ pub enum PublicKeyAlgorithm {
     /// RSA (Encrypt or Sign)
     RSAEncryptSign,
     /// RSA Encrypt-Only
+    #[deprecated(since = "rfc4880",
+                 note = "Use `PublicKeyAlgorithm::RSAEncryptSign`.")]
     RSAEncrypt,
     /// RSA Sign-Only
+    #[deprecated(since = "rfc4880",
+                 note = "Use `PublicKeyAlgorithm::RSAEncryptSign`.")]
     RSASign,
     /// Elgamal (Encrypt-Only)
     ElgamalEncrypt,
@@ -34,6 +38,9 @@ pub enum PublicKeyAlgorithm {
     /// Elliptic curve DSA
     ECDSA,
     /// Elgamal (Encrypt or Sign)
+    #[deprecated(since = "rfc4880",
+                 note = "If you really must, use \
+                         `PublicKeyAlgorithm::ElgamalEncrypt`.")]
     ElgamalEncryptSign,
     /// "Twisted" Edwards curve DSA
     EdDSA,
@@ -46,6 +53,7 @@ pub enum PublicKeyAlgorithm {
 impl From<u8> for PublicKeyAlgorithm {
     fn from(u: u8) -> Self {
         use PublicKeyAlgorithm::*;
+        #[allow(deprecated)]
         match u {
             1 => RSAEncryptSign,
             2 => RSAEncrypt,
@@ -65,6 +73,7 @@ impl From<u8> for PublicKeyAlgorithm {
 impl From<PublicKeyAlgorithm> for u8 {
     fn from(p: PublicKeyAlgorithm) -> u8 {
         use PublicKeyAlgorithm::*;
+        #[allow(deprecated)]
         match p {
             RSAEncryptSign => 1,
             RSAEncrypt => 2,
@@ -84,6 +93,7 @@ impl From<PublicKeyAlgorithm> for u8 {
 impl fmt::Display for PublicKeyAlgorithm {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use PublicKeyAlgorithm::*;
+        #[allow(deprecated)]
         match *self {
             RSAEncryptSign => f.write_str("RSA (Encrypt or Sign)"),
             RSAEncrypt => f.write_str("RSA Encrypt-Only"),

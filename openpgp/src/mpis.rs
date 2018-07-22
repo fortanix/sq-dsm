@@ -535,6 +535,7 @@ mod tests {
 
             mpis.serialize(&mut cur).unwrap();
 
+            #[allow(deprecated)]
             let mpis2 = match &mpis {
                 MPIs::None => unreachable!(),
                 MPIs::RSAPublicKey { .. } =>

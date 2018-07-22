@@ -947,6 +947,7 @@ mod tests {
         // => good.
         packets[2].children.as_mut().unwrap().packets.pop().unwrap();
 
+        #[allow(deprecated)]
         packets.insert(
             1,
             Packet::PKESK(PKESK {

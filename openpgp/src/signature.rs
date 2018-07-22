@@ -172,7 +172,8 @@ impl Signature {
         self.hash_prefix[0] = digest[0];
         self.hash_prefix[1] = digest[1];
 
-        self.mpis = match (signer.pk_algo, &signer.mpis, signer_sec) {
+        #[allow(deprecated)]
+        let mpis = match (signer.pk_algo, &signer.mpis, signer_sec) {
             (RSASign,
              &RSAPublicKey { ref e, ref n },
              &RSASecretKey { ref p, ref q, ref d, .. }) |
@@ -264,6 +265,7 @@ impl Signature {
                  and secret key {:?}",
                 self.pk_algo, signer, signer_sec)).into()),
         };
+        self.mpis = mpis;
 
         Ok(())
     }
@@ -275,6 +277,7 @@ impl Signature {
         use PublicKeyAlgorithm::*;
         use mpis::MPIs::*;
 
+        #[allow(deprecated)]
         match (self.pk_algo, &key.mpis, &self.mpis) {
             (RSASign,
              &RSAPublicKey{ ref e, ref n },

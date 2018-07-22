@@ -57,6 +57,7 @@ impl Key {
         use PublicKeyAlgorithm::*;
         use Error;
 
+        #[allow(deprecated)]
         let (mpis, secret) = match pk_algo {
             RSASign | RSAEncrypt | RSAEncryptSign => {
                 let mut rng = Yarrow::default();

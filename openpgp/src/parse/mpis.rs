@@ -46,6 +46,7 @@ impl MPIs {
     {
         use PublicKeyAlgorithm::*;
 
+        #[allow(deprecated)]
         match algo {
             RSAEncryptSign | RSAEncrypt | RSASign => {
                 let n = MPI::parse("rsa_public_n", php)?;
@@ -204,6 +205,7 @@ impl MPIs {
     {
         use PublicKeyAlgorithm::*;
 
+        #[allow(deprecated)]
         match algo {
             RSAEncryptSign | RSAEncrypt | RSASign => {
                 let d = MPI::parse("rsa_secret_d", php)?;
@@ -296,6 +298,7 @@ impl MPIs {
         -> Result<Self> {
         use PublicKeyAlgorithm::*;
 
+        #[allow(deprecated)]
         match algo {
             RSAEncryptSign | RSAEncrypt => {
                 let c = MPI::parse("rsa_ciphertext", php)?;
@@ -375,6 +378,7 @@ impl MPIs {
     {
         use PublicKeyAlgorithm::*;
 
+        #[allow(deprecated)]
         match algo {
             RSAEncryptSign | RSASign => {
                 let s = MPI::parse("rsa_signature", php)?;

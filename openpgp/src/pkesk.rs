@@ -52,6 +52,7 @@ impl PKESK {
         psk.push((checksum >> 8) as u8);
         psk.push((checksum >> 0) as u8);
 
+        #[allow(deprecated)]
         let esk = match recipient.pk_algo {
             RSAEncryptSign | RSAEncrypt => {
                 // Extract the public recipient.
