@@ -32,7 +32,7 @@ impl TSK {
     }
 
     /// Returns a reference to the corresponding TPK.
-    pub fn public_keys<'a>(&'a self) -> &'a TPK {
+    pub fn tpk<'a>(&'a self) -> &'a TPK {
         &self.key
     }
 

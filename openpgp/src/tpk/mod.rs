@@ -2047,7 +2047,7 @@ mod test {
         let r = armor::Reader::from_reader(&mut cur, armor::Kind::SecretKey);
         let t2 = TPK::from_reader(r).unwrap();
 
-        assert_eq!(t1.public_keys().fingerprint(), t2.fingerprint());
+        assert_eq!(t1.tpk().fingerprint(), t2.fingerprint());
     }
 
     // lutz's key is a v3 key.
