@@ -900,13 +900,13 @@ impl TPK {
     pub fn new(primary_uid: &str) -> Result<Self> {
         use packet::Common;
 
-        let primary = Key::new(PublicKeyAlgorithm::RSASign)?;
+        let primary = Key::new(PublicKeyAlgorithm::RSAEncryptSign)?;
         let uid = UserID{
             common: Common::default(),
             value: primary_uid.as_bytes().into(),
         };
         let uid_sig = UserIDBinding::new(&primary, uid, &primary)?;
-        let encryption_key = Key::new(PublicKeyAlgorithm::RSAEncrypt)?;
+        let encryption_key = Key::new(PublicKeyAlgorithm::RSAEncryptSign)?;
         let key_sig = SubkeyBinding::new(encryption_key, &primary)?;
 
         Ok(TPK{

@@ -455,7 +455,7 @@ fn mpis_parse_test() {
         let bio = BufferedReaderGeneric::with_cookie(
             cur, None, Cookie::default());
         let mut parser = PacketHeaderParser::new_naked(Box::new(bio));
-        let mpis = MPIs::parse_public_key(RSAEncrypt, &mut parser).unwrap();
+        let mpis = MPIs::parse_public_key(RSAEncryptSign, &mut parser).unwrap();
 
         //assert_eq!(mpis.serialized_len(), 6);
         match &mpis {
@@ -479,7 +479,7 @@ fn mpis_parse_test() {
         let bio = BufferedReaderGeneric::with_cookie(
             cur, None, Cookie::default());
         let mut parser = PacketHeaderParser::new_naked(Box::new(bio));
-        let mpis = MPIs::parse_ciphertext(RSAEncrypt, &mut parser).unwrap();
+        let mpis = MPIs::parse_ciphertext(RSAEncryptSign, &mut parser).unwrap();
 
         assert_eq!(mpis.serialized_len(), 3);
     }
