@@ -1,0 +1,7 @@
+image: debian:buster
+
+test:
+  script:
+    - apt update -y -qq
+    - apt install -y -qq git rustc cargo clang make pkg-config nettle-dev libssl-dev capnproto libsqlite3-dev
+    - make test
