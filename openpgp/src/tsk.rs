@@ -9,6 +9,12 @@ use serialize::{
 };
 use std::io;
 
+/// A transferable secret key (TSK).
+///
+/// A TSK (see [RFC 4880, section 11.2]) can be used to create
+/// signatures and decrypt data.
+///
+/// [RFC 4880, section 11.2]: https://tools.ietf.org/html/rfc4880#section-11.2
 pub struct TSK {
     key: TPK,
 }
@@ -18,12 +24,14 @@ impl TSK {
         TSK{ key: tpk }
     }
 
-    pub fn new(uid: &str) -> Result<TSK> {
-        let key = TPK::new(uid)?;
+    /// Generates a new RSA 3072 bit key with UID `primary_uid`.
+    pub fn new(primary_uid: &str) -> Result<TSK> {
+        let key = TPK::new(primary_uid)?;
 
         Ok(TSK::from_tpk(key))
     }
 
+    /// Returns a reference to the corresponding TPK.
     pub fn public_keys<'a>(&'a self) -> &'a TPK {
         &self.key
     }
