@@ -10,7 +10,7 @@ use libc::{uint8_t, uint64_t, c_char, c_int, size_t, ssize_t};
 
 extern crate openpgp;
 
-use self::openpgp::{armor, Fingerprint, KeyID, PacketPile, TPK, Packet};
+use self::openpgp::{armor, Fingerprint, KeyID, PacketPile, TPK, TSK, Packet};
 use self::openpgp::parse::{PacketParser};
 use self::openpgp::serialize::Serialize;
 use self::openpgp::constants::{
@@ -332,6 +332,19 @@ pub extern "system" fn sq_packet_pile_serialize(ctx: Option<&mut Context>,
 
 /* sequoia::keys.  */
 
+/// Generates a new RSA 3072 bit key with UID `primary_uid`.
+#[no_mangle]
+pub extern "system" fn sq_tpk_new(ctx: Option<&mut Context>,
+                                  primary_uid: *const c_char)
+                                  -> *mut TPK {
+    let ctx = ctx.expect("CONTEXT is NULL");
+    assert!(!primary_uid.is_null());
+    let primary_uid = unsafe {
+        CStr::from_ptr(primary_uid)
+    };
+    fry_box!(ctx, TPK::new(&primary_uid.to_string_lossy()))
+}
+
 /// Returns the first TPK encountered in the reader.
 #[no_mangle]
 pub extern "system" fn sq_tpk_from_reader(ctx: Option<&mut Context>,
@@ -459,6 +472,65 @@ pub extern "system" fn sq_tpk_fingerprint(tpk: Option<&TPK>)
                                           -> *mut Fingerprint {
     let tpk = tpk.expect("TPK is NULL");
     box_raw!(tpk.fingerprint())
+}
+
+/// Cast the public key into a secret key that allows using the secret
+/// parts of the containing keys.
+#[no_mangle]
+pub extern "system" fn sq_tpk_into_tsk(tpk: *mut TPK)
+                                       -> *mut TSK {
+    assert!(!tpk.is_null());
+    let tpk = unsafe {
+        Box::from_raw(tpk)
+    };
+    box_raw!(tpk.into_tsk())
+}
+
+/* TSK */
+
+/// Generates a new RSA 3072 bit key with UID `primary_uid`.
+#[no_mangle]
+pub extern "system" fn sq_tsk_new(ctx: Option<&mut Context>,
+                                  primary_uid: *const c_char)
+                                  -> *mut TSK {
+    let ctx = ctx.expect("CONTEXT is NULL");
+    assert!(!primary_uid.is_null());
+    let primary_uid = unsafe {
+        CStr::from_ptr(primary_uid)
+    };
+    fry_box!(ctx, TSK::new(&primary_uid.to_string_lossy()))
+}
+
+/// Frees the TSK.
+#[no_mangle]
+pub extern "system" fn sq_tsk_free(tsk: *mut TSK) {
+    if tsk.is_null() {
+        return
+    }
+    unsafe {
+        drop(Box::from_raw(tsk));
+    }
+}
+
+/// Returns a reference to the corresponding TPK.
+#[no_mangle]
+pub extern "system" fn sq_tsk_tpk(tsk: Option<&TSK>)
+                                  -> &TPK {
+    let tsk = tsk.expect("TSK is NULL");
+    tsk.tpk()
+}
+
+
+/// Serializes the TSK.
+#[no_mangle]
+pub extern "system" fn sq_tsk_serialize(ctx: Option<&mut Context>,
+                                        tsk: Option<&TSK>,
+                                        writer: Option<&mut Box<Write>>)
+                                        -> Status {
+    let ctx = ctx.expect("Context is NULL");
+    let tsk = tsk.expect("TSK is NULL");
+    let writer = writer.expect("Writer is NULL");
+    fry_status!(ctx, tsk.serialize(writer))
 }
 
 /* openpgp::Packet.  */

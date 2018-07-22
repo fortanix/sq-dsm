@@ -240,6 +240,22 @@ sq_status_t sq_packet_pile_serialize (sq_context_t ctx,
 /*/
 typedef struct sq_tpk *sq_tpk_t;
 
+
+/*/
+/// A transferable secret key (TSK).
+///
+/// A TSK (see [RFC 4880, section 11.2]) can be used to create
+/// signatures and decrypt data.
+///
+/// [RFC 4880, section 11.2]: https://tools.ietf.org/html/rfc4880#section-11.2
+/*/
+typedef struct sq_tsk *sq_tsk_t;
+
+/*/
+/// Generates a new RSA 3072 bit key with UID `primary_uid`.
+/*/
+sq_tpk_t sq_tpk_new (sq_context_t ctx, char *primary_uid);
+
 /*/
 /// Returns the first TPK encountered in the reader.
 /*/
@@ -311,6 +327,38 @@ void sq_tpk_dump (const sq_tpk_t tpk);
 /// Returns the fingerprint.
 /*/
 sq_fingerprint_t sq_tpk_fingerprint (const sq_tpk_t tpk);
+
+
+/*/
+/// Cast the public key into a secret key that allows using the secret
+/// parts of the containing keys.
+/*/
+sq_tsk_t sq_tpk_into_tsk (sq_tpk_t tpk);
+
+/* TSK */
+
+/*/
+/// Generates a new RSA 3072 bit key with UID `primary_uid`.
+/*/
+sq_tsk_t sq_tsk_new (sq_context_t ctx, char *primary_uid);
+
+/*/
+/// Frees the TSK.
+/*/
+void sq_tsk_free (sq_tsk_t tsk);
+
+/*/
+/// Returns a reference to the corresponding TPK.
+/*/
+sq_tpk_t sq_tsk_tpk (sq_tsk_t tsk);
+
+/*/
+/// Serializes the TSK.
+/*/
+sq_status_t sq_tsk_serialize (sq_context_t ctx,
+                              const sq_tsk_t tsk,
+                              sq_writer_t writer);
+
 
 /*/
 /// The OpenPGP packet tags as defined in [Section 4.3 of RFC 4880].
