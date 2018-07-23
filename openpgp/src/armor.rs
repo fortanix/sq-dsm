@@ -41,6 +41,7 @@ use std::io::{Read, Write};
 use std::io::{Result, Error, ErrorKind};
 use std::path::Path;
 use std::cmp::min;
+use std::str;
 use quickcheck::{Arbitrary, Gen};
 
 /// The encoded output stream must be represented in lines of no more
@@ -340,6 +341,7 @@ pub struct Reader<'a> {
     crc: CRC,
     expect_crc: Option<u32>,
     initialized: bool,
+    headers: Vec<(String, String)>,
     finalized: bool,
 }
 
@@ -413,6 +415,7 @@ impl<'a> Reader<'a> {
             buffer: Vec::<u8>::with_capacity(1024),
             crc: CRC::new(),
             expect_crc: None,
+            headers: Vec::new(),
             initialized: false,
             finalized: false,
         }
@@ -423,6 +426,18 @@ impl<'a> Reader<'a> {
     /// Useful in combination with `Kind::Any`.
     pub fn kind(&self) -> Kind {
         self.kind
+    }
+
+    /// Returns the armored headers.
+    ///
+    /// The tuples contain a key and a value.
+    ///
+    /// Note: if a key occurs multiple times, then there are multiple
+    /// entries in the vector with the same key; values with the same
+    /// key are *not* combined.
+    pub fn headers(&mut self) -> Result<&[(String, String)]> {
+        self.initialize()?;
+        Ok(&self.headers[..])
     }
 
     /// Consumes the header if not already done.
@@ -458,9 +473,52 @@ impl<'a> Reader<'a> {
             }
         }
 
-        while self.consume_line()? != 0 {
-            /* Swallow headers.  */
+        // Read the headers.
+        let mut n = 0;
+        loop {
+            self.source.consume(n);
+
+            let line = self.source.read_to('\n' as u8)?;
+            n = line.len();
+
+            let line = str::from_utf8(line);
+            // Ignore---don't error out---lines that are not valid UTF8.
+            if line.is_err() {
+                continue;
+            }
+
+            let line = line.unwrap();
+
+            // The line almost certainly ends with \n: the only reason
+            // it couldn't is if we encountered EOF.  We need to strip
+            // it.  But, if it ends with \r\n, then we also want to
+            // strip the \r too.
+            let line = if line.ends_with(&"\r\n"[..]) {
+                // \r\n.
+                &line[..line.len() - 2]
+            } else if line.len() > 0 {
+                // \n.
+                &line[..line.len() - 1]
+            } else {
+                // EOF.
+                line
+            };
+
+            /* Process headers.  */
+            let key_value = line.splitn(2, ": ").collect::<Vec<&str>>();
+            if key_value.len() == 1 {
+                if line.trim_left().len() == 0 {
+                    // Empty line.
+                    break;
+                }
+            } else {
+                let key = key_value[0];
+                let value = key_value[1];
+
+                self.headers.push((key.into(), value.into()));
+            }
         }
+        self.source.consume(n);
 
         self.initialized = true;
         Ok(())
@@ -502,25 +560,6 @@ impl<'a> Reader<'a> {
         }
 
         Ok(crc)
-    }
-
-    /// Consumes a line, returning the number of non-whitespace bytes.
-    fn consume_line(&mut self) -> Result<usize> {
-        let mut buf = [0; 1];
-        let mut c = 0;
-
-        loop {
-            self.source.read_exact(&mut buf)?;
-            if ! buf[0].is_ascii_whitespace() {
-                c += 1;
-            }
-
-            if buf[0] == '\n' as u8 {
-                break;
-            }
-        }
-
-        Ok(c)
     }
 
     /// Reads a line, returning it as a byte vector without the newline.
@@ -893,6 +932,9 @@ mod test {
     fn dearmor_with_header() {
         let mut file = File::open("tests/data/armor/test-3.with-headers.asc").unwrap();
         let mut r = Reader::new(&mut file, Kind::File);
+        assert_eq!(r.headers().unwrap(),
+                   &[("Comment".into(), "Some Header".into()),
+                     ("Comment".into(), "Another one".into())]);
         let mut buf = [0; 5];
         let e = r.read(&mut buf);
         assert!(e.is_ok());
