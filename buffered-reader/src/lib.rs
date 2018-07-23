@@ -152,6 +152,37 @@ pub trait BufferedReader<C> : io::Read + fmt::Debug {
                   + ((input[2] as u32) << 8) + (input[3] as u32));
     }
 
+    /// Read until either `terminal` is encountered or EOF.
+    ///
+    /// Returns either a `&[u8]` terminating in `terminal` or the rest
+    /// of the data, if EOF was encountered.
+    ///
+    /// Note: this function does *not* consume the data.
+    fn read_to(&mut self, terminal: u8) -> Result<&[u8], std::io::Error> {
+        let mut n = 128;
+        let len;
+
+        loop {
+            let data = self.data(n)?;
+
+            if let Some(newline)
+                = data.iter().position(|c| *c == terminal)
+            {
+                len = newline + 1;
+                break;
+            } else if data.len() < n {
+                // EOF.
+                len = data.len();
+                break;
+            } else {
+                // Read more data.
+                n = cmp::max(2 * n, data.len() + 1024);
+            }
+        }
+
+        Ok(&self.buffer()[..len])
+    }
+
     /// Reads and consumes `amount` bytes, and returns them in a
     /// caller-owned buffer.  Implementations may optimize this to
     /// avoid a copy.
@@ -295,6 +326,11 @@ impl <'a, C> BufferedReader<C> for Box<BufferedReader<C> + 'a> {
 
     fn read_be_u32(&mut self) -> Result<u32, std::io::Error> {
         return self.as_mut().read_be_u32();
+    }
+
+    fn read_to(&mut self, terminal: u8) -> Result<&[u8], std::io::Error>
+    {
+        return self.as_mut().read_to(terminal);
     }
 
     fn steal(&mut self, amount: usize) -> Result<Vec<u8>, std::io::Error> {
