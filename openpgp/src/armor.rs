@@ -149,7 +149,6 @@ pub struct Writer<W: Write> {
     stash: Vec<u8>,
     column: usize,
     crc: CRC,
-    initialized: bool,
     finalized: bool,
 }
 
@@ -167,13 +166,15 @@ impl<W: Write> Writer<W> {
     /// # fn f() -> Result<()> {
     /// let mut buffer = io::Cursor::new(vec![]);
     /// {
-    ///     let mut writer = Writer::new(&mut buffer, Kind::File);
+    ///     let mut writer = Writer::new(&mut buffer, Kind::File,
+    ///         &[ ("Key", "Value") ][..])?;
     ///     writer.write_all(b"Hello world!")?;
     ///     // writer is drop()ed here.
     /// }
     /// assert_eq!(
     ///     String::from_utf8_lossy(buffer.get_ref()),
     ///     "-----BEGIN PGP ARMORED FILE-----
+    /// Key: Value
     ///
     /// SGVsbG8gd29ybGQh
     /// =s4Gu
@@ -182,28 +183,27 @@ impl<W: Write> Writer<W> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn new(inner: W, kind: Kind) -> Self {
+    pub fn new(inner: W, kind: Kind, headers: &[(&str, &str)]) -> Result<Self> {
         assert!(kind != Kind::Any);
-        Writer {
+        let mut w = Writer {
             sink: inner,
             kind: kind,
             stash: Vec::<u8>::with_capacity(2),
             column: 0,
             crc: CRC::new(),
-            initialized: false,
             finalized: false,
+        };
+
+        write!(w.sink, "{}{}", w.kind.begin(), LINE_ENDING)?;
+
+        for h in headers {
+            write!(w.sink, "{}: {}{}", h.0, h.1, LINE_ENDING)?;
         }
-    }
 
-    /// Writes the header if not already done.
-    fn initialize(&mut self) -> Result<()> {
-        if self.initialized { return Ok(()) }
+        // A blank line separates the headers from the body.
+        write!(w.sink, "{}", LINE_ENDING)?;
 
-        write!(self.sink, "{}{}{}", self.kind.begin(),
-               LINE_ENDING, LINE_ENDING)?;
-
-        self.initialized = true;
-        Ok(())
+        Ok(w)
     }
 
     /// Writes the footer.
@@ -212,7 +212,6 @@ impl<W: Write> Writer<W> {
     /// called explicitly, the header is written once the writer is
     /// dropped.
     pub fn finalize(&mut self) -> Result<()> {
-        self.initialize()?;
         if self.finalized {
             return Err(Error::new(ErrorKind::BrokenPipe, "Writer is finalized."));
         }
@@ -257,7 +256,6 @@ impl<W: Write> Writer<W> {
 
 impl<W: Write> Write for Writer<W> {
     fn write(&mut self, buf: &[u8]) -> Result<usize> {
-        self.initialize()?;
         if self.finalized {
             return Err(Error::new(ErrorKind::BrokenPipe, "Writer is finalized."));
         }
@@ -848,7 +846,7 @@ mod test {
 
             let mut buf = Vec::new();
             {
-                let mut w = Writer::new(&mut buf, Kind::File);
+                let mut w = Writer::new(&mut buf, Kind::File, &[][..]).unwrap();
                 w.write_all(&bin).unwrap();
             }
             assert_eq!(String::from_utf8_lossy(&buf),
@@ -869,7 +867,7 @@ mod test {
 
             let mut buf = Vec::new();
             {
-                let mut w = Writer::new(&mut buf, Kind::File);
+                let mut w = Writer::new(&mut buf, Kind::File, &[][..]).unwrap();
                 for (i, _) in bin.iter().enumerate() {
                     w.write(&bin[i..i+1]).unwrap();
                 }
@@ -1042,7 +1040,7 @@ mod test {
             use std::io::Cursor;
 
             let mut encoded = Vec::new();
-            Writer::new(&mut encoded, kind)
+            Writer::new(&mut encoded, kind, &[][..]).unwrap()
                 .write_all(&payload)
                 .unwrap();
 

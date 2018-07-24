@@ -235,13 +235,17 @@ pub extern "system" fn sq_armor_reader_new(inner: Option<&'static mut Box<Read>>
 ///
 /// A filter that applies ASCII Armor to the data written to it.
 #[no_mangle]
-pub extern "system" fn sq_armor_writer_new(inner: Option<&'static mut Box<Write>>,
+pub extern "system" fn sq_armor_writer_new(ctx: Option<&mut Context>,
+                                           inner: Option<&'static mut Box<Write>>,
                                            kind: c_int)
-                                           -> *mut Box<Write> {
+                                           -> *mut armor::Writer<
+                                                  &'static mut Box<Write>> {
+    let ctx = ctx.expect("Context is NULL");
     let inner = inner.expect("Inner is NULL");
     let kind = int_to_kind(kind);
 
-    box_raw!(Box::new(armor::Writer::new(inner, kind)))
+    // XXX: Expose header parameter.
+    fry_box!(ctx, armor::Writer::new(inner, kind, &[][..]).map_err(|e| e.into()))
 }
 
 

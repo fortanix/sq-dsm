@@ -2038,7 +2038,8 @@ mod test {
         let mut cur = io::Cursor::new(Vec::default());
 
         {
-            let mut a = armor::Writer::new(&mut cur, armor::Kind::SecretKey);
+            let mut a = armor::Writer::new(&mut cur, armor::Kind::SecretKey,
+                                           &[][..]).unwrap();
             t1.serialize(&mut a).unwrap();
         }
 

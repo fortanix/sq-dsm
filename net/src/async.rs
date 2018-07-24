@@ -155,7 +155,12 @@ impl KeyServer {
 
         let mut armored_blob = vec![];
         {
-            let mut w = Writer::new(&mut armored_blob, Kind::PublicKey);
+            let mut w = match Writer::new(&mut armored_blob,
+                                          Kind::PublicKey, &[][..]) {
+                Err(e) => return Box::new(future::err(e.into())),
+                Ok(w) => w,
+            };
+
             if let Err(e) = key.serialize(&mut w) {
                 return Box::new(future::err(e));
             }

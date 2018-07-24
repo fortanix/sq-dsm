@@ -40,7 +40,8 @@ fn main() {
     // Compose a writer stack corresponding to the output format and
     // packet structure we want.  First, we want the output to be as
     // armored.
-    let sink = armor::Writer::new(io::stdout(), armor::Kind::Message);
+    let sink = armor::Writer::new(io::stdout(), armor::Kind::Message, &[][..])
+        .expect("Failed to create an armored writer");
 
     // We want to encrypt a literal data packet.
     let encryptor = Encryptor::new(wrap(sink),
