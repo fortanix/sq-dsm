@@ -167,7 +167,8 @@ sq_reader_t sq_armor_reader_new (sq_reader_t inner, sq_armor_kind_t kind);
 ///
 /// A filter that applies ASCII Armor to the data written to it.
 /*/
-sq_writer_t sq_armor_writer_new (sq_writer_t inner, sq_armor_kind_t kind);
+sq_writer_t sq_armor_writer_new (sq_context_t ctx, sq_writer_t inner,
+				 sq_armor_kind_t kind);
 
 
 /* openpgp::PacketPile.  */
