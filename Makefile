@@ -4,6 +4,7 @@
 PREFIX		?= /usr/local
 DESTDIR		?=
 CARGO_FLAGS	?=
+FFI_RUSTDOCFLAGS ?= --html-in-header ffi/rustdoc.head.html
 
 # Signing source distributions.
 SIGN_WITH	?= XXXXXXXXXXXXXXXX
@@ -51,6 +52,8 @@ examples:
 .PHONY: doc
 doc:
 	$(CARGO) doc $(CARGO_FLAGS) --no-deps --all
+	env RUSTDOCFLAGS="$(FFI_RUSTDOCFLAGS)" \
+	    $(CARGO) doc $(CARGO_FLAGS) --no-deps --package sequoia-ffi
 	$(CARGO) doc $(CARGO_FLAGS) --no-deps --package nettle
 
 .PHONY: deploy-doc
