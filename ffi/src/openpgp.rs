@@ -241,6 +241,65 @@ pub struct ArmorHeader {
 /// Constructs a new filter for the given type of data.
 ///
 /// A filter that applies ASCII Armor to the data written to it.
+///
+/// # Example
+///
+/// ```c
+/// #define _GNU_SOURCE
+/// #include <assert.h>
+/// #include <error.h>
+/// #include <stdio.h>
+/// #include <stdlib.h>
+/// #include <string.h>
+///
+/// #include <sequoia.h>
+///
+/// int
+/// main (int argc, char **argv)
+/// {
+///   void *buf = NULL;
+///   size_t len = 0;
+///   sq_writer_t alloc;
+///   sq_writer_t armor;
+///   sq_error_t err;
+///   sq_context_t ctx;
+///   char *message = "Hello world!";
+///   sq_armor_header_t header[2] = {
+///     { "Key0", "Value0" },
+///     { "Key1", "Value1" },
+///   };
+///
+///   ctx = sq_context_new ("org.sequoia-pgp.example", &err);
+///   if (ctx == NULL)
+///     error (1, 0, "Initializing sequoia failed: %s",
+///            sq_error_string (err));
+///
+///   alloc = sq_writer_alloc (&buf, &len);
+///   armor = sq_armor_writer_new (ctx, alloc, SQ_ARMOR_KIND_FILE, header, 2);
+///   if (sq_writer_write (ctx, armor, (uint8_t *) message, strlen (message)) < 0)
+///     {
+///       err = sq_context_last_error (ctx);
+///       error (1, 0, "Writing failed: %s",
+///              sq_error_string (err));
+///     }
+///   sq_writer_free (armor);
+///   sq_writer_free (alloc);
+///
+///   assert (memcmp (buf,
+///                   "-----BEGIN PGP ARMORED FILE-----\n"
+///                   "Key0: Value0\n"
+///                   "Key1: Value1\n"
+///                   "\n"
+///                   "SGVsbG8gd29ybGQh\n"
+///                   "=s4Gu\n"
+///                   "-----END PGP ARMORED FILE-----\n",
+///                   len) == 0);
+///
+///   free (buf);
+///   sq_context_free (ctx);
+///   return 0;
+/// }
+/// ```
 #[no_mangle]
 pub extern "system" fn sq_armor_writer_new
     (ctx: Option<&mut Context>,
