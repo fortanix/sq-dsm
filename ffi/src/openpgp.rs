@@ -238,14 +238,15 @@ pub extern "system" fn sq_armor_reader_new(inner: Option<&'static mut Box<Read>>
 pub extern "system" fn sq_armor_writer_new(ctx: Option<&mut Context>,
                                            inner: Option<&'static mut Box<Write>>,
                                            kind: c_int)
-                                           -> *mut armor::Writer<
-                                                  &'static mut Box<Write>> {
+                                           -> *mut Box<Write> {
     let ctx = ctx.expect("Context is NULL");
     let inner = inner.expect("Inner is NULL");
     let kind = int_to_kind(kind);
 
     // XXX: Expose header parameter.
-    fry_box!(ctx, armor::Writer::new(inner, kind, &[][..]).map_err(|e| e.into()))
+    fry_box!(ctx, armor::Writer::new(inner, kind, &[][..])
+             .map(|r| Box::new(r))
+             .map_err(|e| e.into()))
 }
 
 
