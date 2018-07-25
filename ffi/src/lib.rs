@@ -50,7 +50,7 @@
 //! struct sq_context *ctx;
 //! struct sq_tpk *tpk;
 //!
-//! ctx = sq_context_new("org.sequoia-pgp.example");
+//! ctx = sq_context_new ("org.sequoia-pgp.example");
 //! if (ctx == NULL)
 //!   error (1, 0, "Initializing sequoia failed.");
 //!
