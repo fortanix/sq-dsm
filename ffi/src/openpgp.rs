@@ -231,20 +231,49 @@ pub extern "system" fn sq_armor_reader_new(inner: Option<&'static mut Box<Read>>
     box_raw!(Box::new(armor::Reader::new(inner, kind)))
 }
 
+/// Represents a (key, value) pair in an armor header.
+#[repr(C)]
+pub struct ArmorHeader {
+    key: Option<&'static c_char>,
+    value: Option<&'static c_char>,
+}
+
 /// Constructs a new filter for the given type of data.
 ///
 /// A filter that applies ASCII Armor to the data written to it.
 #[no_mangle]
-pub extern "system" fn sq_armor_writer_new(ctx: Option<&mut Context>,
-                                           inner: Option<&'static mut Box<Write>>,
-                                           kind: c_int)
-                                           -> *mut Box<Write> {
+pub extern "system" fn sq_armor_writer_new
+    (ctx: Option<&mut Context>,
+     inner: Option<&'static mut Box<Write>>,
+     kind: c_int,
+     header: Option<&ArmorHeader>,
+     header_len: size_t)
+     -> *mut Box<Write>
+{
     let ctx = ctx.expect("Context is NULL");
     let inner = inner.expect("Inner is NULL");
     let kind = int_to_kind(kind);
 
-    // XXX: Expose header parameter.
-    fry_box!(ctx, armor::Writer::new(inner, kind, &[][..])
+    let mut header_ = Vec::new();
+    if header_len > 0 {
+        let header = header.expect("HEADER is NULL");
+        let header = unsafe {
+            slice::from_raw_parts(header, header_len)
+        };
+        for h in header {
+            header_.push(unsafe {
+                (CStr::from_ptr(h.key.expect("HEADER key is NULL"))
+                 .to_string_lossy(),
+                 CStr::from_ptr(h.value.expect("HEADER value is NULL"))
+                 .to_string_lossy())
+            });
+        }
+    }
+
+    let header: Vec<(&str, &str)> =
+        header_.iter().map(|h| (h.0.as_ref(), h.1.as_ref())).collect();
+
+    fry_box!(ctx, armor::Writer::new(inner, kind, &header)
              .map(|r| Box::new(r))
              .map_err(|e| e.into()))
 }

@@ -60,7 +60,8 @@ main (int argc, char **argv)
   sink = sq_writer_alloc (&cipher, &cipher_bytes);
 
   if (use_armor)
-    sink = sq_armor_writer_new (ctx, sink, SQ_ARMOR_KIND_MESSAGE);
+    sink = sq_armor_writer_new (ctx, sink, SQ_ARMOR_KIND_MESSAGE,
+                                NULL, 0);
 
   writer = sq_writer_stack_wrap (sink);
   writer = sq_encryptor_new (ctx,

@@ -162,13 +162,19 @@ typedef enum sq_armor_kind {
 /*/
 sq_reader_t sq_armor_reader_new (sq_reader_t inner, sq_armor_kind_t kind);
 
+typedef struct sq_armor_header {
+  char *key;
+  char *value;
+} sq_armor_header_t;
+
 /*/
 /// Constructs a new filter for the given type of data.
 ///
 /// A filter that applies ASCII Armor to the data written to it.
 /*/
 sq_writer_t sq_armor_writer_new (sq_context_t ctx, sq_writer_t inner,
-				 sq_armor_kind_t kind);
+				 sq_armor_kind_t kind,
+				 sq_armor_header_t *header, size_t header_len);
 
 
 /* openpgp::PacketPile.  */
