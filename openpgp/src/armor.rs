@@ -7,15 +7,7 @@
 //! # Scope
 //!
 //! This implements a subset of the ASCII Armor specification.  Not
-//! supported features are:
-//!
-//!  - Multipart messages
-//!  - Headers
-//!
-//! The former is likely no longer useful today, and the latter seems
-//! to be of questionable value because the data is not authenticated.
-//! Reading armored data with headers is supported, but they are
-//! merely swallowed.
+//! supported multipart messages.
 //!
 //! # Memory allocations
 //!
