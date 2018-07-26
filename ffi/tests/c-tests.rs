@@ -70,7 +70,8 @@ fn build_so(base: &Path) -> io::Result<()> {
     let st = Command::new("cargo")
         .current_dir(base)
         .arg("build")
-        .arg("-p")
+        .arg("--quiet")
+        .arg("--package")
         .arg("sequoia-ffi")
         .status().unwrap();
     if ! st.success() {
