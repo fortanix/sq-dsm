@@ -13,7 +13,7 @@
 //!
 //! [SKS keyserver]: https://www.sks-keyservers.net/overview-of-pools.php#pool_hkps
 //!
-//! ```text
+//! ```c
 //! sq_context_t ctx;
 //! sq_keyid_t id;
 //! sq_keyserver_t ks;

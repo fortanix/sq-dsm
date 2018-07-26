@@ -101,7 +101,7 @@ fn for_all_tests<F>(path: &Path, mut fun: F)
         lineno += 1;
 
         if ! in_test {
-            if line.starts_with("/// ```c") {
+            if line == "/// ```c" {
                 in_test = true;
                 test_starts_at = lineno + 1;
                 continue;
@@ -114,7 +114,7 @@ fn for_all_tests<F>(path: &Path, mut fun: F)
                 test.clear();
             }
         } else {
-            if line.starts_with("/// ```") {
+            if line == "/// ```" {
                 in_test = false;
                 continue;
             }

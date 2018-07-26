@@ -9,7 +9,7 @@
 //! A context with reasonable defaults can be created using
 //! `sq_context_new`:
 //!
-//! ```text
+//! ```c
 //! sq_context_t ctx;
 //!
 //! ctx = sq_context_new ("org.sequoia-pgp.example");
@@ -18,7 +18,7 @@
 //! A context can be configured using the builder pattern with
 //! `sq_context_configure`:
 //!
-//! ```text
+//! ```c
 //! sq_config_t cfg;
 //! sq_context_t ctx;
 //!

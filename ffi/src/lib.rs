@@ -44,7 +44,7 @@
 //!
 //! # Example
 //!
-//! ```text
+//! ```c
 //! #include <sequoia.h>
 //!
 //! struct sq_context *ctx;
