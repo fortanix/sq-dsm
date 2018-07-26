@@ -21,9 +21,14 @@ fn c_doctests() {
     );
     let src = ffi.join("src");
     let include = ffi.join("include");
-    let debug = ffi.parent().unwrap().join("target").join("debug");
-    let target = ffi.parent().unwrap().join("target").join("c-tests");
+    let base = ffi.parent().unwrap();
+    let debug = base.join("target").join("debug");
+    let target = base.join("target").join("c-tests");
     fs::create_dir_all(&target).unwrap();
+
+    // First of all, make sure the shared object is built.
+    build_so(base).unwrap();
+
     let mut n = 0;
     let mut passed = 0;
     for_all_rs(&src, |path| {
@@ -49,6 +54,21 @@ fn c_doctests() {
     if n != passed {
         panic!("ffi test failures");
     }
+}
+
+/// Builds the shared object.
+fn build_so(base: &Path) -> io::Result<()> {
+    let st = Command::new("cargo")
+        .current_dir(base)
+        .arg("build")
+        .arg("-p")
+        .arg("sequoia-ffi")
+        .status().unwrap();
+    if ! st.success() {
+        return Err(io::Error::new(io::ErrorKind::Other, "compilation failed"));
+    }
+
+    Ok(())
 }
 
 /// Maps the given function `fun` over all Rust files in `src`.
