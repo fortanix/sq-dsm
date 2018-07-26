@@ -156,16 +156,59 @@ typedef enum sq_armor_kind {
 } sq_armor_kind_t;
 
 /*/
+/// Represents a (key, value) pair in an armor header.
+/*/
+typedef struct sq_armor_header {
+  char *key;
+  char *value;
+} sq_armor_header_t;
+
+
+/*/
 /// Constructs a new filter for the given type of data.
 ///
 /// A filter that strips ASCII Armor from a stream of data.
 /*/
 sq_reader_t sq_armor_reader_new (sq_reader_t inner, sq_armor_kind_t kind);
 
-typedef struct sq_armor_header {
-  char *key;
-  char *value;
-} sq_armor_header_t;
+/*/
+/// Creates a `Reader` from a file.
+/*/
+sq_reader_t sq_armor_reader_from_file (sq_context_t ctx,
+				       const char *filename,
+				       sq_armor_kind_t kind);
+
+/*/
+/// Creates a `Reader` from a buffer.
+/*/
+sq_reader_t sq_armor_reader_from_bytes (const uint8_t *b, size_t len,
+					sq_armor_kind_t kind);
+
+
+/*/
+/// Returns the kind of data this reader is for.
+///
+/// Useful in combination with `Kind::Any`.
+/*/
+sq_armor_kind_t sq_armor_reader_kind (sq_reader_t reader);
+
+/*/
+/// Returns the armored headers.
+///
+/// The tuples contain a key and a value.
+///
+/// Note: if a key occurs multiple times, then there are multiple
+/// entries in the vector with the same key; values with the same
+/// key are *not* combined.
+///
+/// The returned array and the strings in the headers have been
+/// allocated with `malloc`, and the caller is responsible for freeing
+/// both the array and the strings.
+/*/
+sq_armor_header_t *sq_armor_reader_headers (sq_context_t ctx,
+					    sq_reader_t reader,
+					    size_t *len);
+
 
 /*/
 /// Constructs a new filter for the given type of data.
