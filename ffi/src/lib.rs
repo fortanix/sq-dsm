@@ -46,19 +46,23 @@
 //!
 //! ```c
 //! #include <sequoia.h>
+//! #include <error.h>
 //!
-//! struct sq_context *ctx;
-//! struct sq_tpk *tpk;
+//! sq_error_t err;
+//! sq_context_t ctx;
+//! sq_tpk_t tpk;
 //!
-//! ctx = sq_context_new ("org.sequoia-pgp.example");
+//! ctx = sq_context_new ("org.sequoia-pgp.example", &err);
 //! if (ctx == NULL)
-//!   error (1, 0, "Initializing sequoia failed.");
+//!   error (1, 0, "Initializing sequoia failed: %s", sq_error_string (err));
 //!
-//! tpk = sq_tpk_from_bytes (ctx, buf, len);
+//! tpk = sq_tpk_from_file (ctx, "../openpgp/tests/data/keys/testy.pgp");
 //! if (tpk == NULL)
-//!   error (1, 0, "sq_tpk_from_bytes: %s", sq_last_strerror (ctx));
+//!    {
+//!      err = sq_context_last_error (ctx);
+//!      error (1, 0, "sq_tpk_from_bytes: %s", sq_error_string (err));
+//!    }
 //!
-//! sq_tpk_dump (tpk);
 //! sq_tpk_free (tpk);
 //! sq_context_free (ctx);
 //! ```

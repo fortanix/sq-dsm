@@ -10,21 +10,24 @@
 //! `sq_context_new`:
 //!
 //! ```c
-//! sq_context_t ctx;
+//! #include <sequoia.h>
 //!
-//! ctx = sq_context_new ("org.sequoia-pgp.example");
+//! sq_context_t ctx;
+//! ctx = sq_context_new ("org.sequoia-pgp.example", NULL);
 //! ```
 //!
 //! A context can be configured using the builder pattern with
 //! `sq_context_configure`:
 //!
 //! ```c
+//! #include <sequoia.h>
+//!
 //! sq_config_t cfg;
 //! sq_context_t ctx;
 //!
 //! cfg = sq_context_configure ("org.sequoia-pgp.example");
 //! sq_config_network_policy (cfg, SQ_NETWORK_POLICY_OFFLINE);
-//! ctx = sq_config_build (cfg);
+//! ctx = sq_config_build (cfg, NULL);
 //! ```
 
 use failure;

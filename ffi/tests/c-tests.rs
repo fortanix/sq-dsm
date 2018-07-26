@@ -1,8 +1,10 @@
 extern crate libc;
+extern crate nettle;
 
 use std::cmp::min;
 use std::env::var_os;
 use std::ffi::OsStr;
+use std::fmt::Write as FmtWrite;
 use std::fs;
 use std::io::{self, BufRead, Write};
 use std::os::unix::io::AsRawFd;
@@ -10,6 +12,9 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::str::FromStr;
 use std::time;
+use std::mem::replace;
+
+use nettle::hash::{Hash, Sha256};
 
 /// Hooks into Rust's test system to extract, compile and run c tests.
 #[test]
@@ -32,10 +37,14 @@ fn c_doctests() {
     let mut n = 0;
     let mut passed = 0;
     for_all_rs(&src, |path| {
-        for_all_tests(path, |src, lineno, name, lines| {
+        for_all_tests(path, |src, lineno, name, lines, run_it| {
             n += 1;
             eprint!("  test {} ... ", name);
             match build(&include, &debug, &target, src, lineno, name, lines) {
+                Ok(_) if ! run_it => {
+                    eprintln!("ok");
+                    passed += 1;
+                },
                 Ok(exe) => match run(&debug, &exe) {
                     Ok(()) => {
                         eprintln!("ok");
@@ -88,7 +97,7 @@ fn for_all_rs<F>(src: &Path, mut fun: F)
 /// Maps the given function `fun` over all tests found in `path`.
 fn for_all_tests<F>(path: &Path, mut fun: F)
                  -> io::Result<()>
-    where F: FnMut(&Path, u32, &str, &[String]) -> io::Result<()> {
+    where F: FnMut(&Path, usize, &str, Vec<String>, bool) -> io::Result<()> {
     let mut lineno = 0;
     let mut test_starts_at = 0;
     let f = fs::File::open(path)?;
@@ -96,12 +105,16 @@ fn for_all_tests<F>(path: &Path, mut fun: F)
 
     let mut in_test = false;
     let mut test = Vec::new();
+    let mut run = false;
     for line in reader.lines() {
         let line = line?;
         lineno += 1;
 
         if ! in_test {
-            if line == "/// ```c" {
+            if (line.starts_with("/// ```c") || line.starts_with("//! ```c"))
+                && ! line.contains("ignore")
+            {
+                run = ! line.contains("no-run");
                 in_test = true;
                 test_starts_at = lineno + 1;
                 continue;
@@ -110,11 +123,33 @@ fn for_all_tests<F>(path: &Path, mut fun: F)
             if line.starts_with("pub extern \"system\" fn ") && test.len() > 0 {
                 let name = &line[23..].split_terminator('(')
                     .next().unwrap().to_owned();
-                fun(path, test_starts_at, &name, &test)?;
+                fun(path, test_starts_at, &name, replace(&mut test, Vec::new()),
+                    run)?;
                 test.clear();
             }
         } else {
             if line == "/// ```" {
+                in_test = false;
+                continue;
+            }
+
+            if line == "//! ```" && test.len() > 0 {
+                let mut hash = Sha256::default();
+                for line in test.iter() {
+                    writeln!(&mut hash as &mut Hash, "{}", line).unwrap();
+                }
+                let mut digest = vec![0; hash.digest_size()];
+                hash.digest(&mut digest);
+                let mut name = String::new();
+                write!(&mut name, "{}_",
+                       path.file_stem().unwrap().to_string_lossy()).unwrap();
+                for b in digest {
+                    write!(&mut name, "{:02x}", b).unwrap();
+                }
+
+                fun(path, test_starts_at, &name, replace(&mut test, Vec::new()),
+                    run)?;
+                test.clear();
                 in_test = false;
                 continue;
             }
@@ -127,7 +162,7 @@ fn for_all_tests<F>(path: &Path, mut fun: F)
 
 /// Writes and builds the c test iff it is out of date.
 fn build(include_dir: &Path, ldpath: &Path, target_dir: &Path,
-         src: &Path, lineno: u32, name: &str, lines: &[String])
+         src: &Path, lineno: usize, name: &str, mut lines: Vec<String>)
          -> io::Result<PathBuf> {
     let target = target_dir.join(&format!("{}", name));
     let target_c = target_dir.join(&format!("{}.c", name));
@@ -139,6 +174,8 @@ fn build(include_dir: &Path, ldpath: &Path, target_dir: &Path,
     } else {
         true
     };
+
+    wrap_with_main(&mut lines, lineno);
 
     if dirty {
         let mut f = fs::File::create(&target_c)?;
@@ -192,4 +229,36 @@ fn run(ldpath: &Path, exe: &Path) -> io::Result<()> {
         return Err(io::Error::new(io::ErrorKind::Other, "failed"));
     }
     Ok(())
+}
+
+/// Wraps the code in a main function if none exists.
+fn wrap_with_main(test: &mut Vec<String>, offset: usize) {
+    if has_main(test) {
+        return;
+    }
+
+    let mut last_include = 0;
+    for (n, line) in test.iter().enumerate() {
+        if line.starts_with("#include") {
+            last_include = n;
+        }
+    }
+
+    test.insert(last_include + 1, "int main() {".into());
+    test.insert(last_include + 2, format!("#line {}", last_include + 1 + offset));
+    let last = test.len();
+    test.insert(last, "}".into());
+    test.insert(0, "#define _GNU_SOURCE".into());
+}
+
+/// Checks if the code contains a main function.
+fn has_main(test: &mut Vec<String>) -> bool {
+    for line in test {
+        if line.contains("main()")
+            || line.contains("main(int argc, char **argv)")
+        {
+            return true;
+        }
+    }
+    false
 }
