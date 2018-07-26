@@ -276,6 +276,13 @@ pub struct ArmorHeader {
 ///
 ///   alloc = sq_writer_alloc (&buf, &len);
 ///   armor = sq_armor_writer_new (ctx, alloc, SQ_ARMOR_KIND_FILE, header, 2);
+///   if (armor == NULL)
+///     {
+///       err = sq_context_last_error (ctx);
+///       error (1, 0, "Creating armor writer failed: %s",
+///              sq_error_string (err));
+///     }
+///
 ///   if (sq_writer_write (ctx, armor, (uint8_t *) message, strlen (message)) < 0)
 ///     {
 ///       err = sq_context_last_error (ctx);
@@ -285,6 +292,7 @@ pub struct ArmorHeader {
 ///   sq_writer_free (armor);
 ///   sq_writer_free (alloc);
 ///
+///   assert (len == 114);
 ///   assert (memcmp (buf,
 ///                   "-----BEGIN PGP ARMORED FILE-----\n"
 ///                   "Key0: Value0\n"
