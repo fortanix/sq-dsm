@@ -2,6 +2,24 @@ image: debian:buster
 
 test:
   script:
+    - if [ -d target ]; then find target | wc --lines; du -sh target; fi
+    - if [ -d cargo ]; then find cargo | wc --lines; du -sh cargo; fi
     - apt update -y -qq
     - apt install -y -qq git rustc cargo clang make pkg-config nettle-dev libssl-dev capnproto libsqlite3-dev
+    - rustc --version
+    - cargo --version
+    - clang --version
     - make test
+    - du -sh target
+    - du -sh cargo
+
+cache:
+  paths:
+    - Cargo.lock
+    - target/
+    - cargo/
+
+variables:
+  CARGO_HOME: $CI_PROJECT_DIR/cargo
+  CARGO_FLAGS: --color always
+  CARGO_INCREMENTAL: 0
