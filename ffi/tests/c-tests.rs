@@ -88,7 +88,7 @@ fn for_all_tests<F>(path: &Path, mut fun: F)
             }
 
             if line.starts_with("pub extern \"system\" fn ") && test.len() > 0 {
-                let name = &line[23..].split_whitespace()
+                let name = &line[23..].split_terminator('(')
                     .next().unwrap().to_owned();
                 fun(path, test_starts_at, &name, &test)?;
                 test.clear();
