@@ -15,6 +15,7 @@ use std::io;
 /// signatures and decrypt data.
 ///
 /// [RFC 4880, section 11.2]: https://tools.ietf.org/html/rfc4880#section-11.2
+#[derive(Debug, PartialEq)]
 pub struct TSK {
     key: TPK,
 }
