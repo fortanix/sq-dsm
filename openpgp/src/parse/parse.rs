@@ -1890,7 +1890,7 @@ impl <'a> PacketParser<'a> {
 
     /// Returns whether the packet's contents (packet.common.body) are
     /// decrypted.
-    pub fn decrypted(self) -> bool {
+    pub fn decrypted(&self) -> bool {
         self.decrypted
     }
 
