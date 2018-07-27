@@ -1,11 +1,9 @@
-image: debian:buster
+image: registry.gitlab.com/sequoia-pgp/build-docker-image:latest
 
 test:
   script:
     - if [ -d target ]; then find target | wc --lines; du -sh target; fi
     - if [ -d cargo ]; then find cargo | wc --lines; du -sh cargo; fi
-    - apt update -y -qq
-    - apt install -y -qq git rustc cargo clang make pkg-config nettle-dev libssl-dev capnproto libsqlite3-dev
     - rustc --version
     - cargo --version
     - clang --version
