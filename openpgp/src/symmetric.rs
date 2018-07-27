@@ -492,9 +492,17 @@ mod tests {
     use super::*;
     use std::fs::File;
     use std::io::{Read, Write};
+    use std::path::PathBuf;
 
     const PLAINTEXT: &[u8]
         = include_bytes!("../tests/data/messages/a-cypherpunks-manifesto.txt");
+
+    #[cfg(test)]
+    #[allow(dead_code)]
+    fn path_to(artifact: &str) -> PathBuf {
+        [env!("CARGO_MANIFEST_DIR"), "tests", "data", artifact]
+            .iter().collect()
+    }
 
     /// This test is designed to test the buffering logic in Decryptor
     /// by reading directly from it (i.e. without any buffering
@@ -502,11 +510,6 @@ mod tests {
     /// of buffering).
     #[test]
     fn decryptor() {
-        let basedir = ::std::env::current_exe().unwrap()
-            .parent().unwrap().parent().unwrap()
-            .parent().unwrap().parent().unwrap()
-            .join("openpgp/tests/data/raw");
-
         for algo in [SymmetricAlgorithm::AES128,
                      SymmetricAlgorithm::AES192,
                      SymmetricAlgorithm::AES256].iter() {
@@ -516,10 +519,10 @@ mod tests {
                 key[0] = i as u8;
             }
 
-            let ciphertext
-                = File::open(basedir.join(
-                    format!("a-cypherpunks-manifesto.aes{}.key_ascending_from_0",
-                            algo.key_size().unwrap() * 8))).unwrap();
+            let filename = path_to(&format!(
+                    "raw/a-cypherpunks-manifesto.aes{}.key_ascending_from_0",
+                algo.key_size().unwrap() * 8)[..]);
+            let ciphertext = File::open(filename).unwrap();
             let decryptor = Decryptor::new(*algo, &key, ciphertext).unwrap();
 
             // Read bytewise to test the buffer logic.
@@ -536,11 +539,6 @@ mod tests {
     /// by writing directly to it.
     #[test]
     fn encryptor() {
-        let basedir = ::std::env::current_exe().unwrap()
-            .parent().unwrap().parent().unwrap()
-            .parent().unwrap().parent().unwrap()
-            .join("openpgp/tests/data/raw");
-
         for algo in [SymmetricAlgorithm::AES128,
                      SymmetricAlgorithm::AES192,
                      SymmetricAlgorithm::AES256].iter() {
@@ -561,10 +559,10 @@ mod tests {
                 }
             }
 
-            let mut cipherfile
-                = File::open(basedir.join(
-                    format!("a-cypherpunks-manifesto.aes{}.key_ascending_from_0",
-                            algo.key_size().unwrap() * 8))).unwrap();
+            let filename = path_to(&format!(
+                "raw/a-cypherpunks-manifesto.aes{}.key_ascending_from_0",
+                algo.key_size().unwrap() * 8)[..]);
+            let mut cipherfile = File::open(filename).unwrap();
             let mut reference = Vec::new();
             cipherfile.read_to_end(&mut reference).unwrap();
             assert_eq!(&reference[..], &ciphertext[..]);
