@@ -221,9 +221,14 @@ impl CTB {
             // XXX: Use a proper error.
             return Err(
                 Error::MalformedPacket(
-                    format!("Malformed ctb: MSB of ptag ({:#010b}) not set.",
-                            ptag)
-                ).into());
+                    format!("Malformed CTB: MSB of ptag ({:#010b}) not set{}.",
+                            ptag,
+                            if ptag == '-' as u8 {
+                                " (ptag is a dash, perhaps this is an \
+                                 ASCII-armored encoded message)"
+                            } else {
+                                ""
+                            })).into());
         }
 
         let new_format = ptag & 0b0100_0000 != 0;
