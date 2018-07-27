@@ -474,9 +474,20 @@ impl MDC {
         }
     }
 
-    /// Convert the `MDC` struct to a `Packet`.
+    /// Converts the `MDC` struct to a `Packet`.
     pub fn to_packet(self) -> Packet {
         Packet::MDC(self)
+    }
+
+    /// Returns whether the data protected by the MDC is valid.
+    pub fn valid(&self) -> bool {
+        if self.hash == [ 0; 20 ] {
+            // If the computed_hash and hash are uninitialized, then
+            // return false.
+            false
+        } else {
+            self.computed_hash == self.hash
+        }
     }
 }
 
