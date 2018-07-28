@@ -19,6 +19,7 @@ use nettle::hash::{Hash, Sha256};
 /// Hooks into Rust's test system to extract, compile and run c tests.
 #[test]
 fn c_doctests() {
+    // The location of this crate's (i.e., the ffi crate's) source.
     let manifest_dir = PathBuf::from(
         var_os("CARGO_MANIFEST_DIR")
         .as_ref()
@@ -27,18 +28,24 @@ fn c_doctests() {
     let src = manifest_dir.join("src");
     let include = manifest_dir.join("include");
 
+    // The top-level directory.
+    let toplevel = manifest_dir.parent().unwrap();
+
+    // The location of the binaries.
     let target_dir = if let Some(dir) = var_os("CARGO_TARGET_DIR") {
         PathBuf::from(dir)
     } else {
-        manifest_dir.join("target")
+        toplevel.join("target")
     };
 
+    // The debug target.
     let debug = target_dir.join("debug");
+    // Where we put our files.
     let target = target_dir.join("c-tests");
     fs::create_dir_all(&target).unwrap();
 
     // First of all, make sure the shared object is built.
-    build_so(&manifest_dir).unwrap();
+    build_so(toplevel).unwrap();
 
     let mut n = 0;
     let mut passed = 0;
