@@ -54,6 +54,11 @@ impl<'a, C> BufferedReaderDup<'a, C> {
     pub fn total_out(&self) -> usize {
         return self.cursor;
     }
+
+    /// Resets the cursor to the beginning of the stream.
+    pub fn rewind(&mut self) {
+        self.cursor = 0;
+    }
 }
 
 impl<'a, C> io::Read for BufferedReaderDup<'a, C> {
