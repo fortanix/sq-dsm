@@ -8,6 +8,7 @@ use std::mem;
 use std::fmt;
 use std::path::Path;
 use time;
+use failure;
 
 use nettle::Hash;
 
@@ -40,6 +41,7 @@ use {
 use constants::{
     CompressionAlgorithm,
     Curve,
+    SignatureType,
     HashAlgorithm,
     PublicKeyAlgorithm,
     SymmetricAlgorithm,
@@ -84,6 +86,24 @@ fn path_to(artifact: &str) -> PathBuf {
         .iter().collect()
 }
 
+// Allows doing things like:
+//
+// ```rust,nocompile
+// if ! destructures_to(Foo::Bar(_) = value) { ... }
+// ```
+macro_rules! destructures_to {
+    ( $error: pat = $expr:expr ) => {
+        {
+            let x = $expr;
+            if let $error = x {
+                true
+            } else {
+                false
+            }
+        }
+    };
+}
+
 // Converts an indentation level to whitespace.
 fn indent(depth: u8) -> &'static str {
     let s = "                                                  ";
@@ -772,13 +792,54 @@ impl Signature {
 
         php.ok(Packet::Signature(sig))
     }
+
+    /// Returns whether the data appears to be a signature (no promises).
+    fn plausible(bio: &mut BufferedReaderDup<Cookie>, header: &Header) -> Result<()> {
+        // The absolute minimum size for the header is 11 bytes (this
+        // doesn't include the signature MPIs).
+
+        if let BodyLength::Full(len) = header.length {
+            if len < 11 {
+                // Much too short.
+                return Err(
+                    Error::MalformedPacket("Packet too short".into()).into());
+            }
+        } else {
+            return Err(
+                Error::MalformedPacket(
+                    format!("Unexpected body length encoding: {:?}",
+                            header.length)
+                        .into()).into());
+        }
+
+        // Make sure we have a minimum header.
+        let data = bio.data(11)?;
+        if data.len() < 11 {
+            return Err(
+                Error::MalformedPacket("Short read".into()).into());
+        }
+
+        // Assume unknown == bad.
+        let version = data[0];
+        let sigtype : SignatureType = data[1].into();
+        let pk_algo : PublicKeyAlgorithm = data[2].into();
+        let hash_algo : HashAlgorithm = data[3].into();
+
+        if version == 4
+            && !destructures_to!(SignatureType::Unknown(_) = sigtype)
+            && !destructures_to!(PublicKeyAlgorithm::Unknown(_) = pk_algo)
+            && !destructures_to!(HashAlgorithm::Unknown(_) = hash_algo)
+        {
+            Ok(())
+        } else {
+            Err(Error::MalformedPacket("Invalid or unsupported data".into())
+                .into())
+        }
+    }
 }
 
 #[test]
 fn signature_parser_test () {
-    use PublicKeyAlgorithm;
-    use SignatureType;
-
     let data = bytes!("sig.gpg");
 
     {
@@ -1060,6 +1121,44 @@ impl Key {
             Tag::SecretSubkey => Packet::SecretSubkey(key),
             _ => unreachable!(),
         })
+    }
+
+    /// Returns whether the data appears to be a key (no promises).
+    fn plausible(bio: &mut BufferedReaderDup<Cookie>, header: &Header) -> Result<()> {
+        // The packet's header is 6 bytes.
+        if let BodyLength::Full(len) = header.length {
+            if len < 6 {
+                // Much too short.
+                return Err(Error::MalformedPacket(
+                    format!("Packet too short ({} bytes)", len).into()).into());
+            }
+        } else {
+            return Err(
+                Error::MalformedPacket(
+                    format!("Unexpected body length encoding: {:?}",
+                            header.length)
+                        .into()).into());
+        }
+
+        // Make sure we have a minimum header.
+        let data = bio.data(6)?;
+        if data.len() < 6 {
+            return Err(
+                Error::MalformedPacket("Short read".into()).into());
+        }
+
+        // Assume unknown == bad.
+        let version = data[0];
+        let pk_algo : PublicKeyAlgorithm = data[5].into();
+
+        if version == 4
+            && !destructures_to!(PublicKeyAlgorithm::Unknown(_) = pk_algo)
+        {
+            Ok(())
+        } else {
+            Err(Error::MalformedPacket("Invalid or unsupported data".into())
+                .into())
+        }
     }
 }
 
@@ -1904,6 +2003,58 @@ impl <'a> PacketParser<'a> {
         self.state.message_validator.check().is_message_prefix()
     }
 
+    /// Returns Ok if the data appears to be a legal packet.
+    ///
+    /// This is just a heuristic.  It can be used for recovering from
+    /// garbage.
+    ///
+    /// Successfully reading the header only means that the top bit of
+    /// the ptag is 1.  Assuming a uniform distribution, there's a 50%
+    /// chance that that is the case.
+    ///
+    /// To improve our chances of a correct recovery, we make sure the
+    /// tag is known (for new format CTBs, there are 64 possible tags,
+    /// but only a third of them are reasonable; for old format
+    /// packets, there are only 16 and nearly all are plausible), and
+    /// we make sure the packet contents are reasonable.
+    ///
+    /// Currently, we only try to recover the most interesting
+    /// packets.
+    fn plausible(mut bio: &mut BufferedReaderDup<Cookie>, header: &Header) -> Result<()> {
+        let bad = Err(
+            Error::MalformedPacket("Can't make an educated case".into()).into());
+
+        match header.ctb.tag {
+            Tag::Reserved | Tag::Marker
+            | Tag::Unknown(_) | Tag::Private(_) =>
+                Err(Error::MalformedPacket("Looks like garbage".into()).into()),
+
+            Tag::Signature => Signature::plausible(&mut bio, &header),
+
+            Tag::SecretKey => Key::plausible(&mut bio, &header),
+            Tag::PublicKey => Key::plausible(&mut bio, &header),
+            Tag::SecretSubkey => Key::plausible(&mut bio, &header),
+            Tag::PublicSubkey => Key::plausible(&mut bio, &header),
+
+            Tag::UserID => bad,
+            Tag::UserAttribute => bad,
+
+            // It is reasonable to try and ignore garbage in TPKs,
+            // because who knows what the keyservers return, etc.
+            // But, if we have what appears to be an OpenPGP message,
+            // then, ignore.
+            Tag::PKESK => bad,
+            Tag::SKESK => bad,
+            Tag::OnePassSig => bad,
+            Tag::CompressedData => bad,
+            Tag::SED => bad,
+            Tag::Literal => bad,
+            Tag::Trust => bad,
+            Tag::SEIP => bad,
+            Tag::MDC => bad,
+        }
+    }
+
     /// Returns a `PacketParser` for the next OpenPGP packet in the
     /// stream.  If there are no packets left, this function returns
     /// `bio`.
@@ -1939,10 +2090,52 @@ impl <'a> PacketParser<'a> {
         // next packet is a sig packet without consuming the headers,
         // which would cause the headers to be hashed.  If so, we
         // extract the hash context.
-        let mut bio = BufferedReaderDup::with_cookie(
-            bio, Cookie::default());
 
-        let header = Header::parse(&mut bio)?;
+        let mut bio = BufferedReaderDup::with_cookie(bio, Cookie::default());
+        let header;
+
+        // Read the header.
+        let mut skip = 0;
+        let mut orig_error : Option<failure::Error> = None;
+        loop {
+            bio.rewind();
+            bio.data_consume_hard(skip)?;
+
+            match Header::parse(&mut bio) {
+                Ok(header_) => {
+                    if skip == 0 {
+                        header = header_;
+                        break;
+                    }
+
+                    match Self::plausible(&mut bio, &header_) {
+                        Ok(()) => {
+                            header = header_;
+                            break;
+                        }
+                        Err(_err) => (),
+                    }
+                }
+                Err(err) => {
+                    if orig_error.is_none() {
+                        orig_error = Some(err.into());
+                    }
+
+                    if skip > 32 * 1024 {
+                        // Limit the search space.  This should be
+                        // enough to find a reasonable recovery point
+                        // in a TPK.
+                        return Err(orig_error.unwrap());
+                    }
+                }
+            }
+
+            skip = skip + 1;
+        }
+        if skip > 0 {
+            // XXX: We have no way to return this diagnosis.
+            eprintln!("Skipped {} bytes of garbage.", skip);
+        }
         let tag = header.ctb.tag;
 
         let mut computed_hash = None;
@@ -2949,5 +3142,38 @@ mod test {
                 unreachable!();
             }
         }
+    }
+
+    #[test]
+    fn corrupted_tpk() {
+        use armor::{Reader, Kind};
+
+        // The following TPK is corrupted about a third the way
+        // through.  Make sure we can recover.
+        let mut ppr = PacketParser::from_reader(
+            Reader::from_bytes(bytes!("../keys/corrupted.pgp"), Kind::PublicKey))
+            .unwrap();
+
+        let mut sigs = 0;
+        let mut subkeys = 0;
+        let mut userids = 0;
+        let mut uas = 0;
+        while let PacketParserResult::Some(pp) = ppr {
+            match pp.packet.tag() {
+                Tag::Signature => sigs = sigs + 1,
+                Tag::PublicSubkey => subkeys = subkeys + 1,
+                Tag::UserID => userids = userids + 1,
+                Tag::UserAttribute => uas = uas + 1,
+                _ => (),
+            }
+
+            let (_, _, ppr_, _) = pp.next().unwrap();
+            ppr = ppr_;
+        }
+
+        assert_eq!(sigs, 53);
+        assert_eq!(subkeys, 3);
+        assert_eq!(userids, 5);
+        assert_eq!(uas, 1);
     }
 }
