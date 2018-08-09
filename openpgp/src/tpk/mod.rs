@@ -32,9 +32,11 @@ use constants::PublicKeyAlgorithm;
 
 mod lexer;
 mod grammar;
+mod builder;
 
 use self::lexer::Lexer;
 pub use self::lexer::Token;
+pub use self::builder::{TPKBuilder, CipherSuite};
 
 use lalrpop_util::ParseError;
 
