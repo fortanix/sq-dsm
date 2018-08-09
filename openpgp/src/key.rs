@@ -82,11 +82,12 @@ impl Key {
 
             EdDSA => {
                 let mut rng = Yarrow::default();
-                let mut public = [0u8; ED25519_KEY_SIZE];
+                let mut public = [0u8; ED25519_KEY_SIZE + 1];
                 let mut private = [0u8; ED25519_KEY_SIZE];
 
+                public[0] = 0x40;
                 rng.random(&mut private);
-                ed25519::public_key(&mut public, &private)?;
+                ed25519::public_key(&mut public[1..], &private)?;
 
                 let public_mpis = MPIs::EdDSAPublicKey{
                     curve: Curve::Ed25519,
@@ -104,11 +105,12 @@ impl Key {
 
             ECDH => {
                 let mut rng = Yarrow::default();
-                let mut public = [0u8; CURVE25519_SIZE];
+                let mut public = [0u8; CURVE25519_SIZE + 1];
                 let mut private = [0u8; CURVE25519_SIZE];
 
+                public[0] = 0x40;
                 rng.random(&mut private);
-                curve25519::mul_g(&mut public, &private)?;
+                curve25519::mul_g(&mut public[1..], &private)?;
 
                 let public_mpis = MPIs::ECDHPublicKey{
                     curve: Curve::Cv25519,
