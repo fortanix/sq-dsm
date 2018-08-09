@@ -28,7 +28,6 @@ use {
 };
 use parse::{PacketParserResult, PacketParser};
 use serialize::{Serialize, SerializeKey};
-use constants::PublicKeyAlgorithm;
 
 mod lexer;
 mod grammar;
@@ -899,25 +898,13 @@ impl fmt::Display for TPK {
 
 impl TPK {
     /// Generates a new RSA 3072 bit key with UID `primary_uid`.
+    ///
+    /// Deprecated: Use `TPKBuilder`.
+    #[deprecated(note = "Use `tpk::TPKBuilder`.")]
     pub fn new(primary_uid: &str) -> Result<Self> {
-        use packet::Common;
-
-        let primary = Key::new(PublicKeyAlgorithm::RSAEncryptSign)?;
-        let uid = UserID{
-            common: Common::default(),
-            value: primary_uid.as_bytes().into(),
-        };
-        let uid_sig = UserIDBinding::new(&primary, uid, &primary)?;
-        let encryption_key = Key::new(PublicKeyAlgorithm::RSAEncryptSign)?;
-        let key_sig = SubkeyBinding::new(encryption_key, &primary)?;
-
-        Ok(TPK{
-            primary: primary,
-            userids: vec![uid_sig],
-            user_attributes: vec![],
-            subkeys: vec![key_sig],
-            unknowns: vec![],
-        })
+        TPKBuilder::autocrypt()
+            .add_userid(primary_uid)
+            .generate()
     }
 
     /// Returns a reference to the primary key.
@@ -2032,6 +2019,7 @@ mod test {
     }
 
     #[test]
+    #[allow(deprecated)]
     fn generate_tpk() {
         use std::io;
         use armor;

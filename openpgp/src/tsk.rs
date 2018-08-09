@@ -27,7 +27,11 @@ impl TSK {
 
     /// Generates a new RSA 3072 bit key with UID `primary_uid`.
     pub fn new(primary_uid: &str) -> Result<TSK> {
-        let key = TPK::new(primary_uid)?;
+        use tpk::TPKBuilder;
+
+        let key = TPKBuilder::autocrypt()
+            .add_userid(primary_uid)
+            .generate()?;
 
         Ok(TSK::from_tpk(key))
     }
