@@ -54,7 +54,7 @@ impl MPI {
 impl fmt::Debug for MPI {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.write_fmt(format_args!(
-                "{} bits: {}", self.bits, ::to_hex(&*self.value, true)))
+                "{} bits: {}", self.bits, ::conversions::to_hex(&*self.value, true)))
     }
 }
 

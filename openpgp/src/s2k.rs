@@ -256,7 +256,7 @@ impl Arbitrary for S2K {
 mod tests {
     use super::*;
 
-    use to_hex;
+    use conversions::to_hex;
     use SymmetricAlgorithm;
     use Packet;
     use parse::PacketParser;

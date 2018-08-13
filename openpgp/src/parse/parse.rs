@@ -1006,10 +1006,10 @@ fn one_pass_sig_test () {
             } else if let Packet::Signature(ref sig) = pp.packet {
                 eprintln!("  {}:\n  prefix: expected: {}, in sig: {}",
                           test.filename,
-                          ::to_hex(&test.hash_prefix[sigs][..], false),
-                          ::to_hex(&sig.hash_prefix[..], false));
+                          ::conversions::to_hex(&test.hash_prefix[sigs][..], false),
+                          ::conversions::to_hex(&sig.hash_prefix[..], false));
                 eprintln!("  computed hash: {}",
-                          ::to_hex(&sig.computed_hash.as_ref().unwrap().1, false));
+                          ::conversions::to_hex(&sig.computed_hash.as_ref().unwrap().1, false));
 
                 assert_eq!(test.hash_prefix[sigs], sig.hash_prefix);
                 assert_eq!(&test.hash_prefix[sigs][..],
@@ -1511,7 +1511,7 @@ fn skesk_parser_test() {
 
             match skesk.decrypt(test.password) {
                 Ok((_symm_algo, key)) => {
-                    let key = ::to_hex(&key[..], false);
+                    let key = ::conversions::to_hex(&key[..], false);
                     assert_eq!(&key[..], &test.key_hex[..]);
                 }
                 Err(e) => {
@@ -1552,7 +1552,7 @@ impl MPI {
 
         if TRACE {
             eprintln!("bits: {}, value: {}",
-                      bits, ::to_hex(&value, true));
+                      bits, ::conversions::to_hex(&value, true));
         }
 
         let unused_bits = bytes * 8 - bits;
@@ -2844,7 +2844,7 @@ impl<'a> PacketParser<'a> {
                      && header[bl - 1] == header[bl + 1]) {
                     return Err(Error::InvalidSessionKey(
                         format!("Last two 16-bit quantities don't match: {}",
-                                ::to_hex(&header[..], false)))
+                                ::conversions::to_hex(&header[..], false)))
                                .into());
                 }
             }
@@ -2948,7 +2948,8 @@ mod test {
 
             loop {
                 if let Packet::SEIP(_) = pp.packet {
-                    let key = ::from_hex(test.key_hex, false).unwrap();
+                    let key = ::conversions::from_hex(test.key_hex, false)
+                        .unwrap();
 
                     pp.decrypt(test.algo, &key[..]).unwrap();
 
@@ -3011,7 +3012,8 @@ mod test {
 
             loop {
                 if let Packet::SEIP(_) = pp.packet {
-                    let key = ::from_hex(test.key_hex, false).unwrap();
+                    let key = ::conversions::from_hex(test.key_hex, false)
+                        .unwrap();
 
                     pp.decrypt(test.algo, &key[..]).unwrap();
 
@@ -3088,7 +3090,8 @@ mod test {
 
                 match pp.packet {
                     Packet::SEIP(_) => {
-                        let key = ::from_hex(test.key_hex, false).unwrap();
+                        let key = ::conversions::from_hex(test.key_hex, false)
+                            .unwrap();
                         pp.decrypt(test.algo, &key[..]).unwrap();
                     },
                     Packet::Literal(_) => {

@@ -85,10 +85,11 @@ impl fmt::Debug for Signature {
             .field("hash_algo", &self.hash_algo)
             .field("hashed_area", &self.hashed_area)
             .field("unhashed_area", &self.unhashed_area)
-            .field("hash_prefix", &::to_hex(&self.hash_prefix, false))
+            .field("hash_prefix",
+                   &::conversions::to_hex(&self.hash_prefix, false))
             .field("computed_hash",
                    &if let Some((algo, ref hash)) = self.computed_hash {
-                       Some((algo, ::to_hex(&hash[..], false)))
+                       Some((algo, ::conversions::to_hex(&hash[..], false)))
                    } else {
                        None
                    })

@@ -51,7 +51,7 @@ impl Cookie {
             if TRACE {
                 eprintln!("{}  hash_update: NOT hashing {} bytes: {}.",
                           indent(cmp::max(0, self.level.unwrap_or(0)) as u8),
-                          data.len(), ::to_hex(data, true));
+                          data.len(), ::conversions::to_hex(data, true));
             }
 
             return;
@@ -63,7 +63,7 @@ impl Cookie {
                           indent(cmp::max(0, self.level.unwrap_or(0)) as u8),
                           self.hashes_for, algo, data.len());
                 if false {
-                    eprintln!("{}", ::to_hex(data, true));
+                    eprintln!("{}", ::conversions::to_hex(data, true));
                 }
             }
             h.update(data);
@@ -238,7 +238,8 @@ mod test {
                 hash.digest(&mut digest);
 
                 assert_eq!(digest,
-                           &::from_hex(test.expected[i], true).unwrap()[..],
+                           &::conversions::from_hex(test.expected[i], true)
+                           .unwrap()[..],
                            "{}: Algo: {:?}", i, algo);
             }
         }

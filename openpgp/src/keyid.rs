@@ -57,7 +57,7 @@ impl KeyID {
 
     /// Reads a hex-encoded Key ID.
     pub fn from_hex(hex: &str) -> Option<KeyID> {
-        let bytes = ::from_hex(hex, true)?;
+        let bytes = ::conversions::from_hex(hex, true)?;
 
         // A KeyID is exactly 8 bytes long.
         if bytes.len() == 8 {

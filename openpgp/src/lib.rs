@@ -224,66 +224,6 @@ pub enum Error {
     #[fail(display = "Index out of range")]
     IndexOutOfRange,
 }
-
-/// A helpful debugging function.
-#[allow(dead_code)]
-fn to_hex(s: &[u8], pretty: bool) -> String {
-    use std::fmt::Write;
-
-    let mut result = String::new();
-    for (i, b) in s.iter().enumerate() {
-        // Add spaces every four digits to make the output more
-        // readable.
-        if pretty && i > 0 && i % 2 == 0 {
-            write!(&mut result, " ").unwrap();
-        }
-        write!(&mut result, "{:02X}", b).unwrap();
-    }
-    result
-}
-
-/// A helpful function for converting a hexadecimal string to binary.
-/// This function skips whitespace if `skip_whipspace` is set.
-fn from_hex(hex: &str, skip_whitespace: bool) -> Option<Vec<u8>> {
-    let nibbles = hex.as_bytes().iter().filter_map(|x| {
-        match *x as char {
-            '0' => Some(0u8),
-            '1' => Some(1u8),
-            '2' => Some(2u8),
-            '3' => Some(3u8),
-            '4' => Some(4u8),
-            '5' => Some(5u8),
-            '6' => Some(6u8),
-            '7' => Some(7u8),
-            '8' => Some(8u8),
-            '9' => Some(9u8),
-            'a' | 'A' => Some(10u8),
-            'b' | 'B' => Some(11u8),
-            'c' | 'C' => Some(12u8),
-            'd' | 'D' => Some(13u8),
-            'e' | 'E' => Some(14u8),
-            'f' | 'F' => Some(15u8),
-            ' ' if skip_whitespace => None,
-            _ => Some(255u8),
-        }
-    }).collect::<Vec<u8>>();
-
-    if nibbles.iter().any(|&b| b == 255u8) {
-        // Not a hex character.
-        return None;
-    }
-
-    // We need an even number of nibbles.
-    if nibbles.len() % 2 != 0 {
-        return None;
-    }
-
-    let bytes = nibbles.chunks(2).map(|nibbles| {
-        (nibbles[0] << 4) | nibbles[1]
-    }).collect::<Vec<u8>>();
-
-    Some(bytes)
-}
 
 /// Holds an unknown packet.
 ///
@@ -767,7 +707,7 @@ fn hash_file_test() {
             hash.digest(&mut digest);
 
             assert_eq!(*expected_algo, algo);
-            assert_eq!(*expected_digest, ::to_hex(&digest[..], false));
+            assert_eq!(*expected_digest, ::conversions::to_hex(&digest[..], false));
         }
 }
 

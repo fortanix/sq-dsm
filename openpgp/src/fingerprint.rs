@@ -43,7 +43,7 @@ impl Fingerprint {
     /// assert_eq!(fp.unwrap().to_hex(), hex);
     /// ```
     pub fn from_hex(hex: &str) -> Option<Fingerprint> {
-        Some(Fingerprint::from_bytes(&::from_hex(hex, true)?[..]))
+        Some(Fingerprint::from_bytes(&::conversions::from_hex(hex, true)?[..]))
     }
 
     /// Returns a reference to the raw Fingerprint.
