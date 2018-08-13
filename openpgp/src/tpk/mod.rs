@@ -2035,7 +2035,8 @@ mod test {
 
         cur.set_position(0);
 
-        let r = armor::Reader::from_reader(&mut cur, armor::Kind::SecretKey);
+        let r = armor::Reader::from_reader(&mut cur,
+                                           Some(armor::Kind::SecretKey));
         let t2 = TPK::from_reader(r).unwrap();
 
         assert_eq!(t1.tpk().fingerprint(), t2.fingerprint());

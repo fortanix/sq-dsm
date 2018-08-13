@@ -3154,7 +3154,8 @@ mod test {
         // The following TPK is corrupted about a third the way
         // through.  Make sure we can recover.
         let mut ppr = PacketParser::from_reader(
-            Reader::from_bytes(bytes!("../keys/corrupted.pgp"), Kind::PublicKey))
+            Reader::from_bytes(bytes!("../keys/corrupted.pgp"),
+                               Some(Kind::PublicKey)))
             .unwrap();
 
         let mut sigs = 0;

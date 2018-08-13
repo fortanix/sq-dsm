@@ -21,7 +21,7 @@
 //! use openpgp::armor::{Reader, Kind};
 //!
 //! let mut file = File::open("somefile.asc").unwrap();
-//! let mut r = Reader::new(&mut file, Kind::File);
+//! let mut r = Reader::new(&mut file, Some(Kind::File));
 //! ```
 
 extern crate base64;
@@ -61,8 +61,6 @@ pub enum Kind {
     Signature,
     /// A generic file.  This is a GnuPG extension.
     File,
-    /// When reading an Armored file, accept any type.
-    Any,
 }
 
 impl Arbitrary for Kind {
@@ -111,7 +109,6 @@ impl Kind {
             &Kind::SecretKey => "PRIVATE KEY BLOCK",
             &Kind::Signature => "SIGNATURE",
             &Kind::File => "ARMORED FILE",
-            &Kind::Any => unreachable!(),
         }
     }
 
@@ -176,7 +173,6 @@ impl<W: Write> Writer<W> {
     /// # }
     /// ```
     pub fn new(inner: W, kind: Kind, headers: &[(&str, &str)]) -> Result<Self> {
-        assert!(kind != Kind::Any);
         let mut w = Writer {
             sink: inner,
             kind: kind,
@@ -326,7 +322,7 @@ impl<W: Write> Drop for Writer<W> {
 /// as the line the header is in is only prefixed by whitespace.
 pub struct Reader<'a> {
     source: Box<'a + BufferedReader<()>>,
-    kind: Kind,
+    kind: Option<Kind>,
     buffer: Vec<u8>,
     crc: CRC,
     expect_crc: Option<u32>,
@@ -355,16 +351,16 @@ impl<'a> Reader<'a> {
     ///      -----END PGP ARMORED FILE-----";
     ///
     /// let mut cursor = io::Cursor::new(&data);
-    /// let mut reader = Reader::new(&mut cursor, Kind::Any);
+    /// let mut reader = Reader::new(&mut cursor, None);
     ///
     /// let mut content = String::new();
     /// reader.read_to_string(&mut content)?;
     /// assert_eq!(content, "Hello world!");
-    /// assert_eq!(reader.kind(), Kind::File);
+    /// assert_eq!(reader.kind(), Some(Kind::File));
     /// # Ok(())
     /// # }
     /// ```
-    pub fn new<R>(inner: R, kind: Kind) -> Self
+    pub fn new<R>(inner: R, kind: Option<Kind>) -> Self
         where R: 'a + Read
     {
         Self::from_buffered_reader(
@@ -373,7 +369,7 @@ impl<'a> Reader<'a> {
     }
 
     /// Creates a `Reader` from an `io::Read`er.
-    pub fn from_reader<R>(reader: R, kind: Kind) -> Self
+    pub fn from_reader<R>(reader: R, kind: Option<Kind>) -> Self
         where R: 'a + Read
     {
         Self::from_buffered_reader(
@@ -382,7 +378,7 @@ impl<'a> Reader<'a> {
     }
 
     /// Creates a `Reader` from a file.
-    pub fn from_file<P>(path: P, kind: Kind) -> Result<Self>
+    pub fn from_file<P>(path: P, kind: Option<Kind>) -> Result<Self>
         where P: AsRef<Path>
     {
         Ok(Self::from_buffered_reader(
@@ -391,14 +387,14 @@ impl<'a> Reader<'a> {
     }
 
     /// Creates a `Reader` from a buffer.
-    pub fn from_bytes(bytes: &'a [u8], kind: Kind) -> Self {
+    pub fn from_bytes(bytes: &'a [u8], kind: Option<Kind>) -> Self {
         Self::from_buffered_reader(
             Box::new(BufferedReaderMemory::new(bytes)),
             kind)
     }
 
     pub(crate) fn from_buffered_reader(inner: Box<'a + BufferedReader<()>>,
-                                       kind: Kind) -> Self {
+                                       kind: Option<Kind>) -> Self {
         Reader {
             source: Box::new(BufferedReaderGeneric::new(inner, None)),
             kind: kind,
@@ -413,8 +409,10 @@ impl<'a> Reader<'a> {
 
     /// Returns the kind of data this reader is for.
     ///
-    /// Useful in combination with `Kind::Any`.
-    pub fn kind(&self) -> Kind {
+    /// Useful if the kind of data is not known in advance.  If the
+    /// header has not been encountered yet (try reading some data
+    /// first!), this function returns None.
+    pub fn kind(&self) -> Option<Kind> {
         self.kind
     }
 
@@ -444,13 +442,13 @@ impl<'a> Reader<'a> {
 
             for i in 0..(line.len() - 27 + 1) {
                 if let Some(kind) = Kind::detect(&line[i..]) {
-                    if self.kind == Kind::Any {
+                    if self.kind == None {
                         // Found any!
-                        self.kind = kind;
+                        self.kind = Some(kind);
                         break 'search;
                     }
 
-                    if self.kind == kind {
+                    if self.kind == Some(kind) {
                         // Found it!
                         break 'search;
                     }
@@ -515,7 +513,7 @@ impl<'a> Reader<'a> {
     }
 
     /// Parses the footer.
-    fn finalize(footer: &[u8], kind: Kind) -> Result<Option<u32>> {
+    fn finalize(footer: &[u8], kind: Option<Kind>) -> Result<Option<u32>> {
         let mut off = 0;
 
         /* Look for CRC.  The CRC is optional.  */
@@ -545,8 +543,10 @@ impl<'a> Reader<'a> {
             None
         };
 
-        if ! footer[off..].starts_with(&kind.end().into_bytes()) {
-            return Err(Error::new(ErrorKind::InvalidInput, "Invalid ASCII Armor footer."));
+        if let Some(kind) = kind {
+            if ! footer[off..].starts_with(&kind.end().into_bytes()) {
+                return Err(Error::new(ErrorKind::InvalidInput, "Invalid ASCII Armor footer."));
+            }
         }
 
         Ok(crc)
@@ -654,7 +654,7 @@ impl<'a> Read for Reader<'a> {
             // Later, we may have to get some more until we have a
             // multiple of four non-whitespace ASCII characters.
             let mut want = (buf.len() - read + 2) / 3 * 4
-                + self.kind.footer_max_len();
+                + self.kind.map(|k| k.footer_max_len()).unwrap_or(46);
 
             // Keep track of how much we got last time to detect
             // hitting EOF.
@@ -670,28 +670,31 @@ impl<'a> Read for Reader<'a> {
                 }
 
                 // Check if we see the footer.  If so, we're almost done.
-                if let Some((n, end)) = find_footer(&raw, self.kind) {
-                    self.expect_crc = Reader::finalize(&raw[n..], self.kind)?;
-                    self.finalized = true;
-                    match base64::decode_config(&raw[..n], base64::MIME) {
-                        Ok(d) => break (end, d),
-                        Err(e) =>
-                            return Err(Error::new(ErrorKind::InvalidInput, e)),
-                    }
-                } else {
-                    let n = &raw.iter().filter(
-                        |c| ! (**c).is_ascii_whitespace()).count();
-                    if n % 4 == 0 {
-                        // Success, try to decode it.
-                        match base64::decode_config(&raw, base64::MIME) {
-                            Ok(d) => break (raw.len(), d),
-                            Err(e) => return Err(Error::new(ErrorKind::InvalidInput, e)),
+                if let Some(kind) = self.kind {
+                    if let Some((n, end)) = find_footer(&raw, kind) {
+                        self.expect_crc = Reader::finalize(&raw[n..], self.kind)?;
+                        self.finalized = true;
+                        match base64::decode_config(&raw[..n], base64::MIME) {
+                            Ok(d) => break (end, d),
+                            Err(e) =>
+                                return Err(Error::new(ErrorKind::InvalidInput, e)),
                         }
                     }
-
-                    // Get some more bytes.
-                    want = got + 4 - n % 4;
                 }
+
+                // See how many non-whitespace characters we got.
+                let n = &raw.iter().filter(
+                    |c| ! (**c).is_ascii_whitespace()).count();
+                if n % 4 == 0 {
+                    // Enough!  Try to decode them.
+                    match base64::decode_config(&raw, base64::MIME) {
+                        Ok(d) => break (raw.len(), d),
+                        Err(e) => return Err(Error::new(ErrorKind::InvalidInput, e)),
+                    }
+                }
+
+                // Otherwise, get some more bytes.
+                want = got + 4 - n % 4;
             }
         };
         self.source.consume(consumed);
@@ -754,8 +757,7 @@ impl<'a> Read for Reader<'a> {
 macro_rules! armored {
     ($data:expr) => {{
         use ::std::io::Cursor;
-        $crate::armor::Reader::new(Cursor::new(&$data),
-                                   $crate::armor::Kind::Any)
+        $crate::armor::Reader::new(Cursor::new(&$data), None)
     }};
 }
 
@@ -875,7 +877,7 @@ mod test {
     fn dearmor_binary() {
         for len in TEST_VECTORS.iter() {
             let mut file = File::open(format!("tests/data/armor/test-{}.bin", len)).unwrap();
-            let mut r = Reader::new(&mut file, Kind::Message);
+            let mut r = Reader::new(&mut file, Some(Kind::Message));
             let mut buf = [0; 5];
             let e = r.read(&mut buf);
             assert!(e.is_err());
@@ -885,7 +887,7 @@ mod test {
     #[test]
     fn dearmor_wrong_kind() {
         let mut file = File::open("tests/data/armor/test-0.asc").unwrap();
-        let mut r = Reader::new(&mut file, Kind::Message);
+        let mut r = Reader::new(&mut file, Some(Kind::Message));
         let mut buf = [0; 5];
         let e = r.read(&mut buf);
         assert!(e.is_err());
@@ -894,7 +896,7 @@ mod test {
     #[test]
     fn dearmor_wrong_crc() {
         let mut file = File::open("tests/data/armor/test-0.bad-crc.asc").unwrap();
-        let mut r = Reader::new(&mut file, Kind::File);
+        let mut r = Reader::new(&mut file, Some(Kind::File));
         let mut buf = [0; 5];
         let e = r.read(&mut buf);
         assert!(e.is_err());
@@ -903,7 +905,7 @@ mod test {
     #[test]
     fn dearmor_wrong_footer() {
         let mut file = File::open("tests/data/armor/test-2.bad-footer.asc").unwrap();
-        let mut r = Reader::new(&mut file, Kind::File);
+        let mut r = Reader::new(&mut file, Some(Kind::File));
         let mut buf = [0; 5];
         let e = r.read(&mut buf);
         assert!(e.is_err());
@@ -912,7 +914,7 @@ mod test {
     #[test]
     fn dearmor_no_crc() {
         let mut file = File::open("tests/data/armor/test-1.no-crc.asc").unwrap();
-        let mut r = Reader::new(&mut file, Kind::File);
+        let mut r = Reader::new(&mut file, Some(Kind::File));
         let mut buf = [0; 5];
         let e = r.read(&mut buf);
         assert!(e.unwrap() == 1 && buf[0] == 0xde);
@@ -921,7 +923,7 @@ mod test {
     #[test]
     fn dearmor_with_header() {
         let mut file = File::open("tests/data/armor/test-3.with-headers.asc").unwrap();
-        let mut r = Reader::new(&mut file, Kind::File);
+        let mut r = Reader::new(&mut file, Some(Kind::File));
         assert_eq!(r.headers().unwrap(),
                    &[("Comment".into(), "Some Header".into()),
                      ("Comment".into(), "Another one".into())]);
@@ -933,10 +935,10 @@ mod test {
     #[test]
     fn dearmor_any() {
         let mut file = File::open("tests/data/armor/test-3.with-headers.asc").unwrap();
-        let mut r = Reader::new(&mut file, Kind::Any);
+        let mut r = Reader::new(&mut file, None);
         let mut buf = [0; 5];
         let e = r.read(&mut buf);
-        assert!(r.kind() == Kind::File);
+        assert!(r.kind() == Some(Kind::File));
         assert!(e.is_ok());
     }
 
@@ -956,10 +958,10 @@ mod test {
         write!(&mut garbage, "Some\ngarbage\nlines\n\t\r  ").unwrap();
         garbage.extend_from_slice(&armored);
 
-        let mut r = Reader::new(Cursor::new(&garbage), Kind::Any);
+        let mut r = Reader::new(Cursor::new(&garbage), None);
         let mut buf = [0; 5];
         let e = r.read(&mut buf);
-        assert!(r.kind() == Kind::File);
+        assert!(r.kind() == Some(Kind::File));
         assert!(e.is_ok());
 
         // Again, but this time add a non-whitespace character in the
@@ -968,7 +970,7 @@ mod test {
         write!(&mut garbage, "Some\ngarbage\nlines\n\t.\r  ").unwrap();
         garbage.extend_from_slice(&armored);
 
-        let mut r = Reader::new(Cursor::new(&garbage), Kind::Any);
+        let mut r = Reader::new(Cursor::new(&garbage), None);
         let mut buf = [0; 5];
         let e = r.read(&mut buf);
         assert!(e.is_err());
@@ -982,7 +984,7 @@ mod test {
             file.read_to_end(&mut bin).unwrap();
 
             let mut file = File::open(format!("tests/data/armor/test-{}.asc", len)).unwrap();
-            let mut r = Reader::new(&mut file, Kind::File);
+            let mut r = Reader::new(&mut file, Some(Kind::File));
             let mut dearmored = Vec::<u8>::new();
             r.read_to_end(&mut dearmored).unwrap();
 
@@ -998,7 +1000,7 @@ mod test {
             file.read_to_end(&mut bin).unwrap();
 
             let mut file = File::open(format!("tests/data/armor/test-{}.asc", len)).unwrap();
-            let r = Reader::new(&mut file, Kind::File);
+            let r = Reader::new(&mut file, Some(Kind::File));
             let mut dearmored = Vec::<u8>::new();
             for c in r.bytes() {
                 dearmored.push(c.unwrap());
@@ -1013,14 +1015,14 @@ mod test {
         let mut file =
             File::open("tests/data/keys/yuge-key-so-yuge-the-yugest.asc")
             .unwrap();
-        let mut r = Reader::new(&mut file, Kind::Any);
+        let mut r = Reader::new(&mut file, None);
         let mut dearmored = Vec::<u8>::new();
         r.read_to_end(&mut dearmored).unwrap();
 
         let mut file =
             File::open("tests/data/keys/yuge-key-so-yuge-the-yugest.asc")
             .unwrap();
-        let r = Reader::new(&mut file, Kind::Any);
+        let r = Reader::new(&mut file, None);
         let mut dearmored = Vec::<u8>::new();
         for c in r.bytes() {
             dearmored.push(c.unwrap());
@@ -1037,12 +1039,12 @@ mod test {
                 .unwrap();
 
             let mut recovered = Vec::new();
-            Reader::new(Cursor::new(&encoded), kind)
+            Reader::new(Cursor::new(&encoded), Some(kind))
                 .read_to_end(&mut recovered)
                 .unwrap();
 
             let mut recovered_any = Vec::new();
-            Reader::new(Cursor::new(&encoded), Kind::Any)
+            Reader::new(Cursor::new(&encoded), None)
                 .read_to_end(&mut recovered_any)
                 .unwrap();
 

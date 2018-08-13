@@ -22,7 +22,7 @@ extern crate openpgp;
 extern crate sequoia_core;
 extern crate sequoia_net;
 
-use openpgp::armor::{Reader, Kind};
+use openpgp::armor::Reader;
 use openpgp::TPK;
 use openpgp::{Fingerprint, KeyID};
 use sequoia_core::{Context, NetworkPolicy};
@@ -92,7 +92,7 @@ fn service(req: Request<Body>)
                                 "keytext" => {
 			            let key = TPK::from_reader(
                                         Reader::new(Cursor::new(value.into_owned()),
-                                                    Kind::Any)).unwrap();
+                                                    None)).unwrap();
                                     assert_eq!(
                                         key.fingerprint(),
                                         Fingerprint::from_hex(FP)
@@ -171,6 +171,6 @@ fn send() {
     let mut keyserver =
         KeyServer::new(&ctx, &format!("hkp://{}", addr)).unwrap();
     let key = TPK::from_reader(Reader::new(Cursor::new(RESPONSE),
-                                           Kind::Any)).unwrap();
+                                           None)).unwrap();
     keyserver.send(&key).unwrap();
 }

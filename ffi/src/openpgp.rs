@@ -214,26 +214,26 @@ pub struct ArmorHeader {
     value: *const c_char,
 }
 
-fn int_to_kind(kind: c_int) -> armor::Kind {
+fn int_to_kind(kind: c_int) -> Option<armor::Kind> {
     match kind {
-        0 => armor::Kind::Message,
-        1 => armor::Kind::PublicKey,
-        2 => armor::Kind::SecretKey,
-        3 => armor::Kind::Signature,
-        4 => armor::Kind::File,
-        5 => armor::Kind::Any,
+        0 => None,
+        1 => Some(armor::Kind::Message),
+        2 => Some(armor::Kind::PublicKey),
+        3 => Some(armor::Kind::SecretKey),
+        4 => Some(armor::Kind::Signature),
+        5 => Some(armor::Kind::File),
         _ => panic!("Bad kind: {}", kind),
     }
 }
 
-fn kind_to_int(kind: armor::Kind) -> c_int {
+fn kind_to_int(kind: Option<armor::Kind>) -> c_int {
     match kind {
-        armor::Kind::Message => 0,
-        armor::Kind::PublicKey => 1,
-        armor::Kind::SecretKey => 2,
-        armor::Kind::Signature => 3,
-        armor::Kind::File => 4,
-        armor::Kind::Any => 5,
+        None => 0,
+        Some(armor::Kind::Message) => 1,
+        Some(armor::Kind::PublicKey) => 2,
+        Some(armor::Kind::SecretKey) => 3,
+        Some(armor::Kind::Signature) => 4,
+        Some(armor::Kind::File) => 5,
     }
 }
 
@@ -364,7 +364,9 @@ pub extern "system" fn sq_armor_reader_from_bytes(b: *const uint8_t, len: size_t
 
 /// Returns the kind of data this reader is for.
 ///
-/// Useful in combination with `Kind::Any`.
+/// Useful if the kind of data is not known in advance.  If the header
+/// has not been encountered yet (try reading some data first!), this
+/// function returns SQ_ARMOR_KIND_ANY.
 ///
 /// # Example
 ///
@@ -549,7 +551,7 @@ pub extern "system" fn sq_armor_writer_new
 {
     let ctx = ctx.expect("Context is NULL");
     let inner = inner.expect("Inner is NULL");
-    let kind = int_to_kind(kind);
+    let kind = int_to_kind(kind).expect("KIND must not be SQ_ARMOR_KIND_ANY");
 
     let mut header_ = Vec::new();
     if header_len > 0 {

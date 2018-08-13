@@ -101,7 +101,7 @@ fn real_main() -> Result<(), failure::Error> {
         ("dearmor",  Some(m)) => {
             let mut input = open_or_stdin(m.value_of("input"))?;
             let mut output = create_or_stdout(m.value_of("output"))?;
-            let mut filter = armor::Reader::new(&mut input, armor::Kind::Any);
+            let mut filter = armor::Reader::new(&mut input, None);
             io::copy(&mut filter, &mut output)?;
         },
         ("autocrypt", Some(m)) => {

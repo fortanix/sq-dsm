@@ -22,7 +22,7 @@ impl<'a> Reader<'a> {
             Ok(Reader(br))
         } else {
             Ok(Reader(Box::new(BufferedReaderGeneric::new(
-                armor::Reader::from_buffered_reader(br, armor::Kind::Any),
+                armor::Reader::from_buffered_reader(br, None),
                 None))))
         }
     }

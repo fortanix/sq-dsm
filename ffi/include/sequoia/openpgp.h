@@ -121,6 +121,11 @@ int sq_fingerprint_equal (const sq_fingerprint_t a, const sq_fingerprint_t b);
 /*/
 typedef enum sq_armor_kind {
   /*/
+  /// When reading an Armored file, accept any type.
+  /*/
+  SQ_ARMOR_KIND_ANY,
+
+  /*/
   /// A generic OpenPGP message.
   /*/
   SQ_ARMOR_KIND_MESSAGE,
@@ -144,11 +149,6 @@ typedef enum sq_armor_kind {
   /// A generic file.  This is a GnuPG extension.
   /*/
   SQ_ARMOR_KIND_FILE,
-
-  /*/
-  /// When reading an Armored file, accept any type.
-  /*/
-  SQ_ARMOR_KIND_ANY,
 
   /* Dummy value to make sure the enumeration has a defined size.  Do
      not use this value.  */
@@ -188,7 +188,9 @@ sq_reader_t sq_armor_reader_from_bytes (const uint8_t *b, size_t len,
 /*/
 /// Returns the kind of data this reader is for.
 ///
-/// Useful in combination with `Kind::Any`.
+/// Useful if the kind of data is not known in advance.  If the header
+/// has not been encountered yet (try reading some data first!), this
+/// function returns SQ_ARMOR_KIND_ANY.
 /*/
 sq_armor_kind_t sq_armor_reader_kind (sq_reader_t reader);
 
