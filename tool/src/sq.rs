@@ -13,6 +13,7 @@ use prettytable::cell::Cell;
 use prettytable::row::Row;
 use std::fs::File;
 use std::io;
+use std::path::PathBuf;
 use std::process::exit;
 
 extern crate openpgp;
@@ -132,9 +133,20 @@ fn real_main() -> Result<(), failure::Error> {
         },
         ("split",  Some(m)) => {
             let input = open_or_stdin(m.value_of("input"))?;
-            let prefix = m.value_of("prefix").map(|p| p.to_owned()).
-                unwrap_or(
-                    m.value_of("input").unwrap_or("output").to_owned() + "-");
+            let prefix =
+                // The prefix is either specified explicitly...
+                m.value_of("prefix").map(|p| p.to_owned())
+                .unwrap_or(
+                    // ... or we derive it from the input file...
+                    m.value_of("input").and_then(|i| {
+                        let p = PathBuf::from(i);
+                        // (but only use the filename)
+                        p.file_name().map(|f| String::from(f.to_string_lossy()))
+                    })
+                    // ... or we use a generic prefix...
+                        .unwrap_or(String::from("output"))
+                    // ... finally, add a hyphen to the derived prefix.
+                        + "-");
             let mut input = openpgp::Reader::from_reader(input)?;
             commands::split(&mut input, &prefix)?;
         },
