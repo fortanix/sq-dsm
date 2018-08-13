@@ -432,9 +432,20 @@ impl<'a> Reader<'a> {
     fn initialize(&mut self) -> Result<()> {
         if self.initialized { return Ok(()) }
 
-        // Look for the header, skipping any garbage in the process.
+        // Look for the Armor Header Line, skipping any garbage in the
+        // process.
+        let mut n = 0;
         'search: loop {
-            let line = self.read_line()?;
+            self.source.consume(n);
+
+            let line = self.source.read_to('\n' as u8)?;
+            n = line.len();
+            if n == 0 {
+                return Err(
+                    Error::new(ErrorKind::InvalidInput,
+                               "Reached EOF looking for Armor Header Line"));
+            }
+
             if line.len() < 27 {
                 // Line is too short to contain the shortest header.
                 continue;
@@ -460,6 +471,7 @@ impl<'a> Reader<'a> {
                 }
             }
         }
+        self.source.consume(n);
 
         // Read the headers.
         let mut n = 0;
@@ -550,24 +562,6 @@ impl<'a> Reader<'a> {
         }
 
         Ok(crc)
-    }
-
-    /// Reads a line, returning it as a byte vector without the newline.
-    fn read_line(&mut self) -> Result<Vec<u8>> {
-        let mut line = Vec::new();
-        let mut buf = [0; 1];
-
-        loop {
-            self.source.read_exact(&mut buf)?;
-
-            if buf[0] == '\n' as u8 {
-                break;
-            }
-
-            line.push(buf[0]);
-        }
-
-        Ok(line)
     }
 }
 
