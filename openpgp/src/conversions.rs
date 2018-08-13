@@ -74,7 +74,10 @@ pub(crate) fn to_hex(s: &[u8], pretty: bool) -> String {
 /// A helpful function for converting a hexadecimal string to binary.
 /// This function skips whitespace if `pretty` is set.
 pub(crate) fn from_hex(hex: &str, pretty: bool) -> Option<Vec<u8>> {
-    let nibbles = hex.as_bytes().iter().filter_map(|x| {
+    const BAD: u8 = 255u8;
+    const X: u8 = 'x' as u8;
+
+    let mut nibbles = hex.as_bytes().iter().filter_map(|x| {
         match *x as char {
             '0' => Some(0u8),
             '1' => Some(1u8),
@@ -92,12 +95,19 @@ pub(crate) fn from_hex(hex: &str, pretty: bool) -> Option<Vec<u8>> {
             'd' | 'D' => Some(13u8),
             'e' | 'E' => Some(14u8),
             'f' | 'F' => Some(15u8),
+            'x' | 'X' if pretty => Some(X),
             _ if pretty && x.is_ascii_whitespace() => None,
-            _ => Some(255u8),
+            _ => Some(BAD),
         }
     }).collect::<Vec<u8>>();
 
-    if nibbles.iter().any(|&b| b == 255u8) {
+    if pretty && nibbles.len() >= 2 && nibbles[0] == 0 && nibbles[1] == X {
+        // Drop '0x' prefix.
+        nibbles.remove(0);
+        nibbles.remove(0);
+    }
+
+    if nibbles.iter().any(|&b| b == BAD || b == X) {
         // Not a hex character.
         return None;
     }
@@ -134,6 +144,9 @@ mod test {
         assert_eq!(fh("00ff", false), Some(vec![0x00, 0xff]));
         assert_eq!(fh("\t\n\x0c\r ", false), None);
         assert_eq!(fh("a", false), None);
+        assert_eq!(fh("0x", false), None);
+        assert_eq!(fh("0x0", false), None);
+        assert_eq!(fh("0x00", false), None);
     }
 
     #[test]
@@ -154,6 +167,9 @@ mod test {
         assert_eq!(fh(" 00 ff", true), Some(vec![0x00, 0xff]));
         assert_eq!(fh("\t\n\x0c\r ", true), Some(vec![]));
         assert_eq!(fh("a", true), None);
+        assert_eq!(fh(" 0x", true), Some(vec![]));
+        assert_eq!(fh(" 0x0", true), None);
+        assert_eq!(fh(" 0x00", true), Some(vec![0x00]));
     }
 
     quickcheck! {
