@@ -92,7 +92,7 @@ pub(crate) fn from_hex(hex: &str, pretty: bool) -> Option<Vec<u8>> {
             'd' | 'D' => Some(13u8),
             'e' | 'E' => Some(14u8),
             'f' | 'F' => Some(15u8),
-            ' ' if pretty => None,
+            _ if pretty && x.is_ascii_whitespace() => None,
             _ => Some(255u8),
         }
     }).collect::<Vec<u8>>();
@@ -132,6 +132,8 @@ mod test {
         assert_eq!(fh("000f", false), Some(vec![0x00, 0x0f]));
         assert_eq!(fh("0099", false), Some(vec![0x00, 0x99]));
         assert_eq!(fh("00ff", false), Some(vec![0x00, 0xff]));
+        assert_eq!(fh("\t\n\x0c\r ", false), None);
+        assert_eq!(fh("a", false), None);
     }
 
     #[test]
@@ -150,6 +152,8 @@ mod test {
         assert_eq!(fh(" 00 0f", true), Some(vec![0x00, 0x0f]));
         assert_eq!(fh(" 00 99", true), Some(vec![0x00, 0x99]));
         assert_eq!(fh(" 00 ff", true), Some(vec![0x00, 0xff]));
+        assert_eq!(fh("\t\n\x0c\r ", true), Some(vec![]));
+        assert_eq!(fh("a", true), None);
     }
 
     quickcheck! {
