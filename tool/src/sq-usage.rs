@@ -54,15 +54,17 @@
 //! Converts Autocrypt-encoded keys to OpenPGP TPKs
 //!
 //! USAGE:
-//!     sq autocrypt decode [OPTIONS]
+//!     sq autocrypt decode [OPTIONS] [FILE]
 //!
 //! FLAGS:
 //!     -h, --help       Prints help information
 //!     -V, --version    Prints version information
 //!
 //! OPTIONS:
-//!     -i, --input <FILE>     Sets the input file to use
 //!     -o, --output <FILE>    Sets the output file to use
+//!
+//! ARGS:
+//!     <FILE>    Sets the input file to use
 //! ```
 //!
 //! ## Subcommand dearmor
@@ -71,15 +73,17 @@
 //! Removes ASCII Armor from a file
 //!
 //! USAGE:
-//!     sq dearmor [OPTIONS]
+//!     sq dearmor [OPTIONS] [FILE]
 //!
 //! FLAGS:
 //!     -h, --help       Prints help information
 //!     -V, --version    Prints version information
 //!
 //! OPTIONS:
-//!     -i, --input <FILE>     Sets the input file to use
 //!     -o, --output <FILE>    Sets the output file to use
+//!
+//! ARGS:
+//!     <FILE>    Sets the input file to use
 //! ```
 //!
 //! ## Subcommand decrypt
@@ -88,7 +92,7 @@
 //! Decrypts an OpenPGP message
 //!
 //! USAGE:
-//!     sq decrypt [FLAGS] [OPTIONS]
+//!     sq decrypt [FLAGS] [OPTIONS] [FILE]
 //!
 //! FLAGS:
 //!         --dump       Print a packet dump to stderr
@@ -97,8 +101,10 @@
 //!     -V, --version    Prints version information
 //!
 //! OPTIONS:
-//!     -i, --input <FILE>     Sets the input file to use
 //!     -o, --output <FILE>    Sets the output file to use
+//!
+//! ARGS:
+//!     <FILE>    Sets the input file to use
 //! ```
 //!
 //! ## Subcommand dump
@@ -107,7 +113,7 @@
 //! Lists OpenPGP packets
 //!
 //! USAGE:
-//!     sq dump [FLAGS] [OPTIONS]
+//!     sq dump [FLAGS] [OPTIONS] [FILE]
 //!
 //! FLAGS:
 //!     -h, --help       Prints help information
@@ -115,8 +121,10 @@
 //!     -V, --version    Prints version information
 //!
 //! OPTIONS:
-//!     -i, --input <FILE>     Sets the input file to use
 //!     -o, --output <FILE>    Sets the output file to use
+//!
+//! ARGS:
+//!     <FILE>    Sets the input file to use
 //! ```
 //!
 //! ## Subcommand enarmor
@@ -125,15 +133,17 @@
 //! Applies ASCII Armor to a file
 //!
 //! USAGE:
-//!     sq enarmor [OPTIONS]
+//!     sq enarmor [OPTIONS] [FILE]
 //!
 //! FLAGS:
 //!     -h, --help       Prints help information
 //!     -V, --version    Prints version information
 //!
 //! OPTIONS:
-//!     -i, --input <FILE>     Sets the input file to use
 //!     -o, --output <FILE>    Sets the output file to use
+//!
+//! ARGS:
+//!     <FILE>    Sets the input file to use
 //! ```
 //!
 //! ## Subcommand encrypt
@@ -142,7 +152,7 @@
 //! Encrypts a message
 //!
 //! USAGE:
-//!     sq encrypt [FLAGS] [OPTIONS]
+//!     sq encrypt [FLAGS] [OPTIONS] [--] [FILE]
 //!
 //! FLAGS:
 //!     -B, --binary       Emit unencoded OpenPGP data
@@ -151,9 +161,11 @@
 //!     -V, --version      Prints version information
 //!
 //! OPTIONS:
-//!     -i, --input <FILE>            Sets the input file to use
 //!     -o, --output <FILE>           Sets the output file to use
 //!     -r, --recipient <LABEL>...    Recipient to encrypt for (can be given multiple times)
+//!
+//! ARGS:
+//!     <FILE>    Sets the input file to use
 //! ```
 //!
 //! ## Subcommand keyserver
@@ -203,14 +215,14 @@
 //! Sends a key
 //!
 //! USAGE:
-//!     sq keyserver send [OPTIONS]
+//!     sq keyserver send [FILE]
 //!
 //! FLAGS:
 //!     -h, --help       Prints help information
 //!     -V, --version    Prints version information
 //!
-//! OPTIONS:
-//!     -i, --input <FILE>    Sets the input file to use
+//! ARGS:
+//!     <FILE>    Sets the input file to use
 //! ```
 //!
 //! ## Subcommand list
@@ -297,16 +309,18 @@
 //! Splits a message into OpenPGP packets
 //!
 //! USAGE:
-//!     sq split [OPTIONS]
+//!     sq split [OPTIONS] [FILE]
 //!
 //! FLAGS:
 //!     -h, --help       Prints help information
 //!     -V, --version    Prints version information
 //!
 //! OPTIONS:
-//!     -i, --input <FILE>     Sets the input file to use
 //!     -p, --prefix <FILE>    Sets the prefix to use for output files (defaults to the input filename with a dash, or
 //!                            'output')
+//!
+//! ARGS:
+//!     <FILE>    Sets the input file to use
 //! ```
 //!
 //! ## Subcommand store
@@ -392,17 +406,15 @@
 //! Imports a key
 //!
 //! USAGE:
-//!     sq store import [OPTIONS] <LABEL>
+//!     sq store import <LABEL> [FILE]
 //!
 //! FLAGS:
 //!     -h, --help       Prints help information
 //!     -V, --version    Prints version information
 //!
-//! OPTIONS:
-//!     -i, --input <FILE>    Sets the input file to use
-//!
 //! ARGS:
 //!     <LABEL>    Label to use
+//!     <FILE>     Sets the input file to use
 //! ```
 //!
 //! ### Subcommand store list
