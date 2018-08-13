@@ -72,8 +72,8 @@ pub(crate) fn to_hex(s: &[u8], pretty: bool) -> String {
 }
 
 /// A helpful function for converting a hexadecimal string to binary.
-/// This function skips whitespace if `skip_whipspace` is set.
-pub(crate) fn from_hex(hex: &str, skip_whitespace: bool) -> Option<Vec<u8>> {
+/// This function skips whitespace if `pretty` is set.
+pub(crate) fn from_hex(hex: &str, pretty: bool) -> Option<Vec<u8>> {
     let nibbles = hex.as_bytes().iter().filter_map(|x| {
         match *x as char {
             '0' => Some(0u8),
@@ -92,7 +92,7 @@ pub(crate) fn from_hex(hex: &str, skip_whitespace: bool) -> Option<Vec<u8>> {
             'd' | 'D' => Some(13u8),
             'e' | 'E' => Some(14u8),
             'f' | 'F' => Some(15u8),
-            ' ' if skip_whitespace => None,
+            ' ' if pretty => None,
             _ => Some(255u8),
         }
     }).collect::<Vec<u8>>();
