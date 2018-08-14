@@ -38,8 +38,8 @@ fn main() {
     let recipients: Vec<&openpgp::TPK> = tpks.iter().collect();
 
     // Compose a writer stack corresponding to the output format and
-    // packet structure we want.  First, we want the output to be as
-    // armored.
+    // packet structure we want.  First, we want the output to be
+    // ASCII armored.
     let sink = armor::Writer::new(io::stdout(), armor::Kind::Message, &[][..])
         .expect("Failed to create an armored writer");
 
