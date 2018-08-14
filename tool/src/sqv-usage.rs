@@ -14,8 +14,10 @@
 //!     -V, --version    Prints version information
 //!
 //! OPTIONS:
-//!     -r, --keyring <FILE>...    A keyring
-//!     -n, --signatures <N>       The number of valid signatures to return success.  Default: 1
+//!     -r, --keyring <FILE>...          A keyring.  Can be given multiple times.
+//!         --not-after <YYYY-MM-DD>     Consider signatures created after YYYY-MM-DD as invalid.  Default: now
+//!         --not-before <YYYY-MM-DD>    Consider signatures created before YYYY-MM-DD as invalid.  Default: no constraint
+//!     -n, --signatures <N>             The number of valid signatures to return success.  Default: 1
 //!
 //! ARGS:
 //!     <SIG-FILE>    File containing the detached signature.

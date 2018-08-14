@@ -38,6 +38,16 @@ fn cli_build() -> App<'static, 'static> {
              .long("signatures")
              .short("n")
              .takes_value(true))
+        .arg(Arg::with_name("not-before").value_name("YYYY-MM-DD")
+             .help("Consider signatures created before YYYY-MM-DD as invalid.  \
+                    Default: no constraint")
+             .long("not-before")
+             .takes_value(true))
+        .arg(Arg::with_name("not-after").value_name("YYYY-MM-DD")
+             .help("Consider signatures created after YYYY-MM-DD as invalid.  \
+                    Default: now")
+             .long("not-after")
+             .takes_value(true))
         .arg(Arg::with_name("sig-file").value_name("SIG-FILE")
              .help("File containing the detached signature.")
              .required(true))
@@ -74,6 +84,11 @@ fn real_main() -> Result<(), failure::Error> {
         exit(2);
     }
 
+    let not_before = matches.value_of("not-before")
+        .and_then(|v| time::strptime(v, "%Y-%m-%d").ok());
+    let not_after = matches.value_of("not-after")
+        .and_then(|v| time::strptime(v, "%Y-%m-%d").ok())
+        .unwrap_or_else(|| time::now_utc());
 
     // First, we collect the signatures and the alleged issuers.
     // Then, we scan the keyrings exactly once to find the associated
@@ -230,6 +245,32 @@ fn real_main() -> Result<(), failure::Error> {
 
                     match sig.verify(key) {
                         Ok(true) => {
+                            if let Some(t) = sig.signature_creation_time() {
+                                if let Some(not_before) = not_before {
+                                    if t < not_before {
+                                        eprintln!(
+                                            "Signature by {} was created before \
+                                             the --not-before date.",
+                                            issuer);
+                                        break;
+                                    }
+                                }
+
+                                if t > not_after {
+                                    eprintln!(
+                                        "Signature by {} was created after \
+                                         the --not-after date.",
+                                        issuer);
+                                    break;
+                                }
+                            } else {
+                                eprintln!(
+                                    "Signature by {} does not contain \
+                                     information about the creation time.",
+                                    issuer);
+                                break;
+                            }
+
                             if trace {
                                 eprintln!("Signature by {} is good.", issuer);
                             }
