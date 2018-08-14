@@ -331,18 +331,18 @@ impl Message {
 
     /// Converts the vector of `Packets` to a `Message`.
     ///
-    /// See [`Message::from_packets`] for more details.
+    /// See [`Message::from_packet_pile`] for more details.
     ///
-    ///   [`Message::from_packets`]: #method.from_packet_pile
+    ///   [`Message::from_packet_pile`]: #method.from_packet_pile
     pub fn from_packets(packets: Vec<Packet>) -> Result<Self> {
         Self::from_packet_pile(PacketPile::from_packets(packets))
     }
 
     /// Reads a `Message` from the specified file.
     ///
-    /// See [`Message::from_packets`] for more details.
+    /// See [`Message::from_packet_pile`] for more details.
     ///
-    ///   [`Message::from_packets`]: #method.from_packet_pile
+    ///   [`Message::from_packet_pile`]: #method.from_packet_pile
     pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
         Self::from_packet_pile(PacketPile::from_file(path)?)
     }
