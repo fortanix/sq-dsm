@@ -11,6 +11,7 @@
 //! [Section 11.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-11.3
 
 use std::fmt;
+use std::io;
 use std::path::Path;
 
 use failure;
@@ -338,6 +339,15 @@ impl Message {
         Self::from_packet_pile(PacketPile::from_packets(packets))
     }
 
+    /// Reads a `Message` from the specified reader.
+    ///
+    /// See [`Message::from_packet_pile`] for more details.
+    ///
+    ///   [`Message::from_packet_pile`]: #method.from_packet_pile
+    pub fn from_reader<R: io::Read>(reader: R) -> Result<Self> {
+        Self::from_packet_pile(PacketPile::from_reader(reader)?)
+    }
+
     /// Reads a `Message` from the specified file.
     ///
     /// See [`Message::from_packet_pile`] for more details.
@@ -345,6 +355,15 @@ impl Message {
     ///   [`Message::from_packet_pile`]: #method.from_packet_pile
     pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
         Self::from_packet_pile(PacketPile::from_file(path)?)
+    }
+
+    /// Reads a `Message` from `buf`.
+    ///
+    /// See [`Message::from_packet_pile`] for more details.
+    ///
+    ///   [`Message::from_packet_pile`]: #method.from_packet_pile
+    pub fn from_bytes(buf: &[u8]) -> Result<Self> {
+        Self::from_packet_pile(PacketPile::from_bytes(buf)?)
     }
 
     /// Converts the `Message` to a `PacketPile`.
