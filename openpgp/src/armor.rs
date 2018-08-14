@@ -36,6 +36,8 @@ use std::cmp::min;
 use std::str;
 use quickcheck::{Arbitrary, Gen};
 
+use packet::Header;
+
 /// The encoded output stream must be represented in lines of no more
 /// than 76 characters each (see (see [RFC 4880, section
 /// 6.3](https://tools.ietf.org/html/rfc4880#section-6.3).  GnuPG uses
@@ -317,12 +319,10 @@ impl<W: Write> Drop for Writer<W> {
 }
 
 /// A filter that strips ASCII Armor from a stream of data.
-///
-/// The reader ignores any data in front of the armored data, as long
-/// as the line the header is in is only prefixed by whitespace.
 pub struct Reader<'a> {
     source: Box<'a + BufferedReader<()>>,
     kind: Option<Kind>,
+    strict: bool,
     buffer: Vec<u8>,
     crc: CRC,
     expect_crc: Option<u32>,
@@ -334,7 +334,48 @@ pub struct Reader<'a> {
 impl<'a> Reader<'a> {
     /// Constructs a new filter for the given type of data.
     ///
+    /// [ASCII Armor], designed to protect OpenPGP data in transit,
+    /// has been a source of problems if the armor structure is
+    /// damaged.  For example, copying data manually from one program
+    /// to another might introduce or drop newlines.
+    ///
+    /// By default, the reader operates in robust mode.  It will
+    /// extract the first armored OpenPGP data block it can find, even
+    /// if the armor frame is damaged, or missing.
+    ///
+    /// To select strict mode, specify a kind argument.  In strict
+    /// mode, the reader will match on the armor frame.  The reader
+    /// ignores any data in front of the Armor Header Line, as long as
+    /// the line the header is in is only prefixed by whitespace.
+    ///
+    ///   [ASCII Armor]: https://tools.ietf.org/html/rfc4880#section-6.2
+    ///
     /// # Example
+    ///
+    /// ```
+    /// # use std::io::Read;
+    /// # extern crate openpgp;
+    /// # use openpgp::{Result, Message};
+    /// # use openpgp::armor::Reader;
+    /// # use std::io;
+    /// # fn main() { f().unwrap(); }
+    /// # fn f() -> Result<()> {
+    /// let data = "yxJiAAAAAABIZWxsbyB3b3JsZCE="; // base64 over literal data packet
+    ///
+    /// let mut cursor = io::Cursor::new(&data);
+    /// let mut reader = Reader::new(&mut cursor, None);
+    ///
+    /// let mut buf = Vec::new();
+    /// reader.read_to_end(&mut buf)?;
+    ///
+    /// let message = Message::from_bytes(&buf)?;
+    /// assert_eq!(message.body().unwrap().common.body.as_ref().unwrap(),
+    ///            b"Hello world!");
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// Or, in strict mode:
     ///
     /// ```
     /// # use std::io::Read;
@@ -351,7 +392,7 @@ impl<'a> Reader<'a> {
     ///      -----END PGP ARMORED FILE-----";
     ///
     /// let mut cursor = io::Cursor::new(&data);
-    /// let mut reader = Reader::new(&mut cursor, None);
+    /// let mut reader = Reader::new(&mut cursor, Some(Kind::File));
     ///
     /// let mut content = String::new();
     /// reader.read_to_string(&mut content)?;
@@ -398,6 +439,7 @@ impl<'a> Reader<'a> {
         Reader {
             source: Box::new(BufferedReaderGeneric::new(inner, None)),
             kind: kind,
+            strict: kind.is_some(),
             buffer: Vec::<u8>::with_capacity(1024),
             crc: CRC::new(),
             expect_crc: None,
@@ -435,6 +477,7 @@ impl<'a> Reader<'a> {
         // Look for the Armor Header Line, skipping any garbage in the
         // process.
         let mut n = 0;
+        let mut found_blob = false;
         'search: loop {
             self.source.consume(n);
 
@@ -444,6 +487,39 @@ impl<'a> Reader<'a> {
                 return Err(
                     Error::new(ErrorKind::InvalidInput,
                                "Reached EOF looking for Armor Header Line"));
+            }
+
+            // If the user did not specify what kind of data we want,
+            // we aggressively try to decode any data, even if we do
+            // not see a valid header.
+            if ! self.strict {
+                // Try the whole string, as well as substrings
+                // starting at each whitespace sequence.
+                let mut offset = 0;
+                loop {
+                    if is_armored_pgp_blob(&line[offset..]) {
+                        // Consume anything up to this point.
+                        n = offset;
+                        found_blob = true;
+                        break 'search;
+                    }
+
+                    if let Some(o) = &line[offset..].iter()
+                        .position(|c| c.is_ascii_whitespace())
+                    {
+                        offset += *o;
+
+                        // Skip whitespaces.
+                        while offset < line.len()
+                            && line[offset].is_ascii_whitespace()
+                        {
+                            offset += 1;
+                        }
+                    } else {
+                        // No armored blob found in this line.
+                        break;
+                    }
+                }
             }
 
             if line.len() < 27 {
@@ -472,6 +548,12 @@ impl<'a> Reader<'a> {
             }
         }
         self.source.consume(n);
+
+        if found_blob {
+            // Skip the rest of the initialization.
+            self.initialized = true;
+            return Ok(());
+        }
 
         // Read the headers.
         let mut n = 0;
@@ -565,6 +647,77 @@ impl<'a> Reader<'a> {
     }
 }
 
+/// Checks whether the given bytes contain armored OpenPGP data.
+fn is_armored_pgp_blob(bytes: &[u8]) -> bool {
+    use Tag::*;
+
+    let bytes = if let Some(msg) = get_base64_prefix(bytes) {
+        msg
+    }  else {
+        return false;
+    };
+
+    // We may need to drop some characters at the end.
+    let mut end = bytes.len();
+    loop {
+        match base64::decode_config(&bytes[..end], base64::MIME) {
+            Ok(d) => {
+                let mut br = BufferedReaderMemory::new(&d);
+                let header = Header::parse(&mut br);
+                break match header {
+                    Ok(h) => match h.ctb.tag {
+                        // Might be a message?
+                        PKESK | SKESK | OnePassSig | CompressedData | Literal =>
+                            true,
+                        // Might be a key?
+                        SecretKey | PublicKey =>
+                            true,
+                        // Might be a detached signature?
+                        Signature =>
+                            true,
+                        // ... otherwise, looks like garbage.
+                        _ =>
+                            false,
+                    },
+                    Err(_) => false,
+                }
+            },
+            Err(_) =>
+                if end == 0 {
+                    break false;
+                } else {
+                    end -= 1;
+                },
+        }
+    }
+}
+
+/// Gets a slice containing the largest valid base64 prefix.
+fn get_base64_prefix(bytes: &[u8]) -> Option<&[u8]> {
+    let mut seen_padding = false;
+    for (i, c) in bytes.iter().enumerate() {
+        if c.is_ascii_whitespace() {
+            continue;
+        }
+
+        if seen_padding && *c != '=' as u8 {
+            return Some(&bytes[..i]);
+        }
+
+        if *c == '=' as u8 {
+            seen_padding = true;
+        } else if ! is_base64_char(c) {
+            if i == 0 {
+                return None;
+            } else {
+                return Some(&bytes[..i]);
+            }
+        }
+    }
+
+    return Some(bytes);
+}
+
 /// Checks whether the given byte is in the base64 character set.
 fn is_base64_char(b: &u8) -> bool {
     b.is_ascii_alphanumeric() || *b == '+' as u8 || *b == '/' as u8
@@ -654,11 +807,38 @@ impl<'a> Read for Reader<'a> {
             // hitting EOF.
             let mut got = 0;
 
-            loop {
+            'readloop: loop {
                 let raw = self.source.data(want)?;
                 if raw.len() == got {
-                    return Err(Error::new(ErrorKind::UnexpectedEof,
-                                          "Armor footer is missing"));
+                    // EOF.  Decide how to proceed.
+
+                    if self.strict {
+                        // If we are here, we should have seen an
+                        // footer by now.
+                        return Err(Error::new(ErrorKind::UnexpectedEof,
+                                              "Armor footer is missing"));
+                    } else {
+                        // Otherwise, we may have found only the blob,
+                        // or the footer is damaged, or missing.  Try
+                        // to decode what we have got, then we are
+                        // done.
+
+                        // We need to try to discard garbage at the end.
+                        let mut end = min(raw.len(), want);
+                        loop {
+                            match base64::decode_config(&raw[..end],
+                                                        base64::MIME) {
+                                Ok(d) => break 'readloop (end, d),
+                                Err(_) =>
+                                    if end == 0 {
+                                        // No more valid data.
+                                        break 'readloop (raw.len(), vec![]);
+                                    } else {
+                                        end -= 1;
+                                    },
+                            }
+                        }
+                    }
                 } else {
                     got = raw.len();
                 }
@@ -676,14 +856,26 @@ impl<'a> Read for Reader<'a> {
                     }
                 }
 
-                // See how many non-whitespace characters we got.
+                // See how many valid characters we got.
                 let n = &raw.iter().filter(
                     |c| ! (**c).is_ascii_whitespace()).count();
                 if n % 4 == 0 {
                     // Enough!  Try to decode them.
-                    match base64::decode_config(&raw, base64::MIME) {
-                        Ok(d) => break (raw.len(), d),
-                        Err(e) => return Err(Error::new(ErrorKind::InvalidInput, e)),
+
+                    // We need to try to discard garbage at the end.
+                    let mut end = raw.len();
+                    loop {
+                        match base64::decode_config(&raw[..end],
+                                                    base64::MIME) {
+                            Ok(d) => break 'readloop (end, d),
+                            Err(_) =>
+                                if end == 0 {
+                                    // No more valid data.
+                                    break 'readloop (raw.len(), vec![]);
+                                } else {
+                                    end -= 1;
+                                },
+                        }
                     }
                 }
 
@@ -866,6 +1058,28 @@ mod test {
     }
 
     use super::Reader;
+
+    #[test]
+    fn dearmor_robust() {
+        for len in TEST_VECTORS.iter() {
+            let mut file = File::open(format!("tests/data/armor/literal-{}.bin",
+                                              len)).unwrap();
+            let mut reference = Vec::<u8>::new();
+            file.read_to_end(&mut reference).unwrap();
+
+            for test in &["", "-no-header-with-chksum", "-no-header",
+                          "-no-newlines"] {
+                let filename = format!("tests/data/armor/literal-{}{}.asc",
+                                       len, test);
+                let mut file = File::open(filename).unwrap();
+                let mut r = Reader::new(&mut file, None);
+                let mut dearmored = Vec::<u8>::new();
+                r.read_to_end(&mut dearmored).unwrap();
+
+                assert_eq!(&reference, &dearmored);
+            }
+        }
+    }
 
     #[test]
     fn dearmor_binary() {
