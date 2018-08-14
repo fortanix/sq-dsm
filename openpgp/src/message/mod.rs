@@ -21,6 +21,7 @@ use Error;
 use Packet;
 use PacketPile;
 use Message;
+use Literal;
 
 use packet::Tag;
 
@@ -369,6 +370,21 @@ impl Message {
     /// Converts the `Message` to a `PacketPile`.
     pub fn to_packet_pile(self) -> PacketPile {
         self.pile
+    }
+
+    /// Returns the body of the message.
+    ///
+    /// Returns `None` if no literal data packet is found.  This
+    /// happens if a SEIP container has not been decrypted.
+    pub fn body(&self) -> Option<&Literal> {
+        for packet in self.pile.descendants() {
+            if let &Packet::Literal(ref l) = packet {
+                return Some(l);
+            }
+        }
+
+        // No literal data packet found.
+        None
     }
 }
 
