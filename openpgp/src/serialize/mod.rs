@@ -486,6 +486,14 @@ impl<'a> Serialize for SubpacketValue<'a> {
                 _ => return Err(Error::InvalidArgument(
                     "Unknown kind of fingerprint".into()).into()),
             }
+            IntendedRecipient(ref fp) => match fp {
+                Fingerprint::V4(_) => {
+                    o.write_all(&[4])?;
+                    o.write_all(fp.as_slice())?;
+                },
+                _ => return Err(Error::InvalidArgument(
+                    "Unknown kind of fingerprint".into()).into()),
+            }
             Unknown(ref raw) =>
                 o.write_all(raw)?,
             Invalid(ref raw) =>

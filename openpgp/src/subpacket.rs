@@ -169,6 +169,8 @@ pub enum SubpacketTag {
     EmbeddedSignature,
     /// Added in RFC 4880bis.
     IssuerFingerprint,
+    /// Intended Recipient Fingerprint [proposed].
+    IntendedRecipient,
     Reserved(u8),
     Private(u8),
     Unknown(u8),
@@ -202,6 +204,7 @@ impl From<u8> for SubpacketTag {
             31 => SubpacketTag::SignatureTarget,
             32 => SubpacketTag::EmbeddedSignature,
             33 => SubpacketTag::IssuerFingerprint,
+            35 => SubpacketTag::IntendedRecipient,
             0| 1| 8| 13| 14| 15| 17| 18| 19 => SubpacketTag::Reserved(u),
             100...110 => SubpacketTag::Private(u),
             _ => SubpacketTag::Unknown(u),
@@ -237,6 +240,7 @@ impl From<SubpacketTag> for u8 {
             SubpacketTag::SignatureTarget => 31,
             SubpacketTag::EmbeddedSignature => 32,
             SubpacketTag::IssuerFingerprint => 33,
+            SubpacketTag::IntendedRecipient => 35,
             SubpacketTag::Reserved(u) => u,
             SubpacketTag::Private(u) => u,
             SubpacketTag::Unknown(u) => u,
@@ -640,6 +644,8 @@ pub enum SubpacketValue<'a> {
     EmbeddedSignature(Packet),
     /// 20-octet V4 fingerprint.
     IssuerFingerprint(Fingerprint),
+    /// Intended Recipient Fingerprint [proposed].
+    IntendedRecipient(Fingerprint),
 }
 
 impl<'a> SubpacketValue<'a> {
@@ -683,6 +689,11 @@ impl<'a> SubpacketValue<'a> {
                 // Educated guess for unknown versions.
                 Fingerprint::Invalid(_) => 1 + fp.as_slice().len(),
             },
+            IntendedRecipient(ref fp) => match fp {
+                Fingerprint::V4(_) => 1 + 20,
+                // Educated guess for unknown versions.
+                Fingerprint::Invalid(_) => 1 + fp.as_slice().len(),
+            },
             Unknown(u) => u.len(),
             Invalid(i) => i.len(),
         } as u32)
@@ -721,6 +732,7 @@ impl<'a> SubpacketValue<'a> {
             SignatureTarget { .. } => Ok(SubpacketTag::SignatureTarget),
             EmbeddedSignature(_) => Ok(SubpacketTag::EmbeddedSignature),
             IssuerFingerprint(_) => Ok(SubpacketTag::IssuerFingerprint),
+            IntendedRecipient(_) => Ok(SubpacketTag::IntendedRecipient),
             _ => Err(Error::InvalidArgument(
                 "Unknown or invalid subpacket value".into()).into()),
         }
@@ -977,6 +989,20 @@ impl<'a> From<SubpacketRaw<'a>> for Subpacket<'a> {
                 if let Some(version) = version {
                     if *version == 4 {
                         Some(SubpacketValue::IssuerFingerprint(
+                            Fingerprint::from_bytes(&raw.value[1..])))
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            },
+
+            SubpacketTag::IntendedRecipient => {
+                let version = raw.value.get(0);
+                if let Some(version) = version {
+                    if *version == 4 {
+                        Some(SubpacketValue::IntendedRecipient(
                             Fingerprint::from_bytes(&raw.value[1..])))
                     } else {
                         None
@@ -2451,6 +2477,34 @@ impl Signature {
             SubpacketValue::IssuerFingerprint(fp),
             true)?)
     }
+
+    /// Returns the intended recipients.
+    pub fn intended_recipients(&self) -> Vec<Fingerprint> {
+        let mut result = Vec::new();
+
+        for (_start, _len, sb) in self.hashed_area.iter() {
+            if sb.tag == SubpacketTag::IntendedRecipient {
+                let s = Subpacket::from(sb);
+                if let SubpacketValue::IntendedRecipient(fp) = s.value {
+                    result.push(fp);
+                }
+            }
+        }
+
+        result
+    }
+
+    /// Sets the intended recipients.
+    pub fn set_intended_recipients(&mut self, recipients: Vec<Fingerprint>)
+                                   -> Result<()> {
+        self.hashed_area.remove_all(SubpacketTag::IntendedRecipient);
+        for fp in recipients.into_iter() {
+            self.hashed_area.add(
+                Subpacket::new(SubpacketValue::IntendedRecipient(fp), false)?)?;
+        }
+
+        Ok(())
+    }
 }
 
 
@@ -2610,6 +2664,13 @@ fn accessors() {
 
     sig.set_issuer_fingerprint(fp.clone()).unwrap();
     assert_eq!(sig.issuer_fingerprint(), Some(fp));
+
+    let fps = vec![
+        Fingerprint::from_bytes(b"aaaaaaaaaaaaaaaaaaaa"),
+        Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb"),
+    ];
+    sig.set_intended_recipients(fps.clone()).unwrap();
+    assert_eq!(sig.intended_recipients(), fps);
 }
 
 #[cfg(feature = "compression-deflate")]
