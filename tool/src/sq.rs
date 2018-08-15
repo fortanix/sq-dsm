@@ -26,7 +26,7 @@ use sequoia_core::{Context, NetworkPolicy};
 use sequoia_net::KeyServer;
 use sequoia_store::{Store, LogIter};
 
-mod cli;
+mod sq_cli;
 mod commands;
 
 fn open_or_stdin(f: Option<&str>) -> Result<Box<io::Read>, failure::Error> {
@@ -46,7 +46,7 @@ fn create_or_stdout(f: Option<&str>) -> Result<Box<io::Write>, failure::Error> {
 }
 
 fn real_main() -> Result<(), failure::Error> {
-    let matches = cli::build().get_matches();
+    let matches = sq_cli::build().get_matches();
 
     let policy = match matches.value_of("policy") {
         None => NetworkPolicy::Encrypted,
