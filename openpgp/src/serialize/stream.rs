@@ -8,6 +8,7 @@ use nettle::{Hash, Yarrow};
 
 use {
     Error,
+    Fingerprint,
     HashAlgorithm,
     Key,
     Literal,
@@ -178,6 +179,7 @@ pub struct Signer<'a> {
     // digests.
     inner: Option<writer::BoxStack<'a, Cookie>>,
     keys: Vec<&'a Key>,
+    intended_recipients: Option<Vec<Fingerprint>>,
     detached: bool,
     hash: Box<Hash>,
     cookie: Cookie,
@@ -210,7 +212,22 @@ impl<'a> Signer<'a> {
     /// ```
     pub fn new(inner: writer::Stack<'a, Cookie>, signers: &[&'a TPK])
                -> Result<writer::Stack<'a, Cookie>> {
-        Self::make(inner, signers, false)
+        Self::make(inner, signers, None, false)
+    }
+
+    /// Creates a signer with intended recipients.
+    ///
+    /// This signer emits signatures indicating the intended
+    /// recipients of the encryption container containing the
+    /// signature.  This prevents forwarding a signed message using a
+    /// different encryption context.
+    pub fn with_intended_recipients(inner: writer::Stack<'a, Cookie>,
+                                    signers: &[&'a TPK],
+                                    recipients: &[&'a TPK])
+                                    -> Result<writer::Stack<'a, Cookie>> {
+        Self::make(inner, signers,
+                   Some(recipients.iter().map(|r| r.fingerprint()).collect()),
+                   false)
     }
 
     /// Creates a signer for a detached signature.
@@ -238,11 +255,11 @@ impl<'a> Signer<'a> {
     /// ```
     pub fn detached(inner: writer::Stack<'a, Cookie>, signers: &[&'a TPK])
                     -> Result<writer::Stack<'a, Cookie>> {
-        Self::make(inner, signers, true)
+        Self::make(inner, signers, None, true)
     }
 
     fn make(inner: writer::Stack<'a, Cookie>, signers: &[&'a TPK],
-            detached: bool)
+            intended_recipients: Option<Vec<Fingerprint>>, detached: bool)
             -> Result<writer::Stack<'a, Cookie>> {
         let mut inner = writer::BoxStack::from(inner);
         // Just always use SHA512.
@@ -322,6 +339,7 @@ impl<'a> Signer<'a> {
         Ok(writer::Stack::from(Box::new(Signer {
             inner: Some(inner),
             keys: signing_keys,
+            intended_recipients: intended_recipients,
             detached: detached,
             hash: hash_algo.context()?,
             cookie: Cookie {
@@ -348,6 +366,10 @@ impl<'a> Signer<'a> {
                 // GnuPG up to (and including) 2.2.8 requires the
                 // Issuer subpacket to be present.
                 sig.set_issuer(key.keyid())?;
+
+                if let Some(ref ir) = self.intended_recipients {
+                    sig.set_intended_recipients(ir.clone())?;
+                }
 
                 // Compute the signature.
                 if let &SecretKey::Unencrypted { mpis: ref sec } =
