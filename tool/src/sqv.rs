@@ -12,55 +12,15 @@ extern crate openpgp;
 use std::process::exit;
 use std::fs::File;
 
-use clap::{App, Arg, AppSettings};
-
 use openpgp::{TPK, Packet, Signature, KeyID};
 use openpgp::constants::HashAlgorithm;
 use openpgp::parse::{PacketParserResult, PacketParser};
 use openpgp::tpk::TPKParser;
 
-// The argument parser.
-fn cli_build() -> App<'static, 'static> {
-    App::new("sqv")
-        .version("0.1.0")
-        .about("sqv is a command-line OpenPGP signature verification tool.")
-        .setting(AppSettings::ArgRequiredElseHelp)
-        .arg(Arg::with_name("keyring").value_name("FILE")
-             .help("A keyring.  Can be given multiple times.")
-             .long("keyring")
-             .short("r")
-             .required(true)
-             .takes_value(true)
-             .number_of_values(1)
-             .multiple(true))
-        .arg(Arg::with_name("signatures").value_name("N")
-             .help("The number of valid signatures to return success.  Default: 1")
-             .long("signatures")
-             .short("n")
-             .takes_value(true))
-        .arg(Arg::with_name("not-before").value_name("YYYY-MM-DD")
-             .help("Consider signatures created before YYYY-MM-DD as invalid.  \
-                    Default: no constraint")
-             .long("not-before")
-             .takes_value(true))
-        .arg(Arg::with_name("not-after").value_name("YYYY-MM-DD")
-             .help("Consider signatures created after YYYY-MM-DD as invalid.  \
-                    Default: now")
-             .long("not-after")
-             .takes_value(true))
-        .arg(Arg::with_name("sig-file").value_name("SIG-FILE")
-             .help("File containing the detached signature.")
-             .required(true))
-        .arg(Arg::with_name("file").value_name("FILE")
-             .help("File to verify.")
-             .required(true))
-        .arg(Arg::with_name("trace")
-             .help("Trace execution.")
-             .long("trace"))
-}
+mod sqv_cli;
 
 fn real_main() -> Result<(), failure::Error> {
-    let matches = cli_build().get_matches();
+    let matches = sqv_cli::build().get_matches();
 
     let trace = matches.is_present("trace");
 
