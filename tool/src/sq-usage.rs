@@ -18,72 +18,17 @@
 //!     -s, --store <STORE>              Sets the store to use (default: 'default')
 //!
 //! SUBCOMMANDS:
+//!     decrypt      Decrypts an OpenPGP message
+//!     encrypt      Encrypts a message
+//!     store        Interacts with key stores
+//!     keyserver    Interacts with keyservers
 //!     autocrypt    Autocrypt support
 //!     dearmor      Removes ASCII Armor from a file
-//!     decrypt      Decrypts an OpenPGP message
 //!     dump         Lists OpenPGP packets
 //!     enarmor      Applies ASCII Armor to a file
-//!     encrypt      Encrypts a message
 //!     help         Prints this message or the help of the given subcommand(s)
-//!     keyserver    Interacts with keyservers
 //!     list         Lists key stores and known keys
 //!     split        Splits a message into OpenPGP packets
-//!     store        Interacts with key stores
-//! ```
-//!
-//! ## Subcommand autocrypt
-//!
-//! ```text
-//! Autocrypt support
-//!
-//! USAGE:
-//!     sq autocrypt [SUBCOMMAND]
-//!
-//! FLAGS:
-//!     -h, --help       Prints help information
-//!     -V, --version    Prints version information
-//!
-//! SUBCOMMANDS:
-//!     decode    Converts Autocrypt-encoded keys to OpenPGP TPKs
-//!     help      Prints this message or the help of the given subcommand(s)
-//! ```
-//!
-//! ### Subcommand autocrypt decode
-//!
-//! ```text
-//! Converts Autocrypt-encoded keys to OpenPGP TPKs
-//!
-//! USAGE:
-//!     sq autocrypt decode [OPTIONS] [FILE]
-//!
-//! FLAGS:
-//!     -h, --help       Prints help information
-//!     -V, --version    Prints version information
-//!
-//! OPTIONS:
-//!     -o, --output <FILE>    Sets the output file to use
-//!
-//! ARGS:
-//!     <FILE>    Sets the input file to use
-//! ```
-//!
-//! ## Subcommand dearmor
-//!
-//! ```text
-//! Removes ASCII Armor from a file
-//!
-//! USAGE:
-//!     sq dearmor [OPTIONS] [FILE]
-//!
-//! FLAGS:
-//!     -h, --help       Prints help information
-//!     -V, --version    Prints version information
-//!
-//! OPTIONS:
-//!     -o, --output <FILE>    Sets the output file to use
-//!
-//! ARGS:
-//!     <FILE>    Sets the input file to use
 //! ```
 //!
 //! ## Subcommand decrypt
@@ -108,45 +53,6 @@
 //!     <FILE>    Sets the input file to use
 //! ```
 //!
-//! ## Subcommand dump
-//!
-//! ```text
-//! Lists OpenPGP packets
-//!
-//! USAGE:
-//!     sq dump [FLAGS] [OPTIONS] [FILE]
-//!
-//! FLAGS:
-//!     -h, --help       Prints help information
-//!     -x, --hex        Print a hexdump
-//!     -V, --version    Prints version information
-//!
-//! OPTIONS:
-//!     -o, --output <FILE>    Sets the output file to use
-//!
-//! ARGS:
-//!     <FILE>    Sets the input file to use
-//! ```
-//!
-//! ## Subcommand enarmor
-//!
-//! ```text
-//! Applies ASCII Armor to a file
-//!
-//! USAGE:
-//!     sq enarmor [OPTIONS] [FILE]
-//!
-//! FLAGS:
-//!     -h, --help       Prints help information
-//!     -V, --version    Prints version information
-//!
-//! OPTIONS:
-//!     -o, --output <FILE>    Sets the output file to use
-//!
-//! ARGS:
-//!     <FILE>    Sets the input file to use
-//! ```
-//!
 //! ## Subcommand encrypt
 //!
 //! ```text
@@ -165,161 +71,6 @@
 //!     -o, --output <FILE>                       Sets the output file to use
 //!     -r, --recipient <LABEL>...                Recipient to encrypt for (can be given multiple times)
 //!         --recipient-key-file <TPK-FILE>...    Recipient to encrypt for, given as a file (can be given multiple times)
-//!
-//! ARGS:
-//!     <FILE>    Sets the input file to use
-//! ```
-//!
-//! ## Subcommand keyserver
-//!
-//! ```text
-//! Interacts with keyservers
-//!
-//! USAGE:
-//!     sq keyserver [OPTIONS] [SUBCOMMAND]
-//!
-//! FLAGS:
-//!     -h, --help       Prints help information
-//!     -V, --version    Prints version information
-//!
-//! OPTIONS:
-//!     -s, --server <URI>    Sets the keyserver to use
-//!
-//! SUBCOMMANDS:
-//!     get     Retrieves a key
-//!     help    Prints this message or the help of the given subcommand(s)
-//!     send    Sends a key
-//! ```
-//!
-//! ### Subcommand keyserver get
-//!
-//! ```text
-//! Retrieves a key
-//!
-//! USAGE:
-//!     sq keyserver get [FLAGS] [OPTIONS] <KEYID>
-//!
-//! FLAGS:
-//!     -B, --binary     Emit unencoded OpenPGP data
-//!     -h, --help       Prints help information
-//!     -V, --version    Prints version information
-//!
-//! OPTIONS:
-//!     -o, --output <FILE>    Sets the output file to use
-//!
-//! ARGS:
-//!     <KEYID>    ID of the key to retrieve
-//! ```
-//!
-//! ### Subcommand keyserver send
-//!
-//! ```text
-//! Sends a key
-//!
-//! USAGE:
-//!     sq keyserver send [FILE]
-//!
-//! FLAGS:
-//!     -h, --help       Prints help information
-//!     -V, --version    Prints version information
-//!
-//! ARGS:
-//!     <FILE>    Sets the input file to use
-//! ```
-//!
-//! ## Subcommand list
-//!
-//! ```text
-//! Lists key stores and known keys
-//!
-//! USAGE:
-//!     sq list [SUBCOMMAND]
-//!
-//! FLAGS:
-//!     -h, --help       Prints help information
-//!     -V, --version    Prints version information
-//!
-//! SUBCOMMANDS:
-//!     bindings    Lists all bindings in all key stores
-//!     help        Prints this message or the help of the given subcommand(s)
-//!     keys        Lists all keys in the common key pool
-//!     log         Lists the server log
-//!     stores      Lists key stores
-//! ```
-//!
-//! ### Subcommand list bindings
-//!
-//! ```text
-//! Lists all bindings in all key stores
-//!
-//! USAGE:
-//!     sq list bindings [PREFIX]
-//!
-//! FLAGS:
-//!     -h, --help       Prints help information
-//!     -V, --version    Prints version information
-//!
-//! ARGS:
-//!     <PREFIX>    List only bindings from stores with the given domain prefix
-//! ```
-//!
-//! ### Subcommand list keys
-//!
-//! ```text
-//! Lists all keys in the common key pool
-//!
-//! USAGE:
-//!     sq list keys
-//!
-//! FLAGS:
-//!     -h, --help       Prints help information
-//!     -V, --version    Prints version information
-//! ```
-//!
-//! ### Subcommand list log
-//!
-//! ```text
-//! Lists the server log
-//!
-//! USAGE:
-//!     sq list log
-//!
-//! FLAGS:
-//!     -h, --help       Prints help information
-//!     -V, --version    Prints version information
-//! ```
-//!
-//! ### Subcommand list stores
-//!
-//! ```text
-//! Lists key stores
-//!
-//! USAGE:
-//!     sq list stores [PREFIX]
-//!
-//! FLAGS:
-//!     -h, --help       Prints help information
-//!     -V, --version    Prints version information
-//!
-//! ARGS:
-//!     <PREFIX>    List only stores with the given domain prefix
-//! ```
-//!
-//! ## Subcommand split
-//!
-//! ```text
-//! Splits a message into OpenPGP packets
-//!
-//! USAGE:
-//!     sq split [OPTIONS] [FILE]
-//!
-//! FLAGS:
-//!     -h, --help       Prints help information
-//!     -V, --version    Prints version information
-//!
-//! OPTIONS:
-//!     -p, --prefix <FILE>    Sets the prefix to use for output files (defaults to the input filename with a dash, or
-//!                            'output')
 //!
 //! ARGS:
 //!     <FILE>    Sets the input file to use
@@ -462,6 +213,255 @@
 //!
 //! ARGS:
 //!     <LABEL>    Label to use
+//! ```
+//!
+//! ## Subcommand keyserver
+//!
+//! ```text
+//! Interacts with keyservers
+//!
+//! USAGE:
+//!     sq keyserver [OPTIONS] [SUBCOMMAND]
+//!
+//! FLAGS:
+//!     -h, --help       Prints help information
+//!     -V, --version    Prints version information
+//!
+//! OPTIONS:
+//!     -s, --server <URI>    Sets the keyserver to use
+//!
+//! SUBCOMMANDS:
+//!     get     Retrieves a key
+//!     help    Prints this message or the help of the given subcommand(s)
+//!     send    Sends a key
+//! ```
+//!
+//! ### Subcommand keyserver get
+//!
+//! ```text
+//! Retrieves a key
+//!
+//! USAGE:
+//!     sq keyserver get [FLAGS] [OPTIONS] <KEYID>
+//!
+//! FLAGS:
+//!     -B, --binary     Emit unencoded OpenPGP data
+//!     -h, --help       Prints help information
+//!     -V, --version    Prints version information
+//!
+//! OPTIONS:
+//!     -o, --output <FILE>    Sets the output file to use
+//!
+//! ARGS:
+//!     <KEYID>    ID of the key to retrieve
+//! ```
+//!
+//! ### Subcommand keyserver send
+//!
+//! ```text
+//! Sends a key
+//!
+//! USAGE:
+//!     sq keyserver send [FILE]
+//!
+//! FLAGS:
+//!     -h, --help       Prints help information
+//!     -V, --version    Prints version information
+//!
+//! ARGS:
+//!     <FILE>    Sets the input file to use
+//! ```
+//!
+//! ## Subcommand autocrypt
+//!
+//! ```text
+//! Autocrypt support
+//!
+//! USAGE:
+//!     sq autocrypt [SUBCOMMAND]
+//!
+//! FLAGS:
+//!     -h, --help       Prints help information
+//!     -V, --version    Prints version information
+//!
+//! SUBCOMMANDS:
+//!     decode    Converts Autocrypt-encoded keys to OpenPGP TPKs
+//!     help      Prints this message or the help of the given subcommand(s)
+//! ```
+//!
+//! ### Subcommand autocrypt decode
+//!
+//! ```text
+//! Converts Autocrypt-encoded keys to OpenPGP TPKs
+//!
+//! USAGE:
+//!     sq autocrypt decode [OPTIONS] [FILE]
+//!
+//! FLAGS:
+//!     -h, --help       Prints help information
+//!     -V, --version    Prints version information
+//!
+//! OPTIONS:
+//!     -o, --output <FILE>    Sets the output file to use
+//!
+//! ARGS:
+//!     <FILE>    Sets the input file to use
+//! ```
+//!
+//! ## Subcommand dearmor
+//!
+//! ```text
+//! Removes ASCII Armor from a file
+//!
+//! USAGE:
+//!     sq dearmor [OPTIONS] [FILE]
+//!
+//! FLAGS:
+//!     -h, --help       Prints help information
+//!     -V, --version    Prints version information
+//!
+//! OPTIONS:
+//!     -o, --output <FILE>    Sets the output file to use
+//!
+//! ARGS:
+//!     <FILE>    Sets the input file to use
+//! ```
+//!
+//! ## Subcommand dump
+//!
+//! ```text
+//! Lists OpenPGP packets
+//!
+//! USAGE:
+//!     sq dump [FLAGS] [OPTIONS] [FILE]
+//!
+//! FLAGS:
+//!     -h, --help       Prints help information
+//!     -x, --hex        Print a hexdump
+//!     -V, --version    Prints version information
+//!
+//! OPTIONS:
+//!     -o, --output <FILE>    Sets the output file to use
+//!
+//! ARGS:
+//!     <FILE>    Sets the input file to use
+//! ```
+//!
+//! ## Subcommand enarmor
+//!
+//! ```text
+//! Applies ASCII Armor to a file
+//!
+//! USAGE:
+//!     sq enarmor [OPTIONS] [FILE]
+//!
+//! FLAGS:
+//!     -h, --help       Prints help information
+//!     -V, --version    Prints version information
+//!
+//! OPTIONS:
+//!     -o, --output <FILE>    Sets the output file to use
+//!
+//! ARGS:
+//!     <FILE>    Sets the input file to use
+//! ```
+//!
+//! ## Subcommand list
+//!
+//! ```text
+//! Lists key stores and known keys
+//!
+//! USAGE:
+//!     sq list [SUBCOMMAND]
+//!
+//! FLAGS:
+//!     -h, --help       Prints help information
+//!     -V, --version    Prints version information
+//!
+//! SUBCOMMANDS:
+//!     bindings    Lists all bindings in all key stores
+//!     help        Prints this message or the help of the given subcommand(s)
+//!     keys        Lists all keys in the common key pool
+//!     log         Lists the server log
+//!     stores      Lists key stores
+//! ```
+//!
+//! ### Subcommand list bindings
+//!
+//! ```text
+//! Lists all bindings in all key stores
+//!
+//! USAGE:
+//!     sq list bindings [PREFIX]
+//!
+//! FLAGS:
+//!     -h, --help       Prints help information
+//!     -V, --version    Prints version information
+//!
+//! ARGS:
+//!     <PREFIX>    List only bindings from stores with the given domain prefix
+//! ```
+//!
+//! ### Subcommand list keys
+//!
+//! ```text
+//! Lists all keys in the common key pool
+//!
+//! USAGE:
+//!     sq list keys
+//!
+//! FLAGS:
+//!     -h, --help       Prints help information
+//!     -V, --version    Prints version information
+//! ```
+//!
+//! ### Subcommand list log
+//!
+//! ```text
+//! Lists the server log
+//!
+//! USAGE:
+//!     sq list log
+//!
+//! FLAGS:
+//!     -h, --help       Prints help information
+//!     -V, --version    Prints version information
+//! ```
+//!
+//! ### Subcommand list stores
+//!
+//! ```text
+//! Lists key stores
+//!
+//! USAGE:
+//!     sq list stores [PREFIX]
+//!
+//! FLAGS:
+//!     -h, --help       Prints help information
+//!     -V, --version    Prints version information
+//!
+//! ARGS:
+//!     <PREFIX>    List only stores with the given domain prefix
+//! ```
+//!
+//! ## Subcommand split
+//!
+//! ```text
+//! Splits a message into OpenPGP packets
+//!
+//! USAGE:
+//!     sq split [OPTIONS] [FILE]
+//!
+//! FLAGS:
+//!     -h, --help       Prints help information
+//!     -V, --version    Prints version information
+//!
+//! OPTIONS:
+//!     -p, --prefix <FILE>    Sets the prefix to use for output files (defaults to the input filename with a dash, or
+//!                            'output')
+//!
+//! ARGS:
+//!     <FILE>    Sets the input file to use
 //! ```
 
 include!("sq.rs");
