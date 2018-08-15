@@ -20,6 +20,7 @@
 //! SUBCOMMANDS:
 //!     decrypt      Decrypts an OpenPGP message
 //!     encrypt      Encrypts a message
+//!     sign         Signs a message
 //!     store        Interacts with key stores
 //!     keyserver    Interacts with keyservers
 //!     autocrypt    Autocrypt support
@@ -71,6 +72,28 @@
 //!     -o, --output <FILE>                       Sets the output file to use
 //!     -r, --recipient <LABEL>...                Recipient to encrypt for (can be given multiple times)
 //!         --recipient-key-file <TPK-FILE>...    Recipient to encrypt for, given as a file (can be given multiple times)
+//!
+//! ARGS:
+//!     <FILE>    Sets the input file to use
+//! ```
+//!
+//! ## Subcommand sign
+//!
+//! ```text
+//! Signs a message
+//!
+//! USAGE:
+//!     sq sign [FLAGS] [OPTIONS] [--] [FILE]
+//!
+//! FLAGS:
+//!     -B, --binary      Emit unencoded OpenPGP data
+//!         --detached    Create a detached signature
+//!     -h, --help        Prints help information
+//!     -V, --version     Prints version information
+//!
+//! OPTIONS:
+//!     -o, --output <FILE>                    Sets the output file to use
+//!         --secret-key-file <TSK-FILE>...    Secret key to sign with, given as a file (can be given multiple times)
 //!
 //! ARGS:
 //!     <FILE>    Sets the input file to use

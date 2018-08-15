@@ -10,7 +10,7 @@ use openpgp::constants::DataFormat;
 use openpgp::{Packet, Key, TPK, KeyID, SecretKey};
 use openpgp::parse::PacketParserResult;
 use openpgp::serialize::stream::{
-    wrap, LiteralWriter, Encryptor, EncryptionMode,
+    wrap, Signer, LiteralWriter, Encryptor, EncryptionMode,
 };
 extern crate sequoia_store as store;
 
@@ -178,6 +178,37 @@ pub fn encrypt(store: &mut store::Store,
     io::copy(input, &mut literal_writer)
         .context("Failed to encrypt")?;
 
+    Ok(())
+}
+
+pub fn sign(input: &mut io::Read, output: &mut io::Write,
+            secrets: Vec<openpgp::TPK>, detached: bool)
+            -> Result<(), failure::Error> {
+    let sink = wrap(output);
+    // Build a vector of references to hand to Signer.
+    let keys: Vec<&openpgp::TPK> = secrets.iter().collect();
+    let signer = if detached {
+        Signer::detached(sink, &keys)
+    } else {
+        Signer::new(sink, &keys)
+    }.context("Failed to create signer")?;
+
+    let mut writer = if detached {
+        // Detached signatures do not need a literal data packet, just
+        // hash the data as is.
+        signer
+    } else {
+        // We want to wrap the data in a literal data packet.
+        LiteralWriter::new(signer, DataFormat::Binary, None, None)
+            .context("Failed to create literal writer")?
+    };
+
+    // Finally, copy stdin to our writer stack to encrypt the data.
+    io::copy(input, &mut writer)
+        .context("Failed to sign")?;
+
+    writer.finalize()
+        .context("Failed to sign")?;
     Ok(())
 }
 
