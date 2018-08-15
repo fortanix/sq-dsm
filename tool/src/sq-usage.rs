@@ -92,7 +92,7 @@
 //! Decrypts an OpenPGP message
 //!
 //! USAGE:
-//!     sq decrypt [FLAGS] [OPTIONS] [FILE]
+//!     sq decrypt [FLAGS] [OPTIONS] [--] [FILE]
 //!
 //! FLAGS:
 //!         --dump       Print a packet dump to stderr
@@ -101,7 +101,8 @@
 //!     -V, --version    Prints version information
 //!
 //! OPTIONS:
-//!     -o, --output <FILE>    Sets the output file to use
+//!     -o, --output <FILE>                    Sets the output file to use
+//!         --secret-key-file <TSK-FILE>...    Secret key to decrypt with, given as a file (can be given multiple times)
 //!
 //! ARGS:
 //!     <FILE>    Sets the input file to use
@@ -161,8 +162,9 @@
 //!     -V, --version      Prints version information
 //!
 //! OPTIONS:
-//!     -o, --output <FILE>           Sets the output file to use
-//!     -r, --recipient <LABEL>...    Recipient to encrypt for (can be given multiple times)
+//!     -o, --output <FILE>                       Sets the output file to use
+//!     -r, --recipient <LABEL>...                Recipient to encrypt for (can be given multiple times)
+//!         --recipient-key-file <TPK-FILE>...    Recipient to encrypt for, given as a file (can be given multiple times)
 //!
 //! ARGS:
 //!     <FILE>    Sets the input file to use

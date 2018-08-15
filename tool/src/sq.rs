@@ -45,6 +45,21 @@ fn create_or_stdout(f: Option<&str>) -> Result<Box<io::Write>, failure::Error> {
     }
 }
 
+fn load_tpks<'a, I>(files: I) -> openpgp::Result<Vec<TPK>>
+    where I: Iterator<Item=&'a str>
+{
+    let mut tpks = vec![];
+    for f in files {
+        tpks.push(TPK::from_reader(
+            // Use an openpgp::Reader so that we accept both armored
+            // and plain PGP data.
+            openpgp::Reader::from_file(f)
+                .context(format!("Failed to open key file {:?}", f))?)
+                  .context("Failed to load key")?);
+    }
+    Ok(tpks)
+}
+
 fn real_main() -> Result<(), failure::Error> {
     let matches = sq_cli::build().get_matches();
 
@@ -68,7 +83,10 @@ fn real_main() -> Result<(), failure::Error> {
             let input = open_or_stdin(m.value_of("input"))?;
             let mut output = create_or_stdout(m.value_of("output"))?;
             let mut input = openpgp::Reader::from_reader(input)?;
-            commands::decrypt(&mut input, &mut output,
+            let secrets = m.values_of("secret-key-file")
+                .map(load_tpks)
+                .unwrap_or(Ok(vec![]))?;
+            commands::decrypt(&mut input, &mut output, secrets,
                               m.is_present("dump"), m.is_present("hex"))?;
         },
         ("encrypt",  Some(m)) => {
@@ -86,9 +104,12 @@ fn real_main() -> Result<(), failure::Error> {
             let recipients = m.values_of("recipient")
                 .map(|r| r.collect())
                 .unwrap_or(vec![]);
+            let additional_tpks = m.values_of("recipient-key-file")
+                .map(load_tpks)
+                .unwrap_or(Ok(vec![]))?;
             commands::encrypt(&mut store, &mut input, &mut output,
                               m.occurrences_of("symmetric") as usize,
-                              recipients)?;
+                              recipients, additional_tpks)?;
         },
 
         ("enarmor",  Some(m)) => {

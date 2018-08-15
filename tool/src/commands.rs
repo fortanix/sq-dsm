@@ -1,13 +1,13 @@
 use failure::{self, ResultExt};
 use std::cmp::Ordering;
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::{self, Write};
 use rpassword;
 
 extern crate openpgp;
 use openpgp::constants::DataFormat;
-use openpgp::Packet;
-use openpgp::packet::Tag;
+use openpgp::{Packet, Key, TPK, KeyID, SecretKey};
 use openpgp::parse::PacketParserResult;
 use openpgp::serialize::stream::{
     wrap, LiteralWriter, Encryptor, EncryptionMode,
@@ -19,11 +19,20 @@ const INDENT: &'static str
     = "                                                  ";
 
 pub fn decrypt(input: &mut io::Read, output: &mut io::Write,
-               dump: bool, map: bool)
+               secrets: Vec<TPK>, dump: bool, map: bool)
            -> Result<(), failure::Error> {
+    let mut keys: HashMap<KeyID, Key> = HashMap::new();
+    for tsk in secrets {
+        for key in tsk.keys() {
+            // XXX this is cheating, we just add all keys, even if
+            // they should not be used for encryption
+            keys.insert(key.fingerprint().to_keyid(), key.clone());
+        }
+    }
+
     #[derive(PartialEq)]
     enum State {
-        Start(Vec<()>, Vec<openpgp::SKESK>),
+        Start(Vec<openpgp::PKESK>, Vec<openpgp::SKESK>),
         Deciphered,
         Done,
     }
@@ -53,10 +62,21 @@ pub fn decrypt(input: &mut io::Read, output: &mut io::Write,
                 match pp.packet {
                     Packet::SEIP(_) => {
                         let mut state = None;
-                        for _pkesk in pkesks.iter() {
-                            // XXX try to decrypt those
+                        for pkesk in pkesks.iter() {
+                            if let Some(tsk) = keys.get(&pkesk.recipient) {
+                                // XXX: Deal with encrypted keys.
+                                if let Some(SecretKey::Unencrypted{ref mpis}) = tsk.secret {
+                                    if let Ok((algo, key)) = pkesk.decrypt(tsk, mpis) {
+	                                let r = pp.decrypt(algo, &key[..]);
+                                        if r.is_ok() {
+                                            state = Some(State::Deciphered);
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
                         }
-                        if ! skesks.is_empty() {
+                        if state.is_none() && ! skesks.is_empty() {
                             let pass = rpassword::prompt_password_stderr(
                                 "Enter password to decrypt message: ")?
                                 .into_bytes();
@@ -96,15 +116,10 @@ pub fn decrypt(input: &mut io::Read, output: &mut io::Write,
 
         state = match state {
             // Look for an PKESK or SKESK packet.
-            State::Start(pkesks, mut skesks) =>
+            State::Start(mut pkesks, mut skesks) =>
                 match packet {
-                    Packet::Unknown(u) => {
-                        match u.tag {
-                            Tag::PKESK =>
-                                eprintln!("Decryption using PKESK not yet \
-                                           supported."),
-                            _ => (),
-                        }
+                    Packet::PKESK(pkesk) => {
+                        pkesks.push(pkesk);
                         State::Start(pkesks, skesks)
                     },
                     Packet::SKESK(skesk) => {
@@ -127,9 +142,9 @@ pub fn decrypt(input: &mut io::Read, output: &mut io::Write,
 
 pub fn encrypt(store: &mut store::Store,
                input: &mut io::Read, output: &mut io::Write,
-               npasswords: usize, recipients: Vec<&str>)
+               npasswords: usize, recipients: Vec<&str>,
+               mut tpks: Vec<openpgp::TPK>)
                -> Result<(), failure::Error> {
-    let mut tpks = Vec::with_capacity(recipients.len());
     for r in recipients {
         tpks.push(store.lookup(r).context("No such key found")?.tpk()?);
     }
