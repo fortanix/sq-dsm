@@ -18,7 +18,8 @@ fn main() {
     };
     let mut sq = sq_cli::build();
     let mut sqv = sqv_cli::build();
-    for shell in &[Shell::Bash, Shell::Fish] {
+    for shell in &[Shell::Bash, Shell::Fish, Shell::Zsh, Shell::PowerShell,
+                   Shell::Elvish] {
         sq.gen_completions("sq", *shell, &outdir);
         sqv.gen_completions("sqv", *shell, &outdir);
     }
