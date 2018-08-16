@@ -36,7 +36,7 @@ install: sequoia.pc
 	$(INSTALL) -d $(DESTDIR)$(PREFIX)/share/pkgconfig
 	sed -e 's|VERSION|$(VERSION)|g' \
 	    -e 's|PREFIX|$(PREFIX)|g' \
-		sequoia.pc \
+		sequoia.pc.in \
 		> $(DESTDIR)$(PREFIX)/share/pkgconfig/sequoia.pc
 	$(INSTALL) -d $(DESTDIR)$(PREFIX)/include
 	$(INSTALL) -t $(DESTDIR)$(PREFIX)/include include/sequoia.h
