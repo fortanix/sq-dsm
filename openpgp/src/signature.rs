@@ -8,6 +8,7 @@ use HashAlgorithm;
 use PublicKeyAlgorithm;
 use SignatureType;
 use Key;
+use KeyID;
 use UserID;
 use UserAttribute;
 use Packet;
@@ -151,6 +152,20 @@ impl Signature {
         // XXX: Do we invalidate the signature data?
         self.hash_algo = algo;
         self
+    }
+
+    /// Gets the issuer.
+    ///
+    /// Prefers the issuer fingerprint to the issuer keyid, which may
+    /// be stored in the unhashed area.
+    pub fn get_issuer(&self) -> Option<KeyID> {
+        if let Some(fp) = self.issuer_fingerprint() {
+            Some(fp.to_keyid())
+        } else if let Some(id) = self.issuer() {
+            Some(id)
+        } else {
+            None
+        }
     }
 
     /// Signs `hash` using `signer`.
