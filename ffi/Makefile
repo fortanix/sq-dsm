@@ -18,6 +18,11 @@ all: build
 
 .PHONY: build
 build:
+	sed -e 's|VERSION|$(VERSION)|g' \
+	    -e 's|PREFIX|$(shell pwd)|g' \
+            -e 's|libdir=.*|libdir=$(shell pwd)/../target/debug|g' \
+		sequoia.pc.in \
+		> ../target/debug/sequoia.pc
 
 # Testing and examples.
 .PHONY: test check
