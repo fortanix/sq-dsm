@@ -7,7 +7,7 @@ use rpassword;
 
 extern crate openpgp;
 use openpgp::constants::DataFormat;
-use openpgp::{Packet, Key, TPK, KeyID, SecretKey};
+use openpgp::{Packet, Key, TPK, KeyID, SecretKey, Signature};
 use openpgp::parse::PacketParserResult;
 use openpgp::serialize::stream::{
     wrap, Signer, LiteralWriter, Encryptor, EncryptionMode,
@@ -199,6 +199,92 @@ pub fn sign(input: &mut io::Read, output: &mut io::Write,
     writer.finalize()
         .context("Failed to sign")?;
     Ok(())
+}
+
+pub fn verify(input: &mut io::Read, output: &mut io::Write,
+              tpks: Vec<TPK>)
+              -> Result<(), failure::Error> {
+    let mut keys: HashMap<KeyID, Key> = HashMap::new();
+    for tpk in tpks {
+        let can_sign = |key: &Key, sig: &Signature| -> bool {
+            sig.key_flags().can_sign()
+            // Check expiry.
+                && sig.signature_alive()
+                && sig.key_alive(key)
+        };
+
+        if tpk.primary_key_signature()
+            .map(|sig| can_sign(tpk.primary(), sig))
+            .unwrap_or(false)
+        {
+            keys.insert(tpk.fingerprint().to_keyid(), tpk.primary().clone());
+        }
+
+        for skb in tpk.subkeys() {
+            let key = skb.subkey();
+            if can_sign(key, skb.binding_signature()) {
+                keys.insert(key.fingerprint().to_keyid(), key.clone());
+            }
+        }
+    }
+
+    let mut nsigs = 0;
+    let mut good = 0;
+    let mut bad = 0;
+    let mut ppr
+        = openpgp::parse::PacketParserBuilder::from_reader(input)?
+        .finalize()?;
+
+    while let PacketParserResult::Some(mut pp) = ppr {
+        if ! pp.possible_message() {
+            return Err(failure::err_msg("Malformed OpenPGP message"));
+        }
+
+        match pp.packet {
+            Packet::Signature(ref sig) => {
+                nsigs += 1;
+                if let Some(issuer) = sig.get_issuer() {
+                    if let Some(key) = keys.get(&issuer) {
+                        if sig.verify(key).unwrap_or(false) {
+                            eprintln!("Good signature from {}", issuer);
+                            good += 1;
+                        } else {
+                            eprintln!("Bad signature from {}", issuer);
+                            bad += 1;
+                        }
+                    } else {
+                        eprintln!("No key to check signature from {}", issuer);
+                    }
+                } else {
+                    eprintln!("No issuer information in signature.");
+                    bad += 1;
+                }
+            },
+            Packet::Literal(_) => {
+                // XXX buffer first
+                io::copy(&mut pp, output)?;
+            },
+            _ => (),
+        }
+
+        let (_, _, ppr_tmp, _) = pp.recurse()?;
+        ppr = ppr_tmp;
+    }
+    if let PacketParserResult::EOF(eof) = ppr {
+        if ! eof.is_message() {
+            Err(failure::err_msg("Malformed OpenPGP message"))
+        } else {
+            eprintln!("{} good signatures, {} bad signatures, {} not checked.",
+                      good, bad, nsigs - good - bad);
+            if good > 0 && bad == 0 {
+                Ok(())
+            } else {
+                Err(failure::err_msg("Signature verification failed"))
+            }
+        }
+    } else {
+        unreachable!()
+    }
 }
 
 pub fn dump(input: &mut io::Read, output: &mut io::Write, map: bool)

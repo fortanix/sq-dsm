@@ -21,6 +21,7 @@
 //!     decrypt      Decrypts an OpenPGP message
 //!     encrypt      Encrypts a message
 //!     sign         Signs a message
+//!     verify       Verifies a message
 //!     store        Interacts with key stores
 //!     keyserver    Interacts with keyservers
 //!     autocrypt    Autocrypt support
@@ -94,6 +95,26 @@
 //! OPTIONS:
 //!     -o, --output <FILE>                    Sets the output file to use
 //!         --secret-key-file <TSK-FILE>...    Secret key to sign with, given as a file (can be given multiple times)
+//!
+//! ARGS:
+//!     <FILE>    Sets the input file to use
+//! ```
+//!
+//! ## Subcommand verify
+//!
+//! ```text
+//! Verifies a message
+//!
+//! USAGE:
+//!     sq verify [OPTIONS] [--] [FILE]
+//!
+//! FLAGS:
+//!     -h, --help       Prints help information
+//!     -V, --version    Prints version information
+//!
+//! OPTIONS:
+//!     -o, --output <FILE>                    Sets the output file to use
+//!         --public-key-file <TPK-FILE>...    Public key to verify with, given as a file (can be given multiple times)
 //!
 //! ARGS:
 //!     <FILE>    Sets the input file to use

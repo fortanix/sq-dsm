@@ -127,6 +127,19 @@ fn real_main() -> Result<(), failure::Error> {
                 .unwrap_or(Ok(vec![]))?;
             commands::sign(&mut input, &mut output, secrets, detached)?;
         },
+        ("verify",  Some(m)) => {
+            let input = open_or_stdin(m.value_of("input"))?;
+            let mut input = openpgp::Reader::from_reader(input)?;
+            let mut output = create_or_stdout(m.value_of("output"))?;
+            let detached = m.is_present("detached");
+            if detached {
+                unimplemented!("Detached signature generation not implemented");
+            }
+            let tpks = m.values_of("public-key-file")
+                .map(load_tpks)
+                .unwrap_or(Ok(vec![]))?;
+            commands::verify(&mut input, &mut output, tpks)?;
+        },
 
         ("enarmor",  Some(m)) => {
             let mut input = open_or_stdin(m.value_of("input"))?;
