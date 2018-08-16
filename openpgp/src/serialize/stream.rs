@@ -278,28 +278,18 @@ impl<'a> Signer<'a> {
             // Gather all signing-capable subkeys.
             let subkeys = tsk.subkeys().filter_map(|skb| {
                 let key = skb.subkey();
-                // The first signature is the most recent binding
-                // signature.
-                if skb.selfsigs().next()
-                    .map(|sig| can_sign(key, sig))
-                    .unwrap_or(false) {
-                        Some(key)
-                    } else {
-                        None
-                    }
+                if can_sign(key, skb.binding_signature()) {
+                    Some(key)
+                } else {
+                    None
+                }
             });
 
             // Check if the primary key is signing-capable.
             let primary_can_sign =
-            // The key capabilities are defined by the most recent
-            // binding signature of the primary user id (or the
-            // most recent user id binding if no user id is marked
-            // as primary).  In any case, this is the first user id.
-                tsk.userids().next().map(|ub| {
-                    ub.selfsigs().next()
-                        .map(|sig| can_sign(tsk.primary(), sig))
-                        .unwrap_or(false)
-                }).unwrap_or(false);
+                tsk.primary_key_signature()
+                .map(|sig| can_sign(tsk.primary(), sig))
+                .unwrap_or(false);
 
             // If the primary key is signing-capable, prepend to
             // subkeys via iterator magic.
@@ -869,28 +859,18 @@ impl<'a> Encryptor<'a> {
             // Gather all encryption-capable subkeys.
             let subkeys = tpk.subkeys().filter_map(|skb| {
                 let key = skb.subkey();
-                // The first signature is the most recent binding
-                // signature.
-                if skb.selfsigs().next()
-                    .map(|sig| can_encrypt(key, sig))
-                    .unwrap_or(false) {
-                        Some(key)
-                    } else {
-                        None
-                    }
+                if can_encrypt(key, skb.binding_signature()) {
+                    Some(key)
+                } else {
+                    None
+                }
             });
 
             // Check if the primary key is encryption-capable.
             let primary_can_encrypt =
-                // The key capabilities are defined by the most recent
-                // binding signature of the primary user id (or the
-                // most recent user id binding if no user id is marked
-                // as primary).  In any case, this is the first user id.
-                tpk.userids().next().map(|ub| {
-                    ub.selfsigs().next()
-                        .map(|sig| can_encrypt(tpk.primary(), sig))
-                        .unwrap_or(false)
-                }).unwrap_or(false);
+                tpk.primary_key_signature()
+                .map(|sig| can_encrypt(tpk.primary(), sig))
+                .unwrap_or(false);
 
             // If the primary key is encryption-capable, prepend to
             // subkeys via iterator magic.

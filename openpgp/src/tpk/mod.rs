@@ -355,6 +355,11 @@ impl SubkeyBinding {
         &self.subkey
     }
 
+    /// Returns the most recent binding signature.
+    pub fn binding_signature(&self) -> &Signature {
+        &self.selfsigs[0]
+    }
+
     /// The self-signatures.
     ///
     /// All self-signatures have been validated, and the newest
@@ -430,6 +435,11 @@ impl UserIDBinding {
         &self.userid
     }
 
+    /// Returns the most recent binding signature.
+    pub fn binding_signature(&self) -> &Signature {
+        &self.selfsigs[0]
+    }
+
     /// The self-signatures.
     ///
     /// The self-signatures have been validated, and the newest
@@ -462,6 +472,11 @@ impl UserAttributeBinding {
     /// The User attribute.
     pub fn user_attribute(&self) -> &UserAttribute {
         &self.user_attribute
+    }
+
+    /// Returns the most recent binding signature.
+    pub fn binding_signature(&self) -> &Signature {
+        &self.selfsigs[0]
     }
 
     /// The self-signatures.
@@ -905,6 +920,11 @@ impl TPK {
     #[cfg(test)]
     pub fn primary_mut(&mut self) -> &mut Key {
         &mut self.primary
+    }
+
+    /// Returns the signature carrying the primary keys' flags.
+    pub fn primary_key_signature(&self) -> Option<&Signature> {
+        self.userids.get(0).map(|uid| &uid.selfsigs[0])
     }
 
     /// Returns an iterator over the TPK's valid `UserIDBinding`s.
