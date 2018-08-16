@@ -12,6 +12,7 @@ use libc::{self, uint8_t, uint64_t, c_char, c_int, size_t, ssize_t};
 extern crate openpgp;
 
 use self::openpgp::{armor, Fingerprint, KeyID, PacketPile, TPK, TSK, Packet};
+use self::openpgp::tpk::{CipherSuite, TPKBuilder};
 use self::openpgp::parse::{PacketParser};
 use self::openpgp::serialize::Serialize;
 use self::openpgp::constants::{
@@ -818,6 +819,139 @@ pub extern "system" fn sq_tpk_into_tsk(tpk: *mut TPK)
     };
     box_raw!(tpk.into_tsk())
 }
+
+/* TPKBuilder */
+
+/// Creates a default `sq_tpk_builder_t`.
+///
+/// # Example
+///
+/// ```c
+/// #include <assert.h>
+/// #include <sequoia.h>
+///
+/// sq_context_t ctx;
+/// sq_tpk_builder_t builder;
+/// sq_tpk_t tpk;
+///
+/// ctx = sq_context_new ("org.sequoia-pgp.tests", NULL);
+///
+/// builder = sq_tpk_builder_default ();
+/// sq_tpk_builder_set_cipher_suite (&builder, SQ_TPK_CIPHER_SUITE_CV25519);
+/// sq_tpk_builder_add_userid (&builder, "some@example.org");
+/// sq_tpk_builder_add_signing_subkey (&builder);
+/// sq_tpk_builder_add_encryption_subkey (&builder);
+/// tpk = sq_tpk_builder_generate (ctx, builder);
+/// assert (tpk);
+/// ```
+#[no_mangle]
+pub extern "system" fn sq_tpk_builder_default() -> *mut TPKBuilder {
+    box_raw!(TPKBuilder::default())
+}
+
+/// Generates a key compliant to [Autocrypt Level 1].
+///
+///   [Autocrypt Level 1]: https://autocrypt.org/level1.html
+#[no_mangle]
+pub extern "system" fn sq_tpk_builder_autocrypt() -> *mut TPKBuilder {
+    box_raw!(TPKBuilder::autocrypt())
+}
+
+/// Frees an `sq_tpk_builder_t`.
+#[no_mangle]
+pub extern "system" fn sq_tpk_builder_free(tpkb: *mut TPKBuilder)
+{
+    if tpkb.is_null() {
+        return
+    }
+    unsafe {
+        drop(Box::from_raw(tpkb));
+    }
+}
+
+/// Sets the encryption and signature algorithms for primary and all
+/// subkeys.
+#[no_mangle]
+pub extern "system" fn sq_tpk_builder_set_cipher_suite
+    (tpkb: Option<&mut *mut TPKBuilder>, cs: c_int)
+{
+    use self::CipherSuite::*;
+    let tpkb = tpkb.expect("TPKB is NULL");
+    assert!(! tpkb.is_null());
+    let tpkb_ = unsafe { Box::from_raw(*tpkb) };
+    let cs = match cs {
+        0 => Cv25519,
+        1 => RSA3k,
+        n => panic!("Bad ciphersuite: {}", n),
+    };
+    let tpkb_ = tpkb_.set_cipher_suite(cs);
+    *tpkb = box_raw!(tpkb_);
+}
+
+/// Adds a new user ID. The first user ID added replaces the default
+/// ID that is just the empty string.
+#[no_mangle]
+pub extern "system" fn sq_tpk_builder_add_userid
+    (tpkb: Option<&mut *mut TPKBuilder>, uid: *const c_char)
+{
+    let tpkb = tpkb.expect("TPKB is NULL");
+    assert!(!tpkb.is_null());
+    let tpkb_ = unsafe { Box::from_raw(*tpkb) };
+    let uid = unsafe { CStr::from_ptr(uid).to_string_lossy().to_string() };
+    let tpkb_ = tpkb_.add_userid(Some(uid.as_ref()));
+    *tpkb = box_raw!(tpkb_);
+}
+
+/// Adds a signing capable subkey.
+#[no_mangle]
+pub extern "system" fn sq_tpk_builder_add_signing_subkey
+    (tpkb: Option<&mut *mut TPKBuilder>)
+{
+    let tpkb = tpkb.expect("TPKB is NULL");
+    assert!(!tpkb.is_null());
+    let tpkb_ = unsafe { Box::from_raw(*tpkb) };
+    let tpkb_ = tpkb_.add_signing_subkey();
+    *tpkb = box_raw!(tpkb_);
+}
+
+/// Adds an encryption capable subkey.
+#[no_mangle]
+pub extern "system" fn sq_tpk_builder_add_encryption_subkey
+    (tpkb: Option<&mut *mut TPKBuilder>)
+{
+    let tpkb = tpkb.expect("TPKB is NULL");
+    assert!(!tpkb.is_null());
+    let tpkb_ = unsafe { Box::from_raw(*tpkb) };
+    let tpkb_ = tpkb_.add_encryption_subkey();
+    *tpkb = box_raw!(tpkb_);
+}
+
+/// Adds an certification capable subkey.
+#[no_mangle]
+pub extern "system" fn sq_tpk_builder_add_certification_subkey
+    (tpkb: Option<&mut *mut TPKBuilder>)
+{
+    let tpkb = tpkb.expect("TPKB is NULL");
+    assert!(!tpkb.is_null());
+    let tpkb_ = unsafe { Box::from_raw(*tpkb) };
+    let tpkb_ = tpkb_.add_certification_subkey();
+    *tpkb = box_raw!(tpkb_);
+}
+
+/// Generates the actual TPK.
+///
+/// Consumes `tpkb`.
+#[no_mangle]
+pub extern "system" fn sq_tpk_builder_generate
+    (ctx: Option<&mut Context>, tpkb: *mut TPKBuilder)
+    -> *mut TPK
+{
+    let ctx = ctx.expect("CTX is NULL");
+    assert!(!tpkb.is_null());
+    let tpkb = unsafe { Box::from_raw(tpkb) };
+    fry_box!(ctx, tpkb.generate())
+}
+
 
 /* TSK */
 

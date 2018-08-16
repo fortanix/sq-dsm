@@ -387,6 +387,79 @@ sq_fingerprint_t sq_tpk_fingerprint (const sq_tpk_t tpk);
 /*/
 sq_tsk_t sq_tpk_into_tsk (sq_tpk_t tpk);
 
+/* TPKBuilder */
+
+typedef struct sq_tpk_builder *sq_tpk_builder_t;
+
+typedef enum sq_tpk_cipher_suite {
+  /*/
+  /// EdDSA and ECDH over Curve25519 with SHA512 and AES256.
+  /*/
+  SQ_TPK_CIPHER_SUITE_CV25519,
+
+  /*/
+  /// 3072 bit RSA with SHA512 and AES256.
+  /*/
+  SQ_TPK_CIPHER_SUITE_RSA3K,
+
+  /* Dummy value to make sure the enumeration has a defined size.  Do
+     not use this value.  */
+  SQ_TPK_CIPHER_SUITE_FORCE_WIDTH = INT_MAX,
+} sq_tpk_cipher_suite_t;
+
+/*/
+/// Creates a default `sq_tpk_builder_t`.
+/*/
+sq_tpk_builder_t sq_tpk_builder_default(void);
+
+/*/
+/// Generates a key compliant to [Autocrypt Level 1].
+///
+///   [Autocrypt Level 1]: https://autocrypt.org/level1.html
+/*/
+sq_tpk_builder_t sq_tpk_builder_autocrypt(void);
+
+/*/
+/// Frees an `sq_tpk_builder_t`.
+/*/
+void sq_tpk_builder_free(sq_tpk_builder_t tpkb);
+
+/*/
+/// Sets the encryption and signature algorithms for primary and all
+/// subkeys.
+/*/
+void sq_tpk_builder_set_cipher_suite(sq_tpk_builder_t *tpkb,
+				     sq_tpk_cipher_suite_t cs);
+
+/*/
+/// Adds a new user ID. The first user ID added replaces the default
+/// ID that is just the empty string.
+/*/
+void sq_tpk_builder_add_userid(sq_tpk_builder_t *tpkb, const char *uid);
+
+/*/
+/// Adds a signing capable subkey.
+/*/
+void sq_tpk_builder_add_signing_subkey(sq_tpk_builder_t *tpkb);
+
+/*/
+/// Adds an encryption capable subkey.
+/*/
+void sq_tpk_builder_add_encryption_subkey(sq_tpk_builder_t *tpkb);
+
+/*/
+/// Adds an certification capable subkey.
+/*/
+void sq_tpk_builder_add_certification_subkey(sq_tpk_builder_t *tpkb);
+
+/*/
+/// Generates the actual TPK.
+///
+/// Consumes `tpkb`.
+/*/
+sq_tpk_t sq_tpk_builder_generate(sq_context_t ctx, sq_tpk_builder_t tpkb);
+
+
 /* TSK */
 
 /*/
