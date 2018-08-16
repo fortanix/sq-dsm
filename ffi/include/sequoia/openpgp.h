@@ -303,10 +303,6 @@ typedef struct sq_tpk *sq_tpk_t;
 /*/
 typedef struct sq_tsk *sq_tsk_t;
 
-/*/
-/// Generates a new RSA 3072 bit key with UID `primary_uid`.
-/*/
-sq_tpk_t sq_tpk_new (sq_context_t ctx, char *primary_uid);
 
 /*/
 /// Returns the first TPK encountered in the reader.

@@ -897,16 +897,6 @@ impl fmt::Display for TPK {
 }
 
 impl TPK {
-    /// Generates a new RSA 3072 bit key with UID `primary_uid`.
-    ///
-    /// Deprecated: Use `TPKBuilder`.
-    #[deprecated(note = "Use `tpk::TPKBuilder`.")]
-    pub fn new(primary_uid: &str) -> Result<Self> {
-        TPKBuilder::autocrypt()
-            .add_userid(primary_uid)
-            .generate()
-    }
-
     /// Returns a reference to the primary key.
     pub fn primary(&self) -> &Key {
         &self.primary
@@ -2016,30 +2006,6 @@ mod test {
                       KeyID::from_hex(&"E3A3 2229 449B 0350"[..]),
                    ][..]);
 
-    }
-
-    #[test]
-    #[allow(deprecated)]
-    fn generate_tpk() {
-        use std::io;
-        use armor;
-
-        let t1 = TPK::new("test1@example.com").unwrap().into_tsk();
-        let mut cur = io::Cursor::new(Vec::default());
-
-        {
-            let mut a = armor::Writer::new(&mut cur, armor::Kind::SecretKey,
-                                           &[][..]).unwrap();
-            t1.serialize(&mut a).unwrap();
-        }
-
-        cur.set_position(0);
-
-        let r = armor::Reader::from_reader(&mut cur,
-                                           Some(armor::Kind::SecretKey));
-        let t2 = TPK::from_reader(r).unwrap();
-
-        assert_eq!(t1.tpk().fingerprint(), t2.fingerprint());
     }
 
     // lutz's key is a v3 key.

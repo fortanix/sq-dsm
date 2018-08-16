@@ -666,19 +666,6 @@ pub extern "system" fn sq_packet_pile_serialize(ctx: Option<&mut Context>,
 
 /* sequoia::keys.  */
 
-/// Generates a new RSA 3072 bit key with UID `primary_uid`.
-#[no_mangle]
-pub extern "system" fn sq_tpk_new(ctx: Option<&mut Context>,
-                                  primary_uid: *const c_char)
-                                  -> *mut TPK {
-    let ctx = ctx.expect("CONTEXT is NULL");
-    assert!(!primary_uid.is_null());
-    let primary_uid = unsafe {
-        CStr::from_ptr(primary_uid)
-    };
-    fry_box!(ctx, TPK::new(&primary_uid.to_string_lossy()))
-}
-
 /// Returns the first TPK encountered in the reader.
 #[no_mangle]
 pub extern "system" fn sq_tpk_from_reader(ctx: Option<&mut Context>,
