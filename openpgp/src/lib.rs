@@ -679,35 +679,34 @@ pub fn hash_file<R: Read>(reader: R, algos: &[HashAlgorithm])
     // Hash all of the data.
     reader.drop_eof()?;
 
-    let hashes = mem::replace(&mut reader.cookie_mut().hashes, Vec::new());
-
-    return Ok(hashes);
+    let mut hashes = mem::replace(&mut reader.cookie_mut().hashes,
+                                  Default::default());
+    let hashes = hashes.drain().collect();
+    Ok(hashes)
 }
 
 
 #[test]
 fn hash_file_test() {
+    use std::collections::HashMap;
     use std::fs::File;
 
-    let algos =
-        [ HashAlgorithm::SHA1, HashAlgorithm::SHA512, HashAlgorithm::SHA1 ];
-    let digests =
-        [ "7945E3DA269C25C04F9EF435A5C0F25D9662C771",
-           "DDE60DB05C3958AF1E576CD006A7F3D2C343DD8C8DECE789A15D148DF90E6E0D1454DE734F8343502CA93759F22C8F6221BE35B6BDE9728BD12D289122437CB1",
-           "7945E3DA269C25C04F9EF435A5C0F25D9662C771" ];
+    let expected: HashMap<HashAlgorithm, &str> = [
+        (HashAlgorithm::SHA1, "7945E3DA269C25C04F9EF435A5C0F25D9662C771"),
+        (HashAlgorithm::SHA512, "DDE60DB05C3958AF1E576CD006A7F3D2C343DD8C8DECE789A15D148DF90E6E0D1454DE734F8343502CA93759F22C8F6221BE35B6BDE9728BD12D289122437CB1"),
+    ].iter().cloned().collect();
 
     let result =
         hash_file(File::open(path_to("a-cypherpunks-manifesto.txt")).unwrap(),
-                  &algos[..])
+                  &expected.keys().cloned().collect::<Vec<HashAlgorithm>>())
         .unwrap();
 
-    for ((expected_algo, expected_digest), (algo, mut hash)) in
-        algos.into_iter().zip(digests.into_iter()).zip(result) {
-            let mut digest = vec![0u8; hash.digest_size()];
-            hash.digest(&mut digest);
+    for (algo, mut hash) in result.into_iter() {
+        let mut digest = vec![0u8; hash.digest_size()];
+        hash.digest(&mut digest);
 
-            assert_eq!(*expected_algo, algo);
-            assert_eq!(*expected_digest, ::conversions::to_hex(&digest[..], false));
-        }
+        assert_eq!(*expected.get(&algo).unwrap(),
+                   &::conversions::to_hex(&digest[..], false));
+    }
 }
 

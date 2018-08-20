@@ -3,6 +3,7 @@ use std::io;
 use std::io::prelude::*;
 use std::iter;
 use std::cmp;
+use std::collections::HashMap;
 use std::str;
 use std::mem;
 use std::fmt;
@@ -398,14 +399,13 @@ pub(crate) struct Cookie {
 
     hashes_for: HashesFor,
     hashing: bool,
-    pub(crate) hashes: Vec<(HashAlgorithm, Box<Hash>)>,
+    pub(crate) hashes: HashMap<HashAlgorithm, Box<Hash>>,
 }
 
 impl fmt::Debug for Cookie {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let algos = self.hashes.iter()
-            .map(|&(algo, _)| algo)
-            .collect::<Vec<HashAlgorithm>>();
+        let algos = self.hashes.keys()
+            .collect::<Vec<&HashAlgorithm>>();
 
         f.debug_struct("Cookie")
             .field("level", &self.level)
@@ -421,7 +421,7 @@ impl Default for Cookie {
             level: None,
             hashing: true,
             hashes_for: HashesFor::Nothing,
-            hashes: vec![],
+            hashes: HashMap::new(),
         }
     }
 }
@@ -432,7 +432,7 @@ impl Cookie {
             level: Some(recursion_depth as isize),
             hashing: true,
             hashes_for: HashesFor::Nothing,
-            hashes: vec![],
+            hashes: HashMap::new(),
         }
     }
 }
@@ -804,14 +804,15 @@ impl Signature {
                         }
 
                     if cookie.hashes_for == HashesFor::Signature {
-                        if let Some((algo, hash)) = cookie.hashes.pop() {
+                        if let Some(hash) = cookie.hashes.get(&sig.hash_algo) {
                             if TRACE {
                                 eprintln!("{}PacketParser::parse(): \
                                            popped a {:?} HashedReader",
-                                          indent(recursion_depth as u8), algo);
+                                          indent(recursion_depth as u8),
+                                          sig.hash_algo);
                             }
                             cookie.hashes_for = HashesFor::Nothing;
-                            computed_hash = Some((algo, hash));
+                            computed_hash = Some((sig.hash_algo, hash.clone()));
                         }
                         break;
                     }
@@ -953,7 +954,6 @@ impl OnePassSig {
         // This is a bit of a layering violation, but I (Neal) can't
         // think of a more elegant solution.
 
-        let recursion_depth = pp.recursion_depth;
         assert!(pp.reader.cookie_ref().level
                 <= Some(recursion_depth as isize));
         let reader = buffered_reader_stack_pop(Box::new(pp.take_reader()),
@@ -1489,8 +1489,9 @@ impl MDC {
                     let state = bio.cookie_mut();
                     if state.hashes_for == HashesFor::MDC {
                         if state.hashes.len() > 0 {
-                            let (a, mut h) = state.hashes.pop().unwrap();
-                            assert_eq!(a, HashAlgorithm::SHA1);
+                            let mut h = state.hashes
+                                .get_mut(&HashAlgorithm::SHA1)
+                                .unwrap();
                             h.digest(&mut computed_hash);
                         }
 

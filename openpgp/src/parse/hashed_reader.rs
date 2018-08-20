@@ -28,7 +28,7 @@ impl<R: BufferedReader<Cookie>> HashedReader<R> {
             -> Self {
         let mut cookie = Cookie::default();
         for &algo in &algos {
-            cookie.hashes.push((algo, algo.context().unwrap()));
+            cookie.hashes.insert(algo, algo.context().unwrap());
         }
         cookie.hashes_for = hashes_for;
 
@@ -57,7 +57,7 @@ impl Cookie {
             return;
         }
 
-        for &mut (algo, ref mut h) in &mut self.hashes {
+        for (algo, ref mut h) in self.hashes.iter_mut() {
             if TRACE {
                 eprintln!("{}  hash_update({:?}): {:?} hashing {} bytes.",
                           indent(cmp::max(0, self.level.unwrap_or(0)) as u8),
@@ -192,30 +192,34 @@ mod test {
 
     #[test]
     fn hash_test_1() {
+        use std::collections::HashMap;
         struct Test<'a> {
             data: &'a [u8],
-            algos: Vec<HashAlgorithm>,
-            expected: Vec<&'a str>,
+            expected: HashMap<HashAlgorithm, &'a str>,
         };
 
         let tests = [
             Test {
                 data: &b"foobar\n"[..],
-                algos: vec![ HashAlgorithm::SHA1 ],
-                expected: vec![ "988881adc9fc3655077dc2d4d757d480b5ea0e11" ],
+                expected: [
+                    (HashAlgorithm::SHA1,
+                     "988881adc9fc3655077dc2d4d757d480b5ea0e11"),
+                ].iter().cloned().collect(),
             },
             Test {
                 data: &b"0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789\n"[..],
-                algos: vec![ HashAlgorithm::SHA1, HashAlgorithm::SHA224,
-                            HashAlgorithm::SHA256, HashAlgorithm::SHA384,
-                            HashAlgorithm::SHA512 ],
-                expected: vec![
-                    "1d12c55b3a85daab4776a1df41a8f30ada099e11",
-                    "a4c1bde77c682a0e9e30c6afdd1ece2397ffeec61dde2a0eaa23191e",
-                    "151a1d51a1870dc244f07f4844f46ee65fae19a8efeb60b203a074aff899e27d",
-                    "5bea68c8c696bbed95e152d61c446ad0e05bf68f7df39cbfeae568bee6f6691c840fb1d5dd2599737b08dbb33eed344b",
-                    "5fa032487774082af5cc833c2db5f943e31cc75cd2bfaa7d9bbd0ccabf5403b6dbcb484254727a524588f20e9ef336d8ce8533332c5ac1b9d50af3003a0da8d8",
-                ],
+                expected: [
+                    (HashAlgorithm::SHA1,
+                     "1d12c55b3a85daab4776a1df41a8f30ada099e11"),
+                    (HashAlgorithm::SHA224,
+                     "a4c1bde77c682a0e9e30c6afdd1ece2397ffeec61dde2a0eaa23191e"),
+                    (HashAlgorithm::SHA256,
+                    "151a1d51a1870dc244f07f4844f46ee65fae19a8efeb60b203a074aff899e27d"),
+                    (HashAlgorithm::SHA384,
+                    "5bea68c8c696bbed95e152d61c446ad0e05bf68f7df39cbfeae568bee6f6691c840fb1d5dd2599737b08dbb33eed344b"),
+                    (HashAlgorithm::SHA512,
+                     "5fa032487774082af5cc833c2db5f943e31cc75cd2bfaa7d9bbd0ccabf5403b6dbcb484254727a524588f20e9ef336d8ce8533332c5ac1b9d50af3003a0da8d8"),
+                ].iter().cloned().collect(),
             },
         ];
 
@@ -224,23 +228,24 @@ mod test {
                 = BufferedReaderGeneric::with_cookie(
                     test.data, None, Default::default());
             let mut reader
-                = HashedReader::new(reader, HashesFor::MDC, test.algos.clone());
+                = HashedReader::new(reader, HashesFor::MDC,
+                                    test.expected.keys().cloned().collect());
 
             assert_eq!(reader.steal_eof().unwrap(), test.data);
 
             let cookie = reader.cookie_mut();
 
-            let mut hashes = mem::replace(&mut cookie.hashes, vec![]);
-            for (i, &mut (algo, ref mut hash)) in hashes.iter_mut().enumerate() {
-                assert_eq!(algo, test.algos[i]);
-
+            let mut hashes = mem::replace(&mut cookie.hashes,
+                                          Default::default());
+            for (algo, ref mut hash) in hashes.iter_mut() {
                 let mut digest = vec![0u8; hash.digest_size()];
                 hash.digest(&mut digest);
 
                 assert_eq!(digest,
-                           &::conversions::from_hex(test.expected[i], true)
+                           &::conversions::from_hex(test.expected.get(algo)
+                                                    .unwrap(), true)
                            .unwrap()[..],
-                           "{}: Algo: {:?}", i, algo);
+                           "Algo: {:?}", algo);
             }
         }
     }
