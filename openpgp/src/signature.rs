@@ -606,6 +606,11 @@ mod test {
                 data: &"signed-1-eddsa-ed25519.pgp"[..],
                 good: 1,
             },
+            Test {
+                key: &"emmelie-dorothea-dina-samantha-awina-ed25519.pgp"[..],
+                data: &"signed-twice-by-ed25519.pgp"[..],
+                good: 2,
+            },
             // Check with the wrong key.
             Test {
                 key: &"neal.pgp"[..],
