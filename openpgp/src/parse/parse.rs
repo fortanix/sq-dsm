@@ -725,7 +725,7 @@ impl Signature {
             value, Cookie::default());
         let parser = PacketHeaderParser::new_naked(Box::new(bio));
 
-        let mut pp = Signature::parse(parser, None)?;
+        let mut pp = Signature::parse(parser)?;
         pp.buffer_unread_content()?;
         pp.finish()?;
 
@@ -737,8 +737,7 @@ impl Signature {
     }
 
     // Parses a signature packet.
-    fn parse<'a>(mut php: PacketHeaderParser<'a>,
-                 computed_hash: Option<(HashAlgorithm, Box<Hash>)>)
+    fn parse<'a>(mut php: PacketHeaderParser<'a>)
         -> Result<PacketParser<'a>>
     {
         make_php_try!(php);
@@ -780,6 +779,47 @@ impl Signature {
             mpis: mpis,
             computed_hash: None,
         };
+
+        // Locate the corresponding HashedReader and extract the
+        // computed hash.
+        let mut computed_hash = None;
+        {
+            let recursion_depth = php.recursion_depth;
+
+            // We know that the top reader is not a HashedReader (it's
+            // a BufferedReaderDup).  So, start with it's child.
+            let mut r = (&mut php.reader).get_mut();
+            while let Some(tmp) = r {
+                {
+                    let cookie = tmp.cookie_mut();
+
+                    assert!(cookie.level.unwrap_or(-1)
+                            <= recursion_depth as isize);
+                    // The HashedReader has to be at level
+                    // 'recursion_depth - 1'.
+                    if cookie.level.is_none()
+                        || cookie.level.unwrap()
+                        < recursion_depth as isize - 1 {
+                            break
+                        }
+
+                    if cookie.hashes_for == HashesFor::Signature {
+                        if let Some((algo, hash)) = cookie.hashes.pop() {
+                            if TRACE {
+                                eprintln!("{}PacketParser::parse(): \
+                                           popped a {:?} HashedReader",
+                                          indent(recursion_depth as u8), algo);
+                            }
+                            cookie.hashes_for = HashesFor::Nothing;
+                            computed_hash = Some((algo, hash));
+                        }
+                        break;
+                    }
+                }
+
+                r = tmp.get_mut();
+            }
+        }
 
         if let Some((algo, mut hash)) = computed_hash {
             sig.hash(&mut hash);
@@ -2138,51 +2178,6 @@ impl <'a> PacketParser<'a> {
         }
         let tag = header.ctb.tag;
 
-        let mut computed_hash = None;
-        if tag == Tag::Signature {
-            // Ok, the next packet is a Signature packet.  Get the
-            // nearest, valid OneSigPass packet.
-            if trace {
-                eprintln!("{}PacketParser::parse(): Got a Signature packet, \
-                           looking for a matching OnePassSig packet",
-                          indent(recursion_depth as u8));
-            }
-
-            // We know that the top reader is not a HashedReader (it's
-            // a BufferedReaderDup).  So, start with it's child.
-            let mut r = bio.get_mut();
-            while let Some(tmp) = r {
-                {
-                    let cookie = tmp.cookie_mut();
-
-                    assert!(cookie.level.unwrap_or(-1)
-                            <= recursion_depth as isize);
-                    // The HashedReader has to be at level
-                    // 'recursion_depth - 1'.
-                    if cookie.level.is_none()
-                        || cookie.level.unwrap()
-                           < recursion_depth as isize - 1 {
-                        break
-                    }
-
-                    if cookie.hashes_for == HashesFor::Signature {
-                        if let Some((algo, hash)) = cookie.hashes.pop() {
-                            if trace {
-                                eprintln!("{}PacketParser::parse(): \
-                                           popped a {:?} HashedReader",
-                                          indent(recursion_depth as u8), algo);
-                            }
-                            cookie.hashes_for = HashesFor::Nothing;
-                            computed_hash = Some((algo, hash));
-                        }
-                        break;
-                    }
-                }
-
-                r = tmp.get_mut();
-            }
-        }
-
         // We've extracted the hash context (if required).  Now, we
         // rip off the BufferedReaderDup and actually consume the
         // header.
@@ -2258,7 +2253,7 @@ impl <'a> PacketParser<'a> {
                                              header, header_bytes);
 
         let mut result = match tag {
-            Tag::Signature =>           Signature::parse(parser, computed_hash),
+            Tag::Signature =>           Signature::parse(parser),
             Tag::OnePassSig =>          OnePassSig::parse(parser),
             Tag::PublicSubkey =>        Key::parse(parser),
             Tag::PublicKey =>           Key::parse(parser),
