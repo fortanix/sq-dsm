@@ -17,7 +17,7 @@ use Result;
 ///
 ///   [Section 9.1 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-9.1
 ///   [Section 5 of RFC 6637]: https://tools.ietf.org/html/rfc6637
-#[derive(Clone, Copy, PartialEq, Eq, Debug, PartialOrd, Ord)]
+#[derive(Clone, Copy, Hash, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub enum PublicKeyAlgorithm {
     /// RSA (Encrypt or Sign)
     RSAEncryptSign,
@@ -253,7 +253,7 @@ impl Arbitrary for Curve {
 /// symbolic one.
 ///
 ///   [`SymmetricAlgorithm::from`]: https://doc.rust-lang.org/std/convert/trait.From.html
-#[derive(Clone, Copy, PartialEq, Eq, Debug, PartialOrd, Ord)]
+#[derive(Clone, Copy, Hash, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub enum SymmetricAlgorithm {
     /// Null encryption.
     Unencrypted,
@@ -371,7 +371,7 @@ impl Arbitrary for SymmetricAlgorithm {
 /// The OpenPGP compression algorithms as defined in [Section 9.3 of RFC 4880].
 ///
 ///   [Section 9.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-9.3
-#[derive(Clone, Copy, PartialEq, Eq, Debug, PartialOrd, Ord)]
+#[derive(Clone, Copy, Hash, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub enum CompressionAlgorithm {
     /// Null compression.
     Uncompressed,
@@ -437,7 +437,7 @@ impl Arbitrary for CompressionAlgorithm {
 /// The OpenPGP hash algorithms as defined in [Section 9.4 of RFC 4880].
 ///
 ///   [Section 9.4 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-9.4
-#[derive(Clone, Copy, PartialEq, Eq, Debug, PartialOrd, Ord)]
+#[derive(Clone, Copy, Hash, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub enum HashAlgorithm {
     /// Rivest et.al. message digest 5.
     MD5,
@@ -542,7 +542,7 @@ impl Arbitrary for HashAlgorithm {
 /// Signature type as defined in [Section 5.2.1 of RFC 4880].
 ///
 ///   [Section 5.2.1 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.1
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, Hash, PartialEq, Eq, Debug)]
 pub enum SignatureType {
     /// Signature over a binary document.
     Binary,
@@ -679,7 +679,7 @@ impl Arbitrary for SignatureType {
 /// See the description of revocation subpackets [Section 5.2.3.23 of RFC 4880].
 ///
 ///   [Section 5.2.3.23 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.23
-#[derive(Clone, Copy, PartialEq, Eq, Debug, PartialOrd, Ord)]
+#[derive(Clone, Copy, Hash, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub enum ReasonForRevocation {
     /// No reason specified (key revocations or cert revocations)
     Unspecified,
@@ -769,7 +769,7 @@ impl Arbitrary for ReasonForRevocation {
 /// See the description of literal data packets [Section 5.9 of RFC 4880].
 ///
 ///   [Section 5.9 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.9
-#[derive(Clone, Copy, PartialEq, Eq, Debug, PartialOrd, Ord)]
+#[derive(Clone, Copy, Hash, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub enum DataFormat {
     /// Binary data.
     Binary,
