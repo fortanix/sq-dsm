@@ -398,6 +398,7 @@ pub(crate) struct Cookie {
     level: Option<isize>,
 
     hashes_for: HashesFor,
+    ops_count: usize,
     hashing: bool,
     pub(crate) hashes: HashMap<HashAlgorithm, Box<Hash>>,
 }
@@ -410,6 +411,7 @@ impl fmt::Debug for Cookie {
         f.debug_struct("Cookie")
             .field("level", &self.level)
             .field("hashes_for", &self.hashes_for)
+            .field("ops_count", &self.ops_count)
             .field("hashes", &algos)
             .finish()
     }
@@ -421,6 +423,7 @@ impl Default for Cookie {
             level: None,
             hashing: true,
             hashes_for: HashesFor::Nothing,
+            ops_count: 0,
             hashes: HashMap::new(),
         }
     }
@@ -432,6 +435,7 @@ impl Cookie {
             level: Some(recursion_depth as isize),
             hashing: true,
             hashes_for: HashesFor::Nothing,
+            ops_count: 0,
             hashes: HashMap::new(),
         }
     }
@@ -804,6 +808,7 @@ impl Signature {
                         }
 
                     if cookie.hashes_for == HashesFor::Signature {
+                        cookie.ops_count -= 1;
                         if let Some(hash) = cookie.hashes.get(&sig.hash_algo) {
                             if TRACE {
                                 eprintln!("{}PacketParser::parse(): \
@@ -811,7 +816,9 @@ impl Signature {
                                           indent(recursion_depth as u8),
                                           sig.hash_algo);
                             }
-                            cookie.hashes_for = HashesFor::Nothing;
+                            if cookie.ops_count == 0 {
+                                cookie.hashes_for = HashesFor::Nothing;
+                            }
                             computed_hash = Some((sig.hash_algo, hash.clone()));
                         }
                         break;
@@ -925,15 +932,62 @@ impl OnePassSig {
         issuer.copy_from_slice(&php_try!(php.parse_bytes("issuer", 8)));
         let last = php_try!(php.parse_u8("last"));
 
+        let hash_algo = hash_algo.into();
         let mut pp = php.ok(Packet::OnePassSig(OnePassSig {
             common: Default::default(),
             version: version,
             sigtype: sigtype.into(),
-            hash_algo: hash_algo.into(),
+            hash_algo: hash_algo,
             pk_algo: pk_algo.into(),
             issuer: KeyID::from_bytes(&issuer),
             last: last,
         }))?;
+
+        let recursion_depth = pp.recursion_depth as isize;
+
+        // Walk up the reader chain to see if there is already a
+        // hashed reader on level recursion_depth - 1.
+        let done = {
+            let mut done = false;
+            let mut reader : Option<&mut BufferedReader<Cookie>>
+                = Some(&mut pp.reader);
+            while let Some(r) = reader {
+                {
+                    let cookie = r.cookie_mut();
+                    if let Some(br_level) = cookie.level {
+                        if br_level < recursion_depth - 1 {
+                            break;
+                        }
+                        if br_level == recursion_depth - 1
+                            && cookie.hashes_for == HashesFor::Signature {
+                                // We found a suitable hashed reader.
+                                // Make sure that it uses the required
+                                // hash algorithm.
+
+                                if ! cookie.hashes.contains_key(&hash_algo) {
+                                    if let Ok(ctx) = hash_algo.context() {
+                                        cookie.hashes.insert(hash_algo, ctx);
+                                    }
+                                }
+
+                                // Account for this OPS packet.
+                                cookie.ops_count += 1;
+
+                                // We're done.
+                                done = true;
+                                break;
+                            }
+                    } else {
+                        break;
+                    }
+                }
+                reader = r.get_mut();
+            }
+            done
+        };
+        if done {
+            return Ok(pp);
+        }
 
         // We create an empty hashed reader even if we don't support
         // the hash algorithm so that we have something to match
@@ -962,6 +1016,8 @@ impl OnePassSig {
         let mut reader = HashedReader::new(
             reader, HashesFor::Signature, algos);
         reader.cookie_mut().level = Some(recursion_depth as isize - 1);
+        // Account for this OPS packet.
+        reader.cookie_mut().ops_count += 1;
 
         if TRACE {
             eprintln!("{}OnePassSig::parse: \
