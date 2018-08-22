@@ -338,7 +338,7 @@ impl<'a> PacketHeaderParser<'a> {
 
 
 /// What the hash in the Cookie is for.
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Copy, Clone, PartialEq, Debug)]
 pub(crate) enum HashesFor {
     Nothing,
     MDC,
@@ -346,6 +346,7 @@ pub(crate) enum HashesFor {
 }
 
 
+#[derive(Debug)]
 pub(crate) struct Cookie {
     // `BufferedReader`s managed by a `PacketParser` have
     // `Some(level)`; an external `BufferedReader` (i.e., the
@@ -398,22 +399,40 @@ pub(crate) struct Cookie {
     level: Option<isize>,
 
     hashes_for: HashesFor,
-    ops_count: usize,
     hashing: bool,
+    sig_groups: Vec<SignatureGroup>,
+}
+
+/// Contains hashes for consecutive one pass signature packets ending
+/// in one with the last flag set.
+pub(crate) struct SignatureGroup {
+    /// Counts the number of one pass signature packets this group is
+    /// for.  Once this drops to zero, we pop the group from the
+    /// stack.
+    ops_count: usize,
+
+    /// Maps hash algorithms to hash contexts.
     pub(crate) hashes: HashMap<HashAlgorithm, Box<Hash>>,
 }
 
-impl fmt::Debug for Cookie {
+impl fmt::Debug for SignatureGroup {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let algos = self.hashes.keys()
             .collect::<Vec<&HashAlgorithm>>();
 
         f.debug_struct("Cookie")
-            .field("level", &self.level)
-            .field("hashes_for", &self.hashes_for)
             .field("ops_count", &self.ops_count)
             .field("hashes", &algos)
             .finish()
+    }
+}
+
+impl Default for SignatureGroup {
+    fn default() -> Self {
+        SignatureGroup {
+            ops_count: 0,
+            hashes: HashMap::new(),
+        }
     }
 }
 
@@ -423,8 +442,7 @@ impl Default for Cookie {
             level: None,
             hashing: true,
             hashes_for: HashesFor::Nothing,
-            ops_count: 0,
-            hashes: HashMap::new(),
+            sig_groups: vec![Default::default()],
         }
     }
 }
@@ -435,9 +453,27 @@ impl Cookie {
             level: Some(recursion_depth as isize),
             hashing: true,
             hashes_for: HashesFor::Nothing,
-            ops_count: 0,
-            hashes: HashMap::new(),
+            sig_groups: vec![Default::default()],
         }
+    }
+
+    /// Returns a reference to the topmost signature group.
+    pub(crate) fn sig_group(&self) -> &SignatureGroup {
+        assert!(self.sig_groups.len() > 0);
+        &self.sig_groups[self.sig_groups.len() - 1]
+    }
+
+    /// Returns a mutable reference to the topmost signature group.
+    pub(crate) fn sig_group_mut(&mut self) -> &mut SignatureGroup {
+        assert!(self.sig_groups.len() > 0);
+        let len = self.sig_groups.len();
+        &mut self.sig_groups[len - 1]
+    }
+
+    /// Tests whether the topmost signature group is no longer used.
+    fn sig_group_unused(&self) -> bool {
+        assert!(self.sig_groups.len() > 0);
+        self.sig_groups[self.sig_groups.len() - 1].ops_count == 0
     }
 }
 
@@ -808,18 +844,21 @@ impl Signature {
                         }
 
                     if cookie.hashes_for == HashesFor::Signature {
-                        cookie.ops_count -= 1;
-                        if let Some(hash) = cookie.hashes.get(&sig.hash_algo) {
+                        cookie.sig_group_mut().ops_count -= 1;
+                        if let Some(hash) =
+                            cookie.sig_group().hashes.get(&sig.hash_algo)
+                        {
                             if TRACE {
                                 eprintln!("{}PacketParser::parse(): \
                                            popped a {:?} HashedReader",
                                           indent(recursion_depth as u8),
                                           sig.hash_algo);
                             }
-                            if cookie.ops_count == 0 {
-                                cookie.hashes_for = HashesFor::Nothing;
-                            }
                             computed_hash = Some((sig.hash_algo, hash.clone()));
+                        }
+
+                        if cookie.sig_group_unused() {
+                            cookie.hashes_for = HashesFor::Nothing;
                         }
                         break;
                     }
@@ -964,14 +1003,17 @@ impl OnePassSig {
                                 // Make sure that it uses the required
                                 // hash algorithm.
 
-                                if ! cookie.hashes.contains_key(&hash_algo) {
+                                if ! cookie.sig_group()
+                                    .hashes.contains_key(&hash_algo)
+                                {
                                     if let Ok(ctx) = hash_algo.context() {
-                                        cookie.hashes.insert(hash_algo, ctx);
+                                        cookie.sig_group_mut()
+                                            .hashes.insert(hash_algo, ctx);
                                     }
                                 }
 
                                 // Account for this OPS packet.
-                                cookie.ops_count += 1;
+                                cookie.sig_group_mut().ops_count += 1;
 
                                 // We're done.
                                 done = true;
@@ -1017,7 +1059,7 @@ impl OnePassSig {
             reader, HashesFor::Signature, algos);
         reader.cookie_mut().level = Some(recursion_depth as isize - 1);
         // Account for this OPS packet.
-        reader.cookie_mut().ops_count += 1;
+        reader.cookie_mut().sig_group_mut().ops_count += 1;
 
         if TRACE {
             eprintln!("{}OnePassSig::parse: \
@@ -1544,8 +1586,8 @@ impl MDC {
                 {
                     let state = bio.cookie_mut();
                     if state.hashes_for == HashesFor::MDC {
-                        if state.hashes.len() > 0 {
-                            let mut h = state.hashes
+                        if state.sig_group().hashes.len() > 0 {
+                            let mut h = state.sig_group_mut().hashes
                                 .get_mut(&HashAlgorithm::SHA1)
                                 .unwrap();
                             h.digest(&mut computed_hash);

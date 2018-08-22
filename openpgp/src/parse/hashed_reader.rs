@@ -28,7 +28,7 @@ impl<R: BufferedReader<Cookie>> HashedReader<R> {
             -> Self {
         let mut cookie = Cookie::default();
         for &algo in &algos {
-            cookie.hashes.insert(algo, algo.context().unwrap());
+            cookie.sig_group_mut().hashes.insert(algo, algo.context().unwrap());
         }
         cookie.hashes_for = hashes_for;
 
@@ -44,7 +44,7 @@ impl Cookie {
         if TRACE {
             eprintln!("{}hash_update({} bytes, {} hashes, enabled: {})",
                       indent(cmp::max(0, self.level.unwrap_or(0)) as u8),
-                      data.len(), self.hashes.len(), self.hashing);
+                      data.len(), self.sig_group().hashes.len(), self.hashing);
         }
 
         if ! self.hashing {
@@ -57,11 +57,13 @@ impl Cookie {
             return;
         }
 
-        for (algo, ref mut h) in self.hashes.iter_mut() {
+        let level = self.level.unwrap_or(0);
+        let hashes_for = self.hashes_for;
+        for (algo, ref mut h) in self.sig_group_mut().hashes.iter_mut() {
             if TRACE {
                 eprintln!("{}  hash_update({:?}): {:?} hashing {} bytes.",
-                          indent(cmp::max(0, self.level.unwrap_or(0)) as u8),
-                          self.hashes_for, algo, data.len());
+                          indent(cmp::max(0, level) as u8),
+                          hashes_for, algo, data.len());
                 if false {
                     eprintln!("{}", ::conversions::to_hex(data, true));
                 }
@@ -235,7 +237,7 @@ mod test {
 
             let cookie = reader.cookie_mut();
 
-            let mut hashes = mem::replace(&mut cookie.hashes,
+            let mut hashes = mem::replace(&mut cookie.sig_group_mut().hashes,
                                           Default::default());
             for (algo, ref mut hash) in hashes.iter_mut() {
                 let mut digest = vec![0u8; hash.digest_size()];

@@ -679,8 +679,9 @@ pub fn hash_file<R: Read>(reader: R, algos: &[HashAlgorithm])
     // Hash all of the data.
     reader.drop_eof()?;
 
-    let mut hashes = mem::replace(&mut reader.cookie_mut().hashes,
-                                  Default::default());
+    let mut hashes =
+        mem::replace(&mut reader.cookie_mut().sig_group_mut().hashes,
+                     Default::default());
     let hashes = hashes.drain().collect();
     Ok(hashes)
 }
