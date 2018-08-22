@@ -32,7 +32,7 @@ fn main() {
     let sink = armor::Writer::new(io::stdout(), armor::Kind::Message, &[][..])
         .expect("Failed to create an armored writer.");
 
-    // Now, create a signer that emits a detached signature.
+    // Now, create a signer that emits a signature.
     let signer = Signer::new(
         wrap(sink), &tsks.iter().collect::<Vec<&openpgp::TPK>>())
         .expect("Failed to create signer");
