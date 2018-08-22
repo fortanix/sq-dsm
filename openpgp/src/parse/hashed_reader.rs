@@ -8,7 +8,7 @@ use buffered_reader::BufferedReader;
 use buffered_reader::buffered_reader_generic_read_impl;
 
 use HashAlgorithm;
-use parse::{Cookie, HashesFor};
+use parse::{Cookie, HashesFor, Hashing};
 
 use super::indent;
 
@@ -42,12 +42,12 @@ impl<R: BufferedReader<Cookie>> HashedReader<R> {
 impl Cookie {
     fn hash_update(&mut self, data: &[u8]) {
         if TRACE {
-            eprintln!("{}hash_update({} bytes, {} hashes, enabled: {})",
+            eprintln!("{}hash_update({} bytes, {} hashes, enabled: {:?})",
                       indent(cmp::max(0, self.level.unwrap_or(0)) as u8),
                       data.len(), self.sig_group().hashes.len(), self.hashing);
         }
 
-        if ! self.hashing {
+        if self.hashing == Hashing::Disabled {
             if TRACE {
                 eprintln!("{}  hash_update: NOT hashing {} bytes: {}.",
                           indent(cmp::max(0, self.level.unwrap_or(0)) as u8),

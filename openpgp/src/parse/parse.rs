@@ -345,6 +345,15 @@ pub(crate) enum HashesFor {
     Signature,
 }
 
+/// Controls whether or not a hashed reader hashes data.
+#[derive(Copy, Clone, PartialEq, Debug)]
+enum Hashing {
+    /// Hashing is enabled.
+    Enabled,
+    /// Hashing is disabled.
+    Disabled,
+}
+
 
 #[derive(Debug)]
 pub(crate) struct Cookie {
@@ -399,7 +408,7 @@ pub(crate) struct Cookie {
     level: Option<isize>,
 
     hashes_for: HashesFor,
-    hashing: bool,
+    hashing: Hashing,
     sig_groups: Vec<SignatureGroup>,
 }
 
@@ -440,7 +449,7 @@ impl Default for Cookie {
     fn default() -> Self {
         Cookie {
             level: None,
-            hashing: true,
+            hashing: Hashing::Enabled,
             hashes_for: HashesFor::Nothing,
             sig_groups: vec![Default::default()],
         }
@@ -451,7 +460,7 @@ impl Cookie {
     fn new(recursion_depth: usize) -> Cookie {
         Cookie {
             level: Some(recursion_depth as isize),
-            hashing: true,
+            hashing: Hashing::Enabled,
             hashes_for: HashesFor::Nothing,
             sig_groups: vec![Default::default()],
         }
@@ -484,7 +493,7 @@ impl Cookie {
     // Thus to disable the hashing of a level 3 literal packet's
     // meta-data, we disable hashing at level 2.
     fn hashing(reader: &mut BufferedReader<Cookie>,
-               enabled: bool, level: isize) {
+               how: Hashing, level: isize) {
         let mut reader : Option<&mut BufferedReader<Cookie>>
             = Some(reader);
         while let Some(r) = reader {
@@ -496,7 +505,7 @@ impl Cookie {
                     }
                     if br_level == level
                         && cookie.hashes_for == HashesFor::Signature {
-                        cookie.hashing = enabled;
+                        cookie.hashing = how;
                     }
                 } else {
                     break;
@@ -1361,7 +1370,8 @@ impl Literal {
         }))?;
 
         // Enable hashing of the body.
-        Cookie::hashing(pp.mut_reader(), true, recursion_depth as isize - 1);
+        Cookie::hashing(pp.mut_reader(), Hashing::Enabled,
+                        recursion_depth as isize - 1);
 
         Ok(pp)
     }
@@ -2293,7 +2303,7 @@ impl <'a> PacketParser<'a> {
         if tag == Tag::Literal || tag == Tag::OnePassSig
             || tag == Tag::Signature {
             Cookie::hashing(
-                &mut bio, false, recursion_depth as isize - 1);
+                &mut bio, Hashing::Disabled, recursion_depth as isize - 1);
         }
 
         // Save header for the map.
@@ -2371,7 +2381,7 @@ impl <'a> PacketParser<'a> {
 
         if tag == Tag::OnePassSig {
             Cookie::hashing(
-                &mut result, true, recursion_depth as isize - 1);
+                &mut result, Hashing::Enabled, recursion_depth as isize - 1);
         }
 
         if trace {

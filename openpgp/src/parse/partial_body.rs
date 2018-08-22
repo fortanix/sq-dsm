@@ -5,7 +5,7 @@ use std::io::{Error, ErrorKind};
 
 use buffered_reader::{buffered_reader_generic_read_impl, BufferedReader};
 use BodyLength;
-use parse::Cookie;
+use parse::{Cookie, Hashing};
 
 const TRACE : bool = false;
 
@@ -158,7 +158,7 @@ impl<T: BufferedReader<Cookie>> BufferedReaderPartialBodyFilter<T> {
             if ! self.hash_headers {
                 if let Some(level) = self.reader.cookie_ref().level {
                     Cookie::hashing(
-                        &mut self.reader, false, level);
+                        &mut self.reader, Hashing::Disabled, level);
                 }
             }
 
@@ -171,7 +171,7 @@ impl<T: BufferedReader<Cookie>> BufferedReaderPartialBodyFilter<T> {
             if ! self.hash_headers {
                 if let Some(level) = self.reader.cookie_ref().level {
                     Cookie::hashing(
-                        &mut self.reader, true, level);
+                        &mut self.reader, Hashing::Enabled, level);
                 }
             }
 
