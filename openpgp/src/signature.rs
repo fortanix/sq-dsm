@@ -611,6 +611,16 @@ mod test {
                 data: &"signed-twice-by-ed25519.pgp"[..],
                 good: 2,
             },
+            Test {
+                key: "neal.pgp",
+                data: "signed-1-notarized-by-ed25519.pgp",
+                good: 1,
+            },
+            Test {
+                key: "emmelie-dorothea-dina-samantha-awina-ed25519.pgp",
+                data: "signed-1-notarized-by-ed25519.pgp",
+                good: 1,
+            },
             // Check with the wrong key.
             Test {
                 key: &"neal.pgp"[..],
@@ -636,7 +646,7 @@ mod test {
                 path_to(&format!("messages/{}", test.data)[..])).unwrap();
             while let PacketParserResult::Some(mut pp) = ppr {
                 if let Packet::Signature(ref sig) = pp.packet {
-                    let result = sig.verify(tpk.primary()).unwrap();
+                    let result = sig.verify(tpk.primary()).unwrap_or(false);
                     eprintln!("  Primary {:?}: {:?}",
                               tpk.primary().fingerprint(), result);
                     if result {
@@ -644,7 +654,7 @@ mod test {
                     }
 
                     for sk in &tpk.subkeys {
-                        let result = sig.verify(sk.subkey()).unwrap();
+                        let result = sig.verify(sk.subkey()).unwrap_or(false);
                         eprintln!("   Subkey {:?}: {:?}",
                                   sk.subkey().fingerprint(), result);
                         if result {

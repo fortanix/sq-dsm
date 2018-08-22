@@ -133,6 +133,7 @@ pub(crate) struct PacketHeaderParser<'a> {
 
     // The current packet's header.
     header: Header,
+    header_bytes: Vec<u8>,
 
     // This packet's recursion depth.
     //
@@ -213,14 +214,22 @@ impl<'a> PacketHeaderParser<'a> {
     fn new(inner: Box<'a + BufferedReader<Cookie>>,
            state: PacketParserState,
            recursion_depth: u8, header: Header,
-           header_bytes: Option<Vec<u8>>) -> Self
+           header_bytes: Vec<u8>) -> Self
     {
+        let mut cookie = Cookie::default();
+        cookie.level = inner.cookie_ref().level;
+        let map = if state.settings.map {
+            Some(Map::new(header_bytes.clone()))
+        } else {
+            None
+        };
         PacketHeaderParser {
-            reader: BufferedReaderDup::with_cookie(inner, Default::default()),
+            reader: BufferedReaderDup::with_cookie(inner, cookie),
             header: header,
+            header_bytes: header_bytes.clone(),
             recursion_depth: recursion_depth,
             state: state,
-            map: header_bytes.map(|h| Map::new(h)),
+            map: map,
         }
     }
 
@@ -237,7 +246,7 @@ impl<'a> PacketHeaderParser<'a> {
                                     ctb: CTB::new(Tag::Reserved),
                                     length: BodyLength::Full(0),
                                 },
-                                None)
+                                Vec::new())
     }
 
     // Consumes the bytes belonging to the packet's header (i.e., the
@@ -350,6 +359,8 @@ pub(crate) enum HashesFor {
 enum Hashing {
     /// Hashing is enabled.
     Enabled,
+    /// Hashing is enabled for notarized signatures.
+    Notarized,
     /// Hashing is disabled.
     Disabled,
 }
@@ -409,7 +420,22 @@ pub(crate) struct Cookie {
 
     hashes_for: HashesFor,
     hashing: Hashing,
+
+    /// Keeps track of whether the last one pass signature packet had
+    /// the last flag set.
+    saw_last: bool,
     sig_groups: Vec<SignatureGroup>,
+
+    /// Stashed bytes that need to be hashed.
+    ///
+    /// When checking nested signatures, we need to hash the framing.
+    /// However, at the time we know that we want to hash it, it has
+    /// already been consumed.  Deferring the consumption of headers
+    /// failed due to complications with the partial body decoder
+    /// eagerly consuming data.  I (Justus) decided that doing the
+    /// right thing is not worth the trouble, at least for now.  Also,
+    /// hash stash sounds funny.
+    hash_stash: Option<Vec<u8>>,
 }
 
 /// Contains hashes for consecutive one pass signature packets ending
@@ -445,13 +471,23 @@ impl Default for SignatureGroup {
     }
 }
 
+impl SignatureGroup {
+    /// Clears the signature group.
+    fn clear(&mut self) {
+        self.ops_count = 0;
+        self.hashes.clear();
+    }
+}
+
 impl Default for Cookie {
     fn default() -> Self {
         Cookie {
             level: None,
             hashing: Hashing::Enabled,
             hashes_for: HashesFor::Nothing,
+            saw_last: false,
             sig_groups: vec![Default::default()],
+            hash_stash: None,
         }
     }
 }
@@ -462,7 +498,9 @@ impl Cookie {
             level: Some(recursion_depth as isize),
             hashing: Hashing::Enabled,
             hashes_for: HashesFor::Nothing,
+            saw_last: false,
             sig_groups: vec![Default::default()],
+            hash_stash: None,
         }
     }
 
@@ -483,6 +521,22 @@ impl Cookie {
     fn sig_group_unused(&self) -> bool {
         assert!(self.sig_groups.len() > 0);
         self.sig_groups[self.sig_groups.len() - 1].ops_count == 0
+    }
+
+    /// Pushes a new signature group to the stack.
+    fn sig_group_push(&mut self) {
+        self.sig_groups.push(Default::default());
+    }
+
+    /// Pops a signature group from the stack.
+    fn sig_group_pop(&mut self) {
+        if self.sig_groups.len() == 1 {
+            // Don't pop the last one, just clear it.
+            self.sig_groups[0].clear();
+            self.hashes_for = HashesFor::Nothing;
+        } else {
+            self.sig_groups.pop();
+        }
     }
 }
 
@@ -752,7 +806,7 @@ pub(crate) fn to_unknown_packet<R: Read>(reader: R) -> Result<Unknown>
     };
 
     let parser = PacketHeaderParser::new(
-        reader, PacketParserState::new(Default::default()), 0, header, None);
+        reader, PacketParserState::new(Default::default()), 0, header, Vec::new());
     let mut pp = Unknown::parse(parser)?;
     pp.buffer_unread_content()?;
     pp.finish()?;
@@ -816,28 +870,29 @@ impl Signature {
         let hash_prefix2 = php_try!(php.parse_u8("hash_prefix2"));
         let mpis = php_try!(MPIs::parse_signature(pk_algo, &mut php));
 
-        let mut sig = Signature {
+        let hash_algo = hash_algo.into();
+        let mut pp = php.ok(Packet::Signature(Signature {
             common: Default::default(),
             version: version,
             sigtype: sigtype.into(),
             pk_algo: pk_algo.into(),
-            hash_algo: hash_algo.into(),
+            hash_algo: hash_algo,
             hashed_area: SubpacketArea::new(hashed_area),
             unhashed_area: SubpacketArea::new(unhashed_area),
             hash_prefix: [hash_prefix1, hash_prefix2],
             mpis: mpis,
             computed_hash: None,
-        };
+        }))?;
 
         // Locate the corresponding HashedReader and extract the
         // computed hash.
         let mut computed_hash = None;
         {
-            let recursion_depth = php.recursion_depth;
+            let recursion_depth = pp.recursion_depth;
 
             // We know that the top reader is not a HashedReader (it's
             // a BufferedReaderDup).  So, start with it's child.
-            let mut r = (&mut php.reader).get_mut();
+            let mut r = (&mut pp.reader).get_mut();
             while let Some(tmp) = r {
                 {
                     let cookie = tmp.cookie_mut();
@@ -855,19 +910,19 @@ impl Signature {
                     if cookie.hashes_for == HashesFor::Signature {
                         cookie.sig_group_mut().ops_count -= 1;
                         if let Some(hash) =
-                            cookie.sig_group().hashes.get(&sig.hash_algo)
+                            cookie.sig_group().hashes.get(&hash_algo)
                         {
                             if TRACE {
                                 eprintln!("{}PacketParser::parse(): \
                                            popped a {:?} HashedReader",
                                           indent(recursion_depth as u8),
-                                          sig.hash_algo);
+                                          hash_algo);
                             }
-                            computed_hash = Some((sig.hash_algo, hash.clone()));
+                            computed_hash = Some((hash_algo, hash.clone()));
                         }
 
                         if cookie.sig_group_unused() {
-                            cookie.hashes_for = HashesFor::Nothing;
+                            cookie.sig_group_pop();
                         }
                         break;
                     }
@@ -878,15 +933,19 @@ impl Signature {
         }
 
         if let Some((algo, mut hash)) = computed_hash {
-            sig.hash(&mut hash);
+            if let Packet::Signature(ref mut sig) = pp.packet {
+                sig.hash(&mut hash);
 
-            let mut digest = vec![0u8; hash.digest_size()];
-            hash.digest(&mut digest);
+                let mut digest = vec![0u8; hash.digest_size()];
+                hash.digest(&mut digest);
 
-            sig.computed_hash = Some((algo, digest));
+                sig.computed_hash = Some((algo, digest));
+            } else {
+                unreachable!()
+            }
         }
 
-        php.ok(Packet::Signature(sig))
+        Ok(pp)
     }
 
     /// Returns whether the data appears to be a signature (no promises).
@@ -981,7 +1040,7 @@ impl OnePassSig {
         let last = php_try!(php.parse_u8("last"));
 
         let hash_algo = hash_algo.into();
-        let mut pp = php.ok(Packet::OnePassSig(OnePassSig {
+        let sig = OnePassSig {
             common: Default::default(),
             version: version,
             sigtype: sigtype.into(),
@@ -989,16 +1048,16 @@ impl OnePassSig {
             pk_algo: pk_algo.into(),
             issuer: KeyID::from_bytes(&issuer),
             last: last,
-        }))?;
+        };
 
-        let recursion_depth = pp.recursion_depth as isize;
+        let recursion_depth = php.recursion_depth as isize;
 
         // Walk up the reader chain to see if there is already a
         // hashed reader on level recursion_depth - 1.
         let done = {
             let mut done = false;
             let mut reader : Option<&mut BufferedReader<Cookie>>
-                = Some(&mut pp.reader);
+                = Some(&mut php.reader);
             while let Some(r) = reader {
                 {
                     let cookie = r.cookie_mut();
@@ -1009,9 +1068,15 @@ impl OnePassSig {
                         if br_level == recursion_depth - 1
                             && cookie.hashes_for == HashesFor::Signature {
                                 // We found a suitable hashed reader.
+                                if cookie.saw_last {
+                                    cookie.sig_group_push();
+                                    cookie.saw_last = false;
+                                    cookie.hash_stash =
+                                        Some(php.header_bytes.clone());
+                                }
+
                                 // Make sure that it uses the required
                                 // hash algorithm.
-
                                 if ! cookie.sig_group()
                                     .hashes.contains_key(&hash_algo)
                                 {
@@ -1023,6 +1088,9 @@ impl OnePassSig {
 
                                 // Account for this OPS packet.
                                 cookie.sig_group_mut().ops_count += 1;
+
+                                // Keep track of the last flag.
+                                cookie.saw_last = last > 0;
 
                                 // We're done.
                                 done = true;
@@ -1036,6 +1104,8 @@ impl OnePassSig {
             }
             done
         };
+        // Commit here after potentially pushing a signature group.
+        let mut pp = php.ok(Packet::OnePassSig(sig))?;
         if done {
             return Ok(pp);
         }
@@ -1069,6 +1139,8 @@ impl OnePassSig {
         reader.cookie_mut().level = Some(recursion_depth as isize - 1);
         // Account for this OPS packet.
         reader.cookie_mut().sig_group_mut().ops_count += 1;
+        // Keep track of the last flag.
+        reader.cookie_mut().saw_last = last > 0;
 
         if TRACE {
             eprintln!("{}OnePassSig::parse: \
@@ -2287,33 +2359,26 @@ impl <'a> PacketParser<'a> {
         }
         let tag = header.ctb.tag;
 
-        // We've extracted the hash context (if required).  Now, we
-        // rip off the BufferedReaderDup and actually consume the
-        // header.
+        // Prepare to actually consume the header.
         let consumed = bio.total_out();
+
         // A BufferedReaderDup always has an inner.
         let mut bio = Box::new(bio).into_inner().unwrap();
 
-        // If we have multiple one pass signature packets in a row,
-        // then we (XXX: incorrectly!, but gpg doesn't support this
-        // case either) assume that only the last one pass signature
-        // packet has the `last` bit set and therefore the one pass
-        // signature packets should not be included in any preceeding
-        // one pass signature packet's hashes.
-        if tag == Tag::Literal || tag == Tag::OnePassSig
-            || tag == Tag::Signature {
+        // Disable hashing for literal packets, Literal::parse will
+        // enable it for the body.  Signatures and OnePassSig packets
+        // are only hashed by notarizing signatures.
+        if tag == Tag::Literal {
             Cookie::hashing(
                 &mut bio, Hashing::Disabled, recursion_depth as isize - 1);
+        } else if tag == Tag::OnePassSig || tag == Tag::Signature {
+            Cookie::hashing(
+                &mut bio, Hashing::Notarized, recursion_depth as isize - 1);
         }
 
-        // Save header for the map.
-        let header_bytes = if state.settings.map {
-            Some(Vec::from(&bio.data_consume_hard(consumed)?[..consumed]))
-        } else {
-            // Or not.
-            bio.consume(consumed);
-            None
-        };
+        // Save header for the map or nested signatures.
+        let header_bytes =
+            Vec::from(&bio.data_consume_hard(consumed)?[..consumed]);
 
         let bio : Box<BufferedReader<Cookie>>
             = match header.length {

@@ -41,6 +41,15 @@ impl<R: BufferedReader<Cookie>> HashedReader<R> {
 
 impl Cookie {
     fn hash_update(&mut self, data: &[u8]) {
+        // Hash stashed data first.
+        if let Some(stashed_data) = self.hash_stash.take() {
+            self.hash_update(&stashed_data);
+        }
+
+        if data.len() == 0 {
+            return;
+        }
+
         if TRACE {
             eprintln!("{}hash_update({} bytes, {} hashes, enabled: {:?})",
                       indent(cmp::max(0, self.level.unwrap_or(0)) as u8),
@@ -59,16 +68,31 @@ impl Cookie {
 
         let level = self.level.unwrap_or(0);
         let hashes_for = self.hashes_for;
-        for (algo, ref mut h) in self.sig_group_mut().hashes.iter_mut() {
-            if TRACE {
-                eprintln!("{}  hash_update({:?}): {:?} hashing {} bytes.",
-                          indent(cmp::max(0, level) as u8),
-                          hashes_for, algo, data.len());
-                if false {
-                    eprintln!("{}", ::conversions::to_hex(data, true));
+        let ngroups = self.sig_groups.len();
+        let topmost_group = |i| i == ngroups - 1;
+        for (i, sig_group) in self.sig_groups.iter_mut().enumerate() {
+            if topmost_group(i) && self.hashing != Hashing::Enabled {
+                if TRACE {
+                    eprintln!(
+                        "{}  hash_update: topmost group {} NOT hashing {} bytes: {}.",
+                        indent(cmp::max(0, self.level.unwrap_or(0)) as u8),
+                        i, data.len(), ::conversions::to_hex(data, true));
                 }
+
+                return;
             }
-            h.update(data);
+
+            for (algo, ref mut h) in sig_group.hashes.iter_mut() {
+                if TRACE {
+                    eprintln!("{}  hash_update({:?}): group {} {:?} hashing {} bytes.",
+                              indent(cmp::max(0, level) as u8),
+                              hashes_for, i, algo, data.len());
+                    if false {
+                        eprintln!("{}", ::conversions::to_hex(data, true));
+                    }
+                }
+                h.update(data);
+            }
         }
     }
 }
