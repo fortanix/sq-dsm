@@ -2313,7 +2313,7 @@ impl <'a> PacketParser<'a> {
         // extract the hash context.
 
         let mut bio = BufferedReaderDup::with_cookie(bio, Cookie::default());
-        let header;
+        let mut header;
 
         // Read the header.
         let mut skip = 0;
@@ -2353,14 +2353,20 @@ impl <'a> PacketParser<'a> {
 
             skip = skip + 1;
         }
-        if skip > 0 {
-            // XXX: We have no way to return this diagnosis.
-            eprintln!("Skipped {} bytes of garbage.", skip);
-        }
-        let tag = header.ctb.tag;
 
-        // Prepare to actually consume the header.
-        let consumed = bio.total_out();
+        // Prepare to actually consume the header or garbage.
+        let consumed = if skip == 0 {
+            bio.total_out()
+        } else {
+            // Fabricate a header.
+            header = Header {
+                ctb: CTB::new(Tag::Reserved),
+                length: BodyLength::Full(skip as u32),
+            };
+            0
+        };
+
+        let tag = header.ctb.tag;
 
         // A BufferedReaderDup always has an inner.
         let mut bio = Box::new(bio).into_inner().unwrap();
@@ -3331,12 +3337,14 @@ mod test {
         let mut subkeys = 0;
         let mut userids = 0;
         let mut uas = 0;
+        let mut unknown = 0;
         while let PacketParserResult::Some(pp) = ppr {
-            match pp.packet.tag() {
-                Tag::Signature => sigs = sigs + 1,
-                Tag::PublicSubkey => subkeys = subkeys + 1,
-                Tag::UserID => userids = userids + 1,
-                Tag::UserAttribute => uas = uas + 1,
+            match pp.packet {
+                Packet::Signature(_) => sigs += 1,
+                Packet::PublicSubkey(_) => subkeys += 1,
+                Packet::UserID(_) => userids += 1,
+                Packet::UserAttribute(_) => uas += 1,
+                Packet::Unknown(_) => unknown += 1,
                 _ => (),
             }
 
@@ -3348,5 +3356,6 @@ mod test {
         assert_eq!(subkeys, 3);
         assert_eq!(userids, 5);
         assert_eq!(uas, 1);
+        assert_eq!(unknown, 1);
     }
 }
