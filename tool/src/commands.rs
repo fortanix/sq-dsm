@@ -7,7 +7,7 @@ use rpassword;
 
 extern crate openpgp;
 use openpgp::constants::DataFormat;
-use openpgp::{Packet, Key, TPK, KeyID, SecretKey, Signature};
+use openpgp::{Packet, Key, TPK, KeyID, SecretKey, Signature, Result};
 use openpgp::parse::PacketParserResult;
 use openpgp::serialize::stream::{
     wrap, Signer, LiteralWriter, Encryptor, EncryptionMode,
@@ -20,7 +20,7 @@ const INDENT: &'static str
 
 pub fn decrypt(input: &mut io::Read, output: &mut io::Write,
                secrets: Vec<TPK>, dump: bool, map: bool)
-           -> Result<(), failure::Error> {
+           -> Result<()> {
     let mut keys: HashMap<KeyID, Key> = HashMap::new();
     for tsk in secrets {
         let can_encrypt = |key: &Key, sig: &Signature| -> bool {
@@ -133,7 +133,7 @@ pub fn encrypt(store: &mut store::Store,
                input: &mut io::Read, output: &mut io::Write,
                npasswords: usize, recipients: Vec<&str>,
                mut tpks: Vec<openpgp::TPK>)
-               -> Result<(), failure::Error> {
+               -> Result<()> {
     for r in recipients {
         tpks.push(store.lookup(r).context("No such key found")?.tpk()?);
     }
@@ -172,7 +172,7 @@ pub fn encrypt(store: &mut store::Store,
 
 pub fn sign(input: &mut io::Read, output: &mut io::Write,
             secrets: Vec<openpgp::TPK>, detached: bool)
-            -> Result<(), failure::Error> {
+            -> Result<()> {
     let sink = wrap(output);
     // Build a vector of references to hand to Signer.
     let keys: Vec<&openpgp::TPK> = secrets.iter().collect();
@@ -203,7 +203,7 @@ pub fn sign(input: &mut io::Read, output: &mut io::Write,
 
 pub fn verify(input: &mut io::Read, output: &mut io::Write,
               tpks: Vec<TPK>)
-              -> Result<(), failure::Error> {
+              -> Result<()> {
     let mut keys: HashMap<KeyID, Key> = HashMap::new();
     for tpk in tpks {
         let can_sign = |key: &Key, sig: &Signature| -> bool {
@@ -288,7 +288,7 @@ pub fn verify(input: &mut io::Read, output: &mut io::Write,
 }
 
 pub fn dump(input: &mut io::Read, output: &mut io::Write, map: bool)
-        -> Result<(), failure::Error> {
+        -> Result<()> {
     let mut ppr
         = openpgp::parse::PacketParserBuilder::from_reader(input)?
         .map(map).finalize()?;
@@ -321,7 +321,7 @@ pub fn dump(input: &mut io::Read, output: &mut io::Write, map: bool)
 }
 
 pub fn split(input: &mut io::Read, prefix: &str)
-             -> Result<(), failure::Error> {
+             -> Result<()> {
     // We (ab)use the mapping feature to create byte-accurate dumps of
     // nested packets.
     let mut ppr =
