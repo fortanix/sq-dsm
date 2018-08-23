@@ -69,6 +69,7 @@ mod packet_parser_builder;
 pub use self::packet_parser_builder::PacketParserBuilder;
 
 pub mod mpis;
+pub mod stream;
 
 // Whether to trace execution by default (on stderr).
 const TRACE : bool = false;
