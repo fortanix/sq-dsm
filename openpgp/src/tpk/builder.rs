@@ -91,35 +91,45 @@ impl TPKBuilder {
     }
 
     /// Adds a signing capable subkey.
-    pub fn add_signing_subkey(mut self) -> Self {
-        self.subkeys.push(KeyBlueprint{
-            flags: KeyFlags::default().set_sign(true),
-        });
-        self
+    pub fn add_signing_subkey(self) -> Self {
+        self.add_subkey(KeyFlags::default().set_sign(true))
     }
 
     /// Adds an encryption capable subkey.
-    pub fn add_encryption_subkey(mut self) -> Self {
+    pub fn add_encryption_subkey(self) -> Self {
+        self.add_subkey(KeyFlags::default()
+                        .set_encrypt_for_transport(true)
+                        .set_encrypt_at_rest(true))
+    }
+
+    /// Adds an certification capable subkey.
+    pub fn add_certification_subkey(self) -> Self {
+        self.add_subkey(KeyFlags::default().set_certify(true))
+    }
+
+    /// Adds a custom subkey
+    pub fn add_subkey(mut self, flags: KeyFlags) -> Self {
         self.subkeys.push(KeyBlueprint{
-            flags: KeyFlags::default()
-                .set_encrypt_for_transport(true)
-                .set_encrypt_at_rest(true)
+            flags: flags
         });
         self
     }
 
-    /// Adds an certification capable subkey.
-    pub fn add_certification_subkey(mut self) -> Self {
-        self.subkeys.push(KeyBlueprint{
-            flags: KeyFlags::default()
-                .set_certify(true)
-        });
+    /// Sets the capabilities of the primary key. The function automatically makes the primary key
+    /// certification capable if subkeys are added.
+    pub fn primary_keyflags(mut self, flags: KeyFlags) -> Self {
+        self.primary.flags = flags;
         self
     }
 
     /// Generates the actual TPK.
     pub fn generate(mut self) -> Result<TPK> {
         use packet::Common;
+
+        // make sure the primary key can sign subkeys
+        if !self.subkeys.is_empty() {
+            self.primary.flags = self.primary.flags.set_certify(true);
+        }
 
         let first_uid = UserID{
             common: Common::default(),
@@ -285,6 +295,7 @@ impl TPKBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use subpacket::{SubpacketTag, Subpacket, SubpacketValue};
 
     #[test]
     fn all_opts() {
@@ -340,5 +351,42 @@ mod tests {
             .generate().unwrap();
         assert_eq!(tpk1.primary().pk_algo, PublicKeyAlgorithm::RSAEncryptSign);
         assert_eq!(tpk1.subkeys().next().unwrap().subkey().pk_algo, PublicKeyAlgorithm::RSAEncryptSign);
+    }
+
+    #[test]
+    fn always_certify() {
+        let tpk1 = TPKBuilder::default()
+            .primary_keyflags(KeyFlags::default())
+            .add_encryption_subkey()
+            .generate().unwrap();
+        let sig_pkts = &tpk1.userids().next().unwrap().selfsigs[0].hashed_area;
+
+        match sig_pkts.lookup(SubpacketTag::KeyFlags) {
+            Some(Subpacket{ value: SubpacketValue::KeyFlags(ref ks),.. }) => {
+                assert!(ks.can_certify());
+            }
+            _ => {}
+        }
+
+        assert_eq!(tpk1.subkeys().len(), 1);
+    }
+
+    #[test]
+    fn gen_wired_subkeys() {
+        let tpk1 = TPKBuilder::default()
+            .primary_keyflags(KeyFlags::default())
+            .add_subkey(KeyFlags::default().set_encrypt_for_transport(true).set_certify(true))
+            .generate().unwrap();
+        let sig_pkts = &tpk1.subkeys().next().unwrap().selfsigs[0].hashed_area;
+
+        match sig_pkts.lookup(SubpacketTag::KeyFlags) {
+            Some(Subpacket{ value: SubpacketValue::KeyFlags(ref ks),.. }) => {
+                assert!(ks.can_certify());
+                assert!(ks.can_encrypt_for_transport());
+            }
+            _ => {}
+        }
+
+        assert_eq!(tpk1.subkeys().len(), 1);
     }
 }
