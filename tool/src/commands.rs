@@ -9,6 +9,9 @@ extern crate openpgp;
 use openpgp::constants::DataFormat;
 use openpgp::{Packet, Key, TPK, KeyID, SecretKey, Signature, Result};
 use openpgp::parse::PacketParserResult;
+use openpgp::parse::stream::{
+    Verifier, VerificationResult, VerificationHelper,
+};
 use openpgp::serialize::stream::{
     wrap, Signer, LiteralWriter, Encryptor, EncryptionMode,
 };
@@ -201,89 +204,97 @@ pub fn sign(input: &mut io::Read, output: &mut io::Write,
     Ok(())
 }
 
+struct VHelper {
+    tpks: Option<Vec<TPK>>,
+    good: usize,
+    unknown: usize,
+    bad: usize,
+    error: Option<failure::Error>,
+}
+
+impl VHelper {
+    fn new(tpks: Vec<TPK>) -> Self {
+        VHelper {
+            tpks: Some(tpks),
+            good: 0,
+            unknown: 0,
+            bad: 0,
+            error: None,
+        }
+    }
+
+    fn get_error(&mut self) -> Result<()> {
+        if let Some(e) = self.error.take() {
+            Err(e)
+        } else {
+            Ok(())
+        }
+    }
+
+    fn print_status(&self) {
+        eprintln!("{} good signatures, {} bad signatures, {} not checked.",
+                  self.good, self.bad, self.unknown);
+    }
+
+    fn success(&self) -> bool {
+        self.good > 0 && self.bad == 0
+    }
+}
+
+impl VerificationHelper for VHelper {
+    fn get_public_keys(&mut self, _ids: &[KeyID]) -> Result<Vec<TPK>> {
+        Ok(self.tpks.take().unwrap())
+    }
+
+    fn result(&mut self, result: VerificationResult) -> Result<()> {
+        use self::VerificationResult::*;
+        match result {
+            Good(sig) => {
+                eprintln!("Good signature from {}",
+                          sig.get_issuer().unwrap());
+                self.good += 1;
+            },
+            Unknown(sig) => {
+                eprintln!("No key to check signature from {}",
+                          sig.get_issuer().unwrap());
+                self.unknown += 1;
+            },
+            Bad(sig) => {
+                if let Some(issuer) = sig.get_issuer() {
+                    eprintln!("Bad signature from {}", issuer);
+                } else {
+                    eprintln!("Bad signature without issuer information");
+                }
+                self.bad += 1;
+            },
+        }
+        Ok(())
+    }
+
+    fn error(&mut self, error: failure::Error) {
+        self.error = Some(error);
+    }
+}
+
 pub fn verify(input: &mut io::Read, output: &mut io::Write,
               tpks: Vec<TPK>)
               -> Result<()> {
-    let mut keys: HashMap<KeyID, Key> = HashMap::new();
-    for tpk in tpks {
-        let can_sign = |key: &Key, sig: &Signature| -> bool {
-            sig.key_flags().can_sign()
-            // Check expiry.
-                && sig.signature_alive()
-                && sig.key_alive(key)
-        };
+    let helper = VHelper::new(tpks);
+    let mut verifier = Verifier::from_reader(input, helper)?;
 
-        if tpk.primary_key_signature()
-            .map(|sig| can_sign(tpk.primary(), sig))
-            .unwrap_or(false)
-        {
-            keys.insert(tpk.fingerprint().to_keyid(), tpk.primary().clone());
-        }
-
-        for skb in tpk.subkeys() {
-            let key = skb.subkey();
-            if can_sign(key, skb.binding_signature()) {
-                keys.insert(key.fingerprint().to_keyid(), key.clone());
-            }
+    if verifier.helper_ref().bad == 0 {
+        if let Err(e) = io::copy(&mut verifier, output) {
+            verifier.helper_mut().get_error()?;
+            Err(e)?;
         }
     }
 
-    let mut nsigs = 0;
-    let mut good = 0;
-    let mut bad = 0;
-    let mut ppr
-        = openpgp::parse::PacketParserBuilder::from_reader(input)?
-        .finalize()?;
-
-    while let PacketParserResult::Some(mut pp) = ppr {
-        if ! pp.possible_message() {
-            return Err(failure::err_msg("Malformed OpenPGP message"));
-        }
-
-        match pp.packet {
-            Packet::Signature(ref sig) => {
-                nsigs += 1;
-                if let Some(issuer) = sig.get_issuer() {
-                    if let Some(key) = keys.get(&issuer) {
-                        if sig.verify(key).unwrap_or(false) {
-                            eprintln!("Good signature from {}", issuer);
-                            good += 1;
-                        } else {
-                            eprintln!("Bad signature from {}", issuer);
-                            bad += 1;
-                        }
-                    } else {
-                        eprintln!("No key to check signature from {}", issuer);
-                    }
-                } else {
-                    eprintln!("No issuer information in signature.");
-                    bad += 1;
-                }
-            },
-            Packet::Literal(_) => {
-                // XXX buffer first
-                io::copy(&mut pp, output)?;
-            },
-            _ => (),
-        }
-
-        let (_, _, ppr_tmp, _) = pp.recurse()?;
-        ppr = ppr_tmp;
-    }
-    if let PacketParserResult::EOF(eof) = ppr {
-        if ! eof.is_message() {
-            Err(failure::err_msg("Malformed OpenPGP message"))
-        } else {
-            eprintln!("{} good signatures, {} bad signatures, {} not checked.",
-                      good, bad, nsigs - good - bad);
-            if good > 0 && bad == 0 {
-                Ok(())
-            } else {
-                Err(failure::err_msg("Signature verification failed"))
-            }
-        }
+    let helper = verifier.into_helper();
+    helper.print_status();
+    if helper.success() {
+        Ok(())
     } else {
-        unreachable!()
+        Err(failure::err_msg("Verification failed"))
     }
 }
 
