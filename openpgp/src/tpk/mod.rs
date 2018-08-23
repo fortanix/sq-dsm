@@ -1373,6 +1373,17 @@ impl TPK {
             a.subkey.mpis.cmp(&b.subkey.mpis)
         });
 
+        // In case we have subkeys bound to the primary, it must be certification capable.
+        if ! self.subkeys.is_empty() {
+            let pk_can_certify = self.userids.last()
+                .map(|uid| uid.binding_signature().key_flags().can_certify())
+                .unwrap_or(false);
+
+            if ! pk_can_certify {
+                // Primary not certification capable, all binding sigs are invalid.
+                self.subkeys.clear();
+            }
+        }
 
         // XXX Do some more canonicalization.
 
