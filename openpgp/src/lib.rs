@@ -247,20 +247,20 @@ pub struct Unknown {
 #[derive(Clone)]
 pub struct OnePassSig {
     /// CTB packet header fields.
-    pub common: packet::Common,
+    common: packet::Common,
     /// One-pass-signature packet version. Must be 3.
-    pub version: u8,
+    version: u8,
     /// Type of the signature.
-    pub sigtype: SignatureType,
+    sigtype: SignatureType,
     /// Hash algorithm used to compute the signature.
-    pub hash_algo: HashAlgorithm,
+    hash_algo: HashAlgorithm,
     /// Public key algorithm of this signature.
-    pub pk_algo: PublicKeyAlgorithm,
+    pk_algo: PublicKeyAlgorithm,
     /// Key ID of the signing key.
-    pub issuer: KeyID,
+    issuer: KeyID,
     /// A one-octet number holding a flag showing whether the signature
     /// is nested.
-    pub last: u8,
+    last: u8,
 }
 
 /// Holds a public key, public subkey, private key or private subkey packet.

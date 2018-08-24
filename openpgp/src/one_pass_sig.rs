@@ -44,34 +44,54 @@ impl OnePassSig {
         }
     }
 
+    /// Gets the signature type.
+    pub fn sigtype(&self) -> SignatureType {
+        self.sigtype
+    }
+
     /// Sets the signature type.
-    pub fn sigtype(mut self, t: SignatureType) -> Self {
+    pub fn set_sigtype(&mut self, t: SignatureType) {
         self.sigtype = t;
-        self
+    }
+
+    /// Gets the public key algorithm.
+    pub fn pk_algo(&self) -> PublicKeyAlgorithm {
+        self.pk_algo
     }
 
     /// Sets the public key algorithm.
-    pub fn pk_algo(mut self, algo: PublicKeyAlgorithm) -> Self {
+    pub fn set_pk_algo(&mut self, algo: PublicKeyAlgorithm) {
         self.pk_algo = algo;
-        self
+    }
+
+    /// Gets the hash algorithm.
+    pub fn hash_algo(&self) -> HashAlgorithm {
+        self.hash_algo
     }
 
     /// Sets the hash algorithm.
-    pub fn hash_algo(mut self, algo: HashAlgorithm) -> Self {
+    pub fn set_hash_algo(&mut self, algo: HashAlgorithm) {
         self.hash_algo = algo;
-        self
+    }
+
+    /// Gets the issuer.
+    pub fn issuer(&self) -> &KeyID {
+        &self.issuer
     }
 
     /// Sets the issuer.
-    pub fn issuer(mut self, issuer: KeyID) -> Self {
+    pub fn set_issuer(&mut self, issuer: KeyID) {
         self.issuer = issuer;
-        self
+    }
+
+    /// Gets the last flag.
+    pub fn last(&self) -> bool {
+        self.last > 0
     }
 
     /// Sets the last flag.
-    pub fn last(mut self, last: bool) -> Self {
+    pub fn set_last(&mut self, last: bool) {
         self.last = if last { 1 } else { 0 };
-        self
     }
 
     /// Convert the `OnePassSig` struct to a `Packet`.

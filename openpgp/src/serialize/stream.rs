@@ -313,12 +313,12 @@ impl<'a> Signer<'a> {
             // For every key we collected, build and emit a one pass
             // signature packet.
             for (i, key) in signing_keys.iter().enumerate() {
-                OnePassSig::new(SignatureType::Binary)
-                    .pk_algo(key.pk_algo)
-                    .hash_algo(hash_algo)
-                    .issuer(key.fingerprint().to_keyid())
-                    .last(i == signing_keys.len() - 1)
-                    .serialize(&mut inner)?;
+                let mut ops = OnePassSig::new(SignatureType::Binary);
+                ops.set_pk_algo(key.pk_algo);
+                ops.set_hash_algo(hash_algo);
+                ops.set_issuer(key.fingerprint().to_keyid());
+                ops.set_last(i == signing_keys.len() - 1);
+                ops.serialize(&mut inner)?;
             }
         }
 
