@@ -1310,7 +1310,7 @@ pub extern "system" fn sq_packet_parser_next<'a>
     };
 
     match pp.next() {
-        Ok((old_p, old_rl, pp, new_rl)) => {
+        Ok(((old_p, old_rl), (pp, new_rl))) => {
             if let Some(p) = old_packet {
                 *p = box_raw!(old_p);
             }
@@ -1365,7 +1365,7 @@ pub extern "system" fn sq_packet_parser_recurse<'a>
     };
 
     match pp.recurse() {
-        Ok((old_p, old_rl, pp, new_rl)) => {
+        Ok(((old_p, old_rl), (pp, new_rl))) => {
             if let Some(p) = old_packet {
                 *p = box_raw!(old_p);
             }

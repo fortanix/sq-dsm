@@ -59,7 +59,7 @@ fn main() {
         };
 
         // Get the packet and advance the parser.
-        let (packet, _, tmp, _) = pp.next()
+        let ((packet, _), (tmp, _)) = pp.next()
             .expect("Failed to get next packet");
         ppr = tmp;
 

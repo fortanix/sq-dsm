@@ -861,7 +861,7 @@ impl<'a, I: Iterator<Item=Packet>> Iterator for TPKParser<'a, I> {
                 },
                 PacketSource::PacketParser(pp) => {
                     match pp.next() {
-                        Ok((packet, _, ppr, _)) => {
+                        Ok(((packet, _), (ppr, _))) => {
                             if let PacketParserResult::Some(pp) = ppr {
                                 self.source = PacketSource::PacketParser(pp);
                             }

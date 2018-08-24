@@ -192,7 +192,7 @@ impl<'a> PacketPileParser<'a> {
             match self.ppr.take() {
                 PacketParserResult::Some(pp) => {
                     match pp.recurse() {
-                        Ok((packet, position, ppr, _)) => {
+                        Ok(((packet, position), (ppr, _))) => {
                             self.insert_packet(packet, position);
                             self.ppr = ppr;
                         }
@@ -230,7 +230,7 @@ impl<'a> PacketPileParser<'a> {
             match self.ppr.take() {
                 PacketParserResult::Some(pp) => {
                     match pp.next() {
-                        Ok((packet, position, ppr, _)) => {
+                        Ok(((packet, position), (ppr, _))) => {
                             self.insert_packet(packet, position);
                             self.ppr = ppr;
                         }

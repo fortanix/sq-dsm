@@ -114,7 +114,7 @@ pub fn decrypt(input: &mut io::Read, output: &mut io::Write,
             _ => (),
         }
 
-        let (packet, _, ppr_tmp, _) = pp.recurse()?;
+        let ((packet, _), (ppr_tmp, _)) = pp.recurse()?;
         ppr = ppr_tmp;
 
         match packet {
@@ -327,7 +327,7 @@ pub fn dump(input: &mut io::Read, output: &mut io::Write, map: bool)
                      &INDENT[0..pp.recursion_depth as usize], pp.packet)?;
         }
 
-        let (_, _, ppr_, _) = pp.recurse()?;
+        let (_, (ppr_, _)) = pp.recurse()?;
         ppr = ppr_;
     }
     Ok(())
@@ -360,7 +360,7 @@ pub fn split(input: &mut io::Read, prefix: &str)
             }
         }
 
-        let (_, old_depth, ppr_, new_depth) = pp.recurse()?;
+        let ((_, old_depth), (ppr_, new_depth)) = pp.recurse()?;
         ppr = ppr_;
 
         // Update pos.

@@ -104,7 +104,7 @@ fn real_main() -> Result<(), failure::Error> {
             }
         }
 
-        let (_packet_tmp, _, ppr_tmp, _) = pp.recurse().unwrap();
+        let (_, (ppr_tmp, _)) = pp.recurse().unwrap();
         ppr = ppr_tmp;
     }
 

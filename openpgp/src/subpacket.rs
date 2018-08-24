@@ -47,7 +47,7 @@
 //!     }
 //!
 //!     // Get the next packet.
-//!     let (_packet, _packet_depth, tmp, _pp_depth) = pp.recurse()?;
+//!     let (_, (tmp, _)) = pp.recurse()?;
 //!     ppr = tmp;
 //! }
 //! # Ok(())

@@ -476,7 +476,7 @@ impl AutocryptSetupMessage {
                 .into());
         };
 
-        let (packet, _, ppr_, _) = pp.next()?;
+        let ((packet, _), (ppr_, _)) = pp.next()?;
         ppr = ppr_;
 
         let skesk = match packet {
@@ -581,7 +581,7 @@ impl<'a> AutocryptSetupMessageParser<'a> {
         }
 
         // Recurse into the SEIP packet.
-        let (_, _, ppr_, depth) = self.pp.recurse()?;
+        let (_, (ppr_, depth)) = self.pp.recurse()?;
         let mut ppr = ppr_;
         if depth != 1 {
             return Err(
@@ -633,7 +633,7 @@ impl<'a> AutocryptSetupMessageParser<'a> {
                 (prefer_encrypt, tsk)
             };
 
-            let (_, _, ppr_, _) = pp.recurse()?;
+            let (_, (ppr_, _)) = pp.recurse()?;
             ppr = ppr_;
 
             (prefer_encrypt, tsk)
@@ -656,7 +656,7 @@ impl<'a> AutocryptSetupMessageParser<'a> {
                         .into()),
             }
 
-            let (_, _, ppr_, _) = pp.recurse()?;
+            let (_, (ppr_, _)) = pp.recurse()?;
             ppr = ppr_;
         }
 

@@ -1242,7 +1242,7 @@ fn one_pass_sig_test () {
                             number of expected OnePassSig packets.");
             }
 
-            let (_, _, tmp, _) = pp.recurse().expect("Parsing message");
+            let (_, (tmp, _)) = pp.recurse().expect("Parsing message");
             ppr = tmp;
         }
         assert_eq!(one_pass_sigs, sigs,
@@ -1582,7 +1582,7 @@ fn compressed_data_parser_test () {
             panic!("Wrong packet!");
         }
 
-        let (_packet, _packet_depth, ppo, _pp_depth) = pp.recurse().unwrap();
+        let (_, (ppo, _)) = pp.recurse().unwrap();
 
         // ppo should be the literal data packet.
         let mut pp = ppo.unwrap();
@@ -1592,7 +1592,7 @@ fn compressed_data_parser_test () {
 
         let content = pp.steal_eof().unwrap();
 
-        let (literal, _, ppo, _) = pp.recurse().unwrap();
+        let ((literal, _), (ppo, _)) = pp.recurse().unwrap();
 
         if let Packet::Literal(literal) = literal {
             assert_eq!(literal.filename, None);
@@ -1967,7 +1967,7 @@ impl PacketParserState {
 ///     }
 ///
 ///     // Get the next packet.
-///     let (_packet, _packet_depth, tmp, _pp_depth) = pp.recurse()?;
+///     let (_, (tmp, _)) = pp.recurse()?;
 ///     ppr = tmp;
 /// }
 /// # return Ok(());
@@ -2480,11 +2480,13 @@ impl <'a> PacketParser<'a> {
     ///   [`PacketParsererBuilder`]: struct.PacketParserBuilder.html
     ///   [`recurse()`]: #method.recurse
     ///
-    /// The return value is a tuple containing:
+    /// The return value is a tuple of tuples, the first containing:
     ///
     ///   - A `Packet` holding the fully processed old packet;
     ///
     ///   - The old packet's recursion depth;
+    ///
+    /// And the second containing:
     ///
     ///   - A `PacketParser` holding the new packet;
     ///
@@ -2529,7 +2531,7 @@ impl <'a> PacketParser<'a> {
     /// container off the container stack, and returns the following
     /// packet in the parent container.
     pub fn next(mut self)
-        -> Result<(Packet, isize, PacketParserResult<'a>, isize)>
+        -> Result<((Packet, isize), (PacketParserResult<'a>, isize))>
     {
         let trace = self.state.settings.trace;
 
@@ -2579,7 +2581,10 @@ impl <'a> PacketParser<'a> {
                         }
                         let eof = PacketParserResult::EOF(
                             PacketParserEOF::new(state_));
-                        return Ok((self.packet, orig_depth as isize, eof, 0));
+                        return Ok(((self.packet,
+                                    orig_depth as isize),
+                                   (eof,
+                                    0)));
                     } else {
                         self.recursion_depth -= 1;
                         self.state = state_;
@@ -2592,10 +2597,10 @@ impl <'a> PacketParser<'a> {
                 ParserResult::Success(mut pp) => {
                     pp.state.message_validator.push(
                         pp.packet.tag(), self.recursion_depth as usize);
-                    return Ok((self.packet,
-                               orig_depth as isize,
-                               PacketParserResult::Some(pp),
-                               self.recursion_depth as isize));
+                    return Ok(((self.packet,
+                                orig_depth as isize),
+                               (PacketParserResult::Some(pp),
+                                self.recursion_depth as isize)));
                 }
             }
         }
@@ -2617,7 +2622,7 @@ impl <'a> PacketParser<'a> {
     ///
     ///   [`next()`]: #method.next
     pub fn recurse(self)
-        -> Result<(Packet, isize, PacketParserResult<'a>, isize)>
+        -> Result<((Packet, isize), (PacketParserResult<'a>, isize))>
     {
         let trace = self.state.settings.trace;
 
@@ -2669,10 +2674,10 @@ impl <'a> PacketParser<'a> {
                                 pp.packet.tag(),
                                 self.recursion_depth as usize + 1);
 
-                            return Ok((self.packet,
-                                       self.recursion_depth as isize,
-                                       PacketParserResult::Some(pp),
-                                       self.recursion_depth as isize + 1));
+                            return Ok(((self.packet,
+                                        self.recursion_depth as isize),
+                                       (PacketParserResult::Some(pp),
+                                        self.recursion_depth as isize + 1)));
                         },
                         ParserResult::EOF(_) => {
                             return Err(Error::MalformedPacket(
@@ -2730,7 +2735,7 @@ impl <'a> PacketParser<'a> {
     ///     }
     ///
     ///     // Get the next packet.
-    ///     let (_packet, _packet_depth, tmp, _pp_depth) = pp.recurse()?;
+    ///     let (_, (tmp, _)) = pp.recurse()?;
     ///     ppr = tmp;
     /// }
     /// # return Ok(());
@@ -2937,7 +2942,7 @@ fn packet_parser_reader_interface() {
     //
     // packet is the compressed data packet; ppo is the literal data
     // packet.
-    let (packet, packet_depth, ppo, pp_depth) = pp.recurse().unwrap();
+    let ((packet, packet_depth), (ppo, pp_depth)) = pp.recurse().unwrap();
     if let Packet::CompressedData(_) = packet {
     } else {
         panic!("Expected a compressed data packet.");
@@ -2968,7 +2973,7 @@ fn packet_parser_reader_interface() {
 
     // Make sure we can still get the next packet (which in this case
     // is just EOF).
-    let (packet, _, ppo, _) = pp.recurse().unwrap();
+    let ((packet, _), (ppo, _)) = pp.recurse().unwrap();
     assert!(ppo.is_none());
     // Since we read all of the data, we expect content to be None.
     assert!(packet.body.is_none());
@@ -3130,17 +3135,17 @@ mod test {
                     pp.decrypt(test.algo, &key[..]).unwrap();
 
                     // SEIP packet.
-                    let (packet, _, pp, _) = pp.recurse().unwrap();
+                    let ((packet, _), (pp, _)) = pp.recurse().unwrap();
                     assert_eq!(packet.tag(), Tag::SEIP);
                     let pp = pp.expect(
                         "Expected an compressed or literal packet, got EOF");
 
                     // Literal packet, optionally compressed
-                    let (mut packet, _, mut pp, _) = pp.recurse().unwrap();
+                    let ((mut packet, _), (mut pp, _)) = pp.recurse().unwrap();
                     if let Packet::CompressedData(_) = packet {
                         let pp_tmp = pp.expect(
                             "Expected a literal packet, got EOF");
-                        let (packet_tmp, _, pp_tmp, _)
+                        let ((packet_tmp, _), (pp_tmp, _))
                             = pp_tmp.recurse().unwrap();
                         packet = packet_tmp;
                         pp = pp_tmp;
@@ -3151,7 +3156,7 @@ mod test {
                     let pp = pp.expect("Expected an MDC packet, got EOF");
 
                     // MDC packet.
-                    let (packet, _, pp, _) = pp.recurse().unwrap();
+                    let ((packet, _), (pp, _)) = pp.recurse().unwrap();
                     if let Packet::MDC(mdc) = packet {
                         assert_eq!(mdc.computed_hash, mdc.hash,
                                    "MDC doesn't match");
@@ -3168,7 +3173,7 @@ mod test {
                 // This will blow up if we reach the end of the message.
                 // But, that is what we want: we stop when we get to a
                 // SEIP packet.
-                let (_, _, pp_tmp, _) = pp.recurse().unwrap();
+                let (_, (pp_tmp, _)) = pp.recurse().unwrap();
                 pp = pp_tmp.unwrap();
             }
         }
@@ -3194,14 +3199,14 @@ mod test {
                     pp.decrypt(test.algo, &key[..]).unwrap();
 
                     // SEIP packet.
-                    let (packet, _, pp, _) = pp.recurse().unwrap();
+                    let ((packet, _), (pp, _)) = pp.recurse().unwrap();
                     assert_eq!(packet.tag(), Tag::SEIP);
                     let mut pp = pp.expect(
                         "Expected an compressed or literal packet, got EOF");
 
                     // Literal packet, optionally compressed
                     if let Packet::CompressedData(_) = pp.packet {
-                        let (_, _, pp_tmp, _)
+                        let (_, (pp_tmp, _))
                             = pp.recurse().unwrap();
                         let pp_tmp = pp_tmp.expect(
                             "Expected a literal packet, got EOF");
@@ -3223,12 +3228,12 @@ mod test {
                     } else {
                         panic!("Expected an Literal packet!");
                     }
-                    let (_, _, pp_tmp, _)
+                    let (_, (pp_tmp, _))
                         = pp.recurse().unwrap();
                     let pp = pp_tmp.expect("Expected an MDC packet, got EOF");
 
                     // MDC packet.
-                    let (packet, _, pp, _) = pp.recurse().unwrap();
+                    let ((packet, _), (pp, _)) = pp.recurse().unwrap();
                     if let Packet::MDC(mdc) = packet {
                         assert_eq!(mdc.computed_hash, mdc.hash,
                                    "MDC doesn't match");
@@ -3245,7 +3250,7 @@ mod test {
                 // This will blow up if we reach the end of the message.
                 // But, that is what we want: we stop when we get to a
                 // SEIP packet.
-                let (_, _, pp_tmp, _) = pp.recurse().unwrap();
+                let (_, (pp_tmp, _)) = pp.recurse().unwrap();
                 pp = pp_tmp.unwrap();
             }
         }
@@ -3277,7 +3282,7 @@ mod test {
                     _ => {},
                 }
 
-                let (_, _, ppr_tmp, _) = pp.recurse().unwrap();
+                let (_, (ppr_tmp, _)) = pp.recurse().unwrap();
                 ppr = ppr_tmp;
             }
             assert!(saw_literal);
@@ -3310,7 +3315,7 @@ mod test {
                     _ => {},
                 }
 
-                let (_, _, ppr_tmp, _) = pp.recurse().unwrap();
+                let (_, (ppr_tmp, _)) = pp.recurse().unwrap();
                 ppr = ppr_tmp;
             }
             assert!(! saw_literal);
@@ -3349,7 +3354,7 @@ mod test {
                 _ => (),
             }
 
-            let (_, _, ppr_, _) = pp.next().unwrap();
+            let (_, (ppr_, _)) = pp.next().unwrap();
             ppr = ppr_;
         }
 

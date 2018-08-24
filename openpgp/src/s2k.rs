@@ -390,7 +390,7 @@ mod tests {
             }
 
             // Get the next packet.
-            let (_packet, _packet_depth, tmp, _pp_depth) = pp.next().unwrap();
+            let (_, (tmp, _)) = pp.next().unwrap();
             assert!(tmp.is_none());
         }
     }

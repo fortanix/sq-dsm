@@ -331,7 +331,7 @@ impl PacketPile {
         let mut pp = ppr.unwrap();
 
         'outer: loop {
-            let (mut packet, mut position, mut ppr, _) = pp.recurse()?;
+            let ((mut packet, mut position), (mut ppr, _)) = pp.recurse()?;
 
             let mut relative_position : isize = position - last_position;
             assert!(relative_position <= 1);
@@ -384,10 +384,10 @@ impl PacketPile {
                     break;
                 }
 
-                let result = pp.recurse()?;
-                packet = result.0;
-                assert_eq!(position, result.1);
-                ppr = result.2;
+                let ((packet_, position_), (ppr_, _)) = pp.recurse()?;
+                packet = packet_;
+                assert_eq!(position, position_);
+                ppr = ppr_;
             }
         }
 
@@ -574,7 +574,7 @@ mod message_test {
             if let PacketParserResult::Some(pp2) = ppr {
                 count += 1;
 
-                let (_packet, packet_depth, pp2, pp_depth)
+                let ((_, packet_depth), (pp2, pp_depth))
                     = pp2.recurse().unwrap();
                 eprintln!("{}, {}", packet_depth, pp_depth);
                 assert_eq!(packet_depth as usize, count - 1);
@@ -615,7 +615,7 @@ mod message_test {
 
         // recurse should now not recurse.  Since there is nothing
         // following the compressed packet, ppr should be EOF.
-        let (mut packet, _, ppr, _) = pp.next().unwrap();
+        let ((mut packet, _), (ppr, _)) = pp.next().unwrap();
         assert!(ppr.is_none());
 
         // Get the rest of the content and put the initial byte that
@@ -632,7 +632,7 @@ mod message_test {
         }
 
         // And we're done...
-        let (_packet, _, ppr, _) = pp.next().unwrap();
+        let (_, (ppr, _)) = pp.next().unwrap();
         assert!(ppr.is_none());
     }
 

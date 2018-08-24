@@ -241,7 +241,7 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
                 break;
             }
 
-            let (p, _, ppr_tmp, _) = pp.recurse()?;
+            let ((p, _), (ppr_tmp, _)) = pp.recurse()?;
             v.verify(p)?;
             ppr = ppr_tmp;
         }
@@ -339,7 +339,7 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
                         break;
                     }
 
-                    let (p, _, ppr_tmp, _) = pp.recurse()?;
+                    let ((p, _), (ppr_tmp, _)) = pp.recurse()?;
                     self.verify(p)?;
                     ppr = ppr_tmp;
                 }

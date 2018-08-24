@@ -1065,8 +1065,7 @@ mod test {
         assert_eq!(&body, b"Hello world.");
 
         // Make sure it is the only packet.
-        let (_packet, _packet_depth, tmp, _pp_depth)
-            = pp.recurse().unwrap();
+        let (_, (tmp, _)) = pp.recurse().unwrap();
         assert!(tmp.is_none());
     }
 
@@ -1236,8 +1235,7 @@ mod test {
             }
 
             // Get the next packet.
-            let (_packet, _packet_depth, tmp, _pp_depth)
-                = pp.recurse().unwrap();
+            let (_, (tmp, _)) = pp.recurse().unwrap();
             ppr = tmp;
         }
         assert_eq!(good, 2);
@@ -1343,7 +1341,7 @@ mod test {
                 };
 
                 // Next?
-                let (_, _, tmp, _) = pp.recurse().unwrap();
+                let (_, (tmp, _)) = pp.recurse().unwrap();
                 ppr = tmp;
             }
             assert_eq!(state, State::Done);

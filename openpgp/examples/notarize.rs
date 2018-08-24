@@ -80,7 +80,7 @@ fn main() {
             _ => (),
         }
 
-        let (_, _, ppr_tmp, _) = pp.recurse()
+        let (_, (ppr_tmp, _)) = pp.recurse()
             .expect("Failed to recurse");
         ppr = ppr_tmp;
     }

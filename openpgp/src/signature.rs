@@ -732,8 +732,7 @@ mod test {
                 }
 
                 // Get the next packet.
-                let (_packet, _packet_depth, tmp, _pp_depth)
-                    = pp.recurse().unwrap();
+                let (_, (tmp, _)) = pp.recurse().unwrap();
                 ppr = tmp;
             }
 
