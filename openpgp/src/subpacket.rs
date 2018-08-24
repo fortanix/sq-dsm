@@ -323,12 +323,13 @@ pub struct SubpacketArea {
     parsed: RefCell<Option<HashMap<SubpacketTag, (bool, u16, u16)>>>,
 }
 
-struct SubpacketAreaIter<'a> {
+/// Iterates over SubpacketAreas yielding raw packets.
+struct SubpacketAreaIterRaw<'a> {
     reader: BufferedReaderMemory<'a, ()>,
     data: &'a [u8],
 }
 
-impl<'a> Iterator for SubpacketAreaIter<'a> {
+impl<'a> Iterator for SubpacketAreaIterRaw<'a> {
     // Start, length.
     type Item = (usize, usize, SubpacketRaw<'a>);
 
@@ -383,8 +384,8 @@ impl<'a> Iterator for SubpacketAreaIter<'a> {
 }
 
 impl SubpacketArea {
-    fn iter(&self) -> SubpacketAreaIter {
-        SubpacketAreaIter {
+    fn iter_raw(&self) -> SubpacketAreaIterRaw {
+        SubpacketAreaIterRaw {
             reader: BufferedReaderMemory::new(&self.data[..]),
             data: &self.data[..],
         }
@@ -394,7 +395,7 @@ impl SubpacketArea {
 impl fmt::Debug for SubpacketArea {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_list().entries(
-            self.iter().map(|(_start, _len, sb)| {
+            self.iter_raw().map(|(_start, _len, sb)| {
                 Subpacket::from(sb)
             }))
             .finish()
@@ -419,7 +420,7 @@ impl SubpacketArea {
     fn cache_init(&self) {
         if self.parsed.borrow().is_none() {
             let mut hash = HashMap::new();
-            for (start, len, sb) in self.iter() {
+            for (start, len, sb) in self.iter_raw() {
                 hash.insert(sb.tag, (sb.critical, start as u16, len as u16));
             }
 
@@ -491,7 +492,7 @@ impl SubpacketArea {
         let mut new = Vec::new();
 
         // Copy all but the matching subpackets.
-        for (_, _, raw) in self.iter() {
+        for (_, _, raw) in self.iter_raw() {
             if raw.tag == tag {
                 // Drop.
                 continue;
@@ -1495,7 +1496,7 @@ impl Signature {
     fn subpackets<'a>(&'a self, target: SubpacketTag) -> Vec<Subpacket<'a>> {
         let mut result = Vec::new();
 
-        for (_start, _len, sb) in self.hashed_area.iter() {
+        for (_start, _len, sb) in self.hashed_area.iter_raw() {
             if sb.tag == target {
                 result.push(sb.into());
             }
@@ -2482,7 +2483,7 @@ impl Signature {
     pub fn intended_recipients(&self) -> Vec<Fingerprint> {
         let mut result = Vec::new();
 
-        for (_start, _len, sb) in self.hashed_area.iter() {
+        for (_start, _len, sb) in self.hashed_area.iter_raw() {
             if sb.tag == SubpacketTag::IntendedRecipient {
                 let s = Subpacket::from(sb);
                 if let SubpacketValue::IntendedRecipient(fp) = s.value {
