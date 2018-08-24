@@ -15,15 +15,15 @@ use Packet;
 #[derive(PartialEq, Clone, Debug)]
 pub struct SKESK {
     /// CTB header fields.
-    pub common: packet::Common,
+    pub(crate) common: packet::Common,
     /// Packet version. Must be 4.
-    pub version: u8,
+    pub(crate) version: u8,
     /// Symmetric algorithm used to encrypt the session key.
-    pub symm_algo: SymmetricAlgorithm,
+    pub(crate) symm_algo: SymmetricAlgorithm,
     /// Key derivation method for the symmetric key.
-    pub s2k: S2K,
+    pub(crate) s2k: S2K,
     /// The encrypted session key.
-    pub esk: Vec<u8>,
+    pub(crate) esk: Vec<u8>,
 }
 
 impl SKESK {
@@ -59,6 +59,41 @@ impl SKESK {
             s2k: s2k,
             esk: esk,
         })
+    }
+
+    /// Gets the version.
+    pub fn version(&self) -> u8 {
+        self.version
+    }
+
+    /// Gets the symmetric encryption algorithm.
+    pub fn symmetric_algo(&self) -> SymmetricAlgorithm {
+        self.symm_algo
+    }
+
+    /// Sets the symmetric encryption algorithm.
+    pub fn set_symmetric_algo(&mut self, algo: SymmetricAlgorithm) {
+        self.symm_algo = algo;
+    }
+
+    /// Gets the key derivation method.
+    pub fn s2k(&self) -> &S2K {
+        &self.s2k
+    }
+
+    /// Sets the key derivation method.
+    pub fn set_s2k(&mut self, s2k: S2K) {
+        self.s2k = s2k;
+    }
+
+    /// Gets the encrypted session key.
+    pub fn esk(&self) -> &[u8] {
+        self.esk.as_slice()
+    }
+
+    /// Sets the encrypted session key.
+    pub fn set_esk(&mut self, esk: Vec<u8>) {
+        self.esk = esk;
     }
 
     /// Convert the `SKESK` struct to a `Packet`.
