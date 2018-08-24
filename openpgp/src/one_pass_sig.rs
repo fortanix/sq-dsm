@@ -44,6 +44,11 @@ impl OnePassSig {
         }
     }
 
+    /// Gets the version.
+    pub fn version(&self) -> u8 {
+        self.version
+    }
+
     /// Gets the signature type.
     pub fn sigtype(&self) -> SignatureType {
         self.sigtype
