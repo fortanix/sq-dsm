@@ -18,15 +18,15 @@ use packet;
 #[derive(PartialEq, Clone, Debug)]
 pub struct PKESK {
     /// CTB header fields.
-    pub common: packet::Common,
+    pub(crate) common: packet::Common,
     /// Packet version. Must be 3.
-    pub version: u8,
+    pub(crate) version: u8,
     /// Key ID of the key this is encrypted to.
-    pub recipient: KeyID,
+    pub(crate) recipient: KeyID,
     /// Public key algorithm used to encrypt the session key.
-    pub pk_algo: PublicKeyAlgorithm,
+    pub(crate) pk_algo: PublicKeyAlgorithm,
     /// The encrypted session key.
-    pub esk: MPIs,
+    pub(crate) esk: MPIs,
 }
 
 impl PKESK {
@@ -90,6 +90,41 @@ impl PKESK {
             pk_algo: recipient.pk_algo,
             esk: esk,
         })
+    }
+
+    /// Gets the version.
+    pub fn version(&self) -> u8 {
+        self.version
+    }
+
+    /// Gets the recipient.
+    pub fn recipient(&self) -> &KeyID {
+        &self.recipient
+    }
+
+    /// Sets the recipient.
+    pub fn set_recipient(&mut self, recipient: KeyID) {
+        self.recipient = recipient;
+    }
+
+    /// Gets the public key algorithm.
+    pub fn pk_algo(&self) -> PublicKeyAlgorithm {
+        self.pk_algo
+    }
+
+    /// Sets the public key algorithm.
+    pub fn set_pk_algo(&mut self, algo: PublicKeyAlgorithm) {
+        self.pk_algo = algo;
+    }
+
+    /// Gets the encrypted session key.
+    pub fn esk(&self) -> &MPIs {
+        &self.esk
+    }
+
+    /// Sets the encrypted session key.
+    pub fn set_esk(&mut self, esk: MPIs) {
+        self.esk = esk;
     }
 
     /// Decrypts the ESK and returns the session key and symmetric algorithm

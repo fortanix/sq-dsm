@@ -59,7 +59,7 @@ pub fn main() {
                     Packet::SEIP(_) => {
                         let mut state = None;
                         for pkesk in pkesks.iter() {
-                            if let Some(tsk) = keys.get(&pkesk.recipient) {
+                            if let Some(tsk) = keys.get(&pkesk.recipient()) {
                                 if let Some(SecretKey::Unencrypted{ref mpis}) =
                                     tsk.secret()
                                 {
