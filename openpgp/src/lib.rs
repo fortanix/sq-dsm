@@ -313,10 +313,10 @@ pub struct UserID {
 #[derive(PartialEq, Clone)]
 pub struct UserAttribute {
     /// CTB packet header fields.
-    pub common: packet::Common,
+    common: packet::Common,
 
     /// The user attribute.
-    pub value: Vec<u8>,
+    value: Vec<u8>,
 }
 
 /// Holds a literal packet.

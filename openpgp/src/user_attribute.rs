@@ -20,11 +20,14 @@ impl UserAttribute {
         }
     }
 
-    /// Sets the user ID packet's value field from a byte sequence.
-    pub fn user_attribute_from_bytes(mut self, value: &[u8])
-            -> UserAttribute {
+    /// Gets the user attribute packet's value.
+    pub fn user_attribute(&self) -> &[u8] {
+        self.value.as_slice()
+    }
+
+    /// Sets the user attribute packet's value from a byte sequence.
+    pub fn set_user_attribute(&mut self, value: &[u8]) {
         self.value = value.to_vec();
-        self
     }
 
     /// Convert the `UserAttribute` struct to a `Packet`.

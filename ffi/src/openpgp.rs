@@ -1089,9 +1089,9 @@ pub extern "system" fn sq_user_attribute_value(ua: Option<&Packet>,
     let ua = ua.expect("UserAttribute is NULL");
     if let &Packet::UserAttribute(ref ua) = ua {
         if let Some(p) = value_len {
-            *p = ua.value.len();
+            *p = ua.user_attribute().len();
         }
-        ua.value.as_ptr()
+        ua.user_attribute().as_ptr()
     } else {
         panic!("Not a UserAttribute packet");
     }
