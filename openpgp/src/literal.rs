@@ -62,7 +62,7 @@ impl Literal {
     }
 
     /// Gets the Literal packet's content disposition.
-    pub fn format(&mut self) -> DataFormat {
+    pub fn format(&self) -> DataFormat {
         self.format
     }
 
