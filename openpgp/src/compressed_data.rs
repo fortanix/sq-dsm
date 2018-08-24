@@ -27,6 +27,16 @@ impl CompressedData {
         }
     }
 
+    /// Gets the compression algorithm.
+    pub fn algorithm(&self) -> CompressionAlgorithm {
+        self.algo
+    }
+
+    /// Sets the compression algorithm.
+    pub fn set_algorithm(&mut self, algo: CompressionAlgorithm) {
+        self.algo = algo;
+    }
+
     /// Adds a new packet to the container.
     pub fn push(mut self, packet: Packet) -> Self {
         if self.common.children.is_none() {

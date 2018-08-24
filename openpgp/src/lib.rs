@@ -360,9 +360,9 @@ pub struct Literal {
 #[derive(PartialEq, Clone)]
 pub struct CompressedData {
     /// CTB packet header fields.
-    pub common: packet::Common,
+    common: packet::Common,
     /// Algorithm used to compress the payload.
-    pub algo: CompressionAlgorithm,
+    algo: CompressionAlgorithm,
 }
 
 /// Holds an encrypted data packet.
