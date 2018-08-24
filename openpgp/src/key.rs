@@ -143,19 +143,49 @@ impl Key {
         })
     }
 
-    /// Sets the literal packet's date field using a Unix timestamp.
-    ///
-    /// A Unix timestamp is the number of seconds since the Unix
-    /// epoch.
-    pub fn creation_time(mut self, timestamp: time::Tm) -> Self {
+    /// Gets the key packet's version field.
+    pub fn version(&self) -> u8 {
+        self.version
+    }
+
+    /// Gets the key packet's creation time field.
+    pub fn creation_time(&self) -> time::Tm {
+        self.creation_time
+    }
+
+    /// Sets the key packet's creation time field.
+    pub fn set_creation_time(&mut self, timestamp: time::Tm) {
         self.creation_time = timestamp;
-        self
+    }
+
+    /// Gets the public key algorithm.
+    pub fn pk_algo(&self) -> PublicKeyAlgorithm {
+        self.pk_algo
     }
 
     /// Sets the public key algorithm.
-    pub fn pk_algo(mut self, pk_algo: PublicKeyAlgorithm) -> Self {
+    pub fn set_pk_algo(&mut self, pk_algo: PublicKeyAlgorithm) {
         self.pk_algo = pk_algo;
-        self
+    }
+
+    /// Gets the key packet's MPIs.
+    pub fn mpis(&self) -> &MPIs {
+        &self.mpis
+    }
+
+    /// Sets the key packet's MPIs.
+    pub fn set_mpis(&mut self, mpis: MPIs) {
+        self.mpis = mpis;
+    }
+
+    /// Gets the key packet's SecretKey.
+    pub fn secret(&self) -> Option<&SecretKey> {
+        self.secret.as_ref()
+    }
+
+    /// Sets the key packet's SecretKey.
+    pub fn set_secret(&mut self, secret: Option<SecretKey>) {
+        self.secret = secret;
     }
 
     /// Convert the `Key` struct to a `Packet`.

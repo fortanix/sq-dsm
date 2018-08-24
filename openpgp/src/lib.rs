@@ -271,17 +271,17 @@ pub struct OnePassSig {
 #[derive(PartialEq, Clone)]
 pub struct Key {
     /// CTB packet header fields.
-    pub common: packet::Common,
+    common: packet::Common,
     /// Version of the key packet. Must be 4.
-    pub version: u8,
+    version: u8,
     /// When the key was created.
-    pub creation_time: time::Tm,
+    creation_time: time::Tm,
     /// Public key algorithm of this signature.
-    pub pk_algo: PublicKeyAlgorithm,
+    pk_algo: PublicKeyAlgorithm,
     /// Public key MPIs. Must be a *PublicKey variant.
-    pub mpis: mpis::MPIs,
+    mpis: mpis::MPIs,
     /// Optional secret part of the key.
-    pub secret: Option<SecretKey>,
+    secret: Option<SecretKey>,
 }
 
 /// Holds a UserID packet.

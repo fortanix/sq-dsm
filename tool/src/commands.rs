@@ -80,7 +80,9 @@ pub fn decrypt(input: &mut io::Read, output: &mut io::Write,
                 for pkesk in pkesks.iter() {
                     if let Some(tsk) = keys.get(&pkesk.recipient) {
                         // XXX: Deal with encrypted keys.
-                        if let Some(SecretKey::Unencrypted{ref mpis}) = tsk.secret {
+                        if let Some(SecretKey::Unencrypted{ref mpis}) =
+                            tsk.secret()
+                        {
                             if let Ok((algo, key)) = pkesk.decrypt(tsk, mpis) {
 	                        let r = pp.decrypt(algo, &key[..]);
                                 if r.is_ok() {

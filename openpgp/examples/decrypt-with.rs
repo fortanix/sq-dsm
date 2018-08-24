@@ -60,7 +60,9 @@ pub fn main() {
                         let mut state = None;
                         for pkesk in pkesks.iter() {
                             if let Some(tsk) = keys.get(&pkesk.recipient) {
-                                if let Some(SecretKey::Unencrypted{ref mpis}) = tsk.secret {
+                                if let Some(SecretKey::Unencrypted{ref mpis}) =
+                                    tsk.secret()
+                                {
                                     if let Ok((algo, key)) = pkesk.decrypt(tsk, mpis) {
 	                                let r = pp.decrypt(algo, &key[..]);
                                         if r.is_ok() {
