@@ -35,7 +35,6 @@ use constants::{
     SignatureType,
     SymmetricAlgorithm,
 };
-use conversions::Time;
 
 /// Cookie must be public because the writers are.
 #[doc(hidden)]
@@ -507,7 +506,7 @@ impl<'a> LiteralWriter<'a> {
         let level = inner.cookie_ref().level + 1;
 
         let mut template = Literal::new(format);
-        template.set_date(date.unwrap_or(time::Tm::from_pgp(0)));
+        template.set_date(date);
 
         if let Some(f) = filename {
             template.set_filename_from_bytes(f)?;

@@ -105,13 +105,17 @@ impl Literal {
     }
 
     /// Gets the literal packet's date field.
-    pub fn date(&self) -> &time::Tm {
-        &self.date
+    pub fn date(&self) -> Option<&time::Tm> {
+        if self.date.to_pgp().unwrap_or(0) == 0 {
+            None
+        } else {
+            Some(&self.date)
+        }
     }
 
     /// Sets the literal packet's date field.
-    pub fn set_date(&mut self, timestamp: time::Tm) {
-        self.date = timestamp;
+    pub fn set_date(&mut self, timestamp: Option<time::Tm>) {
+        self.date = timestamp.unwrap_or(time::Tm::from_pgp(0));
     }
 
     /// Convert the `Literal` struct to a `Packet`.
