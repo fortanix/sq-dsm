@@ -103,7 +103,7 @@ impl fmt::Display for PublicKeyAlgorithm {
             ECDSA => f.write_str("ECDSA public key algorithm"),
             ElgamalEncryptSign => f.write_str("Elgamal (Encrypt or Sign)"),
             ECDH => f.write_str("ECDH public key algorithm"),
-            EdDSA => f.write_str("EdDSA Edwards-curve Digital Signature Algorithm)"),
+            EdDSA => f.write_str("EdDSA Edwards-curve Digital Signature Algorithm"),
             Private(u) =>
                 f.write_fmt(format_args!("Private/Experimental public key algorithm {}", u)),
             Unknown(u) =>
