@@ -395,11 +395,11 @@ impl SEIP {
 #[derive(PartialEq, Clone, Debug)]
 pub struct MDC {
     /// CTB packet header fields.
-    pub common: packet::Common,
+    common: packet::Common,
     /// Our SHA-1 hash.
-    pub computed_hash: [u8; 20],
+    computed_hash: [u8; 20],
     /// A 20-octet SHA-1 hash of the preceding plaintext data.
-    pub hash: [u8; 20],
+    hash: [u8; 20],
 }
 
 impl MDC {
@@ -419,6 +419,16 @@ impl MDC {
             computed_hash: Default::default(),
             hash: hash,
         }
+    }
+
+    /// Gets the packet's hash value.
+    pub fn hash(&self) -> &[u8] {
+        &self.hash[..]
+    }
+
+    /// Gets the computed hash value.
+    pub fn computed_hash(&self) -> &[u8] {
+        &self.computed_hash[..]
     }
 
     /// Converts the `MDC` struct to a `Packet`.
