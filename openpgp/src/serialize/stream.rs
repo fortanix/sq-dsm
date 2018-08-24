@@ -506,11 +506,11 @@ impl<'a> LiteralWriter<'a> {
         let mut inner = writer::BoxStack::from(inner);
         let level = inner.cookie_ref().level + 1;
 
-        let mut template = Literal::new(format)
-            .date(date.unwrap_or(time::Tm::from_pgp(0)));
+        let mut template = Literal::new(format);
+        template.set_date(date.unwrap_or(time::Tm::from_pgp(0)));
 
         if let Some(f) = filename {
-            template = template.filename_from_bytes(f);
+            template.set_filename_from_bytes(f)?;
         }
 
         // For historical reasons, signatures over literal data
@@ -1078,13 +1078,19 @@ mod test {
         //  1: Literal(Literal { body: "one (3 bytes)" })
         //  2: Literal(Literal { body: "two (3 bytes)" })
         // 2: Literal(Literal { body: "three (5 bytes)" })
+        let mut one = Literal::new(T);
+        one.set_body(b"one".to_vec());
+        let mut two = Literal::new(T);
+        two.set_body(b"two".to_vec());
+        let mut three = Literal::new(T);
+        three.set_body(b"three".to_vec());
         let mut reference = Vec::new();
         reference.push(
             CompressedData::new(CompressionAlgorithm::Uncompressed)
-                .push(Literal::new(T).body(b"one".to_vec()).to_packet())
-                .push(Literal::new(T).body(b"two".to_vec()).to_packet())
+                .push(one.to_packet())
+                .push(two.to_packet())
                 .to_packet());
-        reference.push(Literal::new(T).body(b"three".to_vec()).to_packet());
+        reference.push(three.to_packet());
 
         let mut o = vec![];
         {
@@ -1123,16 +1129,24 @@ mod test {
         //  2: CompressedData(CompressedData { algo: 0 })
         //   1: Literal(Literal { body: "three (5 bytes)" })
         //   2: Literal(Literal { body: "four (4 bytes)" })
+        let mut one = Literal::new(T);
+        one.set_body(b"one".to_vec());
+        let mut two = Literal::new(T);
+        two.set_body(b"two".to_vec());
+        let mut three = Literal::new(T);
+        three.set_body(b"three".to_vec());
+        let mut four = Literal::new(T);
+        four.set_body(b"four".to_vec());
         let mut reference = Vec::new();
         reference.push(
             CompressedData::new(CompressionAlgorithm::Uncompressed)
                 .push(CompressedData::new(CompressionAlgorithm::Uncompressed)
-                      .push(Literal::new(T).body(b"one".to_vec()).to_packet())
-                      .push(Literal::new(T).body(b"two".to_vec()).to_packet())
+                      .push(one.to_packet())
+                      .push(two.to_packet())
                       .to_packet())
                 .push(CompressedData::new(CompressionAlgorithm::Uncompressed)
-                      .push(Literal::new(T).body(b"three".to_vec()).to_packet())
-                      .push(Literal::new(T).body(b"four".to_vec()).to_packet())
+                      .push(three.to_packet())
+                      .push(four.to_packet())
                       .to_packet())
                 .to_packet());
 

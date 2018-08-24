@@ -165,21 +165,22 @@ impl PacketPile {
     /// # fn main() { f().unwrap(); }
     /// # fn f() -> Result<()> {
     /// // A compressed data packet that contains a literal data packet.
+    /// let mut literal = Literal::new(DataFormat::Text);
+    /// literal.set_body(b"old".to_vec());
     /// let mut pile = PacketPile::from_packet(
     ///     CompressedData::new(CompressionAlgorithm::Uncompressed)
-    ///         .push(Literal::new(DataFormat::Text).body(b"old".to_vec())
-    ///               .to_packet())
+    ///         .push(literal.to_packet())
     ///         .to_packet());
     ///
     /// // Replace the literal data packet.
+    /// let mut literal = Literal::new(DataFormat::Text);
+    /// literal.set_body(b"new".to_vec());
     /// pile.replace(
     ///     &[ 0, 0 ], 1,
-    ///     [ Literal::new(DataFormat::Text).body(b"new".to_vec()).to_packet() ]
-    ///         .to_vec())
+    ///     [ literal.to_packet() ].to_vec())
     ///     .unwrap();
     /// # if let Some(Packet::Literal(lit)) = pile.path_ref(&[0, 0]) {
-    /// #     assert_eq!(lit.common.body, Some(b"new".to_vec()),
-    /// #                "{:#?}", lit);
+    /// #     assert_eq!(lit.body(), Some(&b"new"[..]), "{:#?}", lit);
     /// # } else {
     /// #     panic!("Unexpected packet!");
     /// # }
@@ -650,7 +651,9 @@ mod message_test {
 
         let mut cd = CompressedData::new(CompressionAlgorithm::Uncompressed);
         for t in text.iter() {
-            cd = cd.push(Literal::new(Text).body(t.to_vec()).to_packet())
+            let mut lit = Literal::new(Text);
+            lit.set_body(t.to_vec());
+            cd = cd.push(lit.to_packet())
         }
 
         let mut seip = SEIP {
@@ -715,8 +718,12 @@ mod message_test {
         // 0: Literal("one")
         // =>
         // 0: Literal("two")
+        let mut one = Literal::new(Text);
+        one.set_body(b"one".to_vec());
+        let mut two = Literal::new(Text);
+        two.set_body(b"two".to_vec());
         let mut packets : Vec<Packet> = Vec::new();
-        packets.push(Literal::new(Text).body(b"one".to_vec()).to_packet());
+        packets.push(one.to_packet());
 
         assert!(packets.iter().map(|p| p.tag()).collect::<Vec<Tag>>()
                 == [ Tag::Literal ]);
@@ -724,7 +731,7 @@ mod message_test {
         let mut pile = PacketPile::from_packets(packets.clone());
         pile.replace(
             &[ 0 ], 1,
-            [ Literal::new(Text).body(b"two".to_vec()).to_packet()
+            [ two.to_packet()
             ].to_vec()).unwrap();
 
         let children = pile.into_children().collect::<Vec<Packet>>();
@@ -745,7 +752,9 @@ mod message_test {
 
         let mut packets : Vec<Packet> = Vec::new();
         for text in initial.iter() {
-            packets.push(Literal::new(Text).body(text.to_vec()).to_packet())
+            let mut lit = Literal::new(Text);
+            lit.set_body(text.to_vec());
+            packets.push(lit.to_packet())
         }
 
         for start in 0..initial.len() + 1 {
@@ -755,8 +764,9 @@ mod message_test {
 
                     let mut replacement : Vec<Packet> = Vec::new();
                     for &text in inserted[0..insert].iter() {
-                        replacement.push(
-                            Literal::new(Text).body(text.to_vec()).to_packet())
+                        let mut lit = Literal::new(Text);
+                        lit.set_body(text.to_vec());
+                        replacement.push(lit.to_packet());
                     }
 
                     pile.replace(&[ start ], delete, replacement).unwrap();
@@ -795,7 +805,9 @@ mod message_test {
 
         let mut cd = CompressedData::new(CompressionAlgorithm::Uncompressed);
         for l in initial.iter() {
-            cd = cd.push(Literal::new(Text).body(l.to_vec()).to_packet())
+            let mut lit = Literal::new(Text);
+            lit.set_body(l.to_vec());
+            cd = cd.push(lit.to_packet());
         }
 
         for start in 0..initial.len() + 1 {
@@ -806,8 +818,9 @@ mod message_test {
 
                     let mut replacement : Vec<Packet> = Vec::new();
                     for &text in inserted[0..insert].iter() {
-                        replacement.push(
-                            Literal::new(Text).body(text.to_vec()).to_packet())
+                        let mut lit = Literal::new(Text);
+                        lit.set_body(text.to_vec());
+                        replacement.push(lit.to_packet());
                     }
 
                     pile.replace(&[ 0, start ], delete, replacement).unwrap();
@@ -839,8 +852,10 @@ mod message_test {
         }
 
         // Make sure out-of-range accesses error out.
+        let mut one = Literal::new(Text);
+        one.set_body(b"one".to_vec());
         let mut packets : Vec<Packet> = Vec::new();
-        packets.push(Literal::new(Text).body(b"one".to_vec()).to_packet());
+        packets.push(one.to_packet());
         let mut pile = PacketPile::from_packets(packets.clone());
 
         assert!(pile.replace(&[ 1 ], 0, Vec::new()).is_ok());

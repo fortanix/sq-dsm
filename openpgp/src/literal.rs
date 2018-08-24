@@ -4,8 +4,10 @@ use time;
 
 use constants::DataFormat;
 use conversions::Time;
+use Error;
 use Literal;
 use Packet;
+use Result;
 
 impl fmt::Debug for Literal {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -49,83 +51,67 @@ impl Literal {
         }
     }
 
+    /// Gets the Literal packet's body.
+    pub fn body(&self) -> Option<&[u8]> {
+        self.common.body.as_ref().map(|b| b.as_slice())
+    }
+
     /// Sets the Literal packet's body to the provided byte string.
-    pub fn body(mut self, data: Vec<u8>) -> Literal {
+    pub fn set_body(&mut self, data: Vec<u8>) {
         self.common.body = Some(data);
-        self
     }
 
-    /// Sets the Literal packet's content disposition to text.
-    ///
-    /// This is a hint that the content is probably text; the encoding
-    /// is not specified.
-    pub fn text(mut self) -> Literal {
-        self.format = DataFormat::Text;
-        self
+    /// Gets the Literal packet's content disposition.
+    pub fn format(&mut self) -> DataFormat {
+        self.format
     }
 
-    /// Sets the Literal packet's content disposition to UTF-8.
-    ///
-    /// This is a hint that the content is probably UTF-8 encoded.
-    pub fn utf8(mut self) -> Literal {
-        self.format = DataFormat::Unicode;
-        self
+    /// Sets the Literal packet's content disposition.
+    pub fn set_format(&mut self, format: DataFormat) {
+        self.format = format;
     }
 
-    /// Sets the Literal packet's content disposition to binary.
-    ///
-    /// This is a hint that the content is probably binary data.
-    pub fn binary(mut self) -> Literal {
-        self.format = DataFormat::Binary;
-        self
-    }
-
-    /// Sets the Literal packet's content disposition to MIME.
-    ///
-    /// This is specified in RFC 4880bis, which has not yet been
-    /// standardized.
-    pub fn mime(mut self) -> Literal {
-        self.format = DataFormat::MIME;
-        self
+    /// Gets the literal packet's filename.
+    pub fn filename(&self) -> Option<&[u8]> {
+        self.filename.as_ref().map(|b| b.as_slice())
     }
 
     /// Sets the literal packet's filename field from a byte sequence.
     ///
-    /// The standard does not specify the encoding.
-    ///
-    /// This function panics, if the filename is longer than 255
-    /// bytes, which is the limit imposed by RFC 4880.
-    pub fn filename_from_bytes(mut self, filename: &[u8]) -> Literal {
+    /// The standard does not specify the encoding.  Filenames must
+    /// not be longer than 255 bytes.
+    pub fn set_filename_from_bytes(&mut self, filename: &[u8]) -> Result<()> {
         if filename.len() > 255 {
-            panic!("Filename too long.");
+            return
+                Err(Error::InvalidArgument("filename too long".into()).into());
         }
         self.filename = Some(filename.to_vec());
-        self
+        Ok(())
     }
 
     /// Sets the literal packet's filename field from a UTF-8 encoded
     /// string.
     ///
     /// This is a convenience function, since the field is actually a
-    /// raw byte string.
-    ///
-    /// This function panics, if the filename is longer than 255
-    /// bytes, which is the limit imposed by RFC 4880.
-    pub fn filename(mut self, filename: &str) -> Literal {
+    /// raw byte string.  Filenames must not be longer than 255 bytes.
+    pub fn set_filename(&mut self, filename: &str) -> Result<()> {
+        let filename = filename.as_bytes().to_vec();
         if filename.len() > 255 {
-            panic!("Filename too long.");
+            return
+                Err(Error::InvalidArgument("filename too long".into()).into());
         }
-        self.filename = Some(filename.as_bytes().to_vec());
-        self
+        self.filename = Some(filename);
+        Ok(())
     }
 
-    /// Sets the literal packet's date field using a Unix timestamp.
-    ///
-    /// A Unix timestamp is the number of seconds since the Unix
-    /// epoch.
-    pub fn date(mut self, timestamp: time::Tm) -> Literal {
+    /// Gets the literal packet's date field.
+    pub fn date(&self) -> time::Tm {
+        self.date
+    }
+
+    /// Sets the literal packet's date field.
+    pub fn set_date(&mut self, timestamp: time::Tm) {
         self.date = timestamp;
-        self
     }
 
     /// Convert the `Literal` struct to a `Packet`.

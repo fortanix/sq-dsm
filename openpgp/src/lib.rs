@@ -333,18 +333,18 @@ pub struct UserAttribute {
 #[derive(PartialEq, Clone)]
 pub struct Literal {
     /// CTB packet header fields.
-    pub common: packet::Common,
+    common: packet::Common,
     /// A one-octet field that describes how the data is formatted.
-    pub format: DataFormat,
+    format: DataFormat,
     /// filename is a string, but strings in Rust are valid UTF-8.
     /// There is no guarantee, however, that the filename is valid
     /// UTF-8.  Thus, we leave filename as a byte array.  It can be
     /// converted to a string using String::from_utf8() or
     /// String::from_utf8_lossy().
-    pub filename: Option<Vec<u8>>,
+    filename: Option<Vec<u8>>,
     /// A four-octet number that indicates a date associated with the
     /// literal data.
-    pub date: time::Tm,
+    date: time::Tm,
 }
 
 /// Holds a compressed data packet.

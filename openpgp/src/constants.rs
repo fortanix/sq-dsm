@@ -772,12 +772,19 @@ impl Arbitrary for ReasonForRevocation {
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub enum DataFormat {
     /// Binary data.
+    ///
+    /// This is a hint that the content is probably binary data.
     Binary,
 
     /// Text data.
+    ///
+    /// This is a hint that the content is probably text; the encoding
+    /// is not specified.
     Text,
 
     /// Text data, probably valid UTF-8.
+    ///
+    /// This is a hint that the content is probably UTF-8 encoded.
     Unicode,
 
     /// MIME message.
