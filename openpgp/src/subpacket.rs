@@ -402,6 +402,22 @@ impl fmt::Debug for SubpacketArea {
     }
 }
 
+/// Iterates over SubpacketAreas yielding subpackets.
+pub struct Iter<'a> {
+    inner: SubpacketAreaIterRaw<'a>,
+}
+
+impl<'a> Iterator for Iter<'a> {
+    // Start, length, packet.
+    type Item = (usize, usize, Subpacket<'a>);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.inner.next()
+            .map(|(start, len, raw)| (start, len, raw.into()))
+    }
+}
+
+
 impl SubpacketArea {
     /// Returns a new subpacket area based on `data`.
     pub fn new(data: Vec<u8>) -> SubpacketArea {
@@ -431,6 +447,11 @@ impl SubpacketArea {
     /// Invalidates the cache.
     fn cache_invalidate(&self) {
         *self.parsed.borrow_mut() = None;
+    }
+
+    /// Iterates over the subpackets.
+    pub fn iter<'a>(&'a self) -> Iter<'a> {
+        Iter { inner: self.iter_raw(), }
     }
 
     /// Returns the last subpacket, if any, with the specified tag.
