@@ -10,7 +10,7 @@ use serialize::Serialize;
 
 impl fmt::Debug for OnePassSig {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("Signature")
+        f.debug_struct("OnePassSig")
             .field("version", &self.version)
             .field("sigtype", &self.sigtype)
             .field("hash_algo", &self.hash_algo)
