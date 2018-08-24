@@ -11,10 +11,14 @@ impl Unknown {
         }
     }
 
+    /// Gets the unknown packet's tag.
+    pub fn tag(&self) -> Tag {
+        self.tag
+    }
+
     /// Sets the unknown packet's tag.
-    pub fn tag(mut self, tag: Tag) -> Self {
+    pub fn set_tag(&mut self, tag: Tag) {
         self.tag = tag;
-        self
     }
 
     /// Sets the packet's contents.
@@ -22,9 +26,17 @@ impl Unknown {
     /// This is the raw packet content not include the CTB and length
     /// information, and not encoded using something like OpenPGP's
     /// partial body encoding.
-    pub fn body(mut self, data: Vec<u8>) -> Self {
+    pub fn body(&self) -> Option<&[u8]> {
+        self.common.body.as_ref().map(|b| b.as_slice())
+    }
+
+    /// Sets the packet's contents.
+    ///
+    /// This is the raw packet content not include the CTB and length
+    /// information, and not encoded using something like OpenPGP's
+    /// partial body encoding.
+    pub fn set_body(&mut self, data: Vec<u8>) {
         self.common.body = Some(data);
-        self
     }
 
     /// Convert the `Unknown` struct to a `Packet`.

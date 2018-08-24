@@ -234,9 +234,9 @@ pub enum Error {
 #[derive(PartialEq, Clone, Debug)]
 pub struct Unknown {
     /// CTB packet header fields.
-    pub common: packet::Common,
+    common: packet::Common,
     /// Packet tag.
-    pub tag: Tag,
+    tag: Tag,
 }
 
 /// Holds a one-pass signature packet.
