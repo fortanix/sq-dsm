@@ -149,8 +149,8 @@ impl Key {
     }
 
     /// Gets the key packet's creation time field.
-    pub fn creation_time(&self) -> time::Tm {
-        self.creation_time
+    pub fn creation_time(&self) -> &time::Tm {
+        &self.creation_time
     }
 
     /// Sets the key packet's creation time field.

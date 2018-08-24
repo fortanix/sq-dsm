@@ -105,8 +105,8 @@ impl Literal {
     }
 
     /// Gets the literal packet's date field.
-    pub fn date(&self) -> time::Tm {
-        self.date
+    pub fn date(&self) -> &time::Tm {
+        &self.date
     }
 
     /// Sets the literal packet's date field.
