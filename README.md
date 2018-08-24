@@ -5,6 +5,59 @@ Sequoia is a cool new OpenPGP implementation.  It consists of several
 crates, providing both a low-level and a high-level API for dealing
 with OpenPGP data.
 
+Low-level API
+-------------
+
+The low-level API can be found in the 'openpgp' crate.  This crate
+aims to provide a complete implementation of OpenPGP as defined by RFC
+4880 as well as several extensions (e.g., RFC 6637, which describes
+ECC cryptography for OpenPGP, and RFC 4880bis, the draft of the next
+OpenPGP standard).  This includes support for unbuffered message
+processing.
+
+The 'openpgp' crate tries hard to avoid dictating how OpenPGP should
+be used.  This doesn't mean that we don't have opinions about how
+OpenPGP should be used in a number of common scenarios (for instance,
+message validation).  But, in this crate, we refrain from expressing
+those opinions; we expose an opinionated, high-level interface in the
+sequoia-core and related crates.  In our opinion, you should generally
+use those crates instead of this one.
+
+High-level API
+--------------
+
+The high-level API can be found in the 'sequoia' crate, which
+conveniently includes all the other crates.  The high-level API
+include a public key store, and network access routines.
+
+Please note that as of this writing the high-level API is very
+incomplete.
+
+Foreign Function Interface
+--------------------------
+
+Sequoia provides a C API for use in languages other than Rust.  The
+glue code can be found in the 'sequoia-ffi' crate.
+
+Project status
+==============
+
+The low-level API is quite feature-complete and can be used encrypt,
+decrypt, sign, and verify messages.  It can create, inspect, and
+manipulate OpenPGP data on a very low-level.
+
+The high-level API is effectively non-existent, though there is some
+functionality related to key servers and key stores.
+
+The foreign function interface provides a C API for some of Sequoia's
+low- and high-level interfaces, but it is incomplete.
+
+There is a command-line frontend 'sq' that exposes most of Sequoia's
+functionality in a convenient way.
+
+There is a mostly feature-complete command-line verification tool for
+detached messages called 'sqv'.
+
 LICENSE
 =======
 
@@ -46,3 +99,13 @@ execute `make test` (or use the `check` alias).  To install Sequoia,
 use `make install`.  The latter target honors `PREFIX` and `DESTDIR`.
 Finally, to return your source tree to its pristine state, run `make
 clean`.
+
+Getting help
+============
+
+Sequoia's documentation is hosted here: https://docs.sequoia-pgp.org/
+
+You can join our mailing list by sending a mail to
+devel-subscribe@sequoia-pgp.org.
+
+You can talk to us using IRC on freenode in #sequoia.
