@@ -374,9 +374,16 @@ pub struct CompressedData {
 #[derive(PartialEq, Clone, Debug)]
 pub struct SEIP {
     /// CTB packet header fields.
-    pub common: packet::Common,
+    common: packet::Common,
     /// SEIP version. Must be 1.
-    pub version: u8,
+    version: u8,
+}
+
+impl SEIP {
+    /// Gets the version.
+    pub fn version(&self) -> u8 {
+        self.version
+    }
 }
 
 /// Holds an MDC packet.
