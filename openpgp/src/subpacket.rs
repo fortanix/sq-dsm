@@ -2514,9 +2514,9 @@ fn accessors() {
 
     let pk_algo = PublicKeyAlgorithm::EdDSA;
     let hash_algo = HashAlgorithm::SHA512;
-    let mut sig = Signature::new(::constants::SignatureType::Binary)
-        .pk_algo(pk_algo)
-        .hash_algo(hash_algo);
+    let mut sig = Signature::new(::constants::SignatureType::Binary);
+    sig.set_pk_algo(pk_algo);
+    sig.set_hash_algo(hash_algo);
 
     // Fake some MPIs to make the serialization code happy.
     sig.mpis = MPIs::EdDSASignature {

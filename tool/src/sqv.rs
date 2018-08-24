@@ -119,7 +119,7 @@ fn real_main() -> Result<(), failure::Error> {
     // .unwrap() is safe, because "file" is required.
     let file = matches.value_of_os("file").unwrap();
     let hash_algos : Vec<HashAlgorithm>
-        = sigs.iter().map(|&(ref sig, _, _)| sig.hash_algo).collect();
+        = sigs.iter().map(|&(ref sig, _, _)| sig.hash_algo()).collect();
     let hashes = openpgp::hash_file(File::open(file)?, &hash_algos[..])?;
 
     fn tpk_has_key(tpk: &TPK, keyid: &KeyID) -> bool {
@@ -201,7 +201,8 @@ fn real_main() -> Result<(), failure::Error> {
 
                     let mut digest = vec![0u8; hash.digest_size()];
                     hash.digest(&mut digest);
-                    sig.computed_hash = Some((sig.hash_algo, digest));
+                    let hash_algo = sig.hash_algo();
+                    sig.set_computed_hash(Some((hash_algo, digest)));
 
                     match sig.verify(key) {
                         Ok(true) => {

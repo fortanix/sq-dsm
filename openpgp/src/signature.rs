@@ -43,27 +43,27 @@ fn path_to(artifact: &str) -> PathBuf {
 #[derive(Clone)]
 pub struct Signature {
     /// CTB packet header fields.
-    pub common: packet::Common,
+    pub(crate) common: packet::Common,
     /// Version of the signature packet. Must be 4.
-    pub version: u8,
+    pub(crate) version: u8,
     /// Type of signature.
-    pub sigtype: SignatureType,
-    /// Public-key algorithm used for this signature.
-    pub pk_algo: PublicKeyAlgorithm,
+    pub(crate) sigtype: SignatureType,
+    /// Pub(Crate)lic-key algorithm used for this signature.
+    pub(crate) pk_algo: PublicKeyAlgorithm,
     /// Hash algorithm used to compute the signature.
-    pub hash_algo: HashAlgorithm,
+    pub(crate) hash_algo: HashAlgorithm,
     /// Subpackets that are part of the signature.
-    pub hashed_area: SubpacketArea,
+    pub(crate) hashed_area: SubpacketArea,
     /// Subpackets _not_ that are part of the signature.
-    pub unhashed_area: SubpacketArea,
+    pub(crate) unhashed_area: SubpacketArea,
     /// Lower 16 bits of the signed hash value.
-    pub hash_prefix: [u8; 2],
+    pub(crate) hash_prefix: [u8; 2],
     /// Signature MPIs. Must be a *Signature variant.
-    pub mpis: MPIs,
+    pub(crate) mpis: MPIs,
 
     /// When used in conjunction with a one-pass signature, this is the
     /// hash computed over the enclosed message.
-    pub computed_hash: Option<(HashAlgorithm, Vec<u8>)>,
+    pub(crate) computed_hash: Option<(HashAlgorithm, Vec<u8>)>,
 }
 
 impl fmt::Debug for Signature {
@@ -134,24 +134,92 @@ impl Signature {
         }
     }
 
+    /// Gets the version.
+    pub fn version(&self) -> u8 {
+        self.version
+    }
+
+    /// Gets the signature type.
+    pub fn sigtype(&self) -> SignatureType {
+        self.sigtype
+    }
+
     /// Sets the signature type.
-    pub fn sigtype(mut self, t: SignatureType) -> Self {
+    pub fn set_sigtype(&mut self, t: SignatureType) {
         self.sigtype = t;
-        self
+    }
+
+    /// Gets the public key algorithm.
+    pub fn pk_algo(&self) -> PublicKeyAlgorithm {
+        self.pk_algo
     }
 
     /// Sets the public key algorithm.
-    pub fn pk_algo(mut self, algo: PublicKeyAlgorithm) -> Self {
+    pub fn set_pk_algo(&mut self, algo: PublicKeyAlgorithm) {
         // XXX: Do we invalidate the signature data?
         self.pk_algo = algo;
-        self
+    }
+
+    /// Gets the hash algorithm.
+    pub fn hash_algo(&self) -> HashAlgorithm {
+        self.hash_algo
     }
 
     /// Sets the hash algorithm.
-    pub fn hash_algo(mut self, algo: HashAlgorithm) -> Self {
+    pub fn set_hash_algo(&mut self, algo: HashAlgorithm) {
         // XXX: Do we invalidate the signature data?
         self.hash_algo = algo;
-        self
+    }
+
+    /// Gets a reference to the hashed area.
+    pub fn hashed_area(&self) -> &SubpacketArea {
+        &self.hashed_area
+    }
+
+    /// Gets a mutable reference to the hashed area.
+    pub fn hashed_area_mut(&mut self) -> &mut SubpacketArea {
+        &mut self.hashed_area
+    }
+
+    /// Gets a reference to the unhashed area.
+    pub fn unhashed_area(&self) -> &SubpacketArea {
+        &self.unhashed_area
+    }
+
+    /// Gets a mutable reference to the unhashed area.
+    pub fn unhashed_area_mut(&mut self) -> &mut SubpacketArea {
+        &mut self.unhashed_area
+    }
+
+    /// Gets the hash prefix.
+    pub fn hash_prefix(&self) -> &[u8; 2] {
+        &self.hash_prefix
+    }
+
+    /// Sets the hash prefix.
+    pub fn set_hash_prefix(&mut self, prefix: [u8; 2]) {
+        self.hash_prefix = prefix;
+    }
+
+    /// Gets the signature packet's MPIs.
+    pub fn mpis(&self) -> &MPIs {
+        &self.mpis
+    }
+
+    /// Sets the signature packet's MPIs.
+    pub fn set_mpis(&mut self, mpis: MPIs) {
+        self.mpis = mpis;
+    }
+
+    /// Gets the computed hash value.
+    pub fn computed_hash(&self) -> Option<&(HashAlgorithm, Vec<u8>)> {
+        self.computed_hash.as_ref()
+    }
+
+    /// Sets the computed hash value.
+    pub fn set_computed_hash(&mut self, hash: Option<(HashAlgorithm, Vec<u8>)>)
+    {
+        self.computed_hash = hash;
     }
 
     /// Gets the issuer.
