@@ -2,6 +2,7 @@ use std::fmt;
 
 use Fingerprint;
 use KeyID;
+use Result;
 
 impl fmt::Display for Fingerprint {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -39,11 +40,11 @@ impl Fingerprint {
     /// # use openpgp::Fingerprint;
     /// let hex = "3E8877C877274692975189F5D03F6F865226FE8B";
     /// let fp = Fingerprint::from_hex(hex);
-    /// assert!(fp.is_some());
+    /// assert!(fp.is_ok());
     /// assert_eq!(fp.unwrap().to_hex(), hex);
     /// ```
-    pub fn from_hex(hex: &str) -> Option<Fingerprint> {
-        Some(Fingerprint::from_bytes(&::conversions::from_hex(hex, true)?[..]))
+    pub fn from_hex(hex: &str) -> Result<Fingerprint> {
+        Ok(Fingerprint::from_bytes(&::conversions::from_hex(hex, true)?[..]))
     }
 
     /// Returns a reference to the raw Fingerprint.

@@ -1992,9 +1992,9 @@ mod test {
             .collect::<Vec<Option<KeyID>>>();
         subkeys.sort();
         assert_eq!(subkeys,
-                   &[ KeyID::from_hex(&"7223B56678E02528"[..]),
-                      KeyID::from_hex(&"A3506AFB820ABD08"[..]),
-                      KeyID::from_hex(&"C2B819056C652598"[..]),
+                   &[ KeyID::from_hex(&"7223B56678E02528"[..]).ok(),
+                      KeyID::from_hex(&"A3506AFB820ABD08"[..]).ok(),
+                      KeyID::from_hex(&"C2B819056C652598"[..]).ok(),
                    ][..]);
 
         // DKG's key has all of the self-signatures moved to the last
@@ -2022,19 +2022,19 @@ mod test {
             .collect::<Vec<Option<KeyID>>>();
         subkeys.sort();
         assert_eq!(subkeys,
-                   &[ KeyID::from_hex(&"1075 8EBD BD7C FAB5"[..]),
-                      KeyID::from_hex(&"1258 68EA 4BFA 08E4"[..]),
-                      KeyID::from_hex(&"1498 ADC6 C192 3237"[..]),
-                      KeyID::from_hex(&"24EC FF5A FF68 370A"[..]),
-                      KeyID::from_hex(&"3714 7292 14D5 DA70"[..]),
-                      KeyID::from_hex(&"3B7A A7F0 14E6 9B5A"[..]),
-                      KeyID::from_hex(&"5B58 DCF9 C341 6611"[..]),
-                      KeyID::from_hex(&"A524 01B1 1BFD FA5C"[..]),
-                      KeyID::from_hex(&"A70A 96E1 439E A852"[..]),
-                      KeyID::from_hex(&"C61B D3EC 2148 4CFF"[..]),
-                      KeyID::from_hex(&"CAEF A883 2167 5333"[..]),
-                      KeyID::from_hex(&"DC10 4C4E 0CA7 57FB"[..]),
-                      KeyID::from_hex(&"E3A3 2229 449B 0350"[..]),
+                   &[ KeyID::from_hex(&"1075 8EBD BD7C FAB5"[..]).ok(),
+                      KeyID::from_hex(&"1258 68EA 4BFA 08E4"[..]).ok(),
+                      KeyID::from_hex(&"1498 ADC6 C192 3237"[..]).ok(),
+                      KeyID::from_hex(&"24EC FF5A FF68 370A"[..]).ok(),
+                      KeyID::from_hex(&"3714 7292 14D5 DA70"[..]).ok(),
+                      KeyID::from_hex(&"3B7A A7F0 14E6 9B5A"[..]).ok(),
+                      KeyID::from_hex(&"5B58 DCF9 C341 6611"[..]).ok(),
+                      KeyID::from_hex(&"A524 01B1 1BFD FA5C"[..]).ok(),
+                      KeyID::from_hex(&"A70A 96E1 439E A852"[..]).ok(),
+                      KeyID::from_hex(&"C61B D3EC 2148 4CFF"[..]).ok(),
+                      KeyID::from_hex(&"CAEF A883 2167 5333"[..]).ok(),
+                      KeyID::from_hex(&"DC10 4C4E 0CA7 57FB"[..]).ok(),
+                      KeyID::from_hex(&"E3A3 2229 449B 0350"[..]).ok(),
                    ][..]);
 
     }

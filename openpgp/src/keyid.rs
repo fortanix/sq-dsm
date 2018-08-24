@@ -2,6 +2,7 @@ use std::fmt;
 
 use Fingerprint;
 use KeyID;
+use Result;
 
 impl fmt::Display for KeyID {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -56,16 +57,16 @@ impl KeyID {
     }
 
     /// Reads a hex-encoded Key ID.
-    pub fn from_hex(hex: &str) -> Option<KeyID> {
+    pub fn from_hex(hex: &str) -> Result<KeyID> {
         let bytes = ::conversions::from_hex(hex, true)?;
 
         // A KeyID is exactly 8 bytes long.
         if bytes.len() == 8 {
-            Some(KeyID::from_bytes(&bytes[..]))
+            Ok(KeyID::from_bytes(&bytes[..]))
         } else {
             // Maybe a fingerprint was given.  Try to parse it and
             // convert it to a KeyID.
-            Some(Fingerprint::from_hex(hex)?.to_keyid())
+            Ok(Fingerprint::from_hex(hex)?.to_keyid())
         }
     }
 

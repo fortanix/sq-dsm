@@ -211,7 +211,7 @@ fn real_main() -> Result<(), failure::Error> {
                 ("get",  Some(m)) => {
                     let keyid = m.value_of("keyid").unwrap();
                     let id = openpgp::KeyID::from_hex(keyid);
-                    if id.is_none() {
+                    if id.is_err() {
                         eprintln!("Malformed key ID: {:?}\n\
                                    (Note: only long Key IDs are supported.)",
                                   keyid);

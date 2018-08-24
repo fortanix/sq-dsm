@@ -261,7 +261,7 @@ impl node::store::Server for StoreServer {
         let params = pry!(params.get());
         let fp = pry!(params.get_fingerprint());
         let fp = sry!(Fingerprint::from_hex(fp)
-                      .ok_or(node::Error::MalformedFingerprint));
+                      .map_err(|_| node::Error::MalformedFingerprint));
         let label = pry!(params.get_label());
 
         let (binding_id, key_id, created) = sry!(
@@ -739,7 +739,7 @@ impl KeyServer {
             &[&network_policy_u8, &Timestamp::now()], |row| (row.get(0),
                                                              row.get(1)))?;
         let fingerprint = openpgp::Fingerprint::from_hex(&fingerprint)
-            .ok_or(node::Error::SystemError)?;
+            .map_err(|_| node::Error::SystemError)?;
 
         let ctx = core::Context::configure("org.sequoia-pgp.store")
             .network_policy(network_policy).build()?;
@@ -840,7 +840,7 @@ impl Query for KeyServer {
             "SELECT fingerprint FROM keys WHERE id = ?1",
             &[&self.id], |row| -> String { row.get(0) })
             .ok()
-            .and_then(|fp| Fingerprint::from_hex(&fp))
+            .and_then(|fp| Fingerprint::from_hex(&fp).ok())
             .map(|fp| fp.to_keyid().to_string())
             .unwrap_or(
                 format!("{}::{}", Self::table_name(), self.id())

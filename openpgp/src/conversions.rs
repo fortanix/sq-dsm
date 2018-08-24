@@ -73,7 +73,7 @@ pub(crate) fn to_hex(s: &[u8], pretty: bool) -> String {
 
 /// A helpful function for converting a hexadecimal string to binary.
 /// This function skips whitespace if `pretty` is set.
-pub(crate) fn from_hex(hex: &str, pretty: bool) -> Option<Vec<u8>> {
+pub(crate) fn from_hex(hex: &str, pretty: bool) -> Result<Vec<u8>> {
     const BAD: u8 = 255u8;
     const X: u8 = 'x' as u8;
 
@@ -109,19 +109,21 @@ pub(crate) fn from_hex(hex: &str, pretty: bool) -> Option<Vec<u8>> {
 
     if nibbles.iter().any(|&b| b == BAD || b == X) {
         // Not a hex character.
-        return None;
+        return
+            Err(Error::InvalidArgument("Invalid characters".into()).into());
     }
 
     // We need an even number of nibbles.
     if nibbles.len() % 2 != 0 {
-        return None;
+        return
+            Err(Error::InvalidArgument("Odd number of nibbles".into()).into());
     }
 
     let bytes = nibbles.chunks(2).map(|nibbles| {
         (nibbles[0] << 4) | nibbles[1]
     }).collect::<Vec<u8>>();
 
-    Some(bytes)
+    Ok(bytes)
 }
 
 #[cfg(test)]
@@ -129,47 +131,47 @@ mod test {
     #[test]
     fn from_hex() {
         use super::from_hex as fh;
-        assert_eq!(fh("", false), Some(vec![]));
-        assert_eq!(fh("0", false), None);
-        assert_eq!(fh("00", false), Some(vec![0x00]));
-        assert_eq!(fh("09", false), Some(vec![0x09]));
-        assert_eq!(fh("0f", false), Some(vec![0x0f]));
-        assert_eq!(fh("99", false), Some(vec![0x99]));
-        assert_eq!(fh("ff", false), Some(vec![0xff]));
-        assert_eq!(fh("000", false), None);
-        assert_eq!(fh("0000", false), Some(vec![0x00, 0x00]));
-        assert_eq!(fh("0009", false), Some(vec![0x00, 0x09]));
-        assert_eq!(fh("000f", false), Some(vec![0x00, 0x0f]));
-        assert_eq!(fh("0099", false), Some(vec![0x00, 0x99]));
-        assert_eq!(fh("00ff", false), Some(vec![0x00, 0xff]));
-        assert_eq!(fh("\t\n\x0c\r ", false), None);
-        assert_eq!(fh("a", false), None);
-        assert_eq!(fh("0x", false), None);
-        assert_eq!(fh("0x0", false), None);
-        assert_eq!(fh("0x00", false), None);
+        assert_eq!(fh("", false).ok(), Some(vec![]));
+        assert_eq!(fh("0", false).ok(), None);
+        assert_eq!(fh("00", false).ok(), Some(vec![0x00]));
+        assert_eq!(fh("09", false).ok(), Some(vec![0x09]));
+        assert_eq!(fh("0f", false).ok(), Some(vec![0x0f]));
+        assert_eq!(fh("99", false).ok(), Some(vec![0x99]));
+        assert_eq!(fh("ff", false).ok(), Some(vec![0xff]));
+        assert_eq!(fh("000", false).ok(), None);
+        assert_eq!(fh("0000", false).ok(), Some(vec![0x00, 0x00]));
+        assert_eq!(fh("0009", false).ok(), Some(vec![0x00, 0x09]));
+        assert_eq!(fh("000f", false).ok(), Some(vec![0x00, 0x0f]));
+        assert_eq!(fh("0099", false).ok(), Some(vec![0x00, 0x99]));
+        assert_eq!(fh("00ff", false).ok(), Some(vec![0x00, 0xff]));
+        assert_eq!(fh("\t\n\x0c\r ", false).ok(), None);
+        assert_eq!(fh("a", false).ok(), None);
+        assert_eq!(fh("0x", false).ok(), None);
+        assert_eq!(fh("0x0", false).ok(), None);
+        assert_eq!(fh("0x00", false).ok(), None);
     }
 
     #[test]
     fn from_pretty_hex() {
         use super::from_hex as fh;
-        assert_eq!(fh(" ", true), Some(vec![]));
-        assert_eq!(fh(" 0", true), None);
-        assert_eq!(fh(" 00", true), Some(vec![0x00]));
-        assert_eq!(fh(" 09", true), Some(vec![0x09]));
-        assert_eq!(fh(" 0f", true), Some(vec![0x0f]));
-        assert_eq!(fh(" 99", true), Some(vec![0x99]));
-        assert_eq!(fh(" ff", true), Some(vec![0xff]));
-        assert_eq!(fh(" 00 0", true), None);
-        assert_eq!(fh(" 00 00", true), Some(vec![0x00, 0x00]));
-        assert_eq!(fh(" 00 09", true), Some(vec![0x00, 0x09]));
-        assert_eq!(fh(" 00 0f", true), Some(vec![0x00, 0x0f]));
-        assert_eq!(fh(" 00 99", true), Some(vec![0x00, 0x99]));
-        assert_eq!(fh(" 00 ff", true), Some(vec![0x00, 0xff]));
-        assert_eq!(fh("\t\n\x0c\r ", true), Some(vec![]));
-        assert_eq!(fh("a", true), None);
-        assert_eq!(fh(" 0x", true), Some(vec![]));
-        assert_eq!(fh(" 0x0", true), None);
-        assert_eq!(fh(" 0x00", true), Some(vec![0x00]));
+        assert_eq!(fh(" ", true).ok(), Some(vec![]));
+        assert_eq!(fh(" 0", true).ok(), None);
+        assert_eq!(fh(" 00", true).ok(), Some(vec![0x00]));
+        assert_eq!(fh(" 09", true).ok(), Some(vec![0x09]));
+        assert_eq!(fh(" 0f", true).ok(), Some(vec![0x0f]));
+        assert_eq!(fh(" 99", true).ok(), Some(vec![0x99]));
+        assert_eq!(fh(" ff", true).ok(), Some(vec![0xff]));
+        assert_eq!(fh(" 00 0", true).ok(), None);
+        assert_eq!(fh(" 00 00", true).ok(), Some(vec![0x00, 0x00]));
+        assert_eq!(fh(" 00 09", true).ok(), Some(vec![0x00, 0x09]));
+        assert_eq!(fh(" 00 0f", true).ok(), Some(vec![0x00, 0x0f]));
+        assert_eq!(fh(" 00 99", true).ok(), Some(vec![0x00, 0x99]));
+        assert_eq!(fh(" 00 ff", true).ok(), Some(vec![0x00, 0xff]));
+        assert_eq!(fh("\t\n\x0c\r ", true).ok(), Some(vec![]));
+        assert_eq!(fh("a", true).ok(), None);
+        assert_eq!(fh(" 0x", true).ok(), Some(vec![]));
+        assert_eq!(fh(" 0x0", true).ok(), None);
+        assert_eq!(fh(" 0x00", true).ok(), Some(vec![0x00]));
     }
 
     quickcheck! {
