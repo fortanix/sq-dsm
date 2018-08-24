@@ -2,13 +2,15 @@ use failure::{self, ResultExt};
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::fs::File;
-use std::io::{self, Write};
+use std::io::{self, Read, Write};
+use time;
 use rpassword;
 
 extern crate openpgp;
 use openpgp::constants::DataFormat;
 use openpgp::{Packet, Key, TPK, KeyID, SecretKey, Signature, Result};
 use openpgp::parse::PacketParserResult;
+use openpgp::subpacket::{Subpacket, SubpacketValue};
 use openpgp::parse::stream::{
     Verifier, VerificationResult, VerificationHelper,
 };
@@ -20,6 +22,8 @@ extern crate sequoia_store as store;
 // Indent packets according to their recursion level.
 const INDENT: &'static str
     = "                                                  ";
+
+const TIMEFMT: &'static str = "%Y%m%dT%H%M";
 
 pub fn decrypt(input: &mut io::Read, output: &mut io::Write,
                secrets: Vec<TPK>, dump: bool, map: bool)
@@ -307,29 +311,241 @@ pub fn dump(input: &mut io::Read, output: &mut io::Write, map: bool)
         .map(map).finalize()?;
 
     while let PacketParserResult::Some(mut pp) = ppr {
+        let i = &INDENT[0..pp.recursion_depth as usize];
+        dump_packet(output, i, &pp.packet)?;
         if let Some(ref map) = pp.map {
             let mut hd = HexDumper::new();
-            writeln!(output, "{}{:?}\n",
-                     &INDENT[0..pp.recursion_depth as usize], pp.packet)?;
+            writeln!(output)?;
             for (field, bytes) in map.iter() {
                 hd.print(bytes, field);
             }
             println!();
         } else {
-            if let openpgp::Packet::Literal(_) = pp.packet {
-                // XXX: We should actually stream this.  In fact,
-                // we probably only want to print out the first
-                // line or so and then print the total number of
-                // bytes.
-                pp.buffer_unread_content()?;
+            match pp.packet {
+                Packet::Literal(_) => {
+                    let mut prefix = vec![0; 40];
+                    let n = pp.read(&mut prefix)?;
+                    writeln!(output, "{}  Content: {:?}{}", i,
+                             String::from_utf8_lossy(&prefix[..n]),
+                             if n == prefix.len() { "..." } else { "" })?;
+                },
+                _ => (),
             }
-            writeln!(output, "{}{:?}",
-                     &INDENT[0..pp.recursion_depth as usize], pp.packet)?;
         }
 
         let (_, (ppr_, _)) = pp.recurse()?;
         ppr = ppr_;
     }
+    Ok(())
+}
+
+fn dump_packet(output: &mut io::Write, i: &str, p: &Packet) -> Result<()> {
+    use self::openpgp::Packet::*;
+    match p {
+        Unknown(ref u) => {
+            writeln!(output, "{}Unknown Packet", i)?;
+            writeln!(output, "{}  Tag: {}", i, u.tag())?;
+        },
+
+        Signature(ref s) => {
+            writeln!(output, "{}Signature Packet", i)?;
+            writeln!(output, "{}  Version: {}", i, s.version())?;
+            writeln!(output, "{}  Type: {}", i, s.sigtype())?;
+            writeln!(output, "{}  Pk algo: {}", i, s.pk_algo())?;
+            writeln!(output, "{}  Hash algo: {}", i, s.hash_algo())?;
+            if s.hashed_area().iter().count() > 0 {
+                writeln!(output, "{}  Hashed area:", i)?;
+                for (_, _, pkt) in s.hashed_area().iter() {
+                    dump_subpacket(output, i, pkt)?;
+                }
+            }
+            if s.unhashed_area().iter().count() > 0 {
+                writeln!(output, "{}  Unhashed area:", i)?;
+                for (_, _, pkt) in s.unhashed_area().iter() {
+                    dump_subpacket(output, i, pkt)?;
+                }
+            }
+            writeln!(output, "{}  Hash prefix: {}", i,
+                     to_hex(s.hash_prefix(), false))?;
+            writeln!(output, "{}  MPIs: {:?}", i, s.mpis())?;
+        },
+
+        OnePassSig(ref o) => {
+            writeln!(output, "{}One-Pass Signature Packet", i)?;
+            writeln!(output, "{}  Version: {}", i, o.version())?;
+            writeln!(output, "{}  Type: {}", i, o.sigtype())?;
+            writeln!(output, "{}  Pk algo: {}", i, o.pk_algo())?;
+            writeln!(output, "{}  Hash algo: {}", i, o.hash_algo())?;
+            writeln!(output, "{}  Issuer: {}", i, o.issuer())?;
+            writeln!(output, "{}  Last: {}", i, o.last())?;
+        },
+
+        PublicKey(ref k) | PublicSubkey(ref k)
+            | SecretKey(ref k) | SecretSubkey(ref k) =>
+        {
+            writeln!(output, "{}{} Packet", i, p.tag())?;
+            writeln!(output, "{}  Version: {}", i, k.version())?;
+            writeln!(output, "{}  Creation time: {}", i,
+                     time::strftime(TIMEFMT, k.creation_time()).unwrap())?;
+            writeln!(output, "{}  Pk algo: {}", i, k.pk_algo())?;
+            writeln!(output, "{}  MPIs: {:?}", i, k.mpis())?;
+            if let Some(secrets) = k.secret() {
+                writeln!(output, "{}  Secrets: {:?}", i, secrets)?;
+            }
+        },
+
+        UserID(ref u) => {
+            writeln!(output, "{}User ID Packet", i)?;
+            writeln!(output, "{}  Value: {}", i,
+                     String::from_utf8_lossy(u.userid()))?;
+        },
+
+        UserAttribute(ref u) => {
+            writeln!(output, "{}User Attribute Packet", i)?;
+            writeln!(output, "{}  Value: {} bytes", i,
+                     u.user_attribute().len())?;
+        },
+
+        Literal(ref l) => {
+            writeln!(output, "{}Literal Data Packet", i)?;
+            writeln!(output, "{}  Format: {}", i, l.format())?;
+            if let Some(filename) = l.filename() {
+                writeln!(output, "{}  Filename: {}", i,
+                         String::from_utf8_lossy(filename))?;
+            }
+            if let Some(timestamp) = l.date() {
+                writeln!(output, "{}  Timestamp: {}", i,
+                         time::strftime(TIMEFMT, timestamp).unwrap())?;
+            }
+        },
+
+        CompressedData(ref c) => {
+            writeln!(output, "{}Compressed Data Packet", i)?;
+            writeln!(output, "{}  Algorithm: {}", i, c.algorithm())?;
+        },
+
+        PKESK(ref p) => {
+            writeln!(output,
+                     "{}Public-key Encrypted Session Key Packet", i)?;
+            writeln!(output, "{}  Version: {}", i, p.version())?;
+            writeln!(output, "{}  Recipient: {}", i, p.recipient())?;
+            writeln!(output, "{}  Pk algo: {}", i, p.pk_algo())?;
+            writeln!(output, "{}  ESK: {:?}", i, p.esk())?;
+        },
+
+        SKESK(ref s) => {
+            writeln!(output,
+                     "{}Symmetric-key Encrypted Session Key Packet", i)?;
+            writeln!(output, "{}  Version: {}", i, s.version())?;
+            writeln!(output, "{}  Cipher: {}", i, s.symmetric_algo())?;
+            writeln!(output, "{}  S2K: {:?}", i, s.s2k())?;
+            writeln!(output, "{}  ESK: {:?}", i, s.esk())?;
+        },
+
+        SEIP(ref s) => {
+            writeln!(output,
+                     "{}Encrypted and Integrity Protected Data Packet", i)?;
+            writeln!(output, "{}  Version: {}", i, s.version())?;
+        },
+
+        MDC(ref m) => {
+            writeln!(output, "{}Modification Detection Code Packet", i)?;
+            writeln!(output, "{}  Hash: {}", i, to_hex(m.hash(), false))?;
+        },
+    }
+
+    Ok(())
+}
+
+fn dump_subpacket(output: &mut io::Write, i: &str, s: Subpacket) -> Result<()> {
+    use self::SubpacketValue::*;
+    match s.value {
+        Unknown(ref b) =>
+            write!(output, "{}    Unknown: {:?}", i, b)?,
+        Invalid(ref b) =>
+            write!(output, "{}    Invalid: {:?}", i, b)?,
+        SignatureCreationTime(ref t) =>
+            write!(output, "{}    Signature creation time: {}", i,
+                   time::strftime(TIMEFMT, t).unwrap())?,
+        SignatureExpirationTime(ref t) =>
+            write!(output, "{}    Signature expiration time: {}", i, t)?,
+        ExportableCertification(e) =>
+            write!(output, "{}    Exportable certification: {}", i, e)?,
+        TrustSignature{level, trust} =>
+            write!(output, "{}    Trust signature: level {} trust {}", i,
+                   level, trust)?,
+        RegularExpression(ref r) =>
+            write!(output, "{}    Regular expression: {}", i,
+                   String::from_utf8_lossy(r))?,
+        Revocable(r) =>
+            write!(output, "{}    Revocable: {}", i, r)?,
+        KeyExpirationTime(ref t) =>
+            write!(output, "{}    Signature expiration time: {}", i, t)?,
+        PreferredSymmetricAlgorithms(ref c) =>
+            write!(output, "{}    Cipher preference: {}", i,
+                   c.iter().map(|c| format!("{:?}", c))
+                   .collect::<Vec<String>>().join(", "))?,
+        RevocationKey{class, pk_algo, ref fp} =>
+            write!(output,
+                   "{}    Revocation key: class {} algo {} fingerprint {}", i,
+                   class, pk_algo, fp)?,
+        Issuer(ref is) =>
+            write!(output, "{}    Issuer: {}", i, is)?,
+        NotationData(ref n) =>
+            write!(output, "{}    Notation: {:?}", i, n)?,
+        PreferredHashAlgorithms(ref h) =>
+            write!(output, "{}    Hash preference: {}", i,
+                   h.iter().map(|h| format!("{:?}", h))
+                   .collect::<Vec<String>>().join(", "))?,
+        PreferredCompressionAlgorithms(ref c) =>
+            write!(output, "{}    Compression preference: {}", i,
+                   c.iter().map(|c| format!("{:?}", c))
+                   .collect::<Vec<String>>().join(", "))?,
+        KeyServerPreferences(ref p) =>
+            write!(output, "{}    Keyserver preferences: {:?}", i, p)?,
+        PreferredKeyServer(ref k) =>
+            write!(output, "{}    Preferred keyserver: {}", i,
+                   String::from_utf8_lossy(k))?,
+        PrimaryUserID(p) =>
+            write!(output, "{}    Primary User ID: {}", i, p)?,
+        PolicyURI(ref p) =>
+            write!(output, "{}    Policy URI: {}", i,
+                   String::from_utf8_lossy(p))?,
+        KeyFlags(ref k) =>
+            write!(output, "{}    Key flags: {:?}", i, k)?,
+        SignersUserID(ref u) =>
+            write!(output, "{}    Signers User ID: {}", i,
+                   String::from_utf8_lossy(u))?,
+        ReasonForRevocation{code, ref reason} =>
+            write!(output, "{}    Reason for revocation: {}, {}", i, code,
+                   String::from_utf8_lossy(reason))?,
+        Features(ref f) =>
+            write!(output, "{}    Features: {:?}", i, f)?,
+        SignatureTarget{pk_algo, hash_algo, ref digest} =>
+            write!(output, "{}    Signature target: {}, {}, {}", i,
+                   pk_algo, hash_algo, to_hex(digest, false))?,
+        EmbeddedSignature(_) =>
+        // Embedded signature is dumped below.
+            write!(output, "{}    Embedded signature: ", i)?,
+        IssuerFingerprint(ref fp) =>
+            write!(output, "{}    Issuer Fingerprint: {}", i, fp)?,
+        IntendedRecipient(ref fp) =>
+            write!(output, "{}    Intended Recipient: {}", i, fp)?,
+    }
+
+    if s.critical {
+        write!(output, " (critical)")?;
+    }
+        writeln!(output)?;
+
+    match s.value {
+        EmbeddedSignature(ref sig) => {
+            let i_ = format!("{}      ", i);
+            dump_packet(output, &i_, sig)?;
+        },
+        _ => (),
+    }
+
     Ok(())
 }
 
@@ -429,4 +645,19 @@ impl HexDumper {
         }
         println!();
     }
+}
+
+fn to_hex(s: &[u8], pretty: bool) -> String {
+    use std::fmt::Write;
+
+    let mut result = String::new();
+    for (i, b) in s.iter().enumerate() {
+        // Add spaces every four digits to make the output more
+        // readable.
+        if pretty && i > 0 && i % 2 == 0 {
+            write!(&mut result, " ").unwrap();
+        }
+        write!(&mut result, "{:02X}", b).unwrap();
+    }
+    result
 }
