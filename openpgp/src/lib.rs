@@ -292,7 +292,7 @@ pub struct Key {
 #[derive(PartialEq, Clone)]
 pub struct UserID {
     /// CTB packet header fields.
-    pub common: packet::Common,
+    common: packet::Common,
     /// The user id.
     ///
     /// According to [RFC 4880], the text is by convention UTF-8 encoded
@@ -302,7 +302,7 @@ pub struct UserID {
     ///   [RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.11
     ///
     /// Use `UserID::default()` to get a UserID with a default settings.
-    pub value: Vec<u8>,
+    value: Vec<u8>,
 }
 
 /// Holds a UserAttribute packet.

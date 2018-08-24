@@ -1423,7 +1423,9 @@ mod serialize_test {
 
         // 1: UserID(UserID { value: "Foo" })
         let mut top_level = Vec::new();
-        top_level.push(UserID::new().userid("Foo").to_packet());
+        let mut uid = UserID::new();
+        uid.set_userid("Foo");
+        top_level.push(uid.to_packet());
         messages.push(top_level);
 
         for m in messages.into_iter() {

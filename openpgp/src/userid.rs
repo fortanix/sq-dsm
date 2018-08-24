@@ -29,16 +29,19 @@ impl UserID {
         }
     }
 
-    /// Sets the user ID packet's filename field from a byte sequence.
-    pub fn userid_from_bytes(mut self, userid: &[u8]) -> UserID {
-        self.value = userid.to_vec();
-        self
+    /// Gets the user ID packet's value.
+    pub fn userid(&self) -> &[u8] {
+        self.value.as_slice()
     }
 
-    /// Sets the user ID packet's filename field from a UTF-8 encoded
-    /// string.
-    pub fn userid(self, userid: &str) -> UserID {
-        self.userid_from_bytes(userid.as_bytes())
+    /// Sets the user ID packet's value from a byte sequence.
+    pub fn set_userid_from_bytes(&mut self, userid: &[u8]) {
+        self.value = userid.to_vec();
+    }
+
+    /// Sets the user ID packet's value from a UTF-8 encoded string.
+    pub fn set_userid(&mut self, userid: &str) {
+        self.set_userid_from_bytes(userid.as_bytes())
     }
 
     /// Convert the `UserID` struct to a `Packet`.

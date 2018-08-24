@@ -1070,9 +1070,9 @@ pub extern "system" fn sq_user_id_value(uid: Option<&Packet>,
     let uid = uid.expect("UserID is NULL");
     if let &Packet::UserID(ref uid) = uid {
         if let Some(p) = value_len {
-            *p = uid.value.len();
+            *p = uid.userid().len();
         }
-        uid.value.as_ptr()
+        uid.userid().as_ptr()
     } else {
         panic!("Not a UserID packet");
     }
