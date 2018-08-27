@@ -23,7 +23,7 @@ extern crate sequoia_store as store;
 const INDENT: &'static str
     = "                                                  ";
 
-const TIMEFMT: &'static str = "%Y%m%dT%H%M";
+const TIMEFMT: &'static str = "%Y-%m-%dT%H:%M";
 
 pub fn decrypt(input: &mut io::Read, output: &mut io::Write,
                secrets: Vec<TPK>, dump: bool, map: bool)
