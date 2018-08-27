@@ -5,6 +5,7 @@
 
 extern crate clap;
 extern crate failure;
+use failure::ResultExt;
 extern crate time;
 
 extern crate openpgp;
@@ -45,11 +46,18 @@ fn real_main() -> Result<(), failure::Error> {
         exit(2);
     }
 
-    let not_before = matches.value_of("not-before")
-        .and_then(|v| time::strptime(v, "%Y-%m-%d").ok());
-    let not_after = matches.value_of("not-after")
-        .and_then(|v| time::strptime(v, "%Y-%m-%d").ok())
-        .unwrap_or_else(|| time::now_utc());
+    let not_before = if let Some(t) = matches.value_of("not-before") {
+        Some(time::strptime(t, "%Y-%m-%d")
+             .context(format!("Bad value passed to --not-before: {:?}", t))?)
+    } else {
+        None
+    };
+    let not_after = if let Some(t) = matches.value_of("not-after") {
+        Some(time::strptime(t, "%Y-%m-%d")
+             .context(format!("Bad value passed to --not-after: {:?}", t))?)
+    } else {
+        None
+    }.unwrap_or_else(|| time::now_utc());
 
     // First, we collect the signatures and the alleged issuers.
     // Then, we scan the keyrings exactly once to find the associated
