@@ -7,7 +7,7 @@ use quickcheck::{Arbitrary, Gen};
 ///   [Section 4.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.3
 ///
 /// The values correspond to the serialized format.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Tag {
     /// Reserved Packet tag.
     Reserved,

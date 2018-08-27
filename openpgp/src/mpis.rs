@@ -12,7 +12,7 @@ use constants::{
 use nettle::Hash;
 
 /// Holds a single MPI.
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct MPI {
     /// Length of the integer in bits.
     pub bits: usize,
@@ -62,7 +62,7 @@ impl fmt::Debug for MPI {
 ///
 /// Provides a typed and structured way of storing multiple MPIs (and
 /// the occasional elliptic curve) in packets.
-#[derive(Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
+#[derive(Clone, PartialEq, Eq, Hash, Debug, PartialOrd, Ord)]
 pub enum MPIs {
     /// Invalid, empty value.
     None,

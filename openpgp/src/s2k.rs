@@ -22,7 +22,7 @@ use quickcheck::{Arbitrary, Gen};
 /// [Section 3.7 of RFC 4880].
 ///
 ///   [Section 3.7 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-3.7
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum S2K {
     /// Simply hashes the password.
     Simple {

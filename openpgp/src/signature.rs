@@ -40,7 +40,7 @@ fn path_to(artifact: &str) -> PathBuf {
 ///
 ///   [Section 5.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2
 // Note: we can't derive PartialEq, because it includes the cached data.
-#[derive(Clone)]
+#[derive(Eq, Hash, Clone)]
 pub struct Signature {
     /// CTB packet header fields.
     pub(crate) common: packet::Common,

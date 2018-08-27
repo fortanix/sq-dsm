@@ -206,7 +206,7 @@ impl Key {
 /// Holds the secret potion of a OpenPGP secret key or secret subkey packet.
 ///
 /// This type allows postponing the decryption of the secret key until we need to use it.
-#[derive(PartialEq, Clone, Debug)]
+#[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub enum SecretKey {
     /// Unencrypted secret key. Can be used as-is.
     Unencrypted {

@@ -12,7 +12,7 @@ use Packet;
 /// 4880] for details.
 ///
 /// [Section 5.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.3
-#[derive(PartialEq, Clone, Debug)]
+#[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub struct SKESK {
     /// CTB header fields.
     pub(crate) common: packet::Common,

@@ -15,7 +15,7 @@ use packet;
 /// [Section 5.1 of RFC 4880] for details.
 ///
 ///   [Section 5.1 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.1
-#[derive(PartialEq, Clone, Debug)]
+#[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub struct PKESK {
     /// CTB header fields.
     pub(crate) common: packet::Common,

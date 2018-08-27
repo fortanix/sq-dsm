@@ -56,6 +56,7 @@
 
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::hash::{Hash, Hasher};
 use std::fmt;
 use std::io;
 use time;
@@ -307,7 +308,7 @@ impl<'a> fmt::Debug for SubpacketRaw<'a> {
 }
 
 /// Subpacket area.
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct SubpacketArea {
     /// Raw, unparsed subpacket data.
     pub data: Vec<u8>,
@@ -321,6 +322,14 @@ pub struct SubpacketArea {
     //
     // This is an option, because we parse the subpacket area lazily.
     parsed: RefCell<Option<HashMap<SubpacketTag, (bool, u16, u16)>>>,
+}
+
+impl Hash for SubpacketArea {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        // We hash only the data, the cache is a hashmap and does not
+        // implement hash.
+        self.data.hash(state);
+    }
 }
 
 /// Iterates over SubpacketAreas yielding raw packets.

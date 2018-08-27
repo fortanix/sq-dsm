@@ -194,7 +194,7 @@ fn body_length_old_format() {
 }
 
 /// Fields used by multiple packet types.
-#[derive(PartialEq, Clone)]
+#[derive(PartialEq, Eq, Hash, Clone)]
 pub struct Common {
     /// Used by container packets (such as the encryption and
     /// compression packets) to reference their immediate children.
@@ -325,7 +325,7 @@ impl Header {
 ///
 /// This is used by OpenPGP container packets, like the compressed
 /// data packet, to store the containing packets.
-#[derive(PartialEq, Clone)]
+#[derive(PartialEq, Eq, Hash, Clone)]
 pub struct Container {
     pub(crate) packets: Vec<Packet>,
 }

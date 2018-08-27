@@ -231,7 +231,7 @@ pub enum Error {
 /// how to process rather than abort.
 ///
 /// This packet effectively holds a binary blob.
-#[derive(PartialEq, Clone, Debug)]
+#[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub struct Unknown {
     /// CTB packet header fields.
     common: packet::Common,
@@ -244,7 +244,7 @@ pub struct Unknown {
 /// See [Section 5.4 of RFC 4880] for details.
 ///
 ///   [Section 5.4 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.4
-#[derive(Clone)]
+#[derive(Eq, Hash, Clone)]
 pub struct OnePassSig {
     /// CTB packet header fields.
     common: packet::Common,
@@ -268,7 +268,7 @@ pub struct OnePassSig {
 /// See [Section 5.5 of RFC 4880] for details.
 ///
 ///   [Section 5.5 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.5
-#[derive(PartialEq, Clone)]
+#[derive(PartialEq, Eq, Hash, Clone)]
 pub struct Key {
     /// CTB packet header fields.
     common: packet::Common,
@@ -289,7 +289,7 @@ pub struct Key {
 /// See [Section 5.11 of RFC 4880] for details.
 ///
 ///   [Section 5.11 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.11
-#[derive(PartialEq, Clone)]
+#[derive(PartialEq, Eq, Hash, Clone)]
 pub struct UserID {
     /// CTB packet header fields.
     common: packet::Common,
@@ -310,7 +310,7 @@ pub struct UserID {
 /// See [Section 5.12 of RFC 4880] for details.
 ///
 ///   [Section 5.12 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.12
-#[derive(PartialEq, Clone)]
+#[derive(PartialEq, Eq, Hash, Clone)]
 pub struct UserAttribute {
     /// CTB packet header fields.
     common: packet::Common,
@@ -330,7 +330,7 @@ pub struct UserAttribute {
 /// See [Section 5.9 of RFC 4880] for details.
 ///
 ///   [Section 5.9 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.9
-#[derive(PartialEq, Clone)]
+#[derive(PartialEq, Eq, Hash, Clone)]
 pub struct Literal {
     /// CTB packet header fields.
     common: packet::Common,
@@ -357,7 +357,7 @@ pub struct Literal {
 /// of a `CompressedData` packet.
 ///
 /// [Section 5.6 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.6
-#[derive(PartialEq, Clone)]
+#[derive(PartialEq, Eq, Hash, Clone)]
 pub struct CompressedData {
     /// CTB packet header fields.
     common: packet::Common,
@@ -371,7 +371,7 @@ pub struct CompressedData {
 /// 4880] for details.
 ///
 /// [Section 5.13 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.13
-#[derive(PartialEq, Clone, Debug)]
+#[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub struct SEIP {
     /// CTB packet header fields.
     common: packet::Common,
@@ -392,7 +392,7 @@ impl SEIP {
 /// SEIP packet.  See [Section 5.14 of RFC 4880] for details.
 ///
 /// [Section 5.14 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.14
-#[derive(PartialEq, Clone, Debug)]
+#[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub struct MDC {
     /// CTB packet header fields.
     common: packet::Common,
@@ -464,7 +464,7 @@ impl MDC {
 ///
 ///   [Section 5 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5
 #[derive(Debug)]
-#[derive(PartialEq, Clone)]
+#[derive(PartialEq, Eq, Hash, Clone)]
 pub enum Packet {
     /// Unknown packet.
     Unknown(Unknown),
