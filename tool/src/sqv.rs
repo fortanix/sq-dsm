@@ -46,6 +46,8 @@ fn real_main() -> Result<(), failure::Error> {
         exit(2);
     }
 
+    let accept_multiple_sigs = matches.is_present("accept-multiple-signatures");
+
     let not_before = if let Some(t) = matches.value_of("not-before") {
         Some(time::strptime(t, "%Y-%m-%d")
              .context(format!("Bad value passed to --not-before: {:?}", t))?)
@@ -207,6 +209,7 @@ fn real_main() -> Result<(), failure::Error> {
     }
 
     // Verify the signatures.
+    let mut sigs_seen_from_tpk = HashSet::new();
     let mut good = 0;
     'sig_loop: for (mut sig, issuer, tpko) in sigs.into_iter() {
         if trace {
@@ -263,6 +266,17 @@ fn real_main() -> Result<(), failure::Error> {
                             if trace {
                                 eprintln!("Signature by {} is good.", issuer);
                             }
+
+                            if ! accept_multiple_sigs
+                                && sigs_seen_from_tpk.replace(tpk.fingerprint())
+                                .is_some()
+                            {
+                                eprintln!(
+                                    "Ignoring additional good signature by {}.",
+                                    issuer);
+                                continue;
+                            }
+
                             println!("{}", tpk.primary().fingerprint());
                             good += 1;
                         },

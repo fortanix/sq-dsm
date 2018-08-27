@@ -19,6 +19,9 @@ pub fn build() -> App<'static, 'static> {
              .long("signatures")
              .short("n")
              .takes_value(true))
+        .arg(Arg::with_name("accept-multiple-signatures")
+             .help("Accept and count multiple signatures from the same TPK.")
+             .long("accept-multiple-signatures"))
         .arg(Arg::with_name("not-before").value_name("YYYY-MM-DD")
              .help("Consider signatures created before YYYY-MM-DD as invalid.  \
                     Default: no constraint")

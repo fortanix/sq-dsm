@@ -9,9 +9,10 @@
 //!     sqv [FLAGS] [OPTIONS] <SIG-FILE> <FILE> --keyring <FILE>...
 //!
 //! FLAGS:
-//!     -h, --help       Prints help information
-//!         --trace      Trace execution.
-//!     -V, --version    Prints version information
+//!         --accept-multiple-signatures    Accept and count multiple signatures from the same TPK.
+//!     -h, --help                          Prints help information
+//!         --trace                         Trace execution.
+//!     -V, --version                       Prints version information
 //!
 //! OPTIONS:
 //!     -r, --keyring <FILE>...          A keyring.  Can be given multiple times.
