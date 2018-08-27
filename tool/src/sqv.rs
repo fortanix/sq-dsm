@@ -281,7 +281,13 @@ fn real_main() -> Result<(), failure::Error> {
 
 fn main() {
     if let Err(e) = real_main() {
-        eprintln!("{}", e);
+        let mut cause = e.as_fail();
+        eprint!("{}", cause);
+        while let Some(c) = cause.cause() {
+            eprint!(":\n  {}", c);
+            cause = c;
+        }
+        eprintln!();
         exit(2);
     }
 }
