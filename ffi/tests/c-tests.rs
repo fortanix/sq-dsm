@@ -221,7 +221,7 @@ fn build(include_dir: &Path, ldpath: &Path, target_dir: &Path,
     }
 
     let st = Command::new("make")
-        .env("CFLAGS", &format!("-I{:?}", include_dir))
+        .env("CFLAGS", &format!("-O0 -ggdb -I{:?}", include_dir))
         .env("LDFLAGS", &format!("-L{:?} -lsequoia_ffi", ldpath))
         .arg("-C").arg(&target_dir)
         .arg("--quiet")
