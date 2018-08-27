@@ -540,6 +540,13 @@ impl SubpacketArea {
         self.cache_invalidate();
         ::std::mem::replace(&mut self.data, new)
     }
+
+    /// Removes all subpackets.
+    pub fn clear(&mut self) {
+        self.cache_invalidate();
+        self.data.clear();
+    }
+
 }
 
 /// Payload of a NotationData subpacket.
