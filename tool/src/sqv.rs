@@ -11,6 +11,7 @@ extern crate openpgp;
 
 use std::process::exit;
 use std::fs::File;
+use std::collections::HashSet;
 
 use openpgp::{TPK, Packet, Signature, KeyID};
 use openpgp::constants::HashAlgorithm;
@@ -60,6 +61,7 @@ fn real_main() -> Result<(), failure::Error> {
     let mut ppr = PacketParser::from_reader(
         openpgp::Reader::from_file(sig_file)?)?;
 
+    let mut sigs_seen = HashSet::new();
     let mut sigs : Vec<(Signature, KeyID, Option<TPK>)> = Vec::new();
 
     // sig_i is count of all Signature packets that we've seen.  This
@@ -73,6 +75,16 @@ fn real_main() -> Result<(), failure::Error> {
 
         match packet {
             Packet::Signature(sig) => {
+                // To check for duplicates, we normalize the
+                // signature, and put it into the hashset of seen
+                // signatures.
+                let mut sig_normalized = sig.clone();
+                sig_normalized.unhashed_area_mut().clear();
+                if sigs_seen.replace(sig_normalized).is_some() {
+                    eprintln!("Ignoring duplicate signature.");
+                    continue;
+                }
+
                 sig_i += 1;
                 if let Some(fp) = sig.issuer_fingerprint() {
                     if trace {
