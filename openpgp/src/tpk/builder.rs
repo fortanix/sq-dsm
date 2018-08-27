@@ -160,6 +160,7 @@ impl TPKBuilder {
             user_attributes: vec![],
             subkeys: subkeys,
             unknowns: vec![],
+            bad: vec![],
         })
     }
 

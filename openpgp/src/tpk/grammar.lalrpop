@@ -41,6 +41,7 @@ pub TPK: Option<TPK> = {
                     userids: vec![],
                     user_attributes: vec![],
                     unknowns: vec![],
+                    bad: vec![],
                 };
 
                 for c in c.into_iter() {

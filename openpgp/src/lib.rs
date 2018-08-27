@@ -622,6 +622,7 @@ pub struct TPK {
     user_attributes: Vec<tpk::UserAttributeBinding>,
     subkeys: Vec<tpk::SubkeyBinding>,
     unknowns: Vec<tpk::UnknownBinding>,
+    bad: Vec<Signature>,
 }
 
 /// An OpenPGP message.

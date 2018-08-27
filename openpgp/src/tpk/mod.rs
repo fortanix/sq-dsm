@@ -1037,10 +1037,10 @@ impl TPK {
         //    we don't drop a userid or subkey that is actually
         //    valid.
 
-        // Collect bad signatures here.  Below, we'll test whether
-        // they are just out of order by checking them against all
-        // userids and subkeys.
-        let mut bad = Vec::new();
+        // We collect bad signatures here in self.bad.  Below, we'll
+        // test whether they are just out of order by checking them
+        // against all userids and subkeys.  Furthermore, this may be
+        // a partial TPK that is merged into an older copy.
 
         for sig in mem::replace(&mut self.primary_selfsigs, Vec::new())
             .into_iter()
@@ -1049,7 +1049,7 @@ impl TPK {
                                                              &self.primary) {
                 self.primary_selfsigs.push(sig);
             } else {
-                bad.push(sig);
+                self.bad.push(sig);
             }
         }
 
@@ -1067,7 +1067,7 @@ impl TPK {
                                   sig.hash_prefix[0], sig.hash_prefix[1],
                                   sig.sigtype, binding.userid);
                     }
-                    bad.push(sig);
+                    self.bad.push(sig);
                 }
             }
         }
@@ -1086,7 +1086,7 @@ impl TPK {
                                   sig.hash_prefix[0], sig.hash_prefix[1],
                                   sig.sigtype);
                     }
-                    bad.push(sig);
+                    self.bad.push(sig);
                 }
             }
         }
@@ -1105,14 +1105,14 @@ impl TPK {
                                   sig.hash_prefix[0], sig.hash_prefix[1],
                                   sig.sigtype, binding.subkey.keyid());
                     }
-                    bad.push(sig);
+                    self.bad.push(sig);
                 }
             }
         }
 
         // See if the signatures that didn't validate are just out of
         // place.
-        'outer: for sig in mem::replace(&mut bad, Vec::new()) {
+        'outer: for sig in mem::replace(&mut self.bad, Vec::new()) {
             if let Ok(true) = sig.verify_primary_key_binding(&self.primary,
                                                              &self.primary) {
                     if TRACE {
@@ -1171,12 +1171,13 @@ impl TPK {
                 }
             }
 
-            bad.push(sig);
+            // Keep them for later.
+            self.bad.push(sig);
         }
 
-        if bad.len() > 0 && TRACE {
+        if self.bad.len() > 0 && TRACE {
             eprintln!("{}: ignoring {} bad self-signatures",
-                      self.primary.keyid(), bad.len());
+                      self.primary.keyid(), self.bad.len());
         }
 
         // Only keep user ids / user attributes / subkeys with at
@@ -1517,6 +1518,7 @@ impl TPK {
         self.userids.append(&mut other.userids);
         self.user_attributes.append(&mut other.user_attributes);
         self.subkeys.append(&mut other.subkeys);
+        self.bad.append(&mut other.bad);
 
         Ok(self.canonicalize())
     }
@@ -2151,5 +2153,19 @@ mod test {
             .map(|tpkr| tpkr.is_ok())
             .collect::<Vec<bool>>();
         assert_eq!(tpks, &[ true, false, false, true ]);
+    }
+
+    #[test]
+    fn merge_with_incomplete_update() {
+        let tpk = TPK::from_bytes(bytes!("about-to-expire.expired.pgp"))
+            .unwrap();
+        assert!(tpk.primary_key_signature().unwrap()
+                .key_expired(tpk.primary()));
+
+        let update = TPK::from_bytes(bytes!("about-to-expire.update-no-uid.pgp"))
+            .unwrap();
+        let tpk = tpk.merge(update).unwrap();
+        assert!(! tpk.primary_key_signature().unwrap()
+                .key_expired(tpk.primary()));
     }
 }
