@@ -154,6 +154,8 @@ impl TPKBuilder {
 
         Ok(TPK{
             primary: primary,
+            primary_selfsigs: vec![],
+            primary_certifications: vec![],
             userids: userids,
             user_attributes: vec![],
             subkeys: subkeys,

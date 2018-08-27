@@ -29,12 +29,14 @@ grammar;
 pub TPK: Option<TPK> = {
     <p:Primary> <c:OptionalComponents> =>? {
         match p {
-            Some((Packet::PublicKey(key), _sigs))
-            | Some((Packet::SecretKey(key), _sigs)) => {
+            Some((Packet::PublicKey(key), sigs))
+            | Some((Packet::SecretKey(key), sigs)) => {
                 let c = c.unwrap();
 
                 let mut tpk = TPK {
                     primary: key,
+                    primary_selfsigs: vec![],
+                    primary_certifications: sigs,
                     subkeys: vec![],
                     userids: vec![],
                     user_attributes: vec![],

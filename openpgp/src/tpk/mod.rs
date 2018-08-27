@@ -801,6 +801,13 @@ impl<'a, I: Iterator<Item=Packet>> TPKParser<'a, I> {
             // certifications.  Split them now.
             let primary_fp = tpk.primary.fingerprint();
 
+            let (selfsigs, certifications)
+                = split_sigs(
+                    &primary_fp,
+                    mem::replace(&mut tpk.primary_certifications, vec![]));
+            tpk.primary_selfsigs = selfsigs;
+            tpk.primary_certifications = certifications;
+
             for mut b in tpk.userids.iter_mut() {
                 let (selfsigs, certifications)
                     = split_sigs(&primary_fp,
@@ -1035,6 +1042,17 @@ impl TPK {
         // userids and subkeys.
         let mut bad = Vec::new();
 
+        for sig in mem::replace(&mut self.primary_selfsigs, Vec::new())
+            .into_iter()
+        {
+            if let Ok(true) = sig.verify_primary_key_binding(&self.primary,
+                                                             &self.primary) {
+                self.primary_selfsigs.push(sig);
+            } else {
+                bad.push(sig);
+            }
+        }
+
         for binding in self.userids.iter_mut() {
             for sig in mem::replace(&mut binding.selfsigs, Vec::new())
                 .into_iter()
@@ -1095,6 +1113,18 @@ impl TPK {
         // See if the signatures that didn't validate are just out of
         // place.
         'outer: for sig in mem::replace(&mut bad, Vec::new()) {
+            if let Ok(true) = sig.verify_primary_key_binding(&self.primary,
+                                                             &self.primary) {
+                    if TRACE {
+                        eprintln!("Sig {:02X}{:02X} was out of place. \
+                                   Belongs to primary key: {}.",
+                                  sig.hash_prefix[0], sig.hash_prefix[1],
+                                  self.primary.keyid());
+                    }
+                self.primary_selfsigs.push(sig);
+                continue 'outer;
+            }
+
             for binding in self.userids.iter_mut() {
                 if let Ok(true) = sig.verify_userid_binding(
                     &self.primary, &self.primary, &binding.userid) {

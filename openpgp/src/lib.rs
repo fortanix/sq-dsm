@@ -616,6 +616,8 @@ pub struct PacketPile {
 #[derive(Debug, Clone, PartialEq)]
 pub struct TPK {
     primary: Key,
+    primary_selfsigs: Vec<Signature>,
+    primary_certifications: Vec<Signature>,
     userids: Vec<tpk::UserIDBinding>,
     user_attributes: Vec<tpk::UserAttributeBinding>,
     subkeys: Vec<tpk::SubkeyBinding>,
