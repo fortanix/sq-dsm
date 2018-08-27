@@ -68,8 +68,11 @@ fn real_main() -> Result<(), failure::Error> {
     let mut sig_i = 0;
 
     while let PacketParserResult::Some(pp) = ppr {
-        match pp.packet {
-            Packet::Signature(ref sig) => {
+        let ((packet, _), (ppr_tmp, _)) = pp.recurse().unwrap();
+        ppr = ppr_tmp;
+
+        match packet {
+            Packet::Signature(sig) => {
                 sig_i += 1;
                 if let Some(fp) = sig.issuer_fingerprint() {
                     if trace {
@@ -79,14 +82,14 @@ fn real_main() -> Result<(), failure::Error> {
 
                     // XXX: We use a KeyID even though we have a
                     // fingerprint!
-                    sigs.push((sig.clone(), fp.to_keyid(), None));
+                    sigs.push((sig, fp.to_keyid(), None));
                 } else if let Some(keyid) = sig.issuer() {
                     if trace {
                         eprintln!("Will check signature allegedly issued by {}.",
                                   keyid);
                     }
 
-                    sigs.push((sig.clone(), keyid, None));
+                    sigs.push((sig, keyid, None));
                 } else {
                     eprintln!("Signature #{} does not contain information \
                                about the issuer.  Unable to validate.",
@@ -96,16 +99,13 @@ fn real_main() -> Result<(), failure::Error> {
             Packet::CompressedData(_) => {
                 // Skip it.
             },
-            ref packet => {
+            packet => {
                 eprintln!("OpenPGP message is not a detached signature.  \
                            Encountered unexpected packet: {:?} packet.",
                           packet.tag());
                 exit(2);
             }
         }
-
-        let (_, (ppr_tmp, _)) = pp.recurse().unwrap();
-        ppr = ppr_tmp;
     }
 
     if sigs.len() == 0 {
