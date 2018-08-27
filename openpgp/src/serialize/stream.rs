@@ -1034,6 +1034,7 @@ mod test {
     use parse::{PacketParserResult, PacketParser};
     use super::*;
     use constants::DataFormat::Text as T;
+    use conversions::Time;
 
     macro_rules! bytes {
         ( $x:expr ) => { include_bytes!(concat!("../../tests/data/", $x)) };
