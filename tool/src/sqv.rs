@@ -12,7 +12,7 @@ extern crate openpgp;
 
 use std::process::exit;
 use std::fs::File;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use openpgp::{TPK, Packet, Signature, KeyID};
 use openpgp::constants::HashAlgorithm;
@@ -140,7 +140,9 @@ fn real_main() -> Result<(), failure::Error> {
     let file = matches.value_of_os("file").unwrap();
     let hash_algos : Vec<HashAlgorithm>
         = sigs.iter().map(|&(ref sig, _, _)| sig.hash_algo()).collect();
-    let hashes = openpgp::hash_file(File::open(file)?, &hash_algos[..])?;
+    let hashes: HashMap<_, _> =
+        openpgp::hash_file(File::open(file)?, &hash_algos[..])?
+        .into_iter().collect();
 
     fn tpk_has_key(tpk: &TPK, keyid: &KeyID) -> bool {
         if *keyid == tpk.primary().keyid() {
@@ -206,9 +208,7 @@ fn real_main() -> Result<(), failure::Error> {
 
     // Verify the signatures.
     let mut good = 0;
-    for ((mut sig, issuer, tpko), (_hash_algo, mut hash))
-        in sigs.into_iter().zip(hashes)
-    {
+    'sig_loop: for (mut sig, issuer, tpko) in sigs.into_iter() {
         if trace {
             eprintln!("Checking signature allegedly issued by {}.", issuer);
         }
@@ -217,6 +217,14 @@ fn real_main() -> Result<(), failure::Error> {
             // Find the right key.
             for key in tpk.keys() {
                 if issuer == key.keyid() {
+                    let mut hash = match hashes.get(&sig.hash_algo()) {
+                        Some(h) => h.clone(),
+                        None => {
+                            eprintln!("Cannot check signature, hash algorithm \
+                                       {} not supported.", sig.hash_algo());
+                            continue 'sig_loop;
+                        },
+                    };
                     sig.hash(&mut hash);
 
                     let mut digest = vec![0u8; hash.digest_size()];
