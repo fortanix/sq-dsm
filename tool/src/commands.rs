@@ -536,7 +536,7 @@ fn dump_subpacket(output: &mut io::Write, i: &str, s: Subpacket) -> Result<()> {
     if s.critical {
         write!(output, " (critical)")?;
     }
-        writeln!(output)?;
+    writeln!(output)?;
 
     match s.value {
         EmbeddedSignature(ref sig) => {
