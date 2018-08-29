@@ -23,6 +23,7 @@ interface Node {
     registerEncryption @4 () ->   (result: Result(Stats));
     registerVerification @5 () -> (result: Result(Stats));
     log @6 () -> (result: Result(LogIter));
+    label @7 () -> (result: Result(Text));
   }
 
   interface Key {

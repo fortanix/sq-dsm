@@ -216,7 +216,7 @@ impl Store {
         request.get().set_label(label);
         request.get().set_fingerprint(fingerprint.to_hex().as_ref());
         let binding = make_request!(self.core.borrow_mut(), request)?;
-        Ok(Binding::new(self.core.clone(), label, binding))
+        Ok(Binding::new(self.core.clone(), Some(label), binding))
     }
 
     /// Imports a key into the store.
@@ -249,7 +249,7 @@ impl Store {
         request.get().set_label(label);
         request.get().set_fingerprint(fingerprint.to_hex().as_ref());
         let binding = make_request!(self.core.borrow_mut(), request)?;
-        let binding = Binding::new(self.core.clone(), label, binding);
+        let binding = Binding::new(self.core.clone(), Some(label), binding);
         binding.import(tpk)
     }
 
@@ -284,7 +284,7 @@ impl Store {
         let mut request = self.store.lookup_request();
         request.get().set_label(label);
         let binding = make_request!(self.core.borrow_mut(), request)?;
-        Ok(Binding::new(self.core.clone(), label, binding))
+        Ok(Binding::new(self.core.clone(), Some(label), binding))
     }
 
     /// Deletes this store.
@@ -361,20 +361,22 @@ macro_rules! make_stats_request {
 /// relation.  We make this explicit because we associate metadata
 /// with these pairs.
 pub struct Binding {
-    label: String,
+    label: Option<String>,
     core: Rc<RefCell<Core>>,
     binding: node::binding::Client,
 }
 
 impl fmt::Debug for Binding {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Binding {{ label: {} }}", self.label)
+        write!(f, "Binding {{ label: {:?} }}", self.label)
     }
 }
 
 impl Binding {
-    fn new(core: Rc<RefCell<Core>>, label: &str, binding: node::binding::Client) -> Self {
-        Binding{label: label.into(), core: core, binding: binding}
+    fn new(core: Rc<RefCell<Core>>,
+           label: Option<&str>,
+           binding: node::binding::Client) -> Self {
+        Binding{label: label.map(|l| l.into()), core: core, binding: binding}
     }
 
     /// Returns stats for this binding.
@@ -588,6 +590,18 @@ impl Binding {
         let request = self.binding.log_request();
         let iter = make_request!(self.core.borrow_mut(), request)?;
         Ok(LogIter{core: self.core.clone(), iter: iter})
+    }
+
+    /// Gets this binding's label.
+    pub fn label(&self) -> Result<String> {
+        if let Some(ref label) = self.label {
+            return Ok(label.clone());
+        }
+
+        let request = self.binding.label_request();
+        make_request_map!(self.core.borrow_mut(),
+                          request,
+                          |l: &str| Ok(l.into()))
     }
 }
 
@@ -860,7 +874,8 @@ impl Iterator for BindingIter {
                 |r: node::binding_iter::item::Reader|
                 Ok((String::from(r.get_label()?),
                     openpgp::Fingerprint::from_hex(r.get_fingerprint()?).unwrap(),
-                    Binding::new(self.core.clone(), r.get_label()?, r.get_binding()?))))
+                    Binding::new(self.core.clone(), Some(r.get_label()?),
+                                 r.get_binding()?))))
         };
         doit().ok()
     }
@@ -907,7 +922,7 @@ impl Iterator for LogIter {
                          r.get_store().ok().map(
                              |cap| Store::new(self.core.clone(), &"", cap)),
                          r.get_binding().ok().map(
-                             |cap| Binding::new(self.core.clone(), &"", cap)),
+                             |cap| Binding::new(self.core.clone(), None, cap)),
                          r.get_key().ok().map(
                              |cap| Key::new(self.core.clone(), cap)),
                          r.get_slug()?,

@@ -580,6 +580,21 @@ impl node::binding::Server for BindingServer {
             node::log_iter::ToClient::new(iter).from_server::<capnp_rpc::Server>()));
         Promise::ok(())
     }
+
+    fn label(&mut self,
+           _: node::binding::LabelParams,
+           mut results: node::binding::LabelResults)
+           -> Promise<(), capnp::Error> {
+        bind_results!(results);
+        let label = sry!(self.c.query_row(
+            "SELECT label FROM bindings WHERE id = ?1",
+            &[&self.id], |row| -> String {
+                row.get(0)
+            }));
+
+        pry!(pry!(results.get().get_result()).set_ok(label.as_str()));
+        Promise::ok(())
+    }
 }
 
 struct KeyServer {
