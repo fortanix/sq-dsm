@@ -353,7 +353,7 @@ impl BindingServer {
     }
 
 
-    /// Looks up a binding, creating a key if necessary.
+    /// Looks up a binding, creating a binding if necessary.
     ///
     /// On success, the id of the binding and the key is returned, and
     /// whether or not the entry was just created.
