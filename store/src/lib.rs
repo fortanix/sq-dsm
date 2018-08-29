@@ -79,6 +79,7 @@ extern crate sequoia_core;
 extern crate sequoia_net;
 
 use openpgp::Fingerprint;
+use openpgp::KeyID;
 use openpgp::TPK;
 use sequoia_core as core;
 use sequoia_core::Context;
@@ -285,6 +286,55 @@ impl Store {
         request.get().set_label(label);
         let binding = make_request!(self.core.borrow_mut(), request)?;
         Ok(Binding::new(self.core.clone(), Some(label), binding))
+    }
+
+    /// Looks up a key by KeyID.
+    ///
+    /// The KeyID may also reference a signing- or
+    /// certification-capable subkey.  The reason for this restriction
+    /// is that anyone can attach any subkey to her TPK, but signing-
+    /// or certification-capable subkeys require back signatures.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # extern crate openpgp;
+    /// # extern crate sequoia_core;
+    /// # extern crate sequoia_store;
+    /// # use openpgp::{TPK, KeyID};
+    /// # use sequoia_core::{Context, NetworkPolicy, IPCPolicy};
+    /// # use sequoia_store::{Store, Result};
+    /// # fn main() { f().unwrap(); }
+    /// # fn f() -> Result<()> {
+    /// # let ctx = Context::configure("org.sequoia-pgp.demo.store")
+    /// #     .network_policy(NetworkPolicy::Offline)
+    /// #     .ipc_policy(IPCPolicy::Internal)
+    /// #     .ephemeral().build()?;
+    /// # let tpk = TPK::from_bytes(
+    /// #     include_bytes!("../../openpgp/tests/data/keys/emmelie-dorothea-dina-samantha-awina-ed25519.pgp"))
+    /// #     .unwrap();
+    /// let store = Store::open(&ctx, "default")?;
+    /// store.import("Emmelie", &tpk)?;
+    ///
+    /// // Lookup by the primary key's KeyID.
+    /// let tpk_ = store.lookup_by_keyid(&KeyID::from_hex("069C0C348DD82C19")?)?
+    ///     .tpk()?;
+    /// assert_eq!(tpk, tpk_);
+    ///
+    /// // Lookup by the encryption subkey's KeyID.
+    /// let tpk_ = store.lookup_by_keyid(&KeyID::from_hex("22E3FAFE96B56C32")?)?
+    ///     .tpk()?;
+    /// assert_eq!(tpk, tpk_);
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn lookup_by_keyid(&self, keyid: &KeyID) -> Result<Binding> {
+        let mut request = self.store.lookup_by_keyid_request();
+        request.get().set_keyid(keyid.as_u64()?);
+        let binding = make_request!(self.core.borrow_mut(), request)?;
+        let mut binding = Binding::new(self.core.clone(), None, binding);
+        binding.label = binding.label().ok();
+        Ok(binding)
     }
 
     /// Deletes this store.

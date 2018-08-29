@@ -13,6 +13,7 @@ interface Node {
     delete @2 () -> (result: Result(Unit));
     iter @3 () -> (result: Result(BindingIter));
     log @4 () -> (result: Result(LogIter));
+    lookupByKeyid @5 (keyid: UInt64) -> (result: Result(Binding));
   }
 
   interface Binding {

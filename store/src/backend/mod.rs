@@ -302,6 +302,27 @@ impl node::store::Server for StoreServer {
         Promise::ok(())
     }
 
+    fn lookup_by_keyid(&mut self,
+                       params: node::store::LookupByKeyidParams,
+                       mut results: node::store::LookupByKeyidResults)
+                       -> Promise<(), capnp::Error> {
+        bind_results!(results);
+        let keyid = pry!(params.get()).get_keyid();
+
+        let binding_id: ID = sry!(
+            self.c.query_row(
+                "SELECT bindings.id FROM bindings
+                 JOIN key_by_keyid on bindings.key = key_by_keyid.key
+                 WHERE key_by_keyid.keyid = ?1",
+                &[&(keyid as i64)], |row| row.get(0)));
+
+        pry!(pry!(results.get().get_result()).set_ok(
+            node::binding::ToClient::new(
+                BindingServer::new(self.c.clone(), binding_id))
+                .from_server::<capnp_rpc::Server>()));
+        Promise::ok(())
+    }
+
     fn delete(&mut self,
               _: node::store::DeleteParams,
               mut results: node::store::DeleteResults)
@@ -501,6 +522,7 @@ impl node::binding::Server for BindingServer {
 
         sry!(self.c.execute("UPDATE keys SET key = ?1 WHERE id = ?2",
                             &[&blob, &key_id]));
+        sry!(KeyServer::reindex_subkeys(&self.c, key_id, &new));
 
         pry!(pry!(results.get().get_result()).set_ok(&blob[..]));
         Promise::ok(())
@@ -676,8 +698,43 @@ impl KeyServer {
 
         self.c.execute("UPDATE keys SET key = ?1 WHERE id = ?2",
                        &[&blob, &self.id])?;
+        KeyServer::reindex_subkeys(&self.c, self.id, &new)?;
 
         Ok(blob)
+    }
+
+    /// Keeps the mapping of (sub)KeyIDs to keys up-to-date.
+    fn reindex_subkeys(c: &Connection, key_id: ID, tpk: &TPK) -> Result<()> {
+        for (sig, key) in tpk.keys() {
+            // Only index signing- or certification-capable subkeys.
+            if ! sig.map(|s| s.key_flags().can_sign()
+                         || s.key_flags().can_certify())
+                .unwrap_or(true)
+            {
+                continue;
+            }
+
+            let keyid = key.fingerprint().to_keyid().as_u64()
+                .expect("computed keyid is valid");
+
+            let r = c.execute(
+                "INSERT INTO key_by_keyid (keyid, key) VALUES (?1, ?2)",
+                &[&(keyid as i64), &key_id]);
+
+            // The mapping might already be present.  This is not an error.
+            match r {
+                Err(rusqlite::Error::SqliteFailure(f, e)) => match f.code {
+                    // Already present.
+                    rusqlite::ErrorCode::ConstraintViolation =>
+                        Ok(()),
+                    // Raise otherwise.
+                    _ => Err(rusqlite::Error::SqliteFailure(f, e)),
+                },
+                Err(e) => Err(e),
+                Ok(_) => Ok(()),
+            }?;
+        }
+        Ok(())
     }
 
     /// Records a successful key update.
@@ -1263,6 +1320,14 @@ CREATE TABLE keys (
     verification_last INTEGER NULL,
 
     UNIQUE (fingerprint));
+
+CREATE TABLE key_by_keyid (
+    id INTEGER PRIMARY KEY,
+    keyid INTEGER NOT NULL,
+    key INTEGER NOT NULL,
+
+    UNIQUE(keyid, key),
+    FOREIGN KEY (key) REFERENCES keys(id) ON DELETE CASCADE);
 
 CREATE TABLE log (
     id INTEGER PRIMARY KEY,
