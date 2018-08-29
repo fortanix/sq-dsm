@@ -314,7 +314,7 @@ pub fn verify(store: &mut store::Store,
     let helper = VHelper::new(store, tpks);
     let mut verifier = Verifier::from_reader(input, helper)?;
 
-    if verifier.helper_ref().bad == 0 {
+    if verifier.helper_ref().success() {
         if let Err(e) = io::copy(&mut verifier, output) {
             verifier.helper_mut().get_error()?;
             Err(e)?;
