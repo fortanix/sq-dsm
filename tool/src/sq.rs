@@ -385,6 +385,11 @@ fn real_main() -> Result<(), failure::Error> {
 }
 
 fn list_bindings(store: &Store) -> Result<(), failure::Error> {
+    if store.iter()?.count() == 0 {
+        println!("No keys.");
+        return Ok(());
+    }
+
     let mut table = Table::new();
     table.set_format(*prettytable::format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
     table.set_titles(row!["label", "fingerprint"]);
