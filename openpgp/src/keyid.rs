@@ -1,5 +1,6 @@
 use std::fmt;
 
+use Error;
 use Fingerprint;
 use KeyID;
 use Result;
@@ -43,6 +44,24 @@ impl KeyID {
             (data >> (0 * 8)) as u8
         ];
         Self::from_bytes(&bytes[..])
+    }
+
+    /// Converts the KeyID to a u64 if possible.
+    pub fn as_u64(&self) -> Result<u64> {
+        match &self {
+            KeyID::V4(ref b) =>
+                Ok(0u64
+                   | ((b[0] as u64) << (7 * 8))
+                   | ((b[1] as u64) << (6 * 8))
+                   | ((b[2] as u64) << (5 * 8))
+                   | ((b[3] as u64) << (4 * 8))
+                   | ((b[4] as u64) << (3 * 8))
+                   | ((b[5] as u64) << (2 * 8))
+                   | ((b[6] as u64) << (1 * 8))
+                   | ((b[7] as u64) << (0 * 8))),
+            KeyID::Invalid(_) =>
+                Err(Error::InvalidArgument("Invalid KeyID".into()).into()),
+        }
     }
 
     /// Reads a binary key ID.
@@ -135,5 +154,15 @@ impl KeyID {
 
         // We know the content is valid UTF-8.
         String::from_utf8(output).unwrap()
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    quickcheck! {
+        fn u64_roundtrip(id: u64) -> bool {
+            KeyID::new(id).as_u64().unwrap() == id
+        }
     }
 }
