@@ -199,13 +199,13 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
             oppr: None,
         };
 
+        let mut issuers = Vec::new();
         while let PacketParserResult::Some(mut pp) = ppr {
             if ! pp.possible_message() {
                 return Err(Error::MalformedMessage(
                     "Malformed OpenPGP message".into()).into());
             }
 
-            let mut issuers = Vec::new();
             match pp.packet {
                 Packet::OnePassSig(ref ops) =>
                     issuers.push(ops.issuer.clone()),
