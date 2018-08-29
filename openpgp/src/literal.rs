@@ -72,6 +72,10 @@ impl Literal {
     }
 
     /// Gets the literal packet's filename.
+    ///
+    /// Note: when a literal data packet is protected by a signature,
+    /// only the literal data packet's body is protected, not the
+    /// meta-data.  As such, this field should normally be ignored.
     pub fn filename(&self) -> Option<&[u8]> {
         self.filename.as_ref().map(|b| b.as_slice())
     }
@@ -80,6 +84,10 @@ impl Literal {
     ///
     /// The standard does not specify the encoding.  Filenames must
     /// not be longer than 255 bytes.
+    ///
+    /// Note: when a literal data packet is protected by a signature,
+    /// only the literal data packet's body is protected, not the
+    /// meta-data.  As such, this field should not be used.
     pub fn set_filename_from_bytes(&mut self, filename: &[u8]) -> Result<()> {
         if filename.len() > 255 {
             return
@@ -94,6 +102,10 @@ impl Literal {
     ///
     /// This is a convenience function, since the field is actually a
     /// raw byte string.  Filenames must not be longer than 255 bytes.
+    ///
+    /// Note: when a literal data packet is protected by a signature,
+    /// only the literal data packet's body is protected, not the
+    /// meta-data.  As such, this field should not be used.
     pub fn set_filename(&mut self, filename: &str) -> Result<()> {
         let filename = filename.as_bytes().to_vec();
         if filename.len() > 255 {
@@ -105,6 +117,10 @@ impl Literal {
     }
 
     /// Gets the literal packet's date field.
+    ///
+    /// Note: when a literal data packet is protected by a signature,
+    /// only the literal data packet's body is protected, not the
+    /// meta-data.  As such, this field should normally be ignored.
     pub fn date(&self) -> Option<&time::Tm> {
         if self.date.to_pgp().unwrap_or(0) == 0 {
             None
@@ -114,6 +130,10 @@ impl Literal {
     }
 
     /// Sets the literal packet's date field.
+    ///
+    /// Note: when a literal data packet is protected by a signature,
+    /// only the literal data packet's body is protected, not the
+    /// meta-data.  As such, this field should not be used.
     pub fn set_date(&mut self, timestamp: Option<time::Tm>) {
         self.date = timestamp.unwrap_or(time::Tm::from_pgp(0));
     }
