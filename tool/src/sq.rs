@@ -138,7 +138,9 @@ fn real_main() -> Result<(), failure::Error> {
             let tpks = m.values_of("public-key-file")
                 .map(load_tpks)
                 .unwrap_or(Ok(vec![]))?;
-            commands::verify(&mut input, &mut output, tpks)?;
+            let mut store = Store::open(&ctx, store_name)
+                .context("Failed to open the store")?;
+            commands::verify(&mut store, &mut input, &mut output, tpks)?;
         },
 
         ("enarmor",  Some(m)) => {

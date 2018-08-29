@@ -1,6 +1,6 @@
 use failure::{self, ResultExt};
 use std::cmp::Ordering;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::io::{self, Read, Write};
 use time;
@@ -210,18 +210,22 @@ pub fn sign(input: &mut io::Read, output: &mut io::Write,
     Ok(())
 }
 
-struct VHelper {
+struct VHelper<'a> {
+    store: &'a mut store::Store,
     tpks: Option<Vec<TPK>>,
+    labels: HashMap<KeyID, String>,
     good: usize,
     unknown: usize,
     bad: usize,
     error: Option<failure::Error>,
 }
 
-impl VHelper {
-    fn new(tpks: Vec<TPK>) -> Self {
+impl<'a> VHelper<'a> {
+    fn new(store: &'a mut store::Store, tpks: Vec<TPK>) -> Self {
         VHelper {
+            store: store,
             tpks: Some(tpks),
+            labels: HashMap::new(),
             good: 0,
             unknown: 0,
             bad: 0,
@@ -247,17 +251,36 @@ impl VHelper {
     }
 }
 
-impl VerificationHelper for VHelper {
-    fn get_public_keys(&mut self, _ids: &[KeyID]) -> Result<Vec<TPK>> {
-        Ok(self.tpks.take().unwrap())
+impl<'a> VerificationHelper for VHelper<'a> {
+    fn get_public_keys(&mut self, ids: &[KeyID]) -> Result<Vec<TPK>> {
+        let mut tpks = self.tpks.take().unwrap();
+        let seen: HashSet<_> = tpks.iter()
+            .map(|tpk| tpk.fingerprint().to_keyid()).collect();
+
+        // Try to get missing TPKs from the store.
+        for id in ids.iter().filter(|i| !seen.contains(i)) {
+            let _ =
+                self.store.lookup_by_keyid(id)
+                .and_then(|binding| {
+                    self.labels.insert(id.clone(), binding.label()?);
+                    binding.tpk()
+                })
+                .and_then(|tpk| {
+                    tpks.push(tpk);
+                    Ok(())
+                });
+        }
+        Ok(tpks)
     }
 
     fn result(&mut self, result: VerificationResult) -> Result<()> {
         use self::VerificationResult::*;
         match result {
             Good(sig) => {
+                let issuer = sig.get_issuer().unwrap();
+                let issuer_str = format!("{}", issuer);
                 eprintln!("Good signature from {}",
-                          sig.get_issuer().unwrap());
+                          self.labels.get(&issuer).unwrap_or(&issuer_str));
                 self.good += 1;
             },
             Unknown(sig) => {
@@ -267,7 +290,9 @@ impl VerificationHelper for VHelper {
             },
             Bad(sig) => {
                 if let Some(issuer) = sig.get_issuer() {
-                    eprintln!("Bad signature from {}", issuer);
+                    let issuer_str = format!("{}", issuer);
+                    eprintln!("Bad signature from {}",
+                              self.labels.get(&issuer).unwrap_or(&issuer_str));
                 } else {
                     eprintln!("Bad signature without issuer information");
                 }
@@ -282,10 +307,11 @@ impl VerificationHelper for VHelper {
     }
 }
 
-pub fn verify(input: &mut io::Read, output: &mut io::Write,
+pub fn verify(store: &mut store::Store,
+              input: &mut io::Read, output: &mut io::Write,
               tpks: Vec<TPK>)
               -> Result<()> {
-    let helper = VHelper::new(tpks);
+    let helper = VHelper::new(store, tpks);
     let mut verifier = Verifier::from_reader(input, helper)?;
 
     if verifier.helper_ref().bad == 0 {
