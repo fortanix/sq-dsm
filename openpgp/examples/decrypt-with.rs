@@ -30,9 +30,14 @@ pub fn main() {
             openpgp::Reader::from_file(f)
                 .expect("Failed to open file"))
             .expect("Failed to read key");
-        for key in tsk.keys() {
-            // XXX this is cheating, we just add all keys, even if
-            // they should not be used for encryption
+        for (sig, key) in tsk.keys() {
+            if ! sig.map(|s| s.key_flags().can_encrypt_at_rest()
+                         || s.key_flags().can_encrypt_for_transport())
+                .unwrap_or(false)
+            {
+                continue;
+            }
+
             keys.insert(key.fingerprint().to_keyid(), key.clone());
         }
     }

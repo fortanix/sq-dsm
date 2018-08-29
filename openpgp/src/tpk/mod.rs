@@ -514,14 +514,16 @@ pub struct KeyIter<'a> {
 }
 
 impl<'a> Iterator for KeyIter<'a> {
-    type Item = &'a Key;
+    type Item = (Option<&'a Signature>, &'a Key);
 
     fn next(&mut self) -> Option<Self::Item> {
         if ! self.primary {
             self.primary = true;
-            Some(self.tpk.primary())
+            Some((self.tpk.primary_key_signature(), self.tpk.primary()))
         } else {
-            self.subkey_iter.next().map(|sk_binding| &sk_binding.subkey)
+            self.subkey_iter.next()
+                .map(|sk_binding| (Some(sk_binding.binding_signature()),
+                                   &sk_binding.subkey))
         }
     }
 }
@@ -959,8 +961,15 @@ impl TPK {
     /// Returns an iterator over all of the TPK's valid keys.
     ///
     /// That is, this returns an iterator over the primary key and any
-    /// subkeys.  Note: since a primary key is different from a
-    /// binding, the iterator is over `Key`s and not `SubkeyBindings`.
+    /// subkeys, along with the corresponding signatures.
+    ///
+    /// Note: since a primary key is different from a binding, the
+    /// iterator is over `Key`s and not `SubkeyBindings`.
+    /// Furthermore, the primary key has no binding signature.  Here,
+    /// the signature carrying the primary key's key flags is
+    /// returned.  There are corner cases where no such signature
+    /// exists (e.g. partial TPKs), therefore this iterator may return
+    /// `None` for the primary key's signature.
     ///
     /// A valid `Key` has at least one good self-signature.
     pub fn keys(&self) -> KeyIter {

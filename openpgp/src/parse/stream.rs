@@ -297,7 +297,7 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
             Packet::Signature(sig) => {
                 if let Some(issuer) = sig.get_issuer() {
                     if let Some((i, j)) = self.keys.get(&issuer) {
-                        let key = self.tpks[*i].keys().nth(*j).unwrap();
+                        let (_, key) = self.tpks[*i].keys().nth(*j).unwrap();
                         if sig.verify(key).unwrap_or(false) {
                             self.helper.result(
                                 VerificationResult::Good(sig))?;
