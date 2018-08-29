@@ -110,6 +110,15 @@ pub struct Verifier<'a, H: VerificationHelper> {
 #[derive(Debug)]
 pub enum VerificationResult {
     /// The signature is good.
+    ///
+    /// Note: A signature is considered good if it can be
+    /// mathematically verified.  This doesn't mean that the key that
+    /// generated the signature is in anyway trustworthy in the sense
+    /// that it belongs to the person or entity that the user thinks
+    /// it belongs to.  This can only be evaluated within a trust
+    /// model, such as the [web of trust] (WoT).
+    ///
+    /// [web of trust]: https://en.wikipedia.org/wiki/Web_of_trust
     Good(Signature),
     /// Unable to verify the signature because the key is missing.
     Unknown(Signature),
