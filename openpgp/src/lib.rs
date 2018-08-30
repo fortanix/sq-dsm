@@ -492,7 +492,7 @@ pub enum Packet {
     PKESK(PKESK),
     /// Symmetric key encrypted data packet.
     SKESK(SKESK),
-    /// Signed and encrypted, integrity protected data packet.
+    /// Symmetric key encrypted, integrity protected data packet.
     SEIP(SEIP),
     /// Modification detection code packet.
     MDC(MDC),
