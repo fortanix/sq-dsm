@@ -173,6 +173,11 @@ impl Key {
         &self.mpis
     }
 
+    /// Gets a mutable reference to the key packet's MPIs.
+    pub fn mpis_mut(&mut self) -> &mut MPIs {
+        &mut self.mpis
+    }
+
     /// Sets the key packet's MPIs.
     pub fn set_mpis(&mut self, mpis: MPIs) {
         self.mpis = mpis;
@@ -181,6 +186,11 @@ impl Key {
     /// Gets the key packet's SecretKey.
     pub fn secret(&self) -> Option<&SecretKey> {
         self.secret.as_ref()
+    }
+
+    /// Gets a mutable reference to the key packet's SecretKey.
+    pub fn secret_mut(&mut self) -> Option<&mut SecretKey> {
+        self.secret.as_mut()
     }
 
     /// Sets the key packet's SecretKey.
