@@ -532,7 +532,7 @@ mod test {
             let _ = signer.finalize_one().unwrap().unwrap();
         }
 
-        let mut h = Helper::new(0, 0, 0, 0, vec![tpk.clone()]);
+        let h = Helper::new(0, 0, 0, 0, vec![tpk.clone()]);
         let mut v = Verifier::from_bytes(&buf, h).unwrap();
 
         assert!(!v.message_processed());
