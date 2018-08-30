@@ -279,9 +279,13 @@ impl SecretKey {
 #[cfg(test)]
 mod tests {
     use mpis::MPIs;
+    use packet::Tag;
     use TPK;
     use SecretKey;
     use std::path::PathBuf;
+    use super::*;
+    use PacketPile;
+    use serialize::SerializeKey;
 
     fn path_to(artifact: &str) -> PathBuf {
         [env!("CARGO_MANIFEST_DIR"), "tests", "data", "keys", artifact]
@@ -303,6 +307,54 @@ mod tests {
             &mut SecretKey::Unencrypted { mpis: MPIs::RSASecretKey { .. } } =>
                 {}
             _ => { unreachable!() }
+        }
+    }
+
+    #[test]
+    fn eq() {
+        for &pk_algo in &[PublicKeyAlgorithm::RSAEncryptSign,
+                          PublicKeyAlgorithm::EdDSA,
+                          PublicKeyAlgorithm::ECDH] {
+            let key = Key::new(pk_algo).unwrap();
+            let clone = key.clone();
+            assert_eq!(key, clone);
+        }
+    }
+
+    #[test]
+    fn roundtrip() {
+        for &pk_algo in &[PublicKeyAlgorithm::RSAEncryptSign,
+                          PublicKeyAlgorithm::EdDSA,
+                          PublicKeyAlgorithm::ECDH] {
+            let mut key = Key::new(pk_algo).unwrap();
+
+            let mut b = Vec::new();
+            key.serialize(&mut b, Tag::SecretKey).unwrap();
+
+            let pp = PacketPile::from_bytes(&b).unwrap();
+            if let Some(Packet::SecretKey(ref parsed_key)) = pp.path_ref(&[0]) {
+                assert_eq!(key.common, parsed_key.common);
+                assert_eq!(key.version, parsed_key.version);
+                assert_eq!(key.creation_time, parsed_key.creation_time);
+                assert_eq!(key.pk_algo, parsed_key.pk_algo);
+                assert_eq!(key.mpis, parsed_key.mpis);
+                assert_eq!(key.secret, parsed_key.secret);
+
+                assert_eq!(&key, parsed_key);
+            } else {
+                panic!("bad packet: {:?}", pp.path_ref(&[0]));
+            }
+
+            let mut b = Vec::new();
+            key.set_secret(None);
+            key.serialize(&mut b, Tag::PublicKey).unwrap();
+
+            let pp = PacketPile::from_bytes(&b).unwrap();
+            if let Some(Packet::PublicKey(ref parsed_key)) = pp.path_ref(&[0]) {
+                assert_eq!(&key, parsed_key);
+            } else {
+                panic!("bad packet: {:?}", pp.path_ref(&[0]));
+            }
         }
     }
 }
