@@ -183,6 +183,13 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
         self.helper
     }
 
+    /// Returns true if the whole message has been processed and the verification result is ready.
+    /// If the function returns false the message did not fit into the internal buffer and
+    /// **unverified** data must be `read()` from the instance until EOF.
+    pub fn message_processed(&self) -> bool {
+        self.seen_eof
+    }
+
     /// Creates the `Verifier`, and buffers the data up to `BUFFER_SIZE`.
     pub(crate) fn from_buffered_reader(bio: Box<BufferedReader<Cookie> + 'a>,
                                        helper: H) -> Result<Verifier<'a, H>>
@@ -407,6 +414,7 @@ mod test {
         unknown: usize,
         bad: usize,
         error: usize,
+        keys: Vec<TPK>,
     }
 
     impl Default for Helper {
@@ -416,29 +424,26 @@ mod test {
                 unknown: 0,
                 bad: 0,
                 error: 0,
+                keys: Vec::default(),
             }
         }
     }
 
     impl Helper {
-        fn new(good: usize, unknown: usize, bad: usize, error: usize) -> Self {
+        fn new(good: usize, unknown: usize, bad: usize, error: usize, keys: Vec<TPK>) -> Self {
             Helper {
                 good: good,
                 unknown: unknown,
                 bad: bad,
                 error: error,
+                keys: keys,
             }
         }
     }
 
     impl VerificationHelper for Helper {
         fn get_public_keys(&mut self, _ids: &[KeyID]) -> Result<Vec<TPK>> {
-            Ok(["neal.pgp",
-                "emmelie-dorothea-dina-samantha-awina-ed25519.pgp"]
-               .iter()
-               .map(|f| TPK::from_file(
-                   path_to(&format!("keys/{}", f))).unwrap())
-               .collect())
+            Ok(self.keys.clone())
         }
 
         fn result(&mut self, result: VerificationResult) -> Result<()> {
@@ -458,11 +463,18 @@ mod test {
 
     #[test]
     fn verifier() {
+        let keys = [
+            "neal.pgp",
+            "emmelie-dorothea-dina-samantha-awina-ed25519.pgp"
+        ].iter()
+         .map(|f| TPK::from_file(
+            path_to(&format!("keys/{}", f))).unwrap())
+         .collect::<Vec<_>>();
         let tests = &[
-            ("messages/signed-1.gpg",                      Helper::new(1, 0, 0, 0)),
-            ("messages/signed-1-sha256-testy.gpg",         Helper::new(0, 1, 0, 0)),
-            ("messages/signed-1-notarized-by-ed25519.pgp", Helper::new(2, 0, 0, 0)),
-            ("keys/neal.pgp",                              Helper::new(0, 0, 0, 1)),
+            ("messages/signed-1.gpg",                      Helper::new(1, 0, 0, 0, keys.clone())),
+            ("messages/signed-1-sha256-testy.gpg",         Helper::new(0, 1, 0, 0, keys.clone())),
+            ("messages/signed-1-notarized-by-ed25519.pgp", Helper::new(2, 0, 0, 0, keys.clone())),
+            ("keys/neal.pgp",                              Helper::new(0, 0, 0, 1, keys.clone())),
         ];
 
         let mut reference = Vec::new();
@@ -472,7 +484,7 @@ mod test {
             .unwrap();
 
         for (f, r) in tests {
-            let mut h = Helper::default();
+            let mut h = Helper::new(0, 0, 0, 0, keys.clone());
             let mut v =
                 match Verifier::from_file(path_to(f), h) {
                     Ok(v) => v,
@@ -484,6 +496,7 @@ mod test {
                         panic!(e);
                     },
                 };
+            assert!(v.message_processed());
             assert_eq!(v.helper_ref(), r);
 
             if v.helper_ref().error > 0 {
@@ -497,5 +510,47 @@ mod test {
             assert_eq!(reference.len(), content.len());
             assert_eq!(reference, content);
         }
+    }
+
+    #[test]
+    fn verify_long_message() {
+        use constants::DataFormat;
+        use tpk::TPKBuilder;
+        use serialize::stream::{LiteralWriter, Signer, wrap};
+        use std::io::Write;
+
+        let tpk = TPKBuilder::autocrypt().generate().unwrap();
+
+        // sign 30MiB message
+        let mut buf = vec![];
+        {
+            let signer = Signer::new(wrap(&mut buf), &[&tpk]).unwrap();
+            let mut ls = LiteralWriter::new(signer, DataFormat::Binary, None, None).unwrap();
+
+            ls.write_all(&mut vec![42u8; 30 * 1024 * 1024]).unwrap();
+            let signer = ls.finalize_one().unwrap().unwrap();
+            let _ = signer.finalize_one().unwrap().unwrap();
+        }
+
+        let mut h = Helper::new(0, 0, 0, 0, vec![tpk.clone()]);
+        let mut v = Verifier::from_bytes(&buf, h).unwrap();
+
+        assert!(!v.message_processed());
+        assert!(v.helper_ref().good == 0);
+        assert!(v.helper_ref().bad == 0);
+        assert!(v.helper_ref().unknown == 0);
+        assert!(v.helper_ref().error == 0);
+
+        let mut message = Vec::new();
+
+        v.read_to_end(&mut message).unwrap();
+
+        assert!(v.message_processed());
+        assert_eq!(30 * 1024 * 1024, message.len());
+        assert!(message.iter().all(|&b| b == 42));
+        assert!(v.helper_ref().good == 1);
+        assert!(v.helper_ref().bad == 0);
+        assert!(v.helper_ref().unknown == 0);
+        assert!(v.helper_ref().error == 0);
     }
 }
