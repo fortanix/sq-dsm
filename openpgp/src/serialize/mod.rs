@@ -70,18 +70,17 @@ impl Serialize for BodyLength {
     /// [`BodyLength::Indeterminate`]: ../packet/enum.BodyLength.html#variant.Indeterminate
     /// [`serialize_old(..)`]: #method.serialize_old
     fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
-        let mut buffer = Vec::with_capacity(5);
         match self {
             &BodyLength::Full(l) => {
                 if l <= 191 {
-                    // Writing to a Vec can never fail.
-                    write_byte(&mut buffer, l as u8).unwrap();
-                } else if l < 8383 {
+                    write_byte(o, l as u8)?;
+                } else if l <= 8383 {
                     let v = l - 192;
                     let v = v + (192 << 8);
-                    write_be_u16(&mut buffer, v as u16).unwrap();
+                    write_be_u16(o, v as u16)?;
                 } else {
-                    write_be_u32(&mut buffer, l).unwrap();
+                    write_byte(o, 0xff)?;
+                    write_be_u32(o, l)?;
                 }
             },
             &BodyLength::Partial(_) => {
@@ -93,7 +92,6 @@ impl Serialize for BodyLength {
                         into()).into()),
         }
 
-        o.write_all(&buffer)?;
         Ok(())
     }
 }
@@ -1454,5 +1452,49 @@ mod serialize_test {
             }
         }
     }
-}
 
+    #[test]
+    fn body_length_edge_cases() {
+        {
+            let mut buf = vec![];
+            BodyLength::Full(0).serialize(&mut buf).unwrap();
+            assert_eq!(&buf[..], &b"\x00"[..]);
+        }
+
+        {
+            let mut buf = vec![];
+            BodyLength::Full(1).serialize(&mut buf).unwrap();
+            assert_eq!(&buf[..], &b"\x01"[..]);
+        }
+        {
+            let mut buf = vec![];
+            BodyLength::Full(191).serialize(&mut buf).unwrap();
+            assert_eq!(&buf[..], &b"\xbf"[..]);
+        }
+        {
+            let mut buf = vec![];
+            BodyLength::Full(192).serialize(&mut buf).unwrap();
+            assert_eq!(&buf[..], &b"\xc0\x00"[..]);
+        }
+        {
+            let mut buf = vec![];
+            BodyLength::Full(193).serialize(&mut buf).unwrap();
+            assert_eq!(&buf[..], &b"\xc0\x01"[..]);
+        }
+        {
+            let mut buf = vec![];
+            BodyLength::Full(8383).serialize(&mut buf).unwrap();
+            assert_eq!(&buf[..], &b"\xdf\xff"[..]);
+        }
+        {
+            let mut buf = vec![];
+            BodyLength::Full(8384).serialize(&mut buf).unwrap();
+            assert_eq!(&buf[..], &b"\xff\x00\x00\x20\xc0"[..]);
+        }
+        {
+            let mut buf = vec![];
+            BodyLength::Full(0xffffffff).serialize(&mut buf).unwrap();
+            assert_eq!(&buf[..], &b"\xff\xff\xff\xff\xff"[..]);
+        }
+    }
+}
