@@ -28,6 +28,7 @@ use {
 };
 use parse::{PacketParserResult, PacketParser};
 use serialize::{Serialize, SerializeKey};
+use conversions::Time;
 
 mod lexer;
 mod grammar;
@@ -321,7 +322,7 @@ impl SubkeyBinding {
         let mut sig = Signature::new(SignatureType::SubkeyBinding);
 
         sig.set_key_flags(&KeyFlags::default().set_encrypt_for_transport(true))?;
-        sig.set_signature_creation_time(time::now())?;
+        sig.set_signature_creation_time(time::now().canonicalize())?;
         sig.set_key_expiration_time(Some(time::Duration::weeks(3 * 52)))?;
         sig.set_issuer_fingerprint(primary_key.fingerprint())?;
         sig.set_issuer(primary_key.fingerprint().to_keyid())?;
@@ -400,7 +401,7 @@ impl UserIDBinding {
         let mut sig = Signature::new(SignatureType::PositiveCertificate);
 
         sig.set_key_flags(&KeyFlags::default().set_certify(true).set_sign(true))?;
-        sig.set_signature_creation_time(time::now())?;
+        sig.set_signature_creation_time(time::now().canonicalize())?;
         sig.set_key_expiration_time(Some(time::Duration::weeks(3 * 52)))?;
         sig.set_issuer_fingerprint(signer.fingerprint())?;
         sig.set_issuer(signer.fingerprint().to_keyid())?;

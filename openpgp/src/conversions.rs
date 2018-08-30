@@ -11,6 +11,9 @@ pub trait Time {
     fn from_pgp(u32) -> Self;
     /// Converts broken-down time to an OpenPGP time stamp.
     fn to_pgp(&self) -> Result<u32>;
+    /// Strips off any subseconds that OpenPGP cannot represent, and
+    /// converts to UTC.
+    fn canonicalize(self) -> Self;
 }
 
 impl Time for time::Tm {
@@ -27,6 +30,11 @@ impl Time for time::Tm {
         }
         Ok(epoch as u32)
     }
+
+    fn canonicalize(mut self) -> Self {
+        self.tm_nsec = 0;
+        self.to_utc()
+    }
 }
 
 /// Conversions for OpenPGP durations.
@@ -35,6 +43,8 @@ pub trait Duration {
     fn from_pgp(u32) -> Self;
     /// Converts ISO 8601 time duration to an OpenPGP duration.
     fn to_pgp(&self) -> Result<u32>;
+    /// Strips off any subseconds that OpenPGP cannot represent.
+    fn canonicalize(self) -> Self;
 }
 
 impl Duration for time::Duration {
@@ -50,6 +60,10 @@ impl Duration for time::Duration {
                        .into());
         }
         Ok(secs as u32)
+    }
+
+    fn canonicalize(self) -> Self {
+        time::Duration::seconds(self.num_seconds())
     }
 }
 

@@ -9,6 +9,7 @@ use PublicKeyAlgorithm;
 use SymmetricAlgorithm;
 use s2k::S2K;
 use Result;
+use conversions::Time;
 
 impl fmt::Debug for Key {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -34,7 +35,7 @@ impl Default for Key {
         Key {
             common: Default::default(),
             version: 4,
-            creation_time: time::now(),
+            creation_time: time::now().canonicalize(),
             pk_algo: PublicKeyAlgorithm::Unknown(0),
             mpis: MPIs::empty(),
             secret: None,
@@ -136,7 +137,7 @@ impl Key {
         Ok(Key {
             common: Default::default(),
             version: 4,
-            creation_time: time::now(),
+            creation_time: time::now().canonicalize(),
             pk_algo: pk_algo,
             mpis: mpis,
             secret: secret,
@@ -155,7 +156,7 @@ impl Key {
 
     /// Sets the key packet's creation time field.
     pub fn set_creation_time(&mut self, timestamp: time::Tm) {
-        self.creation_time = timestamp;
+        self.creation_time = timestamp.canonicalize();
     }
 
     /// Gets the public key algorithm.

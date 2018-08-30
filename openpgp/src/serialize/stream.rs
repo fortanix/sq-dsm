@@ -35,6 +35,7 @@ use constants::{
     SignatureType,
     SymmetricAlgorithm,
 };
+use conversions::Time;
 
 /// Cookie must be public because the writers are.
 #[doc(hidden)]
@@ -347,7 +348,7 @@ impl<'a> Signer<'a> {
 
                 // Make and hash a signature packet.
                 let mut sig = Signature::new(SignatureType::Binary);
-                sig.set_signature_creation_time(time::now())?;
+                sig.set_signature_creation_time(time::now().canonicalize())?;
                 sig.set_issuer_fingerprint(key.fingerprint())?;
                 // GnuPG up to (and including) 2.2.8 requires the
                 // Issuer subpacket to be present.
@@ -1034,7 +1035,6 @@ mod test {
     use parse::{PacketParserResult, PacketParser};
     use super::*;
     use constants::DataFormat::Text as T;
-    use conversions::Time;
 
     macro_rules! bytes {
         ( $x:expr ) => { include_bytes!(concat!("../../tests/data/", $x)) };

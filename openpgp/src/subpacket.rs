@@ -1569,7 +1569,7 @@ impl Signature {
     pub fn set_signature_creation_time(&mut self, creation_time: time::Tm)
                                        -> Result<()> {
         self.hashed_area.replace(Subpacket::new(
-            SubpacketValue::SignatureCreationTime(creation_time),
+            SubpacketValue::SignatureCreationTime(creation_time.canonicalize()),
             true)?)
     }
 
@@ -1604,7 +1604,7 @@ impl Signature {
                                        -> Result<()> {
         if let Some(e) = expiration {
             self.hashed_area.replace(Subpacket::new(
-                SubpacketValue::SignatureExpirationTime(e),
+                SubpacketValue::SignatureExpirationTime(e.canonicalize()),
                 true)?)
         } else {
             self.hashed_area.remove_all(SubpacketTag::SignatureExpirationTime);
@@ -1868,7 +1868,7 @@ impl Signature {
                                    -> Result<()> {
         if let Some(e) = expiration {
             self.hashed_area.replace(Subpacket::new(
-                SubpacketValue::KeyExpirationTime(e),
+                SubpacketValue::KeyExpirationTime(e.canonicalize()),
                 true)?)
         } else {
             self.hashed_area.remove_all(SubpacketTag::KeyExpirationTime);

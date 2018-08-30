@@ -13,6 +13,7 @@ use Signature;
 use TPK;
 use PublicKeyAlgorithm;
 use Error;
+use conversions::Time;
 
 /// Groups symmetric and asymmetric algorithms
 #[derive(Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Debug)]
@@ -172,7 +173,7 @@ impl TPKBuilder {
         let mut sig = Signature::new(SignatureType::PositiveCertificate);
 
         sig.set_key_flags(&blueprint.flags)?;
-        sig.set_signature_creation_time(time::now())?;
+        sig.set_signature_creation_time(time::now().canonicalize())?;
         sig.set_key_expiration_time(Some(time::Duration::weeks(3 * 52)))?;
         sig.set_issuer_fingerprint(key.fingerprint())?;
         sig.set_issuer(key.fingerprint().to_keyid())?;
@@ -212,7 +213,7 @@ impl TPKBuilder {
         let mut sig = Signature::new(SignatureType::SubkeyBinding);
 
         sig.set_key_flags(&blueprint.flags)?;
-        sig.set_signature_creation_time(time::now())?;
+        sig.set_signature_creation_time(time::now().canonicalize())?;
         sig.set_key_expiration_time(Some(time::Duration::weeks(3 * 52)))?;
         sig.set_issuer_fingerprint(primary_key.fingerprint())?;
         sig.set_issuer(primary_key.fingerprint().to_keyid())?;
@@ -257,7 +258,7 @@ impl TPKBuilder {
 
         let mut sig = Signature::new(SignatureType::PositiveCertificate);
 
-        sig.set_signature_creation_time(time::now())?;
+        sig.set_signature_creation_time(time::now().canonicalize())?;
         sig.set_issuer_fingerprint(key.fingerprint())?;
         sig.set_issuer(key.fingerprint().to_keyid())?;
 

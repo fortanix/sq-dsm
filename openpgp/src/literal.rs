@@ -135,7 +135,8 @@ impl Literal {
     /// only the literal data packet's body is protected, not the
     /// meta-data.  As such, this field should not be used.
     pub fn set_date(&mut self, timestamp: Option<time::Tm>) {
-        self.date = timestamp.unwrap_or(time::Tm::from_pgp(0));
+        self.date = timestamp.map(|t| t.canonicalize())
+            .unwrap_or(time::Tm::from_pgp(0));
     }
 
     /// Convert the `Literal` struct to a `Packet`.
