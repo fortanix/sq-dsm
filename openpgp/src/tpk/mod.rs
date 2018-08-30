@@ -33,6 +33,7 @@ use conversions::Time;
 mod lexer;
 mod grammar;
 mod builder;
+mod crypto;
 
 use self::lexer::Lexer;
 pub use self::lexer::Token;
