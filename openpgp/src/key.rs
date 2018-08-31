@@ -346,11 +346,13 @@ mod tests {
             }
 
             let mut b = Vec::new();
-            key.set_secret(None);
             key.serialize(&mut b, Tag::PublicKey).unwrap();
 
             let pp = PacketPile::from_bytes(&b).unwrap();
             if let Some(Packet::PublicKey(ref parsed_key)) = pp.path_ref(&[0]) {
+                assert!(parsed_key.secret().is_none());
+
+                key.set_secret(None);
                 assert_eq!(&key, parsed_key);
             } else {
                 panic!("bad packet: {:?}", pp.path_ref(&[0]));
