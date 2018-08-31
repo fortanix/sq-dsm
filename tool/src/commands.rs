@@ -21,7 +21,8 @@ extern crate sequoia_store as store;
 
 // Indent packets according to their recursion level.
 const INDENT: &'static str
-    = "                                                  ";
+    // 64 spaces = max recursion depth (16) * 4 spaces
+    = "                                                                ";
 
 const TIMEFMT: &'static str = "%Y-%m-%dT%H:%M";
 
@@ -66,7 +67,7 @@ pub fn decrypt(input: &mut io::Read, output: &mut io::Write,
 
         if dump || map {
             dump_packet(&mut io::stderr(),
-                        &INDENT[0..pp.recursion_depth as usize],
+                        &INDENT[0..4 * pp.recursion_depth as usize],
                         false,
                         &pp.packet)?;
             eprintln!();
@@ -339,7 +340,7 @@ pub fn dump(input: &mut io::Read, output: &mut io::Write, mpis: bool, hex: bool)
         .map(hex).finalize()?;
 
     while let PacketParserResult::Some(mut pp) = ppr {
-        let i = &INDENT[0..pp.recursion_depth as usize];
+        let i = &INDENT[0..4 * pp.recursion_depth as usize];
         dump_packet(output, i, mpis, &pp.packet)?;
         writeln!(output)?;
         if let Some(ref map) = pp.map {
