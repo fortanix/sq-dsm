@@ -73,9 +73,9 @@ pub fn decrypt(input: &mut io::Read, output: &mut io::Write,
             eprintln!();
             let mut hd = HexDumper::new();
             for (field, bytes) in map.iter() {
-                hd.print(bytes, field);
+                hd.write(&mut io::stderr(), bytes, field)?;
             }
-            println!();
+            eprintln!();
         }
 
         match pp.packet {
@@ -343,7 +343,7 @@ pub fn dump(input: &mut io::Read, output: &mut io::Write, mpis: bool, hex: bool)
         if let Some(ref map) = pp.map {
             let mut hd = HexDumper::new();
             for (field, bytes) in map.iter() {
-                hd.print(bytes, field);
+                hd.write(output, bytes, field)?;
             }
             writeln!(output)?;
         } else {
@@ -637,46 +637,48 @@ impl HexDumper {
         }
     }
 
-    fn print(&mut self, buf: &[u8], msg: &str) {
+    fn write(&mut self, sink: &mut io::Write, buf: &[u8], msg: &str)
+             -> Result<()> {
         let mut msg_printed = false;
-        print!("{:08x}  ", self.offset);
+        write!(sink, "{:08x}  ", self.offset)?;
         for i in 0 .. self.offset % 16 {
             if i != 7 {
-                print!("   ");
+                write!(sink, "   ")?;
             } else {
-                print!("    ");
+                write!(sink, "    ")?;
             }
         }
 
         for c in buf {
-            print!("{:02x} ", c);
+            write!(sink, "{:02x} ", c)?;
             self.offset += 1;
             match self.offset % 16 {
                 0 => {
                     if ! msg_printed {
-                        print!("  {}", msg);
+                        write!(sink, "  {}", msg)?;
                         msg_printed = true;
                     }
 
-                    print!("\n{:08x}  ", self.offset)
+                    write!(sink, "\n{:08x}  ", self.offset)?;
                 },
-                8 => print!(" "),
+                8 => write!(sink, " ")?,
                 _ => (),
             }
         }
 
         for i in self.offset % 16 .. 16 {
             if i != 7 {
-                print!("   ");
+                write!(sink, "   ")?;
             } else {
-                print!("    ");
+                write!(sink, "    ")?;
             }
         }
 
         if ! msg_printed {
-            print!("  {}", msg);
+            write!(sink, "  {}", msg)?;
         }
-        println!();
+        writeln!(sink)?;
+        Ok(())
     }
 }
 
