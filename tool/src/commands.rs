@@ -339,13 +339,13 @@ pub fn dump(input: &mut io::Read, output: &mut io::Write, mpis: bool, hex: bool)
     while let PacketParserResult::Some(mut pp) = ppr {
         let i = &INDENT[0..pp.recursion_depth as usize];
         dump_packet(output, i, mpis, &pp.packet)?;
+        writeln!(output)?;
         if let Some(ref map) = pp.map {
             let mut hd = HexDumper::new();
-            writeln!(output)?;
             for (field, bytes) in map.iter() {
                 hd.print(bytes, field);
             }
-            println!();
+            writeln!(output)?;
         } else {
             match pp.packet {
                 Packet::Literal(_) => {
