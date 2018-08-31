@@ -940,7 +940,8 @@ impl TPK {
 
     /// Returns an iterator over the TPK's valid `UserIDBinding`s.
     ///
-    /// A valid `UserIDBinding` has at least one good self-signature.
+    /// The primary user id is returned first.  A valid
+    /// `UserIDBinding` has at least one good self-signature.
     pub fn userids(&self) -> slice::Iter<UserIDBinding> {
         self.userids.iter()
     }
