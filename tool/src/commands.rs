@@ -65,12 +65,14 @@ pub fn decrypt(input: &mut io::Read, output: &mut io::Write,
         }
 
         if dump || map {
-            eprintln!("{}{:?}",
-                      &INDENT[0..pp.recursion_depth as usize], pp.packet);
+            dump_packet(&mut io::stderr(),
+                        &INDENT[0..pp.recursion_depth as usize],
+                        false,
+                        &pp.packet)?;
+            eprintln!();
         }
 
         if let Some(ref map) = pp.map {
-            eprintln!();
             let mut hd = HexDumper::new();
             for (field, bytes) in map.iter() {
                 hd.write(&mut io::stderr(), bytes, field)?;
