@@ -1627,7 +1627,7 @@ impl SKESK {
             version: version,
             symm_algo: symm_algo.into(),
             s2k: s2k,
-            esk: esk,
+            esk: if esk.len() > 0 { Some(esk) } else { None },
         }))
     }
 }

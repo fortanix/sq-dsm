@@ -918,7 +918,7 @@ impl Serialize for SKESK {
             1 // Version
             + 1 // Algo
             + self.s2k.serialized_len() // s2k.
-            + self.esk.len(); // ESK.
+            + self.esk.as_ref().map(|esk| esk.len()).unwrap_or(0); // ESK.
 
         CTB::new(Tag::SKESK).serialize(o)?;
         BodyLength::Full(len as u32).serialize(o)?;
@@ -926,7 +926,9 @@ impl Serialize for SKESK {
         write_byte(o, self.version)?;
         write_byte(o, self.symm_algo.into())?;
         self.s2k.serialize(o)?;
-        o.write(&self.esk[..])?;
+        if let Some(ref esk) = self.esk {
+            o.write(&esk[..])?;
+        }
 
         Ok(())
     }

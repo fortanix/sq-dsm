@@ -23,7 +23,7 @@ pub struct SKESK {
     /// Key derivation method for the symmetric key.
     pub(crate) s2k: S2K,
     /// The encrypted session key.
-    pub(crate) esk: Vec<u8>,
+    pub(crate) esk: Option<Vec<u8>>,
 }
 
 impl SKESK {
@@ -57,7 +57,7 @@ impl SKESK {
             version: 4,
             symm_algo: algo,
             s2k: s2k,
-            esk: esk,
+            esk: Some(esk),
         })
     }
 
@@ -87,12 +87,12 @@ impl SKESK {
     }
 
     /// Gets the encrypted session key.
-    pub fn esk(&self) -> &[u8] {
-        self.esk.as_slice()
+    pub fn esk(&self) -> Option<&[u8]> {
+        self.esk.as_ref().map(|esk| esk.as_slice())
     }
 
     /// Sets the encrypted session key.
-    pub fn set_esk(&mut self, esk: Vec<u8>) {
+    pub fn set_esk(&mut self, esk: Option<Vec<u8>>) {
         self.esk = esk;
     }
 
@@ -109,24 +109,14 @@ impl SKESK {
     {
         let key = self.s2k.derive_key(password, self.symm_algo.key_size()?)?;
 
-        if self.esk.len() == 0 {
-            // No ESK, we return the derived key.
-
-            match self.s2k {
-                S2K::Simple{ .. } =>
-                    Err(Error::InvalidOperation(
-                        "SKESK: Cannot use Simple S2K without ESK".into())
-                        .into()),
-                _ => Ok((self.symm_algo, key)),
-            }
-        } else {
+        if let Some(ref esk) = self.esk {
             // Use the derived key to decrypt the ESK. Unlike SEP &
             // SEIP we have to use plain CFB here.
             let blk_sz = self.symm_algo.block_size()?;
             let mut iv = vec![0u8; blk_sz];
             let mut dec  = self.symm_algo.make_decrypt_cfb(&key[..])?;
-            let mut plain = vec![0u8; self.esk.len()];
-            let cipher = &self.esk[..];
+            let mut plain = vec![0u8; esk.len()];
+            let cipher = &esk[..];
 
             for (pl, ct)
                 in plain[..].chunks_mut(blk_sz).zip(cipher.chunks(blk_sz))
@@ -138,6 +128,16 @@ impl SKESK {
             let key = plain[1..].to_vec();
 
             Ok((sym, key))
+        } else {
+            // No ESK, we return the derived key.
+
+            match self.s2k {
+                S2K::Simple{ .. } =>
+                    Err(Error::InvalidOperation(
+                        "SKESK: Cannot use Simple S2K without ESK".into())
+                        .into()),
+                _ => Ok((self.symm_algo, key)),
+            }
         }
     }
 }

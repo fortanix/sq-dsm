@@ -476,7 +476,9 @@ fn dump_packet(output: &mut io::Write, i: &str, mpis: bool, p: &Packet) -> Resul
             writeln!(output, "{}  Cipher: {}", i, s.symmetric_algo())?;
             write!(output, "{}  S2K: ", i)?;
             dump_s2k(output, i, s.s2k())?;
-            writeln!(output, "{}  ESK: {:?}", i, s.esk())?;
+            if let Some(esk) = s.esk() {
+                writeln!(output, "{}  ESK: {}", i, to_hex(esk, false))?;
+            }
         },
 
         SEIP(ref s) => {
