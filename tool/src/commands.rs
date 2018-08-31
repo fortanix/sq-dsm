@@ -9,6 +9,7 @@ use rpassword;
 extern crate openpgp;
 use openpgp::constants::DataFormat;
 use openpgp::{Packet, Key, TPK, KeyID, SecretKey, Signature, Result};
+use openpgp::s2k::S2K;
 use openpgp::parse::PacketParserResult;
 use openpgp::subpacket::{Subpacket, SubpacketValue};
 use openpgp::parse::stream::{
@@ -473,7 +474,8 @@ fn dump_packet(output: &mut io::Write, i: &str, mpis: bool, p: &Packet) -> Resul
                      "{}Symmetric-key Encrypted Session Key Packet", i)?;
             writeln!(output, "{}  Version: {}", i, s.version())?;
             writeln!(output, "{}  Cipher: {}", i, s.symmetric_algo())?;
-            writeln!(output, "{}  S2K: {:?}", i, s.s2k())?;
+            write!(output, "{}  S2K: ", i)?;
+            dump_s2k(output, i, s.s2k())?;
             writeln!(output, "{}  ESK: {:?}", i, s.esk())?;
         },
 
@@ -582,6 +584,33 @@ fn dump_subpacket(output: &mut io::Write, i: &str, mpis: bool, s: Subpacket)
         _ => (),
     }
 
+    Ok(())
+}
+
+fn dump_s2k(output: &mut io::Write, i: &str, s2k: &S2K)
+            -> Result<()> {
+    use self::S2K::*;
+    match s2k {
+        Simple { hash } => {
+            writeln!(output, "Simple")?;
+            writeln!(output, "{}    Hash: {}", i, hash)?;
+        },
+        Salted { hash, ref salt } => {
+            writeln!(output, "Salted")?;
+            writeln!(output, "{}    Hash: {}", i, hash)?;
+            writeln!(output, "{}    Salt: {}", i, to_hex(salt, false))?;
+        },
+        Iterated { hash, ref salt, iterations } => {
+            writeln!(output, "Iterated")?;
+            writeln!(output, "{}    Hash: {}", i, hash)?;
+            writeln!(output, "{}    Salt: {}", i, to_hex(salt, false))?;
+            writeln!(output, "{}    Iterations: {}", i, iterations)?;
+        },
+        Private(n) =>
+            writeln!(output, "Private({})", n)?,
+        Unknown(n) =>
+            writeln!(output, "Unknown({})", n)?,
+    }
     Ok(())
 }
 
