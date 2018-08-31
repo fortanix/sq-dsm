@@ -382,6 +382,7 @@
 //! FLAGS:
 //!     -h, --help       Prints help information
 //!     -x, --hex        Print a hexdump
+//!         --mpis       Print MPIs
 //!     -V, --version    Prints version information
 //!
 //! OPTIONS:

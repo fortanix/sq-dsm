@@ -181,7 +181,8 @@ fn real_main() -> Result<(), failure::Error> {
             let input = open_or_stdin(m.value_of("input"))?;
             let mut output = create_or_stdout(m.value_of("output"))?;
             let mut input = openpgp::Reader::from_reader(input)?;
-            commands::dump(&mut input, &mut output, m.is_present("hex"))?;
+            commands::dump(&mut input, &mut output,
+                           m.is_present("mpis"), m.is_present("hex"))?;
         },
         ("split",  Some(m)) => {
             let input = open_or_stdin(m.value_of("input"))?;

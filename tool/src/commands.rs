@@ -330,15 +330,15 @@ pub fn verify(store: &mut store::Store,
     }
 }
 
-pub fn dump(input: &mut io::Read, output: &mut io::Write, map: bool)
+pub fn dump(input: &mut io::Read, output: &mut io::Write, mpis: bool, hex: bool)
         -> Result<()> {
     let mut ppr
         = openpgp::parse::PacketParserBuilder::from_reader(input)?
-        .map(map).finalize()?;
+        .map(hex).finalize()?;
 
     while let PacketParserResult::Some(mut pp) = ppr {
         let i = &INDENT[0..pp.recursion_depth as usize];
-        dump_packet(output, i, &pp.packet)?;
+        dump_packet(output, i, mpis, &pp.packet)?;
         if let Some(ref map) = pp.map {
             let mut hd = HexDumper::new();
             writeln!(output)?;
@@ -365,7 +365,7 @@ pub fn dump(input: &mut io::Read, output: &mut io::Write, map: bool)
     Ok(())
 }
 
-fn dump_packet(output: &mut io::Write, i: &str, p: &Packet) -> Result<()> {
+fn dump_packet(output: &mut io::Write, i: &str, mpis: bool, p: &Packet) -> Result<()> {
     use self::openpgp::Packet::*;
     match p {
         Unknown(ref u) => {
@@ -382,18 +382,20 @@ fn dump_packet(output: &mut io::Write, i: &str, p: &Packet) -> Result<()> {
             if s.hashed_area().iter().count() > 0 {
                 writeln!(output, "{}  Hashed area:", i)?;
                 for (_, _, pkt) in s.hashed_area().iter() {
-                    dump_subpacket(output, i, pkt)?;
+                    dump_subpacket(output, i, mpis, pkt)?;
                 }
             }
             if s.unhashed_area().iter().count() > 0 {
                 writeln!(output, "{}  Unhashed area:", i)?;
                 for (_, _, pkt) in s.unhashed_area().iter() {
-                    dump_subpacket(output, i, pkt)?;
+                    dump_subpacket(output, i, mpis, pkt)?;
                 }
             }
             writeln!(output, "{}  Hash prefix: {}", i,
                      to_hex(s.hash_prefix(), false))?;
-            writeln!(output, "{}  MPIs: {:?}", i, s.mpis())?;
+            if mpis {
+                writeln!(output, "{}  MPIs: {:?}", i, s.mpis())?;
+            }
         },
 
         OnePassSig(ref o) => {
@@ -414,9 +416,11 @@ fn dump_packet(output: &mut io::Write, i: &str, p: &Packet) -> Result<()> {
             writeln!(output, "{}  Creation time: {}", i,
                      time::strftime(TIMEFMT, k.creation_time()).unwrap())?;
             writeln!(output, "{}  Pk algo: {}", i, k.pk_algo())?;
-            writeln!(output, "{}  MPIs: {:?}", i, k.mpis())?;
-            if let Some(secrets) = k.secret() {
-                writeln!(output, "{}  Secrets: {:?}", i, secrets)?;
+            if mpis {
+                writeln!(output, "{}  MPIs: {:?}", i, k.mpis())?;
+                if let Some(secrets) = k.secret() {
+                    writeln!(output, "{}  Secrets: {:?}", i, secrets)?;
+                }
             }
         },
 
@@ -456,7 +460,9 @@ fn dump_packet(output: &mut io::Write, i: &str, p: &Packet) -> Result<()> {
             writeln!(output, "{}  Version: {}", i, p.version())?;
             writeln!(output, "{}  Recipient: {}", i, p.recipient())?;
             writeln!(output, "{}  Pk algo: {}", i, p.pk_algo())?;
-            writeln!(output, "{}  ESK: {:?}", i, p.esk())?;
+            if mpis {
+                writeln!(output, "{}  ESK: {:?}", i, p.esk())?;
+            }
         },
 
         SKESK(ref s) => {
@@ -483,7 +489,8 @@ fn dump_packet(output: &mut io::Write, i: &str, p: &Packet) -> Result<()> {
     Ok(())
 }
 
-fn dump_subpacket(output: &mut io::Write, i: &str, s: Subpacket) -> Result<()> {
+fn dump_subpacket(output: &mut io::Write, i: &str, mpis: bool, s: Subpacket)
+                  -> Result<()> {
     use self::SubpacketValue::*;
     match s.value {
         Unknown(ref b) =>
@@ -567,7 +574,7 @@ fn dump_subpacket(output: &mut io::Write, i: &str, s: Subpacket) -> Result<()> {
     match s.value {
         EmbeddedSignature(ref sig) => {
             let i_ = format!("{}      ", i);
-            dump_packet(output, &i_, sig)?;
+            dump_packet(output, &i_, mpis, sig)?;
         },
         _ => (),
     }
