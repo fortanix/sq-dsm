@@ -15,7 +15,7 @@ pub enum VerificationMode {
     Exact,
     /// All signatures attached to the message must be by keys in `senders`. Not all keys in
     /// `senders` must sign the message.
-    IgnoreSuperflouosSenders,
+    IgnoreSuperfluousSenders,
     /// All keys in `senders` must have signed the message. Signatures from other keys are ignored.
     IgnoreUnknownSignatures,
 }
@@ -149,7 +149,7 @@ impl TPK {
                     }) && hlp.unknown.len() == 0,
                 VerificationMode::IgnoreUnknownSignatures =>
                     hlp.good.len() >= 1,
-                VerificationMode::IgnoreSuperflouosSenders =>
+                VerificationMode::IgnoreSuperfluousSenders =>
                     hlp.good.len() >= 1 && hlp.unknown.len() == 0,
             }) && (hlp.bad.len() == 0)
         };
@@ -272,9 +272,9 @@ mod tests {
        let my_msg = TPK::verify_from_senders(&[&tsk1, &tsk2, &tsk1], &o, VerificationMode::Exact).unwrap().unwrap();
        assert_eq!(&my_msg[..], &msg[..]);
 
-       assert!(TPK::verify_from_senders(&[&tsk1, &tsk2, &tsk3], &o, VerificationMode::IgnoreSuperflouosSenders).unwrap().is_some());
-       assert!(TPK::verify_from_senders(&[&tsk2, &tsk3], &o, VerificationMode::IgnoreSuperflouosSenders).unwrap().is_none());
-       assert!(TPK::verify_from_senders(&[&tsk3], &o, VerificationMode::IgnoreSuperflouosSenders).unwrap().is_none());
+       assert!(TPK::verify_from_senders(&[&tsk1, &tsk2, &tsk3], &o, VerificationMode::IgnoreSuperfluousSenders).unwrap().is_some());
+       assert!(TPK::verify_from_senders(&[&tsk2, &tsk3], &o, VerificationMode::IgnoreSuperfluousSenders).unwrap().is_none());
+       assert!(TPK::verify_from_senders(&[&tsk3], &o, VerificationMode::IgnoreSuperfluousSenders).unwrap().is_none());
 
        assert!(TPK::verify_from_senders(&[&tsk1, &tsk2, &tsk3], &o, VerificationMode::IgnoreUnknownSignatures).unwrap().is_some());
        assert!(TPK::verify_from_senders(&[&tsk2], &o, VerificationMode::IgnoreUnknownSignatures).unwrap().is_some());
