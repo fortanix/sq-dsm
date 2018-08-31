@@ -414,7 +414,7 @@ fn dump_packet(output: &mut io::Write, i: &str, mpis: bool, p: &Packet) -> Resul
         PublicKey(ref k) | PublicSubkey(ref k)
             | SecretKey(ref k) | SecretSubkey(ref k) =>
         {
-            writeln!(output, "{}{} Packet", i, p.tag())?;
+            writeln!(output, "{}{}", i, p.tag())?;
             writeln!(output, "{}  Version: {}", i, k.version())?;
             writeln!(output, "{}  Creation time: {}", i,
                      time::strftime(TIMEFMT, k.creation_time()).unwrap())?;
