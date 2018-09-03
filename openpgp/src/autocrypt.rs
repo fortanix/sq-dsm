@@ -24,7 +24,7 @@ use armor;
 use Error;
 use Result;
 use Packet;
-use SKESK;
+use packet::SKESK;
 use TPK;
 use TSK;
 use parse::{

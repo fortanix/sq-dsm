@@ -1,15 +1,15 @@
 use time;
 use subpacket::KeyFlags;
-use Key;
+use packet::Key;
 use tpk::{
     UserIDBinding,
     SubkeyBinding,
 };
 use Result;
-use UserID;
+use packet::UserID;
 use SymmetricAlgorithm;
 use HashAlgorithm;
-use Signature;
+use packet::Signature;
 use TPK;
 use PublicKeyAlgorithm;
 use Error;

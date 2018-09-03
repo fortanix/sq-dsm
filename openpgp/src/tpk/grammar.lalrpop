@@ -1,11 +1,11 @@
 // -*- mode: Rust; -*-
 
 use Error;
-use Signature;
-use UserID;
-use UserAttribute;
-use Key;
-use Unknown;
+use packet::Signature;
+use packet::UserID;
+use packet::UserAttribute;
+use packet::Key;
+use packet::Unknown;
 use Packet;
 use TPK;
 

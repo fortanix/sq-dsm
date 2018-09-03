@@ -21,7 +21,7 @@ use Error;
 use Packet;
 use PacketPile;
 use Message;
-use Literal;
+use packet::Literal;
 
 use packet::Tag;
 
@@ -401,14 +401,14 @@ mod tests {
     use s2k::S2K;
     use mpis::MPIs;
     use Tag;
-    use CompressedData;
-    use Literal;
-    use OnePassSig;
-    use Signature;
-    use SKESK;
-    use PKESK;
-    use SEIP;
-    use MDC;
+    use packet::CompressedData;
+    use packet::Literal;
+    use packet::OnePassSig;
+    use packet::Signature;
+    use packet::SKESK;
+    use packet::PKESK;
+    use packet::SEIP;
+    use packet::MDC;
     use KeyID;
     use Container;
 

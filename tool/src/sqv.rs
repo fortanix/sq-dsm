@@ -14,7 +14,7 @@ use std::process::exit;
 use std::fs::File;
 use std::collections::{HashMap, HashSet};
 
-use openpgp::{TPK, Packet, Signature, KeyID};
+use openpgp::{TPK, Packet, packet::Signature, KeyID};
 use openpgp::constants::HashAlgorithm;
 use openpgp::parse::{PacketParserResult, PacketParser};
 use openpgp::tpk::TPKParser;

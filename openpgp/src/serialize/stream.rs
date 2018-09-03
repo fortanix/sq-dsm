@@ -10,15 +10,15 @@ use {
     Error,
     Fingerprint,
     HashAlgorithm,
-    Key,
-    Literal,
-    MDC,
-    OnePassSig,
-    PKESK,
+    packet::Key,
+    packet::Literal,
+    packet::MDC,
+    packet::OnePassSig,
+    packet::PKESK,
     Result,
     SecretKey,
-    SKESK,
-    Signature,
+    packet::SKESK,
+    packet::Signature,
     Tag,
     TPK,
 };
@@ -1031,7 +1031,7 @@ impl<'a> writer::Stackable<'a, Cookie> for Encryptor<'a> {
 #[cfg(test)]
 mod test {
     use std::io::Read;
-    use {Packet, PacketPile, CompressedData};
+    use {Packet, PacketPile, packet::CompressedData};
     use parse::{PacketParserResult, PacketParser};
     use super::*;
     use constants::DataFormat::Text as T;

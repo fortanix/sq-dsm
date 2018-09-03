@@ -8,7 +8,8 @@ use rpassword;
 
 extern crate openpgp;
 use openpgp::constants::DataFormat;
-use openpgp::{Packet, Key, TPK, KeyID, SecretKey, Signature, Result};
+use openpgp::{Packet, TPK, KeyID, SecretKey, Result};
+use openpgp::packet::{Key, Signature};
 use openpgp::s2k::S2K;
 use openpgp::parse::PacketParserResult;
 use openpgp::subpacket::{Subpacket, SubpacketValue};
@@ -55,8 +56,8 @@ pub fn decrypt(input: &mut io::Read, output: &mut io::Write,
         }
     }
 
-    let mut pkesks: Vec<openpgp::PKESK> = Vec::new();
-    let mut skesks: Vec<openpgp::SKESK> = Vec::new();
+    let mut pkesks: Vec<openpgp::packet::PKESK> = Vec::new();
+    let mut skesks: Vec<openpgp::packet::SKESK> = Vec::new();
     let mut ppr
         = openpgp::parse::PacketParserBuilder::from_reader(input)?
         .map(map).finalize()?;

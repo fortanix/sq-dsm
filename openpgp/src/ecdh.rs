@@ -1,7 +1,7 @@
 //! Elliptic Curve Diffie-Hellman.
 
 use Error;
-use Key;
+use packet::Key;
 use Result;
 use constants::{
     Curve,

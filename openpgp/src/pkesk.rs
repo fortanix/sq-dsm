@@ -1,5 +1,5 @@
 use Error;
-use Key;
+use packet::Key;
 use KeyID;
 use mpis::{MPI, MPIs};
 use PublicKeyAlgorithm;

@@ -1,10 +1,10 @@
 //! Functionality to hash packets, and generate hashes.
 
 use HashAlgorithm;
-use UserID;
-use UserAttribute;
-use Key;
-use Signature;
+use packet::UserID;
+use packet::UserAttribute;
+use packet::Key;
+use packet::Signature;
 use Error;
 use Result;
 use conversions::Time;

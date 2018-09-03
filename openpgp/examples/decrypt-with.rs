@@ -8,7 +8,7 @@ extern crate openpgp;
 use openpgp::{
     Packet,
     KeyID,
-    Key,
+    packet::Key,
     TPK,
     SecretKey,
 };
@@ -44,7 +44,7 @@ pub fn main() {
 
     #[derive(PartialEq)]
     enum State {
-        Start(Vec<openpgp::PKESK>, Vec<openpgp::SKESK>),
+        Start(Vec<openpgp::packet::PKESK>, Vec<openpgp::packet::SKESK>),
         Deciphered,
         Done,
     }

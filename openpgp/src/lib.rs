@@ -87,30 +87,19 @@ pub mod symmetric;
 pub mod s2k;
 
 mod unknown;
-pub use unknown::Unknown;
 mod signature;
-pub use signature::Signature;
 mod one_pass_sig;
-pub use one_pass_sig::OnePassSig;
 mod key;
-pub use key::{Key, SecretKey};
+pub use key::SecretKey;
 mod userid;
-pub use userid::UserID;
 mod user_attribute;
-pub use user_attribute::UserAttribute;
 mod literal;
-pub use literal::Literal;
 mod compressed_data;
-pub use compressed_data::CompressedData;
 mod seip;
-pub use seip::SEIP;
 mod skesk;
-pub use skesk::SKESK;
 pub(crate) mod ecdh;
 mod pkesk;
-pub use pkesk::PKESK;
 mod mdc;
-pub use mdc::MDC;
 mod reader;
 pub use reader::Reader;
 
@@ -252,35 +241,35 @@ pub enum Error {
 #[derive(PartialEq, Eq, Hash, Clone)]
 pub enum Packet {
     /// Unknown packet.
-    Unknown(Unknown),
+    Unknown(unknown::Unknown),
     /// Signature packet.
-    Signature(Signature),
+    Signature(signature::Signature),
     /// One pass signature packet.
-    OnePassSig(OnePassSig),
+    OnePassSig(one_pass_sig::OnePassSig),
     /// Public key packet.
-    PublicKey(Key),
+    PublicKey(key::Key),
     /// Public subkey packet.
-    PublicSubkey(Key),
+    PublicSubkey(key::Key),
     /// Public/Secret key pair.
-    SecretKey(Key),
+    SecretKey(key::Key),
     /// Public/Secret subkey pair.
-    SecretSubkey(Key),
+    SecretSubkey(key::Key),
     /// User ID packet.
-    UserID(UserID),
+    UserID(userid::UserID),
     /// User attribute packet.
-    UserAttribute(UserAttribute),
+    UserAttribute(user_attribute::UserAttribute),
     /// Literal data packet.
-    Literal(Literal),
+    Literal(literal::Literal),
     /// Compressed literal data packet.
-    CompressedData(CompressedData),
+    CompressedData(compressed_data::CompressedData),
     /// Public key encrypted data packet.
-    PKESK(PKESK),
+    PKESK(pkesk::PKESK),
     /// Symmetric key encrypted data packet.
-    SKESK(SKESK),
+    SKESK(skesk::SKESK),
     /// Symmetric key encrypted, integrity protected data packet.
-    SEIP(SEIP),
+    SEIP(seip::SEIP),
     /// Modification detection code packet.
-    MDC(MDC),
+    MDC(mdc::MDC),
 }
 
 impl Packet {
@@ -400,14 +389,14 @@ pub struct PacketPile {
 /// # }
 #[derive(Debug, Clone, PartialEq)]
 pub struct TPK {
-    primary: Key,
-    primary_selfsigs: Vec<Signature>,
-    primary_certifications: Vec<Signature>,
+    primary: packet::Key,
+    primary_selfsigs: Vec<packet::Signature>,
+    primary_certifications: Vec<packet::Signature>,
     userids: Vec<tpk::UserIDBinding>,
     user_attributes: Vec<tpk::UserAttributeBinding>,
     subkeys: Vec<tpk::SubkeyBinding>,
     unknowns: Vec<tpk::UnknownBinding>,
-    bad: Vec<Signature>,
+    bad: Vec<packet::Signature>,
 }
 
 /// An OpenPGP message.

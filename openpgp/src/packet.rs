@@ -18,6 +18,19 @@ use buffered_reader::BufferedReader;
 
 pub use tag::Tag;
 
+pub use unknown::Unknown;
+pub use signature::Signature;
+pub use one_pass_sig::OnePassSig;
+pub use key::Key;
+pub use userid::UserID;
+pub use user_attribute::UserAttribute;
+pub use literal::Literal;
+pub use compressed_data::CompressedData;
+pub use seip::SEIP;
+pub use skesk::SKESK;
+pub use pkesk::PKESK;
+pub use mdc::MDC;
+
 // Allow transparent access of common fields.
 impl<'a> Deref for Packet {
     type Target = Common;

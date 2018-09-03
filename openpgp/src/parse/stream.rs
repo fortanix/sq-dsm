@@ -15,11 +15,11 @@ use buffered_reader::{
 };
 use {
     Error,
-    Key,
+    packet::Key,
     KeyID,
     Packet,
     Result,
-    Signature,
+    packet::Signature,
     TPK,
 };
 use parse::{

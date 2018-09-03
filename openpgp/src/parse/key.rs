@@ -4,7 +4,7 @@ use nettle::Hash;
 use nettle::hash::insecure_do_not_use::Sha1;
 
 use {
-    Key,
+    packet::Key,
     KeyID,
     Fingerprint,
 };

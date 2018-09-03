@@ -26,6 +26,20 @@ use conversions::{
     Time,
     Duration,
 };
+use packet::{
+    Unknown,
+    Signature,
+    OnePassSig,
+    Key,
+    UserID,
+    UserAttribute,
+    Literal,
+    CompressedData,
+    PKESK,
+    SKESK,
+    SEIP,
+    MDC,
+};
 
 // Whether to trace the modules execution (on stderr).
 const TRACE : bool = false;

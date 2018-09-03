@@ -68,10 +68,10 @@ use buffered_reader::{BufferedReader, BufferedReaderMemory};
 use {
     Error,
     Result,
-    Signature,
+    packet::Signature,
     Packet,
     Fingerprint,
-    Key,
+    packet::Key,
     KeyID,
 };
 use constants::{
@@ -2609,7 +2609,7 @@ fn accessors() {
     sig.set_revocable(false).unwrap();
     assert_eq!(sig.revocable(), Some(false));
 
-    let mut key = ::Key::default();
+    let mut key = ::packet::Key::default();
     key.set_creation_time(now);
     sig.set_key_expiration_time(Some(five_minutes)).unwrap();
     assert_eq!(sig.key_expiration_time(), Some(five_minutes));

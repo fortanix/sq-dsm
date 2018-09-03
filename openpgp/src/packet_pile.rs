@@ -160,7 +160,7 @@ impl PacketPile {
     /// ```rust
     /// # extern crate openpgp;
     /// # use openpgp::{Result, constants::{CompressionAlgorithm, DataFormat},
-    /// #     Packet, PacketPile, Literal, CompressedData};
+    /// #     Packet, PacketPile, packet::Literal, packet::CompressedData};
     ///
     /// # fn main() { f().unwrap(); }
     /// # fn f() -> Result<()> {
@@ -433,9 +433,9 @@ mod message_test {
 
     use constants::CompressionAlgorithm;
     use constants::DataFormat::Text;
-    use Literal;
-    use CompressedData;
-    use SEIP;
+    use packet::Literal;
+    use packet::CompressedData;
+    use packet::SEIP;
     use packet::Tag;
     use parse::PacketParser;
 
