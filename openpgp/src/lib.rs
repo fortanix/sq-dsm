@@ -97,6 +97,7 @@ pub use key::{Key, SecretKey};
 mod userid;
 pub use userid::UserID;
 mod user_attribute;
+pub use user_attribute::UserAttribute;
 mod literal;
 mod compressed_data;
 mod skesk;
@@ -228,20 +229,6 @@ pub enum Error {
     IndexOutOfRange,
 }
 
-/// Holds a UserAttribute packet.
-///
-/// See [Section 5.12 of RFC 4880] for details.
-///
-///   [Section 5.12 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.12
-#[derive(PartialEq, Eq, Hash, Clone)]
-pub struct UserAttribute {
-    /// CTB packet header fields.
-    common: packet::Common,
-
-    /// The user attribute.
-    value: Vec<u8>,
-}
-
 /// Holds a literal packet.
 ///
 /// A literal packet contains unstructured data.  Since the size can

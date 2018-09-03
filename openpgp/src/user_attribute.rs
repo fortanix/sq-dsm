@@ -1,7 +1,21 @@
 use std::fmt;
 
-use UserAttribute;
+use packet;
 use Packet;
+
+/// Holds a UserAttribute packet.
+///
+/// See [Section 5.12 of RFC 4880] for details.
+///
+///   [Section 5.12 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.12
+#[derive(PartialEq, Eq, Hash, Clone)]
+pub struct UserAttribute {
+    /// CTB packet header fields.
+    pub(crate) common: packet::Common,
+
+    /// The user attribute.
+    pub(crate) value: Vec<u8>,
+}
 
 impl fmt::Debug for UserAttribute {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
