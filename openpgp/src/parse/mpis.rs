@@ -9,7 +9,7 @@ use {
     HashAlgorithm,
 };
 use constants::Curve;
-use mpis::{self, MPI, MPIs};
+use mpis::{self, MPI};
 use parse::{
     BufferedReaderGeneric,
     PacketHeaderParser,
@@ -351,24 +351,22 @@ impl mpis::Ciphertext {
     }
 }
 
-impl MPIs {
+impl mpis::Signature {
     /// Parses a set of OpenPGP MPIs representing a signature.
     ///
     /// Expects MPIs for a public key algorithm `algo`s signature.
     /// See [Section 3.2 of RFC 4880] for details.
     ///
     ///   [Section 3.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-3.2
-    pub fn parse_signature_naked<T: AsRef<[u8]>>(
-        algo: PublicKeyAlgorithm, buf: T)
-        -> Result<Self>
-    {
+    pub fn parse_naked<T: AsRef<[u8]>>(algo: PublicKeyAlgorithm, buf: T)
+                                       -> Result<Self> {
         use std::io::Cursor;
 
         let cur = Cursor::new(buf);
         let bio = BufferedReaderGeneric::with_cookie(
             cur, None, Cookie::default());
         let mut php = PacketHeaderParser::new_naked(Box::new(bio));
-        Self::parse_signature(algo, &mut php)
+        Self::parse(algo, &mut php)
     }
 
     /// Parses a set of OpenPGP MPIs representing a signature.
@@ -377,10 +375,9 @@ impl MPIs {
     /// See [Section 3.2 of RFC 4880] for details.
     ///
     ///   [Section 3.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-3.2
-    pub(crate) fn parse_signature<'a>(algo: PublicKeyAlgorithm,
-                                      php: &mut PacketHeaderParser<'a>)
-        -> Result<Self>
-    {
+    pub(crate) fn parse<'a>(algo: PublicKeyAlgorithm,
+                            php: &mut PacketHeaderParser<'a>)
+                            -> Result<Self> {
         use PublicKeyAlgorithm::*;
 
         #[allow(deprecated)]
@@ -388,7 +385,7 @@ impl MPIs {
             RSAEncryptSign | RSASign => {
                 let s = MPI::parse("rsa_signature", php)?;
 
-                Ok(MPIs::RSASignature{
+                Ok(mpis::Signature::RSA {
                     s: s,
                 })
             }
@@ -397,7 +394,7 @@ impl MPIs {
                 let r = MPI::parse("dsa_signature_r", php)?;
                 let s = MPI::parse("dsa_signature_s", php)?;
 
-                Ok(MPIs::DSASignature{
+                Ok(mpis::Signature::DSA {
                     r: r,
                     s: s,
                 })
@@ -407,7 +404,7 @@ impl MPIs {
                 let r = MPI::parse("elgamal_signature_r", php)?;
                 let s = MPI::parse("elgamal_signature_s", php)?;
 
-                Ok(MPIs::ElgamalSignature{
+                Ok(mpis::Signature::Elgamal {
                     r: r,
                     s: s,
                 })
@@ -417,7 +414,7 @@ impl MPIs {
                 let r = MPI::parse("eddsa_signature_r", php)?;
                 let s = MPI::parse("eddsa_signature_s", php)?;
 
-                Ok(MPIs::EdDSASignature{
+                Ok(mpis::Signature::EdDSA {
                     r: r,
                     s: s,
                 })
@@ -427,7 +424,7 @@ impl MPIs {
                 let r = MPI::parse("ecdsa_signature_r", php)?;
                 let s = MPI::parse("ecdsa_signature_s", php)?;
 
-                Ok(MPIs::ECDSASignature{
+                Ok(mpis::Signature::ECDSA {
                     r: r,
                     s: s,
                 })
@@ -440,7 +437,7 @@ impl MPIs {
                 }
                 let mut rest = php.parse_bytes_eof("rest")?;
 
-                Ok(MPIs::Unknown {
+                Ok(mpis::Signature::Unknown {
                     mpis: mpis.into_boxed_slice(),
                     rest: rest.into_boxed_slice(),
                 })

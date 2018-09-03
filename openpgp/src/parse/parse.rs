@@ -48,7 +48,7 @@ use constants::{
     SymmetricAlgorithm,
 };
 use conversions::Time;
-use mpis::{PublicKey, MPI, MPIs};
+use mpis::{PublicKey, MPI};
 use symmetric::{Decryptor, BufferedReaderDecryptor};
 use message;
 use message::MessageValidator;
@@ -869,7 +869,7 @@ impl Signature {
                                    unhashed_area_len as usize));
         let hash_prefix1 = php_try!(php.parse_u8("hash_prefix1"));
         let hash_prefix2 = php_try!(php.parse_u8("hash_prefix2"));
-        let mpis = php_try!(MPIs::parse_signature(pk_algo, &mut php));
+        let mpis = php_try!(::mpis::Signature::parse(pk_algo, &mut php));
 
         let hash_algo = hash_algo.into();
         let mut pp = php.ok(Packet::Signature(Signature {
@@ -881,7 +881,7 @@ impl Signature {
             hashed_area: SubpacketArea::new(hashed_area),
             unhashed_area: SubpacketArea::new(unhashed_area),
             hash_prefix: [hash_prefix1, hash_prefix2],
-            mpis: mpis,
+            mpis: Some(mpis),
             computed_hash: None,
         }))?;
 
@@ -1009,7 +1009,7 @@ fn signature_parser_test () {
             assert_eq!(p.hashed_area.data.len(), 29);
             assert_eq!(p.unhashed_area.data.len(), 10);
             assert_eq!(p.hash_prefix, [0x65u8, 0x74]);
-            assert_eq!(p.mpis.serialized_len(), 258);
+            assert_eq!(p.mpis().unwrap().serialized_len(), 258);
         } else {
             panic!("Wrong packet!");
         }

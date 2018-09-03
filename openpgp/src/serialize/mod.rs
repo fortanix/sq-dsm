@@ -340,32 +340,30 @@ impl Serialize for mpis::Ciphertext {
     }
 }
 
-impl Serialize for mpis::MPIs {
+impl Serialize for mpis::Signature {
     fn serialize<W: io::Write>(&self, w: &mut W) -> Result<()> {
-        use mpis::MPIs::*;
+        use mpis::Signature::*;
 
         match self {
-            &RSASignature{ ref s } => {
+            &RSA { ref s } => {
                 s.serialize(w)?;
             }
-            &DSASignature{ ref r, ref s } => {
+            &DSA { ref r, ref s } => {
                 r.serialize(w)?;
                 s.serialize(w)?;
             }
-            &ElgamalSignature{ ref r, ref s } => {
+            &Elgamal { ref r, ref s } => {
                 r.serialize(w)?;
                 s.serialize(w)?;
             }
-            &EdDSASignature{ ref r, ref s } => {
+            &EdDSA { ref r, ref s } => {
                 r.serialize(w)?;
                 s.serialize(w)?;
             }
-            &ECDSASignature{ ref r, ref s } => {
+            &ECDSA { ref r, ref s } => {
                 r.serialize(w)?;
                 s.serialize(w)?;
             }
-
-            &None => unreachable!(),
 
             &Unknown { ref mpis, ref rest } => {
                 for mpi in mpis.iter() {
@@ -602,7 +600,7 @@ impl Serialize for Signature {
             + 2 // unhashed area size
             + self.unhashed_area.data.len()
             + 2 // hash prefix
-            + self.mpis.serialized_len();
+            + self.mpis.as_ref().map(|sig| sig.serialized_len()).unwrap_or(0);
 
         CTB::new(Tag::Signature).serialize(o)?;
         BodyLength::Full(len as u32).serialize(o)?;
@@ -654,7 +652,9 @@ impl Signature {
         write_byte(o, self.hash_prefix[0])?;
         write_byte(o, self.hash_prefix[1])?;
 
-        self.mpis.serialize(o)?;
+        if let Some(sig) = self.mpis() {
+            sig.serialize(o)?;
+        }
 
         Ok(())
     }

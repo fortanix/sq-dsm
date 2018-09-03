@@ -566,51 +566,48 @@ impl Arbitrary for Ciphertext {
     }
 }
 
-/// Holds one or more MPIs.
+/// Holds a signature.
 ///
 /// Provides a typed and structured way of storing multiple MPIs in
 /// packets.
 #[derive(Clone, PartialEq, Eq, Hash, Debug, PartialOrd, Ord)]
-pub enum MPIs {
-    /// Invalid, empty value.
-    None,
-
+pub enum Signature {
     /// RSA signature.
-    RSASignature {
+    RSA {
         /// Signature m^d mod N.
-        s: MPI
+        s: MPI,
     },
 
-    /// NIST DSA signature
-    DSASignature {
+    /// NIST's DSA signature.
+    DSA {
         /// `r` value.
         r: MPI,
         /// `s` value.
-        s: MPI
+        s: MPI,
     },
 
-    /// Elgamal signature
-    ElgamalSignature {
+    /// Elgamal signature.
+    Elgamal {
         /// `r` value.
         r: MPI,
         /// `s` value.
-        s: MPI
+        s: MPI,
     },
 
-    /// DJBs "Twisted" Edwards curve DSA signature.
-    EdDSASignature {
+    /// DJB's "Twisted" Edwards curve DSA signature.
+    EdDSA {
         /// `r` value.
         r: MPI,
         /// `s` value.
-        s: MPI
+        s: MPI,
     },
 
-    /// NISTs Elliptic curve DSA signature.
-    ECDSASignature{
+    /// NIST's Elliptic curve DSA signature.
+    ECDSA {
         /// `r` value.
         r: MPI,
         /// `s` value.
-        s: MPI
+        s: MPI,
     },
 
     /// Unknown number of MPIs for an unknown algorithm.
@@ -622,34 +619,29 @@ pub enum MPIs {
     },
 }
 
-impl MPIs {
-    /// Create a `None` MPIs instance.
-    pub fn empty() -> Self {
-        MPIs::None
-    }
-
+impl Signature {
     /// Number of octets all MPIs of this instance occupy when serialized.
     pub fn serialized_len(&self) -> usize {
-        use self::MPIs::*;
+        use self::Signature::*;
 
         // Fields are mostly MPIs that consist of two octets length
         // plus the big endian value itself. All other field types are
         // commented.
         match self {
-            &None => 0,
+            &RSA { ref s } =>
+                2 + s.value.len(),
 
-            &RSASignature { ref s } => 2 + s.value.len(),
-
-            &DSASignature { ref r, ref s } =>
+            &DSA { ref r, ref s } =>
                 2 + r.value.len() + 2 + s.value.len(),
 
-            &ElgamalSignature { ref r, ref s } =>
+            &Elgamal { ref r, ref s } =>
                 2 + r.value.len() + 2 + s.value.len(),
 
-            &EdDSASignature { ref r, ref s } =>
+            &EdDSA { ref r, ref s } =>
                 2 + r.value.len() + 2 + s.value.len(),
 
-            &ECDSASignature { ref r, ref s } => 2 + r.value.len() + 2 + s.value.len(),
+            &ECDSA { ref r, ref s } =>
+                2 + r.value.len() + 2 + s.value.len(),
 
             &Unknown { ref mpis, ref rest } =>
                 mpis.iter().map(|m| 2 + m.value.len()).sum::<usize>()
@@ -659,31 +651,29 @@ impl MPIs {
 
     /// Update the Hash with a hash of the MPIs.
     pub fn hash<H: Hash>(&self, hash: &mut H) {
-        use self::MPIs::*;
+        use self::Signature::*;
 
         match self {
-            &None => {}
-
-            &RSASignature { ref s } => {
+            &RSA { ref s } => {
                 s.hash(hash);
             }
 
-            &DSASignature { ref r, ref s } => {
+            &DSA { ref r, ref s } => {
                 r.hash(hash);
                 s.hash(hash);
             }
 
-            &ElgamalSignature { ref r, ref s } => {
+            &Elgamal { ref r, ref s } => {
                 r.hash(hash);
                 s.hash(hash);
             }
 
-            &EdDSASignature { ref r, ref s } => {
+            &EdDSA { ref r, ref s } => {
                 r.hash(hash);
                 s.hash(hash);
              }
 
-            &ECDSASignature { ref r, ref s } => {
+            &ECDSA { ref r, ref s } => {
                 r.hash(hash);
                 s.hash(hash);
             }
@@ -698,25 +688,26 @@ impl MPIs {
     }
 }
 
-impl Arbitrary for MPIs {
+impl Arbitrary for Signature {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
         match g.gen_range(0, 4) {
-           // None,
-
-            0 => MPIs::RSASignature { s: MPI::arbitrary(g) },
-
-            1 => MPIs::DSASignature{
-                r: MPI::arbitrary(g),
-                s: MPI::arbitrary(g)
+            0 => Signature::RSA  {
+                s: MPI::arbitrary(g),
             },
 
-            2 => MPIs::EdDSASignature {
+            1 => Signature::DSA {
                 r: MPI::arbitrary(g),
-                s: MPI::arbitrary(g)
+                s: MPI::arbitrary(g),
             },
 
-            3 => MPIs::ECDSASignature {
-                r: MPI::arbitrary(g), s: MPI::arbitrary(g)
+            2 => Signature::EdDSA  {
+                r: MPI::arbitrary(g),
+                s: MPI::arbitrary(g),
+            },
+
+            3 => Signature::ECDSA  {
+                r: MPI::arbitrary(g),
+                s: MPI::arbitrary(g),
             },
 
             _ => unreachable!(),
@@ -848,7 +839,7 @@ mod tests {
     }
 
     quickcheck! {
-        fn round_trip(mpis: MPIs) -> bool {
+        fn signature_roundtrip(sig: Signature) -> bool {
             use std::io::Cursor;
             use PublicKeyAlgorithm::*;
             use serialize::Serialize;
@@ -856,32 +847,30 @@ mod tests {
             let buf = Vec::<u8>::default();
             let mut cur = Cursor::new(buf);
 
-            mpis.serialize(&mut cur).unwrap();
+            sig.serialize(&mut cur).unwrap();
 
             #[allow(deprecated)]
-            let mpis2 = match &mpis {
-                MPIs::None => unreachable!(),
-
-                MPIs::RSASignature { .. } =>
-                    MPIs::parse_signature_naked(
+            let sig_ = match &sig {
+                Signature::RSA { .. } =>
+                    Signature::parse_naked(
                         RSAEncryptSign, cur.into_inner()).unwrap(),
-                MPIs::DSASignature { .. } =>
-                    MPIs::parse_signature_naked(
+                Signature::DSA { .. } =>
+                    Signature::parse_naked(
                         DSA, cur.into_inner()).unwrap(),
-                MPIs::ElgamalSignature { .. } =>
-                    MPIs::parse_signature_naked(
+                Signature::Elgamal { .. } =>
+                    Signature::parse_naked(
                         ElgamalEncryptSign, cur.into_inner()).unwrap(),
-                MPIs::EdDSASignature { .. } =>
-                    MPIs::parse_signature_naked(
+                Signature::EdDSA { .. } =>
+                    Signature::parse_naked(
                         EdDSA, cur.into_inner()).unwrap(),
-                MPIs::ECDSASignature { .. } =>
-                    MPIs::parse_signature_naked(
+                Signature::ECDSA { .. } =>
+                    Signature::parse_naked(
                         ECDSA, cur.into_inner()).unwrap(),
 
-                MPIs::Unknown { .. } => unreachable!(),
+                Signature::Unknown { .. } => unreachable!(),
             };
 
-            mpis == mpis2
+            sig == sig_
         }
     }
 }

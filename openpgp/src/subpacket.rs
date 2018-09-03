@@ -2548,7 +2548,7 @@ impl Signature {
 
 #[test]
 fn accessors() {
-    use mpis::{MPIs, MPI};
+    use mpis::{self, MPI};
 
     let pk_algo = PublicKeyAlgorithm::EdDSA;
     let hash_algo = HashAlgorithm::SHA512;
@@ -2557,10 +2557,10 @@ fn accessors() {
     sig.set_hash_algo(hash_algo);
 
     // Fake some MPIs to make the serialization code happy.
-    sig.mpis = MPIs::EdDSASignature {
+    sig.set_mpis(mpis::Signature::EdDSA {
         r: MPI::new(b"byte sequence of length 32 bytes"),
         s: MPI::new(b"byte sequence of length 32 bytes"),
-    };
+    });
 
     // Cook up a timestamp without ns resolution.
     let now = time::Tm::from_pgp(time::now_utc().to_pgp().unwrap());
