@@ -58,6 +58,18 @@ impl fmt::Debug for MPI {
     }
 }
 
+impl Arbitrary for MPI {
+    fn arbitrary<G: Gen>(g: &mut G) -> Self {
+        loop {
+            let buf = <Vec<u8>>::arbitrary(g);
+
+            if !buf.is_empty() && buf[0] != 0 {
+                break MPI::new(&buf);
+            }
+        }
+    }
+}
+
 /// Holds a public key.
 ///
 /// Provides a typed and structured way of storing multiple MPIs (and
@@ -681,18 +693,6 @@ impl MPIs {
                     mpi.hash(hash);
                 }
                 hash.update(rest);
-            }
-        }
-    }
-}
-
-impl Arbitrary for MPI {
-    fn arbitrary<G: Gen>(g: &mut G) -> Self {
-        loop {
-            let buf = <Vec<u8>>::arbitrary(g);
-
-            if !buf.is_empty() && buf[0] != 0 {
-                break MPI::new(&buf);
             }
         }
     }
