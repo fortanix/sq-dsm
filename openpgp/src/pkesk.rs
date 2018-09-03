@@ -1,7 +1,7 @@
 use Error;
 use packet::Key;
 use KeyID;
-use mpis::{MPI, MPIs};
+use mpis::{self, MPI, MPIs};
 use PublicKeyAlgorithm;
 use Result;
 use SymmetricAlgorithm;
@@ -56,8 +56,8 @@ impl PKESK {
         let esk = match recipient.pk_algo {
             RSAEncryptSign | RSAEncrypt => {
                 // Extract the public recipient.
-                match &recipient.mpis {
-                    &MPIs::RSAPublicKey{ ref e, ref n } => {
+                match recipient.mpis() {
+                    Some(&mpis::PublicKey::RSA { ref e, ref n }) => {
                         // The ciphertext has the length of the modulus.
                         let mut esk = vec![0u8; n.value.len()];
 
@@ -66,12 +66,12 @@ impl PKESK {
                         MPIs::RSACiphertext{c: MPI::new(&esk)}
                     }
 
-                    _ => {
+                    pk => {
                         return Err(
                             Error::MalformedPacket(
                                 format!(
                                     "Key: Expected RSA public key, got {:?}",
-                                    recipient.mpis)).into());
+                                    pk)).into());
                     }
                 }
             },
@@ -133,13 +133,15 @@ impl PKESK {
         -> Result<(SymmetricAlgorithm, Box<[u8]>)>
     {
         use PublicKeyAlgorithm::*;
+        use mpis::PublicKey;
         use mpis::MPIs::*;
         use nettle::rsa;
 
         let plain = match
-            (self.pk_algo, &recipient.mpis, recipient_sec, &self.esk)
+            (self.pk_algo, recipient.mpis(), recipient_sec, &self.esk)
         {
-            (RSAEncryptSign, &RSAPublicKey{ ref e, ref n },
+            (RSAEncryptSign,
+             Some(&PublicKey::RSA{ ref e, ref n }),
              &RSASecretKey{ ref p, ref q, ref d, .. },
              &RSACiphertext{ ref c }) => {
                 let public = rsa::PublicKey::new(&n.value, &e.value)?;
@@ -149,13 +151,16 @@ impl PKESK {
                 rsa::decrypt_pkcs1(&public, &secret, &mut rand, &c.value)?
             }
 
-            (ElgamalEncrypt, &ElgamalPublicKey{ .. },
+            (ElgamalEncrypt,
+             Some(&PublicKey::Elgamal{ .. }),
              &ElgamalSecretKey{ .. },
              &ElgamalCiphertext{ .. }) =>
                 return Err(
                     Error::UnsupportedPublicKeyAlgorithm(self.pk_algo).into()),
 
-            (ECDH, ECDHPublicKey{ .. }, ECDHSecretKey{ .. },
+            (ECDH,
+             Some(PublicKey::ECDH{ .. }),
+             ECDHSecretKey{ .. },
              ECDHCiphertext{ .. }) =>
                 ecdh::unwrap_session_key(recipient, recipient_sec, &self.esk)?,
 

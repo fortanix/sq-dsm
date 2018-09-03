@@ -1,7 +1,7 @@
 use std::fmt;
 use time;
 
-use mpis::MPIs;
+use mpis::{self, MPIs};
 use Tag;
 use packet;
 use Packet;
@@ -27,7 +27,7 @@ pub struct Key {
     /// Public key algorithm of this signature.
     pub(crate) pk_algo: PublicKeyAlgorithm,
     /// Public key MPIs. Must be a *PublicKey variant.
-    pub(crate) mpis: MPIs,
+    pub(crate) mpis: Option<mpis::PublicKey>,
     /// Optional secret part of the key.
     pub(crate) secret: Option<SecretKey>,
 }
@@ -59,7 +59,7 @@ impl Default for Key {
             version: 4,
             creation_time: time::now().canonicalize(),
             pk_algo: PublicKeyAlgorithm::Unknown(0),
-            mpis: MPIs::empty(),
+            mpis: None,
             secret: None,
         }
     }
@@ -75,7 +75,7 @@ impl Key {
             ed25519,ed25519::ED25519_KEY_SIZE,
             curve25519,curve25519::CURVE25519_SIZE,
         };
-        use mpis::MPI;
+        use mpis::{MPI, PublicKey};
         use constants::{HashAlgorithm, SymmetricAlgorithm, Curve};
         use PublicKeyAlgorithm::*;
         use Error;
@@ -86,7 +86,7 @@ impl Key {
                 let mut rng = Yarrow::default();
                 let (public,private) = rsa::generate_keypair(&mut rng, 3072)?;
                 let (p,q,u) = private.as_rfc4880();
-                let public_mpis = MPIs::RSAPublicKey{
+                let public_mpis = PublicKey::RSA {
                     e: MPI::new(&*public.e()),
                     n: MPI::new(&*public.n()),
                 };
@@ -112,7 +112,7 @@ impl Key {
                 rng.random(&mut private);
                 ed25519::public_key(&mut public[1..], &private)?;
 
-                let public_mpis = MPIs::EdDSAPublicKey{
+                let public_mpis = PublicKey::EdDSA {
                     curve: Curve::Ed25519,
                     q: MPI::new(&public),
                 };
@@ -135,7 +135,7 @@ impl Key {
                 rng.random(&mut private);
                 curve25519::mul_g(&mut public[1..], &private)?;
 
-                let public_mpis = MPIs::ECDHPublicKey{
+                let public_mpis = PublicKey::ECDH {
                     curve: Curve::Cv25519,
                     q: MPI::new(&public),
                     hash: HashAlgorithm::SHA256,
@@ -161,7 +161,7 @@ impl Key {
             version: 4,
             creation_time: time::now().canonicalize(),
             pk_algo: pk_algo,
-            mpis: mpis,
+            mpis: Some(mpis),
             secret: secret,
         })
     }
@@ -192,18 +192,18 @@ impl Key {
     }
 
     /// Gets the key packet's MPIs.
-    pub fn mpis(&self) -> &MPIs {
-        &self.mpis
+    pub fn mpis(&self) -> Option<&mpis::PublicKey> {
+        self.mpis.as_ref()
     }
 
     /// Gets a mutable reference to the key packet's MPIs.
-    pub fn mpis_mut(&mut self) -> &mut MPIs {
-        &mut self.mpis
+    pub fn mpis_mut(&mut self) -> Option<&mut mpis::PublicKey> {
+        self.mpis.as_mut()
     }
 
     /// Sets the key packet's MPIs.
-    pub fn set_mpis(&mut self, mpis: MPIs) {
-        self.mpis = mpis;
+    pub fn set_mpis(&mut self, mpis: mpis::PublicKey) {
+        self.mpis = Some(mpis);
     }
 
     /// Gets the key packet's SecretKey.

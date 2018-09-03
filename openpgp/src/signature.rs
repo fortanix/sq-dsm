@@ -241,6 +241,7 @@ impl Signature {
                      hash_algo: HashAlgorithm, mut hash: Box<Hash>)
                      -> Result<()> {
         use PublicKeyAlgorithm::*;
+        use mpis::PublicKey;
         use mpis::MPIs::*;
 
         let mut rng = Yarrow::default();
@@ -257,12 +258,12 @@ impl Signature {
         self.hash_prefix[1] = digest[1];
 
         #[allow(deprecated)]
-        let mpis = match (signer.pk_algo, &signer.mpis, signer_sec) {
+        let mpis = match (signer.pk_algo, signer.mpis.as_ref(), signer_sec) {
             (RSASign,
-             &RSAPublicKey { ref e, ref n },
+             Some(&PublicKey::RSA { ref e, ref n }),
              &RSASecretKey { ref p, ref q, ref d, .. }) |
             (RSAEncryptSign,
-             &RSAPublicKey { ref e, ref n },
+             Some(&PublicKey::RSA { ref e, ref n }),
              &RSASecretKey { ref p, ref q, ref d, .. }) => {
                 let public = rsa::PublicKey::new(&n.value, &e.value)?;
                 let secret = rsa::PrivateKey::new(&d.value, &p.value,
@@ -286,7 +287,7 @@ impl Signature {
             },
 
             (DSA,
-             &DSAPublicKey { ref p, ref q, ref g, .. },
+             Some(&PublicKey::DSA { ref p, ref q, ref g, .. }),
              &DSASecretKey { ref x }) => {
                 let params = dsa::Params::new(&p.value, &q.value, &g.value);
                 let secret = dsa::PrivateKey::new(&x.value);
@@ -300,7 +301,7 @@ impl Signature {
             },
 
             (EdDSA,
-             &EdDSAPublicKey { ref curve, ref q },
+             Some(&PublicKey::EdDSA { ref curve, ref q }),
              &EdDSASecretKey { ref scalar }) => match curve {
                 Curve::Ed25519 => {
                     let public = q.decode_point(&Curve::Ed25519)?.0;
@@ -318,7 +319,7 @@ impl Signature {
             },
 
             (ECDSA,
-             &ECDSAPublicKey { ref curve, .. },
+             Some(&PublicKey::ECDSA { ref curve, .. }),
              &ECDSASecretKey { ref scalar }) => {
                 let secret = match curve {
                     Curve::NistP256 =>
@@ -359,15 +360,16 @@ impl Signature {
         -> Result<bool>
     {
         use PublicKeyAlgorithm::*;
+        use mpis::PublicKey;
         use mpis::MPIs::*;
 
         #[allow(deprecated)]
-        match (self.pk_algo, &key.mpis, &self.mpis) {
+        match (self.pk_algo, key.mpis.as_ref(), &self.mpis) {
             (RSASign,
-             &RSAPublicKey{ ref e, ref n },
+             Some(&PublicKey::RSA{ ref e, ref n }),
              &RSASignature{ ref s }) |
             (RSAEncryptSign,
-             &RSAPublicKey{ ref e, ref n },
+             Some(&PublicKey::RSA{ ref e, ref n }),
              &RSASignature{ ref s })=> {
                 let key = rsa::PublicKey::new(&n.value, &e.value)?;
 
@@ -380,7 +382,9 @@ impl Signature {
                 verify_digest_pkcs1(&key, hash, hash_algo.oid()?, &s.value)
             }
 
-            (DSA, &DSAPublicKey{ ref y, ref p, ref q, ref g }, &DSASignature{ ref s, ref r }) => {
+            (DSA,
+             Some(&PublicKey::DSA{ ref y, ref p, ref q, ref g }),
+             &DSASignature{ ref s, ref r }) => {
                 let key = dsa::PublicKey::new(&y.value);
                 let params = dsa::Params::new(&p.value, &q.value, &g.value);
                 let signature = dsa::Signature::new(&r.value, &s.value);
@@ -388,7 +392,8 @@ impl Signature {
                 Ok(dsa::verify(&params, &key, hash, &signature))
             }
 
-            (EdDSA, &EdDSAPublicKey{ ref curve, ref q },
+            (EdDSA,
+             Some(&PublicKey::EdDSA{ ref curve, ref q }),
              &EdDSASignature{ ref r, ref s }) => match curve {
                 Curve::Ed25519 => {
                     if q.value[0] != 0x40 {
@@ -429,7 +434,8 @@ impl Signature {
                         .into()),
             },
 
-            (ECDSA, &ECDSAPublicKey{ ref curve, ref q },
+            (ECDSA,
+             Some(&PublicKey::ECDSA{ ref curve, ref q }),
              &ECDSASignature{ ref s, ref r }) => {
                 let (x, y) = q.decode_point(curve)?;
                 let key = match curve {

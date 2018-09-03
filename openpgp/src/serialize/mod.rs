@@ -209,15 +209,65 @@ impl Serialize for mpis::MPI {
     }
 }
 
+impl Serialize for mpis::PublicKey {
+    fn serialize<W: io::Write>(&self, w: &mut W) -> Result<()> {
+        use mpis::PublicKey::*;
+
+        match self {
+            &RSA { ref e, ref n } => {
+                n.serialize(w)?;
+                e.serialize(w)?;
+            }
+
+            &DSA { ref p, ref q, ref g, ref y } => {
+                p.serialize(w)?;
+                q.serialize(w)?;
+                g.serialize(w)?;
+                y.serialize(w)?;
+            }
+
+            &Elgamal { ref p, ref g, ref y } => {
+                p.serialize(w)?;
+                g.serialize(w)?;
+                y.serialize(w)?;
+            }
+
+            &EdDSA { ref curve, ref q } => {
+                w.write_all(&[curve.oid().len() as u8])?;
+                w.write_all(curve.oid())?;
+                q.serialize(w)?;
+            }
+
+            &ECDSA { ref curve, ref q } => {
+                w.write_all(&[curve.oid().len() as u8])?;
+                w.write_all(curve.oid())?;
+                q.serialize(w)?;
+            }
+
+            &ECDH { ref curve, ref q, hash, sym } => {
+                w.write_all(&[curve.oid().len() as u8])?;
+                w.write_all(curve.oid())?;
+                q.serialize(w)?;
+                w.write_all(&[3u8, 1u8, u8::from(hash), u8::from(sym)])?;
+            }
+
+            &Unknown { ref mpis, ref rest } => {
+                for mpi in mpis.iter() {
+                    mpi.serialize(w)?;
+                }
+                w.write_all(rest)?;
+            }
+        }
+
+        Ok(())
+    }
+}
+
 impl Serialize for mpis::MPIs {
     fn serialize<W: io::Write>(&self, w: &mut W) -> Result<()> {
         use mpis::MPIs::*;
 
         match self {
-            &RSAPublicKey{ ref e, ref n } => {
-                n.serialize(w)?;
-                e.serialize(w)?;
-            }
             &RSASecretKey{ ref d, ref p, ref q, ref u } => {
                 d.serialize(w)?;
                 p.serialize(w)?;
@@ -230,23 +280,12 @@ impl Serialize for mpis::MPIs {
             &RSASignature{ ref s } => {
                 s.serialize(w)?;
             }
-            &DSAPublicKey{ ref p, ref q, ref g, ref y } => {
-                p.serialize(w)?;
-                q.serialize(w)?;
-                g.serialize(w)?;
-                y.serialize(w)?;
-            }
             &DSASecretKey{ ref x } => {
                 x.serialize(w)?;
             }
             &DSASignature{ ref r, ref s } => {
                 r.serialize(w)?;
                 s.serialize(w)?;
-            }
-            &ElgamalPublicKey{ ref p, ref g, ref y } => {
-                p.serialize(w)?;
-                g.serialize(w)?;
-                y.serialize(w)?;
             }
             &ElgamalSecretKey{ ref x } => {
                 x.serialize(w)?;
@@ -259,12 +298,6 @@ impl Serialize for mpis::MPIs {
                 r.serialize(w)?;
                 s.serialize(w)?;
             }
-            &EdDSAPublicKey{ ref curve, ref q } => {
-                w.write_all(&[curve.oid().len() as u8])?;
-                w.write_all(curve.oid())?;
-
-                q.serialize(w)?;
-            }
             &EdDSASecretKey{ ref scalar } => {
                 scalar.serialize(w)?;
             }
@@ -272,26 +305,12 @@ impl Serialize for mpis::MPIs {
                 r.serialize(w)?;
                 s.serialize(w)?;
             }
-            &ECDSAPublicKey{ ref curve, ref q } => {
-                w.write_all(&[curve.oid().len() as u8])?;
-                w.write_all(curve.oid())?;
-
-                q.serialize(w)?;
-            }
             &ECDSASecretKey{ ref scalar } => {
                 scalar.serialize(w)?;
             }
             &ECDSASignature{ ref r, ref s } => {
                 r.serialize(w)?;
                 s.serialize(w)?;
-            }
-            &ECDHPublicKey{ ref curve, ref q, hash, sym } => {
-                w.write_all(&[curve.oid().len() as u8])?;
-                w.write_all(curve.oid())?;
-
-                q.serialize(w)?;
-
-                w.write_all(&[3u8, 1u8, u8::from(hash), u8::from(sym)])?;
             }
             &ECDHSecretKey{ ref scalar } => {
                 scalar.serialize(w)?;
@@ -663,7 +682,8 @@ impl SerializeKey for Key {
         let have_secret_key =
             (tag == Tag::SecretKey || tag == Tag::SecretSubkey)
             && self.secret.is_some();
-        let len = 1 + 4 + 1 + self.mpis.serialized_len()
+        let len = 1 + 4 + 1
+            + self.mpis.as_ref().map(|pk| pk.serialized_len()).unwrap_or(0)
             + if have_secret_key {
                 1 + match self.secret.as_ref().unwrap() {
                     &SecretKey::Unencrypted { ref mpis } =>
@@ -690,7 +710,9 @@ impl SerializeKey for Key {
         write_byte(o, self.version)?;
         write_be_u32(o, self.creation_time.to_pgp()?)?;
         write_byte(o, self.pk_algo.into())?;
-        self.mpis.serialize(o)?;
+        if let Some(ref pk) = self.mpis {
+            pk.serialize(o)?;
+        }
 
         if have_secret_key {
             match self.secret.as_ref().unwrap() {

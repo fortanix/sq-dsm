@@ -9,14 +9,14 @@ use constants::{
     SymmetricAlgorithm,
     PublicKeyAlgorithm,
 };
-use mpis::{MPI, MPIs};
+use mpis::{MPI, MPIs, PublicKey};
 use nettle::{cipher, curve25519, mode, Mode, Yarrow};
 
 /// Wraps a session key using Elliptic Curve Diffie-Hellman.
 pub fn wrap_session_key(recipient: &Key, session_key: &[u8]) -> Result<MPIs> {
-    if let MPIs::ECDHPublicKey {
+    if let Some(PublicKey::ECDH {
         ref curve, ref q, ref hash, ref sym
-    } = recipient.mpis {
+    }) = recipient.mpis {
         let mut rng = Yarrow::default();
         match curve {
             Curve::Cv25519 => {
@@ -85,9 +85,9 @@ pub fn wrap_session_key(recipient: &Key, session_key: &[u8]) -> Result<MPIs> {
 pub fn unwrap_session_key(recipient: &Key, recipient_sec: &MPIs,
                           ciphertext: &MPIs)
                           -> Result<Box<[u8]>> {
-    if let (MPIs::ECDHPublicKey {
+    if let (Some(PublicKey::ECDH {
         ref curve, ref hash, ref sym, ..
-    }, MPIs::ECDHSecretKey {
+    }), MPIs::ECDHSecretKey {
         ref scalar,
     }, MPIs::ECDHCiphertext {
         ref e, ref key,

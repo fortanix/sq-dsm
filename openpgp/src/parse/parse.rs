@@ -48,7 +48,7 @@ use constants::{
     SymmetricAlgorithm,
 };
 use conversions::Time;
-use mpis::{MPI, MPIs};
+use mpis::{PublicKey, MPI, MPIs};
 use symmetric::{Decryptor, BufferedReaderDecryptor};
 use message;
 use message::MessageValidator;
@@ -1274,7 +1274,7 @@ impl Key {
 
         let creation_time = php_try!(php.parse_be_u32("creation_time"));
         let pk_algo: PublicKeyAlgorithm = php_try!(php.parse_u8("pk_algo")).into();
-        let mpis = php_try!(MPIs::parse_public_key(pk_algo, &mut php));
+        let mpis = php_try!(PublicKey::parse(pk_algo, &mut php));
         let secret = if tag == Tag::SecretKey || tag == Tag::SecretSubkey {
             let s2k_usage = php_try!(php.parse_u8("s2k_usage"));
             let sec = match s2k_usage {
@@ -1329,7 +1329,7 @@ impl Key {
             version: version,
             creation_time: time::Tm::from_pgp(creation_time),
             pk_algo: pk_algo,
-            mpis: mpis,
+            mpis: Some(mpis),
             secret: secret,
         };
 
