@@ -5,9 +5,37 @@ use time;
 use constants::DataFormat;
 use conversions::Time;
 use Error;
-use Literal;
+use packet;
 use Packet;
 use Result;
+
+/// Holds a literal packet.
+///
+/// A literal packet contains unstructured data.  Since the size can
+/// be very large, it is advised to process messages containing such
+/// packets using a `PacketParser` or a `PacketPileParser` and process
+/// the data in a streaming manner rather than the using the
+/// `PacketPile::from_file` and related interfaces.
+///
+/// See [Section 5.9 of RFC 4880] for details.
+///
+///   [Section 5.9 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.9
+#[derive(PartialEq, Eq, Hash, Clone)]
+pub struct Literal {
+    /// CTB packet header fields.
+    pub(crate) common: packet::Common,
+    /// A one-octet field that describes how the data is formatted.
+    pub(crate) format: DataFormat,
+    /// filename is a string, but strings in Rust are valid UTF-8.
+    /// There is no guarantee, however, that the filename is valid
+    /// UTF-8.  Thus, we leave filename as a byte array.  It can be
+    /// converted to a string using String::from_utf8() or
+    /// String::from_utf8_lossy().
+    pub(crate) filename: Option<Vec<u8>>,
+    /// A four-octet number that indicates a date associated with the
+    /// literal data.
+    pub(crate) date: time::Tm,
+}
 
 impl fmt::Debug for Literal {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

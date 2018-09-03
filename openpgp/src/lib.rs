@@ -99,6 +99,7 @@ pub use userid::UserID;
 mod user_attribute;
 pub use user_attribute::UserAttribute;
 mod literal;
+pub use literal::Literal;
 mod compressed_data;
 mod skesk;
 pub use skesk::SKESK;
@@ -113,7 +114,6 @@ pub mod message;
 
 pub mod constants;
 use constants::{
-    DataFormat,
     PublicKeyAlgorithm,
     SymmetricAlgorithm,
     CompressionAlgorithm,
@@ -229,34 +229,6 @@ pub enum Error {
     IndexOutOfRange,
 }
 
-/// Holds a literal packet.
-///
-/// A literal packet contains unstructured data.  Since the size can
-/// be very large, it is advised to process messages containing such
-/// packets using a `PacketParser` or a `PacketPileParser` and process
-/// the data in a streaming manner rather than the using the
-/// `PacketPile::from_file` and related interfaces.
-///
-/// See [Section 5.9 of RFC 4880] for details.
-///
-///   [Section 5.9 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.9
-#[derive(PartialEq, Eq, Hash, Clone)]
-pub struct Literal {
-    /// CTB packet header fields.
-    common: packet::Common,
-    /// A one-octet field that describes how the data is formatted.
-    format: DataFormat,
-    /// filename is a string, but strings in Rust are valid UTF-8.
-    /// There is no guarantee, however, that the filename is valid
-    /// UTF-8.  Thus, we leave filename as a byte array.  It can be
-    /// converted to a string using String::from_utf8() or
-    /// String::from_utf8_lossy().
-    filename: Option<Vec<u8>>,
-    /// A four-octet number that indicates a date associated with the
-    /// literal data.
-    date: time::Tm,
-}
-
 /// Holds a compressed data packet.
 ///
 /// A compressed data packet is a container.  See [Section 5.6 of RFC
