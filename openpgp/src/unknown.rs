@@ -1,6 +1,20 @@
 use Tag;
-use Unknown;
+use packet;
 use Packet;
+
+/// Holds an unknown packet.
+///
+/// This is used by the parser to hold packets that it doesn't know
+/// how to process rather than abort.
+///
+/// This packet effectively holds a binary blob.
+#[derive(PartialEq, Eq, Hash, Clone, Debug)]
+pub struct Unknown {
+    /// CTB packet header fields.
+    pub(crate) common: packet::Common,
+    /// Packet tag.
+    pub(crate) tag: Tag,
+}
 
 impl Unknown {
     /// Returns a new `Unknown` packet.

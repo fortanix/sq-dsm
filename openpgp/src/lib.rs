@@ -87,6 +87,7 @@ pub mod symmetric;
 pub mod s2k;
 
 mod unknown;
+pub use unknown::Unknown;
 mod signature;
 pub use signature::Signature;
 mod one_pass_sig;
@@ -225,20 +226,6 @@ pub enum Error {
     IndexOutOfRange,
 }
 
-/// Holds an unknown packet.
-///
-/// This is used by the parser to hold packets that it doesn't know
-/// how to process rather than abort.
-///
-/// This packet effectively holds a binary blob.
-#[derive(PartialEq, Eq, Hash, Clone, Debug)]
-pub struct Unknown {
-    /// CTB packet header fields.
-    common: packet::Common,
-    /// Packet tag.
-    tag: Tag,
-}
-
 /// Holds a one-pass signature packet.
 ///
 /// See [Section 5.4 of RFC 4880] for details.
