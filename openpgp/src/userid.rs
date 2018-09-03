@@ -1,7 +1,28 @@
 use std::fmt;
 
-use UserID;
+use packet;
 use Packet;
+
+/// Holds a UserID packet.
+///
+/// See [Section 5.11 of RFC 4880] for details.
+///
+///   [Section 5.11 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.11
+#[derive(PartialEq, Eq, Hash, Clone)]
+pub struct UserID {
+    /// CTB packet header fields.
+    pub(crate) common: packet::Common,
+    /// The user id.
+    ///
+    /// According to [RFC 4880], the text is by convention UTF-8 encoded
+    /// and in "mail name-addr" form, i.e., "Name (Comment)
+    /// <email@example.com>".
+    ///
+    ///   [RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.11
+    ///
+    /// Use `UserID::default()` to get a UserID with a default settings.
+    pub(crate) value: Vec<u8>,
+}
 
 impl fmt::Display for UserID {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

@@ -95,6 +95,7 @@ pub use one_pass_sig::OnePassSig;
 mod key;
 pub use key::{Key, SecretKey};
 mod userid;
+pub use userid::UserID;
 mod user_attribute;
 mod literal;
 mod compressed_data;
@@ -227,27 +228,6 @@ pub enum Error {
     IndexOutOfRange,
 }
 
-/// Holds a UserID packet.
-///
-/// See [Section 5.11 of RFC 4880] for details.
-///
-///   [Section 5.11 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.11
-#[derive(PartialEq, Eq, Hash, Clone)]
-pub struct UserID {
-    /// CTB packet header fields.
-    common: packet::Common,
-    /// The user id.
-    ///
-    /// According to [RFC 4880], the text is by convention UTF-8 encoded
-    /// and in "mail name-addr" form, i.e., "Name (Comment)
-    /// <email@example.com>".
-    ///
-    ///   [RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.11
-    ///
-    /// Use `UserID::default()` to get a UserID with a default settings.
-    value: Vec<u8>,
-}
-
 /// Holds a UserAttribute packet.
 ///
 /// See [Section 5.12 of RFC 4880] for details.
