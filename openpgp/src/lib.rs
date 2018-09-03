@@ -91,6 +91,7 @@ pub use unknown::Unknown;
 mod signature;
 pub use signature::Signature;
 mod one_pass_sig;
+pub use one_pass_sig::OnePassSig;
 mod key;
 pub use key::SecretKey;
 mod userid;
@@ -226,30 +227,6 @@ pub enum Error {
     IndexOutOfRange,
 }
 
-/// Holds a one-pass signature packet.
-///
-/// See [Section 5.4 of RFC 4880] for details.
-///
-///   [Section 5.4 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.4
-#[derive(Eq, Hash, Clone)]
-pub struct OnePassSig {
-    /// CTB packet header fields.
-    common: packet::Common,
-    /// One-pass-signature packet version. Must be 3.
-    version: u8,
-    /// Type of the signature.
-    sigtype: SignatureType,
-    /// Hash algorithm used to compute the signature.
-    hash_algo: HashAlgorithm,
-    /// Public key algorithm of this signature.
-    pk_algo: PublicKeyAlgorithm,
-    /// Key ID of the signing key.
-    issuer: KeyID,
-    /// A one-octet number holding a flag showing whether the signature
-    /// is nested.
-    last: u8,
-}
-
 /// Holds a public key, public subkey, private key or private subkey packet.
 ///
 /// See [Section 5.5 of RFC 4880] for details.

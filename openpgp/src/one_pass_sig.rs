@@ -1,12 +1,36 @@
 use std::fmt;
 
-use OnePassSig;
+use packet;
 use Packet;
 use KeyID;
 use HashAlgorithm;
 use PublicKeyAlgorithm;
 use SignatureType;
 use serialize::Serialize;
+
+/// Holds a one-pass signature packet.
+///
+/// See [Section 5.4 of RFC 4880] for details.
+///
+///   [Section 5.4 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.4
+#[derive(Eq, Hash, Clone)]
+pub struct OnePassSig {
+    /// CTB packet header fields.
+    pub(crate) common: packet::Common,
+    /// One-pass-signature packet version. Must be 3.
+    pub(crate) version: u8,
+    /// Type of the signature.
+    pub(crate) sigtype: SignatureType,
+    /// Hash algorithm used to compute the signature.
+    pub(crate) hash_algo: HashAlgorithm,
+    /// Public key algorithm of this signature.
+    pub(crate) pk_algo: PublicKeyAlgorithm,
+    /// Key ID of the signing key.
+    pub(crate) issuer: KeyID,
+    /// A one-octet number holding a flag showing whether the signature
+    /// is nested.
+    pub(crate) last: u8,
+}
 
 impl fmt::Debug for OnePassSig {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
