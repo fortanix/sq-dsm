@@ -272,23 +272,22 @@ impl mpis::SecretKey {
     }
 }
 
-impl MPIs {
+impl mpis::Ciphertext {
     /// Parses a set of OpenPGP MPIs representing a ciphertext.
     ///
     /// Expects MPIs for a public key algorithm `algo`s ciphertext.
     /// See [Section 3.2 of RFC 4880] for details.
     ///
     ///   [Section 3.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-3.2
-    pub fn parse_ciphertext_naked<T: AsRef<[u8]>>(algo: PublicKeyAlgorithm,
-                                                  buf: T)
-        -> Result<Self> {
+    pub fn parse_naked<T: AsRef<[u8]>>(algo: PublicKeyAlgorithm, buf: T)
+                                       -> Result<Self> {
         use std::io::Cursor;
 
         let cur = Cursor::new(buf);
         let bio = BufferedReaderGeneric::with_cookie(
             cur, None, Cookie::default());
         let mut php = PacketHeaderParser::new_naked(Box::new(bio));
-        Self::parse_ciphertext(algo, &mut php)
+        Self::parse(algo, &mut php)
     }
 
     /// Parses a set of OpenPGP MPIs representing a ciphertext.
@@ -297,9 +296,9 @@ impl MPIs {
     /// See [Section 3.2 of RFC 4880] for details.
     ///
     ///   [Section 3.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-3.2
-    pub(crate) fn parse_ciphertext<'a>(algo: PublicKeyAlgorithm,
-                                       php: &mut PacketHeaderParser<'a>)
-        -> Result<Self> {
+    pub(crate) fn parse<'a>(algo: PublicKeyAlgorithm,
+                            php: &mut PacketHeaderParser<'a>)
+                            -> Result<Self> {
         use PublicKeyAlgorithm::*;
 
         #[allow(deprecated)]
@@ -307,7 +306,7 @@ impl MPIs {
             RSAEncryptSign | RSAEncrypt => {
                 let c = MPI::parse("rsa_ciphertext", php)?;
 
-                Ok(MPIs::RSACiphertext{
+                Ok(mpis::Ciphertext::RSA {
                     c: c,
                 })
             }
@@ -316,7 +315,7 @@ impl MPIs {
                 let e = MPI::parse("elgamal_e", php)?;
                 let c = MPI::parse("elgamal_c", php)?;
 
-                Ok(MPIs::ElgamalCiphertext{
+                Ok(mpis::Ciphertext::Elgamal {
                     e: e,
                     c: c,
                 })
@@ -328,7 +327,7 @@ impl MPIs {
                 let key = Vec::from(&php.parse_bytes("ecdh_key", key_len)?
                                     [..key_len]);
 
-                Ok(MPIs::ECDHCiphertext{
+                Ok(mpis::Ciphertext::ECDH {
                     e: e, key: key.into_boxed_slice()
                 })
             }
@@ -340,7 +339,7 @@ impl MPIs {
                 }
                 let mut rest = php.parse_bytes_eof("rest")?;
 
-                Ok(MPIs::Unknown {
+                Ok(mpis::Ciphertext::Unknown {
                     mpis: mpis.into_boxed_slice(),
                     rest: rest.into_boxed_slice(),
                 })
@@ -350,7 +349,9 @@ impl MPIs {
                 format!("not an encryption algorithm: {:?}", algo)).into()),
         }
     }
+}
 
+impl MPIs {
     /// Parses a set of OpenPGP MPIs representing a signature.
     ///
     /// Expects MPIs for a public key algorithm `algo`s signature.
@@ -487,7 +488,8 @@ fn mpis_parse_test() {
         let bio = BufferedReaderGeneric::with_cookie(
             cur, None, Cookie::default());
         let mut parser = PacketHeaderParser::new_naked(Box::new(bio));
-        let mpis = MPIs::parse_ciphertext(RSAEncryptSign, &mut parser).unwrap();
+        let mpis = mpis::Ciphertext::parse(RSAEncryptSign, &mut parser)
+            .unwrap();
 
         assert_eq!(mpis.serialized_len(), 3);
     }

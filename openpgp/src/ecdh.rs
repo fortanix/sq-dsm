@@ -9,11 +9,12 @@ use constants::{
     SymmetricAlgorithm,
     PublicKeyAlgorithm,
 };
-use mpis::{MPI, MPIs, PublicKey, SecretKey};
+use mpis::{MPI, PublicKey, SecretKey, Ciphertext};
 use nettle::{cipher, curve25519, mode, Mode, Yarrow};
 
 /// Wraps a session key using Elliptic Curve Diffie-Hellman.
-pub fn wrap_session_key(recipient: &Key, session_key: &[u8]) -> Result<MPIs> {
+pub fn wrap_session_key(recipient: &Key, session_key: &[u8])
+                        -> Result<Ciphertext> {
     if let Some(PublicKey::ECDH {
         ref curve, ref q, ref hash, ref sym
     }) = recipient.mpis {
@@ -67,7 +68,7 @@ pub fn wrap_session_key(recipient: &Key, session_key: &[u8]) -> Result<MPIs> {
                 VB[0] = 0x40; // Native encoding of the point.
 
                 // Output (MPI(VB) || len(C) || C).
-                Ok(MPIs::ECDHCiphertext {
+                Ok(Ciphertext::ECDH {
                     e: MPI::new(&VB),
                     key: C.into_boxed_slice(),
                 })
@@ -83,13 +84,13 @@ pub fn wrap_session_key(recipient: &Key, session_key: &[u8]) -> Result<MPIs> {
 
 /// Unwraps a session key using Elliptic Curve Diffie-Hellman.
 pub fn unwrap_session_key(recipient: &Key, recipient_sec: &SecretKey,
-                          ciphertext: &MPIs)
+                          ciphertext: &Ciphertext)
                           -> Result<Box<[u8]>> {
     if let (Some(PublicKey::ECDH {
         ref curve, ref hash, ref sym, ..
     }), SecretKey::ECDH {
         ref scalar,
-    }, MPIs::ECDHCiphertext {
+    }, Ciphertext::ECDH {
         ref e, ref key,
     }) = (&recipient.mpis, recipient_sec, ciphertext) {
         match curve {

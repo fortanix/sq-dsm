@@ -307,24 +307,50 @@ impl Serialize for mpis::SecretKey {
     }
 }
 
+impl Serialize for mpis::Ciphertext {
+    fn serialize<W: io::Write>(&self, w: &mut W) -> Result<()> {
+        use mpis::Ciphertext::*;
+
+        match self {
+            &mpis::Ciphertext::RSA{ ref c } => {
+                c.serialize(w)?;
+            }
+
+            &mpis::Ciphertext::Elgamal{ ref e, ref c } => {
+                e.serialize(w)?;
+                c.serialize(w)?;
+            }
+
+            &mpis::Ciphertext::ECDH{ ref e, ref key } => {
+                e.serialize(w)?;
+
+                w.write_all(&[key.len() as u8])?;
+                w.write_all(&key)?;
+            }
+
+            &Unknown { ref mpis, ref rest } => {
+                for mpi in mpis.iter() {
+                    mpi.serialize(w)?;
+                }
+                w.write_all(rest)?;
+            }
+        }
+
+        Ok(())
+    }
+}
+
 impl Serialize for mpis::MPIs {
     fn serialize<W: io::Write>(&self, w: &mut W) -> Result<()> {
         use mpis::MPIs::*;
 
         match self {
-            &RSACiphertext{ ref c } => {
-                c.serialize(w)?;
-            }
             &RSASignature{ ref s } => {
                 s.serialize(w)?;
             }
             &DSASignature{ ref r, ref s } => {
                 r.serialize(w)?;
                 s.serialize(w)?;
-            }
-            &ElgamalCiphertext{ ref e, ref c } => {
-                e.serialize(w)?;
-                c.serialize(w)?;
             }
             &ElgamalSignature{ ref r, ref s } => {
                 r.serialize(w)?;
@@ -337,12 +363,6 @@ impl Serialize for mpis::MPIs {
             &ECDSASignature{ ref r, ref s } => {
                 r.serialize(w)?;
                 s.serialize(w)?;
-            }
-            &ECDHCiphertext{ ref e, ref key } => {
-                e.serialize(w)?;
-
-                w.write_all(&[key.len() as u8])?;
-                w.write_all(&key)?;
             }
 
             &None => unreachable!(),

@@ -399,7 +399,7 @@ mod tests {
     use PublicKeyAlgorithm;
     use SignatureType;
     use s2k::S2K;
-    use mpis::MPIs;
+    use mpis::{Ciphertext, MPI};
     use Tag;
     use packet::CompressedData;
     use packet::Literal;
@@ -1003,7 +1003,7 @@ mod tests {
                 version: 0,
                 recipient: KeyID::from_hex("0000111122223333").unwrap(),
                 pk_algo: PublicKeyAlgorithm::RSAEncrypt,
-                esk: MPIs::empty()
+                esk: Ciphertext::RSA { c: MPI::new(&[]) },
             }));
 
         assert!(packets.iter().map(|p| p.tag()).collect::<Vec<Tag>>()

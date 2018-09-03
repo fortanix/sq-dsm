@@ -1892,7 +1892,7 @@ impl PKESK {
         let mut keyid = [0u8; 8];
         keyid.copy_from_slice(&php_try!(php.parse_bytes("keyid", 8)));
         let pk_algo: PublicKeyAlgorithm = php_try!(php.parse_u8("pk_algo")).into();
-        let mpis = MPIs::parse_ciphertext(pk_algo, &mut php)?;
+        let mpis = ::mpis::Ciphertext::parse(pk_algo, &mut php)?;
 
         php.ok(Packet::PKESK(PKESK {
             common: Default::default(),

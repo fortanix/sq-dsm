@@ -1,7 +1,7 @@
 use Error;
 use packet::Key;
 use KeyID;
-use mpis::{self, MPI, MPIs};
+use mpis::{self, MPI, Ciphertext};
 use PublicKeyAlgorithm;
 use Result;
 use SymmetricAlgorithm;
@@ -26,7 +26,7 @@ pub struct PKESK {
     /// Public key algorithm used to encrypt the session key.
     pub(crate) pk_algo: PublicKeyAlgorithm,
     /// The encrypted session key.
-    pub(crate) esk: MPIs,
+    pub(crate) esk: Ciphertext,
 }
 
 impl PKESK {
@@ -63,7 +63,7 @@ impl PKESK {
 
                         let pk = rsa::PublicKey::new(&n.value, &e.value)?;
                         rsa::encrypt_pkcs1(&pk, &mut rng, &psk, &mut esk)?;
-                        MPIs::RSACiphertext{c: MPI::new(&esk)}
+                        Ciphertext::RSA {c: MPI::new(&esk)}
                     }
 
                     pk => {
@@ -118,12 +118,12 @@ impl PKESK {
     }
 
     /// Gets the encrypted session key.
-    pub fn esk(&self) -> &MPIs {
+    pub fn esk(&self) -> &Ciphertext {
         &self.esk
     }
 
     /// Sets the encrypted session key.
-    pub fn set_esk(&mut self, esk: MPIs) {
+    pub fn set_esk(&mut self, esk: Ciphertext) {
         self.esk = esk;
     }
 
@@ -134,7 +134,6 @@ impl PKESK {
     {
         use PublicKeyAlgorithm::*;
         use mpis::PublicKey;
-        use mpis::MPIs::*;
         use nettle::rsa;
 
         let plain = match
@@ -143,7 +142,7 @@ impl PKESK {
             (RSAEncryptSign,
              Some(&PublicKey::RSA{ ref e, ref n }),
              &mpis::SecretKey::RSA{ ref p, ref q, ref d, .. },
-             &RSACiphertext{ ref c }) => {
+             &mpis::Ciphertext::RSA{ ref c }) => {
                 let public = rsa::PublicKey::new(&n.value, &e.value)?;
                 let secret = rsa::PrivateKey::new(&d.value, &p.value,
                                                   &q.value, Option::None)?;
@@ -154,14 +153,14 @@ impl PKESK {
             (ElgamalEncrypt,
              Some(&PublicKey::Elgamal{ .. }),
              &mpis::SecretKey::Elgamal{ .. },
-             &ElgamalCiphertext{ .. }) =>
+             &mpis::Ciphertext::Elgamal{ .. }) =>
                 return Err(
                     Error::UnsupportedPublicKeyAlgorithm(self.pk_algo).into()),
 
             (ECDH,
              Some(PublicKey::ECDH{ .. }),
              mpis::SecretKey::ECDH { .. },
-             ECDHCiphertext{ .. }) =>
+             mpis::Ciphertext::ECDH { .. }) =>
                 ecdh::unwrap_session_key(recipient, recipient_sec, &self.esk)?,
 
             (algo, public, secret, cipher) =>
