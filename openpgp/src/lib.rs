@@ -93,7 +93,7 @@ pub use signature::Signature;
 mod one_pass_sig;
 pub use one_pass_sig::OnePassSig;
 mod key;
-pub use key::SecretKey;
+pub use key::{Key, SecretKey};
 mod userid;
 mod user_attribute;
 mod literal;
@@ -227,27 +227,6 @@ pub enum Error {
     IndexOutOfRange,
 }
 
-/// Holds a public key, public subkey, private key or private subkey packet.
-///
-/// See [Section 5.5 of RFC 4880] for details.
-///
-///   [Section 5.5 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.5
-#[derive(PartialEq, Eq, Hash, Clone)]
-pub struct Key {
-    /// CTB packet header fields.
-    common: packet::Common,
-    /// Version of the key packet. Must be 4.
-    version: u8,
-    /// When the key was created.
-    creation_time: time::Tm,
-    /// Public key algorithm of this signature.
-    pk_algo: PublicKeyAlgorithm,
-    /// Public key MPIs. Must be a *PublicKey variant.
-    mpis: mpis::MPIs,
-    /// Optional secret part of the key.
-    secret: Option<SecretKey>,
-}
-
 /// Holds a UserID packet.
 ///
 /// See [Section 5.11 of RFC 4880] for details.

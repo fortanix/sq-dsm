@@ -3,13 +3,35 @@ use time;
 
 use mpis::MPIs;
 use Tag;
-use Key;
+use packet;
 use Packet;
 use PublicKeyAlgorithm;
 use SymmetricAlgorithm;
 use s2k::S2K;
 use Result;
 use conversions::Time;
+
+/// Holds a public key, public subkey, private key or private subkey packet.
+///
+/// See [Section 5.5 of RFC 4880] for details.
+///
+///   [Section 5.5 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.5
+#[derive(PartialEq, Eq, Hash, Clone)]
+pub struct Key {
+    /// CTB packet header fields.
+    pub(crate) common: packet::Common,
+    /// Version of the key packet. Must be 4.
+    pub(crate) version: u8,
+    /// When the key was created.
+    pub(crate) creation_time: time::Tm,
+    /// Public key algorithm of this signature.
+    pub(crate) pk_algo: PublicKeyAlgorithm,
+    /// Public key MPIs. Must be a *PublicKey variant.
+    pub(crate) mpis: MPIs,
+    /// Optional secret part of the key.
+    pub(crate) secret: Option<SecretKey>,
+}
+
 
 impl fmt::Debug for Key {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
