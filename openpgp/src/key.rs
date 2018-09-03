@@ -45,7 +45,7 @@ impl Default for Key {
 
 impl Key {
     /// Returns a new `Key` packet.  This can be used to hold either a
-    /// public key, a public key, a private key, or a private subkey.
+    /// public key, a public subkey, a private key, or a private subkey.
     pub fn new(pk_algo: PublicKeyAlgorithm) -> Result<Self> {
         use nettle::{
             rsa,
