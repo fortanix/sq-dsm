@@ -102,6 +102,8 @@ mod literal;
 pub use literal::Literal;
 mod compressed_data;
 pub use compressed_data::CompressedData;
+mod seip;
+pub use seip::SEIP;
 mod skesk;
 pub use skesk::SKESK;
 pub(crate) mod ecdh;
@@ -229,27 +231,6 @@ pub enum Error {
     IndexOutOfRange,
 }
 
-/// Holds an encrypted data packet.
-///
-/// An encrypted data packet is a container.  See [Section 5.13 of RFC
-/// 4880] for details.
-///
-/// [Section 5.13 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.13
-#[derive(PartialEq, Eq, Hash, Clone, Debug)]
-pub struct SEIP {
-    /// CTB packet header fields.
-    common: packet::Common,
-    /// SEIP version. Must be 1.
-    version: u8,
-}
-
-impl SEIP {
-    /// Gets the version.
-    pub fn version(&self) -> u8 {
-        self.version
-    }
-}
-
 /// Holds an MDC packet.
 ///
 /// A modification detection code packet.  This packet appears after a
