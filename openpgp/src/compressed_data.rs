@@ -1,9 +1,27 @@
 use std::fmt;
 
-use CompressedData;
+use packet;
 use Packet;
 use Container;
 use constants::CompressionAlgorithm;
+
+/// Holds a compressed data packet.
+///
+/// A compressed data packet is a container.  See [Section 5.6 of RFC
+/// 4880] for details.
+///
+/// When the parser encounters a compressed data packet with an
+/// unknown compress algorithm, it returns an `Unknown` packet instead
+/// of a `CompressedData` packet.
+///
+/// [Section 5.6 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.6
+#[derive(PartialEq, Eq, Hash, Clone)]
+pub struct CompressedData {
+    /// CTB packet header fields.
+    pub(crate) common: packet::Common,
+    /// Algorithm used to compress the payload.
+    pub(crate) algo: CompressionAlgorithm,
+}
 
 impl fmt::Debug for CompressedData {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

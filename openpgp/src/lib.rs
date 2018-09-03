@@ -101,6 +101,7 @@ pub use user_attribute::UserAttribute;
 mod literal;
 pub use literal::Literal;
 mod compressed_data;
+pub use compressed_data::CompressedData;
 mod skesk;
 pub use skesk::SKESK;
 pub(crate) mod ecdh;
@@ -116,7 +117,6 @@ pub mod constants;
 use constants::{
     PublicKeyAlgorithm,
     SymmetricAlgorithm,
-    CompressionAlgorithm,
     HashAlgorithm,
     SignatureType,
 };
@@ -229,24 +229,6 @@ pub enum Error {
     IndexOutOfRange,
 }
 
-/// Holds a compressed data packet.
-///
-/// A compressed data packet is a container.  See [Section 5.6 of RFC
-/// 4880] for details.
-///
-/// When the parser encounters a compressed data packet with an
-/// unknown compress algorithm, it returns an `Unknown` packet instead
-/// of a `CompressedData` packet.
-///
-/// [Section 5.6 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.6
-#[derive(PartialEq, Eq, Hash, Clone)]
-pub struct CompressedData {
-    /// CTB packet header fields.
-    common: packet::Common,
-    /// Algorithm used to compress the payload.
-    algo: CompressionAlgorithm,
-}
-
 /// Holds an encrypted data packet.
 ///
 /// An encrypted data packet is a container.  See [Section 5.13 of RFC

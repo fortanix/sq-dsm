@@ -394,7 +394,7 @@ mod tests {
 
     use constants::DataFormat::Text;
     use HashAlgorithm;
-    use CompressionAlgorithm;
+    use constants::CompressionAlgorithm;
     use SymmetricAlgorithm;
     use PublicKeyAlgorithm;
     use SignatureType;

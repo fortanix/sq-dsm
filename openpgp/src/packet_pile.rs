@@ -431,7 +431,7 @@ impl<'a> PacketParserBuilder<'a> {
 mod message_test {
     use super::*;
 
-    use CompressionAlgorithm;
+    use constants::CompressionAlgorithm;
     use constants::DataFormat::Text;
     use Literal;
     use CompressedData;

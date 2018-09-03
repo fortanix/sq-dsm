@@ -1032,6 +1032,7 @@ mod serialize_test {
     use std::io::Read;
 
     use super::*;
+    use constants::CompressionAlgorithm;
     use parse::to_unknown_packet;
     use parse::PacketParserBuilder;
 
