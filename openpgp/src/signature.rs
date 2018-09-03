@@ -3,7 +3,7 @@ use std::fmt;
 use constants::Curve;
 use Error;
 use Result;
-use mpis::{MPI, MPIs};
+use mpis::{self, MPI, MPIs};
 use HashAlgorithm;
 use PublicKeyAlgorithm;
 use SignatureType;
@@ -237,12 +237,11 @@ impl Signature {
     }
 
     /// Signs `hash` using `signer`.
-    pub fn sign_hash(&mut self, signer: &Key, signer_sec: &MPIs,
+    pub fn sign_hash(&mut self, signer: &Key, signer_sec: &mpis::SecretKey,
                      hash_algo: HashAlgorithm, mut hash: Box<Hash>)
                      -> Result<()> {
         use PublicKeyAlgorithm::*;
         use mpis::PublicKey;
-        use mpis::MPIs::*;
 
         let mut rng = Yarrow::default();
 
@@ -261,10 +260,10 @@ impl Signature {
         let mpis = match (signer.pk_algo, signer.mpis.as_ref(), signer_sec) {
             (RSASign,
              Some(&PublicKey::RSA { ref e, ref n }),
-             &RSASecretKey { ref p, ref q, ref d, .. }) |
+             &mpis::SecretKey::RSA { ref p, ref q, ref d, .. }) |
             (RSAEncryptSign,
              Some(&PublicKey::RSA { ref e, ref n }),
-             &RSASecretKey { ref p, ref q, ref d, .. }) => {
+             &mpis::SecretKey::RSA { ref p, ref q, ref d, .. }) => {
                 let public = rsa::PublicKey::new(&n.value, &e.value)?;
                 let secret = rsa::PrivateKey::new(&d.value, &p.value,
                                                   &q.value, Option::None)?;
@@ -288,7 +287,7 @@ impl Signature {
 
             (DSA,
              Some(&PublicKey::DSA { ref p, ref q, ref g, .. }),
-             &DSASecretKey { ref x }) => {
+             &mpis::SecretKey::DSA { ref x }) => {
                 let params = dsa::Params::new(&p.value, &q.value, &g.value);
                 let secret = dsa::PrivateKey::new(&x.value);
 
@@ -302,7 +301,7 @@ impl Signature {
 
             (EdDSA,
              Some(&PublicKey::EdDSA { ref curve, ref q }),
-             &EdDSASecretKey { ref scalar }) => match curve {
+             &mpis::SecretKey::EdDSA { ref scalar }) => match curve {
                 Curve::Ed25519 => {
                     let public = q.decode_point(&Curve::Ed25519)?.0;
 
@@ -320,7 +319,7 @@ impl Signature {
 
             (ECDSA,
              Some(&PublicKey::ECDSA { ref curve, .. }),
-             &ECDSASecretKey { ref scalar }) => {
+             &mpis::SecretKey::ECDSA { ref scalar }) => {
                 let secret = match curve {
                     Curve::NistP256 =>
                         ecdsa::PrivateKey::new::<ecdsa::Secp256r1>(

@@ -263,32 +263,64 @@ impl Serialize for mpis::PublicKey {
     }
 }
 
-impl Serialize for mpis::MPIs {
+impl Serialize for mpis::SecretKey {
     fn serialize<W: io::Write>(&self, w: &mut W) -> Result<()> {
-        use mpis::MPIs::*;
+        use mpis::SecretKey::*;
 
         match self {
-            &RSASecretKey{ ref d, ref p, ref q, ref u } => {
+            &RSA{ ref d, ref p, ref q, ref u } => {
                 d.serialize(w)?;
                 p.serialize(w)?;
                 q.serialize(w)?;
                 u.serialize(w)?;
             }
+
+            &DSA{ ref x } => {
+                x.serialize(w)?;
+            }
+
+            &Elgamal{ ref x } => {
+                x.serialize(w)?;
+            }
+
+            &EdDSA{ ref scalar } => {
+                scalar.serialize(w)?;
+            }
+
+            &ECDSA{ ref scalar } => {
+                scalar.serialize(w)?;
+            }
+
+            &ECDH{ ref scalar } => {
+                scalar.serialize(w)?;
+            }
+
+            &Unknown { ref mpis, ref rest } => {
+                for mpi in mpis.iter() {
+                    mpi.serialize(w)?;
+                }
+                w.write_all(rest)?;
+            }
+        }
+
+        Ok(())
+    }
+}
+
+impl Serialize for mpis::MPIs {
+    fn serialize<W: io::Write>(&self, w: &mut W) -> Result<()> {
+        use mpis::MPIs::*;
+
+        match self {
             &RSACiphertext{ ref c } => {
                 c.serialize(w)?;
             }
             &RSASignature{ ref s } => {
                 s.serialize(w)?;
             }
-            &DSASecretKey{ ref x } => {
-                x.serialize(w)?;
-            }
             &DSASignature{ ref r, ref s } => {
                 r.serialize(w)?;
                 s.serialize(w)?;
-            }
-            &ElgamalSecretKey{ ref x } => {
-                x.serialize(w)?;
             }
             &ElgamalCiphertext{ ref e, ref c } => {
                 e.serialize(w)?;
@@ -298,22 +330,13 @@ impl Serialize for mpis::MPIs {
                 r.serialize(w)?;
                 s.serialize(w)?;
             }
-            &EdDSASecretKey{ ref scalar } => {
-                scalar.serialize(w)?;
-            }
             &EdDSASignature{ ref r, ref s } => {
                 r.serialize(w)?;
                 s.serialize(w)?;
             }
-            &ECDSASecretKey{ ref scalar } => {
-                scalar.serialize(w)?;
-            }
             &ECDSASignature{ ref r, ref s } => {
                 r.serialize(w)?;
                 s.serialize(w)?;
-            }
-            &ECDHSecretKey{ ref scalar } => {
-                scalar.serialize(w)?;
             }
             &ECDHCiphertext{ ref e, ref key } => {
                 e.serialize(w)?;

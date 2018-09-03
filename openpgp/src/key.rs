@@ -1,7 +1,7 @@
 use std::fmt;
 use time;
 
-use mpis::{self, MPIs};
+use mpis;
 use Tag;
 use packet;
 use Packet;
@@ -75,7 +75,7 @@ impl Key {
             ed25519,ed25519::ED25519_KEY_SIZE,
             curve25519,curve25519::CURVE25519_SIZE,
         };
-        use mpis::{MPI, PublicKey};
+        use mpis::{self, MPI, PublicKey};
         use constants::{HashAlgorithm, SymmetricAlgorithm, Curve};
         use PublicKeyAlgorithm::*;
         use Error;
@@ -90,7 +90,7 @@ impl Key {
                     e: MPI::new(&*public.e()),
                     n: MPI::new(&*public.n()),
                 };
-                let private_mpis = MPIs::RSASecretKey{
+                let private_mpis = mpis::SecretKey::RSA {
                     d: MPI::new(&*private.d()),
                     p: MPI::new(&*p),
                     q: MPI::new(&*q),
@@ -116,7 +116,7 @@ impl Key {
                     curve: Curve::Ed25519,
                     q: MPI::new(&public),
                 };
-                let private_mpis = MPIs::EdDSASecretKey{
+                let private_mpis = mpis::SecretKey::EdDSA {
                     scalar: MPI::new(&private),
                 };
                 let sec = Some(SecretKey::Unencrypted{
@@ -141,7 +141,7 @@ impl Key {
                     hash: HashAlgorithm::SHA256,
                     sym: SymmetricAlgorithm::AES256,
                 };
-                let private_mpis = MPIs::ECDHSecretKey{
+                let private_mpis = mpis::SecretKey::ECDH {
                     scalar: MPI::new(&private),
                 };
                 let sec = Some(SecretKey::Unencrypted{
@@ -244,7 +244,7 @@ pub enum SecretKey {
     /// Unencrypted secret key. Can be used as-is.
     Unencrypted {
         /// MPIs of the secret key. Must be a *SecretKey enum variant.
-        mpis: MPIs
+        mpis: mpis::SecretKey,
     },
     /// The secret key is encrypted with a password.
     Encrypted {
@@ -276,7 +276,7 @@ impl SecretKey {
                 let mut trash = vec![0u8; algorithm.block_size()?];
 
                 dec.read_exact(&mut trash)?;
-                let mpis = MPIs::parse_chksumd_secret_key(pk_algo, &mut dec)?;
+                let mpis = mpis::SecretKey::parse_chksumd(pk_algo, &mut dec)?;
 
                 Some(SecretKey::Unencrypted{ mpis: mpis })
             }
@@ -300,7 +300,6 @@ impl SecretKey {
 
 #[cfg(test)]
 mod tests {
-    use mpis::MPIs;
     use packet::Tag;
     use TPK;
     use SecretKey;
@@ -326,7 +325,7 @@ mod tests {
         assert!(!secret.is_encrypted());
 
         match secret {
-            &mut SecretKey::Unencrypted { mpis: MPIs::RSASecretKey { .. } } =>
+            &mut SecretKey::Unencrypted { mpis: mpis::SecretKey::RSA { .. } } =>
                 {}
             _ => { unreachable!() }
         }

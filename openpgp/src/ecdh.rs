@@ -9,7 +9,7 @@ use constants::{
     SymmetricAlgorithm,
     PublicKeyAlgorithm,
 };
-use mpis::{MPI, MPIs, PublicKey};
+use mpis::{MPI, MPIs, PublicKey, SecretKey};
 use nettle::{cipher, curve25519, mode, Mode, Yarrow};
 
 /// Wraps a session key using Elliptic Curve Diffie-Hellman.
@@ -82,12 +82,12 @@ pub fn wrap_session_key(recipient: &Key, session_key: &[u8]) -> Result<MPIs> {
 }
 
 /// Unwraps a session key using Elliptic Curve Diffie-Hellman.
-pub fn unwrap_session_key(recipient: &Key, recipient_sec: &MPIs,
+pub fn unwrap_session_key(recipient: &Key, recipient_sec: &SecretKey,
                           ciphertext: &MPIs)
                           -> Result<Box<[u8]>> {
     if let (Some(PublicKey::ECDH {
         ref curve, ref hash, ref sym, ..
-    }), MPIs::ECDHSecretKey {
+    }), SecretKey::ECDH {
         ref scalar,
     }, MPIs::ECDHCiphertext {
         ref e, ref key,

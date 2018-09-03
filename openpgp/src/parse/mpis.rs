@@ -142,11 +142,11 @@ impl mpis::PublicKey {
     }
 }
 
-impl MPIs {
+impl mpis::SecretKey {
     /// Parses secret key MPIs for `algo` plus their SHA1 checksum. Fails if the
     /// checksum is wrong.
-    pub fn parse_chksumd_secret_key<T: Read>(algo: PublicKeyAlgorithm, cur: T)
-        -> Result<Self> {
+    pub fn parse_chksumd<T: Read>(algo: PublicKeyAlgorithm, cur: T)
+                                  -> Result<Self> {
         use std::io::Cursor;
         use serialize::Serialize;
         use nettle::Hash;
@@ -156,7 +156,7 @@ impl MPIs {
         let bio = BufferedReaderGeneric::with_cookie(
             cur, None, Cookie::default());
         let mut php = PacketHeaderParser::new_naked(Box::new(bio));
-        let mpis = Self::parse_secret_key(algo, &mut php)?;
+        let mpis = Self::parse(algo, &mut php)?;
 
         // read expected sha1 hash of the mpis
         let their_chksum = php.parse_bytes("checksum", 20)?;
@@ -183,9 +183,8 @@ impl MPIs {
     /// See [Section 3.2 of RFC 4880] for details.
     ///
     ///   [Section 3.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-3.2
-    pub fn parse_secret_key_naked<T: AsRef<[u8]>>(algo: PublicKeyAlgorithm,
-                                                  buf: T)
-        -> Result<Self>
+    pub fn parse_naked<T: AsRef<[u8]>>(algo: PublicKeyAlgorithm, buf: T)
+                                       -> Result<Self>
     {
         use std::io::Cursor;
 
@@ -193,7 +192,7 @@ impl MPIs {
         let bio = BufferedReaderGeneric::with_cookie(
             cur, None, Cookie::default());
         let mut php = PacketHeaderParser::new_naked(Box::new(bio));
-        Self::parse_secret_key(algo, &mut php)
+        Self::parse(algo, &mut php)
     }
 
     /// Parses a set of OpenPGP MPIs representing a secret key.
@@ -201,9 +200,9 @@ impl MPIs {
     /// See [Section 3.2 of RFC 4880] for details.
     ///
     ///   [Section 3.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-3.2
-    pub(crate) fn parse_secret_key<'a>(algo: PublicKeyAlgorithm,
-                                       php: &mut PacketHeaderParser<'a>)
-        -> Result<Self>
+    pub(crate) fn parse<'a>(algo: PublicKeyAlgorithm,
+                            php: &mut PacketHeaderParser<'a>)
+                            -> Result<Self>
     {
         use PublicKeyAlgorithm::*;
 
@@ -215,7 +214,7 @@ impl MPIs {
                 let q = MPI::parse("rsa_secret_q", php)?;
                 let u = MPI::parse("rsa_secret_u", php)?;
 
-                Ok(MPIs::RSASecretKey{
+                Ok(mpis::SecretKey::RSA {
                     d: d,
                     p: p,
                     q: q,
@@ -226,7 +225,7 @@ impl MPIs {
             DSA => {
                 let x = MPI::parse("dsa_secret", php)?;
 
-                Ok(MPIs::DSASecretKey{
+                Ok(mpis::SecretKey::DSA {
                     x: x,
                 })
             }
@@ -234,26 +233,27 @@ impl MPIs {
             ElgamalEncrypt | ElgamalEncryptSign => {
                 let x = MPI::parse("elgamal_secret", php)?;
 
-                Ok(MPIs::ElgamalSecretKey{
+                Ok(mpis::SecretKey::Elgamal {
                     x: x,
                 })
             }
 
             EdDSA => {
-                Ok(MPIs::EdDSASecretKey{
+                Ok(mpis::SecretKey::EdDSA {
                     scalar: MPI::parse("eddsa_secret", php)?
                 })
             }
 
             ECDSA => {
-                Ok(MPIs::ECDSASecretKey{
+                Ok(mpis::SecretKey::ECDSA {
                     scalar: MPI::parse("ecdsa_secret", php)?
                 })
             }
 
             ECDH => {
-                Ok(MPIs::ECDHSecretKey{
-                    scalar: MPI::parse("ecdh_secret", php)? })
+                Ok(mpis::SecretKey::ECDH {
+                    scalar: MPI::parse("ecdh_secret", php)?
+                })
             }
 
             Unknown(_) | Private(_) => {
@@ -263,14 +263,16 @@ impl MPIs {
                 }
                 let mut rest = php.parse_bytes_eof("rest")?;
 
-                Ok(MPIs::Unknown {
+                Ok(mpis::SecretKey::Unknown {
                     mpis: mpis.into_boxed_slice(),
                     rest: rest.into_boxed_slice(),
                 })
             }
         }
     }
+}
 
+impl MPIs {
     /// Parses a set of OpenPGP MPIs representing a ciphertext.
     ///
     /// Expects MPIs for a public key algorithm `algo`s ciphertext.

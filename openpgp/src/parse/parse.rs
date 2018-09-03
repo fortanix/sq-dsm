@@ -1280,7 +1280,8 @@ impl Key {
             let sec = match s2k_usage {
                 // Unencrypted
                 0 => {
-                    let sec = php_try!(MPIs::parse_secret_key(pk_algo, &mut php));
+                    let sec = php_try!(
+                        ::mpis::SecretKey::parse(pk_algo, &mut php));
                     let their_chksum = php_try!(php.parse_be_u16("checksum"));
                     let mut cur = Cursor::new(Vec::default());
 
