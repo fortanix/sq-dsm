@@ -298,7 +298,7 @@ impl<T: BufferedReader<Cookie>> BufferedReaderPartialBodyFilter<T> {
         // return as much as we can in that case.
         let buffer = &self.buffer.as_ref().unwrap()[self.cursor..];
         if hard && buffer.len() < amount {
-            return Err(Error::new(ErrorKind::UnexpectedEof, "unepxected EOF"));
+            return Err(Error::new(ErrorKind::UnexpectedEof, "unexpected EOF"));
         }
         if and_consume {
             self.cursor += cmp::min(amount, buffer.len());
