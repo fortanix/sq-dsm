@@ -237,7 +237,7 @@ pub fn build() -> App<'static, 'static> {
                                 .about("Deletes bindings or stores")
                                 .arg(Arg::with_name("the-store")
                                      .long("the-store")
-                                     .help("Delete the whole store"))
+                                     .help("Delete the selected store (change with --store)"))
                                 .arg(Arg::with_name("label")
                                      .value_name("LABEL")
                                      .help("Delete binding with this label")))
