@@ -28,6 +28,10 @@ const INDENT: &'static str
 
 const TIMEFMT: &'static str = "%Y-%m-%dT%H:%M";
 
+fn tm2str(t: &time::Tm) -> String {
+    time::strftime(TIMEFMT, t).expect("TIMEFMT is correct")
+}
+
 pub fn decrypt(input: &mut io::Read, output: &mut io::Write,
                secrets: Vec<TPK>, dump: bool, map: bool)
            -> Result<()> {
@@ -658,6 +662,41 @@ pub fn split(input: &mut io::Read, prefix: &str)
             },
         }
     }
+    Ok(())
+}
+
+pub fn store_print_stats(store: &store::Store, label: &str) -> Result<()> {
+    fn print_stamps(st: &store::Stamps) -> Result<()> {
+        println!("{} messages using this key", st.count);
+        if let Some(t) = st.first {
+            println!("    First: {}", tm2str(&time::at(t)));
+        }
+        if let Some(t) = st.last {
+            println!("    Last: {}", tm2str(&time::at(t)));
+        }
+        Ok(())
+    }
+
+    fn print_stats(st: &store::Stats) -> Result<()> {
+        if let Some(t) = st.created {
+            println!("  Created: {}", tm2str(&time::at(t)));
+        }
+        if let Some(t) = st.updated {
+            println!("  Updated: {}", tm2str(&time::at(t)));
+        }
+        print!("  Encrypted ");
+        print_stamps(&st.encryption)?;
+        print!("  Verified ");
+        print_stamps(&st.verification)?;
+        Ok(())
+    }
+
+    let binding = store.lookup(label)?;
+    println!("Binding {:?}", label);
+    print_stats(&binding.stats().context("Failed to get stats")?)?;
+    let key = binding.key().context("Failed to get key")?;
+    println!("Key");
+    print_stats(&key.stats().context("Failed to get stats")?)?;
     Ok(())
 }
 

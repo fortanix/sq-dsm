@@ -301,10 +301,8 @@ fn real_main() -> Result<(), failure::Error> {
                     }
                 },
                 ("stats",  Some(m)) => {
-                    let binding = store.lookup(m.value_of("label").unwrap())?;
-                    println!("Binding {:?}", binding.stats().context("Failed to get stats")?);
-                    let key = binding.key().context("Failed to get key")?;
-                    println!("Key {:?}", key.stats().context("Failed to get stats")?);
+                    commands::store_print_stats(&store,
+                                                m.value_of("label").unwrap())?;
                 },
                 ("log",  Some(m)) => {
                     if m.is_present("label") {
