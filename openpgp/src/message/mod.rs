@@ -590,6 +590,11 @@ mod tests {
                 result: true,
             },
             TestVector {
+                s: &[(PKESK, 0), (SEIP, 0), (CompressedData, 1), (Literal, 2),
+                     (MDC, 1)],
+                result: true,
+            },
+            TestVector {
                 s: &[(SKESK, 0), (SKESK, 0), (SEIP, 0), (Literal, 1), (MDC, 1)],
                 result: true,
             },
