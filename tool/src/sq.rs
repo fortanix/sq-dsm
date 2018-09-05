@@ -55,7 +55,7 @@ fn load_tpks<'a, I>(files: I) -> openpgp::Result<Vec<TPK>>
             // and plain PGP data.
             openpgp::Reader::from_file(f)
                 .context(format!("Failed to open key file {:?}", f))?)
-                  .context("Failed to load key")?);
+                  .context(format!("Failed to load key from file {:?}", f))?);
     }
     Ok(tpks)
 }
