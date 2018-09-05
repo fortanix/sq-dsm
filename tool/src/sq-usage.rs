@@ -64,7 +64,7 @@
 //!     sq encrypt [FLAGS] [OPTIONS] [--] [FILE]
 //!
 //! FLAGS:
-//!     -B, --binary       Emit unencoded OpenPGP data
+//!     -B, --binary       Don't ASCII-armor encode the OpenPGP data
 //!     -h, --help         Prints help information
 //!     -s, --symmetric    Encrypt with a password (can be given multiple times)
 //!     -V, --version      Prints version information
@@ -87,7 +87,7 @@
 //!     sq sign [FLAGS] [OPTIONS] [--] [FILE]
 //!
 //! FLAGS:
-//!     -B, --binary      Emit unencoded OpenPGP data
+//!     -B, --binary      Don't ASCII-armor encode the OpenPGP data
 //!         --detached    Create a detached signature
 //!     -h, --help        Prints help information
 //!     -V, --version     Prints version information
@@ -170,7 +170,7 @@
 //!
 //! FLAGS:
 //!     -h, --help         Prints help information
-//!         --the-store    Delete the whole store
+//!         --the-store    Delete the selected store (change with --store)
 //!     -V, --version      Prints version information
 //!
 //! ARGS:
@@ -186,7 +186,7 @@
 //!     sq store export [FLAGS] [OPTIONS] <LABEL>
 //!
 //! FLAGS:
-//!     -B, --binary     Emit unencoded OpenPGP data
+//!     -B, --binary     Don't ASCII-armor encode the OpenPGP data
 //!     -h, --help       Prints help information
 //!     -V, --version    Prints version information
 //!
@@ -289,7 +289,7 @@
 //!     sq keyserver get [FLAGS] [OPTIONS] <KEYID>
 //!
 //! FLAGS:
-//!     -B, --binary     Emit unencoded OpenPGP data
+//!     -B, --binary     Don't ASCII-armor encode the OpenPGP data
 //!     -h, --help       Prints help information
 //!     -V, --version    Prints version information
 //!
