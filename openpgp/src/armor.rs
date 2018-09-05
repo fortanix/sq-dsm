@@ -257,8 +257,9 @@ impl<W: Write> Write for Writer<W> {
         let mut written = 0;
 
         // First of all, if there are stashed bytes, fill the stash
-        // and encode it.
-        assert!(self.stash.len() < 3);
+        // and encode it.  If writing out the stash fails below, we
+        // might end up with a stash of size 3.
+        assert!(self.stash.len() <= 3);
         if self.stash.len() > 0 {
             while self.stash.len() < 3 {
                 if input.len() == 0 {
@@ -271,7 +272,10 @@ impl<W: Write> Write for Writer<W> {
                 input = &input[1..];
                 written += 1;
             }
+            assert_eq!(self.stash.len(), 3);
 
+            // If this fails for some reason, and the caller retries
+            // the write, we might end up with a stash of size 3.
             self.sink.write_all(base64::encode_config(&self.stash,
                                                       base64::STANDARD_NO_PAD).as_bytes())?;
             self.column += 4;
