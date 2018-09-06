@@ -46,8 +46,6 @@ fn real_main() -> Result<(), failure::Error> {
         exit(2);
     }
 
-    let accept_multiple_sigs = matches.is_present("accept-multiple-signatures");
-
     let not_before = if let Some(t) = matches.value_of("not-before") {
         Some(time::strptime(t, "%Y-%m-%d")
              .context(format!("Bad value passed to --not-before: {:?}", t))?)
@@ -267,8 +265,7 @@ fn real_main() -> Result<(), failure::Error> {
                                 eprintln!("Signature by {} is good.", issuer);
                             }
 
-                            if ! accept_multiple_sigs
-                                && sigs_seen_from_tpk.replace(tpk.fingerprint())
+                            if sigs_seen_from_tpk.replace(tpk.fingerprint())
                                 .is_some()
                             {
                                 eprintln!(
