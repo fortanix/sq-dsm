@@ -1339,9 +1339,9 @@ CREATE TABLE log (
     slug TEXT NOT NULL,
     message TEXT NOT NULL,
     error TEXT NULL,
-    FOREIGN KEY (store) REFERENCES stores(id) ON DELETE SET NULL,
-    FOREIGN KEY (binding) REFERENCES bindings(id) ON DELETE SET NULL,
-    FOREIGN KEY (key) REFERENCES keys(id) ON DELETE SET NULL);
+    FOREIGN KEY (store) REFERENCES stores(id) ON DELETE CASCADE,
+    FOREIGN KEY (binding) REFERENCES bindings(id) ON DELETE CASCADE,
+    FOREIGN KEY (key) REFERENCES keys(id) ON DELETE CASCADE);
 ";
 
 /* Miscellaneous.  */
