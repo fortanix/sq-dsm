@@ -363,7 +363,7 @@ mod tests {
             .primary_keyflags(KeyFlags::default())
             .add_encryption_subkey()
             .generate().unwrap();
-        let sig_pkts = &tpk1.userids().next().unwrap().selfsigs[0].hashed_area;
+        let sig_pkts = tpk1.userids().next().unwrap().selfsigs[0].hashed_area();
 
         match sig_pkts.lookup(SubpacketTag::KeyFlags) {
             Some(Subpacket{ value: SubpacketValue::KeyFlags(ref ks),.. }) => {
@@ -381,7 +381,7 @@ mod tests {
             .primary_keyflags(KeyFlags::default())
             .add_subkey(KeyFlags::default().set_encrypt_for_transport(true).set_certify(true))
             .generate().unwrap();
-        let sig_pkts = &tpk1.subkeys().next().unwrap().selfsigs[0].hashed_area;
+        let sig_pkts = tpk1.subkeys().next().unwrap().selfsigs[0].hashed_area();
 
         match sig_pkts.lookup(SubpacketTag::KeyFlags) {
             Some(Subpacket{ value: SubpacketValue::KeyFlags(ref ks),.. }) => {

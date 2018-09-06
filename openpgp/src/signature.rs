@@ -455,7 +455,7 @@ impl Signature {
 
             _ => Err(Error::MalformedPacket(format!(
                 "unsupported combination of algorithm {:?}, key {:?} and signature {:?}.",
-                self.pk_algo, key.mpis, self.mpis)).into())
+                self.pk_algo(), key.mpis, self.mpis)).into())
         }
     }
 
@@ -467,10 +467,10 @@ impl Signature {
     /// subkey binding signature (if appropriate), has the signing
     /// capability, etc.
     pub fn verify(&self, key: &Key) -> Result<bool> {
-        if !(self.sigtype == SignatureType::Binary
-             || self.sigtype == SignatureType::Text
-             || self.sigtype == SignatureType::Standalone) {
-            return Err(Error::UnsupportedSignatureType(self.sigtype).into());
+        if !(self.sigtype() == SignatureType::Binary
+             || self.sigtype() == SignatureType::Text
+             || self.sigtype() == SignatureType::Standalone) {
+            return Err(Error::UnsupportedSignatureType(self.sigtype()).into());
         }
 
         if let Some((hash_algo, ref hash)) = self.computed_hash {
@@ -490,12 +490,12 @@ impl Signature {
     pub fn verify_primary_key_binding(&self, signer: &Key, pk: &Key)
         -> Result<bool>
     {
-        if self.sigtype != SignatureType::DirectKey {
-            return Err(Error::UnsupportedSignatureType(self.sigtype).into());
+        if self.sigtype() != SignatureType::DirectKey {
+            return Err(Error::UnsupportedSignatureType(self.sigtype()).into());
         }
 
         let hash = self.primary_key_binding_hash(pk);
-        self.verify_hash(signer, self.hash_algo, &hash[..])
+        self.verify_hash(signer, self.hash_algo(), &hash[..])
     }
 
     /// Verifies the subkey binding.
@@ -513,12 +513,12 @@ impl Signature {
     pub fn verify_subkey_binding(&self, signer: &Key, pk: &Key, subkey: &Key)
         -> Result<bool>
     {
-        if self.sigtype != SignatureType::SubkeyBinding {
-            return Err(Error::UnsupportedSignatureType(self.sigtype).into());
+        if self.sigtype() != SignatureType::SubkeyBinding {
+            return Err(Error::UnsupportedSignatureType(self.sigtype()).into());
         }
 
         let hash = self.subkey_binding_hash(pk, subkey);
-        if self.verify_hash(signer, self.hash_algo, &hash[..])? {
+        if self.verify_hash(signer, self.hash_algo(), &hash[..])? {
             // The signature is good, but we may still need to verify
             // the back sig.
         } else {
@@ -532,12 +532,12 @@ impl Signature {
 
         let mut backsig_ok = false;
         if let Some(Packet::Signature(backsig)) = self.embedded_signature() {
-            if backsig.sigtype != SignatureType::PrimaryKeyBinding {
-                return Err(Error::UnsupportedSignatureType(self.sigtype).into());
+            if backsig.sigtype() != SignatureType::PrimaryKeyBinding {
+                return Err(Error::UnsupportedSignatureType(self.sigtype()).into());
             } else {
                 // We can't use backsig.verify_subkey_binding.
                 let hash = backsig.subkey_binding_hash(pk, &subkey);
-                match backsig.verify_hash(&subkey, backsig.hash_algo, &hash[..])
+                match backsig.verify_hash(&subkey, backsig.hash_algo(), &hash[..])
                 {
                     Ok(true) => {
                         if TRACE {
@@ -577,16 +577,16 @@ impl Signature {
                                  pk: &Key, userid: &UserID)
         -> Result<bool>
     {
-        if !(self.sigtype == SignatureType::GenericCertificate
-             || self.sigtype == SignatureType::PersonaCertificate
-             || self.sigtype == SignatureType::CasualCertificate
-             || self.sigtype == SignatureType::PositiveCertificate
-             || self.sigtype == SignatureType::CertificateRevocation) {
-            return Err(Error::UnsupportedSignatureType(self.sigtype).into());
+        if !(self.sigtype() == SignatureType::GenericCertificate
+             || self.sigtype() == SignatureType::PersonaCertificate
+             || self.sigtype() == SignatureType::CasualCertificate
+             || self.sigtype() == SignatureType::PositiveCertificate
+             || self.sigtype() == SignatureType::CertificateRevocation) {
+            return Err(Error::UnsupportedSignatureType(self.sigtype()).into());
         }
 
         let hash = self.userid_binding_hash(pk, userid);
-        self.verify_hash(signer, self.hash_algo, &hash[..])
+        self.verify_hash(signer, self.hash_algo(), &hash[..])
     }
 
     /// Verifies the user attribute binding.
@@ -600,16 +600,16 @@ impl Signature {
                                          pk: &Key, ua: &UserAttribute)
         -> Result<bool>
     {
-        if !(self.sigtype == SignatureType::GenericCertificate
-             || self.sigtype == SignatureType::PersonaCertificate
-             || self.sigtype == SignatureType::CasualCertificate
-             || self.sigtype == SignatureType::PositiveCertificate
-             || self.sigtype == SignatureType::CertificateRevocation) {
-            return Err(Error::UnsupportedSignatureType(self.sigtype).into());
+        if !(self.sigtype() == SignatureType::GenericCertificate
+             || self.sigtype() == SignatureType::PersonaCertificate
+             || self.sigtype() == SignatureType::CasualCertificate
+             || self.sigtype() == SignatureType::PositiveCertificate
+             || self.sigtype() == SignatureType::CertificateRevocation) {
+            return Err(Error::UnsupportedSignatureType(self.sigtype()).into());
         }
 
         let hash = self.user_attribute_binding_hash(pk, ua);
-        self.verify_hash(signer, self.hash_algo, &hash[..])
+        self.verify_hash(signer, self.hash_algo(), &hash[..])
     }
 
     /// Convert the `Signature` struct to a `Packet`.

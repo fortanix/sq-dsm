@@ -596,9 +596,9 @@ impl Serialize for Signature {
             + 1 // pk algorithm
             + 1 // hash algorithm
             + 2 // hashed area size
-            + self.hashed_area.data.len()
+            + self.hashed_area().data.len()
             + 2 // unhashed area size
-            + self.unhashed_area.data.len()
+            + self.unhashed_area().data.len()
             + 2 // hash prefix
             + self.mpis.as_ref().map(|sig| sig.serialized_len()).unwrap_or(0);
 
@@ -625,32 +625,32 @@ impl Signature {
     ///
     /// [`Error::InvalidArgument`]: enum.Error.html#variant.InvalidArgument
     pub(crate) fn serialize_naked<W: io::Write>(&self, o: &mut W) -> Result<()> {
-        if self.version != 4 {
+        if self.version() != 4 {
             return Err(Error::InvalidArgument(
                 "Don't know how to serialize \
                  non-version 4 packets.".into()).into());
         }
-        write_byte(o, self.version)?;
-        write_byte(o, self.sigtype.into())?;
-        write_byte(o, self.pk_algo.into())?;
-        write_byte(o, self.hash_algo.into())?;
+        write_byte(o, self.version())?;
+        write_byte(o, self.sigtype().into())?;
+        write_byte(o, self.pk_algo().into())?;
+        write_byte(o, self.hash_algo().into())?;
 
-        if self.hashed_area.data.len() > std::u16::MAX as usize {
+        if self.hashed_area().data.len() > std::u16::MAX as usize {
             return Err(Error::InvalidArgument(
                 "Hashed area too large".into()).into());
         }
-        write_be_u16(o, self.hashed_area.data.len() as u16)?;
-        o.write_all(&self.hashed_area.data[..])?;
+        write_be_u16(o, self.hashed_area().data.len() as u16)?;
+        o.write_all(&self.hashed_area().data[..])?;
 
-        if self.unhashed_area.data.len() > std::u16::MAX as usize {
+        if self.unhashed_area().data.len() > std::u16::MAX as usize {
             return Err(Error::InvalidArgument(
                 "Unhashed area too large".into()).into());
         }
-        write_be_u16(o, self.unhashed_area.data.len() as u16)?;
-        o.write_all(&self.unhashed_area.data[..])?;
+        write_be_u16(o, self.unhashed_area().data.len() as u16)?;
+        o.write_all(&self.unhashed_area().data[..])?;
 
-        write_byte(o, self.hash_prefix[0])?;
-        write_byte(o, self.hash_prefix[1])?;
+        write_byte(o, self.hash_prefix()[0])?;
+        write_byte(o, self.hash_prefix()[1])?;
 
         if let Some(sig) = self.mpis() {
             sig.serialize(o)?;

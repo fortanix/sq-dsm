@@ -1002,13 +1002,13 @@ fn signature_parser_test () {
         let pp = PacketParser::from_bytes(data).unwrap().unwrap();
         assert_eq!(pp.header.length, BodyLength::Full(307));
         if let Packet::Signature(ref p) = pp.packet {
-            assert_eq!(p.version, 4);
-            assert_eq!(p.sigtype, SignatureType::Binary);
-            assert_eq!(p.pk_algo, PublicKeyAlgorithm::RSAEncryptSign);
-            assert_eq!(p.hash_algo, HashAlgorithm::SHA512);
-            assert_eq!(p.hashed_area.data.len(), 29);
-            assert_eq!(p.unhashed_area.data.len(), 10);
-            assert_eq!(p.hash_prefix, [0x65u8, 0x74]);
+            assert_eq!(p.version(), 4);
+            assert_eq!(p.sigtype(), SignatureType::Binary);
+            assert_eq!(p.pk_algo(), PublicKeyAlgorithm::RSAEncryptSign);
+            assert_eq!(p.hash_algo(), HashAlgorithm::SHA512);
+            assert_eq!(p.hashed_area().data.len(), 29);
+            assert_eq!(p.unhashed_area().data.len(), 10);
+            assert_eq!(p.hash_prefix(), &[0x65u8, 0x74]);
             assert_eq!(p.mpis().unwrap().serialized_len(), 258);
         } else {
             panic!("Wrong packet!");

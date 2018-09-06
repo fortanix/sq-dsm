@@ -1510,7 +1510,7 @@ const KEYSERVER_PREFERENCE_NO_MODIFY: u8 = 0x80;
 impl Signature {
     /// Returns the *last* instance of the specified subpacket.
     fn subpacket<'a>(&'a self, tag: SubpacketTag) -> Option<Subpacket<'a>> {
-        if let Some(sb) = self.hashed_area.lookup(tag) {
+        if let Some(sb) = self.hashed_area().lookup(tag) {
             return Some(sb);
         }
 
@@ -1522,7 +1522,7 @@ impl Signature {
             return None;
         }
 
-        self.unhashed_area.lookup(tag)
+        self.unhashed_area().lookup(tag)
     }
 
     /// Returns all instances of the specified subpacket.
@@ -1533,7 +1533,7 @@ impl Signature {
     fn subpackets<'a>(&'a self, target: SubpacketTag) -> Vec<Subpacket<'a>> {
         let mut result = Vec::new();
 
-        for (_start, _len, sb) in self.hashed_area.iter_raw() {
+        for (_start, _len, sb) in self.hashed_area().iter_raw() {
             if sb.tag == target {
                 result.push(sb.into());
             }
@@ -2520,7 +2520,7 @@ impl Signature {
     pub fn intended_recipients(&self) -> Vec<Fingerprint> {
         let mut result = Vec::new();
 
-        for (_start, _len, sb) in self.hashed_area.iter_raw() {
+        for (_start, _len, sb) in self.hashed_area().iter_raw() {
             if sb.tag == SubpacketTag::IntendedRecipient {
                 let s = Subpacket::from(sb);
                 if let SubpacketValue::IntendedRecipient(fp) = s.value {

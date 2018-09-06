@@ -1076,7 +1076,7 @@ impl TPK {
                         eprintln!("Sig {:02X}{:02X}, type = {} \
                                    doesn't belong to user id \"{}\"",
                                   sig.hash_prefix[0], sig.hash_prefix[1],
-                                  sig.sigtype, binding.userid);
+                                  sig.sigtype(), binding.userid);
                     }
                     self.bad.push(sig);
                 }
@@ -1095,7 +1095,7 @@ impl TPK {
                         eprintln!("Sig {:02X}{:02X}, type = {} \
                                    doesn't belong to user attribute",
                                   sig.hash_prefix[0], sig.hash_prefix[1],
-                                  sig.sigtype);
+                                  sig.sigtype());
                     }
                     self.bad.push(sig);
                 }
@@ -1114,7 +1114,7 @@ impl TPK {
                         eprintln!("Sig {:02X}{:02X}, type = {} \
                                    doesn't belong to subkey {}",
                                   sig.hash_prefix[0], sig.hash_prefix[1],
-                                  sig.sigtype, binding.subkey.keyid());
+                                  sig.sigtype(), binding.subkey.keyid());
                     }
                     self.bad.push(sig);
                 }
