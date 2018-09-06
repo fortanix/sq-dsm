@@ -1543,10 +1543,20 @@ impl TPK {
         Ok(self.canonicalize())
     }
 
-    /// Cast the public key into a secret key that allows using the secret parts of the containing
-    /// keys.
+    /// Cast the public key into a secret key that allows using the secret
+    /// parts of the containing keys.
     pub fn into_tsk(self) -> TSK {
         TSK::from_tpk(self)
+    }
+
+    /// Cast the public key into a secret key that allows using the secret
+    /// parts of the containing keys. Only packets for which `filter` returns
+    /// true are included in the TSK.
+    pub fn filter_into_tsk<F: Fn(&Packet) -> bool>(self, f: F) -> Result<TSK> {
+        let pkts = self.to_packet_pile().into_children().filter(f).collect::<Vec<_>>();
+        let pile = PacketPile::from_packets(pkts);
+
+        Ok(TSK::from_tpk(TPK::from_packet_pile(pile)?))
     }
 }
 
@@ -2203,5 +2213,25 @@ mod test {
 
         assert_eq!(tpk2.primary_key_signature().unwrap().sigtype(), SignatureType::DirectKey);
         assert_eq!(tpk2.userids().count(), 0);
+    }
+
+    #[test]
+    fn tsk_filter() {
+        let tpk = TPKBuilder::default()
+            .add_signing_subkey()
+            .add_encryption_subkey()
+            .generate().unwrap();
+
+        assert!(!tpk.subkeys.is_empty());
+
+        // filter subkeys
+        let tsk = tpk.filter_into_tsk(|pkt| {
+            match pkt {
+                &Packet::PublicSubkey(_) | &Packet::SecretSubkey(_) => false,
+                _ => true
+            }
+        }).unwrap();
+
+        assert!(tsk.tpk().subkeys.is_empty());
     }
 }
