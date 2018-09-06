@@ -13,7 +13,7 @@ extern crate openpgp;
 
 use self::openpgp::{armor, Fingerprint, KeyID, PacketPile, TPK, TSK, Packet};
 use self::openpgp::tpk::{CipherSuite, TPKBuilder};
-use self::openpgp::parse::{PacketParser};
+use self::openpgp::parse::{PacketParser, PacketParserResult};
 use self::openpgp::serialize::Serialize;
 use self::openpgp::constants::{
     DataFormat,
@@ -1152,12 +1152,10 @@ pub extern "system" fn sq_skesk_decrypt(ctx: Option<&mut Context>,
 #[no_mangle]
 pub extern "system" fn sq_packet_parser_from_reader<'a>
     (ctx: Option<&mut Context>, reader: Option<&'a mut Box<'a + Read>>)
-     -> *mut PacketParser<'a> {
+     -> *mut PacketParserResult<'a> {
     let ctx = ctx.expect("Context is NULL");
     let reader = reader.expect("Reader is NULL");
-    fry!(ctx, PacketParser::from_reader(reader))
-        .map(|v| box_raw!(v))
-        .unwrap_or(ptr::null_mut())
+    fry_box!(ctx, PacketParser::from_reader(reader))
 }
 
 /// Starts parsing OpenPGP packets stored in a file named `path`.
@@ -1167,15 +1165,13 @@ pub extern "system" fn sq_packet_parser_from_reader<'a>
 #[no_mangle]
 pub extern "system" fn sq_packet_parser_from_file
     (ctx: Option<&mut Context>, filename: *const c_char)
-     -> *mut PacketParser {
+     -> *mut PacketParserResult {
     let ctx = ctx.expect("Context is NULL");
     assert!(! filename.is_null());
     let filename = unsafe {
         CStr::from_ptr(filename).to_string_lossy().into_owned()
     };
-    fry!(ctx, PacketParser::from_file(&filename))
-        .map(|v| box_raw!(v))
-        .unwrap_or(ptr::null_mut())
+    fry_box!(ctx, PacketParser::from_file(&filename))
 }
 
 /// Starts parsing OpenPGP packets stored in a buffer.
@@ -1185,16 +1181,14 @@ pub extern "system" fn sq_packet_parser_from_file
 #[no_mangle]
 pub extern "system" fn sq_packet_parser_from_bytes
     (ctx: Option<&mut Context>, b: *const uint8_t, len: size_t)
-     -> *mut PacketParser {
+     -> *mut PacketParserResult {
     let ctx = ctx.expect("Context is NULL");
     assert!(!b.is_null());
     let buf = unsafe {
         slice::from_raw_parts(b, len as usize)
     };
 
-    fry!(ctx, PacketParser::from_bytes(buf))
-        .map(|v| box_raw!(v))
-        .unwrap_or(ptr::null_mut())
+    fry_box!(ctx, PacketParser::from_bytes(buf))
 }
 
 /// Frees the packet parser.
@@ -1300,7 +1294,7 @@ pub extern "system" fn sq_packet_parser_next<'a>
      pp: *mut PacketParser<'a>,
      old_packet: Option<&mut *mut Packet>,
      old_recursion_level: Option<&mut isize>,
-     ppo: Option<&mut *mut PacketParser<'a>>,
+     ppr: Option<&mut *mut PacketParserResult<'a>>,
      new_recursion_level: Option<&mut isize>)
      -> Status {
     let ctx = ctx.expect("Context is NULL");
@@ -1310,15 +1304,15 @@ pub extern "system" fn sq_packet_parser_next<'a>
     };
 
     match pp.next() {
-        Ok(((old_p, old_rl), (pp, new_rl))) => {
+        Ok(((old_p, old_rl), (new_ppr, new_rl))) => {
             if let Some(p) = old_packet {
                 *p = box_raw!(old_p);
             }
             if let Some(p) = old_recursion_level {
                 *p = old_rl;
             }
-            if let Some(p) = ppo {
-                *p = maybe_box_raw!(pp);
+            if let Some(p) = ppr {
+                *p = box_raw!(new_ppr);
             }
             if let Some(p) = new_recursion_level {
                 *p = new_rl;
@@ -1355,7 +1349,7 @@ pub extern "system" fn sq_packet_parser_recurse<'a>
      pp: *mut PacketParser<'a>,
      old_packet: Option<&mut *mut Packet>,
      old_recursion_level: Option<&mut isize>,
-     ppo: Option<&mut *mut PacketParser<'a>>,
+     ppr: Option<&mut *mut PacketParserResult<'a>>,
      new_recursion_level: Option<&mut isize>)
      -> Status {
     let ctx = ctx.expect("Context is NULL");
@@ -1365,15 +1359,15 @@ pub extern "system" fn sq_packet_parser_recurse<'a>
     };
 
     match pp.recurse() {
-        Ok(((old_p, old_rl), (pp, new_rl))) => {
+        Ok(((old_p, old_rl), (new_ppr, new_rl))) => {
             if let Some(p) = old_packet {
                 *p = box_raw!(old_p);
             }
             if let Some(p) = old_recursion_level {
                 *p = old_rl;
             }
-            if let Some(p) = ppo {
-                *p = maybe_box_raw!(pp);
+            if let Some(p) = ppr {
+                *p = box_raw!(new_ppr);
             }
             if let Some(p) = new_recursion_level {
                 *p = new_rl;
