@@ -934,7 +934,12 @@ impl TPK {
 
     /// Returns the signature carrying the primary keys' flags.
     pub fn primary_key_signature(&self) -> Option<&Signature> {
-        self.userids.get(0).map(|uid| &uid.selfsigs[0])
+        self.userids.get(0).map(|uid| &uid.selfsigs[0]).or_else(|| {
+            use constants::SignatureType;
+
+            self.primary_selfsigs.iter()
+                .find(|sig| sig.sigtype == SignatureType::DirectKey)
+        })
     }
 
     /// Returns an iterator over the TPK's valid `UserIDBinding`s.
@@ -1482,6 +1487,10 @@ impl TPK {
     /// Serializes the TPK.
     pub fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
         self.primary.serialize(o, Tag::PublicKey)?;
+
+        for s in self.primary_selfsigs.iter() {
+            s.serialize(o)?;
+        }
 
         for u in self.userids.iter() {
             u.userid.serialize(o)?;
@@ -2178,5 +2187,21 @@ mod test {
         let tpk = tpk.merge(update).unwrap();
         assert!(! tpk.primary_key_signature().unwrap()
                 .key_expired(tpk.primary()));
+    }
+
+    #[test]
+    fn direct_key_sig() {
+        use constants::SignatureType;
+        // XXX: testing sequoia against itself isn't optimal, but I couldn't
+        // find a tool to generate direct key signatures :-(
+
+        let tpk1 = TPKBuilder::default().generate().unwrap();
+        let mut buf = Vec::default();
+
+        tpk1.serialize(&mut buf).unwrap();
+        let tpk2 = TPK::from_bytes(&buf).unwrap();
+
+        assert_eq!(tpk2.primary_key_signature().unwrap().sigtype, SignatureType::DirectKey);
+        assert_eq!(tpk2.userids().count(), 0);
     }
 }
