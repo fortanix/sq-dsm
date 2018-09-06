@@ -9,7 +9,7 @@ use Result;
 use packet::UserID;
 use SymmetricAlgorithm;
 use HashAlgorithm;
-use packet::SignatureBuilder;
+use packet::{Signature, SignatureBuilder};
 use TPK;
 use PublicKeyAlgorithm;
 use Error;
@@ -146,7 +146,7 @@ impl TPKBuilder {
         let (mut userids, selfsigs) = match maybe_first_uid {
             Some(uid) => {
                 // maybe to strict?
-                assert_eq!(sig.sigtype, SignatureType::PositiveCertificate);
+                assert_eq!(sig.sigtype(), SignatureType::PositiveCertificate);
 
                 let bind = UserIDBinding{
                     userid: uid,
@@ -157,7 +157,7 @@ impl TPKBuilder {
                 (vec![bind], vec![])
             }
             None => {
-                assert_eq!(sig.sigtype, SignatureType::DirectKey);
+                assert_eq!(sig.sigtype(), SignatureType::DirectKey);
                 (vec![], vec![sig])
             }
         };
@@ -198,15 +198,11 @@ impl TPKBuilder {
         use SecretKey;
 
         let key = Self::fresh_key(cs)?;
-<<<<<<< HEAD
-        let mut sig = SignatureBuilder::new(SignatureType::PositiveCertificate);
-=======
         let mut sig = if uid.is_some() {
-            Signature::new(SignatureType::PositiveCertificate)
+            SignatureBuilder::new(SignatureType::PositiveCertificate)
         } else {
-            Signature::new(SignatureType::DirectKey)
+            SignatureBuilder::new(SignatureType::DirectKey)
         };
->>>>>>> openpgp: TPKBuilder defaults to direct keys sigs
 
         sig.set_key_flags(&blueprint.flags)?;
         sig.set_signature_creation_time(time::now().canonicalize())?;
@@ -375,7 +371,7 @@ mod tests {
             .generate().unwrap();
 
         assert_eq!(tpk.userids().count(), 0);
-        assert_eq!(tpk.primary_key_signature().unwrap().sigtype, SignatureType::DirectKey);
+        assert_eq!(tpk.primary_key_signature().unwrap().sigtype(), SignatureType::DirectKey);
         assert_eq!(tpk.subkeys().len(), 3);
     }
 
@@ -419,7 +415,7 @@ mod tests {
             .primary_keyflags(KeyFlags::default())
             .add_encryption_subkey()
             .generate().unwrap();
-        let sig_pkts = &tpk1.primary_key_signature().unwrap().hashed_area;
+        let sig_pkts = &tpk1.primary_key_signature().unwrap().hashed_area();
 
         match sig_pkts.lookup(SubpacketTag::KeyFlags) {
             Some(Subpacket{ value: SubpacketValue::KeyFlags(ref ks),.. }) => {

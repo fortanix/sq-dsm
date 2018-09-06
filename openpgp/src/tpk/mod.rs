@@ -938,7 +938,7 @@ impl TPK {
             use constants::SignatureType;
 
             self.primary_selfsigs.iter()
-                .find(|sig| sig.sigtype == SignatureType::DirectKey)
+                .find(|sig| sig.sigtype() == SignatureType::DirectKey)
         })
     }
 
@@ -2201,7 +2201,7 @@ mod test {
         tpk1.serialize(&mut buf).unwrap();
         let tpk2 = TPK::from_bytes(&buf).unwrap();
 
-        assert_eq!(tpk2.primary_key_signature().unwrap().sigtype, SignatureType::DirectKey);
+        assert_eq!(tpk2.primary_key_signature().unwrap().sigtype(), SignatureType::DirectKey);
         assert_eq!(tpk2.userids().count(), 0);
     }
 }
