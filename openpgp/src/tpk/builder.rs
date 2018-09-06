@@ -15,6 +15,7 @@ use PublicKeyAlgorithm;
 use Error;
 use conversions::Time;
 use constants::SignatureType;
+use autocrypt::Autocrypt;
 
 /// Groups symmetric and asymmetric algorithms
 #[derive(Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Debug)]
@@ -56,8 +57,11 @@ impl Default for TPKBuilder {
 
 impl TPKBuilder {
     /// Generates a key compliant to
-    /// [Autocrypt Level 1](https://autocrypt.org/level1.html).
-    pub fn autocrypt() -> Self {
+    /// [Autocrypt](https://autocrypt.org/). If no version is given the latest
+    /// one is used.
+    pub fn autocrypt<V>(_: V)
+        -> Self where V: Into<Option<Autocrypt>>
+    {
         TPKBuilder{
             ciphersuite: CipherSuite::RSA3k,
             primary: KeyBlueprint{
@@ -400,7 +404,7 @@ mod tests {
 
     #[test]
     fn autocrypt() {
-        let tpk1 = TPKBuilder::autocrypt()
+        let tpk1 = TPKBuilder::autocrypt(None)
             .generate().unwrap();
         assert_eq!(tpk1.primary().pk_algo, PublicKeyAlgorithm::RSAEncryptSign);
         assert_eq!(tpk1.subkeys().next().unwrap().subkey().pk_algo, PublicKeyAlgorithm::RSAEncryptSign);

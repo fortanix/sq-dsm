@@ -841,7 +841,8 @@ pub extern "system" fn sq_tpk_builder_default() -> *mut TPKBuilder {
 ///   [Autocrypt Level 1]: https://autocrypt.org/level1.html
 #[no_mangle]
 pub extern "system" fn sq_tpk_builder_autocrypt() -> *mut TPKBuilder {
-    box_raw!(TPKBuilder::autocrypt())
+    use self::openpgp::autocrypt::Autocrypt;
+    box_raw!(TPKBuilder::autocrypt(Autocrypt::V1))
 }
 
 /// Frees an `sq_tpk_builder_t`.

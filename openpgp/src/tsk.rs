@@ -33,7 +33,7 @@ impl TSK {
     pub fn new<'a, O: Into<Option<Cow<'a,str>>>>(primary_uid: O) -> Result<TSK> {
         use tpk::TPKBuilder;
 
-        let mut key = TPKBuilder::autocrypt();
+        let mut key = TPKBuilder::autocrypt(None);
 
         match primary_uid.into() {
             Some(uid) => { key = key.add_userid(&uid); }

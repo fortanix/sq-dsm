@@ -35,6 +35,17 @@ use serialize::stream::{
 };
 use constants::DataFormat;
 
+/// Version of Autocrypt to use. `Autocrypt::default()` always returns the
+/// latest version.
+pub enum Autocrypt {
+    /// Autocrypt <= 1.0.1
+    V1,
+}
+
+impl Default for Autocrypt {
+    fn default() -> Self { Autocrypt::V1 }
+}
+
 /// An autocrypt header attribute.
 #[derive(Debug, PartialEq)]
 pub struct Attribute {

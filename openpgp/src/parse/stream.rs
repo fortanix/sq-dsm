@@ -519,7 +519,7 @@ mod test {
         use serialize::stream::{LiteralWriter, Signer, wrap};
         use std::io::Write;
 
-        let tpk = TPKBuilder::autocrypt().generate().unwrap();
+        let tpk = TPKBuilder::autocrypt(None).generate().unwrap();
 
         // sign 30MiB message
         let mut buf = vec![];
