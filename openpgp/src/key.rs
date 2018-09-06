@@ -52,19 +52,6 @@ impl fmt::Display for Key {
     }
 }
 
-impl Default for Key {
-    fn default() -> Self {
-        Key {
-            common: Default::default(),
-            version: 4,
-            creation_time: time::now().canonicalize(),
-            pk_algo: PublicKeyAlgorithm::Unknown(0),
-            mpis: None,
-            secret: None,
-        }
-    }
-}
-
 impl Key {
     /// Returns a new `Key` packet.  This can be used to hold either a
     /// public key, a public subkey, a private key, or a private subkey.

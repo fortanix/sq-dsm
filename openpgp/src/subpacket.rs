@@ -2609,7 +2609,7 @@ fn accessors() {
     sig.set_revocable(false).unwrap();
     assert_eq!(sig.revocable(), Some(false));
 
-    let mut key = ::packet::Key::default();
+    let mut key = ::packet::Key::new(PublicKeyAlgorithm::ECDH).unwrap();
     key.set_creation_time(now);
     sig.set_key_expiration_time(Some(five_minutes)).unwrap();
     assert_eq!(sig.key_expiration_time(), Some(five_minutes));
