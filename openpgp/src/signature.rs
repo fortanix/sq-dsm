@@ -31,19 +31,12 @@ fn path_to(artifact: &str) -> PathBuf {
         .iter().collect()
 }
 
-/// Holds a signature packet.
+/// Builds a signature packet.
 ///
-/// Signature packets are used both for certification purposes as well
-/// as for document signing purposes.
-///
-/// See [Section 5.2 of RFC 4880] for details.
-///
-///   [Section 5.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2
-// Note: we can't derive PartialEq, because it includes the cached data.
-#[derive(Eq, Hash, Clone)]
-pub struct Signature {
-    /// CTB packet header fields.
-    pub(crate) common: packet::Common,
+/// This is the mutable version of a `Signature` packet.  To convert
+/// it to one, use `sign_hash(..)`.
+#[derive(Clone, Hash, PartialEq, Eq)]
+pub struct SignatureBuilder {
     /// Version of the signature packet. Must be 4.
     pub(crate) version: u8,
     /// Type of signature.
@@ -56,92 +49,19 @@ pub struct Signature {
     pub(crate) hashed_area: SubpacketArea,
     /// Subpackets _not_ that are part of the signature.
     pub(crate) unhashed_area: SubpacketArea,
-    /// Lower 16 bits of the signed hash value.
-    pub(crate) hash_prefix: [u8; 2],
-    /// Signature MPIs. Must be a *Signature variant.
-    pub(crate) mpis: Option<mpis::Signature>,
-
-    /// When used in conjunction with a one-pass signature, this is the
-    /// hash computed over the enclosed message.
-    pub(crate) computed_hash: Option<(HashAlgorithm, Vec<u8>)>,
 }
 
-impl fmt::Debug for Signature {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        // Get the issuer.  Prefer the issuer fingerprint to the
-        // issuer keyid, which may be stored in the unhashed area.
-        let issuer = if let Some(tmp) = self.issuer_fingerprint() {
-            tmp.to_string()
-        } else if let Some(tmp) = self.issuer() {
-            tmp.to_string()
-        } else {
-            "Unknown".to_string()
-        };
-
-        f.debug_struct("Signature")
-            .field("version", &self.version)
-            .field("sigtype", &self.sigtype)
-            .field("issuer", &issuer)
-            .field("pk_algo", &self.pk_algo)
-            .field("hash_algo", &self.hash_algo)
-            .field("hashed_area", &self.hashed_area)
-            .field("unhashed_area", &self.unhashed_area)
-            .field("hash_prefix",
-                   &::conversions::to_hex(&self.hash_prefix, false))
-            .field("computed_hash",
-                   &if let Some((algo, ref hash)) = self.computed_hash {
-                       Some((algo, ::conversions::to_hex(&hash[..], false)))
-                   } else {
-                       None
-                   })
-            .field("mpis", &self.mpis)
-            .finish()
-    }
-}
-
-impl PartialEq for Signature {
-    fn eq(&self, other: &Signature) -> bool {
-        // Comparing the relevant fields is error prone in case we add
-        // a field at some point.  Instead, we compare the serialized
-        // versions.  As a small optimization, we compare the MPIs.
-        // Note: two `Signatures` could be different even if they have
-        // the same MPI if the MPI was not invalidated when changing a
-        // field.
-        if self.mpis != other.mpis {
-            return false;
-        }
-
-        // Do a full check by serializing the fields.
-        return self.to_vec() == other.to_vec();
-    }
-}
-
-impl Signature {
-    /// Returns a new `Signature` packet.
+impl SignatureBuilder {
+    /// Returns a new `SignatureBuilder` object.
     pub fn new(sigtype: SignatureType) ->  Self {
-        Signature {
-            common: Default::default(),
+        SignatureBuilder {
             version: 4,
             sigtype: sigtype,
             pk_algo: PublicKeyAlgorithm::Unknown(0),
             hash_algo: HashAlgorithm::Unknown(0),
             hashed_area: SubpacketArea::empty(),
             unhashed_area: SubpacketArea::empty(),
-            hash_prefix: [0, 0],
-            mpis: None,
-
-            computed_hash: Default::default(),
         }
-    }
-
-    /// Gets the version.
-    pub fn version(&self) -> u8 {
-        self.version
-    }
-
-    /// Gets the signature type.
-    pub fn sigtype(&self) -> SignatureType {
-        self.sigtype
     }
 
     /// Sets the signature type.
@@ -149,41 +69,9 @@ impl Signature {
         self.sigtype = t;
     }
 
-    /// Gets the public key algorithm.
-    pub fn pk_algo(&self) -> PublicKeyAlgorithm {
-        self.pk_algo
-    }
-
-    /// Sets the public key algorithm.
-    pub fn set_pk_algo(&mut self, algo: PublicKeyAlgorithm) {
-        // XXX: Do we invalidate the signature data?
-        self.pk_algo = algo;
-    }
-
-    /// Gets the hash algorithm.
-    pub fn hash_algo(&self) -> HashAlgorithm {
-        self.hash_algo
-    }
-
-    /// Sets the hash algorithm.
-    pub fn set_hash_algo(&mut self, algo: HashAlgorithm) {
-        // XXX: Do we invalidate the signature data?
-        self.hash_algo = algo;
-    }
-
-    /// Gets a reference to the hashed area.
-    pub fn hashed_area(&self) -> &SubpacketArea {
-        &self.hashed_area
-    }
-
     /// Gets a mutable reference to the hashed area.
     pub fn hashed_area_mut(&mut self) -> &mut SubpacketArea {
         &mut self.hashed_area
-    }
-
-    /// Gets a reference to the unhashed area.
-    pub fn unhashed_area(&self) -> &SubpacketArea {
-        &self.unhashed_area
     }
 
     /// Gets a mutable reference to the unhashed area.
@@ -191,55 +79,14 @@ impl Signature {
         &mut self.unhashed_area
     }
 
-    /// Gets the hash prefix.
-    pub fn hash_prefix(&self) -> &[u8; 2] {
-        &self.hash_prefix
-    }
-
-    /// Sets the hash prefix.
-    pub fn set_hash_prefix(&mut self, prefix: [u8; 2]) {
-        self.hash_prefix = prefix;
-    }
-
-    /// Gets the signature packet's MPIs.
-    pub fn mpis(&self) -> Option<&mpis::Signature> {
-        self.mpis.as_ref()
-    }
-
-    /// Sets the signature packet's MPIs.
-    pub fn set_mpis(&mut self, mpis: mpis::Signature) {
-        self.mpis = Some(mpis);
-    }
-
-    /// Gets the computed hash value.
-    pub fn computed_hash(&self) -> Option<&(HashAlgorithm, Vec<u8>)> {
-        self.computed_hash.as_ref()
-    }
-
-    /// Sets the computed hash value.
-    pub fn set_computed_hash(&mut self, hash: Option<(HashAlgorithm, Vec<u8>)>)
-    {
-        self.computed_hash = hash;
-    }
-
-    /// Gets the issuer.
-    ///
-    /// Prefers the issuer fingerprint to the issuer keyid, which may
-    /// be stored in the unhashed area.
-    pub fn get_issuer(&self) -> Option<KeyID> {
-        if let Some(fp) = self.issuer_fingerprint() {
-            Some(fp.to_keyid())
-        } else if let Some(id) = self.issuer() {
-            Some(id)
-        } else {
-            None
-        }
-    }
-
     /// Signs `hash` using `signer`.
-    pub fn sign_hash(&mut self, signer: &Key, signer_sec: &mpis::SecretKey,
+    ///
+    /// The Signature's public-key algorithm field is set to the
+    /// algorithm used by `signer`, the hash-algorithm field is set to
+    /// `hash_algo`.
+    pub fn sign_hash(mut self, signer: &Key, signer_sec: &mpis::SecretKey,
                      hash_algo: HashAlgorithm, mut hash: Box<Hash>)
-                     -> Result<()> {
+                     -> Result<Signature> {
         use PublicKeyAlgorithm::*;
         use mpis::PublicKey;
 
@@ -253,8 +100,6 @@ impl Signature {
         // Compute the digest.
         let mut digest = vec![0u8; hash.digest_size()];
         hash.digest(&mut digest);
-        self.hash_prefix[0] = digest[0];
-        self.hash_prefix[1] = digest[1];
 
         #[allow(deprecated)]
         let mpis = match (signer.pk_algo(), signer.mpis(), signer_sec) {
@@ -349,9 +194,179 @@ impl Signature {
                  and secret key {:?}",
                 self.pk_algo, signer, signer_sec)).into()),
         };
-        self.mpis = Some(mpis);
 
-        Ok(())
+        Ok(Signature {
+            common: Default::default(),
+            fields: self,
+            hash_prefix: [digest[0], digest[1]],
+            mpis: Some(mpis),
+            computed_hash: None,
+        })
+    }
+}
+
+impl From<Signature> for SignatureBuilder {
+    fn from(sig: Signature) -> Self {
+        sig.fields
+    }
+}
+
+/// Holds a signature packet.
+///
+/// Signature packets are used both for certification purposes as well
+/// as for document signing purposes.
+///
+/// See [Section 5.2 of RFC 4880] for details.
+///
+///   [Section 5.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2
+// Note: we can't derive PartialEq, because it includes the cached data.
+#[derive(Eq, Hash, Clone)]
+pub struct Signature {
+    /// CTB packet header fields.
+    pub(crate) common: packet::Common,
+
+    /// Fields as configured using the builder.
+    pub(crate) fields: SignatureBuilder,
+
+    /// Lower 16 bits of the signed hash value.
+    pub(crate) hash_prefix: [u8; 2],
+    /// Signature MPIs. Must be a *Signature variant.
+    pub(crate) mpis: Option<mpis::Signature>,
+
+    /// When used in conjunction with a one-pass signature, this is the
+    /// hash computed over the enclosed message.
+    pub(crate) computed_hash: Option<(HashAlgorithm, Vec<u8>)>,
+}
+
+impl fmt::Debug for Signature {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        // Get the issuer.  Prefer the issuer fingerprint to the
+        // issuer keyid, which may be stored in the unhashed area.
+        let issuer = if let Some(tmp) = self.issuer_fingerprint() {
+            tmp.to_string()
+        } else if let Some(tmp) = self.issuer() {
+            tmp.to_string()
+        } else {
+            "Unknown".to_string()
+        };
+
+        f.debug_struct("Signature")
+            .field("version", &self.version())
+            .field("sigtype", &self.sigtype())
+            .field("issuer", &issuer)
+            .field("pk_algo", &self.pk_algo())
+            .field("hash_algo", &self.hash_algo())
+            .field("hashed_area", self.hashed_area())
+            .field("unhashed_area", self.unhashed_area())
+            .field("hash_prefix",
+                   &::conversions::to_hex(&self.hash_prefix, false))
+            .field("computed_hash",
+                   &if let Some((algo, ref hash)) = self.computed_hash {
+                       Some((algo, ::conversions::to_hex(&hash[..], false)))
+                   } else {
+                       None
+                   })
+            .field("mpis", &self.mpis)
+            .finish()
+    }
+}
+
+impl PartialEq for Signature {
+    fn eq(&self, other: &Signature) -> bool {
+        // Comparing the relevant fields is error prone in case we add
+        // a field at some point.  Instead, we compare the serialized
+        // versions.  As a small optimization, we compare the MPIs.
+        // Note: two `Signatures` could be different even if they have
+        // the same MPI if the MPI was not invalidated when changing a
+        // field.
+        if self.mpis != other.mpis {
+            return false;
+        }
+
+        // Do a full check by serializing the fields.
+        return self.to_vec() == other.to_vec();
+    }
+}
+
+impl Signature {
+    /// Gets the version.
+    pub fn version(&self) -> u8 {
+        self.fields.version
+    }
+
+    /// Gets the signature type.
+    pub fn sigtype(&self) -> SignatureType {
+        self.fields.sigtype
+    }
+
+    /// Gets the public key algorithm.
+    pub fn pk_algo(&self) -> PublicKeyAlgorithm {
+        self.fields.pk_algo
+    }
+
+    /// Gets the hash algorithm.
+    pub fn hash_algo(&self) -> HashAlgorithm {
+        self.fields.hash_algo
+    }
+
+    /// Gets a reference to the hashed area.
+    pub fn hashed_area(&self) -> &SubpacketArea {
+        &self.fields.hashed_area
+    }
+
+    /// Gets a reference to the unhashed area.
+    pub fn unhashed_area(&self) -> &SubpacketArea {
+        &self.fields.unhashed_area
+    }
+
+    /// Gets a mutable reference to the unhashed area.
+    pub fn unhashed_area_mut(&mut self) -> &mut SubpacketArea {
+        &mut self.fields.unhashed_area
+    }
+
+    /// Gets the hash prefix.
+    pub fn hash_prefix(&self) -> &[u8; 2] {
+        &self.hash_prefix
+    }
+
+    /// Sets the hash prefix.
+    pub fn set_hash_prefix(&mut self, prefix: [u8; 2]) {
+        self.hash_prefix = prefix;
+    }
+
+    /// Gets the signature packet's MPIs.
+    pub fn mpis(&self) -> Option<&mpis::Signature> {
+        self.mpis.as_ref()
+    }
+
+    /// Sets the signature packet's MPIs.
+    pub fn set_mpis(&mut self, mpis: mpis::Signature) {
+        self.mpis = Some(mpis);
+    }
+
+    /// Gets the computed hash value.
+    pub fn computed_hash(&self) -> Option<&(HashAlgorithm, Vec<u8>)> {
+        self.computed_hash.as_ref()
+    }
+
+    /// Sets the computed hash value.
+    pub fn set_computed_hash(&mut self, hash: Option<(HashAlgorithm, Vec<u8>)>)
+    {
+        self.computed_hash = hash;
+    }
+
+    /// Gets the issuer.
+    ///
+    /// Prefers the issuer fingerprint to the issuer keyid, which may
+    /// be stored in the unhashed area.
+    pub fn get_issuer(&self) -> Option<KeyID> {
+        if let Some(fp) = self.issuer_fingerprint() {
+            Some(fp.to_keyid())
+        } else if let Some(id) = self.issuer() {
+            Some(id)
+        } else {
+            None
+        }
     }
 
     /// Verifies the signature against `hash`.
@@ -764,11 +779,11 @@ mod test {
             let pair = tpk.primary();
 
             if let Some(SecretKey::Unencrypted{ mpis: ref sec }) = pair.secret {
-                let mut sig = Signature::new(SignatureType::Binary);
+                let mut sig = SignatureBuilder::new(SignatureType::Binary);
                 let mut hash = hash_algo.context().unwrap();
 
                 // Make signature.
-                sig.sign_hash(&pair, sec, hash_algo, hash).unwrap();
+                let sig = sig.sign_hash(&pair, sec, hash_algo, hash).unwrap();
 
                 // Good signature.
                 let mut hash = hash_algo.context().unwrap();

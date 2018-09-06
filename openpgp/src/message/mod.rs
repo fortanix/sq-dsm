@@ -404,7 +404,6 @@ mod tests {
     use packet::CompressedData;
     use packet::Literal;
     use packet::OnePassSig;
-    use packet::Signature;
     use packet::SKESK;
     use packet::PKESK;
     use packet::SEIP;
@@ -725,6 +724,17 @@ mod tests {
         let mut lit = Literal::new(Text);
         lit.set_body(b"data".to_vec());
 
+        let hash = ::constants::HashAlgorithm::SHA512;
+        let key = ::packet::Key::new(PublicKeyAlgorithm::EdDSA).unwrap();
+        let sec =
+            if let Some(::SecretKey::Unencrypted { ref mpis }) = key.secret() {
+                mpis.clone()
+            } else {
+                panic!()
+            };
+        let sig = ::packet::SignatureBuilder::new(SignatureType::Binary)
+            .sign_hash(&key, &sec, hash, hash.context().unwrap()).unwrap();
+
         // 0: OnePassSig
         // => bad.
         let mut packets : Vec<Packet> = Vec::new();
@@ -750,7 +760,7 @@ mod tests {
         let mut packets : Vec<Packet> = Vec::new();
         packets.push(OnePassSig::new(SignatureType::Binary).to_packet());
         packets.push(lit.clone().to_packet());
-        packets.push(Signature::new(SignatureType::Binary).to_packet());
+        packets.push(sig.clone().to_packet());
 
         let message = Message::from_packets(packets);
         assert!(message.is_ok(), "{:?}", message);
@@ -763,8 +773,8 @@ mod tests {
         let mut packets : Vec<Packet> = Vec::new();
         packets.push(OnePassSig::new(SignatureType::Binary).to_packet());
         packets.push(lit.clone().to_packet());
-        packets.push(Signature::new(SignatureType::Binary).to_packet());
-        packets.push(Signature::new(SignatureType::Binary).to_packet());
+        packets.push(sig.clone().to_packet());
+        packets.push(sig.clone().to_packet());
 
         let message = Message::from_packets(packets);
         assert!(message.is_err(), "{:?}", message);
@@ -779,8 +789,8 @@ mod tests {
         packets.push(OnePassSig::new(SignatureType::Binary).to_packet());
         packets.push(OnePassSig::new(SignatureType::Binary).to_packet());
         packets.push(lit.clone().to_packet());
-        packets.push(Signature::new(SignatureType::Binary).to_packet());
-        packets.push(Signature::new(SignatureType::Binary).to_packet());
+        packets.push(sig.clone().to_packet());
+        packets.push(sig.clone().to_packet());
 
         let message = Message::from_packets(packets);
         assert!(message.is_ok(), "{:?}", message);
@@ -797,8 +807,8 @@ mod tests {
         packets.push(OnePassSig::new(SignatureType::Binary).to_packet());
         packets.push(lit.clone().to_packet());
         packets.push(lit.clone().to_packet());
-        packets.push(Signature::new(SignatureType::Binary).to_packet());
-        packets.push(Signature::new(SignatureType::Binary).to_packet());
+        packets.push(sig.clone().to_packet());
+        packets.push(sig.clone().to_packet());
 
         let message = Message::from_packets(packets);
         assert!(message.is_err(), "{:?}", message);
@@ -817,8 +827,8 @@ mod tests {
             CompressedData::new(CompressionAlgorithm::Uncompressed)
                 .push(lit.clone().to_packet())
                 .to_packet());
-        packets.push(Signature::new(SignatureType::Binary).to_packet());
-        packets.push(Signature::new(SignatureType::Binary).to_packet());
+        packets.push(sig.clone().to_packet());
+        packets.push(sig.clone().to_packet());
 
         let message = Message::from_packets(packets);
         assert!(message.is_ok(), "{:?}", message);
@@ -829,10 +839,21 @@ mod tests {
         let mut lit = Literal::new(Text);
         lit.set_body(b"data".to_vec());
 
+        let hash = ::constants::HashAlgorithm::SHA512;
+        let key = ::packet::Key::new(PublicKeyAlgorithm::EdDSA).unwrap();
+        let sec =
+            if let Some(::SecretKey::Unencrypted { ref mpis }) = key.secret() {
+                mpis.clone()
+            } else {
+                panic!()
+            };
+        let sig = ::packet::SignatureBuilder::new(SignatureType::Binary)
+            .sign_hash(&key, &sec, hash, hash.context().unwrap()).unwrap();
+
         // 0: Signature
         // => bad.
         let mut packets : Vec<Packet> = Vec::new();
-        packets.push(Signature::new(SignatureType::Binary).to_packet());
+        packets.push(sig.clone().to_packet());
 
         let message = Message::from_packets(packets);
         assert!(message.is_err(), "{:?}", message);
@@ -841,7 +862,7 @@ mod tests {
         // 1: Literal
         // => good.
         let mut packets : Vec<Packet> = Vec::new();
-        packets.push(Signature::new(SignatureType::Binary).to_packet());
+        packets.push(sig.clone().to_packet());
         packets.push(lit.clone().to_packet());
 
         let message = Message::from_packets(packets);
@@ -852,8 +873,8 @@ mod tests {
         // 2: Literal
         // => good.
         let mut packets : Vec<Packet> = Vec::new();
-        packets.push(Signature::new(SignatureType::Binary).to_packet());
-        packets.push(Signature::new(SignatureType::Binary).to_packet());
+        packets.push(sig.clone().to_packet());
+        packets.push(sig.clone().to_packet());
         packets.push(lit.clone().to_packet());
 
         let message = Message::from_packets(packets);

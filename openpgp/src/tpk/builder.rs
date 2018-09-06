@@ -9,7 +9,7 @@ use Result;
 use packet::UserID;
 use SymmetricAlgorithm;
 use HashAlgorithm;
-use packet::Signature;
+use packet::SignatureBuilder;
 use TPK;
 use PublicKeyAlgorithm;
 use Error;
@@ -170,7 +170,7 @@ impl TPKBuilder {
         use SecretKey;
 
         let key = Self::fresh_key(cs)?;
-        let mut sig = Signature::new(SignatureType::PositiveCertificate);
+        let mut sig = SignatureBuilder::new(SignatureType::PositiveCertificate);
 
         sig.set_key_flags(&blueprint.flags)?;
         sig.set_signature_creation_time(time::now().canonicalize())?;
@@ -184,9 +184,9 @@ impl TPKBuilder {
         key.hash(&mut hash);
         uid.hash(&mut hash);
 
-        match key.secret {
+        let sig = match key.secret {
             Some(SecretKey::Unencrypted{ ref mpis }) => {
-                sig.sign_hash(&key, mpis, HashAlgorithm::SHA512, hash)?;
+                sig.sign_hash(&key, mpis, HashAlgorithm::SHA512, hash)?
             }
             Some(SecretKey::Encrypted{ .. }) => {
                 return Err(Error::InvalidOperation("Secret key is encrypted".into()).into());
@@ -194,7 +194,7 @@ impl TPKBuilder {
             None => {
                 return Err(Error::InvalidOperation("No secret key".into()).into());
             }
-        }
+        };
 
         let bind = UserIDBinding{
             userid: uid,
@@ -210,7 +210,7 @@ impl TPKBuilder {
         use SecretKey;
 
         let subkey = Self::fresh_key(cs)?;
-        let mut sig = Signature::new(SignatureType::SubkeyBinding);
+        let mut sig = SignatureBuilder::new(SignatureType::SubkeyBinding);
 
         sig.set_key_flags(&blueprint.flags)?;
         sig.set_signature_creation_time(time::now().canonicalize())?;
@@ -233,9 +233,9 @@ impl TPKBuilder {
         primary_key.hash(&mut hash);
         subkey.hash(&mut hash);
 
-        match primary_key.secret {
+        let sig = match primary_key.secret {
             Some(SecretKey::Unencrypted{ ref mpis }) => {
-                sig.sign_hash(primary_key, mpis, HashAlgorithm::SHA512, hash)?;
+                sig.sign_hash(primary_key, mpis, HashAlgorithm::SHA512, hash)?
             }
             Some(SecretKey::Encrypted{ .. }) => {
                 return Err(Error::InvalidOperation("Secret key is encrypted".into()).into());
@@ -243,7 +243,7 @@ impl TPKBuilder {
             None => {
                 return Err(Error::InvalidOperation("No secret key".into()).into());
             }
-        }
+        };
 
         Ok(SubkeyBinding{
             subkey: subkey,
@@ -256,7 +256,7 @@ impl TPKBuilder {
         use SignatureType;
         use SecretKey;
 
-        let mut sig = Signature::new(SignatureType::PositiveCertificate);
+        let mut sig = SignatureBuilder::new(SignatureType::PositiveCertificate);
 
         sig.set_signature_creation_time(time::now().canonicalize())?;
         sig.set_issuer_fingerprint(key.fingerprint())?;
@@ -267,9 +267,9 @@ impl TPKBuilder {
         key.hash(&mut hash);
         uid.hash(&mut hash);
 
-        match key.secret {
+        let sig = match key.secret {
             Some(SecretKey::Unencrypted{ ref mpis }) => {
-                sig.sign_hash(key, mpis, HashAlgorithm::SHA512, hash)?;
+                sig.sign_hash(key, mpis, HashAlgorithm::SHA512, hash)?
             }
             Some(SecretKey::Encrypted{ .. }) => {
                 return Err(Error::InvalidOperation("Secret key is encrypted".into()).into());
@@ -277,7 +277,7 @@ impl TPKBuilder {
             None => {
                 return Err(Error::InvalidOperation("No secret key".into()).into());
             }
-        }
+        };
 
         let bind = UserIDBinding{
             userid: uid,

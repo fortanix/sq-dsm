@@ -19,7 +19,7 @@ use buffered_reader::BufferedReader;
 pub use tag::Tag;
 
 pub use unknown::Unknown;
-pub use signature::Signature;
+pub use signature::{Signature, SignatureBuilder};
 pub use one_pass_sig::OnePassSig;
 pub use key::Key;
 pub use userid::UserID;

@@ -18,7 +18,7 @@ use {
     Result,
     SecretKey,
     packet::SKESK,
-    packet::Signature,
+    packet::{Signature, SignatureBuilder},
     Tag,
     TPK,
 };
@@ -347,7 +347,7 @@ impl<'a> Signer<'a> {
                 let mut hash = self.hash.clone();
 
                 // Make and hash a signature packet.
-                let mut sig = Signature::new(SignatureType::Binary);
+                let mut sig = SignatureBuilder::new(SignatureType::Binary);
                 sig.set_signature_creation_time(time::now().canonicalize())?;
                 sig.set_issuer_fingerprint(key.fingerprint())?;
                 // GnuPG up to (and including) 2.2.8 requires the
@@ -359,13 +359,13 @@ impl<'a> Signer<'a> {
                 }
 
                 // Compute the signature.
-                if let &SecretKey::Unencrypted { mpis: ref sec } =
+                let sig = if let &SecretKey::Unencrypted { mpis: ref sec } =
                     key.secret.as_ref().expect("validated in constructor")
                 {
-                    sig.sign_hash(&key, sec, HashAlgorithm::SHA512, hash)?;
+                    sig.sign_hash(&key, sec, HashAlgorithm::SHA512, hash)?
                 } else {
                     panic!("validated in constructor");
-                }
+                };
 
                 // And emit the packet.
                 sig.serialize(sink)?;

@@ -15,7 +15,7 @@ use {
     Error,
     Result,
     Tag,
-    packet::Signature,
+    packet::{Signature, SignatureBuilder},
     packet::Key,
     packet::UserID,
     packet::UserAttribute,
@@ -319,7 +319,7 @@ impl SubkeyBinding {
         use SignatureType;
         use SecretKey;
 
-        let mut sig = Signature::new(SignatureType::SubkeyBinding);
+        let mut sig = SignatureBuilder::new(SignatureType::SubkeyBinding);
 
         sig.set_key_flags(&KeyFlags::default().set_encrypt_for_transport(true))?;
         sig.set_signature_creation_time(time::now().canonicalize())?;
@@ -332,9 +332,9 @@ impl SubkeyBinding {
         primary_key.hash(&mut hash);
         subkey.hash(&mut hash);
 
-        match primary_key.secret {
+        let sig = match primary_key.secret {
             Some(SecretKey::Unencrypted{ ref mpis }) => {
-                sig.sign_hash(primary_key, mpis, HashAlgorithm::SHA512, hash)?;
+                sig.sign_hash(primary_key, mpis, HashAlgorithm::SHA512, hash)?
             }
             Some(SecretKey::Encrypted{ .. }) => {
                 return Err(Error::InvalidOperation("Secret key is encrypted".into()).into());
@@ -342,7 +342,7 @@ impl SubkeyBinding {
             None => {
                 return Err(Error::InvalidOperation("No secret key".into()).into());
             }
-        }
+        };
 
         Ok(SubkeyBinding{
             subkey: subkey,
@@ -398,7 +398,7 @@ impl UserIDBinding {
         use SignatureType;
         use SecretKey;
 
-        let mut sig = Signature::new(SignatureType::PositiveCertificate);
+        let mut sig = SignatureBuilder::new(SignatureType::PositiveCertificate);
 
         sig.set_key_flags(&KeyFlags::default().set_certify(true).set_sign(true))?;
         sig.set_signature_creation_time(time::now().canonicalize())?;
@@ -412,9 +412,9 @@ impl UserIDBinding {
         key.hash(&mut hash);
         uid.hash(&mut hash);
 
-        match signer.secret {
+        let sig = match signer.secret {
             Some(SecretKey::Unencrypted{ ref mpis }) => {
-                sig.sign_hash(signer, mpis, HashAlgorithm::SHA512, hash)?;
+                sig.sign_hash(signer, mpis, HashAlgorithm::SHA512, hash)?
             }
             Some(SecretKey::Encrypted{ .. }) => {
                 return Err(Error::InvalidOperation("Secret key is encrypted".into()).into());
@@ -422,7 +422,7 @@ impl UserIDBinding {
             None => {
                 return Err(Error::InvalidOperation("No secret key".into()).into());
             }
-        }
+        };
 
         Ok(UserIDBinding{
             userid: uid,
