@@ -82,12 +82,9 @@ impl TPKBuilder {
         self
     }
 
-    /// Adds a new user ID. The first user ID added replaces the default ID that
-    /// is just the empty string.
-    pub fn add_userid<'a, U>(mut self, uid: U)
-        -> Self where U: Into<Option<&'a str>>
-    {
-        self.userids.push(uid.into().unwrap_or("").to_string());
+    /// Adds a new user ID. The first user ID added will be the primary user ID.
+    pub fn add_userid(mut self, uid: &str) -> Self {
+        self.userids.push(uid.to_string());
         self
     }
 

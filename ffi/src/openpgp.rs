@@ -885,7 +885,7 @@ pub extern "system" fn sq_tpk_builder_add_userid
     assert!(!tpkb.is_null());
     let tpkb_ = unsafe { Box::from_raw(*tpkb) };
     let uid = unsafe { CStr::from_ptr(uid).to_string_lossy().to_string() };
-    let tpkb_ = tpkb_.add_userid(Some(uid.as_ref()));
+    let tpkb_ = tpkb_.add_userid(uid.as_ref());
     *tpkb = box_raw!(tpkb_);
 }
 
@@ -952,7 +952,7 @@ pub extern "system" fn sq_tsk_new(ctx: Option<&mut Context>,
     let primary_uid = unsafe {
         CStr::from_ptr(primary_uid)
     };
-    fry_box!(ctx, TSK::new(&primary_uid.to_string_lossy()))
+    fry_box!(ctx, TSK::new(primary_uid.to_string_lossy()))
 }
 
 /// Frees the TSK.
