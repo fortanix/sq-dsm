@@ -74,7 +74,9 @@ fn real_main() -> Result<(), failure::Error> {
             exit(1);
         },
     };
-    let ctx = Context::configure(matches.value_of("domain").unwrap_or("org.sequoia-pgp.sq"))
+    let domain_name =
+        matches.value_of("domain").unwrap_or("org.sequoia-pgp.sq");
+    let ctx = Context::configure(domain_name)
         .network_policy(policy).build()?;
     let store_name = matches.value_of("store").unwrap_or("default");
 
@@ -258,6 +260,8 @@ fn real_main() -> Result<(), failure::Error> {
 
             match m.subcommand() {
                 ("list",  Some(_)) => {
+                    println!("Domain: {:?}, store: {:?}:",
+                             domain_name, store_name);
                     list_bindings(&store)?;
                 },
                 ("add",  Some(m)) => {
@@ -340,7 +344,7 @@ fn real_main() -> Result<(), failure::Error> {
                 ("bindings",  Some(m)) => {
                     for (domain, name, _, store)
                         in Store::list(&ctx, m.value_of("prefix").unwrap_or(""))? {
-                            println!("Domain {:?} Name {:?}:", domain, name);
+                            println!("Domain: {:?}, store: {:?}:", domain, name);
                             list_bindings(&store)?;
                         }
                 },
