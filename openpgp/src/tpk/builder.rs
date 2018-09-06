@@ -14,6 +14,7 @@ use TPK;
 use PublicKeyAlgorithm;
 use Error;
 use conversions::Time;
+use constants::SignatureType;
 
 /// Groups symmetric and asymmetric algorithms
 #[derive(Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Debug)]
@@ -48,13 +49,14 @@ impl Default for TPKBuilder {
                 flags: KeyFlags::default().set_certify(true),
             },
             subkeys: vec![],
-            userids: vec!["".into()],
+            userids: vec![],
         }
     }
 }
 
 impl TPKBuilder {
-    /// Generates a key compliant to [Autocrypt Level 1](https://autocrypt.org/level1.html).
+    /// Generates a key compliant to
+    /// [Autocrypt Level 1](https://autocrypt.org/level1.html).
     pub fn autocrypt() -> Self {
         TPKBuilder{
             ciphersuite: CipherSuite::RSA3k,
@@ -80,14 +82,12 @@ impl TPKBuilder {
         self
     }
 
-    /// Adds a new user ID. The first user ID added replaces the default ID that is just the empty
-    /// string.
-    pub fn add_userid<'a, U>(mut self, uid: U) -> Self where U: Into<Option<&'a str>> {
-        if self.userids.len() == 1 && self.userids[0].len() == 0 {
-            self.userids[0] = uid.into().unwrap_or("").to_string();
-        } else {
-            self.userids.push(uid.into().unwrap_or("").to_string());
-        }
+    /// Adds a new user ID. The first user ID added replaces the default ID that
+    /// is just the empty string.
+    pub fn add_userid<'a, U>(mut self, uid: U)
+        -> Self where U: Into<Option<&'a str>>
+    {
+        self.userids.push(uid.into().unwrap_or("").to_string());
         self
     }
 
@@ -116,8 +116,8 @@ impl TPKBuilder {
         self
     }
 
-    /// Sets the capabilities of the primary key. The function automatically makes the primary key
-    /// certification capable if subkeys are added.
+    /// Sets the capabilities of the primary key. The function automatically
+    /// makes the primary key certification capable if subkeys are added.
     pub fn primary_keyflags(mut self, flags: KeyFlags) -> Self {
         self.primary.flags = flags;
         self
@@ -132,30 +132,56 @@ impl TPKBuilder {
             self.primary.flags = self.primary.flags.set_certify(true);
         }
 
-        let first_uid = UserID{
-            common: Common::default(),
-            value: self.userids.remove(0).as_bytes().into(),
-        };
-        let (primary, uid_sig) = Self::primary_key(self.primary, first_uid, self.ciphersuite)?;
-        let mut userids = Vec::with_capacity(self.userids.len() + 1);
-        let mut subkeys = Vec::with_capacity(self.subkeys.len());
-
-        for uid in self.userids {
-            let uid = UserID{
+        // select the first UserID as primary, if present
+        let maybe_first_uid = self.userids.first().cloned().map(|uid| {
+            UserID{
                 common: Common::default(),
                 value: uid.as_bytes().into(),
-            };
-            userids.push(Self::userid(uid, &primary)?);
-        }
-        userids.push(uid_sig);
+            }
+        });
+        // Generate & and self-sign primary key.
+        let (primary, sig) = Self::primary_key(
+            self.primary, maybe_first_uid.clone(), self.ciphersuite)?;
+        // Sort primary keys self-sig into the right vec.
+        let (mut userids, selfsigs) = match maybe_first_uid {
+            Some(uid) => {
+                // maybe to strict?
+                assert_eq!(sig.sigtype, SignatureType::PositiveCertificate);
 
+                let bind = UserIDBinding{
+                    userid: uid,
+                    selfsigs: vec![sig],
+                    certifications: vec![],
+                };
+
+                (vec![bind], vec![])
+            }
+            None => {
+                assert_eq!(sig.sigtype, SignatureType::DirectKey);
+                (vec![], vec![sig])
+            }
+        };
+        let mut subkeys = Vec::with_capacity(self.subkeys.len());
+
+        // sign UserIDs. First UID was used as primary keys self-sig
+        if !self.userids.is_empty() {
+            for uid in self.userids[1..].iter() {
+                let uid = UserID{
+                    common: Common::default(),
+                    value: uid.as_bytes().into(),
+                };
+                userids.push(Self::userid(uid, &primary)?);
+            }
+        }
+
+        // sign subkeys
         for subkey in self.subkeys {
             subkeys.push(Self::subkey(subkey, &primary, self.ciphersuite)?);
         }
 
         Ok(TPK{
             primary: primary,
-            primary_selfsigs: vec![],
+            primary_selfsigs: selfsigs,
             primary_certifications: vec![],
             userids: userids,
             user_attributes: vec![],
@@ -165,12 +191,22 @@ impl TPKBuilder {
         })
     }
 
-    fn primary_key(blueprint: KeyBlueprint, uid: UserID, cs: CipherSuite) -> Result<(Key, UserIDBinding)> {
+    fn primary_key(blueprint: KeyBlueprint, uid: Option<UserID>, cs: CipherSuite)
+        -> Result<(Key, Signature)>
+    {
         use SignatureType;
         use SecretKey;
 
         let key = Self::fresh_key(cs)?;
+<<<<<<< HEAD
         let mut sig = SignatureBuilder::new(SignatureType::PositiveCertificate);
+=======
+        let mut sig = if uid.is_some() {
+            Signature::new(SignatureType::PositiveCertificate)
+        } else {
+            Signature::new(SignatureType::DirectKey)
+        };
+>>>>>>> openpgp: TPKBuilder defaults to direct keys sigs
 
         sig.set_key_flags(&blueprint.flags)?;
         sig.set_signature_creation_time(time::now().canonicalize())?;
@@ -182,30 +218,32 @@ impl TPKBuilder {
         let mut hash = HashAlgorithm::SHA512.context()?;
 
         key.hash(&mut hash);
-        uid.hash(&mut hash);
+
+        match uid {
+            Some(uid) => uid.hash(&mut hash),
+            None => {}
+        }
 
         let sig = match key.secret {
             Some(SecretKey::Unencrypted{ ref mpis }) => {
                 sig.sign_hash(&key, mpis, HashAlgorithm::SHA512, hash)?
             }
             Some(SecretKey::Encrypted{ .. }) => {
-                return Err(Error::InvalidOperation("Secret key is encrypted".into()).into());
+                return Err(Error::InvalidOperation(
+                        "Secret key is encrypted".into()).into());
             }
             None => {
-                return Err(Error::InvalidOperation("No secret key".into()).into());
+                return Err(Error::InvalidOperation(
+                        "No secret key".into()).into());
             }
         };
 
-        let bind = UserIDBinding{
-            userid: uid,
-            selfsigs: vec![sig],
-            certifications: vec![],
-        };
-
-        Ok((key, bind))
+        Ok((key, sig))
     }
 
-    fn subkey(blueprint: KeyBlueprint, primary_key: &Key, cs: CipherSuite) -> Result<SubkeyBinding> {
+    fn subkey(blueprint: KeyBlueprint, primary_key: &Key, cs: CipherSuite)
+        -> Result<SubkeyBinding>
+    {
         use SignatureType;
         use SecretKey;
 
@@ -220,7 +258,8 @@ impl TPKBuilder {
 
         if blueprint.flags.can_encrypt_for_transport()
         || blueprint.flags.can_encrypt_at_rest() {
-            sig.set_preferred_symmetric_algorithms(vec![SymmetricAlgorithm::AES256])?;
+            sig.set_preferred_symmetric_algorithms(
+                vec![SymmetricAlgorithm::AES256])?;
         }
 
         if blueprint.flags.can_certify()
@@ -238,10 +277,12 @@ impl TPKBuilder {
                 sig.sign_hash(primary_key, mpis, HashAlgorithm::SHA512, hash)?
             }
             Some(SecretKey::Encrypted{ .. }) => {
-                return Err(Error::InvalidOperation("Secret key is encrypted".into()).into());
+                return Err(Error::InvalidOperation(
+                        "Secret key is encrypted".into()).into());
             }
             None => {
-                return Err(Error::InvalidOperation("No secret key".into()).into());
+                return Err(Error::InvalidOperation(
+                        "No secret key".into()).into());
             }
         };
 
@@ -272,10 +313,12 @@ impl TPKBuilder {
                 sig.sign_hash(key, mpis, HashAlgorithm::SHA512, hash)?
             }
             Some(SecretKey::Encrypted{ .. }) => {
-                return Err(Error::InvalidOperation("Secret key is encrypted".into()).into());
+                return Err(Error::InvalidOperation(
+                        "Secret key is encrypted".into()).into());
             }
             None => {
-                return Err(Error::InvalidOperation("No secret key".into()).into());
+                return Err(Error::InvalidOperation(
+                        "No secret key".into()).into());
             }
         };
 
@@ -324,6 +367,19 @@ mod tests {
     }
 
     #[test]
+    fn direct_key_sig() {
+        let tpk = TPKBuilder::default()
+            .add_signing_subkey()
+            .add_encryption_subkey()
+            .add_certification_subkey()
+            .generate().unwrap();
+
+        assert_eq!(tpk.userids().count(), 0);
+        assert_eq!(tpk.primary_key_signature().unwrap().sigtype, SignatureType::DirectKey);
+        assert_eq!(tpk.subkeys().len(), 3);
+    }
+
+    #[test]
     fn setter() {
         let tpk1 = TPKBuilder::default()
             .set_cipher_suite(CipherSuite::Cv25519)
@@ -363,7 +419,7 @@ mod tests {
             .primary_keyflags(KeyFlags::default())
             .add_encryption_subkey()
             .generate().unwrap();
-        let sig_pkts = tpk1.userids().next().unwrap().selfsigs[0].hashed_area();
+        let sig_pkts = &tpk1.primary_key_signature().unwrap().hashed_area;
 
         match sig_pkts.lookup(SubpacketTag::KeyFlags) {
             Some(Subpacket{ value: SubpacketValue::KeyFlags(ref ks),.. }) => {
