@@ -600,7 +600,7 @@ impl Serialize for Signature {
             + 2 // unhashed area size
             + self.unhashed_area().data.len()
             + 2 // hash prefix
-            + self.mpis.as_ref().map(|sig| sig.serialized_len()).unwrap_or(0);
+            + self.mpis().serialized_len();
 
         CTB::new(Tag::Signature).serialize(o)?;
         BodyLength::Full(len as u32).serialize(o)?;
@@ -652,9 +652,7 @@ impl Signature {
         write_byte(o, self.hash_prefix()[0])?;
         write_byte(o, self.hash_prefix()[1])?;
 
-        if let Some(sig) = self.mpis() {
-            sig.serialize(o)?;
-        }
+        self.mpis.serialize(o)?;
 
         Ok(())
     }

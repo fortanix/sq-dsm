@@ -199,7 +199,7 @@ impl SignatureBuilder {
             common: Default::default(),
             fields: self,
             hash_prefix: [digest[0], digest[1]],
-            mpis: Some(mpis),
+            mpis: mpis,
             computed_hash: None,
         })
     }
@@ -230,8 +230,8 @@ pub struct Signature {
 
     /// Lower 16 bits of the signed hash value.
     pub(crate) hash_prefix: [u8; 2],
-    /// Signature MPIs. Must be a *Signature variant.
-    pub(crate) mpis: Option<mpis::Signature>,
+    /// Signature MPIs.
+    pub(crate) mpis: mpis::Signature,
 
     /// When used in conjunction with a one-pass signature, this is the
     /// hash computed over the enclosed message.
@@ -335,13 +335,13 @@ impl Signature {
     }
 
     /// Gets the signature packet's MPIs.
-    pub fn mpis(&self) -> Option<&mpis::Signature> {
-        self.mpis.as_ref()
+    pub fn mpis(&self) -> &mpis::Signature {
+        &self.mpis
     }
 
     /// Sets the signature packet's MPIs.
     pub fn set_mpis(&mut self, mpis: mpis::Signature) {
-        self.mpis = Some(mpis);
+        self.mpis = mpis;
     }
 
     /// Gets the computed hash value.
@@ -377,13 +377,13 @@ impl Signature {
         use mpis::PublicKey;
 
         #[allow(deprecated)]
-        match (self.pk_algo(), key.mpis(), self.mpis.as_ref()) {
+        match (self.pk_algo(), key.mpis(), self.mpis()) {
             (RSASign,
              &PublicKey::RSA{ ref e, ref n },
-             Some(&mpis::Signature::RSA { ref s })) |
+             &mpis::Signature::RSA { ref s }) |
             (RSAEncryptSign,
              &PublicKey::RSA{ ref e, ref n },
-             Some(&mpis::Signature::RSA { ref s })) => {
+             &mpis::Signature::RSA { ref s }) => {
                 let key = rsa::PublicKey::new(&n.value, &e.value)?;
 
                 // As described in [Section 5.2.2 and 5.2.3 of RFC 4880],
@@ -397,7 +397,7 @@ impl Signature {
 
             (DSA,
              &PublicKey::DSA{ ref y, ref p, ref q, ref g },
-             Some(&mpis::Signature::DSA { ref s, ref r })) => {
+             &mpis::Signature::DSA { ref s, ref r }) => {
                 let key = dsa::PublicKey::new(&y.value);
                 let params = dsa::Params::new(&p.value, &q.value, &g.value);
                 let signature = dsa::Signature::new(&r.value, &s.value);
@@ -407,7 +407,7 @@ impl Signature {
 
             (EdDSA,
              &PublicKey::EdDSA{ ref curve, ref q },
-             Some(&mpis::Signature::EdDSA { ref r, ref s })) => match curve {
+             &mpis::Signature::EdDSA { ref r, ref s }) => match curve {
                 Curve::Ed25519 => {
                     if q.value[0] != 0x40 {
                         return Err(Error::MalformedPacket(
@@ -449,7 +449,7 @@ impl Signature {
 
             (ECDSA,
              &PublicKey::ECDSA{ ref curve, ref q },
-             Some(&mpis::Signature::ECDSA { ref s, ref r })) => {
+             &mpis::Signature::ECDSA { ref s, ref r }) => {
                 let (x, y) = q.decode_point(curve)?;
                 let key = match curve {
                     Curve::NistP256 =>

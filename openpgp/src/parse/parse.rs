@@ -883,7 +883,7 @@ impl Signature {
                 unhashed_area: SubpacketArea::new(unhashed_area),
             },
             hash_prefix: [hash_prefix1, hash_prefix2],
-            mpis: Some(mpis),
+            mpis: mpis,
             computed_hash: None,
         }))?;
 
@@ -1011,7 +1011,7 @@ fn signature_parser_test () {
             assert_eq!(p.hashed_area().data.len(), 29);
             assert_eq!(p.unhashed_area().data.len(), 10);
             assert_eq!(p.hash_prefix(), &[0x65u8, 0x74]);
-            assert_eq!(p.mpis().unwrap().serialized_len(), 258);
+            assert_eq!(p.mpis().serialized_len(), 258);
         } else {
             panic!("Wrong packet!");
         }
