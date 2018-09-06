@@ -7,7 +7,9 @@ use serialize::{
     Serialize,
     SerializeKey,
 };
+
 use std::io;
+use std::borrow::Cow;
 
 /// A transferable secret key (TSK).
 ///
@@ -25,15 +27,20 @@ impl TSK {
         TSK{ key: tpk }
     }
 
-    /// Generates a new RSA 3072 bit key with UID `primary_uid`.
-    pub fn new(primary_uid: &str) -> Result<TSK> {
+    /// Generates a new key OpenPGP key. The key will be capable of encryption
+    /// and signing. If no user id is given the primary self signature will be
+    /// a direct key signature.
+    pub fn new<'a, O: Into<Option<Cow<'a,str>>>>(primary_uid: O) -> Result<TSK> {
         use tpk::TPKBuilder;
 
-        let key = TPKBuilder::autocrypt()
-            .add_userid(primary_uid)
-            .generate()?;
+        let mut key = TPKBuilder::autocrypt();
 
-        Ok(TSK::from_tpk(key))
+        match primary_uid.into() {
+            Some(uid) => { key = key.add_userid(&uid); }
+            None => {}
+        }
+
+        Ok(TSK::from_tpk(key.generate()?))
     }
 
     /// Returns a reference to the corresponding TPK.
@@ -44,6 +51,10 @@ impl TSK {
     /// Serializes the TSK.
     pub fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
         self.key.primary.serialize(o, Tag::SecretKey)?;
+
+        for s in self.key.primary_selfsigs.iter() {
+            s.serialize(o)?;
+        }
 
         for u in self.key.userids() {
             u.userid().serialize(o)?;
@@ -76,12 +87,4 @@ impl TSK {
         }
         Ok(())
     }
-
-    //pub fn decrypt(&self, pkg: &PKESK) -> Result<Box<[u8]>> {
-    //    unimplemented!()
-    //}
-
-    //pub fn sign(&self, msg: &[u8]) -> Result<Signature> {
-    //    unimplemented!()
-    //}
 }
