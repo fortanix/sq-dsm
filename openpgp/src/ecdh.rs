@@ -15,9 +15,9 @@ use nettle::{cipher, curve25519, mode, Mode, Yarrow};
 /// Wraps a session key using Elliptic Curve Diffie-Hellman.
 pub fn wrap_session_key(recipient: &Key, session_key: &[u8])
                         -> Result<Ciphertext> {
-    if let Some(PublicKey::ECDH {
+    if let &PublicKey::ECDH {
         ref curve, ref q, ref hash, ref sym
-    }) = recipient.mpis {
+    } = recipient.mpis() {
         let mut rng = Yarrow::default();
         match curve {
             Curve::Cv25519 => {
@@ -86,13 +86,13 @@ pub fn wrap_session_key(recipient: &Key, session_key: &[u8])
 pub fn unwrap_session_key(recipient: &Key, recipient_sec: &SecretKey,
                           ciphertext: &Ciphertext)
                           -> Result<Box<[u8]>> {
-    if let (Some(PublicKey::ECDH {
+    if let (&PublicKey::ECDH {
         ref curve, ref hash, ref sym, ..
-    }), SecretKey::ECDH {
+    }, SecretKey::ECDH {
         ref scalar,
     }, Ciphertext::ECDH {
         ref e, ref key,
-    }) = (&recipient.mpis, recipient_sec, ciphertext) {
+    }) = (recipient.mpis(), recipient_sec, ciphertext) {
         match curve {
             Curve::Cv25519 => {
                 // Get the public part V of the ephemeral key.

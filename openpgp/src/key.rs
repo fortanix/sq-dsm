@@ -26,8 +26,8 @@ pub struct Key {
     pub(crate) creation_time: time::Tm,
     /// Public key algorithm of this signature.
     pub(crate) pk_algo: PublicKeyAlgorithm,
-    /// Public key MPIs. Must be a *PublicKey variant.
-    pub(crate) mpis: Option<mpis::PublicKey>,
+    /// Public key MPIs.
+    pub(crate) mpis: mpis::PublicKey,
     /// Optional secret part of the key.
     pub(crate) secret: Option<SecretKey>,
 }
@@ -148,7 +148,7 @@ impl Key {
             version: 4,
             creation_time: time::now().canonicalize(),
             pk_algo: pk_algo,
-            mpis: Some(mpis),
+            mpis: mpis,
             secret: secret,
         })
     }
@@ -179,18 +179,18 @@ impl Key {
     }
 
     /// Gets the key packet's MPIs.
-    pub fn mpis(&self) -> Option<&mpis::PublicKey> {
-        self.mpis.as_ref()
+    pub fn mpis(&self) -> &mpis::PublicKey {
+        &self.mpis
     }
 
     /// Gets a mutable reference to the key packet's MPIs.
-    pub fn mpis_mut(&mut self) -> Option<&mut mpis::PublicKey> {
-        self.mpis.as_mut()
+    pub fn mpis_mut(&mut self) -> &mut mpis::PublicKey {
+        &mut self.mpis
     }
 
     /// Sets the key packet's MPIs.
     pub fn set_mpis(&mut self, mpis: mpis::PublicKey) {
-        self.mpis = Some(mpis);
+        self.mpis = mpis;
     }
 
     /// Gets the key packet's SecretKey.

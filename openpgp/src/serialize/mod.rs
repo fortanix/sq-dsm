@@ -726,7 +726,7 @@ impl SerializeKey for Key {
             (tag == Tag::SecretKey || tag == Tag::SecretSubkey)
             && self.secret.is_some();
         let len = 1 + 4 + 1
-            + self.mpis.as_ref().map(|pk| pk.serialized_len()).unwrap_or(0)
+            + self.mpis.serialized_len()
             + if have_secret_key {
                 1 + match self.secret.as_ref().unwrap() {
                     &SecretKey::Unencrypted { ref mpis } =>
@@ -753,9 +753,7 @@ impl SerializeKey for Key {
         write_byte(o, self.version)?;
         write_be_u32(o, self.creation_time.to_pgp()?)?;
         write_byte(o, self.pk_algo.into())?;
-        if let Some(ref pk) = self.mpis {
-            pk.serialize(o)?;
-        }
+        self.mpis.serialize(o)?;
 
         if have_secret_key {
             match self.secret.as_ref().unwrap() {

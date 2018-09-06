@@ -1330,7 +1330,7 @@ impl Key {
             version: version,
             creation_time: time::Tm::from_pgp(creation_time),
             pk_algo: pk_algo,
-            mpis: Some(mpis),
+            mpis: mpis,
             secret: secret,
         };
 

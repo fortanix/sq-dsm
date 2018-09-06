@@ -57,7 +57,7 @@ impl PKESK {
             RSAEncryptSign | RSAEncrypt => {
                 // Extract the public recipient.
                 match recipient.mpis() {
-                    Some(&mpis::PublicKey::RSA { ref e, ref n }) => {
+                    &mpis::PublicKey::RSA { ref e, ref n } => {
                         // The ciphertext has the length of the modulus.
                         let mut esk = vec![0u8; n.value.len()];
 
@@ -140,7 +140,7 @@ impl PKESK {
             (self.pk_algo, recipient.mpis(), recipient_sec, &self.esk)
         {
             (RSAEncryptSign,
-             Some(&PublicKey::RSA{ ref e, ref n }),
+             &PublicKey::RSA{ ref e, ref n },
              &mpis::SecretKey::RSA{ ref p, ref q, ref d, .. },
              &mpis::Ciphertext::RSA{ ref c }) => {
                 let public = rsa::PublicKey::new(&n.value, &e.value)?;
@@ -151,14 +151,14 @@ impl PKESK {
             }
 
             (ElgamalEncrypt,
-             Some(&PublicKey::Elgamal{ .. }),
+             &PublicKey::Elgamal{ .. },
              &mpis::SecretKey::Elgamal{ .. },
              &mpis::Ciphertext::Elgamal{ .. }) =>
                 return Err(
                     Error::UnsupportedPublicKeyAlgorithm(self.pk_algo).into()),
 
             (ECDH,
-             Some(PublicKey::ECDH{ .. }),
+             PublicKey::ECDH{ .. },
              mpis::SecretKey::ECDH { .. },
              mpis::Ciphertext::ECDH { .. }) =>
                 ecdh::unwrap_session_key(recipient, recipient_sec, &self.esk)?,

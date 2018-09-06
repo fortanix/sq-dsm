@@ -257,12 +257,12 @@ impl Signature {
         self.hash_prefix[1] = digest[1];
 
         #[allow(deprecated)]
-        let mpis = match (signer.pk_algo, signer.mpis.as_ref(), signer_sec) {
+        let mpis = match (signer.pk_algo(), signer.mpis(), signer_sec) {
             (RSASign,
-             Some(&PublicKey::RSA { ref e, ref n }),
+             &PublicKey::RSA { ref e, ref n },
              &mpis::SecretKey::RSA { ref p, ref q, ref d, .. }) |
             (RSAEncryptSign,
-             Some(&PublicKey::RSA { ref e, ref n }),
+             &PublicKey::RSA { ref e, ref n },
              &mpis::SecretKey::RSA { ref p, ref q, ref d, .. }) => {
                 let public = rsa::PublicKey::new(&n.value, &e.value)?;
                 let secret = rsa::PrivateKey::new(&d.value, &p.value,
@@ -286,7 +286,7 @@ impl Signature {
             },
 
             (DSA,
-             Some(&PublicKey::DSA { ref p, ref q, ref g, .. }),
+             &PublicKey::DSA { ref p, ref q, ref g, .. },
              &mpis::SecretKey::DSA { ref x }) => {
                 let params = dsa::Params::new(&p.value, &q.value, &g.value);
                 let secret = dsa::PrivateKey::new(&x.value);
@@ -300,7 +300,7 @@ impl Signature {
             },
 
             (EdDSA,
-             Some(&PublicKey::EdDSA { ref curve, ref q }),
+             &PublicKey::EdDSA { ref curve, ref q },
              &mpis::SecretKey::EdDSA { ref scalar }) => match curve {
                 Curve::Ed25519 => {
                     let public = q.decode_point(&Curve::Ed25519)?.0;
@@ -318,7 +318,7 @@ impl Signature {
             },
 
             (ECDSA,
-             Some(&PublicKey::ECDSA { ref curve, .. }),
+             &PublicKey::ECDSA { ref curve, .. },
              &mpis::SecretKey::ECDSA { ref scalar }) => {
                 let secret = match curve {
                     Curve::NistP256 =>
@@ -362,12 +362,12 @@ impl Signature {
         use mpis::PublicKey;
 
         #[allow(deprecated)]
-        match (self.pk_algo, key.mpis.as_ref(), self.mpis.as_ref()) {
+        match (self.pk_algo(), key.mpis(), self.mpis.as_ref()) {
             (RSASign,
-             Some(&PublicKey::RSA{ ref e, ref n }),
+             &PublicKey::RSA{ ref e, ref n },
              Some(&mpis::Signature::RSA { ref s })) |
             (RSAEncryptSign,
-             Some(&PublicKey::RSA{ ref e, ref n }),
+             &PublicKey::RSA{ ref e, ref n },
              Some(&mpis::Signature::RSA { ref s })) => {
                 let key = rsa::PublicKey::new(&n.value, &e.value)?;
 
@@ -381,7 +381,7 @@ impl Signature {
             }
 
             (DSA,
-             Some(&PublicKey::DSA{ ref y, ref p, ref q, ref g }),
+             &PublicKey::DSA{ ref y, ref p, ref q, ref g },
              Some(&mpis::Signature::DSA { ref s, ref r })) => {
                 let key = dsa::PublicKey::new(&y.value);
                 let params = dsa::Params::new(&p.value, &q.value, &g.value);
@@ -391,7 +391,7 @@ impl Signature {
             }
 
             (EdDSA,
-             Some(&PublicKey::EdDSA{ ref curve, ref q }),
+             &PublicKey::EdDSA{ ref curve, ref q },
              Some(&mpis::Signature::EdDSA { ref r, ref s })) => match curve {
                 Curve::Ed25519 => {
                     if q.value[0] != 0x40 {
@@ -433,7 +433,7 @@ impl Signature {
             },
 
             (ECDSA,
-             Some(&PublicKey::ECDSA{ ref curve, ref q }),
+             &PublicKey::ECDSA{ ref curve, ref q },
              Some(&mpis::Signature::ECDSA { ref s, ref r })) => {
                 let (x, y) = q.decode_point(curve)?;
                 let key = match curve {
