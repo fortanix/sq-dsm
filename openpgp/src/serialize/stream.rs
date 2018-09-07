@@ -856,9 +856,9 @@ impl<'a> Encryptor<'a> {
         let mut sk = vec![0; algo.key_size().unwrap()];
         rng.random(&mut sk);
 
-        if tpks.len() == 0 {
+        if tpks.len() + passwords.len() == 0 {
             return Err(Error::InvalidArgument(
-                "No recipient keys given".into()).into());
+                "Neither recipient keys nor passwords given".into()).into());
         }
 
         // Write the PKESK packet(s).
