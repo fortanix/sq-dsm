@@ -266,6 +266,11 @@ impl<'a> Signer<'a> {
         let hash_algo = HashAlgorithm::SHA512;
         let mut signing_keys = Vec::new();
 
+        if signers.len() == 0 {
+            return Err(Error::InvalidArgument(
+                "No signing keys given".into()).into());
+        }
+
         for tsk in signers {
             // We need to find all (sub)keys capable of signing.
             let can_sign = |key: &Key, sig: &Signature| -> bool {
@@ -298,14 +303,24 @@ impl<'a> Signer<'a> {
                 .filter(|_| primary_can_sign)
                 .chain(subkeys);
 
+            // Check that we found at least one per TSK.
+            let mut found_secret = false;
+
             // For every suitable key, check if we have a secret key.
             for key in keys {
                 if let Some(ref secret) = key.secret.as_ref() {
                     if let &SecretKey::Unencrypted { .. } = secret {
                         // Success!
                         signing_keys.push(key);
+                        found_secret = true;
                     }
                 }
+            }
+
+            if ! found_secret {
+                return Err(Error::InvalidArgument(
+                    format!("Key {} has no signing-capable secret key", tsk))
+                           .into());
             }
         }
 
@@ -840,6 +855,11 @@ impl<'a> Encryptor<'a> {
         // Generate a session key.
         let mut sk = vec![0; algo.key_size().unwrap()];
         rng.random(&mut sk);
+
+        if tpks.len() == 0 {
+            return Err(Error::InvalidArgument(
+                "No recipient keys given".into()).into());
+        }
 
         // Write the PKESK packet(s).
         for tpk in tpks {
