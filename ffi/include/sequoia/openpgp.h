@@ -715,13 +715,19 @@ sq_status_t sq_skesk_decrypt (sq_context_t ctx, sq_skesk_t skesk,
 typedef struct sq_packet_parser *sq_packet_parser_t;
 
 /*/
+/// Like an `Option<PacketParser>`, but the `None` variant contains
+/// some summary information.
+/*/
+typedef struct sq_packet_parser_result *sq_packet_parser_result_t;
+
+/*/
 /// Starts parsing an OpenPGP message stored in a `sq_reader_t` object.
 ///
 /// This function returns a `PacketParser` for the first packet in
 /// the stream.
 /*/
-sq_packet_parser_t sq_packet_parser_from_reader (sq_context_t ctx,
-                                                 sq_reader_t reader);
+sq_packet_parser_result_t sq_packet_parser_from_reader (sq_context_t ctx,
+                                                        sq_reader_t reader);
 
 /*/
 /// Starts parsing an OpenPGP message stored in a file named `path`.
@@ -729,17 +735,17 @@ sq_packet_parser_t sq_packet_parser_from_reader (sq_context_t ctx,
 /// This function returns a `PacketParser` for the first packet in
 /// the stream.
 /*/
-sq_packet_parser_t sq_packet_parser_from_file (sq_context_t ctx,
-                                               const char *filename);
+sq_packet_parser_result_t sq_packet_parser_from_file (sq_context_t ctx,
+                                                      const char *filename);
 
 /*/
 /// Starts parsing an OpenPGP message stored in a buffer.
 ///
-/// This function returns a `PacketParser` for the first packet in
+/// This function returns a `PacketParserResult` for the first packet in
 /// the stream.
 /*/
-sq_packet_parser_t sq_packet_parser_from_bytes (sq_context_t ctx,
-                                                const uint8_t *b, size_t len);
+sq_packet_parser_result_t sq_packet_parser_from_bytes (sq_context_t ctx,
+                                                       const uint8_t *b, size_t len);
 
 /*/
 /// Frees the packet parser.
@@ -832,7 +838,7 @@ sq_status_t sq_packet_parser_next (sq_context_t ctx,
                                    sq_packet_parser_t pp,
                                    sq_packet_t *old_packet,
                                    uint8_t *old_recursion_level,
-                                   sq_packet_parser_t *ppo,
+                                   sq_packet_parser_result_t *ppr,
                                    uint8_t *new_recursion_level);
 
 /*/
@@ -861,7 +867,7 @@ sq_status_t sq_packet_parser_recurse (sq_context_t ctx,
                                       sq_packet_parser_t pp,
                                       sq_packet_t *old_packet,
                                       uint8_t *old_recursion_level,
-                                      sq_packet_parser_t *ppo,
+                                      sq_packet_parser_result_t *ppr,
                                       uint8_t *new_recursion_level);
 
 /*/
