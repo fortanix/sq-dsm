@@ -32,6 +32,9 @@ pub use self::decompress_deflate::BufferedReaderZlib;
 #[cfg(feature = "compression-bzip2")]
 pub use self::decompress_bzip2::BufferedReaderBzip;
 
+mod file_generic;
+pub use self::file_generic::BufferedReaderFile;
+
 // The default buffer size.
 const DEFAULT_BUF_SIZE: usize = 8 * 1024;
 
