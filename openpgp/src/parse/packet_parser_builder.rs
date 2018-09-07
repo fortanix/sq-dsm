@@ -44,11 +44,9 @@ impl<'a> PacketParserBuilder<'a> {
     /// Creates a `PacketParserBuilder` for an OpenPGP message stored
     /// in a `std::io::Read` object.
     pub fn from_reader<R: io::Read + 'a>(reader: R) -> Result<Self> {
-        Ok(PacketParserBuilder {
-            bio: Box::new(BufferedReaderGeneric::with_cookie(
-                reader, None, Cookie::default())),
-            settings: PacketParserSettings::default(),
-        })
+        PacketParserBuilder::from_buffered_reader(
+            Box::new(BufferedReaderGeneric::with_cookie(
+                reader, None, Cookie::default())))
     }
 
     /// Creates a `PacketParserBuilder` for an OpenPGP message stored
