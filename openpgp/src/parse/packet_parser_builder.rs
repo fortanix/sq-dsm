@@ -41,6 +41,30 @@ impl<'a> PacketParserBuilder<'a> {
         })
     }
 
+    /// Creates a `PacketParserBuilder` for an OpenPGP message stored
+    /// in a `std::io::Read` object.
+    pub fn from_reader<R: io::Read + 'a>(reader: R) -> Result<Self> {
+        Ok(PacketParserBuilder {
+            bio: Box::new(BufferedReaderGeneric::with_cookie(
+                reader, None, Cookie::default())),
+            settings: PacketParserSettings::default(),
+        })
+    }
+
+    /// Creates a `PacketParserBuilder` for an OpenPGP message stored
+    /// in the file named `path`.
+    pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
+        PacketParserBuilder::from_reader(File::open(path)?)
+    }
+
+    /// Creates a `PacketParserBuilder` for an OpenPGP message stored
+    /// in the specified buffer.
+    pub fn from_bytes(bytes: &'a [u8]) -> Result<PacketParserBuilder> {
+        PacketParserBuilder::from_buffered_reader(
+            Box::new(BufferedReaderMemory::with_cookie(
+                bytes, Cookie::default())))
+    }
+
     /// Sets the maximum recursion depth.
     ///
     /// Setting this to 0 means that the `PacketParser` will never
@@ -120,35 +144,5 @@ impl<'a> PacketParserBuilder<'a> {
                 Ok(PacketParserResult::EOF(PacketParserEOF::new(state)))
             }
         }
-    }
-}
-
-impl<'a> PacketParserBuilder<'a> {
-    /// Creates a `PacketParserBuilder` for an OpenPGP message stored
-    /// in a `std::io::Read` object.
-    pub fn from_reader<R: io::Read + 'a>(reader: R) -> Result<Self> {
-        Ok(PacketParserBuilder {
-            bio: Box::new(BufferedReaderGeneric::with_cookie(
-                reader, None, Cookie::default())),
-            settings: PacketParserSettings::default(),
-        })
-    }
-}
-
-impl<'a> PacketParserBuilder<'a> {
-    /// Creates a `PacketParserBuilder` for an OpenPGP message stored
-    /// in the file named `path`.
-    pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
-        PacketParserBuilder::from_reader(File::open(path)?)
-    }
-}
-
-impl<'a> PacketParserBuilder<'a> {
-    /// Creates a `PacketParserBuilder` for an OpenPGP message stored
-    /// in the specified buffer.
-    pub fn from_bytes(bytes: &'a [u8]) -> Result<PacketParserBuilder> {
-        PacketParserBuilder::from_buffered_reader(
-            Box::new(BufferedReaderMemory::with_cookie(
-                bytes, Cookie::default())))
     }
 }
