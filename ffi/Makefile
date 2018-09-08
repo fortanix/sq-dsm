@@ -4,6 +4,11 @@
 PREFIX		?= /usr/local
 DESTDIR		?=
 
+CARGO	?= cargo
+CARGO_TARGET_DIR	?= $(shell pwd)/../target
+# We currently only support absolute paths.
+CARGO_TARGET_DIR	:= $(abspath $(CARGO_TARGET_DIR))
+
 VERSION		?= $(shell grep '^version[[:space:]]*=[[:space:]]*' Cargo.toml | cut -d'"' -f2)
 VERSION_MAJOR	= $(shell echo $(VERSION) | cut -d'.' -f1)
 
@@ -20,9 +25,9 @@ all: build
 build:
 	sed -e 's|VERSION|$(VERSION)|g' \
 	    -e 's|PREFIX|$(shell pwd)|g' \
-            -e 's|libdir=.*|libdir=$(shell pwd)/../target/debug|g' \
+            -e 's|libdir=.*|libdir='"$(CARGO_TARGET_DIR)"'/debug|g' \
 		sequoia.pc.in \
-		> ../target/debug/sequoia.pc
+		> $(CARGO_TARGET_DIR)/debug/sequoia.pc
 
 # Testing and examples.
 .PHONY: test check
@@ -49,13 +54,13 @@ install: sequoia.pc
 	$(INSTALL) -t $(DESTDIR)$(PREFIX)/include/sequoia \
 		include/sequoia/*.h
 	$(INSTALL) -d $(DESTDIR)$(PREFIX)/lib
-	$(INSTALL) ../target/release/libsequoia_ffi.so \
+	$(INSTALL) $(CARGO_TARGET_DIR)/release/libsequoia_ffi.so \
 		$(DESTDIR)$(PREFIX)/lib/libsequoia_ffi.so.$(VERSION)
 	ln -fs libsequoia_ffi.so.$(VERSION) \
 		$(DESTDIR)$(PREFIX)/lib/libsequoia_ffi.so.$(VERSION_MAJOR)
 	ln -fs libsequoia_ffi.so.$(VERSION) \
 		$(DESTDIR)$(PREFIX)/lib/libsequoia_ffi.so
-	$(INSTALL) ../target/release/libsequoia_ffi.a \
+	$(INSTALL) $(CARGO_TARGET_DIR)/release/libsequoia_ffi.a \
 		$(DESTDIR)$(PREFIX)/lib/libsequoia_ffi.a
 
 # Housekeeping.

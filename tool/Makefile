@@ -1,6 +1,9 @@
 CARGO	?= cargo
-SQ	?= ../target/debug/sq
-SQV	?= ../target/debug/sqv
+CARGO_TARGET_DIR	?= $(shell pwd)/../target
+# We currently only support absolute paths.
+CARGO_TARGET_DIR	:= $(abspath $(CARGO_TARGET_DIR))
+SQ	?= $(CARGO_TARGET_DIR)/debug/sq
+SQV	?= $(CARGO_TARGET_DIR)/debug/sqv
 
 all: src/sq-usage.rs src/sqv-usage.rs
 

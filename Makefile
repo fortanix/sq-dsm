@@ -4,6 +4,12 @@
 PREFIX		?= /usr/local
 DESTDIR		?=
 CARGO_FLAGS	?=
+# cargo's "target" directory.  Normally, this is in the root
+# directory of the project, but it can be overriden by setting
+# CARGO_TARGET_DIR.
+CARGO_TARGET_DIR	?= $(shell pwd)/target
+# We currently only support absolute paths.
+CARGO_TARGET_DIR	:= $(abspath $(CARGO_TARGET_DIR))
 FFI_RUSTDOCFLAGS ?= --html-in-header ffi/rustdoc.head.html
 
 # Signing source distributions.
@@ -28,67 +34,77 @@ VERSION		?= $(shell grep '^version[[:space:]]*=[[:space:]]*' Cargo.toml | cut -d
 export PREFIX
 export DESTDIR
 export CARGO_FLAGS
+export CARGO_TARGET_DIR
 
 all: build ffi/examples
 
 .PHONY: build
 build:
-	$(CARGO) build $(CARGO_FLAGS) --all
+	CARGO_TARGET_DIR=$(CARGO_TARGET_DIR) $(CARGO) build $(CARGO_FLAGS) --all
 	$(MAKE) -Cffi build
 
 # Testing and examples.
 .PHONY: test check
 test check:
-	$(CARGO) test $(CARGO_FLAGS) --all
+	CARGO_TARGET_DIR=$(CARGO_TARGET_DIR) $(CARGO) test $(CARGO_FLAGS) --all
 	$(MAKE) -Cffi test
 	$(MAKE) examples
 
 .PHONY: examples
 examples:
-	$(CARGO) build $(CARGO_FLAGS) --examples
+	CARGO_TARGET_DIR=$(CARGO_TARGET_DIR) \
+	    $(CARGO) build $(CARGO_FLAGS) --examples
 	$(MAKE) -Cffi examples
 
 # Documentation.
 .PHONY: doc
 doc:
-	$(CARGO) doc $(CARGO_FLAGS) --no-deps --all
+	CARGO_TARGET_DIR=$(CARGO_TARGET_DIR) \
+		$(CARGO) doc $(CARGO_FLAGS) --no-deps --all
 	env RUSTDOCFLAGS="$(FFI_RUSTDOCFLAGS)" \
+	    CARGO_TARGET_DIR=$(CARGO_TARGET_DIR) \
 	    $(CARGO) doc $(CARGO_FLAGS) --no-deps --package sequoia-ffi
-	$(CARGO) doc $(CARGO_FLAGS) --no-deps --package nettle
+	CARGO_TARGET_DIR=$(CARGO_TARGET_DIR) \
+	    $(CARGO) doc $(CARGO_FLAGS) --no-deps --package nettle
 
 .PHONY: deploy-doc
 deploy-doc: doc
-	$(RSYNC) $(RSYNC_FLAGS) -r target/doc/* $(DOC_TARGET)
+	$(RSYNC) $(RSYNC_FLAGS) -r $(CARGO_TARGET_DIR)/doc/* $(DOC_TARGET)
 
 # Installation.
 .PHONY: build-release
 build-release:
-	$(CARGO) build $(CARGO_FLAGS) --release --all
+	CARGO_TARGET_DIR=$(CARGO_TARGET_DIR) \
+	    $(CARGO) build $(CARGO_FLAGS) --release --all
 	$(MAKE) -Cffi build-release
 
 .PHONY: install
 install: build-release
 	$(INSTALL) -d $(DESTDIR)$(PREFIX)/lib/sequoia
-	$(INSTALL) -t $(DESTDIR)$(PREFIX)/lib/sequoia target/release/sequoia-public-key-store
+	$(INSTALL) -t $(DESTDIR)$(PREFIX)/lib/sequoia \
+	    $(CARGO_TARGET_DIR)/release/sequoia-public-key-store
 	$(INSTALL) -d $(DESTDIR)$(PREFIX)/bin
-	$(INSTALL) -t $(DESTDIR)$(PREFIX)/bin target/release/sq target/release/sqv
+	$(INSTALL) -t $(DESTDIR)$(PREFIX)/bin \
+	    $(CARGO_TARGET_DIR)/release/sq $(CARGO_TARGET_DIR)/release/sqv
 	$(MAKE) -Cffi install
 
 # Infrastructure for creating source distributions.
 .PHONY: dist
-dist: target/dist/sequoia-$(VERSION).tar.xz.sig
+dist: $(CARGO_TARGET_DIR)/dist/sequoia-$(VERSION).tar.xz.sig
 
-target/dist/sequoia-$(VERSION):
-	$(GIT) clone . target/dist/sequoia-$(VERSION)
-	cd target/dist/sequoia-$(VERSION) && \
+$(CARGO_TARGET_DIR)/dist/sequoia-$(VERSION):
+	$(GIT) clone . $(CARGO_TARGET_DIR)/dist/sequoia-$(VERSION)
+	cd $(CARGO_TARGET_DIR)/dist/sequoia-$(VERSION) && \
 		mkdir .cargo && \
-		$(CARGO) vendor $(CARGO_FLAGS) \
+		CARGO_TARGET_DIR=$(CARGO_TARGET_DIR) \
+		    $(CARGO) vendor $(CARGO_FLAGS) \
 			| sed 's/^directory = ".*"$$/directory = "vendor"/' \
 			> .cargo/config && \
 		rm -rf .git
 
-target/dist/sequoia-$(VERSION).tar: target/dist/sequoia-$(VERSION)
-	$(TAR) cf $@ -C target/dist sequoia-$(VERSION)
+$(CARGO_TARGET_DIR)/dist/sequoia-$(VERSION).tar: \
+		$(CARGO_TARGET_DIR)/dist/sequoia-$(VERSION)
+	$(TAR) cf $@ -C $(CARGO_TARGET_DIR)/dist sequoia-$(VERSION)
 
 %.xz: %
 	$(XZ) -c $< >$@
@@ -97,16 +113,16 @@ target/dist/sequoia-$(VERSION).tar: target/dist/sequoia-$(VERSION)
 	$(GPG) --local-user $(SIGN_WITH) --detach-sign --armor $<
 
 .PHONY: dist-test dist-check
-dist-test dist-check: target/dist/sequoia-$(VERSION).tar.xz
-	rm -rf target/dist-check/sequoia-$(VERSION)
-	mkdir -p target/dist-check
-	$(TAR) xf $< -C target/dist-check
-	cd target/dist-check/sequoia-$(VERSION) && \
+dist-test dist-check: $(CARGO_TARGET_DIR)/dist/sequoia-$(VERSION).tar.xz
+	rm -rf $(CARGO_TARGET_DIR)/dist-check/sequoia-$(VERSION)
+	mkdir -p $(CARGO_TARGET_DIR)/dist-check
+	$(TAR) xf $< -C $(CARGO_TARGET_DIR)/dist-check
+	cd $(CARGO_TARGET_DIR)/dist-check/sequoia-$(VERSION) && \
 		CARGO_HOME=$$(mktemp -d) $(MAKE) test CARGO_FLAGS=--frozen
-	rm -rf target/dist-check/sequoia-$(VERSION)
+	rm -rf $(CARGO_TARGET_DIR)/dist-check/sequoia-$(VERSION)
 
 # Housekeeping.
 .PHONY: clean
 clean:
-	rm -rf target
+	CARGO_TARGET_DIR=$(CARGO_TARGET_DIR) $(CARGO) $(CARGO_FLAGS) clean
 	$(MAKE) -Cffi clean
