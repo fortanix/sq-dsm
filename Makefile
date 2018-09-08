@@ -10,6 +10,8 @@ CARGO_FLAGS	?=
 CARGO_TARGET_DIR	?= $(shell pwd)/target
 # We currently only support absolute paths.
 CARGO_TARGET_DIR	:= $(abspath $(CARGO_TARGET_DIR))
+# The tests to run.
+CARGO_TEST_ARGS	?= --all
 FFI_RUSTDOCFLAGS ?= --html-in-header ffi/rustdoc.head.html
 
 # Signing source distributions.
@@ -35,6 +37,7 @@ export PREFIX
 export DESTDIR
 export CARGO_FLAGS
 export CARGO_TARGET_DIR
+export CARGO_TEST_ARGS
 
 all: build ffi/examples
 
@@ -46,7 +49,7 @@ build:
 # Testing and examples.
 .PHONY: test check
 test check:
-	CARGO_TARGET_DIR=$(CARGO_TARGET_DIR) $(CARGO) test $(CARGO_FLAGS) --all
+	CARGO_TARGET_DIR=$(CARGO_TARGET_DIR) $(CARGO) test $(CARGO_FLAGS) $(CARGO_TEST_ARGS)
 	$(MAKE) -Cffi test
 	$(MAKE) examples
 
