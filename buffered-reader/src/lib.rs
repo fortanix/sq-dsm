@@ -4,6 +4,7 @@
 extern crate flate2;
 #[cfg(feature = "compression-bzip2")]
 extern crate bzip2;
+extern crate libc;
 
 use std::io;
 use std::io::{Error, ErrorKind};
@@ -32,8 +33,18 @@ pub use self::decompress_deflate::BufferedReaderZlib;
 #[cfg(feature = "compression-bzip2")]
 pub use self::decompress_bzip2::BufferedReaderBzip;
 
+// These are the different BufferedReaderFile implementations.  We
+// include the modules unconditionally, so that we catch bitrot early.
+#[allow(dead_code)]
 mod file_generic;
+#[allow(dead_code)]
+mod file_unix;
+
+// Then, we select the appropriate version to re-export.
+#[cfg(not(unix))]
 pub use self::file_generic::BufferedReaderFile;
+#[cfg(unix)]
+pub use self::file_unix::BufferedReaderFile;
 
 // The default buffer size.
 const DEFAULT_BUF_SIZE: usize = 8 * 1024;

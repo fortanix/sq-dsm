@@ -6,6 +6,7 @@ authors = ["Neal H. Walfield <neal@gnu.org>"]
 [dependencies]
 bzip2 = { version = "0.3.2", optional = true }
 flate2 = { version = "1.0.1", optional = true }
+libc = "0.2.33"
 
 [features]
 default = ["compression"]
