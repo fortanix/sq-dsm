@@ -29,7 +29,7 @@ use buffered_reader::{
     BufferedReader, BufferedReaderGeneric, BufferedReaderMemory,
 };
 use std::fs::File;
-use std::io::{Read, Write};
+use std::io::{Cursor, Read, Write};
 use std::io::{Result, Error, ErrorKind};
 use std::path::Path;
 use std::cmp::min;
@@ -140,6 +140,8 @@ pub struct Writer<W: Write> {
     stash: Vec<u8>,
     column: usize,
     crc: CRC,
+    epilogue: Vec<u8>,
+    dirty: bool,
     finalized: bool,
 }
 
@@ -181,19 +183,35 @@ impl<W: Write> Writer<W> {
             stash: Vec::<u8>::with_capacity(2),
             column: 0,
             crc: CRC::new(),
+            epilogue: Vec::with_capacity(128),
+            dirty: false,
             finalized: false,
         };
 
-        write!(w.sink, "{}{}", w.kind.begin(), LINE_ENDING)?;
+        {
+            let mut cur = Cursor::new(&mut w.epilogue);
+            write!(&mut cur, "{}{}", kind.begin(), LINE_ENDING)?;
 
-        for h in headers {
-            write!(w.sink, "{}: {}{}", h.0, h.1, LINE_ENDING)?;
+            for h in headers {
+                write!(&mut cur, "{}: {}{}", h.0, h.1, LINE_ENDING)?;
+            }
+
+            // A blank line separates the headers from the body.
+            write!(&mut cur, "{}", LINE_ENDING)?;
         }
 
-        // A blank line separates the headers from the body.
-        write!(w.sink, "{}", LINE_ENDING)?;
-
         Ok(w)
+    }
+
+    fn write_epilogue(&mut self) -> Result<()> {
+        if ! self.dirty {
+            self.dirty = true;
+            self.sink.write_all(&self.epilogue)?;
+            // Release memory.
+            self.epilogue.clear();
+            self.epilogue.shrink_to_fit();
+        }
+        Ok(())
     }
 
     /// Writes the footer.
@@ -205,6 +223,12 @@ impl<W: Write> Writer<W> {
         if self.finalized {
             return Err(Error::new(ErrorKind::BrokenPipe, "Writer is finalized."));
         }
+
+        if ! self.dirty {
+            // No data was written to us, don't emit anything.
+            return Ok(());
+        }
+        self.write_epilogue()?;
 
         // Write any stashed bytes and pad.
         if self.stash.len() > 0 {
@@ -249,6 +273,8 @@ impl<W: Write> Write for Writer<W> {
         if self.finalized {
             return Err(Error::new(ErrorKind::BrokenPipe, "Writer is finalized."));
         }
+
+        self.write_epilogue()?;
 
         // Update CRC on the unencoded data.
         self.crc.update(buf);
@@ -1031,6 +1057,7 @@ mod test {
             let mut buf = Vec::new();
             {
                 let mut w = Writer::new(&mut buf, Kind::File, &[][..]).unwrap();
+                w.write(&[]).unwrap();  // Avoid zero-length optimization.
                 w.write_all(&bin).unwrap();
             }
             assert_eq!(String::from_utf8_lossy(&buf),
@@ -1052,6 +1079,7 @@ mod test {
             let mut buf = Vec::new();
             {
                 let mut w = Writer::new(&mut buf, Kind::File, &[][..]).unwrap();
+                w.write(&[]).unwrap();  // Avoid zero-length optimization.
                 for (i, _) in bin.iter().enumerate() {
                     w.write(&bin[i..i+1]).unwrap();
                 }
@@ -1059,6 +1087,31 @@ mod test {
             assert_eq!(String::from_utf8_lossy(&buf),
                        String::from_utf8_lossy(&asc));
         }
+    }
+
+    #[test]
+    fn drop_writer() {
+        // No ASCII frame shall be emitted if the writer is dropped
+        // unused.
+        let mut buf = Vec::new();
+        {
+            drop(Writer::new(&mut buf, Kind::File, &[][..]).unwrap());
+        }
+        assert!(buf.is_empty());
+
+        // However, if the user insists, we will encode a zero-byte
+        // string.
+        let mut buf = Vec::new();
+        {
+            let mut w = Writer::new(&mut buf, Kind::File, &[][..]).unwrap();
+            w.write(&[]).unwrap();
+        }
+        assert_eq!(
+            &buf[..],
+            &b"-----BEGIN PGP ARMORED FILE-----\n\
+               \n\
+               =twTO\n\
+               -----END PGP ARMORED FILE-----\n"[..]);
     }
 
     use super::Reader;
