@@ -1,17 +1,11 @@
 /// This program collects statistics about e.g. the SKS packet dump.
 ///
 /// Note that to achieve reasonable performance, you need to compile
-/// Sequoia and this program with optimizations, either by copying
-/// this example to a new project and compile the release target, or
-/// by adding this to Sequoia's top-level Cargo.toml:
+/// Sequoia and this program with optimizations:
 ///
-///     [profile.dev]
-///     opt-level = 3
+///     % cargo run -p openpgp --example statistics --release
 
 use std::env;
-use std::fs::File;
-extern crate buffered_reader;
-use buffered_reader::BufferedReaderGeneric;
 extern crate openpgp;
 use openpgp::Packet;
 use openpgp::packet::{BodyLength, Tag};
@@ -43,11 +37,7 @@ fn main() {
     let mut tpk_max = PerTPK::min();
 
     // Create a parser.
-    let br = BufferedReaderGeneric::new(
-        File::open(&args[1]).expect("Failed to open file"),
-        Some(128 * 1024 * 1024) // Use a large buffer.
-    );
-    let mut ppr = PacketParser::from_reader(br)
+    let mut ppr = PacketParser::from_file(&args[1])
         .expect("Failed to create reader");
 
     // Iterate over all packets.
