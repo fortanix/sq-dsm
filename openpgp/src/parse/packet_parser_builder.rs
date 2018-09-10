@@ -1,10 +1,10 @@
 use std::io;
 use std::path::Path;
-use std::fs::File;
 
 use buffered_reader::BufferedReader;
 use buffered_reader::BufferedReaderGeneric;
 use buffered_reader::BufferedReaderMemory;
+use buffered_reader::BufferedReaderFile;
 
 use Result;
 use parse::PacketParserResult;
@@ -52,7 +52,8 @@ impl<'a> PacketParserBuilder<'a> {
     /// Creates a `PacketParserBuilder` for an OpenPGP message stored
     /// in the file named `path`.
     pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
-        PacketParserBuilder::from_reader(File::open(path)?)
+        PacketParserBuilder::from_buffered_reader(
+            Box::new(BufferedReaderFile::with_cookie(path, Cookie::default())?))
     }
 
     /// Creates a `PacketParserBuilder` for an OpenPGP message stored

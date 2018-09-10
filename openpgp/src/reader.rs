@@ -1,7 +1,7 @@
 use buffered_reader::{
     BufferedReader, BufferedReaderGeneric, BufferedReaderMemory,
+    BufferedReaderFile,
 };
-use std::fs::File;
 use std::io;
 use std::path::Path;
 
@@ -39,8 +39,7 @@ impl<'a> Reader<'a> {
     pub fn from_file<P>(path: P) -> Result<Self>
         where P: AsRef<Path>
     {
-        Self::from_buffered_reader(
-            Box::new(BufferedReaderGeneric::new(File::open(path)?, None)))
+        Self::from_buffered_reader(Box::new(BufferedReaderFile::open(path)?))
     }
 
     /// Creates a `Reader` from a buffer.

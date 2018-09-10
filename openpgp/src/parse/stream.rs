@@ -5,12 +5,12 @@
 
 use std::cmp;
 use std::collections::HashMap;
-use std::fs::File;
 use std::io::{self, Read};
 use std::path::Path;
 
 use buffered_reader::{
     BufferedReader, BufferedReaderGeneric, BufferedReaderMemory,
+    BufferedReaderFile,
 };
 use {
     Error,
@@ -165,9 +165,8 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
         where P: AsRef<Path>
     {
         Verifier::from_buffered_reader(
-            Box::new(BufferedReaderGeneric::with_cookie(File::open(path)?,
-                                                        None,
-                                                        Default::default())),
+            Box::new(BufferedReaderFile::with_cookie(path,
+                                                     Default::default())?),
             helper)
     }
 
@@ -413,6 +412,7 @@ impl<'a, H: VerificationHelper> io::Read for Verifier<'a, H> {
 #[cfg(test)]
 mod test {
     use failure;
+    use std::fs::File;
     use std::path::PathBuf;
     use super::*;
 

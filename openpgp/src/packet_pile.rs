@@ -3,11 +3,11 @@ use std::slice;
 use std::vec;
 use std::io;
 use std::path::Path;
-use std::fs::File;
 
 use buffered_reader::BufferedReader;
 use buffered_reader::BufferedReaderGeneric;
 use buffered_reader::BufferedReaderMemory;
+use buffered_reader::BufferedReaderFile;
 
 use Result;
 use Error;
@@ -291,7 +291,8 @@ impl PacketPile {
     ///
     /// See `from_reader` for more details and caveats.
     pub fn from_file<P: AsRef<Path>>(path: P) -> Result<PacketPile> {
-        PacketPile::from_reader(File::open(path)?)
+        PacketPile::from_buffered_reader(
+            Box::new(BufferedReaderFile::with_cookie(path, Cookie::default())?))
     }
 
     /// Deserializes the OpenPGP message stored in the provided buffer.

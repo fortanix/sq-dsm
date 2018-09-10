@@ -3,7 +3,6 @@
 use std::io;
 use std::cmp::Ordering;
 use std::path::Path;
-use std::fs::File;
 use std::slice;
 use std::mem;
 use std::fmt;
@@ -1004,7 +1003,7 @@ impl TPK {
 
     /// Returns the first TPK encountered in the file.
     pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
-        Self::from_reader(File::open(path)?)
+        TPK::from_packet_parser(PacketParser::from_file(path)?)
     }
 
     /// Returns the first TPK found in the `PacketPile`.

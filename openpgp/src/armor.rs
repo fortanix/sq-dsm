@@ -27,8 +27,8 @@
 extern crate base64;
 use buffered_reader::{
     BufferedReader, BufferedReaderGeneric, BufferedReaderMemory,
+    BufferedReaderFile,
 };
-use std::fs::File;
 use std::io::{Cursor, Read, Write};
 use std::io::{Result, Error, ErrorKind};
 use std::path::Path;
@@ -453,7 +453,7 @@ impl<'a> Reader<'a> {
         where P: AsRef<Path>
     {
         Ok(Self::from_buffered_reader(
-            Box::new(BufferedReaderGeneric::new(File::open(path)?, None)),
+            Box::new(BufferedReaderFile::open(path)?),
             kind))
     }
 

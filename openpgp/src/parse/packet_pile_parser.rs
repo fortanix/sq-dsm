@@ -1,5 +1,4 @@
 use std::io;
-use std::fs::File;
 use std::path::Path;
 
 use {
@@ -15,7 +14,7 @@ use parse::{
     Cookie
 };
 use buffered_reader::{BufferedReader, BufferedReaderGeneric,
-                      BufferedReaderMemory};
+                      BufferedReaderMemory, BufferedReaderFile};
 
 #[cfg(test)]
 #[allow(unused_macros)]
@@ -134,7 +133,8 @@ impl<'a> PacketPileParser<'a> {
     /// in the file named by `path`.
     pub fn from_file<P: AsRef<Path>>(path: P)
             -> Result<PacketPileParser<'a>> {
-        PacketPileParser::from_reader(File::open(path)?)
+        PacketPileParser::from_buffered_reader(
+            Box::new(BufferedReaderFile::with_cookie(path, Cookie::default())?))
     }
 
     /// Creates a `PacketPileParser` to parse the OpenPGP message stored
