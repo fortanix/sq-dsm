@@ -23,7 +23,8 @@ main (int argc, char **argv)
   sq_status_t rc;
   sq_error_t err;
   sq_context_t ctx;
-  sq_packet_parser_t pp, ppo;
+  sq_packet_parser_result_t ppr;
+  sq_packet_parser_t pp;
 
   if (argc != 2)
     error (1, 0, "Usage: %s <file>", argv[0]);
@@ -45,30 +46,38 @@ main (int argc, char **argv)
   if (b == MAP_FAILED)
     error (1, errno, "mmap");
 
-  pp = sq_packet_parser_from_bytes (ctx, b, st.st_size);
-  if (pp == NULL)
-    {
-      err = sq_context_last_error (ctx);
-      error (1, 0, "sq_packet_parser_from_bytes: %s", sq_error_string (err));
-    }
-
   size_t n = 0;
   time_t start = time (NULL);
   time_t elapsed;
   size_t tens_of_s = 0;
-  while (pp)
+
+  ppr = sq_packet_parser_from_bytes (ctx, b, st.st_size);
+  while (ppr && (pp = sq_packet_parser_result_packet_parser (ppr)))
     {
-      sq_packet_t p;
-      rc = sq_packet_parser_next (ctx, pp, &p, NULL, &ppo, NULL);
+      // Get a reference to the packet that is currently being parsed.
+      sq_packet_t p = sq_packet_parser_packet (pp);
+
+      if (sq_packet_tag(p) == SQ_TAG_LITERAL)
+        {
+          // Stream the packet here.
+        }
+
+      // Finish parsing the current packet (returned in p), and read
+      // the header of the next packet (returned in ppr).
+      rc = sq_packet_parser_next (ctx, pp, &p, NULL, &ppr, NULL);
       if (rc)
 	{
 	  err = sq_context_last_error (ctx);
 	  error (1, 0, "sq_packet_parser_from_bytes: %s",
                  sq_error_string (err));
 	}
-      pp = ppo;
+
+      // We now own p.  If we want, we can save it in some structure.
+      // This would be useful when collecting PKESK packets.  Either
+      // way, we need to free it when we are done.
 
       n += 1;
+
       sq_packet_free (p);
 
       elapsed = time (NULL) - start;
@@ -81,10 +90,17 @@ main (int argc, char **argv)
           tens_of_s = elapsed / 10;
         }
     }
+  if (ppr == NULL)
+    {
+      err = sq_context_last_error (ctx);
+      error (1, 0, "sq_packet_parser_from_bytes: %s", sq_error_string (err));
+    }
+
   fprintf (stderr, "Parsed %ld packets in %ld seconds, %.2f packets/s.\n",
            n, elapsed, (double) n / (double) elapsed);
 
-  sq_packet_parser_free (pp);
+  sq_packet_parser_result_free (ppr);
+
   sq_context_free (ctx);
   munmap (b, st.st_size);
   return 0;

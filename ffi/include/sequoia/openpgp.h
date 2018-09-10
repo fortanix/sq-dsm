@@ -715,42 +715,81 @@ sq_status_t sq_skesk_decrypt (sq_context_t ctx, sq_skesk_t skesk,
 typedef struct sq_packet_parser *sq_packet_parser_t;
 
 /*/
-/// Like an `Option<PacketParser>`, but the `None` variant contains
-/// some summary information.
+/// Like an `Option<PacketParser>`, but the `None` variant
+/// (`PacketParserEOF`) contains some summary information.
 /*/
 typedef struct sq_packet_parser_result *sq_packet_parser_result_t;
 
 /*/
+/// The `None` variant of a `PacketParserResult`.
+/*/
+typedef struct sq_packet_parser_eof *sq_packet_parser_eof_t;
+
+/*/
 /// Starts parsing an OpenPGP message stored in a `sq_reader_t` object.
-///
-/// This function returns a `PacketParser` for the first packet in
-/// the stream.
 /*/
 sq_packet_parser_result_t sq_packet_parser_from_reader (sq_context_t ctx,
                                                         sq_reader_t reader);
 
 /*/
 /// Starts parsing an OpenPGP message stored in a file named `path`.
-///
-/// This function returns a `PacketParser` for the first packet in
-/// the stream.
 /*/
 sq_packet_parser_result_t sq_packet_parser_from_file (sq_context_t ctx,
                                                       const char *filename);
 
 /*/
 /// Starts parsing an OpenPGP message stored in a buffer.
-///
-/// This function returns a `PacketParserResult` for the first packet in
-/// the stream.
 /*/
 sq_packet_parser_result_t sq_packet_parser_from_bytes (sq_context_t ctx,
-                                                       const uint8_t *b, size_t len);
+                                                       const uint8_t *b,
+                                                       size_t len);
+
+/*/
+/// If the `PacketParserResult` contains a `PacketParser`, returns it,
+/// otherwise, returns NULL.
+///
+/// If the `PacketParser` reached EOF, then the `PacketParserResult`
+/// contains a `PacketParserEOF` and you should use
+/// `sq_packet_parser_result_eof` to get it.
+///
+/// If this function returns a `PacketParser`, then it consumes the
+/// `PacketParserResult` and ownership of the `PacketParser` is
+/// returned to the caller, i.e., the caller is responsible for
+/// ensuring that the `PacketParser` is freed.
+/*/
+sq_packet_parser_t sq_packet_parser_result_packet_parser (
+    sq_packet_parser_result_t ppr);
+
+/*/
+/// If the `PacketParserResult` contains a `PacketParserEOF`, returns
+/// it, otherwise, returns NULL.
+///
+/// If the `PacketParser` did not yet reach EOF, then the
+/// `PacketParserResult` contains a `PacketParser` and you should use
+/// `sq_packet_parser_result_packet_parser` to get it.
+///
+/// If this function returns a `PacketParserEOF`, then it consumes the
+/// `PacketParserResult` and ownership of the `PacketParserEOF` is
+/// returned to the caller, i.e., the caller is responsible for
+/// ensuring that the `PacketParserEOF` is freed.
+/*/
+sq_packet_parser_eof_t sq_packet_parser_result_eof (
+    sq_packet_parser_result_t ppr);
+
+/*/
+/// Frees the packet parser result.
+/*/
+void sq_packet_parser_result_free (sq_packet_parser_result_t ppr);
 
 /*/
 /// Frees the packet parser.
 /*/
 void sq_packet_parser_free (sq_packet_parser_t pp);
+
+/*/
+/// Frees the packet parser EOF object.
+/*/
+void sq_packet_parser_eof_free (sq_packet_parser_eof_t eof);
 
 /*/
 /// Returns a reference to the packet that is being parsed.

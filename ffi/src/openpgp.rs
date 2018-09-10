@@ -3,7 +3,7 @@
 use failure;
 use std::ffi::{CString, CStr};
 use std::hash::{Hash, Hasher};
-use std::mem::size_of;
+use std::mem::{size_of, forget};
 use std::ptr;
 use std::slice;
 use std::io::{Read, Write};
@@ -13,7 +13,7 @@ extern crate openpgp;
 
 use self::openpgp::{armor, Fingerprint, KeyID, PacketPile, TPK, TSK, Packet};
 use self::openpgp::tpk::{CipherSuite, TPKBuilder};
-use self::openpgp::parse::{PacketParser, PacketParserResult};
+use self::openpgp::parse::{PacketParserResult, PacketParser, PacketParserEOF};
 use self::openpgp::serialize::Serialize;
 use self::openpgp::constants::{
     DataFormat,
@@ -1192,12 +1192,32 @@ pub extern "system" fn sq_packet_parser_from_bytes
     fry_box!(ctx, PacketParser::from_bytes(buf))
 }
 
+/// Frees the packet parser result
+#[no_mangle]
+pub extern "system" fn sq_packet_parser_result_free(
+    ppr: *mut PacketParserResult)
+{
+    if ppr.is_null() { return }
+    unsafe {
+        drop(Box::from_raw(ppr));
+    }
+}
+
 /// Frees the packet parser.
 #[no_mangle]
 pub extern "system" fn sq_packet_parser_free(pp: *mut PacketParser) {
     if pp.is_null() { return }
     unsafe {
         drop(Box::from_raw(pp));
+    }
+}
+
+/// Frees the packet parser EOF object.
+#[no_mangle]
+pub extern "system" fn sq_packet_parser_eof_free(eof: *mut PacketParserEOF) {
+    if eof.is_null() { return }
+    unsafe {
+        drop(Box::from_raw(eof));
     }
 }
 
@@ -1448,6 +1468,70 @@ pub extern "system" fn sq_packet_parser_decrypt<'a>
         slice::from_raw_parts(key, key_len as usize)
     };
     fry_status!(ctx, pp.decrypt((algo as u8).into(), key))
+}
+
+
+/* PacketParserResult.  */
+
+/// If the `PacketParserResult` contains a `PacketParser`, returns it,
+/// otherwise, returns NULL.
+///
+/// If the `PacketParser` reached EOF, then the `PacketParserResult`
+/// contains a `PacketParserEOF` and you should use
+/// `sq_packet_parser_result_eof` to get it.
+///
+/// If this function returns a `PacketParser`, then it consumes the
+/// `PacketParserResult` and ownership of the `PacketParser` is
+/// returned to the caller, i.e., the caller is responsible for
+/// ensuring that the `PacketParser` is freed.
+#[no_mangle]
+pub extern "system" fn sq_packet_parser_result_packet_parser<'a>
+    (ppr: *mut PacketParserResult<'a>)
+    -> *mut PacketParser<'a>
+{
+    assert!(! ppr.is_null());
+    let ppr = unsafe {
+        Box::from_raw(ppr)
+    };
+
+    match *ppr {
+        PacketParserResult::Some(pp) => box_raw!(pp),
+        PacketParserResult::EOF(_) => {
+            // Don't free ppr!
+            forget(ppr);
+            ptr::null_mut()
+        }
+    }
+}
+
+/// If the `PacketParserResult` contains a `PacketParserEOF`, returns
+/// it, otherwise, returns NULL.
+///
+/// If the `PacketParser` did not yet reach EOF, then the
+/// `PacketParserResult` contains a `PacketParser` and you should use
+/// `sq_packet_parser_result_packet_parser` to get it.
+///
+/// If this function returns a `PacketParserEOF`, then it consumes the
+/// `PacketParserResult` and ownership of the `PacketParserEOF` is
+/// returned to the caller, i.e., the caller is responsible for
+/// ensuring that the `PacketParserEOF` is freed.
+#[no_mangle]
+pub extern "system" fn sq_packet_parser_result_eof<'a>
+    (ppr: *mut PacketParserResult<'a>)
+    -> *mut PacketParserEOF
+{
+    assert!(! ppr.is_null());
+    let ppr = unsafe {
+        Box::from_raw(ppr)
+    };
+
+    match *ppr {
+        PacketParserResult::Some(_) => {
+            forget(ppr);
+            ptr::null_mut()
+        }
+        PacketParserResult::EOF(eof) => box_raw!(eof),
+    }
 }
 
 use self::openpgp::serialize::{
