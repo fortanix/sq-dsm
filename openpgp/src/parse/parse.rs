@@ -869,6 +869,9 @@ impl Signature {
                                    unhashed_area_len as usize));
         let hash_prefix1 = php_try!(php.parse_u8("hash_prefix1"));
         let hash_prefix2 = php_try!(php.parse_u8("hash_prefix2"));
+        if ! pk_algo.can_sign() {
+            return php.fail("not a signature algorithm");
+        }
         let mpis = php_try!(::mpis::Signature::parse(pk_algo, &mut php));
 
         let hash_algo = hash_algo.into();
@@ -1894,6 +1897,9 @@ impl PKESK {
         let mut keyid = [0u8; 8];
         keyid.copy_from_slice(&php_try!(php.parse_bytes("keyid", 8)));
         let pk_algo: PublicKeyAlgorithm = php_try!(php.parse_u8("pk_algo")).into();
+        if ! pk_algo.can_encrypt() {
+            return php.fail("not an encryption algorithm");
+        }
         let mpis = ::mpis::Ciphertext::parse(pk_algo, &mut php)?;
 
         php.ok(Packet::PKESK(PKESK {
