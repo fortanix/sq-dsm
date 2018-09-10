@@ -50,6 +50,30 @@ pub enum PublicKeyAlgorithm {
     Unknown(u8),
 }
 
+impl PublicKeyAlgorithm {
+    /// Returns true if the algorithm can sign data.
+    pub fn can_sign(&self) -> bool {
+        use self::PublicKeyAlgorithm::*;
+        #[allow(deprecated)]
+        match &self {
+            RSAEncryptSign | RSASign | DSA | ECDSA | ElgamalEncryptSign
+                | EdDSA => true,
+            _ => false,
+        }
+    }
+
+    /// Returns true if the algorithm can encrypt data.
+    pub fn can_encrypt(&self) -> bool {
+        use self::PublicKeyAlgorithm::*;
+        #[allow(deprecated)]
+        match &self {
+            RSAEncryptSign | RSAEncrypt | ElgamalEncrypt | ECDH
+                | ElgamalEncryptSign => true,
+            _ => false,
+        }
+    }
+}
+
 impl From<u8> for PublicKeyAlgorithm {
     fn from(u: u8) -> Self {
         use PublicKeyAlgorithm::*;
