@@ -6,7 +6,7 @@ CARGO_TARGET_DIR	?= $(shell pwd)/../../target
 CARGO_TARGET_DIR	:= $(abspath $(CARGO_TARGET_DIR))
 
 TARGETS = example keyserver configure reader parser encrypt-for
-CFLAGS  = -I../include -O0 -g -Wall
+CFLAGS  = -I../include -O0 -g -Wall -Werror
 LDFLAGS = -L$(CARGO_TARGET_DIR)/debug -lsequoia_ffi
 
 all: $(TARGETS)
