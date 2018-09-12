@@ -537,11 +537,14 @@ mod test {
     #[test]
     fn verify_long_message() {
         use constants::DataFormat;
-        use tpk::TPKBuilder;
+        use tpk::{TPKBuilder, CipherSuite};
         use serialize::stream::{LiteralWriter, Signer, wrap};
         use std::io::Write;
 
-        let tpk = TPKBuilder::autocrypt(None).generate().unwrap();
+        let tpk = TPKBuilder::default()
+            .set_cipher_suite(CipherSuite::Cv25519)
+            .add_signing_subkey()
+            .generate().unwrap();
 
         // sign 30MiB message
         let mut buf = vec![];
