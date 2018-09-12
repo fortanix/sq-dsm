@@ -254,10 +254,6 @@ impl<'a> VHelper<'a> {
         eprintln!("{} good signatures, {} bad signatures, {} not checked.",
                   self.good, self.bad, self.unknown);
     }
-
-    fn success(&self) -> bool {
-        self.good > 0 && self.bad == 0
-    }
 }
 
 impl<'a> VerificationHelper for VHelper<'a> {
@@ -311,6 +307,15 @@ impl<'a> VerificationHelper for VHelper<'a> {
         Ok(())
     }
 
+    fn check(&mut self) -> Result<()> {
+        if self.good > 0 && self.bad == 0 {
+            Ok(())
+        } else {
+            self.print_status();
+            Err(failure::err_msg("Verification failed"))
+        }
+    }
+
     fn error(&mut self, error: failure::Error) {
         self.error = Some(error);
     }
@@ -323,20 +328,13 @@ pub fn verify(store: &mut store::Store,
     let helper = VHelper::new(store, tpks);
     let mut verifier = Verifier::from_reader(input, helper)?;
 
-    if verifier.helper_ref().success() {
-        if let Err(e) = io::copy(&mut verifier, output) {
-            verifier.helper_mut().get_error()?;
-            Err(e)?;
-        }
+    if let Err(e) = io::copy(&mut verifier, output) {
+        verifier.helper_mut().get_error()?;
+        Err(e)?;
     }
 
-    let helper = verifier.into_helper();
-    helper.print_status();
-    if helper.success() {
-        Ok(())
-    } else {
-        Err(failure::err_msg("Verification failed"))
-    }
+    verifier.into_helper().print_status();
+    Ok(())
 }
 
 pub fn dump(input: &mut io::Read, output: &mut io::Write, mpis: bool, hex: bool)

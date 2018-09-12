@@ -67,6 +67,9 @@ const BUFFER_SIZE: usize = 25 * 1024 * 1024;
 ///         }
 ///         Ok(())
 ///     }
+///     fn check(&mut self) -> Result<()> {
+///         Ok(()) // Implement your verification policy here.
+///     }
 ///     fn error(&mut self, error: failure::Error) {
 ///         panic!("{:?}", error);
 ///     }
@@ -85,12 +88,8 @@ const BUFFER_SIZE: usize = 25 * 1024 * 1024;
 /// let h = Helper {};
 /// let mut v = Verifier::from_reader(reader, h)?;
 ///
-/// let _ = v.helper_ref();  // Check the verification here...
-///
 /// let mut content = Vec::new();
 /// v.read_to_end(&mut content).unwrap();
-///
-/// let _ = v.into_helper(); // ... and here.
 ///
 /// assert_eq!(content, b"Hello World!");
 /// # Ok(())
@@ -136,6 +135,16 @@ pub trait VerificationHelper {
     /// Returning an error from this function aborts the `io::Read`
     /// operation.
     fn result(&mut self, VerificationResult) -> Result<()>;
+
+    /// Signals that the last signature has been verified.
+    ///
+    /// This is the place to implement your verification policy.
+    /// Check that the required number of signatures or notarizations
+    /// were confirmed as valid.
+    ///
+    /// Returning error from this function aborts the `io::Read`
+    /// operation.
+    fn check(&mut self) -> Result<()>;
 
     /// Conveys rich errors while reading.
     ///
@@ -278,6 +287,7 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
                     Err(Error::MalformedMessage(
                         "Malformed OpenPGP message".into()).into())
                 } else {
+                    v.helper.check()?;
                     Ok(v)
                 },
             PacketParserResult::Some(pp) => {
@@ -375,6 +385,8 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
                         if ! eof.is_message() {
                             return Err(Error::MalformedMessage(
                                 "Malformed OpenPGP message".into()).into());
+                        } else {
+                            self.helper.check()?;
                         },
                     PacketParserResult::Some(pp) => {
                         self.oppr = Some(PacketParserResult::Some(pp));
@@ -466,6 +478,14 @@ mod test {
             Ok(())
         }
 
+        fn check(&mut self) -> Result<()> {
+            if self.good > 0 && self.bad == 0 {
+                Ok(())
+            } else {
+                Err(failure::err_msg("Verification failed"))
+            }
+        }
+
         fn error(&mut self, _error: failure::Error) {
             self.error += 1;
         }
@@ -498,7 +518,7 @@ mod test {
             let mut v =
                 match Verifier::from_file(path_to(f), h) {
                     Ok(v) => v,
-                    Err(e) => if r.error > 0 {
+                    Err(e) => if r.error > 0 || r.unknown > 0 {
                         // Expected error.  No point in trying to read
                         // something.
                         continue;
