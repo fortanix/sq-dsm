@@ -201,6 +201,7 @@ impl SignatureBuilder {
             hash_prefix: [digest[0], digest[1]],
             mpis: mpis,
             computed_hash: None,
+            level: 0,
         })
     }
 }
@@ -236,6 +237,13 @@ pub struct Signature {
     /// When used in conjunction with a one-pass signature, this is the
     /// hash computed over the enclosed message.
     pub(crate) computed_hash: Option<(HashAlgorithm, Vec<u8>)>,
+
+    /// Signature level.
+    ///
+    /// A level of 0 indicates that the signature is directly over the
+    /// data, a level of 1 means that the signature is a notarization
+    /// over all level 0 signatures and the data, and so on.
+    pub(crate) level: usize,
 }
 
 impl fmt::Debug for Signature {
@@ -266,6 +274,7 @@ impl fmt::Debug for Signature {
                    } else {
                        None
                    })
+            .field("level", &self.level)
             .field("mpis", &self.mpis)
             .finish()
     }
@@ -353,6 +362,24 @@ impl Signature {
     pub fn set_computed_hash(&mut self, hash: Option<(HashAlgorithm, Vec<u8>)>)
     {
         self.computed_hash = hash;
+    }
+
+    /// Gets the signature level.
+    ///
+    /// A level of 0 indicates that the signature is directly over the
+    /// data, a level of 1 means that the signature is a notarization
+    /// over all level 0 signatures and the data, and so on.
+    pub fn level(&self) -> usize {
+        self.level
+    }
+
+    /// Sets the signature level.
+    ///
+    /// A level of 0 indicates that the signature is directly over the
+    /// data, a level of 1 means that the signature is a notarization
+    /// over all level 0 signatures and the data, and so on.
+    pub fn set_level(&mut self, level: usize) {
+        self.level = level;
     }
 
     /// Gets the issuer.
@@ -756,6 +783,26 @@ mod test {
             }
 
             assert_eq!(good, test.good, "Signature verification failed.");
+        }
+    }
+
+    #[test]
+    fn signature_level() {
+        use PacketPile;
+        let p = PacketPile::from_file(
+            path_to("messages/signed-1-notarized-by-ed25519.pgp")).unwrap()
+            .into_children().collect::<Vec<Packet>>();
+
+        if let Packet::Signature(ref sig) = &p[3] {
+            assert_eq!(sig.level(), 0);
+        } else {
+            panic!("expected signature")
+        }
+
+        if let Packet::Signature(ref sig) = &p[4] {
+            assert_eq!(sig.level(), 1);
+        } else {
+            panic!("expected signature")
         }
     }
 

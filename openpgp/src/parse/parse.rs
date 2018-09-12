@@ -426,6 +426,9 @@ pub(crate) struct Cookie {
     /// the last flag set.
     saw_last: bool,
     sig_groups: Vec<SignatureGroup>,
+    /// Keep track of the maximal size of sig_groups to compute
+    /// signature levels.
+    sig_groups_max_len: usize,
 
     /// Stashed bytes that need to be hashed.
     ///
@@ -488,6 +491,7 @@ impl Default for Cookie {
             hashes_for: HashesFor::Nothing,
             saw_last: false,
             sig_groups: vec![Default::default()],
+            sig_groups_max_len: 1,
             hash_stash: None,
         }
     }
@@ -501,6 +505,7 @@ impl Cookie {
             hashes_for: HashesFor::Nothing,
             saw_last: false,
             sig_groups: vec![Default::default()],
+            sig_groups_max_len: 1,
             hash_stash: None,
         }
     }
@@ -518,6 +523,13 @@ impl Cookie {
         &mut self.sig_groups[len - 1]
     }
 
+    /// Returns the level of the currently parsed signature.
+    fn signature_level(&self) -> usize {
+        // The signature with the deepest "nesting" is closest to the
+        // data, and hence level 0.
+        self.sig_groups_max_len - self.sig_groups.len()
+    }
+
     /// Tests whether the topmost signature group is no longer used.
     fn sig_group_unused(&self) -> bool {
         assert!(self.sig_groups.len() > 0);
@@ -527,6 +539,7 @@ impl Cookie {
     /// Pushes a new signature group to the stack.
     fn sig_group_push(&mut self) {
         self.sig_groups.push(Default::default());
+        self.sig_groups_max_len += 1;
     }
 
     /// Pops a signature group from the stack.
@@ -888,6 +901,7 @@ impl Signature {
             hash_prefix: [hash_prefix1, hash_prefix2],
             mpis: mpis,
             computed_hash: None,
+            level: 0,
         }))?;
 
         // Locate the corresponding HashedReader and extract the
@@ -924,7 +938,8 @@ impl Signature {
                                           indent(recursion_depth as u8),
                                           hash_algo);
                             }
-                            computed_hash = Some((hash_algo, hash.clone()));
+                            computed_hash = Some((cookie.signature_level(),
+                                                  hash_algo, hash.clone()));
                         }
 
                         if cookie.sig_group_unused() {
@@ -938,7 +953,7 @@ impl Signature {
             }
         }
 
-        if let Some((algo, mut hash)) = computed_hash {
+        if let Some((level, algo, mut hash)) = computed_hash {
             if let Packet::Signature(ref mut sig) = pp.packet {
                 sig.hash(&mut hash);
 
@@ -946,6 +961,7 @@ impl Signature {
                 hash.digest(&mut digest);
 
                 sig.computed_hash = Some((algo, digest));
+                sig.set_level(level);
             } else {
                 unreachable!()
             }
