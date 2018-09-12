@@ -226,7 +226,6 @@ struct VHelper<'a> {
     good: usize,
     unknown: usize,
     bad: usize,
-    error: Option<failure::Error>,
 }
 
 impl<'a> VHelper<'a> {
@@ -238,15 +237,6 @@ impl<'a> VHelper<'a> {
             good: 0,
             unknown: 0,
             bad: 0,
-            error: None,
-        }
-    }
-
-    fn get_error(&mut self) -> Result<()> {
-        if let Some(e) = self.error.take() {
-            Err(e)
-        } else {
-            Ok(())
         }
     }
 
@@ -315,10 +305,6 @@ impl<'a> VerificationHelper for VHelper<'a> {
             Err(failure::err_msg("Verification failed"))
         }
     }
-
-    fn error(&mut self, error: failure::Error) {
-        self.error = Some(error);
-    }
 }
 
 pub fn verify(store: &mut store::Store,
@@ -328,10 +314,14 @@ pub fn verify(store: &mut store::Store,
     let helper = VHelper::new(store, tpks);
     let mut verifier = Verifier::from_reader(input, helper)?;
 
-    if let Err(e) = io::copy(&mut verifier, output) {
-        verifier.helper_mut().get_error()?;
-        Err(e)?;
-    }
+    io::copy(&mut verifier, output)
+        .map_err(|e| if e.get_ref().is_some() {
+            // Wrapped failure::Error.  Recover it.
+            failure::Error::from_boxed_compat(e.into_inner().unwrap())
+        } else {
+            // Plain io::Error.
+            e.into()
+        })?;
 
     verifier.into_helper().print_status();
     Ok(())

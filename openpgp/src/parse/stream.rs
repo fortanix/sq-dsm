@@ -3,7 +3,6 @@
 //! This module provides convenient filters for decryption and
 //! verification of OpenPGP messages.
 
-use failure;
 use std::cmp;
 use std::collections::HashMap;
 use std::fs::File;
@@ -70,9 +69,6 @@ const BUFFER_SIZE: usize = 25 * 1024 * 1024;
 ///     fn check(&mut self) -> Result<()> {
 ///         Ok(()) // Implement your verification policy here.
 ///     }
-///     fn error(&mut self, error: failure::Error) {
-///         panic!("{:?}", error);
-///     }
 /// }
 ///
 /// let mut reader = armored!(
@@ -89,7 +85,14 @@ const BUFFER_SIZE: usize = 25 * 1024 * 1024;
 /// let mut v = Verifier::from_reader(reader, h)?;
 ///
 /// let mut content = Vec::new();
-/// v.read_to_end(&mut content).unwrap();
+/// v.read_to_end(&mut content)
+///     .map_err(|e| if e.get_ref().is_some() {
+///         // Wrapped failure::Error.  Recover it.
+///         failure::Error::from_boxed_compat(e.into_inner().unwrap())
+///     } else {
+///         // Plain io::Error.
+///         e.into()
+///     })?;
 ///
 /// assert_eq!(content, b"Hello World!");
 /// # Ok(())
@@ -145,16 +148,6 @@ pub trait VerificationHelper {
     /// Returning error from this function aborts the `io::Read`
     /// operation.
     fn check(&mut self) -> Result<()>;
-
-    /// Conveys rich errors while reading.
-    ///
-    /// During the `io::Read` operation, only `io::Error`s can be
-    /// returned.  To signal different errors during signature
-    /// verification and processing of the OpenPGP message in general,
-    /// we call this function with the error, and return an
-    /// `io::Error` of kind `io::ErrorKind::Other` to the read
-    /// operation.
-    fn error(&mut self, failure::Error);
 }
 
 impl<'a, H: VerificationHelper> Verifier<'a, H> {
@@ -411,10 +404,12 @@ impl<'a, H: VerificationHelper> io::Read for Verifier<'a, H> {
 
         match self.read_helper(buf) {
             Ok(n) => Ok(n),
-            Err(e) => {
-                self.helper.error(e);
-                Err(io::Error::new(io::ErrorKind::Other,
-                                   "Error conveyed to helper"))
+            Err(e) => match e.downcast::<io::Error>() {
+                // An io::Error.  Pass as-is.
+                Ok(e) => Err(e),
+                // A failure.  Create a compat object and wrap it.
+                Err(e) => Err(io::Error::new(io::ErrorKind::Other,
+                                             e.compat())),
             },
         }
     }
@@ -422,6 +417,7 @@ impl<'a, H: VerificationHelper> io::Read for Verifier<'a, H> {
 
 #[cfg(test)]
 mod test {
+    use failure;
     use std::path::PathBuf;
     use super::*;
 
@@ -484,10 +480,6 @@ mod test {
             } else {
                 Err(failure::err_msg("Verification failed"))
             }
-        }
-
-        fn error(&mut self, _error: failure::Error) {
-            self.error += 1;
         }
     }
 
