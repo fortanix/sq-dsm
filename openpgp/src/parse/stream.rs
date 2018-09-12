@@ -132,9 +132,19 @@ pub trait VerificationHelper {
     fn get_public_keys(&mut self, &[KeyID]) -> Result<Vec<TPK>>;
 
     /// Conveys the result of a signature verification.
+    ///
+    /// Returning an error from this function aborts the `io::Read`
+    /// operation.
     fn result(&mut self, VerificationResult) -> Result<()>;
 
     /// Conveys rich errors while reading.
+    ///
+    /// During the `io::Read` operation, only `io::Error`s can be
+    /// returned.  To signal different errors during signature
+    /// verification and processing of the OpenPGP message in general,
+    /// we call this function with the error, and return an
+    /// `io::Error` of kind `io::ErrorKind::Other` to the read
+    /// operation.
     fn error(&mut self, failure::Error);
 }
 
