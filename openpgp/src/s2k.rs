@@ -14,6 +14,7 @@ use std::fmt;
 
 use nettle::{Hash, Yarrow};
 use quickcheck::{Arbitrary, Gen};
+use rand::Rng;
 
 /// String-to-Key (S2K) specifiers.
 ///

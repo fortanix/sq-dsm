@@ -2,6 +2,7 @@
 
 use std::fmt;
 use quickcheck::{Arbitrary, Gen};
+use rand::Rng;
 
 use constants::{
     SymmetricAlgorithm,
