@@ -103,7 +103,6 @@ pub struct Verifier<'a, H: VerificationHelper> {
     /// Maps KeyID to tpks[i].keys().nth(j).
     keys: HashMap<KeyID, (usize, usize)>,
     buffer: Vec<u8>,
-    cursor: usize,
     seen_eof: bool,
     oppr: Option<PacketParserResult<'a>>,
 }
@@ -213,7 +212,6 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
             tpks: Vec::new(),
             keys: HashMap::new(),
             buffer: Vec::new(),
-            cursor: 0,
             seen_eof: false,
             oppr: None,
         };
@@ -257,7 +255,7 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
                     }
 
                     // Start to buffer the data.
-                    v.fill_buffer(&mut pp)?;
+                    v.fill_buffer(&mut pp, BUFFER_SIZE)?;
                 },
                 _ => (),
             }
@@ -290,13 +288,10 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
         }
     }
 
-    fn fill_buffer(&mut self, pp: &mut PacketParser) -> Result<()> {
-        assert!(self.buffer.is_empty());
-        assert_eq!(self.cursor, 0);
-
+    fn fill_buffer(&mut self, pp: &mut PacketParser, amount: usize)
+                   -> Result<()> {
         let mut buffer = vec![0; 4096];
-        let mut ncopied = 0;
-        while ncopied < BUFFER_SIZE {
+        while self.buffer.len() < amount {
             let l = pp.read(&mut buffer)?;
             if l == 0 {
                 self.seen_eof = true;
@@ -304,7 +299,6 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
             }
 
             self.buffer.extend_from_slice(&buffer[..l]);
-            ncopied += l;
         }
         Ok(())
     }
@@ -341,11 +335,13 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
 
     /// Like `io::Read::read()`, but returns our `Result`.
     fn read_helper(&mut self, buf: &mut [u8]) -> Result<usize> {
-        assert!(self.cursor <= self.buffer.len());
-        if self.cursor == self.buffer.len() {
-            self.buffer.clear();
-            self.cursor = 0;
+        // We never return more than BUFFER_SIZE bytes.
+        let n = cmp::min(buf.len(), BUFFER_SIZE);
+        let buf = &mut buf[..n];
 
+        // Make sure we have BUFFER_SIZE bytes more than requested.
+        let want = buf.len() + BUFFER_SIZE;
+        if self.buffer.len() < want && ! self.seen_eof {
             if let Some(mut ppr) = self.oppr.take() {
                 while let PacketParserResult::Some(mut pp) = ppr {
                     if ! pp.possible_message() {
@@ -356,7 +352,7 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
                     match pp.packet {
                         Packet::Literal(_) => {
                             // Start to buffer the data.
-                            self.fill_buffer(&mut pp)?;
+                            self.fill_buffer(&mut pp, want)?;
                         },
                         _ => (),
                     }
@@ -388,10 +384,9 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
             }
         }
 
-        let n = cmp::min(buf.len(), self.buffer.len() - self.cursor);
-        &mut buf[..n]
-            .copy_from_slice(&self.buffer[self.cursor..self.cursor + n]);
-        self.cursor += n;
+        let n = cmp::min(buf.len(), self.buffer.len());
+        &mut buf[..n].copy_from_slice(&self.buffer[..n]);
+        self.buffer.drain(..n);
         Ok(n)
     }
 }
@@ -574,6 +569,31 @@ mod test {
         assert!(message.iter().all(|&b| b == 42));
         assert!(v.helper_ref().good == 1);
         assert!(v.helper_ref().bad == 0);
+        assert!(v.helper_ref().unknown == 0);
+        assert!(v.helper_ref().error == 0);
+
+        // Try the same, but this time we let .check() fail.
+        let h = Helper::new(0, 0, /* makes check() fail: */ 1, 0,
+                            vec![tpk.clone()]);
+        let mut v = Verifier::from_bytes(&buf, h).unwrap();
+
+        assert!(!v.message_processed());
+        assert!(v.helper_ref().good == 0);
+        assert!(v.helper_ref().bad == 1);
+        assert!(v.helper_ref().unknown == 0);
+        assert!(v.helper_ref().error == 0);
+
+        let mut message = Vec::new();
+        let r = v.read_to_end(&mut message);
+        assert!(r.is_err());
+
+        // Check that we only got a truncated message.
+        assert!(v.message_processed());
+        assert!(message.len() > 0);
+        assert!(message.len() <= 5 * 1024 * 1024);
+        assert!(message.iter().all(|&b| b == 42));
+        assert!(v.helper_ref().good == 1);
+        assert!(v.helper_ref().bad == 1);
         assert!(v.helper_ref().unknown == 0);
         assert!(v.helper_ref().error == 0);
     }
