@@ -402,6 +402,14 @@ fn dump_packet(output: &mut io::Write, i: &str, mpis: bool, p: &Packet) -> Resul
             }
             writeln!(output, "{}  Hash prefix: {}", i,
                      to_hex(s.hash_prefix(), false))?;
+            write!(output, "{}  Level: {} ", i, s.level())?;
+            match s.level() {
+                0 => writeln!(output, "(signature over data)")?,
+                1 => writeln!(output, "(notarization over signatures \
+                                       level 0 and data)")?,
+                n => writeln!(output, "(notarization over signatures \
+                                       level <= {} and data)", n - 1)?,
+            }
             if mpis {
                 writeln!(output, "{}  MPIs: {:?}", i, s.mpis())?;
             }
