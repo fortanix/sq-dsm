@@ -528,8 +528,7 @@ mod test {
             let mut ls = LiteralWriter::new(signer, DataFormat::Binary, None, None).unwrap();
 
             ls.write_all(&mut vec![42u8; 30 * 1024 * 1024]).unwrap();
-            let signer = ls.finalize_one().unwrap().unwrap();
-            let _ = signer.finalize_one().unwrap().unwrap();
+            ls.finalize().unwrap();
         }
 
         let h = Helper::new(0, 0, 0, 0, vec![tpk.clone()]);
