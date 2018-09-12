@@ -1298,6 +1298,13 @@ mod test {
         fn roundtrip(kind: Kind, payload: Vec<u8>) -> bool {
             use std::io::Cursor;
 
+            if payload.is_empty() {
+                // Empty payloads do not emit an armor framing unless
+                // one does an explicit empty write (and .write_all()
+                // does not).
+                return true;
+            }
+
             let mut encoded = Vec::new();
             Writer::new(&mut encoded, kind, &[][..]).unwrap()
                 .write_all(&payload)
