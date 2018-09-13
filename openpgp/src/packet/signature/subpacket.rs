@@ -68,7 +68,7 @@ use buffered_reader::{BufferedReader, BufferedReaderMemory};
 use {
     Error,
     Result,
-    packet::{Signature, SignatureBuilder},
+    packet::{signature, Signature},
     Packet,
     Fingerprint,
     packet::Key,
@@ -2286,7 +2286,7 @@ impl Signature {
     }
 }
 
-impl SignatureBuilder {
+impl signature::Builder {
     /// Sets the value of the Creation Time subpacket.
     pub fn set_signature_creation_time(&mut self, creation_time: time::Tm)
                                        -> Result<()> {
@@ -2553,7 +2553,7 @@ fn accessors() {
     let pk_algo = PublicKeyAlgorithm::EdDSA;
     let hash_algo = HashAlgorithm::SHA512;
     let hash = hash_algo.context().unwrap();
-    let mut sig = SignatureBuilder::new(::constants::SignatureType::Binary);
+    let mut sig = signature::Builder::new(::constants::SignatureType::Binary);
     let mut key = ::packet::Key::new(PublicKeyAlgorithm::EdDSA).unwrap();
     let sec = if let Some(SecretKey::Unencrypted { ref mpis }) = key.secret() {
         mpis.clone()

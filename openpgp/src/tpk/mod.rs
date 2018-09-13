@@ -15,7 +15,7 @@ use {
     Error,
     Result,
     Tag,
-    packet::{Signature, SignatureBuilder},
+    packet::{signature, Signature},
     packet::Key,
     packet::UserID,
     packet::UserAttribute,
@@ -319,7 +319,7 @@ impl SubkeyBinding {
         use SignatureType;
         use SecretKey;
 
-        let mut sig = SignatureBuilder::new(SignatureType::SubkeyBinding);
+        let mut sig = signature::Builder::new(SignatureType::SubkeyBinding);
 
         sig.set_key_flags(&KeyFlags::default().set_encrypt_for_transport(true))?;
         sig.set_signature_creation_time(time::now().canonicalize())?;
@@ -398,7 +398,7 @@ impl UserIDBinding {
         use SignatureType;
         use SecretKey;
 
-        let mut sig = SignatureBuilder::new(SignatureType::PositiveCertificate);
+        let mut sig = signature::Builder::new(SignatureType::PositiveCertificate);
 
         sig.set_key_flags(&KeyFlags::default().set_certify(true).set_sign(true))?;
         sig.set_signature_creation_time(time::now().canonicalize())?;

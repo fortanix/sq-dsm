@@ -36,7 +36,7 @@ fn path_to(artifact: &str) -> PathBuf {
 /// This is the mutable version of a `Signature` packet.  To convert
 /// it to one, use `sign_hash(..)`.
 #[derive(Clone, Hash, PartialEq, Eq)]
-pub struct SignatureBuilder {
+pub struct Builder {
     /// Version of the signature packet. Must be 4.
     pub(crate) version: u8,
     /// Type of signature.
@@ -51,10 +51,10 @@ pub struct SignatureBuilder {
     pub(crate) unhashed_area: SubpacketArea,
 }
 
-impl SignatureBuilder {
-    /// Returns a new `SignatureBuilder` object.
+impl Builder {
+    /// Returns a new `Builder` object.
     pub fn new(sigtype: SignatureType) ->  Self {
-        SignatureBuilder {
+        Builder {
             version: 4,
             sigtype: sigtype,
             pk_algo: PublicKeyAlgorithm::Unknown(0),
@@ -206,7 +206,7 @@ impl SignatureBuilder {
     }
 }
 
-impl From<Signature> for SignatureBuilder {
+impl From<Signature> for Builder {
     fn from(sig: Signature) -> Self {
         sig.fields
     }
@@ -227,7 +227,7 @@ pub struct Signature {
     pub(crate) common: packet::Common,
 
     /// Fields as configured using the builder.
-    pub(crate) fields: SignatureBuilder,
+    pub(crate) fields: Builder,
 
     /// Lower 16 bits of the signed hash value.
     pub(crate) hash_prefix: [u8; 2],
@@ -826,7 +826,7 @@ mod test {
             let pair = tpk.primary();
 
             if let Some(SecretKey::Unencrypted{ mpis: ref sec }) = pair.secret {
-                let mut sig = SignatureBuilder::new(SignatureType::Binary);
+                let mut sig = Builder::new(SignatureType::Binary);
                 let mut hash = hash_algo.context().unwrap();
 
                 // Make signature.

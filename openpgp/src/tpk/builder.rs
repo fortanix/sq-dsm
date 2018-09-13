@@ -9,7 +9,7 @@ use Result;
 use packet::UserID;
 use SymmetricAlgorithm;
 use HashAlgorithm;
-use packet::{Signature, SignatureBuilder};
+use packet::{signature, Signature};
 use TPK;
 use PublicKeyAlgorithm;
 use Error;
@@ -200,9 +200,9 @@ impl TPKBuilder {
 
         let key = Self::fresh_key(cs)?;
         let mut sig = if uid.is_some() {
-            SignatureBuilder::new(SignatureType::PositiveCertificate)
+            signature::Builder::new(SignatureType::PositiveCertificate)
         } else {
-            SignatureBuilder::new(SignatureType::DirectKey)
+            signature::Builder::new(SignatureType::DirectKey)
         };
 
         sig.set_key_flags(&blueprint.flags)?;
@@ -245,7 +245,7 @@ impl TPKBuilder {
         use SecretKey;
 
         let subkey = Self::fresh_key(cs)?;
-        let mut sig = SignatureBuilder::new(SignatureType::SubkeyBinding);
+        let mut sig = signature::Builder::new(SignatureType::SubkeyBinding);
 
         sig.set_key_flags(&blueprint.flags)?;
         sig.set_signature_creation_time(time::now().canonicalize())?;
@@ -294,7 +294,7 @@ impl TPKBuilder {
         use SignatureType;
         use SecretKey;
 
-        let mut sig = SignatureBuilder::new(SignatureType::PositiveCertificate);
+        let mut sig = signature::Builder::new(SignatureType::PositiveCertificate);
 
         sig.set_signature_creation_time(time::now().canonicalize())?;
         sig.set_issuer_fingerprint(key.fingerprint())?;

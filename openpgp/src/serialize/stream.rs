@@ -18,7 +18,7 @@ use {
     Result,
     SecretKey,
     packet::SKESK,
-    packet::{Signature, SignatureBuilder},
+    packet::{signature, Signature},
     Tag,
     TPK,
 };
@@ -362,7 +362,7 @@ impl<'a> Signer<'a> {
                 let mut hash = self.hash.clone();
 
                 // Make and hash a signature packet.
-                let mut sig = SignatureBuilder::new(SignatureType::Binary);
+                let mut sig = signature::Builder::new(SignatureType::Binary);
                 sig.set_signature_creation_time(time::now().canonicalize())?;
                 sig.set_issuer_fingerprint(key.fingerprint())?;
                 // GnuPG up to (and including) 2.2.8 requires the

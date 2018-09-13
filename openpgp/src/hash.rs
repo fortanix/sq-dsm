@@ -4,7 +4,7 @@ use HashAlgorithm;
 use packet::UserID;
 use packet::UserAttribute;
 use packet::Key;
-use packet::{Signature, SignatureBuilder};
+use packet::{signature, Signature};
 use Error;
 use Result;
 use conversions::Time;
@@ -142,7 +142,7 @@ impl Signature {
     }
 }
 
-impl SignatureBuilder {
+impl signature::Builder {
     /// Adds the `Signature` to the provided hash context.
     pub fn hash<H: Hash>(&self, hash: &mut H) {
         // A version 4 signature packet is laid out as follows:

@@ -24,7 +24,7 @@ use {
     Tag,
     Header,
     packet::Unknown,
-    packet::{Signature, SignatureBuilder},
+    packet::{signature, Signature},
     packet::OnePassSig,
     packet::Key,
     packet::UserID,
@@ -890,7 +890,7 @@ impl Signature {
         let hash_algo = hash_algo.into();
         let mut pp = php.ok(Packet::Signature(Signature {
             common: Default::default(),
-            fields: SignatureBuilder {
+            fields: signature::Builder {
                 version: version,
                 sigtype: sigtype.into(),
                 pk_algo: pk_algo.into(),
