@@ -90,12 +90,10 @@ pub mod s2k;
 
 mod unknown;
 mod signature;
-pub use signature::Signature;
 mod one_pass_sig;
 mod key;
 pub use key::SecretKey;
 mod userid;
-pub use userid::UserID;
 mod user_attribute;
 mod literal;
 mod compressed_data;
