@@ -13,7 +13,7 @@ use packet::UserID;
 use packet::UserAttribute;
 use Packet;
 use packet;
-use subpacket::SubpacketArea;
+use packet::signature::subpacket::SubpacketArea;
 use serialize::Serialize;
 
 use nettle::{dsa, ecdsa, ed25519, Hash, rsa, Yarrow};

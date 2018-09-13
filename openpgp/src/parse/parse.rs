@@ -56,7 +56,7 @@ use message::MessageValidator;
 mod partial_body;
 use self::partial_body::BufferedReaderPartialBodyFilter;
 
-use subpacket::SubpacketArea;
+use packet::signature::subpacket::SubpacketArea;
 pub mod key;
 
 mod packet_pile_parser;

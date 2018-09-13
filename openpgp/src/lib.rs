@@ -75,7 +75,6 @@ pub mod conversions;
 
 pub mod packet;
 use packet::{BodyLength, Header, Container};
-pub mod subpacket;
 
 pub mod parse;
 pub mod mpis;

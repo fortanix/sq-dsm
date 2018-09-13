@@ -1,5 +1,5 @@
 use time;
-use subpacket::KeyFlags;
+use packet::signature::subpacket::KeyFlags;
 use packet::Key;
 use tpk::{
     UserIDBinding,
@@ -339,7 +339,7 @@ impl TPKBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use subpacket::{SubpacketTag, Subpacket, SubpacketValue};
+    use packet::signature::subpacket::{SubpacketTag, Subpacket, SubpacketValue};
 
     #[test]
     fn all_opts() {

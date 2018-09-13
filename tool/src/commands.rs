@@ -12,7 +12,7 @@ use openpgp::{Packet, TPK, KeyID, SecretKey, Result};
 use openpgp::packet::{Key, Signature};
 use openpgp::s2k::S2K;
 use openpgp::parse::PacketParserResult;
-use openpgp::subpacket::{Subpacket, SubpacketValue};
+use openpgp::packet::signature::subpacket::{Subpacket, SubpacketValue};
 use openpgp::parse::stream::{
     Verifier, VerificationResult, VerificationHelper,
 };

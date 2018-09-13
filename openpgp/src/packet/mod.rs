@@ -31,6 +31,8 @@ pub use skesk::SKESK;
 pub use pkesk::PKESK;
 pub use mdc::MDC;
 
+pub mod signature;
+
 // Allow transparent access of common fields.
 impl<'a> Deref for Packet {
     type Target = Common;

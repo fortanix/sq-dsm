@@ -314,7 +314,7 @@ impl SubkeyBinding {
     /// Creates a new subkey binding signature. The subkey can be used for
     /// encrypting transport and expires in three years.
     pub fn new(subkey: Key, primary_key: &Key) -> Result<Self> {
-        use subpacket::KeyFlags;
+        use packet::signature::subpacket::KeyFlags;
         use constants::HashAlgorithm;
         use SignatureType;
         use SecretKey;
@@ -393,7 +393,7 @@ impl UserIDBinding {
     /// Creates a new self-signature binding `uid` to `key`, certified by `signer`. The signature
     /// asserts that the bound key can sign and certify and expires in three years.
     pub fn new(key: &Key, uid: UserID, signer: &Key) -> Result<Self> {
-        use subpacket::KeyFlags;
+        use packet::signature::subpacket::KeyFlags;
         use constants::HashAlgorithm;
         use SignatureType;
         use SecretKey;

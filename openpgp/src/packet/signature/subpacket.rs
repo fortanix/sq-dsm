@@ -35,7 +35,7 @@
 //! # use openpgp::Packet;
 //! # use openpgp::parse::{PacketParserResult, PacketParser};
 //! #
-//! # f(include_bytes!("../tests/data/messages/signed.gpg"));
+//! # f(include_bytes!("../../../tests/data/messages/signed.gpg"));
 //! #
 //! # fn f(message_data: &[u8]) -> Result<()> {
 //! let mut ppr = PacketParser::from_bytes(message_data)?;
