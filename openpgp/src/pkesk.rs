@@ -200,6 +200,12 @@ impl PKESK {
     }
 }
 
+impl From<PKESK> for Packet {
+    fn from(s: PKESK) -> Self {
+        s.to_packet()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use TPK;

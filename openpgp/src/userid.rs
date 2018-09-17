@@ -70,3 +70,9 @@ impl UserID {
         Packet::UserID(self)
     }
 }
+
+impl From<UserID> for Packet {
+    fn from(s: UserID) -> Self {
+        s.to_packet()
+    }
+}

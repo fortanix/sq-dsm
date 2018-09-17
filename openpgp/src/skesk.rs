@@ -141,3 +141,9 @@ impl SKESK {
         }
     }
 }
+
+impl From<SKESK> for Packet {
+    fn from(s: SKESK) -> Self {
+        s.to_packet()
+    }
+}

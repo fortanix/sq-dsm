@@ -64,3 +64,8 @@ impl MDC {
     }
 }
 
+impl From<MDC> for Packet {
+    fn from(s: MDC) -> Self {
+        s.to_packet()
+    }
+}

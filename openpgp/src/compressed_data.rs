@@ -81,3 +81,9 @@ impl CompressedData {
         Packet::CompressedData(self)
     }
 }
+
+impl From<CompressedData> for Packet {
+    fn from(s: CompressedData) -> Self {
+        s.to_packet()
+    }
+}

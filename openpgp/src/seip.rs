@@ -27,3 +27,8 @@ impl SEIP {
     }
 }
 
+impl From<SEIP> for Packet {
+    fn from(s: SEIP) -> Self {
+        s.to_packet()
+    }
+}

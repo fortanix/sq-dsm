@@ -172,3 +172,9 @@ impl Literal {
         Packet::Literal(self)
     }
 }
+
+impl From<Literal> for Packet {
+    fn from(s: Literal) -> Self {
+        s.to_packet()
+    }
+}

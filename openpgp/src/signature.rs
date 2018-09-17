@@ -660,6 +660,12 @@ impl Signature {
     }
 }
 
+impl From<Signature> for Packet {
+    fn from(s: Signature) -> Self {
+        s.to_packet()
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;

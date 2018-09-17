@@ -128,3 +128,9 @@ impl OnePassSig {
         Packet::OnePassSig(self)
     }
 }
+
+impl From<OnePassSig> for Packet {
+    fn from(s: OnePassSig) -> Self {
+        s.to_packet()
+    }
+}

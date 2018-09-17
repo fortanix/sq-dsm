@@ -58,3 +58,9 @@ impl Unknown {
         Packet::Unknown(self)
     }
 }
+
+impl From<Unknown> for Packet {
+    fn from(s: Unknown) -> Self {
+        s.to_packet()
+    }
+}

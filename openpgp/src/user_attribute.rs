@@ -49,3 +49,9 @@ impl UserAttribute {
         Packet::UserAttribute(self)
     }
 }
+
+impl From<UserAttribute> for Packet {
+    fn from(s: UserAttribute) -> Self {
+        s.to_packet()
+    }
+}
