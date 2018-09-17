@@ -2,6 +2,7 @@ use Error;
 use packet::Key;
 use KeyID;
 use mpis::{self, MPI, Ciphertext};
+use Packet;
 use PublicKeyAlgorithm;
 use Result;
 use SymmetricAlgorithm;
@@ -191,6 +192,11 @@ impl PKESK {
             Err(Error::MalformedPacket(format!("key checksum wrong"))
                 .into())
         }
+    }
+
+    /// Convert the `PKESK` struct to a `Packet`.
+    pub fn to_packet(self) -> Packet {
+        Packet::PKESK(self)
     }
 }
 

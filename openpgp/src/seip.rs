@@ -1,4 +1,5 @@
 use packet;
+use Packet;
 
 /// Holds an encrypted data packet.
 ///
@@ -18,6 +19,11 @@ impl SEIP {
     /// Gets the version.
     pub fn version(&self) -> u8 {
         self.version
+    }
+
+    /// Convert the `SEIP` struct to a `Packet`.
+    pub fn to_packet(self) -> Packet {
+        Packet::SEIP(self)
     }
 }
 
