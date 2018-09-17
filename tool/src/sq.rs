@@ -260,9 +260,7 @@ fn real_main() -> Result<(), failure::Error> {
 
             match m.subcommand() {
                 ("list",  Some(_)) => {
-                    println!("Domain: {:?}, store: {:?}:",
-                             domain_name, store_name);
-                    list_bindings(&store)?;
+                    list_bindings(&store, domain_name, store_name)?;
                 },
                 ("add",  Some(m)) => {
                     let fp = Fingerprint::from_hex(m.value_of("fingerprint").unwrap())
@@ -344,8 +342,7 @@ fn real_main() -> Result<(), failure::Error> {
                 ("bindings",  Some(m)) => {
                     for (domain, name, _, store)
                         in Store::list(&ctx, m.value_of("prefix").unwrap_or(""))? {
-                            println!("Domain: {:?}, store: {:?}:", domain, name);
-                            list_bindings(&store)?;
+                            list_bindings(&store, &domain, &name)?;
                         }
                 },
                 ("keys",  Some(_)) => {
@@ -387,11 +384,13 @@ fn real_main() -> Result<(), failure::Error> {
     return Ok(())
 }
 
-fn list_bindings(store: &Store) -> Result<(), failure::Error> {
+fn list_bindings(store: &Store, domain: &str, name: &str) -> Result<(), failure::Error> {
     if store.iter()?.count() == 0 {
-        println!("No keys.");
+        println!("No label-key bindings in the \"{}/{}\" store.", domain, name);
         return Ok(());
     }
+
+    println!("Domain: {:?}, store: {:?}:", domain, name);
 
     let mut table = Table::new();
     table.set_format(*prettytable::format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
