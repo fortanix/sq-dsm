@@ -307,6 +307,24 @@ impl Common {
             depth: 0,
         }
     }
+
+    /// Retrieves the packet's body.
+    ///
+    /// Packets can store a sequence of bytes as body, e.g. if the
+    /// maximum recursion level is reached while parsing a sequence of
+    /// packets, the container's body is stored as is.
+    pub fn body(&self) -> Option<&[u8]> {
+        self.body.as_ref().map(|b| b.as_slice())
+    }
+
+    /// Sets the packet's body.
+    ///
+    /// Setting the body clears the old body, or any of the packet's
+    /// descendants.
+    pub fn set_body(&mut self, data: Vec<u8>) {
+        self.children = None;
+        self.body = Some(data);
+    }
 }
 
 /// An OpenPGP packet's header.
