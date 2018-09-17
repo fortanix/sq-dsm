@@ -60,6 +60,18 @@ fn load_tpks<'a, I>(files: I) -> openpgp::Result<Vec<TPK>>
     Ok(tpks)
 }
 
+/// Prints a warning if the user supplied "help" or "-help" to an
+/// positional argument.
+///
+/// This should be used wherever a positional argument is followed by
+/// an optional positional argument.
+fn help_warning(arg: &str) {
+    if arg == "help" {
+        eprintln!("Warning: \"help\" is not a subcommand here.  \
+                   Did you mean --help?");
+    }
+}
+
 fn real_main() -> Result<(), failure::Error> {
     let matches = sq_cli::build().get_matches();
 
@@ -268,11 +280,13 @@ fn real_main() -> Result<(), failure::Error> {
                     store.add(m.value_of("label").unwrap(), &fp)?;
                 },
                 ("import",  Some(m)) => {
+                    let label = m.value_of("label").unwrap();
+                    help_warning(label);
                     let input = open_or_stdin(m.value_of("input"))?;
                     let mut input = openpgp::Reader::from_reader(input)?;
 
                     let tpk = TPK::from_reader(&mut input)?;
-                    store.import(m.value_of("label").unwrap(), &tpk)?;
+                    store.import(label, &tpk)?;
                 },
                 ("export",  Some(m)) => {
                     let tpk = store.lookup(m.value_of("label").unwrap())?.tpk()?;
