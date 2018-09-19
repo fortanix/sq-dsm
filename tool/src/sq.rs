@@ -128,19 +128,13 @@ fn real_main() -> Result<(), failure::Error> {
         },
         ("sign",  Some(m)) => {
             let mut input = open_or_stdin(m.value_of("input"))?;
-            let mut output = create_or_stdout(m.value_of("output"))?;
-            let mut output = if ! m.is_present("binary") {
-                Box::new(armor::Writer::new(&mut output,
-                                            armor::Kind::Message,
-                                            &[][..])?)
-            } else {
-                output
-            };
+            let output = m.value_of("output");
             let detached = m.is_present("detached");
+            let binary = m.is_present("binary");
             let secrets = m.values_of("secret-key-file")
                 .map(load_tpks)
                 .unwrap_or(Ok(vec![]))?;
-            commands::sign(&mut input, &mut output, secrets, detached)?;
+            commands::sign(&mut input, output, secrets, detached, binary)?;
         },
         ("verify",  Some(m)) => {
             let input = open_or_stdin(m.value_of("input"))?;

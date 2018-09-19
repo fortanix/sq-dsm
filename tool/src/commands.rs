@@ -7,6 +7,7 @@ use time;
 use rpassword;
 
 extern crate openpgp;
+use openpgp::armor;
 use openpgp::constants::DataFormat;
 use openpgp::{Packet, TPK, KeyID, SecretKey, Result};
 use openpgp::packet::{Key, Signature};
@@ -20,6 +21,8 @@ use openpgp::serialize::stream::{
     wrap, Signer, LiteralWriter, Encryptor, EncryptionMode,
 };
 extern crate sequoia_store as store;
+
+use super::create_or_stdout;
 
 // Indent packets according to their recursion level.
 const INDENT: &'static str
@@ -188,9 +191,18 @@ pub fn encrypt(store: &mut store::Store,
     Ok(())
 }
 
-pub fn sign(input: &mut io::Read, output: &mut io::Write,
-            secrets: Vec<openpgp::TPK>, detached: bool)
+pub fn sign(input: &mut io::Read, output: Option<&str>,
+            secrets: Vec<openpgp::TPK>, detached: bool, binary: bool)
             -> Result<()> {
+    let mut output = create_or_stdout(output)?;
+    let output = if ! binary {
+        Box::new(armor::Writer::new(&mut output,
+                                    armor::Kind::Message,
+                                    &[][..])?)
+    } else {
+        output
+    };
+
     let sink = wrap(output);
     // Build a vector of references to hand to Signer.
     let keys: Vec<&openpgp::TPK> = secrets.iter().collect();
