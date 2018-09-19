@@ -1,4 +1,5 @@
-use std::fs;
+use std::fs::{self, File};
+use std::io;
 
 extern crate assert_cli;
 use assert_cli::Assert;
@@ -6,8 +7,9 @@ extern crate tempfile;
 use tempfile::TempDir;
 
 extern crate openpgp;
-use openpgp::{Packet, PacketPile, Reader};
-use openpgp::constants::SignatureType;
+use openpgp::{Packet, PacketPile, Reader, TPK};
+use openpgp::constants::{CompressionAlgorithm, DataFormat, SignatureType};
+use openpgp::serialize::stream::{wrap, Signer, Compressor, LiteralWriter};
 
 fn p(filename: &str) -> String {
     format!("../openpgp/tests/data/{}", filename)
@@ -61,6 +63,251 @@ fn sq_sign() {
               "--public-key-file",
               &p("keys/dennis-simon-anton.pgp"),
               &sig.to_string_lossy()])
+        .unwrap();
+}
+
+#[test]
+fn sq_sign_append() {
+    let tmp_dir = TempDir::new().unwrap();
+    let sig0 = tmp_dir.path().join("sig0");
+
+    // Sign message.
+    Assert::cargo_binary("sq")
+        .with_args(
+            &["sign",
+              "--secret-key-file",
+              &p("keys/dennis-simon-anton-private.pgp"),
+              "--output",
+              &sig0.to_string_lossy(),
+              &p("messages/a-cypherpunks-manifesto.txt")])
+        .unwrap();
+
+    // Check that the content is sane.
+    let packets: Vec<Packet> =
+        PacketPile::from_reader(Reader::from_file(&sig0).unwrap())
+        .unwrap().into_children().collect();
+    assert_eq!(packets.len(), 3);
+    if let Packet::OnePassSig(ref ops) = packets[0] {
+        assert!(ops.last());
+        assert_eq!(ops.sigtype(), SignatureType::Binary);
+    } else {
+        panic!("expected one pass signature");
+    }
+    if let Packet::Literal(_) = packets[1] {
+        // Do nothing.
+    } else {
+        panic!("expected literal");
+    }
+    if let Packet::Signature(ref sig) = packets[2] {
+        assert_eq!(sig.sigtype(), SignatureType::Binary);
+    } else {
+        panic!("expected signature");
+    }
+
+    let content = fs::read(&sig0).unwrap();
+    assert!(&content[..].starts_with(b"-----BEGIN PGP MESSAGE-----\n\n"));
+
+    // Verify signed message.
+    Assert::cargo_binary("sq")
+        .with_args(
+            &["verify",
+              "--public-key-file",
+              &p("keys/dennis-simon-anton.pgp"),
+              &sig0.to_string_lossy()])
+        .unwrap();
+
+    // Now add a second signature with --append.
+    let sig1 = tmp_dir.path().join("sig1");
+    Assert::cargo_binary("sq")
+        .with_args(
+            &["sign",
+              "--append",
+              "--secret-key-file",
+              &p("keys/erika-corinna-daniela-simone-antonia-nistp256-private.pgp"),
+              "--output",
+              &sig1.to_string_lossy(),
+              &sig0.to_string_lossy()])
+        .unwrap();
+
+    // Check that the content is sane.
+    let packets: Vec<Packet> =
+        PacketPile::from_reader(Reader::from_file(&sig1).unwrap())
+        .unwrap().into_children().collect();
+    assert_eq!(packets.len(), 5);
+    if let Packet::OnePassSig(ref ops) = packets[0] {
+        assert!(! ops.last());
+        assert_eq!(ops.sigtype(), SignatureType::Binary);
+    } else {
+        panic!("expected one pass signature");
+    }
+    if let Packet::OnePassSig(ref ops) = packets[1] {
+        assert!(ops.last());
+        assert_eq!(ops.sigtype(), SignatureType::Binary);
+    } else {
+        panic!("expected one pass signature");
+    }
+    if let Packet::Literal(_) = packets[2] {
+        // Do nothing.
+    } else {
+        panic!("expected literal");
+    }
+    if let Packet::Signature(ref sig) = packets[3] {
+        assert_eq!(sig.sigtype(), SignatureType::Binary);
+        assert_eq!(sig.level(), 0);
+    } else {
+        panic!("expected signature");
+    }
+    if let Packet::Signature(ref sig) = packets[4] {
+        assert_eq!(sig.sigtype(), SignatureType::Binary);
+        assert_eq!(sig.level(), 0);
+    } else {
+        panic!("expected signature");
+    }
+
+    let content = fs::read(&sig1).unwrap();
+    assert!(&content[..].starts_with(b"-----BEGIN PGP MESSAGE-----\n\n"));
+
+    // Verify both signatures of the signed message.
+    Assert::cargo_binary("sq")
+        .with_args(
+            &["verify",
+              "--public-key-file",
+              &p("keys/dennis-simon-anton.pgp"),
+              &sig0.to_string_lossy()])
+        .unwrap();
+    Assert::cargo_binary("sq")
+        .with_args(
+            &["verify",
+              "--public-key-file",
+              &p("keys/erika-corinna-daniela-simone-antonia-nistp256.pgp"),
+              &sig0.to_string_lossy()])
+        .unwrap();
+}
+
+#[test]
+#[allow(unreachable_code)]
+fn sq_sign_append_on_compress_then_sign() {
+    let tmp_dir = TempDir::new().unwrap();
+    let sig0 = tmp_dir.path().join("sig0");
+
+    // This is quite an odd scheme, so we need to create such a
+    // message by foot.
+    let tsk = TPK::from_file(&p("keys/dennis-simon-anton-private.pgp"))
+        .unwrap();
+    let signer = Signer::new(wrap(File::create(&sig0).unwrap()), &[&tsk])
+        .unwrap();
+    let compressor = Compressor::new(signer, CompressionAlgorithm::Uncompressed)
+        .unwrap();
+    let mut literal = LiteralWriter::new(compressor, DataFormat::Binary, None,
+                                         None)
+        .unwrap();
+    io::copy(
+        &mut File::open(&p("messages/a-cypherpunks-manifesto.txt")).unwrap(),
+        &mut literal)
+        .unwrap();
+    literal.finalize()
+        .unwrap();
+
+    // Check that the content is sane.
+    let packets: Vec<Packet> =
+        PacketPile::from_reader(Reader::from_file(&sig0).unwrap())
+        .unwrap().into_children().collect();
+    assert_eq!(packets.len(), 3);
+    if let Packet::OnePassSig(ref ops) = packets[0] {
+        assert!(ops.last());
+        assert_eq!(ops.sigtype(), SignatureType::Binary);
+    } else {
+        panic!("expected one pass signature");
+    }
+    if let Packet::CompressedData(_) = packets[1] {
+        // Do nothing.
+    } else {
+        panic!("expected compressed data");
+    }
+    if let Packet::Signature(ref sig) = packets[2] {
+        assert_eq!(sig.sigtype(), SignatureType::Binary);
+    } else {
+        panic!("expected signature");
+    }
+
+    // Verify signed message.
+    Assert::cargo_binary("sq")
+        .with_args(
+            &["verify",
+              "--public-key-file",
+              &p("keys/dennis-simon-anton.pgp"),
+              &sig0.to_string_lossy()])
+        .unwrap();
+
+    // Now add a second signature with --append.
+    let sig1 = tmp_dir.path().join("sig1");
+    Assert::cargo_binary("sq")
+        .with_args(
+            &["sign",
+              "--append",
+              "--secret-key-file",
+              &p("keys/erika-corinna-daniela-simone-antonia-nistp256-private.pgp"),
+              "--output",
+              &sig1.to_string_lossy(),
+              &sig0.to_string_lossy()])
+        .fails() // XXX: Currently, this is not implemented.
+        .unwrap();
+
+    // XXX: Currently, this is not implemented in sq.
+    return;
+
+    // Check that the content is sane.
+    let packets: Vec<Packet> =
+        PacketPile::from_reader(Reader::from_file(&sig1).unwrap())
+        .unwrap().into_children().collect();
+    assert_eq!(packets.len(), 5);
+    if let Packet::OnePassSig(ref ops) = packets[0] {
+        assert!(! ops.last());
+        assert_eq!(ops.sigtype(), SignatureType::Binary);
+    } else {
+        panic!("expected one pass signature");
+    }
+    if let Packet::OnePassSig(ref ops) = packets[1] {
+        assert!(ops.last());
+        assert_eq!(ops.sigtype(), SignatureType::Binary);
+    } else {
+        panic!("expected one pass signature");
+    }
+    if let Packet::CompressedData(_) = packets[2] {
+        // Do nothing.
+    } else {
+        panic!("expected compressed data");
+    }
+    if let Packet::Signature(ref sig) = packets[3] {
+        assert_eq!(sig.sigtype(), SignatureType::Binary);
+        assert_eq!(sig.level(), 0);
+    } else {
+        panic!("expected signature");
+    }
+    if let Packet::Signature(ref sig) = packets[4] {
+        assert_eq!(sig.sigtype(), SignatureType::Binary);
+        assert_eq!(sig.level(), 0);
+    } else {
+        panic!("expected signature");
+    }
+
+    let content = fs::read(&sig1).unwrap();
+    assert!(&content[..].starts_with(b"-----BEGIN PGP MESSAGE-----\n\n"));
+
+    // Verify both signatures of the signed message.
+    Assert::cargo_binary("sq")
+        .with_args(
+            &["verify",
+              "--public-key-file",
+              &p("keys/dennis-simon-anton.pgp"),
+              &sig0.to_string_lossy()])
+        .unwrap();
+    Assert::cargo_binary("sq")
+        .with_args(
+            &["verify",
+              "--public-key-file",
+              &p("keys/erika-corinna-daniela-simone-antonia-nistp256.pgp"),
+              &sig0.to_string_lossy()])
         .unwrap();
 }
 

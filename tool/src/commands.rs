@@ -11,7 +11,7 @@ use tempfile::NamedTempFile;
 extern crate openpgp;
 use openpgp::armor;
 use openpgp::constants::DataFormat;
-use openpgp::{Packet, TPK, KeyID, SecretKey, Result};
+use openpgp::{Packet, TPK, KeyID, SecretKey, Error, Result};
 use openpgp::packet::{Key, Signature};
 use openpgp::s2k::S2K;
 use openpgp::parse::PacketParserResult;
@@ -198,6 +198,18 @@ pub fn sign(input: &mut io::Read, output_path: Option<&str>,
             secrets: Vec<openpgp::TPK>, detached: bool, binary: bool,
             append: bool)
             -> Result<()> {
+    match (detached, append) {
+        (_, false) | (true, true) =>
+            sign_data(input, output_path, secrets, detached, binary, append),
+        (false, true) =>
+            sign_message(input, output_path, secrets, binary),
+    }
+}
+
+fn sign_data(input: &mut io::Read, output_path: Option<&str>,
+             secrets: Vec<openpgp::TPK>, detached: bool, binary: bool,
+             append: bool)
+             -> Result<()> {
     let (mut output, prepend_sigs, tmp_path):
     (Box<io::Write>, Vec<Signature>, Option<PathBuf>) =
         if detached && append && output_path.is_some() {
@@ -281,6 +293,117 @@ pub fn sign(input: &mut io::Read, output_path: Option<&str>,
         fs::rename(path,
                    output_path.expect("must be Some if tmp_path is Some"))?;
     }
+    Ok(())
+}
+
+fn sign_message(input: &mut io::Read, output_path: Option<&str>,
+                secrets: Vec<openpgp::TPK>, binary: bool)
+             -> Result<()> {
+    let mut output = create_or_stdout(output_path)?;
+    let output = if ! binary {
+        Box::new(armor::Writer::new(&mut output,
+                                    armor::Kind::Message,
+                                    &[][..])?)
+    } else {
+        output
+    };
+
+    let mut sink = wrap(output);
+    // Build a vector of references to hand to Signer.
+    let keys: Vec<&openpgp::TPK> = secrets.iter().collect();
+
+    // Create a parser for the message to be notarized.
+    let mut ppr
+        = openpgp::parse::PacketParser::from_reader(
+            openpgp::Reader::from_reader(input)
+                .context("Failed to build reader")?)
+        .context("Failed to build parser")?;
+
+    // Once we see a signature, we can no longer strip compression.
+    let mut seen_signature = false;
+
+    while let PacketParserResult::Some(mut pp) = ppr {
+        if ! pp.possible_message() {
+            return Err(Error::MalformedMessage(
+                "Malformed OpenPGP message".into()).into());
+        }
+
+        eprintln!("packet: {:?}, seen_sig: {}", pp.packet, seen_signature);
+        match pp.packet.clone() {
+            Packet::PKESK(_) | Packet::SKESK(_) =>
+                return Err(failure::err_msg(
+                    "Signing encrypted data is not implemented")),
+
+            Packet::Literal(ref l) => {
+                let signer = Signer::new(sink, &keys)
+                    .context("Failed to create signer")?;
+
+                // Then, create a literal writer to wrap the data in a
+                // literal message packet.
+                let mut literal =
+                    LiteralWriter::new(signer, l.format(), l.filename(),
+                                       l.date().map(|d| *d))
+                    .context("Failed to create literal writer")?;
+
+                // Finally, just copy all the data.
+                io::copy(&mut pp, &mut literal)
+                    .context("Failed to sign data")?;
+
+                sink = literal.finalize_one()
+                    .context("Failed to sign data")?
+                    .unwrap()
+                    .finalize_one()
+                    .context("Failed to sign data")?
+                    .unwrap();
+            },
+
+            // To implement this, we'd need to stream the
+            // compressed data packet inclusive framing, but
+            // currently the partial body filter transparently
+            // removes the framing.
+            //
+            // If you do implement this, there is a half-disabled test
+            // in tests/sq-sign.rs.
+            Packet::CompressedData(_) if seen_signature =>
+                return Err(failure::err_msg(
+                    "Signing a compress-then-sign message is not implemented")),
+
+            _ => (),
+        }
+
+        let ((packet, _), (ppr_tmp, _)) = if seen_signature {
+            // Once we see a signature, we can no longer strip
+            // compression.
+            pp.next()
+        } else {
+            pp.recurse()
+        }.context("Parsing failed")?;
+        ppr = ppr_tmp;
+
+        match packet {
+            Packet::OnePassSig(mut ops) => {
+                ops.set_last(false);
+                ops.serialize(&mut sink)?;
+                seen_signature = true;
+            },
+
+            Packet::Signature(ref sig) => {
+                sig.serialize(&mut sink)
+                    .context("Failed to serialize")?;
+            },
+            _ => (),
+        }
+    }
+
+    if let PacketParserResult::EOF(eof) = ppr {
+        if ! eof.is_message() {
+            return Err(Error::MalformedMessage(
+                "Malformed OpenPGP message".into()).into());
+        }
+    } else {
+        unreachable!()
+    }
+
     Ok(())
 }
 
