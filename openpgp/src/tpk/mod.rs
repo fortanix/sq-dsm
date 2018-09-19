@@ -1057,136 +1057,122 @@ impl TPK {
         // against all userids and subkeys.  Furthermore, this may be
         // a partial TPK that is merged into an older copy.
 
-        for sig in mem::replace(&mut self.primary_selfsigs, Vec::new())
-            .into_iter()
-        {
-            if let Ok(true) = sig.verify_primary_key_binding(&self.primary,
-                                                             &self.primary) {
-                self.primary_selfsigs.push(sig);
-            } else {
-                self.bad.push(sig);
-            }
+        // desc: a description of the component
+        // binding: the binding to check
+        // sigs: a vector of sigs in $binding to check
+        // verify_method: the method to call on a signature to verify it
+        // verify_args: additional arguments to pass to verify_method
+        macro_rules! check {
+            ($desc:expr, $binding:expr, $sigs:ident,
+             $verify_method:ident, $($verify_args:expr),*) => ({
+                for sig in mem::replace(&mut $binding.$sigs, Vec::new())
+                    .into_iter()
+                {
+                    if let Ok(true) = sig.$verify_method(&self.primary,
+                                                         &self.primary,
+                                                         $($verify_args),*) {
+                        $binding.$sigs.push(sig);
+                    } else {
+                        if TRACE {
+                            eprintln!("Sig {:02X}{:02X}, type = {} \
+                                       doesn't belong to {}",
+                                      sig.hash_prefix[0], sig.hash_prefix[1],
+                                      sig.sigtype(), $desc);
+                        }
+
+                        self.bad.push(sig);
+                    }
+                }
+            });
+            ($desc:expr, $binding:expr, $sigs:ident,
+             $verify_method:ident) => ({
+                check!($desc, $binding, $sigs, $verify_method,)
+            });
         }
 
+        check!("primary key",
+               self, primary_selfsigs, verify_primary_key_binding);
+
         for binding in self.userids.iter_mut() {
-            for sig in mem::replace(&mut binding.selfsigs, Vec::new())
-                .into_iter()
-            {
-                if let Ok(true) = sig.verify_userid_binding(
-                    &self.primary, &self.primary, &binding.userid) {
-                    binding.selfsigs.push(sig);
-                } else {
-                    if TRACE {
-                        eprintln!("Sig {:02X}{:02X}, type = {} \
-                                   doesn't belong to user id \"{}\"",
-                                  sig.hash_prefix[0], sig.hash_prefix[1],
-                                  sig.sigtype(), binding.userid);
-                    }
-                    self.bad.push(sig);
-                }
-            }
+            check!(format!("userid \"{}\"",
+                           String::from_utf8_lossy(binding.userid.userid())),
+                   binding, selfsigs, verify_userid_binding,
+                   &binding.userid);
         }
 
         for binding in self.user_attributes.iter_mut() {
-            for sig in mem::replace(&mut binding.selfsigs, Vec::new())
-                .into_iter()
-            {
-                if let Ok(true) = sig.verify_user_attribute_binding(
-                    &self.primary, &self.primary, &binding.user_attribute) {
-                    binding.selfsigs.push(sig);
-                } else {
-                    if TRACE {
-                        eprintln!("Sig {:02X}{:02X}, type = {} \
-                                   doesn't belong to user attribute",
-                                  sig.hash_prefix[0], sig.hash_prefix[1],
-                                  sig.sigtype());
-                    }
-                    self.bad.push(sig);
-                }
-            }
+            check!("user attribute",
+                   binding, selfsigs, verify_user_attribute_binding,
+                   &binding.user_attribute);
         }
 
         for binding in self.subkeys.iter_mut() {
-            for sig in mem::replace(&mut binding.selfsigs, Vec::new())
-                .into_iter()
-            {
-                if let Ok(true) = sig.verify_subkey_binding(
-                    &self.primary, &self.primary, &binding.subkey) {
-                    binding.selfsigs.push(sig);
-                } else {
-                    if TRACE {
-                        eprintln!("Sig {:02X}{:02X}, type = {} \
-                                   doesn't belong to subkey {}",
-                                  sig.hash_prefix[0], sig.hash_prefix[1],
-                                  sig.sigtype(), binding.subkey.keyid());
-                    }
-                    self.bad.push(sig);
-                }
-            }
+            check!(format!("subkey {}", binding.subkey.keyid()),
+                   binding, selfsigs, verify_subkey_binding,
+                   &binding.subkey);
         }
 
         // See if the signatures that didn't validate are just out of
         // place.
+
         'outer: for sig in mem::replace(&mut self.bad, Vec::new()) {
-            if let Ok(true) = sig.verify_primary_key_binding(&self.primary,
-                                                             &self.primary) {
-                    if TRACE {
-                        eprintln!("Sig {:02X}{:02X} was out of place. \
-                                   Belongs to primary key: {}.",
-                                  sig.hash_prefix[0], sig.hash_prefix[1],
-                                  self.primary.keyid());
-                    }
-                self.primary_selfsigs.push(sig);
-                continue 'outer;
+            macro_rules! check_one {
+                ($desc:expr, $sigs:expr, $sig:expr,
+                 $verify_method:ident, $($verify_args:expr),*) => ({
+                     if let Ok(true)
+                         = $sig.$verify_method(&self.primary,
+                                               &self.primary,
+                                               $($verify_args),*)
+                     {
+                         if TRACE {
+                             eprintln!("Sig {:02X}{:02X}, {:?} \
+                                        was out of place.  Belongs to {}.",
+                                       $sig.hash_prefix[0],
+                                       $sig.hash_prefix[1],
+                                       $sig.sigtype(), $desc);
+                         }
+
+                         $sigs.push($sig);
+                         continue 'outer;
+                     }
+                 });
+                ($desc:expr, $sigs:expr, $sig:expr,
+                 $verify_method:ident) => ({
+                    check_one!($desc, $sigs, $sig, $verify_method,)
+                });
             }
 
-            for binding in self.userids.iter_mut() {
-                if let Ok(true) = sig.verify_userid_binding(
-                    &self.primary, &self.primary, &binding.userid) {
-                    if TRACE {
-                        eprintln!("Sig {:02X}{:02X} was out of place. \
-                                   Belongs to: {} / \"{:?}\".",
-                                  sig.hash_prefix[0], sig.hash_prefix[1],
-                                  self.primary.keyid(), binding.userid);
-                    }
+            check_one!("primary key", self.primary_selfsigs, sig,
+                       verify_primary_key_binding);
 
-                    binding.selfsigs.push(sig);
-                    continue 'outer;
-                }
+            for binding in self.userids.iter_mut() {
+                check_one!(format!("userid \"{}\"",
+                                   String::from_utf8_lossy(
+                                       binding.userid.userid())),
+                           binding.selfsigs, sig,
+                           verify_userid_binding, &binding.userid);
             }
 
             for binding in self.user_attributes.iter_mut() {
-                if let Ok(true) = sig.verify_user_attribute_binding(
-                    &self.primary, &self.primary, &binding.user_attribute) {
-                    if TRACE {
-                        eprintln!("Sig {:02X}{:02X} was out of place. \
-                                   Belongs to: {}'s user attribute.",
-                                  sig.hash_prefix[0], sig.hash_prefix[1],
-                                  self.primary.keyid());
-                    }
-
-                    binding.selfsigs.push(sig);
-                    continue 'outer;
-                }
+                check_one!("user attribute",
+                           binding.selfsigs, sig,
+                           verify_user_attribute_binding,
+                           &binding.user_attribute);
             }
 
             for binding in self.subkeys.iter_mut() {
-                if let Ok(true) = sig.verify_subkey_binding(
-                    &self.primary, &self.primary, &binding.subkey) {
-                    if TRACE {
-                        eprintln!("Sig {:02X}{:02X} was out of place. \
-                                   Belongs to: {} / {}.",
-                                  sig.hash_prefix[0], sig.hash_prefix[1],
-                                  self.primary.keyid(),
-                                  binding.subkey.keyid());
-                    }
-
-                    binding.selfsigs.push(sig);
-                    continue 'outer;
-                }
+                check_one!(format!("subkey {}", binding.subkey.keyid()),
+                           binding.selfsigs, sig,
+                           verify_subkey_binding, &binding.subkey);
             }
 
             // Keep them for later.
+            if TRACE {
+                eprintln!("Self-sig {:02X}{:02X}, {:?} doesn't belong \
+                           to any known component or is bad.",
+                          sig.hash_prefix[0], sig.hash_prefix[1],
+                          sig.sigtype());
+            }
             self.bad.push(sig);
         }
 
