@@ -11,7 +11,7 @@ use failure::ResultExt;
 use prettytable::Table;
 use prettytable::cell::Cell;
 use prettytable::row::Row;
-use std::fs::File;
+use std::fs::{File, OpenOptions};
 use std::io;
 use std::path::PathBuf;
 use std::process::exit;
@@ -39,7 +39,8 @@ fn open_or_stdin(f: Option<&str>) -> Result<Box<io::Read>, failure::Error> {
 
 fn create_or_stdout(f: Option<&str>) -> Result<Box<io::Write>, failure::Error> {
     match f {
-        Some(f) => Ok(Box::new(File::create(f)
+        Some(f) => Ok(Box::new(OpenOptions::new().write(true).create_new(true)
+                               .open(f)
                                .context("Failed to create output file")?)),
         None => Ok(Box::new(io::stdout())),
     }
