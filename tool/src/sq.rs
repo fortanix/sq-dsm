@@ -5,6 +5,7 @@ extern crate failure;
 #[macro_use]
 extern crate prettytable;
 extern crate rpassword;
+extern crate tempfile;
 extern crate time;
 
 use failure::ResultExt;
@@ -131,10 +132,12 @@ fn real_main() -> Result<(), failure::Error> {
             let output = m.value_of("output");
             let detached = m.is_present("detached");
             let binary = m.is_present("binary");
+            let append = m.is_present("append");
             let secrets = m.values_of("secret-key-file")
                 .map(load_tpks)
                 .unwrap_or(Ok(vec![]))?;
-            commands::sign(&mut input, output, secrets, detached, binary)?;
+            commands::sign(&mut input, output, secrets, detached, binary,
+                           append)?;
         },
         ("verify",  Some(m)) => {
             let input = open_or_stdin(m.value_of("input"))?;

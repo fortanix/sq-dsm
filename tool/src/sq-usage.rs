@@ -87,6 +87,7 @@
 //!     sq sign [FLAGS] [OPTIONS] [--] [FILE]
 //!
 //! FLAGS:
+//!     -a, --append      Append signature to existing signature
 //!     -B, --binary      Don't ASCII-armor encode the OpenPGP data
 //!         --detached    Create a detached signature
 //!     -h, --help        Prints help information

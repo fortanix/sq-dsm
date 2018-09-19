@@ -1,10 +1,12 @@
 use failure::{self, ResultExt};
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
-use std::fs::File;
+use std::fs::{self, File};
 use std::io::{self, Read, Write};
+use std::path::PathBuf;
 use time;
 use rpassword;
+use tempfile::NamedTempFile;
 
 extern crate openpgp;
 use openpgp::armor;
@@ -17,6 +19,7 @@ use openpgp::packet::signature::subpacket::{Subpacket, SubpacketValue};
 use openpgp::parse::stream::{
     Verifier, VerificationResult, VerificationHelper,
 };
+use openpgp::serialize::Serialize;
 use openpgp::serialize::stream::{
     wrap, Signer, LiteralWriter, Encryptor, EncryptionMode,
 };
@@ -191,11 +194,45 @@ pub fn encrypt(store: &mut store::Store,
     Ok(())
 }
 
-pub fn sign(input: &mut io::Read, output: Option<&str>,
-            secrets: Vec<openpgp::TPK>, detached: bool, binary: bool)
+pub fn sign(input: &mut io::Read, output_path: Option<&str>,
+            secrets: Vec<openpgp::TPK>, detached: bool, binary: bool,
+            append: bool)
             -> Result<()> {
-    let mut output = create_or_stdout(output)?;
-    let output = if ! binary {
+    let (mut output, prepend_sigs, tmp_path):
+    (Box<io::Write>, Vec<Signature>, Option<PathBuf>) =
+        if detached && append && output_path.is_some() {
+            // First, read the existing signatures.
+            let mut sigs = Vec::new();
+            let reader = openpgp::Reader::from_file(output_path.unwrap())?;
+            let mut ppr
+                = openpgp::parse::PacketParser::from_reader(reader)?;
+
+            while let PacketParserResult::Some(mut pp) = ppr {
+                let ((packet, _), (ppr_tmp, _)) = pp.recurse()?;
+                ppr = ppr_tmp;
+
+                match packet {
+                    Packet::Signature(sig) => sigs.push(sig),
+                    p => return Err(
+                        failure::err_msg(
+                            format!("{} in detached signature", p.tag()))
+                            .context("Invalid detached signature").into()),
+                }
+            }
+
+            // Then, create a temporary file to write to.  If we are
+            // successful with adding our signature(s), we rename the
+            // file replacing the old one.
+            let tmp_file = NamedTempFile::new_in(
+                PathBuf::from(output_path.unwrap()).parent()
+                    .unwrap_or(&PathBuf::from(".")))?;
+            let tmp_path = tmp_file.path().into();
+            (Box::new(tmp_file), sigs, Some(tmp_path))
+        } else {
+            (create_or_stdout(output_path)?, Vec::new(), None)
+        };
+
+    let mut output = if ! binary {
         Box::new(armor::Writer::new(&mut output,
                                     if detached {
                                         armor::Kind::Signature
@@ -206,6 +243,12 @@ pub fn sign(input: &mut io::Read, output: Option<&str>,
     } else {
         output
     };
+
+    // When extending a detached signature, prepend any existing
+    // signatures first.
+    for sig in prepend_sigs {
+        sig.serialize(&mut output)?;
+    }
 
     let sink = wrap(output);
     // Build a vector of references to hand to Signer.
@@ -232,6 +275,12 @@ pub fn sign(input: &mut io::Read, output: Option<&str>,
 
     writer.finalize()
         .context("Failed to sign")?;
+
+    if let Some(path) = tmp_path {
+        // Atomically replace the old file.
+        fs::rename(path,
+                   output_path.expect("must be Some if tmp_path is Some"))?;
+    }
     Ok(())
 }
 
