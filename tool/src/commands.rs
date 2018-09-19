@@ -197,7 +197,11 @@ pub fn sign(input: &mut io::Read, output: Option<&str>,
     let mut output = create_or_stdout(output)?;
     let output = if ! binary {
         Box::new(armor::Writer::new(&mut output,
-                                    armor::Kind::Message,
+                                    if detached {
+                                        armor::Kind::Signature
+                                    } else {
+                                        armor::Kind::Message
+                                    },
                                     &[][..])?)
     } else {
         output
