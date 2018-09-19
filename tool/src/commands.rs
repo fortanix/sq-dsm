@@ -210,7 +210,7 @@ pub fn sign(input: &mut io::Read, output: &mut io::Write,
             .context("Failed to create literal writer")?
     };
 
-    // Finally, copy stdin to our writer stack to encrypt the data.
+    // Finally, copy stdin to our writer stack to sign the data.
     io::copy(input, &mut writer)
         .context("Failed to sign")?;
 
