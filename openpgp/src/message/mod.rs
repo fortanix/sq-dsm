@@ -603,6 +603,11 @@ mod tests {
                 result: true,
             },
             TestVector {
+                s: &[(OnePassSig, 0), (CompressedData, 0), (Literal, 1),
+                     (Signature, 0)],
+                result: true,
+            },
+            TestVector {
                 s: &[(OnePassSig, 0), (OnePassSig, 0), (Literal, 0),
                      (Signature, 0), (Signature, 0)],
                 result: true,
