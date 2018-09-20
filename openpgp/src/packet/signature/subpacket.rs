@@ -2164,14 +2164,13 @@ impl Signature {
     /// supports.
     ///
     /// If the subpacket is not present or malformed, this returns
-    /// `None`.
+    /// the default value.
     ///
     /// Note: if the signature contains multiple instances of this
     /// subpacket, only the last one is considered.
     pub fn features(&self) -> Features {
         // N octets of flags
-        if let Some(sb)
-                = self.subpacket(SubpacketTag::Features) {
+        if let Some(sb) = self.subpacket(SubpacketTag::Features) {
             if let SubpacketValue::Features(v) = sb.value {
                 v
             } else {
