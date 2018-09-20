@@ -745,9 +745,11 @@ fn dump_subpacket(output: &mut io::Write, i: &str, mpis: bool, s: Subpacket)
         SignersUserID(ref u) =>
             write!(output, "{}    Signers User ID: {}", i,
                    String::from_utf8_lossy(u))?,
-        ReasonForRevocation{code, ref reason} =>
-            write!(output, "{}    Reason for revocation: {}, {}", i, code,
-                   String::from_utf8_lossy(reason))?,
+        ReasonForRevocation{code, ref reason} => {
+            let reason = String::from_utf8_lossy(reason);
+            write!(output, "{}    Reason for revocation: {}{}{}", i, code,
+                   if reason.len() > 0 { ", " } else { "" }, reason)?
+        }
         Features(ref f) =>
             write!(output, "{}    Features: {:?}", i, f)?,
         SignatureTarget{pk_algo, hash_algo, ref digest} =>
