@@ -55,6 +55,9 @@ impl TSK {
         for s in self.key.primary_selfsigs.iter() {
             s.serialize(o)?;
         }
+        for s in self.key.primary_certifications.iter() {
+            s.serialize(o)?;
+        }
 
         for u in self.key.userids() {
             u.userid().serialize(o)?;

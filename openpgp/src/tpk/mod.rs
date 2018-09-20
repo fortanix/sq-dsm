@@ -1488,6 +1488,9 @@ impl TPK {
         for s in self.primary_selfsigs.iter() {
             s.serialize(o)?;
         }
+        for s in self.primary_certifications.iter() {
+            s.serialize(o)?;
+        }
 
         for u in self.userids.iter() {
             u.userid.serialize(o)?;
