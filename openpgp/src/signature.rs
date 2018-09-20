@@ -540,6 +540,24 @@ impl Signature {
         self.verify_hash(signer, self.hash_algo(), &hash[..])
     }
 
+    /// Verifies the primary key revocation certificate.
+    ///
+    /// `self` is the primary key revocation certificate, `signer` is
+    /// the key that allegedly made the signature, and `pk` is the
+    /// primary key,
+    ///
+    /// For a self-signature, `signer` and `pk` will be the same.
+    pub fn verify_primary_key_revocation(&self, signer: &Key, pk: &Key)
+        -> Result<bool>
+    {
+        if self.sigtype() != SignatureType::KeyRevocation {
+            return Err(Error::UnsupportedSignatureType(self.sigtype()).into());
+        }
+
+        let hash = self.primary_key_binding_hash(pk);
+        self.verify_hash(signer, self.hash_algo(), &hash[..])
+    }
+
     /// Verifies the subkey binding.
     ///
     /// `self` is the subkey key binding signature, `signer` is the
@@ -608,6 +626,25 @@ impl Signature {
         Ok(backsig_ok)
     }
 
+    /// Verifies the subkey revocation.
+    ///
+    /// `self` is the subkey key revocation certificate, `signer` is
+    /// the key that allegedly made the signature, `pk` is the primary
+    /// key, and `subkey` is the subkey.
+    ///
+    /// For a self-revocation, `signer` and `pk` will be the same.
+    pub fn verify_subkey_revocation(&self, signer: &Key, pk: &Key,
+                                    subkey: &Key)
+        -> Result<bool>
+    {
+        if self.sigtype() != SignatureType::SubkeyRevocation {
+            return Err(Error::UnsupportedSignatureType(self.sigtype()).into());
+        }
+
+        let hash = self.subkey_binding_hash(pk, subkey);
+        self.verify_hash(signer, self.hash_algo(), &hash[..])
+    }
+
     /// Verifies the user id binding.
     ///
     /// `self` is the user id binding signature, `signer` is the key
@@ -622,8 +659,26 @@ impl Signature {
         if !(self.sigtype() == SignatureType::GenericCertificate
              || self.sigtype() == SignatureType::PersonaCertificate
              || self.sigtype() == SignatureType::CasualCertificate
-             || self.sigtype() == SignatureType::PositiveCertificate
-             || self.sigtype() == SignatureType::CertificateRevocation) {
+             || self.sigtype() == SignatureType::PositiveCertificate) {
+            return Err(Error::UnsupportedSignatureType(self.sigtype()).into());
+        }
+
+        let hash = self.userid_binding_hash(pk, userid);
+        self.verify_hash(signer, self.hash_algo(), &hash[..])
+    }
+
+    /// Verifies the user id revocation certificate.
+    ///
+    /// `self` is the revocation certificate, `signer` is the key
+    /// that allegedly made the signature, `pk` is the primary key,
+    /// and `userid` is the user id.
+    ///
+    /// For a self-signature, `signer` and `pk` will be the same.
+    pub fn verify_userid_revocation(&self, signer: &Key,
+                                    pk: &Key, userid: &UserID)
+        -> Result<bool>
+    {
+        if self.sigtype() != SignatureType::CertificateRevocation {
             return Err(Error::UnsupportedSignatureType(self.sigtype()).into());
         }
 
@@ -645,8 +700,26 @@ impl Signature {
         if !(self.sigtype() == SignatureType::GenericCertificate
              || self.sigtype() == SignatureType::PersonaCertificate
              || self.sigtype() == SignatureType::CasualCertificate
-             || self.sigtype() == SignatureType::PositiveCertificate
-             || self.sigtype() == SignatureType::CertificateRevocation) {
+             || self.sigtype() == SignatureType::PositiveCertificate) {
+            return Err(Error::UnsupportedSignatureType(self.sigtype()).into());
+        }
+
+        let hash = self.user_attribute_binding_hash(pk, ua);
+        self.verify_hash(signer, self.hash_algo(), &hash[..])
+    }
+
+    /// Verifies the user attribute revocation certificate.
+    ///
+    /// `self` is the user attribute binding signature, `signer` is
+    /// the key that allegedly made the signature, `pk` is the primary
+    /// key, and `ua` is the user attribute.
+    ///
+    /// For a self-signature, `signer` and `pk` will be the same.
+    pub fn verify_user_attribute_revocation(&self, signer: &Key,
+                                            pk: &Key, ua: &UserAttribute)
+        -> Result<bool>
+    {
+        if self.sigtype() != SignatureType::CertificateRevocation {
             return Err(Error::UnsupportedSignatureType(self.sigtype()).into());
         }
 

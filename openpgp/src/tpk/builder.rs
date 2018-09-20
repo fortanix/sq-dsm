@@ -153,6 +153,8 @@ impl TPKBuilder {
                     userid: uid,
                     selfsigs: vec![sig],
                     certifications: vec![],
+                    self_revocations: vec![],
+                    other_revocations: vec![],
                 };
 
                 (vec![bind], vec![])
@@ -184,6 +186,8 @@ impl TPKBuilder {
             primary: primary,
             primary_selfsigs: selfsigs,
             primary_certifications: vec![],
+            primary_self_revocations: vec![],
+            primary_other_revocations: vec![],
             userids: userids,
             user_attributes: vec![],
             subkeys: subkeys,
@@ -287,6 +291,8 @@ impl TPKBuilder {
             subkey: subkey,
             selfsigs: vec![sig],
             certifications: vec![],
+            self_revocations: vec![],
+            other_revocations: vec![],
         })
     }
 
@@ -323,6 +329,8 @@ impl TPKBuilder {
             userid: uid,
             selfsigs: vec![sig],
             certifications: vec![],
+            self_revocations: vec![],
+            other_revocations: vec![],
         };
 
         Ok(bind)

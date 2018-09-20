@@ -273,11 +273,15 @@ impl<'a> Signer<'a> {
 
         for tsk in signers {
             // We need to find all (sub)keys capable of signing.
-            let can_sign = |key: &Key, sig: &Signature| -> bool {
-                sig.key_flags().can_sign()
-                // Check expiry.
-                    && sig.signature_alive()
-                    && sig.key_alive(key)
+            let can_sign = |key: &Key, sig: Option<&Signature>| -> bool {
+                if let Some(sig) = sig {
+                    sig.key_flags().can_sign()
+                    // Check expiry.
+                        && sig.signature_alive()
+                        && sig.key_alive(key)
+                } else {
+                    false
+                }
             };
 
             // Gather all signing-capable subkeys.
@@ -292,9 +296,7 @@ impl<'a> Signer<'a> {
 
             // Check if the primary key is signing-capable.
             let primary_can_sign =
-                tsk.primary_key_signature()
-                .map(|sig| can_sign(tsk.primary(), sig))
-                .unwrap_or(false);
+                can_sign(tsk.primary(), tsk.primary_key_signature());
 
             // If the primary key is signing-capable, prepend to
             // subkeys via iterator magic.
@@ -864,16 +866,20 @@ impl<'a> Encryptor<'a> {
         // Write the PKESK packet(s).
         for tpk in tpks {
             // We need to find all applicable encryption (sub)keys.
-            let can_encrypt = |key: &Key, sig: &Signature| -> bool {
-                (match encryption_mode {
-                    EncryptionMode::AtRest =>
-                        sig.key_flags().can_encrypt_at_rest(),
-                    EncryptionMode::ForTransport =>
-                        sig.key_flags().can_encrypt_for_transport(),
+            let can_encrypt = |key: &Key, sig: Option<&Signature>| -> bool {
+                if let Some(sig) = sig {
+                    (match encryption_mode {
+                        EncryptionMode::AtRest =>
+                            sig.key_flags().can_encrypt_at_rest(),
+                        EncryptionMode::ForTransport =>
+                            sig.key_flags().can_encrypt_for_transport(),
+                    }
+                     // Check expiry.
+                     && sig.signature_alive()
+                     && sig.key_alive(key))
+                } else {
+                    false
                 }
-                 // Check expiry.
-                 && sig.signature_alive()
-                 && sig.key_alive(key))
             };
 
             // Gather all encryption-capable subkeys.
@@ -888,9 +894,7 @@ impl<'a> Encryptor<'a> {
 
             // Check if the primary key is encryption-capable.
             let primary_can_encrypt =
-                tpk.primary_key_signature()
-                .map(|sig| can_encrypt(tpk.primary(), sig))
-                .unwrap_or(false);
+                can_encrypt(tpk.primary(), tpk.primary_key_signature());
 
             // If the primary key is encryption-capable, prepend to
             // subkeys via iterator magic.

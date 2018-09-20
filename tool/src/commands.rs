@@ -43,18 +43,19 @@ pub fn decrypt(input: &mut io::Read, output: &mut io::Write,
            -> Result<()> {
     let mut keys: HashMap<KeyID, Key> = HashMap::new();
     for tsk in secrets {
-        let can_encrypt = |key: &Key, sig: &Signature| -> bool {
-            (sig.key_flags().can_encrypt_at_rest()
-             || sig.key_flags().can_encrypt_for_transport())
-            // Check expiry.
-                && sig.signature_alive()
-                && sig.key_alive(key)
+        let can_encrypt = |key: &Key, sig: Option<&Signature>| -> bool {
+            if let Some(sig) = sig {
+                (sig.key_flags().can_encrypt_at_rest()
+                 || sig.key_flags().can_encrypt_for_transport())
+                // Check expiry.
+                    && sig.signature_alive()
+                    && sig.key_alive(key)
+            } else {
+                false
+            }
         };
 
-        if tsk.primary_key_signature()
-            .map(|sig| can_encrypt(tsk.primary(), sig))
-            .unwrap_or(false)
-        {
+        if can_encrypt(tsk.primary(), tsk.primary_key_signature()) {
             keys.insert(tsk.fingerprint().to_keyid(), tsk.primary().clone());
         }
 

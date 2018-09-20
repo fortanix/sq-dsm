@@ -58,10 +58,22 @@ impl TSK {
         for s in self.key.primary_certifications.iter() {
             s.serialize(o)?;
         }
+        for s in self.key.primary_certifications.iter() {
+            s.serialize(o)?;
+        }
+        for s in self.key.primary_other_revocations.iter() {
+            s.serialize(o)?;
+        }
 
         for u in self.key.userids() {
             u.userid().serialize(o)?;
+            for s in u.self_revocations() {
+                s.serialize(o)?;
+            }
             for s in u.selfsigs() {
+                s.serialize(o)?;
+            }
+            for s in u.other_revocations() {
                 s.serialize(o)?;
             }
             for s in u.certifications() {
@@ -71,7 +83,13 @@ impl TSK {
 
         for u in self.key.user_attributes() {
             u.user_attribute().serialize(o)?;
+            for s in u.self_revocations() {
+                s.serialize(o)?;
+            }
             for s in u.selfsigs() {
+                s.serialize(o)?;
+            }
+            for s in u.other_revocations() {
                 s.serialize(o)?;
             }
             for s in u.certifications() {
@@ -81,7 +99,13 @@ impl TSK {
 
         for k in self.key.subkeys() {
             k.subkey().serialize(o, Tag::SecretSubkey)?;
+            for s in k.self_revocations() {
+                s.serialize(o)?;
+            }
             for s in k.selfsigs() {
+                s.serialize(o)?;
+            }
+            for s in k.other_revocations() {
                 s.serialize(o)?;
             }
             for s in k.certifications() {

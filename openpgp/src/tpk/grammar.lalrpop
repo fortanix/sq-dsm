@@ -37,6 +37,8 @@ pub TPK: Option<TPK> = {
                     primary: key,
                     primary_selfsigs: vec![],
                     primary_certifications: sigs,
+                    primary_self_revocations: vec![],
+                    primary_other_revocations: vec![],
                     subkeys: vec![],
                     userids: vec![],
                     user_attributes: vec![],
@@ -139,6 +141,8 @@ Component: Option<Component> = {
                     subkey: key,
                     selfsigs: vec![],
                     certifications: sigs,
+                    self_revocations: vec![],
+                    other_revocations: vec![],
                 }))
             },
             // Just validating a message...
@@ -154,6 +158,8 @@ Component: Option<Component> = {
                     userid: u,
                     selfsigs: vec![],
                     certifications: sigs,
+                    self_revocations: vec![],
+                    other_revocations: vec![],
                 }))
             },
             // Just validating a message...
@@ -169,6 +175,8 @@ Component: Option<Component> = {
                     user_attribute: u,
                     selfsigs: vec![],
                     certifications: sigs,
+                    self_revocations: vec![],
+                    other_revocations: vec![],
                 }))
             },
             // Just validating a message...

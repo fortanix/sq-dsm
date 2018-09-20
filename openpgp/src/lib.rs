@@ -420,10 +420,19 @@ pub struct TPK {
     primary: packet::Key,
     primary_selfsigs: Vec<packet::Signature>,
     primary_certifications: Vec<packet::Signature>,
+    primary_self_revocations: Vec<packet::Signature>,
+    // Other revocations (these may or may not be by known designated
+    // revokers).
+    primary_other_revocations: Vec<packet::Signature>,
+
     userids: Vec<tpk::UserIDBinding>,
     user_attributes: Vec<tpk::UserAttributeBinding>,
     subkeys: Vec<tpk::SubkeyBinding>,
+
+    // Unknown components, e.g., some UserAttribute++ packet from the
+    // future.
     unknowns: Vec<tpk::UnknownBinding>,
+    // Signatures that we couldn't find a place for.
     bad: Vec<packet::Signature>,
 }
 
@@ -472,6 +481,27 @@ pub enum KeyID {
     /// instance, we don't grok v3 fingerprints.  And, it is possible
     /// that the Issuer subpacket contains the wrong number of bytes.
     Invalid(Box<[u8]>)
+}
+
+/// The revocation status.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RevocationStatus<'a> {
+    /// The key is definitely revoked.
+    ///
+    /// All self-revocations are returned, the most recent revocation
+    /// first.
+    Revoked(&'a [packet::Signature]),
+    /// We have a third-party revocation certificate that is allegedly
+    /// from a designated revoker, but we don't have the designated
+    /// revoker's key to check its validity.
+    ///
+    /// All such certificates are returned.  The caller must check
+    /// them manually.
+    CouldBe(&'a [packet::Signature]),
+    /// The key does not appear to be revoked, but perhaps an attacker
+    /// has performed a DoS, which prevents us from seeing the
+    /// revocation certificate.
+    NotAsFarAsWeKnow,
 }
 
 use std::io::Read;
