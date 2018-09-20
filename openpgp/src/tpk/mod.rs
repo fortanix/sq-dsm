@@ -1196,7 +1196,16 @@ impl TPK {
         });
 
 
-        // Sanity checks.
+        // Sort and dedup the primary key's signatures.
+        self.primary_selfsigs.sort_by(sig_cmp);
+        self.primary_selfsigs.dedup_by_key(sig_key);
+
+        // There is no need to sort the certifications, but we do
+        // want to remove dups and sorting is a prerequisite.
+        self.primary_certifications.sort_by(sig_cmp);
+        self.primary_certifications.dedup_by_key(sig_key);
+
+
 
         // Sort the signatures so that the current valid
         // self-signature is first.
