@@ -1575,17 +1575,6 @@ mod test {
         ( $x:expr ) => { include_bytes!(concat!("../../tests/data/keys/", $x)) };
     }
 
-    macro_rules! assert_match {
-        ( $error: pat = $expr:expr ) => {
-            let x = $expr;
-            if let $error = x {
-                /* Pass.  */
-            } else {
-                panic!("Expected {}, got {:?}.", stringify!($error), x);
-            }
-        };
-    }
-
     #[test]
     fn tokens() {
         use self::lexer::{Token, Lexer};

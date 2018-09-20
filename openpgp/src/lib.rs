@@ -64,7 +64,34 @@ extern crate quickcheck;
 extern crate rand;
 
 extern crate time;
-
+
+// Like assert!, but checks a pattern.
+//
+//   assert_match!(Some(_) = x);
+//
+// Note: For modules to see this macro, we need to define it before we
+// declare the modules.
+#[allow(unused_macros)]
+macro_rules! assert_match {
+    ( $error: pat = $expr:expr, $fmt:expr, $($pargs:expr),* ) => {
+        let x = $expr;
+        if let $error = x {
+            /* Pass.  */
+        } else {
+            let extra = format!($fmt, $($pargs),*);
+            panic!("Expected {}, got {:?}{}{}",
+                   stringify!($error), x,
+                   if $fmt.len() > 0 { ": " } else { "." }, extra);
+        }
+    };
+    ( $error: pat = $expr: expr, $fmt:expr ) => {
+        assert_match!($error = $expr, $fmt, );
+    };
+    ( $error: pat = $expr: expr ) => {
+        assert_match!($error = $expr, "");
+    };
+}
+
 pub mod armor;
 pub mod autocrypt;
 
