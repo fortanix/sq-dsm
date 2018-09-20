@@ -134,8 +134,11 @@ pub trait VerificationHelper {
 
     /// Conveys the result of a signature verification.
     ///
-    /// Returning an error from this function aborts the `io::Read`
-    /// operation.
+    /// This callback is only called before all data is returned.
+    /// That is, once `io::Read` returns EOF, this callback will not
+    /// be called again.  As such, any error returned by this function
+    /// will abort reading, and the error will be propagated via the
+    /// `io::Read` operation.
     fn result(&mut self, VerificationResult) -> Result<()>;
 
     /// Signals that the last signature has been verified.
@@ -144,8 +147,11 @@ pub trait VerificationHelper {
     /// Check that the required number of signatures or notarizations
     /// were confirmed as valid.
     ///
-    /// Returning error from this function aborts the `io::Read`
-    /// operation.
+    /// This callback is only called before all data is returned.
+    /// That is, once `io::Read` returns EOF, this callback will not
+    /// be called again.  As such, any error returned by this function
+    /// will abort reading, and the error will be propagated via the
+    /// `io::Read` operation.
     fn check(&mut self) -> Result<()>;
 }
 
