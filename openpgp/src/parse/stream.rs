@@ -58,15 +58,7 @@ const BUFFER_SIZE: usize = 25 * 1024 * 1024;
 ///     fn get_public_keys(&mut self, _ids: &[KeyID]) -> Result<Vec<TPK>> {
 ///         Ok(Vec::new()) // Feed the TPKs to the verifier here...
 ///     }
-///     fn result(&mut self, result: VerificationResult) -> Result<()> {
-///         if let VerificationResult::Unknown(_) = result {
-///             // We didn't supply the key, hence unknown.
-///         } else {
-///             panic!("unexpected result: {:?}", result);
-///         }
-///         Ok(())
-///     }
-///     fn check(&mut self) -> Result<()> {
+///     fn check(&mut self, sigs: Vec<Vec<VerificationResult>>) -> Result<()> {
 ///         Ok(()) // Implement your verification policy here.
 ///     }
 /// }
@@ -105,6 +97,7 @@ pub struct Verifier<'a, H: VerificationHelper> {
     buffer: Vec<u8>,
     seen_eof: bool,
     oppr: Option<PacketParserResult<'a>>,
+    sigs: Vec<Vec<VerificationResult>>,
 }
 
 /// Contains the result of a signature verification.
@@ -127,6 +120,18 @@ pub enum VerificationResult {
     Bad(Signature),
 }
 
+impl VerificationResult {
+    /// Simple private forwarder.
+    fn level(&self) -> usize {
+        use self::VerificationResult::*;
+        match self {
+            &Good(ref sig) => sig.level(),
+            &Unknown(ref sig) => sig.level(),
+            &Bad(ref sig) => sig.level(),
+        }
+    }
+}
+
 /// Helper for signature verification.
 pub trait VerificationHelper {
     /// Retrieves the TPKs containing the specified keys.
@@ -134,25 +139,21 @@ pub trait VerificationHelper {
 
     /// Conveys the result of a signature verification.
     ///
-    /// This callback is only called before all data is returned.
-    /// That is, once `io::Read` returns EOF, this callback will not
-    /// be called again.  As such, any error returned by this function
-    /// will abort reading, and the error will be propagated via the
-    /// `io::Read` operation.
-    fn result(&mut self, VerificationResult) -> Result<()>;
-
-    /// Signals that the last signature has been verified.
-    ///
+    /// This is called after the last signature has been verified.
     /// This is the place to implement your verification policy.
     /// Check that the required number of signatures or notarizations
     /// were confirmed as valid.
     ///
+    /// The argument is a vector, with `sigs[0]` being the vector of
+    /// signatures over the data, `vec[1]` being notarizations over
+    /// signatures of level 0, and the data, and so on.
+    ///
     /// This callback is only called before all data is returned.
     /// That is, once `io::Read` returns EOF, this callback will not
     /// be called again.  As such, any error returned by this function
     /// will abort reading, and the error will be propagated via the
     /// `io::Read` operation.
-    fn check(&mut self) -> Result<()>;
+    fn check(&mut self, sigs: Vec<Vec<VerificationResult>>) -> Result<()>;
 }
 
 impl<'a, H: VerificationHelper> Verifier<'a, H> {
@@ -219,6 +220,7 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
             buffer: Vec::new(),
             seen_eof: false,
             oppr: None,
+            sigs: Vec::new(),
         };
 
         let mut issuers = Vec::new();
@@ -285,7 +287,8 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
                     Err(Error::MalformedMessage(
                         "Malformed OpenPGP message".into()).into())
                 } else {
-                    v.helper.check()?;
+                    v.helper.check(::std::mem::replace(&mut v.sigs,
+                                                       Vec::new()))?;
                     Ok(v)
                 },
             PacketParserResult::Some(pp) => {
@@ -316,23 +319,40 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
     fn verify(&mut self, p: Packet) -> Result<()> {
         match p {
             Packet::Signature(sig) => {
+                if self.sigs.is_empty() {
+                    self.sigs.push(Vec::new());
+                }
+
+                if let Some(current_level) = self.sigs.iter().last()
+                    .expect("sigs is never empty")
+                    .get(0).map(|r| r.level())
+                {
+                    if current_level != sig.level() {
+                        self.sigs.push(Vec::new());
+                    }
+                }
+
                 if let Some(issuer) = sig.get_issuer() {
                     if let Some((i, j)) = self.keys.get(&issuer) {
                         let (_, key) = self.tpks[*i].keys().nth(*j).unwrap();
                         if sig.verify(key).unwrap_or(false) {
-                            self.helper.result(
-                                VerificationResult::Good(sig))?;
+                            self.sigs.iter_mut().last()
+                                .expect("sigs is never empty").push(
+                                    VerificationResult::Good(sig));
                         } else {
-                            self.helper.result(
-                                VerificationResult::Bad(sig))?;
+                            self.sigs.iter_mut().last()
+                                .expect("sigs is never empty").push(
+                                    VerificationResult::Bad(sig));
                         }
                     } else {
-                        self.helper.result(
-                            VerificationResult::Unknown(sig))?;
+                        self.sigs.iter_mut().last()
+                            .expect("sigs is never empty").push(
+                                VerificationResult::Unknown(sig));
                     }
                 } else {
-                    self.helper.result(
-                        VerificationResult::Bad(sig))?;
+                    self.sigs.iter_mut().last()
+                        .expect("sigs is never empty").push(
+                            VerificationResult::Bad(sig));
                 }
             },
             _ => (),
@@ -382,7 +402,8 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
                             return Err(Error::MalformedMessage(
                                 "Malformed OpenPGP message".into()).into());
                         } else {
-                            self.helper.check()?;
+                            self.helper.check(::std::mem::replace(
+                                &mut self.sigs, Vec::new()))?;
                         },
                     PacketParserResult::Some(pp) => {
                         self.oppr = Some(PacketParserResult::Some(pp));
@@ -467,17 +488,18 @@ mod test {
             Ok(self.keys.clone())
         }
 
-        fn result(&mut self, result: VerificationResult) -> Result<()> {
+        fn check(&mut self, sigs: Vec<Vec<VerificationResult>>) -> Result<()> {
             use self::VerificationResult::*;
-            match result {
-                Good(_) => self.good += 1,
-                Unknown(_) => self.unknown += 1,
-                Bad(_) => self.bad += 1,
+            for level in sigs {
+                for result in level {
+                    match result {
+                        Good(_) => self.good += 1,
+                        Unknown(_) => self.unknown += 1,
+                        Bad(_) => self.bad += 1,
+                    }
+                }
             }
-            Ok(())
-        }
 
-        fn check(&mut self) -> Result<()> {
             if self.good > 0 && self.bad == 0 {
                 Ok(())
             } else {

@@ -457,36 +457,46 @@ impl<'a> VerificationHelper for VHelper<'a> {
         Ok(tpks)
     }
 
-    fn result(&mut self, result: VerificationResult) -> Result<()> {
+    fn check(&mut self, sigs: Vec<Vec<VerificationResult>>) -> Result<()> {
         use self::VerificationResult::*;
-        match result {
-            Good(sig) => {
-                let issuer = sig.get_issuer().unwrap();
-                let issuer_str = format!("{}", issuer);
-                eprintln!("Good signature from {}",
-                          self.labels.get(&issuer).unwrap_or(&issuer_str));
-                self.good += 1;
-            },
-            Unknown(sig) => {
-                eprintln!("No key to check signature from {}",
-                          sig.get_issuer().unwrap());
-                self.unknown += 1;
-            },
-            Bad(sig) => {
-                if let Some(issuer) = sig.get_issuer() {
-                    let issuer_str = format!("{}", issuer);
-                    eprintln!("Bad signature from {}",
-                              self.labels.get(&issuer).unwrap_or(&issuer_str));
-                } else {
-                    eprintln!("Bad signature without issuer information");
-                }
-                self.bad += 1;
-            },
-        }
-        Ok(())
-    }
+        for (i, results) in sigs.into_iter().enumerate() {
+            let what = if i == 0 {
+                "signature".into()
+            } else {
+                format!("level {} notarization", i)
+            };
 
-    fn check(&mut self) -> Result<()> {
+            for result in results {
+                match result {
+                    Good(sig) => {
+                        let issuer = sig.get_issuer().unwrap();
+                        let issuer_str = format!("{}", issuer);
+                        eprintln!("Good {} from {}", what,
+                                  self.labels.get(&issuer).unwrap_or(
+                                      &issuer_str));
+                        self.good += 1;
+                    },
+                    Unknown(sig) => {
+                        eprintln!("No key to check {} from {}", what,
+                                  sig.get_issuer().unwrap());
+                        self.unknown += 1;
+                    },
+                    Bad(sig) => {
+                        if let Some(issuer) = sig.get_issuer() {
+                            let issuer_str = format!("{}", issuer);
+                            eprintln!("Bad {} from {}", what,
+                                      self.labels.get(&issuer).unwrap_or(
+                                          &issuer_str));
+                        } else {
+                            eprintln!("Bad {} without issuer information",
+                                      what);
+                        }
+                        self.bad += 1;
+                    },
+                }
+            }
+        }
+
         if self.good > 0 && self.bad == 0 {
             Ok(())
         } else {
