@@ -1532,6 +1532,11 @@ impl TPK {
             return Ok(self.canonicalize());
         }
 
+        self.primary_selfsigs.append(
+            &mut other.primary_selfsigs);
+        self.primary_certifications.append(
+            &mut other.primary_certifications);
+
         self.userids.append(&mut other.userids);
         self.user_attributes.append(&mut other.user_attributes);
         self.subkeys.append(&mut other.subkeys);
