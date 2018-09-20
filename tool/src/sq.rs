@@ -90,8 +90,12 @@ fn real_main() -> Result<(), failure::Error> {
     };
     let domain_name =
         matches.value_of("domain").unwrap_or("org.sequoia-pgp.sq");
-    let ctx = Context::configure(domain_name)
-        .network_policy(policy).build()?;
+    let mut builder = Context::configure(domain_name)
+        .network_policy(policy);
+    if let Some(dir) = matches.value_of("home") {
+        builder = builder.home(dir);
+    }
+    let ctx = builder.build()?;
     let store_name = matches.value_of("store").unwrap_or("default");
 
     match matches.subcommand() {

@@ -14,6 +14,7 @@
 //!
 //! OPTIONS:
 //!     -d, --domain <DOMAIN>            Sets the domain to use
+//!         --home <DIRECTORY>           Sets the home directory to use
 //!     -p, --policy <NETWORK-POLICY>    Sets the network policy to use
 //!     -s, --store <STORE>              Sets the store to use (default: 'default')
 //!
