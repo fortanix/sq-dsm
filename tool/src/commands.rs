@@ -329,7 +329,6 @@ fn sign_message(input: &mut io::Read, output_path: Option<&str>,
                 "Malformed OpenPGP message".into()).into());
         }
 
-        eprintln!("packet: {:?}, seen_sig: {}", pp.packet, seen_signature);
         match pp.packet.clone() {
             Packet::PKESK(_) | Packet::SKESK(_) =>
                 return Err(failure::err_msg(
