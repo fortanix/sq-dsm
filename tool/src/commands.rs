@@ -322,6 +322,17 @@ fn sign_message(input: &mut io::Read, output_path: Option<&str>,
 
     // Once we see a signature, we can no longer strip compression.
     let mut seen_signature = false;
+    enum State {
+        InFirstSigGroup,
+        AfterFirstSigGroup,
+        Signing {
+            // Counts how many signatures are being notarized.  If
+            // this drops to zero, we pop the signer from the stack.
+            signature_count: isize,
+        },
+        Done,
+    };
+    let mut state = State::InFirstSigGroup;
 
     while let PacketParserResult::Some(mut pp) = ppr {
         if ! pp.possible_message() {
@@ -329,33 +340,17 @@ fn sign_message(input: &mut io::Read, output_path: Option<&str>,
                 "Malformed OpenPGP message".into()).into());
         }
 
-        match pp.packet.clone() {
+        match pp.packet {
             Packet::PKESK(_) | Packet::SKESK(_) =>
                 return Err(failure::err_msg(
                     "Signing encrypted data is not implemented")),
 
-            Packet::Literal(ref l) => {
-                let signer = Signer::new(sink, &keys)
-                    .context("Failed to create signer")?;
-
-                // Then, create a literal writer to wrap the data in a
-                // literal message packet.
-                let mut literal =
-                    LiteralWriter::new(signer, l.format(), l.filename(),
-                                       l.date().map(|d| *d))
-                    .context("Failed to create literal writer")?;
-
-                // Finally, just copy all the data.
-                io::copy(&mut pp, &mut literal)
-                    .context("Failed to sign data")?;
-
-                sink = literal.finalize_one()
-                    .context("Failed to sign data")?
-                    .unwrap()
-                    .finalize_one()
-                    .context("Failed to sign data")?
-                    .unwrap();
-            },
+            Packet::Literal(_) =>
+                if let State::InFirstSigGroup = state {
+                    // Cope with messages that have no signatures, or
+                    // with a ops packet without the last flag.
+                    state = State::AfterFirstSigGroup;
+                },
 
             // To implement this, we'd need to stream the
             // compressed data packet inclusive framing, but
@@ -371,6 +366,50 @@ fn sign_message(input: &mut io::Read, output_path: Option<&str>,
             _ => (),
         }
 
+        match state {
+            State::AfterFirstSigGroup => {
+                // After the first signature group, we push the signer
+                // onto the writer stack.
+                sink = Signer::new(sink, &keys)
+                    .context("Failed to create signer")?;
+                state = State::Signing { signature_count: 0, };
+            },
+
+            State::Signing { signature_count } if signature_count == 0 => {
+                // All signatures that are being notarized are
+                // written, pop the signer from the writer stack.
+                sink = sink.finalize_one()
+                    .context("Failed to sign data")?
+                    .unwrap();
+                state = State::Done;
+            },
+
+            _ => (),
+        }
+
+        if let Packet::Literal(_) = pp.packet {
+            let l = if let Packet::Literal(l) = pp.packet.clone() {
+                l
+            } else {
+                unreachable!()
+            };
+            // Create a literal writer to wrap the data in a literal
+            // message packet.
+            let mut literal =
+                LiteralWriter::new(sink, l.format(), l.filename(),
+                                   l.date().map(|d| *d))
+                .context("Failed to create literal writer")?;
+
+            // Finally, just copy all the data.
+            io::copy(&mut pp, &mut literal)
+                .context("Failed to sign data")?;
+
+            // Pop the literal writer.
+            sink = literal.finalize_one()
+                .context("Failed to sign data")?
+                .unwrap();
+        }
+
         let ((packet, _), (ppr_tmp, _)) = if seen_signature {
             // Once we see a signature, we can no longer strip
             // compression.
@@ -382,7 +421,25 @@ fn sign_message(input: &mut io::Read, output_path: Option<&str>,
 
         match packet {
             Packet::OnePassSig(mut ops) => {
-                ops.set_last(false);
+                let was_last = ops.last();
+                match state {
+                    State::InFirstSigGroup => {
+                        // We want to append our signature here, hence
+                        // we set last to false.
+                        ops.set_last(false);
+
+                        if was_last {
+                            // The signature group ends here.
+                            state = State::AfterFirstSigGroup;
+                        }
+                    },
+
+                    State::Signing { ref mut signature_count } =>
+                        *signature_count += 1,
+
+                    _ => (),
+                }
+
                 ops.serialize(&mut sink)?;
                 seen_signature = true;
             },
@@ -390,6 +447,9 @@ fn sign_message(input: &mut io::Read, output_path: Option<&str>,
             Packet::Signature(ref sig) => {
                 sig.serialize(&mut sink)
                     .context("Failed to serialize")?;
+                if let State::Signing { ref mut signature_count } = state {
+                    *signature_count -= 1;
+                }
             },
             _ => (),
         }
