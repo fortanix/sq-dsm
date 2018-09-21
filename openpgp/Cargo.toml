@@ -10,14 +10,14 @@ base64 = "0.9.0"
 bzip2 = { version = "0.3.2", optional = true }
 failure = "0.1.2"
 flate2 = { version = "1.0.1", optional = true }
-lalrpop-util = "0.15.2"
+lalrpop-util = "0.16"
 nettle = { git = "https://gitlab.com/sequoia-pgp/nettle-rs.git" }
 quickcheck = "0.7"
 rand = "0.5"
 time = "0.1.38"
 
 [build-dependencies]
-lalrpop = "0.15.2"
+lalrpop = "0.16"
 
 [features]
 default = ["compression"]
