@@ -1093,20 +1093,31 @@ impl TPK {
     ///
     /// Normally, the primary key's current self-signature is the
     /// primary user id's newest, non-revoked self-signature.
-    /// However, if all user ids are revoked, then we effectively
-    /// ignore all revocations and return the newest self-signature on
-    /// what would have been the primary user id.  If there are no
-    /// user ids at all, then we return the newest direct signature.
-    /// If there are also no direct signatures, then this returns
-    /// None.
+    /// However, if all user ids are revoked and there is a direct
+    /// signature, that is returned.  If there is no direct signature,
+    /// then we ignore all revocations and return the newest
+    /// self-signature on what would have been the primary user id.
+    /// If there are no user ids at all, then we return None.
     pub fn primary_key_signature(&self) -> Option<&Signature> {
+        // 1. Self-signature from a non-revoked UserID.
         if let Some(userid) = self.userids.get(0) {
-            Some(&userid.selfsigs[0])
-        } else if self.primary_selfsigs.len() > 0 {
-            Some(&self.primary_selfsigs[0])
-        } else {
-            None
+            if userid.self_revocations.len() == 0 {
+                return Some(&userid.selfsigs[0]);
+            }
         }
+
+        // 2. Direct signature.
+        if self.primary_selfsigs.len() > 0 {
+            return Some(&self.primary_selfsigs[0]);
+        }
+
+        // 3. Treat User IDs as if they were not revoked.
+        if let Some(userid) = self.userids.get(0) {
+            return Some(&userid.selfsigs[0]);
+        }
+
+        // 4. No user ids and no direct signatures.
+        None
     }
 
     /// Returns the TPK's revocation status.
