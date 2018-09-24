@@ -200,7 +200,7 @@ impl Builder {
             fields: self,
             hash_prefix: [digest[0], digest[1]],
             mpis: mpis,
-            computed_hash: None,
+            computed_hash: Some((hash_algo, digest)),
             level: 0,
         })
     }
