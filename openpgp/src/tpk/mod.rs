@@ -1905,8 +1905,10 @@ impl TPK {
         self.primary.fingerprint()
     }
 
-    /// Converts the TPK into a `PacketPile`.
-    pub fn to_packet_pile(self) -> PacketPile {
+    /// Converts the TPK into a sequence of packets.
+    ///
+    /// This method discards an invalid components and bad signatures.
+    pub fn to_packets(self) -> Vec<Packet> {
         let mut p : Vec<Packet> = Vec::new();
 
         p.push(Packet::PublicKey(self.primary));
@@ -1973,7 +1975,14 @@ impl TPK {
             }
         }
 
-        PacketPile::from_packets(p)
+        p
+    }
+
+    /// Converts the TPK into a `PacketPile`.
+    ///
+    /// This method discards an invalid components and bad signatures.
+    pub fn to_packet_pile(self) -> PacketPile {
+        PacketPile::from_packets(self.to_packets())
     }
 
     /// Serializes the TPK.
