@@ -41,9 +41,32 @@ impl<R: BufferedReader<Cookie>> HashedReader<R> {
 
 impl Cookie {
     fn hash_update(&mut self, data: &[u8]) {
+        let level = self.level.unwrap_or(0);
+        let hashes_for = self.hashes_for;
+        let ngroups = self.sig_groups.len();
+
         // Hash stashed data first.
         if let Some(stashed_data) = self.hash_stash.take() {
-            self.hash_update(&stashed_data);
+            // The stashed data was supposed to be hashed into the
+            // then-topmost signature-group's hash, but wasn't,
+            // because framing isn't hashed into the topmost signature
+            // group.  By the time the parser encountered a new
+            // signature group, the data has already been consumed.
+            // We fix that here by hashing the stashed data into the
+            // former topmost signature-group's hash.
+            assert!(ngroups > 1);
+            for (algo, ref mut h) in
+                self.sig_groups[ngroups-2].hashes.iter_mut()
+            {
+                if TRACE {
+                    eprintln!("{}  hash_update({:?}): group {} {:?} hashing {} \
+                               stashed bytes.",
+                              indent(cmp::max(0, level) as u8),
+                              hashes_for, ngroups-2, algo, data.len());
+                }
+
+                h.update(&stashed_data);
+            }
         }
 
         if data.len() == 0 {
@@ -66,9 +89,6 @@ impl Cookie {
             return;
         }
 
-        let level = self.level.unwrap_or(0);
-        let hashes_for = self.hashes_for;
-        let ngroups = self.sig_groups.len();
         let topmost_group = |i| i == ngroups - 1;
         for (i, sig_group) in self.sig_groups.iter_mut().enumerate() {
             if topmost_group(i) && self.hashing != Hashing::Enabled {
