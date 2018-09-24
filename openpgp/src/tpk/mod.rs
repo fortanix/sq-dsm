@@ -1095,9 +1095,10 @@ impl TPK {
     /// primary user id's newest, non-revoked self-signature.
     /// However, if all user ids are revoked and there is a direct
     /// signature, that is returned.  If there is no direct signature,
-    /// then we ignore all revocations and return the newest
-    /// self-signature on what would have been the primary user id.
-    /// If there are no user ids at all, then we return None.
+    /// then we return the newest self-signature on the most recently
+    /// revoked user id (i.e., the binding signature that was last
+    /// valid).  If there are no user ids at all and no direct
+    /// signatures, then we return None.
     pub fn primary_key_signature(&self) -> Option<&Signature> {
         // 1. Self-signature from a non-revoked UserID.
         if let Some(userid) = self.userids.get(0) {
@@ -1541,10 +1542,35 @@ impl TPK {
                 return Ordering::Less;
             }
 
-            // Compare their primary status.
             let a_selfsig = a.binding_signature();
             let b_selfsig = b.binding_signature();
 
+            if a_revoked && b_revoked {
+                // Both are revoked.
+
+                // Sort user ids that have at least one self signature
+                // towards the front.
+                if a_selfsig.is_some() && b_selfsig.is_none() {
+                    return Ordering::Less;
+                }
+                if a_selfsig.is_none() && b_selfsig.is_some() {
+                    return Ordering::Greater;
+                }
+
+                // Sort by reversed revocation time (i.e., most
+                // recently revoked user id first).
+                let cmp = b.self_revocations[0].signature_creation_time().cmp(
+                    &a.self_revocations[0].signature_creation_time());
+                if cmp != Ordering::Equal {
+                    return cmp;
+                }
+
+                // They were revoked at the same time.  This is
+                // unlikely.  We just need to do something
+                // deterministic.
+            }
+
+            // Compare their primary status.
             let a_primary =
                 a_selfsig.map(|sig| sig.primary_userid()).unwrap_or(None);
             let b_primary =
@@ -1644,10 +1670,35 @@ impl TPK {
                 return Ordering::Less;
             }
 
-            // Compare their primary status.
             let a_selfsig = a.binding_signature();
             let b_selfsig = b.binding_signature();
 
+            if a_revoked && b_revoked {
+                // Both are revoked.
+
+                // Sort user attributes that have at least one self
+                // signature towards the front.
+                if a_selfsig.is_some() && b_selfsig.is_none() {
+                    return Ordering::Less;
+                }
+                if a_selfsig.is_none() && b_selfsig.is_some() {
+                    return Ordering::Greater;
+                }
+
+                // Sort by reversed revocation time (i.e., most
+                // recently revoked user attribute first).
+                let cmp = b.self_revocations[0].signature_creation_time().cmp(
+                    &a.self_revocations[0].signature_creation_time());
+                if cmp != Ordering::Equal {
+                    return cmp;
+                }
+
+                // They were revoked at the same time.  This is
+                // unlikely.  We just need to do something
+                // deterministic.
+            }
+
+            // Compare their primary status.
             let a_primary =
                 a_selfsig.map(|sig| sig.primary_userid()).unwrap_or(None);
             let b_primary =
@@ -1734,7 +1785,7 @@ impl TPK {
         });
 
         self.subkeys.sort_by(|a, b| {
-            // Compare their revocation status.  Components known be
+            // Compare their revocation status.  Components known to be
             // revoked come last.
             let a_revoked = a.self_revocations.len() > 0;
             let b_revoked = b.self_revocations.len() > 0;
@@ -1748,6 +1799,31 @@ impl TPK {
 
             let a_selfsig = a.binding_signature();
             let b_selfsig = b.binding_signature();
+
+            if a_revoked && b_revoked {
+                // Both are revoked.
+
+                // Sort keys that have at least one self signature
+                // towards the front.
+                if a_selfsig.is_some() && b_selfsig.is_none() {
+                    return Ordering::Less;
+                }
+                if a_selfsig.is_none() && b_selfsig.is_some() {
+                    return Ordering::Greater;
+                }
+
+                // Sort by reversed revocation time (i.e., most
+                // recently revoked key first).
+                let cmp = b.self_revocations[0].signature_creation_time().cmp(
+                    &a.self_revocations[0].signature_creation_time());
+                if cmp != Ordering::Equal {
+                    return cmp;
+                }
+
+                // They were revoked at the same time.  This is
+                // unlikely.  We just need to do something
+                // deterministic.
+            }
 
             // Features.
             let a_features =
