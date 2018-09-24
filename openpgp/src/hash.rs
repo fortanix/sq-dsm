@@ -11,6 +11,13 @@ use conversions::Time;
 
 use nettle::Hash;
 
+use std::fs::{File, OpenOptions};
+use std::io::Write;
+
+// If set to e.g. Some("/tmp/hash"), we will dump everything that is
+// hashed to files /tmp/hash-N, where N is a number.
+const DUMP_HASHED_VALUES: Option<&str> = None;
+
 impl HashAlgorithm {
     /// Whether Sequoia supports this algorithm.
     pub fn is_supported(self) -> bool {
@@ -33,7 +40,7 @@ impl HashAlgorithm {
         use nettle::hash::*;
         use nettle::hash::insecure_do_not_use::Sha1;
 
-        match self {
+        let c: Result<Box<Hash>> = match self {
             HashAlgorithm::SHA1 => Ok(Box::new(Sha1::default())),
             HashAlgorithm::SHA224 => Ok(Box::new(Sha224::default())),
             HashAlgorithm::SHA256 => Ok(Box::new(Sha256::default())),
@@ -43,6 +50,14 @@ impl HashAlgorithm {
                 Err(Error::UnsupportedHashAlgorithm(self).into()),
             HashAlgorithm::Private(_) | HashAlgorithm::Unknown(_) =>
                 Err(Error::UnknownHashAlgorithm(self).into()),
+        };
+
+        if let Some(prefix) = DUMP_HASHED_VALUES {
+            c.map(|c: Box<Hash>| -> Box<Hash> {
+                Box::new(HashDumper::new(c, prefix))
+            })
+        } else {
+            c
         }
     }
 
@@ -61,6 +76,60 @@ impl HashAlgorithm {
             HashAlgorithm::Private(_) | HashAlgorithm::Unknown(_) =>
                 Err(Error::UnknownHashAlgorithm(self).into()),
         }
+    }
+}
+
+struct HashDumper {
+    h: Box<Hash>,
+    sink: File,
+    filename: String,
+    written: usize,
+}
+
+impl HashDumper {
+    fn new(h: Box<Hash>, prefix: &str) -> Self {
+        let mut n = 0;
+        let mut filename;
+        let sink = loop {
+            filename = format!("{}-{}", prefix, n);
+            match OpenOptions::new().write(true).create_new(true)
+                .open(&filename)
+            {
+                Ok(f) => break f,
+                Err(_) => n += 1,
+            }
+        };
+        eprintln!("HashDumper: Writing to {}...", &filename);
+        HashDumper {
+            h: h,
+            sink: sink,
+            filename: filename,
+            written: 0,
+        }
+    }
+}
+
+impl Drop for HashDumper {
+    fn drop(&mut self) {
+        eprintln!("HashDumper: Wrote {} bytes to {}...", self.written,
+                  self.filename);
+    }
+}
+
+impl Hash for HashDumper {
+    fn digest_size(&self) -> usize {
+        self.h.digest_size()
+    }
+    fn update(&mut self, data: &[u8]) {
+        self.h.update(data);
+        self.sink.write_all(data).unwrap();
+        self.written += data.len();
+    }
+    fn digest(&mut self, digest: &mut [u8]) {
+        self.h.digest(digest);
+    }
+    fn box_clone(&self) -> Box<Hash> {
+        Box::new(Self::new(self.h.box_clone(), &DUMP_HASHED_VALUES.unwrap()))
     }
 }
 
