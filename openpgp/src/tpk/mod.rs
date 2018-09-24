@@ -1089,7 +1089,8 @@ impl TPK {
         &mut self.primary
     }
 
-    /// Returns the primary key's current self-signature.
+    /// Returns the primary key's current self-signature and, if it
+    /// belong to a user id, a reference to the `UserIDBinding`.
     ///
     /// Normally, the primary key's current self-signature is the
     /// primary user id's newest, non-revoked self-signature.
@@ -1099,26 +1100,41 @@ impl TPK {
     /// revoked user id (i.e., the binding signature that was last
     /// valid).  If there are no user ids at all and no direct
     /// signatures, then we return None.
-    pub fn primary_key_signature(&self) -> Option<&Signature> {
+    pub fn primary_key_signature_full(&self)
+        -> Option<(Option<&UserIDBinding>, &Signature)>
+    {
         // 1. Self-signature from a non-revoked UserID.
         if let Some(userid) = self.userids.get(0) {
             if userid.self_revocations.len() == 0 {
-                return Some(&userid.selfsigs[0]);
+                return Some((Some(&userid), &userid.selfsigs[0]));
             }
         }
 
         // 2. Direct signature.
         if self.primary_selfsigs.len() > 0 {
-            return Some(&self.primary_selfsigs[0]);
+            return Some((None, &self.primary_selfsigs[0]));
         }
 
         // 3. Treat User IDs as if they were not revoked.
         if let Some(userid) = self.userids.get(0) {
-            return Some(&userid.selfsigs[0]);
+            return Some((Some(&userid), &userid.selfsigs[0]));
         }
 
         // 4. No user ids and no direct signatures.
         None
+    }
+
+    /// Returns the primary key's current self-signature.
+    ///
+    /// This function is identical to
+    /// `TPK::primary_key_signature_full()`, but it doesn't return the
+    /// `UserIDBinding`.
+    pub fn primary_key_signature(&self) -> Option<&Signature> {
+        if let Some((_, sig)) = self.primary_key_signature_full() {
+            Some(sig)
+        } else {
+            None
+        }
     }
 
     /// Returns the TPK's revocation status.
