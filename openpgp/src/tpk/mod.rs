@@ -2194,6 +2194,17 @@ impl TPK {
 
         Ok(TSK::from_tpk(TPK::from_packet_pile(pile)?))
     }
+
+    /// Returns whether at least one of the keys includes a secret
+    /// part.
+    pub fn is_tsk(&self) -> bool {
+        if self.primary().secret().is_some() {
+            return true;
+        }
+        self.subkeys().any(|sk| {
+            sk.binding_signature().is_some() && sk.subkey().secret().is_some()
+        })
+    }
 }
 
 #[cfg(test)]
@@ -3036,5 +3047,16 @@ mod test {
         }).unwrap();
 
         assert!(tsk.tpk().subkeys.is_empty());
+    }
+
+    #[test]
+    fn is_tsk() {
+        let tpk = TPK::from_bytes(
+            bytes!("already-revoked.pgp")).unwrap();
+        assert!(! tpk.is_tsk());
+
+        let tpk = TPK::from_bytes(
+            bytes!("already-revoked-private.pgp")).unwrap();
+        assert!(tpk.is_tsk());
     }
 }
