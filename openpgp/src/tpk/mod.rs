@@ -645,7 +645,7 @@ pub struct UnknownBinding {
 pub struct KeyIter<'a> {
     tpk: &'a TPK,
     primary: bool,
-    subkey_iter: slice::Iter<'a, SubkeyBinding>,
+    subkey_iter: SubkeyBindingIter<'a>,
 }
 
 impl<'a> Iterator for KeyIter<'a> {
@@ -1080,6 +1080,45 @@ impl fmt::Display for TPK {
     }
 }
 
+/// An iterator over `UserIDBinding`s.
+pub struct UserIDBindingIter<'a> {
+    iter: slice::Iter<'a, UserIDBinding>,
+}
+
+impl<'a> Iterator for UserIDBindingIter<'a> {
+    type Item = &'a UserIDBinding;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next()
+    }
+}
+
+/// An iterator over `UserAttributeBinding`s.
+pub struct UserAttributeBindingIter<'a> {
+    iter: slice::Iter<'a, UserAttributeBinding>,
+}
+
+impl<'a> Iterator for UserAttributeBindingIter<'a> {
+    type Item = &'a UserAttributeBinding;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next()
+    }
+}
+
+/// An iterator over `SubkeyBinding`s.
+pub struct SubkeyBindingIter<'a> {
+    iter: slice::Iter<'a, SubkeyBinding>,
+}
+
+impl<'a> Iterator for SubkeyBindingIter<'a> {
+    type Item = &'a SubkeyBinding;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next()
+    }
+}
+
 impl TPK {
     /// Returns a reference to the primary key.
     pub fn primary(&self) -> &Key {
@@ -1279,23 +1318,23 @@ impl TPK {
     ///
     /// The primary user id is returned first.  A valid
     /// `UserIDBinding` has at least one good self-signature.
-    pub fn userids(&self) -> slice::Iter<UserIDBinding> {
-        self.userids.iter()
+    pub fn userids(&self) -> UserIDBindingIter {
+        UserIDBindingIter { iter: self.userids.iter() }
     }
 
     /// Returns an iterator over the TPK's valid `UserAttributeBinding`s.
     ///
     /// A valid `UserIDAttributeBinding` has at least one good
     /// self-signature.
-    pub fn user_attributes(&self) -> slice::Iter<UserAttributeBinding> {
-        self.user_attributes.iter()
+    pub fn user_attributes(&self) -> UserAttributeBindingIter {
+        UserAttributeBindingIter { iter: self.user_attributes.iter() }
     }
 
     /// Returns an iterator over the TPK's valid subkeys.
     ///
     /// A valid `SubkeyBinding` has at least one good self-signature.
-    pub fn subkeys(&self) -> slice::Iter<SubkeyBinding> {
-        self.subkeys.iter()
+    pub fn subkeys(&self) -> SubkeyBindingIter {
+        SubkeyBindingIter { iter: self.subkeys.iter() }
     }
 
     /// Returns an iterator over all of the TPK's valid keys.

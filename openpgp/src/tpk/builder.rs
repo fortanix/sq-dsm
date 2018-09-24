@@ -368,7 +368,7 @@ mod tests {
                    &[ "test1@example.com",
                       "test2@example.com",
                    ][..]);
-        assert_eq!(tpk.subkeys().len(), 3);
+        assert_eq!(tpk.subkeys().count(), 3);
     }
 
     #[test]
@@ -381,7 +381,7 @@ mod tests {
 
         assert_eq!(tpk.userids().count(), 0);
         assert_eq!(tpk.primary_key_signature().unwrap().sigtype(), SignatureType::DirectKey);
-        assert_eq!(tpk.subkeys().len(), 3);
+        assert_eq!(tpk.subkeys().count(), 3);
     }
 
     #[test]
@@ -433,7 +433,7 @@ mod tests {
             _ => {}
         }
 
-        assert_eq!(tpk1.subkeys().len(), 1);
+        assert_eq!(tpk1.subkeys().count(), 1);
     }
 
     #[test]
@@ -452,6 +452,6 @@ mod tests {
             _ => {}
         }
 
-        assert_eq!(tpk1.subkeys().len(), 1);
+        assert_eq!(tpk1.subkeys().count(), 1);
     }
 }
