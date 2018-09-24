@@ -15,7 +15,9 @@ use {
     Result,
     RevocationStatus,
     SignatureType,
+    HashAlgorithm,
     Tag,
+    SecretKey,
     packet::{signature, Signature},
     packet::Key,
     packet::UserID,
@@ -1150,6 +1152,93 @@ impl TPK {
         } else {
             RevocationStatus::NotAsFarAsWeKnow
         }
+    }
+
+    /// Returns whether or not the TPK has expired.
+    pub fn expired(&self) -> bool {
+        if let Some(sig) = self.primary_key_signature() {
+            sig.key_expired(self.primary())
+        } else {
+            false
+        }
+    }
+
+    /// Returns whether or not the key is expired at the given time.
+    pub fn expired_at(&self, tm: time::Tm) -> bool {
+        if let Some(sig) = self.primary_key_signature() {
+            sig.key_expired_at(self.primary(), tm)
+        } else {
+            false
+        }
+    }
+
+    /// Sets the key to expire in delta seconds.
+    ///
+    /// Note: the time is relative to the key's creation time, not the
+    /// current time!
+    ///
+    /// This function exists to facilitate testing, which is why it is
+    /// not exported.
+    fn set_expiry_as_of(self, expiration: Option<time::Duration>,
+                        now: time::Tm)
+        -> Result<TPK>
+    {
+        let sig = {
+            let (userid, template) = self
+                .primary_key_signature_full()
+                .ok_or(Error::MalformedTPK("No self-signature".into()))?;
+
+            let mut sig = signature::Builder::from(template.clone());
+            sig.set_key_expiration_time(expiration)?;
+            sig.set_signature_creation_time(now)?;
+
+            // Recompute the signature.
+            let hash_algo = HashAlgorithm::SHA512;
+            let mut hash = hash_algo.context()?;
+
+            let pair = self.primary();
+
+            pair.hash(&mut hash);
+            if let Some(userid) = userid {
+                userid.userid().hash(&mut hash);
+            } else {
+                assert_eq!(sig.sigtype, SignatureType::DirectKey);
+            }
+
+            if let Some(SecretKey::Unencrypted{ mpis: ref sec })
+                = pair.secret
+            {
+                // Generate the signature.
+                sig.sign_hash(&pair, sec, hash_algo, hash)?
+            } else {
+                return Err(Error::InvalidOperation(
+                    "Secret key is encrypted".into()).into());
+            }
+        };
+
+        self.merge_packets(&[ sig.to_packet() ])
+    }
+
+    /// Sets the key to expire in delta.
+    ///
+    /// Note: the time is relative to the key's creation time, not the
+    /// current time!
+    pub fn set_expiry(self, expiration: Option<time::Duration>)
+        -> Result<TPK>
+    {
+        self.set_expiry_as_of(expiration, time::now())
+    }
+
+    /// Sets the key to expire in delta seconds.
+    ///
+    /// Note: the time is relative to the key's creation time, not the
+    /// current time!
+    pub fn set_expiry_in_seconds(self, expiration: u32)
+        -> Result<TPK>
+    {
+        self.set_expiry_as_of(
+            Some(time::Duration::seconds(expiration as i64)),
+            time::now())
     }
 
     /// Returns an iterator over the TPK's valid `UserIDBinding`s.
@@ -2784,6 +2873,41 @@ mod test {
         let tpk = tpk.merge_packets(&rev[..]).unwrap();
         let packets_post_merge = tpk.clone().to_packets().len();
         assert_eq!(packets_post_merge, packets_pre_merge + 1);
+    }
+
+    #[test]
+    fn set_expiry() {
+        let now = time::now_utc();
+
+        let tpk = TSK::new(Some("Test".into())).unwrap().into_tpk();
+        let expiry_orig = tpk.primary_key_signature().unwrap()
+            .key_expiration_time()
+            .expect("Keys expire by default.");
+
+        // Clear the expiration.
+        let tpk = tpk.set_expiry_as_of(
+            None,
+            now + time::Duration::seconds(10)).unwrap();
+        {
+            let expiry = tpk.primary_key_signature().unwrap()
+                .key_expiration_time();
+            assert_eq!(expiry, None);
+        }
+
+        // Shorten the expiry.  (The default expiration should be at
+        // least a few weeks, so removing an hour should still keep us
+        // over 0.)
+        let expiry_expected = expiry_orig - time::Duration::hours(1);
+        assert!(expiry_expected > time::Duration::seconds(0));
+
+        let tpk = tpk.set_expiry_as_of(
+            Some(expiry_expected),
+            now + time::Duration::seconds(20)).unwrap();
+        {
+            let expiry = tpk.primary_key_signature().unwrap()
+                .key_expiration_time();
+            assert_eq!(expiry.unwrap(), expiry_expected);
+        }
     }
 
     #[test]
