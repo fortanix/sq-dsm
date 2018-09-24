@@ -1154,6 +1154,40 @@ impl TPK {
         }
     }
 
+    /// Returns a revocation certificate for the TPK.
+    pub fn revoke(&self, code: ReasonForRevocation, reason: &[u8])
+        -> Result<Signature>
+    {
+        let mut sig = signature::Builder::new(SignatureType::KeyRevocation);
+        sig.set_signature_creation_time(time::now_utc())?;
+        sig.set_issuer_fingerprint(self.primary().fingerprint())?;
+        sig.set_issuer(self.primary().keyid())?;
+        sig.set_reason_for_revocation(code, reason)?;
+
+        let pair = self.primary();
+
+        // Recompute the signature.
+        let hash_algo = HashAlgorithm::SHA512;
+        let mut hash = hash_algo.context()?;
+        pair.hash(&mut hash);
+
+        if let Some(SecretKey::Unencrypted{ mpis: ref sec }) = pair.secret {
+            // Generate the signature.
+            sig.sign_hash(&pair, sec, hash_algo, hash)
+        } else {
+            return Err(Error::InvalidOperation(
+                "Secret key is encrypted".into()).into());
+        }
+    }
+
+    /// Revokes the TPK.
+    pub fn revoke_in_place(self, code: ReasonForRevocation, reason: &[u8])
+        -> Result<TPK>
+    {
+        let sig = self.revoke(code, reason)?;
+        self.merge_packets(&[ sig.to_packet() ])
+    }
+
     /// Returns whether or not the TPK has expired.
     pub fn expired(&self) -> bool {
         if let Some(sig) = self.primary_key_signature() {
@@ -3027,6 +3061,19 @@ mod test {
               true, true, true);
         check(&d.clone().merge(k.clone().merge(u.clone()).unwrap()).unwrap(),
               true, true, true);
+    }
+
+    #[test]
+    fn revoke() {
+        let tpk = TSK::new(Some("Test".into())).unwrap().into_tpk();
+        assert_eq!(RevocationStatus::NotAsFarAsWeKnow, tpk.revoked());
+
+        let sig = tpk.revoke(ReasonForRevocation::KeyCompromised,
+                             b"It was the maid :/").unwrap();
+        assert_eq!(sig.sigtype(), SignatureType::KeyRevocation);
+
+        let tpk = tpk.merge_packets(&[ sig.to_packet() ]).unwrap();
+        assert_match!(RevocationStatus::Revoked(_) = tpk.revoked());
     }
 
     #[test]
