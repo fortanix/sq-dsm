@@ -2080,6 +2080,16 @@ impl TPK {
         Ok(self.canonicalize())
     }
 
+    /// Adds packets to the TPK.
+    ///
+    /// This recanonicalizes the TPK.  If the packets are invalid,
+    /// they are dropped.
+    pub fn merge_packets(self, packets: &[ Packet ]) -> Result<Self> {
+        let mut combined = self.to_packets();
+        combined.extend_from_slice(packets);
+        TPK::from_packet_pile(PacketPile::from_packets(combined))
+    }
+
     /// Cast the public key into a secret key that allows using the secret
     /// parts of the containing keys.
     pub fn into_tsk(self) -> TSK {
@@ -2752,6 +2762,28 @@ mod test {
         let tpk2
             = TPK::from_packet_pile(tpk.clone().to_packet_pile()).unwrap();
         assert_eq!(tpk, tpk2);
+    }
+
+    #[test]
+    fn merge_packets() {
+        use armor;
+
+        // Merge the revocation certificate into the TPK and make sure
+        // it shows up.
+        let tpk = TPK::from_bytes(bytes!("already-revoked.pgp")).unwrap();
+
+        let rev = bytes!("already-revoked.rev");
+        let rev = PacketPile::from_reader(armor::Reader::new(&rev[..], None))
+            .unwrap();
+
+        let rev : Vec<Packet> = rev.into_children().collect();
+        assert_eq!(rev.len(), 1);
+        assert_match!(&Packet::Signature(_) = &rev[0]);
+
+        let packets_pre_merge = tpk.clone().to_packets().len();
+        let tpk = tpk.merge_packets(&rev[..]).unwrap();
+        let packets_post_merge = tpk.clone().to_packets().len();
+        assert_eq!(packets_post_merge, packets_pre_merge + 1);
     }
 
     #[test]
