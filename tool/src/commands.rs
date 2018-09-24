@@ -197,13 +197,13 @@ pub fn encrypt(store: &mut store::Store,
 
 pub fn sign(input: &mut io::Read, output_path: Option<&str>,
             secrets: Vec<openpgp::TPK>, detached: bool, binary: bool,
-            append: bool)
+            append: bool, notarize: bool)
             -> Result<()> {
-    match (detached, append) {
+    match (detached, append|notarize) {
         (_, false) | (true, true) =>
             sign_data(input, output_path, secrets, detached, binary, append),
         (false, true) =>
-            sign_message(input, output_path, secrets, binary),
+            sign_message(input, output_path, secrets, binary, notarize),
     }
 }
 
@@ -298,7 +298,7 @@ fn sign_data(input: &mut io::Read, output_path: Option<&str>,
 }
 
 fn sign_message(input: &mut io::Read, output_path: Option<&str>,
-                secrets: Vec<openpgp::TPK>, binary: bool)
+                secrets: Vec<openpgp::TPK>, binary: bool, notarize: bool)
              -> Result<()> {
     let mut output = create_or_stdout(output_path)?;
     let output = if ! binary {
@@ -322,6 +322,7 @@ fn sign_message(input: &mut io::Read, output_path: Option<&str>,
 
     // Once we see a signature, we can no longer strip compression.
     let mut seen_signature = false;
+    #[derive(PartialEq, Eq, Debug)]
     enum State {
         InFirstSigGroup,
         AfterFirstSigGroup,
@@ -332,7 +333,14 @@ fn sign_message(input: &mut io::Read, output_path: Option<&str>,
         },
         Done,
     };
-    let mut state = State::InFirstSigGroup;
+    let mut state =
+        if ! notarize {
+            State::InFirstSigGroup
+        } else {
+            // Pretend we have passed the first signature group so
+            // that we put our signature first.
+            State::AfterFirstSigGroup
+        };
 
     while let PacketParserResult::Some(mut pp) = ppr {
         if ! pp.possible_message() {
@@ -462,6 +470,17 @@ fn sign_message(input: &mut io::Read, output_path: Option<&str>,
         }
     } else {
         unreachable!()
+    }
+
+    match state {
+        State::Signing { signature_count } => {
+            assert_eq!(signature_count, 0);
+            sink.finalize_one()
+                .context("Failed to sign data")?
+                .unwrap();
+        },
+        State::Done => (),
+        _ => panic!("Unexpected state: {:?}", state),
     }
 
     Ok(())

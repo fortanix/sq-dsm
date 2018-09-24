@@ -92,6 +92,7 @@
 //!     -B, --binary      Don't ASCII-armor encode the OpenPGP data
 //!         --detached    Create a detached signature
 //!     -h, --help        Prints help information
+//!     -n, --notarize    Signs a message and all existing signatures
 //!     -V, --version     Prints version information
 //!
 //! OPTIONS:

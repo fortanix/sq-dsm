@@ -137,11 +137,12 @@ fn real_main() -> Result<(), failure::Error> {
             let detached = m.is_present("detached");
             let binary = m.is_present("binary");
             let append = m.is_present("append");
+            let notarize = m.is_present("notarize");
             let secrets = m.values_of("secret-key-file")
                 .map(load_tpks)
                 .unwrap_or(Ok(vec![]))?;
             commands::sign(&mut input, output, secrets, detached, binary,
-                           append)?;
+                           append, notarize)?;
         },
         ("verify",  Some(m)) => {
             let input = open_or_stdin(m.value_of("input"))?;

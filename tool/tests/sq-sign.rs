@@ -616,3 +616,180 @@ fn sq_sign_append_a_notarization() {
               &sig0.to_string_lossy()])
         .unwrap();
 }
+
+#[test]
+fn sq_sign_notarize() {
+    let tmp_dir = TempDir::new().unwrap();
+    let sig0 = tmp_dir.path().join("sig0");
+
+    // Now add a third signature with --append to a notarized message.
+    Assert::cargo_binary("sq")
+        .with_args(
+            &["--home",
+              &tmp_dir.path().to_string_lossy(),
+              "sign",
+              "--notarize",
+              "--secret-key-file",
+              &p("keys/erika-corinna-daniela-simone-antonia-nistp256-private.pgp"),
+              "--output",
+              &sig0.to_string_lossy(),
+              &p("messages/signed-1.gpg")])
+        .unwrap();
+
+    // Check that the content is sane.
+    let packets: Vec<Packet> =
+        PacketPile::from_reader(Reader::from_file(&sig0).unwrap())
+        .unwrap().into_children().collect();
+    assert_eq!(packets.len(), 5);
+    if let Packet::OnePassSig(ref ops) = packets[0] {
+        assert!(ops.last());
+        assert_eq!(ops.sigtype(), SignatureType::Binary);
+    } else {
+        panic!("expected one pass signature");
+    }
+    if let Packet::OnePassSig(ref ops) = packets[1] {
+        assert!(ops.last());
+        assert_eq!(ops.sigtype(), SignatureType::Binary);
+    } else {
+        panic!("expected one pass signature");
+    }
+    if let Packet::Literal(_) = packets[2] {
+        // Do nothing.
+    } else {
+        panic!("expected literal");
+    }
+    if let Packet::Signature(ref sig) = packets[3] {
+        assert_eq!(sig.sigtype(), SignatureType::Binary);
+        assert_eq!(sig.level(), 0);
+    } else {
+        panic!("expected signature");
+    }
+    if let Packet::Signature(ref sig) = packets[4] {
+        assert_eq!(sig.sigtype(), SignatureType::Binary);
+        assert_eq!(sig.level(), 1);
+    } else {
+        panic!("expected signature");
+    }
+
+    let content = fs::read(&sig0).unwrap();
+    assert!(&content[..].starts_with(b"-----BEGIN PGP MESSAGE-----\n\n"));
+
+    // Verify both notarizations and the signature.
+    Assert::cargo_binary("sq")
+        .with_args(
+            &["--home",
+              &tmp_dir.path().to_string_lossy(),
+              "verify",
+              "--public-key-file",
+              &p("keys/neal.pgp"),
+              &sig0.to_string_lossy()])
+        .unwrap();
+    Assert::cargo_binary("sq")
+        .with_args(
+            &["--home",
+              &tmp_dir.path().to_string_lossy(),
+              "verify",
+              "--public-key-file",
+              &p("keys/erika-corinna-daniela-simone-antonia-nistp256.pgp"),
+              &sig0.to_string_lossy()])
+        .unwrap();
+}
+
+#[test]
+fn sq_sign_notarize_a_notarization() {
+    let tmp_dir = TempDir::new().unwrap();
+    let sig0 = tmp_dir.path().join("sig0");
+
+    // Now add a third signature with --append to a notarized message.
+    Assert::cargo_binary("sq")
+        .with_args(
+            &["--home",
+              &tmp_dir.path().to_string_lossy(),
+              "sign",
+              "--notarize",
+              "--secret-key-file",
+              &p("keys/erika-corinna-daniela-simone-antonia-nistp256-private.pgp"),
+              "--output",
+              &sig0.to_string_lossy(),
+              &p("messages/signed-1-notarized-by-ed25519.pgp")])
+        .unwrap();
+
+    // Check that the content is sane.
+    let packets: Vec<Packet> =
+        PacketPile::from_reader(Reader::from_file(&sig0).unwrap())
+        .unwrap().into_children().collect();
+    assert_eq!(packets.len(), 7);
+    if let Packet::OnePassSig(ref ops) = packets[0] {
+        assert!(ops.last());
+        assert_eq!(ops.sigtype(), SignatureType::Binary);
+    } else {
+        panic!("expected one pass signature");
+    }
+    if let Packet::OnePassSig(ref ops) = packets[1] {
+        assert!(ops.last());
+        assert_eq!(ops.sigtype(), SignatureType::Binary);
+    } else {
+        panic!("expected one pass signature");
+    }
+    if let Packet::OnePassSig(ref ops) = packets[2] {
+        assert!(ops.last());
+        assert_eq!(ops.sigtype(), SignatureType::Binary);
+    } else {
+        panic!("expected one pass signature");
+    }
+    if let Packet::Literal(_) = packets[3] {
+        // Do nothing.
+    } else {
+        panic!("expected literal");
+    }
+    if let Packet::Signature(ref sig) = packets[4] {
+        assert_eq!(sig.sigtype(), SignatureType::Binary);
+        assert_eq!(sig.level(), 0);
+    } else {
+        panic!("expected signature");
+    }
+    if let Packet::Signature(ref sig) = packets[5] {
+        assert_eq!(sig.sigtype(), SignatureType::Binary);
+        assert_eq!(sig.level(), 1);
+    } else {
+        panic!("expected signature");
+    }
+    if let Packet::Signature(ref sig) = packets[6] {
+        assert_eq!(sig.sigtype(), SignatureType::Binary);
+        assert_eq!(sig.level(), 2);
+    } else {
+        panic!("expected signature");
+    }
+
+    let content = fs::read(&sig0).unwrap();
+    assert!(&content[..].starts_with(b"-----BEGIN PGP MESSAGE-----\n\n"));
+
+    // Verify both notarizations and the signature.
+    Assert::cargo_binary("sq")
+        .with_args(
+            &["--home",
+              &tmp_dir.path().to_string_lossy(),
+              "verify",
+              "--public-key-file",
+              &p("keys/neal.pgp"),
+              &sig0.to_string_lossy()])
+        .unwrap();
+    Assert::cargo_binary("sq")
+        .with_args(
+            &["--home",
+              &tmp_dir.path().to_string_lossy(),
+              "verify",
+              "--public-key-file",
+              &p("keys/emmelie-dorothea-dina-samantha-awina-ed25519.pgp"),
+              &sig0.to_string_lossy()])
+        .unwrap();
+    Assert::cargo_binary("sq")
+        .with_args(
+            &["--home",
+              &tmp_dir.path().to_string_lossy(),
+              "verify",
+              "--public-key-file",
+              &p("keys/erika-corinna-daniela-simone-antonia-nistp256.pgp"),
+              &sig0.to_string_lossy()])
+        .unwrap();
+}
