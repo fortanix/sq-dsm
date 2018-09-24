@@ -1895,9 +1895,28 @@ impl TPK {
 
         p.push(Packet::PublicKey(self.primary));
 
+        for s in self.primary_selfsigs.into_iter() {
+            p.push(Packet::Signature(s));
+        }
+        for s in self.primary_self_revocations.into_iter() {
+            p.push(Packet::Signature(s));
+        }
+        for s in self.primary_certifications.into_iter() {
+            p.push(Packet::Signature(s));
+        }
+        for s in self.primary_other_revocations.into_iter() {
+            p.push(Packet::Signature(s));
+        }
+
         for u in self.userids.into_iter() {
             p.push(Packet::UserID(u.userid));
+            for s in u.self_revocations.into_iter() {
+                p.push(Packet::Signature(s));
+            }
             for s in u.selfsigs.into_iter() {
+                p.push(Packet::Signature(s));
+            }
+            for s in u.other_revocations.into_iter() {
                 p.push(Packet::Signature(s));
             }
             for s in u.certifications.into_iter() {
@@ -1907,7 +1926,13 @@ impl TPK {
 
         for u in self.user_attributes.into_iter() {
             p.push(Packet::UserAttribute(u.user_attribute));
+            for s in u.self_revocations.into_iter() {
+                p.push(Packet::Signature(s));
+            }
             for s in u.selfsigs.into_iter() {
+                p.push(Packet::Signature(s));
+            }
+            for s in u.other_revocations.into_iter() {
                 p.push(Packet::Signature(s));
             }
             for s in u.certifications.into_iter() {
@@ -1918,7 +1943,13 @@ impl TPK {
         let subkeys = self.subkeys;
         for k in subkeys.into_iter() {
             p.push(Packet::PublicSubkey(k.subkey));
+            for s in k.self_revocations.into_iter() {
+                p.push(Packet::Signature(s));
+            }
             for s in k.selfsigs.into_iter() {
+                p.push(Packet::Signature(s));
+            }
+            for s in k.other_revocations.into_iter() {
                 p.push(Packet::Signature(s));
             }
             for s in k.certifications.into_iter() {
@@ -2667,6 +2698,35 @@ mod test {
         let tpk = tpk.merge(update).unwrap();
         assert!(! tpk.primary_key_signature().unwrap()
                 .key_expired(tpk.primary()));
+    }
+
+    #[test]
+    fn packet_pile_roundtrip() {
+        // Make sure TPK::from_packet_pile(TPK::to_packet_pile(tpk))
+        // does a clean round trip.
+
+        let tpk = TPK::from_bytes(bytes!("already-revoked.pgp")).unwrap();
+        let tpk2
+            = TPK::from_packet_pile(tpk.clone().to_packet_pile()).unwrap();
+        assert_eq!(tpk, tpk2);
+
+        let tpk = TPK::from_bytes(
+            bytes!("already-revoked-direct-revocation.pgp")).unwrap();
+        let tpk2
+            = TPK::from_packet_pile(tpk.clone().to_packet_pile()).unwrap();
+        assert_eq!(tpk, tpk2);
+
+        let tpk = TPK::from_bytes(
+            bytes!("already-revoked-userid-revocation.pgp")).unwrap();
+        let tpk2
+            = TPK::from_packet_pile(tpk.clone().to_packet_pile()).unwrap();
+        assert_eq!(tpk, tpk2);
+
+        let tpk = TPK::from_bytes(
+            bytes!("already-revoked-subkey-revocation.pgp")).unwrap();
+        let tpk2
+            = TPK::from_packet_pile(tpk.clone().to_packet_pile()).unwrap();
+        assert_eq!(tpk, tpk2);
     }
 
     #[test]
