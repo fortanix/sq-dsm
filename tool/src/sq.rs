@@ -103,10 +103,19 @@ fn real_main() -> Result<(), failure::Error> {
             let input = open_or_stdin(m.value_of("input"))?;
             let mut output = create_or_stdout(m.value_of("output"))?;
             let mut input = openpgp::Reader::from_reader(input)?;
+            let signatures: usize =
+                m.value_of("signatures").unwrap_or("1").parse()?;
+            let tpks = m.values_of("public-key-file")
+                .map(load_tpks)
+                .unwrap_or(Ok(vec![]))?;
             let secrets = m.values_of("secret-key-file")
                 .map(load_tpks)
                 .unwrap_or(Ok(vec![]))?;
-            commands::decrypt(&mut input, &mut output, secrets,
+            let mut store = Store::open(&ctx, store_name)
+                .context("Failed to open the store")?;
+            commands::decrypt(&mut store,
+                              &mut input, &mut output,
+                              signatures, tpks, secrets,
                               m.is_present("dump"), m.is_present("hex"))?;
         },
         ("encrypt",  Some(m)) => {

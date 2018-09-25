@@ -50,7 +50,9 @@
 //!
 //! OPTIONS:
 //!     -o, --output <FILE>                    Sets the output file to use
+//!         --public-key-file <TPK-FILE>...    Public key to verify with, given as a file (can be given multiple times)
 //!         --secret-key-file <TSK-FILE>...    Secret key to decrypt with, given as a file (can be given multiple times)
+//!     -n, --signatures <N>                   The number of valid signatures required.  Default: 1
 //!
 //! ARGS:
 //!     <FILE>    Sets the input file to use
