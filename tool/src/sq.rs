@@ -152,12 +152,15 @@ fn real_main() -> Result<(), failure::Error> {
             if detached {
                 unimplemented!("Detached signature generation not implemented");
             }
+            let signatures: usize =
+                m.value_of("signatures").unwrap_or("1").parse()?;
             let tpks = m.values_of("public-key-file")
                 .map(load_tpks)
                 .unwrap_or(Ok(vec![]))?;
             let mut store = Store::open(&ctx, store_name)
                 .context("Failed to open the store")?;
-            commands::verify(&mut store, &mut input, &mut output, tpks)?;
+            commands::verify(&mut store, &mut input, &mut output,
+                             signatures, tpks)?;
         },
 
         ("enarmor",  Some(m)) => {

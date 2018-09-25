@@ -130,6 +130,12 @@ pub fn build() -> App<'static, 'static> {
                          .value_name("SIG-FILE")
                          .help("Verifies a detached signature"))
 */
+                    .arg(Arg::with_name("signatures").value_name("N")
+                         .help("The number of valid signatures required.  \
+                                Default: 1")
+                         .long("signatures")
+                         .short("n")
+                         .takes_value(true))
                     .arg(Arg::with_name("public-key-file")
                          .long("public-key-file")
                          .multiple(true)

@@ -375,6 +375,7 @@ fn sign_message(input: &mut io::Read, output_path: Option<&str>,
 
 struct VHelper<'a> {
     store: &'a mut store::Store,
+    signatures: usize,
     tpks: Option<Vec<TPK>>,
     labels: HashMap<KeyID, String>,
     good: usize,
@@ -383,9 +384,11 @@ struct VHelper<'a> {
 }
 
 impl<'a> VHelper<'a> {
-    fn new(store: &'a mut store::Store, tpks: Vec<TPK>) -> Self {
+    fn new(store: &'a mut store::Store, signatures: usize, tpks: Vec<TPK>)
+           -> Self {
         VHelper {
             store: store,
+            signatures: signatures,
             tpks: Some(tpks),
             labels: HashMap::new(),
             good: 0,
@@ -462,7 +465,7 @@ impl<'a> VerificationHelper for VHelper<'a> {
             }
         }
 
-        if self.good > 0 && self.bad == 0 {
+        if self.good >= self.signatures && self.bad == 0 {
             Ok(())
         } else {
             self.print_status();
@@ -473,9 +476,9 @@ impl<'a> VerificationHelper for VHelper<'a> {
 
 pub fn verify(store: &mut store::Store,
               input: &mut io::Read, output: &mut io::Write,
-              tpks: Vec<TPK>)
+              signatures: usize, tpks: Vec<TPK>)
               -> Result<()> {
-    let helper = VHelper::new(store, tpks);
+    let helper = VHelper::new(store, signatures, tpks);
     let mut verifier = Verifier::from_reader(input, helper)?;
 
     io::copy(&mut verifier, output)
