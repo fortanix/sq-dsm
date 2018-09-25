@@ -104,6 +104,114 @@ pub fn descriptor(c: &Context) -> ipc::Descriptor {
     )
 }
 
+/// The common key pool.
+pub struct Pool {
+}
+
+impl Pool {
+    /// Imports a key into the common key pool.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # extern crate openpgp;
+    /// # extern crate sequoia_core;
+    /// # extern crate sequoia_store;
+    /// # use openpgp::TPK;
+    /// # use sequoia_core::{Context, NetworkPolicy, IPCPolicy};
+    /// # use sequoia_store::{Pool, Result};
+    /// # fn main() { f().unwrap(); }
+    /// # fn f() -> Result<()> {
+    /// # let ctx = Context::configure("org.sequoia-pgp.demo.store")
+    /// #     .network_policy(NetworkPolicy::Offline)
+    /// #     .ipc_policy(IPCPolicy::Internal)
+    /// #     .ephemeral().build()?;
+    /// # let tpk = TPK::from_bytes(
+    /// #     include_bytes!("../../openpgp/tests/data/keys/testy.pgp")).unwrap();
+    /// let key = Pool::import(&ctx, &tpk)?;
+    /// assert_eq!(key.tpk()?.fingerprint(), tpk.fingerprint());
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn import(c: &Context, tpk: &TPK) -> Result<Key> {
+        let mut blob = vec![];
+        tpk.serialize(&mut blob)?;
+
+        let (mut core, client) = Store::connect(c)?;
+        let mut request = client.import_request();
+        request.get().set_key(&blob);
+        let key = make_request!(&mut core, request)?;
+        Ok(Key::new(Rc::new(RefCell::new(core)), key))
+    }
+
+    /// Looks up a key in the common key pool.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # extern crate openpgp;
+    /// # extern crate sequoia_core;
+    /// # extern crate sequoia_store;
+    /// # use openpgp::TPK;
+    /// # use sequoia_core::{Context, NetworkPolicy, IPCPolicy};
+    /// # use sequoia_store::{Pool, Result};
+    /// # fn main() { f().unwrap(); }
+    /// # fn f() -> Result<()> {
+    /// # let ctx = Context::configure("org.sequoia-pgp.demo.store")
+    /// #     .network_policy(NetworkPolicy::Offline)
+    /// #     .ipc_policy(IPCPolicy::Internal)
+    /// #     .ephemeral().build()?;
+    /// # let tpk = TPK::from_bytes(
+    /// #     include_bytes!("../../openpgp/tests/data/keys/testy.pgp")).unwrap();
+    /// Pool::import(&ctx, &tpk)?;
+    /// let key = Pool::lookup(&ctx, &tpk.fingerprint())?;
+    /// assert_eq!(key.tpk()?.fingerprint(), tpk.fingerprint());
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn lookup(c: &Context, fp: &Fingerprint) -> Result<Key> {
+        let (mut core, client) = Store::connect(c)?;
+        let mut request = client.lookup_by_fingerprint_request();
+        let fp = fp.to_hex();
+        request.get().set_fingerprint(&fp);
+        let key = make_request!(&mut core, request)?;
+        Ok(Key::new(Rc::new(RefCell::new(core)), key))
+    }
+
+    /// Looks up a key in the common key pool by KeyID.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # extern crate openpgp;
+    /// # extern crate sequoia_core;
+    /// # extern crate sequoia_store;
+    /// # use openpgp::TPK;
+    /// # use sequoia_core::{Context, NetworkPolicy, IPCPolicy};
+    /// # use sequoia_store::{Pool, Result};
+    /// # fn main() { f().unwrap(); }
+    /// # fn f() -> Result<()> {
+    /// # let ctx = Context::configure("org.sequoia-pgp.demo.store")
+    /// #     .network_policy(NetworkPolicy::Offline)
+    /// #     .ipc_policy(IPCPolicy::Internal)
+    /// #     .ephemeral().build()?;
+    /// # let tpk = TPK::from_bytes(
+    /// #     include_bytes!("../../openpgp/tests/data/keys/testy.pgp")).unwrap();
+    /// Pool::import(&ctx, &tpk)?;
+    /// let key = Pool::lookup_by_keyid(&ctx, &tpk.fingerprint().to_keyid())?;
+    /// assert_eq!(key.tpk()?.fingerprint(), tpk.fingerprint());
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn lookup_by_keyid(c: &Context, keyid: &KeyID) -> Result<Key> {
+        let (mut core, client) = Store::connect(c)?;
+        let mut request = client.lookup_by_keyid_request();
+        request.get().set_keyid(keyid.as_u64()?);
+        let key = make_request!(&mut core, request)?;
+        Ok(Key::new(Rc::new(RefCell::new(core)), key))
+    }
+}
+
 /// A public key store.
 pub struct Store {
     name: String,

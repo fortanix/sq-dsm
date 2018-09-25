@@ -21,7 +21,7 @@ use tokio_core::reactor::{Handle, Timeout};
 use tokio_core;
 use tokio_io::io::ReadHalf;
 
-use openpgp::{self, TPK, Fingerprint};
+use openpgp::{self, TPK, KeyID, Fingerprint};
 use sequoia_core as core;
 use sequoia_net as net;
 use sequoia_net::ipc;
@@ -184,6 +184,54 @@ impl node::Server for NodeServer {
         let iter = log::IterServer::new(self.c.clone(), log::Selector::All);
         pry!(pry!(results.get().get_result()).set_ok(
             node::log_iter::ToClient::new(iter).from_server::<capnp_rpc::Server>()));
+        Promise::ok(())
+    }
+
+    fn import(&mut self,
+              params: node::ImportParams,
+              mut results: node::ImportResults)
+              -> Promise<(), capnp::Error> {
+        bind_results!(results);
+        let new = sry!(TPK::from_bytes(&pry!(pry!(params.get()).get_key())));
+        let fp = new.fingerprint();
+        let key_id = sry!(KeyServer::lookup_or_create(&self.c, &fp));
+        let key = KeyServer::new(self.c.clone(), key_id);
+        sry!(key.merge(new));
+        pry!(pry!(results.get().get_result())
+             .set_ok(node::key::ToClient::new(key)
+                     .from_server::<capnp_rpc::Server>()));
+        Promise::ok(())
+    }
+
+    fn lookup_by_keyid(&mut self,
+                       params: node::LookupByKeyidParams,
+                       mut results: node::LookupByKeyidResults)
+                       -> Promise<(), capnp::Error> {
+        bind_results!(results);
+        let keyid = pry!(params.get()).get_keyid();
+        let keyid = KeyID::new(keyid);
+        let key_id = sry!(KeyServer::lookup_by_id(&self.c, &keyid));
+
+        pry!(pry!(results.get().get_result()).set_ok(
+            node::key::ToClient::new(
+                KeyServer::new(self.c.clone(), key_id))
+                .from_server::<capnp_rpc::Server>()));
+        Promise::ok(())
+    }
+
+    fn lookup_by_fingerprint(&mut self,
+                             params: node::LookupByFingerprintParams,
+                             mut results: node::LookupByFingerprintResults)
+                             -> Promise<(), capnp::Error> {
+        bind_results!(results);
+        let fingerprint = pry!(pry!(params.get()).get_fingerprint());
+        let fingerprint = sry!(Fingerprint::from_hex(fingerprint));
+        let key_id = sry!(KeyServer::lookup(&self.c, &fingerprint));
+
+        pry!(pry!(results.get().get_result()).set_ok(
+            node::key::ToClient::new(
+                KeyServer::new(self.c.clone(), key_id))
+                .from_server::<capnp_rpc::Server>()));
         Promise::ok(())
     }
 }
@@ -630,6 +678,26 @@ impl KeyServer {
             c: c,
             id: id,
         }
+    }
+
+    /// Looks up a key by fingerprint.
+    ///
+    /// On success, the id of the key is returned.
+    fn lookup(c: &Connection, fp: &Fingerprint) -> Result<ID> {
+        let fp = fp.to_hex();
+        Ok(c.query_row(
+            "SELECT id FROM keys WHERE fingerprint = ?1",
+            &[&fp], |row| row.get(0))?)
+    }
+
+    /// Looks up a key by keyid.
+    ///
+    /// On success, the id of the key is returned.
+    fn lookup_by_id(c: &Connection, keyid: &KeyID) -> Result<ID> {
+        let keyid = format!("%{}", keyid.to_hex());
+        Ok(c.query_row(
+            "SELECT id FROM keys WHERE fingerprint LIKE ?1",
+            &[&keyid], |row| row.get(0))?)
     }
 
     /// Looks up a fingerprint, creating a key if necessary.
