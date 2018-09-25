@@ -18,12 +18,15 @@ use {
     KeyID,
     Packet,
     Result,
+    packet,
     packet::Signature,
     TPK,
+    mpis,
 };
 use parse::{
     Cookie,
     PacketParser,
+    PacketParserBuilder,
     PacketParserResult,
 };
 
@@ -420,6 +423,453 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
 }
 
 impl<'a, H: VerificationHelper> io::Read for Verifier<'a, H> {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        if self.seen_eof && self.buffer.is_empty() {
+            return Ok(0);
+        }
+
+        match self.read_helper(buf) {
+            Ok(n) => Ok(n),
+            Err(e) => match e.downcast::<io::Error>() {
+                // An io::Error.  Pass as-is.
+                Ok(e) => Err(e),
+                // A failure.  Create a compat object and wrap it.
+                Err(e) => Err(io::Error::new(io::ErrorKind::Other,
+                                             e.compat())),
+            },
+        }
+    }
+}
+
+/// Decrypts and verifies an encrypted and optionally signed OpenPGP
+/// message.
+///
+/// Signature verification requires processing the whole message
+/// first.  Therefore, OpenPGP implementations supporting streaming
+/// operations necessarily must output unverified data.  This has been
+/// a source of problems in the past.  To alleviate this, we buffer up
+/// to 25 megabytes of net message data first, and verify the
+/// signatures if the message fits into our buffer.  Nevertheless it
+/// is important to treat the data as unverified and untrustworthy
+/// until you have seen a positive verification.
+///
+/// # Example
+///
+/// ```
+/// #[macro_use] extern crate openpgp;
+/// extern crate failure;
+/// use std::io::Read;
+/// use openpgp::{KeyID, TPK, Result, packet::Key, mpis::SecretKey};
+/// use openpgp::parse::stream::*;
+/// # fn main() { f().unwrap(); }
+/// # fn f() -> Result<()> {
+///
+/// // This fetches keys and computes the validity of the verification.
+/// struct Helper {};
+/// impl VerificationHelper for Helper {
+///     fn get_public_keys(&mut self, _ids: &[KeyID]) -> Result<Vec<TPK>> {
+///         Ok(Vec::new()) // Feed the TPKs to the verifier here...
+///     }
+///     fn check(&mut self, sigs: Vec<Vec<VerificationResult>>) -> Result<()> {
+///         Ok(()) // Implement your verification policy here.
+///     }
+/// }
+/// impl DecryptionHelper for Helper {
+///     fn get_secret_key(&mut self, _: &KeyID) -> Result<Option<(Key, SecretKey)>> {
+///         Ok(None) // Return secret keys here.
+///     }
+///     fn get_password(&mut self) -> Result<String> {
+///         Ok("streng geheim".into())
+///     }
+/// }
+///
+/// let mut reader = armored!(
+///     "-----BEGIN PGP MESSAGE-----
+///
+///      wy4ECQMIY5Zs8RerVcXp85UgoUKjKkevNPX3WfcS5eb7rkT9I6kw6N2eEc5PJUDh
+///      0j0B9mnPKeIwhp2kBHpLX/en6RfNqYauX9eSeia7aqsd/AOLbO9WMCLZS5d2LTxN
+///      rwwb8Aggyukj13Mi0FF5
+///      =OB/8
+///      -----END PGP MESSAGE-----"
+/// );
+/// let h = Helper {};
+/// let mut v = Decryptor::from_reader(reader, h)?;
+///
+/// let mut content = Vec::new();
+/// v.read_to_end(&mut content)
+///     .map_err(|e| if e.get_ref().is_some() {
+///         // Wrapped failure::Error.  Recover it.
+///         failure::Error::from_boxed_compat(e.into_inner().unwrap())
+///     } else {
+///         // Plain io::Error.
+///         e.into()
+///     })?;
+///
+/// assert_eq!(content, b"Hello World!");
+/// # Ok(())
+/// # }
+pub struct Decryptor<'a, H: VerificationHelper + DecryptionHelper> {
+    helper: H,
+    tpks: Vec<TPK>,
+    /// Maps KeyID to tpks[i].keys().nth(j).
+    keys: HashMap<KeyID, (usize, usize)>,
+    buffer: Vec<u8>,
+    seen_eof: bool,
+    oppr: Option<PacketParserResult<'a>>,
+    sigs: Vec<Vec<VerificationResult>>,
+}
+
+/// Helper for decrypting messages.
+pub trait DecryptionHelper {
+    /// Turns mapping on or off.
+    ///
+    /// If this function returns true, the packet parser will create a
+    /// map of the packets.  Note that this buffers the packets
+    /// contents, and is not recommended unless you know that the
+    /// packets are small.  The default implementation returns false.
+    fn mapping(&self) -> bool {
+        false
+    }
+
+    /// Called once per packet.
+    ///
+    /// Can be used to dump packets in encrypted messages.  The
+    /// default implementation does nothing.
+    fn inspect(&mut self, _pp: &PacketParser) -> Result<()> {
+        Ok(())
+    }
+
+    /// Retrieves the secret key needed to decrypt the data.
+    ///
+    /// This function is called for every PKESK packet encountered
+    /// until the decryption succeeds.
+    fn get_secret_key(&mut self, keyid: &KeyID)
+                      -> Result<Option<(packet::Key, mpis::SecretKey)>>;
+
+    /// Retrieves the password needed to decrypt the data.
+    ///
+    /// If decryption via PKESK packets fails, and at least one SKESK
+    /// packet is present, this function is called once to query for a
+    /// password.
+    fn get_password(&mut self) -> Result<String>;
+}
+
+impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
+    /// Creates a `Decryptor` from the given reader.
+    pub fn from_reader<R>(reader: R, helper: H) -> Result<Decryptor<'a, H>>
+        where R: io::Read + 'a
+    {
+        Decryptor::from_buffered_reader(
+            Box::new(BufferedReaderGeneric::with_cookie(reader, None,
+                                                        Default::default())),
+            helper)
+    }
+
+    /// Creates a `Decryptor` from the given file.
+    pub fn from_file<P>(path: P, helper: H) -> Result<Decryptor<'a, H>>
+        where P: AsRef<Path>
+    {
+        Decryptor::from_buffered_reader(
+            Box::new(BufferedReaderFile::with_cookie(path,
+                                                     Default::default())?),
+            helper)
+    }
+
+    /// Creates a `Decryptor` from the given buffer.
+    pub fn from_bytes(bytes: &'a [u8], helper: H) -> Result<Decryptor<'a, H>> {
+        Decryptor::from_buffered_reader(
+            Box::new(BufferedReaderMemory::with_cookie(bytes,
+                                                       Default::default())),
+            helper)
+    }
+
+    /// Returns a reference to the helper.
+    pub fn helper_ref(&self) -> &H {
+        &self.helper
+    }
+
+    /// Returns a mutable reference to the helper.
+    pub fn helper_mut(&mut self) -> &mut H {
+        &mut self.helper
+    }
+
+    /// Recovers the helper.
+    pub fn into_helper(self) -> H {
+        self.helper
+    }
+
+    /// Returns true if the whole message has been processed and the verification result is ready.
+    /// If the function returns false the message did not fit into the internal buffer and
+    /// **unverified** data must be `read()` from the instance until EOF.
+    pub fn message_processed(&self) -> bool {
+        self.seen_eof
+    }
+
+    /// Creates the `Decryptor`, and buffers the data up to `BUFFER_SIZE`.
+    pub(crate) fn from_buffered_reader(bio: Box<BufferedReader<Cookie> + 'a>,
+                                       helper: H) -> Result<Decryptor<'a, H>>
+    {
+        let mut ppr = PacketParserBuilder::from_buffered_reader(bio)?
+            .map(helper.mapping()).finalize()?;
+
+        let mut v = Decryptor {
+            helper: helper,
+            tpks: Vec::new(),
+            keys: HashMap::new(),
+            buffer: Vec::new(),
+            seen_eof: false,
+            oppr: None,
+            sigs: Vec::new(),
+        };
+
+        let mut issuers = Vec::new();
+        let mut pkesks: Vec<packet::PKESK> = Vec::new();
+        let mut skesks: Vec<packet::SKESK> = Vec::new();
+        while let PacketParserResult::Some(mut pp) = ppr {
+            v.helper.inspect(&pp)?;
+            if ! pp.possible_message() {
+                return Err(Error::MalformedMessage(
+                    "Malformed OpenPGP message".into()).into());
+            }
+
+            match pp.packet {
+                Packet::SEIP(_) => {
+                    let mut decrypted = false;
+                    for pkesk in pkesks.iter() {
+                        if let Some((key, secret)) = v.helper.get_secret_key(
+                            pkesk.recipient())?
+                        {
+                            if let Ok((algo, key)) =
+                                pkesk.decrypt(&key, &secret)
+                            {
+                                pp.decrypt(algo, &key[..])?;
+                                decrypted = true;
+                                break;
+                            }
+                        }
+                    }
+                    if ! decrypted && ! skesks.is_empty() {
+                        let pass = v.helper.get_password()?.into_bytes();
+
+                        for skesk in skesks.iter() {
+                            let (algo, key) = skesk.decrypt(&pass)?;
+
+                            let r = pp.decrypt(algo, &key[..]);
+                            if r.is_ok() {
+                                decrypted = true;
+                                break;
+                            }
+                        }
+
+                        if ! decrypted {
+                            return Err(Error::InvalidPassword.into());
+                        }
+                    }
+
+                    if ! decrypted {
+                        // XXX: That is not quite the right error to return.
+                        return Err(
+                            Error::InvalidSessionKey("No session key".into())
+                                .into());
+                    }
+                },
+                Packet::OnePassSig(ref ops) =>
+                    issuers.push(ops.issuer.clone()),
+                Packet::Literal(_) => {
+                    // Query keys.
+                    v.tpks = v.helper.get_public_keys(&issuers)?;
+
+                    for (i, tpk) in v.tpks.iter().enumerate() {
+                        let can_sign = |key: &Key, sig: Option<&Signature>| -> bool {
+                            if let Some(sig) = sig {
+                                sig.key_flags().can_sign()
+                                // Check expiry.
+                                    && sig.signature_alive()
+                                    && sig.key_alive(key)
+                            } else {
+                                false
+                            }
+                        };
+
+                        if can_sign(tpk.primary(),
+                                    tpk.primary_key_signature()) {
+                            v.keys.insert(tpk.fingerprint().to_keyid(), (i, 0));
+                        }
+
+                        for (j, skb) in tpk.subkeys().enumerate() {
+                            let key = skb.subkey();
+                            if can_sign(key, skb.binding_signature()) {
+                                v.keys.insert(key.fingerprint().to_keyid(),
+                                              (i, j + 1));
+                            }
+                        }
+                    }
+
+                    // Start to buffer the data.
+                    v.fill_buffer(&mut pp, BUFFER_SIZE)?;
+                },
+                _ => (),
+            }
+
+            if ! v.buffer.is_empty() && ! v.seen_eof {
+                // We started buffering, but we are not done with the
+                // literal data packet.
+                ppr = PacketParserResult::Some(pp);
+                break;
+            }
+
+            let ((p, _), (ppr_tmp, _)) = pp.recurse()?;
+            match p {
+                Packet::PKESK(pkesk) => pkesks.push(pkesk),
+                Packet::SKESK(skesk) => skesks.push(skesk),
+                Packet::Signature(_) => v.verify(p)?,
+                _ => (),
+            }
+            ppr = ppr_tmp;
+        }
+
+        match ppr {
+            PacketParserResult::EOF(eof) =>
+                if ! eof.is_message() {
+                    Err(Error::MalformedMessage(
+                        "Malformed OpenPGP message".into()).into())
+                } else {
+                    v.helper.check(::std::mem::replace(&mut v.sigs,
+                                                       Vec::new()))?;
+                    Ok(v)
+                },
+            PacketParserResult::Some(pp) => {
+                v.oppr = Some(PacketParserResult::Some(pp));
+                Ok(v)
+            },
+        }
+    }
+
+    fn fill_buffer(&mut self, pp: &mut PacketParser, amount: usize)
+                   -> Result<()> {
+        let mut buffer = vec![0; 4096];
+        while self.buffer.len() < amount {
+            let l = pp.read(&mut buffer)?;
+            if l == 0 {
+                self.seen_eof = true;
+                break;
+            }
+
+            self.buffer.extend_from_slice(&buffer[..l]);
+        }
+        Ok(())
+    }
+
+
+    /// Verifies the given Signature (if it is one), and stores the
+    /// result.
+    fn verify(&mut self, p: Packet) -> Result<()> {
+        match p {
+            Packet::Signature(sig) => {
+                if self.sigs.is_empty() {
+                    self.sigs.push(Vec::new());
+                }
+
+                if let Some(current_level) = self.sigs.iter().last()
+                    .expect("sigs is never empty")
+                    .get(0).map(|r| r.level())
+                {
+                    if current_level != sig.level() {
+                        self.sigs.push(Vec::new());
+                    }
+                }
+
+                if let Some(issuer) = sig.get_issuer() {
+                    if let Some((i, j)) = self.keys.get(&issuer) {
+                        let (_, key) = self.tpks[*i].keys().nth(*j).unwrap();
+                        if sig.verify(key).unwrap_or(false) {
+                            self.sigs.iter_mut().last()
+                                .expect("sigs is never empty").push(
+                                    VerificationResult::Good(sig));
+                        } else {
+                            self.sigs.iter_mut().last()
+                                .expect("sigs is never empty").push(
+                                    VerificationResult::Bad(sig));
+                        }
+                    } else {
+                        self.sigs.iter_mut().last()
+                            .expect("sigs is never empty").push(
+                                VerificationResult::Unknown(sig));
+                    }
+                } else {
+                    self.sigs.iter_mut().last()
+                        .expect("sigs is never empty").push(
+                            VerificationResult::Bad(sig));
+                }
+            },
+            _ => (),
+        }
+        Ok(())
+    }
+
+    /// Like `io::Read::read()`, but returns our `Result`.
+    fn read_helper(&mut self, buf: &mut [u8]) -> Result<usize> {
+        // We never return more than BUFFER_SIZE bytes.
+        let n = cmp::min(buf.len(), BUFFER_SIZE);
+        let buf = &mut buf[..n];
+
+        // Make sure we have BUFFER_SIZE bytes more than requested.
+        let want = buf.len() + BUFFER_SIZE;
+        if self.buffer.len() < want && ! self.seen_eof {
+            if let Some(mut ppr) = self.oppr.take() {
+                while let PacketParserResult::Some(mut pp) = ppr {
+                    self.helper.inspect(&pp)?;
+
+                    if ! pp.possible_message() {
+                        return Err(Error::MalformedMessage(
+                            "Malformed OpenPGP message".into()).into());
+                    }
+
+                    match pp.packet {
+                        Packet::Literal(_) => {
+                            // Start to buffer the data.
+                            self.fill_buffer(&mut pp, want)?;
+                        },
+                        _ => (),
+                    }
+
+                    if ! self.buffer.is_empty() && ! self.seen_eof {
+                        // We started buffering, but we are not done with the
+                        // literal data packet.
+                        ppr = PacketParserResult::Some(pp);
+                        break;
+                    }
+
+                    let ((p, _), (ppr_tmp, _)) = pp.recurse()?;
+                    self.verify(p)?;
+                    ppr = ppr_tmp;
+                }
+
+                match ppr {
+                    PacketParserResult::EOF(eof) =>
+                        if ! eof.is_message() {
+                            return Err(Error::MalformedMessage(
+                                "Malformed OpenPGP message".into()).into());
+                        } else {
+                            self.helper.check(::std::mem::replace(
+                                &mut self.sigs, Vec::new()))?;
+                        },
+                    PacketParserResult::Some(pp) => {
+                        self.oppr = Some(PacketParserResult::Some(pp));
+                    },
+                }
+            }
+        }
+
+        let n = cmp::min(buf.len(), self.buffer.len());
+        &mut buf[..n].copy_from_slice(&self.buffer[..n]);
+        self.buffer.drain(..n);
+        Ok(n)
+    }
+}
+
+impl<'a, H: VerificationHelper + DecryptionHelper> io::Read for Decryptor<'a, H>
+{
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         if self.seen_eof && self.buffer.is_empty() {
             return Ok(0);
