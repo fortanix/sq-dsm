@@ -14,6 +14,7 @@ use std::fmt;
 mod generic;
 mod memory;
 mod limitor;
+mod reserve;
 mod dup;
 mod eof;
 #[cfg(feature = "compression-deflate")]
@@ -24,6 +25,7 @@ mod decompress_bzip2;
 pub use self::generic::BufferedReaderGeneric;
 pub use self::memory::BufferedReaderMemory;
 pub use self::limitor::BufferedReaderLimitor;
+pub use self::reserve::BufferedReaderReserve;
 pub use self::dup::BufferedReaderDup;
 pub use self::eof::BufferedReaderEOF;
 #[cfg(feature = "compression-deflate")]
@@ -83,7 +85,7 @@ pub trait BufferedReader<C> : io::Read + fmt::Debug {
         let result = self.data(amount);
         if let Ok(buffer) = result {
             if buffer.len() < amount {
-                return Err(Error::new(ErrorKind::UnexpectedEof, "unepxected EOF"));
+                return Err(Error::new(ErrorKind::UnexpectedEof, "unexpected EOF"));
             }
         }
         return result;
