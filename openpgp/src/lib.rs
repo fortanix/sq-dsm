@@ -47,6 +47,7 @@ extern crate failure;
 
 extern crate buffered_reader;
 
+extern crate memsec;
 extern crate nettle;
 
 #[cfg(feature = "compression-deflate")]

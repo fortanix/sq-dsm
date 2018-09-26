@@ -11,6 +11,7 @@ bzip2 = { version = "0.3.2", optional = true }
 failure = "0.1.2"
 flate2 = { version = "1.0.1", optional = true }
 lalrpop-util = "0.16"
+memsec = "0.5.4"
 nettle = { git = "https://gitlab.com/sequoia-pgp/nettle-rs.git" }
 quickcheck = "0.7"
 rand = "0.5"

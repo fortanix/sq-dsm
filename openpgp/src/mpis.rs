@@ -50,6 +50,12 @@ impl MPI {
         hash.update(len);
         hash.update(&self.value);
     }
+
+    fn secure_memzero(&mut self) {
+        unsafe {
+            ::memsec::memzero(self.value.as_mut_ptr(), self.value.len());
+        }
+    }
 }
 
 impl fmt::Debug for MPI {
@@ -343,6 +349,36 @@ pub enum SecretKey {
         /// Any data that failed to parse.
         rest: Box<[u8]>,
     },
+}
+
+impl Drop for SecretKey {
+    fn drop(&mut self) {
+        use self::SecretKey::*;
+        match self {
+            RSA { ref mut d, ref mut p, ref mut q, ref mut u } => {
+                d.secure_memzero();
+                p.secure_memzero();
+                q.secure_memzero();
+                u.secure_memzero();
+            },
+            DSA { ref mut x } =>
+                x.secure_memzero(),
+            Elgamal { ref mut x } =>
+                x.secure_memzero(),
+            EdDSA { ref mut scalar } =>
+                scalar.secure_memzero(),
+            ECDSA { ref mut scalar } =>
+                scalar.secure_memzero(),
+            ECDH { ref mut scalar } =>
+                scalar.secure_memzero(),
+            Unknown { ref mut mpis, ref mut rest } => {
+                mpis.iter_mut().for_each(|m| m.secure_memzero());
+                unsafe {
+                    ::memsec::memzero(rest.as_mut_ptr(), rest.len());
+                }
+            },
+        }
+    }
 }
 
 impl SecretKey {
