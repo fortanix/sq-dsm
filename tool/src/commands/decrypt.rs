@@ -12,7 +12,7 @@ use openpgp::parse::stream::{
 };
 extern crate sequoia_store as store;
 
-use super::{INDENT, HexDumper, dump_packet, VHelper};
+use super::{INDENT, dump::{HexDumper, dump_packet}, VHelper};
 
 struct Helper<'a> {
     vhelper: VHelper<'a>,
