@@ -9,6 +9,7 @@ use rpassword;
 use tempfile::NamedTempFile;
 
 extern crate openpgp;
+use sequoia_core::Context;
 use openpgp::armor;
 use openpgp::constants::DataFormat;
 use openpgp::{Packet, TPK, KeyID, Error, Result};
@@ -369,32 +370,58 @@ fn sign_message(input: &mut io::Read, output_path: Option<&str>,
 }
 
 struct VHelper<'a> {
+    ctx: &'a Context,
     store: &'a mut store::Store,
     signatures: usize,
     tpks: Option<Vec<TPK>>,
     labels: HashMap<KeyID, String>,
-    good: usize,
-    unknown: usize,
-    bad: usize,
+    trusted: HashSet<KeyID>,
+    good_signatures: usize,
+    good_checksums: usize,
+    unknown_checksums: usize,
+    bad_signatures: usize,
+    bad_checksums: usize,
 }
 
 impl<'a> VHelper<'a> {
-    fn new(store: &'a mut store::Store, signatures: usize, tpks: Vec<TPK>)
+    fn new(ctx: &'a Context, store: &'a mut store::Store, signatures: usize,
+           tpks: Vec<TPK>)
            -> Self {
         VHelper {
+            ctx: ctx,
             store: store,
             signatures: signatures,
             tpks: Some(tpks),
             labels: HashMap::new(),
-            good: 0,
-            unknown: 0,
-            bad: 0,
+            trusted: HashSet::new(),
+            good_signatures: 0,
+            good_checksums: 0,
+            unknown_checksums: 0,
+            bad_signatures: 0,
+            bad_checksums: 0,
         }
     }
 
     fn print_status(&self) {
-        eprintln!("{} good signatures, {} bad signatures, {} not checked.",
-                  self.good, self.bad, self.unknown);
+        fn p(dirty: &mut bool, what: &str, quantity: usize) {
+            if quantity > 0 {
+                eprint!("{}{} {}{}",
+                        if *dirty { ", " } else { "" },
+                        quantity, what,
+                        if quantity == 1 { "" } else { "s" });
+                *dirty = true;
+            }
+        }
+
+        let mut dirty = false;
+        p(&mut dirty, "good signature", self.good_signatures);
+        p(&mut dirty, "good checksum", self.good_checksums);
+        p(&mut dirty, "unknown checksum", self.unknown_checksums);
+        p(&mut dirty, "bad signature", self.bad_signatures);
+        p(&mut dirty, "bad checksum", self.bad_checksums);
+        if dirty {
+            eprintln!(".");
+        }
     }
 }
 
@@ -406,13 +433,37 @@ impl<'a> VerificationHelper for VHelper<'a> {
                 tpk.keys().map(|(_, key)| key.fingerprint().to_keyid())
             }).collect();
 
+        // Explicitly provided keys are trusted.
+        self.trusted = seen.clone();
+
         // Try to get missing TPKs from the store.
         for id in ids.iter().filter(|i| !seen.contains(i)) {
             let _ =
                 self.store.lookup_by_subkeyid(id)
                 .and_then(|binding| {
                     self.labels.insert(id.clone(), binding.label()?);
+
+                    // Keys from our store are trusted.
+                    self.trusted.insert(id.clone());
+
                     binding.tpk()
+                })
+                .and_then(|tpk| {
+                    tpks.push(tpk);
+                    Ok(())
+                });
+        }
+
+        // Update seen.
+        let seen = self.trusted.clone();
+
+        // Try to get missing TPKs from the pool.
+        for id in ids.iter().filter(|i| !seen.contains(i)) {
+            let _ =
+                store::Pool::lookup_by_subkeyid(self.ctx, id)
+                .and_then(|key| {
+                    // Keys from the pool are NOT trusted.
+                    key.tpk()
                 })
                 .and_then(|tpk| {
                     tpks.push(tpk);
@@ -425,29 +476,47 @@ impl<'a> VerificationHelper for VHelper<'a> {
     fn check(&mut self, sigs: Vec<Vec<VerificationResult>>) -> Result<()> {
         use self::VerificationResult::*;
         for (i, results) in sigs.into_iter().enumerate() {
-            let what = if i == 0 {
-                "signature".into()
-            } else {
-                format!("level {} notarization", i)
-            };
-
             for result in results {
+                let issuer = match result {
+                    GoodChecksum(ref sig) => sig.get_issuer(),
+                    MissingKey(ref sig) => sig.get_issuer(),
+                    BadChecksum(ref sig) => sig.get_issuer(),
+                };
+
+                let trusted = issuer.as_ref().map(|i| {
+                    self.trusted.contains(&i)
+                }).unwrap_or(false);
+                let what = match (i == 0, trusted) {
+                    (true,  true)  => "signature".into(),
+                    (false, true)  => format!("level {} notarization", i),
+                    (true,  false) => "checksum".into(),
+                    (false, false) =>
+                        format!("level {} notarizing checksum", i),
+                };
+
                 match result {
-                    GoodChecksum(sig) => {
-                        let issuer = sig.get_issuer().unwrap();
+                    GoodChecksum(_) => {
+                        let issuer = issuer
+                            .expect("good checksum has an issuer");
                         let issuer_str = format!("{}", issuer);
                         eprintln!("Good {} from {}", what,
                                   self.labels.get(&issuer).unwrap_or(
                                       &issuer_str));
-                        self.good += 1;
+                        if trusted {
+                            self.good_signatures += 1;
+                        } else {
+                            self.good_checksums += 1;
+                        }
                     },
-                    MissingKey(sig) => {
-                        eprintln!("No key to check {} from {}", what,
-                                  sig.get_issuer().unwrap());
-                        self.unknown += 1;
+                    MissingKey(_) => {
+                        let issuer = issuer
+                            .expect("missing key checksum has an issuer");
+                        eprintln!("No key to check {} from {}", what, issuer);
+                        assert!(! trusted);
+                        self.unknown_checksums += 1;
                     },
-                    BadChecksum(sig) => {
-                        if let Some(issuer) = sig.get_issuer() {
+                    BadChecksum(_) => {
+                        if let Some(issuer) = issuer {
                             let issuer_str = format!("{}", issuer);
                             eprintln!("Bad {} from {}", what,
                                       self.labels.get(&issuer).unwrap_or(
@@ -456,13 +525,18 @@ impl<'a> VerificationHelper for VHelper<'a> {
                             eprintln!("Bad {} without issuer information",
                                       what);
                         }
-                        self.bad += 1;
+                        if trusted {
+                            self.bad_signatures += 1;
+                        } else {
+                            self.bad_checksums += 1;
+                        }
                     },
                 }
             }
         }
 
-        if self.good >= self.signatures && self.bad == 0 {
+        if self.good_signatures >= self.signatures
+            && self.bad_signatures + self.bad_checksums == 0 {
             Ok(())
         } else {
             self.print_status();
@@ -471,11 +545,11 @@ impl<'a> VerificationHelper for VHelper<'a> {
     }
 }
 
-pub fn verify(store: &mut store::Store,
+pub fn verify(ctx: &Context, store: &mut store::Store,
               input: &mut io::Read, output: &mut io::Write,
               signatures: usize, tpks: Vec<TPK>)
               -> Result<()> {
-    let helper = VHelper::new(store, signatures, tpks);
+    let helper = VHelper::new(ctx, store, signatures, tpks);
     let mut verifier = Verifier::from_reader(input, helper)?;
 
     io::copy(&mut verifier, output)

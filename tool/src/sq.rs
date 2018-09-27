@@ -113,7 +113,7 @@ fn real_main() -> Result<(), failure::Error> {
                 .unwrap_or(Ok(vec![]))?;
             let mut store = Store::open(&ctx, store_name)
                 .context("Failed to open the store")?;
-            commands::decrypt(&mut store,
+            commands::decrypt(&ctx, &mut store,
                               &mut input, &mut output,
                               signatures, tpks, secrets,
                               m.is_present("dump"), m.is_present("hex"))?;
@@ -168,7 +168,7 @@ fn real_main() -> Result<(), failure::Error> {
                 .unwrap_or(Ok(vec![]))?;
             let mut store = Store::open(&ctx, store_name)
                 .context("Failed to open the store")?;
-            commands::verify(&mut store, &mut input, &mut output,
+            commands::verify(&ctx, &mut store, &mut input, &mut output,
                              signatures, tpks)?;
         },
 

@@ -4,6 +4,7 @@ use std::io;
 use rpassword;
 
 extern crate openpgp;
+use sequoia_core::Context;
 use openpgp::{TPK, KeyID, SecretKey, Result, mpis};
 use openpgp::packet::{self, Key, Signature};
 use openpgp::parse::PacketParser;
@@ -22,7 +23,7 @@ struct Helper<'a> {
 }
 
 impl<'a> Helper<'a> {
-    fn new(store: &'a mut store::Store,
+    fn new(ctx: &'a Context, store: &'a mut store::Store,
            signatures: usize, tpks: Vec<TPK>, secrets: Vec<TPK>,
            dump: bool, hex: bool)
            -> Self {
@@ -50,7 +51,7 @@ impl<'a> Helper<'a> {
         }
 
         Helper {
-            vhelper: VHelper::new(store, signatures, tpks),
+            vhelper: VHelper::new(ctx, store, signatures, tpks),
             secret_keys: keys,
             dump: dump,
             hex: hex,
@@ -114,12 +115,12 @@ impl<'a> DecryptionHelper for Helper<'a> {
     }
 }
 
-pub fn decrypt(store: &mut store::Store,
+pub fn decrypt(ctx: &Context, store: &mut store::Store,
                input: &mut io::Read, output: &mut io::Write,
                signatures: usize, tpks: Vec<TPK>, secrets: Vec<TPK>,
                dump: bool, hex: bool)
                -> Result<()> {
-    let helper = Helper::new(store, signatures, tpks, secrets, dump, hex);
+    let helper = Helper::new(ctx, store, signatures, tpks, secrets, dump, hex);
     let mut decryptor = Decryptor::from_reader(input, helper)
         .context("Decryption failed")?;
 
