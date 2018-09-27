@@ -5,11 +5,11 @@ use rpassword;
 
 extern crate openpgp;
 use sequoia_core::Context;
-use openpgp::{TPK, KeyID, SecretKey, Result, mpis};
-use openpgp::packet::{self, Key, Signature};
+use openpgp::{TPK, KeyID, SecretKey, Result};
+use openpgp::packet::{Key, Signature, PKESK, SKESK};
 use openpgp::parse::PacketParser;
 use openpgp::parse::stream::{
-    VerificationHelper, VerificationResult, DecryptionHelper, Decryptor,
+    VerificationHelper, VerificationResult, DecryptionHelper, Decryptor, Secret,
 };
 extern crate sequoia_store as store;
 
@@ -20,6 +20,7 @@ struct Helper<'a> {
     secret_keys: HashMap<KeyID, Key>,
     dump: bool,
     hex: bool,
+    pkesk_i: usize,
 }
 
 impl<'a> Helper<'a> {
@@ -55,6 +56,7 @@ impl<'a> Helper<'a> {
             secret_keys: keys,
             dump: dump,
             hex: hex,
+            pkesk_i: 0,
         }
     }
 }
@@ -93,25 +95,33 @@ impl<'a> DecryptionHelper for Helper<'a> {
         Ok(())
     }
 
-    fn get_secret_key(&mut self, keyid: &KeyID)
-                      -> Result<Option<(packet::Key, mpis::SecretKey)>> {
-        let key = if let Some(key) = self.secret_keys.get(keyid) {
-            key
-        } else {
-            return Ok(None);
-        };
+    fn get_secret(&mut self, pkesks: &[&PKESK], _skesks: &[&SKESK])
+                  -> Result<Option<Secret>> {
+        while let Some(pkesk) = pkesks.get(self.pkesk_i) {
+            let keyid = pkesk.recipient();
+            let key = if let Some(key) = self.secret_keys.get(keyid) {
+                key
+            } else {
+                self.pkesk_i += 1;
+                continue;
+            };
 
-        // XXX: Deal with encrypted keys.
-        if let Some(SecretKey::Unencrypted{ref mpis}) = key.secret() {
-            Ok(Some((key.clone(), mpis.clone())))
-        } else {
-            Ok(None)
+            // XXX: Deal with encrypted keys.
+            if let Some(SecretKey::Unencrypted{ref mpis}) = key.secret() {
+                return Ok(Some(Secret::Asymmetric {
+                    key: key.clone(),
+                    secret: mpis.clone(),
+                }))
+            } else {
+                self.pkesk_i += 1;
+                continue;
+            }
         }
-    }
 
-    fn get_password(&mut self) -> Result<String> {
-        Ok(rpassword::prompt_password_stderr(
-            "Enter password to decrypt message: ")?)
+        Ok(Some(Secret::Symmetric {
+            password: rpassword::prompt_password_stderr(
+                "Enter password to decrypt message: ")?,
+        }))
     }
 }
 

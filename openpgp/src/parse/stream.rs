@@ -14,7 +14,8 @@ use buffered_reader::{
 };
 use {
     Error,
-    packet::Key,
+    constants::SymmetricAlgorithm,
+    packet::{Key, PKESK, SKESK},
     KeyID,
     Packet,
     Result,
@@ -459,7 +460,8 @@ impl<'a, H: VerificationHelper> io::Read for Verifier<'a, H> {
 /// #[macro_use] extern crate openpgp;
 /// extern crate failure;
 /// use std::io::Read;
-/// use openpgp::{KeyID, TPK, Result, packet::Key, mpis::SecretKey};
+/// use openpgp::{KeyID, TPK, Result, packet::{Key, PKESK, SKESK},
+///               mpis::SecretKey};
 /// use openpgp::parse::stream::*;
 /// # fn main() { f().unwrap(); }
 /// # fn f() -> Result<()> {
@@ -475,11 +477,11 @@ impl<'a, H: VerificationHelper> io::Read for Verifier<'a, H> {
 ///     }
 /// }
 /// impl DecryptionHelper for Helper {
-///     fn get_secret_key(&mut self, _: &KeyID) -> Result<Option<(Key, SecretKey)>> {
-///         Ok(None) // Return secret keys here.
-///     }
-///     fn get_password(&mut self) -> Result<String> {
-///         Ok("streng geheim".into())
+///     fn get_secret(&mut self, _: &[&PKESK], _: &[&SKESK])
+///                   -> Result<Option<Secret>> {
+///         Ok(Some(Secret::Symmetric {
+///             password: "streng geheim".into(),
+///         }))
 ///     }
 /// }
 ///
@@ -539,19 +541,58 @@ pub trait DecryptionHelper {
         Ok(())
     }
 
-    /// Retrieves the secret key needed to decrypt the data.
+    /// Retrieves the secret needed to decrypt the data.
     ///
-    /// This function is called for every PKESK packet encountered
-    /// until the decryption succeeds.
-    fn get_secret_key(&mut self, keyid: &KeyID)
-                      -> Result<Option<(packet::Key, mpis::SecretKey)>>;
+    /// This function is called with every `PKESK` and `SKESK` found
+    /// in the message.  It is called repeatedly until either the
+    /// decryption succeeds, or this function returns None.
+    fn get_secret(&mut self, pkesks: &[&PKESK], skesks: &[&SKESK])
+                  -> Result<Option<Secret>>;
 
-    /// Retrieves the password needed to decrypt the data.
+    /// Signals success decrypting the given `PKESK`.
     ///
-    /// If decryption via PKESK packets fails, and at least one SKESK
-    /// packet is present, this function is called once to query for a
-    /// password.
-    fn get_password(&mut self) -> Result<String>;
+    /// This can be used to cache the result of the asymmetric crypto
+    /// operation.  The default implementation does nothing.
+    fn cache_asymmetric_secret(&mut self, pkesk: &PKESK,
+                               algo: SymmetricAlgorithm, key: Box<[u8]>) {
+        // Do nothing.
+        let _ = (pkesk, algo, key);
+    }
+
+    /// Signals success decrypting the given `SKESK`.
+    ///
+    /// This can be used to cache the result of the symmetric crypto
+    /// operation.  The default implementation does nothing.
+    fn cache_symmetric_secret(&mut self, skesk: &SKESK,
+                              algo: SymmetricAlgorithm, key: Box<[u8]>) {
+        // Do nothing.
+        let _ = (skesk, algo, key);
+    }
+}
+
+/// Represents a secret to decrypt a message.
+pub enum Secret {
+    /// A key pair for asymmetric decryption.
+    Asymmetric {
+        /// The public key.
+        key: packet::Key,
+        /// The secret key.
+        secret: mpis::SecretKey,
+    },
+
+    /// A password for symmetric decryption.
+    Symmetric {
+        /// The password.
+        password: String,
+    },
+
+    /// A cached session key.
+    Cached {
+        /// The symmetric algorithm used to encrypt the SEIP packet.
+        algo: SymmetricAlgorithm,
+        /// The decrypted session key.
+        session_key: Box<[u8]>,
+    },
 }
 
 impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
@@ -635,34 +676,49 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
             match pp.packet {
                 Packet::SEIP(_) => {
                     let mut decrypted = false;
-                    for pkesk in pkesks.iter() {
-                        if let Some((key, secret)) = v.helper.get_secret_key(
-                            pkesk.recipient())?
-                        {
-                            if let Ok((algo, key)) =
-                                pkesk.decrypt(&key, &secret)
-                            {
-                                pp.decrypt(algo, &key[..])?;
-                                decrypted = true;
-                                break;
-                            }
-                        }
-                    }
-                    if ! decrypted && ! skesks.is_empty() {
-                        let pass = v.helper.get_password()?.into_bytes();
+                    let pkesk_refs: Vec<&PKESK> = pkesks.iter().collect();
+                    let skesk_refs: Vec<&SKESK> = skesks.iter().collect();
 
-                        for skesk in skesks.iter() {
-                            let (algo, key) = skesk.decrypt(&pass)?;
+                    'decrypt_seip: while let Some(secret) =
+                        v.helper.get_secret(&pkesk_refs[..], &skesk_refs[..])?
+                    {
+                        match secret {
+                            Secret::Asymmetric { ref key, ref secret } => {
+                                let keyid = key.fingerprint().to_keyid();
 
-                            let r = pp.decrypt(algo, &key[..]);
-                            if r.is_ok() {
-                                decrypted = true;
-                                break;
-                            }
-                        }
+                                for pkesk in pkesks.iter().filter(|p| {
+                                    let r = p.recipient();
+                                    *r == keyid || r.is_wildcard()
+                                }) {
+                                    if let Ok((algo, key)) =
+                                        pkesk.decrypt(&key, &secret)
+                                    {
+                                        if pp.decrypt(algo, &key[..]).is_ok() {
+                                            decrypted = true;
+                                            break 'decrypt_seip;
+                                        }
+                                    }
+                                }
+                            },
 
-                        if ! decrypted {
-                            return Err(Error::InvalidPassword.into());
+                            Secret::Symmetric { ref password } => {
+                                let pass = password.as_bytes();
+
+                                for skesk in skesks.iter() {
+                                    let (algo, key) = skesk.decrypt(pass)?;
+
+                                    if pp.decrypt(algo, &key[..]).is_ok() {
+                                        decrypted = true;
+                                        break 'decrypt_seip;
+                                    }
+                                }
+                            },
+
+                            Secret::Cached { ref algo, ref session_key } =>
+                                if pp.decrypt(*algo, session_key).is_ok() {
+                                    decrypted = true;
+                                    break 'decrypt_seip;
+                                },
                         }
                     }
 
