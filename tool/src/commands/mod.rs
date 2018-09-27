@@ -30,11 +30,6 @@ pub use self::decrypt::decrypt;
 mod dump;
 pub use self::dump::dump;
 
-// Indent packets according to their recursion level.
-const INDENT: &'static str
-    // 64 spaces = max recursion depth (16) * 4 spaces
-    = "                                                                ";
-
 const TIMEFMT: &'static str = "%Y-%m-%dT%H:%M";
 
 fn tm2str(t: &time::Tm) -> String {

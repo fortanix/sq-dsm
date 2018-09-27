@@ -12,7 +12,7 @@ use openpgp::parse::stream::{
 };
 extern crate sequoia_store as store;
 
-use super::{INDENT, dump::{HexDumper, dump_packet}, VHelper};
+use super::{dump::{HexDumper, dump_packet}, VHelper};
 
 struct Helper<'a> {
     vhelper: VHelper<'a>,
@@ -75,7 +75,7 @@ impl<'a> DecryptionHelper for Helper<'a> {
     fn inspect(&mut self, pp: &PacketParser) -> Result<()> {
         if self.dump || self.hex {
             dump_packet(&mut io::stderr(),
-                        &INDENT[0..4 * pp.recursion_depth as usize],
+                        2 * pp.recursion_depth as usize,
                         false,
                         Some(&pp.header), &pp.packet)?;
             eprintln!();

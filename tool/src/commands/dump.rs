@@ -9,7 +9,12 @@ use openpgp::packet::signature::subpacket::{Subpacket, SubpacketValue};
 use openpgp::s2k::S2K;
 use openpgp::parse::PacketParserResult;
 
-use super::{INDENT, TIMEFMT};
+use super::TIMEFMT;
+
+// Indent packets according to their recursion level.
+const INDENT: &'static str
+    // 64 spaces = max recursion depth (16) * 4 spaces
+    = "                                                                ";
 
 pub fn dump(input: &mut io::Read, output: &mut io::Write, mpis: bool, hex: bool)
         -> Result<()> {
@@ -18,8 +23,8 @@ pub fn dump(input: &mut io::Read, output: &mut io::Write, mpis: bool, hex: bool)
         .map(hex).finalize()?;
 
     while let PacketParserResult::Some(mut pp) = ppr {
-        let i = &INDENT[0..4 * pp.recursion_depth as usize];
-        dump_packet(output, i, mpis, Some(&pp.header), &pp.packet)?;
+        dump_packet(output, 2 * pp.recursion_depth as usize, mpis,
+                    Some(&pp.header), &pp.packet)?;
         if let Some(ref map) = pp.map {
             writeln!(output)?;
             let mut hd = HexDumper::new();
@@ -31,6 +36,7 @@ pub fn dump(input: &mut io::Read, output: &mut io::Write, mpis: bool, hex: bool)
                 Packet::Literal(_) => {
                     let mut prefix = vec![0; 40];
                     let n = pp.read(&mut prefix)?;
+                    let i = &INDENT[0..4 * pp.recursion_depth as usize];
                     writeln!(output, "{}  Content: {:?}{}", i,
                              String::from_utf8_lossy(&prefix[..n]),
                              if n == prefix.len() { "..." } else { "" })?;
@@ -46,9 +52,11 @@ pub fn dump(input: &mut io::Read, output: &mut io::Write, mpis: bool, hex: bool)
     Ok(())
 }
 
-pub fn dump_packet(output: &mut io::Write, i: &str, mpis: bool,
+pub fn dump_packet(output: &mut io::Write, depth: usize, mpis: bool,
                    header: Option<&Header>, p: &Packet) -> Result<()> {
     use self::openpgp::Packet::*;
+    let i = &INDENT[0..2 * depth as usize];
+
     if let Some(h) = header {
         write!(output, "{}{} CTB, {}: ", i,
                if let CTB::Old(_) = h.ctb { "Old" } else { "New" },
@@ -79,13 +87,13 @@ pub fn dump_packet(output: &mut io::Write, i: &str, mpis: bool,
             if s.hashed_area().iter().count() > 0 {
                 writeln!(output, "{}  Hashed area:", i)?;
                 for (_, _, pkt) in s.hashed_area().iter() {
-                    dump_subpacket(output, i, mpis, pkt)?;
+                    dump_subpacket(output, depth, mpis, pkt)?;
                 }
             }
             if s.unhashed_area().iter().count() > 0 {
                 writeln!(output, "{}  Unhashed area:", i)?;
                 for (_, _, pkt) in s.unhashed_area().iter() {
-                    dump_subpacket(output, i, mpis, pkt)?;
+                    dump_subpacket(output, depth, mpis, pkt)?;
                 }
             }
             writeln!(output, "{}  Hash prefix: {}", i,
@@ -194,9 +202,12 @@ pub fn dump_packet(output: &mut io::Write, i: &str, mpis: bool,
     Ok(())
 }
 
-fn dump_subpacket(output: &mut io::Write, i: &str, mpis: bool, s: Subpacket)
+fn dump_subpacket(output: &mut io::Write, depth: usize, mpis: bool,
+                  s: Subpacket)
                   -> Result<()> {
     use self::SubpacketValue::*;
+    let i = &INDENT[0..2 * depth as usize];
+
     match s.value {
         Unknown(ref b) =>
             write!(output, "{}    Unknown: {:?}", i, b)?,
@@ -280,8 +291,7 @@ fn dump_subpacket(output: &mut io::Write, i: &str, mpis: bool, s: Subpacket)
 
     match s.value {
         EmbeddedSignature(ref sig) => {
-            let i_ = format!("{}      ", i);
-            dump_packet(output, &i_, mpis, None, sig)?;
+            dump_packet(output, depth + 3, mpis, None, sig)?;
         },
         _ => (),
     }
