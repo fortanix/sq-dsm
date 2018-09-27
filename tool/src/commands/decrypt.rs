@@ -18,9 +18,22 @@ use super::{dump::{HexDumper, dump_packet}, VHelper};
 struct Helper<'a> {
     vhelper: VHelper<'a>,
     secret_keys: HashMap<KeyID, Key>,
+    key_hints: HashMap<KeyID, String>,
     dump: bool,
     hex: bool,
-    pkesk_i: usize,
+    pass: Pass,
+}
+
+enum Pass {
+    UnencryptedKey(usize),
+    EncryptedKey(usize),
+    Passwords,
+}
+
+impl Default for Pass {
+    fn default() -> Self {
+        Pass::UnencryptedKey(0)
+    }
 }
 
 impl<'a> Helper<'a> {
@@ -29,6 +42,7 @@ impl<'a> Helper<'a> {
            dump: bool, hex: bool)
            -> Self {
         let mut keys: HashMap<KeyID, Key> = HashMap::new();
+        let mut hints: HashMap<KeyID, String> = HashMap::new();
         for tsk in secrets {
             let can_encrypt = |_: &Key, sig: Option<&Signature>| -> bool {
                 if let Some(sig) = sig {
@@ -39,14 +53,24 @@ impl<'a> Helper<'a> {
                 }
             };
 
+            let hint = match tsk.userids().nth(0) {
+                Some(uid) => format!("{} ({})", uid.userid(),
+                                     tsk.fingerprint().to_keyid()),
+                None => format!("{}", tsk.fingerprint().to_keyid()),
+            };
+
             if can_encrypt(tsk.primary(), tsk.primary_key_signature()) {
-                keys.insert(tsk.fingerprint().to_keyid(), tsk.primary().clone());
+                let id = tsk.fingerprint().to_keyid();
+                keys.insert(id.clone(), tsk.primary().clone());
+                hints.insert(id, hint.clone());
             }
 
             for skb in tsk.subkeys() {
                 let key = skb.subkey();
                 if can_encrypt(key, skb.binding_signature()) {
-                    keys.insert(key.fingerprint().to_keyid(), key.clone());
+                    let id = key.fingerprint().to_keyid();
+                    keys.insert(id.clone(), key.clone());
+                    hints.insert(id, hint.clone());
                 }
             }
         }
@@ -54,9 +78,10 @@ impl<'a> Helper<'a> {
         Helper {
             vhelper: VHelper::new(ctx, store, signatures, tpks),
             secret_keys: keys,
+            key_hints: hints,
             dump: dump,
             hex: hex,
-            pkesk_i: 0,
+            pass: Pass::default(),
         }
     }
 }
@@ -97,31 +122,76 @@ impl<'a> DecryptionHelper for Helper<'a> {
 
     fn get_secret(&mut self, pkesks: &[&PKESK], _skesks: &[&SKESK])
                   -> Result<Option<Secret>> {
-        while let Some(pkesk) = pkesks.get(self.pkesk_i) {
-            let keyid = pkesk.recipient();
-            let key = if let Some(key) = self.secret_keys.get(keyid) {
-                key
-            } else {
-                self.pkesk_i += 1;
-                continue;
-            };
+        loop {
+            self.pass = match self.pass {
+                Pass::UnencryptedKey(ref mut i) => {
+                    while let Some(pkesk) = pkesks.get(*i) {
+                        *i += 1;
+                        let keyid = pkesk.recipient();
+                        let key = if let Some(key) = self.secret_keys.get(keyid)
+                        {
+                            key
+                        } else {
+                            continue;
+                        };
 
-            // XXX: Deal with encrypted keys.
-            if let Some(SecretKey::Unencrypted{ref mpis}) = key.secret() {
-                return Ok(Some(Secret::Asymmetric {
-                    key: key.clone(),
-                    secret: mpis.clone(),
-                }))
-            } else {
-                self.pkesk_i += 1;
-                continue;
+                        if let Some(SecretKey::Unencrypted { ref mpis }) =
+                            key.secret()
+                        {
+                            return Ok(Some(Secret::Asymmetric {
+                                key: key.clone(),
+                                secret: mpis.clone(),
+                            }))
+                        }
+                    }
+
+                    Pass::EncryptedKey(0)
+                },
+
+                Pass::EncryptedKey(ref mut i) => {
+                    while let Some(pkesk) = pkesks.get(*i) {
+                        *i += 1;
+                        let keyid = pkesk.recipient();
+                        let key = if let Some(key) = self.secret_keys.get(keyid) {
+                            key
+                        } else {
+                            continue;
+                        };
+
+                        if key.secret().map(|s| s.is_encrypted())
+                            .unwrap_or(false)
+                        {
+                            loop {
+                                let p = rpassword::prompt_password_stderr(
+                                    &format!(
+                                        "Enter password to decrypt key {}: ",
+                                        self.key_hints.get(keyid).unwrap()))?;
+
+                                if let Ok(mpis) =
+                                    key.secret().unwrap()
+                                    .decrypt(key.pk_algo(), p.as_bytes())
+                                {
+                                    return Ok(Some(Secret::Asymmetric {
+                                        key: key.clone(),
+                                        secret: mpis,
+                                    }));
+                                }
+
+                                eprintln!("Bad password.");
+                            }
+                        }
+                    }
+
+                    Pass::Passwords
+                },
+
+                Pass::Passwords =>
+                    return Ok(Some(Secret::Symmetric {
+                        password: rpassword::prompt_password_stderr(
+                            "Enter password to decrypt message: ")?,
+                    })),
             }
         }
-
-        Ok(Some(Secret::Symmetric {
-            password: rpassword::prompt_password_stderr(
-                "Enter password to decrypt message: ")?,
-        }))
     }
 }
 
