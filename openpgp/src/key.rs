@@ -1,6 +1,7 @@
 use std::fmt;
 use time;
 
+use Error;
 use mpis;
 use Tag;
 use packet;
@@ -245,16 +246,19 @@ pub enum SecretKey {
 }
 
 impl SecretKey {
-    /// Decrypts this secret key using `password`. The SecretKey type
-    /// does not know what kind of key it is, so `pk_algo` is needed
-    /// to parse the correct number of MPIs.
-    pub fn decrypt(&mut self, pk_algo: PublicKeyAlgorithm, password: &[u8])
-                   -> Result<()> {
+    /// Decrypts this secret key using `password`.
+    ///
+    /// The SecretKey type does not know what kind of key it is, so
+    /// `pk_algo` is needed to parse the correct number of MPIs.
+    pub fn decrypt(&self, pk_algo: PublicKeyAlgorithm, password: &[u8])
+                   -> Result<mpis::SecretKey> {
         use std::io::{Cursor, Read};
         use symmetric::Decryptor;
 
-        let new = match &*self {
-            &SecretKey::Unencrypted { .. } => None,
+        match self {
+            &SecretKey::Unencrypted { .. } =>
+                Err(Error::InvalidOperation("Key is not encrypted".into())
+                    .into()),
             &SecretKey::Encrypted { ref s2k, algorithm, ref ciphertext } => {
                 let key = s2k.derive_key(password, algorithm.key_size()?)?
                     .into_boxed_slice();
@@ -263,14 +267,21 @@ impl SecretKey {
                 let mut trash = vec![0u8; algorithm.block_size()?];
 
                 dec.read_exact(&mut trash)?;
-                let mpis = mpis::SecretKey::parse_chksumd(pk_algo, &mut dec)?;
-
-                Some(SecretKey::Unencrypted{ mpis: mpis })
+                mpis::SecretKey::parse_chksumd(pk_algo, &mut dec)
             }
-        };
-
-        if let Some(new) = new {
-            *self = new;
+        }
+    }
+    /// Decrypts this secret key using `password`.
+    ///
+    /// The SecretKey type does not know what kind of key it is, so
+    /// `pk_algo` is needed to parse the correct number of MPIs.
+    pub fn decrypt_in_place(&mut self, pk_algo: PublicKeyAlgorithm,
+                            password: &[u8])
+                            -> Result<()> {
+        if self.is_encrypted() {
+            *self = SecretKey::Unencrypted {
+                mpis: self.decrypt(pk_algo, password)?,
+            };
         }
 
         Ok(())
@@ -308,7 +319,7 @@ mod tests {
         let secret = pair.secret.as_mut().unwrap();
 
         assert!(secret.is_encrypted());
-        secret.decrypt(pair.pk_algo, &b"123"[..]).unwrap();
+        secret.decrypt_in_place(pair.pk_algo, &b"123"[..]).unwrap();
         assert!(!secret.is_encrypted());
 
         match secret {
