@@ -9,6 +9,7 @@ interface Node {
   import @4 (key: Data) -> (result: Result(Key));
   lookupByKeyid @5 (keyid: UInt64) -> (result: Result(Key));
   lookupByFingerprint @6 (fingerprint: Text) -> (result: Result(Key));
+  lookupBySubkeyid @7 (keyid: UInt64) -> (result: Result(Key));
 
   interface Store {
     add @0 (label: Text, fingerprint: Text) -> (result: Result(Binding));

@@ -210,6 +210,52 @@ impl Pool {
         let key = make_request!(&mut core, request)?;
         Ok(Key::new(Rc::new(RefCell::new(core)), key))
     }
+
+    /// Looks up a key in the common key pool by (Sub)KeyID.
+    ///
+    /// The KeyID may also reference a signing- or
+    /// certification-capable subkey.  The reason for this restriction
+    /// is that anyone can attach any subkey to her TPK, but signing-
+    /// or certification-capable subkeys require back signatures.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # extern crate openpgp;
+    /// # extern crate sequoia_core;
+    /// # extern crate sequoia_store;
+    /// # use openpgp::{TPK, KeyID};
+    /// # use sequoia_core::{Context, NetworkPolicy, IPCPolicy};
+    /// # use sequoia_store::{Pool, Result};
+    /// # fn main() { f().unwrap(); }
+    /// # fn f() -> Result<()> {
+    /// # let ctx = Context::configure("org.sequoia-pgp.demo.store")
+    /// #     .network_policy(NetworkPolicy::Offline)
+    /// #     .ipc_policy(IPCPolicy::Internal)
+    /// #     .ephemeral().build()?;
+    /// # let tpk = TPK::from_bytes(
+    /// #     include_bytes!("../../openpgp/tests/data/keys/emmelie-dorothea-dina-samantha-awina-ed25519.pgp"))
+    /// #     .unwrap();
+    /// Pool::import(&ctx, &tpk)?;
+    ///
+    /// // Lookup by the primary key's KeyID.
+    /// let key = Pool::lookup_by_subkeyid(&ctx, &KeyID::from_hex("069C0C348DD82C19")?)?;
+    /// assert_eq!(key.tpk()?.fingerprint(), tpk.fingerprint());
+    ///
+    /// // Lookup by the subkey's KeyID.
+    /// let key = Pool::lookup_by_subkeyid(&ctx, &KeyID::from_hex("22E3FAFE96B56C32")?)?;
+    /// assert_eq!(key.tpk()?.fingerprint(), tpk.fingerprint());
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn lookup_by_subkeyid(c: &Context, keyid: &KeyID) -> Result<Key> {
+        let (mut core, client) = Store::connect(c)?;
+        let mut request = client.lookup_by_subkeyid_request();
+        request.get().set_keyid(keyid.as_u64()?);
+        let key = make_request!(&mut core, request)?;
+        Ok(Key::new(Rc::new(RefCell::new(core)), key))
+    }
+
 }
 
 /// A public key store.

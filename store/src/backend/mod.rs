@@ -234,6 +234,26 @@ impl node::Server for NodeServer {
                 .from_server::<capnp_rpc::Server>()));
         Promise::ok(())
     }
+
+    fn lookup_by_subkeyid(&mut self,
+                          params: node::LookupBySubkeyidParams,
+                          mut results: node::LookupBySubkeyidResults)
+                          -> Promise<(), capnp::Error> {
+        bind_results!(results);
+        let keyid = pry!(params.get()).get_keyid();
+
+        let key_id: ID = sry!(
+            self.c.query_row(
+                "SELECT key FROM key_by_keyid
+                 WHERE key_by_keyid.keyid = ?1",
+                &[&(keyid as i64)], |row| row.get(0)));
+
+        pry!(pry!(results.get().get_result()).set_ok(
+            node::key::ToClient::new(
+                KeyServer::new(self.c.clone(), key_id))
+                .from_server::<capnp_rpc::Server>()));
+        Promise::ok(())
+    }
 }
 
 struct StoreServer {
