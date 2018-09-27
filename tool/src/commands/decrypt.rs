@@ -77,7 +77,7 @@ impl<'a> DecryptionHelper for Helper<'a> {
             dump_packet(&mut io::stderr(),
                         &INDENT[0..4 * pp.recursion_depth as usize],
                         false,
-                        &pp.packet)?;
+                        Some(&pp.header), &pp.packet)?;
             eprintln!();
         }
 

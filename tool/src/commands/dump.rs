@@ -3,6 +3,8 @@ use time;
 
 extern crate openpgp;
 use openpgp::{Packet, Result};
+use openpgp::ctb::CTB;
+use openpgp::packet::{Header, BodyLength};
 use openpgp::packet::signature::subpacket::{Subpacket, SubpacketValue};
 use openpgp::s2k::S2K;
 use openpgp::parse::PacketParserResult;
@@ -17,7 +19,7 @@ pub fn dump(input: &mut io::Read, output: &mut io::Write, mpis: bool, hex: bool)
 
     while let PacketParserResult::Some(mut pp) = ppr {
         let i = &INDENT[0..4 * pp.recursion_depth as usize];
-        dump_packet(output, i, mpis, &pp.packet)?;
+        dump_packet(output, i, mpis, Some(&pp.header), &pp.packet)?;
         if let Some(ref map) = pp.map {
             writeln!(output)?;
             let mut hd = HexDumper::new();
@@ -44,16 +46,32 @@ pub fn dump(input: &mut io::Read, output: &mut io::Write, mpis: bool, hex: bool)
     Ok(())
 }
 
-pub fn dump_packet(output: &mut io::Write, i: &str, mpis: bool, p: &Packet) -> Result<()> {
+pub fn dump_packet(output: &mut io::Write, i: &str, mpis: bool,
+                   header: Option<&Header>, p: &Packet) -> Result<()> {
     use self::openpgp::Packet::*;
+    if let Some(h) = header {
+        write!(output, "{}{} CTB, {}: ", i,
+               if let CTB::Old(_) = h.ctb { "Old" } else { "New" },
+               match h.length {
+                   BodyLength::Full(n) =>
+                       format!("{} bytes", n),
+                   BodyLength::Partial(n) =>
+                       format!("partial length, {} bytes in first chunk", n),
+                   BodyLength::Indeterminate =>
+                       "indeterminate length".into(),
+               })?;
+    } else {
+        write!(output, "{}", i)?;
+    }
+
     match p {
         Unknown(ref u) => {
-            writeln!(output, "{}Unknown Packet", i)?;
+            writeln!(output, "Unknown Packet")?;
             writeln!(output, "{}  Tag: {}", i, u.tag())?;
         },
 
         Signature(ref s) => {
-            writeln!(output, "{}Signature Packet", i)?;
+            writeln!(output, "Signature Packet")?;
             writeln!(output, "{}  Version: {}", i, s.version())?;
             writeln!(output, "{}  Type: {}", i, s.sigtype())?;
             writeln!(output, "{}  Pk algo: {}", i, s.pk_algo())?;
@@ -86,7 +104,7 @@ pub fn dump_packet(output: &mut io::Write, i: &str, mpis: bool, p: &Packet) -> R
         },
 
         OnePassSig(ref o) => {
-            writeln!(output, "{}One-Pass Signature Packet", i)?;
+            writeln!(output, "One-Pass Signature Packet")?;
             writeln!(output, "{}  Version: {}", i, o.version())?;
             writeln!(output, "{}  Type: {}", i, o.sigtype())?;
             writeln!(output, "{}  Pk algo: {}", i, o.pk_algo())?;
@@ -98,7 +116,7 @@ pub fn dump_packet(output: &mut io::Write, i: &str, mpis: bool, p: &Packet) -> R
         PublicKey(ref k) | PublicSubkey(ref k)
             | SecretKey(ref k) | SecretSubkey(ref k) =>
         {
-            writeln!(output, "{}{}", i, p.tag())?;
+            writeln!(output, "{}", p.tag())?;
             writeln!(output, "{}  Version: {}", i, k.version())?;
             writeln!(output, "{}  Creation time: {}", i,
                      time::strftime(TIMEFMT, k.creation_time()).unwrap())?;
@@ -112,19 +130,19 @@ pub fn dump_packet(output: &mut io::Write, i: &str, mpis: bool, p: &Packet) -> R
         },
 
         UserID(ref u) => {
-            writeln!(output, "{}User ID Packet", i)?;
+            writeln!(output, "User ID Packet")?;
             writeln!(output, "{}  Value: {}", i,
                      String::from_utf8_lossy(u.userid()))?;
         },
 
         UserAttribute(ref u) => {
-            writeln!(output, "{}User Attribute Packet", i)?;
+            writeln!(output, "User Attribute Packet")?;
             writeln!(output, "{}  Value: {} bytes", i,
                      u.user_attribute().len())?;
         },
 
         Literal(ref l) => {
-            writeln!(output, "{}Literal Data Packet", i)?;
+            writeln!(output, "Literal Data Packet")?;
             writeln!(output, "{}  Format: {}", i, l.format())?;
             if let Some(filename) = l.filename() {
                 writeln!(output, "{}  Filename: {}", i,
@@ -137,13 +155,12 @@ pub fn dump_packet(output: &mut io::Write, i: &str, mpis: bool, p: &Packet) -> R
         },
 
         CompressedData(ref c) => {
-            writeln!(output, "{}Compressed Data Packet", i)?;
+            writeln!(output, "Compressed Data Packet")?;
             writeln!(output, "{}  Algorithm: {}", i, c.algorithm())?;
         },
 
         PKESK(ref p) => {
-            writeln!(output,
-                     "{}Public-key Encrypted Session Key Packet", i)?;
+            writeln!(output, "Public-key Encrypted Session Key Packet")?;
             writeln!(output, "{}  Version: {}", i, p.version())?;
             writeln!(output, "{}  Recipient: {}", i, p.recipient())?;
             writeln!(output, "{}  Pk algo: {}", i, p.pk_algo())?;
@@ -153,8 +170,7 @@ pub fn dump_packet(output: &mut io::Write, i: &str, mpis: bool, p: &Packet) -> R
         },
 
         SKESK(ref s) => {
-            writeln!(output,
-                     "{}Symmetric-key Encrypted Session Key Packet", i)?;
+            writeln!(output, "Symmetric-key Encrypted Session Key Packet")?;
             writeln!(output, "{}  Version: {}", i, s.version())?;
             writeln!(output, "{}  Cipher: {}", i, s.symmetric_algo())?;
             write!(output, "{}  S2K: ", i)?;
@@ -165,13 +181,12 @@ pub fn dump_packet(output: &mut io::Write, i: &str, mpis: bool, p: &Packet) -> R
         },
 
         SEIP(ref s) => {
-            writeln!(output,
-                     "{}Encrypted and Integrity Protected Data Packet", i)?;
+            writeln!(output, "Encrypted and Integrity Protected Data Packet")?;
             writeln!(output, "{}  Version: {}", i, s.version())?;
         },
 
         MDC(ref m) => {
-            writeln!(output, "{}Modification Detection Code Packet", i)?;
+            writeln!(output, "Modification Detection Code Packet")?;
             writeln!(output, "{}  Hash: {}", i, to_hex(m.hash(), false))?;
         },
     }
@@ -266,7 +281,7 @@ fn dump_subpacket(output: &mut io::Write, i: &str, mpis: bool, s: Subpacket)
     match s.value {
         EmbeddedSignature(ref sig) => {
             let i_ = format!("{}      ", i);
-            dump_packet(output, &i_, mpis, sig)?;
+            dump_packet(output, &i_, mpis, None, sig)?;
         },
         _ => (),
     }
