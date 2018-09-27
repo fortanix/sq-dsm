@@ -402,7 +402,9 @@ impl<'a> VerificationHelper for VHelper<'a> {
     fn get_public_keys(&mut self, ids: &[KeyID]) -> Result<Vec<TPK>> {
         let mut tpks = self.tpks.take().unwrap();
         let seen: HashSet<_> = tpks.iter()
-            .map(|tpk| tpk.fingerprint().to_keyid()).collect();
+            .flat_map(|tpk| {
+                tpk.keys().map(|(_, key)| key.fingerprint().to_keyid())
+            }).collect();
 
         // Try to get missing TPKs from the store.
         for id in ids.iter().filter(|i| !seen.contains(i)) {
