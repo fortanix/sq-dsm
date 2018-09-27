@@ -350,10 +350,10 @@ impl node::store::Server for StoreServer {
         Promise::ok(())
     }
 
-    fn lookup_by_keyid(&mut self,
-                       params: node::store::LookupByKeyidParams,
-                       mut results: node::store::LookupByKeyidResults)
-                       -> Promise<(), capnp::Error> {
+    fn lookup_by_subkeyid(&mut self,
+                          params: node::store::LookupBySubkeyidParams,
+                          mut results: node::store::LookupBySubkeyidResults)
+                          -> Promise<(), capnp::Error> {
         bind_results!(results);
         let keyid = pry!(params.get()).get_keyid();
 

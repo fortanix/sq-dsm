@@ -396,7 +396,7 @@ impl Store {
         Ok(Binding::new(self.core.clone(), Some(label), binding))
     }
 
-    /// Looks up a key by KeyID.
+    /// Looks up a key by (Sub)KeyID.
     ///
     /// The KeyID may also reference a signing- or
     /// certification-capable subkey.  The reason for this restriction
@@ -425,19 +425,19 @@ impl Store {
     /// store.import("Emmelie", &tpk)?;
     ///
     /// // Lookup by the primary key's KeyID.
-    /// let tpk_ = store.lookup_by_keyid(&KeyID::from_hex("069C0C348DD82C19")?)?
+    /// let tpk_ = store.lookup_by_subkeyid(&KeyID::from_hex("069C0C348DD82C19")?)?
     ///     .tpk()?;
     /// assert_eq!(tpk, tpk_);
     ///
-    /// // Lookup by the encryption subkey's KeyID.
-    /// let tpk_ = store.lookup_by_keyid(&KeyID::from_hex("22E3FAFE96B56C32")?)?
+    /// // Lookup by the subkey's KeyID.
+    /// let tpk_ = store.lookup_by_subkeyid(&KeyID::from_hex("22E3FAFE96B56C32")?)?
     ///     .tpk()?;
     /// assert_eq!(tpk, tpk_);
     /// # Ok(())
     /// # }
     /// ```
-    pub fn lookup_by_keyid(&self, keyid: &KeyID) -> Result<Binding> {
-        let mut request = self.store.lookup_by_keyid_request();
+    pub fn lookup_by_subkeyid(&self, keyid: &KeyID) -> Result<Binding> {
+        let mut request = self.store.lookup_by_subkeyid_request();
         request.get().set_keyid(keyid.as_u64()?);
         let binding = make_request!(self.core.borrow_mut(), request)?;
         let mut binding = Binding::new(self.core.clone(), None, binding);

@@ -407,7 +407,7 @@ impl<'a> VerificationHelper for VHelper<'a> {
         // Try to get missing TPKs from the store.
         for id in ids.iter().filter(|i| !seen.contains(i)) {
             let _ =
-                self.store.lookup_by_keyid(id)
+                self.store.lookup_by_subkeyid(id)
                 .and_then(|binding| {
                     self.labels.insert(id.clone(), binding.label()?);
                     binding.tpk()
