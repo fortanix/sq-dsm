@@ -116,11 +116,11 @@ pub enum VerificationResult {
     /// model, such as the [web of trust] (WoT).
     ///
     /// [web of trust]: https://en.wikipedia.org/wiki/Web_of_trust
-    Good(Signature),
+    GoodChecksum(Signature),
     /// Unable to verify the signature because the key is missing.
-    Unknown(Signature),
+    MissingKey(Signature),
     /// The signature is bad.
-    Bad(Signature),
+    BadChecksum(Signature),
 }
 
 impl VerificationResult {
@@ -128,9 +128,9 @@ impl VerificationResult {
     fn level(&self) -> usize {
         use self::VerificationResult::*;
         match self {
-            &Good(ref sig) => sig.level(),
-            &Unknown(ref sig) => sig.level(),
-            &Bad(ref sig) => sig.level(),
+            &GoodChecksum(ref sig) => sig.level(),
+            &MissingKey(ref sig) => sig.level(),
+            &BadChecksum(ref sig) => sig.level(),
         }
     }
 }
@@ -341,21 +341,21 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
                         if sig.verify(key).unwrap_or(false) {
                             self.sigs.iter_mut().last()
                                 .expect("sigs is never empty").push(
-                                    VerificationResult::Good(sig));
+                                    VerificationResult::GoodChecksum(sig));
                         } else {
                             self.sigs.iter_mut().last()
                                 .expect("sigs is never empty").push(
-                                    VerificationResult::Bad(sig));
+                                    VerificationResult::BadChecksum(sig));
                         }
                     } else {
                         self.sigs.iter_mut().last()
                             .expect("sigs is never empty").push(
-                                VerificationResult::Unknown(sig));
+                                VerificationResult::MissingKey(sig));
                     }
                 } else {
                     self.sigs.iter_mut().last()
                         .expect("sigs is never empty").push(
-                            VerificationResult::Bad(sig));
+                            VerificationResult::BadChecksum(sig));
                 }
             },
             _ => (),
@@ -785,21 +785,21 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                         if sig.verify(key).unwrap_or(false) {
                             self.sigs.iter_mut().last()
                                 .expect("sigs is never empty").push(
-                                    VerificationResult::Good(sig));
+                                    VerificationResult::GoodChecksum(sig));
                         } else {
                             self.sigs.iter_mut().last()
                                 .expect("sigs is never empty").push(
-                                    VerificationResult::Bad(sig));
+                                    VerificationResult::BadChecksum(sig));
                         }
                     } else {
                         self.sigs.iter_mut().last()
                             .expect("sigs is never empty").push(
-                                VerificationResult::Unknown(sig));
+                                VerificationResult::MissingKey(sig));
                     }
                 } else {
                     self.sigs.iter_mut().last()
                         .expect("sigs is never empty").push(
-                            VerificationResult::Bad(sig));
+                            VerificationResult::BadChecksum(sig));
                 }
             },
             _ => (),
@@ -943,9 +943,9 @@ mod test {
             for level in sigs {
                 for result in level {
                     match result {
-                        Good(_) => self.good += 1,
-                        Unknown(_) => self.unknown += 1,
-                        Bad(_) => self.bad += 1,
+                        GoodChecksum(_) => self.good += 1,
+                        MissingKey(_) => self.unknown += 1,
+                        BadChecksum(_) => self.bad += 1,
                     }
                 }
             }
