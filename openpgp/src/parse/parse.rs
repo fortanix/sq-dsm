@@ -593,22 +593,38 @@ fn buffered_reader_stack_pop<'a>(
     mut reader: Box<BufferedReader<Cookie> + 'a>, depth: isize)
     -> Result<Box<BufferedReader<Cookie> + 'a>>
 {
+    let mut last_level = None;
     while let Some(level) = reader.cookie_ref().level {
         assert!(level <= depth);
 
         if level >= depth {
+            let (dropping_content, dropped_content)
+                = if Some(level) != last_level {
+                    // Only drop the content of the top BufferedReader at
+                    // a given level.
+                    (true, reader.drop_eof()?)
+                } else {
+                    assert_eq!(reader.buffer().len(), 0);
+                    (false, false)
+                };
+
             if TRACE {
-                eprintln!("{}buffered_reader_stack_pop: popping level {:?} reader: {:?}",
+                eprintln!("{}buffered_reader_stack_pop: popping level {:?}, \
+                           {}dropping content ({}), reader: {:?}",
                           indent(depth as u8),
                           reader.cookie_ref().level,
+                          if dropping_content { "" } else { "not " },
+                          if dropped_content { "something dropped" }
+                          else { "nothing to drop" },
                           reader);
             }
 
-            reader.drop_eof()?;
             reader = reader.into_inner().unwrap();
         } else {
             break;
         }
+
+        last_level = Some(level);
     }
 
     Ok(reader)
