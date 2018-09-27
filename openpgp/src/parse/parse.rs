@@ -441,6 +441,20 @@ pub(crate) struct Cookie {
     /// right thing is not worth the trouble, at least for now.  Also,
     /// hash stash sounds funny.
     hash_stash: Option<Vec<u8>>,
+
+    /// Whether this `BufferedReader` is actually an interior EOF in a
+    /// container.
+    ///
+    /// This is used by the SEIP parser to prevent a child packet from
+    /// accidentally swallowing the trailing MDC packet.  This can
+    /// happen when there is a compressed data packet with an
+    /// indeterminate body length encoding.  In this case, due to
+    /// buffering, the decompressor consumes data beyond the end of
+    /// the compressed data.
+    ///
+    /// When set, buffered_reader_pop_stack will return early when it
+    /// encounters a fake EOF at the level it is popping to.
+    fake_eof: bool,
 }
 
 /// Contains hashes for consecutive one pass signature packets ending
@@ -494,6 +508,7 @@ impl Default for Cookie {
             sig_groups: vec![Default::default()],
             sig_groups_max_len: 1,
             hash_stash: None,
+            fake_eof: false,
         }
     }
 }
@@ -508,6 +523,7 @@ impl Cookie {
             sig_groups: vec![Default::default()],
             sig_groups_max_len: 1,
             hash_stash: None,
+            fake_eof: false,
         }
     }
 
@@ -591,13 +607,15 @@ impl Cookie {
 // caller to adjust PacketParser::recursion_depth, etc. appropriately!
 fn buffered_reader_stack_pop<'a>(
     mut reader: Box<BufferedReader<Cookie> + 'a>, depth: isize)
-    -> Result<Box<BufferedReader<Cookie> + 'a>>
+    -> Result<(bool, Box<BufferedReader<Cookie> + 'a>)>
 {
     let mut last_level = None;
     while let Some(level) = reader.cookie_ref().level {
         assert!(level <= depth);
 
         if level >= depth {
+            let fake_eof = reader.cookie_ref().fake_eof;
+
             let (dropping_content, dropped_content)
                 = if Some(level) != last_level {
                     // Only drop the content of the top BufferedReader at
@@ -620,6 +638,14 @@ fn buffered_reader_stack_pop<'a>(
             }
 
             reader = reader.into_inner().unwrap();
+
+            if level == depth && fake_eof {
+                if TRACE {
+                    eprintln!("{}Popped a fake EOF reader at level {}, stopping.",
+                              indent(depth as u8), depth);
+                }
+                return Ok((true, reader));
+            }
         } else {
             break;
         }
@@ -627,7 +653,7 @@ fn buffered_reader_stack_pop<'a>(
         last_level = Some(level);
     }
 
-    Ok(reader)
+    Ok((false, reader))
 }
 
 
@@ -1170,8 +1196,12 @@ impl OnePassSig {
 
         assert!(pp.reader.cookie_ref().level
                 <= Some(recursion_depth as isize));
-        let reader = buffered_reader_stack_pop(Box::new(pp.take_reader()),
-                                               recursion_depth as isize)?;
+        let (fake_eof, reader)
+            = buffered_reader_stack_pop(Box::new(pp.take_reader()),
+                                        recursion_depth as isize)?;
+        // We only pop the buffered readers for the OPS, and we
+        // (currently) never use a fake eof for OPS packets.
+        assert!(! fake_eof);
 
         let mut reader = HashedReader::new(
             reader, HashesFor::Signature, algos);
@@ -2588,11 +2618,16 @@ impl <'a> PacketParser<'a> {
         let orig_depth = self.recursion_depth as usize;
 
         self.finish()?;
-        let mut reader = buffered_reader_stack_pop(
+        let (mut fake_eof, mut reader) = buffered_reader_stack_pop(
             mem::replace(&mut self.reader,
                          Box::new(BufferedReaderEOF::with_cookie(
                              Default::default()))),
             self.recursion_depth as isize)?;
+        // At this point, next() has to point to a non-container
+        // packet or an opaque container (due to the maximum recursion
+        // level being reaching).  In this case, there can't be a fake
+        // EOF.
+        assert!(! fake_eof);
 
         // Now read the next packet.
         loop {
@@ -2615,7 +2650,7 @@ impl <'a> PacketParser<'a> {
                                   self.recursion_depth);
                     }
 
-                    if self.recursion_depth == 0 {
+                    if ! fake_eof && self.recursion_depth == 0 {
                         if trace {
                             eprintln!("{}PacketParser::next(): \
                                        Popped top-level container, done \
@@ -2629,12 +2664,16 @@ impl <'a> PacketParser<'a> {
                                    (eof,
                                     0)));
                     } else {
-                        self.recursion_depth -= 1;
                         self.state = state_;
                         self.finish()?;
                         // XXX self.content_was_read = false;
-                        reader = buffered_reader_stack_pop(
-                            reader_, self.recursion_depth as isize)?;
+                        let (fake_eof_, reader_) = buffered_reader_stack_pop(
+                            reader_, self.recursion_depth as isize - 1)?;
+                        fake_eof = fake_eof_;
+                        if !fake_eof {
+                            self.recursion_depth -= 1;
+                        }
+                        reader = reader_;
                     }
                 },
                 ParserResult::Success(mut pp) => {
@@ -3102,6 +3141,32 @@ impl<'a> PacketParser<'a> {
                           reader.cookie_ref().level);
             }
 
+            // A SEIP packet is a container that always ends with an
+            // MDC packet.  But, if the packet preceding the MDC
+            // packet uses an indeterminate length encoding (gpg
+            // generates these for compressed data packets, for
+            // instance), the parser has to detect the EOF and be
+            // careful to not read any further.  Unfortunately, our
+            // decompressor buffers the data.  To stop the
+            // decompressor from buffering the MDC packet, we use a
+            // BufferedReaderReserve.  Note: we do this
+            // unconditionally, since it doesn't otherwise interfere
+            // with parsing.
+
+            // An MDC consists of a 1-byte CTB, a 1-byte length
+            // encoding, and a 20-byte hash.
+            let mut reader = BufferedReaderReserve::with_cookie(
+                Box::new(reader), 1 + 1 + 20,
+                Cookie::new(self.recursion_depth as usize));
+            reader.cookie_mut().fake_eof = true;
+
+            if trace {
+                eprintln!("{}PacketParser::decrypt(): \
+                           Pushing BufferedReaderReserve, level: {}.",
+                          indent(self.recursion_depth as u8),
+                          self.recursion_depth);
+            }
+
             // Consume the header.  This shouldn't fail, because it
             // worked when reading the header.
             reader.data_consume_hard(bl + 2).unwrap();
@@ -3370,6 +3435,85 @@ mod test {
             }
         }
     }
+
+    // Try decrypting more complicate messages.  In particular, test
+    // the use of the BufferedReaderReserve.
+    #[test]
+    fn decrypt_test_3() {
+        const DECRYPT_TESTS: [DecryptTest; 4] = [
+            DecryptTest {
+                filename: "seip/msg-compression-not-signed-password-123.pgp",
+                algo: SymmetricAlgorithm::AES128,
+                key_hex: "86A8C1C7961F55A3BE181A990D0ABB2A",
+            },
+            DecryptTest {
+                filename: "seip/msg-compression-signed-password-123.pgp",
+                algo: SymmetricAlgorithm::AES128,
+                key_hex: "1B195CD35CAD4A99D9399B4CDA4CDA4E",
+            },
+            DecryptTest {
+                filename: "seip/msg-no-compression-not-signed-password-123.pgp",
+                algo: SymmetricAlgorithm::AES128,
+                key_hex: "AFB43B83A4B9D971E4B4A4C53749076A",
+            },
+            DecryptTest {
+                filename: "seip/msg-no-compression-signed-password-123.pgp",
+                algo: SymmetricAlgorithm::AES128,
+                key_hex: "9D5DB92F77F0E4A356EE53813EF2C3DC",
+            },
+        ];
+
+        for test in DECRYPT_TESTS.iter() {
+            let path = path_to(test.filename);
+            let mut pp = PacketParserBuilder::from_file(&path).unwrap()
+                .buffer_unread_content()
+                .finalize()
+                .expect(&format!("Error reading {}", test.filename)[..])
+                .expect("Empty message");
+
+            let mut saw_seip = false;
+            let mut saw_literal = false;
+            let mut saw_mdc = false;
+
+            loop {
+                match pp.packet {
+                    Packet::SEIP(_) => {
+                        assert!(! saw_seip);
+                        saw_seip = true;
+
+                        let key = ::conversions::from_hex(test.key_hex, false)
+                            .unwrap().into();
+
+                        pp.decrypt(test.algo, &key).unwrap();
+                    },
+                    Packet::MDC(ref mdc) => {
+                        assert!(!saw_mdc);
+                        saw_mdc = true;
+
+                        assert_eq!(mdc.hash, mdc.computed_hash);
+                    },
+                    Packet::Literal(_) => {
+                        assert!(!saw_literal);
+                        saw_literal = true;
+                    },
+                    _ => (),
+                }
+
+                match pp.recurse().unwrap() {
+                    (_, (PacketParserResult::Some(pp_), _)) => pp = pp_,
+                    (_, (PacketParserResult::EOF(eof), _)) => {
+                        assert!(eof.is_message());
+                        break;
+                    }
+                }
+            }
+
+            assert!(saw_seip);
+            assert!(saw_literal);
+            assert!(saw_mdc);
+        }
+    }
+
 
     #[test]
     fn corrupted_tpk() {
