@@ -104,7 +104,7 @@ fn real_main() -> Result<(), failure::Error> {
             let mut output = create_or_stdout(m.value_of("output"))?;
             let mut input = openpgp::Reader::from_reader(input)?;
             let signatures: usize =
-                m.value_of("signatures").unwrap_or("1").parse()?;
+                m.value_of("signatures").unwrap_or("0").parse()?;
             let tpks = m.values_of("public-key-file")
                 .map(load_tpks)
                 .unwrap_or(Ok(vec![]))?;
@@ -162,7 +162,7 @@ fn real_main() -> Result<(), failure::Error> {
                 unimplemented!("Detached signature generation not implemented");
             }
             let signatures: usize =
-                m.value_of("signatures").unwrap_or("1").parse()?;
+                m.value_of("signatures").unwrap_or("0").parse()?;
             let tpks = m.values_of("public-key-file")
                 .map(load_tpks)
                 .unwrap_or(Ok(vec![]))?;

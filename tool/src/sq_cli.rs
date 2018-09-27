@@ -31,7 +31,7 @@ pub fn build() -> App<'static, 'static> {
                          .help("Sets the output file to use"))
                     .arg(Arg::with_name("signatures").value_name("N")
                          .help("The number of valid signatures required.  \
-                                Default: 1")
+                                Default: 0")
                          .long("signatures")
                          .short("n")
                          .takes_value(true))
@@ -146,7 +146,7 @@ pub fn build() -> App<'static, 'static> {
 */
                     .arg(Arg::with_name("signatures").value_name("N")
                          .help("The number of valid signatures required.  \
-                                Default: 1")
+                                Default: 0")
                          .long("signatures")
                          .short("n")
                          .takes_value(true))
