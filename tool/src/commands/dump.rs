@@ -337,9 +337,9 @@ impl PacketDumper {
             Revocable(r) =>
                 write!(output, "{}    Revocable: {}", i, r)?,
             KeyExpirationTime(ref t) =>
-                write!(output, "{}    Signature expiration time: {}", i, t)?,
+                write!(output, "{}    Key expiration time: {}", i, t)?,
             PreferredSymmetricAlgorithms(ref c) =>
-                write!(output, "{}    Cipher preference: {}", i,
+                write!(output, "{}    Cipher preferences: {}", i,
                        c.iter().map(|c| format!("{:?}", c))
                        .collect::<Vec<String>>().join(", "))?,
             RevocationKey{class, pk_algo, ref fp} =>
@@ -351,11 +351,11 @@ impl PacketDumper {
             NotationData(ref n) =>
                 write!(output, "{}    Notation: {:?}", i, n)?,
             PreferredHashAlgorithms(ref h) =>
-                write!(output, "{}    Hash preference: {}", i,
+                write!(output, "{}    Hash preferences: {}", i,
                        h.iter().map(|h| format!("{:?}", h))
                        .collect::<Vec<String>>().join(", "))?,
             PreferredCompressionAlgorithms(ref c) =>
-                write!(output, "{}    Compression preference: {}", i,
+                write!(output, "{}    Compression preferences: {}", i,
                        c.iter().map(|c| format!("{:?}", c))
                        .collect::<Vec<String>>().join(", "))?,
             KeyServerPreferences(ref p) =>
@@ -371,7 +371,7 @@ impl PacketDumper {
             KeyFlags(ref k) =>
                 write!(output, "{}    Key flags: {:?}", i, k)?,
             SignersUserID(ref u) =>
-                write!(output, "{}    Signers User ID: {}", i,
+                write!(output, "{}    Signer's User ID: {}", i,
                        String::from_utf8_lossy(u))?,
             ReasonForRevocation{code, ref reason} => {
                 let reason = String::from_utf8_lossy(reason);
