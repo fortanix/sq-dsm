@@ -76,6 +76,7 @@
 //!     -o, --output <FILE>                       Sets the output file to use
 //!     -r, --recipient <LABEL>...                Recipient to encrypt for (can be given multiple times)
 //!         --recipient-key-file <TPK-FILE>...    Recipient to encrypt for, given as a file (can be given multiple times)
+//!         --signer-key-file <TSK-FILE>...       Secret key to sign with, given as a file (can be given multiple times)
 //!
 //! ARGS:
 //!     <FILE>    Sets the input file to use

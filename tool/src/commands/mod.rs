@@ -40,7 +40,7 @@ fn tm2str(t: &time::Tm) -> String {
 pub fn encrypt(store: &mut store::Store,
                input: &mut io::Read, output: &mut io::Write,
                npasswords: usize, recipients: Vec<&str>,
-               mut tpks: Vec<openpgp::TPK>)
+               mut tpks: Vec<openpgp::TPK>, signers: Vec<openpgp::TPK>)
                -> Result<()> {
     for r in recipients {
         tpks.push(store.lookup(r).context("No such key found")?.tpk()?);
@@ -62,17 +62,27 @@ pub fn encrypt(store: &mut store::Store,
         passwords.iter().collect();
 
     // We want to encrypt a literal data packet.
-    let encryptor = Encryptor::new(wrap(output),
-                                   &passwords_,
-                                   &recipients,
-                                   EncryptionMode::AtRest)
+    let mut sink = Encryptor::new(wrap(output),
+                                  &passwords_,
+                                  &recipients,
+                                  EncryptionMode::AtRest)
         .context("Failed to create encryptor")?;
-    let mut literal_writer = LiteralWriter::new(encryptor, DataFormat::Binary,
+
+    // Optionally sign message.
+    if ! signers.is_empty() {
+        let signers_: Vec<&openpgp::TPK> = signers.iter().collect();
+        sink = Signer::with_intended_recipients(sink, &signers_, &recipients)?;
+    }
+
+    let mut literal_writer = LiteralWriter::new(sink, DataFormat::Binary,
                                                 None, None)
         .context("Failed to create literal writer")?;
 
     // Finally, copy stdin to our writer stack to encrypt the data.
     io::copy(input, &mut literal_writer)
+        .context("Failed to encrypt")?;
+
+    literal_writer.finalize()
         .context("Failed to encrypt")?;
 
     Ok(())

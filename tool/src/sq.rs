@@ -136,9 +136,12 @@ fn real_main() -> Result<(), failure::Error> {
             let additional_tpks = m.values_of("recipient-key-file")
                 .map(load_tpks)
                 .unwrap_or(Ok(vec![]))?;
+            let additional_secrets = m.values_of("signer-key-file")
+                .map(load_tpks)
+                .unwrap_or(Ok(vec![]))?;
             commands::encrypt(&mut store, &mut input, &mut output,
                               m.occurrences_of("symmetric") as usize,
-                              recipients, additional_tpks)?;
+                              recipients, additional_tpks, additional_secrets)?;
         },
         ("sign",  Some(m)) => {
             let mut input = open_or_stdin(m.value_of("input"))?;

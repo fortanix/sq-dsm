@@ -88,6 +88,14 @@ pub fn build() -> App<'static, 'static> {
                          .number_of_values(1)
                          .help("Recipient to encrypt for, given as a file \
                                 (can be given multiple times)"))
+                    .arg(Arg::with_name("signer-key-file")
+                         .long("signer-key-file")
+                         .multiple(true)
+                         .takes_value(true)
+                         .value_name("TSK-FILE")
+                         .number_of_values(1)
+                         .help("Secret key to sign with, given as a file \
+                                (can be given multiple times)"))
                     .arg(Arg::with_name("symmetric")
                          .long("symmetric")
                          .short("s")
