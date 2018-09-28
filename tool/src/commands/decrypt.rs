@@ -207,6 +207,10 @@ pub fn decrypt(ctx: &Context, store: &mut store::Store,
             e.into()
         }).context("Decryption failed")?;
 
-    decryptor.into_helper().vhelper.print_status();
+    let helper = decryptor.into_helper();
+    if let Some(dumper) = helper.dumper.as_ref() {
+        dumper.flush(output)?;
+    }
+    helper.vhelper.print_status();
     return Ok(());
 }

@@ -11,11 +11,6 @@ use openpgp::parse::{Map, PacketParserResult};
 
 use super::TIMEFMT;
 
-// Indent packets according to their recursion level.
-const INDENT: &'static str
-    // 64 spaces = max recursion depth (16) * 4 spaces
-    = "                                                                ";
-
 pub fn dump(input: &mut io::Read, output: &mut io::Write, mpis: bool, hex: bool)
         -> Result<()> {
     let mut ppr
@@ -46,17 +41,49 @@ pub fn dump(input: &mut io::Read, output: &mut io::Write, mpis: bool, hex: bool)
         dumper.packet(output, recursion_depth as usize,
                       header, packet, map, additional_fields)?;
     }
-    Ok(())
+
+    dumper.flush(output)
 }
 
 pub struct PacketDumper {
     mpis: bool,
+    root: Option<Node>,
+}
+
+struct Node {
+    header: Header,
+    packet: Packet,
+    map: Option<Map>,
+    additional_fields: Option<Vec<String>>,
+    children: Vec<Node>,
+}
+
+impl Node {
+    fn new(header: Header, packet: Packet, map: Option<Map>,
+           additional_fields: Option<Vec<String>>) -> Self {
+        Node {
+            header: header,
+            packet: packet,
+            map: map,
+            additional_fields: additional_fields,
+            children: Vec::new(),
+        }
+    }
+
+    fn append(&mut self, depth: usize, node: Node) {
+        if depth == 0 {
+            self.children.push(node);
+        } else {
+            self.children.iter_mut().last().unwrap().append(depth - 1, node);
+        }
+    }
 }
 
 impl PacketDumper {
     pub fn new(mpis: bool) -> Self {
         PacketDumper {
             mpis: mpis,
+            root: None,
         }
     }
 
@@ -64,19 +91,61 @@ impl PacketDumper {
                   header: Header, p: Packet, map: Option<Map>,
                   additional_fields: Option<Vec<String>>)
                   -> Result<()> {
-        self.dump_packet(output, 2 * depth, Some(&header), &p, map.as_ref(),
-                         additional_fields.as_ref())
+        let node = Node::new(header, p, map, additional_fields);
+        if self.root.is_none() {
+            assert_eq!(depth, 0);
+            self.root = Some(node);
+        } else {
+            if depth == 0 {
+                let root = self.root.take().unwrap();
+                self.dump_tree(output, "", &root)?;
+                self.root = Some(node);
+            } else {
+                self.root.as_mut().unwrap().append(depth - 1, node);
+            }
+        }
+        Ok(())
     }
 
-    fn dump_packet(&mut self, output: &mut io::Write, depth: usize,
+    pub fn flush(&self, output: &mut io::Write) -> Result<()> {
+        if let Some(root) = self.root.as_ref() {
+            self.dump_tree(output, "", &root)?;
+        }
+        Ok(())
+    }
+
+    fn dump_tree(&self, output: &mut io::Write, indent: &str, node: &Node)
+                 -> Result<()> {
+        let indent_node =
+            format!("{}{} ", indent,
+                    if node.children.is_empty() { " " } else { "│" });
+        self.dump_packet(output, &indent_node, Some(&node.header), &node.packet,
+                         node.map.as_ref(), node.additional_fields.as_ref())?;
+        if node.children.is_empty() {
+            return Ok(());
+        }
+
+        let last = node.children.len() - 1;
+        for (i, child) in node.children.iter().enumerate() {
+            let is_last = i == last;
+            write!(output, "{}{}── ", indent,
+                   if is_last { "└" } else { "├" })?;
+            let indent_child =
+                format!("{}{}   ", indent,
+                        if is_last { " " } else { "│" });
+            self.dump_tree(output, &indent_child, child)?;
+        }
+        Ok(())
+    }
+
+    fn dump_packet(&self, output: &mut io::Write, i: &str,
                   header: Option<&Header>, p: &Packet, map: Option<&Map>,
                   additional_fields: Option<&Vec<String>>)
                   -> Result<()> {
         use self::openpgp::Packet::*;
-        let i = &INDENT[0..2 * depth as usize];
 
         if let Some(h) = header {
-            write!(output, "{}{} CTB, {}: ", i,
+            write!(output, "{} CTB, {}: ",
                    if let CTB::Old(_) = h.ctb { "Old" } else { "New" },
                    match h.length {
                        BodyLength::Full(n) =>
@@ -86,8 +155,6 @@ impl PacketDumper {
                        BodyLength::Indeterminate =>
                            "indeterminate length".into(),
                    })?;
-        } else {
-            write!(output, "{}", i)?;
         }
 
         match p {
@@ -105,13 +172,13 @@ impl PacketDumper {
                 if s.hashed_area().iter().count() > 0 {
                     writeln!(output, "{}  Hashed area:", i)?;
                     for (_, _, pkt) in s.hashed_area().iter() {
-                        self.dump_subpacket(output, depth, pkt)?;
+                        self.dump_subpacket(output, i, pkt)?;
                     }
                 }
                 if s.unhashed_area().iter().count() > 0 {
                     writeln!(output, "{}  Unhashed area:", i)?;
                     for (_, _, pkt) in s.unhashed_area().iter() {
-                        self.dump_subpacket(output, depth, pkt)?;
+                        self.dump_subpacket(output, i, pkt)?;
                     }
                 }
                 writeln!(output, "{}  Hash prefix: {}", i,
@@ -229,17 +296,17 @@ impl PacketDumper {
             for (field, bytes) in map.iter() {
                 hd.write(output, bytes, field)?;
             }
+            writeln!(output)?;
+        } else {
+            writeln!(output, "{}", i)?;
         }
-        writeln!(output)?;
 
         Ok(())
     }
 
-    fn dump_subpacket(&mut self, output: &mut io::Write, depth: usize,
-                      s: Subpacket)
+    fn dump_subpacket(&self, output: &mut io::Write, i: &str, s: Subpacket)
                       -> Result<()> {
         use self::SubpacketValue::*;
-        let i = &INDENT[0..2 * depth as usize];
 
         match s.value {
             Unknown(ref b) =>
@@ -324,7 +391,8 @@ impl PacketDumper {
 
         match s.value {
             EmbeddedSignature(ref sig) => {
-                self.dump_packet(output, depth + 3, None, sig, None, None)?;
+                let indent = format!("{}      ", i);
+                self.dump_packet(output, &indent, None, sig, None, None)?;
             },
             _ => (),
         }
