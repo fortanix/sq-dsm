@@ -19,7 +19,7 @@ use packet::BodyLength;
 /// See [Section 4.2 of RFC 4880] for more details.
 ///
 ///   [Section 4.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.2
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct CTBCommon {
     /// RFC4880 Packet tag
     pub tag: Tag,
@@ -30,7 +30,7 @@ pub struct CTBCommon {
 /// See [Section 4.2 of RFC 4880] for more details.
 ///
 ///   [Section 4.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.2
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct CTBNew {
     /// Packet CTB fields
     pub common: CTBCommon,
@@ -110,7 +110,7 @@ impl From<PacketLengthType> for u8 {
 /// See [Section 4.2 of RFC 4880] for more details.
 ///
 ///   [Section 4.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.2
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct CTBOld {
     /// Common CTB fields.
     pub common: CTBCommon,
@@ -183,7 +183,7 @@ impl Deref for CTBOld {
 ///   [new CTB format]: ./CTBNew.t.html
 ///
 /// Note: CTB stands for Cipher Type Byte.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum CTB {
     /// New (current) packet header format.
     New(CTBNew),

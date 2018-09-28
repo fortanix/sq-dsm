@@ -328,7 +328,7 @@ impl Common {
 }
 
 /// An OpenPGP packet's header.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Header {
     /// The packet's CTB.
     pub ctb: CTB,
