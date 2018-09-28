@@ -5,7 +5,7 @@ use rpassword;
 
 extern crate openpgp;
 use sequoia_core::Context;
-use openpgp::{TPK, KeyID, SecretKey, Result};
+use openpgp::{Fingerprint, TPK, KeyID, SecretKey, Result};
 use openpgp::packet::{Key, Signature, PKESK, SKESK};
 use openpgp::parse::PacketParser;
 use openpgp::parse::stream::{
@@ -18,6 +18,7 @@ use super::{dump::PacketDumper, VHelper};
 struct Helper<'a> {
     vhelper: VHelper<'a>,
     secret_keys: HashMap<KeyID, Key>,
+    key_identities: HashMap<KeyID, Fingerprint>,
     key_hints: HashMap<KeyID, String>,
     dumper: Option<PacketDumper>,
     hex: bool,
@@ -42,6 +43,7 @@ impl<'a> Helper<'a> {
            dump: bool, hex: bool)
            -> Self {
         let mut keys: HashMap<KeyID, Key> = HashMap::new();
+        let mut identities: HashMap<KeyID, Fingerprint> = HashMap::new();
         let mut hints: HashMap<KeyID, String> = HashMap::new();
         for tsk in secrets {
             let can_encrypt = |_: &Key, sig: Option<&Signature>| -> bool {
@@ -62,6 +64,7 @@ impl<'a> Helper<'a> {
             if can_encrypt(tsk.primary(), tsk.primary_key_signature()) {
                 let id = tsk.fingerprint().to_keyid();
                 keys.insert(id.clone(), tsk.primary().clone());
+                identities.insert(id.clone(), tsk.fingerprint());
                 hints.insert(id, hint.clone());
             }
 
@@ -70,6 +73,7 @@ impl<'a> Helper<'a> {
                 if can_encrypt(key, skb.binding_signature()) {
                     let id = key.fingerprint().to_keyid();
                     keys.insert(id.clone(), key.clone());
+                    identities.insert(id.clone(), tsk.fingerprint());
                     hints.insert(id, hint.clone());
                 }
             }
@@ -78,6 +82,7 @@ impl<'a> Helper<'a> {
         Helper {
             vhelper: VHelper::new(ctx, store, signatures, tpks),
             secret_keys: keys,
+            key_identities: identities,
             key_hints: hints,
             dumper: if dump || hex {
                 Some(PacketDumper::new(false))
@@ -133,6 +138,8 @@ impl<'a> DecryptionHelper for Helper<'a> {
                             key.secret()
                         {
                             return Ok(Some(Secret::Asymmetric {
+                                identity: self.key_identities.get(keyid)
+                                    .unwrap().clone(),
                                 key: key.clone(),
                                 secret: mpis.clone(),
                             }))
@@ -167,6 +174,8 @@ impl<'a> DecryptionHelper for Helper<'a> {
                                     .decrypt(key.pk_algo(), &p)
                                 {
                                     return Ok(Some(Secret::Asymmetric {
+                                        identity: self.key_identities.get(keyid)
+                                            .unwrap().clone(),
                                         key: key.clone(),
                                         secret: mpis,
                                     }));

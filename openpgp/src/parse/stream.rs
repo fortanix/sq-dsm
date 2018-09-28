@@ -14,6 +14,7 @@ use buffered_reader::{
 };
 use {
     Error,
+    Fingerprint,
     constants::SymmetricAlgorithm,
     packet::{Key, PKESK, SKESK},
     KeyID,
@@ -520,6 +521,7 @@ pub struct Decryptor<'a, H: VerificationHelper + DecryptionHelper> {
     buffer: Vec<u8>,
     seen_eof: bool,
     oppr: Option<PacketParserResult<'a>>,
+    identity: Option<Fingerprint>,
     sigs: Vec<Vec<VerificationResult>>,
 }
 
@@ -576,6 +578,8 @@ pub trait DecryptionHelper {
 pub enum Secret {
     /// A key pair for asymmetric decryption.
     Asymmetric {
+        /// The primary key's fingerprint.
+        identity: Fingerprint,
         /// The public key.
         key: packet::Key,
         /// The secret key.
@@ -662,6 +666,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
             buffer: Vec::new(),
             seen_eof: false,
             oppr: None,
+            identity: None,
             sigs: Vec::new(),
         };
 
@@ -685,7 +690,9 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                         v.helper.get_secret(&pkesk_refs[..], &skesk_refs[..])?
                     {
                         match secret {
-                            Secret::Asymmetric { ref key, ref secret } => {
+                            Secret::Asymmetric {
+                                ref identity, ref key, ref secret,
+                            } => {
                                 let keyid = key.fingerprint().to_keyid();
 
                                 for pkesk in pkesks.iter().filter(|p| {
@@ -696,6 +703,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                                         pkesk.decrypt(&key, &secret)
                                     {
                                         if pp.decrypt(algo, &key).is_ok() {
+                                            v.identity = Some(identity.clone());
                                             decrypted = true;
                                             break 'decrypt_seip;
                                         }
@@ -835,6 +843,20 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                 {
                     if current_level != sig.level() {
                         self.sigs.push(Vec::new());
+                    }
+                }
+
+                // Check intended recipients.
+                if let Some(identity) = self.identity.as_ref() {
+                    let ir = sig.intended_recipients();
+                    if !ir.is_empty() && !ir.contains(identity) {
+                        // The signature contains intended recipients,
+                        // but we are not one.  Treat the signature as
+                        // bad.
+                        self.sigs.iter_mut().last()
+                            .expect("sigs is never empty").push(
+                                VerificationResult::BadChecksum(sig));
+                        return Ok(());
                     }
                 }
 
