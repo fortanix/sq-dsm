@@ -53,6 +53,11 @@ typedef enum sq_status {
   SQ_STATUS_UNKNOWN_HASH_ALGORITHM = -7,
 
   /*/
+  /// Unknown public key algorithm.
+  /*/
+  SQ_STATUS_UNKNOWN_PUBLICKEY_ALGORITHM = -17,
+
+  /*/
   /// Unknown symmetric algorithm.
   /*/
   SQ_STATUS_UNKNOWN_SYMMETRIC_ALGORITHM = -8,
@@ -63,9 +68,24 @@ typedef enum sq_status {
   SQ_STATUS_UNSUPPORTED_HASH_ALGORITHM = -9,
 
   /*/
+  /// Unsupported public key algorithm.
+  /*/
+  SQ_STATUS_UNSUPPORTED_PUBLICKEY_ALGORITHM = -18,
+
+  /*/
+  /// Unsupported elliptic curve.
+  /*/
+  SQ_STATUS_UNSUPPORTED_ELLIPTIC_CURVE = -21,
+
+  /*/
   /// Unsupported symmetric algorithm.
   /*/
   SQ_STATUS_UNSUPPORTED_SYMMETRIC_ALGORITHM = -10,
+
+  /*/
+  /// Unsupport signature type.
+  /*/
+  SQ_STATUS_UNSUPPORTED_SIGNATURE_TYPE = -20,
 
   /*/
   /// Invalid password.
@@ -78,14 +98,29 @@ typedef enum sq_status {
   SQ_STATUS_INVALID_SESSION_KEY = -12,
 
   /*/
-  /// Key not found.
+  /// Malformed TPK.
   /*/
-  SQ_STATUS_KEY_NOT_FOUND = -13,
+  SQ_STATUS_MALFORMED_TPK = -13,
 
   /*/
-  /// User ID not found.
+  /// Bad signature.
   /*/
-  SQ_STATUS_USER_ID_NOT_FOUND = -14,
+  SQ_STATUS_BAD_SIGNATURE = -19,
+
+  /*/
+  /// Malformed message.
+  /*/
+  SQ_STATUS_MALFORMED_MESSAGE = -22,
+
+  /*/
+  /// Index out of range.
+  /*/
+  SQ_STATUS_INDEX_OUT_OF_RANGE = -23,
+
+  /*/
+  /// TPK not supported.
+  /*/
+  SQ_STATUS_UNSUPPORTED_TPK = -24,
 
   /* Dummy value to make sure the enumeration has a defined size.  Do
      not use this value.  */
