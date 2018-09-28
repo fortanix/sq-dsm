@@ -114,7 +114,7 @@ impl<'a> DecryptionHelper for Helper<'a> {
         Ok(())
     }
 
-    fn get_secret(&mut self, pkesks: &[&PKESK], _skesks: &[&SKESK])
+    fn get_secret(&mut self, pkesks: &[&PKESK], skesks: &[&SKESK])
                   -> Result<Option<Secret>> {
         loop {
             self.pass = match self.pass {
@@ -180,11 +180,16 @@ impl<'a> DecryptionHelper for Helper<'a> {
                     Pass::Passwords
                 },
 
-                Pass::Passwords =>
+                Pass::Passwords => {
+                    if skesks.is_empty() {
+                        return
+                            Err(failure::err_msg("No key to decrypt message"));
+                    }
                     return Ok(Some(Secret::Symmetric {
                         password: rpassword::prompt_password_stderr(
                             "Enter password to decrypt message: ")?.into(),
-                    })),
+                    }));
+                },
             }
         }
     }
