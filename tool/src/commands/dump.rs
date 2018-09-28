@@ -37,12 +37,14 @@ pub fn dump(input: &mut io::Read, output: &mut io::Write, mpis: bool, hex: bool)
             _ => None,
         };
 
-        dumper.packet(output, 2 * pp.recursion_depth as usize,
-                      Some(&pp.header), &pp.packet, pp.map.take(),
-                      additional_fields)?;
+        let header = pp.header.clone();
+        let map = pp.map.take();
 
-        let (_, (ppr_, _)) = pp.recurse()?;
+        let ((packet, recursion_depth), (ppr_, _)) = pp.recurse()?;
         ppr = ppr_;
+
+        dumper.packet(output, recursion_depth as usize,
+                      header, packet, map, additional_fields)?;
     }
     Ok(())
 }
@@ -59,8 +61,16 @@ impl PacketDumper {
     }
 
     pub fn packet(&mut self, output: &mut io::Write, depth: usize,
-                  header: Option<&Header>, p: &Packet, map: Option<Map>,
+                  header: Header, p: Packet, map: Option<Map>,
                   additional_fields: Option<Vec<String>>)
+                  -> Result<()> {
+        self.dump_packet(output, 2 * depth, Some(&header), &p, map.as_ref(),
+                         additional_fields.as_ref())
+    }
+
+    fn dump_packet(&mut self, output: &mut io::Write, depth: usize,
+                  header: Option<&Header>, p: &Packet, map: Option<&Map>,
+                  additional_fields: Option<&Vec<String>>)
                   -> Result<()> {
         use self::openpgp::Packet::*;
         let i = &INDENT[0..2 * depth as usize];
@@ -314,7 +324,7 @@ impl PacketDumper {
 
         match s.value {
             EmbeddedSignature(ref sig) => {
-                self.packet(output, depth + 3, None, sig, None, None)?;
+                self.dump_packet(output, depth + 3, None, sig, None, None)?;
             },
             _ => (),
         }

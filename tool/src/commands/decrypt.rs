@@ -107,9 +107,9 @@ impl<'a> DecryptionHelper for Helper<'a> {
     fn inspect(&mut self, pp: &PacketParser) -> Result<()> {
         if let Some(dumper) = self.dumper.as_mut() {
             dumper.packet(&mut io::stderr(),
-                          2 * pp.recursion_depth as usize,
-                          Some(&pp.header), &pp.packet, pp.map.clone(),
-                          None)?;
+                          pp.recursion_depth as usize,
+                          pp.header.clone(), pp.packet.clone(),
+                          pp.map.clone(), None)?;
         }
         Ok(())
     }
