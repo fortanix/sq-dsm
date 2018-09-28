@@ -69,7 +69,7 @@ pub fn main() {
                                     tsk.secret()
                                 {
                                     if let Ok((algo, key)) = pkesk.decrypt(tsk, mpis) {
-	                                let r = pp.decrypt(algo, &key[..]);
+	                                let r = pp.decrypt(algo, &key);
                                         if r.is_ok() {
                                             state = Some(State::Deciphered);
                                             break;

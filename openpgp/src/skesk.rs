@@ -4,6 +4,7 @@ use Error;
 use SymmetricAlgorithm;
 use packet;
 use Packet;
+use SessionKey;
 
 /// Holds an symmetrically encrypted session key.
 ///
@@ -33,7 +34,7 @@ impl SKESK {
     /// used to encrypt the payload, and is also used to encrypt the
     /// given session key.
     pub fn new(algo: SymmetricAlgorithm, s2k: S2K,
-               session_key: &[u8], password: &[u8])
+               session_key: &SessionKey, password: &[u8])
                -> Result<SKESK> {
         // Derive key and make a cipher.
         let key = s2k.derive_key(password, algo.key_size()?)?;
@@ -105,7 +106,7 @@ impl SKESK {
     /// tuple of the symmetric cipher to use with the key and the key
     /// itself.
     pub fn decrypt(&self, password: &[u8])
-        -> Result<(SymmetricAlgorithm, Vec<u8>)>
+        -> Result<(SymmetricAlgorithm, SessionKey)>
     {
         let key = self.s2k.derive_key(password, self.symm_algo.key_size()?)?;
 
@@ -124,10 +125,13 @@ impl SKESK {
                 dec.decrypt(&mut iv[..], pl, ct);
             }
 
-            let sym = SymmetricAlgorithm::from(plain[0]);
-            let key = plain[1..].to_vec();
-
-            Ok((sym, key))
+            // Get the algorithm from the front.  While doing that,
+            // push and pop a value to overwrite the position formerly
+            // occupied by last byte of the session key.
+            plain.push(0);
+            let sym = SymmetricAlgorithm::from(plain.remove(0));
+            plain.pop();
+            Ok((sym, plain.into()))
         } else {
             // No ESK, we return the derived key.
 

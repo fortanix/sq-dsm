@@ -889,9 +889,10 @@ mod tests {
         // 0: SK-ESK
         // => bad.
         let mut packets : Vec<Packet> = Vec::new();
+        let sk = ::SessionKey::new(&mut Default::default(), 8);
         packets.push(SKESK::new(SymmetricAlgorithm::AES256,
                                 S2K::Simple { hash: HashAlgorithm::SHA256 },
-                                &b"12345678"[..],
+                                &sk,
                                 &b"12345678"[..]).unwrap().to_packet());
         let message = Message::from_packets(packets.clone());
         assert!(message.is_err(), "{:?}", message);

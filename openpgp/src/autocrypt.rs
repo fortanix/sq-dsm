@@ -568,7 +568,7 @@ impl<'a> AutocryptSetupMessageParser<'a> {
         }
 
         let (algo, key) = self.skesk.decrypt(passcode)?;
-        self.pp.decrypt(algo, &key[..])?;
+        self.pp.decrypt(algo, &key)?;
 
         self.passcode = Some(passcode.into());
 

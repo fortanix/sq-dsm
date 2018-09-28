@@ -37,6 +37,7 @@ use {
     Packet,
     KeyID,
     SecretKey,
+    SessionKey,
     packet::PKESK,
 };
 use constants::{
@@ -3014,7 +3015,7 @@ impl<'a> PacketParser<'a> {
     /// If this function is called on a packet that does not contain
     /// encrypted data, or some of the data was already read, then it
     /// returns `Error::InvalidOperation`.
-    pub fn decrypt(&mut self, algo: SymmetricAlgorithm, key: &[u8])
+    pub fn decrypt(&mut self, algo: SymmetricAlgorithm, key: &SessionKey)
         -> Result<()>
     {
         let trace = self.state.settings.trace;
@@ -3155,9 +3156,9 @@ mod test {
             loop {
                 if let Packet::SEIP(_) = pp.packet {
                     let key = ::conversions::from_hex(test.key_hex, false)
-                        .unwrap();
+                        .unwrap().into();
 
-                    pp.decrypt(test.algo, &key[..]).unwrap();
+                    pp.decrypt(test.algo, &key).unwrap();
 
                     // SEIP packet.
                     let ((packet, _), (pp, _)) = pp.recurse().unwrap();
@@ -3219,9 +3220,9 @@ mod test {
             loop {
                 if let Packet::SEIP(_) = pp.packet {
                     let key = ::conversions::from_hex(test.key_hex, false)
-                        .unwrap();
+                        .unwrap().into();
 
-                    pp.decrypt(test.algo, &key[..]).unwrap();
+                    pp.decrypt(test.algo, &key).unwrap();
 
                     // SEIP packet.
                     let ((packet, _), (pp, _)) = pp.recurse().unwrap();
@@ -3297,8 +3298,8 @@ mod test {
                 match pp.packet {
                     Packet::SEIP(_) => {
                         let key = ::conversions::from_hex(test.key_hex, false)
-                            .unwrap();
-                        pp.decrypt(test.algo, &key[..]).unwrap();
+                            .unwrap().into();
+                        pp.decrypt(test.algo, &key).unwrap();
                     },
                     Packet::Literal(_) => {
                         assert!(! saw_literal);

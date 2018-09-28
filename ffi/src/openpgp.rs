@@ -1467,7 +1467,8 @@ pub extern "system" fn sq_packet_parser_decrypt<'a>
     let key = unsafe {
         slice::from_raw_parts(key, key_len as usize)
     };
-    fry_status!(ctx, pp.decrypt((algo as u8).into(), key))
+    let key = key.to_owned().into();
+    fry_status!(ctx, pp.decrypt((algo as u8).into(), &key))
 }
 
 

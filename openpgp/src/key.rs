@@ -260,8 +260,7 @@ impl SecretKey {
                 Err(Error::InvalidOperation("Key is not encrypted".into())
                     .into()),
             &SecretKey::Encrypted { ref s2k, algorithm, ref ciphertext } => {
-                let key = s2k.derive_key(password, algorithm.key_size()?)?
-                    .into_boxed_slice();
+                let key = s2k.derive_key(password, algorithm.key_size()?)?;
                 let mut cur = Cursor::new(ciphertext);
                 let mut dec = Decryptor::new(algorithm, &key, cur)?;
                 let mut trash = vec![0u8; algorithm.block_size()?];

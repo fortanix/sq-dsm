@@ -23,6 +23,7 @@ use {
     packet::Signature,
     TPK,
     mpis,
+    SessionKey,
 };
 use parse::{
     Cookie,
@@ -591,7 +592,7 @@ pub enum Secret {
         /// The symmetric algorithm used to encrypt the SEIP packet.
         algo: SymmetricAlgorithm,
         /// The decrypted session key.
-        session_key: Box<[u8]>,
+        session_key: SessionKey,
     },
 }
 
@@ -693,7 +694,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                                     if let Ok((algo, key)) =
                                         pkesk.decrypt(&key, &secret)
                                     {
-                                        if pp.decrypt(algo, &key[..]).is_ok() {
+                                        if pp.decrypt(algo, &key).is_ok() {
                                             decrypted = true;
                                             break 'decrypt_seip;
                                         }
@@ -707,7 +708,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                                 for skesk in skesks.iter() {
                                     let (algo, key) = skesk.decrypt(pass)?;
 
-                                    if pp.decrypt(algo, &key[..]).is_ok() {
+                                    if pp.decrypt(algo, &key).is_ok() {
                                         decrypted = true;
                                         break 'decrypt_seip;
                                     }

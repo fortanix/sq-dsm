@@ -9,6 +9,7 @@
 use Error;
 use Result;
 use HashAlgorithm;
+use SessionKey;
 
 use std::fmt;
 
@@ -68,7 +69,7 @@ impl Default for S2K {
 impl S2K {
     /// Convert the string to a key using the S2K's paramters.
     pub fn derive_key(&self, string: &[u8], key_size: usize)
-    -> Result<Vec<u8>> {
+    -> Result<SessionKey> {
         match self {
             &S2K::Simple { hash } | &S2K::Salted { hash, .. }
             | &S2K::Iterated { hash, .. } => {
@@ -121,7 +122,7 @@ impl S2K {
                     zeros.push(0);
                 }
 
-                Ok(ret)
+                Ok(ret.into())
             }
             &S2K::Unknown(u) | &S2K::Private(u) =>
                 Err(Error::MalformedPacket(

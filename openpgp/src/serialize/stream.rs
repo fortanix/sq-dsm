@@ -17,6 +17,7 @@ use {
     packet::PKESK,
     Result,
     SecretKey,
+    SessionKey,
     packet::SKESK,
     packet::{signature, Signature},
     Tag,
@@ -855,8 +856,7 @@ impl<'a> Encryptor<'a> {
         let algo = SymmetricAlgorithm::AES256;
 
         // Generate a session key.
-        let mut sk = vec![0; algo.key_size().unwrap()];
-        rng.random(&mut sk);
+        let sk = SessionKey::new(&mut rng, algo.key_size().unwrap());
 
         if tpks.len() + passwords.len() == 0 {
             return Err(Error::InvalidArgument(
@@ -1287,7 +1287,7 @@ mod test {
         #[derive(Debug, PartialEq)]
         enum State {
             Start,
-            Decrypted(Vec<(SymmetricAlgorithm, Vec<u8>)>),
+            Decrypted(Vec<(SymmetricAlgorithm, SessionKey)>),
             Deciphered,
             MDC,
             Done,
@@ -1319,7 +1319,7 @@ mod test {
                             Packet::SEIP(_) =>
                                 loop {
                                     if let Some((algo, key)) = keys.pop() {
-                                        let r = pp.decrypt(algo, &key[..]);
+                                        let r = pp.decrypt(algo, &key);
                                         if r.is_ok() {
                                             break State::Deciphered;
                                         }

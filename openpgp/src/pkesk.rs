@@ -6,6 +6,7 @@ use Packet;
 use PublicKeyAlgorithm;
 use Result;
 use SymmetricAlgorithm;
+use SessionKey;
 use ecdh;
 use nettle::{rsa, Yarrow};
 use packet;
@@ -36,7 +37,7 @@ impl PKESK {
     /// The given symmetric algorithm must match the algorithm that is
     /// used to encrypt the payload.
     pub fn new(algo: SymmetricAlgorithm,
-               session_key: &[u8], recipient: &Key)
+               session_key: &SessionKey, recipient: &Key)
                -> Result<PKESK> {
         use PublicKeyAlgorithm::*;
         let mut rng = Yarrow::default();
@@ -131,13 +132,13 @@ impl PKESK {
     /// Decrypts the ESK and returns the session key and symmetric algorithm
     /// used to encrypt the following payload.
     pub fn decrypt(&self, recipient: &Key, recipient_sec: &mpis::SecretKey)
-        -> Result<(SymmetricAlgorithm, Box<[u8]>)>
+        -> Result<(SymmetricAlgorithm, SessionKey)>
     {
         use PublicKeyAlgorithm::*;
         use mpis::PublicKey;
         use nettle::rsa;
 
-        let plain = match
+        let plain: SessionKey = match
             (self.pk_algo, recipient.mpis(), recipient_sec, &self.esk)
         {
             (RSAEncryptSign,
@@ -168,7 +169,7 @@ impl PKESK {
                 return Err(Error::MalformedPacket(format!(
                     "unsupported combination of algorithm {:?}, key pair {:?}/{:?} and ciphertext {:?}",
                     algo, public, secret, cipher)).into()),
-        };
+        }.into();
 
         let key_rgn = 1..(plain.len() - 2);
         let symm_algo: SymmetricAlgorithm = plain[0].into();
@@ -187,7 +188,7 @@ impl PKESK {
             | (plain[plain.len() - 1] as usize);
 
         if their_checksum == our_checksum {
-            Ok((symm_algo, key.into_boxed_slice()))
+            Ok((symm_algo, key.into()))
         } else {
             Err(Error::MalformedPacket(format!("key checksum wrong"))
                 .into())

@@ -509,6 +509,52 @@ pub enum RevocationStatus<'a> {
     NotAsFarAsWeKnow,
 }
 
+use std::ops::Deref;
+use nettle::random::Yarrow;
+
+/// Holds a session key.
+///
+/// The session key is cleared when dropped.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SessionKey(Box<[u8]>);
+
+impl SessionKey {
+    /// Creates a new session key.
+    pub fn new(rng: &mut Yarrow, size: usize) -> Self {
+        let mut sk = vec![0; size];
+        rng.random(&mut sk);
+        sk.into()
+    }
+}
+
+impl Deref for SessionKey {
+    type Target = [u8];
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl From<Vec<u8>> for SessionKey {
+    fn from(v: Vec<u8>) -> Self {
+        SessionKey(v.into_boxed_slice())
+    }
+}
+
+impl From<Box<[u8]>> for SessionKey {
+    fn from(v: Box<[u8]>) -> Self {
+        SessionKey(v)
+    }
+}
+
+impl Drop for SessionKey {
+    fn drop(&mut self) {
+        unsafe {
+            memsec::memzero(self.0.as_mut_ptr(), self.0.len());
+        }
+    }
+}
+
 use std::io::Read;
 use nettle::Hash;
 
