@@ -13,13 +13,13 @@ use openpgp::parse::stream::{
 };
 extern crate sequoia_store as store;
 
-use super::{dump::{HexDumper, dump_packet}, VHelper};
+use super::{dump::PacketDumper, VHelper};
 
 struct Helper<'a> {
     vhelper: VHelper<'a>,
     secret_keys: HashMap<KeyID, Key>,
     key_hints: HashMap<KeyID, String>,
-    dump: bool,
+    dumper: Option<PacketDumper>,
     hex: bool,
     pass: Pass,
 }
@@ -79,7 +79,11 @@ impl<'a> Helper<'a> {
             vhelper: VHelper::new(ctx, store, signatures, tpks),
             secret_keys: keys,
             key_hints: hints,
-            dump: dump,
+            dumper: if dump || hex {
+                Some(PacketDumper::new(false))
+            } else {
+                None
+            },
             hex: hex,
             pass: Pass::default(),
         }
@@ -101,22 +105,12 @@ impl<'a> DecryptionHelper for Helper<'a> {
     }
 
     fn inspect(&mut self, pp: &PacketParser) -> Result<()> {
-        if self.dump || self.hex {
-            dump_packet(&mut io::stderr(),
-                        2 * pp.recursion_depth as usize,
-                        false,
-                        Some(&pp.header), &pp.packet)?;
-            eprintln!();
+        if let Some(dumper) = self.dumper.as_mut() {
+            dumper.packet(&mut io::stderr(),
+                          2 * pp.recursion_depth as usize,
+                          Some(&pp.header), &pp.packet, pp.map.clone(),
+                          None)?;
         }
-
-        if let Some(ref map) = pp.map {
-            let mut hd = HexDumper::new();
-            for (field, bytes) in map.iter() {
-                hd.write(&mut io::stderr(), bytes, field)?;
-            }
-            eprintln!();
-        }
-
         Ok(())
     }
 
