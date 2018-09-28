@@ -110,6 +110,9 @@ pub enum Status {
     /// Bad signature.
     BadSignature = -19,
 
+    /// Message has been manipulated.
+    ManipulatedMessage = -25,
+
     // XXX: Skipping UnsupportedSignatureType = -20
     // XXX: Skipping UnsupportedEllipticCurve = -21
 
@@ -121,6 +124,8 @@ pub enum Status {
 
     /// TPK not supported.
     UnsupportedTPK = -24,
+
+    // XXX: Skipping ManipulatedMessage = -25
 }
 
 impl<'a> From<&'a failure::Error> for Status {
@@ -168,6 +173,8 @@ impl<'a> From<&'a failure::Error> for Status {
                     Status::MalformedMPI,
                 &openpgp::Error::BadSignature(_) =>
                     Status::BadSignature,
+                &openpgp::Error::ManipulatedMessage =>
+                    Status::ManipulatedMessage,
                 &openpgp::Error::MalformedMessage(_) =>
                     Status::MalformedMessage,
                 &openpgp::Error::MalformedTPK(_) =>

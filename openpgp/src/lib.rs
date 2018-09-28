@@ -229,6 +229,10 @@ pub enum Error {
     #[fail(display = "Bad signature: {}", _0)]
     BadSignature(String),
 
+    /// Message has been manipulated.
+    #[fail(display = "Message has been manipulated")]
+    ManipulatedMessage,
+
     /// Malformed message.
     #[fail(display = "Malformed Message: {}", _0)]
     MalformedMessage(String),

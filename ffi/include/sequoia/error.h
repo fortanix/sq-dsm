@@ -108,6 +108,11 @@ typedef enum sq_status {
   SQ_STATUS_BAD_SIGNATURE = -19,
 
   /*/
+  /// Message has been manipulated.
+  /*/
+  SQ_STATUS_MANIPULATED_MESSAGE = -25,
+
+  /*/
   /// Malformed message.
   /*/
   SQ_STATUS_MALFORMED_MESSAGE = -22,
