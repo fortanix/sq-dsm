@@ -4,7 +4,7 @@ use time;
 extern crate openpgp;
 use openpgp::{Packet, Result};
 use openpgp::ctb::CTB;
-use openpgp::packet::{Header, BodyLength};
+use openpgp::packet::{Header, BodyLength, Signature};
 use openpgp::packet::signature::subpacket::{Subpacket, SubpacketValue};
 use openpgp::s2k::S2K;
 use openpgp::parse::{Map, PacketParserResult};
@@ -172,13 +172,13 @@ impl PacketDumper {
                 if s.hashed_area().iter().count() > 0 {
                     writeln!(output, "{}  Hashed area:", i)?;
                     for (_, _, pkt) in s.hashed_area().iter() {
-                        self.dump_subpacket(output, i, pkt)?;
+                        self.dump_subpacket(output, i, pkt, s)?;
                     }
                 }
                 if s.unhashed_area().iter().count() > 0 {
                     writeln!(output, "{}  Unhashed area:", i)?;
                     for (_, _, pkt) in s.unhashed_area().iter() {
-                        self.dump_subpacket(output, i, pkt)?;
+                        self.dump_subpacket(output, i, pkt, s)?;
                     }
                 }
                 writeln!(output, "{}  Hash prefix: {}", i,
@@ -304,7 +304,8 @@ impl PacketDumper {
         Ok(())
     }
 
-    fn dump_subpacket(&self, output: &mut io::Write, i: &str, s: Subpacket)
+    fn dump_subpacket(&self, output: &mut io::Write, i: &str,
+                      s: Subpacket, sig: &Signature)
                       -> Result<()> {
         use self::SubpacketValue::*;
 
@@ -317,7 +318,14 @@ impl PacketDumper {
                 write!(output, "{}    Signature creation time: {}", i,
                        time::strftime(TIMEFMT, t).unwrap())?,
             SignatureExpirationTime(ref t) =>
-                write!(output, "{}    Signature expiration time: {}", i, t)?,
+                write!(output, "{}    Signature expiration time: {} ({})",
+                       i, t,
+                       if let Some(creation) = sig.signature_creation_time() {
+                           time::strftime(TIMEFMT, &(creation + *t))
+                               .unwrap()
+                       } else {
+                           " (no Signature Creation Time subpacket)".into()
+                       })?,
             ExportableCertification(e) =>
                 write!(output, "{}    Exportable certification: {}", i, e)?,
             TrustSignature{level, trust} =>
