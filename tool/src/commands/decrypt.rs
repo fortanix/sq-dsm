@@ -159,11 +159,12 @@ impl<'a> DecryptionHelper for Helper<'a> {
                                 let p = rpassword::prompt_password_stderr(
                                     &format!(
                                         "Enter password to decrypt key {}: ",
-                                        self.key_hints.get(keyid).unwrap()))?;
+                                        self.key_hints.get(keyid).unwrap()))?
+                                    .into();
 
                                 if let Ok(mpis) =
                                     key.secret().unwrap()
-                                    .decrypt(key.pk_algo(), p.as_bytes())
+                                    .decrypt(key.pk_algo(), &p)
                                 {
                                     return Ok(Some(Secret::Asymmetric {
                                         key: key.clone(),
@@ -182,7 +183,7 @@ impl<'a> DecryptionHelper for Helper<'a> {
                 Pass::Passwords =>
                     return Ok(Some(Secret::Symmetric {
                         password: rpassword::prompt_password_stderr(
-                            "Enter password to decrypt message: ")?,
+                            "Enter password to decrypt message: ")?.into(),
                     })),
             }
         }

@@ -53,13 +53,13 @@ pub fn encrypt(store: &mut store::Store,
                 &nprompt
             } else {
                 "Enter password: "
-            })?);
+            })?.into());
     }
 
     // Build a vector of references to hand to Encryptor.
     let recipients: Vec<&openpgp::TPK> = tpks.iter().collect();
-    let passwords_: Vec<&[u8]> =
-        passwords.iter().map(|p| p.as_bytes()).collect();
+    let passwords_: Vec<&openpgp::Password> =
+        passwords.iter().collect();
 
     // We want to encrypt a literal data packet.
     let encryptor = Encryptor::new(wrap(output),

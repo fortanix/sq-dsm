@@ -11,7 +11,9 @@ use libc::{self, uint8_t, uint64_t, c_char, c_int, size_t, ssize_t};
 
 extern crate openpgp;
 
-use self::openpgp::{armor, Fingerprint, KeyID, PacketPile, TPK, TSK, Packet};
+use self::openpgp::{
+    armor, Fingerprint, KeyID, PacketPile, TPK, TSK, Packet, Password,
+};
 use self::openpgp::tpk::{CipherSuite, TPKBuilder};
 use self::openpgp::parse::{PacketParserResult, PacketParser, PacketParserEOF};
 use self::openpgp::serialize::Serialize;
@@ -1123,7 +1125,7 @@ pub extern "system" fn sq_skesk_decrypt(ctx: Option<&mut Context>,
     let key_len = key_len.expect("Key length is NULL");
 
     if let &Packet::SKESK(ref skesk) = skesk {
-        match skesk.decrypt(password) {
+        match skesk.decrypt(&password.to_owned().into()) {
             Ok((a, k)) => {
                 *algo = a.into();
                 if !key.is_null() && *key_len >= k.len() {
@@ -1733,7 +1735,7 @@ pub extern "system" fn sq_encryptor_new
         for password in passwords {
             passwords_.push(unsafe {
                 CStr::from_ptr(*password)
-            }.to_bytes());
+            }.to_bytes().to_owned().into());
         }
     }
     let recipients = if recipients_len > 0 {
@@ -1750,7 +1752,7 @@ pub extern "system" fn sq_encryptor_new
         _ => panic!("Bad encryption mode: {}", encryption_mode),
     };
     fry_box!(ctx, Encryptor::new(*inner,
-                                 &passwords_,
+                                 &passwords_.iter().collect::<Vec<&Password>>(),
                                  &recipients,
                                  encryption_mode))
 }

@@ -1723,11 +1723,12 @@ impl MDC {
 
 #[test]
 fn skesk_parser_test() {
+    use Password;
     struct Test<'a> {
         filename: &'a str,
         s2k: S2K,
         cipher_algo: SymmetricAlgorithm,
-        password: &'a [u8],
+        password: Password,
         key_hex: &'a str,
     };
 
@@ -1740,7 +1741,7 @@ fn skesk_parser_test() {
                     salt: [0x82, 0x59, 0xa0, 0x6e, 0x98, 0xda, 0x94, 0x1c],
                     iterations: S2K::decode_count(238),
                 },
-                password: &b"bgtyhn"[..],
+                password: "bgtyhn".into(),
                 key_hex: "474E5C373BA18AF0A499FCAFE6093F131DF636F6A3812B9A8AE707F1F0214AE9",
             },
     ];
@@ -1754,7 +1755,7 @@ fn skesk_parser_test() {
             assert_eq!(skesk.symm_algo, test.cipher_algo);
             assert_eq!(skesk.s2k, test.s2k);
 
-            match skesk.decrypt(test.password) {
+            match skesk.decrypt(&test.password) {
                 Ok((_symm_algo, key)) => {
                     let key = ::conversions::to_hex(&key[..], false);
                     assert_eq!(&key[..], &test.key_hex[..]);

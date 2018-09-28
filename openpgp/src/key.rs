@@ -11,6 +11,7 @@ use SymmetricAlgorithm;
 use s2k::S2K;
 use Result;
 use conversions::Time;
+use Password;
 
 /// Holds a public key, public subkey, private key or private subkey packet.
 ///
@@ -250,7 +251,7 @@ impl SecretKey {
     ///
     /// The SecretKey type does not know what kind of key it is, so
     /// `pk_algo` is needed to parse the correct number of MPIs.
-    pub fn decrypt(&self, pk_algo: PublicKeyAlgorithm, password: &[u8])
+    pub fn decrypt(&self, pk_algo: PublicKeyAlgorithm, password: &Password)
                    -> Result<mpis::SecretKey> {
         use std::io::{Cursor, Read};
         use symmetric::Decryptor;
@@ -275,7 +276,7 @@ impl SecretKey {
     /// The SecretKey type does not know what kind of key it is, so
     /// `pk_algo` is needed to parse the correct number of MPIs.
     pub fn decrypt_in_place(&mut self, pk_algo: PublicKeyAlgorithm,
-                            password: &[u8])
+                            password: &Password)
                             -> Result<()> {
         if self.is_encrypted() {
             *self = SecretKey::Unencrypted {
@@ -318,7 +319,7 @@ mod tests {
         let secret = pair.secret.as_mut().unwrap();
 
         assert!(secret.is_encrypted());
-        secret.decrypt_in_place(pair.pk_algo, &b"123"[..]).unwrap();
+        secret.decrypt_in_place(pair.pk_algo, &"123".into()).unwrap();
         assert!(!secret.is_encrypted());
 
         match secret {

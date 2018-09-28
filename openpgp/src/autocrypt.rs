@@ -34,6 +34,7 @@ use serialize::stream::{
     wrap, LiteralWriter, Encryptor, EncryptionMode,
 };
 use constants::DataFormat;
+use Password;
 
 /// Version of Autocrypt to use. `Autocrypt::default()` always returns the
 /// latest version.
@@ -245,7 +246,7 @@ impl AutocryptHeaders {
 pub struct AutocryptSetupMessage {
     prefer_encrypt: Option<String>,
     passcode_format: Option<String>,
-    passcode: Option<Vec<u8>>,
+    passcode: Option<Password>,
     // We only emit a "Passcode-Begin" header if this is set.  Note:
     // we don't check if this actually matches the start of the
     // passcode.
@@ -300,8 +301,8 @@ impl AutocryptSetupMessage {
 
 
     /// Sets the passcode.
-    pub fn set_passcode(mut self, passcode: &[u8]) -> Self {
-        self.passcode = Some(passcode.into());
+    pub fn set_passcode(mut self, passcode: Password) -> Self {
+        self.passcode = Some(passcode);
         self
     }
 
@@ -309,8 +310,8 @@ impl AutocryptSetupMessage {
     ///
     /// If the passcode has not yet been generated, this returns
     /// `None`.
-    pub fn passcode(&self) -> Option<&[u8]> {
-        self.passcode.as_ref().map(|p| &p[..])
+    pub fn passcode(&self) -> Option<&Password> {
+        self.passcode.as_ref()
     }
 
 
@@ -327,7 +328,7 @@ impl AutocryptSetupMessage {
 
 
     // Generates a new passcode in "numeric9x4" format.
-    fn passcode_gen() -> Vec<u8> {
+    fn passcode_gen() -> Password {
         use nettle::Yarrow;
 
         // Generate a random passcode.
@@ -339,11 +340,12 @@ impl AutocryptSetupMessage {
 
         let mut p_as_vec = vec![0; 15];
         rng.random(&mut p_as_vec[..]);
+        let p = Password::from(p_as_vec);
 
         // Turn it into a 128-bit number.
         let mut p_as_u128 = 0u128;
-        for v in p_as_vec.into_iter() {
-            p_as_u128 = (p_as_u128 << 8) + v as u128;
+        for v in p.iter() {
+            p_as_u128 = (p_as_u128 << 8) + *v as u128;
         }
 
         // Turn it into ASCII.
@@ -357,7 +359,7 @@ impl AutocryptSetupMessage {
             p_as_u128 = p_as_u128 / 10;
         }
 
-        p
+        p.into()
     }
 
     /// If there is no passcode, generates one.
@@ -542,7 +544,7 @@ pub struct AutocryptSetupMessageParser<'a> {
     passcode_begin: Option<String>,
     skesk: SKESK,
     pp: PacketParser<'a>,
-    passcode: Option<Vec<u8>>,
+    passcode: Option<Password>,
 }
 
 impl<'a> AutocryptSetupMessageParser<'a> {
@@ -561,7 +563,7 @@ impl<'a> AutocryptSetupMessageParser<'a> {
     /// On success, follow up with
     /// `AutocryptSetupMessageParser::parse()` to extract the
     /// `AutocryptSetupMessage`.
-    pub fn decrypt(&mut self, passcode: &[u8]) -> Result<()> {
+    pub fn decrypt(&mut self, passcode: &Password) -> Result<()> {
         if self.pp.decrypted() {
             return Err(
                 Error::InvalidOperation("Already decrypted".into()).into());
@@ -570,7 +572,7 @@ impl<'a> AutocryptSetupMessageParser<'a> {
         let (algo, key) = self.skesk.decrypt(passcode)?;
         self.pp.decrypt(algo, &key)?;
 
-        self.passcode = Some(passcode.into());
+        self.passcode = Some(passcode.clone());
 
         Ok(())
     }
@@ -912,10 +914,10 @@ In the light of the Efail vulnerability I am asking myself if it's
             let p = AutocryptSetupMessage::passcode_gen();
             assert_eq!(p.len(), passcode_len);
 
-            for c in p.into_iter() {
-                match c as char {
+            for c in p.iter() {
+                match *c as char {
                     '0'|'1'|'2'|'3'|'4'|'5'|'6'|'7'|'8'|'9' => {
-                        let i = c as usize - ('0' as usize);
+                        let i = *c as usize - ('0' as usize);
                         dist[i] = dist[i] + 1
                     },
                     '-' => (),
@@ -968,10 +970,11 @@ In the light of the Efail vulnerability I am asking myself if it's
             bytes!("autocrypt/setup-message.txt")).unwrap();
 
         // A bad passcode.
-        assert!(asm.decrypt(&b"123"[..]).is_err());
+        assert!(asm.decrypt(&"123".into()).is_err());
         // Now the right one.
         assert!(asm.decrypt(
-            &b"1742-0185-6197-1303-7016-8412-3581-4441-0597"[..]).is_ok());
+            &"1742-0185-6197-1303-7016-8412-3581-4441-0597".into()
+        ).is_ok());
         let asm = asm.parse().unwrap();
 
         // A basic check to make sure we got the key.

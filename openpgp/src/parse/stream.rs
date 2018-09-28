@@ -23,6 +23,7 @@ use {
     packet::Signature,
     TPK,
     mpis,
+    Password,
     SessionKey,
 };
 use parse::{
@@ -584,7 +585,7 @@ pub enum Secret {
     /// A password for symmetric decryption.
     Symmetric {
         /// The password.
-        password: String,
+        password: Password,
     },
 
     /// A cached session key.
@@ -703,10 +704,8 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                             },
 
                             Secret::Symmetric { ref password } => {
-                                let pass = password.as_bytes();
-
                                 for skesk in skesks.iter() {
-                                    let (algo, key) = skesk.decrypt(pass)?;
+                                    let (algo, key) = skesk.decrypt(password)?;
 
                                     if pp.decrypt(algo, &key).is_ok() {
                                         decrypted = true;

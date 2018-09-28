@@ -893,7 +893,7 @@ mod tests {
         packets.push(SKESK::new(SymmetricAlgorithm::AES256,
                                 S2K::Simple { hash: HashAlgorithm::SHA256 },
                                 &sk,
-                                &b"12345678"[..]).unwrap().to_packet());
+                                &"12345678".into()).unwrap().to_packet());
         let message = Message::from_packets(packets.clone());
         assert!(message.is_err(), "{:?}", message);
 

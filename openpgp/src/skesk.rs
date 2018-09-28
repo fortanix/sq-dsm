@@ -4,6 +4,7 @@ use Error;
 use SymmetricAlgorithm;
 use packet;
 use Packet;
+use Password;
 use SessionKey;
 
 /// Holds an symmetrically encrypted session key.
@@ -34,7 +35,7 @@ impl SKESK {
     /// used to encrypt the payload, and is also used to encrypt the
     /// given session key.
     pub fn new(algo: SymmetricAlgorithm, s2k: S2K,
-               session_key: &SessionKey, password: &[u8])
+               session_key: &SessionKey, password: &Password)
                -> Result<SKESK> {
         // Derive key and make a cipher.
         let key = s2k.derive_key(password, algo.key_size()?)?;
@@ -105,7 +106,7 @@ impl SKESK {
     /// Derives the key inside this SKESK from `password`. Returns a
     /// tuple of the symmetric cipher to use with the key and the key
     /// itself.
-    pub fn decrypt(&self, password: &[u8])
+    pub fn decrypt(&self, password: &Password)
         -> Result<(SymmetricAlgorithm, SessionKey)>
     {
         let key = self.s2k.derive_key(password, self.symm_algo.key_size()?)?;

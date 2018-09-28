@@ -16,6 +16,7 @@ use {
     packet::OnePassSig,
     packet::PKESK,
     Result,
+    Password,
     SecretKey,
     SessionKey,
     packet::SKESK,
@@ -838,7 +839,7 @@ impl<'a> Encryptor<'a> {
     /// )).unwrap();
     /// let mut o = vec![];
     /// let encryptor = Encryptor::new(wrap(&mut o),
-    ///                                &["совершенно секретно".as_bytes()],
+    ///                                &[&"совершенно секретно".into()],
     ///                                &[&tpk],
     ///                                EncryptionMode::AtRest)
     ///     .expect("Failed to create encryptor");
@@ -848,7 +849,7 @@ impl<'a> Encryptor<'a> {
     /// # }
     /// ```
     pub fn new(mut inner: writer::Stack<'a, Cookie>,
-               passwords: &[&[u8]], tpks: &[&TPK],
+               passwords: &[&Password], tpks: &[&TPK],
                encryption_mode: EncryptionMode)
                -> Result<writer::Stack<'a, Cookie>> {
         let mut rng = Yarrow::default();
@@ -1267,15 +1268,16 @@ mod test {
 
     #[test]
     fn encryptor() {
-        let passwords = ["streng geheim".as_bytes(),
-                         "top secret".as_bytes()];
+        let passwords: [Password; 2] = ["streng geheim".into(),
+                                        "top secret".into()];
         let message = b"Hello world.";
 
         // Write a simple encrypted message...
         let mut o = vec![];
         {
-            let encryptor = Encryptor::new(wrap(&mut o), &passwords, &[],
-                                           EncryptionMode::ForTransport)
+            let encryptor = Encryptor::new(
+                wrap(&mut o), &passwords.iter().collect::<Vec<&Password>>(),
+                &[], EncryptionMode::ForTransport)
                 .unwrap();
             let mut literal = LiteralWriter::new(encryptor, DataFormat::Binary,
                                                  None, None)

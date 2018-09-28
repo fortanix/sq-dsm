@@ -9,6 +9,7 @@
 use Error;
 use Result;
 use HashAlgorithm;
+use Password;
 use SessionKey;
 
 use std::fmt;
@@ -68,7 +69,7 @@ impl Default for S2K {
 
 impl S2K {
     /// Convert the string to a key using the S2K's paramters.
-    pub fn derive_key(&self, string: &[u8], key_size: usize)
+    pub fn derive_key(&self, string: &Password, key_size: usize)
     -> Result<SessionKey> {
         match self {
             &S2K::Simple { hash } | &S2K::Salted { hash, .. }
@@ -276,7 +277,7 @@ mod tests {
             filename: &'a str,
             s2k: S2K,
             cipher_algo: SymmetricAlgorithm,
-            password: &'a [u8],
+            password: Password,
             key_hex: &'a str,
         };
 
@@ -291,7 +292,7 @@ mod tests {
                 filename: "mode-0-password-1234.gpg",
                 cipher_algo: SymmetricAlgorithm::AES256,
                 s2k: S2K::Simple{ hash: HashAlgorithm::SHA1, },
-                password: &b"1234"[..],
+                password: "1234".into(),
                 key_hex: "7110EDA4D09E062AA5E4A390B0A572AC0D2C0220F352B0D292B65164C2A67301",
             },
             Test {
@@ -301,7 +302,7 @@ mod tests {
                     hash: HashAlgorithm::SHA1,
                     salt: [0xa8, 0x42, 0xa7, 0xa9, 0x59, 0xfa, 0x42, 0x2a],
                 },
-                password: &b"123456"[..],
+                password: "123456".into(),
                 key_hex: "8B79077CA448F6FB3D3AD2A264D3B938D357C9FB3E41219FD962DF960A9AFA08",
             },
             Test {
@@ -311,7 +312,7 @@ mod tests {
                     hash: HashAlgorithm::SHA1,
                     salt: [0xbc, 0x95, 0x58, 0x45, 0x81, 0x3c, 0x7c, 0x37],
                 },
-                password: &b"foobar"[..],
+                password: "foobar".into(),
                 key_hex: "B7D48AAE9B943B22A4D390083E8460B5EDFA118FE1688BF0C473B8094D1A8D10",
             },
             Test {
@@ -322,7 +323,7 @@ mod tests {
                     salt: [0x78, 0x45, 0xf0, 0x5b, 0x55, 0xf7, 0xb4, 0x9e],
                     iterations: S2K::decode_count(241),
                 },
-                password: &b"qwerty"[..],
+                password: "qwerty".into(),
                 key_hex: "575AD156187A3F8CEC11108309236EB499F1E682F0D1AFADFAC4ECF97613108A",
             },
             Test {
@@ -333,7 +334,7 @@ mod tests {
                     salt: [0xb9, 0x67, 0xea, 0x96, 0x53, 0xdb, 0x6a, 0xc8],
                     iterations: S2K::decode_count(43),
                 },
-                password: &b"9876"[..],
+                password: "9876".into(),
                 key_hex: "736C226B8C64E4E6D0325C6C552EF7C0738F98F48FED65FD8C93265103EFA23A",
             },
             Test {
@@ -344,7 +345,7 @@ mod tests {
                     salt: [0x8f, 0x81, 0x74, 0xc5, 0xd9, 0x61, 0xc7, 0x79],
                     iterations: S2K::decode_count(238),
                 },
-                password: &b"123"[..],
+                password: "123".into(),
                 key_hex: "915E96FC694E7F90A6850B740125EA005199C725F3BD27E3",
             },
             Test {
@@ -355,7 +356,7 @@ mod tests {
                     salt: [0x51, 0xed, 0xfc, 0x15, 0x45, 0x40, 0x65, 0xac],
                     iterations: S2K::decode_count(238),
                 },
-                password: &b"0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789"[..],
+                password: "0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789".into(),
                 key_hex: "EA264FADA5A859C40D88A159B344ECF1F51FF327FDB3C558B0A7DC299777173E",
             },
             Test {
@@ -366,7 +367,7 @@ mod tests {
                     salt: [0x06, 0xe4, 0x61, 0x5c, 0xa4, 0x48, 0xf9, 0xdd],
                     iterations: S2K::decode_count(238),
                 },
-                password: &b"0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789"[..],
+                password: "0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789".into(),
                 key_hex: "F3D0CE52ED6143637443E3399437FD0F",
             },
         ];
@@ -379,7 +380,7 @@ mod tests {
                 assert_eq!(skesk.s2k, test.s2k);
 
                 let key = skesk.s2k.derive_key(
-                    test.password,
+                    &test.password,
                     skesk.symm_algo.key_size().unwrap());
                 if let Ok(key) = key {
                     let key = to_hex(&key[..], false);
