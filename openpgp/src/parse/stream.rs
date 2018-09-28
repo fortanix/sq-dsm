@@ -764,6 +764,9 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                     // Start to buffer the data.
                     v.fill_buffer(&mut pp, BUFFER_SIZE)?;
                 },
+                Packet::MDC(ref mdc) => if ! mdc.valid() {
+                    return Err(Error::ManipulatedMessage.into());
+                },
                 _ => (),
             }
 
@@ -885,6 +888,9 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                         Packet::Literal(_) => {
                             // Start to buffer the data.
                             self.fill_buffer(&mut pp, want)?;
+                        },
+                        Packet::MDC(ref mdc) => if ! mdc.valid() {
+                            return Err(Error::ManipulatedMessage.into());
                         },
                         _ => (),
                     }
