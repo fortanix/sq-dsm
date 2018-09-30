@@ -60,7 +60,9 @@ impl<'a, C> io::Read for BufferedReaderReserve<'a, C> {
             }
         };
 
-        return self.reader.read(&mut buf[0..to_read]);
+        let to_read = cmp::min(buf.len(), to_read);
+
+        return self.reader.read(&mut buf[..to_read]);
     }
 }
 
