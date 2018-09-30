@@ -280,7 +280,10 @@ impl PacketDumper {
 
             MDC(ref m) => {
                 writeln!(output, "Modification Detection Code Packet")?;
-                writeln!(output, "{}  Hash: {}", i, to_hex(m.hash(), false))?;
+                writeln!(output, "{}  Hash: {}",
+                         i, to_hex(m.hash(), false))?;
+                writeln!(output, "{}  Computed hash: {}",
+                         i, to_hex(m.computed_hash(), false))?;
             },
         }
 
