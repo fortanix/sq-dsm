@@ -177,7 +177,11 @@ impl<T: io::Read, C> BufferedReaderGeneric<T, C> {
                 }
             },
             None if self.saw_eof => {
-                return Ok(&b""[..]);
+                if hard && amount > 0 {
+                    Err(Error::new(ErrorKind::UnexpectedEof, "EOF"))
+                } else {
+                    Ok(&b""[..])
+                }
             },
             None => {
                 unreachable!();
