@@ -23,8 +23,8 @@ pub struct BufferedReaderDup<'a, C> {
 impl<'a, C> fmt::Debug for BufferedReaderDup<'a, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("BufferedReaderDup")
-            .field("reader", &self.reader)
             .field("cursor", &self.cursor)
+            .field("reader", &self.reader)
             .finish()
     }
 }

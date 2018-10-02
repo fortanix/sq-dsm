@@ -44,7 +44,6 @@ impl<T: BufferedReader<Cookie>> std::fmt::Debug
         for BufferedReaderPartialBodyFilter<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         f.debug_struct("BufferedReaderPartialBodyFilter")
-            .field("reader", &self.reader)
             .field("partial_body_length", &self.partial_body_length)
             .field("last", &self.last)
             .field("hash headers", &self.hash_headers)
@@ -54,6 +53,7 @@ impl<T: BufferedReader<Cookie>> std::fmt::Debug
                    } else {
                        None
                    })
+            .field("reader", &self.reader)
             .finish()
     }
 }

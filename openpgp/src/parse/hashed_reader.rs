@@ -1,6 +1,7 @@
 use std::io;
 use std::cmp;
 use std::mem;
+use std::fmt;
 
 use nettle::Hash;
 
@@ -14,10 +15,18 @@ use super::indent;
 
 const TRACE : bool = false;
 
-#[derive(Debug)]
 pub(crate) struct HashedReader<R: BufferedReader<Cookie>> {
     reader: R,
     cookie: Cookie,
+}
+
+impl<R: BufferedReader<Cookie>> fmt::Debug for HashedReader<R> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("HashedReader")
+            .field("cookie", &self.cookie)
+            .field("reader", &self.reader)
+            .finish()
+    }
 }
 
 impl<R: BufferedReader<Cookie>> HashedReader<R> {
