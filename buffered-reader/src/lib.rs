@@ -532,15 +532,29 @@ pub trait BufferedReader<C> : io::Read + fmt::Debug {
     /// # Ok(()) }
     /// ```
     fn data_consume(&mut self, amount: usize)
-                    -> Result<&[u8], std::io::Error>;
+                    -> Result<&[u8], std::io::Error> {
+        let amount = cmp::min(amount, self.data(amount)?.len());
 
+        let buffer = self.consume(amount);
+        assert!(buffer.len() >= amount);
+        Ok(buffer)
+    }
 
     /// A convenience function that effectively combines `data_hard()`
     /// and `consume()`.
     ///
     /// This function is identical to `data_consume()`, but internally
     /// uses `data_hard()` instead of `data()`.
-    fn data_consume_hard(&mut self, amount: usize) -> Result<&[u8], io::Error>;
+    fn data_consume_hard(&mut self, amount: usize)
+        -> Result<&[u8], io::Error>
+    {
+        let len = self.data_hard(amount)?.len();
+        assert!(len >= amount);
+
+        let buffer = self.consume(amount);
+        assert!(buffer.len() >= amount);
+        Ok(buffer)
+    }
 
     /// A convenience function for reading a 16-bit unsigned integer
     /// in big endian format.
