@@ -121,6 +121,8 @@ impl<T: io::Read, C> BufferedReaderGeneric<T, C> {
                             continue;
                         }
                     },
+                    Err(ref err) if err.kind() == ErrorKind::Interrupted =>
+                        continue,
                     Err(err) => {
                         // Don't return yet, because we may have
                         // actually read something.

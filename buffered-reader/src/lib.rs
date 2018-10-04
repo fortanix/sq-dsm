@@ -324,6 +324,9 @@ pub trait BufferedReader<C> : io::Read + fmt::Debug {
     /// returned, it will always be returned until it is consumed.
     /// As such, the following must hold:
     ///
+    /// If `BufferedReader` receives `EINTR` when `read`ing, it will
+    /// automatically retry reading.
+    ///
     /// ```
     /// # f(); fn f() -> Result<(), std::io::Error> {
     /// use buffered_reader::*;
