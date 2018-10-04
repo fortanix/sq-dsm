@@ -414,7 +414,7 @@ pub trait BufferedReader<C> : io::Read + fmt::Debug {
         let mut s = DEFAULT_BUF_SIZE;
         while s < std::usize::MAX {
             match self.data(s) {
-                Ok(ref buffer) =>
+                Ok(ref buffer) => {
                     if buffer.len() < s {
                         // We really want to do
                         //
@@ -427,18 +427,22 @@ pub trait BufferedReader<C> : io::Read + fmt::Debug {
                         //
                         // Instead, we break out of the loop, and then
                         // call self.data(s) again.  This extra call
-                        // shouldn't have any significant cost,
-                        // because the buffer should already be
-                        // prepared.
+                        // won't have any significant cost, because
+                        // the buffer is already prepared.
+                        s = buffer.len();
                         break;
                     } else {
                         s *= 2;
-                    },
+                    }
+                }
                 Err(err) =>
                     return Err(err),
             }
         }
-        return self.data(s);
+
+        let buffer = self.buffer();
+        assert_eq!(buffer.len(), s);
+        return Ok(buffer);
     }
 
     /// Consumes some of the data.
