@@ -5,10 +5,10 @@ use std::io::{Error, ErrorKind};
 
 use super::*;
 
-/// A generic `BufferedReader` implementation that only requires a
-/// source that implements the `Read` trait.  This is sufficient when
-/// reading from a file, and it even works with a `&[u8]` (but
-/// `BufferedReaderMemory` is more efficient).
+/// Wraps a `Read`er.
+///
+/// This is useful when reading from a file, and it even works with a
+/// `&[u8]` (but `BufferedReaderMemory` is more efficient).
 pub struct BufferedReaderGeneric<T: io::Read, C> {
     buffer: Option<Box<[u8]>>,
     // The next byte to read in the buffer.

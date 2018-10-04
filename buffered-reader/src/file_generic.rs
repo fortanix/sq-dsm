@@ -5,7 +5,7 @@ use std::path::Path;
 
 use super::*;
 
-/// A `BufferedReader` implementation for files.
+/// Wraps files.
 ///
 /// This is a generic implementation that may be replaced by
 /// platform-specific versions.

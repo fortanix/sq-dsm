@@ -6,22 +6,26 @@ use bzip2::read::BzDecoder;
 use super::*;
 
 
+/// Decompresses the underlying `BufferedReader` using the bzip2
+/// algorithm.
 pub struct BufferedReaderBzip<R: BufferedReader<C>, C> {
     reader: BufferedReaderGeneric<BzDecoder<R>, C>,
 }
 
 impl <R: BufferedReader<()>> BufferedReaderBzip<R, ()> {
-    /// Instantiate a new bzip decompression reader.  `reader` is
-    /// the source to wrap.
+    /// Instantiates a new bzip decompression reader.
+    ///
+    /// `reader` is the source to wrap.
     pub fn new(reader: R) -> Self {
         Self::with_cookie(reader, ())
     }
 }
 
 impl <R: BufferedReader<C>, C> BufferedReaderBzip<R, C> {
-    /// Like `new()`, but sets a cookie, which can be retrieved using
-    /// the `cookie_ref` and `cookie_mut` methods, and set using
-    /// the `cookie_set` method.
+    /// Like `new()`, but uses a cookie.
+    ///
+    /// The cookie can be retrieved using the `cookie_ref` and
+    /// `cookie_mut` methods, and set using the `cookie_set` method.
     pub fn with_cookie(reader: R, cookie: C) -> Self {
         BufferedReaderBzip {
             reader: BufferedReaderGeneric::with_cookie(

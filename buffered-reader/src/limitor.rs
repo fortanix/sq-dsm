@@ -3,8 +3,8 @@ use std::cmp;
 
 use super::*;
 
-/// A `BufferedReaderLimitor` limits the amount of data that can be
-/// read from a `BufferedReader`.
+/// Limits the amount of data that can be read from a
+/// `BufferedReader`.
 pub struct BufferedReaderLimitor<'a, C> {
     reader: Box<'a + BufferedReader<C>>,
     limit: u64,
@@ -22,18 +22,20 @@ impl<'a, C> fmt::Debug for BufferedReaderLimitor<'a, C> {
 }
 
 impl<'a> BufferedReaderLimitor<'a, ()> {
-    /// Instantiate a new limitor.  `reader` is the source to wrap.
-    /// `limit` is the maximum number of bytes that will be returned
-    /// from the source.
+    /// Instantiates a new limitor.
+    ///
+    /// `reader` is the source to wrap.  `limit` is the maximum number
+    /// of bytes that can be read from the source.
     pub fn new(reader: Box<'a + BufferedReader<()>>, limit: u64) -> Self {
         Self::with_cookie(reader, limit, ())
     }
 }
 
 impl<'a, C> BufferedReaderLimitor<'a, C> {
-    /// Like `new()`, but sets a cookie, which can be retrieved using
-    /// the `cookie_ref` and `cookie_mut` methods, and set using
-    /// the `cookie_set` method.
+    /// Like `new()`, but sets a cookie.
+    ///
+    /// The cookie can be retrieved using the `cookie_ref` and
+    /// `cookie_mut` methods, and set using the `cookie_set` method.
     pub fn with_cookie(reader: Box<'a + BufferedReader<C>>, limit: u64, cookie: C)
             -> BufferedReaderLimitor<'a, C> {
         BufferedReaderLimitor {

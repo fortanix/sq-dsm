@@ -4,8 +4,8 @@ use std::cmp;
 
 use super::*;
 
-/// A `BufferedReader` that duplicates the underlying `BufferedReader`
-/// without consuming any of the data.
+/// Duplicates the underlying `BufferedReader` without consuming any
+/// of the data.
 ///
 /// Note: this will likely cause the underlying stream to buffer as
 /// much data as you read.  Thus, it should only be used for peeking
@@ -30,17 +30,19 @@ impl<'a, C> fmt::Debug for BufferedReaderDup<'a, C> {
 }
 
 impl<'a> BufferedReaderDup<'a, ()> {
-    /// Instantiate a new memory-based reader.  `buffer` contains the
-    /// reader's contents.
+    /// Instantiates a new `BufferedReaderDup` buffered reader.
+    ///
+    /// `reader` is the `BufferedReader` to duplicate.
     pub fn new(reader: Box<'a + BufferedReader<()>>) -> Self {
         Self::with_cookie(reader, ())
     }
 }
 
 impl<'a, C> BufferedReaderDup<'a, C> {
-    /// Like `new()`, but sets a cookie, which can be retrieved using
-    /// the `cookie_ref` and `cookie_mut` methods, and set using
-    /// the `cookie_set` method.
+    /// Like `new()`, but uses a cookie.
+    ///
+    /// The cookie can be retrieved using the `cookie_ref` and
+    /// `cookie_mut` methods, and set using the `cookie_set` method.
     pub fn with_cookie(reader: Box<'a + BufferedReader<C>>, cookie: C) -> Self {
         BufferedReaderDup {
             reader: reader,
@@ -49,8 +51,7 @@ impl<'a, C> BufferedReaderDup<'a, C> {
         }
     }
 
-    /// Returns the number of bytes that have been consumed by this
-    /// reader.
+    /// Returns the number of bytes that this reader has consumed.
     pub fn total_out(&self) -> usize {
         return self.cursor;
     }

@@ -26,18 +26,20 @@ impl<'a, C> fmt::Debug for BufferedReaderReserve<'a, C> {
 }
 
 impl<'a> BufferedReaderReserve<'a, ()> {
-    /// Instantiate a new `BufferedReaderReserve`.  `reader` is the
-    /// source to wrap.  `n` is the number of bytes that will not be
-    /// returned to the reader.
+    /// Instantiates a new `BufferedReaderReserve`.
+    ///
+    /// `reader` is the source to wrap.  `reserve` is the number of
+    /// bytes that will not be returned to the reader.
     pub fn new(reader: Box<'a + BufferedReader<()>>, reserve: usize) -> Self {
         Self::with_cookie(reader, reserve, ())
     }
 }
 
 impl<'a, C> BufferedReaderReserve<'a, C> {
-    /// Like `new()`, but sets a cookie, which can be retrieved using
-    /// the `cookie_ref` and `cookie_mut` methods, and set using the
-    /// `cookie_set` method.
+    /// Like `new()`, but sets a cookie.
+    ///
+    /// The cookie can be retrieved using the `cookie_ref` and
+    /// `cookie_mut` methods, and set using the `cookie_set` method.
     pub fn with_cookie(reader: Box<'a + BufferedReader<C>>,
                        reserve: usize, cookie: C)
             -> BufferedReaderReserve<'a, C> {

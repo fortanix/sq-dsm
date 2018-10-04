@@ -20,7 +20,7 @@ use super::*;
 // (Justus) system, mmaping is faster than sequentially reading.
 const MMAP_THRESHOLD: u64 = 16 * 4096;
 
-/// A `BufferedReader` implementation for files.
+/// Wraps files using `mmap`().
 ///
 /// This implementation tries to mmap the file, falling back to
 /// just using a generic reader.

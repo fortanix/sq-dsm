@@ -6,22 +6,26 @@ use flate2::read::ZlibDecoder;
 
 use super::*;
 
+/// Decompresses the underlying `BufferedReader` using the deflate
+/// algorithm.
 pub struct BufferedReaderDeflate<R: BufferedReader<C>, C> {
     reader: BufferedReaderGeneric<DeflateDecoder<R>, C>,
 }
 
 impl <R: BufferedReader<()>> BufferedReaderDeflate<R, ()> {
-    /// Instantiate a new deflate decompression reader.  `reader` is
-    /// the source to wrap.
+    /// Instantiates a new deflate decompression reader.
+    ///
+    /// `reader` is the source to wrap.
     pub fn new(reader: R) -> Self {
         Self::with_cookie(reader, ())
     }
 }
 
 impl <R: BufferedReader<C>, C> BufferedReaderDeflate<R, C> {
-    /// Like `new()`, but sets a cookie, which can be retrieved using
-    /// the `cookie_ref` and `cookie_mut` methods, and set using
-    /// the `cookie_set` method.
+    /// Like `new()`, but uses a cookie.
+    ///
+    /// The cookie can be retrieved using the `cookie_ref` and
+    /// `cookie_mut` methods, and set using the `cookie_set` method.
     pub fn with_cookie(reader: R, cookie: C) -> Self {
         BufferedReaderDeflate {
             reader: BufferedReaderGeneric::with_cookie(
@@ -118,22 +122,26 @@ impl<R: BufferedReader<C>, C> BufferedReader<C>
     }
 }
 
+/// Decompresses the underlying `BufferedReader` using the zlib
+/// algorithm.
 pub struct BufferedReaderZlib<R: BufferedReader<C>, C> {
     reader: BufferedReaderGeneric<ZlibDecoder<R>, C>,
 }
 
 impl <R: BufferedReader<()>> BufferedReaderZlib<R, ()> {
-    /// Instantiate a new zlib decompression reader.  `reader` is
-    /// the source to wrap.
+    /// Instantiates a new zlib decompression reader.
+    ///
+    /// `reader` is the source to wrap.
     pub fn new(reader: R) -> Self {
         Self::with_cookie(reader, ())
     }
 }
 
 impl <R: BufferedReader<C>, C> BufferedReaderZlib<R, C> {
-    /// Like `new()`, but sets a cookie, which can be retrieved using
-    /// the `cookie_ref` and `cookie_mut` methods, and set using
-    /// the `cookie_set` method.
+    /// Like `new()`, but uses a cookie.
+    ///
+    /// The cookie can be retrieved using the `cookie_ref` and
+    /// `cookie_mut` methods, and set using the `cookie_set` method.
     pub fn with_cookie(reader: R, cookie: C) -> Self {
         BufferedReaderZlib {
             reader: BufferedReaderGeneric::with_cookie(

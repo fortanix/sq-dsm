@@ -6,7 +6,11 @@ use std::io::{Error, ErrorKind};
 
 use super::*;
 
-/// A `BufferedReader` specialized for reading from memory buffers.
+/// Wraps a memory buffer.
+///
+/// Although it is possible to use `BufferedReaderGeneric` to wrap a
+/// buffer, this implementation is optimized for a memory buffer, and
+/// avoids double buffering.
 pub struct BufferedReaderMemory<'a, C> {
     buffer: &'a [u8],
     // The next byte to read in the buffer.
@@ -26,17 +30,19 @@ impl<'a, C> fmt::Debug for BufferedReaderMemory<'a, C> {
 }
 
 impl<'a> BufferedReaderMemory<'a, ()> {
-    /// Instantiate a new memory-based reader.  `buffer` contains the
-    /// reader's contents.
+    /// Instantiates a new `BufferedReaderMemory`.
+    ///
+    /// `buffer` contains the `BufferedReaderMemory`'s contents.
     pub fn new(buffer: &'a [u8]) -> Self {
         Self::with_cookie(buffer, ())
     }
 }
 
 impl<'a, C> BufferedReaderMemory<'a, C> {
-    /// Like `new()`, but sets a cookie, which can be retrieved using
-    /// the `cookie_ref` and `cookie_mut` methods, and set using
-    /// the `cookie_set` method.
+    /// Like `new()`, but sets a cookie.
+    ///
+    /// The cookie can be retrieved using the `cookie_ref` and
+    /// `cookie_mut` methods, and set using the `cookie_set` method.
     pub fn with_cookie(buffer: &'a [u8], cookie: C) -> Self {
         BufferedReaderMemory {
             buffer: buffer,
@@ -67,8 +73,6 @@ impl<'a, C> BufferedReader<C> for BufferedReaderMemory<'a, C> {
         &self.buffer[self.cursor..]
     }
 
-    /// Return the buffer.  Ensure that it contains at least `amount`
-    /// bytes.
     fn data(&mut self, _amount: usize) -> Result<&[u8], io::Error> {
         assert!(self.cursor <= self.buffer.len());
         return Ok(&self.buffer[self.cursor..]);

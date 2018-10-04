@@ -4,7 +4,7 @@ use std::fmt;
 
 use BufferedReader;
 
-/// A `BufferedReaderEOF` always returns EOF.
+/// Always returns EOF.
 pub struct BufferedReaderEOF<C> {
     cookie: C,
 }
@@ -17,6 +17,7 @@ impl<C> fmt::Debug for BufferedReaderEOF<C> {
 }
 
 impl BufferedReaderEOF<()> {
+    /// Instantiates a new `BufferedReaderEOF`.
     pub fn new() -> Self {
         BufferedReaderEOF {
             cookie: (),
@@ -25,6 +26,7 @@ impl BufferedReaderEOF<()> {
 }
 
 impl<C> BufferedReaderEOF<C> {
+    /// Instantiates a new `BufferedReaderEOF` with a cookie.
     pub fn with_cookie(cookie: C) -> Self {
         BufferedReaderEOF {
             cookie: cookie,
