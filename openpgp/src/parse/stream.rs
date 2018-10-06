@@ -849,8 +849,15 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
 
                 // Process the rest of the packets.
                 let mut ppr = PacketParserResult::Some(pp);
+                let mut first = true;
                 while let PacketParserResult::Some(mut pp) = ppr {
-                    self.helper.inspect(&pp)?;
+                    // The literal data packet was already inspected.
+                    if first {
+                        assert_eq!(pp.packet.tag(), packet::Tag::Literal);
+                        first = false;
+                    } else {
+                        self.helper.inspect(&pp)?;
+                    }
 
                     if ! pp.possible_message() {
                         return Err(Error::MalformedMessage(
