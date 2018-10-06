@@ -101,10 +101,11 @@ pub struct Verifier<'a, H: VerificationHelper> {
     tpks: Vec<TPK>,
     /// Maps KeyID to tpks[i].keys().nth(j).
     keys: HashMap<KeyID, (usize, usize)>,
-    buffer: Vec<u8>,
-    seen_eof: bool,
     oppr: Option<PacketParserResult<'a>>,
     sigs: Vec<Vec<VerificationResult>>,
+
+    // The reserve data.
+    reserve: Option<Vec<u8>>,
 }
 
 /// Contains the result of a signature verification.
@@ -211,7 +212,8 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
     /// If the function returns false the message did not fit into the internal buffer and
     /// **unverified** data must be `read()` from the instance until EOF.
     pub fn message_processed(&self) -> bool {
-        self.seen_eof
+        // oppr is only None after we've processed the packet sequence.
+        self.oppr.is_none()
     }
 
     /// Creates the `Verifier`, and buffers the data up to `BUFFER_SIZE`.
@@ -224,14 +226,13 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
             helper: helper,
             tpks: Vec::new(),
             keys: HashMap::new(),
-            buffer: Vec::new(),
-            seen_eof: false,
             oppr: None,
             sigs: Vec::new(),
+            reserve: None,
         };
 
         let mut issuers = Vec::new();
-        while let PacketParserResult::Some(mut pp) = ppr {
+        while let PacketParserResult::Some(pp) = ppr {
             if ! pp.possible_message() {
                 return Err(Error::MalformedMessage(
                     "Malformed OpenPGP message".into()).into());
@@ -270,17 +271,11 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
                         }
                     }
 
-                    // Start to buffer the data.
-                    v.fill_buffer(&mut pp, BUFFER_SIZE)?;
+                    v.oppr = Some(PacketParserResult::Some(pp));
+                    v.finish_maybe()?;
+                    return Ok(v);
                 },
                 _ => (),
-            }
-
-            if ! v.buffer.is_empty() && ! v.seen_eof {
-                // We started buffering, but we are not done with the
-                // literal data packet.
-                ppr = PacketParserResult::Some(pp);
-                break;
             }
 
             let ((p, _), (ppr_tmp, _)) = pp.recurse()?;
@@ -288,36 +283,10 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
             ppr = ppr_tmp;
         }
 
-        match ppr {
-            PacketParserResult::EOF(eof) =>
-                if ! eof.is_message() {
-                    Err(Error::MalformedMessage(
-                        "Malformed OpenPGP message".into()).into())
-                } else {
-                    v.helper.check(::std::mem::replace(&mut v.sigs,
-                                                       Vec::new()))?;
-                    Ok(v)
-                },
-            PacketParserResult::Some(pp) => {
-                v.oppr = Some(PacketParserResult::Some(pp));
-                Ok(v)
-            },
-        }
-    }
-
-    fn fill_buffer(&mut self, pp: &mut PacketParser, amount: usize)
-                   -> Result<()> {
-        let mut buffer = vec![0; 4096];
-        while self.buffer.len() < amount {
-            let l = pp.read(&mut buffer)?;
-            if l == 0 {
-                self.seen_eof = true;
-                break;
-            }
-
-            self.buffer.extend_from_slice(&buffer[..l]);
-        }
-        Ok(())
+        // We can only get here if we didn't encounter a literal data
+        // packet.
+        Err(Error::MalformedMessage(
+            "Malformed OpenPGP message".into()).into())
     }
 
 
@@ -367,35 +336,24 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
         Ok(())
     }
 
-    /// Like `io::Read::read()`, but returns our `Result`.
-    fn read_helper(&mut self, buf: &mut [u8]) -> Result<usize> {
-        // We never return more than BUFFER_SIZE bytes.
-        let n = cmp::min(buf.len(), BUFFER_SIZE);
-        let buf = &mut buf[..n];
+    // If the amount of remaining data does not exceed the reserve,
+    // finish processing the OpenPGP packet sequence.
+    //
+    // Note: once this call succeeds, you may not call it again.
+    fn finish_maybe(&mut self) -> Result<()> {
+        if let Some(PacketParserResult::Some(mut pp)) = self.oppr.take() {
+            // Check if we hit EOF.
+            let data_len = pp.data(BUFFER_SIZE + 1)?.len();
+            if data_len <= BUFFER_SIZE {
+                // Stash the reserve.
+                self.reserve = Some(pp.steal_eof()?);
 
-        // Make sure we have BUFFER_SIZE bytes more than requested.
-        let want = buf.len() + BUFFER_SIZE;
-        if self.buffer.len() < want && ! self.seen_eof {
-            if let Some(mut ppr) = self.oppr.take() {
+                // Process the rest of the packets.
+                let mut ppr = PacketParserResult::Some(pp);
                 while let PacketParserResult::Some(mut pp) = ppr {
                     if ! pp.possible_message() {
                         return Err(Error::MalformedMessage(
                             "Malformed OpenPGP message".into()).into());
-                    }
-
-                    match pp.packet {
-                        Packet::Literal(_) => {
-                            // Start to buffer the data.
-                            self.fill_buffer(&mut pp, want)?;
-                        },
-                        _ => (),
-                    }
-
-                    if ! self.buffer.is_empty() && ! self.seen_eof {
-                        // We started buffering, but we are not done with the
-                        // literal data packet.
-                        ppr = PacketParserResult::Some(pp);
-                        break;
                     }
 
                     let ((p, _), (ppr_tmp, _)) = pp.recurse()?;
@@ -403,35 +361,58 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
                     ppr = ppr_tmp;
                 }
 
-                match ppr {
-                    PacketParserResult::EOF(eof) =>
-                        if ! eof.is_message() {
-                            return Err(Error::MalformedMessage(
-                                "Malformed OpenPGP message".into()).into());
-                        } else {
-                            self.helper.check(::std::mem::replace(
-                                &mut self.sigs, Vec::new()))?;
-                        },
-                    PacketParserResult::Some(pp) => {
-                        self.oppr = Some(PacketParserResult::Some(pp));
-                    },
-                }
+                // Verify the signatures.
+                self.helper.check(::std::mem::replace(&mut self.sigs,
+                                                      Vec::new()))
+            } else {
+                self.oppr = Some(PacketParserResult::Some(pp));
+                Ok(())
             }
+        } else {
+            panic!("No ppr.");
+        }
+    }
+
+    /// Like `io::Read::read()`, but returns our `Result`.
+    fn read_helper(&mut self, buf: &mut [u8]) -> Result<usize> {
+        if buf.len() == 0 {
+            return Ok(0);
         }
 
-        let n = cmp::min(buf.len(), self.buffer.len());
-        &mut buf[..n].copy_from_slice(&self.buffer[..n]);
-        self.buffer.drain(..n);
-        Ok(n)
+        if let Some(ref mut reserve) = self.reserve {
+            // The message has been verified.  We can now drain the
+            // reserve.
+            assert!(self.oppr.is_none());
+
+            let n = cmp::min(buf.len(), reserve.len());
+            &mut buf[..n].copy_from_slice(&reserve[..n]);
+            reserve.drain(..n);
+            return Ok(n);
+        }
+
+        // Read the data from the Literal data packet.
+        if let Some(PacketParserResult::Some(mut pp)) = self.oppr.take() {
+            // Be careful to not read from the reserve.
+            let data_len = pp.data(BUFFER_SIZE + buf.len())?.len();
+            if data_len <= BUFFER_SIZE {
+                self.oppr = Some(PacketParserResult::Some(pp));
+                self.finish_maybe()?;
+                self.read_helper(buf)
+            } else {
+                let n = cmp::min(buf.len(), data_len - BUFFER_SIZE);
+                let buf = &mut buf[..n];
+                let result = pp.read(buf);
+                self.oppr = Some(PacketParserResult::Some(pp));
+                Ok(result?)
+            }
+        } else {
+            panic!("No ppr.");
+        }
     }
 }
 
 impl<'a, H: VerificationHelper> io::Read for Verifier<'a, H> {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        if self.seen_eof && self.buffer.is_empty() {
-            return Ok(0);
-        }
-
         match self.read_helper(buf) {
             Ok(n) => Ok(n),
             Err(e) => match e.downcast::<io::Error>() {
@@ -518,11 +499,10 @@ pub struct Decryptor<'a, H: VerificationHelper + DecryptionHelper> {
     tpks: Vec<TPK>,
     /// Maps KeyID to tpks[i].keys().nth(j).
     keys: HashMap<KeyID, (usize, usize)>,
-    buffer: Vec<u8>,
-    seen_eof: bool,
     oppr: Option<PacketParserResult<'a>>,
     identity: Option<Fingerprint>,
     sigs: Vec<Vec<VerificationResult>>,
+    reserve: Option<Vec<u8>>,
 }
 
 /// Helper for decrypting messages.
@@ -649,7 +629,8 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
     /// If the function returns false the message did not fit into the internal buffer and
     /// **unverified** data must be `read()` from the instance until EOF.
     pub fn message_processed(&self) -> bool {
-        self.seen_eof
+        // oppr is only None after we've processed the packet sequence.
+        self.oppr.is_none()
     }
 
     /// Creates the `Decryptor`, and buffers the data up to `BUFFER_SIZE`.
@@ -663,11 +644,10 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
             helper: helper,
             tpks: Vec::new(),
             keys: HashMap::new(),
-            buffer: Vec::new(),
-            seen_eof: false,
             oppr: None,
             identity: None,
             sigs: Vec::new(),
+            reserve: None,
         };
 
         let mut issuers = Vec::new();
@@ -769,20 +749,14 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                         }
                     }
 
-                    // Start to buffer the data.
-                    v.fill_buffer(&mut pp, BUFFER_SIZE)?;
+                    v.oppr = Some(PacketParserResult::Some(pp));
+                    v.finish_maybe()?;
+                    return Ok(v);
                 },
                 Packet::MDC(ref mdc) => if ! mdc.valid() {
                     return Err(Error::ManipulatedMessage.into());
                 },
                 _ => (),
-            }
-
-            if ! v.buffer.is_empty() && ! v.seen_eof {
-                // We started buffering, but we are not done with the
-                // literal data packet.
-                ppr = PacketParserResult::Some(pp);
-                break;
             }
 
             let ((p, _), (ppr_tmp, _)) = pp.recurse()?;
@@ -795,38 +769,11 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
             ppr = ppr_tmp;
         }
 
-        match ppr {
-            PacketParserResult::EOF(eof) =>
-                if ! eof.is_message() {
-                    Err(Error::MalformedMessage(
-                        "Malformed OpenPGP message".into()).into())
-                } else {
-                    v.helper.check(::std::mem::replace(&mut v.sigs,
-                                                       Vec::new()))?;
-                    Ok(v)
-                },
-            PacketParserResult::Some(pp) => {
-                v.oppr = Some(PacketParserResult::Some(pp));
-                Ok(v)
-            },
-        }
+        // We can only get here if we didn't encounter a literal data
+        // packet.
+        Err(Error::MalformedMessage(
+            "Malformed OpenPGP message".into()).into())
     }
-
-    fn fill_buffer(&mut self, pp: &mut PacketParser, amount: usize)
-                   -> Result<()> {
-        let mut buffer = vec![0; 4096];
-        while self.buffer.len() < amount {
-            let l = pp.read(&mut buffer)?;
-            if l == 0 {
-                self.seen_eof = true;
-                break;
-            }
-
-            self.buffer.extend_from_slice(&buffer[..l]);
-        }
-        Ok(())
-    }
-
 
     /// Verifies the given Signature (if it is one), and stores the
     /// result.
@@ -888,16 +835,20 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
         Ok(())
     }
 
-    /// Like `io::Read::read()`, but returns our `Result`.
-    fn read_helper(&mut self, buf: &mut [u8]) -> Result<usize> {
-        // We never return more than BUFFER_SIZE bytes.
-        let n = cmp::min(buf.len(), BUFFER_SIZE);
-        let buf = &mut buf[..n];
+    // If the amount of remaining data does not exceed the reserve,
+    // finish processing the OpenPGP packet sequence.
+    //
+    // Note: once this call succeeds, you may not call it again.
+    fn finish_maybe(&mut self) -> Result<()> {
+        if let Some(PacketParserResult::Some(mut pp)) = self.oppr.take() {
+            // Check if we hit EOF.
+            let data_len = pp.data(BUFFER_SIZE + 1)?.len();
+            if data_len <= BUFFER_SIZE {
+                // Stash the reserve.
+                self.reserve = Some(pp.steal_eof()?);
 
-        // Make sure we have BUFFER_SIZE bytes more than requested.
-        let want = buf.len() + BUFFER_SIZE;
-        if self.buffer.len() < want && ! self.seen_eof {
-            if let Some(mut ppr) = self.oppr.take() {
+                // Process the rest of the packets.
+                let mut ppr = PacketParserResult::Some(pp);
                 while let PacketParserResult::Some(mut pp) = ppr {
                     self.helper.inspect(&pp)?;
 
@@ -907,21 +858,10 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                     }
 
                     match pp.packet {
-                        Packet::Literal(_) => {
-                            // Start to buffer the data.
-                            self.fill_buffer(&mut pp, want)?;
-                        },
                         Packet::MDC(ref mdc) => if ! mdc.valid() {
                             return Err(Error::ManipulatedMessage.into());
-                        },
+                        }
                         _ => (),
-                    }
-
-                    if ! self.buffer.is_empty() && ! self.seen_eof {
-                        // We started buffering, but we are not done with the
-                        // literal data packet.
-                        ppr = PacketParserResult::Some(pp);
-                        break;
                     }
 
                     let ((p, _), (ppr_tmp, _)) = pp.recurse()?;
@@ -929,36 +869,59 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                     ppr = ppr_tmp;
                 }
 
-                match ppr {
-                    PacketParserResult::EOF(eof) =>
-                        if ! eof.is_message() {
-                            return Err(Error::MalformedMessage(
-                                "Malformed OpenPGP message".into()).into());
-                        } else {
-                            self.helper.check(::std::mem::replace(
-                                &mut self.sigs, Vec::new()))?;
-                        },
-                    PacketParserResult::Some(pp) => {
-                        self.oppr = Some(PacketParserResult::Some(pp));
-                    },
-                }
+                // Verify the signatures.
+                self.helper.check(::std::mem::replace(&mut self.sigs,
+                                                      Vec::new()))
+            } else {
+                self.oppr = Some(PacketParserResult::Some(pp));
+                Ok(())
             }
+        } else {
+            panic!("No ppr.");
+        }
+    }
+
+    /// Like `io::Read::read()`, but returns our `Result`.
+    fn read_helper(&mut self, buf: &mut [u8]) -> Result<usize> {
+        if buf.len() == 0 {
+            return Ok(0);
         }
 
-        let n = cmp::min(buf.len(), self.buffer.len());
-        &mut buf[..n].copy_from_slice(&self.buffer[..n]);
-        self.buffer.drain(..n);
-        Ok(n)
+        if let Some(ref mut reserve) = self.reserve {
+            // The message has been verified.  We can now drain the
+            // reserve.
+            assert!(self.oppr.is_none());
+
+            let n = cmp::min(buf.len(), reserve.len());
+            &mut buf[..n].copy_from_slice(&reserve[..n]);
+            reserve.drain(..n);
+            return Ok(n);
+        }
+
+        // Read the data from the Literal data packet.
+        if let Some(PacketParserResult::Some(mut pp)) = self.oppr.take() {
+            // Be careful to not read from the reserve.
+            let data_len = pp.data(BUFFER_SIZE + buf.len())?.len();
+            if data_len <= BUFFER_SIZE {
+                self.oppr = Some(PacketParserResult::Some(pp));
+                self.finish_maybe()?;
+                self.read_helper(buf)
+            } else {
+                let n = cmp::min(buf.len(), data_len - BUFFER_SIZE);
+                let buf = &mut buf[..n];
+                let result = pp.read(buf);
+                self.oppr = Some(PacketParserResult::Some(pp));
+                Ok(result?)
+            }
+        } else {
+            panic!("No ppr.");
+        }
     }
 }
 
 impl<'a, H: VerificationHelper + DecryptionHelper> io::Read for Decryptor<'a, H>
 {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        if self.seen_eof && self.buffer.is_empty() {
-            return Ok(0);
-        }
-
         match self.read_helper(buf) {
             Ok(n) => Ok(n),
             Err(e) => match e.downcast::<io::Error>() {
