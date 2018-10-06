@@ -224,7 +224,7 @@ pub fn decrypt(ctx: &Context, store: &mut store::Store,
 
     let helper = decryptor.into_helper();
     if let Some(dumper) = helper.dumper.as_ref() {
-        dumper.flush(output)?;
+        dumper.flush(&mut io::stderr())?;
     }
     helper.vhelper.print_status();
     return Ok(());
