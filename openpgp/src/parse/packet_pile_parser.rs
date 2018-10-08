@@ -256,7 +256,7 @@ impl<'a> PacketPileParser<'a> {
     /// top-level container have a recursion depth of 1.  Etc.
     pub fn recursion_depth(&self) -> Option<u8> {
         if let PacketParserResult::Some(ref pp) = self.ppr {
-            Some(pp.recursion_depth)
+            Some(pp.recursion_depth() as u8)
         } else {
             None
         }

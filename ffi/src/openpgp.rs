@@ -1241,7 +1241,7 @@ pub extern "system" fn sq_packet_parser_recursion_depth
     (pp: Option<&PacketParser>)
      -> uint8_t {
     let pp = pp.expect("PacketParser is NULL");
-    pp.recursion_depth
+    pp.recursion_depth() as u8
 }
 
 /// Finishes parsing the current packet and starts parsing the

@@ -317,7 +317,7 @@ impl PacketPile {
         // it is hard to imagine that that is what the caller wants.
         // Instead of hiding that error, fail fast.
         if let PacketParserResult::Some(ref pp) = ppr {
-            assert_eq!(pp.recursion_depth, 0);
+            assert_eq!(pp.recursion_depth(), 0);
         }
 
         // Create a top-level container.
@@ -377,7 +377,7 @@ impl PacketPile {
                 pp = ppr.unwrap();
 
                 last_position = position;
-                position = pp.recursion_depth as isize;
+                position = pp.recursion_depth() as isize;
                 relative_position = position - last_position;
                 if position < last_position {
                     // There was a pop, we need to restart from the

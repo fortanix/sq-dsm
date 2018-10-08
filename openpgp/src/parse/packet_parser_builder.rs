@@ -132,14 +132,13 @@ impl<'a> PacketParserBuilder<'a> {
         let state = PacketParserState::new(self.settings);
 
         // Parse the first packet.
-        match PacketParser::parse(Box::new(self.bio), state, 0)? {
+        match PacketParser::parse(Box::new(self.bio), state, vec![ 0 ])? {
             ParserResult::Success(mut pp) => {
                 // We successfully parsed the first packet's header.
                 pp.state.message_validator.push(pp.packet.tag(), 0);
-                pp.path.push(0);
                 Ok(PacketParserResult::Some(pp))
             },
-            ParserResult::EOF((_reader, state)) => {
+            ParserResult::EOF((_reader, state, _path)) => {
                 // `bio` is empty.  We're done.
                 Ok(PacketParserResult::EOF(PacketParserEOF::new(state)))
             }
