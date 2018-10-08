@@ -9,9 +9,7 @@ extern crate tempfile;
 extern crate time;
 
 use failure::ResultExt;
-use prettytable::Table;
-use prettytable::cell::Cell;
-use prettytable::row::Row;
+use prettytable::{Table, Cell, Row};
 use std::fs::{File, OpenOptions};
 use std::io;
 use std::path::PathBuf;
