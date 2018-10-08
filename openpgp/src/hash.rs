@@ -169,7 +169,7 @@ impl UserAttribute {
 
 impl Key {
     /// Update the Hash with a hash of the key.
-    pub fn hash<H: Hash>(&self, hash: &mut H) {
+    pub fn hash<H: Hash + Write>(&self, hash: &mut H) {
         // We hash 8 bytes plus the MPIs.  But, the len doesn't
         // include the tag (1 byte) or the length (2 bytes).
         let len = (9 - 3) + self.mpis.serialized_len();

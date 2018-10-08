@@ -1,6 +1,7 @@
 //! Multi Precision Integers.
 
 use std::fmt;
+use std::io::Write;
 use quickcheck::{Arbitrary, Gen};
 use rand::Rng;
 
@@ -9,6 +10,7 @@ use constants::{
     HashAlgorithm,
     Curve,
 };
+use serialize::Serialize;
 
 use nettle::Hash;
 
@@ -194,59 +196,8 @@ impl PublicKey {
     }
 
     /// Update the Hash with a hash of the MPIs.
-    pub fn hash<H: Hash>(&self, hash: &mut H) {
-        use self::PublicKey::*;
-
-        match self {
-            &RSA { ref e, ref n } => {
-                n.hash(hash);
-                e.hash(hash);
-            }
-
-            &DSA { ref p, ref q, ref g, ref y } => {
-                p.hash(hash);
-                q.hash(hash);
-                g.hash(hash);
-                y.hash(hash);
-            }
-
-            &Elgamal { ref p, ref g, ref y } => {
-                p.hash(hash);
-                g.hash(hash);
-                y.hash(hash);
-            }
-
-            &EdDSA { ref curve, ref q } => {
-                hash.update(&[curve.oid().len() as u8]);
-                hash.update(curve.oid());
-                q.hash(hash);
-            }
-
-            &ECDSA { ref curve, ref q } => {
-                hash.update(&[curve.oid().len() as u8]);
-                hash.update(curve.oid());
-                q.hash(hash);
-            }
-
-            &ECDH { ref curve, ref q, hash: h, sym } => {
-                // curve
-                hash.update(&[curve.oid().len() as u8]);
-                hash.update(curve.oid());
-
-                // point MPI
-                q.hash(hash);
-
-                // KDF
-                hash.update(&[3u8, 1u8, u8::from(h), u8::from(sym)]);
-            }
-
-            &Unknown { ref mpis, ref rest } => {
-                for mpi in mpis.iter() {
-                    mpi.hash(hash);
-                }
-                hash.update(rest);
-            }
-        }
+    pub fn hash<H: Hash + Write>(&self, hash: &mut H) {
+        self.serialize(hash).expect("hashing does not fail")
     }
 }
 
@@ -411,44 +362,8 @@ impl SecretKey {
     }
 
     /// Update the Hash with a hash of the MPIs.
-    pub fn hash<H: Hash>(&self, hash: &mut H) {
-        use self::SecretKey::*;
-
-        match self {
-            &RSA { ref d, ref p, ref q, ref u } => {
-                d.hash(hash);
-                p.hash(hash);
-                q.hash(hash);
-                u.hash(hash);
-            }
-
-            &DSA { ref x } => {
-                x.hash(hash);
-            }
-
-            &Elgamal { ref x } => {
-                x.hash(hash);
-            }
-
-            &EdDSA { ref scalar } => {
-                scalar.hash(hash);
-            }
-
-            &ECDSA { ref scalar } => {
-                scalar.hash(hash);
-            }
-
-            &ECDH { ref scalar } => {
-                scalar.hash(hash);
-            }
-
-            &Unknown { ref mpis, ref rest } => {
-                for mpi in mpis.iter() {
-                    mpi.hash(hash);
-                }
-                hash.update(rest);
-            }
-        }
+    pub fn hash<H: Hash + Write>(&self, hash: &mut H) {
+        self.serialize(hash).expect("hashing does not fail")
     }
 }
 
@@ -551,34 +466,8 @@ impl Ciphertext {
     }
 
     /// Update the Hash with a hash of the MPIs.
-    pub fn hash<H: Hash>(&self, hash: &mut H) {
-        use self::Ciphertext::*;
-
-        match self {
-            &RSA { ref c } => {
-                c.hash(hash);
-            }
-
-            &Elgamal { ref e, ref c } => {
-                e.hash(hash);
-                c.hash(hash);
-            }
-
-            &ECDH { ref e, ref key } => {
-                e.hash(hash);
-
-                // key
-                hash.update(&[key.len() as u8]);
-                hash.update(&key);
-            }
-
-            &Unknown { ref mpis, ref rest } => {
-                for mpi in mpis.iter() {
-                    mpi.hash(hash);
-                }
-                hash.update(rest);
-            }
-        }
+    pub fn hash<H: Hash + Write>(&self, hash: &mut H) {
+        self.serialize(hash).expect("hashing does not fail")
     }
 }
 
@@ -687,41 +576,8 @@ impl Signature {
     }
 
     /// Update the Hash with a hash of the MPIs.
-    pub fn hash<H: Hash>(&self, hash: &mut H) {
-        use self::Signature::*;
-
-        match self {
-            &RSA { ref s } => {
-                s.hash(hash);
-            }
-
-            &DSA { ref r, ref s } => {
-                r.hash(hash);
-                s.hash(hash);
-            }
-
-            &Elgamal { ref r, ref s } => {
-                r.hash(hash);
-                s.hash(hash);
-            }
-
-            &EdDSA { ref r, ref s } => {
-                r.hash(hash);
-                s.hash(hash);
-             }
-
-            &ECDSA { ref r, ref s } => {
-                r.hash(hash);
-                s.hash(hash);
-            }
-
-            &Unknown { ref mpis, ref rest } => {
-                for mpi in mpis.iter() {
-                    mpi.hash(hash);
-                }
-                hash.update(rest);
-            }
-        }
+    pub fn hash<H: Hash + Write>(&self, hash: &mut H) {
+        self.serialize(hash).expect("hashing does not fail")
     }
 }
 
