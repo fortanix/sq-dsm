@@ -298,6 +298,8 @@ impl<'a> PacketHeaderParser<'a> {
             header: self.header,
             packet: packet,
             recursion_depth: self.recursion_depth,
+            path: vec![],
+            last_path: Vec::with_capacity(4),
             reader: reader,
             content_was_read: false,
             decrypted: true,
@@ -2052,6 +2054,12 @@ pub struct PacketParser<'a> {
     /// The packet that is being parsed.
     pub packet: Packet,
 
+    // The path of the packet that is currently being parsed.
+    path: Vec<usize>,
+    // The path of the packet that was most recently returned by
+    // `next()` or `recurse()`.
+    last_path: Vec<usize>,
+
     /// This packet's recursion depth.
     ///
     /// A top-level packet has a recursion depth of 0.  Packets in a
@@ -2081,6 +2089,8 @@ impl <'a> std::fmt::Debug for PacketParser<'a> {
         f.debug_struct("PacketParser")
             .field("header", &self.header)
             .field("packet", &self.packet)
+            .field("path", &self.path)
+            .field("last_path", &self.last_path)
             .field("recursion_depth", &self.recursion_depth)
             .field("decrypted", &self.decrypted)
             .field("content_was_read", &self.content_was_read)
@@ -2101,6 +2111,8 @@ enum ParserResult<'a> {
 #[derive(Debug)]
 pub struct PacketParserEOF {
     state: PacketParserState,
+
+    last_path: Vec<usize>,
 }
 
 impl PacketParserEOF {
@@ -2111,6 +2123,7 @@ impl PacketParserEOF {
 
         PacketParserEOF {
             state: state,
+            last_path: vec![],
         }
     }
 
@@ -2119,6 +2132,11 @@ impl PacketParserEOF {
     /// As opposed to a TPK or just a bunch of packets.
     pub fn is_message(&self) -> bool {
         self.state.message_validator.is_message()
+    }
+
+    /// Returns the path of the last packet.
+    pub fn last_path(&self) -> &[usize] {
+        &self.last_path[..]
     }
 }
 
@@ -2286,6 +2304,16 @@ impl <'a> PacketParser<'a> {
     /// decrypted.
     pub fn decrypted(&self) -> bool {
         self.decrypted
+    }
+
+    /// Returns the path of the last packet.
+    pub fn last_path(&self) -> &[usize] {
+        &self.last_path[..]
+    }
+
+    /// Returns the path of the current packet.
+    pub fn path(&self) -> &[usize] {
+        &self.path[..]
     }
 
     /// Returns whether the message appears to be an OpenPGP Message.
@@ -2618,6 +2646,12 @@ impl <'a> PacketParser<'a> {
         let orig_depth = self.recursion_depth as usize;
 
         self.finish()?;
+
+        self.last_path.clear();
+        self.last_path.extend_from_slice(&self.path[..]);
+
+        let mut index = self.path.pop().unwrap() + 1;
+
         let (mut fake_eof, mut reader) = buffered_reader_stack_pop(
             mem::replace(&mut self.reader,
                          Box::new(BufferedReaderEOF::with_cookie(
@@ -2657,12 +2691,10 @@ impl <'a> PacketParser<'a> {
                                        reading message.",
                                       indent(self.recursion_depth));
                         }
-                        let eof = PacketParserResult::EOF(
-                            PacketParserEOF::new(state_));
-                        return Ok(((self.packet,
-                                    orig_depth as isize),
-                                   (eof,
-                                    0)));
+                        let mut eof = PacketParserEOF::new(state_);
+                        eof.last_path = self.last_path;
+                        return Ok(((self.packet, orig_depth as isize),
+                                   (PacketParserResult::EOF(eof), 0)));
                     } else {
                         self.state = state_;
                         self.finish()?;
@@ -2672,6 +2704,9 @@ impl <'a> PacketParser<'a> {
                         fake_eof = fake_eof_;
                         if !fake_eof {
                             self.recursion_depth -= 1;
+                            index = self.path.pop().unwrap() + 1;
+                            assert_eq!(self.recursion_depth as usize,
+                                       self.path.len());
                         }
                         reader = reader_;
                     }
@@ -2679,6 +2714,11 @@ impl <'a> PacketParser<'a> {
                 ParserResult::Success(mut pp) => {
                     pp.state.message_validator.push(
                         pp.packet.tag(), self.recursion_depth as usize);
+
+                    pp.last_path = self.last_path;
+                    self.path.push(index);
+                    pp.path = self.path;
+
                     return Ok(((self.packet,
                                 orig_depth as isize),
                                (PacketParserResult::Some(pp),
@@ -2755,6 +2795,12 @@ impl <'a> PacketParser<'a> {
                             pp.state.message_validator.push(
                                 pp.packet.tag(),
                                 self.recursion_depth as usize + 1);
+
+                            pp.last_path.clear();
+                            pp.last_path.extend_from_slice(&self.path[..]);
+
+                            pp.path = self.path;
+                            pp.path.push(0);
 
                             return Ok(((self.packet,
                                         self.recursion_depth as isize),
@@ -3222,6 +3268,7 @@ mod test {
         algo: SymmetricAlgorithm,
         key_hex: &'a str,
         plaintext: Data<'a>,
+        paths: &'a[ (Tag, &'a[ usize ] ) ],
     }
     const DECRYPT_TESTS: [DecryptTest; 8] = [
         // Messages with a relatively simple structure:
@@ -3235,24 +3282,48 @@ mod test {
             algo: SymmetricAlgorithm::AES256,
             key_hex: "7EF4F08C44F780BEA866961423306166B8912C43352F3D9617F745E4E3939710",
             plaintext: Data::File("a-cypherpunks-manifesto.txt"),
+            paths: &[
+                (Tag::SKESK, &[ 0 ]),
+                (Tag::SEIP, &[ 1 ]),
+                (Tag::Literal, &[ 1, 0 ]),
+                (Tag::MDC, &[ 1, 1 ]),
+            ],
         },
         DecryptTest {
             filename: "encrypted-aes192-password-123456.gpg",
             algo: SymmetricAlgorithm::AES192,
             key_hex: "B2F747F207EFF198A6C826F1D398DE037986218ED468DB61",
             plaintext: Data::File("a-cypherpunks-manifesto.txt"),
+            paths: &[
+                (Tag::SKESK, &[ 0 ]),
+                (Tag::SEIP, &[ 1 ]),
+                (Tag::Literal, &[ 1, 0 ]),
+                (Tag::MDC, &[ 1, 1 ]),
+            ],
         },
         DecryptTest {
             filename: "encrypted-aes128-password-123456789.gpg",
             algo: SymmetricAlgorithm::AES128,
             key_hex: "AC0553096429260B4A90B1CEC842D6A0",
             plaintext: Data::File("a-cypherpunks-manifesto.txt"),
+            paths: &[
+                (Tag::SKESK, &[ 0 ]),
+                (Tag::SEIP, &[ 1 ]),
+                (Tag::Literal, &[ 1, 0 ]),
+                (Tag::MDC, &[ 1, 1 ]),
+            ],
         },
         DecryptTest {
             filename: "encrypted-twofish-password-red-fish-blue-fish.gpg",
             algo: SymmetricAlgorithm::Twofish,
             key_hex: "96AFE1EDFA7C9CB7E8B23484C718015E5159CFA268594180D4DB68B2543393CB",
             plaintext: Data::File("a-cypherpunks-manifesto.txt"),
+            paths: &[
+                (Tag::SKESK, &[ 0 ]),
+                (Tag::SEIP, &[ 1 ]),
+                (Tag::Literal, &[ 1, 0 ]),
+                (Tag::MDC, &[ 1, 1 ]),
+            ],
         },
 
         // More complex messages.  In particular, some of these
@@ -3265,24 +3336,54 @@ mod test {
             algo: SymmetricAlgorithm::AES128,
             key_hex: "86A8C1C7961F55A3BE181A990D0ABB2A",
             plaintext: Data::String(b"compression, not signed\n"),
+            paths: &[
+                (Tag::SKESK, &[ 0 ]),
+                (Tag::SEIP, &[ 1 ]),
+                (Tag::CompressedData, &[ 1, 0 ]),
+                (Tag::Literal, &[ 1, 0, 0 ]),
+                (Tag::MDC, &[ 1, 1 ]),
+            ],
         },
         DecryptTest {
             filename: "seip/msg-compression-signed-password-123.pgp",
             algo: SymmetricAlgorithm::AES128,
             key_hex: "1B195CD35CAD4A99D9399B4CDA4CDA4E",
             plaintext: Data::String(b"compression, signed\n"),
+            paths: &[
+                (Tag::SKESK, &[ 0 ]),
+                (Tag::SEIP, &[ 1 ]),
+                (Tag::CompressedData, &[ 1, 0 ]),
+                (Tag::OnePassSig, &[ 1, 0, 0 ]),
+                (Tag::Literal, &[ 1, 0, 1 ]),
+                (Tag::Signature, &[ 1, 0, 2 ]),
+                (Tag::MDC, &[ 1, 1 ]),
+            ],
         },
         DecryptTest {
             filename: "seip/msg-no-compression-not-signed-password-123.pgp",
             algo: SymmetricAlgorithm::AES128,
             key_hex: "AFB43B83A4B9D971E4B4A4C53749076A",
             plaintext: Data::String(b"no compression, not signed\n"),
+            paths: &[
+                (Tag::SKESK, &[ 0 ]),
+                (Tag::SEIP, &[ 1 ]),
+                (Tag::Literal, &[ 1, 0 ]),
+                (Tag::MDC, &[ 1, 1 ]),
+            ],
         },
         DecryptTest {
             filename: "seip/msg-no-compression-signed-password-123.pgp",
             algo: SymmetricAlgorithm::AES128,
             key_hex: "9D5DB92F77F0E4A356EE53813EF2C3DC",
             plaintext: Data::String(b"no compression, signed\n"),
+            paths: &[
+                (Tag::SKESK, &[ 0 ]),
+                (Tag::SEIP, &[ 1 ]),
+                (Tag::OnePassSig, &[ 1, 0 ]),
+                (Tag::Literal, &[ 1, 1 ]),
+                (Tag::Signature, &[ 1, 2 ]),
+                (Tag::MDC, &[ 1, 3 ]),
+            ],
         },
     ];
 
@@ -3456,6 +3557,52 @@ mod test {
                 assert!(eof.is_message());
             } else {
                 unreachable!();
+            }
+        }
+    }
+
+    #[test]
+    fn path() {
+        for test in DECRYPT_TESTS.iter() {
+            eprintln!("Decrypting {}", test.filename);
+
+            let path = path_to(test.filename);
+            let mut ppr = PacketParserBuilder::from_file(&path).unwrap()
+                .finalize()
+                .expect(&format!("Error reading {}", test.filename)[..]);
+
+            let mut last_path = vec![];
+
+            let mut paths = test.paths.to_vec();
+            // We pop from the end.
+            paths.reverse();
+
+            while let PacketParserResult::Some(mut pp) = ppr {
+                let path = paths.pop().expect("Message longer than expect");
+                assert_eq!(path.0, pp.packet.tag());
+                assert_eq!(path.1, pp.path());
+
+                assert_eq!(last_path, pp.last_path());
+                last_path = pp.path.to_vec();
+
+                eprintln!("  {}: {:?}", pp.packet.tag(), pp.path());
+
+                if let Packet::SEIP(_) = pp.packet {
+                    let key = ::conversions::from_hex(test.key_hex, false)
+                        .unwrap().into();
+
+                    pp.decrypt(test.algo, &key).unwrap();
+                }
+
+                let (_, (ppr_, _)) = pp.recurse().unwrap();
+                ppr = ppr_;
+            }
+            assert_eq!(paths.len(), 0, "Message shorter than expected");
+
+            if let PacketParserResult::EOF(mut eof) = ppr {
+                assert_eq!(last_path, eof.last_path());
+            } else {
+                panic!("Expect an EOF");
             }
         }
     }
