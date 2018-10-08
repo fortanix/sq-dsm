@@ -134,7 +134,7 @@ impl Hash for HashDumper {
 }
 
 impl UserID {
-    /// Update the Hash with a hash of the key.
+    /// Update the Hash with a hash of the user id.
     pub fn hash<H: Hash>(&self, hash: &mut H) {
         let mut header = [0; 5];
 
@@ -151,7 +151,7 @@ impl UserID {
 }
 
 impl UserAttribute {
-    /// Update the Hash with a hash of the key.
+    /// Update the Hash with a hash of the user attribute.
     pub fn hash<H: Hash>(&self, hash: &mut H) {
         let mut header = [0; 5];
 
