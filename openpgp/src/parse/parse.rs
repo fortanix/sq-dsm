@@ -3187,180 +3187,203 @@ impl<'a> PacketParser<'a> {
 mod test {
     use super::*;
 
+    use std::fs::File;
+
     use std::path::PathBuf;
     fn path_to(artifact: &str) -> PathBuf {
         [env!("CARGO_MANIFEST_DIR"), "tests", "data", "messages", artifact]
             .iter().collect()
     }
 
-    const DECRYPT_PLAINTEXT: &[u8] = bytes!("a-cypherpunks-manifesto.txt");
+    enum Data<'a> {
+        File(&'a str),
+        String(&'a [u8]),
+    }
+
+    impl<'a> Data<'a> {
+        fn content(&self) -> Vec<u8> {
+            match self {
+                Data::File(filename) => {
+                    let path = path_to(filename);
+                    let mut f = File::open(path.clone())
+                        .expect(&format!("Opening '{:?}'", path)[..]);
+                    let mut buffer : Vec<u8> = vec![];
+                    f.read_to_end(&mut buffer)
+                        .expect(&format!("Reading '{:?}'", path)[..]);
+                    buffer
+                },
+                Data::String(data) => data.to_vec(),
+            }
+        }
+    }
 
     struct DecryptTest<'a> {
         filename: &'a str,
         algo: SymmetricAlgorithm,
         key_hex: &'a str,
+        plaintext: Data<'a>,
     }
-    const DECRYPT_TESTS: [DecryptTest; 4] = [
+    const DECRYPT_TESTS: [DecryptTest; 8] = [
+        // Messages with a relatively simple structure:
+        //
+        //   [ SKESK SEIP [ Literal MDC ] ].
+        //
+        // And simple length encodings (no indeterminate length
+        // encodings).
         DecryptTest {
             filename: "encrypted-aes256-password-123.gpg",
             algo: SymmetricAlgorithm::AES256,
             key_hex: "7EF4F08C44F780BEA866961423306166B8912C43352F3D9617F745E4E3939710",
+            plaintext: Data::File("a-cypherpunks-manifesto.txt"),
         },
         DecryptTest {
             filename: "encrypted-aes192-password-123456.gpg",
             algo: SymmetricAlgorithm::AES192,
             key_hex: "B2F747F207EFF198A6C826F1D398DE037986218ED468DB61",
+            plaintext: Data::File("a-cypherpunks-manifesto.txt"),
         },
         DecryptTest {
             filename: "encrypted-aes128-password-123456789.gpg",
             algo: SymmetricAlgorithm::AES128,
             key_hex: "AC0553096429260B4A90B1CEC842D6A0",
+            plaintext: Data::File("a-cypherpunks-manifesto.txt"),
         },
         DecryptTest {
             filename: "encrypted-twofish-password-red-fish-blue-fish.gpg",
             algo: SymmetricAlgorithm::Twofish,
             key_hex: "96AFE1EDFA7C9CB7E8B23484C718015E5159CFA268594180D4DB68B2543393CB",
+            plaintext: Data::File("a-cypherpunks-manifesto.txt"),
+        },
+
+        // More complex messages.  In particular, some of these
+        // messages include compressed data packets, and some are
+        // signed.  But what makes these particularly complex is the
+        // use of an indeterminate length encoding, which checks the
+        // BufferedReaderReserve hack.
+        DecryptTest {
+            filename: "seip/msg-compression-not-signed-password-123.pgp",
+            algo: SymmetricAlgorithm::AES128,
+            key_hex: "86A8C1C7961F55A3BE181A990D0ABB2A",
+            plaintext: Data::String(b"compression, not signed\n"),
+        },
+        DecryptTest {
+            filename: "seip/msg-compression-signed-password-123.pgp",
+            algo: SymmetricAlgorithm::AES128,
+            key_hex: "1B195CD35CAD4A99D9399B4CDA4CDA4E",
+            plaintext: Data::String(b"compression, signed\n"),
+        },
+        DecryptTest {
+            filename: "seip/msg-no-compression-not-signed-password-123.pgp",
+            algo: SymmetricAlgorithm::AES128,
+            key_hex: "AFB43B83A4B9D971E4B4A4C53749076A",
+            plaintext: Data::String(b"no compression, not signed\n"),
+        },
+        DecryptTest {
+            filename: "seip/msg-no-compression-signed-password-123.pgp",
+            algo: SymmetricAlgorithm::AES128,
+            key_hex: "9D5DB92F77F0E4A356EE53813EF2C3DC",
+            plaintext: Data::String(b"no compression, signed\n"),
         },
     ];
 
-    #[test]
-    fn decrypt_test_1() {
-        for test in DECRYPT_TESTS.iter() {
-            eprintln!("Decrypting {}", test.filename);
-
-            let path = path_to(test.filename);
-            let mut pp = PacketParserBuilder::from_file(&path).unwrap()
-                .buffer_unread_content()
-                .finalize()
-                .expect(&format!("Error reading {}", test.filename)[..])
-                .expect("Empty message");
-
-            loop {
-                if let Packet::SEIP(_) = pp.packet {
-                    let key = ::conversions::from_hex(test.key_hex, false)
-                        .unwrap().into();
-
-                    pp.decrypt(test.algo, &key).unwrap();
-
-                    // SEIP packet.
-                    let ((packet, _), (pp, _)) = pp.recurse().unwrap();
-                    assert_eq!(packet.tag(), Tag::SEIP);
-                    let pp = pp.expect(
-                        "Expected an compressed or literal packet, got EOF");
-
-                    // Literal packet, optionally compressed
-                    let ((mut packet, _), (mut pp, _)) = pp.recurse().unwrap();
-                    if let Packet::CompressedData(_) = packet {
-                        let pp_tmp = pp.expect(
-                            "Expected a literal packet, got EOF");
-                        let ((packet_tmp, _), (pp_tmp, _))
-                            = pp_tmp.recurse().unwrap();
-                        packet = packet_tmp;
-                        pp = pp_tmp;
-                    }
-                    assert_eq!(packet.tag(), Tag::Literal);
-                    assert_eq!(&packet.body.as_ref().unwrap()[..],
-                               &DECRYPT_PLAINTEXT[..]);
-                    let pp = pp.expect("Expected an MDC packet, got EOF");
-
-                    // MDC packet.
-                    let ((packet, _), (pp, _)) = pp.recurse().unwrap();
-                    if let Packet::MDC(mdc) = packet {
-                        assert_eq!(mdc.computed_hash, mdc.hash,
-                                   "MDC doesn't match");
-                    } else {
-                        panic!("Expected an MDC packet!");
-                    }
-
-                    // EOF.
-                    assert!(pp.is_none());
-
-                    break;
-                }
-
-                // This will blow up if we reach the end of the message.
-                // But, that is what we want: we stop when we get to a
-                // SEIP packet.
-                let (_, (pp_tmp, _)) = pp.recurse().unwrap();
-                pp = pp_tmp.unwrap();
-            }
+    // Consume packets until we get to one in `keep`.
+    fn consume_until<'a>(mut ppr: PacketParserResult<'a>,
+                         ignore_first: bool, keep: &[Tag], skip: &[Tag])
+        -> PacketParserResult<'a>
+    {
+        if ignore_first {
+            let (_, (ppr_tmp, _)) = ppr.unwrap().recurse().unwrap();
+            ppr = ppr_tmp;
         }
+
+        while let PacketParserResult::Some(pp) = ppr {
+            let tag = pp.packet.tag();
+            for t in keep.iter() {
+                if *t == tag {
+                    return PacketParserResult::Some(pp);
+                }
+            }
+
+            let mut ok = false;
+            for t in skip.iter() {
+                if *t == tag {
+                    ok = true;
+                }
+            }
+            if !ok {
+                panic!("Packet not in keep ({:?}) or skip ({:?}) set: {:?}",
+                       keep, skip, pp.packet);
+            }
+
+            let (_, (ppr_tmp, _)) = pp.recurse().unwrap();
+            ppr = ppr_tmp;
+        }
+        return ppr;
     }
 
-    /// Like the above test, but streams the literal packet.
     #[test]
-    fn decrypt_test_2() {
-        for test in DECRYPT_TESTS.iter() {
-            eprintln!("Decrypting {}", test.filename);
+    fn decrypt_test() {
+        for (test, stream) in DECRYPT_TESTS.iter().zip([false, true].iter()) {
+            eprintln!("Decrypting {}, streaming content: {}",
+                      test.filename, stream);
 
             let path = path_to(test.filename);
-            let mut pp = PacketParserBuilder::from_file(&path).unwrap()
+            let mut ppr = PacketParserBuilder::from_file(&path).unwrap()
+                .buffer_unread_content()
                 .finalize()
-                .expect(&format!("Error reading {}", test.filename)[..])
-                .expect("Empty message");
+                .expect(&format!("Error reading {}", test.filename)[..]);
 
-            loop {
-                if let Packet::SEIP(_) = pp.packet {
-                    let key = ::conversions::from_hex(test.key_hex, false)
-                        .unwrap().into();
+            let mut ppr = consume_until(
+                ppr, false, &[ Tag::SEIP ][..],
+                &[ Tag::SKESK, Tag::PKESK ][..] );
+            if let PacketParserResult::Some(ref mut pp) = ppr {
+                let key = ::conversions::from_hex(test.key_hex, false)
+                    .unwrap().into();
 
-                    pp.decrypt(test.algo, &key).unwrap();
-
-                    // SEIP packet.
-                    let ((packet, _), (pp, _)) = pp.recurse().unwrap();
-                    assert_eq!(packet.tag(), Tag::SEIP);
-                    let mut pp = pp.expect(
-                        "Expected an compressed or literal packet, got EOF");
-
-                    // Literal packet, optionally compressed
-                    if let Packet::CompressedData(_) = pp.packet {
-                        let (_, (pp_tmp, _))
-                            = pp.recurse().unwrap();
-                        let pp_tmp = pp_tmp.expect(
-                            "Expected a literal packet, got EOF");
-                        pp = pp_tmp;
-                    }
-
-                    // Literal packet.
-                    if let Packet::Literal(_) = pp.packet {
-                        // Stream the content.
-                        let mut body = Vec::new();
-                        loop {
-                            let mut b = [0];
-                            if pp.read(&mut b).unwrap() == 0 {
-                                break;
-                            }
-                            body.push(b[0]);
-                        }
-                        assert_eq!(&body[..], &DECRYPT_PLAINTEXT[..]);
-                    } else {
-                        panic!("Expected an Literal packet!");
-                    }
-                    let (_, (pp_tmp, _))
-                        = pp.recurse().unwrap();
-                    let pp = pp_tmp.expect("Expected an MDC packet, got EOF");
-
-                    // MDC packet.
-                    let ((packet, _), (pp, _)) = pp.recurse().unwrap();
-                    if let Packet::MDC(mdc) = packet {
-                        assert_eq!(mdc.computed_hash, mdc.hash,
-                                   "MDC doesn't match");
-                    } else {
-                        panic!("Expected an MDC packet!");
-                    }
-
-                    // EOF.
-                    assert!(pp.is_none());
-
-                    break;
-                }
-
-                // This will blow up if we reach the end of the message.
-                // But, that is what we want: we stop when we get to a
-                // SEIP packet.
-                let (_, (pp_tmp, _)) = pp.recurse().unwrap();
-                pp = pp_tmp.unwrap();
+                pp.decrypt(test.algo, &key).unwrap();
+            } else {
+                panic!("Expected a SEIP packet.  Got: {:?}", ppr);
             }
+
+            let mut ppr = consume_until(
+                ppr, true, &[ Tag::Literal ][..],
+                &[ Tag::OnePassSig, Tag::CompressedData ][..]);
+            if let PacketParserResult::Some(ref mut pp) = ppr {
+                if *stream {
+                    let mut body = Vec::new();
+                    loop {
+                        let mut b = [0];
+                        if pp.read(&mut b).unwrap() == 0 {
+                            break;
+                        }
+                        body.push(b[0]);
+                    }
+
+                    assert_eq!(&body[..],
+                               &test.plaintext.content()[..],
+                               "{:?}", pp.packet);
+                } else {
+                    pp.buffer_unread_content().unwrap();
+                    assert_eq!(&pp.packet.body.as_ref().unwrap()[..],
+                               &test.plaintext.content()[..],
+                               "{:?}", pp.packet);
+                }
+            } else {
+                panic!("Expected a Literal packet.  Got: {:?}", ppr);
+            }
+
+            let mut ppr = consume_until(
+                ppr, true, &[ Tag::MDC ][..], &[ Tag::Signature ][..]);
+            if let PacketParserResult::Some(
+                PacketParser { packet: Packet::MDC(ref mdc), .. }) = ppr
+            {
+                assert_eq!(mdc.computed_hash, mdc.hash,
+                           "MDC doesn't match");
+            }
+
+            let ppr = consume_until(
+                ppr, true, &[][..], &[][..]);
+            assert!(ppr.is_none());
         }
     }
 
@@ -3402,6 +3425,8 @@ mod test {
         }
     }
 
+    // If we don't decrypt the SEIP packet, it shows up as opaque
+    // content.
     #[test]
     fn message_validator_opaque_content() {
         for test in DECRYPT_TESTS.iter() {
@@ -3410,7 +3435,6 @@ mod test {
                 .finalize()
                 .expect(&format!("Error reading {}", test.filename)[..]);
 
-            // Make sure we actually decrypted...
             let mut saw_literal = false;
             while let PacketParserResult::Some(mut pp) = ppr {
                 assert!(pp.possible_message());
@@ -3435,85 +3459,6 @@ mod test {
             }
         }
     }
-
-    // Try decrypting more complicate messages.  In particular, test
-    // the use of the BufferedReaderReserve.
-    #[test]
-    fn decrypt_test_3() {
-        const DECRYPT_TESTS: [DecryptTest; 4] = [
-            DecryptTest {
-                filename: "seip/msg-compression-not-signed-password-123.pgp",
-                algo: SymmetricAlgorithm::AES128,
-                key_hex: "86A8C1C7961F55A3BE181A990D0ABB2A",
-            },
-            DecryptTest {
-                filename: "seip/msg-compression-signed-password-123.pgp",
-                algo: SymmetricAlgorithm::AES128,
-                key_hex: "1B195CD35CAD4A99D9399B4CDA4CDA4E",
-            },
-            DecryptTest {
-                filename: "seip/msg-no-compression-not-signed-password-123.pgp",
-                algo: SymmetricAlgorithm::AES128,
-                key_hex: "AFB43B83A4B9D971E4B4A4C53749076A",
-            },
-            DecryptTest {
-                filename: "seip/msg-no-compression-signed-password-123.pgp",
-                algo: SymmetricAlgorithm::AES128,
-                key_hex: "9D5DB92F77F0E4A356EE53813EF2C3DC",
-            },
-        ];
-
-        for test in DECRYPT_TESTS.iter() {
-            let path = path_to(test.filename);
-            let mut pp = PacketParserBuilder::from_file(&path).unwrap()
-                .buffer_unread_content()
-                .finalize()
-                .expect(&format!("Error reading {}", test.filename)[..])
-                .expect("Empty message");
-
-            let mut saw_seip = false;
-            let mut saw_literal = false;
-            let mut saw_mdc = false;
-
-            loop {
-                match pp.packet {
-                    Packet::SEIP(_) => {
-                        assert!(! saw_seip);
-                        saw_seip = true;
-
-                        let key = ::conversions::from_hex(test.key_hex, false)
-                            .unwrap().into();
-
-                        pp.decrypt(test.algo, &key).unwrap();
-                    },
-                    Packet::MDC(ref mdc) => {
-                        assert!(!saw_mdc);
-                        saw_mdc = true;
-
-                        assert_eq!(mdc.hash, mdc.computed_hash);
-                    },
-                    Packet::Literal(_) => {
-                        assert!(!saw_literal);
-                        saw_literal = true;
-                    },
-                    _ => (),
-                }
-
-                match pp.recurse().unwrap() {
-                    (_, (PacketParserResult::Some(pp_), _)) => pp = pp_,
-                    (_, (PacketParserResult::EOF(eof), _)) => {
-                        assert!(eof.is_message());
-                        break;
-                    }
-                }
-            }
-
-            assert!(saw_seip);
-            assert!(saw_literal);
-            assert!(saw_mdc);
-        }
-    }
-
 
     #[test]
     fn corrupted_tpk() {
