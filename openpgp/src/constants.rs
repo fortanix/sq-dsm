@@ -8,6 +8,7 @@ use std::str::FromStr;
 use std::result;
 
 use quickcheck::{Arbitrary, Gen};
+use nettle;
 
 use Error;
 use Result;
@@ -392,7 +393,85 @@ impl Arbitrary for SymmetricAlgorithm {
     }
 }
 
-/// The OpenPGP compression algorithms as defined in [Section 9.3 of RFC 4880].
+/// The AEAD algorithms as defined in [Section 9.6 of RFC 4880bis].
+///
+///   [Section 9.6 of RFC 4880bis]: https://tools.ietf.org/html/rfc4880bis#section-9.6
+///
+/// The values can be converted into and from their corresponding values of the serialized format.
+///
+/// Use [`AEADAlgorithm::from`] to translate a numeric value to a
+/// symbolic one.
+///
+///   [`AEADAlgorithm::from`]: https://doc.rust-lang.org/std/convert/trait.From.html
+#[derive(Clone, Copy, Hash, PartialEq, Eq, Debug, PartialOrd, Ord)]
+pub enum AEADAlgorithm {
+    /// EAX mode.
+    EAX,
+    /// OCB mode.
+    OCB,
+    /// Private algorithm identifier.
+    Private(u8),
+    /// Unknown algorithm identifier.
+    Unknown(u8),
+}
+
+impl AEADAlgorithm {
+    /// Returns the digest size of the AEAD algorithm.
+    pub fn digest_size(&self) -> Result<usize> {
+        use self::AEADAlgorithm::*;
+        match self {
+            &EAX =>
+            // Digest size is independent of the cipher.
+                Ok(nettle::aead::Eax::<nettle::cipher::Aes128>::DIGEST_SIZE),
+            _ => Err(Error::UnsupportedAEADAlgorithm(self.clone()).into()),
+        }
+    }
+}
+
+impl From<u8> for AEADAlgorithm {
+    fn from(u: u8) -> Self {
+        match u {
+            1 => AEADAlgorithm::EAX,
+            2 => AEADAlgorithm::OCB,
+            100...110 => AEADAlgorithm::Private(u),
+            u => AEADAlgorithm::Unknown(u),
+        }
+    }
+}
+
+impl From<AEADAlgorithm> for u8 {
+    fn from(s: AEADAlgorithm) -> u8 {
+        match s {
+            AEADAlgorithm::EAX => 1,
+            AEADAlgorithm::OCB => 2,
+            AEADAlgorithm::Private(u) => u,
+            AEADAlgorithm::Unknown(u) => u,
+        }
+    }
+}
+
+impl fmt::Display for AEADAlgorithm {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            AEADAlgorithm::EAX =>
+                f.write_str("EAX mode"),
+            AEADAlgorithm::OCB =>
+                f.write_str("OCB mode"),
+            AEADAlgorithm::Private(u) =>
+                f.write_fmt(format_args!("Private/Experimental AEAD algorithm {}", u)),
+            AEADAlgorithm::Unknown(u) =>
+                f.write_fmt(format_args!("Unknown AEAD algorithm {}", u)),
+        }
+    }
+}
+
+impl Arbitrary for AEADAlgorithm {
+    fn arbitrary<G: Gen>(g: &mut G) -> Self {
+        u8::arbitrary(g).into()
+    }
+}
+
+// The OpenPGP compression algorithms as defined in [Section 9.3 of RFC 4880].
 ///
 ///   [Section 9.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-9.3
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Debug, PartialOrd, Ord)]
@@ -934,6 +1013,33 @@ mod tests {
                 SymmetricAlgorithm::Unknown(u) =>
                     u == 5 || u == 6 || u > 110 || (u > 10 && u < 100),
                 SymmetricAlgorithm::Private(u) =>
+                    u >= 100 && u <= 110,
+                _ => true
+            }
+        }
+    }
+
+
+    quickcheck! {
+        fn aead_roundtrip(aead: AEADAlgorithm) -> bool {
+            let val: u8 = aead.clone().into();
+            aead == AEADAlgorithm::from(val)
+        }
+    }
+
+    quickcheck! {
+        fn aead_display(aead: AEADAlgorithm) -> bool {
+            let s = format!("{}", aead);
+            !s.is_empty()
+        }
+    }
+
+    quickcheck! {
+        fn aead_parse(aead: AEADAlgorithm) -> bool {
+            match aead {
+                AEADAlgorithm::Unknown(u) =>
+                    u == 0 || u > 110 || (u > 2 && u < 100),
+                AEADAlgorithm::Private(u) =>
                     u >= 100 && u <= 110,
                 _ => true
             }
