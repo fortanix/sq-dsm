@@ -392,6 +392,10 @@ impl PacketDumper {
                 write!(output, "{}    Embedded signature: ", i)?,
             IssuerFingerprint(ref fp) =>
                 write!(output, "{}    Issuer Fingerprint: {}", i, fp)?,
+            PreferredAEADAlgorithms(ref c) =>
+                write!(output, "{}    AEAD preferences: {}", i,
+                       c.iter().map(|c| format!("{:?}", c))
+                       .collect::<Vec<String>>().join(", "))?,
             IntendedRecipient(ref fp) =>
                 write!(output, "{}    Intended Recipient: {}", i, fp)?,
         }

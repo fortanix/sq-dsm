@@ -74,6 +74,7 @@ use {
     KeyID,
 };
 use constants::{
+    AEADAlgorithm,
     CompressionAlgorithm,
     HashAlgorithm,
     PublicKeyAlgorithm,
@@ -169,6 +170,8 @@ pub enum SubpacketTag {
     EmbeddedSignature,
     /// Added in RFC 4880bis.
     IssuerFingerprint,
+    /// Preferred AEAD Algorithms.
+    PreferredAEADAlgorithms,
     /// Intended Recipient Fingerprint [proposed].
     IntendedRecipient,
     Reserved(u8),
@@ -204,6 +207,7 @@ impl From<u8> for SubpacketTag {
             31 => SubpacketTag::SignatureTarget,
             32 => SubpacketTag::EmbeddedSignature,
             33 => SubpacketTag::IssuerFingerprint,
+            34 => SubpacketTag::PreferredAEADAlgorithms,
             35 => SubpacketTag::IntendedRecipient,
             0| 1| 8| 13| 14| 15| 17| 18| 19 => SubpacketTag::Reserved(u),
             100...110 => SubpacketTag::Private(u),
@@ -240,6 +244,7 @@ impl From<SubpacketTag> for u8 {
             SubpacketTag::SignatureTarget => 31,
             SubpacketTag::EmbeddedSignature => 32,
             SubpacketTag::IssuerFingerprint => 33,
+            SubpacketTag::PreferredAEADAlgorithms => 34,
             SubpacketTag::IntendedRecipient => 35,
             SubpacketTag::Reserved(u) => u,
             SubpacketTag::Private(u) => u,
@@ -681,6 +686,8 @@ pub enum SubpacketValue<'a> {
     EmbeddedSignature(Packet),
     /// 20-octet V4 fingerprint.
     IssuerFingerprint(Fingerprint),
+    /// Preferred AEAD Algorithms.
+    PreferredAEADAlgorithms(Vec<AEADAlgorithm>),
     /// Intended Recipient Fingerprint [proposed].
     IntendedRecipient(Fingerprint),
 }
@@ -726,6 +733,7 @@ impl<'a> SubpacketValue<'a> {
                 // Educated guess for unknown versions.
                 Fingerprint::Invalid(_) => 1 + fp.as_slice().len(),
             },
+            PreferredAEADAlgorithms(ref p) => p.len(),
             IntendedRecipient(ref fp) => match fp {
                 Fingerprint::V4(_) => 1 + 20,
                 // Educated guess for unknown versions.
@@ -769,6 +777,8 @@ impl<'a> SubpacketValue<'a> {
             SignatureTarget { .. } => Ok(SubpacketTag::SignatureTarget),
             EmbeddedSignature(_) => Ok(SubpacketTag::EmbeddedSignature),
             IssuerFingerprint(_) => Ok(SubpacketTag::IssuerFingerprint),
+            PreferredAEADAlgorithms(_) =>
+                Ok(SubpacketTag::PreferredAEADAlgorithms),
             IntendedRecipient(_) => Ok(SubpacketTag::IntendedRecipient),
             _ => Err(Error::InvalidArgument(
                 "Unknown or invalid subpacket value".into()).into()),
@@ -1034,6 +1044,11 @@ impl<'a> From<SubpacketRaw<'a>> for Subpacket<'a> {
                     None
                 }
             },
+
+            SubpacketTag::PreferredAEADAlgorithms =>
+                // array of one-octet values.
+                Some(SubpacketValue::PreferredAEADAlgorithms(
+                    raw.value.iter().map(|o| (*o).into()).collect())),
 
             SubpacketTag::IntendedRecipient => {
                 let version = raw.value.get(0);
@@ -2266,6 +2281,32 @@ impl Signature {
         }
     }
 
+    /// Returns the value of the Preferred AEAD Algorithms subpacket,
+    /// which contains the list of AEAD algorithms that the key holder
+    /// prefers, ordered according by the key holder's preference.
+    ///
+    /// If the subpacket is not present or malformed, this returns
+    /// `None`.
+    ///
+    /// Note: if the signature contains multiple instances of this
+    /// subpacket, only the last one is considered.
+    pub fn preferred_aead_algorithms(&self)
+                                     -> Option<Vec<AEADAlgorithm>> {
+        // array of one-octet values
+        if let Some(sb)
+                = self.subpacket(
+                    SubpacketTag::PreferredAEADAlgorithms) {
+            if let SubpacketValue::PreferredAEADAlgorithms(v)
+                    = sb.value {
+                Some(v)
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
+
     /// Returns the intended recipients.
     pub fn intended_recipients(&self) -> Vec<Fingerprint> {
         let mut result = Vec::new();
@@ -2529,6 +2570,16 @@ impl signature::Builder {
             true)?)
     }
 
+    /// Sets the value of the Preferred AEAD Algorithms subpacket,
+    /// which contains the list of AEAD algorithms that the key holder
+    /// prefers, ordered according by the key holder's preference.
+    pub fn set_preferred_aead_algorithms(&mut self,
+                                         preferences: Vec<AEADAlgorithm>)
+                                         -> Result<()> {
+        self.hashed_area.replace(Subpacket::new(
+            SubpacketValue::PreferredAEADAlgorithms(preferences),
+            true)?)
+    }
 
     /// Sets the intended recipients.
     pub fn set_intended_recipients(&mut self, recipients: Vec<Fingerprint>)
@@ -2752,6 +2803,13 @@ fn accessors() {
     let sig_ =
         sig.clone().sign_hash(&key, &sec, hash_algo, hash.clone()).unwrap();
     assert_eq!(sig_.issuer_fingerprint(), Some(fp));
+
+    let pref = vec![AEADAlgorithm::EAX,
+                    AEADAlgorithm::OCB];
+    sig.set_preferred_aead_algorithms(pref.clone()).unwrap();
+    let sig_ =
+        sig.clone().sign_hash(&key, &sec, hash_algo, hash.clone()).unwrap();
+    assert_eq!(sig_.preferred_aead_algorithms(), Some(pref));
 
     let fps = vec![
         Fingerprint::from_bytes(b"aaaaaaaaaaaaaaaaaaaa"),
