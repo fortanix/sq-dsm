@@ -589,7 +589,7 @@ impl Serialize for Signature {
     /// non-version 4 signature, or if either the hashed-area or the
     /// unhashed-area exceeds the size limit of 2^16.
     ///
-    /// [`Error::InvalidArgument`]: enum.Error.html#variant.InvalidArgument
+    /// [`Error::InvalidArgument`]: ../enum.Error.html#variant.InvalidArgument
     fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
         let len = 1 // version
             + 1 // signature type.
@@ -623,7 +623,7 @@ impl Signature {
     /// non-version 4 signature, or if either the hashed-area or the
     /// unhashed-area exceeds the size limit of 2^16.
     ///
-    /// [`Error::InvalidArgument`]: enum.Error.html#variant.InvalidArgument
+    /// [`Error::InvalidArgument`]: ../enum.Error.html#variant.InvalidArgument
     pub(crate) fn serialize_naked<W: io::Write>(&self, o: &mut W) -> Result<()> {
         if self.version() != 4 {
             return Err(Error::InvalidArgument(
@@ -667,7 +667,7 @@ impl Serialize for OnePassSig {
     /// Returns [`Error::InvalidArgument`] if invoked on a
     /// non-version 3 one-pass-signature packet.
     ///
-    /// [`Error::InvalidArgument`]: enum.Error.html#variant.InvalidArgument
+    /// [`Error::InvalidArgument`]: ../enum.Error.html#variant.InvalidArgument
     fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
         let len = 1 // version
             + 1 // signature type.
@@ -714,7 +714,7 @@ impl SerializeKey for Key {
     /// Returns [`Error::InvalidArgument`] if invoked on a
     /// non-version 4 key.
     ///
-    /// [`Error::InvalidArgument`]: enum.Error.html#variant.InvalidArgument
+    /// [`Error::InvalidArgument`]: ../enum.Error.html#variant.InvalidArgument
     fn serialize<W: io::Write>(&self, o: &mut W, tag: Tag) -> Result<()> {
         assert!(tag == Tag::PublicKey
                 || tag == Tag::PublicSubkey
@@ -946,7 +946,7 @@ impl Serialize for PKESK {
     /// Returns [`Error::InvalidArgument`] if invoked on a
     /// non-version 3 PKESK packet.
     ///
-    /// [`Error::InvalidArgument`]: enum.Error.html#variant.InvalidArgument
+    /// [`Error::InvalidArgument`]: ../enum.Error.html#variant.InvalidArgument
     fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
         if self.version != 3 {
             return Err(Error::InvalidArgument(
@@ -981,7 +981,7 @@ impl Serialize for SKESK {
     /// Returns [`Error::InvalidArgument`] if invoked on a
     /// non-version 4 SKESK packet.
     ///
-    /// [`Error::InvalidArgument`]: enum.Error.html#variant.InvalidArgument
+    /// [`Error::InvalidArgument`]: ../enum.Error.html#variant.InvalidArgument
     fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
         if self.version != 4 {
             return Err(Error::InvalidArgument(

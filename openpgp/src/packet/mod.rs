@@ -223,7 +223,7 @@ pub struct Common {
     ///
     ///   [`PacketPile`]: ../struct.PacketPile.html
     ///   [`PacketPile::from_file`]: ../struct.PacketPile.html#method.from_file
-    ///   [`PacketParser`]: ../struct.PacketParser.html
+    ///   [`PacketParser`]: ../parse/struct.PacketParser.html
     pub children: Option<Container>,
 
     /// Holds a packet's body.
@@ -248,8 +248,8 @@ pub struct Common {
     ///     don't actually have a body.  These packets don't use this
     ///     field.
     ///
-    ///   [`UserID`]: ../struct.UserID.html
-    ///   [`Signature`]: ../struct.Signature.html
+    ///   [`UserID`]: ../packet/struct.UserID.html
+    ///   [`Signature`]: ../packet/struct.Signature.html
     ///
     ///   - One packet, the literal data packet, includes unstructured
     ///     data.  That data can be stored here.
