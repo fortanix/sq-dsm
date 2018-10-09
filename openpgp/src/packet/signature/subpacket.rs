@@ -1429,7 +1429,6 @@ impl Features {
             .map(|v0| v0 & FEATURE_FLAG_MDC > 0).unwrap_or(false)
     }
 
-
     /// Sets whether or not MDC is supported.
     pub fn set_mdc(mut self, v: bool) -> Self {
         self.grow(1);
@@ -1440,10 +1439,31 @@ impl Features {
         }
         self
     }
+
+    /// Whether or not AEAD is supported.
+    pub fn supports_aead(&self) -> bool {
+        self.0.get(0)
+            .map(|v0| v0 & FEATURE_FLAG_AEAD > 0).unwrap_or(false)
+    }
+
+    /// Sets whether or not AEAD is supported.
+    pub fn set_aead(mut self, v: bool) -> Self {
+        self.grow(1);
+        if v {
+            self.0[0] |= FEATURE_FLAG_AEAD;
+        } else {
+            self.0[0] &= !FEATURE_FLAG_AEAD;
+        }
+        self
+    }
 }
 
 /// Modification Detection (packets 18 and 19).
 const FEATURE_FLAG_MDC: u8 = 0x01;
+
+/// AEAD Encrypted Data Packet (packet 20) and version 5 Symmetric-Key
+/// Encrypted Session Key Packets (packet 3).
+const FEATURE_FLAG_AEAD: u8 = 0x02;
 
 
 /// Describes preferences regarding key servers.
@@ -2780,6 +2800,12 @@ fn accessors() {
                Some((ReasonForRevocation::KeyRetired, &b"foobar"[..])));
 
     let feats = Features::default().set_mdc(true);
+    sig.set_features(&feats).unwrap();
+    let sig_ =
+        sig.clone().sign_hash(&key, &sec, hash_algo, hash.clone()).unwrap();
+    assert_eq!(sig_.features(), feats);
+
+    let feats = Features::default().set_aead(true);
     sig.set_features(&feats).unwrap();
     let sig_ =
         sig.clone().sign_hash(&key, &sec, hash_algo, hash.clone()).unwrap();
