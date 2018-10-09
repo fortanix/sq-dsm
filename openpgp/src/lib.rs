@@ -66,6 +66,9 @@ extern crate rand;
 
 extern crate time;
 
+#[macro_use]
+mod macros;
+
 // Like assert!, but checks a pattern.
 //
 //   assert_match!(Some(_) = x);

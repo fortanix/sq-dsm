@@ -11,8 +11,6 @@ use buffered_reader::buffered_reader_generic_read_impl;
 use HashAlgorithm;
 use parse::{Cookie, HashesFor, Hashing};
 
-use super::indent;
-
 const TRACE : bool = false;
 
 pub(crate) struct HashedReader<R: BufferedReader<Cookie>> {
@@ -54,6 +52,8 @@ impl Cookie {
         let hashes_for = self.hashes_for;
         let ngroups = self.sig_groups.len();
 
+        tracer!(TRACE, "Cookie::hash_update", level);
+
         // Hash stashed data first.
         if let Some(stashed_data) = self.hash_stash.take() {
             // The stashed data was supposed to be hashed into the
@@ -67,12 +67,8 @@ impl Cookie {
             for (algo, ref mut h) in
                 self.sig_groups[ngroups-2].hashes.iter_mut()
             {
-                if TRACE {
-                    eprintln!("{}  hash_update({:?}): group {} {:?} hashing {} \
-                               stashed bytes.",
-                              indent(cmp::max(0, level) as u8),
-                              hashes_for, ngroups-2, algo, data.len());
-                }
+                t!("({:?}): group {} {:?} hashing {} stashed bytes.",
+                   hashes_for, ngroups-2, algo, data.len());
 
                 h.update(&stashed_data);
             }
@@ -82,44 +78,27 @@ impl Cookie {
             return;
         }
 
-        if TRACE {
-            eprintln!("{}hash_update({} bytes, {} hashes, enabled: {:?})",
-                      indent(cmp::max(0, self.level.unwrap_or(0)) as u8),
-                      data.len(), self.sig_group().hashes.len(), self.hashing);
-        }
+        t!("({} bytes, {} hashes, enabled: {:?})",
+           data.len(), self.sig_group().hashes.len(), self.hashing);
 
         if self.hashing == Hashing::Disabled {
-            if TRACE {
-                eprintln!("{}  hash_update: NOT hashing {} bytes: {}.",
-                          indent(cmp::max(0, self.level.unwrap_or(0)) as u8),
-                          data.len(), ::conversions::to_hex(data, true));
-            }
-
+            t!("    hash_update: NOT hashing {} bytes: {}.",
+               data.len(), ::conversions::to_hex(data, true));
             return;
         }
 
         let topmost_group = |i| i == ngroups - 1;
         for (i, sig_group) in self.sig_groups.iter_mut().enumerate() {
             if topmost_group(i) && self.hashing != Hashing::Enabled {
-                if TRACE {
-                    eprintln!(
-                        "{}  hash_update: topmost group {} NOT hashing {} bytes: {}.",
-                        indent(cmp::max(0, self.level.unwrap_or(0)) as u8),
-                        i, data.len(), ::conversions::to_hex(data, true));
-                }
+                t!("topmost group {} NOT hashing {} bytes: {}.",
+                   i, data.len(), ::conversions::to_hex(data, true));
 
                 return;
             }
 
             for (algo, ref mut h) in sig_group.hashes.iter_mut() {
-                if TRACE {
-                    eprintln!("{}  hash_update({:?}): group {} {:?} hashing {} bytes.",
-                              indent(cmp::max(0, level) as u8),
-                              hashes_for, i, algo, data.len());
-                    if false {
-                        eprintln!("{}", ::conversions::to_hex(data, true));
-                    }
-                }
+                t!("{:?}): group {} {:?} hashing {} bytes.",
+                   hashes_for, i, algo, data.len());
                 h.update(data);
             }
         }
