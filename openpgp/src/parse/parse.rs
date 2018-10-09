@@ -16,6 +16,7 @@ use nettle::Hash;
 use ::buffered_reader::*;
 
 use {
+    aead,
     Result,
     CTB,
     BodyLength,
@@ -34,6 +35,7 @@ use {
     packet::{SKESK, SKESK4, SKESK5},
     packet::SEIP,
     packet::MDC,
+    packet::AED,
     Packet,
     KeyID,
     SecretKey,
@@ -1832,6 +1834,32 @@ impl MDC {
     }
 }
 
+impl AED {
+    /// Parses the body of a AED packet.
+    fn parse<'a>(mut php: PacketHeaderParser<'a>) -> Result<PacketParser<'a>> {
+        make_php_try!(php);
+        let version = php_try!(php.parse_u8("version"));
+        if version != 1 {
+            return php.fail("unknown version");
+        }
+
+        let cipher: SymmetricAlgorithm =
+            php_try!(php.parse_u8("symm_algo")).into();
+        let aead: AEADAlgorithm =
+            php_try!(php.parse_u8("aead_algo")).into();
+        let chunk_size: usize =
+            1 << (php_try!(php.parse_u8("chunk_size")) as usize + 6);
+
+        let iv_size = php_try!(aead.iv_size());
+        let iv = php_try!(php.parse_bytes("iv", iv_size));
+
+        let aed = php_try!(AED::new(
+            cipher, aead, chunk_size, iv.into_boxed_slice()
+        ));
+        php.ok(Packet::AED(aed)).map(|pp| pp.set_decrypted(false))
+    }
+}
+
 impl MPI {
     // Reads an MPI from `r`.
     #[cfg(test)]
@@ -2610,6 +2638,7 @@ impl <'a> PacketParser<'a> {
             Tag::SEIP =>                SEIP::parse(parser),
             Tag::MDC =>                 MDC::parse(parser),
             Tag::PKESK =>               PKESK::parse(parser),
+            Tag::AED =>                 AED::parse(parser),
             _ =>                        Unknown::parse(parser),
         }?;
 
@@ -2792,7 +2821,9 @@ impl <'a> PacketParser<'a> {
 
         match self.packet {
             // Packets that recurse.
-            Packet::CompressedData(_) | Packet::SEIP(_) if self.decrypted => {
+            Packet::CompressedData(_) | Packet::SEIP(_) | Packet::AED(_)
+                if self.decrypted =>
+            {
                 if self.recursion_depth() as u8
                     >= self.state.settings.max_recursion_depth
                 {
@@ -2847,7 +2878,7 @@ impl <'a> PacketParser<'a> {
                 | Packet::SecretKey(_) | Packet::SecretSubkey(_)
                 | Packet::UserID(_) | Packet::UserAttribute(_)
                 | Packet::Literal(_) | Packet::PKESK(_) | Packet::SKESK(_)
-                | Packet::SEIP(_) | Packet::MDC(_) => {
+                | Packet::SEIP(_) | Packet::MDC(_) | Packet::AED(_) => {
                 // Drop through.
                 t!("A {:?} packet is not a container, not recursing.",
                    self.packet.tag());
@@ -2936,7 +2967,7 @@ impl <'a> PacketParser<'a> {
 
         if unread_content {
             match self.packet.tag() {
-                Tag::SEIP | Tag::SED | Tag::CompressedData => {
+                Tag::SEIP | Tag::AED | Tag::SED | Tag::CompressedData => {
                     // We didn't (full) process a container's content.  Add
                     // this as opaque conent to the message validator.
                     self.state.message_validator.push_token(
@@ -3154,80 +3185,118 @@ impl<'a> PacketParser<'a> {
                         key.len(), algo.key_size()?)).into());
         }
 
-        if let Packet::SEIP(_) = self.packet {
-            // Get the first blocksize plus two bytes and check
-            // whether we can decrypt them using the provided key.
-            // Don't actually comsume them in case we can't.
-            let bl = algo.block_size()?;
+        match self.packet.clone() {
+            Packet::SEIP(_) => {
+                // Get the first blocksize plus two bytes and check
+                // whether we can decrypt them using the provided key.
+                // Don't actually comsume them in case we can't.
+                let bl = algo.block_size()?;
 
-            {
-                let mut dec = Decryptor::new(
-                    algo, key, &self.data_hard(bl + 2)?[..bl + 2])?;
-                let mut header = vec![ 0u8; bl + 2 ];
-                dec.read(&mut header)?;
+                {
+                    let mut dec = Decryptor::new(
+                        algo, key, &self.data_hard(bl + 2)?[..bl + 2])?;
+                    let mut header = vec![ 0u8; bl + 2 ];
+                    dec.read(&mut header)?;
 
-                if !(header[bl - 2] == header[bl]
-                     && header[bl - 1] == header[bl + 1]) {
-                    return Err(Error::InvalidSessionKey(
-                        format!("Last two 16-bit quantities don't match: {}",
+                    if !(header[bl - 2] == header[bl]
+                         && header[bl - 1] == header[bl + 1]) {
+                        return Err(Error::InvalidSessionKey(
+                            format!(
+                                "Last two 16-bit quantities don't match: {}",
                                 ::conversions::to_hex(&header[..], false)))
-                               .into());
+                                   .into());
+                    }
                 }
-            }
 
-            // Ok, we can decrypt the data.  Push a Decryptor and a
-            // HashedReader on the `BufferedReader` stack.
+                // Ok, we can decrypt the data.  Push a Decryptor and
+                // a HashedReader on the `BufferedReader` stack.
 
-            // This can't fail, because we create a decryptor above
-            // with the same parameters.
-            let reader = self.take_reader();
-            let mut reader = BufferedReaderDecryptor::with_cookie(
-                algo, key, reader, Cookie::default()).unwrap();
-            reader.cookie_mut().level = Some(self.recursion_depth());
+                // This can't fail, because we create a decryptor
+                // above with the same parameters.
+                let reader = self.take_reader();
+                let mut reader = BufferedReaderDecryptor::with_cookie(
+                    algo, key, reader, Cookie::default()).unwrap();
+                reader.cookie_mut().level = Some(self.recursion_depth());
 
-            t!("Pushing Decryptor, level {:?}.", reader.cookie_ref().level);
+                t!("Pushing Decryptor, level {:?}.", reader.cookie_ref().level);
 
-            // And the hasher.
-            let mut reader = HashedReader::new(
-                reader, HashesFor::MDC, vec![HashAlgorithm::SHA1]);
-            reader.cookie_mut().level = Some(self.recursion_depth());
+                // And the hasher.
+                let mut reader = HashedReader::new(
+                    reader, HashesFor::MDC, vec![HashAlgorithm::SHA1]);
+                reader.cookie_mut().level = Some(self.recursion_depth());
 
-            t!("Pushing HashedReader, level {:?}.", reader.cookie_ref().level);
+                t!("Pushing HashedReader, level {:?}.",
+                   reader.cookie_ref().level);
 
-            // A SEIP packet is a container that always ends with an
-            // MDC packet.  But, if the packet preceding the MDC
-            // packet uses an indeterminate length encoding (gpg
-            // generates these for compressed data packets, for
-            // instance), the parser has to detect the EOF and be
-            // careful to not read any further.  Unfortunately, our
-            // decompressor buffers the data.  To stop the
-            // decompressor from buffering the MDC packet, we use a
-            // BufferedReaderReserve.  Note: we do this
-            // unconditionally, since it doesn't otherwise interfere
-            // with parsing.
+                // A SEIP packet is a container that always ends with
+                // an MDC packet.  But, if the packet preceding the
+                // MDC packet uses an indeterminate length encoding
+                // (gpg generates these for compressed data packets,
+                // for instance), the parser has to detect the EOF and
+                // be careful to not read any further.  Unfortunately,
+                // our decompressor buffers the data.  To stop the
+                // decompressor from buffering the MDC packet, we use
+                // a BufferedReaderReserve.  Note: we do this
+                // unconditionally, since it doesn't otherwise
+                // interfere with parsing.
 
-            // An MDC consists of a 1-byte CTB, a 1-byte length
-            // encoding, and a 20-byte hash.
-            let mut reader = BufferedReaderReserve::with_cookie(
-                Box::new(reader), 1 + 1 + 20,
-                Cookie::new(self.recursion_depth()));
-            reader.cookie_mut().fake_eof = true;
+                // An MDC consists of a 1-byte CTB, a 1-byte length
+                // encoding, and a 20-byte hash.
+                let mut reader = BufferedReaderReserve::with_cookie(
+                    Box::new(reader), 1 + 1 + 20,
+                    Cookie::new(self.recursion_depth()));
+                reader.cookie_mut().fake_eof = true;
 
-            t!("Pushing BufferedReaderReserve, level: {}.",
-               self.recursion_depth());
+                t!("Pushing BufferedReaderReserve, level: {}.",
+                   self.recursion_depth());
 
-            // Consume the header.  This shouldn't fail, because it
-            // worked when reading the header.
-            reader.data_consume_hard(bl + 2).unwrap();
+                // Consume the header.  This shouldn't fail, because
+                // it worked when reading the header.
+                reader.data_consume_hard(bl + 2).unwrap();
 
-            self.reader = Box::new(reader);
-            self.decrypted = true;
+                self.reader = Box::new(reader);
+                self.decrypted = true;
 
-            Ok(())
-        } else {
-            Err(Error::InvalidOperation(
-                format!("Can't decrypt {:?} packets.",
-                        self.packet.tag())).into())
+                Ok(())
+            },
+
+            Packet::AED(aed) => {
+                // Get the first chunk and check whether we can
+                // decrypt it using the provided key.  Don't actually
+                // comsume them in case we can't.
+                {
+                    let data = self.data(aed.chunk_digest_size()?)?;
+                    let mut dec = aead::Decryptor::new(
+                        1, aed.cipher(), aed.aead(), aed.chunk_size(),
+                        aed.iv(), key, &data[..cmp::min(data.len(), aed.chunk_digest_size()?)])?;
+                    let mut chunk = Vec::new();
+                    dec.take(aed.chunk_size() as u64).read_to_end(&mut chunk)?;
+                }
+
+                // Ok, we can decrypt the data.  Push a Decryptor and
+                // a HashedReader on the `BufferedReader` stack.
+
+                // This can't fail, because we create a decryptor
+                // above with the same parameters.
+                let reader = self.take_reader();
+                let mut reader = aead::BufferedReaderDecryptor::with_cookie(
+                    1, aed.cipher(), aed.aead(), aed.chunk_size(),
+                    aed.iv(), key, reader, Cookie::default()).unwrap();
+                reader.cookie_mut().level = Some(self.recursion_depth());
+
+                t!("Pushing aead::Decryptor, level {:?}.",
+                   reader.cookie_ref().level);
+
+                self.reader = Box::new(reader);
+                self.decrypted = true;
+
+                Ok(())
+            },
+
+            _ =>
+                Err(Error::InvalidOperation(
+                    format!("Can't decrypt {:?} packets.",
+                            self.packet.tag())).into())
         }
     }
 }
@@ -3273,7 +3342,7 @@ mod test {
         plaintext: Data<'a>,
         paths: &'a[ (Tag, &'a[ usize ] ) ],
     }
-    const DECRYPT_TESTS: [DecryptTest; 8] = [
+    const DECRYPT_TESTS: [DecryptTest; 10] = [
         // Messages with a relatively simple structure:
         //
         //   [ SKESK SEIP [ Literal MDC ] ].
@@ -3388,6 +3457,30 @@ mod test {
                 (Tag::MDC, &[ 1, 3 ]),
             ],
         },
+
+        // AEAD encrypted messages.
+        DecryptTest {
+            filename: "aed/msg-aes128-eax-chunk-size-64-password-123.pgp",
+            algo: SymmetricAlgorithm::AES128,
+            key_hex: "E88151F2B6F6F6F0AE6B56ED247AA61B",
+            plaintext: Data::File("a-cypherpunks-manifesto.txt"),
+            paths: &[
+                (Tag::SKESK, &[ 0 ]),
+                (Tag::AED, &[ 1 ]),
+                (Tag::Literal, &[ 1, 0 ]),
+            ],
+        },
+        DecryptTest {
+            filename: "aed/msg-aes128-eax-chunk-size-134217728-password-123.pgp",
+            algo: SymmetricAlgorithm::AES128,
+            key_hex: "D7EE3F3B049DE011687EC9E08D6DCBB0",
+            plaintext: Data::File("a-cypherpunks-manifesto.txt"),
+            paths: &[
+                (Tag::SKESK, &[ 0 ]),
+                (Tag::AED, &[ 1 ]),
+                (Tag::Literal, &[ 1, 0 ]),
+            ],
+        },
     ];
 
     // Consume packets until we get to one in `keep`.
@@ -3436,7 +3529,7 @@ mod test {
                 .expect(&format!("Error reading {}", test.filename)[..]);
 
             let mut ppr = consume_until(
-                ppr, false, &[ Tag::SEIP ][..],
+                ppr, false, &[ Tag::SEIP, Tag::AED ][..],
                 &[ Tag::SKESK, Tag::PKESK ][..] );
             if let PacketParserResult::Some(ref mut pp) = ppr {
                 let key = ::conversions::from_hex(test.key_hex, false)
@@ -3444,7 +3537,7 @@ mod test {
 
                 pp.decrypt(test.algo, &key).unwrap();
             } else {
-                panic!("Expected a SEIP packet.  Got: {:?}", ppr);
+                panic!("Expected a SEIP/AED packet.  Got: {:?}", ppr);
             }
 
             let mut ppr = consume_until(
@@ -3483,6 +3576,10 @@ mod test {
                            "MDC doesn't match");
             }
 
+            if ppr.is_none() {
+                // AED packets don't have an MDC packet.
+                continue;
+            }
             let ppr = consume_until(
                 ppr, true, &[][..], &[][..]);
             assert!(ppr.is_none());
@@ -3503,7 +3600,7 @@ mod test {
                 assert!(pp.possible_message());
 
                 match pp.packet {
-                    Packet::SEIP(_) => {
+                    Packet::SEIP(_) | Packet::AED(_) => {
                         let key = ::conversions::from_hex(test.key_hex, false)
                             .unwrap().into();
                         pp.decrypt(test.algo, &key).unwrap();
@@ -3586,11 +3683,14 @@ mod test {
 
                 eprintln!("  {}: {:?}", pp.packet.tag(), pp.path());
 
-                if let Packet::SEIP(_) = pp.packet {
-                    let key = ::conversions::from_hex(test.key_hex, false)
-                        .unwrap().into();
+                match pp.packet {
+                    Packet::SEIP(_) | Packet::AED(_) => {
+                        let key = ::conversions::from_hex(test.key_hex, false)
+                            .unwrap().into();
 
-                    pp.decrypt(test.algo, &key).unwrap();
+                        pp.decrypt(test.algo, &key).unwrap();
+                    }
+                    _ => (),
                 }
 
                 ppr = pp.recurse().unwrap().1;

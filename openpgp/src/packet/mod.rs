@@ -16,6 +16,8 @@ use ctb::{CTB, PacketLengthType};
 
 use buffered_reader::BufferedReader;
 
+mod aed;
+
 pub use tag::Tag;
 
 pub use unknown::Unknown;
@@ -30,6 +32,7 @@ pub use seip::SEIP;
 pub use skesk::{SKESK, SKESK4, SKESK5};
 pub use pkesk::PKESK;
 pub use mdc::MDC;
+pub use self::aed::AED;
 
 pub mod signature;
 
@@ -55,6 +58,7 @@ impl<'a> Deref for Packet {
             &Packet::SKESK(SKESK::V5(ref packet)) => &packet.skesk4.common,
             &Packet::SEIP(ref packet) => &packet.common,
             &Packet::MDC(ref packet) => &packet.common,
+            &Packet::AED(ref packet) => &packet.common,
         }
     }
 }
@@ -78,6 +82,7 @@ impl<'a> DerefMut for Packet {
             &mut Packet::SKESK(SKESK::V5(ref mut packet)) => &mut packet.skesk4.common,
             &mut Packet::SEIP(ref mut packet) => &mut packet.common,
             &mut Packet::MDC(ref mut packet) => &mut packet.common,
+            &mut Packet::AED(ref mut packet) => &mut packet.common,
         }
     }
 }

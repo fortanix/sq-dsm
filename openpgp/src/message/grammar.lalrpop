@@ -21,10 +21,19 @@ SeipPart: () = {
     SEIP OPAQUE_CONTENT POP,
 }
 
-// An encrypted part is 0 or more ESKs followed by a SEIP packet.
+AedPart: () = {
+    AED Message POP,
+}
+
+// An encrypted part is 0 or more ESKs followed by an encryption container.
 EncryptedPart: () = {
+    EncryptionContainer,
+    ESKS EncryptionContainer,
+};
+
+EncryptionContainer: () = {
     SeipPart,
-    ESKS SeipPart,
+    AedPart,
 };
 
 ESKS: () = {
@@ -61,6 +70,7 @@ extern {
         PKESK => lexer::Token::PKESK,
         SEIP => lexer::Token::SEIP,
         MDC => lexer::Token::MDC,
+        AED => lexer::Token::AED,
         OPS => lexer::Token::OPS,
         SIG => lexer::Token::SIG,
         POP => lexer::Token::Pop,

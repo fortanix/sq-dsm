@@ -41,6 +41,7 @@ use packet::{
     SKESK5,
     SEIP,
     MDC,
+    AED,
 };
 
 // Whether to trace the modules execution (on stderr).
@@ -1100,6 +1101,36 @@ impl Serialize for MDC {
         Ok(())
     }
 }
+
+impl Serialize for AED {
+    /// Writes a serialized version of the specified `AED`
+    /// packet to `o`.
+    fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
+        if let Some(ref _children) = self.common.children {
+            unimplemented!("XXX: Serialize and encrypt the content.");
+        } else {
+            // XXX: We assume that the content is encrypted.
+            let body_len = 4
+                + self.iv().len()
+                + self.common.body.as_ref().map(|b| b.len()).unwrap_or(0)
+                + self.aead().digest_size()?;
+
+            CTB::new(Tag::SEIP).serialize(o)?;
+            BodyLength::Full(body_len as u32).serialize(o)?;
+            o.write_all(&[self.version(),
+                          self.cipher().into(),
+                          self.aead().into(),
+                          self.chunk_size().trailing_zeros() as u8 - 6])?;
+            o.write_all(self.iv())?;
+
+            if let Some(ref body) = self.common.body {
+                o.write(&body[..])?;
+            }
+        }
+
+        Ok(())
+    }
+}
 
 impl Serialize for Packet {
     /// Writes a serialized version of the specified `Packet` to `o`.
@@ -1124,6 +1155,7 @@ impl Serialize for Packet {
             &Packet::SKESK(ref p) => p.serialize(o),
             &Packet::SEIP(ref p) => p.serialize(o),
             &Packet::MDC(ref p) => p.serialize(o),
+            &Packet::AED(ref p) => p.serialize(o),
         }
     }
 

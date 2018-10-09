@@ -209,6 +209,7 @@ impl MessageValidator {
             Tag::PKESK => Token::PKESK,
             Tag::SEIP => Token::SEIP,
             Tag::MDC => Token::MDC,
+            Tag::AED => Token::AED,
             Tag::OnePassSig => Token::OPS,
             Tag::Signature => Token::SIG,
             _ => {
@@ -307,7 +308,8 @@ impl Message {
             v.push(packet.tag(), path.len() as isize - 1);
 
             match packet {
-                Packet::CompressedData(_) | Packet::SEIP(_) => {
+                Packet::CompressedData(_) | Packet::SEIP(_) | Packet::AED(_) =>
+                {
                     // If a container's content is not unpacked, then
                     // we treat the content as an opaque message.
 
@@ -463,6 +465,36 @@ mod tests {
             },
             TestVector {
                 s: &[SKESK, SKESK, SEIP, Literal, MDC, Pop],
+                result: true,
+            },
+
+            TestVector {
+                s: &[AED, Literal, Pop],
+                result: true,
+            },
+            TestVector {
+                s: &[CompressedData, AED, Literal, Pop, Pop],
+                result: true,
+            },
+            TestVector {
+                s: &[CompressedData, AED, CompressedData, Literal,
+                     Pop, Pop, Pop],
+                result: true,
+            },
+            TestVector {
+                s: &[AED, Pop],
+                result: false,
+            },
+            TestVector {
+                s: &[SKESK, AED, Literal, Pop],
+                result: true,
+            },
+            TestVector {
+                s: &[PKESK, AED, Literal, Pop],
+                result: true,
+            },
+            TestVector {
+                s: &[SKESK, SKESK, AED, Literal, Pop],
                 result: true,
             },
 

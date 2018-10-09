@@ -661,7 +661,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
             }
 
             match pp.packet {
-                Packet::SEIP(_) => {
+                Packet::SEIP(_) | Packet::AED(_) => {
                     let mut decrypted = false;
                     let pkesk_refs: Vec<&PKESK> = pkesks.iter().collect();
                     let skesk_refs: Vec<&SKESK> = skesks.iter().collect();

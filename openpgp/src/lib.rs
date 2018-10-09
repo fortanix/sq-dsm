@@ -311,6 +311,8 @@ pub enum Packet {
     SEIP(seip::SEIP),
     /// Modification detection code packet.
     MDC(mdc::MDC),
+    /// AEAD Encrypted Data Packet.
+    AED(packet::AED),
 }
 
 impl Packet {
@@ -336,6 +338,7 @@ impl Packet {
             &Packet::SKESK(_) => Tag::SKESK,
             &Packet::SEIP(_) => Tag::SEIP,
             &Packet::MDC(_) => Tag::MDC,
+            &Packet::AED(_) => Tag::AED,
         }
     }
 
@@ -363,6 +366,7 @@ impl Packet {
             &Packet::SKESK(_) => Some(Tag::SKESK),
             &Packet::SEIP(_) => Some(Tag::SEIP),
             &Packet::MDC(_) => Some(Tag::MDC),
+            &Packet::AED(_) => Some(Tag::AED),
         }
     }
 }

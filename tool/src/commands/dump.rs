@@ -309,6 +309,15 @@ impl PacketDumper {
                 writeln!(output, "{}  Computed hash: {}",
                          i, to_hex(m.computed_hash(), false))?;
             },
+
+            AED(ref a) => {
+                writeln!(output, "AEAD Encrypted Data Packet")?;
+                writeln!(output, "{}  Version: {}", i, a.version())?;
+                writeln!(output, "{}  Cipher: {}", i, a.cipher())?;
+                writeln!(output, "{}  AEAD: {}", i, a.aead())?;
+                writeln!(output, "{}  Chunk size: {}", i, a.chunk_size())?;
+                writeln!(output, "{}  IV: {}", i, to_hex(a.iv(), false))?;
+            },
         }
 
         if let Some(fields) = additional_fields {

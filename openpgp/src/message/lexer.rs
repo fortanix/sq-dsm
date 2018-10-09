@@ -23,6 +23,8 @@ pub enum Token {
     SEIP,
     /// An MDC packet.
     MDC,
+    /// An AED packet.
+    AED,
 
     /// A OnePassSig packet.
     OPS,
