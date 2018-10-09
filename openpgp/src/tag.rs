@@ -45,6 +45,8 @@ pub enum Tag {
     SEIP,
     /// Modification Detection Code Packet.
     MDC,
+    /// AEAD Encrypted Data Packet.
+    AED,
     /// Unassigned packets (as of RFC4880).
     Unknown(u8),
     /// Experimental packets.
@@ -74,6 +76,7 @@ impl From<u8> for Tag {
             17 => UserAttribute,
             18 => SEIP,
             19 => MDC,
+            20 => AED,
             60...63 => Private(u),
             _ => Unknown(u),
         }
@@ -101,6 +104,7 @@ impl From<Tag> for u8 {
             Tag::UserAttribute => 17,
             Tag::SEIP => 18,
             Tag::MDC => 19,
+            Tag::AED => 20,
             Tag::Private(x) => x,
             Tag::Unknown(x) => x,
         }
@@ -146,6 +150,8 @@ impl fmt::Display for Tag {
                 f.write_str("Sym. Encrypted and Integrity Protected Data Packet"),
             Tag::MDC =>
                 f.write_str("Modification Detection Code Packet"),
+            Tag::AED =>
+                f.write_str("AEAD Encrypted Data Packet"),
             Tag::Private(u) =>
                 f.write_fmt(format_args!("Private/Experimental Packet {}", u)),
             Tag::Unknown(u) =>

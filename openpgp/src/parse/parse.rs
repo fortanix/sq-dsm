@@ -2405,6 +2405,7 @@ impl <'a> PacketParser<'a> {
             Tag::Trust => bad,
             Tag::SEIP => bad,
             Tag::MDC => bad,
+            Tag::AED => bad,
         }
     }
 
