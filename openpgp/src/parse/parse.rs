@@ -346,8 +346,8 @@ impl<'a> PacketHeaderParser<'a> {
         Ok(r)
     }
 
-    fn recursion_depth(&self) -> usize {
-        self.path.len() - 1
+    fn recursion_depth(&self) -> isize {
+        self.path.len() as isize - 1
     }
 }
 
@@ -962,12 +962,11 @@ impl Signature {
                     let cookie = tmp.cookie_mut();
 
                     assert!(cookie.level.unwrap_or(-1)
-                            <= recursion_depth as isize);
+                            <= recursion_depth);
                     // The HashedReader has to be at level
                     // 'recursion_depth - 1'.
                     if cookie.level.is_none()
-                        || cookie.level.unwrap()
-                        < recursion_depth as isize - 1 {
+                        || cookie.level.unwrap() < recursion_depth - 1 {
                             break
                         }
 
@@ -1116,7 +1115,7 @@ impl OnePassSig {
             last: last,
         };
 
-        let recursion_depth = php.recursion_depth() as isize;
+        let recursion_depth = php.recursion_depth();
 
         // Walk up the reader chain to see if there is already a
         // hashed reader on level recursion_depth - 1.
@@ -1195,18 +1194,17 @@ impl OnePassSig {
         // This is a bit of a layering violation, but I (Neal) can't
         // think of a more elegant solution.
 
-        assert!(pp.reader.cookie_ref().level
-                <= Some(recursion_depth as isize));
+        assert!(pp.reader.cookie_ref().level <= Some(recursion_depth));
         let (fake_eof, reader)
             = buffered_reader_stack_pop(Box::new(pp.take_reader()),
-                                        recursion_depth as isize)?;
+                                        recursion_depth)?;
         // We only pop the buffered readers for the OPS, and we
         // (currently) never use a fake eof for OPS packets.
         assert!(! fake_eof);
 
         let mut reader = HashedReader::new(
             reader, HashesFor::Signature, algos);
-        reader.cookie_mut().level = Some(recursion_depth as isize - 1);
+        reader.cookie_mut().level = Some(recursion_depth - 1);
         // Account for this OPS packet.
         reader.cookie_mut().sig_group_mut().ops_count += 1;
         // Keep track of the last flag.
@@ -1227,7 +1225,7 @@ impl OnePassSig {
         // Limitor on the reader stack.
         let mut reader = BufferedReaderLimitor::with_cookie(
             Box::new(reader), 0, Cookie::default());
-        reader.cookie_mut().level = Some(recursion_depth as isize);
+        reader.cookie_mut().level = Some(recursion_depth);
 
         pp.reader = Box::new(reader);
 
@@ -1513,7 +1511,7 @@ impl Literal {
 
         // Enable hashing of the body.
         Cookie::hashing(pp.mut_reader(), Hashing::Enabled,
-                        recursion_depth as isize - 1);
+                        recursion_depth - 1);
 
         Ok(pp)
     }
@@ -1588,7 +1586,7 @@ impl CompressedData {
                 return php.fail("unsupported compression algorithm"),
         }
 
-        let recursion_depth = php.recursion_depth() as usize;
+        let recursion_depth = php.recursion_depth();
         let mut pp = php.ok(Packet::CompressedData(CompressedData {
             common: Default::default(),
             algo: algo,
@@ -1608,15 +1606,15 @@ impl CompressedData {
             #[cfg(feature = "compression-deflate")]
             CompressionAlgorithm::Zip =>
                 Box::new(BufferedReaderDeflate::with_cookie(
-                    reader, Cookie::new(recursion_depth as isize))),
+                    reader, Cookie::new(recursion_depth))),
             #[cfg(feature = "compression-deflate")]
             CompressionAlgorithm::Zlib =>
                 Box::new(BufferedReaderZlib::with_cookie(
-                    reader, Cookie::new(recursion_depth as isize))),
+                    reader, Cookie::new(recursion_depth))),
             #[cfg(feature = "compression-bzip2")]
             CompressionAlgorithm::BZip2 =>
                 Box::new(BufferedReaderBzip::with_cookie(
-                    reader, Cookie::new(recursion_depth as isize))),
+                    reader, Cookie::new(recursion_depth))),
             _ => unreachable!(), // Validated above.
         };
         pp.set_reader(reader);
@@ -2133,11 +2131,11 @@ impl PacketParserEOF {
     ///
     /// A top-level packet has a recursion depth of 0.  Packets in a
     /// top-level container have a recursion depth of 1, etc.
-    pub fn last_recursion_depth(&self) -> Option<usize> {
+    pub fn last_recursion_depth(&self) -> Option<isize> {
         if self.last_path.len() == 0 {
             None
         } else {
-            Some(self.last_path.len() - 1)
+            Some(self.last_path.len() as isize - 1)
         }
     }
 }
@@ -2238,7 +2236,7 @@ impl<'a> PacketParserResult<'a> {
     ///
     /// Note: if the PacketParser has reached the end of the packet
     /// sequence and is not parsing a packet, then this returns None.
-    pub fn recursion_depth(&self) -> Option<usize> {
+    pub fn recursion_depth(&self) -> Option<isize> {
         match self {
             PacketParserResult::Some(pp) => Some(pp.recursion_depth()),
             PacketParserResult::EOF(_) => None,
@@ -2251,7 +2249,7 @@ impl<'a> PacketParserResult<'a> {
     /// top-level container have a recursion depth of 1, etc.
     ///
     /// Note: if no packet has been returned yet, this returns None.
-    pub fn last_recursion_depth(&self) -> Option<usize> {
+    pub fn last_recursion_depth(&self) -> Option<isize> {
         match self {
             PacketParserResult::Some(pp) => pp.last_recursion_depth(),
             PacketParserResult::EOF(eof) => eof.last_recursion_depth(),
@@ -2349,8 +2347,8 @@ impl <'a> PacketParser<'a> {
     ///
     /// A top-level packet has a recursion depth of 0.  Packets in a
     /// top-level container have a recursion depth of 1, etc.
-    pub fn recursion_depth(&self) -> usize {
-        self.path.len() - 1
+    pub fn recursion_depth(&self) -> isize {
+        self.path.len() as isize - 1
     }
 
     /// The last packet's recursion depth.
@@ -2359,12 +2357,12 @@ impl <'a> PacketParser<'a> {
     /// top-level container have a recursion depth of 1, etc.
     ///
     /// Note: if no packet has been returned yet, this returns None.
-    pub fn last_recursion_depth(&self) -> Option<usize> {
+    pub fn last_recursion_depth(&self) -> Option<isize> {
         if self.last_path.len() == 0 {
             assert_eq!(&self.path[..], &[ 0 ]);
             None
         } else {
-            Some(self.last_path.len() - 1)
+            Some(self.last_path.len() as isize - 1)
         }
     }
 
@@ -2439,7 +2437,7 @@ impl <'a> PacketParser<'a> {
             -> Result<ParserResult<'a>> {
         let trace = state.settings.trace;
         assert!(path.len() > 0);
-        let recursion_depth = path.len() - 1;
+        let recursion_depth = path.len() as isize - 1;
 
         // When header encounters an EOF, it returns an error.  But,
         // we want to return None.  Try a one byte read.
@@ -2532,10 +2530,10 @@ impl <'a> PacketParser<'a> {
         // are only hashed by notarizing signatures.
         if tag == Tag::Literal {
             Cookie::hashing(
-                &mut bio, Hashing::Disabled, recursion_depth as isize - 1);
+                &mut bio, Hashing::Disabled, recursion_depth - 1);
         } else if tag == Tag::OnePassSig || tag == Tag::Signature {
             Cookie::hashing(
-                &mut bio, Hashing::Notarized, recursion_depth as isize - 1);
+                &mut bio, Hashing::Notarized, recursion_depth - 1);
         }
 
         // Save header for the map or nested signatures.
@@ -2553,7 +2551,7 @@ impl <'a> PacketParser<'a> {
                     }
                     Box::new(BufferedReaderLimitor::with_cookie(
                         bio, len as u64,
-                        Cookie::new(recursion_depth as isize)))
+                        Cookie::new(recursion_depth)))
                 },
                 BodyLength::Partial(len) => {
                     if trace {
@@ -2570,7 +2568,7 @@ impl <'a> PacketParser<'a> {
                         // length information, which includes the
                         // partial body headers.
                         tag != Tag::Literal,
-                        Cookie::new(recursion_depth as isize)))
+                        Cookie::new(recursion_depth)))
                 },
                 BodyLength::Indeterminate => {
                     if trace {
@@ -2607,7 +2605,7 @@ impl <'a> PacketParser<'a> {
 
         if tag == Tag::OnePassSig {
             Cookie::hashing(
-                &mut result, Hashing::Enabled, recursion_depth as isize - 1);
+                &mut result, Hashing::Enabled, recursion_depth - 1);
         }
 
         if trace {
@@ -2701,7 +2699,7 @@ impl <'a> PacketParser<'a> {
             mem::replace(&mut self.reader,
                          Box::new(BufferedReaderEOF::with_cookie(
                              Default::default()))),
-            self.recursion_depth() as isize)?;
+            self.recursion_depth())?;
         // At this point, next() has to point to a non-container
         // packet or an opaque container (due to the maximum recursion
         // level being reaching).  In this case, there can't be a fake
@@ -2755,7 +2753,7 @@ impl <'a> PacketParser<'a> {
                         self.finish()?;
                         // XXX self.content_was_read = false;
                         let (fake_eof_, reader_) = buffered_reader_stack_pop(
-                            reader_, recursion_depth as isize - 1)?;
+                            reader_, recursion_depth - 1)?;
                         fake_eof = fake_eof_;
                         if ! fake_eof {
                             self.path.pop().unwrap();
@@ -2835,7 +2833,7 @@ impl <'a> PacketParser<'a> {
                     let mut path = self.path;
                     path.push(0);
 
-                    let recursion_depth = path.len() - 1;
+                    let recursion_depth = path.len() as isize - 1;
 
                     match PacketParser::parse(self.reader, self.state, path)? {
                         ParserResult::Success(mut pp) => {
@@ -2946,13 +2944,13 @@ impl <'a> PacketParser<'a> {
             return Ok(&mut self.packet);
         }
 
-        let recursion_depth = self.recursion_depth() as u8;
+        let recursion_depth = self.recursion_depth();
 
         let unread_content = if self.state.settings.buffer_unread_content {
             if trace {
                 eprintln!("{}PacketParser::finish({:?} at depth {}): \
                            buffering {} bytes of unread content",
-                          indent(recursion_depth), self.packet.tag(),
+                          indent(recursion_depth as u8), self.packet.tag(),
                           recursion_depth,
                           self.data_eof().unwrap().len());
             }
@@ -2962,7 +2960,7 @@ impl <'a> PacketParser<'a> {
             if trace {
                 eprintln!("{}PacketParser::finish({:?} at depth {}): \
                            dropping {} bytes of unread content",
-                          indent(recursion_depth), self.packet.tag(),
+                          indent(recursion_depth as u8), self.packet.tag(),
                           recursion_depth,
                           self.data_eof().unwrap().len());
             }
@@ -2977,7 +2975,7 @@ impl <'a> PacketParser<'a> {
                     // this as opaque conent to the message validator.
                     self.state.message_validator.push_token(
                         message::Token::OpaqueContent,
-                        recursion_depth as usize + 1);
+                        recursion_depth + 1);
                 }
                 _ => {},
             }
@@ -3128,7 +3126,7 @@ fn packet_parser_reader_interface() {
         panic!("Expected a compressed data packet.");
     }
 
-    let relative_position = pp_depth as isize - packet_depth as isize;
+    let relative_position = pp_depth - packet_depth;
     assert_eq!(relative_position, 1);
 
     let mut pp = ppr.unwrap();
@@ -3218,7 +3216,7 @@ impl<'a> PacketParser<'a> {
             let reader = self.take_reader();
             let mut reader = BufferedReaderDecryptor::with_cookie(
                 algo, key, reader, Cookie::default()).unwrap();
-            reader.cookie_mut().level = Some(self.recursion_depth() as isize);
+            reader.cookie_mut().level = Some(self.recursion_depth());
 
             if trace {
                 eprintln!("{}PacketParser::decrypt: Pushing Decryptor, \
@@ -3230,7 +3228,7 @@ impl<'a> PacketParser<'a> {
             // And the hasher.
             let mut reader = HashedReader::new(
                 reader, HashesFor::MDC, vec![HashAlgorithm::SHA1]);
-            reader.cookie_mut().level = Some(self.recursion_depth() as isize);
+            reader.cookie_mut().level = Some(self.recursion_depth());
 
             if trace {
                 eprintln!("{}PacketParser::decrypt: Pushing HashedReader, \
@@ -3255,7 +3253,7 @@ impl<'a> PacketParser<'a> {
             // encoding, and a 20-byte hash.
             let mut reader = BufferedReaderReserve::with_cookie(
                 Box::new(reader), 1 + 1 + 20,
-                Cookie::new(self.recursion_depth() as isize));
+                Cookie::new(self.recursion_depth()));
             reader.cookie_mut().fake_eof = true;
 
             if trace {

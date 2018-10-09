@@ -572,14 +572,14 @@ mod message_test {
                 .max_recursion_depth(max_recursion_depth)
                 .finalize().unwrap();
 
-        let mut count : usize = 0;
+        let mut count = 0;
         loop {
             if let PacketParserResult::Some(pp2) = ppr {
                 count += 1;
 
                 let pp2 = pp2.recurse().unwrap().1;
                 let packet_depth = pp2.last_recursion_depth().unwrap();
-                assert_eq!(packet_depth as usize, count - 1);
+                assert_eq!(packet_depth, count - 1);
                 if pp2.is_some() {
                     assert_eq!(pp2.recursion_depth(), Some(count));
                 }
@@ -588,7 +588,7 @@ mod message_test {
                 break;
             }
         }
-        assert_eq!(count, 1 + max_recursion_depth as usize);
+        assert_eq!(count, 1 + max_recursion_depth as isize);
     }
 
     #[cfg(feature = "compression-deflate")]

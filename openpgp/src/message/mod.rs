@@ -111,7 +111,7 @@ pub struct MessageValidator {
     finished: bool,
     // Once a raw token is pushed, this is set to None and pushing
     // packet Tags is no longer supported.
-    depth: Option<usize>,
+    depth: Option<isize>,
 
     // If we know that the packet sequence is invalid.
     error: Option<MessageParserError>,
@@ -177,7 +177,7 @@ impl MessageValidator {
     ///
     /// The token *must* correspond to a packet; this function will
     /// panic if `token` is Token::Pop.
-    pub fn push_token(&mut self, token: Token, depth: usize) {
+    pub fn push_token(&mut self, token: Token, depth: isize) {
         assert!(!self.finished);
         assert!(self.depth.is_some());
         assert!(token != Token::Pop);
@@ -201,7 +201,7 @@ impl MessageValidator {
     /// stream.
     ///
     /// Note: top-level packets are at depth 0.
-    pub fn push(&mut self, tag: Tag, depth: usize) {
+    pub fn push(&mut self, tag: Tag, depth: isize) {
         let token = match tag {
             Tag::Literal => Token::Literal,
             Tag::CompressedData => Token::CompressedData,
@@ -304,7 +304,7 @@ impl Message {
     pub fn from_packet_pile(pile: PacketPile) -> Result<Self> {
         let mut v = MessageValidator::new();
         for (path, packet) in pile.descendants().paths() {
-            v.push(packet.tag(), path.len() - 1);
+            v.push(packet.tag(), path.len() as isize - 1);
 
             match packet {
                 Packet::CompressedData(_) | Packet::SEIP(_) => {
@@ -313,7 +313,7 @@ impl Message {
 
                     if packet.children.is_none() && packet.body.is_some() {
                         v.push_token(Token::OpaqueContent,
-                                     path.len() - 1 + 1);
+                                     path.len() as isize - 1 + 1);
                     }
                 }
                 _ => {}
@@ -530,7 +530,7 @@ mod tests {
         use Tag::*;
 
         struct TestVector<'a> {
-            s: &'a [(Tag, usize)],
+            s: &'a [(Tag, isize)],
             result: bool,
         }
 
