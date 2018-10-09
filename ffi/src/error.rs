@@ -85,6 +85,9 @@ pub enum Status {
     /// Unsupported symmetric algorithm.
     UnsupportedSymmetricAlgorithm = -10,
 
+    /// Unsupported AEAD algorithm.
+    UnsupportedAEADAlgorithm = -26,
+
     /// Unsupport signature type.
     UnsupportedSignatureType = -20,
 
@@ -126,6 +129,7 @@ pub enum Status {
     UnsupportedTPK = -24,
 
     // XXX: Skipping ManipulatedMessage = -25
+    // XXX: Skipping UnsupportedAEADAlgorithm = -26
 }
 
 impl<'a> From<&'a failure::Error> for Status {
@@ -163,6 +167,8 @@ impl<'a> From<&'a failure::Error> for Status {
                     Status::UnsupportedEllipticCurve,
                 &openpgp::Error::UnsupportedSymmetricAlgorithm(_) =>
                     Status::UnsupportedSymmetricAlgorithm,
+                &openpgp::Error::UnsupportedAEADAlgorithm(_) =>
+                    Status::UnsupportedAEADAlgorithm,
                 &openpgp::Error::UnsupportedSignatureType(_) =>
                     Status::UnsupportedSignatureType,
                 &openpgp::Error::InvalidPassword =>

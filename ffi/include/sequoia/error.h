@@ -83,6 +83,11 @@ typedef enum sq_status {
   SQ_STATUS_UNSUPPORTED_SYMMETRIC_ALGORITHM = -10,
 
   /*/
+  /// Unsupported AEAD algorithm.
+  /*/
+  SQ_STATUS_UNSUPPORTED_AEAD_ALGORITHM = -26,
+
+  /*/
   /// Unsupport signature type.
   /*/
   SQ_STATUS_UNSUPPORTED_SIGNATURE_TYPE = -20,

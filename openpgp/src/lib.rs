@@ -213,6 +213,10 @@ pub enum Error {
     #[fail(display = "Unsupported symmetric algorithm: {}", _0)]
     UnsupportedSymmetricAlgorithm(SymmetricAlgorithm),
 
+    /// Unsupported AEAD algorithm.
+    #[fail(display = "Unsupported AEAD algorithm: {}", _0)]
+    UnsupportedAEADAlgorithm(constants::AEADAlgorithm),
+
     /// Unsupported signature type.
     #[fail(display = "Unsupported signature type: {}", _0)]
     UnsupportedSignatureType(SignatureType),
