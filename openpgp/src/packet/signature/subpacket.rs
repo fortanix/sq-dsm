@@ -1427,8 +1427,7 @@ impl Features {
     }
 }
 
-/// The private component of this key may be in the possession of more
-/// than one person.
+/// Modification Detection (packets 18 and 19).
 const FEATURE_FLAG_MDC: u8 = 0x01;
 
 
