@@ -92,13 +92,6 @@ impl<'a> PacketParserBuilder<'a> {
         self
     }
 
-    /// Causes the `PacketParser` functionality to print a trace of
-    /// its execution on stderr.
-    pub fn trace(mut self) -> Self {
-        self.settings.trace = true;
-        self
-    }
-
     /// Controls mapping.
     ///
     /// Note that enabling mapping buffers all the data.
