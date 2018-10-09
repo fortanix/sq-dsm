@@ -98,8 +98,7 @@ pub fn main() {
             State::Done => State::Done,
         };
 
-        let ((packet, _), (ppr_tmp, _)) = pp.recurse()
-            .expect("Failed to recurse");
+        let (packet, ppr_tmp) = pp.recurse().expect("Failed to recurse");
         ppr = ppr_tmp;
 
         state = match state {

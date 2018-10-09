@@ -1316,9 +1316,7 @@ pub extern "system" fn sq_packet_parser_next<'a>
     (ctx: Option<&mut Context>,
      pp: *mut PacketParser<'a>,
      old_packet: Option<&mut *mut Packet>,
-     old_recursion_level: Option<&mut isize>,
-     ppr: Option<&mut *mut PacketParserResult<'a>>,
-     new_recursion_level: Option<&mut isize>)
+     ppr: Option<&mut *mut PacketParserResult<'a>>)
      -> Status {
     let ctx = ctx.expect("Context is NULL");
     assert!(! pp.is_null());
@@ -1327,18 +1325,12 @@ pub extern "system" fn sq_packet_parser_next<'a>
     };
 
     match pp.next() {
-        Ok(((old_p, old_rl), (new_ppr, new_rl))) => {
+        Ok((old_p, new_ppr)) => {
             if let Some(p) = old_packet {
                 *p = box_raw!(old_p);
             }
-            if let Some(p) = old_recursion_level {
-                *p = old_rl;
-            }
             if let Some(p) = ppr {
                 *p = box_raw!(new_ppr);
-            }
-            if let Some(p) = new_recursion_level {
-                *p = new_rl;
             }
             Status::Success
         },
@@ -1356,9 +1348,9 @@ pub extern "system" fn sq_packet_parser_next<'a>
 /// recurse into the container, and return a `PacketParser` for
 /// its first child.  Otherwise, we return the next packet in the
 /// packet stream.  If this function recurses, then the new
-/// packet's position will be old_position + 1; because we always
-/// visit interior nodes, we can't recurse more than one level at
-/// a time.
+/// packet's recursion depth will be `last_recursion_depth() + 1`;
+/// because we always visit interior nodes, we can't recurse more
+/// than one level at a time.
 ///
 ///   [`next()`]: #method.next
 ///
@@ -1371,9 +1363,7 @@ pub extern "system" fn sq_packet_parser_recurse<'a>
     (ctx: Option<&mut Context>,
      pp: *mut PacketParser<'a>,
      old_packet: Option<&mut *mut Packet>,
-     old_recursion_level: Option<&mut isize>,
-     ppr: Option<&mut *mut PacketParserResult<'a>>,
-     new_recursion_level: Option<&mut isize>)
+     ppr: Option<&mut *mut PacketParserResult<'a>>)
      -> Status {
     let ctx = ctx.expect("Context is NULL");
     assert!(! pp.is_null());
@@ -1382,18 +1372,12 @@ pub extern "system" fn sq_packet_parser_recurse<'a>
     };
 
     match pp.recurse() {
-        Ok(((old_p, old_rl), (new_ppr, new_rl))) => {
+        Ok((old_p, new_ppr)) => {
             if let Some(p) = old_packet {
                 *p = box_raw!(old_p);
             }
-            if let Some(p) = old_recursion_level {
-                *p = old_rl;
-            }
             if let Some(p) = ppr {
                 *p = box_raw!(new_ppr);
-            }
-            if let Some(p) = new_recursion_level {
-                *p = new_rl;
             }
             Status::Success
         },

@@ -114,7 +114,7 @@ fn sign_data(input: &mut io::Read, output_path: Option<&str>,
                 = openpgp::parse::PacketParser::from_reader(reader)?;
 
             while let PacketParserResult::Some(mut pp) = ppr {
-                let ((packet, _), (ppr_tmp, _)) = pp.recurse()?;
+                let (packet, ppr_tmp) = pp.recurse()?;
                 ppr = ppr_tmp;
 
                 match packet {
@@ -311,7 +311,7 @@ fn sign_message(input: &mut io::Read, output_path: Option<&str>,
                 .unwrap();
         }
 
-        let ((packet, _), (ppr_tmp, _)) = if seen_signature {
+        let (packet, ppr_tmp) = if seen_signature {
             // Once we see a signature, we can no longer strip
             // compression.
             pp.next()
@@ -602,8 +602,9 @@ pub fn split(input: &mut io::Read, prefix: &str)
             }
         }
 
-        let ((_, old_depth), (ppr_, new_depth)) = pp.recurse()?;
-        ppr = ppr_;
+        ppr = pp.recurse()?.1;
+        let old_depth = ppr.last_recursion_depth();
+        let new_depth = ppr.recursion_depth();
 
         // Update pos.
         match old_depth.cmp(&new_depth) {

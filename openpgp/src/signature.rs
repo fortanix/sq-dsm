@@ -857,8 +857,7 @@ mod test {
                 }
 
                 // Get the next packet.
-                let (_, (tmp, _)) = pp.recurse().unwrap();
-                ppr = tmp;
+                ppr = pp.recurse().unwrap().1;
             }
 
             assert_eq!(good, test.good, "Signature verification failed.");

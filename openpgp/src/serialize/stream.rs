@@ -1090,8 +1090,8 @@ mod test {
         assert_eq!(&body, b"Hello world.");
 
         // Make sure it is the only packet.
-        let (_, (tmp, _)) = pp.recurse().unwrap();
-        assert!(tmp.is_none());
+        let (_, ppr) = pp.recurse().unwrap();
+        assert!(ppr.is_none());
     }
 
     // Create some crazy nesting structures, serialize the messages,
@@ -1260,8 +1260,7 @@ mod test {
             }
 
             // Get the next packet.
-            let (_, (tmp, _)) = pp.recurse().unwrap();
-            ppr = tmp;
+            ppr = pp.recurse().unwrap().1;
         }
         assert_eq!(good, 2);
     }
@@ -1367,8 +1366,7 @@ mod test {
                 };
 
                 // Next?
-                let (_, (tmp, _)) = pp.recurse().unwrap();
-                ppr = tmp;
+                ppr = pp.recurse().unwrap().1;
             }
             assert_eq!(state, State::Done);
         }

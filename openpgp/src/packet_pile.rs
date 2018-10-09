@@ -332,7 +332,8 @@ impl PacketPile {
         let mut pp = ppr.unwrap();
 
         'outer: loop {
-            let ((mut packet, mut position), (mut ppr, _)) = pp.recurse()?;
+            let (mut packet, mut ppr) = pp.recurse()?;
+            let mut position = ppr.last_recursion_depth().unwrap() as isize;
 
             let mut relative_position : isize = position - last_position;
             assert!(relative_position <= 1);
@@ -385,10 +386,11 @@ impl PacketPile {
                     break;
                 }
 
-                let ((packet_, position_), (ppr_, _)) = pp.recurse()?;
+                let (packet_, ppr_) = pp.recurse()?;
                 packet = packet_;
-                assert_eq!(position, position_);
                 ppr = ppr_;
+                assert_eq!(position,
+                           ppr.last_recursion_depth().unwrap() as isize);
             }
         }
 
@@ -575,12 +577,11 @@ mod message_test {
             if let PacketParserResult::Some(pp2) = ppr {
                 count += 1;
 
-                let ((_, packet_depth), (pp2, pp_depth))
-                    = pp2.recurse().unwrap();
-                eprintln!("{}, {}", packet_depth, pp_depth);
+                let pp2 = pp2.recurse().unwrap().1;
+                let packet_depth = pp2.last_recursion_depth().unwrap();
                 assert_eq!(packet_depth as usize, count - 1);
                 if pp2.is_some() {
-                    assert_eq!(pp_depth as usize, count);
+                    assert_eq!(pp2.recursion_depth(), Some(count));
                 }
                 ppr = pp2;
             } else {
@@ -616,7 +617,7 @@ mod message_test {
 
         // recurse should now not recurse.  Since there is nothing
         // following the compressed packet, ppr should be EOF.
-        let ((mut packet, _), (ppr, _)) = pp.next().unwrap();
+        let (mut packet, ppr) = pp.next().unwrap();
         assert!(ppr.is_none());
 
         // Get the rest of the content and put the initial byte that
@@ -633,7 +634,7 @@ mod message_test {
         }
 
         // And we're done...
-        let (_, (ppr, _)) = pp.next().unwrap();
+        let ppr = pp.next().unwrap().1;
         assert!(ppr.is_none());
     }
 

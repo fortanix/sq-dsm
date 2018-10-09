@@ -80,9 +80,7 @@ fn main() {
             _ => (),
         }
 
-        let (_, (ppr_tmp, _)) = pp.recurse()
-            .expect("Failed to recurse");
-        ppr = ppr_tmp;
+        ppr = pp.recurse().expect("Failed to recurse").1;
     }
     if let PacketParserResult::EOF(eof) = ppr {
         if ! eof.is_message() {

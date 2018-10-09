@@ -1311,8 +1311,7 @@ fn one_pass_sig_test () {
                             number of expected OnePassSig packets.");
             }
 
-            let (_, (tmp, _)) = pp.recurse().expect("Parsing message");
-            ppr = tmp;
+            ppr = pp.recurse().expect("Parsing message").1;
         }
         assert_eq!(one_pass_sigs, sigs,
                    "Number of OnePassSig packets does not match \
@@ -1652,17 +1651,17 @@ fn compressed_data_parser_test () {
             panic!("Wrong packet!");
         }
 
-        let (_, (ppo, _)) = pp.recurse().unwrap();
+        let ppr = pp.recurse().unwrap().1;
 
-        // ppo should be the literal data packet.
-        let mut pp = ppo.unwrap();
+        // ppr should be the literal data packet.
+        let mut pp = ppr.unwrap();
 
         // It is a child.
         assert_eq!(pp.recursion_depth(), 1);
 
         let content = pp.steal_eof().unwrap();
 
-        let ((literal, _), (ppo, _)) = pp.recurse().unwrap();
+        let (literal, ppr) = pp.recurse().unwrap();
 
         if let Packet::Literal(literal) = literal {
             assert_eq!(literal.filename, None);
@@ -1674,7 +1673,7 @@ fn compressed_data_parser_test () {
         }
 
         // And, we're done...
-        assert!(ppo.is_none());
+        assert!(ppr.is_none());
     }
 }
 
@@ -2040,9 +2039,8 @@ impl PacketParserState {
 ///         std::io::copy(&mut pp, &mut std::io::stdout());
 ///     }
 ///
-///     // Get the next packet.
-///     let (_, (tmp, _)) = pp.recurse()?;
-///     ppr = tmp;
+///     // Start parsing the next packet.
+///     ppr = pp.recurse()?.1;
 /// }
 /// # return Ok(());
 /// # }
@@ -2129,6 +2127,18 @@ impl PacketParserEOF {
     /// Returns the path of the last packet.
     pub fn last_path(&self) -> &[usize] {
         &self.last_path[..]
+    }
+
+    /// The last packet's recursion depth.
+    ///
+    /// A top-level packet has a recursion depth of 0.  Packets in a
+    /// top-level container have a recursion depth of 1, etc.
+    pub fn last_recursion_depth(&self) -> Option<usize> {
+        if self.last_path.len() == 0 {
+            None
+        } else {
+            Some(self.last_path.len() - 1)
+        }
     }
 }
 
@@ -2220,6 +2230,33 @@ impl<'a> PacketParserResult<'a> {
             PacketParserResult::EOF(_) => None,
         }
     }
+
+    /// The current packet's recursion depth.
+    ///
+    /// A top-level packet has a recursion depth of 0.  Packets in a
+    /// top-level container have a recursion depth of 1, etc.
+    ///
+    /// Note: if the PacketParser has reached the end of the packet
+    /// sequence and is not parsing a packet, then this returns None.
+    pub fn recursion_depth(&self) -> Option<usize> {
+        match self {
+            PacketParserResult::Some(pp) => Some(pp.recursion_depth()),
+            PacketParserResult::EOF(_) => None,
+        }
+    }
+
+    /// The last packet's recursion depth.
+    ///
+    /// A top-level packet has a recursion depth of 0.  Packets in a
+    /// top-level container have a recursion depth of 1, etc.
+    ///
+    /// Note: if no packet has been returned yet, this returns None.
+    pub fn last_recursion_depth(&self) -> Option<usize> {
+        match self {
+            PacketParserResult::Some(pp) => pp.last_recursion_depth(),
+            PacketParserResult::EOF(eof) => eof.last_recursion_depth(),
+        }
+    }
 }
 
 impl <'a> PacketParser<'a> {
@@ -2308,12 +2345,27 @@ impl <'a> PacketParser<'a> {
         &self.path[..]
     }
 
-    /// This packet's recursion depth.
+    /// The current packet's recursion depth.
     ///
     /// A top-level packet has a recursion depth of 0.  Packets in a
     /// top-level container have a recursion depth of 1, etc.
     pub fn recursion_depth(&self) -> usize {
         self.path.len() - 1
+    }
+
+    /// The last packet's recursion depth.
+    ///
+    /// A top-level packet has a recursion depth of 0.  Packets in a
+    /// top-level container have a recursion depth of 1, etc.
+    ///
+    /// Note: if no packet has been returned yet, this returns None.
+    pub fn last_recursion_depth(&self) -> Option<usize> {
+        if self.last_path.len() == 0 {
+            assert_eq!(&self.path[..], &[ 0 ]);
+            None
+        } else {
+            Some(self.last_path.len() - 1)
+        }
     }
 
     /// Returns whether the message appears to be an OpenPGP Message.
@@ -2569,12 +2621,12 @@ impl <'a> PacketParser<'a> {
     }
 
     /// Finishes parsing the current packet and starts parsing the
-    /// following one.
+    /// next one.
     ///
     /// This function finishes parsing the current packet.  By
     /// default, any unread content is dropped.  (See
     /// [`PacketParsererBuilder`] for how to configure this.)  It then
-    /// creates a new packet parser for the following packet.  If the
+    /// creates a new packet parser for the next packet.  If the
     /// current packet is a container, this function does *not*
     /// recurse into the container, but skips any packets it contains.
     /// To recurse into the container, use the [`recurse()`] method.
@@ -2582,21 +2634,20 @@ impl <'a> PacketParser<'a> {
     ///   [`PacketParsererBuilder`]: struct.PacketParserBuilder.html
     ///   [`recurse()`]: #method.recurse
     ///
-    /// The return value is a tuple of tuples, the first containing:
+    /// The return value is a tuple containing:
     ///
     ///   - A `Packet` holding the fully processed old packet;
     ///
-    ///   - The old packet's recursion depth;
-    ///
-    /// And the second containing:
-    ///
     ///   - A `PacketParser` holding the new packet;
     ///
-    ///   - And, the recursion depth of the new packet.
+    /// To determine the two packet's position within the parse tree,
+    /// you can use `last_path()` and `path()`, respectively.  To
+    /// determine their depth, you can use `last_recursion_depth()`
+    /// and `recursion_depth()`, respectively.
     ///
-    /// A recursion depth of 0 means that the packet is a top-level
-    /// packet, a recursion depth of 1 means that the packet is an
-    /// immediate child of a top-level-packet, etc.
+    /// Note: A recursion depth of 0 means that the packet is a
+    /// top-level packet, a recursion depth of 1 means that the packet
+    /// is an immediate child of a top-level-packet, etc.
     ///
     /// Since the packets are serialized in depth-first order and all
     /// interior nodes are visited, we know that if the recursion
@@ -2633,7 +2684,7 @@ impl <'a> PacketParser<'a> {
     /// container off the container stack, and returns the following
     /// packet in the parent container.
     pub fn next(mut self)
-        -> Result<((Packet, isize), (PacketParserResult<'a>, isize))>
+        -> Result<(Packet, PacketParserResult<'a>)>
     {
         let trace = self.state.settings.trace;
 
@@ -2646,13 +2697,11 @@ impl <'a> PacketParser<'a> {
 
         self.finish()?;
 
-        let orig_depth = self.recursion_depth() as isize;
-
         let (mut fake_eof, mut reader) = buffered_reader_stack_pop(
             mem::replace(&mut self.reader,
                          Box::new(BufferedReaderEOF::with_cookie(
                              Default::default()))),
-            orig_depth)?;
+            self.recursion_depth() as isize)?;
         // At this point, next() has to point to a non-container
         // packet or an opaque container (due to the maximum recursion
         // level being reaching).  In this case, there can't be a fake
@@ -2699,8 +2748,8 @@ impl <'a> PacketParser<'a> {
                         }
                         let mut eof = PacketParserEOF::new(state_);
                         eof.last_path = self.last_path;
-                        return Ok(((self.packet, orig_depth as isize),
-                                   (PacketParserResult::EOF(eof), 0)));
+                        return Ok((self.packet,
+                                   PacketParserResult::EOF(eof)));
                     } else {
                         self.state = state_;
                         self.finish()?;
@@ -2722,10 +2771,7 @@ impl <'a> PacketParser<'a> {
 
                     pp.last_path = self.last_path;
 
-                    return Ok(((self.packet,
-                                orig_depth as isize),
-                               (PacketParserResult::Some(pp),
-                                recursion_depth as isize)));
+                    return Ok((self.packet, PacketParserResult::Some(pp)));
                 }
             }
         }
@@ -2741,14 +2787,12 @@ impl <'a> PacketParser<'a> {
     /// recurse into the container, and return a `PacketParser` for
     /// its first child.  Otherwise, we return the next packet in the
     /// packet stream.  If this function recurses, then the new
-    /// packet's position will be old_position + 1; because we always
-    /// visit interior nodes, we can't recurse more than one level at
-    /// a time.
+    /// packet's recursion depth will be `last_recursion_depth() + 1`;
+    /// because we always visit interior nodes, we can't recurse more
+    /// than one level at a time.
     ///
     ///   [`next()`]: #method.next
-    pub fn recurse(self)
-        -> Result<((Packet, isize), (PacketParserResult<'a>, isize))>
-    {
+    pub fn recurse(self) -> Result<(Packet, PacketParserResult<'a>)> {
         let trace = self.state.settings.trace;
 
         if trace {
@@ -2810,10 +2854,8 @@ impl <'a> PacketParser<'a> {
 
                             pp.last_path = last_path;
 
-                            return Ok(((self.packet,
-                                        recursion_depth as isize - 1),
-                                       (PacketParserResult::Some(pp),
-                                        recursion_depth as isize)));
+                            return Ok((self.packet,
+                                       PacketParserResult::Some(pp)));
                         },
                         ParserResult::EOF(_) => {
                             return Err(Error::MalformedPacket(
@@ -2871,9 +2913,8 @@ impl <'a> PacketParser<'a> {
     ///         }
     ///     }
     ///
-    ///     // Get the next packet.
-    ///     let (_, (tmp, _)) = pp.recurse()?;
-    ///     ppr = tmp;
+    ///     // Start parsing the next packet.
+    ///     ppr = pp.recurse()?.1;
     /// }
     /// # return Ok(());
     /// # }
@@ -3079,16 +3120,18 @@ fn packet_parser_reader_interface() {
     //
     // packet is the compressed data packet; ppo is the literal data
     // packet.
-    let ((packet, packet_depth), (ppo, pp_depth)) = pp.recurse().unwrap();
+    let (packet, ppr) = pp.recurse().unwrap();
+    let packet_depth = ppr.last_recursion_depth().unwrap();
+    let pp_depth = ppr.recursion_depth().unwrap();
     if let Packet::CompressedData(_) = packet {
     } else {
         panic!("Expected a compressed data packet.");
     }
 
-    let relative_position = pp_depth - packet_depth;
+    let relative_position = pp_depth as isize - packet_depth as isize;
     assert_eq!(relative_position, 1);
 
-    let mut pp = ppo.unwrap();
+    let mut pp = ppr.unwrap();
 
     if let Packet::Literal(_) = pp.packet {
     } else {
@@ -3110,8 +3153,8 @@ fn packet_parser_reader_interface() {
 
     // Make sure we can still get the next packet (which in this case
     // is just EOF).
-    let ((packet, _), (ppo, _)) = pp.recurse().unwrap();
-    assert!(ppo.is_none());
+    let (packet, ppr) = pp.recurse().unwrap();
+    assert!(ppr.is_none());
     // Since we read all of the data, we expect content to be None.
     assert!(packet.body.is_none());
 }
@@ -3402,8 +3445,7 @@ mod test {
         -> PacketParserResult<'a>
     {
         if ignore_first {
-            let (_, (ppr_tmp, _)) = ppr.unwrap().recurse().unwrap();
-            ppr = ppr_tmp;
+            ppr = ppr.unwrap().recurse().unwrap().1;
         }
 
         while let PacketParserResult::Some(pp) = ppr {
@@ -3425,8 +3467,7 @@ mod test {
                        keep, skip, pp.packet);
             }
 
-            let (_, (ppr_tmp, _)) = pp.recurse().unwrap();
-            ppr = ppr_tmp;
+            ppr = pp.recurse().unwrap().1;
         }
         return ppr;
     }
@@ -3523,8 +3564,7 @@ mod test {
                     _ => {},
                 }
 
-                let (_, (ppr_tmp, _)) = pp.recurse().unwrap();
-                ppr = ppr_tmp;
+                ppr = pp.recurse().unwrap().1;
             }
             assert!(saw_literal);
             if let PacketParserResult::EOF(eof) = ppr {
@@ -3557,8 +3597,7 @@ mod test {
                     _ => {},
                 }
 
-                let (_, (ppr_tmp, _)) = pp.recurse().unwrap();
-                ppr = ppr_tmp;
+                ppr = pp.recurse().unwrap().1;
             }
             assert!(! saw_literal);
             if let PacketParserResult::EOF(eof) = ppr {
@@ -3603,8 +3642,7 @@ mod test {
                     pp.decrypt(test.algo, &key).unwrap();
                 }
 
-                let (_, (ppr_, _)) = pp.recurse().unwrap();
-                ppr = ppr_;
+                ppr = pp.recurse().unwrap().1;
             }
             paths.reverse();
             assert_eq!(paths.len(), 0,
@@ -3645,8 +3683,7 @@ mod test {
                 _ => (),
             }
 
-            let (_, (ppr_, _)) = pp.next().unwrap();
-            ppr = ppr_;
+            ppr = pp.next().unwrap().1;
         }
 
         assert_eq!(sigs, 53);

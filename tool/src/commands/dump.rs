@@ -35,8 +35,9 @@ pub fn dump(input: &mut io::Read, output: &mut io::Write, mpis: bool, hex: bool)
         let header = pp.header.clone();
         let map = pp.map.take();
 
-        let ((packet, recursion_depth), (ppr_, _)) = pp.recurse()?;
+        let (packet, ppr_) = pp.recurse()?;
         ppr = ppr_;
+        let recursion_depth = ppr.last_recursion_depth().unwrap();
 
         dumper.packet(output, recursion_depth as usize,
                       header, packet, map, additional_fields)?;

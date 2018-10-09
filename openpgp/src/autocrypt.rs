@@ -489,7 +489,7 @@ impl AutocryptSetupMessage {
                 .into());
         };
 
-        let ((packet, _), (ppr_, _)) = pp.next()?;
+        let (packet, ppr_) = pp.next()?;
         ppr = ppr_;
 
         let skesk = match packet {
@@ -594,9 +594,8 @@ impl<'a> AutocryptSetupMessageParser<'a> {
         }
 
         // Recurse into the SEIP packet.
-        let (_, (ppr_, depth)) = self.pp.recurse()?;
-        let mut ppr = ppr_;
-        if depth != 1 {
+        let mut ppr = self.pp.recurse()?.1;
+        if ppr.recursion_depth() != Some(1) {
             return Err(
                 Error::MalformedMessage(
                     "SEIP container empty, but expected a Literal Data packet"
@@ -646,8 +645,7 @@ impl<'a> AutocryptSetupMessageParser<'a> {
                 (prefer_encrypt, tsk)
             };
 
-            let (_, (ppr_, _)) = pp.recurse()?;
-            ppr = ppr_;
+            ppr = pp.recurse()?.1;
 
             (prefer_encrypt, tsk)
         } else {
@@ -669,8 +667,7 @@ impl<'a> AutocryptSetupMessageParser<'a> {
                         .into()),
             }
 
-            let (_, (ppr_, _)) = pp.recurse()?;
-            ppr = ppr_;
+            ppr = pp.recurse()?.1;
         }
 
         // Make sure we reached the end of the outer message.

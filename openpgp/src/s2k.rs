@@ -393,8 +393,8 @@ mod tests {
             }
 
             // Get the next packet.
-            let (_, (tmp, _)) = pp.next().unwrap();
-            assert!(tmp.is_none());
+            let (_, ppr) = pp.next().unwrap();
+            assert!(ppr.is_none());
         }
     }
 

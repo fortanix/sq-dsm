@@ -806,12 +806,12 @@ uint8_t sq_packet_parser_recursion_depth (sq_packet_parser_t pp);
 
 /*/
 /// Finishes parsing the current packet and starts parsing the
-/// following one.
+/// next one.
 ///
 /// This function finishes parsing the current packet.  By
 /// default, any unread content is dropped.  (See
 /// [`PacketParsererBuilder`] for how to configure this.)  It then
-/// creates a new packet parser for the following packet.  If the
+/// creates a new packet parser for the next packet.  If the
 /// current packet is a container, this function does *not*
 /// recurse into the container, but skips any packets it contains.
 /// To recurse into the container, use the [`recurse()`] method.
@@ -823,15 +823,16 @@ uint8_t sq_packet_parser_recursion_depth (sq_packet_parser_t pp);
 ///
 ///   - A `Packet` holding the fully processed old packet;
 ///
-///   - The old packet's recursion depth;
-///
 ///   - A `PacketParser` holding the new packet;
 ///
-///   - And, the recursion depth of the new packet.
+/// To determine the two packet's position within the parse tree,
+/// you can use `last_path()` and `path()`, respectively.  To
+/// determine their depth, you can use `last_recursion_depth()`
+/// and `recursion_depth()`, respectively.
 ///
-/// A recursion depth of 0 means that the packet is a top-level
-/// packet, a recursion depth of 1 means that the packet is an
-/// immediate child of a top-level-packet, etc.
+/// Note: A recursion depth of 0 means that the packet is a
+/// top-level packet, a recursion depth of 1 means that the packet
+/// is an immediate child of a top-level-packet, etc.
 ///
 /// Since the packets are serialized in depth-first order and all
 /// interior nodes are visited, we know that if the recursion
@@ -876,9 +877,7 @@ uint8_t sq_packet_parser_recursion_depth (sq_packet_parser_t pp);
 sq_status_t sq_packet_parser_next (sq_context_t ctx,
                                    sq_packet_parser_t pp,
                                    sq_packet_t *old_packet,
-                                   uint8_t *old_recursion_level,
-                                   sq_packet_parser_result_t *ppr,
-                                   uint8_t *new_recursion_level);
+                                   sq_packet_parser_result_t *ppr);
 
 /*/
 /// Finishes parsing the current packet and starts parsing the
@@ -905,9 +904,7 @@ sq_status_t sq_packet_parser_next (sq_context_t ctx,
 sq_status_t sq_packet_parser_recurse (sq_context_t ctx,
                                       sq_packet_parser_t pp,
                                       sq_packet_t *old_packet,
-                                      uint8_t *old_recursion_level,
-                                      sq_packet_parser_result_t *ppr,
-                                      uint8_t *new_recursion_level);
+                                      sq_packet_parser_result_t *ppr);
 
 /*/
 /// Causes the PacketParser to buffer the packet's contents.

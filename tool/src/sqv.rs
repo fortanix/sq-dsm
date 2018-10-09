@@ -78,7 +78,7 @@ fn real_main() -> Result<(), failure::Error> {
     let mut sig_i = 0;
 
     while let PacketParserResult::Some(pp) = ppr {
-        let ((packet, _), (ppr_tmp, _)) = pp.recurse().unwrap();
+        let (packet, ppr_tmp) = pp.recurse().unwrap();
         ppr = ppr_tmp;
 
         match packet {

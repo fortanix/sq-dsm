@@ -278,7 +278,7 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
                 _ => (),
             }
 
-            let ((p, _), (ppr_tmp, _)) = pp.recurse()?;
+            let (p, ppr_tmp) = pp.recurse()?;
             v.verify(p)?;
             ppr = ppr_tmp;
         }
@@ -356,7 +356,7 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
                             "Malformed OpenPGP message".into()).into());
                     }
 
-                    let ((p, _), (ppr_tmp, _)) = pp.recurse()?;
+                    let (p, ppr_tmp) = pp.recurse()?;
                     self.verify(p)?;
                     ppr = ppr_tmp;
                 }
@@ -759,7 +759,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                 _ => (),
             }
 
-            let ((p, _), (ppr_tmp, _)) = pp.recurse()?;
+            let (p, ppr_tmp) = pp.recurse()?;
             match p {
                 Packet::PKESK(pkesk) => pkesks.push(pkesk),
                 Packet::SKESK(skesk) => skesks.push(skesk),
@@ -871,7 +871,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                         _ => (),
                     }
 
-                    let ((p, _), (ppr_tmp, _)) = pp.recurse()?;
+                    let (p, ppr_tmp) = pp.recurse()?;
                     self.verify(p)?;
                     ppr = ppr_tmp;
                 }
