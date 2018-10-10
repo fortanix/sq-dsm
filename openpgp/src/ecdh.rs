@@ -9,6 +9,10 @@ use constants::{
     SymmetricAlgorithm,
     PublicKeyAlgorithm,
 };
+use conversions::{
+    write_be_u64,
+    read_be_u64,
+};
 use mpis::{MPI, PublicKey, SecretKey, Ciphertext};
 use nettle::{cipher, curve25519, mode, Mode, Yarrow};
 
@@ -421,30 +425,6 @@ pub fn aes_key_unwrap(algo: SymmetricAlgorithm, key: &[u8],
 
 const AES_KEY_WRAP_IV: u64 = 0xa6a6a6a6a6a6a6a6;
 
-fn read_be_u64(b: &[u8]) -> u64 {
-    assert_eq!(b.len(), 8);
-    ((b[0] as u64) << 56) as u64
-        | ((b[1] as u64) << 48)
-        | ((b[2] as u64) << 40)
-        | ((b[3] as u64) << 32)
-        | ((b[4] as u64) << 24)
-        | ((b[5] as u64) << 16)
-        | ((b[6] as u64) <<  8)
-        | ((b[7] as u64) <<  0)
-}
-
-fn write_be_u64(b: &mut [u8], n: u64) {
-    assert_eq!(b.len(), 8);
-    b[0] = (n >> 56) as u8;
-    b[1] = (n >> 48) as u8;
-    b[2] = (n >> 40) as u8;
-    b[3] = (n >> 32) as u8;
-    b[4] = (n >> 24) as u8;
-    b[5] = (n >> 16) as u8;
-    b[6] = (n >>  8) as u8;
-    b[7] = (n >>  0) as u8;
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -561,14 +541,6 @@ mod tests {
             let key_data = aes_key_unwrap(test.algo, test.kek, &ciphertext[..])
                 .unwrap();
             assert_eq!(test.key_data, &key_data[..]);
-        }
-    }
-
-    quickcheck! {
-        fn be_u64_roundtrip(n: u64) -> bool {
-            let mut b = [0; 8];
-            write_be_u64(&mut b, n);
-            n == read_be_u64(&b)
         }
     }
 }
