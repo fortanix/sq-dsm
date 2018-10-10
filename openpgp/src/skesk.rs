@@ -29,14 +29,14 @@ pub struct SKESK {
 }
 
 impl SKESK {
-    /// Creates a new SKESK packet.
+    /// Creates a new SKESK packet with the given password.
     ///
     /// The given symmetric algorithm must match the algorithm that is
     /// used to encrypt the payload, and is also used to encrypt the
     /// given session key.
-    pub fn new(algo: SymmetricAlgorithm, s2k: S2K,
-               session_key: &SessionKey, password: &Password)
-               -> Result<SKESK> {
+    pub fn with_password(algo: SymmetricAlgorithm, s2k: S2K,
+                         session_key: &SessionKey, password: &Password)
+                         -> Result<SKESK> {
         // Derive key and make a cipher.
         let key = s2k.derive_key(password, algo.key_size()?)?;
         let mut cipher = algo.make_encrypt_cfb(&key[..])?;
