@@ -130,6 +130,7 @@ mod compressed_data;
 mod seip;
 mod skesk;
 pub(crate) mod ecdh;
+pub(crate) mod aead;
 mod pkesk;
 mod mdc;
 mod reader;

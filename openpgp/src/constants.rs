@@ -8,7 +8,6 @@ use std::str::FromStr;
 use std::result;
 
 use quickcheck::{Arbitrary, Gen};
-use nettle;
 
 use Error;
 use Result;
@@ -413,19 +412,6 @@ pub enum AEADAlgorithm {
     Private(u8),
     /// Unknown algorithm identifier.
     Unknown(u8),
-}
-
-impl AEADAlgorithm {
-    /// Returns the digest size of the AEAD algorithm.
-    pub fn digest_size(&self) -> Result<usize> {
-        use self::AEADAlgorithm::*;
-        match self {
-            &EAX =>
-            // Digest size is independent of the cipher.
-                Ok(nettle::aead::Eax::<nettle::cipher::Aes128>::DIGEST_SIZE),
-            _ => Err(Error::UnsupportedAEADAlgorithm(self.clone()).into()),
-        }
-    }
 }
 
 impl From<u8> for AEADAlgorithm {
