@@ -1669,13 +1669,13 @@ impl SKESK {
         let s2k = php_try!(S2K::parse(&mut php));
         let esk = php_try!(php.parse_bytes_eof("esk"));
 
-        php.ok(Packet::SKESK(SKESK {
-            common: Default::default(),
-            version: version,
-            symm_algo: symm_algo.into(),
-            s2k: s2k,
-            esk: if esk.len() > 0 { Some(esk) } else { None },
-        }))
+        let skesk = php_try!(SKESK::new(
+            version,
+            symm_algo.into(),
+            s2k,
+            if esk.len() > 0 { Some(esk) } else { None },
+        ));
+        php.ok(Packet::SKESK(skesk))
     }
 }
 
@@ -1710,8 +1710,8 @@ fn skesk_parser_test() {
         if let Packet::SKESK(ref skesk) = pp.packet {
             eprintln!("{:?}", skesk);
 
-            assert_eq!(skesk.symm_algo, test.cipher_algo);
-            assert_eq!(skesk.s2k, test.s2k);
+            assert_eq!(skesk.symmetric_algo(), test.cipher_algo);
+            assert_eq!(skesk.s2k(), &test.s2k);
 
             match skesk.decrypt(&test.password) {
                 Ok((_symm_algo, key)) => {

@@ -376,12 +376,12 @@ mod tests {
             let path = path_to(test.filename);
             let mut pp = PacketParser::from_file(path).unwrap().unwrap();
             if let Packet::SKESK(ref skesk) = pp.packet {
-                assert_eq!(skesk.symm_algo, test.cipher_algo);
-                assert_eq!(skesk.s2k, test.s2k);
+                assert_eq!(skesk.symmetric_algo(), test.cipher_algo);
+                assert_eq!(skesk.s2k(), &test.s2k);
 
-                let key = skesk.s2k.derive_key(
+                let key = skesk.s2k().derive_key(
                     &test.password,
-                    skesk.symm_algo.key_size().unwrap());
+                    skesk.symmetric_algo().key_size().unwrap());
                 if let Ok(key) = key {
                     let key = to_hex(&key[..], false);
                     assert_eq!(key, test.key_hex);

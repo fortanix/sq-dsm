@@ -19,16 +19,37 @@ pub struct SKESK {
     /// CTB header fields.
     pub(crate) common: packet::Common,
     /// Packet version. Must be 4.
-    pub(crate) version: u8,
+    version: u8,
     /// Symmetric algorithm used to encrypt the session key.
-    pub(crate) symm_algo: SymmetricAlgorithm,
+    symm_algo: SymmetricAlgorithm,
     /// Key derivation method for the symmetric key.
-    pub(crate) s2k: S2K,
+    s2k: S2K,
     /// The encrypted session key.
-    pub(crate) esk: Option<Vec<u8>>,
+    esk: Option<Vec<u8>>,
 }
 
 impl SKESK {
+    /// Creates a new SKESK packet.
+    ///
+    /// The given symmetric algorithm must match the algorithm that is
+    /// used to encrypt the payload, and is also used to encrypt the
+    /// given session key.
+    pub fn new(version: u8, cipher: SymmetricAlgorithm, s2k: S2K,
+               esk: Option<Vec<u8>>) -> Result<SKESK> {
+        if version != 4 {
+            return Err(Error::InvalidArgument(
+                format!("Invalid version: {}", version)).into());
+        }
+
+        Ok(SKESK{
+            common: Default::default(),
+            version: version,
+            symm_algo: cipher,
+            s2k: s2k,
+            esk: esk,
+        })
+    }
+
     /// Creates a new SKESK packet with the given password.
     ///
     /// The given symmetric algorithm must match the algorithm that is
@@ -54,13 +75,7 @@ impl SKESK {
                 cipher.encrypt(&mut iv[..], ct, pt);
         }
 
-        Ok(SKESK{
-            common: Default::default(),
-            version: 4,
-            symm_algo: algo,
-            s2k: s2k,
-            esk: Some(esk),
-        })
+        SKESK::new(4, algo, s2k, Some(esk))
     }
 
     /// Gets the version.

@@ -987,7 +987,7 @@ impl Serialize for SKESK {
     ///
     /// [`Error::InvalidArgument`]: ../enum.Error.html#variant.InvalidArgument
     fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
-        if self.version != 4 {
+        if self.version() != 4 {
             return Err(Error::InvalidArgument(
                 "Don't know how to serialize \
                  non-version 4 packets.".into()).into());
@@ -996,16 +996,16 @@ impl Serialize for SKESK {
         let len =
             1 // Version
             + 1 // Algo
-            + self.s2k.serialized_len() // s2k.
-            + self.esk.as_ref().map(|esk| esk.len()).unwrap_or(0); // ESK.
+            + self.s2k().serialized_len() // s2k.
+            + self.esk().map(|esk| esk.len()).unwrap_or(0); // ESK.
 
         CTB::new(Tag::SKESK).serialize(o)?;
         BodyLength::Full(len as u32).serialize(o)?;
 
-        write_byte(o, self.version)?;
-        write_byte(o, self.symm_algo.into())?;
-        self.s2k.serialize(o)?;
-        if let Some(ref esk) = self.esk {
+        write_byte(o, self.version())?;
+        write_byte(o, self.symmetric_algo().into())?;
+        self.s2k().serialize(o)?;
+        if let Some(ref esk) = self.esk() {
             o.write(&esk[..])?;
         }
 
