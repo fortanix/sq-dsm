@@ -1679,6 +1679,55 @@ impl SKESK {
     }
 }
 
+#[test]
+fn skesk_parser_test() {
+    use Password;
+    struct Test<'a> {
+        filename: &'a str,
+        s2k: S2K,
+        cipher_algo: SymmetricAlgorithm,
+        password: Password,
+        key_hex: &'a str,
+    };
+
+    let tests = [
+        Test {
+            filename: "s2k/mode-3-encrypted-key-password-bgtyhn.gpg",
+            cipher_algo: SymmetricAlgorithm::AES128,
+            s2k: S2K::Iterated {
+                hash: HashAlgorithm::SHA1,
+                salt: [0x82, 0x59, 0xa0, 0x6e, 0x98, 0xda, 0x94, 0x1c],
+                iterations: S2K::decode_count(238),
+            },
+            password: "bgtyhn".into(),
+            key_hex: "474E5C373BA18AF0A499FCAFE6093F131DF636F6A3812B9A8AE707F1F0214AE9",
+        },
+    ];
+
+    for test in tests.iter() {
+        let path = path_to(test.filename);
+        let mut pp = PacketParser::from_file(path).unwrap().unwrap();
+        if let Packet::SKESK(ref skesk) = pp.packet {
+            eprintln!("{:?}", skesk);
+
+            assert_eq!(skesk.symm_algo, test.cipher_algo);
+            assert_eq!(skesk.s2k, test.s2k);
+
+            match skesk.decrypt(&test.password) {
+                Ok((_symm_algo, key)) => {
+                    let key = ::conversions::to_hex(&key[..], false);
+                    assert_eq!(&key[..], &test.key_hex[..]);
+                }
+                Err(e) => {
+                    panic!("No session key, got: {:?}", e);
+                }
+            }
+        } else {
+            panic!("Wrong packet!");
+        }
+    }
+}
+
 impl SEIP {
     /// Parses the body of a SEIP packet.
     fn parse<'a>(mut php: PacketHeaderParser<'a>) -> Result<PacketParser<'a>> {
@@ -1742,55 +1791,6 @@ impl MDC {
             computed_hash: computed_hash,
             hash: hash,
         }))
-    }
-}
-
-#[test]
-fn skesk_parser_test() {
-    use Password;
-    struct Test<'a> {
-        filename: &'a str,
-        s2k: S2K,
-        cipher_algo: SymmetricAlgorithm,
-        password: Password,
-        key_hex: &'a str,
-    };
-
-    let tests = [
-            Test {
-                filename: "s2k/mode-3-encrypted-key-password-bgtyhn.gpg",
-                cipher_algo: SymmetricAlgorithm::AES128,
-                s2k: S2K::Iterated {
-                    hash: HashAlgorithm::SHA1,
-                    salt: [0x82, 0x59, 0xa0, 0x6e, 0x98, 0xda, 0x94, 0x1c],
-                    iterations: S2K::decode_count(238),
-                },
-                password: "bgtyhn".into(),
-                key_hex: "474E5C373BA18AF0A499FCAFE6093F131DF636F6A3812B9A8AE707F1F0214AE9",
-            },
-    ];
-
-    for test in tests.iter() {
-        let path = path_to(test.filename);
-        let mut pp = PacketParser::from_file(path).unwrap().unwrap();
-        if let Packet::SKESK(ref skesk) = pp.packet {
-            eprintln!("{:?}", skesk);
-
-            assert_eq!(skesk.symm_algo, test.cipher_algo);
-            assert_eq!(skesk.s2k, test.s2k);
-
-            match skesk.decrypt(&test.password) {
-                Ok((_symm_algo, key)) => {
-                    let key = ::conversions::to_hex(&key[..], false);
-                    assert_eq!(&key[..], &test.key_hex[..]);
-                }
-                Err(e) => {
-                    panic!("No session key, got: {:?}", e);
-                }
-            }
-        } else {
-            panic!("Wrong packet!");
-        }
     }
 }
 
