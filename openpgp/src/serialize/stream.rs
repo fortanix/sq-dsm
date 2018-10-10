@@ -19,7 +19,7 @@ use {
     Password,
     SecretKey,
     SessionKey,
-    packet::SKESK,
+    packet::SKESK4,
     packet::{signature, Signature},
     Tag,
     TPK,
@@ -921,8 +921,8 @@ impl<'a> Encryptor<'a> {
 
         // Write the SKESK packet(s).
         for password in passwords {
-            let skesk = SKESK::with_password(algo, Default::default(),
-                                             &sk, password).unwrap();
+            let skesk = SKESK4::with_password(algo, Default::default(),
+                                              &sk, password).unwrap();
             skesk.serialize(&mut inner)?;
         }
 

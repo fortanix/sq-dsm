@@ -404,7 +404,7 @@ mod tests {
     use packet::CompressedData;
     use packet::Literal;
     use packet::OnePassSig;
-    use packet::SKESK;
+    use packet::SKESK4;
     use packet::PKESK;
     use packet::SEIP;
     use packet::MDC;
@@ -890,7 +890,7 @@ mod tests {
         // => bad.
         let mut packets : Vec<Packet> = Vec::new();
         let sk = ::SessionKey::new(&mut Default::default(), 8);
-        packets.push(SKESK::with_password(
+        packets.push(SKESK4::with_password(
             SymmetricAlgorithm::AES256,
             S2K::Simple { hash: HashAlgorithm::SHA256 },
             &sk,

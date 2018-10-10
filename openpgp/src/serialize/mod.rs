@@ -37,6 +37,8 @@ use packet::{
     CompressedData,
     PKESK,
     SKESK,
+    SKESK4,
+    SKESK5,
     SEIP,
     MDC,
 };
@@ -977,6 +979,15 @@ impl Serialize for PKESK {
 }
 
 impl Serialize for SKESK {
+    fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
+        match self {
+            &SKESK::V4(ref s) => s.serialize(o),
+            &SKESK::V5(ref s) => s.serialize(o),
+        }
+    }
+}
+
+impl Serialize for SKESK4 {
     /// Writes a serialized version of the specified `SKESK`
     /// packet to `o`.
     ///
@@ -1008,6 +1019,49 @@ impl Serialize for SKESK {
         if let Some(ref esk) = self.esk() {
             o.write(&esk[..])?;
         }
+
+        Ok(())
+    }
+}
+
+impl Serialize for SKESK5 {
+    /// Writes a serialized version of the specified `SKESK`
+    /// packet to `o`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::InvalidArgument`] if invoked on a
+    /// non-version 5 SKESK packet.
+    ///
+    /// [`Error::InvalidArgument`]: ../enum.Error.html#variant.InvalidArgument
+    fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
+        if self.version() != 5 {
+            return Err(Error::InvalidArgument(
+                "Don't know how to serialize \
+                 non-version 4 packets.".into()).into());
+        }
+
+        let len =
+            1 // Version.
+            + 1 // Cipher algo.
+            + 1 // AEAD algo.
+            + self.s2k().serialized_len() // S2K.
+            + self.aead_iv().len() // AEAD IV.
+            + self.esk().map(|esk| esk.len()).unwrap_or(0) // ESK.
+            + self.aead_digest().len(); // AEAD digest.
+
+        CTB::new(Tag::SKESK).serialize(o)?;
+        BodyLength::Full(len as u32).serialize(o)?;
+
+        write_byte(o, self.version())?;
+        write_byte(o, self.symmetric_algo().into())?;
+        write_byte(o, self.aead_algo().into())?;
+        self.s2k().serialize(o)?;
+        o.write_all(self.aead_iv())?;
+        if let Some(ref esk) = self.esk() {
+            o.write_all(&esk[..])?;
+        }
+        o.write_all(self.aead_digest())?;
 
         Ok(())
     }

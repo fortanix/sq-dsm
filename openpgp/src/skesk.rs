@@ -1,7 +1,12 @@
+use std::ops::{Deref, DerefMut};
+
 use Result;
 use s2k::S2K;
 use Error;
-use SymmetricAlgorithm;
+use constants::{
+    AEADAlgorithm,
+    SymmetricAlgorithm,
+};
 use packet;
 use Packet;
 use Password;
@@ -15,10 +20,47 @@ use SessionKey;
 ///
 /// [Section 5.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.3
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
-pub struct SKESK {
+pub enum SKESK {
+    /// SKESK packet version 4.
+    V4(SKESK4),
+    /// SKESK packet version 5.
+    V5(SKESK5),
+}
+
+impl SKESK {
+    /// Derives the key inside this SKESK from `password`. Returns a
+    /// tuple of the symmetric cipher to use with the key and the key
+    /// itself.
+    pub fn decrypt(&self, password: &Password)
+        -> Result<(SymmetricAlgorithm, SessionKey)>
+    {
+        match self {
+            &SKESK::V4(ref s) => s.decrypt(password),
+            &SKESK::V5(ref s) => s.decrypt(password),
+        }
+    }
+
+    /// Gets the version.
+    pub fn version(&self) -> u8 {
+        match self {
+            &SKESK::V4(_) => 4,
+            &SKESK::V5(_) => 5,
+        }
+    }
+}
+
+/// Holds an symmetrically encrypted session key version 4.
+///
+/// Holds an symmetrically encrypted session key.  The session key is
+/// needed to decrypt the actual ciphertext.  See [Section 5.3 of RFC
+/// 4880] for details.
+///
+/// [Section 5.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.3
+#[derive(PartialEq, Eq, Hash, Clone, Debug)]
+pub struct SKESK4 {
     /// CTB header fields.
     pub(crate) common: packet::Common,
-    /// Packet version. Must be 4.
+    /// Packet version. Must be 4 or 5.
     version: u8,
     /// Symmetric algorithm used to encrypt the session key.
     symm_algo: SymmetricAlgorithm,
@@ -28,20 +70,20 @@ pub struct SKESK {
     esk: Option<Vec<u8>>,
 }
 
-impl SKESK {
-    /// Creates a new SKESK packet.
+impl SKESK4 {
+    /// Creates a new SKESK version 4 packet.
     ///
     /// The given symmetric algorithm must match the algorithm that is
     /// used to encrypt the payload, and is also used to encrypt the
     /// given session key.
     pub fn new(version: u8, cipher: SymmetricAlgorithm, s2k: S2K,
-               esk: Option<Vec<u8>>) -> Result<SKESK> {
+               esk: Option<Vec<u8>>) -> Result<SKESK4> {
         if version != 4 {
             return Err(Error::InvalidArgument(
                 format!("Invalid version: {}", version)).into());
         }
 
-        Ok(SKESK{
+        Ok(SKESK4{
             common: Default::default(),
             version: version,
             symm_algo: cipher,
@@ -50,14 +92,14 @@ impl SKESK {
         })
     }
 
-    /// Creates a new SKESK packet with the given password.
+    /// Creates a new SKESK4 packet with the given password.
     ///
     /// The given symmetric algorithm must match the algorithm that is
     /// used to encrypt the payload, and is also used to encrypt the
     /// given session key.
     pub fn with_password(algo: SymmetricAlgorithm, s2k: S2K,
                          session_key: &SessionKey, password: &Password)
-                         -> Result<SKESK> {
+                         -> Result<SKESK4> {
         // Derive key and make a cipher.
         let key = s2k.derive_key(password, algo.key_size()?)?;
         let mut cipher = algo.make_encrypt_cfb(&key[..])?;
@@ -75,7 +117,7 @@ impl SKESK {
                 cipher.encrypt(&mut iv[..], ct, pt);
         }
 
-        SKESK::new(4, algo, s2k, Some(esk))
+        SKESK4::new(4, algo, s2k, Some(esk))
     }
 
     /// Gets the version.
@@ -113,12 +155,12 @@ impl SKESK {
         self.esk = esk;
     }
 
-    /// Convert the `SKESK` struct to a `Packet`.
+    /// Convert the `SKESK4` struct to a `Packet`.
     pub fn to_packet(self) -> Packet {
-        Packet::SKESK(self)
+        Packet::SKESK(SKESK::V4(self))
     }
 
-    /// Derives the key inside this SKESK from `password`. Returns a
+    /// Derives the key inside this SKESK4 from `password`. Returns a
     /// tuple of the symmetric cipher to use with the key and the key
     /// itself.
     pub fn decrypt(&self, password: &Password)
@@ -154,7 +196,7 @@ impl SKESK {
             match self.s2k {
                 S2K::Simple{ .. } =>
                     Err(Error::InvalidOperation(
-                        "SKESK: Cannot use Simple S2K without ESK".into())
+                        "SKESK4: Cannot use Simple S2K without ESK".into())
                         .into()),
                 _ => Ok((self.symm_algo, key)),
             }
@@ -162,8 +204,196 @@ impl SKESK {
     }
 }
 
-impl From<SKESK> for Packet {
-    fn from(s: SKESK) -> Self {
+impl From<SKESK4> for Packet {
+    fn from(s: SKESK4) -> Self {
         s.to_packet()
+    }
+}
+
+/// Holds an symmetrically encrypted session key version 5.
+///
+/// Holds an symmetrically encrypted session key.  The session key is
+/// needed to decrypt the actual ciphertext.  See [Section 5.3 of RFC
+/// 4880bis] for details.
+///
+/// [Section 5.3 of RFC 4880]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-05#section-5.3
+#[derive(PartialEq, Eq, Hash, Clone, Debug)]
+pub struct SKESK5 {
+    /// Common fields.
+    pub(crate) skesk4: SKESK4,
+    /// AEAD algorithm.
+    aead_algo: AEADAlgorithm,
+    /// Initialization vector for the AEAD algorithm.
+    aead_iv: Box<[u8]>,
+    /// Digest for the AEAD algorithm.
+    aead_digest: Box<[u8]>,
+}
+
+impl Deref for SKESK5 {
+    type Target = SKESK4;
+
+    fn deref(&self) -> &Self::Target {
+        &self.skesk4
+    }
+}
+
+impl DerefMut for SKESK5 {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.skesk4
+    }
+}
+
+impl SKESK5 {
+    /// Creates a new SKESK version 5 packet.
+    ///
+    /// The given symmetric algorithm must match the algorithm that is
+    /// used to encrypt the payload, and is also used to encrypt the
+    /// given session key.
+    pub fn new(version: u8, cipher: SymmetricAlgorithm, aead: AEADAlgorithm,
+               s2k: S2K, iv: Box<[u8]>, esk: Vec<u8>, digest: Box<[u8]>)
+               -> Result<Self> {
+        if version != 5 {
+            return Err(Error::InvalidArgument(
+                format!("Invalid version: {}", version)).into());
+        }
+
+        Ok(SKESK5{
+            skesk4: SKESK4{
+                common: Default::default(),
+                version: version,
+                symm_algo: cipher,
+                s2k: s2k,
+                esk: Some(esk),
+            },
+            aead_algo: aead,
+            aead_iv: iv,
+            aead_digest: digest,
+        })
+    }
+
+    /// Derives the key inside this SKESK4 from `password`. Returns a
+    /// tuple of the symmetric cipher to use with the key and the key
+    /// itself.
+    pub fn decrypt(&self, password: &Password)
+                   -> Result<(SymmetricAlgorithm, SessionKey)> {
+        let key = self.s2k().derive_key(password,
+                                        self.symmetric_algo().key_size()?)?;
+
+        if let Some(ref esk) = self.esk() {
+            // Use the derived key to decrypt the ESK.
+            let mut cipher = self.aead_algo.context(
+                self.symmetric_algo(), &key, &self.aead_iv)?;
+
+            let ad = [0xc3, self.version(), self.symmetric_algo().into(),
+                      self.aead_algo.into()];
+            cipher.update(&ad);
+            let mut plain = vec![0; esk.len()];
+            let mut digest = vec![0; self.aead_algo.digest_size()?];
+            cipher.decrypt(&mut plain, esk);
+            let plain = SessionKey::from(plain);
+            cipher.digest(&mut digest);
+            if &digest[..] == &self.aead_digest[..] {
+                Ok((self.symmetric_algo(), plain))
+            } else {
+                Err(Error::ManipulatedMessage.into())
+            }
+        } else {
+            Err(Error::MalformedPacket(
+                "No encrypted session key in v5 SKESK packet".into())
+                .into())
+        }
+    }
+
+    /// Gets the AEAD algorithm.
+    pub fn aead_algo(&self) -> AEADAlgorithm {
+        self.aead_algo
+    }
+
+    /// Sets the AEAD algorithm.
+    pub fn set_aead_algo(&mut self, algo: AEADAlgorithm) {
+        self.aead_algo = algo;
+    }
+
+    /// Gets the AEAD initialization vector.
+    pub fn aead_iv(&self) -> &[u8] {
+        &self.aead_iv
+    }
+
+    /// Sets the AEAD initialization vector.
+    pub fn set_aead_iv(&mut self, iv: Box<[u8]>) {
+        self.aead_iv = iv;
+    }
+
+    /// Gets the AEAD digest.
+    pub fn aead_digest(&self) -> &[u8] {
+        &self.aead_digest
+    }
+
+    /// Sets the AEAD digest.
+    pub fn set_aead_digest(&mut self, digest: Box<[u8]>) {
+        self.aead_digest = digest;
+    }
+
+    /// Convert the `SKESK5` struct to a `Packet`.
+    pub fn to_packet(self) -> Packet {
+        Packet::SKESK(SKESK::V5(self))
+    }
+}
+
+impl From<SKESK5> for Packet {
+    fn from(s: SKESK5) -> Self {
+        s.to_packet()
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use PacketPile;
+    use serialize::Serialize;
+
+    #[test]
+    fn sample_skesk5_packet() {
+        // This sample packet is from RFC4880bis-05, section A.3.
+        let password: Password = String::from("password").into();
+        let raw = [
+            // Packet header:
+            0xc3, 0x3e,
+
+            // Version, algorithms, S2K fields:
+            0x05, 0x07, 0x01, 0x03, 0x08, 0xcd, 0x5a, 0x9f,
+            0x70, 0xfb, 0xe0, 0xbc, 0x65, 0x90,
+
+            // AEAD IV:
+            0xbc, 0x66, 0x9e, 0x34, 0xe5, 0x00, 0xdc, 0xae,
+            0xdc, 0x5b, 0x32, 0xaa, 0x2d, 0xab, 0x02, 0x35,
+
+            // AEAD encrypted CEK:
+            0x9d, 0xee, 0x19, 0xd0, 0x7c, 0x34, 0x46, 0xc4,
+            0x31, 0x2a, 0x34, 0xae, 0x19, 0x67, 0xa2, 0xfb,
+
+            // Authentication tag:
+            0x7e, 0x92, 0x8e, 0xa5, 0xb4, 0xfa, 0x80, 0x12,
+            0xbd, 0x45, 0x6d, 0x17, 0x38, 0xc6, 0x3c, 0x36,
+        ];
+        let packets: Vec<Packet> =
+            PacketPile::from_bytes(&raw).unwrap().into_children().collect();
+        assert_eq!(packets.len(), 1);
+        if let Packet::SKESK(SKESK::V5(ref s)) = packets[0] {
+            assert_eq!(&s.s2k().derive_key(
+                &password, s.symmetric_algo().key_size().unwrap()).unwrap()[..],
+                       &[0xb2, 0x55, 0x69, 0xb9, 0x54, 0x32, 0x45, 0x66,
+                         0x45, 0x27, 0xc4, 0x97, 0x6e, 0x7a, 0x5d, 0x6e][..]);
+
+            assert_eq!(&s.decrypt(&password).unwrap().1[..],
+                       &[0x86, 0xf1, 0xef, 0xb8, 0x69, 0x52, 0x32, 0x9f,
+                         0x24, 0xac, 0xd3, 0xbf, 0xd0, 0xe5, 0x34, 0x6d][..]);
+        } else {
+            panic!("bad packet");
+        }
+
+        let mut serialized = Vec::new();
+        packets[0].serialize(&mut serialized).unwrap();
+        assert_eq!(&raw[..], &serialized[..]);
     }
 }

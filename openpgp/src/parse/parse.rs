@@ -31,7 +31,7 @@ use {
     packet::UserAttribute,
     packet::Literal,
     packet::CompressedData,
-    packet::SKESK,
+    packet::{SKESK, SKESK4, SKESK5},
     packet::SEIP,
     packet::MDC,
     Packet,
@@ -41,6 +41,7 @@ use {
     packet::PKESK,
 };
 use constants::{
+    AEADAlgorithm,
     CompressionAlgorithm,
     Curve,
     SignatureType,
@@ -1660,21 +1661,58 @@ impl SKESK {
     fn parse<'a>(mut php: PacketHeaderParser<'a>) -> Result<PacketParser<'a>> {
         make_php_try!(php);
         let version = php_try!(php.parse_u8("version"));
-        if version != 4 {
-            // We only support version 4 keys.
-            return php.fail("unknown version");
-        }
+        let skesk = match version {
+            4 => {
+                let symm_algo = php_try!(php.parse_u8("symm_algo"));
+                let s2k = php_try!(S2K::parse(&mut php));
+                let esk = php_try!(php.parse_bytes_eof("esk"));
 
-        let symm_algo = php_try!(php.parse_u8("symm_algo"));
-        let s2k = php_try!(S2K::parse(&mut php));
-        let esk = php_try!(php.parse_bytes_eof("esk"));
+                SKESK::V4(php_try!(SKESK4::new(
+                    version,
+                    symm_algo.into(),
+                    s2k,
+                    if esk.len() > 0 { Some(esk) } else { None },
+                )))
+            },
 
-        let skesk = php_try!(SKESK::new(
-            version,
-            symm_algo.into(),
-            s2k,
-            if esk.len() > 0 { Some(esk) } else { None },
-        ));
+            5 => {
+                let symm_algo: SymmetricAlgorithm =
+                    php_try!(php.parse_u8("symm_algo")).into();
+                let aead_algo: AEADAlgorithm =
+                    php_try!(php.parse_u8("aead_algo")).into();
+                let s2k = php_try!(S2K::parse(&mut php));
+                let iv_size = php_try!(aead_algo.iv_size());
+                let digest_size = php_try!(aead_algo.digest_size());
+                let aead_iv = php_try!(php.parse_bytes("aead_iv", iv_size));
+                let body_length = match php.header.length {
+                    BodyLength::Full(l) => l as usize,
+                    _ => return Err(Error::MalformedPacket(
+                        "SKESK packet must not use partial body or \
+                         indeterminate length".into()).into()),
+                };
+                let esk_size = body_length
+                    - 1 - 1 - 1 - s2k.serialized_len() - iv_size - digest_size;
+                let esk = php_try!(php.parse_bytes("esk", esk_size));
+                let aead_digest =
+                    php_try!(php.parse_bytes("aead_digest", digest_size));
+
+                SKESK::V5(php_try!(SKESK5::new(
+                    version,
+                    symm_algo,
+                    aead_algo,
+                    s2k,
+                    aead_iv.into_boxed_slice(),
+                    esk,
+                    aead_digest.into_boxed_slice(),
+                )))
+            },
+
+            _ => {
+                // We only support version 4 and 5 SKESK packets.
+                return php.fail("unknown version");
+            }
+        };
+
         php.ok(Packet::SKESK(skesk))
     }
 }
@@ -1707,7 +1745,7 @@ fn skesk_parser_test() {
     for test in tests.iter() {
         let path = path_to(test.filename);
         let mut pp = PacketParser::from_file(path).unwrap().unwrap();
-        if let Packet::SKESK(ref skesk) = pp.packet {
+        if let Packet::SKESK(SKESK::V4(ref skesk)) = pp.packet {
             eprintln!("{:?}", skesk);
 
             assert_eq!(skesk.symmetric_algo(), test.cipher_algo);

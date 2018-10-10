@@ -273,6 +273,8 @@ mod tests {
 
     #[test]
     fn s2k_parser_test() {
+        use packet::SKESK;
+
         struct Test<'a> {
             filename: &'a str,
             s2k: S2K,
@@ -375,7 +377,7 @@ mod tests {
         for test in tests.iter() {
             let path = path_to(test.filename);
             let mut pp = PacketParser::from_file(path).unwrap().unwrap();
-            if let Packet::SKESK(ref skesk) = pp.packet {
+            if let Packet::SKESK(SKESK::V4(ref skesk)) = pp.packet {
                 assert_eq!(skesk.symmetric_algo(), test.cipher_algo);
                 assert_eq!(skesk.s2k(), &test.s2k);
 

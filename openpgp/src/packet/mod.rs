@@ -27,7 +27,7 @@ pub use user_attribute::UserAttribute;
 pub use literal::Literal;
 pub use compressed_data::CompressedData;
 pub use seip::SEIP;
-pub use skesk::SKESK;
+pub use skesk::{SKESK, SKESK4, SKESK5};
 pub use pkesk::PKESK;
 pub use mdc::MDC;
 
@@ -51,7 +51,8 @@ impl<'a> Deref for Packet {
             &Packet::Literal(ref packet) => &packet.common,
             &Packet::CompressedData(ref packet) => &packet.common,
             &Packet::PKESK(ref packet) => &packet.common,
-            &Packet::SKESK(ref packet) => &packet.common,
+            &Packet::SKESK(SKESK::V4(ref packet)) => &packet.common,
+            &Packet::SKESK(SKESK::V5(ref packet)) => &packet.skesk4.common,
             &Packet::SEIP(ref packet) => &packet.common,
             &Packet::MDC(ref packet) => &packet.common,
         }
@@ -73,7 +74,8 @@ impl<'a> DerefMut for Packet {
             &mut Packet::Literal(ref mut packet) => &mut packet.common,
             &mut Packet::CompressedData(ref mut packet) => &mut packet.common,
             &mut Packet::PKESK(ref mut packet) => &mut packet.common,
-            &mut Packet::SKESK(ref mut packet) => &mut packet.common,
+            &mut Packet::SKESK(SKESK::V4(ref mut packet)) => &mut packet.common,
+            &mut Packet::SKESK(SKESK::V5(ref mut packet)) => &mut packet.skesk4.common,
             &mut Packet::SEIP(ref mut packet) => &mut packet.common,
             &mut Packet::MDC(ref mut packet) => &mut packet.common,
         }

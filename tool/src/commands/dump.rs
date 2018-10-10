@@ -266,11 +266,34 @@ impl PacketDumper {
             SKESK(ref s) => {
                 writeln!(output, "Symmetric-key Encrypted Session Key Packet")?;
                 writeln!(output, "{}  Version: {}", i, s.version())?;
-                writeln!(output, "{}  Cipher: {}", i, s.symmetric_algo())?;
-                write!(output, "{}  S2K: ", i)?;
-                self.dump_s2k(output, i, s.s2k())?;
-                if let Some(esk) = s.esk() {
-                    writeln!(output, "{}  ESK: {}", i, to_hex(esk, false))?;
+                match s {
+                    openpgp::packet::SKESK::V4(ref s) => {
+                        writeln!(output, "{}  Cipher: {}", i,
+                                 s.symmetric_algo())?;
+                        write!(output, "{}  S2K: ", i)?;
+                        self.dump_s2k(output, i, s.s2k())?;
+                        if let Some(esk) = s.esk() {
+                            writeln!(output, "{}  ESK: {}", i,
+                                     to_hex(esk, false))?;
+                        }
+                    },
+
+                    openpgp::packet::SKESK::V5(ref s) => {
+                        writeln!(output, "{}  Cipher: {}", i,
+                                 s.symmetric_algo())?;
+                        writeln!(output, "{}  AEAD: {}", i,
+                                 s.aead_algo())?;
+                        write!(output, "{}  S2K: ", i)?;
+                        self.dump_s2k(output, i, s.s2k())?;
+                        writeln!(output, "{}  IV: {}", i,
+                                 to_hex(s.aead_iv(), false))?;
+                        if let Some(esk) = s.esk() {
+                            writeln!(output, "{}  ESK: {}", i,
+                                     to_hex(esk, false))?;
+                        }
+                        writeln!(output, "{}  Digest: {}", i,
+                                 to_hex(s.aead_digest(), false))?;
+                    },
                 }
             },
 
