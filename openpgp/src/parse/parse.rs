@@ -3425,7 +3425,7 @@ mod test {
 
     #[test]
     fn decrypt_test() {
-        for (test, stream) in DECRYPT_TESTS.iter().zip([false, true].iter()) {
+        for test in DECRYPT_TESTS.iter() { for stream in [false, true].iter() {
             eprintln!("Decrypting {}, streaming content: {}",
                       test.filename, stream);
 
@@ -3486,7 +3486,7 @@ mod test {
             let ppr = consume_until(
                 ppr, true, &[][..], &[][..]);
             assert!(ppr.is_none());
-        }
+        }}
     }
 
     #[test]
