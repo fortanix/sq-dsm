@@ -1402,10 +1402,21 @@ impl PartialEq for Features {
 
 impl fmt::Debug for Features {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let mut dirty = false;
         if self.supports_mdc() {
             f.write_str("MDC")?;
+            dirty = true;
         }
 
+        if self.supports_aead() {
+            if dirty {
+                f.write_str(", ")?;
+            }
+            f.write_str("AEAD")?;
+            dirty = true;
+        }
+
+        let _ = dirty;
         Ok(())
     }
 }
