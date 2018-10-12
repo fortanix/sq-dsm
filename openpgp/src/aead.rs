@@ -486,3 +486,300 @@ impl<R: BufferedReader<C>, C> BufferedReader<C>
         self.reader.cookie_mut()
     }
 }
+
+/// A `Write`r for AEAD encrypting data.
+pub struct Encryptor<W: io::Write> {
+    inner: Option<W>,
+
+    cipher: SymmetricAlgorithm,
+    aead: AEADAlgorithm,
+    key: SessionKey,
+    iv: Box<[u8]>,
+    ad: [u8; AD_PREFIX_LEN + 8 + 8],
+
+    digest_size: usize,
+    chunk_size: usize,
+    chunk_index: u64,
+    bytes_encrypted: u64,
+    // Up to a chunk of unencrypted data.
+    buffer: Vec<u8>,
+
+    // A place to write encrypted data into.
+    scratch: Vec<u8>,
+}
+
+impl<W: io::Write> Encryptor<W> {
+    /// Instantiate a new AEAD encryptor.
+    pub fn new(version: u8, cipher: SymmetricAlgorithm, aead: AEADAlgorithm,
+               chunk_size: usize, iv: &[u8], key: &SessionKey, sink: W)
+               -> Result<Self> {
+        let mut scratch = Vec::with_capacity(chunk_size);
+        unsafe { scratch.set_len(chunk_size); }
+
+        Ok(Encryptor {
+            inner: Some(sink),
+            cipher: cipher,
+            aead: aead,
+            key: key.clone(),
+            iv: Vec::from(iv).into_boxed_slice(),
+            ad: [
+                // Prefix.
+                0xd4, version, cipher.into(), aead.into(),
+                chunk_size.trailing_zeros() as u8 - 6,
+                // Chunk index.
+                0, 0, 0, 0, 0, 0, 0, 0,
+                // Message size.
+                0, 0, 0, 0, 0, 0, 0, 0,
+            ],
+            digest_size: aead.digest_size()?,
+            chunk_size: chunk_size,
+            chunk_index: 0,
+            bytes_encrypted: 0,
+            buffer: Vec::with_capacity(chunk_size),
+            scratch: scratch,
+        })
+    }
+
+    fn hash_associated_data(&mut self, aead: &mut Box<aead::Aead>,
+                            final_digest: bool) {
+        // Prepare the associated data.
+        write_be_u64(&mut self.ad[AD_PREFIX_LEN..AD_PREFIX_LEN + 8],
+                     self.chunk_index);
+
+        if final_digest {
+            write_be_u64(&mut self.ad[AD_PREFIX_LEN + 8..],
+                         self.bytes_encrypted);
+            aead.update(&self.ad);
+        } else {
+            aead.update(&self.ad[..AD_PREFIX_LEN + 8]);
+        }
+    }
+
+    fn make_aead(&mut self) -> Result<Box<aead::Aead>> {
+        // The chunk index is XORed into the IV.
+        let mut chunk_index_be64 = vec![0u8; 8];
+        write_be_u64(&mut chunk_index_be64, self.chunk_index);
+
+        match self.aead {
+            AEADAlgorithm::EAX => {
+                // The nonce for EAX mode is computed by treating the
+                // starting initialization vector as a 16-octet,
+                // big-endian value and exclusive-oring the low eight
+                // octets of it with the chunk index.
+                let iv_len = self.iv.len();
+                for (i, o) in &mut self.iv[iv_len - 8..].iter_mut()
+                    .enumerate()
+                {
+                    // The lower eight octets of the associated data
+                    // are the big endian representation of the chunk
+                    // index.
+                    *o ^= chunk_index_be64[i];
+                }
+
+                // Instantiate the AEAD cipher.
+                let aead = self.aead.context(self.cipher, &self.key, &self.iv)?;
+
+                // Restore the IV.
+                for (i, o) in &mut self.iv[iv_len - 8..].iter_mut()
+                    .enumerate()
+                {
+                    *o ^= chunk_index_be64[i];
+                }
+
+                Ok(aead)
+            }
+            _ => Err(Error::UnsupportedAEADAlgorithm(self.aead).into()),
+        }
+    }
+
+    // Like io::Write, but returns our Result.
+    fn write_helper(&mut self, mut buf: &[u8]) -> Result<usize> {
+        if self.inner.is_none() {
+            return Err(io::Error::new(io::ErrorKind::BrokenPipe,
+                                      "Inner writer was taken").into());
+        }
+        let amount = buf.len();
+
+        // First, fill the buffer if there is something in it.
+        if self.buffer.len() > 0 {
+            let n = cmp::min(buf.len(), self.chunk_size - self.buffer.len());
+            self.buffer.extend_from_slice(&buf[..n]);
+            assert!(self.buffer.len() <= self.chunk_size);
+            buf = &buf[n..];
+
+            // And possibly encrypt the chunk.
+            if self.buffer.len() == self.chunk_size {
+                let mut aead = self.make_aead()?;
+                self.hash_associated_data(&mut aead, false);
+
+                let inner = self.inner.as_mut().unwrap();
+
+                // Encrypt the chunk.
+                aead.encrypt(&mut self.scratch, &self.buffer);
+                self.bytes_encrypted += self.scratch.len() as u64;
+                self.chunk_index += 1;
+                self.buffer.clear();
+                inner.write_all(&self.scratch)?;
+
+                // Write digest.
+                aead.digest(&mut self.scratch[..self.digest_size]);
+                inner.write_all(&self.scratch[..self.digest_size])?;
+            }
+        }
+
+        // Then, encrypt all whole chunks.
+        for chunk in buf.chunks(self.chunk_size) {
+            if chunk.len() == self.chunk_size {
+                // Complete chunk.
+                let mut aead = self.make_aead()?;
+                self.hash_associated_data(&mut aead, false);
+
+                let inner = self.inner.as_mut().unwrap();
+
+                // Encrypt the chunk.
+                aead.encrypt(&mut self.scratch, chunk);
+                self.bytes_encrypted += self.scratch.len() as u64;
+                self.chunk_index += 1;
+                inner.write_all(&self.scratch)?;
+
+                // Write digest.
+                aead.digest(&mut self.scratch[..self.digest_size]);
+                inner.write_all(&self.scratch[..self.digest_size])?;
+            } else {
+                // Stash for later.
+                assert!(self.buffer.is_empty());
+                self.buffer.extend_from_slice(chunk);
+            }
+        }
+
+        Ok(amount)
+    }
+
+    /// Finish encryption and write last partial chunk.
+    pub fn finish(&mut self) -> Result<W> {
+        if let Some(mut inner) = self.inner.take() {
+            if self.buffer.len() > 0 {
+                let mut aead = self.make_aead()?;
+                self.hash_associated_data(&mut aead, false);
+
+                // Encrypt the chunk.
+                unsafe { self.scratch.set_len(self.buffer.len()) }
+                aead.encrypt(&mut self.scratch, &self.buffer);
+                self.bytes_encrypted += self.scratch.len() as u64;
+                self.chunk_index += 1;
+                self.buffer.clear();
+                inner.write_all(&self.scratch)?;
+
+                // Write digest.
+                unsafe { self.scratch.set_len(self.digest_size) }
+                aead.digest(&mut self.scratch[..self.digest_size]);
+                inner.write_all(&self.scratch[..self.digest_size])?;
+
+                // Write final digest.
+                let mut aead = self.make_aead()?;
+                self.hash_associated_data(&mut aead, true);
+                let mut nada = [0; 0];
+                aead.encrypt(&mut nada, b"");
+                aead.digest(&mut self.scratch[..self.digest_size]);
+                inner.write_all(&self.scratch[..self.digest_size])?;
+            }
+            Ok(inner)
+        } else {
+            Err(io::Error::new(io::ErrorKind::BrokenPipe,
+                               "Inner writer was taken").into())
+        }
+    }
+}
+
+impl<W: io::Write> io::Write for Encryptor<W> {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        match self.write_helper(buf) {
+            Ok(n) => Ok(n),
+            Err(e) => match e.downcast::<io::Error>() {
+                // An io::Error.  Pass as-is.
+                Ok(e) => Err(e),
+                // A failure.  Create a compat object and wrap it.
+                Err(e) => Err(io::Error::new(io::ErrorKind::Other,
+                                             e.compat())),
+            },
+        }
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        // It is not clear how we can implement this, because we can
+        // only operate on chunk sizes.  We will, however, ask our
+        // inner writer to flush.
+        if let Some(ref mut inner) = self.inner {
+            inner.flush()
+        } else {
+            Err(io::Error::new(io::ErrorKind::BrokenPipe,
+                               "Inner writer was taken"))
+        }
+    }
+}
+
+impl<W: io::Write> Drop for Encryptor<W> {
+    fn drop(&mut self) {
+        // Unfortunately, we cannot handle errors here.  If error
+        // handling is a concern, call finish() and properly handle
+        // errors there.
+        let _ = self.finish();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::{Read, Write};
+
+    const PLAINTEXT: &[u8]
+        = include_bytes!("../tests/data/messages/a-cypherpunks-manifesto.txt");
+
+    /// This test tries to encrypt, then decrypt some data.
+    #[test]
+    fn roundtrip() {
+        use std::io::Cursor;
+        use nettle::Yarrow;
+        let mut rng = Yarrow::default();
+
+        for cipher in [SymmetricAlgorithm::AES128,
+                       SymmetricAlgorithm::AES192,
+                       SymmetricAlgorithm::AES256,
+                       SymmetricAlgorithm::Twofish,
+                       SymmetricAlgorithm::Camellia128,
+                       SymmetricAlgorithm::Camellia192,
+                       SymmetricAlgorithm::Camellia256].iter() {
+            for aead in [AEADAlgorithm::EAX].iter() {
+                let version = 1;
+                let chunk_size = 64;
+                let mut key = vec![0; cipher.key_size().unwrap()];
+                rng.random(&mut key);
+                let key: SessionKey = key.into();
+                let mut iv = vec![0; aead.iv_size().unwrap()];
+                rng.random(&mut iv);
+
+                let mut ciphertext = Vec::new();
+                {
+                    let mut encryptor = Encryptor::new(version, *cipher, *aead,
+                                                       chunk_size, &iv, &key,
+                                                       &mut ciphertext)
+                        .unwrap();
+
+                    encryptor.write_all(PLAINTEXT).unwrap();
+                }
+
+                let mut plaintext = Vec::new();
+                {
+                    let mut decryptor = Decryptor::new(version, *cipher, *aead,
+                                                       chunk_size, &iv, &key,
+                                                       Cursor::new(&ciphertext))
+                        .unwrap();
+
+                    decryptor.read_to_end(&mut plaintext).unwrap();
+                }
+
+                assert_eq!(&plaintext[..], &PLAINTEXT[..]);
+            }
+        }
+    }
+}
