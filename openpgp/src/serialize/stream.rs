@@ -13,6 +13,7 @@ use {
     packet::Key,
     packet::Literal,
     packet::MDC,
+    packet::AED,
     packet::OnePassSig,
     packet::PKESK,
     Result,
@@ -20,6 +21,7 @@ use {
     SecretKey,
     SessionKey,
     packet::SKESK4,
+    packet::SKESK5,
     packet::{signature, Signature},
     Tag,
     TPK,
@@ -32,6 +34,7 @@ use super::{
     writer,
 };
 use constants::{
+    AEADAlgorithm,
     CompressionAlgorithm,
     DataFormat,
     SignatureType,
@@ -852,17 +855,40 @@ impl<'a> Encryptor<'a> {
                passwords: &[&Password], tpks: &[&TPK],
                encryption_mode: EncryptionMode)
                -> Result<writer::Stack<'a, Cookie>> {
+        if tpks.len() + passwords.len() == 0 {
+            return Err(Error::InvalidArgument(
+                "Neither recipient keys nor passwords given".into()).into());
+        }
+
         let mut rng = Yarrow::default();
+
+        struct AEADParameters {
+            algo: AEADAlgorithm,
+            chunk_size: usize,
+            nonce: Box<[u8]>,
+        }
+
+        // Use AEAD if there are TPKs and all of them support AEAD.
+        let aead = if tpks.len() > 0 && tpks.iter().all(|t| {
+            t.primary_key_signature().map(|s| s.features().supports_aead())
+                .unwrap_or(false)
+        }) {
+            let mut nonce = vec![0; AEADAlgorithm::EAX.iv_size()?];
+            rng.random(&mut nonce);
+            Some(AEADParameters {
+                algo: AEADAlgorithm::EAX, // Must implement EAX.
+                chunk_size: 4096, // A page, 3 per mille overhead.
+                nonce: nonce.into_boxed_slice(),
+            })
+        } else {
+            None
+        };
+
         let level = inner.as_ref().cookie_ref().level + 1;
         let algo = SymmetricAlgorithm::AES256;
 
         // Generate a session key.
         let sk = SessionKey::new(&mut rng, algo.key_size().unwrap());
-
-        if tpks.len() + passwords.len() == 0 {
-            return Err(Error::InvalidArgument(
-                "Neither recipient keys nor passwords given".into()).into());
-        }
 
         // Write the PKESK packet(s).
         for tpk in tpks {
@@ -921,37 +947,63 @@ impl<'a> Encryptor<'a> {
 
         // Write the SKESK packet(s).
         for password in passwords {
-            let skesk = SKESK4::with_password(algo, Default::default(),
-                                              &sk, password).unwrap();
-            skesk.serialize(&mut inner)?;
+            if let Some(aead) = aead.as_ref() {
+                let skesk = SKESK5::with_password(algo, aead.algo,
+                                                  Default::default(),
+                                                  &sk, password).unwrap();
+                skesk.serialize(&mut inner)?;
+            } else {
+                let skesk = SKESK4::with_password(algo, Default::default(),
+                                                  &sk, password).unwrap();
+                skesk.serialize(&mut inner)?;
+            }
         }
 
-        // Write the SEIP packet.
-        CTB::new(Tag::SEIP).serialize(&mut inner)?;
-        let mut inner = PartialBodyFilter::new(inner, Cookie::new(level));
-        inner.write(&[1])?; // Version.
+        let encryptor = if let Some(aead) = aead {
+            // Write the AED packet.
+            CTB::new(Tag::AED).serialize(&mut inner)?;
+            let mut inner = PartialBodyFilter::new(inner, Cookie::new(level));
+            let aed = AED::new(algo, aead.algo, aead.chunk_size, aead.nonce)?;
+            aed.serialize_headers(&mut inner)?;
 
-        // Assuming 'algo' is good, this cannot fail.
-        let encryptor = writer::Encryptor::new(
-            inner.into(),
-            Cookie::new(level),
-            algo,
-            &sk,
-        ).unwrap();
+            writer::AEADEncryptor::new(
+                inner.into(),
+                Cookie::new(level),
+                aed.cipher(),
+                aed.aead(),
+                aed.chunk_size(),
+                aed.iv(),
+                &sk,
+            )?
+        } else {
+            // Write the SEIP packet.
+            CTB::new(Tag::SEIP).serialize(&mut inner)?;
+            let mut inner = PartialBodyFilter::new(inner, Cookie::new(level));
+            inner.write(&[1])?; // Version.
 
-        // The hash for the MDC must include the initialization
-        // vector, hence we build the object here.
-        let mut encryptor = writer::Stack::from(Box::new(Self{
-            inner: Some(encryptor.into()),
-            hash: HashAlgorithm::SHA1.context().unwrap(),
-            cookie: Cookie::new(level),
-        }));
+            let encryptor = writer::Encryptor::new(
+                inner.into(),
+                Cookie::new(level),
+                algo,
+                &sk,
+            )?;
 
-        // Write the initialization vector, and the quick-check bytes.
-        let mut iv = vec![0; algo.block_size().unwrap()];
-        rng.random(&mut iv);
-        encryptor.write_all(&iv)?;
-        encryptor.write_all(&iv[iv.len() - 2..])?;
+            // The hash for the MDC must include the initialization
+            // vector, hence we build the object here.
+            let mut encryptor = writer::Stack::from(Box::new(Self{
+                inner: Some(encryptor.into()),
+                hash: HashAlgorithm::SHA1.context().unwrap(),
+                cookie: Cookie::new(level),
+            }));
+
+            // Write the initialization vector, and the quick-check bytes.
+            let mut iv = vec![0; algo.block_size().unwrap()];
+            rng.random(&mut iv);
+            encryptor.write_all(&iv)?;
+            encryptor.write_all(&iv[iv.len() - 2..])?;
+
+            encryptor
+        };
 
         Ok(encryptor)
     }
