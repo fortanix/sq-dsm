@@ -12,10 +12,15 @@ pub use self::writer_deflate::{ZIP, ZLIB};
 use std::fmt;
 use std::io;
 
+use aead;
+use constants::{
+    AEADAlgorithm,
+    SymmetricAlgorithm,
+};
 use symmetric;
 use {
     Result,
-    SymmetricAlgorithm,
+    SessionKey,
 };
 
 /// A stack of writers.
@@ -371,6 +376,74 @@ impl<'a, C: 'a> io::Write for Encryptor<'a, C> {
 }
 
 impl<'a, C: 'a> Stackable<'a, C> for Encryptor<'a, C> {
+    fn into_inner(mut self: Box<Self>) -> Result<Option<BoxStack<'a, C>>> {
+        let inner = self.inner.inner.finish()?;
+        Ok(Some(inner))
+    }
+    fn pop(&mut self) -> Result<Option<BoxStack<'a, C>>> {
+        unimplemented!()
+    }
+    fn mount(&mut self, _new: BoxStack<'a, C>) {
+        unimplemented!()
+    }
+    fn inner_mut(&mut self) -> Option<&mut Stackable<'a, C>> {
+        self.inner.inner_mut()
+    }
+    fn inner_ref(&self) -> Option<&Stackable<'a, C>> {
+        self.inner.inner_ref()
+    }
+    fn cookie_set(&mut self, cookie: C) -> C {
+        self.inner.cookie_set(cookie)
+    }
+    fn cookie_ref(&self) -> &C {
+        self.inner.cookie_ref()
+    }
+    fn cookie_mut(&mut self) -> &mut C {
+        self.inner.cookie_mut()
+    }
+}
+
+
+/// AEAD encrypting writer.
+pub struct AEADEncryptor<'a, C: 'a> {
+    inner: Generic<aead::Encryptor<BoxStack<'a, C>>, C>,
+}
+
+impl<'a, C: 'a> AEADEncryptor<'a, C> {
+    /// Makes an encrypting writer.
+    pub fn new(inner: Stack<'a, C>, cookie: C,
+               cipher: SymmetricAlgorithm, aead: AEADAlgorithm,
+               chunk_size: usize, iv: &[u8], key: &SessionKey)
+        -> Result<Stack<'a, C>>
+    {
+        Ok(Stack::from(Box::new(AEADEncryptor {
+            inner: Generic::new_unboxed(
+                aead::Encryptor::new(1, cipher, aead, chunk_size, iv, key,
+                                     inner.into())?,
+                cookie),
+        })))
+    }
+}
+
+impl<'a, C: 'a> fmt::Debug for AEADEncryptor<'a, C> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("writer::AEADEncryptor")
+            .field("inner", &self.inner)
+            .finish()
+    }
+}
+
+impl<'a, C: 'a> io::Write for AEADEncryptor<'a, C> {
+    fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+        self.inner.write(bytes)
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        self.inner.flush()
+    }
+}
+
+impl<'a, C: 'a> Stackable<'a, C> for AEADEncryptor<'a, C> {
     fn into_inner(mut self: Box<Self>) -> Result<Option<BoxStack<'a, C>>> {
         let inner = self.inner.inner.finish()?;
         Ok(Some(inner))
