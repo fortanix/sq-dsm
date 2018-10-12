@@ -1,5 +1,7 @@
 use std::ops::{Deref, DerefMut};
 
+use nettle::Yarrow;
+
 use Result;
 use s2k::S2K;
 use Error;
@@ -269,6 +271,33 @@ impl SKESK5 {
             aead_iv: iv,
             aead_digest: digest,
         })
+    }
+
+    /// Creates a new SKESK version 5 packet with the given password.
+    pub fn with_password(cipher: SymmetricAlgorithm,
+                         aead: AEADAlgorithm, s2k: S2K,
+                         session_key: &SessionKey, password: &Password)
+                         -> Result<Self> {
+        // Derive key and make a cipher.
+        let key = s2k.derive_key(password, cipher.key_size()?)?;
+        let mut iv = vec![0u8; aead.iv_size()?];
+        Yarrow::default().random(&mut iv);
+        let mut ctx = aead.context(cipher, &key, &iv)?;
+
+        // Prepare associated data.
+        let ad = [0xc3, 5, cipher.into(), aead.into()];
+        ctx.update(&ad);
+
+        // We need to prefix the cipher specifier to the session key.
+        let mut esk = vec![0u8; session_key.len()];
+        ctx.encrypt(&mut esk, &session_key);
+
+        // Digest.
+        let mut digest = vec![0u8; aead.digest_size()?];
+        ctx.digest(&mut digest);
+
+        SKESK5::new(5, cipher, aead, s2k, iv.into_boxed_slice(), esk,
+                    digest.into_boxed_slice())
     }
 
     /// Derives the key inside this SKESK4 from `password`. Returns a
