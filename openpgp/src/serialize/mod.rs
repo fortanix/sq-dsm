@@ -1102,6 +1102,19 @@ impl Serialize for MDC {
     }
 }
 
+impl AED {
+    /// Writes the headers of the `AED` data packet to `o`.
+    fn serialize_headers<W: io::Write>(&self, o: &mut W)
+                                       -> Result<()> {
+        o.write_all(&[self.version(),
+                      self.cipher().into(),
+                      self.aead().into(),
+                      self.chunk_size().trailing_zeros() as u8 - 6])?;
+        o.write_all(self.iv())?;
+        Ok(())
+    }
+}
+
 impl Serialize for AED {
     /// Writes a serialized version of the specified `AED`
     /// packet to `o`.
@@ -1117,11 +1130,7 @@ impl Serialize for AED {
 
             CTB::new(Tag::SEIP).serialize(o)?;
             BodyLength::Full(body_len as u32).serialize(o)?;
-            o.write_all(&[self.version(),
-                          self.cipher().into(),
-                          self.aead().into(),
-                          self.chunk_size().trailing_zeros() as u8 - 6])?;
-            o.write_all(self.iv())?;
+            self.serialize_headers(o)?;
 
             if let Some(ref body) = self.common.body {
                 o.write(&body[..])?;
