@@ -263,6 +263,7 @@ pub use self::decompress_bzip2::BufferedReaderBzip;
 #[allow(dead_code)]
 mod file_generic;
 #[allow(dead_code)]
+#[cfg(unix)]
 mod file_unix;
 
 // Then, we select the appropriate version to re-export.
