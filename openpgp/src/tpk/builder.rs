@@ -1,5 +1,5 @@
 use time;
-use packet::signature::subpacket::KeyFlags;
+use packet::signature::subpacket::{Features, KeyFlags};
 use packet::Key;
 use tpk::{
     UserIDBinding,
@@ -209,6 +209,7 @@ impl TPKBuilder {
             signature::Builder::new(SignatureType::DirectKey)
         };
 
+        sig.set_features(&Features::sequoia())?;
         sig.set_key_flags(&blueprint.flags)?;
         sig.set_signature_creation_time(time::now().canonicalize())?;
         sig.set_key_expiration_time(Some(time::Duration::weeks(3 * 52)))?;
@@ -382,6 +383,12 @@ mod tests {
         assert_eq!(tpk.userids().count(), 0);
         assert_eq!(tpk.primary_key_signature().unwrap().sigtype(), SignatureType::DirectKey);
         assert_eq!(tpk.subkeys().count(), 3);
+        if let Some(sig) = tpk.primary_key_signature() {
+            assert!(sig.features().supports_mdc());
+            assert!(sig.features().supports_aead());
+        } else {
+            panic!();
+        }
     }
 
     #[test]
@@ -408,6 +415,12 @@ mod tests {
             .generate().unwrap();
         assert_eq!(tpk1.primary().pk_algo, PublicKeyAlgorithm::RSAEncryptSign);
         assert!(tpk1.subkeys().next().is_none());
+        if let Some(sig) = tpk1.primary_key_signature() {
+            assert!(sig.features().supports_mdc());
+            assert!(sig.features().supports_aead());
+        } else {
+            panic!();
+        }
     }
 
     #[test]
