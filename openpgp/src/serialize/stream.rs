@@ -979,7 +979,7 @@ impl<'a> Encryptor<'a> {
             // Write the SEIP packet.
             CTB::new(Tag::SEIP).serialize(&mut inner)?;
             let mut inner = PartialBodyFilter::new(inner, Cookie::new(level));
-            inner.write(&[1])?; // Version.
+            inner.write_all(&[1])?; // Version.
 
             let encryptor = writer::Encryptor::new(
                 inner.into(),

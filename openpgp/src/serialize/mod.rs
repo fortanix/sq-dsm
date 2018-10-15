@@ -1018,7 +1018,7 @@ impl Serialize for SKESK4 {
         write_byte(o, self.symmetric_algo().into())?;
         self.s2k().serialize(o)?;
         if let Some(ref esk) = self.esk() {
-            o.write(&esk[..])?;
+            o.write_all(&esk[..])?;
         }
 
         Ok(())
@@ -1081,9 +1081,9 @@ impl Serialize for SEIP {
 
             CTB::new(Tag::SEIP).serialize(o)?;
             BodyLength::Full(body_len as u32).serialize(o)?;
-            o.write(&[self.version])?;
+            o.write_all(&[self.version])?;
             if let Some(ref body) = self.common.body {
-                o.write(&body[..])?;
+                o.write_all(&body[..])?;
             }
         }
 
@@ -1133,7 +1133,7 @@ impl Serialize for AED {
             self.serialize_headers(o)?;
 
             if let Some(ref body) = self.common.body {
-                o.write(&body[..])?;
+                o.write_all(&body[..])?;
             }
         }
 
