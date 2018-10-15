@@ -394,7 +394,7 @@ impl Arbitrary for SymmetricAlgorithm {
 
 /// The AEAD algorithms as defined in [Section 9.6 of RFC 4880bis].
 ///
-///   [Section 9.6 of RFC 4880bis]: https://tools.ietf.org/html/rfc4880bis#section-9.6
+///   [Section 9.6 of RFC 4880bis]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-05#section-9.6
 ///
 /// The values can be converted into and from their corresponding values of the serialized format.
 ///
@@ -880,7 +880,7 @@ pub enum DataFormat {
     ///
     /// This is defined in [Section 5.10 of RFC4880bis].
     ///
-    ///   [Section 5.10 of RFC4880bis]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-04#section-5.10
+    ///   [Section 5.10 of RFC4880bis]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-05#section-5.10
     MIME,
 
     /// Unknown format specifier.

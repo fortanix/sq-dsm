@@ -34,7 +34,7 @@
 //!
 //! [RFC 4880]: https://tools.ietf.org/html/rfc4880
 //! [RFC 6637]: https://tools.ietf.org/html/rfc6637
-//! [RFC 4880bis]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-04
+//! [RFC 4880bis]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-05
 //! [unhashed signature subpackets]: https://tools.ietf.org/html/rfc4880#section-5.2.3.2
 //! [sequoia-core]: ../sequoia_core
 
