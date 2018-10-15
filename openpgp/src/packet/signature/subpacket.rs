@@ -1381,7 +1381,7 @@ pub struct Features(Vec<u8>);
 
 impl Default for Features {
     fn default() -> Self {
-        Features(vec![0])
+        Features::none()
     }
 }
 
@@ -1422,6 +1422,18 @@ impl fmt::Debug for Features {
 }
 
 impl Features {
+    /// Returns an empty feature set.
+    pub fn none() -> Self {
+        Features(vec![0])
+    }
+
+    /// Returns an feature set describing Sequoia.
+    pub fn sequoia() -> Self {
+        Features::none()
+            .set_mdc(true)
+            .set_aead(true)
+    }
+
     /// Grows the vector to the given length.
     fn grow(&mut self, target: usize) {
         while self.0.len() < target {
