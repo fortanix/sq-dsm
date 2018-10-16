@@ -35,7 +35,7 @@ use {
     Tag,
     TPK,
 };
-use ctb::CTB;
+use packet::ctb::CTB;
 use packet::BodyLength;
 use super::{
     PartialBodyFilter,

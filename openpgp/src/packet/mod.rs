@@ -12,7 +12,9 @@ use std::io;
 
 use Result;
 use Packet;
-use ctb::{CTB, PacketLengthType};
+
+pub mod ctb;
+use self::ctb::{CTB, PacketLengthType};
 
 use buffered_reader::BufferedReader;
 

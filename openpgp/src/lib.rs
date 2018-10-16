@@ -99,13 +99,11 @@ macro_rules! assert_match {
 pub mod armor;
 pub mod autocrypt;
 
-pub mod ctb;
-use ctb::{CTB, CTBOld, CTBNew};
-
 pub mod conversions;
 
 pub mod packet;
 use packet::{BodyLength, Header, Container};
+use packet::ctb::{CTB, CTBOld, CTBNew};
 
 pub mod parse;
 pub mod mpis;

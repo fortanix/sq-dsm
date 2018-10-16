@@ -3,7 +3,7 @@ use time;
 
 extern crate openpgp;
 use openpgp::{Packet, Result};
-use openpgp::ctb::CTB;
+use openpgp::packet::ctb::CTB;
 use openpgp::packet::{Header, BodyLength, Signature};
 use openpgp::packet::signature::subpacket::{Subpacket, SubpacketValue};
 use openpgp::s2k::S2K;
