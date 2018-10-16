@@ -254,7 +254,7 @@ impl SecretKey {
     pub fn decrypt(&self, pk_algo: PublicKeyAlgorithm, password: &Password)
                    -> Result<mpis::SecretKey> {
         use std::io::{Cursor, Read};
-        use symmetric::Decryptor;
+        use crypto::symmetric::Decryptor;
 
         match self {
             &SecretKey::Unencrypted { .. } =>

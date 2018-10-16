@@ -15,7 +15,7 @@ use nettle::Hash;
 use ::buffered_reader::*;
 
 use {
-    aead,
+    crypto::aead,
     Result,
     CTB,
     BodyLength,
@@ -52,7 +52,7 @@ use constants::{
 };
 use conversions::Time;
 use mpis::{PublicKey, MPI};
-use symmetric::{Decryptor, BufferedReaderDecryptor};
+use crypto::symmetric::{Decryptor, BufferedReaderDecryptor};
 use message;
 use message::MessageValidator;
 

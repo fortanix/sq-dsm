@@ -736,7 +736,7 @@ mod tests {
     use std::io::{Read, Write};
 
     const PLAINTEXT: &[u8]
-        = include_bytes!("../tests/data/messages/a-cypherpunks-manifesto.txt");
+        = include_bytes!("../../tests/data/messages/a-cypherpunks-manifesto.txt");
 
     /// This test tries to encrypt, then decrypt some data.
     #[test]

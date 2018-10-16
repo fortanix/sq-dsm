@@ -338,7 +338,7 @@ mod test {
     use TPK;
 
     macro_rules! bytes {
-        ( $x:expr ) => { include_bytes!(concat!("../tests/data/keys/", $x)) };
+        ( $x:expr ) => { include_bytes!(concat!("../../tests/data/keys/", $x)) };
     }
 
     #[test]

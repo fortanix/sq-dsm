@@ -7,7 +7,7 @@ use PublicKeyAlgorithm;
 use Result;
 use SymmetricAlgorithm;
 use SessionKey;
-use ecdh;
+use crypto::ecdh;
 use nettle::{rsa, Yarrow};
 use packet;
 

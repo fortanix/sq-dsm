@@ -98,8 +98,8 @@ macro_rules! assert_match {
 
 pub mod armor;
 pub mod autocrypt;
-
 pub mod conversions;
+pub mod crypto;
 
 pub mod packet;
 use packet::{BodyLength, Header, Container};
@@ -112,13 +112,7 @@ pub mod mpis;
 pub mod tpk;
 pub mod serialize;
 
-mod hash;
-pub(crate) mod symmetric;
-
 pub mod s2k;
-
-pub(crate) mod ecdh;
-pub(crate) mod aead;
 
 mod reader;
 pub use reader::Reader;

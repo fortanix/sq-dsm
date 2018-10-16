@@ -495,7 +495,7 @@ mod tests {
     use std::path::PathBuf;
 
     const PLAINTEXT: &[u8]
-        = include_bytes!("../tests/data/messages/a-cypherpunks-manifesto.txt");
+        = include_bytes!("../../tests/data/messages/a-cypherpunks-manifesto.txt");
 
     #[cfg(test)]
     #[allow(dead_code)]
