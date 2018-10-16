@@ -19,7 +19,7 @@ use {
     Result,
     CTB,
     BodyLength,
-    s2k::S2K,
+    crypto::s2k::S2K,
     Error,
     packet::Tag,
     Header,

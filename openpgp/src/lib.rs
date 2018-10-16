@@ -112,8 +112,6 @@ pub mod mpis;
 pub mod tpk;
 pub mod serialize;
 
-pub mod s2k;
-
 mod reader;
 pub use reader::Reader;
 

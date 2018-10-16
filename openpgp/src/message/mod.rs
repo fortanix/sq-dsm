@@ -400,7 +400,7 @@ mod tests {
     use SymmetricAlgorithm;
     use PublicKeyAlgorithm;
     use SignatureType;
-    use s2k::S2K;
+    use crypto::s2k::S2K;
     use mpis::{Ciphertext, MPI};
     use packet::Tag;
     use packet::CompressedData;

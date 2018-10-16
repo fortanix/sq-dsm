@@ -3,7 +3,7 @@ use std::ops::{Deref, DerefMut};
 use nettle::Yarrow;
 
 use Result;
-use s2k::S2K;
+use crypto::s2k::S2K;
 use Error;
 use constants::{
     AEADAlgorithm,

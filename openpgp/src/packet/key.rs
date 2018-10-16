@@ -8,7 +8,7 @@ use packet;
 use Packet;
 use PublicKeyAlgorithm;
 use SymmetricAlgorithm;
-use s2k::S2K;
+use crypto::s2k::S2K;
 use Result;
 use conversions::Time;
 use Password;

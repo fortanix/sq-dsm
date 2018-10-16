@@ -18,7 +18,7 @@ mod partial_body;
 use self::partial_body::PartialBodyFilter;
 pub mod writer;
 pub mod stream;
-use s2k::S2K;
+use crypto::s2k::S2K;
 use packet::signature::subpacket::{
     Subpacket, SubpacketValue, SubpacketLengthTrait,
 };

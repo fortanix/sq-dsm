@@ -6,7 +6,7 @@ use openpgp::{Packet, Result};
 use openpgp::packet::ctb::CTB;
 use openpgp::packet::{Header, BodyLength, Signature};
 use openpgp::packet::signature::subpacket::{Subpacket, SubpacketValue};
-use openpgp::s2k::S2K;
+use openpgp::crypto::s2k::S2K;
 use openpgp::parse::{map::Map, PacketParserResult};
 
 use super::TIMEFMT;
