@@ -1,7 +1,13 @@
 //! Streaming decryption and verification.
 //!
 //! This module provides convenient filters for decryption and
-//! verification of OpenPGP messages.
+//! verification of OpenPGP messages.  It is the preferred interface
+//! to process OpenPGP messages.  These implementations use constant
+//! space.
+//!
+//! See the [verification example].
+//!
+//! [verification example]: struct.Verifier.html#example
 
 use std::cmp;
 use std::collections::HashMap;
