@@ -5,7 +5,7 @@ use std::fmt;
 use constants::Curve;
 use Error;
 use Result;
-use mpis::{self, MPI};
+use crypto::mpis::{self, MPI};
 use HashAlgorithm;
 use PublicKeyAlgorithm;
 use SignatureType;
@@ -92,7 +92,7 @@ impl Builder {
                      hash_algo: HashAlgorithm, mut hash: Box<Hash>)
                      -> Result<Signature> {
         use PublicKeyAlgorithm::*;
-        use mpis::PublicKey;
+        use crypto::mpis::PublicKey;
 
         let mut rng = Yarrow::default();
 
@@ -405,7 +405,7 @@ impl Signature {
         -> Result<bool>
     {
         use PublicKeyAlgorithm::*;
-        use mpis::PublicKey;
+        use crypto::mpis::PublicKey;
 
         #[allow(deprecated)]
         match (self.pk_algo(), key.mpis(), self.mpis()) {

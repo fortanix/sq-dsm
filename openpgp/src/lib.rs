@@ -107,7 +107,6 @@ use packet::ctb::{CTB, CTBOld, CTBNew};
 pub use packet::key::SecretKey;
 
 pub mod parse;
-pub mod mpis;
 
 pub mod tpk;
 pub mod serialize;

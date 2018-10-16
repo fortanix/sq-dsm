@@ -1,7 +1,7 @@
 use Error;
 use packet::Key;
 use KeyID;
-use mpis::{self, MPI, Ciphertext};
+use crypto::mpis::{self, MPI, Ciphertext};
 use Packet;
 use PublicKeyAlgorithm;
 use Result;
@@ -135,7 +135,7 @@ impl PKESK {
         -> Result<(SymmetricAlgorithm, SessionKey)>
     {
         use PublicKeyAlgorithm::*;
-        use mpis::PublicKey;
+        use crypto::mpis::PublicKey;
         use nettle::rsa;
 
         let plain: SessionKey = match

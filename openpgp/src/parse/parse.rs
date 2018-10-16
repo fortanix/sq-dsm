@@ -51,7 +51,7 @@ use constants::{
     SymmetricAlgorithm,
 };
 use conversions::Time;
-use mpis::{PublicKey, MPI};
+use crypto::{self, mpis::{PublicKey, MPI}};
 use crypto::symmetric::{Decryptor, BufferedReaderDecryptor};
 use message;
 use message::MessageValidator;
@@ -836,7 +836,8 @@ impl Signature {
         if ! pk_algo.can_sign() {
             return php.fail("not a signature algorithm");
         }
-        let mpis = php_try!(::mpis::Signature::parse(pk_algo, &mut php));
+        let mpis = php_try!(
+            crypto::mpis::Signature::parse(pk_algo, &mut php));
 
         let hash_algo = hash_algo.into();
         let mut pp = php.ok(Packet::Signature(Signature {
@@ -1244,7 +1245,7 @@ impl Key {
                 // Unencrypted
                 0 => {
                     let sec = php_try!(
-                        ::mpis::SecretKey::parse(pk_algo, &mut php));
+                        crypto::mpis::SecretKey::parse(pk_algo, &mut php));
                     let their_chksum = php_try!(php.parse_be_u16("checksum"));
                     let mut cur = Cursor::new(Vec::default());
 
@@ -1922,7 +1923,7 @@ impl PKESK {
         if ! pk_algo.can_encrypt() {
             return php.fail("not an encryption algorithm");
         }
-        let mpis = ::mpis::Ciphertext::parse(pk_algo, &mut php)?;
+        let mpis = crypto::mpis::Ciphertext::parse(pk_algo, &mut php)?;
 
         php.ok(Packet::PKESK(PKESK {
             common: Default::default(),

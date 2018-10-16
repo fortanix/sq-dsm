@@ -401,7 +401,7 @@ mod tests {
     use PublicKeyAlgorithm;
     use SignatureType;
     use crypto::s2k::S2K;
-    use mpis::{Ciphertext, MPI};
+    use crypto::mpis::{Ciphertext, MPI};
     use packet::Tag;
     use packet::CompressedData;
     use packet::Literal;

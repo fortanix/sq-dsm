@@ -9,7 +9,7 @@ use {
     HashAlgorithm,
 };
 use constants::Curve;
-use mpis::{self, MPI};
+use crypto::mpis::{self, MPI};
 use parse::{
     BufferedReaderGeneric,
     PacketHeaderParser,

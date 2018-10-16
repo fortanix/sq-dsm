@@ -2,7 +2,7 @@ use std::fmt;
 use time;
 
 use Error;
-use mpis;
+use crypto::mpis;
 use packet::Tag;
 use packet;
 use Packet;
@@ -64,7 +64,7 @@ impl Key {
             ed25519,ed25519::ED25519_KEY_SIZE,
             curve25519,curve25519::CURVE25519_SIZE,
         };
-        use mpis::{self, MPI, PublicKey};
+        use crypto::mpis::{self, MPI, PublicKey};
         use constants::{HashAlgorithm, SymmetricAlgorithm, Curve};
         use PublicKeyAlgorithm::*;
         use Error;

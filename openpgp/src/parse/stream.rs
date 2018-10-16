@@ -29,7 +29,7 @@ use {
     packet,
     packet::Signature,
     TPK,
-    mpis,
+    crypto::mpis,
     Password,
     SessionKey,
 };
@@ -450,8 +450,7 @@ impl<'a, H: VerificationHelper> io::Read for Verifier<'a, H> {
 /// #[macro_use] extern crate openpgp;
 /// extern crate failure;
 /// use std::io::Read;
-/// use openpgp::{KeyID, TPK, Result, packet::{Key, PKESK, SKESK},
-///               mpis::SecretKey};
+/// use openpgp::{KeyID, TPK, Result, packet::{Key, PKESK, SKESK}};
 /// use openpgp::parse::stream::*;
 /// # fn main() { f().unwrap(); }
 /// # fn f() -> Result<()> {

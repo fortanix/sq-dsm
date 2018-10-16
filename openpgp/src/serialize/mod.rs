@@ -205,7 +205,7 @@ impl Serialize for KeyID {
     }
 }
 
-impl Serialize for mpis::MPI {
+impl Serialize for crypto::mpis::MPI {
     fn serialize<W: io::Write>(&self, w: &mut W) -> Result<()> {
         write_be_u16(w, self.bits as u16)?;
         w.write_all(&self.value)?;
@@ -213,9 +213,9 @@ impl Serialize for mpis::MPI {
     }
 }
 
-impl Serialize for mpis::PublicKey {
+impl Serialize for crypto::mpis::PublicKey {
     fn serialize<W: io::Write>(&self, w: &mut W) -> Result<()> {
-        use mpis::PublicKey::*;
+        use crypto::mpis::PublicKey::*;
 
         match self {
             &RSA { ref e, ref n } => {
@@ -267,9 +267,9 @@ impl Serialize for mpis::PublicKey {
     }
 }
 
-impl Serialize for mpis::SecretKey {
+impl Serialize for crypto::mpis::SecretKey {
     fn serialize<W: io::Write>(&self, w: &mut W) -> Result<()> {
-        use mpis::SecretKey::*;
+        use crypto::mpis::SecretKey::*;
 
         match self {
             &RSA{ ref d, ref p, ref q, ref u } => {
@@ -311,21 +311,21 @@ impl Serialize for mpis::SecretKey {
     }
 }
 
-impl Serialize for mpis::Ciphertext {
+impl Serialize for crypto::mpis::Ciphertext {
     fn serialize<W: io::Write>(&self, w: &mut W) -> Result<()> {
-        use mpis::Ciphertext::*;
+        use crypto::mpis::Ciphertext::*;
 
         match self {
-            &mpis::Ciphertext::RSA{ ref c } => {
+            &crypto::mpis::Ciphertext::RSA{ ref c } => {
                 c.serialize(w)?;
             }
 
-            &mpis::Ciphertext::Elgamal{ ref e, ref c } => {
+            &crypto::mpis::Ciphertext::Elgamal{ ref e, ref c } => {
                 e.serialize(w)?;
                 c.serialize(w)?;
             }
 
-            &mpis::Ciphertext::ECDH{ ref e, ref key } => {
+            &crypto::mpis::Ciphertext::ECDH{ ref e, ref key } => {
                 e.serialize(w)?;
 
                 w.write_all(&[key.len() as u8])?;
@@ -344,9 +344,9 @@ impl Serialize for mpis::Ciphertext {
     }
 }
 
-impl Serialize for mpis::Signature {
+impl Serialize for crypto::mpis::Signature {
     fn serialize<W: io::Write>(&self, w: &mut W) -> Result<()> {
-        use mpis::Signature::*;
+        use crypto::mpis::Signature::*;
 
         match self {
             &RSA { ref s } => {

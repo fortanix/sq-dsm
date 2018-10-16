@@ -13,7 +13,7 @@ use conversions::{
     write_be_u64,
     read_be_u64,
 };
-use mpis::{MPI, PublicKey, SecretKey, Ciphertext};
+use crypto::mpis::{MPI, PublicKey, SecretKey, Ciphertext};
 use nettle::{cipher, curve25519, mode, Mode, Yarrow};
 
 /// Wraps a session key using Elliptic Curve Diffie-Hellman.
