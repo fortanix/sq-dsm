@@ -32,7 +32,7 @@ use {
     packet::SKESK4,
     packet::SKESK5,
     packet::{signature, Signature},
-    Tag,
+    packet::Tag,
     TPK,
 };
 use packet::ctb::CTB;

@@ -402,7 +402,7 @@ mod tests {
     use SignatureType;
     use s2k::S2K;
     use mpis::{Ciphertext, MPI};
-    use Tag;
+    use packet::Tag;
     use packet::CompressedData;
     use packet::Literal;
     use packet::OnePassSig;
@@ -559,7 +559,7 @@ mod tests {
 
     #[test]
     fn tags() {
-        use Tag::*;
+        use packet::Tag::*;
 
         struct TestVector<'a> {
             s: &'a [(Tag, isize)],

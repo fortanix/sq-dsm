@@ -27,6 +27,7 @@ use conversions::{
     Duration,
 };
 use packet::{
+    Tag,
     Unknown,
     Signature,
     OnePassSig,

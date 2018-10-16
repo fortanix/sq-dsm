@@ -7,7 +7,7 @@
 use std::ops::Deref;
 
 use {
-    Tag,
+    packet::Tag,
     Error,
     Result
 };

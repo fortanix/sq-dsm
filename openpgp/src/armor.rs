@@ -679,7 +679,7 @@ impl<'a> Reader<'a> {
 
 /// Checks whether the given bytes contain armored OpenPGP data.
 fn is_armored_pgp_blob(bytes: &[u8]) -> bool {
-    use Tag::*;
+    use packet::Tag::*;
 
     let bytes = if let Some(msg) = get_base64_prefix(bytes) {
         msg

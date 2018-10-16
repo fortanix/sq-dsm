@@ -16,7 +16,7 @@ use {
     RevocationStatus,
     SignatureType,
     HashAlgorithm,
-    Tag,
+    packet::Tag,
     SecretKey,
     packet::{signature, Signature},
     packet::Key,

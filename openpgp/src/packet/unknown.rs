@@ -1,4 +1,4 @@
-use Tag;
+use packet::Tag;
 use packet;
 use Packet;
 

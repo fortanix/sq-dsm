@@ -22,7 +22,7 @@ use {
     BodyLength,
     s2k::S2K,
     Error,
-    Tag,
+    packet::Tag,
     Header,
     packet::Unknown,
     packet::{signature, Signature},

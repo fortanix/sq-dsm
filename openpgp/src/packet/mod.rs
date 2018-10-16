@@ -18,7 +18,8 @@ use self::ctb::{CTB, PacketLengthType};
 
 use buffered_reader::BufferedReader;
 
-pub use tag::Tag;
+mod tag;
+pub use self::tag::Tag;
 
 mod unknown;
 pub use self::unknown::Unknown;

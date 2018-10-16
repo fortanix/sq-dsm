@@ -133,8 +133,6 @@ use constants::{
     HashAlgorithm,
     SignatureType,
 };
-mod tag;
-use tag::Tag;
 
 mod fingerprint;
 mod keyid;
@@ -171,7 +169,7 @@ pub enum Error {
 
     /// Unknown packet tag.
     #[fail(display = "Unknown packet type: {}", _0)]
-    UnknownPacketTag(Tag),
+    UnknownPacketTag(packet::Tag),
 
     /// Unknown hash algorithm identifier.
     #[fail(display = "Unknown hash algorithm: {}", _0)]
@@ -308,7 +306,8 @@ impl Packet {
     /// Tags are explained in [Section 4.3 of RFC 4880].
     ///
     ///   [Section 4.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.3
-    pub fn tag(&self) -> Tag {
+    pub fn tag(&self) -> packet::Tag {
+        use packet::Tag;
         match self {
             &Packet::Unknown(ref packet) => packet.tag,
             &Packet::Signature(_) => Tag::Signature,
@@ -336,7 +335,8 @@ impl Packet {
     /// Signature Packet uses some unsupported methods, it is parsed
     /// into an `Packet::Unknown`.  `tag()` returns `Tag::Signature`,
     /// whereas `kind()` returns `None`.
-    pub fn kind(&self) -> Option<Tag> {
+    pub fn kind(&self) -> Option<packet::Tag> {
+        use packet::Tag;
         match self {
             &Packet::Unknown(_) => None,
             &Packet::Signature(_) => Some(Tag::Signature),

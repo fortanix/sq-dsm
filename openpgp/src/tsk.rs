@@ -1,7 +1,7 @@
 use {
     Result,
     TPK,
-    Tag,
+    packet::Tag,
 };
 use serialize::{
     Serialize,

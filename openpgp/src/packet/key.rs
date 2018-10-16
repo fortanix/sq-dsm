@@ -3,7 +3,7 @@ use time;
 
 use Error;
 use mpis;
-use Tag;
+use packet::Tag;
 use packet;
 use Packet;
 use PublicKeyAlgorithm;
