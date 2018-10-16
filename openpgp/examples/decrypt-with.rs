@@ -1,18 +1,16 @@
-/// This program demonstrates how to decrypt a stream of data.
+/// Decrypts asymmetrically-encrypted OpenPGP messages using the
+/// openpgp crate, Sequoia's low-level API.
 
+use std::collections::HashMap;
 use std::env;
 use std::io;
-use std::collections::HashMap;
 
+extern crate failure;
 extern crate openpgp;
-use openpgp::{
-    Packet,
-    KeyID,
-    packet::Key,
-    TPK,
-    SecretKey,
+
+use openpgp::parse::stream::{
+    Decryptor, DecryptionHelper, Secret, VerificationHelper, VerificationResult,
 };
-use openpgp::parse::PacketParserResult;
 
 pub fn main() {
     let args: Vec<String> = env::args().collect();
@@ -22,106 +20,95 @@ pub fn main() {
     }
 
     // Read the transferable secret keys from the given files.
-    let mut keys: HashMap<KeyID, Key> = HashMap::new();
-    for f in args[1..].iter() {
-        let tsk = TPK::from_reader(
-            // Use an openpgp::Reader so that we accept both armored
-            // and plain PGP data.
-            openpgp::Reader::from_file(f)
-                .expect("Failed to open file"))
-            .expect("Failed to read key");
-        for (sig, key) in tsk.keys() {
-            if ! sig.map(|s| s.key_flags().can_encrypt_at_rest()
-                         || s.key_flags().can_encrypt_for_transport())
-                .unwrap_or(false)
-            {
-                continue;
-            }
+    let tpks =
+        args[1..].iter().map(|f| {
+            openpgp::TPK::from_reader(
+                // Use an openpgp::Reader so that we accept both armored
+                // and plain PGP data.
+                openpgp::Reader::from_file(f)
+                    .expect("Failed to open file"))
+                .expect("Failed to read key")
+        }).collect();
 
-            keys.insert(key.fingerprint().to_keyid(), key.clone());
+    // First, use an openpgp::Reader so that we accept both armored
+    // and plain PGP data.
+    let reader = openpgp::Reader::from_reader(io::stdin())
+        .expect("Failed to open file");
+
+    // Now, create a decryptor with a helper using the given TPKs.
+    let mut decryptor =
+        Decryptor::from_reader(reader, Helper::new(tpks)).unwrap();
+
+    // Finally, stream the decrypted data to stdout.
+    io::copy(&mut decryptor, &mut io::stdout())
+        .expect("Decryption failed");
+}
+
+/// This helper provides secrets for the decryption, fetches public
+/// keys for the signature verification and implements the
+/// verification policy.
+struct Helper {
+    keys: HashMap<openpgp::KeyID, Secret>,
+    i: usize,
+}
+
+impl Helper {
+    /// Creates a Helper for the given TPKs with appropriate secrets.
+    fn new(tpks: Vec<openpgp::TPK>) -> Self {
+        // Map (sub)KeyIDs to secrets.
+        let mut keys = HashMap::new();
+        for tpk in tpks {
+            for (sig, key) in tpk.keys() {
+                if sig.map(|s| (s.key_flags().can_encrypt_at_rest()
+                                || s.key_flags().can_encrypt_for_transport()))
+                    .unwrap_or(false)
+                {
+                    // Only handle unencrypted secret keys.
+                    if let Some(openpgp::SecretKey::Unencrypted { ref mpis }) =
+                        key.secret()
+                    {
+                        keys.insert(key.fingerprint().to_keyid(),
+                                    Secret::Asymmetric {
+                                        identity: tpk.fingerprint(),
+                                        key: key.clone(),
+                                        secret: mpis.clone(),
+                                    });
+                    }
+                }
+            }
+        }
+
+        Helper {
+            keys: keys,
+            i: 0,
         }
     }
+}
 
-    #[derive(PartialEq)]
-    enum State {
-        Start(Vec<openpgp::packet::PKESK>, Vec<openpgp::packet::SKESK>),
-        Deciphered,
-        Done,
+impl DecryptionHelper for Helper {
+    fn get_secret(&mut self,
+                  pkesks: &[&openpgp::packet::PKESK],
+                  _: &[&openpgp::packet::SKESK])
+                  -> failure::Fallible<Option<Secret>> {
+        let r = pkesks
+            .iter()
+            .nth(self.i)
+            .and_then(|pkesk| {
+                self.keys.get(pkesk.recipient())
+                    .map(|s| (*s).clone())
+            });
+        self.i += 1;
+        Ok(r)
     }
-    let mut state = State::Start(vec![], vec![]);
-    let mut input = io::stdin();
-    let mut ppr
-        = openpgp::parse::PacketParser::from_reader(
-            openpgp::Reader::from_reader(&mut input)
-                .expect("Failed to build reader"))
-        .expect("Failed to build parser");
+}
 
-    while let PacketParserResult::Some(mut pp) = ppr {
-        state = match state {
-            // Look for an PKESK or SKESK packet.
-            State::Start(mut pkesks, mut skesks) =>
-                match pp.packet {
-                    Packet::SEIP(_) => {
-                        let mut state = None;
-                        for pkesk in pkesks.iter() {
-                            if let Some(tsk) = keys.get(&pkesk.recipient()) {
-                                if let Some(SecretKey::Unencrypted{ref mpis}) =
-                                    tsk.secret()
-                                {
-                                    if let Ok((algo, key)) = pkesk.decrypt(tsk, mpis) {
-	                                let r = pp.decrypt(algo, &key);
-                                        if r.is_ok() {
-                                            state = Some(State::Deciphered);
-                                            break;
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        state.unwrap_or(State::Start(pkesks, skesks))
-                    },
-                    _ => State::Start(pkesks, skesks),
-                },
-
-            // Look for the literal data packet.
-            State::Deciphered =>
-                if let Packet::Literal(_) = pp.packet {
-                    io::copy(&mut pp, &mut io::stdout())
-                        .expect("Failed to copy data");
-                    State::Done
-                } else {
-                    State::Deciphered
-                },
-
-            // We continue to parse, useful for dumping
-            // encrypted packets.
-            State::Done => State::Done,
-        };
-
-        let (packet, ppr_tmp) = pp.recurse().expect("Failed to recurse");
-        ppr = ppr_tmp;
-
-        state = match state {
-            // Look for an PKESK or SKESK packet.
-            State::Start(mut pkesks, mut skesks) =>
-                match packet {
-                    Packet::PKESK(pkesk) => {
-                        pkesks.push(pkesk);
-                        State::Start(pkesks, skesks)
-                    },
-                    Packet::SKESK(skesk) => {
-                        skesks.push(skesk);
-                        State::Start(pkesks, skesks)
-                    },
-                    _ => State::Start(pkesks, skesks),
-                },
-
-            // Do nothing in all other states.
-            s => s,
-        };
+impl VerificationHelper for Helper {
+    fn get_public_keys(&mut self, _ids: &[openpgp::KeyID])
+                       -> failure::Fallible<Vec<openpgp::TPK>> {
+        Ok(Vec::new()) // Feed the TPKs to the verifier here.
     }
-
-    if state != State::Done {
-        panic!("decryption failed");
+    fn check(&mut self, _sigs: Vec<Vec<VerificationResult>>)
+             -> failure::Fallible<()> {
+        Ok(()) // Implement your verification policy here.
     }
 }

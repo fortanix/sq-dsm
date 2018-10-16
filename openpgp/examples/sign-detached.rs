@@ -36,11 +36,11 @@ fn main() {
         wrap(sink), &tsks.iter().collect::<Vec<&openpgp::TPK>>())
         .expect("Failed to create signer");
 
-    // Finally, just copy all the data.
+    // Copy all the data.
     io::copy(&mut io::stdin(), &mut signer)
         .expect("Failed to sign data");
 
-    // Teardown the stack to ensure all the data is written.
+    // Finally, teardown the stack to ensure all the data is written.
     signer.finalize()
         .expect("Failed to write data");
 }

@@ -1,5 +1,5 @@
-/// This program demonstrates how to wrap a stream into a literal data
-/// packet.
+/// Wraps a stream of data into a literal data packet using the
+/// openpgp crate, Sequoia's low-level API.
 ///
 /// It is also used to generate test vectors for the armor subsystem.
 
@@ -30,11 +30,11 @@ fn main() {
                                          None, None)
         .expect("Failed to create literal writer");
 
-    // Finally, just copy all the data.
+    // Copy all the data.
     io::copy(&mut io::stdin(), &mut literal)
         .expect("Failed to sign data");
 
-    // Teardown the stack to ensure all the data is written.
+    // Finally, teardown the stack to ensure all the data is written.
     literal.finalize()
         .expect("Failed to write data");
 }

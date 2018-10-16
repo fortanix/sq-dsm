@@ -1,4 +1,5 @@
-/// This program demonstrates how to encrypt a stream of data.
+/// Asymmetrically encrypts OpenPGP messages using the openpgp crate,
+/// Sequoia's low-level API.
 
 use std::env;
 use std::io;
@@ -14,7 +15,8 @@ fn main() {
     let args: Vec<String> = env::args().collect();
     if args.len() < 3 {
         panic!("A simple encryption filter.\n\n\
-                Usage: {} [at-rest|for-transport] <keyfile> [<keyfile>...] <input >output\n", args[0]);
+                Usage: {} [at-rest|for-transport] <keyfile> [<keyfile>...] \
+                <input >output\n", args[0]);
     }
 
     let mode = match args[1].as_ref() {
@@ -53,9 +55,11 @@ fn main() {
                                                 None, None)
         .expect("Failed to create literal writer");
 
-    // Finally, copy stdin to our writer stack to encrypt the data.
+    // Copy stdin to our writer stack to encrypt the data.
     io::copy(&mut io::stdin(), &mut literal_writer)
         .expect("Failed to encrypt");
 
+    // Finally, finalize the OpenPGP message by tearing down the
+    // writer stack.
     literal_writer.finalize().unwrap();
 }

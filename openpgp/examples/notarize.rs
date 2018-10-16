@@ -1,4 +1,5 @@
-/// This program demonstrates how to notarize an OpenPGP message.
+/// Notarizes OpenPGP messages using the openpgp crate, Sequoia's
+/// low-level API.
 
 use std::env;
 use std::io;
@@ -67,7 +68,7 @@ fn main() {
                     LiteralWriter::new(signer, DataFormat::Binary, None, None)
                     .expect("Failed to create literal writer");
 
-                // Finally, just copy all the data.
+                // Copy all the data.
                 io::copy(&mut pp, &mut literal)
                     .expect("Failed to sign data");
 
@@ -90,7 +91,7 @@ fn main() {
         unreachable!()
     }
 
-    // Teardown the stack to ensure all the data is written.
+    // Finally, teardown the stack to ensure all the data is written.
     signer.finalize()
         .expect("Failed to write data");
 }
