@@ -20,7 +20,7 @@ use openpgp::parse::stream::{
 };
 use openpgp::serialize::Serialize;
 use openpgp::serialize::stream::{
-    wrap, Signer, LiteralWriter, Encryptor, EncryptionMode,
+    Message, Signer, LiteralWriter, Encryptor, EncryptionMode,
 };
 extern crate sequoia_store as store;
 
@@ -61,8 +61,11 @@ pub fn encrypt(store: &mut store::Store,
     let passwords_: Vec<&openpgp::Password> =
         passwords.iter().collect();
 
+    // Stream an OpenPGP message.
+    let message = Message::new(output);
+
     // We want to encrypt a literal data packet.
-    let mut sink = Encryptor::new(wrap(output),
+    let mut sink = Encryptor::new(message,
                                   &passwords_,
                                   &recipients,
                                   EncryptionMode::AtRest)
@@ -156,7 +159,9 @@ fn sign_data(input: &mut io::Read, output_path: Option<&str>,
         sig.serialize(&mut output)?;
     }
 
-    let sink = wrap(output);
+    // Stream an OpenPGP message.
+    let sink = Message::new(output);
+
     // Build a vector of references to hand to Signer.
     let keys: Vec<&openpgp::TPK> = secrets.iter().collect();
     let signer = if detached {
@@ -202,7 +207,7 @@ fn sign_message(input: &mut io::Read, output_path: Option<&str>,
         output
     };
 
-    let mut sink = wrap(output);
+    let mut sink = Message::new(output);
     // Build a vector of references to hand to Signer.
     let keys: Vec<&openpgp::TPK> = secrets.iter().collect();
 

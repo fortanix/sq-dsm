@@ -1068,7 +1068,7 @@ mod test {
     fn verify_long_message() {
         use constants::DataFormat;
         use tpk::{TPKBuilder, CipherSuite};
-        use serialize::stream::{LiteralWriter, Signer, wrap};
+        use serialize::stream::{LiteralWriter, Signer, Message};
         use std::io::Write;
 
         let tpk = TPKBuilder::default()
@@ -1079,7 +1079,8 @@ mod test {
         // sign 30MiB message
         let mut buf = vec![];
         {
-            let signer = Signer::new(wrap(&mut buf), &[&tpk]).unwrap();
+            let m = Message::new(&mut buf);
+            let signer = Signer::new(m, &[&tpk]).unwrap();
             let mut ls = LiteralWriter::new(signer, DataFormat::Binary, None, None).unwrap();
 
             ls.write_all(&mut vec![42u8; 30 * 1024 * 1024]).unwrap();

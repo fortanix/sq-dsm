@@ -9,7 +9,7 @@ use std::io;
 extern crate openpgp;
 use openpgp::armor;
 use openpgp::constants::DataFormat;
-use openpgp::serialize::stream::{wrap, LiteralWriter};
+use openpgp::serialize::stream::{Message, LiteralWriter};
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -24,9 +24,12 @@ fn main() {
     let sink = armor::Writer::new(io::stdout(), armor::Kind::Message, &[][..])
         .expect("Failed to create armored writer.");
 
+    // Stream an OpenPGP message.
+    let message = Message::new(sink);
+
     // Then, create a literal writer to wrap the data in a literal
     // message packet.
-    let mut literal = LiteralWriter::new(wrap(sink), DataFormat::Binary,
+    let mut literal = LiteralWriter::new(message, DataFormat::Binary,
                                          None, None)
         .expect("Failed to create literal writer");
 

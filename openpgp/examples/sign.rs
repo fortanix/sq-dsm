@@ -6,7 +6,7 @@ use std::io;
 extern crate openpgp;
 use openpgp::armor;
 use openpgp::constants::DataFormat;
-use openpgp::serialize::stream::{wrap, LiteralWriter, Signer};
+use openpgp::serialize::stream::{Message, LiteralWriter, Signer};
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -32,9 +32,12 @@ fn main() {
     let sink = armor::Writer::new(io::stdout(), armor::Kind::Message, &[][..])
         .expect("Failed to create an armored writer.");
 
+    // Stream an OpenPGP message.
+    let message = Message::new(sink);
+
     // Now, create a signer that emits a signature.
     let signer = Signer::new(
-        wrap(sink), &tsks.iter().collect::<Vec<&openpgp::TPK>>())
+        message, &tsks.iter().collect::<Vec<&openpgp::TPK>>())
         .expect("Failed to create signer");
 
     // Then, create a literal writer to wrap the data in a literal

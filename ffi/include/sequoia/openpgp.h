@@ -947,11 +947,9 @@ sq_status_t sq_packet_parser_decrypt (sq_context_t ctx,
 typedef struct sq_writer_stack *sq_writer_stack_t;
 
 /*/
-/// Wraps a `std::io::Write`r for use with the streaming subsystem.
-///
-/// XXX: This interface will likely change.
+/// Streams an OpenPGP message.
 /*/
-sq_writer_stack_t sq_writer_stack_wrap (sq_writer_t writer);
+sq_writer_stack_t sq_writer_stack_message (sq_writer_t writer);
 
 /*/
 /// Writes up to `len` bytes of `buf` into `writer`.

@@ -1,4 +1,13 @@
 //! Streaming packet serialization.
+//!
+//! This is the preferred interface to generate OpenPGP messages.  It
+//! takes advantage of OpenPGP's streaming nature to avoid unnecessary
+//! buffering.  This interface provides a convenient, yet low-level
+//! way to sign or encrypt.
+//!
+//! See the [encryption example].
+//!
+//! [encryption example]: struct.Encryptor.html#example
 
 use std::fmt;
 use std::io::{self, Write};
@@ -65,13 +74,18 @@ impl Cookie {
     }
 }
 
-/// Wraps a `std::io::Write`r for use with the streaming subsystem.
+/// Streams an OpenPGP message.
 ///
-/// XXX: This interface will likely change.
-pub fn wrap<'a, W: 'a + io::Write>(w: W) -> writer::Stack<'a, Cookie> {
-    writer::Generic::new(w, Cookie::new(0))
+/// Wraps a `std::io::Write`r for use with the streaming subsystem.
+pub struct Message {
 }
 
+impl Message {
+    /// Streams an OpenPGP message.
+    pub fn new<'a, W: 'a + io::Write>(w: W) -> writer::Stack<'a, Cookie> {
+        writer::Generic::new(w, Cookie::new(0))
+    }
+}
 
 impl<'a> From<&'a mut io::Write> for writer::Stack<'a, Cookie> {
     fn from(w: &'a mut io::Write) -> Self {
@@ -91,13 +105,13 @@ impl<'a> From<&'a mut io::Write> for writer::Stack<'a, Cookie> {
 /// ```
 /// use std::io::Write;
 /// use openpgp::packet::Tag;
-/// use openpgp::serialize::stream::{wrap, ArbitraryWriter};
+/// use openpgp::serialize::stream::{Message, ArbitraryWriter};
 /// # use openpgp::Result;
 /// # f().unwrap();
 /// # fn f() -> Result<()> {
 /// let mut o = vec![];
 /// {
-///     let mut w = ArbitraryWriter::new(wrap(&mut o), Tag::Literal)?;
+///     let mut w = ArbitraryWriter::new(Message::new(&mut o), Tag::Literal)?;
 ///     w.write_all(b"t")?;                   // type
 ///     w.write_all(b"\x00")?;                // filename length
 ///     w.write_all(b"\x00\x00\x00\x00")?;    // date
@@ -198,16 +212,18 @@ impl<'a> Signer<'a> {
     /// ```
     /// use std::io::Write;
     /// use openpgp::constants::DataFormat;
-    /// use openpgp::serialize::stream::{wrap, Signer, LiteralWriter};
+    /// use openpgp::serialize::stream::{Message, Signer, LiteralWriter};
     /// # use openpgp::{Result, TPK};
     /// # let tsk = TPK::from_bytes(include_bytes!(
     /// #     "../../tests/data/keys/testy-new-private.pgp"))
     /// #     .unwrap();
     /// # f(tsk).unwrap();
     /// # fn f(tsk: TPK) -> Result<()> {
+    ///
     /// let mut o = vec![];
     /// {
-    ///     let signer = Signer::new(wrap(&mut o), &[&tsk])?;
+    ///     let message = Message::new(&mut o);
+    ///     let signer = Signer::new(message, &[&tsk])?;
     ///     let mut ls = LiteralWriter::new(signer, DataFormat::Text, None, None)?;
     ///     ls.write_all(b"Make it so, number one!")?;
     ///     ls.finalize()?;
@@ -241,16 +257,18 @@ impl<'a> Signer<'a> {
     ///
     /// ```
     /// use std::io::Write;
-    /// use openpgp::serialize::stream::{wrap, Signer, LiteralWriter};
+    /// use openpgp::serialize::stream::{Message, Signer, LiteralWriter};
     /// # use openpgp::{Result, TPK};
     /// # let tsk = TPK::from_bytes(include_bytes!(
     /// #     "../../tests/data/keys/testy-new-private.pgp"))
     /// #     .unwrap();
     /// # f(tsk).unwrap();
     /// # fn f(tsk: TPK) -> Result<()> {
+    ///
     /// let mut o = vec![];
     /// {
-    ///     let mut signer = Signer::detached(wrap(&mut o), &[&tsk])?;
+    ///     let message = Message::new(&mut o);
+    ///     let mut signer = Signer::detached(message, &[&tsk])?;
     ///     signer.write_all(b"Make it so, number one!")?;
     ///     // In reality, just io::copy() the file to be signed.
     ///     signer.finalize()?;
@@ -491,14 +509,17 @@ impl<'a> writer::Stackable<'a, Cookie> for Signer<'a> {
 /// ```
 /// use std::io::Write;
 /// use openpgp::constants::DataFormat;
-/// use openpgp::serialize::stream::{wrap, LiteralWriter};
+/// use openpgp::serialize::stream::{Message, LiteralWriter};
 /// # use openpgp::Result;
 /// # f().unwrap();
 /// # fn f() -> Result<()> {
+///
 /// let mut o = vec![];
 /// {
-///     let mut w = LiteralWriter::new(wrap(&mut o), DataFormat::Text, None, None)?;
+///     let message = Message::new(&mut o);
+///     let mut w = LiteralWriter::new(message, DataFormat::Text, None, None)?;
 ///     w.write_all(b"Hello world.")?;
+///     w.finalize()?;
 /// }
 /// assert_eq!(b"\xcb\x12t\x00\x00\x00\x00\x00Hello world.", o.as_slice());
 /// # Ok(())
@@ -652,17 +673,20 @@ impl<'a> writer::Stackable<'a, Cookie> for LiteralWriter<'a> {
 /// ```
 /// use std::io::Write;
 /// use openpgp::constants::DataFormat;
-/// use openpgp::serialize::stream::{wrap, Compressor, LiteralWriter};
+/// use openpgp::serialize::stream::{Message, Compressor, LiteralWriter};
 /// use openpgp::constants::CompressionAlgorithm;
 /// # use openpgp::Result;
 /// # f().unwrap();
 /// # fn f() -> Result<()> {
+///
 /// let mut o = vec![];
 /// {
-///     let w = Compressor::new(wrap(&mut o),
+///     let message = Message::new(&mut o);
+///     let w = Compressor::new(message,
 ///                             CompressionAlgorithm::Uncompressed)?;
 ///     let mut w = LiteralWriter::new(w, DataFormat::Text, None, None)?;
 ///     w.write_all(b"Hello world.")?;
+///     w.finalize()?;
 /// }
 /// assert_eq!(b"\xc8\x15\x00\xcb\x12t\x00\x00\x00\x00\x00Hello world.",
 ///            o.as_slice());
@@ -798,7 +822,7 @@ impl<'a> Encryptor<'a> {
     /// #[macro_use] extern crate openpgp; // For armored!
     /// use openpgp::constants::DataFormat;
     /// use openpgp::serialize::stream::{
-    ///     wrap, Encryptor, EncryptionMode, LiteralWriter,
+    ///     Message, Encryptor, EncryptionMode, LiteralWriter,
     /// };
     /// # use openpgp::Result;
     /// # fn main() { f().unwrap(); }
@@ -840,14 +864,17 @@ impl<'a> Encryptor<'a> {
     ///      -----END PGP PUBLIC KEY BLOCK-----"
     /// #    */
     /// )).unwrap();
+    ///
     /// let mut o = vec![];
-    /// let encryptor = Encryptor::new(wrap(&mut o),
+    /// let message = Message::new(&mut o);
+    /// let encryptor = Encryptor::new(message,
     ///                                &[&"совершенно секретно".into()],
     ///                                &[&tpk],
     ///                                EncryptionMode::AtRest)
     ///     .expect("Failed to create encryptor");
     /// let mut w = LiteralWriter::new(encryptor, DataFormat::Text, None, None)?;
     /// w.write_all(b"Hello world.")?;
+    /// w.finalize()?;
     /// # Ok(())
     /// # }
     /// ```
@@ -1121,7 +1148,8 @@ mod test {
     fn arbitrary() {
         let mut o = vec![];
         {
-            let mut ustr = ArbitraryWriter::new(wrap(&mut o), Tag::Literal).unwrap();
+            let m = Message::new(&mut o);
+            let mut ustr = ArbitraryWriter::new(m, Tag::Literal).unwrap();
             ustr.write_all(b"t").unwrap(); // type
             ustr.write_all(b"\x00").unwrap(); // fn length
             ustr.write_all(b"\x00\x00\x00\x00").unwrap(); // date
@@ -1170,8 +1198,9 @@ mod test {
 
         let mut o = vec![];
         {
+            let m = Message::new(&mut o);
             let c = Compressor::new(
-                wrap(&mut o), CompressionAlgorithm::Uncompressed).unwrap();
+                m, CompressionAlgorithm::Uncompressed).unwrap();
             let mut ls = LiteralWriter::new(c, T, None, None).unwrap();
             write!(ls, "one").unwrap();
             let c = ls.finalize_one().unwrap().unwrap(); // Pop the LiteralWriter.
@@ -1228,8 +1257,9 @@ mod test {
 
         let mut o = vec![];
         {
+            let m = Message::new(&mut o);
             let c0 = Compressor::new(
-                wrap(&mut o), CompressionAlgorithm::Uncompressed).unwrap();
+                m, CompressionAlgorithm::Uncompressed).unwrap();
             let c = Compressor::new(
                 c0, CompressionAlgorithm::Uncompressed).unwrap();
             let mut ls = LiteralWriter::new(c, T, None, None).unwrap();
@@ -1266,7 +1296,8 @@ mod test {
         zeros.resize(4 * 1024, 0);
         let mut o = vec![];
         {
-            let c = Compressor::new(wrap(&mut o),
+            let m = Message::new(&mut o);
+            let c = Compressor::new(m,
                                     CompressionAlgorithm::BZip2).unwrap();
             let mut ls = LiteralWriter::new(c, T, None, None).unwrap();
             // Write 64 megabytes of zeroes.
@@ -1290,8 +1321,9 @@ mod test {
 
         let mut o = vec![];
         {
+            let m = Message::new(&mut o);
             let signer = Signer::new(
-                wrap(&mut o),
+                m,
                 &tsks.iter().map(|(_, tsk)| tsk).collect::<Vec<&TPK>>())
                 .unwrap();
             let mut ls = LiteralWriter::new(signer, T, None, None).unwrap();
@@ -1326,8 +1358,9 @@ mod test {
         // Write a simple encrypted message...
         let mut o = vec![];
         {
+            let m = Message::new(&mut o);
             let encryptor = Encryptor::new(
-                wrap(&mut o), &passwords.iter().collect::<Vec<&Password>>(),
+                m, &passwords.iter().collect::<Vec<&Password>>(),
                 &[], EncryptionMode::ForTransport)
                 .unwrap();
             let mut literal = LiteralWriter::new(encryptor, DataFormat::Binary,

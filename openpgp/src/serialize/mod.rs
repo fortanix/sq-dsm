@@ -915,7 +915,7 @@ impl Serialize for CompressedData {
                       self.common.body.as_ref().map(|body| body.len()));
         }
 
-        let o = stream::wrap(o);
+        let o = stream::Message::new(o);
         let mut o = stream::Compressor::new(o, self.algo)?;
 
         // Serialize the packets.

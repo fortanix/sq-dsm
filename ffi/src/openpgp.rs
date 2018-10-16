@@ -1524,7 +1524,7 @@ pub extern "system" fn sq_packet_parser_result_eof<'a>
 use self::openpgp::serialize::{
     writer,
     stream::{
-        wrap,
+        Message,
         Cookie,
         ArbitraryWriter,
         Signer,
@@ -1535,11 +1535,9 @@ use self::openpgp::serialize::{
 };
 
 
-/// Wraps a `std::io::Write`r for use with the streaming subsystem.
-///
-/// XXX: This interface will likely change.
+/// Streams an OpenPGP message.
 #[no_mangle]
-pub extern "system" fn sq_writer_stack_wrap
+pub extern "system" fn sq_writer_stack_message
     (writer: *mut Box<Write>)
      -> *mut writer::Stack<'static, Cookie>
 {
@@ -1547,7 +1545,7 @@ pub extern "system" fn sq_writer_stack_wrap
     let writer = unsafe {
         Box::from_raw(writer)
     };
-    box_raw!(wrap(writer))
+    box_raw!(Message::new(writer))
 }
 
 /// Writes up to `len` bytes of `buf` into `writer`.

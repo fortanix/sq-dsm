@@ -8,7 +8,7 @@ extern crate openpgp;
 use openpgp::armor;
 use openpgp::constants::DataFormat;
 use openpgp::serialize::stream::{
-    wrap, LiteralWriter, Encryptor, EncryptionMode,
+    Message, LiteralWriter, Encryptor, EncryptionMode,
 };
 
 fn main() {
@@ -45,8 +45,11 @@ fn main() {
     let sink = armor::Writer::new(io::stdout(), armor::Kind::Message, &[][..])
         .expect("Failed to create an armored writer");
 
+    // Stream an OpenPGP message.
+    let message = Message::new(sink);
+
     // We want to encrypt a literal data packet.
-    let encryptor = Encryptor::new(wrap(sink),
+    let encryptor = Encryptor::new(message,
                                    &[], // No symmetric encryption.
                                    &recipients,
                                    mode)

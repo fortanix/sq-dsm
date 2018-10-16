@@ -31,7 +31,7 @@ use parse::{
     PacketParserResult, PacketParser,
 };
 use serialize::stream::{
-    wrap, LiteralWriter, Encryptor, EncryptionMode,
+    Message, LiteralWriter, Encryptor, EncryptionMode,
 };
 use constants::DataFormat;
 use Password;
@@ -399,7 +399,8 @@ impl AutocryptSetupMessage {
         let w = armor::Writer::new(w, armor::Kind::Message, &headers[..])?;
 
         // Passphrase-Format header with value numeric9x4
-        let w = Encryptor::new(wrap(w),
+        let m = Message::new(w);
+        let w = Encryptor::new(m,
                                &[ self.passcode.as_ref().unwrap() ],
                                &[],
                                EncryptionMode::ForTransport)?;

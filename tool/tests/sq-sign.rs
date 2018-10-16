@@ -9,7 +9,7 @@ use tempfile::TempDir;
 extern crate openpgp;
 use openpgp::{Packet, PacketPile, Reader, TPK};
 use openpgp::constants::{CompressionAlgorithm, DataFormat, SignatureType};
-use openpgp::serialize::stream::{wrap, Signer, Compressor, LiteralWriter};
+use openpgp::serialize::stream::{Message, Signer, Compressor, LiteralWriter};
 
 fn p(filename: &str) -> String {
     format!("../openpgp/tests/data/{}", filename)
@@ -208,7 +208,8 @@ fn sq_sign_append_on_compress_then_sign() {
     // message by foot.
     let tsk = TPK::from_file(&p("keys/dennis-simon-anton-private.pgp"))
         .unwrap();
-    let signer = Signer::new(wrap(File::create(&sig0).unwrap()), &[&tsk])
+    let signer = Signer::new(Message::new(File::create(&sig0).unwrap()),
+                             &[&tsk])
         .unwrap();
     let compressor = Compressor::new(signer, CompressionAlgorithm::Uncompressed)
         .unwrap();
