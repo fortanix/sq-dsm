@@ -555,6 +555,7 @@ pub trait DecryptionHelper {
 }
 
 /// Represents a secret to decrypt a message.
+#[derive(Clone, Debug)]
 pub enum Secret {
     /// A key pair for asymmetric decryption.
     Asymmetric {
