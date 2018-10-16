@@ -112,7 +112,7 @@ pub mod tpk;
 pub mod serialize;
 
 mod hash;
-pub mod symmetric;
+pub(crate) mod symmetric;
 
 pub mod s2k;
 
