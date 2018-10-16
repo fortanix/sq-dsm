@@ -104,6 +104,7 @@ pub mod conversions;
 pub mod packet;
 use packet::{BodyLength, Header, Container};
 use packet::ctb::{CTB, CTBOld, CTBNew};
+pub use packet::key::SecretKey;
 
 pub mod parse;
 pub mod mpis;
@@ -116,21 +117,9 @@ pub(crate) mod symmetric;
 
 pub mod s2k;
 
-mod unknown;
-mod signature;
-mod one_pass_sig;
-mod key;
-pub use key::SecretKey;
-mod userid;
-mod user_attribute;
-mod literal;
-mod compressed_data;
-mod seip;
-mod skesk;
 pub(crate) mod ecdh;
 pub(crate) mod aead;
-mod pkesk;
-mod mdc;
+
 mod reader;
 pub use reader::Reader;
 
@@ -280,35 +269,35 @@ pub enum Error {
 #[derive(PartialEq, Eq, Hash, Clone)]
 pub enum Packet {
     /// Unknown packet.
-    Unknown(unknown::Unknown),
+    Unknown(packet::Unknown),
     /// Signature packet.
-    Signature(signature::Signature),
+    Signature(packet::Signature),
     /// One pass signature packet.
-    OnePassSig(one_pass_sig::OnePassSig),
+    OnePassSig(packet::OnePassSig),
     /// Public key packet.
-    PublicKey(key::Key),
+    PublicKey(packet::Key),
     /// Public subkey packet.
-    PublicSubkey(key::Key),
+    PublicSubkey(packet::Key),
     /// Public/Secret key pair.
-    SecretKey(key::Key),
+    SecretKey(packet::Key),
     /// Public/Secret subkey pair.
-    SecretSubkey(key::Key),
+    SecretSubkey(packet::Key),
     /// User ID packet.
-    UserID(userid::UserID),
+    UserID(packet::UserID),
     /// User attribute packet.
-    UserAttribute(user_attribute::UserAttribute),
+    UserAttribute(packet::UserAttribute),
     /// Literal data packet.
-    Literal(literal::Literal),
+    Literal(packet::Literal),
     /// Compressed literal data packet.
-    CompressedData(compressed_data::CompressedData),
+    CompressedData(packet::CompressedData),
     /// Public key encrypted data packet.
-    PKESK(pkesk::PKESK),
+    PKESK(packet::PKESK),
     /// Symmetric key encrypted data packet.
-    SKESK(skesk::SKESK),
+    SKESK(packet::SKESK),
     /// Symmetric key encrypted, integrity protected data packet.
-    SEIP(seip::SEIP),
+    SEIP(packet::SEIP),
     /// Modification detection code packet.
-    MDC(mdc::MDC),
+    MDC(packet::MDC),
     /// AEAD Encrypted Data Packet.
     AED(packet::AED),
 }

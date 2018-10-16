@@ -18,25 +18,34 @@ use self::ctb::{CTB, PacketLengthType};
 
 use buffered_reader::BufferedReader;
 
-mod aed;
-
 pub use tag::Tag;
 
-pub use unknown::Unknown;
-pub use signature::Signature;
-pub use one_pass_sig::OnePassSig;
-pub use key::Key;
-pub use userid::UserID;
-pub use user_attribute::UserAttribute;
-pub use literal::Literal;
-pub use compressed_data::CompressedData;
-pub use seip::SEIP;
-pub use skesk::{SKESK, SKESK4, SKESK5};
-pub use pkesk::PKESK;
-pub use mdc::MDC;
-pub use self::aed::AED;
-
+mod unknown;
+pub use self::unknown::Unknown;
 pub mod signature;
+pub use self::signature::Signature;
+mod one_pass_sig;
+pub use self::one_pass_sig::OnePassSig;
+pub(crate) mod key;
+pub use self::key::Key;
+mod userid;
+pub use self::userid::UserID;
+mod user_attribute;
+pub use self::user_attribute::UserAttribute;
+mod literal;
+pub use self::literal::Literal;
+mod compressed_data;
+pub use self::compressed_data::CompressedData;
+mod seip;
+pub use self::seip::SEIP;
+mod skesk;
+pub use self::skesk::{SKESK, SKESK4, SKESK5};
+mod pkesk;
+pub use self::pkesk::PKESK;
+mod mdc;
+pub use self::mdc::MDC;
+mod aed;
+pub use self::aed::AED;
 
 // Allow transparent access of common fields.
 impl<'a> Deref for Packet {
