@@ -11,7 +11,7 @@ use SymmetricAlgorithm;
 use crypto::s2k::S2K;
 use Result;
 use conversions::Time;
-use Password;
+use crypto::Password;
 
 /// Holds a public key, public subkey, private key or private subkey packet.
 ///

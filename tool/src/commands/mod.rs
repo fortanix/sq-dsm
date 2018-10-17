@@ -58,7 +58,7 @@ pub fn encrypt(store: &mut store::Store,
 
     // Build a vector of references to hand to Encryptor.
     let recipients: Vec<&openpgp::TPK> = tpks.iter().collect();
-    let passwords_: Vec<&openpgp::Password> =
+    let passwords_: Vec<&openpgp::crypto::Password> =
         passwords.iter().collect();
 
     // Stream an OpenPGP message.

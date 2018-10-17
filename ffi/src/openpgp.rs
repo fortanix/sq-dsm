@@ -12,7 +12,7 @@ use libc::{self, uint8_t, uint64_t, c_char, c_int, size_t, ssize_t};
 extern crate openpgp;
 
 use self::openpgp::{
-    armor, Fingerprint, KeyID, PacketPile, TPK, TSK, Packet, Password,
+    armor, Fingerprint, KeyID, PacketPile, TPK, TSK, Packet, crypto::Password,
 };
 use self::openpgp::tpk::{CipherSuite, TPKBuilder};
 use self::openpgp::parse::{PacketParserResult, PacketParser, PacketParserEOF};

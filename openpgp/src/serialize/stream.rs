@@ -26,7 +26,7 @@ use {
     packet::OnePassSig,
     packet::PKESK,
     Result,
-    Password,
+    crypto::Password,
     SecretKey,
     SessionKey,
     packet::SKESK4,

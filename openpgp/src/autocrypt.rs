@@ -34,7 +34,7 @@ use serialize::stream::{
     Message, LiteralWriter, Encryptor, EncryptionMode,
 };
 use constants::DataFormat;
-use Password;
+use crypto::Password;
 
 /// Version of Autocrypt to use. `Autocrypt::default()` always returns the
 /// latest version.

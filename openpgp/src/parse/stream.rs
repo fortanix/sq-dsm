@@ -30,7 +30,7 @@ use {
     packet::Signature,
     TPK,
     crypto::mpis,
-    Password,
+    crypto::Password,
     SessionKey,
 };
 use parse::{

@@ -1636,7 +1636,7 @@ impl SKESK {
 
 #[test]
 fn skesk_parser_test() {
-    use Password;
+    use crypto::Password;
     struct Test<'a> {
         filename: &'a str,
         s2k: S2K,

@@ -529,52 +529,6 @@ impl Drop for SessionKey {
     }
 }
 
-/// Holds a password.
-///
-/// The password is cleared when dropped.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Password(Box<[u8]>);
-
-impl Deref for Password {
-    type Target = [u8];
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl From<Vec<u8>> for Password {
-    fn from(v: Vec<u8>) -> Self {
-        Password(v.into_boxed_slice())
-    }
-}
-
-impl From<Box<[u8]>> for Password {
-    fn from(v: Box<[u8]>) -> Self {
-        Password(v)
-    }
-}
-
-impl From<String> for Password {
-    fn from(v: String) -> Self {
-        v.into_bytes().into()
-    }
-}
-
-impl<'a> From<&'a str> for Password {
-    fn from(v: &'a str) -> Self {
-        v.to_owned().into()
-    }
-}
-
-impl Drop for Password {
-    fn drop(&mut self) {
-        unsafe {
-            memsec::memzero(self.0.as_mut_ptr(), self.0.len());
-        }
-    }
-}
-
 /// Time-constant comparison.
 fn secure_eq(a: &[u8], b: &[u8]) -> bool {
     a.len() == b.len() &&
