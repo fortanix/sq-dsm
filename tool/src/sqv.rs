@@ -141,7 +141,7 @@ fn real_main() -> Result<(), failure::Error> {
     let hash_algos : Vec<HashAlgorithm>
         = sigs.iter().map(|&(ref sig, _, _)| sig.hash_algo()).collect();
     let hashes: HashMap<_, _> =
-        openpgp::hash_file(File::open(file)?, &hash_algos[..])?
+        openpgp::crypto::hash_file(File::open(file)?, &hash_algos[..])?
         .into_iter().collect();
 
     fn tpk_has_key(tpk: &TPK, keyid: &KeyID) -> bool {
