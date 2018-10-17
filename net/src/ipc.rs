@@ -365,7 +365,7 @@ impl Server {
             let _ = socket.set_nodelay(true);
             Cookie::receive_async(socket)
         }).and_then(|(socket, buf)| {
-            if cookie.expect(Cookie::from(&buf)) {
+            if Cookie::from(&buf).map(|c| c == cookie).unwrap_or(false) {
                 Ok(socket)
             } else {
                 Err(io::Error::new(io::ErrorKind::BrokenPipe, "Bad cookie."))
@@ -387,7 +387,6 @@ impl Server {
 }
 
 /// Cookies are used to authenticate clients.
-#[derive(PartialEq)]
 struct Cookie(Vec<u8>);
 
 extern crate rand;
@@ -441,19 +440,15 @@ impl Cookie {
     }
 
 
-    /// Check that an asynchronously received cookie matches this
-    /// cookie.
-    fn expect(&self, other: Option<Cookie>) -> bool {
-        if let Some(c) = other {
-            c.0 == self.0
-        } else {
-            false
-        }
-    }
-
     /// Write a cookie to 'to'.
     fn send<W: Write>(&self, to: &mut W) -> io::Result<()> {
         to.write_all(&self.0)?;
         Ok(())
+    }
+}
+
+impl PartialEq for Cookie {
+    fn eq(&self, other: &Cookie) -> bool {
+        self.0 == other.0
     }
 }
