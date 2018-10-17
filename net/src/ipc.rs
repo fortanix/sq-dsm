@@ -449,6 +449,13 @@ impl Cookie {
 
 impl PartialEq for Cookie {
     fn eq(&self, other: &Cookie) -> bool {
-        self.0 == other.0
+        // First, compare the length.
+        self.0.len() == other.0.len()
+            // The length is not a secret, hence we can use && here.
+            && unsafe {
+                ::memsec::memeq(self.0.as_ptr(),
+                                other.0.as_ptr(),
+                                self.0.len())
+            }
     }
 }

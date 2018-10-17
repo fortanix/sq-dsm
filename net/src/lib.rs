@@ -41,6 +41,7 @@ extern crate futures;
 extern crate http;
 extern crate hyper;
 extern crate hyper_tls;
+extern crate memsec;
 extern crate native_tls;
 extern crate tokio_core;
 extern crate tokio_io;
