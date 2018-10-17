@@ -16,6 +16,7 @@ use conversions::{
 use Error;
 use Result;
 use SessionKey;
+use secure_eq;
 
 impl AEADAlgorithm {
     /// Returns the digest size of the AEAD algorithm.
@@ -243,7 +244,7 @@ impl<R: io::Read> Decryptor<R> {
 
             // Check digest.
             aead.digest(&mut digest);
-            if &digest[..] != &chunk[chunk.len() - self.digest_size..] {
+            if !secure_eq(&digest[..], &chunk[chunk.len() - self.digest_size..]) {
                 return Err(Error::ManipulatedMessage.into());
             }
 
@@ -259,7 +260,7 @@ impl<R: io::Read> Decryptor<R> {
             let mut nada = [0; 0];
             aead.decrypt(&mut nada, b"");
             aead.digest(&mut digest);
-            if &digest[..] != &ciphertext[ciphertext_end..] {
+            if !secure_eq(&digest[..], &ciphertext[ciphertext_end..]) {
                 return Err(Error::ManipulatedMessage.into());
             }
         }
@@ -329,9 +330,11 @@ impl<R: io::Read> Decryptor<R> {
 
         // Check digest.
         aead.digest(&mut digest);
-        if &digest[..]
-            != &ciphertext[ciphertext_end - self.digest_size..ciphertext_end] {
-                return Err(Error::ManipulatedMessage.into());
+        let mac_is_ok = secure_eq(
+            &digest[..],
+            &ciphertext[ciphertext_end - self.digest_size..ciphertext_end]);
+        if !mac_is_ok {
+            return Err(Error::ManipulatedMessage.into());
         }
 
         // Increase index.
@@ -348,7 +351,7 @@ impl<R: io::Read> Decryptor<R> {
             let mut nada = [0; 0];
             aead.decrypt(&mut nada, b"");
             aead.digest(&mut digest);
-            if &digest[..] != &ciphertext[ciphertext_end..] {
+            if !secure_eq(&digest[..], &ciphertext[ciphertext_end..]) {
                 return Err(Error::ManipulatedMessage.into());
             }
         }

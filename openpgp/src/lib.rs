@@ -643,3 +643,8 @@ fn hash_file_test() {
     }
 }
 
+/// Time-constant comparison.
+fn secure_eq(a: &[u8], b: &[u8]) -> bool {
+    a.len() == b.len() &&
+        unsafe { memsec::memeq(a.as_ptr(), b.as_ptr(), a.len()) }
+}
