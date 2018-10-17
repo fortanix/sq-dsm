@@ -12,7 +12,7 @@ use constants::{
 use packet;
 use Packet;
 use crypto::Password;
-use SessionKey;
+use crypto::SessionKey;
 
 /// Holds an symmetrically encrypted session key.
 ///

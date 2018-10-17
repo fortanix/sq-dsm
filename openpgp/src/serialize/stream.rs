@@ -28,7 +28,7 @@ use {
     Result,
     crypto::Password,
     SecretKey,
-    SessionKey,
+    crypto::SessionKey,
     packet::SKESK4,
     packet::SKESK5,
     packet::{signature, Signature},

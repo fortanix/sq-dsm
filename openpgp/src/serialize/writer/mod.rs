@@ -19,7 +19,7 @@ use constants::{
 };
 use {
     Result,
-    SessionKey,
+    crypto::SessionKey,
 };
 
 /// A stack of writers.

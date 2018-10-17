@@ -38,7 +38,7 @@ use {
     Packet,
     KeyID,
     SecretKey,
-    SessionKey,
+    crypto::SessionKey,
     packet::PKESK,
 };
 use constants::{

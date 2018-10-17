@@ -15,7 +15,7 @@ use conversions::{
 };
 use Error;
 use Result;
-use SessionKey;
+use crypto::SessionKey;
 use secure_eq;
 
 impl AEADAlgorithm {

@@ -10,7 +10,7 @@ use Error;
 use Result;
 use HashAlgorithm;
 use crypto::Password;
-use SessionKey;
+use crypto::SessionKey;
 
 use std::fmt;
 

@@ -31,7 +31,7 @@ use {
     TPK,
     crypto::mpis,
     crypto::Password,
-    SessionKey,
+    crypto::SessionKey,
 };
 use parse::{
     Cookie,
