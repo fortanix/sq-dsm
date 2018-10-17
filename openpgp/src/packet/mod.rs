@@ -43,8 +43,7 @@ mod compressed_data;
 pub use self::compressed_data::CompressedData;
 mod seip;
 pub use self::seip::SEIP;
-mod skesk;
-pub use self::skesk::{SKESK, SKESK4, SKESK5};
+pub mod skesk;
 mod pkesk;
 pub use self::pkesk::PKESK;
 mod mdc;
@@ -601,5 +600,36 @@ fn packet_path_iter() {
 
             panic!("Something is broken.  Don't panic.");
         }
+    }
+}
+
+/// Holds an symmetrically encrypted session key.
+///
+/// Holds an symmetrically encrypted session key.  The session key is
+/// needed to decrypt the actual ciphertext.  See [Section 5.3 of RFC
+/// 4880] for details.
+///
+/// [Section 5.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.3
+#[derive(PartialEq, Eq, Hash, Clone, Debug)]
+pub enum SKESK {
+    /// SKESK packet version 4.
+    V4(self::skesk::SKESK4),
+    /// SKESK packet version 5.
+    V5(self::skesk::SKESK5),
+}
+
+impl SKESK {
+    /// Gets the version.
+    pub fn version(&self) -> u8 {
+        match self {
+            &SKESK::V4(_) => 4,
+            &SKESK::V5(_) => 5,
+        }
+    }
+}
+
+impl From<SKESK> for Packet {
+    fn from(p: SKESK) -> Self {
+        Packet::SKESK(p)
     }
 }

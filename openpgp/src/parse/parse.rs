@@ -1789,7 +1789,6 @@ impl SKESK {
                 let esk = php_try!(php.parse_bytes_eof("esk"));
 
                 SKESK::V4(php_try!(SKESK4::new(
-                    version,
                     symm_algo.into(),
                     s2k,
                     if esk.len() > 0 { Some(esk) } else { None },
@@ -1818,7 +1817,6 @@ impl SKESK {
                     php_try!(php.parse_bytes("aead_digest", digest_size));
 
                 SKESK::V5(php_try!(SKESK5::new(
-                    version,
                     symm_algo,
                     aead_algo,
                     s2k,

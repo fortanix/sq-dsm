@@ -1492,18 +1492,12 @@ impl SerializeInto for SKESK {
 
 impl Serialize for SKESK4 {
     fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
-        if self.version() != 4 {
-            return Err(Error::InvalidArgument(
-                "Don't know how to serialize \
-                 non-version 4 packets.".into()).into());
-        }
-
         let len = self.net_len();
 
         CTB::new(Tag::SKESK).serialize(o)?;
         BodyLength::Full(len as u32).serialize(o)?;
 
-        write_byte(o, self.version())?;
+        write_byte(o, 4)?; // Version.
         write_byte(o, self.symmetric_algo().into())?;
         self.s2k().serialize(o)?;
         if let Some(ref esk) = self.esk() {
@@ -1535,18 +1529,12 @@ impl SerializeInto for SKESK4 {
 
 impl Serialize for SKESK5 {
     fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
-        if self.version() != 5 {
-            return Err(Error::InvalidArgument(
-                "Don't know how to serialize \
-                 non-version 4 packets.".into()).into());
-        }
-
         let len = self.net_len();
 
         CTB::new(Tag::SKESK).serialize(o)?;
         BodyLength::Full(len as u32).serialize(o)?;
 
-        write_byte(o, self.version())?;
+        write_byte(o, 5)?; // Version.
         write_byte(o, self.symmetric_algo().into())?;
         write_byte(o, self.aead_algo().into())?;
         self.s2k().serialize(o)?;

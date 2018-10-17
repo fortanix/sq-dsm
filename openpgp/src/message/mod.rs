@@ -410,7 +410,7 @@ mod tests {
     use packet::CompressedData;
     use packet::Literal;
     use packet::OnePassSig;
-    use packet::SKESK4;
+    use packet::skesk::SKESK4;
     use packet::PKESK;
     use packet::SEIP;
     use packet::MDC;

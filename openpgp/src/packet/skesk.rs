@@ -1,3 +1,11 @@
+//! Symmetric-Key Encrypted Session Key Packets.
+//!
+//! SKESK packets hold symmetrically encrypted session keys.  The
+//! session key is needed to decrypt the actual ciphertext.  See
+//! [Section 5.3 of RFC 4880] for details.
+//!
+//! [Section 5.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.3
+
 use std::ops::{Deref, DerefMut};
 use quickcheck::{Arbitrary, Gen};
 
@@ -10,25 +18,10 @@ use constants::{
     AEADAlgorithm,
     SymmetricAlgorithm,
 };
-use packet;
+use packet::{self, SKESK};
 use Packet;
 use crypto::Password;
 use crypto::SessionKey;
-
-/// Holds an symmetrically encrypted session key.
-///
-/// Holds an symmetrically encrypted session key.  The session key is
-/// needed to decrypt the actual ciphertext.  See [Section 5.3 of RFC
-/// 4880] for details.
-///
-/// [Section 5.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.3
-#[derive(PartialEq, Eq, Hash, Clone, Debug)]
-pub enum SKESK {
-    /// SKESK packet version 4.
-    V4(SKESK4),
-    /// SKESK packet version 5.
-    V5(SKESK5),
-}
 
 impl SKESK {
     /// Derives the key inside this SKESK from `password`. Returns a
@@ -40,14 +33,6 @@ impl SKESK {
         match self {
             &SKESK::V4(ref s) => s.decrypt(password),
             &SKESK::V5(ref s) => s.decrypt(password),
-        }
-    }
-
-    /// Gets the version.
-    pub fn version(&self) -> u8 {
-        match self {
-            &SKESK::V4(_) => 4,
-            &SKESK::V5(_) => 5,
         }
     }
 }
@@ -74,6 +59,9 @@ pub struct SKESK4 {
     /// CTB header fields.
     pub(crate) common: packet::Common,
     /// Packet version. Must be 4 or 5.
+    ///
+    /// This struct is also used by SKESK5, hence we have a version
+    /// field.
     version: u8,
     /// Symmetric algorithm used to encrypt the session key.
     symm_algo: SymmetricAlgorithm,
@@ -89,16 +77,11 @@ impl SKESK4 {
     /// The given symmetric algorithm must match the algorithm that is
     /// used to encrypt the payload, and is also used to encrypt the
     /// given session key.
-    pub fn new(version: u8, cipher: SymmetricAlgorithm, s2k: S2K,
+    pub fn new(cipher: SymmetricAlgorithm, s2k: S2K,
                esk: Option<Vec<u8>>) -> Result<SKESK4> {
-        if version != 4 {
-            return Err(Error::InvalidArgument(
-                format!("Invalid version: {}", version)).into());
-        }
-
         Ok(SKESK4{
             common: Default::default(),
-            version: version,
+            version: 4,
             symm_algo: cipher,
             s2k: s2k,
             esk: esk.and_then(|esk| {
@@ -132,12 +115,7 @@ impl SKESK4 {
                 cipher.encrypt(&mut iv[..], ct, pt)?;
         }
 
-        SKESK4::new(4, algo, s2k, Some(esk))
-    }
-
-    /// Gets the version.
-    pub fn version(&self) -> u8 {
-        self.version
+        SKESK4::new(algo, s2k, Some(esk))
     }
 
     /// Gets the symmetric encryption algorithm.
@@ -227,8 +205,7 @@ impl From<SKESK4> for Packet {
 
 impl Arbitrary for SKESK4 {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
-        SKESK4::new(4,
-                    SymmetricAlgorithm::arbitrary(g),
+        SKESK4::new(SymmetricAlgorithm::arbitrary(g),
                     S2K::arbitrary(g),
                     Option::<Vec<u8>>::arbitrary(g))
             .unwrap()
@@ -274,18 +251,13 @@ impl SKESK5 {
     /// The given symmetric algorithm must match the algorithm that is
     /// used to encrypt the payload, and is also used to encrypt the
     /// given session key.
-    pub fn new(version: u8, cipher: SymmetricAlgorithm, aead: AEADAlgorithm,
+    pub fn new(cipher: SymmetricAlgorithm, aead: AEADAlgorithm,
                s2k: S2K, iv: Box<[u8]>, esk: Vec<u8>, digest: Box<[u8]>)
                -> Result<Self> {
-        if version != 5 {
-            return Err(Error::InvalidArgument(
-                format!("Invalid version: {}", version)).into());
-        }
-
         Ok(SKESK5{
             skesk4: SKESK4{
                 common: Default::default(),
-                version: version,
+                version: 5,
                 symm_algo: cipher,
                 s2k: s2k,
                 esk: Some(esk),
@@ -319,7 +291,7 @@ impl SKESK5 {
         let mut digest = vec![0u8; aead.digest_size()?];
         ctx.digest(&mut digest);
 
-        SKESK5::new(5, cipher, aead, s2k, iv.into_boxed_slice(), esk,
+        SKESK5::new(cipher, aead, s2k, iv.into_boxed_slice(), esk,
                     digest.into_boxed_slice())
     }
 
@@ -336,7 +308,7 @@ impl SKESK5 {
             let mut cipher = self.aead_algo.context(
                 self.symmetric_algo(), &key, &self.aead_iv)?;
 
-            let ad = [0xc3, self.version(), self.symmetric_algo().into(),
+            let ad = [0xc3, 5 /* Version.  */, self.symmetric_algo().into(),
                       self.aead_algo.into()];
             cipher.update(&ad);
             let mut plain = vec![0; esk.len()];
@@ -404,8 +376,7 @@ impl Arbitrary for SKESK5 {
         for b in digest.iter_mut() {
             *b = u8::arbitrary(g);
         }
-        SKESK5::new(5,
-                    SymmetricAlgorithm::arbitrary(g),
+        SKESK5::new(SymmetricAlgorithm::arbitrary(g),
                     algo,
                     S2K::arbitrary(g),
                     iv.into_boxed_slice(),
