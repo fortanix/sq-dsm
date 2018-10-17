@@ -249,7 +249,7 @@ impl Arbitrary for PublicKey {
 ///
 /// Provides a typed and structured way of storing multiple MPIs in
 /// packets.
-#[derive(Clone, PartialEq, Eq, Hash, Debug, PartialOrd, Ord)]
+#[derive(Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum SecretKey {
     /// RSA secret key.
     RSA {
@@ -300,6 +300,46 @@ pub enum SecretKey {
         /// Any data that failed to parse.
         rest: Box<[u8]>,
     },
+}
+
+impl fmt::Debug for SecretKey {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        if cfg!(debug) {
+            match self {
+                &SecretKey::RSA{ ref d, ref p, ref q, ref u } =>
+                    write!(f, "RSA {{ d: {:?}, p: {:?}, q: {:?}, u: {:?} }}", d, p, q, u),
+                &SecretKey::DSA{ ref x } =>
+                    write!(f, "DSA {{ x: {:?} }}", x),
+                &SecretKey::Elgamal{ ref x } =>
+                    write!(f, "Elgamal {{ x: {:?} }}", x),
+                &SecretKey::EdDSA{ ref scalar } =>
+                    write!(f, "EdDSA {{ scalar: {:?} }}", scalar),
+                &SecretKey::ECDSA{ ref scalar } =>
+                    write!(f, "ECDSA {{ scalar: {:?} }}", scalar),
+                &SecretKey::ECDH{ ref scalar } =>
+                    write!(f, "ECDH {{ scalar: {:?} }}", scalar),
+                &SecretKey::Unknown{ ref mpis, ref rest } =>
+                    write!(f, "Unknown {{ mips: {:?}, rest: {:?} }}", mpis, rest),
+            }
+        } else {
+            match self {
+                &SecretKey::RSA{ .. } =>
+                    f.write_str("RSA { <Redacted> }"),
+                &SecretKey::DSA{ .. } =>
+                    f.write_str("DSA { <Redacted> }"),
+                &SecretKey::Elgamal{ .. } =>
+                    f.write_str("Elgamal { <Redacted> }"),
+                &SecretKey::EdDSA{ .. } =>
+                    f.write_str("EdDSA { <Redacted> }"),
+                &SecretKey::ECDSA{ .. } =>
+                    f.write_str("ECDSA { <Redacted> }"),
+                &SecretKey::ECDH{ .. } =>
+                    f.write_str("ECDH { <Redacted> }"),
+                &SecretKey::Unknown{ .. } =>
+                    f.write_str("Unknown { <Redacted> }"),
+            }
+        }
+    }
 }
 
 impl Drop for SecretKey {
