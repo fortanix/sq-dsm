@@ -49,7 +49,7 @@ impl HashAlgorithm {
             HashAlgorithm::MD5 | HashAlgorithm::RipeMD =>
                 Err(Error::UnsupportedHashAlgorithm(self).into()),
             HashAlgorithm::Private(_) | HashAlgorithm::Unknown(_) =>
-                Err(Error::UnknownHashAlgorithm(self).into()),
+                Err(Error::UnsupportedHashAlgorithm(self).into()),
         };
 
         if let Some(prefix) = DUMP_HASHED_VALUES {
@@ -74,7 +74,7 @@ impl HashAlgorithm {
             HashAlgorithm::MD5 | HashAlgorithm::RipeMD =>
                 Err(Error::UnsupportedHashAlgorithm(self.into()).into()),
             HashAlgorithm::Private(_) | HashAlgorithm::Unknown(_) =>
-                Err(Error::UnknownHashAlgorithm(self).into()),
+                Err(Error::UnsupportedHashAlgorithm(self).into()),
         }
     }
 }
