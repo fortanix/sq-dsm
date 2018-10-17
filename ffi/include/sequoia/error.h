@@ -43,26 +43,6 @@ typedef enum sq_status {
   SQ_STATUS_MALFORMED_PACKET = -5,
 
   /*/
-  /// Unknown packet type.
-  /*/
-  SQ_STATUS_UNKNOWN_PACKET_TAG = -6,
-
-  /*/
-  /// Unknown hash algorithm.
-  /*/
-  SQ_STATUS_UNKNOWN_HASH_ALGORITHM = -7,
-
-  /*/
-  /// Unknown public key algorithm.
-  /*/
-  SQ_STATUS_UNKNOWN_PUBLICKEY_ALGORITHM = -17,
-
-  /*/
-  /// Unknown symmetric algorithm.
-  /*/
-  SQ_STATUS_UNKNOWN_SYMMETRIC_ALGORITHM = -8,
-
-  /*/
   /// Unsupported hash algorithm.
   /*/
   SQ_STATUS_UNSUPPORTED_HASH_ALGORITHM = -9,

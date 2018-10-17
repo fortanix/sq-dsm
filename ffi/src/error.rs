@@ -61,18 +61,6 @@ pub enum Status {
     /// The packet is malformed.
     MalformedPacket = -5,
 
-    /// Unknown packet type.
-    UnknownPacketTag = -6,
-
-    /// Unknown hash algorithm.
-    UnknownHashAlgorithm = -7,
-
-    /// Unknown public key algorithm.
-    UnknownPublicKeyAlgorithm = -17,
-
-    /// Unknown symmetric algorithm.
-    UnknownSymmetricAlgorithm = -8,
-
     /// Unsupported hash algorithm.
     UnsupportedHashAlgorithm = -9,
 
@@ -151,14 +139,6 @@ impl<'a> From<&'a failure::Error> for Status {
                     Status::InvalidOperation,
                 &openpgp::Error::MalformedPacket(_) =>
                     Status::MalformedPacket,
-                &openpgp::Error::UnknownPacketTag(_) =>
-                    Status::UnknownPacketTag,
-                &openpgp::Error::UnknownHashAlgorithm(_) =>
-                    Status::UnknownHashAlgorithm,
-                &openpgp::Error::UnknownPublicKeyAlgorithm(_) =>
-                    Status::UnknownPublicKeyAlgorithm,
-                &openpgp::Error::UnknownSymmetricAlgorithm(_) =>
-                    Status::UnknownSymmetricAlgorithm,
                 &openpgp::Error::UnsupportedHashAlgorithm(_) =>
                     Status::UnsupportedHashAlgorithm,
                 &openpgp::Error::UnsupportedPublicKeyAlgorithm(_) =>

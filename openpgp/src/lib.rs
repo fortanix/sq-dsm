@@ -167,22 +167,6 @@ pub enum Error {
     #[fail(display = "Malformed packet: {}", _0)]
     MalformedPacket(String),
 
-    /// Unknown packet tag.
-    #[fail(display = "Unknown packet type: {}", _0)]
-    UnknownPacketTag(packet::Tag),
-
-    /// Unknown hash algorithm identifier.
-    #[fail(display = "Unknown hash algorithm: {}", _0)]
-    UnknownHashAlgorithm(HashAlgorithm),
-
-    /// Unknown public key algorithm identifier.
-    #[fail(display = "Unknown public key algorithm: {}", _0)]
-    UnknownPublicKeyAlgorithm(PublicKeyAlgorithm),
-
-    /// Unknown symmetric algorithm identifier.
-    #[fail(display = "Unknown symmetric algorithm: {}", _0)]
-    UnknownSymmetricAlgorithm(SymmetricAlgorithm),
-
     /// Unsupported hash algorithm identifier.
     #[fail(display = "Unsupported hash algorithm: {}", _0)]
     UnsupportedHashAlgorithm(HashAlgorithm),
