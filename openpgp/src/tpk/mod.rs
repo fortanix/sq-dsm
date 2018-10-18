@@ -663,6 +663,10 @@ impl<'a> Iterator for KeyIter<'a> {
     }
 }
 
+impl<'a> ExactSizeIterator for KeyIter<'a> {
+    fn len(&self) -> usize { 1 + self.subkey_iter.len() }
+}
+
 // A TPKParser can read packets from either an Iterator or a
 // PacketParser.  Ideally, we would just take an iterator, but we
 // want to be able to handle errors, which iterators hide.
@@ -1093,6 +1097,10 @@ impl<'a> Iterator for UserIDBindingIter<'a> {
     }
 }
 
+impl<'a> ExactSizeIterator for UserIDBindingIter<'a> {
+    fn len(&self) -> usize { self.iter.len() }
+}
+
 /// An iterator over `UserAttributeBinding`s.
 pub struct UserAttributeBindingIter<'a> {
     iter: slice::Iter<'a, UserAttributeBinding>,
@@ -1106,6 +1114,10 @@ impl<'a> Iterator for UserAttributeBindingIter<'a> {
     }
 }
 
+impl<'a> ExactSizeIterator for UserAttributeBindingIter<'a> {
+    fn len(&self) -> usize { self.iter.len() }
+}
+
 /// An iterator over `SubkeyBinding`s.
 pub struct SubkeyBindingIter<'a> {
     iter: slice::Iter<'a, SubkeyBinding>,
@@ -1117,6 +1129,10 @@ impl<'a> Iterator for SubkeyBindingIter<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         self.iter.next()
     }
+}
+
+impl<'a> ExactSizeIterator for SubkeyBindingIter<'a> {
+    fn len(&self) -> usize { self.iter.len() }
 }
 
 impl TPK {
