@@ -30,6 +30,7 @@ sequoia-net = { path = "net", version = "0.2.0" }
 sequoia-store = { path = "store", version = "0.2.0" }
 sequoia-tool = { path = "tool", version = "0.2.0" }
 sequoia-sqv = { path = "sqv", version = "0.2.0" }
+sequoia-guide = { path = "guide", version = "0.2.0" }
 
 [lib]
 name = "sequoia"
