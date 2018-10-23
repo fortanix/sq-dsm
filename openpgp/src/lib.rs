@@ -482,9 +482,3 @@ pub enum RevocationStatus<'a> {
     /// revocation certificate.
     NotAsFarAsWeKnow,
 }
-
-/// Time-constant comparison.
-fn secure_eq(a: &[u8], b: &[u8]) -> bool {
-    a.len() == b.len() &&
-        unsafe { memsec::memeq(a.as_ptr(), b.as_ptr(), a.len()) }
-}
