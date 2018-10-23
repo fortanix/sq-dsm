@@ -1,7 +1,6 @@
 use std;
 use std::io;
 use std::io::prelude::*;
-use std::iter;
 use std::cmp;
 use std::collections::HashMap;
 use std::str;
@@ -72,6 +71,7 @@ pub(crate) use self::hashed_reader::HashedReader;
 mod packet_parser_builder;
 pub use self::packet_parser_builder::PacketParserBuilder;
 
+pub mod map;
 pub mod mpis;
 pub mod stream;
 
@@ -141,7 +141,7 @@ pub(crate) struct PacketHeaderParser<'a> {
     state: PacketParserState,
 
     /// A map of this packet.
-    map: Option<Map>,
+    map: Option<map::Map>,
 }
 
 /// Creates a local marco called php_try! that returns an Unknown
@@ -217,7 +217,7 @@ impl<'a> PacketHeaderParser<'a> {
         let mut cookie = Cookie::default();
         cookie.level = inner.cookie_ref().level;
         let map = if state.settings.map {
-            Some(Map::new(header_bytes.clone()))
+            Some(map::Map::new(header_bytes.clone()))
         } else {
             None
         };
@@ -682,92 +682,6 @@ impl Default for PacketParserSettings {
             buffer_unread_content: false,
             map: false,
         }
-    }
-}
-
-// Packet maps.
-
-/// Map created during parsing.
-///
-/// If configured to do so, a `PacketParser` will create a map that
-/// charts the byte-stream, describing where the information was
-/// extracted from.
-#[derive(Clone, Debug)]
-pub struct Map {
-    length: usize,
-    entries: Vec<Entry>,
-    header: Vec<u8>,
-    data: Vec<u8>,
-}
-
-#[derive(Clone, Debug)]
-struct Entry {
-    offset: usize,
-    length: usize,
-    field: &'static str,
-}
-
-impl Map {
-    /// Creates a new map.
-    fn new(header: Vec<u8>) -> Self {
-        Map {
-            length: 0,
-            entries: Vec::new(),
-            header: header,
-            data: Vec::new(),
-        }
-    }
-
-    /// Adds a field to the map.
-    fn add(&mut self, field: &'static str, length: usize) {
-        self.entries.push(Entry {
-            offset: self.length, length: length, field: field
-        });
-        self.length += length;
-    }
-
-    /// Finalizes the map providing the actual data.
-    fn finalize(&mut self, data: Vec<u8>) {
-        self.data = data;
-    }
-
-    /// Creates an iterator over the map.
-    ///
-    /// Items returned are a small string indicating what kind of
-    /// information is extracted (e.g. "header", or "version"), and a
-    /// slice containing the actual bytes.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use openpgp::Result;
-    /// # use openpgp::parse::{PacketParser, PacketParserBuilder};
-    /// # f();
-    /// #
-    /// # fn f() -> Result<()> {
-    /// let msg = b"\xcb\x12t\x00\x00\x00\x00\x00Hello world.";
-    /// let ppo = PacketParserBuilder::from_bytes(msg)?
-    ///     .map(true).finalize()?;
-    /// let map = ppo.unwrap().map.unwrap();
-    /// assert_eq!(map.iter().collect::<Vec<(&str, &[u8])>>(),
-    ///            [("header", &b"\xcb\x12"[..]),
-    ///             ("format", b"t"),
-    ///             ("filename_len", b"\x00"),
-    ///             ("date", b"\x00\x00\x00\x00"),
-    ///             ("body", b"Hello world.")]);
-    /// # Ok(())
-    /// # }
-    /// ```
-    pub fn iter<'a>(&'a self)
-                    -> Box<'a + iter::Iterator<Item=(&'static str, &'a [u8])>> {
-        let len = self.data.len();
-        Box::new(
-            iter::once(("header", self.header.as_slice()))
-                .chain(self.entries.iter().map(move |e| {
-                    let start = cmp::min(len, e.offset);
-                    let end = cmp::min(len, e.offset + e.length);
-                    (e.field, &self.data[start..end])
-                })))
     }
 }
 
@@ -2114,7 +2028,7 @@ pub struct PacketParser<'a> {
     decrypted: bool,
 
     /// A map of this packet.
-    pub map: Option<Map>,
+    pub map: Option<map::Map>,
 
     state: PacketParserState,
 }
