@@ -329,8 +329,8 @@ impl PacketDumper {
         if let Some(map) = map {
             writeln!(output)?;
             let mut hd = HexDumper::new();
-            for (field, bytes) in map.iter() {
-                hd.write(output, bytes, field)?;
+            for field in map.iter() {
+                hd.write(output, field.data, field.name)?;
             }
             writeln!(output)?;
         } else {

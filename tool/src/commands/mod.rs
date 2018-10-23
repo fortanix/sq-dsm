@@ -602,8 +602,8 @@ pub fn split(input: &mut io::Read, prefix: &str)
                 .context("Failed to create output file")?;
 
             // Write all the bytes.
-            for (_, buf) in map.iter() {
-                sink.write_all(buf)?;
+            for field in map.iter() {
+                sink.write_all(field.data)?;
             }
         }
 
