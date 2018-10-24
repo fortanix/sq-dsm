@@ -14,6 +14,7 @@ use crypto::{
 use HashAlgorithm;
 use PublicKeyAlgorithm;
 use SignatureType;
+use packet::Signature;
 use packet::Key;
 use KeyID;
 use packet::UserID;
@@ -42,7 +43,7 @@ fn path_to(artifact: &str) -> PathBuf {
 
 /// Builds a signature packet.
 ///
-/// This is the mutable version of a `Signature` packet.  To convert
+/// This is the mutable version of a `Signature4` packet.  To convert
 /// it to one, use `sign_hash(..)`.
 #[derive(Clone, Hash, PartialEq, Eq)]
 pub struct Builder {
@@ -229,25 +230,41 @@ impl Builder {
         let algo = self.hash_algo;
         let mpis = signer.sign(algo, &digest)?;
 
-        Ok(Signature {
+        Ok(Signature4 {
             common: Default::default(),
             fields: self,
             hash_prefix: [digest[0], digest[1]],
             mpis: mpis,
             computed_hash: Some((algo, digest)),
             level: 0,
-        })
+        }.into())
     }
 }
 
 impl From<Signature> for Builder {
     fn from(sig: Signature) -> Self {
+        match sig {
+            Signature::V4(sig) => sig.into(),
+        }
+    }
+}
+
+impl From<Signature4> for Builder {
+    fn from(sig: Signature4) -> Self {
         sig.fields
     }
 }
 
 impl<'a> From<&'a Signature> for &'a Builder {
     fn from(sig: &'a Signature) -> Self {
+        match sig {
+            Signature::V4(ref sig) => sig.into(),
+        }
+    }
+}
+
+impl<'a> From<&'a Signature4> for &'a Builder {
+    fn from(sig: &'a Signature4) -> Self {
         &sig.fields
     }
 }
@@ -263,7 +280,7 @@ impl<'a> From<&'a Signature> for &'a Builder {
 ///   [Section 5.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2
 // Note: we can't derive PartialEq, because it includes the cached data.
 #[derive(Eq, Hash, Clone)]
-pub struct Signature {
+pub struct Signature4 {
     /// CTB packet header fields.
     pub(crate) common: packet::Common,
 
@@ -287,7 +304,7 @@ pub struct Signature {
     level: usize,
 }
 
-impl Deref for Signature {
+impl Deref for Signature4 {
     type Target = Builder;
 
     fn deref(&self) -> &Self::Target {
@@ -295,7 +312,7 @@ impl Deref for Signature {
     }
 }
 
-impl fmt::Debug for Signature {
+impl fmt::Debug for Signature4 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         // Get the issuer.  Prefer the issuer fingerprint to the
         // issuer keyid, which may be stored in the unhashed area.
@@ -307,7 +324,7 @@ impl fmt::Debug for Signature {
             "Unknown".to_string()
         };
 
-        f.debug_struct("Signature")
+        f.debug_struct("Signature4")
             .field("version", &self.version())
             .field("sigtype", &self.sigtype())
             .field("issuer", &issuer)
@@ -329,12 +346,12 @@ impl fmt::Debug for Signature {
     }
 }
 
-impl PartialEq for Signature {
-    fn eq(&self, other: &Signature) -> bool {
+impl PartialEq for Signature4 {
+    fn eq(&self, other: &Signature4) -> bool {
         // Comparing the relevant fields is error prone in case we add
         // a field at some point.  Instead, we compare the serialized
         // versions.  As a small optimization, we compare the MPIs.
-        // Note: two `Signatures` could be different even if they have
+        // Note: two `Signature4s` could be different even if they have
         // the same MPI if the MPI was not invalidated when changing a
         // field.
         if self.mpis != other.mpis {
@@ -350,7 +367,7 @@ impl PartialEq for Signature {
     }
 }
 
-impl Signature {
+impl Signature4 {
     /// Creates a new signature packet.
     ///
     /// If you want to sign something, consider using the [`Builder`]
@@ -362,7 +379,7 @@ impl Signature {
                unhashed_area: SubpacketArea,
                hash_prefix: [u8; 2],
                mpis: mpis::Signature) -> Self {
-        Signature {
+        Signature4 {
             common: Default::default(),
             fields: Builder {
                 version: 4,
@@ -588,7 +605,7 @@ impl Signature {
             return Err(Error::UnsupportedSignatureType(self.sigtype()).into());
         }
 
-        let hash = Self::primary_key_binding_hash(self, pk)?;
+        let hash = Signature::primary_key_binding_hash(self, pk)?;
         self.verify_hash(signer, self.hash_algo(), &hash[..])
     }
 
@@ -606,7 +623,7 @@ impl Signature {
             return Err(Error::UnsupportedSignatureType(self.sigtype()).into());
         }
 
-        let hash = Self::primary_key_binding_hash(self, pk)?;
+        let hash = Signature::primary_key_binding_hash(self, pk)?;
         self.verify_hash(signer, self.hash_algo(), &hash[..])
     }
 
@@ -629,7 +646,7 @@ impl Signature {
             return Err(Error::UnsupportedSignatureType(self.sigtype()).into());
         }
 
-        let hash = Self::subkey_binding_hash(self, pk, subkey)?;
+        let hash = Signature::subkey_binding_hash(self, pk, subkey)?;
         if self.verify_hash(signer, self.hash_algo(), &hash[..])? {
             // The signature is good, but we may still need to verify
             // the back sig.
@@ -643,12 +660,14 @@ impl Signature {
         }
 
         let mut backsig_ok = false;
-        if let Some(Packet::Signature(backsig)) = self.embedded_signature() {
+        if let Some(Packet::Signature(super::Signature::V4(backsig))) =
+            self.embedded_signature()
+        {
             if backsig.sigtype() != SignatureType::PrimaryKeyBinding {
                 return Err(Error::UnsupportedSignatureType(self.sigtype()).into());
             } else {
                 // We can't use backsig.verify_subkey_binding.
-                let hash = Self::subkey_binding_hash(&backsig, pk, &subkey)?;
+                let hash = Signature::subkey_binding_hash(&backsig, pk, &subkey)?;
                 match backsig.verify_hash(&subkey, backsig.hash_algo(), &hash[..])
                 {
                     Ok(true) => {
@@ -693,7 +712,7 @@ impl Signature {
             return Err(Error::UnsupportedSignatureType(self.sigtype()).into());
         }
 
-        let hash = Self::subkey_binding_hash(self, pk, subkey)?;
+        let hash = Signature::subkey_binding_hash(self, pk, subkey)?;
         self.verify_hash(signer, self.hash_algo(), &hash[..])
     }
 
@@ -715,7 +734,7 @@ impl Signature {
             return Err(Error::UnsupportedSignatureType(self.sigtype()).into());
         }
 
-        let hash = Self::userid_binding_hash(self, pk, userid)?;
+        let hash = Signature::userid_binding_hash(self, pk, userid)?;
         self.verify_hash(signer, self.hash_algo(), &hash[..])
     }
 
@@ -734,7 +753,7 @@ impl Signature {
             return Err(Error::UnsupportedSignatureType(self.sigtype()).into());
         }
 
-        let hash = Self::userid_binding_hash(self, pk, userid)?;
+        let hash = Signature::userid_binding_hash(self, pk, userid)?;
         self.verify_hash(signer, self.hash_algo(), &hash[..])
     }
 
@@ -756,7 +775,7 @@ impl Signature {
             return Err(Error::UnsupportedSignatureType(self.sigtype()).into());
         }
 
-        let hash = Self::user_attribute_binding_hash(self, pk, ua)?;
+        let hash = Signature::user_attribute_binding_hash(self, pk, ua)?;
         self.verify_hash(signer, self.hash_algo(), &hash[..])
     }
 
@@ -775,7 +794,7 @@ impl Signature {
             return Err(Error::UnsupportedSignatureType(self.sigtype()).into());
         }
 
-        let hash = Self::user_attribute_binding_hash(self, pk, ua)?;
+        let hash = Signature::user_attribute_binding_hash(self, pk, ua)?;
         self.verify_hash(signer, self.hash_algo(), &hash[..])
     }
 
@@ -806,11 +825,18 @@ impl Signature {
     }
 }
 
-impl From<Signature> for Packet {
-    fn from(s: Signature) -> Self {
-        Packet::Signature(s)
+impl From<Signature4> for Packet {
+    fn from(s: Signature4) -> Self {
+        Packet::Signature(s.into())
     }
 }
+
+impl From<Signature4> for super::Signature {
+    fn from(s: Signature4) -> Self {
+        super::Signature::V4(s)
+    }
+}
+
 
 #[cfg(test)]
 mod test {

@@ -22,6 +22,7 @@ use {
     crypto::s2k::S2K,
     Error,
     Header,
+    packet::signature::Signature4,
     packet::prelude::*,
     Packet,
     KeyID,
@@ -859,10 +860,31 @@ impl Signature {
 
         let version = php_try!(php.parse_u8("version"));
 
-        if version != 4 {
-            t!("Ignoring version {} packet.", version);
-            return php.fail("unknown version");
+        match version {
+            4 => Signature4::parse(php),
+            _ => {
+                t!("Ignoring version {} packet.", version);
+                php.fail("unknown version")
+            },
         }
+    }
+
+    /// Returns whether the data appears to be a signature (no promises).
+    fn plausible(bio: &mut buffered_reader::Dup<Cookie>, header: &Header)
+                 -> Result<()> {
+        Signature4::plausible(bio, header)
+    }
+}
+
+impl Signature4 {
+    // Parses a signature packet.
+    fn parse<'a>(mut php: PacketHeaderParser<'a>)
+        -> Result<PacketParser<'a>>
+    {
+        let indent = php.recursion_depth();
+        tracer!(TRACE, "Signature4::parse", indent);
+
+        make_php_try!(php);
 
         let sigtype = php_try!(php.parse_u8("sigtype"));
         let pk_algo: PublicKeyAlgorithm = php_try!(php.parse_u8("pk_algo")).into();
@@ -884,12 +906,12 @@ impl Signature {
             crypto::mpis::Signature::parse(pk_algo, &mut php));
 
         let hash_algo = hash_algo.into();
-        let mut pp = php.ok(Packet::Signature(Signature::new(
+        let mut pp = php.ok(Packet::Signature(Signature4::new(
             sigtype.into(), pk_algo.into(), hash_algo,
             SubpacketArea::new(hashed_area),
             SubpacketArea::new(unhashed_area),
             [hash_prefix1, hash_prefix2],
-            mpis)))?;
+            mpis).into()))?;
 
         // Locate the corresponding HashedReader and extract the
         // computed hash.

@@ -18,7 +18,8 @@ use {
     SignatureType,
     HashAlgorithm,
     packet::Tag,
-    packet::signature::{self, Signature},
+    packet::Signature,
+    packet::signature,
     packet::Key,
     packet::key::SecretKey,
     packet::UserID,
@@ -539,7 +540,7 @@ impl SubkeyBinding {
 
         Ok(SubkeyBinding{
             subkey: subkey,
-            selfsigs: vec![sig],
+            selfsigs: vec![sig.into()],
             certifications: vec![],
             self_revocations: vec![],
             other_revocations: vec![],
@@ -658,7 +659,7 @@ impl UserIDBinding {
 
         Ok(UserIDBinding{
             userid: uid,
-            selfsigs: vec![sig],
+            selfsigs: vec![sig.into()],
             certifications: vec![],
             self_revocations: vec![],
             other_revocations: vec![],
@@ -1427,31 +1428,36 @@ impl<'a, I: Iterator<Item=Packet>> TPKParser<'a, I> {
                 let primary_keyid = primary.to_keyid();
 
                 for sig in sigs.into_iter() {
-                    let sigtype = sig.sigtype();
+                    match sig {
+                        Signature::V4(sig) => {
+                            let sigtype = sig.sigtype();
 
-                    let is_selfsig =
-                        sig.issuer_fingerprint()
-                            .map(|fp| fp == *primary)
-                            .unwrap_or(false)
-                        || sig.issuer()
-                            .map(|keyid| keyid == primary_keyid)
-                            .unwrap_or(false);
+                            let is_selfsig =
+                                sig.issuer_fingerprint()
+                                .map(|fp| fp == *primary)
+                                .unwrap_or(false)
+                                || sig.issuer()
+                                .map(|keyid| keyid == primary_keyid)
+                                .unwrap_or(false);
 
-                    if sigtype == SignatureType::KeyRevocation
-                        || sigtype == SignatureType::SubkeyRevocation
-                        || sigtype == SignatureType::CertificateRevocation
-                    {
-                        if is_selfsig {
-                            self_revs.push(sig);
-                        } else {
-                            other_revs.push(sig);
-                        }
-                    } else {
-                        if is_selfsig {
-                            selfsigs.push(sig);
-                        } else {
-                            certifications.push(sig);
-                        }
+                            use self::SignatureType::*;
+                            if sigtype == KeyRevocation
+                                || sigtype == SubkeyRevocation
+                                || sigtype == CertificateRevocation
+                            {
+                                if is_selfsig {
+                                    self_revs.push(sig.into());
+                                } else {
+                                    other_revs.push(sig.into());
+                                }
+                            } else {
+                                if is_selfsig {
+                                    selfsigs.push(sig.into());
+                                } else {
+                                    certifications.push(sig.into());
+                                }
+                            }
+                        },
                     }
                 }
 
@@ -1881,7 +1887,7 @@ impl TPK {
 
     /// Returns whether or not the TPK has expired.
     pub fn expired(&self) -> bool {
-        if let Some(sig) = self.primary_key_signature() {
+        if let Some(Signature::V4(sig)) = self.primary_key_signature() {
             sig.key_expired(self.primary())
         } else {
             false
@@ -1890,7 +1896,7 @@ impl TPK {
 
     /// Returns whether or not the key is expired at the given time.
     pub fn expired_at(&self, tm: time::Tm) -> bool {
-        if let Some(sig) = self.primary_key_signature() {
+        if let Some(Signature::V4(sig)) = self.primary_key_signature() {
             sig.key_expired_at(self.primary(), tm)
         } else {
             false

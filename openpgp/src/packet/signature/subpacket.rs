@@ -69,7 +69,7 @@ use {
     Error,
     Result,
     packet::Signature,
-    packet::signature,
+    packet::signature::{self, Signature4},
     packet::Features,
     packet::KeyFlags,
     packet::KeyServerPreferences,
@@ -725,7 +725,7 @@ impl<'a> SubpacketValue<'a> {
             Features(f) => f.as_vec().len(),
             SignatureTarget { ref digest, .. } => 1 + 1 + digest.len(),
             EmbeddedSignature(p) => match p {
-                &Packet::Signature(ref sig) => {
+                &Packet::Signature(Signature::V4(ref sig)) => {
                     let mut w = Vec::new();
                     sig.serialize_naked(&mut w).unwrap();
                     w.len()
@@ -1161,7 +1161,7 @@ quickcheck! {
 }
 
 
-impl Signature {
+impl Signature4 {
     /// Returns the *last* instance of the specified subpacket.
     fn subpacket<'a>(&'a self, tag: SubpacketTag) -> Option<Subpacket<'a>> {
         if let Some(sb) = self.hashed_area().lookup(tag) {

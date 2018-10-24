@@ -14,7 +14,7 @@ use {
 
 use crypto::{KeyPair, Password};
 use packet::{
-    signature::Signature,
+    Signature,
     Tag,
     UserID,
     Key,

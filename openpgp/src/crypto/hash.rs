@@ -4,7 +4,8 @@ use HashAlgorithm;
 use packet::UserID;
 use packet::UserAttribute;
 use packet::Key;
-use packet::{signature, Signature};
+use packet::Signature;
+use packet::signature::{self, Signature4};
 use Error;
 use Result;
 use conversions::Time;
@@ -212,6 +213,15 @@ impl Hash for Key {
 }
 
 impl Hash for Signature {
+    /// Adds the `Signature` to the provided hash context.
+    fn hash<H: nettle::Hash + Write>(&self, hash: &mut H) {
+        match self {
+            Signature::V4(sig) => sig.hash(hash),
+        }
+    }
+}
+
+impl Hash for Signature4 {
     /// Adds the `Signature` to the provided hash context.
     fn hash<H: nettle::Hash + Write>(&self, hash: &mut H) {
         self.fields.hash(hash);

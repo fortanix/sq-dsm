@@ -4,6 +4,7 @@ pub use super::{
     Tag,
     Unknown,
     Signature,
+    signature::Signature4,
     OnePassSig,
     Key,
     key::SecretKey,

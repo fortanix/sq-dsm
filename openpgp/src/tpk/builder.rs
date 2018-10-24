@@ -6,7 +6,8 @@ use packet::Key;
 use Result;
 use crypto::KeyPair;
 use HashAlgorithm;
-use packet::signature::{self, Signature};
+use packet::Signature;
+use packet::signature;
 use packet::key::SecretKey;
 use TPK;
 use Error;
@@ -292,7 +293,7 @@ impl TPKBuilder {
             }
         };
 
-        Ok((key, sig))
+        Ok((key, sig.into()))
     }
 }
 

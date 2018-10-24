@@ -9,7 +9,7 @@ use openpgp::armor;
 use openpgp::constants::DataFormat;
 use openpgp::crypto;
 use openpgp::{Packet, Error, Result};
-use openpgp::packet::signature::Signature;
+use openpgp::packet::Signature;
 use openpgp::parse::{
     Parse,
     PacketParserResult,

@@ -28,7 +28,6 @@ pub use self::header::Header;
 mod unknown;
 pub use self::unknown::Unknown;
 pub mod signature;
-pub use self::signature::Signature;
 mod one_pass_sig;
 pub use self::one_pass_sig::OnePassSig;
 pub mod key;
@@ -63,7 +62,7 @@ impl<'a> Deref for Packet {
     fn deref(&self) -> &Self::Target {
         match self {
             &Packet::Unknown(ref packet) => &packet.common,
-            &Packet::Signature(ref packet) => &packet.common,
+            &Packet::Signature(Signature::V4(ref packet)) => &packet.common,
             &Packet::OnePassSig(ref packet) => &packet.common,
             &Packet::PublicKey(ref packet) => &packet.common,
             &Packet::PublicSubkey(ref packet) => &packet.common,
@@ -87,7 +86,8 @@ impl<'a> DerefMut for Packet {
     fn deref_mut(&mut self) -> &mut Common {
         match self {
             &mut Packet::Unknown(ref mut packet) => &mut packet.common,
-            &mut Packet::Signature(ref mut packet) => &mut packet.common,
+            &mut Packet::Signature(Signature::V4(ref mut packet)) =>
+                &mut packet.common,
             &mut Packet::OnePassSig(ref mut packet) => &mut packet.common,
             &mut Packet::PublicKey(ref mut packet) => &mut packet.common,
             &mut Packet::PublicSubkey(ref mut packet) => &mut packet.common,
@@ -598,6 +598,55 @@ fn packet_path_iter() {
             }
 
             panic!("Something is broken.  Don't panic.");
+        }
+    }
+}
+
+/// Holds a signature packet.
+///
+/// Signature packets are used both for certification purposes as well
+/// as for document signing purposes.
+///
+/// See [Section 5.2 of RFC 4880] for details.
+///
+///   [Section 5.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2
+#[derive(PartialEq, Eq, Hash, Clone, Debug)]
+pub enum Signature {
+    /// Signature packet version 4.
+    V4(self::signature::Signature4),
+}
+
+impl Signature {
+    /// Gets the version.
+    pub fn version(&self) -> u8 {
+        match self {
+            &Signature::V4(_) => 4,
+        }
+    }
+}
+
+impl From<Signature> for Packet {
+    fn from(s: Signature) -> Self {
+        Packet::Signature(s)
+    }
+}
+
+// Trivial forwarder for singleton enum.
+impl Deref for Signature {
+    type Target = signature::Signature4;
+
+    fn deref(&self) -> &Self::Target {
+        match self {
+            Signature::V4(sig) => sig,
+        }
+    }
+}
+
+// Trivial forwarder for singleton enum.
+impl DerefMut for Signature {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        match self {
+            Signature::V4(ref mut sig) => sig,
         }
     }
 }

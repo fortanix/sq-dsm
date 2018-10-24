@@ -950,7 +950,7 @@ mod tests {
         use time::{at, Timespec};
         use {Fingerprint, KeyID};
         use constants::SignatureType;
-        use packet::signature::Signature;
+        use packet::signature::Signature4;
         use packet::signature::subpacket::{
             Subpacket, SubpacketValue, SubpacketArea};
 
@@ -972,12 +972,12 @@ mod tests {
         unhashed.add(Subpacket::new(SubpacketValue::Issuer(kid), false).unwrap()).unwrap();
 
         eprintln!("fpr: {}",key.fingerprint());
-        let sig = Signature::new(SignatureType::Binary, PublicKeyAlgorithm::EdDSA,
-                                 HashAlgorithm::SHA256, hashed, unhashed,
-                                 [0xa7,0x19],
-                                 mpis::Signature::EdDSA{
-                                     r: mpis::MPI::new(r), s: mpis::MPI::new(s)
-                                 });
+        let sig = Signature4::new(SignatureType::Binary, PublicKeyAlgorithm::EdDSA,
+                                  HashAlgorithm::SHA256, hashed, unhashed,
+                                  [0xa7,0x19],
+                                  mpis::Signature::EdDSA{
+                                      r: mpis::MPI::new(r), s: mpis::MPI::new(s)
+                                  });
         assert_eq!(sig.verify_message(&key, b"Hello, World\n").ok(), Some(true));
     }
 }

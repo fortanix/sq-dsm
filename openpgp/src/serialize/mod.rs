@@ -1016,6 +1016,42 @@ impl<'a> SerializeInto for SubpacketValue<'a> {
 
 impl Serialize for Signature {
     fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
+        match self {
+            &Signature::V4(ref s) => s.serialize(o),
+        }
+    }
+}
+
+impl SerializeInto for Signature {
+    fn serialized_len(&self) -> usize {
+        match self {
+            &Signature::V4(ref s) => s.serialized_len(),
+        }
+    }
+
+    fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
+        match self {
+            &Signature::V4(ref s) => s.serialize_into(buf),
+        }
+    }
+}
+
+impl Serialize for Signature4 {
+    /// Writes a serialized version of the specified `Signature`
+    /// packet to `o`.
+    ///
+    /// Note: this function does not compute the signature (which
+    /// would require access to the private key); it assumes that
+    /// sig.mpis is up to date.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::InvalidArgument`] if invoked on a
+    /// non-version 4 signature, or if either the hashed-area or the
+    /// unhashed-area exceeds the size limit of 2^16.
+    ///
+    /// [`Error::InvalidArgument`]: ../../enum.Error.html#variant.InvalidArgument
+    fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
         let len = self.net_len();
         CTB::new(Tag::Signature).serialize(o)?;
         BodyLength::Full(len as u32).serialize(o)?;
@@ -1024,7 +1060,7 @@ impl Serialize for Signature {
     }
 }
 
-impl NetLength for Signature {
+impl NetLength for Signature4 {
     fn net_len(&self) -> usize {
         1 // Version.
             + 1 // Signature type.
@@ -1039,7 +1075,7 @@ impl NetLength for Signature {
     }
 }
 
-impl SerializeInto for Signature {
+impl SerializeInto for Signature4 {
     fn serialized_len(&self) -> usize {
         self.gross_len()
     }
@@ -1049,7 +1085,7 @@ impl SerializeInto for Signature {
     }
 }
 
-impl Signature {
+impl Signature4 {
     /// Writes a serialized version of the specified `Signature`
     /// packet without framing to `o`.
     ///
