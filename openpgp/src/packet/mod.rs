@@ -13,6 +13,8 @@ use std::io;
 use Result;
 use Packet;
 
+pub mod prelude;
+
 pub mod ctb;
 use self::ctb::PacketLengthType;
 
