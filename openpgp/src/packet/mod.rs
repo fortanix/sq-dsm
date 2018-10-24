@@ -48,8 +48,7 @@ mod pkesk;
 pub use self::pkesk::PKESK;
 mod mdc;
 pub use self::mdc::MDC;
-mod aed;
-pub use self::aed::AED;
+pub mod aed;
 mod features;
 pub use self::features::Features;
 mod key_flags;
@@ -79,7 +78,7 @@ impl<'a> Deref for Packet {
             &Packet::SKESK(SKESK::V5(ref packet)) => &packet.skesk4.common,
             &Packet::SEIP(ref packet) => &packet.common,
             &Packet::MDC(ref packet) => &packet.common,
-            &Packet::AED(ref packet) => &packet.common,
+            &Packet::AED(AED::V1(ref packet)) => &packet.common,
         }
     }
 }
@@ -103,7 +102,7 @@ impl<'a> DerefMut for Packet {
             &mut Packet::SKESK(SKESK::V5(ref mut packet)) => &mut packet.skesk4.common,
             &mut Packet::SEIP(ref mut packet) => &mut packet.common,
             &mut Packet::MDC(ref mut packet) => &mut packet.common,
-            &mut Packet::AED(ref mut packet) => &mut packet.common,
+            &mut Packet::AED(AED::V1(ref mut packet)) => &mut packet.common,
         }
     }
 }
@@ -631,5 +630,52 @@ impl SKESK {
 impl From<SKESK> for Packet {
     fn from(p: SKESK) -> Self {
         Packet::SKESK(p)
+    }
+}
+
+/// Holds an AEAD encrypted data packet.
+///
+/// An AEAD encrypted data packet is a container.  See [Section 5.16
+/// of RFC 4880bis] for details.
+///
+/// [Section 5.16 of RFC 4880bis]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-05#section-5.16
+#[derive(PartialEq, Eq, Hash, Clone, Debug)]
+pub enum AED {
+    /// AED packet version 1.
+    V1(self::aed::AED1),
+}
+
+impl AED {
+    /// Gets the version.
+    pub fn version(&self) -> u8 {
+        match self {
+            AED::V1(_) => 1,
+        }
+    }
+}
+
+impl From<AED> for Packet {
+    fn from(p: AED) -> Self {
+        Packet::AED(p)
+    }
+}
+
+// Trivial forwarder for singleton enum.
+impl Deref for AED {
+    type Target = self::aed::AED1;
+
+    fn deref(&self) -> &Self::Target {
+        match self {
+            AED::V1(ref p) => p,
+        }
+    }
+}
+
+// Trivial forwarder for singleton enum.
+impl DerefMut for AED {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        match self {
+            AED::V1(ref mut p) => p,
+        }
     }
 }

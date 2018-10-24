@@ -1,3 +1,5 @@
+//! AEAD encrypted data packets.
+
 use std::ops::{Deref, DerefMut};
 
 use constants::{
@@ -16,11 +18,9 @@ use Result;
 ///
 /// [Section 5.16 of RFC 4880bis]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-05#section-5.16
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
-pub struct AED {
+pub struct AED1 {
     /// CTB packet header fields.
     pub(crate) common: packet::Common,
-    /// AED version. Must be 1.
-    version: u8,
     /// Cipher algorithm.
     cipher: SymmetricAlgorithm,
     /// AEAD algorithm.
@@ -31,8 +31,8 @@ pub struct AED {
     iv: Box<[u8]>,
 }
 
-impl AED {
-    /// Creates a new AED object.
+impl AED1 {
+    /// Creates a new AED1 object.
     pub fn new(cipher: SymmetricAlgorithm,
                aead: AEADAlgorithm,
                chunk_size: usize,
@@ -49,19 +49,13 @@ impl AED {
                 .into());
         }
 
-        Ok(AED {
+        Ok(AED1 {
             common: Default::default(),
-            version: 1,
             cipher: cipher,
             aead: aead,
             chunk_size: chunk_size,
             iv: iv,
         })
-    }
-
-    /// Gets the version.
-    pub fn version(&self) -> u8 {
-        self.version
     }
 
     /// Gets the cipher algorithm.
@@ -123,14 +117,20 @@ impl AED {
     }
 }
 
-impl From<AED> for Packet {
-    fn from(s: AED) -> Self {
-        Packet::AED(s)
+impl From<AED1> for Packet {
+    fn from(p: AED1) -> Self {
+        super::AED::from(p).into()
+    }
+}
+
+impl From<AED1> for super::AED {
+    fn from(p: AED1) -> Self {
+        super::AED::V1(p)
     }
 }
 
 // Allow transparent access of common fields.
-impl<'a> Deref for AED {
+impl<'a> Deref for AED1 {
     type Target = Common;
 
     fn deref(&self) -> &Self::Target {
@@ -139,7 +139,7 @@ impl<'a> Deref for AED {
 }
 
 // Allow transparent access of common fields.
-impl<'a> DerefMut for AED {
+impl<'a> DerefMut for AED1 {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.common
     }
@@ -151,10 +151,10 @@ mod tests {
 
     #[test]
     fn deref() {
-        let mut s = AED::new(SymmetricAlgorithm::AES128,
-                             AEADAlgorithm::EAX,
-                             64,
-                             vec![].into_boxed_slice()).unwrap();
+        let mut s = AED1::new(SymmetricAlgorithm::AES128,
+                              AEADAlgorithm::EAX,
+                              64,
+                              vec![].into_boxed_slice()).unwrap();
         assert_eq!(s.body(), None);
         s.set_body(vec![0, 1, 2]);
         assert_eq!(s.body(), Some(&[0, 1, 2][..]));

@@ -18,4 +18,5 @@ pub use super::{
     SEIP,
     MDC,
     AED,
+    aed::AED1,
 };

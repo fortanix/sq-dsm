@@ -1012,7 +1012,7 @@ impl<'a> Encryptor<'a> {
             // Write the AED packet.
             CTB::new(Tag::AED).serialize(&mut inner)?;
             let mut inner = PartialBodyFilter::new(inner, Cookie::new(level));
-            let aed = AED::new(algo, aead.algo, aead.chunk_size, aead.nonce)?;
+            let aed = AED1::new(algo, aead.algo, aead.chunk_size, aead.nonce)?;
             aed.serialize_headers(&mut inner)?;
 
             writer::AEADEncryptor::new(

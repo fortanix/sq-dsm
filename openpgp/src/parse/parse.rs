@@ -2020,7 +2020,7 @@ impl<'a> Parse<'a, MDC> for MDC {
     }
 }
 
-impl AED {
+impl AED1 {
     /// Parses the body of a AED packet.
     fn parse<'a>(mut php: PacketHeaderParser<'a>) -> Result<PacketParser<'a>> {
         make_php_try!(php);
@@ -2039,10 +2039,10 @@ impl AED {
         let iv_size = php_try!(aead.iv_size());
         let iv = php_try!(php.parse_bytes("iv", iv_size));
 
-        let aed = php_try!(AED::new(
+        let aed = php_try!(Self::new(
             cipher, aead, chunk_size, iv.into_boxed_slice()
         ));
-        php.ok(Packet::AED(aed)).map(|pp| pp.set_decrypted(false))
+        php.ok(aed.into()).map(|pp| pp.set_decrypted(false))
     }
 }
 
@@ -2927,7 +2927,7 @@ impl <'a> PacketParser<'a> {
             Tag::SEIP =>                SEIP::parse(parser),
             Tag::MDC =>                 MDC::parse(parser),
             Tag::PKESK =>               PKESK::parse(parser),
-            Tag::AED =>                 AED::parse(parser),
+            Tag::AED =>                 AED1::parse(parser),
             Tag::Reserved if skip > 0 => Unknown::parse(
                 parser, Error::MalformedPacket(format!(
                     "Skipped {} bytes of junk", skip)).into()),
@@ -3575,7 +3575,7 @@ impl<'a> PacketParser<'a> {
                 Ok(())
             },
 
-            Packet::AED(aed) => {
+            Packet::AED(AED::V1(aed)) => {
                 // Get the first chunk and check whether we can
                 // decrypt it using the provided key.  Don't actually
                 // comsume them in case we can't.

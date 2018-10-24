@@ -1635,11 +1635,33 @@ impl SerializeInto for MDC {
     }
 }
 
-impl AED {
+impl Serialize for AED {
+    fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
+        match self {
+            &AED::V1(ref p) => p.serialize(o),
+        }
+    }
+}
+
+impl SerializeInto for AED {
+    fn serialized_len(&self) -> usize {
+        match self {
+            &AED::V1(ref p) => p.serialized_len(),
+        }
+    }
+
+    fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
+        match self {
+            &AED::V1(ref p) => p.serialize_into(buf),
+        }
+    }
+}
+
+impl AED1 {
     /// Writes the headers of the `AED` data packet to `o`.
     fn serialize_headers<W: io::Write>(&self, o: &mut W)
                                        -> Result<()> {
-        o.write_all(&[self.version(),
+        o.write_all(&[1, // Version.
                       self.cipher().into(),
                       self.aead().into(),
                       self.chunk_size().trailing_zeros() as u8 - 6])?;
@@ -1648,7 +1670,7 @@ impl AED {
     }
 }
 
-impl Serialize for AED {
+impl Serialize for AED1 {
     /// Writes a serialized version of the specified `AED`
     /// packet to `o`.
     ///
@@ -1678,8 +1700,7 @@ impl Serialize for AED {
     }
 }
 
-
-impl NetLength for AED {
+impl NetLength for AED1 {
     fn net_len(&self) -> usize {
         if self.common.children.is_some() {
             0
@@ -1692,7 +1713,7 @@ impl NetLength for AED {
     }
 }
 
-impl SerializeInto for AED {
+impl SerializeInto for AED1 {
     fn serialized_len(&self) -> usize {
         self.gross_len()
     }
