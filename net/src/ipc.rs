@@ -39,7 +39,6 @@
 extern crate fs2;
 use self::fs2::FileExt;
 
-use failure;
 use std::fs;
 use std::io::{self, Read, Write};
 use std::net::{SocketAddr, AddrParseError, TcpStream, TcpListener};
@@ -67,6 +66,7 @@ use std::os::unix::io::AsRawFd;
 use std::thread;
 
 use sequoia_core as core;
+use super::Result;
 
 /// Servers need to implement this trait.
 pub trait Handler {
@@ -78,7 +78,8 @@ pub trait Handler {
 
 /// A factory for handlers.
 pub type HandlerFactory = fn(descriptor: Descriptor,
-                             handle: tokio_core::reactor::Handle) -> Option<Box<Handler>>;
+                             handle: tokio_core::reactor::Handle)
+                             -> Result<Box<Handler>>;
 
 /// A descriptor is used to connect to a service.
 #[derive(Clone)]
@@ -112,7 +113,7 @@ impl Descriptor {
 
     /// Connects to a descriptor, starting the server if necessary.
     pub fn connect(&self, handle: &tokio_core::reactor::Handle)
-                   -> io::Result<RpcSystem<Side>> {
+                   -> Result<RpcSystem<Side>> {
         self.connect_with_policy(handle, *self.ctx.ipc_policy())
     }
 
@@ -122,9 +123,9 @@ impl Descriptor {
     /// the given one.
     pub fn connect_with_policy(&self, handle: &tokio_core::reactor::Handle,
                                policy: core::IPCPolicy)
-                   -> io::Result<RpcSystem<Side>> {
+                   -> Result<RpcSystem<Side>> {
         let do_connect =
-            move |cookie: Cookie, mut s: TcpStream| -> io::Result<RpcSystem<Side>> {
+            move |cookie: Cookie, mut s: TcpStream| -> Result<RpcSystem<Side>> {
             cookie.send(&mut s)?;
 
             /* Tokioize.  */
@@ -153,7 +154,8 @@ impl Descriptor {
         file.read_to_end(&mut c)?;
 
         if let Some((cookie, a)) = Cookie::extract(c) {
-            let addr: Result<SocketAddr, AddrParseError> = String::from_utf8_lossy(&a).parse();
+            let addr: ::std::result::Result<SocketAddr, AddrParseError> =
+                String::from_utf8_lossy(&a).parse();
             if addr.is_err() {
                 /* Malformed.  Invalidate the cookie and try again.  */
                 file.set_len(0)?;
@@ -217,14 +219,14 @@ impl Descriptor {
 
     /// Try to create a TCP socket, bind it to a random port on
     /// localhost.
-    fn listen(&self) -> io::Result<TcpListener> {
+    fn listen(&self) -> Result<TcpListener> {
         let port = OsRng::new()?.next_u32() as u16;
-        TcpListener::bind((LOCALHOST, port))
+        Ok(TcpListener::bind((LOCALHOST, port))?)
     }
 
     /// Start the service, either as an external process or as a
     /// thread.
-    fn start(&self, external: bool) -> io::Result<SocketAddr> {
+    fn start(&self, external: bool) -> Result<SocketAddr> {
         /* Listen on a random port on localhost.  */
         let mut listener = self.listen();
         while listener.is_err() {
@@ -243,7 +245,7 @@ impl Descriptor {
         Ok(addr)
     }
 
-    fn fork(&self, l: TcpListener) -> io::Result<()> {
+    fn fork(&self, l: TcpListener) -> Result<()> {
         // Convert to raw fd, then forget l so that it will not be
         // closed when it is dropped.
         let fd = l.as_raw_fd();
@@ -262,9 +264,9 @@ impl Descriptor {
         Ok(())
     }
 
-    fn spawn(&self, l: TcpListener) -> io::Result<()> {
+    fn spawn(&self, l: TcpListener) -> Result<()> {
         let descriptor = self.clone();
-        thread::spawn(move || -> io::Result<()> {
+        thread::spawn(move || -> Result<()> {
             Ok(Server::new(descriptor)
                .expect("Failed to spawn server") // XXX
                .serve_listener(l)
@@ -282,7 +284,7 @@ pub struct Server {
 
 impl Server {
     /// Creates a new server for the descriptor.
-    pub fn new(descriptor: Descriptor) -> io::Result<Self> {
+    pub fn new(descriptor: Descriptor) -> Result<Self> {
         Ok(Server {
             core: tokio_core::reactor::Core::new()?,
             descriptor: descriptor,
@@ -290,7 +292,7 @@ impl Server {
     }
 
     /// Creates a Context from `env::args()`.
-    pub fn context() -> Result<core::Context, failure::Error> {
+    pub fn context() -> Result<core::Context> {
         use std::env::args;
         let args: Vec<String> = args().collect();
 
@@ -341,20 +343,18 @@ impl Server {
     ///         .expect("Failed to start server");
     /// }
     /// ```
-    pub fn serve(&mut self) -> io::Result<()> {
+    pub fn serve(&mut self) -> Result<()> {
         self.serve_listener(unsafe { TcpListener::from_raw_fd(0) })
     }
 
-    fn serve_listener(&mut self, l: TcpListener) -> io::Result<()> {
+    fn serve_listener(&mut self, l: TcpListener) -> Result<()> {
         /* The first client tells us our cookie.  */
         let mut i = l.accept()?;
         let cookie = Cookie::receive(&mut i.0)?;
         /* XXX: It'd be nice to recycle this connection.  */
         drop(i);
 
-        let handler = (self.descriptor.factory)(self.descriptor.clone(), self.core.handle())
-            .ok_or(
-                io::Error::new(io::ErrorKind::BrokenPipe, "Failed to start server"))?;
+        let handler = (self.descriptor.factory)(self.descriptor.clone(), self.core.handle())?;
 
         /* Tokioize.  */
         let handle = self.core.handle();
@@ -382,7 +382,7 @@ impl Server {
             Ok(())
         });
 
-        self.core.run(done)
+        Ok(self.core.run(done)?)
     }
 }
 
@@ -397,7 +397,7 @@ const COOKIE_SIZE: usize = 32;
 
 impl Cookie {
     /// Make a new cookie.
-    fn new() -> io::Result<Self> {
+    fn new() -> Result<Self> {
         let mut c = vec![0; COOKIE_SIZE];
         OsRng::new()?.fill_bytes(&mut c);
         Ok(Cookie(c))
@@ -426,7 +426,7 @@ impl Cookie {
     }
 
     /// Read a cookie from 'from'.
-    fn receive<R: Read>(from: &mut R) -> io::Result<Self> {
+    fn receive<R: Read>(from: &mut R) -> Result<Self> {
         let mut buf = vec![0; COOKIE_SIZE];
         from.read_exact(&mut buf)?;
         Ok(Cookie(buf))

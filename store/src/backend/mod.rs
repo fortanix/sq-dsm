@@ -61,11 +61,10 @@ fn random_duration(d: Duration) -> Duration {
 /* Entry point.  */
 
 /// Makes backends.
-pub fn factory(descriptor: ipc::Descriptor, handle: Handle) -> Option<Box<ipc::Handler>> {
-    match Backend::new(descriptor, handle) {
-        Ok(backend) => Some(Box::new(backend)),
-        Err(_) => None,
-    }
+pub fn factory(descriptor: ipc::Descriptor, handle: Handle)
+               -> Result<Box<ipc::Handler>> {
+    Backend::new(descriptor, handle)
+        .map(|b| -> Box<ipc::Handler> { Box::new(b) })
 }
 
 struct Backend {
