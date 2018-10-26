@@ -60,7 +60,7 @@ impl TSK {
         for s in self.key.primary_selfsigs.iter() {
             s.serialize(o)?;
         }
-        for s in self.key.primary_certifications.iter() {
+        for s in self.key.primary_self_revocations.iter() {
             s.serialize(o)?;
         }
         for s in self.key.primary_certifications.iter() {
