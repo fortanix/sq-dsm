@@ -731,6 +731,15 @@ impl SerializeKey for Key {
         let have_secret_key =
             (tag == Tag::SecretKey || tag == Tag::SecretSubkey)
             && self.secret.is_some();
+
+        // Only emit packets with the SecretKey or SecretSubkey tags
+        // if we have secrets.
+        let tag = match tag {
+            Tag::SecretKey    if ! have_secret_key => Tag::PublicKey,
+            Tag::SecretSubkey if ! have_secret_key => Tag::PublicSubkey,
+            t => t,
+        };
+
         let len = 1 + 4 + 1
             + self.mpis.serialized_len()
             + if have_secret_key {
