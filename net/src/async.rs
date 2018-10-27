@@ -17,7 +17,7 @@ use tokio_core::reactor::Handle;
 use url::Url;
 
 use openpgp::TPK;
-use openpgp::{KeyID, armor};
+use openpgp::{KeyID, armor, serialize::Serialize};
 use sequoia_core::{Context, NetworkPolicy};
 
 use super::{Error, Result};

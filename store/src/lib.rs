@@ -81,6 +81,7 @@ extern crate sequoia_net;
 use openpgp::Fingerprint;
 use openpgp::KeyID;
 use openpgp::TPK;
+use openpgp::serialize::Serialize;
 use sequoia_core as core;
 use sequoia_core::Context;
 use sequoia_net::ipc;

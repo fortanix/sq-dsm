@@ -30,6 +30,7 @@ use TSK;
 use parse::{
     PacketParserResult, PacketParser,
 };
+use serialize::Serialize;
 use serialize::stream::{
     Message, LiteralWriter, Encryptor, EncryptionMode,
 };

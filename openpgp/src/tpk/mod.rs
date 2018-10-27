@@ -2163,73 +2163,6 @@ impl TPK {
         PacketPile::from_packets(self.to_packets())
     }
 
-    /// Serializes the TPK.
-    pub fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
-        self.primary.serialize(o, Tag::PublicKey)?;
-
-        for s in self.primary_selfsigs.iter() {
-            s.serialize(o)?;
-        }
-        for s in self.primary_self_revocations.iter() {
-            s.serialize(o)?;
-        }
-        for s in self.primary_certifications.iter() {
-            s.serialize(o)?;
-        }
-        for s in self.primary_other_revocations.iter() {
-            s.serialize(o)?;
-        }
-
-        for u in self.userids.iter() {
-            u.userid.serialize(o)?;
-            for s in u.self_revocations() {
-                s.serialize(o)?;
-            }
-            for s in u.selfsigs.iter() {
-                s.serialize(o)?;
-            }
-            for s in u.other_revocations() {
-                s.serialize(o)?;
-            }
-            for s in u.certifications.iter() {
-                s.serialize(o)?;
-            }
-        }
-
-        for u in self.user_attributes.iter() {
-            u.user_attribute.serialize(o)?;
-            for s in u.self_revocations() {
-                s.serialize(o)?;
-            }
-            for s in u.selfsigs.iter() {
-                s.serialize(o)?;
-            }
-            for s in u.other_revocations() {
-                s.serialize(o)?;
-            }
-            for s in u.certifications.iter() {
-                s.serialize(o)?;
-            }
-        }
-
-        for k in self.subkeys.iter() {
-            k.subkey.serialize(o, Tag::PublicSubkey)?;
-            for s in k.self_revocations() {
-                s.serialize(o)?;
-            }
-            for s in k.selfsigs.iter() {
-                s.serialize(o)?;
-            }
-            for s in k.other_revocations() {
-                s.serialize(o)?;
-            }
-            for s in k.certifications.iter() {
-                s.serialize(o)?;
-            }
-        }
-        Ok(())
-    }
-
     /// Merges `other` into `self`.
     ///
     /// If `other` is a different key, then nothing is merged into
@@ -2293,6 +2226,75 @@ impl TPK {
         self.subkeys().any(|sk| {
             sk.binding_signature().is_some() && sk.subkey().secret().is_some()
         })
+    }
+}
+
+impl Serialize for TPK {
+    /// Serializes the TPK.
+    fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
+        self.primary.serialize(o, Tag::PublicKey)?;
+
+        for s in self.primary_selfsigs.iter() {
+            s.serialize(o)?;
+        }
+        for s in self.primary_self_revocations.iter() {
+            s.serialize(o)?;
+        }
+        for s in self.primary_certifications.iter() {
+            s.serialize(o)?;
+        }
+        for s in self.primary_other_revocations.iter() {
+            s.serialize(o)?;
+        }
+
+        for u in self.userids.iter() {
+            u.userid.serialize(o)?;
+            for s in u.self_revocations() {
+                s.serialize(o)?;
+            }
+            for s in u.selfsigs.iter() {
+                s.serialize(o)?;
+            }
+            for s in u.other_revocations() {
+                s.serialize(o)?;
+            }
+            for s in u.certifications.iter() {
+                s.serialize(o)?;
+            }
+        }
+
+        for u in self.user_attributes.iter() {
+            u.user_attribute.serialize(o)?;
+            for s in u.self_revocations() {
+                s.serialize(o)?;
+            }
+            for s in u.selfsigs.iter() {
+                s.serialize(o)?;
+            }
+            for s in u.other_revocations() {
+                s.serialize(o)?;
+            }
+            for s in u.certifications.iter() {
+                s.serialize(o)?;
+            }
+        }
+
+        for k in self.subkeys.iter() {
+            k.subkey.serialize(o, Tag::PublicSubkey)?;
+            for s in k.self_revocations() {
+                s.serialize(o)?;
+            }
+            for s in k.selfsigs.iter() {
+                s.serialize(o)?;
+            }
+            for s in k.other_revocations() {
+                s.serialize(o)?;
+            }
+            for s in k.certifications.iter() {
+                s.serialize(o)?;
+            }
+        }
+        Ok(())
     }
 }
 

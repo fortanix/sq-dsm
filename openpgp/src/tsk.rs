@@ -89,9 +89,11 @@ impl TSK {
     pub fn into_tpk(self) -> TPK {
         self.key
     }
+}
 
+impl Serialize for TSK {
     /// Serializes the TSK.
-    pub fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
+    fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
         self.key.primary.serialize(o, Tag::SecretKey)?;
 
         for s in self.key.primary_selfsigs.iter() {
