@@ -232,7 +232,7 @@ impl Key {
 pub enum SecretKey {
     /// Unencrypted secret key. Can be used as-is.
     Unencrypted {
-        /// MPIs of the secret key. Must be a *SecretKey enum variant.
+        /// MPIs of the secret key.
         mpis: mpis::SecretKey,
     },
     /// The secret key is encrypted with a password.
