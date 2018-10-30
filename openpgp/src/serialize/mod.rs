@@ -197,11 +197,10 @@ impl Serialize for KeyID {
     }
 
     /// Serializes the packet to a vector.
-    fn to_vec(&self) -> Vec<u8> {
+    fn to_vec(&self) -> Result<Vec<u8>> {
         let mut o = Vec::with_capacity(8);
-        // Writing to a vec can't fail.
-        self.serialize(&mut o).unwrap();
-        o
+        self.serialize(&mut o)?;
+        Ok(o)
     }
 }
 
@@ -389,11 +388,10 @@ pub trait Serialize {
     fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()>;
 
     /// Serializes the packet to a vector.
-    fn to_vec(&self) -> Vec<u8> {
+    fn to_vec(&self) -> Result<Vec<u8>> {
         let mut o = Vec::with_capacity(4096);
-        // Writing to a vec can't fail.
-        self.serialize(&mut o).unwrap();
-        o
+        self.serialize(&mut o)?;
+        Ok(o)
     }
 }
 
@@ -407,11 +405,10 @@ pub trait SerializeKey {
     fn serialize<W: io::Write>(&self, o: &mut W, tag: Tag) -> Result<()>;
 
     /// Serializes the packet to a vector.
-    fn to_vec(&self, tag: Tag) -> Vec<u8> {
+    fn to_vec(&self, tag: Tag) -> Result<Vec<u8>> {
         let mut o = Vec::with_capacity(4096);
-        // Writing to a vec can't fail.
-        self.serialize(&mut o, tag).unwrap();
-        o
+        self.serialize(&mut o, tag)?;
+        Ok(o)
     }
 }
 
@@ -705,11 +702,10 @@ impl Serialize for OnePassSig {
     }
 
     /// Serializes the packet to a vector.
-    fn to_vec(&self) -> Vec<u8> {
+    fn to_vec(&self) -> Result<Vec<u8>> {
         let mut o = Vec::with_capacity(32);
-        // Writing to a vec can't fail.
-        self.serialize(&mut o).unwrap();
-        o
+        self.serialize(&mut o)?;
+        Ok(o)
     }
 }
 
@@ -751,7 +747,11 @@ impl SerializeKey for Key {
                         ref ciphertext,
                         ..
                     } =>
-                        1 + s2k.to_vec().len() + ciphertext.len(),
+                        1
+                        // If serialization fails here, it will fail
+                        // further down, so the length doesn't matter.
+                        + s2k.to_vec().map(|o| o.len()).unwrap_or(0)
+                        + ciphertext.len(),
                 }
             } else {
                 0
@@ -818,11 +818,11 @@ impl Serialize for UserID {
     }
 
     /// Serializes the packet to a vector.
-    fn to_vec(&self) -> Vec<u8> {
+    fn to_vec(&self) -> Result<Vec<u8>> {
         let mut o = Vec::with_capacity(16 + self.value.len());
         // Writing to a vec can't fail.
-        self.serialize(&mut o).unwrap();
-        o
+        self.serialize(&mut o)?;
+        Ok(o)
     }
 }
 
@@ -840,11 +840,10 @@ impl Serialize for UserAttribute {
     }
 
     /// Serializes the packet to a vector.
-    fn to_vec(&self) -> Vec<u8> {
+    fn to_vec(&self) -> Result<Vec<u8>> {
         let mut o = Vec::with_capacity(16 + self.value.len());
-        // Writing to a vec can't fail.
-        self.serialize(&mut o).unwrap();
-        o
+        self.serialize(&mut o)?;
+        Ok(o)
     }
 }
 
@@ -898,14 +897,13 @@ impl Serialize for Literal {
     }
 
     /// Serializes the packet to a vector.
-    fn to_vec(&self) -> Vec<u8> {
+    fn to_vec(&self) -> Result<Vec<u8>> {
         let mut o = Vec::with_capacity(
             32 + self.common.body.as_ref().map(|b| b.len()).unwrap_or(0)
             + self.filename.as_ref().map(|b| b.len()).unwrap_or(0));
 
-        // Writing to a vec can't fail.
-        self.serialize(&mut o).unwrap();
-        o
+        self.serialize(&mut o)?;
+        Ok(o)
     }
 }
 
@@ -944,13 +942,11 @@ impl Serialize for CompressedData {
     }
 
     /// Serializes the packet to a vector.
-    fn to_vec(&self) -> Vec<u8> {
+    fn to_vec(&self) -> Result<Vec<u8>> {
         let mut o = Vec::with_capacity(4 * 1024 * 1024);
-
-        // Writing to a vec can't fail.
-        self.serialize(&mut o).unwrap();
+        self.serialize(&mut o)?;
         o.shrink_to_fit();
-        o
+        Ok(o)
     }
 }
 
@@ -1179,13 +1175,11 @@ impl Serialize for Packet {
     }
 
     /// Serializes the packet to a vector.
-    fn to_vec(&self) -> Vec<u8> {
+    fn to_vec(&self) -> Result<Vec<u8>> {
         let mut o = Vec::with_capacity(4 * 1024 * 1024);
-
-        // Writing to a vec can't fail.
-        self.serialize(&mut o).unwrap();
+        self.serialize(&mut o)?;
         o.shrink_to_fit();
-        o
+        Ok(o)
     }
 }
 
@@ -1200,13 +1194,11 @@ impl Serialize for PacketPile {
     }
 
     /// Serializes the packet to a vector.
-    fn to_vec(&self) -> Vec<u8> {
+    fn to_vec(&self) -> Result<Vec<u8>> {
         let mut o = Vec::with_capacity(4 * 1024 * 1024);
-
-        // Writing to a vec can't fail.
-        self.serialize(&mut o).unwrap();
+        self.serialize(&mut o)?;
         o.shrink_to_fit();
-        o
+        Ok(o)
     }
 }
 
@@ -1402,7 +1394,7 @@ mod serialize_test {
             let u = to_unknown_packet(&data[..]).unwrap();
 
             // 3. Serialize the packet it into a local buffer.
-            let data2 = u.to_vec();
+            let data2 = u.to_vec().unwrap();
 
             // 4. Modulo the body length encoding, check that the
             // reserialized content is identical to the original data.
@@ -1458,7 +1450,7 @@ mod serialize_test {
             let po = pile.descendants().next();
             if let Some(&Packet::CompressedData(ref cd)) = po {
                 // 4. Serialize the container.
-                let buffer = cd.to_vec();
+                let buffer = cd.to_vec().unwrap();
 
                 // 5. Reparse it.
                 let pile2 = PacketParserBuilder::from_bytes(&buffer[..]).unwrap()

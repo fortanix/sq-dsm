@@ -1445,7 +1445,8 @@ impl TPK {
 
         // Turn a signature into a key for use by dedup.
         fn sig_key(a: &mut Signature) -> Box<[u8]> {
-            a.to_vec().into_boxed_slice()
+            a.to_vec().expect("XXX: this better not fail")
+                .into_boxed_slice()
         }
 
         // Fallback time.

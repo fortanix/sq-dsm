@@ -50,7 +50,11 @@ impl PartialEq for OnePassSig {
         // Comparing the relevant fields is error prone in case we add
         // a field at some point.  Instead, we compare the serialized
         // versions.
-        return self.to_vec() == other.to_vec();
+        if let (Ok(a), Ok(b)) = (self.to_vec(), other.to_vec()) {
+            a == b
+        } else {
+            false
+        }
     }
 }
 

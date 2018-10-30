@@ -297,7 +297,11 @@ impl PartialEq for Signature {
         }
 
         // Do a full check by serializing the fields.
-        return self.to_vec() == other.to_vec();
+        if let (Ok(a), Ok(b)) = (self.to_vec(), other.to_vec()) {
+            a == b
+        } else {
+            false
+        }
     }
 }
 
