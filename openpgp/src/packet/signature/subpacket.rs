@@ -2456,7 +2456,7 @@ impl signature::Builder {
                                               -> Result<()> {
         self.hashed_area.replace(Subpacket::new(
             SubpacketValue::PreferredSymmetricAlgorithms(preferences),
-            true)?)
+            false)?)
     }
 
     /// Sets the value of the Revocation Key subpacket, which contains
@@ -2477,7 +2477,7 @@ impl signature::Builder {
     pub fn set_issuer(&mut self, id: KeyID) -> Result<()> {
         self.hashed_area.replace(Subpacket::new(
             SubpacketValue::Issuer(id),
-            true)?)
+            false)?)
     }
 
     /// Sets the value of the Preferred Hash Algorithms subpacket,
@@ -2489,7 +2489,7 @@ impl signature::Builder {
                                          -> Result<()> {
         self.hashed_area.replace(Subpacket::new(
             SubpacketValue::PreferredHashAlgorithms(preferences),
-            true)?)
+            false)?)
     }
 
     /// Sets the value of the Preferred Compression Algorithms
@@ -2501,7 +2501,7 @@ impl signature::Builder {
                                                 -> Result<()> {
         self.hashed_area.replace(Subpacket::new(
             SubpacketValue::PreferredCompressionAlgorithms(preferences),
-            true)?)
+            false)?)
     }
 
     /// Sets the value of the Key Server Preferences subpacket, which
@@ -2511,7 +2511,7 @@ impl signature::Builder {
                                       -> Result<()> {
         self.hashed_area.replace(Subpacket::new(
             SubpacketValue::KeyServerPreferences(preferences),
-            true)?)
+            false)?)
     }
 
     /// Sets the value of the Preferred Key Server subpacket, which
@@ -2520,7 +2520,7 @@ impl signature::Builder {
                                     -> Result<()> {
         self.hashed_area.replace(Subpacket::new(
             SubpacketValue::PreferredKeyServer(uri),
-            true)?)
+            false)?)
     }
 
     /// Sets the value of the Primary UserID subpacket, which
@@ -2536,7 +2536,7 @@ impl signature::Builder {
     pub fn set_policy_uri(&mut self, uri: &[u8]) -> Result<()> {
         self.hashed_area.replace(Subpacket::new(
             SubpacketValue::PolicyURI(uri),
-            true)?)
+            false)?)
     }
 
     /// Sets the value of the Key Flags subpacket, which contains
@@ -2567,7 +2567,7 @@ impl signature::Builder {
                 code: code,
                 reason: reason,
             },
-            true)?)
+            false)?)
     }
 
     /// Sets the value of the Features subpacket, which contains a
@@ -2576,7 +2576,7 @@ impl signature::Builder {
     pub fn set_features(&mut self, features: &Features) -> Result<()> {
         self.hashed_area.replace(Subpacket::new(
             SubpacketValue::Features(features.clone()),
-            true)?)
+            false)?)
     }
 
     /// Sets the value of the Signature Target subpacket, which
@@ -2610,7 +2610,7 @@ impl signature::Builder {
     pub fn set_issuer_fingerprint(&mut self, fp: Fingerprint) -> Result<()> {
         self.hashed_area.replace(Subpacket::new(
             SubpacketValue::IssuerFingerprint(fp),
-            true)?)
+            false)?)
     }
 
     /// Sets the value of the Preferred AEAD Algorithms subpacket,
@@ -2621,7 +2621,7 @@ impl signature::Builder {
                                          -> Result<()> {
         self.hashed_area.replace(Subpacket::new(
             SubpacketValue::PreferredAEADAlgorithms(preferences),
-            true)?)
+            false)?)
     }
 
     /// Sets the intended recipients.
