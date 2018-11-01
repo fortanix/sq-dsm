@@ -18,11 +18,11 @@
 /// # }
 /// ```
 
+extern crate dirs;
 extern crate tempdir;
 #[macro_use]
 extern crate failure;
 
-use std::env;
 use std::fmt;
 use std::fs;
 use std::io;
@@ -217,7 +217,7 @@ impl Config {
         } else {
             if home_not_set {
                 c.home =
-                    env::home_dir().ok_or(
+                    dirs::home_dir().ok_or(
                         format_err!("Failed to get users home directory"))?
                 .join(".sequoia");
             }

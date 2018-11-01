@@ -4,5 +4,6 @@ version = "0.1.0"
 authors = ["Justus Winter <justus@pep-project.org>"]
 
 [dependencies]
+dirs = "1.0"
 failure = "0.1.2"
 tempdir = "0.3.5"
