@@ -3165,4 +3165,16 @@ mod test {
             bytes!("already-revoked-private.pgp")).unwrap();
         assert!(tpk.is_tsk());
     }
+
+    #[test]
+    fn export_only_exports_public_key() {
+        let tpk = TPK::from_bytes(
+            bytes!("testy-new-private.pgp")).unwrap();
+        assert!(tpk.is_tsk());
+
+        let mut v = Vec::new();
+        tpk.serialize(&mut v).unwrap();
+        let tpk = TPK::from_bytes(&v).unwrap();
+        assert!(! tpk.is_tsk());
+    }
 }
