@@ -2172,7 +2172,8 @@ impl TPK {
         if self.primary != other.primary {
             // The primary key is not the same.  There is nothing to
             // do.
-            return Ok(self.canonicalize());
+            return Err(Error::InvalidArgument(
+                "Primary key mismatch".into()).into());
         }
 
         self.primary_selfsigs.append(
