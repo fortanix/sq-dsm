@@ -222,6 +222,175 @@ sq_writer_t sq_armor_writer_new (sq_context_t ctx, sq_writer_t inner,
 				 sq_armor_header_t *header, size_t header_len);
 
 
+
+/*/
+/// The OpenPGP packet tags as defined in [Section 4.3 of RFC 4880].
+///
+///   [Section 4.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.3
+///
+/// The values correspond to the serialized format.  The packet types
+/// named `UnassignedXX` are not in use as of RFC 4880.
+///
+/// Use [`Tag::from_numeric`] to translate a numeric value to a symbolic
+/// one.
+///
+///   [`Tag::from_numeric`]: enum.Tag.html#method.from_numeric
+/*/
+typedef enum sq_tag {
+    SQ_TAG_RESERVED0 = 0,
+    /* Public-Key Encrypted Session Key Packet.  */
+    SQ_TAG_PKESK = 1,
+    SQ_TAG_SIGNATURE = 2,
+    /* Symmetric-Key Encrypted Session Key Packet.  */
+    SQ_TAG_SKESK = 3,
+    /* One-Pass Signature Packet.  */
+    SQ_TAG_ONE_PASS_SIG = 4,
+    SQ_TAG_SECRET_KEY = 5,
+    SQ_TAG_PUBLIC_KEY = 6,
+    SQ_TAG_SECRET_SUBKEY = 7,
+    SQ_TAG_COMPRESSED_DATA = 8,
+    /* Symmetrically Encrypted Data Packet.  */
+    SQ_TAG_SED = 9,
+    SQ_TAG_MARKER = 10,
+    SQ_TAG_LITERAL = 11,
+    SQ_TAG_TRUST = 12,
+    SQ_TAG_USER_ID = 13,
+    SQ_TAG_PUBLIC_SUBKEY = 14,
+
+    SQ_TAG_UNASSIGNED15 = 15,
+    SQ_TAG_UNASSIGNED16 = 16,
+
+    SQ_TAG_USER_ATTRIBUTE = 17,
+    /* Sym. Encrypted and Integrity Protected Data Packet.  */
+    SQ_TAG_SEIP = 18,
+    /* Modification Detection Code Packet.  */
+    SQ_TAG_MDC = 19,
+
+    /* Unassigned packets (as of RFC4880).  */
+    SQ_TAG_UNASSIGNED20 = 20,
+    SQ_TAG_UNASSIGNED21 = 21,
+    SQ_TAG_UNASSIGNED22 = 22,
+    SQ_TAG_UNASSIGNED23 = 23,
+    SQ_TAG_UNASSIGNED24 = 24,
+    SQ_TAG_UNASSIGNED25 = 25,
+    SQ_TAG_UNASSIGNED26 = 26,
+    SQ_TAG_UNASSIGNED27 = 27,
+    SQ_TAG_UNASSIGNED28 = 28,
+    SQ_TAG_UNASSIGNED29 = 29,
+
+    SQ_TAG_UNASSIGNED30 = 30,
+    SQ_TAG_UNASSIGNED31 = 31,
+    SQ_TAG_UNASSIGNED32 = 32,
+    SQ_TAG_UNASSIGNED33 = 33,
+    SQ_TAG_UNASSIGNED34 = 34,
+    SQ_TAG_UNASSIGNED35 = 35,
+    SQ_TAG_UNASSIGNED36 = 36,
+    SQ_TAG_UNASSIGNED37 = 37,
+    SQ_TAG_UNASSIGNED38 = 38,
+    SQ_TAG_UNASSIGNED39 = 39,
+
+    SQ_TAG_UNASSIGNED40 = 40,
+    SQ_TAG_UNASSIGNED41 = 41,
+    SQ_TAG_UNASSIGNED42 = 42,
+    SQ_TAG_UNASSIGNED43 = 43,
+    SQ_TAG_UNASSIGNED44 = 44,
+    SQ_TAG_UNASSIGNED45 = 45,
+    SQ_TAG_UNASSIGNED46 = 46,
+    SQ_TAG_UNASSIGNED47 = 47,
+    SQ_TAG_UNASSIGNED48 = 48,
+    SQ_TAG_UNASSIGNED49 = 49,
+
+    SQ_TAG_UNASSIGNED50 = 50,
+    SQ_TAG_UNASSIGNED51 = 51,
+    SQ_TAG_UNASSIGNED52 = 52,
+    SQ_TAG_UNASSIGNED53 = 53,
+    SQ_TAG_UNASSIGNED54 = 54,
+    SQ_TAG_UNASSIGNED55 = 55,
+    SQ_TAG_UNASSIGNED56 = 56,
+    SQ_TAG_UNASSIGNED57 = 57,
+    SQ_TAG_UNASSIGNED58 = 58,
+    SQ_TAG_UNASSIGNED59 = 59,
+
+    /* Experimental packets.  */
+    SQ_TAG_PRIVATE0 = 60,
+    SQ_TAG_PRIVATE1 = 61,
+    SQ_TAG_PRIVATE2 = 62,
+    SQ_TAG_PRIVATE3 = 63,
+} sq_tag_t;
+
+/*/
+/// Opaque types for all the Packets that Sequoia understands.
+/*/
+typedef struct sq_unknown *sq_unknown_t;
+typedef struct sq_signature *sq_signature_t;
+typedef struct sq_one_pass_sig *sq_one_pass_sig_t;
+typedef struct sq_p_key *sq_p_key_t;
+typedef struct sq_user_id *sq_user_id_t;
+typedef struct sq_user_attribute *sq_user_attribute_t;
+typedef struct sq_literal *sq_literal_t;
+typedef struct sq_compressed_data *sq_compressed_data_t;
+typedef struct sq_pkesk *sq_pkesk_t;
+typedef struct sq_skesk *sq_skesk_t;
+typedef struct sq_seip *sq_seip_t;
+typedef struct sq_mdc *sq_mdc_t;
+
+/*/
+/// The OpenPGP packets that Sequoia understands.
+///
+/// The different OpenPGP packets are detailed in [Section 5 of RFC 4880].
+///
+/// The `Unknown` packet allows Sequoia to deal with packets that it
+/// doesn't understand.  The `Unknown` packet is basically a binary
+/// blob that includes the packet's tag.
+///
+/// The unknown packet is also used for packets that are understood,
+/// but use unsupported options.  For instance, when the packet parser
+/// encounters a compressed data packet with an unknown compression
+/// algorithm, it returns the packet in an `Unknown` packet rather
+/// than a `CompressedData` packet.
+///
+///   [Section 5 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5
+/*/
+typedef union sq_packet {
+  sq_unknown_t unknown;
+  sq_signature_t signature;
+  sq_one_pass_sig_t one_pass_sig;
+  sq_p_key_t key;
+  sq_user_id_t user_id;
+  sq_user_attribute_t user_attribute;
+  sq_literal_t literal;
+  sq_compressed_data_t compressed_data;
+  sq_pkesk_t pkesk;
+  sq_skesk_t skesk;
+  sq_seip_t seip;
+  sq_mdc_t mdc;
+} sq_packet_t;
+
+/*/
+/// Frees the Packet.
+/*/
+void sq_packet_free (sq_packet_t p);
+
+/*/
+/// Returns the `Packet's` corresponding OpenPGP tag.
+///
+/// Tags are explained in [Section 4.3 of RFC 4880].
+///
+///   [Section 4.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.3
+/*/
+sq_tag_t sq_packet_tag (sq_packet_t p);
+
+/*/
+/// Returns the parsed `Packet's` corresponding OpenPGP tag.
+///
+/// Returns the packets tag, but only if it was successfully
+/// parsed into the corresponding packet type.  If e.g. a
+/// Signature Packet uses some unsupported methods, it is parsed
+/// into an `Packet::Unknown`.  `tag()` returns `SQ_TAG_SIGNATURE`,
+/// whereas `kind()` returns `0`.
+/*/
+sq_tag_t sq_packet_kind (sq_packet_t p);
+
 /* openpgp::PacketPile.  */
 
 /*/
@@ -479,175 +648,6 @@ sq_tpk_t sq_tsk_tpk (sq_tsk_t tsk);
 sq_status_t sq_tsk_serialize (sq_context_t ctx,
                               const sq_tsk_t tsk,
                               sq_writer_t writer);
-
-
-/*/
-/// The OpenPGP packet tags as defined in [Section 4.3 of RFC 4880].
-///
-///   [Section 4.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.3
-///
-/// The values correspond to the serialized format.  The packet types
-/// named `UnassignedXX` are not in use as of RFC 4880.
-///
-/// Use [`Tag::from_numeric`] to translate a numeric value to a symbolic
-/// one.
-///
-///   [`Tag::from_numeric`]: enum.Tag.html#method.from_numeric
-/*/
-typedef enum sq_tag {
-    SQ_TAG_RESERVED0 = 0,
-    /* Public-Key Encrypted Session Key Packet.  */
-    SQ_TAG_PKESK = 1,
-    SQ_TAG_SIGNATURE = 2,
-    /* Symmetric-Key Encrypted Session Key Packet.  */
-    SQ_TAG_SKESK = 3,
-    /* One-Pass Signature Packet.  */
-    SQ_TAG_ONE_PASS_SIG = 4,
-    SQ_TAG_SECRET_KEY = 5,
-    SQ_TAG_PUBLIC_KEY = 6,
-    SQ_TAG_SECRET_SUBKEY = 7,
-    SQ_TAG_COMPRESSED_DATA = 8,
-    /* Symmetrically Encrypted Data Packet.  */
-    SQ_TAG_SED = 9,
-    SQ_TAG_MARKER = 10,
-    SQ_TAG_LITERAL = 11,
-    SQ_TAG_TRUST = 12,
-    SQ_TAG_USER_ID = 13,
-    SQ_TAG_PUBLIC_SUBKEY = 14,
-
-    SQ_TAG_UNASSIGNED15 = 15,
-    SQ_TAG_UNASSIGNED16 = 16,
-
-    SQ_TAG_USER_ATTRIBUTE = 17,
-    /* Sym. Encrypted and Integrity Protected Data Packet.  */
-    SQ_TAG_SEIP = 18,
-    /* Modification Detection Code Packet.  */
-    SQ_TAG_MDC = 19,
-
-    /* Unassigned packets (as of RFC4880).  */
-    SQ_TAG_UNASSIGNED20 = 20,
-    SQ_TAG_UNASSIGNED21 = 21,
-    SQ_TAG_UNASSIGNED22 = 22,
-    SQ_TAG_UNASSIGNED23 = 23,
-    SQ_TAG_UNASSIGNED24 = 24,
-    SQ_TAG_UNASSIGNED25 = 25,
-    SQ_TAG_UNASSIGNED26 = 26,
-    SQ_TAG_UNASSIGNED27 = 27,
-    SQ_TAG_UNASSIGNED28 = 28,
-    SQ_TAG_UNASSIGNED29 = 29,
-
-    SQ_TAG_UNASSIGNED30 = 30,
-    SQ_TAG_UNASSIGNED31 = 31,
-    SQ_TAG_UNASSIGNED32 = 32,
-    SQ_TAG_UNASSIGNED33 = 33,
-    SQ_TAG_UNASSIGNED34 = 34,
-    SQ_TAG_UNASSIGNED35 = 35,
-    SQ_TAG_UNASSIGNED36 = 36,
-    SQ_TAG_UNASSIGNED37 = 37,
-    SQ_TAG_UNASSIGNED38 = 38,
-    SQ_TAG_UNASSIGNED39 = 39,
-
-    SQ_TAG_UNASSIGNED40 = 40,
-    SQ_TAG_UNASSIGNED41 = 41,
-    SQ_TAG_UNASSIGNED42 = 42,
-    SQ_TAG_UNASSIGNED43 = 43,
-    SQ_TAG_UNASSIGNED44 = 44,
-    SQ_TAG_UNASSIGNED45 = 45,
-    SQ_TAG_UNASSIGNED46 = 46,
-    SQ_TAG_UNASSIGNED47 = 47,
-    SQ_TAG_UNASSIGNED48 = 48,
-    SQ_TAG_UNASSIGNED49 = 49,
-
-    SQ_TAG_UNASSIGNED50 = 50,
-    SQ_TAG_UNASSIGNED51 = 51,
-    SQ_TAG_UNASSIGNED52 = 52,
-    SQ_TAG_UNASSIGNED53 = 53,
-    SQ_TAG_UNASSIGNED54 = 54,
-    SQ_TAG_UNASSIGNED55 = 55,
-    SQ_TAG_UNASSIGNED56 = 56,
-    SQ_TAG_UNASSIGNED57 = 57,
-    SQ_TAG_UNASSIGNED58 = 58,
-    SQ_TAG_UNASSIGNED59 = 59,
-
-    /* Experimental packets.  */
-    SQ_TAG_PRIVATE0 = 60,
-    SQ_TAG_PRIVATE1 = 61,
-    SQ_TAG_PRIVATE2 = 62,
-    SQ_TAG_PRIVATE3 = 63,
-} sq_tag_t;
-
-/*/
-/// Opaque types for all the Packets that Sequoia understands.
-/*/
-typedef struct sq_unknown *sq_unknown_t;
-typedef struct sq_signature *sq_signature_t;
-typedef struct sq_one_pass_sig *sq_one_pass_sig_t;
-typedef struct sq_p_key *sq_p_key_t;
-typedef struct sq_user_id *sq_user_id_t;
-typedef struct sq_user_attribute *sq_user_attribute_t;
-typedef struct sq_literal *sq_literal_t;
-typedef struct sq_compressed_data *sq_compressed_data_t;
-typedef struct sq_pkesk *sq_pkesk_t;
-typedef struct sq_skesk *sq_skesk_t;
-typedef struct sq_seip *sq_seip_t;
-typedef struct sq_mdc *sq_mdc_t;
-
-/*/
-/// The OpenPGP packets that Sequoia understands.
-///
-/// The different OpenPGP packets are detailed in [Section 5 of RFC 4880].
-///
-/// The `Unknown` packet allows Sequoia to deal with packets that it
-/// doesn't understand.  The `Unknown` packet is basically a binary
-/// blob that includes the packet's tag.
-///
-/// The unknown packet is also used for packets that are understood,
-/// but use unsupported options.  For instance, when the packet parser
-/// encounters a compressed data packet with an unknown compression
-/// algorithm, it returns the packet in an `Unknown` packet rather
-/// than a `CompressedData` packet.
-///
-///   [Section 5 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5
-/*/
-typedef union sq_packet {
-  sq_unknown_t unknown;
-  sq_signature_t signature;
-  sq_one_pass_sig_t one_pass_sig;
-  sq_p_key_t key;
-  sq_user_id_t user_id;
-  sq_user_attribute_t user_attribute;
-  sq_literal_t literal;
-  sq_compressed_data_t compressed_data;
-  sq_pkesk_t pkesk;
-  sq_skesk_t skesk;
-  sq_seip_t seip;
-  sq_mdc_t mdc;
-} sq_packet_t;
-
-/*/
-/// Frees the Packet.
-/*/
-void sq_packet_free (sq_packet_t p);
-
-/*/
-/// Returns the `Packet's` corresponding OpenPGP tag.
-///
-/// Tags are explained in [Section 4.3 of RFC 4880].
-///
-///   [Section 4.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.3
-/*/
-sq_tag_t sq_packet_tag (sq_packet_t p);
-
-/*/
-/// Returns the parsed `Packet's` corresponding OpenPGP tag.
-///
-/// Returns the packets tag, but only if it was successfully
-/// parsed into the corresponding packet type.  If e.g. a
-/// Signature Packet uses some unsupported methods, it is parsed
-/// into an `Packet::Unknown`.  `tag()` returns `SQ_TAG_SIGNATURE`,
-/// whereas `kind()` returns `0`.
-/*/
-sq_tag_t sq_packet_kind (sq_packet_t p);
 
 /*/
 /// Computes and returns the key's fingerprint as per Section 12.2
