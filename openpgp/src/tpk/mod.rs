@@ -539,12 +539,52 @@ impl UserIDBinding {
     /// you want to know whether the key, subkey, etc., is revoked,
     /// then you need to query them separately.
     pub fn revoked(&self) -> RevocationStatus {
-        if self.self_revocations.len() > 0 {
-            RevocationStatus::Revoked(&self.self_revocations[..])
-        } else if self.other_revocations.len() > 0 {
+        let has_self_revs =
+            Self::active_revocation(self.selfsigs.clone(),
+                                    self.self_revocations.clone());
+
+        if has_self_revs {
+            return RevocationStatus::Revoked(&self.self_revocations[..]);
+        }
+
+        let has_other_revs =
+            Self::active_revocation(self.selfsigs.clone(),
+                                    self.other_revocations.clone());
+
+        if has_other_revs {
             RevocationStatus::CouldBe(&self.other_revocations[..])
         } else {
             RevocationStatus::NotAsFarAsWeKnow
+        }
+    }
+
+    /// Returns true if latest revocation signature in `revs` is newer than the
+    /// latest self signature in sigs.
+    ///
+    /// Signatures are expected to have the right signature types and be
+    /// cryptographically sound.
+    fn active_revocation(mut sigs: Vec<Signature>, mut revs: Vec<Signature>)
+    -> bool
+    {
+        let cmp = |a: &Signature, b: &Signature| {
+            match (a.signature_creation_time(),b.signature_creation_time()) {
+                (None, None) => Ordering::Equal,
+                (None, Some(_)) => Ordering::Greater,
+                (Some(_), None) => Ordering::Less,
+                (Some(ref a), Some(ref b)) => a.cmp(b),
+            }
+        };
+
+        sigs.sort_by(&cmp);
+        revs.sort_by(&cmp);
+
+        match (sigs.last(), revs.last()) {
+            (None, Some(_)) => true,
+            (Some(_), None) => false,
+            (None, None) => false,
+            (Some(ref sig), Some(ref revc)) => {
+                cmp(sig, revc) != Ordering::Greater
+            }
         }
     }
 }
@@ -3135,6 +3175,15 @@ mod test {
 
         let tpk = tpk.merge_packets(&[ sig.to_packet() ]).unwrap();
         assert_match!(RevocationStatus::Revoked(_) = tpk.revoked());
+    }
+
+    #[test]
+    fn unrevoked() {
+        let tpk = TPK::from_bytes(bytes!("un-revoked-userid.pgp")).unwrap();
+
+        for uid in tpk.userids() {
+            assert_eq!(uid.revoked(), RevocationStatus::NotAsFarAsWeKnow);
+        }
     }
 
     #[test]
