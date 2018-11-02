@@ -487,5 +487,8 @@ mod tests {
             .set_cipher_suite(CipherSuite::Cv25519)
             .generate().unwrap();
         assert_eq!(tpk.revoked(), RevocationStatus::NotAsFarAsWeKnow);
+
+        let tpk = tpk.merge_packets(&[revocation.clone().into()]).unwrap();
+        assert_eq!(tpk.revoked(), RevocationStatus::Revoked(&[revocation]));
     }
 }
