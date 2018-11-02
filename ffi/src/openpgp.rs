@@ -13,6 +13,9 @@ extern crate openpgp;
 
 use self::openpgp::{
     armor, Fingerprint, KeyID, PacketPile, TPK, TSK, Packet, crypto::Password,
+    packet::{
+        Signature,
+    },
 };
 use self::openpgp::tpk::{CipherSuite, TPKBuilder};
 use self::openpgp::parse::{PacketParserResult, PacketParser, PacketParserEOF};
@@ -822,6 +825,7 @@ pub extern "system" fn sq_tpk_into_tsk(tpk: *mut TPK)
 /// sq_context_t ctx;
 /// sq_tpk_builder_t builder;
 /// sq_tpk_t tpk;
+/// sq_signature_t revocation;
 ///
 /// ctx = sq_context_new ("org.sequoia-pgp.tests", NULL);
 ///
@@ -830,8 +834,9 @@ pub extern "system" fn sq_tpk_into_tsk(tpk: *mut TPK)
 /// sq_tpk_builder_add_userid (&builder, "some@example.org");
 /// sq_tpk_builder_add_signing_subkey (&builder);
 /// sq_tpk_builder_add_encryption_subkey (&builder);
-/// tpk = sq_tpk_builder_generate (ctx, builder);
+/// sq_tpk_builder_generate (ctx, builder, &tpk, &revocation);
 /// assert (tpk);
+/// assert (revocation);
 /// ```
 #[no_mangle]
 pub extern "system" fn sq_tpk_builder_default() -> *mut TPKBuilder {
@@ -933,13 +938,24 @@ pub extern "system" fn sq_tpk_builder_add_certification_subkey
 /// Consumes `tpkb`.
 #[no_mangle]
 pub extern "system" fn sq_tpk_builder_generate
-    (ctx: Option<&mut Context>, tpkb: *mut TPKBuilder)
-    -> *mut TPK
+    (ctx: Option<&mut Context>, tpkb: *mut TPKBuilder,
+     tpk_out: Option<&mut *mut TPK>,
+     revocation_out: Option<&mut *mut Signature>)
+    -> Status
 {
     let ctx = ctx.expect("CTX is NULL");
     assert!(!tpkb.is_null());
+    let tpk_out = tpk_out.expect("TPK is NULL");
+    let revocation_out = revocation_out.expect("REVOCATION is NULL");
     let tpkb = unsafe { Box::from_raw(tpkb) };
-    fry_box!(ctx, tpkb.generate())
+    match tpkb.generate() {
+        Ok((tpk, revocation)) => {
+            *tpk_out = box_raw!(tpk);
+            *revocation_out = box_raw!(revocation);
+            Status::Success
+        },
+        Err(e) => fry_status!(ctx, Err::<(), failure::Error>(e)),
+    }
 }
 
 
@@ -948,14 +964,26 @@ pub extern "system" fn sq_tpk_builder_generate
 /// Generates a new RSA 3072 bit key with UID `primary_uid`.
 #[no_mangle]
 pub extern "system" fn sq_tsk_new(ctx: Option<&mut Context>,
-                                  primary_uid: *const c_char)
-                                  -> *mut TSK {
+                                  primary_uid: *const c_char,
+                                  tpk_out: Option<&mut *mut TSK>,
+                                  revocation_out: Option<&mut *mut Signature>)
+                                  -> Status
+{
     let ctx = ctx.expect("CONTEXT is NULL");
     assert!(!primary_uid.is_null());
+    let tpk_out = tpk_out.expect("TPK is NULL");
+    let revocation_out = revocation_out.expect("REVOCATION is NULL");
     let primary_uid = unsafe {
         CStr::from_ptr(primary_uid)
     };
-    fry_box!(ctx, TSK::new(primary_uid.to_string_lossy()))
+    match TSK::new(primary_uid.to_string_lossy()) {
+        Ok((tpk, revocation)) => {
+            *tpk_out = box_raw!(tpk);
+            *revocation_out = box_raw!(revocation);
+            Status::Success
+        },
+        Err(e) => fry_status!(ctx, Err::<(), failure::Error>(e)),
+    }
 }
 
 /// Frees the TSK.

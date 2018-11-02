@@ -1076,7 +1076,7 @@ mod test {
         use serialize::stream::{LiteralWriter, Signer, Message};
         use std::io::Write;
 
-        let tpk = TPKBuilder::default()
+        let (tpk, _) = TPKBuilder::default()
             .set_cipher_suite(CipherSuite::Cv25519)
             .add_signing_subkey()
             .generate().unwrap();

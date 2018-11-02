@@ -6,6 +6,7 @@ use std::path::Path;
 use {
     Result,
     TPK,
+    packet::Signature,
     packet::Tag,
 };
 use serialize::{
@@ -67,7 +68,8 @@ impl TSK {
     /// Generates a new key OpenPGP key. The key will be capable of encryption
     /// and signing. If no user id is given the primary self signature will be
     /// a direct key signature.
-    pub fn new<'a, O: Into<Option<Cow<'a,str>>>>(primary_uid: O) -> Result<TSK> {
+    pub fn new<'a, O: Into<Option<Cow<'a,str>>>>(primary_uid: O)
+                                                 -> Result<(TSK, Signature)> {
         use tpk::TPKBuilder;
 
         let mut key = TPKBuilder::autocrypt(None);
@@ -77,7 +79,8 @@ impl TSK {
             None => {}
         }
 
-        Ok(TSK::from_tpk(key.generate()?))
+        let (tpk, revocation) = key.generate()?;
+        Ok((TSK::from_tpk(tpk), revocation))
     }
 
     /// Returns a reference to the corresponding TPK.

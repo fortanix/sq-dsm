@@ -2983,7 +2983,8 @@ mod test {
     fn set_expiry() {
         let now = time::now_utc();
 
-        let tpk = TSK::new(Some("Test".into())).unwrap().into_tpk();
+        let (tsk, _) = TSK::new(Some("Test".into())).unwrap();
+        let tpk = tsk.into_tpk();
         let expiry_orig = tpk.primary_key_signature().unwrap()
             .key_expiration_time()
             .expect("Keys expire by default.");
@@ -3020,7 +3021,7 @@ mod test {
         // XXX: testing sequoia against itself isn't optimal, but I couldn't
         // find a tool to generate direct key signatures :-(
 
-        let tpk1 = TPKBuilder::default().generate().unwrap();
+        let (tpk1, _) = TPKBuilder::default().generate().unwrap();
         let mut buf = Vec::default();
 
         tpk1.serialize(&mut buf).unwrap();
@@ -3124,7 +3125,8 @@ mod test {
 
     #[test]
     fn revoke() {
-        let tpk = TSK::new(Some("Test".into())).unwrap().into_tpk();
+        let (tsk, _) = TSK::new(Some("Test".into())).unwrap();
+        let tpk = tsk.into_tpk();
         assert_eq!(RevocationStatus::NotAsFarAsWeKnow, tpk.revoked());
 
         let sig = tpk.revoke(ReasonForRevocation::KeyCompromised,
@@ -3137,7 +3139,7 @@ mod test {
 
     #[test]
     fn tsk_filter() {
-        let tpk = TPKBuilder::default()
+        let (tpk, _) = TPKBuilder::default()
             .add_signing_subkey()
             .add_encryption_subkey()
             .generate().unwrap();
