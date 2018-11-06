@@ -14,7 +14,7 @@ libc = "0.2.33"
 native-tls = "0.2.0"
 
 [dev-dependencies]
-nettle = { git = "https://gitlab.com/sequoia-pgp/nettle-rs.git" }
+nettle = "1.0"
 
 [lib]
 crate-type = ["cdylib", "staticlib"]
