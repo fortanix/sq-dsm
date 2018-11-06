@@ -63,7 +63,7 @@ main (int argc, char **argv)
     sink = sq_armor_writer_new (ctx, sink, SQ_ARMOR_KIND_MESSAGE,
                                 NULL, 0);
 
-  writer = sq_writer_stack_wrap (sink);
+  writer = sq_writer_stack_message (sink);
   writer = sq_encryptor_new (ctx,
 			     writer,
 			     NULL, 0, /* no passwords */

@@ -64,7 +64,7 @@ main (int argc, char **argv)
 
       // Finish parsing the current packet (returned in p), and read
       // the header of the next packet (returned in ppr).
-      rc = sq_packet_parser_next (ctx, pp, &p, NULL, &ppr, NULL);
+      rc = sq_packet_parser_next (ctx, pp, &p, &ppr);
       if (rc)
 	{
 	  err = sq_context_last_error (ctx);
