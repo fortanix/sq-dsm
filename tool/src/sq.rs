@@ -406,6 +406,117 @@ fn real_main() -> Result<(), failure::Error> {
                 },
             }
         },
+        ("keygen",  Some(m)) => {
+            use openpgp::tpk::{TPKBuilder, CipherSuite};
+            use openpgp::packet::signature::subpacket::KeyFlags;
+            use openpgp::armor::{Writer, Kind};
+            use openpgp::serialize::Serialize;
+            use std::io;
+            use std::fs::File;
+
+            let mut builder = TPKBuilder::default();
+
+            // User ID
+            match m.value_of("userid") {
+                Some(uid) => { builder = builder.add_userid(uid); }
+                None => {
+                    eprintln!("No user ID given, using direct key signature");
+                }
+            }
+
+            // Cipher Suite
+            match m.value_of("cipher-suite") {
+                None | Some("rsa3k") => {
+                    builder = builder.set_cipher_suite(CipherSuite::RSA3k);
+                }
+                Some("cv25519") => {
+                    builder = builder.set_cipher_suite(CipherSuite::Cv25519);
+                }
+                Some(ref cs) => {
+                    eprintln!("Unknown cipher suite '{}'", cs);
+                    exit(1);
+                }
+            }
+
+            // Signing Capability
+            match (m.is_present("can-sign"), m.is_present("cannot-sign")) {
+                (false, false) | (true, false) => {
+                    builder = builder.add_signing_subkey();
+                }
+                (false, true) => { /* no signing subkey */ }
+                (true, true) => {
+                    eprintln!("Conflicting arguments --can-sign and --cannot-sign");
+                    exit(1);
+                }
+            }
+
+            // Encryption Capability
+            match (m.value_of("can-encrypt"), m.is_present("cannot-encrypt")) {
+                (Some("all"), false) | (None, false) => {
+                    builder = builder.add_encryption_subkey();
+                }
+                (Some("rest"), false) => {
+                    builder = builder.add_subkey(KeyFlags::default()
+                                                 .set_encrypt_at_rest(true));
+                }
+                (Some("transport"), false) => {
+                    builder = builder.add_subkey(KeyFlags::default()
+                                                 .set_encrypt_for_transport(true));
+                }
+                (None, true) => { /* no encryption subkey */ }
+                (Some(_), true) => {
+                    eprintln!("Conflicting arguments --can-encrypt and --cannot-encrypt");
+                    exit(1);
+                }
+                (Some(ref cap), false) => {
+                    eprintln!("Unknown encryption capability '{}'", cap);
+                    exit(1);
+                }
+            }
+
+            // Generate the key
+            let (tpk, rev) = builder.generate()?;
+            let tsk = tpk.into_tsk();
+
+            // Export
+            if m.is_present("export") {
+                match m.value_of("output") {
+                    Some("-") | None => {
+                        let mut stdout = io::stdout();
+                        let mut writer = Writer::new(&mut stdout, Kind::SecretKey, &[])?;
+
+                        tsk.serialize(&mut writer)?;
+                    }
+                    Some(ref file) => {
+                        let mut fd = File::create(file)?;
+                        let mut writer = Writer::new(&mut fd, Kind::SecretKey, &[])?;
+
+                        tsk.serialize(&mut writer)?;
+                    }
+                }
+
+                match m.value_of("revocation-cert") {
+                    Some("-") => {
+                        let mut stdout = io::stdout();
+                        let mut writer = Writer::new(&mut stdout, Kind::Signature, &[])?;
+
+                        rev.serialize(&mut writer)?;
+                    }
+
+                    Some(ref file) => {
+                        let mut fd = File::create(file)?;
+                        let mut writer = Writer::new(&mut fd, Kind::Signature, &[])?;
+
+                        rev.serialize(&mut writer)?;
+                    }
+
+                    None => { /* don't output the revocation certificate */ }
+                }
+            } else {
+                eprintln!("Saving generated key to the store isn't implemented yet.");
+                exit(1);
+            }
+        }
         _ => {
             eprintln!("No subcommand given.");
             exit(1);

@@ -4,7 +4,7 @@
 /// update-usage`, and commit the resulting changes to
 /// `tool/src/sq-usage.rs`.
 
-use clap::{App, Arg, SubCommand, AppSettings};
+use clap::{App, Arg, ArgGroup, SubCommand, AppSettings};
 
 pub fn build() -> App<'static, 'static> {
     App::new("sq")
@@ -316,4 +316,51 @@ pub fn build() -> App<'static, 'static> {
                                 .about("Lists all keys in the common key pool"))
                     .subcommand(SubCommand::with_name("log")
                                 .about("Lists the server log")))
+        .subcommand(SubCommand::with_name("keygen")
+                    .about("Generate a new key")
+                    .arg(Arg::with_name("userid").value_name("EMAIL")
+                         .long("userid")
+                         .short("u")
+                         .help("Primary user ID"))
+                    .arg(Arg::with_name("cipher-suite").value_name("CIPHER-SUITE")
+                         .long("cipher-suite")
+                         .short("c")
+                         .possible_values(&["rsa3k", "cv25519"])
+                         .default_value("rsa3k")
+                         .help("Cryptographic algorithms used for the key."))
+
+                    .group(ArgGroup::with_name("cap-sign")
+                           .args(&["can-sign", "cannot-sign"]))
+                    .arg(Arg::with_name("can-sign")
+                         .long("can-sign")
+                         .help("The key has a signing-capable subkey (Default)"))
+                    .arg(Arg::with_name("cannot-sign")
+                         .long("cannot-sign")
+                         .help("The key will not be able to sign data"))
+
+                    .group(ArgGroup::with_name("cap-encrypt")
+                           .args(&["can-encrypt", "cannot-encrypt"]))
+                    .arg(Arg::with_name("can-encrypt").value_name("PURPOSE")
+                         .long("can-encrypt")
+                         .possible_values(&["transport", "rest", "all"])
+                         .default_value("all")
+                         .help("The key has an encryption-capable subkey (Default)"))
+                    .arg(Arg::with_name("cannot-encrypt")
+                         .long("cannot-encrypt")
+                         .help("The key will not be able to encrypt data"))
+
+                    .arg(Arg::with_name("export")
+                         .long("export")
+                         .short("e")
+                         .help("Exports the key instead of saving it in the store")
+                         .required(true))
+                    .arg(Arg::with_name("output").value_name("FILE or -")
+                         .long("output")
+                         .short("o")
+                         .default_value("-")
+                         .help("Sets the output file to use. Only valid id --export is given."))
+                    .arg(Arg::with_name("revocation-cert").value_name("FILE or -")
+                         .long("revocation-cert")
+                         .default_value("/dev/null")
+                         .help("Sets the output file for the revokation certificate. Only valid id --export is given.")))
 }
