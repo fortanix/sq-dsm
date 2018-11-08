@@ -90,6 +90,8 @@ pub fn wrap_session_key(recipient: &Key, session_key: &[u8])
 pub fn unwrap_session_key(recipient: &Key, recipient_sec: &SecretKey,
                           ciphertext: &Ciphertext)
                           -> Result<Box<[u8]>> {
+    use memsec;
+
     if let (&PublicKey::ECDH {
         ref curve, ref hash, ref sym, ..
     }, SecretKey::ECDH {
@@ -103,27 +105,32 @@ pub fn unwrap_session_key(recipient: &Key, recipient_sec: &SecretKey,
                 #[allow(non_snake_case)]
                 let V = e.decode_point(curve)?.0;
 
-                // Get the secret part r of our key.
-                if scalar.value.len() != curve25519::CURVE25519_SIZE {
-                    return Err(Error::MalformedPacket(
-                        format!("Bad size of Curve25519 private key: {} \
-                                 expected: {}", scalar.value.len(),
-                                curve25519::CURVE25519_SIZE)).into());
-                }
-
+                // Nettle expects the private key to be exactly
+                // CURVE25519_SIZE bytes long but OpenPGP allows leading
+                // zeros to be stripped.
+                // Padding has to be unconditionaly, otherwise we have a
+                // secret-dependant branch.
+                //
                 // Reverse the scalar.  See
                 // https://lists.gnupg.org/pipermail/gnupg-devel/2018-February/033437.html.
-                let mut r_reversed = Vec::with_capacity(scalar.value.len());
-                r_reversed.extend_from_slice(&scalar.value);
-                &mut r_reversed.reverse();
-                let r = &r_reversed;
+                let missing = curve25519::CURVE25519_SIZE
+                    .saturating_sub(scalar.value.len());
+                let mut r = [0u8; curve25519::CURVE25519_SIZE];
+
+                r[missing..].copy_from_slice(&scalar.value[..]);
+                r.reverse();
 
                 // Compute the shared point S = rV = rvG, where (r, R)
                 // is the recipient's key pair.
                 #[allow(non_snake_case)]
                 let mut S = [0; curve25519::CURVE25519_SIZE];
-                curve25519::mul(&mut S, r, V)
-                    .expect("buffers are of the wrong size");
+                let res = curve25519::mul(&mut S, &r[..], V);
+
+                unsafe {
+                    memsec::memzero(r.as_mut_ptr(),
+                                    curve25519::CURVE25519_SIZE);
+                }
+                res.expect("buffers are of the wrong size");
 
                 // Compute KDF input.
                 let param = make_param(recipient, curve, hash, sym);

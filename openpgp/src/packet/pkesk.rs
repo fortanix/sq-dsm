@@ -270,4 +270,53 @@ mod tests {
             panic!("secret key is encrypted/missing");
         }
     }
+
+    #[test]
+    fn decrypt_with_short_cv25519_secret_key() {
+        use conversions::Time;
+        use super::PKESK;
+        use crypto::SessionKey;
+        use crypto::mpis::{self, MPI};
+        use PublicKeyAlgorithm;
+        use SymmetricAlgorithm;
+        use HashAlgorithm;
+        use constants::Curve;
+        use packet::Key;
+        use nettle::{curve25519, Yarrow};
+        use time;
+
+        // 20 byte sec key
+        let mut sec = [
+            0x0,0x0,
+            0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,
+            0x1,0x2,0x2,0x2,0x2,0x2,0x2,0x2,0x2,0x2,
+            0x1,0x2,0x2,0x2,0x2,0x2,0x2,0x2,0x0,0x0
+        ];
+        let mut pnt = [0x40u8; curve25519::CURVE25519_SIZE + 1];
+        curve25519::mul_g(&mut pnt[1..], &sec[..]).unwrap();
+        sec.reverse();
+
+        let public_mpis = mpis::PublicKey::ECDH {
+            curve: Curve::Cv25519,
+            q: MPI::new(&pnt[..]),
+            hash: HashAlgorithm::SHA256,
+            sym: SymmetricAlgorithm::AES256,
+        };
+        let private_mpis = mpis::SecretKey::ECDH {
+            scalar: MPI::new(&sec[..]),
+        };
+        let key = Key{
+            common: Default::default(),
+            version: 4,
+            creation_time: time::now().canonicalize(),
+            pk_algo: PublicKeyAlgorithm::ECDH,
+            mpis: public_mpis,
+            secret: None,
+        };
+        let mut rng = Yarrow::default();
+        let sess_key = SessionKey::new(&mut rng, 32);
+        let pkesk = PKESK::new(SymmetricAlgorithm::AES256, &sess_key, &key).unwrap();
+
+        pkesk.decrypt(&key, &private_mpis).unwrap();
+    }
 }

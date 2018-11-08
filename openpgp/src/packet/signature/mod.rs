@@ -93,6 +93,7 @@ impl Builder {
                      -> Result<Signature> {
         use PublicKeyAlgorithm::*;
         use crypto::mpis::PublicKey;
+        use memsec;
 
         let mut rng = Yarrow::default();
 
@@ -155,7 +156,23 @@ impl Builder {
                     let public = q.decode_point(&Curve::Ed25519)?.0;
 
                     let mut sig = vec![0; ed25519::ED25519_SIGNATURE_SIZE];
-                    ed25519::sign(public, &scalar.value, &digest, &mut sig)?;
+
+                    // Nettle expects the private key to be exactly
+                    // ED25519_KEY_SIZE bytes long but OpenPGP allows leading
+                    // zeros to be stripped.
+                    // Padding has to be unconditionaly, otherwise we have a
+                    // secret-dependant branch.
+                    let missing = ed25519::ED25519_KEY_SIZE
+                        .saturating_sub(scalar.value.len());
+                    let mut sec = [0u8; ed25519::ED25519_KEY_SIZE];
+                    sec[missing..].copy_from_slice(&scalar.value[..]);
+
+                    let res = ed25519::sign(public, &sec[..], &digest, &mut sig);
+                    unsafe {
+                        memsec::memzero(sec.as_mut_ptr(),
+                        ed25519::ED25519_KEY_SIZE);
+                    }
+                    res?;
 
                     mpis::Signature::EdDSA {
                         r: MPI::new(&sig[..32]),
@@ -932,5 +949,45 @@ mod test {
                 panic!("secret key is encrypted/missing");
             }
         }
+    }
+
+    #[test]
+    fn sign_with_short_ed25519_secret_key() {
+        use conversions::Time;
+        use nettle;
+        use time;
+
+        // 20 byte sec key
+        let sec = [
+            0x0,0x0,
+            0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,
+            0x1,0x2,0x2,0x2,0x2,0x2,0x2,0x2,0x2,0x2,
+            0x1,0x2,0x2,0x2,0x2,0x2,0x2,0x2,0x2,0x2
+        ];
+        let mut pnt = [0x40u8; nettle::ed25519::ED25519_KEY_SIZE + 1];
+        ed25519::public_key(&mut pnt[1..], &sec[..]).unwrap();
+
+        let public_mpis = mpis::PublicKey::EdDSA {
+            curve: Curve::Ed25519,
+            q: MPI::new(&pnt[..]),
+        };
+        let private_mpis = mpis::SecretKey::EdDSA {
+            scalar: MPI::new(&sec[..]),
+        };
+        let key = Key{
+            common: Default::default(),
+            version: 4,
+            creation_time: time::now().canonicalize(),
+            pk_algo: PublicKeyAlgorithm::EdDSA,
+            mpis: public_mpis,
+            secret: None,
+        };
+        let msg = b"Hello, World";
+        let mut hash = HashAlgorithm::SHA256.context().unwrap();
+
+        hash.update(&msg[..]);
+
+        Builder::new(SignatureType::Text)
+            .sign_hash(&key, &private_mpis, HashAlgorithm::SHA256, hash).unwrap();
     }
 }
