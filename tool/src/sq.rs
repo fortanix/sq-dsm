@@ -480,37 +480,47 @@ fn real_main() -> Result<(), failure::Error> {
 
             // Export
             if m.is_present("export") {
-                match m.value_of("output") {
-                    Some("-") | None => {
-                        let mut stdout = io::stdout();
-                        let mut writer = Writer::new(&mut stdout, Kind::SecretKey, &[])?;
+                let (key_path, rev_path) =
+                    match (m.value_of("export"), m.value_of("rev-cert")) {
+                        (Some("-"), Some("-")) =>
+                            ("-".to_string(), "-".to_string()),
+                        (Some("-"), Some(ref rp)) =>
+                            ("-".to_string(), rp.to_string()),
+                        (Some("-"), None) => {
+                            eprintln!("Missing arguments: --rev-cert is mandatory if --export is '-'.");
+                            exit(1);
+                        }
+                        (Some(ref kp), None) =>
+                            (kp.to_string(), format!("{}.rev", kp)),
+                        (Some(ref kp), Some("-")) =>
+                            (kp.to_string(), "-".to_string()),
+                        (Some(ref kp), Some(ref rp)) =>
+                            (kp.to_string(), rp.to_string()),
+                        _ => {
+                            eprintln!("Conflicting arguments --rev-cert and --export");
+                            exit(1);
+                        }
+                    };
+                let mut stdout = io::stdout();
 
-                        tsk.serialize(&mut writer)?;
-                    }
-                    Some(ref file) => {
-                        let mut fd = File::create(file)?;
-                        let mut writer = Writer::new(&mut fd, Kind::SecretKey, &[])?;
-
-                        tsk.serialize(&mut writer)?;
-                    }
+                // write out key
+                if key_path == "-" {
+                    let mut w = Writer::new(&mut stdout, Kind::SecretKey, &[])?;
+                    tsk.serialize(&mut w)?;
+                } else {
+                    let mut fd = File::create(key_path)?;
+                    let mut w = Writer::new(&mut fd, Kind::SecretKey, &[])?;
+                    tsk.serialize(&mut w)?;
                 }
 
-                match m.value_of("revocation-cert") {
-                    Some("-") => {
-                        let mut stdout = io::stdout();
-                        let mut writer = Writer::new(&mut stdout, Kind::Signature, &[])?;
-
-                        rev.serialize(&mut writer)?;
-                    }
-
-                    Some(ref file) => {
-                        let mut fd = File::create(file)?;
-                        let mut writer = Writer::new(&mut fd, Kind::Signature, &[])?;
-
-                        rev.serialize(&mut writer)?;
-                    }
-
-                    None => { /* don't output the revocation certificate */ }
+                // write out rev cert
+                if rev_path == "-" {
+                    let mut w = Writer::new(&mut stdout, Kind::Signature, &[])?;
+                    rev.serialize(&mut w)?;
+                } else {
+                    let mut fd = File::create(rev_path)?;
+                    let mut w = Writer::new(&mut fd, Kind::Signature, &[])?;
+                    rev.serialize(&mut w)?;
                 }
             } else {
                 eprintln!("Saving generated key to the store isn't implemented yet.");
