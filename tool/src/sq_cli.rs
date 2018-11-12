@@ -1,8 +1,8 @@
-//! Command-line parser for sq.
-//!
-//! If you change this file, please rebuild `sq`, run `make -C tool
-//! update-usage`, and commit the resulting changes to
-//! `tool/src/sq-usage.rs`.
+/// Command-line parser for sq.
+///
+/// If you change this file, please rebuild `sq`, run `make -C tool
+/// update-usage`, and commit the resulting changes to
+/// `tool/src/sq-usage.rs`.
 
 use clap::{App, Arg, SubCommand, AppSettings};
 

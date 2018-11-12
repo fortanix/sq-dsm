@@ -1,8 +1,8 @@
-//! Command-line parser for sqv.
-//!
-//! If you change this file, please rebuild `sqv`, run `make -C tool
-//! update-usage`, and commit the resulting changes to
-//! `tool/src/sqv-usage.rs`.
+/// Command-line parser for sqv.
+///
+/// If you change this file, please rebuild `sqv`, run `make -C tool
+/// update-usage`, and commit the resulting changes to
+/// `tool/src/sqv-usage.rs`.
 
 use clap::{App, Arg, AppSettings};
 
