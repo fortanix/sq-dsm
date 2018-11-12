@@ -7,6 +7,9 @@ SQV	?= $(CARGO_TARGET_DIR)/debug/sqv
 
 all: src/sq-usage.rs src/sqv-usage.rs
 
+.PHONY: update-usage
+update-usage: src/sq-usage.rs src/sqv-usage.rs
+
 src/sq-usage.rs: make-usage.sh $(SQ)
 	sh make-usage.sh $(SQ) >$@
 src/sqv-usage.rs: make-usage.sh $(SQV)
