@@ -2,6 +2,8 @@
 
 use std::io::Read;
 use std::ops::Deref;
+use std::fmt;
+
 use memsec;
 use nettle::Hash;
 use nettle::random::Yarrow;
@@ -19,7 +21,7 @@ pub(crate) mod symmetric;
 /// Holds a session key.
 ///
 /// The session key is cleared when dropped.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct SessionKey(Box<[u8]>);
 
 impl SessionKey {
@@ -59,10 +61,20 @@ impl Drop for SessionKey {
     }
 }
 
+impl fmt::Debug for SessionKey {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        if cfg!(debug) {
+            write!(f, "SessionKey ({:?})", self.0)
+        } else {
+            f.write_str("SessionKey ( <Redacted> )")
+        }
+    }
+}
+
 /// Holds a password.
 ///
 /// The password is cleared when dropped.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct Password(Box<[u8]>);
 
 impl Deref for Password {
@@ -104,6 +116,17 @@ impl Drop for Password {
         }
     }
 }
+
+impl fmt::Debug for Password {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        if cfg!(debug) {
+            write!(f, "Password ({:?})", self.0)
+        } else {
+            f.write_str("Password ( <Redacted> )")
+        }
+    }
+}
+
 
 /// Hash the specified file.
 ///
