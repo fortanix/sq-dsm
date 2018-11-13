@@ -2,6 +2,8 @@
 
 use std::fmt;
 use std::io::Write;
+use std::cmp::Ordering;
+
 use quickcheck::{Arbitrary, Gen};
 use rand::Rng;
 
@@ -15,7 +17,7 @@ use serialize::Serialize;
 use nettle::Hash;
 
 /// Holds a single MPI.
-#[derive(Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Clone, Hash)]
 pub struct MPI {
     /// Length of the integer in bits.
     pub bits: usize,
@@ -58,6 +60,23 @@ impl MPI {
             ::memsec::memzero(self.value.as_mut_ptr(), self.value.len());
         }
     }
+
+    fn secure_memcmp(&self, other: &Self) -> Ordering {
+        let cmp = unsafe {
+            if self.value.len() == other.value.len() {
+                ::memsec::memcmp(self.value.as_ptr(), other.value.as_ptr(),
+                                 other.value.len())
+            } else {
+                self.value.len() as i32 - other.value.len() as i32
+            }
+        };
+
+        match cmp {
+            0 => Ordering::Equal,
+            x if x < 0 => Ordering::Less,
+            _ => Ordering::Greater,
+        }
+    }
 }
 
 impl fmt::Debug for MPI {
@@ -78,6 +97,26 @@ impl Arbitrary for MPI {
         }
     }
 }
+
+impl PartialOrd for MPI {
+    fn partial_cmp(&self, other: &MPI) -> Option<Ordering> {
+        Some(self.secure_memcmp(other))
+    }
+}
+
+impl Ord for MPI {
+    fn cmp(&self, other: &MPI) -> Ordering {
+        self.partial_cmp(other).unwrap()
+    }
+}
+
+impl PartialEq for MPI {
+    fn eq(&self, other: &MPI) -> bool {
+        self.cmp(other) == Ordering::Equal
+    }
+}
+
+impl Eq for MPI {}
 
 /// Holds a public key.
 ///
