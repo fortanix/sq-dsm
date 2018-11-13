@@ -30,6 +30,7 @@
 //!     dump         Lists OpenPGP packets
 //!     enarmor      Applies ASCII Armor to a file
 //!     help         Prints this message or the help of the given subcommand(s)
+//!     keygen       Generate a new key
 //!     list         Lists key stores and known keys
 //!     split        Splits a message into OpenPGP packets
 //! ```
@@ -416,6 +417,32 @@
 //!
 //! ARGS:
 //!     <FILE>    Sets the input file to use
+//! ```
+//!
+//! ## Subcommand keygen
+//!
+//! ```text
+//! Generate a new key
+//!
+//! USAGE:
+//!     sq keygen [FLAGS] [OPTIONS] --export <OUTFILE>
+//!
+//! FLAGS:
+//!         --can-sign          The key has a signing-capable subkey (Default)
+//!         --cannot-encrypt    The key will not be able to encrypt data
+//!         --cannot-sign       The key will not be able to sign data
+//!     -h, --help              Prints help information
+//!     -V, --version           Prints version information
+//!
+//! OPTIONS:
+//!         --can-encrypt <PURPOSE>          The key has an encryption-capable subkey (Default) [default: all]  [possible
+//!                                          values: transport, rest, all]
+//!     -c, --cipher-suite <CIPHER-SUITE>    Cryptographic algorithms used for the key. [default: rsa3k]  [possible values:
+//!                                          rsa3k, cv25519]
+//!     -e, --export <OUTFILE>               Exports the key instead of saving it in the store
+//!         --rev-cert <FILE or ->           Sets the output file for the revocation certificate. Default is <OUTFILE>.rev,
+//!                                          mandatory if OUTFILE is '-'.
+//!     -u, --userid <EMAIL>                 Primary user ID
 //! ```
 //!
 //! ## Subcommand list
