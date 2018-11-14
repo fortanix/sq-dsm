@@ -29,6 +29,33 @@ pub enum CipherSuite {
     RSA3k,
 }
 
+impl CipherSuite {
+    fn generate_key(self, flags: &KeyFlags) -> Result<Key> {
+        match self {
+            CipherSuite::RSA3k =>
+                Key::new(PublicKeyAlgorithm::RSAEncryptSign),
+            CipherSuite::Cv25519 => {
+                let sign = flags.can_certify() || flags.can_sign();
+                let encrypt = flags.can_encrypt_for_transport()
+                    || flags.can_encrypt_at_rest();
+
+                match (sign, encrypt) {
+                    (true, false) => Key::new(PublicKeyAlgorithm::EdDSA),
+                    (false, true) => Key::new(PublicKeyAlgorithm::ECDH),
+                    (true, true) =>
+                        Err(Error::InvalidOperation(
+                            "Can't use key for encryption and signing".into())
+                            .into()),
+                    (false, false) =>
+                        Err(Error::InvalidOperation(
+                            "No key flags set".into())
+                            .into()),
+                }
+            },
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct KeyBlueprint {
     flags: KeyFlags,
@@ -210,7 +237,7 @@ impl TPKBuilder {
         use SignatureType;
         use SecretKey;
 
-        let key = Self::fresh_key(cs)?;
+        let key = cs.generate_key(&KeyFlags::default().set_certify(true))?;
         let mut sig = if uid.is_some() {
             signature::Builder::new(SignatureType::PositiveCertificate)
         } else {
@@ -257,7 +284,7 @@ impl TPKBuilder {
         use SignatureType;
         use SecretKey;
 
-        let subkey = Self::fresh_key(cs)?;
+        let subkey = cs.generate_key(&blueprint.flags)?;
         let mut sig = signature::Builder::new(SignatureType::SubkeyBinding);
 
         sig.set_key_flags(&blueprint.flags)?;
@@ -343,13 +370,6 @@ impl TPKBuilder {
         };
 
         Ok(bind)
-    }
-
-    fn fresh_key(cs: CipherSuite) -> Result<Key> {
-        match cs {
-            CipherSuite::RSA3k => Key::new(PublicKeyAlgorithm::RSAEncryptSign),
-            CipherSuite::Cv25519 => Key::new(PublicKeyAlgorithm::EdDSA),
-        }
     }
 }
 
@@ -465,14 +485,13 @@ mod tests {
         let (tpk1, _) = TPKBuilder::default()
             .set_cipher_suite(CipherSuite::Cv25519)
             .primary_keyflags(KeyFlags::default())
-            .add_subkey(KeyFlags::default().set_encrypt_for_transport(true).set_certify(true))
+            .add_subkey(KeyFlags::default().set_certify(true))
             .generate().unwrap();
         let sig_pkts = tpk1.subkeys().next().unwrap().selfsigs[0].hashed_area();
 
         match sig_pkts.lookup(SubpacketTag::KeyFlags) {
             Some(Subpacket{ value: SubpacketValue::KeyFlags(ref ks),.. }) => {
                 assert!(ks.can_certify());
-                assert!(ks.can_encrypt_for_transport());
             }
             _ => {}
         }
