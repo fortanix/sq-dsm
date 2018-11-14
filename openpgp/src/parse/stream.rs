@@ -40,6 +40,9 @@ use parse::{
     PacketParserResult,
 };
 
+/// Whether to trace execution by default (on stderr).
+const TRACE : bool = false;
+
 /// How much data to buffer before giving it to the caller.
 const BUFFER_SIZE: usize = 25 * 1024 * 1024;
 
@@ -643,6 +646,8 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
     pub(crate) fn from_buffered_reader(bio: Box<BufferedReader<Cookie> + 'a>,
                                        helper: H) -> Result<Decryptor<'a, H>>
     {
+        tracer!(TRACE, "Decryptor::from_buffered_reader", 0);
+
         let mut ppr = PacketParserBuilder::from_buffered_reader(bio)?
             .map(helper.mapping()).finalize()?;
 
@@ -662,6 +667,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
         while let PacketParserResult::Some(mut pp) = ppr {
             v.helper.inspect(&pp)?;
             if ! pp.possible_message() {
+                t!("Malformed message");
                 return Err(Error::MalformedMessage(
                     "Malformed OpenPGP message".into()).into());
             }
@@ -675,6 +681,8 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                     'decrypt_seip: while let Some(secret) =
                         v.helper.get_secret(&pkesk_refs[..], &skesk_refs[..])?
                     {
+                        t!("helper.get_secret() returned: {:?}", secret);
+
                         match secret {
                             Secret::Asymmetric {
                                 ref identity, ref key, ref secret,
@@ -685,9 +693,11 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                                     let r = p.recipient();
                                     *r == keyid || r.is_wildcard()
                                 }) {
-                                    if let Ok((algo, key)) =
-                                        pkesk.decrypt(&key, &secret)
-                                    {
+                                    let res = pkesk.decrypt(&key, &secret);
+                                    t!("{:?}.decrypt({:?}, {:?}) => {:?}",
+                                       pkesk, key, secret, res);
+
+                                    if let Ok((algo, key)) = res {
                                         if pp.decrypt(algo, &key).is_ok() {
                                             v.identity = Some(identity.clone());
                                             decrypted = true;
@@ -699,11 +709,15 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
 
                             Secret::Symmetric { ref password } => {
                                 for skesk in skesks.iter() {
-                                    let (algo, key) = skesk.decrypt(password)?;
+                                    let res = skesk.decrypt(password);
+                                    t!("{:?}.decrypt({:?}) => {:?}",
+                                       skesk, password, res);
 
-                                    if pp.decrypt(algo, &key).is_ok() {
-                                        decrypted = true;
-                                        break 'decrypt_seip;
+                                    if let Ok((algo, key)) = res {
+                                        if pp.decrypt(algo, &key).is_ok() {
+                                            decrypted = true;
+                                            break 'decrypt_seip;
+                                        }
                                     }
                                 }
                             },
