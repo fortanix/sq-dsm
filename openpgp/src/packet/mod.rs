@@ -354,24 +354,6 @@ pub struct Header {
     /// The packet's length.
     pub length: BodyLength,
 }
-
-impl Header {
-    /// Parses an OpenPGP packet's header as described in [Section 4.2
-    /// of RFC 4880].
-    ///
-    ///   [Section 4.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.2
-    pub(crate) fn parse<R: BufferedReader<C>, C> (bio: &mut R)
-        -> Result<Header>
-    {
-        let ctb = CTB::from_ptag(bio.data_consume_hard(1)?[0])?;
-        let length = match ctb {
-            CTB::New(_) => BodyLength::parse_new_format(bio)?,
-            CTB::Old(ref ctb) =>
-                BodyLength::parse_old_format(bio, ctb.length_type)?,
-        };
-        return Ok(Header { ctb: ctb, length: length });
-    }
-}
 
 /// Holds zero or more OpenPGP packets.
 ///
