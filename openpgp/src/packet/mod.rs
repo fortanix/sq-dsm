@@ -318,7 +318,7 @@ impl Common {
             children: if let Some(ref container) = self.children {
                 container.packets.iter()
             } else {
-                let empty_packet_slice : &[Packet] = &[][..];
+                let empty_packet_slice : &[Packet] = &[];
                 empty_packet_slice.iter()
             },
             child: None,

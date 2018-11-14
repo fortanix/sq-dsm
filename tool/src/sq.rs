@@ -123,7 +123,7 @@ fn real_main() -> Result<(), failure::Error> {
             let mut output = if ! m.is_present("binary") {
                 Box::new(armor::Writer::new(&mut output,
                                             armor::Kind::Message,
-                                            &[][..])?)
+                                            &[])?)
             } else {
                 output
             };
@@ -178,7 +178,7 @@ fn real_main() -> Result<(), failure::Error> {
             let mut input = open_or_stdin(m.value_of("input"))?;
             let mut output = create_or_stdout(m.value_of("output"))?;
             let mut filter = armor::Writer::new(&mut output, armor::Kind::File,
-                                                &[][..])?;
+                                                &[])?;
             io::copy(&mut input, &mut filter)?;
         },
         ("dearmor",  Some(m)) => {
@@ -196,7 +196,7 @@ fn real_main() -> Result<(), failure::Error> {
                     for h in &ac.headers {
                         if let Some(ref tpk) = h.key {
                             let mut filter = armor::Writer::new(
-                                &mut output, armor::Kind::PublicKey, &[][..])?;
+                                &mut output, armor::Kind::PublicKey, &[])?;
                             tpk.serialize(&mut filter)?;
                         }
                     }
@@ -257,7 +257,7 @@ fn real_main() -> Result<(), failure::Error> {
                     let mut output = if ! m.is_present("binary") {
                         Box::new(armor::Writer::new(&mut output,
                                                     armor::Kind::PublicKey,
-                                                    &[][..])?)
+                                                    &[])?)
                     } else {
                         output
                     };
@@ -312,7 +312,7 @@ fn real_main() -> Result<(), failure::Error> {
                     let mut output = if ! m.is_present("binary") {
                         Box::new(armor::Writer::new(&mut output,
                                                     armor::Kind::PublicKey,
-                                                    &[][..])?)
+                                                    &[])?)
                     } else {
                         output
                     };

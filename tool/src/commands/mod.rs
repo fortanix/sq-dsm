@@ -148,7 +148,7 @@ fn sign_data(input: &mut io::Read, output_path: Option<&str>,
                                     } else {
                                         armor::Kind::Message
                                     },
-                                    &[][..])?)
+                                    &[])?)
     } else {
         output
     };
@@ -202,7 +202,7 @@ fn sign_message(input: &mut io::Read, output_path: Option<&str>,
     let output = if ! binary {
         Box::new(armor::Writer::new(&mut output,
                                     armor::Kind::Message,
-                                    &[][..])?)
+                                    &[])?)
     } else {
         output
     };

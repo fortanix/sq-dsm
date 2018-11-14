@@ -1056,7 +1056,7 @@ mod test {
 
             let mut buf = Vec::new();
             {
-                let mut w = Writer::new(&mut buf, Kind::File, &[][..]).unwrap();
+                let mut w = Writer::new(&mut buf, Kind::File, &[]).unwrap();
                 w.write(&[]).unwrap();  // Avoid zero-length optimization.
                 w.write_all(&bin).unwrap();
             }
@@ -1078,7 +1078,7 @@ mod test {
 
             let mut buf = Vec::new();
             {
-                let mut w = Writer::new(&mut buf, Kind::File, &[][..]).unwrap();
+                let mut w = Writer::new(&mut buf, Kind::File, &[]).unwrap();
                 w.write(&[]).unwrap();  // Avoid zero-length optimization.
                 for (i, _) in bin.iter().enumerate() {
                     w.write(&bin[i..i+1]).unwrap();
@@ -1095,7 +1095,7 @@ mod test {
         // unused.
         let mut buf = Vec::new();
         {
-            drop(Writer::new(&mut buf, Kind::File, &[][..]).unwrap());
+            drop(Writer::new(&mut buf, Kind::File, &[]).unwrap());
         }
         assert!(buf.is_empty());
 
@@ -1103,7 +1103,7 @@ mod test {
         // string.
         let mut buf = Vec::new();
         {
-            let mut w = Writer::new(&mut buf, Kind::File, &[][..]).unwrap();
+            let mut w = Writer::new(&mut buf, Kind::File, &[]).unwrap();
             w.write(&[]).unwrap();
         }
         assert_eq!(
@@ -1306,7 +1306,7 @@ mod test {
             }
 
             let mut encoded = Vec::new();
-            Writer::new(&mut encoded, kind, &[][..]).unwrap()
+            Writer::new(&mut encoded, kind, &[]).unwrap()
                 .write_all(&payload)
                 .unwrap();
 
