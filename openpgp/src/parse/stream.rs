@@ -546,7 +546,7 @@ pub trait DecryptionHelper {
     /// This can be used to cache the result of the asymmetric crypto
     /// operation.  The default implementation does nothing.
     fn cache_asymmetric_secret(&mut self, pkesk: &PKESK,
-                               algo: SymmetricAlgorithm, key: Box<[u8]>) {
+                               algo: SymmetricAlgorithm, key: &SessionKey) {
         // Do nothing.
         let _ = (pkesk, algo, key);
     }
@@ -556,7 +556,7 @@ pub trait DecryptionHelper {
     /// This can be used to cache the result of the symmetric crypto
     /// operation.  The default implementation does nothing.
     fn cache_symmetric_secret(&mut self, skesk: &SKESK,
-                              algo: SymmetricAlgorithm, key: Box<[u8]>) {
+                              algo: SymmetricAlgorithm, key: &SessionKey) {
         // Do nothing.
         let _ = (skesk, algo, key);
     }
@@ -701,6 +701,9 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                                         if pp.decrypt(algo, &key).is_ok() {
                                             v.identity = Some(identity.clone());
                                             decrypted = true;
+
+                                            v.helper.cache_asymmetric_secret(
+                                                pkesk, algo, &key);
                                             break 'decrypt_seip;
                                         }
                                     }
@@ -716,6 +719,9 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                                     if let Ok((algo, key)) = res {
                                         if pp.decrypt(algo, &key).is_ok() {
                                             decrypted = true;
+
+                                            v.helper.cache_symmetric_secret(
+                                                skesk, algo, &key);
                                             break 'decrypt_seip;
                                         }
                                     }
