@@ -738,6 +738,13 @@ impl Header {
     /// of RFC 4880].
     ///
     ///   [Section 4.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.2
+    pub fn from_reader<R: Read>(reader: R) -> Result<Header>
+    {
+        let mut reader = BufferedReaderGeneric::with_cookie(
+            reader, None, Cookie::default());
+        Header::parse(&mut reader)
+    }
+
     pub(crate) fn parse<R: BufferedReader<C>, C> (bio: &mut R)
         -> Result<Header>
     {
