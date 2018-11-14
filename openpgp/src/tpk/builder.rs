@@ -299,9 +299,36 @@ impl TPKBuilder {
                 vec![SymmetricAlgorithm::AES256])?;
         }
 
-        if blueprint.flags.can_certify()
-        || blueprint.flags.can_sign() {
+        if blueprint.flags.can_certify() || blueprint.flags.can_sign() {
             sig.set_preferred_hash_algorithms(vec![HashAlgorithm::SHA512])?;
+
+            let mut backsig = signature::Builder::new(
+                SignatureType::PrimaryKeyBinding);
+
+            backsig.set_signature_creation_time(time::now().canonicalize())?;
+            backsig.set_issuer_fingerprint(subkey.fingerprint())?;
+            backsig.set_issuer(subkey.fingerprint().to_keyid())?;
+
+            let mut hash = HashAlgorithm::SHA512.context()?;
+
+            primary_key.hash(&mut hash);
+            subkey.hash(&mut hash);
+
+            let backsig = match subkey.secret {
+                Some(SecretKey::Unencrypted{ ref mpis }) => {
+                    backsig.sign_hash(&subkey, mpis, HashAlgorithm::SHA512,
+                                      hash)?
+                }
+                Some(SecretKey::Encrypted{ .. }) => {
+                    return Err(Error::InvalidOperation(
+                            "Secret key is encrypted".into()).into());
+                }
+                None => {
+                    return Err(Error::InvalidOperation(
+                            "No secret key".into()).into());
+                }
+            };
+            sig.set_embedded_signature(backsig)?;
         }
 
         let mut hash = HashAlgorithm::SHA512.context()?;
