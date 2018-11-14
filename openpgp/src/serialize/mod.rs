@@ -185,6 +185,14 @@ impl Serialize for CTB {
     }
 }
 
+impl Serialize for Header {
+    fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
+        self.ctb.serialize(o)?;
+        self.length.serialize(o)?;
+        Ok(())
+    }
+}
+
 impl Serialize for KeyID {
     /// Writes a serialized version of the specified `KeyID` to `o`.
     fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
