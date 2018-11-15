@@ -272,12 +272,15 @@ impl signature::Builder {
 impl Signature {
     /// Returns the message digest of the primary key binding over the
     /// specified primary key.
-    pub fn primary_key_binding_hash(&self, key: &Key) -> Vec<u8> {
-        let h: HashAlgorithm = self.hash_algo().into();
-        let mut h: Box<Hash> = h.context().unwrap();
+    pub fn primary_key_binding_hash<'a, S>(sig: S, key: &Key)
+        -> Vec<u8>
+        where S: Into<&'a signature::Builder> {
+
+        let sig = sig.into();
+        let mut h: Box<Hash> = sig.hash_algo.context().unwrap();
 
         key.hash(&mut h);
-        self.hash(&mut h);
+        sig.hash(&mut h);
 
         let mut digest = vec![0u8; h.digest_size()];
         h.digest(&mut digest);
@@ -286,14 +289,16 @@ impl Signature {
 
     /// Returns the message digest of the subkey binding over the
     /// specified primary key and subkey.
-    pub fn subkey_binding_hash(&self, key: &Key, subkey: &Key)
-            -> Vec<u8> {
-        let h: HashAlgorithm = self.hash_algo().into();
-        let mut h: Box<Hash> = h.context().unwrap();
+    pub fn subkey_binding_hash<'a, S>(sig: S, key: &Key, subkey: &Key)
+        -> Vec<u8>
+        where S: Into<&'a signature::Builder> {
+
+        let sig = sig.into();
+        let mut h: Box<Hash> = sig.hash_algo.context().unwrap();
 
         key.hash(&mut h);
         subkey.hash(&mut h);
-        self.hash(&mut h);
+        sig.hash(&mut h);
 
         let mut digest = vec![0u8; h.digest_size()];
         h.digest(&mut digest);
@@ -302,14 +307,16 @@ impl Signature {
 
     /// Returns the message digest of the user ID binding over the
     /// specified primary key, user ID, and signature.
-    pub fn userid_binding_hash(&self, key: &Key, userid: &UserID)
-            -> Vec<u8> {
-        let h: HashAlgorithm = self.hash_algo().into();
-        let mut h: Box<Hash> = h.context().unwrap();
+    pub fn userid_binding_hash<'a, S>(sig: S, key: &Key, userid: &UserID)
+        -> Vec<u8>
+        where S: Into<&'a signature::Builder> {
+
+        let sig = sig.into();
+        let mut h: Box<Hash> = sig.hash_algo.context().unwrap();
 
         key.hash(&mut h);
         userid.hash(&mut h);
-        self.hash(&mut h);
+        sig.hash(&mut h);
 
         let mut digest = vec![0u8; h.digest_size()];
         h.digest(&mut digest);
@@ -318,14 +325,17 @@ impl Signature {
 
     /// Returns the message digest of the user attribute binding over
     /// the specified primary key, user attribute, and signature.
-    pub fn user_attribute_binding_hash(&self, key: &Key, ua: &UserAttribute)
-            -> Vec<u8> {
-        let h: HashAlgorithm = self.hash_algo().into();
-        let mut h: Box<Hash> = h.context().unwrap();
+    pub fn user_attribute_binding_hash<'a, S>(sig: S, key: &Key,
+                                              ua: &UserAttribute)
+        -> Vec<u8>
+        where S: Into<&'a signature::Builder> {
+
+        let sig = sig.into();
+        let mut h: Box<Hash> = sig.hash_algo.context().unwrap();
 
         key.hash(&mut h);
         ua.hash(&mut h);
-        self.hash(&mut h);
+        sig.hash(&mut h);
 
         let mut digest = vec![0u8; h.digest_size()];
         h.digest(&mut digest);
@@ -335,6 +345,7 @@ impl Signature {
 
 #[cfg(test)]
 mod test {
+    use super::*;
     use TPK;
 
     macro_rules! bytes {
@@ -347,7 +358,8 @@ mod test {
             let mut userid_sigs = 0;
             for (i, binding) in tpk.userids().enumerate() {
                 for selfsig in binding.selfsigs() {
-                    let h = selfsig.userid_binding_hash(
+                    let h = Signature::userid_binding_hash(
+                        selfsig,
                         tpk.primary(),
                         binding.userid());
                     if h[..2] != selfsig.hash_prefix[..] {
@@ -362,7 +374,8 @@ mod test {
             let mut ua_sigs = 0;
             for (i, binding) in tpk.user_attributes().enumerate() {
                 for selfsig in binding.selfsigs() {
-                    let h = selfsig.user_attribute_binding_hash(
+                    let h = Signature::user_attribute_binding_hash(
+                        selfsig,
                         tpk.primary(),
                         binding.user_attribute());
                     if h[..2] != selfsig.hash_prefix[..] {
@@ -377,7 +390,8 @@ mod test {
             let mut subkey_sigs = 0;
             for (i, binding) in tpk.subkeys().enumerate() {
                 for selfsig in binding.selfsigs() {
-                    let h = selfsig.subkey_binding_hash(
+                    let h = Signature::subkey_binding_hash(
+                        selfsig,
                         tpk.primary(),
                         binding.subkey());
                     if h[..2] != selfsig.hash_prefix[..] {

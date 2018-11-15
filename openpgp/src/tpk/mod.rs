@@ -337,20 +337,18 @@ impl SubkeyBinding {
         sig.set_issuer_fingerprint(primary_key.fingerprint())?;
         sig.set_issuer(primary_key.fingerprint().to_keyid())?;
 
-        let mut hash = HashAlgorithm::SHA512.context()?;
-
-        primary_key.hash(&mut hash);
-        subkey.hash(&mut hash);
-
         let sig = match primary_key.secret {
             Some(SecretKey::Unencrypted{ ref mpis }) => {
-                sig.sign_hash(primary_key, mpis, HashAlgorithm::SHA512, hash)?
+                sig.sign_subkey_binding(primary_key, mpis, primary_key, &subkey,
+                                        HashAlgorithm::SHA512)?
             }
             Some(SecretKey::Encrypted{ .. }) => {
-                return Err(Error::InvalidOperation("Secret key is encrypted".into()).into());
+                return Err(Error::InvalidOperation(
+                        "Secret key is encrypted".into()).into());
             }
             None => {
-                return Err(Error::InvalidOperation("No secret key".into()).into());
+                return Err(Error::InvalidOperation(
+                        "No secret key".into()).into());
             }
         };
 
@@ -461,14 +459,10 @@ impl UserIDBinding {
         sig.set_issuer(signer.fingerprint().to_keyid())?;
         sig.set_preferred_hash_algorithms(vec![HashAlgorithm::SHA512])?;
 
-        let mut hash = HashAlgorithm::SHA512.context()?;
-
-        key.hash(&mut hash);
-        uid.hash(&mut hash);
-
         let sig = match signer.secret {
             Some(SecretKey::Unencrypted{ ref mpis }) => {
-                sig.sign_hash(signer, mpis, HashAlgorithm::SHA512, hash)?
+                sig.sign_userid_binding(signer, mpis, key, &uid,
+                                        HashAlgorithm::SHA512)?
             }
             Some(SecretKey::Encrypted{ .. }) => {
                 return Err(Error::InvalidOperation("Secret key is encrypted".into()).into());

@@ -252,18 +252,13 @@ impl TPKBuilder {
         sig.set_issuer(key.fingerprint().to_keyid())?;
         sig.set_preferred_hash_algorithms(vec![HashAlgorithm::SHA512])?;
 
-        let mut hash = HashAlgorithm::SHA512.context()?;
-
-        key.hash(&mut hash);
-
-        match uid {
-            Some(uid) => uid.hash(&mut hash),
-            None => {}
-        }
 
         let sig = match key.secret {
             Some(SecretKey::Unencrypted{ ref mpis }) => {
-                sig.sign_hash(&key, mpis, HashAlgorithm::SHA512, hash)?
+                match uid {
+                    Some(uid) => sig.sign_userid_binding(&key, mpis, &key, &uid, HashAlgorithm::SHA512)?,
+                    None => sig.sign_primary_key_binding(&key, mpis, HashAlgorithm::SHA512)?,
+                }
             }
             Some(SecretKey::Encrypted{ .. }) => {
                 return Err(Error::InvalidOperation(
@@ -309,15 +304,10 @@ impl TPKBuilder {
             backsig.set_issuer_fingerprint(subkey.fingerprint())?;
             backsig.set_issuer(subkey.fingerprint().to_keyid())?;
 
-            let mut hash = HashAlgorithm::SHA512.context()?;
-
-            primary_key.hash(&mut hash);
-            subkey.hash(&mut hash);
-
             let backsig = match subkey.secret {
                 Some(SecretKey::Unencrypted{ ref mpis }) => {
-                    backsig.sign_hash(&subkey, mpis, HashAlgorithm::SHA512,
-                                      hash)?
+                    backsig.sign_subkey_binding(&subkey, mpis, &subkey,
+                                                primary_key, HashAlgorithm::SHA512)?
                 }
                 Some(SecretKey::Encrypted{ .. }) => {
                     return Err(Error::InvalidOperation(
@@ -331,14 +321,10 @@ impl TPKBuilder {
             sig.set_embedded_signature(backsig)?;
         }
 
-        let mut hash = HashAlgorithm::SHA512.context()?;
-
-        primary_key.hash(&mut hash);
-        subkey.hash(&mut hash);
-
         let sig = match primary_key.secret {
             Some(SecretKey::Unencrypted{ ref mpis }) => {
-                sig.sign_hash(primary_key, mpis, HashAlgorithm::SHA512, hash)?
+                sig.sign_subkey_binding(primary_key, mpis, primary_key, &subkey,
+                                        HashAlgorithm::SHA512)?
             }
             Some(SecretKey::Encrypted{ .. }) => {
                 return Err(Error::InvalidOperation(
@@ -369,14 +355,10 @@ impl TPKBuilder {
         sig.set_issuer_fingerprint(key.fingerprint())?;
         sig.set_issuer(key.fingerprint().to_keyid())?;
 
-        let mut hash = HashAlgorithm::SHA512.context()?;
-
-        key.hash(&mut hash);
-        uid.hash(&mut hash);
-
         let sig = match key.secret {
             Some(SecretKey::Unencrypted{ ref mpis }) => {
-                sig.sign_hash(key, mpis, HashAlgorithm::SHA512, hash)?
+                sig.sign_userid_binding(key, mpis, key, &uid,
+                                        HashAlgorithm::SHA512)?
             }
             Some(SecretKey::Encrypted{ .. }) => {
                 return Err(Error::InvalidOperation(

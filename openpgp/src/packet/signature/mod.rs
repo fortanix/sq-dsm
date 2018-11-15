@@ -83,6 +83,72 @@ impl Builder {
         &mut self.unhashed_area
     }
 
+    /// Signs `signer` using itself.
+    ///
+    /// The Signature's public-key algorithm field is set to the
+    /// algorithm used by `signer`, the hash-algorithm field is set to
+    /// `hash_algo`.
+    pub fn sign_primary_key_binding(mut self, signer: &Key, signer_sec: &mpis::SecretKey,
+                                    algo: HashAlgorithm)
+                                    -> Result<Signature> {
+
+        self.pk_algo = signer.pk_algo;
+        self.hash_algo = algo;
+        let digest = Signature::primary_key_binding_hash(&self, signer);
+
+        self.sign(signer, signer_sec, digest)
+    }
+    /// Signs binding between `userid` and `key` using `signer`.
+    ///
+    /// The Signature's public-key algorithm field is set to the
+    /// algorithm used by `signer`, the hash-algorithm field is set to
+    /// `hash_algo`.
+    pub fn sign_userid_binding(mut self, signer: &Key,
+                               signer_sec: &mpis::SecretKey, key: &Key,
+                               userid: &UserID, algo: HashAlgorithm)
+                               -> Result<Signature> {
+
+        self.pk_algo = signer.pk_algo;
+        self.hash_algo = algo;
+        let digest = Signature::userid_binding_hash(&self, key, userid);
+
+        self.sign(signer, signer_sec, digest)
+    }
+
+    /// Signs subkey binding from `primary` to `subkey` using `signer`.
+    ///
+    /// The Signature's public-key algorithm field is set to the
+    /// algorithm used by `signer`, the hash-algorithm field is set to
+    /// `hash_algo`.
+    pub fn sign_subkey_binding(mut self, signer: &Key,
+                               signer_sec: &mpis::SecretKey, primary: &Key,
+                               subkey: &Key, algo: HashAlgorithm)
+                               -> Result<Signature> {
+
+        self.pk_algo = signer.pk_algo;
+        self.hash_algo = algo;
+        let digest = Signature::subkey_binding_hash(&self, primary, subkey);
+
+        self.sign(signer, signer_sec, digest)
+    }
+
+    /// Signs `ua` using `signer`.
+    ///
+    /// The Signature's public-key algorithm field is set to the
+    /// algorithm used by `signer`, the hash-algorithm field is set to
+    /// `hash_algo`.
+    pub fn sign_user_attribute_binding(mut self, signer: &Key,
+                                       signer_sec: &mpis::SecretKey,
+                                       ua: &UserAttribute, algo: HashAlgorithm)
+                                       -> Result<Signature> {
+
+        self.pk_algo = signer.pk_algo;
+        self.hash_algo = algo;
+        let digest = Signature::user_attribute_binding_hash(&self, signer, ua);
+
+        self.sign(signer, signer_sec, digest)
+    }
+
     /// Signs `hash` using `signer`.
     ///
     /// The Signature's public-key algorithm field is set to the
@@ -91,12 +157,6 @@ impl Builder {
     pub fn sign_hash(mut self, signer: &Key, signer_sec: &mpis::SecretKey,
                      hash_algo: HashAlgorithm, mut hash: Box<Hash>)
                      -> Result<Signature> {
-        use PublicKeyAlgorithm::*;
-        use crypto::mpis::PublicKey;
-        use memsec;
-
-        let mut rng = Yarrow::default();
-
         // Fill out some fields, then hash the packet.
         self.pk_algo = signer.pk_algo;
         self.hash_algo = hash_algo;
@@ -105,6 +165,19 @@ impl Builder {
         // Compute the digest.
         let mut digest = vec![0u8; hash.digest_size()];
         hash.digest(&mut digest);
+
+        self.sign(signer, signer_sec, digest)
+    }
+
+    fn sign(self, signer: &Key, signer_sec: &mpis::SecretKey,
+            digest: Vec<u8>)
+            -> Result<Signature> {
+        use PublicKeyAlgorithm::*;
+        use crypto::mpis::PublicKey;
+        use memsec;
+
+        let mut rng = Yarrow::default();
+        let algo = self.hash_algo;
 
         #[allow(deprecated)]
         let mpis = match (signer.pk_algo(), signer.mpis(), signer_sec) {
@@ -127,7 +200,7 @@ impl Builder {
                 //
                 //   [Section 5.2.2 and 5.2.3 of RFC 4880]:
                 //   https://tools.ietf.org/html/rfc4880#section-5.2.2
-                rsa::sign_digest_pkcs1(&public, &secret, &digest, hash_algo.oid()?,
+                rsa::sign_digest_pkcs1(&public, &secret, &digest, algo.oid()?,
                                        &mut rng, &mut sig)?;
 
                 mpis::Signature::RSA {
@@ -221,7 +294,7 @@ impl Builder {
             fields: self,
             hash_prefix: [digest[0], digest[1]],
             mpis: mpis,
-            computed_hash: Some((hash_algo, digest)),
+            computed_hash: Some((algo, digest)),
             level: 0,
         })
     }
@@ -232,6 +305,13 @@ impl From<Signature> for Builder {
         sig.fields
     }
 }
+
+impl<'a> From<&'a Signature> for &'a Builder {
+    fn from(sig: &'a Signature) -> Self {
+        &sig.fields
+    }
+}
+
 
 /// Holds a signature packet.
 ///
@@ -561,7 +641,7 @@ impl Signature {
             return Err(Error::UnsupportedSignatureType(self.sigtype()).into());
         }
 
-        let hash = self.primary_key_binding_hash(pk);
+        let hash = Self::primary_key_binding_hash(self, pk);
         self.verify_hash(signer, self.hash_algo(), &hash[..])
     }
 
@@ -579,7 +659,7 @@ impl Signature {
             return Err(Error::UnsupportedSignatureType(self.sigtype()).into());
         }
 
-        let hash = self.primary_key_binding_hash(pk);
+        let hash = Self::primary_key_binding_hash(self, pk);
         self.verify_hash(signer, self.hash_algo(), &hash[..])
     }
 
@@ -602,7 +682,7 @@ impl Signature {
             return Err(Error::UnsupportedSignatureType(self.sigtype()).into());
         }
 
-        let hash = self.subkey_binding_hash(pk, subkey);
+        let hash = Self::subkey_binding_hash(self, pk, subkey);
         if self.verify_hash(signer, self.hash_algo(), &hash[..])? {
             // The signature is good, but we may still need to verify
             // the back sig.
@@ -621,7 +701,7 @@ impl Signature {
                 return Err(Error::UnsupportedSignatureType(self.sigtype()).into());
             } else {
                 // We can't use backsig.verify_subkey_binding.
-                let hash = backsig.subkey_binding_hash(pk, &subkey);
+                let hash = Self::subkey_binding_hash(&backsig, pk, &subkey);
                 match backsig.verify_hash(&subkey, backsig.hash_algo(), &hash[..])
                 {
                     Ok(true) => {
@@ -666,7 +746,7 @@ impl Signature {
             return Err(Error::UnsupportedSignatureType(self.sigtype()).into());
         }
 
-        let hash = self.subkey_binding_hash(pk, subkey);
+        let hash = Self::subkey_binding_hash(self, pk, subkey);
         self.verify_hash(signer, self.hash_algo(), &hash[..])
     }
 
@@ -688,7 +768,7 @@ impl Signature {
             return Err(Error::UnsupportedSignatureType(self.sigtype()).into());
         }
 
-        let hash = self.userid_binding_hash(pk, userid);
+        let hash = Self::userid_binding_hash(self, pk, userid);
         self.verify_hash(signer, self.hash_algo(), &hash[..])
     }
 
@@ -707,7 +787,7 @@ impl Signature {
             return Err(Error::UnsupportedSignatureType(self.sigtype()).into());
         }
 
-        let hash = self.userid_binding_hash(pk, userid);
+        let hash = Self::userid_binding_hash(self, pk, userid);
         self.verify_hash(signer, self.hash_algo(), &hash[..])
     }
 
@@ -729,7 +809,7 @@ impl Signature {
             return Err(Error::UnsupportedSignatureType(self.sigtype()).into());
         }
 
-        let hash = self.user_attribute_binding_hash(pk, ua);
+        let hash = Self::user_attribute_binding_hash(self, pk, ua);
         self.verify_hash(signer, self.hash_algo(), &hash[..])
     }
 
@@ -748,7 +828,7 @@ impl Signature {
             return Err(Error::UnsupportedSignatureType(self.sigtype()).into());
         }
 
-        let hash = self.user_attribute_binding_hash(pk, ua);
+        let hash = Self::user_attribute_binding_hash(self, pk, ua);
         self.verify_hash(signer, self.hash_algo(), &hash[..])
     }
 
