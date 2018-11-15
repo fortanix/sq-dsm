@@ -382,4 +382,34 @@ mod tests {
             }
         }
     }
+
+    #[test]
+    fn encryption_roundtrip() {
+        use SecretKey;
+        use crypto::SessionKey;
+        use packet::PKESK;
+
+        for &pk_algo in &[PublicKeyAlgorithm::RSAEncryptSign,
+                          PublicKeyAlgorithm::ECDH] {
+            let key = Key::new(pk_algo).unwrap();
+            let secret =
+                if let Some(SecretKey::Unencrypted {
+                    ref mpis,
+                }) = key.secret() {
+                    mpis.clone()
+                } else {
+                    unreachable!()
+                };
+
+            let cipher = SymmetricAlgorithm::AES256;
+            let sk = SessionKey::new(&mut Default::default(),
+                                     cipher.key_size().unwrap());
+
+            let pkesk = PKESK::new(cipher, &sk, &key).unwrap();
+            let (cipher_, sk_) = pkesk.decrypt(&key, &secret).unwrap();
+
+            assert_eq!(cipher, cipher_);
+            assert_eq!(sk, sk_);
+        }
+    }
 }
