@@ -60,7 +60,7 @@ mod partial_body;
 use self::partial_body::BufferedReaderPartialBodyFilter;
 
 use packet::signature::subpacket::SubpacketArea;
-pub mod key;
+mod key;
 
 mod packet_pile_parser;
 pub use self::packet_pile_parser::PacketPileParser;
@@ -72,7 +72,7 @@ mod packet_parser_builder;
 pub use self::packet_parser_builder::PacketParserBuilder;
 
 pub mod map;
-pub mod mpis;
+mod mpis;
 pub mod stream;
 
 // Whether to trace execution by default (on stderr).
