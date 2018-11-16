@@ -170,7 +170,7 @@ impl Builder {
                     let res = ed25519::sign(public, &sec[..], &digest, &mut sig);
                     unsafe {
                         memsec::memzero(sec.as_mut_ptr(),
-                        ed25519::ED25519_KEY_SIZE);
+                                        ed25519::ED25519_KEY_SIZE);
                     }
                     res?;
 

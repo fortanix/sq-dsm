@@ -124,6 +124,10 @@ impl Key {
                 rng.random(&mut private);
                 curve25519::mul_g(&mut public[1..], &private)?;
 
+                // Reverse the scalar.  See
+                // https://lists.gnupg.org/pipermail/gnupg-devel/2018-February/033437.html.
+                private.reverse();
+
                 let public_mpis = PublicKey::ECDH {
                     curve: Curve::Cv25519,
                     q: MPI::new(&public),
