@@ -11,6 +11,12 @@ use super::*;
 /// platform-specific versions.
 pub struct BufferedReaderFile<C>(BufferedReaderGeneric<File, C>);
 
+impl<C> fmt::Display for BufferedReaderFile<C> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "BufferedReaderFile")
+    }
+}
+
 impl<C> fmt::Debug for BufferedReaderFile<C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_tuple("BufferedReaderFile")

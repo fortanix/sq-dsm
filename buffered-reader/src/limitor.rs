@@ -12,6 +12,12 @@ pub struct BufferedReaderLimitor<'a, C> {
     cookie: C,
 }
 
+impl<'a, C> fmt::Display for BufferedReaderLimitor<'a, C> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "BufferedReaderLimitor ({} bytes)", self.limit)
+    }
+}
+
 impl<'a, C> fmt::Debug for BufferedReaderLimitor<'a, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("BufferedReaderLimitor")

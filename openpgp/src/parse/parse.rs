@@ -2059,7 +2059,13 @@ pub struct PacketParser<'a> {
     state: PacketParserState,
 }
 
-impl <'a> std::fmt::Debug for PacketParser<'a> {
+impl<'a> std::fmt::Display for PacketParser<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "PacketParser")
+    }
+}
+
+impl<'a> std::fmt::Debug for PacketParser<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         f.debug_struct("PacketParser")
             .field("header", &self.header)

@@ -16,6 +16,12 @@ pub struct BufferedReaderReserve<'a, C> {
     cookie: C,
 }
 
+impl<'a, C> fmt::Display for BufferedReaderReserve<'a, C> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "BufferedReaderReserve ({} bytes)", self.reserve)
+    }
+}
+
 impl<'a, C> fmt::Debug for BufferedReaderReserve<'a, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("BufferedReaderReserve")

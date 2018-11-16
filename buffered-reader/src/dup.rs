@@ -20,6 +20,13 @@ pub struct BufferedReaderDup<'a, C> {
     cookie: C,
 }
 
+impl<'a, C> fmt::Display for BufferedReaderDup<'a, C> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "BufferedReaderDup ({} bytes consumed)",
+               self.cursor)
+    }
+}
+
 impl<'a, C> fmt::Debug for BufferedReaderDup<'a, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("BufferedReaderDup")

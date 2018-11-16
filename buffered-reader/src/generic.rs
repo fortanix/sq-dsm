@@ -27,6 +27,12 @@ pub struct BufferedReaderGeneric<T: io::Read, C> {
     cookie: C,
 }
 
+impl<T: io::Read, C> fmt::Display for BufferedReaderGeneric<T, C> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "BufferedReaderGeneric")
+    }
+}
+
 impl<T: io::Read, C> fmt::Debug for BufferedReaderGeneric<T, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let buffered_data = if let Some(ref buffer) = self.buffer {

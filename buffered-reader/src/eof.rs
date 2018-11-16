@@ -9,6 +9,12 @@ pub struct BufferedReaderEOF<C> {
     cookie: C,
 }
 
+impl<C> fmt::Display for BufferedReaderEOF<C> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "BufferedReaderEOF")
+    }
+}
+
 impl<C> fmt::Debug for BufferedReaderEOF<C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("BufferedReaderEOF")

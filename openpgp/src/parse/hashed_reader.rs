@@ -18,6 +18,12 @@ pub(crate) struct HashedReader<R: BufferedReader<Cookie>> {
     cookie: Cookie,
 }
 
+impl<R: BufferedReader<Cookie>> fmt::Display for HashedReader<R> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "HashedReader")
+    }
+}
+
 impl<R: BufferedReader<Cookie>> fmt::Debug for HashedReader<R> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("HashedReader")

@@ -26,6 +26,12 @@ const MMAP_THRESHOLD: u64 = 16 * 4096;
 /// just using a generic reader.
 pub struct BufferedReaderFile<'a, C>(Imp<'a, C>);
 
+impl<'a, C> fmt::Display for BufferedReaderFile<'a, C> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
 impl<'a, C> fmt::Debug for BufferedReaderFile<'a, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_tuple("BufferedReaderFile")
@@ -53,6 +59,17 @@ impl<'a, C> Drop for Imp<'a, C> {
                     munmap(*addr, *length);
                 },
         }
+    }
+}
+
+impl<'a, C> fmt::Display for Imp<'a, C> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "BufferedReaderFile(")?;
+        match self {
+            Imp::Generic(_) => write!(f, "BufferedReaderGeneric")?,
+            Imp::MMAP { .. } => write!(f, "BufferedReaderMemory")?,
+        };
+        write!(f, ")")
     }
 }
 

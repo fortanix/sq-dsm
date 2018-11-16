@@ -276,7 +276,7 @@ pub use self::file_unix::BufferedReaderFile;
 const DEFAULT_BUF_SIZE: usize = 8 * 1024;
 
 /// The generic `BufferReader` interface.
-pub trait BufferedReader<C> : io::Read + fmt::Debug {
+pub trait BufferedReader<C> : io::Read + fmt::Debug + fmt::Display {
     /// Returns a reference to the internal buffer.
     ///
     /// Note: this returns the same data as `self.data(0)`, but it

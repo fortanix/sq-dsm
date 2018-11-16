@@ -295,7 +295,13 @@ impl<R: BufferedReader<C>, C> io::Read for BufferedReaderDecryptor<R, C> {
     }
 }
 
-impl <R: BufferedReader<C>, C> fmt::Debug for BufferedReaderDecryptor<R, C> {
+impl<R: BufferedReader<C>, C> fmt::Display for BufferedReaderDecryptor<R, C> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "BufferedReaderDecryptor")
+    }
+}
+
+impl<R: BufferedReader<C>, C> fmt::Debug for BufferedReaderDecryptor<R, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("BufferedReaderDecryptor")
             .field("reader", &self.get_ref().unwrap())

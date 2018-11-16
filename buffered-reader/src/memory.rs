@@ -20,6 +20,13 @@ pub struct BufferedReaderMemory<'a, C> {
     cookie: C,
 }
 
+impl<'a, C> fmt::Display for BufferedReaderMemory<'a, C> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "BufferedReaderMemory ({} of {} bytes read)",
+               self.cursor, self.buffer.len())
+    }
+}
+
 impl<'a, C> fmt::Debug for BufferedReaderMemory<'a, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("BufferedReaderMemory")

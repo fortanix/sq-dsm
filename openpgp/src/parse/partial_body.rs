@@ -40,6 +40,13 @@ pub(crate) struct BufferedReaderPartialBodyFilter<T: BufferedReader<Cookie>> {
     hash_headers: bool,
 }
 
+impl<T: BufferedReader<Cookie>> std::fmt::Display
+        for BufferedReaderPartialBodyFilter<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "BufferedReaderPartialBodyFilter")
+    }
+}
+
 impl<T: BufferedReader<Cookie>> std::fmt::Debug
         for BufferedReaderPartialBodyFilter<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {

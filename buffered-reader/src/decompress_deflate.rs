@@ -40,7 +40,13 @@ impl<R: BufferedReader<C>, C> io::Read for BufferedReaderDeflate<R, C> {
     }
 }
 
-impl <R: BufferedReader<C>, C> fmt::Debug for BufferedReaderDeflate<R, C> {
+impl<R: BufferedReader<C>, C> fmt::Display for BufferedReaderDeflate<R, C> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "BufferedReaderDeflate")
+    }
+}
+
+impl<R: BufferedReader<C>, C> fmt::Debug for BufferedReaderDeflate<R, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("BufferedReaderDeflate")
             .field("reader", &self.get_ref().unwrap())
@@ -156,7 +162,13 @@ impl<R: BufferedReader<C>, C> io::Read for BufferedReaderZlib<R, C> {
     }
 }
 
-impl <R: BufferedReader<C>, C> fmt::Debug for BufferedReaderZlib<R, C> {
+impl<R: BufferedReader<C>, C> fmt::Display for BufferedReaderZlib<R, C> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "BufferedReaderZlib")
+    }
+}
+
+impl<R: BufferedReader<C>, C> fmt::Debug for BufferedReaderZlib<R, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("BufferedReaderZlib")
             .field("reader", &self.get_ref().unwrap())
