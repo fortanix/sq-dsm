@@ -529,7 +529,9 @@ pub trait DecryptionHelper {
     ///
     /// Can be used to dump packets in encrypted messages.  The
     /// default implementation does nothing.
-    fn inspect(&mut self, _pp: &PacketParser) -> Result<()> {
+    fn inspect(&mut self, pp: &PacketParser) -> Result<()> {
+        // Do nothing.
+        let _ = pp;
         Ok(())
     }
 
