@@ -9,6 +9,7 @@
 use std::env;
 extern crate openpgp;
 use openpgp::Packet;
+use openpgp::constants::SignatureType;
 use openpgp::packet::{BodyLength, Tag};
 use openpgp::parse::{PacketParserResult, PacketParser};
 
@@ -30,6 +31,7 @@ fn main() {
     let mut tags_size_count = vec![0; 64];
     let mut tags_size_min = vec![::std::u32::MAX; 64];
     let mut tags_size_max = vec![0; 64];
+    let mut sigs_count = vec![0; 256];
 
     // Per-TPK statistics.
     let mut tpk_count = 0;
@@ -60,13 +62,22 @@ fn main() {
         let i = u8::from(packet.tag()) as usize;
         tags_count[i] += 1;
 
-        // If a new TPK starts, update TPK statistics.
-        if let Packet::PublicKey(_) = packet {
-            if tpk_count > 0 {
-                tpk.update_min_max(&mut tpk_min, &mut tpk_max);
-            }
-            tpk_count += 1;
-            tpk = PerTPK::min();
+        match packet {
+            // If a new TPK starts, update TPK statistics.
+            Packet::PublicKey(_) | Packet::SecretKey(_) => {
+                if tpk_count > 0 {
+                    tpk.update_min_max(&mut tpk_min, &mut tpk_max);
+                }
+                tpk_count += 1;
+                tpk = PerTPK::min();
+            },
+
+            Packet::Signature(ref sig) => {
+                sigs_count[u8::from(sig.sigtype()) as usize] += 1;
+                tpk.sigs[u8::from(sig.sigtype()) as usize] += 1;
+            },
+
+            _ => (),
         }
 
         if let Packet::Unknown(_) = packet {
@@ -95,15 +106,17 @@ fn main() {
 
     // Print statistics.
     println!("# Packet statistics\n\n\
-              {:>15} {:>9} {:>9} {:>9} {:>9} {:>9}",
-             "Packet tag", "count", "unknown",
+              {:>22} {:>9} {:>9} {:>9} {:>9} {:>9}",
+             "", "count", "unknown",
              "min size", "mean size", "max size");
     println!("-------------------------------------------------------\
-              ----------");
+              -----------------");
+
+    println!("{:>22}", "- Packets -");
     for t in 0..64 {
         let count = tags_count[t];
         if count > 0 {
-            println!("{:>15} {:>9} {:>9} {:>9} {:>9} {:>9}",
+            println!("{:>22} {:>9} {:>9} {:>9} {:>9} {:>9}",
                      format!("{:?}", Tag::from(t as u8)),
                      count,
                      tags_unknown[t],
@@ -112,25 +125,54 @@ fn main() {
                      tags_size_max[t]);
         }
     }
-    println!();
 
+    println!("\n{:>22}", "- Signatures -");
+    for t in 0..256 {
+        let max = tpk_max.sigs[t];
+        if max > 0 {
+            println!("{:>22} {:>9}",
+                     format!("{:?}", SignatureType::from(t as u8)),
+                     sigs_count[t]);
+        }
+    }
+
+    if tpk_count == 0 {
+        return;
+    }
+
+    println!();
     println!("# TPK statistics\n\n\
-              {:>15} {:>9} {:>9} {:>9}",
+              {:>22} {:>9} {:>9} {:>9}",
              "", "min", "mean", "max");
-    println!("---------------------------------------------");
-    println!("{:>15} {:>9} {:>9} {:>9}",
+    println!("----------------------------------------------------");
+    println!("{:>22} {:>9} {:>9} {:>9}",
              "Size (packets)",
              tpk_min.packets, packet_count / tpk_count, tpk_max.packets);
-    println!("{:>15} {:>9} {:>9} {:>9}",
+    println!("{:>22} {:>9} {:>9} {:>9}",
              "Size (bytes)",
              tpk_min.bytes, packet_size / tpk_count, tpk_max.bytes);
+
+    println!("\n{:>22}", "- Packets -");
     for t in 0..64 {
         let max = tpk_max.tags[t];
         if t as u8 != Tag::PublicKey.into() && max > 0 {
-            println!("{:>15} {:>9} {:>9} {:>9}",
+            println!("{:>22} {:>9} {:>9} {:>9}",
                      format!("{:?}", Tag::from(t as u8)),
                      tpk_min.tags[t],
                      tags_count[t] / tpk_count,
+                     max);
+        }
+    }
+
+    println!("\n{:>22}", "- Signatures -");
+    for t in 0..256 {
+        let max = tpk_max.sigs[t];
+        if max > 0 {
+            println!("{:>22} {:>9} {:>9} {:>9}",
+                     format!("{:?}",
+                             SignatureType::from(t as u8)),
+                     tpk_min.sigs[t],
+                     sigs_count[t] / tpk_count,
                      max);
         }
     }
@@ -140,6 +182,7 @@ struct PerTPK {
     packets: usize,
     bytes: usize,
     tags: Vec<u32>,
+    sigs: Vec<u32>,
 }
 
 impl PerTPK {
@@ -148,6 +191,7 @@ impl PerTPK {
             packets: 0,
             bytes: 0,
             tags: vec![0; 64],
+            sigs: vec![0; 256],
         }
     }
 
@@ -156,6 +200,7 @@ impl PerTPK {
             packets: ::std::usize::MAX,
             bytes: ::std::usize::MAX,
             tags: vec![::std::u32::MAX; 64],
+            sigs: vec![::std::u32::MAX; 256],
         }
     }
 
@@ -178,6 +223,14 @@ impl PerTPK {
             }
             if self.tags[i] > max.tags[i] {
                 max.tags[i] = self.tags[i];
+            }
+        }
+        for i in 0..256 {
+            if self.sigs[i] < min.sigs[i] {
+                min.sigs[i] = self.sigs[i];
+            }
+            if self.sigs[i] > max.sigs[i] {
+                max.sigs[i] = self.sigs[i];
             }
         }
     }
