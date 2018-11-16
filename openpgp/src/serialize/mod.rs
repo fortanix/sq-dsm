@@ -1266,6 +1266,7 @@ mod test {
     use constants::CompressionAlgorithm;
     use parse::to_unknown_packet;
     use parse::PacketParserBuilder;
+    use parse::Parse;
 
     // A convenient function to dump binary data to stdout.
     fn binary_pp(data: &[u8]) -> String {

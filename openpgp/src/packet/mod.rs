@@ -552,7 +552,7 @@ impl<'a> Iterator for PacketPathIter<'a> {
 #[test]
 fn packet_path_iter() {
     use std::path::PathBuf;
-
+    use parse::Parse;
     use PacketPile;
 
     fn path_to(artifact: &str) -> PathBuf {

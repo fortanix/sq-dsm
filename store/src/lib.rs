@@ -81,6 +81,7 @@ extern crate sequoia_net;
 use openpgp::Fingerprint;
 use openpgp::KeyID;
 use openpgp::TPK;
+use openpgp::parse::Parse;
 use openpgp::serialize::Serialize;
 use sequoia_core as core;
 use sequoia_core::Context;
@@ -119,6 +120,7 @@ impl Pool {
     /// # extern crate sequoia_core;
     /// # extern crate sequoia_store;
     /// # use openpgp::TPK;
+    /// # use openpgp::parse::Parse;
     /// # use sequoia_core::{Context, NetworkPolicy, IPCPolicy};
     /// # use sequoia_store::{Pool, Result};
     /// # fn main() { f().unwrap(); }
@@ -154,6 +156,7 @@ impl Pool {
     /// # extern crate sequoia_core;
     /// # extern crate sequoia_store;
     /// # use openpgp::TPK;
+    /// # use openpgp::parse::Parse;
     /// # use sequoia_core::{Context, NetworkPolicy, IPCPolicy};
     /// # use sequoia_store::{Pool, Result};
     /// # fn main() { f().unwrap(); }
@@ -188,6 +191,7 @@ impl Pool {
     /// # extern crate sequoia_core;
     /// # extern crate sequoia_store;
     /// # use openpgp::TPK;
+    /// # use openpgp::parse::Parse;
     /// # use sequoia_core::{Context, NetworkPolicy, IPCPolicy};
     /// # use sequoia_store::{Pool, Result};
     /// # fn main() { f().unwrap(); }
@@ -226,6 +230,7 @@ impl Pool {
     /// # extern crate sequoia_core;
     /// # extern crate sequoia_store;
     /// # use openpgp::{TPK, KeyID};
+    /// # use openpgp::parse::Parse;
     /// # use sequoia_core::{Context, NetworkPolicy, IPCPolicy};
     /// # use sequoia_store::{Pool, Result};
     /// # fn main() { f().unwrap(); }
@@ -384,6 +389,7 @@ impl Store {
     /// # extern crate sequoia_core;
     /// # extern crate sequoia_store;
     /// # use openpgp::TPK;
+    /// # use openpgp::parse::Parse;
     /// # use sequoia_core::{Context, NetworkPolicy, IPCPolicy};
     /// # use sequoia_store::{Store, Result};
     /// # fn main() { f().unwrap(); }
@@ -457,6 +463,7 @@ impl Store {
     /// # extern crate sequoia_core;
     /// # extern crate sequoia_store;
     /// # use openpgp::{TPK, KeyID};
+    /// # use openpgp::parse::Parse;
     /// # use sequoia_core::{Context, NetworkPolicy, IPCPolicy};
     /// # use sequoia_store::{Store, Result};
     /// # fn main() { f().unwrap(); }
@@ -656,6 +663,7 @@ impl Binding {
     /// # #[macro_use] extern crate sequoia_core;
     /// # extern crate sequoia_store;
     /// # use openpgp::TPK;
+    /// # use openpgp::parse::Parse;
     /// # use sequoia_core::{Context, NetworkPolicy, IPCPolicy};
     /// # use sequoia_store::{Store, Result, Error};
     /// # fn main() { f().unwrap(); }
@@ -710,6 +718,7 @@ impl Binding {
     /// # #[macro_use] extern crate sequoia_core;
     /// # extern crate sequoia_store;
     /// # use openpgp::TPK;
+    /// # use openpgp::parse::Parse;
     /// # use sequoia_core::{Context, NetworkPolicy, IPCPolicy};
     /// # use sequoia_store::{Store, Result, Error};
     /// # fn main() { f().unwrap(); }
@@ -861,6 +870,7 @@ impl Key {
     /// # extern crate sequoia_store;
     /// # use openpgp::Fingerprint;
     /// # use openpgp::TPK;
+    /// # use openpgp::parse::Parse;
     /// # use sequoia_core::{Context, NetworkPolicy, IPCPolicy};
     /// # use sequoia_store::{Store, Result, Error};
     /// # fn main() { f().unwrap(); }
@@ -1213,6 +1223,7 @@ impl From<capnp::NotInSchema> for Error {
 #[cfg(test)]
 mod test {
     use super::{core, Store, Error, TPK, Fingerprint};
+    use openpgp::parse::Parse;
 
     macro_rules! bytes {
         ( $x:expr ) => { include_bytes!(concat!("../../openpgp/tests/data/keys/", $x)) };

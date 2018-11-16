@@ -34,7 +34,7 @@
 //! # extern crate sequoia_openpgp as openpgp;
 //! # use openpgp::Result;
 //! # use openpgp::Packet;
-//! # use openpgp::parse::{PacketParserResult, PacketParser};
+//! # use openpgp::parse::{Parse, PacketParserResult, PacketParser};
 //! #
 //! # f(include_bytes!("../../../tests/data/messages/signed.gpg"));
 //! #
@@ -2472,6 +2472,7 @@ fn accessors() {
 #[test]
 fn subpacket_test_1 () {
     use PacketPile;
+    use parse::Parse;
 
     let path = path_to("signed.gpg");
     let pile = PacketPile::from_file(&path).unwrap();
@@ -2525,6 +2526,7 @@ fn subpacket_test_1 () {
 #[test]
 fn subpacket_test_2() {
     use conversions::Time;
+    use parse::Parse;
     use PacketPile;
 
     //   Test #    Subpacket

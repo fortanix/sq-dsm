@@ -383,6 +383,7 @@ impl From<SKESK5> for Packet {
 mod test {
     use super::*;
     use PacketPile;
+    use parse::Parse;
     use serialize::Serialize;
 
     #[test]

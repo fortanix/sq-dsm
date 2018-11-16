@@ -1309,6 +1309,7 @@ mod test {
     use std::fs::File;
     use std::path::PathBuf;
     use super::*;
+    use parse::Parse;
 
     fn path_to(artifact: &str) -> PathBuf {
     [env!("CARGO_MANIFEST_DIR"), "tests", "data", artifact]

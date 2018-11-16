@@ -17,6 +17,7 @@ success, we can use or examine the resulting [`TPK`]:
 
 ```rust
 extern crate sequoia_openpgp as openpgp;
+use openpgp::parse::Parse;
 
 const KEY: &str =
     "-----BEGIN PGP PUBLIC KEY BLOCK-----
@@ -71,6 +72,7 @@ structure using this grammar:
 
 ```rust
 extern crate sequoia_openpgp as openpgp;
+use openpgp::parse::Parse;
 
 const MESSAGE: &str =
     "-----BEGIN PGP MESSAGE-----
@@ -105,6 +107,7 @@ turned into a vector of [`Packet`]s:
 
 ```rust
 extern crate sequoia_openpgp as openpgp;
+use openpgp::parse::Parse;
 
 const MESSAGE: &str =
     "-----BEGIN PGP MESSAGE-----

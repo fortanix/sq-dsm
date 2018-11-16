@@ -11,6 +11,7 @@ use parse::{
     PacketParserBuilder,
     PacketParserResult,
     PacketParser,
+    Parse,
     Cookie
 };
 use buffered_reader::{BufferedReader, BufferedReaderGeneric,
@@ -67,7 +68,7 @@ fn path_to(artifact: &str) -> PathBuf {
 /// ```rust
 /// # extern crate sequoia_openpgp as openpgp;
 /// # use openpgp::Result;
-/// # use openpgp::parse::PacketPileParser;
+/// # use openpgp::parse::{Parse, PacketPileParser};
 /// # let _ = f(include_bytes!("../../tests/data/messages/public-key.gpg"));
 /// #
 /// # fn f(message_data: &[u8]) -> Result<()> {
@@ -102,6 +103,34 @@ impl<'a> PacketParserBuilder<'a> {
     }
 }
 
+impl<'a> Parse<'a, PacketPileParser<'a>> for PacketPileParser<'a> {
+    /// Creates a `PacketPileParser` to parse the OpenPGP message stored
+    /// in the `io::Read` object.
+    fn from_reader<R: io::Read + 'a>(reader: R)
+             -> Result<PacketPileParser<'a>> {
+        let bio = Box::new(BufferedReaderGeneric::with_cookie(
+            reader, None, Cookie::default()));
+        PacketPileParser::from_buffered_reader(bio)
+    }
+
+    /// Creates a `PacketPileParser` to parse the OpenPGP message stored
+    /// in the file named by `path`.
+    fn from_file<P: AsRef<Path>>(path: P)
+            -> Result<PacketPileParser<'a>> {
+        PacketPileParser::from_buffered_reader(
+            Box::new(BufferedReaderFile::with_cookie(path, Cookie::default())?))
+    }
+
+    /// Creates a `PacketPileParser` to parse the OpenPGP message stored
+    /// in the provided buffer.
+    fn from_bytes(data: &'a [u8])
+            -> Result<PacketPileParser<'a>> {
+        let bio = Box::new(BufferedReaderMemory::with_cookie(
+            data, Cookie::default()));
+        PacketPileParser::from_buffered_reader(bio)
+    }
+}
+
 impl<'a> PacketPileParser<'a> {
     /// Creates a `PacketPileParser` from a *fresh* `PacketParser`.
     fn from_packet_parser(ppr: PacketParserResult<'a>)
@@ -119,32 +148,6 @@ impl<'a> PacketPileParser<'a> {
     pub(crate) fn from_buffered_reader(bio: Box<BufferedReader<Cookie> + 'a>)
             -> Result<PacketPileParser<'a>> {
         Self::from_packet_parser(PacketParser::from_buffered_reader(bio)?)
-    }
-
-    /// Creates a `PacketPileParser` to parse the OpenPGP message stored
-    /// in the `io::Read` object.
-    pub fn from_reader<R: io::Read + 'a>(reader: R)
-             -> Result<PacketPileParser<'a>> {
-        let bio = Box::new(BufferedReaderGeneric::with_cookie(
-            reader, None, Cookie::default()));
-        PacketPileParser::from_buffered_reader(bio)
-    }
-
-    /// Creates a `PacketPileParser` to parse the OpenPGP message stored
-    /// in the file named by `path`.
-    pub fn from_file<P: AsRef<Path>>(path: P)
-            -> Result<PacketPileParser<'a>> {
-        PacketPileParser::from_buffered_reader(
-            Box::new(BufferedReaderFile::with_cookie(path, Cookie::default())?))
-    }
-
-    /// Creates a `PacketPileParser` to parse the OpenPGP message stored
-    /// in the provided buffer.
-    pub fn from_bytes(data: &'a [u8])
-            -> Result<PacketPileParser<'a>> {
-        let bio = Box::new(BufferedReaderMemory::with_cookie(
-            data, Cookie::default()));
-        PacketPileParser::from_buffered_reader(bio)
     }
 
     /// Inserts the next packet into the `PacketPile`.

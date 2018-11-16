@@ -707,15 +707,14 @@ impl Arbitrary for Signature {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use parse::Parse;
+    use serialize::Serialize;
 
     quickcheck! {
         fn mpi_roundtrip(mpi: MPI) -> bool {
-            use std::io::Cursor;
-            use serialize::Serialize;
-
             let mut buf = Vec::new();
             mpi.serialize(&mut buf).unwrap();
-            MPI::parse_naked(Cursor::new(buf)).unwrap() == mpi
+            MPI::from_bytes(&buf).unwrap() == mpi
         }
     }
 

@@ -22,8 +22,8 @@ use Packet;
 use PacketPile;
 use Message;
 use packet::Literal;
-
 use packet::Tag;
+use parse::Parse;
 
 mod lexer;
 mod grammar;
@@ -289,6 +289,35 @@ impl fmt::Debug for Message {
     }
 }
 
+impl<'a> Parse<'a, Message> for Message {
+    /// Reads a `Message` from the specified reader.
+    ///
+    /// See [`Message::from_packet_pile`] for more details.
+    ///
+    ///   [`Message::from_packet_pile`]: #method.from_packet_pile
+    fn from_reader<R: 'a + io::Read>(reader: R) -> Result<Self> {
+        Self::from_packet_pile(PacketPile::from_reader(reader)?)
+    }
+
+    /// Reads a `Message` from the specified file.
+    ///
+    /// See [`Message::from_packet_pile`] for more details.
+    ///
+    ///   [`Message::from_packet_pile`]: #method.from_packet_pile
+    fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
+        Self::from_packet_pile(PacketPile::from_file(path)?)
+    }
+
+    /// Reads a `Message` from `buf`.
+    ///
+    /// See [`Message::from_packet_pile`] for more details.
+    ///
+    ///   [`Message::from_packet_pile`]: #method.from_packet_pile
+    fn from_bytes(buf: &'a [u8]) -> Result<Self> {
+        Self::from_packet_pile(PacketPile::from_bytes(buf)?)
+    }
+}
+
 impl Message {
     /// Converts the `PacketPile` to a `Message`.
     ///
@@ -340,33 +369,6 @@ impl Message {
     ///   [`Message::from_packet_pile`]: #method.from_packet_pile
     pub fn from_packets(packets: Vec<Packet>) -> Result<Self> {
         Self::from_packet_pile(PacketPile::from_packets(packets))
-    }
-
-    /// Reads a `Message` from the specified reader.
-    ///
-    /// See [`Message::from_packet_pile`] for more details.
-    ///
-    ///   [`Message::from_packet_pile`]: #method.from_packet_pile
-    pub fn from_reader<R: io::Read>(reader: R) -> Result<Self> {
-        Self::from_packet_pile(PacketPile::from_reader(reader)?)
-    }
-
-    /// Reads a `Message` from the specified file.
-    ///
-    /// See [`Message::from_packet_pile`] for more details.
-    ///
-    ///   [`Message::from_packet_pile`]: #method.from_packet_pile
-    pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
-        Self::from_packet_pile(PacketPile::from_file(path)?)
-    }
-
-    /// Reads a `Message` from `buf`.
-    ///
-    /// See [`Message::from_packet_pile`] for more details.
-    ///
-    ///   [`Message::from_packet_pile`]: #method.from_packet_pile
-    pub fn from_bytes(buf: &[u8]) -> Result<Self> {
-        Self::from_packet_pile(PacketPile::from_bytes(buf)?)
     }
 
     /// Converts the `Message` to a `PacketPile`.

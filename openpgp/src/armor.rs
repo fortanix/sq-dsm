@@ -388,6 +388,7 @@ impl<'a> Reader<'a> {
     /// # extern crate sequoia_openpgp as openpgp;
     /// # use openpgp::{Result, Message};
     /// # use openpgp::armor::Reader;
+    /// # use openpgp::parse::Parse;
     /// # use std::io;
     /// # fn main() { f().unwrap(); }
     /// # fn f() -> Result<()> {

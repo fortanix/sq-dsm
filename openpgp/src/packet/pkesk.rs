@@ -227,6 +227,7 @@ mod tests {
     use packet::key::SecretKey;
     use Packet;
     use std::path::PathBuf;
+    use parse::Parse;
 
     fn path_to_key(artifact: &str) -> PathBuf {
         [env!("CARGO_MANIFEST_DIR"), "tests", "data", "keys", artifact]

@@ -22,6 +22,7 @@ use tokio_core;
 use tokio_io::io::ReadHalf;
 
 use openpgp::{self, TPK, KeyID, Fingerprint};
+use openpgp::parse::Parse;
 use openpgp::serialize::Serialize;
 use sequoia_core as core;
 use sequoia_net as net;

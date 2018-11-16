@@ -374,7 +374,7 @@ pub struct PacketPile {
 /// ```rust
 /// # extern crate sequoia_openpgp as openpgp;
 /// # use openpgp::Result;
-/// # use openpgp::parse::{PacketParserResult, PacketParser};
+/// # use openpgp::parse::{Parse, PacketParserResult, PacketParser};
 /// use openpgp::TPK;
 ///
 /// # fn main() { f().unwrap(); }

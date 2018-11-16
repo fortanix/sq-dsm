@@ -16,6 +16,7 @@ use packet::{Container, PacketIter};
 use PacketPile;
 use parse::PacketParserResult;
 use parse::PacketParserBuilder;
+use parse::Parse;
 use parse::Cookie;
 
 #[cfg(test)]
@@ -38,6 +39,45 @@ impl fmt::Debug for PacketPile {
         f.debug_struct("PacketPile")
             .field("packets", &self.top_level.packets)
             .finish()
+    }
+}
+
+impl<'a> Parse<'a, PacketPile> for PacketPile {
+    /// Deserializes the OpenPGP message stored in a `std::io::Read`
+    /// object.
+    ///
+    /// Although this method is easier to use to parse a sequence of
+    /// OpenPGP packets than a [`PacketParser`] or a
+    /// [`PacketPileParser`], this interface buffers the whole message
+    /// in memory.  Thus, the caller must be certain that the
+    /// *deserialized* message is not too large.
+    ///
+    /// Note: this interface *does* buffer the contents of packets.
+    ///
+    ///   [`PacketParser`]: parse/struct.PacketParser.html
+    ///   [`PacketPileParser`]: parse/struct.PacketPileParser.html
+    fn from_reader<R: 'a + io::Read>(reader: R) -> Result<PacketPile> {
+        let bio = BufferedReaderGeneric::with_cookie(
+            reader, None, Cookie::default());
+        PacketPile::from_buffered_reader(Box::new(bio))
+    }
+
+    /// Deserializes the OpenPGP message stored in the file named by
+    /// `path`.
+    ///
+    /// See `from_reader` for more details and caveats.
+    fn from_file<P: AsRef<Path>>(path: P) -> Result<PacketPile> {
+        PacketPile::from_buffered_reader(
+            Box::new(BufferedReaderFile::with_cookie(path, Cookie::default())?))
+    }
+
+    /// Deserializes the OpenPGP message stored in the provided buffer.
+    ///
+    /// See `from_reader` for more details and caveats.
+    fn from_bytes(data: &'a [u8]) -> Result<PacketPile> {
+        let bio = BufferedReaderMemory::with_cookie(
+            data, Cookie::default());
+        PacketPile::from_buffered_reader(Box::new(bio))
     }
 }
 
@@ -267,43 +307,6 @@ impl PacketPile {
             .to_packet_pile()
     }
 
-    /// Deserializes the OpenPGP message stored in a `std::io::Read`
-    /// object.
-    ///
-    /// Although this method is easier to use to parse a sequence of
-    /// OpenPGP packets than a [`PacketParser`] or a
-    /// [`PacketPileParser`], this interface buffers the whole message
-    /// in memory.  Thus, the caller must be certain that the
-    /// *deserialized* message is not too large.
-    ///
-    /// Note: this interface *does* buffer the contents of packets.
-    ///
-    ///   [`PacketParser`]: parse/struct.PacketParser.html
-    ///   [`PacketPileParser`]: parse/struct.PacketPileParser.html
-    pub fn from_reader<'a, R: 'a + io::Read>(reader: R) -> Result<PacketPile> {
-        let bio = BufferedReaderGeneric::with_cookie(
-            reader, None, Cookie::default());
-        PacketPile::from_buffered_reader(Box::new(bio))
-    }
-
-    /// Deserializes the OpenPGP message stored in the file named by
-    /// `path`.
-    ///
-    /// See `from_reader` for more details and caveats.
-    pub fn from_file<P: AsRef<Path>>(path: P) -> Result<PacketPile> {
-        PacketPile::from_buffered_reader(
-            Box::new(BufferedReaderFile::with_cookie(path, Cookie::default())?))
-    }
-
-    /// Deserializes the OpenPGP message stored in the provided buffer.
-    ///
-    /// See `from_reader` for more details and caveats.
-    pub fn from_bytes(data: &[u8]) -> Result<PacketPile> {
-        let bio = BufferedReaderMemory::with_cookie(
-            data, Cookie::default());
-        PacketPile::from_buffered_reader(Box::new(bio))
-    }
-
     /// Reads all of the packets from a `PacketParser`, and turns them
     /// into a message.
     ///
@@ -416,7 +419,7 @@ impl<'a> PacketParserBuilder<'a> {
     /// # extern crate sequoia_openpgp as openpgp;
     /// # use openpgp::Result;
     /// # use openpgp::PacketPile;
-    /// # use openpgp::parse::{PacketParser, PacketParserBuilder};
+    /// # use openpgp::parse::{Parse, PacketParser, PacketParserBuilder};
     /// # f(include_bytes!("../tests/data/messages/public-key.gpg"));
     /// #
     /// # fn f(message_data: &[u8]) -> Result<PacketPile> {
@@ -441,7 +444,7 @@ mod test {
     use packet::CompressedData;
     use packet::SEIP;
     use packet::Tag;
-    use parse::PacketParser;
+    use parse::{Parse, PacketParser};
 
     #[test]
     fn deserialize_test_1 () {

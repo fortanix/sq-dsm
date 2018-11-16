@@ -11,7 +11,7 @@ extern crate sequoia_openpgp as openpgp;
 use openpgp::Packet;
 use openpgp::constants::SignatureType;
 use openpgp::packet::{BodyLength, Tag};
-use openpgp::parse::{PacketParserResult, PacketParser};
+use openpgp::parse::{Parse, PacketParserResult, PacketParser};
 
 fn main() {
     let args: Vec<String> = env::args().collect();

@@ -13,6 +13,7 @@ use parse::PacketParserEOF;
 use parse::PacketParserState;
 use parse::PacketParserSettings;
 use parse::ParserResult;
+use parse::Parse;
 use parse::Cookie;
 use armor;
 use packet;
@@ -28,6 +29,31 @@ pub struct PacketParserBuilder<'a> {
     settings: PacketParserSettings,
 }
 
+impl<'a> Parse<'a, PacketParserBuilder<'a>> for PacketParserBuilder<'a> {
+    /// Creates a `PacketParserBuilder` for an OpenPGP message stored
+    /// in a `std::io::Read` object.
+    fn from_reader<R: io::Read + 'a>(reader: R) -> Result<Self> {
+        PacketParserBuilder::from_buffered_reader(
+            Box::new(BufferedReaderGeneric::with_cookie(
+                reader, None, Cookie::default())))
+    }
+
+    /// Creates a `PacketParserBuilder` for an OpenPGP message stored
+    /// in the file named `path`.
+    fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
+        PacketParserBuilder::from_buffered_reader(
+            Box::new(BufferedReaderFile::with_cookie(path, Cookie::default())?))
+    }
+
+    /// Creates a `PacketParserBuilder` for an OpenPGP message stored
+    /// in the specified buffer.
+    fn from_bytes(bytes: &'a [u8]) -> Result<PacketParserBuilder> {
+        PacketParserBuilder::from_buffered_reader(
+            Box::new(BufferedReaderMemory::with_cookie(
+                bytes, Cookie::default())))
+    }
+}
+
 impl<'a> PacketParserBuilder<'a> {
     // Creates a `PacketParserBuilder` for an OpenPGP message stored
     // in a `BufferedReader` object.
@@ -41,29 +67,6 @@ impl<'a> PacketParserBuilder<'a> {
             bio: bio,
             settings: PacketParserSettings::default(),
         })
-    }
-
-    /// Creates a `PacketParserBuilder` for an OpenPGP message stored
-    /// in a `std::io::Read` object.
-    pub fn from_reader<R: io::Read + 'a>(reader: R) -> Result<Self> {
-        PacketParserBuilder::from_buffered_reader(
-            Box::new(BufferedReaderGeneric::with_cookie(
-                reader, None, Cookie::default())))
-    }
-
-    /// Creates a `PacketParserBuilder` for an OpenPGP message stored
-    /// in the file named `path`.
-    pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
-        PacketParserBuilder::from_buffered_reader(
-            Box::new(BufferedReaderFile::with_cookie(path, Cookie::default())?))
-    }
-
-    /// Creates a `PacketParserBuilder` for an OpenPGP message stored
-    /// in the specified buffer.
-    pub fn from_bytes(bytes: &'a [u8]) -> Result<PacketParserBuilder> {
-        PacketParserBuilder::from_buffered_reader(
-            Box::new(BufferedReaderMemory::with_cookie(
-                bytes, Cookie::default())))
     }
 
     /// Sets the maximum recursion depth.
@@ -111,7 +114,7 @@ impl<'a> PacketParserBuilder<'a> {
     /// # extern crate sequoia_openpgp as openpgp;
     /// # use openpgp::Result;
     /// # use openpgp::parse::{
-    /// #     PacketParserResult, PacketParser, PacketParserBuilder
+    /// #     Parse, PacketParserResult, PacketParser, PacketParserBuilder
     /// # };
     /// # f(include_bytes!("../../tests/data/messages/public-key.gpg"));
     /// #

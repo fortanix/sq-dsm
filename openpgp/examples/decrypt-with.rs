@@ -9,8 +9,15 @@ extern crate failure;
 extern crate sequoia_openpgp as openpgp;
 
 use openpgp::packet::key::SecretKey;
-use openpgp::parse::stream::{
-    Decryptor, DecryptionHelper, Secret, VerificationHelper, VerificationResult,
+use openpgp::parse::{
+    Parse,
+    stream::{
+        DecryptionHelper,
+        Decryptor,
+        Secret,
+        VerificationHelper,
+        VerificationResult,
+    },
 };
 
 pub fn main() {

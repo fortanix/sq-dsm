@@ -451,6 +451,7 @@ impl mpis::Signature {
 
 #[test]
 fn mpis_parse_test() {
+    use super::Parse;
     use std::io::Cursor;
     use PublicKeyAlgorithm::*;
 
@@ -492,7 +493,7 @@ fn mpis_parse_test() {
     }
 
     // The number 511.
-    let mpi = MPI::parse_naked(Cursor::new(b"\x00\x09\x01\xff".to_vec())).unwrap();
+    let mpi = MPI::from_bytes(b"\x00\x09\x01\xff").unwrap();
     assert_eq!(mpi.value.len(), 2);
     assert_eq!(mpi.bits, 9);
     assert_eq!(mpi.value[0], 1);
@@ -500,5 +501,5 @@ fn mpis_parse_test() {
 
     // The number 1, incorrectly encoded (the length should be 1,
     // not 2).
-    assert!(MPI::parse_naked(Cursor::new(b"\x00\x02\x01".to_vec())).is_err());
+    assert!(MPI::from_bytes(b"\x00\x02\x01").is_err());
 }

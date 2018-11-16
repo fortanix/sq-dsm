@@ -9,7 +9,7 @@ use openpgp::{
     armor,
     Packet,
     constants::DataFormat,
-    parse::PacketParserResult,
+    parse::{Parse, PacketParserResult},
     serialize::Serialize,
 };
 use openpgp::serialize::stream::{Message, LiteralWriter, Signer};

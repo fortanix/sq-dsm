@@ -13,7 +13,7 @@ use serialize::{
     Serialize,
     SerializeKey,
 };
-use parse::PacketParserResult;
+use parse::{Parse, PacketParserResult};
 
 /// A transferable secret key (TSK).
 ///
@@ -40,25 +40,27 @@ impl DerefMut for TSK {
     }
 }
 
-impl TSK {
-    /// Initializes a `TSK` from a `PacketParser`.
-    pub fn from_packet_parser<'a>(ppr: PacketParserResult<'a>) -> Result<Self> {
-        TPK::from_packet_parser(ppr).map(|tpk| Self::from_tpk(tpk))
-    }
-
+impl<'a> Parse<'a, TSK> for TSK {
     /// Initializes a `TSK` from a `Read`er.
-    pub fn from_reader<'a, R: 'a + io::Read>(reader: R) -> Result<Self> {
+    fn from_reader<R: 'a + io::Read>(reader: R) -> Result<Self> {
         TPK::from_reader(reader).map(|tpk| Self::from_tpk(tpk))
     }
 
     /// Initializes a `TSK` from a `File`.
-    pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
+    fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
         TPK::from_file(path).map(|tpk| Self::from_tpk(tpk))
     }
 
     /// Initializes a `TSK` from a byte string.
-    pub fn from_bytes<'a>(data: &'a [u8]) -> Result<Self> {
+    fn from_bytes(data: &'a [u8]) -> Result<Self> {
         TPK::from_bytes(data).map(|tpk| Self::from_tpk(tpk))
+    }
+}
+
+impl TSK {
+    /// Initializes a `TSK` from a `PacketParser`.
+    pub fn from_packet_parser<'a>(ppr: PacketParserResult<'a>) -> Result<Self> {
+        TPK::from_packet_parser(ppr).map(|tpk| Self::from_tpk(tpk))
     }
 
     pub(crate) fn from_tpk(tpk: TPK) -> TSK {

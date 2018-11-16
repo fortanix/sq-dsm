@@ -222,6 +222,7 @@ impl<'a> Signer<'a> {
     /// use openpgp::constants::DataFormat;
     /// use openpgp::serialize::stream::{Message, Signer, LiteralWriter};
     /// # use openpgp::{Result, TPK};
+    /// # use openpgp::parse::Parse;
     /// # let tsk = TPK::from_bytes(include_bytes!(
     /// #     "../../tests/data/keys/testy-new-private.pgp"))
     /// #     .unwrap();
@@ -268,6 +269,7 @@ impl<'a> Signer<'a> {
     /// use std::io::Write;
     /// use openpgp::serialize::stream::{Message, Signer, LiteralWriter};
     /// # use openpgp::{Result, TPK};
+    /// # use openpgp::parse::Parse;
     /// # let tsk = TPK::from_bytes(include_bytes!(
     /// #     "../../tests/data/keys/testy-new-private.pgp"))
     /// #     .unwrap();
@@ -836,6 +838,7 @@ impl<'a> Encryptor<'a> {
     ///     Message, Encryptor, EncryptionMode, LiteralWriter,
     /// };
     /// # use openpgp::Result;
+    /// # use openpgp::parse::Parse;
     /// # fn main() { f().unwrap(); }
     /// # fn f() -> Result<()> {
     /// let tpk = openpgp::TPK::from_reader(armored!(
@@ -1147,7 +1150,7 @@ impl<'a> writer::Stackable<'a, Cookie> for Encryptor<'a> {
 mod test {
     use std::io::Read;
     use {Packet, PacketPile, packet::CompressedData};
-    use parse::{PacketParserResult, PacketParser};
+    use parse::{Parse, PacketParserResult, PacketParser};
     use super::*;
     use constants::DataFormat::Text as T;
 

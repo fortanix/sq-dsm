@@ -347,6 +347,7 @@ impl Signature {
 mod test {
     use super::*;
     use TPK;
+    use parse::Parse;
 
     macro_rules! bytes {
         ( $x:expr ) => { include_bytes!(concat!("../../tests/data/keys/", $x)) };

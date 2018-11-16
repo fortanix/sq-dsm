@@ -4,6 +4,7 @@
 extern crate sequoia_openpgp as openpgp;
 extern crate sequoia;
 use sequoia::{core, store};
+use openpgp::parse::Parse;
 
 fn main() {
     let mut reader = armored!(

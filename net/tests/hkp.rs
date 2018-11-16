@@ -25,6 +25,7 @@ extern crate sequoia_net;
 use openpgp::armor::Reader;
 use openpgp::TPK;
 use openpgp::{Fingerprint, KeyID};
+use openpgp::parse::Parse;
 use sequoia_core::{Context, NetworkPolicy};
 use sequoia_net::KeyServer;
 

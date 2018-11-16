@@ -38,7 +38,12 @@ use self::openpgp::tpk::{
     KeyIter
 };
 use self::openpgp::packet;
-use self::openpgp::parse::{PacketParserResult, PacketParser, PacketParserEOF};
+use self::openpgp::parse::{
+    Parse,
+    PacketParserResult,
+    PacketParser,
+    PacketParserEOF,
+};
 use self::openpgp::parse::stream::{
     DecryptionHelper,
     Decryptor,

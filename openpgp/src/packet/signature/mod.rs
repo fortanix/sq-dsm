@@ -879,6 +879,7 @@ impl From<Signature> for Packet {
 mod test {
     use super::*;
     use TPK;
+    use parse::Parse;
 
     #[cfg(feature = "compression-deflate")]
     #[test]

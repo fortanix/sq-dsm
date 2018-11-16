@@ -2,6 +2,7 @@
 
 #[macro_use] // For armored!
 extern crate sequoia_openpgp as openpgp;
+use openpgp::parse::Parse;
 
 fn main() {
     let mut reader = armored!(

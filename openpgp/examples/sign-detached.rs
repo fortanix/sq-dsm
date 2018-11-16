@@ -5,6 +5,7 @@ use std::io;
 
 extern crate sequoia_openpgp as openpgp;
 use openpgp::armor;
+use openpgp::parse::Parse;
 use openpgp::serialize::stream::{Message, Signer};
 
 fn main() {

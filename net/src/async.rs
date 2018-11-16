@@ -18,6 +18,7 @@ use url::Url;
 
 use openpgp::TPK;
 use openpgp::{KeyID, armor, serialize::Serialize};
+use openpgp::parse::Parse;
 use sequoia_core::{Context, NetworkPolicy};
 
 use super::{Error, Result};

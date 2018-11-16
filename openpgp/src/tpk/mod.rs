@@ -30,7 +30,7 @@ use {
     Fingerprint,
     TSK,
 };
-use parse::{PacketParserResult, PacketParser};
+use parse::{Parse, PacketParserResult, PacketParser};
 use serialize::{Serialize, SerializeKey};
 use conversions::Time;
 use constants::ReasonForRevocation;
@@ -734,7 +734,7 @@ enum PacketSource<'a, I: Iterator<Item=Packet>> {
 /// ```rust
 /// # extern crate sequoia_openpgp as openpgp;
 /// # use openpgp::Result;
-/// # use openpgp::parse::{PacketParserResult, PacketParser};
+/// # use openpgp::parse::{Parse, PacketParserResult, PacketParser};
 /// use openpgp::tpk::TPKParser;
 ///
 /// # fn main() { f().unwrap(); }
@@ -789,19 +789,23 @@ impl<'a> TPKParser<'a, vec::IntoIter<Packet>> {
         }
         parser
     }
+}
 
+impl<'a> Parse<'a, TPKParser<'a, vec::IntoIter<Packet>>>
+    for TPKParser<'a, vec::IntoIter<Packet>>
+{
     /// Initializes a `TPKParser` from a `Read`er.
-    pub fn from_reader<R: 'a + io::Read>(reader: R) -> Result<Self> {
+    fn from_reader<R: 'a + io::Read>(reader: R) -> Result<Self> {
         Ok(Self::from_packet_parser(PacketParser::from_reader(reader)?))
     }
 
     /// Initializes a `TPKParser` from a `File`.
-    pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
+    fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
         Ok(Self::from_packet_parser(PacketParser::from_file(path)?))
     }
 
     /// Initializes a `TPKParser` from a byte string.
-    pub fn from_bytes(data: &'a [u8]) -> Result<Self> {
+    fn from_bytes(data: &'a [u8]) -> Result<Self> {
         Ok(Self::from_packet_parser(PacketParser::from_bytes(data)?))
     }
 }
@@ -850,7 +854,7 @@ impl<'a, I: Iterator<Item=Packet>> TPKParser<'a, I> {
     /// ```rust
     /// # extern crate sequoia_openpgp as openpgp;
     /// # use openpgp::Result;
-    /// # use openpgp::parse::PacketParser;
+    /// # use openpgp::parse::{Parse, PacketParser};
     /// use openpgp::tpk::TPKParser;
     /// use openpgp::TPK;
     /// use openpgp::KeyID;
@@ -1180,6 +1184,26 @@ impl<'a> ExactSizeIterator for SubkeyBindingIter<'a> {
     fn len(&self) -> usize { self.iter.len() }
 }
 
+
+impl<'a> Parse<'a, TPK> for TPK {
+    /// Returns the first TPK encountered in the reader.
+    fn from_reader<R: io::Read>(reader: R) -> Result<Self> {
+        TPK::from_packet_parser(PacketParser::from_reader(reader)?)
+    }
+
+    /// Returns the first TPK encountered in the file.
+    fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
+        TPK::from_packet_parser(PacketParser::from_file(path)?)
+    }
+
+    /// Returns the first TPK found in `buf`.
+    ///
+    /// `buf` must be an OpenPGP-encoded message.
+    fn from_bytes(buf: &[u8]) -> Result<Self> {
+        TPK::from_packet_parser(PacketParser::from_bytes(buf)?)
+    }
+}
+
 impl TPK {
     /// Returns a reference to the primary key.
     pub fn primary(&self) -> &Key {
@@ -1494,16 +1518,6 @@ impl TPK {
         }
     }
 
-    /// Returns the first TPK encountered in the reader.
-    pub fn from_reader<R: io::Read>(reader: R) -> Result<Self> {
-        TPK::from_packet_parser(PacketParser::from_reader(reader)?)
-    }
-
-    /// Returns the first TPK encountered in the file.
-    pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
-        TPK::from_packet_parser(PacketParser::from_file(path)?)
-    }
-
     /// Returns the first TPK found in the `PacketPile`.
     pub fn from_packet_pile(p: PacketPile) -> Result<Self> {
         let mut i = TPKParser::from_iter(p.into_children());
@@ -1512,13 +1526,6 @@ impl TPK {
             Some(Err(err)) => Err(err),
             None => Err(Error::MalformedTPK("No data".into()).into()),
         }
-    }
-
-    /// Returns the first TPK found in `buf`.
-    ///
-    /// `buf` must be an OpenPGP-encoded message.
-    pub fn from_bytes(buf: &[u8]) -> Result<Self> {
-        TPK::from_packet_parser(PacketParser::from_bytes(buf)?)
     }
 
     fn canonicalize(mut self) -> Self {

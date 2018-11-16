@@ -14,7 +14,10 @@ use openpgp::armor;
 use openpgp::constants::DataFormat;
 use openpgp::{Packet, TPK, KeyID, Error, Result};
 use openpgp::packet::Signature;
-use openpgp::parse::PacketParserResult;
+use openpgp::parse::{
+    Parse,
+    PacketParserResult,
+};
 use openpgp::parse::stream::{
     Verifier, DetachedVerifier, VerificationResult, VerificationHelper,
 };

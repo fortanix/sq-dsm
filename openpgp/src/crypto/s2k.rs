@@ -262,7 +262,7 @@ mod tests {
     use conversions::to_hex;
     use SymmetricAlgorithm;
     use Packet;
-    use parse::PacketParser;
+    use parse::{Parse, PacketParser};
     use serialize::Serialize;
 
     use std::path::PathBuf;
@@ -413,7 +413,7 @@ mod tests {
 
             assert_eq!(buf.len(), l);
             let mut r = Cursor::new(buf.into_boxed_slice());
-            let s = S2K::parse_naked(&mut r).unwrap();
+            let s = S2K::from_reader(&mut r).unwrap();
             eprintln!("out {:?}", s);
 
             s2k == s

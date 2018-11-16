@@ -41,7 +41,7 @@ impl Key {
 #[cfg(test)]
 mod test {
     use super::*;
-
+    use parse::Parse;
     use Packet;
     use PacketPile;
 

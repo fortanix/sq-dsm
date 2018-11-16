@@ -58,7 +58,7 @@ impl Map {
     /// ```
     /// # extern crate sequoia_openpgp as openpgp;
     /// # use openpgp::Result;
-    /// # use openpgp::parse::{PacketParser, PacketParserBuilder};
+    /// # use openpgp::parse::{Parse, PacketParser, PacketParserBuilder};
     /// # f();
     /// #
     /// # fn f() -> Result<()> {

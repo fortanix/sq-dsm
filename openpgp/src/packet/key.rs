@@ -326,6 +326,7 @@ mod tests {
     use super::*;
     use PacketPile;
     use serialize::SerializeKey;
+    use parse::Parse;
 
     fn path_to(artifact: &str) -> PathBuf {
         [env!("CARGO_MANIFEST_DIR"), "tests", "data", "keys", artifact]

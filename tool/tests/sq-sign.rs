@@ -9,6 +9,7 @@ use tempfile::TempDir;
 extern crate sequoia_openpgp as openpgp;
 use openpgp::{Packet, PacketPile, TPK};
 use openpgp::constants::{CompressionAlgorithm, DataFormat, SignatureType};
+use openpgp::parse::Parse;
 use openpgp::serialize::stream::{Message, Signer, Compressor, LiteralWriter};
 
 fn p(filename: &str) -> String {

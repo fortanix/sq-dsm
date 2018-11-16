@@ -28,6 +28,7 @@ use packet::SKESK;
 use TPK;
 use TSK;
 use parse::{
+    Parse,
     PacketParserResult, PacketParser,
 };
 use serialize::Serialize;

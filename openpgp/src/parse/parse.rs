@@ -110,6 +110,37 @@ macro_rules! destructures_to {
     };
 }
 
+/// Parsing of packets and related structures.
+///
+/// This is a uniform interface to parse packets, messages, keys, and
+/// related data structures.
+pub trait Parse<'a, T> {
+    /// Reads from the given reader.
+    fn from_reader<R: 'a + Read>(reader: R) -> Result<T>;
+
+    /// Reads from the given file.
+    ///
+    /// The default implementation just uses [`from_reader(..)`], but
+    /// implementations can provide their own specialized version.
+    ///
+    /// [`from_reader(..)`]: #tymethod.from_reader
+    fn from_file<P: AsRef<Path>>(path: P) -> Result<T>
+    {
+        Self::from_reader(::std::fs::File::open(path)?)
+    }
+
+    /// Reads from the given slice.
+    ///
+    /// The default implementation just uses [`from_reader(..)`], but
+    /// implementations can provide their own specialized version.
+    ///
+    /// [`from_reader(..)`]: #tymethod.from_reader
+    fn from_bytes(data: &'a [u8]) -> Result<T>
+    {
+        Self::from_reader(io::Cursor::new(data))
+    }
+}
+
 /// The default amount of acceptable nesting.  Typically, we expect a
 /// message to looking like:
 ///
@@ -707,21 +738,6 @@ impl Default for PacketParserSettings {
     }
 }
 
-// Note: this method is only used in a test in the s2k module.  This
-// means that we get a warning about it being unused in !cfg(test).
-// We can't add the #[cfg(test)] attribute to the method; we can only
-// add it to the impl block.
-#[cfg(test)]
-impl S2K {
-    // Reads an S2K from `r`.
-    pub(crate) fn parse_naked<R: io::Read>(r: R) -> Result<Self> {
-        let bio = BufferedReaderGeneric::with_cookie(
-            r, None, Cookie::default());
-        let mut parser = PacketHeaderParser::new_naked(Box::new(bio));
-        Self::parse(&mut parser)
-    }
-}
-
 impl S2K {
     /// Reads an S2K from `php`.
     fn parse<'a>(php: &mut PacketHeaderParser<'a>) -> Result<Self>
@@ -755,18 +771,17 @@ impl S2K {
     }
 }
 
-impl Header {
-    /// Parses an OpenPGP packet's header as described in [Section 4.2
-    /// of RFC 4880].
-    ///
-    ///   [Section 4.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.2
-    pub fn from_reader<R: Read>(reader: R) -> Result<Header>
-    {
-        let mut reader = BufferedReaderGeneric::with_cookie(
+impl<'a> Parse<'a, S2K> for S2K {
+    /// Reads an S2K from `reader`.
+    fn from_reader<R: 'a + Read>(reader: R) -> Result<Self> {
+        let bio = BufferedReaderGeneric::with_cookie(
             reader, None, Cookie::default());
-        Header::parse(&mut reader)
+        let mut parser = PacketHeaderParser::new_naked(Box::new(bio));
+        Self::parse(&mut parser)
     }
+}
 
+impl Header {
     pub(crate) fn parse<R: BufferedReader<C>, C> (bio: &mut R)
         -> Result<Header>
     {
@@ -857,6 +872,19 @@ impl Header {
 
         // Not complete junk...
         Ok(())
+    }
+}
+
+impl<'a> Parse<'a, Header> for Header {
+    /// Parses an OpenPGP packet's header as described in [Section 4.2
+    /// of RFC 4880].
+    ///
+    ///   [Section 4.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.2
+    fn from_reader<R: 'a + Read>(reader: R) -> Result<Self>
+    {
+        let mut reader = BufferedReaderGeneric::with_cookie(
+            reader, None, Cookie::default());
+        Header::parse(&mut reader)
     }
 }
 
@@ -1077,6 +1105,32 @@ impl Signature {
     }
 }
 
+impl<'a> Parse<'a, Signature> for Signature {
+    fn from_reader<R: 'a + Read>(reader: R) -> Result<Self> {
+        let ppr = PacketParserBuilder::from_reader(reader)?
+            .buffer_unread_content().finalize()?;
+        let (p, ppr) = match ppr {
+            PacketParserResult::Some(mut pp) => {
+                pp.next()?
+            },
+            PacketParserResult::EOF(_) =>
+                return Err(Error::InvalidOperation(
+                    "Unexpected EOF".into()).into()),
+        };
+
+        match (p, ppr) {
+            (Packet::Signature(o), PacketParserResult::EOF(_)) =>
+                Ok(o),
+            (p, PacketParserResult::EOF(_)) =>
+                Err(Error::InvalidOperation(
+                    format!("Not a Signature packet: {:?}", p)).into()),
+            (_, PacketParserResult::Some(_)) =>
+                Err(Error::InvalidOperation(
+                    "Excess data after packet".into()).into()),
+        }
+    }
+}
+
 #[test]
 fn signature_parser_test () {
     let data = bytes!("sig.gpg");
@@ -1263,6 +1317,32 @@ fn one_pass_sig_parser_test () {
         assert_eq!(p.last_raw(), 1);
     } else {
         panic!("Wrong packet!");
+    }
+}
+
+impl<'a> Parse<'a, OnePassSig> for OnePassSig {
+    fn from_reader<R: 'a + Read>(reader: R) -> Result<Self> {
+        let ppr = PacketParserBuilder::from_reader(reader)?
+            .buffer_unread_content().finalize()?;
+        let (p, ppr) = match ppr {
+            PacketParserResult::Some(mut pp) => {
+                pp.next()?
+            },
+            PacketParserResult::EOF(_) =>
+                return Err(Error::InvalidOperation(
+                    "Unexpected EOF".into()).into()),
+        };
+
+        match (p, ppr) {
+            (Packet::OnePassSig(o), PacketParserResult::EOF(_)) =>
+                Ok(o),
+            (p, PacketParserResult::EOF(_)) =>
+                Err(Error::InvalidOperation(
+                    format!("Not a OnePassSig packet: {:?}", p)).into()),
+            (_, PacketParserResult::Some(_)) =>
+                Err(Error::InvalidOperation(
+                    "Excess data after packet".into()).into()),
+        }
     }
 }
 
@@ -1454,6 +1534,35 @@ impl Key {
     }
 }
 
+impl<'a> Parse<'a, Key> for Key {
+    fn from_reader<R: 'a + Read>(reader: R) -> Result<Self> {
+        let ppr = PacketParserBuilder::from_reader(reader)?
+            .buffer_unread_content().finalize()?;
+        let (p, ppr) = match ppr {
+            PacketParserResult::Some(mut pp) => {
+                pp.next()?
+            },
+            PacketParserResult::EOF(_) =>
+                return Err(Error::InvalidOperation(
+                    "Unexpected EOF".into()).into()),
+        };
+
+        match (p, ppr) {
+            (Packet::PublicKey(o), PacketParserResult::EOF(_))
+            | (Packet::PublicSubkey(o), PacketParserResult::EOF(_))
+            | (Packet::SecretKey(o), PacketParserResult::EOF(_))
+            | (Packet::SecretSubkey(o), PacketParserResult::EOF(_)) =>
+                Ok(o),
+            (p, PacketParserResult::EOF(_)) =>
+                Err(Error::InvalidOperation(
+                    format!("Not a Key packet: {:?}", p)).into()),
+            (_, PacketParserResult::Some(_)) =>
+                Err(Error::InvalidOperation(
+                    "Excess data after packet".into()).into()),
+        }
+    }
+}
+
 impl UserID {
     /// Parses the body of a user id packet.
     fn parse<'a>(mut php: PacketHeaderParser<'a>) -> Result<PacketParser<'a>> {
@@ -1465,6 +1574,31 @@ impl UserID {
     }
 }
 
+impl<'a> Parse<'a, UserID> for UserID {
+    fn from_reader<R: 'a + Read>(reader: R) -> Result<Self> {
+        let ppr = PacketParser::from_reader(reader)?;
+        let (p, ppr) = match ppr {
+            PacketParserResult::Some(mut pp) => {
+                pp.next()?
+            },
+            PacketParserResult::EOF(_) =>
+                return Err(Error::InvalidOperation(
+                    "Unexpected EOF".into()).into()),
+        };
+
+        match (p, ppr) {
+            (Packet::UserID(u), PacketParserResult::EOF(_)) =>
+                Ok(u),
+            (p, PacketParserResult::EOF(_)) =>
+                Err(Error::InvalidOperation(
+                    format!("Not a UserID packet: {:?}", p)).into()),
+            (_, PacketParserResult::Some(_)) =>
+                Err(Error::InvalidOperation(
+                    "Excess data after packet".into()).into()),
+        }
+    }
+}
+
 impl UserAttribute {
     /// Parses the body of a user attribute packet.
     fn parse<'a>(mut php: PacketHeaderParser<'a>) -> Result<PacketParser<'a>> {
@@ -1473,6 +1607,31 @@ impl UserAttribute {
         let value = php_try!(php.parse_bytes_eof("value"));
 
         php.ok(Packet::UserAttribute(UserAttribute::from(value)))
+    }
+}
+
+impl<'a> Parse<'a, UserAttribute> for UserAttribute {
+    fn from_reader<R: 'a + Read>(reader: R) -> Result<Self> {
+        let ppr = PacketParser::from_reader(reader)?;
+        let (p, ppr) = match ppr {
+            PacketParserResult::Some(mut pp) => {
+                pp.next()?
+            },
+            PacketParserResult::EOF(_) =>
+                return Err(Error::InvalidOperation(
+                    "Unexpected EOF".into()).into()),
+        };
+
+        match (p, ppr) {
+            (Packet::UserAttribute(u), PacketParserResult::EOF(_)) =>
+                Ok(u),
+            (p, PacketParserResult::EOF(_)) =>
+                Err(Error::InvalidOperation(
+                    format!("Not a UserAttribute packet: {:?}", p)).into()),
+            (_, PacketParserResult::Some(_)) =>
+                Err(Error::InvalidOperation(
+                    "Excess data after packet".into()).into()),
+        }
     }
 }
 
@@ -1515,6 +1674,32 @@ impl Literal {
                         recursion_depth - 1);
 
         Ok(pp)
+    }
+}
+
+impl<'a> Parse<'a, Literal> for Literal {
+    fn from_reader<R: 'a + Read>(reader: R) -> Result<Self> {
+        let ppr = PacketParserBuilder::from_reader(reader)?
+            .buffer_unread_content().finalize()?;
+        let (p, ppr) = match ppr {
+            PacketParserResult::Some(mut pp) => {
+                pp.next()?
+            },
+            PacketParserResult::EOF(_) =>
+                return Err(Error::InvalidOperation(
+                    "Unexpected EOF".into()).into()),
+        };
+
+        match (p, ppr) {
+            (Packet::Literal(u), PacketParserResult::EOF(_)) =>
+                Ok(u),
+            (p, PacketParserResult::EOF(_)) =>
+                Err(Error::InvalidOperation(
+                    format!("Not a Literal packet: {:?}", p)).into()),
+            (_, PacketParserResult::Some(_)) =>
+                Err(Error::InvalidOperation(
+                    "Excess data after packet".into()).into()),
+        }
     }
 }
 
@@ -1618,6 +1803,32 @@ impl CompressedData {
         pp.set_reader(reader);
 
         Ok(pp)
+    }
+}
+
+impl<'a> Parse<'a, CompressedData> for CompressedData {
+    fn from_reader<R: 'a + Read>(reader: R) -> Result<Self> {
+        let ppr = PacketParserBuilder::from_reader(reader)?
+            .buffer_unread_content().finalize()?;
+        let (p, ppr) = match ppr {
+            PacketParserResult::Some(mut pp) => {
+                pp.next()?
+            },
+            PacketParserResult::EOF(_) =>
+                return Err(Error::InvalidOperation(
+                    "Unexpected EOF".into()).into()),
+        };
+
+        match (p, ppr) {
+            (Packet::CompressedData(u), PacketParserResult::EOF(_)) =>
+                Ok(u),
+            (p, PacketParserResult::EOF(_)) =>
+                Err(Error::InvalidOperation(
+                    format!("Not a CompressedData packet: {:?}", p)).into()),
+            (_, PacketParserResult::Some(_)) =>
+                Err(Error::InvalidOperation(
+                    "Excess data after packet".into()).into()),
+        }
     }
 }
 
@@ -1734,6 +1945,31 @@ impl SKESK {
     }
 }
 
+impl<'a> Parse<'a, SKESK> for SKESK {
+    fn from_reader<R: 'a + Read>(reader: R) -> Result<Self> {
+        let ppr = PacketParser::from_reader(reader)?;
+        let (p, ppr) = match ppr {
+            PacketParserResult::Some(mut pp) => {
+                pp.next()?
+            },
+            PacketParserResult::EOF(_) =>
+                return Err(Error::InvalidOperation(
+                    "Unexpected EOF".into()).into()),
+        };
+
+        match (p, ppr) {
+            (Packet::SKESK(u), PacketParserResult::EOF(_)) =>
+                Ok(u),
+            (p, PacketParserResult::EOF(_)) =>
+                Err(Error::InvalidOperation(
+                    format!("Not a SKESK packet: {:?}", p)).into()),
+            (_, PacketParserResult::Some(_)) =>
+                Err(Error::InvalidOperation(
+                    "Excess data after packet".into()).into()),
+        }
+    }
+}
+
 #[test]
 fn skesk_parser_test() {
     use crypto::Password;
@@ -1797,6 +2033,31 @@ impl SEIP {
     }
 }
 
+impl<'a> Parse<'a, SEIP> for SEIP {
+    fn from_reader<R: 'a + Read>(reader: R) -> Result<Self> {
+        let ppr = PacketParser::from_reader(reader)?;
+        let (p, ppr) = match ppr {
+            PacketParserResult::Some(mut pp) => {
+                pp.next()?
+            },
+            PacketParserResult::EOF(_) =>
+                return Err(Error::InvalidOperation(
+                    "Unexpected EOF".into()).into()),
+        };
+
+        match (p, ppr) {
+            (Packet::SEIP(u), PacketParserResult::EOF(_)) =>
+                Ok(u),
+            (p, PacketParserResult::EOF(_)) =>
+                Err(Error::InvalidOperation(
+                    format!("Not a SEIP packet: {:?}", p)).into()),
+            (_, PacketParserResult::Some(_)) =>
+                Err(Error::InvalidOperation(
+                    "Excess data after packet".into()).into()),
+        }
+    }
+}
+
 impl MDC {
     /// Parses the body of an MDC packet.
     fn parse<'a>(mut php: PacketHeaderParser<'a>) -> Result<PacketParser<'a>> {
@@ -1843,6 +2104,31 @@ impl MDC {
     }
 }
 
+impl<'a> Parse<'a, MDC> for MDC {
+    fn from_reader<R: 'a + Read>(reader: R) -> Result<Self> {
+        let ppr = PacketParser::from_reader(reader)?;
+        let (p, ppr) = match ppr {
+            PacketParserResult::Some(mut pp) => {
+                pp.next()?
+            },
+            PacketParserResult::EOF(_) =>
+                return Err(Error::InvalidOperation(
+                    "Unexpected EOF".into()).into()),
+        };
+
+        match (p, ppr) {
+            (Packet::MDC(u), PacketParserResult::EOF(_)) =>
+                Ok(u),
+            (p, PacketParserResult::EOF(_)) =>
+                Err(Error::InvalidOperation(
+                    format!("Not a MDC packet: {:?}", p)).into()),
+            (_, PacketParserResult::Some(_)) =>
+                Err(Error::InvalidOperation(
+                    "Excess data after packet".into()).into()),
+        }
+    }
+}
+
 impl AED {
     /// Parses the body of a AED packet.
     fn parse<'a>(mut php: PacketHeaderParser<'a>) -> Result<PacketParser<'a>> {
@@ -1869,14 +2155,28 @@ impl AED {
     }
 }
 
-impl MPI {
-    // Reads an MPI from `r`.
-    #[cfg(test)]
-    pub(crate) fn parse_naked<R: io::Read>(r: R) -> Result<Self> {
-        let bio = BufferedReaderGeneric::with_cookie(
-            r, None, Cookie::default());
-        let mut parser = PacketHeaderParser::new_naked(Box::new(bio));
-        Self::parse("(none)", &mut parser)
+impl<'a> Parse<'a, AED> for AED {
+    fn from_reader<R: 'a + Read>(reader: R) -> Result<Self> {
+        let ppr = PacketParser::from_reader(reader)?;
+        let (p, ppr) = match ppr {
+            PacketParserResult::Some(mut pp) => {
+                pp.next()?
+            },
+            PacketParserResult::EOF(_) =>
+                return Err(Error::InvalidOperation(
+                    "Unexpected EOF".into()).into()),
+        };
+
+        match (p, ppr) {
+            (Packet::AED(u), PacketParserResult::EOF(_)) =>
+                Ok(u),
+            (p, PacketParserResult::EOF(_)) =>
+                Err(Error::InvalidOperation(
+                    format!("Not a AED packet: {:?}", p)).into()),
+            (_, PacketParserResult::Some(_)) =>
+                Err(Error::InvalidOperation(
+                    "Excess data after packet".into()).into()),
+        }
     }
 }
 
@@ -2001,6 +2301,16 @@ impl MPI {
     }
 }
 
+impl<'a> Parse<'a, MPI> for MPI {
+    // Reads an MPI from `reader`.
+    fn from_reader<R: io::Read>(reader: R) -> Result<Self> {
+        let bio = BufferedReaderGeneric::with_cookie(
+            reader, None, Cookie::default());
+        let mut parser = PacketHeaderParser::new_naked(Box::new(bio));
+        Self::parse("(none)", &mut parser)
+    }
+}
+
 impl PKESK {
     /// Parses the body of an PK-ESK packet.
     fn parse<'a>(mut php: PacketHeaderParser<'a>) -> Result<PacketParser<'a>> {
@@ -2022,6 +2332,32 @@ impl PKESK {
         let pkesk = php_try!(PKESK::new_(KeyID::from_bytes(&keyid),
                                          pk_algo, mpis));
         php.ok(Packet::PKESK(pkesk))
+    }
+}
+
+impl<'a> Parse<'a, PKESK> for PKESK {
+    fn from_reader<R: 'a + Read>(reader: R) -> Result<Self> {
+        let ppr = PacketParserBuilder::from_reader(reader)?
+            .buffer_unread_content().finalize()?;
+        let (p, ppr) = match ppr {
+            PacketParserResult::Some(mut pp) => {
+                pp.next()?
+            },
+            PacketParserResult::EOF(_) =>
+                return Err(Error::InvalidOperation(
+                    "Unexpected EOF".into()).into()),
+        };
+
+        match (p, ppr) {
+            (Packet::PKESK(o), PacketParserResult::EOF(_)) =>
+                Ok(o),
+            (p, PacketParserResult::EOF(_)) =>
+                Err(Error::InvalidOperation(
+                    format!("Not a PKESK packet: {:?}", p)).into()),
+            (_, PacketParserResult::Some(_)) =>
+                Err(Error::InvalidOperation(
+                    "Excess data after packet".into()).into()),
+        }
     }
 }
 
@@ -2076,7 +2412,7 @@ impl PacketParserState {
 /// # extern crate sequoia_openpgp as openpgp;
 /// # use openpgp::Result;
 /// # use openpgp::Packet;
-/// # use openpgp::parse::{PacketParserResult, PacketParser};
+/// # use openpgp::parse::{Parse, PacketParserResult, PacketParser};
 /// # let _ = f(include_bytes!("../../tests/data/messages/public-key.gpg"));
 /// #
 /// # fn f(message_data: &[u8]) -> Result<()> {
@@ -2315,6 +2651,35 @@ impl<'a> PacketParserResult<'a> {
     }
 }
 
+impl<'a> Parse<'a, PacketParserResult<'a>> for PacketParser<'a> {
+    /// Starts parsing an OpenPGP message stored in a `std::io::Read` object.
+    ///
+    /// This function returns a `PacketParser` for the first packet in
+    /// the stream.
+    fn from_reader<R: io::Read + 'a>(reader: R)
+            -> Result<PacketParserResult<'a>> {
+        PacketParserBuilder::from_reader(reader)?.finalize()
+    }
+
+    /// Starts parsing an OpenPGP message stored in a file named `path`.
+    ///
+    /// This function returns a `PacketParser` for the first packet in
+    /// the stream.
+    fn from_file<P: AsRef<Path>>(path: P)
+            -> Result<PacketParserResult<'a>> {
+        PacketParserBuilder::from_file(path)?.finalize()
+    }
+
+    /// Starts parsing an OpenPGP message stored in a buffer.
+    ///
+    /// This function returns a `PacketParser` for the first packet in
+    /// the stream.
+    fn from_bytes(bytes: &'a [u8])
+            -> Result<PacketParserResult<'a>> {
+        PacketParserBuilder::from_bytes(bytes)?.finalize()
+    }
+}
+
 impl <'a> PacketParser<'a> {
     /// Starts parsing an OpenPGP message stored in a `BufferedReader`
     /// object.
@@ -2324,33 +2689,6 @@ impl <'a> PacketParser<'a> {
     pub(crate) fn from_buffered_reader(bio: Box<BufferedReader<Cookie> + 'a>)
             -> Result<PacketParserResult<'a>> {
         PacketParserBuilder::from_buffered_reader(bio)?.finalize()
-    }
-
-    /// Starts parsing an OpenPGP message stored in a `std::io::Read` object.
-    ///
-    /// This function returns a `PacketParser` for the first packet in
-    /// the stream.
-    pub fn from_reader<R: io::Read + 'a>(reader: R)
-            -> Result<PacketParserResult<'a>> {
-        PacketParserBuilder::from_reader(reader)?.finalize()
-    }
-
-    /// Starts parsing an OpenPGP message stored in a file named `path`.
-    ///
-    /// This function returns a `PacketParser` for the first packet in
-    /// the stream.
-    pub fn from_file<P: AsRef<Path>>(path: P)
-            -> Result<PacketParserResult<'a>> {
-        PacketParserBuilder::from_file(path)?.finalize()
-    }
-
-    /// Starts parsing an OpenPGP message stored in a buffer.
-    ///
-    /// This function returns a `PacketParser` for the first packet in
-    /// the stream.
-    pub fn from_bytes(bytes: &'a [u8])
-            -> Result<PacketParserResult<'a>> {
-        PacketParserBuilder::from_bytes(bytes)?.finalize()
     }
 
     /// Returns the reader stack, replacing it with a
@@ -2912,7 +3250,7 @@ impl <'a> PacketParser<'a> {
     /// # extern crate sequoia_openpgp as openpgp;
     /// # use openpgp::Result;
     /// # use openpgp::Packet;
-    /// # use openpgp::parse::{PacketParserResult, PacketParser};
+    /// # use openpgp::parse::{Parse, PacketParserResult, PacketParser};
     /// # use std::string::String;
     /// # f(include_bytes!("../../tests/data/messages/public-key.gpg"));
     /// #
