@@ -63,7 +63,7 @@ impl Drop for SessionKey {
 
 impl fmt::Debug for SessionKey {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        if cfg!(debug) {
+        if cfg!(debug_assertions) {
             write!(f, "SessionKey ({:?})", self.0)
         } else {
             f.write_str("SessionKey ( <Redacted> )")
@@ -119,7 +119,7 @@ impl Drop for Password {
 
 impl fmt::Debug for Password {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        if cfg!(debug) {
+        if cfg!(debug_assertions) {
             write!(f, "Password ({:?})", self.0)
         } else {
             f.write_str("Password ( <Redacted> )")

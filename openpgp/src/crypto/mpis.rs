@@ -343,7 +343,7 @@ pub enum SecretKey {
 
 impl fmt::Debug for SecretKey {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        if cfg!(debug) {
+        if cfg!(debug_assertions) {
             match self {
                 &SecretKey::RSA{ ref d, ref p, ref q, ref u } =>
                     write!(f, "RSA {{ d: {:?}, p: {:?}, q: {:?}, u: {:?} }}", d, p, q, u),
