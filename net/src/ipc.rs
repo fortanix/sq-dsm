@@ -391,7 +391,7 @@ struct Cookie(Vec<u8>);
 
 extern crate rand;
 use self::rand::RngCore;
-use self::rand::os::OsRng;
+use self::rand::rngs::OsRng;
 
 const COOKIE_SIZE: usize = 32;
 

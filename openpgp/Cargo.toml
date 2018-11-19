@@ -14,7 +14,7 @@ lalrpop-util = "0.16"
 memsec = "0.5.4"
 nettle = "1.0"
 quickcheck = "0.7"
-rand = "0.5"
+rand = "0.6"
 time = "0.1.38"
 
 [build-dependencies]
