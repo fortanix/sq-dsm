@@ -169,19 +169,19 @@ impl node::log_iter::Server for IterServer {
         if let Some(store) = store {
             entry.set_store(node::store::ToClient::new(
                 StoreServer::new(self.c.clone(), store))
-                            .from_server::<capnp_rpc::Server>());
+                            .into_client::<capnp_rpc::Server>());
         }
 
         if let Some(binding) = binding {
             entry.set_binding(node::binding::ToClient::new(
                 BindingServer::new(self.c.clone(), binding))
-                            .from_server::<capnp_rpc::Server>());
+                            .into_client::<capnp_rpc::Server>());
         }
 
         if let Some(key) = key {
             entry.set_key(node::key::ToClient::new(
                 KeyServer::new(self.c.clone(), key))
-                            .from_server::<capnp_rpc::Server>());
+                            .into_client::<capnp_rpc::Server>());
         }
 
         entry.set_slug(&slug);

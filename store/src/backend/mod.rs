@@ -76,7 +76,7 @@ impl Backend {
     fn new(descriptor: ipc::Descriptor, handle: Handle) -> Result<Self> {
         Ok(Backend {
             store: node::ToClient::new(NodeServer::new(descriptor, handle)?)
-                .from_server::<capnp_rpc::Server>(),
+                .into_client::<capnp_rpc::Server>(),
         })
     }
 }
@@ -149,7 +149,7 @@ impl node::Server for NodeServer {
                                            pry!(params.get_network_policy()).into(),
                                            pry!(params.get_name())));
         pry!(pry!(results.get().get_result()).set_ok(
-            node::store::ToClient::new(store).from_server::<capnp_rpc::Server>()));
+            node::store::ToClient::new(store).into_client::<capnp_rpc::Server>()));
         Promise::ok(())
     }
 
@@ -161,7 +161,7 @@ impl node::Server for NodeServer {
         let prefix = pry!(pry!(params.get()).get_domain_prefix());
         let iter = StoreIterServer::new(self.c.clone(), prefix);
         pry!(pry!(results.get().get_result()).set_ok(
-            node::store_iter::ToClient::new(iter).from_server::<capnp_rpc::Server>()));
+            node::store_iter::ToClient::new(iter).into_client::<capnp_rpc::Server>()));
         Promise::ok(())
     }
 
@@ -172,7 +172,7 @@ impl node::Server for NodeServer {
         bind_results!(results);
         let iter = KeyIterServer::new(self.c.clone());
         pry!(pry!(results.get().get_result()).set_ok(
-            node::key_iter::ToClient::new(iter).from_server::<capnp_rpc::Server>()));
+            node::key_iter::ToClient::new(iter).into_client::<capnp_rpc::Server>()));
         Promise::ok(())
     }
 
@@ -183,7 +183,7 @@ impl node::Server for NodeServer {
         bind_results!(results);
         let iter = log::IterServer::new(self.c.clone(), log::Selector::All);
         pry!(pry!(results.get().get_result()).set_ok(
-            node::log_iter::ToClient::new(iter).from_server::<capnp_rpc::Server>()));
+            node::log_iter::ToClient::new(iter).into_client::<capnp_rpc::Server>()));
         Promise::ok(())
     }
 
@@ -199,7 +199,7 @@ impl node::Server for NodeServer {
         sry!(key.merge(new));
         pry!(pry!(results.get().get_result())
              .set_ok(node::key::ToClient::new(key)
-                     .from_server::<capnp_rpc::Server>()));
+                     .into_client::<capnp_rpc::Server>()));
         Promise::ok(())
     }
 
@@ -215,7 +215,7 @@ impl node::Server for NodeServer {
         pry!(pry!(results.get().get_result()).set_ok(
             node::key::ToClient::new(
                 KeyServer::new(self.c.clone(), key_id))
-                .from_server::<capnp_rpc::Server>()));
+                .into_client::<capnp_rpc::Server>()));
         Promise::ok(())
     }
 
@@ -231,7 +231,7 @@ impl node::Server for NodeServer {
         pry!(pry!(results.get().get_result()).set_ok(
             node::key::ToClient::new(
                 KeyServer::new(self.c.clone(), key_id))
-                .from_server::<capnp_rpc::Server>()));
+                .into_client::<capnp_rpc::Server>()));
         Promise::ok(())
     }
 
@@ -251,7 +251,7 @@ impl node::Server for NodeServer {
         pry!(pry!(results.get().get_result()).set_ok(
             node::key::ToClient::new(
                 KeyServer::new(self.c.clone(), key_id))
-                .from_server::<capnp_rpc::Server>()));
+                .into_client::<capnp_rpc::Server>()));
         Promise::ok(())
     }
 }
@@ -347,7 +347,7 @@ impl node::store::Server for StoreServer {
         pry!(pry!(results.get().get_result()).set_ok(
             node::binding::ToClient::new(
                 BindingServer::new(self.c.clone(), binding_id))
-                .from_server::<capnp_rpc::Server>()));
+                .into_client::<capnp_rpc::Server>()));
         Promise::ok(())
     }
 
@@ -366,7 +366,7 @@ impl node::store::Server for StoreServer {
         pry!(pry!(results.get().get_result()).set_ok(
             node::binding::ToClient::new(
                 BindingServer::new(self.c.clone(), binding_id))
-                .from_server::<capnp_rpc::Server>()));
+                .into_client::<capnp_rpc::Server>()));
         Promise::ok(())
     }
 
@@ -387,7 +387,7 @@ impl node::store::Server for StoreServer {
         pry!(pry!(results.get().get_result()).set_ok(
             node::binding::ToClient::new(
                 BindingServer::new(self.c.clone(), binding_id))
-                .from_server::<capnp_rpc::Server>()));
+                .into_client::<capnp_rpc::Server>()));
         Promise::ok(())
     }
 
@@ -408,7 +408,7 @@ impl node::store::Server for StoreServer {
         bind_results!(results);
         let iter = BindingIterServer::new(self.c.clone(), self.id);
         pry!(pry!(results.get().get_result()).set_ok(
-            node::binding_iter::ToClient::new(iter).from_server::<capnp_rpc::Server>()));
+            node::binding_iter::ToClient::new(iter).into_client::<capnp_rpc::Server>()));
         Promise::ok(())
     }
 
@@ -419,7 +419,7 @@ impl node::store::Server for StoreServer {
         bind_results!(results);
         let iter = log::IterServer::new(self.c.clone(), log::Selector::Store(self.id));
         pry!(pry!(results.get().get_result()).set_ok(
-            node::log_iter::ToClient::new(iter).from_server::<capnp_rpc::Server>()));
+            node::log_iter::ToClient::new(iter).into_client::<capnp_rpc::Server>()));
         Promise::ok(())
     }
 }
@@ -531,7 +531,7 @@ impl node::binding::Server for BindingServer {
 
         pry!(pry!(results.get().get_result()).set_ok(
             node::key::ToClient::new(
-                KeyServer::new(self.c.clone(), key)).from_server::<capnp_rpc::Server>()));
+                KeyServer::new(self.c.clone(), key)).into_client::<capnp_rpc::Server>()));
         Promise::ok(())
     }
 
@@ -667,7 +667,7 @@ impl node::binding::Server for BindingServer {
         bind_results!(results);
         let iter = log::IterServer::new(self.c.clone(), log::Selector::Binding(self.id));
         pry!(pry!(results.get().get_result()).set_ok(
-            node::log_iter::ToClient::new(iter).from_server::<capnp_rpc::Server>()));
+            node::log_iter::ToClient::new(iter).into_client::<capnp_rpc::Server>()));
         Promise::ok(())
     }
 
@@ -1050,7 +1050,7 @@ impl node::key::Server for KeyServer {
         bind_results!(results);
         let iter = log::IterServer::new(self.c.clone(), log::Selector::Key(self.id));
         pry!(pry!(results.get().get_result()).set_ok(
-            node::log_iter::ToClient::new(iter).from_server::<capnp_rpc::Server>()));
+            node::log_iter::ToClient::new(iter).into_client::<capnp_rpc::Server>()));
         Promise::ok(())
     }
 }
@@ -1156,7 +1156,7 @@ impl node::store_iter::Server for StoreIterServer {
         entry.set_name(&name);
         entry.set_network_policy(network_policy.into());
         entry.set_store(node::store::ToClient::new(
-            StoreServer::new(self.c.clone(), id)).from_server::<capnp_rpc::Server>());
+            StoreServer::new(self.c.clone(), id)).into_client::<capnp_rpc::Server>());
         self.n = id;
         Promise::ok(())
     }
@@ -1193,7 +1193,7 @@ impl node::binding_iter::Server for BindingIterServer {
         entry.set_label(&label);
         entry.set_fingerprint(&fingerprint);
         entry.set_binding(node::binding::ToClient::new(
-            BindingServer::new(self.c.clone(), id)).from_server::<capnp_rpc::Server>());
+            BindingServer::new(self.c.clone(), id)).into_client::<capnp_rpc::Server>());
         self.n = id;
         Promise::ok(())
     }
@@ -1227,7 +1227,7 @@ impl node::key_iter::Server for KeyIterServer {
         let mut entry = pry!(results.get().get_result()).init_ok();
         entry.set_fingerprint(&fingerprint);
         entry.set_key(node::key::ToClient::new(
-            KeyServer::new(self.c.clone(), id)).from_server::<capnp_rpc::Server>());
+            KeyServer::new(self.c.clone(), id)).into_client::<capnp_rpc::Server>());
         self.n = id;
         Promise::ok(())
     }
