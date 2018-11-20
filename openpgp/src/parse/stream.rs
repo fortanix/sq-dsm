@@ -241,6 +241,13 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
         };
 
         let mut issuers = Vec::new();
+        // The following structure is allowed:
+        //
+        //   SIG LITERAL
+        //
+        // In this case, we queue the signature packets.
+        let mut sigs = Vec::new();
+
         while let PacketParserResult::Some(pp) = ppr {
             if ! pp.possible_message() {
                 return Err(Error::MalformedMessage(
@@ -282,13 +289,27 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
 
                     v.oppr = Some(PacketParserResult::Some(pp));
                     v.finish_maybe()?;
+
+                    // Verify any queued signatures.
+                    for sig in sigs.into_iter() {
+                        v.verify(Packet::Signature(sig))?;
+                    }
+
                     return Ok(v);
                 },
                 _ => (),
             }
 
             let (p, ppr_tmp) = pp.recurse()?;
-            v.verify(p)?;
+            if let Packet::Signature(sig) = p {
+                if let Some(issuer) = sig.get_issuer() {
+                    issuers.push(issuer);
+                } else {
+                    issuers.push(KeyID::wildcard());
+                }
+                sigs.push(sig);
+            }
+
             ppr = ppr_tmp;
         }
 
@@ -664,8 +685,16 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
         };
 
         let mut issuers = Vec::new();
+        // The following structure is allowed:
+        //
+        //   SIG LITERAL
+        //
+        // In this case, we queue the signature packets.
+        let mut sigs = Vec::new();
         let mut pkesks: Vec<packet::PKESK> = Vec::new();
         let mut skesks: Vec<packet::SKESK> = Vec::new();
+        let mut saw_content = false;
+
         while let PacketParserResult::Some(mut pp) = ppr {
             v.helper.inspect(&pp)?;
             if ! pp.possible_message() {
@@ -676,6 +705,8 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
 
             match pp.packet {
                 Packet::SEIP(_) | Packet::AED(_) => {
+                    saw_content = true;
+
                     let mut decrypted = false;
                     let pkesk_refs: Vec<&PKESK> = pkesks.iter().collect();
                     let skesk_refs: Vec<&SKESK> = skesks.iter().collect();
@@ -779,6 +810,12 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
 
                     v.oppr = Some(PacketParserResult::Some(pp));
                     v.finish_maybe()?;
+
+                    // Verify any queued signatures.
+                    for sig in sigs.into_iter() {
+                        v.verify(Packet::Signature(sig))?;
+                    }
+
                     return Ok(v);
                 },
                 Packet::MDC(ref mdc) => if ! mdc.valid() {
@@ -791,7 +828,18 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
             match p {
                 Packet::PKESK(pkesk) => pkesks.push(pkesk),
                 Packet::SKESK(skesk) => skesks.push(skesk),
-                Packet::Signature(_) => v.verify(p)?,
+                Packet::Signature(sig) => {
+                    if saw_content {
+                        v.verify(Packet::Signature(sig))?;
+                    } else {
+                        if let Some(issuer) = sig.get_issuer() {
+                            issuers.push(issuer);
+                        } else {
+                            issuers.push(KeyID::wildcard());
+                        }
+                        sigs.push(sig);
+                    }
+                }
                 _ => (),
             }
             ppr = ppr_tmp;
