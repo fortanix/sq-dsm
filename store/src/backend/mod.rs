@@ -793,15 +793,7 @@ impl KeyServer {
 
     /// Keeps the mapping of (sub)KeyIDs to keys up-to-date.
     fn reindex_subkeys(c: &Connection, key_id: ID, tpk: &TPK) -> Result<()> {
-        for (sig, key) in tpk.keys() {
-            // Only index signing- or certification-capable subkeys.
-            if ! sig.map(|s| s.key_flags().can_sign()
-                         || s.key_flags().can_certify())
-                .unwrap_or(true)
-            {
-                continue;
-            }
-
+        for (_, key) in tpk.keys() {
             let keyid = key.fingerprint().to_keyid().as_u64()
                 .expect("computed keyid is valid");
 
