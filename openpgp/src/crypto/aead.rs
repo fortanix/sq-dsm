@@ -47,25 +47,25 @@ impl AEADAlgorithm {
             AEADAlgorithm::EAX => match cipher {
                 SymmetricAlgorithm::AES128 =>
                     Ok(Box::new(aead::Eax::<cipher::Aes128>
-                                ::with_key_and_nonce(key, nonce))),
+                                ::with_key_and_nonce(key, nonce)?)),
                 SymmetricAlgorithm::AES192 =>
                     Ok(Box::new(aead::Eax::<cipher::Aes192>
-                                ::with_key_and_nonce(key, nonce))),
+                                ::with_key_and_nonce(key, nonce)?)),
                 SymmetricAlgorithm::AES256 =>
                     Ok(Box::new(aead::Eax::<cipher::Aes256>
-                                ::with_key_and_nonce(key, nonce))),
+                                ::with_key_and_nonce(key, nonce)?)),
                 SymmetricAlgorithm::Twofish =>
                     Ok(Box::new(aead::Eax::<cipher::Twofish>
-                                ::with_key_and_nonce(key, nonce))),
+                                ::with_key_and_nonce(key, nonce)?)),
                 SymmetricAlgorithm::Camellia128 =>
                     Ok(Box::new(aead::Eax::<cipher::Camellia128>
-                                ::with_key_and_nonce(key, nonce))),
+                                ::with_key_and_nonce(key, nonce)?)),
                 SymmetricAlgorithm::Camellia192 =>
                     Ok(Box::new(aead::Eax::<cipher::Camellia192>
-                                ::with_key_and_nonce(key, nonce))),
+                                ::with_key_and_nonce(key, nonce)?)),
                 SymmetricAlgorithm::Camellia256 =>
                     Ok(Box::new(aead::Eax::<cipher::Camellia256>
-                                ::with_key_and_nonce(key, nonce))),
+                                ::with_key_and_nonce(key, nonce)?)),
                 _ =>
                     Err(Error::UnsupportedSymmetricAlgorithm(cipher).into()),
             },

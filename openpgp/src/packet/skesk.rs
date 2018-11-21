@@ -116,7 +116,7 @@ impl SKESK4 {
 
         for (pt, ct) in psk[..].chunks(block_size)
             .zip(esk.chunks_mut(block_size)) {
-                cipher.encrypt(&mut iv[..], ct, pt);
+                cipher.encrypt(&mut iv[..], ct, pt)?;
         }
 
         SKESK4::new(4, algo, s2k, Some(esk))
@@ -182,7 +182,7 @@ impl SKESK4 {
             for (pl, ct)
                 in plain[..].chunks_mut(blk_sz).zip(cipher.chunks(blk_sz))
             {
-                dec.decrypt(&mut iv[..], pl, ct);
+                dec.decrypt(&mut iv[..], pl, ct)?;
             }
 
             // Get the algorithm from the front.  While doing that,

@@ -280,11 +280,11 @@ pub fn aes_key_wrap(algo: SymmetricAlgorithm, key: &[u8],
     // CBC, and always use an all-zero IV.
     let mut cipher: Box<Mode> = match algo {
         AES128 => Box::new(
-            mode::Cbc::<cipher::Aes128>::with_encrypt_key(key)),
+            mode::Cbc::<cipher::Aes128>::with_encrypt_key(key)?),
         AES192 => Box::new(
-            mode::Cbc::<cipher::Aes192>::with_encrypt_key(key)),
+            mode::Cbc::<cipher::Aes192>::with_encrypt_key(key)?),
         AES256 => Box::new(
-            mode::Cbc::<cipher::Aes256>::with_encrypt_key(key)),
+            mode::Cbc::<cipher::Aes256>::with_encrypt_key(key)?),
         _ => return Err(Error::UnsupportedSymmetricAlgorithm(algo).into()),
     };
 
@@ -318,7 +318,7 @@ pub fn aes_key_wrap(algo: SymmetricAlgorithm, key: &[u8],
                 write_be_u64(&mut tmp[..8], a);
                 &mut tmp[8..].copy_from_slice(&r[8 * i..8 * (i + 1)]);
                 let mut iv = vec![0; cipher.block_size()]; // Turn CBC into ECB.
-                cipher.encrypt(&mut iv, &mut b, &tmp);
+                cipher.encrypt(&mut iv, &mut b, &tmp)?;
 
                 // A = MSB(64, B) ^ t where t = (n*j)+i
                 a = read_be_u64(&b[..8]) ^ ((n * j) + i + 1) as u64;
@@ -365,11 +365,11 @@ pub fn aes_key_unwrap(algo: SymmetricAlgorithm, key: &[u8],
     // CBC, and always use an all-zero IV.
     let mut cipher: Box<Mode> = match algo {
         AES128 => Box::new(
-            mode::Cbc::<cipher::Aes128>::with_decrypt_key(key)),
+            mode::Cbc::<cipher::Aes128>::with_decrypt_key(key)?),
         AES192 => Box::new(
-            mode::Cbc::<cipher::Aes192>::with_decrypt_key(key)),
+            mode::Cbc::<cipher::Aes192>::with_decrypt_key(key)?),
         AES256 => Box::new(
-            mode::Cbc::<cipher::Aes256>::with_decrypt_key(key)),
+            mode::Cbc::<cipher::Aes256>::with_decrypt_key(key)?),
         _ => return Err(Error::UnsupportedSymmetricAlgorithm(algo).into()),
     };
 
@@ -404,7 +404,7 @@ pub fn aes_key_unwrap(algo: SymmetricAlgorithm, key: &[u8],
                 // (Note that our i runs from n-1 to 0 instead of n to
                 // 1, hence the index shift.
                 let mut iv = vec![0; cipher.block_size()]; // Turn CBC into ECB.
-                cipher.decrypt(&mut iv, &mut b, &tmp);
+                cipher.decrypt(&mut iv, &mut b, &tmp)?;
 
                 // A = MSB(64, B)
                 a = read_be_u64(&b[..8]);

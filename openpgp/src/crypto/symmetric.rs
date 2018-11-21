@@ -57,31 +57,31 @@ impl SymmetricAlgorithm {
         match self {
             SymmetricAlgorithm::TripleDES =>
                 Ok(Box::new(
-                    mode::Cfb::<cipher::Des3>::with_encrypt_key(&key[..]))),
+                    mode::Cfb::<cipher::Des3>::with_encrypt_key(&key[..])?)),
             SymmetricAlgorithm::Blowfish =>
                 Ok(Box::new(
-                    mode::Cfb::<cipher::Blowfish>::with_encrypt_key(&key[..]))),
+                    mode::Cfb::<cipher::Blowfish>::with_encrypt_key(&key[..])?)),
             SymmetricAlgorithm::AES128 =>
                 Ok(Box::new(
-                    mode::Cfb::<cipher::Aes128>::with_encrypt_key(&key[..]))),
+                    mode::Cfb::<cipher::Aes128>::with_encrypt_key(&key[..])?)),
             SymmetricAlgorithm::AES192 =>
                 Ok(Box::new(
-                    mode::Cfb::<cipher::Aes192>::with_encrypt_key(&key[..]))),
+                    mode::Cfb::<cipher::Aes192>::with_encrypt_key(&key[..])?)),
             SymmetricAlgorithm::AES256 =>
                 Ok(Box::new(
-                    mode::Cfb::<cipher::Aes256>::with_encrypt_key(&key[..]))),
+                    mode::Cfb::<cipher::Aes256>::with_encrypt_key(&key[..])?)),
             SymmetricAlgorithm::Twofish =>
                 Ok(Box::new(
-                    mode::Cfb::<cipher::Twofish>::with_encrypt_key(&key[..]))),
+                    mode::Cfb::<cipher::Twofish>::with_encrypt_key(&key[..])?)),
             SymmetricAlgorithm::Camellia128 =>
                 Ok(Box::new(
-                    mode::Cfb::<cipher::Camellia128>::with_encrypt_key(&key[..]))),
+                    mode::Cfb::<cipher::Camellia128>::with_encrypt_key(&key[..])?)),
             SymmetricAlgorithm::Camellia192 =>
                 Ok(Box::new(
-                    mode::Cfb::<cipher::Camellia192>::with_encrypt_key(&key[..]))),
+                    mode::Cfb::<cipher::Camellia192>::with_encrypt_key(&key[..])?)),
             SymmetricAlgorithm::Camellia256 =>
                 Ok(Box::new(
-                    mode::Cfb::<cipher::Camellia256>::with_encrypt_key(&key[..]))),
+                    mode::Cfb::<cipher::Camellia256>::with_encrypt_key(&key[..])?)),
             _ => Err(Error::UnsupportedSymmetricAlgorithm(self).into()),
         }
     }
@@ -92,31 +92,31 @@ impl SymmetricAlgorithm {
         match self {
             SymmetricAlgorithm::TripleDES =>
                 Ok(Box::new(
-                    mode::Cfb::<cipher::Des3>::with_decrypt_key(&key[..]))),
+                    mode::Cfb::<cipher::Des3>::with_decrypt_key(&key[..])?)),
             SymmetricAlgorithm::Blowfish =>
                 Ok(Box::new(
-                    mode::Cfb::<cipher::Blowfish>::with_decrypt_key(&key[..]))),
+                    mode::Cfb::<cipher::Blowfish>::with_decrypt_key(&key[..])?)),
             SymmetricAlgorithm::AES128 =>
                 Ok(Box::new(
-                    mode::Cfb::<cipher::Aes128>::with_decrypt_key(&key[..]))),
+                    mode::Cfb::<cipher::Aes128>::with_decrypt_key(&key[..])?)),
             SymmetricAlgorithm::AES192 =>
                 Ok(Box::new(
-                    mode::Cfb::<cipher::Aes192>::with_decrypt_key(&key[..]))),
+                    mode::Cfb::<cipher::Aes192>::with_decrypt_key(&key[..])?)),
             SymmetricAlgorithm::AES256 =>
                 Ok(Box::new(
-                    mode::Cfb::<cipher::Aes256>::with_decrypt_key(&key[..]))),
+                    mode::Cfb::<cipher::Aes256>::with_decrypt_key(&key[..])?)),
             SymmetricAlgorithm::Twofish =>
                 Ok(Box::new(
-                    mode::Cfb::<cipher::Twofish>::with_decrypt_key(&key[..]))),
+                    mode::Cfb::<cipher::Twofish>::with_decrypt_key(&key[..])?)),
             SymmetricAlgorithm::Camellia128 =>
                 Ok(Box::new(
-                    mode::Cfb::<cipher::Camellia128>::with_decrypt_key(&key[..]))),
+                    mode::Cfb::<cipher::Camellia128>::with_decrypt_key(&key[..])?)),
             SymmetricAlgorithm::Camellia192 =>
                 Ok(Box::new(
-                    mode::Cfb::<cipher::Camellia192>::with_decrypt_key(&key[..]))),
+                    mode::Cfb::<cipher::Camellia192>::with_decrypt_key(&key[..])?)),
             SymmetricAlgorithm::Camellia256 =>
                 Ok(Box::new(
-                    mode::Cfb::<cipher::Camellia256>::with_decrypt_key(&key[..]))),
+                    mode::Cfb::<cipher::Camellia256>::with_decrypt_key(&key[..])?)),
             _ => Err(Error::UnsupportedSymmetricAlgorithm(self).into())
         }
     }
@@ -223,7 +223,10 @@ impl<R: io::Read> io::Read for Decryptor<R> {
 
         self.dec.decrypt(&mut self.iv,
                          &mut plaintext[pos..pos + to_copy],
-                         &ciphertext[..]);
+                         &ciphertext[..])
+            .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput,
+                                        format!("{}", e)))?;
+
         pos += to_copy;
 
         if short_read || pos == plaintext.len() {
@@ -257,7 +260,9 @@ impl<R: io::Read> io::Read for Decryptor<R> {
         }
         self.buffer.truncate(ciphertext.len());
 
-        self.dec.decrypt(&mut self.iv, &mut self.buffer, &ciphertext[..]);
+        self.dec.decrypt(&mut self.iv, &mut self.buffer, &ciphertext[..])
+            .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput,
+                                        format!("{}", e)))?;
 
         &plaintext[pos..pos + to_copy].copy_from_slice(&self.buffer[..to_copy]);
         self.buffer.drain(..to_copy);
@@ -418,7 +423,7 @@ impl<W: io::Write> Encryptor<W> {
         if let Some(mut inner) = self.inner.take() {
             if self.buffer.len() > 0 {
                 unsafe { self.scratch.set_len(self.buffer.len()) }
-                self.cipher.encrypt(&mut self.iv, &mut self.scratch, &self.buffer);
+                self.cipher.encrypt(&mut self.iv, &mut self.scratch, &self.buffer)?;
                 self.buffer.clear();
                 inner.write_all(&self.scratch)?;
             }
@@ -448,7 +453,9 @@ impl<W: io::Write> io::Write for Encryptor<W> {
 
             // And possibly encrypt the block.
             if self.buffer.len() == self.block_size {
-                self.cipher.encrypt(&mut self.iv, &mut self.scratch, &self.buffer);
+                self.cipher.encrypt(&mut self.iv, &mut self.scratch, &self.buffer)
+                    .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput,
+                                                format!("{}", e)))?;
                 self.buffer.clear();
                 inner.write_all(&self.scratch)?;
             }
@@ -459,7 +466,9 @@ impl<W: io::Write> io::Write for Encryptor<W> {
         for block in buf.chunks(self.block_size) {
             if block.len() == self.block_size {
                 // Complete block.
-                self.cipher.encrypt(&mut self.iv, &mut self.scratch, block);
+                self.cipher.encrypt(&mut self.iv, &mut self.scratch, block)
+                    .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput,
+                                                format!("{}", e)))?;
                 inner.write_all(&self.scratch)?;
             } else {
                 // Stash for later.

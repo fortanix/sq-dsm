@@ -14,7 +14,7 @@ libc = "0.2.33"
 native-tls = "0.2.0"
 
 [dev-dependencies]
-nettle = "1.0"
+nettle = "2.0"
 
 [lib]
 crate-type = ["cdylib", "staticlib"]
