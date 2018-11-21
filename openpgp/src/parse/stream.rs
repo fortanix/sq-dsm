@@ -138,8 +138,8 @@ pub enum VerificationResult {
 }
 
 impl VerificationResult {
-    /// Simple private forwarder.
-    fn level(&self) -> usize {
+    /// Simple forwarder.
+    pub fn level(&self) -> usize {
         use self::VerificationResult::*;
         match self {
             &GoodChecksum(ref sig) => sig.level(),
