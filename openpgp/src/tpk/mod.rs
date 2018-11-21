@@ -1176,7 +1176,7 @@ impl TPK {
     }
 
     #[cfg(test)]
-    pub fn primary_mut(&mut self) -> &mut Key {
+    pub(crate) fn primary_mut(&mut self) -> &mut Key {
         &mut self.primary
     }
 
