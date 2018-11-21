@@ -273,6 +273,16 @@ sq_binding_t sq_store_lookup (sq_context_t ctx, sq_store_t store,
 			      const char *label);
 
 /*/
+/// Looks up a key in the common key pool by KeyID.
+/*/
+sq_key_t sq_store_lookup_by_keyid (sq_context_t ctx, sq_keyid_t keyid);
+
+/*/
+/// Looks up a key in the common key pool by (Sub)KeyID.
+/*/
+sq_key_t sq_store_lookup_by_subkeyid (sq_context_t ctx, sq_keyid_t keyid);
+
+/*/
 /// Deletes this store.
 ///
 /// Consumes `store`.  Returns != 0 on error.

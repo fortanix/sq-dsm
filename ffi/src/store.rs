@@ -30,9 +30,12 @@ use std::ptr;
 extern crate openpgp;
 
 use self::openpgp::TPK;
-use self::openpgp::Fingerprint;
+use self::openpgp::{
+    Fingerprint,
+    KeyID
+};
 use sequoia_store::{
-    self, Store, StoreIter, Binding, BindingIter, Key, KeyIter, LogIter,
+    self, Store, StoreIter, Binding, BindingIter, Key, KeyIter, LogIter, Pool,
 };
 
 use super::error::Status;
@@ -277,6 +280,30 @@ pub extern "system" fn sq_store_lookup(ctx: Option<&mut Context>,
     };
 
     fry_box!(ctx, store.lookup(&label))
+}
+
+/// Looks up a key in the common key pool by KeyID.
+#[no_mangle]
+pub extern "system" fn sq_store_lookup_by_keyid(ctx: Option<&mut Context>,
+                                                keyid: Option<&KeyID>)
+    -> *mut Key
+{
+    let ctx = ctx.expect("Context is NULL");
+    let keyid = keyid.expect("KeyID is NULL");
+
+    fry_box!(ctx, Pool::lookup_by_keyid(&ctx.c, keyid))
+}
+
+/// Looks up a key in the common key pool by (Sub)KeyID.
+#[no_mangle]
+pub extern "system" fn sq_store_lookup_by_subkeyid(ctx: Option<&mut Context>,
+                                                   keyid: Option<&KeyID>)
+    -> *mut Key
+{
+    let ctx = ctx.expect("Context is NULL");
+    let keyid = keyid.expect("KeyID is NULL");
+
+    fry_box!(ctx, Pool::lookup_by_subkeyid(&ctx.c, keyid))
 }
 
 /// Deletes this store.
