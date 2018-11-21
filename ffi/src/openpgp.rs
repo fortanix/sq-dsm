@@ -1593,6 +1593,27 @@ pub extern "system" fn sq_writer_stack_write
     fry_or!(ctx, writer.write(buf).map_err(|e| e.into()), -1) as ssize_t
 }
 
+/// Writes up to `len` bytes of `buf` into `writer`.
+///
+/// Unlike sq_writer_stack_write, unless an error occurs, the whole
+/// buffer will be written.  Also, this version automatically catches
+/// EINTR.
+#[no_mangle]
+pub extern "system" fn sq_writer_stack_write_all
+    (ctx: Option<&mut Context>,
+     writer: Option<&mut writer::Stack<'static, Cookie>>,
+     buf: *const uint8_t, len: size_t)
+     -> Status
+{
+    let ctx = ctx.expect("Context is NULL");
+    let writer = writer.expect("Writer is NULL");
+    assert!(!buf.is_null());
+    let buf = unsafe {
+        slice::from_raw_parts(buf, len as usize)
+    };
+    fry_status!(ctx, writer.write_all(buf).map_err(|e| e.into()))
+}
+
 /// Finalizes this writer, returning the underlying writer.
 #[no_mangle]
 pub extern "system" fn sq_writer_stack_finalize_one

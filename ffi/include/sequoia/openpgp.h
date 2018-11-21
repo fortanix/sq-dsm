@@ -955,9 +955,20 @@ sq_writer_stack_t sq_writer_stack_message (sq_writer_t writer);
 
 /*/
 /// Writes up to `len` bytes of `buf` into `writer`.
-o/*/
+/*/
 ssize_t sq_writer_stack_write (sq_context_t ctx, sq_writer_stack_t writer,
                                const uint8_t *buf, size_t len);
+
+/*/
+/// Writes up to `len` bytes of `buf` into `writer`.
+///
+/// Unlike sq_writer_stack_write, unless an error occurs, the whole
+/// buffer will be written.  Also, this version automatically catches
+/// EINTR.
+/*/
+sq_status_t sq_writer_stack_write_all (sq_context_t ctx,
+                                       sq_writer_stack_t writer,
+                                       const uint8_t *buf, size_t len);
 
 /*/
 /// Finalizes this writer, returning the underlying writer.
