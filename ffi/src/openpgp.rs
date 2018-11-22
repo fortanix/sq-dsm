@@ -25,7 +25,12 @@ use self::openpgp::{
     },
     crypto::Password,
 };
-use self::openpgp::tpk::{CipherSuite, TPKBuilder};
+use self::openpgp::tpk::{
+    CipherSuite,
+    TPKBuilder,
+    UserIDBinding,
+    UserIDBindingIter,
+};
 use self::openpgp::packet;
 use self::openpgp::parse::{PacketParserResult, PacketParser, PacketParserEOF};
 use self::openpgp::serialize::Serialize;
@@ -980,6 +985,61 @@ pub extern "system" fn sq_revocation_status_free(
     unsafe {
         drop(Box::from_raw(rs))
     };
+}
+
+/* UserIDBinding */
+
+/// Returns the user id.
+///
+/// This function may fail and return NULL if the user id contains an
+/// interior NUL byte.  We do this rather than complicate the API, as
+/// there is no valid use for such user ids; they must be malicious.
+///
+/// The caller must free the returned value.
+#[no_mangle]
+pub extern "system" fn sq_user_id_binding_user_id(
+    binding: Option<&UserIDBinding>)
+    -> *mut c_char
+{
+    let binding = binding.expect("Binding is NULL");
+
+    if let Ok(c_str) = CString::new(binding.userid().userid()) {
+        c_str.into_raw()
+    } else {
+        ptr::null_mut()
+    }
+}
+
+/* UserIDBindingIter */
+
+/// Returns an iterator over the TPK's user id bindings.
+#[no_mangle]
+pub extern "system" fn sq_tpk_user_id_binding_iter(tpk: Option<&TPK>)
+    -> *mut UserIDBindingIter
+{
+    let tpk = tpk.expect("TPK is NULL");
+    box_raw!(tpk.userids())
+}
+
+/// Frees a sq_user_id_binding_iter_t.
+#[no_mangle]
+pub extern "system" fn sq_user_id_binding_iter_free(
+    iter: *mut UserIDBindingIter)
+{
+    if iter.is_null() { return };
+    unsafe {
+        drop(Box::from_raw(iter))
+    };
+}
+
+/// Returns the next `UserIDBinding`.
+#[no_mangle]
+pub extern "system" fn sq_user_id_binding_iter_next<'a>(
+    iter: Option<&mut UserIDBindingIter<'a>>)
+    -> Option<&'a UserIDBinding>
+{
+    let iter = iter.expect("Iterator is NULL");
+    iter.next()
 }
 
 /* TPKBuilder */

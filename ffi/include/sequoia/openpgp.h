@@ -545,6 +545,38 @@ typedef enum sq_reason_for_revocation {
   SQ_REASON_FOR_REVOCATION_FORCE_WIDTH = INT_MAX,
 } sq_reason_for_revocation_t;
 
+/* openpgp::tpk::UserIDBinding.  */
+
+/*/
+/// A `UserIDBinding`.
+/*/
+typedef struct sq_user_id_binding *sq_user_id_binding_t;
+
+/*/
+/// Returns the user id.
+///
+/// This function may fail and return NULL if the user id contains an
+/// interior NUL byte.  We do this rather than complicate the API, as
+/// there is no valid use for such user ids; they must be malicious.
+///
+/// The caller must free the returned value.
+/*/
+char *sq_user_id_binding_user_id (sq_user_id_binding_t binding);
+
+/* openpgp::tpk::UserIDBindingIter.  */
+
+/*/
+/// An iterator over `UserIDBinding`s.
+/*/
+typedef struct sq_user_id_binding_iter *sq_user_id_binding_iter_t;
+
+/*/
+/// Returns the next element in the iterator.
+/*/
+sq_user_id_binding_t sq_user_id_binding_iter_next (sq_user_id_binding_iter_t iter);
+
+/// Frees an sq_user_id_binding_iter_t.
+void sq_user_id_binding_iter_free (sq_user_id_binding_iter_t iter);
 
 /* openpgp::tpk.  */
 
@@ -707,6 +739,11 @@ sq_tpk_t sq_tpk_set_expiry(sq_context_t ctx,
 /// Returns whether the TPK includes any secret key material.
 /*/
 int sq_tpk_is_tsk(sq_tpk_t tpk);
+
+/*/
+/// Returns an iterator over the `UserIDBinding`s.
+/*/
+sq_user_id_binding_iter_t sq_tpk_user_id_binding_iter (sq_tpk_t tpk);
 
 /* TPKBuilder */
 
