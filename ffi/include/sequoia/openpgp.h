@@ -1321,4 +1321,71 @@ typedef struct sq_secret *sq_secret_t;
 /*/
 sq_secret_t sq_secret_cached(uint8_t algo,
                              uint8_t *session_key, size_t session_key_len);
+
+typedef struct sq_verification_results *sq_verification_results_t;
+typedef struct sq_verification_result *sq_verification_result_t;
+
+void sq_verification_results_at_level(sq_verification_results_t results,
+                                      size_t level,
+                                      sq_verification_result_t **r,
+                                      size_t *r_count);
+
+
+typedef enum sq_verification_result_code {
+  SQ_VERIFICATION_RESULT_CODE_GOOD_CHECKSUM = 1,
+  SQ_VERIFICATION_RESULT_CODE_MISSING_KEY = 2,
+  SQ_VERIFICATION_RESULT_CODE_BAD_CHECKSUM = 3,
+
+  /* Dummy value to make sure the enumeration has a defined size.  Do
+     not use this value.  */
+  SQ_VERIFICATION_RESULT_CODE_FORCE_WIDTH = INT_MAX,
+} sq_verification_result_code_t;
+
+/*/
+/// Returns the verification result code.
+/*/
+sq_verification_result_code_t sq_verification_result_code(
+    sq_verification_result_t r);
+
+/*/
+/// Returns a reference to the signature.
+///
+/// Do not modify the signature nor free it.
+/*/
+sq_signature_t sq_verification_result_signature(
+    sq_verification_result_t r);
+
+/*/
+/// Returns the signature's level.
+///
+/// A level of zero means that the data was signed, a level of one
+/// means that one or more signatures were notarized, etc.
+/*/
+int sq_verification_result_level(sq_verification_result_t r);
+
+typedef sq_status_t (*sq_sequoia_decrypt_get_public_keys_cb_t) (void *,
+                                                                sq_keyid_t *, size_t,
+                                                                sq_tpk_t **, size_t *,
+                                                                void (**free)(void *));
+
+typedef sq_status_t (*sq_sequoia_decrypt_get_secret_keys_cb_t) (void *,
+                                                                sq_pkesk_t *, size_t,
+                                                                sq_skesk_t *, size_t,
+                                                                sq_secret_t *);
+
+typedef sq_status_t (*sq_sequoia_decrypt_check_signatures_cb_t) (void *,
+                                                                 sq_verification_results_t,
+                                                                 size_t);
+
+sq_status_t sq_decrypt (sq_context_t ctx, sq_reader_t input, sq_writer_t output,
+                        sq_sequoia_decrypt_get_public_keys_cb_t get_public_keys,
+                        sq_sequoia_decrypt_get_secret_keys_cb_t get_secret_keys,
+                        sq_sequoia_decrypt_check_signatures_cb_t check_signatures,
+                        void *cookie);
+
+sq_status_t sq_verify (sq_context_t ctx, sq_reader_t input, sq_writer_t output,
+                       sq_sequoia_decrypt_get_public_keys_cb_t get_public_keys,
+                       sq_sequoia_decrypt_check_signatures_cb_t check_signatures,
+                       void *cookie);
+
 #endif
