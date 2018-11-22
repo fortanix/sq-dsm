@@ -2936,7 +2936,7 @@ impl <'a> PacketParser<'a> {
         if unread_content {
             match self.packet.tag() {
                 Tag::SEIP | Tag::AED | Tag::SED | Tag::CompressedData => {
-                    // We didn't (full) process a container's content.  Add
+                    // We didn't (fully) process a container's content.  Add
                     // this as opaque conent to the message validator.
                     self.state.message_validator.push_token(
                         message::Token::OpaqueContent,

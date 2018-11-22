@@ -123,7 +123,7 @@ pub extern "system" fn sq_store_server_log(ctx: Option<&mut Context>)
 
 /// Returns the next key.
 ///
-/// Returns `NULL` on exhaustion.  If `fpp` is not `NULL`, the keys
+/// Returns `NULL` on exhaustion.  If `fpp` is not `NULL`, the key's
 /// fingerprint is stored there.
 #[no_mangle]
 pub extern "system" fn sq_key_iter_next(iter: Option<&mut KeyIter>,

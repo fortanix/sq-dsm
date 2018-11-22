@@ -43,7 +43,7 @@ char *sq_keyid_to_string (const sq_keyid_t fp);
 /*/
 /// Converts the KeyID to a hexadecimal number.
 /*/
-char *sq_keyid_to_hex (const sq_keyid_t fp);
+char *sq_keyid_to_hex (const sq_keyid_t keyid);
 
 /*/
 /// Compares KeyIDs.

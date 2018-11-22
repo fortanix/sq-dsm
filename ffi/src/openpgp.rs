@@ -1252,20 +1252,20 @@ pub extern "system" fn sq_tpk_builder_generate
 #[no_mangle]
 pub extern "system" fn sq_tsk_new(ctx: Option<&mut Context>,
                                   primary_uid: *const c_char,
-                                  tpk_out: Option<&mut *mut TSK>,
+                                  tsk_out: Option<&mut *mut TSK>,
                                   revocation_out: Option<&mut *mut Signature>)
-                                  -> Status
+    -> Status
 {
     let ctx = ctx.expect("CONTEXT is NULL");
     assert!(!primary_uid.is_null());
-    let tpk_out = tpk_out.expect("TPK is NULL");
+    let tsk_out = tsk_out.expect("TSK is NULL");
     let revocation_out = revocation_out.expect("REVOCATION is NULL");
     let primary_uid = unsafe {
         CStr::from_ptr(primary_uid)
     };
     match TSK::new(primary_uid.to_string_lossy()) {
-        Ok((tpk, revocation)) => {
-            *tpk_out = box_raw!(tpk);
+        Ok((tsk, revocation)) => {
+            *tsk_out = box_raw!(tsk);
             *revocation_out = box_raw!(revocation);
             Status::Success
         },

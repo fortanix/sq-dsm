@@ -85,7 +85,7 @@ use std::hash::BuildHasher;
 ///
 /// Evaluates the given expression.  On success, evaluate to
 /// `Status.Success`.  On failure, stashes the error in the context and
-/// evaluate to the appropriate Status code.
+/// evaluates to the appropriate Status code.
 macro_rules! fry_status {
     ($ctx:expr, $expr:expr) => {
         match $expr {
