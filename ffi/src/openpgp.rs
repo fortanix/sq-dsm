@@ -1133,31 +1133,19 @@ pub extern "system" fn sq_signature_issuer_fingerprint(
 /// Computes and returns the key's fingerprint as per Section 12.2
 /// of RFC 4880.
 #[no_mangle]
-pub extern "system" fn sq_p_key_fingerprint(key: Option<&Packet>)
+pub extern "system" fn sq_p_key_fingerprint(key: Option<&packet::Key>)
                                             -> *mut Fingerprint {
     let key = key.expect("Key is NULL");
-    match key {
-        &Packet::PublicKey(ref key) => box_raw!(key.fingerprint()),
-        &Packet::PublicSubkey(ref key) => box_raw!(key.fingerprint()),
-        &Packet::SecretKey(ref key) => box_raw!(key.fingerprint()),
-        &Packet::SecretSubkey(ref key) => box_raw!(key.fingerprint()),
-        _ => panic!("Not a Key packet"),
-    }
+    box_raw!(key.fingerprint())
 }
 
 /// Computes and returns the key's key ID as per Section 12.2 of RFC
 /// 4880.
 #[no_mangle]
-pub extern "system" fn sq_p_key_keyid(key: Option<&Packet>)
+pub extern "system" fn sq_p_key_keyid(key: Option<&packet::Key>)
                                       -> *mut KeyID {
     let key = key.expect("Key is NULL");
-    match key {
-        &Packet::PublicKey(ref key) => box_raw!(key.keyid()),
-        &Packet::PublicSubkey(ref key) => box_raw!(key.keyid()),
-        &Packet::SecretKey(ref key) => box_raw!(key.keyid()),
-        &Packet::SecretSubkey(ref key) => box_raw!(key.keyid()),
-        _ => panic!("Not a Key packet"),
-    }
+    box_raw!(key.keyid())
 }
 
 /// Returns the key's creation time.
