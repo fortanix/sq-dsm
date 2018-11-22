@@ -111,6 +111,55 @@ sq_keyid_t sq_fingerprint_to_keyid (const sq_fingerprint_t fp);
 /*/
 int sq_fingerprint_equal (const sq_fingerprint_t a, const sq_fingerprint_t b);
 
+/* sequoia::openpgp::RevocationStatus.  */
+
+/*/
+/// Holds a revocation status.
+/*/
+typedef struct sq_revocation_status *sq_revocation_status_t;
+
+typedef enum sq_revocation_status_variant {
+  /*/
+  /// The key is definitely revoked.
+  ///
+  /// All self-revocations are returned, the most recent revocation
+  /// first.
+  /*/
+  SQ_REVOCATION_STATUS_REVOKED,
+
+  /*/
+  /// We have a third-party revocation certificate that is allegedly
+  /// from a designated revoker, but we don't have the designated
+  /// revoker's key to check its validity.
+  ///
+  /// All such certificates are returned.  The caller must check
+  /// them manually.
+  /*/
+  SQ_REVOCATION_STATUS_COULD_BE,
+
+  /*/
+  /// The key does not appear to be revoked, but perhaps an attacker
+  /// has performed a DoS, which prevents us from seeing the
+  /// revocation certificate.
+  /*/
+  SQ_REVOCATION_STATUS_NOT_AS_FAR_AS_WE_KNOW,
+
+  /* Dummy value to make sure the enumeration has a defined size.  Do
+     not use this value.  */
+  SQ_REVOCATION_STATUS_FORCE_WIDTH = INT_MAX,
+} sq_revocation_status_variant_t;
+
+/*/
+/// Returns the revocation status's variant.
+/*/
+sq_revocation_status_variant_t sq_revocation_status_variant (
+    sq_revocation_status_t rs);
+
+/*/
+/// Frees the revocation status.
+/*/
+void sq_revocation_status_free (sq_revocation_status_t rs);
+
 
 /* openpgp::armor.  */
 

@@ -12,10 +12,18 @@ use libc::{self, uint8_t, uint64_t, c_char, c_int, size_t, ssize_t};
 extern crate openpgp;
 
 use self::openpgp::{
-    armor, Fingerprint, KeyID, PacketPile, TPK, TSK, Packet, crypto::Password,
+    armor,
+    Fingerprint,
+    KeyID,
+    RevocationStatus,
+    PacketPile,
+    TPK,
+    TSK,
+    Packet,
     packet::{
         Signature,
     },
+    crypto::Password,
 };
 use self::openpgp::tpk::{CipherSuite, TPKBuilder};
 use self::openpgp::parse::{PacketParserResult, PacketParser, PacketParserEOF};
@@ -810,6 +818,40 @@ pub extern "system" fn sq_tpk_into_tsk(tpk: *mut TPK)
         Box::from_raw(tpk)
     };
     box_raw!(tpk.into_tsk())
+}
+
+fn revocation_status_to_int(rs: &RevocationStatus) -> c_int {
+    match rs {
+        RevocationStatus::Revoked(_) => 0,
+        RevocationStatus::CouldBe(_) => 1,
+        RevocationStatus::NotAsFarAsWeKnow => 2,
+    }
+}
+
+/// Returns the TPK's revocation status variant.
+#[no_mangle]
+pub extern "system" fn sq_revocation_status_variant(
+    rs: *mut RevocationStatus)
+    -> c_int
+{
+    assert!(! rs.is_null());
+    let rs = unsafe {
+        Box::from_raw(rs as *mut RevocationStatus)
+    };
+    let variant = revocation_status_to_int(rs.as_ref());
+    Box::into_raw(rs);
+    variant
+}
+
+/// Frees a sq_revocation_status_t.
+#[no_mangle]
+pub extern "system" fn sq_revocation_status_free(
+    rs: *mut RevocationStatus)
+{
+    if rs.is_null() { return };
+    unsafe {
+        drop(Box::from_raw(rs))
+    };
 }
 
 /* TPKBuilder */
