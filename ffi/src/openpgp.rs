@@ -1488,6 +1488,17 @@ pub extern "system" fn sq_skesk_decrypt(ctx: Option<&mut Context>,
     }
 }
 
+/// Returns the PKESK's recipient.
+///
+/// The return value is a reference ot a `KeyID`.  The caller must not
+/// modify or free it.
+#[no_mangle]
+pub extern "system" fn sq_pkesk_recipient(pkesk: Option<&PKESK>)
+                                          -> *const KeyID {
+    let pkesk = pkesk.expect("PKESK is NULL");
+    pkesk.recipient()
+}
+
 /// Returns the session key.
 ///
 /// `key` of size `key_len` must be a buffer large enough to hold the

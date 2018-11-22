@@ -514,6 +514,11 @@ sq_keyid_t sq_signature_issuer(sq_signature_t sig);
 /*/
 sq_fingerprint_t sq_signature_issuer_fingerprint(sq_signature_t sig);
 
+/// Returns the PKESK's recipient.
+///
+/// The return value is a reference ot a `KeyID`.  The caller must not
+/// modify or free it.
+sq_keyid_t sq_pkesk_recipient(sq_pkesk_t pkesk);
 
 /*/
 /// Returns the session key.
