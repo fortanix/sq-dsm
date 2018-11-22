@@ -1620,6 +1620,16 @@ pub extern "system" fn sq_packet_parser_free(pp: *mut PacketParser) {
 
 /// Frees the packet parser EOF object.
 #[no_mangle]
+pub extern "system" fn sq_packet_parser_eof_is_message(
+    eof: Option<&PacketParserEOF>) -> bool
+{
+    let eof = eof.expect("EOF is NULL");
+
+    eof.is_message()
+}
+
+/// Frees the packet parser EOF object.
+#[no_mangle]
 pub extern "system" fn sq_packet_parser_eof_free(eof: *mut PacketParserEOF) {
     if eof.is_null() { return }
     unsafe {

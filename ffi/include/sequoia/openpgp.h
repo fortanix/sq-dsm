@@ -1039,6 +1039,11 @@ void sq_packet_parser_result_free (sq_packet_parser_result_t ppr);
 void sq_packet_parser_free (sq_packet_parser_t pp);
 
 /*/
+/// Returns whether the message is a well-formed OpenPGP message.
+/*/
+int sq_packet_parser_eof_is_message(sq_packet_parser_eof_t eof);
+
+/*/
 /// Frees the packet parser EOF object.
 /*/
 void sq_packet_parser_eof_free (sq_packet_parser_eof_t eof);
