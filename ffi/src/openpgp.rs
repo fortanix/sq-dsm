@@ -30,6 +30,7 @@ use self::openpgp::tpk::{
     TPKBuilder,
     UserIDBinding,
     UserIDBindingIter,
+    KeyIter
 };
 use self::openpgp::packet;
 use self::openpgp::parse::{PacketParserResult, PacketParser, PacketParserEOF};
@@ -1040,6 +1041,49 @@ pub extern "system" fn sq_user_id_binding_iter_next<'a>(
 {
     let iter = iter.expect("Iterator is NULL");
     iter.next()
+}
+
+/* tpk::KeyIter. */
+
+/// Returns an iterator over the TPK's keys.
+///
+/// This iterates over both the primary key and any subkeys.
+#[no_mangle]
+pub extern "system" fn sq_tpk_key_iter(tpk: Option<&TPK>)
+    -> *mut KeyIter
+{
+    let tpk = tpk.expect("TPK is NULL");
+    box_raw!(tpk.keys())
+}
+
+/// Frees a sq_tpk_key_iter_t.
+#[no_mangle]
+pub extern "system" fn sq_tpk_key_iter_free(
+    iter: *mut KeyIter)
+{
+    if iter.is_null() { return };
+    unsafe {
+        drop(Box::from_raw(iter))
+    };
+}
+
+/// Returns the next key.
+#[no_mangle]
+pub extern "system" fn sq_tpk_key_iter_next<'a>(
+    iter: Option<&mut KeyIter<'a>>,
+    sigo: Option<&mut *mut Option<&'a packet::Signature>>)
+    -> Option<&'a packet::Key>
+{
+    let iter = iter.expect("Iterator is NULL");
+    if let Some((sig, key)) = iter.next() {
+        if let Some(ptr) = sigo {
+            *ptr = box_raw!(sig);
+        }
+
+        Some(key)
+    } else {
+        None
+    }
 }
 
 /* TPKBuilder */

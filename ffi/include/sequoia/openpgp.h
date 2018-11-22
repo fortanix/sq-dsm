@@ -578,6 +578,28 @@ sq_user_id_binding_t sq_user_id_binding_iter_next (sq_user_id_binding_iter_t ite
 /// Frees an sq_user_id_binding_iter_t.
 void sq_user_id_binding_iter_free (sq_user_id_binding_iter_t iter);
 
+/* openpgp::tpk::KeyIter.  */
+
+/*/
+/// An iterator over keys in a TPK.
+/*/
+typedef struct sq_tpk_key_iter *sq_tpk_key_iter_t;
+
+/*/
+/// Returns a reference to the next element in the iterator.  Returns
+/// NULL if there are no more elements.
+///
+/// If signature is not NULL, stores a reference to the key's most
+/// recent self-signature, if any.  (Note: subkeys always have
+/// signatures, but a primary key may not have a direct signature, and
+/// there might not be any user ids.)
+/*/
+sq_p_key_t sq_tpk_key_iter_next (sq_tpk_key_iter_t iter,
+                                 sq_packet_t *signature);
+
+/// Frees an sq_tpk_key_iter_t.
+void sq_tpk_key_iter_free (sq_tpk_key_iter_t iter);
+
 /* openpgp::tpk.  */
 
 /*/
@@ -744,6 +766,12 @@ int sq_tpk_is_tsk(sq_tpk_t tpk);
 /// Returns an iterator over the `UserIDBinding`s.
 /*/
 sq_user_id_binding_iter_t sq_tpk_user_id_binding_iter (sq_tpk_t tpk);
+
+/*/
+/// Returns an iterator over all `Key`s (both the primary key and any
+/// subkeys) in a TPK.
+/*/
+sq_tpk_key_iter_t sq_tpk_key_iter (sq_tpk_t tpk);
 
 /* TPKBuilder */
 
