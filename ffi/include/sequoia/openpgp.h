@@ -712,6 +712,11 @@ void sq_tsk_free (sq_tsk_t tsk);
 sq_tpk_t sq_tsk_tpk (sq_tsk_t tsk);
 
 /*/
+/// Converts the TSK into a TPK.
+/*/
+sq_tpk_t sq_tsk_into_tpk (sq_tsk_t tsk);
+
+/*/
 /// Serializes the TSK.
 /*/
 sq_status_t sq_tsk_serialize (sq_context_t ctx,

@@ -1048,6 +1048,16 @@ pub extern "system" fn sq_tsk_tpk(tsk: Option<&TSK>)
     tsk.tpk()
 }
 
+/// Converts the TSK into a TPK.
+#[no_mangle]
+pub extern "system" fn sq_tsk_into_tpk(tsk: *mut TSK)
+                                       -> *mut TPK {
+    let tsk = unsafe {
+        Box::from_raw(tsk)
+    };
+    box_raw!(tsk.into_tpk())
+}
+
 
 /// Serializes the TSK.
 #[no_mangle]
