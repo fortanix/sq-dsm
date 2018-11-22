@@ -22,7 +22,9 @@ use self::openpgp::{
     Packet,
     packet::{
         Signature,
+        PKESK,
     },
+    SecretKey,
     crypto::Password,
 };
 use self::openpgp::tpk::{
@@ -1483,6 +1485,48 @@ pub extern "system" fn sq_skesk_decrypt(ctx: Option<&mut Context>,
         }
     } else {
         panic!("Not a SKESK packet");
+    }
+}
+
+/// Returns the session key.
+///
+/// `key` of size `key_len` must be a buffer large enough to hold the
+/// session key.  If `key` is NULL, or not large enough, then the key
+/// is not written to it.  Either way, `key_len` is set to the size of
+/// the session key.
+#[no_mangle]
+pub extern "system" fn sq_pkesk_decrypt(ctx: Option<&mut Context>,
+                                        pkesk: Option<&PKESK>,
+                                        secret_key: Option<&packet::Key>,
+                                        algo: Option<&mut uint8_t>, // XXX
+                                        key: *mut uint8_t,
+                                        key_len: Option<&mut size_t>)
+                                        -> Status {
+    let ctx = ctx.expect("Context is NULL");
+    let pkesk = pkesk.expect("PKESK is NULL");
+    let secret_key = secret_key.expect("SECRET_KEY is NULL");
+    let algo = algo.expect("Algo is NULL");
+    let key_len = key_len.expect("Key length is NULL");
+
+    if let Some(SecretKey::Unencrypted{ mpis: ref secret_part }) = secret_key.secret() {
+        match pkesk.decrypt(secret_key, secret_part) {
+            Ok((a, k)) => {
+                *algo = a.into();
+                if !key.is_null() && *key_len >= k.len() {
+                    unsafe {
+                        ::std::ptr::copy(k.as_ptr(),
+                                         key,
+                                         k.len());
+                    }
+                }
+                *key_len = k.len();
+                Status::Success
+            },
+            Err(e) => fry_status!(ctx, Err::<(), failure::Error>(e)),
+        }
+    } else {
+        // XXX: Better message.
+        panic!("No secret parts");
     }
 }
 

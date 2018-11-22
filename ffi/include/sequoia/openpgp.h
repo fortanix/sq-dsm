@@ -514,6 +514,20 @@ sq_keyid_t sq_signature_issuer(sq_signature_t sig);
 /*/
 sq_fingerprint_t sq_signature_issuer_fingerprint(sq_signature_t sig);
 
+
+/*/
+/// Returns the session key.
+///
+/// `key` of size `key_len` must be a buffer large enough to hold the
+/// session key.  If `key` is NULL, or not large enough, then the key
+/// is not written to it.  Either way, `key_len` is set to the size of
+/// the session key.
+/*/
+sq_status_t sq_pkesk_decrypt (sq_context_t ctx, sq_pkesk_t pkesk,
+                              sq_p_key_t secret_key,
+                              uint8_t *algo, /* XXX */
+                              uint8_t *key, size_t *key_len);
+
 typedef enum sq_reason_for_revocation {
   /*/
   /// No reason specified (key revocations or cert revocations)
