@@ -34,6 +34,9 @@ use self::openpgp::tpk::{
 };
 use self::openpgp::packet;
 use self::openpgp::parse::{PacketParserResult, PacketParser, PacketParserEOF};
+use self::openpgp::parse::stream::{
+    Secret,
+};
 use self::openpgp::serialize::Serialize;
 use self::openpgp::constants::{
     DataFormat,
@@ -2096,4 +2099,27 @@ pub extern "system" fn sq_encryptor_new
                                  &passwords_.iter().collect::<Vec<&Password>>(),
                                  &recipients,
                                  encryption_mode))
+}
+
+// Secret.
+
+/// Creates an sq_secret_t from a decrypted session key.
+#[no_mangle]
+pub fn sq_secret_cached<'a>(algo: u8,
+                            session_key: *const u8,
+                            session_key_len: size_t)
+   -> *mut Secret
+{
+    let session_key = if session_key_len > 0 {
+        unsafe {
+            slice::from_raw_parts(session_key, session_key_len)
+        }
+    } else {
+        &[]
+    };
+
+    box_raw!(Secret::Cached {
+        algo: algo.into(),
+        session_key: session_key.to_vec().into()
+    })
 }

@@ -1295,4 +1295,11 @@ sq_writer_stack_t sq_encryptor_new (sq_context_t ctx,
                                     size_t recipients_len,
                                     sq_encryption_mode_t mode);
 
+typedef struct sq_secret *sq_secret_t;
+
+/*/
+/// Creates an sq_secret_t from a decrypted session key.
+/*/
+sq_secret_t sq_secret_cached(uint8_t algo,
+                             uint8_t *session_key, size_t session_key_len);
 #endif
