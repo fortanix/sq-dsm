@@ -464,8 +464,9 @@ impl<'a> Reader<'a> {
             kind)
     }
 
-    pub(crate) fn from_buffered_reader(inner: Box<'a + BufferedReader<()>>,
-                                       kind: Option<Kind>) -> Self {
+    pub(crate) fn from_buffered_reader<C: 'a>(
+        inner: Box<'a + BufferedReader<C>>, kind: Option<Kind>) -> Self
+    {
         Reader {
             source: Box::new(BufferedReaderGeneric::new(inner, None)),
             kind: kind,
