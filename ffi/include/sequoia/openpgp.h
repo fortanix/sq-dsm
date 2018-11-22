@@ -894,8 +894,8 @@ sq_tpk_t sq_tpk_builder_generate(sq_context_t ctx, sq_tpk_builder_t tpkb,
 /*/
 /// Generates a new RSA 3072 bit key with UID `primary_uid`.
 /*/
-sq_tsk_t sq_tsk_new (sq_context_t ctx, char *primary_uid,
-                     sq_tsk_t *tpk, sq_signature_t *revocation);
+sq_status_t sq_tsk_new (sq_context_t ctx, char *primary_uid,
+                        sq_tsk_t *tpk, sq_signature_t *revocation);
 
 /*/
 /// Frees the TSK.
