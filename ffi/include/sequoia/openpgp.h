@@ -496,6 +496,24 @@ sq_status_t sq_packet_pile_serialize (sq_context_t ctx,
 				      const sq_packet_pile_t message,
 				      sq_writer_t writer);
 
+/*/
+/// Returns the value of the `Signature` packet's Issuer subpacket.
+///
+/// If there is no Issuer subpacket, this returns NULL.  Note: if
+/// there is no Issuer subpacket, but there is an IssuerFingerprint
+/// subpacket, this still returns NULL.
+/*/
+sq_keyid_t sq_signature_issuer(sq_signature_t sig);
+
+/*/
+/// Returns the value of the `Signature` packet's IssuerFingerprint subpacket.
+///
+/// If there is no IssuerFingerprint subpacket, this returns NULL.
+/// Note: if there is no IssuerFingerprint subpacket, but there is an
+/// Issuer subpacket, this still returns NULL.
+/*/
+sq_fingerprint_t sq_signature_issuer_fingerprint(sq_signature_t sig);
+
 
 /* openpgp::tpk.  */
 

@@ -26,6 +26,7 @@ use self::openpgp::{
     crypto::Password,
 };
 use self::openpgp::tpk::{CipherSuite, TPKBuilder};
+use self::openpgp::packet;
 use self::openpgp::parse::{PacketParserResult, PacketParser, PacketParserEOF};
 use self::openpgp::serialize::Serialize;
 use self::openpgp::constants::{
@@ -1101,6 +1102,33 @@ pub extern "system" fn sq_packet_kind(p: Option<&Packet>)
         0
     }
 }
+
+/// Returns the value of the `Signature` packet's Issuer subpacket.
+///
+/// If there is no Issuer subpacket, this returns NULL.  Note: if
+/// there is no Issuer subpacket, but there is an IssuerFingerprint
+/// subpacket, this still returns NULL.
+#[no_mangle]
+pub extern "system" fn sq_signature_issuer(sig: Option<&packet::Signature>)
+                                           -> *mut KeyID {
+    let sig = sig.expect("Signature is NULL");
+    maybe_box_raw!(sig.issuer())
+}
+
+/// Returns the value of the `Signature` packet's IssuerFingerprint subpacket.
+///
+/// If there is no IssuerFingerprint subpacket, this returns NULL.
+/// Note: if there is no IssuerFingerprint subpacket, but there is an
+/// Issuer subpacket, this still returns NULL.
+#[no_mangle]
+pub extern "system" fn sq_signature_issuer_fingerprint(
+    sig: Option<&packet::Signature>)
+    -> *mut Fingerprint
+{
+    let sig = sig.expect("Signature is NULL");
+    maybe_box_raw!(sig.issuer_fingerprint())
+}
+
 
 /// Computes and returns the key's fingerprint as per Section 12.2
 /// of RFC 4880.
