@@ -31,6 +31,7 @@ use self::openpgp::parse::{PacketParserResult, PacketParser, PacketParserEOF};
 use self::openpgp::serialize::Serialize;
 use self::openpgp::constants::{
     DataFormat,
+    ReasonForRevocation,
 };
 
 use super::build_hasher;
@@ -819,6 +820,132 @@ pub extern "system" fn sq_tpk_into_tsk(tpk: *mut TPK)
         Box::from_raw(tpk)
     };
     box_raw!(tpk.into_tsk())
+}
+
+/// Returns a reference to the TPK's primary key.
+///
+/// The tpk still owns the key.  The caller should neither modify nor
+/// free the key.
+#[no_mangle]
+pub extern "system" fn sq_tpk_primary(tpk: Option<&TPK>)
+    -> Option<&packet::Key> {
+    let tpk = tpk.expect("TPK is NULL");
+    Some(tpk.primary())
+}
+
+/// Returns the TPK's revocation status.
+///
+/// Note: this only returns whether the TPK has been revoked, and does
+/// not reflect whether an individual user id, user attribute or
+/// subkey has been revoked.
+#[no_mangle]
+pub extern "system" fn sq_tpk_revocation_status(tpk: Option<&TPK>)
+                                                -> *mut RevocationStatus {
+    let tpk = tpk.expect("TPK is NULL");
+    box_raw!(tpk.revoked())
+}
+
+fn int_to_reason_for_revocation(code: c_int) -> ReasonForRevocation {
+    match code {
+        0 => ReasonForRevocation::KeyCompromised,
+        1 => ReasonForRevocation::Unspecified,
+        2 => ReasonForRevocation::KeySuperseded,
+        3 => ReasonForRevocation::KeyCompromised,
+        4 => ReasonForRevocation::KeyRetired,
+        5 => ReasonForRevocation::UIDRetired,
+        _ => panic!("Bad reason for revocation: {}", code),
+    }
+}
+
+
+/// Returns a new revocation certificate for the TPK.
+///
+/// This function does *not* consume tpk.
+#[no_mangle]
+pub extern "system" fn sq_tpk_revoke (ctx: Option<&mut Context>,
+                                      tpk: *mut TPK,
+                                      code: c_int,
+                                      reason: Option<*const c_char>)
+    -> *mut packet::Signature
+{
+    let ctx = ctx.expect("Context is NULL");
+    assert!(!tpk.is_null());
+    let tpk = unsafe {
+        Box::from_raw(tpk)
+    };
+    let code = int_to_reason_for_revocation(code);
+    let reason = if let Some(reason) = reason {
+        unsafe {
+            CStr::from_ptr(reason).to_bytes()
+        }
+    } else {
+        b""
+    };
+
+    fry_box!(ctx, tpk.revoke(code, reason))
+}
+
+/// Adds a revocation certificate to the tpk.
+///
+/// This function consumes the tpk.
+#[no_mangle]
+pub extern "system" fn sq_tpk_revoke_in_place (ctx: Option<&mut Context>,
+                                               tpk: *mut TPK,
+                                               code: c_int,
+                                               reason: Option<*const c_char>)
+    -> *mut TPK
+{
+    let ctx = ctx.expect("Context is NULL");
+    assert!(!tpk.is_null());
+    let tpk = unsafe {
+        Box::from_raw(tpk)
+    };
+    let code = int_to_reason_for_revocation(code);
+    let reason = if let Some(reason) = reason {
+        unsafe {
+            CStr::from_ptr(reason).to_bytes()
+        }
+    } else {
+        b""
+    };
+
+    fry_box!(ctx, tpk.revoke_in_place(code, reason))
+}
+
+/// Returns whether the TPK has expired.
+#[no_mangle]
+pub extern "system" fn sq_tpk_expired(tpk: Option<&TPK>)
+                                      -> c_int {
+    let tpk = tpk.expect("TPK is NULL");
+
+    tpk.expired() as c_int
+}
+
+/// Changes the TPK's expiration.
+///
+/// Expiry is when the key should expire in seconds relative to the
+/// key's creation (not the current time).
+///
+/// This function consumes `tpk` and returns a new `TPK`.
+#[no_mangle]
+pub extern "system" fn sq_tpk_set_expiry(ctx: Option<&mut Context>,
+                                         tpk: *mut TPK, expiry: u32)
+                                         -> *mut TPK {
+    let ctx = ctx.expect("CTX is NULL");
+    assert!(!tpk.is_null());
+    let tpk = unsafe {
+        Box::from_raw(tpk)
+    };
+
+    fry_box!(ctx, tpk.set_expiry_in_seconds(expiry))
+}
+
+/// Returns whether the TPK includes any secret key material.
+#[no_mangle]
+pub extern "system" fn sq_tpk_is_tsk(tpk: Option<&TPK>)
+                                     -> c_int {
+    let tpk = tpk.expect("TPK is NULL");
+    tpk.is_tsk() as c_int
 }
 
 fn revocation_status_to_int(rs: &RevocationStatus) -> c_int {

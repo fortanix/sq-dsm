@@ -514,6 +514,37 @@ sq_keyid_t sq_signature_issuer(sq_signature_t sig);
 /*/
 sq_fingerprint_t sq_signature_issuer_fingerprint(sq_signature_t sig);
 
+typedef enum sq_reason_for_revocation {
+  /*/
+  /// No reason specified (key revocations or cert revocations)
+  /*/
+  SQ_REASON_FOR_REVOCATION_UNSPECIFIED,
+
+  /*/
+  /// Key is superseded (key revocations)
+  /*/
+  SQ_REASON_FOR_REVOCATION_KEY_SUPERSEDED,
+
+  /*/
+  /// Key material has been compromised (key revocations)
+  /*/
+  SQ_REASON_FOR_REVOCATION_KEY_COMPROMISED,
+
+  /*/
+  /// Key is retired and no longer used (key revocations)
+  /*/
+  SQ_REASON_FOR_REVOCATION_KEY_RETIRED,
+
+  /*/
+  /// User ID information is no longer valid (cert revocations)
+  /*/
+  SQ_REASON_FOR_REVOCATION_UID_RETIRED,
+
+  /* Dummy value to make sure the enumeration has a defined size.  Do
+     not use this value.  */
+  SQ_REASON_FOR_REVOCATION_FORCE_WIDTH = INT_MAX,
+} sq_reason_for_revocation_t;
+
 
 /* openpgp::tpk.  */
 
@@ -618,6 +649,64 @@ sq_fingerprint_t sq_tpk_fingerprint (const sq_tpk_t tpk);
 /// parts of the containing keys.
 /*/
 sq_tsk_t sq_tpk_into_tsk (sq_tpk_t tpk);
+
+/*/
+/// Returns a reference to the TPK's primary key.
+///
+/// The tpk still owns the key.  The caller should neither modify nor
+/// free the key.
+/*/
+sq_p_key_t sq_tpk_primary (sq_tpk_t tpk);
+
+/*/
+/// Returns the TPK's revocation status.
+///
+/// Note: this only returns whether the TPK has been revoked, and does
+/// not reflect whether an individual user id, user attribute or
+/// subkey has been revoked.
+/*/
+sq_revocation_status_t sq_tpk_revocation_status (sq_tpk_t tpk);
+
+/*/
+/// Writes a revocation certificate to the writer.
+///
+/// This function consumes the writer.  It does *not* consume tpk.
+/*/
+sq_status_t sq_tpk_revoke (sq_context_t ctx,
+                           sq_tpk_t tpk, sq_reason_for_revocation_t code,
+                           const char *reason, sq_writer_t writer);
+
+/*/
+/// Adds a revocation certificate to the tpk.
+///
+/// This function consumes the tpk.
+/*/
+sq_tpk_t sq_tpk_revoke_in_place (sq_context_t ctx,
+                                 sq_tpk_t tpk,
+                                 sq_reason_for_revocation_t code,
+                                 const char *reason);
+
+/*/
+/// Returns whether the TPK has expired.
+/*/
+int sq_tpk_expired(sq_tpk_t tpk);
+
+/*/
+/// Changes the TPK's expiration.
+///
+/// Expiry is when the key should expire in seconds relative to the
+/// key's creation (not the current time).
+///
+/// This function consumes `tpk` and returns a new `TPK`.
+/*/
+sq_tpk_t sq_tpk_set_expiry(sq_context_t ctx,
+                           sq_tpk_t tpk,
+                           uint32_t expiry);
+
+/*/
+/// Returns whether the TPK includes any secret key material.
+/*/
+int sq_tpk_is_tsk(sq_tpk_t tpk);
 
 /* TPKBuilder */
 
