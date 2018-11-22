@@ -1160,6 +1160,17 @@ pub extern "system" fn sq_p_key_keyid(key: Option<&Packet>)
     }
 }
 
+/// Returns the key's creation time.
+#[no_mangle]
+pub extern "system" fn sq_p_key_creation_time(key: Option<&packet::Key>)
+    -> u32
+{
+    let key = key.expect("Key is NULL");
+    let ct = key.creation_time();
+
+    ct.to_timespec().sec as u32
+}
+
 /// Returns the value of the User ID Packet.
 ///
 /// The returned pointer is valid until `uid` is deallocated.  If

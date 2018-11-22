@@ -761,6 +761,11 @@ sq_status_t sq_skesk_decrypt (sq_context_t ctx, sq_skesk_t skesk,
                               uint8_t *algo, /* XXX */
                               uint8_t *key, size_t *key_len);
 
+/*/
+/// Returns the key's creation time.
+/*/
+uint32_t sq_p_key_creation_time (sq_p_key_t p);
+
 /* openpgp::parse.  */
 
 /*/
