@@ -2203,7 +2203,7 @@ impl TPK {
     /// If `other` is a different key, then nothing is merged into
     /// `self`, but `self` is still canonicalized.
     pub fn merge(mut self, mut other: TPK) -> Result<Self> {
-        if self.primary != other.primary {
+        if self.primary.fingerprint() != other.primary.fingerprint() {
             // The primary key is not the same.  There is nothing to
             // do.
             return Err(Error::InvalidArgument(
