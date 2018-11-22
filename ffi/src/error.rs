@@ -38,6 +38,7 @@ pub extern "system" fn sq_error_status(error: Option<&failure::Error>)
 }
 
 /// XXX: Reorder and name-space before release.
+#[derive(PartialEq, Debug)]
 #[repr(C)]
 pub enum Status {
     /// The operation was successful.
