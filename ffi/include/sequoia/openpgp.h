@@ -367,6 +367,29 @@ typedef enum sq_tag {
     SQ_TAG_PRIVATE3 = 63,
 } sq_tag_t;
 
+static inline const char *sq_tag_to_string(sq_tag_t tag) {
+  switch (tag) {
+  case SQ_TAG_PKESK: return "PKESK";
+  case SQ_TAG_SIGNATURE: return "SIGNATURE";
+  case SQ_TAG_SKESK: return "SKESK";
+  case SQ_TAG_ONE_PASS_SIG: return "ONE PASS SIG";
+  case SQ_TAG_SECRET_KEY: return "SECRET KEY";
+  case SQ_TAG_PUBLIC_KEY: return "PUBLIC KEY";
+  case SQ_TAG_SECRET_SUBKEY: return "SECRET SUBKEY";
+  case SQ_TAG_COMPRESSED_DATA: return "COMPRESSED DATA";
+  case SQ_TAG_SED: return "SED";
+  case SQ_TAG_MARKER: return "MARKER";
+  case SQ_TAG_LITERAL: return "LITERAL";
+  case SQ_TAG_TRUST: return "TRUST";
+  case SQ_TAG_USER_ID: return "USER ID";
+  case SQ_TAG_PUBLIC_SUBKEY: return "PUBLIC SUBKEY";
+  case SQ_TAG_USER_ATTRIBUTE: return "USER ATTRIBUTE";
+  case SQ_TAG_SEIP: return "SEIP";
+  case SQ_TAG_MDC: return "MDC";
+  default: return "OTHER";
+  }
+}
+
 /*/
 /// Opaque types for all the Packets that Sequoia understands.
 /*/
