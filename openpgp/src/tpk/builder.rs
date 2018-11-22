@@ -1,5 +1,5 @@
 use time;
-use packet::signature::subpacket::{Features, KeyFlags};
+use packet::{Features, KeyFlags};
 use packet::Key;
 use tpk::{
     UserIDBinding,

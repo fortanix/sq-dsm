@@ -47,6 +47,12 @@ mod mdc;
 pub use self::mdc::MDC;
 mod aed;
 pub use self::aed::AED;
+mod features;
+pub use self::features::Features;
+mod key_flags;
+pub use self::key_flags::KeyFlags;
+mod server_preferences;
+pub use self::server_preferences::KeyServerPreferences;
 
 // Allow transparent access of common fields.
 impl<'a> Deref for Packet {

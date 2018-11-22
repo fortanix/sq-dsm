@@ -408,7 +408,7 @@ fn real_main() -> Result<(), failure::Error> {
         },
         ("keygen",  Some(m)) => {
             use openpgp::tpk::{TPKBuilder, CipherSuite};
-            use openpgp::packet::signature::subpacket::KeyFlags;
+            use openpgp::packet::KeyFlags;
             use openpgp::armor::{Writer, Kind};
             use openpgp::serialize::Serialize;
             use std::io;
