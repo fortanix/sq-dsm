@@ -3,3 +3,4 @@
 *~
 Cargo.lock
 .gdb_history
+.dir-locals.el
