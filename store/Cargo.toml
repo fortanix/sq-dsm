@@ -1,8 +1,24 @@
 [package]
 name = "sequoia-store"
+description = "Public-Key store for Sequoia"
 version = "0.1.0"
-authors = ["Justus Winter <justus@pep-project.org>"]
+authors = [
+    "Justus Winter <justus@sequoia-pgp.org",
+    "Kai Michaelis <kai@sequoia-pgp.org>",
+    "Neal H. Walfield <neal@sequoia-pgp.org>",
+]
 build = "build.rs"
+documentation = "https://docs.sequoia-pgp.org/sequoia_store"
+homepage = "https://sequoia-pgp.org/"
+repository = "https://gitlab.com/sequoia-pgp/sequoia"
+readme = "../README.md"
+keywords = ["cryptography", "openpgp", "pgp", "keyring"]
+categories = ["cryptography", "authentication", "email"]
+license = "GPL-3.0"
+
+[badges]
+gitlab = { repository = "https://gitlab.com/sequoia-pgp/sequoia" }
+maintenance = { status = "actively-developed" }
 
 [features]
 default = ["background-services"]

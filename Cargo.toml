@@ -1,13 +1,23 @@
 [package]
 name = "sequoia"
+description = "A cool new OpenPGP implementation"
 version = "0.1.0"
-authors = ["Neal H. Walfield <neal@gnu.org>"]
+authors = [
+    "Justus Winter <justus@sequoia-pgp.org",
+    "Kai Michaelis <kai@sequoia-pgp.org>",
+    "Neal H. Walfield <neal@sequoia-pgp.org>",
+]
 documentation = "https://docs.sequoia-pgp.org/"
 homepage = "https://sequoia-pgp.org/"
 repository = "https://gitlab.com/sequoia-pgp/sequoia"
 readme = "README.md"
-publish = false # not yet...
+keywords = ["cryptography", "openpgp", "pgp", "encryption", "signing"]
+categories = ["cryptography", "authentication", "email"]
+license = "GPL-3.0"
 
+[badges]
+gitlab = { repository = "https://gitlab.com/sequoia-pgp/sequoia" }
+maintenance = { status = "actively-developed" }
 
 [workspace]
 

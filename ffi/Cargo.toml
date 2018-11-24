@@ -1,7 +1,24 @@
 [package]
 name = "sequoia-ffi"
+description = "C API for Sequoia"
 version = "0.1.0"
-authors = ["Justus Winter <justus@pep-project.org>"]
+authors = [
+    "Justus Winter <justus@sequoia-pgp.org",
+    "Kai Michaelis <kai@sequoia-pgp.org>",
+    "Neal H. Walfield <neal@sequoia-pgp.org>",
+]
+documentation = "https://docs.sequoia-pgp.org/sequoia_ffi"
+homepage = "https://sequoia-pgp.org/"
+repository = "https://gitlab.com/sequoia-pgp/sequoia"
+readme = "../README.md"
+keywords = ["cryptography", "openpgp", "pgp", "encryption", "signing"]
+categories = ["cryptography", "authentication", "development-tools::ffi",
+              "email"]
+license = "GPL-3.0"
+
+[badges]
+gitlab = { repository = "https://gitlab.com/sequoia-pgp/sequoia" }
+maintenance = { status = "actively-developed" }
 
 [dependencies]
 openpgp = { path = "../openpgp" }
