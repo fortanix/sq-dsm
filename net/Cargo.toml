@@ -3,7 +3,7 @@ name = "sequoia-net"
 description = "Network services for OpenPGP"
 version = "0.1.0"
 authors = [
-    "Justus Winter <justus@sequoia-pgp.org",
+    "Justus Winter <justus@sequoia-pgp.org>",
     "Kai Michaelis <kai@sequoia-pgp.org>",
     "Neal H. Walfield <neal@sequoia-pgp.org>",
 ]
