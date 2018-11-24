@@ -1,7 +1,7 @@
 //! https://sequoia-pgp.org/guide/the-keystore/
 
 #[macro_use] // For armored!
-extern crate openpgp;
+extern crate sequoia_openpgp as openpgp;
 extern crate sequoia;
 use sequoia::{core, store};
 

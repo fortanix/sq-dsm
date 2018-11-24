@@ -31,6 +31,7 @@
 //! print it:
 //!
 //! ```rust
+//! # extern crate sequoia_openpgp as openpgp;
 //! # use openpgp::Result;
 //! # use openpgp::Packet;
 //! # use openpgp::parse::{PacketParserResult, PacketParser};

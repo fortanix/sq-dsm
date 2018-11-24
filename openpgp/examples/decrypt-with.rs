@@ -6,7 +6,7 @@ use std::env;
 use std::io;
 
 extern crate failure;
-extern crate openpgp;
+extern crate sequoia_openpgp as openpgp;
 
 use openpgp::parse::stream::{
     Decryptor, DecryptionHelper, Secret, VerificationHelper, VerificationResult,

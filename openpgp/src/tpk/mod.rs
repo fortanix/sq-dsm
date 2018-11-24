@@ -721,7 +721,7 @@ enum PacketSource<'a, I: Iterator<Item=Packet>> {
 /// # Example
 ///
 /// ```rust
-/// # extern crate openpgp;
+/// # extern crate sequoia_openpgp as openpgp;
 /// # use openpgp::Result;
 /// # use openpgp::parse::{PacketParserResult, PacketParser};
 /// use openpgp::tpk::TPKParser;
@@ -837,7 +837,7 @@ impl<'a, I: Iterator<Item=Packet>> TPKParser<'a, I> {
     /// # Example
     ///
     /// ```rust
-    /// # extern crate openpgp;
+    /// # extern crate sequoia_openpgp as openpgp;
     /// # use openpgp::Result;
     /// # use openpgp::parse::PacketParser;
     /// use openpgp::tpk::TPKParser;

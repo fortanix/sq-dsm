@@ -1,7 +1,7 @@
 use std::io::{self, Read};
 use time;
 
-extern crate openpgp;
+extern crate sequoia_openpgp as openpgp;
 use openpgp::{Packet, Result};
 use openpgp::packet::ctb::CTB;
 use openpgp::packet::{Header, BodyLength, Signature};

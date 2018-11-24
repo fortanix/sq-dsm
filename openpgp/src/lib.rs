@@ -372,7 +372,7 @@ pub struct PacketPile {
 /// # Example
 ///
 /// ```rust
-/// # extern crate openpgp;
+/// # extern crate sequoia_openpgp as openpgp;
 /// # use openpgp::Result;
 /// # use openpgp::parse::{PacketParserResult, PacketParser};
 /// use openpgp::TPK;

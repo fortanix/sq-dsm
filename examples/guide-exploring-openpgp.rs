@@ -1,7 +1,7 @@
 //! https://sequoia-pgp.org/guide/exploring-openpgp/
 
 #[macro_use] // For armored!
-extern crate openpgp;
+extern crate sequoia_openpgp as openpgp;
 
 fn main() {
     let mut reader = armored!(

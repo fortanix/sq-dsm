@@ -8,7 +8,7 @@ use time;
 use rpassword;
 use tempfile::NamedTempFile;
 
-extern crate openpgp;
+extern crate sequoia_openpgp as openpgp;
 use sequoia_core::Context;
 use openpgp::armor;
 use openpgp::constants::DataFormat;

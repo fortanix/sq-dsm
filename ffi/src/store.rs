@@ -27,7 +27,7 @@ use libc::{uint8_t, uint64_t, c_char};
 use std::ffi::{CStr, CString};
 use std::ptr;
 
-extern crate openpgp;
+extern crate sequoia_openpgp as openpgp;
 
 use self::openpgp::TPK;
 use self::openpgp::{

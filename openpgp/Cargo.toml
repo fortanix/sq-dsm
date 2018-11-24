@@ -1,5 +1,5 @@
 [package]
-name = "openpgp"
+name = "sequoia-openpgp"
 description = "OpenPGP data types and associated machinery"
 version = "0.1.0"
 authors = [
@@ -8,7 +8,7 @@ authors = [
     "Neal H. Walfield <neal@sequoia-pgp.org>",
 ]
 build = "build.rs"
-documentation = "https://docs.sequoia-pgp.org/openpgp"
+documentation = "https://docs.sequoia-pgp.org/sequoia_openpgp"
 homepage = "https://sequoia-pgp.org/"
 repository = "https://gitlab.com/sequoia-pgp/sequoia"
 readme = "../README.md"

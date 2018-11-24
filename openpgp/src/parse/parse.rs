@@ -2030,6 +2030,7 @@ impl PacketParserState {
 /// Parse an OpenPGP message using a `PacketParser`:
 ///
 /// ```rust
+/// # extern crate sequoia_openpgp as openpgp;
 /// # use openpgp::Result;
 /// # use openpgp::Packet;
 /// # use openpgp::parse::{PacketParserResult, PacketParser};
@@ -2865,6 +2866,7 @@ impl <'a> PacketParser<'a> {
     /// content is small.
     ///
     /// ```rust
+    /// # extern crate sequoia_openpgp as openpgp;
     /// # use openpgp::Result;
     /// # use openpgp::Packet;
     /// # use openpgp::parse::{PacketParserResult, PacketParser};

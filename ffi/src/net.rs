@@ -33,7 +33,7 @@ use std::ffi::CStr;
 use std::ptr;
 use std::slice;
 
-extern crate openpgp;
+extern crate sequoia_openpgp as openpgp;
 
 use self::openpgp::TPK;
 use self::openpgp::KeyID;

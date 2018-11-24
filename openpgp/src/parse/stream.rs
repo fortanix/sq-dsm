@@ -60,7 +60,7 @@ const BUFFER_SIZE: usize = 25 * 1024 * 1024;
 /// # Example
 ///
 /// ```
-/// #[macro_use] extern crate openpgp;
+/// #[macro_use] extern crate sequoia_openpgp as openpgp;
 /// extern crate failure;
 /// use std::io::Read;
 /// use openpgp::{KeyID, TPK, Result};
@@ -471,7 +471,7 @@ impl<'a, H: VerificationHelper> io::Read for Verifier<'a, H> {
 /// # Example
 ///
 /// ```
-/// #[macro_use] extern crate openpgp;
+/// #[macro_use] extern crate sequoia_openpgp as openpgp;
 /// extern crate failure;
 /// use std::io::Read;
 /// use openpgp::{KeyID, TPK, Result, packet::{Key, PKESK, SKESK}};

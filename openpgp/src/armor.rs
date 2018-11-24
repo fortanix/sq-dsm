@@ -17,6 +17,7 @@
 //! # Example
 //!
 //! ```rust, no_run
+//! extern crate sequoia_openpgp as openpgp;
 //! use std::fs::File;
 //! use openpgp::armor::{Reader, Kind};
 //!
@@ -152,7 +153,7 @@ impl<W: Write> Writer<W> {
     ///
     /// ```
     /// # use std::io::Write;
-    /// # extern crate openpgp;
+    /// # extern crate sequoia_openpgp as openpgp;
     /// # use openpgp::armor::{Writer, Kind};
     /// # use std::io::{self, Result};
     /// # fn main() { f().unwrap(); }
@@ -384,7 +385,7 @@ impl<'a> Reader<'a> {
     ///
     /// ```
     /// # use std::io::Read;
-    /// # extern crate openpgp;
+    /// # extern crate sequoia_openpgp as openpgp;
     /// # use openpgp::{Result, Message};
     /// # use openpgp::armor::Reader;
     /// # use std::io;
@@ -409,7 +410,7 @@ impl<'a> Reader<'a> {
     ///
     /// ```
     /// # use std::io::Read;
-    /// # extern crate openpgp;
+    /// # extern crate sequoia_openpgp as openpgp;
     /// # use openpgp::armor::{Reader, Kind};
     /// # use std::io::{self, Result};
     /// # fn main() { f().unwrap(); }
@@ -952,7 +953,7 @@ impl<'a> Read for Reader<'a> {
 ///
 /// ```
 /// use std::io::Read;
-/// #[macro_use] extern crate openpgp;
+/// #[macro_use] extern crate sequoia_openpgp as openpgp;
 /// # use std::io::Result;
 /// # fn main() { f().unwrap(); }
 /// # fn f() -> Result<()> {

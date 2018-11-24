@@ -14,7 +14,7 @@
 //! [SKS keyserver]: https://www.sks-keyservers.net/overview-of-pools.php#pool_hkps
 //!
 //! ```no_run
-//! # extern crate openpgp;
+//! # extern crate sequoia_openpgp as openpgp;
 //! # extern crate sequoia_core;
 //! # extern crate sequoia_net;
 //! # use openpgp::KeyID;
@@ -32,7 +32,7 @@
 
 #![warn(missing_docs)]
 
-extern crate openpgp;
+extern crate sequoia_openpgp as openpgp;
 extern crate sequoia_core;
 
 #[macro_use]

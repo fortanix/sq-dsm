@@ -65,6 +65,7 @@ fn path_to(artifact: &str) -> PathBuf {
 /// # Examples
 ///
 /// ```rust
+/// # extern crate sequoia_openpgp as openpgp;
 /// # use openpgp::Result;
 /// # use openpgp::parse::PacketPileParser;
 /// # let _ = f(include_bytes!("../../tests/data/messages/public-key.gpg"));

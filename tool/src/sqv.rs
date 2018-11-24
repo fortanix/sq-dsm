@@ -8,7 +8,7 @@ extern crate failure;
 use failure::ResultExt;
 extern crate time;
 
-extern crate openpgp;
+extern crate sequoia_openpgp as openpgp;
 
 use std::process::exit;
 use std::fs::File;

@@ -21,7 +21,7 @@ gitlab = { repository = "https://gitlab.com/sequoia-pgp/sequoia" }
 maintenance = { status = "actively-developed" }
 
 [dependencies]
-openpgp = { path = "../openpgp" }
+sequoia-openpgp = { path = "../openpgp" }
 sequoia-core = { path = "../core" }
 sequoia-net = { path = "../net" }
 sequoia-store = { path = "../store" }

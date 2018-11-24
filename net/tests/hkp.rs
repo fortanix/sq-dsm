@@ -18,7 +18,7 @@ use std::io::Cursor;
 use std::net::{SocketAddr, IpAddr, Ipv4Addr};
 use std::thread;
 
-extern crate openpgp;
+extern crate sequoia_openpgp as openpgp;
 extern crate sequoia_core;
 extern crate sequoia_net;
 

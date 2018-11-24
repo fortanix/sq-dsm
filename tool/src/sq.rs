@@ -15,7 +15,7 @@ use std::io;
 use std::path::PathBuf;
 use std::process::exit;
 
-extern crate openpgp;
+extern crate sequoia_openpgp as openpgp;
 extern crate sequoia_core;
 extern crate sequoia_net;
 extern crate sequoia_store;

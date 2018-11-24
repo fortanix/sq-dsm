@@ -7,7 +7,7 @@
 ///     % cargo run -p openpgp --example statistics --release
 
 use std::env;
-extern crate openpgp;
+extern crate sequoia_openpgp as openpgp;
 use openpgp::Packet;
 use openpgp::constants::SignatureType;
 use openpgp::packet::{BodyLength, Tag};

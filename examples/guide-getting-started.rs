@@ -1,7 +1,7 @@
 //! https://sequoia-pgp.org/guide/getting-started/
 
 #[macro_use] // For armored!
-extern crate openpgp;
+extern crate sequoia_openpgp as openpgp;
 use std::io;
 
 fn main() {

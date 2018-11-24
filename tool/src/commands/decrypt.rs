@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::io;
 use rpassword;
 
-extern crate openpgp;
+extern crate sequoia_openpgp as openpgp;
 use sequoia_core::Context;
 use openpgp::{Fingerprint, TPK, KeyID, SecretKey, Result};
 use openpgp::packet::{Key, Signature, PKESK, SKESK};

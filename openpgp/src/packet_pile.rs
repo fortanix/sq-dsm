@@ -158,7 +158,7 @@ impl PacketPile {
     /// # Example
     ///
     /// ```rust
-    /// # extern crate openpgp;
+    /// # extern crate sequoia_openpgp as openpgp;
     /// # use openpgp::{Result, constants::{CompressionAlgorithm, DataFormat},
     /// #     Packet, PacketPile, packet::Literal, packet::CompressedData};
     ///
@@ -413,6 +413,7 @@ impl<'a> PacketParserBuilder<'a> {
     /// # Examples
     ///
     /// ```rust
+    /// # extern crate sequoia_openpgp as openpgp;
     /// # use openpgp::Result;
     /// # use openpgp::PacketPile;
     /// # use openpgp::parse::{PacketParser, PacketParserBuilder};

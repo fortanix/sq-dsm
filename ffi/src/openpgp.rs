@@ -11,7 +11,7 @@ use std::io::{Read, Write};
 use libc::{self, uint8_t, uint64_t, c_char, c_int, size_t, ssize_t, c_void};
 use failure::ResultExt;
 
-extern crate openpgp;
+extern crate sequoia_openpgp as openpgp;
 
 use self::openpgp::{
     armor,

@@ -103,6 +103,7 @@ impl<'a> From<&'a mut io::Write> for writer::Stack<'a, Cookie> {
 /// # Example
 ///
 /// ```
+/// extern crate sequoia_openpgp as openpgp;
 /// use std::io::Write;
 /// use openpgp::packet::Tag;
 /// use openpgp::serialize::stream::{Message, ArbitraryWriter};
@@ -210,6 +211,7 @@ impl<'a> Signer<'a> {
     /// # Example
     ///
     /// ```
+    /// extern crate sequoia_openpgp as openpgp;
     /// use std::io::Write;
     /// use openpgp::constants::DataFormat;
     /// use openpgp::serialize::stream::{Message, Signer, LiteralWriter};
@@ -256,6 +258,7 @@ impl<'a> Signer<'a> {
     /// # Example
     ///
     /// ```
+    /// extern crate sequoia_openpgp as openpgp;
     /// use std::io::Write;
     /// use openpgp::serialize::stream::{Message, Signer, LiteralWriter};
     /// # use openpgp::{Result, TPK};
@@ -507,6 +510,7 @@ impl<'a> writer::Stackable<'a, Cookie> for Signer<'a> {
 /// # Example
 ///
 /// ```
+/// extern crate sequoia_openpgp as openpgp;
 /// use std::io::Write;
 /// use openpgp::constants::DataFormat;
 /// use openpgp::serialize::stream::{Message, LiteralWriter};
@@ -671,6 +675,7 @@ impl<'a> writer::Stackable<'a, Cookie> for LiteralWriter<'a> {
 /// # Example
 ///
 /// ```
+/// extern crate sequoia_openpgp as openpgp;
 /// use std::io::Write;
 /// use openpgp::constants::DataFormat;
 /// use openpgp::serialize::stream::{Message, Compressor, LiteralWriter};
@@ -819,7 +824,7 @@ impl<'a> Encryptor<'a> {
     ///
     /// ```
     /// use std::io::Write;
-    /// #[macro_use] extern crate openpgp; // For armored!
+    /// #[macro_use] extern crate sequoia_openpgp as openpgp; // For armored!
     /// use openpgp::constants::DataFormat;
     /// use openpgp::serialize::stream::{
     ///     Message, Encryptor, EncryptionMode, LiteralWriter,

@@ -5,7 +5,7 @@ use std::io;
 use std::ffi::CString;
 use libc::c_char;
 
-extern crate openpgp;
+extern crate sequoia_openpgp as openpgp;
 use sequoia_core as core;
 
 /// Frees an error.

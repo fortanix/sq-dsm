@@ -3,7 +3,7 @@
 use std::env;
 use std::io;
 
-extern crate openpgp;
+extern crate sequoia_openpgp as openpgp;
 use openpgp::armor;
 use openpgp::serialize::stream::{Message, Signer};
 

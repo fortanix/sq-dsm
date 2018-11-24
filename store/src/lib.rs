@@ -19,7 +19,7 @@
 //! # Example
 //!
 //! ```
-//! # extern crate openpgp;
+//! # extern crate sequoia_openpgp as openpgp;
 //! # extern crate sequoia_core;
 //! # extern crate sequoia_store;
 //! # use openpgp::Fingerprint;
@@ -72,7 +72,7 @@ use futures::{Future};
 use time::Timespec;
 use tokio_core::reactor::Core;
 
-extern crate openpgp;
+extern crate sequoia_openpgp as openpgp;
 #[allow(unused_imports)]
 #[macro_use]
 extern crate sequoia_core;
@@ -115,7 +115,7 @@ impl Pool {
     /// # Example
     ///
     /// ```
-    /// # extern crate openpgp;
+    /// # extern crate sequoia_openpgp as openpgp;
     /// # extern crate sequoia_core;
     /// # extern crate sequoia_store;
     /// # use openpgp::TPK;
@@ -150,7 +150,7 @@ impl Pool {
     /// # Example
     ///
     /// ```
-    /// # extern crate openpgp;
+    /// # extern crate sequoia_openpgp as openpgp;
     /// # extern crate sequoia_core;
     /// # extern crate sequoia_store;
     /// # use openpgp::TPK;
@@ -184,7 +184,7 @@ impl Pool {
     /// # Example
     ///
     /// ```
-    /// # extern crate openpgp;
+    /// # extern crate sequoia_openpgp as openpgp;
     /// # extern crate sequoia_core;
     /// # extern crate sequoia_store;
     /// # use openpgp::TPK;
@@ -222,7 +222,7 @@ impl Pool {
     /// # Example
     ///
     /// ```
-    /// # extern crate openpgp;
+    /// # extern crate sequoia_openpgp as openpgp;
     /// # extern crate sequoia_core;
     /// # extern crate sequoia_store;
     /// # use openpgp::{TPK, KeyID};
@@ -349,7 +349,7 @@ impl Store {
     /// # Example
     ///
     /// ```
-    /// # extern crate openpgp;
+    /// # extern crate sequoia_openpgp as openpgp;
     /// # extern crate sequoia_core;
     /// # extern crate sequoia_store;
     /// # use openpgp::Fingerprint;
@@ -380,7 +380,7 @@ impl Store {
     /// # Example
     ///
     /// ```
-    /// # extern crate openpgp;
+    /// # extern crate sequoia_openpgp as openpgp;
     /// # extern crate sequoia_core;
     /// # extern crate sequoia_store;
     /// # use openpgp::TPK;
@@ -414,7 +414,7 @@ impl Store {
     /// # Example
     ///
     /// ```
-    /// # extern crate openpgp;
+    /// # extern crate sequoia_openpgp as openpgp;
     /// # extern crate sequoia_core;
     /// # extern crate sequoia_store;
     /// # use openpgp::Fingerprint;
@@ -453,7 +453,7 @@ impl Store {
     /// # Example
     ///
     /// ```
-    /// # extern crate openpgp;
+    /// # extern crate sequoia_openpgp as openpgp;
     /// # extern crate sequoia_core;
     /// # extern crate sequoia_store;
     /// # use openpgp::{TPK, KeyID};
@@ -497,7 +497,7 @@ impl Store {
     /// # Example
     ///
     /// ```
-    /// # extern crate openpgp;
+    /// # extern crate sequoia_openpgp as openpgp;
     /// # #[macro_use] extern crate sequoia_core;
     /// # extern crate sequoia_store;
     /// # use openpgp::Fingerprint;
@@ -589,7 +589,7 @@ impl Binding {
     /// # Example
     ///
     /// ```
-    /// # extern crate openpgp;
+    /// # extern crate sequoia_openpgp as openpgp;
     /// # extern crate sequoia_core;
     /// # extern crate sequoia_store;
     /// # use openpgp::Fingerprint;
@@ -652,7 +652,7 @@ impl Binding {
     /// # Example
     ///
     /// ```
-    /// # extern crate openpgp;
+    /// # extern crate sequoia_openpgp as openpgp;
     /// # #[macro_use] extern crate sequoia_core;
     /// # extern crate sequoia_store;
     /// # use openpgp::TPK;
@@ -706,7 +706,7 @@ impl Binding {
     /// # Example
     ///
     /// ```
-    /// # extern crate openpgp;
+    /// # extern crate sequoia_openpgp as openpgp;
     /// # #[macro_use] extern crate sequoia_core;
     /// # extern crate sequoia_store;
     /// # use openpgp::TPK;
@@ -750,7 +750,7 @@ impl Binding {
     /// # Example
     ///
     /// ```
-    /// # extern crate openpgp;
+    /// # extern crate sequoia_openpgp as openpgp;
     /// # #[macro_use] extern crate sequoia_core;
     /// # extern crate sequoia_store;
     /// # use openpgp::Fingerprint;
@@ -856,7 +856,7 @@ impl Key {
     /// # Example
     ///
     /// ```
-    /// # extern crate openpgp;
+    /// # extern crate sequoia_openpgp as openpgp;
     /// # #[macro_use] extern crate sequoia_core;
     /// # extern crate sequoia_store;
     /// # use openpgp::Fingerprint;

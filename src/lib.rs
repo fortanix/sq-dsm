@@ -7,7 +7,7 @@
 //!
 //! ```
 //! use std::io::Read;
-//! #[macro_use] extern crate openpgp;
+//! #[macro_use] extern crate sequoia_openpgp as openpgp;
 //! # use std::io::Result;
 //! # fn main() { f().unwrap(); }
 //! # fn f() -> Result<()> {
@@ -28,7 +28,7 @@
 //! ```
 
 // XXX: It would be nice to re-export the macros too.
-pub extern crate openpgp;
+pub extern crate sequoia_openpgp as openpgp;
 pub extern crate sequoia_core as core;
 pub extern crate sequoia_net as net;
 pub extern crate sequoia_store as store;

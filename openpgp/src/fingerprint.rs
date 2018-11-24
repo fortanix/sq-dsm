@@ -37,6 +37,7 @@ impl Fingerprint {
     /// # Example
     ///
     /// ```
+    /// # extern crate sequoia_openpgp as openpgp;
     /// # use openpgp::Fingerprint;
     /// let hex = "3E8877C877274692975189F5D03F6F865226FE8B";
     /// let fp = Fingerprint::from_hex(hex);

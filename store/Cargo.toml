@@ -25,7 +25,7 @@ default = ["background-services"]
 background-services = []
 
 [dependencies]
-openpgp = { path = "../openpgp" }
+sequoia-openpgp = { path = "../openpgp" }
 sequoia-core = { path = "../core" }
 sequoia-net = { path = "../net" }
 capnp = "0.9.2"

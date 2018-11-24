@@ -107,6 +107,7 @@ impl<'a> PacketParserBuilder<'a> {
     /// # Examples
     ///
     /// ```rust
+    /// # extern crate sequoia_openpgp as openpgp;
     /// # use openpgp::Result;
     /// # use openpgp::parse::{
     /// #     PacketParserResult, PacketParser, PacketParserBuilder
