@@ -1683,6 +1683,8 @@ impl TPK {
         self.primary_other_revocations.sort_by(rev_cmp);
         self.primary_other_revocations.dedup_by_key(sig_key);
 
+        self.bad.sort_by(rev_cmp);
+        self.bad.dedup_by_key(sig_key);
 
 
         // Sort the signatures so that the current valid
