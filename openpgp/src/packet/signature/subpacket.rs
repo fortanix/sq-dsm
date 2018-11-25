@@ -23,7 +23,7 @@
 //! A number of methods are defined on the [`Signature`] struct for
 //! working with subpackets.
 //!
-//! [`Signature`]: ../../struct.Signature.html
+//! [`Signature`]: ../struct.Signature.html
 //!
 //! # Examples
 //!

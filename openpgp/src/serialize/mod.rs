@@ -602,7 +602,7 @@ impl Serialize for Signature {
     /// non-version 4 signature, or if either the hashed-area or the
     /// unhashed-area exceeds the size limit of 2^16.
     ///
-    /// [`Error::InvalidArgument`]: ../enum.Error.html#variant.InvalidArgument
+    /// [`Error::InvalidArgument`]: ../../enum.Error.html#variant.InvalidArgument
     fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
         let len = 1 // version
             + 1 // signature type.

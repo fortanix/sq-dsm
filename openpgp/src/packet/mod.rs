@@ -268,7 +268,7 @@ pub struct Common {
     ///     field.
     ///
     ///   [`UserID`]: ../packet/struct.UserID.html
-    ///   [`Signature`]: ../packet/struct.Signature.html
+    ///   [`Signature`]: ../packet/signature/struct.Signature.html
     ///
     ///   - One packet, the literal data packet, includes unstructured
     ///     data.  That data can be stored here.

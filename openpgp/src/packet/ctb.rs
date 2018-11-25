@@ -126,7 +126,7 @@ impl CTBOld {
     /// Returns [`Error::InvalidArgument`] if the tag or body length
     /// cannot be expressed using an old-style CTB.
     ///
-    /// [`Error::InvalidArgument`]: ../enum.Error.html#variant.InvalidArgument
+    /// [`Error::InvalidArgument`]: ../../enum.Error.html#variant.InvalidArgument
     pub fn new(tag: Tag, length: BodyLength) -> Result<Self> {
         let n: u8 = tag.into();
 
