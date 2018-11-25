@@ -67,8 +67,6 @@ doc:
 	env RUSTDOCFLAGS="$(FFI_RUSTDOCFLAGS)" \
 	    CARGO_TARGET_DIR=$(CARGO_TARGET_DIR) \
 	    $(CARGO) doc $(CARGO_FLAGS) --no-deps --package sequoia-ffi
-	CARGO_TARGET_DIR=$(CARGO_TARGET_DIR) \
-	    $(CARGO) doc $(CARGO_FLAGS) --no-deps --package nettle
 
 .PHONY: deploy-doc
 deploy-doc: doc
