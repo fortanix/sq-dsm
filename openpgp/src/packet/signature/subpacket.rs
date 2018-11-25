@@ -2600,7 +2600,7 @@ impl signature::Builder {
     /// contains a signature.
     pub fn set_embedded_signature(&mut self, signature: Signature)
                                   -> Result<()> {
-        self.hashed_area.replace(Subpacket::new(
+        self.unhashed_area.replace(Subpacket::new(
             SubpacketValue::EmbeddedSignature(signature.to_packet()),
             true)?)
     }

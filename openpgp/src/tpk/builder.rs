@@ -306,8 +306,8 @@ impl TPKBuilder {
 
             let backsig = match subkey.secret {
                 Some(SecretKey::Unencrypted{ ref mpis }) => {
-                    backsig.sign_subkey_binding(&subkey, mpis, &subkey,
-                                                primary_key, HashAlgorithm::SHA512)?
+                    backsig.sign_subkey_binding(&subkey, mpis, primary_key, &subkey,
+                                                HashAlgorithm::SHA512)?
                 }
                 Some(SecretKey::Encrypted{ .. }) => {
                     return Err(Error::InvalidOperation(
@@ -518,5 +518,20 @@ mod tests {
 
         let tpk = tpk.merge_packets(&[revocation.clone().into()]).unwrap();
         assert_eq!(tpk.revoked(), RevocationStatus::Revoked(&[revocation]));
+    }
+
+    #[test]
+    fn builder_roundtrip() {
+        use PacketPile;
+
+        let (tpk,_) = TPKBuilder::default()
+            .set_cipher_suite(CipherSuite::Cv25519)
+            .add_signing_subkey()
+            .generate().unwrap();
+        let pile = tpk.clone().to_packet_pile().into_children().collect::<Vec<_>>();
+        let exp = TPK::from_packet_pile(PacketPile::from_packets(pile))
+            .unwrap();
+
+        assert_eq!(tpk, exp);
     }
 }
