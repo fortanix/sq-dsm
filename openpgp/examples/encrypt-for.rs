@@ -29,11 +29,7 @@ fn main() {
 
     // Read the transferable public keys from the given files.
     let tpks: Vec<openpgp::TPK> = args[2..].iter().map(|f| {
-        openpgp::TPK::from_reader(
-            // Use an openpgp::Reader so that we accept both armored
-            // and plain PGP data.
-            openpgp::Reader::from_file(f)
-                .expect("Failed to open file"))
+        openpgp::TPK::from_file(f)
             .expect("Failed to read key")
     }).collect();
     // Build a vector of references to hand to Encryptor.

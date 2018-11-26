@@ -22,22 +22,13 @@ pub fn main() {
     // Read the transferable secret keys from the given files.
     let tpks =
         args[1..].iter().map(|f| {
-            openpgp::TPK::from_reader(
-                // Use an openpgp::Reader so that we accept both armored
-                // and plain PGP data.
-                openpgp::Reader::from_file(f)
-                    .expect("Failed to open file"))
+            openpgp::TPK::from_file(f)
                 .expect("Failed to read key")
         }).collect();
 
-    // First, use an openpgp::Reader so that we accept both armored
-    // and plain PGP data.
-    let reader = openpgp::Reader::from_reader(io::stdin())
-        .expect("Failed to open file");
-
     // Now, create a decryptor with a helper using the given TPKs.
     let mut decryptor =
-        Decryptor::from_reader(reader, Helper::new(tpks)).unwrap();
+        Decryptor::from_reader(io::stdin(), Helper::new(tpks)).unwrap();
 
     // Finally, stream the decrypted data to stdout.
     io::copy(&mut decryptor, &mut io::stdout())

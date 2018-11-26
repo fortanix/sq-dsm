@@ -18,11 +18,7 @@ fn main() {
 
     // Read the transferable secret keys from the given files.
     let tsks: Vec<openpgp::TPK> = args[1..].iter().map(|f| {
-        openpgp::TPK::from_reader(
-            // Use an openpgp::Reader so that we accept both armored
-            // and plain PGP data.
-            openpgp::Reader::from_file(f)
-                .expect("Failed to open file"))
+        openpgp::TPK::from_file(f)
             .expect("Failed to read key")
     }).collect();
 
