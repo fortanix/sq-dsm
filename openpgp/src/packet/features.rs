@@ -17,6 +17,7 @@ impl Default for Features {
 }
 
 impl Features {
+    /// Creates a new instance from `bits`.
     pub fn new(bits: &[u8]) -> Self {
         let mdc = bits.get(0)
             .map(|x| x & FEATURE_FLAG_MDC != 0).unwrap_or(false);
