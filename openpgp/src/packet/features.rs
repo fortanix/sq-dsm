@@ -1,112 +1,85 @@
-use std::fmt;
-
 /// Describes features supported by an OpenPGP implementation.
-#[derive(Clone)]
-pub struct Features(Vec<u8>);
+#[derive(Clone, Debug, PartialEq)]
+pub struct Features{
+    mdc: bool,
+    aead: bool,
+    unknown: Box<[u8]>,
+}
 
 impl Default for Features {
     fn default() -> Self {
-        Features::none()
-    }
-}
-
-impl PartialEq for Features {
-    fn eq(&self, other: &Features) -> bool {
-        // To deal with unknown flags, we do a bitwise comparison.
-        // First, we need to bring both flag fields to the same
-        // length.
-        let len = ::std::cmp::max(self.0.len(), other.0.len());
-        let mut mine = vec![0; len];
-        let mut hers = vec![0; len];
-        &mut mine[..self.0.len()].copy_from_slice(&self.0);
-        &mut hers[..other.0.len()].copy_from_slice(&other.0);
-
-        mine == hers
-    }
-}
-
-impl fmt::Debug for Features {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let mut dirty = false;
-        if self.supports_mdc() {
-            f.write_str("MDC")?;
-            dirty = true;
+        Features{
+            mdc: false,
+            aead: false,
+            unknown: Default::default(),
         }
-
-        if self.supports_aead() {
-            if dirty {
-                f.write_str(", ")?;
-            }
-            f.write_str("AEAD")?;
-            dirty = true;
-        }
-
-        let _ = dirty;
-        Ok(())
     }
 }
 
 impl Features {
-    /// Creates a new instance from `v`.
-    pub fn new(v: Vec<u8>) -> Self {
-        Features(v)
-    }
+    pub fn new(bits: &[u8]) -> Self {
+        let mdc = bits.get(0)
+            .map(|x| x & FEATURE_FLAG_MDC != 0).unwrap_or(false);
+        let aead = bits.get(0)
+            .map(|x| x & FEATURE_FLAG_AEAD != 0).unwrap_or(false);
+        let unk = if bits.is_empty() {
+            Box::default()
+        } else {
+            let mut cpy = Vec::from(bits);
 
-    /// Returns an empty feature set.
-    pub fn none() -> Self {
-        Features(vec![0])
+            cpy[0] &= (FEATURE_FLAG_MDC | FEATURE_FLAG_AEAD) ^ 0xff;
+
+            while cpy.last().cloned() == Some(0) { cpy.pop(); }
+            cpy.into_boxed_slice()
+        };
+
+        Features{
+            mdc: mdc, aead: aead, unknown: unk
+        }
     }
 
     /// Returns an feature set describing Sequoia.
     pub fn sequoia() -> Self {
-        Features::none()
-            .set_mdc(true)
-            .set_aead(true)
-    }
-
-    /// Grows the vector to the given length.
-    fn grow(&mut self, target: usize) {
-        while self.0.len() < target {
-            self.0.push(0);
+        Features{
+            mdc: true,
+            aead: true,
+            unknown: Default::default(),
         }
     }
 
     /// Returns a slice referencing the raw values.
-    pub(crate) fn as_slice(&self) -> &[u8] {
-        &self.0
+    pub(crate) fn as_vec(&self) -> Vec<u8> {
+        let mut ret = if self.unknown.is_empty() {
+            vec![0]
+        } else {
+            self.unknown.clone().into()
+        };
+
+        if self.mdc { ret[0] |= FEATURE_FLAG_MDC; }
+        if self.aead { ret[0] |= FEATURE_FLAG_AEAD; }
+
+        ret
     }
 
     /// Whether or not MDC is supported.
     pub fn supports_mdc(&self) -> bool {
-        self.0.get(0)
-            .map(|v0| v0 & FEATURE_FLAG_MDC > 0).unwrap_or(false)
+        self.mdc
     }
 
     /// Sets whether or not MDC is supported.
     pub fn set_mdc(mut self, v: bool) -> Self {
-        self.grow(1);
-        if v {
-            self.0[0] |= FEATURE_FLAG_MDC;
-        } else {
-            self.0[0] &= !FEATURE_FLAG_MDC;
-        }
+        self.mdc = v;
         self
     }
 
     /// Whether or not AEAD is supported.
     pub fn supports_aead(&self) -> bool {
-        self.0.get(0)
-            .map(|v0| v0 & FEATURE_FLAG_AEAD > 0).unwrap_or(false)
+        self.aead
     }
 
     /// Sets whether or not AEAD is supported.
     pub fn set_aead(mut self, v: bool) -> Self {
-        self.grow(1);
-        if v {
-            self.0[0] |= FEATURE_FLAG_AEAD;
-        } else {
-            self.0[0] &= !FEATURE_FLAG_AEAD;
-        }
+        self.aead = v;
         self
     }
 }

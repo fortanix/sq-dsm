@@ -722,7 +722,7 @@ impl<'a> SubpacketValue<'a> {
             KeyFlags(f) => f.0.len(),
             SignersUserID(u) => u.len(),
             ReasonForRevocation { ref reason, .. } => 1 + reason.len(),
-            Features(f) => f.as_slice().len(),
+            Features(f) => f.as_vec().len(),
             SignatureTarget { ref digest, .. } => 1 + 1 + digest.len(),
             EmbeddedSignature(p) => match p {
                 &Packet::Signature(ref sig) => {
@@ -1012,7 +1012,7 @@ impl<'a> From<SubpacketRaw<'a>> for Subpacket<'a> {
 
             SubpacketTag::Features =>
                 // N octets of flags
-                Some(SubpacketValue::Features(Features::new(raw.value.to_vec()))),
+                Some(SubpacketValue::Features(Features::new(raw.value))),
 
             SubpacketTag::SignatureTarget =>
                 // 1 octet public-key algorithm, 1 octet hash algorithm,

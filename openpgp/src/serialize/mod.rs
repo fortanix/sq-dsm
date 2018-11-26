@@ -549,7 +549,7 @@ impl<'a> Serialize for SubpacketValue<'a> {
                 o.write_all(reason)?;
             },
             Features(ref f) =>
-                o.write_all(f.as_slice())?,
+                o.write_all(&f.as_vec())?,
             SignatureTarget { pk_algo, hash_algo, ref digest } => {
                 o.write_all(&[(*pk_algo).into(), (*hash_algo).into()])?;
                 o.write_all(digest)?;

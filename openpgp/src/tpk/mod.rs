@@ -2062,7 +2062,7 @@ impl TPK {
             let b_features =
                 b_selfsig.map(|sig| sig.features()).unwrap_or(Default::default());
 
-            let cmp = a_features.as_slice().cmp(b_features.as_slice());
+            let cmp = a_features.as_vec().cmp(&b_features.as_vec());
             if cmp != Ordering::Equal {
                 return cmp;
             }
