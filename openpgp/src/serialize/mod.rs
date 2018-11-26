@@ -73,6 +73,29 @@ fn write_be_u32<W: io::Write>(o: &mut W, n: u32) -> io::Result<()> {
     o.write_all(&b[..])
 }
 
+// Compute the log2 of an integer.  (This is simply the most
+// significant bit.)  Note: log2(0) = -Inf, but this function returns
+// log2(0) as 0 (which is the closest number that we can represent).
+fn log2(x: u32) -> usize {
+    if x == 0 {
+        0
+    } else {
+        31 - x.leading_zeros() as usize
+    }
+}
+
+#[test]
+fn log2_test() {
+    for i in 0..32 {
+        // eprintln!("log2(1 << {} = {}) = {}", i, 1u32 << i, log2(1u32 << i));
+        assert_eq!(log2(1u32 << i), i);
+        if i > 0 {
+            assert_eq!(log2((1u32 << i) - 1), i - 1);
+            assert_eq!(log2((1u32 << i) + 1), i);
+        }
+    }
+}
+
 impl Serialize for BodyLength {
     /// Emits the length encoded for use with new-style CTBs.
     ///
@@ -101,8 +124,23 @@ impl Serialize for BodyLength {
                     write_be_u32(o, l)?;
                 }
             },
-            &BodyLength::Partial(_) => {
-                unimplemented!();
+            &BodyLength::Partial(l) => {
+                if l > 1 << 30 {
+                    return Err(Error::InvalidArgument(
+                        format!("Partial length too large: {}", l)).into());
+                }
+
+                let chunk_size_log2 = log2(l);
+                let chunk_size = 1 << chunk_size_log2;
+
+                if l != chunk_size {
+                    return Err(Error::InvalidArgument(
+                        format!("Not a power of two: {}", l)).into());
+                }
+
+                let size_byte = 224 + chunk_size_log2;
+                assert!(size_byte < 255);
+                write_byte(o, size_byte as u8)?;
             },
             &BodyLength::Indeterminate =>
                 return Err(Error::InvalidArgument(

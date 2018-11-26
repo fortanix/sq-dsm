@@ -10,29 +10,6 @@ use Result;
 use ::BodyLength;
 use super::{writer, write_byte, Serialize};
 
-// Compute the log2 of an integer.  (This is simply the most
-// significant bit.)  Note: log2(0) = -Inf, but this function returns
-// log2(0) as 0 (which is the closest number that we can represent).
-fn log2(x: u32) -> usize {
-    if x == 0 {
-        0
-    } else {
-        31 - x.leading_zeros() as usize
-    }
-}
-
-#[test]
-fn log2_test() {
-    for i in 0..32 {
-        // eprintln!("log2(1 << {} = {}) = {}", i, 1u32 << i, log2(1u32 << i));
-        assert_eq!(log2(1u32 << i), i);
-        if i > 0 {
-            assert_eq!(log2((1u32 << i) - 1), i - 1);
-            assert_eq!(log2((1u32 << i) + 1), i);
-        }
-    }
-}
-
 pub struct PartialBodyFilter<'a, C: 'a> {
     // The underlying writer.
     //
@@ -121,15 +98,16 @@ impl<'a, C: 'a> PartialBodyFilter<'a, C> {
             inner.write_all(other)?;
         } else {
             // Write a partial body length header.
-
             let chunk_size_log2 =
-                log2(cmp::min(self.max_chunk_size,
-                              self.buffer_threshold as u32));
+                super::log2(cmp::min(self.max_chunk_size,
+                                     self.buffer_threshold as u32));
             let chunk_size = (1 as usize) << chunk_size_log2;
 
-            let size_byte = 224 + chunk_size_log2;
-            assert!(size_byte < 255);
-            let size_byte = size_byte as u8;
+            let size = BodyLength::Partial(chunk_size as u32);
+            let mut size_byte = [0u8];
+            size.serialize(&mut io::Cursor::new(&mut size_byte[..]))
+                .expect("size should be representable");
+            let size_byte = size_byte[0];
 
             // The first pass we process self.buffer, the second pass
             // we process other.
