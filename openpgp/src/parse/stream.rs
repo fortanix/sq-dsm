@@ -21,8 +21,20 @@ use buffered_reader::{
 use {
     Error,
     Fingerprint,
-    constants::SymmetricAlgorithm,
-    packet::{Key, PKESK, SKESK},
+    constants::{
+        DataFormat,
+        SymmetricAlgorithm,
+    },
+    packet::{
+        BodyLength,
+        ctb::CTB,
+        Key,
+        Literal,
+        OnePassSig,
+        PKESK,
+        SKESK,
+        Tag,
+    },
     KeyID,
     Packet,
     Result,
@@ -32,6 +44,7 @@ use {
     crypto::mpis,
     crypto::Password,
     crypto::SessionKey,
+    serialize::Serialize,
 };
 use parse::{
     Cookie,
@@ -453,6 +466,278 @@ impl<'a, H: VerificationHelper> io::Read for Verifier<'a, H> {
                                              e.compat())),
             },
         }
+    }
+}
+
+/// Transforms a detached signature and content into a signed message
+/// on the fly.
+struct Transformer<'a> {
+    state: TransformationState,
+    sigs: Vec<Signature>,
+    reader: Box<'a + BufferedReader<()>>,
+    buffer: Vec<u8>,
+}
+
+#[derive(PartialEq, Debug)]
+enum TransformationState {
+    OPSs,
+    Data,
+    Sigs,
+    Done,
+}
+
+impl<'a> Transformer<'a> {
+    fn new<'b>(signatures: Box<'b + BufferedReader<Cookie>>,
+               data: Box<'a + BufferedReader<()>>)
+               -> Result<Transformer<'a>>
+    {
+        let mut sigs = Vec::new();
+
+        // Gather signatures.
+        let mut ppr = PacketParser::from_buffered_reader(signatures)?;
+        while let PacketParserResult::Some(pp) = ppr {
+            let (packet, ppr_) = pp.next()?;
+            ppr = ppr_;
+
+            match packet {
+                Packet::Signature(sig) => sigs.push(sig),
+                _ => return Err(Error::InvalidArgument(
+                    format!("Not a signature packet: {:?}",
+                            packet.tag())).into()),
+            }
+        }
+
+        let mut opss = Vec::new();
+        for (i, sig) in sigs.iter().rev().enumerate() {
+            let mut ops = Result::<OnePassSig>::from(sig)?;
+            if i == sigs.len() - 1 {
+                ops.set_last(true);
+            }
+
+            ops.serialize(&mut opss)?;
+        }
+
+        Ok(Self {
+            state: TransformationState::OPSs,
+            sigs: sigs,
+            reader: data,
+            buffer: opss,
+        })
+    }
+
+    fn read_helper(&mut self, buf: &mut [u8]) -> Result<usize> {
+        if self.buffer.is_empty() {
+            self.state = match self.state {
+                TransformationState::OPSs => {
+                    // Produce a Literal Data Packet header.
+                    CTB::new(Tag::Literal).serialize(&mut self.buffer)?;
+
+                    let len = BodyLength::Partial(16);
+                    len.serialize(&mut self.buffer)?;
+
+                    let mut lit = Literal::new(DataFormat::Binary);
+                    lit.set_filename("aabbccddee").expect("short enough");
+                    lit.serialize_headers(&mut self.buffer, false)?;
+
+                    assert_eq!(self.buffer.len(), 18);
+
+                    TransformationState::Data
+                },
+
+                TransformationState::Data => {
+                    // Find the largest power of two equal or smaller
+                    // than the size of buf.
+                    let mut s = buf.len().next_power_of_two();
+                    if ! buf.len().is_power_of_two() {
+                        s >>= 1;
+                    }
+
+                    // Cap it.  Drop once we avoid the copies below.
+                    const MAX_CHUNK_SIZE: usize = 1 << 22; // 4 megabytes.
+                    if s > MAX_CHUNK_SIZE {
+                        s = MAX_CHUNK_SIZE;
+                    }
+
+                    assert!(s <= ::std::u32::MAX as usize);
+
+                    // Try to read that amount into the buffer.
+                    let data = self.reader.data(s)?;
+
+                    // Short read?
+                    if data.len() < s {
+                        let len = BodyLength::Full(data.len() as u32);
+                        len.serialize(&mut self.buffer)?;
+
+                        // XXX: Could avoid the copy here.
+                        let l = self.buffer.len();
+                        self.buffer.resize(l + data.len(), 0);
+                        &mut self.buffer[l..].copy_from_slice(data);
+
+                        TransformationState::Sigs
+                    } else {
+                        let len = BodyLength::Partial(data.len() as u32);
+                        len.serialize(&mut self.buffer)?;
+
+                        // XXX: Could avoid the copy here.
+                        let l = self.buffer.len();
+                        self.buffer.resize(l + data.len(), 0);
+                        &mut self.buffer[l..].copy_from_slice(data);
+
+                        TransformationState::Data
+                    }
+                },
+
+                TransformationState::Sigs => {
+                    for sig in self.sigs.iter() {
+                        sig.serialize(&mut self.buffer)?;
+                    }
+
+                    TransformationState::Done
+                },
+
+                TransformationState::Done =>
+                    TransformationState::Done,
+            };
+        }
+
+        let n = cmp::min(buf.len(), self.buffer.len());
+        &mut buf[..n].copy_from_slice(&self.buffer[..n]);
+        self.buffer.drain(..n);
+        Ok(n)
+    }
+}
+
+impl<'a> io::Read for Transformer<'a> {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        match self.read_helper(buf) {
+            Ok(n) => Ok(n),
+            Err(e) => match e.downcast::<io::Error>() {
+                // An io::Error.  Pass as-is.
+                Ok(e) => Err(e),
+                // A failure.  Create a compat object and wrap it.
+                Err(e) => Err(io::Error::new(io::ErrorKind::Other,
+                                             e.compat())),
+            },
+        }
+    }
+}
+
+
+/// Verifies a detached signature.
+///
+/// Signature verification requires processing the whole message
+/// first.  Therefore, OpenPGP implementations supporting streaming
+/// operations necessarily must output unverified data.  This has been
+/// a source of problems in the past.  To alleviate this, we buffer up
+/// to 25 megabytes of net message data first, and verify the
+/// signatures if the message fits into our buffer.  Nevertheless it
+/// is important to treat the data as unverified and untrustworthy
+/// until you have seen a positive verification.
+///
+/// # Example
+///
+/// ```
+/// #[macro_use] extern crate sequoia_openpgp as openpgp;
+/// extern crate failure;
+/// use std::io::{self, Read};
+/// use openpgp::{KeyID, TPK, Result};
+/// use openpgp::parse::stream::*;
+/// # fn main() { f().unwrap(); }
+/// # fn f() -> Result<()> {
+///
+/// // This fetches keys and computes the validity of the verification.
+/// struct Helper {};
+/// impl VerificationHelper for Helper {
+///     fn get_public_keys(&mut self, _ids: &[KeyID]) -> Result<Vec<TPK>> {
+///         Ok(Vec::new()) // Feed the TPKs to the verifier here...
+///     }
+///     fn check(&mut self, sigs: Vec<Vec<VerificationResult>>) -> Result<()> {
+///         Ok(()) // Implement your verification policy here.
+///     }
+/// }
+///
+/// let mut sig_reader = armored!(
+///     "-----BEGIN SIGNATURE-----
+///
+///      wnUEABYKACcFglt+z/EWoQSOjDP6RiYzeXbZeXgGnAw0jdgsGQmQBpwMNI3YLBkA
+///      AHmUAP9mpj2wV0/ekDuzxZrPQ0bnobFVaxZGg7YzdlksSOERrwEA6v6czXQjKcv2
+///      KOwGTamb+ajTLQ3YRG9lh+ZYIXynvwE=
+///      =IJ29
+///      -----END SIGNATURE-----"
+/// );
+/// let mut data = io::Cursor::new("Hello World!");
+/// let h = Helper {};
+/// let mut v = DetachedVerifier::from_reader(sig_reader, data, h)?;
+///
+/// let mut content = Vec::new();
+/// v.read_to_end(&mut content)
+///     .map_err(|e| if e.get_ref().is_some() {
+///         // Wrapped failure::Error.  Recover it.
+///         failure::Error::from_boxed_compat(e.into_inner().unwrap())
+///     } else {
+///         // Plain io::Error.
+///         e.into()
+///     })?;
+///
+/// assert_eq!(content, b"Hello World!");
+/// # Ok(())
+/// # }
+pub struct DetachedVerifier {
+}
+
+impl DetachedVerifier {
+    /// Creates a `Verifier` from the given readers.
+    pub fn from_reader<'a, 's, H, R, S>(signature_reader: S, reader: R,
+                                        helper: H)
+                                        -> Result<Verifier<'a, H>>
+        where R: io::Read + 'a, S: io::Read + 's, H: VerificationHelper
+    {
+        Self::from_buffered_reader(
+            Box::new(BufferedReaderGeneric::with_cookie(signature_reader, None,
+                                                        Default::default())),
+            Box::new(BufferedReaderGeneric::new(reader, None)),
+            helper)
+    }
+
+    /// Creates a `Verifier` from the given files.
+    pub fn from_file<'a, H, P, S>(signature_path: S, path: P,
+                                  helper: H)
+                                  -> Result<Verifier<'a, H>>
+        where P: AsRef<Path>, S: AsRef<Path>, H: VerificationHelper
+    {
+        Self::from_buffered_reader(
+            Box::new(BufferedReaderFile::with_cookie(signature_path,
+                                                     Default::default())?),
+            Box::new(BufferedReaderFile::open(path)?),
+            helper)
+    }
+
+    /// Creates a `Verifier` from the given buffers.
+    pub fn from_bytes<'a, 's, H>(signature_bytes: &'s [u8], bytes: &'a [u8],
+                                 helper: H)
+                                 -> Result<Verifier<'a, H>>
+        where H: VerificationHelper
+    {
+        Self::from_buffered_reader(
+            Box::new(BufferedReaderMemory::with_cookie(signature_bytes,
+                                                       Default::default())),
+            Box::new(BufferedReaderMemory::new(bytes)),
+            helper)
+    }
+
+    /// Creates the `Verifier`, and buffers the data up to `BUFFER_SIZE`.
+    pub(crate) fn from_buffered_reader<'a, 's, H>
+        (signature_bio: Box<BufferedReader<Cookie> + 's>,
+         reader: Box<'a + BufferedReader<()>>,
+         helper: H)
+         -> Result<Verifier<'a, H>>
+        where H: VerificationHelper
+    {
+        Verifier::from_buffered_reader(
+            Box::new(BufferedReaderGeneric::with_cookie(
+                Transformer::new(signature_bio, reader)?,
+                None, Default::default())),
+            helper)
     }
 }
 
@@ -1137,6 +1422,55 @@ mod test {
             assert_eq!(reference.len(), content.len());
             assert_eq!(reference, content);
         }
+    }
+
+    #[test]
+    fn detached_verifier() {
+        let keys = [
+            "emmelie-dorothea-dina-samantha-awina-ed25519.pgp"
+        ].iter()
+         .map(|f| TPK::from_file(
+            path_to(&format!("keys/{}", f))).unwrap())
+         .collect::<Vec<_>>();
+
+        let mut reference = Vec::new();
+        File::open(path_to("messages/a-cypherpunks-manifesto.txt"))
+            .unwrap()
+            .read_to_end(&mut reference)
+            .unwrap();
+
+        let h = Helper::new(0, 0, 0, 0, keys.clone());
+        let mut v = DetachedVerifier::from_file(
+            path_to("messages/a-cypherpunks-manifesto.txt.ed25519.sig"),
+            path_to("messages/a-cypherpunks-manifesto.txt"),
+            h).unwrap();
+        assert!(v.message_processed());
+
+        let mut content = Vec::new();
+        v.read_to_end(&mut content).unwrap();
+        assert_eq!(reference.len(), content.len());
+        assert_eq!(reference, content);
+
+        let h = v.into_helper();
+        assert_eq!(h.good, 1);
+        assert_eq!(h.bad, 0);
+
+        // Same, but with readers.
+        let h = Helper::new(0, 0, 0, 0, keys.clone());
+        let mut v = DetachedVerifier::from_reader(
+            File::open(
+                path_to("messages/a-cypherpunks-manifesto.txt.ed25519.sig"))
+                .unwrap(),
+            File::open(
+                path_to("messages/a-cypherpunks-manifesto.txt"))
+                .unwrap(),
+            h).unwrap();
+        assert!(v.message_processed());
+
+        let mut content = Vec::new();
+        v.read_to_end(&mut content).unwrap();
+        assert_eq!(reference.len(), content.len());
+        assert_eq!(reference, content);
     }
 
     #[test]
