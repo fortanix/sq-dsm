@@ -16,7 +16,7 @@ use openpgp::{Packet, TPK, KeyID, Error, Result};
 use openpgp::packet::Signature;
 use openpgp::parse::PacketParserResult;
 use openpgp::parse::stream::{
-    Verifier, VerificationResult, VerificationHelper,
+    Verifier, DetachedVerifier, VerificationResult, VerificationHelper,
 };
 use openpgp::serialize::Serialize;
 use openpgp::serialize::stream::{
@@ -561,11 +561,17 @@ impl<'a> VerificationHelper for VHelper<'a> {
 }
 
 pub fn verify(ctx: &Context, store: &mut store::Store,
-              input: &mut io::Read, output: &mut io::Write,
+              input: &mut io::Read,
+              detached: Option<&mut io::Read>,
+              output: &mut io::Write,
               signatures: usize, tpks: Vec<TPK>)
               -> Result<()> {
     let helper = VHelper::new(ctx, store, signatures, tpks);
-    let mut verifier = Verifier::from_reader(input, helper)?;
+    let mut verifier = if let Some(dsig) = detached {
+        DetachedVerifier::from_reader(dsig, input, helper)?
+    } else {
+        Verifier::from_reader(input, helper)?
+    };
 
     io::copy(&mut verifier, output)
         .map_err(|e| if e.get_ref().is_some() {

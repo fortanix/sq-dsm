@@ -156,13 +156,13 @@ fn real_main() -> Result<(), failure::Error> {
                            append, notarize)?;
         },
         ("verify",  Some(m)) => {
-            let input = open_or_stdin(m.value_of("input"))?;
-            let mut input = openpgp::Reader::from_reader(input)?;
+            let mut input = open_or_stdin(m.value_of("input"))?;
             let mut output = create_or_stdout(m.value_of("output"))?;
-            let detached = m.is_present("detached");
-            if detached {
-                unimplemented!("Detached signature generation not implemented");
-            }
+            let mut detached = if let Some(f) = m.value_of("detached") {
+                Some(File::open(f)?)
+            } else {
+                None
+            };
             let signatures: usize =
                 m.value_of("signatures").unwrap_or("0").parse()?;
             let tpks = m.values_of("public-key-file")
@@ -170,8 +170,9 @@ fn real_main() -> Result<(), failure::Error> {
                 .unwrap_or(Ok(vec![]))?;
             let mut store = Store::open(&ctx, store_name)
                 .context("Failed to open the store")?;
-            commands::verify(&ctx, &mut store, &mut input, &mut output,
-                             signatures, tpks)?;
+            commands::verify(&ctx, &mut store, &mut input,
+                             detached.as_mut().map(|r| r as &mut io::Read),
+                             &mut output, signatures, tpks)?;
         },
 
         ("enarmor",  Some(m)) => {

@@ -368,10 +368,12 @@ fn sq_sign_detached() {
     assert!(&content[..].starts_with(b"-----BEGIN PGP SIGNATURE-----\n\n"));
 
     // Verify detached.
-    Assert::cargo_binary("sqv")
+    Assert::cargo_binary("sq")
         .with_args(
-            &["--keyring",
+            &["verify",
+              "--public-key-file",
               &p("keys/dennis-simon-anton.pgp"),
+              "--detached",
               &sig.to_string_lossy(),
               &p("messages/a-cypherpunks-manifesto.txt")])
         .unwrap();
@@ -411,10 +413,12 @@ fn sq_sign_detached_append() {
     assert!(&content[..].starts_with(b"-----BEGIN PGP SIGNATURE-----\n\n"));
 
     // Verify detached.
-    Assert::cargo_binary("sqv")
+    Assert::cargo_binary("sq")
         .with_args(
-            &["--keyring",
+            &["verify",
+              "--public-key-file",
               &p("keys/dennis-simon-anton.pgp"),
+              "--detached",
               &sig.to_string_lossy(),
               &p("messages/a-cypherpunks-manifesto.txt")])
         .unwrap();
@@ -469,17 +473,21 @@ fn sq_sign_detached_append() {
     assert!(&content[..].starts_with(b"-----BEGIN PGP SIGNATURE-----\n\n"));
 
     // Verify both detached signatures.
-    Assert::cargo_binary("sqv")
+    Assert::cargo_binary("sq")
         .with_args(
-            &["--keyring",
+            &["verify",
+              "--public-key-file",
               &p("keys/dennis-simon-anton.pgp"),
+              "--detached",
               &sig.to_string_lossy(),
               &p("messages/a-cypherpunks-manifesto.txt")])
         .unwrap();
-    Assert::cargo_binary("sqv")
+    Assert::cargo_binary("sq")
         .with_args(
-            &["--keyring",
+            &["verify",
+              "--public-key-file",
               &p("keys/erika-corinna-daniela-simone-antonia-nistp256.pgp"),
+              "--detached",
               &sig.to_string_lossy(),
               &p("messages/a-cypherpunks-manifesto.txt")])
         .unwrap();

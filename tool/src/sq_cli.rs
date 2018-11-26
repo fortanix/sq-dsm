@@ -151,13 +151,11 @@ pub fn build() -> App<'static, 'static> {
                          .long("output")
                          .short("o")
                          .help("Sets the output file to use"))
-/* Not yet....
                     .arg(Arg::with_name("detached")
                          .long("detached")
                          .takes_value(true)
                          .value_name("SIG-FILE")
                          .help("Verifies a detached signature"))
-*/
                     .arg(Arg::with_name("signatures").value_name("N")
                          .help("The number of valid signatures required.  \
                                 Default: 0")
