@@ -61,10 +61,11 @@ pub TPK: Option<TPK> = {
 
                 Ok(Some(tpk))
             }
-            Some((Packet::Unknown(_unknown), _sigs)) => {
+            Some((Packet::Unknown(unknown), _sigs)) => {
                 Err(ParseError::User {
-                    error: Error::UnsupportedTPK(
-                        "Unsupported primary key.".into())
+                    error: Error::UnsupportedTPK(format!(
+                        "Unsupported primary key: Unparsable {} ({:?}).",
+                        unknown.tag(), unknown).into())
                 })
             }
             None => {
