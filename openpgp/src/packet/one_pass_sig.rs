@@ -1,7 +1,10 @@
 use std::fmt;
 
+use Error;
 use packet;
+use packet::Signature;
 use Packet;
+use Result;
 use KeyID;
 use HashAlgorithm;
 use PublicKeyAlgorithm;
@@ -136,5 +139,26 @@ impl OnePassSig {
 impl From<OnePassSig> for Packet {
     fn from(s: OnePassSig) -> Self {
         s.to_packet()
+    }
+}
+
+impl<'a> From<&'a Signature> for Result<OnePassSig> {
+    fn from(s: &'a Signature) -> Self {
+        let issuer = match s.issuer() {
+            Some(i) => i,
+            None =>
+                return Err(Error::InvalidArgument(
+                    "Signature has no issuer".into()).into()),
+        };
+
+        Ok(OnePassSig {
+            common: Default::default(),
+            version: 3,
+            sigtype: s.sigtype(),
+            hash_algo: s.hash_algo(),
+            pk_algo: s.pk_algo(),
+            issuer: issuer,
+            last: 0,
+        })
     }
 }
