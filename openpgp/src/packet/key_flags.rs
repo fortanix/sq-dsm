@@ -50,6 +50,7 @@ impl fmt::Debug for KeyFlags {
 
 
 impl KeyFlags {
+    /// Creates a new instance from `bits`.
     pub fn new(bits: &[u8]) -> Self {
         let can_certify = bits.get(0)
             .map(|x| x & KEY_FLAG_CERTIFY != 0).unwrap_or(false);
