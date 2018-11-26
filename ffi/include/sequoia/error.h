@@ -83,6 +83,11 @@ typedef enum sq_status {
   SQ_STATUS_INVALID_SESSION_KEY = -12,
 
   /*/
+  /// Missing session key.
+  /*/
+  SQ_STATUS_MISSING_SESSION_KEY = -27,
+
+  /*/
   /// Malformed TPK.
   /*/
   SQ_STATUS_MALFORMED_TPK = -13,
