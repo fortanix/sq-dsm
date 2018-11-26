@@ -42,7 +42,7 @@ examples:
 build-release:
 
 .PHONY: install
-install: sequoia.pc
+install:
 	$(INSTALL) -d $(DESTDIR)$(PREFIX)/share/pkgconfig
 	sed -e 's|VERSION|$(VERSION)|g' \
 	    -e 's|PREFIX|$(PREFIX)|g' \
