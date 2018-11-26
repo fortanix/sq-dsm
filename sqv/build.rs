@@ -3,8 +3,8 @@ extern crate clap;
 use std::env;
 use clap::Shell;
 
-mod sq_cli {
-    include!("src/sq_cli.rs");
+mod sqv_cli {
+    include!("src/sqv_cli.rs");
 }
 
 fn main() {
@@ -12,9 +12,9 @@ fn main() {
         None => return,
         Some(outdir) => outdir,
     };
-    let mut sq = sq_cli::build();
+    let mut sqv = sqv_cli::build();
     for shell in &[Shell::Bash, Shell::Fish, Shell::Zsh, Shell::PowerShell,
                    Shell::Elvish] {
-        sq.gen_completions("sq", *shell, &outdir);
+        sqv.gen_completions("sqv", *shell, &outdir);
     }
 }

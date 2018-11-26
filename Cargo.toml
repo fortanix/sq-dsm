@@ -29,6 +29,7 @@ sequoia-ffi = { path = "ffi", version = "0.1.0" }
 sequoia-net = { path = "net", version = "0.1.0" }
 sequoia-store = { path = "store", version = "0.1.0" }
 sequoia-tool = { path = "tool", version = "0.1.0" }
+sequoia-sqv = { path = "sqv", version = "0.1.0" }
 
 [lib]
 name = "sequoia"

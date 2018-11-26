@@ -86,8 +86,9 @@ install: build-release
 	    $(CARGO_TARGET_DIR)/release/sequoia-public-key-store
 	$(INSTALL) -d $(DESTDIR)$(PREFIX)/bin
 	$(INSTALL) -t $(DESTDIR)$(PREFIX)/bin \
-	    $(CARGO_TARGET_DIR)/release/sq $(CARGO_TARGET_DIR)/release/sqv
+	    $(CARGO_TARGET_DIR)/release/sq
 	$(MAKE) -Cffi install
+	$(MAKE) -Csqv install
 
 # Infrastructure for creating source distributions.
 .PHONY: dist
