@@ -15,7 +15,6 @@ pub fn build() -> App<'static, 'static> {
         .arg(Arg::with_name("keyring").value_name("FILE")
              .help("A keyring.  Can be given multiple times.")
              .long("keyring")
-             .short("r")
              .required(true)
              .takes_value(true)
              .number_of_values(1)
