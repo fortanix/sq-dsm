@@ -225,7 +225,7 @@ impl CTB {
                             ptag,
                             if ptag == '-' as u8 {
                                 " (ptag is a dash, perhaps this is an \
-                                 ASCII-armored encoded message)"
+                                 ASCII-armor encoded message)"
                             } else {
                                 ""
                             })).into());

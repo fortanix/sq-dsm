@@ -15,6 +15,7 @@ use parse::PacketParserSettings;
 use parse::ParserResult;
 use parse::Cookie;
 use armor;
+use packet;
 
 /// A builder for configuring a `PacketParser`.
 ///
@@ -126,21 +127,7 @@ impl<'a> PacketParserBuilder<'a> {
     {
         let state = PacketParserState::new(self.settings);
 
-        // If the first byte does not have the high-bit set, it is
-        // definitely not a binary OpenPGP message.  Since an
-        // ASCII-armor message never has a high-bit set, there is a
-        // good chance that the message is armored.
-        //
-        // This heuristic doesn't work if the message is
-        // ASCII-armored, but the armored data is preceded by
-        // non-ASCII UTF-8, which sets the high bit.  In such cases we
-        // will fail to push an armor decoder.
-        let armored = {
-            let data = self.bio.data(1)?;
-            data.len() > 0 && ((data[0] as i8) > 0)
-        };
-
-        if armored {
+        if let Err(_) = packet::Header::plausible(&mut self.bio) {
             self.bio = Box::new(BufferedReaderGeneric::with_cookie(
                 armor::Reader::from_buffered_reader(self.bio, None),
                 None,
