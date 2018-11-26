@@ -86,6 +86,9 @@ pub enum Status {
     /// Invalid session key.
     InvalidSessionKey = -12,
 
+    /// Missing session key.
+    MissingSessionKey = -27,
+
     /// Malformed TPK.
     MalformedTPK = -13,
 
@@ -119,6 +122,7 @@ pub enum Status {
 
     // XXX: Skipping ManipulatedMessage = -25
     // XXX: Skipping UnsupportedAEADAlgorithm = -26
+    // XXX: Skipping MissingSessionKey = -27
 }
 
 impl<'a> From<&'a failure::Error> for Status {
@@ -156,6 +160,8 @@ impl<'a> From<&'a failure::Error> for Status {
                     Status::InvalidPassword,
                 &openpgp::Error::InvalidSessionKey(_) =>
                     Status::InvalidSessionKey,
+                &openpgp::Error::MissingSessionKey(_) =>
+                    Status::MissingSessionKey,
                 &openpgp::Error::MalformedMPI(_) =>
                     Status::MalformedMPI,
                 &openpgp::Error::BadSignature(_) =>

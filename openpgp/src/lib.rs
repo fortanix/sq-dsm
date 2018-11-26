@@ -190,6 +190,10 @@ pub enum Error {
     #[fail(display = "Invalid session key: {}", _0)]
     InvalidSessionKey(String),
 
+    /// Missing session key.
+    #[fail(display = "Missing session key: {}", _0)]
+    MissingSessionKey(String),
+
     /// Malformed MPI.
     #[fail(display = "Malformed MPI: {}", _0)]
     MalformedMPI(String),

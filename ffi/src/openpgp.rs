@@ -2517,6 +2517,11 @@ impl DecryptionHelper for DHelper {
                 format!("{:?}", result)).into());
         }
 
+        if secret.is_null() {
+            return Err(openpgp::Error::MissingSessionKey(
+                "Callback did not return a session key".into()).into());
+        }
+
         let secret = unsafe {
             Box::from_raw(secret)
         };
