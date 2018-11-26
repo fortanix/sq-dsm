@@ -541,7 +541,7 @@ impl<'a> Serialize for SubpacketValue<'a> {
             PolicyURI(ref p) =>
                 o.write_all(p)?,
             KeyFlags(ref f) =>
-                o.write_all(f.as_slice())?,
+                o.write_all(&f.as_vec())?,
             SignersUserID(ref uid) =>
                 o.write_all(uid)?,
             ReasonForRevocation { ref code, ref reason } => {

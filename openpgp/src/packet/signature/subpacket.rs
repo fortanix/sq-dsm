@@ -719,7 +719,7 @@ impl<'a> SubpacketValue<'a> {
             PreferredKeyServer(p) => p.len(),
             PrimaryUserID(_) => 1,
             PolicyURI(p) => p.len(),
-            KeyFlags(f) => f.0.len(),
+            KeyFlags(f) => f.as_vec().len(),
             SignersUserID(u) => u.len(),
             ReasonForRevocation { ref reason, .. } => 1 + reason.len(),
             Features(f) => f.as_vec().len(),
@@ -993,7 +993,7 @@ impl<'a> From<SubpacketRaw<'a>> for Subpacket<'a> {
 
             SubpacketTag::KeyFlags =>
                 // N octets of flags.
-                Some(SubpacketValue::KeyFlags(KeyFlags(raw.value.to_vec()))),
+                Some(SubpacketValue::KeyFlags(KeyFlags::new(&raw.value))),
 
             SubpacketTag::SignersUserID =>
                 // String.

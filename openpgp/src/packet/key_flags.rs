@@ -2,27 +2,21 @@ use std::fmt;
 
 /// Describes how a key may be used, and stores additional
 /// information.
-#[derive(Clone)]
-pub struct KeyFlags(pub Vec<u8>);
+#[derive(Clone, PartialEq, Eq)]
+pub struct KeyFlags{
+    can_certify: bool,
+    can_sign: bool,
+    can_encrypt_for_transport: bool,
+    can_encrypt_at_rest: bool,
+    can_authenticate: bool,
+    is_split_key: bool,
+    is_group_key: bool,
+    unknown: Box<[u8]>,
+}
 
 impl Default for KeyFlags {
     fn default() -> Self {
-        KeyFlags(vec![0])
-    }
-}
-
-impl PartialEq for KeyFlags {
-    fn eq(&self, other: &KeyFlags) -> bool {
-        // To deal with unknown flags, we do a bitwise comparison.
-        // First, we need to bring both flag fields to the same
-        // length.
-        let len = ::std::cmp::max(self.0.len(), other.0.len());
-        let mut mine = vec![0; len];
-        let mut hers = vec![0; len];
-        &mut mine[..self.0.len()].copy_from_slice(&self.0);
-        &mut hers[..other.0.len()].copy_from_slice(&other.0);
-
-        mine == hers
+        KeyFlags::new(&vec![0])
     }
 }
 
@@ -56,140 +50,134 @@ impl fmt::Debug for KeyFlags {
 
 
 impl KeyFlags {
-    /// Grows the vector to the given length.
-    fn grow(&mut self, target: usize) {
-        while self.0.len() < target {
-            self.0.push(0);
+    pub fn new(bits: &[u8]) -> Self {
+        let can_certify = bits.get(0)
+            .map(|x| x & KEY_FLAG_CERTIFY != 0).unwrap_or(false);
+        let can_sign = bits.get(0)
+            .map(|x| x & KEY_FLAG_SIGN != 0).unwrap_or(false);
+        let can_encrypt_for_transport = bits.get(0)
+            .map(|x| x & KEY_FLAG_ENCRYPT_FOR_TRANSPORT != 0).unwrap_or(false);
+        let can_encrypt_at_rest = bits.get(0)
+            .map(|x| x & KEY_FLAG_ENCRYPT_AT_REST != 0).unwrap_or(false);
+        let can_authenticate = bits.get(0)
+            .map(|x| x & KEY_FLAG_AUTHENTICATE != 0).unwrap_or(false);
+        let is_split_key = bits.get(0)
+            .map(|x| x & KEY_FLAG_SPLIT_KEY != 0).unwrap_or(false);
+        let is_group_key = bits.get(0)
+            .map(|x| x & KEY_FLAG_GROUP_KEY != 0).unwrap_or(false);
+        let unk = if bits.is_empty() {
+            Box::default()
+        } else {
+            let mut cpy = Vec::from(bits);
+
+            cpy[0] &= (
+                KEY_FLAG_ENCRYPT_AT_REST | KEY_FLAG_ENCRYPT_FOR_TRANSPORT |
+                KEY_FLAG_SIGN | KEY_FLAG_CERTIFY | KEY_FLAG_AUTHENTICATE |
+                KEY_FLAG_GROUP_KEY | KEY_FLAG_SPLIT_KEY
+            ) ^ 0xff;
+
+            while cpy.last().cloned() == Some(0) { cpy.pop(); }
+            cpy.into_boxed_slice()
+        };
+
+        KeyFlags{
+            can_certify, can_sign, can_encrypt_for_transport,
+            can_encrypt_at_rest, can_authenticate, is_split_key,
+            is_group_key, unknown: unk
         }
     }
 
     /// Returns a slice referencing the raw values.
-    pub(crate) fn as_slice(&self) -> &[u8] {
-        &self.0
+    pub(crate) fn as_vec(&self) -> Vec<u8> {
+        let mut ret = if self.unknown.is_empty() {
+            vec![0]
+        } else {
+            self.unknown.clone().into()
+        };
+
+        if self.can_certify { ret[0] |= KEY_FLAG_CERTIFY; }
+        if self.can_sign { ret[0] |= KEY_FLAG_SIGN; }
+        if self.can_encrypt_for_transport { ret[0] |= KEY_FLAG_ENCRYPT_FOR_TRANSPORT; }
+        if self.can_encrypt_at_rest { ret[0] |= KEY_FLAG_ENCRYPT_AT_REST; }
+        if self.can_authenticate { ret[0] |= KEY_FLAG_AUTHENTICATE; }
+        if self.is_split_key { ret[0] |= KEY_FLAG_SPLIT_KEY; }
+        if self.is_group_key { ret[0] |= KEY_FLAG_GROUP_KEY }
+
+        ret
     }
 
     /// This key may be used to certify other keys.
-    pub fn can_certify(&self) -> bool {
-        self.0.get(0)
-            .map(|v0| v0 & KEY_FLAG_CERTIFY > 0).unwrap_or(false)
-    }
-
+    pub fn can_certify(&self) -> bool { self.can_certify }
 
     /// Sets whether or not this key may be used to certify other keys.
     pub fn set_certify(mut self, v: bool) -> Self {
-        self.grow(1);
-        if v {
-            self.0[0] |= KEY_FLAG_CERTIFY;
-        } else {
-            self.0[0] &= !KEY_FLAG_CERTIFY;
-        }
+        self.can_certify = v;
         self
     }
 
     /// This key may be used to sign data.
-    pub fn can_sign(&self) -> bool {
-        self.0.get(0)
-            .map(|v0| v0 & KEY_FLAG_SIGN > 0).unwrap_or(false)
-    }
-
+    pub fn can_sign(&self) -> bool { self.can_sign }
 
     /// Sets whether or not this key may be used to sign data.
     pub fn set_sign(mut self, v: bool) -> Self {
-        self.grow(1);
-        if v {
-            self.0[0] |= KEY_FLAG_SIGN;
-        } else {
-            self.0[0] &= !KEY_FLAG_SIGN;
-        }
+        self.can_sign = v;
         self
     }
 
     /// This key may be used to encrypt communications.
     pub fn can_encrypt_for_transport(&self) -> bool {
-        self.0.get(0)
-            .map(|v0| v0 & KEY_FLAG_ENCRYPT_FOR_TRANSPORT > 0).unwrap_or(false)
+        self.can_encrypt_for_transport
     }
 
     /// Sets whether or not this key may be used to encrypt communications.
     pub fn set_encrypt_for_transport(mut self, v: bool) -> Self {
-        self.grow(1);
-        if v {
-            self.0[0] |= KEY_FLAG_ENCRYPT_FOR_TRANSPORT;
-        } else {
-            self.0[0] &= !KEY_FLAG_ENCRYPT_FOR_TRANSPORT;
-        }
+        self.can_encrypt_for_transport = v;
         self
     }
 
     /// This key may be used to encrypt storage.
-    pub fn can_encrypt_at_rest(&self) -> bool {
-        self.0.get(0)
-            .map(|v0| v0 & KEY_FLAG_ENCRYPT_AT_REST > 0).unwrap_or(false)
-    }
+    pub fn can_encrypt_at_rest(&self) -> bool { self.can_encrypt_at_rest }
 
     /// Sets whether or not this key may be used to encrypt storage.
     pub fn set_encrypt_at_rest(mut self, v: bool) -> Self {
-        self.grow(1);
-        if v {
-            self.0[0] |= KEY_FLAG_ENCRYPT_AT_REST;
-        } else {
-            self.0[0] &= !KEY_FLAG_ENCRYPT_AT_REST;
-        }
+        self.can_encrypt_at_rest = v;
         self
     }
 
     /// This key may be used for authentication.
     pub fn can_authenticate(&self) -> bool {
-        self.0.get(0)
-            .map(|v0| v0 & KEY_FLAG_AUTHENTICATE > 0).unwrap_or(false)
+        self.can_authenticate
     }
 
     /// Sets whether or not this key may be used for authentication.
     pub fn set_authenticate(mut self, v: bool) -> Self {
-        self.grow(1);
-        if v {
-            self.0[0] |= KEY_FLAG_AUTHENTICATE;
-        } else {
-            self.0[0] &= !KEY_FLAG_AUTHENTICATE;
-        }
+        self.can_authenticate = v;
         self
     }
 
     /// The private component of this key may have been split
     /// using a secret-sharing mechanism.
     pub fn is_split_key(&self) -> bool {
-        self.0.get(0)
-            .map(|v0| v0 & KEY_FLAG_SPLIT_KEY > 0).unwrap_or(false)
+        self.is_split_key
     }
 
     /// Sets whether or not the private component of this key may have been split
     /// using a secret-sharing mechanism.
     pub fn set_split_key(mut self, v: bool) -> Self {
-        self.grow(1);
-        if v {
-            self.0[0] |= KEY_FLAG_SPLIT_KEY;
-        } else {
-            self.0[0] &= !KEY_FLAG_SPLIT_KEY;
-        }
+        self.is_split_key = v;
         self
     }
 
     /// The private component of this key may be in
     /// possession of more than one person.
     pub fn is_group_key(&self) -> bool {
-        self.0.get(0)
-            .map(|v0| v0 & KEY_FLAG_GROUP_KEY > 0).unwrap_or(false)
+        self.is_group_key
     }
 
     /// Sets whether or not the private component of this key may be in
     /// possession of more than one person.
     pub fn set_group_key(mut self, v: bool) -> Self {
-        self.grow(1);
-        if v {
-            self.0[0] |= KEY_FLAG_GROUP_KEY;
-        } else {
-            self.0[0] &= !KEY_FLAG_GROUP_KEY;
-        }
+        self.is_group_key = v;
         self
     }
 }
