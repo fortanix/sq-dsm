@@ -12,7 +12,7 @@ mod integration {
     fn unconstrained() {
         Assert::cargo_binary("sqv")
             .with_args(
-                &["-r",
+                &["--keyring",
                   &p("keys/emmelie-dorothea-dina-samantha-awina-ed25519.pgp"),
                   &p("messages/a-cypherpunks-manifesto.txt.ed25519.sig"),
                   &p("messages/a-cypherpunks-manifesto.txt")])
@@ -24,7 +24,7 @@ mod integration {
     fn in_interval() {
         Assert::cargo_binary("sqv")
             .with_args(
-                &["-r",
+                &["--keyring",
                   &p("keys/emmelie-dorothea-dina-samantha-awina-ed25519.pgp"),
                   "--not-before", "2018-08-14",
                   "--not-after", "2018-08-15",
@@ -38,7 +38,7 @@ mod integration {
     fn before() {
         Assert::cargo_binary("sqv")
             .with_args(
-                &["-r",
+                &["--keyring",
                   &p("keys/emmelie-dorothea-dina-samantha-awina-ed25519.pgp"),
                   "--not-before", "2018-08-15",
                   &p("messages/a-cypherpunks-manifesto.txt.ed25519.sig"),
@@ -51,7 +51,7 @@ mod integration {
     fn after() {
         Assert::cargo_binary("sqv")
             .with_args(
-                &["-r",
+                &["--keyring",
                   &p("keys/emmelie-dorothea-dina-samantha-awina-ed25519.pgp"),
                   "--not-after", "2018-08-14",
                   &p("messages/a-cypherpunks-manifesto.txt.ed25519.sig"),

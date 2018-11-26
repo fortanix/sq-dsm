@@ -14,7 +14,7 @@ fn ignore_multiple_signatures() {
     // meet the threshold.
     Assert::cargo_binary("sqv")
         .with_args(
-            &["-r",
+            &["--keyring",
               &p("keys/emmelie-dorothea-dina-samantha-awina-ed25519.pgp"),
               "--signatures=2",
               &p("messages/a-cypherpunks-manifesto.txt.ed25519.sig.duplicated"),
