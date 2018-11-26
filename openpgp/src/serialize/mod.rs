@@ -895,9 +895,11 @@ impl Serialize for UserAttribute {
 
 impl Literal {
     /// Writes the headers of the `Literal` data packet to `o`.
-    fn serialize_headers<W: io::Write>(&self, o: &mut W,
+    pub(crate) fn serialize_headers<W>(&self, o: &mut W,
                                        write_tag: bool)
-                                       -> Result<()> {
+                                       -> Result<()>
+        where W: io::Write
+    {
         let filename = if let Some(ref filename) = self.filename {
             let len = cmp::min(filename.len(), 255) as u8;
             &filename[..len as usize]
