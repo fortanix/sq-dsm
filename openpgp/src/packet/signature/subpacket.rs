@@ -715,7 +715,7 @@ impl<'a> SubpacketValue<'a> {
             NotationData(nd) => 4 + 2 + 2 + nd.name.len() + nd.value.len(),
             PreferredHashAlgorithms(p) => p.len(),
             PreferredCompressionAlgorithms(p) => p.len(),
-            KeyServerPreferences(p) => p.as_slice().len(),
+            KeyServerPreferences(p) => p.as_vec().len(),
             PreferredKeyServer(p) => p.len(),
             PrimaryUserID(_) => 1,
             PolicyURI(p) => p.len(),
@@ -971,7 +971,7 @@ impl<'a> From<SubpacketRaw<'a>> for Subpacket<'a> {
             SubpacketTag::KeyServerPreferences =>
                 // N octets of flags.
                 Some(SubpacketValue::KeyServerPreferences(
-                    KeyServerPreferences(raw.value.to_vec()))),
+                    KeyServerPreferences::new(raw.value))),
 
             SubpacketTag::PreferredKeyServer =>
                 // String.

@@ -1,27 +1,15 @@
 use std::fmt;
 
 /// Describes preferences regarding key servers.
-#[derive(Clone)]
-pub struct KeyServerPreferences(pub Vec<u8>);
+#[derive(Clone, PartialEq, Eq)]
+pub struct KeyServerPreferences{
+    no_modify: bool,
+    unknown: Box<[u8]>,
+}
 
 impl Default for KeyServerPreferences {
     fn default() -> Self {
-        KeyServerPreferences(vec![0])
-    }
-}
-
-impl PartialEq for KeyServerPreferences {
-    fn eq(&self, other: &KeyServerPreferences) -> bool {
-        // To deal with unknown flags, we do a bitwise comparison.
-        // First, we need to bring both flag fields to the same
-        // length.
-        let len = ::std::cmp::max(self.0.len(), other.0.len());
-        let mut mine = vec![0; len];
-        let mut hers = vec![0; len];
-        &mut mine[..self.0.len()].copy_from_slice(&self.0);
-        &mut hers[..other.0.len()].copy_from_slice(&other.0);
-
-        mine == hers
+        KeyServerPreferences::new(&[0])
     }
 }
 
@@ -36,35 +24,47 @@ impl fmt::Debug for KeyServerPreferences {
 }
 
 impl KeyServerPreferences {
-    /// Grows the vector to the given length.
-    fn grow(&mut self, target: usize) {
-        while self.0.len() < target {
-            self.0.push(0);
+    /// Creates a new instance from `bits`.
+    pub fn new(bits: &[u8]) -> Self {
+        let no_mod = bits.get(0)
+            .map(|x| x & KEYSERVER_PREFERENCE_NO_MODIFY != 0).unwrap_or(false);
+        let unk = if bits.is_empty() {
+            Box::default()
+        } else {
+            let mut cpy = Vec::from(bits);
+
+            cpy[0] &= KEYSERVER_PREFERENCE_NO_MODIFY ^ 0xff;
+
+            while cpy.last().cloned() == Some(0) { cpy.pop(); }
+            cpy.into_boxed_slice()
+        };
+
+        KeyServerPreferences{
+            no_modify: no_mod, unknown: unk
         }
     }
 
     /// Returns a slice referencing the raw values.
-    pub(crate) fn as_slice(&self) -> &[u8] {
-        &self.0
-    }
-
-    /// Whether or not the key on the key severs should only be
-    /// modified by the owner or server administrator.
-    pub fn no_modify(&self) -> bool {
-        self.0.get(0)
-            .map(|v0| v0 & KEYSERVER_PREFERENCE_NO_MODIFY > 0).unwrap_or(false)
-    }
-
-
-    /// Sets whether or not the key on the key severs should only be
-    /// modified by the owner or server administrator.
-    pub fn set_no_modify(mut self, v: bool) -> Self {
-        self.grow(1);
-        if v {
-            self.0[0] |= KEYSERVER_PREFERENCE_NO_MODIFY;
+    pub(crate) fn as_vec(&self) -> Vec<u8> {
+        let mut ret = if self.unknown.is_empty() {
+            vec![0]
         } else {
-            self.0[0] &= !KEYSERVER_PREFERENCE_NO_MODIFY;
-        }
+            self.unknown.clone().into()
+        };
+
+        if self.no_modify { ret[0] |= KEYSERVER_PREFERENCE_NO_MODIFY; }
+
+        ret
+    }
+
+    /// Whether or not keyservers are allowed to modify this key.
+    pub fn no_modify(&self) -> bool {
+        !self.no_modify
+    }
+
+    /// Sets whether or not keyservers are allowed to modify this key.
+    pub fn set_no_modify(mut self, v: bool) -> Self {
+        self.no_modify = v;
         self
     }
 }
