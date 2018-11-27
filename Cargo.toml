@@ -16,7 +16,7 @@ categories = ["cryptography", "authentication", "email"]
 license = "GPL-3.0"
 
 [badges]
-gitlab = { repository = "https://gitlab.com/sequoia-pgp/sequoia" }
+gitlab = { repository = "sequoia-pgp/sequoia" }
 maintenance = { status = "actively-developed" }
 
 [workspace]
