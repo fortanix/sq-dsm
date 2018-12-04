@@ -1,10 +1,6 @@
 use time;
 use packet::{Features, KeyFlags};
 use packet::Key;
-use tpk::{
-    UserIDBinding,
-    SubkeyBinding,
-};
 use Result;
 use packet::UserID;
 use SymmetricAlgorithm;
@@ -15,7 +11,6 @@ use PublicKeyAlgorithm;
 use Error;
 use conversions::Time;
 use constants::{
-    ReasonForRevocation,
     SignatureType,
 };
 use autocrypt::Autocrypt;
@@ -156,7 +151,12 @@ impl TPKBuilder {
 
     /// Generates the actual TPK.
     pub fn generate(mut self) -> Result<(TPK, Signature)> {
+        use {PacketPile, Packet};
+        use constants::ReasonForRevocation;
         use packet::Common;
+
+        let mut packets = Vec::<Packet>::with_capacity(
+            1 + 1 + self.subkeys.len() + self.userids.len());
 
         // make sure the primary key can sign subkeys
         if !self.subkeys.is_empty() {
@@ -172,29 +172,22 @@ impl TPKBuilder {
         });
         // Generate & and self-sign primary key.
         let (primary, sig) = Self::primary_key(
-            self.primary, maybe_first_uid.clone(), self.ciphersuite)?;
+            self.primary, maybe_first_uid.as_ref(), self.ciphersuite)?;
+        packets.push(Packet::PublicKey(primary.clone()));
+        packets.push(Packet::Signature(sig.clone()));
+
         // Sort primary keys self-sig into the right vec.
-        let (mut userids, selfsigs) = match maybe_first_uid {
+        match maybe_first_uid {
             Some(uid) => {
                 // maybe to strict?
                 assert_eq!(sig.sigtype(), SignatureType::PositiveCertificate);
 
-                let bind = UserIDBinding{
-                    userid: uid,
-                    selfsigs: vec![sig],
-                    certifications: vec![],
-                    self_revocations: vec![],
-                    other_revocations: vec![],
-                };
-
-                (vec![bind], vec![])
+                packets.push(Packet::UserID(uid));
             }
             None => {
                 assert_eq!(sig.sigtype(), SignatureType::DirectKey);
-                (vec![], vec![sig])
             }
         };
-        let mut subkeys = Vec::with_capacity(self.subkeys.len());
 
         // sign UserIDs. First UID was used as primary keys self-sig
         if !self.userids.is_empty() {
@@ -203,35 +196,30 @@ impl TPKBuilder {
                     common: Common::default(),
                     value: uid.as_bytes().into(),
                 };
-                userids.push(Self::userid(uid, &primary)?);
+                let sig = Self::userid(&uid, &primary)?;
+
+                packets.push(Packet::UserID(uid));
+                packets.push(Packet::Signature(sig));
             }
         }
 
         // sign subkeys
         for subkey in self.subkeys {
-            subkeys.push(Self::subkey(subkey, &primary, self.ciphersuite)?);
+            let (subkey, sig) = Self::subkey(subkey, &primary, self.ciphersuite)?;
+
+            packets.push(Packet::PublicSubkey(subkey));
+            packets.push(Packet::Signature(sig));
         }
 
-        let tpk = TPK {
-            primary: primary,
-            primary_selfsigs: selfsigs,
-            primary_certifications: vec![],
-            primary_self_revocations: vec![],
-            primary_other_revocations: vec![],
-            userids: userids,
-            user_attributes: vec![],
-            subkeys: subkeys,
-            unknowns: vec![],
-            bad: vec![],
-        };
 
+        let tpk = TPK::from_packet_pile(PacketPile::from_packets(packets))?;
         let revocation = tpk.revoke(ReasonForRevocation::Unspecified,
                                     b"Unspecified")?;
 
         Ok((tpk, revocation))
     }
 
-    fn primary_key(blueprint: KeyBlueprint, uid: Option<UserID>, cs: CipherSuite)
+    fn primary_key(blueprint: KeyBlueprint, uid: Option<&UserID>, cs: CipherSuite)
         -> Result<(Key, Signature)>
     {
         use SignatureType;
@@ -274,7 +262,7 @@ impl TPKBuilder {
     }
 
     fn subkey(blueprint: KeyBlueprint, primary_key: &Key, cs: CipherSuite)
-        -> Result<SubkeyBinding>
+        -> Result<(Key, Signature)>
     {
         use SignatureType;
         use SecretKey;
@@ -336,16 +324,10 @@ impl TPKBuilder {
             }
         };
 
-        Ok(SubkeyBinding{
-            subkey: subkey,
-            selfsigs: vec![sig],
-            certifications: vec![],
-            self_revocations: vec![],
-            other_revocations: vec![],
-        })
+        Ok((subkey, sig))
     }
 
-    fn userid(uid: UserID, key: &Key) -> Result<UserIDBinding> {
+    fn userid(uid: &UserID, key: &Key) -> Result<Signature> {
         use SignatureType;
         use SecretKey;
 
@@ -370,15 +352,7 @@ impl TPKBuilder {
             }
         };
 
-        let bind = UserIDBinding{
-            userid: uid,
-            selfsigs: vec![sig],
-            certifications: vec![],
-            self_revocations: vec![],
-            other_revocations: vec![],
-        };
-
-        Ok(bind)
+        Ok(sig)
     }
 }
 
