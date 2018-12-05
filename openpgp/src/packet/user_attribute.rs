@@ -1,4 +1,5 @@
 use std::fmt;
+use quickcheck::{Arbitrary, Gen};
 
 use packet;
 use Packet;
@@ -71,5 +72,28 @@ impl UserAttribute {
 impl From<UserAttribute> for Packet {
     fn from(s: UserAttribute) -> Self {
         s.to_packet()
+    }
+}
+
+impl Arbitrary for UserAttribute {
+    fn arbitrary<G: Gen>(g: &mut G) -> Self {
+        let mut u = UserAttribute::new();
+        u.set_user_attribute(&Vec::<u8>::arbitrary(g));
+        u
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use parse::Parse;
+    use serialize::Serialize;
+
+    quickcheck! {
+        fn roundtrip(p: UserAttribute) -> bool {
+            let q = UserAttribute::from_bytes(&p.to_vec().unwrap()).unwrap();
+            assert_eq!(p, q);
+            true
+        }
     }
 }

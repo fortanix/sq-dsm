@@ -1,6 +1,7 @@
 use std::fmt;
 use std::cmp;
 use time;
+use quickcheck::{Arbitrary, Gen};
 
 use constants::DataFormat;
 use conversions::Time;
@@ -172,5 +173,32 @@ impl Literal {
 impl From<Literal> for Packet {
     fn from(s: Literal) -> Self {
         s.to_packet()
+    }
+}
+
+impl Arbitrary for Literal {
+    fn arbitrary<G: Gen>(g: &mut G) -> Self {
+        let mut l = Literal::new(DataFormat::arbitrary(g));
+        l.set_body(Vec::<u8>::arbitrary(g));
+        while let Err(_) = l.set_filename_from_bytes(&Vec::<u8>::arbitrary(g)) {
+            // Too long, try again.
+        }
+        l.set_date(Option::<u32>::arbitrary(g).map(|t| time::Tm::from_pgp(t)));
+        l
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use parse::Parse;
+    use serialize::Serialize;
+
+    quickcheck! {
+        fn roundtrip(p: Literal) -> bool {
+            let q = Literal::from_bytes(&p.to_vec().unwrap()).unwrap();
+            assert_eq!(p, q);
+            true
+        }
     }
 }

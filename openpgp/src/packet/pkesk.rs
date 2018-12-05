@@ -1,3 +1,5 @@
+use quickcheck::{Arbitrary, Gen};
+
 use Error;
 use packet::Key;
 use KeyID;
@@ -220,14 +222,38 @@ impl From<PKESK> for Packet {
     }
 }
 
+impl Arbitrary for PKESK {
+    fn arbitrary<G: Gen>(g: &mut G) -> Self {
+        let (ciphertext, pk_algo) = loop {
+            let ciphertext = Ciphertext::arbitrary(g);
+            if let Some(pk_algo) = ciphertext.pk_algo() {
+                break (ciphertext, pk_algo);
+            }
+        };
+
+        PKESK::new_(KeyID::arbitrary(g),
+                    pk_algo, ciphertext).unwrap()
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use super::*;
     use TPK;
     use PacketPile;
     use packet::key::SecretKey;
     use Packet;
     use std::path::PathBuf;
     use parse::Parse;
+    use serialize::Serialize;
+
+    quickcheck! {
+        fn roundtrip(p: PKESK) -> bool {
+            let q = PKESK::from_bytes(&p.to_vec().unwrap()).unwrap();
+            assert_eq!(p, q);
+            true
+        }
+    }
 
     fn path_to_key(artifact: &str) -> PathBuf {
         [env!("CARGO_MANIFEST_DIR"), "tests", "data", "keys", artifact]

@@ -1,4 +1,5 @@
 use std::fmt;
+use quickcheck::{Arbitrary, Gen};
 
 use Error;
 use packet;
@@ -170,5 +171,31 @@ impl<'a> From<&'a Signature> for Result<OnePassSig> {
             issuer: issuer,
             last: 0,
         })
+    }
+}
+
+impl Arbitrary for OnePassSig {
+    fn arbitrary<G: Gen>(g: &mut G) -> Self {
+        let mut ops = OnePassSig::new(SignatureType::arbitrary(g));
+        ops.set_hash_algo(HashAlgorithm::arbitrary(g));
+        ops.set_pk_algo(PublicKeyAlgorithm::arbitrary(g));
+        ops.set_issuer(KeyID::arbitrary(g));
+        ops.set_last_raw(u8::arbitrary(g));
+        ops
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use parse::Parse;
+    use serialize::Serialize;
+
+    quickcheck! {
+        fn roundtrip(p: OnePassSig) -> bool {
+            let q = OnePassSig::from_bytes(&p.to_vec().unwrap()).unwrap();
+            assert_eq!(p, q);
+            true
+        }
     }
 }

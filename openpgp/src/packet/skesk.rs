@@ -1,4 +1,5 @@
 use std::ops::{Deref, DerefMut};
+use quickcheck::{Arbitrary, Gen};
 
 use nettle::Yarrow;
 
@@ -47,6 +48,16 @@ impl SKESK {
         match self {
             &SKESK::V4(_) => 4,
             &SKESK::V5(_) => 5,
+        }
+    }
+}
+
+impl Arbitrary for SKESK {
+    fn arbitrary<G: Gen>(g: &mut G) -> Self {
+        if bool::arbitrary(g) {
+            SKESK::V4(SKESK4::arbitrary(g))
+        } else {
+            SKESK::V5(SKESK5::arbitrary(g))
         }
     }
 }
@@ -216,6 +227,16 @@ impl From<SKESK4> for Packet {
     }
 }
 
+impl Arbitrary for SKESK4 {
+    fn arbitrary<G: Gen>(g: &mut G) -> Self {
+        SKESK4::new(4,
+                    SymmetricAlgorithm::arbitrary(g),
+                    S2K::arbitrary(g),
+                    Option::<Vec<u8>>::arbitrary(g))
+            .unwrap()
+    }
+}
+
 /// Holds an symmetrically encrypted session key version 5.
 ///
 /// Holds an symmetrically encrypted session key.  The session key is
@@ -379,12 +400,42 @@ impl From<SKESK5> for Packet {
     }
 }
 
+impl Arbitrary for SKESK5 {
+    fn arbitrary<G: Gen>(g: &mut G) -> Self {
+        let algo = AEADAlgorithm::EAX;  // The only one we dig.
+        let mut iv = vec![0u8; algo.iv_size().unwrap()];
+        for b in iv.iter_mut() {
+            *b = u8::arbitrary(g);
+        }
+        let mut digest = vec![0u8; algo.digest_size().unwrap()];
+        for b in digest.iter_mut() {
+            *b = u8::arbitrary(g);
+        }
+        SKESK5::new(5,
+                    SymmetricAlgorithm::arbitrary(g),
+                    algo,
+                    S2K::arbitrary(g),
+                    iv.into_boxed_slice(),
+                    Vec::<u8>::arbitrary(g),
+                    digest.into_boxed_slice())
+            .unwrap()
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
     use PacketPile;
     use parse::Parse;
     use serialize::Serialize;
+
+    quickcheck! {
+        fn roundtrip(p: SKESK) -> bool {
+            let q = SKESK::from_bytes(&p.to_vec().unwrap()).unwrap();
+            assert_eq!(p, q);
+            true
+        }
+    }
 
     #[test]
     fn sample_skesk5_packet() {

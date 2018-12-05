@@ -1,4 +1,5 @@
 use std::fmt;
+use quickcheck::{Arbitrary, Gen};
 
 use packet;
 use Packet;
@@ -92,5 +93,28 @@ impl UserID {
 impl From<UserID> for Packet {
     fn from(s: UserID) -> Self {
         s.to_packet()
+    }
+}
+
+impl Arbitrary for UserID {
+    fn arbitrary<G: Gen>(g: &mut G) -> Self {
+        let mut u = UserID::new();
+        u.set_userid_from_bytes(&Vec::<u8>::arbitrary(g));
+        u
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use parse::Parse;
+    use serialize::Serialize;
+
+    quickcheck! {
+        fn roundtrip(p: UserID) -> bool {
+            let q = UserID::from_bytes(&p.to_vec().unwrap()).unwrap();
+            assert_eq!(p, q);
+            true
+        }
     }
 }
