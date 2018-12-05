@@ -112,9 +112,8 @@ fn sign_data(input: &mut io::Read, output_path: Option<&str>,
         if detached && append && output_path.is_some() {
             // First, read the existing signatures.
             let mut sigs = Vec::new();
-            let reader = openpgp::Reader::from_file(output_path.unwrap())?;
-            let mut ppr
-                = openpgp::parse::PacketParser::from_reader(reader)?;
+            let mut ppr =
+                openpgp::parse::PacketParser::from_file(output_path.unwrap())?;
 
             while let PacketParserResult::Some(mut pp) = ppr {
                 let (packet, ppr_tmp) = pp.recurse()?;
@@ -213,9 +212,7 @@ fn sign_message(input: &mut io::Read, output_path: Option<&str>,
 
     // Create a parser for the message to be notarized.
     let mut ppr
-        = openpgp::parse::PacketParser::from_reader(
-            openpgp::Reader::from_reader(input)
-                .context("Failed to build reader")?)
+        = openpgp::parse::PacketParser::from_reader(input)
         .context("Failed to build parser")?;
 
     // Once we see a signature, we can no longer strip compression.

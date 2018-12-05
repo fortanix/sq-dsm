@@ -51,11 +51,7 @@ fn load_tpks<'a, I>(files: I) -> openpgp::Result<Vec<TPK>>
 {
     let mut tpks = vec![];
     for f in files {
-        tpks.push(TPK::from_reader(
-            // Use an openpgp::Reader so that we accept both armored
-            // and plain PGP data.
-            openpgp::Reader::from_file(f)
-                .context(format!("Failed to open key file {:?}", f))?)
+        tpks.push(TPK::from_file(f)
                   .context(format!("Failed to load key from file {:?}", f))?);
     }
     Ok(tpks)
@@ -99,9 +95,8 @@ fn real_main() -> Result<(), failure::Error> {
 
     match matches.subcommand() {
         ("decrypt",  Some(m)) => {
-            let input = open_or_stdin(m.value_of("input"))?;
+            let mut input = open_or_stdin(m.value_of("input"))?;
             let mut output = create_or_stdout(m.value_of("output"))?;
-            let mut input = openpgp::Reader::from_reader(input)?;
             let signatures: usize =
                 m.value_of("signatures").unwrap_or("0").parse()?;
             let tpks = m.values_of("public-key-file")
@@ -210,14 +205,13 @@ fn real_main() -> Result<(), failure::Error> {
         },
 
         ("dump",  Some(m)) => {
-            let input = open_or_stdin(m.value_of("input"))?;
+            let mut input = open_or_stdin(m.value_of("input"))?;
             let mut output = create_or_stdout(m.value_of("output"))?;
-            let mut input = openpgp::Reader::from_reader(input)?;
             commands::dump(&mut input, &mut output,
                            m.is_present("mpis"), m.is_present("hex"))?;
         },
         ("split",  Some(m)) => {
-            let input = open_or_stdin(m.value_of("input"))?;
+            let mut input = open_or_stdin(m.value_of("input"))?;
             let prefix =
                 // The prefix is either specified explicitly...
                 m.value_of("prefix").map(|p| p.to_owned())
@@ -232,7 +226,6 @@ fn real_main() -> Result<(), failure::Error> {
                         .unwrap_or(String::from("output"))
                     // ... finally, add a hyphen to the derived prefix.
                         + "-");
-            let mut input = openpgp::Reader::from_reader(input)?;
             commands::split(&mut input, &prefix)?;
         },
         ("keyserver",  Some(m)) => {
@@ -269,9 +262,7 @@ fn real_main() -> Result<(), failure::Error> {
                         .context("Failed to serialize key")?;
                 },
                 ("send",  Some(m)) => {
-                    let input = open_or_stdin(m.value_of("input"))?;
-                    let mut input = openpgp::Reader::from_reader(input)?;
-
+                    let mut input = open_or_stdin(m.value_of("input"))?;
                     let tpk = TPK::from_reader(&mut input).
                         context("Malformed key")?;
 
@@ -300,9 +291,7 @@ fn real_main() -> Result<(), failure::Error> {
                 ("import",  Some(m)) => {
                     let label = m.value_of("label").unwrap();
                     help_warning(label);
-                    let input = open_or_stdin(m.value_of("input"))?;
-                    let mut input = openpgp::Reader::from_reader(input)?;
-
+                    let mut input = open_or_stdin(m.value_of("input"))?;
                     let tpk = TPK::from_reader(&mut input)?;
                     store.import(label, &tpk)?;
                 },

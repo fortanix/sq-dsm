@@ -7,7 +7,7 @@ extern crate tempfile;
 use tempfile::TempDir;
 
 extern crate sequoia_openpgp as openpgp;
-use openpgp::{Packet, PacketPile, Reader, TPK};
+use openpgp::{Packet, PacketPile, TPK};
 use openpgp::constants::{CompressionAlgorithm, DataFormat, SignatureType};
 use openpgp::serialize::stream::{Message, Signer, Compressor, LiteralWriter};
 
@@ -35,8 +35,7 @@ fn sq_sign() {
 
     // Check that the content is sane.
     let packets: Vec<Packet> =
-        PacketPile::from_reader(Reader::from_file(&sig).unwrap())
-        .unwrap().into_children().collect();
+        PacketPile::from_file(&sig).unwrap().into_children().collect();
     assert_eq!(packets.len(), 3);
     if let Packet::OnePassSig(ref ops) = packets[0] {
         assert!(ops.last());
@@ -90,8 +89,7 @@ fn sq_sign_append() {
 
     // Check that the content is sane.
     let packets: Vec<Packet> =
-        PacketPile::from_reader(Reader::from_file(&sig0).unwrap())
-        .unwrap().into_children().collect();
+        PacketPile::from_file(&sig0).unwrap().into_children().collect();
     assert_eq!(packets.len(), 3);
     if let Packet::OnePassSig(ref ops) = packets[0] {
         assert!(ops.last());
@@ -141,8 +139,7 @@ fn sq_sign_append() {
 
     // Check that the content is sane.
     let packets: Vec<Packet> =
-        PacketPile::from_reader(Reader::from_file(&sig1).unwrap())
-        .unwrap().into_children().collect();
+        PacketPile::from_file(&sig1).unwrap().into_children().collect();
     assert_eq!(packets.len(), 5);
     if let Packet::OnePassSig(ref ops) = packets[0] {
         assert!(! ops.last());
@@ -225,8 +222,7 @@ fn sq_sign_append_on_compress_then_sign() {
 
     // Check that the content is sane.
     let packets: Vec<Packet> =
-        PacketPile::from_reader(Reader::from_file(&sig0).unwrap())
-        .unwrap().into_children().collect();
+        PacketPile::from_file(&sig0).unwrap().into_children().collect();
     assert_eq!(packets.len(), 3);
     if let Packet::OnePassSig(ref ops) = packets[0] {
         assert!(ops.last());
@@ -277,8 +273,7 @@ fn sq_sign_append_on_compress_then_sign() {
 
     // Check that the content is sane.
     let packets: Vec<Packet> =
-        PacketPile::from_reader(Reader::from_file(&sig1).unwrap())
-        .unwrap().into_children().collect();
+        PacketPile::from_file(&sig1).unwrap().into_children().collect();
     assert_eq!(packets.len(), 5);
     if let Packet::OnePassSig(ref ops) = packets[0] {
         assert!(! ops.last());
@@ -355,8 +350,7 @@ fn sq_sign_detached() {
 
     // Check that the content is sane.
     let packets: Vec<Packet> =
-        PacketPile::from_reader(Reader::from_file(&sig).unwrap())
-        .unwrap().into_children().collect();
+        PacketPile::from_file(&sig).unwrap().into_children().collect();
     assert_eq!(packets.len(), 1);
     if let Packet::Signature(ref sig) = packets[0] {
         assert_eq!(sig.sigtype(), SignatureType::Binary);
@@ -400,8 +394,7 @@ fn sq_sign_detached_append() {
 
     // Check that the content is sane.
     let packets: Vec<Packet> =
-        PacketPile::from_reader(Reader::from_file(&sig).unwrap())
-        .unwrap().into_children().collect();
+        PacketPile::from_file(&sig).unwrap().into_children().collect();
     assert_eq!(packets.len(), 1);
     if let Packet::Signature(ref sig) = packets[0] {
         assert_eq!(sig.sigtype(), SignatureType::Binary);
@@ -455,8 +448,7 @@ fn sq_sign_detached_append() {
 
     // Check that the content is sane.
     let packets: Vec<Packet> =
-        PacketPile::from_reader(Reader::from_file(&sig).unwrap())
-        .unwrap().into_children().collect();
+        PacketPile::from_file(&sig).unwrap().into_children().collect();
     assert_eq!(packets.len(), 2);
     if let Packet::Signature(ref sig) = packets[0] {
         assert_eq!(sig.sigtype(), SignatureType::Binary);
@@ -510,8 +502,7 @@ fn sq_sign_detached_append() {
 
     // Check that the content is still sane.
     let packets: Vec<Packet> =
-        PacketPile::from_reader(Reader::from_file(&sig).unwrap())
-        .unwrap().into_children().collect();
+        PacketPile::from_file(&sig).unwrap().into_children().collect();
     assert_eq!(packets.len(), 2);
     if let Packet::Signature(ref sig) = packets[0] {
         assert_eq!(sig.sigtype(), SignatureType::Binary);
@@ -548,8 +539,7 @@ fn sq_sign_append_a_notarization() {
 
     // Check that the content is sane.
     let packets: Vec<Packet> =
-        PacketPile::from_reader(Reader::from_file(&sig0).unwrap())
-        .unwrap().into_children().collect();
+        PacketPile::from_file(&sig0).unwrap().into_children().collect();
     assert_eq!(packets.len(), 7);
     if let Packet::OnePassSig(ref ops) = packets[0] {
         assert!(! ops.last());
@@ -647,8 +637,7 @@ fn sq_sign_notarize() {
 
     // Check that the content is sane.
     let packets: Vec<Packet> =
-        PacketPile::from_reader(Reader::from_file(&sig0).unwrap())
-        .unwrap().into_children().collect();
+        PacketPile::from_file(&sig0).unwrap().into_children().collect();
     assert_eq!(packets.len(), 5);
     if let Packet::OnePassSig(ref ops) = packets[0] {
         assert!(ops.last());
@@ -725,8 +714,7 @@ fn sq_sign_notarize_a_notarization() {
 
     // Check that the content is sane.
     let packets: Vec<Packet> =
-        PacketPile::from_reader(Reader::from_file(&sig0).unwrap())
-        .unwrap().into_children().collect();
+        PacketPile::from_file(&sig0).unwrap().into_children().collect();
     assert_eq!(packets.len(), 7);
     if let Packet::OnePassSig(ref ops) = packets[0] {
         assert!(ops.last());

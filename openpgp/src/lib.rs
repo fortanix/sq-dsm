@@ -111,9 +111,6 @@ pub mod parse;
 pub mod tpk;
 pub mod serialize;
 
-mod reader;
-pub use reader::Reader;
-
 mod packet_pile;
 pub mod message;
 

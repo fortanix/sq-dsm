@@ -45,9 +45,7 @@ fn main() {
     // Create a parser for the message to be notarized.
     let mut input = io::stdin();
     let mut ppr
-        = openpgp::parse::PacketParser::from_reader(
-            openpgp::Reader::from_reader(&mut input)
-                .expect("Failed to build reader"))
+        = openpgp::parse::PacketParser::from_reader(&mut input)
         .expect("Failed to build parser");
 
     while let PacketParserResult::Some(mut pp) = ppr {
