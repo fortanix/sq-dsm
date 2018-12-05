@@ -117,11 +117,13 @@ impl Literal {
     /// only the literal data packet's body is protected, not the
     /// meta-data.  As such, this field should not be used.
     pub fn set_filename_from_bytes(&mut self, filename: &[u8]) -> Result<()> {
-        if filename.len() > 255 {
-            return
-                Err(Error::InvalidArgument("filename too long".into()).into());
-        }
-        self.filename = Some(filename.to_vec());
+        self.filename = match filename.len() {
+            0 => None,
+            1...255 => Some(filename.to_vec()),
+            n => return
+                Err(Error::InvalidArgument(
+                    format!("filename too long: {} bytes", n)).into()),
+        };
         Ok(())
     }
 
@@ -135,13 +137,7 @@ impl Literal {
     /// only the literal data packet's body is protected, not the
     /// meta-data.  As such, this field should not be used.
     pub fn set_filename(&mut self, filename: &str) -> Result<()> {
-        let filename = filename.as_bytes().to_vec();
-        if filename.len() > 255 {
-            return
-                Err(Error::InvalidArgument("filename too long".into()).into());
-        }
-        self.filename = Some(filename);
-        Ok(())
+        self.set_filename_from_bytes(filename.as_bytes())
     }
 
     /// Gets the literal packet's date field.
