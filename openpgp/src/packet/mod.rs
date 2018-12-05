@@ -348,7 +348,7 @@ impl Common {
     /// descendants.
     pub fn set_body(&mut self, data: Vec<u8>) {
         self.children = None;
-        self.body = Some(data);
+        self.body = if data.len() == 0 { None } else { Some(data) };
     }
 }
 

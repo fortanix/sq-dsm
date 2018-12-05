@@ -86,7 +86,7 @@ impl Literal {
 
     /// Sets the Literal packet's body to the provided byte string.
     pub fn set_body(&mut self, data: Vec<u8>) {
-        self.common.body = Some(data);
+        self.common.set_body(data);
     }
 
     /// Gets the Literal packet's content disposition.
