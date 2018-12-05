@@ -24,6 +24,24 @@ pub struct UserID {
     pub(crate) value: Vec<u8>,
 }
 
+impl From<Vec<u8>> for UserID {
+    fn from(u: Vec<u8>) -> Self {
+        UserID {
+            common: Default::default(),
+            value: u,
+        }
+    }
+}
+
+impl<'a> From<&'a str> for UserID {
+    fn from(u: &'a str) -> Self {
+        let b = u.as_bytes();
+        let mut v = Vec::with_capacity(b.len());
+        v.extend_from_slice(b);
+        v.into()
+    }
+}
+
 impl fmt::Display for UserID {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let userid = String::from_utf8_lossy(&self.value[..]);
