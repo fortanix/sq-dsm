@@ -29,10 +29,10 @@ pub struct PartialBodyFilter<'a, C: 'a> {
 
     // The maximum size of a partial body chunk.  The standard allows
     // for chunks up to 1 GB in size.
-    max_chunk_size: u32,
+    max_chunk_size: usize,
 }
 
-const PARTIAL_BODY_FILTER_MAX_CHUNK_SIZE : u32 = 1 << 30;
+const PARTIAL_BODY_FILTER_MAX_CHUNK_SIZE : usize = 1 << 30;
 
 // The amount to buffer before flushing.  If this is small, we get
 // lots of small partial body packets, which is annoying.
@@ -44,7 +44,7 @@ impl<'a, C: 'a> PartialBodyFilter<'a, C> {
                -> writer::Stack<'a, C> {
         Self::with_limits(inner, cookie,
                           PARTIAL_BODY_FILTER_BUFFER_THRESHOLD,
-                          PARTIAL_BODY_FILTER_MAX_CHUNK_SIZE as usize)
+                          PARTIAL_BODY_FILTER_MAX_CHUNK_SIZE)
             .expect("safe limits")
     }
 
@@ -63,7 +63,7 @@ impl<'a, C: 'a> PartialBodyFilter<'a, C> {
                 "max_chunk_size is not a power of two".into()).into());
         }
 
-        if max_chunk_size > PARTIAL_BODY_FILTER_MAX_CHUNK_SIZE as usize {
+        if max_chunk_size > PARTIAL_BODY_FILTER_MAX_CHUNK_SIZE {
             return Err(Error::InvalidArgument(
                 "max_chunk_size exceeds limit".into()).into());
         }
@@ -73,7 +73,7 @@ impl<'a, C: 'a> PartialBodyFilter<'a, C> {
             cookie: cookie,
             buffer: Vec::with_capacity(buffer_threshold),
             buffer_threshold: buffer_threshold,
-            max_chunk_size: max_chunk_size as u32,
+            max_chunk_size: max_chunk_size,
         })))
     }
 
@@ -82,7 +82,7 @@ impl<'a, C: 'a> PartialBodyFilter<'a, C> {
     //
     // If `done` is set, then flushes any data, and writes the end of
     // the partial body encoding.
-    fn write_out(&mut self, other: &[u8], done: bool)
+    fn write_out(&mut self, mut other: &[u8], done: bool)
                  -> io::Result<()> {
         if self.inner.is_none() {
             return Ok(());
@@ -122,48 +122,38 @@ impl<'a, C: 'a> PartialBodyFilter<'a, C> {
             self.buffer.clear();
             inner.write_all(other)?;
         } else {
-            // Write a partial body length header.
-            let chunk_size_log2 =
-                super::log2(cmp::min(self.max_chunk_size,
-                                     self.buffer_threshold as u32));
-            let chunk_size = (1 as usize) << chunk_size_log2;
+            while self.buffer.len() + other.len() > self.buffer_threshold {
 
-            let size = BodyLength::Partial(chunk_size as u32);
-            let mut size_byte = [0u8];
-            size.serialize(&mut io::Cursor::new(&mut size_byte[..]))
-                .expect("size should be representable");
-            let size_byte = size_byte[0];
+                // Write a partial body length header.
+                let chunk_size_log2 =
+                    super::log2(cmp::min(self.max_chunk_size,
+                                         self.buffer.len() + other.len())
+                                as u32);
+                let chunk_size = (1usize) << chunk_size_log2;
 
-            // The first pass we process self.buffer, the second pass
-            // we process other.
-            for i in 0..2 {
-                let mut rest = Vec::new();
+                let size = BodyLength::Partial(chunk_size as u32);
+                let mut size_byte = [0u8];
+                size.serialize(&mut io::Cursor::new(&mut size_byte[..]))
+                    .expect("size should be representable");
+                let size_byte = size_byte[0];
 
-                for chunk in self.buffer.chunks(chunk_size) {
-                    if chunk.len() < chunk_size {
-                        // We don't have enough for a whole chunk.
-                        rest = chunk.to_vec();
-                        break;
-                    }
+                // Write out the chunk...
+                write_byte(&mut inner, size_byte)?;
 
-                    // Write out the chunk.
-                    write_byte(&mut inner, size_byte)?;
-                    inner.write_all(chunk)?;
+                // ... from our buffer first...
+                let l = cmp::min(self.buffer.len(), chunk_size);
+                inner.write_all(&self.buffer[..l])?;
+                self.buffer.drain(..l);
+
+                // ... then from other.
+                if chunk_size > l {
+                    inner.write_all(&other[..chunk_size - l])?;
+                    other = &other[chunk_size - l..];
                 }
-
-                // In between, we have to see if we have a whole
-                // chunk.
-                if i == 0 && rest.len() + other.len() >= chunk_size {
-                    write_byte(&mut inner, size_byte)?;
-                    inner.write_all(&rest[..])?;
-                    let amount = chunk_size - rest.len();
-
-                    inner.write_all(&other[..amount])?;
-                    rest = other[amount..].to_vec();
-                }
-
-                self.buffer = rest;
             }
+
+            self.buffer.extend_from_slice(other);
+            assert!(self.buffer.len() <= self.buffer_threshold);
         }
 
         Ok(())
@@ -173,7 +163,7 @@ impl<'a, C: 'a> PartialBodyFilter<'a, C> {
 impl<'a, C: 'a> io::Write for PartialBodyFilter<'a, C> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         // If we can write out a chunk, avoid an extra copy.
-        if buf.len() >= self.buffer.capacity() - self.buffer.len() {
+        if buf.len() >= self.buffer_threshold - self.buffer.len() {
             self.write_out(buf, false)?;
         } else {
             self.buffer.append(buf.to_vec().as_mut());
@@ -237,5 +227,69 @@ impl<'a, C: 'a> writer::Stackable<'a, C> for PartialBodyFilter<'a, C> {
     }
     fn cookie_mut(&mut self) -> &mut C {
         &mut self.cookie
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use std::io::Write;
+    use super::*;
+    use serialize::stream::Message;
+
+    #[test]
+    fn basic() {
+        let mut buf = Vec::new();
+        {
+            let message = Message::new(&mut buf);
+            let mut pb = PartialBodyFilter::with_limits(
+                message, Default::default(),
+                /* buffer_threshold: */ 16,
+                /*   max_chunk_size: */ 16)
+                .unwrap();
+            pb.write_all(b"0123").unwrap();
+            pb.write_all(b"4567").unwrap();
+        }
+        assert_eq!(&buf,
+                   &[8, // no chunking
+                     0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37]);
+    }
+
+    #[test]
+    fn no_avoidable_chunking() {
+        let mut buf = Vec::new();
+        {
+            let message = Message::new(&mut buf);
+            let mut pb = PartialBodyFilter::with_limits(
+                message, Default::default(),
+                /* buffer_threshold: */ 4,
+                /*   max_chunk_size: */ 16)
+                .unwrap();
+            pb.write_all(b"01234567").unwrap();
+        }
+        assert_eq!(&buf,
+                   &[0xe0 + 3, // first chunk
+                     0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37,
+                     0, // rest
+                   ]);
+    }
+
+    #[test]
+    fn write_exceeding_buffer_threshold() {
+        let mut buf = Vec::new();
+        {
+            let message = Message::new(&mut buf);
+            let mut pb = PartialBodyFilter::with_limits(
+                message, Default::default(),
+                /* buffer_threshold: */ 8,
+                /*   max_chunk_size: */ 16)
+                .unwrap();
+            pb.write_all(b"012345670123456701234567").unwrap();
+        }
+        assert_eq!(&buf,
+                   &[0xe0 + 4, // first chunk
+                     0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37,
+                     0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37,
+                     8, // rest
+                     0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37]);
     }
 }
