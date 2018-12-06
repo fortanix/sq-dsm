@@ -40,16 +40,41 @@ const PARTIAL_BODY_FILTER_BUFFER_THRESHOLD : usize = 4 * 1024 * 1024;
 
 impl<'a, C: 'a> PartialBodyFilter<'a, C> {
     /// Returns a new partial body encoder.
-    pub fn new(inner: writer::Stack<'a, C>, cookie: C) -> writer::Stack<'a, C> {
-        let buffer_threshold = PARTIAL_BODY_FILTER_BUFFER_THRESHOLD;
-        let max_chunk_size = PARTIAL_BODY_FILTER_MAX_CHUNK_SIZE;
-        writer::Stack::from(Box::new(PartialBodyFilter {
+    pub fn new(inner: writer::Stack<'a, C>, cookie: C)
+               -> writer::Stack<'a, C> {
+        Self::with_limits(inner, cookie,
+                          PARTIAL_BODY_FILTER_BUFFER_THRESHOLD,
+                          PARTIAL_BODY_FILTER_MAX_CHUNK_SIZE as usize)
+            .expect("safe limits")
+    }
+
+    /// Returns a new partial body encoder with the given limits.
+    pub fn with_limits(inner: writer::Stack<'a, C>, cookie: C,
+                       buffer_threshold: usize,
+                       max_chunk_size: usize)
+                       -> Result<writer::Stack<'a, C>> {
+        if buffer_threshold.count_ones() != 1 {
+            return Err(Error::InvalidArgument(
+                "buffer_threshold is not a power of two".into()).into());
+        }
+
+        if max_chunk_size.count_ones() != 1 {
+            return Err(Error::InvalidArgument(
+                "max_chunk_size is not a power of two".into()).into());
+        }
+
+        if max_chunk_size > PARTIAL_BODY_FILTER_MAX_CHUNK_SIZE as usize {
+            return Err(Error::InvalidArgument(
+                "max_chunk_size exceeds limit".into()).into());
+        }
+
+        Ok(writer::Stack::from(Box::new(PartialBodyFilter {
             inner: Some(inner.into()),
             cookie: cookie,
-            buffer: Vec::with_capacity(buffer_threshold as usize),
+            buffer: Vec::with_capacity(buffer_threshold),
             buffer_threshold: buffer_threshold,
-            max_chunk_size: max_chunk_size,
-        }))
+            max_chunk_size: max_chunk_size as u32,
+        })))
     }
 
     // Writes out any full chunks between `self.buffer` and `other`.
