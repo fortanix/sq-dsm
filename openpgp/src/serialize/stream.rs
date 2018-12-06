@@ -1303,8 +1303,7 @@ mod test {
     #[cfg(feature = "compression-deflate")]
     #[test]
     fn stream_big() {
-        let mut zeros = Vec::<u8>::new();
-        zeros.resize(4 * 1024, 0);
+        let zeros = vec![0; 1024 * 1024 * 4];
         let mut o = vec![];
         {
             let m = Message::new(&mut o);
@@ -1312,11 +1311,11 @@ mod test {
                                     CompressionAlgorithm::BZip2).unwrap();
             let mut ls = LiteralWriter::new(c, T, None, None).unwrap();
             // Write 64 megabytes of zeroes.
-            for _ in 0 .. 16 * 1024 {
+            for _ in 0 .. 16 {
                 ls.write_all(&zeros).unwrap();
             }
         }
-        assert!(o.len() < 100);
+        assert!(o.len() < 1024);
     }
 
     #[test]
