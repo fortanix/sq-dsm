@@ -74,6 +74,12 @@ impl Cookie {
     }
 }
 
+impl Default for Cookie {
+    fn default() -> Self {
+        Cookie::new(0)
+    }
+}
+
 /// Streams an OpenPGP message.
 ///
 /// Wraps a `std::io::Write`r for use with the streaming subsystem.
