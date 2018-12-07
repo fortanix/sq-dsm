@@ -1251,7 +1251,7 @@ impl Serialize for PacketPile {
 }
 
 #[cfg(test)]
-mod serialize_test {
+mod test {
     use std::fs::File;
     use std::io::Read;
 

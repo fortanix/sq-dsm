@@ -432,7 +432,7 @@ impl<'a> PacketParserBuilder<'a> {
 }
 
 #[cfg(test)]
-mod message_test {
+mod test {
     use super::*;
 
     use constants::CompressionAlgorithm;

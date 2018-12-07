@@ -39,7 +39,7 @@ impl Key {
 }
 
 #[cfg(test)]
-mod fingerprint_test {
+mod test {
     use super::*;
 
     use Packet;

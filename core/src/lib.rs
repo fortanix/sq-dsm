@@ -458,7 +458,7 @@ macro_rules! assert_match {
 }
 
 #[cfg(test)]
-mod network_policy_test {
+mod test {
     use super::{Error, NetworkPolicy};
 
     fn ok(policy: NetworkPolicy, required: NetworkPolicy) {

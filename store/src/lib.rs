@@ -1211,7 +1211,7 @@ impl From<capnp::NotInSchema> for Error {
 }
 
 #[cfg(test)]
-mod store_test {
+mod test {
     use super::{core, Store, Error, TPK, Fingerprint};
 
     macro_rules! bytes {
