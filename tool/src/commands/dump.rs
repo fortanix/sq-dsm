@@ -33,7 +33,7 @@ pub fn dump(input: &mut io::Read, output: &mut io::Write, mpis: bool, hex: bool)
         };
 
         let header = pp.header.clone();
-        let map = pp.map.take();
+        let map = pp.take_map();
 
         let (packet, ppr_) = pp.recurse()?;
         ppr = ppr_;

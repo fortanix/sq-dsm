@@ -2157,7 +2157,7 @@ pub struct PacketParser<'a> {
     decrypted: bool,
 
     /// A map of this packet.
-    pub map: Option<map::Map>,
+    map: Option<map::Map>,
 
     state: PacketParserState,
 }
@@ -3031,6 +3031,16 @@ impl <'a> PacketParser<'a> {
         self.finished = true;
 
         Ok(&mut self.packet)
+    }
+
+    /// Returns a reference to the map (if any is written).
+    pub fn map(&self) -> Option<&map::Map> {
+        self.map.as_ref()
+    }
+
+    /// Takes the map (if any is written).
+    pub fn take_map(&mut self) -> Option<map::Map> {
+        self.map.take()
     }
 }
 

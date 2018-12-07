@@ -114,7 +114,7 @@ impl<'a> DecryptionHelper for Helper<'a> {
             dumper.packet(&mut io::stderr(),
                           pp.recursion_depth() as usize,
                           pp.header.clone(), pp.packet.clone(),
-                          pp.map.clone(), None)?;
+                          pp.map().map(|m| m.clone()), None)?;
         }
         Ok(())
     }

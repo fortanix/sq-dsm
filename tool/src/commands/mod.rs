@@ -595,7 +595,7 @@ pub fn split(input: &mut io::Read, prefix: &str)
     let mut pos = vec![0];
 
     while let PacketParserResult::Some(pp) = ppr {
-        if let Some(ref map) = pp.map {
+        if let Some(ref map) = pp.map() {
             let filename = format!(
                 "{}{}--{:?}", prefix,
                 pos.iter().map(|n| format!("{}", n))

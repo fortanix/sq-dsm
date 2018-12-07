@@ -65,8 +65,8 @@ impl Map {
     /// let msg = b"\xcb\x12t\x00\x00\x00\x00\x00Hello world.";
     /// let ppo = PacketParserBuilder::from_bytes(msg)?
     ///     .map(true).finalize()?;
-    /// let map = ppo.unwrap().map.unwrap();
-    /// assert_eq!(map.iter().map(|f| (f.name, f.data)).collect::<Vec<(&str, &[u8])>>(),
+    /// assert_eq!(ppo.unwrap().map().unwrap().iter()
+    ///            .map(|f| (f.name, f.data)).collect::<Vec<(&str, &[u8])>>(),
     ///            [("frame", &b"\xcb\x12"[..]),
     ///             ("format", b"t"),
     ///             ("filename_len", b"\x00"),
