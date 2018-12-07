@@ -113,7 +113,7 @@ impl<'a> DecryptionHelper for Helper<'a> {
         if let Some(dumper) = self.dumper.as_mut() {
             dumper.packet(&mut io::stderr(),
                           pp.recursion_depth() as usize,
-                          pp.header.clone(), pp.packet.clone(),
+                          pp.header().clone(), pp.packet.clone(),
                           pp.map().map(|m| m.clone()), None)?;
         }
         Ok(())

@@ -2133,7 +2133,7 @@ impl PacketParserState {
 /// # }
 pub struct PacketParser<'a> {
     /// The current packet's header.
-    pub header: Header,
+    header: Header,
 
     /// The packet that is being parsed.
     pub packet: Packet,
@@ -3031,6 +3031,11 @@ impl <'a> PacketParser<'a> {
         self.finished = true;
 
         Ok(&mut self.packet)
+    }
+
+    /// Returns a reference to the current packet's header.
+    pub fn header(&self) -> &Header {
+        &self.header
     }
 
     /// Returns a reference to the map (if any is written).
