@@ -1,0 +1,127 @@
+/// Generates a key, then encrypts and decrypts a message.
+
+use std::io::{self, Write};
+
+extern crate sequoia_openpgp as openpgp;
+use openpgp::serialize::stream::*;
+use openpgp::parse::stream::*;
+
+const MESSAGE: &'static str = "дружба";
+
+fn main() {
+    // Generate a key.
+    let key = generate().unwrap();
+
+    // Encrypt the message.
+    let mut ciphertext = Vec::new();
+    encrypt(&mut ciphertext, MESSAGE, &key).unwrap();
+
+    // Decrypt the message.
+    let mut plaintext = Vec::new();
+    decrypt(&mut plaintext, &ciphertext, &key).unwrap();
+
+    assert_eq!(MESSAGE.as_bytes(), &plaintext[..]);
+}
+
+/// Generates an encryption-capable key.
+fn generate() -> openpgp::Result<openpgp::TPK> {
+    let (tpk, _revocation) = openpgp::tpk::TPKBuilder::default()
+        .add_userid("someone@example.org")
+        .add_encryption_subkey()
+        .generate()?;
+
+    // Save the revocation certificate somewhere.
+
+    Ok(tpk)
+}
+
+/// Encrypts the given message.
+fn encrypt(sink: &mut Write, plaintext: &str, recipient: &openpgp::TPK)
+           -> openpgp::Result<()> {
+    // Start streaming an OpenPGP message.
+    let message = Message::new(sink);
+
+    // We want to encrypt a literal data packet.
+    let encryptor = Encryptor::new(message,
+                                   &[], // No symmetric encryption.
+                                   &[recipient],
+                                   EncryptionMode::ForTransport)?;
+
+    // Emit a literal data packet.
+    let mut literal_writer = LiteralWriter::new(
+        encryptor, openpgp::constants::DataFormat::Binary, None, None)?;
+
+    // Encrypt the data.
+    literal_writer.write_all(plaintext.as_bytes())?;
+
+    // Finalize the OpenPGP message to make sure that all data is
+    // written.
+    literal_writer.finalize()?;
+
+    Ok(())
+}
+
+/// Decrypts the given message.
+fn decrypt(sink: &mut Write, ciphertext: &[u8], recipient: &openpgp::TPK)
+           -> openpgp::Result<()> {
+    // Make a helper that that feeds the recipient's secret key to the
+    // decryptor.
+    let helper = Helper {
+        secret: recipient,
+    };
+
+    // Now, create a decryptor with a helper using the given TPKs.
+    let mut decryptor = Decryptor::from_bytes(ciphertext, helper)?;
+
+    // Decrypt the data.
+    io::copy(&mut decryptor, sink)?;
+
+    Ok(())
+}
+
+struct Helper<'a> {
+    secret: &'a openpgp::TPK,
+}
+
+impl<'a> VerificationHelper for Helper<'a> {
+    fn get_public_keys(&mut self, _ids: &[openpgp::KeyID])
+                       -> openpgp::Result<Vec<openpgp::TPK>> {
+        // Return public keys for signature verification here.
+        Ok(Vec::new())
+    }
+
+    fn check(&mut self, _sigs: Vec<Vec<VerificationResult>>)
+             -> openpgp::Result<()> {
+        // Implement your signature verification policy here.
+        Ok(())
+    }
+}
+
+impl<'a> DecryptionHelper for Helper<'a> {
+    fn get_secret(&mut self,
+                  _pkesks: &[&openpgp::packet::PKESK],
+                  _skesks: &[&openpgp::packet::SKESK])
+                  -> openpgp::Result<Option<Secret>>
+    {
+        // The encryption key is the first and only subkey.
+        let key = self.secret.subkeys().nth(0)
+            .map(|binding| binding.subkey().clone())
+            .unwrap();
+
+        // The secret key is not encrypted.
+        let secret =
+            if let Some(openpgp::SecretKey::Unencrypted {
+                ref mpis,
+            }) = key.secret() {
+                mpis.clone()
+            } else {
+                unreachable!()
+            };
+
+        Ok(Some(Secret::Asymmetric {
+            identity: self.secret.fingerprint(),
+            key: key,
+            secret: secret,
+        }))
+    }
+}
