@@ -7,12 +7,13 @@ extern crate prettytable;
 extern crate rpassword;
 extern crate tempfile;
 extern crate time;
+extern crate promptly;
 
 use failure::ResultExt;
 use prettytable::{Table, Cell, Row};
 use std::fs::{File, OpenOptions};
 use std::io;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::exit;
 
 extern crate sequoia_openpgp as openpgp;
@@ -37,12 +38,30 @@ fn open_or_stdin(f: Option<&str>) -> Result<Box<io::Read>, failure::Error> {
     }
 }
 
-fn create_or_stdout(f: Option<&str>) -> Result<Box<io::Write>, failure::Error> {
+fn create_or_stdout(f: Option<&str>, force: bool)
+    -> Result<Box<io::Write>, failure::Error> {
+    use promptly::prompt_default;
+
     match f {
-        Some(f) => Ok(Box::new(OpenOptions::new().write(true).create_new(true)
-                               .open(f)
-                               .context("Failed to create output file")?)),
         None => Ok(Box::new(io::stdout())),
+        Some(p) if p == "-" => Ok(Box::new(io::stdout())),
+        Some(f) => {
+            let p = Path::new(f);
+            let path_ok = force || !p.exists() ||
+                prompt_default(format!("{} exists already. Overwrite?", f), false);
+
+            if path_ok {
+                Ok(Box::new(OpenOptions::new()
+                            .write(true)
+                            .truncate(true)
+                            .create(true)
+                            .open(f)
+                            .context("Failed to create output file")?))
+            } else {
+                eprintln!("Cannot continue");
+                exit(1);
+            }
+        }
     }
 }
 
@@ -83,6 +102,7 @@ fn real_main() -> Result<(), failure::Error> {
             exit(1);
         },
     };
+    let force = matches.is_present("force");
     let domain_name =
         matches.value_of("domain").unwrap_or("org.sequoia-pgp.sq");
     let mut builder = Context::configure(domain_name)
@@ -96,7 +116,7 @@ fn real_main() -> Result<(), failure::Error> {
     match matches.subcommand() {
         ("decrypt",  Some(m)) => {
             let mut input = open_or_stdin(m.value_of("input"))?;
-            let mut output = create_or_stdout(m.value_of("output"))?;
+            let mut output = create_or_stdout(m.value_of("output"), force)?;
             let signatures: usize =
                 m.value_of("signatures").unwrap_or("0").parse()?;
             let tpks = m.values_of("public-key-file")
@@ -114,7 +134,7 @@ fn real_main() -> Result<(), failure::Error> {
         },
         ("encrypt",  Some(m)) => {
             let mut input = open_or_stdin(m.value_of("input"))?;
-            let mut output = create_or_stdout(m.value_of("output"))?;
+            let mut output = create_or_stdout(m.value_of("output"), force)?;
             let mut output = if ! m.is_present("binary") {
                 Box::new(armor::Writer::new(&mut output,
                                             armor::Kind::Message,
@@ -148,11 +168,11 @@ fn real_main() -> Result<(), failure::Error> {
                 .map(load_tpks)
                 .unwrap_or(Ok(vec![]))?;
             commands::sign(&mut input, output, secrets, detached, binary,
-                           append, notarize)?;
+                           append, notarize, force)?;
         },
         ("verify",  Some(m)) => {
             let mut input = open_or_stdin(m.value_of("input"))?;
-            let mut output = create_or_stdout(m.value_of("output"))?;
+            let mut output = create_or_stdout(m.value_of("output"), force)?;
             let mut detached = if let Some(f) = m.value_of("detached") {
                 Some(File::open(f)?)
             } else {
@@ -172,14 +192,14 @@ fn real_main() -> Result<(), failure::Error> {
 
         ("enarmor",  Some(m)) => {
             let mut input = open_or_stdin(m.value_of("input"))?;
-            let mut output = create_or_stdout(m.value_of("output"))?;
+            let mut output = create_or_stdout(m.value_of("output"), force)?;
             let mut filter = armor::Writer::new(&mut output, armor::Kind::File,
                                                 &[])?;
             io::copy(&mut input, &mut filter)?;
         },
         ("dearmor",  Some(m)) => {
             let mut input = open_or_stdin(m.value_of("input"))?;
-            let mut output = create_or_stdout(m.value_of("output"))?;
+            let mut output = create_or_stdout(m.value_of("output"), force)?;
             let mut filter = armor::Reader::new(&mut input, None);
             io::copy(&mut filter, &mut output)?;
         },
@@ -187,7 +207,7 @@ fn real_main() -> Result<(), failure::Error> {
             match m.subcommand() {
                 ("decode",  Some(m)) => {
                     let mut input = open_or_stdin(m.value_of("input"))?;
-                    let mut output = create_or_stdout(m.value_of("output"))?;
+                    let mut output = create_or_stdout(m.value_of("output"), force)?;
                     let ac = autocrypt::AutocryptHeaders::from_reader(input)?;
                     for h in &ac.headers {
                         if let Some(ref tpk) = h.key {
@@ -206,7 +226,7 @@ fn real_main() -> Result<(), failure::Error> {
 
         ("dump",  Some(m)) => {
             let mut input = open_or_stdin(m.value_of("input"))?;
-            let mut output = create_or_stdout(m.value_of("output"))?;
+            let mut output = create_or_stdout(m.value_of("output"), force)?;
             commands::dump(&mut input, &mut output,
                            m.is_present("mpis"), m.is_present("hex"))?;
         },
@@ -247,7 +267,7 @@ fn real_main() -> Result<(), failure::Error> {
                     }
                     let id = id.unwrap();
 
-                    let mut output = create_or_stdout(m.value_of("output"))?;
+                    let mut output = create_or_stdout(m.value_of("output"), force)?;
                     let mut output = if ! m.is_present("binary") {
                         Box::new(armor::Writer::new(&mut output,
                                                     armor::Kind::PublicKey,
@@ -298,7 +318,7 @@ fn real_main() -> Result<(), failure::Error> {
                 ("export",  Some(m)) => {
                     let tpk = store.lookup(m.value_of("label").unwrap())?.tpk()?;
 
-                    let mut output = create_or_stdout(m.value_of("output"))?;
+                    let mut output = create_or_stdout(m.value_of("output"), force)?;
                     let mut output = if ! m.is_present("binary") {
                         Box::new(armor::Writer::new(&mut output,
                                                     armor::Kind::PublicKey,
@@ -401,8 +421,6 @@ fn real_main() -> Result<(), failure::Error> {
             use openpgp::packet::KeyFlags;
             use openpgp::armor::{Writer, Kind};
             use openpgp::serialize::Serialize;
-            use std::io;
-            use std::fs::File;
 
             let mut builder = TPKBuilder::default();
 
@@ -491,25 +509,18 @@ fn real_main() -> Result<(), failure::Error> {
                             exit(1);
                         }
                     };
-                let mut stdout = io::stdout();
 
                 // write out key
-                if key_path == "-" {
-                    let mut w = Writer::new(&mut stdout, Kind::SecretKey, &[])?;
-                    tsk.serialize(&mut w)?;
-                } else {
-                    let mut fd = File::create(key_path)?;
-                    let mut w = Writer::new(&mut fd, Kind::SecretKey, &[])?;
+                {
+                    let w = create_or_stdout(Some(&key_path), force)?;
+                    let mut w = Writer::new(w, Kind::SecretKey, &[])?;
                     tsk.serialize(&mut w)?;
                 }
 
                 // write out rev cert
-                if rev_path == "-" {
-                    let mut w = Writer::new(&mut stdout, Kind::Signature, &[])?;
-                    rev.serialize(&mut w)?;
-                } else {
-                    let mut fd = File::create(rev_path)?;
-                    let mut w = Writer::new(&mut fd, Kind::Signature, &[])?;
+                {
+                    let w = create_or_stdout(Some(&rev_path), force)?;
+                    let mut w = Writer::new(w, Kind::Signature, &[])?;
                     rev.serialize(&mut w)?;
                 }
             } else {

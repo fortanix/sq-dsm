@@ -93,19 +93,20 @@ pub fn encrypt(store: &mut store::Store,
 
 pub fn sign(input: &mut io::Read, output_path: Option<&str>,
             secrets: Vec<openpgp::TPK>, detached: bool, binary: bool,
-            append: bool, notarize: bool)
+            append: bool, notarize: bool, force: bool)
             -> Result<()> {
     match (detached, append|notarize) {
         (_, false) | (true, true) =>
-            sign_data(input, output_path, secrets, detached, binary, append),
+            sign_data(input, output_path, secrets, detached, binary, append,
+                      force),
         (false, true) =>
-            sign_message(input, output_path, secrets, binary, notarize),
+            sign_message(input, output_path, secrets, binary, notarize, force),
     }
 }
 
 fn sign_data(input: &mut io::Read, output_path: Option<&str>,
              secrets: Vec<openpgp::TPK>, detached: bool, binary: bool,
-             append: bool)
+             append: bool, force: bool)
              -> Result<()> {
     let (mut output, prepend_sigs, tmp_path):
     (Box<io::Write>, Vec<Signature>, Option<PathBuf>) =
@@ -137,7 +138,7 @@ fn sign_data(input: &mut io::Read, output_path: Option<&str>,
             let tmp_path = tmp_file.path().into();
             (Box::new(tmp_file), sigs, Some(tmp_path))
         } else {
-            (create_or_stdout(output_path)?, Vec::new(), None)
+            (create_or_stdout(output_path, force)?, Vec::new(), None)
         };
 
     let mut output = if ! binary {
@@ -195,9 +196,10 @@ fn sign_data(input: &mut io::Read, output_path: Option<&str>,
 }
 
 fn sign_message(input: &mut io::Read, output_path: Option<&str>,
-                secrets: Vec<openpgp::TPK>, binary: bool, notarize: bool)
+                secrets: Vec<openpgp::TPK>, binary: bool, notarize: bool,
+                force: bool)
              -> Result<()> {
-    let mut output = create_or_stdout(output_path)?;
+    let mut output = create_or_stdout(output_path, force)?;
     let output = if ! binary {
         Box::new(armor::Writer::new(&mut output,
                                     armor::Kind::Message,
