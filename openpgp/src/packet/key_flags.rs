@@ -1,8 +1,9 @@
 use std::fmt;
+use std::cmp;
 
 /// Describes how a key may be used, and stores additional
 /// information.
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone)]
 pub struct KeyFlags{
     can_certify: bool,
     can_sign: bool,
@@ -48,6 +49,34 @@ impl fmt::Debug for KeyFlags {
     }
 }
 
+impl PartialEq for KeyFlags {
+    fn eq(&self, other: &Self) -> bool {
+        self.partial_cmp(other) == Some(cmp::Ordering::Equal)
+    }
+}
+
+impl Eq for KeyFlags {}
+
+impl PartialOrd for KeyFlags {
+    fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
+        let mut a_bits = self.as_vec();
+        let mut b_bits = other.as_vec();
+        let len = cmp::max(a_bits.len(), b_bits.len());
+
+        while a_bits.len() < len { a_bits.push(0); }
+        while b_bits.len() < len { b_bits.push(0); }
+
+        if a_bits == b_bits {
+            Some(cmp::Ordering::Equal)
+        } else if a_bits.iter().zip(b_bits.iter()).all(|(a,b)| a & b == *a) {
+            Some(cmp::Ordering::Less)
+        } else if a_bits.iter().zip(b_bits.iter()).all(|(a,b)| a & b == *b) {
+            Some(cmp::Ordering::Greater)
+        } else {
+            None
+        }
+    }
+}
 
 impl KeyFlags {
     /// Creates a new instance from `bits`.
@@ -207,3 +236,32 @@ const KEY_FLAG_AUTHENTICATE: u8 = 0x20;
 /// The private component of this key may be in the possession of more
 /// than one person.
 const KEY_FLAG_GROUP_KEY: u8 = 0x80;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn ordering() {
+        let nothing = KeyFlags::default();
+        let enc = KeyFlags::default()
+            .set_encrypt_for_transport(true)
+            .set_encrypt_at_rest(true);
+        let sig = KeyFlags::default()
+            .set_sign(true);
+        let enc_and_auth = KeyFlags::default()
+            .set_encrypt_for_transport(true)
+            .set_encrypt_at_rest(true)
+            .set_authenticate(true);
+
+        assert!(nothing < enc);
+        assert!(sig >= nothing);
+        assert!(nothing <= enc);
+        assert!(enc < enc_and_auth);
+        assert!(enc_and_auth >= enc_and_auth);
+        assert!(enc <= enc_and_auth);
+        assert!(enc_and_auth >= enc);
+        assert!(!(enc < sig));
+        assert!(!(enc > sig));
+    }
+}
