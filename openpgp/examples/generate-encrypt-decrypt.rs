@@ -5,6 +5,7 @@ use std::io::{self, Write};
 extern crate sequoia_openpgp as openpgp;
 use openpgp::serialize::stream::*;
 use openpgp::parse::stream::*;
+use openpgp::packet::key::SecretKey;
 
 const MESSAGE: &'static str = "дружба";
 
@@ -110,7 +111,7 @@ impl<'a> DecryptionHelper for Helper<'a> {
 
         // The secret key is not encrypted.
         let secret =
-            if let Some(openpgp::SecretKey::Unencrypted {
+            if let Some(SecretKey::Unencrypted {
                 ref mpis,
             }) = key.secret() {
                 mpis.clone()

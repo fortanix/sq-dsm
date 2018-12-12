@@ -26,8 +26,8 @@ use self::openpgp::{
         Signature,
         PKESK,
         SKESK,
+        key::SecretKey,
     },
-    SecretKey,
     crypto::Password,
 };
 use self::openpgp::tpk::{

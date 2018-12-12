@@ -991,7 +991,7 @@ mod test {
 
     #[test]
     fn sign_verify() {
-        use SecretKey;
+        use packet::key::SecretKey;
 
         let hash_algo = HashAlgorithm::SHA512;
         let mut hash = vec![0; hash_algo.context().unwrap().digest_size()];

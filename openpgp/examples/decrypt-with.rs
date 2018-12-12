@@ -8,6 +8,7 @@ use std::io;
 extern crate failure;
 extern crate sequoia_openpgp as openpgp;
 
+use openpgp::packet::key::SecretKey;
 use openpgp::parse::stream::{
     Decryptor, DecryptionHelper, Secret, VerificationHelper, VerificationResult,
 };
@@ -55,7 +56,7 @@ impl Helper {
                     .unwrap_or(false)
                 {
                     // Only handle unencrypted secret keys.
-                    if let Some(openpgp::SecretKey::Unencrypted { ref mpis }) =
+                    if let Some(SecretKey::Unencrypted { ref mpis }) =
                         key.secret()
                     {
                         keys.insert(key.fingerprint().to_keyid(),

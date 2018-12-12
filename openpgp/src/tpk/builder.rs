@@ -227,7 +227,7 @@ impl TPKBuilder {
         -> Result<(Key, Signature)>
     {
         use SignatureType;
-        use SecretKey;
+        use packet::key::SecretKey;
 
         let key = cs.generate_key(&KeyFlags::default().set_certify(true))?;
         let mut sig = if uid.is_some() {
@@ -269,7 +269,7 @@ impl TPKBuilder {
         -> Result<(Key, Signature)>
     {
         use SignatureType;
-        use SecretKey;
+        use packet::key::SecretKey;
 
         let subkey = cs.generate_key(&blueprint.flags)?;
         let mut sig = signature::Builder::new(SignatureType::SubkeyBinding);
@@ -333,7 +333,7 @@ impl TPKBuilder {
 
     fn userid(uid: &UserID, key: &Key) -> Result<Signature> {
         use SignatureType;
-        use SecretKey;
+        use packet::key::SecretKey;
 
         let mut sig = signature::Builder::new(SignatureType::PositiveCertificate);
 

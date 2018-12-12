@@ -5,8 +5,8 @@ use rpassword;
 
 extern crate sequoia_openpgp as openpgp;
 use sequoia_core::Context;
-use openpgp::{Fingerprint, TPK, KeyID, SecretKey, Result};
-use openpgp::packet::{Key, Signature, PKESK, SKESK};
+use openpgp::{Fingerprint, TPK, KeyID, Result};
+use openpgp::packet::{Key, key::SecretKey, Signature, PKESK, SKESK};
 use openpgp::parse::PacketParser;
 use openpgp::parse::stream::{
     VerificationHelper, VerificationResult, DecryptionHelper, Decryptor, Secret,

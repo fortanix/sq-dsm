@@ -1,3 +1,5 @@
+//! Public key, public subkey, private key and private subkey packets.
+
 use std::fmt;
 use time;
 
@@ -304,7 +306,7 @@ impl SecretKey {
 mod tests {
     use packet::Tag;
     use TPK;
-    use SecretKey;
+    use packet::key::SecretKey;
     use std::path::PathBuf;
     use super::*;
     use PacketPile;
@@ -385,7 +387,7 @@ mod tests {
 
     #[test]
     fn encryption_roundtrip() {
-        use SecretKey;
+        use packet::key::SecretKey;
         use crypto::SessionKey;
         use packet::PKESK;
 

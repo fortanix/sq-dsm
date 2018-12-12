@@ -104,7 +104,6 @@ pub mod crypto;
 pub mod packet;
 use packet::{BodyLength, Header, Container};
 use packet::ctb::{CTB, CTBOld, CTBNew};
-pub use packet::key::SecretKey;
 
 pub mod parse;
 

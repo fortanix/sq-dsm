@@ -32,6 +32,7 @@ use packet::{
     Signature,
     OnePassSig,
     Key,
+    key::SecretKey,
     UserID,
     UserAttribute,
     Literal,

@@ -37,7 +37,7 @@ use {
     packet::AED,
     Packet,
     KeyID,
-    SecretKey,
+    packet::key::SecretKey,
     crypto::SessionKey,
     packet::PKESK,
 };

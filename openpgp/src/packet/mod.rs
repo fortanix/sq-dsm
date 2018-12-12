@@ -27,7 +27,7 @@ pub mod signature;
 pub use self::signature::Signature;
 mod one_pass_sig;
 pub use self::one_pass_sig::OnePassSig;
-pub(crate) mod key;
+pub mod key;
 pub use self::key::Key;
 mod userid;
 pub use self::userid::UserID;

@@ -14,6 +14,7 @@ use std::io::{self, Write};
 extern crate sequoia_openpgp as openpgp;
 use openpgp::serialize::stream::*;
 use openpgp::parse::stream::*;
+use openpgp::packet::key::SecretKey;
 
 const MESSAGE: &'static str = "дружба";
 
@@ -119,7 +120,7 @@ fn main() {
 #
 #         // The secret key is not encrypted.
 #         let secret =
-#             if let Some(openpgp::SecretKey::Unencrypted {
+#             if let Some(SecretKey::Unencrypted {
 #                 ref mpis,
 #             }) = key.secret() {
 #                 mpis.clone()
@@ -150,6 +151,7 @@ create it:
 # extern crate sequoia_openpgp as openpgp;
 # use openpgp::serialize::stream::*;
 # use openpgp::parse::stream::*;
+# use openpgp::packet::key::SecretKey;
 #
 # const MESSAGE: &'static str = "дружба";
 #
@@ -255,7 +257,7 @@ fn generate() -> openpgp::Result<openpgp::TPK> {
 #
 #         // The secret key is not encrypted.
 #         let secret =
-#             if let Some(openpgp::SecretKey::Unencrypted {
+#             if let Some(SecretKey::Unencrypted {
 #                 ref mpis,
 #             }) = key.secret() {
 #                 mpis.clone()
@@ -286,6 +288,7 @@ implements [`io::Write`], and we simply write the plaintext to it.
 # extern crate sequoia_openpgp as openpgp;
 # use openpgp::serialize::stream::*;
 # use openpgp::parse::stream::*;
+# use openpgp::packet::key::SecretKey;
 #
 # const MESSAGE: &'static str = "дружба";
 #
@@ -391,7 +394,7 @@ fn encrypt(sink: &mut Write, plaintext: &str, recipient: &openpgp::TPK)
 #
 #         // The secret key is not encrypted.
 #         let secret =
-#             if let Some(openpgp::SecretKey::Unencrypted {
+#             if let Some(SecretKey::Unencrypted {
 #                 ref mpis,
 #             }) = key.secret() {
 #                 mpis.clone()
@@ -436,6 +439,7 @@ Decrypted data can be read from this using [`io::Read`].
 # extern crate sequoia_openpgp as openpgp;
 # use openpgp::serialize::stream::*;
 # use openpgp::parse::stream::*;
+# use openpgp::packet::key::SecretKey;
 #
 # const MESSAGE: &'static str = "дружба";
 #
@@ -541,7 +545,7 @@ impl<'a> DecryptionHelper for Helper<'a> {
 
         // The secret key is not encrypted.
         let secret =
-            if let Some(openpgp::SecretKey::Unencrypted {
+            if let Some(SecretKey::Unencrypted {
                 ref mpis,
             }) = key.secret() {
                 mpis.clone()

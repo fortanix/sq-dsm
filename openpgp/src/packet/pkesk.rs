@@ -211,7 +211,7 @@ impl From<PKESK> for Packet {
 mod tests {
     use TPK;
     use PacketPile;
-    use SecretKey;
+    use packet::key::SecretKey;
     use Packet;
     use std::path::PathBuf;
 

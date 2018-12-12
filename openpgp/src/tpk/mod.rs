@@ -17,7 +17,7 @@ use {
     SignatureType,
     HashAlgorithm,
     packet::Tag,
-    SecretKey,
+    packet::key::SecretKey,
     packet::{signature, Signature},
     packet::Key,
     packet::UserID,
@@ -357,7 +357,7 @@ impl SubkeyBinding {
         use packet::KeyFlags;
         use constants::HashAlgorithm;
         use SignatureType;
-        use SecretKey;
+        use packet::key::SecretKey;
 
         let mut sig = signature::Builder::new(SignatureType::SubkeyBinding);
 
@@ -478,7 +478,7 @@ impl UserIDBinding {
         use packet::KeyFlags;
         use constants::HashAlgorithm;
         use SignatureType;
-        use SecretKey;
+        use packet::key::SecretKey;
 
         let mut sig = signature::Builder::new(SignatureType::PositiveCertificate);
 

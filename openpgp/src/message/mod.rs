@@ -410,6 +410,7 @@ mod tests {
     use packet::PKESK;
     use packet::SEIP;
     use packet::MDC;
+    use packet::key::SecretKey;
     use KeyID;
     use Container;
 
@@ -753,7 +754,7 @@ mod tests {
         let hash = ::constants::HashAlgorithm::SHA512;
         let key = ::packet::Key::new(PublicKeyAlgorithm::EdDSA).unwrap();
         let sec =
-            if let Some(::SecretKey::Unencrypted { ref mpis }) = key.secret() {
+            if let Some(SecretKey::Unencrypted { ref mpis }) = key.secret() {
                 mpis.clone()
             } else {
                 panic!()
@@ -868,7 +869,7 @@ mod tests {
         let hash = ::constants::HashAlgorithm::SHA512;
         let key = ::packet::Key::new(PublicKeyAlgorithm::EdDSA).unwrap();
         let sec =
-            if let Some(::SecretKey::Unencrypted { ref mpis }) = key.secret() {
+            if let Some(SecretKey::Unencrypted { ref mpis }) = key.secret() {
                 mpis.clone()
             } else {
                 panic!()

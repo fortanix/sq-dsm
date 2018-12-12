@@ -27,7 +27,7 @@ use {
     packet::PKESK,
     Result,
     crypto::Password,
-    SecretKey,
+    packet::key::SecretKey,
     crypto::SessionKey,
     packet::SKESK4,
     packet::SKESK5,
