@@ -998,7 +998,7 @@ impl<'a, I: Iterator<Item=Packet>> TPKParser<'a, I> {
                 (selfsigs, certifications, self_revs, other_revs)
             }
 
-            let primary_fp = tpk.primary.fingerprint();
+            let primary_fp = tpk.primary().fingerprint();
 
             // The parser puts all of the signatures on the
             // certifications field.  Split them now.
@@ -1124,7 +1124,7 @@ impl<'a, I: Iterator<Item=Packet>> Iterator for TPKParser<'a, I> {
 
 impl fmt::Display for TPK {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.primary.fingerprint())
+        write!(f, "{}", self.primary().fingerprint())
     }
 }
 
@@ -1670,7 +1670,7 @@ impl TPK {
 
         if self.bad.len() > 0 && TRACE {
             eprintln!("{}: ignoring {} bad self-signatures",
-                      self.primary.keyid(), self.bad.len());
+                      self.primary().keyid(), self.bad.len());
         }
 
         // Only keep user ids / user attributes / subkeys with at
@@ -2137,7 +2137,7 @@ impl TPK {
 
     /// Returns the TPK's fingerprint.
     pub fn fingerprint(&self) -> Fingerprint {
-        self.primary.fingerprint()
+        self.primary().fingerprint()
     }
 
     /// Converts the TPK into a sequence of packets.
@@ -2225,7 +2225,7 @@ impl TPK {
     /// If `other` is a different key, then nothing is merged into
     /// `self`, but `self` is still canonicalized.
     pub fn merge(mut self, mut other: TPK) -> Result<Self> {
-        if self.primary.fingerprint() != other.primary.fingerprint() {
+        if self.primary().fingerprint() != other.primary().fingerprint() {
             // The primary key is not the same.  There is nothing to
             // do.
             return Err(Error::InvalidArgument(
@@ -2290,7 +2290,7 @@ impl TPK {
 impl Serialize for TPK {
     /// Serializes the TPK.
     fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
-        self.primary.serialize(o, Tag::PublicKey)?;
+        self.primary().serialize(o, Tag::PublicKey)?;
 
         for s in self.primary_selfsigs.iter() {
             s.serialize(o)?;
