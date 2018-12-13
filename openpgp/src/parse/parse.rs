@@ -865,10 +865,8 @@ impl Unknown {
     fn parse<'a>(php: PacketHeaderParser<'a>) -> Result<PacketParser<'a>>
     {
         let tag = php.header.ctb.tag;
-        php.ok(Packet::Unknown(Unknown {
-            common: Default::default(),
-            tag: tag,
-        })).map(|pp| pp.set_decrypted(false))
+        php.ok(Packet::Unknown(Unknown::new(tag)))
+            .map(|pp| pp.set_decrypted(false))
     }
 }
 

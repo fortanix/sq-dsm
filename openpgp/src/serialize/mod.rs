@@ -506,7 +506,7 @@ impl Serialize for Unknown {
             &b""[..]
         };
 
-        CTB::new(self.tag).serialize(o)?;
+        CTB::new(self.tag()).serialize(o)?;
         BodyLength::Full(body.len() as u32).serialize(o)?;
         o.write_all(&body[..])?;
 
@@ -1323,8 +1323,8 @@ mod test {
         };
 
         let mut fail = false;
-        if expected.tag != got.tag {
-            eprintln!("Expected a {:?}, got a {:?}", expected.tag, got.tag);
+        if expected.tag() != got.tag() {
+            eprintln!("Expected a {:?}, got a {:?}", expected.tag(), got.tag());
             fail = true;
         }
         if expected_body != got_body {

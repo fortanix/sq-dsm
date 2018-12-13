@@ -13,7 +13,7 @@ pub struct Unknown {
     /// CTB packet header fields.
     pub(crate) common: packet::Common,
     /// Packet tag.
-    pub(crate) tag: Tag,
+    tag: Tag,
 }
 
 impl Unknown {

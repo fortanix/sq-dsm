@@ -284,7 +284,7 @@ impl Packet {
     pub fn tag(&self) -> packet::Tag {
         use packet::Tag;
         match self {
-            &Packet::Unknown(ref packet) => packet.tag,
+            &Packet::Unknown(ref packet) => packet.tag(),
             &Packet::Signature(_) => Tag::Signature,
             &Packet::OnePassSig(_) => Tag::OnePassSig,
             &Packet::PublicKey(_) => Tag::PublicKey,
