@@ -1416,14 +1416,8 @@ impl Key {
             unimplemented!()
         };
 
-        let key = Key {
-            common: Default::default(),
-            version: version,
-            creation_time: time::Tm::from_pgp(creation_time),
-            pk_algo: pk_algo,
-            mpis: mpis,
-            secret: secret,
-        };
+        let key = php_try!(Key::new_(time::Tm::from_pgp(creation_time),
+                                     pk_algo, mpis, secret));
 
         let tag = php.header.ctb.tag;
         php.ok(match tag {

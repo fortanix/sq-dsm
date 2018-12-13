@@ -773,7 +773,7 @@ impl SerializeKey for Key {
                 || tag == Tag::SecretSubkey);
         let have_secret_key =
             (tag == Tag::SecretKey || tag == Tag::SecretSubkey)
-            && self.secret.is_some();
+            && self.secret().is_some();
 
         // Only emit packets with the SecretKey or SecretSubkey tags
         // if we have secrets.
@@ -784,9 +784,9 @@ impl SerializeKey for Key {
         };
 
         let len = 1 + 4 + 1
-            + self.mpis.serialized_len()
+            + self.mpis().serialized_len()
             + if have_secret_key {
-                1 + match self.secret.as_ref().unwrap() {
+                1 + match self.secret().as_ref().unwrap() {
                     &SecretKey::Unencrypted { ref mpis } =>
                         mpis.serialized_len() + 2,
                     &SecretKey::Encrypted {
@@ -807,18 +807,18 @@ impl SerializeKey for Key {
         CTB::new(tag).serialize(o)?;
         BodyLength::Full(len as u32).serialize(o)?;
 
-        if self.version != 4 {
+        if self.version() != 4 {
             return Err(Error::InvalidArgument(
                 "Don't know how to serialize \
                  non-version 4 packets.".into()).into());
         }
-        write_byte(o, self.version)?;
-        write_be_u32(o, self.creation_time.to_pgp()?)?;
-        write_byte(o, self.pk_algo.into())?;
-        self.mpis.serialize(o)?;
+        write_byte(o, self.version())?;
+        write_be_u32(o, self.creation_time().to_pgp()?)?;
+        write_byte(o, self.pk_algo().into())?;
+        self.mpis().serialize(o)?;
 
         if have_secret_key {
-            match self.secret.as_ref().unwrap() {
+            match self.secret().unwrap() {
                 &SecretKey::Unencrypted { ref mpis } => {
                     // S2K usage.
                     write_byte(o, 0)?;

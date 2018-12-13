@@ -55,7 +55,7 @@ impl PKESK {
         psk.push((checksum >> 0) as u8);
 
         #[allow(deprecated)]
-        let esk = match recipient.pk_algo {
+        let esk = match recipient.pk_algo() {
             RSAEncryptSign | RSAEncrypt => {
                 // Extract the public recipient.
                 match recipient.mpis() {
@@ -89,7 +89,7 @@ impl PKESK {
             common: Default::default(),
             version: 3,
             recipient: recipient.keyid(),
-            pk_algo: recipient.pk_algo,
+            pk_algo: recipient.pk_algo(),
             esk: esk,
         })
     }
@@ -233,7 +233,7 @@ mod tests {
             path_to_msg("encrypted-to-testy.gpg")).unwrap();
         let pair = tpk.subkeys().next().unwrap().subkey();
 
-        if let Some(SecretKey::Unencrypted{ mpis: ref sec }) = pair.secret {
+        if let Some(SecretKey::Unencrypted{ mpis: ref sec }) = pair.secret() {
             let pkg = pile.descendants().skip(0).next().clone();
 
             if let Some(Packet::PKESK(ref pkesk)) = pkg {
@@ -256,7 +256,7 @@ mod tests {
             path_to_msg("encrypted-to-testy-new.pgp")).unwrap();
         let pair = tpk.subkeys().next().unwrap().subkey();
 
-        if let Some(SecretKey::Unencrypted{ mpis: ref sec }) = pair.secret {
+        if let Some(SecretKey::Unencrypted{ mpis: ref sec }) = pair.secret() {
             let pkg = pile.descendants().skip(0).next().clone();
 
             if let Some(Packet::PKESK(ref pkesk)) = pkg {
@@ -305,14 +305,9 @@ mod tests {
         let private_mpis = mpis::SecretKey::ECDH {
             scalar: MPI::new(&sec[..]),
         };
-        let key = Key{
-            common: Default::default(),
-            version: 4,
-            creation_time: time::now().canonicalize(),
-            pk_algo: PublicKeyAlgorithm::ECDH,
-            mpis: public_mpis,
-            secret: None,
-        };
+        let key = Key::new_(time::now().canonicalize(),
+                            PublicKeyAlgorithm::ECDH, public_mpis, None)
+            .unwrap();
         let mut rng = Yarrow::default();
         let sess_key = SessionKey::new(&mut rng, 32);
         let pkesk = PKESK::new(SymmetricAlgorithm::AES256, &sess_key, &key).unwrap();

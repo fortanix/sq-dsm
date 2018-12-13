@@ -25,15 +25,15 @@ pub struct Key {
     /// CTB packet header fields.
     pub(crate) common: packet::Common,
     /// Version of the key packet. Must be 4.
-    pub(crate) version: u8,
+    version: u8,
     /// When the key was created.
-    pub(crate) creation_time: time::Tm,
+    creation_time: time::Tm,
     /// Public key algorithm of this signature.
-    pub(crate) pk_algo: PublicKeyAlgorithm,
+    pk_algo: PublicKeyAlgorithm,
     /// Public key MPIs.
-    pub(crate) mpis: mpis::PublicKey,
+    mpis: mpis::PublicKey,
     /// Optional secret part of the key.
-    pub(crate) secret: Option<SecretKey>,
+    secret: Option<SecretKey>,
 }
 
 
@@ -57,6 +57,20 @@ impl fmt::Display for Key {
 }
 
 impl Key {
+    pub(crate) fn new_(creation_time: time::Tm,pk_algo: PublicKeyAlgorithm,
+                       mpis: mpis::PublicKey, secret: Option<SecretKey>)
+                       -> Result<Key>
+    {
+        Ok(Key {
+            common: Default::default(),
+            version: 4,
+            creation_time: creation_time,
+            pk_algo: pk_algo,
+            mpis: mpis,
+            secret: secret,
+        })
+    }
+
     /// Returns a new `Key` packet.  This can be used to hold either a
     /// public key, a public subkey, a private key, or a private subkey.
     pub fn new(pk_algo: PublicKeyAlgorithm) -> Result<Self> {

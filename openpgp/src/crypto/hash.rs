@@ -172,7 +172,7 @@ impl Key {
     pub fn hash<H: Hash + Write>(&self, hash: &mut H) {
         // We hash 8 bytes plus the MPIs.  But, the len doesn't
         // include the tag (1 byte) or the length (2 bytes).
-        let len = (9 - 3) + self.mpis.serialized_len();
+        let len = (9 - 3) + self.mpis().serialized_len();
 
         let mut header : Vec<u8> = Vec::with_capacity(9);
 
@@ -187,7 +187,7 @@ impl Key {
         header.push(4);
 
         // Creation time.
-        let creation_time = self.creation_time.to_pgp()
+        let creation_time = self.creation_time().to_pgp()
             .unwrap_or(0);
         header.push((creation_time >> 24) as u8);
         header.push((creation_time >> 16) as u8);
@@ -195,12 +195,12 @@ impl Key {
         header.push((creation_time >> 0) as u8);
 
         // Algorithm.
-        header.push(self.pk_algo.into());
+        header.push(self.pk_algo().into());
 
         hash.update(&header[..]);
 
         // MPIs.
-        self.mpis.hash(hash);
+        self.mpis().hash(hash);
     }
 }
 

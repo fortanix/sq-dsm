@@ -342,7 +342,7 @@ impl<'a> Signer<'a> {
 
             // For every suitable key, check if we have a secret key.
             for key in keys {
-                if let Some(ref secret) = key.secret.as_ref() {
+                if let Some(ref secret) = key.secret() {
                     if let &SecretKey::Unencrypted { .. } = secret {
                         // Success!
                         signing_keys.push(key);
@@ -363,7 +363,7 @@ impl<'a> Signer<'a> {
             // signature packet.
             for (i, key) in signing_keys.iter().enumerate() {
                 let mut ops = OnePassSig::new(SignatureType::Binary);
-                ops.set_pk_algo(key.pk_algo);
+                ops.set_pk_algo(key.pk_algo());
                 ops.set_hash_algo(hash_algo);
                 ops.set_issuer(key.fingerprint().to_keyid());
                 ops.set_last(i == signing_keys.len() - 1);
@@ -409,7 +409,7 @@ impl<'a> Signer<'a> {
 
                 // Compute the signature.
                 let sig = if let &SecretKey::Unencrypted { mpis: ref sec } =
-                    key.secret.as_ref().expect("validated in constructor")
+                    key.secret().expect("validated in constructor")
                 {
                     sig.sign_hash(&key, sec, HashAlgorithm::SHA512, hash)?
                 } else {

@@ -367,7 +367,7 @@ impl SubkeyBinding {
         sig.set_issuer_fingerprint(primary_key.fingerprint())?;
         sig.set_issuer(primary_key.fingerprint().to_keyid())?;
 
-        let sig = match primary_key.secret {
+        let sig = match primary_key.secret() {
             Some(SecretKey::Unencrypted{ ref mpis }) => {
                 sig.sign_subkey_binding(primary_key, mpis, primary_key, &subkey,
                                         HashAlgorithm::SHA512)?
@@ -489,7 +489,7 @@ impl UserIDBinding {
         sig.set_issuer(signer.fingerprint().to_keyid())?;
         sig.set_preferred_hash_algorithms(vec![HashAlgorithm::SHA512])?;
 
-        let sig = match signer.secret {
+        let sig = match signer.secret() {
             Some(SecretKey::Unencrypted{ ref mpis }) => {
                 sig.sign_userid_binding(signer, mpis, key, &uid,
                                         HashAlgorithm::SHA512)?
@@ -1280,7 +1280,7 @@ impl TPK {
         let mut hash = hash_algo.context()?;
         pair.hash(&mut hash);
 
-        if let Some(SecretKey::Unencrypted{ mpis: ref sec }) = pair.secret {
+        if let Some(SecretKey::Unencrypted{ mpis: ref sec }) = pair.secret() {
             // Generate the signature.
             sig.sign_hash(&pair, sec, hash_algo, hash)
         } else {
@@ -1349,7 +1349,7 @@ impl TPK {
             }
 
             if let Some(SecretKey::Unencrypted{ mpis: ref sec })
-                = pair.secret
+                = pair.secret()
             {
                 // Generate the signature.
                 sig.sign_hash(&pair, sec, hash_algo, hash)?
@@ -2007,7 +2007,7 @@ impl TPK {
         // Sort the subkeys in preparation for a dedup.  As for the
         // user ids, we can't do the final sort here, because we rely
         // on the self-signatures.
-        self.subkeys.sort_by(|a, b| a.subkey.mpis.cmp(&b.subkey.mpis));
+        self.subkeys.sort_by(|a, b| a.subkey.mpis().cmp(&b.subkey.mpis()));
 
         // And, dedup them.
         self.subkeys.dedup_by(|a, b| {
@@ -2088,13 +2088,13 @@ impl TPK {
             }
 
             // Creation time (more recent first).
-            let cmp = b.subkey.creation_time.cmp(&a.subkey.creation_time);
+            let cmp = b.subkey.creation_time().cmp(&a.subkey.creation_time());
             if cmp != Ordering::Equal {
                 return cmp;
             }
 
             // Fallback to the lexicographical comparison.
-            a.subkey.mpis.cmp(&b.subkey.mpis)
+            a.subkey.mpis().cmp(&b.subkey.mpis())
         });
 
         // In case we have subkeys bound to the primary, it must be
@@ -2536,7 +2536,7 @@ mod test {
             //   [ pk, user id, sig, subkey ]
             let tpk = parse_tpk(bytes!("testy-broken-no-sig-on-subkey.pgp"),
                                 i == 0).unwrap();
-            assert_eq!(tpk.primary.creation_time.to_pgp().unwrap(), 1511355130);
+            assert_eq!(tpk.primary.creation_time().to_pgp().unwrap(), 1511355130);
             assert_eq!(tpk.userids.len(), 1);
             assert_eq!(tpk.userids[0].userid.value,
                        &b"Testy McTestface <testy@example.org>"[..]);
@@ -2554,7 +2554,7 @@ mod test {
         for i in 0..2 {
             let tpk = parse_tpk(bytes!("testy.pgp"),
                                 i == 0).unwrap();
-            assert_eq!(tpk.primary.creation_time.to_pgp().unwrap(), 1511355130);
+            assert_eq!(tpk.primary.creation_time().to_pgp().unwrap(), 1511355130);
             assert_eq!(tpk.fingerprint().to_hex(),
                        "3E8877C877274692975189F5D03F6F865226FE8B");
 
@@ -2568,14 +2568,14 @@ mod test {
             assert_eq!(tpk.user_attributes.len(), 0);
 
             assert_eq!(tpk.subkeys.len(), 1, "number of subkeys");
-            assert_eq!(tpk.subkeys[0].subkey.creation_time.to_pgp().unwrap(),
+            assert_eq!(tpk.subkeys[0].subkey.creation_time().to_pgp().unwrap(),
                        1511355130);
             assert_eq!(tpk.subkeys[0].selfsigs[0].hash_prefix,
                        [ 0xb7, 0xb9 ]);
 
             let tpk = parse_tpk(bytes!("testy-no-subkey.pgp"),
                                 i == 0).unwrap();
-            assert_eq!(tpk.primary.creation_time.to_pgp().unwrap(), 1511355130);
+            assert_eq!(tpk.primary.creation_time().to_pgp().unwrap(), 1511355130);
             assert_eq!(tpk.fingerprint().to_hex(),
                        "3E8877C877274692975189F5D03F6F865226FE8B");
 

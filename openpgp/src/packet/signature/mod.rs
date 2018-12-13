@@ -92,7 +92,7 @@ impl Builder {
                                     algo: HashAlgorithm)
                                     -> Result<Signature> {
 
-        self.pk_algo = signer.pk_algo;
+        self.pk_algo = signer.pk_algo();
         self.hash_algo = algo;
         let digest = Signature::primary_key_binding_hash(&self, signer);
 
@@ -108,7 +108,7 @@ impl Builder {
                                userid: &UserID, algo: HashAlgorithm)
                                -> Result<Signature> {
 
-        self.pk_algo = signer.pk_algo;
+        self.pk_algo = signer.pk_algo();
         self.hash_algo = algo;
         let digest = Signature::userid_binding_hash(&self, key, userid);
 
@@ -125,7 +125,7 @@ impl Builder {
                                subkey: &Key, algo: HashAlgorithm)
                                -> Result<Signature> {
 
-        self.pk_algo = signer.pk_algo;
+        self.pk_algo = signer.pk_algo();
         self.hash_algo = algo;
         let digest = Signature::subkey_binding_hash(&self, primary, subkey);
 
@@ -142,7 +142,7 @@ impl Builder {
                                        ua: &UserAttribute, algo: HashAlgorithm)
                                        -> Result<Signature> {
 
-        self.pk_algo = signer.pk_algo;
+        self.pk_algo = signer.pk_algo();
         self.hash_algo = algo;
         let digest = Signature::user_attribute_binding_hash(&self, signer, ua);
 
@@ -158,7 +158,7 @@ impl Builder {
                      hash_algo: HashAlgorithm, mut hash: Box<Hash>)
                      -> Result<Signature> {
         // Fill out some fields, then hash the packet.
-        self.pk_algo = signer.pk_algo;
+        self.pk_algo = signer.pk_algo();
         self.hash_algo = hash_algo;
         self.hash(&mut hash);
 
@@ -602,7 +602,7 @@ impl Signature {
 
             _ => Err(Error::MalformedPacket(format!(
                 "unsupported combination of algorithm {:?}, key {:?} and signature {:?}.",
-                self.pk_algo(), key.mpis, self.mpis)).into())
+                self.pk_algo(), key.mpis(), self.mpis)).into())
         }
     }
 
@@ -1008,7 +1008,7 @@ mod test {
             let tpk = TPK::from_file(path_to(key)).unwrap();
             let pair = tpk.primary();
 
-            if let Some(SecretKey::Unencrypted{ mpis: ref sec }) = pair.secret {
+            if let Some(SecretKey::Unencrypted{ mpis: ref sec }) = pair.secret() {
                 let mut sig = Builder::new(SignatureType::Binary);
                 let mut hash = hash_algo.context().unwrap();
 
@@ -1054,14 +1054,9 @@ mod test {
         let private_mpis = mpis::SecretKey::EdDSA {
             scalar: MPI::new(&sec[..]),
         };
-        let key = Key{
-            common: Default::default(),
-            version: 4,
-            creation_time: time::now().canonicalize(),
-            pk_algo: PublicKeyAlgorithm::EdDSA,
-            mpis: public_mpis,
-            secret: None,
-        };
+        let key = Key::new_(time::now().canonicalize(),
+                            PublicKeyAlgorithm::EdDSA, public_mpis, None)
+            .unwrap();
         let msg = b"Hello, World";
         let mut hash = HashAlgorithm::SHA256.context().unwrap();
 

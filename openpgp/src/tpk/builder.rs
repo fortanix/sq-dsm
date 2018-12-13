@@ -245,7 +245,7 @@ impl TPKBuilder {
         sig.set_preferred_hash_algorithms(vec![HashAlgorithm::SHA512])?;
 
 
-        let sig = match key.secret {
+        let sig = match key.secret() {
             Some(SecretKey::Unencrypted{ ref mpis }) => {
                 match uid {
                     Some(uid) => sig.sign_userid_binding(&key, mpis, &key, &uid, HashAlgorithm::SHA512)?,
@@ -296,7 +296,7 @@ impl TPKBuilder {
             backsig.set_issuer_fingerprint(subkey.fingerprint())?;
             backsig.set_issuer(subkey.fingerprint().to_keyid())?;
 
-            let backsig = match subkey.secret {
+            let backsig = match subkey.secret() {
                 Some(SecretKey::Unencrypted{ ref mpis }) => {
                     backsig.sign_subkey_binding(&subkey, mpis, primary_key, &subkey,
                                                 HashAlgorithm::SHA512)?
@@ -313,7 +313,7 @@ impl TPKBuilder {
             sig.set_embedded_signature(backsig)?;
         }
 
-        let sig = match primary_key.secret {
+        let sig = match primary_key.secret() {
             Some(SecretKey::Unencrypted{ ref mpis }) => {
                 sig.sign_subkey_binding(primary_key, mpis, primary_key, &subkey,
                                         HashAlgorithm::SHA512)?
@@ -341,7 +341,7 @@ impl TPKBuilder {
         sig.set_issuer_fingerprint(key.fingerprint())?;
         sig.set_issuer(key.fingerprint().to_keyid())?;
 
-        let sig = match key.secret {
+        let sig = match key.secret() {
             Some(SecretKey::Unencrypted{ ref mpis }) => {
                 sig.sign_userid_binding(key, mpis, key, &uid,
                                         HashAlgorithm::SHA512)?
@@ -415,14 +415,16 @@ mod tests {
             .set_cipher_suite(CipherSuite::RSA3k)
             .set_cipher_suite(CipherSuite::Cv25519)
             .generate().unwrap();
-        assert_eq!(tpk1.primary().pk_algo, PublicKeyAlgorithm::EdDSA);
+        assert_eq!(tpk1.primary().pk_algo(), PublicKeyAlgorithm::EdDSA);
 
         let (tpk2, _) = TPKBuilder::default()
             .add_userid("test2@example.com")
             .add_encryption_subkey()
             .generate().unwrap();
-        assert_eq!(tpk2.primary().pk_algo, PublicKeyAlgorithm::RSAEncryptSign);
-        assert_eq!(tpk2.subkeys().next().unwrap().subkey().pk_algo, PublicKeyAlgorithm::RSAEncryptSign);
+        assert_eq!(tpk2.primary().pk_algo(),
+                   PublicKeyAlgorithm::RSAEncryptSign);
+        assert_eq!(tpk2.subkeys().next().unwrap().subkey().pk_algo(),
+                   PublicKeyAlgorithm::RSAEncryptSign);
     }
 
     #[test]
@@ -430,7 +432,8 @@ mod tests {
         let (tpk1, _) = TPKBuilder::default()
             .add_userid("test2@example.com")
             .generate().unwrap();
-        assert_eq!(tpk1.primary().pk_algo, PublicKeyAlgorithm::RSAEncryptSign);
+        assert_eq!(tpk1.primary().pk_algo(),
+                   PublicKeyAlgorithm::RSAEncryptSign);
         assert!(tpk1.subkeys().next().is_none());
         if let Some(sig) = tpk1.primary_key_signature() {
             assert!(sig.features().supports_mdc());
@@ -444,8 +447,10 @@ mod tests {
     fn autocrypt() {
         let (tpk1, _) = TPKBuilder::autocrypt(None)
             .generate().unwrap();
-        assert_eq!(tpk1.primary().pk_algo, PublicKeyAlgorithm::RSAEncryptSign);
-        assert_eq!(tpk1.subkeys().next().unwrap().subkey().pk_algo, PublicKeyAlgorithm::RSAEncryptSign);
+        assert_eq!(tpk1.primary().pk_algo(),
+                   PublicKeyAlgorithm::RSAEncryptSign);
+        assert_eq!(tpk1.subkeys().next().unwrap().subkey().pk_algo(),
+                   PublicKeyAlgorithm::RSAEncryptSign);
     }
 
     #[test]

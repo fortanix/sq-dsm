@@ -1469,7 +1469,7 @@ impl Signature {
             Some(e) if e.num_seconds() == 0 =>
                 false, // Zero expiration time, does not expire.
             Some(e) =>
-                key.creation_time + e <= tm,
+                *key.creation_time() + e <= tm,
             None =>
                 false, // No expiration time, does not expire.
         }
@@ -1493,7 +1493,7 @@ impl Signature {
     ///
     ///  [Section 5.2.3.6 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.6
     pub fn key_alive_at(&self, key: &Key, tm: time::Tm) -> bool {
-        key.creation_time <= tm && ! self.key_expired_at(key, tm)
+        *key.creation_time() <= tm && ! self.key_expired_at(key, tm)
     }
 
     /// Returns the value of the Preferred Symmetric Algorithms
@@ -2606,10 +2606,10 @@ fn subpacket_test_2() {
         // Check key expiration.
         assert!(! sig.key_expired_at(
             key,
-            key.creation_time + time::Duration::seconds(63072000 - 1)));
+            *key.creation_time() + time::Duration::seconds(63072000 - 1)));
         assert!(sig.key_expired_at(
             key,
-            key.creation_time + time::Duration::seconds(63072000)));
+            *key.creation_time() + time::Duration::seconds(63072000)));
 
         assert_eq!(sig.preferred_symmetric_algorithms(),
                    Some(vec![SymmetricAlgorithm::AES256,
