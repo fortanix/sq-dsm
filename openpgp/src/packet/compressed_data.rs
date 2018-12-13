@@ -21,7 +21,7 @@ pub struct CompressedData {
     /// CTB packet header fields.
     pub(crate) common: packet::Common,
     /// Algorithm used to compress the payload.
-    pub(crate) algo: CompressionAlgorithm,
+    algo: CompressionAlgorithm,
 }
 
 impl fmt::Debug for CompressedData {

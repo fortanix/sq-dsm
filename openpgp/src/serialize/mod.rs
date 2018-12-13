@@ -966,14 +966,14 @@ impl Serialize for CompressedData {
         if TRACE {
             eprintln!("CompressedData::serialize(\
                        algo: {}, {:?} children, {:?} bytes)",
-                      self.algo,
+                      self.algorithm(),
                       self.common.children.as_ref().map(
                           |cont| cont.children().len()),
                       self.common.body.as_ref().map(|body| body.len()));
         }
 
         let o = stream::Message::new(o);
-        let mut o = stream::Compressor::new(o, self.algo)?;
+        let mut o = stream::Compressor::new(o, self.algorithm())?;
 
         // Serialize the packets.
         if let Some(ref children) = self.common.children {

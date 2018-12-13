@@ -1606,10 +1606,7 @@ impl CompressedData {
         }
 
         let recursion_depth = php.recursion_depth();
-        let mut pp = php.ok(Packet::CompressedData(CompressedData {
-            common: Default::default(),
-            algo: algo,
-        }))?;
+        let mut pp = php.ok(Packet::CompressedData(CompressedData::new(algo)))?;
 
         let reader = pp.take_reader();
         let reader = match algo {
@@ -1663,7 +1660,7 @@ fn compressed_data_parser_test () {
         // We expect a compressed packet containing a literal data
         // packet, and that is it.
         if let Packet::CompressedData(ref compressed) = pp.packet {
-            assert_eq!(compressed.algo, i.into());
+            assert_eq!(compressed.algorithm(), i.into());
         } else {
             panic!("Wrong packet!");
         }
