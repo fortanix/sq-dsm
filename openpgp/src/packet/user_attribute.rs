@@ -14,7 +14,7 @@ pub struct UserAttribute {
     pub(crate) common: packet::Common,
 
     /// The user attribute.
-    pub(crate) value: Vec<u8>,
+    value: Vec<u8>,
 }
 
 impl From<Vec<u8>> for UserAttribute {

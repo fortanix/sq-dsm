@@ -1483,10 +1483,7 @@ impl UserAttribute {
 
         let value = php_try!(php.parse_bytes_eof("value"));
 
-        php.ok(Packet::UserAttribute(UserAttribute {
-            common: Default::default(),
-            value: value,
-        }))
+        php.ok(Packet::UserAttribute(UserAttribute::from(value)))
     }
 }
 

@@ -1880,7 +1880,8 @@ impl TPK {
         // for the user ids, we can't do the final sort here, because
         // we rely on the self-signatures.
         self.user_attributes.sort_by(
-            |a, b| a.user_attribute.value.cmp(&b.user_attribute.value));
+            |a, b| a.user_attribute.user_attribute()
+                .cmp(&b.user_attribute.user_attribute()));
 
         // And, dedup them.
         self.user_attributes.dedup_by(|a, b| {
@@ -1982,7 +1983,8 @@ impl TPK {
             }
 
             // Fallback to a lexicographical comparison.
-            a.user_attribute.value.cmp(&b.user_attribute.value)
+            a.user_attribute.user_attribute()
+                .cmp(&b.user_attribute.user_attribute())
         });
 
 
