@@ -732,18 +732,18 @@ impl Serialize for OnePassSig {
         CTB::new(Tag::OnePassSig).serialize(o)?;
         BodyLength::Full(len as u32).serialize(o)?;
 
-        if self.version != 3 {
+        if self.version() != 3 {
             return Err(Error::InvalidArgument(
                 "Don't know how to serialize \
                  non-version 3 packets.".into()).into());
         }
 
-        write_byte(o, self.version)?;
-        write_byte(o, self.sigtype.into())?;
-        write_byte(o, self.hash_algo.into())?;
-        write_byte(o, self.pk_algo.into())?;
-        o.write_all(self.issuer.as_slice())?;
-        write_byte(o, self.last)?;
+        write_byte(o, self.version())?;
+        write_byte(o, self.sigtype().into())?;
+        write_byte(o, self.hash_algo().into())?;
+        write_byte(o, self.pk_algo().into())?;
+        o.write_all(self.issuer().as_slice())?;
+        write_byte(o, self.last_raw())?;
 
         Ok(())
     }

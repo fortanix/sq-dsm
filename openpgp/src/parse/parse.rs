@@ -1135,15 +1135,11 @@ impl OnePassSig {
         let last = php_try!(php.parse_u8("last"));
 
         let hash_algo = hash_algo.into();
-        let sig = OnePassSig {
-            common: Default::default(),
-            version: version,
-            sigtype: sigtype.into(),
-            hash_algo: hash_algo,
-            pk_algo: pk_algo.into(),
-            issuer: KeyID::from_bytes(&issuer),
-            last: last,
-        };
+        let mut sig = OnePassSig::new(sigtype.into());
+        sig.set_hash_algo(hash_algo);
+        sig.set_pk_algo(pk_algo.into());
+        sig.set_issuer(KeyID::from_bytes(&issuer));
+        sig.set_last_raw(last);
 
         let recursion_depth = php.recursion_depth();
 
@@ -1270,12 +1266,12 @@ fn one_pass_sig_parser_test () {
     // eprintln!("packet: {:?}", p);
 
     if let &Packet::OnePassSig(ref p) = p {
-        assert_eq!(p.version, 3);
-        assert_eq!(p.sigtype, SignatureType::Binary);
-        assert_eq!(p.hash_algo, HashAlgorithm::SHA512);
-        assert_eq!(p.pk_algo, PublicKeyAlgorithm::RSAEncryptSign);
-        assert_eq!(p.issuer.to_hex(), "7223B56678E02528");
-        assert_eq!(p.last, 1);
+        assert_eq!(p.version(), 3);
+        assert_eq!(p.sigtype(), SignatureType::Binary);
+        assert_eq!(p.hash_algo(), HashAlgorithm::SHA512);
+        assert_eq!(p.pk_algo(), PublicKeyAlgorithm::RSAEncryptSign);
+        assert_eq!(p.issuer().to_hex(), "7223B56678E02528");
+        assert_eq!(p.last_raw(), 1);
     } else {
         panic!("Wrong packet!");
     }

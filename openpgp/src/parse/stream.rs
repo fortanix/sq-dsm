@@ -269,7 +269,7 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
 
             match pp.packet {
                 Packet::OnePassSig(ref ops) =>
-                    issuers.push(ops.issuer.clone()),
+                    issuers.push(ops.issuer().clone()),
                 Packet::Literal(_) => {
                     // Query keys.
                     v.tpks = v.helper.get_public_keys(&issuers)?;
@@ -1062,7 +1062,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                     }
                 },
                 Packet::OnePassSig(ref ops) =>
-                    issuers.push(ops.issuer.clone()),
+                    issuers.push(ops.issuer().clone()),
                 Packet::Literal(_) => {
                     // Query keys.
                     v.tpks = v.helper.get_public_keys(&issuers)?;

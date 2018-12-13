@@ -21,18 +21,18 @@ pub struct OnePassSig {
     /// CTB packet header fields.
     pub(crate) common: packet::Common,
     /// One-pass-signature packet version. Must be 3.
-    pub(crate) version: u8,
+    version: u8,
     /// Type of the signature.
-    pub(crate) sigtype: SignatureType,
+    sigtype: SignatureType,
     /// Hash algorithm used to compute the signature.
-    pub(crate) hash_algo: HashAlgorithm,
+    hash_algo: HashAlgorithm,
     /// Public key algorithm of this signature.
-    pub(crate) pk_algo: PublicKeyAlgorithm,
+    pk_algo: PublicKeyAlgorithm,
     /// Key ID of the signing key.
-    pub(crate) issuer: KeyID,
+    issuer: KeyID,
     /// A one-octet number holding a flag showing whether the signature
     /// is nested.
-    pub(crate) last: u8,
+    last: u8,
 }
 
 impl fmt::Debug for OnePassSig {
@@ -128,6 +128,16 @@ impl OnePassSig {
     /// Sets the last flag.
     pub fn set_last(&mut self, last: bool) {
         self.last = if last { 1 } else { 0 };
+    }
+
+    /// Gets the raw value of the last flag.
+    pub fn last_raw(&self) -> u8 {
+        self.last
+    }
+
+    /// Sets the raw value of the last flag.
+    pub fn set_last_raw(&mut self, last: u8) {
+        self.last = last;
     }
 
     /// Convert the `OnePassSig` struct to a `Packet`.
