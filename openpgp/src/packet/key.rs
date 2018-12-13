@@ -231,16 +231,17 @@ impl Key {
     }
 
     /// Convert the `Key` struct to a `Packet`.
-    pub fn to_packet(self, tag: Tag) -> Packet {
+    pub fn to_packet(self, tag: Tag) -> Result<Packet> {
         match tag {
-            Tag::PublicKey => Packet::PublicKey(self),
-            Tag::PublicSubkey => Packet::PublicSubkey(self),
-            Tag::SecretKey => Packet::SecretKey(self),
-            Tag::SecretSubkey => Packet::SecretSubkey(self),
-            _ => panic!("Expected Tag::PublicKey, Tag::PublicSubkey, \
+            Tag::PublicKey => Ok(Packet::PublicKey(self)),
+            Tag::PublicSubkey => Ok(Packet::PublicSubkey(self)),
+            Tag::SecretKey => Ok(Packet::SecretKey(self)),
+            Tag::SecretSubkey => Ok(Packet::SecretSubkey(self)),
+            _ => Err(Error::InvalidArgument(
+                format!("Expected Tag::PublicKey, Tag::PublicSubkey, \
                          Tag::SecretKey, or Tag::SecretSubkey. \
                          Got: Tag::{:?}",
-                        tag),
+                        tag)).into()),
         }
     }
 }
