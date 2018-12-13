@@ -24,7 +24,7 @@ use {
     packet::Tag,
     Header,
     packet::Unknown,
-    packet::{signature, Signature},
+    packet::signature::Signature,
     packet::OnePassSig,
     packet::Key,
     packet::UserID,
@@ -965,21 +965,12 @@ impl Signature {
             crypto::mpis::Signature::parse(pk_algo, &mut php));
 
         let hash_algo = hash_algo.into();
-        let mut pp = php.ok(Packet::Signature(Signature {
-            common: Default::default(),
-            fields: signature::Builder {
-                version: version,
-                sigtype: sigtype.into(),
-                pk_algo: pk_algo.into(),
-                hash_algo: hash_algo,
-                hashed_area: SubpacketArea::new(hashed_area),
-                unhashed_area: SubpacketArea::new(unhashed_area),
-            },
-            hash_prefix: [hash_prefix1, hash_prefix2],
-            mpis: mpis,
-            computed_hash: None,
-            level: 0,
-        }))?;
+        let mut pp = php.ok(Packet::Signature(Signature::new(
+            sigtype.into(), pk_algo.into(), hash_algo,
+            SubpacketArea::new(hashed_area),
+            SubpacketArea::new(unhashed_area),
+            [hash_prefix1, hash_prefix2],
+            mpis)))?;
 
         // Locate the corresponding HashedReader and extract the
         // computed hash.
@@ -1031,7 +1022,7 @@ impl Signature {
                 let mut digest = vec![0u8; hash.digest_size()];
                 hash.digest(&mut digest);
 
-                sig.computed_hash = Some((algo, digest));
+                sig.set_computed_hash(Some((algo, digest)));
                 sig.set_level(level);
             } else {
                 unreachable!()
@@ -1313,13 +1304,14 @@ fn one_pass_sig_test () {
                 eprintln!("  {}:\n  prefix: expected: {}, in sig: {}",
                           test.filename,
                           ::conversions::to_hex(&test.hash_prefix[sigs][..], false),
-                          ::conversions::to_hex(&sig.hash_prefix[..], false));
+                          ::conversions::to_hex(sig.hash_prefix(), false));
                 eprintln!("  computed hash: {}",
-                          ::conversions::to_hex(&sig.computed_hash.as_ref().unwrap().1, false));
+                          ::conversions::to_hex(&sig.computed_hash().unwrap().1,
+                                                false));
 
-                assert_eq!(test.hash_prefix[sigs], sig.hash_prefix);
+                assert_eq!(&test.hash_prefix[sigs], sig.hash_prefix());
                 assert_eq!(&test.hash_prefix[sigs][..],
-                           &sig.computed_hash.as_ref().unwrap().1[..2]);
+                           &sig.computed_hash().unwrap().1[..2]);
 
                 sigs += 1;
             } else if one_pass_sigs > 0 {

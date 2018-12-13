@@ -228,18 +228,18 @@ impl signature::Builder {
 
         // Version.
         header[0] = 4;
-        header[1] = self.sigtype.into();
-        header[2] = self.pk_algo.into();
-        header[3] = self.hash_algo.into();
+        header[1] = self.sigtype().into();
+        header[2] = self.pk_algo().into();
+        header[3] = self.hash_algo().into();
 
         // The length of the hashed area, as a 16-bit endian number.
-        let len = self.hashed_area.data.len();
+        let len = self.hashed_area().data.len();
         header[4] = (len >> 8) as u8;
         header[5] = len as u8;
 
         hash.update(&header[..]);
 
-        hash.update(&self.hashed_area.data[..]);
+        hash.update(&self.hashed_area().data[..]);
 
         // A version 4 signature trailer is:
         //
@@ -258,7 +258,7 @@ impl signature::Builder {
         trailer[1] = 0xff;
         // The signature packet's length, not including the previous
         // two bytes and the length.
-        let len = header.len() + self.hashed_area.data.len();
+        let len = header.len() + self.hashed_area().data.len();
         trailer[2] = (len >> 24) as u8;
         trailer[3] = (len >> 16) as u8;
         trailer[4] = (len >> 8) as u8;
@@ -277,7 +277,7 @@ impl Signature {
         where S: Into<&'a signature::Builder> {
 
         let sig = sig.into();
-        let mut h: Box<Hash> = sig.hash_algo.context().unwrap();
+        let mut h: Box<Hash> = sig.hash_algo().context().unwrap();
 
         key.hash(&mut h);
         sig.hash(&mut h);
@@ -294,7 +294,7 @@ impl Signature {
         where S: Into<&'a signature::Builder> {
 
         let sig = sig.into();
-        let mut h: Box<Hash> = sig.hash_algo.context().unwrap();
+        let mut h: Box<Hash> = sig.hash_algo().context().unwrap();
 
         key.hash(&mut h);
         subkey.hash(&mut h);
@@ -312,7 +312,7 @@ impl Signature {
         where S: Into<&'a signature::Builder> {
 
         let sig = sig.into();
-        let mut h: Box<Hash> = sig.hash_algo.context().unwrap();
+        let mut h: Box<Hash> = sig.hash_algo().context().unwrap();
 
         key.hash(&mut h);
         userid.hash(&mut h);
@@ -331,7 +331,7 @@ impl Signature {
         where S: Into<&'a signature::Builder> {
 
         let sig = sig.into();
-        let mut h: Box<Hash> = sig.hash_algo.context().unwrap();
+        let mut h: Box<Hash> = sig.hash_algo().context().unwrap();
 
         key.hash(&mut h);
         ua.hash(&mut h);
@@ -362,12 +362,12 @@ mod test {
                         selfsig,
                         tpk.primary(),
                         binding.userid());
-                    if h[..2] != selfsig.hash_prefix[..] {
+                    if &h[..2] != selfsig.hash_prefix() {
                         eprintln!("{:?}: {:?} / {:?}",
                                   i, binding.userid(), selfsig);
                         eprintln!("  Hash: {:?}", h);
                     }
-                    assert_eq!(h[..2], selfsig.hash_prefix[..2]);
+                    assert_eq!(&h[..2], selfsig.hash_prefix());
                     userid_sigs += 1;
                 }
             }
@@ -378,12 +378,12 @@ mod test {
                         selfsig,
                         tpk.primary(),
                         binding.user_attribute());
-                    if h[..2] != selfsig.hash_prefix[..] {
+                    if &h[..2] != selfsig.hash_prefix() {
                         eprintln!("{:?}: {:?} / {:?}",
                                   i, binding.user_attribute(), selfsig);
                         eprintln!("  Hash: {:?}", h);
                     }
-                    assert_eq!(h[..2], selfsig.hash_prefix[..2]);
+                    assert_eq!(&h[..2], selfsig.hash_prefix());
                     ua_sigs += 1;
                 }
             }
@@ -394,12 +394,12 @@ mod test {
                         selfsig,
                         tpk.primary(),
                         binding.subkey());
-                    if h[..2] != selfsig.hash_prefix[..] {
+                    if &h[..2] != selfsig.hash_prefix() {
                         eprintln!("{:?}: {:?}", i, binding);
                         eprintln!("  Hash: {:?}", h);
                     }
-                    assert_eq!(h[0], selfsig.hash_prefix[0]);
-                    assert_eq!(h[1], selfsig.hash_prefix[1]);
+                    assert_eq!(h[0], selfsig.hash_prefix()[0]);
+                    assert_eq!(h[1], selfsig.hash_prefix()[1]);
                     subkey_sigs += 1;
                 }
             }

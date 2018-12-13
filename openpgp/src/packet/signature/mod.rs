@@ -1,6 +1,7 @@
 //! Types for signatures.
 
 use std::fmt;
+use std::ops::Deref;
 
 use constants::Curve;
 use Error;
@@ -42,17 +43,17 @@ fn path_to(artifact: &str) -> PathBuf {
 #[derive(Clone, Hash, PartialEq, Eq)]
 pub struct Builder {
     /// Version of the signature packet. Must be 4.
-    pub(crate) version: u8,
+    version: u8,
     /// Type of signature.
-    pub(crate) sigtype: SignatureType,
+    sigtype: SignatureType,
     /// Pub(Crate)lic-key algorithm used for this signature.
-    pub(crate) pk_algo: PublicKeyAlgorithm,
+    pk_algo: PublicKeyAlgorithm,
     /// Hash algorithm used to compute the signature.
-    pub(crate) hash_algo: HashAlgorithm,
+    hash_algo: HashAlgorithm,
     /// Subpackets that are part of the signature.
-    pub(crate) hashed_area: SubpacketArea,
+    hashed_area: SubpacketArea,
     /// Subpackets _not_ that are part of the signature.
-    pub(crate) unhashed_area: SubpacketArea,
+    unhashed_area: SubpacketArea,
 }
 
 impl Builder {
@@ -68,14 +69,44 @@ impl Builder {
         }
     }
 
+    /// Gets the version.
+    pub fn version(&self) -> u8 {
+        self.version
+    }
+
+    /// Gets the signature type.
+    pub fn sigtype(&self) -> SignatureType {
+        self.sigtype
+    }
+
     /// Sets the signature type.
     pub fn set_sigtype(&mut self, t: SignatureType) {
         self.sigtype = t;
     }
 
+    /// Gets the public key algorithm.
+    pub fn pk_algo(&self) -> PublicKeyAlgorithm {
+        self.pk_algo
+    }
+
+    /// Gets the hash algorithm.
+    pub fn hash_algo(&self) -> HashAlgorithm {
+        self.hash_algo
+    }
+
+    /// Gets a reference to the hashed area.
+    pub fn hashed_area(&self) -> &SubpacketArea {
+        &self.hashed_area
+    }
+
     /// Gets a mutable reference to the hashed area.
     pub fn hashed_area_mut(&mut self) -> &mut SubpacketArea {
         &mut self.hashed_area
+    }
+
+    /// Gets a reference to the unhashed area.
+    pub fn unhashed_area(&self) -> &SubpacketArea {
+        &self.unhashed_area
     }
 
     /// Gets a mutable reference to the unhashed area.
@@ -331,20 +362,28 @@ pub struct Signature {
     pub(crate) fields: Builder,
 
     /// Lower 16 bits of the signed hash value.
-    pub(crate) hash_prefix: [u8; 2],
+    hash_prefix: [u8; 2],
     /// Signature MPIs.
-    pub(crate) mpis: mpis::Signature,
+    mpis: mpis::Signature,
 
     /// When used in conjunction with a one-pass signature, this is the
     /// hash computed over the enclosed message.
-    pub(crate) computed_hash: Option<(HashAlgorithm, Vec<u8>)>,
+    computed_hash: Option<(HashAlgorithm, Vec<u8>)>,
 
     /// Signature level.
     ///
     /// A level of 0 indicates that the signature is directly over the
     /// data, a level of 1 means that the signature is a notarization
     /// over all level 0 signatures and the data, and so on.
-    pub(crate) level: usize,
+    level: usize,
+}
+
+impl Deref for Signature {
+    type Target = Builder;
+
+    fn deref(&self) -> &Self::Target {
+        &self.fields
+    }
 }
 
 impl fmt::Debug for Signature {
@@ -403,34 +442,26 @@ impl PartialEq for Signature {
 }
 
 impl Signature {
-    /// Gets the version.
-    pub fn version(&self) -> u8 {
-        self.fields.version
-    }
-
-    /// Gets the signature type.
-    pub fn sigtype(&self) -> SignatureType {
-        self.fields.sigtype
-    }
-
-    /// Gets the public key algorithm.
-    pub fn pk_algo(&self) -> PublicKeyAlgorithm {
-        self.fields.pk_algo
-    }
-
-    /// Gets the hash algorithm.
-    pub fn hash_algo(&self) -> HashAlgorithm {
-        self.fields.hash_algo
-    }
-
-    /// Gets a reference to the hashed area.
-    pub fn hashed_area(&self) -> &SubpacketArea {
-        &self.fields.hashed_area
-    }
-
-    /// Gets a reference to the unhashed area.
-    pub fn unhashed_area(&self) -> &SubpacketArea {
-        &self.fields.unhashed_area
+    pub(crate) fn new(sigtype: SignatureType, pk_algo: PublicKeyAlgorithm,
+                      hash_algo: HashAlgorithm, hashed_area: SubpacketArea,
+                      unhashed_area: SubpacketArea,
+                      hash_prefix: [u8; 2],
+                      mpis: mpis::Signature) -> Self {
+        Signature {
+            common: Default::default(),
+            fields: Builder {
+                version: 4,
+                sigtype: sigtype.into(),
+                pk_algo: pk_algo.into(),
+                hash_algo: hash_algo,
+                hashed_area: hashed_area,
+                unhashed_area: unhashed_area,
+            },
+            hash_prefix: hash_prefix,
+            mpis: mpis,
+            computed_hash: None,
+            level: 0,
+        }
     }
 
     /// Gets a mutable reference to the unhashed area.

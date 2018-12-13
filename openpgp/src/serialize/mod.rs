@@ -704,7 +704,7 @@ impl Signature {
         write_byte(o, self.hash_prefix()[0])?;
         write_byte(o, self.hash_prefix()[1])?;
 
-        self.mpis.serialize(o)?;
+        self.mpis().serialize(o)?;
 
         Ok(())
     }

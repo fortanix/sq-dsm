@@ -1345,7 +1345,7 @@ impl TPK {
             if let Some(userid) = userid {
                 userid.userid().hash(&mut hash);
             } else {
-                assert_eq!(sig.sigtype, SignatureType::DirectKey);
+                assert_eq!(sig.sigtype(), SignatureType::DirectKey);
             }
 
             if let Some(SecretKey::Unencrypted{ mpis: ref sec })
@@ -1542,7 +1542,7 @@ impl TPK {
                         if TRACE {
                             eprintln!("Sig {:02X}{:02X}, type = {} \
                                        doesn't belong to {}",
-                                      sig.hash_prefix[0], sig.hash_prefix[1],
+                                      sig.hash_prefix()[0], sig.hash_prefix()[1],
                                       sig.sigtype(), $desc);
                         }
 
@@ -1605,8 +1605,8 @@ impl TPK {
                          if TRACE {
                              eprintln!("Sig {:02X}{:02X}, {:?} \
                                         was out of place.  Belongs to {}.",
-                                       $sig.hash_prefix[0],
-                                       $sig.hash_prefix[1],
+                                       $sig.hash_prefix()[0],
+                                       $sig.hash_prefix()[1],
                                        $sig.sigtype(), $desc);
                          }
 
@@ -1662,7 +1662,7 @@ impl TPK {
             if TRACE {
                 eprintln!("Self-sig {:02X}{:02X}, {:?} doesn't belong \
                            to any known component or is bad.",
-                          sig.hash_prefix[0], sig.hash_prefix[1],
+                          sig.hash_prefix()[0], sig.hash_prefix()[1],
                           sig.sigtype());
             }
             self.bad.push(sig);
@@ -2543,8 +2543,8 @@ mod test {
             assert_eq!(tpk.userids[0].userid.userid(),
                        &b"Testy McTestface <testy@example.org>"[..]);
             assert_eq!(tpk.userids[0].selfsigs.len(), 1);
-            assert_eq!(tpk.userids[0].selfsigs[0].hash_prefix,
-                       [ 0xc6, 0x8f ]);
+            assert_eq!(tpk.userids[0].selfsigs[0].hash_prefix(),
+                       &[ 0xc6, 0x8f ]);
             assert_eq!(tpk.user_attributes.len(), 0);
             assert_eq!(tpk.subkeys.len(), 0);
         }
@@ -2564,16 +2564,16 @@ mod test {
             assert_eq!(tpk.userids[0].userid.userid(),
                        &b"Testy McTestface <testy@example.org>"[..]);
             assert_eq!(tpk.userids[0].selfsigs.len(), 1);
-            assert_eq!(tpk.userids[0].selfsigs[0].hash_prefix,
-                       [ 0xc6, 0x8f ]);
+            assert_eq!(tpk.userids[0].selfsigs[0].hash_prefix(),
+                       &[ 0xc6, 0x8f ]);
 
             assert_eq!(tpk.user_attributes.len(), 0);
 
             assert_eq!(tpk.subkeys.len(), 1, "number of subkeys");
             assert_eq!(tpk.subkeys[0].subkey.creation_time().to_pgp().unwrap(),
                        1511355130);
-            assert_eq!(tpk.subkeys[0].selfsigs[0].hash_prefix,
-                       [ 0xb7, 0xb9 ]);
+            assert_eq!(tpk.subkeys[0].selfsigs[0].hash_prefix(),
+                       &[ 0xb7, 0xb9 ]);
 
             let tpk = parse_tpk(bytes!("testy-no-subkey.pgp"),
                                 i == 0).unwrap();
@@ -2587,8 +2587,8 @@ mod test {
             assert_eq!(tpk.userids[0].userid.userid(),
                        &b"Testy McTestface <testy@example.org>"[..]);
             assert_eq!(tpk.userids[0].selfsigs.len(), 1);
-            assert_eq!(tpk.userids[0].selfsigs[0].hash_prefix,
-                       [ 0xc6, 0x8f ]);
+            assert_eq!(tpk.userids[0].selfsigs[0].hash_prefix(),
+                       &[ 0xc6, 0x8f ]);
 
             assert_eq!(tpk.subkeys.len(), 0, "number of subkeys");
         }
