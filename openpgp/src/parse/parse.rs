@@ -1861,11 +1861,7 @@ impl MDC {
         let mut hash : [u8; 20] = Default::default();
         hash.copy_from_slice(&php_try!(php.parse_bytes("hash", 20)));
 
-        php.ok(Packet::MDC(MDC {
-            common: Default::default(),
-            computed_hash: computed_hash,
-            hash: hash,
-        }))
+        php.ok(Packet::MDC(MDC::new_(hash, computed_hash)))
     }
 }
 
@@ -3626,7 +3622,7 @@ mod test {
             if let PacketParserResult::Some(
                 PacketParser { packet: Packet::MDC(ref mdc), .. }) = ppr
             {
-                assert_eq!(mdc.computed_hash, mdc.hash,
+                assert_eq!(mdc.computed_hash(), mdc.hash(),
                            "MDC doesn't match");
             }
 

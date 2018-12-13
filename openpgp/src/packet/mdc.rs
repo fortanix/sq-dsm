@@ -13,12 +13,21 @@ pub struct MDC {
     /// CTB packet header fields.
     pub(crate) common: packet::Common,
     /// Our SHA-1 hash.
-    pub(crate) computed_hash: [u8; 20],
+    computed_hash: [u8; 20],
     /// A 20-octet SHA-1 hash of the preceding plaintext data.
-    pub(crate) hash: [u8; 20],
+    hash: [u8; 20],
 }
 
 impl MDC {
+    /// Creates an MDC packet.
+    pub(crate) fn new_(hash: [u8; 20], computed_hash: [u8; 20]) -> Self {
+        MDC {
+            common: Default::default(),
+            computed_hash: computed_hash,
+            hash: hash,
+        }
+    }
+
     /// Creates a new MDC packet for the data hashed into `hash` Hash context.
     pub fn new(hash: &mut nettle::Hash) -> Self {
         let mut value : [u8; 20] = Default::default();

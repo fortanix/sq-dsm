@@ -1158,7 +1158,7 @@ impl Serialize for MDC {
     fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
         CTB::new(Tag::MDC).serialize(o)?;
         BodyLength::Full(20).serialize(o)?;
-        o.write_all(&self.hash[..])?;
+        o.write_all(self.hash())?;
         Ok(())
     }
 }
