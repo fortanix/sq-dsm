@@ -1010,7 +1010,7 @@ impl Serialize for PKESK {
     ///
     /// [`Error::InvalidArgument`]: ../enum.Error.html#variant.InvalidArgument
     fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
-        if self.version != 3 {
+        if self.version() != 3 {
             return Err(Error::InvalidArgument(
                 "Don't know how to serialize \
                  non-version 3 packets.".into()).into());
@@ -1020,15 +1020,15 @@ impl Serialize for PKESK {
             1 // Version
             + 8 // Recipient's key id
             + 1 // Algo
-            + self.esk.serialized_len(); // ESK.
+            + self.esk().serialized_len(); // ESK.
 
         CTB::new(Tag::PKESK).serialize(o)?;
         BodyLength::Full(len as u32).serialize(o)?;
 
-        write_byte(o, self.version)?;
-        self.recipient.serialize(o)?;
-        write_byte(o, self.pk_algo.into())?;
-        self.esk.serialize(o)?;
+        write_byte(o, self.version())?;
+        self.recipient().serialize(o)?;
+        write_byte(o, self.pk_algo().into())?;
+        self.esk().serialize(o)?;
 
         Ok(())
     }

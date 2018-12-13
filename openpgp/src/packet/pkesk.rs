@@ -22,16 +22,29 @@ pub struct PKESK {
     /// CTB header fields.
     pub(crate) common: packet::Common,
     /// Packet version. Must be 3.
-    pub(crate) version: u8,
+    version: u8,
     /// Key ID of the key this is encrypted to.
-    pub(crate) recipient: KeyID,
+    recipient: KeyID,
     /// Public key algorithm used to encrypt the session key.
-    pub(crate) pk_algo: PublicKeyAlgorithm,
+    pk_algo: PublicKeyAlgorithm,
     /// The encrypted session key.
-    pub(crate) esk: Ciphertext,
+    esk: Ciphertext,
 }
 
 impl PKESK {
+    /// Creates a new PKESK packet.
+    pub fn new_(recipient: KeyID, pk_algo: PublicKeyAlgorithm,
+                encrypted_session_key: Ciphertext)
+                -> Result<PKESK> {
+        Ok(PKESK {
+            common: Default::default(),
+            version: 3,
+            recipient: recipient,
+            pk_algo: pk_algo,
+            esk: encrypted_session_key,
+        })
+    }
+
     /// Creates a new PKESK packet.
     ///
     /// The given symmetric algorithm must match the algorithm that is

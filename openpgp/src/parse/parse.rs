@@ -2046,13 +2046,9 @@ impl PKESK {
         }
         let mpis = crypto::mpis::Ciphertext::parse(pk_algo, &mut php)?;
 
-        php.ok(Packet::PKESK(PKESK {
-            common: Default::default(),
-            version: version,
-            pk_algo: pk_algo,
-            recipient: KeyID::from_bytes(&keyid),
-            esk: mpis,
-        }))
+        let pkesk = php_try!(PKESK::new_(KeyID::from_bytes(&keyid),
+                                         pk_algo, mpis));
+        php.ok(Packet::PKESK(pkesk))
     }
 }
 

@@ -1053,13 +1053,10 @@ mod tests {
         #[allow(deprecated)]
         packets.insert(
             1,
-            Packet::PKESK(PKESK {
-                common: Default::default(),
-                version: 0,
-                recipient: KeyID::from_hex("0000111122223333").unwrap(),
-                pk_algo: PublicKeyAlgorithm::RSAEncrypt,
-                esk: Ciphertext::RSA { c: MPI::new(&[]) },
-            }));
+            Packet::PKESK(PKESK::new_(
+                KeyID::from_hex("0000111122223333").unwrap(),
+                PublicKeyAlgorithm::RSAEncrypt,
+                Ciphertext::RSA { c: MPI::new(&[]) }).unwrap()));
 
         assert!(packets.iter().map(|p| p.tag()).collect::<Vec<Tag>>()
                 == [ Tag::SKESK, Tag::PKESK, Tag::SKESK, Tag::SEIP ]);
