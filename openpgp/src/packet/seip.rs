@@ -13,10 +13,17 @@ pub struct SEIP {
     /// CTB packet header fields.
     pub(crate) common: packet::Common,
     /// SEIP version. Must be 1.
-    pub(crate) version: u8,
+    version: u8,
 }
 
 impl SEIP {
+    pub(crate) fn new() -> Self {
+        Self {
+            common: Default::default(),
+            version: 1,
+        }
+    }
+
     /// Gets the version.
     pub fn version(&self) -> u8 {
         self.version

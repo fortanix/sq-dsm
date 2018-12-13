@@ -1808,10 +1808,8 @@ impl SEIP {
             return php.fail("unknown version");
         }
 
-        php.ok(Packet::SEIP(SEIP {
-            common: Default::default(),
-            version: version,
-        })).map(|pp| pp.set_decrypted(false))
+        php.ok(Packet::SEIP(SEIP::new()))
+            .map(|pp| pp.set_decrypted(false))
     }
 }
 

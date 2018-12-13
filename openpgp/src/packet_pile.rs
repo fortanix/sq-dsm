@@ -659,10 +659,7 @@ mod test {
             cd = cd.push(lit.to_packet())
         }
 
-        let mut seip = SEIP {
-            common: Default::default(),
-            version: 0
-        };
+        let mut seip = SEIP::new();
         seip.common.children = Some(Container::new());
         seip.common.children.as_mut().unwrap().push(cd.to_packet());
         packets.push(Packet::SEIP(seip));

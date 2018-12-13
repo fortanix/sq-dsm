@@ -1142,7 +1142,7 @@ impl Serialize for SEIP {
 
             CTB::new(Tag::SEIP).serialize(o)?;
             BodyLength::Full(body_len as u32).serialize(o)?;
-            o.write_all(&[self.version])?;
+            o.write_all(&[self.version()])?;
             if let Some(ref body) = self.common.body {
                 o.write_all(&body[..])?;
             }

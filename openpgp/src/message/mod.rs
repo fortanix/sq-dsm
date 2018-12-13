@@ -947,10 +947,7 @@ mod tests {
         //  0: Literal
         //  1: MDC
         // => good.
-        let mut seip = SEIP {
-            common: Default::default(),
-            version: 0
-        };
+        let mut seip = SEIP::new();
         seip.common.children = Some(Container::new());
         seip.common.children.as_mut().unwrap().push(
             lit.clone().to_packet());
