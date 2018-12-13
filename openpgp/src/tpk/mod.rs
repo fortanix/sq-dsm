@@ -23,6 +23,7 @@ use {
     packet::UserID,
     packet::UserAttribute,
     packet::Unknown,
+    packet::KeyFlags,
     Packet,
     PacketPile,
     TPK,
@@ -1426,6 +1427,60 @@ impl TPK {
             tpk: self,
             primary: false,
             subkey_iter: self.subkeys()
+        }
+    }
+
+    /// Returns all unrevoked (sub)keys that have all capabilities in `cap` and
+    /// are valid `now`. If `now` is `None` the current time is used.
+    ///
+    /// Keys are sorted by creation time (newest first). If the primary key
+    /// qualifies it will always be last. Using the first key should suffice
+    /// for most use cases.
+    pub fn select_keys<'a, T>(&'a self, cap: KeyFlags, now: T)
+        -> Vec<&'a Key>
+        where T: Into<Option<time::Tm>> {
+            use std::slice;
+            use std::iter;
+            use std::borrow::Borrow;
+
+        fn is_usable<S>(key: &Key, mut bindings: slice::Iter<S>, now: time::Tm,
+                        cap: &KeyFlags) -> bool where S: Borrow<Signature> {
+            let key_now_valid = *key.creation_time() < now;
+            let sig_now_valid = bindings.clone().any(|sig| {
+                sig.borrow().signature_alive_at(now)
+            });
+            let right_caps = bindings.any(|sig| {
+                *cap <= sig.borrow().key_flags()
+            });
+
+            key_now_valid && sig_now_valid && right_caps
+        }
+        let now = now.into().unwrap_or_else(time::now);
+
+        if self.revoked() == RevocationStatus::NotAsFarAsWeKnow {
+            let prim_sigs = match self.primary_key_signature_full() {
+                None => Vec::default(),
+                Some((None, sig)) => vec![sig],
+                Some((Some(uid), sig)) =>
+                    uid.selfsigs().chain(iter::once(sig)).collect(),
+            };
+            let prim = Some(&self.primary)
+                .filter(|k| is_usable(k, prim_sigs.iter(), now, &cap));
+            let mut ret = self.subkeys
+                .iter()
+                .filter(|sb| {
+                    sb.revoked() == RevocationStatus::NotAsFarAsWeKnow &&
+                        is_usable(sb.subkey(), sb.selfsigs(), now, &cap)
+                })
+                .map(|sb| sb.subkey())
+                .collect::<Vec<_>>();
+
+            ret.sort_by(|a,b| b.creation_time().cmp(a.creation_time()));
+            ret.extend(prim);
+
+            ret
+        } else {
+            Vec::default()
         }
     }
 
@@ -3245,5 +3300,57 @@ mod test {
         tpk.serialize(&mut v).unwrap();
         let tpk = TPK::from_bytes(&v).unwrap();
         assert!(! tpk.is_tsk());
+    }
+
+    #[test]
+    fn select_no_keys() {
+        let (tpk, _) = TPKBuilder::default()
+            .generate().unwrap();
+        let flags = KeyFlags::default().set_encrypt_for_transport(true);
+
+        assert!(tpk.select_keys(flags, None).is_empty());
+    }
+
+    #[test]
+    fn select_valid_and_right_flags() {
+        let (tpk, _) = TPKBuilder::default()
+            .add_encryption_subkey()
+            .generate().unwrap();
+        let flags = KeyFlags::default().set_encrypt_for_transport(true);
+
+        assert_eq!(tpk.select_keys(flags, None).len(), 1);
+    }
+
+    #[test]
+    fn select_valid_and_wrong_flags() {
+        let (tpk, _) = TPKBuilder::default()
+            .add_encryption_subkey()
+            .add_signing_subkey()
+            .generate().unwrap();
+        let flags = KeyFlags::default().set_encrypt_for_transport(true);
+
+        assert_eq!(tpk.select_keys(flags, None).len(), 1);
+    }
+
+    #[test]
+    fn select_invalid_and_right_flags() {
+        let (tpk, _) = TPKBuilder::default()
+            .add_encryption_subkey()
+            .generate().unwrap();
+        let mut now = time::now();
+        let flags = KeyFlags::default().set_encrypt_for_transport(true);
+
+        now.tm_year -= 1;
+        assert_eq!(tpk.select_keys(flags, now).len(), 0);
+    }
+
+    #[test]
+    fn select_primary() {
+        let (tpk, _) = TPKBuilder::default()
+            .add_certification_subkey()
+            .generate().unwrap();
+        let flags = KeyFlags::default().set_certify(true);
+
+        assert_eq!(tpk.select_keys(flags, None).len(), 2);
     }
 }
