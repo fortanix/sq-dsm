@@ -33,9 +33,9 @@ pub struct PKESK {
 
 impl PKESK {
     /// Creates a new PKESK packet.
-    pub fn new_(recipient: KeyID, pk_algo: PublicKeyAlgorithm,
-                encrypted_session_key: Ciphertext)
-                -> Result<PKESK> {
+    pub(crate) fn new_(recipient: KeyID, pk_algo: PublicKeyAlgorithm,
+                       encrypted_session_key: Ciphertext)
+                       -> Result<PKESK> {
         Ok(PKESK {
             common: Default::default(),
             version: 3,
