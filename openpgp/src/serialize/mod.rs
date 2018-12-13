@@ -901,11 +901,17 @@ impl Literal {
                                        -> Result<()>
         where W: io::Write
     {
-        let filename = if let Some(ref filename) = self.filename {
+        let filename = if let Some(ref filename) = self.filename() {
             let len = cmp::min(filename.len(), 255) as u8;
             &filename[..len as usize]
         } else {
             &b""[..]
+        };
+
+        let date = if let Some(d) = self.date() {
+            d.to_pgp()?
+        } else {
+            0
         };
 
         if write_tag {
@@ -914,10 +920,10 @@ impl Literal {
             CTB::new(Tag::Literal).serialize(o)?;
             BodyLength::Full(len as u32).serialize(o)?;
         }
-        write_byte(o, self.format.into())?;
+        write_byte(o, self.format().into())?;
         write_byte(o, filename.len() as u8)?;
         o.write_all(filename)?;
-        write_be_u32(o, self.date.to_pgp()?)?;
+        write_be_u32(o, date)?;
         Ok(())
     }
 }
@@ -949,7 +955,7 @@ impl Serialize for Literal {
     fn to_vec(&self) -> Result<Vec<u8>> {
         let mut o = Vec::with_capacity(
             32 + self.common.body.as_ref().map(|b| b.len()).unwrap_or(0)
-            + self.filename.as_ref().map(|b| b.len()).unwrap_or(0));
+            + self.filename().map(|b| b.len()).unwrap_or(0));
 
         self.serialize(&mut o)?;
         Ok(o)

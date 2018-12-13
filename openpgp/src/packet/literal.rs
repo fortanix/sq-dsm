@@ -25,16 +25,16 @@ pub struct Literal {
     /// CTB packet header fields.
     pub(crate) common: packet::Common,
     /// A one-octet field that describes how the data is formatted.
-    pub(crate) format: DataFormat,
+    format: DataFormat,
     /// filename is a string, but strings in Rust are valid UTF-8.
     /// There is no guarantee, however, that the filename is valid
     /// UTF-8.  Thus, we leave filename as a byte array.  It can be
     /// converted to a string using String::from_utf8() or
     /// String::from_utf8_lossy().
-    pub(crate) filename: Option<Vec<u8>>,
+    filename: Option<Vec<u8>>,
     /// A four-octet number that indicates a date associated with the
     /// literal data.
-    pub(crate) date: time::Tm,
+    date: time::Tm,
 }
 
 impl fmt::Debug for Literal {

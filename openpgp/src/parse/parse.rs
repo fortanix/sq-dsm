@@ -1521,12 +1521,14 @@ impl Literal {
 
         // The header is consumed while hashing is disabled.
         let recursion_depth = php.recursion_depth();
-        let mut pp = php.ok(Packet::Literal(Literal {
-            common: Default::default(),
-            format: format.into(),
-            filename: filename,
-            date: time::Tm::from_pgp(date),
-        }))?;
+
+        let mut literal = Literal::new(format.into());
+        if let Some(filename) = filename {
+            literal.set_filename_from_bytes(&filename)
+                .expect("length checked above");
+        }
+        literal.set_date(Some(time::Tm::from_pgp(date)));
+        let mut pp = php.ok(Packet::Literal(literal))?;
 
         // Enable hashing of the body.
         Cookie::hashing(pp.mut_reader(), Hashing::Enabled,
@@ -1547,9 +1549,9 @@ fn literal_parser_test () {
         let p = pp.finish().unwrap();
         // eprintln!("{:?}", p);
         if let &Packet::Literal(ref p) = p {
-            assert_eq!(p.format, DataFormat::Binary);
-            assert_eq!(p.filename.as_ref().unwrap()[..], b"foobar"[..]);
-            assert_eq!(p.date, time::Tm::from_pgp(1507458744));
+            assert_eq!(p.format(), DataFormat::Binary);
+            assert_eq!(p.filename().unwrap()[..], b"foobar"[..]);
+            assert_eq!(p.date(), Some(&time::Tm::from_pgp(1507458744)));
             assert_eq!(content, b"FOOBAR");
         } else {
             panic!("Wrong packet!");
@@ -1563,10 +1565,10 @@ fn literal_parser_test () {
         let content = pp.steal_eof().unwrap();
         let p = pp.finish().unwrap();
         if let &Packet::Literal(ref p) = p {
-            assert_eq!(p.format, DataFormat::Text);
-            assert_eq!(p.filename.as_ref().unwrap()[..],
+            assert_eq!(p.format(), DataFormat::Text);
+            assert_eq!(p.filename().unwrap()[..],
                        b"manifesto.txt"[..]);
-            assert_eq!(p.date, time::Tm::from_pgp(1508000649));
+            assert_eq!(p.date(), Some(&time::Tm::from_pgp(1508000649)));
 
             let expected = bytes!("a-cypherpunks-manifesto.txt");
 
@@ -1678,9 +1680,9 @@ fn compressed_data_parser_test () {
         let (literal, ppr) = pp.recurse().unwrap();
 
         if let Packet::Literal(literal) = literal {
-            assert_eq!(literal.filename, None);
-            assert_eq!(literal.format, DataFormat::Binary);
-            assert_eq!(literal.date, time::Tm::from_pgp(1509219866));
+            assert_eq!(literal.filename(), None);
+            assert_eq!(literal.format(), DataFormat::Binary);
+            assert_eq!(literal.date(), Some(&time::Tm::from_pgp(1509219866)));
             assert_eq!(content, expected.to_vec());
         } else {
             panic!("Wrong packet!");

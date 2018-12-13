@@ -1169,9 +1169,9 @@ mod test {
 
         let mut pp = PacketParser::from_bytes(&o).unwrap().unwrap();
         if let Packet::Literal(ref l) = pp.packet {
-                assert_eq!(l.format, DataFormat::Text);
-                assert_eq!(l.filename, None);
-                assert_eq!(l.date, time::Tm::from_pgp(0));
+                assert_eq!(l.format(), DataFormat::Text);
+                assert_eq!(l.filename(), None);
+                assert_eq!(l.date(), None);
         } else {
             panic!("Unexpected packet type.");
         }
