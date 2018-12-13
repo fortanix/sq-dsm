@@ -139,14 +139,14 @@ impl UserID {
         let mut header = [0; 5];
 
         header[0] = 0xB4;
-        let len = self.value.len() as u32;
+        let len = self.userid().len() as u32;
         header[1] = (len >> 24) as u8;
         header[2] = (len >> 16) as u8;
         header[3] = (len >> 8) as u8;
         header[4] = (len) as u8;
 
         hash.update(&header[..]);
-        hash.update(&self.value[..]);
+        hash.update(self.userid());
     }
 }
 

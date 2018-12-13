@@ -855,18 +855,18 @@ impl Serialize for UserID {
     /// Writes a serialized version of the specified `UserID` packet to
     /// `o`.
     fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
-        let len = self.value.len();
+        let len = self.userid().len();
 
         CTB::new(Tag::UserID).serialize(o)?;
         BodyLength::Full(len as u32).serialize(o)?;
-        o.write_all(&self.value[..])?;
+        o.write_all(self.userid())?;
 
         Ok(())
     }
 
     /// Serializes the packet to a vector.
     fn to_vec(&self) -> Result<Vec<u8>> {
-        let mut o = Vec::with_capacity(16 + self.value.len());
+        let mut o = Vec::with_capacity(16 + self.userid().len());
         // Writing to a vec can't fail.
         self.serialize(&mut o)?;
         Ok(o)

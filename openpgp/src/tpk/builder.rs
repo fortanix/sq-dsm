@@ -153,7 +153,6 @@ impl TPKBuilder {
     pub fn generate(mut self) -> Result<(TPK, Signature)> {
         use {PacketPile, Packet};
         use constants::ReasonForRevocation;
-        use packet::Common;
 
         let mut packets = Vec::<Packet>::with_capacity(
             1 + 1 + self.subkeys.len() + self.userids.len());
@@ -164,11 +163,8 @@ impl TPKBuilder {
         }
 
         // select the first UserID as primary, if present
-        let maybe_first_uid = self.userids.first().cloned().map(|uid| {
-            UserID{
-                common: Common::default(),
-                value: uid.as_bytes().into(),
-            }
+        let maybe_first_uid = self.userids.first().map(|uid| {
+            UserID::from(uid.as_str())
         });
         // Generate & and self-sign primary key.
         let (primary, sig) = Self::primary_key(
@@ -192,10 +188,7 @@ impl TPKBuilder {
         // sign UserIDs. First UID was used as primary keys self-sig
         if !self.userids.is_empty() {
             for uid in self.userids[1..].iter() {
-                let uid = UserID{
-                    common: Common::default(),
-                    value: uid.as_bytes().into(),
-                };
+                let uid = UserID::from(uid.as_str());
                 let sig = Self::userid(&uid, &primary)?;
 
                 packets.push(Packet::UserID(uid));
@@ -377,7 +370,7 @@ mod tests {
             .generate().unwrap();
 
         let mut userids = tpk.userids()
-            .map(|u| String::from_utf8_lossy(&u.userid.value[..]).into_owned())
+            .map(|u| String::from_utf8_lossy(u.userid.userid()).into_owned())
             .collect::<Vec<String>>();
         userids.sort();
 

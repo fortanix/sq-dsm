@@ -1469,10 +1469,7 @@ impl UserID {
 
         let value = php_try!(php.parse_bytes_eof("value"));
 
-        php.ok(Packet::UserID(UserID {
-            common: Default::default(),
-            value: value,
-        }))
+        php.ok(Packet::UserID(UserID::from(value)))
     }
 }
 

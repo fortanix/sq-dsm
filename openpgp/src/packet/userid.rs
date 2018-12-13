@@ -21,7 +21,7 @@ pub struct UserID {
     ///   [RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.11
     ///
     /// Use `UserID::default()` to get a UserID with a default settings.
-    pub(crate) value: Vec<u8>,
+    value: Vec<u8>,
 }
 
 impl From<Vec<u8>> for UserID {
