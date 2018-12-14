@@ -1096,4 +1096,20 @@ mod test {
         Builder::new(SignatureType::Text)
             .sign_hash(&key, &private_mpis, HashAlgorithm::SHA256, hash).unwrap();
     }
+
+    #[test]
+    fn verify_gpg_3rd_party_cert() {
+        use {packet::KeyFlags, TPK};
+
+        let cert_kf = KeyFlags::default().set_certify(true);
+        let test1 = TPK::from_file(
+            path_to("keys/test1-certification-key.pgp")).unwrap();
+        let cert_key1 = test1.select_keys(cert_kf, None)[0];
+        let test2 = TPK::from_file(
+            path_to("keys/test2-signed-by-test1.pgp")).unwrap();
+        let uid_binding = &test2.primary_key_signature_full().unwrap().0.unwrap();
+        let cert = uid_binding.certifications().next().unwrap();
+
+        assert_eq!(cert.verify_userid_binding(cert_key1, test2.primary(), uid_binding.userid()).ok(), Some(true));
+    }
 }
