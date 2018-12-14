@@ -16,7 +16,7 @@ use conversions::{
 use Error;
 use Result;
 use crypto::SessionKey;
-use super::secure_eq;
+use super::secure_cmp;
 
 impl AEADAlgorithm {
     /// Returns the digest size of the AEAD algorithm.
@@ -179,6 +179,8 @@ impl<R: io::Read> Decryptor<R> {
     }
 
     fn read_helper(&mut self, plaintext: &mut [u8]) -> Result<usize> {
+        use std::cmp::Ordering;
+
         let mut pos = 0;
 
         // 1. Copy any buffered data.
@@ -244,7 +246,9 @@ impl<R: io::Read> Decryptor<R> {
 
             // Check digest.
             aead.digest(&mut digest);
-            if !secure_eq(&digest[..], &chunk[chunk.len() - self.digest_size..]) {
+            let dig_ord = secure_cmp(&digest[..],
+                                     &chunk[chunk.len() - self.digest_size..]);
+            if dig_ord != Ordering::Equal {
                 return Err(Error::ManipulatedMessage.into());
             }
 
@@ -257,10 +261,13 @@ impl<R: io::Read> Decryptor<R> {
             // We read the whole ciphertext, now check the final digest.
             let mut aead = self.make_aead()?;
             self.hash_associated_data(&mut aead, true);
+
             let mut nada = [0; 0];
             aead.decrypt(&mut nada, b"");
             aead.digest(&mut digest);
-            if !secure_eq(&digest[..], &ciphertext[ciphertext_end..]) {
+
+            let dig_ord = secure_cmp(&digest[..], &ciphertext[ciphertext_end..]);
+            if dig_ord != Ordering::Equal {
                 return Err(Error::ManipulatedMessage.into());
             }
         }
@@ -330,10 +337,10 @@ impl<R: io::Read> Decryptor<R> {
 
         // Check digest.
         aead.digest(&mut digest);
-        let mac_is_ok = secure_eq(
+        let mac_ord = secure_cmp(
             &digest[..],
             &ciphertext[ciphertext_end - self.digest_size..ciphertext_end]);
-        if !mac_is_ok {
+        if mac_ord != Ordering::Equal {
             return Err(Error::ManipulatedMessage.into());
         }
 
@@ -348,10 +355,13 @@ impl<R: io::Read> Decryptor<R> {
             // We read the whole ciphertext, now check the final digest.
             let mut aead = self.make_aead()?;
             self.hash_associated_data(&mut aead, true);
+
             let mut nada = [0; 0];
             aead.decrypt(&mut nada, b"");
             aead.digest(&mut digest);
-            if !secure_eq(&digest[..], &ciphertext[ciphertext_end..]) {
+
+            let dig_ord = secure_cmp(&digest[..], &ciphertext[ciphertext_end..]);
+            if dig_ord != Ordering::Equal {
                 return Err(Error::ManipulatedMessage.into());
             }
         }
