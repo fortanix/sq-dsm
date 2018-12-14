@@ -1,4 +1,5 @@
 use std::fmt;
+use quickcheck::{Arbitrary, Gen};
 
 use Error;
 use Fingerprint;
@@ -164,6 +165,12 @@ impl KeyID {
 
         // We know the content is valid UTF-8.
         String::from_utf8(output).unwrap()
+    }
+}
+
+impl Arbitrary for KeyID {
+    fn arbitrary<G: Gen>(g: &mut G) -> Self {
+        KeyID::new(u64::arbitrary(g))
     }
 }
 
