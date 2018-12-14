@@ -24,6 +24,7 @@ use self::openpgp::{
     Packet,
     packet::{
         Signature,
+        Tag,
         PKESK,
         SKESK,
         key::SecretKey,
@@ -61,6 +62,41 @@ use self::openpgp::constants::{
 use super::build_hasher;
 use super::error::Status;
 use super::core::Context;
+
+/* openpgp::packet::Tag.  */
+
+/// Returns a human-readable tag name.
+///
+/// ```c
+/// #include <assert.h>
+/// #include <string.h>
+/// #include <sequoia.h>
+///
+/// assert (strcmp (sq_tag_to_string (2), "SIGNATURE") == 0);
+/// ```
+#[no_mangle]
+pub extern "system" fn sq_tag_to_string(tag: u8) -> *const c_char {
+    match Tag::from(tag) {
+        Tag::PKESK => "PKESK\x00",
+        Tag::Signature => "SIGNATURE\x00",
+        Tag::SKESK => "SKESK\x00",
+        Tag::OnePassSig => "ONE PASS SIG\x00",
+        Tag::SecretKey => "SECRET KEY\x00",
+        Tag::PublicKey => "PUBLIC KEY\x00",
+        Tag::SecretSubkey => "SECRET SUBKEY\x00",
+        Tag::CompressedData => "COMPRESSED DATA\x00",
+        Tag::SED => "SED\x00",
+        Tag::Marker => "MARKER\x00",
+        Tag::Literal => "LITERAL\x00",
+        Tag::Trust => "TRUST\x00",
+        Tag::UserID => "USER ID\x00",
+        Tag::PublicSubkey => "PUBLIC SUBKEY\x00",
+        Tag::UserAttribute => "USER ATTRIBUTE\x00",
+        Tag::SEIP => "SEIP\x00",
+        Tag::MDC => "MDC\x00",
+        _ => "OTHER\x00",
+    }.as_bytes().as_ptr() as *const c_char
+}
 
 /* sequoia::openpgp::KeyID.  */
 
