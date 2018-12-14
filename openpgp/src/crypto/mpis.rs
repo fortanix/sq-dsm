@@ -8,9 +8,10 @@ use quickcheck::{Arbitrary, Gen};
 use rand::Rng;
 
 use constants::{
-    SymmetricAlgorithm,
-    HashAlgorithm,
     Curve,
+    HashAlgorithm,
+    PublicKeyAlgorithm,
+    SymmetricAlgorithm,
 };
 use serialize::Serialize;
 
@@ -541,6 +542,22 @@ impl Ciphertext {
             &Unknown { ref mpis, ref rest } =>
                 mpis.iter().map(|m| 2 + m.value.len()).sum::<usize>()
                 + rest.len(),
+        }
+    }
+
+    /// Returns, if known, the public-key algorithm for this
+    /// ciphertext.
+    pub fn pk_algo(&self) -> Option<PublicKeyAlgorithm> {
+        use self::Ciphertext::*;
+
+        // Fields are mostly MPIs that consist of two octets length
+        // plus the big endian value itself. All other field types are
+        // commented.
+        match self {
+            &RSA { .. } => Some(PublicKeyAlgorithm::RSAEncryptSign),
+            &Elgamal { .. } => Some(PublicKeyAlgorithm::ElgamalEncrypt),
+            &ECDH { .. } => Some(PublicKeyAlgorithm::ECDH),
+            &Unknown { .. } => None,
         }
     }
 
