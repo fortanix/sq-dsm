@@ -6,8 +6,14 @@ use std::path::Path;
 use {
     Result,
     TPK,
-    packet::Signature,
-    packet::Tag,
+    Error,
+};
+
+use packet::{
+    Signature,
+    Tag,
+    UserID,
+    Key,
 };
 use serialize::{
     Serialize,
@@ -94,7 +100,43 @@ impl TSK {
     pub fn into_tpk(self) -> TPK {
         self.key
     }
-}
+
+    /// Signs `key` and `userid` with a 3rd party certification.
+    pub fn certify_userid(&self, key: &Key, userid: &UserID) -> Result<Signature> {
+        use packet::{KeyFlags, signature, key::SecretKey};
+        use constants::{HashAlgorithm, SignatureType};
+
+        let caps = KeyFlags::default().set_certify(true);
+        let keys = self.key.select_keys(caps, None);
+
+        match keys.first() {
+            Some(ref my_key) => {
+                match my_key.secret() {
+                    Some(&SecretKey::Unencrypted{ ref mpis }) => {
+                        signature::Builder::new(SignatureType::GenericCertificate)
+                            .sign_userid_binding(my_key, mpis,
+                                            key, userid, HashAlgorithm::SHA512)
+                    }
+                    _ => Err(Error::InvalidOperation(
+                            "secret key missing or encrypted".into()).into()),
+                }
+            }
+            None => Err(Error::InvalidOperation(
+                        "this key cannot certify keys".into()).into()),
+        }
+    }
+
+    /// Signs the primary key's self signatures of `key`.
+    pub fn certify_key(&self, key: &TPK) -> Result<Signature> {
+        match key.primary_key_signature_full() {
+            None | Some((None, _)) =>
+                Err(Error::InvalidOperation(
+                    "this key has nothing to certify".into()).into()),
+            Some((Some(uid), _)) =>
+                self.certify_userid(key.primary(), uid.userid()),
+        }
+    }
+ }
 
 impl Serialize for TSK {
     /// Serializes the TSK.
@@ -162,5 +204,48 @@ impl Serialize for TSK {
             }
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use tpk::TPKBuilder;
+
+    #[test]
+    fn certification_direct_key() {
+        let (tpk1, _) = TPKBuilder::default()
+            .add_certification_subkey()
+            .generate().unwrap();
+        let tsk = tpk1.into_tsk();
+        let (tpk2, _) = TPKBuilder::default()
+            .generate().unwrap();
+
+        assert!(tsk.certify_key(&tpk2).is_err());
+    }
+
+    #[test]
+    fn certification_user_id() {
+        use packet::KeyFlags;
+
+        let (tpk1, _) = TPKBuilder::default()
+            .add_certification_subkey()
+            .generate().unwrap();
+        let tsk = tpk1.into_tsk();
+        let (tpk2, _) = TPKBuilder::default()
+            .add_userid("test1@example.com")
+            .add_userid("test2@example.com")
+            .generate().unwrap();
+
+        let sig = tsk.certify_key(&tpk2).unwrap();
+        let key = tsk.tpk().select_keys(
+            KeyFlags::default().set_certify(true),
+            None)[0];
+
+        assert_eq!(
+            sig.verify_userid_binding(
+                key,
+                tpk2.primary(),
+                tpk2.userids().next().unwrap().userid()).unwrap(),
+            true);
     }
 }
