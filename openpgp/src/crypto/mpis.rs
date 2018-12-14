@@ -289,7 +289,7 @@ impl Arbitrary for PublicKey {
 ///
 /// Provides a typed and structured way of storing multiple MPIs in
 /// packets.
-#[derive(Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Clone, Hash)]
 pub enum SecretKey {
     /// RSA secret key.
     RSA {
@@ -381,6 +381,100 @@ impl fmt::Debug for SecretKey {
         }
     }
 }
+
+fn secure_mpi_cmp(a: &MPI, b: &MPI) -> Ordering {
+    let ord1 = a.bits.cmp(&b.bits);
+    let ord2 = super::secure_cmp(&a.value, &b.value);
+
+    if ord1 == Ordering::Equal { ord2 } else { ord1 }
+}
+
+impl PartialOrd for SecretKey {
+    fn partial_cmp(&self, other: &SecretKey) -> Option<Ordering> {
+        use std::iter;
+
+        fn discriminant(sk: &SecretKey) -> usize {
+            match sk {
+                &SecretKey::RSA{ .. } => 0,
+                &SecretKey::DSA{ .. } => 1,
+                &SecretKey::Elgamal{ .. } => 2,
+                &SecretKey::EdDSA{ .. } => 3,
+                &SecretKey::ECDSA{ .. } => 4,
+                &SecretKey::ECDH{ .. } => 5,
+                &SecretKey::Unknown{ .. } => 6,
+            }
+        }
+
+        let ret = match (self, other) {
+            (&SecretKey::RSA{ d: ref d1, p: ref p1, q: ref q1, u: ref u1 }
+            ,&SecretKey::RSA{ d: ref d2, p: ref p2, q: ref q2, u: ref u2 }) => {
+                let o1 = secure_mpi_cmp(d1, d2);
+                let o2 = secure_mpi_cmp(p1, p2);
+                let o3 = secure_mpi_cmp(q1, q2);
+                let o4 = secure_mpi_cmp(u1, u2);
+
+                if o1 != Ordering::Equal { return Some(o1); }
+                if o2 != Ordering::Equal { return Some(o2); }
+                if o3 != Ordering::Equal { return Some(o3); }
+                o4
+            }
+            (&SecretKey::DSA{ x: ref x1 }
+            ,&SecretKey::DSA{ x: ref x2 }) => {
+                secure_mpi_cmp(x1, x2)
+            }
+            (&SecretKey::Elgamal{ x: ref x1 }
+            ,&SecretKey::Elgamal{ x: ref x2 }) => {
+                secure_mpi_cmp(x1, x2)
+            }
+            (&SecretKey::EdDSA{ scalar: ref scalar1 }
+            ,&SecretKey::EdDSA{ scalar: ref scalar2 }) => {
+                secure_mpi_cmp(scalar1, scalar2)
+            }
+            (&SecretKey::ECDSA{ scalar: ref scalar1 }
+            ,&SecretKey::ECDSA{ scalar: ref scalar2 }) => {
+                secure_mpi_cmp(scalar1, scalar2)
+            }
+            (&SecretKey::ECDH{ scalar: ref scalar1 }
+            ,&SecretKey::ECDH{ scalar: ref scalar2 }) => {
+                secure_mpi_cmp(scalar1, scalar2)
+            }
+            (&SecretKey::Unknown{ mpis: ref mpis1, rest: ref rest1 }
+            ,&SecretKey::Unknown{ mpis: ref mpis2, rest: ref rest2 }) => {
+                let o1 = super::secure_cmp(rest1, rest2);
+                let on = mpis1.iter().zip(mpis2.iter()).map(|(a,b)| {
+                    secure_mpi_cmp(a, b)
+                }).collect::<Vec<_>>();
+
+                iter::once(&o1)
+                    .chain(on.iter())
+                    .find(|&&x| x != Ordering::Equal)
+                    .cloned()
+                    .unwrap_or(Ordering::Equal)
+            }
+
+            (a, b) => {
+                let ret = discriminant(a).cmp(&discriminant(b));
+
+                assert!(ret != Ordering::Equal);
+                ret
+            }
+        };
+
+        Some(ret)
+    }
+}
+
+impl Ord for SecretKey {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.partial_cmp(other).unwrap()
+    }
+}
+
+impl PartialEq for SecretKey {
+    fn eq(&self, other: &Self) -> bool { self.cmp(other) == Ordering::Equal }
+}
+
+impl Eq for SecretKey {}
 
 impl Drop for SecretKey {
     fn drop(&mut self) {
