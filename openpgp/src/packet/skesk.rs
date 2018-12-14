@@ -90,7 +90,9 @@ impl SKESK4 {
             version: version,
             symm_algo: cipher,
             s2k: s2k,
-            esk: esk,
+            esk: esk.and_then(|esk| {
+                if esk.len() == 0 { None } else { Some(esk) }
+            }),
         })
     }
 
@@ -154,7 +156,9 @@ impl SKESK4 {
 
     /// Sets the encrypted session key.
     pub fn set_esk(&mut self, esk: Option<Vec<u8>>) {
-        self.esk = esk;
+        self.esk = esk.and_then(|esk| {
+            if esk.len() == 0 { None } else { Some(esk) }
+        });
     }
 
     /// Convert the `SKESK4` struct to a `Packet`.
