@@ -1003,6 +1003,41 @@ sq_fingerprint_t sq_p_key_fingerprint (sq_p_key_t p);
 sq_keyid_t sq_p_key_keyid (sq_p_key_t p);
 
 /*/
+/// Returns whether the key is expired according to the provided
+/// self-signature.
+///
+/// Note: this is with respect to the provided signature, which is not
+/// checked for validity.  That is, we do not check whether the
+/// signature is a valid self-signature for the given key.
+/*/
+int sq_p_key_expired(sq_p_key_t key, sq_signature_t self_signature);
+
+/*/
+/// Like sq_p_key_expired, but at a specific time.
+/*/
+int sq_p_key_expired_at(sq_p_key_t key, sq_signature_t self_signature,
+                        time_t when);
+
+/*/
+/// Returns whether the key is alive according to the provided
+/// self-signature.
+///
+/// A key is alive if the creation date is in the past, and the key
+/// has not expired.
+///
+/// Note: this is with respect to the provided signature, which is not
+/// checked for validity.  That is, we do not check whether the
+/// signature is a valid self-signature for the given key.
+/*/
+int sq_p_key_alive(sq_p_key_t key, sq_signature_t self_signature);
+
+/*/
+/// Like sq_p_key_alive, but at a specific time.
+/*/
+int sq_p_key_alive_at(sq_p_key_t key, sq_signature_t self_signature,
+                      time_t when);
+
+/*/
 /// Returns the value of the User ID Packet.
 ///
 /// The returned pointer is valid until `uid` is deallocated.  If

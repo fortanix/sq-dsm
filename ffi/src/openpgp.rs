@@ -1610,6 +1610,69 @@ pub extern "system" fn sq_p_key_keyid(key: Option<&packet::Key>)
     box_raw!(key.keyid())
 }
 
+/// Returns whether the key is expired according to the provided
+/// self-signature.
+///
+/// Note: this is with respect to the provided signature, which is not
+/// checked for validity.  That is, we do not check whether the
+/// signature is a valid self-signature for the given key.
+#[no_mangle]
+pub extern "system" fn sq_p_key_expired(key: Option<&packet::Key>,
+                                      sig: Option<&packet::Signature>)
+    -> bool
+{
+    let key = key.expect("Key is NULL");
+    let sig = sig.expect("SIG is NULL");
+
+    sig.key_expired(key)
+}
+
+/// Like sq_p_key_expired, but at a specific time.
+#[no_mangle]
+pub extern "system" fn sq_p_key_expired_at(key: Option<&packet::Key>,
+                                         sig: Option<&packet::Signature>,
+                                         when: time_t)
+    -> bool
+{
+    let key = key.expect("Key is NULL");
+    let sig = sig.expect("SIG is NULL");
+
+    sig.key_expired_at(key, time::at(time::Timespec::new(when as i64, 0)))
+}
+
+/// Returns whether the key is alive according to the provided
+/// self-signature.
+///
+/// A key is alive if the creation date is in the past, and the key
+/// has not expired.
+///
+/// Note: this is with respect to the provided signature, which is not
+/// checked for validity.  That is, we do not check whether the
+/// signature is a valid self-signature for the given key.
+#[no_mangle]
+pub extern "system" fn sq_p_key_alive(key: Option<&packet::Key>,
+                                      sig: Option<&packet::Signature>)
+    -> bool
+{
+    let key = key.expect("Key is NULL");
+    let sig = sig.expect("SIG is NULL");
+
+    sig.key_alive(key)
+}
+
+/// Like sq_p_key_alive, but at a specific time.
+#[no_mangle]
+pub extern "system" fn sq_p_key_alive_at(key: Option<&packet::Key>,
+                                         sig: Option<&packet::Signature>,
+                                         when: time_t)
+    -> bool
+{
+    let key = key.expect("Key is NULL");
+    let sig = sig.expect("SIG is NULL");
+
+    sig.key_alive_at(key, time::at(time::Timespec::new(when as i64, 0)))
+}
+
 /// Returns the key's creation time.
 #[no_mangle]
 pub extern "system" fn sq_p_key_creation_time(key: Option<&packet::Key>)
