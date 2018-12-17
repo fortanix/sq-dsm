@@ -1076,6 +1076,67 @@ int sq_p_key_alive(sq_p_key_t key, sq_signature_t self_signature);
 int sq_p_key_alive_at(sq_p_key_t key, sq_signature_t self_signature,
                       time_t when);
 
+typedef enum sq_public_key_algorithm {
+  /*/
+  /// RSA (Encrypt or Sign)
+  /*/
+  SQ_PUBLIC_KEY_ALGO_RSA_ENCRYPT_SIGN,
+
+  /*/
+  /// RSA Encrypt-Only
+  /*/
+  SQ_PUBLIC_KEY_ALGO_RSA_ENCRYPT,
+
+  /*/
+  /// RSA Sign-Only
+  /*/
+  SQ_PUBLIC_KEY_ALGO_RSA_SIGN,
+
+  /*/
+  /// Elgamal (Encrypt-Only)
+  /*/
+  SQ_PUBLIC_KEY_ALGO_ELGAMAL_ENCRYPT,
+
+  /*/
+  /// DSA (Digital Signature Algorithm)
+  /*/
+  SQ_PUBLIC_KEY_ALGO_DSA,
+
+  /*/
+  /// Elliptic curve DH
+  /*/
+  SQ_PUBLIC_KEY_ALGO_ECDH,
+
+  /*/
+  /// Elliptic curve DSA
+  /*/
+  SQ_PUBLIC_KEY_ALGO_ECDSA,
+
+  /*/
+  /// Elgamal (Encrypt or Sign)
+  /*/
+  SQ_PUBLIC_KEY_ALGO_ELGAMAL_ENCRYPT_SIGN,
+
+  /*/
+  /// "Twisted" Edwards curve DSA
+  /*/
+  SQ_PUBLIC_KEY_ALGO_EDDSA,
+
+  /* Dummy value to make sure the enumeration has a defined size.  Do
+     not use this value.  */
+  SQ_PUBLIC_KEY_ALGO_FORCE_WIDTH = INT_MAX,
+} sq_public_key_algo_t;
+
+/*/
+/// Returns the key's public key algorithm.
+/*/
+sq_public_key_algo_t sq_p_key_public_key_algo(sq_p_key_t key);
+
+/*/
+/// Returns the public key's size in bits.
+/*/
+int sq_p_key_public_key_bits(sq_p_key_t key);
+
 /*/
 /// Returns the value of the User ID Packet.
 ///

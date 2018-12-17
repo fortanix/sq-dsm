@@ -1699,6 +1699,35 @@ pub extern "system" fn sq_p_key_creation_time(key: Option<&packet::Key>)
     ct.to_timespec().sec as u32
 }
 
+/// Returns the key's public key algorithm.
+#[no_mangle]
+pub extern "system" fn sq_p_key_public_key_algo(key: Option<&packet::Key>)
+    -> c_int
+{
+    let key = key.expect("Key is NULL");
+    let pk_algo : u8 = key.pk_algo().into();
+    pk_algo as c_int
+}
+
+/// Returns the public key's size in bits.
+#[no_mangle]
+pub extern "system" fn sq_p_key_public_key_bits(key: Option<&packet::Key>)
+    -> c_int
+{
+    use self::openpgp::crypto::mpis::PublicKey::*;
+
+    let key = key.expect("Key is NULL");
+    match key.mpis() {
+        RSA { e: _, n } => n.bits as c_int,
+        DSA { p: _, q: _, g: _, y } => y.bits as c_int,
+        Elgamal { p: _, g: _, y } => y.bits as c_int,
+        EdDSA { curve: _, q } => q.bits as c_int,
+        ECDSA { curve: _, q } =>  q.bits as c_int,
+        ECDH { curve: _, q, hash: _, sym: _ } =>  q.bits as c_int,
+        Unknown { mpis: _, rest: _ } => 0,
+    }
+}
+
 /// Returns the value of the User ID Packet.
 ///
 /// The returned pointer is valid until `uid` is deallocated.  If
