@@ -1606,7 +1606,8 @@ sq_status_t sq_decrypt (sq_context_t ctx, sq_reader_t input, sq_writer_t output,
                         sq_sequoia_decrypt_check_signatures_cb_t check_signatures,
                         void *cookie);
 
-sq_status_t sq_verify (sq_context_t ctx, sq_reader_t input, sq_writer_t output,
+sq_status_t sq_verify (sq_context_t ctx,
+                       sq_reader_t input, sq_reader_t dsig, sq_writer_t output,
                        sq_sequoia_decrypt_get_public_keys_cb_t get_public_keys,
                        sq_sequoia_decrypt_check_signatures_cb_t check_signatures,
                        void *cookie);

@@ -53,6 +53,7 @@ use self::openpgp::parse::stream::{
     VerificationHelper,
     VerificationResult,
     Verifier,
+    DetachedVerifier,
 };
 use self::openpgp::serialize::Serialize;
 use self::openpgp::constants::{
@@ -2767,6 +2768,7 @@ impl VerificationHelper for VHelper {
 }
 
 fn verify_real<'a>(input: &'a mut Box<'a + Read>,
+                   dsig: Option<&'a mut Box<'a + Read>>,
                    output: Option<&'a mut Box<'a + Write>>,
                    get_public_keys: GetPublicKeysCallback,
                    check_signatures: CheckSignaturesCallback,
@@ -2774,7 +2776,11 @@ fn verify_real<'a>(input: &'a mut Box<'a + Read>,
     -> Result<(), failure::Error>
 {
     let h = VHelper::new(get_public_keys, check_signatures, cookie);
-    let mut v = Verifier::from_reader(input, h)?;
+    let mut v = if let Some(dsig) = dsig {
+        DetachedVerifier::from_reader(dsig, input, h)?
+    } else {
+        Verifier::from_reader(input, h)?
+    };
 
     let r = if let Some(output) = output {
         io::copy(&mut v, output)
@@ -2813,6 +2819,7 @@ fn verify_real<'a>(input: &'a mut Box<'a + Read>,
 #[no_mangle]
 pub fn sq_verify<'a>(ctx: Option<&mut Context>,
                      input: Option<&'a mut Box<'a + Read>>,
+                     dsig: Option<&'a mut Box<'a + Read>>,
                      output: Option<&'a mut Box<'a + Write>>,
                      get_public_keys: GetPublicKeysCallback,
                      check_signatures: CheckSignaturesCallback,
@@ -2822,7 +2829,7 @@ pub fn sq_verify<'a>(ctx: Option<&mut Context>,
     let ctx = ctx.expect("Context is NULL");
     let input = input.expect("Input is NULL");
 
-    let r = verify_real(input, output,
+    let r = verify_real(input, dsig, output,
         get_public_keys, check_signatures, cookie);
 
     fry_status!(ctx, r)
