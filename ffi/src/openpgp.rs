@@ -794,6 +794,21 @@ pub extern "system" fn sq_tpk_from_bytes(ctx: Option<&mut Context>,
     fry_box!(ctx, TPK::from_bytes(buf))
 }
 
+/// Returns the first TPK found in the packet parser.
+///
+/// Consumes the packet parser result.
+#[no_mangle]
+pub extern "system" fn sq_tpk_from_packet_parser(ctx: Option<&mut Context>,
+                                                 ppr: *mut PacketParserResult)
+    -> *mut TPK
+{
+    let ctx = ctx.expect("Context is NULL");
+    assert!(! ppr.is_null());
+    let ppr = unsafe { Box::from_raw(ppr) };
+
+    fry_box!(ctx, TPK::from_packet_parser(*ppr))
+}
+
 /// Frees the TPK.
 #[no_mangle]
 pub extern "system" fn sq_tpk_free(tpk: *mut TPK) {

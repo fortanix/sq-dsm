@@ -4,6 +4,37 @@
 #include <sequoia/core.h>
 #include <time.h>
 
+/*/
+/// A low-level OpenPGP message parser.
+///
+/// A `PacketParser` provides a low-level, iterator-like interface to
+/// parse OpenPGP messages.
+///
+/// For each iteration, the user is presented with a [`Packet`]
+/// corresponding to the last packet, a `PacketParser` for the next
+/// packet, and their positions within the message.
+///
+/// Using the `PacketParser`, the user is able to configure how the
+/// new packet will be parsed.  For instance, it is possible to stream
+/// the packet's contents (a `PacketParser` implements the
+/// `std::io::Read` and the `BufferedReader` traits), buffer them
+/// within the [`Packet`], or drop them.  The user can also decide to
+/// recurse into the packet, if it is a container, instead of getting
+/// the following packet.
+/*/
+typedef struct sq_packet_parser *sq_packet_parser_t;
+
+/*/
+/// Like an `Option<PacketParser>`, but the `None` variant
+/// (`PacketParserEOF`) contains some summary information.
+/*/
+typedef struct sq_packet_parser_result *sq_packet_parser_result_t;
+
+/*/
+/// The `None` variant of a `PacketParserResult`.
+/*/
+typedef struct sq_packet_parser_eof *sq_packet_parser_eof_t;
+
 /* sequoia::openpgp::KeyID.  */
 
 /*/
@@ -752,6 +783,14 @@ sq_tpk_t sq_tpk_from_bytes (sq_context_t ctx,
 			    const uint8_t *b, size_t len);
 
 /*/
+/// Returns the first TPK found in the packet parser.
+///
+/// Consumes the packet parser result.
+/*/
+sq_tpk_t sq_tpk_from_packet_parser (sq_context_t ctx,
+                                    sq_packet_parser_result_t ppr);
+
+/*/
 /// Frees the TPK.
 /*/
 void sq_tpk_free (sq_tpk_t tpk);
@@ -1074,37 +1113,6 @@ sq_status_t sq_skesk_decrypt (sq_context_t ctx, sq_skesk_t skesk,
 uint32_t sq_p_key_creation_time (sq_p_key_t p);
 
 /* openpgp::parse.  */
-
-/*/
-/// A low-level OpenPGP message parser.
-///
-/// A `PacketParser` provides a low-level, iterator-like interface to
-/// parse OpenPGP messages.
-///
-/// For each iteration, the user is presented with a [`Packet`]
-/// corresponding to the last packet, a `PacketParser` for the next
-/// packet, and their positions within the message.
-///
-/// Using the `PacketParser`, the user is able to configure how the
-/// new packet will be parsed.  For instance, it is possible to stream
-/// the packet's contents (a `PacketParser` implements the
-/// `std::io::Read` and the `BufferedReader` traits), buffer them
-/// within the [`Packet`], or drop them.  The user can also decide to
-/// recurse into the packet, if it is a container, instead of getting
-/// the following packet.
-/*/
-typedef struct sq_packet_parser *sq_packet_parser_t;
-
-/*/
-/// Like an `Option<PacketParser>`, but the `None` variant
-/// (`PacketParserEOF`) contains some summary information.
-/*/
-typedef struct sq_packet_parser_result *sq_packet_parser_result_t;
-
-/*/
-/// The `None` variant of a `PacketParserResult`.
-/*/
-typedef struct sq_packet_parser_eof *sq_packet_parser_eof_t;
 
 /*/
 /// Starts parsing an OpenPGP message stored in a `sq_reader_t` object.
