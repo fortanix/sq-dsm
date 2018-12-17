@@ -1343,6 +1343,24 @@ impl TPK {
         }
     }
 
+    /// Returns whether or not the TPK is alive.
+    pub fn alive(&self) -> bool {
+        if let Some(sig) = self.primary_key_signature() {
+            sig.key_alive(self.primary())
+        } else {
+            false
+        }
+    }
+
+    /// Returns whether or not the key is alive at the given time.
+    pub fn alive_at(&self, tm: time::Tm) -> bool {
+        if let Some(sig) = self.primary_key_signature() {
+            sig.key_alive_at(self.primary(), tm)
+        } else {
+            false
+        }
+    }
+
     /// Sets the key to expire in delta seconds.
     ///
     /// Note: the time is relative to the key's creation time, not the
