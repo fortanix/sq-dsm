@@ -930,6 +930,11 @@ sq_user_id_binding_iter_t sq_tpk_user_id_binding_iter (sq_tpk_t tpk);
 /*/
 sq_tpk_key_iter_t sq_tpk_key_iter (sq_tpk_t tpk);
 
+/*/
+/// Returns the TPK's primary user id (if any).
+/*/
+char *sq_tpk_primary_user_id(sq_tpk_t tpk);
+
 /* TPKBuilder */
 
 typedef struct sq_tpk_builder *sq_tpk_builder_t;

@@ -1049,6 +1049,21 @@ pub extern "system" fn sq_tpk_is_tsk(tpk: Option<&TPK>)
     tpk.is_tsk() as c_int
 }
 
+/// Returns an iterator over the TPK's user id bindings.
+#[no_mangle]
+pub extern "system" fn sq_tpk_primary_user_id(tpk: Option<&TPK>)
+    -> *mut c_char
+{
+    let tpk = tpk.expect("TPK is NULL");
+    if let Some(binding) = tpk.userids().nth(0) {
+        CString::new(binding.userid().userid())
+            .unwrap() // Errors only on internal nul bytes.
+            .into_raw()
+    } else {
+        ptr::null_mut()
+    }
+}
+
 fn revocation_status_to_int(rs: &RevocationStatus) -> c_int {
     match rs {
         RevocationStatus::Revoked(_) => 0,
