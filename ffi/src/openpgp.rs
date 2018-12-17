@@ -1106,6 +1106,17 @@ pub extern "system" fn sq_user_id_binding_user_id(
     }
 }
 
+/// Returns a reference to the self-signature, if any.
+#[no_mangle]
+pub extern "system" fn sq_user_id_binding_selfsig(
+    binding: Option<&UserIDBinding>)
+    -> Option<&Signature>
+{
+    let binding = binding.expect("Binding is NULL");
+    binding.binding_signature()
+}
+
+
 /* UserIDBindingIter */
 
 /// Returns an iterator over the TPK's user id bindings.

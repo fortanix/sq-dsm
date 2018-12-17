@@ -689,6 +689,11 @@ typedef struct sq_user_id_binding *sq_user_id_binding_t;
 /*/
 char *sq_user_id_binding_user_id (sq_user_id_binding_t binding);
 
+/*/
+/// Returns a reference to the self-signature, if any.
+/*/
+sq_signature_t sq_user_id_binding_selfsig(sq_user_id_binding_t binding);
+
 /* openpgp::tpk::UserIDBindingIter.  */
 
 /*/
