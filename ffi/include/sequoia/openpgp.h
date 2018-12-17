@@ -1133,6 +1133,16 @@ sq_packet_parser_result_t sq_packet_parser_from_bytes (sq_context_t ctx,
                                                        const uint8_t *b,
                                                        size_t len);
 
+/// Returns the current packet's tag.
+///
+/// This is a convenience function to inspect the containing packet,
+/// without turning the `PacketParserResult` into a `PacketParser`.
+///
+/// This function does not consume the ppr.
+///
+/// Returns 0 if the PacketParserResult does not contain a packet.
+sq_tag_t sq_packet_parser_result_tag(sq_packet_parser_result_t ppr);
+
 /*/
 /// If the `PacketParserResult` contains a `PacketParser`, returns it,
 /// otherwise, returns NULL.

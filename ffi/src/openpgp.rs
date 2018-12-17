@@ -2160,6 +2160,29 @@ pub extern "system" fn sq_packet_parser_decrypt<'a>
 
 /* PacketParserResult.  */
 
+/// Returns the current packet's tag.
+///
+/// This is a convenience function to inspect the containing packet,
+/// without turning the `PacketParserResult` into a `PacketParser`.
+///
+/// This function does not consume the ppr.
+///
+/// Returns 0 if the PacketParserResult does not contain a packet.
+#[no_mangle]
+pub extern "system" fn sq_packet_parser_result_tag<'a>
+    (ppr: Option<&mut PacketParserResult<'a>>)
+    -> c_int
+{
+    let ppr = ppr.expect("ppr is NULL");
+
+    let tag : u8 = match ppr {
+        PacketParserResult::Some(ref pp) => pp.packet.tag().into(),
+        PacketParserResult::EOF(_) => 0,
+    };
+
+    tag as c_int
+}
+
 /// If the `PacketParserResult` contains a `PacketParser`, returns it,
 /// otherwise, returns NULL.
 ///
