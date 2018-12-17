@@ -1394,14 +1394,17 @@ impl TPK {
                 assert_eq!(sig.sigtype(), SignatureType::DirectKey);
             }
 
-            if let Some(SecretKey::Unencrypted{ mpis: ref sec })
-                = pair.secret()
-            {
-                // Generate the signature.
-                sig.sign_hash(&pair, sec, hash_algo, hash)?
-            } else {
-                return Err(Error::InvalidOperation(
-                    "Secret key is encrypted".into()).into());
+            match pair.secret() {
+                Some(SecretKey::Unencrypted{ mpis: ref sec }) => {
+                    // Generate the signature.
+                    sig.sign_hash(&pair, sec, hash_algo, hash)?
+                }
+                Some(_) =>
+                    return Err(Error::InvalidOperation(
+                        "Secret key is encrypted".into()) .into()),
+                None =>
+                    return Err(Error::InvalidOperation(
+                        "No secret key".into()).into()),
             }
         };
 
