@@ -353,7 +353,7 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
 
                 if let Some(issuer) = sig.get_issuer() {
                     if let Some((i, j)) = self.keys.get(&issuer) {
-                        let (_, key) = self.tpks[*i].keys().nth(*j).unwrap();
+                        let (_, _, key) = self.tpks[*i].keys().nth(*j).unwrap();
                         if sig.verify(key).unwrap_or(false) {
                             self.sigs.iter_mut().last()
                                 .expect("sigs is never empty").push(
@@ -1170,7 +1170,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
 
                 if let Some(issuer) = sig.get_issuer() {
                     if let Some((i, j)) = self.keys.get(&issuer) {
-                        let (_, key) = self.tpks[*i].keys().nth(*j).unwrap();
+                        let (_, _, key) = self.tpks[*i].keys().nth(*j).unwrap();
                         if sig.verify(key).unwrap_or(false) {
                             self.sigs.iter_mut().last()
                                 .expect("sigs is never empty").push(

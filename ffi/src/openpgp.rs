@@ -1099,21 +1099,30 @@ pub extern "system" fn sq_user_id_binding_iter_next<'a>(
 
 /* tpk::KeyIter. */
 
+/// Wrapers a KeyIter for export via the FFI.
+pub struct KeyIterWrapper<'a> {
+    iter: KeyIter<'a>,
+    rso: Option<RevocationStatus<'a>>,
+}
+
 /// Returns an iterator over the TPK's keys.
 ///
 /// This iterates over both the primary key and any subkeys.
 #[no_mangle]
 pub extern "system" fn sq_tpk_key_iter(tpk: Option<&TPK>)
-    -> *mut KeyIter
+    -> *mut KeyIterWrapper
 {
     let tpk = tpk.expect("TPK is NULL");
-    box_raw!(tpk.keys())
+    box_raw!(KeyIterWrapper {
+        iter: tpk.keys(),
+        rso: None,
+    })
 }
 
 /// Frees a sq_tpk_key_iter_t.
 #[no_mangle]
 pub extern "system" fn sq_tpk_key_iter_free(
-    iter: *mut KeyIter)
+    iter: *mut KeyIterWrapper)
 {
     if iter.is_null() { return };
     unsafe {
@@ -1121,17 +1130,33 @@ pub extern "system" fn sq_tpk_key_iter_free(
     };
 }
 
-/// Returns the next key.
+/// Returns the next key.  Returns NULL if there are no more elements.
+///
+/// If sigo is not NULL, stores the current self-signature (if any) in
+/// *sigo.  (Note: subkeys always have signatures, but a primary key
+/// may not have a direct signature, and there might not be any user
+/// ids.)
+///
+/// If rso is not NULL, this stores the key's revocation status in
+/// *rso.
 #[no_mangle]
 pub extern "system" fn sq_tpk_key_iter_next<'a>(
-    iter: Option<&mut KeyIter<'a>>,
-    sigo: Option<&mut *mut Option<&'a packet::Signature>>)
+    iter_wrapper: Option<&'a mut KeyIterWrapper<'a>>,
+    sigo: Option<&mut Option<&'a packet::Signature>>,
+    rso: Option<&mut &'a RevocationStatus<'a>>)
     -> Option<&'a packet::Key>
 {
-    let iter = iter.expect("Iterator is NULL");
-    if let Some((sig, key)) = iter.next() {
+    let iter_wrapper = iter_wrapper.expect("Iterator is NULL");
+    iter_wrapper.rso = None;
+
+    if let Some((sig, rs, key)) = iter_wrapper.iter.next() {
         if let Some(ptr) = sigo {
-            *ptr = box_raw!(sig);
+            *ptr = sig;
+        }
+
+        if let Some(ptr) = rso {
+            iter_wrapper.rso = Some(rs);
+            *ptr = iter_wrapper.rso.as_ref().unwrap();
         }
 
         Some(key)

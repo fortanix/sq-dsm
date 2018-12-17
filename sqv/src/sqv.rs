@@ -214,7 +214,7 @@ fn real_main() -> Result<(), failure::Error> {
 
         if let Some(ref tpk) = tpko {
             // Find the right key.
-            for (_, key) in tpk.keys() {
+            for (_, _, key) in tpk.keys() {
                 if issuer == key.keyid() {
                     let mut hash = match hashes.get(&sig.hash_algo()) {
                         Some(h) => h.clone(),

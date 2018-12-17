@@ -447,7 +447,7 @@ impl<'a> VerificationHelper for VHelper<'a> {
         let mut tpks = self.tpks.take().unwrap();
         let seen: HashSet<_> = tpks.iter()
             .flat_map(|tpk| {
-                tpk.keys().map(|(_, key)| key.fingerprint().to_keyid())
+                tpk.keys().map(|(_, _, key)| key.fingerprint().to_keyid())
             }).collect();
 
         // Explicitly provided keys are trusted.

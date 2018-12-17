@@ -694,16 +694,19 @@ pub struct KeyIter<'a> {
 }
 
 impl<'a> Iterator for KeyIter<'a> {
-    type Item = (Option<&'a Signature>, &'a Key);
+    type Item = (Option<&'a Signature>, RevocationStatus<'a>, &'a Key);
 
     fn next(&mut self) -> Option<Self::Item> {
         if ! self.primary {
             self.primary = true;
-            Some((self.tpk.primary_key_signature(), self.tpk.primary()))
+            Some((self.tpk.primary_key_signature(),
+                  self.tpk.revoked(),
+                  self.tpk.primary()))
         } else {
             self.subkey_iter.next()
                 .map(|sk_binding| (sk_binding.binding_signature(),
-                                   &sk_binding.subkey))
+                                   sk_binding.revoked(),
+                                   &sk_binding.subkey,))
         }
     }
 }
