@@ -358,7 +358,7 @@ sq_tpk_t sq_binding_rotate (sq_context_t ctx, sq_binding_t binding,
 ///
 /// Consumes `binding`.  Returns != 0 on error.
 /*/
-sq_status_t sq_binding_delete (sq_binding_t binding);
+sq_status_t sq_binding_delete (sq_context_t ctx, sq_binding_t binding);
 
 /*/
 /// Lists all log entries related to this binding.
