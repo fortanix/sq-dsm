@@ -519,6 +519,47 @@ sq_keyid_t sq_signature_issuer(sq_signature_t sig);
 /*/
 sq_fingerprint_t sq_signature_issuer_fingerprint(sq_signature_t sig);
 
+/*/
+/// Returns whether the KeyFlags indicates that the key can be used to
+/// make certifications.
+/*/
+int sq_signature_can_certify(sq_signature_t signature);
+
+/*/
+/// Returns whether the KeyFlags indicates that the key can be used to
+/// make signatures.
+/*/
+int sq_signature_can_sign(sq_signature_t signature);
+
+/*/
+/// Returns whether the KeyFlags indicates that the key can be used to
+/// encrypt data for transport.
+/*/
+int sq_signature_can_encrypt_for_transport(sq_signature_t signature);
+
+/*/
+/// Returns whether the KeyFlags indicates that the key can be used to
+/// encrypt data at rest.
+/*/
+int sq_signature_can_encrypt_at_rest(sq_signature_t signature);
+
+/*/
+/// Returns whether the KeyFlags indicates that the key can be used
+/// for authentication.
+/*/
+int sq_signature_can_authenticate(sq_signature_t signature);
+
+/*/
+/// Returns whether the KeyFlags indicates that the key is a split
+/// key.
+/*/
+int sq_signature_is_split_key(sq_signature_t signature);
+
+/*/
+/// Returns whether the KeyFlags indicates that the key is a group
+/// key.
+/*/
+int sq_signature_is_group_key(sq_signature_t signature);
 /// Returns the PKESK's recipient.
 ///
 /// The return value is a reference ot a `KeyID`.  The caller must not

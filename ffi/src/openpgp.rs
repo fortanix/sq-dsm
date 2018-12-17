@@ -1450,6 +1450,75 @@ pub extern "system" fn sq_signature_issuer_fingerprint(
 }
 
 
+/// Returns whether the KeyFlags indicates that the key can be used to
+/// make certifications.
+#[no_mangle]
+pub extern "system" fn sq_signature_can_certify(sig: Option<&packet::Signature>)
+    -> bool
+{
+    let sig = sig.expect("Sig is NULL");
+    sig.key_flags().can_certify()
+}
+
+/// Returns whether the KeyFlags indicates that the key can be used to
+/// make signatures.
+#[no_mangle]
+pub extern "system" fn sq_signature_can_sign(sig: Option<&packet::Signature>)
+    -> bool
+{
+    let sig = sig.expect("Sig is NULL");
+    sig.key_flags().can_sign()
+}
+
+/// Returns whether the KeyFlags indicates that the key can be used to
+/// encrypt data for transport.
+#[no_mangle]
+pub extern "system" fn sq_signature_can_encrypt_for_transport(sig: Option<&packet::Signature>)
+    -> bool
+{
+    let sig = sig.expect("Sig is NULL");
+    sig.key_flags().can_encrypt_for_transport()
+}
+
+/// Returns whether the KeyFlags indicates that the key can be used to
+/// encrypt data at rest.
+#[no_mangle]
+pub extern "system" fn sq_signature_can_encrypt_at_rest(sig: Option<&packet::Signature>)
+    -> bool
+{
+    let sig = sig.expect("Sig is NULL");
+    sig.key_flags().can_encrypt_at_rest()
+}
+
+/// Returns whether the KeyFlags indicates that the key can be used
+/// for authentication.
+#[no_mangle]
+pub extern "system" fn sq_signature_can_authenticate(sig: Option<&packet::Signature>)
+    -> bool
+{
+    let sig = sig.expect("Sig is NULL");
+    sig.key_flags().can_authenticate()
+}
+
+/// Returns whether the KeyFlags indicates that the key is a split
+/// key.
+#[no_mangle]
+pub extern "system" fn sq_signature_is_split_key(sig: Option<&packet::Signature>)
+    -> bool
+{
+    let sig = sig.expect("Sig is NULL");
+    sig.key_flags().is_split_key()
+}
+
+/// Returns whether the KeyFlags indicates that the key is a group
+/// key.
+#[no_mangle]
+pub extern "system" fn sq_signature_is_group_key(sig: Option<&packet::Signature>)
+    -> bool
+{
+    let sig = sig.expect("Sig is NULL");
+    sig.key_flags().is_group_key()
+}
 /// Computes and returns the key's fingerprint as per Section 12.2
 /// of RFC 4880.
 #[no_mangle]
