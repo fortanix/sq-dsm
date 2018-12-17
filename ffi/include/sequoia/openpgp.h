@@ -844,6 +844,21 @@ sq_tpk_t sq_tpk_revoke_in_place (sq_context_t ctx,
 int sq_tpk_expired(sq_tpk_t tpk);
 
 /*/
+/// Returns whether the TPK has expired at the specified time.
+/*/
+int sq_tpk_expired_at(sq_tpk_t tpk, time_t at);
+
+/*/
+/// Returns whether the TPK is alive.
+/*/
+int sq_tpk_alive(sq_tpk_t tpk);
+
+/*/
+/// Returns whether the TPK is alive at the specified time.
+/*/
+int sq_tpk_alive_at(sq_tpk_t tpk, time_t at);
+
+/*/
 /// Changes the TPK's expiration.
 ///
 /// Expiry is when the key should expire in seconds relative to the

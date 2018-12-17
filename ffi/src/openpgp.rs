@@ -982,6 +982,31 @@ pub extern "system" fn sq_tpk_expired(tpk: Option<&TPK>)
     tpk.expired() as c_int
 }
 
+/// Returns whether the TPK has expired.
+#[no_mangle]
+pub extern "system" fn sq_tpk_expired_at(tpk: Option<&TPK>, when: time_t)
+                                      -> c_int {
+    let tpk = tpk.expect("TPK is NULL");
+    tpk.expired_at(time::at(time::Timespec::new(when as i64, 0))) as c_int
+}
+
+/// Returns whether the TPK is alive.
+#[no_mangle]
+pub extern "system" fn sq_tpk_alive(tpk: Option<&TPK>)
+                                      -> c_int {
+    let tpk = tpk.expect("TPK is NULL");
+
+    tpk.alive() as c_int
+}
+
+/// Returns whether the TPK is alive at the specified time.
+#[no_mangle]
+pub extern "system" fn sq_tpk_alive_at(tpk: Option<&TPK>, when: time_t)
+                                      -> c_int {
+    let tpk = tpk.expect("TPK is NULL");
+    tpk.alive_at(time::at(time::Timespec::new(when as i64, 0))) as c_int
+}
+
 /// Changes the TPK's expiration.
 ///
 /// Expiry is when the key should expire in seconds relative to the
