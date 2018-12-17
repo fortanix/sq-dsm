@@ -8,10 +8,11 @@ use std::ptr;
 use std::slice;
 use std::io;
 use std::io::{Read, Write};
-use libc::{self, uint8_t, uint64_t, c_char, c_int, size_t, ssize_t, c_void};
+use libc::{self, uint8_t, uint64_t, c_char, c_int, size_t, ssize_t, c_void, time_t};
 use failure::ResultExt;
 
 extern crate sequoia_openpgp as openpgp;
+extern crate time;
 
 use self::openpgp::{
     armor,
@@ -1519,6 +1520,53 @@ pub extern "system" fn sq_signature_is_group_key(sig: Option<&packet::Signature>
     let sig = sig.expect("Sig is NULL");
     sig.key_flags().is_group_key()
 }
+
+
+/// Returns whether the signature is alive.
+///
+/// A signature is alive if the creation date is in the past, and the
+/// signature has not expired.
+#[no_mangle]
+pub extern "system" fn sq_signature_alive(sig: Option<&packet::Signature>)
+    -> bool
+{
+    let sig = sig.expect("Sig is NULL");
+    sig.signature_alive()
+}
+
+/// Returns whether the signature is alive at the specified time.
+///
+/// A signature is alive if the creation date is in the past, and the
+/// signature has not expired at the specified time.
+#[no_mangle]
+pub extern "system" fn sq_signature_alive_at(sig: Option<&packet::Signature>,
+                                             when: time_t)
+    -> bool
+{
+    let sig = sig.expect("Sig is NULL");
+    sig.signature_alive_at(time::at(time::Timespec::new(when as i64, 0)))
+}
+
+/// Returns whether the signature is expired.
+#[no_mangle]
+pub extern "system" fn sq_signature_expired(sig: Option<&packet::Signature>)
+    -> bool
+{
+    let sig = sig.expect("Sig is NULL");
+    sig.signature_expired()
+}
+
+/// Returns whether the signature is expired at the specified time.
+#[no_mangle]
+pub extern "system" fn sq_signature_expired_at(sig: Option<&packet::Signature>,
+                                               when: time_t)
+    -> bool
+{
+    let sig = sig.expect("Sig is NULL");
+    sig.signature_expired_at(time::at(time::Timespec::new(when as i64, 0)))
+}
+
+
 /// Computes and returns the key's fingerprint as per Section 12.2
 /// of RFC 4880.
 #[no_mangle]

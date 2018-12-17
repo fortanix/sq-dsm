@@ -2,6 +2,7 @@
 #define SEQUOIA_OPENPGP_H
 
 #include <sequoia/core.h>
+#include <time.h>
 
 /* sequoia::openpgp::KeyID.  */
 
@@ -560,10 +561,39 @@ int sq_signature_is_split_key(sq_signature_t signature);
 /// key.
 /*/
 int sq_signature_is_group_key(sq_signature_t signature);
+
+/*/
+/// Returns whether the signature is alive.
+///
+/// A signature is alive if the creation date is in the past, and the
+/// signature has not expired.
+/*/
+int sq_signature_alive(sq_signature_t signature);
+
+/*/
+/// Returns whether the signature is alive at the specified time.
+///
+/// A signature is alive if the creation date is in the past, and the
+/// signature has not expired at the specified time.
+/*/
+int sq_signature_alive_at(sq_signature_t signature, time_t when);
+
+/*/
+/// Returns whether the signature is expired.
+/*/
+int sq_signature_expired(sq_signature_t signature);
+
+/*/
+/// Returns whether the signature is expired at the specified time.
+/*/
+int sq_signature_expired_at(sq_signature_t signature, time_t when);
+
+/*/
 /// Returns the PKESK's recipient.
 ///
 /// The return value is a reference ot a `KeyID`.  The caller must not
 /// modify or free it.
+/*/
 sq_keyid_t sq_pkesk_recipient(sq_pkesk_t pkesk);
 
 /*/
