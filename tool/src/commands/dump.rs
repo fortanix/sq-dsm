@@ -20,7 +20,7 @@ pub fn dump(input: &mut io::Read, output: &mut io::Write, mpis: bool, hex: bool)
 
     while let PacketParserResult::Some(mut pp) = ppr {
         let additional_fields = match pp.packet {
-            Packet::Literal(_) if ! hex => {
+            Packet::Literal(_) => {
                 let mut prefix = vec![0; 40];
                 let n = pp.read(&mut prefix)?;
                 Some(vec![
