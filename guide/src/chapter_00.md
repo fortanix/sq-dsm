@@ -25,7 +25,7 @@ $ cd example
 Now add Sequoia to the `[dependencies]` section in `Cargo.toml`:
 
 ```toml
-sequoia-openpgp = "0.2"
+sequoia-openpgp = "0.3"
 ```
 
 If you want to use the bleeding edge, you can instead refer to the
