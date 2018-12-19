@@ -31,7 +31,7 @@ use {
     crypto::SessionKey,
     packet::SKESK4,
     packet::SKESK5,
-    packet::{signature, Signature},
+    packet::signature::{self, Signature, KeyPair},
     packet::Tag,
     TPK,
 };
@@ -413,7 +413,8 @@ impl<'a> Signer<'a> {
                 let sig = if let &SecretKey::Unencrypted { mpis: ref sec } =
                     key.secret().expect("validated in constructor")
                 {
-                    sig.sign_hash(&key, sec, HashAlgorithm::SHA512, hash)?
+                    sig.sign_hash(&mut KeyPair::new(&key, sec)?,
+                                  HashAlgorithm::SHA512, hash)?
                 } else {
                     panic!("validated in constructor");
                 };

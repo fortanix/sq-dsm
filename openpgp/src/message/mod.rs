@@ -413,6 +413,7 @@ mod tests {
     use packet::SEIP;
     use packet::MDC;
     use packet::key::SecretKey;
+    use packet::signature::KeyPair;
     use KeyID;
     use Container;
 
@@ -762,7 +763,8 @@ mod tests {
                 panic!()
             };
         let sig = ::packet::signature::Builder::new(SignatureType::Binary)
-            .sign_hash(&key, &sec, hash, hash.context().unwrap()).unwrap();
+            .sign_hash(&mut KeyPair::new(&key, &sec).unwrap(),
+                       hash, hash.context().unwrap()).unwrap();
 
         // 0: OnePassSig
         // => bad.
@@ -877,7 +879,8 @@ mod tests {
                 panic!()
             };
         let sig = ::packet::signature::Builder::new(SignatureType::Binary)
-            .sign_hash(&key, &sec, hash, hash.context().unwrap()).unwrap();
+            .sign_hash(&mut KeyPair::new(&key, &sec).unwrap(),
+                       hash, hash.context().unwrap()).unwrap();
 
         // 0: Signature
         // => bad.

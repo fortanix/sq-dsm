@@ -190,11 +190,11 @@ impl Builder {
     /// The Signature's public-key algorithm field is set to the
     /// algorithm used by `signer`, the hash-algorithm field is set to
     /// `hash_algo`.
-    pub fn sign_hash(mut self, signer: &Key, signer_sec: &mpis::SecretKey,
+    pub fn sign_hash(mut self, signer: &mut Signer,
                      hash_algo: HashAlgorithm, mut hash: Box<Hash>)
                      -> Result<Signature> {
         // Fill out some fields, then hash the packet.
-        self.pk_algo = signer.pk_algo();
+        self.pk_algo = signer.public().pk_algo();
         self.hash_algo = hash_algo;
         self.hash(&mut hash);
 
@@ -202,8 +202,7 @@ impl Builder {
         let mut digest = vec![0u8; hash.digest_size()];
         hash.digest(&mut digest);
 
-        let mut signer = KeyPair::new(signer, signer_sec)?;
-        self.sign(&mut signer, digest)
+        self.sign(signer, digest)
     }
 
     fn sign(self, signer: &mut Signer, digest: Vec<u8>) -> Result<Signature> {
@@ -1089,7 +1088,8 @@ mod test {
                 let mut hash = hash_algo.context().unwrap();
 
                 // Make signature.
-                let sig = sig.sign_hash(&pair, sec, hash_algo, hash).unwrap();
+                let sig = sig.sign_hash(&mut KeyPair::new(&pair, sec).unwrap(),
+                                        hash_algo, hash).unwrap();
 
                 // Good signature.
                 let mut hash = hash_algo.context().unwrap();
@@ -1139,7 +1139,8 @@ mod test {
         hash.update(&msg[..]);
 
         Builder::new(SignatureType::Text)
-            .sign_hash(&key, &private_mpis, HashAlgorithm::SHA256, hash).unwrap();
+            .sign_hash(&mut KeyPair::new(&key, &private_mpis).unwrap(),
+                       HashAlgorithm::SHA256, hash).unwrap();
     }
 
     #[test]
