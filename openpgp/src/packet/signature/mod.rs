@@ -127,7 +127,8 @@ impl Builder {
         self.hash_algo = algo;
         let digest = Signature::primary_key_binding_hash(&self, signer);
 
-        self.sign(signer, signer_sec, digest)
+        let mut signer = KeyPair::new(signer, signer_sec)?;
+        self.sign(&mut signer, digest)
     }
 
     /// Signs binding between `userid` and `key` using `signer`.
@@ -144,7 +145,8 @@ impl Builder {
         self.hash_algo = algo;
         let digest = Signature::userid_binding_hash(&self, key, userid);
 
-        self.sign(signer, signer_sec, digest)
+        let mut signer = KeyPair::new(signer, signer_sec)?;
+        self.sign(&mut signer, digest)
     }
 
     /// Signs subkey binding from `primary` to `subkey` using `signer`.
@@ -161,7 +163,8 @@ impl Builder {
         self.hash_algo = algo;
         let digest = Signature::subkey_binding_hash(&self, primary, subkey);
 
-        self.sign(signer, signer_sec, digest)
+        let mut signer = KeyPair::new(signer, signer_sec)?;
+        self.sign(&mut signer, digest)
     }
 
     /// Signs `ua` using `signer`.
@@ -178,7 +181,8 @@ impl Builder {
         self.hash_algo = algo;
         let digest = Signature::user_attribute_binding_hash(&self, signer, ua);
 
-        self.sign(signer, signer_sec, digest)
+        let mut signer = KeyPair::new(signer, signer_sec)?;
+        self.sign(&mut signer, digest)
     }
 
     /// Signs `hash` using `signer`.
@@ -198,21 +202,68 @@ impl Builder {
         let mut digest = vec![0u8; hash.digest_size()];
         hash.digest(&mut digest);
 
-        self.sign(signer, signer_sec, digest)
+        let mut signer = KeyPair::new(signer, signer_sec)?;
+        self.sign(&mut signer, digest)
     }
 
-    fn sign(self, signer: &Key, signer_sec: &mpis::SecretKey,
-            digest: Vec<u8>)
-            -> Result<Signature> {
+    fn sign(self, signer: &mut Signer, digest: Vec<u8>) -> Result<Signature> {
+        let algo = self.hash_algo;
+        let mpis = signer.sign(algo, &digest)?;
+
+        Ok(Signature {
+            common: Default::default(),
+            fields: self,
+            hash_prefix: [digest[0], digest[1]],
+            mpis: mpis,
+            computed_hash: Some((algo, digest)),
+            level: 0,
+        })
+    }
+}
+
+/// Creates a signature.
+pub trait Signer {
+    /// Returns a reference to the public key.
+    fn public(&self) -> &Key;
+
+    /// Creates a signature over the `digest` produced by `hash_algo`.
+    fn sign(&mut self, hash_algo: HashAlgorithm, digest: &[u8])
+            -> Result<mpis::Signature>;
+}
+
+/// A cryptographic key pair.
+pub struct KeyPair<'a> {
+    public: &'a Key,
+    secret: &'a mpis::SecretKey,
+}
+
+impl<'a> KeyPair<'a> {
+    /// Creates a new key pair.
+    pub fn new(public: &'a Key, secret: &'a mpis::SecretKey) -> Result<Self> {
+        Ok(Self {
+            public: public,
+            secret: secret,
+        })
+    }
+}
+
+impl<'a> Signer for KeyPair<'a> {
+    fn public(&self) -> &Key {
+        &self.public
+    }
+
+    fn sign(&mut self, hash_algo: HashAlgorithm, digest: &[u8])
+            -> Result<mpis::Signature>
+    {
         use PublicKeyAlgorithm::*;
         use crypto::mpis::PublicKey;
         use memsec;
 
         let mut rng = Yarrow::default();
-        let algo = self.hash_algo;
 
         #[allow(deprecated)]
-        let mpis = match (signer.pk_algo(), signer.mpis(), signer_sec) {
+        match (self.public.pk_algo(), self.public.mpis(), self.secret)
+        {
             (RSASign,
              &PublicKey::RSA { ref e, ref n },
              &mpis::SecretKey::RSA { ref p, ref q, ref d, .. }) |
@@ -232,12 +283,13 @@ impl Builder {
                 //
                 //   [Section 5.2.2 and 5.2.3 of RFC 4880]:
                 //   https://tools.ietf.org/html/rfc4880#section-5.2.2
-                rsa::sign_digest_pkcs1(&public, &secret, &digest, algo.oid()?,
+                rsa::sign_digest_pkcs1(&public, &secret, digest,
+                                       hash_algo.oid()?,
                                        &mut rng, &mut sig)?;
 
-                mpis::Signature::RSA {
+                Ok(mpis::Signature::RSA {
                     s: MPI::new(&sig),
-                }
+                })
             },
 
             (DSA,
@@ -246,12 +298,12 @@ impl Builder {
                 let params = dsa::Params::new(&p.value, &q.value, &g.value);
                 let secret = dsa::PrivateKey::new(&x.value);
 
-                let sig = dsa::sign(&params, &secret, &digest, &mut rng)?;
+                let sig = dsa::sign(&params, &secret, digest, &mut rng)?;
 
-                mpis::Signature::DSA {
+                Ok(mpis::Signature::DSA {
                     r: MPI::new(&sig.r()),
                     s: MPI::new(&sig.s()),
-                }
+                })
             },
 
             (EdDSA,
@@ -272,19 +324,19 @@ impl Builder {
                     let mut sec = [0u8; ed25519::ED25519_KEY_SIZE];
                     sec[missing..].copy_from_slice(&scalar.value[..]);
 
-                    let res = ed25519::sign(public, &sec[..], &digest, &mut sig);
+                    let res = ed25519::sign(public, &sec[..], digest, &mut sig);
                     unsafe {
                         memsec::memzero(sec.as_mut_ptr(),
                                         ed25519::ED25519_KEY_SIZE);
                     }
                     res?;
 
-                    mpis::Signature::EdDSA {
+                    Ok(mpis::Signature::EdDSA {
                         r: MPI::new(&sig[..32]),
                         s: MPI::new(&sig[32..]),
-                    }
+                    })
                 },
-                _ => return Err(
+                _ => Err(
                     Error::UnsupportedEllipticCurve(curve.clone()).into()),
             },
 
@@ -307,28 +359,19 @@ impl Builder {
                                 .into()),
                 };
 
-                let sig = ecdsa::sign(&secret, &digest, &mut rng);
+                let sig = ecdsa::sign(&secret, digest, &mut rng);
 
-                mpis::Signature::ECDSA {
+                Ok(mpis::Signature::ECDSA {
                     r: MPI::new(&sig.r()),
                     s: MPI::new(&sig.s()),
-                }
+                })
             },
 
-            _ => return Err(Error::InvalidArgument(format!(
+            (pk_algo, _, _) => Err(Error::InvalidArgument(format!(
                 "unsupported combination of algorithm {:?}, key {:?}, \
                  and secret key {:?}",
-                self.pk_algo, signer, signer_sec)).into()),
-        };
-
-        Ok(Signature {
-            common: Default::default(),
-            fields: self,
-            hash_prefix: [digest[0], digest[1]],
-            mpis: mpis,
-            computed_hash: Some((algo, digest)),
-            level: 0,
-        })
+                pk_algo, self.public, self.secret)).into()),
+        }
     }
 }
 
