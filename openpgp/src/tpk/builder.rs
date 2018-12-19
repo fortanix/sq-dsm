@@ -244,7 +244,9 @@ impl TPKBuilder {
                     Some(uid) => sig.sign_userid_binding(
                         &mut KeyPair::new(&key, mpis)?, &key, &uid,
                         HashAlgorithm::SHA512)?,
-                    None => sig.sign_primary_key_binding(&key, mpis, HashAlgorithm::SHA512)?,
+                    None => sig.sign_primary_key_binding(
+                        &mut KeyPair::new(&key, mpis)?,
+                        HashAlgorithm::SHA512)?,
                 }
             }
             Some(SecretKey::Encrypted{ .. }) => {
