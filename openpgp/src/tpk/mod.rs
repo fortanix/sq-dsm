@@ -493,8 +493,8 @@ impl UserIDBinding {
 
         let sig = match signer.secret() {
             Some(SecretKey::Unencrypted{ ref mpis }) => {
-                sig.sign_userid_binding(signer, mpis, key, &uid,
-                                        HashAlgorithm::SHA512)?
+                sig.sign_userid_binding(&mut KeyPair::new(signer, mpis)?,
+                                        key, &uid, HashAlgorithm::SHA512)?
             }
             Some(SecretKey::Encrypted{ .. }) => {
                 return Err(Error::InvalidOperation("Secret key is encrypted".into()).into());

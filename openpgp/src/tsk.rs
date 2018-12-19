@@ -10,7 +10,7 @@ use {
 };
 
 use packet::{
-    Signature,
+    signature::{Signature, KeyPair},
     Tag,
     UserID,
     Key,
@@ -114,8 +114,9 @@ impl TSK {
                 match my_key.secret() {
                     Some(&SecretKey::Unencrypted{ ref mpis }) => {
                         signature::Builder::new(SignatureType::GenericCertificate)
-                            .sign_userid_binding(my_key, mpis,
-                                            key, userid, HashAlgorithm::SHA512)
+                            .sign_userid_binding(
+                                &mut KeyPair::new(my_key, mpis)?,
+                                key, userid, HashAlgorithm::SHA512)
                     }
                     _ => Err(Error::InvalidOperation(
                             "secret key missing or encrypted".into()).into()),

@@ -241,7 +241,9 @@ impl TPKBuilder {
         let sig = match key.secret() {
             Some(SecretKey::Unencrypted{ ref mpis }) => {
                 match uid {
-                    Some(uid) => sig.sign_userid_binding(&key, mpis, &key, &uid, HashAlgorithm::SHA512)?,
+                    Some(uid) => sig.sign_userid_binding(
+                        &mut KeyPair::new(&key, mpis)?, &key, &uid,
+                        HashAlgorithm::SHA512)?,
                     None => sig.sign_primary_key_binding(&key, mpis, HashAlgorithm::SHA512)?,
                 }
             }
@@ -338,8 +340,8 @@ impl TPKBuilder {
 
         let sig = match key.secret() {
             Some(SecretKey::Unencrypted{ ref mpis }) => {
-                sig.sign_userid_binding(key, mpis, key, &uid,
-                                        HashAlgorithm::SHA512)?
+                sig.sign_userid_binding(&mut KeyPair::new(key, mpis)?,
+                                        key, &uid, HashAlgorithm::SHA512)?
             }
             Some(SecretKey::Encrypted{ .. }) => {
                 return Err(Error::InvalidOperation(
