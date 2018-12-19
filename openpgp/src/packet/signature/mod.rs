@@ -129,6 +129,7 @@ impl Builder {
 
         self.sign(signer, signer_sec, digest)
     }
+
     /// Signs binding between `userid` and `key` using `signer`.
     ///
     /// The Signature's public-key algorithm field is set to the
