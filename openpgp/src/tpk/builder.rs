@@ -5,7 +5,7 @@ use Result;
 use packet::UserID;
 use SymmetricAlgorithm;
 use HashAlgorithm;
-use packet::{signature, Signature};
+use packet::signature::{self, Signature, KeyPair};
 use TPK;
 use PublicKeyAlgorithm;
 use Error;
@@ -291,8 +291,9 @@ impl TPKBuilder {
 
             let backsig = match subkey.secret() {
                 Some(SecretKey::Unencrypted{ ref mpis }) => {
-                    backsig.sign_subkey_binding(&subkey, mpis, primary_key, &subkey,
-                                                HashAlgorithm::SHA512)?
+                    backsig.sign_subkey_binding(
+                        &mut KeyPair::new(&subkey, mpis)?, primary_key, &subkey,
+                        HashAlgorithm::SHA512)?
                 }
                 Some(SecretKey::Encrypted{ .. }) => {
                     return Err(Error::InvalidOperation(
@@ -308,7 +309,8 @@ impl TPKBuilder {
 
         let sig = match primary_key.secret() {
             Some(SecretKey::Unencrypted{ ref mpis }) => {
-                sig.sign_subkey_binding(primary_key, mpis, primary_key, &subkey,
+                sig.sign_subkey_binding(&mut KeyPair::new(primary_key, mpis)?,
+                                        primary_key, &subkey,
                                         HashAlgorithm::SHA512)?
             }
             Some(SecretKey::Encrypted{ .. }) => {

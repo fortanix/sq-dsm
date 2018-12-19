@@ -154,17 +154,14 @@ impl Builder {
     /// The Signature's public-key algorithm field is set to the
     /// algorithm used by `signer`, the hash-algorithm field is set to
     /// `hash_algo`.
-    pub fn sign_subkey_binding(mut self, signer: &Key,
-                               signer_sec: &mpis::SecretKey, primary: &Key,
-                               subkey: &Key, algo: HashAlgorithm)
+    pub fn sign_subkey_binding(mut self, signer: &mut Signer,
+                               primary: &Key, subkey: &Key, algo: HashAlgorithm)
                                -> Result<Signature> {
-
-        self.pk_algo = signer.pk_algo();
+        self.pk_algo = signer.public().pk_algo();
         self.hash_algo = algo;
         let digest = Signature::subkey_binding_hash(&self, primary, subkey);
 
-        let mut signer = KeyPair::new(signer, signer_sec)?;
-        self.sign(&mut signer, digest)
+        self.sign(signer, digest)
     }
 
     /// Signs `ua` using `signer`.

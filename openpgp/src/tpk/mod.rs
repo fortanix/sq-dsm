@@ -370,7 +370,8 @@ impl SubkeyBinding {
 
         let sig = match primary_key.secret() {
             Some(SecretKey::Unencrypted{ ref mpis }) => {
-                sig.sign_subkey_binding(primary_key, mpis, primary_key, &subkey,
+                sig.sign_subkey_binding(&mut KeyPair::new(primary_key, mpis)?,
+                                        primary_key, &subkey,
                                         HashAlgorithm::SHA512)?
             }
             Some(SecretKey::Encrypted{ .. }) => {
