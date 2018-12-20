@@ -22,8 +22,14 @@ pub(crate) mod symmetric;
 /// Holds a session key.
 ///
 /// The session key is cleared when dropped.
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, Eq)]
 pub struct SessionKey(Box<[u8]>);
+
+impl PartialEq for SessionKey {
+    fn eq(&self, other: &Self) -> bool {
+        secure_cmp(&self.0, &other.0) == Ordering::Equal
+    }
+}
 
 impl SessionKey {
     /// Creates a new session key.
@@ -75,8 +81,14 @@ impl fmt::Debug for SessionKey {
 /// Holds a password.
 ///
 /// The password is cleared when dropped.
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, Eq)]
 pub struct Password(Box<[u8]>);
+
+impl PartialEq for Password {
+    fn eq(&self, other: &Self) -> bool {
+        secure_cmp(&self.0, &other.0) == Ordering::Equal
+    }
+}
 
 impl Deref for Password {
     type Target = [u8];
