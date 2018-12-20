@@ -1601,6 +1601,19 @@ impl TPK {
         }
     }
 
+    /// Returns all unrevoked (sub)keys that have the signing
+    /// capability and are valid `now`. If `now` is `None` the current
+    /// time is used.
+    ///
+    /// Keys are sorted by creation time (newest first). If the
+    /// primary key qualifies it will always be last. Using the first
+    /// key should suffice for most use cases.
+    pub fn select_signing_keys<'a, T>(&'a self, now: T) -> Vec<&'a Key>
+        where T: Into<Option<time::Tm>>
+    {
+        self.select_keys(KeyFlags::default().set_sign(true), now)
+    }
+
     /// Returns the first TPK found in the packet stream.
     pub fn from_packet_parser(ppr: PacketParserResult) -> Result<Self> {
         let mut parser = TPKParser::from_packet_parser(ppr);
