@@ -477,6 +477,19 @@ fn real_main() -> Result<(), failure::Error> {
                 }
             }
 
+            if m.is_present("with-password") {
+                let p0 = rpassword::prompt_password_stderr(
+                    "Enter password to protect the key: ")?.into();
+                let p1 = rpassword::prompt_password_stderr(
+                    "Repeat the password once more: ")?.into();
+
+                if p0 == p1 {
+                    builder = builder.set_password(Some(p0));
+                } else {
+                    return Err(failure::err_msg("Passwords do not match."));
+                }
+            }
+
             // Generate the key
             let (tpk, rev) = builder.generate()?;
             let tsk = tpk.into_tsk();

@@ -435,6 +435,7 @@
 //!         --cannot-sign       The key will not be able to sign data
 //!     -h, --help              Prints help information
 //!     -V, --version           Prints version information
+//!         --with-password     Prompt for a password to protect the generated key with.
 //!
 //! OPTIONS:
 //!         --can-encrypt <PURPOSE>          The key has an encryption-capable subkey (Default) [default: all]  [possible

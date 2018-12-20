@@ -330,6 +330,10 @@ pub fn build() -> App<'static, 'static> {
                          .possible_values(&["rsa3k", "cv25519"])
                          .default_value("rsa3k")
                          .help("Cryptographic algorithms used for the key."))
+                    .arg(Arg::with_name("with-password")
+                         .long("with-password")
+                         .help("Prompt for a password to protect the generated \
+                                key with."))
 
                     .group(ArgGroup::with_name("cap-sign")
                            .args(&["can-sign", "cannot-sign"]))
