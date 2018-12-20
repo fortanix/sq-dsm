@@ -763,7 +763,7 @@ mod tests {
                 panic!()
             };
         let sig = ::packet::signature::Builder::new(SignatureType::Binary)
-            .sign_hash(&mut KeyPair::new(&key, &sec).unwrap(),
+            .sign_hash(&mut KeyPair::new(key, sec).unwrap(),
                        hash, hash.context().unwrap()).unwrap();
 
         // 0: OnePassSig
@@ -879,7 +879,7 @@ mod tests {
                 panic!()
             };
         let sig = ::packet::signature::Builder::new(SignatureType::Binary)
-            .sign_hash(&mut KeyPair::new(&key, &sec).unwrap(),
+            .sign_hash(&mut KeyPair::new(key, sec).unwrap(),
                        hash, hash.context().unwrap()).unwrap();
 
         // 0: Signature

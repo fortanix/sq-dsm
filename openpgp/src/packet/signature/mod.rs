@@ -222,14 +222,14 @@ pub trait Signer {
 }
 
 /// A cryptographic key pair.
-pub struct KeyPair<'a> {
-    public: &'a Key,
-    secret: &'a mpis::SecretKey,
+pub struct KeyPair {
+    public: Key,
+    secret: mpis::SecretKey,
 }
 
-impl<'a> KeyPair<'a> {
+impl KeyPair {
     /// Creates a new key pair.
-    pub fn new(public: &'a Key, secret: &'a mpis::SecretKey) -> Result<Self> {
+    pub fn new(public: Key, secret: mpis::SecretKey) -> Result<Self> {
         Ok(Self {
             public: public,
             secret: secret,
@@ -237,7 +237,7 @@ impl<'a> KeyPair<'a> {
     }
 }
 
-impl<'a> Signer for KeyPair<'a> {
+impl Signer for KeyPair {
     fn public(&self) -> &Key {
         &self.public
     }
@@ -252,7 +252,7 @@ impl<'a> Signer for KeyPair<'a> {
         let mut rng = Yarrow::default();
 
         #[allow(deprecated)]
-        match (self.public.pk_algo(), self.public.mpis(), self.secret)
+        match (self.public.pk_algo(), self.public.mpis(), &self.secret)
         {
             (RSASign,
              &PublicKey::RSA { ref e, ref n },
@@ -1079,7 +1079,8 @@ mod test {
                 let mut hash = hash_algo.context().unwrap();
 
                 // Make signature.
-                let sig = sig.sign_hash(&mut KeyPair::new(&pair, sec).unwrap(),
+                let sig = sig.sign_hash(&mut KeyPair::new(pair.clone(),
+                                                          sec.clone()).unwrap(),
                                         hash_algo, hash).unwrap();
 
                 // Good signature.
@@ -1130,7 +1131,7 @@ mod test {
         hash.update(&msg[..]);
 
         Builder::new(SignatureType::Text)
-            .sign_hash(&mut KeyPair::new(&key, &private_mpis).unwrap(),
+            .sign_hash(&mut KeyPair::new(key, private_mpis).unwrap(),
                        HashAlgorithm::SHA256, hash).unwrap();
     }
 

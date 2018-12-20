@@ -2250,8 +2250,7 @@ fn accessors() {
     } else {
         panic!()
     };
-    let key_ = key.clone();
-    let mut keypair = KeyPair::new(&key_, &sec).unwrap();
+    let mut keypair = KeyPair::new(key.clone(), sec.clone()).unwrap();
 
     // Cook up a timestamp without ns resolution.
     let now = time::Tm::from_pgp(time::now_utc().to_pgp().unwrap());
@@ -2319,7 +2318,7 @@ fn accessors() {
     assert_eq!(sig_.revocable(), Some(false));
 
     key.set_creation_time(now);
-    let mut keypair = KeyPair::new(&key, &sec).unwrap();
+    let mut keypair = KeyPair::new(key.clone(), sec).unwrap();
     sig.set_key_expiration_time(Some(five_minutes)).unwrap();
     let sig_ =
         sig.clone().sign_hash(&mut keypair, hash_algo, hash.clone()).unwrap();

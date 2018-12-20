@@ -413,7 +413,7 @@ impl<'a> Signer<'a> {
                 let sig = if let &SecretKey::Unencrypted { mpis: ref sec } =
                     key.secret().expect("validated in constructor")
                 {
-                    sig.sign_hash(&mut KeyPair::new(&key, sec)?,
+                    sig.sign_hash(&mut KeyPair::new(key.clone(), sec.clone())?,
                                   HashAlgorithm::SHA512, hash)?
                 } else {
                     panic!("validated in constructor");

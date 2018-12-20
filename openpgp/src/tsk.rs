@@ -110,12 +110,13 @@ impl TSK {
         let keys = self.key.select_keys(caps, None);
 
         match keys.first() {
-            Some(ref my_key) => {
+            Some(my_key) => {
                 match my_key.secret() {
                     Some(&SecretKey::Unencrypted{ ref mpis }) => {
                         signature::Builder::new(SignatureType::GenericCertificate)
                             .sign_userid_binding(
-                                &mut KeyPair::new(my_key, mpis)?,
+                                &mut KeyPair::new((*my_key).clone(),
+                                                  mpis.clone())?,
                                 key, userid, HashAlgorithm::SHA512)
                     }
                     _ => Err(Error::InvalidOperation(

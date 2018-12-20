@@ -370,7 +370,8 @@ impl SubkeyBinding {
 
         let sig = match primary_key.secret() {
             Some(SecretKey::Unencrypted{ ref mpis }) => {
-                sig.sign_subkey_binding(&mut KeyPair::new(primary_key, mpis)?,
+                sig.sign_subkey_binding(&mut KeyPair::new(primary_key.clone(),
+                                                          mpis.clone())?,
                                         primary_key, &subkey,
                                         HashAlgorithm::SHA512)?
             }
@@ -493,7 +494,8 @@ impl UserIDBinding {
 
         let sig = match signer.secret() {
             Some(SecretKey::Unencrypted{ ref mpis }) => {
-                sig.sign_userid_binding(&mut KeyPair::new(signer, mpis)?,
+                sig.sign_userid_binding(&mut KeyPair::new(signer.clone(),
+                                                          mpis.clone())?,
                                         key, &uid, HashAlgorithm::SHA512)?
             }
             Some(SecretKey::Encrypted{ .. }) => {
@@ -1337,7 +1339,8 @@ impl TPK {
 
         if let Some(SecretKey::Unencrypted{ mpis: ref sec }) = pair.secret() {
             // Generate the signature.
-            sig.sign_hash(&mut KeyPair::new(&pair, sec)?, hash_algo, hash)
+            sig.sign_hash(&mut KeyPair::new(pair.clone(), sec.clone())?,
+                          hash_algo, hash)
         } else {
             return Err(Error::InvalidOperation(
                 "Secret key is encrypted".into()).into());
@@ -1456,8 +1459,8 @@ impl TPK {
             match pair.secret() {
                 Some(SecretKey::Unencrypted{ mpis: ref sec }) => {
                     // Generate the signature.
-                    sig.sign_hash(&mut KeyPair::new(&pair, sec)?, hash_algo,
-                                  hash)?
+                    sig.sign_hash(&mut KeyPair::new(pair.clone(), sec.clone())?,
+                                  hash_algo, hash)?
                 }
                 Some(_) =>
                     return Err(Error::InvalidOperation(

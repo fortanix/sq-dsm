@@ -242,10 +242,10 @@ impl TPKBuilder {
             Some(SecretKey::Unencrypted{ ref mpis }) => {
                 match uid {
                     Some(uid) => sig.sign_userid_binding(
-                        &mut KeyPair::new(&key, mpis)?, &key, &uid,
-                        HashAlgorithm::SHA512)?,
+                        &mut KeyPair::new(key.clone(), mpis.clone())?,
+                        &key, &uid, HashAlgorithm::SHA512)?,
                     None => sig.sign_primary_key_binding(
-                        &mut KeyPair::new(&key, mpis)?,
+                        &mut KeyPair::new(key.clone(), mpis.clone())?,
                         HashAlgorithm::SHA512)?,
                 }
             }
@@ -296,8 +296,8 @@ impl TPKBuilder {
             let backsig = match subkey.secret() {
                 Some(SecretKey::Unencrypted{ ref mpis }) => {
                     backsig.sign_subkey_binding(
-                        &mut KeyPair::new(&subkey, mpis)?, primary_key, &subkey,
-                        HashAlgorithm::SHA512)?
+                        &mut KeyPair::new(subkey.clone(), mpis.clone())?,
+                        primary_key, &subkey, HashAlgorithm::SHA512)?
                 }
                 Some(SecretKey::Encrypted{ .. }) => {
                     return Err(Error::InvalidOperation(
@@ -313,7 +313,8 @@ impl TPKBuilder {
 
         let sig = match primary_key.secret() {
             Some(SecretKey::Unencrypted{ ref mpis }) => {
-                sig.sign_subkey_binding(&mut KeyPair::new(primary_key, mpis)?,
+                sig.sign_subkey_binding(&mut KeyPair::new(primary_key.clone(),
+                                                          mpis.clone())?,
                                         primary_key, &subkey,
                                         HashAlgorithm::SHA512)?
             }
@@ -342,7 +343,8 @@ impl TPKBuilder {
 
         let sig = match key.secret() {
             Some(SecretKey::Unencrypted{ ref mpis }) => {
-                sig.sign_userid_binding(&mut KeyPair::new(key, mpis)?,
+                sig.sign_userid_binding(&mut KeyPair::new(key.clone(),
+                                                          mpis.clone())?,
                                         key, &uid, HashAlgorithm::SHA512)?
             }
             Some(SecretKey::Encrypted{ .. }) => {
