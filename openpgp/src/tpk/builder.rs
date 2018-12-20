@@ -15,6 +15,7 @@ use conversions::Time;
 use constants::{
     SignatureType,
 };
+use crypto::Password;
 use autocrypt::Autocrypt;
 
 /// Groups symmetric and asymmetric algorithms
@@ -67,6 +68,7 @@ pub struct TPKBuilder {
     primary: KeyBlueprint,
     subkeys: Vec<KeyBlueprint>,
     userids: Vec<String>,
+    password: Option<Password>,
 }
 
 impl Default for TPKBuilder {
@@ -78,6 +80,7 @@ impl Default for TPKBuilder {
             },
             subkeys: vec![],
             userids: vec![],
+            password: None,
         }
     }
 }
@@ -104,6 +107,7 @@ impl TPKBuilder {
                 }
             ],
             userids: vec!["".into()],
+            password: None,
         }
     }
 
@@ -151,6 +155,12 @@ impl TPKBuilder {
         self
     }
 
+    /// Sets a password to encrypt the secret keys with.
+    pub fn set_password(mut self, password: Option<Password>) -> Self {
+        self.password = password;
+        self
+    }
+
     /// Generates the actual TPK.
     pub fn generate(mut self) -> Result<(TPK, Signature)> {
         use {PacketPile, Packet};
@@ -171,7 +181,14 @@ impl TPKBuilder {
         // Generate & and self-sign primary key.
         let (primary, sig) = Self::primary_key(
             self.primary, maybe_first_uid.as_ref(), self.ciphersuite)?;
-        packets.push(Packet::PublicKey(primary.clone()));
+
+        packets.push(Packet::PublicKey({
+            let mut primary = primary.clone();
+            if let Some(ref password) = self.password {
+                primary.secret_mut().unwrap().encrypt_in_place(password)?;
+            }
+            primary
+        }));
         packets.push(Packet::Signature(sig.clone()));
 
         // Sort primary keys self-sig into the right vec.
@@ -200,7 +217,12 @@ impl TPKBuilder {
 
         // sign subkeys
         for subkey in self.subkeys {
-            let (subkey, sig) = Self::subkey(subkey, &primary, self.ciphersuite)?;
+            let (mut subkey, sig) = Self::subkey(subkey, &primary,
+                                                 self.ciphersuite)?;
+
+            if let Some(ref password) = self.password {
+                subkey.secret_mut().unwrap().encrypt_in_place(password)?;
+            }
 
             packets.push(Packet::PublicSubkey(subkey));
             packets.push(Packet::Signature(sig));
@@ -526,5 +548,14 @@ mod tests {
             .unwrap();
 
         assert_eq!(tpk, exp);
+    }
+
+    #[test]
+    fn encrypted_secrets() {
+        let (tpk,_) = TPKBuilder::default()
+            .set_cipher_suite(CipherSuite::Cv25519)
+            .set_password(Some(String::from("streng geheim").into()))
+            .generate().unwrap();
+        assert!(tpk.primary().secret().unwrap().is_encrypted());
     }
 }
