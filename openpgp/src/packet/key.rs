@@ -325,6 +325,7 @@ impl SecretKey {
             }
         }
     }
+
     /// Decrypts this secret key using `password`.
     ///
     /// The SecretKey type does not know what kind of key it is, so
