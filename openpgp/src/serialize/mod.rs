@@ -357,6 +357,26 @@ impl Serialize for crypto::mpis::SecretKey {
     }
 }
 
+impl crypto::mpis::SecretKey {
+    /// Writes this secret key with a checksum to `w`.
+    pub fn serialize_chksumd<W: io::Write>(&self, w: &mut W) -> Result<()> {
+        use nettle::Hash;
+        use nettle::hash::insecure_do_not_use::Sha1;
+
+        // First, the MPIs.
+        self.serialize(w)?;
+
+        // The checksum is SHA1 over the serialized MPIs.
+        let mut hash = Sha1::default();
+        self.serialize(&mut hash)?;
+        let mut digest = [0u8; 20];
+        hash.digest(&mut digest);
+        w.write_all(&digest)?;
+
+        Ok(())
+    }
+}
+
 impl Serialize for crypto::mpis::Ciphertext {
     fn serialize<W: io::Write>(&self, w: &mut W) -> Result<()> {
         use crypto::mpis::Ciphertext::*;
