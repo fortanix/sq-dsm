@@ -1173,7 +1173,8 @@ pub extern "system" fn sq_arbitrary_writer_new
 pub extern "system" fn sq_signer_new
     (ctx: *mut Context,
      inner: *mut writer::Stack<'static, Cookie>,
-     signers: *const &'static TPK, signers_len: size_t)
+     signers: *const *mut Box<self::openpgp::crypto::Signer>,
+     signers_len: size_t)
      -> *mut writer::Stack<'static, Cookie>
 {
     let ctx = ffi_param_ref_mut!(ctx);
@@ -1182,7 +1183,13 @@ pub extern "system" fn sq_signer_new
     let signers = unsafe {
         slice::from_raw_parts(signers, signers_len)
     };
-    fry_box!(ctx, Signer::new(*inner, &signers))
+    let signers = signers.into_iter().map(
+        |s| -> &mut dyn self::openpgp::crypto::Signer {
+            let signer = *s;
+            ffi_param_ref_mut!(signer).as_mut()
+        }
+    ).collect();
+    fry_box!(ctx, Signer::new(*inner, signers))
 }
 
 /// Creates a signer for a detached signature.
@@ -1190,16 +1197,23 @@ pub extern "system" fn sq_signer_new
 pub extern "system" fn sq_signer_new_detached
     (ctx: *mut Context,
      inner: *mut writer::Stack<'static, Cookie>,
-     signers: Option<&&'static TPK>, signers_len: size_t)
+     signers: *const *mut Box<self::openpgp::crypto::Signer>,
+     signers_len: size_t)
      -> *mut writer::Stack<'static, Cookie>
 {
     let ctx = ffi_param_ref_mut!(ctx);
     let inner = ffi_param_move!(inner);
-    let signers = signers.expect("Signers is NULL");
+    let signers = ffi_param_ref!(signers);
     let signers = unsafe {
         slice::from_raw_parts(signers, signers_len)
     };
-    fry_box!(ctx, Signer::detached(*inner, &signers))
+    let signers = signers.into_iter().map(
+        |s| -> &mut dyn self::openpgp::crypto::Signer {
+            let signer = *s;
+            ffi_param_ref_mut!(signer).as_mut()
+        }
+    ).collect();
+    fry_box!(ctx, Signer::detached(*inner, signers))
 }
 
 /// Writes a literal data packet.

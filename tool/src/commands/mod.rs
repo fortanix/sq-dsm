@@ -9,7 +9,9 @@ use rpassword;
 extern crate sequoia_openpgp as openpgp;
 use sequoia_core::Context;
 use openpgp::constants::DataFormat;
+use openpgp::crypto;
 use openpgp::{TPK, KeyID, Result};
+use openpgp::packet::key::SecretKey;
 use openpgp::parse::{
     Parse,
     PacketParserResult,
@@ -35,6 +37,37 @@ fn tm2str(t: &time::Tm) -> String {
     time::strftime(TIMEFMT, t).expect("TIMEFMT is correct")
 }
 
+/// Returns suitable signing keys from a given list of TPKs.
+fn get_signing_keys(tpks: &[openpgp::TPK]) -> Result<Vec<crypto::KeyPair>> {
+    let mut keys = Vec::new();
+    'next_tpk: for tsk in tpks {
+        for key in tsk.select_signing_keys(None) {
+            if let Some(mut secret) = key.secret() {
+                let secret_mpis = match secret {
+                    SecretKey::Encrypted { .. } => {
+                        let password = rpassword::prompt_password_stderr(
+                            &format!("Please enter password to decrypt {}/{}: ",
+                                     tsk, key)).unwrap();
+                        secret.decrypt(key.pk_algo(), &password.into())
+                            .expect("decryption failed")
+                    },
+                    SecretKey::Unencrypted { ref mpis } =>
+                        mpis.clone(),
+                };
+
+                keys.push(crypto::KeyPair::new(key.clone(), secret_mpis)
+                          .unwrap());
+                break 'next_tpk;
+            }
+        }
+
+        return Err(failure::err_msg(
+            format!("Found no suitable signing key on {}", tsk)));
+    }
+
+    Ok(keys)
+}
+
 pub fn encrypt(store: &mut store::Store,
                input: &mut io::Read, output: &mut io::Write,
                npasswords: usize, recipients: Vec<&str>,
@@ -54,6 +87,8 @@ pub fn encrypt(store: &mut store::Store,
             })?.into());
     }
 
+    let mut signers = get_signing_keys(&signers)?;
+
     // Build a vector of references to hand to Encryptor.
     let recipients: Vec<&openpgp::TPK> = tpks.iter().collect();
     let passwords_: Vec<&openpgp::crypto::Password> =
@@ -71,8 +106,11 @@ pub fn encrypt(store: &mut store::Store,
 
     // Optionally sign message.
     if ! signers.is_empty() {
-        let signers_: Vec<&openpgp::TPK> = signers.iter().collect();
-        sink = Signer::with_intended_recipients(sink, &signers_, &recipients)?;
+        sink = Signer::with_intended_recipients(
+            sink,
+            signers.iter_mut().map(|s| -> &mut dyn crypto::Signer { s })
+                .collect(),
+            &recipients)?;
     }
 
     let mut literal_writer = LiteralWriter::new(sink, DataFormat::Binary,

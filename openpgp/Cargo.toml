@@ -36,6 +36,9 @@ time = "0.1.40"
 [build-dependencies]
 lalrpop = "0.16"
 
+[dev-dependencies]
+rpassword = "2.0.0"
+
 [features]
 default = ["compression"]
 

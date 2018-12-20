@@ -2,9 +2,12 @@
 
 use std::env;
 use std::io;
+extern crate rpassword;
 
 extern crate sequoia_openpgp as openpgp;
 use openpgp::armor;
+use openpgp::crypto;
+use openpgp::packet::key::SecretKey;
 use openpgp::parse::Parse;
 use openpgp::serialize::stream::{Message, Signer};
 
@@ -17,10 +20,33 @@ fn main() {
     }
 
     // Read the transferable secret keys from the given files.
-    let tsks: Vec<openpgp::TPK> = args[1..].iter().map(|f| {
-        openpgp::TPK::from_file(f)
-            .expect("Failed to read key")
-    }).collect();
+    let mut keys = Vec::new();
+    'nextfile: for filename in &args[1..] {
+        let tsk = openpgp::TPK::from_file(filename)
+            .expect("Failed to read key");
+
+        for key in tsk.select_signing_keys(None) {
+            if let Some(mut secret) = key.secret() {
+                let secret_mpis = match secret {
+                    SecretKey::Encrypted { .. } => {
+                        let password = rpassword::prompt_password_stderr(
+                            &format!("Please enter password to decrypt {}/{}: ",
+                                     tsk, key)).unwrap();
+                        secret.decrypt(key.pk_algo(), &password.into())
+                            .expect("decryption failed")
+                    },
+                    SecretKey::Unencrypted { ref mpis } =>
+                        mpis.clone(),
+                };
+
+                keys.push(crypto::KeyPair::new(key.clone(), secret_mpis)
+                          .unwrap());
+                break 'nextfile;
+            }
+        }
+
+        panic!("Found no suitable signing key on {}", tsk);
+    }
 
     // Compose a writer stack corresponding to the output format and
     // packet structure we want.  First, we want the output to be
@@ -33,7 +59,8 @@ fn main() {
 
     // Now, create a signer that emits a detached signature.
     let mut signer = Signer::detached(
-        message, &tsks.iter().collect::<Vec<&openpgp::TPK>>())
+        message,
+        keys.iter_mut().map(|s| -> &mut dyn crypto::Signer { s }).collect())
         .expect("Failed to create signer");
 
     // Copy all the data.

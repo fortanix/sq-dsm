@@ -16,7 +16,7 @@ use time;
 use nettle::{Hash, Yarrow};
 
 use {
-    crypto::KeyPair,
+    crypto,
     Error,
     Fingerprint,
     HashAlgorithm,
@@ -28,7 +28,6 @@ use {
     packet::PKESK,
     Result,
     crypto::Password,
-    packet::key::SecretKey,
     crypto::SessionKey,
     packet::SKESK4,
     packet::SKESK5,
@@ -205,7 +204,7 @@ pub struct Signer<'a> {
     // take our inner reader.  If that happens, we only update the
     // digests.
     inner: Option<writer::BoxStack<'a, Cookie>>,
-    keys: Vec<&'a Key>,
+    signers: Vec<&'a mut dyn crypto::Signer>,
     intended_recipients: Option<Vec<Fingerprint>>,
     detached: bool,
     hash: Box<Hash>,
@@ -223,17 +222,25 @@ impl<'a> Signer<'a> {
     /// use openpgp::constants::DataFormat;
     /// use openpgp::serialize::stream::{Message, Signer, LiteralWriter};
     /// # use openpgp::{Result, TPK};
+    /// # use openpgp::packet::key::SecretKey;
+    /// # use openpgp::crypto::KeyPair;
     /// # use openpgp::parse::Parse;
     /// # let tsk = TPK::from_bytes(include_bytes!(
     /// #     "../../tests/data/keys/testy-new-private.pgp"))
     /// #     .unwrap();
-    /// # f(tsk).unwrap();
-    /// # fn f(tsk: TPK) -> Result<()> {
+    /// # let key = tsk.select_signing_keys(None)[0];
+    /// # let sec = match key.secret() {
+    /// #     Some(SecretKey::Unencrypted { ref mpis }) => mpis,
+    /// #     _ => unreachable!(),
+    /// # };
+    /// # let keypair = KeyPair::new(key.clone(), sec.clone()).unwrap();
+    /// # f(keypair).unwrap();
+    /// # fn f(mut signing_keypair: KeyPair) -> Result<()> {
     ///
     /// let mut o = vec![];
     /// {
     ///     let message = Message::new(&mut o);
-    ///     let signer = Signer::new(message, &[&tsk])?;
+    ///     let signer = Signer::new(message, vec![&mut signing_keypair])?;
     ///     let mut ls = LiteralWriter::new(signer, DataFormat::Text, None, None)?;
     ///     ls.write_all(b"Make it so, number one!")?;
     ///     ls.finalize()?;
@@ -241,7 +248,8 @@ impl<'a> Signer<'a> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn new(inner: writer::Stack<'a, Cookie>, signers: &[&'a TPK])
+    pub fn new(inner: writer::Stack<'a, Cookie>,
+               signers: Vec<&'a mut dyn crypto::Signer>)
                -> Result<writer::Stack<'a, Cookie>> {
         Self::make(inner, signers, None, false)
     }
@@ -253,7 +261,7 @@ impl<'a> Signer<'a> {
     /// signature.  This prevents forwarding a signed message using a
     /// different encryption context.
     pub fn with_intended_recipients(inner: writer::Stack<'a, Cookie>,
-                                    signers: &[&'a TPK],
+                                    signers: Vec<&'a mut dyn crypto::Signer>,
                                     recipients: &[&'a TPK])
                                     -> Result<writer::Stack<'a, Cookie>> {
         Self::make(inner, signers,
@@ -270,17 +278,25 @@ impl<'a> Signer<'a> {
     /// use std::io::Write;
     /// use openpgp::serialize::stream::{Message, Signer, LiteralWriter};
     /// # use openpgp::{Result, TPK};
+    /// # use openpgp::packet::key::SecretKey;
+    /// # use openpgp::crypto::KeyPair;
     /// # use openpgp::parse::Parse;
     /// # let tsk = TPK::from_bytes(include_bytes!(
     /// #     "../../tests/data/keys/testy-new-private.pgp"))
     /// #     .unwrap();
-    /// # f(tsk).unwrap();
-    /// # fn f(tsk: TPK) -> Result<()> {
+    /// # let key = tsk.select_signing_keys(None)[0];
+    /// # let sec = match key.secret() {
+    /// #     Some(SecretKey::Unencrypted { ref mpis }) => mpis,
+    /// #     _ => unreachable!(),
+    /// # };
+    /// # let keypair = KeyPair::new(key.clone(), sec.clone()).unwrap();
+    /// # f(keypair).unwrap();
+    /// # fn f(mut signing_keypair: KeyPair) -> Result<()> {
     ///
     /// let mut o = vec![];
     /// {
     ///     let message = Message::new(&mut o);
-    ///     let mut signer = Signer::detached(message, &[&tsk])?;
+    ///     let mut signer = Signer::detached(message, vec![&mut signing_keypair])?;
     ///     signer.write_all(b"Make it so, number one!")?;
     ///     // In reality, just io::copy() the file to be signed.
     ///     signer.finalize()?;
@@ -288,88 +304,35 @@ impl<'a> Signer<'a> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn detached(inner: writer::Stack<'a, Cookie>, signers: &[&'a TPK])
+    pub fn detached(inner: writer::Stack<'a, Cookie>,
+                    signers: Vec<&'a mut dyn crypto::Signer>)
                     -> Result<writer::Stack<'a, Cookie>> {
         Self::make(inner, signers, None, true)
     }
 
-    fn make(inner: writer::Stack<'a, Cookie>, signers: &[&'a TPK],
+    fn make(inner: writer::Stack<'a, Cookie>,
+            signers: Vec<&'a mut dyn crypto::Signer>,
             intended_recipients: Option<Vec<Fingerprint>>, detached: bool)
             -> Result<writer::Stack<'a, Cookie>> {
         let mut inner = writer::BoxStack::from(inner);
         // Just always use SHA512.
         let hash_algo = HashAlgorithm::SHA512;
-        let mut signing_keys = Vec::new();
 
         if signers.len() == 0 {
             return Err(Error::InvalidArgument(
                 "No signing keys given".into()).into());
         }
 
-        for tsk in signers {
-            // We need to find all (sub)keys capable of signing.
-            let can_sign = |key: &Key, sig: Option<&Signature>| -> bool {
-                if let Some(sig) = sig {
-                    sig.key_flags().can_sign()
-                    // Check expiry.
-                        && sig.signature_alive()
-                        && sig.key_alive(key)
-                } else {
-                    false
-                }
-            };
-
-            // Gather all signing-capable subkeys.
-            let subkeys = tsk.subkeys().filter_map(|skb| {
-                let key = skb.subkey();
-                if can_sign(key, skb.binding_signature()) {
-                    Some(key)
-                } else {
-                    None
-                }
-            });
-
-            // Check if the primary key is signing-capable.
-            let primary_can_sign =
-                can_sign(tsk.primary(), tsk.primary_key_signature());
-
-            // If the primary key is signing-capable, prepend to
-            // subkeys via iterator magic.
-            let keys =
-                iter::once(tsk.primary())
-                .filter(|_| primary_can_sign)
-                .chain(subkeys);
-
-            // Check that we found at least one per TSK.
-            let mut found_secret = false;
-
-            // For every suitable key, check if we have a secret key.
-            for key in keys {
-                if let Some(ref secret) = key.secret() {
-                    if let &SecretKey::Unencrypted { .. } = secret {
-                        // Success!
-                        signing_keys.push(key);
-                        found_secret = true;
-                    }
-                }
-            }
-
-            if ! found_secret {
-                return Err(Error::InvalidArgument(
-                    format!("Key {} has no signing-capable secret key", tsk))
-                           .into());
-            }
-        }
-
         if ! detached {
             // For every key we collected, build and emit a one pass
             // signature packet.
-            for (i, key) in signing_keys.iter().enumerate() {
+            for (i, keypair) in signers.iter().enumerate() {
+                let key = keypair.public();
                 let mut ops = OnePassSig::new(SignatureType::Binary);
                 ops.set_pk_algo(key.pk_algo());
                 ops.set_hash_algo(hash_algo);
                 ops.set_issuer(key.fingerprint().to_keyid());
-                ops.set_last(i == signing_keys.len() - 1);
+                ops.set_last(i == signers.len() - 1);
                 ops.serialize(&mut inner)?;
             }
         }
@@ -377,7 +340,7 @@ impl<'a> Signer<'a> {
         let level = inner.cookie_ref().level + 1;
         Ok(writer::Stack::from(Box::new(Signer {
             inner: Some(inner),
-            keys: signing_keys,
+            signers: signers,
             intended_recipients: intended_recipients,
             detached: detached,
             hash: hash_algo.context()?,
@@ -393,7 +356,7 @@ impl<'a> Signer<'a> {
             // Emit the signatures in reverse, so that the
             // one-pass-signature and signature packets "bracket" the
             // message.
-            while let Some(key) = self.keys.pop() {
+            for signer in self.signers.iter_mut() {
                 // Part of the signature packet is hashed in,
                 // therefore we need to clone the hash.
                 let mut hash = self.hash.clone();
@@ -401,24 +364,17 @@ impl<'a> Signer<'a> {
                 // Make and hash a signature packet.
                 let mut sig = signature::Builder::new(SignatureType::Binary);
                 sig.set_signature_creation_time(time::now().canonicalize())?;
-                sig.set_issuer_fingerprint(key.fingerprint())?;
+                sig.set_issuer_fingerprint(signer.public().fingerprint())?;
                 // GnuPG up to (and including) 2.2.8 requires the
                 // Issuer subpacket to be present.
-                sig.set_issuer(key.keyid())?;
+                sig.set_issuer(signer.public().keyid())?;
 
                 if let Some(ref ir) = self.intended_recipients {
                     sig.set_intended_recipients(ir.clone())?;
                 }
 
                 // Compute the signature.
-                let sig = if let &SecretKey::Unencrypted { mpis: ref sec } =
-                    key.secret().expect("validated in constructor")
-                {
-                    sig.sign_hash(&mut KeyPair::new(key.clone(), sec.clone())?,
-                                  HashAlgorithm::SHA512, hash)?
-                } else {
-                    panic!("validated in constructor");
-                };
+                let sig = sig.sign_hash(*signer, HashAlgorithm::SHA512, hash)?;
 
                 // And emit the packet.
                 sig.serialize(sink)?;
@@ -1325,21 +1281,41 @@ mod test {
 
     #[test]
     fn signature() {
+        use crypto::KeyPair;
+        use packet::KeyFlags;
+        use packet::key::SecretKey;
         use std::collections::HashMap;
         use Fingerprint;
 
-        let mut tsks: HashMap<Fingerprint, TPK> = HashMap::new();
-        let tsk = TPK::from_bytes(bytes!("keys/testy-private.pgp")).unwrap();
-        tsks.insert(tsk.fingerprint(), tsk);
-        let tsk = TPK::from_bytes(bytes!("keys/testy-new-private.pgp")).unwrap();
-        tsks.insert(tsk.fingerprint(), tsk);
+        let mut keys: HashMap<Fingerprint, Key> = HashMap::new();
+        for tsk in &[
+            TPK::from_bytes(bytes!("keys/testy-private.pgp")).unwrap(),
+            TPK::from_bytes(bytes!("keys/testy-new-private.pgp")).unwrap(),
+        ] {
+            for key in tsk.select_keys(
+                KeyFlags::default().set_sign(true), None)
+            {
+                keys.insert(key.fingerprint(), key.clone());
+            }
+        }
 
         let mut o = vec![];
         {
+            let mut signers = keys.iter().map(|(_, key)| {
+                match key.secret() {
+                    Some(SecretKey::Unencrypted { ref mpis }) =>
+                        KeyPair::new(key.clone(), mpis.clone()).unwrap(),
+                    s =>
+                        panic!("expected unencrypted secret key, got: {:?}", s),
+                }
+            }).collect::<Vec<KeyPair>>();
+
             let m = Message::new(&mut o);
             let signer = Signer::new(
                 m,
-                &tsks.iter().map(|(_, tsk)| tsk).collect::<Vec<&TPK>>())
+                signers.iter_mut()
+                    .map(|s| -> &mut dyn crypto::Signer {s})
+                    .collect())
                 .unwrap();
             let mut ls = LiteralWriter::new(signer, T, None, None).unwrap();
             ls.write_all(b"Tis, tis, tis.  Tis is important.").unwrap();
@@ -1351,9 +1327,9 @@ mod test {
         let mut good = 0;
         while let PacketParserResult::Some(pp) = ppr {
             if let Packet::Signature(ref sig) = pp.packet {
-                let tpk = tsks.get(&sig.issuer_fingerprint().unwrap())
+                let key = keys.get(&sig.issuer_fingerprint().unwrap())
                     .unwrap();
-                let result = sig.verify(tpk.primary()).unwrap();
+                let result = sig.verify(key).unwrap();
                 assert!(result);
                 good += 1;
             }

@@ -7,8 +7,9 @@ use tempfile::NamedTempFile;
 extern crate sequoia_openpgp as openpgp;
 use openpgp::armor;
 use openpgp::constants::DataFormat;
+use openpgp::crypto;
 use openpgp::{Packet, Error, Result};
-use openpgp::packet::Signature;
+use openpgp::packet::signature::Signature;
 use openpgp::parse::{
     Parse,
     PacketParserResult,
@@ -81,6 +82,11 @@ fn sign_data(input: &mut io::Read, output_path: Option<&str>,
         output
     };
 
+    let mut keypairs = super::get_signing_keys(&secrets)?;
+    let signers = keypairs.iter_mut()
+        .map(|s| -> &mut dyn crypto::Signer { s })
+        .collect();
+
     // When extending a detached signature, prepend any existing
     // signatures first.
     for sig in prepend_sigs {
@@ -90,12 +96,10 @@ fn sign_data(input: &mut io::Read, output_path: Option<&str>,
     // Stream an OpenPGP message.
     let sink = Message::new(output);
 
-    // Build a vector of references to hand to Signer.
-    let keys: Vec<&openpgp::TPK> = secrets.iter().collect();
     let signer = if detached {
-        Signer::detached(sink, &keys)
+        Signer::detached(sink, signers)
     } else {
-        Signer::new(sink, &keys)
+        Signer::new(sink, signers)
     }.context("Failed to create signer")?;
 
     let mut writer = if detached {
@@ -136,9 +140,16 @@ fn sign_message(input: &mut io::Read, output_path: Option<&str>,
         output
     };
 
+    let mut keypairs = super::get_signing_keys(&secrets)?;
+    // We need to create the signers here, so that we can take() them
+    // once in the parsing loop.  We cannot create the references in
+    // the loop, because the borrow checker does not understand that
+    // it happens only once.
+    let mut signers = Some(keypairs.iter_mut()
+                           .map(|s| -> &mut dyn crypto::Signer { s })
+                           .collect::<Vec<&mut dyn crypto::Signer>>());
+
     let mut sink = Message::new(output);
-    // Build a vector of references to hand to Signer.
-    let keys: Vec<&openpgp::TPK> = secrets.iter().collect();
 
     // Create a parser for the message to be notarized.
     let mut ppr
@@ -203,7 +214,8 @@ fn sign_message(input: &mut io::Read, output_path: Option<&str>,
             State::AfterFirstSigGroup => {
                 // After the first signature group, we push the signer
                 // onto the writer stack.
-                sink = Signer::new(sink, &keys)
+                let signers = signers.take().expect("only happens once");
+                sink = Signer::new(sink, signers)
                     .context("Failed to create signer")?;
                 state = State::Signing { signature_count: 0, };
             },

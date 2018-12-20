@@ -8,6 +8,8 @@ use tempfile::TempDir;
 
 extern crate sequoia_openpgp as openpgp;
 use openpgp::{Packet, PacketPile, TPK};
+use openpgp::crypto::KeyPair;
+use openpgp::packet::key::SecretKey;
 use openpgp::constants::{CompressionAlgorithm, DataFormat, SignatureType};
 use openpgp::parse::Parse;
 use openpgp::serialize::stream::{Message, Signer, Compressor, LiteralWriter};
@@ -206,8 +208,14 @@ fn sq_sign_append_on_compress_then_sign() {
     // message by foot.
     let tsk = TPK::from_file(&p("keys/dennis-simon-anton-private.pgp"))
         .unwrap();
+    let key = tsk.select_signing_keys(None)[0];
+    let sec = match key.secret() {
+        Some(SecretKey::Unencrypted { ref mpis }) => mpis,
+        _ => unreachable!(),
+    };
+    let mut keypair = KeyPair::new(key.clone(), sec.clone()).unwrap();
     let signer = Signer::new(Message::new(File::create(&sig0).unwrap()),
-                             &[&tsk])
+                             vec![&mut keypair])
         .unwrap();
     let compressor = Compressor::new(signer, CompressionAlgorithm::Uncompressed)
         .unwrap();
