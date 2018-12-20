@@ -342,6 +342,50 @@ impl SecretKey {
         Ok(())
     }
 
+    /// Encrypts this secret key using `password`.
+    pub fn encrypt(&self, password: &Password)
+                   -> Result<(S2K, SymmetricAlgorithm, Box<[u8]>)> {
+        use std::io::Write;
+        use crypto::symmetric::Encryptor;
+        use nettle::Yarrow;
+
+        match self {
+            &SecretKey::Encrypted { .. } =>
+                Err(Error::InvalidOperation("Key is already encrypted".into())
+                    .into()),
+            &SecretKey::Unencrypted { ref mpis } => {
+                let s2k = S2K::default();
+                let cipher = SymmetricAlgorithm::AES256;
+                let key = s2k.derive_key(password, cipher.key_size()?)?;
+
+                // Ciphertext is preceded by a random block.
+                let mut trash = vec![0u8; cipher.block_size()?];
+                Yarrow::default().random(&mut trash);
+
+                let mut esk = Vec::new();
+                {
+                    let mut encryptor = Encryptor::new(cipher, &key, &mut esk)?;
+                    encryptor.write_all(&trash)?;
+                    mpis.serialize_chksumd(&mut encryptor)?;
+                }
+
+                Ok((s2k, cipher, esk.into_boxed_slice()))
+            },
+        }
+    }
+
+    /// Encrypts this secret key using `password`.
+    pub fn encrypt_in_place(&mut self, password: &Password) -> Result<()> {
+        let (s2k, cipher, esk) = self.encrypt(password)?;
+        *self = SecretKey::Encrypted {
+            s2k: s2k,
+            algorithm: cipher,
+            ciphertext: esk,
+        };
+
+        Ok(())
+    }
+
     /// Returns true if this secret key is encrypted.
     pub fn is_encrypted(&self) -> bool {
         match self {
@@ -462,6 +506,29 @@ mod tests {
 
             assert_eq!(cipher, cipher_);
             assert_eq!(sk, sk_);
+        }
+    }
+
+    #[test]
+    fn secret_encryption_roundtrip() {
+        for &pk_algo in &[PublicKeyAlgorithm::RSAEncryptSign,
+                          PublicKeyAlgorithm::EdDSA,
+                          PublicKeyAlgorithm::ECDH] {
+            let key = Key::new(pk_algo).unwrap();
+            assert!(! key.secret().unwrap().is_encrypted());
+
+            let password = Password::from("foobarbaz");
+            let mut encrypted_key = key.clone();
+
+            encrypted_key.secret_mut().unwrap()
+                .encrypt_in_place(&password).unwrap();
+            assert!(encrypted_key.secret().unwrap().is_encrypted());
+
+            encrypted_key.secret_mut().unwrap()
+                .decrypt_in_place(pk_algo, &password).unwrap();
+            assert!(! key.secret().unwrap().is_encrypted());
+            assert_eq!(key, encrypted_key);
+            assert_eq!(key.secret(), encrypted_key.secret());
         }
     }
 }
