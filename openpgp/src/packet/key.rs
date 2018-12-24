@@ -226,8 +226,12 @@ impl Key {
     }
 
     /// Sets the key packet's SecretKey.
-    pub fn set_secret(&mut self, secret: Option<SecretKey>) {
-        self.secret = secret;
+    ///
+    /// Returns the old value.
+    pub fn set_secret(&mut self, secret: Option<SecretKey>)
+        -> Option<SecretKey>
+    {
+        mem::replace(&mut self.secret, secret)
     }
 
     /// Convert the `Key` struct to a `Packet`.
