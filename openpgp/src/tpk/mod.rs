@@ -2097,12 +2097,24 @@ impl TPK {
         // Sort the subkeys in preparation for a dedup.  As for the
         // user ids, we can't do the final sort here, because we rely
         // on the self-signatures.
-        self.subkeys.sort_by(|a, b| a.subkey.mpis().cmp(&b.subkey.mpis()));
+        self.subkeys.sort_by(
+            |a, b| Key::public_cmp(&a.subkey, &b.subkey));
 
         // And, dedup them.
+        //
+        // If the public keys match, but only one of them has a secret
+        // key, then merge the key and keep the secret key.
         self.subkeys.dedup_by(|a, b| {
-            if a.subkey == b.subkey {
+            if Key::public_cmp(&a.subkey, &b.subkey) == Ordering::Equal
+                && (a.subkey.secret() == b.subkey.secret()
+                    || a.subkey.secret().is_none()
+                    || b.subkey.secret().is_none())
+            {
                 // Recall: if a and b are equal, a will be dropped.
+                if b.subkey.secret().is_none() && a.subkey.secret().is_some() {
+                    b.subkey.set_secret(a.subkey.set_secret(None));
+                }
+
                 b.selfsigs.append(&mut a.selfsigs);
                 b.selfsigs.sort_by(sig_cmp);
                 b.selfsigs.dedup_by_key(sig_key);
@@ -3385,5 +3397,40 @@ mod test {
         let flags = KeyFlags::default().set_certify(true);
 
         assert_eq!(tpk.select_keys(flags, None).len(), 2);
+    }
+
+    // Make sure that when merging two TPKs, the primary key and
+    // subkeys with and without a private key are merged.
+    #[test]
+    fn public_private_merge() {
+        use std::borrow::Cow;
+
+        let (tsk, _) = TSK::new(Cow::Borrowed("foo@example.com")).unwrap();
+        // tsk is now a tpk, but it still has its private bits.
+        let tsk = tsk.into_tpk();
+        assert!(tsk.is_tsk());
+        let subkey_count = tsk.subkeys().len();
+        assert!(subkey_count > 0);
+        assert!(tsk.subkeys().all(|k| k.subkey.secret().is_some()));
+
+        // This will write out the tsk as a tpk, i.e., without any
+        // private bits.
+        let mut tpk_bytes = Vec::new();
+        tsk.serialize(&mut tpk_bytes).unwrap();
+
+        // Reading it back in, the private bits have been stripped.
+        let tpk = TPK::from_bytes(&tpk_bytes[..]).unwrap();
+        assert!(!tpk.is_tsk());
+        assert!(tpk.subkeys().all(|k| k.subkey.secret().is_none()));
+
+        let merge1 = tpk.clone().merge(tsk.clone()).unwrap();
+        assert!(merge1.is_tsk());
+        assert_eq!(merge1.subkeys().len(), subkey_count);
+        assert!(merge1.subkeys().all(|k| k.subkey.secret().is_some()));
+
+        let merge2 = tsk.clone().merge(tpk.clone()).unwrap();
+        assert!(merge2.is_tsk());
+        assert_eq!(merge2.subkeys().len(), subkey_count);
+        assert!(merge2.subkeys().all(|k| k.subkey.secret().is_some()));
     }
 }
