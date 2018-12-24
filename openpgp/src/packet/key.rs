@@ -1,6 +1,8 @@
 //! Public key, public subkey, private key and private subkey packets.
 
 use std::fmt;
+use std::mem;
+use std::cmp::Ordering;
 use time;
 
 use Error;
@@ -53,6 +55,33 @@ impl fmt::Debug for Key {
 impl fmt::Display for Key {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.fingerprint())
+    }
+}
+
+impl Key {
+    /// Compares the public bits of two keys.
+    ///
+    /// This returns Ordering::Equal if the public MPIs, version,
+    /// creation time and algorithm of the two `Key`s match.  This
+    /// does not consider the packet's encoding, packet's tag or the
+    /// secret key material.
+    pub fn public_cmp(a: &Self, b: &Self) -> Ordering {
+        match a.mpis.cmp(&b.mpis) {
+            Ordering::Equal => (),
+            o => return o,
+        }
+
+        match a.version.cmp(&b.version) {
+            Ordering::Equal => (),
+            o => return o,
+        }
+
+        match a.creation_time.cmp(&b.creation_time) {
+            Ordering::Equal => (),
+            o => return o,
+        }
+
+        a.pk_algo.cmp(&b.pk_algo)
     }
 }
 
