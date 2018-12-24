@@ -2334,6 +2334,10 @@ impl TPK {
                 "Primary key mismatch".into()).into());
         }
 
+        if self.primary.secret().is_none() && other.primary.secret().is_some() {
+            self.primary.set_secret(other.primary.set_secret(None));
+        }
+
         self.primary_selfsigs.append(
             &mut other.primary_selfsigs);
         self.primary_certifications.append(
@@ -3408,6 +3412,7 @@ mod test {
         let (tsk, _) = TSK::new(Cow::Borrowed("foo@example.com")).unwrap();
         // tsk is now a tpk, but it still has its private bits.
         let tsk = tsk.into_tpk();
+        assert!(tsk.primary.secret().is_some());
         assert!(tsk.is_tsk());
         let subkey_count = tsk.subkeys().len();
         assert!(subkey_count > 0);
@@ -3420,16 +3425,19 @@ mod test {
 
         // Reading it back in, the private bits have been stripped.
         let tpk = TPK::from_bytes(&tpk_bytes[..]).unwrap();
+        assert!(tpk.primary.secret().is_none());
         assert!(!tpk.is_tsk());
         assert!(tpk.subkeys().all(|k| k.subkey.secret().is_none()));
 
         let merge1 = tpk.clone().merge(tsk.clone()).unwrap();
         assert!(merge1.is_tsk());
+        assert!(merge1.primary.secret().is_some());
         assert_eq!(merge1.subkeys().len(), subkey_count);
         assert!(merge1.subkeys().all(|k| k.subkey.secret().is_some()));
 
         let merge2 = tsk.clone().merge(tpk.clone()).unwrap();
         assert!(merge2.is_tsk());
+        assert!(merge2.primary.secret().is_some());
         assert_eq!(merge2.subkeys().len(), subkey_count);
         assert!(merge2.subkeys().all(|k| k.subkey.secret().is_some()));
     }
