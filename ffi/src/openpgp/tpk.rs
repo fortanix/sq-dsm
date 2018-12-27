@@ -20,6 +20,7 @@ use self::sequoia_openpgp::{
     TPK,
     TSK,
     autocrypt::Autocrypt,
+    crypto,
     constants::ReasonForRevocation,
     packet::{self, Signature},
     parse::PacketParserResult,
@@ -254,6 +255,9 @@ fn int_to_reason_for_revocation(code: c_int) -> ReasonForRevocation {
 /// sq_tpk_builder_t builder;
 /// sq_tpk_t tpk;
 /// sq_signature_t revocation;
+/// sq_p_key_t primary_key;
+/// sq_key_pair_t primary_keypair;
+/// sq_signer_t primary_signer;
 ///
 /// ctx = sq_context_new ("org.sequoia-pgp.tests", NULL);
 ///
@@ -264,10 +268,17 @@ fn int_to_reason_for_revocation(code: c_int) -> ReasonForRevocation {
 /// assert (revocation);
 /// sq_signature_free (revocation);    /* Free the generated one.  */
 ///
-/// revocation = sq_tpk_revoke (ctx, tpk,
+/// primary_key = sq_p_key_clone (sq_tpk_primary (tpk));
+/// assert (primary_key);
+/// primary_keypair = sq_p_key_into_key_pair (ctx, primary_key);
+/// assert (primary_keypair);
+/// primary_signer = sq_key_pair_as_signer (primary_keypair);
+/// revocation = sq_tpk_revoke (ctx, tpk, primary_signer,
 ///                             SQ_REASON_FOR_REVOCATION_KEY_COMPROMISED,
 ///                             "It was the maid :/");
 /// assert (revocation);
+/// sq_signer_free (primary_signer);
+/// sq_key_pair_free (primary_keypair);
 ///
 /// sq_packet_t packet = sq_signature_to_packet (revocation);
 /// tpk = sq_tpk_merge_packets (ctx, tpk, &packet, 1);
@@ -283,12 +294,14 @@ fn int_to_reason_for_revocation(code: c_int) -> ReasonForRevocation {
 #[no_mangle]
 pub extern "system" fn sq_tpk_revoke(ctx: *mut Context,
                                      tpk: *mut TPK,
+                                     primary_signer: *mut Box<crypto::Signer>,
                                      code: c_int,
                                      reason: Option<&c_char>)
     -> *mut packet::Signature
 {
     let ctx = ffi_param_ref_mut!(ctx);
     let tpk = ffi_param_ref!(tpk);
+    let signer = ffi_param_ref_mut!(primary_signer);
     let code = int_to_reason_for_revocation(code);
     let reason = if let Some(reason) = reason {
         unsafe {
@@ -298,7 +311,7 @@ pub extern "system" fn sq_tpk_revoke(ctx: *mut Context,
         b""
     };
 
-    fry_box!(ctx, tpk.revoke(code, reason))
+    fry_box!(ctx, tpk.revoke(signer.as_mut(), code, reason))
 }
 
 /// Adds a revocation certificate to the tpk.
@@ -315,6 +328,9 @@ pub extern "system" fn sq_tpk_revoke(ctx: *mut Context,
 /// sq_tpk_builder_t builder;
 /// sq_tpk_t tpk;
 /// sq_signature_t revocation;
+/// sq_p_key_t primary_key;
+/// sq_key_pair_t primary_keypair;
+/// sq_signer_t primary_signer;
 ///
 /// ctx = sq_context_new ("org.sequoia-pgp.tests", NULL);
 ///
@@ -325,9 +341,17 @@ pub extern "system" fn sq_tpk_revoke(ctx: *mut Context,
 /// assert (revocation);
 /// sq_signature_free (revocation);    /* Free the generated one.  */
 ///
-/// tpk = sq_tpk_revoke_in_place (ctx, tpk,
+/// primary_key = sq_p_key_clone (sq_tpk_primary (tpk));
+/// assert (primary_key);
+/// primary_keypair = sq_p_key_into_key_pair (ctx, primary_key);
+/// assert (primary_keypair);
+/// primary_signer = sq_key_pair_as_signer (primary_keypair);
+/// tpk = sq_tpk_revoke_in_place (ctx, tpk, primary_signer,
 ///                               SQ_REASON_FOR_REVOCATION_KEY_COMPROMISED,
 ///                               "It was the maid :/");
+/// assert (tpk);
+/// sq_signer_free (primary_signer);
+/// sq_key_pair_free (primary_keypair);
 ///
 /// sq_revocation_status_t rs = sq_tpk_revocation_status (tpk);
 /// assert (sq_revocation_status_variant (rs) == SQ_REVOCATION_STATUS_REVOKED);
@@ -339,12 +363,14 @@ pub extern "system" fn sq_tpk_revoke(ctx: *mut Context,
 #[no_mangle]
 pub extern "system" fn sq_tpk_revoke_in_place(ctx: *mut Context,
                                               tpk: *mut TPK,
+                                              primary_signer: *mut Box<crypto::Signer>,
                                               code: c_int,
                                               reason: Option<&c_char>)
     -> *mut TPK
 {
     let ctx = ffi_param_ref_mut!(ctx);
     let tpk = ffi_param_move!(tpk);
+    let signer = ffi_param_ref_mut!(primary_signer);
     let code = int_to_reason_for_revocation(code);
     let reason = if let Some(reason) = reason {
         unsafe {
@@ -354,7 +380,7 @@ pub extern "system" fn sq_tpk_revoke_in_place(ctx: *mut Context,
         b""
     };
 
-    fry_box!(ctx, tpk.revoke_in_place(code, reason))
+    fry_box!(ctx, tpk.revoke_in_place(signer.as_mut(), code, reason))
 }
 
 /// Returns whether the TPK has expired.

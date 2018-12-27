@@ -11,7 +11,7 @@ use time;
 use failure;
 
 use {
-    crypto::KeyPair,
+    crypto::{Signer, KeyPair},
     Error,
     Result,
     RevocationStatus,
@@ -1305,6 +1305,7 @@ impl TPK {
     /// use openpgp::RevocationStatus;
     /// use openpgp::constants::{ReasonForRevocation, SignatureType};
     /// use openpgp::tpk::{CipherSuite, TPKBuilder};
+    /// use openpgp::crypto::KeyPair;
     /// use openpgp::parse::Parse;
     /// # fn main() { f().unwrap(); }
     /// # fn f() -> Result<()>
@@ -1314,7 +1315,8 @@ impl TPK {
     ///     .generate()?;
     /// assert_eq!(RevocationStatus::NotAsFarAsWeKnow, tpk.revoked());
     ///
-    /// let sig = tpk.revoke(ReasonForRevocation::KeyCompromised,
+    /// let mut keypair = tpk.primary().clone().into_keypair()?;
+    /// let sig = tpk.revoke(&mut keypair, ReasonForRevocation::KeyCompromised,
     ///                      b"It was the maid :/")?;
     /// assert_eq!(sig.sigtype(), SignatureType::KeyRevocation);
     ///
@@ -1322,9 +1324,15 @@ impl TPK {
     /// assert_eq!(RevocationStatus::Revoked(&[sig]), tpk.revoked());
     /// # Ok(())
     /// # }
-    pub fn revoke(&self, code: ReasonForRevocation, reason: &[u8])
+    pub fn revoke(&self, primary_signer: &mut Signer,
+                  code: ReasonForRevocation, reason: &[u8])
         -> Result<Signature>
     {
+        if primary_signer.public().fingerprint() != self.fingerprint() {
+            return Err(Error::InvalidArgument(
+                "signer is not the primary key".into()).into());
+        }
+
         let mut sig = signature::Builder::new(SignatureType::KeyRevocation);
         sig.set_signature_creation_time(time::now_utc())?;
         sig.set_issuer_fingerprint(self.primary().fingerprint())?;
@@ -1338,14 +1346,7 @@ impl TPK {
         let mut hash = hash_algo.context()?;
         pair.hash(&mut hash);
 
-        if let Some(SecretKey::Unencrypted{ mpis: ref sec }) = pair.secret() {
-            // Generate the signature.
-            sig.sign_hash(&mut KeyPair::new(pair.clone(), sec.clone())?,
-                          hash_algo, hash)
-        } else {
-            return Err(Error::InvalidOperation(
-                "Secret key is encrypted".into()).into());
-        }
+        sig.sign_hash(primary_signer, hash_algo, hash)
     }
 
     /// Revokes the TPK.
@@ -1358,6 +1359,7 @@ impl TPK {
     /// use openpgp::RevocationStatus;
     /// use openpgp::constants::{ReasonForRevocation, SignatureType};
     /// use openpgp::tpk::{CipherSuite, TPKBuilder};
+    /// use openpgp::crypto::KeyPair;
     /// use openpgp::parse::Parse;
     /// # fn main() { f().unwrap(); }
     /// # fn f() -> Result<()>
@@ -1367,7 +1369,9 @@ impl TPK {
     ///     .generate()?;
     /// assert_eq!(RevocationStatus::NotAsFarAsWeKnow, tpk.revoked());
     ///
-    /// let tpk = tpk.revoke_in_place(ReasonForRevocation::KeyCompromised,
+    /// let mut keypair = tpk.primary().clone().into_keypair()?;
+    /// let tpk = tpk.revoke_in_place(&mut keypair,
+    ///                               ReasonForRevocation::KeyCompromised,
     ///                               b"It was the maid :/")?;
     /// if let RevocationStatus::Revoked(sigs) = tpk.revoked() {
     ///     assert_eq!(sigs.len(), 1);
@@ -1381,10 +1385,11 @@ impl TPK {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn revoke_in_place(self, code: ReasonForRevocation, reason: &[u8])
+    pub fn revoke_in_place(self, primary_signer: &mut Signer,
+                           code: ReasonForRevocation, reason: &[u8])
         -> Result<TPK>
     {
-        let sig = self.revoke(code, reason)?;
+        let sig = self.revoke(primary_signer, code, reason)?;
         self.merge_packets(vec![sig.to_packet()])
     }
 
@@ -3324,7 +3329,9 @@ mod test {
         let tpk = tsk.into_tpk();
         assert_eq!(RevocationStatus::NotAsFarAsWeKnow, tpk.revoked());
 
-        let sig = tpk.revoke(ReasonForRevocation::KeyCompromised,
+        let mut keypair = tpk.primary().clone().into_keypair().unwrap();
+        let sig = tpk.revoke(&mut keypair,
+                             ReasonForRevocation::KeyCompromised,
                              b"It was the maid :/").unwrap();
         assert_eq!(sig.sigtype(), SignatureType::KeyRevocation);
 

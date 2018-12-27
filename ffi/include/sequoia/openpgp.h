@@ -894,7 +894,9 @@ sq_revocation_status_t sq_tpk_revocation_status (sq_tpk_t tpk);
 /// This function consumes the writer.  It does *not* consume tpk.
 /*/
 sq_signature_t sq_tpk_revoke (sq_context_t ctx,
-                              sq_tpk_t tpk, sq_reason_for_revocation_t code,
+                              sq_tpk_t tpk,
+                              sq_signer_t primary_signer,
+                              sq_reason_for_revocation_t code,
                               const char *reason);
 
 /*/
@@ -904,6 +906,7 @@ sq_signature_t sq_tpk_revoke (sq_context_t ctx,
 /*/
 sq_tpk_t sq_tpk_revoke_in_place (sq_context_t ctx,
                                  sq_tpk_t tpk,
+                                 sq_signer_t primary_signer,
                                  sq_reason_for_revocation_t code,
                                  const char *reason);
 
