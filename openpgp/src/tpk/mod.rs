@@ -1293,6 +1293,32 @@ impl TPK {
     }
 
     /// Returns a revocation certificate for the TPK.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use openpgp::Result;
+    /// use openpgp::RevocationStatus;
+    /// use openpgp::constants::{{ReasonForRevocation, SignatureType}};
+    /// use openpgp::tpk::{{CipherSuite, TPKBuilder}};
+    /// use openpgp::parse::Parse;
+    /// # fn main() { f().unwrap(); }
+    /// # fn f() -> Result<()>
+    /// # {
+    /// let (tpk, _) = TPKBuilder::default()
+    ///     .set_cipher_suite(CipherSuite::Cv25519)
+    ///     .generate()?;
+    /// assert_eq!(RevocationStatus::NotAsFarAsWeKnow, tpk.revoked());
+    ///
+    /// let sig = tpk.revoke(ReasonForRevocation::KeyCompromised,
+    ///                      b"It was the maid :/")?;
+    /// assert_eq!(sig.sigtype(), SignatureType::KeyRevocation);
+    ///
+    /// let tpk = tpk.merge_packets(vec![sig.clone().to_packet()])?;
+    /// assert_eq!(RevocationStatus::Revoked(&[sig]), tpk.revoked());
+    /// # Ok(())
+    /// # }
     pub fn revoke(&self, code: ReasonForRevocation, reason: &[u8])
         -> Result<Signature>
     {
@@ -1319,6 +1345,38 @@ impl TPK {
     }
 
     /// Revokes the TPK.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use openpgp::Result;
+    /// use openpgp::RevocationStatus;
+    /// use openpgp::constants::{{ReasonForRevocation, SignatureType}};
+    /// use openpgp::tpk::{{CipherSuite, TPKBuilder}};
+    /// use openpgp::parse::Parse;
+    /// # fn main() { f().unwrap(); }
+    /// # fn f() -> Result<()>
+    /// # {
+    /// let (mut tpk, _) = TPKBuilder::default()
+    ///     .set_cipher_suite(CipherSuite::Cv25519)
+    ///     .generate()?;
+    /// assert_eq!(RevocationStatus::NotAsFarAsWeKnow, tpk.revoked());
+    ///
+    /// let tpk = tpk.revoke_in_place(ReasonForRevocation::KeyCompromised,
+    ///                               b"It was the maid :/")?;
+    /// if let RevocationStatus::Revoked(sigs) = tpk.revoked() {
+    ///     assert_eq!(sigs.len(), 1);
+    ///     assert_eq!(sigs[0].sigtype(), SignatureType::KeyRevocation);
+    ///     assert_eq!(sigs[0].reason_for_revocation(),
+    ///                Some((ReasonForRevocation::KeyCompromised,
+    ///                      &b"It was the maid :/"[..])));
+    /// } else {
+    ///     unreachable!()
+    /// }
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn revoke_in_place(self, code: ReasonForRevocation, reason: &[u8])
         -> Result<TPK>
     {
