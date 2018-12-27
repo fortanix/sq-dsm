@@ -1323,7 +1323,7 @@ impl TPK {
         -> Result<TPK>
     {
         let sig = self.revoke(code, reason)?;
-        self.merge_packets(&[ sig.to_packet() ])
+        self.merge_packets(vec![sig.to_packet()])
     }
 
     /// Returns whether or not the TPK has expired.
@@ -1410,7 +1410,7 @@ impl TPK {
             }
         };
 
-        self.merge_packets(&[ sig.to_packet() ])
+        self.merge_packets(vec![sig.to_packet()])
     }
 
     /// Sets the key to expire in delta.
@@ -2359,9 +2359,9 @@ impl TPK {
     ///
     /// This recanonicalizes the TPK.  If the packets are invalid,
     /// they are dropped.
-    pub fn merge_packets(self, packets: &[ Packet ]) -> Result<Self> {
+    pub fn merge_packets(self, mut packets: Vec<Packet>) -> Result<Self> {
         let mut combined = self.to_packets();
-        combined.extend_from_slice(packets);
+        combined.append(&mut packets);
         TPK::from_packet_pile(PacketPile::from_packets(combined))
     }
 
@@ -3133,10 +3133,10 @@ mod test {
 
         let rev : Vec<Packet> = rev.into_children().collect();
         assert_eq!(rev.len(), 1);
-        assert_match!(&Packet::Signature(_) = &rev[0]);
+        assert_eq!(rev[0].tag(), Tag::Signature);
 
         let packets_pre_merge = tpk.clone().to_packets().len();
-        let tpk = tpk.merge_packets(&rev[..]).unwrap();
+        let tpk = tpk.merge_packets(rev).unwrap();
         let packets_post_merge = tpk.clone().to_packets().len();
         assert_eq!(packets_post_merge, packets_pre_merge + 1);
     }
@@ -3295,7 +3295,7 @@ mod test {
                              b"It was the maid :/").unwrap();
         assert_eq!(sig.sigtype(), SignatureType::KeyRevocation);
 
-        let tpk = tpk.merge_packets(&[ sig.to_packet() ]).unwrap();
+        let tpk = tpk.merge_packets(vec![sig.to_packet()]).unwrap();
         assert_match!(RevocationStatus::Revoked(_) = tpk.revoked());
     }
 
