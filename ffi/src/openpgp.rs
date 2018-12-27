@@ -962,6 +962,43 @@ fn int_to_reason_for_revocation(code: c_int) -> ReasonForRevocation {
 /// Returns a new revocation certificate for the TPK.
 ///
 /// This function does *not* consume `tpk`.
+///
+/// # Example
+///
+/// ```c
+/// #include <assert.h>
+/// #include <sequoia.h>
+///
+/// sq_context_t ctx;
+/// sq_tpk_builder_t builder;
+/// sq_tpk_t tpk;
+/// sq_signature_t revocation;
+///
+/// ctx = sq_context_new ("org.sequoia-pgp.tests", NULL);
+///
+/// builder = sq_tpk_builder_default ();
+/// sq_tpk_builder_set_cipher_suite (&builder, SQ_TPK_CIPHER_SUITE_CV25519);
+/// sq_tpk_builder_generate (ctx, builder, &tpk, &revocation);
+/// assert (tpk);
+/// assert (revocation);
+/// sq_signature_free (revocation);    /* Free the generated one.  */
+///
+/// revocation = sq_tpk_revoke (ctx, tpk,
+///                             SQ_REASON_FOR_REVOCATION_KEY_COMPROMISED,
+///                             "It was the maid :/");
+/// assert (revocation);
+///
+/// sq_packet_t packet = sq_signature_to_packet (revocation);
+/// tpk = sq_tpk_merge_packets (ctx, tpk, &packet, 1);
+/// assert (tpk);
+///
+/// sq_revocation_status_t rs = sq_tpk_revocation_status (tpk);
+/// assert (sq_revocation_status_variant (rs) == SQ_REVOCATION_STATUS_REVOKED);
+/// sq_revocation_status_free (rs);
+///
+/// sq_tpk_free (tpk);
+/// sq_context_free (ctx);
+/// ```
 #[no_mangle]
 pub extern "system" fn sq_tpk_revoke(ctx: Option<&mut Context>,
                                      tpk: Option<&mut TPK>,
@@ -986,11 +1023,43 @@ pub extern "system" fn sq_tpk_revoke(ctx: Option<&mut Context>,
 /// Adds a revocation certificate to the tpk.
 ///
 /// This function consumes the tpk.
+///
+/// # Example
+///
+/// ```c
+/// #include <assert.h>
+/// #include <sequoia.h>
+///
+/// sq_context_t ctx;
+/// sq_tpk_builder_t builder;
+/// sq_tpk_t tpk;
+/// sq_signature_t revocation;
+///
+/// ctx = sq_context_new ("org.sequoia-pgp.tests", NULL);
+///
+/// builder = sq_tpk_builder_default ();
+/// sq_tpk_builder_set_cipher_suite (&builder, SQ_TPK_CIPHER_SUITE_CV25519);
+/// sq_tpk_builder_generate (ctx, builder, &tpk, &revocation);
+/// assert (tpk);
+/// assert (revocation);
+/// sq_signature_free (revocation);    /* Free the generated one.  */
+///
+/// tpk = sq_tpk_revoke_in_place (ctx, tpk,
+///                               SQ_REASON_FOR_REVOCATION_KEY_COMPROMISED,
+///                               "It was the maid :/");
+///
+/// sq_revocation_status_t rs = sq_tpk_revocation_status (tpk);
+/// assert (sq_revocation_status_variant (rs) == SQ_REVOCATION_STATUS_REVOKED);
+/// sq_revocation_status_free (rs);
+///
+/// sq_tpk_free (tpk);
+/// sq_context_free (ctx);
+/// ```
 #[no_mangle]
-pub extern "system" fn sq_tpk_revoke_in_place (ctx: Option<&mut Context>,
-                                               tpk: *mut TPK,
-                                               code: c_int,
-                                               reason: Option<*const c_char>)
+pub extern "system" fn sq_tpk_revoke_in_place(ctx: Option<&mut Context>,
+                                              tpk: *mut TPK,
+                                              code: c_int,
+                                              reason: Option<*const c_char>)
     -> *mut TPK
 {
     let ctx = ctx.expect("Context is NULL");
