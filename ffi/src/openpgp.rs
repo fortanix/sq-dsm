@@ -937,19 +937,16 @@ fn int_to_reason_for_revocation(code: c_int) -> ReasonForRevocation {
 
 /// Returns a new revocation certificate for the TPK.
 ///
-/// This function does *not* consume tpk.
+/// This function does *not* consume `tpk`.
 #[no_mangle]
 pub extern "system" fn sq_tpk_revoke(ctx: Option<&mut Context>,
-                                     tpk: *mut TPK,
+                                     tpk: Option<&mut TPK>,
                                      code: c_int,
                                      reason: Option<*const c_char>)
     -> *mut packet::Signature
 {
     let ctx = ctx.expect("Context is NULL");
-    assert!(!tpk.is_null());
-    let tpk = unsafe {
-        Box::from_raw(tpk)
-    };
+    let tpk = tpk.expect("TPK is NULL");
     let code = int_to_reason_for_revocation(code);
     let reason = if let Some(reason) = reason {
         unsafe {
