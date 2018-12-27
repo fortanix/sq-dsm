@@ -1491,6 +1491,15 @@ pub extern "system" fn sq_packet_kind(p: Option<&Packet>)
     }
 }
 
+/// Frees the Signature.
+#[no_mangle]
+pub extern "system" fn sq_signature_free(s: *mut Signature) {
+    if s.is_null() { return }
+    unsafe {
+        drop(Box::from_raw(s));
+    }
+}
+
 /// Returns the value of the `Signature` packet's Issuer subpacket.
 ///
 /// If there is no Issuer subpacket, this returns NULL.  Note: if
