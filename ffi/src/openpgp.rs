@@ -939,10 +939,10 @@ fn int_to_reason_for_revocation(code: c_int) -> ReasonForRevocation {
 ///
 /// This function does *not* consume tpk.
 #[no_mangle]
-pub extern "system" fn sq_tpk_revoke (ctx: Option<&mut Context>,
-                                      tpk: *mut TPK,
-                                      code: c_int,
-                                      reason: Option<*const c_char>)
+pub extern "system" fn sq_tpk_revoke(ctx: Option<&mut Context>,
+                                     tpk: *mut TPK,
+                                     code: c_int,
+                                     reason: Option<*const c_char>)
     -> *mut packet::Signature
 {
     let ctx = ctx.expect("Context is NULL");

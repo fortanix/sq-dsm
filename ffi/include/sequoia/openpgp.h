@@ -873,9 +873,9 @@ sq_revocation_status_t sq_tpk_revocation_status (sq_tpk_t tpk);
 ///
 /// This function consumes the writer.  It does *not* consume tpk.
 /*/
-sq_status_t sq_tpk_revoke (sq_context_t ctx,
-                           sq_tpk_t tpk, sq_reason_for_revocation_t code,
-                           const char *reason, sq_writer_t writer);
+sq_signature_t sq_tpk_revoke (sq_context_t ctx,
+                              sq_tpk_t tpk, sq_reason_for_revocation_t code,
+                              const char *reason);
 
 /*/
 /// Adds a revocation certificate to the tpk.
