@@ -6,7 +6,7 @@ use std::cmp::Ordering;
 use time;
 
 use Error;
-use crypto::mpis;
+use crypto::{mpis, KeyPair};
 use packet::Tag;
 use packet;
 use Packet;
@@ -276,6 +276,27 @@ impl Key {
                          Got: Tag::{:?}",
                         tag)).into()),
         }
+    }
+
+    /// Creates a new key pair from a Key packet with an unencrypted
+    /// secret key.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the secret key is missing, or encrypted.
+    pub fn into_keypair(mut self) -> Result<KeyPair> {
+        use packet::key::SecretKey;
+        let secret = match self.set_secret(None) {
+            Some(SecretKey::Unencrypted { mpis }) => mpis,
+            Some(SecretKey::Encrypted { .. }) =>
+                return Err(Error::InvalidArgument(
+                    "secret key is encrypted".into()).into()),
+            None =>
+                return Err(Error::InvalidArgument(
+                    "no secret key".into()).into()),
+        };
+
+        KeyPair::new(self, secret)
     }
 }
 
