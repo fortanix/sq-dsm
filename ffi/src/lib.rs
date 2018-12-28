@@ -27,11 +27,56 @@
 //! characters will be substituted, and the result is likely not what
 //! you expect.
 //!
+//! # Ownership
+//!
+//! When ownership of a `T` is transferred across the FFI boundary, a
+//! `*mut T` is used.
+//!
+//! To transfer ownership from Rust to C, we box the Rust object, and
+//! use [`Box::into_raw(..)`].  From this moment on, ownership must be
+//! managed by the C application.
+//!
+//! [`Box::into_raw(..)`]: https://doc.rust-lang.org/std/boxed/struct.Box.html#method.into_raw
+//!
+//! To transfer ownership from C to Rust, we re-create the box using
+//! [`Box::from_raw(..)`].
+//!
+//! [`Box::from_raw(..)`]: https://doc.rust-lang.org/std/boxed/struct.Box.html#method.from_raw
+//!
+//! In this crate we use a series of macros to transfer ownership from
+//! Rust to C.  `fry_box` matches on `Result<T>`, handling errors by
+//! terminating the current function, returning the error using the
+//! context.  `maybe_box_raw` matches on `Option<T>`, turning `None`
+//! into `NULL`.  Finally, `box_raw` is merely a shortcut for
+//! `Box::into_raw(Box::new(..))`.
+//!
+//! # References
+//!
+//! When references are transferred across the FFI boundary, we use
+//! `Option<&T>`, or `Option<&mut T>`.  This takes advantage of the
+//! NULL-pointer optimization that maps `NULL` to `None`, and `*p` to
+//! `Some(&p)`.  In Rust, references always point to some object, but
+//! in C they can be `NULL`.
+//!
+//! Application code must adhere to Rust's reference rules:
+//!
+//!  - Either one mutable reference or any number of immutable ones.
+//!  - All references are valid.
+//!
+//! In this crate we enforce the second rule by asserting that all
+//! pointers handed in are non-`NULL` unless explicitly stated
+//! (e.g. destructors may be called with a `NULL` reference).
+//!
 //! # Lifetimes
 //!
-//! Objects created using a context must not outlive that context.
-//! Similarly, iterators must not outlive the object they are created
-//! from.
+//! If you derive a complex object from another complex object, you
+//! must assume that the original object is borrowed by the resulting
+//! object unless explicitly stated otherwise.  For example, objects
+//! created using a context must not outlive that context.  Similarly,
+//! iterators must not outlive the object they are created from.
+//!
+//! Failing to adhere to lifetime restrictions results in undefined
+//! behavior.
 //!
 //! # Error handling
 //!
@@ -127,6 +172,8 @@ macro_rules! fry {
 
 /// Like try! for ffi glue, then box into raw pointer.
 ///
+/// This is used to transfer ownership from Rust to C.
+///
 /// Unwraps the given expression.  On success, it boxes the value
 /// and turns it into a raw pointer.  On failure, stashes the
 /// error in the context and returns NULL.
@@ -137,6 +184,8 @@ macro_rules! fry_box {
 }
 
 /// Box, then turn into raw pointer.
+///
+/// This is used to transfer ownership from Rust to C.
 macro_rules! box_raw {
     ($expr:expr) => {
         Box::into_raw(Box::new($expr))
@@ -144,6 +193,8 @@ macro_rules! box_raw {
 }
 
 /// Box an Option<T>, then turn into raw pointer.
+///
+/// This is used to transfer ownership from Rust to C.
 macro_rules! maybe_box_raw {
     ($expr:expr) => {
         $expr.map(|x| box_raw!(x)).unwrap_or(ptr::null_mut())
