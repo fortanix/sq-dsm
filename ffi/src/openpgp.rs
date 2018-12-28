@@ -1521,6 +1521,17 @@ pub extern "system" fn sq_signature_free(s: *mut Signature) {
     }
 }
 
+/// Converts the signature to a packet.
+#[no_mangle]
+pub extern "system" fn sq_signature_to_packet(s: *mut Signature)
+                                              -> *mut Packet
+{
+    assert!(! s.is_null());
+    unsafe {
+        box_raw!(Box::from_raw(s).to_packet())
+    }
+}
+
 /// Returns the value of the `Signature` packet's Issuer subpacket.
 ///
 /// If there is no Issuer subpacket, this returns NULL.  Note: if

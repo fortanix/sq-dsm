@@ -539,6 +539,11 @@ sq_status_t sq_packet_pile_serialize (sq_context_t ctx,
 void sq_signature_free (sq_signature_t signature);
 
 /*/
+/// Converts the signature to a packet.
+/*/
+sq_packet_t sq_signature_to_packet (sq_signature_t signature);
+
+/*/
 /// Returns the value of the `Signature` packet's Issuer subpacket.
 ///
 /// If there is no Issuer subpacket, this returns NULL.  Note: if
