@@ -1300,8 +1300,8 @@ impl TPK {
     /// # extern crate sequoia_openpgp as openpgp;
     /// # use openpgp::Result;
     /// use openpgp::RevocationStatus;
-    /// use openpgp::constants::{{ReasonForRevocation, SignatureType}};
-    /// use openpgp::tpk::{{CipherSuite, TPKBuilder}};
+    /// use openpgp::constants::{ReasonForRevocation, SignatureType};
+    /// use openpgp::tpk::{CipherSuite, TPKBuilder};
     /// use openpgp::parse::Parse;
     /// # fn main() { f().unwrap(); }
     /// # fn f() -> Result<()>
@@ -1352,8 +1352,8 @@ impl TPK {
     /// # extern crate sequoia_openpgp as openpgp;
     /// # use openpgp::Result;
     /// use openpgp::RevocationStatus;
-    /// use openpgp::constants::{{ReasonForRevocation, SignatureType}};
-    /// use openpgp::tpk::{{CipherSuite, TPKBuilder}};
+    /// use openpgp::constants::{ReasonForRevocation, SignatureType};
+    /// use openpgp::tpk::{CipherSuite, TPKBuilder};
     /// use openpgp::parse::Parse;
     /// # fn main() { f().unwrap(); }
     /// # fn f() -> Result<()>
