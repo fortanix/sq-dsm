@@ -870,6 +870,30 @@ pub extern "system" fn sq_tpk_merge(ctx: Option<&mut Context>,
     fry_box!(ctx, tpk.merge(*other))
 }
 
+/// Adds packets to the TPK.
+///
+/// This recanonicalizes the TPK.  If the packets are invalid, they
+/// are dropped.
+///
+/// Consumes `tpk` and the packets in `packets`.  The buffer, however,
+/// must be managed by the caller.
+#[no_mangle]
+pub extern "system" fn sq_tpk_merge_packets(ctx: Option<&mut Context>,
+                                            tpk: *mut TPK,
+                                            packets: *mut *mut Packet,
+                                            packets_len: size_t)
+                                            -> *mut TPK {
+    let ctx = ctx.expect("Context is NULL");
+    assert!(! tpk.is_null());
+    let tpk = unsafe { Box::from_raw(tpk) };
+    let packets = unsafe {
+        slice::from_raw_parts_mut(packets, packets_len)
+    };
+    let packets =
+        packets.iter_mut().map(|p| *unsafe { Box::from_raw(*p) } ).collect();
+    fry_box!(ctx, tpk.merge_packets(packets))
+}
+
 /// Dumps the TPK.
 ///
 /// XXX Remove this.

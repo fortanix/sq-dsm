@@ -835,6 +835,19 @@ sq_tpk_t sq_tpk_merge (sq_context_t ctx,
                        sq_tpk_t other);
 
 /*/
+/// Adds packets to the TPK.
+///
+/// This recanonicalizes the TPK.  If the packets are invalid, they
+/// are dropped.
+///
+/// Consumes `tpk` and the packets in `packets`.  The buffer, however,
+/// must be freed by the caller.
+/*/
+sq_tpk_t sq_tpk_merge_packets (sq_context_t ctx,
+                               sq_tpk_t tpk,
+                               sq_packet_t *packets,
+                               size_t packets_len);
+/*/
 /// Dumps the TPK.
 /*/
 void sq_tpk_dump (const sq_tpk_t tpk);
