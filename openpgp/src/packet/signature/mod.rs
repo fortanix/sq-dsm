@@ -6,7 +6,10 @@ use std::ops::Deref;
 use constants::Curve;
 use Error;
 use Result;
-use crypto::mpis::{self, MPI};
+use crypto::{
+    mpis::{self, MPI},
+    Signer,
+};
 use HashAlgorithm;
 use PublicKeyAlgorithm;
 use SignatureType;
@@ -209,16 +212,6 @@ impl Builder {
             level: 0,
         })
     }
-}
-
-/// Creates a signature.
-pub trait Signer {
-    /// Returns a reference to the public key.
-    fn public(&self) -> &Key;
-
-    /// Creates a signature over the `digest` produced by `hash_algo`.
-    fn sign(&mut self, hash_algo: HashAlgorithm, digest: &[u8])
-            -> Result<mpis::Signature>;
 }
 
 /// A cryptographic key pair.

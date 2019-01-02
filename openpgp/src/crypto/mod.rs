@@ -13,11 +13,14 @@ use constants::HashAlgorithm;
 use Result;
 
 pub(crate) mod aead;
+mod asymmetric;
 pub(crate) mod ecdh;
 mod hash;
 pub mod mpis;
 pub mod s2k;
 pub(crate) mod symmetric;
+
+pub use self::asymmetric::Signer;
 
 /// Holds a session key.
 ///
