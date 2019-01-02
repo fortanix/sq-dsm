@@ -25,6 +25,12 @@ pub trait Signer {
 }
 
 /// A cryptographic key pair.
+///
+/// A `KeyPair` is a combination of public and secret key.  If both
+/// are available in memory, a `KeyPair` is a convenient
+/// implementation of [`Signer`].
+///
+/// [`Signer`]: trait.Signer.html
 pub struct KeyPair {
     public: Key,
     secret: mpis::SecretKey,
