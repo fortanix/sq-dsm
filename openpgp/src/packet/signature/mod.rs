@@ -7,7 +7,7 @@ use constants::Curve;
 use Error;
 use Result;
 use crypto::{
-    mpis::{self, MPI},
+    mpis,
     Signer,
 };
 use HashAlgorithm;
@@ -22,7 +22,7 @@ use packet;
 use packet::signature::subpacket::SubpacketArea;
 use serialize::Serialize;
 
-use nettle::{dsa, ecdsa, ed25519, Hash, rsa, Yarrow};
+use nettle::{dsa, ecdsa, ed25519, Hash, rsa};
 use nettle::rsa::verify_digest_pkcs1;
 
 #[cfg(test)]
@@ -211,150 +211,6 @@ impl Builder {
             computed_hash: Some((algo, digest)),
             level: 0,
         })
-    }
-}
-
-/// A cryptographic key pair.
-pub struct KeyPair {
-    public: Key,
-    secret: mpis::SecretKey,
-}
-
-impl KeyPair {
-    /// Creates a new key pair.
-    pub fn new(public: Key, secret: mpis::SecretKey) -> Result<Self> {
-        Ok(Self {
-            public: public,
-            secret: secret,
-        })
-    }
-}
-
-impl Signer for KeyPair {
-    fn public(&self) -> &Key {
-        &self.public
-    }
-
-    fn sign(&mut self, hash_algo: HashAlgorithm, digest: &[u8])
-            -> Result<mpis::Signature>
-    {
-        use PublicKeyAlgorithm::*;
-        use crypto::mpis::PublicKey;
-        use memsec;
-
-        let mut rng = Yarrow::default();
-
-        #[allow(deprecated)]
-        match (self.public.pk_algo(), self.public.mpis(), &self.secret)
-        {
-            (RSASign,
-             &PublicKey::RSA { ref e, ref n },
-             &mpis::SecretKey::RSA { ref p, ref q, ref d, .. }) |
-            (RSAEncryptSign,
-             &PublicKey::RSA { ref e, ref n },
-             &mpis::SecretKey::RSA { ref p, ref q, ref d, .. }) => {
-                let public = rsa::PublicKey::new(&n.value, &e.value)?;
-                let secret = rsa::PrivateKey::new(&d.value, &p.value,
-                                                  &q.value, Option::None)?;
-
-                // The signature has the length of the modulus.
-                let mut sig = vec![0u8; n.value.len()];
-
-                // As described in [Section 5.2.2 and 5.2.3 of RFC 4880],
-                // to verify the signature, we need to encode the
-                // signature data in a PKCS1-v1.5 packet.
-                //
-                //   [Section 5.2.2 and 5.2.3 of RFC 4880]:
-                //   https://tools.ietf.org/html/rfc4880#section-5.2.2
-                rsa::sign_digest_pkcs1(&public, &secret, digest,
-                                       hash_algo.oid()?,
-                                       &mut rng, &mut sig)?;
-
-                Ok(mpis::Signature::RSA {
-                    s: MPI::new(&sig),
-                })
-            },
-
-            (DSA,
-             &PublicKey::DSA { ref p, ref q, ref g, .. },
-             &mpis::SecretKey::DSA { ref x }) => {
-                let params = dsa::Params::new(&p.value, &q.value, &g.value);
-                let secret = dsa::PrivateKey::new(&x.value);
-
-                let sig = dsa::sign(&params, &secret, digest, &mut rng)?;
-
-                Ok(mpis::Signature::DSA {
-                    r: MPI::new(&sig.r()),
-                    s: MPI::new(&sig.s()),
-                })
-            },
-
-            (EdDSA,
-             &PublicKey::EdDSA { ref curve, ref q },
-             &mpis::SecretKey::EdDSA { ref scalar }) => match curve {
-                Curve::Ed25519 => {
-                    let public = q.decode_point(&Curve::Ed25519)?.0;
-
-                    let mut sig = vec![0; ed25519::ED25519_SIGNATURE_SIZE];
-
-                    // Nettle expects the private key to be exactly
-                    // ED25519_KEY_SIZE bytes long but OpenPGP allows leading
-                    // zeros to be stripped.
-                    // Padding has to be unconditionaly, otherwise we have a
-                    // secret-dependant branch.
-                    let missing = ed25519::ED25519_KEY_SIZE
-                        .saturating_sub(scalar.value.len());
-                    let mut sec = [0u8; ed25519::ED25519_KEY_SIZE];
-                    sec[missing..].copy_from_slice(&scalar.value[..]);
-
-                    let res = ed25519::sign(public, &sec[..], digest, &mut sig);
-                    unsafe {
-                        memsec::memzero(sec.as_mut_ptr(),
-                                        ed25519::ED25519_KEY_SIZE);
-                    }
-                    res?;
-
-                    Ok(mpis::Signature::EdDSA {
-                        r: MPI::new(&sig[..32]),
-                        s: MPI::new(&sig[32..]),
-                    })
-                },
-                _ => Err(
-                    Error::UnsupportedEllipticCurve(curve.clone()).into()),
-            },
-
-            (ECDSA,
-             &PublicKey::ECDSA { ref curve, .. },
-             &mpis::SecretKey::ECDSA { ref scalar }) => {
-                let secret = match curve {
-                    Curve::NistP256 =>
-                        ecdsa::PrivateKey::new::<ecdsa::Secp256r1>(
-                            &scalar.value)?,
-                    Curve::NistP384 =>
-                        ecdsa::PrivateKey::new::<ecdsa::Secp384r1>(
-                            &scalar.value)?,
-                    Curve::NistP521 =>
-                        ecdsa::PrivateKey::new::<ecdsa::Secp521r1>(
-                            &scalar.value)?,
-                    _ =>
-                        return Err(
-                            Error::UnsupportedEllipticCurve(curve.clone())
-                                .into()),
-                };
-
-                let sig = ecdsa::sign(&secret, digest, &mut rng);
-
-                Ok(mpis::Signature::ECDSA {
-                    r: MPI::new(&sig.r()),
-                    s: MPI::new(&sig.s()),
-                })
-            },
-
-            (pk_algo, _, _) => Err(Error::InvalidArgument(format!(
-                "unsupported combination of algorithm {:?}, key {:?}, \
-                 and secret key {:?}",
-                pk_algo, self.public, self.secret)).into()),
-        }
     }
 }
 
@@ -904,7 +760,10 @@ impl From<Signature> for Packet {
 
 #[cfg(test)]
 mod test {
+    use nettle::Yarrow;
     use super::*;
+    use crypto::KeyPair;
+    use crypto::mpis::MPI;
     use TPK;
     use parse::Parse;
 

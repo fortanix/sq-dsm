@@ -20,7 +20,10 @@ pub mod mpis;
 pub mod s2k;
 pub(crate) mod symmetric;
 
-pub use self::asymmetric::Signer;
+pub use self::asymmetric::{
+    Signer,
+    KeyPair,
+};
 
 /// Holds a session key.
 ///

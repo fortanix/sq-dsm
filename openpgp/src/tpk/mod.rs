@@ -11,6 +11,7 @@ use time;
 use failure;
 
 use {
+    crypto::KeyPair,
     Error,
     Result,
     RevocationStatus,
@@ -18,7 +19,7 @@ use {
     HashAlgorithm,
     packet::Tag,
     packet::key::SecretKey,
-    packet::signature::{self, Signature, KeyPair},
+    packet::signature::{self, Signature},
     packet::Key,
     packet::UserID,
     packet::UserAttribute,

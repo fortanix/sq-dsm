@@ -402,6 +402,7 @@ mod tests {
     use SymmetricAlgorithm;
     use PublicKeyAlgorithm;
     use SignatureType;
+    use crypto::KeyPair;
     use crypto::s2k::S2K;
     use crypto::mpis::{Ciphertext, MPI};
     use packet::Tag;
@@ -413,7 +414,6 @@ mod tests {
     use packet::SEIP;
     use packet::MDC;
     use packet::key::SecretKey;
-    use packet::signature::KeyPair;
     use KeyID;
     use Container;
 

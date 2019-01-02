@@ -16,6 +16,7 @@ use time;
 use nettle::{Hash, Yarrow};
 
 use {
+    crypto::KeyPair,
     Error,
     Fingerprint,
     HashAlgorithm,
@@ -31,7 +32,7 @@ use {
     crypto::SessionKey,
     packet::SKESK4,
     packet::SKESK5,
-    packet::signature::{self, Signature, KeyPair},
+    packet::signature::{self, Signature},
     packet::Tag,
     TPK,
 };

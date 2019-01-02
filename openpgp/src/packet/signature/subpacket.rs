@@ -2238,7 +2238,7 @@ impl signature::Builder {
 #[test]
 fn accessors() {
     use packet::key::SecretKey;
-    use packet::signature::KeyPair;
+    use crypto::KeyPair;
 
     let pk_algo = PublicKeyAlgorithm::EdDSA;
     let hash_algo = HashAlgorithm::SHA512;

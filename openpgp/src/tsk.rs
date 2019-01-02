@@ -9,8 +9,9 @@ use {
     Error,
 };
 
+use crypto::KeyPair;
 use packet::{
-    signature::{Signature, KeyPair},
+    signature::Signature,
     Tag,
     UserID,
     Key,
