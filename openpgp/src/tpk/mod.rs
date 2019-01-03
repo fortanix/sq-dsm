@@ -303,32 +303,32 @@ impl TPKValidator {
 
 const TRACE : bool = false;
 
+/// Compare the creation time of two signatures.  Order them so
+/// that the more recent signature is first.
+fn canonical_signature_order(a: &Signature, b: &Signature) -> Ordering {
+    match (a.signature_creation_time(),b.signature_creation_time()) {
+        (None, None) => Ordering::Equal,
+        (None, Some(_)) => Ordering::Greater,
+        (Some(_), None) => Ordering::Less,
+        (Some(ref a), Some(ref b)) => a.cmp(b),
+    }
+}
+
 /// Returns true if latest revocation signature in `revs` is newer than the
-/// latest self signature in sigs.
+/// latest self signature in sigs. Signatures _must_ be sorted by
+/// `canonical_signature_order`.
 ///
 /// Signatures are expected to have the right signature types and be
 /// cryptographically sound.
-fn active_revocation(mut sigs: Vec<Signature>, mut revs: Vec<Signature>)
+fn active_revocation(sigs: &[Signature], revs: &[Signature])
     -> bool
 {
-    let cmp = |a: &Signature, b: &Signature| {
-        match (a.signature_creation_time(),b.signature_creation_time()) {
-            (None, None) => Ordering::Equal,
-            (None, Some(_)) => Ordering::Greater,
-            (Some(_), None) => Ordering::Less,
-            (Some(ref a), Some(ref b)) => a.cmp(b),
-        }
-    };
-
-    sigs.sort_by(&cmp);
-    revs.sort_by(&cmp);
-
     match (sigs.last(), revs.last()) {
         (None, Some(_)) => true,
         (Some(_), None) => false,
         (None, None) => false,
         (Some(ref sig), Some(ref revc)) => {
-            cmp(sig, revc) != Ordering::Greater
+            canonical_signature_order(sig, revc) != Ordering::Greater
         }
     }
 }
@@ -409,7 +409,7 @@ impl SubkeyBinding {
     /// certificate for the subkey, we keep it.  In such cases, this
     /// function will return None.
     pub fn binding_signature(&self) -> Option<&Signature> {
-        self.selfsigs.get(0)
+        self.selfsigs.last()
     }
 
     /// The self-signatures.
@@ -530,7 +530,7 @@ impl UserIDBinding {
     /// certificate for the user id, we keep it.  In such cases, this
     /// function will return None.
     pub fn binding_signature(&self) -> Option<&Signature> {
-        self.selfsigs.get(0)
+        self.selfsigs.last()
     }
 
     /// The self-signatures.
@@ -569,16 +569,16 @@ impl UserIDBinding {
     /// then you need to query them separately.
     pub fn revoked(&self) -> RevocationStatus {
         let has_self_revs =
-            active_revocation(self.selfsigs.clone(),
-                              self.self_revocations.clone());
+            active_revocation(&self.selfsigs,
+                              &self.self_revocations);
 
         if has_self_revs {
             return RevocationStatus::Revoked(&self.self_revocations[..]);
         }
 
         let has_other_revs =
-            active_revocation(self.selfsigs.clone(),
-                              self.other_revocations.clone());
+            active_revocation(&self.selfsigs,
+                              &self.other_revocations);
 
         if has_other_revs {
             RevocationStatus::CouldBe(&self.other_revocations[..])
@@ -621,7 +621,7 @@ impl UserAttributeBinding {
     /// certificate for the user attribute, we keep it.  In such
     /// cases, this function will return None.
     pub fn binding_signature(&self) -> Option<&Signature> {
-        self.selfsigs.get(0)
+        self.selfsigs.last()
     }
 
     /// The self-signatures.
@@ -660,16 +660,16 @@ impl UserAttributeBinding {
     /// then you need to query them separately.
     pub fn revoked(&self) -> RevocationStatus {
         let has_self_revs =
-            active_revocation(self.selfsigs.clone(),
-                              self.self_revocations.clone());
+            active_revocation(&self.selfsigs,
+                              &self.self_revocations);
 
         if has_self_revs {
             return RevocationStatus::Revoked(&self.self_revocations[..]);
         }
 
         let has_other_revs =
-            active_revocation(self.selfsigs.clone(),
-                              self.other_revocations.clone());
+            active_revocation(&self.selfsigs,
+                              &self.other_revocations);
 
         if has_other_revs {
             RevocationStatus::CouldBe(&self.other_revocations[..])
@@ -1239,18 +1239,18 @@ impl TPK {
         // 1. Self-signature from a non-revoked UserID.
         if let Some(userid) = self.userids.get(0) {
             if userid.self_revocations.len() == 0 {
-                return Some((Some(&userid), &userid.selfsigs[0]));
+                return Some((Some(&userid), userid.selfsigs.last().unwrap()));
             }
         }
 
         // 2. Direct signature.
-        if self.primary_selfsigs.len() > 0 {
-            return Some((None, &self.primary_selfsigs[0]));
+        if let Some(sig) = self.primary_selfsigs.last() {
+            return Some((None, sig));
         }
 
         // 3. Treat User IDs as if they were not revoked.
         if let Some(userid) = self.userids.get(0) {
-            return Some((Some(&userid), &userid.selfsigs[0]));
+            return Some((Some(&userid), &userid.selfsigs.last().unwrap()));
         }
 
         // 4. No user ids and no direct signatures.
@@ -1277,16 +1277,16 @@ impl TPK {
     /// you need to query them separately.
     pub fn revoked(&self) -> RevocationStatus {
         let has_self_revs =
-            active_revocation(self.primary_selfsigs.clone(),
-            self.primary_self_revocations.clone());
+            active_revocation(&self.primary_selfsigs,
+                              &self.primary_self_revocations);
 
         if has_self_revs {
             return RevocationStatus::Revoked(&self.primary_self_revocations[..]);
         }
 
         let has_other_revs =
-            active_revocation(self.primary_selfsigs.clone(),
-            self.primary_other_revocations.clone());
+            active_revocation(&self.primary_selfsigs,
+                              &self.primary_other_revocations);
 
         if has_other_revs {
             RevocationStatus::CouldBe(&self.primary_other_revocations[..])
@@ -1618,35 +1618,6 @@ impl TPK {
 
     fn canonicalize(mut self) -> Self {
         // Helper functions.
-
-        // Compare the creation time of two signatures.  Order them so
-        // that the more recent signature is first.
-        fn sig_cmp(a: &Signature, b: &Signature) -> Ordering {
-            b.signature_creation_time().cmp(&a.signature_creation_time())
-        }
-
-        fn rev_cmp(a: &Signature, b: &Signature) -> Ordering {
-            // Sort "2  - Key material has been compromised" first.
-            let a_reason = a.reason_for_revocation()
-                .map(|(code, _)| code)
-                .unwrap_or(ReasonForRevocation::Unspecified);
-            let b_reason = b.reason_for_revocation()
-                .map(|(code, _)| code)
-                .unwrap_or(ReasonForRevocation::Unspecified);
-
-            if a_reason == ReasonForRevocation::KeyCompromised
-                && b_reason != ReasonForRevocation::KeyCompromised {
-                return Ordering::Less;
-            }
-            if b_reason == ReasonForRevocation::KeyCompromised
-                && a_reason != ReasonForRevocation::KeyCompromised {
-                return Ordering::Greater;
-            }
-
-            // Sort *older* revocations first.
-            a.signature_creation_time().cmp(&b.signature_creation_time())
-        }
-
         // Turn a signature into a key for use by dedup.
         fn sig_key(a: &mut Signature) -> Box<[u8]> {
             a.to_vec().expect("XXX: this better not fail")
@@ -1839,39 +1810,39 @@ impl TPK {
 
 
         // Sort and dedup the primary key's signatures.
-        self.primary_selfsigs.sort_by(sig_cmp);
+        self.primary_selfsigs.sort_by(canonical_signature_order);
         self.primary_selfsigs.dedup_by_key(sig_key);
 
         // There is no need to sort the certifications, but we do
         // want to remove dups and sorting is a prerequisite.
-        self.primary_certifications.sort_by(sig_cmp);
+        self.primary_certifications.sort_by(canonical_signature_order);
         self.primary_certifications.dedup_by_key(sig_key);
 
-        self.primary_self_revocations.sort_by(rev_cmp);
+        self.primary_self_revocations.sort_by(canonical_signature_order);
         self.primary_self_revocations.dedup_by_key(sig_key);
 
-        self.primary_other_revocations.sort_by(rev_cmp);
+        self.primary_other_revocations.sort_by(canonical_signature_order);
         self.primary_other_revocations.dedup_by_key(sig_key);
 
-        self.bad.sort_by(rev_cmp);
+        self.bad.sort_by(canonical_signature_order);
         self.bad.dedup_by_key(sig_key);
 
 
         // Sort the signatures so that the current valid
         // self-signature is first.
         for userid in &mut self.userids {
-            userid.selfsigs.sort_by(sig_cmp);
+            userid.selfsigs.sort_by(canonical_signature_order);
             userid.selfsigs.dedup_by_key(sig_key);
 
             // There is no need to sort the certifications, but we do
             // want to remove dups and sorting is a prerequisite.
-            userid.certifications.sort_by(sig_cmp);
+            userid.certifications.sort_by(canonical_signature_order);
             userid.certifications.dedup_by_key(sig_key);
 
-            userid.self_revocations.sort_by(rev_cmp);
+            userid.self_revocations.sort_by(canonical_signature_order);
             userid.self_revocations.dedup_by_key(sig_key);
 
-            userid.other_revocations.sort_by(rev_cmp);
+            userid.other_revocations.sort_by(canonical_signature_order);
             userid.other_revocations.dedup_by_key(sig_key);
         }
 
@@ -1893,19 +1864,19 @@ impl TPK {
 
                 // Recall: if a and b are equal, a will be dropped.
                 b.selfsigs.append(&mut a.selfsigs);
-                b.selfsigs.sort_by(sig_cmp);
+                b.selfsigs.sort_by(canonical_signature_order);
                 b.selfsigs.dedup_by_key(sig_key);
 
                 b.certifications.append(&mut a.certifications);
-                b.certifications.sort_by(sig_cmp);
+                b.certifications.sort_by(canonical_signature_order);
                 b.certifications.dedup_by_key(sig_key);
 
                 b.self_revocations.append(&mut a.self_revocations);
-                b.self_revocations.sort_by(rev_cmp);
+                b.self_revocations.sort_by(canonical_signature_order);
                 b.self_revocations.dedup_by_key(sig_key);
 
                 b.other_revocations.append(&mut a.self_revocations);
-                b.other_revocations.sort_by(rev_cmp);
+                b.other_revocations.sort_by(canonical_signature_order);
                 b.other_revocations.dedup_by_key(sig_key);
 
                 true
@@ -2011,18 +1982,18 @@ impl TPK {
         // Sort the signatures so that the current valid
         // self-signature is first.
         for attribute in &mut self.user_attributes {
-            attribute.selfsigs.sort_by(sig_cmp);
+            attribute.selfsigs.sort_by(canonical_signature_order);
             attribute.selfsigs.dedup_by_key(sig_key);
 
             // There is no need to sort the certifications, but we do
             // want to remove dups and sorting is a prerequisite.
-            attribute.certifications.sort_by(sig_cmp);
+            attribute.certifications.sort_by(canonical_signature_order);
             attribute.certifications.dedup_by_key(sig_key);
 
-            attribute.self_revocations.sort_by(rev_cmp);
+            attribute.self_revocations.sort_by(canonical_signature_order);
             attribute.self_revocations.dedup_by_key(sig_key);
 
-            attribute.other_revocations.sort_by(rev_cmp);
+            attribute.other_revocations.sort_by(canonical_signature_order);
             attribute.other_revocations.dedup_by_key(sig_key);
         }
 
@@ -2038,19 +2009,19 @@ impl TPK {
             if a.user_attribute == b.user_attribute {
                 // Recall: if a and b are equal, a will be dropped.
                 b.selfsigs.append(&mut a.selfsigs);
-                b.selfsigs.sort_by(sig_cmp);
+                b.selfsigs.sort_by(canonical_signature_order);
                 b.selfsigs.dedup_by_key(sig_key);
 
                 b.certifications.append(&mut a.certifications);
-                b.certifications.sort_by(sig_cmp);
+                b.certifications.sort_by(canonical_signature_order);
                 b.certifications.dedup_by_key(sig_key);
 
                 b.self_revocations.append(&mut a.self_revocations);
-                b.self_revocations.sort_by(rev_cmp);
+                b.self_revocations.sort_by(canonical_signature_order);
                 b.self_revocations.dedup_by_key(sig_key);
 
                 b.other_revocations.append(&mut a.self_revocations);
-                b.other_revocations.sort_by(rev_cmp);
+                b.other_revocations.sort_by(canonical_signature_order);
                 b.other_revocations.dedup_by_key(sig_key);
 
                 true
@@ -2141,18 +2112,18 @@ impl TPK {
         // Sort the signatures so that the current valid
         // self-signature is first.
         for subkey in &mut self.subkeys {
-            subkey.selfsigs.sort_by(sig_cmp);
+            subkey.selfsigs.sort_by(canonical_signature_order);
             subkey.selfsigs.dedup_by_key(sig_key);
 
             // There is no need to sort the certifications, but we do
             // want to remove dups and sorting is a prerequisite.
-            subkey.certifications.sort_by(sig_cmp);
+            subkey.certifications.sort_by(canonical_signature_order);
             subkey.certifications.dedup_by_key(sig_key);
 
-            subkey.self_revocations.sort_by(rev_cmp);
+            subkey.self_revocations.sort_by(canonical_signature_order);
             subkey.self_revocations.dedup_by_key(sig_key);
 
-            subkey.other_revocations.sort_by(rev_cmp);
+            subkey.other_revocations.sort_by(canonical_signature_order);
             subkey.other_revocations.dedup_by_key(sig_key);
         }
 
@@ -2178,19 +2149,19 @@ impl TPK {
                 }
 
                 b.selfsigs.append(&mut a.selfsigs);
-                b.selfsigs.sort_by(sig_cmp);
+                b.selfsigs.sort_by(canonical_signature_order);
                 b.selfsigs.dedup_by_key(sig_key);
 
                 b.certifications.append(&mut a.certifications);
-                b.certifications.sort_by(sig_cmp);
+                b.certifications.sort_by(canonical_signature_order);
                 b.certifications.dedup_by_key(sig_key);
 
                 b.self_revocations.append(&mut a.self_revocations);
-                b.self_revocations.sort_by(rev_cmp);
+                b.self_revocations.sort_by(canonical_signature_order);
                 b.self_revocations.dedup_by_key(sig_key);
 
                 b.other_revocations.append(&mut a.self_revocations);
-                b.other_revocations.sort_by(rev_cmp);
+                b.other_revocations.sort_by(canonical_signature_order);
                 b.other_revocations.dedup_by_key(sig_key);
 
                 true
