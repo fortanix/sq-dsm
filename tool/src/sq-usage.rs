@@ -6,9 +6,10 @@
 //! Sequoia is an implementation of OpenPGP.  This is a command-line frontend.
 //!
 //! USAGE:
-//!     sq [OPTIONS] [SUBCOMMAND]
+//!     sq [FLAGS] [OPTIONS] [SUBCOMMAND]
 //!
 //! FLAGS:
+//!     -f, --force      Overwrite existing files
 //!     -h, --help       Prints help information
 //!     -V, --version    Prints version information
 //!
