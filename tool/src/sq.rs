@@ -7,7 +7,6 @@ extern crate prettytable;
 extern crate rpassword;
 extern crate tempfile;
 extern crate time;
-extern crate promptly;
 
 use failure::ResultExt;
 use prettytable::{Table, Cell, Row};
@@ -41,17 +40,12 @@ fn open_or_stdin(f: Option<&str>) -> Result<Box<io::Read>, failure::Error> {
 
 fn create_or_stdout(f: Option<&str>, force: bool)
     -> Result<Box<io::Write>, failure::Error> {
-    use promptly::prompt_default;
-
     match f {
         None => Ok(Box::new(io::stdout())),
         Some(p) if p == "-" => Ok(Box::new(io::stdout())),
         Some(f) => {
             let p = Path::new(f);
-            let path_ok = force || !p.exists() ||
-                prompt_default(format!("{} exists already. Overwrite?", f), false);
-
-            if path_ok {
+            if !p.exists() || force {
                 Ok(Box::new(OpenOptions::new()
                             .write(true)
                             .truncate(true)
@@ -59,8 +53,8 @@ fn create_or_stdout(f: Option<&str>, force: bool)
                             .open(f)
                             .context("Failed to create output file")?))
             } else {
-                eprintln!("Cannot continue");
-                exit(1);
+                Err(failure::err_msg(
+                    format!("File {:?} exists, use --force to overwrite", p)))
             }
         }
     }

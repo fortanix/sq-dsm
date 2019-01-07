@@ -29,7 +29,7 @@ pub fn build() -> App<'static, 'static> {
         .arg(Arg::with_name("force")
              .long("force")
              .short("f")
-             .help("Overwrite files without asking"))
+             .help("Overwrite existing files"))
         .subcommand(SubCommand::with_name("decrypt")
                     .display_order(10)
                     .about("Decrypts an OpenPGP message")
