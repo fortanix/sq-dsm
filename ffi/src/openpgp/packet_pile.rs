@@ -74,12 +74,7 @@ pub extern "system" fn sq_packet_pile_from_bytes(ctx: Option<&mut Context>,
 /// Frees the packet_pile.
 #[no_mangle]
 pub extern "system" fn sq_packet_pile_free(packet_pile: *mut PacketPile) {
-    if packet_pile.is_null() {
-        return
-    }
-    unsafe {
-        drop(Box::from_raw(packet_pile));
-    }
+    ffi_free!(packet_pile)
 }
 
 /// Clones the PacketPile.

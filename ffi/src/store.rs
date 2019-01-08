@@ -97,10 +97,7 @@ pub extern "system" fn sq_store_iter_next(iter: Option<&mut StoreIter>,
 /// Frees a sq_store_iter_t.
 #[no_mangle]
 pub extern "system" fn sq_store_iter_free(iter: *mut StoreIter) {
-    if iter.is_null() { return };
-    unsafe {
-        drop(Box::from_raw(iter))
-    };
+    ffi_free!(iter)
 }
 
 /// Lists all keys in the common key pool.
@@ -145,10 +142,7 @@ pub extern "system" fn sq_key_iter_next(iter: Option<&mut KeyIter>,
 /// Frees a sq_key_iter_t.
 #[no_mangle]
 pub extern "system" fn sq_key_iter_free(iter: *mut KeyIter) {
-    if iter.is_null() { return };
-    unsafe {
-        drop(Box::from_raw(iter))
-    };
+    ffi_free!(iter)
 }
 
 
@@ -190,10 +184,7 @@ pub extern "system" fn sq_log_iter_next(iter: Option<&mut LogIter>)
 /// Frees a sq_log_iter_t.
 #[no_mangle]
 pub extern "system" fn sq_log_iter_free(iter: *mut LogIter) {
-    if iter.is_null() { return };
-    unsafe {
-        drop(Box::from_raw(iter))
-    };
+    ffi_free!(iter)
 }
 
 /// Opens a store.
@@ -224,10 +215,7 @@ pub extern "system" fn sq_store_open(ctx: Option<&mut Context>,
 /// Frees a sq_store_t.
 #[no_mangle]
 pub extern "system" fn sq_store_free(store: *mut Store) {
-    if store.is_null() { return };
-    unsafe {
-        drop(Box::from_raw(store))
-    };
+    ffi_free!(store)
 }
 
 /// Adds a key identified by fingerprint to the store.
@@ -365,10 +353,7 @@ pub extern "system" fn sq_binding_iter_next(iter: Option<&mut BindingIter>,
 /// Frees a sq_binding_iter_t.
 #[no_mangle]
 pub extern "system" fn sq_binding_iter_free(iter: *mut BindingIter) {
-    if iter.is_null() { return };
-    unsafe {
-        drop(Box::from_raw(iter))
-    };
+    ffi_free!(iter)
 }
 
 /// Lists all log entries related to this store.
@@ -385,19 +370,13 @@ pub extern "system" fn sq_store_log(ctx: Option<&mut Context>,
 /// Frees a sq_binding_t.
 #[no_mangle]
 pub extern "system" fn sq_binding_free(binding: *mut Binding) {
-    if binding.is_null() { return };
-    unsafe {
-        drop(Box::from_raw(binding))
-    };
+    ffi_free!(binding)
 }
 
 /// Frees a sq_key_t.
 #[no_mangle]
 pub extern "system" fn sq_key_free(key: *mut Key) {
-    if key.is_null() { return };
-    unsafe {
-        drop(Box::from_raw(key))
-    };
+    ffi_free!(key)
 }
 
 /// Frees a sq_log_t.
@@ -587,10 +566,7 @@ pub extern "system" fn sq_key_log(ctx: Option<&mut Context>,
 /// Frees a sq_stats_t.
 #[no_mangle]
 pub extern "system" fn sq_stats_free(stats: *mut Stats) {
-    if stats.is_null() { return };
-    unsafe {
-        drop(Box::from_raw(stats))
-    };
+    ffi_free!(stats)
 }
 
 /// Counter and timestamps.

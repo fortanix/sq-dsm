@@ -108,12 +108,7 @@ pub extern "system" fn sq_keyserver_sks_pool(ctx: Option<&mut Context>)
 /// Frees a keyserver object.
 #[no_mangle]
 pub extern "system" fn sq_keyserver_free(ks: *mut KeyServer) {
-    if ks.is_null() {
-        return
-    }
-    unsafe {
-        drop(Box::from_raw(ks));
-    }
+    ffi_free!(ks)
 }
 
 /// Retrieves the key with the given `keyid`.

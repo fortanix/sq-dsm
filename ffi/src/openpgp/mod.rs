@@ -122,10 +122,7 @@ pub extern "system" fn sq_revocation_status_variant(
 pub extern "system" fn sq_revocation_status_free(
     rs: *mut RevocationStatus)
 {
-    if rs.is_null() { return };
-    unsafe {
-        drop(Box::from_raw(rs))
-    };
+    ffi_free!(rs)
 }
 
 /* TSK */
@@ -158,12 +155,7 @@ pub extern "system" fn sq_tsk_new(ctx: Option<&mut Context>,
 /// Frees the TSK.
 #[no_mangle]
 pub extern "system" fn sq_tsk_free(tsk: *mut TSK) {
-    if tsk.is_null() {
-        return
-    }
-    unsafe {
-        drop(Box::from_raw(tsk));
-    }
+    ffi_free!(tsk)
 }
 
 /// Returns a reference to the corresponding TPK.
@@ -202,10 +194,7 @@ pub extern "system" fn sq_tsk_serialize(ctx: Option<&mut Context>,
 /// Frees the Packet.
 #[no_mangle]
 pub extern "system" fn sq_packet_free(p: *mut Packet) {
-    if p.is_null() { return }
-    unsafe {
-        drop(Box::from_raw(p));
-    }
+    ffi_free!(p)
 }
 
 /// Returns the `Packet's` corresponding OpenPGP tag.
@@ -242,10 +231,7 @@ pub extern "system" fn sq_packet_kind(p: Option<&Packet>)
 /// Frees the Signature.
 #[no_mangle]
 pub extern "system" fn sq_signature_free(s: *mut Signature) {
-    if s.is_null() { return }
-    unsafe {
-        drop(Box::from_raw(s));
-    }
+    ffi_free!(s)
 }
 
 /// Converts the signature to a packet.
@@ -721,19 +707,13 @@ pub extern "system" fn sq_packet_parser_from_bytes
 pub extern "system" fn sq_packet_parser_result_free(
     ppr: *mut PacketParserResult)
 {
-    if ppr.is_null() { return }
-    unsafe {
-        drop(Box::from_raw(ppr));
-    }
+    ffi_free!(ppr)
 }
 
 /// Frees the packet parser.
 #[no_mangle]
 pub extern "system" fn sq_packet_parser_free(pp: *mut PacketParser) {
-    if pp.is_null() { return }
-    unsafe {
-        drop(Box::from_raw(pp));
-    }
+    ffi_free!(pp)
 }
 
 /// Frees the packet parser EOF object.
@@ -749,10 +729,7 @@ pub extern "system" fn sq_packet_parser_eof_is_message(
 /// Frees the packet parser EOF object.
 #[no_mangle]
 pub extern "system" fn sq_packet_parser_eof_free(eof: *mut PacketParserEOF) {
-    if eof.is_null() { return }
-    unsafe {
-        drop(Box::from_raw(eof));
-    }
+    ffi_free!(eof)
 }
 
 /// Returns a reference to the packet that is being parsed.

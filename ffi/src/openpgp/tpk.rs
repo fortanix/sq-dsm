@@ -107,12 +107,7 @@ pub extern "system" fn sq_tpk_from_packet_parser(ctx: Option<&mut Context>,
 /// Frees the TPK.
 #[no_mangle]
 pub extern "system" fn sq_tpk_free(tpk: *mut TPK) {
-    if tpk.is_null() {
-        return
-    }
-    unsafe {
-        drop(Box::from_raw(tpk));
-    }
+    ffi_free!(tpk)
 }
 
 /// Clones the TPK.
@@ -499,10 +494,7 @@ pub extern "system" fn sq_tpk_user_id_binding_iter(tpk: Option<&TPK>)
 pub extern "system" fn sq_user_id_binding_iter_free(
     iter: *mut UserIDBindingIter)
 {
-    if iter.is_null() { return };
-    unsafe {
-        drop(Box::from_raw(iter))
-    };
+    ffi_free!(iter)
 }
 
 /// Returns the next `UserIDBinding`.
@@ -542,10 +534,7 @@ pub extern "system" fn sq_tpk_key_iter(tpk: Option<&TPK>)
 pub extern "system" fn sq_tpk_key_iter_free(
     iter: *mut KeyIterWrapper)
 {
-    if iter.is_null() { return };
-    unsafe {
-        drop(Box::from_raw(iter))
-    };
+    ffi_free!(iter)
 }
 
 /// Returns the next key.  Returns NULL if there are no more elements.
@@ -626,12 +615,7 @@ pub extern "system" fn sq_tpk_builder_autocrypt() -> *mut TPKBuilder {
 #[no_mangle]
 pub extern "system" fn sq_tpk_builder_free(tpkb: *mut TPKBuilder)
 {
-    if tpkb.is_null() {
-        return
-    }
-    unsafe {
-        drop(Box::from_raw(tpkb));
-    }
+    ffi_free!(tpkb)
 }
 
 /// Sets the encryption and signature algorithms for primary and all

@@ -11,9 +11,7 @@ use sequoia_core as core;
 /// Frees an error.
 #[no_mangle]
 pub extern "system" fn sq_error_free(error: *mut failure::Error) {
-    if ! error.is_null() {
-        unsafe { drop(Box::from_raw(error)) }
-    }
+    ffi_free!(error)
 }
 
 /// Returns the error message.

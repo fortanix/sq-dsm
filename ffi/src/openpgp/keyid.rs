@@ -36,10 +36,7 @@ pub extern "system" fn sq_keyid_from_hex(id: *const c_char) -> *mut KeyID {
 /// Frees an `KeyID` object.
 #[no_mangle]
 pub extern "system" fn sq_keyid_free(keyid: *mut KeyID) {
-    if keyid.is_null() { return }
-    unsafe {
-        drop(Box::from_raw(keyid));
-    }
+    ffi_free!(keyid)
 }
 
 /// Clones the KeyID.

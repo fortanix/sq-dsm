@@ -126,6 +126,21 @@ extern crate sequoia_store;
 use std::collections::hash_map::{DefaultHasher, RandomState};
 use std::hash::BuildHasher;
 
+/* Canonical free().  */
+
+/// Transfers ownership from C to Rust, then frees the object.
+///
+/// NOP if called with NULL.
+macro_rules! ffi_free {
+    ($name:ident) => {{
+        if ! $name.is_null() {
+            unsafe {
+                drop(Box::from_raw($name))
+            }
+        }
+    }};
+}
+
 /// Like try! for ffi glue.
 ///
 /// Evaluates the given expression.  On success, evaluate to

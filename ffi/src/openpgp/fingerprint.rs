@@ -41,10 +41,7 @@ pub extern "system" fn sq_fingerprint_from_hex(hex: *const c_char)
 /// Frees a sq_fingerprint_t.
 #[no_mangle]
 pub extern "system" fn sq_fingerprint_free(fp: *mut Fingerprint) {
-    if fp.is_null() { return }
-    unsafe {
-        drop(Box::from_raw(fp));
-    }
+    ffi_free!(fp)
 }
 
 /// Clones the Fingerprint.

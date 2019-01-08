@@ -108,10 +108,7 @@ pub extern "system" fn sq_context_new(domain: *const c_char,
 /// Frees a context.
 #[no_mangle]
 pub extern "system" fn sq_context_free(context: *mut Context) {
-    if context.is_null() { return }
-    unsafe {
-        drop(Box::from_raw(context));
-    }
+    ffi_free!(context)
 }
 
 /// Creates a Context that can be configured.
@@ -295,10 +292,7 @@ pub extern "system" fn sq_reader_from_bytes(buf: *const uint8_t,
 /// Frees a reader.
 #[no_mangle]
 pub extern "system" fn sq_reader_free(reader: *mut Box<Read>) {
-    if reader.is_null() { return }
-    unsafe {
-        drop(Box::from_raw(reader));
-    }
+    ffi_free!(reader)
 }
 
 /// Reads up to `len` bytes into `buf`.
@@ -412,10 +406,7 @@ impl Write for WriterAlloc {
 /// Frees a writer.
 #[no_mangle]
 pub extern "system" fn sq_writer_free(writer: *mut Box<Write>) {
-    if writer.is_null() { return }
-    unsafe {
-        drop(Box::from_raw(writer));
-    }
+    ffi_free!(writer)
 }
 
 /// Writes up to `len` bytes of `buf` into `writer`.
