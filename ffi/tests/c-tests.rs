@@ -98,11 +98,18 @@ fn build_so(base: &Path) -> io::Result<()> {
 fn for_all_rs<F>(src: &Path, mut fun: F)
                  -> io::Result<()>
     where F: FnMut(&Path) -> io::Result<()> {
-    for entry in fs::read_dir(src).unwrap() {
-        let entry = entry?;
-        let path = entry.path();
-        if path.is_file() && path.extension() == Some(OsStr::new("rs")) {
-            fun(&path)?;
+    let mut dirs = vec![src.to_path_buf()];
+
+    while let Some(dir) = dirs.pop() {
+        for entry in fs::read_dir(dir).unwrap() {
+            let entry = entry?;
+            let path = entry.path();
+            if path.is_file() && path.extension() == Some(OsStr::new("rs")) {
+                fun(&path)?;
+            }
+            if path.is_dir() {
+                dirs.push(path.clone());
+            }
         }
     }
     Ok(())
