@@ -235,6 +235,26 @@ impl PublicKey {
         }
     }
 
+    /// Returns the 'bits' of the public key.
+    ///
+    /// For finite field crypto this returns the size of the field we operate
+    /// in, for ECC it returns `Curve::bits()`. This information is useless and
+    /// should not be used to gauge the security of a particular key. This
+    /// function exists only because some legacy PGP application
+    /// like HKP need it.
+    pub fn bits(&self) -> usize {
+        use self::PublicKey::*;
+        match self {
+            &RSA { ref n,.. } => n.bits,
+            &DSA { ref q,.. } => q.bits,
+            &Elgamal { ref p,.. } => p.bits,
+            &EdDSA { ref curve,.. } => curve.bits(),
+            &ECDSA { ref curve,.. } => curve.bits(),
+            &ECDH { ref curve,.. } => curve.bits(),
+            &Unknown { .. } => 0,
+        }
+    }
+
     /// Update the Hash with a hash of the MPIs.
     pub fn hash<H: Hash + Write>(&self, hash: &mut H) {
         self.serialize(hash).expect("hashing does not fail")

@@ -168,6 +168,29 @@ pub enum Curve {
     Unknown(Box<[u8]>),
 }
 
+impl Curve {
+    /// Returns the 'bits' of the curve.
+    ///
+    /// For the Kobliz curves this is the size of the underlying finite field.
+    /// For X25519 it's 128. This information is useless and should not be used
+    /// to gauge the security of a particular curve. This function exists only
+    /// because some legacy PGP application like HKP need it.
+    pub fn bits(&self) -> usize {
+        use self::Curve::*;
+
+        match self {
+            NistP256 => 256,
+            NistP384 => 384,
+            NistP521 => 521,
+            BrainpoolP256 => 256,
+            BrainpoolP512 => 512,
+            Ed25519 => 128,
+            Cv25519 => 128,
+            Unknown(_) => 0,
+        }
+    }
+}
+
 impl fmt::Display for Curve {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use self::Curve::*;
