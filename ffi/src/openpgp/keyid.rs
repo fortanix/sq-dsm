@@ -16,6 +16,22 @@ use self::sequoia_openpgp::KeyID;
 use build_hasher;
 
 /// Reads a binary key ID.
+///
+/// # Example
+///
+/// ```c
+/// #include <assert.h>
+/// #include <string.h>
+/// #include <sequoia.h>
+///
+/// sq_keyid_t mr_b = sq_keyid_from_bytes ("\xbb\xbb\xbb\xbb\xbb\xbb\xbb\xbb");
+///
+/// char *mr_b_as_string = sq_keyid_to_string (mr_b);
+/// assert (strcmp (mr_b_as_string, "BBBB BBBB BBBB BBBB") == 0);
+///
+/// sq_keyid_free (mr_b);
+/// sq_string_free (mr_b_as_string);
+/// ```
 #[no_mangle]
 pub extern "system" fn sq_keyid_from_bytes(id: *const uint8_t) -> *mut KeyID {
     assert!(!id.is_null());
