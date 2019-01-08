@@ -34,8 +34,8 @@ use ::error::Status;
 pub extern "system" fn sq_packet_pile_from_reader(ctx: Option<&mut Context>,
                                                   reader: Option<&mut Box<Read>>)
                                                   -> *mut PacketPile {
-    let ctx = ctx.expect("Context is NULL");
-    let reader = reader.expect("Reader is NULL");
+    let ctx = ffi_param_ref!(ctx);
+    let reader = ffi_param_ref!(reader);
     fry_box!(ctx, PacketPile::from_reader(reader))
 }
 
@@ -47,7 +47,7 @@ pub extern "system" fn sq_packet_pile_from_reader(ctx: Option<&mut Context>,
 pub extern "system" fn sq_packet_pile_from_file(ctx: Option<&mut Context>,
                                                 filename: *const c_char)
                                                 -> *mut PacketPile {
-    let ctx = ctx.expect("Context is NULL");
+    let ctx = ffi_param_ref!(ctx);
     assert!(! filename.is_null());
     let filename = unsafe {
         CStr::from_ptr(filename).to_string_lossy().into_owned()
@@ -62,7 +62,7 @@ pub extern "system" fn sq_packet_pile_from_file(ctx: Option<&mut Context>,
 pub extern "system" fn sq_packet_pile_from_bytes(ctx: Option<&mut Context>,
                                                  b: *const uint8_t, len: size_t)
                                                  -> *mut PacketPile {
-    let ctx = ctx.expect("Context is NULL");
+    let ctx = ffi_param_ref!(ctx);
     assert!(!b.is_null());
     let buf = unsafe {
         slice::from_raw_parts(b, len as usize)
@@ -81,7 +81,7 @@ pub extern "system" fn sq_packet_pile_free(packet_pile: *mut PacketPile) {
 #[no_mangle]
 pub extern "system" fn sq_packet_pile_clone(packet_pile: Option<&PacketPile>)
                                             -> *mut PacketPile {
-    let packet_pile = packet_pile.expect("PacketPile is NULL");
+    let packet_pile = ffi_param_ref!(packet_pile);
     box_raw!(packet_pile.clone())
 }
 
@@ -91,8 +91,8 @@ pub extern "system" fn sq_packet_pile_serialize(ctx: Option<&mut Context>,
                                                 packet_pile: Option<&PacketPile>,
                                                 writer: Option<&mut Box<Write>>)
                                                 -> Status {
-    let ctx = ctx.expect("Context is NULL");
-    let packet_pile = packet_pile.expect("PacketPile is NULL");
-    let writer = writer.expect("Writer is NULL");
+    let ctx = ffi_param_ref!(ctx);
+    let packet_pile = ffi_param_ref!(packet_pile);
+    let writer = ffi_param_ref!(writer);
     fry_status!(ctx, packet_pile.serialize(writer))
 }

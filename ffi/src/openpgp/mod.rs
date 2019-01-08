@@ -135,10 +135,10 @@ pub extern "system" fn sq_tsk_new(ctx: Option<&mut Context>,
                                   revocation_out: Option<&mut *mut Signature>)
     -> Status
 {
-    let ctx = ctx.expect("CONTEXT is NULL");
+    let ctx = ffi_param_ref!(ctx);
     assert!(!primary_uid.is_null());
-    let tsk_out = tsk_out.expect("TSK is NULL");
-    let revocation_out = revocation_out.expect("REVOCATION is NULL");
+    let tsk_out = ffi_param_ref!(tsk_out);
+    let revocation_out = ffi_param_ref!(revocation_out);
     let primary_uid = unsafe {
         CStr::from_ptr(primary_uid)
     };
@@ -162,7 +162,7 @@ pub extern "system" fn sq_tsk_free(tsk: *mut TSK) {
 #[no_mangle]
 pub extern "system" fn sq_tsk_tpk(tsk: Option<&TSK>)
                                   -> &TPK {
-    let tsk = tsk.expect("TSK is NULL");
+    let tsk = ffi_param_ref!(tsk);
     tsk.tpk()
 }
 
@@ -183,9 +183,9 @@ pub extern "system" fn sq_tsk_serialize(ctx: Option<&mut Context>,
                                         tsk: Option<&TSK>,
                                         writer: Option<&mut Box<Write>>)
                                         -> Status {
-    let ctx = ctx.expect("Context is NULL");
-    let tsk = tsk.expect("TSK is NULL");
-    let writer = writer.expect("Writer is NULL");
+    let ctx = ffi_param_ref!(ctx);
+    let tsk = ffi_param_ref!(tsk);
+    let writer = ffi_param_ref!(writer);
     fry_status!(ctx, tsk.serialize(writer))
 }
 
@@ -205,7 +205,7 @@ pub extern "system" fn sq_packet_free(p: *mut Packet) {
 #[no_mangle]
 pub extern "system" fn sq_packet_tag(p: Option<&Packet>)
                                      -> uint8_t {
-    let p = p.expect("Packet is NULL");
+    let p = ffi_param_ref!(p);
     let tag: u8 = p.tag().into();
     tag as uint8_t
 }
@@ -220,7 +220,7 @@ pub extern "system" fn sq_packet_tag(p: Option<&Packet>)
 #[no_mangle]
 pub extern "system" fn sq_packet_kind(p: Option<&Packet>)
                                       -> uint8_t {
-    let p = p.expect("Packet is NULL");
+    let p = ffi_param_ref!(p);
     if let Some(kind) = p.kind() {
         kind.into()
     } else {
@@ -253,7 +253,7 @@ pub extern "system" fn sq_signature_to_packet(s: *mut Signature)
 #[no_mangle]
 pub extern "system" fn sq_signature_issuer(sig: Option<&packet::Signature>)
                                            -> *mut KeyID {
-    let sig = sig.expect("Signature is NULL");
+    let sig = ffi_param_ref!(sig);
     maybe_box_raw!(sig.issuer())
 }
 
@@ -267,7 +267,7 @@ pub extern "system" fn sq_signature_issuer_fingerprint(
     sig: Option<&packet::Signature>)
     -> *mut Fingerprint
 {
-    let sig = sig.expect("Signature is NULL");
+    let sig = ffi_param_ref!(sig);
     maybe_box_raw!(sig.issuer_fingerprint())
 }
 
@@ -278,7 +278,7 @@ pub extern "system" fn sq_signature_issuer_fingerprint(
 pub extern "system" fn sq_signature_can_certify(sig: Option<&packet::Signature>)
     -> bool
 {
-    let sig = sig.expect("Sig is NULL");
+    let sig = ffi_param_ref!(sig);
     sig.key_flags().can_certify()
 }
 
@@ -288,7 +288,7 @@ pub extern "system" fn sq_signature_can_certify(sig: Option<&packet::Signature>)
 pub extern "system" fn sq_signature_can_sign(sig: Option<&packet::Signature>)
     -> bool
 {
-    let sig = sig.expect("Sig is NULL");
+    let sig = ffi_param_ref!(sig);
     sig.key_flags().can_sign()
 }
 
@@ -298,7 +298,7 @@ pub extern "system" fn sq_signature_can_sign(sig: Option<&packet::Signature>)
 pub extern "system" fn sq_signature_can_encrypt_for_transport(sig: Option<&packet::Signature>)
     -> bool
 {
-    let sig = sig.expect("Sig is NULL");
+    let sig = ffi_param_ref!(sig);
     sig.key_flags().can_encrypt_for_transport()
 }
 
@@ -308,7 +308,7 @@ pub extern "system" fn sq_signature_can_encrypt_for_transport(sig: Option<&packe
 pub extern "system" fn sq_signature_can_encrypt_at_rest(sig: Option<&packet::Signature>)
     -> bool
 {
-    let sig = sig.expect("Sig is NULL");
+    let sig = ffi_param_ref!(sig);
     sig.key_flags().can_encrypt_at_rest()
 }
 
@@ -318,7 +318,7 @@ pub extern "system" fn sq_signature_can_encrypt_at_rest(sig: Option<&packet::Sig
 pub extern "system" fn sq_signature_can_authenticate(sig: Option<&packet::Signature>)
     -> bool
 {
-    let sig = sig.expect("Sig is NULL");
+    let sig = ffi_param_ref!(sig);
     sig.key_flags().can_authenticate()
 }
 
@@ -328,7 +328,7 @@ pub extern "system" fn sq_signature_can_authenticate(sig: Option<&packet::Signat
 pub extern "system" fn sq_signature_is_split_key(sig: Option<&packet::Signature>)
     -> bool
 {
-    let sig = sig.expect("Sig is NULL");
+    let sig = ffi_param_ref!(sig);
     sig.key_flags().is_split_key()
 }
 
@@ -338,7 +338,7 @@ pub extern "system" fn sq_signature_is_split_key(sig: Option<&packet::Signature>
 pub extern "system" fn sq_signature_is_group_key(sig: Option<&packet::Signature>)
     -> bool
 {
-    let sig = sig.expect("Sig is NULL");
+    let sig = ffi_param_ref!(sig);
     sig.key_flags().is_group_key()
 }
 
@@ -351,7 +351,7 @@ pub extern "system" fn sq_signature_is_group_key(sig: Option<&packet::Signature>
 pub extern "system" fn sq_signature_alive(sig: Option<&packet::Signature>)
     -> bool
 {
-    let sig = sig.expect("Sig is NULL");
+    let sig = ffi_param_ref!(sig);
     sig.signature_alive()
 }
 
@@ -364,7 +364,7 @@ pub extern "system" fn sq_signature_alive_at(sig: Option<&packet::Signature>,
                                              when: time_t)
     -> bool
 {
-    let sig = sig.expect("Sig is NULL");
+    let sig = ffi_param_ref!(sig);
     sig.signature_alive_at(time::at(time::Timespec::new(when as i64, 0)))
 }
 
@@ -373,7 +373,7 @@ pub extern "system" fn sq_signature_alive_at(sig: Option<&packet::Signature>,
 pub extern "system" fn sq_signature_expired(sig: Option<&packet::Signature>)
     -> bool
 {
-    let sig = sig.expect("Sig is NULL");
+    let sig = ffi_param_ref!(sig);
     sig.signature_expired()
 }
 
@@ -383,7 +383,7 @@ pub extern "system" fn sq_signature_expired_at(sig: Option<&packet::Signature>,
                                                when: time_t)
     -> bool
 {
-    let sig = sig.expect("Sig is NULL");
+    let sig = ffi_param_ref!(sig);
     sig.signature_expired_at(time::at(time::Timespec::new(when as i64, 0)))
 }
 
@@ -392,7 +392,7 @@ pub extern "system" fn sq_signature_expired_at(sig: Option<&packet::Signature>,
 #[no_mangle]
 pub extern "system" fn sq_p_key_clone(key: Option<&packet::Key>)
                                       -> *mut packet::Key {
-    let key = key.expect("Key is NULL");
+    let key = ffi_param_ref!(key);
     box_raw!(key.clone())
 }
 
@@ -401,7 +401,7 @@ pub extern "system" fn sq_p_key_clone(key: Option<&packet::Key>)
 #[no_mangle]
 pub extern "system" fn sq_p_key_fingerprint(key: Option<&packet::Key>)
                                             -> *mut Fingerprint {
-    let key = key.expect("Key is NULL");
+    let key = ffi_param_ref!(key);
     box_raw!(key.fingerprint())
 }
 
@@ -410,7 +410,7 @@ pub extern "system" fn sq_p_key_fingerprint(key: Option<&packet::Key>)
 #[no_mangle]
 pub extern "system" fn sq_p_key_keyid(key: Option<&packet::Key>)
                                       -> *mut KeyID {
-    let key = key.expect("Key is NULL");
+    let key = ffi_param_ref!(key);
     box_raw!(key.keyid())
 }
 
@@ -425,8 +425,8 @@ pub extern "system" fn sq_p_key_expired(key: Option<&packet::Key>,
                                       sig: Option<&packet::Signature>)
     -> bool
 {
-    let key = key.expect("Key is NULL");
-    let sig = sig.expect("SIG is NULL");
+    let key = ffi_param_ref!(key);
+    let sig = ffi_param_ref!(sig);
 
     sig.key_expired(key)
 }
@@ -438,8 +438,8 @@ pub extern "system" fn sq_p_key_expired_at(key: Option<&packet::Key>,
                                          when: time_t)
     -> bool
 {
-    let key = key.expect("Key is NULL");
-    let sig = sig.expect("SIG is NULL");
+    let key = ffi_param_ref!(key);
+    let sig = ffi_param_ref!(sig);
 
     sig.key_expired_at(key, time::at(time::Timespec::new(when as i64, 0)))
 }
@@ -458,8 +458,8 @@ pub extern "system" fn sq_p_key_alive(key: Option<&packet::Key>,
                                       sig: Option<&packet::Signature>)
     -> bool
 {
-    let key = key.expect("Key is NULL");
-    let sig = sig.expect("SIG is NULL");
+    let key = ffi_param_ref!(key);
+    let sig = ffi_param_ref!(sig);
 
     sig.key_alive(key)
 }
@@ -471,8 +471,8 @@ pub extern "system" fn sq_p_key_alive_at(key: Option<&packet::Key>,
                                          when: time_t)
     -> bool
 {
-    let key = key.expect("Key is NULL");
-    let sig = sig.expect("SIG is NULL");
+    let key = ffi_param_ref!(key);
+    let sig = ffi_param_ref!(sig);
 
     sig.key_alive_at(key, time::at(time::Timespec::new(when as i64, 0)))
 }
@@ -482,7 +482,7 @@ pub extern "system" fn sq_p_key_alive_at(key: Option<&packet::Key>,
 pub extern "system" fn sq_p_key_creation_time(key: Option<&packet::Key>)
     -> u32
 {
-    let key = key.expect("Key is NULL");
+    let key = ffi_param_ref!(key);
     let ct = key.creation_time();
 
     ct.to_timespec().sec as u32
@@ -493,7 +493,7 @@ pub extern "system" fn sq_p_key_creation_time(key: Option<&packet::Key>)
 pub extern "system" fn sq_p_key_public_key_algo(key: Option<&packet::Key>)
     -> c_int
 {
-    let key = key.expect("Key is NULL");
+    let key = ffi_param_ref!(key);
     let pk_algo : u8 = key.pk_algo().into();
     pk_algo as c_int
 }
@@ -505,7 +505,7 @@ pub extern "system" fn sq_p_key_public_key_bits(key: Option<&packet::Key>)
 {
     use self::openpgp::crypto::mpis::PublicKey::*;
 
-    let key = key.expect("Key is NULL");
+    let key = ffi_param_ref!(key);
     match key.mpis() {
         RSA { e: _, n } => n.bits as c_int,
         DSA { p: _, q: _, g: _, y } => y.bits as c_int,
@@ -525,7 +525,7 @@ pub extern "system" fn sq_p_key_public_key_bits(key: Option<&packet::Key>)
 pub extern "system" fn sq_user_id_value(uid: Option<&Packet>,
                                         value_len: Option<&mut size_t>)
                                         -> *const uint8_t {
-    let uid = uid.expect("UserID is NULL");
+    let uid = ffi_param_ref!(uid);
     if let &Packet::UserID(ref uid) = uid {
         if let Some(p) = value_len {
             *p = uid.userid().len();
@@ -544,7 +544,7 @@ pub extern "system" fn sq_user_id_value(uid: Option<&Packet>,
 pub extern "system" fn sq_user_attribute_value(ua: Option<&Packet>,
                                                value_len: Option<&mut size_t>)
                                                -> *const uint8_t {
-    let ua = ua.expect("UserAttribute is NULL");
+    let ua = ffi_param_ref!(ua);
     if let &Packet::UserAttribute(ref ua) = ua {
         if let Some(p) = value_len {
             *p = ua.user_attribute().len();
@@ -570,14 +570,14 @@ pub extern "system" fn sq_skesk_decrypt(ctx: Option<&mut Context>,
                                         key: *mut uint8_t,
                                         key_len: Option<&mut size_t>)
                                         -> Status {
-    let ctx = ctx.expect("Context is NULL");
-    let skesk = skesk.expect("SKESK is NULL");
+    let ctx = ffi_param_ref!(ctx);
+    let skesk = ffi_param_ref!(skesk);
     assert!(!password.is_null());
     let password = unsafe {
         slice::from_raw_parts(password, password_len as usize)
     };
-    let algo = algo.expect("Algo is NULL");
-    let key_len = key_len.expect("Key length is NULL");
+    let algo = ffi_param_ref!(algo);
+    let key_len = ffi_param_ref!(key_len);
 
     if let &Packet::SKESK(ref skesk) = skesk {
         match skesk.decrypt(&password.to_owned().into()) {
@@ -607,7 +607,7 @@ pub extern "system" fn sq_skesk_decrypt(ctx: Option<&mut Context>,
 #[no_mangle]
 pub extern "system" fn sq_pkesk_recipient(pkesk: Option<&PKESK>)
                                           -> *const KeyID {
-    let pkesk = pkesk.expect("PKESK is NULL");
+    let pkesk = ffi_param_ref!(pkesk);
     pkesk.recipient()
 }
 
@@ -625,11 +625,11 @@ pub extern "system" fn sq_pkesk_decrypt(ctx: Option<&mut Context>,
                                         key: *mut uint8_t,
                                         key_len: Option<&mut size_t>)
                                         -> Status {
-    let ctx = ctx.expect("Context is NULL");
-    let pkesk = pkesk.expect("PKESK is NULL");
-    let secret_key = secret_key.expect("SECRET_KEY is NULL");
-    let algo = algo.expect("Algo is NULL");
-    let key_len = key_len.expect("Key length is NULL");
+    let ctx = ffi_param_ref!(ctx);
+    let pkesk = ffi_param_ref!(pkesk);
+    let secret_key = ffi_param_ref!(secret_key);
+    let algo = ffi_param_ref!(algo);
+    let key_len = ffi_param_ref!(key_len);
 
     if let Some(SecretKey::Unencrypted{ mpis: ref secret_part }) = secret_key.secret() {
         match pkesk.decrypt(secret_key, secret_part) {
@@ -664,8 +664,8 @@ pub extern "system" fn sq_pkesk_decrypt(ctx: Option<&mut Context>,
 pub extern "system" fn sq_packet_parser_from_reader<'a>
     (ctx: Option<&mut Context>, reader: Option<&'a mut Box<'a + Read>>)
      -> *mut PacketParserResult<'a> {
-    let ctx = ctx.expect("Context is NULL");
-    let reader = reader.expect("Reader is NULL");
+    let ctx = ffi_param_ref!(ctx);
+    let reader = ffi_param_ref!(reader);
     fry_box!(ctx, PacketParser::from_reader(reader))
 }
 
@@ -677,7 +677,7 @@ pub extern "system" fn sq_packet_parser_from_reader<'a>
 pub extern "system" fn sq_packet_parser_from_file
     (ctx: Option<&mut Context>, filename: *const c_char)
      -> *mut PacketParserResult {
-    let ctx = ctx.expect("Context is NULL");
+    let ctx = ffi_param_ref!(ctx);
     assert!(! filename.is_null());
     let filename = unsafe {
         CStr::from_ptr(filename).to_string_lossy().into_owned()
@@ -693,7 +693,7 @@ pub extern "system" fn sq_packet_parser_from_file
 pub extern "system" fn sq_packet_parser_from_bytes
     (ctx: Option<&mut Context>, b: *const uint8_t, len: size_t)
      -> *mut PacketParserResult {
-    let ctx = ctx.expect("Context is NULL");
+    let ctx = ffi_param_ref!(ctx);
     assert!(!b.is_null());
     let buf = unsafe {
         slice::from_raw_parts(b, len as usize)
@@ -721,7 +721,7 @@ pub extern "system" fn sq_packet_parser_free(pp: *mut PacketParser) {
 pub extern "system" fn sq_packet_parser_eof_is_message(
     eof: Option<&PacketParserEOF>) -> bool
 {
-    let eof = eof.expect("EOF is NULL");
+    let eof = ffi_param_ref!(eof);
 
     eof.is_message()
 }
@@ -737,7 +737,7 @@ pub extern "system" fn sq_packet_parser_eof_free(eof: *mut PacketParserEOF) {
 pub extern "system" fn sq_packet_parser_packet
     (pp: Option<&PacketParser>)
      -> *const Packet {
-    let pp = pp.expect("PacketParser is NULL");
+    let pp = ffi_param_ref!(pp);
     &pp.packet
 }
 
@@ -749,7 +749,7 @@ pub extern "system" fn sq_packet_parser_packet
 pub extern "system" fn sq_packet_parser_recursion_depth
     (pp: Option<&PacketParser>)
      -> uint8_t {
-    let pp = pp.expect("PacketParser is NULL");
+    let pp = ffi_param_ref!(pp);
     pp.recursion_depth() as u8
 }
 
@@ -827,7 +827,7 @@ pub extern "system" fn sq_packet_parser_next<'a>
      old_packet: Option<&mut *mut Packet>,
      ppr: Option<&mut *mut PacketParserResult<'a>>)
      -> Status {
-    let ctx = ctx.expect("Context is NULL");
+    let ctx = ffi_param_ref!(ctx);
     assert!(! pp.is_null());
     let pp = unsafe {
         Box::from_raw(pp)
@@ -874,7 +874,7 @@ pub extern "system" fn sq_packet_parser_recurse<'a>
      old_packet: Option<&mut *mut Packet>,
      ppr: Option<&mut *mut PacketParserResult<'a>>)
      -> Status {
-    let ctx = ctx.expect("Context is NULL");
+    let ctx = ffi_param_ref!(ctx);
     assert!(! pp.is_null());
     let pp = unsafe {
         Box::from_raw(pp)
@@ -906,8 +906,8 @@ pub extern "system" fn sq_packet_parser_buffer_unread_content<'a>
      pp: Option<&mut PacketParser<'a>>,
      len: Option<&mut usize>)
      -> *const uint8_t {
-    let ctx = ctx.expect("Context is NULL");
-    let pp = pp.expect("PacketParser is NULL");
+    let ctx = ffi_param_ref!(ctx);
+    let pp = ffi_param_ref!(pp);
     let len = len.expect("Length pointer is NULL");
     let buf = fry!(ctx, pp.buffer_unread_content());
     *len = buf.len();
@@ -924,8 +924,8 @@ pub extern "system" fn sq_packet_parser_finish<'a>
      packet: Option<&mut *const Packet>)
      -> Status
 {
-    let ctx = ctx.expect("Context is NULL");
-    let pp = pp.expect("PacketParser is NULL");
+    let ctx = ffi_param_ref!(ctx);
+    let pp = ffi_param_ref!(pp);
     match pp.finish() {
         Ok(p) => {
             if let Some(out_p) = packet {
@@ -957,8 +957,8 @@ pub extern "system" fn sq_packet_parser_decrypt<'a>
      algo: uint8_t, // XXX
      key: *const uint8_t, key_len: size_t)
      -> Status {
-    let ctx = ctx.expect("Context is NULL");
-    let pp = pp.expect("PacketParser is NULL");
+    let ctx = ffi_param_ref!(ctx);
+    let pp = ffi_param_ref!(pp);
     let key = unsafe {
         slice::from_raw_parts(key, key_len as usize)
     };
@@ -982,7 +982,7 @@ pub extern "system" fn sq_packet_parser_result_tag<'a>
     (ppr: Option<&mut PacketParserResult<'a>>)
     -> c_int
 {
-    let ppr = ppr.expect("ppr is NULL");
+    let ppr = ffi_param_ref!(ppr);
 
     let tag : u8 = match ppr {
         PacketParserResult::Some(ref pp) => pp.packet.tag().into(),
@@ -1088,8 +1088,8 @@ pub extern "system" fn sq_writer_stack_write
      buf: *const uint8_t, len: size_t)
      -> ssize_t
 {
-    let ctx = ctx.expect("Context is NULL");
-    let writer = writer.expect("Writer is NULL");
+    let ctx = ffi_param_ref!(ctx);
+    let writer = ffi_param_ref!(writer);
     assert!(!buf.is_null());
     let buf = unsafe {
         slice::from_raw_parts(buf, len as usize)
@@ -1109,8 +1109,8 @@ pub extern "system" fn sq_writer_stack_write_all
      buf: *const uint8_t, len: size_t)
      -> Status
 {
-    let ctx = ctx.expect("Context is NULL");
-    let writer = writer.expect("Writer is NULL");
+    let ctx = ffi_param_ref!(ctx);
+    let writer = ffi_param_ref!(writer);
     assert!(!buf.is_null());
     let buf = unsafe {
         slice::from_raw_parts(buf, len as usize)
@@ -1125,7 +1125,7 @@ pub extern "system" fn sq_writer_stack_finalize_one
      writer: *mut writer::Stack<'static, Cookie>)
      -> *mut writer::Stack<'static, Cookie>
 {
-    let ctx = ctx.expect("Context is NULL");
+    let ctx = ffi_param_ref!(ctx);
     if !writer.is_null() {
         let writer = unsafe {
             Box::from_raw(writer)
@@ -1143,7 +1143,7 @@ pub extern "system" fn sq_writer_stack_finalize
      writer: *mut writer::Stack<'static, Cookie>)
      -> Status
 {
-    let ctx = ctx.expect("Context is NULL");
+    let ctx = ffi_param_ref!(ctx);
     if !writer.is_null() {
         let writer = unsafe {
             Box::from_raw(writer)
@@ -1166,7 +1166,7 @@ pub extern "system" fn sq_arbitrary_writer_new
      tag: uint8_t)
      -> *mut writer::Stack<'static, Cookie>
 {
-    let ctx = ctx.expect("Context is NULL");
+    let ctx = ffi_param_ref!(ctx);
     assert!(!inner.is_null());
     let inner = unsafe {
         Box::from_raw(inner)
@@ -1186,12 +1186,12 @@ pub extern "system" fn sq_signer_new
      signers: Option<&&'static TPK>, signers_len: size_t)
      -> *mut writer::Stack<'static, Cookie>
 {
-    let ctx = ctx.expect("Context is NULL");
+    let ctx = ffi_param_ref!(ctx);
     assert!(!inner.is_null());
     let inner = unsafe {
         Box::from_raw(inner)
     };
-    let signers = signers.expect("Signers is NULL");
+    let signers = ffi_param_ref!(signers);
     let signers = unsafe {
         slice::from_raw_parts(signers, signers_len)
     };
@@ -1206,7 +1206,7 @@ pub extern "system" fn sq_signer_new_detached
      signers: Option<&&'static TPK>, signers_len: size_t)
      -> *mut writer::Stack<'static, Cookie>
 {
-    let ctx = ctx.expect("Context is NULL");
+    let ctx = ffi_param_ref!(ctx);
     assert!(!inner.is_null());
     let inner = unsafe {
         Box::from_raw(inner)
@@ -1228,7 +1228,7 @@ pub extern "system" fn sq_literal_writer_new
      inner: *mut writer::Stack<'static, Cookie>)
      -> *mut writer::Stack<'static, Cookie>
 {
-    let ctx = ctx.expect("Context is NULL");
+    let ctx = ffi_param_ref!(ctx);
     assert!(!inner.is_null());
     let inner = unsafe {
         Box::from_raw(inner)
@@ -1256,7 +1256,7 @@ pub extern "system" fn sq_encryptor_new
      encryption_mode: uint8_t)
      -> *mut writer::Stack<'static, Cookie>
 {
-    let ctx = ctx.expect("Context is NULL");
+    let ctx = ffi_param_ref!(ctx);
     assert!(!inner.is_null());
     let inner = unsafe {
         Box::from_raw(inner)
@@ -1349,9 +1349,9 @@ pub fn sq_verification_results_at_level<'a>(results: Option<&'a VerificationResu
                                             level: size_t,
                                             r: Option<&mut *const &'a VerificationResult>,
                                             r_count: Option<&mut size_t>) {
-    let results = results.expect("results is NULL");
-    let r = r.expect("r is NULL");
-    let r_count = r_count.expect("r_count is NULL");
+    let results = ffi_param_ref!(results);
+    let r = ffi_param_ref!(r);
+    let r_count = ffi_param_ref!(r_count);
 
     assert!(level < results.results.len());
 
@@ -1367,7 +1367,7 @@ pub fn sq_verification_results_at_level<'a>(results: Option<&'a VerificationResu
 pub fn sq_verification_result_code(result: Option<&VerificationResult>)
     -> c_int
 {
-    let result = result.expect("result is NULL");
+    let result = ffi_param_ref!(result);
     match result {
         VerificationResult::GoodChecksum(_) => 1,
         VerificationResult::MissingKey(_) => 2,
@@ -1380,7 +1380,7 @@ pub fn sq_verification_result_code(result: Option<&VerificationResult>)
 pub fn sq_verification_result_signature(result: Option<&VerificationResult>)
     -> *const packet::Signature
 {
-    let result = result.expect("result is NULL");
+    let result = ffi_param_ref!(result);
     let sig = match result {
         VerificationResult::GoodChecksum(ref sig) => sig,
         VerificationResult::MissingKey(ref sig) => sig,
@@ -1395,7 +1395,7 @@ pub fn sq_verification_result_signature(result: Option<&VerificationResult>)
 pub fn sq_verification_result_level(result: Option<&VerificationResult>)
     -> c_int
 {
-    let result = result.expect("result is NULL");
+    let result = ffi_param_ref!(result);
     result.level() as c_int
 }
 
@@ -1579,8 +1579,8 @@ pub fn sq_verify<'a>(ctx: Option<&mut Context>,
                      cookie: *mut HelperCookie)
     -> Status
 {
-    let ctx = ctx.expect("Context is NULL");
-    let input = input.expect("Input is NULL");
+    let ctx = ffi_param_ref!(ctx);
+    let input = ffi_param_ref!(input);
 
     let r = verify_real(input, dsig, output,
         get_public_keys, check_signatures, cookie);
@@ -1704,9 +1704,9 @@ pub fn sq_decrypt<'a>(ctx: Option<&mut Context>,
                       cookie: *mut HelperCookie)
     -> Status
 {
-    let ctx = ctx.expect("Context is NULL");
-    let input = input.expect("Input is NULL");
-    let output = output.expect("Output is NULL");
+    let ctx = ffi_param_ref!(ctx);
+    let input = ffi_param_ref!(input);
+    let output = ffi_param_ref!(output);
 
     let r = decrypt_real(input, output,
         get_public_keys, get_secret_keys, check_signatures, cookie);

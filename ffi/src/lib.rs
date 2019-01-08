@@ -141,6 +141,22 @@ macro_rules! ffi_free {
     }};
 }
 
+/* Parameter handling.  */
+
+/// Transfers a reference from C to Rust.
+///
+/// # Panics
+///
+/// Panics if called with NULL.
+macro_rules! ffi_param_ref {
+    ($name:ident) => {{
+        if $name.is_none() {
+            panic!("Parameter {} is NULL", stringify!($name));
+        }
+        $name.unwrap()
+    }};
+}
+
 /// Like try! for ffi glue.
 ///
 /// Evaluates the given expression.  On success, evaluate to

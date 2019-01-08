@@ -42,8 +42,8 @@ use ::error::Status;
 pub extern "system" fn sq_tpk_from_reader(ctx: Option<&mut Context>,
                                           reader: Option<&mut Box<Read>>)
                                           -> *mut TPK {
-    let ctx = ctx.expect("Context is NULL");
-    let reader = reader.expect("Reader is NULL");
+    let ctx = ffi_param_ref!(ctx);
+    let reader = ffi_param_ref!(reader);
     fry_box!(ctx, TPK::from_reader(reader))
 }
 
@@ -52,7 +52,7 @@ pub extern "system" fn sq_tpk_from_reader(ctx: Option<&mut Context>,
 pub extern "system" fn sq_tpk_from_file(ctx: Option<&mut Context>,
                                         filename: *const c_char)
                                         -> *mut TPK {
-    let ctx = ctx.expect("Context is NULL");
+    let ctx = ffi_param_ref!(ctx);
     assert!(! filename.is_null());
     let filename = unsafe {
         CStr::from_ptr(filename).to_string_lossy().into_owned()
@@ -67,7 +67,7 @@ pub extern "system" fn sq_tpk_from_file(ctx: Option<&mut Context>,
 pub extern "system" fn sq_tpk_from_packet_pile(ctx: Option<&mut Context>,
                                                m: *mut PacketPile)
                                                -> *mut TPK {
-    let ctx = ctx.expect("Context is NULL");
+    let ctx = ffi_param_ref!(ctx);
     assert!(! m.is_null());
     let m = unsafe { Box::from_raw(m) };
     fry_box!(ctx, TPK::from_packet_pile(*m))
@@ -80,7 +80,7 @@ pub extern "system" fn sq_tpk_from_packet_pile(ctx: Option<&mut Context>,
 pub extern "system" fn sq_tpk_from_bytes(ctx: Option<&mut Context>,
                                          b: *const uint8_t, len: size_t)
                                          -> *mut TPK {
-    let ctx = ctx.expect("Context is NULL");
+    let ctx = ffi_param_ref!(ctx);
     assert!(!b.is_null());
     let buf = unsafe {
         slice::from_raw_parts(b, len as usize)
@@ -97,7 +97,7 @@ pub extern "system" fn sq_tpk_from_packet_parser(ctx: Option<&mut Context>,
                                                  ppr: *mut PacketParserResult)
     -> *mut TPK
 {
-    let ctx = ctx.expect("Context is NULL");
+    let ctx = ffi_param_ref!(ctx);
     assert!(! ppr.is_null());
     let ppr = unsafe { Box::from_raw(ppr) };
 
@@ -114,7 +114,7 @@ pub extern "system" fn sq_tpk_free(tpk: *mut TPK) {
 #[no_mangle]
 pub extern "system" fn sq_tpk_clone(tpk: Option<&TPK>)
                                     -> *mut TPK {
-    let tpk = tpk.expect("TPK is NULL");
+    let tpk = ffi_param_ref!(tpk);
     box_raw!(tpk.clone())
 }
 
@@ -134,9 +134,9 @@ pub extern "system" fn sq_tpk_serialize(ctx: Option<&mut Context>,
                                         tpk: Option<&TPK>,
                                         writer: Option<&mut Box<Write>>)
                                         -> Status {
-    let ctx = ctx.expect("Context is NULL");
-    let tpk = tpk.expect("TPK is NULL");
-    let writer = writer.expect("Writer is NULL");
+    let ctx = ffi_param_ref!(ctx);
+    let tpk = ffi_param_ref!(tpk);
+    let writer = ffi_param_ref!(writer);
     fry_status!(ctx, tpk.serialize(writer))
 }
 
@@ -151,7 +151,7 @@ pub extern "system" fn sq_tpk_merge(ctx: Option<&mut Context>,
                                     tpk: *mut TPK,
                                     other: *mut TPK)
                                     -> *mut TPK {
-    let ctx = ctx.expect("Context is NULL");
+    let ctx = ffi_param_ref!(ctx);
     assert!(! tpk.is_null());
     let tpk = unsafe { Box::from_raw(tpk) };
     assert!(! other.is_null());
@@ -172,7 +172,7 @@ pub extern "system" fn sq_tpk_merge_packets(ctx: Option<&mut Context>,
                                             packets: *mut *mut Packet,
                                             packets_len: size_t)
                                             -> *mut TPK {
-    let ctx = ctx.expect("Context is NULL");
+    let ctx = ffi_param_ref!(ctx);
     assert!(! tpk.is_null());
     let tpk = unsafe { Box::from_raw(tpk) };
     let packets = unsafe {
@@ -188,7 +188,7 @@ pub extern "system" fn sq_tpk_merge_packets(ctx: Option<&mut Context>,
 /// XXX Remove this.
 #[no_mangle]
 pub extern "system" fn sq_tpk_dump(tpk: Option<&TPK>) {
-    let tpk = tpk.expect("TPK is NULL");
+    let tpk = ffi_param_ref!(tpk);
     println!("{:?}", *tpk);
 }
 
@@ -196,7 +196,7 @@ pub extern "system" fn sq_tpk_dump(tpk: Option<&TPK>) {
 #[no_mangle]
 pub extern "system" fn sq_tpk_fingerprint(tpk: Option<&TPK>)
                                           -> *mut Fingerprint {
-    let tpk = tpk.expect("TPK is NULL");
+    let tpk = ffi_param_ref!(tpk);
     box_raw!(tpk.fingerprint())
 }
 
@@ -219,7 +219,7 @@ pub extern "system" fn sq_tpk_into_tsk(tpk: *mut TPK)
 #[no_mangle]
 pub extern "system" fn sq_tpk_primary(tpk: Option<&TPK>)
     -> Option<&packet::Key> {
-    let tpk = tpk.expect("TPK is NULL");
+    let tpk = ffi_param_ref!(tpk);
     Some(tpk.primary())
 }
 
@@ -231,7 +231,7 @@ pub extern "system" fn sq_tpk_primary(tpk: Option<&TPK>)
 #[no_mangle]
 pub extern "system" fn sq_tpk_revocation_status(tpk: Option<&TPK>)
                                                 -> *mut RevocationStatus {
-    let tpk = tpk.expect("TPK is NULL");
+    let tpk = ffi_param_ref!(tpk);
     box_raw!(tpk.revoked())
 }
 
@@ -295,8 +295,8 @@ pub extern "system" fn sq_tpk_revoke(ctx: Option<&mut Context>,
                                      reason: Option<*const c_char>)
     -> *mut packet::Signature
 {
-    let ctx = ctx.expect("Context is NULL");
-    let tpk = tpk.expect("TPK is NULL");
+    let ctx = ffi_param_ref!(ctx);
+    let tpk = ffi_param_ref!(tpk);
     let code = int_to_reason_for_revocation(code);
     let reason = if let Some(reason) = reason {
         unsafe {
@@ -351,7 +351,7 @@ pub extern "system" fn sq_tpk_revoke_in_place(ctx: Option<&mut Context>,
                                               reason: Option<*const c_char>)
     -> *mut TPK
 {
-    let ctx = ctx.expect("Context is NULL");
+    let ctx = ffi_param_ref!(ctx);
     assert!(!tpk.is_null());
     let tpk = unsafe {
         Box::from_raw(tpk)
@@ -372,7 +372,7 @@ pub extern "system" fn sq_tpk_revoke_in_place(ctx: Option<&mut Context>,
 #[no_mangle]
 pub extern "system" fn sq_tpk_expired(tpk: Option<&TPK>)
                                       -> c_int {
-    let tpk = tpk.expect("TPK is NULL");
+    let tpk = ffi_param_ref!(tpk);
 
     tpk.expired() as c_int
 }
@@ -381,7 +381,7 @@ pub extern "system" fn sq_tpk_expired(tpk: Option<&TPK>)
 #[no_mangle]
 pub extern "system" fn sq_tpk_expired_at(tpk: Option<&TPK>, when: time_t)
                                       -> c_int {
-    let tpk = tpk.expect("TPK is NULL");
+    let tpk = ffi_param_ref!(tpk);
     tpk.expired_at(time::at(time::Timespec::new(when as i64, 0))) as c_int
 }
 
@@ -389,7 +389,7 @@ pub extern "system" fn sq_tpk_expired_at(tpk: Option<&TPK>, when: time_t)
 #[no_mangle]
 pub extern "system" fn sq_tpk_alive(tpk: Option<&TPK>)
                                       -> c_int {
-    let tpk = tpk.expect("TPK is NULL");
+    let tpk = ffi_param_ref!(tpk);
 
     tpk.alive() as c_int
 }
@@ -398,7 +398,7 @@ pub extern "system" fn sq_tpk_alive(tpk: Option<&TPK>)
 #[no_mangle]
 pub extern "system" fn sq_tpk_alive_at(tpk: Option<&TPK>, when: time_t)
                                       -> c_int {
-    let tpk = tpk.expect("TPK is NULL");
+    let tpk = ffi_param_ref!(tpk);
     tpk.alive_at(time::at(time::Timespec::new(when as i64, 0))) as c_int
 }
 
@@ -412,7 +412,7 @@ pub extern "system" fn sq_tpk_alive_at(tpk: Option<&TPK>, when: time_t)
 pub extern "system" fn sq_tpk_set_expiry(ctx: Option<&mut Context>,
                                          tpk: *mut TPK, expiry: u32)
                                          -> *mut TPK {
-    let ctx = ctx.expect("CTX is NULL");
+    let ctx = ffi_param_ref!(ctx);
     assert!(!tpk.is_null());
     let tpk = unsafe {
         Box::from_raw(tpk)
@@ -425,7 +425,7 @@ pub extern "system" fn sq_tpk_set_expiry(ctx: Option<&mut Context>,
 #[no_mangle]
 pub extern "system" fn sq_tpk_is_tsk(tpk: Option<&TPK>)
                                      -> c_int {
-    let tpk = tpk.expect("TPK is NULL");
+    let tpk = ffi_param_ref!(tpk);
     tpk.is_tsk() as c_int
 }
 
@@ -434,7 +434,7 @@ pub extern "system" fn sq_tpk_is_tsk(tpk: Option<&TPK>)
 pub extern "system" fn sq_tpk_primary_user_id(tpk: Option<&TPK>)
     -> *mut c_char
 {
-    let tpk = tpk.expect("TPK is NULL");
+    let tpk = ffi_param_ref!(tpk);
     if let Some(binding) = tpk.userids().nth(0) {
         CString::new(binding.userid().userid())
             .unwrap() // Errors only on internal nul bytes.
@@ -458,7 +458,7 @@ pub extern "system" fn sq_user_id_binding_user_id(
     binding: Option<&UserIDBinding>)
     -> *mut c_char
 {
-    let binding = binding.expect("Binding is NULL");
+    let binding = ffi_param_ref!(binding);
 
     if let Ok(c_str) = CString::new(binding.userid().userid()) {
         c_str.into_raw()
@@ -473,7 +473,7 @@ pub extern "system" fn sq_user_id_binding_selfsig(
     binding: Option<&UserIDBinding>)
     -> Option<&Signature>
 {
-    let binding = binding.expect("Binding is NULL");
+    let binding = ffi_param_ref!(binding);
     binding.binding_signature()
 }
 
@@ -485,7 +485,7 @@ pub extern "system" fn sq_user_id_binding_selfsig(
 pub extern "system" fn sq_tpk_user_id_binding_iter(tpk: Option<&TPK>)
     -> *mut UserIDBindingIter
 {
-    let tpk = tpk.expect("TPK is NULL");
+    let tpk = ffi_param_ref!(tpk);
     box_raw!(tpk.userids())
 }
 
@@ -503,7 +503,7 @@ pub extern "system" fn sq_user_id_binding_iter_next<'a>(
     iter: Option<&mut UserIDBindingIter<'a>>)
     -> Option<&'a UserIDBinding>
 {
-    let iter = iter.expect("Iterator is NULL");
+    let iter = ffi_param_ref!(iter);
     iter.next()
 }
 
@@ -522,7 +522,7 @@ pub struct KeyIterWrapper<'a> {
 pub extern "system" fn sq_tpk_key_iter(tpk: Option<&TPK>)
     -> *mut KeyIterWrapper
 {
-    let tpk = tpk.expect("TPK is NULL");
+    let tpk = ffi_param_ref!(tpk);
     box_raw!(KeyIterWrapper {
         iter: tpk.keys(),
         rso: None,
@@ -553,7 +553,7 @@ pub extern "system" fn sq_tpk_key_iter_next<'a>(
     rso: Option<&mut &'a RevocationStatus<'a>>)
     -> Option<&'a packet::Key>
 {
-    let iter_wrapper = iter_wrapper.expect("Iterator is NULL");
+    let iter_wrapper = ffi_param_ref!(iter_wrapper);
     iter_wrapper.rso = None;
 
     if let Some((sig, rs, key)) = iter_wrapper.iter.next() {
@@ -625,7 +625,7 @@ pub extern "system" fn sq_tpk_builder_set_cipher_suite
     (tpkb: Option<&mut *mut TPKBuilder>, cs: c_int)
 {
     use self::CipherSuite::*;
-    let tpkb = tpkb.expect("TPKB is NULL");
+    let tpkb = ffi_param_ref!(tpkb);
     assert!(! tpkb.is_null());
     let tpkb_ = unsafe { Box::from_raw(*tpkb) };
     let cs = match cs {
@@ -643,7 +643,7 @@ pub extern "system" fn sq_tpk_builder_set_cipher_suite
 pub extern "system" fn sq_tpk_builder_add_userid
     (tpkb: Option<&mut *mut TPKBuilder>, uid: *const c_char)
 {
-    let tpkb = tpkb.expect("TPKB is NULL");
+    let tpkb = ffi_param_ref!(tpkb);
     assert!(!tpkb.is_null());
     let tpkb_ = unsafe { Box::from_raw(*tpkb) };
     let uid = unsafe { CStr::from_ptr(uid).to_string_lossy().to_string() };
@@ -656,7 +656,7 @@ pub extern "system" fn sq_tpk_builder_add_userid
 pub extern "system" fn sq_tpk_builder_add_signing_subkey
     (tpkb: Option<&mut *mut TPKBuilder>)
 {
-    let tpkb = tpkb.expect("TPKB is NULL");
+    let tpkb = ffi_param_ref!(tpkb);
     assert!(!tpkb.is_null());
     let tpkb_ = unsafe { Box::from_raw(*tpkb) };
     let tpkb_ = tpkb_.add_signing_subkey();
@@ -668,7 +668,7 @@ pub extern "system" fn sq_tpk_builder_add_signing_subkey
 pub extern "system" fn sq_tpk_builder_add_encryption_subkey
     (tpkb: Option<&mut *mut TPKBuilder>)
 {
-    let tpkb = tpkb.expect("TPKB is NULL");
+    let tpkb = ffi_param_ref!(tpkb);
     assert!(!tpkb.is_null());
     let tpkb_ = unsafe { Box::from_raw(*tpkb) };
     let tpkb_ = tpkb_.add_encryption_subkey();
@@ -680,7 +680,7 @@ pub extern "system" fn sq_tpk_builder_add_encryption_subkey
 pub extern "system" fn sq_tpk_builder_add_certification_subkey
     (tpkb: Option<&mut *mut TPKBuilder>)
 {
-    let tpkb = tpkb.expect("TPKB is NULL");
+    let tpkb = ffi_param_ref!(tpkb);
     assert!(!tpkb.is_null());
     let tpkb_ = unsafe { Box::from_raw(*tpkb) };
     let tpkb_ = tpkb_.add_certification_subkey();
@@ -697,10 +697,10 @@ pub extern "system" fn sq_tpk_builder_generate
      revocation_out: Option<&mut *mut Signature>)
     -> Status
 {
-    let ctx = ctx.expect("CTX is NULL");
+    let ctx = ffi_param_ref!(ctx);
     assert!(!tpkb.is_null());
-    let tpk_out = tpk_out.expect("TPK is NULL");
-    let revocation_out = revocation_out.expect("REVOCATION is NULL");
+    let tpk_out = ffi_param_ref!(tpk_out);
+    let revocation_out = ffi_param_ref!(revocation_out);
     let tpkb = unsafe { Box::from_raw(tpkb) };
     match tpkb.generate() {
         Ok((tpk, revocation)) => {

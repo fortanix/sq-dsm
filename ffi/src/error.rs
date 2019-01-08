@@ -20,7 +20,7 @@ pub extern "system" fn sq_error_free(error: *mut failure::Error) {
 #[no_mangle]
 pub extern "system" fn sq_error_string(error: Option<&failure::Error>)
                                        -> *mut c_char {
-    let error = error.expect("Error is NULL");
+    let error = ffi_param_ref!(error);
     CString::new(format!("{}", error))
         .map(|s| s.into_raw())
         .unwrap_or(CString::new("Failed to convert error into string")
@@ -31,7 +31,7 @@ pub extern "system" fn sq_error_string(error: Option<&failure::Error>)
 #[no_mangle]
 pub extern "system" fn sq_error_status(error: Option<&failure::Error>)
                                        -> Status {
-    let error = error.expect("Error is NULL");
+    let error = ffi_param_ref!(error);
     error.into()
 }
 

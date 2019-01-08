@@ -47,7 +47,7 @@ use super::core::{Context, sq_string_free};
 pub extern "system" fn sq_store_list_stores(ctx: Option<&mut Context>,
                                             domain_prefix: *const c_char)
                                             -> *mut StoreIter {
-    let ctx = ctx.expect("Context is NULL");
+    let ctx = ffi_param_ref!(ctx);
     assert!(! domain_prefix.is_null());
 
     let domain_prefix = unsafe {
@@ -69,7 +69,7 @@ pub extern "system" fn sq_store_iter_next(iter: Option<&mut StoreIter>,
                                           namep: Option<&mut *mut c_char>,
                                           policyp: Option<&mut uint8_t>)
                                           -> *mut Store {
-    let iter = iter.expect("Iterator is NULL");
+    let iter = ffi_param_ref!(iter);
     match iter.next() {
         Some((domain, name, policy, store)) => {
             if domainp.is_some() {
@@ -104,7 +104,7 @@ pub extern "system" fn sq_store_iter_free(iter: *mut StoreIter) {
 #[no_mangle]
 pub extern "system" fn sq_store_list_keys(ctx: Option<&mut Context>)
                                           -> *mut KeyIter {
-    let ctx = ctx.expect("Context is NULL");
+    let ctx = ffi_param_ref!(ctx);
 
     fry_box!(ctx, Store::list_keys(&ctx.c))
 }
@@ -113,7 +113,7 @@ pub extern "system" fn sq_store_list_keys(ctx: Option<&mut Context>)
 #[no_mangle]
 pub extern "system" fn sq_store_server_log(ctx: Option<&mut Context>)
                                            -> *mut LogIter {
-    let ctx = ctx.expect("Context is NULL");
+    let ctx = ffi_param_ref!(ctx);
 
     fry_box!(ctx, Store::server_log(&ctx.c))
 }
@@ -126,7 +126,7 @@ pub extern "system" fn sq_store_server_log(ctx: Option<&mut Context>)
 pub extern "system" fn sq_key_iter_next(iter: Option<&mut KeyIter>,
                                         fpp: Option<&mut *mut Fingerprint>)
                                         -> *mut Key {
-    let iter = iter.expect("Iterator is NULL");
+    let iter = ffi_param_ref!(iter);
     match iter.next() {
         Some((fingerprint, key)) => {
             if fpp.is_some() {
@@ -159,7 +159,7 @@ fn cstring(s: &str) -> *mut c_char {
 #[no_mangle]
 pub extern "system" fn sq_log_iter_next(iter: Option<&mut LogIter>)
                                         -> *mut Log {
-    let iter = iter.expect("Iterator is NULL");
+    let iter = ffi_param_ref!(iter);
     match iter.next() {
         Some(e) => {
             let (status, error) = match e.status {
@@ -202,7 +202,7 @@ pub extern "system" fn sq_log_iter_free(iter: *mut LogIter) {
 pub extern "system" fn sq_store_open(ctx: Option<&mut Context>,
                                      name: *const c_char)
                                      -> *mut Store {
-    let ctx = ctx.expect("Context is NULL");
+    let ctx = ffi_param_ref!(ctx);
     assert!(! name.is_null());
 
     let name = unsafe {
@@ -225,13 +225,13 @@ pub extern "system" fn sq_store_add(ctx: Option<&mut Context>,
                                     label: *const c_char,
                                     fingerprint: Option<&Fingerprint>)
                                     -> *mut Binding {
-    let ctx = ctx.expect("Context is NULL");
-    let store = store.expect("Store is NULL");
+    let ctx = ffi_param_ref!(ctx);
+    let store = ffi_param_ref!(store);
     assert!(! label.is_null());
     let label = unsafe {
         CStr::from_ptr(label).to_string_lossy()
     };
-    let fingerprint = fingerprint.expect("Fingerprint is NULL");
+    let fingerprint = ffi_param_ref!(fingerprint);
 
     fry_box!(ctx, store.add(&label, fingerprint))
 }
@@ -243,13 +243,13 @@ pub extern "system" fn sq_store_import(ctx: Option<&mut Context>,
                                        label: *const c_char,
                                        tpk: Option<&TPK>)
                                        -> *mut TPK {
-    let ctx = ctx.expect("Context is NULL");
-    let store = store.expect("Store is NULL");
+    let ctx = ffi_param_ref!(ctx);
+    let store = ffi_param_ref!(store);
     assert!(! label.is_null());
     let label = unsafe {
         CStr::from_ptr(label).to_string_lossy()
     };
-    let tpk = tpk.expect("TPK is NULL");
+    let tpk = ffi_param_ref!(tpk);
 
     fry_box!(ctx, store.import(&label, tpk))
 }
@@ -260,8 +260,8 @@ pub extern "system" fn sq_store_lookup(ctx: Option<&mut Context>,
                                        store: Option<&Store>,
                                        label: *const c_char)
                                        -> *mut Binding {
-    let ctx = ctx.expect("Context is NULL");
-    let store = store.expect("Store is NULL");
+    let ctx = ffi_param_ref!(ctx);
+    let store = ffi_param_ref!(store);
     assert!(! label.is_null());
     let label = unsafe {
         CStr::from_ptr(label).to_string_lossy()
@@ -276,8 +276,8 @@ pub extern "system" fn sq_store_lookup_by_keyid(ctx: Option<&mut Context>,
                                                 keyid: Option<&KeyID>)
     -> *mut Key
 {
-    let ctx = ctx.expect("Context is NULL");
-    let keyid = keyid.expect("KeyID is NULL");
+    let ctx = ffi_param_ref!(ctx);
+    let keyid = ffi_param_ref!(keyid);
 
     fry_box!(ctx, Pool::lookup_by_keyid(&ctx.c, keyid))
 }
@@ -288,8 +288,8 @@ pub extern "system" fn sq_store_lookup_by_subkeyid(ctx: Option<&mut Context>,
                                                    keyid: Option<&KeyID>)
     -> *mut Key
 {
-    let ctx = ctx.expect("Context is NULL");
-    let keyid = keyid.expect("KeyID is NULL");
+    let ctx = ffi_param_ref!(ctx);
+    let keyid = ffi_param_ref!(keyid);
 
     fry_box!(ctx, Pool::lookup_by_subkeyid(&ctx.c, keyid))
 }
@@ -301,7 +301,7 @@ pub extern "system" fn sq_store_lookup_by_subkeyid(ctx: Option<&mut Context>,
 pub extern "system" fn sq_store_delete(ctx: Option<&mut Context>,
                                        store: *mut Store)
                                        -> Status {
-    let ctx = ctx.expect("Context is NULL");
+    let ctx = ffi_param_ref!(ctx);
     assert!(! store.is_null());
     let store = unsafe {
         Box::from_raw(store)
@@ -315,8 +315,8 @@ pub extern "system" fn sq_store_delete(ctx: Option<&mut Context>,
 pub extern "system" fn sq_store_iter(ctx: Option<&mut Context>,
                                      store: Option<&Store>)
                                      -> *mut BindingIter {
-    let ctx = ctx.expect("Context is NULL");
-    let store = store.expect("Store is NULL");
+    let ctx = ffi_param_ref!(ctx);
+    let store = ffi_param_ref!(store);
 
     fry_box!(ctx, store.iter())
 }
@@ -331,7 +331,7 @@ pub extern "system" fn sq_binding_iter_next(iter: Option<&mut BindingIter>,
                                             labelp: Option<&mut *mut c_char>,
                                             fpp: Option<&mut *mut Fingerprint>)
                                             -> *mut Binding {
-    let iter = iter.expect("Iterator is NULL");
+    let iter = ffi_param_ref!(iter);
     match iter.next() {
         Some((label, fp, binding)) => {
             if labelp.is_some() {
@@ -361,8 +361,8 @@ pub extern "system" fn sq_binding_iter_free(iter: *mut BindingIter) {
 pub extern "system" fn sq_store_log(ctx: Option<&mut Context>,
                                     store: Option<&Store>)
                                     -> *mut LogIter {
-    let ctx = ctx.expect("Context is NULL");
-    let store = store.expect("Store is NULL");
+    let ctx = ffi_param_ref!(ctx);
+    let store = ffi_param_ref!(store);
 
     fry_box!(ctx, store.log())
 }
@@ -400,8 +400,8 @@ pub extern "system" fn sq_log_free(log: *mut Log) {
 pub extern "system" fn sq_binding_stats(ctx: Option<&mut Context>,
                                         binding: Option<&Binding>)
                                         -> *mut Stats {
-    let ctx = ctx.expect("Context is NULL");
-    let binding = binding.expect("Binding is NULL");
+    let ctx = ffi_param_ref!(ctx);
+    let binding = ffi_param_ref!(binding);
 
     box_raw!(Stats::new(fry!(ctx, binding.stats())))
 }
@@ -411,8 +411,8 @@ pub extern "system" fn sq_binding_stats(ctx: Option<&mut Context>,
 pub extern "system" fn sq_binding_key(ctx: Option<&mut Context>,
                                       binding: Option<&Binding>)
                                      -> *mut Key {
-    let ctx = ctx.expect("Context is NULL");
-    let binding = binding.expect("Binding is NULL");
+    let ctx = ffi_param_ref!(ctx);
+    let binding = ffi_param_ref!(binding);
 
     fry_box!(ctx, binding.key())
 }
@@ -422,8 +422,8 @@ pub extern "system" fn sq_binding_key(ctx: Option<&mut Context>,
 pub extern "system" fn sq_binding_tpk(ctx: Option<&mut Context>,
                                       binding: Option<&Binding>)
                                      -> *mut TPK {
-    let ctx = ctx.expect("Context is NULL");
-    let binding = binding.expect("Binding is NULL");
+    let ctx = ffi_param_ref!(ctx);
+    let binding = ffi_param_ref!(binding);
 
     fry_box!(ctx, binding.tpk())
 }
@@ -449,9 +449,9 @@ pub extern "system" fn sq_binding_import(ctx: Option<&mut Context>,
                                          binding: Option<&Binding>,
                                          tpk: Option<&TPK>)
                                          -> *mut TPK {
-    let ctx = ctx.expect("Context is NULL");
-    let binding = binding.expect("Binding is NULL");
-    let tpk = tpk.expect("TPK is NULL");
+    let ctx = ffi_param_ref!(ctx);
+    let binding = ffi_param_ref!(binding);
+    let tpk = ffi_param_ref!(tpk);
 
     fry_box!(ctx, binding.import(&tpk))
 }
@@ -475,9 +475,9 @@ pub extern "system" fn sq_binding_rotate(ctx: Option<&mut Context>,
                                          binding: Option<&Binding>,
                                          tpk: Option<&TPK>)
                                          -> *mut TPK {
-    let ctx = ctx.expect("Context is NULL");
-    let binding = binding.expect("Binding is NULL");
-    let tpk = tpk.expect("TPK is NULL");
+    let ctx = ffi_param_ref!(ctx);
+    let binding = ffi_param_ref!(binding);
+    let tpk = ffi_param_ref!(tpk);
 
     fry_box!(ctx, binding.rotate(&tpk))
 }
@@ -489,7 +489,7 @@ pub extern "system" fn sq_binding_rotate(ctx: Option<&mut Context>,
 pub extern "system" fn sq_binding_delete(ctx: Option<&mut Context>,
                                          binding: *mut Binding)
                                          -> Status {
-    let ctx = ctx.expect("Context is NULL");
+    let ctx = ffi_param_ref!(ctx);
     assert!(! binding.is_null());
     let binding = unsafe {
         Box::from_raw(binding)
@@ -503,8 +503,8 @@ pub extern "system" fn sq_binding_delete(ctx: Option<&mut Context>,
 pub extern "system" fn sq_binding_log(ctx: Option<&mut Context>,
                                       binding: Option<&Binding>)
                                       -> *mut LogIter {
-    let ctx = ctx.expect("Context is NULL");
-    let binding = binding.expect("Binding is NULL");
+    let ctx = ffi_param_ref!(ctx);
+    let binding = ffi_param_ref!(binding);
 
     fry_box!(ctx, binding.log())
 }
@@ -514,8 +514,8 @@ pub extern "system" fn sq_binding_log(ctx: Option<&mut Context>,
 pub extern "system" fn sq_key_stats(ctx: Option<&mut Context>,
                                     key: Option<&Key>)
                                     -> *mut Stats {
-    let ctx = ctx.expect("Context is NULL");
-    let key = key.expect("Key is NULL");
+    let ctx = ffi_param_ref!(ctx);
+    let key = ffi_param_ref!(key);
 
     box_raw!(Stats::new(fry!(ctx, key.stats())))
 }
@@ -525,8 +525,8 @@ pub extern "system" fn sq_key_stats(ctx: Option<&mut Context>,
 pub extern "system" fn sq_key_tpk(ctx: Option<&mut Context>,
                                   key: Option<&Key>)
                                   -> *mut TPK {
-    let ctx = ctx.expect("Context is NULL");
-    let key = key.expect("Key is NULL");
+    let ctx = ffi_param_ref!(ctx);
+    let key = ffi_param_ref!(key);
 
     fry_box!(ctx, key.tpk())
 }
@@ -545,9 +545,9 @@ pub extern "system" fn sq_key_import(ctx: Option<&mut Context>,
                                      key: Option<&Key>,
                                      tpk: Option<&TPK>)
                                      -> *mut TPK {
-    let ctx = ctx.expect("Context is NULL");
-    let key = key.expect("Key is NULL");
-    let tpk = tpk.expect("TPK is NULL");
+    let ctx = ffi_param_ref!(ctx);
+    let key = ffi_param_ref!(key);
+    let tpk = ffi_param_ref!(tpk);
 
     fry_box!(ctx, key.import(&tpk))
 }
@@ -557,8 +557,8 @@ pub extern "system" fn sq_key_import(ctx: Option<&mut Context>,
 pub extern "system" fn sq_key_log(ctx: Option<&mut Context>,
                                   key: Option<&Key>)
                                   -> *mut LogIter {
-    let ctx = ctx.expect("Context is NULL");
-    let key = key.expect("Key is NULL");
+    let ctx = ffi_param_ref!(ctx);
+    let key = ffi_param_ref!(key);
 
     fry_box!(ctx, key.log())
 }

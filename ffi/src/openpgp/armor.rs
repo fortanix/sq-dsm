@@ -133,7 +133,7 @@ fn kind_to_int(kind: Option<armor::Kind>) -> c_int {
 pub extern "system" fn sq_armor_reader_new(inner: Option<&'static mut Box<Read>>,
                                            kind: c_int)
                                            -> *mut Box<Read> {
-    let inner = inner.expect("Inner is NULL");
+    let inner = ffi_param_ref!(inner);
     let kind = int_to_kind(kind);
 
     box_raw!(Box::new(armor::Reader::new(inner, kind)))
@@ -145,7 +145,7 @@ pub extern "system" fn sq_armor_reader_from_file(ctx: Option<&mut Context>,
                                                  filename: *const c_char,
                                                  kind: c_int)
                                                  -> *mut Box<Read> {
-    let ctx = ctx.expect("Context is NULL");
+    let ctx = ffi_param_ref!(ctx);
     assert!(! filename.is_null());
     let filename = unsafe {
         CStr::from_ptr(filename).to_string_lossy().into_owned()
@@ -220,9 +220,9 @@ pub extern "system" fn sq_armor_reader_headers(ctx: Option<&mut Context>,
                                                reader: *mut Box<Read>,
                                                len: Option<&mut size_t>)
                                                -> *mut ArmorHeader {
-    let ctx = ctx.expect("Context is NULL");
+    let ctx = ffi_param_ref!(ctx);
     assert!(! reader.is_null());
-    let len = len.expect("LEN is NULL");
+    let len = ffi_param_ref!(len);
 
     // We need to downcast `reader`.  To do that, we need to do a
     // little dance.  We will momentarily take ownership of `reader`,
@@ -358,13 +358,13 @@ pub extern "system" fn sq_armor_writer_new
      header_len: size_t)
      -> *mut Box<Write>
 {
-    let ctx = ctx.expect("Context is NULL");
-    let inner = inner.expect("Inner is NULL");
+    let ctx = ffi_param_ref!(ctx);
+    let inner = ffi_param_ref!(inner);
     let kind = int_to_kind(kind).expect("KIND must not be SQ_ARMOR_KIND_ANY");
 
     let mut header_ = Vec::new();
     if header_len > 0 {
-        let header = header.expect("HEADER is NULL");
+        let header = ffi_param_ref!(header);
         let header = unsafe {
             slice::from_raw_parts(header, header_len)
         };

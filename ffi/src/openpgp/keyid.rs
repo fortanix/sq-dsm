@@ -59,7 +59,7 @@ pub extern "system" fn sq_keyid_free(keyid: *mut KeyID) {
 #[no_mangle]
 pub extern "system" fn sq_keyid_clone(id: Option<&KeyID>)
                                       -> *mut KeyID {
-    let id = id.expect("KeyID is NULL");
+    let id = ffi_param_ref!(id);
     box_raw!(id.clone())
 }
 
@@ -67,7 +67,7 @@ pub extern "system" fn sq_keyid_clone(id: Option<&KeyID>)
 #[no_mangle]
 pub extern "system" fn sq_keyid_hash(id: Option<&KeyID>)
                                      -> uint64_t {
-    let id = id.expect("KeyID is NULL");
+    let id = ffi_param_ref!(id);
     let mut hasher = build_hasher();
     id.hash(&mut hasher);
     hasher.finish()
@@ -77,7 +77,7 @@ pub extern "system" fn sq_keyid_hash(id: Option<&KeyID>)
 #[no_mangle]
 pub extern "system" fn sq_keyid_to_string(id: Option<&KeyID>)
                                           -> *mut c_char {
-    let id = id.expect("KeyID is NULL");
+    let id = ffi_param_ref!(id);
     CString::new(id.to_string())
         .unwrap() // Errors only on internal nul bytes.
         .into_raw()
@@ -87,7 +87,7 @@ pub extern "system" fn sq_keyid_to_string(id: Option<&KeyID>)
 #[no_mangle]
 pub extern "system" fn sq_keyid_to_hex(id: Option<&KeyID>)
                                        -> *mut c_char {
-    let id = id.expect("KeyID is NULL");
+    let id = ffi_param_ref!(id);
     CString::new(id.to_hex())
         .unwrap() // Errors only on internal nul bytes.
         .into_raw()

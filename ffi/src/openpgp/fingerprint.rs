@@ -48,7 +48,7 @@ pub extern "system" fn sq_fingerprint_free(fp: *mut Fingerprint) {
 #[no_mangle]
 pub extern "system" fn sq_fingerprint_clone(fp: Option<&Fingerprint>)
                                             -> *mut Fingerprint {
-    let fp = fp.expect("Fingerprint is NULL");
+    let fp = ffi_param_ref!(fp);
     box_raw!(fp.clone())
 }
 
@@ -56,7 +56,7 @@ pub extern "system" fn sq_fingerprint_clone(fp: Option<&Fingerprint>)
 #[no_mangle]
 pub extern "system" fn sq_fingerprint_hash(fp: Option<&Fingerprint>)
                                            -> uint64_t {
-    let fp = fp.expect("Fingerprint is NULL");
+    let fp = ffi_param_ref!(fp);
     let mut hasher = build_hasher();
     fp.hash(&mut hasher);
     hasher.finish()
@@ -69,7 +69,7 @@ pub extern "system" fn sq_fingerprint_hash(fp: Option<&Fingerprint>)
 #[no_mangle]
 pub extern "system" fn sq_fingerprint_as_bytes(fp: Option<&Fingerprint>, fp_len: Option<&mut size_t>)
                                              -> *const uint8_t {
-    let fp = fp.expect("Fingerprint is NULL");
+    let fp = ffi_param_ref!(fp);
     if let Some(p) = fp_len {
         *p = fp.as_slice().len();
     }
@@ -80,7 +80,7 @@ pub extern "system" fn sq_fingerprint_as_bytes(fp: Option<&Fingerprint>, fp_len:
 #[no_mangle]
 pub extern "system" fn sq_fingerprint_to_string(fp: Option<&Fingerprint>)
                                                 -> *mut c_char {
-    let fp = fp.expect("Fingerprint is NULL");
+    let fp = ffi_param_ref!(fp);
     CString::new(fp.to_string())
         .unwrap() // Errors only on internal nul bytes.
         .into_raw()
@@ -90,7 +90,7 @@ pub extern "system" fn sq_fingerprint_to_string(fp: Option<&Fingerprint>)
 #[no_mangle]
 pub extern "system" fn sq_fingerprint_to_hex(fp: Option<&Fingerprint>)
                                              -> *mut c_char {
-    let fp = fp.expect("Fingerprint is NULL");
+    let fp = ffi_param_ref!(fp);
     CString::new(fp.to_hex())
         .unwrap() // Errors only on internal nul bytes.
         .into_raw()
@@ -100,7 +100,7 @@ pub extern "system" fn sq_fingerprint_to_hex(fp: Option<&Fingerprint>)
 #[no_mangle]
 pub extern "system" fn sq_fingerprint_to_keyid(fp: Option<&Fingerprint>)
                                                -> *mut KeyID {
-    let fp = fp.expect("Fingerprint is NULL");
+    let fp = ffi_param_ref!(fp);
     Box::into_raw(Box::new(fp.to_keyid()))
 }
 

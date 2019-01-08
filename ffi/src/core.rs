@@ -64,7 +64,7 @@ impl Context {
 #[no_mangle]
 pub extern "system" fn sq_context_last_error(ctx: Option<&mut Context>)
                                              -> *mut failure::Error {
-    let ctx = ctx.expect("Context is NULL");
+    let ctx = ffi_param_ref!(ctx);
     maybe_box_raw!(ctx.e.take())
 }
 
@@ -148,29 +148,29 @@ pub extern "system" fn sq_context_home(ctx: Option<&Context>) -> *const c_char {
 /// Returns the directory containing backend servers.
 #[no_mangle]
 pub extern "system" fn sq_context_lib(ctx: Option<&Context>) -> *const c_char {
-    assert!(ctx.is_some());
-    ctx.unwrap().c.lib().to_string_lossy().as_bytes().as_ptr() as *const c_char
+    let ctx = ffi_param_ref!(ctx);
+    ctx.c.lib().to_string_lossy().as_bytes().as_ptr() as *const c_char
 }
 
 /// Returns the network policy.
 #[no_mangle]
 pub extern "system" fn sq_context_network_policy(ctx: Option<&Context>) -> c_int {
-    assert!(ctx.is_some());
-    u8::from(ctx.unwrap().c.network_policy()) as c_int
+    let ctx = ffi_param_ref!(ctx);
+    u8::from(ctx.c.network_policy()) as c_int
 }
 
 /// Returns the IPC policy.
 #[no_mangle]
 pub extern "system" fn sq_context_ipc_policy(ctx: Option<&Context>) -> c_int {
-    assert!(ctx.is_some());
-    u8::from(ctx.unwrap().c.ipc_policy()) as c_int
+    let ctx = ffi_param_ref!(ctx);
+    u8::from(ctx.c.ipc_policy()) as c_int
 }
 
 /// Returns whether or not this is an ephemeral context.
 #[no_mangle]
 pub extern "system" fn sq_context_ephemeral(ctx: Option<&Context>) -> uint8_t {
-    assert!(ctx.is_some());
-    if ctx.unwrap().c.ephemeral() { 1 } else { 0 }
+    let ctx = ffi_param_ref!(ctx);
+    if ctx.c.ephemeral() { 1 } else { 0 }
 }
 
 
@@ -203,53 +203,53 @@ pub extern "system" fn sq_config_build(cfg: Option<&mut Config>,
 #[no_mangle]
 pub extern "system" fn sq_config_home(cfg: Option<&mut Config>,
                                       home: *const c_char) {
-    assert!(cfg.is_some());
+    let cfg = ffi_param_ref!(cfg);
     assert!(! home.is_null());
     let home = unsafe {
         CStr::from_ptr(home).to_string_lossy()
     };
-    cfg.unwrap().set_home(home.as_ref())
+    cfg.set_home(home.as_ref())
 }
 
 /// Set the directory containing backend servers.
 #[no_mangle]
 pub extern "system" fn sq_config_lib(cfg: Option<&mut Config>,
                                      lib: *const c_char) {
-    assert!(cfg.is_some());
+    let cfg = ffi_param_ref!(cfg);
     assert!(! lib.is_null());
     let lib = unsafe {
         CStr::from_ptr(lib).to_string_lossy()
     };
-    cfg.unwrap().set_lib(&lib.as_ref())
+    cfg.set_lib(&lib.as_ref())
 }
 
 /// Sets the network policy.
 #[no_mangle]
 pub extern "system" fn sq_config_network_policy(cfg: Option<&mut Config>,
                                                 policy: c_int) {
-    assert!(cfg.is_some());
+    let cfg = ffi_param_ref!(cfg);
     if policy < 0 || policy > 3 {
         panic!("Bad network policy: {}", policy);
     }
-    cfg.unwrap().set_network_policy((policy as u8).into());
+    cfg.set_network_policy((policy as u8).into());
 }
 
 /// Sets the IPC policy.
 #[no_mangle]
 pub extern "system" fn sq_config_ipc_policy(cfg: Option<&mut Config>,
                                             policy: c_int) {
-    assert!(cfg.is_some());
+    let cfg = ffi_param_ref!(cfg);
     if policy < 0 || policy > 2 {
         panic!("Bad ipc policy: {}", policy);
     }
-    cfg.unwrap().set_ipc_policy((policy as u8).into());
+    cfg.set_ipc_policy((policy as u8).into());
 }
 
 /// Makes this context ephemeral.
 #[no_mangle]
 pub extern "system" fn sq_config_ephemeral(cfg: Option<&mut Config>) {
-    assert!(cfg.is_some());
-    cfg.unwrap().set_ephemeral();
+    let cfg = ffi_param_ref!(cfg);
+    cfg.set_ephemeral();
 }
 
 /* Reader and writer.  */
@@ -259,7 +259,7 @@ pub extern "system" fn sq_config_ephemeral(cfg: Option<&mut Config>) {
 pub extern "system" fn sq_reader_from_file(ctx: Option<&mut Context>,
                                            filename: *const c_char)
                                            -> *mut Box<Read> {
-    let ctx = ctx.expect("Context is NULL");
+    let ctx = ffi_param_ref!(ctx);
     assert!(! filename.is_null());
     let filename = unsafe {
         CStr::from_ptr(filename).to_string_lossy().into_owned()
@@ -301,8 +301,8 @@ pub extern "system" fn sq_reader_read(ctx: Option<&mut Context>,
                                       reader: Option<&mut Box<Read>>,
                                       buf: *mut uint8_t, len: size_t)
                                       -> ssize_t {
-    let ctx = ctx.expect("Context is NULL");
-    let reader = reader.expect("Reader is NULL");
+    let ctx = ffi_param_ref!(ctx);
+    let reader = ffi_param_ref!(reader);
     assert!(!buf.is_null());
     let buf = unsafe {
         slice::from_raw_parts_mut(buf, len as usize)
@@ -319,7 +319,7 @@ pub extern "system" fn sq_reader_read(ctx: Option<&mut Context>,
 pub extern "system" fn sq_writer_from_file(ctx: Option<&mut Context>,
                                            filename: *const c_char)
                                            -> *mut Box<Write> {
-    let ctx = ctx.expect("Context is NULL");
+    let ctx = ffi_param_ref!(ctx);
     assert!(! filename.is_null());
     let filename = unsafe {
         CStr::from_ptr(filename).to_string_lossy().into_owned()
@@ -361,8 +361,8 @@ pub extern "system" fn sq_writer_from_bytes(buf: *mut uint8_t,
 pub extern "system" fn sq_writer_alloc(buf: Option<&'static mut *mut c_void>,
                                        len: Option<&'static mut size_t>)
                                        -> *mut Box<Write> {
-    let buf = buf.expect("BUF is NULL");
-    let len = len.expect("LEN is NULL");
+    let buf = ffi_param_ref!(buf);
+    let len = ffi_param_ref!(len);
 
     box_raw!(Box::new(WriterAlloc {
         buf: buf,
@@ -415,8 +415,8 @@ pub extern "system" fn sq_writer_write(ctx: Option<&mut Context>,
                                        writer: Option<&mut Box<Write>>,
                                        buf: *const uint8_t, len: size_t)
                                        -> ssize_t {
-    let ctx = ctx.expect("Context is NULL");
-    let writer = writer.expect("Writer is NULL");
+    let ctx = ffi_param_ref!(ctx);
+    let writer = ffi_param_ref!(writer);
     assert!(!buf.is_null());
     let buf = unsafe {
         slice::from_raw_parts(buf, len as usize)
