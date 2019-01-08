@@ -5,7 +5,7 @@ CARGO_TARGET_DIR	?= $(shell pwd)/../../target
 # We currently only support absolute paths.
 CARGO_TARGET_DIR	:= $(abspath $(CARGO_TARGET_DIR))
 
-TARGETS = example keyserver configure reader parser encrypt-for
+TARGETS = example keyserver configure reader parser encrypt-for armor
 CFLAGS  = -I../include -O0 -g -Wall -Werror
 LDFLAGS = -L$(CARGO_TARGET_DIR)/debug -lsequoia_ffi
 
