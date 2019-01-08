@@ -1744,6 +1744,14 @@ pub extern "system" fn sq_signature_expired_at(sig: Option<&packet::Signature>,
 }
 
 
+/// Clones the key.
+#[no_mangle]
+pub extern "system" fn sq_p_key_clone(key: Option<&packet::Key>)
+                                      -> *mut packet::Key {
+    let key = key.expect("Key is NULL");
+    box_raw!(key.clone())
+}
+
 /// Computes and returns the key's fingerprint as per Section 12.2
 /// of RFC 4880.
 #[no_mangle]

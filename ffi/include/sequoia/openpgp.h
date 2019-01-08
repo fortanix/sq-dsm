@@ -1063,6 +1063,11 @@ sq_status_t sq_tsk_serialize (sq_context_t ctx,
                               sq_writer_t writer);
 
 /*/
+/// Clones the key.
+/*/
+sq_p_key_t sq_p_key_clone (sq_p_key_t key);
+
+/*/
 /// Computes and returns the key's fingerprint as per Section 12.2
 /// of RFC 4880.
 /*/
