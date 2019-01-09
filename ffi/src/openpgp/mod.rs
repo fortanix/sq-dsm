@@ -158,7 +158,7 @@ pub extern "system" fn sq_tsk_free(tsk: *mut TSK) {
 /// Returns a reference to the corresponding TPK.
 #[no_mangle]
 pub extern "system" fn sq_tsk_tpk(tsk: Option<&TSK>)
-                                  -> &TPK {
+                                  -> *const TPK {
     let tsk = ffi_param_ref!(tsk);
     tsk.tpk()
 }

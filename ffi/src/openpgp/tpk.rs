@@ -210,9 +210,9 @@ pub extern "system" fn sq_tpk_into_tsk(tpk: *mut TPK)
 /// free the key.
 #[no_mangle]
 pub extern "system" fn sq_tpk_primary(tpk: Option<&TPK>)
-    -> Option<&packet::Key> {
+    -> *const packet::Key {
     let tpk = ffi_param_ref!(tpk);
-    Some(tpk.primary())
+    tpk.primary()
 }
 
 /// Returns the TPK's revocation status.
