@@ -42,8 +42,8 @@ use ::error::Status;
 pub extern "system" fn sq_tpk_from_reader(ctx: Option<&mut Context>,
                                           reader: Option<&mut Box<Read>>)
                                           -> *mut TPK {
-    let ctx = ffi_param_ref!(ctx);
-    let reader = ffi_param_ref!(reader);
+    let ctx = ffi_param_ref_mut!(ctx);
+    let reader = ffi_param_ref_mut!(reader);
     fry_box!(ctx, TPK::from_reader(reader))
 }
 
@@ -52,7 +52,7 @@ pub extern "system" fn sq_tpk_from_reader(ctx: Option<&mut Context>,
 pub extern "system" fn sq_tpk_from_file(ctx: Option<&mut Context>,
                                         filename: *const c_char)
                                         -> *mut TPK {
-    let ctx = ffi_param_ref!(ctx);
+    let ctx = ffi_param_ref_mut!(ctx);
     assert!(! filename.is_null());
     let filename = unsafe {
         CStr::from_ptr(filename).to_string_lossy().into_owned()
@@ -67,7 +67,7 @@ pub extern "system" fn sq_tpk_from_file(ctx: Option<&mut Context>,
 pub extern "system" fn sq_tpk_from_packet_pile(ctx: Option<&mut Context>,
                                                m: *mut PacketPile)
                                                -> *mut TPK {
-    let ctx = ffi_param_ref!(ctx);
+    let ctx = ffi_param_ref_mut!(ctx);
     let m = ffi_param_move!(m);
     fry_box!(ctx, TPK::from_packet_pile(*m))
 }
@@ -79,7 +79,7 @@ pub extern "system" fn sq_tpk_from_packet_pile(ctx: Option<&mut Context>,
 pub extern "system" fn sq_tpk_from_bytes(ctx: Option<&mut Context>,
                                          b: *const uint8_t, len: size_t)
                                          -> *mut TPK {
-    let ctx = ffi_param_ref!(ctx);
+    let ctx = ffi_param_ref_mut!(ctx);
     assert!(!b.is_null());
     let buf = unsafe {
         slice::from_raw_parts(b, len as usize)
@@ -96,7 +96,7 @@ pub extern "system" fn sq_tpk_from_packet_parser(ctx: Option<&mut Context>,
                                                  ppr: *mut PacketParserResult)
     -> *mut TPK
 {
-    let ctx = ffi_param_ref!(ctx);
+    let ctx = ffi_param_ref_mut!(ctx);
     let ppr = ffi_param_move!(ppr);
 
     fry_box!(ctx, TPK::from_packet_parser(*ppr))
@@ -132,9 +132,9 @@ pub extern "system" fn sq_tpk_serialize(ctx: Option<&mut Context>,
                                         tpk: Option<&TPK>,
                                         writer: Option<&mut Box<Write>>)
                                         -> Status {
-    let ctx = ffi_param_ref!(ctx);
+    let ctx = ffi_param_ref_mut!(ctx);
     let tpk = ffi_param_ref!(tpk);
-    let writer = ffi_param_ref!(writer);
+    let writer = ffi_param_ref_mut!(writer);
     fry_status!(ctx, tpk.serialize(writer))
 }
 
@@ -149,7 +149,7 @@ pub extern "system" fn sq_tpk_merge(ctx: Option<&mut Context>,
                                     tpk: *mut TPK,
                                     other: *mut TPK)
                                     -> *mut TPK {
-    let ctx = ffi_param_ref!(ctx);
+    let ctx = ffi_param_ref_mut!(ctx);
     let tpk = ffi_param_move!(tpk);
     let other = ffi_param_move!(other);
     fry_box!(ctx, tpk.merge(*other))
@@ -168,7 +168,7 @@ pub extern "system" fn sq_tpk_merge_packets(ctx: Option<&mut Context>,
                                             packets: *mut *mut Packet,
                                             packets_len: size_t)
                                             -> *mut TPK {
-    let ctx = ffi_param_ref!(ctx);
+    let ctx = ffi_param_ref_mut!(ctx);
     let tpk = ffi_param_move!(tpk);
     let packets = unsafe {
         slice::from_raw_parts_mut(packets, packets_len)
@@ -287,7 +287,7 @@ pub extern "system" fn sq_tpk_revoke(ctx: Option<&mut Context>,
                                      reason: Option<*const c_char>)
     -> *mut packet::Signature
 {
-    let ctx = ffi_param_ref!(ctx);
+    let ctx = ffi_param_ref_mut!(ctx);
     let tpk = ffi_param_ref!(tpk);
     let code = int_to_reason_for_revocation(code);
     let reason = if let Some(reason) = reason {
@@ -343,7 +343,7 @@ pub extern "system" fn sq_tpk_revoke_in_place(ctx: Option<&mut Context>,
                                               reason: Option<*const c_char>)
     -> *mut TPK
 {
-    let ctx = ffi_param_ref!(ctx);
+    let ctx = ffi_param_ref_mut!(ctx);
     let tpk = ffi_param_move!(tpk);
     let code = int_to_reason_for_revocation(code);
     let reason = if let Some(reason) = reason {
@@ -401,7 +401,7 @@ pub extern "system" fn sq_tpk_alive_at(tpk: Option<&TPK>, when: time_t)
 pub extern "system" fn sq_tpk_set_expiry(ctx: Option<&mut Context>,
                                          tpk: *mut TPK, expiry: u32)
                                          -> *mut TPK {
-    let ctx = ffi_param_ref!(ctx);
+    let ctx = ffi_param_ref_mut!(ctx);
     let tpk = ffi_param_move!(tpk);
 
     fry_box!(ctx, tpk.set_expiry_in_seconds(expiry))
@@ -489,7 +489,7 @@ pub extern "system" fn sq_user_id_binding_iter_next<'a>(
     iter: Option<&mut UserIDBindingIter<'a>>)
     -> Option<&'a UserIDBinding>
 {
-    let iter = ffi_param_ref!(iter);
+    let iter = ffi_param_ref_mut!(iter);
     iter.next()
 }
 
@@ -539,7 +539,7 @@ pub extern "system" fn sq_tpk_key_iter_next<'a>(
     rso: Option<&mut &'a RevocationStatus<'a>>)
     -> Option<&'a packet::Key>
 {
-    let iter_wrapper = ffi_param_ref!(iter_wrapper);
+    let iter_wrapper = ffi_param_ref_mut!(iter_wrapper);
     iter_wrapper.rso = None;
 
     if let Some((sig, rs, key)) = iter_wrapper.iter.next() {
@@ -611,7 +611,7 @@ pub extern "system" fn sq_tpk_builder_set_cipher_suite
     (tpkb: Option<&mut *mut TPKBuilder>, cs: c_int)
 {
     use self::CipherSuite::*;
-    let tpkb = ffi_param_ref!(tpkb);
+    let tpkb = ffi_param_ref_mut!(tpkb);
     let tpkb_ = ffi_param_move!(*tpkb);
     let cs = match cs {
         0 => Cv25519,
@@ -628,7 +628,7 @@ pub extern "system" fn sq_tpk_builder_set_cipher_suite
 pub extern "system" fn sq_tpk_builder_add_userid
     (tpkb: Option<&mut *mut TPKBuilder>, uid: *const c_char)
 {
-    let tpkb = ffi_param_ref!(tpkb);
+    let tpkb = ffi_param_ref_mut!(tpkb);
     let tpkb_ = ffi_param_move!(*tpkb);
     let uid = unsafe { CStr::from_ptr(uid).to_string_lossy().to_string() };
     let tpkb_ = tpkb_.add_userid(uid.as_ref());
@@ -640,7 +640,7 @@ pub extern "system" fn sq_tpk_builder_add_userid
 pub extern "system" fn sq_tpk_builder_add_signing_subkey
     (tpkb: Option<&mut *mut TPKBuilder>)
 {
-    let tpkb = ffi_param_ref!(tpkb);
+    let tpkb = ffi_param_ref_mut!(tpkb);
     let tpkb_ = ffi_param_move!(*tpkb);
     let tpkb_ = tpkb_.add_signing_subkey();
     *tpkb = box_raw!(tpkb_);
@@ -651,7 +651,7 @@ pub extern "system" fn sq_tpk_builder_add_signing_subkey
 pub extern "system" fn sq_tpk_builder_add_encryption_subkey
     (tpkb: Option<&mut *mut TPKBuilder>)
 {
-    let tpkb = ffi_param_ref!(tpkb);
+    let tpkb = ffi_param_ref_mut!(tpkb);
     let tpkb_ = ffi_param_move!(*tpkb);
     let tpkb_ = tpkb_.add_encryption_subkey();
     *tpkb = box_raw!(tpkb_);
@@ -662,7 +662,7 @@ pub extern "system" fn sq_tpk_builder_add_encryption_subkey
 pub extern "system" fn sq_tpk_builder_add_certification_subkey
     (tpkb: Option<&mut *mut TPKBuilder>)
 {
-    let tpkb = ffi_param_ref!(tpkb);
+    let tpkb = ffi_param_ref_mut!(tpkb);
     let tpkb_ = ffi_param_move!(*tpkb);
     let tpkb_ = tpkb_.add_certification_subkey();
     *tpkb = box_raw!(tpkb_);
@@ -678,9 +678,9 @@ pub extern "system" fn sq_tpk_builder_generate
      revocation_out: Option<&mut *mut Signature>)
     -> Status
 {
-    let ctx = ffi_param_ref!(ctx);
-    let tpk_out = ffi_param_ref!(tpk_out);
-    let revocation_out = ffi_param_ref!(revocation_out);
+    let ctx = ffi_param_ref_mut!(ctx);
+    let tpk_out = ffi_param_ref_mut!(tpk_out);
+    let revocation_out = ffi_param_ref_mut!(revocation_out);
     let tpkb = ffi_param_move!(tpkb);
     match tpkb.generate() {
         Ok((tpk, revocation)) => {

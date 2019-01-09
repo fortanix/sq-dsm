@@ -51,7 +51,7 @@ use super::core::Context;
 #[no_mangle]
 pub extern "system" fn sq_keyserver_new(ctx: Option<&mut Context>,
                                         uri: *const c_char) -> *mut KeyServer {
-    let ctx = ffi_param_ref!(ctx);
+    let ctx = ffi_param_ref_mut!(ctx);
     let uri = unsafe {
         if uri.is_null() { None } else { Some(CStr::from_ptr(uri)) }
     };
@@ -71,7 +71,7 @@ pub extern "system" fn sq_keyserver_with_cert(ctx: Option<&mut Context>,
                                               uri: *const c_char,
                                               cert: *const uint8_t,
                                               len: size_t) -> *mut KeyServer {
-    let ctx = ffi_param_ref!(ctx);
+    let ctx = ffi_param_ref_mut!(ctx);
     let uri = unsafe {
         if uri.is_null() { None } else { Some(CStr::from_ptr(uri)) }
     };
@@ -101,7 +101,7 @@ pub extern "system" fn sq_keyserver_with_cert(ctx: Option<&mut Context>,
 #[no_mangle]
 pub extern "system" fn sq_keyserver_sks_pool(ctx: Option<&mut Context>)
                                              -> *mut KeyServer {
-    let ctx = ffi_param_ref!(ctx);
+    let ctx = ffi_param_ref_mut!(ctx);
     fry_box!(ctx, KeyServer::sks_pool(&ctx.c))
 }
 
@@ -118,8 +118,8 @@ pub extern "system" fn sq_keyserver_free(ks: *mut KeyServer) {
 pub extern "system" fn sq_keyserver_get(ctx: Option<&mut Context>,
                                         ks: Option<&mut KeyServer>,
                                         id: Option<&KeyID>) -> *mut TPK {
-    let ctx = ffi_param_ref!(ctx);
-    let ks = ffi_param_ref!(ks);
+    let ctx = ffi_param_ref_mut!(ctx);
+    let ks = ffi_param_ref_mut!(ks);
     let id = ffi_param_ref!(id);
 
     fry_box!(ctx, ks.get(&id))
@@ -133,8 +133,8 @@ pub extern "system" fn sq_keyserver_send(ctx: Option<&mut Context>,
                                          ks: Option<&mut KeyServer>,
                                          tpk: Option<&TPK>)
                                          -> Status {
-    let ctx = ffi_param_ref!(ctx);
-    let ks = ffi_param_ref!(ks);
+    let ctx = ffi_param_ref_mut!(ctx);
+    let ks = ffi_param_ref_mut!(ks);
     let tpk = ffi_param_ref!(tpk);
 
     fry_status!(ctx, ks.send(tpk))

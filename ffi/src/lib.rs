@@ -173,6 +173,20 @@ macro_rules! ffi_param_ref {
     }};
 }
 
+/// Transfers a mutable reference from C to Rust.
+///
+/// # Panics
+///
+/// Panics if called with NULL.
+macro_rules! ffi_param_ref_mut {
+    ($name:ident) => {{
+        if $name.is_none() {
+            panic!("Parameter {} is NULL", stringify!($name));
+        }
+        $name.unwrap()
+    }};
+}
+
 /// Like try! for ffi glue.
 ///
 /// Evaluates the given expression.  On success, evaluate to

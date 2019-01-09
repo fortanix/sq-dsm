@@ -64,7 +64,7 @@ impl Context {
 #[no_mangle]
 pub extern "system" fn sq_context_last_error(ctx: Option<&mut Context>)
                                              -> *mut failure::Error {
-    let ctx = ffi_param_ref!(ctx);
+    let ctx = ffi_param_ref_mut!(ctx);
     maybe_box_raw!(ctx.e.take())
 }
 
@@ -202,7 +202,7 @@ pub extern "system" fn sq_config_build(cfg: *mut Config,
 #[no_mangle]
 pub extern "system" fn sq_config_home(cfg: Option<&mut Config>,
                                       home: *const c_char) {
-    let cfg = ffi_param_ref!(cfg);
+    let cfg = ffi_param_ref_mut!(cfg);
     assert!(! home.is_null());
     let home = unsafe {
         CStr::from_ptr(home).to_string_lossy()
@@ -214,7 +214,7 @@ pub extern "system" fn sq_config_home(cfg: Option<&mut Config>,
 #[no_mangle]
 pub extern "system" fn sq_config_lib(cfg: Option<&mut Config>,
                                      lib: *const c_char) {
-    let cfg = ffi_param_ref!(cfg);
+    let cfg = ffi_param_ref_mut!(cfg);
     assert!(! lib.is_null());
     let lib = unsafe {
         CStr::from_ptr(lib).to_string_lossy()
@@ -226,7 +226,7 @@ pub extern "system" fn sq_config_lib(cfg: Option<&mut Config>,
 #[no_mangle]
 pub extern "system" fn sq_config_network_policy(cfg: Option<&mut Config>,
                                                 policy: c_int) {
-    let cfg = ffi_param_ref!(cfg);
+    let cfg = ffi_param_ref_mut!(cfg);
     if policy < 0 || policy > 3 {
         panic!("Bad network policy: {}", policy);
     }
@@ -237,7 +237,7 @@ pub extern "system" fn sq_config_network_policy(cfg: Option<&mut Config>,
 #[no_mangle]
 pub extern "system" fn sq_config_ipc_policy(cfg: Option<&mut Config>,
                                             policy: c_int) {
-    let cfg = ffi_param_ref!(cfg);
+    let cfg = ffi_param_ref_mut!(cfg);
     if policy < 0 || policy > 2 {
         panic!("Bad ipc policy: {}", policy);
     }
@@ -247,7 +247,7 @@ pub extern "system" fn sq_config_ipc_policy(cfg: Option<&mut Config>,
 /// Makes this context ephemeral.
 #[no_mangle]
 pub extern "system" fn sq_config_ephemeral(cfg: Option<&mut Config>) {
-    let cfg = ffi_param_ref!(cfg);
+    let cfg = ffi_param_ref_mut!(cfg);
     cfg.set_ephemeral();
 }
 
@@ -258,7 +258,7 @@ pub extern "system" fn sq_config_ephemeral(cfg: Option<&mut Config>) {
 pub extern "system" fn sq_reader_from_file(ctx: Option<&mut Context>,
                                            filename: *const c_char)
                                            -> *mut Box<Read> {
-    let ctx = ffi_param_ref!(ctx);
+    let ctx = ffi_param_ref_mut!(ctx);
     assert!(! filename.is_null());
     let filename = unsafe {
         CStr::from_ptr(filename).to_string_lossy().into_owned()
@@ -300,8 +300,8 @@ pub extern "system" fn sq_reader_read(ctx: Option<&mut Context>,
                                       reader: Option<&mut Box<Read>>,
                                       buf: *mut uint8_t, len: size_t)
                                       -> ssize_t {
-    let ctx = ffi_param_ref!(ctx);
-    let reader = ffi_param_ref!(reader);
+    let ctx = ffi_param_ref_mut!(ctx);
+    let reader = ffi_param_ref_mut!(reader);
     assert!(!buf.is_null());
     let buf = unsafe {
         slice::from_raw_parts_mut(buf, len as usize)
@@ -318,7 +318,7 @@ pub extern "system" fn sq_reader_read(ctx: Option<&mut Context>,
 pub extern "system" fn sq_writer_from_file(ctx: Option<&mut Context>,
                                            filename: *const c_char)
                                            -> *mut Box<Write> {
-    let ctx = ffi_param_ref!(ctx);
+    let ctx = ffi_param_ref_mut!(ctx);
     assert!(! filename.is_null());
     let filename = unsafe {
         CStr::from_ptr(filename).to_string_lossy().into_owned()
@@ -360,8 +360,8 @@ pub extern "system" fn sq_writer_from_bytes(buf: *mut uint8_t,
 pub extern "system" fn sq_writer_alloc(buf: Option<&'static mut *mut c_void>,
                                        len: Option<&'static mut size_t>)
                                        -> *mut Box<Write> {
-    let buf = ffi_param_ref!(buf);
-    let len = ffi_param_ref!(len);
+    let buf = ffi_param_ref_mut!(buf);
+    let len = ffi_param_ref_mut!(len);
 
     box_raw!(Box::new(WriterAlloc {
         buf: buf,
@@ -414,8 +414,8 @@ pub extern "system" fn sq_writer_write(ctx: Option<&mut Context>,
                                        writer: Option<&mut Box<Write>>,
                                        buf: *const uint8_t, len: size_t)
                                        -> ssize_t {
-    let ctx = ffi_param_ref!(ctx);
-    let writer = ffi_param_ref!(writer);
+    let ctx = ffi_param_ref_mut!(ctx);
+    let writer = ffi_param_ref_mut!(writer);
     assert!(!buf.is_null());
     let buf = unsafe {
         slice::from_raw_parts(buf, len as usize)
