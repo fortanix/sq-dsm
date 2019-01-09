@@ -104,7 +104,7 @@ pub extern "system" fn sq_tpk_from_packet_parser(ctx: *mut Context,
 
 /// Frees the TPK.
 #[no_mangle]
-pub extern "system" fn sq_tpk_free(tpk: *mut TPK) {
+pub extern "system" fn sq_tpk_free(tpk: Option<&mut TPK>) {
     ffi_free!(tpk)
 }
 
@@ -478,7 +478,7 @@ pub extern "system" fn sq_tpk_user_id_binding_iter(tpk: *const TPK)
 /// Frees a sq_user_id_binding_iter_t.
 #[no_mangle]
 pub extern "system" fn sq_user_id_binding_iter_free(
-    iter: *mut UserIDBindingIter)
+    iter: Option<&mut UserIDBindingIter>)
 {
     ffi_free!(iter)
 }
@@ -518,7 +518,7 @@ pub extern "system" fn sq_tpk_key_iter(tpk: *const TPK)
 /// Frees a sq_tpk_key_iter_t.
 #[no_mangle]
 pub extern "system" fn sq_tpk_key_iter_free(
-    iter: *mut KeyIterWrapper)
+    iter: Option<&mut KeyIterWrapper>)
 {
     ffi_free!(iter)
 }
@@ -599,7 +599,7 @@ pub extern "system" fn sq_tpk_builder_autocrypt() -> *mut TPKBuilder {
 
 /// Frees an `sq_tpk_builder_t`.
 #[no_mangle]
-pub extern "system" fn sq_tpk_builder_free(tpkb: *mut TPKBuilder)
+pub extern "system" fn sq_tpk_builder_free(tpkb: Option<&mut TPKBuilder>)
 {
     ffi_free!(tpkb)
 }

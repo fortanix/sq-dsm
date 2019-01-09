@@ -40,7 +40,7 @@ pub extern "system" fn sq_fingerprint_from_hex(hex: *const c_char)
 
 /// Frees a sq_fingerprint_t.
 #[no_mangle]
-pub extern "system" fn sq_fingerprint_free(fp: *mut Fingerprint) {
+pub extern "system" fn sq_fingerprint_free(fp: Option<&mut Fingerprint>) {
     ffi_free!(fp)
 }
 

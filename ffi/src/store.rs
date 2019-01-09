@@ -96,7 +96,7 @@ pub extern "system" fn sq_store_iter_next(iter: *mut StoreIter,
 
 /// Frees a sq_store_iter_t.
 #[no_mangle]
-pub extern "system" fn sq_store_iter_free(iter: *mut StoreIter) {
+pub extern "system" fn sq_store_iter_free(iter: Option<&mut StoreIter>) {
     ffi_free!(iter)
 }
 
@@ -141,7 +141,7 @@ pub extern "system" fn sq_key_iter_next(iter: *mut KeyIter,
 
 /// Frees a sq_key_iter_t.
 #[no_mangle]
-pub extern "system" fn sq_key_iter_free(iter: *mut KeyIter) {
+pub extern "system" fn sq_key_iter_free(iter: Option<&mut KeyIter>) {
     ffi_free!(iter)
 }
 
@@ -183,7 +183,7 @@ pub extern "system" fn sq_log_iter_next(iter: *mut LogIter)
 
 /// Frees a sq_log_iter_t.
 #[no_mangle]
-pub extern "system" fn sq_log_iter_free(iter: *mut LogIter) {
+pub extern "system" fn sq_log_iter_free(iter: Option<&mut LogIter>) {
     ffi_free!(iter)
 }
 
@@ -214,7 +214,7 @@ pub extern "system" fn sq_store_open(ctx: *mut Context,
 
 /// Frees a sq_store_t.
 #[no_mangle]
-pub extern "system" fn sq_store_free(store: *mut Store) {
+pub extern "system" fn sq_store_free(store: Option<&mut Store>) {
     ffi_free!(store)
 }
 
@@ -349,7 +349,7 @@ pub extern "system" fn sq_binding_iter_next(iter: *mut BindingIter,
 
 /// Frees a sq_binding_iter_t.
 #[no_mangle]
-pub extern "system" fn sq_binding_iter_free(iter: *mut BindingIter) {
+pub extern "system" fn sq_binding_iter_free(iter: Option<&mut BindingIter>) {
     ffi_free!(iter)
 }
 
@@ -366,28 +366,35 @@ pub extern "system" fn sq_store_log(ctx: *mut Context,
 
 /// Frees a sq_binding_t.
 #[no_mangle]
-pub extern "system" fn sq_binding_free(binding: *mut Binding) {
+pub extern "system" fn sq_binding_free(binding: Option<&mut Binding>) {
     ffi_free!(binding)
 }
 
 /// Frees a sq_key_t.
 #[no_mangle]
-pub extern "system" fn sq_key_free(key: *mut Key) {
+pub extern "system" fn sq_key_free(key: Option<&mut Key>) {
     ffi_free!(key)
 }
 
 /// Frees a sq_log_t.
 #[no_mangle]
-pub extern "system" fn sq_log_free(log: *mut Log) {
-    if log.is_null() { return };
-    let log = ffi_param_move!(log);
-    sq_store_free(log.store);
-    sq_binding_free(log.binding);
-    sq_key_free(log.key);
-    sq_string_free(log.slug);
-    sq_string_free(log.status);
-    sq_string_free(log.error);
-    drop(log)
+pub extern "system" fn sq_log_free(log: Option<&mut Log>) {
+    if let Some(log) = log {
+        let log = unsafe { Box::from_raw(log) };
+        if ! log.store.is_null() {
+            ffi_param_move!(log.store);
+        }
+        if ! log.binding.is_null() {
+            ffi_param_move!(log.binding);
+        }
+        if ! log.key.is_null() {
+            ffi_param_move!(log.key);
+        }
+        sq_string_free(log.slug);
+        sq_string_free(log.status);
+        sq_string_free(log.error);
+        drop(log)
+    }
 }
 
 /// Returns the `sq_stats_t` of this binding.
@@ -557,7 +564,7 @@ pub extern "system" fn sq_key_log(ctx: *mut Context,
 
 /// Frees a sq_stats_t.
 #[no_mangle]
-pub extern "system" fn sq_stats_free(stats: *mut Stats) {
+pub extern "system" fn sq_stats_free(stats: Option<&mut Stats>) {
     ffi_free!(stats)
 }
 

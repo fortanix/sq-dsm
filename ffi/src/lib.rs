@@ -18,8 +18,10 @@
 //! Sequoia objects are opaque objects.  They are created in
 //! constructors, and must be freed when no longer needed.
 //!
-//! Pointers handed to Sequoia must not be `NULL`, destructors are
-//! exempt from this rule.  Freeing `NULL` is a nop.
+//! Pointers handed to Sequoia must not be `NULL`, unless explicitly
+//! stated.  See [references].
+//!
+//! [references]: #references
 //!
 //! Enumeration-like values must be in the valid range.
 //!
@@ -63,10 +65,9 @@
 //!  - All references are valid.
 //!
 //! In this crate we enforce the second rule by asserting that all
-//! pointers handed in are non-`NULL`.  There are two exceptions:
-//!
-//!   - It is explicitly stated by using `Option<&T>` or `Option<&mut T>`.
-//!   - Destructors (`sq_*_free`) may be called with `NULL`.
+//! pointers handed in are non-`NULL`.  If a parameter of an FFI
+//! function uses `Option<&T>` or `Option<&mut T>`, it may be called
+//! with `NULL`.  A notable example are the destructors (`sq_*_free`).
 //!
 //! # Lifetimes
 //!
@@ -134,9 +135,9 @@ use std::hash::BuildHasher;
 /// NOP if called with NULL.
 macro_rules! ffi_free {
     ($name:ident) => {{
-        if ! $name.is_null() {
+        if let Some(ptr) = $name {
             unsafe {
-                drop(Box::from_raw($name))
+                drop(Box::from_raw(ptr))
             }
         }
     }};

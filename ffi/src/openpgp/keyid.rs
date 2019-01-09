@@ -51,7 +51,7 @@ pub extern "system" fn sq_keyid_from_hex(id: *const c_char) -> *mut KeyID {
 
 /// Frees an `KeyID` object.
 #[no_mangle]
-pub extern "system" fn sq_keyid_free(keyid: *mut KeyID) {
+pub extern "system" fn sq_keyid_free(keyid: Option<&mut KeyID>) {
     ffi_free!(keyid)
 }
 

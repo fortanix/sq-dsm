@@ -117,7 +117,7 @@ pub extern "system" fn sq_revocation_status_variant(
 /// Frees a sq_revocation_status_t.
 #[no_mangle]
 pub extern "system" fn sq_revocation_status_free(
-    rs: *mut RevocationStatus)
+    rs: Option<&mut RevocationStatus>)
 {
     ffi_free!(rs)
 }
@@ -151,7 +151,7 @@ pub extern "system" fn sq_tsk_new(ctx: *mut Context,
 
 /// Frees the TSK.
 #[no_mangle]
-pub extern "system" fn sq_tsk_free(tsk: *mut TSK) {
+pub extern "system" fn sq_tsk_free(tsk: Option<&mut TSK>) {
     ffi_free!(tsk)
 }
 
@@ -188,7 +188,7 @@ pub extern "system" fn sq_tsk_serialize(ctx: *mut Context,
 
 /// Frees the Packet.
 #[no_mangle]
-pub extern "system" fn sq_packet_free(p: *mut Packet) {
+pub extern "system" fn sq_packet_free(p: Option<&mut Packet>) {
     ffi_free!(p)
 }
 
@@ -225,7 +225,7 @@ pub extern "system" fn sq_packet_kind(p: *const Packet)
 
 /// Frees the Signature.
 #[no_mangle]
-pub extern "system" fn sq_signature_free(s: *mut Signature) {
+pub extern "system" fn sq_signature_free(s: Option<&mut Signature>) {
     ffi_free!(s)
 }
 
@@ -698,14 +698,14 @@ pub extern "system" fn sq_packet_parser_from_bytes
 /// Frees the packet parser result
 #[no_mangle]
 pub extern "system" fn sq_packet_parser_result_free(
-    ppr: *mut PacketParserResult)
+    ppr: Option<&mut PacketParserResult>)
 {
     ffi_free!(ppr)
 }
 
 /// Frees the packet parser.
 #[no_mangle]
-pub extern "system" fn sq_packet_parser_free(pp: *mut PacketParser) {
+pub extern "system" fn sq_packet_parser_free(pp: Option<&mut PacketParser>) {
     ffi_free!(pp)
 }
 
@@ -721,7 +721,9 @@ pub extern "system" fn sq_packet_parser_eof_is_message(
 
 /// Frees the packet parser EOF object.
 #[no_mangle]
-pub extern "system" fn sq_packet_parser_eof_free(eof: *mut PacketParserEOF) {
+pub extern "system" fn sq_packet_parser_eof_free
+    (eof: Option<&mut PacketParserEOF>)
+{
     ffi_free!(eof)
 }
 

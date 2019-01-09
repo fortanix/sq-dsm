@@ -107,7 +107,7 @@ pub extern "system" fn sq_keyserver_sks_pool(ctx: *mut Context)
 
 /// Frees a keyserver object.
 #[no_mangle]
-pub extern "system" fn sq_keyserver_free(ks: *mut KeyServer) {
+pub extern "system" fn sq_keyserver_free(ks: Option<&mut KeyServer>) {
     ffi_free!(ks)
 }
 
