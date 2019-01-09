@@ -1446,7 +1446,6 @@ impl VerificationHelper for VHelper {
             tpks.push(tpk);
         }
 
-        forget(tpk_refs_raw);
         (free)(tpk_refs_raw as *mut c_void);
 
         Ok(tpks)
