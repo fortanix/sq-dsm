@@ -233,7 +233,7 @@ macro_rules! fry_or {
 /// the context and returns NULL.
 macro_rules! fry {
     ($ctx:expr, $expr:expr) => {
-        fry_or!($ctx, $expr, ptr::null_mut())
+        fry_or!($ctx, $expr, ::std::ptr::null_mut())
     };
 }
 

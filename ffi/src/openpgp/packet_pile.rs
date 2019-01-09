@@ -5,7 +5,6 @@
 //! [`sequoia-openpgp::PacketPile`]: ../../../sequoia_openpgp/struct.PacketPile.html
 
 use std::ffi::CStr;
-use std::ptr;
 use std::slice;
 use std::io::{Read, Write};
 use libc::{uint8_t, c_char, size_t};
