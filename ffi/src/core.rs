@@ -181,11 +181,10 @@ pub extern "system" fn sq_context_ephemeral(ctx: Option<&Context>) -> uint8_t {
 /// Consumes `cfg`.  Returns `NULL` on errors. Returns `NULL` on
 /// errors.  If `errp` is not `NULL`, the error is stored there.
 #[no_mangle]
-pub extern "system" fn sq_config_build(cfg: Option<&mut Config>,
+pub extern "system" fn sq_config_build(cfg: *mut Config,
                                        errp: Option<&mut *mut failure::Error>)
                                        -> *mut Context {
-    assert!(cfg.is_some());
-    let cfg = unsafe { Box::from_raw(cfg.unwrap()) };
+    let cfg = ffi_param_move!(cfg);
 
     match cfg.build() {
         Ok(context) =>

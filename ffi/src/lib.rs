@@ -143,6 +143,22 @@ macro_rules! ffi_free {
 
 /* Parameter handling.  */
 
+/// Transfers ownership from C to Rust.
+///
+/// # Panics
+///
+/// Panics if called with NULL.
+macro_rules! ffi_param_move {
+    ($name:expr) => {{
+        if $name.is_null() {
+            panic!("Parameter {} is NULL", stringify!($name));
+        }
+        unsafe {
+            Box::from_raw($name)
+        }
+    }};
+}
+
 /// Transfers a reference from C to Rust.
 ///
 /// # Panics

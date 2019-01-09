@@ -108,10 +108,7 @@ pub extern "system" fn sq_revocation_status_variant(
     rs: *mut RevocationStatus)
     -> c_int
 {
-    assert!(! rs.is_null());
-    let rs = unsafe {
-        Box::from_raw(rs as *mut RevocationStatus)
-    };
+    let rs = ffi_param_move!(rs as *mut RevocationStatus);
     let variant = revocation_status_to_int(rs.as_ref());
     Box::into_raw(rs);
     variant
@@ -170,9 +167,7 @@ pub extern "system" fn sq_tsk_tpk(tsk: Option<&TSK>)
 #[no_mangle]
 pub extern "system" fn sq_tsk_into_tpk(tsk: *mut TSK)
                                        -> *mut TPK {
-    let tsk = unsafe {
-        Box::from_raw(tsk)
-    };
+    let tsk = ffi_param_move!(tsk);
     box_raw!(tsk.into_tpk())
 }
 
@@ -239,10 +234,8 @@ pub extern "system" fn sq_signature_free(s: *mut Signature) {
 pub extern "system" fn sq_signature_to_packet(s: *mut Signature)
                                               -> *mut Packet
 {
-    assert!(! s.is_null());
-    unsafe {
-        box_raw!(Box::from_raw(s).to_packet())
-    }
+    let s = ffi_param_move!(s);
+    box_raw!(s.to_packet())
 }
 
 /// Returns the value of the `Signature` packet's Issuer subpacket.
@@ -828,10 +821,7 @@ pub extern "system" fn sq_packet_parser_next<'a>
      ppr: Option<&mut *mut PacketParserResult<'a>>)
      -> Status {
     let ctx = ffi_param_ref!(ctx);
-    assert!(! pp.is_null());
-    let pp = unsafe {
-        Box::from_raw(pp)
-    };
+    let pp = ffi_param_move!(pp);
 
     match pp.next() {
         Ok((old_p, new_ppr)) => {
@@ -875,10 +865,7 @@ pub extern "system" fn sq_packet_parser_recurse<'a>
      ppr: Option<&mut *mut PacketParserResult<'a>>)
      -> Status {
     let ctx = ffi_param_ref!(ctx);
-    assert!(! pp.is_null());
-    let pp = unsafe {
-        Box::from_raw(pp)
-    };
+    let pp = ffi_param_move!(pp);
 
     match pp.recurse() {
         Ok((old_p, new_ppr)) => {
@@ -1008,10 +995,7 @@ pub extern "system" fn sq_packet_parser_result_packet_parser<'a>
     (ppr: *mut PacketParserResult<'a>)
     -> *mut PacketParser<'a>
 {
-    assert!(! ppr.is_null());
-    let ppr = unsafe {
-        Box::from_raw(ppr)
-    };
+    let ppr = ffi_param_move!(ppr);
 
     match *ppr {
         PacketParserResult::Some(pp) => box_raw!(pp),
@@ -1039,10 +1023,7 @@ pub extern "system" fn sq_packet_parser_result_eof<'a>
     (ppr: *mut PacketParserResult<'a>)
     -> *mut PacketParserEOF
 {
-    assert!(! ppr.is_null());
-    let ppr = unsafe {
-        Box::from_raw(ppr)
-    };
+    let ppr = ffi_param_move!(ppr);
 
     match *ppr {
         PacketParserResult::Some(_) => {
@@ -1073,10 +1054,7 @@ pub extern "system" fn sq_writer_stack_message
     (writer: *mut Box<Write>)
      -> *mut writer::Stack<'static, Cookie>
 {
-    assert!(!writer.is_null());
-    let writer = unsafe {
-        Box::from_raw(writer)
-    };
+    let writer = ffi_param_move!(writer);
     box_raw!(Message::new(writer))
 }
 
@@ -1127,9 +1105,7 @@ pub extern "system" fn sq_writer_stack_finalize_one
 {
     let ctx = ffi_param_ref!(ctx);
     if !writer.is_null() {
-        let writer = unsafe {
-            Box::from_raw(writer)
-        };
+        let writer = ffi_param_move!(writer);
         maybe_box_raw!(fry!(ctx, writer.finalize_one()))
     } else {
         ptr::null_mut()
@@ -1145,9 +1121,7 @@ pub extern "system" fn sq_writer_stack_finalize
 {
     let ctx = ffi_param_ref!(ctx);
     if !writer.is_null() {
-        let writer = unsafe {
-            Box::from_raw(writer)
-        };
+        let writer = ffi_param_move!(writer);
         fry_status!(ctx, writer.finalize())
     } else {
         Status::Success
@@ -1167,10 +1141,7 @@ pub extern "system" fn sq_arbitrary_writer_new
      -> *mut writer::Stack<'static, Cookie>
 {
     let ctx = ffi_param_ref!(ctx);
-    assert!(!inner.is_null());
-    let inner = unsafe {
-        Box::from_raw(inner)
-    };
+    let inner = ffi_param_move!(inner);
     fry_box!(ctx, ArbitraryWriter::new(*inner, tag.into()))
 }
 
@@ -1187,10 +1158,7 @@ pub extern "system" fn sq_signer_new
      -> *mut writer::Stack<'static, Cookie>
 {
     let ctx = ffi_param_ref!(ctx);
-    assert!(!inner.is_null());
-    let inner = unsafe {
-        Box::from_raw(inner)
-    };
+    let inner = ffi_param_move!(inner);
     let signers = ffi_param_ref!(signers);
     let signers = unsafe {
         slice::from_raw_parts(signers, signers_len)
@@ -1207,10 +1175,7 @@ pub extern "system" fn sq_signer_new_detached
      -> *mut writer::Stack<'static, Cookie>
 {
     let ctx = ffi_param_ref!(ctx);
-    assert!(!inner.is_null());
-    let inner = unsafe {
-        Box::from_raw(inner)
-    };
+    let inner = ffi_param_move!(inner);
     let signers = signers.expect("Signers is NULL");
     let signers = unsafe {
         slice::from_raw_parts(signers, signers_len)
@@ -1229,10 +1194,7 @@ pub extern "system" fn sq_literal_writer_new
      -> *mut writer::Stack<'static, Cookie>
 {
     let ctx = ffi_param_ref!(ctx);
-    assert!(!inner.is_null());
-    let inner = unsafe {
-        Box::from_raw(inner)
-    };
+    let inner = ffi_param_move!(inner);
     fry_box!(ctx, LiteralWriter::new(*inner,
                                      DataFormat::Binary,
                                      None,
@@ -1257,10 +1219,7 @@ pub extern "system" fn sq_encryptor_new
      -> *mut writer::Stack<'static, Cookie>
 {
     let ctx = ffi_param_ref!(ctx);
-    assert!(!inner.is_null());
-    let inner = unsafe {
-        Box::from_raw(inner)
-    };
+    let inner = ffi_param_move!(inner);
     let mut passwords_ = Vec::new();
     if passwords_len > 0 {
         let passwords = passwords.expect("Passwords is NULL");
@@ -1646,9 +1605,7 @@ impl DecryptionHelper for DHelper {
                 "Callback did not return a session key".into()).into());
         }
 
-        let secret = unsafe {
-            Box::from_raw(secret)
-        };
+        let secret = ffi_param_move!(secret);
 
         Ok(Some(*secret))
     }

@@ -68,8 +68,7 @@ pub extern "system" fn sq_tpk_from_packet_pile(ctx: Option<&mut Context>,
                                                m: *mut PacketPile)
                                                -> *mut TPK {
     let ctx = ffi_param_ref!(ctx);
-    assert!(! m.is_null());
-    let m = unsafe { Box::from_raw(m) };
+    let m = ffi_param_move!(m);
     fry_box!(ctx, TPK::from_packet_pile(*m))
 }
 
@@ -98,8 +97,7 @@ pub extern "system" fn sq_tpk_from_packet_parser(ctx: Option<&mut Context>,
     -> *mut TPK
 {
     let ctx = ffi_param_ref!(ctx);
-    assert!(! ppr.is_null());
-    let ppr = unsafe { Box::from_raw(ppr) };
+    let ppr = ffi_param_move!(ppr);
 
     fry_box!(ctx, TPK::from_packet_parser(*ppr))
 }
@@ -152,10 +150,8 @@ pub extern "system" fn sq_tpk_merge(ctx: Option<&mut Context>,
                                     other: *mut TPK)
                                     -> *mut TPK {
     let ctx = ffi_param_ref!(ctx);
-    assert!(! tpk.is_null());
-    let tpk = unsafe { Box::from_raw(tpk) };
-    assert!(! other.is_null());
-    let other = unsafe { Box::from_raw(other) };
+    let tpk = ffi_param_move!(tpk);
+    let other = ffi_param_move!(other);
     fry_box!(ctx, tpk.merge(*other))
 }
 
@@ -173,8 +169,7 @@ pub extern "system" fn sq_tpk_merge_packets(ctx: Option<&mut Context>,
                                             packets_len: size_t)
                                             -> *mut TPK {
     let ctx = ffi_param_ref!(ctx);
-    assert!(! tpk.is_null());
-    let tpk = unsafe { Box::from_raw(tpk) };
+    let tpk = ffi_param_move!(tpk);
     let packets = unsafe {
         slice::from_raw_parts_mut(packets, packets_len)
     };
@@ -205,10 +200,7 @@ pub extern "system" fn sq_tpk_fingerprint(tpk: Option<&TPK>)
 #[no_mangle]
 pub extern "system" fn sq_tpk_into_tsk(tpk: *mut TPK)
                                        -> *mut TSK {
-    assert!(!tpk.is_null());
-    let tpk = unsafe {
-        Box::from_raw(tpk)
-    };
+    let tpk = ffi_param_move!(tpk);
     box_raw!(tpk.into_tsk())
 }
 
@@ -352,10 +344,7 @@ pub extern "system" fn sq_tpk_revoke_in_place(ctx: Option<&mut Context>,
     -> *mut TPK
 {
     let ctx = ffi_param_ref!(ctx);
-    assert!(!tpk.is_null());
-    let tpk = unsafe {
-        Box::from_raw(tpk)
-    };
+    let tpk = ffi_param_move!(tpk);
     let code = int_to_reason_for_revocation(code);
     let reason = if let Some(reason) = reason {
         unsafe {
@@ -413,10 +402,7 @@ pub extern "system" fn sq_tpk_set_expiry(ctx: Option<&mut Context>,
                                          tpk: *mut TPK, expiry: u32)
                                          -> *mut TPK {
     let ctx = ffi_param_ref!(ctx);
-    assert!(!tpk.is_null());
-    let tpk = unsafe {
-        Box::from_raw(tpk)
-    };
+    let tpk = ffi_param_move!(tpk);
 
     fry_box!(ctx, tpk.set_expiry_in_seconds(expiry))
 }
@@ -626,8 +612,7 @@ pub extern "system" fn sq_tpk_builder_set_cipher_suite
 {
     use self::CipherSuite::*;
     let tpkb = ffi_param_ref!(tpkb);
-    assert!(! tpkb.is_null());
-    let tpkb_ = unsafe { Box::from_raw(*tpkb) };
+    let tpkb_ = ffi_param_move!(*tpkb);
     let cs = match cs {
         0 => Cv25519,
         1 => RSA3k,
@@ -644,8 +629,7 @@ pub extern "system" fn sq_tpk_builder_add_userid
     (tpkb: Option<&mut *mut TPKBuilder>, uid: *const c_char)
 {
     let tpkb = ffi_param_ref!(tpkb);
-    assert!(!tpkb.is_null());
-    let tpkb_ = unsafe { Box::from_raw(*tpkb) };
+    let tpkb_ = ffi_param_move!(*tpkb);
     let uid = unsafe { CStr::from_ptr(uid).to_string_lossy().to_string() };
     let tpkb_ = tpkb_.add_userid(uid.as_ref());
     *tpkb = box_raw!(tpkb_);
@@ -657,8 +641,7 @@ pub extern "system" fn sq_tpk_builder_add_signing_subkey
     (tpkb: Option<&mut *mut TPKBuilder>)
 {
     let tpkb = ffi_param_ref!(tpkb);
-    assert!(!tpkb.is_null());
-    let tpkb_ = unsafe { Box::from_raw(*tpkb) };
+    let tpkb_ = ffi_param_move!(*tpkb);
     let tpkb_ = tpkb_.add_signing_subkey();
     *tpkb = box_raw!(tpkb_);
 }
@@ -669,8 +652,7 @@ pub extern "system" fn sq_tpk_builder_add_encryption_subkey
     (tpkb: Option<&mut *mut TPKBuilder>)
 {
     let tpkb = ffi_param_ref!(tpkb);
-    assert!(!tpkb.is_null());
-    let tpkb_ = unsafe { Box::from_raw(*tpkb) };
+    let tpkb_ = ffi_param_move!(*tpkb);
     let tpkb_ = tpkb_.add_encryption_subkey();
     *tpkb = box_raw!(tpkb_);
 }
@@ -681,8 +663,7 @@ pub extern "system" fn sq_tpk_builder_add_certification_subkey
     (tpkb: Option<&mut *mut TPKBuilder>)
 {
     let tpkb = ffi_param_ref!(tpkb);
-    assert!(!tpkb.is_null());
-    let tpkb_ = unsafe { Box::from_raw(*tpkb) };
+    let tpkb_ = ffi_param_move!(*tpkb);
     let tpkb_ = tpkb_.add_certification_subkey();
     *tpkb = box_raw!(tpkb_);
 }
@@ -698,10 +679,9 @@ pub extern "system" fn sq_tpk_builder_generate
     -> Status
 {
     let ctx = ffi_param_ref!(ctx);
-    assert!(!tpkb.is_null());
     let tpk_out = ffi_param_ref!(tpk_out);
     let revocation_out = ffi_param_ref!(revocation_out);
-    let tpkb = unsafe { Box::from_raw(tpkb) };
+    let tpkb = ffi_param_move!(tpkb);
     match tpkb.generate() {
         Ok((tpk, revocation)) => {
             *tpk_out = box_raw!(tpk);

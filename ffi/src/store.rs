@@ -302,10 +302,7 @@ pub extern "system" fn sq_store_delete(ctx: Option<&mut Context>,
                                        store: *mut Store)
                                        -> Status {
     let ctx = ffi_param_ref!(ctx);
-    assert!(! store.is_null());
-    let store = unsafe {
-        Box::from_raw(store)
-    };
+    let store = ffi_param_move!(store);
 
     fry_status!(ctx, store.delete())
 }
@@ -383,9 +380,7 @@ pub extern "system" fn sq_key_free(key: *mut Key) {
 #[no_mangle]
 pub extern "system" fn sq_log_free(log: *mut Log) {
     if log.is_null() { return };
-    let log = unsafe {
-        Box::from_raw(log)
-    };
+    let log = ffi_param_move!(log);
     sq_store_free(log.store);
     sq_binding_free(log.binding);
     sq_key_free(log.key);
@@ -490,10 +485,7 @@ pub extern "system" fn sq_binding_delete(ctx: Option<&mut Context>,
                                          binding: *mut Binding)
                                          -> Status {
     let ctx = ffi_param_ref!(ctx);
-    assert!(! binding.is_null());
-    let binding = unsafe {
-        Box::from_raw(binding)
-    };
+    let binding = ffi_param_move!(binding);
 
     fry_status!(ctx, binding.delete())
 }

@@ -189,10 +189,7 @@ pub extern "system" fn sq_armor_reader_kind(reader: *mut Box<Read>)
     // little dance.  We will momentarily take ownership of `reader`,
     // wrapping it in a Box again.  Then, at the end of the function,
     // we will leak it again.
-    assert!(! reader.is_null());
-    let reader = unsafe {
-        Box::from_raw(reader as *mut Box<armor::Reader>)
-    };
+    let reader = ffi_param_move!(reader as *mut Box<armor::Reader>);
     let kind = kind_to_int(reader.kind());
     Box::into_raw(reader);
     kind
@@ -221,16 +218,13 @@ pub extern "system" fn sq_armor_reader_headers(ctx: Option<&mut Context>,
                                                len: Option<&mut size_t>)
                                                -> *mut ArmorHeader {
     let ctx = ffi_param_ref!(ctx);
-    assert!(! reader.is_null());
     let len = ffi_param_ref!(len);
 
     // We need to downcast `reader`.  To do that, we need to do a
     // little dance.  We will momentarily take ownership of `reader`,
     // wrapping it in a Box again.  Then, at the end of the function,
     // we will leak it again.
-    let mut reader = unsafe {
-        Box::from_raw(reader as *mut Box<armor::Reader>)
-    };
+    let mut reader = ffi_param_move!(reader as *mut Box<armor::Reader>);
 
     // We need to be extra careful here in order not to keep ownership
     // of `reader` in case of errors.
