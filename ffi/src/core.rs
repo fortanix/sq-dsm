@@ -62,7 +62,7 @@ impl Context {
 ///
 /// Returns and removes the last error from the context.
 #[no_mangle]
-pub extern "system" fn sq_context_last_error(ctx: Option<&mut Context>)
+pub extern "system" fn sq_context_last_error(ctx: *mut Context)
                                              -> *mut failure::Error {
     let ctx = ffi_param_ref_mut!(ctx);
     maybe_box_raw!(ctx.e.take())
@@ -133,42 +133,42 @@ pub extern "system" fn sq_context_configure(domain: *const c_char)
 
 /// Returns the domain of the context.
 #[no_mangle]
-pub extern "system" fn sq_context_domain(ctx: Option<&Context>) -> *const c_char {
+pub extern "system" fn sq_context_domain(ctx: *const Context) -> *const c_char {
     let ctx = ffi_param_ref!(ctx);
     ctx.c.domain().as_bytes().as_ptr() as *const c_char
 }
 
 /// Returns the directory containing shared state.
 #[no_mangle]
-pub extern "system" fn sq_context_home(ctx: Option<&Context>) -> *const c_char {
+pub extern "system" fn sq_context_home(ctx: *const Context) -> *const c_char {
     let ctx = ffi_param_ref!(ctx);
     ctx.c.home().to_string_lossy().as_ptr() as *const c_char
 }
 
 /// Returns the directory containing backend servers.
 #[no_mangle]
-pub extern "system" fn sq_context_lib(ctx: Option<&Context>) -> *const c_char {
+pub extern "system" fn sq_context_lib(ctx: *const Context) -> *const c_char {
     let ctx = ffi_param_ref!(ctx);
     ctx.c.lib().to_string_lossy().as_bytes().as_ptr() as *const c_char
 }
 
 /// Returns the network policy.
 #[no_mangle]
-pub extern "system" fn sq_context_network_policy(ctx: Option<&Context>) -> c_int {
+pub extern "system" fn sq_context_network_policy(ctx: *const Context) -> c_int {
     let ctx = ffi_param_ref!(ctx);
     u8::from(ctx.c.network_policy()) as c_int
 }
 
 /// Returns the IPC policy.
 #[no_mangle]
-pub extern "system" fn sq_context_ipc_policy(ctx: Option<&Context>) -> c_int {
+pub extern "system" fn sq_context_ipc_policy(ctx: *const Context) -> c_int {
     let ctx = ffi_param_ref!(ctx);
     u8::from(ctx.c.ipc_policy()) as c_int
 }
 
 /// Returns whether or not this is an ephemeral context.
 #[no_mangle]
-pub extern "system" fn sq_context_ephemeral(ctx: Option<&Context>) -> uint8_t {
+pub extern "system" fn sq_context_ephemeral(ctx: *const Context) -> uint8_t {
     let ctx = ffi_param_ref!(ctx);
     if ctx.c.ephemeral() { 1 } else { 0 }
 }
@@ -200,7 +200,7 @@ pub extern "system" fn sq_config_build(cfg: *mut Config,
 
 /// Sets the directory containing shared state.
 #[no_mangle]
-pub extern "system" fn sq_config_home(cfg: Option<&mut Config>,
+pub extern "system" fn sq_config_home(cfg: *mut Config,
                                       home: *const c_char) {
     let cfg = ffi_param_ref_mut!(cfg);
     assert!(! home.is_null());
@@ -212,7 +212,7 @@ pub extern "system" fn sq_config_home(cfg: Option<&mut Config>,
 
 /// Set the directory containing backend servers.
 #[no_mangle]
-pub extern "system" fn sq_config_lib(cfg: Option<&mut Config>,
+pub extern "system" fn sq_config_lib(cfg: *mut Config,
                                      lib: *const c_char) {
     let cfg = ffi_param_ref_mut!(cfg);
     assert!(! lib.is_null());
@@ -224,7 +224,7 @@ pub extern "system" fn sq_config_lib(cfg: Option<&mut Config>,
 
 /// Sets the network policy.
 #[no_mangle]
-pub extern "system" fn sq_config_network_policy(cfg: Option<&mut Config>,
+pub extern "system" fn sq_config_network_policy(cfg: *mut Config,
                                                 policy: c_int) {
     let cfg = ffi_param_ref_mut!(cfg);
     if policy < 0 || policy > 3 {
@@ -235,7 +235,7 @@ pub extern "system" fn sq_config_network_policy(cfg: Option<&mut Config>,
 
 /// Sets the IPC policy.
 #[no_mangle]
-pub extern "system" fn sq_config_ipc_policy(cfg: Option<&mut Config>,
+pub extern "system" fn sq_config_ipc_policy(cfg: *mut Config,
                                             policy: c_int) {
     let cfg = ffi_param_ref_mut!(cfg);
     if policy < 0 || policy > 2 {
@@ -246,7 +246,7 @@ pub extern "system" fn sq_config_ipc_policy(cfg: Option<&mut Config>,
 
 /// Makes this context ephemeral.
 #[no_mangle]
-pub extern "system" fn sq_config_ephemeral(cfg: Option<&mut Config>) {
+pub extern "system" fn sq_config_ephemeral(cfg: *mut Config) {
     let cfg = ffi_param_ref_mut!(cfg);
     cfg.set_ephemeral();
 }
@@ -255,7 +255,7 @@ pub extern "system" fn sq_config_ephemeral(cfg: Option<&mut Config>) {
 
 /// Opens a file returning a reader.
 #[no_mangle]
-pub extern "system" fn sq_reader_from_file(ctx: Option<&mut Context>,
+pub extern "system" fn sq_reader_from_file(ctx: *mut Context,
                                            filename: *const c_char)
                                            -> *mut Box<Read> {
     let ctx = ffi_param_ref_mut!(ctx);
@@ -296,8 +296,8 @@ pub extern "system" fn sq_reader_free(reader: *mut Box<Read>) {
 
 /// Reads up to `len` bytes into `buf`.
 #[no_mangle]
-pub extern "system" fn sq_reader_read(ctx: Option<&mut Context>,
-                                      reader: Option<&mut Box<Read>>,
+pub extern "system" fn sq_reader_read(ctx: *mut Context,
+                                      reader: *mut Box<Read>,
                                       buf: *mut uint8_t, len: size_t)
                                       -> ssize_t {
     let ctx = ffi_param_ref_mut!(ctx);
@@ -315,7 +315,7 @@ pub extern "system" fn sq_reader_read(ctx: Option<&mut Context>,
 /// The file will be created if it does not exist, or be truncated
 /// otherwise.  If you need more control, use `sq_writer_from_fd`.
 #[no_mangle]
-pub extern "system" fn sq_writer_from_file(ctx: Option<&mut Context>,
+pub extern "system" fn sq_writer_from_file(ctx: *mut Context,
                                            filename: *const c_char)
                                            -> *mut Box<Write> {
     let ctx = ffi_param_ref_mut!(ctx);
@@ -357,8 +357,8 @@ pub extern "system" fn sq_writer_from_bytes(buf: *mut uint8_t,
 /// The caller is responsible to `free` it once the writer has been
 /// destroyed.
 #[no_mangle]
-pub extern "system" fn sq_writer_alloc(buf: Option<&'static mut *mut c_void>,
-                                       len: Option<&'static mut size_t>)
+pub extern "system" fn sq_writer_alloc(buf: *mut *mut c_void,
+                                       len: *mut size_t)
                                        -> *mut Box<Write> {
     let buf = ffi_param_ref_mut!(buf);
     let len = ffi_param_ref_mut!(len);
@@ -410,8 +410,8 @@ pub extern "system" fn sq_writer_free(writer: *mut Box<Write>) {
 
 /// Writes up to `len` bytes of `buf` into `writer`.
 #[no_mangle]
-pub extern "system" fn sq_writer_write(ctx: Option<&mut Context>,
-                                       writer: Option<&mut Box<Write>>,
+pub extern "system" fn sq_writer_write(ctx: *mut Context,
+                                       writer: *mut Box<Write>,
                                        buf: *const uint8_t, len: size_t)
                                        -> ssize_t {
     let ctx = ffi_param_ref_mut!(ctx);

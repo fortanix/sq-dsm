@@ -53,19 +53,20 @@
 //! # References
 //!
 //! When references are transferred across the FFI boundary, we use
-//! `Option<&T>`, or `Option<&mut T>`.  This takes advantage of the
-//! NULL-pointer optimization that maps `NULL` to `None`, and `*p` to
-//! `Some(&p)`.  In Rust, references always point to some object, but
-//! in C they can be `NULL`.
+//! `*const T`, or `*mut T`.  If the parameter is optional, a
+//! `Option<&T>` or `Option<&mut T>` is used.
 //!
 //! Application code must adhere to Rust's reference rules:
 //!
 //!  - Either one mutable reference or any number of immutable ones.
+//!  - All references are non-`NULL`.
 //!  - All references are valid.
 //!
 //! In this crate we enforce the second rule by asserting that all
-//! pointers handed in are non-`NULL` unless explicitly stated
-//! (e.g. destructors may be called with a `NULL` reference).
+//! pointers handed in are non-`NULL`.  There are two exceptions:
+//!
+//!   - It is explicitly stated by using `Option<&T>` or `Option<&mut T>`.
+//!   - Destructors (`sq_*_free`) may be called with `NULL`.
 //!
 //! # Lifetimes
 //!
@@ -166,10 +167,12 @@ macro_rules! ffi_param_move {
 /// Panics if called with NULL.
 macro_rules! ffi_param_ref {
     ($name:ident) => {{
-        if $name.is_none() {
+        if $name.is_null() {
             panic!("Parameter {} is NULL", stringify!($name));
         }
-        $name.unwrap()
+        unsafe {
+            &*$name
+        }
     }};
 }
 
@@ -180,10 +183,12 @@ macro_rules! ffi_param_ref {
 /// Panics if called with NULL.
 macro_rules! ffi_param_ref_mut {
     ($name:ident) => {{
-        if $name.is_none() {
+        if $name.is_null() {
             panic!("Parameter {} is NULL", stringify!($name));
         }
-        $name.unwrap()
+        unsafe {
+            &mut *$name
+        }
     }};
 }
 

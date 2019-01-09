@@ -130,7 +130,7 @@ fn kind_to_int(kind: Option<armor::Kind>) -> c_int {
 /// }
 /// ```
 #[no_mangle]
-pub extern "system" fn sq_armor_reader_new(inner: Option<&'static mut Box<Read>>,
+pub extern "system" fn sq_armor_reader_new(inner: *mut Box<Read>,
                                            kind: c_int)
                                            -> *mut Box<Read> {
     let inner = ffi_param_ref_mut!(inner);
@@ -141,7 +141,7 @@ pub extern "system" fn sq_armor_reader_new(inner: Option<&'static mut Box<Read>>
 
 /// Creates a `Reader` from a file.
 #[no_mangle]
-pub extern "system" fn sq_armor_reader_from_file(ctx: Option<&mut Context>,
+pub extern "system" fn sq_armor_reader_from_file(ctx: *mut Context,
                                                  filename: *const c_char,
                                                  kind: c_int)
                                                  -> *mut Box<Read> {
@@ -213,9 +213,9 @@ pub extern "system" fn sq_armor_reader_kind(reader: *mut Box<Read>)
 ///
 ///   [this]: fn.sq_armor_reader_new.html
 #[no_mangle]
-pub extern "system" fn sq_armor_reader_headers(ctx: Option<&mut Context>,
+pub extern "system" fn sq_armor_reader_headers(ctx: *mut Context,
                                                reader: *mut Box<Read>,
-                                               len: Option<&mut size_t>)
+                                               len: *mut size_t)
                                                -> *mut ArmorHeader {
     let ctx = ffi_param_ref_mut!(ctx);
     let len = ffi_param_ref_mut!(len);
@@ -345,10 +345,10 @@ fn strdup(s: &str) -> *mut c_char {
 /// ```
 #[no_mangle]
 pub extern "system" fn sq_armor_writer_new
-    (ctx: Option<&mut Context>,
-     inner: Option<&'static mut Box<Write>>,
+    (ctx: *mut Context,
+     inner: *mut Box<Write>,
      kind: c_int,
-     header: Option<&ArmorHeader>,
+     header: *const ArmorHeader,
      header_len: size_t)
      -> *mut Box<Write>
 {

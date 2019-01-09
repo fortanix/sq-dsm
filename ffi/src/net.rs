@@ -49,7 +49,7 @@ use super::core::Context;
 ///
 /// Returns `NULL` on errors.
 #[no_mangle]
-pub extern "system" fn sq_keyserver_new(ctx: Option<&mut Context>,
+pub extern "system" fn sq_keyserver_new(ctx: *mut Context,
                                         uri: *const c_char) -> *mut KeyServer {
     let ctx = ffi_param_ref_mut!(ctx);
     let uri = unsafe {
@@ -67,7 +67,7 @@ pub extern "system" fn sq_keyserver_new(ctx: Option<&mut Context>,
 ///
 /// Returns `NULL` on errors.
 #[no_mangle]
-pub extern "system" fn sq_keyserver_with_cert(ctx: Option<&mut Context>,
+pub extern "system" fn sq_keyserver_with_cert(ctx: *mut Context,
                                               uri: *const c_char,
                                               cert: *const uint8_t,
                                               len: size_t) -> *mut KeyServer {
@@ -99,7 +99,7 @@ pub extern "system" fn sq_keyserver_with_cert(ctx: Option<&mut Context>,
 ///
 /// Returns `NULL` on errors.
 #[no_mangle]
-pub extern "system" fn sq_keyserver_sks_pool(ctx: Option<&mut Context>)
+pub extern "system" fn sq_keyserver_sks_pool(ctx: *mut Context)
                                              -> *mut KeyServer {
     let ctx = ffi_param_ref_mut!(ctx);
     fry_box!(ctx, KeyServer::sks_pool(&ctx.c))
@@ -115,9 +115,10 @@ pub extern "system" fn sq_keyserver_free(ks: *mut KeyServer) {
 ///
 /// Returns `NULL` on errors.
 #[no_mangle]
-pub extern "system" fn sq_keyserver_get(ctx: Option<&mut Context>,
-                                        ks: Option<&mut KeyServer>,
-                                        id: Option<&KeyID>) -> *mut TPK {
+pub extern "system" fn sq_keyserver_get(ctx: *mut Context,
+                                        ks: *mut KeyServer,
+                                        id: *const KeyID)
+                                        -> *mut TPK {
     let ctx = ffi_param_ref_mut!(ctx);
     let ks = ffi_param_ref_mut!(ks);
     let id = ffi_param_ref!(id);
@@ -129,9 +130,9 @@ pub extern "system" fn sq_keyserver_get(ctx: Option<&mut Context>,
 ///
 /// Returns != 0 on errors.
 #[no_mangle]
-pub extern "system" fn sq_keyserver_send(ctx: Option<&mut Context>,
-                                         ks: Option<&mut KeyServer>,
-                                         tpk: Option<&TPK>)
+pub extern "system" fn sq_keyserver_send(ctx: *mut Context,
+                                         ks: *mut KeyServer,
+                                         tpk: *const TPK)
                                          -> Status {
     let ctx = ffi_param_ref_mut!(ctx);
     let ks = ffi_param_ref_mut!(ks);

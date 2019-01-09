@@ -31,8 +31,8 @@ use ::error::Status;
 ///
 /// Note: this interface *does* buffer the contents of packets.
 #[no_mangle]
-pub extern "system" fn sq_packet_pile_from_reader(ctx: Option<&mut Context>,
-                                                  reader: Option<&mut Box<Read>>)
+pub extern "system" fn sq_packet_pile_from_reader(ctx: *mut Context,
+                                                  reader: *mut Box<Read>)
                                                   -> *mut PacketPile {
     let ctx = ffi_param_ref_mut!(ctx);
     let reader = ffi_param_ref_mut!(reader);
@@ -44,7 +44,7 @@ pub extern "system" fn sq_packet_pile_from_reader(ctx: Option<&mut Context>,
 ///
 /// See `sq_packet_pile_from_reader` for more details and caveats.
 #[no_mangle]
-pub extern "system" fn sq_packet_pile_from_file(ctx: Option<&mut Context>,
+pub extern "system" fn sq_packet_pile_from_file(ctx: *mut Context,
                                                 filename: *const c_char)
                                                 -> *mut PacketPile {
     let ctx = ffi_param_ref_mut!(ctx);
@@ -59,7 +59,7 @@ pub extern "system" fn sq_packet_pile_from_file(ctx: Option<&mut Context>,
 ///
 /// See `sq_packet_pile_from_reader` for more details and caveats.
 #[no_mangle]
-pub extern "system" fn sq_packet_pile_from_bytes(ctx: Option<&mut Context>,
+pub extern "system" fn sq_packet_pile_from_bytes(ctx: *mut Context,
                                                  b: *const uint8_t, len: size_t)
                                                  -> *mut PacketPile {
     let ctx = ffi_param_ref_mut!(ctx);
@@ -79,7 +79,7 @@ pub extern "system" fn sq_packet_pile_free(packet_pile: *mut PacketPile) {
 
 /// Clones the PacketPile.
 #[no_mangle]
-pub extern "system" fn sq_packet_pile_clone(packet_pile: Option<&PacketPile>)
+pub extern "system" fn sq_packet_pile_clone(packet_pile: *const PacketPile)
                                             -> *mut PacketPile {
     let packet_pile = ffi_param_ref!(packet_pile);
     box_raw!(packet_pile.clone())
@@ -87,9 +87,9 @@ pub extern "system" fn sq_packet_pile_clone(packet_pile: Option<&PacketPile>)
 
 /// Serializes the packet pile.
 #[no_mangle]
-pub extern "system" fn sq_packet_pile_serialize(ctx: Option<&mut Context>,
-                                                packet_pile: Option<&PacketPile>,
-                                                writer: Option<&mut Box<Write>>)
+pub extern "system" fn sq_packet_pile_serialize(ctx: *mut Context,
+                                                packet_pile: *const PacketPile,
+                                                writer: *mut Box<Write>)
                                                 -> Status {
     let ctx = ffi_param_ref_mut!(ctx);
     let packet_pile = ffi_param_ref!(packet_pile);

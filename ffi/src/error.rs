@@ -18,7 +18,7 @@ pub extern "system" fn sq_error_free(error: *mut failure::Error) {
 ///
 /// The returned value must be freed with `sq_string_free`.
 #[no_mangle]
-pub extern "system" fn sq_error_string(error: Option<&failure::Error>)
+pub extern "system" fn sq_error_string(error: *const failure::Error)
                                        -> *mut c_char {
     let error = ffi_param_ref!(error);
     CString::new(format!("{}", error))
@@ -29,7 +29,7 @@ pub extern "system" fn sq_error_string(error: Option<&failure::Error>)
 
 /// Returns the error status code.
 #[no_mangle]
-pub extern "system" fn sq_error_status(error: Option<&failure::Error>)
+pub extern "system" fn sq_error_status(error: *const failure::Error)
                                        -> Status {
     let error = ffi_param_ref!(error);
     error.into()

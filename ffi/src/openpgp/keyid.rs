@@ -57,7 +57,7 @@ pub extern "system" fn sq_keyid_free(keyid: *mut KeyID) {
 
 /// Clones the KeyID.
 #[no_mangle]
-pub extern "system" fn sq_keyid_clone(id: Option<&KeyID>)
+pub extern "system" fn sq_keyid_clone(id: *const KeyID)
                                       -> *mut KeyID {
     let id = ffi_param_ref!(id);
     box_raw!(id.clone())
@@ -65,7 +65,7 @@ pub extern "system" fn sq_keyid_clone(id: Option<&KeyID>)
 
 /// Hashes the KeyID.
 #[no_mangle]
-pub extern "system" fn sq_keyid_hash(id: Option<&KeyID>)
+pub extern "system" fn sq_keyid_hash(id: *const KeyID)
                                      -> uint64_t {
     let id = ffi_param_ref!(id);
     let mut hasher = build_hasher();
@@ -75,7 +75,7 @@ pub extern "system" fn sq_keyid_hash(id: Option<&KeyID>)
 
 /// Converts the KeyID to its standard representation.
 #[no_mangle]
-pub extern "system" fn sq_keyid_to_string(id: Option<&KeyID>)
+pub extern "system" fn sq_keyid_to_string(id: *const KeyID)
                                           -> *mut c_char {
     let id = ffi_param_ref!(id);
     CString::new(id.to_string())
@@ -85,7 +85,7 @@ pub extern "system" fn sq_keyid_to_string(id: Option<&KeyID>)
 
 /// Converts the KeyID to a hexadecimal number.
 #[no_mangle]
-pub extern "system" fn sq_keyid_to_hex(id: Option<&KeyID>)
+pub extern "system" fn sq_keyid_to_hex(id: *const KeyID)
                                        -> *mut c_char {
     let id = ffi_param_ref!(id);
     CString::new(id.to_hex())
@@ -95,8 +95,8 @@ pub extern "system" fn sq_keyid_to_hex(id: Option<&KeyID>)
 
 /// Compares KeyIDs.
 #[no_mangle]
-pub extern "system" fn sq_keyid_equal(a: Option<&KeyID>,
-                                      b: Option<&KeyID>)
+pub extern "system" fn sq_keyid_equal(a: *const KeyID,
+                                      b: *const KeyID)
                                       -> bool {
     let a = ffi_param_ref!(a);
     let b = ffi_param_ref!(b);

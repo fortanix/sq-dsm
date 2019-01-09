@@ -46,7 +46,7 @@ pub extern "system" fn sq_fingerprint_free(fp: *mut Fingerprint) {
 
 /// Clones the Fingerprint.
 #[no_mangle]
-pub extern "system" fn sq_fingerprint_clone(fp: Option<&Fingerprint>)
+pub extern "system" fn sq_fingerprint_clone(fp: *const Fingerprint)
                                             -> *mut Fingerprint {
     let fp = ffi_param_ref!(fp);
     box_raw!(fp.clone())
@@ -54,7 +54,7 @@ pub extern "system" fn sq_fingerprint_clone(fp: Option<&Fingerprint>)
 
 /// Hashes the Fingerprint.
 #[no_mangle]
-pub extern "system" fn sq_fingerprint_hash(fp: Option<&Fingerprint>)
+pub extern "system" fn sq_fingerprint_hash(fp: *const Fingerprint)
                                            -> uint64_t {
     let fp = ffi_param_ref!(fp);
     let mut hasher = build_hasher();
@@ -67,7 +67,8 @@ pub extern "system" fn sq_fingerprint_hash(fp: Option<&Fingerprint>)
 /// This returns a reference to the internal buffer that is valid as
 /// long as the fingerprint is.
 #[no_mangle]
-pub extern "system" fn sq_fingerprint_as_bytes(fp: Option<&Fingerprint>, fp_len: Option<&mut size_t>)
+pub extern "system" fn sq_fingerprint_as_bytes(fp: *const Fingerprint,
+                                               fp_len: Option<&mut size_t>)
                                              -> *const uint8_t {
     let fp = ffi_param_ref!(fp);
     if let Some(p) = fp_len {
@@ -78,7 +79,7 @@ pub extern "system" fn sq_fingerprint_as_bytes(fp: Option<&Fingerprint>, fp_len:
 
 /// Converts the fingerprint to its standard representation.
 #[no_mangle]
-pub extern "system" fn sq_fingerprint_to_string(fp: Option<&Fingerprint>)
+pub extern "system" fn sq_fingerprint_to_string(fp: *const Fingerprint)
                                                 -> *mut c_char {
     let fp = ffi_param_ref!(fp);
     CString::new(fp.to_string())
@@ -88,7 +89,7 @@ pub extern "system" fn sq_fingerprint_to_string(fp: Option<&Fingerprint>)
 
 /// Converts the fingerprint to a hexadecimal number.
 #[no_mangle]
-pub extern "system" fn sq_fingerprint_to_hex(fp: Option<&Fingerprint>)
+pub extern "system" fn sq_fingerprint_to_hex(fp: *const Fingerprint)
                                              -> *mut c_char {
     let fp = ffi_param_ref!(fp);
     CString::new(fp.to_hex())
@@ -98,7 +99,7 @@ pub extern "system" fn sq_fingerprint_to_hex(fp: Option<&Fingerprint>)
 
 /// Converts the fingerprint to a key ID.
 #[no_mangle]
-pub extern "system" fn sq_fingerprint_to_keyid(fp: Option<&Fingerprint>)
+pub extern "system" fn sq_fingerprint_to_keyid(fp: *const Fingerprint)
                                                -> *mut KeyID {
     let fp = ffi_param_ref!(fp);
     Box::into_raw(Box::new(fp.to_keyid()))
@@ -106,8 +107,8 @@ pub extern "system" fn sq_fingerprint_to_keyid(fp: Option<&Fingerprint>)
 
 /// Compares Fingerprints.
 #[no_mangle]
-pub extern "system" fn sq_fingerprint_equal(a: Option<&Fingerprint>,
-                                            b: Option<&Fingerprint>)
+pub extern "system" fn sq_fingerprint_equal(a: *const Fingerprint,
+                                            b: *const Fingerprint)
                                             -> bool {
     let a = ffi_param_ref!(a);
     let b = ffi_param_ref!(b);

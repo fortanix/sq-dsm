@@ -44,7 +44,7 @@ use super::core::{Context, sq_string_free};
 
 /// Lists all stores with the given prefix.
 #[no_mangle]
-pub extern "system" fn sq_store_list_stores(ctx: Option<&mut Context>,
+pub extern "system" fn sq_store_list_stores(ctx: *mut Context,
                                             domain_prefix: *const c_char)
                                             -> *mut StoreIter {
     let ctx = ffi_param_ref_mut!(ctx);
@@ -64,7 +64,7 @@ pub extern "system" fn sq_store_list_stores(ctx: Option<&mut Context>,
 /// stores name is stored there.  If `policyp` is not `NULL`, the
 /// stores network policy is stored there.
 #[no_mangle]
-pub extern "system" fn sq_store_iter_next(iter: Option<&mut StoreIter>,
+pub extern "system" fn sq_store_iter_next(iter: *mut StoreIter,
                                           domainp: Option<&mut *mut c_char>,
                                           namep: Option<&mut *mut c_char>,
                                           policyp: Option<&mut uint8_t>)
@@ -102,7 +102,7 @@ pub extern "system" fn sq_store_iter_free(iter: *mut StoreIter) {
 
 /// Lists all keys in the common key pool.
 #[no_mangle]
-pub extern "system" fn sq_store_list_keys(ctx: Option<&mut Context>)
+pub extern "system" fn sq_store_list_keys(ctx: *mut Context)
                                           -> *mut KeyIter {
     let ctx = ffi_param_ref_mut!(ctx);
 
@@ -111,7 +111,7 @@ pub extern "system" fn sq_store_list_keys(ctx: Option<&mut Context>)
 
 /// Lists all log entries.
 #[no_mangle]
-pub extern "system" fn sq_store_server_log(ctx: Option<&mut Context>)
+pub extern "system" fn sq_store_server_log(ctx: *mut Context)
                                            -> *mut LogIter {
     let ctx = ffi_param_ref_mut!(ctx);
 
@@ -123,7 +123,7 @@ pub extern "system" fn sq_store_server_log(ctx: Option<&mut Context>)
 /// Returns `NULL` on exhaustion.  If `fpp` is not `NULL`, the key's
 /// fingerprint is stored there.
 #[no_mangle]
-pub extern "system" fn sq_key_iter_next(iter: Option<&mut KeyIter>,
+pub extern "system" fn sq_key_iter_next(iter: *mut KeyIter,
                                         fpp: Option<&mut *mut Fingerprint>)
                                         -> *mut Key {
     let iter = ffi_param_ref_mut!(iter);
@@ -157,7 +157,7 @@ fn cstring(s: &str) -> *mut c_char {
 ///
 /// Returns `NULL` on exhaustion.
 #[no_mangle]
-pub extern "system" fn sq_log_iter_next(iter: Option<&mut LogIter>)
+pub extern "system" fn sq_log_iter_next(iter: *mut LogIter)
                                         -> *mut Log {
     let iter = ffi_param_ref_mut!(iter);
     match iter.next() {
@@ -199,7 +199,7 @@ pub extern "system" fn sq_log_iter_free(iter: *mut LogIter) {
 /// Opening the store with a different network policy is
 /// forbidden.
 #[no_mangle]
-pub extern "system" fn sq_store_open(ctx: Option<&mut Context>,
+pub extern "system" fn sq_store_open(ctx: *mut Context,
                                      name: *const c_char)
                                      -> *mut Store {
     let ctx = ffi_param_ref_mut!(ctx);
@@ -220,10 +220,10 @@ pub extern "system" fn sq_store_free(store: *mut Store) {
 
 /// Adds a key identified by fingerprint to the store.
 #[no_mangle]
-pub extern "system" fn sq_store_add(ctx: Option<&mut Context>,
-                                    store: Option<&Store>,
+pub extern "system" fn sq_store_add(ctx: *mut Context,
+                                    store: *const Store,
                                     label: *const c_char,
-                                    fingerprint: Option<&Fingerprint>)
+                                    fingerprint: *const Fingerprint)
                                     -> *mut Binding {
     let ctx = ffi_param_ref_mut!(ctx);
     let store = ffi_param_ref!(store);
@@ -238,10 +238,10 @@ pub extern "system" fn sq_store_add(ctx: Option<&mut Context>,
 
 /// Imports a key into the store.
 #[no_mangle]
-pub extern "system" fn sq_store_import(ctx: Option<&mut Context>,
-                                       store: Option<&Store>,
+pub extern "system" fn sq_store_import(ctx: *mut Context,
+                                       store: *const Store,
                                        label: *const c_char,
-                                       tpk: Option<&TPK>)
+                                       tpk: *const TPK)
                                        -> *mut TPK {
     let ctx = ffi_param_ref_mut!(ctx);
     let store = ffi_param_ref!(store);
@@ -256,8 +256,8 @@ pub extern "system" fn sq_store_import(ctx: Option<&mut Context>,
 
 /// Returns the binding for the given label.
 #[no_mangle]
-pub extern "system" fn sq_store_lookup(ctx: Option<&mut Context>,
-                                       store: Option<&Store>,
+pub extern "system" fn sq_store_lookup(ctx: *mut Context,
+                                       store: *const Store,
                                        label: *const c_char)
                                        -> *mut Binding {
     let ctx = ffi_param_ref_mut!(ctx);
@@ -272,8 +272,8 @@ pub extern "system" fn sq_store_lookup(ctx: Option<&mut Context>,
 
 /// Looks up a key in the common key pool by KeyID.
 #[no_mangle]
-pub extern "system" fn sq_store_lookup_by_keyid(ctx: Option<&mut Context>,
-                                                keyid: Option<&KeyID>)
+pub extern "system" fn sq_store_lookup_by_keyid(ctx: *mut Context,
+                                                keyid: *const KeyID)
     -> *mut Key
 {
     let ctx = ffi_param_ref_mut!(ctx);
@@ -284,8 +284,8 @@ pub extern "system" fn sq_store_lookup_by_keyid(ctx: Option<&mut Context>,
 
 /// Looks up a key in the common key pool by (Sub)KeyID.
 #[no_mangle]
-pub extern "system" fn sq_store_lookup_by_subkeyid(ctx: Option<&mut Context>,
-                                                   keyid: Option<&KeyID>)
+pub extern "system" fn sq_store_lookup_by_subkeyid(ctx: *mut Context,
+                                                   keyid: *const KeyID)
     -> *mut Key
 {
     let ctx = ffi_param_ref_mut!(ctx);
@@ -298,7 +298,7 @@ pub extern "system" fn sq_store_lookup_by_subkeyid(ctx: Option<&mut Context>,
 ///
 /// Consumes `store`.  Returns != 0 on error.
 #[no_mangle]
-pub extern "system" fn sq_store_delete(ctx: Option<&mut Context>,
+pub extern "system" fn sq_store_delete(ctx: *mut Context,
                                        store: *mut Store)
                                        -> Status {
     let ctx = ffi_param_ref_mut!(ctx);
@@ -309,8 +309,8 @@ pub extern "system" fn sq_store_delete(ctx: Option<&mut Context>,
 
 /// Lists all bindings.
 #[no_mangle]
-pub extern "system" fn sq_store_iter(ctx: Option<&mut Context>,
-                                     store: Option<&Store>)
+pub extern "system" fn sq_store_iter(ctx: *mut Context,
+                                     store: *const Store)
                                      -> *mut BindingIter {
     let ctx = ffi_param_ref_mut!(ctx);
     let store = ffi_param_ref!(store);
@@ -324,7 +324,7 @@ pub extern "system" fn sq_store_iter(ctx: Option<&mut Context>,
 /// bindings label is stored there.  If `fpp` is not `NULL`, the
 /// bindings fingerprint is stored there.
 #[no_mangle]
-pub extern "system" fn sq_binding_iter_next(iter: Option<&mut BindingIter>,
+pub extern "system" fn sq_binding_iter_next(iter: *mut BindingIter,
                                             labelp: Option<&mut *mut c_char>,
                                             fpp: Option<&mut *mut Fingerprint>)
                                             -> *mut Binding {
@@ -355,8 +355,8 @@ pub extern "system" fn sq_binding_iter_free(iter: *mut BindingIter) {
 
 /// Lists all log entries related to this store.
 #[no_mangle]
-pub extern "system" fn sq_store_log(ctx: Option<&mut Context>,
-                                    store: Option<&Store>)
+pub extern "system" fn sq_store_log(ctx: *mut Context,
+                                    store: *const Store)
                                     -> *mut LogIter {
     let ctx = ffi_param_ref_mut!(ctx);
     let store = ffi_param_ref!(store);
@@ -392,8 +392,8 @@ pub extern "system" fn sq_log_free(log: *mut Log) {
 
 /// Returns the `sq_stats_t` of this binding.
 #[no_mangle]
-pub extern "system" fn sq_binding_stats(ctx: Option<&mut Context>,
-                                        binding: Option<&Binding>)
+pub extern "system" fn sq_binding_stats(ctx: *mut Context,
+                                        binding: *const Binding)
                                         -> *mut Stats {
     let ctx = ffi_param_ref_mut!(ctx);
     let binding = ffi_param_ref!(binding);
@@ -403,8 +403,8 @@ pub extern "system" fn sq_binding_stats(ctx: Option<&mut Context>,
 
 /// Returns the `sq_key_t` of this binding.
 #[no_mangle]
-pub extern "system" fn sq_binding_key(ctx: Option<&mut Context>,
-                                      binding: Option<&Binding>)
+pub extern "system" fn sq_binding_key(ctx: *mut Context,
+                                      binding: *const Binding)
                                      -> *mut Key {
     let ctx = ffi_param_ref_mut!(ctx);
     let binding = ffi_param_ref!(binding);
@@ -414,8 +414,8 @@ pub extern "system" fn sq_binding_key(ctx: Option<&mut Context>,
 
 /// Returns the `sq_tpk_t` of this binding.
 #[no_mangle]
-pub extern "system" fn sq_binding_tpk(ctx: Option<&mut Context>,
-                                      binding: Option<&Binding>)
+pub extern "system" fn sq_binding_tpk(ctx: *mut Context,
+                                      binding: *const Binding)
                                      -> *mut TPK {
     let ctx = ffi_param_ref_mut!(ctx);
     let binding = ffi_param_ref!(binding);
@@ -440,9 +440,9 @@ pub extern "system" fn sq_binding_tpk(ctx: Option<&mut Context>,
 /// conflict, either by ignoring the new key, or by using
 /// `sq_binding_rotate` to force a rotation.
 #[no_mangle]
-pub extern "system" fn sq_binding_import(ctx: Option<&mut Context>,
-                                         binding: Option<&Binding>,
-                                         tpk: Option<&TPK>)
+pub extern "system" fn sq_binding_import(ctx: *mut Context,
+                                         binding: *const Binding,
+                                         tpk: *const TPK)
                                          -> *mut TPK {
     let ctx = ffi_param_ref_mut!(ctx);
     let binding = ffi_param_ref!(binding);
@@ -466,9 +466,9 @@ pub extern "system" fn sq_binding_import(ctx: Option<&mut Context>,
 /// You could simply ask Alice to call her communication partner
 /// Bob and confirm that he rotated his keys.
 #[no_mangle]
-pub extern "system" fn sq_binding_rotate(ctx: Option<&mut Context>,
-                                         binding: Option<&Binding>,
-                                         tpk: Option<&TPK>)
+pub extern "system" fn sq_binding_rotate(ctx: *mut Context,
+                                         binding: *const Binding,
+                                         tpk: *const TPK)
                                          -> *mut TPK {
     let ctx = ffi_param_ref_mut!(ctx);
     let binding = ffi_param_ref!(binding);
@@ -481,7 +481,7 @@ pub extern "system" fn sq_binding_rotate(ctx: Option<&mut Context>,
 ///
 /// Consumes `binding`.  Returns != 0 on error.
 #[no_mangle]
-pub extern "system" fn sq_binding_delete(ctx: Option<&mut Context>,
+pub extern "system" fn sq_binding_delete(ctx: *mut Context,
                                          binding: *mut Binding)
                                          -> Status {
     let ctx = ffi_param_ref_mut!(ctx);
@@ -492,8 +492,8 @@ pub extern "system" fn sq_binding_delete(ctx: Option<&mut Context>,
 
 /// Lists all log entries related to this binding.
 #[no_mangle]
-pub extern "system" fn sq_binding_log(ctx: Option<&mut Context>,
-                                      binding: Option<&Binding>)
+pub extern "system" fn sq_binding_log(ctx: *mut Context,
+                                      binding: *const Binding)
                                       -> *mut LogIter {
     let ctx = ffi_param_ref_mut!(ctx);
     let binding = ffi_param_ref!(binding);
@@ -503,8 +503,8 @@ pub extern "system" fn sq_binding_log(ctx: Option<&mut Context>,
 
 /// Returns the `sq_stats_t` of this key.
 #[no_mangle]
-pub extern "system" fn sq_key_stats(ctx: Option<&mut Context>,
-                                    key: Option<&Key>)
+pub extern "system" fn sq_key_stats(ctx: *mut Context,
+                                    key: *const Key)
                                     -> *mut Stats {
     let ctx = ffi_param_ref_mut!(ctx);
     let key = ffi_param_ref!(key);
@@ -514,8 +514,8 @@ pub extern "system" fn sq_key_stats(ctx: Option<&mut Context>,
 
 /// Returns the `sq_tpk_t`.
 #[no_mangle]
-pub extern "system" fn sq_key_tpk(ctx: Option<&mut Context>,
-                                  key: Option<&Key>)
+pub extern "system" fn sq_key_tpk(ctx: *mut Context,
+                                  key: *const Key)
                                   -> *mut TPK {
     let ctx = ffi_param_ref_mut!(ctx);
     let key = ffi_param_ref!(key);
@@ -533,9 +533,9 @@ pub extern "system" fn sq_key_tpk(ctx: Option<&mut Context>,
 /// If the new key does not match the current key,
 /// `Error::Conflict` is returned.
 #[no_mangle]
-pub extern "system" fn sq_key_import(ctx: Option<&mut Context>,
-                                     key: Option<&Key>,
-                                     tpk: Option<&TPK>)
+pub extern "system" fn sq_key_import(ctx: *mut Context,
+                                     key: *const Key,
+                                     tpk: *const TPK)
                                      -> *mut TPK {
     let ctx = ffi_param_ref_mut!(ctx);
     let key = ffi_param_ref!(key);
@@ -546,8 +546,8 @@ pub extern "system" fn sq_key_import(ctx: Option<&mut Context>,
 
 /// Lists all log entries related to this key.
 #[no_mangle]
-pub extern "system" fn sq_key_log(ctx: Option<&mut Context>,
-                                  key: Option<&Key>)
+pub extern "system" fn sq_key_log(ctx: *mut Context,
+                                  key: *const Key)
                                   -> *mut LogIter {
     let ctx = ffi_param_ref_mut!(ctx);
     let key = ffi_param_ref!(key);
