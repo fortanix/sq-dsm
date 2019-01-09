@@ -98,7 +98,7 @@ pub extern "system" fn sq_keyid_to_hex(id: Option<&KeyID>)
 pub extern "system" fn sq_keyid_equal(a: Option<&KeyID>,
                                       b: Option<&KeyID>)
                                       -> bool {
-    let a = a.expect("KeyID 'a' is NULL");
-    let b = b.expect("KeyID 'b' is NULL");
+    let a = ffi_param_ref!(a);
+    let b = ffi_param_ref!(b);
     a == b
 }

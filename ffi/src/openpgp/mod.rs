@@ -895,7 +895,7 @@ pub extern "system" fn sq_packet_parser_buffer_unread_content<'a>
      -> *const uint8_t {
     let ctx = ffi_param_ref!(ctx);
     let pp = ffi_param_ref!(pp);
-    let len = len.expect("Length pointer is NULL");
+    let len = ffi_param_ref!(len);
     let buf = fry!(ctx, pp.buffer_unread_content());
     *len = buf.len();
     buf.as_ptr()

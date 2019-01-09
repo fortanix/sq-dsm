@@ -134,15 +134,15 @@ pub extern "system" fn sq_context_configure(domain: *const c_char)
 /// Returns the domain of the context.
 #[no_mangle]
 pub extern "system" fn sq_context_domain(ctx: Option<&Context>) -> *const c_char {
-    assert!(ctx.is_some());
-    ctx.unwrap().c.domain().as_bytes().as_ptr() as *const c_char
+    let ctx = ffi_param_ref!(ctx);
+    ctx.c.domain().as_bytes().as_ptr() as *const c_char
 }
 
 /// Returns the directory containing shared state.
 #[no_mangle]
 pub extern "system" fn sq_context_home(ctx: Option<&Context>) -> *const c_char {
-    assert!(ctx.is_some());
-    ctx.unwrap().c.home().to_string_lossy().as_ptr() as *const c_char
+    let ctx = ffi_param_ref!(ctx);
+    ctx.c.home().to_string_lossy().as_ptr() as *const c_char
 }
 
 /// Returns the directory containing backend servers.

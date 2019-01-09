@@ -121,8 +121,8 @@ pub extern "system" fn sq_tpk_clone(tpk: Option<&TPK>)
 pub extern "system" fn sq_tpk_equal(a: Option<&TPK>,
                                     b: Option<&TPK>)
                                     -> bool {
-    let a = a.expect("TPK 'a' is NULL");
-    let b = b.expect("TPK 'b' is NULL");
+    let a = ffi_param_ref!(a);
+    let b = ffi_param_ref!(b);
     a == b
 }
 

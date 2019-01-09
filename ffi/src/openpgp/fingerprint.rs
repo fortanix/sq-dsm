@@ -109,7 +109,7 @@ pub extern "system" fn sq_fingerprint_to_keyid(fp: Option<&Fingerprint>)
 pub extern "system" fn sq_fingerprint_equal(a: Option<&Fingerprint>,
                                             b: Option<&Fingerprint>)
                                             -> bool {
-    let a = a.expect("Fingerprint 'a' is NULL");
-    let b = b.expect("Fingerprint 'b' is NULL");
+    let a = ffi_param_ref!(a);
+    let b = ffi_param_ref!(b);
     a == b
 }
