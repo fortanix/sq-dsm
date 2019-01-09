@@ -108,7 +108,7 @@ pub extern "system" fn sq_revocation_status_variant(
     rs: *mut RevocationStatus)
     -> c_int
 {
-    let rs = ffi_param_move!(rs as *mut RevocationStatus);
+    let rs = ffi_param_move!(rs);
     let variant = revocation_status_to_int(rs.as_ref());
     Box::into_raw(rs);
     variant
