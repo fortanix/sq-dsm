@@ -4,6 +4,8 @@
 #include <sequoia/core.h>
 #include <time.h>
 
+#include <sequoia/openpgp/crypto.h>
+
 /*/
 /// A low-level OpenPGP message parser.
 ///

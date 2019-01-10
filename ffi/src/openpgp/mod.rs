@@ -54,6 +54,7 @@ use super::error::Status;
 use super::core::Context;
 
 pub mod armor;
+pub mod crypto;
 pub mod fingerprint;
 pub mod keyid;
 pub mod packet_pile;
