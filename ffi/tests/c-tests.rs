@@ -275,8 +275,9 @@ fn wrap_with_main(test: &mut Vec<String>, offset: usize) {
 /// Checks if the code contains a main function.
 fn has_main(test: &mut Vec<String>) -> bool {
     for line in test {
-        if line.contains("main()")
+        if line.contains("main()") || line.contains("main ()")
             || line.contains("main(int argc, char **argv)")
+            || line.contains("main (int argc, char **argv)")
         {
             return true;
         }
