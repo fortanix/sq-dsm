@@ -14,6 +14,10 @@
 //!
 //! sq_context_t ctx;
 //! ctx = sq_context_new ("org.sequoia-pgp.example", NULL);
+//!
+//! /* Use Sequoia.  */
+//!
+//! sq_context_free (ctx);
 //! ```
 //!
 //! A context can be configured using the builder pattern with
@@ -28,6 +32,10 @@
 //! cfg = sq_context_configure ("org.sequoia-pgp.example");
 //! sq_config_network_policy (cfg, SQ_NETWORK_POLICY_OFFLINE);
 //! ctx = sq_config_build (cfg, NULL);
+//!
+//! /* Use Sequoia.  */
+//!
+//! sq_context_free (ctx);
 //! ```
 
 use failure;

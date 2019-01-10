@@ -583,6 +583,12 @@ pub extern "system" fn sq_tpk_key_iter_next<'a>(
 /// sq_tpk_builder_generate (ctx, builder, &tpk, &revocation);
 /// assert (tpk);
 /// assert (revocation);
+///
+/// /* Use the TPK.  */
+///
+/// sq_signature_free (revocation);
+/// sq_tpk_free (tpk);
+/// sq_context_free (ctx);
 /// ```
 #[no_mangle]
 pub extern "system" fn sq_tpk_builder_default() -> *mut TPKBuilder {
