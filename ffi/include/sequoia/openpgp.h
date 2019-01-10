@@ -1178,6 +1178,16 @@ sq_public_key_algo_t sq_p_key_public_key_algo(sq_p_key_t key);
 int sq_p_key_public_key_bits(sq_p_key_t key);
 
 /*/
+/// Creates a new key pair from a Key packet with an unencrypted
+/// secret key.
+///
+/// # Errors
+///
+/// Fails if the secret key is missing, or encrypted.
+/*/
+sq_key_pair_t sq_p_key_into_key_pair (sq_context_t ctx, sq_p_key_t key);
+
+/*/
 /// Returns the value of the User ID Packet.
 ///
 /// The returned pointer is valid until `uid` is deallocated.  If

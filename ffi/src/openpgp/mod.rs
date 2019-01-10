@@ -511,6 +511,22 @@ pub extern "system" fn sq_p_key_public_key_bits(key: *const packet::Key)
     }
 }
 
+/// Creates a new key pair from a Key packet with an unencrypted
+/// secret key.
+///
+/// # Errors
+///
+/// Fails if the secret key is missing, or encrypted.
+#[no_mangle]
+pub extern "system" fn sq_p_key_into_key_pair(ctx: *mut Context,
+                                              key: *mut packet::Key)
+                                              -> *mut self::openpgp::crypto::KeyPair
+{
+    let ctx = ffi_param_ref_mut!(ctx);
+    let key = ffi_param_move!(key);
+    fry_box!(ctx, key.into_keypair())
+}
+
 /// Returns the value of the User ID Packet.
 ///
 /// The returned pointer is valid until `uid` is deallocated.  If
