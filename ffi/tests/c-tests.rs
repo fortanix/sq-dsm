@@ -2,7 +2,7 @@ extern crate libc;
 extern crate nettle;
 
 use std::cmp::min;
-use std::env::var_os;
+use std::env::{self, var_os};
 use std::ffi::OsStr;
 use std::fmt::Write as FmtWrite;
 use std::fs;
@@ -243,9 +243,21 @@ fn build(include_dir: &Path, ldpath: &Path, target_dir: &Path,
 
 /// Runs the test case.
 fn run(ldpath: &Path, exe: &Path) -> io::Result<()> {
-    let st = Command::new(exe)
-        .env("LD_LIBRARY_PATH", ldpath)
-        .status()?;
+    let st =
+        if let Ok(valgrind) = env::var("SEQUOIA_CTEST_VALGRIND") {
+            Command::new(valgrind)
+                .env("LD_LIBRARY_PATH", ldpath)
+                .args(&["--error-exitcode=123",
+                        "--leak-check=yes",
+                        "--quiet",
+                        "--",
+                        exe.to_str().unwrap()])
+                .status()?
+        } else {
+            Command::new(exe)
+                .env("LD_LIBRARY_PATH", ldpath)
+                .status()?
+        };
     if ! st.success() {
         return Err(io::Error::new(io::ErrorKind::Other, "failed"));
     }
