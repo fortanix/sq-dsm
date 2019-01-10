@@ -284,7 +284,7 @@ fn int_to_reason_for_revocation(code: c_int) -> ReasonForRevocation {
 pub extern "system" fn sq_tpk_revoke(ctx: *mut Context,
                                      tpk: *mut TPK,
                                      code: c_int,
-                                     reason: Option<*const c_char>)
+                                     reason: Option<&c_char>)
     -> *mut packet::Signature
 {
     let ctx = ffi_param_ref_mut!(ctx);
@@ -340,7 +340,7 @@ pub extern "system" fn sq_tpk_revoke(ctx: *mut Context,
 pub extern "system" fn sq_tpk_revoke_in_place(ctx: *mut Context,
                                               tpk: *mut TPK,
                                               code: c_int,
-                                              reason: Option<*const c_char>)
+                                              reason: Option<&c_char>)
     -> *mut TPK
 {
     let ctx = ffi_param_ref_mut!(ctx);
