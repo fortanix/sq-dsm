@@ -76,6 +76,7 @@ extern crate sequoia_openpgp as openpgp;
 #[allow(unused_imports)]
 #[macro_use]
 extern crate sequoia_core;
+extern crate sequoia_ipc;
 extern crate sequoia_net;
 
 use openpgp::Fingerprint;
@@ -85,7 +86,7 @@ use openpgp::parse::Parse;
 use openpgp::serialize::Serialize;
 use sequoia_core as core;
 use sequoia_core::Context;
-use sequoia_net::ipc;
+use sequoia_ipc as ipc;
 
 #[allow(dead_code)] mod store_protocol_capnp;
 use store_protocol_capnp::node;

@@ -29,6 +29,7 @@ sequoia-openpgp-ffi = { path = "openpgp-ffi", version = "0.6" }
 sequoia-core = { path = "core", version = "0.6" }
 sequoia-ffi = { path = "ffi", version = "0.6" }
 sequoia-ffi-macros = { path = "ffi-macros", version = "0.6" }
+sequoia-ipc = { path = "ipc", version = "0.6" }
 sequoia-net = { path = "net", version = "0.6" }
 sequoia-store = { path = "store", version = "0.6" }
 sequoia-tool = { path = "tool", version = "0.6" }

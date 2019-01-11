@@ -41,15 +41,12 @@ extern crate futures;
 extern crate http;
 extern crate hyper;
 extern crate hyper_tls;
-extern crate memsec;
 extern crate native_tls;
 extern crate tokio_core;
 extern crate tokio_io;
 #[macro_use]
 extern crate percent_encoding;
 extern crate url;
-
-extern crate capnp_rpc;
 
 use hyper::client::{ResponseFuture, HttpConnector};
 use hyper::{Client, Request, Body};
@@ -65,7 +62,6 @@ use sequoia_core::Context;
 
 pub mod async;
 use async::url2uri;
-pub mod ipc;
 
 /// For accessing keyservers using HKP.
 pub struct KeyServer {

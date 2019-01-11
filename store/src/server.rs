@@ -1,8 +1,8 @@
 extern crate sequoia_core;
-extern crate sequoia_net;
+extern crate sequoia_ipc;
 extern crate sequoia_store;
 
-use sequoia_net::ipc::Server;
+use sequoia_ipc::Server;
 
 fn main() {
     let ctx = Server::context()

@@ -26,7 +26,7 @@ use openpgp::parse::Parse;
 use openpgp::serialize::Serialize;
 use sequoia_core as core;
 use sequoia_net as net;
-use sequoia_net::ipc;
+use sequoia_ipc as ipc;
 
 use store_protocol_capnp::node;
 

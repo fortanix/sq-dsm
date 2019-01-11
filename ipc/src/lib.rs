@@ -36,18 +36,24 @@
 //! Windows support is currently not implemented, but should be
 //! straight forward.
 
-extern crate fs2;
-use self::fs2::FileExt;
-
 use std::fs;
 use std::io::{self, Read, Write};
 use std::net::{SocketAddr, AddrParseError, TcpStream, TcpListener};
 use std::path::PathBuf;
 
+extern crate capnp_rpc;
+#[macro_use] extern crate failure;
+extern crate fs2;
+extern crate futures;
+extern crate memsec;
+extern crate tokio_core;
+extern crate tokio_io;
+
+use failure::Fallible as Result;
+use fs2::FileExt;
 use futures::{Future, Stream};
 
-use tokio_core::{self, net};
-use tokio_io;
+use tokio_core::net;
 use tokio_io::io::{ReadHalf, ReadExact};
 use tokio_io::AsyncRead;
 
@@ -65,8 +71,9 @@ use std::os::unix::io::AsRawFd;
 
 use std::thread;
 
+extern crate sequoia_core;
+
 use sequoia_core as core;
-use super::Result;
 
 /// Servers need to implement this trait.
 pub trait Handler {
@@ -332,7 +339,7 @@ impl Server {
     /// extern crate sequoia_net;
     /// extern crate sequoia_store;
     ///
-    /// use sequoia_net::ipc::Server;
+    /// use sequoia_ipc::Server;
     ///
     /// fn main() {
     ///     let ctx = Server::context()
