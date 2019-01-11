@@ -113,11 +113,12 @@ Bindings
 The FFI crate contains Python bindings.  To disable building, testing,
 and installing the Python bindings, use `make PYTHON=disable`.
 
-To build the Python bindings, you will need cffi and pytest for Python3.
+To build the Python bindings, you will need the Python headers,
+setuptools, cffi, and pytest for Python3.
 
 Debian:
 
-    $ apt install python3-cffi python3-pytest
+    $ apt install python3-dev python3-setuptools python3-cffi python3-pytest
 
 Getting help
 ============
