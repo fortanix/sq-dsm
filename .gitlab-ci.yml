@@ -8,7 +8,7 @@ test:
     - cargo --version
     - clang --version
     - make
-    - make test
+    - SEQUOIA_CTEST_VALGRIND=/usr/bin/valgrind make test
     - du -sh target
     - du -sh cargo
 
