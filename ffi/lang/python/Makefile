@@ -11,6 +11,8 @@ IPYTHON		?= ipython3
 PYTEST		?= pytest-3
 INSTALL		?= install
 
+CARGO_TARGET_DIR ?= ../../../target
+
 ifneq "$(PYTHON)" "disable"
 PY_VERSION	= $(shell $(PYTHON) -c \
 	'import sys; print("{0.major}.{0.minor}".format(sys.version_info))')
@@ -25,7 +27,7 @@ all: build
 build: .stamp-build
 .stamp-build: sequoia/* ../../include/sequoia/*
 ifneq "$(PYTHON)" "disable"
-	LDFLAGS=-L../../../target/debug $(PYTHON) setup.py build
+	LDFLAGS=-L$(CARGO_TARGET_DIR)/debug $(PYTHON) setup.py build
 	touch $@
 endif
 
@@ -33,7 +35,7 @@ endif
 .PHONY: test check
 test check:
 ifneq "$(PYTHON)" "disable"
-	LDFLAGS=-L../../../target/debug LD_LIBRARY_PATH=../../../target/debug \
+	LDFLAGS=-L$(CARGO_TARGET_DIR)/debug LD_LIBRARY_PATH=$(CARGO_TARGET_DIR)/debug \
 		$(PYTHON) setup.py test
 endif
 
@@ -41,7 +43,7 @@ endif
 shell: build
 ifneq "$(PYTHON)" "disable"
 	cp build/*/_sequoia.abi*.so . # XXX can we get setuptools to do that?
-	LDFLAGS=-L../../../target/debug LD_LIBRARY_PATH=../../../target/debug \
+	LDFLAGS=-L$(CARGO_TARGET_DIR)/debug LD_LIBRARY_PATH=$(CARGO_TARGET_DIR)/debug \
 		$(IPYTHON) -i -c \
 'from sequoia.prelude import *; ctx = Context("org.sequoia-pgp.tests.interactive")'
 endif
@@ -53,7 +55,7 @@ build-release: .stamp-build-release
 ifneq "$(PYTHON)" "disable"
 	rm -f .stamp-build
 	$(PYTHON) setup.py clean
-	LDFLAGS=-L../../../target/release \
+	LDFLAGS=-L$(CARGO_TARGET_DIR)/release \
 		$(PYTHON) setup.py build
 	touch $@
 endif
@@ -67,7 +69,7 @@ install: build-release
 ifneq "$(PYTHON)" "disable"
 	$(INSTALL) -d $(DESTDIR)$(PREFIX)/lib/python$(PY_VERSION)/site-packages
 
-	LDFLAGS=-L../../../target/release \
+	LDFLAGS=-L$(CARGO_TARGET_DIR)/release \
 		$(PYTHON) setup.py install $(root_arg) --prefix=$(PREFIX)
 endif
 
