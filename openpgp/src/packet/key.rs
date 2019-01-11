@@ -138,12 +138,10 @@ impl Key {
             }
 
             EdDSA => {
-                let mut rng = Yarrow::default();
                 let mut public = [0u8; ED25519_KEY_SIZE + 1];
-                let mut private = [0u8; ED25519_KEY_SIZE];
+                let mut private = ed25519::private_key();
 
                 public[0] = 0x40;
-                rng.random(&mut private);
                 ed25519::public_key(&mut public[1..], &private)?;
 
                 let public_mpis = PublicKey::EdDSA {
@@ -161,12 +159,11 @@ impl Key {
             }
 
             ECDH => {
-                let mut rng = Yarrow::default();
                 let mut public = [0u8; CURVE25519_SIZE + 1];
-                let mut private = [0u8; CURVE25519_SIZE];
+                let mut private = curve25519::secret_key();
 
                 public[0] = 0x40;
-                rng.random(&mut private);
+
                 curve25519::mul_g(&mut public[1..], &private)?;
 
                 // Reverse the scalar.  See
