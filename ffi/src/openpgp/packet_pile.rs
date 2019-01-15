@@ -4,7 +4,6 @@
 //!
 //! [`sequoia-openpgp::PacketPile`]: ../../../sequoia_openpgp/struct.PacketPile.html
 
-use std::ffi::CStr;
 use std::slice;
 use std::io::{Read, Write};
 use libc::{uint8_t, c_char, size_t};
@@ -47,10 +46,7 @@ pub extern "system" fn sq_packet_pile_from_file(ctx: *mut Context,
                                                 filename: *const c_char)
                                                 -> *mut PacketPile {
     let ctx = ffi_param_ref_mut!(ctx);
-    assert!(! filename.is_null());
-    let filename = unsafe {
-        CStr::from_ptr(filename).to_string_lossy().into_owned()
-    };
+    let filename = ffi_param_cstr!(filename).to_string_lossy().into_owned();
     fry_box!(ctx, PacketPile::from_file(&filename))
 }
 

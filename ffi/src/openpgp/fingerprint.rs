@@ -4,7 +4,7 @@
 //!
 //! [`sequoia-openpgp::Fingerprint`]: ../../../sequoia_openpgp/enum.Fingerprint.html
 
-use std::ffi::{CString, CStr};
+use std::ffi::CString;
 use std::hash::{Hash, Hasher};
 use std::ptr;
 use std::slice;
@@ -31,8 +31,7 @@ pub extern "system" fn sq_fingerprint_from_bytes(buf: *const uint8_t,
 #[no_mangle]
 pub extern "system" fn sq_fingerprint_from_hex(hex: *const c_char)
                                                -> *mut Fingerprint {
-    assert!(!hex.is_null());
-    let hex = unsafe { CStr::from_ptr(hex).to_string_lossy() };
+    let hex = ffi_param_cstr!(hex).to_string_lossy();
     Fingerprint::from_hex(&hex)
         .map(|fp| Box::into_raw(Box::new(fp)))
         .unwrap_or(ptr::null_mut())

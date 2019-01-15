@@ -29,7 +29,6 @@
 
 use libc::{uint8_t, c_char, size_t};
 use native_tls::Certificate;
-use std::ffi::CStr;
 use std::ptr;
 use std::slice;
 
@@ -52,11 +51,9 @@ use super::core::Context;
 pub extern "system" fn sq_keyserver_new(ctx: *mut Context,
                                         uri: *const c_char) -> *mut KeyServer {
     let ctx = ffi_param_ref_mut!(ctx);
-    let uri = unsafe {
-        if uri.is_null() { None } else { Some(CStr::from_ptr(uri)) }
-    };
+    let uri = ffi_param_cstr!(uri).to_string_lossy();
 
-    fry_box!(ctx, KeyServer::new(&ctx.c, &uri.unwrap().to_string_lossy()))
+    fry_box!(ctx, KeyServer::new(&ctx.c, &uri))
 }
 
 /// Returns a handle for the given URI.
@@ -72,11 +69,9 @@ pub extern "system" fn sq_keyserver_with_cert(ctx: *mut Context,
                                               cert: *const uint8_t,
                                               len: size_t) -> *mut KeyServer {
     let ctx = ffi_param_ref_mut!(ctx);
-    let uri = unsafe {
-        if uri.is_null() { None } else { Some(CStr::from_ptr(uri)) }
-    };
+    let uri = ffi_param_cstr!(uri).to_string_lossy();
 
-    if uri.is_none() || cert.is_null() {
+    if cert.is_null() {
         return ptr::null_mut();
     }
 
@@ -86,9 +81,7 @@ pub extern "system" fn sq_keyserver_with_cert(ctx: *mut Context,
 
     let cert = fry!(ctx, Certificate::from_der(cert)
                     .map_err(|e| e.into()));
-    fry_box!(ctx, KeyServer::with_cert(&ctx.c,
-                                       &uri.unwrap().to_string_lossy(),
-                                       cert))
+    fry_box!(ctx, KeyServer::with_cert(&ctx.c, &uri, cert))
 }
 
 /// Returns a handle for the SKS keyserver pool.

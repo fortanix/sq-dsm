@@ -4,7 +4,7 @@
 //!
 //! [`sequoia-openpgp::KeyID`]: ../../../sequoia_openpgp/enum.KeyID.html
 
-use std::ffi::{CString, CStr};
+use std::ffi::CString;
 use std::hash::{Hash, Hasher};
 use std::ptr;
 use std::slice;
@@ -42,8 +42,7 @@ pub extern "system" fn sq_keyid_from_bytes(id: *const uint8_t) -> *mut KeyID {
 /// Reads a hex-encoded Key ID.
 #[no_mangle]
 pub extern "system" fn sq_keyid_from_hex(id: *const c_char) -> *mut KeyID {
-    assert!(!id.is_null());
-    let id = unsafe { CStr::from_ptr(id).to_string_lossy() };
+    let id = ffi_param_cstr!(id).to_string_lossy();
     KeyID::from_hex(&id)
         .map(|id| Box::into_raw(Box::new(id)))
         .unwrap_or(ptr::null_mut())

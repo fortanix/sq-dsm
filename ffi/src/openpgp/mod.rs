@@ -1,7 +1,6 @@
 //! XXX
 
 use failure;
-use std::ffi::CStr;
 use std::mem::forget;
 use std::ptr;
 use std::slice;
@@ -625,10 +624,7 @@ pub extern "system" fn sq_packet_parser_from_file
     (ctx: *mut Context, filename: *const c_char)
      -> *mut PacketParserResult<'static> {
     let ctx = ffi_param_ref_mut!(ctx);
-    assert!(! filename.is_null());
-    let filename = unsafe {
-        CStr::from_ptr(filename).to_string_lossy().into_owned()
-    };
+    let filename = ffi_param_cstr!(filename).to_string_lossy().into_owned();
     fry_box!(ctx, PacketParser::from_file(&filename))
 }
 
@@ -1197,9 +1193,8 @@ pub extern "system" fn sq_encryptor_new
             slice::from_raw_parts(passwords, passwords_len)
         };
         for password in passwords {
-            passwords_.push(unsafe {
-                CStr::from_ptr(*password)
-            }.to_bytes().to_owned().into());
+            passwords_.push(ffi_param_cstr!(*password)
+                            .to_bytes().to_owned().into());
         }
     }
     let recipients = if recipients_len > 0 {

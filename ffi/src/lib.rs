@@ -193,6 +193,22 @@ macro_rules! ffi_param_ref_mut {
     }};
 }
 
+/// Transfers a reference to a string from C to Rust.
+///
+/// # Panics
+///
+/// Panics if called with NULL.
+macro_rules! ffi_param_cstr {
+    ($name:expr) => {{
+        if $name.is_null() {
+            panic!("Parameter {} is NULL", stringify!($name));
+        }
+        unsafe {
+            ::std::ffi::CStr::from_ptr($name)
+        }
+    }};
+}
+
 /// Like try! for ffi glue.
 ///
 /// Evaluates the given expression.  On success, evaluate to

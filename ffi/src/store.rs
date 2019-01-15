@@ -24,7 +24,7 @@
 
 
 use libc::{uint8_t, uint64_t, c_char};
-use std::ffi::{CStr, CString};
+use std::ffi::CString;
 use std::ptr;
 
 extern crate sequoia_openpgp as openpgp;
@@ -48,11 +48,7 @@ pub extern "system" fn sq_store_list_stores(ctx: *mut Context,
                                             domain_prefix: *const c_char)
                                             -> *mut StoreIter {
     let ctx = ffi_param_ref_mut!(ctx);
-    assert!(! domain_prefix.is_null());
-
-    let domain_prefix = unsafe {
-        CStr::from_ptr(domain_prefix).to_string_lossy()
-    };
+    let domain_prefix = ffi_param_cstr!(domain_prefix).to_string_lossy();
 
     fry_box!(ctx, Store::list(&ctx.c, &domain_prefix))
 }
@@ -203,11 +199,7 @@ pub extern "system" fn sq_store_open(ctx: *mut Context,
                                      name: *const c_char)
                                      -> *mut Store {
     let ctx = ffi_param_ref_mut!(ctx);
-    assert!(! name.is_null());
-
-    let name = unsafe {
-        CStr::from_ptr(name).to_string_lossy()
-    };
+    let name = ffi_param_cstr!(name).to_string_lossy();
 
     fry_box!(ctx, Store::open(&ctx.c, &name))
 }
@@ -227,10 +219,7 @@ pub extern "system" fn sq_store_add(ctx: *mut Context,
                                     -> *mut Binding {
     let ctx = ffi_param_ref_mut!(ctx);
     let store = ffi_param_ref!(store);
-    assert!(! label.is_null());
-    let label = unsafe {
-        CStr::from_ptr(label).to_string_lossy()
-    };
+    let label = ffi_param_cstr!(label).to_string_lossy();
     let fingerprint = ffi_param_ref!(fingerprint);
 
     fry_box!(ctx, store.add(&label, fingerprint))
@@ -245,10 +234,7 @@ pub extern "system" fn sq_store_import(ctx: *mut Context,
                                        -> *mut TPK {
     let ctx = ffi_param_ref_mut!(ctx);
     let store = ffi_param_ref!(store);
-    assert!(! label.is_null());
-    let label = unsafe {
-        CStr::from_ptr(label).to_string_lossy()
-    };
+    let label = ffi_param_cstr!(label).to_string_lossy();
     let tpk = ffi_param_ref!(tpk);
 
     fry_box!(ctx, store.import(&label, tpk))
@@ -262,10 +248,7 @@ pub extern "system" fn sq_store_lookup(ctx: *mut Context,
                                        -> *mut Binding {
     let ctx = ffi_param_ref_mut!(ctx);
     let store = ffi_param_ref!(store);
-    assert!(! label.is_null());
-    let label = unsafe {
-        CStr::from_ptr(label).to_string_lossy()
-    };
+    let label = ffi_param_cstr!(label).to_string_lossy();
 
     fry_box!(ctx, store.lookup(&label))
 }

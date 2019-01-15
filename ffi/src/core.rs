@@ -40,7 +40,7 @@
 
 use failure;
 use std::fs::File;
-use std::ffi::{CString, CStr};
+use std::ffi::CString;
 use std::io::{self, Read, Write, Cursor};
 use std::path::Path;
 use std::ptr;
@@ -96,10 +96,7 @@ pub extern "system" fn sq_string_free(s: *mut c_char) {
 pub extern "system" fn sq_context_new(domain: *const c_char,
                                       errp: Option<&mut *mut failure::Error>)
                                       -> *mut Context {
-    assert!(! domain.is_null());
-    let domain = unsafe {
-        CStr::from_ptr(domain).to_string_lossy()
-    };
+    let domain = ffi_param_cstr!(domain).to_string_lossy();
 
     match core::Context::new(&domain) {
         Ok(context) =>
@@ -131,10 +128,7 @@ pub extern "system" fn sq_context_free(context: Option<&mut Context>) {
 #[no_mangle]
 pub extern "system" fn sq_context_configure(domain: *const c_char)
                                             -> *mut Config {
-    assert!(! domain.is_null());
-    let domain = unsafe {
-        CStr::from_ptr(domain).to_string_lossy()
-    };
+    let domain = ffi_param_cstr!(domain).to_string_lossy();
 
     Box::into_raw(Box::new(core::Context::configure(&domain)))
 }
@@ -211,10 +205,7 @@ pub extern "system" fn sq_config_build(cfg: *mut Config,
 pub extern "system" fn sq_config_home(cfg: *mut Config,
                                       home: *const c_char) {
     let cfg = ffi_param_ref_mut!(cfg);
-    assert!(! home.is_null());
-    let home = unsafe {
-        CStr::from_ptr(home).to_string_lossy()
-    };
+    let home = ffi_param_cstr!(home).to_string_lossy();
     cfg.set_home(home.as_ref())
 }
 
@@ -223,10 +214,7 @@ pub extern "system" fn sq_config_home(cfg: *mut Config,
 pub extern "system" fn sq_config_lib(cfg: *mut Config,
                                      lib: *const c_char) {
     let cfg = ffi_param_ref_mut!(cfg);
-    assert!(! lib.is_null());
-    let lib = unsafe {
-        CStr::from_ptr(lib).to_string_lossy()
-    };
+    let lib = ffi_param_cstr!(lib).to_string_lossy();
     cfg.set_lib(&lib.as_ref())
 }
 
@@ -267,10 +255,7 @@ pub extern "system" fn sq_reader_from_file(ctx: *mut Context,
                                            filename: *const c_char)
                                            -> *mut Box<Read> {
     let ctx = ffi_param_ref_mut!(ctx);
-    assert!(! filename.is_null());
-    let filename = unsafe {
-        CStr::from_ptr(filename).to_string_lossy().into_owned()
-    };
+    let filename = ffi_param_cstr!(filename).to_string_lossy().into_owned();
     fry_box!(ctx, File::open(Path::new(&filename))
              .map(|r| Box::new(r))
              .map_err(|e| e.into()))
@@ -327,10 +312,7 @@ pub extern "system" fn sq_writer_from_file(ctx: *mut Context,
                                            filename: *const c_char)
                                            -> *mut Box<Write> {
     let ctx = ffi_param_ref_mut!(ctx);
-    assert!(! filename.is_null());
-    let filename = unsafe {
-        CStr::from_ptr(filename).to_string_lossy().into_owned()
-    };
+    let filename = ffi_param_cstr!(filename).to_string_lossy().into_owned();
     fry_box!(ctx, File::create(Path::new(&filename))
              .map(|r| Box::new(r))
              .map_err(|e| e.into()))

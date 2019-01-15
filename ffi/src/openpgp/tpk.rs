@@ -5,7 +5,7 @@
 //! [`sequoia-openpgp::TPK`]: ../../../sequoia_openpgp/struct.TPK.html
 //! [related functionality]: ../../../sequoia_openpgp/tpk/index.html
 
-use std::ffi::{CString, CStr};
+use std::ffi::CString;
 use std::ptr;
 use std::slice;
 use std::io::{Read, Write};
@@ -54,10 +54,7 @@ pub extern "system" fn sq_tpk_from_file(ctx: *mut Context,
                                         filename: *const c_char)
                                         -> *mut TPK {
     let ctx = ffi_param_ref_mut!(ctx);
-    assert!(! filename.is_null());
-    let filename = unsafe {
-        CStr::from_ptr(filename).to_string_lossy().into_owned()
-    };
+    let filename = ffi_param_cstr!(filename).to_string_lossy().into_owned();
     fry_box!(ctx, TPK::from_file(&filename))
 }
 
@@ -304,9 +301,7 @@ pub extern "system" fn sq_tpk_revoke(ctx: *mut Context,
     let signer = ffi_param_ref_mut!(primary_signer);
     let code = int_to_reason_for_revocation(code);
     let reason = if let Some(reason) = reason {
-        unsafe {
-            CStr::from_ptr(reason).to_bytes()
-        }
+        ffi_param_cstr!(reason as *const c_char).to_bytes()
     } else {
         b""
     };
@@ -373,9 +368,7 @@ pub extern "system" fn sq_tpk_revoke_in_place(ctx: *mut Context,
     let signer = ffi_param_ref_mut!(primary_signer);
     let code = int_to_reason_for_revocation(code);
     let reason = if let Some(reason) = reason {
-        unsafe {
-            CStr::from_ptr(reason).to_bytes()
-        }
+        ffi_param_cstr!(reason as *const c_char).to_bytes()
     } else {
         b""
     };
@@ -662,7 +655,7 @@ pub extern "system" fn sq_tpk_builder_add_userid
 {
     let tpkb = ffi_param_ref_mut!(tpkb);
     let tpkb_ = ffi_param_move!(*tpkb);
-    let uid = unsafe { CStr::from_ptr(uid).to_string_lossy().to_string() };
+    let uid = ffi_param_cstr!(uid).to_string_lossy().to_string();
     let tpkb_ = tpkb_.add_userid(uid.as_ref());
     *tpkb = box_raw!(tpkb_);
 }

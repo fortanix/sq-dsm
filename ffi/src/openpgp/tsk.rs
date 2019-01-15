@@ -5,7 +5,6 @@
 //! [`sequoia-openpgp::TSK`]: ../../../sequoia_openpgp/struct.TSK.html
 
 use failure;
-use std::ffi::CStr;
 use std::io::Write;
 use libc::c_char;
 
@@ -29,13 +28,10 @@ pub extern "system" fn sq_tsk_new(ctx: *mut Context,
     -> Status
 {
     let ctx = ffi_param_ref_mut!(ctx);
-    assert!(!primary_uid.is_null());
     let tsk_out = ffi_param_ref_mut!(tsk_out);
     let revocation_out = ffi_param_ref_mut!(revocation_out);
-    let primary_uid = unsafe {
-        CStr::from_ptr(primary_uid)
-    };
-    match TSK::new(primary_uid.to_string_lossy()) {
+    let primary_uid = ffi_param_cstr!(primary_uid).to_string_lossy();
+    match TSK::new(primary_uid) {
         Ok((tsk, revocation)) => {
             *tsk_out = box_raw!(tsk);
             *revocation_out = box_raw!(revocation);

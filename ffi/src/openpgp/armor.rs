@@ -4,7 +4,6 @@
 //!
 //! [`sequoia-openpgp::armor`]: ../../../sequoia_openpgp/armor/index.html
 
-use std::ffi::CStr;
 use std::mem::size_of;
 use std::ptr;
 use std::slice;
@@ -146,10 +145,7 @@ pub extern "system" fn sq_armor_reader_from_file(ctx: *mut Context,
                                                  kind: c_int)
                                                  -> *mut Box<Read> {
     let ctx = ffi_param_ref_mut!(ctx);
-    assert!(! filename.is_null());
-    let filename = unsafe {
-        CStr::from_ptr(filename).to_string_lossy().into_owned()
-    };
+    let filename = ffi_param_cstr!(filename).to_string_lossy().into_owned();
     let kind = int_to_kind(kind);
 
     fry_box!(ctx, armor::Reader::from_file(&filename, kind)
@@ -358,17 +354,15 @@ pub extern "system" fn sq_armor_writer_new
 
     let mut header_ = Vec::new();
     if header_len > 0 {
-        let header = ffi_param_ref!(header);
-        let header = unsafe {
-            slice::from_raw_parts(header, header_len)
+        let headers = ffi_param_ref!(header);
+        let headers = unsafe {
+            slice::from_raw_parts(headers, header_len)
         };
-        for h in header {
-            assert!(! h.key.is_null());
-            assert!(! h.value.is_null());
-            header_.push(unsafe {
-                (CStr::from_ptr(h.key).to_string_lossy(),
-                 CStr::from_ptr(h.value).to_string_lossy())
-            });
+        for header in headers {
+            header_.push(
+                (ffi_param_cstr!(header.key).to_string_lossy(),
+                 ffi_param_cstr!(header.value).to_string_lossy())
+            );
         }
     }
 
