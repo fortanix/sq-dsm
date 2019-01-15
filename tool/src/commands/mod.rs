@@ -30,6 +30,7 @@ mod sign;
 pub use self::sign::sign;
 mod dump;
 pub use self::dump::dump;
+pub mod key;
 
 const TIMEFMT: &'static str = "%Y-%m-%dT%H:%M";
 

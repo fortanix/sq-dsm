@@ -1,6 +1,7 @@
 /// A command-line frontend for Sequoia.
 
 extern crate clap;
+#[macro_use]
 extern crate failure;
 #[macro_use]
 extern crate prettytable;
@@ -412,129 +413,7 @@ fn real_main() -> Result<(), failure::Error> {
             }
         },
         ("keygen",  Some(m)) => {
-            use openpgp::tpk::{TPKBuilder, CipherSuite};
-            use openpgp::packet::KeyFlags;
-            use openpgp::armor::{Writer, Kind};
-            use openpgp::serialize::Serialize;
-
-            let mut builder = TPKBuilder::default();
-
-            // User ID
-            match m.value_of("userid") {
-                Some(uid) => { builder = builder.add_userid(uid); }
-                None => {
-                    eprintln!("No user ID given, using direct key signature");
-                }
-            }
-
-            // Cipher Suite
-            match m.value_of("cipher-suite") {
-                None | Some("rsa3k") => {
-                    builder = builder.set_cipher_suite(CipherSuite::RSA3k);
-                }
-                Some("cv25519") => {
-                    builder = builder.set_cipher_suite(CipherSuite::Cv25519);
-                }
-                Some(ref cs) => {
-                    eprintln!("Unknown cipher suite '{}'", cs);
-                    exit(1);
-                }
-            }
-
-            // Signing Capability
-            match (m.is_present("can-sign"), m.is_present("cannot-sign")) {
-                (false, false) | (true, false) => {
-                    builder = builder.add_signing_subkey();
-                }
-                (false, true) => { /* no signing subkey */ }
-                (true, true) => {
-                    eprintln!("Conflicting arguments --can-sign and --cannot-sign");
-                    exit(1);
-                }
-            }
-
-            // Encryption Capability
-            match (m.value_of("can-encrypt"), m.is_present("cannot-encrypt")) {
-                (Some("all"), false) | (None, false) => {
-                    builder = builder.add_encryption_subkey();
-                }
-                (Some("rest"), false) => {
-                    builder = builder.add_subkey(KeyFlags::default()
-                                                 .set_encrypt_at_rest(true));
-                }
-                (Some("transport"), false) => {
-                    builder = builder.add_subkey(KeyFlags::default()
-                                                 .set_encrypt_for_transport(true));
-                }
-                (None, true) => { /* no encryption subkey */ }
-                (Some(_), true) => {
-                    eprintln!("Conflicting arguments --can-encrypt and --cannot-encrypt");
-                    exit(1);
-                }
-                (Some(ref cap), false) => {
-                    eprintln!("Unknown encryption capability '{}'", cap);
-                    exit(1);
-                }
-            }
-
-            if m.is_present("with-password") {
-                let p0 = rpassword::prompt_password_stderr(
-                    "Enter password to protect the key: ")?.into();
-                let p1 = rpassword::prompt_password_stderr(
-                    "Repeat the password once more: ")?.into();
-
-                if p0 == p1 {
-                    builder = builder.set_password(Some(p0));
-                } else {
-                    return Err(failure::err_msg("Passwords do not match."));
-                }
-            }
-
-            // Generate the key
-            let (tpk, rev) = builder.generate()?;
-            let tsk = tpk.into_tsk();
-
-            // Export
-            if m.is_present("export") {
-                let (key_path, rev_path) =
-                    match (m.value_of("export"), m.value_of("rev-cert")) {
-                        (Some("-"), Some("-")) =>
-                            ("-".to_string(), "-".to_string()),
-                        (Some("-"), Some(ref rp)) =>
-                            ("-".to_string(), rp.to_string()),
-                        (Some("-"), None) => {
-                            eprintln!("Missing arguments: --rev-cert is mandatory if --export is '-'.");
-                            exit(1);
-                        }
-                        (Some(ref kp), None) =>
-                            (kp.to_string(), format!("{}.rev", kp)),
-                        (Some(ref kp), Some("-")) =>
-                            (kp.to_string(), "-".to_string()),
-                        (Some(ref kp), Some(ref rp)) =>
-                            (kp.to_string(), rp.to_string()),
-                        _ => {
-                            eprintln!("Conflicting arguments --rev-cert and --export");
-                            exit(1);
-                        }
-                    };
-
-                // write out key
-                {
-                    let w = create_or_stdout(Some(&key_path), force)?;
-                    let mut w = Writer::new(w, Kind::SecretKey, &[])?;
-                    tsk.serialize(&mut w)?;
-                }
-
-                // write out rev cert
-                {
-                    let w = create_or_stdout(Some(&rev_path), force)?;
-                    let mut w = Writer::new(w, Kind::Signature, &[])?;
-                    rev.serialize(&mut w)?;
-                }
-            } else {
-                eprintln!("Saving generated key to the store isn't implemented yet.");
-                exit(1);
-            }
+            commands::key::generate(m, force)?;
         }
         _ => {
             eprintln!("No subcommand given.");
