@@ -586,6 +586,22 @@ impl UserIDBinding {
             RevocationStatus::NotAsFarAsWeKnow
         }
     }
+
+    /// Returns a revocation certificate for the user id.
+    pub fn revoke(&self, signer: &mut Signer,
+                  code: ReasonForRevocation, reason: &[u8])
+        -> Result<Signature>
+    {
+        let mut sig = signature::Builder::new(SignatureType::CertificateRevocation);
+        sig.set_signature_creation_time(time::now_utc())?;
+        sig.set_issuer_fingerprint(signer.public().fingerprint())?;
+        sig.set_issuer(signer.public().keyid())?;
+        sig.set_reason_for_revocation(code, reason)?;
+
+        // XXX
+        let key = signer.public().clone();
+        sig.sign_userid_binding(signer, &key, self.userid(), HashAlgorithm::SHA512)
+    }
 }
 
 /// A User Attribute and any associated signatures.
@@ -3350,6 +3366,33 @@ mod test {
 
         let tpk = tpk.merge_packets(vec![sig.to_packet()]).unwrap();
         assert_match!(RevocationStatus::Revoked(_) = tpk.revoked());
+    }
+
+    #[test]
+    fn revoke_uid() {
+        use std::{thread, time};
+
+        let (tpk, _) = TPKBuilder::default()
+            .add_userid("Test1")
+            .add_userid("Test2")
+            .generate().unwrap();
+
+        thread::sleep(time::Duration::from_secs(2));
+        let sig = {
+            let uid = tpk.userids().skip(1).next().unwrap();
+            assert_eq!(RevocationStatus::NotAsFarAsWeKnow, uid.revoked());
+
+            let mut keypair = tpk.primary().clone().into_keypair().unwrap();
+            uid.revoke(&mut keypair,
+                       ReasonForRevocation::UIDRetired,
+                       b"It was the maid :/").unwrap()
+        };
+        assert_eq!(sig.sigtype(), SignatureType::CertificateRevocation);
+        let tpk = tpk.merge_packets(vec![sig.to_packet()]).unwrap();
+        assert_eq!(RevocationStatus::NotAsFarAsWeKnow, tpk.revoked());
+
+        let uid = tpk.userids().skip(1).next().unwrap();
+        assert_match!(RevocationStatus::Revoked(_) = uid.revoked());
     }
 
     #[test]
