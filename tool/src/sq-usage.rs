@@ -31,7 +31,7 @@
 //!     dump         Lists OpenPGP packets
 //!     enarmor      Applies ASCII Armor to a file
 //!     help         Prints this message or the help of the given subcommand(s)
-//!     keygen       Generate a new key
+//!     key          Manipulates keys
 //!     list         Lists key stores and known keys
 //!     split        Splits a message into OpenPGP packets
 //! ```
@@ -421,16 +421,33 @@
 //!     <FILE>    Sets the input file to use
 //! ```
 //!
-//! ## Subcommand keygen
+//! ## Subcommand key
 //!
 //! ```text
-//! Generate a new key
+//! Manipulates keys
 //!
 //! USAGE:
-//!     sq keygen [FLAGS] [OPTIONS] --export <OUTFILE>
+//!     sq key [SUBCOMMAND]
 //!
 //! FLAGS:
-//!         --can-sign          The key has a signing-capable subkey (Default)
+//!     -h, --help       Prints help information
+//!     -V, --version    Prints version information
+//!
+//! SUBCOMMANDS:
+//!     generate    Generates a new key
+//!     help        Prints this message or the help of the given subcommand(s)
+//! ```
+//!
+//! ### Subcommand key generate
+//!
+//! ```text
+//! Generates a new key
+//!
+//! USAGE:
+//!     sq key generate [FLAGS] [OPTIONS] --export <OUTFILE>
+//!
+//! FLAGS:
+//!         --can-sign          The key has a signing-capable subkey (default)
 //!         --cannot-encrypt    The key will not be able to encrypt data
 //!         --cannot-sign       The key will not be able to sign data
 //!     -h, --help              Prints help information
@@ -438,7 +455,7 @@
 //!         --with-password     Prompt for a password to protect the generated key with.
 //!
 //! OPTIONS:
-//!         --can-encrypt <PURPOSE>          The key has an encryption-capable subkey (Default) [default: all]  [possible
+//!         --can-encrypt <PURPOSE>          The key has an encryption-capable subkey (default) [default: all]  [possible
 //!                                          values: transport, rest, all]
 //!     -c, --cipher-suite <CIPHER-SUITE>    Cryptographic algorithms used for the key. [default: rsa3k]  [possible values:
 //!                                          rsa3k, cv25519]

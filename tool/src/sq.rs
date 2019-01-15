@@ -412,9 +412,10 @@ fn real_main() -> Result<(), failure::Error> {
                 },
             }
         },
-        ("keygen",  Some(m)) => {
-            commands::key::generate(m, force)?;
-        }
+        ("key", Some(m)) => match m.subcommand() {
+            ("generate", Some(m)) => commands::key::generate(m, force)?,
+            _ => unreachable!(),
+        },
         _ => {
             eprintln!("No subcommand given.");
             exit(1);
