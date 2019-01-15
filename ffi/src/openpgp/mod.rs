@@ -18,7 +18,6 @@ use self::openpgp::{
     KeyID,
     RevocationStatus,
     TPK,
-    TSK,
     Packet,
     packet::{
         Signature,
@@ -45,7 +44,6 @@ use self::openpgp::parse::stream::{
     Verifier,
     DetachedVerifier,
 };
-use self::openpgp::serialize::Serialize;
 use self::openpgp::constants::{
     DataFormat,
 };
@@ -59,6 +57,7 @@ pub mod fingerprint;
 pub mod keyid;
 pub mod packet_pile;
 pub mod tpk;
+pub mod tsk;
 
 /* openpgp::packet::Tag.  */
 
@@ -121,68 +120,6 @@ pub extern "system" fn sq_revocation_status_free(
     rs: Option<&mut RevocationStatus>)
 {
     ffi_free!(rs)
-}
-
-/* TSK */
-
-/// Generates a new RSA 3072 bit key with UID `primary_uid`.
-#[no_mangle]
-pub extern "system" fn sq_tsk_new(ctx: *mut Context,
-                                  primary_uid: *const c_char,
-                                  tsk_out: *mut *mut TSK,
-                                  revocation_out: *mut *mut Signature)
-    -> Status
-{
-    let ctx = ffi_param_ref_mut!(ctx);
-    assert!(!primary_uid.is_null());
-    let tsk_out = ffi_param_ref_mut!(tsk_out);
-    let revocation_out = ffi_param_ref_mut!(revocation_out);
-    let primary_uid = unsafe {
-        CStr::from_ptr(primary_uid)
-    };
-    match TSK::new(primary_uid.to_string_lossy()) {
-        Ok((tsk, revocation)) => {
-            *tsk_out = box_raw!(tsk);
-            *revocation_out = box_raw!(revocation);
-            Status::Success
-        },
-        Err(e) => fry_status!(ctx, Err::<(), failure::Error>(e)),
-    }
-}
-
-/// Frees the TSK.
-#[no_mangle]
-pub extern "system" fn sq_tsk_free(tsk: Option<&mut TSK>) {
-    ffi_free!(tsk)
-}
-
-/// Returns a reference to the corresponding TPK.
-#[no_mangle]
-pub extern "system" fn sq_tsk_tpk(tsk: *const TSK)
-                                  -> *const TPK {
-    let tsk = ffi_param_ref!(tsk);
-    tsk.tpk()
-}
-
-/// Converts the TSK into a TPK.
-#[no_mangle]
-pub extern "system" fn sq_tsk_into_tpk(tsk: *mut TSK)
-                                       -> *mut TPK {
-    let tsk = ffi_param_move!(tsk);
-    box_raw!(tsk.into_tpk())
-}
-
-
-/// Serializes the TSK.
-#[no_mangle]
-pub extern "system" fn sq_tsk_serialize(ctx: *mut Context,
-                                        tsk: *const TSK,
-                                        writer: *mut Box<Write>)
-                                        -> Status {
-    let ctx = ffi_param_ref_mut!(ctx);
-    let tsk = ffi_param_ref!(tsk);
-    let writer = ffi_param_ref_mut!(writer);
-    fry_status!(ctx, tsk.serialize(writer))
 }
 
 /* openpgp::Packet.  */
