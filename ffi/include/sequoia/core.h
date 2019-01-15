@@ -28,11 +28,6 @@ typedef struct sq_context *sq_context_t;
 sq_error_t sq_context_last_error (sq_context_t ctx);
 
 /*/
-/// Frees a string returned from Sequoia.
-/*/
-void sq_string_free (char *s);
-
-/*/
 /// Represents a `Context` configuration.
 /*/
 typedef struct sq_config *sq_config_t;

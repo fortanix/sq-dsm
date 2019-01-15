@@ -3,6 +3,7 @@
 #include <error.h>
 #include <errno.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #include <sequoia.h>
 
@@ -29,7 +30,7 @@ main (int argc, char **argv)
       char *msg = sq_error_string (err);
       error (0, 0, "Initializing KeyServer failed as expected: %s",
              msg);
-      sq_string_free (msg);
+      free (msg);
       sq_error_free (err);
     }
   else

@@ -24,7 +24,6 @@
 
 
 use libc::{uint8_t, uint64_t, c_char};
-use std::ffi::CString;
 use std::ptr;
 
 extern crate sequoia_openpgp as openpgp;
@@ -39,7 +38,7 @@ use sequoia_store::{
 };
 
 use super::error::Status;
-use super::core::{Context, sq_string_free};
+use super::core::Context;
 
 
 /// Lists all stores with the given prefix.
@@ -69,15 +68,11 @@ pub extern "system" fn sq_store_iter_next(iter: *mut StoreIter,
     match iter.next() {
         Some((domain, name, policy, store)) => {
             if domainp.is_some() {
-                *domainp.unwrap() = CString::new(domain)
-                    .map(|c| c.into_raw())
-                    .unwrap_or(ptr::null_mut());
+                *domainp.unwrap() = ffi_return_maybe_string!(domain);
             }
 
             if namep.is_some() {
-                *namep.unwrap() = CString::new(name)
-                    .map(|c| c.into_raw())
-                    .unwrap_or(ptr::null_mut());
+                *namep.unwrap() = ffi_return_maybe_string!(name);
             }
 
             if policyp.is_some() {
@@ -142,13 +137,6 @@ pub extern "system" fn sq_key_iter_free(iter: Option<&mut KeyIter>) {
 }
 
 
-fn cstring(s: &str) -> *mut c_char {
-    CString::new(s)
-        .map(|c| c.into_raw())
-        // Fails only on internal nul bytes.
-        .unwrap_or(ptr::null_mut())
-}
-
 /// Returns the next log entry.
 ///
 /// Returns `NULL` on exhaustion.
@@ -159,8 +147,8 @@ pub extern "system" fn sq_log_iter_next(iter: *mut LogIter)
     match iter.next() {
         Some(e) => {
             let (status, error) = match e.status {
-                Ok(s) => (cstring(&s), ptr::null_mut()),
-                Err((s, e)) => (cstring(&s), cstring(&e)),
+                Ok(s) => (ffi_return_string!(&s), ptr::null_mut()),
+                Err((s, e)) => (ffi_return_string!(&s), ffi_return_string!(&e)),
             };
 
             box_raw!(Log{
@@ -168,7 +156,7 @@ pub extern "system" fn sq_log_iter_next(iter: *mut LogIter)
                 store: maybe_box_raw!(e.store),
                 binding: maybe_box_raw!(e.binding),
                 key: maybe_box_raw!(e.key),
-                slug: cstring(&e.slug),
+                slug: ffi_return_string!(&e.slug),
                 status: status,
                 error: error,
             })
@@ -315,9 +303,7 @@ pub extern "system" fn sq_binding_iter_next(iter: *mut BindingIter,
     match iter.next() {
         Some((label, fp, binding)) => {
             if labelp.is_some() {
-                *labelp.unwrap() = CString::new(label)
-                    .map(|c| c.into_raw())
-                    .unwrap_or(ptr::null_mut());
+                *labelp.unwrap() = ffi_return_maybe_string!(label);
             }
 
             if fpp.is_some() {
@@ -373,9 +359,11 @@ pub extern "system" fn sq_log_free(log: Option<&mut Log>) {
         if ! log.key.is_null() {
             ffi_param_move!(log.key);
         }
-        sq_string_free(log.slug);
-        sq_string_free(log.status);
-        sq_string_free(log.error);
+        unsafe {
+            libc::free(log.slug as *mut libc::c_void);
+            libc::free(log.status as *mut libc::c_void);
+            libc::free(log.error as *mut libc::c_void);
+        }
         drop(log)
     }
 }

@@ -209,6 +209,53 @@ macro_rules! ffi_param_cstr {
     }};
 }
 
+/* Return value handling.  */
+
+/// Duplicates a string similar to strndup(3).
+fn strndup(src: &[u8]) -> Option<*mut libc::c_char> {
+    if src.contains(&0) {
+        return None;
+    }
+
+    let l = src.len() + 1;
+    let s = unsafe {
+        ::std::slice::from_raw_parts_mut(libc::malloc(l) as *mut u8, l)
+    };
+    &mut s[..l - 1].copy_from_slice(src);
+    s[l - 1] = 0;
+
+    Some(s.as_mut_ptr() as *mut libc::c_char)
+}
+
+/// Transfers a string from Rust to C, allocating it using malloc.
+///
+/// # Panics
+///
+/// Panics if the given string contains a 0.
+macro_rules! ffi_return_string {
+    ($name:expr) => {{
+        let string = $name;
+        let bytes: &[u8] = string.as_ref();
+        ::strndup(bytes).expect(
+            &format!("Returned string {} contains a 0 byte.", stringify!($name))
+        )
+    }};
+}
+
+/// Transfers a string from Rust to C, allocating it using malloc.
+///
+/// # Panics
+///
+/// Does *NOT* panic if the given string contains a 0, but returns
+/// `NULL`.
+macro_rules! ffi_return_maybe_string {
+    ($name:expr) => {{
+        let string = $name;
+        let bytes: &[u8] = string.as_ref();
+        ::strndup(bytes).unwrap_or(::std::ptr::null_mut())
+    }};
+}
+
 /// Like try! for ffi glue.
 ///
 /// Evaluates the given expression.  On success, evaluate to

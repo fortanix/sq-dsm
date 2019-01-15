@@ -4,7 +4,6 @@
 //!
 //! [`sequoia-openpgp::KeyID`]: ../../../sequoia_openpgp/enum.KeyID.html
 
-use std::ffi::CString;
 use std::hash::{Hash, Hasher};
 use std::ptr;
 use std::slice;
@@ -21,6 +20,7 @@ use build_hasher;
 ///
 /// ```c
 /// #include <assert.h>
+/// #include <stdlib.h>
 /// #include <string.h>
 /// #include <sequoia.h>
 ///
@@ -30,7 +30,7 @@ use build_hasher;
 /// assert (strcmp (mr_b_as_string, "BBBB BBBB BBBB BBBB") == 0);
 ///
 /// sq_keyid_free (mr_b);
-/// sq_string_free (mr_b_as_string);
+/// free (mr_b_as_string);
 /// ```
 #[no_mangle]
 pub extern "system" fn sq_keyid_from_bytes(id: *const uint8_t) -> *mut KeyID {
@@ -77,9 +77,7 @@ pub extern "system" fn sq_keyid_hash(id: *const KeyID)
 pub extern "system" fn sq_keyid_to_string(id: *const KeyID)
                                           -> *mut c_char {
     let id = ffi_param_ref!(id);
-    CString::new(id.to_string())
-        .unwrap() // Errors only on internal nul bytes.
-        .into_raw()
+    ffi_return_string!(id.to_string())
 }
 
 /// Converts the KeyID to a hexadecimal number.
@@ -87,9 +85,7 @@ pub extern "system" fn sq_keyid_to_string(id: *const KeyID)
 pub extern "system" fn sq_keyid_to_hex(id: *const KeyID)
                                        -> *mut c_char {
     let id = ffi_param_ref!(id);
-    CString::new(id.to_hex())
-        .unwrap() // Errors only on internal nul bytes.
-        .into_raw()
+    ffi_return_string!(id.to_hex())
 }
 
 /// Compares KeyIDs.

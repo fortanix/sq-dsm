@@ -84,7 +84,7 @@ class SQObject(object):
 
 def sq_str(s):
     t = ffi.string(s).decode()
-    lib.sq_string_free(s)
+    lib.free(s)
     return t
 _str = sq_str
 

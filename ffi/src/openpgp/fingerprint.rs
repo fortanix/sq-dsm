@@ -4,7 +4,6 @@
 //!
 //! [`sequoia-openpgp::Fingerprint`]: ../../../sequoia_openpgp/enum.Fingerprint.html
 
-use std::ffi::CString;
 use std::hash::{Hash, Hasher};
 use std::ptr;
 use std::slice;
@@ -81,9 +80,7 @@ pub extern "system" fn sq_fingerprint_as_bytes(fp: *const Fingerprint,
 pub extern "system" fn sq_fingerprint_to_string(fp: *const Fingerprint)
                                                 -> *mut c_char {
     let fp = ffi_param_ref!(fp);
-    CString::new(fp.to_string())
-        .unwrap() // Errors only on internal nul bytes.
-        .into_raw()
+    ffi_return_string!(fp.to_string())
 }
 
 /// Converts the fingerprint to a hexadecimal number.
@@ -91,9 +88,7 @@ pub extern "system" fn sq_fingerprint_to_string(fp: *const Fingerprint)
 pub extern "system" fn sq_fingerprint_to_hex(fp: *const Fingerprint)
                                              -> *mut c_char {
     let fp = ffi_param_ref!(fp);
-    CString::new(fp.to_hex())
-        .unwrap() // Errors only on internal nul bytes.
-        .into_raw()
+    ffi_return_string!(fp.to_hex())
 }
 
 /// Converts the fingerprint to a key ID.

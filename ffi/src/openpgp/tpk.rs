@@ -5,7 +5,6 @@
 //! [`sequoia-openpgp::TPK`]: ../../../sequoia_openpgp/struct.TPK.html
 //! [related functionality]: ../../../sequoia_openpgp/tpk/index.html
 
-use std::ffi::CString;
 use std::ptr;
 use std::slice;
 use std::io::{Read, Write};
@@ -441,9 +440,7 @@ pub extern "system" fn sq_tpk_primary_user_id(tpk: *const TPK)
 {
     let tpk = ffi_param_ref!(tpk);
     if let Some(binding) = tpk.userids().nth(0) {
-        CString::new(binding.userid().userid())
-            .unwrap() // Errors only on internal nul bytes.
-            .into_raw()
+        ffi_return_string!(binding.userid().userid())
     } else {
         ptr::null_mut()
     }
@@ -465,11 +462,7 @@ pub extern "system" fn sq_user_id_binding_user_id(
 {
     let binding = ffi_param_ref!(binding);
 
-    if let Ok(c_str) = CString::new(binding.userid().userid()) {
-        c_str.into_raw()
-    } else {
-        ptr::null_mut()
-    }
+    ffi_return_maybe_string!(binding.userid().userid())
 }
 
 /// Returns a reference to the self-signature, if any.

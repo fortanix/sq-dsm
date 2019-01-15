@@ -40,7 +40,6 @@
 
 use failure;
 use std::fs::File;
-use std::ffi::CString;
 use std::io::{self, Read, Write, Cursor};
 use std::path::Path;
 use std::ptr;
@@ -74,14 +73,6 @@ pub extern "system" fn sq_context_last_error(ctx: *mut Context)
                                              -> *mut failure::Error {
     let ctx = ffi_param_ref_mut!(ctx);
     maybe_box_raw!(ctx.e.take())
-}
-
-/// Frees a string returned from Sequoia.
-#[no_mangle]
-pub extern "system" fn sq_string_free(s: *mut c_char) {
-    if ! s.is_null() {
-        unsafe { drop(CString::from_raw(s)) }
-    }
 }
 
 /// Creates a Context with reasonable defaults.

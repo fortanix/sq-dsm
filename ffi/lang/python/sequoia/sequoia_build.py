@@ -22,6 +22,9 @@ ffibuilder.set_source('_sequoia',
 # cffi magic to make time_t work.
 ffibuilder.cdef('typedef int... time_t;')
 
+# free(3)
+ffibuilder.cdef('void free (void *ptr);')
+
 try:
     ffibuilder.cdef(defs, override=True)
 except error.CDefError as e:

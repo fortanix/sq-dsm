@@ -135,7 +135,7 @@ void sq_error_free (sq_error_t error);
 /*/
 /// Returns the error message.
 ///
-/// The returned value must be freed with `sq_string_free`.
+/// The returned value must be freed with `free(3)`.
 /*/
 char *sq_error_string (const sq_error_t err);
 
