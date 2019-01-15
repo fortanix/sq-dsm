@@ -213,10 +213,7 @@ fn real_main() -> Result<(), failure::Error> {
                         }
                     }
                 }
-                _ => {
-                    eprintln!("No autocrypt subcommand given.");
-                    exit(1);
-                }
+                _ => unreachable!(),
             }
         },
 
@@ -285,10 +282,7 @@ fn real_main() -> Result<(), failure::Error> {
                     ks.send(&tpk)
                         .context("Failed to send key to server")?;
                 },
-                _ => {
-                    eprintln!("No keyserver subcommand given.");
-                    exit(1);
-                },
+                _ => unreachable!(),
             }
         },
         ("store",  Some(m)) => {
@@ -352,10 +346,7 @@ fn real_main() -> Result<(), failure::Error> {
                         print_log(store.log().context("Failed to get log")?, true);
                     }
                 },
-                _ => {
-                    eprintln!("No store subcommand given.");
-                    exit(1);
-                },
+                _ => unreachable!(),
             }
         },
         ("list",  Some(m)) => {
@@ -406,20 +397,14 @@ fn real_main() -> Result<(), failure::Error> {
                 ("log",  Some(_)) => {
                     print_log(Store::server_log(&ctx)?, true);
                 },
-                _ => {
-                    eprintln!("No list subcommand given.");
-                    exit(1);
-                },
+                _ => unreachable!(),
             }
         },
         ("key", Some(m)) => match m.subcommand() {
             ("generate", Some(m)) => commands::key::generate(m, force)?,
             _ => unreachable!(),
         },
-        _ => {
-            eprintln!("No subcommand given.");
-            exit(1);
-        },
+        _ => unreachable!(),
     }
 
     return Ok(())
