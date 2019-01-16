@@ -68,7 +68,7 @@ impl Context {
 /// Returns the last error.
 ///
 /// Returns and removes the last error from the context.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_context_last_error(ctx: *mut Context)
                                              -> *mut failure::Error {
     let ctx = ffi_param_ref_mut!(ctx);
@@ -83,7 +83,7 @@ pub extern "system" fn sq_context_last_error(ctx: *mut Context)
 ///
 /// Returns `NULL` on errors.  If `errp` is not `NULL`, the error is
 /// stored there.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_context_new(domain: *const c_char,
                                       errp: Option<&mut *mut failure::Error>)
                                       -> *mut Context {
@@ -102,7 +102,7 @@ pub extern "system" fn sq_context_new(domain: *const c_char,
 }
 
 /// Frees a context.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_context_free(context: Option<&mut Context>) {
     ffi_free!(context)
 }
@@ -116,7 +116,7 @@ pub extern "system" fn sq_context_free(context: Option<&mut Context>) {
 /// The configuration is seeded like in `sq_context_new`, but can be
 /// modified.  A configuration has to be finalized using
 /// `sq_config_build()` in order to turn it into a Context.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_context_configure(domain: *const c_char)
                                             -> *mut Config {
     let domain = ffi_param_cstr!(domain).to_string_lossy();
@@ -125,42 +125,42 @@ pub extern "system" fn sq_context_configure(domain: *const c_char)
 }
 
 /// Returns the domain of the context.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_context_domain(ctx: *const Context) -> *const c_char {
     let ctx = ffi_param_ref!(ctx);
     ctx.c.domain().as_bytes().as_ptr() as *const c_char
 }
 
 /// Returns the directory containing shared state.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_context_home(ctx: *const Context) -> *const c_char {
     let ctx = ffi_param_ref!(ctx);
     ctx.c.home().to_string_lossy().as_ptr() as *const c_char
 }
 
 /// Returns the directory containing backend servers.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_context_lib(ctx: *const Context) -> *const c_char {
     let ctx = ffi_param_ref!(ctx);
     ctx.c.lib().to_string_lossy().as_bytes().as_ptr() as *const c_char
 }
 
 /// Returns the network policy.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_context_network_policy(ctx: *const Context) -> c_int {
     let ctx = ffi_param_ref!(ctx);
     u8::from(ctx.c.network_policy()) as c_int
 }
 
 /// Returns the IPC policy.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_context_ipc_policy(ctx: *const Context) -> c_int {
     let ctx = ffi_param_ref!(ctx);
     u8::from(ctx.c.ipc_policy()) as c_int
 }
 
 /// Returns whether or not this is an ephemeral context.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_context_ephemeral(ctx: *const Context) -> uint8_t {
     let ctx = ffi_param_ref!(ctx);
     if ctx.c.ephemeral() { 1 } else { 0 }
@@ -173,7 +173,7 @@ pub extern "system" fn sq_context_ephemeral(ctx: *const Context) -> uint8_t {
 ///
 /// Consumes `cfg`.  Returns `NULL` on errors. Returns `NULL` on
 /// errors.  If `errp` is not `NULL`, the error is stored there.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_config_build(cfg: *mut Config,
                                        errp: Option<&mut *mut failure::Error>)
                                        -> *mut Context {
@@ -192,7 +192,7 @@ pub extern "system" fn sq_config_build(cfg: *mut Config,
 }
 
 /// Sets the directory containing shared state.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_config_home(cfg: *mut Config,
                                       home: *const c_char) {
     let cfg = ffi_param_ref_mut!(cfg);
@@ -201,7 +201,7 @@ pub extern "system" fn sq_config_home(cfg: *mut Config,
 }
 
 /// Set the directory containing backend servers.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_config_lib(cfg: *mut Config,
                                      lib: *const c_char) {
     let cfg = ffi_param_ref_mut!(cfg);
@@ -210,7 +210,7 @@ pub extern "system" fn sq_config_lib(cfg: *mut Config,
 }
 
 /// Sets the network policy.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_config_network_policy(cfg: *mut Config,
                                                 policy: c_int) {
     let cfg = ffi_param_ref_mut!(cfg);
@@ -221,7 +221,7 @@ pub extern "system" fn sq_config_network_policy(cfg: *mut Config,
 }
 
 /// Sets the IPC policy.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_config_ipc_policy(cfg: *mut Config,
                                             policy: c_int) {
     let cfg = ffi_param_ref_mut!(cfg);
@@ -232,7 +232,7 @@ pub extern "system" fn sq_config_ipc_policy(cfg: *mut Config,
 }
 
 /// Makes this context ephemeral.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_config_ephemeral(cfg: *mut Config) {
     let cfg = ffi_param_ref_mut!(cfg);
     cfg.set_ephemeral();
@@ -241,7 +241,7 @@ pub extern "system" fn sq_config_ephemeral(cfg: *mut Config) {
 /* Reader and writer.  */
 
 /// Opens a file returning a reader.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_reader_from_file(ctx: *mut Context,
                                            filename: *const c_char)
                                            -> *mut Box<Read> {
@@ -254,14 +254,14 @@ pub extern "system" fn sq_reader_from_file(ctx: *mut Context,
 
 /// Opens a file descriptor returning a reader.
 #[cfg(unix)]
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_reader_from_fd(fd: c_int)
                                          -> *mut Box<Read> {
     box_raw!(Box::new(unsafe { File::from_raw_fd(fd) }))
 }
 
 /// Creates a reader from a buffer.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_reader_from_bytes(buf: *const uint8_t,
                                             len: size_t)
                                             -> *mut Box<Read> {
@@ -273,13 +273,13 @@ pub extern "system" fn sq_reader_from_bytes(buf: *const uint8_t,
 }
 
 /// Frees a reader.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_reader_free(reader: Option<&mut Box<Read>>) {
     ffi_free!(reader)
 }
 
 /// Reads up to `len` bytes into `buf`.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_reader_read(ctx: *mut Context,
                                       reader: *mut Box<Read>,
                                       buf: *mut uint8_t, len: size_t)
@@ -298,7 +298,7 @@ pub extern "system" fn sq_reader_read(ctx: *mut Context,
 ///
 /// The file will be created if it does not exist, or be truncated
 /// otherwise.  If you need more control, use `sq_writer_from_fd`.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_writer_from_file(ctx: *mut Context,
                                            filename: *const c_char)
                                            -> *mut Box<Write> {
@@ -311,14 +311,14 @@ pub extern "system" fn sq_writer_from_file(ctx: *mut Context,
 
 /// Opens a file descriptor returning a writer.
 #[cfg(unix)]
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_writer_from_fd(fd: c_int)
                                          -> *mut Box<Write> {
     box_raw!(Box::new(unsafe { File::from_raw_fd(fd) }))
 }
 
 /// Creates a writer from a buffer.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_writer_from_bytes(buf: *mut uint8_t,
                                             len: size_t)
                                             -> *mut Box<Write> {
@@ -337,7 +337,7 @@ pub extern "system" fn sq_writer_from_bytes(buf: *mut uint8_t,
 /// reference a chunk of memory allocated using libc's heap allocator.
 /// The caller is responsible to `free` it once the writer has been
 /// destroyed.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_writer_alloc(buf: *mut *mut c_void,
                                        len: *mut size_t)
                                        -> *mut Box<Write> {
@@ -384,13 +384,13 @@ impl Write for WriterAlloc {
 }
 
 /// Frees a writer.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_writer_free(writer: Option<&mut Box<Write>>) {
     ffi_free!(writer)
 }
 
 /// Writes up to `len` bytes of `buf` into `writer`.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_writer_write(ctx: *mut Context,
                                        writer: *mut Box<Write>,
                                        buf: *const uint8_t, len: size_t)

@@ -47,7 +47,7 @@ use super::core::Context;
 /// e.g. `hkps://examle.org`.
 ///
 /// Returns `NULL` on errors.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_keyserver_new(ctx: *mut Context,
                                         uri: *const c_char) -> *mut KeyServer {
     let ctx = ffi_param_ref_mut!(ctx);
@@ -63,7 +63,7 @@ pub extern "system" fn sq_keyserver_new(ctx: *mut Context,
 /// size `len` used to authenticate the server.
 ///
 /// Returns `NULL` on errors.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_keyserver_with_cert(ctx: *mut Context,
                                               uri: *const c_char,
                                               cert: *const uint8_t,
@@ -91,7 +91,7 @@ pub extern "system" fn sq_keyserver_with_cert(ctx: *mut Context,
 /// included in this library.  It is a good default choice.
 ///
 /// Returns `NULL` on errors.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_keyserver_sks_pool(ctx: *mut Context)
                                              -> *mut KeyServer {
     let ctx = ffi_param_ref_mut!(ctx);
@@ -99,7 +99,7 @@ pub extern "system" fn sq_keyserver_sks_pool(ctx: *mut Context)
 }
 
 /// Frees a keyserver object.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_keyserver_free(ks: Option<&mut KeyServer>) {
     ffi_free!(ks)
 }
@@ -107,7 +107,7 @@ pub extern "system" fn sq_keyserver_free(ks: Option<&mut KeyServer>) {
 /// Retrieves the key with the given `keyid`.
 ///
 /// Returns `NULL` on errors.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_keyserver_get(ctx: *mut Context,
                                         ks: *mut KeyServer,
                                         id: *const KeyID)
@@ -122,7 +122,7 @@ pub extern "system" fn sq_keyserver_get(ctx: *mut Context,
 /// Sends the given key to the server.
 ///
 /// Returns != 0 on errors.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_keyserver_send(ctx: *mut Context,
                                          ks: *mut KeyServer,
                                          tpk: *const TPK)

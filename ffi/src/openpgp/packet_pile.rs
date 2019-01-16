@@ -28,7 +28,7 @@ use ::error::Status;
 /// too large.
 ///
 /// Note: this interface *does* buffer the contents of packets.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_packet_pile_from_reader(ctx: *mut Context,
                                                   reader: *mut Box<Read>)
                                                   -> *mut PacketPile {
@@ -41,7 +41,7 @@ pub extern "system" fn sq_packet_pile_from_reader(ctx: *mut Context,
 /// `filename`.
 ///
 /// See `sq_packet_pile_from_reader` for more details and caveats.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_packet_pile_from_file(ctx: *mut Context,
                                                 filename: *const c_char)
                                                 -> *mut PacketPile {
@@ -53,7 +53,7 @@ pub extern "system" fn sq_packet_pile_from_file(ctx: *mut Context,
 /// Deserializes the OpenPGP message stored in the provided buffer.
 ///
 /// See `sq_packet_pile_from_reader` for more details and caveats.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_packet_pile_from_bytes(ctx: *mut Context,
                                                  b: *const uint8_t, len: size_t)
                                                  -> *mut PacketPile {
@@ -67,14 +67,14 @@ pub extern "system" fn sq_packet_pile_from_bytes(ctx: *mut Context,
 }
 
 /// Frees the packet_pile.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_packet_pile_free(packet_pile: Option<&mut PacketPile>)
 {
     ffi_free!(packet_pile)
 }
 
 /// Clones the PacketPile.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_packet_pile_clone(packet_pile: *const PacketPile)
                                             -> *mut PacketPile {
     let packet_pile = ffi_param_ref!(packet_pile);
@@ -82,7 +82,7 @@ pub extern "system" fn sq_packet_pile_clone(packet_pile: *const PacketPile)
 }
 
 /// Serializes the packet pile.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_packet_pile_serialize(ctx: *mut Context,
                                                 packet_pile: *const PacketPile,
                                                 writer: *mut Box<Write>)

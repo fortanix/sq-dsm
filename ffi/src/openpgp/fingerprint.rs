@@ -15,7 +15,7 @@ use self::sequoia_openpgp::{Fingerprint, KeyID};
 use build_hasher;
 
 /// Reads a binary fingerprint.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_fingerprint_from_bytes(buf: *const uint8_t,
                                                  len: size_t)
                                                  -> *mut Fingerprint {
@@ -27,7 +27,7 @@ pub extern "system" fn sq_fingerprint_from_bytes(buf: *const uint8_t,
 }
 
 /// Reads a hexadecimal fingerprint.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_fingerprint_from_hex(hex: *const c_char)
                                                -> *mut Fingerprint {
     let hex = ffi_param_cstr!(hex).to_string_lossy();
@@ -37,13 +37,13 @@ pub extern "system" fn sq_fingerprint_from_hex(hex: *const c_char)
 }
 
 /// Frees a sq_fingerprint_t.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_fingerprint_free(fp: Option<&mut Fingerprint>) {
     ffi_free!(fp)
 }
 
 /// Clones the Fingerprint.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_fingerprint_clone(fp: *const Fingerprint)
                                             -> *mut Fingerprint {
     let fp = ffi_param_ref!(fp);
@@ -51,7 +51,7 @@ pub extern "system" fn sq_fingerprint_clone(fp: *const Fingerprint)
 }
 
 /// Hashes the Fingerprint.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_fingerprint_hash(fp: *const Fingerprint)
                                            -> uint64_t {
     let fp = ffi_param_ref!(fp);
@@ -64,7 +64,7 @@ pub extern "system" fn sq_fingerprint_hash(fp: *const Fingerprint)
 ///
 /// This returns a reference to the internal buffer that is valid as
 /// long as the fingerprint is.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_fingerprint_as_bytes(fp: *const Fingerprint,
                                                fp_len: Option<&mut size_t>)
                                              -> *const uint8_t {
@@ -76,7 +76,7 @@ pub extern "system" fn sq_fingerprint_as_bytes(fp: *const Fingerprint,
 }
 
 /// Converts the fingerprint to its standard representation.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_fingerprint_to_string(fp: *const Fingerprint)
                                                 -> *mut c_char {
     let fp = ffi_param_ref!(fp);
@@ -84,7 +84,7 @@ pub extern "system" fn sq_fingerprint_to_string(fp: *const Fingerprint)
 }
 
 /// Converts the fingerprint to a hexadecimal number.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_fingerprint_to_hex(fp: *const Fingerprint)
                                              -> *mut c_char {
     let fp = ffi_param_ref!(fp);
@@ -92,7 +92,7 @@ pub extern "system" fn sq_fingerprint_to_hex(fp: *const Fingerprint)
 }
 
 /// Converts the fingerprint to a key ID.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_fingerprint_to_keyid(fp: *const Fingerprint)
                                                -> *mut KeyID {
     let fp = ffi_param_ref!(fp);
@@ -100,7 +100,7 @@ pub extern "system" fn sq_fingerprint_to_keyid(fp: *const Fingerprint)
 }
 
 /// Compares Fingerprints.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_fingerprint_equal(a: *const Fingerprint,
                                             b: *const Fingerprint)
                                             -> bool {

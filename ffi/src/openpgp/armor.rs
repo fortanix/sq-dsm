@@ -128,7 +128,7 @@ fn kind_to_int(kind: Option<armor::Kind>) -> c_int {
 ///   return 0;
 /// }
 /// ```
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_armor_reader_new(inner: *mut Box<Read>,
                                            kind: c_int)
                                            -> *mut Box<Read> {
@@ -139,7 +139,7 @@ pub extern "system" fn sq_armor_reader_new(inner: *mut Box<Read>,
 }
 
 /// Creates a `Reader` from a file.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_armor_reader_from_file(ctx: *mut Context,
                                                  filename: *const c_char,
                                                  kind: c_int)
@@ -154,7 +154,7 @@ pub extern "system" fn sq_armor_reader_from_file(ctx: *mut Context,
 }
 
 /// Creates a `Reader` from a buffer.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_armor_reader_from_bytes(b: *const uint8_t, len: size_t,
                                                   kind: c_int)
                                                   -> *mut Box<Read> {
@@ -178,7 +178,7 @@ pub extern "system" fn sq_armor_reader_from_bytes(b: *const uint8_t, len: size_t
 /// See [this] example.
 ///
 ///   [this]: fn.sq_armor_reader_new.html
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_armor_reader_kind(reader: *mut Box<Read>)
                                             -> c_int {
     // We need to downcast `reader`.  To do that, we need to do a
@@ -208,7 +208,7 @@ pub extern "system" fn sq_armor_reader_kind(reader: *mut Box<Read>)
 /// See [this] example.
 ///
 ///   [this]: fn.sq_armor_reader_new.html
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_armor_reader_headers(ctx: *mut Context,
                                                reader: *mut Box<Read>,
                                                len: *mut size_t)
@@ -339,7 +339,7 @@ fn strdup(s: &str) -> *mut c_char {
 ///   return 0;
 /// }
 /// ```
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_armor_writer_new
     (ctx: *mut Context,
      inner: *mut Box<Write>,

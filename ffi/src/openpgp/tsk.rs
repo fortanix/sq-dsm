@@ -20,7 +20,7 @@ use ::core::Context;
 use ::error::Status;
 
 /// Generates a new RSA 3072 bit key with UID `primary_uid`.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_tsk_new(ctx: *mut Context,
                                   primary_uid: *const c_char,
                                   tsk_out: *mut *mut TSK,
@@ -42,13 +42,13 @@ pub extern "system" fn sq_tsk_new(ctx: *mut Context,
 }
 
 /// Frees the TSK.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_tsk_free(tsk: Option<&mut TSK>) {
     ffi_free!(tsk)
 }
 
 /// Returns a reference to the corresponding TPK.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_tsk_tpk(tsk: *const TSK)
                                   -> *const TPK {
     let tsk = ffi_param_ref!(tsk);
@@ -56,7 +56,7 @@ pub extern "system" fn sq_tsk_tpk(tsk: *const TSK)
 }
 
 /// Converts the TSK into a TPK.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_tsk_into_tpk(tsk: *mut TSK)
                                        -> *mut TPK {
     let tsk = ffi_param_move!(tsk);
@@ -65,7 +65,7 @@ pub extern "system" fn sq_tsk_into_tpk(tsk: *mut TSK)
 
 
 /// Serializes the TSK.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_tsk_serialize(ctx: *mut Context,
                                         tsk: *const TSK,
                                         writer: *mut Box<Write>)

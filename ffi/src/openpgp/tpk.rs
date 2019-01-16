@@ -38,7 +38,7 @@ use ::core::Context;
 use ::error::Status;
 
 /// Returns the first TPK encountered in the reader.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_tpk_from_reader(ctx: *mut Context,
                                           reader: *mut Box<Read>)
                                           -> *mut TPK {
@@ -48,7 +48,7 @@ pub extern "system" fn sq_tpk_from_reader(ctx: *mut Context,
 }
 
 /// Returns the first TPK encountered in the file.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_tpk_from_file(ctx: *mut Context,
                                         filename: *const c_char)
                                         -> *mut TPK {
@@ -60,7 +60,7 @@ pub extern "system" fn sq_tpk_from_file(ctx: *mut Context,
 /// Returns the first TPK found in `m`.
 ///
 /// Consumes `m`.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_tpk_from_packet_pile(ctx: *mut Context,
                                                m: *mut PacketPile)
                                                -> *mut TPK {
@@ -72,7 +72,7 @@ pub extern "system" fn sq_tpk_from_packet_pile(ctx: *mut Context,
 /// Returns the first TPK found in `buf`.
 ///
 /// `buf` must be an OpenPGP-encoded TPK.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_tpk_from_bytes(ctx: *mut Context,
                                          b: *const uint8_t, len: size_t)
                                          -> *mut TPK {
@@ -88,7 +88,7 @@ pub extern "system" fn sq_tpk_from_bytes(ctx: *mut Context,
 /// Returns the first TPK found in the packet parser.
 ///
 /// Consumes the packet parser result.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_tpk_from_packet_parser(ctx: *mut Context,
                                                  ppr: *mut PacketParserResult)
     -> *mut TPK
@@ -100,13 +100,13 @@ pub extern "system" fn sq_tpk_from_packet_parser(ctx: *mut Context,
 }
 
 /// Frees the TPK.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_tpk_free(tpk: Option<&mut TPK>) {
     ffi_free!(tpk)
 }
 
 /// Clones the TPK.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_tpk_clone(tpk: *const TPK)
                                     -> *mut TPK {
     let tpk = ffi_param_ref!(tpk);
@@ -114,7 +114,7 @@ pub extern "system" fn sq_tpk_clone(tpk: *const TPK)
 }
 
 /// Compares TPKs.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_tpk_equal(a: *const TPK,
                                     b: *const TPK)
                                     -> bool {
@@ -124,7 +124,7 @@ pub extern "system" fn sq_tpk_equal(a: *const TPK,
 }
 
 /// Serializes the TPK.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_tpk_serialize(ctx: *mut Context,
                                         tpk: *const TPK,
                                         writer: *mut Box<Write>)
@@ -141,7 +141,7 @@ pub extern "system" fn sq_tpk_serialize(ctx: *mut Context,
 /// `tpk`, but `tpk` is still canonicalized.
 ///
 /// Consumes `tpk` and `other`.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_tpk_merge(ctx: *mut Context,
                                     tpk: *mut TPK,
                                     other: *mut TPK)
@@ -159,7 +159,7 @@ pub extern "system" fn sq_tpk_merge(ctx: *mut Context,
 ///
 /// Consumes `tpk` and the packets in `packets`.  The buffer, however,
 /// must be managed by the caller.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_tpk_merge_packets(ctx: *mut Context,
                                             tpk: *mut TPK,
                                             packets: *mut *mut Packet,
@@ -178,14 +178,14 @@ pub extern "system" fn sq_tpk_merge_packets(ctx: *mut Context,
 /// Dumps the TPK.
 ///
 /// XXX Remove this.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_tpk_dump(tpk: *const TPK) {
     let tpk = ffi_param_ref!(tpk);
     println!("{:?}", *tpk);
 }
 
 /// Returns the fingerprint.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_tpk_fingerprint(tpk: *const TPK)
                                           -> *mut Fingerprint {
     let tpk = ffi_param_ref!(tpk);
@@ -194,7 +194,7 @@ pub extern "system" fn sq_tpk_fingerprint(tpk: *const TPK)
 
 /// Cast the public key into a secret key that allows using the secret
 /// parts of the containing keys.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_tpk_into_tsk(tpk: *mut TPK)
                                        -> *mut TSK {
     let tpk = ffi_param_move!(tpk);
@@ -205,7 +205,7 @@ pub extern "system" fn sq_tpk_into_tsk(tpk: *mut TPK)
 ///
 /// The tpk still owns the key.  The caller should neither modify nor
 /// free the key.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_tpk_primary(tpk: *const TPK)
     -> *const packet::Key {
     let tpk = ffi_param_ref!(tpk);
@@ -217,7 +217,7 @@ pub extern "system" fn sq_tpk_primary(tpk: *const TPK)
 /// Note: this only returns whether the TPK has been revoked, and does
 /// not reflect whether an individual user id, user attribute or
 /// subkey has been revoked.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_tpk_revocation_status(tpk: *const TPK)
                                                 -> *mut RevocationStatus<'static> {
     let tpk = ffi_param_ref!(tpk);
@@ -287,7 +287,7 @@ fn int_to_reason_for_revocation(code: c_int) -> ReasonForRevocation {
 /// sq_tpk_free (tpk);
 /// sq_context_free (ctx);
 /// ```
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_tpk_revoke(ctx: *mut Context,
                                      tpk: *mut TPK,
                                      primary_signer: *mut Box<crypto::Signer>,
@@ -354,7 +354,7 @@ pub extern "system" fn sq_tpk_revoke(ctx: *mut Context,
 /// sq_tpk_free (tpk);
 /// sq_context_free (ctx);
 /// ```
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_tpk_revoke_in_place(ctx: *mut Context,
                                               tpk: *mut TPK,
                                               primary_signer: *mut Box<crypto::Signer>,
@@ -376,7 +376,7 @@ pub extern "system" fn sq_tpk_revoke_in_place(ctx: *mut Context,
 }
 
 /// Returns whether the TPK has expired.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_tpk_expired(tpk: *const TPK)
                                       -> c_int {
     let tpk = ffi_param_ref!(tpk);
@@ -385,7 +385,7 @@ pub extern "system" fn sq_tpk_expired(tpk: *const TPK)
 }
 
 /// Returns whether the TPK has expired.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_tpk_expired_at(tpk: *const TPK, when: time_t)
                                       -> c_int {
     let tpk = ffi_param_ref!(tpk);
@@ -393,7 +393,7 @@ pub extern "system" fn sq_tpk_expired_at(tpk: *const TPK, when: time_t)
 }
 
 /// Returns whether the TPK is alive.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_tpk_alive(tpk: *const TPK)
                                       -> c_int {
     let tpk = ffi_param_ref!(tpk);
@@ -402,7 +402,7 @@ pub extern "system" fn sq_tpk_alive(tpk: *const TPK)
 }
 
 /// Returns whether the TPK is alive at the specified time.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_tpk_alive_at(tpk: *const TPK, when: time_t)
                                       -> c_int {
     let tpk = ffi_param_ref!(tpk);
@@ -415,7 +415,7 @@ pub extern "system" fn sq_tpk_alive_at(tpk: *const TPK, when: time_t)
 /// key's creation (not the current time).
 ///
 /// This function consumes `tpk` and returns a new `TPK`.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_tpk_set_expiry(ctx: *mut Context,
                                          tpk: *mut TPK, expiry: u32)
                                          -> *mut TPK {
@@ -426,7 +426,7 @@ pub extern "system" fn sq_tpk_set_expiry(ctx: *mut Context,
 }
 
 /// Returns whether the TPK includes any secret key material.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_tpk_is_tsk(tpk: *const TPK)
                                      -> c_int {
     let tpk = ffi_param_ref!(tpk);
@@ -434,7 +434,7 @@ pub extern "system" fn sq_tpk_is_tsk(tpk: *const TPK)
 }
 
 /// Returns an iterator over the TPK's user id bindings.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_tpk_primary_user_id(tpk: *const TPK)
     -> *mut c_char
 {
@@ -455,7 +455,7 @@ pub extern "system" fn sq_tpk_primary_user_id(tpk: *const TPK)
 /// there is no valid use for such user ids; they must be malicious.
 ///
 /// The caller must free the returned value.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_user_id_binding_user_id(
     binding: *const UserIDBinding)
     -> *mut c_char
@@ -466,7 +466,7 @@ pub extern "system" fn sq_user_id_binding_user_id(
 }
 
 /// Returns a reference to the self-signature, if any.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_user_id_binding_selfsig(
     binding: *const UserIDBinding)
     -> Option<&'static Signature>
@@ -479,7 +479,7 @@ pub extern "system" fn sq_user_id_binding_selfsig(
 /* UserIDBindingIter */
 
 /// Returns an iterator over the TPK's user id bindings.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_tpk_user_id_binding_iter(tpk: *const TPK)
     -> *mut UserIDBindingIter<'static>
 {
@@ -488,7 +488,7 @@ pub extern "system" fn sq_tpk_user_id_binding_iter(tpk: *const TPK)
 }
 
 /// Frees a sq_user_id_binding_iter_t.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_user_id_binding_iter_free(
     iter: Option<&mut UserIDBindingIter>)
 {
@@ -496,7 +496,7 @@ pub extern "system" fn sq_user_id_binding_iter_free(
 }
 
 /// Returns the next `UserIDBinding`.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_user_id_binding_iter_next<'a>(
     iter: *mut UserIDBindingIter<'a>)
     -> Option<&'a UserIDBinding>
@@ -516,7 +516,7 @@ pub struct KeyIterWrapper<'a> {
 /// Returns an iterator over the TPK's keys.
 ///
 /// This iterates over both the primary key and any subkeys.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_tpk_key_iter(tpk: *const TPK)
     -> *mut KeyIterWrapper<'static>
 {
@@ -528,7 +528,7 @@ pub extern "system" fn sq_tpk_key_iter(tpk: *const TPK)
 }
 
 /// Frees a sq_tpk_key_iter_t.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_tpk_key_iter_free(
     iter: Option<&mut KeyIterWrapper>)
 {
@@ -544,7 +544,7 @@ pub extern "system" fn sq_tpk_key_iter_free(
 ///
 /// If rso is not NULL, this stores the key's revocation status in
 /// *rso.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_tpk_key_iter_next<'a>(
     iter_wrapper: *mut KeyIterWrapper<'a>,
     sigo: Option<&mut Option<&'a packet::Signature>>,
@@ -602,7 +602,7 @@ pub extern "system" fn sq_tpk_key_iter_next<'a>(
 /// sq_tpk_free (tpk);
 /// sq_context_free (ctx);
 /// ```
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_tpk_builder_default() -> *mut TPKBuilder {
     box_raw!(TPKBuilder::default())
 }
@@ -610,13 +610,13 @@ pub extern "system" fn sq_tpk_builder_default() -> *mut TPKBuilder {
 /// Generates a key compliant to [Autocrypt Level 1].
 ///
 ///   [Autocrypt Level 1]: https://autocrypt.org/level1.html
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_tpk_builder_autocrypt() -> *mut TPKBuilder {
     box_raw!(TPKBuilder::autocrypt(Autocrypt::V1))
 }
 
 /// Frees an `sq_tpk_builder_t`.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_tpk_builder_free(tpkb: Option<&mut TPKBuilder>)
 {
     ffi_free!(tpkb)
@@ -624,7 +624,7 @@ pub extern "system" fn sq_tpk_builder_free(tpkb: Option<&mut TPKBuilder>)
 
 /// Sets the encryption and signature algorithms for primary and all
 /// subkeys.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_tpk_builder_set_cipher_suite
     (tpkb: *mut *mut TPKBuilder, cs: c_int)
 {
@@ -642,7 +642,7 @@ pub extern "system" fn sq_tpk_builder_set_cipher_suite
 
 /// Adds a new user ID. The first user ID added replaces the default
 /// ID that is just the empty string.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_tpk_builder_add_userid
     (tpkb: *mut *mut TPKBuilder, uid: *const c_char)
 {
@@ -654,7 +654,7 @@ pub extern "system" fn sq_tpk_builder_add_userid
 }
 
 /// Adds a signing capable subkey.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_tpk_builder_add_signing_subkey
     (tpkb: *mut *mut TPKBuilder)
 {
@@ -665,7 +665,7 @@ pub extern "system" fn sq_tpk_builder_add_signing_subkey
 }
 
 /// Adds an encryption capable subkey.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_tpk_builder_add_encryption_subkey
     (tpkb: *mut *mut TPKBuilder)
 {
@@ -676,7 +676,7 @@ pub extern "system" fn sq_tpk_builder_add_encryption_subkey
 }
 
 /// Adds an certification capable subkey.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_tpk_builder_add_certification_subkey
     (tpkb: *mut *mut TPKBuilder)
 {
@@ -689,7 +689,7 @@ pub extern "system" fn sq_tpk_builder_add_certification_subkey
 /// Generates the actual TPK.
 ///
 /// Consumes `tpkb`.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_tpk_builder_generate
     (ctx: *mut Context, tpkb: *mut TPKBuilder,
      tpk_out: *mut *mut TPK,

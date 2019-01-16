@@ -69,7 +69,7 @@ pub mod tsk;
 ///
 /// assert (strcmp (sq_tag_to_string (2), "SIGNATURE") == 0);
 /// ```
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_tag_to_string(tag: u8) -> *const c_char {
     match Tag::from(tag) {
         Tag::PKESK => "PKESK\x00",
@@ -102,7 +102,7 @@ fn revocation_status_to_int(rs: &RevocationStatus) -> c_int {
 }
 
 /// Returns the TPK's revocation status variant.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_revocation_status_variant(
     rs: *mut RevocationStatus)
     -> c_int
@@ -114,7 +114,7 @@ pub extern "system" fn sq_revocation_status_variant(
 }
 
 /// Frees a sq_revocation_status_t.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_revocation_status_free(
     rs: Option<&mut RevocationStatus>)
 {
@@ -124,7 +124,7 @@ pub extern "system" fn sq_revocation_status_free(
 /* openpgp::Packet.  */
 
 /// Frees the Packet.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_packet_free(p: Option<&mut Packet>) {
     ffi_free!(p)
 }
@@ -134,7 +134,7 @@ pub extern "system" fn sq_packet_free(p: Option<&mut Packet>) {
 /// Tags are explained in [Section 4.3 of RFC 4880].
 ///
 ///   [Section 4.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.3
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_packet_tag(p: *const Packet)
                                      -> uint8_t {
     let p = ffi_param_ref!(p);
@@ -149,7 +149,7 @@ pub extern "system" fn sq_packet_tag(p: *const Packet)
 /// Signature Packet uses some unsupported methods, it is parsed
 /// into an `Packet::Unknown`.  `tag()` returns `SQ_TAG_SIGNATURE`,
 /// whereas `kind()` returns `0`.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_packet_kind(p: *const Packet)
                                       -> uint8_t {
     let p = ffi_param_ref!(p);
@@ -161,13 +161,13 @@ pub extern "system" fn sq_packet_kind(p: *const Packet)
 }
 
 /// Frees the Signature.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_signature_free(s: Option<&mut Signature>) {
     ffi_free!(s)
 }
 
 /// Converts the signature to a packet.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_signature_to_packet(s: *mut Signature)
                                               -> *mut Packet
 {
@@ -180,7 +180,7 @@ pub extern "system" fn sq_signature_to_packet(s: *mut Signature)
 /// If there is no Issuer subpacket, this returns NULL.  Note: if
 /// there is no Issuer subpacket, but there is an IssuerFingerprint
 /// subpacket, this still returns NULL.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_signature_issuer(sig: *const packet::Signature)
                                            -> *mut KeyID {
     let sig = ffi_param_ref!(sig);
@@ -192,7 +192,7 @@ pub extern "system" fn sq_signature_issuer(sig: *const packet::Signature)
 /// If there is no IssuerFingerprint subpacket, this returns NULL.
 /// Note: if there is no IssuerFingerprint subpacket, but there is an
 /// Issuer subpacket, this still returns NULL.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_signature_issuer_fingerprint(
     sig: *const packet::Signature)
     -> *mut Fingerprint
@@ -204,7 +204,7 @@ pub extern "system" fn sq_signature_issuer_fingerprint(
 
 /// Returns whether the KeyFlags indicates that the key can be used to
 /// make certifications.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_signature_can_certify(sig: *const packet::Signature)
     -> bool
 {
@@ -214,7 +214,7 @@ pub extern "system" fn sq_signature_can_certify(sig: *const packet::Signature)
 
 /// Returns whether the KeyFlags indicates that the key can be used to
 /// make signatures.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_signature_can_sign(sig: *const packet::Signature)
     -> bool
 {
@@ -224,7 +224,7 @@ pub extern "system" fn sq_signature_can_sign(sig: *const packet::Signature)
 
 /// Returns whether the KeyFlags indicates that the key can be used to
 /// encrypt data for transport.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_signature_can_encrypt_for_transport(sig: *const packet::Signature)
     -> bool
 {
@@ -234,7 +234,7 @@ pub extern "system" fn sq_signature_can_encrypt_for_transport(sig: *const packet
 
 /// Returns whether the KeyFlags indicates that the key can be used to
 /// encrypt data at rest.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_signature_can_encrypt_at_rest(sig: *const packet::Signature)
     -> bool
 {
@@ -244,7 +244,7 @@ pub extern "system" fn sq_signature_can_encrypt_at_rest(sig: *const packet::Sign
 
 /// Returns whether the KeyFlags indicates that the key can be used
 /// for authentication.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_signature_can_authenticate(sig: *const packet::Signature)
     -> bool
 {
@@ -254,7 +254,7 @@ pub extern "system" fn sq_signature_can_authenticate(sig: *const packet::Signatu
 
 /// Returns whether the KeyFlags indicates that the key is a split
 /// key.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_signature_is_split_key(sig: *const packet::Signature)
     -> bool
 {
@@ -264,7 +264,7 @@ pub extern "system" fn sq_signature_is_split_key(sig: *const packet::Signature)
 
 /// Returns whether the KeyFlags indicates that the key is a group
 /// key.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_signature_is_group_key(sig: *const packet::Signature)
     -> bool
 {
@@ -277,7 +277,7 @@ pub extern "system" fn sq_signature_is_group_key(sig: *const packet::Signature)
 ///
 /// A signature is alive if the creation date is in the past, and the
 /// signature has not expired.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_signature_alive(sig: *const packet::Signature)
     -> bool
 {
@@ -289,7 +289,7 @@ pub extern "system" fn sq_signature_alive(sig: *const packet::Signature)
 ///
 /// A signature is alive if the creation date is in the past, and the
 /// signature has not expired at the specified time.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_signature_alive_at(sig: *const packet::Signature,
                                              when: time_t)
     -> bool
@@ -299,7 +299,7 @@ pub extern "system" fn sq_signature_alive_at(sig: *const packet::Signature,
 }
 
 /// Returns whether the signature is expired.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_signature_expired(sig: *const packet::Signature)
     -> bool
 {
@@ -308,7 +308,7 @@ pub extern "system" fn sq_signature_expired(sig: *const packet::Signature)
 }
 
 /// Returns whether the signature is expired at the specified time.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_signature_expired_at(sig: *const packet::Signature,
                                                when: time_t)
     -> bool
@@ -319,7 +319,7 @@ pub extern "system" fn sq_signature_expired_at(sig: *const packet::Signature,
 
 
 /// Clones the key.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_p_key_clone(key: *const packet::Key)
                                       -> *mut packet::Key {
     let key = ffi_param_ref!(key);
@@ -328,7 +328,7 @@ pub extern "system" fn sq_p_key_clone(key: *const packet::Key)
 
 /// Computes and returns the key's fingerprint as per Section 12.2
 /// of RFC 4880.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_p_key_fingerprint(key: *const packet::Key)
                                             -> *mut Fingerprint {
     let key = ffi_param_ref!(key);
@@ -337,7 +337,7 @@ pub extern "system" fn sq_p_key_fingerprint(key: *const packet::Key)
 
 /// Computes and returns the key's key ID as per Section 12.2 of RFC
 /// 4880.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_p_key_keyid(key: *const packet::Key)
                                       -> *mut KeyID {
     let key = ffi_param_ref!(key);
@@ -350,7 +350,7 @@ pub extern "system" fn sq_p_key_keyid(key: *const packet::Key)
 /// Note: this is with respect to the provided signature, which is not
 /// checked for validity.  That is, we do not check whether the
 /// signature is a valid self-signature for the given key.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_p_key_expired(key: *const packet::Key,
                                       sig: *const packet::Signature)
     -> bool
@@ -362,7 +362,7 @@ pub extern "system" fn sq_p_key_expired(key: *const packet::Key,
 }
 
 /// Like sq_p_key_expired, but at a specific time.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_p_key_expired_at(key: *const packet::Key,
                                          sig: *const packet::Signature,
                                          when: time_t)
@@ -383,7 +383,7 @@ pub extern "system" fn sq_p_key_expired_at(key: *const packet::Key,
 /// Note: this is with respect to the provided signature, which is not
 /// checked for validity.  That is, we do not check whether the
 /// signature is a valid self-signature for the given key.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_p_key_alive(key: *const packet::Key,
                                       sig: *const packet::Signature)
     -> bool
@@ -395,7 +395,7 @@ pub extern "system" fn sq_p_key_alive(key: *const packet::Key,
 }
 
 /// Like sq_p_key_alive, but at a specific time.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_p_key_alive_at(key: *const packet::Key,
                                          sig: *const packet::Signature,
                                          when: time_t)
@@ -408,7 +408,7 @@ pub extern "system" fn sq_p_key_alive_at(key: *const packet::Key,
 }
 
 /// Returns the key's creation time.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_p_key_creation_time(key: *const packet::Key)
     -> u32
 {
@@ -419,7 +419,7 @@ pub extern "system" fn sq_p_key_creation_time(key: *const packet::Key)
 }
 
 /// Returns the key's public key algorithm.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_p_key_public_key_algo(key: *const packet::Key)
     -> c_int
 {
@@ -429,7 +429,7 @@ pub extern "system" fn sq_p_key_public_key_algo(key: *const packet::Key)
 }
 
 /// Returns the public key's size in bits.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_p_key_public_key_bits(key: *const packet::Key)
     -> c_int
 {
@@ -453,7 +453,7 @@ pub extern "system" fn sq_p_key_public_key_bits(key: *const packet::Key)
 /// # Errors
 ///
 /// Fails if the secret key is missing, or encrypted.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_p_key_into_key_pair(ctx: *mut Context,
                                               key: *mut packet::Key)
                                               -> *mut self::openpgp::crypto::KeyPair
@@ -467,7 +467,7 @@ pub extern "system" fn sq_p_key_into_key_pair(ctx: *mut Context,
 ///
 /// The returned pointer is valid until `uid` is deallocated.  If
 /// `value_len` is not `NULL`, the size of value is stored there.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_user_id_value(uid: *const Packet,
                                         value_len: Option<&mut size_t>)
                                         -> *const uint8_t {
@@ -486,7 +486,7 @@ pub extern "system" fn sq_user_id_value(uid: *const Packet,
 ///
 /// The returned pointer is valid until `ua` is deallocated.  If
 /// `value_len` is not `NULL`, the size of value is stored there.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_user_attribute_value(ua: *const Packet,
                                                value_len: Option<&mut size_t>)
                                                -> *const uint8_t {
@@ -507,7 +507,7 @@ pub extern "system" fn sq_user_attribute_value(ua: *const Packet,
 /// session key.  If `key` is NULL, or not large enough, then the key
 /// is not written to it.  Either way, `key_len` is set to the size of
 /// the session key.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_skesk_decrypt(ctx: *mut Context,
                                         skesk: *const Packet,
                                         password: *const uint8_t,
@@ -550,7 +550,7 @@ pub extern "system" fn sq_skesk_decrypt(ctx: *mut Context,
 ///
 /// The return value is a reference ot a `KeyID`.  The caller must not
 /// modify or free it.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_pkesk_recipient(pkesk: *const PKESK)
                                           -> *const KeyID {
     let pkesk = ffi_param_ref!(pkesk);
@@ -563,7 +563,7 @@ pub extern "system" fn sq_pkesk_recipient(pkesk: *const PKESK)
 /// session key.  If `key` is NULL, or not large enough, then the key
 /// is not written to it.  Either way, `key_len` is set to the size of
 /// the session key.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_pkesk_decrypt(ctx: *mut Context,
                                         pkesk: *const PKESK,
                                         secret_key: *const packet::Key,
@@ -606,7 +606,7 @@ pub extern "system" fn sq_pkesk_decrypt(ctx: *mut Context,
 ///
 /// This function returns a `PacketParser` for the first packet in
 /// the stream.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_packet_parser_from_reader<'a>
     (ctx: *mut Context, reader: *mut Box<'a + Read>)
      -> *mut PacketParserResult<'a> {
@@ -619,7 +619,7 @@ pub extern "system" fn sq_packet_parser_from_reader<'a>
 ///
 /// This function returns a `PacketParser` for the first packet in
 /// the stream.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_packet_parser_from_file
     (ctx: *mut Context, filename: *const c_char)
      -> *mut PacketParserResult<'static> {
@@ -632,7 +632,7 @@ pub extern "system" fn sq_packet_parser_from_file
 ///
 /// This function returns a `PacketParser` for the first packet in
 /// the stream.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_packet_parser_from_bytes
     (ctx: *mut Context, b: *const uint8_t, len: size_t)
      -> *mut PacketParserResult<'static> {
@@ -646,7 +646,7 @@ pub extern "system" fn sq_packet_parser_from_bytes
 }
 
 /// Frees the packet parser result
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_packet_parser_result_free(
     ppr: Option<&mut PacketParserResult>)
 {
@@ -654,13 +654,13 @@ pub extern "system" fn sq_packet_parser_result_free(
 }
 
 /// Frees the packet parser.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_packet_parser_free(pp: Option<&mut PacketParser>) {
     ffi_free!(pp)
 }
 
 /// Frees the packet parser EOF object.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_packet_parser_eof_is_message(
     eof: *const PacketParserEOF) -> bool
 {
@@ -670,7 +670,7 @@ pub extern "system" fn sq_packet_parser_eof_is_message(
 }
 
 /// Frees the packet parser EOF object.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_packet_parser_eof_free
     (eof: Option<&mut PacketParserEOF>)
 {
@@ -678,7 +678,7 @@ pub extern "system" fn sq_packet_parser_eof_free
 }
 
 /// Returns a reference to the packet that is being parsed.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_packet_parser_packet
     (pp: *const PacketParser)
      -> *const Packet {
@@ -690,7 +690,7 @@ pub extern "system" fn sq_packet_parser_packet
 ///
 /// A top-level packet has a recursion depth of 0.  Packets in a
 /// top-level container have a recursion depth of 1, etc.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_packet_parser_recursion_depth
     (pp: *const PacketParser)
      -> uint8_t {
@@ -765,7 +765,7 @@ pub extern "system" fn sq_packet_parser_recursion_depth
 /// not wish to receive the value, pass `NULL` as the parameter.
 ///
 /// Consumes the given packet parser.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_packet_parser_next<'a>
     (ctx: *mut Context,
      pp: *mut PacketParser<'a>,
@@ -809,7 +809,7 @@ pub extern "system" fn sq_packet_parser_next<'a>
 /// not wish to receive the value, pass `NULL` as the parameter.
 ///
 /// Consumes the given packet parser.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_packet_parser_recurse<'a>
     (ctx: *mut Context,
      pp: *mut PacketParser<'a>,
@@ -839,7 +839,7 @@ pub extern "system" fn sq_packet_parser_recurse<'a>
 /// general, you should avoid buffering a packet's content and
 /// prefer streaming its content unless you are certain that the
 /// content is small.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_packet_parser_buffer_unread_content<'a>
     (ctx: *mut Context,
      pp: *mut PacketParser<'a>,
@@ -857,7 +857,7 @@ pub extern "system" fn sq_packet_parser_buffer_unread_content<'a>
 ///
 /// By default, this drops any unread content.  Use, for instance,
 /// `PacketParserBuild` to customize the default behavior.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_packet_parser_finish<'a>
     (ctx: *mut Context, pp: *mut PacketParser<'a>,
      packet: Option<&mut *const Packet>)
@@ -889,7 +889,7 @@ pub extern "system" fn sq_packet_parser_finish<'a>
 /// If this function is called on a packet that does not contain
 /// encrypted data, or some of the data was already read, then it
 /// returns `Error::InvalidOperation`.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_packet_parser_decrypt<'a>
     (ctx: *mut Context,
      pp: *mut PacketParser<'a>,
@@ -916,7 +916,7 @@ pub extern "system" fn sq_packet_parser_decrypt<'a>
 /// This function does not consume the ppr.
 ///
 /// Returns 0 if the PacketParserResult does not contain a packet.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_packet_parser_result_tag<'a>
     (ppr: *mut PacketParserResult<'a>)
     -> c_int
@@ -942,7 +942,7 @@ pub extern "system" fn sq_packet_parser_result_tag<'a>
 /// `PacketParserResult` and ownership of the `PacketParser` is
 /// returned to the caller, i.e., the caller is responsible for
 /// ensuring that the `PacketParser` is freed.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_packet_parser_result_packet_parser<'a>
     (ppr: *mut PacketParserResult<'a>)
     -> *mut PacketParser<'a>
@@ -970,7 +970,7 @@ pub extern "system" fn sq_packet_parser_result_packet_parser<'a>
 /// `PacketParserResult` and ownership of the `PacketParserEOF` is
 /// returned to the caller, i.e., the caller is responsible for
 /// ensuring that the `PacketParserEOF` is freed.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_packet_parser_result_eof<'a>
     (ppr: *mut PacketParserResult<'a>)
     -> *mut PacketParserEOF
@@ -1001,7 +1001,7 @@ use self::openpgp::serialize::{
 
 
 /// Streams an OpenPGP message.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_writer_stack_message
     (writer: *mut Box<Write>)
      -> *mut writer::Stack<'static, Cookie>
@@ -1011,7 +1011,7 @@ pub extern "system" fn sq_writer_stack_message
 }
 
 /// Writes up to `len` bytes of `buf` into `writer`.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_writer_stack_write
     (ctx: *mut Context,
      writer: *mut writer::Stack<'static, Cookie>,
@@ -1032,7 +1032,7 @@ pub extern "system" fn sq_writer_stack_write
 /// Unlike sq_writer_stack_write, unless an error occurs, the whole
 /// buffer will be written.  Also, this version automatically catches
 /// EINTR.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_writer_stack_write_all
     (ctx: *mut Context,
      writer: *mut writer::Stack<'static, Cookie>,
@@ -1049,7 +1049,7 @@ pub extern "system" fn sq_writer_stack_write_all
 }
 
 /// Finalizes this writer, returning the underlying writer.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_writer_stack_finalize_one
     (ctx: *mut Context,
      writer: *mut writer::Stack<'static, Cookie>)
@@ -1065,7 +1065,7 @@ pub extern "system" fn sq_writer_stack_finalize_one
 }
 
 /// Finalizes all writers, tearing down the whole stack.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_writer_stack_finalize
     (ctx: *mut Context,
      writer: *mut writer::Stack<'static, Cookie>)
@@ -1085,7 +1085,7 @@ pub extern "system" fn sq_writer_stack_finalize
 /// This writer can be used to construct arbitrary OpenPGP packets.
 /// The body will be written using partial length encoding, or, if the
 /// body is short, using full length encoding.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_arbitrary_writer_new
     (ctx: *mut Context,
      inner: *mut writer::Stack<'static, Cookie>,
@@ -1102,7 +1102,7 @@ pub extern "system" fn sq_arbitrary_writer_new
 /// For every signing key, a signer writes a one-pass-signature
 /// packet, then hashes and emits the data stream, then for every key
 /// writes a signature packet.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_signer_new
     (ctx: *mut Context,
      inner: *mut writer::Stack<'static, Cookie>,
@@ -1126,7 +1126,7 @@ pub extern "system" fn sq_signer_new
 }
 
 /// Creates a signer for a detached signature.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_signer_new_detached
     (ctx: *mut Context,
      inner: *mut writer::Stack<'static, Cookie>,
@@ -1153,7 +1153,7 @@ pub extern "system" fn sq_signer_new_detached
 ///
 /// The body will be written using partial length encoding, or, if the
 /// body is short, using full length encoding.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_literal_writer_new
     (ctx: *mut Context,
      inner: *mut writer::Stack<'static, Cookie>)
@@ -1175,7 +1175,7 @@ pub extern "system" fn sq_literal_writer_new
 ///
 /// The stream is encrypted using AES256, regardless of any key
 /// preferences.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_encryptor_new
     (ctx: *mut Context,
      inner: *mut writer::Stack<'static, Cookie>,
@@ -1219,7 +1219,7 @@ pub extern "system" fn sq_encryptor_new
 // Secret.
 
 /// Creates an sq_secret_t from a decrypted session key.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub fn sq_secret_cached<'a>(algo: u8,
                             session_key: *const u8,
                             session_key_len: size_t)
@@ -1268,7 +1268,7 @@ pub struct VerificationResults<'a> {
 /// This function returns the verification results for a particular
 /// level.  The result is an array of references to
 /// `VerificationResult`.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub fn sq_verification_results_at_level<'a>(results: *const VerificationResults<'a>,
                                             level: size_t,
                                             r: *mut *const &'a VerificationResult,
@@ -1287,7 +1287,7 @@ pub fn sq_verification_results_at_level<'a>(results: *const VerificationResults<
 }
 
 /// Returns the verification result code.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub fn sq_verification_result_code(result: *const VerificationResult)
     -> c_int
 {
@@ -1300,7 +1300,7 @@ pub fn sq_verification_result_code(result: *const VerificationResult)
 }
 
 /// Returns the verification result code.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub fn sq_verification_result_signature(result: *const VerificationResult)
     -> *const packet::Signature
 {
@@ -1315,7 +1315,7 @@ pub fn sq_verification_result_signature(result: *const VerificationResult)
 }
 
 /// Returns the verification result code.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub fn sq_verification_result_level(result: *const VerificationResult)
     -> c_int
 {
@@ -1492,7 +1492,7 @@ fn verify_real<'a>(input: &'a mut Box<'a + Read>,
 /// treated as opaque containers.
 ///
 /// Note: output may be NULL, if the output is not required.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub fn sq_verify<'a>(ctx: *mut Context,
                      input: *mut Box<'a + Read>,
                      dsig: Option<&'a mut Box<'a + Read>>,
@@ -1615,7 +1615,7 @@ fn decrypt_real<'a>(input: &'a mut Box<'a + Read>,
 /// first parameter to each of them.
 ///
 /// Note: all of the parameters are required; none may be NULL.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub fn sq_decrypt<'a>(ctx: *mut Context,
                       input: *mut Box<'a + Read>,
                       output: *mut Box<'a + Write>,

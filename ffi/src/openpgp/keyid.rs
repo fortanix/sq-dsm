@@ -32,7 +32,7 @@ use build_hasher;
 /// sq_keyid_free (mr_b);
 /// free (mr_b_as_string);
 /// ```
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_keyid_from_bytes(id: *const uint8_t) -> *mut KeyID {
     assert!(!id.is_null());
     let id = unsafe { slice::from_raw_parts(id, 8) };
@@ -40,7 +40,7 @@ pub extern "system" fn sq_keyid_from_bytes(id: *const uint8_t) -> *mut KeyID {
 }
 
 /// Reads a hex-encoded Key ID.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_keyid_from_hex(id: *const c_char) -> *mut KeyID {
     let id = ffi_param_cstr!(id).to_string_lossy();
     KeyID::from_hex(&id)
@@ -49,13 +49,13 @@ pub extern "system" fn sq_keyid_from_hex(id: *const c_char) -> *mut KeyID {
 }
 
 /// Frees an `KeyID` object.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_keyid_free(keyid: Option<&mut KeyID>) {
     ffi_free!(keyid)
 }
 
 /// Clones the KeyID.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_keyid_clone(id: *const KeyID)
                                       -> *mut KeyID {
     let id = ffi_param_ref!(id);
@@ -63,7 +63,7 @@ pub extern "system" fn sq_keyid_clone(id: *const KeyID)
 }
 
 /// Hashes the KeyID.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_keyid_hash(id: *const KeyID)
                                      -> uint64_t {
     let id = ffi_param_ref!(id);
@@ -73,7 +73,7 @@ pub extern "system" fn sq_keyid_hash(id: *const KeyID)
 }
 
 /// Converts the KeyID to its standard representation.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_keyid_to_string(id: *const KeyID)
                                           -> *mut c_char {
     let id = ffi_param_ref!(id);
@@ -81,7 +81,7 @@ pub extern "system" fn sq_keyid_to_string(id: *const KeyID)
 }
 
 /// Converts the KeyID to a hexadecimal number.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_keyid_to_hex(id: *const KeyID)
                                        -> *mut c_char {
     let id = ffi_param_ref!(id);
@@ -89,7 +89,7 @@ pub extern "system" fn sq_keyid_to_hex(id: *const KeyID)
 }
 
 /// Compares KeyIDs.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_keyid_equal(a: *const KeyID,
                                       b: *const KeyID)
                                       -> bool {

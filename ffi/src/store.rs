@@ -42,7 +42,7 @@ use super::core::Context;
 
 
 /// Lists all stores with the given prefix.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_store_list_stores(ctx: *mut Context,
                                             domain_prefix: *const c_char)
                                             -> *mut StoreIter {
@@ -58,7 +58,7 @@ pub extern "system" fn sq_store_list_stores(ctx: *mut Context,
 /// stores domain is stored there.  If `namep` is not `NULL`, the
 /// stores name is stored there.  If `policyp` is not `NULL`, the
 /// stores network policy is stored there.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_store_iter_next(iter: *mut StoreIter,
                                           domainp: Option<&mut *mut c_char>,
                                           namep: Option<&mut *mut c_char>,
@@ -86,13 +86,13 @@ pub extern "system" fn sq_store_iter_next(iter: *mut StoreIter,
 }
 
 /// Frees a sq_store_iter_t.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_store_iter_free(iter: Option<&mut StoreIter>) {
     ffi_free!(iter)
 }
 
 /// Lists all keys in the common key pool.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_store_list_keys(ctx: *mut Context)
                                           -> *mut KeyIter {
     let ctx = ffi_param_ref_mut!(ctx);
@@ -101,7 +101,7 @@ pub extern "system" fn sq_store_list_keys(ctx: *mut Context)
 }
 
 /// Lists all log entries.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_store_server_log(ctx: *mut Context)
                                            -> *mut LogIter {
     let ctx = ffi_param_ref_mut!(ctx);
@@ -113,7 +113,7 @@ pub extern "system" fn sq_store_server_log(ctx: *mut Context)
 ///
 /// Returns `NULL` on exhaustion.  If `fpp` is not `NULL`, the key's
 /// fingerprint is stored there.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_key_iter_next(iter: *mut KeyIter,
                                         fpp: Option<&mut *mut Fingerprint>)
                                         -> *mut Key {
@@ -131,7 +131,7 @@ pub extern "system" fn sq_key_iter_next(iter: *mut KeyIter,
 }
 
 /// Frees a sq_key_iter_t.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_key_iter_free(iter: Option<&mut KeyIter>) {
     ffi_free!(iter)
 }
@@ -140,7 +140,7 @@ pub extern "system" fn sq_key_iter_free(iter: Option<&mut KeyIter>) {
 /// Returns the next log entry.
 ///
 /// Returns `NULL` on exhaustion.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_log_iter_next(iter: *mut LogIter)
                                         -> *mut Log {
     let iter = ffi_param_ref_mut!(iter);
@@ -166,7 +166,7 @@ pub extern "system" fn sq_log_iter_next(iter: *mut LogIter)
 }
 
 /// Frees a sq_log_iter_t.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_log_iter_free(iter: Option<&mut LogIter>) {
     ffi_free!(iter)
 }
@@ -182,7 +182,7 @@ pub extern "system" fn sq_log_iter_free(iter: Option<&mut LogIter>) {
 /// of the context that created the store in the first place.
 /// Opening the store with a different network policy is
 /// forbidden.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_store_open(ctx: *mut Context,
                                      name: *const c_char)
                                      -> *mut Store {
@@ -193,13 +193,13 @@ pub extern "system" fn sq_store_open(ctx: *mut Context,
 }
 
 /// Frees a sq_store_t.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_store_free(store: Option<&mut Store>) {
     ffi_free!(store)
 }
 
 /// Adds a key identified by fingerprint to the store.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_store_add(ctx: *mut Context,
                                     store: *const Store,
                                     label: *const c_char,
@@ -214,7 +214,7 @@ pub extern "system" fn sq_store_add(ctx: *mut Context,
 }
 
 /// Imports a key into the store.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_store_import(ctx: *mut Context,
                                        store: *const Store,
                                        label: *const c_char,
@@ -229,7 +229,7 @@ pub extern "system" fn sq_store_import(ctx: *mut Context,
 }
 
 /// Returns the binding for the given label.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_store_lookup(ctx: *mut Context,
                                        store: *const Store,
                                        label: *const c_char)
@@ -242,7 +242,7 @@ pub extern "system" fn sq_store_lookup(ctx: *mut Context,
 }
 
 /// Looks up a key in the common key pool by KeyID.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_store_lookup_by_keyid(ctx: *mut Context,
                                                 keyid: *const KeyID)
     -> *mut Key
@@ -254,7 +254,7 @@ pub extern "system" fn sq_store_lookup_by_keyid(ctx: *mut Context,
 }
 
 /// Looks up a key in the common key pool by (Sub)KeyID.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_store_lookup_by_subkeyid(ctx: *mut Context,
                                                    keyid: *const KeyID)
     -> *mut Key
@@ -268,7 +268,7 @@ pub extern "system" fn sq_store_lookup_by_subkeyid(ctx: *mut Context,
 /// Deletes this store.
 ///
 /// Consumes `store`.  Returns != 0 on error.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_store_delete(ctx: *mut Context,
                                        store: *mut Store)
                                        -> Status {
@@ -279,7 +279,7 @@ pub extern "system" fn sq_store_delete(ctx: *mut Context,
 }
 
 /// Lists all bindings.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_store_iter(ctx: *mut Context,
                                      store: *const Store)
                                      -> *mut BindingIter {
@@ -294,7 +294,7 @@ pub extern "system" fn sq_store_iter(ctx: *mut Context,
 /// Returns `NULL` on exhaustion.  If `labelp` is not `NULL`, the
 /// bindings label is stored there.  If `fpp` is not `NULL`, the
 /// bindings fingerprint is stored there.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_binding_iter_next(iter: *mut BindingIter,
                                             labelp: Option<&mut *mut c_char>,
                                             fpp: Option<&mut *mut Fingerprint>)
@@ -317,13 +317,13 @@ pub extern "system" fn sq_binding_iter_next(iter: *mut BindingIter,
 }
 
 /// Frees a sq_binding_iter_t.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_binding_iter_free(iter: Option<&mut BindingIter>) {
     ffi_free!(iter)
 }
 
 /// Lists all log entries related to this store.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_store_log(ctx: *mut Context,
                                     store: *const Store)
                                     -> *mut LogIter {
@@ -334,19 +334,19 @@ pub extern "system" fn sq_store_log(ctx: *mut Context,
 }
 
 /// Frees a sq_binding_t.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_binding_free(binding: Option<&mut Binding>) {
     ffi_free!(binding)
 }
 
 /// Frees a sq_key_t.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_key_free(key: Option<&mut Key>) {
     ffi_free!(key)
 }
 
 /// Frees a sq_log_t.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_log_free(log: Option<&mut Log>) {
     if let Some(log) = log {
         let log = unsafe { Box::from_raw(log) };
@@ -369,7 +369,7 @@ pub extern "system" fn sq_log_free(log: Option<&mut Log>) {
 }
 
 /// Returns the `sq_stats_t` of this binding.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_binding_stats(ctx: *mut Context,
                                         binding: *const Binding)
                                         -> *mut Stats {
@@ -380,7 +380,7 @@ pub extern "system" fn sq_binding_stats(ctx: *mut Context,
 }
 
 /// Returns the `sq_key_t` of this binding.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_binding_key(ctx: *mut Context,
                                       binding: *const Binding)
                                      -> *mut Key {
@@ -391,7 +391,7 @@ pub extern "system" fn sq_binding_key(ctx: *mut Context,
 }
 
 /// Returns the `sq_tpk_t` of this binding.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_binding_tpk(ctx: *mut Context,
                                       binding: *const Binding)
                                      -> *mut TPK {
@@ -417,7 +417,7 @@ pub extern "system" fn sq_binding_tpk(ctx: *mut Context,
 /// `Error::Conflict` is returned, and you have to resolve the
 /// conflict, either by ignoring the new key, or by using
 /// `sq_binding_rotate` to force a rotation.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_binding_import(ctx: *mut Context,
                                          binding: *const Binding,
                                          tpk: *const TPK)
@@ -443,7 +443,7 @@ pub extern "system" fn sq_binding_import(ctx: *mut Context,
 /// `tpk` properly.  How to do that depends on your thread model.
 /// You could simply ask Alice to call her communication partner
 /// Bob and confirm that he rotated his keys.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_binding_rotate(ctx: *mut Context,
                                          binding: *const Binding,
                                          tpk: *const TPK)
@@ -458,7 +458,7 @@ pub extern "system" fn sq_binding_rotate(ctx: *mut Context,
 /// Deletes this binding.
 ///
 /// Consumes `binding`.  Returns != 0 on error.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_binding_delete(ctx: *mut Context,
                                          binding: *mut Binding)
                                          -> Status {
@@ -469,7 +469,7 @@ pub extern "system" fn sq_binding_delete(ctx: *mut Context,
 }
 
 /// Lists all log entries related to this binding.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_binding_log(ctx: *mut Context,
                                       binding: *const Binding)
                                       -> *mut LogIter {
@@ -480,7 +480,7 @@ pub extern "system" fn sq_binding_log(ctx: *mut Context,
 }
 
 /// Returns the `sq_stats_t` of this key.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_key_stats(ctx: *mut Context,
                                     key: *const Key)
                                     -> *mut Stats {
@@ -491,7 +491,7 @@ pub extern "system" fn sq_key_stats(ctx: *mut Context,
 }
 
 /// Returns the `sq_tpk_t`.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_key_tpk(ctx: *mut Context,
                                   key: *const Key)
                                   -> *mut TPK {
@@ -510,7 +510,7 @@ pub extern "system" fn sq_key_tpk(ctx: *mut Context,
 ///
 /// If the new key does not match the current key,
 /// `Error::Conflict` is returned.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_key_import(ctx: *mut Context,
                                      key: *const Key,
                                      tpk: *const TPK)
@@ -523,7 +523,7 @@ pub extern "system" fn sq_key_import(ctx: *mut Context,
 }
 
 /// Lists all log entries related to this key.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_key_log(ctx: *mut Context,
                                   key: *const Key)
                                   -> *mut LogIter {
@@ -534,7 +534,7 @@ pub extern "system" fn sq_key_log(ctx: *mut Context,
 }
 
 /// Frees a sq_stats_t.
-#[no_mangle]
+#[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_stats_free(stats: Option<&mut Stats>) {
     ffi_free!(stats)
 }
