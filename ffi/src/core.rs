@@ -100,18 +100,10 @@ pub extern "system" fn sq_context_last_error(ctx: *mut Context)
 pub extern "system" fn sq_context_new(domain: *const c_char,
                                       errp: Option<&mut *mut failure::Error>)
                                       -> *mut Context {
+    ffi_make_fry_from_errp!(errp);
     let domain = ffi_param_cstr!(domain).to_string_lossy();
 
-    match core::Context::new(&domain) {
-        Ok(context) =>
-            box_raw!(Context::new(context)),
-        Err(e) => {
-            if let Some(errp) = errp {
-                *errp = box_raw!(e);
-            }
-            ptr::null_mut()
-        },
-    }
+    ffi_try_box!(core::Context::new(&domain).map(|ctx| Context::new(ctx)))
 }
 
 /// Frees a context.
@@ -190,18 +182,10 @@ pub extern "system" fn sq_context_ephemeral(ctx: *const Context) -> uint8_t {
 pub extern "system" fn sq_config_build(cfg: *mut Config,
                                        errp: Option<&mut *mut failure::Error>)
                                        -> *mut Context {
+    ffi_make_fry_from_errp!(errp);
     let cfg = ffi_param_move!(cfg);
 
-    match cfg.build() {
-        Ok(context) =>
-            box_raw!(Context::new(context)),
-        Err(e) => {
-            if let Some(errp) = errp {
-                *errp = box_raw!(e);
-            }
-            ptr::null_mut()
-        },
-    }
+    ffi_try_box!(cfg.build().map(|ctx| Context::new(ctx)))
 }
 
 /// Sets the directory containing shared state.
