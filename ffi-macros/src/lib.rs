@@ -54,7 +54,9 @@ pub fn ffi_catch_abort(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let fn_token = &decl.fn_token;
     let fn_generics = &decl.generics;
     let fn_out = &decl.output;
-    let fn_in = &decl.inputs;
+
+    let mut fn_params = TokenStream2::new();
+    decl.paren_token.surround(&mut fn_params, |ts| decl.inputs.to_tokens(ts));
 
     let block = &fun.block;
 
@@ -64,7 +66,7 @@ pub fn ffi_catch_abort(_attr: TokenStream, item: TokenStream) -> TokenStream {
     // inconsistencies can be observed.
     let expanded = quote! {
         #attrs #vis #constness #unsafety #asyncness #abi
-        #fn_token #ident #fn_generics ( #fn_in ) #fn_out
+        #fn_token #ident #fn_generics #fn_params #fn_out
         {
             match ::std::panic::catch_unwind(
                 ::std::panic::AssertUnwindSafe(|| #fn_out #block))
