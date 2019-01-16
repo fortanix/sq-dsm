@@ -56,16 +56,21 @@ use sequoia_core::Config;
 #[doc(hidden)]
 pub struct Context {
     pub(crate) c: core::Context,
-    e: Option<failure::Error>,
+    e: *mut failure::Error,
 }
 
 impl Context {
     fn new(c: core::Context) -> Self {
-        Context{c: c, e: None}
+        Context{c: c, e: ptr::null_mut()}
     }
 
     pub(crate) fn set_error(&mut self, e: failure::Error) {
-        self.e = Some(e);
+        if ! self.e.is_null() {
+            unsafe {
+                drop(Box::from_raw(self.e));
+            }
+        }
+        self.e = box_raw!(e);
     }
 }
 
@@ -76,7 +81,7 @@ impl Context {
 pub extern "system" fn sq_context_last_error(ctx: *mut Context)
                                              -> *mut failure::Error {
     let ctx = ffi_param_ref_mut!(ctx);
-    maybe_box_raw!(ctx.e.take())
+    ::std::mem::replace(&mut ctx.e, ptr::null_mut())
 }
 
 /// Creates a Context with reasonable defaults.
