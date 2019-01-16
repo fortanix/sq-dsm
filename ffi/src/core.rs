@@ -56,12 +56,16 @@ use sequoia_core::Config;
 #[doc(hidden)]
 pub struct Context {
     pub(crate) c: core::Context,
-    pub(crate) e: Option<failure::Error>,
+    e: Option<failure::Error>,
 }
 
 impl Context {
     fn new(c: core::Context) -> Self {
         Context{c: c, e: None}
+    }
+
+    pub(crate) fn set_error(&mut self, e: failure::Error) {
+        self.e = Some(e);
     }
 }
 

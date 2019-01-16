@@ -884,7 +884,7 @@ pub extern "system" fn sq_packet_parser_finish<'a>
         },
         Err(e) => {
             let status = Status::from(&e);
-            ctx.e = Some(e);
+            ctx.set_error(e);
             status
         },
     }

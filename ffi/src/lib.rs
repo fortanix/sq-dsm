@@ -277,7 +277,7 @@ macro_rules! ffi_make_fry_from_ctx {
                     Ok(_) => Status::Success,
                     Err(e) => {
                         let status = Status::from(&e);
-                        $ctx.e = Some(e);
+                        $ctx.set_error(e);
                         status
                     },
                 }
@@ -294,7 +294,7 @@ macro_rules! ffi_make_fry_from_ctx {
                 match $expr {
                     Ok(v) => v,
                     Err(e) => {
-                        $ctx.e = Some(e);
+                        $ctx.set_error(e);
                         return $or;
                     },
                 }

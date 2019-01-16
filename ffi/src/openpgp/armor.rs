@@ -245,7 +245,7 @@ pub extern "system" fn sq_armor_reader_headers(ctx: *mut Context,
             buf
         },
         Err(e) => {
-            ctx.e = Some(e);
+            ctx.set_error(e);
             ptr::null_mut()
         },
     };
