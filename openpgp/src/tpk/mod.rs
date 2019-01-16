@@ -305,12 +305,28 @@ const TRACE : bool = false;
 
 /// Compare the creation time of two signatures.  Order them so
 /// that the more recent signature is first.
-fn canonical_signature_order(a: &Signature, b: &Signature) -> Ordering {
-    match (a.signature_creation_time(),b.signature_creation_time()) {
+fn canonical_signature_order(a: Option<time::Tm>, b: Option<time::Tm>) -> Ordering {
+    match (a,b) {
         (None, None) => Ordering::Equal,
         (None, Some(_)) => Ordering::Greater,
         (Some(_), None) => Ordering::Less,
         (Some(ref a), Some(ref b)) => a.cmp(b),
+    }
+}
+
+/// Returns the first signature with creation time not less than `t`.
+fn greatest_lower_bound<'a>(t: time::Tm, sigs: &'a [Signature])
+    -> Option<&'a Signature>
+{
+    let idx = sigs
+        .binary_search_by(|s| {
+            canonical_signature_order(s.signature_creation_time(), Some(t))
+        });
+
+    match idx {
+        Ok(i) => sigs.get(i),
+        Err(0) => None,
+        Err(i) => sigs.get(i - 1),
     }
 }
 
@@ -320,15 +336,20 @@ fn canonical_signature_order(a: &Signature, b: &Signature) -> Ordering {
 ///
 /// Signatures are expected to have the right signature types and be
 /// cryptographically sound.
-fn active_revocation(sigs: &[Signature], revs: &[Signature])
+fn active_revocation(sigs: &[Signature], revs: &[Signature], t: time::Tm)
     -> bool
 {
-    match (sigs.last(), revs.last()) {
+    let sig = greatest_lower_bound(t, sigs);
+    let rev = greatest_lower_bound(t, revs);
+
+    match (sig, rev) {
         (None, Some(_)) => true,
         (Some(_), None) => false,
         (None, None) => false,
         (Some(ref sig), Some(ref revc)) => {
-            canonical_signature_order(sig, revc) != Ordering::Greater
+            canonical_signature_order(
+                sig.signature_creation_time(),
+                revc.signature_creation_time()) != Ordering::Greater
         }
     }
 }
@@ -446,10 +467,23 @@ impl SubkeyBinding {
     /// Note: this only returns whether the subkey is revoked.  If you
     /// want to know whether the key, subkey, etc., is revoked, then
     /// you need to query them separately.
-    pub fn revoked(&self) -> RevocationStatus {
-        if self.self_revocations.len() > 0 {
-            RevocationStatus::Revoked(&self.self_revocations[..])
-        } else if self.other_revocations.len() > 0 {
+    pub fn revoked<T>(&self, t: T) -> RevocationStatus
+        where T: Into<Option<time::Tm>>
+    {
+        let t = t.into().unwrap_or_else(time::now_utc);
+        let has_self_revs =
+            active_revocation(&self.selfsigs,
+                              &self.self_revocations, t);
+
+        if has_self_revs {
+            return RevocationStatus::Revoked(&self.self_revocations[..]);
+        }
+
+        let has_other_revs =
+            active_revocation(&self.selfsigs,
+                              &self.other_revocations, t);
+
+        if has_other_revs {
             RevocationStatus::CouldBe(&self.other_revocations[..])
         } else {
             RevocationStatus::NotAsFarAsWeKnow
@@ -562,15 +596,19 @@ impl UserIDBinding {
         self.other_revocations.iter()
     }
 
-    /// Returns the user id's revocation status.
+    /// Returns the user id's revocation status at time `t`. If `t` is None,
+    /// the current time is used.
     ///
     /// Note: this only returns whether the user id is revoked.  If
     /// you want to know whether the key, subkey, etc., is revoked,
     /// then you need to query them separately.
-    pub fn revoked(&self) -> RevocationStatus {
+    pub fn revoked<T>(&self, t: T) -> RevocationStatus
+        where T: Into<Option<time::Tm>>
+    {
+        let t = t.into().unwrap_or_else(time::now_utc);
         let has_self_revs =
             active_revocation(&self.selfsigs,
-                              &self.self_revocations);
+                              &self.self_revocations, t);
 
         if has_self_revs {
             return RevocationStatus::Revoked(&self.self_revocations[..]);
@@ -578,7 +616,7 @@ impl UserIDBinding {
 
         let has_other_revs =
             active_revocation(&self.selfsigs,
-                              &self.other_revocations);
+                              &self.other_revocations, t);
 
         if has_other_revs {
             RevocationStatus::CouldBe(&self.other_revocations[..])
@@ -674,10 +712,13 @@ impl UserAttributeBinding {
     /// Note: this only returns whether the user attribute is revoked.
     /// If you want to know whether the key, subkey, etc., is revoked,
     /// then you need to query them separately.
-    pub fn revoked(&self) -> RevocationStatus {
+    pub fn revoked<T>(&self, t: T) -> RevocationStatus
+        where T: Into<Option<time::Tm>>
+    {
+        let t = t.into().unwrap_or_else(time::now_utc);
         let has_self_revs =
             active_revocation(&self.selfsigs,
-                              &self.self_revocations);
+                              &self.self_revocations, t);
 
         if has_self_revs {
             return RevocationStatus::Revoked(&self.self_revocations[..]);
@@ -685,7 +726,7 @@ impl UserAttributeBinding {
 
         let has_other_revs =
             active_revocation(&self.selfsigs,
-                              &self.other_revocations);
+                              &self.other_revocations, t);
 
         if has_other_revs {
             RevocationStatus::CouldBe(&self.other_revocations[..])
@@ -720,12 +761,12 @@ impl<'a> Iterator for KeyIter<'a> {
         if ! self.primary {
             self.primary = true;
             Some((self.tpk.primary_key_signature(),
-                  self.tpk.revoked(),
+                  self.tpk.revoked(None),
                   self.tpk.primary()))
         } else {
             self.subkey_iter.next()
                 .map(|sk_binding| (sk_binding.binding_signature(),
-                                   sk_binding.revoked(),
+                                   sk_binding.revoked(None),
                                    &sk_binding.subkey,))
         }
     }
@@ -1291,10 +1332,13 @@ impl TPK {
     /// Note: this only returns whether the primary key is revoked.  If you
     /// want to know whether a subkey, user id, etc., is revoked, then
     /// you need to query them separately.
-    pub fn revoked(&self) -> RevocationStatus {
+    pub fn revoked<T>(&self, t: T) -> RevocationStatus
+        where T: Into<Option<time::Tm>>
+    {
+        let t = t.into().unwrap_or_else(time::now_utc);
         let has_self_revs =
             active_revocation(&self.primary_selfsigs,
-                              &self.primary_self_revocations);
+                              &self.primary_self_revocations, t);
 
         if has_self_revs {
             return RevocationStatus::Revoked(&self.primary_self_revocations[..]);
@@ -1302,7 +1346,7 @@ impl TPK {
 
         let has_other_revs =
             active_revocation(&self.primary_selfsigs,
-                              &self.primary_other_revocations);
+                              &self.primary_other_revocations, t);
 
         if has_other_revs {
             RevocationStatus::CouldBe(&self.primary_other_revocations[..])
@@ -1329,7 +1373,7 @@ impl TPK {
     /// let (tpk, _) = TPKBuilder::default()
     ///     .set_cipher_suite(CipherSuite::Cv25519)
     ///     .generate()?;
-    /// assert_eq!(RevocationStatus::NotAsFarAsWeKnow, tpk.revoked());
+    /// assert_eq!(RevocationStatus::NotAsFarAsWeKnow, tpk.revoked(None));
     ///
     /// let mut keypair = tpk.primary().clone().into_keypair()?;
     /// let sig = tpk.revoke(&mut keypair, ReasonForRevocation::KeyCompromised,
@@ -1337,7 +1381,7 @@ impl TPK {
     /// assert_eq!(sig.sigtype(), SignatureType::KeyRevocation);
     ///
     /// let tpk = tpk.merge_packets(vec![sig.clone().to_packet()])?;
-    /// assert_eq!(RevocationStatus::Revoked(&[sig]), tpk.revoked());
+    /// assert_eq!(RevocationStatus::Revoked(&[sig]), tpk.revoked(None));
     /// # Ok(())
     /// # }
     pub fn revoke(&self, primary_signer: &mut Signer,
@@ -1383,13 +1427,13 @@ impl TPK {
     /// let (mut tpk, _) = TPKBuilder::default()
     ///     .set_cipher_suite(CipherSuite::Cv25519)
     ///     .generate()?;
-    /// assert_eq!(RevocationStatus::NotAsFarAsWeKnow, tpk.revoked());
+    /// assert_eq!(RevocationStatus::NotAsFarAsWeKnow, tpk.revoked(None));
     ///
     /// let mut keypair = tpk.primary().clone().into_keypair()?;
     /// let tpk = tpk.revoke_in_place(&mut keypair,
     ///                               ReasonForRevocation::KeyCompromised,
     ///                               b"It was the maid :/")?;
-    /// if let RevocationStatus::Revoked(sigs) = tpk.revoked() {
+    /// if let RevocationStatus::Revoked(sigs) = tpk.revoked(None) {
     ///     assert_eq!(sigs.len(), 1);
     ///     assert_eq!(sigs[0].sigtype(), SignatureType::KeyRevocation);
     ///     assert_eq!(sigs[0].reason_for_revocation(),
@@ -1590,7 +1634,7 @@ impl TPK {
         }
         let now = now.into().unwrap_or_else(time::now);
 
-        if self.revoked() == RevocationStatus::NotAsFarAsWeKnow {
+        if self.revoked(now) == RevocationStatus::NotAsFarAsWeKnow {
             let prim_sigs = match self.primary_key_signature_full() {
                 None => Vec::default(),
                 Some((None, sig)) => vec![sig],
@@ -1602,7 +1646,7 @@ impl TPK {
             let mut ret = self.subkeys
                 .iter()
                 .filter(|sb| {
-                    sb.revoked() == RevocationStatus::NotAsFarAsWeKnow &&
+                    sb.revoked(None) == RevocationStatus::NotAsFarAsWeKnow &&
                         is_usable(sb.subkey(), sb.selfsigs(), now, &cap)
                 })
                 .map(|sb| sb.subkey())
@@ -1842,41 +1886,45 @@ impl TPK {
             subkey.selfsigs.len() > 0 || subkey.self_revocations.len() > 0
         });
 
+        fn sig_cmp(a: &Signature, b: &Signature) -> Ordering {
+            canonical_signature_order(a.signature_creation_time(),
+                                      b.signature_creation_time())
+        }
 
         // Sort and dedup the primary key's signatures.
-        self.primary_selfsigs.sort_by(canonical_signature_order);
+        self.primary_selfsigs.sort_by(sig_cmp);
         self.primary_selfsigs.dedup_by_key(sig_key);
 
         // There is no need to sort the certifications, but we do
         // want to remove dups and sorting is a prerequisite.
-        self.primary_certifications.sort_by(canonical_signature_order);
+        self.primary_certifications.sort_by(sig_cmp);
         self.primary_certifications.dedup_by_key(sig_key);
 
-        self.primary_self_revocations.sort_by(canonical_signature_order);
+        self.primary_self_revocations.sort_by(sig_cmp);
         self.primary_self_revocations.dedup_by_key(sig_key);
 
-        self.primary_other_revocations.sort_by(canonical_signature_order);
+        self.primary_other_revocations.sort_by(sig_cmp);
         self.primary_other_revocations.dedup_by_key(sig_key);
 
-        self.bad.sort_by(canonical_signature_order);
+        self.bad.sort_by(sig_cmp);
         self.bad.dedup_by_key(sig_key);
 
 
         // Sort the signatures so that the current valid
         // self-signature is first.
         for userid in &mut self.userids {
-            userid.selfsigs.sort_by(canonical_signature_order);
+            userid.selfsigs.sort_by(sig_cmp);
             userid.selfsigs.dedup_by_key(sig_key);
 
             // There is no need to sort the certifications, but we do
             // want to remove dups and sorting is a prerequisite.
-            userid.certifications.sort_by(canonical_signature_order);
+            userid.certifications.sort_by(sig_cmp);
             userid.certifications.dedup_by_key(sig_key);
 
-            userid.self_revocations.sort_by(canonical_signature_order);
+            userid.self_revocations.sort_by(sig_cmp);
             userid.self_revocations.dedup_by_key(sig_key);
 
-            userid.other_revocations.sort_by(canonical_signature_order);
+            userid.other_revocations.sort_by(sig_cmp);
             userid.other_revocations.dedup_by_key(sig_key);
         }
 
@@ -1898,19 +1946,19 @@ impl TPK {
 
                 // Recall: if a and b are equal, a will be dropped.
                 b.selfsigs.append(&mut a.selfsigs);
-                b.selfsigs.sort_by(canonical_signature_order);
+                b.selfsigs.sort_by(sig_cmp);
                 b.selfsigs.dedup_by_key(sig_key);
 
                 b.certifications.append(&mut a.certifications);
-                b.certifications.sort_by(canonical_signature_order);
+                b.certifications.sort_by(sig_cmp);
                 b.certifications.dedup_by_key(sig_key);
 
                 b.self_revocations.append(&mut a.self_revocations);
-                b.self_revocations.sort_by(canonical_signature_order);
+                b.self_revocations.sort_by(sig_cmp);
                 b.self_revocations.dedup_by_key(sig_key);
 
                 b.other_revocations.append(&mut a.self_revocations);
-                b.other_revocations.sort_by(canonical_signature_order);
+                b.other_revocations.sort_by(sig_cmp);
                 b.other_revocations.dedup_by_key(sig_key);
 
                 true
@@ -2012,22 +2060,21 @@ impl TPK {
             a.userid.userid().cmp(&b.userid.userid())
         });
 
-
         // Sort the signatures so that the current valid
         // self-signature is first.
         for attribute in &mut self.user_attributes {
-            attribute.selfsigs.sort_by(canonical_signature_order);
+            attribute.selfsigs.sort_by(sig_cmp);
             attribute.selfsigs.dedup_by_key(sig_key);
 
             // There is no need to sort the certifications, but we do
             // want to remove dups and sorting is a prerequisite.
-            attribute.certifications.sort_by(canonical_signature_order);
+            attribute.certifications.sort_by(sig_cmp);
             attribute.certifications.dedup_by_key(sig_key);
 
-            attribute.self_revocations.sort_by(canonical_signature_order);
+            attribute.self_revocations.sort_by(sig_cmp);
             attribute.self_revocations.dedup_by_key(sig_key);
 
-            attribute.other_revocations.sort_by(canonical_signature_order);
+            attribute.other_revocations.sort_by(sig_cmp);
             attribute.other_revocations.dedup_by_key(sig_key);
         }
 
@@ -2043,19 +2090,19 @@ impl TPK {
             if a.user_attribute == b.user_attribute {
                 // Recall: if a and b are equal, a will be dropped.
                 b.selfsigs.append(&mut a.selfsigs);
-                b.selfsigs.sort_by(canonical_signature_order);
+                b.selfsigs.sort_by(sig_cmp);
                 b.selfsigs.dedup_by_key(sig_key);
 
                 b.certifications.append(&mut a.certifications);
-                b.certifications.sort_by(canonical_signature_order);
+                b.certifications.sort_by(sig_cmp);
                 b.certifications.dedup_by_key(sig_key);
 
                 b.self_revocations.append(&mut a.self_revocations);
-                b.self_revocations.sort_by(canonical_signature_order);
+                b.self_revocations.sort_by(sig_cmp);
                 b.self_revocations.dedup_by_key(sig_key);
 
                 b.other_revocations.append(&mut a.self_revocations);
-                b.other_revocations.sort_by(canonical_signature_order);
+                b.other_revocations.sort_by(sig_cmp);
                 b.other_revocations.dedup_by_key(sig_key);
 
                 true
@@ -2146,18 +2193,18 @@ impl TPK {
         // Sort the signatures so that the current valid
         // self-signature is first.
         for subkey in &mut self.subkeys {
-            subkey.selfsigs.sort_by(canonical_signature_order);
+            subkey.selfsigs.sort_by(sig_cmp);
             subkey.selfsigs.dedup_by_key(sig_key);
 
             // There is no need to sort the certifications, but we do
             // want to remove dups and sorting is a prerequisite.
-            subkey.certifications.sort_by(canonical_signature_order);
+            subkey.certifications.sort_by(sig_cmp);
             subkey.certifications.dedup_by_key(sig_key);
 
-            subkey.self_revocations.sort_by(canonical_signature_order);
+            subkey.self_revocations.sort_by(sig_cmp);
             subkey.self_revocations.dedup_by_key(sig_key);
 
-            subkey.other_revocations.sort_by(canonical_signature_order);
+            subkey.other_revocations.sort_by(sig_cmp);
             subkey.other_revocations.dedup_by_key(sig_key);
         }
 
@@ -2183,19 +2230,19 @@ impl TPK {
                 }
 
                 b.selfsigs.append(&mut a.selfsigs);
-                b.selfsigs.sort_by(canonical_signature_order);
+                b.selfsigs.sort_by(sig_cmp);
                 b.selfsigs.dedup_by_key(sig_key);
 
                 b.certifications.append(&mut a.certifications);
-                b.certifications.sort_by(canonical_signature_order);
+                b.certifications.sort_by(sig_cmp);
                 b.certifications.dedup_by_key(sig_key);
 
                 b.self_revocations.append(&mut a.self_revocations);
-                b.self_revocations.sort_by(canonical_signature_order);
+                b.self_revocations.sort_by(sig_cmp);
                 b.self_revocations.dedup_by_key(sig_key);
 
                 b.other_revocations.append(&mut a.self_revocations);
-                b.other_revocations.sort_by(canonical_signature_order);
+                b.other_revocations.sort_by(sig_cmp);
                 b.other_revocations.dedup_by_key(sig_key);
 
                 true
@@ -3270,7 +3317,7 @@ mod test {
             assert_eq!(sigtype, SignatureType::PositiveCertificate,
                        "{:#?}", tpk);
 
-            let revoked = tpk.revoked();
+            let revoked = tpk.revoked(None);
             if direct_revoked {
                 assert_match!(RevocationStatus::Revoked(_) = revoked,
                               "{:#?}", tpk);
@@ -3284,7 +3331,7 @@ mod test {
                 assert_eq!(sigtype, SignatureType::PositiveCertificate,
                            "{:#?}", tpk);
 
-                let revoked = userid.revoked();
+                let revoked = userid.revoked(None);
                 if userid_revoked {
                     assert_match!(RevocationStatus::Revoked(_) = revoked);
                 } else {
@@ -3298,7 +3345,7 @@ mod test {
                 assert_eq!(sigtype, SignatureType::SubkeyBinding,
                            "{:#?}", tpk);
 
-                let revoked = subkey.revoked();
+                let revoked = subkey.revoked(None);
                 if subkey_revoked {
                     assert_match!(RevocationStatus::Revoked(_) = revoked);
                 } else {
@@ -3356,7 +3403,7 @@ mod test {
     fn revoke() {
         let (tsk, _) = TSK::new(Some("Test".into())).unwrap();
         let tpk = tsk.into_tpk();
-        assert_eq!(RevocationStatus::NotAsFarAsWeKnow, tpk.revoked());
+        assert_eq!(RevocationStatus::NotAsFarAsWeKnow, tpk.revoked(None));
 
         let mut keypair = tpk.primary().clone().into_keypair().unwrap();
         let sig = tpk.revoke(&mut keypair,
@@ -3365,7 +3412,7 @@ mod test {
         assert_eq!(sig.sigtype(), SignatureType::KeyRevocation);
 
         let tpk = tpk.merge_packets(vec![sig.to_packet()]).unwrap();
-        assert_match!(RevocationStatus::Revoked(_) = tpk.revoked());
+        assert_match!(RevocationStatus::Revoked(_) = tpk.revoked(None));
     }
 
     #[test]
@@ -3380,7 +3427,7 @@ mod test {
         thread::sleep(time::Duration::from_secs(2));
         let sig = {
             let uid = tpk.userids().skip(1).next().unwrap();
-            assert_eq!(RevocationStatus::NotAsFarAsWeKnow, uid.revoked());
+            assert_eq!(RevocationStatus::NotAsFarAsWeKnow, uid.revoked(None));
 
             let mut keypair = tpk.primary().clone().into_keypair().unwrap();
             uid.revoke(&mut keypair,
@@ -3389,10 +3436,88 @@ mod test {
         };
         assert_eq!(sig.sigtype(), SignatureType::CertificateRevocation);
         let tpk = tpk.merge_packets(vec![sig.to_packet()]).unwrap();
-        assert_eq!(RevocationStatus::NotAsFarAsWeKnow, tpk.revoked());
+        assert_eq!(RevocationStatus::NotAsFarAsWeKnow, tpk.revoked(None));
 
         let uid = tpk.userids().skip(1).next().unwrap();
-        assert_match!(RevocationStatus::Revoked(_) = uid.revoked());
+        assert_match!(RevocationStatus::Revoked(_) = uid.revoked(None));
+    }
+
+    #[test]
+    fn revoked_time() {
+        use packet::Features;
+        use constants::PublicKeyAlgorithm;
+        use rand::{thread_rng, Rng, distributions::Open01};
+        /*
+         * t1: 1st binding sig ctime
+         * t2: rev sig ctime
+         * t3: 2nd binding sig ctime
+         *
+         * [0,t1): invalid, but not revoked
+         * [t1,t2): valid
+         * [t2,t3): revoked
+         * [t3,inf): valid again
+         */
+        let t1 = time::strptime("2000-1-1", "%F").unwrap();
+        let t2 = time::strptime("2001-1-1", "%F").unwrap();
+        let t3 = time::strptime("2002-1-1", "%F").unwrap();
+        let key = Key::new(PublicKeyAlgorithm::EdDSA).unwrap();
+        let (bind1, rev, bind2) = {
+            let mpis = match key.secret() {
+                Some(SecretKey::Unencrypted{ ref mpis }) => mpis,
+                _ => unreachable!(),
+            };
+            let mut b = signature::Builder::new(SignatureType::DirectKey);
+            b.set_features(&Features::sequoia()).unwrap();
+            b.set_key_flags(&KeyFlags::default()).unwrap();
+            b.set_signature_creation_time(t1).unwrap();
+            b.set_key_expiration_time(Some(time::Duration::weeks(10 * 52))).unwrap();
+            b.set_issuer_fingerprint(key.fingerprint()).unwrap();
+            b.set_issuer(key.fingerprint().to_keyid()).unwrap();
+            b.set_preferred_hash_algorithms(vec![HashAlgorithm::SHA512]).unwrap();
+            let bind1 = b.sign_primary_key_binding(
+                &mut KeyPair::new(key.clone(), mpis.clone()).unwrap(),
+                HashAlgorithm::SHA512).unwrap();
+            b = signature::Builder::new(SignatureType::KeyRevocation);
+            b.set_signature_creation_time(t2).unwrap();
+            b.set_issuer_fingerprint(key.fingerprint()).unwrap();
+            b.set_issuer(key.fingerprint().to_keyid()).unwrap();
+            let rev = b.sign_primary_key_binding(
+                &mut KeyPair::new(key.clone(), mpis.clone()).unwrap(),
+                HashAlgorithm::SHA512).unwrap();
+            b = signature::Builder::new(SignatureType::DirectKey);
+            b.set_features(&Features::sequoia()).unwrap();
+            b.set_key_flags(&KeyFlags::default()).unwrap();
+            b.set_signature_creation_time(t3).unwrap();
+            b.set_key_expiration_time(Some(time::Duration::weeks(10 * 52))).unwrap();
+            b.set_issuer_fingerprint(key.fingerprint()).unwrap();
+            b.set_issuer(key.fingerprint().to_keyid()).unwrap();
+            b.set_preferred_hash_algorithms(vec![HashAlgorithm::SHA512]).unwrap();
+            let bind2 = b.sign_primary_key_binding(
+                &mut KeyPair::new(key.clone(), mpis.clone()).unwrap(),
+                HashAlgorithm::SHA512).unwrap();
+
+            (bind1, rev, bind2)
+        };
+        let tpk = TPK::from_packet_pile(PacketPile::from_packets(vec![
+            key.to_packet(Tag::PublicKey).unwrap(),
+            bind1.to_packet(),
+            bind2.to_packet(),
+            rev.to_packet()
+        ])).unwrap();
+
+        let f1: f32 = thread_rng().sample(Open01);
+        let f2: f32 = thread_rng().sample(Open01);
+        let f3: f32 = thread_rng().sample(Open01);
+        let te1 = t1 - time::Duration::days((300.0 * f1) as i64);
+        let t12 = t1 + time::Duration::days((300.0 * f2) as i64);
+        let t23 = t2 + time::Duration::days((300.0 * f3) as i64);
+        assert_eq!(tpk.revoked(te1), RevocationStatus::NotAsFarAsWeKnow);
+        assert_eq!(tpk.revoked(t12), RevocationStatus::NotAsFarAsWeKnow);
+        match tpk.revoked(t23) {
+            RevocationStatus::Revoked(_) => {}
+            _ => unreachable!(),
+        }
+        assert_eq!(tpk.revoked(time::now_utc()), RevocationStatus::NotAsFarAsWeKnow);
     }
 
     #[test]
@@ -3400,7 +3525,7 @@ mod test {
         let tpk = TPK::from_bytes(bytes!("un-revoked-userid.pgp")).unwrap();
 
         for uid in tpk.userids() {
-            assert_eq!(uid.revoked(), RevocationStatus::NotAsFarAsWeKnow);
+            assert_eq!(uid.revoked(None), RevocationStatus::NotAsFarAsWeKnow);
         }
     }
 

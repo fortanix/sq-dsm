@@ -220,7 +220,7 @@ pub extern "system" fn sq_tpk_primary(tpk: *const TPK)
 pub extern "system" fn sq_tpk_revocation_status(tpk: *const TPK)
                                                 -> *mut RevocationStatus<'static> {
     let tpk = ffi_param_ref!(tpk);
-    box_raw!(tpk.revoked())
+    box_raw!(tpk.revoked(None))
 }
 
 fn int_to_reason_for_revocation(code: c_int) -> ReasonForRevocation {
