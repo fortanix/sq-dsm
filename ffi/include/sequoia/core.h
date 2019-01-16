@@ -229,7 +229,7 @@ typedef struct sq_reader *sq_reader_t;
 /*/
 /// Opens a file returning a reader.
 /*/
-sq_reader_t sq_reader_from_file (sq_context_t ctx, const char *filename);
+sq_reader_t sq_reader_from_file (sq_error_t *errp, const char *filename);
 
 /*/
 /// Opens a file descriptor returning a reader.
@@ -249,7 +249,7 @@ void sq_reader_free (sq_reader_t reader);
 /*/
 /// Reads up to `len` bytes into `buf`.
 /*/
-ssize_t sq_reader_read (sq_context_t ctx, sq_reader_t reader,
+ssize_t sq_reader_read (sq_error_t *errp, sq_reader_t reader,
                         uint8_t *buf, size_t len);
 
 /*/
@@ -263,7 +263,7 @@ typedef struct sq_writer *sq_writer_t;
 /// The file will be created if it does not exist, or be truncated
 /// otherwise.  If you need more control, use `sq_writer_from_fd`.
 /*/
-sq_writer_t sq_writer_from_file (sq_context_t ctx, const char *filename);
+sq_writer_t sq_writer_from_file (sq_error_t *errp, const char *filename);
 
 /*/
 /// Opens a file descriptor returning a writer.
@@ -295,7 +295,7 @@ void sq_writer_free (sq_writer_t writer);
 /*/
 /// Writes up to `len` bytes of `buf` into `writer`.
 /*/
-ssize_t sq_writer_write (sq_context_t ctx, sq_writer_t writer,
+ssize_t sq_writer_write (sq_error_t *errp, sq_writer_t writer,
                          const uint8_t *buf, size_t len);
 
 #endif

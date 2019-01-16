@@ -22,17 +22,11 @@ main (int argc, char **argv)
   uint8_t *b;
   sq_status_t rc;
   sq_error_t err;
-  sq_context_t ctx;
   sq_packet_parser_result_t ppr;
   sq_packet_parser_t pp;
 
   if (argc != 2)
     error (1, 0, "Usage: %s <file>", argv[0]);
-
-  ctx = sq_context_new ("org.sequoia-pgp.example", &err);
-  if (ctx == NULL)
-    error (1, 0, "Initializing sequoia failed: %s",
-           sq_error_string (err));
 
   if (stat (argv[1], &st))
     error (1, errno, "%s", argv[1]);
@@ -51,7 +45,7 @@ main (int argc, char **argv)
   time_t elapsed;
   size_t tens_of_s = 0;
 
-  ppr = sq_packet_parser_from_bytes (ctx, b, st.st_size);
+  ppr = sq_packet_parser_from_bytes (&err, b, st.st_size);
   while (ppr && (pp = sq_packet_parser_result_packet_parser (ppr)))
     {
       // Get a reference to the packet that is currently being parsed.
@@ -64,13 +58,10 @@ main (int argc, char **argv)
 
       // Finish parsing the current packet (returned in p), and read
       // the header of the next packet (returned in ppr).
-      rc = sq_packet_parser_next (ctx, pp, &p, &ppr);
+      rc = sq_packet_parser_next (&err, pp, &p, &ppr);
       if (rc)
-	{
-	  err = sq_context_last_error (ctx);
-	  error (1, 0, "sq_packet_parser_from_bytes: %s",
-                 sq_error_string (err));
-	}
+        error (1, 0, "sq_packet_parser_from_bytes: %s",
+               sq_error_string (err));
 
       // We now own p.  If we want, we can save it in some structure.
       // This would be useful when collecting PKESK packets.  Either
@@ -91,17 +82,12 @@ main (int argc, char **argv)
         }
     }
   if (ppr == NULL)
-    {
-      err = sq_context_last_error (ctx);
-      error (1, 0, "sq_packet_parser_from_bytes: %s", sq_error_string (err));
-    }
+    error (1, 0, "sq_packet_parser_from_bytes: %s", sq_error_string (err));
 
   fprintf (stderr, "Parsed %ld packets in %ld seconds, %.2f packets/s.\n",
            n, elapsed, (double) n / (double) elapsed);
 
   sq_packet_parser_result_free (ppr);
-
-  sq_context_free (ctx);
   munmap (b, st.st_size);
   return 0;
 }

@@ -22,7 +22,6 @@ main (int argc, char **argv)
   uint8_t *b;
   sq_status_t rc;
   sq_error_t err;
-  sq_context_t ctx;
   int use_armor = 1;
   sq_tpk_t tpk;
   sq_writer_t sink;
@@ -32,11 +31,6 @@ main (int argc, char **argv)
 
   if (argc != 2)
     error (1, 0, "Usage: %s <keyfile> <plain >cipher", argv[0]);
-
-  ctx = sq_context_new ("org.sequoia-pgp.example", &err);
-  if (ctx == NULL)
-    error (1, 0, "Initializing sequoia failed: %s",
-           sq_error_string (err));
 
   if (stat (argv[1], &st))
     error (1, errno, "%s", argv[1]);
@@ -50,37 +44,28 @@ main (int argc, char **argv)
   if (b == MAP_FAILED)
     error (1, errno, "mmap");
 
-  tpk = sq_tpk_from_bytes (ctx, b, st.st_size);
+  tpk = sq_tpk_from_bytes (&err, b, st.st_size);
   if (tpk == NULL)
-    {
-      err = sq_context_last_error (ctx);
-      error (1, 0, "sq_packet_parser_from_bytes: %s", sq_error_string (err));
-    }
+    error (1, 0, "sq_packet_parser_from_bytes: %s", sq_error_string (err));
 
   sink = sq_writer_alloc (&cipher, &cipher_bytes);
 
   if (use_armor)
-    sink = sq_armor_writer_new (ctx, sink, SQ_ARMOR_KIND_MESSAGE,
+    sink = sq_armor_writer_new (&err, sink, SQ_ARMOR_KIND_MESSAGE,
                                 NULL, 0);
 
   writer = sq_writer_stack_message (sink);
-  writer = sq_encryptor_new (ctx,
+  writer = sq_encryptor_new (&err,
 			     writer,
 			     NULL, 0, /* no passwords */
 			     &tpk, 1,
 			     SQ_ENCRYPTION_MODE_FOR_TRANSPORT);
   if (writer == NULL)
-    {
-      err = sq_context_last_error (ctx);
-      error (1, 0, "sq_encryptor_new: %s", sq_error_string (err));
-    }
+    error (1, 0, "sq_encryptor_new: %s", sq_error_string (err));
 
-  writer = sq_literal_writer_new (ctx, writer);
+  writer = sq_literal_writer_new (&err, writer);
   if (writer == NULL)
-    {
-      err = sq_context_last_error (ctx);
-      error (1, 0, "sq_literal_writer_new: %s", sq_error_string (err));
-    }
+    error (1, 0, "sq_literal_writer_new: %s", sq_error_string (err));
 
   size_t nread;
   uint8_t buf[4096];
@@ -90,28 +75,22 @@ main (int argc, char **argv)
       while (nread)
 	{
 	  ssize_t written;
-	  written = sq_writer_stack_write (ctx, writer, b, nread);
+	  written = sq_writer_stack_write (&err, writer, b, nread);
 	  if (written < 0)
-	    {
-	      err = sq_context_last_error (ctx);
-	      error (1, 0, "sq_writer_stack_write: %s", sq_error_string (err));
-	    }
+            error (1, 0, "sq_writer_stack_write: %s", sq_error_string (err));
+
 	  b += written;
 	  nread -= written;
 	}
     }
 
-  rc = sq_writer_stack_finalize (ctx, writer);
+  rc = sq_writer_stack_finalize (&err, writer);
   writer = NULL;
   if (rc)
-    {
-      err = sq_context_last_error (ctx);
-      error (1, 0, "sq_writer_stack_write: %s", sq_error_string (err));
-    }
+    error (1, 0, "sq_writer_stack_write: %s", sq_error_string (err));
 
   fwrite (cipher, 1, cipher_bytes, stdout);
 
-  sq_context_free (ctx);
   munmap (b, st.st_size);
   return 0;
 }

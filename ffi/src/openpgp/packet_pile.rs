@@ -15,7 +15,6 @@ use self::sequoia_openpgp::{
     serialize::Serialize,
 };
 
-use ::core::Context;
 use ::error::Status;
 
 /// Deserializes the OpenPGP message stored in a `std::io::Read`
@@ -29,11 +28,10 @@ use ::error::Status;
 ///
 /// Note: this interface *does* buffer the contents of packets.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_packet_pile_from_reader(ctx: *mut Context,
+pub extern "system" fn sq_packet_pile_from_reader(errp: Option<&mut *mut failure::Error>,
                                                   reader: *mut Box<Read>)
                                                   -> *mut PacketPile {
-    let ctx = ffi_param_ref_mut!(ctx);
-    ffi_make_fry_from_ctx!(ctx);
+    ffi_make_fry_from_errp!(errp);
     let reader = ffi_param_ref_mut!(reader);
     ffi_try_box!(PacketPile::from_reader(reader))
 }
@@ -43,11 +41,10 @@ pub extern "system" fn sq_packet_pile_from_reader(ctx: *mut Context,
 ///
 /// See `sq_packet_pile_from_reader` for more details and caveats.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_packet_pile_from_file(ctx: *mut Context,
+pub extern "system" fn sq_packet_pile_from_file(errp: Option<&mut *mut failure::Error>,
                                                 filename: *const c_char)
                                                 -> *mut PacketPile {
-    let ctx = ffi_param_ref_mut!(ctx);
-    ffi_make_fry_from_ctx!(ctx);
+    ffi_make_fry_from_errp!(errp);
     let filename = ffi_param_cstr!(filename).to_string_lossy().into_owned();
     ffi_try_box!(PacketPile::from_file(&filename))
 }
@@ -56,11 +53,10 @@ pub extern "system" fn sq_packet_pile_from_file(ctx: *mut Context,
 ///
 /// See `sq_packet_pile_from_reader` for more details and caveats.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_packet_pile_from_bytes(ctx: *mut Context,
+pub extern "system" fn sq_packet_pile_from_bytes(errp: Option<&mut *mut failure::Error>,
                                                  b: *const uint8_t, len: size_t)
                                                  -> *mut PacketPile {
-    let ctx = ffi_param_ref_mut!(ctx);
-    ffi_make_fry_from_ctx!(ctx);
+    ffi_make_fry_from_errp!(errp);
     assert!(!b.is_null());
     let buf = unsafe {
         slice::from_raw_parts(b, len as usize)
@@ -86,12 +82,11 @@ pub extern "system" fn sq_packet_pile_clone(packet_pile: *const PacketPile)
 
 /// Serializes the packet pile.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_packet_pile_serialize(ctx: *mut Context,
+pub extern "system" fn sq_packet_pile_serialize(errp: Option<&mut *mut failure::Error>,
                                                 packet_pile: *const PacketPile,
                                                 writer: *mut Box<Write>)
                                                 -> Status {
-    let ctx = ffi_param_ref_mut!(ctx);
-    ffi_make_fry_from_ctx!(ctx);
+    ffi_make_fry_from_errp!(errp);
     let packet_pile = ffi_param_ref!(packet_pile);
     let writer = ffi_param_ref_mut!(writer);
     ffi_try_status!(packet_pile.serialize(writer))

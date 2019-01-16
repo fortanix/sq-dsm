@@ -48,7 +48,6 @@ use self::openpgp::constants::{
 };
 
 use super::error::Status;
-use super::core::Context;
 
 pub mod armor;
 pub mod crypto;
@@ -454,12 +453,11 @@ pub extern "system" fn sq_p_key_public_key_bits(key: *const packet::Key)
 ///
 /// Fails if the secret key is missing, or encrypted.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_p_key_into_key_pair(ctx: *mut Context,
+pub extern "system" fn sq_p_key_into_key_pair(errp: Option<&mut *mut failure::Error>,
                                               key: *mut packet::Key)
                                               -> *mut self::openpgp::crypto::KeyPair
 {
-    let ctx = ffi_param_ref_mut!(ctx);
-    ffi_make_fry_from_ctx!(ctx);
+    ffi_make_fry_from_errp!(errp);
     let key = ffi_param_move!(key);
     ffi_try_box!(key.into_keypair())
 }
@@ -509,7 +507,7 @@ pub extern "system" fn sq_user_attribute_value(ua: *const Packet,
 /// is not written to it.  Either way, `key_len` is set to the size of
 /// the session key.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_skesk_decrypt(ctx: *mut Context,
+pub extern "system" fn sq_skesk_decrypt(errp: Option<&mut *mut failure::Error>,
                                         skesk: *const Packet,
                                         password: *const uint8_t,
                                         password_len: size_t,
@@ -517,8 +515,7 @@ pub extern "system" fn sq_skesk_decrypt(ctx: *mut Context,
                                         key: *mut uint8_t,
                                         key_len: *mut size_t)
                                         -> Status {
-    let ctx = ffi_param_ref_mut!(ctx);
-    ffi_make_fry_from_ctx!(ctx);
+    ffi_make_fry_from_errp!(errp);
     let skesk = ffi_param_ref!(skesk);
     assert!(!password.is_null());
     let password = unsafe {
@@ -566,15 +563,14 @@ pub extern "system" fn sq_pkesk_recipient(pkesk: *const PKESK)
 /// is not written to it.  Either way, `key_len` is set to the size of
 /// the session key.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_pkesk_decrypt(ctx: *mut Context,
+pub extern "system" fn sq_pkesk_decrypt(errp: Option<&mut *mut failure::Error>,
                                         pkesk: *const PKESK,
                                         secret_key: *const packet::Key,
                                         algo: *mut uint8_t, // XXX
                                         key: *mut uint8_t,
                                         key_len: *mut size_t)
                                         -> Status {
-    let ctx = ffi_param_ref_mut!(ctx);
-    ffi_make_fry_from_ctx!(ctx);
+    ffi_make_fry_from_errp!(errp);
     let pkesk = ffi_param_ref!(pkesk);
     let secret_key = ffi_param_ref!(secret_key);
     let algo = ffi_param_ref_mut!(algo);
@@ -611,10 +607,9 @@ pub extern "system" fn sq_pkesk_decrypt(ctx: *mut Context,
 /// the stream.
 #[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_packet_parser_from_reader<'a>
-    (ctx: *mut Context, reader: *mut Box<'a + Read>)
+    (errp: Option<&mut *mut failure::Error>, reader: *mut Box<'a + Read>)
      -> *mut PacketParserResult<'a> {
-    let ctx = ffi_param_ref_mut!(ctx);
-    ffi_make_fry_from_ctx!(ctx);
+    ffi_make_fry_from_errp!(errp);
     let reader = ffi_param_ref_mut!(reader);
     ffi_try_box!(PacketParser::from_reader(reader))
 }
@@ -625,10 +620,9 @@ pub extern "system" fn sq_packet_parser_from_reader<'a>
 /// the stream.
 #[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_packet_parser_from_file
-    (ctx: *mut Context, filename: *const c_char)
+    (errp: Option<&mut *mut failure::Error>, filename: *const c_char)
      -> *mut PacketParserResult<'static> {
-    let ctx = ffi_param_ref_mut!(ctx);
-    ffi_make_fry_from_ctx!(ctx);
+    ffi_make_fry_from_errp!(errp);
     let filename = ffi_param_cstr!(filename).to_string_lossy().into_owned();
     ffi_try_box!(PacketParser::from_file(&filename))
 }
@@ -639,10 +633,9 @@ pub extern "system" fn sq_packet_parser_from_file
 /// the stream.
 #[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_packet_parser_from_bytes
-    (ctx: *mut Context, b: *const uint8_t, len: size_t)
+    (errp: Option<&mut *mut failure::Error>, b: *const uint8_t, len: size_t)
      -> *mut PacketParserResult<'static> {
-    let ctx = ffi_param_ref_mut!(ctx);
-    ffi_make_fry_from_ctx!(ctx);
+    ffi_make_fry_from_errp!(errp);
     assert!(!b.is_null());
     let buf = unsafe {
         slice::from_raw_parts(b, len as usize)
@@ -773,13 +766,12 @@ pub extern "system" fn sq_packet_parser_recursion_depth
 /// Consumes the given packet parser.
 #[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_packet_parser_next<'a>
-    (ctx: *mut Context,
+    (errp: Option<&mut *mut failure::Error>,
      pp: *mut PacketParser<'a>,
      old_packet: Option<&mut *mut Packet>,
      ppr: Option<&mut *mut PacketParserResult<'a>>)
      -> Status {
-    let ctx = ffi_param_ref_mut!(ctx);
-    ffi_make_fry_from_ctx!(ctx);
+    ffi_make_fry_from_errp!(errp);
     let pp = ffi_param_move!(pp);
 
     match pp.next() {
@@ -818,13 +810,12 @@ pub extern "system" fn sq_packet_parser_next<'a>
 /// Consumes the given packet parser.
 #[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_packet_parser_recurse<'a>
-    (ctx: *mut Context,
+    (errp: Option<&mut *mut failure::Error>,
      pp: *mut PacketParser<'a>,
      old_packet: Option<&mut *mut Packet>,
      ppr: Option<&mut *mut PacketParserResult<'a>>)
      -> Status {
-    let ctx = ffi_param_ref_mut!(ctx);
-    ffi_make_fry_from_ctx!(ctx);
+    ffi_make_fry_from_errp!(errp);
     let pp = ffi_param_move!(pp);
 
     match pp.recurse() {
@@ -849,12 +840,11 @@ pub extern "system" fn sq_packet_parser_recurse<'a>
 /// content is small.
 #[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_packet_parser_buffer_unread_content<'a>
-    (ctx: *mut Context,
+    (errp: Option<&mut *mut failure::Error>,
      pp: *mut PacketParser<'a>,
      len: *mut usize)
      -> *const uint8_t {
-    let ctx = ffi_param_ref_mut!(ctx);
-    ffi_make_fry_from_ctx!(ctx);
+    ffi_make_fry_from_errp!(errp);
     let pp = ffi_param_ref_mut!(pp);
     let len = ffi_param_ref_mut!(len);
     let buf = ffi_try!(pp.buffer_unread_content());
@@ -868,12 +858,11 @@ pub extern "system" fn sq_packet_parser_buffer_unread_content<'a>
 /// `PacketParserBuild` to customize the default behavior.
 #[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_packet_parser_finish<'a>
-    (ctx: *mut Context, pp: *mut PacketParser<'a>,
+    (errp: Option<&mut *mut failure::Error>, pp: *mut PacketParser<'a>,
      packet: Option<&mut *const Packet>)
      -> Status
 {
-    let ctx = ffi_param_ref_mut!(ctx);
-    ffi_make_fry_from_ctx!(ctx);
+    ffi_make_fry_from_errp!(errp);
     let pp = ffi_param_ref_mut!(pp);
     match pp.finish() {
         Ok(p) => {
@@ -884,7 +873,9 @@ pub extern "system" fn sq_packet_parser_finish<'a>
         },
         Err(e) => {
             let status = Status::from(&e);
-            ctx.set_error(e);
+            if let Some(errp) = errp {
+                *errp = box_raw!(e);
+            }
             status
         },
     }
@@ -901,13 +892,12 @@ pub extern "system" fn sq_packet_parser_finish<'a>
 /// returns `Error::InvalidOperation`.
 #[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_packet_parser_decrypt<'a>
-    (ctx: *mut Context,
+    (errp: Option<&mut *mut failure::Error>,
      pp: *mut PacketParser<'a>,
      algo: uint8_t, // XXX
      key: *const uint8_t, key_len: size_t)
      -> Status {
-    let ctx = ffi_param_ref_mut!(ctx);
-    ffi_make_fry_from_ctx!(ctx);
+    ffi_make_fry_from_errp!(errp);
     let pp = ffi_param_ref_mut!(pp);
     let key = unsafe {
         slice::from_raw_parts(key, key_len as usize)
@@ -1024,13 +1014,12 @@ pub extern "system" fn sq_writer_stack_message
 /// Writes up to `len` bytes of `buf` into `writer`.
 #[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_writer_stack_write
-    (ctx: *mut Context,
+    (errp: Option<&mut *mut failure::Error>,
      writer: *mut writer::Stack<'static, Cookie>,
      buf: *const uint8_t, len: size_t)
      -> ssize_t
 {
-    let ctx = ffi_param_ref_mut!(ctx);
-    ffi_make_fry_from_ctx!(ctx);
+    ffi_make_fry_from_errp!(errp);
     let writer = ffi_param_ref_mut!(writer);
     assert!(!buf.is_null());
     let buf = unsafe {
@@ -1046,13 +1035,12 @@ pub extern "system" fn sq_writer_stack_write
 /// EINTR.
 #[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_writer_stack_write_all
-    (ctx: *mut Context,
+    (errp: Option<&mut *mut failure::Error>,
      writer: *mut writer::Stack<'static, Cookie>,
      buf: *const uint8_t, len: size_t)
      -> Status
 {
-    let ctx = ffi_param_ref_mut!(ctx);
-    ffi_make_fry_from_ctx!(ctx);
+    ffi_make_fry_from_errp!(errp);
     let writer = ffi_param_ref_mut!(writer);
     assert!(!buf.is_null());
     let buf = unsafe {
@@ -1064,12 +1052,11 @@ pub extern "system" fn sq_writer_stack_write_all
 /// Finalizes this writer, returning the underlying writer.
 #[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_writer_stack_finalize_one
-    (ctx: *mut Context,
+    (errp: Option<&mut *mut failure::Error>,
      writer: *mut writer::Stack<'static, Cookie>)
      -> *mut writer::Stack<'static, Cookie>
 {
-    let ctx = ffi_param_ref_mut!(ctx);
-    ffi_make_fry_from_ctx!(ctx);
+    ffi_make_fry_from_errp!(errp);
     if !writer.is_null() {
         let writer = ffi_param_move!(writer);
         maybe_box_raw!(ffi_try!(writer.finalize_one()))
@@ -1081,12 +1068,11 @@ pub extern "system" fn sq_writer_stack_finalize_one
 /// Finalizes all writers, tearing down the whole stack.
 #[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_writer_stack_finalize
-    (ctx: *mut Context,
+    (errp: Option<&mut *mut failure::Error>,
      writer: *mut writer::Stack<'static, Cookie>)
      -> Status
 {
-    let ctx = ffi_param_ref_mut!(ctx);
-    ffi_make_fry_from_ctx!(ctx);
+    ffi_make_fry_from_errp!(errp);
     if !writer.is_null() {
         let writer = ffi_param_move!(writer);
         ffi_try_status!(writer.finalize())
@@ -1102,13 +1088,12 @@ pub extern "system" fn sq_writer_stack_finalize
 /// body is short, using full length encoding.
 #[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_arbitrary_writer_new
-    (ctx: *mut Context,
+    (errp: Option<&mut *mut failure::Error>,
      inner: *mut writer::Stack<'static, Cookie>,
      tag: uint8_t)
      -> *mut writer::Stack<'static, Cookie>
 {
-    let ctx = ffi_param_ref_mut!(ctx);
-    ffi_make_fry_from_ctx!(ctx);
+    ffi_make_fry_from_errp!(errp);
     let inner = ffi_param_move!(inner);
     ffi_try_box!(ArbitraryWriter::new(*inner, tag.into()))
 }
@@ -1120,14 +1105,13 @@ pub extern "system" fn sq_arbitrary_writer_new
 /// writes a signature packet.
 #[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_signer_new
-    (ctx: *mut Context,
+    (errp: Option<&mut *mut failure::Error>,
      inner: *mut writer::Stack<'static, Cookie>,
      signers: *const *mut Box<self::openpgp::crypto::Signer>,
      signers_len: size_t)
      -> *mut writer::Stack<'static, Cookie>
 {
-    let ctx = ffi_param_ref_mut!(ctx);
-    ffi_make_fry_from_ctx!(ctx);
+    ffi_make_fry_from_errp!(errp);
     let inner = ffi_param_move!(inner);
     let signers = ffi_param_ref!(signers);
     let signers = unsafe {
@@ -1145,14 +1129,13 @@ pub extern "system" fn sq_signer_new
 /// Creates a signer for a detached signature.
 #[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_signer_new_detached
-    (ctx: *mut Context,
+    (errp: Option<&mut *mut failure::Error>,
      inner: *mut writer::Stack<'static, Cookie>,
      signers: *const *mut Box<self::openpgp::crypto::Signer>,
      signers_len: size_t)
      -> *mut writer::Stack<'static, Cookie>
 {
-    let ctx = ffi_param_ref_mut!(ctx);
-    ffi_make_fry_from_ctx!(ctx);
+    ffi_make_fry_from_errp!(errp);
     let inner = ffi_param_move!(inner);
     let signers = ffi_param_ref!(signers);
     let signers = unsafe {
@@ -1173,12 +1156,11 @@ pub extern "system" fn sq_signer_new_detached
 /// body is short, using full length encoding.
 #[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_literal_writer_new
-    (ctx: *mut Context,
+    (errp: Option<&mut *mut failure::Error>,
      inner: *mut writer::Stack<'static, Cookie>)
      -> *mut writer::Stack<'static, Cookie>
 {
-    let ctx = ffi_param_ref_mut!(ctx);
-    ffi_make_fry_from_ctx!(ctx);
+    ffi_make_fry_from_errp!(errp);
     let inner = ffi_param_move!(inner);
     ffi_try_box!(LiteralWriter::new(*inner,
                                      DataFormat::Binary,
@@ -1196,15 +1178,14 @@ pub extern "system" fn sq_literal_writer_new
 /// preferences.
 #[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_encryptor_new
-    (ctx: *mut Context,
+    (errp: Option<&mut *mut failure::Error>,
      inner: *mut writer::Stack<'static, Cookie>,
      passwords: Option<&*const c_char>, passwords_len: size_t,
      recipients: Option<&&TPK>, recipients_len: size_t,
      encryption_mode: uint8_t)
      -> *mut writer::Stack<'static, Cookie>
 {
-    let ctx = ffi_param_ref_mut!(ctx);
-    ffi_make_fry_from_ctx!(ctx);
+    ffi_make_fry_from_errp!(errp);
     let inner = ffi_param_move!(inner);
     let mut passwords_ = Vec::new();
     if passwords_len > 0 {
@@ -1513,7 +1494,7 @@ fn verify_real<'a>(input: &'a mut Box<'a + Read>,
 ///
 /// Note: output may be NULL, if the output is not required.
 #[::ffi_catch_abort] #[no_mangle]
-pub fn sq_verify<'a>(ctx: *mut Context,
+pub fn sq_verify<'a>(errp: Option<&mut *mut failure::Error>,
                      input: *mut Box<'a + Read>,
                      dsig: Option<&'a mut Box<'a + Read>>,
                      output: Option<&'a mut Box<'a + Write>>,
@@ -1522,8 +1503,7 @@ pub fn sq_verify<'a>(ctx: *mut Context,
                      cookie: *mut HelperCookie)
     -> Status
 {
-    let ctx = ffi_param_ref_mut!(ctx);
-    ffi_make_fry_from_ctx!(ctx);
+    ffi_make_fry_from_errp!(errp);
     let input = ffi_param_ref_mut!(input);
 
     let r = verify_real(input, dsig, output,
@@ -1637,7 +1617,7 @@ fn decrypt_real<'a>(input: &'a mut Box<'a + Read>,
 ///
 /// Note: all of the parameters are required; none may be NULL.
 #[::ffi_catch_abort] #[no_mangle]
-pub fn sq_decrypt<'a>(ctx: *mut Context,
+pub fn sq_decrypt<'a>(errp: Option<&mut *mut failure::Error>,
                       input: *mut Box<'a + Read>,
                       output: *mut Box<'a + Write>,
                       get_public_keys: GetPublicKeysCallback,
@@ -1646,8 +1626,7 @@ pub fn sq_decrypt<'a>(ctx: *mut Context,
                       cookie: *mut HelperCookie)
     -> Status
 {
-    let ctx = ffi_param_ref_mut!(ctx);
-    ffi_make_fry_from_ctx!(ctx);
+    ffi_make_fry_from_errp!(errp);
     let input = ffi_param_ref_mut!(input);
     let output = ffi_param_ref_mut!(output);
 

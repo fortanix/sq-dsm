@@ -16,19 +16,17 @@ use self::sequoia_openpgp::{
     serialize::Serialize,
 };
 
-use ::core::Context;
 use ::error::Status;
 
 /// Generates a new RSA 3072 bit key with UID `primary_uid`.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_tsk_new(ctx: *mut Context,
+pub extern "system" fn sq_tsk_new(errp: Option<&mut *mut failure::Error>,
                                   primary_uid: *const c_char,
                                   tsk_out: *mut *mut TSK,
                                   revocation_out: *mut *mut Signature)
     -> Status
 {
-    let ctx = ffi_param_ref_mut!(ctx);
-    ffi_make_fry_from_ctx!(ctx);
+    ffi_make_fry_from_errp!(errp);
     let tsk_out = ffi_param_ref_mut!(tsk_out);
     let revocation_out = ffi_param_ref_mut!(revocation_out);
     let primary_uid = ffi_param_cstr!(primary_uid).to_string_lossy();
@@ -67,12 +65,11 @@ pub extern "system" fn sq_tsk_into_tpk(tsk: *mut TSK)
 
 /// Serializes the TSK.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_tsk_serialize(ctx: *mut Context,
+pub extern "system" fn sq_tsk_serialize(errp: Option<&mut *mut failure::Error>,
                                         tsk: *const TSK,
                                         writer: *mut Box<Write>)
                                         -> Status {
-    let ctx = ffi_param_ref_mut!(ctx);
-    ffi_make_fry_from_ctx!(ctx);
+    ffi_make_fry_from_errp!(errp);
     let tsk = ffi_param_ref!(tsk);
     let writer = ffi_param_ref_mut!(writer);
     ffi_try_status!(tsk.serialize(writer))

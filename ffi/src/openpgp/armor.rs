@@ -13,8 +13,6 @@ use libc::{self, uint8_t, c_char, c_int, size_t};
 extern crate sequoia_openpgp;
 use self::sequoia_openpgp::armor;
 
-use ::core::Context;
-
 /// Represents a (key, value) pair in an armor header.
 #[repr(C)]
 pub struct ArmorHeader {
@@ -74,7 +72,6 @@ fn kind_to_int(kind: Option<armor::Kind>) -> c_int {
 /// main (int argc, char **argv)
 /// {
 ///   sq_error_t err;
-///   sq_context_t ctx;
 ///   sq_reader_t bytes;
 ///   sq_reader_t armor;
 ///   sq_armor_kind_t kind;
@@ -82,21 +79,12 @@ fn kind_to_int(kind: Option<armor::Kind>) -> c_int {
 ///   sq_armor_header_t *header;
 ///   size_t header_len;
 ///
-///   ctx = sq_context_new ("org.sequoia-pgp.example", &err);
-///   if (ctx == NULL)
-///     error (1, 0, "Initializing sequoia failed: %s",
-///            sq_error_string (err));
-///
 ///   bytes = sq_reader_from_bytes ((uint8_t *) armored, strlen (armored));
 ///   armor = sq_armor_reader_new (bytes, SQ_ARMOR_KIND_ANY);
 ///
-///   header = sq_armor_reader_headers (ctx, armor, &header_len);
+///   header = sq_armor_reader_headers (&err, armor, &header_len);
 ///   if (header == NULL)
-///     {
-///       err = sq_context_last_error (ctx);
-///       error (1, 0, "Getting headers failed: %s",
-///              sq_error_string (err));
-///     }
+///     error (1, 0, "Getting headers failed: %s", sq_error_string (err));
 ///
 ///   assert (header_len == 2);
 ///   assert (strcmp (header[0].key, "Key0") == 0
@@ -113,18 +101,13 @@ fn kind_to_int(kind: Option<armor::Kind>) -> c_int {
 ///   kind = sq_armor_reader_kind (armor);
 ///   assert (kind == SQ_ARMOR_KIND_FILE);
 ///
-///   if (sq_reader_read (ctx, armor, (uint8_t *) message, 12) < 0)
-///     {
-///       err = sq_context_last_error (ctx);
-///       error (1, 0, "Reading failed: %s",
-///              sq_error_string (err));
-///     }
+///   if (sq_reader_read (&err, armor, (uint8_t *) message, 12) < 0)
+///     error (1, 0, "Reading failed: %s", sq_error_string (err));
 ///
 ///   assert (memcmp (message, "Hello world!", 12) == 0);
 ///
 ///   sq_reader_free (armor);
 ///   sq_reader_free (bytes);
-///   sq_context_free (ctx);
 ///   return 0;
 /// }
 /// ```
@@ -140,12 +123,11 @@ pub extern "system" fn sq_armor_reader_new(inner: *mut Box<Read>,
 
 /// Creates a `Reader` from a file.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_armor_reader_from_file(ctx: *mut Context,
+pub extern "system" fn sq_armor_reader_from_file(errp: Option<&mut *mut failure::Error>,
                                                  filename: *const c_char,
                                                  kind: c_int)
                                                  -> *mut Box<Read> {
-    let ctx = ffi_param_ref_mut!(ctx);
-    ffi_make_fry_from_ctx!(ctx);
+    ffi_make_fry_from_errp!(errp);
     let filename = ffi_param_cstr!(filename).to_string_lossy().into_owned();
     let kind = int_to_kind(kind);
 
@@ -210,12 +192,11 @@ pub extern "system" fn sq_armor_reader_kind(reader: *mut Box<Read>)
 ///
 ///   [this]: fn.sq_armor_reader_new.html
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_armor_reader_headers(ctx: *mut Context,
+pub extern "system" fn sq_armor_reader_headers(errp: Option<&mut *mut failure::Error>,
                                                reader: *mut Box<Read>,
                                                len: *mut size_t)
                                                -> *mut ArmorHeader {
-    let ctx = ffi_param_ref_mut!(ctx);
-    ffi_make_fry_from_ctx!(ctx);
+    ffi_make_fry_from_errp!(errp);
     let len = ffi_param_ref_mut!(len);
 
     // We need to downcast `reader`.  To do that, we need to do a
@@ -245,7 +226,9 @@ pub extern "system" fn sq_armor_reader_headers(ctx: *mut Context,
             buf
         },
         Err(e) => {
-            ctx.set_error(e);
+            if let Some(errp) = errp {
+                *errp = box_raw!(e);
+            }
             ptr::null_mut()
         },
     };
@@ -295,33 +278,21 @@ fn strdup(s: &str) -> *mut c_char {
 ///   sq_writer_t alloc;
 ///   sq_writer_t armor;
 ///   sq_error_t err;
-///   sq_context_t ctx;
+///
 ///   char *message = "Hello world!";
 ///   sq_armor_header_t header[2] = {
 ///     { "Key0", "Value0" },
 ///     { "Key1", "Value1" },
 ///   };
 ///
-///   ctx = sq_context_new ("org.sequoia-pgp.example", &err);
-///   if (ctx == NULL)
-///     error (1, 0, "Initializing sequoia failed: %s",
-///            sq_error_string (err));
-///
 ///   alloc = sq_writer_alloc (&buf, &len);
-///   armor = sq_armor_writer_new (ctx, alloc, SQ_ARMOR_KIND_FILE, header, 2);
+///   armor = sq_armor_writer_new (&err, alloc, SQ_ARMOR_KIND_FILE, header, 2);
 ///   if (armor == NULL)
-///     {
-///       err = sq_context_last_error (ctx);
-///       error (1, 0, "Creating armor writer failed: %s",
-///              sq_error_string (err));
-///     }
+///     error (1, 0, "Creating armor writer failed: %s", sq_error_string (err));
 ///
-///   if (sq_writer_write (ctx, armor, (uint8_t *) message, strlen (message)) < 0)
-///     {
-///       err = sq_context_last_error (ctx);
-///       error (1, 0, "Writing failed: %s",
-///              sq_error_string (err));
-///     }
+///   if (sq_writer_write (&err, armor, (uint8_t *) message, strlen (message)) < 0)
+///     error (1, 0, "Writing failed: %s", sq_error_string (err));
+//
 ///   sq_writer_free (armor);
 ///   sq_writer_free (alloc);
 ///
@@ -337,21 +308,19 @@ fn strdup(s: &str) -> *mut c_char {
 ///                   len) == 0);
 ///
 ///   free (buf);
-///   sq_context_free (ctx);
 ///   return 0;
 /// }
 /// ```
 #[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_armor_writer_new
-    (ctx: *mut Context,
+    (errp: Option<&mut *mut failure::Error>,
      inner: *mut Box<Write>,
      kind: c_int,
      header: *const ArmorHeader,
      header_len: size_t)
      -> *mut Box<Write>
 {
-    let ctx = ffi_param_ref_mut!(ctx);
-    ffi_make_fry_from_ctx!(ctx);
+    ffi_make_fry_from_errp!(errp);
     let inner = ffi_param_ref_mut!(inner);
     let kind = int_to_kind(kind).expect("KIND must not be SQ_ARMOR_KIND_ANY");
 

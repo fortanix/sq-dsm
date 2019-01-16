@@ -17,16 +17,10 @@ main (int argc, char **argv)
   int fd;
   uint8_t *b;
   sq_error_t err;
-  sq_context_t ctx;
   sq_tpk_t tpk;
 
   if (argc != 2)
     error (1, 0, "Usage: %s <file>", argv[0]);
-
-  ctx = sq_context_new("org.sequoia-pgp.example", &err);
-  if (ctx == NULL)
-    error (1, 0, "Initializing sequoia failed: %s",
-           sq_error_string (err));
 
   if (stat (argv[1], &st))
     error (1, errno, "%s", argv[1]);
@@ -39,15 +33,12 @@ main (int argc, char **argv)
   if (b == MAP_FAILED)
     error (1, errno, "mmap");
 
-  tpk = sq_tpk_from_bytes (ctx, b, st.st_size);
+  tpk = sq_tpk_from_bytes (&err, b, st.st_size);
   if (tpk == NULL)
-    {
-      sq_error_t err = sq_context_last_error (ctx);
-      error (1, 0, "sq_tpk_from_bytes: %s", sq_error_string (err));
-    }
+    error (1, 0, "sq_tpk_from_bytes: %s", sq_error_string (err));
+
   sq_tpk_dump (tpk);
   sq_tpk_free (tpk);
-  sq_context_free (ctx);
   munmap (b, st.st_size);
   close (fd);
   return 0;

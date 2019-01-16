@@ -257,7 +257,7 @@ sq_reader_t sq_armor_reader_new (sq_reader_t inner, sq_armor_kind_t kind);
 /*/
 /// Creates a `Reader` from a file.
 /*/
-sq_reader_t sq_armor_reader_from_file (sq_context_t ctx,
+sq_reader_t sq_armor_reader_from_file (sq_error_t *errp,
 				       const char *filename,
 				       sq_armor_kind_t kind);
 
@@ -290,7 +290,7 @@ sq_armor_kind_t sq_armor_reader_kind (sq_reader_t reader);
 /// allocated with `malloc`, and the caller is responsible for freeing
 /// both the array and the strings.
 /*/
-sq_armor_header_t *sq_armor_reader_headers (sq_context_t ctx,
+sq_armor_header_t *sq_armor_reader_headers (sq_error_t *errp,
 					    sq_reader_t reader,
 					    size_t *len);
 
@@ -300,7 +300,7 @@ sq_armor_header_t *sq_armor_reader_headers (sq_context_t ctx,
 ///
 /// A filter that applies ASCII Armor to the data written to it.
 /*/
-sq_writer_t sq_armor_writer_new (sq_context_t ctx, sq_writer_t inner,
+sq_writer_t sq_armor_writer_new (sq_error_t *errp, sq_writer_t inner,
 				 sq_armor_kind_t kind,
 				 sq_armor_header_t *header, size_t header_len);
 
@@ -498,7 +498,7 @@ typedef struct sq_packet_pile *sq_packet_pile_t;
 ///
 /// Note: this interface *does* buffer the contents of packets.
 /*/
-sq_packet_pile_t sq_packet_pile_from_reader (sq_context_t ctx,
+sq_packet_pile_t sq_packet_pile_from_reader (sq_error_t *errp,
 					     sq_reader_t reader);
 
 /*/
@@ -507,7 +507,7 @@ sq_packet_pile_t sq_packet_pile_from_reader (sq_context_t ctx,
 ///
 /// See `sq_packet_pile_from_reader` for more details and caveats.
 /*/
-sq_packet_pile_t sq_packet_pile_from_file (sq_context_t ctx,
+sq_packet_pile_t sq_packet_pile_from_file (sq_error_t *errp,
 					   const char *filename);
 
 /*/
@@ -515,7 +515,7 @@ sq_packet_pile_t sq_packet_pile_from_file (sq_context_t ctx,
 ///
 /// See `sq_packet_pile_from_reader` for more details and caveats.
 /*/
-sq_packet_pile_t sq_packet_pile_from_bytes (sq_context_t ctx,
+sq_packet_pile_t sq_packet_pile_from_bytes (sq_error_t *errp,
 					    const uint8_t *b, size_t len);
 
 /*/
@@ -531,7 +531,7 @@ sq_packet_pile_t sq_packet_pile_clone (sq_packet_pile_t message);
 /*/
 /// Serializes the packet pile.
 /*/
-sq_status_t sq_packet_pile_serialize (sq_context_t ctx,
+sq_status_t sq_packet_pile_serialize (sq_error_t *errp,
 				      const sq_packet_pile_t message,
 				      sq_writer_t writer);
 
@@ -647,7 +647,7 @@ sq_keyid_t sq_pkesk_recipient(sq_pkesk_t pkesk);
 /// is not written to it.  Either way, `key_len` is set to the size of
 /// the session key.
 /*/
-sq_status_t sq_pkesk_decrypt (sq_context_t ctx, sq_pkesk_t pkesk,
+sq_status_t sq_pkesk_decrypt (sq_error_t *errp, sq_pkesk_t pkesk,
                               sq_p_key_t secret_key,
                               uint8_t *algo, /* XXX */
                               uint8_t *key, size_t *key_len);
@@ -774,13 +774,13 @@ typedef struct sq_tsk *sq_tsk_t;
 /*/
 /// Returns the first TPK encountered in the reader.
 /*/
-sq_tpk_t sq_tpk_from_reader (sq_context_t ctx,
+sq_tpk_t sq_tpk_from_reader (sq_error_t *errp,
 			     sq_reader_t reader);
 
 /*/
 /// Returns the first TPK encountered in the file.
 /*/
-sq_tpk_t sq_tpk_from_file (sq_context_t ctx,
+sq_tpk_t sq_tpk_from_file (sq_error_t *errp,
                            const char *filename);
 
 /*/
@@ -788,7 +788,7 @@ sq_tpk_t sq_tpk_from_file (sq_context_t ctx,
 ///
 /// Consumes `m`.
 /*/
-sq_tpk_t sq_tpk_from_packet_pile (sq_context_t ctx,
+sq_tpk_t sq_tpk_from_packet_pile (sq_error_t *errp,
 				  sq_packet_pile_t m);
 
 /*/
@@ -796,7 +796,7 @@ sq_tpk_t sq_tpk_from_packet_pile (sq_context_t ctx,
 ///
 /// `buf` must be an OpenPGP-encoded TPK.
 /*/
-sq_tpk_t sq_tpk_from_bytes (sq_context_t ctx,
+sq_tpk_t sq_tpk_from_bytes (sq_error_t *errp,
 			    const uint8_t *b, size_t len);
 
 /*/
@@ -804,7 +804,7 @@ sq_tpk_t sq_tpk_from_bytes (sq_context_t ctx,
 ///
 /// Consumes the packet parser result.
 /*/
-sq_tpk_t sq_tpk_from_packet_parser (sq_context_t ctx,
+sq_tpk_t sq_tpk_from_packet_parser (sq_error_t *errp,
                                     sq_packet_parser_result_t ppr);
 
 /*/
@@ -825,7 +825,7 @@ int sq_tpk_equal (const sq_tpk_t a, const sq_tpk_t b);
 /*/
 /// Serializes the TPK.
 /*/
-sq_status_t sq_tpk_serialize (sq_context_t ctx,
+sq_status_t sq_tpk_serialize (sq_error_t *errp,
                               const sq_tpk_t tpk,
                               sq_writer_t writer);
 
@@ -837,7 +837,7 @@ sq_status_t sq_tpk_serialize (sq_context_t ctx,
 ///
 /// Consumes `tpk` and `other`.
 /*/
-sq_tpk_t sq_tpk_merge (sq_context_t ctx,
+sq_tpk_t sq_tpk_merge (sq_error_t *errp,
                        sq_tpk_t tpk,
                        sq_tpk_t other);
 
@@ -850,7 +850,7 @@ sq_tpk_t sq_tpk_merge (sq_context_t ctx,
 /// Consumes `tpk` and the packets in `packets`.  The buffer, however,
 /// must be freed by the caller.
 /*/
-sq_tpk_t sq_tpk_merge_packets (sq_context_t ctx,
+sq_tpk_t sq_tpk_merge_packets (sq_error_t *errp,
                                sq_tpk_t tpk,
                                sq_packet_t *packets,
                                size_t packets_len);
@@ -893,7 +893,7 @@ sq_revocation_status_t sq_tpk_revocation_status (sq_tpk_t tpk);
 ///
 /// This function consumes the writer.  It does *not* consume tpk.
 /*/
-sq_signature_t sq_tpk_revoke (sq_context_t ctx,
+sq_signature_t sq_tpk_revoke (sq_error_t *errp,
                               sq_tpk_t tpk,
                               sq_signer_t primary_signer,
                               sq_reason_for_revocation_t code,
@@ -904,7 +904,7 @@ sq_signature_t sq_tpk_revoke (sq_context_t ctx,
 ///
 /// This function consumes the tpk.
 /*/
-sq_tpk_t sq_tpk_revoke_in_place (sq_context_t ctx,
+sq_tpk_t sq_tpk_revoke_in_place (sq_error_t *errp,
                                  sq_tpk_t tpk,
                                  sq_signer_t primary_signer,
                                  sq_reason_for_revocation_t code,
@@ -938,7 +938,7 @@ int sq_tpk_alive_at(sq_tpk_t tpk, time_t at);
 ///
 /// This function consumes `tpk` and returns a new `TPK`.
 /*/
-sq_tpk_t sq_tpk_set_expiry(sq_context_t ctx,
+sq_tpk_t sq_tpk_set_expiry(sq_error_t *errp,
                            sq_tpk_t tpk,
                            uint32_t expiry);
 
@@ -1033,7 +1033,7 @@ void sq_tpk_builder_add_certification_subkey(sq_tpk_builder_t *tpkb);
 ///
 /// Consumes `tpkb`.
 /*/
-sq_tpk_t sq_tpk_builder_generate(sq_context_t ctx, sq_tpk_builder_t tpkb,
+sq_tpk_t sq_tpk_builder_generate(sq_error_t *errp, sq_tpk_builder_t tpkb,
                                  sq_tpk_t *tpk, sq_signature_t *revocation);
 
 
@@ -1042,7 +1042,7 @@ sq_tpk_t sq_tpk_builder_generate(sq_context_t ctx, sq_tpk_builder_t tpkb,
 /*/
 /// Generates a new RSA 3072 bit key with UID `primary_uid`.
 /*/
-sq_status_t sq_tsk_new (sq_context_t ctx, char *primary_uid,
+sq_status_t sq_tsk_new (sq_error_t *errp, char *primary_uid,
                         sq_tsk_t *tpk, sq_signature_t *revocation);
 
 /*/
@@ -1063,7 +1063,7 @@ sq_tpk_t sq_tsk_into_tpk (sq_tsk_t tsk);
 /*/
 /// Serializes the TSK.
 /*/
-sq_status_t sq_tsk_serialize (sq_context_t ctx,
+sq_status_t sq_tsk_serialize (sq_error_t *errp,
                               const sq_tsk_t tsk,
                               sq_writer_t writer);
 
@@ -1188,7 +1188,7 @@ int sq_p_key_public_key_bits(sq_p_key_t key);
 ///
 /// Fails if the secret key is missing, or encrypted.
 /*/
-sq_key_pair_t sq_p_key_into_key_pair (sq_context_t ctx, sq_p_key_t key);
+sq_key_pair_t sq_p_key_into_key_pair (sq_error_t *errp, sq_p_key_t key);
 
 /*/
 /// Returns the value of the User ID Packet.
@@ -1216,7 +1216,7 @@ const uint8_t *sq_user_attribute_value (sq_user_attribute_t ua,
 /// is not written to it.  Either way, `key_len` is set to the size of
 /// the session key.
 /*/
-sq_status_t sq_skesk_decrypt (sq_context_t ctx, sq_skesk_t skesk,
+sq_status_t sq_skesk_decrypt (sq_error_t *errp, sq_skesk_t skesk,
                               const uint8_t *password, size_t password_len,
                               uint8_t *algo, /* XXX */
                               uint8_t *key, size_t *key_len);
@@ -1231,19 +1231,19 @@ uint32_t sq_p_key_creation_time (sq_p_key_t p);
 /*/
 /// Starts parsing an OpenPGP message stored in a `sq_reader_t` object.
 /*/
-sq_packet_parser_result_t sq_packet_parser_from_reader (sq_context_t ctx,
+sq_packet_parser_result_t sq_packet_parser_from_reader (sq_error_t *errp,
                                                         sq_reader_t reader);
 
 /*/
 /// Starts parsing an OpenPGP message stored in a file named `path`.
 /*/
-sq_packet_parser_result_t sq_packet_parser_from_file (sq_context_t ctx,
+sq_packet_parser_result_t sq_packet_parser_from_file (sq_error_t *errp,
                                                       const char *filename);
 
 /*/
 /// Starts parsing an OpenPGP message stored in a buffer.
 /*/
-sq_packet_parser_result_t sq_packet_parser_from_bytes (sq_context_t ctx,
+sq_packet_parser_result_t sq_packet_parser_from_bytes (sq_error_t *errp,
                                                        const uint8_t *b,
                                                        size_t len);
 
@@ -1392,7 +1392,7 @@ uint8_t sq_packet_parser_recursion_depth (sq_packet_parser_t pp);
 ///
 /// Consumes the given packet parser.
 /*/
-sq_status_t sq_packet_parser_next (sq_context_t ctx,
+sq_status_t sq_packet_parser_next (sq_error_t *errp,
                                    sq_packet_parser_t pp,
                                    sq_packet_t *old_packet,
                                    sq_packet_parser_result_t *ppr);
@@ -1419,7 +1419,7 @@ sq_status_t sq_packet_parser_next (sq_context_t ctx,
 ///
 /// Consumes the given packet parser.
 /*/
-sq_status_t sq_packet_parser_recurse (sq_context_t ctx,
+sq_status_t sq_packet_parser_recurse (sq_error_t *errp,
                                       sq_packet_parser_t pp,
                                       sq_packet_t *old_packet,
                                       sq_packet_parser_result_t *ppr);
@@ -1432,7 +1432,7 @@ sq_status_t sq_packet_parser_recurse (sq_context_t ctx,
 /// prefer streaming its content unless you are certain that the
 /// content is small.
 /*/
-uint8_t *sq_packet_parser_buffer_unread_content (sq_context_t ctx,
+uint8_t *sq_packet_parser_buffer_unread_content (sq_error_t *errp,
                                                  sq_packet_parser_t pp,
                                                  size_t *len);
 
@@ -1442,7 +1442,7 @@ uint8_t *sq_packet_parser_buffer_unread_content (sq_context_t ctx,
 /// By default, this drops any unread content.  Use, for instance,
 /// `PacketParserBuild` to customize the default behavior.
 /*/
-sq_status_t sq_packet_parser_finish (sq_context_t ctx,
+sq_status_t sq_packet_parser_finish (sq_error_t *errp,
                                      sq_packet_parser_t pp,
 				     sq_packet_t **packet);
 
@@ -1457,7 +1457,7 @@ sq_status_t sq_packet_parser_finish (sq_context_t ctx,
 /// encrypted data, or some of the data was already read, then it
 /// returns `Error::InvalidOperation`.
 /*/
-sq_status_t sq_packet_parser_decrypt (sq_context_t ctx,
+sq_status_t sq_packet_parser_decrypt (sq_error_t *errp,
                                       sq_packet_parser_t pp,
                                       uint8_t algo, /* XXX */
                                       uint8_t *key, size_t key_len);
@@ -1472,7 +1472,7 @@ sq_writer_stack_t sq_writer_stack_message (sq_writer_t writer);
 /*/
 /// Writes up to `len` bytes of `buf` into `writer`.
 /*/
-ssize_t sq_writer_stack_write (sq_context_t ctx, sq_writer_stack_t writer,
+ssize_t sq_writer_stack_write (sq_error_t *errp, sq_writer_stack_t writer,
                                const uint8_t *buf, size_t len);
 
 /*/
@@ -1482,20 +1482,20 @@ ssize_t sq_writer_stack_write (sq_context_t ctx, sq_writer_stack_t writer,
 /// buffer will be written.  Also, this version automatically catches
 /// EINTR.
 /*/
-sq_status_t sq_writer_stack_write_all (sq_context_t ctx,
+sq_status_t sq_writer_stack_write_all (sq_error_t *errp,
                                        sq_writer_stack_t writer,
                                        const uint8_t *buf, size_t len);
 
 /*/
 /// Finalizes this writer, returning the underlying writer.
 /*/
-sq_writer_stack_t sq_writer_stack_finalize_one (sq_context_t ctx,
+sq_writer_stack_t sq_writer_stack_finalize_one (sq_error_t *errp,
                                                 sq_writer_stack_t writer);
 
 /*/
 /// Finalizes all writers, tearing down the whole stack.
 /*/
-sq_status_t sq_writer_stack_finalize (sq_context_t ctx,
+sq_status_t sq_writer_stack_finalize (sq_error_t *errp,
                                       sq_writer_stack_t writer);
 
 /*/
@@ -1505,7 +1505,7 @@ sq_status_t sq_writer_stack_finalize (sq_context_t ctx,
 /// The body will be written using partial length encoding, or, if the
 /// body is short, using full length encoding.
 /*/
-sq_writer_stack_t sq_arbitrary_writer_new (sq_context_t ctx,
+sq_writer_stack_t sq_arbitrary_writer_new (sq_error_t *errp,
                                            sq_writer_stack_t inner,
                                            sq_tag_t tag);
 
@@ -1516,14 +1516,14 @@ sq_writer_stack_t sq_arbitrary_writer_new (sq_context_t ctx,
 /// packet, then hashes and emits the data stream, then for every key
 /// writes a signature packet.
 /*/
-sq_writer_stack_t sq_signer_new (sq_context_t ctx,
+sq_writer_stack_t sq_signer_new (sq_error_t *errp,
                                  sq_writer_stack_t inner,
                                  sq_tpk_t *signers, size_t signers_len);
 
 /*/
 /// Creates a signer for a detached signature.
 /*/
-sq_writer_stack_t sq_signer_new_detached (sq_context_t ctx,
+sq_writer_stack_t sq_signer_new_detached (sq_error_t *errp,
                                           sq_writer_stack_t inner,
                                           sq_tpk_t *signers,
                                           size_t signers_len);
@@ -1534,7 +1534,7 @@ sq_writer_stack_t sq_signer_new_detached (sq_context_t ctx,
 /// The body will be written using partial length encoding, or, if the
 /// body is short, using full length encoding.
 /*/
-sq_writer_stack_t sq_literal_writer_new (sq_context_t ctx,
+sq_writer_stack_t sq_literal_writer_new (sq_error_t *errp,
                                          sq_writer_stack_t inner);
 
 /*/
@@ -1572,7 +1572,7 @@ typedef enum sq_encryption_mode {
 /// The stream is encrypted using AES256, regardless of any key
 /// preferences.
 /*/
-sq_writer_stack_t sq_encryptor_new (sq_context_t ctx,
+sq_writer_stack_t sq_encryptor_new (sq_error_t *errp,
                                     sq_writer_stack_t inner,
                                     char **passwords,
                                     size_t passwords_len,
@@ -1643,13 +1643,13 @@ typedef sq_status_t (*sq_sequoia_decrypt_check_signatures_cb_t) (void *,
                                                                  sq_verification_results_t,
                                                                  size_t);
 
-sq_status_t sq_decrypt (sq_context_t ctx, sq_reader_t input, sq_writer_t output,
+sq_status_t sq_decrypt (sq_error_t *errp, sq_reader_t input, sq_writer_t output,
                         sq_sequoia_decrypt_get_public_keys_cb_t get_public_keys,
                         sq_sequoia_decrypt_get_secret_keys_cb_t get_secret_keys,
                         sq_sequoia_decrypt_check_signatures_cb_t check_signatures,
                         void *cookie);
 
-sq_status_t sq_verify (sq_context_t ctx,
+sq_status_t sq_verify (sq_error_t *errp,
                        sq_reader_t input, sq_reader_t dsig, sq_writer_t output,
                        sq_sequoia_decrypt_get_public_keys_cb_t get_public_keys,
                        sq_sequoia_decrypt_check_signatures_cb_t check_signatures,

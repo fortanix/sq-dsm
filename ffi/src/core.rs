@@ -67,15 +67,6 @@ impl Context {
     pub(crate) fn errp(&mut self) -> &mut *mut failure::Error {
         &mut self.e
     }
-
-    pub(crate) fn set_error(&mut self, e: failure::Error) {
-        if ! self.e.is_null() {
-            unsafe {
-                drop(Box::from_raw(self.e));
-            }
-        }
-        self.e = box_raw!(e);
-    }
 }
 
 /// Returns the last error.
@@ -239,11 +230,10 @@ pub extern "system" fn sq_config_ephemeral(cfg: *mut Config) {
 
 /// Opens a file returning a reader.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_reader_from_file(ctx: *mut Context,
+pub extern "system" fn sq_reader_from_file(errp: Option<&mut *mut failure::Error>,
                                            filename: *const c_char)
                                            -> *mut Box<Read> {
-    let ctx = ffi_param_ref_mut!(ctx);
-    ffi_make_fry_from_ctx!(ctx);
+    ffi_make_fry_from_errp!(errp);
     let filename = ffi_param_cstr!(filename).to_string_lossy().into_owned();
     ffi_try_box!(File::open(Path::new(&filename))
              .map(|r| Box::new(r))
@@ -278,12 +268,11 @@ pub extern "system" fn sq_reader_free(reader: Option<&mut Box<Read>>) {
 
 /// Reads up to `len` bytes into `buf`.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_reader_read(ctx: *mut Context,
+pub extern "system" fn sq_reader_read(errp: Option<&mut *mut failure::Error>,
                                       reader: *mut Box<Read>,
                                       buf: *mut uint8_t, len: size_t)
                                       -> ssize_t {
-    let ctx = ffi_param_ref_mut!(ctx);
-    ffi_make_fry_from_ctx!(ctx);
+    ffi_make_fry_from_errp!(errp);
     let reader = ffi_param_ref_mut!(reader);
     assert!(!buf.is_null());
     let buf = unsafe {
@@ -298,11 +287,10 @@ pub extern "system" fn sq_reader_read(ctx: *mut Context,
 /// The file will be created if it does not exist, or be truncated
 /// otherwise.  If you need more control, use `sq_writer_from_fd`.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_writer_from_file(ctx: *mut Context,
+pub extern "system" fn sq_writer_from_file(errp: Option<&mut *mut failure::Error>,
                                            filename: *const c_char)
                                            -> *mut Box<Write> {
-    let ctx = ffi_param_ref_mut!(ctx);
-    ffi_make_fry_from_ctx!(ctx);
+    ffi_make_fry_from_errp!(errp);
     let filename = ffi_param_cstr!(filename).to_string_lossy().into_owned();
     ffi_try_box!(File::create(Path::new(&filename))
              .map(|r| Box::new(r))
@@ -391,12 +379,11 @@ pub extern "system" fn sq_writer_free(writer: Option<&mut Box<Write>>) {
 
 /// Writes up to `len` bytes of `buf` into `writer`.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_writer_write(ctx: *mut Context,
+pub extern "system" fn sq_writer_write(errp: Option<&mut *mut failure::Error>,
                                        writer: *mut Box<Write>,
                                        buf: *const uint8_t, len: size_t)
                                        -> ssize_t {
-    let ctx = ffi_param_ref_mut!(ctx);
-    ffi_make_fry_from_ctx!(ctx);
+    ffi_make_fry_from_errp!(errp);
     let writer = ffi_param_ref_mut!(writer);
     assert!(!buf.is_null());
     let buf = unsafe {

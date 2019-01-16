@@ -34,27 +34,24 @@ use self::sequoia_openpgp::{
     },
 };
 
-use ::core::Context;
 use ::error::Status;
 
 /// Returns the first TPK encountered in the reader.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_tpk_from_reader(ctx: *mut Context,
+pub extern "system" fn sq_tpk_from_reader(errp: Option<&mut *mut failure::Error>,
                                           reader: *mut Box<Read>)
                                           -> *mut TPK {
-    let ctx = ffi_param_ref_mut!(ctx);
-    ffi_make_fry_from_ctx!(ctx);
+    ffi_make_fry_from_errp!(errp);
     let reader = ffi_param_ref_mut!(reader);
     ffi_try_box!(TPK::from_reader(reader))
 }
 
 /// Returns the first TPK encountered in the file.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_tpk_from_file(ctx: *mut Context,
+pub extern "system" fn sq_tpk_from_file(errp: Option<&mut *mut failure::Error>,
                                         filename: *const c_char)
                                         -> *mut TPK {
-    let ctx = ffi_param_ref_mut!(ctx);
-    ffi_make_fry_from_ctx!(ctx);
+    ffi_make_fry_from_errp!(errp);
     let filename = ffi_param_cstr!(filename).to_string_lossy().into_owned();
     ffi_try_box!(TPK::from_file(&filename))
 }
@@ -63,11 +60,10 @@ pub extern "system" fn sq_tpk_from_file(ctx: *mut Context,
 ///
 /// Consumes `m`.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_tpk_from_packet_pile(ctx: *mut Context,
+pub extern "system" fn sq_tpk_from_packet_pile(errp: Option<&mut *mut failure::Error>,
                                                m: *mut PacketPile)
                                                -> *mut TPK {
-    let ctx = ffi_param_ref_mut!(ctx);
-    ffi_make_fry_from_ctx!(ctx);
+    ffi_make_fry_from_errp!(errp);
     let m = ffi_param_move!(m);
     ffi_try_box!(TPK::from_packet_pile(*m))
 }
@@ -76,11 +72,10 @@ pub extern "system" fn sq_tpk_from_packet_pile(ctx: *mut Context,
 ///
 /// `buf` must be an OpenPGP-encoded TPK.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_tpk_from_bytes(ctx: *mut Context,
+pub extern "system" fn sq_tpk_from_bytes(errp: Option<&mut *mut failure::Error>,
                                          b: *const uint8_t, len: size_t)
                                          -> *mut TPK {
-    let ctx = ffi_param_ref_mut!(ctx);
-    ffi_make_fry_from_ctx!(ctx);
+    ffi_make_fry_from_errp!(errp);
     assert!(!b.is_null());
     let buf = unsafe {
         slice::from_raw_parts(b, len as usize)
@@ -93,12 +88,11 @@ pub extern "system" fn sq_tpk_from_bytes(ctx: *mut Context,
 ///
 /// Consumes the packet parser result.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_tpk_from_packet_parser(ctx: *mut Context,
+pub extern "system" fn sq_tpk_from_packet_parser(errp: Option<&mut *mut failure::Error>,
                                                  ppr: *mut PacketParserResult)
     -> *mut TPK
 {
-    let ctx = ffi_param_ref_mut!(ctx);
-    ffi_make_fry_from_ctx!(ctx);
+    ffi_make_fry_from_errp!(errp);
     let ppr = ffi_param_move!(ppr);
 
     ffi_try_box!(TPK::from_packet_parser(*ppr))
@@ -130,12 +124,11 @@ pub extern "system" fn sq_tpk_equal(a: *const TPK,
 
 /// Serializes the TPK.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_tpk_serialize(ctx: *mut Context,
+pub extern "system" fn sq_tpk_serialize(errp: Option<&mut *mut failure::Error>,
                                         tpk: *const TPK,
                                         writer: *mut Box<Write>)
                                         -> Status {
-    let ctx = ffi_param_ref_mut!(ctx);
-    ffi_make_fry_from_ctx!(ctx);
+    ffi_make_fry_from_errp!(errp);
     let tpk = ffi_param_ref!(tpk);
     let writer = ffi_param_ref_mut!(writer);
     ffi_try_status!(tpk.serialize(writer))
@@ -148,12 +141,11 @@ pub extern "system" fn sq_tpk_serialize(ctx: *mut Context,
 ///
 /// Consumes `tpk` and `other`.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_tpk_merge(ctx: *mut Context,
+pub extern "system" fn sq_tpk_merge(errp: Option<&mut *mut failure::Error>,
                                     tpk: *mut TPK,
                                     other: *mut TPK)
                                     -> *mut TPK {
-    let ctx = ffi_param_ref_mut!(ctx);
-    ffi_make_fry_from_ctx!(ctx);
+    ffi_make_fry_from_errp!(errp);
     let tpk = ffi_param_move!(tpk);
     let other = ffi_param_move!(other);
     ffi_try_box!(tpk.merge(*other))
@@ -167,13 +159,12 @@ pub extern "system" fn sq_tpk_merge(ctx: *mut Context,
 /// Consumes `tpk` and the packets in `packets`.  The buffer, however,
 /// must be managed by the caller.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_tpk_merge_packets(ctx: *mut Context,
+pub extern "system" fn sq_tpk_merge_packets(errp: Option<&mut *mut failure::Error>,
                                             tpk: *mut TPK,
                                             packets: *mut *mut Packet,
                                             packets_len: size_t)
                                             -> *mut TPK {
-    let ctx = ffi_param_ref_mut!(ctx);
-    ffi_make_fry_from_ctx!(ctx);
+    ffi_make_fry_from_errp!(errp);
     let tpk = ffi_param_move!(tpk);
     let packets = unsafe {
         slice::from_raw_parts_mut(packets, packets_len)
@@ -255,7 +246,6 @@ fn int_to_reason_for_revocation(code: c_int) -> ReasonForRevocation {
 /// #include <assert.h>
 /// #include <sequoia.h>
 ///
-/// sq_context_t ctx;
 /// sq_tpk_builder_t builder;
 /// sq_tpk_t tpk;
 /// sq_signature_t revocation;
@@ -263,21 +253,19 @@ fn int_to_reason_for_revocation(code: c_int) -> ReasonForRevocation {
 /// sq_key_pair_t primary_keypair;
 /// sq_signer_t primary_signer;
 ///
-/// ctx = sq_context_new ("org.sequoia-pgp.tests", NULL);
-///
 /// builder = sq_tpk_builder_default ();
 /// sq_tpk_builder_set_cipher_suite (&builder, SQ_TPK_CIPHER_SUITE_CV25519);
-/// sq_tpk_builder_generate (ctx, builder, &tpk, &revocation);
+/// sq_tpk_builder_generate (NULL, builder, &tpk, &revocation);
 /// assert (tpk);
 /// assert (revocation);
 /// sq_signature_free (revocation);    /* Free the generated one.  */
 ///
 /// primary_key = sq_p_key_clone (sq_tpk_primary (tpk));
 /// assert (primary_key);
-/// primary_keypair = sq_p_key_into_key_pair (ctx, primary_key);
+/// primary_keypair = sq_p_key_into_key_pair (NULL, primary_key);
 /// assert (primary_keypair);
 /// primary_signer = sq_key_pair_as_signer (primary_keypair);
-/// revocation = sq_tpk_revoke (ctx, tpk, primary_signer,
+/// revocation = sq_tpk_revoke (NULL, tpk, primary_signer,
 ///                             SQ_REASON_FOR_REVOCATION_KEY_COMPROMISED,
 ///                             "It was the maid :/");
 /// assert (revocation);
@@ -285,7 +273,7 @@ fn int_to_reason_for_revocation(code: c_int) -> ReasonForRevocation {
 /// sq_key_pair_free (primary_keypair);
 ///
 /// sq_packet_t packet = sq_signature_to_packet (revocation);
-/// tpk = sq_tpk_merge_packets (ctx, tpk, &packet, 1);
+/// tpk = sq_tpk_merge_packets (NULL, tpk, &packet, 1);
 /// assert (tpk);
 ///
 /// sq_revocation_status_t rs = sq_tpk_revocation_status (tpk);
@@ -293,18 +281,16 @@ fn int_to_reason_for_revocation(code: c_int) -> ReasonForRevocation {
 /// sq_revocation_status_free (rs);
 ///
 /// sq_tpk_free (tpk);
-/// sq_context_free (ctx);
 /// ```
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_tpk_revoke(ctx: *mut Context,
+pub extern "system" fn sq_tpk_revoke(errp: Option<&mut *mut failure::Error>,
                                      tpk: *mut TPK,
                                      primary_signer: *mut Box<crypto::Signer>,
                                      code: c_int,
                                      reason: Option<&c_char>)
     -> *mut packet::Signature
 {
-    let ctx = ffi_param_ref_mut!(ctx);
-    ffi_make_fry_from_ctx!(ctx);
+    ffi_make_fry_from_errp!(errp);
     let tpk = ffi_param_ref!(tpk);
     let signer = ffi_param_ref_mut!(primary_signer);
     let code = int_to_reason_for_revocation(code);
@@ -327,7 +313,6 @@ pub extern "system" fn sq_tpk_revoke(ctx: *mut Context,
 /// #include <assert.h>
 /// #include <sequoia.h>
 ///
-/// sq_context_t ctx;
 /// sq_tpk_builder_t builder;
 /// sq_tpk_t tpk;
 /// sq_signature_t revocation;
@@ -335,21 +320,19 @@ pub extern "system" fn sq_tpk_revoke(ctx: *mut Context,
 /// sq_key_pair_t primary_keypair;
 /// sq_signer_t primary_signer;
 ///
-/// ctx = sq_context_new ("org.sequoia-pgp.tests", NULL);
-///
 /// builder = sq_tpk_builder_default ();
 /// sq_tpk_builder_set_cipher_suite (&builder, SQ_TPK_CIPHER_SUITE_CV25519);
-/// sq_tpk_builder_generate (ctx, builder, &tpk, &revocation);
+/// sq_tpk_builder_generate (NULL, builder, &tpk, &revocation);
 /// assert (tpk);
 /// assert (revocation);
 /// sq_signature_free (revocation);    /* Free the generated one.  */
 ///
 /// primary_key = sq_p_key_clone (sq_tpk_primary (tpk));
 /// assert (primary_key);
-/// primary_keypair = sq_p_key_into_key_pair (ctx, primary_key);
+/// primary_keypair = sq_p_key_into_key_pair (NULL, primary_key);
 /// assert (primary_keypair);
 /// primary_signer = sq_key_pair_as_signer (primary_keypair);
-/// tpk = sq_tpk_revoke_in_place (ctx, tpk, primary_signer,
+/// tpk = sq_tpk_revoke_in_place (NULL, tpk, primary_signer,
 ///                               SQ_REASON_FOR_REVOCATION_KEY_COMPROMISED,
 ///                               "It was the maid :/");
 /// assert (tpk);
@@ -361,18 +344,16 @@ pub extern "system" fn sq_tpk_revoke(ctx: *mut Context,
 /// sq_revocation_status_free (rs);
 ///
 /// sq_tpk_free (tpk);
-/// sq_context_free (ctx);
 /// ```
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_tpk_revoke_in_place(ctx: *mut Context,
+pub extern "system" fn sq_tpk_revoke_in_place(errp: Option<&mut *mut failure::Error>,
                                               tpk: *mut TPK,
                                               primary_signer: *mut Box<crypto::Signer>,
                                               code: c_int,
                                               reason: Option<&c_char>)
     -> *mut TPK
 {
-    let ctx = ffi_param_ref_mut!(ctx);
-    ffi_make_fry_from_ctx!(ctx);
+    ffi_make_fry_from_errp!(errp);
     let tpk = ffi_param_move!(tpk);
     let signer = ffi_param_ref_mut!(primary_signer);
     let code = int_to_reason_for_revocation(code);
@@ -426,11 +407,10 @@ pub extern "system" fn sq_tpk_alive_at(tpk: *const TPK, when: time_t)
 ///
 /// This function consumes `tpk` and returns a new `TPK`.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_tpk_set_expiry(ctx: *mut Context,
+pub extern "system" fn sq_tpk_set_expiry(errp: Option<&mut *mut failure::Error>,
                                          tpk: *mut TPK, expiry: u32)
                                          -> *mut TPK {
-    let ctx = ffi_param_ref_mut!(ctx);
-    ffi_make_fry_from_ctx!(ctx);
+    ffi_make_fry_from_errp!(errp);
     let tpk = ffi_param_move!(tpk);
 
     ffi_try_box!(tpk.set_expiry_in_seconds(expiry))
@@ -591,19 +571,16 @@ pub extern "system" fn sq_tpk_key_iter_next<'a>(
 /// #include <assert.h>
 /// #include <sequoia.h>
 ///
-/// sq_context_t ctx;
 /// sq_tpk_builder_t builder;
 /// sq_tpk_t tpk;
 /// sq_signature_t revocation;
-///
-/// ctx = sq_context_new ("org.sequoia-pgp.tests", NULL);
 ///
 /// builder = sq_tpk_builder_default ();
 /// sq_tpk_builder_set_cipher_suite (&builder, SQ_TPK_CIPHER_SUITE_CV25519);
 /// sq_tpk_builder_add_userid (&builder, "some@example.org");
 /// sq_tpk_builder_add_signing_subkey (&builder);
 /// sq_tpk_builder_add_encryption_subkey (&builder);
-/// sq_tpk_builder_generate (ctx, builder, &tpk, &revocation);
+/// sq_tpk_builder_generate (NULL, builder, &tpk, &revocation);
 /// assert (tpk);
 /// assert (revocation);
 ///
@@ -611,7 +588,6 @@ pub extern "system" fn sq_tpk_key_iter_next<'a>(
 ///
 /// sq_signature_free (revocation);
 /// sq_tpk_free (tpk);
-/// sq_context_free (ctx);
 /// ```
 #[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_tpk_builder_default() -> *mut TPKBuilder {
@@ -702,13 +678,12 @@ pub extern "system" fn sq_tpk_builder_add_certification_subkey
 /// Consumes `tpkb`.
 #[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_tpk_builder_generate
-    (ctx: *mut Context, tpkb: *mut TPKBuilder,
+    (errp: Option<&mut *mut failure::Error>, tpkb: *mut TPKBuilder,
      tpk_out: *mut *mut TPK,
      revocation_out: *mut *mut Signature)
     -> Status
 {
-    let ctx = ffi_param_ref_mut!(ctx);
-    ffi_make_fry_from_ctx!(ctx);
+    ffi_make_fry_from_errp!(errp);
     let tpk_out = ffi_param_ref_mut!(tpk_out);
     let revocation_out = ffi_param_ref_mut!(revocation_out);
     let tpkb = ffi_param_move!(tpkb);

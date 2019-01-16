@@ -4,8 +4,6 @@
 //!
 //! [`sequoia-openpgp::crypto`]: ../../../sequoia_openpgp/crypto/index.html
 
-use ::core::Context;
-
 extern crate sequoia_openpgp;
 use self::sequoia_openpgp::{
     crypto,
@@ -23,11 +21,10 @@ pub extern "system" fn sq_signer_free
 /// Creates a new key pair.
 #[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_key_pair_new
-    (ctx: *mut Context, public: *mut Key, secret: *mut crypto::mpis::SecretKey)
+    (errp: Option<&mut *mut failure::Error>, public: *mut Key, secret: *mut crypto::mpis::SecretKey)
      -> *mut crypto::KeyPair
 {
-    let ctx = ffi_param_ref_mut!(ctx);
-    ffi_make_fry_from_ctx!(ctx);
+    ffi_make_fry_from_errp!(errp);
     let public = ffi_param_move!(public);
     let secret = ffi_param_move!(secret);
     ffi_try_box!(crypto::KeyPair::new(*public, *secret))
