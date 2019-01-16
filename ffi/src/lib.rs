@@ -265,6 +265,16 @@ macro_rules! ffi_return_maybe_string {
 /// to store complex errors.
 macro_rules! ffi_make_fry_from_ctx {
     ($ctx:ident) => {
+        ffi_make_fry_from_errp!(Some($ctx.errp()))
+    }
+}
+
+/* Error handling with implicit error return argument.  */
+
+/// Emits local macros for error handling that use the given context
+/// to store complex errors.
+macro_rules! ffi_make_fry_from_errp {
+    ($errp:expr) => {
         /// Like try! for ffi glue.
         ///
         /// Evaluates the given expression.  On success, evaluate to
@@ -277,7 +287,9 @@ macro_rules! ffi_make_fry_from_ctx {
                     Ok(_) => Status::Success,
                     Err(e) => {
                         let status = Status::from(&e);
-                        $ctx.set_error(e);
+                        if let Some(errp) = $errp {
+                            *errp = box_raw!(e);
+                        }
                         status
                     },
                 }
@@ -294,7 +306,9 @@ macro_rules! ffi_make_fry_from_ctx {
                 match $expr {
                     Ok(v) => v,
                     Err(e) => {
-                        $ctx.set_error(e);
+                        if let Some(errp) = $errp {
+                            *errp = box_raw!(e);
+                        }
                         return $or;
                     },
                 }

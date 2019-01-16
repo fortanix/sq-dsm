@@ -64,6 +64,10 @@ impl Context {
         Context{c: c, e: ptr::null_mut()}
     }
 
+    pub(crate) fn errp(&mut self) -> &mut *mut failure::Error {
+        &mut self.e
+    }
+
     pub(crate) fn set_error(&mut self, e: failure::Error) {
         if ! self.e.is_null() {
             unsafe {
