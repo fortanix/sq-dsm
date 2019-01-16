@@ -33,8 +33,9 @@ pub extern "system" fn sq_packet_pile_from_reader(ctx: *mut Context,
                                                   reader: *mut Box<Read>)
                                                   -> *mut PacketPile {
     let ctx = ffi_param_ref_mut!(ctx);
+    ffi_make_fry_from_ctx!(ctx);
     let reader = ffi_param_ref_mut!(reader);
-    fry_box!(ctx, PacketPile::from_reader(reader))
+    ffi_try_box!(PacketPile::from_reader(reader))
 }
 
 /// Deserializes the OpenPGP message stored in the file named by
@@ -46,8 +47,9 @@ pub extern "system" fn sq_packet_pile_from_file(ctx: *mut Context,
                                                 filename: *const c_char)
                                                 -> *mut PacketPile {
     let ctx = ffi_param_ref_mut!(ctx);
+    ffi_make_fry_from_ctx!(ctx);
     let filename = ffi_param_cstr!(filename).to_string_lossy().into_owned();
-    fry_box!(ctx, PacketPile::from_file(&filename))
+    ffi_try_box!(PacketPile::from_file(&filename))
 }
 
 /// Deserializes the OpenPGP message stored in the provided buffer.
@@ -58,12 +60,13 @@ pub extern "system" fn sq_packet_pile_from_bytes(ctx: *mut Context,
                                                  b: *const uint8_t, len: size_t)
                                                  -> *mut PacketPile {
     let ctx = ffi_param_ref_mut!(ctx);
+    ffi_make_fry_from_ctx!(ctx);
     assert!(!b.is_null());
     let buf = unsafe {
         slice::from_raw_parts(b, len as usize)
     };
 
-    fry_box!(ctx, PacketPile::from_bytes(buf))
+    ffi_try_box!(PacketPile::from_bytes(buf))
 }
 
 /// Frees the packet_pile.
@@ -88,7 +91,8 @@ pub extern "system" fn sq_packet_pile_serialize(ctx: *mut Context,
                                                 writer: *mut Box<Write>)
                                                 -> Status {
     let ctx = ffi_param_ref_mut!(ctx);
+    ffi_make_fry_from_ctx!(ctx);
     let packet_pile = ffi_param_ref!(packet_pile);
     let writer = ffi_param_ref_mut!(writer);
-    fry_status!(ctx, packet_pile.serialize(writer))
+    ffi_try_status!(packet_pile.serialize(writer))
 }

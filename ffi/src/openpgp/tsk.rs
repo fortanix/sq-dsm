@@ -28,6 +28,7 @@ pub extern "system" fn sq_tsk_new(ctx: *mut Context,
     -> Status
 {
     let ctx = ffi_param_ref_mut!(ctx);
+    ffi_make_fry_from_ctx!(ctx);
     let tsk_out = ffi_param_ref_mut!(tsk_out);
     let revocation_out = ffi_param_ref_mut!(revocation_out);
     let primary_uid = ffi_param_cstr!(primary_uid).to_string_lossy();
@@ -37,7 +38,7 @@ pub extern "system" fn sq_tsk_new(ctx: *mut Context,
             *revocation_out = box_raw!(revocation);
             Status::Success
         },
-        Err(e) => fry_status!(ctx, Err::<(), failure::Error>(e)),
+        Err(e) => ffi_try_status!(Err::<(), failure::Error>(e)),
     }
 }
 
@@ -71,7 +72,8 @@ pub extern "system" fn sq_tsk_serialize(ctx: *mut Context,
                                         writer: *mut Box<Write>)
                                         -> Status {
     let ctx = ffi_param_ref_mut!(ctx);
+    ffi_make_fry_from_ctx!(ctx);
     let tsk = ffi_param_ref!(tsk);
     let writer = ffi_param_ref_mut!(writer);
-    fry_status!(ctx, tsk.serialize(writer))
+    ffi_try_status!(tsk.serialize(writer))
 }

@@ -145,10 +145,11 @@ pub extern "system" fn sq_armor_reader_from_file(ctx: *mut Context,
                                                  kind: c_int)
                                                  -> *mut Box<Read> {
     let ctx = ffi_param_ref_mut!(ctx);
+    ffi_make_fry_from_ctx!(ctx);
     let filename = ffi_param_cstr!(filename).to_string_lossy().into_owned();
     let kind = int_to_kind(kind);
 
-    fry_box!(ctx, armor::Reader::from_file(&filename, kind)
+    ffi_try_box!(armor::Reader::from_file(&filename, kind)
              .map(|r| Box::new(r))
              .map_err(|e| e.into()))
 }
@@ -214,6 +215,7 @@ pub extern "system" fn sq_armor_reader_headers(ctx: *mut Context,
                                                len: *mut size_t)
                                                -> *mut ArmorHeader {
     let ctx = ffi_param_ref_mut!(ctx);
+    ffi_make_fry_from_ctx!(ctx);
     let len = ffi_param_ref_mut!(len);
 
     // We need to downcast `reader`.  To do that, we need to do a
@@ -349,6 +351,7 @@ pub extern "system" fn sq_armor_writer_new
      -> *mut Box<Write>
 {
     let ctx = ffi_param_ref_mut!(ctx);
+    ffi_make_fry_from_ctx!(ctx);
     let inner = ffi_param_ref_mut!(inner);
     let kind = int_to_kind(kind).expect("KIND must not be SQ_ARMOR_KIND_ANY");
 
@@ -369,7 +372,7 @@ pub extern "system" fn sq_armor_writer_new
     let header: Vec<(&str, &str)> =
         header_.iter().map(|h| (h.0.as_ref(), h.1.as_ref())).collect();
 
-    fry_box!(ctx, armor::Writer::new(inner, kind, &header)
+    ffi_try_box!(armor::Writer::new(inner, kind, &header)
              .map(|r| Box::new(r))
              .map_err(|e| e.into()))
 }

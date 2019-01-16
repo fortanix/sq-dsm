@@ -459,8 +459,9 @@ pub extern "system" fn sq_p_key_into_key_pair(ctx: *mut Context,
                                               -> *mut self::openpgp::crypto::KeyPair
 {
     let ctx = ffi_param_ref_mut!(ctx);
+    ffi_make_fry_from_ctx!(ctx);
     let key = ffi_param_move!(key);
-    fry_box!(ctx, key.into_keypair())
+    ffi_try_box!(key.into_keypair())
 }
 
 /// Returns the value of the User ID Packet.
@@ -517,6 +518,7 @@ pub extern "system" fn sq_skesk_decrypt(ctx: *mut Context,
                                         key_len: *mut size_t)
                                         -> Status {
     let ctx = ffi_param_ref_mut!(ctx);
+    ffi_make_fry_from_ctx!(ctx);
     let skesk = ffi_param_ref!(skesk);
     assert!(!password.is_null());
     let password = unsafe {
@@ -539,7 +541,7 @@ pub extern "system" fn sq_skesk_decrypt(ctx: *mut Context,
                 *key_len = k.len();
                 Status::Success
             },
-            Err(e) => fry_status!(ctx, Err::<(), failure::Error>(e)),
+            Err(e) => ffi_try_status!(Err::<(), failure::Error>(e)),
         }
     } else {
         panic!("Not a SKESK packet");
@@ -572,6 +574,7 @@ pub extern "system" fn sq_pkesk_decrypt(ctx: *mut Context,
                                         key_len: *mut size_t)
                                         -> Status {
     let ctx = ffi_param_ref_mut!(ctx);
+    ffi_make_fry_from_ctx!(ctx);
     let pkesk = ffi_param_ref!(pkesk);
     let secret_key = ffi_param_ref!(secret_key);
     let algo = ffi_param_ref_mut!(algo);
@@ -591,7 +594,7 @@ pub extern "system" fn sq_pkesk_decrypt(ctx: *mut Context,
                 *key_len = k.len();
                 Status::Success
             },
-            Err(e) => fry_status!(ctx, Err::<(), failure::Error>(e)),
+            Err(e) => ffi_try_status!(Err::<(), failure::Error>(e)),
         }
     } else {
         // XXX: Better message.
@@ -611,8 +614,9 @@ pub extern "system" fn sq_packet_parser_from_reader<'a>
     (ctx: *mut Context, reader: *mut Box<'a + Read>)
      -> *mut PacketParserResult<'a> {
     let ctx = ffi_param_ref_mut!(ctx);
+    ffi_make_fry_from_ctx!(ctx);
     let reader = ffi_param_ref_mut!(reader);
-    fry_box!(ctx, PacketParser::from_reader(reader))
+    ffi_try_box!(PacketParser::from_reader(reader))
 }
 
 /// Starts parsing OpenPGP packets stored in a file named `path`.
@@ -624,8 +628,9 @@ pub extern "system" fn sq_packet_parser_from_file
     (ctx: *mut Context, filename: *const c_char)
      -> *mut PacketParserResult<'static> {
     let ctx = ffi_param_ref_mut!(ctx);
+    ffi_make_fry_from_ctx!(ctx);
     let filename = ffi_param_cstr!(filename).to_string_lossy().into_owned();
-    fry_box!(ctx, PacketParser::from_file(&filename))
+    ffi_try_box!(PacketParser::from_file(&filename))
 }
 
 /// Starts parsing OpenPGP packets stored in a buffer.
@@ -637,12 +642,13 @@ pub extern "system" fn sq_packet_parser_from_bytes
     (ctx: *mut Context, b: *const uint8_t, len: size_t)
      -> *mut PacketParserResult<'static> {
     let ctx = ffi_param_ref_mut!(ctx);
+    ffi_make_fry_from_ctx!(ctx);
     assert!(!b.is_null());
     let buf = unsafe {
         slice::from_raw_parts(b, len as usize)
     };
 
-    fry_box!(ctx, PacketParser::from_bytes(buf))
+    ffi_try_box!(PacketParser::from_bytes(buf))
 }
 
 /// Frees the packet parser result
@@ -773,6 +779,7 @@ pub extern "system" fn sq_packet_parser_next<'a>
      ppr: Option<&mut *mut PacketParserResult<'a>>)
      -> Status {
     let ctx = ffi_param_ref_mut!(ctx);
+    ffi_make_fry_from_ctx!(ctx);
     let pp = ffi_param_move!(pp);
 
     match pp.next() {
@@ -785,7 +792,7 @@ pub extern "system" fn sq_packet_parser_next<'a>
             }
             Status::Success
         },
-        Err(e) => fry_status!(ctx, Err::<(), failure::Error>(e)),
+        Err(e) => ffi_try_status!(Err::<(), failure::Error>(e)),
     }
 }
 
@@ -817,6 +824,7 @@ pub extern "system" fn sq_packet_parser_recurse<'a>
      ppr: Option<&mut *mut PacketParserResult<'a>>)
      -> Status {
     let ctx = ffi_param_ref_mut!(ctx);
+    ffi_make_fry_from_ctx!(ctx);
     let pp = ffi_param_move!(pp);
 
     match pp.recurse() {
@@ -829,7 +837,7 @@ pub extern "system" fn sq_packet_parser_recurse<'a>
             }
             Status::Success
         },
-        Err(e) => fry_status!(ctx, Err::<(), failure::Error>(e)),
+        Err(e) => ffi_try_status!(Err::<(), failure::Error>(e)),
     }
 }
 
@@ -846,9 +854,10 @@ pub extern "system" fn sq_packet_parser_buffer_unread_content<'a>
      len: *mut usize)
      -> *const uint8_t {
     let ctx = ffi_param_ref_mut!(ctx);
+    ffi_make_fry_from_ctx!(ctx);
     let pp = ffi_param_ref_mut!(pp);
     let len = ffi_param_ref_mut!(len);
-    let buf = fry!(ctx, pp.buffer_unread_content());
+    let buf = ffi_try!(pp.buffer_unread_content());
     *len = buf.len();
     buf.as_ptr()
 }
@@ -864,6 +873,7 @@ pub extern "system" fn sq_packet_parser_finish<'a>
      -> Status
 {
     let ctx = ffi_param_ref_mut!(ctx);
+    ffi_make_fry_from_ctx!(ctx);
     let pp = ffi_param_ref_mut!(pp);
     match pp.finish() {
         Ok(p) => {
@@ -897,12 +907,13 @@ pub extern "system" fn sq_packet_parser_decrypt<'a>
      key: *const uint8_t, key_len: size_t)
      -> Status {
     let ctx = ffi_param_ref_mut!(ctx);
+    ffi_make_fry_from_ctx!(ctx);
     let pp = ffi_param_ref_mut!(pp);
     let key = unsafe {
         slice::from_raw_parts(key, key_len as usize)
     };
     let key = key.to_owned().into();
-    fry_status!(ctx, pp.decrypt((algo as u8).into(), &key))
+    ffi_try_status!(pp.decrypt((algo as u8).into(), &key))
 }
 
 
@@ -1019,12 +1030,13 @@ pub extern "system" fn sq_writer_stack_write
      -> ssize_t
 {
     let ctx = ffi_param_ref_mut!(ctx);
+    ffi_make_fry_from_ctx!(ctx);
     let writer = ffi_param_ref_mut!(writer);
     assert!(!buf.is_null());
     let buf = unsafe {
         slice::from_raw_parts(buf, len as usize)
     };
-    fry_or!(ctx, writer.write(buf).map_err(|e| e.into()), -1) as ssize_t
+    ffi_try_or!(writer.write(buf).map_err(|e| e.into()), -1) as ssize_t
 }
 
 /// Writes up to `len` bytes of `buf` into `writer`.
@@ -1040,12 +1052,13 @@ pub extern "system" fn sq_writer_stack_write_all
      -> Status
 {
     let ctx = ffi_param_ref_mut!(ctx);
+    ffi_make_fry_from_ctx!(ctx);
     let writer = ffi_param_ref_mut!(writer);
     assert!(!buf.is_null());
     let buf = unsafe {
         slice::from_raw_parts(buf, len as usize)
     };
-    fry_status!(ctx, writer.write_all(buf).map_err(|e| e.into()))
+    ffi_try_status!(writer.write_all(buf).map_err(|e| e.into()))
 }
 
 /// Finalizes this writer, returning the underlying writer.
@@ -1056,9 +1069,10 @@ pub extern "system" fn sq_writer_stack_finalize_one
      -> *mut writer::Stack<'static, Cookie>
 {
     let ctx = ffi_param_ref_mut!(ctx);
+    ffi_make_fry_from_ctx!(ctx);
     if !writer.is_null() {
         let writer = ffi_param_move!(writer);
-        maybe_box_raw!(fry!(ctx, writer.finalize_one()))
+        maybe_box_raw!(ffi_try!(writer.finalize_one()))
     } else {
         ptr::null_mut()
     }
@@ -1072,9 +1086,10 @@ pub extern "system" fn sq_writer_stack_finalize
      -> Status
 {
     let ctx = ffi_param_ref_mut!(ctx);
+    ffi_make_fry_from_ctx!(ctx);
     if !writer.is_null() {
         let writer = ffi_param_move!(writer);
-        fry_status!(ctx, writer.finalize())
+        ffi_try_status!(writer.finalize())
     } else {
         Status::Success
     }
@@ -1093,8 +1108,9 @@ pub extern "system" fn sq_arbitrary_writer_new
      -> *mut writer::Stack<'static, Cookie>
 {
     let ctx = ffi_param_ref_mut!(ctx);
+    ffi_make_fry_from_ctx!(ctx);
     let inner = ffi_param_move!(inner);
-    fry_box!(ctx, ArbitraryWriter::new(*inner, tag.into()))
+    ffi_try_box!(ArbitraryWriter::new(*inner, tag.into()))
 }
 
 /// Signs a packet stream.
@@ -1111,6 +1127,7 @@ pub extern "system" fn sq_signer_new
      -> *mut writer::Stack<'static, Cookie>
 {
     let ctx = ffi_param_ref_mut!(ctx);
+    ffi_make_fry_from_ctx!(ctx);
     let inner = ffi_param_move!(inner);
     let signers = ffi_param_ref!(signers);
     let signers = unsafe {
@@ -1122,7 +1139,7 @@ pub extern "system" fn sq_signer_new
             ffi_param_ref_mut!(signer).as_mut()
         }
     ).collect();
-    fry_box!(ctx, Signer::new(*inner, signers))
+    ffi_try_box!(Signer::new(*inner, signers))
 }
 
 /// Creates a signer for a detached signature.
@@ -1135,6 +1152,7 @@ pub extern "system" fn sq_signer_new_detached
      -> *mut writer::Stack<'static, Cookie>
 {
     let ctx = ffi_param_ref_mut!(ctx);
+    ffi_make_fry_from_ctx!(ctx);
     let inner = ffi_param_move!(inner);
     let signers = ffi_param_ref!(signers);
     let signers = unsafe {
@@ -1146,7 +1164,7 @@ pub extern "system" fn sq_signer_new_detached
             ffi_param_ref_mut!(signer).as_mut()
         }
     ).collect();
-    fry_box!(ctx, Signer::detached(*inner, signers))
+    ffi_try_box!(Signer::detached(*inner, signers))
 }
 
 /// Writes a literal data packet.
@@ -1160,8 +1178,9 @@ pub extern "system" fn sq_literal_writer_new
      -> *mut writer::Stack<'static, Cookie>
 {
     let ctx = ffi_param_ref_mut!(ctx);
+    ffi_make_fry_from_ctx!(ctx);
     let inner = ffi_param_move!(inner);
-    fry_box!(ctx, LiteralWriter::new(*inner,
+    ffi_try_box!(LiteralWriter::new(*inner,
                                      DataFormat::Binary,
                                      None,
                                      None))
@@ -1185,6 +1204,7 @@ pub extern "system" fn sq_encryptor_new
      -> *mut writer::Stack<'static, Cookie>
 {
     let ctx = ffi_param_ref_mut!(ctx);
+    ffi_make_fry_from_ctx!(ctx);
     let inner = ffi_param_move!(inner);
     let mut passwords_ = Vec::new();
     if passwords_len > 0 {
@@ -1210,7 +1230,7 @@ pub extern "system" fn sq_encryptor_new
         1 => EncryptionMode::ForTransport,
         _ => panic!("Bad encryption mode: {}", encryption_mode),
     };
-    fry_box!(ctx, Encryptor::new(*inner,
+    ffi_try_box!(Encryptor::new(*inner,
                                  &passwords_.iter().collect::<Vec<&Password>>(),
                                  &recipients,
                                  encryption_mode))
@@ -1503,12 +1523,13 @@ pub fn sq_verify<'a>(ctx: *mut Context,
     -> Status
 {
     let ctx = ffi_param_ref_mut!(ctx);
+    ffi_make_fry_from_ctx!(ctx);
     let input = ffi_param_ref_mut!(input);
 
     let r = verify_real(input, dsig, output,
         get_public_keys, check_signatures, cookie);
 
-    fry_status!(ctx, r)
+    ffi_try_status!(r)
 }
 
 
@@ -1626,11 +1647,12 @@ pub fn sq_decrypt<'a>(ctx: *mut Context,
     -> Status
 {
     let ctx = ffi_param_ref_mut!(ctx);
+    ffi_make_fry_from_ctx!(ctx);
     let input = ffi_param_ref_mut!(input);
     let output = ffi_param_ref_mut!(output);
 
     let r = decrypt_real(input, output,
         get_public_keys, get_secret_keys, check_signatures, cookie);
 
-    fry_status!(ctx, r)
+    ffi_try_status!(r)
 }

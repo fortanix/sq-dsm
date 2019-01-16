@@ -27,9 +27,10 @@ pub extern "system" fn sq_key_pair_new
      -> *mut crypto::KeyPair
 {
     let ctx = ffi_param_ref_mut!(ctx);
+    ffi_make_fry_from_ctx!(ctx);
     let public = ffi_param_move!(public);
     let secret = ffi_param_move!(secret);
-    fry_box!(ctx, crypto::KeyPair::new(*public, *secret))
+    ffi_try_box!(crypto::KeyPair::new(*public, *secret))
 }
 
 /// Frees a key pair.

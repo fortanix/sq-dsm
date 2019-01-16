@@ -47,9 +47,10 @@ pub extern "system" fn sq_store_list_stores(ctx: *mut Context,
                                             domain_prefix: *const c_char)
                                             -> *mut StoreIter {
     let ctx = ffi_param_ref_mut!(ctx);
+    ffi_make_fry_from_ctx!(ctx);
     let domain_prefix = ffi_param_cstr!(domain_prefix).to_string_lossy();
 
-    fry_box!(ctx, Store::list(&ctx.c, &domain_prefix))
+    ffi_try_box!(Store::list(&ctx.c, &domain_prefix))
 }
 
 /// Returns the next store.
@@ -96,8 +97,9 @@ pub extern "system" fn sq_store_iter_free(iter: Option<&mut StoreIter>) {
 pub extern "system" fn sq_store_list_keys(ctx: *mut Context)
                                           -> *mut KeyIter {
     let ctx = ffi_param_ref_mut!(ctx);
+    ffi_make_fry_from_ctx!(ctx);
 
-    fry_box!(ctx, Store::list_keys(&ctx.c))
+    ffi_try_box!(Store::list_keys(&ctx.c))
 }
 
 /// Lists all log entries.
@@ -105,8 +107,9 @@ pub extern "system" fn sq_store_list_keys(ctx: *mut Context)
 pub extern "system" fn sq_store_server_log(ctx: *mut Context)
                                            -> *mut LogIter {
     let ctx = ffi_param_ref_mut!(ctx);
+    ffi_make_fry_from_ctx!(ctx);
 
-    fry_box!(ctx, Store::server_log(&ctx.c))
+    ffi_try_box!(Store::server_log(&ctx.c))
 }
 
 /// Returns the next key.
@@ -187,9 +190,10 @@ pub extern "system" fn sq_store_open(ctx: *mut Context,
                                      name: *const c_char)
                                      -> *mut Store {
     let ctx = ffi_param_ref_mut!(ctx);
+    ffi_make_fry_from_ctx!(ctx);
     let name = ffi_param_cstr!(name).to_string_lossy();
 
-    fry_box!(ctx, Store::open(&ctx.c, &name))
+    ffi_try_box!(Store::open(&ctx.c, &name))
 }
 
 /// Frees a sq_store_t.
@@ -206,11 +210,12 @@ pub extern "system" fn sq_store_add(ctx: *mut Context,
                                     fingerprint: *const Fingerprint)
                                     -> *mut Binding {
     let ctx = ffi_param_ref_mut!(ctx);
+    ffi_make_fry_from_ctx!(ctx);
     let store = ffi_param_ref!(store);
     let label = ffi_param_cstr!(label).to_string_lossy();
     let fingerprint = ffi_param_ref!(fingerprint);
 
-    fry_box!(ctx, store.add(&label, fingerprint))
+    ffi_try_box!(store.add(&label, fingerprint))
 }
 
 /// Imports a key into the store.
@@ -221,11 +226,12 @@ pub extern "system" fn sq_store_import(ctx: *mut Context,
                                        tpk: *const TPK)
                                        -> *mut TPK {
     let ctx = ffi_param_ref_mut!(ctx);
+    ffi_make_fry_from_ctx!(ctx);
     let store = ffi_param_ref!(store);
     let label = ffi_param_cstr!(label).to_string_lossy();
     let tpk = ffi_param_ref!(tpk);
 
-    fry_box!(ctx, store.import(&label, tpk))
+    ffi_try_box!(store.import(&label, tpk))
 }
 
 /// Returns the binding for the given label.
@@ -235,10 +241,11 @@ pub extern "system" fn sq_store_lookup(ctx: *mut Context,
                                        label: *const c_char)
                                        -> *mut Binding {
     let ctx = ffi_param_ref_mut!(ctx);
+    ffi_make_fry_from_ctx!(ctx);
     let store = ffi_param_ref!(store);
     let label = ffi_param_cstr!(label).to_string_lossy();
 
-    fry_box!(ctx, store.lookup(&label))
+    ffi_try_box!(store.lookup(&label))
 }
 
 /// Looks up a key in the common key pool by KeyID.
@@ -248,9 +255,10 @@ pub extern "system" fn sq_store_lookup_by_keyid(ctx: *mut Context,
     -> *mut Key
 {
     let ctx = ffi_param_ref_mut!(ctx);
+    ffi_make_fry_from_ctx!(ctx);
     let keyid = ffi_param_ref!(keyid);
 
-    fry_box!(ctx, Pool::lookup_by_keyid(&ctx.c, keyid))
+    ffi_try_box!(Pool::lookup_by_keyid(&ctx.c, keyid))
 }
 
 /// Looks up a key in the common key pool by (Sub)KeyID.
@@ -260,9 +268,10 @@ pub extern "system" fn sq_store_lookup_by_subkeyid(ctx: *mut Context,
     -> *mut Key
 {
     let ctx = ffi_param_ref_mut!(ctx);
+    ffi_make_fry_from_ctx!(ctx);
     let keyid = ffi_param_ref!(keyid);
 
-    fry_box!(ctx, Pool::lookup_by_subkeyid(&ctx.c, keyid))
+    ffi_try_box!(Pool::lookup_by_subkeyid(&ctx.c, keyid))
 }
 
 /// Deletes this store.
@@ -273,9 +282,10 @@ pub extern "system" fn sq_store_delete(ctx: *mut Context,
                                        store: *mut Store)
                                        -> Status {
     let ctx = ffi_param_ref_mut!(ctx);
+    ffi_make_fry_from_ctx!(ctx);
     let store = ffi_param_move!(store);
 
-    fry_status!(ctx, store.delete())
+    ffi_try_status!(store.delete())
 }
 
 /// Lists all bindings.
@@ -284,9 +294,10 @@ pub extern "system" fn sq_store_iter(ctx: *mut Context,
                                      store: *const Store)
                                      -> *mut BindingIter {
     let ctx = ffi_param_ref_mut!(ctx);
+    ffi_make_fry_from_ctx!(ctx);
     let store = ffi_param_ref!(store);
 
-    fry_box!(ctx, store.iter())
+    ffi_try_box!(store.iter())
 }
 
 /// Returns the next binding.
@@ -328,9 +339,10 @@ pub extern "system" fn sq_store_log(ctx: *mut Context,
                                     store: *const Store)
                                     -> *mut LogIter {
     let ctx = ffi_param_ref_mut!(ctx);
+    ffi_make_fry_from_ctx!(ctx);
     let store = ffi_param_ref!(store);
 
-    fry_box!(ctx, store.log())
+    ffi_try_box!(store.log())
 }
 
 /// Frees a sq_binding_t.
@@ -374,9 +386,10 @@ pub extern "system" fn sq_binding_stats(ctx: *mut Context,
                                         binding: *const Binding)
                                         -> *mut Stats {
     let ctx = ffi_param_ref_mut!(ctx);
+    ffi_make_fry_from_ctx!(ctx);
     let binding = ffi_param_ref!(binding);
 
-    box_raw!(Stats::new(fry!(ctx, binding.stats())))
+    box_raw!(Stats::new(ffi_try!(binding.stats())))
 }
 
 /// Returns the `sq_key_t` of this binding.
@@ -385,9 +398,10 @@ pub extern "system" fn sq_binding_key(ctx: *mut Context,
                                       binding: *const Binding)
                                      -> *mut Key {
     let ctx = ffi_param_ref_mut!(ctx);
+    ffi_make_fry_from_ctx!(ctx);
     let binding = ffi_param_ref!(binding);
 
-    fry_box!(ctx, binding.key())
+    ffi_try_box!(binding.key())
 }
 
 /// Returns the `sq_tpk_t` of this binding.
@@ -396,9 +410,10 @@ pub extern "system" fn sq_binding_tpk(ctx: *mut Context,
                                       binding: *const Binding)
                                      -> *mut TPK {
     let ctx = ffi_param_ref_mut!(ctx);
+    ffi_make_fry_from_ctx!(ctx);
     let binding = ffi_param_ref!(binding);
 
-    fry_box!(ctx, binding.tpk())
+    ffi_try_box!(binding.tpk())
 }
 
 /// Updates this binding with the given TPK.
@@ -423,10 +438,11 @@ pub extern "system" fn sq_binding_import(ctx: *mut Context,
                                          tpk: *const TPK)
                                          -> *mut TPK {
     let ctx = ffi_param_ref_mut!(ctx);
+    ffi_make_fry_from_ctx!(ctx);
     let binding = ffi_param_ref!(binding);
     let tpk = ffi_param_ref!(tpk);
 
-    fry_box!(ctx, binding.import(&tpk))
+    ffi_try_box!(binding.import(&tpk))
 }
 
 
@@ -449,10 +465,11 @@ pub extern "system" fn sq_binding_rotate(ctx: *mut Context,
                                          tpk: *const TPK)
                                          -> *mut TPK {
     let ctx = ffi_param_ref_mut!(ctx);
+    ffi_make_fry_from_ctx!(ctx);
     let binding = ffi_param_ref!(binding);
     let tpk = ffi_param_ref!(tpk);
 
-    fry_box!(ctx, binding.rotate(&tpk))
+    ffi_try_box!(binding.rotate(&tpk))
 }
 
 /// Deletes this binding.
@@ -463,9 +480,10 @@ pub extern "system" fn sq_binding_delete(ctx: *mut Context,
                                          binding: *mut Binding)
                                          -> Status {
     let ctx = ffi_param_ref_mut!(ctx);
+    ffi_make_fry_from_ctx!(ctx);
     let binding = ffi_param_move!(binding);
 
-    fry_status!(ctx, binding.delete())
+    ffi_try_status!(binding.delete())
 }
 
 /// Lists all log entries related to this binding.
@@ -474,9 +492,10 @@ pub extern "system" fn sq_binding_log(ctx: *mut Context,
                                       binding: *const Binding)
                                       -> *mut LogIter {
     let ctx = ffi_param_ref_mut!(ctx);
+    ffi_make_fry_from_ctx!(ctx);
     let binding = ffi_param_ref!(binding);
 
-    fry_box!(ctx, binding.log())
+    ffi_try_box!(binding.log())
 }
 
 /// Returns the `sq_stats_t` of this key.
@@ -485,9 +504,10 @@ pub extern "system" fn sq_key_stats(ctx: *mut Context,
                                     key: *const Key)
                                     -> *mut Stats {
     let ctx = ffi_param_ref_mut!(ctx);
+    ffi_make_fry_from_ctx!(ctx);
     let key = ffi_param_ref!(key);
 
-    box_raw!(Stats::new(fry!(ctx, key.stats())))
+    box_raw!(Stats::new(ffi_try!(key.stats())))
 }
 
 /// Returns the `sq_tpk_t`.
@@ -496,9 +516,10 @@ pub extern "system" fn sq_key_tpk(ctx: *mut Context,
                                   key: *const Key)
                                   -> *mut TPK {
     let ctx = ffi_param_ref_mut!(ctx);
+    ffi_make_fry_from_ctx!(ctx);
     let key = ffi_param_ref!(key);
 
-    fry_box!(ctx, key.tpk())
+    ffi_try_box!(key.tpk())
 }
 
 /// Updates this stored key with the given TPK.
@@ -516,10 +537,11 @@ pub extern "system" fn sq_key_import(ctx: *mut Context,
                                      tpk: *const TPK)
                                      -> *mut TPK {
     let ctx = ffi_param_ref_mut!(ctx);
+    ffi_make_fry_from_ctx!(ctx);
     let key = ffi_param_ref!(key);
     let tpk = ffi_param_ref!(tpk);
 
-    fry_box!(ctx, key.import(&tpk))
+    ffi_try_box!(key.import(&tpk))
 }
 
 /// Lists all log entries related to this key.
@@ -528,9 +550,10 @@ pub extern "system" fn sq_key_log(ctx: *mut Context,
                                   key: *const Key)
                                   -> *mut LogIter {
     let ctx = ffi_param_ref_mut!(ctx);
+    ffi_make_fry_from_ctx!(ctx);
     let key = ffi_param_ref!(key);
 
-    fry_box!(ctx, key.log())
+    ffi_try_box!(key.log())
 }
 
 /// Frees a sq_stats_t.

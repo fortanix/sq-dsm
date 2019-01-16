@@ -259,60 +259,72 @@ macro_rules! ffi_return_maybe_string {
     }};
 }
 
-/// Like try! for ffi glue.
-///
-/// Evaluates the given expression.  On success, evaluate to
-/// `Status.Success`.  On failure, stashes the error in the context and
-/// evaluates to the appropriate Status code.
-macro_rules! fry_status {
-    ($ctx:expr, $expr:expr) => {
-        match $expr {
-            Ok(_) => Status::Success,
-            Err(e) => {
-                let status = Status::from(&e);
-                $ctx.e = Some(e);
-                status
-            },
+/* Error handling with implicit context.  */
+
+/// Emits local macros for error handling that use the given context
+/// to store complex errors.
+macro_rules! ffi_make_fry_from_ctx {
+    ($ctx:ident) => {
+        /// Like try! for ffi glue.
+        ///
+        /// Evaluates the given expression.  On success, evaluate to
+        /// `Status.Success`.  On failure, stashes the error in the
+        /// context and evaluates to the appropriate Status code.
+        #[allow(unused_macros)]
+        macro_rules! ffi_try_status {
+            ($expr:expr) => {
+                match $expr {
+                    Ok(_) => Status::Success,
+                    Err(e) => {
+                        let status = Status::from(&e);
+                        $ctx.e = Some(e);
+                        status
+                    },
+                }
+            };
         }
-    };
-}
 
-/// Like try! for ffi glue.
-///
-/// Unwraps the given expression.  On failure, stashes the error in
-/// the context and returns $or.
-macro_rules! fry_or {
-    ($ctx:expr, $expr:expr, $or:expr) => {
-        match $expr {
-            Ok(v) => v,
-            Err(e) => {
-                $ctx.e = Some(e);
-                return $or;
-            },
+        /// Like try! for ffi glue.
+        ///
+        /// Unwraps the given expression.  On failure, stashes the
+        /// error in the context and returns $or.
+        #[allow(unused_macros)]
+        macro_rules! ffi_try_or {
+            ($expr:expr, $or:expr) => {
+                match $expr {
+                    Ok(v) => v,
+                    Err(e) => {
+                        $ctx.e = Some(e);
+                        return $or;
+                    },
+                }
+            };
         }
-    };
-}
 
-/// Like try! for ffi glue.
-///
-/// Unwraps the given expression.  On failure, stashes the error in
-/// the context and returns NULL.
-macro_rules! fry {
-    ($ctx:expr, $expr:expr) => {
-        fry_or!($ctx, $expr, ::std::ptr::null_mut())
-    };
-}
+        /// Like try! for ffi glue.
+        ///
+        /// Unwraps the given expression.  On failure, stashes the
+        /// error in the context and returns NULL.
+        #[allow(unused_macros)]
+        macro_rules! ffi_try {
+            ($expr:expr) => {
+                ffi_try_or!($expr, ::std::ptr::null_mut())
+            };
+        }
 
-/// Like try! for ffi glue, then box into raw pointer.
-///
-/// This is used to transfer ownership from Rust to C.
-///
-/// Unwraps the given expression.  On success, it boxes the value
-/// and turns it into a raw pointer.  On failure, stashes the
-/// error in the context and returns NULL.
-macro_rules! fry_box {
-    ($ctx:expr, $expr:expr) => {
-        Box::into_raw(Box::new(fry!($ctx, $expr)))
+        /// Like try! for ffi glue, then box into raw pointer.
+        ///
+        /// This is used to transfer ownership from Rust to C.
+        ///
+        /// Unwraps the given expression.  On success, it boxes the
+        /// value and turns it into a raw pointer.  On failure,
+        /// stashes the error in the context and returns NULL.
+        #[allow(unused_macros)]
+        macro_rules! ffi_try_box {
+            ($expr:expr) => {
+                Box::into_raw(Box::new(ffi_try!($expr)))
+            }
+        }
     }
 }
 

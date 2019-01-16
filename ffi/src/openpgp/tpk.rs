@@ -43,8 +43,9 @@ pub extern "system" fn sq_tpk_from_reader(ctx: *mut Context,
                                           reader: *mut Box<Read>)
                                           -> *mut TPK {
     let ctx = ffi_param_ref_mut!(ctx);
+    ffi_make_fry_from_ctx!(ctx);
     let reader = ffi_param_ref_mut!(reader);
-    fry_box!(ctx, TPK::from_reader(reader))
+    ffi_try_box!(TPK::from_reader(reader))
 }
 
 /// Returns the first TPK encountered in the file.
@@ -53,8 +54,9 @@ pub extern "system" fn sq_tpk_from_file(ctx: *mut Context,
                                         filename: *const c_char)
                                         -> *mut TPK {
     let ctx = ffi_param_ref_mut!(ctx);
+    ffi_make_fry_from_ctx!(ctx);
     let filename = ffi_param_cstr!(filename).to_string_lossy().into_owned();
-    fry_box!(ctx, TPK::from_file(&filename))
+    ffi_try_box!(TPK::from_file(&filename))
 }
 
 /// Returns the first TPK found in `m`.
@@ -65,8 +67,9 @@ pub extern "system" fn sq_tpk_from_packet_pile(ctx: *mut Context,
                                                m: *mut PacketPile)
                                                -> *mut TPK {
     let ctx = ffi_param_ref_mut!(ctx);
+    ffi_make_fry_from_ctx!(ctx);
     let m = ffi_param_move!(m);
-    fry_box!(ctx, TPK::from_packet_pile(*m))
+    ffi_try_box!(TPK::from_packet_pile(*m))
 }
 
 /// Returns the first TPK found in `buf`.
@@ -77,12 +80,13 @@ pub extern "system" fn sq_tpk_from_bytes(ctx: *mut Context,
                                          b: *const uint8_t, len: size_t)
                                          -> *mut TPK {
     let ctx = ffi_param_ref_mut!(ctx);
+    ffi_make_fry_from_ctx!(ctx);
     assert!(!b.is_null());
     let buf = unsafe {
         slice::from_raw_parts(b, len as usize)
     };
 
-    fry_box!(ctx, TPK::from_bytes(buf))
+    ffi_try_box!(TPK::from_bytes(buf))
 }
 
 /// Returns the first TPK found in the packet parser.
@@ -94,9 +98,10 @@ pub extern "system" fn sq_tpk_from_packet_parser(ctx: *mut Context,
     -> *mut TPK
 {
     let ctx = ffi_param_ref_mut!(ctx);
+    ffi_make_fry_from_ctx!(ctx);
     let ppr = ffi_param_move!(ppr);
 
-    fry_box!(ctx, TPK::from_packet_parser(*ppr))
+    ffi_try_box!(TPK::from_packet_parser(*ppr))
 }
 
 /// Frees the TPK.
@@ -130,9 +135,10 @@ pub extern "system" fn sq_tpk_serialize(ctx: *mut Context,
                                         writer: *mut Box<Write>)
                                         -> Status {
     let ctx = ffi_param_ref_mut!(ctx);
+    ffi_make_fry_from_ctx!(ctx);
     let tpk = ffi_param_ref!(tpk);
     let writer = ffi_param_ref_mut!(writer);
-    fry_status!(ctx, tpk.serialize(writer))
+    ffi_try_status!(tpk.serialize(writer))
 }
 
 /// Merges `other` into `tpk`.
@@ -147,9 +153,10 @@ pub extern "system" fn sq_tpk_merge(ctx: *mut Context,
                                     other: *mut TPK)
                                     -> *mut TPK {
     let ctx = ffi_param_ref_mut!(ctx);
+    ffi_make_fry_from_ctx!(ctx);
     let tpk = ffi_param_move!(tpk);
     let other = ffi_param_move!(other);
-    fry_box!(ctx, tpk.merge(*other))
+    ffi_try_box!(tpk.merge(*other))
 }
 
 /// Adds packets to the TPK.
@@ -166,13 +173,14 @@ pub extern "system" fn sq_tpk_merge_packets(ctx: *mut Context,
                                             packets_len: size_t)
                                             -> *mut TPK {
     let ctx = ffi_param_ref_mut!(ctx);
+    ffi_make_fry_from_ctx!(ctx);
     let tpk = ffi_param_move!(tpk);
     let packets = unsafe {
         slice::from_raw_parts_mut(packets, packets_len)
     };
     let packets =
         packets.iter_mut().map(|p| *unsafe { Box::from_raw(*p) } ).collect();
-    fry_box!(ctx, tpk.merge_packets(packets))
+    ffi_try_box!(tpk.merge_packets(packets))
 }
 
 /// Dumps the TPK.
@@ -296,6 +304,7 @@ pub extern "system" fn sq_tpk_revoke(ctx: *mut Context,
     -> *mut packet::Signature
 {
     let ctx = ffi_param_ref_mut!(ctx);
+    ffi_make_fry_from_ctx!(ctx);
     let tpk = ffi_param_ref!(tpk);
     let signer = ffi_param_ref_mut!(primary_signer);
     let code = int_to_reason_for_revocation(code);
@@ -305,7 +314,7 @@ pub extern "system" fn sq_tpk_revoke(ctx: *mut Context,
         b""
     };
 
-    fry_box!(ctx, tpk.revoke(signer.as_mut(), code, reason))
+    ffi_try_box!(tpk.revoke(signer.as_mut(), code, reason))
 }
 
 /// Adds a revocation certificate to the tpk.
@@ -363,6 +372,7 @@ pub extern "system" fn sq_tpk_revoke_in_place(ctx: *mut Context,
     -> *mut TPK
 {
     let ctx = ffi_param_ref_mut!(ctx);
+    ffi_make_fry_from_ctx!(ctx);
     let tpk = ffi_param_move!(tpk);
     let signer = ffi_param_ref_mut!(primary_signer);
     let code = int_to_reason_for_revocation(code);
@@ -372,7 +382,7 @@ pub extern "system" fn sq_tpk_revoke_in_place(ctx: *mut Context,
         b""
     };
 
-    fry_box!(ctx, tpk.revoke_in_place(signer.as_mut(), code, reason))
+    ffi_try_box!(tpk.revoke_in_place(signer.as_mut(), code, reason))
 }
 
 /// Returns whether the TPK has expired.
@@ -420,9 +430,10 @@ pub extern "system" fn sq_tpk_set_expiry(ctx: *mut Context,
                                          tpk: *mut TPK, expiry: u32)
                                          -> *mut TPK {
     let ctx = ffi_param_ref_mut!(ctx);
+    ffi_make_fry_from_ctx!(ctx);
     let tpk = ffi_param_move!(tpk);
 
-    fry_box!(ctx, tpk.set_expiry_in_seconds(expiry))
+    ffi_try_box!(tpk.set_expiry_in_seconds(expiry))
 }
 
 /// Returns whether the TPK includes any secret key material.
@@ -697,6 +708,7 @@ pub extern "system" fn sq_tpk_builder_generate
     -> Status
 {
     let ctx = ffi_param_ref_mut!(ctx);
+    ffi_make_fry_from_ctx!(ctx);
     let tpk_out = ffi_param_ref_mut!(tpk_out);
     let revocation_out = ffi_param_ref_mut!(revocation_out);
     let tpkb = ffi_param_move!(tpkb);
@@ -706,6 +718,6 @@ pub extern "system" fn sq_tpk_builder_generate
             *revocation_out = box_raw!(revocation);
             Status::Success
         },
-        Err(e) => fry_status!(ctx, Err::<(), failure::Error>(e)),
+        Err(e) => ffi_try_status!(Err::<(), failure::Error>(e)),
     }
 }

@@ -246,8 +246,9 @@ pub extern "system" fn sq_reader_from_file(ctx: *mut Context,
                                            filename: *const c_char)
                                            -> *mut Box<Read> {
     let ctx = ffi_param_ref_mut!(ctx);
+    ffi_make_fry_from_ctx!(ctx);
     let filename = ffi_param_cstr!(filename).to_string_lossy().into_owned();
-    fry_box!(ctx, File::open(Path::new(&filename))
+    ffi_try_box!(File::open(Path::new(&filename))
              .map(|r| Box::new(r))
              .map_err(|e| e.into()))
 }
@@ -285,12 +286,13 @@ pub extern "system" fn sq_reader_read(ctx: *mut Context,
                                       buf: *mut uint8_t, len: size_t)
                                       -> ssize_t {
     let ctx = ffi_param_ref_mut!(ctx);
+    ffi_make_fry_from_ctx!(ctx);
     let reader = ffi_param_ref_mut!(reader);
     assert!(!buf.is_null());
     let buf = unsafe {
         slice::from_raw_parts_mut(buf, len as usize)
     };
-    fry_or!(ctx, reader.read(buf).map_err(|e| e.into()), -1) as ssize_t
+    ffi_try_or!(reader.read(buf).map_err(|e| e.into()), -1) as ssize_t
 }
 
 
@@ -303,8 +305,9 @@ pub extern "system" fn sq_writer_from_file(ctx: *mut Context,
                                            filename: *const c_char)
                                            -> *mut Box<Write> {
     let ctx = ffi_param_ref_mut!(ctx);
+    ffi_make_fry_from_ctx!(ctx);
     let filename = ffi_param_cstr!(filename).to_string_lossy().into_owned();
-    fry_box!(ctx, File::create(Path::new(&filename))
+    ffi_try_box!(File::create(Path::new(&filename))
              .map(|r| Box::new(r))
              .map_err(|e| e.into()))
 }
@@ -396,10 +399,11 @@ pub extern "system" fn sq_writer_write(ctx: *mut Context,
                                        buf: *const uint8_t, len: size_t)
                                        -> ssize_t {
     let ctx = ffi_param_ref_mut!(ctx);
+    ffi_make_fry_from_ctx!(ctx);
     let writer = ffi_param_ref_mut!(writer);
     assert!(!buf.is_null());
     let buf = unsafe {
         slice::from_raw_parts(buf, len as usize)
     };
-    fry_or!(ctx, writer.write(buf).map_err(|e| e.into()), -1) as ssize_t
+    ffi_try_or!(writer.write(buf).map_err(|e| e.into()), -1) as ssize_t
 }
