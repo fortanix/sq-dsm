@@ -26,6 +26,7 @@ buffered-reader = { path = "buffered-reader", version = "0.3.0" }
 sequoia-openpgp = { path = "openpgp", version = "0.3.0" }
 sequoia-core = { path = "core", version = "0.3.0" }
 sequoia-ffi = { path = "ffi", version = "0.3.0" }
+sequoia-ffi-macros = { path = "ffi-macros", version = "0.3.0" }
 sequoia-net = { path = "net", version = "0.3.0" }
 sequoia-store = { path = "store", version = "0.3.0" }
 sequoia-tool = { path = "tool", version = "0.3.0" }
