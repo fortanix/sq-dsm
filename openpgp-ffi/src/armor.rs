@@ -57,7 +57,7 @@ fn kind_to_int(kind: Option<armor::Kind>) -> c_int {
 /// #include <stdlib.h>
 /// #include <string.h>
 ///
-/// #include <sequoia.h>
+/// #include <sequoia/openpgp.h>
 ///
 /// const char *armored =
 ///   "-----BEGIN PGP ARMORED FILE-----\n"
@@ -268,7 +268,7 @@ fn strdup(s: &str) -> *mut c_char {
 /// #include <stdlib.h>
 /// #include <string.h>
 ///
-/// #include <sequoia.h>
+/// #include <sequoia/openpgp.h>
 ///
 /// int
 /// main (int argc, char **argv)

@@ -1,9 +1,14 @@
 #ifndef SEQUOIA_OPENPGP_H
 #define SEQUOIA_OPENPGP_H
 
-#include <sequoia/core.h>
+#include <stddef.h>
+#include <stdint.h>
+#include <limits.h>
+#include <unistd.h>
 #include <time.h>
 
+#include <sequoia/io.h>
+#include <sequoia/openpgp/error.h>
 #include <sequoia/openpgp/crypto.h>
 
 /*/

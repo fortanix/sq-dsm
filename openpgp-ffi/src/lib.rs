@@ -92,7 +92,7 @@
 //! # Example
 //!
 //! ```c
-//! #include <sequoia.h>
+//! #include <sequoia/openpgp.h>
 //! #include <error.h>
 //!
 //! sq_error_t err;
@@ -111,37 +111,8 @@ extern crate failure;
 #[macro_use]
 extern crate lazy_static;
 extern crate libc;
-extern crate native_tls;
 
 extern crate sequoia_ffi_macros;
 use sequoia_ffi_macros::ffi_catch_abort;
-extern crate sequoia_core;
-extern crate sequoia_net;
-extern crate sequoia_store;
 
-#[macro_use]
-pub mod openpgp {
-    //! Bindings for the low-level openpgp crate.
-    include!("../../openpgp-ffi/src/common.rs");
-}
-
-pub(crate) use openpgp::{
-    build_hasher,
-    strndup,
-};
-
-/* Error handling with implicit context.  */
-
-/// Emits local macros for error handling that use the given context
-/// to store complex errors.
-macro_rules! ffi_make_fry_from_ctx {
-    ($ctx:ident) => {
-        ffi_make_fry_from_errp!(Some($ctx.errp()))
-    }
-}
-
-pub mod core;
-pub mod error;
-pub mod net;
-pub mod store;
-
+include!("common.rs");

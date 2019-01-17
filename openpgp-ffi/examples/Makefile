@@ -5,13 +5,13 @@ CARGO_TARGET_DIR	?= $(shell pwd)/../../target
 # We currently only support absolute paths.
 CARGO_TARGET_DIR	:= $(abspath $(CARGO_TARGET_DIR))
 
-TARGETS = keyserver configure
-CFLAGS  = -I../include -I../../openpgp-ffi/include -O0 -g -Wall -Werror
-LDFLAGS = -L$(CARGO_TARGET_DIR)/debug -lsequoia_ffi
+TARGETS = example reader parser encrypt-for armor
+CFLAGS  = -I../include -O0 -g -Wall -Werror
+LDFLAGS = -L$(CARGO_TARGET_DIR)/debug -lsequoia_openpgp_ffi
 
 all: $(TARGETS)
 
 clean:
 	rm -f $(TARGETS)
 
-$(TARGETS): ../include/sequoia.h
+$(TARGETS): ../include/sequoia/openpgp.h

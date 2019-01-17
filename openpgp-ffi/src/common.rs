@@ -1,10 +1,253 @@
-//! XXX
+// Common code for sequoia-openpgp-ffi and sequoia-ffi.
 
-use failure;
+use std::collections::hash_map::{DefaultHasher, RandomState};
+use std::hash::BuildHasher;
+
+/* Canonical free().  */
+
+/// Transfers ownership from C to Rust, then frees the object.
+///
+/// NOP if called with NULL.
+macro_rules! ffi_free {
+    ($name:ident) => {{
+        if let Some(ptr) = $name {
+            unsafe {
+                drop(Box::from_raw(ptr))
+            }
+        }
+    }};
+}
+
+/* Parameter handling.  */
+
+/// Transfers ownership from C to Rust.
+///
+/// # Panics
+///
+/// Panics if called with NULL.
+macro_rules! ffi_param_move {
+    ($name:expr) => {{
+        if $name.is_null() {
+            panic!("Parameter {} is NULL", stringify!($name));
+        }
+        unsafe {
+            Box::from_raw($name)
+        }
+    }};
+}
+
+/// Transfers a reference from C to Rust.
+///
+/// # Panics
+///
+/// Panics if called with NULL.
+macro_rules! ffi_param_ref {
+    ($name:ident) => {{
+        if $name.is_null() {
+            panic!("Parameter {} is NULL", stringify!($name));
+        }
+        unsafe {
+            &*$name
+        }
+    }};
+}
+
+/// Transfers a mutable reference from C to Rust.
+///
+/// # Panics
+///
+/// Panics if called with NULL.
+macro_rules! ffi_param_ref_mut {
+    ($name:ident) => {{
+        if $name.is_null() {
+            panic!("Parameter {} is NULL", stringify!($name));
+        }
+        unsafe {
+            &mut *$name
+        }
+    }};
+}
+
+/// Transfers a reference to a string from C to Rust.
+///
+/// # Panics
+///
+/// Panics if called with NULL.
+macro_rules! ffi_param_cstr {
+    ($name:expr) => {{
+        if $name.is_null() {
+            panic!("Parameter {} is NULL", stringify!($name));
+        }
+        unsafe {
+            ::std::ffi::CStr::from_ptr($name)
+        }
+    }};
+}
+
+/* Return value handling.  */
+
+/// Duplicates a string similar to strndup(3).
+#[allow(dead_code)]
+pub(crate) fn strndup(src: &[u8]) -> Option<*mut libc::c_char> {
+    if src.contains(&0) {
+        return None;
+    }
+
+    let l = src.len() + 1;
+    let s = unsafe {
+        ::std::slice::from_raw_parts_mut(libc::malloc(l) as *mut u8, l)
+    };
+    &mut s[..l - 1].copy_from_slice(src);
+    s[l - 1] = 0;
+
+    Some(s.as_mut_ptr() as *mut libc::c_char)
+}
+
+/// Transfers a string from Rust to C, allocating it using malloc.
+///
+/// # Panics
+///
+/// Panics if the given string contains a 0.
+macro_rules! ffi_return_string {
+    ($name:expr) => {{
+        let string = $name;
+        let bytes: &[u8] = string.as_ref();
+        ::strndup(bytes).expect(
+            &format!("Returned string {} contains a 0 byte.", stringify!($name))
+        )
+    }};
+}
+
+/// Transfers a string from Rust to C, allocating it using malloc.
+///
+/// # Panics
+///
+/// Does *NOT* panic if the given string contains a 0, but returns
+/// `NULL`.
+macro_rules! ffi_return_maybe_string {
+    ($name:expr) => {{
+        let string = $name;
+        let bytes: &[u8] = string.as_ref();
+        ::strndup(bytes).unwrap_or(::std::ptr::null_mut())
+    }};
+}
+
+/* Error handling with implicit error return argument.  */
+
+/// Emits local macros for error handling that use the given context
+/// to store complex errors.
+macro_rules! ffi_make_fry_from_errp {
+    ($errp:expr) => {
+        /// Like try! for ffi glue.
+        ///
+        /// Evaluates the given expression.  On success, evaluate to
+        /// `Status.Success`.  On failure, stashes the error in the
+        /// context and evaluates to the appropriate Status code.
+        #[allow(unused_macros)]
+        macro_rules! ffi_try_status {
+            ($expr:expr) => {
+                match $expr {
+                    Ok(_) => Status::Success,
+                    Err(e) => {
+                        let status = Status::from(&e);
+                        if let Some(errp) = $errp {
+                            *errp = box_raw!(e);
+                        }
+                        status
+                    },
+                }
+            };
+        }
+
+        /// Like try! for ffi glue.
+        ///
+        /// Unwraps the given expression.  On failure, stashes the
+        /// error in the context and returns $or.
+        #[allow(unused_macros)]
+        macro_rules! ffi_try_or {
+            ($expr:expr, $or:expr) => {
+                match $expr {
+                    Ok(v) => v,
+                    Err(e) => {
+                        if let Some(errp) = $errp {
+                            *errp = box_raw!(e);
+                        }
+                        return $or;
+                    },
+                }
+            };
+        }
+
+        /// Like try! for ffi glue.
+        ///
+        /// Unwraps the given expression.  On failure, stashes the
+        /// error in the context and returns NULL.
+        #[allow(unused_macros)]
+        macro_rules! ffi_try {
+            ($expr:expr) => {
+                ffi_try_or!($expr, ::std::ptr::null_mut())
+            };
+        }
+
+        /// Like try! for ffi glue, then box into raw pointer.
+        ///
+        /// This is used to transfer ownership from Rust to C.
+        ///
+        /// Unwraps the given expression.  On success, it boxes the
+        /// value and turns it into a raw pointer.  On failure,
+        /// stashes the error in the context and returns NULL.
+        #[allow(unused_macros)]
+        macro_rules! ffi_try_box {
+            ($expr:expr) => {
+                Box::into_raw(Box::new(ffi_try!($expr)))
+            }
+        }
+    }
+}
+
+/// Box, then turn into raw pointer.
+///
+/// This is used to transfer ownership from Rust to C.
+macro_rules! box_raw {
+    ($expr:expr) => {
+        Box::into_raw(Box::new($expr))
+    }
+}
+
+/// Box an Option<T>, then turn into raw pointer.
+///
+/// This is used to transfer ownership from Rust to C.
+macro_rules! maybe_box_raw {
+    ($expr:expr) => {
+        $expr.map(|x| box_raw!(x)).unwrap_or(ptr::null_mut())
+    }
+}
+
+/// Builds hashers for computing hashes.
+///
+/// This is used to derive Hasher instances for computing hashes of
+/// objects so that they can be used in hash tables by foreign code.
+pub(crate) fn build_hasher() -> DefaultHasher {
+    lazy_static! {
+        static ref RANDOM_STATE: RandomState = RandomState::new();
+    }
+    RANDOM_STATE.build_hasher()
+}
+
+pub mod armor;
+pub mod crypto;
+pub mod error;
+pub mod fingerprint;
+pub mod io;
+pub mod keyid;
+pub mod packet_pile;
+pub mod tpk;
+pub mod tsk;
+
 use std::mem::forget;
 use std::ptr;
 use std::slice;
-use std::io;
+use std::io as std_io;
 use std::io::{Read, Write};
 use libc::{uint8_t, c_char, c_int, size_t, ssize_t, c_void, time_t};
 use failure::ResultExt;
@@ -47,15 +290,8 @@ use self::openpgp::constants::{
     DataFormat,
 };
 
-use super::error::Status;
+use error::Status;
 
-pub mod armor;
-pub mod crypto;
-pub mod fingerprint;
-pub mod keyid;
-pub mod packet_pile;
-pub mod tpk;
-pub mod tsk;
 
 /* openpgp::packet::Tag.  */
 
@@ -64,7 +300,7 @@ pub mod tsk;
 /// ```c
 /// #include <assert.h>
 /// #include <string.h>
-/// #include <sequoia.h>
+/// #include <sequoia/openpgp.h>
 ///
 /// assert (strcmp (sq_tag_to_string (2), "SIGNATURE") == 0);
 /// ```
@@ -1460,7 +1696,7 @@ fn verify_real<'a>(input: &'a mut Box<'a + Read>,
     };
 
     let r = if let Some(output) = output {
-        io::copy(&mut v, output)
+        std_io::copy(&mut v, output)
     } else {
         let mut buffer = vec![0u8; 64 * 1024];
         loop {
@@ -1592,7 +1828,7 @@ fn decrypt_real<'a>(input: &'a mut Box<'a + Read>,
     let mut decryptor = Decryptor::from_reader(input, helper)
         .context("Decryption failed")?;
 
-    io::copy(&mut decryptor, output)
+    std_io::copy(&mut decryptor, output)
         .map_err(|e| if e.get_ref().is_some() {
             // Wrapped failure::Error.  Recover it.
             failure::Error::from_boxed_compat(e.into_inner().unwrap())

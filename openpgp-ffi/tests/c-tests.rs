@@ -27,7 +27,6 @@ fn c_doctests() {
 
     let src = manifest_dir.join("src");
     let includes = vec![
-        manifest_dir.join("../openpgp-ffi/include"),
         manifest_dir.join("include"),
     ];
 
@@ -88,7 +87,7 @@ fn build_so(base: &Path) -> io::Result<()> {
         .arg("build")
         .arg("--quiet")
         .arg("--package")
-        .arg("sequoia-ffi")
+        .arg("sequoia-openpgp-ffi")
         .status().unwrap();
     if ! st.success() {
         return Err(io::Error::new(io::ErrorKind::Other, "compilation failed"));
@@ -235,7 +234,7 @@ fn build(include_dirs: &[PathBuf], ldpath: &Path, target_dir: &Path,
         .collect::<Vec<String>>().join(" ");
     let st = Command::new("make")
         .env("CFLAGS", &format!("-O0 -ggdb {}", includes))
-        .env("LDFLAGS", &format!("-L{:?} -lsequoia_ffi", ldpath))
+        .env("LDFLAGS", &format!("-L{:?} -lsequoia_openpgp_ffi", ldpath))
         .arg("-C").arg(&target_dir)
         .arg("--quiet")
         .arg(target.file_name().unwrap())

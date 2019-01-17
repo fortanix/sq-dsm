@@ -66,7 +66,9 @@ doc:
 		$(CARGO) doc $(CARGO_FLAGS) --no-deps --all
 	env RUSTDOCFLAGS="$(FFI_RUSTDOCFLAGS)" \
 	    CARGO_TARGET_DIR=$(CARGO_TARGET_DIR) \
-	    $(CARGO) doc $(CARGO_FLAGS) --no-deps --package sequoia-ffi
+	    $(CARGO) doc $(CARGO_FLAGS) --no-deps \
+		--package sequoia-ffi \
+		--package sequoia-openpgp-ffi
 
 .PHONY: deploy-doc
 deploy-doc: doc

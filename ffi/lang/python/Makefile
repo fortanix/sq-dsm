@@ -3,7 +3,7 @@
 # Configuration.
 PREFIX		?= /usr/local
 DESTDIR		?=
-CFLAGS		+= -I../../include
+CFLAGS		+= -I../../include -I../../../openpgp-ffi/include
 
 # Tools.
 PYTHON		?= python3

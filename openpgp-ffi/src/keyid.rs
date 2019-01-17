@@ -22,7 +22,7 @@ use build_hasher;
 /// #include <assert.h>
 /// #include <stdlib.h>
 /// #include <string.h>
-/// #include <sequoia.h>
+/// #include <sequoia/openpgp.h>
 ///
 /// sq_keyid_t mr_b = sq_keyid_from_bytes ("\xbb\xbb\xbb\xbb\xbb\xbb\xbb\xbb");
 ///

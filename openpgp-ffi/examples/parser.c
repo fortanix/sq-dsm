@@ -12,7 +12,7 @@
 #include <unistd.h>
 #include <time.h>
 
-#include <sequoia.h>
+#include <sequoia/openpgp.h>
 
 int
 main (int argc, char **argv)

@@ -244,7 +244,7 @@ fn int_to_reason_for_revocation(code: c_int) -> ReasonForRevocation {
 ///
 /// ```c
 /// #include <assert.h>
-/// #include <sequoia.h>
+/// #include <sequoia/openpgp.h>
 ///
 /// sq_tpk_builder_t builder;
 /// sq_tpk_t tpk;
@@ -311,7 +311,7 @@ pub extern "system" fn sq_tpk_revoke(errp: Option<&mut *mut failure::Error>,
 ///
 /// ```c
 /// #include <assert.h>
-/// #include <sequoia.h>
+/// #include <sequoia/openpgp.h>
 ///
 /// sq_tpk_builder_t builder;
 /// sq_tpk_t tpk;
@@ -569,7 +569,7 @@ pub extern "system" fn sq_tpk_key_iter_next<'a>(
 ///
 /// ```c
 /// #include <assert.h>
-/// #include <sequoia.h>
+/// #include <sequoia/openpgp.h>
 ///
 /// sq_tpk_builder_t builder;
 /// sq_tpk_t tpk;

@@ -1,13 +1,13 @@
 [package]
-name = "sequoia-ffi"
-description = "C API for Sequoia"
+name = "sequoia-openpgp-ffi"
+description = "C API for Sequoia's low-level OpenPGP crate"
 version = "0.3.0"
 authors = [
     "Justus Winter <justus@sequoia-pgp.org>",
     "Kai Michaelis <kai@sequoia-pgp.org>",
     "Neal H. Walfield <neal@sequoia-pgp.org>",
 ]
-documentation = "https://docs.sequoia-pgp.org/sequoia_ffi"
+documentation = "https://docs.sequoia-pgp.org/sequoia_openpgp_ffi"
 homepage = "https://sequoia-pgp.org/"
 repository = "https://gitlab.com/sequoia-pgp/sequoia"
 readme = "../README.md"
@@ -23,18 +23,13 @@ maintenance = { status = "actively-developed" }
 [dependencies]
 sequoia-ffi-macros = { path = "../ffi-macros" }
 sequoia-openpgp = { path = "../openpgp" }
-sequoia-openpgp-ffi = { path = "../openpgp-ffi" }
-sequoia-core = { path = "../core" }
-sequoia-store = { path = "../store" }
-sequoia-net = { path = "../net" }
 failure = "0.1.2"
 lazy_static = "1.0.0"
 libc = "0.2.33"
-native-tls = "0.2.0"
 time = "0.1.40"
 
 [dev-dependencies]
 nettle = "2.0"
 
 [lib]
-crate-type = ["cdylib", "staticlib"]
+crate-type = ["lib", "cdylib", "staticlib"]

@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <sequoia.h>
+#include <sequoia/openpgp.h>
 
 const char *armored =
   "-----BEGIN PGP ARMORED FILE-----\n"

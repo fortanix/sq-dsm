@@ -2,14 +2,16 @@ from os.path import join, dirname
 from cffi import FFI, error
 from itertools import chain
 
-inc = join(dirname(__file__), '../../../include/sequoia')
+sq_inc = join(dirname(__file__), '../../../include/sequoia')
+pgp_inc = join(dirname(__file__), '../../../../openpgp-ffi/include/sequoia')
 defs = "".join(l
-               for l in chain(open(join(inc, "error.h")).readlines(),
-                              open(join(inc, "core.h")).readlines(),
-                              open(join(inc, "openpgp/crypto.h")).readlines(),
-                              open(join(inc, "openpgp.h")).readlines(),
-                              open(join(inc, "net.h")).readlines(),
-                              open(join(inc, "store.h")).readlines())
+               for l in chain(open(join(pgp_inc, "openpgp/error.h")).readlines(),
+                              open(join(pgp_inc, "io.h")).readlines(),
+                              open(join(pgp_inc, "openpgp/crypto.h")).readlines(),
+                              open(join(pgp_inc, "openpgp.h")).readlines(),
+                              open(join(sq_inc, "core.h")).readlines(),
+                              open(join(sq_inc, "net.h")).readlines(),
+                              open(join(sq_inc, "store.h")).readlines())
                if not l.startswith('#'))
 
 defs = defs.replace("INT_MAX", "{}".format(1<<31))
