@@ -14,7 +14,7 @@ use std::process::exit;
 use std::fs::File;
 use std::collections::{HashMap, HashSet};
 
-use openpgp::{TPK, Packet, packet::Signature, KeyID};
+use openpgp::{TPK, Packet, packet::Signature, KeyID, RevocationStatus};
 use openpgp::constants::HashAlgorithm;
 use openpgp::parse::{Parse, PacketParserResult, PacketParser};
 use openpgp::tpk::TPKParser;
@@ -249,6 +249,28 @@ fn real_main() -> Result<(), failure::Error> {
                                         "Signature by {} was created after \
                                          the --not-after date.",
                                         issuer);
+                                    break;
+                                }
+
+                                // check key was valid at sig creation time
+                                let binding = tpk
+                                    .subkeys()
+                                    .find(|s| {
+                                        s.subkey().fingerprint() == key.fingerprint()
+                                    });
+                                if let Some(binding) = binding {
+                                    if binding.revoked(t) != RevocationStatus::NotAsFarAsWeKnow {
+                                        eprintln!(
+                                            "Key was revoked when the signature \
+                                             was created.");
+                                        break;
+                                    }
+                                }
+
+                                if tpk.revoked(t) != RevocationStatus::NotAsFarAsWeKnow {
+                                    eprintln!(
+                                        "Primary key was revoked when the \
+                                         signature was created.");
                                     break;
                                 }
                             } else {
