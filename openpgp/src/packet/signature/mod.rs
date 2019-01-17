@@ -199,6 +199,30 @@ impl Builder {
         self.sign(signer, digest)
     }
 
+    /// Signs `message` using `signer`.
+    ///
+    /// The Signature's public-key algorithm field is set to the
+    /// algorithm used by `signer`, the hash-algorithm field is set to
+    /// `hash_algo`.
+    pub fn sign_message(mut self, signer: &mut Signer,
+                     hash_algo: HashAlgorithm, msg: &[u8])
+                     -> Result<Signature> {
+        // Hash the message
+        let mut hash = hash_algo.context()?;
+        hash.update(msg);
+
+        // Fill out some fields, then hash the packet.
+        self.pk_algo = signer.public().pk_algo();
+        self.hash_algo = hash_algo;
+        self.hash(&mut hash);
+
+        // Compute the digest.
+        let mut digest = vec![0u8; hash.digest_size()];
+        hash.digest(&mut digest);
+
+        self.sign(signer, digest)
+    }
+
     fn sign(self, signer: &mut Signer, digest: Vec<u8>) -> Result<Signature> {
         let algo = self.hash_algo;
         let mpis = signer.sign(algo, &digest)?;
@@ -746,6 +770,32 @@ impl Signature {
         self.verify_hash(signer, self.hash_algo(), &hash[..])
     }
 
+    /// Verifies a signature of a message.
+    ///
+    /// `self` is the message signature, `signer` is
+    /// the key that allegedly made the signature and `msg` is the message.
+    ///
+    /// This function is for short messages, if you want to verify larger files
+    /// use `Verifier`.
+    pub fn verify_message(&self, signer: &Key, msg: &[u8])
+        -> Result<bool>
+    {
+        if self.sigtype() != SignatureType::Binary &&
+            self.sigtype() != SignatureType::Text {
+            return Err(Error::UnsupportedSignatureType(self.sigtype()).into());
+        }
+
+        // Compute the digest.
+        let mut hash = self.hash_algo().context()?;
+        let mut digest = vec![0u8; hash.digest_size()];
+
+        hash.update(msg);
+        self.hash(&mut hash);
+        hash.digest(&mut digest);
+
+        self.verify_hash(signer, self.hash_algo(), &digest[..])
+    }
+
     /// Convert the `Signature` struct to a `Packet`.
     pub fn to_packet(self) -> Packet {
         Packet::Signature(self)
@@ -949,6 +999,58 @@ mod test {
                 panic!("secret key is encrypted/missing");
             }
         }
+    }
+
+    #[test]
+    fn sign_message() {
+        use time;
+        use constants::PublicKeyAlgorithm;
+        use packet::key::SecretKey;
+
+        let key = Key::new(PublicKeyAlgorithm::EdDSA)
+            .unwrap();
+        let msg = b"Hello, World";
+        let mut b = Builder::new(SignatureType::Binary);
+        b.set_signature_creation_time(time::now()).unwrap();
+        b.set_issuer_fingerprint(key.fingerprint()).unwrap();
+        b.set_issuer(key.fingerprint().to_keyid()).unwrap();
+
+        match key.secret() {
+            Some(SecretKey::Unencrypted{ ref mpis }) => {
+                let sig = b.sign_message(
+                    &mut KeyPair::new(key.clone(), mpis.clone()).unwrap(),
+                    HashAlgorithm::SHA512, msg).unwrap();
+
+                assert!(sig.verify_message(&key, msg).unwrap());
+            }
+            _ => unreachable!()
+        };
+    }
+
+    #[test]
+    fn verify_message() {
+        use std::fs::File;
+        use std::io::Read;
+
+        let tpk = TPK::from_file(path_to(
+                "keys/emmelie-dorothea-dina-samantha-awina-ed25519.pgp"))
+            .unwrap();
+        let msg = {
+            let mut fd = File::open(
+                path_to("messages/a-cypherpunks-manifesto.txt")).unwrap();
+            let mut buf = Vec::default();
+
+            fd.read_to_end(&mut buf).unwrap();
+            buf
+        };
+        let sig = {
+            let mut fd = File::open(path_to(
+                "messages/a-cypherpunks-manifesto.txt.ed25519.sig")).unwrap();
+
+            Signature::from_reader(&mut fd).unwrap()
+        };
+
+        assert!(sig.verify_message(tpk.primary(), &msg[..]).unwrap());
     }
 
     #[test]
