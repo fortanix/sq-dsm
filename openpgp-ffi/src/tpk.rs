@@ -249,7 +249,7 @@ fn int_to_reason_for_revocation(code: c_int) -> ReasonForRevocation {
 /// pgp_tpk_builder_t builder;
 /// pgp_tpk_t tpk;
 /// pgp_signature_t revocation;
-/// pgp_p_key_t primary_key;
+/// pgp_key_t primary_key;
 /// pgp_key_pair_t primary_keypair;
 /// pgp_signer_t primary_signer;
 ///
@@ -260,9 +260,9 @@ fn int_to_reason_for_revocation(code: c_int) -> ReasonForRevocation {
 /// assert (revocation);
 /// pgp_signature_free (revocation);    /* Free the generated one.  */
 ///
-/// primary_key = pgp_p_key_clone (pgp_tpk_primary (tpk));
+/// primary_key = pgp_key_clone (pgp_tpk_primary (tpk));
 /// assert (primary_key);
-/// primary_keypair = pgp_p_key_into_key_pair (NULL, primary_key);
+/// primary_keypair = pgp_key_into_key_pair (NULL, primary_key);
 /// assert (primary_keypair);
 /// primary_signer = pgp_key_pair_as_signer (primary_keypair);
 /// revocation = pgp_tpk_revoke (NULL, tpk, primary_signer,
@@ -316,7 +316,7 @@ pub extern "system" fn pgp_tpk_revoke(errp: Option<&mut *mut failure::Error>,
 /// pgp_tpk_builder_t builder;
 /// pgp_tpk_t tpk;
 /// pgp_signature_t revocation;
-/// pgp_p_key_t primary_key;
+/// pgp_key_t primary_key;
 /// pgp_key_pair_t primary_keypair;
 /// pgp_signer_t primary_signer;
 ///
@@ -327,9 +327,9 @@ pub extern "system" fn pgp_tpk_revoke(errp: Option<&mut *mut failure::Error>,
 /// assert (revocation);
 /// pgp_signature_free (revocation);    /* Free the generated one.  */
 ///
-/// primary_key = pgp_p_key_clone (pgp_tpk_primary (tpk));
+/// primary_key = pgp_key_clone (pgp_tpk_primary (tpk));
 /// assert (primary_key);
-/// primary_keypair = pgp_p_key_into_key_pair (NULL, primary_key);
+/// primary_keypair = pgp_key_into_key_pair (NULL, primary_key);
 /// assert (primary_keypair);
 /// primary_signer = pgp_key_pair_as_signer (primary_keypair);
 /// tpk = pgp_tpk_revoke_in_place (NULL, tpk, primary_signer,

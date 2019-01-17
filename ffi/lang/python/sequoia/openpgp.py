@@ -186,11 +186,11 @@ class Tag(Enum):
 class Key(SQObject):
     @property
     def fingerprint(self):
-        return Fingerprint(lib.pgp_p_key_fingerprint(self.ref()))
+        return Fingerprint(lib.pgp_key_fingerprint(self.ref()))
 
     @property
     def keyid(self):
-        return KeyID(lib.pgp_p_key_keyid(self.ref()))
+        return KeyID(lib.pgp_key_keyid(self.ref()))
 
 class PublicKey(Key):
     pass

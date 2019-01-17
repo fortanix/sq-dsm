@@ -417,7 +417,7 @@ const char *pgp_tag_to_string (pgp_tag_t tag);
 typedef struct pgp_unknown *pgp_unknown_t;
 typedef struct pgp_signature *pgp_signature_t;
 typedef struct pgp_one_pass_sig *pgp_one_pass_sig_t;
-typedef struct pgp_p_key *pgp_p_key_t;
+typedef struct pgp_key *pgp_key_t;
 typedef struct pgp_user_id *pgp_user_id_t;
 typedef struct pgp_user_attribute *pgp_user_attribute_t;
 typedef struct pgp_literal *pgp_literal_t;
@@ -448,7 +448,7 @@ typedef union pgp_packet {
   pgp_unknown_t unknown;
   pgp_signature_t signature;
   pgp_one_pass_sig_t one_pass_sig;
-  pgp_p_key_t key;
+  pgp_key_t key;
   pgp_user_id_t user_id;
   pgp_user_attribute_t user_attribute;
   pgp_literal_t literal;
@@ -653,7 +653,7 @@ pgp_keyid_t pgp_pkesk_recipient(pgp_pkesk_t pkesk);
 /// the session key.
 /*/
 pgp_status_t pgp_pkesk_decrypt (pgp_error_t *errp, pgp_pkesk_t pkesk,
-                              pgp_p_key_t secret_key,
+                              pgp_key_t secret_key,
                               uint8_t *algo, /* XXX */
                               uint8_t *key, size_t *key_len);
 
@@ -744,7 +744,7 @@ typedef struct pgp_tpk_key_iter *pgp_tpk_key_iter_t;
 /// If rso is not NULL, this stores the key's revocation status in
 /// *rso.
 /*/
-pgp_p_key_t pgp_tpk_key_iter_next (pgp_tpk_key_iter_t iter,
+pgp_key_t pgp_tpk_key_iter_next (pgp_tpk_key_iter_t iter,
                                  pgp_signature_t *signature,
                                  pgp_revocation_status_t *rev);
 
@@ -882,7 +882,7 @@ pgp_tsk_t pgp_tpk_into_tsk (pgp_tpk_t tpk);
 /// The tpk still owns the key.  The caller should neither modify nor
 /// free the key.
 /*/
-pgp_p_key_t pgp_tpk_primary (pgp_tpk_t tpk);
+pgp_key_t pgp_tpk_primary (pgp_tpk_t tpk);
 
 /*/
 /// Returns the TPK's revocation status.
@@ -1075,19 +1075,19 @@ pgp_status_t pgp_tsk_serialize (pgp_error_t *errp,
 /*/
 /// Clones the key.
 /*/
-pgp_p_key_t pgp_p_key_clone (pgp_p_key_t key);
+pgp_key_t pgp_key_clone (pgp_key_t key);
 
 /*/
 /// Computes and returns the key's fingerprint as per Section 12.2
 /// of RFC 4880.
 /*/
-pgp_fingerprint_t pgp_p_key_fingerprint (pgp_p_key_t p);
+pgp_fingerprint_t pgp_key_fingerprint (pgp_key_t p);
 
 /*/
 /// Computes and returns the key's key ID as per Section 12.2 of RFC
 /// 4880.
 /*/
-pgp_keyid_t pgp_p_key_keyid (pgp_p_key_t p);
+pgp_keyid_t pgp_key_keyid (pgp_key_t p);
 
 /*/
 /// Returns whether the key is expired according to the provided
@@ -1097,12 +1097,12 @@ pgp_keyid_t pgp_p_key_keyid (pgp_p_key_t p);
 /// checked for validity.  That is, we do not check whether the
 /// signature is a valid self-signature for the given key.
 /*/
-int pgp_p_key_expired(pgp_p_key_t key, pgp_signature_t self_signature);
+int pgp_key_expired(pgp_key_t key, pgp_signature_t self_signature);
 
 /*/
-/// Like pgp_p_key_expired, but at a specific time.
+/// Like pgp_key_expired, but at a specific time.
 /*/
-int pgp_p_key_expired_at(pgp_p_key_t key, pgp_signature_t self_signature,
+int pgp_key_expired_at(pgp_key_t key, pgp_signature_t self_signature,
                         time_t when);
 
 /*/
@@ -1116,12 +1116,12 @@ int pgp_p_key_expired_at(pgp_p_key_t key, pgp_signature_t self_signature,
 /// checked for validity.  That is, we do not check whether the
 /// signature is a valid self-signature for the given key.
 /*/
-int pgp_p_key_alive(pgp_p_key_t key, pgp_signature_t self_signature);
+int pgp_key_alive(pgp_key_t key, pgp_signature_t self_signature);
 
 /*/
-/// Like pgp_p_key_alive, but at a specific time.
+/// Like pgp_key_alive, but at a specific time.
 /*/
-int pgp_p_key_alive_at(pgp_p_key_t key, pgp_signature_t self_signature,
+int pgp_key_alive_at(pgp_key_t key, pgp_signature_t self_signature,
                       time_t when);
 
 typedef enum pgp_public_key_algorithm {
@@ -1178,12 +1178,12 @@ typedef enum pgp_public_key_algorithm {
 /*/
 /// Returns the key's public key algorithm.
 /*/
-sq_public_key_algo_t pgp_p_key_public_key_algo(pgp_p_key_t key);
+sq_public_key_algo_t pgp_key_public_key_algo(pgp_key_t key);
 
 /*/
 /// Returns the public key's size in bits.
 /*/
-int pgp_p_key_public_key_bits(pgp_p_key_t key);
+int pgp_key_public_key_bits(pgp_key_t key);
 
 /*/
 /// Creates a new key pair from a Key packet with an unencrypted
@@ -1193,7 +1193,7 @@ int pgp_p_key_public_key_bits(pgp_p_key_t key);
 ///
 /// Fails if the secret key is missing, or encrypted.
 /*/
-pgp_key_pair_t pgp_p_key_into_key_pair (pgp_error_t *errp, pgp_p_key_t key);
+pgp_key_pair_t pgp_key_into_key_pair (pgp_error_t *errp, pgp_key_t key);
 
 /*/
 /// Returns the value of the User ID Packet.
@@ -1229,7 +1229,7 @@ pgp_status_t pgp_skesk_decrypt (pgp_error_t *errp, pgp_skesk_t skesk,
 /*/
 /// Returns the key's creation time.
 /*/
-uint32_t pgp_p_key_creation_time (pgp_p_key_t p);
+uint32_t pgp_key_creation_time (pgp_key_t p);
 
 /* openpgp::parse.  */
 

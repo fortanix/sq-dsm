@@ -555,7 +555,7 @@ pub extern "system" fn pgp_signature_expired_at(sig: *const packet::Signature,
 
 /// Clones the key.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn pgp_p_key_clone(key: *const packet::Key)
+pub extern "system" fn pgp_key_clone(key: *const packet::Key)
                                       -> *mut packet::Key {
     let key = ffi_param_ref!(key);
     box_raw!(key.clone())
@@ -564,7 +564,7 @@ pub extern "system" fn pgp_p_key_clone(key: *const packet::Key)
 /// Computes and returns the key's fingerprint as per Section 12.2
 /// of RFC 4880.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn pgp_p_key_fingerprint(key: *const packet::Key)
+pub extern "system" fn pgp_key_fingerprint(key: *const packet::Key)
                                             -> *mut Fingerprint {
     let key = ffi_param_ref!(key);
     box_raw!(key.fingerprint())
@@ -573,7 +573,7 @@ pub extern "system" fn pgp_p_key_fingerprint(key: *const packet::Key)
 /// Computes and returns the key's key ID as per Section 12.2 of RFC
 /// 4880.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn pgp_p_key_keyid(key: *const packet::Key)
+pub extern "system" fn pgp_key_keyid(key: *const packet::Key)
                                       -> *mut KeyID {
     let key = ffi_param_ref!(key);
     box_raw!(key.keyid())
@@ -586,7 +586,7 @@ pub extern "system" fn pgp_p_key_keyid(key: *const packet::Key)
 /// checked for validity.  That is, we do not check whether the
 /// signature is a valid self-signature for the given key.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn pgp_p_key_expired(key: *const packet::Key,
+pub extern "system" fn pgp_key_expired(key: *const packet::Key,
                                       sig: *const packet::Signature)
     -> bool
 {
@@ -596,9 +596,9 @@ pub extern "system" fn pgp_p_key_expired(key: *const packet::Key,
     sig.key_expired(key)
 }
 
-/// Like pgp_p_key_expired, but at a specific time.
+/// Like pgp_key_expired, but at a specific time.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn pgp_p_key_expired_at(key: *const packet::Key,
+pub extern "system" fn pgp_key_expired_at(key: *const packet::Key,
                                          sig: *const packet::Signature,
                                          when: time_t)
     -> bool
@@ -619,7 +619,7 @@ pub extern "system" fn pgp_p_key_expired_at(key: *const packet::Key,
 /// checked for validity.  That is, we do not check whether the
 /// signature is a valid self-signature for the given key.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn pgp_p_key_alive(key: *const packet::Key,
+pub extern "system" fn pgp_key_alive(key: *const packet::Key,
                                       sig: *const packet::Signature)
     -> bool
 {
@@ -629,9 +629,9 @@ pub extern "system" fn pgp_p_key_alive(key: *const packet::Key,
     sig.key_alive(key)
 }
 
-/// Like pgp_p_key_alive, but at a specific time.
+/// Like pgp_key_alive, but at a specific time.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn pgp_p_key_alive_at(key: *const packet::Key,
+pub extern "system" fn pgp_key_alive_at(key: *const packet::Key,
                                          sig: *const packet::Signature,
                                          when: time_t)
     -> bool
@@ -644,7 +644,7 @@ pub extern "system" fn pgp_p_key_alive_at(key: *const packet::Key,
 
 /// Returns the key's creation time.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn pgp_p_key_creation_time(key: *const packet::Key)
+pub extern "system" fn pgp_key_creation_time(key: *const packet::Key)
     -> u32
 {
     let key = ffi_param_ref!(key);
@@ -655,7 +655,7 @@ pub extern "system" fn pgp_p_key_creation_time(key: *const packet::Key)
 
 /// Returns the key's public key algorithm.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn pgp_p_key_public_key_algo(key: *const packet::Key)
+pub extern "system" fn pgp_key_public_key_algo(key: *const packet::Key)
     -> c_int
 {
     let key = ffi_param_ref!(key);
@@ -665,7 +665,7 @@ pub extern "system" fn pgp_p_key_public_key_algo(key: *const packet::Key)
 
 /// Returns the public key's size in bits.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn pgp_p_key_public_key_bits(key: *const packet::Key)
+pub extern "system" fn pgp_key_public_key_bits(key: *const packet::Key)
     -> c_int
 {
     use self::openpgp::crypto::mpis::PublicKey::*;
@@ -689,7 +689,7 @@ pub extern "system" fn pgp_p_key_public_key_bits(key: *const packet::Key)
 ///
 /// Fails if the secret key is missing, or encrypted.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn pgp_p_key_into_key_pair(errp: Option<&mut *mut failure::Error>,
+pub extern "system" fn pgp_key_into_key_pair(errp: Option<&mut *mut failure::Error>,
                                               key: *mut packet::Key)
                                               -> *mut self::openpgp::crypto::KeyPair
 {

@@ -27,12 +27,12 @@ void pgp_signer_free (pgp_signer_t s);
 typedef struct pgp_key_pair *pgp_key_pair_t;
 
 /* Forward declaration.  */
-typedef struct pgp_p_key *pgp_p_key_t;
+typedef struct pgp_key *pgp_key_t;
 
 /*/
 /// Creates a new key pair.
 /*/
-void pgp_key_pair_new (pgp_p_key_t public, pgp_mpi_t secret);
+void pgp_key_pair_new (pgp_key_t public, pgp_mpi_t secret);
 
 /*/
 /// Frees a key pair.
