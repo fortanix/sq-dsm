@@ -19,20 +19,20 @@ const char *armored =
 int
 main (int argc, char **argv)
 {
-  sq_error_t err;
-  sq_reader_t bytes;
-  sq_reader_t armor;
-  sq_armor_kind_t kind;
+  pgp_error_t err;
+  pgp_reader_t bytes;
+  pgp_reader_t armor;
+  pgp_armor_kind_t kind;
   char message[12];
-  sq_armor_header_t *header;
+  pgp_armor_header_t *header;
   size_t header_len;
 
-  bytes = sq_reader_from_bytes ((uint8_t *) armored, strlen (armored));
-  armor = sq_armor_reader_new (bytes, SQ_ARMOR_KIND_ANY);
+  bytes = pgp_reader_from_bytes ((uint8_t *) armored, strlen (armored));
+  armor = pgp_armor_reader_new (bytes, PGP_ARMOR_KIND_ANY);
 
-  header = sq_armor_reader_headers (&err, armor, &header_len);
+  header = pgp_armor_reader_headers (&err, armor, &header_len);
   if (header == NULL)
-    error (1, 0, "Getting headers failed: %s", sq_error_string (err));
+    error (1, 0, "Getting headers failed: %s", pgp_error_string (err));
 
   assert (header_len == 2);
   assert (strcmp (header[0].key, "Key0") == 0
@@ -46,15 +46,15 @@ main (int argc, char **argv)
     }
   free (header);
 
-  kind = sq_armor_reader_kind (armor);
-  assert (kind == SQ_ARMOR_KIND_FILE);
+  kind = pgp_armor_reader_kind (armor);
+  assert (kind == PGP_ARMOR_KIND_FILE);
 
-  if (sq_reader_read (&err, armor, (uint8_t *) message, 12) < 0)
-      error (1, 0, "Reading failed: %s", sq_error_string (err));
+  if (pgp_reader_read (&err, armor, (uint8_t *) message, 12) < 0)
+      error (1, 0, "Reading failed: %s", pgp_error_string (err));
 
   assert (memcmp (message, "Hello world!", 12) == 0);
 
-  sq_reader_free (armor);
-  sq_reader_free (bytes);
+  pgp_reader_free (armor);
+  pgp_reader_free (bytes);
   return 0;
 }

@@ -17,13 +17,13 @@
 //! #include <sequoia.h>
 //!
 //! sq_context_t ctx;
-//! sq_keyid_t id;
+//! pgp_keyid_t id;
 //! sq_keyserver_t ks;
-//! sq_tpk_t tpk;
+//! pgp_tpk_t tpk;
 //!
 //! ctx = sq_context_new ("org.sequoia-pgp.example", NULL);
 //! ks = sq_keyserver_sks_pool (ctx);
-//! id = sq_keyid_from_bytes ((uint8_t *) "\x24\x7F\x6D\xAB\xC8\x49\x14\xFE");
+//! id = pgp_keyid_from_bytes ((uint8_t *) "\x24\x7F\x6D\xAB\xC8\x49\x14\xFE");
 //! tpk = sq_keyserver_get (ctx, ks, id);
 //! ```
 

@@ -95,14 +95,14 @@
 //! #include <sequoia.h>
 //! #include <error.h>
 //!
-//! sq_error_t err;
-//! sq_tpk_t tpk;
+//! pgp_error_t err;
+//! pgp_tpk_t tpk;
 //!
-//! tpk = sq_tpk_from_file (&err, "../openpgp/tests/data/keys/testy.pgp");
+//! tpk = pgp_tpk_from_file (&err, "../openpgp/tests/data/keys/testy.pgp");
 //! if (tpk == NULL)
-//!   error (1, 0, "sq_tpk_from_bytes: %s", sq_error_string (err));
+//!   error (1, 0, "pgp_tpk_from_bytes: %s", pgp_error_string (err));
 //!
-//! sq_tpk_free (tpk);
+//! pgp_tpk_free (tpk);
 //! ```
 
 #![warn(missing_docs)]

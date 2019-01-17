@@ -54,17 +54,17 @@ void sq_keyserver_free (sq_keyserver_t ks);
 ///
 /// Returns `NULL` on errors.
 /*/
-sq_tpk_t sq_keyserver_get (sq_context_t ctx,
+pgp_tpk_t sq_keyserver_get (sq_context_t ctx,
 			   sq_keyserver_t ks,
-			   const sq_keyid_t id);
+			   const pgp_keyid_t id);
 
 /*/
 /// Sends the given key to the server.
 ///
 /// Returns != 0 on errors.
 /*/
-sq_status_t sq_keyserver_send (sq_context_t ctx,
+pgp_status_t sq_keyserver_send (sq_context_t ctx,
 			       sq_keyserver_t ks,
-			       const sq_tpk_t tpk);
+			       const pgp_tpk_t tpk);
 
 #endif

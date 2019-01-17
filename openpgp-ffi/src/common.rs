@@ -302,10 +302,10 @@ use error::Status;
 /// #include <string.h>
 /// #include <sequoia/openpgp.h>
 ///
-/// assert (strcmp (sq_tag_to_string (2), "SIGNATURE") == 0);
+/// assert (strcmp (pgp_tag_to_string (2), "SIGNATURE") == 0);
 /// ```
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_tag_to_string(tag: u8) -> *const c_char {
+pub extern "system" fn pgp_tag_to_string(tag: u8) -> *const c_char {
     match Tag::from(tag) {
         Tag::PKESK => "PKESK\x00",
         Tag::Signature => "SIGNATURE\x00",
@@ -338,7 +338,7 @@ fn revocation_status_to_int(rs: &RevocationStatus) -> c_int {
 
 /// Returns the TPK's revocation status variant.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_revocation_status_variant(
+pub extern "system" fn pgp_revocation_status_variant(
     rs: *mut RevocationStatus)
     -> c_int
 {
@@ -348,9 +348,9 @@ pub extern "system" fn sq_revocation_status_variant(
     variant
 }
 
-/// Frees a sq_revocation_status_t.
+/// Frees a pgp_revocation_status_t.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_revocation_status_free(
+pub extern "system" fn pgp_revocation_status_free(
     rs: Option<&mut RevocationStatus>)
 {
     ffi_free!(rs)
@@ -360,7 +360,7 @@ pub extern "system" fn sq_revocation_status_free(
 
 /// Frees the Packet.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_packet_free(p: Option<&mut Packet>) {
+pub extern "system" fn pgp_packet_free(p: Option<&mut Packet>) {
     ffi_free!(p)
 }
 
@@ -370,7 +370,7 @@ pub extern "system" fn sq_packet_free(p: Option<&mut Packet>) {
 ///
 ///   [Section 4.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.3
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_packet_tag(p: *const Packet)
+pub extern "system" fn pgp_packet_tag(p: *const Packet)
                                      -> uint8_t {
     let p = ffi_param_ref!(p);
     let tag: u8 = p.tag().into();
@@ -382,10 +382,10 @@ pub extern "system" fn sq_packet_tag(p: *const Packet)
 /// Returns the packets tag, but only if it was successfully
 /// parsed into the corresponding packet type.  If e.g. a
 /// Signature Packet uses some unsupported methods, it is parsed
-/// into an `Packet::Unknown`.  `tag()` returns `SQ_TAG_SIGNATURE`,
+/// into an `Packet::Unknown`.  `tag()` returns `PGP_TAG_SIGNATURE`,
 /// whereas `kind()` returns `0`.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_packet_kind(p: *const Packet)
+pub extern "system" fn pgp_packet_kind(p: *const Packet)
                                       -> uint8_t {
     let p = ffi_param_ref!(p);
     if let Some(kind) = p.kind() {
@@ -397,13 +397,13 @@ pub extern "system" fn sq_packet_kind(p: *const Packet)
 
 /// Frees the Signature.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_signature_free(s: Option<&mut Signature>) {
+pub extern "system" fn pgp_signature_free(s: Option<&mut Signature>) {
     ffi_free!(s)
 }
 
 /// Converts the signature to a packet.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_signature_to_packet(s: *mut Signature)
+pub extern "system" fn pgp_signature_to_packet(s: *mut Signature)
                                               -> *mut Packet
 {
     let s = ffi_param_move!(s);
@@ -416,7 +416,7 @@ pub extern "system" fn sq_signature_to_packet(s: *mut Signature)
 /// there is no Issuer subpacket, but there is an IssuerFingerprint
 /// subpacket, this still returns NULL.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_signature_issuer(sig: *const packet::Signature)
+pub extern "system" fn pgp_signature_issuer(sig: *const packet::Signature)
                                            -> *mut KeyID {
     let sig = ffi_param_ref!(sig);
     maybe_box_raw!(sig.issuer())
@@ -428,7 +428,7 @@ pub extern "system" fn sq_signature_issuer(sig: *const packet::Signature)
 /// Note: if there is no IssuerFingerprint subpacket, but there is an
 /// Issuer subpacket, this still returns NULL.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_signature_issuer_fingerprint(
+pub extern "system" fn pgp_signature_issuer_fingerprint(
     sig: *const packet::Signature)
     -> *mut Fingerprint
 {
@@ -440,7 +440,7 @@ pub extern "system" fn sq_signature_issuer_fingerprint(
 /// Returns whether the KeyFlags indicates that the key can be used to
 /// make certifications.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_signature_can_certify(sig: *const packet::Signature)
+pub extern "system" fn pgp_signature_can_certify(sig: *const packet::Signature)
     -> bool
 {
     let sig = ffi_param_ref!(sig);
@@ -450,7 +450,7 @@ pub extern "system" fn sq_signature_can_certify(sig: *const packet::Signature)
 /// Returns whether the KeyFlags indicates that the key can be used to
 /// make signatures.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_signature_can_sign(sig: *const packet::Signature)
+pub extern "system" fn pgp_signature_can_sign(sig: *const packet::Signature)
     -> bool
 {
     let sig = ffi_param_ref!(sig);
@@ -460,7 +460,7 @@ pub extern "system" fn sq_signature_can_sign(sig: *const packet::Signature)
 /// Returns whether the KeyFlags indicates that the key can be used to
 /// encrypt data for transport.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_signature_can_encrypt_for_transport(sig: *const packet::Signature)
+pub extern "system" fn pgp_signature_can_encrypt_for_transport(sig: *const packet::Signature)
     -> bool
 {
     let sig = ffi_param_ref!(sig);
@@ -470,7 +470,7 @@ pub extern "system" fn sq_signature_can_encrypt_for_transport(sig: *const packet
 /// Returns whether the KeyFlags indicates that the key can be used to
 /// encrypt data at rest.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_signature_can_encrypt_at_rest(sig: *const packet::Signature)
+pub extern "system" fn pgp_signature_can_encrypt_at_rest(sig: *const packet::Signature)
     -> bool
 {
     let sig = ffi_param_ref!(sig);
@@ -480,7 +480,7 @@ pub extern "system" fn sq_signature_can_encrypt_at_rest(sig: *const packet::Sign
 /// Returns whether the KeyFlags indicates that the key can be used
 /// for authentication.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_signature_can_authenticate(sig: *const packet::Signature)
+pub extern "system" fn pgp_signature_can_authenticate(sig: *const packet::Signature)
     -> bool
 {
     let sig = ffi_param_ref!(sig);
@@ -490,7 +490,7 @@ pub extern "system" fn sq_signature_can_authenticate(sig: *const packet::Signatu
 /// Returns whether the KeyFlags indicates that the key is a split
 /// key.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_signature_is_split_key(sig: *const packet::Signature)
+pub extern "system" fn pgp_signature_is_split_key(sig: *const packet::Signature)
     -> bool
 {
     let sig = ffi_param_ref!(sig);
@@ -500,7 +500,7 @@ pub extern "system" fn sq_signature_is_split_key(sig: *const packet::Signature)
 /// Returns whether the KeyFlags indicates that the key is a group
 /// key.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_signature_is_group_key(sig: *const packet::Signature)
+pub extern "system" fn pgp_signature_is_group_key(sig: *const packet::Signature)
     -> bool
 {
     let sig = ffi_param_ref!(sig);
@@ -513,7 +513,7 @@ pub extern "system" fn sq_signature_is_group_key(sig: *const packet::Signature)
 /// A signature is alive if the creation date is in the past, and the
 /// signature has not expired.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_signature_alive(sig: *const packet::Signature)
+pub extern "system" fn pgp_signature_alive(sig: *const packet::Signature)
     -> bool
 {
     let sig = ffi_param_ref!(sig);
@@ -525,7 +525,7 @@ pub extern "system" fn sq_signature_alive(sig: *const packet::Signature)
 /// A signature is alive if the creation date is in the past, and the
 /// signature has not expired at the specified time.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_signature_alive_at(sig: *const packet::Signature,
+pub extern "system" fn pgp_signature_alive_at(sig: *const packet::Signature,
                                              when: time_t)
     -> bool
 {
@@ -535,7 +535,7 @@ pub extern "system" fn sq_signature_alive_at(sig: *const packet::Signature,
 
 /// Returns whether the signature is expired.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_signature_expired(sig: *const packet::Signature)
+pub extern "system" fn pgp_signature_expired(sig: *const packet::Signature)
     -> bool
 {
     let sig = ffi_param_ref!(sig);
@@ -544,7 +544,7 @@ pub extern "system" fn sq_signature_expired(sig: *const packet::Signature)
 
 /// Returns whether the signature is expired at the specified time.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_signature_expired_at(sig: *const packet::Signature,
+pub extern "system" fn pgp_signature_expired_at(sig: *const packet::Signature,
                                                when: time_t)
     -> bool
 {
@@ -555,7 +555,7 @@ pub extern "system" fn sq_signature_expired_at(sig: *const packet::Signature,
 
 /// Clones the key.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_p_key_clone(key: *const packet::Key)
+pub extern "system" fn pgp_p_key_clone(key: *const packet::Key)
                                       -> *mut packet::Key {
     let key = ffi_param_ref!(key);
     box_raw!(key.clone())
@@ -564,7 +564,7 @@ pub extern "system" fn sq_p_key_clone(key: *const packet::Key)
 /// Computes and returns the key's fingerprint as per Section 12.2
 /// of RFC 4880.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_p_key_fingerprint(key: *const packet::Key)
+pub extern "system" fn pgp_p_key_fingerprint(key: *const packet::Key)
                                             -> *mut Fingerprint {
     let key = ffi_param_ref!(key);
     box_raw!(key.fingerprint())
@@ -573,7 +573,7 @@ pub extern "system" fn sq_p_key_fingerprint(key: *const packet::Key)
 /// Computes and returns the key's key ID as per Section 12.2 of RFC
 /// 4880.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_p_key_keyid(key: *const packet::Key)
+pub extern "system" fn pgp_p_key_keyid(key: *const packet::Key)
                                       -> *mut KeyID {
     let key = ffi_param_ref!(key);
     box_raw!(key.keyid())
@@ -586,7 +586,7 @@ pub extern "system" fn sq_p_key_keyid(key: *const packet::Key)
 /// checked for validity.  That is, we do not check whether the
 /// signature is a valid self-signature for the given key.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_p_key_expired(key: *const packet::Key,
+pub extern "system" fn pgp_p_key_expired(key: *const packet::Key,
                                       sig: *const packet::Signature)
     -> bool
 {
@@ -596,9 +596,9 @@ pub extern "system" fn sq_p_key_expired(key: *const packet::Key,
     sig.key_expired(key)
 }
 
-/// Like sq_p_key_expired, but at a specific time.
+/// Like pgp_p_key_expired, but at a specific time.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_p_key_expired_at(key: *const packet::Key,
+pub extern "system" fn pgp_p_key_expired_at(key: *const packet::Key,
                                          sig: *const packet::Signature,
                                          when: time_t)
     -> bool
@@ -619,7 +619,7 @@ pub extern "system" fn sq_p_key_expired_at(key: *const packet::Key,
 /// checked for validity.  That is, we do not check whether the
 /// signature is a valid self-signature for the given key.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_p_key_alive(key: *const packet::Key,
+pub extern "system" fn pgp_p_key_alive(key: *const packet::Key,
                                       sig: *const packet::Signature)
     -> bool
 {
@@ -629,9 +629,9 @@ pub extern "system" fn sq_p_key_alive(key: *const packet::Key,
     sig.key_alive(key)
 }
 
-/// Like sq_p_key_alive, but at a specific time.
+/// Like pgp_p_key_alive, but at a specific time.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_p_key_alive_at(key: *const packet::Key,
+pub extern "system" fn pgp_p_key_alive_at(key: *const packet::Key,
                                          sig: *const packet::Signature,
                                          when: time_t)
     -> bool
@@ -644,7 +644,7 @@ pub extern "system" fn sq_p_key_alive_at(key: *const packet::Key,
 
 /// Returns the key's creation time.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_p_key_creation_time(key: *const packet::Key)
+pub extern "system" fn pgp_p_key_creation_time(key: *const packet::Key)
     -> u32
 {
     let key = ffi_param_ref!(key);
@@ -655,7 +655,7 @@ pub extern "system" fn sq_p_key_creation_time(key: *const packet::Key)
 
 /// Returns the key's public key algorithm.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_p_key_public_key_algo(key: *const packet::Key)
+pub extern "system" fn pgp_p_key_public_key_algo(key: *const packet::Key)
     -> c_int
 {
     let key = ffi_param_ref!(key);
@@ -665,7 +665,7 @@ pub extern "system" fn sq_p_key_public_key_algo(key: *const packet::Key)
 
 /// Returns the public key's size in bits.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_p_key_public_key_bits(key: *const packet::Key)
+pub extern "system" fn pgp_p_key_public_key_bits(key: *const packet::Key)
     -> c_int
 {
     use self::openpgp::crypto::mpis::PublicKey::*;
@@ -689,7 +689,7 @@ pub extern "system" fn sq_p_key_public_key_bits(key: *const packet::Key)
 ///
 /// Fails if the secret key is missing, or encrypted.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_p_key_into_key_pair(errp: Option<&mut *mut failure::Error>,
+pub extern "system" fn pgp_p_key_into_key_pair(errp: Option<&mut *mut failure::Error>,
                                               key: *mut packet::Key)
                                               -> *mut self::openpgp::crypto::KeyPair
 {
@@ -703,7 +703,7 @@ pub extern "system" fn sq_p_key_into_key_pair(errp: Option<&mut *mut failure::Er
 /// The returned pointer is valid until `uid` is deallocated.  If
 /// `value_len` is not `NULL`, the size of value is stored there.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_user_id_value(uid: *const Packet,
+pub extern "system" fn pgp_user_id_value(uid: *const Packet,
                                         value_len: Option<&mut size_t>)
                                         -> *const uint8_t {
     let uid = ffi_param_ref!(uid);
@@ -722,7 +722,7 @@ pub extern "system" fn sq_user_id_value(uid: *const Packet,
 /// The returned pointer is valid until `ua` is deallocated.  If
 /// `value_len` is not `NULL`, the size of value is stored there.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_user_attribute_value(ua: *const Packet,
+pub extern "system" fn pgp_user_attribute_value(ua: *const Packet,
                                                value_len: Option<&mut size_t>)
                                                -> *const uint8_t {
     let ua = ffi_param_ref!(ua);
@@ -743,7 +743,7 @@ pub extern "system" fn sq_user_attribute_value(ua: *const Packet,
 /// is not written to it.  Either way, `key_len` is set to the size of
 /// the session key.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_skesk_decrypt(errp: Option<&mut *mut failure::Error>,
+pub extern "system" fn pgp_skesk_decrypt(errp: Option<&mut *mut failure::Error>,
                                         skesk: *const Packet,
                                         password: *const uint8_t,
                                         password_len: size_t,
@@ -786,7 +786,7 @@ pub extern "system" fn sq_skesk_decrypt(errp: Option<&mut *mut failure::Error>,
 /// The return value is a reference ot a `KeyID`.  The caller must not
 /// modify or free it.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_pkesk_recipient(pkesk: *const PKESK)
+pub extern "system" fn pgp_pkesk_recipient(pkesk: *const PKESK)
                                           -> *const KeyID {
     let pkesk = ffi_param_ref!(pkesk);
     pkesk.recipient()
@@ -799,7 +799,7 @@ pub extern "system" fn sq_pkesk_recipient(pkesk: *const PKESK)
 /// is not written to it.  Either way, `key_len` is set to the size of
 /// the session key.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_pkesk_decrypt(errp: Option<&mut *mut failure::Error>,
+pub extern "system" fn pgp_pkesk_decrypt(errp: Option<&mut *mut failure::Error>,
                                         pkesk: *const PKESK,
                                         secret_key: *const packet::Key,
                                         algo: *mut uint8_t, // XXX
@@ -836,13 +836,13 @@ pub extern "system" fn sq_pkesk_decrypt(errp: Option<&mut *mut failure::Error>,
 
 /* openpgp::parse.  */
 
-/// Starts parsing OpenPGP packets stored in a `sq_reader_t`
+/// Starts parsing OpenPGP packets stored in a `pgp_reader_t`
 /// object.
 ///
 /// This function returns a `PacketParser` for the first packet in
 /// the stream.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_packet_parser_from_reader<'a>
+pub extern "system" fn pgp_packet_parser_from_reader<'a>
     (errp: Option<&mut *mut failure::Error>, reader: *mut Box<'a + Read>)
      -> *mut PacketParserResult<'a> {
     ffi_make_fry_from_errp!(errp);
@@ -855,7 +855,7 @@ pub extern "system" fn sq_packet_parser_from_reader<'a>
 /// This function returns a `PacketParser` for the first packet in
 /// the stream.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_packet_parser_from_file
+pub extern "system" fn pgp_packet_parser_from_file
     (errp: Option<&mut *mut failure::Error>, filename: *const c_char)
      -> *mut PacketParserResult<'static> {
     ffi_make_fry_from_errp!(errp);
@@ -868,7 +868,7 @@ pub extern "system" fn sq_packet_parser_from_file
 /// This function returns a `PacketParser` for the first packet in
 /// the stream.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_packet_parser_from_bytes
+pub extern "system" fn pgp_packet_parser_from_bytes
     (errp: Option<&mut *mut failure::Error>, b: *const uint8_t, len: size_t)
      -> *mut PacketParserResult<'static> {
     ffi_make_fry_from_errp!(errp);
@@ -882,7 +882,7 @@ pub extern "system" fn sq_packet_parser_from_bytes
 
 /// Frees the packet parser result
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_packet_parser_result_free(
+pub extern "system" fn pgp_packet_parser_result_free(
     ppr: Option<&mut PacketParserResult>)
 {
     ffi_free!(ppr)
@@ -890,13 +890,13 @@ pub extern "system" fn sq_packet_parser_result_free(
 
 /// Frees the packet parser.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_packet_parser_free(pp: Option<&mut PacketParser>) {
+pub extern "system" fn pgp_packet_parser_free(pp: Option<&mut PacketParser>) {
     ffi_free!(pp)
 }
 
 /// Frees the packet parser EOF object.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_packet_parser_eof_is_message(
+pub extern "system" fn pgp_packet_parser_eof_is_message(
     eof: *const PacketParserEOF) -> bool
 {
     let eof = ffi_param_ref!(eof);
@@ -906,7 +906,7 @@ pub extern "system" fn sq_packet_parser_eof_is_message(
 
 /// Frees the packet parser EOF object.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_packet_parser_eof_free
+pub extern "system" fn pgp_packet_parser_eof_free
     (eof: Option<&mut PacketParserEOF>)
 {
     ffi_free!(eof)
@@ -914,7 +914,7 @@ pub extern "system" fn sq_packet_parser_eof_free
 
 /// Returns a reference to the packet that is being parsed.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_packet_parser_packet
+pub extern "system" fn pgp_packet_parser_packet
     (pp: *const PacketParser)
      -> *const Packet {
     let pp = ffi_param_ref!(pp);
@@ -926,7 +926,7 @@ pub extern "system" fn sq_packet_parser_packet
 /// A top-level packet has a recursion depth of 0.  Packets in a
 /// top-level container have a recursion depth of 1, etc.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_packet_parser_recursion_depth
+pub extern "system" fn pgp_packet_parser_recursion_depth
     (pp: *const PacketParser)
      -> uint8_t {
     let pp = ffi_param_ref!(pp);
@@ -1001,7 +1001,7 @@ pub extern "system" fn sq_packet_parser_recursion_depth
 ///
 /// Consumes the given packet parser.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_packet_parser_next<'a>
+pub extern "system" fn pgp_packet_parser_next<'a>
     (errp: Option<&mut *mut failure::Error>,
      pp: *mut PacketParser<'a>,
      old_packet: Option<&mut *mut Packet>,
@@ -1045,7 +1045,7 @@ pub extern "system" fn sq_packet_parser_next<'a>
 ///
 /// Consumes the given packet parser.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_packet_parser_recurse<'a>
+pub extern "system" fn pgp_packet_parser_recurse<'a>
     (errp: Option<&mut *mut failure::Error>,
      pp: *mut PacketParser<'a>,
      old_packet: Option<&mut *mut Packet>,
@@ -1075,7 +1075,7 @@ pub extern "system" fn sq_packet_parser_recurse<'a>
 /// prefer streaming its content unless you are certain that the
 /// content is small.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_packet_parser_buffer_unread_content<'a>
+pub extern "system" fn pgp_packet_parser_buffer_unread_content<'a>
     (errp: Option<&mut *mut failure::Error>,
      pp: *mut PacketParser<'a>,
      len: *mut usize)
@@ -1093,7 +1093,7 @@ pub extern "system" fn sq_packet_parser_buffer_unread_content<'a>
 /// By default, this drops any unread content.  Use, for instance,
 /// `PacketParserBuild` to customize the default behavior.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_packet_parser_finish<'a>
+pub extern "system" fn pgp_packet_parser_finish<'a>
     (errp: Option<&mut *mut failure::Error>, pp: *mut PacketParser<'a>,
      packet: Option<&mut *const Packet>)
      -> Status
@@ -1127,7 +1127,7 @@ pub extern "system" fn sq_packet_parser_finish<'a>
 /// encrypted data, or some of the data was already read, then it
 /// returns `Error::InvalidOperation`.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_packet_parser_decrypt<'a>
+pub extern "system" fn pgp_packet_parser_decrypt<'a>
     (errp: Option<&mut *mut failure::Error>,
      pp: *mut PacketParser<'a>,
      algo: uint8_t, // XXX
@@ -1154,7 +1154,7 @@ pub extern "system" fn sq_packet_parser_decrypt<'a>
 ///
 /// Returns 0 if the PacketParserResult does not contain a packet.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_packet_parser_result_tag<'a>
+pub extern "system" fn pgp_packet_parser_result_tag<'a>
     (ppr: *mut PacketParserResult<'a>)
     -> c_int
 {
@@ -1173,14 +1173,14 @@ pub extern "system" fn sq_packet_parser_result_tag<'a>
 ///
 /// If the `PacketParser` reached EOF, then the `PacketParserResult`
 /// contains a `PacketParserEOF` and you should use
-/// `sq_packet_parser_result_eof` to get it.
+/// `pgp_packet_parser_result_eof` to get it.
 ///
 /// If this function returns a `PacketParser`, then it consumes the
 /// `PacketParserResult` and ownership of the `PacketParser` is
 /// returned to the caller, i.e., the caller is responsible for
 /// ensuring that the `PacketParser` is freed.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_packet_parser_result_packet_parser<'a>
+pub extern "system" fn pgp_packet_parser_result_packet_parser<'a>
     (ppr: *mut PacketParserResult<'a>)
     -> *mut PacketParser<'a>
 {
@@ -1201,14 +1201,14 @@ pub extern "system" fn sq_packet_parser_result_packet_parser<'a>
 ///
 /// If the `PacketParser` did not yet reach EOF, then the
 /// `PacketParserResult` contains a `PacketParser` and you should use
-/// `sq_packet_parser_result_packet_parser` to get it.
+/// `pgp_packet_parser_result_packet_parser` to get it.
 ///
 /// If this function returns a `PacketParserEOF`, then it consumes the
 /// `PacketParserResult` and ownership of the `PacketParserEOF` is
 /// returned to the caller, i.e., the caller is responsible for
 /// ensuring that the `PacketParserEOF` is freed.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_packet_parser_result_eof<'a>
+pub extern "system" fn pgp_packet_parser_result_eof<'a>
     (ppr: *mut PacketParserResult<'a>)
     -> *mut PacketParserEOF
 {
@@ -1239,7 +1239,7 @@ use self::openpgp::serialize::{
 
 /// Streams an OpenPGP message.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_writer_stack_message
+pub extern "system" fn pgp_writer_stack_message
     (writer: *mut Box<Write>)
      -> *mut writer::Stack<'static, Cookie>
 {
@@ -1249,7 +1249,7 @@ pub extern "system" fn sq_writer_stack_message
 
 /// Writes up to `len` bytes of `buf` into `writer`.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_writer_stack_write
+pub extern "system" fn pgp_writer_stack_write
     (errp: Option<&mut *mut failure::Error>,
      writer: *mut writer::Stack<'static, Cookie>,
      buf: *const uint8_t, len: size_t)
@@ -1266,11 +1266,11 @@ pub extern "system" fn sq_writer_stack_write
 
 /// Writes up to `len` bytes of `buf` into `writer`.
 ///
-/// Unlike sq_writer_stack_write, unless an error occurs, the whole
+/// Unlike pgp_writer_stack_write, unless an error occurs, the whole
 /// buffer will be written.  Also, this version automatically catches
 /// EINTR.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_writer_stack_write_all
+pub extern "system" fn pgp_writer_stack_write_all
     (errp: Option<&mut *mut failure::Error>,
      writer: *mut writer::Stack<'static, Cookie>,
      buf: *const uint8_t, len: size_t)
@@ -1287,7 +1287,7 @@ pub extern "system" fn sq_writer_stack_write_all
 
 /// Finalizes this writer, returning the underlying writer.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_writer_stack_finalize_one
+pub extern "system" fn pgp_writer_stack_finalize_one
     (errp: Option<&mut *mut failure::Error>,
      writer: *mut writer::Stack<'static, Cookie>)
      -> *mut writer::Stack<'static, Cookie>
@@ -1303,7 +1303,7 @@ pub extern "system" fn sq_writer_stack_finalize_one
 
 /// Finalizes all writers, tearing down the whole stack.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_writer_stack_finalize
+pub extern "system" fn pgp_writer_stack_finalize
     (errp: Option<&mut *mut failure::Error>,
      writer: *mut writer::Stack<'static, Cookie>)
      -> Status
@@ -1323,7 +1323,7 @@ pub extern "system" fn sq_writer_stack_finalize
 /// The body will be written using partial length encoding, or, if the
 /// body is short, using full length encoding.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_arbitrary_writer_new
+pub extern "system" fn pgp_arbitrary_writer_new
     (errp: Option<&mut *mut failure::Error>,
      inner: *mut writer::Stack<'static, Cookie>,
      tag: uint8_t)
@@ -1340,7 +1340,7 @@ pub extern "system" fn sq_arbitrary_writer_new
 /// packet, then hashes and emits the data stream, then for every key
 /// writes a signature packet.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_signer_new
+pub extern "system" fn pgp_signer_new
     (errp: Option<&mut *mut failure::Error>,
      inner: *mut writer::Stack<'static, Cookie>,
      signers: *const *mut Box<self::openpgp::crypto::Signer>,
@@ -1364,7 +1364,7 @@ pub extern "system" fn sq_signer_new
 
 /// Creates a signer for a detached signature.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_signer_new_detached
+pub extern "system" fn pgp_signer_new_detached
     (errp: Option<&mut *mut failure::Error>,
      inner: *mut writer::Stack<'static, Cookie>,
      signers: *const *mut Box<self::openpgp::crypto::Signer>,
@@ -1391,7 +1391,7 @@ pub extern "system" fn sq_signer_new_detached
 /// The body will be written using partial length encoding, or, if the
 /// body is short, using full length encoding.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_literal_writer_new
+pub extern "system" fn pgp_literal_writer_new
     (errp: Option<&mut *mut failure::Error>,
      inner: *mut writer::Stack<'static, Cookie>)
      -> *mut writer::Stack<'static, Cookie>
@@ -1413,7 +1413,7 @@ pub extern "system" fn sq_literal_writer_new
 /// The stream is encrypted using AES256, regardless of any key
 /// preferences.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_encryptor_new
+pub extern "system" fn pgp_encryptor_new
     (errp: Option<&mut *mut failure::Error>,
      inner: *mut writer::Stack<'static, Cookie>,
      passwords: Option<&*const c_char>, passwords_len: size_t,
@@ -1455,9 +1455,9 @@ pub extern "system" fn sq_encryptor_new
 
 // Secret.
 
-/// Creates an sq_secret_t from a decrypted session key.
+/// Creates an pgp_secret_t from a decrypted session key.
 #[::ffi_catch_abort] #[no_mangle]
-pub fn sq_secret_cached<'a>(algo: u8,
+pub fn pgp_secret_cached<'a>(algo: u8,
                             session_key: *const u8,
                             session_key_len: size_t)
    -> *mut Secret
@@ -1506,7 +1506,7 @@ pub struct VerificationResults<'a> {
 /// level.  The result is an array of references to
 /// `VerificationResult`.
 #[::ffi_catch_abort] #[no_mangle]
-pub fn sq_verification_results_at_level<'a>(results: *const VerificationResults<'a>,
+pub fn pgp_verification_results_at_level<'a>(results: *const VerificationResults<'a>,
                                             level: size_t,
                                             r: *mut *const &'a VerificationResult,
                                             r_count: *mut size_t) {
@@ -1525,7 +1525,7 @@ pub fn sq_verification_results_at_level<'a>(results: *const VerificationResults<
 
 /// Returns the verification result code.
 #[::ffi_catch_abort] #[no_mangle]
-pub fn sq_verification_result_code(result: *const VerificationResult)
+pub fn pgp_verification_result_code(result: *const VerificationResult)
     -> c_int
 {
     let result = ffi_param_ref!(result);
@@ -1538,7 +1538,7 @@ pub fn sq_verification_result_code(result: *const VerificationResult)
 
 /// Returns the verification result code.
 #[::ffi_catch_abort] #[no_mangle]
-pub fn sq_verification_result_signature(result: *const VerificationResult)
+pub fn pgp_verification_result_signature(result: *const VerificationResult)
     -> *const packet::Signature
 {
     let result = ffi_param_ref!(result);
@@ -1553,7 +1553,7 @@ pub fn sq_verification_result_signature(result: *const VerificationResult)
 
 /// Returns the verification result code.
 #[::ffi_catch_abort] #[no_mangle]
-pub fn sq_verification_result_level(result: *const VerificationResult)
+pub fn pgp_verification_result_level(result: *const VerificationResult)
     -> c_int
 {
     let result = ffi_param_ref!(result);
@@ -1561,8 +1561,8 @@ pub fn sq_verification_result_level(result: *const VerificationResult)
 }
 
 
-/// Passed as the first argument to the callbacks used by sq_verify
-/// and sq_decrypt.
+/// Passed as the first argument to the callbacks used by pgp_verify
+/// and pgp_decrypt.
 pub struct HelperCookie {
 }
 
@@ -1730,7 +1730,7 @@ fn verify_real<'a>(input: &'a mut Box<'a + Read>,
 ///
 /// Note: output may be NULL, if the output is not required.
 #[::ffi_catch_abort] #[no_mangle]
-pub fn sq_verify<'a>(errp: Option<&mut *mut failure::Error>,
+pub fn pgp_verify<'a>(errp: Option<&mut *mut failure::Error>,
                      input: *mut Box<'a + Read>,
                      dsig: Option<&'a mut Box<'a + Read>>,
                      output: Option<&'a mut Box<'a + Write>>,
@@ -1853,7 +1853,7 @@ fn decrypt_real<'a>(input: &'a mut Box<'a + Read>,
 ///
 /// Note: all of the parameters are required; none may be NULL.
 #[::ffi_catch_abort] #[no_mangle]
-pub fn sq_decrypt<'a>(errp: Option<&mut *mut failure::Error>,
+pub fn pgp_decrypt<'a>(errp: Option<&mut *mut failure::Error>,
                       input: *mut Box<'a + Read>,
                       output: *mut Box<'a + Write>,
                       get_public_keys: GetPublicKeysCallback,

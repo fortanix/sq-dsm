@@ -12,7 +12,7 @@ use std::os::unix::io::FromRawFd;
 
 /// Opens a file returning a reader.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_reader_from_file(errp: Option<&mut *mut failure::Error>,
+pub extern "system" fn pgp_reader_from_file(errp: Option<&mut *mut failure::Error>,
                                            filename: *const c_char)
                                            -> *mut Box<Read> {
     ffi_make_fry_from_errp!(errp);
@@ -25,14 +25,14 @@ pub extern "system" fn sq_reader_from_file(errp: Option<&mut *mut failure::Error
 /// Opens a file descriptor returning a reader.
 #[cfg(unix)]
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_reader_from_fd(fd: c_int)
+pub extern "system" fn pgp_reader_from_fd(fd: c_int)
                                          -> *mut Box<Read> {
     box_raw!(Box::new(unsafe { File::from_raw_fd(fd) }))
 }
 
 /// Creates a reader from a buffer.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_reader_from_bytes(buf: *const uint8_t,
+pub extern "system" fn pgp_reader_from_bytes(buf: *const uint8_t,
                                             len: size_t)
                                             -> *mut Box<Read> {
     assert!(!buf.is_null());
@@ -44,13 +44,13 @@ pub extern "system" fn sq_reader_from_bytes(buf: *const uint8_t,
 
 /// Frees a reader.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_reader_free(reader: Option<&mut Box<Read>>) {
+pub extern "system" fn pgp_reader_free(reader: Option<&mut Box<Read>>) {
     ffi_free!(reader)
 }
 
 /// Reads up to `len` bytes into `buf`.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_reader_read(errp: Option<&mut *mut failure::Error>,
+pub extern "system" fn pgp_reader_read(errp: Option<&mut *mut failure::Error>,
                                       reader: *mut Box<Read>,
                                       buf: *mut uint8_t, len: size_t)
                                       -> ssize_t {
@@ -67,9 +67,9 @@ pub extern "system" fn sq_reader_read(errp: Option<&mut *mut failure::Error>,
 /// Opens a file returning a writer.
 ///
 /// The file will be created if it does not exist, or be truncated
-/// otherwise.  If you need more control, use `sq_writer_from_fd`.
+/// otherwise.  If you need more control, use `pgp_writer_from_fd`.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_writer_from_file(errp: Option<&mut *mut failure::Error>,
+pub extern "system" fn pgp_writer_from_file(errp: Option<&mut *mut failure::Error>,
                                            filename: *const c_char)
                                            -> *mut Box<Write> {
     ffi_make_fry_from_errp!(errp);
@@ -82,14 +82,14 @@ pub extern "system" fn sq_writer_from_file(errp: Option<&mut *mut failure::Error
 /// Opens a file descriptor returning a writer.
 #[cfg(unix)]
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_writer_from_fd(fd: c_int)
+pub extern "system" fn pgp_writer_from_fd(fd: c_int)
                                          -> *mut Box<Write> {
     box_raw!(Box::new(unsafe { File::from_raw_fd(fd) }))
 }
 
 /// Creates a writer from a buffer.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_writer_from_bytes(buf: *mut uint8_t,
+pub extern "system" fn pgp_writer_from_bytes(buf: *mut uint8_t,
                                             len: size_t)
                                             -> *mut Box<Write> {
     assert!(!buf.is_null());
@@ -108,7 +108,7 @@ pub extern "system" fn sq_writer_from_bytes(buf: *mut uint8_t,
 /// The caller is responsible to `free` it once the writer has been
 /// destroyed.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_writer_alloc(buf: *mut *mut c_void,
+pub extern "system" fn pgp_writer_alloc(buf: *mut *mut c_void,
                                        len: *mut size_t)
                                        -> *mut Box<Write> {
     let buf = ffi_param_ref_mut!(buf);
@@ -155,13 +155,13 @@ impl Write for WriterAlloc {
 
 /// Frees a writer.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_writer_free(writer: Option<&mut Box<Write>>) {
+pub extern "system" fn pgp_writer_free(writer: Option<&mut Box<Write>>) {
     ffi_free!(writer)
 }
 
 /// Writes up to `len` bytes of `buf` into `writer`.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_writer_write(errp: Option<&mut *mut failure::Error>,
+pub extern "system" fn pgp_writer_write(errp: Option<&mut *mut failure::Error>,
                                        writer: *mut Box<Write>,
                                        buf: *const uint8_t, len: size_t)
                                        -> ssize_t {

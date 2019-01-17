@@ -20,12 +20,12 @@ main (int argc, char **argv)
   struct stat st;
   int fd;
   uint8_t *b;
-  sq_status_t rc;
-  sq_error_t err;
+  pgp_status_t rc;
+  pgp_error_t err;
   int use_armor = 1;
-  sq_tpk_t tpk;
-  sq_writer_t sink;
-  sq_writer_stack_t writer = NULL;
+  pgp_tpk_t tpk;
+  pgp_writer_t sink;
+  pgp_writer_stack_t writer = NULL;
   void *cipher = NULL;
   size_t cipher_bytes = 0;
 
@@ -44,28 +44,28 @@ main (int argc, char **argv)
   if (b == MAP_FAILED)
     error (1, errno, "mmap");
 
-  tpk = sq_tpk_from_bytes (&err, b, st.st_size);
+  tpk = pgp_tpk_from_bytes (&err, b, st.st_size);
   if (tpk == NULL)
-    error (1, 0, "sq_packet_parser_from_bytes: %s", sq_error_string (err));
+    error (1, 0, "pgp_packet_parser_from_bytes: %s", pgp_error_string (err));
 
-  sink = sq_writer_alloc (&cipher, &cipher_bytes);
+  sink = pgp_writer_alloc (&cipher, &cipher_bytes);
 
   if (use_armor)
-    sink = sq_armor_writer_new (&err, sink, SQ_ARMOR_KIND_MESSAGE,
+    sink = pgp_armor_writer_new (&err, sink, PGP_ARMOR_KIND_MESSAGE,
                                 NULL, 0);
 
-  writer = sq_writer_stack_message (sink);
-  writer = sq_encryptor_new (&err,
+  writer = pgp_writer_stack_message (sink);
+  writer = pgp_encryptor_new (&err,
 			     writer,
 			     NULL, 0, /* no passwords */
 			     &tpk, 1,
-			     SQ_ENCRYPTION_MODE_FOR_TRANSPORT);
+			     PGP_ENCRYPTION_MODE_FOR_TRANSPORT);
   if (writer == NULL)
-    error (1, 0, "sq_encryptor_new: %s", sq_error_string (err));
+    error (1, 0, "pgp_encryptor_new: %s", pgp_error_string (err));
 
-  writer = sq_literal_writer_new (&err, writer);
+  writer = pgp_literal_writer_new (&err, writer);
   if (writer == NULL)
-    error (1, 0, "sq_literal_writer_new: %s", sq_error_string (err));
+    error (1, 0, "pgp_literal_writer_new: %s", pgp_error_string (err));
 
   size_t nread;
   uint8_t buf[4096];
@@ -75,19 +75,19 @@ main (int argc, char **argv)
       while (nread)
 	{
 	  ssize_t written;
-	  written = sq_writer_stack_write (&err, writer, b, nread);
+	  written = pgp_writer_stack_write (&err, writer, b, nread);
 	  if (written < 0)
-            error (1, 0, "sq_writer_stack_write: %s", sq_error_string (err));
+            error (1, 0, "pgp_writer_stack_write: %s", pgp_error_string (err));
 
 	  b += written;
 	  nread -= written;
 	}
     }
 
-  rc = sq_writer_stack_finalize (&err, writer);
+  rc = pgp_writer_stack_finalize (&err, writer);
   writer = NULL;
   if (rc)
-    error (1, 0, "sq_writer_stack_write: %s", sq_error_string (err));
+    error (1, 0, "pgp_writer_stack_write: %s", pgp_error_string (err));
 
   fwrite (cipher, 1, cipher_bytes, stdout);
 

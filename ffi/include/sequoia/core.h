@@ -25,7 +25,7 @@ typedef struct sq_context *sq_context_t;
 ///
 /// Returns and removes the last error from the context.
 /*/
-sq_error_t sq_context_last_error (sq_context_t ctx);
+pgp_error_t sq_context_last_error (sq_context_t ctx);
 
 /*/
 /// Represents a `Context` configuration.
@@ -132,7 +132,7 @@ typedef enum sq_ipc_policy {
 /// Returns `NULL` on errors.  If `errp` is not `NULL`, the error is
 /// stored there.
 /*/
-sq_context_t sq_context_new(const char *domain, sq_error_t *errp);
+sq_context_t sq_context_new(const char *domain, pgp_error_t *errp);
 
 /*/
 /// Frees a context.
@@ -191,7 +191,7 @@ uint8_t sq_context_ephemeral(const sq_context_t ctx);
 /// Consumes `cfg`.  Returns `NULL` on errors. Returns `NULL` on
 /// errors.  If `errp` is not `NULL`, the error is stored there.
 /*/
-sq_context_t sq_config_build(sq_config_t cfg, sq_error_t *errp);
+sq_context_t sq_config_build(sq_config_t cfg, pgp_error_t *errp);
 
 /*/
 /// Sets the directory containing shared state.

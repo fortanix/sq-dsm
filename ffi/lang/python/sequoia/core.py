@@ -30,14 +30,14 @@ class Context(SQObject):
         lib.sq_config_ipc_policy(cfg, ipc_policy.value)
         if ephemeral:
             lib.sq_config_ephemeral(cfg)
-        err = ffi.new("sq_error_t[1]")
+        err = ffi.new("pgp_error_t[1]")
         o = lib.sq_config_build(cfg, err)
         if o == ffi.NULL:
             raise Error._from(err[0])
         super(Context, self).__init__(o)
 
 class AbstractReader(SQObject, io.RawIOBase):
-    _del = lib.sq_reader_free
+    _del = lib.pgp_reader_free
 
     def readable(self):
         return True
@@ -46,7 +46,7 @@ class AbstractReader(SQObject, io.RawIOBase):
 
     def readinto(self, buf):
         return invoke(
-            lib.sq_reader_read,
+            lib.pgp_reader_read,
             self.ref(),
             ffi.cast("uint8_t *", ffi.from_buffer(buf)),
             len(buf))
@@ -65,24 +65,24 @@ class Reader(AbstractReader):
     @classmethod
     def open(cls, ctx, filename):
         return Reader(
-            invoke(lib.sq_reader_from_file,
+            invoke(lib.pgp_reader_from_file,
                    filename.encode()),
             context=ctx)
 
     @classmethod
     def from_fd(cls, ctx, fd):
-        return Reader(lib.sq_reader_from_fd(fd),
+        return Reader(lib.pgp_reader_from_fd(fd),
                       context=ctx)
 
     @classmethod
     def from_bytes(cls, ctx, buf):
         return Reader(
-            lib.sq_reader_from_bytes(
+            lib.pgp_reader_from_bytes(
                 ffi.cast("uint8_t *", ffi.from_buffer(buf)), len(buf)),
             context=ctx)
 
 class AbstractWriter(SQObject, io.RawIOBase):
-    _del = lib.sq_writer_free
+    _del = lib.pgp_writer_free
 
     def readable(self):
         return False
@@ -91,7 +91,7 @@ class AbstractWriter(SQObject, io.RawIOBase):
 
     def write(self, buf):
         return invoke(
-            lib.sq_writer_write,
+            lib.pgp_writer_write,
             self.ref(),
             ffi.cast("const uint8_t *", ffi.from_buffer(buf)),
             len(buf))
@@ -110,18 +110,18 @@ class Writer(AbstractWriter):
     @classmethod
     def open(cls, ctx, filename):
         return Writer(
-            invoke(lib.sq_writer_from_file,
+            invoke(lib.pgp_writer_from_file,
                    filename.encode()),
             context=ctx)
 
     @classmethod
     def from_fd(cls, ctx, fd):
-        return Writer(lib.sq_writer_from_fd(fd),
+        return Writer(lib.pgp_writer_from_fd(fd),
                       context=ctx)
 
     @classmethod
     def from_bytes(cls, ctx, buf):
         return Writer(
-            lib.sq_writer_from_bytes(
+            lib.pgp_writer_from_bytes(
                 ffi.cast("uint8_t *", ffi.from_buffer(buf)), len(buf)),
             context=ctx)

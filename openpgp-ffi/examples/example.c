@@ -16,8 +16,8 @@ main (int argc, char **argv)
   struct stat st;
   int fd;
   uint8_t *b;
-  sq_error_t err;
-  sq_tpk_t tpk;
+  pgp_error_t err;
+  pgp_tpk_t tpk;
 
   if (argc != 2)
     error (1, 0, "Usage: %s <file>", argv[0]);
@@ -33,12 +33,12 @@ main (int argc, char **argv)
   if (b == MAP_FAILED)
     error (1, errno, "mmap");
 
-  tpk = sq_tpk_from_bytes (&err, b, st.st_size);
+  tpk = pgp_tpk_from_bytes (&err, b, st.st_size);
   if (tpk == NULL)
-    error (1, 0, "sq_tpk_from_bytes: %s", sq_error_string (err));
+    error (1, 0, "pgp_tpk_from_bytes: %s", pgp_error_string (err));
 
-  sq_tpk_dump (tpk);
-  sq_tpk_free (tpk);
+  pgp_tpk_dump (tpk);
+  pgp_tpk_free (tpk);
   munmap (b, st.st_size);
   close (fd);
   return 0;

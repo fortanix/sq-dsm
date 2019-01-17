@@ -28,7 +28,7 @@ use ::error::Status;
 ///
 /// Note: this interface *does* buffer the contents of packets.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_packet_pile_from_reader(errp: Option<&mut *mut failure::Error>,
+pub extern "system" fn pgp_packet_pile_from_reader(errp: Option<&mut *mut failure::Error>,
                                                   reader: *mut Box<Read>)
                                                   -> *mut PacketPile {
     ffi_make_fry_from_errp!(errp);
@@ -39,9 +39,9 @@ pub extern "system" fn sq_packet_pile_from_reader(errp: Option<&mut *mut failure
 /// Deserializes the OpenPGP message stored in the file named by
 /// `filename`.
 ///
-/// See `sq_packet_pile_from_reader` for more details and caveats.
+/// See `pgp_packet_pile_from_reader` for more details and caveats.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_packet_pile_from_file(errp: Option<&mut *mut failure::Error>,
+pub extern "system" fn pgp_packet_pile_from_file(errp: Option<&mut *mut failure::Error>,
                                                 filename: *const c_char)
                                                 -> *mut PacketPile {
     ffi_make_fry_from_errp!(errp);
@@ -51,9 +51,9 @@ pub extern "system" fn sq_packet_pile_from_file(errp: Option<&mut *mut failure::
 
 /// Deserializes the OpenPGP message stored in the provided buffer.
 ///
-/// See `sq_packet_pile_from_reader` for more details and caveats.
+/// See `pgp_packet_pile_from_reader` for more details and caveats.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_packet_pile_from_bytes(errp: Option<&mut *mut failure::Error>,
+pub extern "system" fn pgp_packet_pile_from_bytes(errp: Option<&mut *mut failure::Error>,
                                                  b: *const uint8_t, len: size_t)
                                                  -> *mut PacketPile {
     ffi_make_fry_from_errp!(errp);
@@ -67,14 +67,14 @@ pub extern "system" fn sq_packet_pile_from_bytes(errp: Option<&mut *mut failure:
 
 /// Frees the packet_pile.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_packet_pile_free(packet_pile: Option<&mut PacketPile>)
+pub extern "system" fn pgp_packet_pile_free(packet_pile: Option<&mut PacketPile>)
 {
     ffi_free!(packet_pile)
 }
 
 /// Clones the PacketPile.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_packet_pile_clone(packet_pile: *const PacketPile)
+pub extern "system" fn pgp_packet_pile_clone(packet_pile: *const PacketPile)
                                             -> *mut PacketPile {
     let packet_pile = ffi_param_ref!(packet_pile);
     box_raw!(packet_pile.clone())
@@ -82,7 +82,7 @@ pub extern "system" fn sq_packet_pile_clone(packet_pile: *const PacketPile)
 
 /// Serializes the packet pile.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_packet_pile_serialize(errp: Option<&mut *mut failure::Error>,
+pub extern "system" fn pgp_packet_pile_serialize(errp: Option<&mut *mut failure::Error>,
                                                 packet_pile: *const PacketPile,
                                                 writer: *mut Box<Write>)
                                                 -> Status {

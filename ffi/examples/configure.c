@@ -10,7 +10,7 @@
 int
 main (int argc, char **argv)
 {
-  sq_error_t err;
+  pgp_error_t err;
   sq_config_t cfg;
   sq_context_t ctx;
   sq_keyserver_t ks;
@@ -20,18 +20,18 @@ main (int argc, char **argv)
   ctx = sq_config_build (cfg, &err);
   if (ctx == NULL)
     error (1, 0, "Initializing sequoia failed: %s",
-           sq_error_string (err));
+           pgp_error_string (err));
 
   ks = sq_keyserver_sks_pool (ctx);
   if (ks == NULL)
     {
-      sq_error_t err = sq_context_last_error (ctx);
-      assert (sq_error_status (err) == SQ_STATUS_NETWORK_POLICY_VIOLATION);
-      char *msg = sq_error_string (err);
+      pgp_error_t err = sq_context_last_error (ctx);
+      assert (pgp_error_status (err) == PGP_STATUS_NETWORK_POLICY_VIOLATION);
+      char *msg = pgp_error_string (err);
       error (0, 0, "Initializing KeyServer failed as expected: %s",
              msg);
       free (msg);
-      sq_error_free (err);
+      pgp_error_free (err);
     }
   else
     error (1, 0, "This should not be allowed");

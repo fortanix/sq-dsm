@@ -24,16 +24,16 @@ use build_hasher;
 /// #include <string.h>
 /// #include <sequoia/openpgp.h>
 ///
-/// sq_keyid_t mr_b = sq_keyid_from_bytes ("\xbb\xbb\xbb\xbb\xbb\xbb\xbb\xbb");
+/// pgp_keyid_t mr_b = pgp_keyid_from_bytes ("\xbb\xbb\xbb\xbb\xbb\xbb\xbb\xbb");
 ///
-/// char *mr_b_as_string = sq_keyid_to_string (mr_b);
+/// char *mr_b_as_string = pgp_keyid_to_string (mr_b);
 /// assert (strcmp (mr_b_as_string, "BBBB BBBB BBBB BBBB") == 0);
 ///
-/// sq_keyid_free (mr_b);
+/// pgp_keyid_free (mr_b);
 /// free (mr_b_as_string);
 /// ```
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_keyid_from_bytes(id: *const uint8_t) -> *mut KeyID {
+pub extern "system" fn pgp_keyid_from_bytes(id: *const uint8_t) -> *mut KeyID {
     assert!(!id.is_null());
     let id = unsafe { slice::from_raw_parts(id, 8) };
     Box::into_raw(Box::new(KeyID::from_bytes(id)))
@@ -41,7 +41,7 @@ pub extern "system" fn sq_keyid_from_bytes(id: *const uint8_t) -> *mut KeyID {
 
 /// Reads a hex-encoded Key ID.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_keyid_from_hex(id: *const c_char) -> *mut KeyID {
+pub extern "system" fn pgp_keyid_from_hex(id: *const c_char) -> *mut KeyID {
     let id = ffi_param_cstr!(id).to_string_lossy();
     KeyID::from_hex(&id)
         .map(|id| Box::into_raw(Box::new(id)))
@@ -50,13 +50,13 @@ pub extern "system" fn sq_keyid_from_hex(id: *const c_char) -> *mut KeyID {
 
 /// Frees an `KeyID` object.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_keyid_free(keyid: Option<&mut KeyID>) {
+pub extern "system" fn pgp_keyid_free(keyid: Option<&mut KeyID>) {
     ffi_free!(keyid)
 }
 
 /// Clones the KeyID.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_keyid_clone(id: *const KeyID)
+pub extern "system" fn pgp_keyid_clone(id: *const KeyID)
                                       -> *mut KeyID {
     let id = ffi_param_ref!(id);
     box_raw!(id.clone())
@@ -64,7 +64,7 @@ pub extern "system" fn sq_keyid_clone(id: *const KeyID)
 
 /// Hashes the KeyID.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_keyid_hash(id: *const KeyID)
+pub extern "system" fn pgp_keyid_hash(id: *const KeyID)
                                      -> uint64_t {
     let id = ffi_param_ref!(id);
     let mut hasher = build_hasher();
@@ -74,7 +74,7 @@ pub extern "system" fn sq_keyid_hash(id: *const KeyID)
 
 /// Converts the KeyID to its standard representation.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_keyid_to_string(id: *const KeyID)
+pub extern "system" fn pgp_keyid_to_string(id: *const KeyID)
                                           -> *mut c_char {
     let id = ffi_param_ref!(id);
     ffi_return_string!(id.to_string())
@@ -82,7 +82,7 @@ pub extern "system" fn sq_keyid_to_string(id: *const KeyID)
 
 /// Converts the KeyID to a hexadecimal number.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_keyid_to_hex(id: *const KeyID)
+pub extern "system" fn pgp_keyid_to_hex(id: *const KeyID)
                                        -> *mut c_char {
     let id = ffi_param_ref!(id);
     ffi_return_string!(id.to_hex())
@@ -90,7 +90,7 @@ pub extern "system" fn sq_keyid_to_hex(id: *const KeyID)
 
 /// Compares KeyIDs.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_keyid_equal(a: *const KeyID,
+pub extern "system" fn pgp_keyid_equal(a: *const KeyID,
                                       b: *const KeyID)
                                       -> bool {
     let a = ffi_param_ref!(a);

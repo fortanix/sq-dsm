@@ -29,65 +29,65 @@
 /// recurse into the packet, if it is a container, instead of getting
 /// the following packet.
 /*/
-typedef struct sq_packet_parser *sq_packet_parser_t;
+typedef struct pgp_packet_parser *pgp_packet_parser_t;
 
 /*/
 /// Like an `Option<PacketParser>`, but the `None` variant
 /// (`PacketParserEOF`) contains some summary information.
 /*/
-typedef struct sq_packet_parser_result *sq_packet_parser_result_t;
+typedef struct pgp_packet_parser_result *pgp_packet_parser_result_t;
 
 /*/
 /// The `None` variant of a `PacketParserResult`.
 /*/
-typedef struct sq_packet_parser_eof *sq_packet_parser_eof_t;
+typedef struct pgp_packet_parser_eof *pgp_packet_parser_eof_t;
 
 /* sequoia::openpgp::KeyID.  */
 
 /*/
 /// Holds a KeyID.
 /*/
-typedef struct sq_keyid *sq_keyid_t;
+typedef struct pgp_keyid *pgp_keyid_t;
 
 /*/
 /// Reads a binary key ID.
 /*/
-sq_keyid_t sq_keyid_from_bytes (const uint8_t *id);
+pgp_keyid_t pgp_keyid_from_bytes (const uint8_t *id);
 
 /*/
 /// Reads a hex-encoded Key ID.
 /*/
-sq_keyid_t sq_keyid_from_hex (const char *id);
+pgp_keyid_t pgp_keyid_from_hex (const char *id);
 
 /*/
-/// Frees a sq_keyid_t.
+/// Frees a pgp_keyid_t.
 /*/
-void sq_keyid_free (sq_keyid_t keyid);
+void pgp_keyid_free (pgp_keyid_t keyid);
 
 /*/
 /// Clones the KeyID.
 /*/
-sq_keyid_t sq_keyid_clone (sq_keyid_t keyid);
+pgp_keyid_t pgp_keyid_clone (pgp_keyid_t keyid);
 
 /*/
 /// Hashes the KeyID.
 /*/
-uint64_t sq_keyid_hash (sq_keyid_t keyid);
+uint64_t pgp_keyid_hash (pgp_keyid_t keyid);
 
 /*/
 /// Converts the KeyID to its standard representation.
 /*/
-char *sq_keyid_to_string (const sq_keyid_t fp);
+char *pgp_keyid_to_string (const pgp_keyid_t fp);
 
 /*/
 /// Converts the KeyID to a hexadecimal number.
 /*/
-char *sq_keyid_to_hex (const sq_keyid_t keyid);
+char *pgp_keyid_to_hex (const pgp_keyid_t keyid);
 
 /*/
 /// Compares KeyIDs.
 /*/
-int sq_keyid_equal (const sq_keyid_t a, const sq_keyid_t b);
+int pgp_keyid_equal (const pgp_keyid_t a, const pgp_keyid_t b);
 
 
 /* sequoia::openpgp::Fingerprint.  */
@@ -95,32 +95,32 @@ int sq_keyid_equal (const sq_keyid_t a, const sq_keyid_t b);
 /*/
 /// Holds a fingerprint.
 /*/
-typedef struct sq_fingerprint *sq_fingerprint_t;
+typedef struct pgp_fingerprint *pgp_fingerprint_t;
 
 /*/
 /// Reads a binary fingerprint.
 /*/
-sq_fingerprint_t sq_fingerprint_from_bytes (const uint8_t *buf, size_t len);
+pgp_fingerprint_t pgp_fingerprint_from_bytes (const uint8_t *buf, size_t len);
 
 /*/
 /// Reads a hexadecimal fingerprint.
 /*/
-sq_fingerprint_t sq_fingerprint_from_hex (const char *hex);
+pgp_fingerprint_t pgp_fingerprint_from_hex (const char *hex);
 
 /*/
-/// Frees a sq_fingerprint_t.
+/// Frees a pgp_fingerprint_t.
 /*/
-void sq_fingerprint_free (sq_fingerprint_t fp);
+void pgp_fingerprint_free (pgp_fingerprint_t fp);
 
 /*/
 /// Clones the Fingerprint.
 /*/
-sq_fingerprint_t sq_fingerprint_clone (sq_fingerprint_t fingerprint);
+pgp_fingerprint_t pgp_fingerprint_clone (pgp_fingerprint_t fingerprint);
 
 /*/
 /// Hashes the Fingerprint.
 /*/
-uint64_t sq_fingerprint_hash (sq_fingerprint_t fingerprint);
+uint64_t pgp_fingerprint_hash (pgp_fingerprint_t fingerprint);
 
 /*/
 /// Returns a reference to the raw Fingerprint.
@@ -128,43 +128,43 @@ uint64_t sq_fingerprint_hash (sq_fingerprint_t fingerprint);
 /// This returns a reference to the internal buffer that is valid as
 /// long as the fingerprint is.
 /*/
-uint8_t *sq_fingerprint_as_bytes (const sq_fingerprint_t fp, size_t *fp_len);
+uint8_t *pgp_fingerprint_as_bytes (const pgp_fingerprint_t fp, size_t *fp_len);
 
 /*/
 /// Converts the fingerprint to its standard representation.
 /*/
-char *sq_fingerprint_to_string (const sq_fingerprint_t fp);
+char *pgp_fingerprint_to_string (const pgp_fingerprint_t fp);
 
 /*/
 /// Converts the fingerprint to a hexadecimal number.
 /*/
-char *sq_fingerprint_to_hex (const sq_fingerprint_t fp);
+char *pgp_fingerprint_to_hex (const pgp_fingerprint_t fp);
 
 /*/
 /// Converts the fingerprint to a key ID.
 /*/
-sq_keyid_t sq_fingerprint_to_keyid (const sq_fingerprint_t fp);
+pgp_keyid_t pgp_fingerprint_to_keyid (const pgp_fingerprint_t fp);
 
 /*/
 /// Compares Fingerprints.
 /*/
-int sq_fingerprint_equal (const sq_fingerprint_t a, const sq_fingerprint_t b);
+int pgp_fingerprint_equal (const pgp_fingerprint_t a, const pgp_fingerprint_t b);
 
 /* sequoia::openpgp::RevocationStatus.  */
 
 /*/
 /// Holds a revocation status.
 /*/
-typedef struct sq_revocation_status *sq_revocation_status_t;
+typedef struct pgp_revocation_status *pgp_revocation_status_t;
 
-typedef enum sq_revocation_status_variant {
+typedef enum pgp_revocation_status_variant {
   /*/
   /// The key is definitely revoked.
   ///
   /// All self-revocations are returned, the most recent revocation
   /// first.
   /*/
-  SQ_REVOCATION_STATUS_REVOKED,
+  PGP_REVOCATION_STATUS_REVOKED,
 
   /*/
   /// We have a third-party revocation certificate that is allegedly
@@ -174,30 +174,30 @@ typedef enum sq_revocation_status_variant {
   /// All such certificates are returned.  The caller must check
   /// them manually.
   /*/
-  SQ_REVOCATION_STATUS_COULD_BE,
+  PGP_REVOCATION_STATUS_COULD_BE,
 
   /*/
   /// The key does not appear to be revoked, but perhaps an attacker
   /// has performed a DoS, which prevents us from seeing the
   /// revocation certificate.
   /*/
-  SQ_REVOCATION_STATUS_NOT_AS_FAR_AS_WE_KNOW,
+  PGP_REVOCATION_STATUS_NOT_AS_FAR_AS_WE_KNOW,
 
   /* Dummy value to make sure the enumeration has a defined size.  Do
      not use this value.  */
-  SQ_REVOCATION_STATUS_FORCE_WIDTH = INT_MAX,
-} sq_revocation_status_variant_t;
+  PGP_REVOCATION_STATUS_FORCE_WIDTH = INT_MAX,
+} pgp_revocation_status_variant_t;
 
 /*/
 /// Returns the revocation status's variant.
 /*/
-sq_revocation_status_variant_t sq_revocation_status_variant (
-    sq_revocation_status_t rs);
+pgp_revocation_status_variant_t pgp_revocation_status_variant (
+    pgp_revocation_status_t rs);
 
 /*/
 /// Frees the revocation status.
 /*/
-void sq_revocation_status_free (sq_revocation_status_t rs);
+void pgp_revocation_status_free (pgp_revocation_status_t rs);
 
 
 /* openpgp::armor.  */
@@ -207,49 +207,49 @@ void sq_revocation_status_free (sq_revocation_status_t rs);
 ///
 /// [RFC 4880, section 6.2]: https://tools.ietf.org/html/rfc4880#section-6.2
 /*/
-typedef enum sq_armor_kind {
+typedef enum pgp_armor_kind {
   /*/
   /// When reading an Armored file, accept any type.
   /*/
-  SQ_ARMOR_KIND_ANY,
+  PGP_ARMOR_KIND_ANY,
 
   /*/
   /// A generic OpenPGP message.
   /*/
-  SQ_ARMOR_KIND_MESSAGE,
+  PGP_ARMOR_KIND_MESSAGE,
 
   /*/
   /// A transferable public key.
   /*/
-  SQ_ARMOR_KIND_PUBLICKEY,
+  PGP_ARMOR_KIND_PUBLICKEY,
 
   /*/
   /// A transferable secret key.
   /*/
-  SQ_ARMOR_KIND_SECRETKEY,
+  PGP_ARMOR_KIND_SECRETKEY,
 
   /*/
   /// A detached signature.
   /*/
-  SQ_ARMOR_KIND_SIGNATURE,
+  PGP_ARMOR_KIND_SIGNATURE,
 
   /*/
   /// A generic file.  This is a GnuPG extension.
   /*/
-  SQ_ARMOR_KIND_FILE,
+  PGP_ARMOR_KIND_FILE,
 
   /* Dummy value to make sure the enumeration has a defined size.  Do
      not use this value.  */
-  SQ_ARMOR_KIND_FORCE_WIDTH = INT_MAX,
-} sq_armor_kind_t;
+  PGP_ARMOR_KIND_FORCE_WIDTH = INT_MAX,
+} pgp_armor_kind_t;
 
 /*/
 /// Represents a (key, value) pair in an armor header.
 /*/
-typedef struct sq_armor_header {
+typedef struct pgp_armor_header {
   char *key;
   char *value;
-} sq_armor_header_t;
+} pgp_armor_header_t;
 
 
 /*/
@@ -257,20 +257,20 @@ typedef struct sq_armor_header {
 ///
 /// A filter that strips ASCII Armor from a stream of data.
 /*/
-sq_reader_t sq_armor_reader_new (sq_reader_t inner, sq_armor_kind_t kind);
+pgp_reader_t pgp_armor_reader_new (pgp_reader_t inner, pgp_armor_kind_t kind);
 
 /*/
 /// Creates a `Reader` from a file.
 /*/
-sq_reader_t sq_armor_reader_from_file (sq_error_t *errp,
+pgp_reader_t pgp_armor_reader_from_file (pgp_error_t *errp,
 				       const char *filename,
-				       sq_armor_kind_t kind);
+				       pgp_armor_kind_t kind);
 
 /*/
 /// Creates a `Reader` from a buffer.
 /*/
-sq_reader_t sq_armor_reader_from_bytes (const uint8_t *b, size_t len,
-					sq_armor_kind_t kind);
+pgp_reader_t pgp_armor_reader_from_bytes (const uint8_t *b, size_t len,
+					pgp_armor_kind_t kind);
 
 
 /*/
@@ -278,9 +278,9 @@ sq_reader_t sq_armor_reader_from_bytes (const uint8_t *b, size_t len,
 ///
 /// Useful if the kind of data is not known in advance.  If the header
 /// has not been encountered yet (try reading some data first!), this
-/// function returns SQ_ARMOR_KIND_ANY.
+/// function returns PGP_ARMOR_KIND_ANY.
 /*/
-sq_armor_kind_t sq_armor_reader_kind (sq_reader_t reader);
+pgp_armor_kind_t pgp_armor_reader_kind (pgp_reader_t reader);
 
 /*/
 /// Returns the armored headers.
@@ -295,8 +295,8 @@ sq_armor_kind_t sq_armor_reader_kind (sq_reader_t reader);
 /// allocated with `malloc`, and the caller is responsible for freeing
 /// both the array and the strings.
 /*/
-sq_armor_header_t *sq_armor_reader_headers (sq_error_t *errp,
-					    sq_reader_t reader,
+pgp_armor_header_t *pgp_armor_reader_headers (pgp_error_t *errp,
+					    pgp_reader_t reader,
 					    size_t *len);
 
 
@@ -305,9 +305,9 @@ sq_armor_header_t *sq_armor_reader_headers (sq_error_t *errp,
 ///
 /// A filter that applies ASCII Armor to the data written to it.
 /*/
-sq_writer_t sq_armor_writer_new (sq_error_t *errp, sq_writer_t inner,
-				 sq_armor_kind_t kind,
-				 sq_armor_header_t *header, size_t header_len);
+pgp_writer_t pgp_armor_writer_new (pgp_error_t *errp, pgp_writer_t inner,
+				 pgp_armor_kind_t kind,
+				 pgp_armor_header_t *header, size_t header_len);
 
 
 
@@ -324,108 +324,108 @@ sq_writer_t sq_armor_writer_new (sq_error_t *errp, sq_writer_t inner,
 ///
 ///   [`Tag::from_numeric`]: enum.Tag.html#method.from_numeric
 /*/
-typedef enum sq_tag {
-    SQ_TAG_RESERVED0 = 0,
+typedef enum pgp_tag {
+    PGP_TAG_RESERVED0 = 0,
     /* Public-Key Encrypted Session Key Packet.  */
-    SQ_TAG_PKESK = 1,
-    SQ_TAG_SIGNATURE = 2,
+    PGP_TAG_PKESK = 1,
+    PGP_TAG_SIGNATURE = 2,
     /* Symmetric-Key Encrypted Session Key Packet.  */
-    SQ_TAG_SKESK = 3,
+    PGP_TAG_SKESK = 3,
     /* One-Pass Signature Packet.  */
-    SQ_TAG_ONE_PASS_SIG = 4,
-    SQ_TAG_SECRET_KEY = 5,
-    SQ_TAG_PUBLIC_KEY = 6,
-    SQ_TAG_SECRET_SUBKEY = 7,
-    SQ_TAG_COMPRESSED_DATA = 8,
+    PGP_TAG_ONE_PASS_SIG = 4,
+    PGP_TAG_SECRET_KEY = 5,
+    PGP_TAG_PUBLIC_KEY = 6,
+    PGP_TAG_SECRET_SUBKEY = 7,
+    PGP_TAG_COMPRESSED_DATA = 8,
     /* Symmetrically Encrypted Data Packet.  */
-    SQ_TAG_SED = 9,
-    SQ_TAG_MARKER = 10,
-    SQ_TAG_LITERAL = 11,
-    SQ_TAG_TRUST = 12,
-    SQ_TAG_USER_ID = 13,
-    SQ_TAG_PUBLIC_SUBKEY = 14,
+    PGP_TAG_SED = 9,
+    PGP_TAG_MARKER = 10,
+    PGP_TAG_LITERAL = 11,
+    PGP_TAG_TRUST = 12,
+    PGP_TAG_USER_ID = 13,
+    PGP_TAG_PUBLIC_SUBKEY = 14,
 
-    SQ_TAG_UNASSIGNED15 = 15,
-    SQ_TAG_UNASSIGNED16 = 16,
+    PGP_TAG_UNASSIGNED15 = 15,
+    PGP_TAG_UNASSIGNED16 = 16,
 
-    SQ_TAG_USER_ATTRIBUTE = 17,
+    PGP_TAG_USER_ATTRIBUTE = 17,
     /* Sym. Encrypted and Integrity Protected Data Packet.  */
-    SQ_TAG_SEIP = 18,
+    PGP_TAG_SEIP = 18,
     /* Modification Detection Code Packet.  */
-    SQ_TAG_MDC = 19,
+    PGP_TAG_MDC = 19,
 
     /* Unassigned packets (as of RFC4880).  */
-    SQ_TAG_UNASSIGNED20 = 20,
-    SQ_TAG_UNASSIGNED21 = 21,
-    SQ_TAG_UNASSIGNED22 = 22,
-    SQ_TAG_UNASSIGNED23 = 23,
-    SQ_TAG_UNASSIGNED24 = 24,
-    SQ_TAG_UNASSIGNED25 = 25,
-    SQ_TAG_UNASSIGNED26 = 26,
-    SQ_TAG_UNASSIGNED27 = 27,
-    SQ_TAG_UNASSIGNED28 = 28,
-    SQ_TAG_UNASSIGNED29 = 29,
+    PGP_TAG_UNASSIGNED20 = 20,
+    PGP_TAG_UNASSIGNED21 = 21,
+    PGP_TAG_UNASSIGNED22 = 22,
+    PGP_TAG_UNASSIGNED23 = 23,
+    PGP_TAG_UNASSIGNED24 = 24,
+    PGP_TAG_UNASSIGNED25 = 25,
+    PGP_TAG_UNASSIGNED26 = 26,
+    PGP_TAG_UNASSIGNED27 = 27,
+    PGP_TAG_UNASSIGNED28 = 28,
+    PGP_TAG_UNASSIGNED29 = 29,
 
-    SQ_TAG_UNASSIGNED30 = 30,
-    SQ_TAG_UNASSIGNED31 = 31,
-    SQ_TAG_UNASSIGNED32 = 32,
-    SQ_TAG_UNASSIGNED33 = 33,
-    SQ_TAG_UNASSIGNED34 = 34,
-    SQ_TAG_UNASSIGNED35 = 35,
-    SQ_TAG_UNASSIGNED36 = 36,
-    SQ_TAG_UNASSIGNED37 = 37,
-    SQ_TAG_UNASSIGNED38 = 38,
-    SQ_TAG_UNASSIGNED39 = 39,
+    PGP_TAG_UNASSIGNED30 = 30,
+    PGP_TAG_UNASSIGNED31 = 31,
+    PGP_TAG_UNASSIGNED32 = 32,
+    PGP_TAG_UNASSIGNED33 = 33,
+    PGP_TAG_UNASSIGNED34 = 34,
+    PGP_TAG_UNASSIGNED35 = 35,
+    PGP_TAG_UNASSIGNED36 = 36,
+    PGP_TAG_UNASSIGNED37 = 37,
+    PGP_TAG_UNASSIGNED38 = 38,
+    PGP_TAG_UNASSIGNED39 = 39,
 
-    SQ_TAG_UNASSIGNED40 = 40,
-    SQ_TAG_UNASSIGNED41 = 41,
-    SQ_TAG_UNASSIGNED42 = 42,
-    SQ_TAG_UNASSIGNED43 = 43,
-    SQ_TAG_UNASSIGNED44 = 44,
-    SQ_TAG_UNASSIGNED45 = 45,
-    SQ_TAG_UNASSIGNED46 = 46,
-    SQ_TAG_UNASSIGNED47 = 47,
-    SQ_TAG_UNASSIGNED48 = 48,
-    SQ_TAG_UNASSIGNED49 = 49,
+    PGP_TAG_UNASSIGNED40 = 40,
+    PGP_TAG_UNASSIGNED41 = 41,
+    PGP_TAG_UNASSIGNED42 = 42,
+    PGP_TAG_UNASSIGNED43 = 43,
+    PGP_TAG_UNASSIGNED44 = 44,
+    PGP_TAG_UNASSIGNED45 = 45,
+    PGP_TAG_UNASSIGNED46 = 46,
+    PGP_TAG_UNASSIGNED47 = 47,
+    PGP_TAG_UNASSIGNED48 = 48,
+    PGP_TAG_UNASSIGNED49 = 49,
 
-    SQ_TAG_UNASSIGNED50 = 50,
-    SQ_TAG_UNASSIGNED51 = 51,
-    SQ_TAG_UNASSIGNED52 = 52,
-    SQ_TAG_UNASSIGNED53 = 53,
-    SQ_TAG_UNASSIGNED54 = 54,
-    SQ_TAG_UNASSIGNED55 = 55,
-    SQ_TAG_UNASSIGNED56 = 56,
-    SQ_TAG_UNASSIGNED57 = 57,
-    SQ_TAG_UNASSIGNED58 = 58,
-    SQ_TAG_UNASSIGNED59 = 59,
+    PGP_TAG_UNASSIGNED50 = 50,
+    PGP_TAG_UNASSIGNED51 = 51,
+    PGP_TAG_UNASSIGNED52 = 52,
+    PGP_TAG_UNASSIGNED53 = 53,
+    PGP_TAG_UNASSIGNED54 = 54,
+    PGP_TAG_UNASSIGNED55 = 55,
+    PGP_TAG_UNASSIGNED56 = 56,
+    PGP_TAG_UNASSIGNED57 = 57,
+    PGP_TAG_UNASSIGNED58 = 58,
+    PGP_TAG_UNASSIGNED59 = 59,
 
     /* Experimental packets.  */
-    SQ_TAG_PRIVATE0 = 60,
-    SQ_TAG_PRIVATE1 = 61,
-    SQ_TAG_PRIVATE2 = 62,
-    SQ_TAG_PRIVATE3 = 63,
-} sq_tag_t;
+    PGP_TAG_PRIVATE0 = 60,
+    PGP_TAG_PRIVATE1 = 61,
+    PGP_TAG_PRIVATE2 = 62,
+    PGP_TAG_PRIVATE3 = 63,
+} pgp_tag_t;
 
 /*/
 /// Returns a human-readable tag name.
 /*/
-const char *sq_tag_to_string (sq_tag_t tag);
+const char *pgp_tag_to_string (pgp_tag_t tag);
 
 /*/
 /// Opaque types for all the Packets that Sequoia understands.
 /*/
-typedef struct sq_unknown *sq_unknown_t;
-typedef struct sq_signature *sq_signature_t;
-typedef struct sq_one_pass_sig *sq_one_pass_sig_t;
-typedef struct sq_p_key *sq_p_key_t;
-typedef struct sq_user_id *sq_user_id_t;
-typedef struct sq_user_attribute *sq_user_attribute_t;
-typedef struct sq_literal *sq_literal_t;
-typedef struct sq_compressed_data *sq_compressed_data_t;
-typedef struct sq_pkesk *sq_pkesk_t;
-typedef struct sq_skesk *sq_skesk_t;
-typedef struct sq_seip *sq_seip_t;
-typedef struct sq_mdc *sq_mdc_t;
+typedef struct pgp_unknown *pgp_unknown_t;
+typedef struct pgp_signature *pgp_signature_t;
+typedef struct pgp_one_pass_sig *pgp_one_pass_sig_t;
+typedef struct pgp_p_key *pgp_p_key_t;
+typedef struct pgp_user_id *pgp_user_id_t;
+typedef struct pgp_user_attribute *pgp_user_attribute_t;
+typedef struct pgp_literal *pgp_literal_t;
+typedef struct pgp_compressed_data *pgp_compressed_data_t;
+typedef struct pgp_pkesk *pgp_pkesk_t;
+typedef struct pgp_skesk *pgp_skesk_t;
+typedef struct pgp_seip *pgp_seip_t;
+typedef struct pgp_mdc *pgp_mdc_t;
 
 /*/
 /// The OpenPGP packets that Sequoia understands.
@@ -444,25 +444,25 @@ typedef struct sq_mdc *sq_mdc_t;
 ///
 ///   [Section 5 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5
 /*/
-typedef union sq_packet {
-  sq_unknown_t unknown;
-  sq_signature_t signature;
-  sq_one_pass_sig_t one_pass_sig;
-  sq_p_key_t key;
-  sq_user_id_t user_id;
-  sq_user_attribute_t user_attribute;
-  sq_literal_t literal;
-  sq_compressed_data_t compressed_data;
-  sq_pkesk_t pkesk;
-  sq_skesk_t skesk;
-  sq_seip_t seip;
-  sq_mdc_t mdc;
-} sq_packet_t;
+typedef union pgp_packet {
+  pgp_unknown_t unknown;
+  pgp_signature_t signature;
+  pgp_one_pass_sig_t one_pass_sig;
+  pgp_p_key_t key;
+  pgp_user_id_t user_id;
+  pgp_user_attribute_t user_attribute;
+  pgp_literal_t literal;
+  pgp_compressed_data_t compressed_data;
+  pgp_pkesk_t pkesk;
+  pgp_skesk_t skesk;
+  pgp_seip_t seip;
+  pgp_mdc_t mdc;
+} pgp_packet_t;
 
 /*/
 /// Frees the Packet.
 /*/
-void sq_packet_free (sq_packet_t p);
+void pgp_packet_free (pgp_packet_t p);
 
 /*/
 /// Returns the `Packet's` corresponding OpenPGP tag.
@@ -471,7 +471,7 @@ void sq_packet_free (sq_packet_t p);
 ///
 ///   [Section 4.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.3
 /*/
-sq_tag_t sq_packet_tag (sq_packet_t p);
+pgp_tag_t pgp_packet_tag (pgp_packet_t p);
 
 /*/
 /// Returns the parsed `Packet's` corresponding OpenPGP tag.
@@ -479,17 +479,17 @@ sq_tag_t sq_packet_tag (sq_packet_t p);
 /// Returns the packets tag, but only if it was successfully
 /// parsed into the corresponding packet type.  If e.g. a
 /// Signature Packet uses some unsupported methods, it is parsed
-/// into an `Packet::Unknown`.  `tag()` returns `SQ_TAG_SIGNATURE`,
+/// into an `Packet::Unknown`.  `tag()` returns `PGP_TAG_SIGNATURE`,
 /// whereas `kind()` returns `0`.
 /*/
-sq_tag_t sq_packet_kind (sq_packet_t p);
+pgp_tag_t pgp_packet_kind (pgp_packet_t p);
 
 /* openpgp::PacketPile.  */
 
 /*/
 /// A `PacketPile` holds a deserialized OpenPGP message.
 /*/
-typedef struct sq_packet_pile *sq_packet_pile_t;
+typedef struct pgp_packet_pile *pgp_packet_pile_t;
 
 /*/
 /// Deserializes the OpenPGP message stored in a `std::io::Read`
@@ -503,52 +503,52 @@ typedef struct sq_packet_pile *sq_packet_pile_t;
 ///
 /// Note: this interface *does* buffer the contents of packets.
 /*/
-sq_packet_pile_t sq_packet_pile_from_reader (sq_error_t *errp,
-					     sq_reader_t reader);
+pgp_packet_pile_t pgp_packet_pile_from_reader (pgp_error_t *errp,
+					     pgp_reader_t reader);
 
 /*/
 /// Deserializes the OpenPGP packet pile stored in the file named by
 /// `filename`.
 ///
-/// See `sq_packet_pile_from_reader` for more details and caveats.
+/// See `pgp_packet_pile_from_reader` for more details and caveats.
 /*/
-sq_packet_pile_t sq_packet_pile_from_file (sq_error_t *errp,
+pgp_packet_pile_t pgp_packet_pile_from_file (pgp_error_t *errp,
 					   const char *filename);
 
 /*/
 /// Deserializes the OpenPGP packet pile stored in the provided buffer.
 ///
-/// See `sq_packet_pile_from_reader` for more details and caveats.
+/// See `pgp_packet_pile_from_reader` for more details and caveats.
 /*/
-sq_packet_pile_t sq_packet_pile_from_bytes (sq_error_t *errp,
+pgp_packet_pile_t pgp_packet_pile_from_bytes (pgp_error_t *errp,
 					    const uint8_t *b, size_t len);
 
 /*/
 /// Frees the packet pile.
 /*/
-void sq_packet_pile_free (sq_packet_pile_t message);
+void pgp_packet_pile_free (pgp_packet_pile_t message);
 
 /*/
 /// Clones the packet pile.
 /*/
-sq_packet_pile_t sq_packet_pile_clone (sq_packet_pile_t message);
+pgp_packet_pile_t pgp_packet_pile_clone (pgp_packet_pile_t message);
 
 /*/
 /// Serializes the packet pile.
 /*/
-sq_status_t sq_packet_pile_serialize (sq_error_t *errp,
-				      const sq_packet_pile_t message,
-				      sq_writer_t writer);
+pgp_status_t pgp_packet_pile_serialize (pgp_error_t *errp,
+				      const pgp_packet_pile_t message,
+				      pgp_writer_t writer);
 
 /*/
 /// Frees the signature.
 /*/
-void sq_signature_free (sq_signature_t signature);
+void pgp_signature_free (pgp_signature_t signature);
 
 /*/
 /// Converts the signature to a packet.
 /*/
-sq_packet_t sq_signature_to_packet (sq_signature_t signature);
+pgp_packet_t pgp_signature_to_packet (pgp_signature_t signature);
 
 /*/
 /// Returns the value of the `Signature` packet's Issuer subpacket.
@@ -557,7 +557,7 @@ sq_packet_t sq_signature_to_packet (sq_signature_t signature);
 /// there is no Issuer subpacket, but there is an IssuerFingerprint
 /// subpacket, this still returns NULL.
 /*/
-sq_keyid_t sq_signature_issuer(sq_signature_t sig);
+pgp_keyid_t pgp_signature_issuer(pgp_signature_t sig);
 
 /*/
 /// Returns the value of the `Signature` packet's IssuerFingerprint subpacket.
@@ -566,49 +566,49 @@ sq_keyid_t sq_signature_issuer(sq_signature_t sig);
 /// Note: if there is no IssuerFingerprint subpacket, but there is an
 /// Issuer subpacket, this still returns NULL.
 /*/
-sq_fingerprint_t sq_signature_issuer_fingerprint(sq_signature_t sig);
+pgp_fingerprint_t pgp_signature_issuer_fingerprint(pgp_signature_t sig);
 
 /*/
 /// Returns whether the KeyFlags indicates that the key can be used to
 /// make certifications.
 /*/
-int sq_signature_can_certify(sq_signature_t signature);
+int pgp_signature_can_certify(pgp_signature_t signature);
 
 /*/
 /// Returns whether the KeyFlags indicates that the key can be used to
 /// make signatures.
 /*/
-int sq_signature_can_sign(sq_signature_t signature);
+int pgp_signature_can_sign(pgp_signature_t signature);
 
 /*/
 /// Returns whether the KeyFlags indicates that the key can be used to
 /// encrypt data for transport.
 /*/
-int sq_signature_can_encrypt_for_transport(sq_signature_t signature);
+int pgp_signature_can_encrypt_for_transport(pgp_signature_t signature);
 
 /*/
 /// Returns whether the KeyFlags indicates that the key can be used to
 /// encrypt data at rest.
 /*/
-int sq_signature_can_encrypt_at_rest(sq_signature_t signature);
+int pgp_signature_can_encrypt_at_rest(pgp_signature_t signature);
 
 /*/
 /// Returns whether the KeyFlags indicates that the key can be used
 /// for authentication.
 /*/
-int sq_signature_can_authenticate(sq_signature_t signature);
+int pgp_signature_can_authenticate(pgp_signature_t signature);
 
 /*/
 /// Returns whether the KeyFlags indicates that the key is a split
 /// key.
 /*/
-int sq_signature_is_split_key(sq_signature_t signature);
+int pgp_signature_is_split_key(pgp_signature_t signature);
 
 /*/
 /// Returns whether the KeyFlags indicates that the key is a group
 /// key.
 /*/
-int sq_signature_is_group_key(sq_signature_t signature);
+int pgp_signature_is_group_key(pgp_signature_t signature);
 
 /*/
 /// Returns whether the signature is alive.
@@ -616,7 +616,7 @@ int sq_signature_is_group_key(sq_signature_t signature);
 /// A signature is alive if the creation date is in the past, and the
 /// signature has not expired.
 /*/
-int sq_signature_alive(sq_signature_t signature);
+int pgp_signature_alive(pgp_signature_t signature);
 
 /*/
 /// Returns whether the signature is alive at the specified time.
@@ -624,17 +624,17 @@ int sq_signature_alive(sq_signature_t signature);
 /// A signature is alive if the creation date is in the past, and the
 /// signature has not expired at the specified time.
 /*/
-int sq_signature_alive_at(sq_signature_t signature, time_t when);
+int pgp_signature_alive_at(pgp_signature_t signature, time_t when);
 
 /*/
 /// Returns whether the signature is expired.
 /*/
-int sq_signature_expired(sq_signature_t signature);
+int pgp_signature_expired(pgp_signature_t signature);
 
 /*/
 /// Returns whether the signature is expired at the specified time.
 /*/
-int sq_signature_expired_at(sq_signature_t signature, time_t when);
+int pgp_signature_expired_at(pgp_signature_t signature, time_t when);
 
 /*/
 /// Returns the PKESK's recipient.
@@ -642,7 +642,7 @@ int sq_signature_expired_at(sq_signature_t signature, time_t when);
 /// The return value is a reference ot a `KeyID`.  The caller must not
 /// modify or free it.
 /*/
-sq_keyid_t sq_pkesk_recipient(sq_pkesk_t pkesk);
+pgp_keyid_t pgp_pkesk_recipient(pgp_pkesk_t pkesk);
 
 /*/
 /// Returns the session key.
@@ -652,48 +652,48 @@ sq_keyid_t sq_pkesk_recipient(sq_pkesk_t pkesk);
 /// is not written to it.  Either way, `key_len` is set to the size of
 /// the session key.
 /*/
-sq_status_t sq_pkesk_decrypt (sq_error_t *errp, sq_pkesk_t pkesk,
-                              sq_p_key_t secret_key,
+pgp_status_t pgp_pkesk_decrypt (pgp_error_t *errp, pgp_pkesk_t pkesk,
+                              pgp_p_key_t secret_key,
                               uint8_t *algo, /* XXX */
                               uint8_t *key, size_t *key_len);
 
-typedef enum sq_reason_for_revocation {
+typedef enum pgp_reason_for_revocation {
   /*/
   /// No reason specified (key revocations or cert revocations)
   /*/
-  SQ_REASON_FOR_REVOCATION_UNSPECIFIED,
+  PGP_REASON_FOR_REVOCATION_UNSPECIFIED,
 
   /*/
   /// Key is superseded (key revocations)
   /*/
-  SQ_REASON_FOR_REVOCATION_KEY_SUPERSEDED,
+  PGP_REASON_FOR_REVOCATION_KEY_SUPERSEDED,
 
   /*/
   /// Key material has been compromised (key revocations)
   /*/
-  SQ_REASON_FOR_REVOCATION_KEY_COMPROMISED,
+  PGP_REASON_FOR_REVOCATION_KEY_COMPROMISED,
 
   /*/
   /// Key is retired and no longer used (key revocations)
   /*/
-  SQ_REASON_FOR_REVOCATION_KEY_RETIRED,
+  PGP_REASON_FOR_REVOCATION_KEY_RETIRED,
 
   /*/
   /// User ID information is no longer valid (cert revocations)
   /*/
-  SQ_REASON_FOR_REVOCATION_UID_RETIRED,
+  PGP_REASON_FOR_REVOCATION_UID_RETIRED,
 
   /* Dummy value to make sure the enumeration has a defined size.  Do
      not use this value.  */
-  SQ_REASON_FOR_REVOCATION_FORCE_WIDTH = INT_MAX,
-} sq_reason_for_revocation_t;
+  PGP_REASON_FOR_REVOCATION_FORCE_WIDTH = INT_MAX,
+} pgp_reason_for_revocation_t;
 
 /* openpgp::tpk::UserIDBinding.  */
 
 /*/
 /// A `UserIDBinding`.
 /*/
-typedef struct sq_user_id_binding *sq_user_id_binding_t;
+typedef struct pgp_user_id_binding *pgp_user_id_binding_t;
 
 /*/
 /// Returns the user id.
@@ -704,34 +704,34 @@ typedef struct sq_user_id_binding *sq_user_id_binding_t;
 ///
 /// The caller must free the returned value.
 /*/
-char *sq_user_id_binding_user_id (sq_user_id_binding_t binding);
+char *pgp_user_id_binding_user_id (pgp_user_id_binding_t binding);
 
 /*/
 /// Returns a reference to the self-signature, if any.
 /*/
-sq_signature_t sq_user_id_binding_selfsig(sq_user_id_binding_t binding);
+pgp_signature_t pgp_user_id_binding_selfsig(pgp_user_id_binding_t binding);
 
 /* openpgp::tpk::UserIDBindingIter.  */
 
 /*/
 /// An iterator over `UserIDBinding`s.
 /*/
-typedef struct sq_user_id_binding_iter *sq_user_id_binding_iter_t;
+typedef struct pgp_user_id_binding_iter *pgp_user_id_binding_iter_t;
 
 /*/
 /// Returns the next element in the iterator.
 /*/
-sq_user_id_binding_t sq_user_id_binding_iter_next (sq_user_id_binding_iter_t iter);
+pgp_user_id_binding_t pgp_user_id_binding_iter_next (pgp_user_id_binding_iter_t iter);
 
-/// Frees an sq_user_id_binding_iter_t.
-void sq_user_id_binding_iter_free (sq_user_id_binding_iter_t iter);
+/// Frees an pgp_user_id_binding_iter_t.
+void pgp_user_id_binding_iter_free (pgp_user_id_binding_iter_t iter);
 
 /* openpgp::tpk::KeyIter.  */
 
 /*/
 /// An iterator over keys in a TPK.
 /*/
-typedef struct sq_tpk_key_iter *sq_tpk_key_iter_t;
+typedef struct pgp_tpk_key_iter *pgp_tpk_key_iter_t;
 
 /*/
 /// Returns the next key.  Returns NULL if there are no more elements.
@@ -744,12 +744,12 @@ typedef struct sq_tpk_key_iter *sq_tpk_key_iter_t;
 /// If rso is not NULL, this stores the key's revocation status in
 /// *rso.
 /*/
-sq_p_key_t sq_tpk_key_iter_next (sq_tpk_key_iter_t iter,
-                                 sq_signature_t *signature,
-                                 sq_revocation_status_t *rev);
+pgp_p_key_t pgp_tpk_key_iter_next (pgp_tpk_key_iter_t iter,
+                                 pgp_signature_t *signature,
+                                 pgp_revocation_status_t *rev);
 
-/// Frees an sq_tpk_key_iter_t.
-void sq_tpk_key_iter_free (sq_tpk_key_iter_t iter);
+/// Frees an pgp_tpk_key_iter_t.
+void pgp_tpk_key_iter_free (pgp_tpk_key_iter_t iter);
 
 /* openpgp::tpk.  */
 
@@ -762,7 +762,7 @@ void sq_tpk_key_iter_free (sq_tpk_key_iter_t iter);
 ///
 /// [RFC 4880, section 11.1]: https://tools.ietf.org/html/rfc4880#section-11.1
 /*/
-typedef struct sq_tpk *sq_tpk_t;
+typedef struct pgp_tpk *pgp_tpk_t;
 
 
 /*/
@@ -773,19 +773,19 @@ typedef struct sq_tpk *sq_tpk_t;
 ///
 /// [RFC 4880, section 11.2]: https://tools.ietf.org/html/rfc4880#section-11.2
 /*/
-typedef struct sq_tsk *sq_tsk_t;
+typedef struct pgp_tsk *pgp_tsk_t;
 
 
 /*/
 /// Returns the first TPK encountered in the reader.
 /*/
-sq_tpk_t sq_tpk_from_reader (sq_error_t *errp,
-			     sq_reader_t reader);
+pgp_tpk_t pgp_tpk_from_reader (pgp_error_t *errp,
+			     pgp_reader_t reader);
 
 /*/
 /// Returns the first TPK encountered in the file.
 /*/
-sq_tpk_t sq_tpk_from_file (sq_error_t *errp,
+pgp_tpk_t pgp_tpk_from_file (pgp_error_t *errp,
                            const char *filename);
 
 /*/
@@ -793,15 +793,15 @@ sq_tpk_t sq_tpk_from_file (sq_error_t *errp,
 ///
 /// Consumes `m`.
 /*/
-sq_tpk_t sq_tpk_from_packet_pile (sq_error_t *errp,
-				  sq_packet_pile_t m);
+pgp_tpk_t pgp_tpk_from_packet_pile (pgp_error_t *errp,
+				  pgp_packet_pile_t m);
 
 /*/
 /// Returns the first TPK found in `buf`.
 ///
 /// `buf` must be an OpenPGP-encoded TPK.
 /*/
-sq_tpk_t sq_tpk_from_bytes (sq_error_t *errp,
+pgp_tpk_t pgp_tpk_from_bytes (pgp_error_t *errp,
 			    const uint8_t *b, size_t len);
 
 /*/
@@ -809,30 +809,30 @@ sq_tpk_t sq_tpk_from_bytes (sq_error_t *errp,
 ///
 /// Consumes the packet parser result.
 /*/
-sq_tpk_t sq_tpk_from_packet_parser (sq_error_t *errp,
-                                    sq_packet_parser_result_t ppr);
+pgp_tpk_t pgp_tpk_from_packet_parser (pgp_error_t *errp,
+                                    pgp_packet_parser_result_t ppr);
 
 /*/
 /// Frees the TPK.
 /*/
-void sq_tpk_free (sq_tpk_t tpk);
+void pgp_tpk_free (pgp_tpk_t tpk);
 
 /*/
 /// Clones the TPK.
 /*/
-sq_tpk_t sq_tpk_clone (sq_tpk_t tpk);
+pgp_tpk_t pgp_tpk_clone (pgp_tpk_t tpk);
 
 /*/
 /// Compares TPKs.
 /*/
-int sq_tpk_equal (const sq_tpk_t a, const sq_tpk_t b);
+int pgp_tpk_equal (const pgp_tpk_t a, const pgp_tpk_t b);
 
 /*/
 /// Serializes the TPK.
 /*/
-sq_status_t sq_tpk_serialize (sq_error_t *errp,
-                              const sq_tpk_t tpk,
-                              sq_writer_t writer);
+pgp_status_t pgp_tpk_serialize (pgp_error_t *errp,
+                              const pgp_tpk_t tpk,
+                              pgp_writer_t writer);
 
 /*/
 /// Merges `other` into `tpk`.
@@ -842,9 +842,9 @@ sq_status_t sq_tpk_serialize (sq_error_t *errp,
 ///
 /// Consumes `tpk` and `other`.
 /*/
-sq_tpk_t sq_tpk_merge (sq_error_t *errp,
-                       sq_tpk_t tpk,
-                       sq_tpk_t other);
+pgp_tpk_t pgp_tpk_merge (pgp_error_t *errp,
+                       pgp_tpk_t tpk,
+                       pgp_tpk_t other);
 
 /*/
 /// Adds packets to the TPK.
@@ -855,26 +855,26 @@ sq_tpk_t sq_tpk_merge (sq_error_t *errp,
 /// Consumes `tpk` and the packets in `packets`.  The buffer, however,
 /// must be freed by the caller.
 /*/
-sq_tpk_t sq_tpk_merge_packets (sq_error_t *errp,
-                               sq_tpk_t tpk,
-                               sq_packet_t *packets,
+pgp_tpk_t pgp_tpk_merge_packets (pgp_error_t *errp,
+                               pgp_tpk_t tpk,
+                               pgp_packet_t *packets,
                                size_t packets_len);
 /*/
 /// Dumps the TPK.
 /*/
-void sq_tpk_dump (const sq_tpk_t tpk);
+void pgp_tpk_dump (const pgp_tpk_t tpk);
 
 /*/
 /// Returns the fingerprint.
 /*/
-sq_fingerprint_t sq_tpk_fingerprint (const sq_tpk_t tpk);
+pgp_fingerprint_t pgp_tpk_fingerprint (const pgp_tpk_t tpk);
 
 
 /*/
 /// Cast the public key into a secret key that allows using the secret
 /// parts of the containing keys.
 /*/
-sq_tsk_t sq_tpk_into_tsk (sq_tpk_t tpk);
+pgp_tsk_t pgp_tpk_into_tsk (pgp_tpk_t tpk);
 
 /*/
 /// Returns a reference to the TPK's primary key.
@@ -882,7 +882,7 @@ sq_tsk_t sq_tpk_into_tsk (sq_tpk_t tpk);
 /// The tpk still owns the key.  The caller should neither modify nor
 /// free the key.
 /*/
-sq_p_key_t sq_tpk_primary (sq_tpk_t tpk);
+pgp_p_key_t pgp_tpk_primary (pgp_tpk_t tpk);
 
 /*/
 /// Returns the TPK's revocation status.
@@ -891,17 +891,17 @@ sq_p_key_t sq_tpk_primary (sq_tpk_t tpk);
 /// not reflect whether an individual user id, user attribute or
 /// subkey has been revoked.
 /*/
-sq_revocation_status_t sq_tpk_revocation_status (sq_tpk_t tpk);
+pgp_revocation_status_t pgp_tpk_revocation_status (pgp_tpk_t tpk);
 
 /*/
 /// Writes a revocation certificate to the writer.
 ///
 /// This function consumes the writer.  It does *not* consume tpk.
 /*/
-sq_signature_t sq_tpk_revoke (sq_error_t *errp,
-                              sq_tpk_t tpk,
-                              sq_signer_t primary_signer,
-                              sq_reason_for_revocation_t code,
+pgp_signature_t pgp_tpk_revoke (pgp_error_t *errp,
+                              pgp_tpk_t tpk,
+                              pgp_signer_t primary_signer,
+                              pgp_reason_for_revocation_t code,
                               const char *reason);
 
 /*/
@@ -909,31 +909,31 @@ sq_signature_t sq_tpk_revoke (sq_error_t *errp,
 ///
 /// This function consumes the tpk.
 /*/
-sq_tpk_t sq_tpk_revoke_in_place (sq_error_t *errp,
-                                 sq_tpk_t tpk,
-                                 sq_signer_t primary_signer,
-                                 sq_reason_for_revocation_t code,
+pgp_tpk_t pgp_tpk_revoke_in_place (pgp_error_t *errp,
+                                 pgp_tpk_t tpk,
+                                 pgp_signer_t primary_signer,
+                                 pgp_reason_for_revocation_t code,
                                  const char *reason);
 
 /*/
 /// Returns whether the TPK has expired.
 /*/
-int sq_tpk_expired(sq_tpk_t tpk);
+int pgp_tpk_expired(pgp_tpk_t tpk);
 
 /*/
 /// Returns whether the TPK has expired at the specified time.
 /*/
-int sq_tpk_expired_at(sq_tpk_t tpk, time_t at);
+int pgp_tpk_expired_at(pgp_tpk_t tpk, time_t at);
 
 /*/
 /// Returns whether the TPK is alive.
 /*/
-int sq_tpk_alive(sq_tpk_t tpk);
+int pgp_tpk_alive(pgp_tpk_t tpk);
 
 /*/
 /// Returns whether the TPK is alive at the specified time.
 /*/
-int sq_tpk_alive_at(sq_tpk_t tpk, time_t at);
+int pgp_tpk_alive_at(pgp_tpk_t tpk, time_t at);
 
 /*/
 /// Changes the TPK's expiration.
@@ -943,103 +943,103 @@ int sq_tpk_alive_at(sq_tpk_t tpk, time_t at);
 ///
 /// This function consumes `tpk` and returns a new `TPK`.
 /*/
-sq_tpk_t sq_tpk_set_expiry(sq_error_t *errp,
-                           sq_tpk_t tpk,
+pgp_tpk_t pgp_tpk_set_expiry(pgp_error_t *errp,
+                           pgp_tpk_t tpk,
                            uint32_t expiry);
 
 /*/
 /// Returns whether the TPK includes any secret key material.
 /*/
-int sq_tpk_is_tsk(sq_tpk_t tpk);
+int pgp_tpk_is_tsk(pgp_tpk_t tpk);
 
 /*/
 /// Returns an iterator over the `UserIDBinding`s.
 /*/
-sq_user_id_binding_iter_t sq_tpk_user_id_binding_iter (sq_tpk_t tpk);
+pgp_user_id_binding_iter_t pgp_tpk_user_id_binding_iter (pgp_tpk_t tpk);
 
 /*/
 /// Returns an iterator over all `Key`s (both the primary key and any
 /// subkeys) in a TPK.
 /*/
-sq_tpk_key_iter_t sq_tpk_key_iter (sq_tpk_t tpk);
+pgp_tpk_key_iter_t pgp_tpk_key_iter (pgp_tpk_t tpk);
 
 /*/
 /// Returns the TPK's primary user id (if any).
 /*/
-char *sq_tpk_primary_user_id(sq_tpk_t tpk);
+char *pgp_tpk_primary_user_id(pgp_tpk_t tpk);
 
 /* TPKBuilder */
 
-typedef struct sq_tpk_builder *sq_tpk_builder_t;
+typedef struct pgp_tpk_builder *pgp_tpk_builder_t;
 
-typedef enum sq_tpk_cipher_suite {
+typedef enum pgp_tpk_cipher_suite {
   /*/
   /// EdDSA and ECDH over Curve25519 with SHA512 and AES256.
   /*/
-  SQ_TPK_CIPHER_SUITE_CV25519,
+  PGP_TPK_CIPHER_SUITE_CV25519,
 
   /*/
   /// 3072 bit RSA with SHA512 and AES256.
   /*/
-  SQ_TPK_CIPHER_SUITE_RSA3K,
+  PGP_TPK_CIPHER_SUITE_RSA3K,
 
   /* Dummy value to make sure the enumeration has a defined size.  Do
      not use this value.  */
-  SQ_TPK_CIPHER_SUITE_FORCE_WIDTH = INT_MAX,
-} sq_tpk_cipher_suite_t;
+  PGP_TPK_CIPHER_SUITE_FORCE_WIDTH = INT_MAX,
+} pgp_tpk_cipher_suite_t;
 
 /*/
-/// Creates a default `sq_tpk_builder_t`.
+/// Creates a default `pgp_tpk_builder_t`.
 /*/
-sq_tpk_builder_t sq_tpk_builder_default(void);
+pgp_tpk_builder_t pgp_tpk_builder_default(void);
 
 /*/
 /// Generates a key compliant to [Autocrypt Level 1].
 ///
 ///   [Autocrypt Level 1]: https://autocrypt.org/level1.html
 /*/
-sq_tpk_builder_t sq_tpk_builder_autocrypt(void);
+pgp_tpk_builder_t pgp_tpk_builder_autocrypt(void);
 
 /*/
-/// Frees an `sq_tpk_builder_t`.
+/// Frees an `pgp_tpk_builder_t`.
 /*/
-void sq_tpk_builder_free(sq_tpk_builder_t tpkb);
+void pgp_tpk_builder_free(pgp_tpk_builder_t tpkb);
 
 /*/
 /// Sets the encryption and signature algorithms for primary and all
 /// subkeys.
 /*/
-void sq_tpk_builder_set_cipher_suite(sq_tpk_builder_t *tpkb,
-				     sq_tpk_cipher_suite_t cs);
+void pgp_tpk_builder_set_cipher_suite(pgp_tpk_builder_t *tpkb,
+				     pgp_tpk_cipher_suite_t cs);
 
 /*/
 /// Adds a new user ID. The first user ID added replaces the default
 /// ID that is just the empty string.
 /*/
-void sq_tpk_builder_add_userid(sq_tpk_builder_t *tpkb, const char *uid);
+void pgp_tpk_builder_add_userid(pgp_tpk_builder_t *tpkb, const char *uid);
 
 /*/
 /// Adds a signing capable subkey.
 /*/
-void sq_tpk_builder_add_signing_subkey(sq_tpk_builder_t *tpkb);
+void pgp_tpk_builder_add_signing_subkey(pgp_tpk_builder_t *tpkb);
 
 /*/
 /// Adds an encryption capable subkey.
 /*/
-void sq_tpk_builder_add_encryption_subkey(sq_tpk_builder_t *tpkb);
+void pgp_tpk_builder_add_encryption_subkey(pgp_tpk_builder_t *tpkb);
 
 /*/
 /// Adds an certification capable subkey.
 /*/
-void sq_tpk_builder_add_certification_subkey(sq_tpk_builder_t *tpkb);
+void pgp_tpk_builder_add_certification_subkey(pgp_tpk_builder_t *tpkb);
 
 /*/
 /// Generates the actual TPK.
 ///
 /// Consumes `tpkb`.
 /*/
-sq_tpk_t sq_tpk_builder_generate(sq_error_t *errp, sq_tpk_builder_t tpkb,
-                                 sq_tpk_t *tpk, sq_signature_t *revocation);
+pgp_tpk_t pgp_tpk_builder_generate(pgp_error_t *errp, pgp_tpk_builder_t tpkb,
+                                 pgp_tpk_t *tpk, pgp_signature_t *revocation);
 
 
 /* TSK */
@@ -1047,47 +1047,47 @@ sq_tpk_t sq_tpk_builder_generate(sq_error_t *errp, sq_tpk_builder_t tpkb,
 /*/
 /// Generates a new RSA 3072 bit key with UID `primary_uid`.
 /*/
-sq_status_t sq_tsk_new (sq_error_t *errp, char *primary_uid,
-                        sq_tsk_t *tpk, sq_signature_t *revocation);
+pgp_status_t pgp_tsk_new (pgp_error_t *errp, char *primary_uid,
+                        pgp_tsk_t *tpk, pgp_signature_t *revocation);
 
 /*/
 /// Frees the TSK.
 /*/
-void sq_tsk_free (sq_tsk_t tsk);
+void pgp_tsk_free (pgp_tsk_t tsk);
 
 /*/
 /// Returns a reference to the corresponding TPK.
 /*/
-sq_tpk_t sq_tsk_tpk (sq_tsk_t tsk);
+pgp_tpk_t pgp_tsk_tpk (pgp_tsk_t tsk);
 
 /*/
 /// Converts the TSK into a TPK.
 /*/
-sq_tpk_t sq_tsk_into_tpk (sq_tsk_t tsk);
+pgp_tpk_t pgp_tsk_into_tpk (pgp_tsk_t tsk);
 
 /*/
 /// Serializes the TSK.
 /*/
-sq_status_t sq_tsk_serialize (sq_error_t *errp,
-                              const sq_tsk_t tsk,
-                              sq_writer_t writer);
+pgp_status_t pgp_tsk_serialize (pgp_error_t *errp,
+                              const pgp_tsk_t tsk,
+                              pgp_writer_t writer);
 
 /*/
 /// Clones the key.
 /*/
-sq_p_key_t sq_p_key_clone (sq_p_key_t key);
+pgp_p_key_t pgp_p_key_clone (pgp_p_key_t key);
 
 /*/
 /// Computes and returns the key's fingerprint as per Section 12.2
 /// of RFC 4880.
 /*/
-sq_fingerprint_t sq_p_key_fingerprint (sq_p_key_t p);
+pgp_fingerprint_t pgp_p_key_fingerprint (pgp_p_key_t p);
 
 /*/
 /// Computes and returns the key's key ID as per Section 12.2 of RFC
 /// 4880.
 /*/
-sq_keyid_t sq_p_key_keyid (sq_p_key_t p);
+pgp_keyid_t pgp_p_key_keyid (pgp_p_key_t p);
 
 /*/
 /// Returns whether the key is expired according to the provided
@@ -1097,12 +1097,12 @@ sq_keyid_t sq_p_key_keyid (sq_p_key_t p);
 /// checked for validity.  That is, we do not check whether the
 /// signature is a valid self-signature for the given key.
 /*/
-int sq_p_key_expired(sq_p_key_t key, sq_signature_t self_signature);
+int pgp_p_key_expired(pgp_p_key_t key, pgp_signature_t self_signature);
 
 /*/
-/// Like sq_p_key_expired, but at a specific time.
+/// Like pgp_p_key_expired, but at a specific time.
 /*/
-int sq_p_key_expired_at(sq_p_key_t key, sq_signature_t self_signature,
+int pgp_p_key_expired_at(pgp_p_key_t key, pgp_signature_t self_signature,
                         time_t when);
 
 /*/
@@ -1116,74 +1116,74 @@ int sq_p_key_expired_at(sq_p_key_t key, sq_signature_t self_signature,
 /// checked for validity.  That is, we do not check whether the
 /// signature is a valid self-signature for the given key.
 /*/
-int sq_p_key_alive(sq_p_key_t key, sq_signature_t self_signature);
+int pgp_p_key_alive(pgp_p_key_t key, pgp_signature_t self_signature);
 
 /*/
-/// Like sq_p_key_alive, but at a specific time.
+/// Like pgp_p_key_alive, but at a specific time.
 /*/
-int sq_p_key_alive_at(sq_p_key_t key, sq_signature_t self_signature,
+int pgp_p_key_alive_at(pgp_p_key_t key, pgp_signature_t self_signature,
                       time_t when);
 
-typedef enum sq_public_key_algorithm {
+typedef enum pgp_public_key_algorithm {
   /*/
   /// RSA (Encrypt or Sign)
   /*/
-  SQ_PUBLIC_KEY_ALGO_RSA_ENCRYPT_SIGN,
+  PGP_PUBLIC_KEY_ALGO_RSA_ENCRYPT_SIGN,
 
   /*/
   /// RSA Encrypt-Only
   /*/
-  SQ_PUBLIC_KEY_ALGO_RSA_ENCRYPT,
+  PGP_PUBLIC_KEY_ALGO_RSA_ENCRYPT,
 
   /*/
   /// RSA Sign-Only
   /*/
-  SQ_PUBLIC_KEY_ALGO_RSA_SIGN,
+  PGP_PUBLIC_KEY_ALGO_RSA_SIGN,
 
   /*/
   /// Elgamal (Encrypt-Only)
   /*/
-  SQ_PUBLIC_KEY_ALGO_ELGAMAL_ENCRYPT,
+  PGP_PUBLIC_KEY_ALGO_ELGAMAL_ENCRYPT,
 
   /*/
   /// DSA (Digital Signature Algorithm)
   /*/
-  SQ_PUBLIC_KEY_ALGO_DSA,
+  PGP_PUBLIC_KEY_ALGO_DSA,
 
   /*/
   /// Elliptic curve DH
   /*/
-  SQ_PUBLIC_KEY_ALGO_ECDH,
+  PGP_PUBLIC_KEY_ALGO_ECDH,
 
   /*/
   /// Elliptic curve DSA
   /*/
-  SQ_PUBLIC_KEY_ALGO_ECDSA,
+  PGP_PUBLIC_KEY_ALGO_ECDSA,
 
   /*/
   /// Elgamal (Encrypt or Sign)
   /*/
-  SQ_PUBLIC_KEY_ALGO_ELGAMAL_ENCRYPT_SIGN,
+  PGP_PUBLIC_KEY_ALGO_ELGAMAL_ENCRYPT_SIGN,
 
   /*/
   /// "Twisted" Edwards curve DSA
   /*/
-  SQ_PUBLIC_KEY_ALGO_EDDSA,
+  PGP_PUBLIC_KEY_ALGO_EDDSA,
 
   /* Dummy value to make sure the enumeration has a defined size.  Do
      not use this value.  */
-  SQ_PUBLIC_KEY_ALGO_FORCE_WIDTH = INT_MAX,
+  PGP_PUBLIC_KEY_ALGO_FORCE_WIDTH = INT_MAX,
 } sq_public_key_algo_t;
 
 /*/
 /// Returns the key's public key algorithm.
 /*/
-sq_public_key_algo_t sq_p_key_public_key_algo(sq_p_key_t key);
+sq_public_key_algo_t pgp_p_key_public_key_algo(pgp_p_key_t key);
 
 /*/
 /// Returns the public key's size in bits.
 /*/
-int sq_p_key_public_key_bits(sq_p_key_t key);
+int pgp_p_key_public_key_bits(pgp_p_key_t key);
 
 /*/
 /// Creates a new key pair from a Key packet with an unencrypted
@@ -1193,7 +1193,7 @@ int sq_p_key_public_key_bits(sq_p_key_t key);
 ///
 /// Fails if the secret key is missing, or encrypted.
 /*/
-sq_key_pair_t sq_p_key_into_key_pair (sq_error_t *errp, sq_p_key_t key);
+pgp_key_pair_t pgp_p_key_into_key_pair (pgp_error_t *errp, pgp_p_key_t key);
 
 /*/
 /// Returns the value of the User ID Packet.
@@ -1201,7 +1201,7 @@ sq_key_pair_t sq_p_key_into_key_pair (sq_error_t *errp, sq_p_key_t key);
 /// The returned pointer is valid until `uid` is deallocated.  If
 /// `value_len` is not `NULL`, the size of value is stored there.
 /*/
-const uint8_t *sq_user_id_value (sq_user_id_t uid,
+const uint8_t *pgp_user_id_value (pgp_user_id_t uid,
 				 size_t *value_len);
 
 /*/
@@ -1210,7 +1210,7 @@ const uint8_t *sq_user_id_value (sq_user_id_t uid,
 /// The returned pointer is valid until `ua` is deallocated.  If
 /// `value_len` is not `NULL`, the size of value is stored there.
 /*/
-const uint8_t *sq_user_attribute_value (sq_user_attribute_t ua,
+const uint8_t *pgp_user_attribute_value (pgp_user_attribute_t ua,
 					size_t *value_len);
 
 /*/
@@ -1221,7 +1221,7 @@ const uint8_t *sq_user_attribute_value (sq_user_attribute_t ua,
 /// is not written to it.  Either way, `key_len` is set to the size of
 /// the session key.
 /*/
-sq_status_t sq_skesk_decrypt (sq_error_t *errp, sq_skesk_t skesk,
+pgp_status_t pgp_skesk_decrypt (pgp_error_t *errp, pgp_skesk_t skesk,
                               const uint8_t *password, size_t password_len,
                               uint8_t *algo, /* XXX */
                               uint8_t *key, size_t *key_len);
@@ -1229,26 +1229,26 @@ sq_status_t sq_skesk_decrypt (sq_error_t *errp, sq_skesk_t skesk,
 /*/
 /// Returns the key's creation time.
 /*/
-uint32_t sq_p_key_creation_time (sq_p_key_t p);
+uint32_t pgp_p_key_creation_time (pgp_p_key_t p);
 
 /* openpgp::parse.  */
 
 /*/
-/// Starts parsing an OpenPGP message stored in a `sq_reader_t` object.
+/// Starts parsing an OpenPGP message stored in a `pgp_reader_t` object.
 /*/
-sq_packet_parser_result_t sq_packet_parser_from_reader (sq_error_t *errp,
-                                                        sq_reader_t reader);
+pgp_packet_parser_result_t pgp_packet_parser_from_reader (pgp_error_t *errp,
+                                                        pgp_reader_t reader);
 
 /*/
 /// Starts parsing an OpenPGP message stored in a file named `path`.
 /*/
-sq_packet_parser_result_t sq_packet_parser_from_file (sq_error_t *errp,
+pgp_packet_parser_result_t pgp_packet_parser_from_file (pgp_error_t *errp,
                                                       const char *filename);
 
 /*/
 /// Starts parsing an OpenPGP message stored in a buffer.
 /*/
-sq_packet_parser_result_t sq_packet_parser_from_bytes (sq_error_t *errp,
+pgp_packet_parser_result_t pgp_packet_parser_from_bytes (pgp_error_t *errp,
                                                        const uint8_t *b,
                                                        size_t len);
 
@@ -1260,7 +1260,7 @@ sq_packet_parser_result_t sq_packet_parser_from_bytes (sq_error_t *errp,
 /// This function does not consume the ppr.
 ///
 /// Returns 0 if the PacketParserResult does not contain a packet.
-sq_tag_t sq_packet_parser_result_tag(sq_packet_parser_result_t ppr);
+pgp_tag_t pgp_packet_parser_result_tag(pgp_packet_parser_result_t ppr);
 
 /*/
 /// If the `PacketParserResult` contains a `PacketParser`, returns it,
@@ -1268,15 +1268,15 @@ sq_tag_t sq_packet_parser_result_tag(sq_packet_parser_result_t ppr);
 ///
 /// If the `PacketParser` reached EOF, then the `PacketParserResult`
 /// contains a `PacketParserEOF` and you should use
-/// `sq_packet_parser_result_eof` to get it.
+/// `pgp_packet_parser_result_eof` to get it.
 ///
 /// If this function returns a `PacketParser`, then it consumes the
 /// `PacketParserResult` and ownership of the `PacketParser` is
 /// returned to the caller, i.e., the caller is responsible for
 /// ensuring that the `PacketParser` is freed.
 /*/
-sq_packet_parser_t sq_packet_parser_result_packet_parser (
-    sq_packet_parser_result_t ppr);
+pgp_packet_parser_t pgp_packet_parser_result_packet_parser (
+    pgp_packet_parser_result_t ppr);
 
 /*/
 /// If the `PacketParserResult` contains a `PacketParserEOF`, returns
@@ -1284,40 +1284,40 @@ sq_packet_parser_t sq_packet_parser_result_packet_parser (
 ///
 /// If the `PacketParser` did not yet reach EOF, then the
 /// `PacketParserResult` contains a `PacketParser` and you should use
-/// `sq_packet_parser_result_packet_parser` to get it.
+/// `pgp_packet_parser_result_packet_parser` to get it.
 ///
 /// If this function returns a `PacketParserEOF`, then it consumes the
 /// `PacketParserResult` and ownership of the `PacketParserEOF` is
 /// returned to the caller, i.e., the caller is responsible for
 /// ensuring that the `PacketParserEOF` is freed.
 /*/
-sq_packet_parser_eof_t sq_packet_parser_result_eof (
-    sq_packet_parser_result_t ppr);
+pgp_packet_parser_eof_t pgp_packet_parser_result_eof (
+    pgp_packet_parser_result_t ppr);
 
 /*/
 /// Frees the packet parser result.
 /*/
-void sq_packet_parser_result_free (sq_packet_parser_result_t ppr);
+void pgp_packet_parser_result_free (pgp_packet_parser_result_t ppr);
 
 /*/
 /// Frees the packet parser.
 /*/
-void sq_packet_parser_free (sq_packet_parser_t pp);
+void pgp_packet_parser_free (pgp_packet_parser_t pp);
 
 /*/
 /// Returns whether the message is a well-formed OpenPGP message.
 /*/
-int sq_packet_parser_eof_is_message(sq_packet_parser_eof_t eof);
+int pgp_packet_parser_eof_is_message(pgp_packet_parser_eof_t eof);
 
 /*/
 /// Frees the packet parser EOF object.
 /*/
-void sq_packet_parser_eof_free (sq_packet_parser_eof_t eof);
+void pgp_packet_parser_eof_free (pgp_packet_parser_eof_t eof);
 
 /*/
 /// Returns a reference to the packet that is being parsed.
 /*/
-sq_packet_t sq_packet_parser_packet (sq_packet_parser_t pp);
+pgp_packet_t pgp_packet_parser_packet (pgp_packet_parser_t pp);
 
 /*/
 /// Returns the current packet's recursion depth.
@@ -1325,7 +1325,7 @@ sq_packet_t sq_packet_parser_packet (sq_packet_parser_t pp);
 /// A top-level packet has a recursion depth of 0.  Packets in a
 /// top-level container have a recursion depth of 1, etc.
 /*/
-uint8_t sq_packet_parser_recursion_depth (sq_packet_parser_t pp);
+uint8_t pgp_packet_parser_recursion_depth (pgp_packet_parser_t pp);
 
 /*/
 /// Finishes parsing the current packet and starts parsing the
@@ -1397,10 +1397,10 @@ uint8_t sq_packet_parser_recursion_depth (sq_packet_parser_t pp);
 ///
 /// Consumes the given packet parser.
 /*/
-sq_status_t sq_packet_parser_next (sq_error_t *errp,
-                                   sq_packet_parser_t pp,
-                                   sq_packet_t *old_packet,
-                                   sq_packet_parser_result_t *ppr);
+pgp_status_t pgp_packet_parser_next (pgp_error_t *errp,
+                                   pgp_packet_parser_t pp,
+                                   pgp_packet_t *old_packet,
+                                   pgp_packet_parser_result_t *ppr);
 
 /*/
 /// Finishes parsing the current packet and starts parsing the
@@ -1424,10 +1424,10 @@ sq_status_t sq_packet_parser_next (sq_error_t *errp,
 ///
 /// Consumes the given packet parser.
 /*/
-sq_status_t sq_packet_parser_recurse (sq_error_t *errp,
-                                      sq_packet_parser_t pp,
-                                      sq_packet_t *old_packet,
-                                      sq_packet_parser_result_t *ppr);
+pgp_status_t pgp_packet_parser_recurse (pgp_error_t *errp,
+                                      pgp_packet_parser_t pp,
+                                      pgp_packet_t *old_packet,
+                                      pgp_packet_parser_result_t *ppr);
 
 /*/
 /// Causes the PacketParser to buffer the packet's contents.
@@ -1437,8 +1437,8 @@ sq_status_t sq_packet_parser_recurse (sq_error_t *errp,
 /// prefer streaming its content unless you are certain that the
 /// content is small.
 /*/
-uint8_t *sq_packet_parser_buffer_unread_content (sq_error_t *errp,
-                                                 sq_packet_parser_t pp,
+uint8_t *pgp_packet_parser_buffer_unread_content (pgp_error_t *errp,
+                                                 pgp_packet_parser_t pp,
                                                  size_t *len);
 
 /*/
@@ -1447,9 +1447,9 @@ uint8_t *sq_packet_parser_buffer_unread_content (sq_error_t *errp,
 /// By default, this drops any unread content.  Use, for instance,
 /// `PacketParserBuild` to customize the default behavior.
 /*/
-sq_status_t sq_packet_parser_finish (sq_error_t *errp,
-                                     sq_packet_parser_t pp,
-				     sq_packet_t **packet);
+pgp_status_t pgp_packet_parser_finish (pgp_error_t *errp,
+                                     pgp_packet_parser_t pp,
+				     pgp_packet_t **packet);
 
 /*/
 /// Tries to decrypt the current packet.
@@ -1462,46 +1462,46 @@ sq_status_t sq_packet_parser_finish (sq_error_t *errp,
 /// encrypted data, or some of the data was already read, then it
 /// returns `Error::InvalidOperation`.
 /*/
-sq_status_t sq_packet_parser_decrypt (sq_error_t *errp,
-                                      sq_packet_parser_t pp,
+pgp_status_t pgp_packet_parser_decrypt (pgp_error_t *errp,
+                                      pgp_packet_parser_t pp,
                                       uint8_t algo, /* XXX */
                                       uint8_t *key, size_t key_len);
 
-typedef struct sq_writer_stack *sq_writer_stack_t;
+typedef struct pgp_writer_stack *pgp_writer_stack_t;
 
 /*/
 /// Streams an OpenPGP message.
 /*/
-sq_writer_stack_t sq_writer_stack_message (sq_writer_t writer);
+pgp_writer_stack_t pgp_writer_stack_message (pgp_writer_t writer);
 
 /*/
 /// Writes up to `len` bytes of `buf` into `writer`.
 /*/
-ssize_t sq_writer_stack_write (sq_error_t *errp, sq_writer_stack_t writer,
+ssize_t pgp_writer_stack_write (pgp_error_t *errp, pgp_writer_stack_t writer,
                                const uint8_t *buf, size_t len);
 
 /*/
 /// Writes up to `len` bytes of `buf` into `writer`.
 ///
-/// Unlike sq_writer_stack_write, unless an error occurs, the whole
+/// Unlike pgp_writer_stack_write, unless an error occurs, the whole
 /// buffer will be written.  Also, this version automatically catches
 /// EINTR.
 /*/
-sq_status_t sq_writer_stack_write_all (sq_error_t *errp,
-                                       sq_writer_stack_t writer,
+pgp_status_t pgp_writer_stack_write_all (pgp_error_t *errp,
+                                       pgp_writer_stack_t writer,
                                        const uint8_t *buf, size_t len);
 
 /*/
 /// Finalizes this writer, returning the underlying writer.
 /*/
-sq_writer_stack_t sq_writer_stack_finalize_one (sq_error_t *errp,
-                                                sq_writer_stack_t writer);
+pgp_writer_stack_t pgp_writer_stack_finalize_one (pgp_error_t *errp,
+                                                pgp_writer_stack_t writer);
 
 /*/
 /// Finalizes all writers, tearing down the whole stack.
 /*/
-sq_status_t sq_writer_stack_finalize (sq_error_t *errp,
-                                      sq_writer_stack_t writer);
+pgp_status_t pgp_writer_stack_finalize (pgp_error_t *errp,
+                                      pgp_writer_stack_t writer);
 
 /*/
 /// Writes an arbitrary packet.
@@ -1510,9 +1510,9 @@ sq_status_t sq_writer_stack_finalize (sq_error_t *errp,
 /// The body will be written using partial length encoding, or, if the
 /// body is short, using full length encoding.
 /*/
-sq_writer_stack_t sq_arbitrary_writer_new (sq_error_t *errp,
-                                           sq_writer_stack_t inner,
-                                           sq_tag_t tag);
+pgp_writer_stack_t pgp_arbitrary_writer_new (pgp_error_t *errp,
+                                           pgp_writer_stack_t inner,
+                                           pgp_tag_t tag);
 
 /*/
 /// Signs a packet stream.
@@ -1521,16 +1521,16 @@ sq_writer_stack_t sq_arbitrary_writer_new (sq_error_t *errp,
 /// packet, then hashes and emits the data stream, then for every key
 /// writes a signature packet.
 /*/
-sq_writer_stack_t sq_signer_new (sq_error_t *errp,
-                                 sq_writer_stack_t inner,
-                                 sq_tpk_t *signers, size_t signers_len);
+pgp_writer_stack_t pgp_signer_new (pgp_error_t *errp,
+                                 pgp_writer_stack_t inner,
+                                 pgp_tpk_t *signers, size_t signers_len);
 
 /*/
 /// Creates a signer for a detached signature.
 /*/
-sq_writer_stack_t sq_signer_new_detached (sq_error_t *errp,
-                                          sq_writer_stack_t inner,
-                                          sq_tpk_t *signers,
+pgp_writer_stack_t pgp_signer_new_detached (pgp_error_t *errp,
+                                          pgp_writer_stack_t inner,
+                                          pgp_tpk_t *signers,
                                           size_t signers_len);
 
 /*/
@@ -1539,21 +1539,21 @@ sq_writer_stack_t sq_signer_new_detached (sq_error_t *errp,
 /// The body will be written using partial length encoding, or, if the
 /// body is short, using full length encoding.
 /*/
-sq_writer_stack_t sq_literal_writer_new (sq_error_t *errp,
-                                         sq_writer_stack_t inner);
+pgp_writer_stack_t pgp_literal_writer_new (pgp_error_t *errp,
+                                         pgp_writer_stack_t inner);
 
 /*/
 /// Specifies whether to encrypt for archival purposes or for
 /// transport.
 /*/
-typedef enum sq_encryption_mode {
+typedef enum pgp_encryption_mode {
   /*/
   /// Encrypt data for long-term storage.
   ///
   /// This should be used for things that should be decryptable for
   /// a long period of time, e.g. backups, archives, etc.
   /*/
-  SQ_ENCRYPTION_MODE_AT_REST = 0,
+  PGP_ENCRYPTION_MODE_AT_REST = 0,
 
   /*/
   /// Encrypt data for transport.
@@ -1564,8 +1564,8 @@ typedef enum sq_encryption_mode {
   /// session key, or re-encrypt the session key with a different
   /// key.
   /*/
-  SQ_ENCRYPTION_MODE_FOR_TRANSPORT = 1,
-} sq_encryption_mode_t;
+  PGP_ENCRYPTION_MODE_FOR_TRANSPORT = 1,
+} pgp_encryption_mode_t;
 
 /*/
 /// Creates a new encryptor.
@@ -1577,54 +1577,54 @@ typedef enum sq_encryption_mode {
 /// The stream is encrypted using AES256, regardless of any key
 /// preferences.
 /*/
-sq_writer_stack_t sq_encryptor_new (sq_error_t *errp,
-                                    sq_writer_stack_t inner,
+pgp_writer_stack_t pgp_encryptor_new (pgp_error_t *errp,
+                                    pgp_writer_stack_t inner,
                                     char **passwords,
                                     size_t passwords_len,
-                                    sq_tpk_t *recipients,
+                                    pgp_tpk_t *recipients,
                                     size_t recipients_len,
-                                    sq_encryption_mode_t mode);
+                                    pgp_encryption_mode_t mode);
 
-typedef struct sq_secret *sq_secret_t;
+typedef struct pgp_secret *pgp_secret_t;
 
 /*/
-/// Creates an sq_secret_t from a decrypted session key.
+/// Creates an pgp_secret_t from a decrypted session key.
 /*/
-sq_secret_t sq_secret_cached(uint8_t algo,
+pgp_secret_t pgp_secret_cached(uint8_t algo,
                              uint8_t *session_key, size_t session_key_len);
 
-typedef struct sq_verification_results *sq_verification_results_t;
-typedef struct sq_verification_result *sq_verification_result_t;
+typedef struct pgp_verification_results *pgp_verification_results_t;
+typedef struct pgp_verification_result *pgp_verification_result_t;
 
-void sq_verification_results_at_level(sq_verification_results_t results,
+void pgp_verification_results_at_level(pgp_verification_results_t results,
                                       size_t level,
-                                      sq_verification_result_t **r,
+                                      pgp_verification_result_t **r,
                                       size_t *r_count);
 
 
-typedef enum sq_verification_result_code {
-  SQ_VERIFICATION_RESULT_CODE_GOOD_CHECKSUM = 1,
-  SQ_VERIFICATION_RESULT_CODE_MISSING_KEY = 2,
-  SQ_VERIFICATION_RESULT_CODE_BAD_CHECKSUM = 3,
+typedef enum pgp_verification_result_code {
+  PGP_VERIFICATION_RESULT_CODE_GOOD_CHECKSUM = 1,
+  PGP_VERIFICATION_RESULT_CODE_MISSING_KEY = 2,
+  PGP_VERIFICATION_RESULT_CODE_BAD_CHECKSUM = 3,
 
   /* Dummy value to make sure the enumeration has a defined size.  Do
      not use this value.  */
-  SQ_VERIFICATION_RESULT_CODE_FORCE_WIDTH = INT_MAX,
-} sq_verification_result_code_t;
+  PGP_VERIFICATION_RESULT_CODE_FORCE_WIDTH = INT_MAX,
+} pgp_verification_result_code_t;
 
 /*/
 /// Returns the verification result code.
 /*/
-sq_verification_result_code_t sq_verification_result_code(
-    sq_verification_result_t r);
+pgp_verification_result_code_t pgp_verification_result_code(
+    pgp_verification_result_t r);
 
 /*/
 /// Returns a reference to the signature.
 ///
 /// Do not modify the signature nor free it.
 /*/
-sq_signature_t sq_verification_result_signature(
-    sq_verification_result_t r);
+pgp_signature_t pgp_verification_result_signature(
+    pgp_verification_result_t r);
 
 /*/
 /// Returns the signature's level.
@@ -1632,32 +1632,32 @@ sq_signature_t sq_verification_result_signature(
 /// A level of zero means that the data was signed, a level of one
 /// means that one or more signatures were notarized, etc.
 /*/
-int sq_verification_result_level(sq_verification_result_t r);
+int pgp_verification_result_level(pgp_verification_result_t r);
 
-typedef sq_status_t (*sq_sequoia_decrypt_get_public_keys_cb_t) (void *,
-                                                                sq_keyid_t *, size_t,
-                                                                sq_tpk_t **, size_t *,
+typedef pgp_status_t (*pgp_sequoia_decrypt_get_public_keys_cb_t) (void *,
+                                                                pgp_keyid_t *, size_t,
+                                                                pgp_tpk_t **, size_t *,
                                                                 void (**free)(void *));
 
-typedef sq_status_t (*sq_sequoia_decrypt_get_secret_keys_cb_t) (void *,
-                                                                sq_pkesk_t *, size_t,
-                                                                sq_skesk_t *, size_t,
-                                                                sq_secret_t *);
+typedef pgp_status_t (*pgp_sequoia_decrypt_get_secret_keys_cb_t) (void *,
+                                                                pgp_pkesk_t *, size_t,
+                                                                pgp_skesk_t *, size_t,
+                                                                pgp_secret_t *);
 
-typedef sq_status_t (*sq_sequoia_decrypt_check_signatures_cb_t) (void *,
-                                                                 sq_verification_results_t,
+typedef pgp_status_t (*pgp_sequoia_decrypt_check_signatures_cb_t) (void *,
+                                                                 pgp_verification_results_t,
                                                                  size_t);
 
-sq_status_t sq_decrypt (sq_error_t *errp, sq_reader_t input, sq_writer_t output,
-                        sq_sequoia_decrypt_get_public_keys_cb_t get_public_keys,
-                        sq_sequoia_decrypt_get_secret_keys_cb_t get_secret_keys,
-                        sq_sequoia_decrypt_check_signatures_cb_t check_signatures,
+pgp_status_t pgp_decrypt (pgp_error_t *errp, pgp_reader_t input, pgp_writer_t output,
+                        pgp_sequoia_decrypt_get_public_keys_cb_t get_public_keys,
+                        pgp_sequoia_decrypt_get_secret_keys_cb_t get_secret_keys,
+                        pgp_sequoia_decrypt_check_signatures_cb_t check_signatures,
                         void *cookie);
 
-sq_status_t sq_verify (sq_error_t *errp,
-                       sq_reader_t input, sq_reader_t dsig, sq_writer_t output,
-                       sq_sequoia_decrypt_get_public_keys_cb_t get_public_keys,
-                       sq_sequoia_decrypt_check_signatures_cb_t check_signatures,
+pgp_status_t pgp_verify (pgp_error_t *errp,
+                       pgp_reader_t input, pgp_reader_t dsig, pgp_writer_t output,
+                       pgp_sequoia_decrypt_get_public_keys_cb_t get_public_keys,
+                       pgp_sequoia_decrypt_check_signatures_cb_t check_signatures,
                        void *cookie);
 
 #endif

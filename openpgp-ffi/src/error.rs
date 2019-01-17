@@ -8,7 +8,7 @@ extern crate sequoia_openpgp as openpgp;
 
 /// Frees an error.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_error_free(error: Option<&mut failure::Error>) {
+pub extern "system" fn pgp_error_free(error: Option<&mut failure::Error>) {
     ffi_free!(error)
 }
 
@@ -16,7 +16,7 @@ pub extern "system" fn sq_error_free(error: Option<&mut failure::Error>) {
 ///
 /// The returned value must be freed with `free(3)`.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_error_string(error: *const failure::Error)
+pub extern "system" fn pgp_error_string(error: *const failure::Error)
                                        -> *mut c_char {
     let error = ffi_param_ref!(error);
     ffi_return_string!(&format!("{}", error))
@@ -24,7 +24,7 @@ pub extern "system" fn sq_error_string(error: *const failure::Error)
 
 /// Returns the error status code.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_error_status(error: *const failure::Error)
+pub extern "system" fn pgp_error_status(error: *const failure::Error)
                                        -> Status {
     let error = ffi_param_ref!(error);
     error.into()

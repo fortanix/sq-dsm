@@ -404,7 +404,7 @@ pub extern "system" fn sq_binding_key(ctx: *mut Context,
     ffi_try_box!(binding.key())
 }
 
-/// Returns the `sq_tpk_t` of this binding.
+/// Returns the `pgp_tpk_t` of this binding.
 #[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_binding_tpk(ctx: *mut Context,
                                       binding: *const Binding)
@@ -510,7 +510,7 @@ pub extern "system" fn sq_key_stats(ctx: *mut Context,
     box_raw!(Stats::new(ffi_try!(key.stats())))
 }
 
-/// Returns the `sq_tpk_t`.
+/// Returns the `pgp_tpk_t`.
 #[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_key_tpk(ctx: *mut Context,
                                   key: *const Key)

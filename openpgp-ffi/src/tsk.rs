@@ -20,7 +20,7 @@ use ::error::Status;
 
 /// Generates a new RSA 3072 bit key with UID `primary_uid`.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_tsk_new(errp: Option<&mut *mut failure::Error>,
+pub extern "system" fn pgp_tsk_new(errp: Option<&mut *mut failure::Error>,
                                   primary_uid: *const c_char,
                                   tsk_out: *mut *mut TSK,
                                   revocation_out: *mut *mut Signature)
@@ -42,13 +42,13 @@ pub extern "system" fn sq_tsk_new(errp: Option<&mut *mut failure::Error>,
 
 /// Frees the TSK.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_tsk_free(tsk: Option<&mut TSK>) {
+pub extern "system" fn pgp_tsk_free(tsk: Option<&mut TSK>) {
     ffi_free!(tsk)
 }
 
 /// Returns a reference to the corresponding TPK.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_tsk_tpk(tsk: *const TSK)
+pub extern "system" fn pgp_tsk_tpk(tsk: *const TSK)
                                   -> *const TPK {
     let tsk = ffi_param_ref!(tsk);
     tsk.tpk()
@@ -56,7 +56,7 @@ pub extern "system" fn sq_tsk_tpk(tsk: *const TSK)
 
 /// Converts the TSK into a TPK.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_tsk_into_tpk(tsk: *mut TSK)
+pub extern "system" fn pgp_tsk_into_tpk(tsk: *mut TSK)
                                        -> *mut TPK {
     let tsk = ffi_param_move!(tsk);
     box_raw!(tsk.into_tpk())
@@ -65,7 +65,7 @@ pub extern "system" fn sq_tsk_into_tpk(tsk: *mut TSK)
 
 /// Serializes the TSK.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_tsk_serialize(errp: Option<&mut *mut failure::Error>,
+pub extern "system" fn pgp_tsk_serialize(errp: Option<&mut *mut failure::Error>,
                                         tsk: *const TSK,
                                         writer: *mut Box<Write>)
                                         -> Status {

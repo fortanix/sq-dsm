@@ -186,7 +186,7 @@ typedef struct sq_binding_iter *sq_binding_iter_t;
 /*/
 sq_binding_t sq_binding_iter_next (sq_binding_iter_t iter,
 				   char **labelp,
-				   sq_fingerprint_t *fpp);
+				   pgp_fingerprint_t *fpp);
 
 /*/
 /// Frees a sq_binding_iter_t.
@@ -205,7 +205,7 @@ typedef struct sq_key_iter *sq_key_iter_t;
 /// fingerprint is stored there.
 /*/
 sq_key_t sq_key_iter_next (sq_key_iter_t iter,
-			   sq_fingerprint_t *fpp);
+			   pgp_fingerprint_t *fpp);
 
 /*/
 /// Frees a sq_key_iter_t.
@@ -258,13 +258,13 @@ sq_store_t sq_store_open (sq_context_t ctx, const char *name);
 /// Adds a key identified by fingerprint to the store.
 /*/
 sq_binding_t sq_store_add (sq_context_t ctx, sq_store_t store,
-			   const char *label, sq_fingerprint_t fp);
+			   const char *label, pgp_fingerprint_t fp);
 
 /*/
 /// Imports a key into the store.
 /*/
-sq_tpk_t sq_store_import (sq_context_t ctx, sq_store_t store,
-			  const char *label, sq_tpk_t tpk);
+pgp_tpk_t sq_store_import (sq_context_t ctx, sq_store_t store,
+			  const char *label, pgp_tpk_t tpk);
 
 /*/
 /// Returns the binding for the given label.
@@ -275,19 +275,19 @@ sq_binding_t sq_store_lookup (sq_context_t ctx, sq_store_t store,
 /*/
 /// Looks up a key in the common key pool by KeyID.
 /*/
-sq_key_t sq_store_lookup_by_keyid (sq_context_t ctx, sq_keyid_t keyid);
+sq_key_t sq_store_lookup_by_keyid (sq_context_t ctx, pgp_keyid_t keyid);
 
 /*/
 /// Looks up a key in the common key pool by (Sub)KeyID.
 /*/
-sq_key_t sq_store_lookup_by_subkeyid (sq_context_t ctx, sq_keyid_t keyid);
+sq_key_t sq_store_lookup_by_subkeyid (sq_context_t ctx, pgp_keyid_t keyid);
 
 /*/
 /// Deletes this store.
 ///
 /// Consumes `store`.  Returns != 0 on error.
 /*/
-sq_status_t sq_store_delete (sq_store_t store);
+pgp_status_t sq_store_delete (sq_store_t store);
 
 /*/
 /// Lists all bindings.
@@ -310,9 +310,9 @@ sq_stats_t sq_binding_stats (sq_context_t ctx, sq_binding_t binding);
 sq_key_t sq_binding_key (sq_context_t ctx, sq_binding_t binding);
 
 /*/
-/// Returns the `sq_tpk_t` of this binding.
+/// Returns the `pgp_tpk_t` of this binding.
 /*/
-sq_tpk_t sq_binding_tpk (sq_context_t ctx, sq_binding_t binding);
+pgp_tpk_t sq_binding_tpk (sq_context_t ctx, sq_binding_t binding);
 
 /*/
 /// Updates this binding with the given TPK.
@@ -332,8 +332,8 @@ sq_tpk_t sq_binding_tpk (sq_context_t ctx, sq_binding_t binding);
 /// conflict, either by ignoring the new key, or by using
 /// `sq_binding_rotate` to force a rotation.
 /*/
-sq_tpk_t sq_binding_import (sq_context_t ctx, sq_binding_t binding,
-			    sq_tpk_t tpk);
+pgp_tpk_t sq_binding_import (sq_context_t ctx, sq_binding_t binding,
+			    pgp_tpk_t tpk);
 
 /*/
 /// Forces a keyrotation to the given TPK.
@@ -350,15 +350,15 @@ sq_tpk_t sq_binding_import (sq_context_t ctx, sq_binding_t binding,
 /// You could simply ask Alice to call her communication partner
 /// Bob and confirm that he rotated his keys.
 /*/
-sq_tpk_t sq_binding_rotate (sq_context_t ctx, sq_binding_t binding,
-			    sq_tpk_t tpk);
+pgp_tpk_t sq_binding_rotate (sq_context_t ctx, sq_binding_t binding,
+			    pgp_tpk_t tpk);
 
 /*/
 /// Deletes this binding.
 ///
 /// Consumes `binding`.  Returns != 0 on error.
 /*/
-sq_status_t sq_binding_delete (sq_context_t ctx, sq_binding_t binding);
+pgp_status_t sq_binding_delete (sq_context_t ctx, sq_binding_t binding);
 
 /*/
 /// Lists all log entries related to this binding.
@@ -371,9 +371,9 @@ sq_log_iter_t sq_binding_log (sq_context_t ctx, sq_binding_t binding);
 sq_stats_t sq_key_stats (sq_context_t ctx, sq_key_t key);
 
 /*/
-/// Returns the `sq_tpk_t` of this key.
+/// Returns the `pgp_tpk_t` of this key.
 /*/
-sq_tpk_t sq_key_tpk (sq_context_t ctx, sq_key_t key);
+pgp_tpk_t sq_key_tpk (sq_context_t ctx, sq_key_t key);
 
 /*/
 /// Updates this stored key with the given TPK.
@@ -386,8 +386,8 @@ sq_tpk_t sq_key_tpk (sq_context_t ctx, sq_key_t key);
 /// If the new key does not match the current key,
 /// `Error::Conflict` is returned.
 /*/
-sq_tpk_t sq_key_import (sq_context_t ctx, sq_key_t key,
-			sq_tpk_t tpk);
+pgp_tpk_t sq_key_import (sq_context_t ctx, sq_key_t key,
+			pgp_tpk_t tpk);
 
 /*/
 /// Lists all log entries related to this key.

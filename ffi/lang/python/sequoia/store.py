@@ -19,7 +19,7 @@ class Store(SQObject):
     @classmethod
     def list_keys(cls, ctx):
         def next_fn(i):
-            fpp = ffi.new("sq_fingerprint_t[1]")
+            fpp = ffi.new("pgp_fingerprint_t[1]")
             key = lib.sq_key_iter_next(i, fpp)
             if key == ffi.NULL:
                 return ffi.NULL
@@ -61,7 +61,7 @@ class Store(SQObject):
     def iter(self):
         def next_fn(i):
             labelp = ffi.new("char *[1]")
-            fpp = ffi.new("sq_fingerprint_t[1]")
+            fpp = ffi.new("pgp_fingerprint_t[1]")
             binding = lib.sq_binding_iter_next(i, labelp, fpp)
             if binding == ffi.NULL:
                 return ffi.NULL

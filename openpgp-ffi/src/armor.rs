@@ -71,20 +71,20 @@ fn kind_to_int(kind: Option<armor::Kind>) -> c_int {
 /// int
 /// main (int argc, char **argv)
 /// {
-///   sq_error_t err;
-///   sq_reader_t bytes;
-///   sq_reader_t armor;
-///   sq_armor_kind_t kind;
+///   pgp_error_t err;
+///   pgp_reader_t bytes;
+///   pgp_reader_t armor;
+///   pgp_armor_kind_t kind;
 ///   char message[12];
-///   sq_armor_header_t *header;
+///   pgp_armor_header_t *header;
 ///   size_t header_len;
 ///
-///   bytes = sq_reader_from_bytes ((uint8_t *) armored, strlen (armored));
-///   armor = sq_armor_reader_new (bytes, SQ_ARMOR_KIND_ANY);
+///   bytes = pgp_reader_from_bytes ((uint8_t *) armored, strlen (armored));
+///   armor = pgp_armor_reader_new (bytes, PGP_ARMOR_KIND_ANY);
 ///
-///   header = sq_armor_reader_headers (&err, armor, &header_len);
+///   header = pgp_armor_reader_headers (&err, armor, &header_len);
 ///   if (header == NULL)
-///     error (1, 0, "Getting headers failed: %s", sq_error_string (err));
+///     error (1, 0, "Getting headers failed: %s", pgp_error_string (err));
 ///
 ///   assert (header_len == 2);
 ///   assert (strcmp (header[0].key, "Key0") == 0
@@ -98,21 +98,21 @@ fn kind_to_int(kind: Option<armor::Kind>) -> c_int {
 ///     }
 ///   free (header);
 ///
-///   kind = sq_armor_reader_kind (armor);
-///   assert (kind == SQ_ARMOR_KIND_FILE);
+///   kind = pgp_armor_reader_kind (armor);
+///   assert (kind == PGP_ARMOR_KIND_FILE);
 ///
-///   if (sq_reader_read (&err, armor, (uint8_t *) message, 12) < 0)
-///     error (1, 0, "Reading failed: %s", sq_error_string (err));
+///   if (pgp_reader_read (&err, armor, (uint8_t *) message, 12) < 0)
+///     error (1, 0, "Reading failed: %s", pgp_error_string (err));
 ///
 ///   assert (memcmp (message, "Hello world!", 12) == 0);
 ///
-///   sq_reader_free (armor);
-///   sq_reader_free (bytes);
+///   pgp_reader_free (armor);
+///   pgp_reader_free (bytes);
 ///   return 0;
 /// }
 /// ```
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_armor_reader_new(inner: *mut Box<Read>,
+pub extern "system" fn pgp_armor_reader_new(inner: *mut Box<Read>,
                                            kind: c_int)
                                            -> *mut Box<Read> {
     let inner = ffi_param_ref_mut!(inner);
@@ -123,7 +123,7 @@ pub extern "system" fn sq_armor_reader_new(inner: *mut Box<Read>,
 
 /// Creates a `Reader` from a file.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_armor_reader_from_file(errp: Option<&mut *mut failure::Error>,
+pub extern "system" fn pgp_armor_reader_from_file(errp: Option<&mut *mut failure::Error>,
                                                  filename: *const c_char,
                                                  kind: c_int)
                                                  -> *mut Box<Read> {
@@ -138,7 +138,7 @@ pub extern "system" fn sq_armor_reader_from_file(errp: Option<&mut *mut failure:
 
 /// Creates a `Reader` from a buffer.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_armor_reader_from_bytes(b: *const uint8_t, len: size_t,
+pub extern "system" fn pgp_armor_reader_from_bytes(b: *const uint8_t, len: size_t,
                                                   kind: c_int)
                                                   -> *mut Box<Read> {
     assert!(!b.is_null());
@@ -154,15 +154,15 @@ pub extern "system" fn sq_armor_reader_from_bytes(b: *const uint8_t, len: size_t
 ///
 /// Useful if the kind of data is not known in advance.  If the header
 /// has not been encountered yet (try reading some data first!), this
-/// function returns SQ_ARMOR_KIND_ANY.
+/// function returns PGP_ARMOR_KIND_ANY.
 ///
 /// # Example
 ///
 /// See [this] example.
 ///
-///   [this]: fn.sq_armor_reader_new.html
+///   [this]: fn.pgp_armor_reader_new.html
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_armor_reader_kind(reader: *mut Box<Read>)
+pub extern "system" fn pgp_armor_reader_kind(reader: *mut Box<Read>)
                                             -> c_int {
     // We need to downcast `reader`.  To do that, we need to do a
     // little dance.  We will momentarily take ownership of `reader`,
@@ -190,9 +190,9 @@ pub extern "system" fn sq_armor_reader_kind(reader: *mut Box<Read>)
 ///
 /// See [this] example.
 ///
-///   [this]: fn.sq_armor_reader_new.html
+///   [this]: fn.pgp_armor_reader_new.html
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_armor_reader_headers(errp: Option<&mut *mut failure::Error>,
+pub extern "system" fn pgp_armor_reader_headers(errp: Option<&mut *mut failure::Error>,
                                                reader: *mut Box<Read>,
                                                len: *mut size_t)
                                                -> *mut ArmorHeader {
@@ -275,26 +275,26 @@ fn strdup(s: &str) -> *mut c_char {
 /// {
 ///   void *buf = NULL;
 ///   size_t len = 0;
-///   sq_writer_t alloc;
-///   sq_writer_t armor;
-///   sq_error_t err;
+///   pgp_writer_t alloc;
+///   pgp_writer_t armor;
+///   pgp_error_t err;
 ///
 ///   char *message = "Hello world!";
-///   sq_armor_header_t header[2] = {
+///   pgp_armor_header_t header[2] = {
 ///     { "Key0", "Value0" },
 ///     { "Key1", "Value1" },
 ///   };
 ///
-///   alloc = sq_writer_alloc (&buf, &len);
-///   armor = sq_armor_writer_new (&err, alloc, SQ_ARMOR_KIND_FILE, header, 2);
+///   alloc = pgp_writer_alloc (&buf, &len);
+///   armor = pgp_armor_writer_new (&err, alloc, PGP_ARMOR_KIND_FILE, header, 2);
 ///   if (armor == NULL)
-///     error (1, 0, "Creating armor writer failed: %s", sq_error_string (err));
+///     error (1, 0, "Creating armor writer failed: %s", pgp_error_string (err));
 ///
-///   if (sq_writer_write (&err, armor, (uint8_t *) message, strlen (message)) < 0)
-///     error (1, 0, "Writing failed: %s", sq_error_string (err));
+///   if (pgp_writer_write (&err, armor, (uint8_t *) message, strlen (message)) < 0)
+///     error (1, 0, "Writing failed: %s", pgp_error_string (err));
 //
-///   sq_writer_free (armor);
-///   sq_writer_free (alloc);
+///   pgp_writer_free (armor);
+///   pgp_writer_free (alloc);
 ///
 ///   assert (len == 114);
 ///   assert (memcmp (buf,
@@ -312,7 +312,7 @@ fn strdup(s: &str) -> *mut c_char {
 /// }
 /// ```
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_armor_writer_new
+pub extern "system" fn pgp_armor_writer_new
     (errp: Option<&mut *mut failure::Error>,
      inner: *mut Box<Write>,
      kind: c_int,
@@ -322,7 +322,7 @@ pub extern "system" fn sq_armor_writer_new
 {
     ffi_make_fry_from_errp!(errp);
     let inner = ffi_param_ref_mut!(inner);
-    let kind = int_to_kind(kind).expect("KIND must not be SQ_ARMOR_KIND_ANY");
+    let kind = int_to_kind(kind).expect("KIND must not be PGP_ARMOR_KIND_ANY");
 
     let mut header_ = Vec::new();
     if header_len > 0 {

@@ -12,7 +12,7 @@ use self::sequoia_openpgp::{
 
 /// Frees a signer.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_signer_free
+pub extern "system" fn pgp_signer_free
     (s: Option<&mut &'static mut crypto::Signer>)
 {
     ffi_free!(s)
@@ -20,7 +20,7 @@ pub extern "system" fn sq_signer_free
 
 /// Creates a new key pair.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_key_pair_new
+pub extern "system" fn pgp_key_pair_new
     (errp: Option<&mut *mut failure::Error>, public: *mut Key, secret: *mut crypto::mpis::SecretKey)
      -> *mut crypto::KeyPair
 {
@@ -32,7 +32,7 @@ pub extern "system" fn sq_key_pair_new
 
 /// Frees a key pair.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_key_pair_free
+pub extern "system" fn pgp_key_pair_free
     (kp: Option<&mut crypto::KeyPair>)
 {
     ffi_free!(kp)
@@ -43,7 +43,7 @@ pub extern "system" fn sq_key_pair_free
 /// Note that the returned object merely references the key pair, and
 /// must not outlive the key pair.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_key_pair_as_signer
+pub extern "system" fn pgp_key_pair_as_signer
     (kp: *mut crypto::KeyPair)
      -> *mut &'static mut crypto::Signer
 {

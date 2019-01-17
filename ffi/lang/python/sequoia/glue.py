@@ -11,7 +11,7 @@ def invoke(fun, *args):
 
     If an error is encountered, an exception is raised.
     """
-    err = ffi.new("sq_error_t[1]")
+    err = ffi.new("pgp_error_t[1]")
     result = fun(err, *args)
     if err[0] != ffi.NULL:
         raise Error._from(err[0])

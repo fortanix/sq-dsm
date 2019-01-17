@@ -6,116 +6,116 @@ from .glue import _str, SQObject, invoke
 from .core import AbstractReader, AbstractWriter
 
 class KeyID(SQObject):
-    _del = lib.sq_keyid_free
-    _clone = lib.sq_keyid_clone
-    _str = lib.sq_keyid_to_string
-    _eq = lib.sq_keyid_equal
-    _hash = lib.sq_keyid_hash
+    _del = lib.pgp_keyid_free
+    _clone = lib.pgp_keyid_clone
+    _str = lib.pgp_keyid_to_string
+    _eq = lib.pgp_keyid_equal
+    _hash = lib.pgp_keyid_hash
 
     @classmethod
     def from_bytes(cls, fp):
         if len(fp) != 8:
             raise Error("KeyID must be of length 8")
-        return KeyID(lib.sq_keyid_from_bytes(
+        return KeyID(lib.pgp_keyid_from_bytes(
             ffi.cast("uint8_t *", ffi.from_buffer(fp))))
 
     @classmethod
     def from_hex(cls, fp):
-        return KeyID(lib.sq_keyid_from_hex(fp.encode()))
+        return KeyID(lib.pgp_keyid_from_hex(fp.encode()))
 
     def hex(self):
-        return _str(lib.sq_keyid_to_hex(self.ref()))
+        return _str(lib.pgp_keyid_to_hex(self.ref()))
 
 class Fingerprint(SQObject):
-    _del = lib.sq_fingerprint_free
-    _clone = lib.sq_fingerprint_clone
-    _str = lib.sq_fingerprint_to_string
-    _eq = lib.sq_fingerprint_equal
-    _hash = lib.sq_fingerprint_hash
+    _del = lib.pgp_fingerprint_free
+    _clone = lib.pgp_fingerprint_clone
+    _str = lib.pgp_fingerprint_to_string
+    _eq = lib.pgp_fingerprint_equal
+    _hash = lib.pgp_fingerprint_hash
 
     @classmethod
     def from_bytes(cls, fp):
-        return Fingerprint(lib.sq_fingerprint_from_bytes(
+        return Fingerprint(lib.pgp_fingerprint_from_bytes(
             ffi.cast("uint8_t *", ffi.from_buffer(fp)), len(fp)))
 
     @classmethod
     def from_hex(cls, fp):
-        return Fingerprint(lib.sq_fingerprint_from_hex(fp.encode()))
+        return Fingerprint(lib.pgp_fingerprint_from_hex(fp.encode()))
 
     def hex(self):
-        return _str(lib.sq_fingerprint_to_hex(self.ref()))
+        return _str(lib.pgp_fingerprint_to_hex(self.ref()))
 
     def keyid(self):
-        return KeyID(lib.sq_fingerprint_to_keyid(self.ref()))
+        return KeyID(lib.pgp_fingerprint_to_keyid(self.ref()))
 
 class PacketPile(SQObject):
-    _del = lib.sq_packet_pile_free
-    _clone = lib.sq_packet_pile_clone
+    _del = lib.pgp_packet_pile_free
+    _clone = lib.pgp_packet_pile_clone
 
     @classmethod
     def from_reader(cls, ctx, reader):
-        return PacketPile(invoke(lib.sq_packet_pile_from_reader, reader.ref()),
+        return PacketPile(invoke(lib.pgp_packet_pile_from_reader, reader.ref()),
                           context=ctx)
 
     @classmethod
     def open(cls, ctx, filename):
-        return PacketPile(invoke(lib.sq_packet_pile_from_file, filename.encode()),
+        return PacketPile(invoke(lib.pgp_packet_pile_from_file, filename.encode()),
                           context=ctx)
 
     @classmethod
     def from_bytes(cls, ctx, source):
-        return PacketPile(invoke(lib.sq_packet_pile_from_bytes,
+        return PacketPile(invoke(lib.pgp_packet_pile_from_bytes,
                                  ffi.from_buffer(source),
                                  len(source)),
                           context=ctx)
 
     def serialize(self, writer):
-        status = invoke(lib.sq_packet_pile_serialize,
+        status = invoke(lib.pgp_packet_pile_serialize,
                         self.ref(),
                         writer.ref())
         if status:
             raise Error._last(self.context())
 
 class TPK(SQObject):
-    _del = lib.sq_tpk_free
-    _clone = lib.sq_tpk_clone
-    _eq = lib.sq_tpk_equal
+    _del = lib.pgp_tpk_free
+    _clone = lib.pgp_tpk_clone
+    _eq = lib.pgp_tpk_equal
 
     @classmethod
     def from_reader(cls, ctx, reader):
-        return TPK(invoke(lib.sq_tpk_from_reader, reader.ref()),
+        return TPK(invoke(lib.pgp_tpk_from_reader, reader.ref()),
                    context=ctx)
 
     @classmethod
     def open(cls, ctx, filename):
-        return TPK(invoke(lib.sq_tpk_from_file, filename.encode()),
+        return TPK(invoke(lib.pgp_tpk_from_file, filename.encode()),
                    context=ctx)
 
     @classmethod
     def from_packet_pile(cls, ctx, packet_pile):
-        return TPK(invoke(lib.sq_tpk_from_packet_pile, packet_pile.ref_consume()),
+        return TPK(invoke(lib.pgp_tpk_from_packet_pile, packet_pile.ref_consume()),
                    context=ctx)
 
     @classmethod
     def from_bytes(cls, ctx, source):
-        return TPK(invoke(lib.sq_tpk_from_bytes,
+        return TPK(invoke(lib.pgp_tpk_from_bytes,
                           ffi.from_buffer(source),
                           len(source)),
                    context=ctx)
 
     def serialize(self, writer):
-        status = invoke(lib.sq_tpk_serialize,
+        status = invoke(lib.pgp_tpk_serialize,
                         self.ref(),
                         writer.ref())
         if status:
             raise Error._last(self.context())
 
     def fingerprint(self):
-        return Fingerprint(lib.sq_tpk_fingerprint(self.ref()),
+        return Fingerprint(lib.pgp_tpk_fingerprint(self.ref()),
                            context=self.context())
 
     def merge(self, other):
-        new = invoke(lib.sq_tpk_merge,
+        new = invoke(lib.pgp_tpk_merge,
                      self.ref_consume(),
                      other.ref_consume())
         if new == ffi.NULL:
@@ -123,20 +123,20 @@ class TPK(SQObject):
         self.ref_replace(new)
 
     def dump(self):
-        lib.sq_tpk_dump(self.ref())
+        lib.pgp_tpk_dump(self.ref())
 
 class Kind(Enum):
-    Message = lib.SQ_ARMOR_KIND_MESSAGE
-    PublicKey = lib.SQ_ARMOR_KIND_PUBLICKEY
-    SecretKey = lib.SQ_ARMOR_KIND_SECRETKEY
-    Signature = lib.SQ_ARMOR_KIND_SIGNATURE
-    File = lib.SQ_ARMOR_KIND_FILE
-    Any = lib.SQ_ARMOR_KIND_ANY
+    Message = lib.PGP_ARMOR_KIND_MESSAGE
+    PublicKey = lib.PGP_ARMOR_KIND_PUBLICKEY
+    SecretKey = lib.PGP_ARMOR_KIND_SECRETKEY
+    Signature = lib.PGP_ARMOR_KIND_SIGNATURE
+    File = lib.PGP_ARMOR_KIND_FILE
+    Any = lib.PGP_ARMOR_KIND_ANY
 
 class ArmorReader(AbstractReader):
     @classmethod
     def new(cls, ctx, inner, kind=Kind.Any):
-        ar = ArmorReader(lib.sq_armor_reader_new(inner.ref(),
+        ar = ArmorReader(lib.pgp_armor_reader_new(inner.ref(),
                                                  kind.value),
                          context=ctx)
         ar.inner = inner
@@ -149,7 +149,7 @@ class ArmorReader(AbstractReader):
 class ArmorWriter(AbstractWriter):
     @classmethod
     def new(cls, ctx, inner, kind):
-        aw = ArmorWriter(invoke(lib.sq_armor_writer_new,
+        aw = ArmorWriter(invoke(lib.pgp_armor_writer_new,
                                 inner.ref(),
                                 kind.value,
                                 ffi.NULL, 0), #XXX headers
@@ -162,35 +162,35 @@ class ArmorWriter(AbstractWriter):
         self.inner.close()
 
 class Tag(Enum):
-    PKESK = lib.SQ_TAG_PKESK
-    Signature = lib.SQ_TAG_SIGNATURE
-    SKESK = lib.SQ_TAG_SKESK
-    OnePassSig = lib.SQ_TAG_ONE_PASS_SIG
-    SecretKey = lib.SQ_TAG_SECRET_KEY
-    PublicKey = lib.SQ_TAG_PUBLIC_KEY
-    SecretSubkey = lib.SQ_TAG_SECRET_SUBKEY
-    CompressedData = lib.SQ_TAG_COMPRESSED_DATA
-    SED = lib.SQ_TAG_SED
-    Marker = lib.SQ_TAG_MARKER
-    Literal = lib.SQ_TAG_LITERAL
-    Trust = lib.SQ_TAG_TRUST
-    UserID = lib.SQ_TAG_USER_ID
-    PublicSubkey = lib.SQ_TAG_PUBLIC_SUBKEY
-    Unassigned15 = lib.SQ_TAG_UNASSIGNED15
-    Unassigned16 = lib.SQ_TAG_UNASSIGNED16
-    UserAttribute = lib.SQ_TAG_USER_ATTRIBUTE
-    SEIP = lib.SQ_TAG_SEIP
-    MDC = lib.SQ_TAG_MDC
+    PKESK = lib.PGP_TAG_PKESK
+    Signature = lib.PGP_TAG_SIGNATURE
+    SKESK = lib.PGP_TAG_SKESK
+    OnePassSig = lib.PGP_TAG_ONE_PASS_SIG
+    SecretKey = lib.PGP_TAG_SECRET_KEY
+    PublicKey = lib.PGP_TAG_PUBLIC_KEY
+    SecretSubkey = lib.PGP_TAG_SECRET_SUBKEY
+    CompressedData = lib.PGP_TAG_COMPRESSED_DATA
+    SED = lib.PGP_TAG_SED
+    Marker = lib.PGP_TAG_MARKER
+    Literal = lib.PGP_TAG_LITERAL
+    Trust = lib.PGP_TAG_TRUST
+    UserID = lib.PGP_TAG_USER_ID
+    PublicSubkey = lib.PGP_TAG_PUBLIC_SUBKEY
+    Unassigned15 = lib.PGP_TAG_UNASSIGNED15
+    Unassigned16 = lib.PGP_TAG_UNASSIGNED16
+    UserAttribute = lib.PGP_TAG_USER_ATTRIBUTE
+    SEIP = lib.PGP_TAG_SEIP
+    MDC = lib.PGP_TAG_MDC
     # xxx the rest
 
 class Key(SQObject):
     @property
     def fingerprint(self):
-        return Fingerprint(lib.sq_p_key_fingerprint(self.ref()))
+        return Fingerprint(lib.pgp_p_key_fingerprint(self.ref()))
 
     @property
     def keyid(self):
-        return KeyID(lib.sq_p_key_keyid(self.ref()))
+        return KeyID(lib.pgp_p_key_keyid(self.ref()))
 
 class PublicKey(Key):
     pass
@@ -205,14 +205,14 @@ class UserID(SQObject):
     @property
     def value(self):
         buf_len = ffi.new("size_t[1]")
-        buf = lib.sq_user_id_value(self.ref(), buf_len)
+        buf = lib.pgp_user_id_value(self.ref(), buf_len)
         return ffi.buffer(buf, buf_len[0])
 
 class UserAttribute(SQObject):
     @property
     def value(self):
         buf_len = ffi.new("size_t[1]")
-        buf = lib.sq_user_attribute_value(self.ref(), buf_len)
+        buf = lib.pgp_user_attribute_value(self.ref(), buf_len)
         return ffi.buffer(buf, buf_len[0])
 
 class SKESK(SQObject):
@@ -221,7 +221,7 @@ class SKESK(SQObject):
         key = ffi.new("uint8_t[32]")
         key_len = ffi.new("size_t[1]")
         key_len[0] = len(key)
-        invoke(lib.sq_skesk_decrypt,
+        invoke(lib.pgp_skesk_decrypt,
                self.ref(),
                ffi.from_buffer(passphrase),
                len(passphrase),
@@ -244,17 +244,17 @@ class Packet(SQObject):
     }
     @property
     def tag(self):
-        return Tag(lib.sq_packet_tag(self.ref()))
+        return Tag(lib.pgp_packet_tag(self.ref()))
     def __str__(self):
         return "<Packet tag={}>".format(self.tag)
     def match(self):
         return self._map[self.tag](self.ref(), context=self.context(), owner=self)
 
 class PacketParserResult(SQObject):
-    _del = lib.sq_packet_parser_result_free
+    _del = lib.pgp_packet_parser_result_free
 
     def packet_parser(self):
-        ref = lib.sq_packet_parser_result_packet_parser(self.ref())
+        ref = lib.pgp_packet_parser_result_packet_parser(self.ref())
         if ref != ffi.NULL:
             # Success!  We are consumed.
             self._delete(skip_free=True)
@@ -263,7 +263,7 @@ class PacketParserResult(SQObject):
             return None
 
     def eof(self):
-        ref = lib.sq_packet_parser_result_eof(self.ref())
+        ref = lib.pgp_packet_parser_result_eof(self.ref())
         if ref != ffi.NULL:
             # Success!  We are consumed.
             self._delete(skip_free=True)
@@ -272,30 +272,30 @@ class PacketParserResult(SQObject):
             return None
 
 class PacketParserEOF(SQObject):
-    _del = lib.sq_packet_parser_eof_free
+    _del = lib.pgp_packet_parser_eof_free
 
     def is_message(self):
-        return bool(lib.sq_packet_parser_eof_is_message(self.ref()))
+        return bool(lib.pgp_packet_parser_eof_is_message(self.ref()))
 
 class PacketParser(SQObject):
-    _del = lib.sq_packet_parser_free
+    _del = lib.pgp_packet_parser_free
 
     @classmethod
     def from_reader(cls, ctx, reader):
         return PacketParserResult(
-            invoke(lib.sq_packet_parser_from_reader, reader.ref()),
+            invoke(lib.pgp_packet_parser_from_reader, reader.ref()),
             context=ctx)
 
     @classmethod
     def open(cls, ctx, filename):
         return PacketParserResult(
-            invoke(lib.sq_packet_parser_from_file, filename.encode()),
+            invoke(lib.pgp_packet_parser_from_file, filename.encode()),
             context=ctx)
 
     @classmethod
     def from_bytes(cls, ctx, source):
         return PacketParserResult(
-            invoke(lib.sq_packet_parser_from_bytes,
+            invoke(lib.pgp_packet_parser_from_bytes,
                    ffi.from_buffer(source),
                    len(source)),
             context=ctx)
@@ -306,21 +306,21 @@ class PacketParser(SQObject):
 
     @property
     def packet(self):
-        return Packet(lib.sq_packet_parser_packet(self.ref()),
+        return Packet(lib.pgp_packet_parser_packet(self.ref()),
                       context=self.context(),
                       owner=self)
 
     @property
     def recursion_depth(self):
-        return lib.sq_packet_parser_recursion_depth(self.ref())
+        return lib.pgp_packet_parser_recursion_depth(self.ref())
 
     def next(self):
-        packet = ffi.new("sq_packet_t[1]")
+        packet = ffi.new("pgp_packet_t[1]")
         old_rl = ffi.new("uint8_t[1]")
-        ppr = ffi.new("sq_packet_parser_result_t[1]")
+        ppr = ffi.new("pgp_packet_parser_result_t[1]")
         new_rl = ffi.new("uint8_t[1]")
 
-        invoke(lib.sq_packet_parser_next,
+        invoke(lib.pgp_packet_parser_next,
                self.ref_consume(),
                packet,
                ppr)
@@ -328,12 +328,12 @@ class PacketParser(SQObject):
         return (Packet(packet[0]), PacketParserResult(ppr[0], self.context()))
 
     def recurse(self):
-        packet = ffi.new("sq_packet_t[1]")
+        packet = ffi.new("pgp_packet_t[1]")
         old_rl = ffi.new("uint8_t[1]")
-        ppr = ffi.new("sq_packet_parser_result_t[1]")
+        ppr = ffi.new("pgp_packet_parser_result_t[1]")
         new_rl = ffi.new("uint8_t[1]")
 
-        invoke(lib.sq_packet_parser_recurse,
+        invoke(lib.pgp_packet_parser_recurse,
                self.ref_consume(),
                packet,
                ppr)
@@ -342,13 +342,13 @@ class PacketParser(SQObject):
 
     def buffer_unread_content(self):
         buf_len = ffi.new("size_t[1]")
-        buf = invoke(lib.sq_packet_parser_buffer_unread_content,
+        buf = invoke(lib.pgp_packet_parser_buffer_unread_content,
                      self.ref(),
                      buf_len)
         return ffi.buffer(buf, buf_len[0])
 
     def decrypt(self, algo, key):
-        invoke(lib.sq_packet_parser_decrypt,
+        invoke(lib.pgp_packet_parser_decrypt,
                self.ref(),
                algo,
                ffi.from_buffer(key),
