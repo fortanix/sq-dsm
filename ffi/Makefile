@@ -66,6 +66,5 @@ install:
 # Housekeeping.
 .PHONY: clean
 clean:
-	rm -f sequoia.pc
 	$(MAKE) -Cexamples clean
 	$(MAKE) -Clang/python clean
