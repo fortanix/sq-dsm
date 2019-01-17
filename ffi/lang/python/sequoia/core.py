@@ -3,7 +3,7 @@ from enum import Enum
 
 from _sequoia import ffi, lib
 from .error import Error
-from .glue import SQObject
+from .glue import SQObject, invoke
 
 class NetworkPolicy(Enum):
     Offline = lib.SQ_NETWORK_POLICY_OFFLINE
@@ -45,12 +45,11 @@ class AbstractReader(SQObject, io.RawIOBase):
         return False
 
     def readinto(self, buf):
-        bytes_read = lib.sq_reader_read(
-            self.context().ref(), self.ref(),
-            ffi.cast("uint8_t *", ffi.from_buffer(buf)), len(buf))
-        if bytes_read < 0:
-            raise Error._last(self.context())
-        return bytes_read
+        return invoke(
+            lib.sq_reader_read,
+            self.ref(),
+            ffi.cast("uint8_t *", ffi.from_buffer(buf)),
+            len(buf))
 
     def close(self):
         self._delete()
@@ -66,9 +65,8 @@ class Reader(AbstractReader):
     @classmethod
     def open(cls, ctx, filename):
         return Reader(
-            lib.sq_reader_from_file(
-                ctx.ref(),
-                filename.encode()),
+            invoke(lib.sq_reader_from_file,
+                   filename.encode()),
             context=ctx)
 
     @classmethod
@@ -92,12 +90,11 @@ class AbstractWriter(SQObject, io.RawIOBase):
         return True
 
     def write(self, buf):
-        bytes_written = lib.sq_writer_write(
-            self.context().ref(), self.ref(),
-            ffi.cast("const uint8_t *", ffi.from_buffer(buf)), len(buf))
-        if bytes_written < 0:
-            raise Error._last(self.context())
-        return bytes_written
+        return invoke(
+            lib.sq_writer_write,
+            self.ref(),
+            ffi.cast("const uint8_t *", ffi.from_buffer(buf)),
+            len(buf))
 
     def close(self):
         self._delete()
@@ -113,9 +110,8 @@ class Writer(AbstractWriter):
     @classmethod
     def open(cls, ctx, filename):
         return Writer(
-            lib.sq_writer_from_file(
-                ctx.ref(),
-                filename.encode()),
+            invoke(lib.sq_writer_from_file,
+                   filename.encode()),
             context=ctx)
 
     @classmethod

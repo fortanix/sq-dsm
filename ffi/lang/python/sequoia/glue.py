@@ -3,6 +3,20 @@ from datetime import datetime, timezone
 from _sequoia import ffi, lib
 from . import error
 
+def invoke(fun, *args):
+    """Invokes the given FFI function.
+
+    This function invokes the given FFI function.  It must only be
+    used for functions that expect an error pointer as first argument.
+
+    If an error is encountered, an exception is raised.
+    """
+    err = ffi.new("sq_error_t[1]")
+    result = fun(err, *args)
+    if err[0] != ffi.NULL:
+        raise Error._from(err[0])
+    return result
+
 class SQObject(object):
     # These class attributes determine what features the wrapper class
     # implements.  They must be set to the relevant Sequoia functions.

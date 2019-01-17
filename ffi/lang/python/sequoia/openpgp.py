@@ -2,7 +2,7 @@ from enum import Enum
 
 from _sequoia import ffi, lib
 from .error import Error
-from .glue import _str, SQObject
+from .glue import _str, SQObject, invoke
 from .core import AbstractReader, AbstractWriter
 
 class KeyID(SQObject):
@@ -54,25 +54,25 @@ class PacketPile(SQObject):
 
     @classmethod
     def from_reader(cls, ctx, reader):
-        return PacketPile(lib.sq_packet_pile_from_reader(ctx.ref(), reader.ref()),
+        return PacketPile(invoke(lib.sq_packet_pile_from_reader, reader.ref()),
                           context=ctx)
 
     @classmethod
     def open(cls, ctx, filename):
-        return PacketPile(lib.sq_packet_pile_from_file(ctx.ref(), filename.encode()),
+        return PacketPile(invoke(lib.sq_packet_pile_from_file, filename.encode()),
                           context=ctx)
 
     @classmethod
     def from_bytes(cls, ctx, source):
-        return PacketPile(lib.sq_packet_pile_from_bytes(ctx.ref(),
-                                                        ffi.from_buffer(source),
-                                                        len(source)),
+        return PacketPile(invoke(lib.sq_packet_pile_from_bytes,
+                                 ffi.from_buffer(source),
+                                 len(source)),
                           context=ctx)
 
     def serialize(self, writer):
-        status = lib.sq_packet_pile_serialize(self.context().ref(),
-                                              self.ref(),
-                                              writer.ref())
+        status = invoke(lib.sq_packet_pile_serialize,
+                        self.ref(),
+                        writer.ref())
         if status:
             raise Error._last(self.context())
 
@@ -83,30 +83,30 @@ class TPK(SQObject):
 
     @classmethod
     def from_reader(cls, ctx, reader):
-        return TPK(lib.sq_tpk_from_reader(ctx.ref(), reader.ref()),
+        return TPK(invoke(lib.sq_tpk_from_reader, reader.ref()),
                    context=ctx)
 
     @classmethod
     def open(cls, ctx, filename):
-        return TPK(lib.sq_tpk_from_file(ctx.ref(), filename.encode()),
+        return TPK(invoke(lib.sq_tpk_from_file, filename.encode()),
                    context=ctx)
 
     @classmethod
     def from_packet_pile(cls, ctx, packet_pile):
-        return TPK(lib.sq_tpk_from_packet_pile(ctx.ref(), packet_pile.ref_consume()),
+        return TPK(invoke(lib.sq_tpk_from_packet_pile, packet_pile.ref_consume()),
                    context=ctx)
 
     @classmethod
     def from_bytes(cls, ctx, source):
-        return TPK(lib.sq_tpk_from_bytes(ctx.ref(),
-                                         ffi.from_buffer(source),
-                                         len(source)),
+        return TPK(invoke(lib.sq_tpk_from_bytes,
+                          ffi.from_buffer(source),
+                          len(source)),
                    context=ctx)
 
     def serialize(self, writer):
-        status = lib.sq_tpk_serialize(self.context().ref(),
-                                      self.ref(),
-                                      writer.ref())
+        status = invoke(lib.sq_tpk_serialize,
+                        self.ref(),
+                        writer.ref())
         if status:
             raise Error._last(self.context())
 
@@ -115,9 +115,9 @@ class TPK(SQObject):
                            context=self.context())
 
     def merge(self, other):
-        new = lib.sq_tpk_merge(self.context().ref(),
-                               self.ref_consume(),
-                               other.ref_consume())
+        new = invoke(lib.sq_tpk_merge,
+                     self.ref_consume(),
+                     other.ref_consume())
         if new == ffi.NULL:
             raise Error._last(self.context())
         self.ref_replace(new)
@@ -149,10 +149,10 @@ class ArmorReader(AbstractReader):
 class ArmorWriter(AbstractWriter):
     @classmethod
     def new(cls, ctx, inner, kind):
-        aw = ArmorWriter(lib.sq_armor_writer_new(ctx.ref(),
-                                                 inner.ref(),
-                                                 kind.value,
-                                                 ffi.NULL, 0), #XXX headers
+        aw = ArmorWriter(invoke(lib.sq_armor_writer_new,
+                                inner.ref(),
+                                kind.value,
+                                ffi.NULL, 0), #XXX headers
                          context=ctx)
         aw.inner = inner
         return aw
@@ -221,12 +221,11 @@ class SKESK(SQObject):
         key = ffi.new("uint8_t[32]")
         key_len = ffi.new("size_t[1]")
         key_len[0] = len(key)
-        if lib.sq_skesk_decrypt(self.context().ref(),
-                                self.ref(),
-                                ffi.from_buffer(passphrase),
-                                len(passphrase),
-                                algo, key, key_len):
-            raise Error._last(self.context())
+        invoke(lib.sq_skesk_decrypt,
+               self.ref(),
+               ffi.from_buffer(passphrase),
+               len(passphrase),
+               algo, key, key_len)
         return (algo[0], ffi.buffer(key, key_len[0]))
 
 class SEIP(SQObject):
@@ -284,21 +283,21 @@ class PacketParser(SQObject):
     @classmethod
     def from_reader(cls, ctx, reader):
         return PacketParserResult(
-            lib.sq_packet_parser_from_reader(ctx.ref(), reader.ref()),
+            invoke(lib.sq_packet_parser_from_reader, reader.ref()),
             context=ctx)
 
     @classmethod
     def open(cls, ctx, filename):
         return PacketParserResult(
-            lib.sq_packet_parser_from_file(ctx.ref(), filename.encode()),
+            invoke(lib.sq_packet_parser_from_file, filename.encode()),
             context=ctx)
 
     @classmethod
     def from_bytes(cls, ctx, source):
         return PacketParserResult(
-            lib.sq_packet_parser_from_bytes(ctx.ref(),
-                                            ffi.from_buffer(source),
-                                            len(source)),
+            invoke(lib.sq_packet_parser_from_bytes,
+                   ffi.from_buffer(source),
+                   len(source)),
             context=ctx)
 
     @property
@@ -321,11 +320,10 @@ class PacketParser(SQObject):
         ppr = ffi.new("sq_packet_parser_result_t[1]")
         new_rl = ffi.new("uint8_t[1]")
 
-        if lib.sq_packet_parser_next(self.context().ref(),
-                                     self.ref_consume(),
-                                     packet,
-                                     ppr):
-            raise Error._last(self.context())
+        invoke(lib.sq_packet_parser_next,
+               self.ref_consume(),
+               packet,
+               ppr)
 
         return (Packet(packet[0]), PacketParserResult(ppr[0], self.context()))
 
@@ -335,27 +333,23 @@ class PacketParser(SQObject):
         ppr = ffi.new("sq_packet_parser_result_t[1]")
         new_rl = ffi.new("uint8_t[1]")
 
-        if lib.sq_packet_parser_recurse(self.context().ref(),
-                                        self.ref_consume(),
-                                        packet,
-                                        ppr):
-            raise Error._last(self.context())
+        invoke(lib.sq_packet_parser_recurse,
+               self.ref_consume(),
+               packet,
+               ppr)
 
         return (Packet(packet[0]), PacketParserResult(ppr[0], self.context()))
 
     def buffer_unread_content(self):
         buf_len = ffi.new("size_t[1]")
-        buf = lib.sq_packet_parser_buffer_unread_content(self.context().ref(),
-                                                         self.ref(),
-                                                         buf_len)
-        if buf == ffi.NULL:
-            raise Error._last(self.context())
+        buf = invoke(lib.sq_packet_parser_buffer_unread_content,
+                     self.ref(),
+                     buf_len)
         return ffi.buffer(buf, buf_len[0])
 
     def decrypt(self, algo, key):
-        if lib.sq_packet_parser_decrypt(self.context().ref(),
-                                        self.ref(),
-                                        algo,
-                                        ffi.from_buffer(key),
-                                        len(key)):
-            raise Error._last(self.context())
+        invoke(lib.sq_packet_parser_decrypt,
+               self.ref(),
+               algo,
+               ffi.from_buffer(key),
+               len(key))
