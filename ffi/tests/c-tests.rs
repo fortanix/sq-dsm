@@ -26,7 +26,9 @@ fn c_doctests() {
         .expect("CARGO_MANIFEST_DIR not set"));
 
     let src = manifest_dir.join("src");
-    let include = manifest_dir.join("include");
+    let includes = vec![
+        manifest_dir.join("include"),
+    ];
 
     // The top-level directory.
     let toplevel = manifest_dir.parent().unwrap();
@@ -53,7 +55,7 @@ fn c_doctests() {
         for_all_tests(path, |src, lineno, name, lines, run_it| {
             n += 1;
             eprint!("  test {} ... ", name);
-            match build(&include, &debug, &target, src, lineno, name, lines) {
+            match build(&includes, &debug, &target, src, lineno, name, lines) {
                 Ok(_) if ! run_it => {
                     eprintln!("ok");
                     passed += 1;
@@ -182,7 +184,7 @@ fn for_all_tests<F>(path: &Path, mut fun: F)
 }
 
 /// Writes and builds the c test iff it is out of date.
-fn build(include_dir: &Path, ldpath: &Path, target_dir: &Path,
+fn build(include_dirs: &[PathBuf], ldpath: &Path, target_dir: &Path,
          src: &Path, lineno: usize, name: &str, mut lines: Vec<String>)
          -> io::Result<PathBuf> {
     let target = target_dir.join(&format!("{}", name));
@@ -227,8 +229,11 @@ fn build(include_dir: &Path, ldpath: &Path, target_dir: &Path,
         assert_eq!(rc, 0);
     }
 
+    let includes =
+        include_dirs.iter().map(|dir| format!("-I{:?}", dir))
+        .collect::<Vec<String>>().join(" ");
     let st = Command::new("make")
-        .env("CFLAGS", &format!("-O0 -ggdb -I{:?}", include_dir))
+        .env("CFLAGS", &format!("-O0 -ggdb {}", includes))
         .env("LDFLAGS", &format!("-L{:?} -lsequoia_ffi", ldpath))
         .arg("-C").arg(&target_dir)
         .arg("--quiet")
