@@ -214,8 +214,19 @@ fn real_main() -> Result<(), failure::Error> {
 
         if let Some(ref tpk) = tpko {
             // Find the right key.
-            for (_, _, key) in tpk.keys() {
+            for (maybe_binding, _, key) in tpk.keys() {
+                let binding = match maybe_binding {
+                    Some(b) => b,
+                    None => continue,
+                };
+
                 if issuer == key.keyid() {
+                    if !binding.key_flags().can_sign() {
+                        eprintln!("Cannot check signature, key has no siginig \
+                                   capability");
+                        continue 'sig_loop;
+                    }
+
                     let mut hash = match hashes.get(&sig.hash_algo()) {
                         Some(h) => h.clone(),
                         None => {
