@@ -622,7 +622,7 @@ impl<'a> Reader<'a> {
             /* Process headers.  */
             let key_value = line.splitn(2, ": ").collect::<Vec<&str>>();
             if key_value.len() == 1 {
-                if line.trim_left().len() == 0 {
+                if line.trim_start().len() == 0 {
                     // Empty line.
                     break;
                 }
