@@ -362,15 +362,15 @@ impl<'a> Signer<'a> {
                 let mut hash = self.hash.clone();
 
                 // Make and hash a signature packet.
-                let mut sig = signature::Builder::new(SignatureType::Binary);
-                sig.set_signature_creation_time(time::now().canonicalize())?;
-                sig.set_issuer_fingerprint(signer.public().fingerprint())?;
-                // GnuPG up to (and including) 2.2.8 requires the
-                // Issuer subpacket to be present.
-                sig.set_issuer(signer.public().keyid())?;
+                let mut sig = signature::Builder::new(SignatureType::Binary)
+                    .set_signature_creation_time(time::now().canonicalize())?
+                    .set_issuer_fingerprint(signer.public().fingerprint())?
+                    // GnuPG up to (and including) 2.2.8 requires the
+                    // Issuer subpacket to be present.
+                    .set_issuer(signer.public().keyid())?;
 
                 if let Some(ref ir) = self.intended_recipients {
-                    sig.set_intended_recipients(ir.clone())?;
+                    sig = sig.set_intended_recipients(ir.clone())?;
                 }
 
                 // Compute the signature.

@@ -254,20 +254,20 @@ impl TPKBuilder {
         use packet::key::SecretKey;
 
         let key = cs.generate_key(&KeyFlags::default().set_certify(true))?;
-        let mut sig = if uid.is_some() {
-            signature::Builder::new(SignatureType::PositiveCertificate)
+        let sigtype = if uid.is_some() {
+            SignatureType::PositiveCertificate
         } else {
-            signature::Builder::new(SignatureType::DirectKey)
+            SignatureType::DirectKey
         };
 
-        sig.set_features(&Features::sequoia())?;
-        sig.set_key_flags(&blueprint.flags)?;
-        sig.set_signature_creation_time(time::now().canonicalize())?;
-        sig.set_key_expiration_time(Some(time::Duration::weeks(3 * 52)))?;
-        sig.set_issuer_fingerprint(key.fingerprint())?;
-        sig.set_issuer(key.fingerprint().to_keyid())?;
-        sig.set_preferred_hash_algorithms(vec![HashAlgorithm::SHA512])?;
-
+        let sig = signature::Builder::new(sigtype)
+            .set_features(&Features::sequoia())?
+            .set_key_flags(&blueprint.flags)?
+            .set_signature_creation_time(time::now().canonicalize())?
+            .set_key_expiration_time(Some(time::Duration::weeks(3 * 52)))?
+            .set_issuer_fingerprint(key.fingerprint())?
+            .set_issuer(key.fingerprint().to_keyid())?
+            .set_preferred_hash_algorithms(vec![HashAlgorithm::SHA512])?;
 
         let sig = match key.secret() {
             Some(SecretKey::Unencrypted{ ref mpis }) => {
@@ -300,35 +300,31 @@ impl TPKBuilder {
         use packet::key::SecretKey;
 
         let subkey = cs.generate_key(&blueprint.flags)?;
-        let mut sig = signature::Builder::new(SignatureType::SubkeyBinding);
-
-        sig.set_key_flags(&blueprint.flags)?;
-        sig.set_signature_creation_time(time::now().canonicalize())?;
-        sig.set_key_expiration_time(Some(time::Duration::weeks(3 * 52)))?;
-        sig.set_issuer_fingerprint(primary_key.fingerprint())?;
-        sig.set_issuer(primary_key.fingerprint().to_keyid())?;
+        let mut sig = signature::Builder::new(SignatureType::SubkeyBinding)
+            .set_key_flags(&blueprint.flags)?
+            .set_signature_creation_time(time::now().canonicalize())?
+            .set_key_expiration_time(Some(time::Duration::weeks(3 * 52)))?
+            .set_issuer_fingerprint(primary_key.fingerprint())?
+            .set_issuer(primary_key.fingerprint().to_keyid())?;
 
         if blueprint.flags.can_encrypt_for_transport()
         || blueprint.flags.can_encrypt_at_rest() {
-            sig.set_preferred_symmetric_algorithms(
+            sig = sig.set_preferred_symmetric_algorithms(
                 vec![SymmetricAlgorithm::AES256])?;
         }
 
         if blueprint.flags.can_certify() || blueprint.flags.can_sign() {
-            sig.set_preferred_hash_algorithms(vec![HashAlgorithm::SHA512])?;
-
-            let mut backsig = signature::Builder::new(
-                SignatureType::PrimaryKeyBinding);
-
-            backsig.set_signature_creation_time(time::now().canonicalize())?;
-            backsig.set_issuer_fingerprint(subkey.fingerprint())?;
-            backsig.set_issuer(subkey.fingerprint().to_keyid())?;
+            sig = sig.set_preferred_hash_algorithms(vec![HashAlgorithm::SHA512])?;
 
             let backsig = match subkey.secret() {
                 Some(SecretKey::Unencrypted{ ref mpis }) => {
-                    backsig.sign_subkey_binding(
-                        &mut KeyPair::new(subkey.clone(), mpis.clone())?,
-                        primary_key, &subkey, HashAlgorithm::SHA512)?
+                    signature::Builder::new(SignatureType::PrimaryKeyBinding)
+                        .set_signature_creation_time(time::now().canonicalize())?
+                        .set_issuer_fingerprint(subkey.fingerprint())?
+                        .set_issuer(subkey.fingerprint().to_keyid())?
+                        .sign_subkey_binding(
+                            &mut KeyPair::new(subkey.clone(), mpis.clone())?,
+                            primary_key, &subkey, HashAlgorithm::SHA512)?
                 }
                 Some(SecretKey::Encrypted{ .. }) => {
                     return Err(Error::InvalidOperation(
@@ -339,7 +335,7 @@ impl TPKBuilder {
                             "No secret key".into()).into());
                 }
             };
-            sig.set_embedded_signature(backsig)?;
+            sig = sig.set_embedded_signature(backsig)?;
         }
 
         let sig = match primary_key.secret() {
@@ -365,18 +361,15 @@ impl TPKBuilder {
     fn userid(uid: &UserID, key: &Key) -> Result<Signature> {
         use SignatureType;
         use packet::key::SecretKey;
-
-        let mut sig = signature::Builder::new(SignatureType::PositiveCertificate);
-
-        sig.set_signature_creation_time(time::now().canonicalize())?;
-        sig.set_issuer_fingerprint(key.fingerprint())?;
-        sig.set_issuer(key.fingerprint().to_keyid())?;
-
         let sig = match key.secret() {
             Some(SecretKey::Unencrypted{ ref mpis }) => {
-                sig.sign_userid_binding(&mut KeyPair::new(key.clone(),
-                                                          mpis.clone())?,
-                                        key, &uid, HashAlgorithm::SHA512)?
+                signature::Builder::new(SignatureType::PositiveCertificate)
+                    .set_signature_creation_time(time::now().canonicalize())?
+                    .set_issuer_fingerprint(key.fingerprint())?
+                    .set_issuer(key.fingerprint().to_keyid())?
+                    .sign_userid_binding(
+                        &mut KeyPair::new(key.clone(), mpis.clone())?,
+                        key, &uid, HashAlgorithm::SHA512)?
             }
             Some(SecretKey::Encrypted{ .. }) => {
                 return Err(Error::InvalidOperation(

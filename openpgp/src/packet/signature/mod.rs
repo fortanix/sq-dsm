@@ -83,8 +83,9 @@ impl Builder {
     }
 
     /// Sets the signature type.
-    pub fn set_sigtype(&mut self, t: SignatureType) {
+    pub fn set_sigtype(mut self, t: SignatureType) -> Self {
         self.sigtype = t;
+        self
     }
 
     /// Gets the public key algorithm.
@@ -1010,16 +1011,16 @@ mod test {
         let key = Key::new(PublicKeyAlgorithm::EdDSA)
             .unwrap();
         let msg = b"Hello, World";
-        let mut b = Builder::new(SignatureType::Binary);
-        b.set_signature_creation_time(time::now()).unwrap();
-        b.set_issuer_fingerprint(key.fingerprint()).unwrap();
-        b.set_issuer(key.fingerprint().to_keyid()).unwrap();
 
         match key.secret() {
             Some(SecretKey::Unencrypted{ ref mpis }) => {
-                let sig = b.sign_message(
-                    &mut KeyPair::new(key.clone(), mpis.clone()).unwrap(),
-                    HashAlgorithm::SHA512, msg).unwrap();
+                let sig = Builder::new(SignatureType::Binary)
+                    .set_signature_creation_time(time::now()).unwrap()
+                    .set_issuer_fingerprint(key.fingerprint()).unwrap()
+                    .set_issuer(key.fingerprint().to_keyid()).unwrap()
+                    .sign_message(
+                        &mut KeyPair::new(key.clone(), mpis.clone()).unwrap(),
+                        HashAlgorithm::SHA512, msg).unwrap();
 
                 assert!(sig.verify_message(&key, msg).unwrap());
             }

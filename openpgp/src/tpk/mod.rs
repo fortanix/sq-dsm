@@ -382,20 +382,19 @@ impl SubkeyBinding {
         use SignatureType;
         use packet::key::SecretKey;
 
-        let mut sig = signature::Builder::new(SignatureType::SubkeyBinding);
-
-        sig.set_key_flags(&KeyFlags::default().set_encrypt_for_transport(true))?;
-        sig.set_signature_creation_time(time::now().canonicalize())?;
-        sig.set_key_expiration_time(Some(time::Duration::weeks(3 * 52)))?;
-        sig.set_issuer_fingerprint(primary_key.fingerprint())?;
-        sig.set_issuer(primary_key.fingerprint().to_keyid())?;
 
         let sig = match primary_key.secret() {
             Some(SecretKey::Unencrypted{ ref mpis }) => {
-                sig.sign_subkey_binding(&mut KeyPair::new(primary_key.clone(),
-                                                          mpis.clone())?,
-                                        primary_key, &subkey,
-                                        HashAlgorithm::SHA512)?
+                signature::Builder::new(SignatureType::SubkeyBinding)
+                    .set_key_flags(&KeyFlags::default().set_encrypt_for_transport(true))?
+                    .set_signature_creation_time(time::now().canonicalize())?
+                    .set_key_expiration_time(Some(time::Duration::weeks(3 * 52)))?
+                    .set_issuer_fingerprint(primary_key.fingerprint())?
+                    .set_issuer(primary_key.fingerprint().to_keyid())?
+                    .sign_subkey_binding(
+                        &mut KeyPair::new(primary_key.clone(), mpis.clone())?,
+                        primary_key, &subkey,
+                        HashAlgorithm::SHA512)?
             }
             Some(SecretKey::Encrypted{ .. }) => {
                 return Err(Error::InvalidOperation(
@@ -518,20 +517,18 @@ impl UserIDBinding {
         use SignatureType;
         use packet::key::SecretKey;
 
-        let mut sig = signature::Builder::new(SignatureType::PositiveCertificate);
-
-        sig.set_key_flags(&KeyFlags::default().set_certify(true).set_sign(true))?;
-        sig.set_signature_creation_time(time::now().canonicalize())?;
-        sig.set_key_expiration_time(Some(time::Duration::weeks(3 * 52)))?;
-        sig.set_issuer_fingerprint(signer.fingerprint())?;
-        sig.set_issuer(signer.fingerprint().to_keyid())?;
-        sig.set_preferred_hash_algorithms(vec![HashAlgorithm::SHA512])?;
-
         let sig = match signer.secret() {
             Some(SecretKey::Unencrypted{ ref mpis }) => {
-                sig.sign_userid_binding(&mut KeyPair::new(signer.clone(),
-                                                          mpis.clone())?,
-                                        key, &uid, HashAlgorithm::SHA512)?
+                signature::Builder::new(SignatureType::PositiveCertificate)
+                    .set_key_flags(&KeyFlags::default().set_certify(true).set_sign(true))?
+                    .set_signature_creation_time(time::now().canonicalize())?
+                    .set_key_expiration_time(Some(time::Duration::weeks(3 * 52)))?
+                    .set_issuer_fingerprint(signer.fingerprint())?
+                    .set_issuer(signer.fingerprint().to_keyid())?
+                    .set_preferred_hash_algorithms(vec![HashAlgorithm::SHA512])?
+                    .sign_userid_binding(
+                        &mut KeyPair::new(signer.clone(), mpis.clone())?,
+                        key, &uid, HashAlgorithm::SHA512)?
             }
             Some(SecretKey::Encrypted{ .. }) => {
                 return Err(Error::InvalidOperation("Secret key is encrypted".into()).into());
@@ -630,15 +627,14 @@ impl UserIDBinding {
                   code: ReasonForRevocation, reason: &[u8])
         -> Result<Signature>
     {
-        let mut sig = signature::Builder::new(SignatureType::CertificateRevocation);
-        sig.set_signature_creation_time(time::now_utc())?;
-        sig.set_issuer_fingerprint(signer.public().fingerprint())?;
-        sig.set_issuer(signer.public().keyid())?;
-        sig.set_reason_for_revocation(code, reason)?;
-
-        // XXX
         let key = signer.public().clone();
-        sig.sign_userid_binding(signer, &key, self.userid(), HashAlgorithm::SHA512)
+
+        signature::Builder::new(SignatureType::CertificateRevocation)
+            .set_signature_creation_time(time::now_utc())?
+            .set_issuer_fingerprint(signer.public().fingerprint())?
+            .set_issuer(signer.public().keyid())?
+            .set_reason_for_revocation(code, reason)?
+            .sign_userid_binding(signer, &key, self.userid(), HashAlgorithm::SHA512)
     }
 }
 
@@ -1393,20 +1389,18 @@ impl TPK {
                 "signer is not the primary key".into()).into());
         }
 
-        let mut sig = signature::Builder::new(SignatureType::KeyRevocation);
-        sig.set_signature_creation_time(time::now_utc())?;
-        sig.set_issuer_fingerprint(self.primary().fingerprint())?;
-        sig.set_issuer(self.primary().keyid())?;
-        sig.set_reason_for_revocation(code, reason)?;
-
-        let pair = self.primary();
-
         // Recompute the signature.
         let hash_algo = HashAlgorithm::SHA512;
         let mut hash = hash_algo.context()?;
+        let pair = self.primary();
         pair.hash(&mut hash);
 
-        sig.sign_hash(primary_signer, hash_algo, hash)
+        signature::Builder::new(SignatureType::KeyRevocation)
+            .set_signature_creation_time(time::now_utc())?
+            .set_issuer_fingerprint(self.primary().fingerprint())?
+            .set_issuer(self.primary().keyid())?
+            .set_reason_for_revocation(code, reason)?
+            .sign_hash(primary_signer, hash_algo, hash)
     }
 
     /// Revokes the TPK.
@@ -1505,10 +1499,6 @@ impl TPK {
                 .primary_key_signature_full()
                 .ok_or(Error::MalformedTPK("No self-signature".into()))?;
 
-            let mut sig = signature::Builder::from(template.clone());
-            sig.set_key_expiration_time(expiration)?;
-            sig.set_signature_creation_time(now)?;
-
             // Recompute the signature.
             let hash_algo = HashAlgorithm::SHA512;
             let mut hash = hash_algo.context()?;
@@ -1519,14 +1509,18 @@ impl TPK {
             if let Some(userid) = userid {
                 userid.userid().hash(&mut hash);
             } else {
-                assert_eq!(sig.sigtype(), SignatureType::DirectKey);
+                assert_eq!(template.sigtype(), SignatureType::DirectKey);
             }
 
             match pair.secret() {
                 Some(SecretKey::Unencrypted{ mpis: ref sec }) => {
                     // Generate the signature.
-                    sig.sign_hash(&mut KeyPair::new(pair.clone(), sec.clone())?,
-                                  hash_algo, hash)?
+                    signature::Builder::from(template.clone())
+                        .set_key_expiration_time(expiration)?
+                        .set_signature_creation_time(now)?
+                        .sign_hash(
+                            &mut KeyPair::new(pair.clone(), sec.clone())?,
+                            hash_algo, hash)?
                 }
                 Some(_) =>
                     return Err(Error::InvalidOperation(
@@ -3466,35 +3460,37 @@ mod test {
                 Some(SecretKey::Unencrypted{ ref mpis }) => mpis,
                 _ => unreachable!(),
             };
-            let mut b = signature::Builder::new(SignatureType::DirectKey);
-            b.set_features(&Features::sequoia()).unwrap();
-            b.set_key_flags(&KeyFlags::default()).unwrap();
-            b.set_signature_creation_time(t1).unwrap();
-            b.set_key_expiration_time(Some(time::Duration::weeks(10 * 52))).unwrap();
-            b.set_issuer_fingerprint(key.fingerprint()).unwrap();
-            b.set_issuer(key.fingerprint().to_keyid()).unwrap();
-            b.set_preferred_hash_algorithms(vec![HashAlgorithm::SHA512]).unwrap();
-            let bind1 = b.sign_primary_key_binding(
-                &mut KeyPair::new(key.clone(), mpis.clone()).unwrap(),
-                HashAlgorithm::SHA512).unwrap();
-            b = signature::Builder::new(SignatureType::KeyRevocation);
-            b.set_signature_creation_time(t2).unwrap();
-            b.set_issuer_fingerprint(key.fingerprint()).unwrap();
-            b.set_issuer(key.fingerprint().to_keyid()).unwrap();
-            let rev = b.sign_primary_key_binding(
-                &mut KeyPair::new(key.clone(), mpis.clone()).unwrap(),
-                HashAlgorithm::SHA512).unwrap();
-            b = signature::Builder::new(SignatureType::DirectKey);
-            b.set_features(&Features::sequoia()).unwrap();
-            b.set_key_flags(&KeyFlags::default()).unwrap();
-            b.set_signature_creation_time(t3).unwrap();
-            b.set_key_expiration_time(Some(time::Duration::weeks(10 * 52))).unwrap();
-            b.set_issuer_fingerprint(key.fingerprint()).unwrap();
-            b.set_issuer(key.fingerprint().to_keyid()).unwrap();
-            b.set_preferred_hash_algorithms(vec![HashAlgorithm::SHA512]).unwrap();
-            let bind2 = b.sign_primary_key_binding(
-                &mut KeyPair::new(key.clone(), mpis.clone()).unwrap(),
-                HashAlgorithm::SHA512).unwrap();
+            let bind1 = signature::Builder::new(SignatureType::DirectKey)
+                .set_features(&Features::sequoia()).unwrap()
+                .set_key_flags(&KeyFlags::default()).unwrap()
+                .set_signature_creation_time(t1).unwrap()
+                .set_key_expiration_time(Some(time::Duration::weeks(10 * 52))).unwrap()
+                .set_issuer_fingerprint(key.fingerprint()).unwrap()
+                .set_issuer(key.fingerprint().to_keyid()).unwrap()
+                .set_preferred_hash_algorithms(vec![HashAlgorithm::SHA512]).unwrap()
+                .sign_primary_key_binding(
+                    &mut KeyPair::new(key.clone(), mpis.clone()).unwrap(),
+                    HashAlgorithm::SHA512).unwrap();
+
+            let rev = signature::Builder::new(SignatureType::KeyRevocation)
+                .set_signature_creation_time(t2).unwrap()
+                .set_issuer_fingerprint(key.fingerprint()).unwrap()
+                .set_issuer(key.fingerprint().to_keyid()).unwrap()
+                .sign_primary_key_binding(
+                    &mut KeyPair::new(key.clone(), mpis.clone()).unwrap(),
+                    HashAlgorithm::SHA512).unwrap();
+
+            let bind2 = signature::Builder::new(SignatureType::DirectKey)
+                .set_features(&Features::sequoia()).unwrap()
+                .set_key_flags(&KeyFlags::default()).unwrap()
+                .set_signature_creation_time(t3).unwrap()
+                .set_key_expiration_time(Some(time::Duration::weeks(10 * 52))).unwrap()
+                .set_issuer_fingerprint(key.fingerprint()).unwrap()
+                .set_issuer(key.fingerprint().to_keyid()).unwrap()
+                .set_preferred_hash_algorithms(vec![HashAlgorithm::SHA512]).unwrap()
+                .sign_primary_key_binding(
+                    &mut KeyPair::new(key.clone(), mpis.clone()).unwrap(),
+                    HashAlgorithm::SHA512).unwrap();
 
             (bind1, rev, bind2)
         };

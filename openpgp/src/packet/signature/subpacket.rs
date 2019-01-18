@@ -1967,64 +1967,75 @@ impl Signature {
 
 impl signature::Builder {
     /// Sets the value of the Creation Time subpacket.
-    pub fn set_signature_creation_time(&mut self, creation_time: time::Tm)
-                                       -> Result<()> {
+    pub fn set_signature_creation_time(mut self, creation_time: time::Tm)
+                                       -> Result<Self> {
         self.hashed_area.replace(Subpacket::new(
             SubpacketValue::SignatureCreationTime(creation_time.canonicalize()),
-            true)?)
+            true)?)?;
+
+        Ok(self)
     }
 
     /// Sets the value of the Signature Expiration Time subpacket.
     ///
     /// If `None` is given, any expiration subpacket is removed.
-    pub fn set_signature_expiration_time(&mut self,
+    pub fn set_signature_expiration_time(mut self,
                                          expiration: Option<time::Duration>)
-                                         -> Result<()> {
+                                         -> Result<Self> {
         if let Some(e) = expiration {
             self.hashed_area.replace(Subpacket::new(
                 SubpacketValue::SignatureExpirationTime(e.canonicalize()),
-                true)?)
+                true)?)?;
         } else {
             self.hashed_area.remove_all(SubpacketTag::SignatureExpirationTime);
-            Ok(())
         }
+
+        Ok(self)
     }
 
     /// Sets the value of the Exportable Certification subpacket,
     /// which contains whether the certification should be exported
     /// (i.e., whether the packet is *not* a local signature).
-    pub fn set_exportable_certification(&mut self, exportable: bool)
-                                        -> Result<()> {
+    pub fn set_exportable_certification(mut self, exportable: bool)
+                                        -> Result<Self> {
         self.hashed_area.replace(Subpacket::new(
             SubpacketValue::ExportableCertification(exportable),
-            true)?)
+            true)?)?;
+
+        Ok(self)
     }
 
     /// Sets the value of the Trust Signature subpacket.
-    pub fn set_trust_signature(&mut self, level: u8, trust: u8)
-                               -> Result<()> {
+    pub fn set_trust_signature(mut self, level: u8, trust: u8)
+                               -> Result<Self> {
         self.hashed_area.replace(Subpacket::new(
             SubpacketValue::TrustSignature {
                 level: level,
                 trust: trust,
             },
-            true)?)
+            true)?)?;
+
+        Ok(self)
     }
 
     /// Sets the value of the Regular Expression subpacket.
-    pub fn set_regular_expression(&mut self, re: &[u8]) -> Result<()> {
+    pub fn set_regular_expression(mut self, re: &[u8]) -> Result<Self> {
         self.hashed_area.replace(Subpacket::new(
             SubpacketValue::RegularExpression(re),
-            true)?)
+            true)?)?;
+
+        Ok(self)
     }
 
     /// Sets the value of the Revocable subpacket, which indicates
     /// whether the signature is revocable, i.e., whether revocation
     /// certificates for this signature should be ignored.
-    pub fn set_revocable(&mut self, revocable: bool) -> Result<()> {
+    pub fn set_revocable(mut self, revocable: bool) -> Result<Self> {
         self.hashed_area.replace(Subpacket::new(
             SubpacketValue::Revocable(revocable),
-            true)?)
+            true)?)?;
+
+        Ok(self)
     }
 
     /// Sets the value of the Key Expiration Time subpacket, which
@@ -2032,206 +2043,241 @@ impl signature::Builder {
     /// seconds after the key's creation.
     ///
     /// If `None` is given, any expiration subpacket is removed.
-    pub fn set_key_expiration_time(&mut self,
+    pub fn set_key_expiration_time(mut self,
                                    expiration: Option<time::Duration>)
-                                   -> Result<()> {
+                                   -> Result<Self> {
         if let Some(e) = expiration {
             self.hashed_area.replace(Subpacket::new(
                 SubpacketValue::KeyExpirationTime(e.canonicalize()),
-                true)?)
+                true)?)?;
         } else {
             self.hashed_area.remove_all(SubpacketTag::KeyExpirationTime);
-            Ok(())
         }
+
+        Ok(self)
     }
 
     /// Sets the value of the Preferred Symmetric Algorithms
     /// subpacket, which contains the list of symmetric algorithms
     /// that the key holder prefers, ordered according by the key
     /// holder's preference.
-    pub fn set_preferred_symmetric_algorithms(&mut self,
+    pub fn set_preferred_symmetric_algorithms(mut self,
                                               preferences: Vec<SymmetricAlgorithm>)
-                                              -> Result<()> {
+                                              -> Result<Self> {
         self.hashed_area.replace(Subpacket::new(
             SubpacketValue::PreferredSymmetricAlgorithms(preferences),
-            false)?)
+            false)?)?;
+
+        Ok(self)
     }
 
     /// Sets the value of the Revocation Key subpacket, which contains
     /// a designated revoker.
-    pub fn set_revocation_key(&mut self, class: u8, pk_algo: PublicKeyAlgorithm,
-                              fp: Fingerprint) -> Result<()> {
+    pub fn set_revocation_key(mut self, class: u8, pk_algo: PublicKeyAlgorithm,
+                              fp: Fingerprint) -> Result<Self> {
         self.hashed_area.replace(Subpacket::new(
             SubpacketValue::RevocationKey {
                 class: class,
                 pk_algo: pk_algo,
                 fp: fp,
             },
-            true)?)
+            true)?)?;
+
+        Ok(self)
     }
 
     /// Sets the value of the Issuer subpacket, which contains the
     /// KeyID of the key that allegedly created this signature.
-    pub fn set_issuer(&mut self, id: KeyID) -> Result<()> {
+    pub fn set_issuer(mut self, id: KeyID) -> Result<Self> {
         self.hashed_area.replace(Subpacket::new(
             SubpacketValue::Issuer(id),
-            false)?)
+            false)?)?;
+
+        Ok(self)
     }
 
     /// Sets the value of the Preferred Hash Algorithms subpacket,
     /// which contains the list of hash algorithms that the key
     /// holders prefers, ordered according by the key holder's
     /// preference.
-    pub fn set_preferred_hash_algorithms(&mut self,
+    pub fn set_preferred_hash_algorithms(mut self,
                                          preferences: Vec<HashAlgorithm>)
-                                         -> Result<()> {
+                                         -> Result<Self> {
         self.hashed_area.replace(Subpacket::new(
             SubpacketValue::PreferredHashAlgorithms(preferences),
-            false)?)
+            false)?)?;
+
+        Ok(self)
     }
 
     /// Sets the value of the Preferred Compression Algorithms
     /// subpacket, which contains the list of compression algorithms
     /// that the key holder prefers, ordered according by the key
     /// holder's preference.
-    pub fn set_preferred_compression_algorithms(&mut self,
+    pub fn set_preferred_compression_algorithms(mut self,
                                                 preferences: Vec<CompressionAlgorithm>)
-                                                -> Result<()> {
+                                                -> Result<Self> {
         self.hashed_area.replace(Subpacket::new(
             SubpacketValue::PreferredCompressionAlgorithms(preferences),
-            false)?)
+            false)?)?;
+
+        Ok(self)
     }
 
     /// Sets the value of the Key Server Preferences subpacket, which
     /// contains the key holder's key server preferences.
-    pub fn set_key_server_preferences(&mut self,
+    pub fn set_key_server_preferences(mut self,
                                       preferences: KeyServerPreferences)
-                                      -> Result<()> {
+                                      -> Result<Self> {
         self.hashed_area.replace(Subpacket::new(
             SubpacketValue::KeyServerPreferences(preferences),
-            false)?)
+            false)?)?;
+
+        Ok(self)
     }
 
     /// Sets the value of the Preferred Key Server subpacket, which
     /// contains the user's preferred key server for updates.
-    pub fn set_preferred_key_server(&mut self, uri: &[u8])
-                                    -> Result<()> {
+    pub fn set_preferred_key_server(mut self, uri: &[u8])
+                                    -> Result<Self> {
         self.hashed_area.replace(Subpacket::new(
             SubpacketValue::PreferredKeyServer(uri),
-            false)?)
+            false)?)?;
+
+        Ok(self)
     }
 
     /// Sets the value of the Primary UserID subpacket, which
     /// indicates whether the referenced UserID should be considered
     /// the user's primary User ID.
-    pub fn set_primary_userid(&mut self, primary: bool) -> Result<()> {
+    pub fn set_primary_userid(mut self, primary: bool) -> Result<Self> {
         self.hashed_area.replace(Subpacket::new(
             SubpacketValue::PrimaryUserID(primary),
-            true)?)
+            true)?)?;
+
+        Ok(self)
     }
 
     /// Sets the value of the Policy URI subpacket.
-    pub fn set_policy_uri(&mut self, uri: &[u8]) -> Result<()> {
+    pub fn set_policy_uri(mut self, uri: &[u8]) -> Result<Self> {
         self.hashed_area.replace(Subpacket::new(
             SubpacketValue::PolicyURI(uri),
-            false)?)
+            false)?)?;
+
+        Ok(self)
     }
 
     /// Sets the value of the Key Flags subpacket, which contains
     /// information about the referenced key, in particular, how it is
     /// used (certification, signing, encryption, authentication), and
     /// how it is stored (split, held by multiple people).
-    pub fn set_key_flags(&mut self, flags: &KeyFlags) -> Result<()> {
+    pub fn set_key_flags(mut self, flags: &KeyFlags) -> Result<Self> {
         self.hashed_area.replace(Subpacket::new(
             SubpacketValue::KeyFlags(flags.clone()),
-            true)?)
+            true)?)?;
+
+        Ok(self)
     }
 
     /// Sets the value of the Signer's UserID subpacket, which
     /// contains the User ID that the key holder considers responsible
     /// for the signature.
-    pub fn set_signers_user_id(&mut self, uid: &[u8]) -> Result<()> {
+    pub fn set_signers_user_id(mut self, uid: &[u8]) -> Result<Self> {
         self.hashed_area.replace(Subpacket::new(
             SubpacketValue::SignersUserID(uid),
-            true)?)
+            true)?)?;
+
+        Ok(self)
     }
 
     /// Sets the value of the Reason for Revocation subpacket.
-    pub fn set_reason_for_revocation(&mut self, code: ReasonForRevocation,
+    pub fn set_reason_for_revocation(mut self, code: ReasonForRevocation,
                                      reason: &[u8])
-                                     -> Result<()> {
+                                     -> Result<Self> {
         self.hashed_area.replace(Subpacket::new(
             SubpacketValue::ReasonForRevocation {
                 code: code,
                 reason: reason,
             },
-            false)?)
+            false)?)?;
+
+        Ok(self)
     }
 
     /// Sets the value of the Features subpacket, which contains a
     /// list of features that the user's OpenPGP implementation
     /// supports.
-    pub fn set_features(&mut self, features: &Features) -> Result<()> {
+    pub fn set_features(mut self, features: &Features) -> Result<Self> {
         self.hashed_area.replace(Subpacket::new(
             SubpacketValue::Features(features.clone()),
-            false)?)
+            false)?)?;
+
+        Ok(self)
     }
 
     /// Sets the value of the Signature Target subpacket, which
     /// contains the hash of the referenced signature packet.
-    pub fn set_signature_target(&mut self,
+    pub fn set_signature_target(mut self,
                                 pk_algo: PublicKeyAlgorithm,
                                 hash_algo: HashAlgorithm,
                                 digest: &[u8])
-                                -> Result<()> {
+                                -> Result<Self> {
         self.hashed_area.replace(Subpacket::new(
             SubpacketValue::SignatureTarget {
                 pk_algo: pk_algo,
                 hash_algo: hash_algo,
                 digest: digest
             },
-            true)?)
+            true)?)?;
+
+        Ok(self)
     }
 
     /// Sets the value of the Embedded Signature subpacket, which
     /// contains a signature.
-    pub fn set_embedded_signature(&mut self, signature: Signature)
-                                  -> Result<()> {
+    pub fn set_embedded_signature(mut self, signature: Signature)
+                                  -> Result<Self> {
         self.unhashed_area.replace(Subpacket::new(
             SubpacketValue::EmbeddedSignature(signature.to_packet()),
-            true)?)
+            true)?)?;
+
+        Ok(self)
     }
 
     /// Sets the value of the Issuer Fingerprint subpacket, which
     /// contains the fingerprint of the key that allegedly created
     /// this signature.
-    pub fn set_issuer_fingerprint(&mut self, fp: Fingerprint) -> Result<()> {
+    pub fn set_issuer_fingerprint(mut self, fp: Fingerprint) -> Result<Self> {
         self.hashed_area.replace(Subpacket::new(
             SubpacketValue::IssuerFingerprint(fp),
-            false)?)
+            false)?)?;
+
+        Ok(self)
     }
 
     /// Sets the value of the Preferred AEAD Algorithms subpacket,
     /// which contains the list of AEAD algorithms that the key holder
     /// prefers, ordered according by the key holder's preference.
-    pub fn set_preferred_aead_algorithms(&mut self,
+    pub fn set_preferred_aead_algorithms(mut self,
                                          preferences: Vec<AEADAlgorithm>)
-                                         -> Result<()> {
+                                         -> Result<Self> {
         self.hashed_area.replace(Subpacket::new(
             SubpacketValue::PreferredAEADAlgorithms(preferences),
-            false)?)
+            false)?)?;
+
+        Ok(self)
     }
 
     /// Sets the intended recipients.
-    pub fn set_intended_recipients(&mut self, recipients: Vec<Fingerprint>)
-                                   -> Result<()> {
+    pub fn set_intended_recipients(mut self, recipients: Vec<Fingerprint>)
+                                   -> Result<Self> {
         self.hashed_area.remove_all(SubpacketTag::IntendedRecipient);
         for fp in recipients.into_iter() {
             self.hashed_area.add(
                 Subpacket::new(SubpacketValue::IntendedRecipient(fp), false)?)?;
         }
 
-        Ok(())
+        Ok(self)
     }
 }
 
@@ -2255,14 +2301,14 @@ fn accessors() {
     // Cook up a timestamp without ns resolution.
     let now = time::Tm::from_pgp(time::now_utc().to_pgp().unwrap());
 
-    sig.set_signature_creation_time(now).unwrap();
+    sig = sig.set_signature_creation_time(now).unwrap();
     let sig_ =
         sig.clone().sign_hash(&mut keypair, hash_algo, hash.clone()).unwrap();
     assert_eq!(sig_.signature_creation_time(), Some(now));
 
     let five_minutes = time::Duration::minutes(5);
     let ten_minutes = time::Duration::minutes(10);
-    sig.set_signature_expiration_time(Some(five_minutes)).unwrap();
+    sig = sig.set_signature_expiration_time(Some(five_minutes)).unwrap();
     let sig_ =
         sig.clone().sign_hash(&mut keypair, hash_algo, hash.clone()).unwrap();
     assert_eq!(sig_.signature_expiration_time(), Some(five_minutes));
@@ -2276,7 +2322,7 @@ fn accessors() {
     assert!(!sig_.signature_alive_at(now - five_minutes));
     assert!(!sig_.signature_alive_at(now + ten_minutes));
 
-    sig.set_signature_expiration_time(None).unwrap();
+    sig = sig.set_signature_expiration_time(None).unwrap();
     let sig_ =
         sig.clone().sign_hash(&mut keypair, hash_algo, hash.clone()).unwrap();
     assert_eq!(sig_.signature_expiration_time(), None);
@@ -2289,37 +2335,37 @@ fn accessors() {
     assert!(!sig_.signature_alive_at(now - five_minutes));
     assert!(sig_.signature_alive_at(now + ten_minutes));
 
-    sig.set_exportable_certification(true).unwrap();
+    sig = sig.set_exportable_certification(true).unwrap();
     let sig_ =
         sig.clone().sign_hash(&mut keypair, hash_algo, hash.clone()).unwrap();
     assert_eq!(sig_.exportable_certification(), Some(true));
-    sig.set_exportable_certification(false).unwrap();
+    sig = sig.set_exportable_certification(false).unwrap();
     let sig_ =
         sig.clone().sign_hash(&mut keypair, hash_algo, hash.clone()).unwrap();
     assert_eq!(sig_.exportable_certification(), Some(false));
 
-    sig.set_trust_signature(2, 3).unwrap();
+    sig = sig.set_trust_signature(2, 3).unwrap();
     let sig_ =
         sig.clone().sign_hash(&mut keypair, hash_algo, hash.clone()).unwrap();
     assert_eq!(sig_.trust_signature(), Some((2, 3)));
 
-    sig.set_regular_expression(b"foobar").unwrap();
+    sig = sig.set_regular_expression(b"foobar").unwrap();
     let sig_ =
         sig.clone().sign_hash(&mut keypair, hash_algo, hash.clone()).unwrap();
     assert_eq!(sig_.regular_expression(), Some(&b"foobar"[..]));
 
-    sig.set_revocable(true).unwrap();
+    sig = sig.set_revocable(true).unwrap();
     let sig_ =
         sig.clone().sign_hash(&mut keypair, hash_algo, hash.clone()).unwrap();
     assert_eq!(sig_.revocable(), Some(true));
-    sig.set_revocable(false).unwrap();
+    sig = sig.set_revocable(false).unwrap();
     let sig_ =
         sig.clone().sign_hash(&mut keypair, hash_algo, hash.clone()).unwrap();
     assert_eq!(sig_.revocable(), Some(false));
 
     key.set_creation_time(now);
     let mut keypair = KeyPair::new(key.clone(), sec).unwrap();
-    sig.set_key_expiration_time(Some(five_minutes)).unwrap();
+    sig = sig.set_key_expiration_time(Some(five_minutes)).unwrap();
     let sig_ =
         sig.clone().sign_hash(&mut keypair, hash_algo, hash.clone()).unwrap();
     assert_eq!(sig_.key_expiration_time(), Some(five_minutes));
@@ -2333,7 +2379,7 @@ fn accessors() {
     assert!(!sig_.key_alive_at(&key, now - five_minutes));
     assert!(!sig_.key_alive_at(&key, now + ten_minutes));
 
-    sig.set_key_expiration_time(None).unwrap();
+    sig = sig.set_key_expiration_time(None).unwrap();
     let sig_ =
         sig.clone().sign_hash(&mut keypair, hash_algo, hash.clone()).unwrap();
     assert_eq!(sig_.key_expiration_time(), None);
@@ -2349,19 +2395,19 @@ fn accessors() {
     let pref = vec![SymmetricAlgorithm::AES256,
                     SymmetricAlgorithm::AES192,
                     SymmetricAlgorithm::AES128];
-    sig.set_preferred_symmetric_algorithms(pref.clone()).unwrap();
+    sig = sig.set_preferred_symmetric_algorithms(pref.clone()).unwrap();
     let sig_ =
         sig.clone().sign_hash(&mut keypair, hash_algo, hash.clone()).unwrap();
     assert_eq!(sig_.preferred_symmetric_algorithms(), Some(pref));
 
     let fp = Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb");
-    sig.set_revocation_key(2, pk_algo, fp.clone()).unwrap();
+    sig = sig.set_revocation_key(2, pk_algo, fp.clone()).unwrap();
     let sig_ =
         sig.clone().sign_hash(&mut keypair, hash_algo, hash.clone()).unwrap();
     assert_eq!(sig_.revocation_key(),
                Some((2, pk_algo.into(), fp.clone())));
 
-    sig.set_issuer(fp.to_keyid()).unwrap();
+    sig = sig.set_issuer(fp.to_keyid()).unwrap();
     let sig_ =
         sig.clone().sign_hash(&mut keypair, hash_algo, hash.clone()).unwrap();
     assert_eq!(sig_.issuer(), Some(fp.to_keyid()));
@@ -2369,7 +2415,7 @@ fn accessors() {
     let pref = vec![HashAlgorithm::SHA512,
                     HashAlgorithm::SHA384,
                     HashAlgorithm::SHA256];
-    sig.set_preferred_hash_algorithms(pref.clone()).unwrap();
+    sig = sig.set_preferred_hash_algorithms(pref.clone()).unwrap();
     let sig_ =
         sig.clone().sign_hash(&mut keypair, hash_algo, hash.clone()).unwrap();
     assert_eq!(sig_.preferred_hash_algorithms(), Some(pref));
@@ -2377,28 +2423,28 @@ fn accessors() {
     let pref = vec![CompressionAlgorithm::BZip2,
                     CompressionAlgorithm::Zlib,
                     CompressionAlgorithm::Zip];
-    sig.set_preferred_compression_algorithms(pref.clone()).unwrap();
+    sig = sig.set_preferred_compression_algorithms(pref.clone()).unwrap();
     let sig_ =
         sig.clone().sign_hash(&mut keypair, hash_algo, hash.clone()).unwrap();
     assert_eq!(sig_.preferred_compression_algorithms(), Some(pref));
 
     let pref = KeyServerPreferences::default()
         .set_no_modify(true);
-    sig.set_key_server_preferences(pref.clone()).unwrap();
+    sig = sig.set_key_server_preferences(pref.clone()).unwrap();
     let sig_ =
         sig.clone().sign_hash(&mut keypair, hash_algo, hash.clone()).unwrap();
     assert_eq!(sig_.key_server_preferences(), pref);
 
-    sig.set_primary_userid(true).unwrap();
+    sig = sig.set_primary_userid(true).unwrap();
     let sig_ =
         sig.clone().sign_hash(&mut keypair, hash_algo, hash.clone()).unwrap();
     assert_eq!(sig_.primary_userid(), Some(true));
-    sig.set_primary_userid(false).unwrap();
+    sig = sig.set_primary_userid(false).unwrap();
     let sig_ =
         sig.clone().sign_hash(&mut keypair, hash_algo, hash.clone()).unwrap();
     assert_eq!(sig_.primary_userid(), Some(false));
 
-    sig.set_policy_uri(b"foobar").unwrap();
+    sig = sig.set_policy_uri(b"foobar").unwrap();
     let sig_ =
         sig.clone().sign_hash(&mut keypair, hash_algo, hash.clone()).unwrap();
     assert_eq!(sig_.policy_uri(), Some(&b"foobar"[..]));
@@ -2406,17 +2452,17 @@ fn accessors() {
     let key_flags = KeyFlags::default()
         .set_certify(true)
         .set_sign(true);
-    sig.set_key_flags(&key_flags).unwrap();
+    sig = sig.set_key_flags(&key_flags).unwrap();
     let sig_ =
         sig.clone().sign_hash(&mut keypair, hash_algo, hash.clone()).unwrap();
     assert_eq!(sig_.key_flags(), key_flags);
 
-    sig.set_signers_user_id(b"foobar").unwrap();
+    sig = sig.set_signers_user_id(b"foobar").unwrap();
     let sig_ =
         sig.clone().sign_hash(&mut keypair, hash_algo, hash.clone()).unwrap();
     assert_eq!(sig_.signers_user_id(), Some(&b"foobar"[..]));
 
-    sig.set_reason_for_revocation(ReasonForRevocation::KeyRetired,
+    sig = sig.set_reason_for_revocation(ReasonForRevocation::KeyRetired,
                                   b"foobar").unwrap();
     let sig_ =
         sig.clone().sign_hash(&mut keypair, hash_algo, hash.clone()).unwrap();
@@ -2424,19 +2470,19 @@ fn accessors() {
                Some((ReasonForRevocation::KeyRetired, &b"foobar"[..])));
 
     let feats = Features::default().set_mdc(true);
-    sig.set_features(&feats).unwrap();
+    sig = sig.set_features(&feats).unwrap();
     let sig_ =
         sig.clone().sign_hash(&mut keypair, hash_algo, hash.clone()).unwrap();
     assert_eq!(sig_.features(), feats);
 
     let feats = Features::default().set_aead(true);
-    sig.set_features(&feats).unwrap();
+    sig = sig.set_features(&feats).unwrap();
     let sig_ =
         sig.clone().sign_hash(&mut keypair, hash_algo, hash.clone()).unwrap();
     assert_eq!(sig_.features(), feats);
 
     let digest = vec![0; hash_algo.context().unwrap().digest_size()];
-    sig.set_signature_target(pk_algo, hash_algo, &digest).unwrap();
+    sig = sig.set_signature_target(pk_algo, hash_algo, &digest).unwrap();
     let sig_ =
         sig.clone().sign_hash(&mut keypair, hash_algo, hash.clone()).unwrap();
     assert_eq!(sig_.signature_target(), Some((pk_algo.into(),
@@ -2444,19 +2490,19 @@ fn accessors() {
                                              &digest[..])));
 
     let embedded_sig = sig_.clone();
-    sig.set_embedded_signature(embedded_sig.clone()).unwrap();
+    sig = sig.set_embedded_signature(embedded_sig.clone()).unwrap();
     let sig_ =
         sig.clone().sign_hash(&mut keypair, hash_algo, hash.clone()).unwrap();
     assert_eq!(sig_.embedded_signature(), Some(Packet::Signature(embedded_sig)));
 
-    sig.set_issuer_fingerprint(fp.clone()).unwrap();
+    sig = sig.set_issuer_fingerprint(fp.clone()).unwrap();
     let sig_ =
         sig.clone().sign_hash(&mut keypair, hash_algo, hash.clone()).unwrap();
     assert_eq!(sig_.issuer_fingerprint(), Some(fp));
 
     let pref = vec![AEADAlgorithm::EAX,
                     AEADAlgorithm::OCB];
-    sig.set_preferred_aead_algorithms(pref.clone()).unwrap();
+    sig = sig.set_preferred_aead_algorithms(pref.clone()).unwrap();
     let sig_ =
         sig.clone().sign_hash(&mut keypair, hash_algo, hash.clone()).unwrap();
     assert_eq!(sig_.preferred_aead_algorithms(), Some(pref));
@@ -2465,7 +2511,7 @@ fn accessors() {
         Fingerprint::from_bytes(b"aaaaaaaaaaaaaaaaaaaa"),
         Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb"),
     ];
-    sig.set_intended_recipients(fps.clone()).unwrap();
+    sig = sig.set_intended_recipients(fps.clone()).unwrap();
     let sig_ =
         sig.clone().sign_hash(&mut keypair, hash_algo, hash.clone()).unwrap();
     assert_eq!(sig_.intended_recipients(), fps);
