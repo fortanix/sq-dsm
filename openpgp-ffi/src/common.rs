@@ -240,6 +240,7 @@ pub mod error;
 pub mod fingerprint;
 pub mod io;
 pub mod keyid;
+pub mod packet;
 pub mod packet_pile;
 pub mod parse;
 pub mod serialize;
@@ -250,27 +251,21 @@ use std::ptr;
 use std::slice;
 use std::io as std_io;
 use std::io::{Read, Write};
-use libc::{uint8_t, c_char, c_int, size_t, c_void, time_t};
+use libc::{c_int, size_t, c_void};
 use failure::ResultExt;
 
 extern crate sequoia_openpgp as openpgp;
 extern crate time;
 
 use self::openpgp::{
-    Fingerprint,
     KeyID,
     RevocationStatus,
     TPK,
-    Packet,
     packet::{
-        Signature,
-        Tag,
         PKESK,
         SKESK,
-        key::SecretKey,
     },
 };
-use self::openpgp::packet;
 use self::openpgp::parse::stream::{
     DecryptionHelper,
     Decryptor,
@@ -282,42 +277,6 @@ use self::openpgp::parse::stream::{
 };
 
 use error::Status;
-
-
-/* openpgp::packet::Tag.  */
-
-/// Returns a human-readable tag name.
-///
-/// ```c
-/// #include <assert.h>
-/// #include <string.h>
-/// #include <sequoia/openpgp.h>
-///
-/// assert (strcmp (pgp_tag_to_string (2), "SIGNATURE") == 0);
-/// ```
-#[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn pgp_tag_to_string(tag: u8) -> *const c_char {
-    match Tag::from(tag) {
-        Tag::PKESK => "PKESK\x00",
-        Tag::Signature => "SIGNATURE\x00",
-        Tag::SKESK => "SKESK\x00",
-        Tag::OnePassSig => "ONE PASS SIG\x00",
-        Tag::SecretKey => "SECRET KEY\x00",
-        Tag::PublicKey => "PUBLIC KEY\x00",
-        Tag::SecretSubkey => "SECRET SUBKEY\x00",
-        Tag::CompressedData => "COMPRESSED DATA\x00",
-        Tag::SED => "SED\x00",
-        Tag::Marker => "MARKER\x00",
-        Tag::Literal => "LITERAL\x00",
-        Tag::Trust => "TRUST\x00",
-        Tag::UserID => "USER ID\x00",
-        Tag::PublicSubkey => "PUBLIC SUBKEY\x00",
-        Tag::UserAttribute => "USER ATTRIBUTE\x00",
-        Tag::SEIP => "SEIP\x00",
-        Tag::MDC => "MDC\x00",
-        _ => "OTHER\x00",
-    }.as_bytes().as_ptr() as *const c_char
-}
 
 fn revocation_status_to_int(rs: &RevocationStatus) -> c_int {
     match rs {
@@ -345,484 +304,6 @@ pub extern "system" fn pgp_revocation_status_free(
     rs: Option<&mut RevocationStatus>)
 {
     ffi_free!(rs)
-}
-
-/* openpgp::Packet.  */
-
-/// Frees the Packet.
-#[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn pgp_packet_free(p: Option<&mut Packet>) {
-    ffi_free!(p)
-}
-
-/// Returns the `Packet's` corresponding OpenPGP tag.
-///
-/// Tags are explained in [Section 4.3 of RFC 4880].
-///
-///   [Section 4.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.3
-#[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn pgp_packet_tag(p: *const Packet)
-                                     -> uint8_t {
-    let p = ffi_param_ref!(p);
-    let tag: u8 = p.tag().into();
-    tag as uint8_t
-}
-
-/// Returns the parsed `Packet's` corresponding OpenPGP tag.
-///
-/// Returns the packets tag, but only if it was successfully
-/// parsed into the corresponding packet type.  If e.g. a
-/// Signature Packet uses some unsupported methods, it is parsed
-/// into an `Packet::Unknown`.  `tag()` returns `PGP_TAG_SIGNATURE`,
-/// whereas `kind()` returns `0`.
-#[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn pgp_packet_kind(p: *const Packet)
-                                      -> uint8_t {
-    let p = ffi_param_ref!(p);
-    if let Some(kind) = p.kind() {
-        kind.into()
-    } else {
-        0
-    }
-}
-
-/// Frees the Signature.
-#[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn pgp_signature_free(s: Option<&mut Signature>) {
-    ffi_free!(s)
-}
-
-/// Converts the signature to a packet.
-#[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn pgp_signature_to_packet(s: *mut Signature)
-                                              -> *mut Packet
-{
-    let s = ffi_param_move!(s);
-    box_raw!(s.to_packet())
-}
-
-/// Returns the value of the `Signature` packet's Issuer subpacket.
-///
-/// If there is no Issuer subpacket, this returns NULL.  Note: if
-/// there is no Issuer subpacket, but there is an IssuerFingerprint
-/// subpacket, this still returns NULL.
-#[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn pgp_signature_issuer(sig: *const packet::Signature)
-                                           -> *mut KeyID {
-    let sig = ffi_param_ref!(sig);
-    maybe_box_raw!(sig.issuer())
-}
-
-/// Returns the value of the `Signature` packet's IssuerFingerprint subpacket.
-///
-/// If there is no IssuerFingerprint subpacket, this returns NULL.
-/// Note: if there is no IssuerFingerprint subpacket, but there is an
-/// Issuer subpacket, this still returns NULL.
-#[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn pgp_signature_issuer_fingerprint(
-    sig: *const packet::Signature)
-    -> *mut Fingerprint
-{
-    let sig = ffi_param_ref!(sig);
-    maybe_box_raw!(sig.issuer_fingerprint())
-}
-
-
-/// Returns whether the KeyFlags indicates that the key can be used to
-/// make certifications.
-#[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn pgp_signature_can_certify(sig: *const packet::Signature)
-    -> bool
-{
-    let sig = ffi_param_ref!(sig);
-    sig.key_flags().can_certify()
-}
-
-/// Returns whether the KeyFlags indicates that the key can be used to
-/// make signatures.
-#[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn pgp_signature_can_sign(sig: *const packet::Signature)
-    -> bool
-{
-    let sig = ffi_param_ref!(sig);
-    sig.key_flags().can_sign()
-}
-
-/// Returns whether the KeyFlags indicates that the key can be used to
-/// encrypt data for transport.
-#[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn pgp_signature_can_encrypt_for_transport(sig: *const packet::Signature)
-    -> bool
-{
-    let sig = ffi_param_ref!(sig);
-    sig.key_flags().can_encrypt_for_transport()
-}
-
-/// Returns whether the KeyFlags indicates that the key can be used to
-/// encrypt data at rest.
-#[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn pgp_signature_can_encrypt_at_rest(sig: *const packet::Signature)
-    -> bool
-{
-    let sig = ffi_param_ref!(sig);
-    sig.key_flags().can_encrypt_at_rest()
-}
-
-/// Returns whether the KeyFlags indicates that the key can be used
-/// for authentication.
-#[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn pgp_signature_can_authenticate(sig: *const packet::Signature)
-    -> bool
-{
-    let sig = ffi_param_ref!(sig);
-    sig.key_flags().can_authenticate()
-}
-
-/// Returns whether the KeyFlags indicates that the key is a split
-/// key.
-#[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn pgp_signature_is_split_key(sig: *const packet::Signature)
-    -> bool
-{
-    let sig = ffi_param_ref!(sig);
-    sig.key_flags().is_split_key()
-}
-
-/// Returns whether the KeyFlags indicates that the key is a group
-/// key.
-#[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn pgp_signature_is_group_key(sig: *const packet::Signature)
-    -> bool
-{
-    let sig = ffi_param_ref!(sig);
-    sig.key_flags().is_group_key()
-}
-
-
-/// Returns whether the signature is alive.
-///
-/// A signature is alive if the creation date is in the past, and the
-/// signature has not expired.
-#[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn pgp_signature_alive(sig: *const packet::Signature)
-    -> bool
-{
-    let sig = ffi_param_ref!(sig);
-    sig.signature_alive()
-}
-
-/// Returns whether the signature is alive at the specified time.
-///
-/// A signature is alive if the creation date is in the past, and the
-/// signature has not expired at the specified time.
-#[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn pgp_signature_alive_at(sig: *const packet::Signature,
-                                             when: time_t)
-    -> bool
-{
-    let sig = ffi_param_ref!(sig);
-    sig.signature_alive_at(time::at(time::Timespec::new(when as i64, 0)))
-}
-
-/// Returns whether the signature is expired.
-#[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn pgp_signature_expired(sig: *const packet::Signature)
-    -> bool
-{
-    let sig = ffi_param_ref!(sig);
-    sig.signature_expired()
-}
-
-/// Returns whether the signature is expired at the specified time.
-#[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn pgp_signature_expired_at(sig: *const packet::Signature,
-                                               when: time_t)
-    -> bool
-{
-    let sig = ffi_param_ref!(sig);
-    sig.signature_expired_at(time::at(time::Timespec::new(when as i64, 0)))
-}
-
-
-/// Clones the key.
-#[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn pgp_key_clone(key: *const packet::Key)
-                                      -> *mut packet::Key {
-    let key = ffi_param_ref!(key);
-    box_raw!(key.clone())
-}
-
-/// Computes and returns the key's fingerprint as per Section 12.2
-/// of RFC 4880.
-#[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn pgp_key_fingerprint(key: *const packet::Key)
-                                            -> *mut Fingerprint {
-    let key = ffi_param_ref!(key);
-    box_raw!(key.fingerprint())
-}
-
-/// Computes and returns the key's key ID as per Section 12.2 of RFC
-/// 4880.
-#[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn pgp_key_keyid(key: *const packet::Key)
-                                      -> *mut KeyID {
-    let key = ffi_param_ref!(key);
-    box_raw!(key.keyid())
-}
-
-/// Returns whether the key is expired according to the provided
-/// self-signature.
-///
-/// Note: this is with respect to the provided signature, which is not
-/// checked for validity.  That is, we do not check whether the
-/// signature is a valid self-signature for the given key.
-#[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn pgp_key_expired(key: *const packet::Key,
-                                      sig: *const packet::Signature)
-    -> bool
-{
-    let key = ffi_param_ref!(key);
-    let sig = ffi_param_ref!(sig);
-
-    sig.key_expired(key)
-}
-
-/// Like pgp_key_expired, but at a specific time.
-#[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn pgp_key_expired_at(key: *const packet::Key,
-                                         sig: *const packet::Signature,
-                                         when: time_t)
-    -> bool
-{
-    let key = ffi_param_ref!(key);
-    let sig = ffi_param_ref!(sig);
-
-    sig.key_expired_at(key, time::at(time::Timespec::new(when as i64, 0)))
-}
-
-/// Returns whether the key is alive according to the provided
-/// self-signature.
-///
-/// A key is alive if the creation date is in the past, and the key
-/// has not expired.
-///
-/// Note: this is with respect to the provided signature, which is not
-/// checked for validity.  That is, we do not check whether the
-/// signature is a valid self-signature for the given key.
-#[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn pgp_key_alive(key: *const packet::Key,
-                                      sig: *const packet::Signature)
-    -> bool
-{
-    let key = ffi_param_ref!(key);
-    let sig = ffi_param_ref!(sig);
-
-    sig.key_alive(key)
-}
-
-/// Like pgp_key_alive, but at a specific time.
-#[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn pgp_key_alive_at(key: *const packet::Key,
-                                         sig: *const packet::Signature,
-                                         when: time_t)
-    -> bool
-{
-    let key = ffi_param_ref!(key);
-    let sig = ffi_param_ref!(sig);
-
-    sig.key_alive_at(key, time::at(time::Timespec::new(when as i64, 0)))
-}
-
-/// Returns the key's creation time.
-#[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn pgp_key_creation_time(key: *const packet::Key)
-    -> u32
-{
-    let key = ffi_param_ref!(key);
-    let ct = key.creation_time();
-
-    ct.to_timespec().sec as u32
-}
-
-/// Returns the key's public key algorithm.
-#[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn pgp_key_public_key_algo(key: *const packet::Key)
-    -> c_int
-{
-    let key = ffi_param_ref!(key);
-    let pk_algo : u8 = key.pk_algo().into();
-    pk_algo as c_int
-}
-
-/// Returns the public key's size in bits.
-#[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn pgp_key_public_key_bits(key: *const packet::Key)
-    -> c_int
-{
-    use self::openpgp::crypto::mpis::PublicKey::*;
-
-    let key = ffi_param_ref!(key);
-    match key.mpis() {
-        RSA { e: _, n } => n.bits as c_int,
-        DSA { p: _, q: _, g: _, y } => y.bits as c_int,
-        Elgamal { p: _, g: _, y } => y.bits as c_int,
-        EdDSA { curve: _, q } => q.bits as c_int,
-        ECDSA { curve: _, q } =>  q.bits as c_int,
-        ECDH { curve: _, q, hash: _, sym: _ } =>  q.bits as c_int,
-        Unknown { mpis: _, rest: _ } => 0,
-    }
-}
-
-/// Creates a new key pair from a Key packet with an unencrypted
-/// secret key.
-///
-/// # Errors
-///
-/// Fails if the secret key is missing, or encrypted.
-#[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn pgp_key_into_key_pair(errp: Option<&mut *mut failure::Error>,
-                                              key: *mut packet::Key)
-                                              -> *mut self::openpgp::crypto::KeyPair
-{
-    ffi_make_fry_from_errp!(errp);
-    let key = ffi_param_move!(key);
-    ffi_try_box!(key.into_keypair())
-}
-
-/// Returns the value of the User ID Packet.
-///
-/// The returned pointer is valid until `uid` is deallocated.  If
-/// `value_len` is not `NULL`, the size of value is stored there.
-#[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn pgp_user_id_value(uid: *const Packet,
-                                        value_len: Option<&mut size_t>)
-                                        -> *const uint8_t {
-    let uid = ffi_param_ref!(uid);
-    if let &Packet::UserID(ref uid) = uid {
-        if let Some(p) = value_len {
-            *p = uid.userid().len();
-        }
-        uid.userid().as_ptr()
-    } else {
-        panic!("Not a UserID packet");
-    }
-}
-
-/// Returns the value of the User Attribute Packet.
-///
-/// The returned pointer is valid until `ua` is deallocated.  If
-/// `value_len` is not `NULL`, the size of value is stored there.
-#[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn pgp_user_attribute_value(ua: *const Packet,
-                                               value_len: Option<&mut size_t>)
-                                               -> *const uint8_t {
-    let ua = ffi_param_ref!(ua);
-    if let &Packet::UserAttribute(ref ua) = ua {
-        if let Some(p) = value_len {
-            *p = ua.user_attribute().len();
-        }
-        ua.user_attribute().as_ptr()
-    } else {
-        panic!("Not a UserAttribute packet");
-    }
-}
-
-/// Returns the session key.
-///
-/// `key` of size `key_len` must be a buffer large enough to hold the
-/// session key.  If `key` is NULL, or not large enough, then the key
-/// is not written to it.  Either way, `key_len` is set to the size of
-/// the session key.
-#[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn pgp_skesk_decrypt(errp: Option<&mut *mut failure::Error>,
-                                        skesk: *const Packet,
-                                        password: *const uint8_t,
-                                        password_len: size_t,
-                                        algo: *mut uint8_t, // XXX
-                                        key: *mut uint8_t,
-                                        key_len: *mut size_t)
-                                        -> Status {
-    ffi_make_fry_from_errp!(errp);
-    let skesk = ffi_param_ref!(skesk);
-    assert!(!password.is_null());
-    let password = unsafe {
-        slice::from_raw_parts(password, password_len as usize)
-    };
-    let algo = ffi_param_ref_mut!(algo);
-    let key_len = ffi_param_ref_mut!(key_len);
-
-    if let &Packet::SKESK(ref skesk) = skesk {
-        match skesk.decrypt(&password.to_owned().into()) {
-            Ok((a, k)) => {
-                *algo = a.into();
-                if !key.is_null() && *key_len >= k.len() {
-                    unsafe {
-                        ::std::ptr::copy(k.as_ptr(),
-                                         key,
-                                         k.len());
-                    }
-                }
-                *key_len = k.len();
-                Status::Success
-            },
-            Err(e) => ffi_try_status!(Err::<(), failure::Error>(e)),
-        }
-    } else {
-        panic!("Not a SKESK packet");
-    }
-}
-
-/// Returns the PKESK's recipient.
-///
-/// The return value is a reference ot a `KeyID`.  The caller must not
-/// modify or free it.
-#[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn pgp_pkesk_recipient(pkesk: *const PKESK)
-                                          -> *const KeyID {
-    let pkesk = ffi_param_ref!(pkesk);
-    pkesk.recipient()
-}
-
-/// Returns the session key.
-///
-/// `key` of size `key_len` must be a buffer large enough to hold the
-/// session key.  If `key` is NULL, or not large enough, then the key
-/// is not written to it.  Either way, `key_len` is set to the size of
-/// the session key.
-#[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn pgp_pkesk_decrypt(errp: Option<&mut *mut failure::Error>,
-                                        pkesk: *const PKESK,
-                                        secret_key: *const packet::Key,
-                                        algo: *mut uint8_t, // XXX
-                                        key: *mut uint8_t,
-                                        key_len: *mut size_t)
-                                        -> Status {
-    ffi_make_fry_from_errp!(errp);
-    let pkesk = ffi_param_ref!(pkesk);
-    let secret_key = ffi_param_ref!(secret_key);
-    let algo = ffi_param_ref_mut!(algo);
-    let key_len = ffi_param_ref_mut!(key_len);
-
-    if let Some(SecretKey::Unencrypted{ mpis: ref secret_part }) = secret_key.secret() {
-        match pkesk.decrypt(secret_key, secret_part) {
-            Ok((a, k)) => {
-                *algo = a.into();
-                if !key.is_null() && *key_len >= k.len() {
-                    unsafe {
-                        ::std::ptr::copy(k.as_ptr(),
-                                         key,
-                                         k.len());
-                    }
-                }
-                *key_len = k.len();
-                Status::Success
-            },
-            Err(e) => ffi_try_status!(Err::<(), failure::Error>(e)),
-        }
-    } else {
-        // XXX: Better message.
-        panic!("No secret parts");
-    }
 }
 
 // Secret.
@@ -911,7 +392,7 @@ pub fn pgp_verification_result_code(result: *const VerificationResult)
 /// Returns the verification result code.
 #[::ffi_catch_abort] #[no_mangle]
 pub fn pgp_verification_result_signature(result: *const VerificationResult)
-    -> *const packet::Signature
+    -> *const self::openpgp::packet::Signature
 {
     let result = ffi_param_ref!(result);
     let sig = match result {
@@ -920,7 +401,7 @@ pub fn pgp_verification_result_signature(result: *const VerificationResult)
         VerificationResult::BadChecksum(ref sig) => sig,
     };
 
-    sig as *const packet::Signature
+    sig as *const self::openpgp::packet::Signature
 }
 
 /// Returns the verification result code.
