@@ -258,7 +258,6 @@ extern crate sequoia_openpgp as openpgp;
 extern crate time;
 
 use self::openpgp::{
-    KeyID,
     RevocationStatus,
     TPK,
     packet::{
@@ -427,7 +426,7 @@ type FreeCallback = fn(*mut c_void);
 /// If the free callback is not NULL, then it is called to free the
 /// returned array of TPKs.
 type GetPublicKeysCallback = fn(*mut HelperCookie,
-                                *const &KeyID, usize,
+                                *const &openpgp::KeyID, usize,
                                 &mut *mut &mut TPK, *mut usize,
                                 *mut FreeCallback) -> Status;
 
@@ -467,12 +466,12 @@ impl VHelper {
 }
 
 impl VerificationHelper for VHelper {
-    fn get_public_keys(&mut self, ids: &[KeyID])
+    fn get_public_keys(&mut self, ids: &[openpgp::KeyID])
         -> Result<Vec<TPK>, failure::Error>
     {
         // The size of KeyID is not known in C.  Convert from an array
         // of KeyIDs to an array of KeyID refs.
-        let ids : Vec<&KeyID> = ids.iter().collect();
+        let ids : Vec<&openpgp::KeyID> = ids.iter().collect();
 
         let mut tpk_refs_raw : *mut &mut TPK = ptr::null_mut();
         let mut tpk_refs_raw_len = 0usize;
@@ -622,7 +621,7 @@ impl DHelper {
 }
 
 impl VerificationHelper for DHelper {
-    fn get_public_keys(&mut self, ids: &[KeyID])
+    fn get_public_keys(&mut self, ids: &[openpgp::KeyID])
         -> Result<Vec<TPK>, failure::Error>
     {
         self.vhelper.get_public_keys(ids)
