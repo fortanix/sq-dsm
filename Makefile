@@ -12,7 +12,6 @@ CARGO_TARGET_DIR	?= $(shell pwd)/target
 CARGO_TARGET_DIR	:= $(abspath $(CARGO_TARGET_DIR))
 # The tests to run.
 CARGO_TEST_ARGS	?= --all
-FFI_RUSTDOCFLAGS ?= --html-in-header ffi/rustdoc.head.html
 
 # Signing source distributions.
 SIGN_WITH	?= XXXXXXXXXXXXXXXX
@@ -62,13 +61,10 @@ examples:
 # Documentation.
 .PHONY: doc
 doc:
+	RUSTDOCFLAGS="$$RUSTDOCFLAGS --html-in-header doc/highlight.js/9.12.0/inc.html" \
 	CARGO_TARGET_DIR=$(CARGO_TARGET_DIR) \
-		$(CARGO) doc $(CARGO_FLAGS) --no-deps --all
-	env RUSTDOCFLAGS="$(FFI_RUSTDOCFLAGS)" \
-	    CARGO_TARGET_DIR=$(CARGO_TARGET_DIR) \
-	    $(CARGO) doc $(CARGO_FLAGS) --no-deps \
-		--package sequoia-ffi \
-		--package sequoia-openpgp-ffi
+	    $(CARGO) doc $(CARGO_FLAGS) --no-deps --all
+	cp --recursive doc/highlight.js $(CARGO_TARGET_DIR)/doc
 
 .PHONY: deploy-doc
 deploy-doc: doc
