@@ -50,7 +50,6 @@ fn kind_to_int(kind: Option<armor::Kind>) -> c_int {
 /// # Example
 ///
 /// ```c
-/// #define _GNU_SOURCE
 /// #include <assert.h>
 /// #include <error.h>
 /// #include <stdio.h>
@@ -68,48 +67,37 @@ fn kind_to_int(kind: Option<armor::Kind>) -> c_int {
 ///   "=s4Gu\n"
 ///   "-----END PGP ARMORED FILE-----\n";
 ///
-/// int
-/// main (int argc, char **argv)
-/// {
-///   pgp_error_t err;
-///   pgp_reader_t bytes;
-///   pgp_reader_t armor;
-///   pgp_armor_kind_t kind;
-///   char message[12];
-///   pgp_armor_header_t *header;
-///   size_t header_len;
+/// pgp_reader_t bytes = pgp_reader_from_bytes ((uint8_t *) armored, strlen (armored));
+/// pgp_reader_t armor = pgp_armor_reader_new (bytes, PGP_ARMOR_KIND_ANY);
 ///
-///   bytes = pgp_reader_from_bytes ((uint8_t *) armored, strlen (armored));
-///   armor = pgp_armor_reader_new (bytes, PGP_ARMOR_KIND_ANY);
+/// pgp_error_t err;
+/// pgp_armor_header_t *header;
+/// size_t header_len;
+/// header = pgp_armor_reader_headers (&err, armor, &header_len);
+/// if (header == NULL)
+///   error (1, 0, "Getting headers failed: %s", pgp_error_string (err));
 ///
-///   header = pgp_armor_reader_headers (&err, armor, &header_len);
-///   if (header == NULL)
-///     error (1, 0, "Getting headers failed: %s", pgp_error_string (err));
+/// assert (header_len == 2);
+/// assert (strcmp (header[0].key, "Key0") == 0
+///         && strcmp (header[0].value, "Value0") == 0);
+/// assert (strcmp (header[1].key, "Key1") == 0
+///         && strcmp (header[1].value, "Value1") == 0);
+/// for (size_t i = 0; i < header_len; i++)
+///   {
+///     free (header[i].key);
+///     free (header[i].value);
+///   }
+/// free (header);
 ///
-///   assert (header_len == 2);
-///   assert (strcmp (header[0].key, "Key0") == 0
-///           && strcmp (header[0].value, "Value0") == 0);
-///   assert (strcmp (header[1].key, "Key1") == 0
-///           && strcmp (header[1].value, "Value1") == 0);
-///   for (size_t i = 0; i < header_len; i++)
-///     {
-///       free (header[i].key);
-///       free (header[i].value);
-///     }
-///   free (header);
+/// char message[12];
+/// if (pgp_reader_read (&err, armor, (uint8_t *) message, 12) < 0)
+///   error (1, 0, "Reading failed: %s", pgp_error_string (err));
 ///
-///   kind = pgp_armor_reader_kind (armor);
-///   assert (kind == PGP_ARMOR_KIND_FILE);
+/// assert (pgp_armor_reader_kind (armor) == PGP_ARMOR_KIND_FILE);
+/// assert (memcmp (message, "Hello world!", 12) == 0);
 ///
-///   if (pgp_reader_read (&err, armor, (uint8_t *) message, 12) < 0)
-///     error (1, 0, "Reading failed: %s", pgp_error_string (err));
-///
-///   assert (memcmp (message, "Hello world!", 12) == 0);
-///
-///   pgp_reader_free (armor);
-///   pgp_reader_free (bytes);
-///   return 0;
-/// }
+/// pgp_reader_free (armor);
+/// pgp_reader_free (bytes);
 /// ```
 #[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn pgp_armor_reader_new(inner: *mut Box<Read>,
@@ -137,6 +125,59 @@ pub extern "system" fn pgp_armor_reader_from_file(errp: Option<&mut *mut failure
 }
 
 /// Creates a `Reader` from a buffer.
+///
+/// # Example
+///
+/// ```c
+/// #include <assert.h>
+/// #include <error.h>
+/// #include <stdio.h>
+/// #include <stdlib.h>
+/// #include <string.h>
+///
+/// #include <sequoia/openpgp.h>
+///
+/// const char *armored =
+///   "-----BEGIN PGP ARMORED FILE-----\n"
+///   "Key0: Value0\n"
+///   "Key1: Value1\n"
+///   "\n"
+///   "SGVsbG8gd29ybGQh\n"
+///   "=s4Gu\n"
+///   "-----END PGP ARMORED FILE-----\n";
+///
+/// pgp_reader_t armor =
+///     pgp_armor_reader_from_bytes ((uint8_t *) armored, strlen (armored),
+///     PGP_ARMOR_KIND_ANY);
+///
+/// pgp_error_t err;
+/// pgp_armor_header_t *header;
+/// size_t header_len;
+/// header = pgp_armor_reader_headers (&err, armor, &header_len);
+/// if (header == NULL)
+///   error (1, 0, "Getting headers failed: %s", pgp_error_string (err));
+///
+/// assert (header_len == 2);
+/// assert (strcmp (header[0].key, "Key0") == 0
+///         && strcmp (header[0].value, "Value0") == 0);
+/// assert (strcmp (header[1].key, "Key1") == 0
+///         && strcmp (header[1].value, "Value1") == 0);
+/// for (size_t i = 0; i < header_len; i++)
+///   {
+///     free (header[i].key);
+///     free (header[i].value);
+///   }
+/// free (header);
+///
+/// char message[12];
+/// if (pgp_reader_read (&err, armor, (uint8_t *) message, 12) < 0)
+///   error (1, 0, "Reading failed: %s", pgp_error_string (err));
+///
+/// assert (pgp_armor_reader_kind (armor) == PGP_ARMOR_KIND_FILE);
+/// assert (memcmp (message, "Hello world!", 12) == 0);
+///
+/// pgp_reader_free (armor);
+/// ```
 #[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn pgp_armor_reader_from_bytes(b: *const uint8_t, len: size_t,
                                                   kind: c_int)
