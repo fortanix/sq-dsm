@@ -1,4 +1,10 @@
-//! Handles KeyIDs.
+//! KeyIDs.
+//!
+//! A KeyID is a fingerprint fragment.  It identifies a public key,
+//! but is easy to forge.  For more details about how a KeyID is
+//! generated, see [Section 12.2 of RFC 4880].
+//!
+//!   [Section 12.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-12.2
 //!
 //! Wraps [`sequoia-openpgp::KeyID`].
 //!

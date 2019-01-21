@@ -1,8 +1,14 @@
-//! Handles Fingerprints.
+//! Fingerprints.
+//!
+//! A fingerprint uniquely identifies a public key.  For more details
+//! about how a fingerprint is generated, see [Section 12.2 of RFC
+//! 4880].
+//!
+//!   [Section 12.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-12.2
 //!
 //! Wraps [`sequoia-openpgp::Fingerprint`].
 //!
-//! [`sequoia-openpgp::Fingerprint`]: ../../../sequoia_openpgp/enum.Fingerprint.html
+//! [`sequoia-openpgp::Fingerprint`]: ../../sequoia_openpgp/enum.Fingerprint.html
 
 use std::hash::{Hash, Hasher};
 use std::ptr;

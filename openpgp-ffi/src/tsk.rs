@@ -1,4 +1,4 @@
-//! Handles TSKs.
+//! Transferable secret keys.
 //!
 //! Wraps [`sequoia-openpgp::TSK`].
 //!

@@ -1,4 +1,5 @@
-//! Handles PacketPiles.
+//! `PacketPile`s, deserialized sequences of OpenPGP messages.
+//!
 //!
 //! Wraps [`sequoia-openpgp::PacketPile`].
 //!

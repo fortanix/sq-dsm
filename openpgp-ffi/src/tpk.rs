@@ -1,4 +1,4 @@
-//! Handles TPKs.
+//! Transferable public keys.
 //!
 //! Wraps [`sequoia-openpgp::TPK`] and [related functionality].
 //!
