@@ -3,7 +3,7 @@
 //!
 //! Wraps [`sequoia-openpgp::PacketPile`].
 //!
-//! [`sequoia-openpgp::PacketPile`]: ../../../sequoia_openpgp/struct.PacketPile.html
+//! [`sequoia-openpgp::PacketPile`]: ../../sequoia_openpgp/struct.PacketPile.html
 
 use std::slice;
 use std::io::{Read, Write};

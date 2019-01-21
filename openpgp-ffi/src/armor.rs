@@ -2,7 +2,7 @@
 //!
 //! Wraps [`sequoia-openpgp::armor`].
 //!
-//! [`sequoia-openpgp::armor`]: ../../../sequoia_openpgp/armor/index.html
+//! [`sequoia-openpgp::armor`]: ../../sequoia_openpgp/armor/index.html
 
 use std::mem::size_of;
 use std::ptr;

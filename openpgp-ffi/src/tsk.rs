@@ -2,7 +2,7 @@
 //!
 //! Wraps [`sequoia-openpgp::TSK`].
 //!
-//! [`sequoia-openpgp::TSK`]: ../../../sequoia_openpgp/struct.TSK.html
+//! [`sequoia-openpgp::TSK`]: ../../sequoia_openpgp/struct.TSK.html
 
 use failure;
 use std::io::Write;

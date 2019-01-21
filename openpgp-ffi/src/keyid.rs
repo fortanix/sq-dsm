@@ -8,7 +8,7 @@
 //!
 //! Wraps [`sequoia-openpgp::KeyID`].
 //!
-//! [`sequoia-openpgp::KeyID`]: ../../../sequoia_openpgp/enum.KeyID.html
+//! [`sequoia-openpgp::KeyID`]: ../../sequoia_openpgp/enum.KeyID.html
 
 use std::hash::{Hash, Hasher};
 use std::ptr;

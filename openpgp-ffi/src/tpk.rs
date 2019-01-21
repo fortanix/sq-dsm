@@ -2,8 +2,8 @@
 //!
 //! Wraps [`sequoia-openpgp::TPK`] and [related functionality].
 //!
-//! [`sequoia-openpgp::TPK`]: ../../../sequoia_openpgp/struct.TPK.html
-//! [related functionality]: ../../../sequoia_openpgp/tpk/index.html
+//! [`sequoia-openpgp::TPK`]: ../../sequoia_openpgp/struct.TPK.html
+//! [related functionality]: ../../sequoia_openpgp/tpk/index.html
 
 use std::ptr;
 use std::slice;

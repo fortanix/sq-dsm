@@ -2,7 +2,7 @@
 //!
 //! Wraps [`sequoia-openpgp::crypto`].
 //!
-//! [`sequoia-openpgp::crypto`]: ../../../sequoia_openpgp/crypto/index.html
+//! [`sequoia-openpgp::crypto`]: ../../sequoia_openpgp/crypto/index.html
 
 extern crate sequoia_openpgp;
 use self::sequoia_openpgp::{

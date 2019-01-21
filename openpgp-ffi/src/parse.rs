@@ -135,8 +135,8 @@ pub extern "system" fn pgp_packet_parser_recursion_depth
 /// recurse into the container, but skips any packets it contains.
 /// To recurse into the container, use the [`recurse()`] method.
 ///
-///   [`PacketParsererBuilder`]: parse/struct.PacketParserBuilder.html
-///   [`recurse()`]: #method.recurse
+///   [`PacketParsererBuilder`]: ../../sequoia_openpgp/parse/struct.PacketParserBuilder.html
+///   [`recurse()`]: fn.pgp_packet_parser_recurse.html
 ///
 /// The return value is a tuple containing:
 ///
@@ -229,7 +229,7 @@ pub extern "system" fn pgp_packet_parser_next<'a>
 /// because we always visit interior nodes, we can't recurse more
 /// than one level at a time.
 ///
-///   [`next()`]: #method.next
+///   [`next()`]: fn.pgp_packet_parser_next.html
 ///
 /// The items of the tuple are returned in out-parameters.  If you do
 /// not wish to receive the value, pass `NULL` as the parameter.
