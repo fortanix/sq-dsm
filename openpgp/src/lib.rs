@@ -96,6 +96,7 @@ macro_rules! assert_match {
     };
 }
 
+#[macro_use]
 pub mod armor;
 pub mod autocrypt;
 pub mod conversions;
