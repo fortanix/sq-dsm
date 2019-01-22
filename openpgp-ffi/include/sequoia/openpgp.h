@@ -540,6 +540,12 @@ void pgp_packet_pile_free (pgp_packet_pile_t message);
 pgp_packet_pile_t pgp_packet_pile_clone (pgp_packet_pile_t message);
 
 /*/
+/// Returns a human readable description of this object suitable for
+/// debugging.
+/*/
+char *pgp_packet_pile_debug (const pgp_packet_pile_t);
+
+/*/
 /// Serializes the packet pile.
 /*/
 pgp_status_t pgp_packet_pile_serialize (pgp_error_t *errp,

@@ -50,6 +50,7 @@ class Fingerprint(SQObject):
         return KeyID(lib.pgp_fingerprint_to_keyid(self.ref()))
 
 class PacketPile(SQObject):
+    _debug = lib.pgp_packet_pile_debug
     _del = lib.pgp_packet_pile_free
     _clone = lib.pgp_packet_pile_clone
 

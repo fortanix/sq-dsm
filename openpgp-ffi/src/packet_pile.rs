@@ -9,14 +9,22 @@ use std::slice;
 use std::io::{Read, Write};
 use libc::{uint8_t, c_char, size_t};
 
-extern crate sequoia_openpgp;
-use self::sequoia_openpgp::{
-    PacketPile,
+extern crate sequoia_openpgp as openpgp;
+use self::openpgp::{
     parse::Parse,
     serialize::Serialize,
 };
 
 use ::error::Status;
+
+/// A `PacketPile` holds a deserialized sequence of OpenPGP messages.
+///
+/// Wraps [`sequoia-openpgp::PacketPile`].
+///
+/// [`sequoia-openpgp::PacketPile`]: ../../sequoia_openpgp/struct.PacketPile.html
+#[::ffi_wrapper_type(prefix = "pgp_",
+                     derive = "Clone, Debug, PartialEq")]
+pub struct PacketPile(openpgp::PacketPile);
 
 /// Deserializes the OpenPGP message stored in a `std::io::Read`
 /// object.
@@ -31,10 +39,10 @@ use ::error::Status;
 #[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn pgp_packet_pile_from_reader(errp: Option<&mut *mut failure::Error>,
                                                   reader: *mut Box<Read>)
-                                                  -> *mut PacketPile {
+                                                  -> *mut openpgp::PacketPile {
     ffi_make_fry_from_errp!(errp);
     let reader = ffi_param_ref_mut!(reader);
-    ffi_try_box!(PacketPile::from_reader(reader))
+    ffi_try_box!(openpgp::PacketPile::from_reader(reader))
 }
 
 /// Deserializes the OpenPGP message stored in the file named by
@@ -44,10 +52,10 @@ pub extern "system" fn pgp_packet_pile_from_reader(errp: Option<&mut *mut failur
 #[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn pgp_packet_pile_from_file(errp: Option<&mut *mut failure::Error>,
                                                 filename: *const c_char)
-                                                -> *mut PacketPile {
+                                                -> *mut openpgp::PacketPile {
     ffi_make_fry_from_errp!(errp);
     let filename = ffi_param_cstr!(filename).to_string_lossy().into_owned();
-    ffi_try_box!(PacketPile::from_file(&filename))
+    ffi_try_box!(openpgp::PacketPile::from_file(&filename))
 }
 
 /// Deserializes the OpenPGP message stored in the provided buffer.
@@ -56,35 +64,20 @@ pub extern "system" fn pgp_packet_pile_from_file(errp: Option<&mut *mut failure:
 #[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn pgp_packet_pile_from_bytes(errp: Option<&mut *mut failure::Error>,
                                                  b: *const uint8_t, len: size_t)
-                                                 -> *mut PacketPile {
+                                                 -> *mut openpgp::PacketPile {
     ffi_make_fry_from_errp!(errp);
     assert!(!b.is_null());
     let buf = unsafe {
         slice::from_raw_parts(b, len as usize)
     };
 
-    ffi_try_box!(PacketPile::from_bytes(buf))
-}
-
-/// Frees the packet_pile.
-#[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn pgp_packet_pile_free(packet_pile: Option<&mut PacketPile>)
-{
-    ffi_free!(packet_pile)
-}
-
-/// Clones the PacketPile.
-#[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn pgp_packet_pile_clone(packet_pile: *const PacketPile)
-                                            -> *mut PacketPile {
-    let packet_pile = ffi_param_ref!(packet_pile);
-    box_raw!(packet_pile.clone())
+    ffi_try_box!(openpgp::PacketPile::from_bytes(buf))
 }
 
 /// Serializes the packet pile.
 #[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn pgp_packet_pile_serialize(errp: Option<&mut *mut failure::Error>,
-                                                packet_pile: *const PacketPile,
+                                                packet_pile: *const openpgp::PacketPile,
                                                 writer: *mut Box<Write>)
                                                 -> Status {
     ffi_make_fry_from_errp!(errp);
