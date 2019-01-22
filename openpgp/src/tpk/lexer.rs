@@ -100,15 +100,15 @@ impl From<Token> for Option<Packet> {
 
 impl From<Packet> for Option<Token> {
     fn from(p: Packet) -> Self {
-        match p.tag() {
-            Tag::PublicKey => Some(Token::PublicKey(Some(p))),
-            Tag::SecretKey => Some(Token::SecretKey(Some(p))),
-            Tag::PublicSubkey => Some(Token::PublicSubkey(Some(p))),
-            Tag::SecretSubkey => Some(Token::SecretSubkey(Some(p))),
-            Tag::UserID => Some(Token::UserID(Some(p))),
-            Tag::UserAttribute => Some(Token::UserAttribute(Some(p))),
-            Tag::Signature => Some(Token::Signature(Some(p))),
-            t @ Tag::Unknown(_) => Some(Token::Unknown(t, Some(p))),
+        match p {
+            p @ Packet::PublicKey(_) => Some(Token::PublicKey(Some(p))),
+            p @ Packet::SecretKey(_) => Some(Token::SecretKey(Some(p))),
+            p @ Packet::PublicSubkey(_) => Some(Token::PublicSubkey(Some(p))),
+            p @ Packet::SecretSubkey(_) => Some(Token::SecretSubkey(Some(p))),
+            p @ Packet::UserID(_) => Some(Token::UserID(Some(p))),
+            p @ Packet::UserAttribute(_) => Some(Token::UserAttribute(Some(p))),
+            p @ Packet::Signature(_) => Some(Token::Signature(Some(p))),
+            p @ Packet::Unknown(_) => Some(Token::Unknown(p.tag(), Some(p))),
             _ => None,
         }
     }
