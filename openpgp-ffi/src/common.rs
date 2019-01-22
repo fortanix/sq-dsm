@@ -147,9 +147,9 @@ macro_rules! ffi_make_fry_from_errp {
         macro_rules! ffi_try_status {
             ($expr:expr) => {
                 match $expr {
-                    Ok(_) => Status::Success,
+                    Ok(_) => ::error::Status::Success,
                     Err(e) => {
-                        let status = Status::from(&e);
+                        let status = ::error::Status::from(&e);
                         if let Some(errp) = $errp {
                             *errp = box_raw!(e);
                         }
@@ -219,7 +219,7 @@ macro_rules! box_raw {
 /// This is used to transfer ownership from Rust to C.
 macro_rules! maybe_box_raw {
     ($expr:expr) => {
-        $expr.map(|x| box_raw!(x)).unwrap_or(ptr::null_mut())
+        $expr.map(|x| box_raw!(x)).unwrap_or(::std::ptr::null_mut())
     }
 }
 

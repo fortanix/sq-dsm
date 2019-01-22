@@ -7,7 +7,6 @@
 //!
 //!   [Section 5.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2
 
-use std::ptr;
 use libc::time_t;
 
 extern crate sequoia_openpgp as openpgp;
