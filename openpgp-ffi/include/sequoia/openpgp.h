@@ -80,6 +80,12 @@ uint64_t pgp_keyid_hash (pgp_keyid_t keyid);
 char *pgp_keyid_to_string (const pgp_keyid_t fp);
 
 /*/
+/// Returns a human readable description of this object suitable for
+/// debugging.
+/*/
+char *pgp_keyid_debug (const pgp_keyid_t fp);
+
+/*/
 /// Converts the KeyID to a hexadecimal number.
 /*/
 char *pgp_keyid_to_hex (const pgp_keyid_t keyid);

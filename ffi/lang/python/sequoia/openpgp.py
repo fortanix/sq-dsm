@@ -9,6 +9,7 @@ class KeyID(SQObject):
     _del = lib.pgp_keyid_free
     _clone = lib.pgp_keyid_clone
     _str = lib.pgp_keyid_to_string
+    _debug = lib.pgp_keyid_debug
     _eq = lib.pgp_keyid_equal
     _hash = lib.pgp_keyid_hash
 
