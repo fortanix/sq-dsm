@@ -30,6 +30,7 @@ class Fingerprint(SQObject):
     _del = lib.pgp_fingerprint_free
     _clone = lib.pgp_fingerprint_clone
     _str = lib.pgp_fingerprint_to_string
+    _debug = lib.pgp_fingerprint_debug
     _eq = lib.pgp_fingerprint_equal
     _hash = lib.pgp_fingerprint_hash
 

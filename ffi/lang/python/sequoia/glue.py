@@ -28,6 +28,7 @@ class SQObject(object):
     _clone = None
     _eq = None
     _str = None
+    _debug = None
     _hash = None
 
     def __init__(self, o, context=None, owner=None, references=None):
@@ -95,6 +96,12 @@ class SQObject(object):
 
     def __hash__(self):
         return self._hash(self.ref())
+
+    def debug(self):
+        if self._debug:
+            return _str(self._debug(self.ref()))
+        else:
+            raise NotImplementedError()
 
 def sq_str(s):
     t = ffi.string(s).decode()

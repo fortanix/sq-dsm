@@ -134,7 +134,7 @@
 //! or the allocation for the string failed, which is considered
 //! undefined behavior.
 //!
-//! [`pgp_fingerprint_to_string`]: fingerprint/fn.pgp_fingerprint_to_string.html
+//! [`pgp_fingerprint_to_string`]: struct.Fingerprint.html#method.pgp_fingerprint_to_string
 //!
 //! Failing functions signal failure either in-band (e.g. `NULL`, or
 //! -1), using `pgp_status_t`, and may store complex error information
@@ -145,7 +145,7 @@
 //! on the other hand, will return `NULL` and store a complex error at
 //! the location given using the `errp` parameter.
 //!
-//! [`pgp_fingerprint_from_hex`]: fingerprint/fn.pgp_fingerprint_from_hex.html
+//! [`pgp_fingerprint_from_hex`]: struct.Fingerprint.html#method.pgp_fingerprint_from_hex
 //! [`pgp_packet_parser_from_bytes`]: parse/fn.pgp_packet_parser_from_bytes.html
 //!
 //! Errors may be inspected using [`pgp_error_status`], and formatted
@@ -316,6 +316,9 @@ extern crate lazy_static;
 extern crate libc;
 
 extern crate sequoia_ffi_macros;
-use sequoia_ffi_macros::ffi_catch_abort;
+use sequoia_ffi_macros::{
+    ffi_catch_abort,
+    ffi_wrapper_type,
+};
 
 include!("common.rs");

@@ -136,6 +136,12 @@ uint8_t *pgp_fingerprint_as_bytes (const pgp_fingerprint_t fp, size_t *fp_len);
 char *pgp_fingerprint_to_string (const pgp_fingerprint_t fp);
 
 /*/
+/// Returns a human readable description of this object suitable for
+/// debugging.
+/*/
+char *pgp_fingerprint_debug (const pgp_fingerprint_t fp);
+
+/*/
 /// Converts the fingerprint to a hexadecimal number.
 /*/
 char *pgp_fingerprint_to_hex (const pgp_fingerprint_t fp);
