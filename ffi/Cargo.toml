@@ -23,7 +23,6 @@ maintenance = { status = "actively-developed" }
 [dependencies]
 sequoia-ffi-macros = { path = "../ffi-macros" }
 sequoia-openpgp = { path = "../openpgp" }
-sequoia-openpgp-ffi = { path = "../openpgp-ffi" }
 sequoia-core = { path = "../core" }
 sequoia-store = { path = "../store" }
 sequoia-net = { path = "../net" }
