@@ -3,9 +3,12 @@
 #![recursion_limit="256"]
 
 use std::collections::HashMap;
+use std::io::Write;
 
 extern crate lazy_static;
 use lazy_static::lazy_static;
+extern crate nettle;
+use nettle::hash::Hash;
 extern crate syn;
 use syn::spanned::Spanned;
 extern crate quote;
@@ -109,7 +112,7 @@ pub fn ffi_catch_abort(_attr: TokenStream, item: TokenStream) -> TokenStream {
 pub fn ffi_wrapper_type(args: TokenStream, input: TokenStream) -> TokenStream {
     // Parse tokens into a function declaration.
     let args = syn::parse_macro_input!(args as syn::AttributeArgs);
-    let st = syn::parse_macro_input!(input as syn::ItemStruct);
+    let mut st = syn::parse_macro_input!(input as syn::ItemStruct);
 
     let mut name = None;
     let mut prefix = None;
@@ -154,29 +157,37 @@ pub fn ffi_wrapper_type(args: TokenStream, input: TokenStream) -> TokenStream {
     let name = name.unwrap_or(ident2c(&st.ident));
     let prefix = prefix.unwrap_or("".into());
 
-    // Parse the wrapped type.
+    // Parse the type of the wrapped object.
+    let argument_span = st.fields.span();
     let wrapped_type = match &st.fields {
         syn::Fields::Unnamed(fields) => {
             if fields.unnamed.len() != 1 {
                 return
-                    syn::Error::new(st.fields.span(),
+                    syn::Error::new(argument_span,
                                     "expected a single field")
                     .to_compile_error().into();
             }
             fields.unnamed.first().unwrap().value().ty.clone()
         },
         _ => return
-            syn::Error::new(st.fields.span(),
+            syn::Error::new(argument_span,
                             format!("expected tuple struct, try: {}(...)",
-                            st.ident))
+                                    st.ident))
             .to_compile_error().into(),
     };
 
+    // We now assemble the derived functions.
+    let mut impls = TokenStream2::new();
+
+    // First, we derive the conversion functions.  As a side-effect,
+    // this function injects fields into the struct definition.
+    impls.extend(
+        derive_conversion_functions(&mut st, &prefix, &name, &wrapped_type));
+
+    // Now, we derive both the default and the requested functions.
     let default_derives: &[DeriveFn] = &[
         derive_free,
-        derive_conversion_traits,
     ];
-    let mut impls = TokenStream2::new();
     for dfn in derive.into_iter().chain(default_derives.iter()) {
         impls.extend(dfn(st.span(), &prefix, &name,
                          &st.ident, &wrapped_type));
@@ -240,36 +251,114 @@ fn derive_functions() -> &'static HashMap<&'static str, DeriveFn>
     &MAP
 }
 
+/// Produces a deterministic hash of the given identifier.
+fn hash_ident(i: &syn::Ident) -> u64 {
+    let mut hash = ::nettle::hash::Sha256::default();
+    write!(hash, "{}", i).unwrap();
+
+    let mut buf = [0; 8];
+    hash.digest(&mut buf);
+
+    buf.iter().fold(0, |acc, b| (acc << 8) + (*b as u64))
+}
+
 /// Derives prefix_name_conversion_trait.
-fn derive_conversion_traits(_: proc_macro2::Span, _: &str, _: &str,
-                            wrapper: &syn::Ident, wrapped: &syn::Type)
-                            -> TokenStream2
+fn derive_conversion_functions(st: &mut syn::ItemStruct, _: &str, _: &str,
+                               wrapped: &syn::Type)
+                               -> TokenStream2
 {
+    let wrapper = st.ident.clone();
+
+    // We now inject a field into the struct definition.  This tag
+    // uniquely identifies this wrapper at runtime.
+
+    // We use a word sized unsigned type to avoid alignment issues.
+    let tag_type = syn::parse_quote!(u64);
+
+    // The value is a compile-time constant.
+    let magic_value = hash_ident(&wrapper);
+
+    // Inject the tag.
+    let argument_span = st.fields.span();
+    match &mut st.fields {
+        syn::Fields::Unnamed(fields) => {
+            if fields.unnamed.len() != 1 {
+                return
+                    syn::Error::new(argument_span,
+                                    "expected a single field")
+                    .to_compile_error().into();
+            }
+            fields.unnamed.push(
+                syn::Field {
+                    attrs: vec![],
+                    vis: syn::Visibility::Inherited,
+                    ident: None,
+                    colon_token: None,
+                    ty: tag_type,
+                }
+            );
+        },
+        _ => return
+            syn::Error::new(argument_span,
+                            format!("expected tuple struct, try: {}(...)",
+                            st.ident))
+            .to_compile_error().into(),
+    };
+
     quote! {
+        impl #wrapper {
+            fn assert_tag(&self) {
+                if self.1 != #magic_value {
+                    panic!("FFI contract violation: Wrong parameter type");
+                }
+            }
+        }
+
         use MoveFromRaw;
         impl MoveFromRaw<#wrapped> for *mut #wrapper {
             fn move_from_raw(self) -> #wrapped {
-                ffi_param_move!(self).0
+                if self.is_null() {
+                    panic!("FFI contract violation: Parameter is NULL");
+                }
+                let wrapper = unsafe {
+                    Box::from_raw(self)
+                };
+                wrapper.assert_tag();
+                wrapper.0
             }
         }
 
         use RefRaw;
         impl RefRaw<#wrapped> for *const #wrapper {
             fn ref_raw(self) -> &'static #wrapped {
-                &ffi_param_ref!(self).0
+                if self.is_null() {
+                    panic!("FFI contract violation: Parameter is NULL");
+                }
+                let wrapper = unsafe {
+                    &(*self)
+                };
+                wrapper.assert_tag();
+                &wrapper.0
             }
         }
 
         use RefMutRaw;
         impl RefMutRaw<#wrapped> for *mut #wrapper {
             fn ref_mut_raw(self) -> &'static mut #wrapped {
-                &mut ffi_param_ref_mut!(self).0
+                if self.is_null() {
+                    panic!("FFI contract violation: Parameter is NULL");
+                }
+                let wrapper = unsafe {
+                    &mut (*self)
+                };
+                wrapper.assert_tag();
+                &mut wrapper.0
             }
         }
 
         impl #wrapper {
             fn wrap(obj: #wrapped) -> *mut #wrapper {
-                Box::into_raw(Box::new(#wrapper(obj)))
+                Box::into_raw(Box::new(#wrapper(obj, #magic_value)))
             }
         }
 
