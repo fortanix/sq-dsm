@@ -73,7 +73,8 @@ pub TPK: Option<TPK> = {
                 assert!(c.is_none() || c.unwrap().len() == 0);
                 Ok(None)
             }
-            _ => unreachable!(),
+            Some((pkt, _)) =>
+              unreachable!("Expected key or unknown packet, got {:?}", pkt),
         }
     }
 };
@@ -113,7 +114,7 @@ OptionalSignatures: Option<Vec<Signature>> = {
             }
             // Just validating a message...
             Token::Signature(None) => return None,
-            _ => unreachable!(),
+            tok => unreachable!("Expected signature token, got {:?}", tok),
         }
     }
 }
@@ -206,7 +207,8 @@ Subkey: Option<Key> = {
             Some(Packet::PublicSubkey(key)) => Some(key),
             // Just validating a message...
             None => None,
-            _ => unreachable!(),
+            Some(pkt) =>
+              unreachable!("Expected public subkey packet, got {:?}", pkt),
         }
     },
     <t:SECRET_SUBKEY> => {
@@ -214,7 +216,8 @@ Subkey: Option<Key> = {
             Some(Packet::SecretSubkey(key)) => Some(key),
             // Just validating a message...
             None => None,
-            _ => unreachable!(),
+            Some(pkt) =>
+              unreachable!("Expected secret subkey packet, got {:?}", pkt),
         }
     },
 }
@@ -225,7 +228,8 @@ UserID: Option<UserID> = {
             Some(Packet::UserID(u)) => Some(u),
             // Just validating a message...
             None => None,
-            _ => unreachable!(),
+            Some(pkt) =>
+              unreachable!("Expected user id packet, got {:?}", pkt),
         }
     },
 }
@@ -236,7 +240,8 @@ UserAttribute: Option<UserAttribute> = {
             Some(Packet::UserAttribute(u)) => Some(u),
             // Just validating a message...
             None => None,
-            _ => unreachable!(),
+            Some(pkt) =>
+              unreachable!("Expected user attribute packet, got {:?}", pkt),
         }
     },
 }
@@ -247,7 +252,8 @@ Unknown: Option<Unknown> = {
             Some(Packet::Unknown(u)) => Some(u),
             // Just validating a message...
             None => None,
-            _ => unreachable!(),
+            Some(pkt) =>
+              unreachable!("Expected unknown packet, got {:?}", pkt),
         }
     },
 }
