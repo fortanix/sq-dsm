@@ -131,6 +131,12 @@ pub mod openpgp {
 pub(crate) use openpgp::{
     build_hasher,
     strndup,
+    MoveFromRaw,
+    RefRaw,
+    RefMutRaw,
+    MoveIntoRaw,
+    MoveResultIntoRaw,
+    Maybe,
 };
 
 /* Error handling with implicit context.  */

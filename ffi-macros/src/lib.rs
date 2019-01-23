@@ -1,5 +1,7 @@
 //! Common macros for Sequoia's FFI crates.
 
+#![recursion_limit="256"]
+
 use std::collections::HashMap;
 
 extern crate lazy_static;
@@ -172,6 +174,7 @@ pub fn ffi_wrapper_type(args: TokenStream, input: TokenStream) -> TokenStream {
 
     let default_derives: &[DeriveFn] = &[
         derive_free,
+        derive_conversion_traits,
     ];
     let mut impls = TokenStream2::new();
     for dfn in derive.into_iter().chain(default_derives.iter()) {
@@ -235,6 +238,74 @@ fn derive_functions() -> &'static HashMap<&'static str, DeriveFn>
     &MAP
 }
 
+/// Derives prefix_name_conversion_trait.
+fn derive_conversion_traits(_: proc_macro2::Span, _: &str, _: &str,
+                            ty: &syn::Type)
+                            -> TokenStream2
+{
+    quote! {
+        use MoveFromRaw;
+        impl MoveFromRaw<#ty> for *mut #ty {
+            fn move_from_raw(self) -> #ty {
+                *ffi_param_move!(self)
+            }
+        }
+
+        use RefRaw;
+        impl RefRaw<#ty> for *const #ty {
+            fn ref_raw(self) -> &'static #ty {
+                ffi_param_ref!(self)
+            }
+        }
+
+        use RefMutRaw;
+        impl RefMutRaw<#ty> for *mut #ty {
+            fn ref_mut_raw(self) -> &'static mut #ty {
+                ffi_param_ref_mut!(self)
+            }
+        }
+
+        use MoveIntoRaw;
+        impl MoveIntoRaw<*mut #ty> for #ty {
+            fn move_into_raw(self) -> *mut #ty {
+                Box::into_raw(Box::new(self))
+            }
+        }
+
+        impl MoveIntoRaw<Option<::std::ptr::NonNull<#ty>>>
+            for Option<#ty>
+        {
+            fn move_into_raw(self) -> Option<::std::ptr::NonNull<#ty>> {
+                self.map(|mut v| {
+                    let ptr = Box::into_raw(Box::new(v));
+                    ::std::ptr::NonNull::new(ptr).unwrap()
+                })
+            }
+        }
+
+        use MoveResultIntoRaw;
+        impl MoveResultIntoRaw<Option<::std::ptr::NonNull<#ty>>>
+            for ::failure::Fallible<#ty>
+        {
+            fn move_into_raw(self, errp: Option<&mut *mut ::failure::Error>)
+                             -> Option<::std::ptr::NonNull<#ty>> {
+                match self {
+                    Ok(v) => {
+                        let ptr = Box::into_raw(Box::new(v));
+                        Some(::std::ptr::NonNull::new(ptr).unwrap())
+                    },
+                    Err(e) => {
+                        if let Some(errp) = errp {
+                            *errp = box_raw!(e);
+                        }
+                        None
+                    },
+                }
+            }
+        }
+    }
+}
+
 /// Derives prefix_name_free.
 fn derive_free(span: proc_macro2::Span, prefix: &str, name: &str,
                ty: &syn::Type)
@@ -246,10 +317,8 @@ fn derive_free(span: proc_macro2::Span, prefix: &str, name: &str,
         /// Frees this object.
         #[::ffi_catch_abort] #[no_mangle]
         pub extern "system" fn #ident (this: Option<&mut #ty>) {
-            if let Some(ptr) = this {
-                unsafe {
-                    drop(Box::from_raw(ptr))
-                }
+            if let Some(ref_) = this {
+                drop((ref_ as *mut #wrapper).move_from_raw())
             }
         }
     }
@@ -267,8 +336,7 @@ fn derive_clone(span: proc_macro2::Span, prefix: &str, name: &str,
         #[::ffi_catch_abort] #[no_mangle]
         pub extern "system" fn #ident (this: *const #ty)
                                        -> *mut #ty {
-            let this = ffi_param_ref!(this);
-            box_raw!(this.clone())
+            this.ref_raw().clone().move_into_raw()
         }
     }
 }
@@ -286,9 +354,7 @@ fn derive_equal(span: proc_macro2::Span, prefix: &str, name: &str,
         pub extern "system" fn #ident (a: *const #ty,
                                        b: *const #ty)
                                        -> bool {
-            let a = ffi_param_ref!(a);
-            let b = ffi_param_ref!(b);
-            a == b
+            a.ref_raw() == b.ref_raw()
         }
     }
 }
@@ -307,8 +373,7 @@ fn derive_to_string(span: proc_macro2::Span, prefix: &str, name: &str,
         #[::ffi_catch_abort] #[no_mangle]
         pub extern "system" fn #ident (this: *const #ty)
                                        -> *mut ::libc::c_char {
-            let this = ffi_param_ref!(this);
-            ffi_return_string!(format!("{}", this))
+            ffi_return_string!(format!("{}", this.ref_raw()))
         }
     }
 }
@@ -326,8 +391,7 @@ fn derive_debug(span: proc_macro2::Span, prefix: &str, name: &str,
         #[::ffi_catch_abort] #[no_mangle]
         pub extern "system" fn #ident (this: *const #ty)
                                        -> *mut ::libc::c_char {
-            let this = ffi_param_ref!(this);
-            ffi_return_string!(format!("{:?}", this))
+            ffi_return_string!(format!("{:?}", this.ref_raw()))
         }
     }
 }
@@ -346,9 +410,8 @@ fn derive_hash(span: proc_macro2::Span, prefix: &str, name: &str,
                                        -> ::libc::uint64_t {
             use ::std::hash::{Hash, Hasher};
 
-            let this = ffi_param_ref!(this);
             let mut hasher = ::build_hasher();
-            this.hash(&mut hasher);
+            this.ref_raw().hash(&mut hasher);
             hasher.finish()
         }
     }

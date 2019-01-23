@@ -223,6 +223,45 @@ macro_rules! maybe_box_raw {
     }
 }
 
+
+/* Support for sequoia_ffi_macros::ffi_wrapper_type-based object
+ * handling.  */
+
+/// Moves an object from C to Rust, taking ownership.
+pub(crate) trait MoveFromRaw<T> {
+    /// Moves this object from C to Rust, taking ownership.
+    fn move_from_raw(self) -> T;
+}
+
+/// Moves a reference to an object from C to Rust.
+pub(crate) trait RefRaw<T> {
+    /// Moves this reference to an object from C to Rust.
+    fn ref_raw(self) -> &'static T;
+}
+
+/// Moves a mutable reference to an object from C to Rust.
+pub(crate) trait RefMutRaw<T> {
+    /// Moves this mutable reference to an object from C to Rust.
+    fn ref_mut_raw(self) -> &'static mut T;
+}
+
+/// Moves an object from Rust to C, releasing ownership.
+pub(crate) trait MoveIntoRaw<T> {
+    /// Moves this object from Rust to C, releasing ownership.
+    fn move_into_raw(self) -> T;
+}
+
+/// Moves an object from Rust to C, releasing ownership.
+pub(crate) trait MoveResultIntoRaw<T> {
+    /// Moves this object from Rust to C, releasing ownership.
+    fn move_into_raw(self, errp: Option<&mut *mut ::failure::Error>) -> T;
+}
+
+/// Indicates that a pointer may be NULL.
+pub type Maybe<T> = Option<::std::ptr::NonNull<T>>;
+
+/* Hashing support.  */
+
 /// Builds hashers for computing hashes.
 ///
 /// This is used to derive Hasher instances for computing hashes of
