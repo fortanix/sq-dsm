@@ -57,6 +57,23 @@ fn pgp_keyid_from_bytes(id: *const uint8_t) -> *mut openpgp::KeyID {
 }
 
 /// Reads a hex-encoded Key ID.
+///
+/// # Example
+///
+/// ```c
+/// #include <assert.h>
+/// #include <stdlib.h>
+/// #include <string.h>
+/// #include <sequoia/openpgp.h>
+///
+/// pgp_keyid_t mr_b = pgp_keyid_from_hex ("bbbbbbbbbbbbbbbb");
+///
+/// char *mr_b_as_string = pgp_keyid_to_string (mr_b);
+/// assert (strcmp (mr_b_as_string, "BBBB BBBB BBBB BBBB") == 0);
+///
+/// free (mr_b_as_string);
+/// pgp_keyid_free (mr_b);
+/// ```
 #[::ffi_catch_abort] #[no_mangle] pub extern "system"
 fn pgp_keyid_from_hex(id: *const c_char) -> *mut openpgp::KeyID {
     let id = ffi_param_cstr!(id).to_string_lossy();
