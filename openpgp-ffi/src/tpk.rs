@@ -12,7 +12,6 @@ use libc::{uint8_t, c_char, c_int, size_t, time_t};
 
 extern crate sequoia_openpgp as openpgp;
 use self::openpgp::{
-    Fingerprint,
     Packet,
     PacketPile,
     RevocationStatus,
@@ -34,6 +33,8 @@ use self::openpgp::{
 };
 
 use ::error::Status;
+use super::fingerprint::Fingerprint;
+use Maybe;
 
 /// A transferable public key (TPK).
 ///
@@ -174,7 +175,7 @@ pub extern "system" fn pgp_tpk_merge_packets(errp: Option<&mut *mut failure::Err
 pub extern "system" fn pgp_tpk_fingerprint(tpk: *const openpgp::TPK)
                                           -> *mut Fingerprint {
     let tpk = ffi_param_ref!(tpk);
-    box_raw!(tpk.fingerprint())
+    tpk.fingerprint().move_into_raw()
 }
 
 /// Cast the public key into a secret key that allows using the secret

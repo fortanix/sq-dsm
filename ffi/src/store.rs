@@ -29,9 +29,6 @@ use std::ptr;
 extern crate sequoia_openpgp as openpgp;
 
 use self::openpgp::TPK;
-use self::openpgp::{
-    Fingerprint,
-};
 use sequoia_store::{
     self, Store, StoreIter, Binding, BindingIter, Key, KeyIter, LogIter, Pool,
 };
@@ -39,8 +36,10 @@ use sequoia_store::{
 use super::error::Status;
 use super::core::Context;
 
+use ::openpgp::fingerprint::Fingerprint;
 use ::openpgp::keyid::KeyID;
 use RefRaw;
+use MoveIntoRaw;
 use Maybe;
 
 /// Lists all stores with the given prefix.
@@ -120,18 +119,23 @@ pub extern "system" fn sq_store_server_log(ctx: *mut Context)
 /// fingerprint is stored there.
 #[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_key_iter_next(iter: *mut KeyIter,
-                                        fpp: Option<&mut *mut Fingerprint>)
+                                        fpp: Option<&mut Maybe<Fingerprint>>)
                                         -> *mut Key {
     let iter = ffi_param_ref_mut!(iter);
     match iter.next() {
         Some((fingerprint, key)) => {
             if fpp.is_some() {
-                *fpp.unwrap() = box_raw!(fingerprint);
+                *fpp.unwrap() = Some(fingerprint).move_into_raw();
             }
 
             box_raw!(key)
         },
-        None => ptr::null_mut(),
+        None => {
+            if fpp.is_some() {
+                *fpp.unwrap() = None;
+            }
+            ptr::null_mut()
+        },
     }
 }
 
@@ -215,7 +219,7 @@ pub extern "system" fn sq_store_add(ctx: *mut Context,
     ffi_make_fry_from_ctx!(ctx);
     let store = ffi_param_ref!(store);
     let label = ffi_param_cstr!(label).to_string_lossy();
-    let fingerprint = ffi_param_ref!(fingerprint);
+    let fingerprint = fingerprint.ref_raw();
 
     ffi_try_box!(store.add(&label, fingerprint))
 }
@@ -310,7 +314,7 @@ pub extern "system" fn sq_store_iter(ctx: *mut Context,
 #[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_binding_iter_next(iter: *mut BindingIter,
                                             labelp: Option<&mut *mut c_char>,
-                                            fpp: Option<&mut *mut Fingerprint>)
+                                            fpp: Option<&mut Maybe<Fingerprint>>)
                                             -> *mut Binding {
     let iter = ffi_param_ref_mut!(iter);
     match iter.next() {
@@ -320,12 +324,17 @@ pub extern "system" fn sq_binding_iter_next(iter: *mut BindingIter,
             }
 
             if fpp.is_some() {
-                *fpp.unwrap() = box_raw!(fp);
+                *fpp.unwrap() = Some(fp).move_into_raw();
             }
 
             box_raw!(binding)
         },
-        None => ptr::null_mut(),
+        None => {
+            if fpp.is_some() {
+                *fpp.unwrap() = None;
+            }
+            ptr::null_mut()
+        },
     }
 }
 
