@@ -35,11 +35,12 @@ use std::slice;
 extern crate sequoia_openpgp as openpgp;
 
 use self::openpgp::TPK;
-use self::openpgp::KeyID;
 use sequoia_net::KeyServer;
 
 use super::error::Status;
 use super::core::Context;
+use ::openpgp::keyid::KeyID;
+use ::RefRaw;
 
 /// Returns a handle for the given URI.
 ///
@@ -118,7 +119,7 @@ pub extern "system" fn sq_keyserver_get(ctx: *mut Context,
     let ctx = ffi_param_ref_mut!(ctx);
     ffi_make_fry_from_ctx!(ctx);
     let ks = ffi_param_ref_mut!(ks);
-    let id = ffi_param_ref!(id);
+    let id = id.ref_raw();
 
     ffi_try_box!(ks.get(&id))
 }

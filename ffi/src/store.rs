@@ -31,7 +31,6 @@ extern crate sequoia_openpgp as openpgp;
 use self::openpgp::TPK;
 use self::openpgp::{
     Fingerprint,
-    KeyID
 };
 use sequoia_store::{
     self, Store, StoreIter, Binding, BindingIter, Key, KeyIter, LogIter, Pool,
@@ -40,6 +39,9 @@ use sequoia_store::{
 use super::error::Status;
 use super::core::Context;
 
+use ::openpgp::keyid::KeyID;
+use RefRaw;
+use Maybe;
 
 /// Lists all stores with the given prefix.
 #[::ffi_catch_abort] #[no_mangle]
@@ -256,7 +258,7 @@ pub extern "system" fn sq_store_lookup_by_keyid(ctx: *mut Context,
 {
     let ctx = ffi_param_ref_mut!(ctx);
     ffi_make_fry_from_ctx!(ctx);
-    let keyid = ffi_param_ref!(keyid);
+    let keyid = keyid.ref_raw();
 
     ffi_try_box!(Pool::lookup_by_keyid(&ctx.c, keyid))
 }
@@ -269,7 +271,7 @@ pub extern "system" fn sq_store_lookup_by_subkeyid(ctx: *mut Context,
 {
     let ctx = ffi_param_ref_mut!(ctx);
     ffi_make_fry_from_ctx!(ctx);
-    let keyid = ffi_param_ref!(keyid);
+    let keyid = keyid.ref_raw();
 
     ffi_try_box!(Pool::lookup_by_subkeyid(&ctx.c, keyid))
 }
