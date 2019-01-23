@@ -38,7 +38,7 @@ export CARGO_FLAGS
 export CARGO_TARGET_DIR
 export CARGO_TEST_ARGS
 
-all: build ffi/examples
+all: build examples
 
 .PHONY: build
 build:
@@ -56,6 +56,7 @@ test check:
 examples:
 	CARGO_TARGET_DIR=$(CARGO_TARGET_DIR) \
 	    $(CARGO) build $(CARGO_FLAGS) --examples
+	$(MAKE) -Copenpgp-ffi examples
 	$(MAKE) -Cffi examples
 
 # Documentation.
