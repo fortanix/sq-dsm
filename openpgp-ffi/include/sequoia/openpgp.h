@@ -889,10 +889,6 @@ pgp_tpk_t pgp_tpk_merge_packets (pgp_error_t *errp,
                                pgp_tpk_t tpk,
                                pgp_packet_t *packets,
                                size_t packets_len);
-/*/
-/// Dumps the TPK.
-/*/
-void pgp_tpk_dump (const pgp_tpk_t tpk);
 
 /*/
 /// Returns the fingerprint.

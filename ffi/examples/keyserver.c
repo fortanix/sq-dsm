@@ -2,6 +2,7 @@
 #include <error.h>
 #include <errno.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #include <sequoia.h>
 
@@ -34,7 +35,10 @@ main (int argc, char **argv)
       error (1, 0, "Failed to retrieve key: %s", pgp_error_string (err));
     }
 
-  pgp_tpk_dump (tpk);
+  char *debug = pgp_tpk_debug (tpk);
+  printf ("%s", debug);
+  free (debug);
+
   pgp_tpk_free (tpk);
   pgp_keyid_free (id);
   sq_keyserver_free (ks);

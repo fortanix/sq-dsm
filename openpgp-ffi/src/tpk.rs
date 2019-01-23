@@ -169,15 +169,6 @@ pub extern "system" fn pgp_tpk_merge_packets(errp: Option<&mut *mut failure::Err
     ffi_try_box!(tpk.merge_packets(packets))
 }
 
-/// Dumps the TPK.
-///
-/// XXX Remove this.
-#[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn pgp_tpk_dump(tpk: *const openpgp::TPK) {
-    let tpk = ffi_param_ref!(tpk);
-    println!("{:?}", *tpk);
-}
-
 /// Returns the fingerprint.
 #[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn pgp_tpk_fingerprint(tpk: *const openpgp::TPK)

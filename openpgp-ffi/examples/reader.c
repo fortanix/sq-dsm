@@ -3,6 +3,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -39,7 +40,10 @@ main (int argc, char **argv)
   if (tpk == NULL)
     error (1, 0, "pgp_tpk_from_reader: %s", pgp_error_string (err));
 
-  pgp_tpk_dump (tpk);
+  char *debug = pgp_tpk_debug (tpk);
+  printf ("%s", debug);
+  free (debug);
+
   pgp_tpk_free (tpk);
   pgp_reader_free (reader);
   munmap (b, st.st_size);

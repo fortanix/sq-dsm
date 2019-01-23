@@ -1,8 +1,9 @@
 #define _GNU_SOURCE
-#include <error.h>
 #include <errno.h>
+#include <error.h>
 #include <fcntl.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -37,7 +38,10 @@ main (int argc, char **argv)
   if (tpk == NULL)
     error (1, 0, "pgp_tpk_from_bytes: %s", pgp_error_string (err));
 
-  pgp_tpk_dump (tpk);
+  char *debug = pgp_tpk_debug (tpk);
+  printf ("%s", debug);
+  free (debug);
+
   pgp_tpk_free (tpk);
   munmap (b, st.st_size);
   close (fd);

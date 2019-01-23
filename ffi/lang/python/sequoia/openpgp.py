@@ -127,9 +127,6 @@ class TPK(SQObject):
             raise Error._last(self.context())
         self.ref_replace(new)
 
-    def dump(self):
-        lib.pgp_tpk_dump(self.ref())
-
 class Kind(Enum):
     Message = lib.PGP_ARMOR_KIND_MESSAGE
     PublicKey = lib.PGP_ARMOR_KIND_PUBLICKEY
