@@ -83,6 +83,8 @@ class TPK(SQObject):
     _del = lib.pgp_tpk_free
     _clone = lib.pgp_tpk_clone
     _eq = lib.pgp_tpk_equal
+    _str = lib.pgp_tpk_to_string
+    _debug = lib.pgp_tpk_debug
 
     @classmethod
     def from_reader(cls, ctx, reader):

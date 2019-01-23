@@ -846,6 +846,18 @@ pgp_tpk_t pgp_tpk_clone (pgp_tpk_t tpk);
 int pgp_tpk_equal (const pgp_tpk_t a, const pgp_tpk_t b);
 
 /*/
+/// Returns a human readable description of this object intended for
+/// communication with end users.
+/*/
+char *pgp_tpk_to_string (const pgp_tpk_t fp);
+
+/*/
+/// Returns a human readable description of this object suitable for
+/// debugging.
+/*/
+char *pgp_tpk_debug (const pgp_tpk_t fp);
+
+/*/
 /// Serializes the TPK.
 /*/
 pgp_status_t pgp_tpk_serialize (pgp_error_t *errp,

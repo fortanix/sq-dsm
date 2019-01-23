@@ -10,13 +10,12 @@ use std::slice;
 use std::io::{Read, Write};
 use libc::{uint8_t, c_char, c_int, size_t, time_t};
 
-extern crate sequoia_openpgp;
-use self::sequoia_openpgp::{
+extern crate sequoia_openpgp as openpgp;
+use self::openpgp::{
     Fingerprint,
     Packet,
     PacketPile,
     RevocationStatus,
-    TPK,
     TSK,
     autocrypt::Autocrypt,
     crypto,
@@ -36,24 +35,44 @@ use self::sequoia_openpgp::{
 
 use ::error::Status;
 
+/// A transferable public key (TPK).
+///
+/// A TPK (see [RFC 4880, section 11.1]) can be used to verify
+/// signatures and encrypt data.  It can be stored in a keystore and
+/// uploaded to keyservers.
+///
+/// TPKs are always canonicalized in the sense that only elements
+/// (user id, user attribute, subkey) with at least one valid
+/// self-signature are preserved.  Also, invalid self-signatures are
+/// dropped.  The self-signatures are sorted so that the newest
+/// self-signature comes first.  User IDs are sorted so that the first
+/// `UserID` is the primary User ID.  Third-party certifications are
+/// *not* validated, as the keys are not available; they are simply
+/// passed through as is.
+///
+/// [RFC 4880, section 11.1]: https://tools.ietf.org/html/rfc4880#section-11.1
+#[::ffi_wrapper_type(prefix = "pgp_", name = "tpk",
+                     derive = "Clone, Debug, Display, PartialEq")]
+pub struct TPK(openpgp::TPK);
+
 /// Returns the first TPK encountered in the reader.
 #[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn pgp_tpk_from_reader(errp: Option<&mut *mut failure::Error>,
                                           reader: *mut Box<Read>)
-                                          -> *mut TPK {
+                                          -> *mut openpgp::TPK {
     ffi_make_fry_from_errp!(errp);
     let reader = ffi_param_ref_mut!(reader);
-    ffi_try_box!(TPK::from_reader(reader))
+    ffi_try_box!(openpgp::TPK::from_reader(reader))
 }
 
 /// Returns the first TPK encountered in the file.
 #[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn pgp_tpk_from_file(errp: Option<&mut *mut failure::Error>,
                                         filename: *const c_char)
-                                        -> *mut TPK {
+                                        -> *mut openpgp::TPK {
     ffi_make_fry_from_errp!(errp);
     let filename = ffi_param_cstr!(filename).to_string_lossy().into_owned();
-    ffi_try_box!(TPK::from_file(&filename))
+    ffi_try_box!(openpgp::TPK::from_file(&filename))
 }
 
 /// Returns the first TPK found in `m`.
@@ -62,10 +81,10 @@ pub extern "system" fn pgp_tpk_from_file(errp: Option<&mut *mut failure::Error>,
 #[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn pgp_tpk_from_packet_pile(errp: Option<&mut *mut failure::Error>,
                                                m: *mut PacketPile)
-                                               -> *mut TPK {
+                                               -> *mut openpgp::TPK {
     ffi_make_fry_from_errp!(errp);
     let m = ffi_param_move!(m);
-    ffi_try_box!(TPK::from_packet_pile(*m))
+    ffi_try_box!(openpgp::TPK::from_packet_pile(*m))
 }
 
 /// Returns the first TPK found in `buf`.
@@ -74,14 +93,14 @@ pub extern "system" fn pgp_tpk_from_packet_pile(errp: Option<&mut *mut failure::
 #[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn pgp_tpk_from_bytes(errp: Option<&mut *mut failure::Error>,
                                          b: *const uint8_t, len: size_t)
-                                         -> *mut TPK {
+                                         -> *mut openpgp::TPK {
     ffi_make_fry_from_errp!(errp);
     assert!(!b.is_null());
     let buf = unsafe {
         slice::from_raw_parts(b, len as usize)
     };
 
-    ffi_try_box!(TPK::from_bytes(buf))
+    ffi_try_box!(openpgp::TPK::from_bytes(buf))
 }
 
 /// Returns the first TPK found in the packet parser.
@@ -90,42 +109,18 @@ pub extern "system" fn pgp_tpk_from_bytes(errp: Option<&mut *mut failure::Error>
 #[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn pgp_tpk_from_packet_parser(errp: Option<&mut *mut failure::Error>,
                                                  ppr: *mut PacketParserResult)
-    -> *mut TPK
+    -> *mut openpgp::TPK
 {
     ffi_make_fry_from_errp!(errp);
     let ppr = ffi_param_move!(ppr);
 
-    ffi_try_box!(TPK::from_packet_parser(*ppr))
-}
-
-/// Frees the TPK.
-#[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn pgp_tpk_free(tpk: Option<&mut TPK>) {
-    ffi_free!(tpk)
-}
-
-/// Clones the TPK.
-#[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn pgp_tpk_clone(tpk: *const TPK)
-                                    -> *mut TPK {
-    let tpk = ffi_param_ref!(tpk);
-    box_raw!(tpk.clone())
-}
-
-/// Compares TPKs.
-#[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn pgp_tpk_equal(a: *const TPK,
-                                    b: *const TPK)
-                                    -> bool {
-    let a = ffi_param_ref!(a);
-    let b = ffi_param_ref!(b);
-    a == b
+    ffi_try_box!(openpgp::TPK::from_packet_parser(*ppr))
 }
 
 /// Serializes the TPK.
 #[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn pgp_tpk_serialize(errp: Option<&mut *mut failure::Error>,
-                                        tpk: *const TPK,
+                                        tpk: *const openpgp::TPK,
                                         writer: *mut Box<Write>)
                                         -> Status {
     ffi_make_fry_from_errp!(errp);
@@ -142,9 +137,9 @@ pub extern "system" fn pgp_tpk_serialize(errp: Option<&mut *mut failure::Error>,
 /// Consumes `tpk` and `other`.
 #[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn pgp_tpk_merge(errp: Option<&mut *mut failure::Error>,
-                                    tpk: *mut TPK,
-                                    other: *mut TPK)
-                                    -> *mut TPK {
+                                    tpk: *mut openpgp::TPK,
+                                    other: *mut openpgp::TPK)
+                                    -> *mut openpgp::TPK {
     ffi_make_fry_from_errp!(errp);
     let tpk = ffi_param_move!(tpk);
     let other = ffi_param_move!(other);
@@ -160,10 +155,10 @@ pub extern "system" fn pgp_tpk_merge(errp: Option<&mut *mut failure::Error>,
 /// must be managed by the caller.
 #[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn pgp_tpk_merge_packets(errp: Option<&mut *mut failure::Error>,
-                                            tpk: *mut TPK,
+                                            tpk: *mut openpgp::TPK,
                                             packets: *mut *mut Packet,
                                             packets_len: size_t)
-                                            -> *mut TPK {
+                                            -> *mut openpgp::TPK {
     ffi_make_fry_from_errp!(errp);
     let tpk = ffi_param_move!(tpk);
     let packets = unsafe {
@@ -178,14 +173,14 @@ pub extern "system" fn pgp_tpk_merge_packets(errp: Option<&mut *mut failure::Err
 ///
 /// XXX Remove this.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn pgp_tpk_dump(tpk: *const TPK) {
+pub extern "system" fn pgp_tpk_dump(tpk: *const openpgp::TPK) {
     let tpk = ffi_param_ref!(tpk);
     println!("{:?}", *tpk);
 }
 
 /// Returns the fingerprint.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn pgp_tpk_fingerprint(tpk: *const TPK)
+pub extern "system" fn pgp_tpk_fingerprint(tpk: *const openpgp::TPK)
                                           -> *mut Fingerprint {
     let tpk = ffi_param_ref!(tpk);
     box_raw!(tpk.fingerprint())
@@ -194,7 +189,7 @@ pub extern "system" fn pgp_tpk_fingerprint(tpk: *const TPK)
 /// Cast the public key into a secret key that allows using the secret
 /// parts of the containing keys.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn pgp_tpk_into_tsk(tpk: *mut TPK)
+pub extern "system" fn pgp_tpk_into_tsk(tpk: *mut openpgp::TPK)
                                        -> *mut TSK {
     let tpk = ffi_param_move!(tpk);
     box_raw!(tpk.into_tsk())
@@ -205,7 +200,7 @@ pub extern "system" fn pgp_tpk_into_tsk(tpk: *mut TPK)
 /// The tpk still owns the key.  The caller should neither modify nor
 /// free the key.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn pgp_tpk_primary(tpk: *const TPK)
+pub extern "system" fn pgp_tpk_primary(tpk: *const openpgp::TPK)
     -> *const packet::Key {
     let tpk = ffi_param_ref!(tpk);
     tpk.primary()
@@ -217,7 +212,7 @@ pub extern "system" fn pgp_tpk_primary(tpk: *const TPK)
 /// not reflect whether an individual user id, user attribute or
 /// subkey has been revoked.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn pgp_tpk_revocation_status(tpk: *const TPK)
+pub extern "system" fn pgp_tpk_revocation_status(tpk: *const openpgp::TPK)
                                                 -> *mut RevocationStatus<'static> {
     let tpk = ffi_param_ref!(tpk);
     box_raw!(tpk.revoked(None))
@@ -284,7 +279,7 @@ fn int_to_reason_for_revocation(code: c_int) -> ReasonForRevocation {
 /// ```
 #[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn pgp_tpk_revoke(errp: Option<&mut *mut failure::Error>,
-                                     tpk: *mut TPK,
+                                     tpk: *mut openpgp::TPK,
                                      primary_signer: *mut Box<crypto::Signer>,
                                      code: c_int,
                                      reason: Option<&c_char>)
@@ -347,11 +342,11 @@ pub extern "system" fn pgp_tpk_revoke(errp: Option<&mut *mut failure::Error>,
 /// ```
 #[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn pgp_tpk_revoke_in_place(errp: Option<&mut *mut failure::Error>,
-                                              tpk: *mut TPK,
+                                              tpk: *mut openpgp::TPK,
                                               primary_signer: *mut Box<crypto::Signer>,
                                               code: c_int,
                                               reason: Option<&c_char>)
-    -> *mut TPK
+    -> *mut openpgp::TPK
 {
     ffi_make_fry_from_errp!(errp);
     let tpk = ffi_param_move!(tpk);
@@ -368,7 +363,7 @@ pub extern "system" fn pgp_tpk_revoke_in_place(errp: Option<&mut *mut failure::E
 
 /// Returns whether the TPK has expired.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn pgp_tpk_expired(tpk: *const TPK)
+pub extern "system" fn pgp_tpk_expired(tpk: *const openpgp::TPK)
                                       -> c_int {
     let tpk = ffi_param_ref!(tpk);
 
@@ -377,7 +372,7 @@ pub extern "system" fn pgp_tpk_expired(tpk: *const TPK)
 
 /// Returns whether the TPK has expired.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn pgp_tpk_expired_at(tpk: *const TPK, when: time_t)
+pub extern "system" fn pgp_tpk_expired_at(tpk: *const openpgp::TPK, when: time_t)
                                       -> c_int {
     let tpk = ffi_param_ref!(tpk);
     tpk.expired_at(time::at(time::Timespec::new(when as i64, 0))) as c_int
@@ -385,7 +380,7 @@ pub extern "system" fn pgp_tpk_expired_at(tpk: *const TPK, when: time_t)
 
 /// Returns whether the TPK is alive.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn pgp_tpk_alive(tpk: *const TPK)
+pub extern "system" fn pgp_tpk_alive(tpk: *const openpgp::TPK)
                                       -> c_int {
     let tpk = ffi_param_ref!(tpk);
 
@@ -394,7 +389,7 @@ pub extern "system" fn pgp_tpk_alive(tpk: *const TPK)
 
 /// Returns whether the TPK is alive at the specified time.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn pgp_tpk_alive_at(tpk: *const TPK, when: time_t)
+pub extern "system" fn pgp_tpk_alive_at(tpk: *const openpgp::TPK, when: time_t)
                                       -> c_int {
     let tpk = ffi_param_ref!(tpk);
     tpk.alive_at(time::at(time::Timespec::new(when as i64, 0))) as c_int
@@ -408,8 +403,8 @@ pub extern "system" fn pgp_tpk_alive_at(tpk: *const TPK, when: time_t)
 /// This function consumes `tpk` and returns a new `TPK`.
 #[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn pgp_tpk_set_expiry(errp: Option<&mut *mut failure::Error>,
-                                         tpk: *mut TPK, expiry: u32)
-                                         -> *mut TPK {
+                                         tpk: *mut openpgp::TPK, expiry: u32)
+                                         -> *mut openpgp::TPK {
     ffi_make_fry_from_errp!(errp);
     let tpk = ffi_param_move!(tpk);
 
@@ -418,7 +413,7 @@ pub extern "system" fn pgp_tpk_set_expiry(errp: Option<&mut *mut failure::Error>
 
 /// Returns whether the TPK includes any secret key material.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn pgp_tpk_is_tsk(tpk: *const TPK)
+pub extern "system" fn pgp_tpk_is_tsk(tpk: *const openpgp::TPK)
                                      -> c_int {
     let tpk = ffi_param_ref!(tpk);
     tpk.is_tsk() as c_int
@@ -426,7 +421,7 @@ pub extern "system" fn pgp_tpk_is_tsk(tpk: *const TPK)
 
 /// Returns an iterator over the TPK's user id bindings.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn pgp_tpk_primary_user_id(tpk: *const TPK)
+pub extern "system" fn pgp_tpk_primary_user_id(tpk: *const openpgp::TPK)
     -> *mut c_char
 {
     let tpk = ffi_param_ref!(tpk);
@@ -471,7 +466,7 @@ pub extern "system" fn pgp_user_id_binding_selfsig(
 
 /// Returns an iterator over the TPK's user id bindings.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn pgp_tpk_user_id_binding_iter(tpk: *const TPK)
+pub extern "system" fn pgp_tpk_user_id_binding_iter(tpk: *const openpgp::TPK)
     -> *mut UserIDBindingIter<'static>
 {
     let tpk = ffi_param_ref!(tpk);
@@ -508,7 +503,7 @@ pub struct KeyIterWrapper<'a> {
 ///
 /// This iterates over both the primary key and any subkeys.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn pgp_tpk_key_iter(tpk: *const TPK)
+pub extern "system" fn pgp_tpk_key_iter(tpk: *const openpgp::TPK)
     -> *mut KeyIterWrapper<'static>
 {
     let tpk = ffi_param_ref!(tpk);
@@ -679,7 +674,7 @@ pub extern "system" fn pgp_tpk_builder_add_certification_subkey
 #[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn pgp_tpk_builder_generate
     (errp: Option<&mut *mut failure::Error>, tpkb: *mut TPKBuilder,
-     tpk_out: *mut *mut TPK,
+     tpk_out: *mut *mut openpgp::TPK,
      revocation_out: *mut *mut Signature)
     -> Status
 {
