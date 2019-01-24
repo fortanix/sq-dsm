@@ -12,6 +12,8 @@ use packet;
 use Packet;
 use PublicKeyAlgorithm;
 use SymmetricAlgorithm;
+use HashAlgorithm;
+use constants::Curve;
 use crypto::s2k::S2K;
 use Result;
 use conversions::Time;
@@ -97,6 +99,34 @@ impl Key {
             pk_algo: pk_algo,
             mpis: mpis,
             secret: secret,
+        })
+    }
+
+    /// Creates a new OpenPGP public key packet for an existing X25519 key.
+    ///
+    /// The ECDH key will use hash algorithm `hash` and symmetric algorithm `sym`. If one or both
+    /// are `None` secure defaults will be used. The key will have it's creation date set to
+    /// `ctime` or the current time if `None` is given.
+    pub fn import_public_cv25519<H,S,T>(public_key: &[u8], hash: H, sym: S, ctime: T)
+        -> Result<Self> where H: Into<Option<HashAlgorithm>>,
+                              S: Into<Option<SymmetricAlgorithm>>,
+                              T: Into<Option<time::Tm>>
+    {
+        let mut point = Vec::from(public_key);
+        point.insert(0, 0x40);
+
+        Ok(Key{
+            common: Default::default(),
+            version: 4,
+            creation_time: ctime.into().unwrap_or(time::now()),
+            pk_algo: PublicKeyAlgorithm::ECDH,
+            mpis: mpis::PublicKey::ECDH{
+                curve: Curve::Cv25519,
+                hash: hash.into().unwrap_or(HashAlgorithm::SHA512),
+                sym: sym.into().unwrap_or(SymmetricAlgorithm::AES256),
+                q: mpis::MPI::new(&point),
+            },
+            secret: None,
         })
     }
 
@@ -548,5 +578,34 @@ mod tests {
             assert_eq!(key, encrypted_key);
             assert_eq!(key.secret(), encrypted_key.secret());
         }
+    }
+
+    #[test]
+    fn import_cv25519() {
+        use crypto::{ecdh, SessionKey};
+        use self::mpis::{MPI, Ciphertext};
+        use time::{at, Timespec};
+
+        // X25519 key
+        let ctime = at(Timespec::new(0x5c487129,0));
+        let public = b"\xed\x59\x0a\x15\x08\x95\xe9\x92\xd2\x2c\x14\x01\xb3\xe9\x3b\x7f\xff\xe6\x6f\x22\x65\xec\x69\xd9\xb8\xda\x24\x2c\x64\x84\x44\x11";
+        let key = Key::import_public_cv25519(&public[..], HashAlgorithm::SHA256, SymmetricAlgorithm::AES128, ctime).unwrap();
+
+        // PKESK
+        let eph_pubkey: &[u8; 33] = b"\x40\xda\x1c\x69\xc4\xe3\xb6\x9c\x6e\xd4\xc6\x69\x6c\x89\xc7\x09\xe9\xf8\x6a\xf1\xe3\x8d\xb6\xaa\xb5\xf7\x29\xae\xa6\xe7\xdd\xfe\x38";
+        let ciphertext = Ciphertext::ECDH{
+            e: MPI::new(&eph_pubkey[..]),
+            key: Vec::from(&b"\x45\x8b\xd8\x4d\x88\xb3\xd2\x16\xb6\xc2\x3b\x99\x33\xd1\x23\x4b\x10\x15\x8e\x04\x16\xc5\x7c\x94\x88\xf6\x63\xf2\x68\x37\x08\x66\xfd\x5a\x7b\x40\x58\x21\x6b\x2c\xc0\xf4\xdc\x91\xd3\x48\xed\xc1"[..]).into_boxed_slice()
+        };
+        let shared_sec: &[u8; 32] = b"\x44\x0C\x99\x27\xF7\xD6\x1E\xAD\xD1\x1E\x9E\xC8\x22\x2C\x5D\x43\xCE\xB0\xE5\x45\x94\xEC\xAF\x67\xD9\x35\x1D\xA1\xA3\xA8\x10\x0B";
+
+        // Session key
+        let dek = b"\x09\x0D\xDC\x40\xC5\x71\x51\x88\xAC\xBD\x45\x56\xD4\x2A\xDF\x77\xCD\xF4\x82\xA2\x1B\x8F\x2E\x48\x3B\xCA\xBF\xD3\xE8\x6D\x0A\x7C\xDF\x10\xe6";
+        let sk = SessionKey::from(Vec::from(&dek[..]));
+
+       // Expected
+       let got_enc = ecdh::wrap_session_key_deterministic(&key, &sk, eph_pubkey, shared_sec).unwrap();
+
+       assert_eq!(ciphertext, got_enc);
     }
 }
