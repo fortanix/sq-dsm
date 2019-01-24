@@ -28,7 +28,6 @@ use std::ptr;
 
 extern crate sequoia_openpgp as openpgp;
 
-use self::openpgp::TPK;
 use sequoia_store::{
     self, Store, StoreIter, Binding, BindingIter, Key, KeyIter, LogIter, Pool,
 };
@@ -38,8 +37,10 @@ use super::core::Context;
 
 use ::openpgp::fingerprint::Fingerprint;
 use ::openpgp::keyid::KeyID;
+use ::openpgp::tpk::TPK;
 use RefRaw;
 use MoveIntoRaw;
+use MoveResultIntoRaw;
 use Maybe;
 
 /// Lists all stores with the given prefix.
@@ -230,14 +231,14 @@ pub extern "system" fn sq_store_import(ctx: *mut Context,
                                        store: *const Store,
                                        label: *const c_char,
                                        tpk: *const TPK)
-                                       -> *mut TPK {
+                                       -> Maybe<TPK> {
     let ctx = ffi_param_ref_mut!(ctx);
     ffi_make_fry_from_ctx!(ctx);
     let store = ffi_param_ref!(store);
     let label = ffi_param_cstr!(label).to_string_lossy();
-    let tpk = ffi_param_ref!(tpk);
+    let tpk = tpk.ref_raw();
 
-    ffi_try_box!(store.import(&label, tpk))
+    store.import(&label, tpk).move_into_raw(Some(ctx.errp()))
 }
 
 /// Returns the binding for the given label.
@@ -419,12 +420,12 @@ pub extern "system" fn sq_binding_key(ctx: *mut Context,
 #[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_binding_tpk(ctx: *mut Context,
                                       binding: *const Binding)
-                                     -> *mut TPK {
+                                     -> Maybe<TPK> {
     let ctx = ffi_param_ref_mut!(ctx);
     ffi_make_fry_from_ctx!(ctx);
     let binding = ffi_param_ref!(binding);
 
-    ffi_try_box!(binding.tpk())
+    binding.tpk().move_into_raw(Some(ctx.errp()))
 }
 
 /// Updates this binding with the given TPK.
@@ -447,13 +448,13 @@ pub extern "system" fn sq_binding_tpk(ctx: *mut Context,
 pub extern "system" fn sq_binding_import(ctx: *mut Context,
                                          binding: *const Binding,
                                          tpk: *const TPK)
-                                         -> *mut TPK {
+                                         -> Maybe<TPK> {
     let ctx = ffi_param_ref_mut!(ctx);
     ffi_make_fry_from_ctx!(ctx);
     let binding = ffi_param_ref!(binding);
-    let tpk = ffi_param_ref!(tpk);
+    let tpk = tpk.ref_raw();
 
-    ffi_try_box!(binding.import(&tpk))
+    binding.import(&tpk).move_into_raw(Some(ctx.errp()))
 }
 
 
@@ -474,13 +475,13 @@ pub extern "system" fn sq_binding_import(ctx: *mut Context,
 pub extern "system" fn sq_binding_rotate(ctx: *mut Context,
                                          binding: *const Binding,
                                          tpk: *const TPK)
-                                         -> *mut TPK {
+                                         -> Maybe<TPK> {
     let ctx = ffi_param_ref_mut!(ctx);
     ffi_make_fry_from_ctx!(ctx);
     let binding = ffi_param_ref!(binding);
-    let tpk = ffi_param_ref!(tpk);
+    let tpk = tpk.ref_raw();
 
-    ffi_try_box!(binding.rotate(&tpk))
+    binding.rotate(&tpk).move_into_raw(Some(ctx.errp()))
 }
 
 /// Deletes this binding.
@@ -525,12 +526,12 @@ pub extern "system" fn sq_key_stats(ctx: *mut Context,
 #[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_key_tpk(ctx: *mut Context,
                                   key: *const Key)
-                                  -> *mut TPK {
+                                  -> Maybe<TPK> {
     let ctx = ffi_param_ref_mut!(ctx);
     ffi_make_fry_from_ctx!(ctx);
     let key = ffi_param_ref!(key);
 
-    ffi_try_box!(key.tpk())
+    key.tpk().move_into_raw(Some(ctx.errp()))
 }
 
 /// Updates this stored key with the given TPK.
@@ -546,13 +547,13 @@ pub extern "system" fn sq_key_tpk(ctx: *mut Context,
 pub extern "system" fn sq_key_import(ctx: *mut Context,
                                      key: *const Key,
                                      tpk: *const TPK)
-                                     -> *mut TPK {
+                                     -> Maybe<TPK> {
     let ctx = ffi_param_ref_mut!(ctx);
     ffi_make_fry_from_ctx!(ctx);
     let key = ffi_param_ref!(key);
-    let tpk = ffi_param_ref!(tpk);
+    let tpk = tpk.ref_raw();
 
-    ffi_try_box!(key.import(&tpk))
+    key.import(&tpk).move_into_raw(Some(ctx.errp()))
 }
 
 /// Lists all log entries related to this key.
