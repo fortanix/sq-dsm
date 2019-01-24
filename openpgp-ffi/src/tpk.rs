@@ -679,6 +679,9 @@ pub extern "system" fn pgp_tpk_builder_generate
             *revocation_out = box_raw!(revocation);
             Status::Success
         },
-        Err(e) => ffi_try_status!(Err::<(), failure::Error>(e)),
+        Err(e) => {
+            *tpk_out = None;
+            ffi_try_status!(Err::<(), failure::Error>(e))
+        },
     }
 }
