@@ -178,7 +178,8 @@ pub fn ffi_wrapper_type(args: TokenStream, input: TokenStream) -> TokenStream {
     ];
     let mut impls = TokenStream2::new();
     for dfn in derive.into_iter().chain(default_derives.iter()) {
-        impls.extend(dfn(st.span(), &prefix, &name, &wrapped_type, &wrapped_type));
+        impls.extend(dfn(st.span(), &prefix, &name,
+                         &st.ident, &wrapped_type));
     }
 
     let expanded = quote! {
@@ -219,7 +220,7 @@ fn ident2c_tests() {
 }
 
 /// Describes our custom derive functions.
-type DeriveFn = fn(proc_macro2::Span, &str, &str, &syn::Type, &syn::Type)
+type DeriveFn = fn(proc_macro2::Span, &str, &str, &syn::Ident, &syn::Type)
                    -> TokenStream2;
 
 /// Maps trait names to our generator functions.
@@ -241,35 +242,41 @@ fn derive_functions() -> &'static HashMap<&'static str, DeriveFn>
 
 /// Derives prefix_name_conversion_trait.
 fn derive_conversion_traits(_: proc_macro2::Span, _: &str, _: &str,
-                            wrapper: &syn::Type, wrapped: &syn::Type)
+                            wrapper: &syn::Ident, wrapped: &syn::Type)
                             -> TokenStream2
 {
     quote! {
         use MoveFromRaw;
         impl MoveFromRaw<#wrapped> for *mut #wrapper {
             fn move_from_raw(self) -> #wrapped {
-                *ffi_param_move!(self)
+                ffi_param_move!(self).0
             }
         }
 
         use RefRaw;
         impl RefRaw<#wrapped> for *const #wrapper {
             fn ref_raw(self) -> &'static #wrapped {
-                ffi_param_ref!(self)
+                &ffi_param_ref!(self).0
             }
         }
 
         use RefMutRaw;
         impl RefMutRaw<#wrapped> for *mut #wrapper {
             fn ref_mut_raw(self) -> &'static mut #wrapped {
-                ffi_param_ref_mut!(self)
+                &mut ffi_param_ref_mut!(self).0
+            }
+        }
+
+        impl #wrapper {
+            fn wrap(obj: #wrapped) -> *mut #wrapper {
+                Box::into_raw(Box::new(#wrapper(obj)))
             }
         }
 
         use MoveIntoRaw;
         impl MoveIntoRaw<*mut #wrapper> for #wrapped {
             fn move_into_raw(self) -> *mut #wrapper {
-                Box::into_raw(Box::new(self))
+                #wrapper::wrap(self)
             }
         }
 
@@ -278,7 +285,7 @@ fn derive_conversion_traits(_: proc_macro2::Span, _: &str, _: &str,
         {
             fn move_into_raw(self) -> Option<::std::ptr::NonNull<#wrapper>> {
                 self.map(|mut v| {
-                    let ptr = Box::into_raw(Box::new(v));
+                    let ptr = #wrapper::wrap(v);
                     ::std::ptr::NonNull::new(ptr).unwrap()
                 })
             }
@@ -292,7 +299,7 @@ fn derive_conversion_traits(_: proc_macro2::Span, _: &str, _: &str,
                              -> Option<::std::ptr::NonNull<#wrapper>> {
                 match self {
                     Ok(v) => {
-                        let ptr = Box::into_raw(Box::new(v));
+                        let ptr = #wrapper::wrap(v);
                         Some(::std::ptr::NonNull::new(ptr).unwrap())
                     },
                     Err(e) => {
@@ -309,7 +316,7 @@ fn derive_conversion_traits(_: proc_macro2::Span, _: &str, _: &str,
 
 /// Derives prefix_name_free.
 fn derive_free(span: proc_macro2::Span, prefix: &str, name: &str,
-               wrapper: &syn::Type, _wrapped: &syn::Type)
+               wrapper: &syn::Ident, _wrapped: &syn::Type)
                -> TokenStream2
 {
     let ident = syn::Ident::new(&format!("{}{}_free", prefix, name),
@@ -327,7 +334,7 @@ fn derive_free(span: proc_macro2::Span, prefix: &str, name: &str,
 
 /// Derives prefix_name_clone.
 fn derive_clone(span: proc_macro2::Span, prefix: &str, name: &str,
-                wrapper: &syn::Type, _wrapped: &syn::Type)
+                wrapper: &syn::Ident, _wrapped: &syn::Type)
                 -> TokenStream2
 {
     let ident = syn::Ident::new(&format!("{}{}_clone", prefix, name),
@@ -344,7 +351,7 @@ fn derive_clone(span: proc_macro2::Span, prefix: &str, name: &str,
 
 /// Derives prefix_name_equal.
 fn derive_equal(span: proc_macro2::Span, prefix: &str, name: &str,
-                wrapper: &syn::Type, _wrapped: &syn::Type)
+                wrapper: &syn::Ident, _wrapped: &syn::Type)
                 -> TokenStream2
 {
     let ident = syn::Ident::new(&format!("{}{}_equal", prefix, name),
@@ -363,7 +370,7 @@ fn derive_equal(span: proc_macro2::Span, prefix: &str, name: &str,
 
 /// Derives prefix_name_to_string.
 fn derive_to_string(span: proc_macro2::Span, prefix: &str, name: &str,
-                    wrapper: &syn::Type, _wrapped: &syn::Type)
+                    wrapper: &syn::Ident, _wrapped: &syn::Type)
                     -> TokenStream2
 {
     let ident = syn::Ident::new(&format!("{}{}_to_string", prefix, name),
@@ -381,7 +388,7 @@ fn derive_to_string(span: proc_macro2::Span, prefix: &str, name: &str,
 
 /// Derives prefix_name_debug.
 fn derive_debug(span: proc_macro2::Span, prefix: &str, name: &str,
-                wrapper: &syn::Type, _wrapped: &syn::Type)
+                wrapper: &syn::Ident, _wrapped: &syn::Type)
                 -> TokenStream2
 {
     let ident = syn::Ident::new(&format!("{}{}_debug", prefix, name),
@@ -399,7 +406,7 @@ fn derive_debug(span: proc_macro2::Span, prefix: &str, name: &str,
 
 /// Derives prefix_name_hash.
 fn derive_hash(span: proc_macro2::Span, prefix: &str, name: &str,
-               wrapper: &syn::Type, _wrapped: &syn::Type)
+               wrapper: &syn::Ident, _wrapped: &syn::Type)
                -> TokenStream2
 {
     let ident = syn::Ident::new(&format!("{}{}_hash", prefix, name),

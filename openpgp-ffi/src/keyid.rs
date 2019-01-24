@@ -51,7 +51,7 @@ pub struct KeyID(openpgp::KeyID);
 /// free (mr_b_as_string);
 /// ```
 #[::ffi_catch_abort] #[no_mangle] pub extern "system"
-fn pgp_keyid_from_bytes(id: *const uint8_t) -> *mut openpgp::KeyID {
+fn pgp_keyid_from_bytes(id: *const uint8_t) -> *mut KeyID {
     assert!(!id.is_null());
     let id = unsafe { slice::from_raw_parts(id, 8) };
     openpgp::KeyID::from_bytes(id).move_into_raw()
@@ -76,13 +76,13 @@ fn pgp_keyid_from_bytes(id: *const uint8_t) -> *mut openpgp::KeyID {
 /// pgp_keyid_free (mr_b);
 /// ```
 #[::ffi_catch_abort] #[no_mangle] pub extern "system"
-fn pgp_keyid_from_hex(id: *const c_char) -> Maybe<openpgp::KeyID> {
+fn pgp_keyid_from_hex(id: *const c_char) -> Maybe<KeyID> {
     let id = ffi_param_cstr!(id).to_string_lossy();
     openpgp::KeyID::from_hex(&id).ok().move_into_raw()
 }
 
 /// Converts the KeyID to a hexadecimal number.
 #[::ffi_catch_abort] #[no_mangle] pub extern "system"
-fn pgp_keyid_to_hex(id: *const openpgp::KeyID) -> *mut c_char {
+fn pgp_keyid_to_hex(id: *const KeyID) -> *mut c_char {
     ffi_return_string!(id.ref_raw().to_hex())
 }

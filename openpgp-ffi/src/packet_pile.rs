@@ -40,7 +40,7 @@ pub struct PacketPile(openpgp::PacketPile);
 #[::ffi_catch_abort] #[no_mangle] pub extern "system"
 fn pgp_packet_pile_from_reader(errp: Option<&mut *mut failure::Error>,
                                reader: *mut Box<Read>)
-                               -> Maybe<openpgp::PacketPile> {
+                               -> Maybe<PacketPile> {
     let reader = ffi_param_ref_mut!(reader);
     openpgp::PacketPile::from_reader(reader).move_into_raw(errp)
 }
@@ -52,7 +52,7 @@ fn pgp_packet_pile_from_reader(errp: Option<&mut *mut failure::Error>,
 #[::ffi_catch_abort] #[no_mangle] pub extern "system"
 fn pgp_packet_pile_from_file(errp: Option<&mut *mut failure::Error>,
                              filename: *const c_char)
-                             -> Maybe<openpgp::PacketPile> {
+                             -> Maybe<PacketPile> {
     let filename = ffi_param_cstr!(filename).to_string_lossy().into_owned();
     openpgp::PacketPile::from_file(&filename).move_into_raw(errp)
 }
@@ -63,7 +63,7 @@ fn pgp_packet_pile_from_file(errp: Option<&mut *mut failure::Error>,
 #[::ffi_catch_abort] #[no_mangle] pub extern "system"
 fn pgp_packet_pile_from_bytes(errp: Option<&mut *mut failure::Error>,
                               b: *const uint8_t, len: size_t)
-                              -> Maybe<openpgp::PacketPile> {
+                              -> Maybe<PacketPile> {
     assert!(!b.is_null());
     let buf = unsafe {
         slice::from_raw_parts(b, len as usize)
@@ -75,7 +75,7 @@ fn pgp_packet_pile_from_bytes(errp: Option<&mut *mut failure::Error>,
 /// Serializes the packet pile.
 #[::ffi_catch_abort] #[no_mangle] pub extern "system"
 fn pgp_packet_pile_serialize(errp: Option<&mut *mut failure::Error>,
-                             packet_pile: *const openpgp::PacketPile,
+                             packet_pile: *const PacketPile,
                              writer: *mut Box<Write>)
                              -> Status {
     ffi_make_fry_from_errp!(errp);
