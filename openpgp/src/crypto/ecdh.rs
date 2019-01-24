@@ -18,19 +18,21 @@ use nettle::{cipher, curve25519, mode, Mode, Yarrow};
 
 /// Wraps a session key using Elliptic Curve Diffie-Hellman.
 pub fn wrap_session_key(recipient: &Key, session_key: &[u8])
-                        -> Result<Ciphertext> {
+    -> Result<Ciphertext>
+{
     if let &PublicKey::ECDH {
-        ref curve, ref q, ref hash, ref sym
+        ref curve, ref q,..
     } = recipient.mpis() {
-        let mut rng = Yarrow::default();
         match curve {
             Curve::Cv25519 => {
+                let mut rng = Yarrow::default();
+
                 // Obtain the authenticated recipient public key R
                 #[allow(non_snake_case)]
                 let R = q.decode_point(curve)?.0;
 
                 // Generate an ephemeral key pair {v, V=vG}
-                let mut v = [0; curve25519::CURVE25519_SIZE];
+                let mut v = [0u8; curve25519::CURVE25519_SIZE];
                 rng.random(&mut v);
                 // Note: Nettle ignores the most significant and the three
                 // least significant bits, therefore every value is a valid
@@ -39,7 +41,7 @@ pub fn wrap_session_key(recipient: &Key, session_key: &[u8])
                 // Compute the public key.  We need to add an encoding
                 // octet in front of the key.
                 #[allow(non_snake_case)]
-                let mut VB = [0; 1 + curve25519::CURVE25519_SIZE];
+                let mut VB = [0x40; 1 + curve25519::CURVE25519_SIZE];
                 curve25519::mul_g(&mut VB[1..], &v)
                     .expect("buffers are of the wrong size");
 
@@ -49,6 +51,27 @@ pub fn wrap_session_key(recipient: &Key, session_key: &[u8])
                 curve25519::mul(&mut S, &v, R)
                     .expect("buffers are of the wrong size");
 
+                wrap_session_key_deterministic(recipient, session_key, &VB, &S)
+            }
+            _ =>
+                Err(Error::UnsupportedEllipticCurve(curve.clone()).into()),
+        }
+    } else {
+        Err(Error::InvalidArgument("Expected an ECDHPublicKey".into()).into())
+    }
+}
+
+// VB: Ephemeral public key,
+// S: Shared DH secret.
+#[allow(non_snake_case)]
+pub(crate) fn wrap_session_key_deterministic(recipient: &Key, session_key: &[u8],
+                                    VB: &[u8; 33], S: &[u8; 32]) -> Result<Ciphertext>
+{
+    if let &PublicKey::ECDH {
+        ref curve, ref hash, ref sym,..
+    } = recipient.mpis() {
+        match curve {
+            Curve::Cv25519 => {
                 // m = symm_alg_ID || session key || checksum || pkcs5_padding;
                 let mut m = Vec::with_capacity(40);
                 m.extend_from_slice(session_key);
@@ -56,24 +79,25 @@ pub fn wrap_session_key(recipient: &Key, session_key: &[u8])
                 // Note: We always pad up to 40 bytes to obfuscate the
                 // length of the symmetric key.
 
+                eprintln!("m: {:?}", m);
                 // Compute KDF input.
                 let param = make_param(recipient, curve, hash, sym);
 
+                eprintln!("param: {:?}", param);
                 // Z_len = the key size for the KEK_alg_ID used with AESKeyWrap
                 // Compute Z = KDF( S, Z_len, Param );
                 #[allow(non_snake_case)]
-                let Z = kdf(&S, sym.key_size()?, *hash, &param)?;
+                let Z = kdf(S, sym.key_size()?, *hash, &param)?;
+                eprintln!("Z: {:?}", Z);
 
                 // Compute C = AESKeyWrap( Z, m ) as per [RFC3394]
                 #[allow(non_snake_case)]
                 let C = aes_key_wrap(*sym, &Z, &m)?;
-
-                // VB = convert point V to the octet string
-                VB[0] = 0x40; // Native encoding of the point.
+                eprintln!("C: {:?}", C);
 
                 // Output (MPI(VB) || len(C) || C).
                 Ok(Ciphertext::ECDH {
-                    e: MPI::new(&VB),
+                    e: MPI::new(VB),
                     key: C.into_boxed_slice(),
                 })
             },
