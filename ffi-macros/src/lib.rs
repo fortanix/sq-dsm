@@ -309,7 +309,13 @@ fn derive_conversion_functions(st: &mut syn::ItemStruct, _: &str, _: &str,
         impl #wrapper {
             fn assert_tag(&self) {
                 if self.1 != #magic_value {
-                    panic!("FFI contract violation: Wrong parameter type");
+                    if self.1 == 0x5050505050505050 {
+                        panic!(
+                            "FFI contract violation: Use-after-free detected");
+                    } else {
+                        panic!(
+                            "FFI contract violation: Wrong parameter type");
+                    }
                 }
             }
         }
@@ -320,11 +326,21 @@ fn derive_conversion_functions(st: &mut syn::ItemStruct, _: &str, _: &str,
                 if self.is_null() {
                     panic!("FFI contract violation: Parameter is NULL");
                 }
-                let wrapper = unsafe {
+                let mut wrapper = unsafe {
                     Box::from_raw(self)
                 };
                 wrapper.assert_tag();
-                wrapper.0
+                let obj = wrapper.0;
+
+                // Poison the wrapper.
+                unsafe {
+                    // Overwrite with P.
+                    memsec::memset(self as *mut u8,
+                                   0x50,
+                                   ::std::mem::size_of::<#wrapper>())
+                };
+
+                obj
             }
         }
 

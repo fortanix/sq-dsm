@@ -4,3 +4,4 @@ example
 parser
 reader
 type-safety-demo
+use-after-free-demo

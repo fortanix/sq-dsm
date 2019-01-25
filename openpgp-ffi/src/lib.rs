@@ -314,6 +314,7 @@ extern crate failure;
 #[macro_use]
 extern crate lazy_static;
 extern crate libc;
+extern crate memsec;
 
 extern crate sequoia_ffi_macros;
 use sequoia_ffi_macros::{
