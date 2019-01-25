@@ -1,5 +1,6 @@
 from os.path import join, dirname
-from cffi import FFI, error
+from cffi import FFI
+from cffi.api import CDefError
 from itertools import chain
 
 sq_inc = join(dirname(__file__), '../../../include/sequoia')
@@ -29,7 +30,7 @@ ffibuilder.cdef('void free (void *ptr);')
 
 try:
     ffibuilder.cdef(defs, override=True)
-except error.CDefError as e:
+except CDefError as e:
     try:
         current_decl = e.args[1]
         linenum = current_decl.coord.line

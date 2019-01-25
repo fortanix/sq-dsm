@@ -1,4 +1,4 @@
-from enum import Enum, auto
+from enum import Enum
 from sequoia.core import Context, NetworkPolicy
 from sequoia.openpgp import Tag, PacketParser
 
@@ -11,10 +11,13 @@ def test_decryption():
                   ephemeral=True)
 
     class State(Enum):
-        Start = auto()
-        Decrypted = auto()
-        Deciphered = auto()
-        Done = auto()
+        # XXX: In Python 3.6, we can use enum.auto() to assign values.
+        # But we want to support Debian 9, which uses Python 3.5, as
+        # long as it is Debian stable.
+        Start = 1
+        Decrypted = 2
+        Deciphered = 3
+        Done = 4
 
     state = State.Start
     algo, key = None, None
