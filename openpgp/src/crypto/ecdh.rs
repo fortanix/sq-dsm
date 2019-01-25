@@ -79,21 +79,17 @@ pub(crate) fn wrap_session_key_deterministic(recipient: &Key, session_key: &[u8]
                 // Note: We always pad up to 40 bytes to obfuscate the
                 // length of the symmetric key.
 
-                eprintln!("m: {:?}", m);
                 // Compute KDF input.
                 let param = make_param(recipient, curve, hash, sym);
 
-                eprintln!("param: {:?}", param);
                 // Z_len = the key size for the KEK_alg_ID used with AESKeyWrap
                 // Compute Z = KDF( S, Z_len, Param );
                 #[allow(non_snake_case)]
                 let Z = kdf(S, sym.key_size()?, *hash, &param)?;
-                eprintln!("Z: {:?}", Z);
 
                 // Compute C = AESKeyWrap( Z, m ) as per [RFC3394]
                 #[allow(non_snake_case)]
                 let C = aes_key_wrap(*sym, &Z, &m)?;
-                eprintln!("C: {:?}", C);
 
                 // Output (MPI(VB) || len(C) || C).
                 Ok(Ciphertext::ECDH {
