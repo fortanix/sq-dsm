@@ -82,7 +82,7 @@ Debian:
 
 Notes:
 
-  - You need at least rustc version 1.26.0.  The version in Debian 9
+  - You need at least rustc version 1.31.0.  The version in Debian 9
     (Debian Stable as of 2018) is too old.  The version from testing
     works fine.
   - The version of Nettle in Debian 9 (Debian Stable as of 2018), is
@@ -118,7 +118,7 @@ setuptools, cffi, and pytest for Python3.
 
 Debian:
 
-    $ apt install python3-dev python3-setuptools python3-cffi python3-pytest
+    $ sudo apt install python3-dev python3-setuptools python3-cffi python3-pytest
 
 Getting help
 ============
