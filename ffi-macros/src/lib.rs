@@ -1,6 +1,6 @@
 //! Common macros for Sequoia's FFI crates.
 
-#![recursion_limit="256"]
+#![recursion_limit="512"]
 
 use std::collections::HashMap;
 use std::io::Write;
@@ -112,7 +112,7 @@ pub fn ffi_catch_abort(_attr: TokenStream, item: TokenStream) -> TokenStream {
 pub fn ffi_wrapper_type(args: TokenStream, input: TokenStream) -> TokenStream {
     // Parse tokens into a function declaration.
     let args = syn::parse_macro_input!(args as syn::AttributeArgs);
-    let mut st = syn::parse_macro_input!(input as syn::ItemStruct);
+    let st = syn::parse_macro_input!(input as syn::ItemStruct);
 
     let mut name = None;
     let mut prefix = None;
@@ -154,6 +154,7 @@ pub fn ffi_wrapper_type(args: TokenStream, input: TokenStream) -> TokenStream {
         }
     }
 
+    let wrapper = st.ident.clone();
     let name = name.unwrap_or(ident2c(&st.ident));
     let prefix = prefix.unwrap_or("".into());
 
@@ -172,7 +173,7 @@ pub fn ffi_wrapper_type(args: TokenStream, input: TokenStream) -> TokenStream {
         _ => return
             syn::Error::new(argument_span,
                             format!("expected tuple struct, try: {}(...)",
-                                    st.ident))
+                                    wrapper))
             .to_compile_error().into(),
     };
 
@@ -181,30 +182,18 @@ pub fn ffi_wrapper_type(args: TokenStream, input: TokenStream) -> TokenStream {
 
     // First, we derive the conversion functions.  As a side-effect,
     // this function injects fields into the struct definition.
-    impls.extend(
-        derive_conversion_functions(&mut st, &prefix, &name, &wrapped_type));
+    impls.extend(derive_conversion_functions(st, &prefix, &name, &wrapped_type));
 
     // Now, we derive both the default and the requested functions.
     let default_derives: &[DeriveFn] = &[
         derive_free,
     ];
     for dfn in derive.into_iter().chain(default_derives.iter()) {
-        impls.extend(dfn(st.span(), &prefix, &name,
-                         &st.ident, &wrapped_type));
+        impls.extend(dfn(proc_macro2::Span::call_site(), &prefix, &name,
+                         &wrapper, &wrapped_type));
     }
 
-    let expanded = quote! {
-        #st
-
-        // The derived functions.
-        #impls
-    };
-
-    // To debug problems with the generated code, just eprintln it:
-    //
-    // eprintln!("{}", expanded);
-
-    expanded.into()
+    impls.into()
 }
 
 /// Derives the C type from the Rust type.
@@ -262,8 +251,8 @@ fn hash_ident(i: &syn::Ident) -> u64 {
     buf.iter().fold(0, |acc, b| (acc << 8) + (*b as u64))
 }
 
-/// Derives prefix_name_conversion_trait.
-fn derive_conversion_functions(st: &mut syn::ItemStruct, _: &str, _: &str,
+/// Derives type and conversion functions.
+fn derive_conversion_functions(mut st: syn::ItemStruct, _: &str, _: &str,
                                wrapped: &syn::Type)
                                -> TokenStream2
 {
@@ -278,6 +267,10 @@ fn derive_conversion_functions(st: &mut syn::ItemStruct, _: &str, _: &str,
     // The value is a compile-time constant.
     let magic_value = hash_ident(&wrapper);
 
+    let ownership =
+        proc_macro2::Ident::new(&format!("{}Ownership", wrapper),
+                                proc_macro2::Span::call_site());
+
     // Inject the tag.
     let argument_span = st.fields.span();
     match &mut st.fields {
@@ -288,6 +281,16 @@ fn derive_conversion_functions(st: &mut syn::ItemStruct, _: &str, _: &str,
                                     "expected a single field")
                     .to_compile_error().into();
             }
+            fields.unnamed.pop();
+            fields.unnamed.push(
+                syn::Field {
+                    attrs: vec![],
+                    vis: syn::Visibility::Inherited,
+                    ident: None,
+                    colon_token: None,
+                    ty: syn::parse_quote!(#ownership),
+                }
+            );
             fields.unnamed.push(
                 syn::Field {
                     attrs: vec![],
@@ -301,11 +304,19 @@ fn derive_conversion_functions(st: &mut syn::ItemStruct, _: &str, _: &str,
         _ => return
             syn::Error::new(argument_span,
                             format!("expected tuple struct, try: {}(...)",
-                            st.ident))
+                            wrapper))
             .to_compile_error().into(),
     };
 
     quote! {
+        enum #ownership {
+            Owned(#wrapped),
+            Ref(*const #wrapped),
+            RefMut(*mut #wrapped),
+        }
+
+        #st
+
         impl #wrapper {
             fn assert_tag(&self) {
                 if self.1 != #magic_value {
@@ -331,7 +342,18 @@ fn derive_conversion_functions(st: &mut syn::ItemStruct, _: &str, _: &str,
                     Box::from_raw(self)
                 };
                 wrapper.assert_tag();
-                let obj = wrapper.0;
+                let obj = match wrapper.0 {
+                    #ownership::Owned(o) => o,
+                    #ownership::Ref(r) => {
+                        panic!("FFI contract violation: \
+                                expected object, got reference: {:?}", r);
+                    },
+                    #ownership::RefMut(r) => {
+                        panic!("FFI contract violation: \
+                                expected object, got mutable reference: {:?}",
+                               r);
+                    },
+                };
 
                 // Poison the wrapper.
                 unsafe {
@@ -355,7 +377,15 @@ fn derive_conversion_functions(st: &mut syn::ItemStruct, _: &str, _: &str,
                     &(*self)
                 };
                 wrapper.assert_tag();
-                &wrapper.0
+                match wrapper.0 {
+                    #ownership::Owned(ref o) => o,
+                    #ownership::Ref(r) => unsafe {
+                        &*r
+                    },
+                    #ownership::RefMut(r) => unsafe {
+                        &*r
+                    },
+                }
             }
         }
 
@@ -369,12 +399,21 @@ fn derive_conversion_functions(st: &mut syn::ItemStruct, _: &str, _: &str,
                     &mut (*self)
                 };
                 wrapper.assert_tag();
-                &mut wrapper.0
+                match wrapper.0 {
+                    #ownership::Owned(ref mut o) => o,
+                    #ownership::Ref(r) => {
+                        panic!("FFI contract violation: expected mutable \
+                                reference, got immutable reference: {:?}", r);
+                    },
+                    #ownership::RefMut(r) => unsafe {
+                        &mut *r
+                    },
+                }
             }
         }
 
         impl #wrapper {
-            fn wrap(obj: #wrapped) -> *mut #wrapper {
+            fn wrap(obj: #ownership) -> *mut #wrapper {
                 Box::into_raw(Box::new(#wrapper(obj, #magic_value)))
             }
         }
@@ -382,7 +421,19 @@ fn derive_conversion_functions(st: &mut syn::ItemStruct, _: &str, _: &str,
         use MoveIntoRaw;
         impl MoveIntoRaw<*mut #wrapper> for #wrapped {
             fn move_into_raw(self) -> *mut #wrapper {
-                #wrapper::wrap(self)
+                #wrapper::wrap(#ownership::Owned(self))
+            }
+        }
+
+        impl MoveIntoRaw<*mut #wrapper> for &#wrapped {
+            fn move_into_raw(self) -> *mut #wrapper {
+                #wrapper::wrap(#ownership::Ref(self))
+            }
+        }
+
+        impl MoveIntoRaw<*mut #wrapper> for &mut #wrapped {
+            fn move_into_raw(self) -> *mut #wrapper {
+                #wrapper::wrap(#ownership::RefMut(self))
             }
         }
 
@@ -391,7 +442,29 @@ fn derive_conversion_functions(st: &mut syn::ItemStruct, _: &str, _: &str,
         {
             fn move_into_raw(self) -> Option<::std::ptr::NonNull<#wrapper>> {
                 self.map(|mut v| {
-                    let ptr = #wrapper::wrap(v);
+                    let ptr = #wrapper::wrap(#ownership::Owned(v));
+                    ::std::ptr::NonNull::new(ptr).unwrap()
+                })
+            }
+        }
+
+        impl MoveIntoRaw<Option<::std::ptr::NonNull<#wrapper>>>
+            for Option<&#wrapped>
+        {
+            fn move_into_raw(self) -> Option<::std::ptr::NonNull<#wrapper>> {
+                self.map(|mut v| {
+                    let ptr = #wrapper::wrap(#ownership::Ref(v));
+                    ::std::ptr::NonNull::new(ptr).unwrap()
+                })
+            }
+        }
+
+        impl MoveIntoRaw<Option<::std::ptr::NonNull<#wrapper>>>
+            for Option<&mut #wrapped>
+        {
+            fn move_into_raw(self) -> Option<::std::ptr::NonNull<#wrapper>> {
+                self.map(|mut v| {
+                    let ptr = #wrapper::wrap(#ownership::RefMut(v));
                     ::std::ptr::NonNull::new(ptr).unwrap()
                 })
             }
@@ -405,7 +478,47 @@ fn derive_conversion_functions(st: &mut syn::ItemStruct, _: &str, _: &str,
                              -> Option<::std::ptr::NonNull<#wrapper>> {
                 match self {
                     Ok(v) => {
-                        let ptr = #wrapper::wrap(v);
+                        let ptr = #wrapper::wrap(#ownership::Owned(v));
+                        Some(::std::ptr::NonNull::new(ptr).unwrap())
+                    },
+                    Err(e) => {
+                        if let Some(errp) = errp {
+                            *errp = box_raw!(e);
+                        }
+                        None
+                    },
+                }
+            }
+        }
+
+        impl MoveResultIntoRaw<Option<::std::ptr::NonNull<#wrapper>>>
+            for ::failure::Fallible<&#wrapped>
+        {
+            fn move_into_raw(self, errp: Option<&mut *mut ::failure::Error>)
+                             -> Option<::std::ptr::NonNull<#wrapper>> {
+                match self {
+                    Ok(v) => {
+                        let ptr = #wrapper::wrap(#ownership::Ref(v));
+                        Some(::std::ptr::NonNull::new(ptr).unwrap())
+                    },
+                    Err(e) => {
+                        if let Some(errp) = errp {
+                            *errp = box_raw!(e);
+                        }
+                        None
+                    },
+                }
+            }
+        }
+
+        impl MoveResultIntoRaw<Option<::std::ptr::NonNull<#wrapper>>>
+            for ::failure::Fallible<&mut #wrapped>
+        {
+            fn move_into_raw(self, errp: Option<&mut *mut ::failure::Error>)
+                             -> Option<::std::ptr::NonNull<#wrapper>> {
+                match self {
+                    Ok(v) => {
+                        let ptr = #wrapper::wrap(#ownership::RefMut(v));
                         Some(::std::ptr::NonNull::new(ptr).unwrap())
                     },
                     Err(e) => {
