@@ -1083,6 +1083,22 @@ pgp_status_t pgp_tsk_new (pgp_error_t *errp, char *primary_uid,
 void pgp_tsk_free (pgp_tsk_t tsk);
 
 /*/
+/// Clones the TSK.
+/*/
+pgp_tsk_t pgp_tsk_clone (pgp_tsk_t message);
+
+/*/
+/// Returns a human readable description of this object suitable for
+/// debugging.
+/*/
+char *pgp_tsk_debug (const pgp_tsk_t);
+
+/*/
+/// Compares TPKs.
+/*/
+bool pgp_tsk_equal (const pgp_tsk_t a, const pgp_tsk_t b);
+
+/*/
 /// Returns a reference to the corresponding TPK.
 /*/
 pgp_tpk_t pgp_tsk_tpk (pgp_tsk_t tsk);

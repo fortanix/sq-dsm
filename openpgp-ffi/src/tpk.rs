@@ -15,7 +15,6 @@ use self::openpgp::{
     Packet,
     PacketPile,
     RevocationStatus,
-    TSK,
     autocrypt::Autocrypt,
     crypto,
     constants::ReasonForRevocation,
@@ -34,6 +33,7 @@ use self::openpgp::{
 
 use ::error::Status;
 use super::fingerprint::Fingerprint;
+use super::tsk::TSK;
 use Maybe;
 
 /// A transferable public key (TPK).
@@ -176,8 +176,7 @@ fn pgp_tpk_fingerprint(tpk: *const TPK)
 #[::ffi_catch_abort] #[no_mangle] pub extern "system"
 fn pgp_tpk_into_tsk(tpk: *mut TPK)
                     -> *mut TSK {
-    let tpk = tpk.move_from_raw();
-    box_raw!(tpk.into_tsk())
+    tpk.move_from_raw().into_tsk().move_into_raw()
 }
 
 /// Returns a reference to the TPK's primary key.
