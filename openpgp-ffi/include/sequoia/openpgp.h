@@ -3,6 +3,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include <stdbool.h>
 #include <limits.h>
 #include <unistd.h>
 #include <time.h>
@@ -590,43 +591,43 @@ pgp_fingerprint_t pgp_signature_issuer_fingerprint(pgp_signature_t sig);
 /// Returns whether the KeyFlags indicates that the key can be used to
 /// make certifications.
 /*/
-int pgp_signature_can_certify(pgp_signature_t signature);
+bool pgp_signature_can_certify(pgp_signature_t signature);
 
 /*/
 /// Returns whether the KeyFlags indicates that the key can be used to
 /// make signatures.
 /*/
-int pgp_signature_can_sign(pgp_signature_t signature);
+bool pgp_signature_can_sign(pgp_signature_t signature);
 
 /*/
 /// Returns whether the KeyFlags indicates that the key can be used to
 /// encrypt data for transport.
 /*/
-int pgp_signature_can_encrypt_for_transport(pgp_signature_t signature);
+bool pgp_signature_can_encrypt_for_transport(pgp_signature_t signature);
 
 /*/
 /// Returns whether the KeyFlags indicates that the key can be used to
 /// encrypt data at rest.
 /*/
-int pgp_signature_can_encrypt_at_rest(pgp_signature_t signature);
+bool pgp_signature_can_encrypt_at_rest(pgp_signature_t signature);
 
 /*/
 /// Returns whether the KeyFlags indicates that the key can be used
 /// for authentication.
 /*/
-int pgp_signature_can_authenticate(pgp_signature_t signature);
+bool pgp_signature_can_authenticate(pgp_signature_t signature);
 
 /*/
 /// Returns whether the KeyFlags indicates that the key is a split
 /// key.
 /*/
-int pgp_signature_is_split_key(pgp_signature_t signature);
+bool pgp_signature_is_split_key(pgp_signature_t signature);
 
 /*/
 /// Returns whether the KeyFlags indicates that the key is a group
 /// key.
 /*/
-int pgp_signature_is_group_key(pgp_signature_t signature);
+bool pgp_signature_is_group_key(pgp_signature_t signature);
 
 /*/
 /// Returns whether the signature is alive.
@@ -634,7 +635,7 @@ int pgp_signature_is_group_key(pgp_signature_t signature);
 /// A signature is alive if the creation date is in the past, and the
 /// signature has not expired.
 /*/
-int pgp_signature_alive(pgp_signature_t signature);
+bool pgp_signature_alive(pgp_signature_t signature);
 
 /*/
 /// Returns whether the signature is alive at the specified time.
@@ -642,17 +643,17 @@ int pgp_signature_alive(pgp_signature_t signature);
 /// A signature is alive if the creation date is in the past, and the
 /// signature has not expired at the specified time.
 /*/
-int pgp_signature_alive_at(pgp_signature_t signature, time_t when);
+bool pgp_signature_alive_at(pgp_signature_t signature, time_t when);
 
 /*/
 /// Returns whether the signature is expired.
 /*/
-int pgp_signature_expired(pgp_signature_t signature);
+bool pgp_signature_expired(pgp_signature_t signature);
 
 /*/
 /// Returns whether the signature is expired at the specified time.
 /*/
-int pgp_signature_expired_at(pgp_signature_t signature, time_t when);
+bool pgp_signature_expired_at(pgp_signature_t signature, time_t when);
 
 /*/
 /// Returns the PKESK's recipient.
@@ -1123,12 +1124,12 @@ pgp_keyid_t pgp_key_keyid (pgp_key_t p);
 /// checked for validity.  That is, we do not check whether the
 /// signature is a valid self-signature for the given key.
 /*/
-int pgp_key_expired(pgp_key_t key, pgp_signature_t self_signature);
+bool pgp_key_expired(pgp_key_t key, pgp_signature_t self_signature);
 
 /*/
 /// Like pgp_key_expired, but at a specific time.
 /*/
-int pgp_key_expired_at(pgp_key_t key, pgp_signature_t self_signature,
+bool pgp_key_expired_at(pgp_key_t key, pgp_signature_t self_signature,
                         time_t when);
 
 /*/
@@ -1142,12 +1143,12 @@ int pgp_key_expired_at(pgp_key_t key, pgp_signature_t self_signature,
 /// checked for validity.  That is, we do not check whether the
 /// signature is a valid self-signature for the given key.
 /*/
-int pgp_key_alive(pgp_key_t key, pgp_signature_t self_signature);
+bool pgp_key_alive(pgp_key_t key, pgp_signature_t self_signature);
 
 /*/
 /// Like pgp_key_alive, but at a specific time.
 /*/
-int pgp_key_alive_at(pgp_key_t key, pgp_signature_t self_signature,
+bool pgp_key_alive_at(pgp_key_t key, pgp_signature_t self_signature,
                       time_t when);
 
 typedef enum pgp_public_key_algorithm {
@@ -1333,7 +1334,7 @@ void pgp_packet_parser_free (pgp_packet_parser_t pp);
 /*/
 /// Returns whether the message is a well-formed OpenPGP message.
 /*/
-int pgp_packet_parser_eof_is_message(pgp_packet_parser_eof_t eof);
+bool pgp_packet_parser_eof_is_message(pgp_packet_parser_eof_t eof);
 
 /*/
 /// Frees the packet parser EOF object.
