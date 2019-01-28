@@ -8,6 +8,7 @@ use std::io::Write;
 extern crate lazy_static;
 use lazy_static::lazy_static;
 extern crate syn;
+use syn::parse_quote;
 use syn::spanned::Spanned;
 extern crate quote;
 extern crate proc_macro;
@@ -19,15 +20,81 @@ use proc_macro2::TokenStream as TokenStream2;
 
 use quote::{quote, ToTokens};
 
+mod rust2c;
+
 /// Transforms exported functions.
 ///
 /// This macro is used to decorate every function exported from
 /// Sequoia.  It applies the following transformations:
 ///
 ///  - [ffi_catch_abort](attr.ffi_catch_abort.html)
+///  - [cdecl](attr.cdecl.html)
 #[proc_macro_attribute]
 pub fn extern_fn(attr: TokenStream, item: TokenStream) -> TokenStream {
-    ffi_catch_abort(attr, item)
+    cdecl(attr.clone(), ffi_catch_abort(attr, item))
+}
+
+/// Generates a C function declaration.
+#[proc_macro_attribute]
+pub fn cdecl(_attr: TokenStream, item: TokenStream) -> TokenStream {
+    // Parse tokens into a function declaration.
+    let fun = syn::parse_macro_input!(item as syn::ItemFn);
+
+    // Extract all information from the parsed function that we need
+    // to compose the new function.
+    let summary = fun.attrs.iter().next();
+    let attrs = fun.attrs.iter().skip(1)
+        .fold(TokenStream2::new(),
+              |mut acc, attr| {
+                  acc.extend(attr.clone().into_token_stream());
+                  acc
+              });
+    let vis = &fun.vis;
+    let constness = &fun.constness;
+    let unsafety = &fun.unsafety;
+    let asyncness = &fun.asyncness;
+    let abi = &fun.abi;
+    let ident = &fun.ident;
+
+    let decl = &fun.decl;
+    let fn_token = &decl.fn_token;
+    let fn_generics = &decl.generics;
+    let fn_out = &decl.output;
+
+    let mut fn_params = TokenStream2::new();
+    decl.paren_token.surround(&mut fn_params, |ts| decl.inputs.to_tokens(ts));
+
+    let block = &fun.block;
+
+    let mut cdecl = TokenStream2::new();
+    doc(" # C Declaration", &mut cdecl);
+    doc(" ```c", &mut cdecl);
+    for line in rust2c::rust2c(&fun).split("\n") {
+        doc(&format!(" {}", line), &mut cdecl);
+    }
+    doc(" ```", &mut cdecl);
+
+    let expanded = quote! {
+        #summary
+        #cdecl
+        #attrs
+        #vis #constness #unsafety #asyncness #abi
+        #fn_token #ident #fn_generics #fn_params #fn_out
+        #block
+        //#fun
+    };
+
+    // To debug problems with the generated code, just eprintln it:
+    //
+    // eprintln!("{}", expanded);
+
+    expanded.into()
+}
+
+/// Creates an doc attribute.
+fn doc(s: &str, ts: &mut TokenStream2) {
+    let attr: syn::Attribute = parse_quote!(#[doc = #s]);
+    attr.to_tokens(ts);
 }
 
 /// Wraps a function's body in a catch_unwind block, aborting on
