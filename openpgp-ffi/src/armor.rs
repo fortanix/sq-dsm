@@ -121,7 +121,7 @@ pub extern "system" fn pgp_armor_reader_from_file(errp: Option<&mut *mut failure
 
     ffi_try_box!(armor::Reader::from_file(&filename, kind)
              .map(|r| Box::new(r))
-             .map_err(|e| e.into()))
+             .map_err(|e| ::failure::Error::from(e)))
 }
 
 /// Creates a `Reader` from a buffer.
@@ -248,7 +248,7 @@ pub extern "system" fn pgp_armor_reader_headers(errp: Option<&mut *mut failure::
 
     // We need to be extra careful here in order not to keep ownership
     // of `reader` in case of errors.
-    let result = match reader.headers().map_err(|e| e.into()) {
+    let result = match reader.headers().map_err(|e| ::failure::Error::from(e)) {
         Ok(headers) => {
             // Allocate space for the result.
             let buf = unsafe {
@@ -384,5 +384,5 @@ pub extern "system" fn pgp_armor_writer_new
 
     ffi_try_box!(armor::Writer::new(inner, kind, &header)
              .map(|r| Box::new(r))
-             .map_err(|e| e.into()))
+             .map_err(|e| ::failure::Error::from(e)))
 }

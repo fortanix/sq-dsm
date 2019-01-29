@@ -607,7 +607,7 @@ fn verify_real<'a>(input: &'a mut Box<'a + Read>,
         failure::Error::from_boxed_compat(e.into_inner().unwrap())
     } else {
         // Plain io::Error.
-        e.into()
+        ::failure::Error::from(e)
     }).context("Verification failed")?;
 
     Ok(())
@@ -725,7 +725,7 @@ fn decrypt_real<'a>(input: &'a mut Box<'a + Read>,
             failure::Error::from_boxed_compat(e.into_inner().unwrap())
         } else {
             // Plain io::Error.
-            e.into()
+            ::failure::Error::from(e)
         }).context("Decryption failed")?;
 
     Ok(())

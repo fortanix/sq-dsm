@@ -61,7 +61,7 @@ pub extern "system" fn pgp_writer_stack_write
     let buf = unsafe {
         slice::from_raw_parts(buf, len as usize)
     };
-    ffi_try_or!(writer.write(buf).map_err(|e| e.into()), -1) as ssize_t
+    ffi_try_or!(writer.write(buf).map_err(|e| ::failure::Error::from(e)), -1) as ssize_t
 }
 
 /// Writes up to `len` bytes of `buf` into `writer`.
@@ -82,7 +82,7 @@ pub extern "system" fn pgp_writer_stack_write_all
     let buf = unsafe {
         slice::from_raw_parts(buf, len as usize)
     };
-    ffi_try_status!(writer.write_all(buf).map_err(|e| e.into()))
+    ffi_try_status!(writer.write_all(buf).map_err(|e| ::failure::Error::from(e)))
 }
 
 /// Finalizes this writer, returning the underlying writer.

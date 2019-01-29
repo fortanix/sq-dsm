@@ -85,7 +85,7 @@ pub extern "system" fn sq_keyserver_with_cert(ctx: *mut Context,
     };
 
     let cert = ffi_try!(Certificate::from_der(cert)
-                    .map_err(|e| e.into()));
+                    .map_err(|e| ::failure::Error::from(e)));
     ffi_try_box!(KeyServer::with_cert(&ctx.c, &uri, cert))
 }
 

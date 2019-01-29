@@ -19,7 +19,7 @@ pub extern "system" fn pgp_reader_from_file(errp: Option<&mut *mut failure::Erro
     let filename = ffi_param_cstr!(filename).to_string_lossy().into_owned();
     ffi_try_box!(File::open(Path::new(&filename))
              .map(|r| Box::new(r))
-             .map_err(|e| e.into()))
+             .map_err(|e| ::failure::Error::from(e)))
 }
 
 /// Opens a file descriptor returning a reader.
@@ -60,7 +60,7 @@ pub extern "system" fn pgp_reader_read(errp: Option<&mut *mut failure::Error>,
     let buf = unsafe {
         slice::from_raw_parts_mut(buf, len as usize)
     };
-    ffi_try_or!(reader.read(buf).map_err(|e| e.into()), -1) as ssize_t
+    ffi_try_or!(reader.read(buf).map_err(|e| ::failure::Error::from(e)), -1) as ssize_t
 }
 
 
@@ -76,7 +76,7 @@ pub extern "system" fn pgp_writer_from_file(errp: Option<&mut *mut failure::Erro
     let filename = ffi_param_cstr!(filename).to_string_lossy().into_owned();
     ffi_try_box!(File::create(Path::new(&filename))
              .map(|r| Box::new(r))
-             .map_err(|e| e.into()))
+             .map_err(|e| ::failure::Error::from(e)))
 }
 
 /// Opens a file descriptor returning a writer.
@@ -171,5 +171,5 @@ pub extern "system" fn pgp_writer_write(errp: Option<&mut *mut failure::Error>,
     let buf = unsafe {
         slice::from_raw_parts(buf, len as usize)
     };
-    ffi_try_or!(writer.write(buf).map_err(|e| e.into()), -1) as ssize_t
+    ffi_try_or!(writer.write(buf).map_err(|e| ::failure::Error::from(e)), -1) as ssize_t
 }
