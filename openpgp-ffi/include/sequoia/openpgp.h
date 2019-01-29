@@ -553,6 +553,12 @@ pgp_packet_pile_t pgp_packet_pile_clone (pgp_packet_pile_t message);
 char *pgp_packet_pile_debug (const pgp_packet_pile_t);
 
 /*/
+/// Compares Packet Piles.
+/*/
+bool pgp_packet_pile_equal (const pgp_packet_pile_t a,
+                            const pgp_packet_pile_t b);
+
+/*/
 /// Serializes the packet pile.
 /*/
 pgp_status_t pgp_packet_pile_serialize (pgp_error_t *errp,
