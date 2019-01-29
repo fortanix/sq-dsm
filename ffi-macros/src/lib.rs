@@ -311,7 +311,8 @@ fn derive_conversion_functions(st: &mut syn::ItemStruct, _: &str, _: &str,
                 if self.1 != #magic_value {
                     if self.1 == 0x5050505050505050 {
                         panic!(
-                            "FFI contract violation: Use-after-free detected");
+                            "FFI contract violation: \
+                             Use after move or use after free detected");
                     } else {
                         panic!(
                             "FFI contract violation: Wrong parameter type");
