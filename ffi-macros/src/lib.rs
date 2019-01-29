@@ -234,6 +234,7 @@ fn derive_functions() -> &'static HashMap<&'static str, DeriveFn>
             h.insert("Hash", derive_hash as DeriveFn);
             h.insert("Display", derive_to_string as DeriveFn);
             h.insert("Debug", derive_debug as DeriveFn);
+            h.insert("Serialize", derive_serialize as DeriveFn);
             h
         };
     }
@@ -640,6 +641,26 @@ fn derive_hash(span: proc_macro2::Span, prefix: &str, name: &str,
             let mut hasher = ::build_hasher();
             this.ref_raw().hash(&mut hasher);
             hasher.finish()
+        }
+    }
+}
+
+/// Derives prefix_name_serialize.
+fn derive_serialize(span: proc_macro2::Span, prefix: &str, name: &str,
+                    wrapper: &syn::Ident, _wrapped: &syn::Type)
+                    -> TokenStream2
+{
+    let ident = syn::Ident::new(&format!("{}{}_serialize", prefix, name),
+                                span);
+    quote! {
+        /// Serializes this object.
+        #[::ffi_catch_abort] #[no_mangle] pub extern "system"
+        fn #ident (errp: Option<&mut *mut ::error::Error>,
+                   tsk: *const #wrapper,
+                   writer: *mut Box<Write>)
+                   -> Status {
+            let writer = ffi_param_ref_mut!(writer);
+            tsk.ref_raw().serialize(writer).move_into_raw(errp)
         }
     }
 }

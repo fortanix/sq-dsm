@@ -53,7 +53,7 @@ use Maybe;
 ///
 /// [RFC 4880, section 11.1]: https://tools.ietf.org/html/rfc4880#section-11.1
 #[::ffi_wrapper_type(prefix = "pgp_", name = "tpk",
-                     derive = "Clone, Debug, Display, PartialEq")]
+                     derive = "Clone, Debug, Display, PartialEq, Serialize")]
 pub struct TPK(openpgp::TPK);
 
 /// Returns the first TPK encountered in the reader.
@@ -110,17 +110,6 @@ fn pgp_tpk_from_packet_parser(errp: Option<&mut *mut ::error::Error>,
     let ppr = ffi_param_move!(ppr);
 
     openpgp::TPK::from_packet_parser(*ppr).move_into_raw(errp)
-}
-
-/// Serializes the TPK.
-#[::ffi_catch_abort] #[no_mangle] pub extern "system"
-fn pgp_tpk_serialize(errp: Option<&mut *mut ::error::Error>,
-                     tpk: *const TPK,
-                     writer: *mut Box<Write>)
-                     -> Status {
-    let tpk = tpk.ref_raw();
-    let writer = ffi_param_ref_mut!(writer);
-    tpk.serialize(writer).move_into_raw(errp)
 }
 
 /// Merges `other` into `tpk`.

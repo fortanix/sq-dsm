@@ -28,7 +28,7 @@ use ::error::Status;
 ///
 /// [`sequoia-openpgp::TSK`]: ../../sequoia_openpgp/enum.TSK.html
 #[::ffi_wrapper_type(prefix = "pgp_", name = "tsk",
-                     derive = "Clone, Debug, PartialEq")]
+                     derive = "Clone, Debug, PartialEq, Serialize")]
 pub struct TSK(openpgp::TSK);
 
 /// Generates a new RSA 3072 bit key with UID `primary_uid`.
@@ -64,16 +64,4 @@ fn pgp_tsk_tpk(tsk: *const TSK)
 fn pgp_tsk_into_tpk(tsk: *mut TSK)
                     -> *mut TPK {
     tsk.move_from_raw().into_tpk().move_into_raw()
-}
-
-
-/// Serializes the TSK.
-#[::ffi_catch_abort] #[no_mangle] pub extern "system"
-fn pgp_tsk_serialize(errp: Option<&mut *mut ::error::Error>,
-                     tsk: *const TSK,
-                     writer: *mut Box<Write>)
-                     -> Status {
-    let tsk = tsk.ref_raw();
-    let writer = ffi_param_ref_mut!(writer);
-    tsk.serialize(writer).move_into_raw(errp)
 }

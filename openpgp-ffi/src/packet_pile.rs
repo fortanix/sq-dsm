@@ -24,7 +24,7 @@ use ::error::Status;
 ///
 /// [`sequoia-openpgp::PacketPile`]: ../../sequoia_openpgp/struct.PacketPile.html
 #[::ffi_wrapper_type(prefix = "pgp_",
-                     derive = "Clone, Debug, PartialEq")]
+                     derive = "Clone, Debug, PartialEq, Serialize")]
 pub struct PacketPile(openpgp::PacketPile);
 
 /// Deserializes the OpenPGP message stored in a `std::io::Read`
@@ -70,15 +70,4 @@ fn pgp_packet_pile_from_bytes(errp: Option<&mut *mut ::error::Error>,
     };
 
     openpgp::PacketPile::from_bytes(buf).move_into_raw(errp)
-}
-
-/// Serializes the packet pile.
-#[::ffi_catch_abort] #[no_mangle] pub extern "system"
-fn pgp_packet_pile_serialize(errp: Option<&mut *mut ::error::Error>,
-                             packet_pile: *const PacketPile,
-                             writer: *mut Box<Write>)
-                             -> Status {
-    ffi_make_fry_from_errp!(errp);
-    let writer = ffi_param_ref_mut!(writer);
-    ffi_try_status!(packet_pile.ref_raw().serialize(writer))
 }
