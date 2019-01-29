@@ -50,7 +50,7 @@ pub extern "system" fn pgp_writer_stack_message
 /// Writes up to `len` bytes of `buf` into `writer`.
 #[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn pgp_writer_stack_write
-    (errp: Option<&mut *mut failure::Error>,
+    (errp: Option<&mut *mut ::error::Error>,
      writer: *mut writer::Stack<'static, Cookie>,
      buf: *const uint8_t, len: size_t)
      -> ssize_t
@@ -71,7 +71,7 @@ pub extern "system" fn pgp_writer_stack_write
 /// EINTR.
 #[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn pgp_writer_stack_write_all
-    (errp: Option<&mut *mut failure::Error>,
+    (errp: Option<&mut *mut ::error::Error>,
      writer: *mut writer::Stack<'static, Cookie>,
      buf: *const uint8_t, len: size_t)
      -> Status
@@ -88,7 +88,7 @@ pub extern "system" fn pgp_writer_stack_write_all
 /// Finalizes this writer, returning the underlying writer.
 #[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn pgp_writer_stack_finalize_one
-    (errp: Option<&mut *mut failure::Error>,
+    (errp: Option<&mut *mut ::error::Error>,
      writer: *mut writer::Stack<'static, Cookie>)
      -> *mut writer::Stack<'static, Cookie>
 {
@@ -104,7 +104,7 @@ pub extern "system" fn pgp_writer_stack_finalize_one
 /// Finalizes all writers, tearing down the whole stack.
 #[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn pgp_writer_stack_finalize
-    (errp: Option<&mut *mut failure::Error>,
+    (errp: Option<&mut *mut ::error::Error>,
      writer: *mut writer::Stack<'static, Cookie>)
      -> Status
 {
@@ -124,7 +124,7 @@ pub extern "system" fn pgp_writer_stack_finalize
 /// body is short, using full length encoding.
 #[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn pgp_arbitrary_writer_new
-    (errp: Option<&mut *mut failure::Error>,
+    (errp: Option<&mut *mut ::error::Error>,
      inner: *mut writer::Stack<'static, Cookie>,
      tag: uint8_t)
      -> *mut writer::Stack<'static, Cookie>
@@ -141,7 +141,7 @@ pub extern "system" fn pgp_arbitrary_writer_new
 /// writes a signature packet.
 #[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn pgp_signer_new
-    (errp: Option<&mut *mut failure::Error>,
+    (errp: Option<&mut *mut ::error::Error>,
      inner: *mut writer::Stack<'static, Cookie>,
      signers: *const *mut Box<self::openpgp::crypto::Signer>,
      signers_len: size_t)
@@ -165,7 +165,7 @@ pub extern "system" fn pgp_signer_new
 /// Creates a signer for a detached signature.
 #[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn pgp_signer_new_detached
-    (errp: Option<&mut *mut failure::Error>,
+    (errp: Option<&mut *mut ::error::Error>,
      inner: *mut writer::Stack<'static, Cookie>,
      signers: *const *mut Box<self::openpgp::crypto::Signer>,
      signers_len: size_t)
@@ -192,7 +192,7 @@ pub extern "system" fn pgp_signer_new_detached
 /// body is short, using full length encoding.
 #[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn pgp_literal_writer_new
-    (errp: Option<&mut *mut failure::Error>,
+    (errp: Option<&mut *mut ::error::Error>,
      inner: *mut writer::Stack<'static, Cookie>)
      -> *mut writer::Stack<'static, Cookie>
 {
@@ -214,7 +214,7 @@ pub extern "system" fn pgp_literal_writer_new
 /// preferences.
 #[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn pgp_encryptor_new
-    (errp: Option<&mut *mut failure::Error>,
+    (errp: Option<&mut *mut ::error::Error>,
      inner: *mut writer::Stack<'static, Cookie>,
      passwords: Option<&*const c_char>, passwords_len: size_t,
      recipients: Option<&&TPK>, recipients_len: size_t,

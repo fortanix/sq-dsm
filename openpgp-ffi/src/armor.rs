@@ -13,6 +13,8 @@ use libc::{self, uint8_t, c_char, c_int, size_t};
 extern crate sequoia_openpgp;
 use self::sequoia_openpgp::armor;
 
+use MoveIntoRaw;
+
 /// Represents a (key, value) pair in an armor header.
 #[repr(C)]
 pub struct ArmorHeader {
@@ -111,7 +113,7 @@ pub extern "system" fn pgp_armor_reader_new(inner: *mut Box<Read>,
 
 /// Creates a `Reader` from a file.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn pgp_armor_reader_from_file(errp: Option<&mut *mut failure::Error>,
+pub extern "system" fn pgp_armor_reader_from_file(errp: Option<&mut *mut ::error::Error>,
                                                  filename: *const c_char,
                                                  kind: c_int)
                                                  -> *mut Box<Read> {
@@ -233,7 +235,7 @@ pub extern "system" fn pgp_armor_reader_kind(reader: *mut Box<Read>)
 ///
 ///   [this]: fn.pgp_armor_reader_new.html
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn pgp_armor_reader_headers(errp: Option<&mut *mut failure::Error>,
+pub extern "system" fn pgp_armor_reader_headers(errp: Option<&mut *mut ::error::Error>,
                                                reader: *mut Box<Read>,
                                                len: *mut size_t)
                                                -> *mut ArmorHeader {
@@ -268,7 +270,7 @@ pub extern "system" fn pgp_armor_reader_headers(errp: Option<&mut *mut failure::
         },
         Err(e) => {
             if let Some(errp) = errp {
-                *errp = box_raw!(e);
+                *errp = e.move_into_raw();
             }
             ptr::null_mut()
         },
@@ -354,7 +356,7 @@ fn strdup(s: &str) -> *mut c_char {
 /// ```
 #[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn pgp_armor_writer_new
-    (errp: Option<&mut *mut failure::Error>,
+    (errp: Option<&mut *mut ::error::Error>,
      inner: *mut Box<Write>,
      kind: c_int,
      header: *const ArmorHeader,

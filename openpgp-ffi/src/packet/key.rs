@@ -149,7 +149,7 @@ pub extern "system" fn pgp_key_public_key_bits(key: *const packet::Key)
 ///
 /// Fails if the secret key is missing, or encrypted.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn pgp_key_into_key_pair(errp: Option<&mut *mut failure::Error>,
+pub extern "system" fn pgp_key_into_key_pair(errp: Option<&mut *mut ::error::Error>,
                                               key: *mut packet::Key)
                                               -> *mut self::openpgp::crypto::KeyPair
 {

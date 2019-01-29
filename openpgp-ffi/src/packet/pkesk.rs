@@ -27,7 +27,7 @@ pub extern "system" fn pgp_pkesk_recipient(pkesk: *const PKESK)
 /// is not written to it.  Either way, `key_len` is set to the size of
 /// the session key.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn pgp_pkesk_decrypt(errp: Option<&mut *mut failure::Error>,
+pub extern "system" fn pgp_pkesk_decrypt(errp: Option<&mut *mut ::error::Error>,
                                         pkesk: *const PKESK,
                                         secret_key: *const Key,
                                         algo: *mut uint8_t, // XXX

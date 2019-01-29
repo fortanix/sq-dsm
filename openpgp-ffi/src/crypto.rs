@@ -21,7 +21,7 @@ pub extern "system" fn pgp_signer_free
 /// Creates a new key pair.
 #[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn pgp_key_pair_new
-    (errp: Option<&mut *mut failure::Error>, public: *mut Key, secret: *mut crypto::mpis::SecretKey)
+    (errp: Option<&mut *mut ::error::Error>, public: *mut Key, secret: *mut crypto::mpis::SecretKey)
      -> *mut crypto::KeyPair
 {
     ffi_make_fry_from_errp!(errp);

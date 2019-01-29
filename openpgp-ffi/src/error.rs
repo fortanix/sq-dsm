@@ -6,28 +6,28 @@ use libc::c_char;
 
 extern crate sequoia_openpgp as openpgp;
 
-/// Frees an error.
-#[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn pgp_error_free(error: Option<&mut failure::Error>) {
-    ffi_free!(error)
-}
+/// Complex errors.
+///
+/// This wraps [`failure::Error`]s.
+///
+/// [`failure::Error`]: https://docs.rs/failure/0.1.5/failure/struct.Error.html
+#[::ffi_wrapper_type(prefix = "pgp_", derive = "Display")]
+pub struct Error(failure::Error);
 
 /// Returns the error message.
 ///
 /// The returned value must be freed with `free(3)`.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn pgp_error_string(error: *const failure::Error)
-                                       -> *mut c_char {
-    let error = ffi_param_ref!(error);
-    ffi_return_string!(&format!("{}", error))
+pub extern "system" fn pgp_error_string(error: *const Error)
+                                        -> *mut c_char {
+    ffi_return_string!(&format!("{}", error.ref_raw()))
 }
 
 /// Returns the error status code.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn pgp_error_status(error: *const failure::Error)
+pub extern "system" fn pgp_error_status(error: *const Error)
                                        -> Status {
-    let error = ffi_param_ref!(error);
-    error.into()
+    error.ref_raw().into()
 }
 
 /// XXX: Reorder and name-space before release.

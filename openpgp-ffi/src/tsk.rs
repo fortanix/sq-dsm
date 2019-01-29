@@ -33,7 +33,7 @@ pub struct TSK(openpgp::TSK);
 
 /// Generates a new RSA 3072 bit key with UID `primary_uid`.
 #[::ffi_catch_abort] #[no_mangle] pub extern "system"
-fn pgp_tsk_new(errp: Option<&mut *mut failure::Error>,
+fn pgp_tsk_new(errp: Option<&mut *mut ::error::Error>,
                primary_uid: *const c_char,
                tsk_out: *mut *mut TSK,
                revocation_out: *mut *mut Signature)
@@ -70,7 +70,7 @@ fn pgp_tsk_into_tpk(tsk: *mut TSK)
 
 /// Serializes the TSK.
 #[::ffi_catch_abort] #[no_mangle] pub extern "system"
-fn pgp_tsk_serialize(errp: Option<&mut *mut failure::Error>,
+fn pgp_tsk_serialize(errp: Option<&mut *mut ::error::Error>,
                      tsk: *const TSK,
                      writer: *mut Box<Write>)
                      -> Status {

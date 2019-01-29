@@ -1,6 +1,5 @@
 //! IO primitives for Sequoia.
 
-use failure;
 use std::fs::File;
 use std::io::{self, Read, Write, Cursor};
 use std::path::Path;
@@ -12,7 +11,7 @@ use std::os::unix::io::FromRawFd;
 
 /// Opens a file returning a reader.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn pgp_reader_from_file(errp: Option<&mut *mut failure::Error>,
+pub extern "system" fn pgp_reader_from_file(errp: Option<&mut *mut ::error::Error>,
                                            filename: *const c_char)
                                            -> *mut Box<Read> {
     ffi_make_fry_from_errp!(errp);
@@ -50,7 +49,7 @@ pub extern "system" fn pgp_reader_free(reader: Option<&mut Box<Read>>) {
 
 /// Reads up to `len` bytes into `buf`.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn pgp_reader_read(errp: Option<&mut *mut failure::Error>,
+pub extern "system" fn pgp_reader_read(errp: Option<&mut *mut ::error::Error>,
                                       reader: *mut Box<Read>,
                                       buf: *mut uint8_t, len: size_t)
                                       -> ssize_t {
@@ -69,7 +68,7 @@ pub extern "system" fn pgp_reader_read(errp: Option<&mut *mut failure::Error>,
 /// The file will be created if it does not exist, or be truncated
 /// otherwise.  If you need more control, use `pgp_writer_from_fd`.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn pgp_writer_from_file(errp: Option<&mut *mut failure::Error>,
+pub extern "system" fn pgp_writer_from_file(errp: Option<&mut *mut ::error::Error>,
                                            filename: *const c_char)
                                            -> *mut Box<Write> {
     ffi_make_fry_from_errp!(errp);
@@ -161,7 +160,7 @@ pub extern "system" fn pgp_writer_free(writer: Option<&mut Box<Write>>) {
 
 /// Writes up to `len` bytes of `buf` into `writer`.
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn pgp_writer_write(errp: Option<&mut *mut failure::Error>,
+pub extern "system" fn pgp_writer_write(errp: Option<&mut *mut ::error::Error>,
                                        writer: *mut Box<Write>,
                                        buf: *const uint8_t, len: size_t)
                                        -> ssize_t {

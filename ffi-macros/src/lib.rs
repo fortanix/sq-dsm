@@ -474,7 +474,7 @@ fn derive_conversion_functions(mut st: syn::ItemStruct, _: &str, _: &str,
         impl MoveResultIntoRaw<Option<::std::ptr::NonNull<#wrapper>>>
             for ::failure::Fallible<#wrapped>
         {
-            fn move_into_raw(self, errp: Option<&mut *mut ::failure::Error>)
+            fn move_into_raw(self, errp: Option<&mut *mut ::error::Error>)
                              -> Option<::std::ptr::NonNull<#wrapper>> {
                 match self {
                     Ok(v) => {
@@ -483,7 +483,7 @@ fn derive_conversion_functions(mut st: syn::ItemStruct, _: &str, _: &str,
                     },
                     Err(e) => {
                         if let Some(errp) = errp {
-                            *errp = box_raw!(e);
+                            *errp = e.move_into_raw();
                         }
                         None
                     },
@@ -494,7 +494,7 @@ fn derive_conversion_functions(mut st: syn::ItemStruct, _: &str, _: &str,
         impl MoveResultIntoRaw<Option<::std::ptr::NonNull<#wrapper>>>
             for ::failure::Fallible<&#wrapped>
         {
-            fn move_into_raw(self, errp: Option<&mut *mut ::failure::Error>)
+            fn move_into_raw(self, errp: Option<&mut *mut ::error::Error>)
                              -> Option<::std::ptr::NonNull<#wrapper>> {
                 match self {
                     Ok(v) => {
@@ -503,7 +503,7 @@ fn derive_conversion_functions(mut st: syn::ItemStruct, _: &str, _: &str,
                     },
                     Err(e) => {
                         if let Some(errp) = errp {
-                            *errp = box_raw!(e);
+                            *errp = e.move_into_raw();
                         }
                         None
                     },
@@ -514,7 +514,7 @@ fn derive_conversion_functions(mut st: syn::ItemStruct, _: &str, _: &str,
         impl MoveResultIntoRaw<Option<::std::ptr::NonNull<#wrapper>>>
             for ::failure::Fallible<&mut #wrapped>
         {
-            fn move_into_raw(self, errp: Option<&mut *mut ::failure::Error>)
+            fn move_into_raw(self, errp: Option<&mut *mut ::error::Error>)
                              -> Option<::std::ptr::NonNull<#wrapper>> {
                 match self {
                     Ok(v) => {
@@ -523,7 +523,7 @@ fn derive_conversion_functions(mut st: syn::ItemStruct, _: &str, _: &str,
                     },
                     Err(e) => {
                         if let Some(errp) = errp {
-                            *errp = box_raw!(e);
+                            *errp = e.move_into_raw();
                         }
                         None
                     },

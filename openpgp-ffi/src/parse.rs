@@ -26,6 +26,7 @@ use self::openpgp::parse::{
 };
 
 use error::Status;
+use MoveIntoRaw;
 
 /// Starts parsing OpenPGP packets stored in a `pgp_reader_t`
 /// object.
@@ -34,7 +35,7 @@ use error::Status;
 /// the stream.
 #[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn pgp_packet_parser_from_reader<'a>
-    (errp: Option<&mut *mut failure::Error>, reader: *mut Box<'a + Read>)
+    (errp: Option<&mut *mut ::error::Error>, reader: *mut Box<'a + Read>)
      -> *mut PacketParserResult<'a> {
     ffi_make_fry_from_errp!(errp);
     let reader = ffi_param_ref_mut!(reader);
@@ -47,7 +48,7 @@ pub extern "system" fn pgp_packet_parser_from_reader<'a>
 /// the stream.
 #[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn pgp_packet_parser_from_file
-    (errp: Option<&mut *mut failure::Error>, filename: *const c_char)
+    (errp: Option<&mut *mut ::error::Error>, filename: *const c_char)
      -> *mut PacketParserResult<'static> {
     ffi_make_fry_from_errp!(errp);
     let filename = ffi_param_cstr!(filename).to_string_lossy().into_owned();
@@ -60,7 +61,7 @@ pub extern "system" fn pgp_packet_parser_from_file
 /// the stream.
 #[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn pgp_packet_parser_from_bytes
-    (errp: Option<&mut *mut failure::Error>, b: *const uint8_t, len: size_t)
+    (errp: Option<&mut *mut ::error::Error>, b: *const uint8_t, len: size_t)
      -> *mut PacketParserResult<'static> {
     ffi_make_fry_from_errp!(errp);
     assert!(!b.is_null());
@@ -193,7 +194,7 @@ pub extern "system" fn pgp_packet_parser_recursion_depth
 /// Consumes the given packet parser.
 #[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn pgp_packet_parser_next<'a>
-    (errp: Option<&mut *mut failure::Error>,
+    (errp: Option<&mut *mut ::error::Error>,
      pp: *mut PacketParser<'a>,
      old_packet: Option<&mut *mut Packet>,
      ppr: Option<&mut *mut PacketParserResult<'a>>)
@@ -237,7 +238,7 @@ pub extern "system" fn pgp_packet_parser_next<'a>
 /// Consumes the given packet parser.
 #[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn pgp_packet_parser_recurse<'a>
-    (errp: Option<&mut *mut failure::Error>,
+    (errp: Option<&mut *mut ::error::Error>,
      pp: *mut PacketParser<'a>,
      old_packet: Option<&mut *mut Packet>,
      ppr: Option<&mut *mut PacketParserResult<'a>>)
@@ -267,7 +268,7 @@ pub extern "system" fn pgp_packet_parser_recurse<'a>
 /// content is small.
 #[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn pgp_packet_parser_buffer_unread_content<'a>
-    (errp: Option<&mut *mut failure::Error>,
+    (errp: Option<&mut *mut ::error::Error>,
      pp: *mut PacketParser<'a>,
      len: *mut usize)
      -> *const uint8_t {
@@ -285,7 +286,7 @@ pub extern "system" fn pgp_packet_parser_buffer_unread_content<'a>
 /// `PacketParserBuild` to customize the default behavior.
 #[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn pgp_packet_parser_finish<'a>
-    (errp: Option<&mut *mut failure::Error>, pp: *mut PacketParser<'a>,
+    (errp: Option<&mut *mut ::error::Error>, pp: *mut PacketParser<'a>,
      packet: Option<&mut *const Packet>)
      -> Status
 {
@@ -301,7 +302,7 @@ pub extern "system" fn pgp_packet_parser_finish<'a>
         Err(e) => {
             let status = Status::from(&e);
             if let Some(errp) = errp {
-                *errp = box_raw!(e);
+                *errp = e.move_into_raw();
             }
             status
         },
@@ -319,7 +320,7 @@ pub extern "system" fn pgp_packet_parser_finish<'a>
 /// returns `Error::InvalidOperation`.
 #[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn pgp_packet_parser_decrypt<'a>
-    (errp: Option<&mut *mut failure::Error>,
+    (errp: Option<&mut *mut ::error::Error>,
      pp: *mut PacketParser<'a>,
      algo: uint8_t, // XXX
      key: *const uint8_t, key_len: size_t)

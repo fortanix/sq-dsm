@@ -38,7 +38,6 @@
 //! sq_context_free (ctx);
 //! ```
 
-use failure;
 use std::ptr;
 use libc::{uint8_t, c_char, c_int};
 
@@ -49,7 +48,7 @@ use sequoia_core::Config;
 #[doc(hidden)]
 pub struct Context {
     pub(crate) c: core::Context,
-    e: *mut failure::Error,
+    e: *mut ::error::Error,
 }
 
 impl Context {
@@ -57,7 +56,7 @@ impl Context {
         Context{c: c, e: ptr::null_mut()}
     }
 
-    pub(crate) fn errp(&mut self) -> &mut *mut failure::Error {
+    pub(crate) fn errp(&mut self) -> &mut *mut ::error::Error {
         &mut self.e
     }
 }
@@ -67,7 +66,7 @@ impl Context {
 /// Returns and removes the last error from the context.
 #[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_context_last_error(ctx: *mut Context)
-                                             -> *mut failure::Error {
+                                             -> *mut ::error::Error {
     let ctx = ffi_param_ref_mut!(ctx);
     ::std::mem::replace(&mut ctx.e, ptr::null_mut())
 }
@@ -82,7 +81,7 @@ pub extern "system" fn sq_context_last_error(ctx: *mut Context)
 /// stored there.
 #[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_context_new(domain: *const c_char,
-                                      errp: Option<&mut *mut failure::Error>)
+                                      errp: Option<&mut *mut ::error::Error>)
                                       -> *mut Context {
     ffi_make_fry_from_errp!(errp);
     let domain = ffi_param_cstr!(domain).to_string_lossy();
@@ -164,7 +163,7 @@ pub extern "system" fn sq_context_ephemeral(ctx: *const Context) -> uint8_t {
 /// errors.  If `errp` is not `NULL`, the error is stored there.
 #[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn sq_config_build(cfg: *mut Config,
-                                       errp: Option<&mut *mut failure::Error>)
+                                       errp: Option<&mut *mut ::error::Error>)
                                        -> *mut Context {
     ffi_make_fry_from_errp!(errp);
     let cfg = ffi_param_move!(cfg);

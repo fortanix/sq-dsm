@@ -149,9 +149,10 @@ macro_rules! ffi_make_fry_from_errp {
                 match $expr {
                     Ok(_) => ::error::Status::Success,
                     Err(e) => {
+                        use MoveIntoRaw;
                         let status = ::error::Status::from(&e);
                         if let Some(errp) = $errp {
-                            *errp = box_raw!(e);
+                            *errp = e.move_into_raw();
                         }
                         status
                     },
@@ -169,8 +170,9 @@ macro_rules! ffi_make_fry_from_errp {
                 match $expr {
                     Ok(v) => v,
                     Err(e) => {
+                        use MoveIntoRaw;
                         if let Some(errp) = $errp {
-                            *errp = box_raw!(e);
+                            *errp = e.move_into_raw();
                         }
                         return $or;
                     },
@@ -254,7 +256,7 @@ pub(crate) trait MoveIntoRaw<T> {
 /// Moves an object from Rust to C, releasing ownership.
 pub(crate) trait MoveResultIntoRaw<T> {
     /// Moves this object from Rust to C, releasing ownership.
-    fn move_into_raw(self, errp: Option<&mut *mut ::failure::Error>) -> T;
+    fn move_into_raw(self, errp: Option<&mut *mut self::error::Error>) -> T;
 }
 
 /// Indicates that a pointer may be NULL.
@@ -621,7 +623,7 @@ fn verify_real<'a>(input: &'a mut Box<'a + Read>,
 ///
 /// Note: output may be NULL, if the output is not required.
 #[::ffi_catch_abort] #[no_mangle]
-pub fn pgp_verify<'a>(errp: Option<&mut *mut failure::Error>,
+pub fn pgp_verify<'a>(errp: Option<&mut *mut ::error::Error>,
                      input: *mut Box<'a + Read>,
                      dsig: Option<&'a mut Box<'a + Read>>,
                      output: Option<&'a mut Box<'a + Write>>,
@@ -744,7 +746,7 @@ fn decrypt_real<'a>(input: &'a mut Box<'a + Read>,
 ///
 /// Note: all of the parameters are required; none may be NULL.
 #[::ffi_catch_abort] #[no_mangle]
-pub fn pgp_decrypt<'a>(errp: Option<&mut *mut failure::Error>,
+pub fn pgp_decrypt<'a>(errp: Option<&mut *mut ::error::Error>,
                       input: *mut Box<'a + Read>,
                       output: *mut Box<'a + Write>,
                       get_public_keys: GetPublicKeysCallback,
