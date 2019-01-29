@@ -18,13 +18,13 @@ main (int argc, char **argv)
   ctx = sq_context_new ("org.sequoia-pgp.example", &err);
   if (ctx == NULL)
     error (1, 0, "Initializing sequoia failed: %s",
-           pgp_error_string (err));
+           pgp_error_to_string (err));
 
   ks = sq_keyserver_sks_pool (ctx);
   if (ks == NULL)
     {
       pgp_error_t err = sq_context_last_error (ctx);
-      error (1, 0, "Initializing Keyserver failed: %s", pgp_error_string (err));
+      error (1, 0, "Initializing Keyserver failed: %s", pgp_error_to_string (err));
     }
 
   id = pgp_keyid_from_bytes ((uint8_t *) "\x24\x7F\x6D\xAB\xC8\x49\x14\xFE");
@@ -32,7 +32,7 @@ main (int argc, char **argv)
   if (tpk == NULL)
     {
       pgp_error_t err = sq_context_last_error (ctx);
-      error (1, 0, "Failed to retrieve key: %s", pgp_error_string (err));
+      error (1, 0, "Failed to retrieve key: %s", pgp_error_to_string (err));
     }
 
   char *debug = pgp_tpk_debug (tpk);

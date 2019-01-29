@@ -46,7 +46,7 @@ main (int argc, char **argv)
 
   tpk = pgp_tpk_from_bytes (&err, b, st.st_size);
   if (tpk == NULL)
-    error (1, 0, "pgp_packet_parser_from_bytes: %s", pgp_error_string (err));
+    error (1, 0, "pgp_packet_parser_from_bytes: %s", pgp_error_to_string (err));
 
   sink = pgp_writer_alloc (&cipher, &cipher_bytes);
 
@@ -61,11 +61,11 @@ main (int argc, char **argv)
 			     &tpk, 1,
 			     PGP_ENCRYPTION_MODE_FOR_TRANSPORT);
   if (writer == NULL)
-    error (1, 0, "pgp_encryptor_new: %s", pgp_error_string (err));
+    error (1, 0, "pgp_encryptor_new: %s", pgp_error_to_string (err));
 
   writer = pgp_literal_writer_new (&err, writer);
   if (writer == NULL)
-    error (1, 0, "pgp_literal_writer_new: %s", pgp_error_string (err));
+    error (1, 0, "pgp_literal_writer_new: %s", pgp_error_to_string (err));
 
   size_t nread;
   uint8_t buf[4096];
@@ -77,7 +77,7 @@ main (int argc, char **argv)
 	  ssize_t written;
 	  written = pgp_writer_stack_write (&err, writer, b, nread);
 	  if (written < 0)
-            error (1, 0, "pgp_writer_stack_write: %s", pgp_error_string (err));
+            error (1, 0, "pgp_writer_stack_write: %s", pgp_error_to_string (err));
 
 	  b += written;
 	  nread -= written;
@@ -87,7 +87,7 @@ main (int argc, char **argv)
   rc = pgp_writer_stack_finalize (&err, writer);
   writer = NULL;
   if (rc)
-    error (1, 0, "pgp_writer_stack_write: %s", pgp_error_string (err));
+    error (1, 0, "pgp_writer_stack_write: %s", pgp_error_to_string (err));
 
   fwrite (cipher, 1, cipher_bytes, stdout);
 

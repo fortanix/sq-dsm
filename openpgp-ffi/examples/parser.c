@@ -61,7 +61,7 @@ main (int argc, char **argv)
       rc = pgp_packet_parser_next (&err, pp, &p, &ppr);
       if (rc)
         error (1, 0, "pgp_packet_parser_from_bytes: %s",
-               pgp_error_string (err));
+               pgp_error_to_string (err));
 
       // We now own p.  If we want, we can save it in some structure.
       // This would be useful when collecting PKESK packets.  Either
@@ -82,7 +82,7 @@ main (int argc, char **argv)
         }
     }
   if (ppr == NULL)
-    error (1, 0, "pgp_packet_parser_from_bytes: %s", pgp_error_string (err));
+    error (1, 0, "pgp_packet_parser_from_bytes: %s", pgp_error_to_string (err));
 
   fprintf (stderr, "Parsed %ld packets in %ld seconds, %.2f packets/s.\n",
            n, elapsed, (double) n / (double) elapsed);

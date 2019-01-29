@@ -32,7 +32,7 @@ main (int argc, char **argv)
 
   header = pgp_armor_reader_headers (&err, armor, &header_len);
   if (header == NULL)
-    error (1, 0, "Getting headers failed: %s", pgp_error_string (err));
+    error (1, 0, "Getting headers failed: %s", pgp_error_to_string (err));
 
   assert (header_len == 2);
   assert (strcmp (header[0].key, "Key0") == 0
@@ -50,7 +50,7 @@ main (int argc, char **argv)
   assert (kind == PGP_ARMOR_KIND_FILE);
 
   if (pgp_reader_read (&err, armor, (uint8_t *) message, 12) < 0)
-      error (1, 0, "Reading failed: %s", pgp_error_string (err));
+      error (1, 0, "Reading failed: %s", pgp_error_to_string (err));
 
   assert (memcmp (message, "Hello world!", 12) == 0);
 

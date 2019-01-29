@@ -86,7 +86,7 @@
 //! pgp_error_t err;
 //! pgp_tpk_t tpk = pgp_tpk_from_file (&err, "../openpgp/tests/data/keys/testy.pgp");
 //! if (tpk == NULL)
-//!   error (1, 0, "pgp_tpk_from_file: %s", pgp_error_string (err));
+//!   error (1, 0, "pgp_tpk_from_file: %s", pgp_error_to_string (err));
 //!
 //!  /* XXX: Do something interesting.  */
 //!
@@ -149,11 +149,11 @@
 //! [`pgp_packet_parser_from_bytes`]: parse/fn.pgp_packet_parser_from_bytes.html
 //!
 //! Errors may be inspected using [`pgp_error_status`], and formatted
-//! as an error message using [`pgp_error_string`].  Errors must be freed
+//! as an error message using [`pgp_error_to_string`].  Errors must be freed
 //! using [`pgp_error_free`].
 //!
 //! [`pgp_error_status`]: error/fn.pgp_error_status.html
-//! [`pgp_error_string`]: error/fn.pgp_error_string.html
+//! [`pgp_error_to_string`]: error/fn.pgp_error_to_string.html
 //! [`pgp_error_free`]: error/fn.pgp_error_free.html
 //!
 //! ## Types
@@ -304,7 +304,7 @@
 //! pgp_error_t err;
 //! char message[12];
 //! if (pgp_reader_read (&err, armor, (uint8_t *) message, 12) != 12)
-//!     error (1, 0, "Reading failed: %s", pgp_error_string (err));
+//!     error (1, 0, "Reading failed: %s", pgp_error_to_string (err));
 //!
 //! assert (pgp_armor_reader_kind (armor) == PGP_ARMOR_KIND_FILE);
 //! assert (memcmp (message, "Hello world!", 12) == 0);

@@ -77,7 +77,7 @@ fn kind_to_int(kind: Option<armor::Kind>) -> c_int {
 /// size_t header_len;
 /// header = pgp_armor_reader_headers (&err, armor, &header_len);
 /// if (header == NULL)
-///   error (1, 0, "Getting headers failed: %s", pgp_error_string (err));
+///   error (1, 0, "Getting headers failed: %s", pgp_error_to_string (err));
 ///
 /// assert (header_len == 2);
 /// assert (strcmp (header[0].key, "Key0") == 0
@@ -93,7 +93,7 @@ fn kind_to_int(kind: Option<armor::Kind>) -> c_int {
 ///
 /// char message[12];
 /// if (pgp_reader_read (&err, armor, (uint8_t *) message, 12) < 0)
-///   error (1, 0, "Reading failed: %s", pgp_error_string (err));
+///   error (1, 0, "Reading failed: %s", pgp_error_to_string (err));
 ///
 /// assert (pgp_armor_reader_kind (armor) == PGP_ARMOR_KIND_FILE);
 /// assert (memcmp (message, "Hello world!", 12) == 0);
@@ -157,7 +157,7 @@ pub extern "system" fn pgp_armor_reader_from_file(errp: Option<&mut *mut ::error
 /// size_t header_len;
 /// header = pgp_armor_reader_headers (&err, armor, &header_len);
 /// if (header == NULL)
-///   error (1, 0, "Getting headers failed: %s", pgp_error_string (err));
+///   error (1, 0, "Getting headers failed: %s", pgp_error_to_string (err));
 ///
 /// assert (header_len == 2);
 /// assert (strcmp (header[0].key, "Key0") == 0
@@ -173,7 +173,7 @@ pub extern "system" fn pgp_armor_reader_from_file(errp: Option<&mut *mut ::error
 ///
 /// char message[12];
 /// if (pgp_reader_read (&err, armor, (uint8_t *) message, 12) < 0)
-///   error (1, 0, "Reading failed: %s", pgp_error_string (err));
+///   error (1, 0, "Reading failed: %s", pgp_error_to_string (err));
 ///
 /// assert (pgp_armor_reader_kind (armor) == PGP_ARMOR_KIND_FILE);
 /// assert (memcmp (message, "Hello world!", 12) == 0);
@@ -317,10 +317,10 @@ pub extern "system" fn pgp_armor_reader_headers(errp: Option<&mut *mut ::error::
 ///   alloc = pgp_writer_alloc (&buf, &len);
 ///   armor = pgp_armor_writer_new (&err, alloc, PGP_ARMOR_KIND_FILE, header, 2);
 ///   if (armor == NULL)
-///     error (1, 0, "Creating armor writer failed: %s", pgp_error_string (err));
+///     error (1, 0, "Creating armor writer failed: %s", pgp_error_to_string (err));
 ///
 ///   if (pgp_writer_write (&err, armor, (uint8_t *) message, strlen (message)) < 0)
-///     error (1, 0, "Writing failed: %s", pgp_error_string (err));
+///     error (1, 0, "Writing failed: %s", pgp_error_to_string (err));
 //
 ///   pgp_writer_free (armor);
 ///   pgp_writer_free (alloc);

@@ -23,7 +23,7 @@ class MalformedValue(Error, ValueError):
 class SQError(Error):
     def __init__(self, o):
         self.__o = ffi.gc(o, lib.pgp_error_free)
-        super(SQError, self).__init__(sq_str(lib.pgp_error_string(self.__o)))
+        super(SQError, self).__init__(sq_str(lib.pgp_error_to_string(self.__o)))
 
 class Success(SQError):
     pass

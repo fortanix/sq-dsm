@@ -100,7 +100,7 @@
 //!
 //! tpk = pgp_tpk_from_file (&err, "../openpgp/tests/data/keys/testy.pgp");
 //! if (tpk == NULL)
-//!   error (1, 0, "pgp_tpk_from_bytes: %s", pgp_error_string (err));
+//!   error (1, 0, "pgp_tpk_from_bytes: %s", pgp_error_to_string (err));
 //!
 //! pgp_tpk_free (tpk);
 //! ```

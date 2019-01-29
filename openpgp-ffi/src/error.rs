@@ -2,7 +2,6 @@
 
 use failure;
 use std::io;
-use libc::c_char;
 
 extern crate sequoia_openpgp as openpgp;
 
@@ -13,15 +12,6 @@ extern crate sequoia_openpgp as openpgp;
 /// [`failure::Error`]: https://docs.rs/failure/0.1.5/failure/struct.Error.html
 #[::ffi_wrapper_type(prefix = "pgp_", derive = "Display")]
 pub struct Error(failure::Error);
-
-/// Returns the error message.
-///
-/// The returned value must be freed with `free(3)`.
-#[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn pgp_error_string(error: *const Error)
-                                        -> *mut c_char {
-    ffi_return_string!(&format!("{}", error.ref_raw()))
-}
 
 /// Returns the error status code.
 #[::ffi_catch_abort] #[no_mangle]

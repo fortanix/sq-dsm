@@ -36,7 +36,7 @@ main (int argc, char **argv)
 
   tpk = pgp_tpk_from_bytes (&err, b, st.st_size);
   if (tpk == NULL)
-    error (1, 0, "pgp_tpk_from_bytes: %s", pgp_error_string (err));
+    error (1, 0, "pgp_tpk_from_bytes: %s", pgp_error_to_string (err));
 
   char *debug = pgp_tpk_debug (tpk);
   printf ("%s", debug);

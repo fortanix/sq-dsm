@@ -137,7 +137,7 @@ void pgp_error_free (pgp_error_t error);
 ///
 /// The returned value must be freed with `free(3)`.
 /*/
-char *pgp_error_string (const pgp_error_t err);
+char *pgp_error_to_string (const pgp_error_t err);
 
 /*/
 /// Returns the error status code.

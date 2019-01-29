@@ -38,7 +38,7 @@ main (int argc, char **argv)
   reader = pgp_reader_from_bytes (b, st.st_size);
   tpk = pgp_tpk_from_reader (&err, reader);
   if (tpk == NULL)
-    error (1, 0, "pgp_tpk_from_reader: %s", pgp_error_string (err));
+    error (1, 0, "pgp_tpk_from_reader: %s", pgp_error_to_string (err));
 
   char *debug = pgp_tpk_debug (tpk);
   printf ("%s", debug);
