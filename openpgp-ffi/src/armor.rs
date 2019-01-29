@@ -261,8 +261,10 @@ pub extern "system" fn pgp_armor_reader_headers(errp: Option<&mut *mut ::error::
                 slice::from_raw_parts_mut(buf, headers.len())
             };
             for (i, (key, value)) in headers.iter().enumerate() {
-                sl[i].key = strdup(key);
-                sl[i].value = strdup(value);
+                sl[i].key =
+                    super::strndup(key.as_bytes()).unwrap_or(ptr::null_mut());
+                sl[i].value =
+                    super::strndup(value.as_bytes()).unwrap_or(ptr::null_mut());
             }
 
             *len = headers.len();
@@ -279,22 +281,6 @@ pub extern "system" fn pgp_armor_reader_headers(errp: Option<&mut *mut ::error::
     // Release temporary ownership.
     Box::into_raw(reader);
     result
-}
-
-/// Creates a zero-terminated C string from a &str allocated using
-/// malloc.
-fn strdup(s: &str) -> *mut c_char {
-    let b = s.as_bytes();
-    let len = b.len() + 1;
-    let dup = unsafe {
-        libc::malloc(len) as *mut c_char
-    };
-    let sl = unsafe {
-        slice::from_raw_parts_mut(dup as *mut uint8_t, len)
-    };
-    sl[..len-1].copy_from_slice(b);
-    sl[len-1] = 0;
-    dup
 }
 
 /// Constructs a new filter for the given type of data.
