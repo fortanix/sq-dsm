@@ -3624,9 +3624,7 @@ mod test {
     // subkeys with and without a private key are merged.
     #[test]
     fn public_private_merge() {
-        use std::borrow::Cow;
-
-        let (tsk, _) = TSK::new(Cow::Borrowed("foo@example.com")).unwrap();
+        let (tsk, _) = TSK::new(Some("foo@example.com".into())).unwrap();
         // tsk is now a tpk, but it still has its private bits.
         let tsk = tsk.into_tpk();
         assert!(tsk.primary.secret().is_some());

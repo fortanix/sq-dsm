@@ -574,10 +574,25 @@ pub extern "system" fn pgp_tpk_builder_default() -> *mut TPKBuilder {
 
 /// Generates a key compliant to [Autocrypt Level 1].
 ///
+/// Autocrypt requires a user id, however, if `uid` is NULL, a TPK is
+/// created without any user ids.  It is then the caller's
+/// responsibility to ensure that a user id is added later.
+///
+/// `uid` must contain valid UTF-8.  If it does not contain valid
+/// UTF-8, then the invalid code points are silently replaced with
+/// `U+FFFD REPLACEMENT CHARACTER`.
+///
 ///   [Autocrypt Level 1]: https://autocrypt.org/level1.html
 #[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn pgp_tpk_builder_autocrypt() -> *mut TPKBuilder {
-    box_raw!(TPKBuilder::autocrypt(Autocrypt::V1))
+pub extern "system" fn pgp_tpk_builder_autocrypt(uid: *const c_char)
+    -> *mut TPKBuilder
+{
+    let uid = if uid.is_null() {
+        None
+    } else {
+        Some(ffi_param_cstr!(uid).to_string_lossy())
+    };
+    box_raw!(TPKBuilder::autocrypt(Autocrypt::V1, uid))
 }
 
 /// Frees an `pgp_tpk_builder_t`.
@@ -607,6 +622,10 @@ pub extern "system" fn pgp_tpk_builder_set_cipher_suite
 
 /// Adds a new user ID. The first user ID added replaces the default
 /// ID that is just the empty string.
+///
+/// `uid` must contain valid UTF-8.  If it does not contain valid
+/// UTF-8, then the invalid code points are silently replaced with
+/// `U+FFFD REPLACEMENT CHARACTER`.
 #[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn pgp_tpk_builder_add_userid
     (tpkb: *mut *mut TPKBuilder, uid: *const c_char)

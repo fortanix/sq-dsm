@@ -77,17 +77,12 @@ impl TSK {
     /// Generates a new key OpenPGP key. The key will be capable of encryption
     /// and signing. If no user id is given the primary self signature will be
     /// a direct key signature.
-    pub fn new<'a, O: Into<Option<Cow<'a,str>>>>(primary_uid: O)
-                                                 -> Result<(TSK, Signature)> {
+    pub fn new<'a, O>(primary_uid: O) -> Result<(TSK, Signature)>
+        where O: Into<Option<Cow<'a, str>>>
+    {
         use tpk::TPKBuilder;
 
-        let mut key = TPKBuilder::autocrypt(None);
-
-        match primary_uid.into() {
-            Some(uid) => { key = key.add_userid(uid); }
-            None => {}
-        }
-
+        let key = TPKBuilder::autocrypt(None, primary_uid);
         let (tpk, revocation) = key.generate()?;
         Ok((TSK::from_tpk(tpk), revocation))
     }
@@ -212,6 +207,7 @@ impl Serialize for TSK {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use tpk::TPKBuilder;
 
     #[test]
@@ -250,5 +246,47 @@ mod tests {
                 tpk2.primary(),
                 tpk2.userids().next().unwrap().userid()).unwrap(),
             true);
+    }
+
+    #[test]
+    fn user_ids() {
+        let (tpk, _) = TPKBuilder::default()
+            .add_userid("test1@example.com")
+            .add_userid("test2@example.com")
+            .generate().unwrap();
+
+        let userids = tpk
+            .userids()
+            .map(|binding| binding.userid().userid())
+            .collect::<Vec<_>>();
+        assert_eq!(userids.len(), 2);
+        assert!((userids[0] == b"test1@example.com"
+                 && userids[1] == b"test2@example.com")
+                || (userids[0] == b"test2@example.com"
+                    && userids[1] == b"test1@example.com"),
+                "User ids: {:?}", userids);
+
+
+        let (tpk, _) = TPKBuilder::autocrypt(None, Some("Foo".into()))
+            .generate()
+            .unwrap();
+
+        let userids = tpk
+            .userids()
+            .map(|binding| binding.userid().userid())
+            .collect::<Vec<_>>();
+        assert_eq!(userids.len(), 1);
+        assert_eq!(userids[0], b"Foo");
+
+
+        let (tsk, _) = TSK::new(Some("test@example.com".into())).unwrap();
+        let tpk = tsk.into_tpk();
+        let userids = tpk
+            .userids()
+            .map(|binding| binding.userid().userid())
+            .collect::<Vec<_>>();
+        assert_eq!(userids.len(), 1);
+        assert_eq!(userids[0], b"test@example.com",
+                   "User ids: {:?}", userids);
     }
 }

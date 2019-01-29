@@ -89,12 +89,19 @@ impl Default for TPKBuilder {
 
 impl TPKBuilder {
     /// Generates a key compliant to
-    /// [Autocrypt](https://autocrypt.org/). If no version is given the latest
-    /// one is used.
-    pub fn autocrypt<V>(_: V)
-        -> Self where V: Into<Option<Autocrypt>>
+    /// [Autocrypt](https://autocrypt.org/).
+    ///
+    /// If no version is given the latest one is used.
+    ///
+    /// The autocrypt specification requires a UserID.  However,
+    /// because it can be useful to add the UserID later, it is
+    /// permitted to be none.
+    pub fn autocrypt<'a, V, S>(_: V, userid: S)
+        -> Self
+        where V: Into<Option<Autocrypt>>,
+            S: Into<Option<Cow<'a, str>>>
     {
-        TPKBuilder{
+        let builder = TPKBuilder{
             ciphersuite: CipherSuite::RSA3k,
             primary: KeyBlueprint{
                 flags: KeyFlags::default()
@@ -108,8 +115,14 @@ impl TPKBuilder {
                         .set_encrypt_at_rest(true)
                 }
             ],
-            userids: vec!["".into()],
+            userids: vec![],
             password: None,
+        };
+
+        if let Some(userid) = userid.into() {
+            builder.add_userid(userid)
+        } else {
+            builder
         }
     }
 
@@ -474,12 +487,13 @@ mod tests {
 
     #[test]
     fn autocrypt() {
-        let (tpk1, _) = TPKBuilder::autocrypt(None)
+        let (tpk1, _) = TPKBuilder::autocrypt(None, Some("Foo".into()))
             .generate().unwrap();
         assert_eq!(tpk1.primary().pk_algo(),
                    PublicKeyAlgorithm::RSAEncryptSign);
         assert_eq!(tpk1.subkeys().next().unwrap().subkey().pk_algo(),
                    PublicKeyAlgorithm::RSAEncryptSign);
+        assert_eq!(tpk1.userids().count(), 1);
     }
 
     #[test]
