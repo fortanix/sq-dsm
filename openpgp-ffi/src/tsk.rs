@@ -10,13 +10,14 @@ use libc::c_char;
 
 extern crate sequoia_openpgp;
 use self::sequoia_openpgp::{
-    TPK,
     TSK,
     packet::Signature,
     serialize::Serialize,
 };
 
+use super::tpk::TPK;
 use ::error::Status;
+use MoveIntoRaw;
 
 /// Generates a new RSA 3072 bit key with UID `primary_uid`.
 #[::ffi_catch_abort] #[no_mangle]
@@ -47,19 +48,17 @@ pub extern "system" fn pgp_tsk_free(tsk: Option<&mut TSK>) {
 }
 
 /// Returns a reference to the corresponding TPK.
-#[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn pgp_tsk_tpk(tsk: *const TSK)
-                                  -> *const TPK {
-    let tsk = ffi_param_ref!(tsk);
-    tsk.tpk()
+#[::ffi_catch_abort] #[no_mangle] pub extern "system"
+fn pgp_tsk_tpk(tsk: *const TSK)
+               -> *const TPK {
+    ffi_param_ref!(tsk).tpk().move_into_raw()
 }
 
 /// Converts the TSK into a TPK.
 #[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn pgp_tsk_into_tpk(tsk: *mut TSK)
                                        -> *mut TPK {
-    let tsk = ffi_param_move!(tsk);
-    box_raw!(tsk.into_tpk())
+    ffi_param_move!(tsk).into_tpk().move_into_raw()
 }
 
 

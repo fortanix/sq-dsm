@@ -14,7 +14,6 @@ extern crate sequoia_openpgp as openpgp;
 extern crate time;
 
 use self::openpgp::{
-    TPK,
     crypto::Password,
 };
 use self::openpgp::constants::{
@@ -36,6 +35,7 @@ use self::openpgp::serialize::{
     },
 };
 
+use super::openpgp::TPK;
 
 /// Streams an OpenPGP message.
 #[::ffi_catch_abort] #[no_mangle]

@@ -298,7 +298,6 @@ extern crate time;
 
 use self::openpgp::{
     RevocationStatus,
-    TPK,
     packet::{
         PKESK,
         SKESK,
@@ -314,6 +313,7 @@ use self::openpgp::parse::stream::{
     DetachedVerifier,
 };
 
+use self::tpk::TPK;
 use error::Status;
 
 fn revocation_status_to_int(rs: &RevocationStatus) -> c_int {
@@ -466,7 +466,7 @@ type FreeCallback = fn(*mut c_void);
 /// returned array of TPKs.
 type GetPublicKeysCallback = fn(*mut HelperCookie,
                                 *const &openpgp::KeyID, usize,
-                                &mut *mut &mut TPK, *mut usize,
+                                &mut *mut *mut TPK, *mut usize,
                                 *mut FreeCallback) -> Status;
 
 /// Returns a session key.
@@ -506,13 +506,13 @@ impl VHelper {
 
 impl VerificationHelper for VHelper {
     fn get_public_keys(&mut self, ids: &[openpgp::KeyID])
-        -> Result<Vec<TPK>, failure::Error>
+        -> Result<Vec<openpgp::TPK>, failure::Error>
     {
         // The size of KeyID is not known in C.  Convert from an array
         // of KeyIDs to an array of KeyID refs.
         let ids : Vec<&openpgp::KeyID> = ids.iter().collect();
 
-        let mut tpk_refs_raw : *mut &mut TPK = ptr::null_mut();
+        let mut tpk_refs_raw : *mut *mut TPK = ptr::null_mut();
         let mut tpk_refs_raw_len = 0usize;
 
         let mut free : FreeCallback = |_| {};
@@ -533,10 +533,10 @@ impl VerificationHelper for VHelper {
 
         // Convert the array of references to TPKs to a Vec<TPK>
         // (i.e., not a Vec<&TPK>).
-        let mut tpks : Vec<TPK> = Vec::with_capacity(tpk_refs_raw_len);
+        let mut tpks : Vec<openpgp::TPK> = Vec::with_capacity(tpk_refs_raw_len);
         for i in 0..tpk_refs_raw_len {
-            let tpk = unsafe { ptr::read(*tpk_refs_raw.offset(i as isize)) };
-            tpks.push(tpk);
+            let tpk_raw = unsafe { *tpk_refs_raw.offset(i as isize) };
+            tpks.push(tpk_raw.move_from_raw());
         }
 
         (free)(tpk_refs_raw as *mut c_void);
@@ -661,7 +661,7 @@ impl DHelper {
 
 impl VerificationHelper for DHelper {
     fn get_public_keys(&mut self, ids: &[openpgp::KeyID])
-        -> Result<Vec<TPK>, failure::Error>
+        -> Result<Vec<openpgp::TPK>, failure::Error>
     {
         self.vhelper.get_public_keys(ids)
     }
