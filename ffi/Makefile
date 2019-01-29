@@ -19,11 +19,21 @@ INSTALL		?= install
 export PREFIX
 export DESTDIR
 
+# $(1) = install dir
+# $(2) = whether to set libdir to $(1) (empty string = false)
+sequoia_pc = \
+	sed -e 's|VERSION|$(VERSION)|g' \
+	    -e 's|PREFIX|$(shell pwd)|g' \
+	    $(if $(2),-e 's|libdir=.*|libdir=$(1)|g') \
+	  sequoia.pc.in \
+	  >$(1)/sequoia.pc
+
 all: build
 
 .PHONY: build
 build:
 	$(MAKE) -Clang/python build
+	$(call sequoia_pc,$(CARGO_TARGET_DIR)/debug,true)
 
 # Testing and examples.
 .PHONY: test check
@@ -38,14 +48,12 @@ examples:
 .PHONY: build-release
 build-release:
 	$(MAKE) -Clang/python build-release
+	$(call sequoia_pc,$(CARGO_TARGET_DIR)/release,true)
 
 .PHONY: install
 install:
 	$(INSTALL) -d $(DESTDIR)$(PREFIX)/share/pkgconfig
-	sed -e 's|VERSION|$(VERSION)|g' \
-	    -e 's|PREFIX|$(PREFIX)|g' \
-		sequoia.pc.in \
-		> $(DESTDIR)$(PREFIX)/share/pkgconfig/sequoia.pc
+	$(call sequoia_pc,$(DESTDIR)$(PREFIX)/share/pkgconfig,)
 	$(INSTALL) -d $(DESTDIR)$(PREFIX)/include
 	$(INSTALL) -t $(DESTDIR)$(PREFIX)/include include/sequoia.h
 	$(INSTALL) -d $(DESTDIR)$(PREFIX)/include/sequoia
