@@ -33,7 +33,7 @@ def test_from_file():
     t = TPK.open(ctx, pgp)
     assert t.fingerprint() == fp
 
-def test_from_message():
+def test_from_packet_pile():
     ctx = Context("org.sequoia-pgp.tests",
                   network_policy=NetworkPolicy.Offline,
                   ephemeral=True)
