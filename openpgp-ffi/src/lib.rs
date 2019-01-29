@@ -39,18 +39,18 @@
 //! [sequoia-core]: ../sequoia_core
 //!
 //!
-//! # Dear user,
+//! # Dear User,
 //!
-//! this library is written in Rust.  Its expressive type system helps
-//! to prevent many classes of bugs, but it is also very demanding.
+//! This library is written in Rust.  Its expressive type system helps
+//! prevent many classes of bugs, but it is also very demanding.
 //! For example, the infamous borrow checker, feared by those who dare
 //! to approach Rust, allows us to safely use shared resources.  If
 //! you want to use this library, we need you to follow a set of
 //! rules, and you don't have the borrow checker to double check.
 //!
 //! We provide a set of functions that use C types and the C calling
-//! convention.  This interfaces allows you to use Sequoia safely from
-//! any other language, provided that you follow [The Rules].
+//! convention.  These interfaces allow you to use Sequoia safely from
+//! any other language provided that you follow [The Rules].
 //!
 //! If you don't follow [The Rules], we will terminate the process.
 //! That is not meant as a threat, of course.  But, as in C, passing a
@@ -66,7 +66,7 @@
 //! robust tracking of ownership ensures that we will not leak memory.
 //!
 //! The C API is documented here.  We invite you to visit the
-//! documentation of the [corresponding Rust crate], the structure
+//! documentation for the [corresponding Rust crate], the structure
 //! closely resembles this crate.
 //!
 //! [The Rules]: #the-rules
@@ -121,7 +121,7 @@
 //! clearly highlight either a bug in this library (please get in
 //! contact!), or a bug in your code.
 //!
-//! ## Error handling
+//! ## Error Handling
 //!
 //! Errors happen and must be handled by the caller.  There are
 //! functions that cannot fail, functions that may fail, and functions
@@ -130,7 +130,7 @@
 //! Functions that cannot fail are a nice consequence of the
 //! 'fail-fast on undefined behavior'-rule.  An example of such
 //! function is [`pgp_fingerprint_to_string`].  This function cannot
-//! fail, unless either the given fingerprint reference is not valid,
+//! fail, unless either the given fingerprint reference is invalid,
 //! or the allocation for the string failed, which is considered
 //! undefined behavior.
 //!
@@ -149,7 +149,7 @@
 //! [`pgp_packet_parser_from_bytes`]: parse/fn.pgp_packet_parser_from_bytes.html
 //!
 //! Errors may be inspected using [`pgp_error_status`], and formatted
-//! as error message using [`pgp_error_string`].  Errors must be freed
+//! as an error message using [`pgp_error_string`].  Errors must be freed
 //! using [`pgp_error_free`].
 //!
 //! [`pgp_error_status`]: error/fn.pgp_error_status.html
@@ -169,7 +169,7 @@
 //! free an object results in a memory leak.
 //!
 //! A typical example of creating an object, using it, and
-//! deallocating it is the following.  We will [parse a fingerprint]
+//! deallocating it is the following in which we [parse a fingerprint]
 //! from a hexadecimal number, and then [pretty-print] it for user
 //! consumption:
 //!
@@ -193,25 +193,28 @@
 //! pgp_fingerprint_free (fp);
 //! ```
 //!
-//! After use, the fingerprint object must be deallocated.  Note that
-//! objects may reference other objects, so a good practice is to
-//! deallocate the objects in the reverse order they were created in.
+//! After use, the fingerprint object must be deallocated.  Although
+//! not the case here, an object may reference an existing objects.
+//! As such, it is good practice to deallocate the objects in the
+//! reverse order to which they were created to avoid having the
+//! destructor trigger a use-after-free bug.
 //!
 //! #### Ownership
 //!
-//! In Rust, every value is owned.  It may reside on the stack, the
-//! heap, or be embedded in a struct or enum.  If you take ownership
-//! of an object, e.g. by using some constructor, it is your
-//! responsibility to manage its lifetime.  The most common way to
-//! transfer ownership back to Rust is to deallocate the object.
-//! Failure to deallocate the object leads to a memory leak.
+//! In Rust, every value has an owner.  A value may reside on the
+//! stack, on the heap, or be embedded in a struct or enum.  If you
+//! take ownership of an object, e.g., by using some constructor, it
+//! is your responsibility to manage its lifetime.  The most common
+//! way to transfer ownership back to Rust is to deallocate the
+//! object.  Failure to deallocate an object leads to a memory leak.
 //!
-//! Looking at the Rust functions in this library, when ownership of a
-//! `T` is transferred across the FFI boundary, a `*mut T` is used.
+//! Looking at the Rust functions in this library, when ownership of
+//! an object of type `T` is transferred across the FFI boundary, the
+//! function signature uses the type `*mut T`.
 //!
-//! In this crate we use a series of macros to transfer ownership from
+//! In this crate, we use a series of macros to transfer ownership from
 //! Rust to C.  `ffi_try_box` matches on `Result<T>`, handling errors
-//! by terminating the current function returning the error.
+//! by terminating the current function and returning the error.
 //! `maybe_box_raw` matches on `Option<T>`, turning `None` into
 //! `NULL`.  Finally, `box_raw` is merely a shortcut for
 //! `Box::into_raw(Box::new(..))`.
@@ -225,7 +228,7 @@
 //!
 //! In some places, references handed to, or returned from this
 //! library may be `NULL`.  This is the exception rather than the
-//! rule.  If you look at a functions Rust signature, a `Option<&T>`
+//! rule.  If you look at a function's Rust signature, an `Option<&T>`
 //! or `Option<&mut T>` is used for arguments or results that may be
 //! NULL.  On the other hand, function arguments that are not optional
 //! use `*const T`, or `*mut T`.
@@ -237,19 +240,20 @@
 //!  - All references are valid.
 //!
 //! In this crate we enforce the second rule by asserting that all
-//! pointers handed in are non-`NULL`.  If a parameter of an FFI
-//! function uses `Option<&T>` or `Option<&mut T>`, it may be called
-//! with `NULL`.  A notable example are the destructors (`sq_*_free`).
+//! pointers handed in are non-`NULL`.  An exception is if a parameter
+//! of an FFI function uses `Option<&T>` or `Option<&mut T>`.  In that
+//! case it may be called with `NULL`.  Notable exceptions are the
+//! destructors (`pgp_*_free`).
 //!
 //! ### Lifetimes
 //!
 //! If you derive a complex object from another complex object, you
-//! must assume that the original object is borrowed by the resulting
-//! object unless explicitly stated otherwise.  For example, objects
-//! created using a context must not outlive that context.  Similarly,
-//! iterators must not outlive the object they are created from.  It
-//! is a good practice is to deallocate the objects in the reverse
-//! order they were created in.
+//! must assume that the original object is borrowed (i.e.,
+//! referenced) by the resulting object unless explicitly stated
+//! otherwise.  For example, objects created using a context must not
+//! outlive that context.  Similarly, iterators must not outlive the
+//! object they are created from.  It is a good practice to
+//! deallocate the objects in the reverse order they were created in.
 //!
 //! Failing to adhere to lifetime restrictions results in undefined
 //! behavior.
@@ -263,11 +267,11 @@
 //! zero-terminated.  Malformed characters will be substituted.  They
 //! will be allocated using *malloc(3)* und must be *free(3)* d.  A
 //! few functions in this library may return a `const char *`, which
-//! must not be freed, of course.
+//! must not be freed.
 //!
 //! ### Enumerations
 //!
-//! Values must be constructed using the symbols or macros defined by
+//! Values must be constructed using functionality provided by
 //! this library.  Using values constructed in any other way is
 //! undefined behavior.
 //!
