@@ -43,12 +43,14 @@ all: build examples
 .PHONY: build
 build:
 	CARGO_TARGET_DIR=$(CARGO_TARGET_DIR) $(CARGO) build $(CARGO_FLAGS) --all
+	$(MAKE) -Copenpgp-ffi build
 	$(MAKE) -Cffi build
 
 # Testing and examples.
 .PHONY: test check
 test check:
 	CARGO_TARGET_DIR=$(CARGO_TARGET_DIR) $(CARGO) test $(CARGO_FLAGS) $(CARGO_TEST_ARGS)
+	$(MAKE) -Copenpgp-ffi test
 	$(MAKE) -Cffi test
 	$(MAKE) examples
 
@@ -76,6 +78,7 @@ deploy-doc: doc
 build-release:
 	CARGO_TARGET_DIR=$(CARGO_TARGET_DIR) \
 	    $(CARGO) build $(CARGO_FLAGS) --release --all
+	$(MAKE) -Copenpgp-ffi build-release
 	$(MAKE) -Cffi build-release
 
 .PHONY: install
@@ -86,6 +89,7 @@ install: build-release
 	$(INSTALL) -d $(DESTDIR)$(PREFIX)/bin
 	$(INSTALL) -t $(DESTDIR)$(PREFIX)/bin \
 	    $(CARGO_TARGET_DIR)/release/sq
+	$(MAKE) -Copenpgp-ffi install
 	$(MAKE) -Cffi install
 	$(MAKE) -Csqv install
 
@@ -126,4 +130,5 @@ dist-test dist-check: $(CARGO_TARGET_DIR)/dist/sequoia-$(VERSION).tar.xz
 .PHONY: clean
 clean:
 	CARGO_TARGET_DIR=$(CARGO_TARGET_DIR) $(CARGO) $(CARGO_FLAGS) clean
+	$(MAKE) -Copenpgp-ffi clean
 	$(MAKE) -Cffi clean
