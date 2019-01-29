@@ -34,10 +34,24 @@ all: build
 build:
 	$(call sequoia_openpgp_pc,$(CARGO_TARGET_DIR)/debug,true)
 
+.PHONY: force-build
+force-build:
+	cd .. ; cargo build -p sequoia-openpgp-ffi
+
 # Testing and examples.
 .PHONY: test check
-test check:
-	:
+test check: check-headers
+
+# Header files.
+.PHONY: check-headers
+check-headers: force-build
+	nm -g --defined-only \
+		$(CARGO_TARGET_DIR)/debug/libsequoia_openpgp_ffi.so \
+		| cut -d' ' -f3 | sort -u | grep pgp_ \
+		| while read SYM ; \
+			do git grep -q "$$SYM" include || echo $$SYM ; \
+		done | tee $(CARGO_TARGET_DIR)/debug/.check-headers ; \
+	! test -s $(CARGO_TARGET_DIR)/debug/.check-headers
 
 .PHONY: examples
 examples:
