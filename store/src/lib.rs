@@ -218,10 +218,7 @@ impl Pool {
 
     /// Looks up a key in the common key pool by (Sub)KeyID.
     ///
-    /// The KeyID may also reference a signing- or
-    /// certification-capable subkey.  The reason for this restriction
-    /// is that anyone can attach any subkey to her TPK, but signing-
-    /// or certification-capable subkeys require back signatures.
+    /// The KeyID may also reference a subkey.
     ///
     /// # Example
     ///
@@ -240,16 +237,24 @@ impl Pool {
     /// #     .ipc_policy(IPCPolicy::Internal)
     /// #     .ephemeral().build()?;
     /// # let tpk = TPK::from_bytes(
-    /// #     include_bytes!("../../openpgp/tests/data/keys/emmelie-dorothea-dina-samantha-awina-ed25519.pgp"))
+    /// #     include_bytes!("../../openpgp/tests/data/keys/neal.pgp"))
     /// #     .unwrap();
     /// Pool::import(&ctx, &tpk)?;
     ///
     /// // Lookup by the primary key's KeyID.
-    /// let key = Pool::lookup_by_subkeyid(&ctx, &KeyID::from_hex("069C0C348DD82C19")?)?;
+    /// let key = Pool::lookup_by_subkeyid(&ctx, &KeyID::from_hex("AACB3243630052D9")?)?;
     /// assert_eq!(key.tpk()?.fingerprint(), tpk.fingerprint());
     ///
-    /// // Lookup by the subkey's KeyID.
-    /// let key = Pool::lookup_by_subkeyid(&ctx, &KeyID::from_hex("22E3FAFE96B56C32")?)?;
+    /// // Lookup by the signing subkey's KeyID.
+    /// let key = Pool::lookup_by_subkeyid(&ctx, &KeyID::from_hex("7223B56678E02528")?)?;
+    /// assert_eq!(key.tpk()?.fingerprint(), tpk.fingerprint());
+    ///
+    /// // Lookup by the encryption subkey's KeyID.
+    /// let key = Pool::lookup_by_subkeyid(&ctx, &KeyID::from_hex("C2B819056C652598")?)?;
+    /// assert_eq!(key.tpk()?.fingerprint(), tpk.fingerprint());
+    ///
+    /// // Lookup by the authentication subkey's KeyID.
+    /// let key = Pool::lookup_by_subkeyid(&ctx, &KeyID::from_hex("A3506AFB820ABD08")?)?;
     /// assert_eq!(key.tpk()?.fingerprint(), tpk.fingerprint());
     /// # Ok(())
     /// # }
@@ -451,10 +456,7 @@ impl Store {
 
     /// Looks up a key by (Sub)KeyID.
     ///
-    /// The KeyID may also reference a signing- or
-    /// certification-capable subkey.  The reason for this restriction
-    /// is that anyone can attach any subkey to her TPK, but signing-
-    /// or certification-capable subkeys require back signatures.
+    /// The KeyID may also reference a subkey.
     ///
     /// # Example
     ///
