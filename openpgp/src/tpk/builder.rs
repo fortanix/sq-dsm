@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use time;
 use packet::{Features, KeyFlags};
 use packet::Key;
@@ -118,8 +120,10 @@ impl TPKBuilder {
     }
 
     /// Adds a new user ID. The first user ID added will be the primary user ID.
-    pub fn add_userid(mut self, uid: &str) -> Self {
-        self.userids.push(uid.to_string());
+    pub fn add_userid<'a, S>(mut self, uid: S) -> Self
+        where S: Into<Cow<'a, str>>
+    {
+        self.userids.push(uid.into().into_owned());
         self
     }
 

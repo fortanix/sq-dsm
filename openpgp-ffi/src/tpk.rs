@@ -613,8 +613,8 @@ pub extern "system" fn pgp_tpk_builder_add_userid
 {
     let tpkb = ffi_param_ref_mut!(tpkb);
     let tpkb_ = ffi_param_move!(*tpkb);
-    let uid = ffi_param_cstr!(uid).to_string_lossy().to_string();
-    let tpkb_ = tpkb_.add_userid(uid.as_ref());
+    let uid = ffi_param_cstr!(uid).to_string_lossy();
+    let tpkb_ = tpkb_.add_userid(uid);
     *tpkb = box_raw!(tpkb_);
 }
 

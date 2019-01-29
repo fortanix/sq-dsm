@@ -84,7 +84,7 @@ impl TSK {
         let mut key = TPKBuilder::autocrypt(None);
 
         match primary_uid.into() {
-            Some(uid) => { key = key.add_userid(&uid); }
+            Some(uid) => { key = key.add_userid(uid); }
             None => {}
         }
 
