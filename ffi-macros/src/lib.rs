@@ -707,8 +707,8 @@ fn derive_serialize(span: proc_macro2::Span, prefix: &str, name: &str,
         #[::ffi_catch_abort] #[no_mangle] pub extern "system"
         fn #ident (errp: Option<&mut *mut ::error::Error>,
                    tsk: *const #wrapper,
-                   writer: *mut Box<Write>)
-                   -> Status {
+                   writer: *mut Box<::std::io::Write>)
+                   -> ::error::Status {
             let writer = ffi_param_ref_mut!(writer);
             tsk.ref_raw().serialize(writer).move_into_raw(errp)
         }

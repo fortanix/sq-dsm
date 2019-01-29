@@ -5,7 +5,6 @@
 //! [`sequoia-openpgp::TSK`]: ../../sequoia_openpgp/struct.TSK.html
 
 use failure;
-use std::io::Write;
 use libc::c_char;
 
 extern crate sequoia_openpgp as openpgp;

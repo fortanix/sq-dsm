@@ -7,7 +7,6 @@
 
 use std::ptr;
 use std::slice;
-use std::io::Write;
 use libc::{c_char, c_int, size_t, time_t};
 
 extern crate sequoia_openpgp as openpgp;
