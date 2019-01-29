@@ -13,7 +13,6 @@ use libc::{uint8_t, c_char, c_int, size_t, time_t};
 extern crate sequoia_openpgp as openpgp;
 use self::openpgp::{
     Packet,
-    PacketPile,
     RevocationStatus,
     autocrypt::Autocrypt,
     crypto,
@@ -33,6 +32,7 @@ use self::openpgp::{
 
 use ::error::Status;
 use super::fingerprint::Fingerprint;
+use super::packet_pile::PacketPile;
 use super::tsk::TSK;
 use Maybe;
 
@@ -81,8 +81,7 @@ fn pgp_tpk_from_file(errp: Option<&mut *mut ::error::Error>,
 fn pgp_tpk_from_packet_pile(errp: Option<&mut *mut ::error::Error>,
                             m: *mut PacketPile)
                             -> Maybe<TPK> {
-    let m = ffi_param_move!(m);
-    openpgp::TPK::from_packet_pile(*m).move_into_raw(errp)
+    openpgp::TPK::from_packet_pile(m.move_from_raw()).move_into_raw(errp)
 }
 
 /// Returns the first TPK found in `buf`.
