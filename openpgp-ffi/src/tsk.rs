@@ -11,6 +11,7 @@ use libc::c_char;
 extern crate sequoia_openpgp as openpgp;
 use self::openpgp::{
     packet::Signature,
+    parse::Parse,
     serialize::Serialize,
 };
 
@@ -28,7 +29,7 @@ use ::error::Status;
 ///
 /// [`sequoia-openpgp::TSK`]: ../../sequoia_openpgp/enum.TSK.html
 #[::ffi_wrapper_type(prefix = "pgp_", name = "tsk",
-                     derive = "Clone, Debug, PartialEq, Serialize")]
+                     derive = "Clone, Debug, PartialEq, Parse, Serialize")]
 pub struct TSK(openpgp::TSK);
 
 /// Generates a new RSA 3072 bit key with UID `primary_uid`.

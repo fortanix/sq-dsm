@@ -7,8 +7,8 @@
 
 use std::ptr;
 use std::slice;
-use std::io::{Read, Write};
-use libc::{uint8_t, c_char, c_int, size_t, time_t};
+use std::io::Write;
+use libc::{c_char, c_int, size_t, time_t};
 
 extern crate sequoia_openpgp as openpgp;
 use self::openpgp::{
@@ -52,27 +52,10 @@ use Maybe;
 /// passed through as is.
 ///
 /// [RFC 4880, section 11.1]: https://tools.ietf.org/html/rfc4880#section-11.1
-#[::ffi_wrapper_type(prefix = "pgp_", name = "tpk",
-                     derive = "Clone, Debug, Display, PartialEq, Serialize")]
+#[::ffi_wrapper_type(
+    prefix = "pgp_", name = "tpk",
+    derive = "Clone, Debug, Display, PartialEq, Parse, Serialize")]
 pub struct TPK(openpgp::TPK);
-
-/// Returns the first TPK encountered in the reader.
-#[::ffi_catch_abort] #[no_mangle] pub extern "system"
-fn pgp_tpk_from_reader(errp: Option<&mut *mut ::error::Error>,
-                       reader: *mut Box<Read>)
-                       -> Maybe<TPK> {
-    let reader = ffi_param_ref_mut!(reader);
-    openpgp::TPK::from_reader(reader).move_into_raw(errp)
-}
-
-/// Returns the first TPK encountered in the file.
-#[::ffi_catch_abort] #[no_mangle] pub extern "system"
-fn pgp_tpk_from_file(errp: Option<&mut *mut ::error::Error>,
-                     filename: *const c_char)
-                     -> Maybe<TPK> {
-    let filename = ffi_param_cstr!(filename).to_string_lossy().into_owned();
-    openpgp::TPK::from_file(&filename).move_into_raw(errp)
-}
 
 /// Returns the first TPK found in `m`.
 ///
@@ -82,21 +65,6 @@ fn pgp_tpk_from_packet_pile(errp: Option<&mut *mut ::error::Error>,
                             m: *mut PacketPile)
                             -> Maybe<TPK> {
     openpgp::TPK::from_packet_pile(m.move_from_raw()).move_into_raw(errp)
-}
-
-/// Returns the first TPK found in `buf`.
-///
-/// `buf` must be an OpenPGP-encoded TPK.
-#[::ffi_catch_abort] #[no_mangle] pub extern "system"
-fn pgp_tpk_from_bytes(errp: Option<&mut *mut ::error::Error>,
-                      b: *const uint8_t, len: size_t)
-                      -> Maybe<TPK> {
-    assert!(!b.is_null());
-    let buf = unsafe {
-        slice::from_raw_parts(b, len as usize)
-    };
-
-    openpgp::TPK::from_bytes(buf).move_into_raw(errp)
 }
 
 /// Returns the first TPK found in the packet parser.

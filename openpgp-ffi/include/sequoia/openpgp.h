@@ -1084,6 +1084,26 @@ pgp_status_t pgp_tsk_new (pgp_error_t *errp, char *primary_uid,
                         pgp_tsk_t *tpk, pgp_signature_t *revocation);
 
 /*/
+/// Returns the first TSK encountered in the reader.
+/*/
+pgp_tsk_t pgp_tsk_from_reader (pgp_error_t *errp,
+                               pgp_reader_t reader);
+
+/*/
+/// Returns the first TSK encountered in the file.
+/*/
+pgp_tsk_t pgp_tsk_from_file (pgp_error_t *errp,
+                             const char *filename);
+
+/*/
+/// Returns the first TSK found in `buf`.
+///
+/// `buf` must be an OpenPGP-encoded TSK.
+/*/
+pgp_tsk_t pgp_tsk_from_bytes (pgp_error_t *errp,
+                              const uint8_t *b, size_t len);
+
+/*/
 /// Frees the TSK.
 /*/
 void pgp_tsk_free (pgp_tsk_t tsk);

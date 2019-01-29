@@ -234,6 +234,7 @@ fn derive_functions() -> &'static HashMap<&'static str, DeriveFn>
             h.insert("Hash", derive_hash as DeriveFn);
             h.insert("Display", derive_to_string as DeriveFn);
             h.insert("Debug", derive_debug as DeriveFn);
+            h.insert("Parse", derive_parse as DeriveFn);
             h.insert("Serialize", derive_serialize as DeriveFn);
             h
         };
@@ -641,6 +642,55 @@ fn derive_hash(span: proc_macro2::Span, prefix: &str, name: &str,
             let mut hasher = ::build_hasher();
             this.ref_raw().hash(&mut hasher);
             hasher.finish()
+        }
+    }
+}
+
+/// Derives prefix_name_parse_*.
+fn derive_parse(span: proc_macro2::Span, prefix: &str, name: &str,
+                wrapper: &syn::Ident, wrapped: &syn::Type)
+                -> TokenStream2
+{
+    let from_reader = syn::Ident::new(&format!("{}{}_from_reader",
+                                               prefix, name),
+                                      span);
+    let from_file = syn::Ident::new(&format!("{}{}_from_file",
+                                             prefix, name),
+                                    span);
+    let from_bytes = syn::Ident::new(&format!("{}{}_from_bytes",
+                                              prefix, name),
+                                     span);
+    quote! {
+        /// Parses an object from the given reader.
+        #[::ffi_catch_abort] #[no_mangle] pub extern "system"
+        fn #from_reader(errp: Option<&mut *mut ::error::Error>,
+                        reader: *mut Box<::std::io::Read>)
+                        -> ::Maybe<#wrapper> {
+            let reader = ffi_param_ref_mut!(reader);
+            #wrapped::from_reader(reader).move_into_raw(errp)
+        }
+
+        /// Parses an object from the given file.
+        #[::ffi_catch_abort] #[no_mangle] pub extern "system"
+        fn #from_file(errp: Option<&mut *mut ::error::Error>,
+                      filename: *const ::libc::c_char)
+                      -> ::Maybe<#wrapper> {
+            let filename =
+                ffi_param_cstr!(filename).to_string_lossy().into_owned();
+            #wrapped::from_file(&filename).move_into_raw(errp)
+        }
+
+        /// Parses an object from the given buffer.
+        #[::ffi_catch_abort] #[no_mangle] pub extern "system"
+        fn #from_bytes(errp: Option<&mut *mut ::error::Error>,
+                       b: *const ::libc::uint8_t, len: ::libc::size_t)
+                       -> ::Maybe<#wrapper> {
+            assert!(!b.is_null());
+            let buf = unsafe {
+                ::std::slice::from_raw_parts(b, len as usize)
+            };
+
+            #wrapped::from_bytes(buf).move_into_raw(errp)
         }
     }
 }
