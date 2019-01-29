@@ -39,7 +39,6 @@ fn pgp_tsk_new(errp: Option<&mut *mut ::error::Error>,
                revocation_out: *mut *mut Signature)
                -> Status
 {
-    ffi_make_fry_from_errp!(errp);
     let tsk_out = ffi_param_ref_mut!(tsk_out);
     let revocation_out = ffi_param_ref_mut!(revocation_out);
     let primary_uid = ffi_param_cstr!(primary_uid).to_string_lossy();
@@ -49,7 +48,7 @@ fn pgp_tsk_new(errp: Option<&mut *mut ::error::Error>,
             *revocation_out = box_raw!(revocation);
             Status::Success
         },
-        Err(e) => ffi_try_status!(Err::<(), failure::Error>(e)),
+        Err(e) => Err::<(), failure::Error>(e).move_into_raw(errp),
     }
 }
 
@@ -74,8 +73,7 @@ fn pgp_tsk_serialize(errp: Option<&mut *mut ::error::Error>,
                      tsk: *const TSK,
                      writer: *mut Box<Write>)
                      -> Status {
-    ffi_make_fry_from_errp!(errp);
     let tsk = tsk.ref_raw();
     let writer = ffi_param_ref_mut!(writer);
-    ffi_try_status!(tsk.serialize(writer))
+    tsk.serialize(writer).move_into_raw(errp)
 }

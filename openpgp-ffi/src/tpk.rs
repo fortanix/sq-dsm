@@ -118,10 +118,9 @@ fn pgp_tpk_serialize(errp: Option<&mut *mut ::error::Error>,
                      tpk: *const TPK,
                      writer: *mut Box<Write>)
                      -> Status {
-    ffi_make_fry_from_errp!(errp);
     let tpk = tpk.ref_raw();
     let writer = ffi_param_ref_mut!(writer);
-    ffi_try_status!(tpk.serialize(writer))
+    tpk.serialize(writer).move_into_raw(errp)
 }
 
 /// Merges `other` into `tpk`.
@@ -678,7 +677,6 @@ pub extern "system" fn pgp_tpk_builder_generate
      revocation_out: *mut *mut Signature)
     -> Status
 {
-    ffi_make_fry_from_errp!(errp);
     let tpk_out = ffi_param_ref_mut!(tpk_out);
     let revocation_out = ffi_param_ref_mut!(revocation_out);
     let tpkb = ffi_param_move!(tpkb);
@@ -690,7 +688,7 @@ pub extern "system" fn pgp_tpk_builder_generate
         },
         Err(e) => {
             *tpk_out = None;
-            ffi_try_status!(Err::<(), failure::Error>(e))
+            Err::<(), failure::Error>(e).move_into_raw(errp)
         },
     }
 }

@@ -13,6 +13,23 @@ extern crate sequoia_openpgp as openpgp;
 #[::ffi_wrapper_type(prefix = "pgp_", derive = "Display")]
 pub struct Error(failure::Error);
 
+impl MoveResultIntoRaw<::error::Status> for ::failure::Fallible<()>
+{
+    fn move_into_raw(self, errp: Option<&mut *mut ::error::Error>)
+                     -> ::error::Status {
+        match self {
+            Ok(_) => ::error::Status::Success,
+            Err(e) => {
+                let status = ::error::Status::from(&e);
+                if let Some(errp) = errp {
+                    *errp = e.move_into_raw();
+                }
+                status
+            },
+        }
+    }
+}
+
 /// Returns the error status code.
 #[::ffi_catch_abort] #[no_mangle]
 pub extern "system" fn pgp_error_status(error: *const Error)
