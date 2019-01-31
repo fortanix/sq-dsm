@@ -18,6 +18,20 @@ use parse::Cookie;
 use armor;
 use packet;
 
+/// How to decode the input.
+#[derive(PartialEq)]
+pub enum Dearmor {
+    /// Unconditionally treat the input as if it were an OpenPGP
+    /// message encoded using ASCII armor.
+    Enabled,
+    /// Unconditionally treat the input as if it were a binary OpenPGP
+    /// message.
+    Disabled,
+    /// If input does not appear to be a binary encoded OpenPGP
+    /// message, treat it as if it were encoded using ASCII armor.
+    Auto,
+}
+
 /// A builder for configuring a `PacketParser`.
 ///
 /// Since the default settings are usually appropriate, this mechanism
@@ -26,6 +40,7 @@ use packet;
 /// `PacketParser::from_reader` to start parsing an OpenPGP message.
 pub struct PacketParserBuilder<'a> {
     bio: Box<'a + BufferedReader<Cookie>>,
+    dearmor: Dearmor,
     settings: PacketParserSettings,
 }
 
@@ -65,6 +80,7 @@ impl<'a> PacketParserBuilder<'a> {
         bio.cookie_mut().level = None;
         Ok(PacketParserBuilder {
             bio: bio,
+            dearmor: Dearmor::Auto,
             settings: PacketParserSettings::default(),
         })
     }
@@ -105,6 +121,12 @@ impl<'a> PacketParserBuilder<'a> {
         self
     }
 
+    /// How to treat the input stream.
+    pub fn dearmor(mut self, mode: Dearmor) -> Self {
+        self.dearmor = mode;
+        self
+    }
+
     /// Finishes configuring the `PacketParser` and returns an
     /// `Option<PacketParser>`.
     ///
@@ -130,7 +152,19 @@ impl<'a> PacketParserBuilder<'a> {
     {
         let state = PacketParserState::new(self.settings);
 
-        if let Err(_) = packet::Header::plausible(&mut self.bio) {
+        let dearmor = match self.dearmor {
+            Dearmor::Enabled => true,
+            Dearmor::Disabled => false,
+            Dearmor::Auto => {
+                if let Err(_) = packet::Header::plausible(&mut self.bio) {
+                    true
+                } else {
+                    false
+                }
+            }
+        };
+
+        if dearmor {
             self.bio = Box::new(BufferedReaderGeneric::with_cookie(
                 armor::Reader::from_buffered_reader(self.bio, None),
                 None,
@@ -149,5 +183,61 @@ impl<'a> PacketParserBuilder<'a> {
                 Ok(PacketParserResult::EOF(PacketParserEOF::new(state)))
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    macro_rules! bytes {
+        ( $x:expr ) => { include_bytes!(concat!("../../tests/data/messages/", $x)) };
+    }
+
+    #[test]
+    fn armor() {
+        // Not ASCII armor encoded data.
+        let msg = bytes!("sig.gpg");
+
+        // Make sure we can read the first packet.
+        let ppr = PacketParserBuilder::from_bytes(msg).unwrap()
+            .dearmor(Dearmor::Disabled)
+            .finalize();
+        assert_match!(Ok(PacketParserResult::Some(ref _pp)) = ppr);
+
+        let ppr = PacketParserBuilder::from_bytes(msg).unwrap()
+            .dearmor(Dearmor::Auto)
+            .finalize();
+        assert_match!(Ok(PacketParserResult::Some(ref _pp)) = ppr);
+
+        let ppr = PacketParserBuilder::from_bytes(msg).unwrap()
+            .dearmor(Dearmor::Enabled)
+            .finalize();
+        // XXX: If the dearmorer doesn't find a header and has no
+        // data, then it should return an error.  Fix this when
+        // https://gitlab.com/sequoia-pgp/sequoia/issues/174 is
+        // resolved.
+        //
+        // assert_match!(Err(_) = ppr);
+        assert_match!(Ok(PacketParserResult::EOF(ref _pp)) = ppr);
+
+        // ASCII armor encoded data.
+        let msg = bytes!("a-cypherpunks-manifesto.txt.ed25519.sig");
+
+        // Make sure we can read the first packet.
+        let ppr = PacketParserBuilder::from_bytes(msg).unwrap()
+            .dearmor(Dearmor::Disabled)
+            .finalize();
+        assert_match!(Err(_) = ppr);
+
+        let ppr = PacketParserBuilder::from_bytes(msg).unwrap()
+            .dearmor(Dearmor::Auto)
+            .finalize();
+        assert_match!(Ok(PacketParserResult::Some(ref _pp)) = ppr);
+
+        let ppr = PacketParserBuilder::from_bytes(msg).unwrap()
+            .dearmor(Dearmor::Enabled)
+            .finalize();
+        assert_match!(Ok(PacketParserResult::Some(ref _pp)) = ppr);
     }
 }
