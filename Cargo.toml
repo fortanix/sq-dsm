@@ -37,3 +37,6 @@ sequoia-guide = { path = "guide", version = "0.3.0" }
 [lib]
 name = "sequoia"
 path = "src/lib.rs"
+
+[profile.release]
+debug = true
