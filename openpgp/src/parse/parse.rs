@@ -2370,6 +2370,9 @@ struct PacketParserState {
 
     /// Whether the packet sequence is a valid OpenPGP Message.
     message_validator: MessageValidator,
+
+    // Whether this is the first packet in the packet sequence.
+    first_packet: bool,
 }
 
 impl PacketParserState {
@@ -2377,6 +2380,7 @@ impl PacketParserState {
         PacketParserState {
             settings: settings,
             message_validator: Default::default(),
+            first_packet: true,
         }
     }
 }
@@ -2894,7 +2898,7 @@ impl <'a> PacketParser<'a> {
                         orig_error = Some(err.into());
                     }
 
-                    if skip > 32 * 1024 {
+                    if state.first_packet || skip > 32 * 1024 {
                         // Limit the search space.  This should be
                         // enough to find a reasonable recovery point
                         // in a TPK.
@@ -2996,6 +3000,8 @@ impl <'a> PacketParser<'a> {
             Cookie::hashing(
                 &mut result, Hashing::Enabled, recursion_depth - 1);
         }
+
+        result.state.first_packet = false;
 
         t!(" -> {:?}, path: {:?}, level: {:?}.",
            result.packet.tag(), result.path, result.cookie_ref().level);
@@ -4108,5 +4114,30 @@ mod test {
         assert_eq!(userids, 5);
         assert_eq!(uas, 1);
         assert_eq!(unknown, 1);
+    }
+
+    #[test]
+    fn junk_prefix() {
+        // Make sure we can read the first packet.
+        let msg = bytes!("../messages/sig.gpg");
+
+        let ppr = PacketParserBuilder::from_bytes(msg).unwrap()
+            .dearmor(packet_parser_builder::Dearmor::Disabled)
+            .finalize();
+        assert_match!(Ok(PacketParserResult::Some(ref _pp)) = ppr);
+
+
+        // Prepend an invalid byte and make sure we fail.  Note: we
+        // have a mechanism to skip corruption, however, that is only
+        // activated once we've seen a good packet.  This test checks
+        // that we don't try to recover.
+        let mut msg2 = Vec::new();
+        msg2.push(0);
+        msg2.extend_from_slice(&msg[..]);
+
+        let ppr = PacketParserBuilder::from_bytes(&msg2[..]).unwrap()
+            .dearmor(packet_parser_builder::Dearmor::Disabled)
+            .finalize();
+        assert_match!(Err(_) = ppr);
     }
 }
