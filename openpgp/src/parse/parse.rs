@@ -797,7 +797,8 @@ impl Header {
     /// Returns whether the byte stream starts with a plausible
     /// OpenPGP header.
     ///
-    /// This is a heuristic.
+    /// This is a heuristic.  It considers an empty message to be
+    /// plausible.
     ///
     /// This function does not consume any data from `reader`.
     pub fn plausible<R: BufferedReader<C>, C>(reader: &mut R)

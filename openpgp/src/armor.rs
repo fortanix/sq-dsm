@@ -682,8 +682,6 @@ impl<'a> Reader<'a> {
 
 /// Checks whether the given bytes contain armored OpenPGP data.
 fn is_armored_pgp_blob(bytes: &[u8]) -> bool {
-    use packet::Tag::*;
-
     let bytes = if let Some(msg) = get_base64_prefix(bytes) {
         msg
     }  else {
@@ -695,25 +693,12 @@ fn is_armored_pgp_blob(bytes: &[u8]) -> bool {
     loop {
         match base64::decode_config(&bytes[..end], base64::MIME) {
             Ok(d) => {
-                let mut br = BufferedReaderMemory::new(&d);
-                let header = Header::parse(&mut br);
-                break match header {
-                    Ok(h) => match h.ctb.tag {
-                        // Might be a message?
-                        PKESK | SKESK | OnePassSig | CompressedData | Literal =>
-                            true,
-                        // Might be a key?
-                        SecretKey | PublicKey =>
-                            true,
-                        // Might be a detached signature?
-                        Signature =>
-                            true,
-                        // ... otherwise, looks like garbage.
-                        _ =>
-                            false,
-                    },
-                    Err(_) => false,
+                // Don't consider an empty message to be valid.
+                if d.len() == 0 {
+                    break false;
                 }
+                let mut br = BufferedReaderMemory::new(&d);
+                break Header::plausible(&mut br).is_ok()
             },
             Err(_) =>
                 if end == 0 {
