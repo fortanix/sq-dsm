@@ -1,0 +1,185 @@
+# Build Sequoia for Android
+
+Based on this [guide].
+
+  [guide]: https://mozilla.github.io/firefox-browser-architecture/experiments/2017-09-21-rust-on-android.html
+
+For building and using a plain rust project, its enough with following the guide,
+but if they are native dependencies like openssl or Nettle as in the Sequoia case,
+these dependencies need to be crossbuilt before starting the cargo build.
+
+This instructions are tested for the host target `$HOST=armv7-linux-androideabi`
+and using **Debian Squeeze**
+
+0. Setup env to build using NDK and env
+1. Setup rust for crossbuilding (follow guide above)
+2. Download dependencies
+3. Cross build OpenSSL for Android
+4. Cross build Nettle and its dependencies (libgmp) for Android
+5. Build Sequoia
+
+### 0. ANDROID NDK Standalone toolchains
+
+We need `$ANDROID_NDK` to be pointing to the [NDK standalone toolchain]
+
+  [NDK standalone toolchain]: https://developer.android.com/ndk/guides/standalone_toolchain
+
+```bash
+ANDROID_NDK=$STANDALONE_NDK_PATH
+export PATH=$PATH:ANDROID_NDK/bin
+```
+
+Now that we have the NDK setup, we need to setup and define our build environment:
+
+```bash
+mkdir -p /tmp/sequoia-build
+export PREFIX=/tmp/sequoia-build
+export BUILD_DIR=/tmp/sequoia-build
+export HOST_ARCH=arm-linux-androideabi
+```
+
+### 1. Setup rust for crossbuilding
+
+Follow this [guide] until:
+
+  [guide]: https://mozilla.github.io/firefox-browser-architecture/experiments/2017-09-21-rust-on-android.html
+
+```
+rustup target add aarch64-linux-android armv7-linux-androideabi i686-linux-android
+```
+
+Now you have your env ready to cross build, we need to build Sequoia's dependencies.
+
+### 2. Download dependencies
+
+We need to download, OpenSSL, GMP and Nettle, for that we will use
+the official download pages:
+
+* Openssl: http://www.openssl.org/source/
+* GMP: https://gmplib.org/
+* Neetle: https://ftp.gnu.org/gnu/nettle/
+
+Replace "X.Y.Z" with the latest version of each software package.
+
+```bash
+export OPENSSL_VERSION="X.Y.Z"
+export GMP_VERSION="X.Y.Z"
+export NETTLE_VERSION="X.Y.Z"
+```
+
+to get them:
+
+```bash
+wget -nc https://www.openssl.org/source/openssl-$OPENSSL_VERSION.tar.gz
+wget -nc https://www.openssl.org/source/openssl-$OPENSSL_VERSION.tar.gz.asc
+wget -nc https://gmplib.org/download/gmp/gmp-$GMP_VERSION.tar.bz2
+wget -nc https://gmplib.org/download/gmp/gmp-$GMP_VERSION.tar.bz2.sig
+wget -nc https://ftp.gnu.org/gnu/nettle/nettle-$NETTLE_VERSION.tar.gz
+wget -nc https://ftp.gnu.org/gnu/nettle/nettle-$NETTLE_VERSION.tar.gz.sig
+```
+
+
+**Before using the downloaded files please check their integrity, if it fails
+abort**
+
+
+And then untar:
+
+```bash
+gpg --auto-key-locate --verify openssl-$OPENSSL_VERSION.tar.gz.asc openssl-$OPENSSL_VERSION.tar.gz
+tar xvf openssl-$OPENSSL_VERSION.tar.gz
+gpg --verify gmp-$GMP_VERSION.tar.bz2.sig gmp-$GMP_VERSION.tar.bz2
+tar xvf gmp-$GMP_VERSION.tar.bz2
+gpg --verify nettle-$NETTLE_VERSION.tar.gz.sig nettle-$NETTLE_VERSION.tar.gz
+tar xvf nettle-$NETTLE_VERSION.tar.gz
+```
+
+### 3. CrossBuild OpenSSL for Android
+
+Note: These instructions are for OpenSSL 1.1.1 series, not compatible with
+previous series.
+
+```bash
+cd openssl-$OPENSSL_VERSION && \
+./Configure android-arm --prefix=$PREFIX && \
+make && make install && cd ..
+```
+
+Now we need to set ARMV7_LINUX_ANDROIDEABI_OPENSSL_LIB_DIR and
+ARMV7_LINUX_ANDROIDEABI_OPENSSL_INCLUDE_DIR to
+make rust native-tls find the right openssl.
+
+```bash
+ARMV7_LINUX_ANDROIDEABI_OPENSSL_LIB_DIR="$PREFIX/lib"
+ARMV7_LINUX_ANDROIDEABI_OPENSSL_INCLUDE_DIR="$PREFIX/include"
+```
+
+### 4. Crossbuild Nettle for Android
+
+First we need to build libgmp:
+
+```bash
+cd gmp-${GMP_VERSION} && \
+CFLAGS="-fPIE -fPIC" \
+LDFLAGS="-pie -march=armv7-a -Wl,--fix-cortex-a8" \
+AR="${HOST_ARCH}-ar" \
+AS="${HOST_ARCH}-clang" \
+CC="${HOST_ARCH}-clang" \
+CXX="${HOST_ARCH}-clang++" \
+LD="${HOST_ARCH}-ld" \
+PKG_CONFIG_ALLOW_CROSS=1 \
+PKG_CONFIG_PATH=$PREFIX/lib/pkgconfig \
+STRIP="${HOST_ARCH}-strip" ./configure --host=${HOST_ARCH} --prefix=${PREFIX} && \
+make && make install && cd ..
+```
+
+Now is Nettle turn:
+
+```bash
+cd nettle-${NETTLE_VERSION} && \
+CFLAGS="-fPIE -fPIC" \
+LDFLAGS="-pie -march=armv7-a -Wl,--fix-cortex-a8" \
+AR="${HOST_ARCH}-ar" \
+AS="${HOST_ARCH}-clang" \
+CC="${HOST_ARCH}-clang" \
+CXX="${HOST_ARCH}-clang++" \
+LD="${HOST_ARCH}-ld" \
+PKG_CONFIG_ALLOW_CROSS=1 \
+PKG_CONFIG_PATH=$PREFIX/lib/pkgconfig \
+STRIP="${HOST_ARCH}-strip" ./configure --host=${HOST_ARCH}  --prefix=${PREFIX} \
+--with-lib-path=${PREFIX}/lib \
+--with-include-path=${PREFIX}/include && \
+make && make install && cd ..
+```
+
+### 5. Build Sequoia
+
+To build Sequoia for android it is needed to use sqlite as amalgam as the NDK
+does not provide access to the system sqlite.
+
+First get the source code
+
+```bash
+git clone https://gitlab.com/sequoia-pgp/sequoia.git
+```
+
+and then build
+
+```
+ cd sequoia && \
+ LD_LIBRARY_PATH=$PREFIX/lib/ PKG_CONFIG_PATH=$PREFIX/lib/pkgconfig \
+ PKG_CONFIG_ALLOW_CROSS=1 ARMV7_LINUX_ANDROIDEABI_OPENSSL_LIB_DIR="$PREFIX/lib" \
+ ARMV7_LINUX_ANDROIDEABI_OPENSSL_INCLUDE_DIR="$PREFIX/include" \
+ ARMV7_LINUX_ANDROIDEABI_OPENSSL_DIR="$PREFIX/bin" \
+ CARGO_TARGET_DIR=$BUILD_DIR CARGO_FLAGS="--target armv7-linux-androideabi" \
+ make build PYTHON=disable
+```
+
+Once we have it build, we only need to link sequoia-ffi.so to the jni libs
+paths for example
+
+```bash
+ln -s $CARGO_TARGET_DIR/armv7-linux-androideabi/debug/libsequoia_ffi.so \
+$ANDROID_PROJECT_PATH/app/src/main/jniLibs/armeabi/libsequoia_ffi.so
+
+```
