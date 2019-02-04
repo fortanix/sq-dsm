@@ -265,11 +265,13 @@ fn hash_ident(i: &syn::Ident) -> u64 {
 }
 
 /// Derives type and conversion functions.
-fn derive_conversion_functions(mut st: syn::ItemStruct, _: &str, _: &str,
+fn derive_conversion_functions(mut st: syn::ItemStruct,
+                               prefix: &str, name: &str,
                                wrapped: &syn::Type)
                                -> TokenStream2
 {
     let wrapper = st.ident.clone();
+    let c_type_name = format!("{}{}_t", prefix, name);
 
     // We now inject a field into the struct definition.  This tag
     // uniquely identifies this wrapper at runtime.
@@ -339,7 +341,10 @@ fn derive_conversion_functions(mut st: syn::ItemStruct, _: &str, _: &str,
                              Use after move or use after free detected");
                     } else {
                         panic!(
-                            "FFI contract violation: Wrong parameter type");
+                            "FFI contract violation: Wrong parameter type: \
+                             expected {}",
+                            #c_type_name,
+                        );
                     }
                 }
             }
