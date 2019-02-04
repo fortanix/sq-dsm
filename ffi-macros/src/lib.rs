@@ -282,6 +282,18 @@ fn derive_conversion_functions(mut st: syn::ItemStruct,
     // The value is a compile-time constant.
     let magic_value = hash_ident(&wrapper);
 
+    // To help during debugging, we store the name of the type.
+    const C_TYPE_NAME_LEN: usize = 32;
+    let c_type_name_type = syn::parse_quote!([u8; #C_TYPE_NAME_LEN]);
+    let mut c_type_name_padded = [0u8; C_TYPE_NAME_LEN];
+    &mut c_type_name_padded[..::std::cmp::min(C_TYPE_NAME_LEN,
+                                              c_type_name.as_bytes().len())]
+        .copy_from_slice(c_type_name.as_bytes());
+    let c_type_name_padded_literal =
+        syn::parse_str::<proc_macro2::TokenStream>(
+            &format!("{:?}", c_type_name_padded))
+        .expect("parsing array failed");
+
     let ownership =
         proc_macro2::Ident::new(&format!("{}Ownership", wrapper),
                                 proc_macro2::Span::call_site());
@@ -315,6 +327,15 @@ fn derive_conversion_functions(mut st: syn::ItemStruct,
                     ty: tag_type,
                 }
             );
+            fields.unnamed.push(
+                syn::Field {
+                    attrs: vec![],
+                    vis: syn::Visibility::Inherited,
+                    ident: None,
+                    colon_token: None,
+                    ty: c_type_name_type,
+                }
+            );
         },
         _ => return
             syn::Error::new(argument_span,
@@ -342,8 +363,9 @@ fn derive_conversion_functions(mut st: syn::ItemStruct,
                     } else {
                         panic!(
                             "FFI contract violation: Wrong parameter type: \
-                             expected {}",
+                             expected {}, got {}",
                             #c_type_name,
+                            String::from_utf8_lossy(&self.2),
                         );
                     }
                 }
@@ -432,7 +454,8 @@ fn derive_conversion_functions(mut st: syn::ItemStruct,
 
         impl #wrapper {
             fn wrap(obj: #ownership) -> *mut #wrapper {
-                Box::into_raw(Box::new(#wrapper(obj, #magic_value)))
+                Box::into_raw(Box::new(#wrapper(obj, #magic_value,
+                                                #c_type_name_padded_literal)))
             }
         }
 
