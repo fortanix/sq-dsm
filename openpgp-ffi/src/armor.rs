@@ -101,7 +101,7 @@ fn kind_to_int(kind: Option<armor::Kind>) -> c_int {
 /// pgp_reader_free (armor);
 /// pgp_reader_free (bytes);
 /// ```
-#[::ffi_catch_abort] #[no_mangle]
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "system" fn pgp_armor_reader_new(inner: *mut Box<Read>,
                                            kind: c_int)
                                            -> *mut Box<Read> {
@@ -112,7 +112,7 @@ pub extern "system" fn pgp_armor_reader_new(inner: *mut Box<Read>,
 }
 
 /// Creates a `Reader` from a file.
-#[::ffi_catch_abort] #[no_mangle]
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "system" fn pgp_armor_reader_from_file(errp: Option<&mut *mut ::error::Error>,
                                                  filename: *const c_char,
                                                  kind: c_int)
@@ -180,7 +180,7 @@ pub extern "system" fn pgp_armor_reader_from_file(errp: Option<&mut *mut ::error
 ///
 /// pgp_reader_free (armor);
 /// ```
-#[::ffi_catch_abort] #[no_mangle]
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "system" fn pgp_armor_reader_from_bytes(b: *const uint8_t, len: size_t,
                                                   kind: c_int)
                                                   -> *mut Box<Read> {
@@ -204,7 +204,7 @@ pub extern "system" fn pgp_armor_reader_from_bytes(b: *const uint8_t, len: size_
 /// See [this] example.
 ///
 ///   [this]: fn.pgp_armor_reader_new.html
-#[::ffi_catch_abort] #[no_mangle]
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "system" fn pgp_armor_reader_kind(reader: *mut Box<Read>)
                                             -> c_int {
     // We need to downcast `reader`.  To do that, we need to do a
@@ -234,7 +234,7 @@ pub extern "system" fn pgp_armor_reader_kind(reader: *mut Box<Read>)
 /// See [this] example.
 ///
 ///   [this]: fn.pgp_armor_reader_new.html
-#[::ffi_catch_abort] #[no_mangle]
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "system" fn pgp_armor_reader_headers(errp: Option<&mut *mut ::error::Error>,
                                                reader: *mut Box<Read>,
                                                len: *mut size_t)
@@ -340,7 +340,7 @@ pub extern "system" fn pgp_armor_reader_headers(errp: Option<&mut *mut ::error::
 ///   return 0;
 /// }
 /// ```
-#[::ffi_catch_abort] #[no_mangle]
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "system" fn pgp_armor_writer_new
     (errp: Option<&mut *mut ::error::Error>,
      inner: *mut Box<Write>,

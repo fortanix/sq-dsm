@@ -32,7 +32,7 @@ use ::error::Status;
 pub struct TSK(openpgp::TSK);
 
 /// Generates a new RSA 3072 bit key with UID `primary_uid`.
-#[::ffi_catch_abort] #[no_mangle] pub extern "system"
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
 fn pgp_tsk_new(errp: Option<&mut *mut ::error::Error>,
                primary_uid: *const c_char,
                tsk_out: *mut *mut TSK,
@@ -53,14 +53,14 @@ fn pgp_tsk_new(errp: Option<&mut *mut ::error::Error>,
 }
 
 /// Returns a reference to the corresponding TPK.
-#[::ffi_catch_abort] #[no_mangle] pub extern "system"
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
 fn pgp_tsk_tpk(tsk: *const TSK)
                -> *const TPK {
     tsk.ref_raw().tpk().move_into_raw()
 }
 
 /// Converts the TSK into a TPK.
-#[::ffi_catch_abort] #[no_mangle] pub extern "system"
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
 fn pgp_tsk_into_tpk(tsk: *mut TSK)
                     -> *mut TPK {
     tsk.move_from_raw().into_tpk().move_into_raw()

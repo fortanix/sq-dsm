@@ -23,7 +23,7 @@ pub mod user_attribute;
 pub mod userid;
 
 /// Frees the Packet.
-#[::ffi_catch_abort] #[no_mangle]
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "system" fn pgp_packet_free(p: Option<&mut Packet>) {
     ffi_free!(p)
 }
@@ -33,7 +33,7 @@ pub extern "system" fn pgp_packet_free(p: Option<&mut Packet>) {
 /// Tags are explained in [Section 4.3 of RFC 4880].
 ///
 ///   [Section 4.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.3
-#[::ffi_catch_abort] #[no_mangle]
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "system" fn pgp_packet_tag(p: *const Packet)
                                      -> uint8_t {
     let p = ffi_param_ref!(p);
@@ -48,7 +48,7 @@ pub extern "system" fn pgp_packet_tag(p: *const Packet)
 /// Signature Packet uses some unsupported methods, it is parsed
 /// into an `Packet::Unknown`.  `tag()` returns `PGP_TAG_SIGNATURE`,
 /// whereas `kind()` returns `0`.
-#[::ffi_catch_abort] #[no_mangle]
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "system" fn pgp_packet_kind(p: *const Packet)
                                       -> uint8_t {
     let p = ffi_param_ref!(p);
@@ -68,7 +68,7 @@ pub extern "system" fn pgp_packet_kind(p: *const Packet)
 ///
 /// assert (strcmp (pgp_tag_to_string (2), "SIGNATURE") == 0);
 /// ```
-#[::ffi_catch_abort] #[no_mangle]
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "system" fn pgp_tag_to_string(tag: u8) -> *const c_char {
     match Tag::from(tag) {
         Tag::PKESK => "PKESK\x00",

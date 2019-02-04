@@ -59,7 +59,7 @@ pub struct TPK(openpgp::TPK);
 /// Returns the first TPK found in `m`.
 ///
 /// Consumes `m`.
-#[::ffi_catch_abort] #[no_mangle] pub extern "system"
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
 fn pgp_tpk_from_packet_pile(errp: Option<&mut *mut ::error::Error>,
                             m: *mut PacketPile)
                             -> Maybe<TPK> {
@@ -69,7 +69,7 @@ fn pgp_tpk_from_packet_pile(errp: Option<&mut *mut ::error::Error>,
 /// Returns the first TPK found in the packet parser.
 ///
 /// Consumes the packet parser result.
-#[::ffi_catch_abort] #[no_mangle] pub extern "system"
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
 fn pgp_tpk_from_packet_parser(errp: Option<&mut *mut ::error::Error>,
                               ppr: *mut PacketParserResult)
                               -> Maybe<TPK>
@@ -85,7 +85,7 @@ fn pgp_tpk_from_packet_parser(errp: Option<&mut *mut ::error::Error>,
 /// `tpk`, but `tpk` is still canonicalized.
 ///
 /// Consumes `tpk` and `other`.
-#[::ffi_catch_abort] #[no_mangle] pub extern "system"
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
 fn pgp_tpk_merge(errp: Option<&mut *mut ::error::Error>,
                  tpk: *mut TPK,
                  other: *mut TPK)
@@ -102,7 +102,7 @@ fn pgp_tpk_merge(errp: Option<&mut *mut ::error::Error>,
 ///
 /// Consumes `tpk` and the packets in `packets`.  The buffer, however,
 /// must be managed by the caller.
-#[::ffi_catch_abort] #[no_mangle] pub extern "system"
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
 fn pgp_tpk_merge_packets(errp: Option<&mut *mut ::error::Error>,
                          tpk: *mut TPK,
                          packets: *mut *mut Packet,
@@ -118,7 +118,7 @@ fn pgp_tpk_merge_packets(errp: Option<&mut *mut ::error::Error>,
 }
 
 /// Returns the fingerprint.
-#[::ffi_catch_abort] #[no_mangle] pub extern "system"
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
 fn pgp_tpk_fingerprint(tpk: *const TPK)
                        -> *mut Fingerprint {
     let tpk = tpk.ref_raw();
@@ -127,7 +127,7 @@ fn pgp_tpk_fingerprint(tpk: *const TPK)
 
 /// Cast the public key into a secret key that allows using the secret
 /// parts of the containing keys.
-#[::ffi_catch_abort] #[no_mangle] pub extern "system"
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
 fn pgp_tpk_into_tsk(tpk: *mut TPK)
                     -> *mut TSK {
     tpk.move_from_raw().into_tsk().move_into_raw()
@@ -137,7 +137,7 @@ fn pgp_tpk_into_tsk(tpk: *mut TPK)
 ///
 /// The tpk still owns the key.  The caller should neither modify nor
 /// free the key.
-#[::ffi_catch_abort] #[no_mangle] pub extern "system"
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
 fn pgp_tpk_primary(tpk: *const TPK)
                    -> *const packet::Key {
     let tpk = tpk.ref_raw();
@@ -149,7 +149,7 @@ fn pgp_tpk_primary(tpk: *const TPK)
 /// Note: this only returns whether the TPK has been revoked, and does
 /// not reflect whether an individual user id, user attribute or
 /// subkey has been revoked.
-#[::ffi_catch_abort] #[no_mangle] pub extern "system"
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
 fn pgp_tpk_revocation_status(tpk: *const TPK)
                              -> *mut RevocationStatus<'static> {
     let tpk = tpk.ref_raw();
@@ -215,7 +215,7 @@ fn int_to_reason_for_revocation(code: c_int) -> ReasonForRevocation {
 ///
 /// pgp_tpk_free (tpk);
 /// ```
-#[::ffi_catch_abort] #[no_mangle] pub extern "system"
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
 fn pgp_tpk_revoke(errp: Option<&mut *mut ::error::Error>,
                   tpk: *const TPK,
                   primary_signer: *mut Box<crypto::Signer>,
@@ -278,7 +278,7 @@ fn pgp_tpk_revoke(errp: Option<&mut *mut ::error::Error>,
 ///
 /// pgp_tpk_free (tpk);
 /// ```
-#[::ffi_catch_abort] #[no_mangle] pub extern "system"
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
 fn pgp_tpk_revoke_in_place(errp: Option<&mut *mut ::error::Error>,
                            tpk: *mut TPK,
                            primary_signer: *mut Box<crypto::Signer>,
@@ -299,7 +299,7 @@ fn pgp_tpk_revoke_in_place(errp: Option<&mut *mut ::error::Error>,
 }
 
 /// Returns whether the TPK has expired.
-#[::ffi_catch_abort] #[no_mangle] pub extern "system"
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
 fn pgp_tpk_expired(tpk: *const TPK)
                    -> c_int {
     let tpk = tpk.ref_raw();
@@ -308,7 +308,7 @@ fn pgp_tpk_expired(tpk: *const TPK)
 }
 
 /// Returns whether the TPK has expired.
-#[::ffi_catch_abort] #[no_mangle] pub extern "system"
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
 fn pgp_tpk_expired_at(tpk: *const TPK, when: time_t)
                       -> c_int {
     let tpk = tpk.ref_raw();
@@ -316,7 +316,7 @@ fn pgp_tpk_expired_at(tpk: *const TPK, when: time_t)
 }
 
 /// Returns whether the TPK is alive.
-#[::ffi_catch_abort] #[no_mangle] pub extern "system"
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
 fn pgp_tpk_alive(tpk: *const TPK)
                  -> c_int {
     let tpk = tpk.ref_raw();
@@ -325,7 +325,7 @@ fn pgp_tpk_alive(tpk: *const TPK)
 }
 
 /// Returns whether the TPK is alive at the specified time.
-#[::ffi_catch_abort] #[no_mangle] pub extern "system"
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
 fn pgp_tpk_alive_at(tpk: *const TPK, when: time_t)
                     -> c_int {
     let tpk = tpk.ref_raw();
@@ -338,7 +338,7 @@ fn pgp_tpk_alive_at(tpk: *const TPK, when: time_t)
 /// key's creation (not the current time).
 ///
 /// This function consumes `tpk` and returns a new `TPK`.
-#[::ffi_catch_abort] #[no_mangle] pub extern "system"
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
 fn pgp_tpk_set_expiry(errp: Option<&mut *mut ::error::Error>,
                       tpk: *mut TPK, expiry: u32)
                       -> Maybe<TPK> {
@@ -348,7 +348,7 @@ fn pgp_tpk_set_expiry(errp: Option<&mut *mut ::error::Error>,
 }
 
 /// Returns whether the TPK includes any secret key material.
-#[::ffi_catch_abort] #[no_mangle] pub extern "system"
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
 fn pgp_tpk_is_tsk(tpk: *const TPK)
                   -> c_int {
     let tpk = tpk.ref_raw();
@@ -356,7 +356,7 @@ fn pgp_tpk_is_tsk(tpk: *const TPK)
 }
 
 /// Returns an iterator over the TPK's user id bindings.
-#[::ffi_catch_abort] #[no_mangle] pub extern "system"
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
 fn pgp_tpk_primary_user_id(tpk: *const TPK)
                            -> *mut c_char
 {
@@ -377,7 +377,7 @@ fn pgp_tpk_primary_user_id(tpk: *const TPK)
 /// there is no valid use for such user ids; they must be malicious.
 ///
 /// The caller must free the returned value.
-#[::ffi_catch_abort] #[no_mangle]
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "system" fn pgp_user_id_binding_user_id(
     binding: *const UserIDBinding)
     -> *mut c_char
@@ -388,7 +388,7 @@ pub extern "system" fn pgp_user_id_binding_user_id(
 }
 
 /// Returns a reference to the self-signature, if any.
-#[::ffi_catch_abort] #[no_mangle]
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "system" fn pgp_user_id_binding_selfsig(
     binding: *const UserIDBinding)
     -> Option<&'static Signature>
@@ -401,7 +401,7 @@ pub extern "system" fn pgp_user_id_binding_selfsig(
 /* UserIDBindingIter */
 
 /// Returns an iterator over the TPK's user id bindings.
-#[::ffi_catch_abort] #[no_mangle]
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "system" fn pgp_tpk_user_id_binding_iter(tpk: *const TPK)
     -> *mut UserIDBindingIter<'static>
 {
@@ -410,7 +410,7 @@ pub extern "system" fn pgp_tpk_user_id_binding_iter(tpk: *const TPK)
 }
 
 /// Frees a pgp_user_id_binding_iter_t.
-#[::ffi_catch_abort] #[no_mangle]
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "system" fn pgp_user_id_binding_iter_free(
     iter: Option<&mut UserIDBindingIter>)
 {
@@ -418,7 +418,7 @@ pub extern "system" fn pgp_user_id_binding_iter_free(
 }
 
 /// Returns the next `UserIDBinding`.
-#[::ffi_catch_abort] #[no_mangle]
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "system" fn pgp_user_id_binding_iter_next<'a>(
     iter: *mut UserIDBindingIter<'a>)
     -> Option<&'a UserIDBinding>
@@ -438,7 +438,7 @@ pub struct KeyIterWrapper<'a> {
 /// Returns an iterator over the TPK's keys.
 ///
 /// This iterates over both the primary key and any subkeys.
-#[::ffi_catch_abort] #[no_mangle]
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "system" fn pgp_tpk_key_iter(tpk: *const TPK)
     -> *mut KeyIterWrapper<'static>
 {
@@ -450,7 +450,7 @@ pub extern "system" fn pgp_tpk_key_iter(tpk: *const TPK)
 }
 
 /// Frees a pgp_tpk_key_iter_t.
-#[::ffi_catch_abort] #[no_mangle]
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "system" fn pgp_tpk_key_iter_free(
     iter: Option<&mut KeyIterWrapper>)
 {
@@ -466,7 +466,7 @@ pub extern "system" fn pgp_tpk_key_iter_free(
 ///
 /// If rso is not NULL, this stores the key's revocation status in
 /// *rso.
-#[::ffi_catch_abort] #[no_mangle]
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "system" fn pgp_tpk_key_iter_next<'a>(
     iter_wrapper: *mut KeyIterWrapper<'a>,
     sigo: Option<&mut Option<&'a packet::Signature>>,
@@ -520,7 +520,7 @@ pub extern "system" fn pgp_tpk_key_iter_next<'a>(
 /// pgp_signature_free (revocation);
 /// pgp_tpk_free (tpk);
 /// ```
-#[::ffi_catch_abort] #[no_mangle]
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "system" fn pgp_tpk_builder_default() -> *mut TPKBuilder {
     box_raw!(TPKBuilder::default())
 }
@@ -536,7 +536,7 @@ pub extern "system" fn pgp_tpk_builder_default() -> *mut TPKBuilder {
 /// `U+FFFD REPLACEMENT CHARACTER`.
 ///
 ///   [Autocrypt Level 1]: https://autocrypt.org/level1.html
-#[::ffi_catch_abort] #[no_mangle]
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "system" fn pgp_tpk_builder_autocrypt(uid: *const c_char)
     -> *mut TPKBuilder
 {
@@ -549,7 +549,7 @@ pub extern "system" fn pgp_tpk_builder_autocrypt(uid: *const c_char)
 }
 
 /// Frees an `pgp_tpk_builder_t`.
-#[::ffi_catch_abort] #[no_mangle]
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "system" fn pgp_tpk_builder_free(tpkb: Option<&mut TPKBuilder>)
 {
     ffi_free!(tpkb)
@@ -557,7 +557,7 @@ pub extern "system" fn pgp_tpk_builder_free(tpkb: Option<&mut TPKBuilder>)
 
 /// Sets the encryption and signature algorithms for primary and all
 /// subkeys.
-#[::ffi_catch_abort] #[no_mangle]
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "system" fn pgp_tpk_builder_set_cipher_suite
     (tpkb: *mut *mut TPKBuilder, cs: c_int)
 {
@@ -579,7 +579,7 @@ pub extern "system" fn pgp_tpk_builder_set_cipher_suite
 /// `uid` must contain valid UTF-8.  If it does not contain valid
 /// UTF-8, then the invalid code points are silently replaced with
 /// `U+FFFD REPLACEMENT CHARACTER`.
-#[::ffi_catch_abort] #[no_mangle]
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "system" fn pgp_tpk_builder_add_userid
     (tpkb: *mut *mut TPKBuilder, uid: *const c_char)
 {
@@ -591,7 +591,7 @@ pub extern "system" fn pgp_tpk_builder_add_userid
 }
 
 /// Adds a signing capable subkey.
-#[::ffi_catch_abort] #[no_mangle]
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "system" fn pgp_tpk_builder_add_signing_subkey
     (tpkb: *mut *mut TPKBuilder)
 {
@@ -602,7 +602,7 @@ pub extern "system" fn pgp_tpk_builder_add_signing_subkey
 }
 
 /// Adds an encryption capable subkey.
-#[::ffi_catch_abort] #[no_mangle]
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "system" fn pgp_tpk_builder_add_encryption_subkey
     (tpkb: *mut *mut TPKBuilder)
 {
@@ -613,7 +613,7 @@ pub extern "system" fn pgp_tpk_builder_add_encryption_subkey
 }
 
 /// Adds an certification capable subkey.
-#[::ffi_catch_abort] #[no_mangle]
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "system" fn pgp_tpk_builder_add_certification_subkey
     (tpkb: *mut *mut TPKBuilder)
 {
@@ -626,7 +626,7 @@ pub extern "system" fn pgp_tpk_builder_add_certification_subkey
 /// Generates the actual TPK.
 ///
 /// Consumes `tpkb`.
-#[::ffi_catch_abort] #[no_mangle]
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "system" fn pgp_tpk_builder_generate
     (errp: Option<&mut *mut ::error::Error>, tpkb: *mut TPKBuilder,
      tpk_out: *mut Maybe<TPK>,

@@ -15,7 +15,7 @@ use error::Status;
 /// session key.  If `key` is NULL, or not large enough, then the key
 /// is not written to it.  Either way, `key_len` is set to the size of
 /// the session key.
-#[::ffi_catch_abort] #[no_mangle]
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "system" fn pgp_skesk_decrypt(errp: Option<&mut *mut ::error::Error>,
                                         skesk: *const Packet,
                                         password: *const uint8_t,

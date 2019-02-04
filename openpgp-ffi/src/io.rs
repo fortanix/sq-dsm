@@ -10,7 +10,7 @@ use libc::{uint8_t, c_void, c_char, c_int, size_t, ssize_t, realloc};
 use std::os::unix::io::FromRawFd;
 
 /// Opens a file returning a reader.
-#[::ffi_catch_abort] #[no_mangle]
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "system" fn pgp_reader_from_file(errp: Option<&mut *mut ::error::Error>,
                                            filename: *const c_char)
                                            -> *mut Box<Read> {
@@ -23,14 +23,14 @@ pub extern "system" fn pgp_reader_from_file(errp: Option<&mut *mut ::error::Erro
 
 /// Opens a file descriptor returning a reader.
 #[cfg(unix)]
-#[::ffi_catch_abort] #[no_mangle]
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "system" fn pgp_reader_from_fd(fd: c_int)
                                          -> *mut Box<Read> {
     box_raw!(Box::new(unsafe { File::from_raw_fd(fd) }))
 }
 
 /// Creates a reader from a buffer.
-#[::ffi_catch_abort] #[no_mangle]
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "system" fn pgp_reader_from_bytes(buf: *const uint8_t,
                                             len: size_t)
                                             -> *mut Box<Read> {
@@ -42,13 +42,13 @@ pub extern "system" fn pgp_reader_from_bytes(buf: *const uint8_t,
 }
 
 /// Frees a reader.
-#[::ffi_catch_abort] #[no_mangle]
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "system" fn pgp_reader_free(reader: Option<&mut Box<Read>>) {
     ffi_free!(reader)
 }
 
 /// Reads up to `len` bytes into `buf`.
-#[::ffi_catch_abort] #[no_mangle]
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "system" fn pgp_reader_read(errp: Option<&mut *mut ::error::Error>,
                                       reader: *mut Box<Read>,
                                       buf: *mut uint8_t, len: size_t)
@@ -67,7 +67,7 @@ pub extern "system" fn pgp_reader_read(errp: Option<&mut *mut ::error::Error>,
 ///
 /// The file will be created if it does not exist, or be truncated
 /// otherwise.  If you need more control, use `pgp_writer_from_fd`.
-#[::ffi_catch_abort] #[no_mangle]
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "system" fn pgp_writer_from_file(errp: Option<&mut *mut ::error::Error>,
                                            filename: *const c_char)
                                            -> *mut Box<Write> {
@@ -80,14 +80,14 @@ pub extern "system" fn pgp_writer_from_file(errp: Option<&mut *mut ::error::Erro
 
 /// Opens a file descriptor returning a writer.
 #[cfg(unix)]
-#[::ffi_catch_abort] #[no_mangle]
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "system" fn pgp_writer_from_fd(fd: c_int)
                                          -> *mut Box<Write> {
     box_raw!(Box::new(unsafe { File::from_raw_fd(fd) }))
 }
 
 /// Creates a writer from a buffer.
-#[::ffi_catch_abort] #[no_mangle]
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "system" fn pgp_writer_from_bytes(buf: *mut uint8_t,
                                             len: size_t)
                                             -> *mut Box<Write> {
@@ -106,7 +106,7 @@ pub extern "system" fn pgp_writer_from_bytes(buf: *mut uint8_t,
 /// reference a chunk of memory allocated using libc's heap allocator.
 /// The caller is responsible to `free` it once the writer has been
 /// destroyed.
-#[::ffi_catch_abort] #[no_mangle]
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "system" fn pgp_writer_alloc(buf: *mut *mut c_void,
                                        len: *mut size_t)
                                        -> *mut Box<Write> {
@@ -153,13 +153,13 @@ impl Write for WriterAlloc {
 }
 
 /// Frees a writer.
-#[::ffi_catch_abort] #[no_mangle]
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "system" fn pgp_writer_free(writer: Option<&mut Box<Write>>) {
     ffi_free!(writer)
 }
 
 /// Writes up to `len` bytes of `buf` into `writer`.
-#[::ffi_catch_abort] #[no_mangle]
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "system" fn pgp_writer_write(errp: Option<&mut *mut ::error::Error>,
                                        writer: *mut Box<Write>,
                                        buf: *const uint8_t, len: size_t)

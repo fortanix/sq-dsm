@@ -327,7 +327,7 @@ fn revocation_status_to_int(rs: &RevocationStatus) -> c_int {
 }
 
 /// Returns the TPK's revocation status variant.
-#[::ffi_catch_abort] #[no_mangle]
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "system" fn pgp_revocation_status_variant(
     rs: *mut RevocationStatus)
     -> c_int
@@ -339,7 +339,7 @@ pub extern "system" fn pgp_revocation_status_variant(
 }
 
 /// Frees a pgp_revocation_status_t.
-#[::ffi_catch_abort] #[no_mangle]
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "system" fn pgp_revocation_status_free(
     rs: Option<&mut RevocationStatus>)
 {
@@ -349,7 +349,7 @@ pub extern "system" fn pgp_revocation_status_free(
 // Secret.
 
 /// Creates an pgp_secret_t from a decrypted session key.
-#[::ffi_catch_abort] #[no_mangle]
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub fn pgp_secret_cached<'a>(algo: u8,
                             session_key: *const u8,
                             session_key_len: size_t)
@@ -398,7 +398,7 @@ pub struct VerificationResults<'a> {
 /// This function returns the verification results for a particular
 /// level.  The result is an array of references to
 /// `VerificationResult`.
-#[::ffi_catch_abort] #[no_mangle]
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub fn pgp_verification_results_at_level<'a>(results: *const VerificationResults<'a>,
                                             level: size_t,
                                             r: *mut *const &'a VerificationResult,
@@ -417,7 +417,7 @@ pub fn pgp_verification_results_at_level<'a>(results: *const VerificationResults
 }
 
 /// Returns the verification result code.
-#[::ffi_catch_abort] #[no_mangle]
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub fn pgp_verification_result_code(result: *const VerificationResult)
     -> c_int
 {
@@ -430,7 +430,7 @@ pub fn pgp_verification_result_code(result: *const VerificationResult)
 }
 
 /// Returns the verification result code.
-#[::ffi_catch_abort] #[no_mangle]
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub fn pgp_verification_result_signature(result: *const VerificationResult)
     -> *const self::openpgp::packet::Signature
 {
@@ -445,7 +445,7 @@ pub fn pgp_verification_result_signature(result: *const VerificationResult)
 }
 
 /// Returns the verification result code.
-#[::ffi_catch_abort] #[no_mangle]
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub fn pgp_verification_result_level(result: *const VerificationResult)
     -> c_int
 {
@@ -622,7 +622,7 @@ fn verify_real<'a>(input: &'a mut Box<'a + Read>,
 /// treated as opaque containers.
 ///
 /// Note: output may be NULL, if the output is not required.
-#[::ffi_catch_abort] #[no_mangle]
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub fn pgp_verify<'a>(errp: Option<&mut *mut ::error::Error>,
                      input: *mut Box<'a + Read>,
                      dsig: Option<&'a mut Box<'a + Read>>,
@@ -745,7 +745,7 @@ fn decrypt_real<'a>(input: &'a mut Box<'a + Read>,
 /// first parameter to each of them.
 ///
 /// Note: all of the parameters are required; none may be NULL.
-#[::ffi_catch_abort] #[no_mangle]
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub fn pgp_decrypt<'a>(errp: Option<&mut *mut ::error::Error>,
                       input: *mut Box<'a + Read>,
                       output: *mut Box<'a + Write>,

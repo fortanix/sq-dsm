@@ -14,7 +14,7 @@ use self::openpgp::{
 };
 
 /// Clones the key.
-#[::ffi_catch_abort] #[no_mangle]
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "system" fn pgp_key_clone(key: *const packet::Key)
                                       -> *mut packet::Key {
     let key = ffi_param_ref!(key);
@@ -23,7 +23,7 @@ pub extern "system" fn pgp_key_clone(key: *const packet::Key)
 
 /// Computes and returns the key's fingerprint as per Section 12.2
 /// of RFC 4880.
-#[::ffi_catch_abort] #[no_mangle]
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "system" fn pgp_key_fingerprint(key: *const packet::Key)
                                             -> *mut Fingerprint {
     let key = ffi_param_ref!(key);
@@ -32,7 +32,7 @@ pub extern "system" fn pgp_key_fingerprint(key: *const packet::Key)
 
 /// Computes and returns the key's key ID as per Section 12.2 of RFC
 /// 4880.
-#[::ffi_catch_abort] #[no_mangle]
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "system" fn pgp_key_keyid(key: *const packet::Key)
                                       -> *mut KeyID {
     let key = ffi_param_ref!(key);
@@ -45,7 +45,7 @@ pub extern "system" fn pgp_key_keyid(key: *const packet::Key)
 /// Note: this is with respect to the provided signature, which is not
 /// checked for validity.  That is, we do not check whether the
 /// signature is a valid self-signature for the given key.
-#[::ffi_catch_abort] #[no_mangle]
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "system" fn pgp_key_expired(key: *const packet::Key,
                                       sig: *const packet::Signature)
     -> bool
@@ -57,7 +57,7 @@ pub extern "system" fn pgp_key_expired(key: *const packet::Key,
 }
 
 /// Like pgp_key_expired, but at a specific time.
-#[::ffi_catch_abort] #[no_mangle]
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "system" fn pgp_key_expired_at(key: *const packet::Key,
                                          sig: *const packet::Signature,
                                          when: time_t)
@@ -78,7 +78,7 @@ pub extern "system" fn pgp_key_expired_at(key: *const packet::Key,
 /// Note: this is with respect to the provided signature, which is not
 /// checked for validity.  That is, we do not check whether the
 /// signature is a valid self-signature for the given key.
-#[::ffi_catch_abort] #[no_mangle]
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "system" fn pgp_key_alive(key: *const packet::Key,
                                       sig: *const packet::Signature)
     -> bool
@@ -90,7 +90,7 @@ pub extern "system" fn pgp_key_alive(key: *const packet::Key,
 }
 
 /// Like pgp_key_alive, but at a specific time.
-#[::ffi_catch_abort] #[no_mangle]
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "system" fn pgp_key_alive_at(key: *const packet::Key,
                                          sig: *const packet::Signature,
                                          when: time_t)
@@ -103,7 +103,7 @@ pub extern "system" fn pgp_key_alive_at(key: *const packet::Key,
 }
 
 /// Returns the key's creation time.
-#[::ffi_catch_abort] #[no_mangle]
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "system" fn pgp_key_creation_time(key: *const packet::Key)
     -> u32
 {
@@ -114,7 +114,7 @@ pub extern "system" fn pgp_key_creation_time(key: *const packet::Key)
 }
 
 /// Returns the key's public key algorithm.
-#[::ffi_catch_abort] #[no_mangle]
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "system" fn pgp_key_public_key_algo(key: *const packet::Key)
     -> c_int
 {
@@ -124,7 +124,7 @@ pub extern "system" fn pgp_key_public_key_algo(key: *const packet::Key)
 }
 
 /// Returns the public key's size in bits.
-#[::ffi_catch_abort] #[no_mangle]
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "system" fn pgp_key_public_key_bits(key: *const packet::Key)
     -> c_int
 {
@@ -148,7 +148,7 @@ pub extern "system" fn pgp_key_public_key_bits(key: *const packet::Key)
 /// # Errors
 ///
 /// Fails if the secret key is missing, or encrypted.
-#[::ffi_catch_abort] #[no_mangle]
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "system" fn pgp_key_into_key_pair(errp: Option<&mut *mut ::error::Error>,
                                               key: *mut packet::Key)
                                               -> *mut self::openpgp::crypto::KeyPair

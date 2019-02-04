@@ -31,7 +31,7 @@ impl MoveResultIntoRaw<::error::Status> for ::failure::Fallible<()>
 }
 
 /// Returns the error status code.
-#[::ffi_catch_abort] #[no_mangle]
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "system" fn pgp_error_status(error: *const Error)
                                        -> Status {
     error.ref_raw().into()

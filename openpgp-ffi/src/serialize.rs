@@ -38,7 +38,7 @@ use self::openpgp::serialize::{
 use super::openpgp::TPK;
 
 /// Streams an OpenPGP message.
-#[::ffi_catch_abort] #[no_mangle]
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "system" fn pgp_writer_stack_message
     (writer: *mut Box<Write>)
      -> *mut writer::Stack<'static, Cookie>
@@ -48,7 +48,7 @@ pub extern "system" fn pgp_writer_stack_message
 }
 
 /// Writes up to `len` bytes of `buf` into `writer`.
-#[::ffi_catch_abort] #[no_mangle]
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "system" fn pgp_writer_stack_write
     (errp: Option<&mut *mut ::error::Error>,
      writer: *mut writer::Stack<'static, Cookie>,
@@ -69,7 +69,7 @@ pub extern "system" fn pgp_writer_stack_write
 /// Unlike pgp_writer_stack_write, unless an error occurs, the whole
 /// buffer will be written.  Also, this version automatically catches
 /// EINTR.
-#[::ffi_catch_abort] #[no_mangle]
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "system" fn pgp_writer_stack_write_all
     (errp: Option<&mut *mut ::error::Error>,
      writer: *mut writer::Stack<'static, Cookie>,
@@ -86,7 +86,7 @@ pub extern "system" fn pgp_writer_stack_write_all
 }
 
 /// Finalizes this writer, returning the underlying writer.
-#[::ffi_catch_abort] #[no_mangle]
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "system" fn pgp_writer_stack_finalize_one
     (errp: Option<&mut *mut ::error::Error>,
      writer: *mut writer::Stack<'static, Cookie>)
@@ -102,7 +102,7 @@ pub extern "system" fn pgp_writer_stack_finalize_one
 }
 
 /// Finalizes all writers, tearing down the whole stack.
-#[::ffi_catch_abort] #[no_mangle]
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "system" fn pgp_writer_stack_finalize
     (errp: Option<&mut *mut ::error::Error>,
      writer: *mut writer::Stack<'static, Cookie>)
@@ -122,7 +122,7 @@ pub extern "system" fn pgp_writer_stack_finalize
 /// This writer can be used to construct arbitrary OpenPGP packets.
 /// The body will be written using partial length encoding, or, if the
 /// body is short, using full length encoding.
-#[::ffi_catch_abort] #[no_mangle]
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "system" fn pgp_arbitrary_writer_new
     (errp: Option<&mut *mut ::error::Error>,
      inner: *mut writer::Stack<'static, Cookie>,
@@ -139,7 +139,7 @@ pub extern "system" fn pgp_arbitrary_writer_new
 /// For every signing key, a signer writes a one-pass-signature
 /// packet, then hashes and emits the data stream, then for every key
 /// writes a signature packet.
-#[::ffi_catch_abort] #[no_mangle]
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "system" fn pgp_signer_new
     (errp: Option<&mut *mut ::error::Error>,
      inner: *mut writer::Stack<'static, Cookie>,
@@ -163,7 +163,7 @@ pub extern "system" fn pgp_signer_new
 }
 
 /// Creates a signer for a detached signature.
-#[::ffi_catch_abort] #[no_mangle]
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "system" fn pgp_signer_new_detached
     (errp: Option<&mut *mut ::error::Error>,
      inner: *mut writer::Stack<'static, Cookie>,
@@ -190,7 +190,7 @@ pub extern "system" fn pgp_signer_new_detached
 ///
 /// The body will be written using partial length encoding, or, if the
 /// body is short, using full length encoding.
-#[::ffi_catch_abort] #[no_mangle]
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "system" fn pgp_literal_writer_new
     (errp: Option<&mut *mut ::error::Error>,
      inner: *mut writer::Stack<'static, Cookie>)
@@ -212,7 +212,7 @@ pub extern "system" fn pgp_literal_writer_new
 ///
 /// The stream is encrypted using AES256, regardless of any key
 /// preferences.
-#[::ffi_catch_abort] #[no_mangle]
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "system" fn pgp_encryptor_new
     (errp: Option<&mut *mut ::error::Error>,
      inner: *mut writer::Stack<'static, Cookie>,

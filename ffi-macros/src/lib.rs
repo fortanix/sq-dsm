@@ -20,6 +20,17 @@ use proc_macro2::TokenStream as TokenStream2;
 
 use quote::{quote, ToTokens};
 
+/// Transforms exported functions.
+///
+/// This macro is used to decorate every function exported from
+/// Sequoia.  It applies the following transformations:
+///
+///  - [ffi_catch_abort](attr.ffi_catch_abort.html)
+#[proc_macro_attribute]
+pub fn extern_fn(attr: TokenStream, item: TokenStream) -> TokenStream {
+    ffi_catch_abort(attr, item)
+}
+
 /// Wraps a function's body in a catch_unwind block, aborting on
 /// panics.
 ///
@@ -544,7 +555,7 @@ fn derive_free(span: proc_macro2::Span, prefix: &str, name: &str,
                                 span);
     quote! {
         /// Frees this object.
-        #[::ffi_catch_abort] #[no_mangle]
+        #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
         pub extern "system" fn #ident (this: Option<&mut #wrapper>) {
             if let Some(ref_) = this {
                 drop((ref_ as *mut #wrapper).move_from_raw())
@@ -562,7 +573,7 @@ fn derive_clone(span: proc_macro2::Span, prefix: &str, name: &str,
                                 span);
     quote! {
         /// Clones this object.
-        #[::ffi_catch_abort] #[no_mangle]
+        #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
         pub extern "system" fn #ident (this: *const #wrapper)
                                        -> *mut #wrapper {
             this.ref_raw().clone().move_into_raw()
@@ -579,7 +590,7 @@ fn derive_equal(span: proc_macro2::Span, prefix: &str, name: &str,
                                 span);
     quote! {
         /// Compares objects.
-        #[::ffi_catch_abort] #[no_mangle]
+        #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
         pub extern "system" fn #ident (a: *const #wrapper,
                                        b: *const #wrapper)
                                        -> bool {
@@ -599,7 +610,7 @@ fn derive_to_string(span: proc_macro2::Span, prefix: &str, name: &str,
     quote! {
         /// Returns a human readable description of this object
         /// intended for communication with end users.
-        #[::ffi_catch_abort] #[no_mangle]
+        #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
         pub extern "system" fn #ident (this: *const #wrapper)
                                        -> *mut ::libc::c_char {
             ffi_return_string!(format!("{}", this.ref_raw()))
@@ -617,7 +628,7 @@ fn derive_debug(span: proc_macro2::Span, prefix: &str, name: &str,
     quote! {
         /// Returns a human readable description of this object
         /// suitable for debugging.
-        #[::ffi_catch_abort] #[no_mangle]
+        #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
         pub extern "system" fn #ident (this: *const #wrapper)
                                        -> *mut ::libc::c_char {
             ffi_return_string!(format!("{:?}", this.ref_raw()))
@@ -634,7 +645,7 @@ fn derive_hash(span: proc_macro2::Span, prefix: &str, name: &str,
                                 span);
     quote! {
         /// Hashes this object.
-        #[::ffi_catch_abort] #[no_mangle]
+        #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
         pub extern "system" fn #ident (this: *const #wrapper)
                                        -> ::libc::uint64_t {
             use ::std::hash::{Hash, Hasher};
@@ -662,7 +673,7 @@ fn derive_parse(span: proc_macro2::Span, prefix: &str, name: &str,
                                      span);
     quote! {
         /// Parses an object from the given reader.
-        #[::ffi_catch_abort] #[no_mangle] pub extern "system"
+        #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
         fn #from_reader(errp: Option<&mut *mut ::error::Error>,
                         reader: *mut Box<::std::io::Read>)
                         -> ::Maybe<#wrapper> {
@@ -671,7 +682,7 @@ fn derive_parse(span: proc_macro2::Span, prefix: &str, name: &str,
         }
 
         /// Parses an object from the given file.
-        #[::ffi_catch_abort] #[no_mangle] pub extern "system"
+        #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
         fn #from_file(errp: Option<&mut *mut ::error::Error>,
                       filename: *const ::libc::c_char)
                       -> ::Maybe<#wrapper> {
@@ -681,7 +692,7 @@ fn derive_parse(span: proc_macro2::Span, prefix: &str, name: &str,
         }
 
         /// Parses an object from the given buffer.
-        #[::ffi_catch_abort] #[no_mangle] pub extern "system"
+        #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
         fn #from_bytes(errp: Option<&mut *mut ::error::Error>,
                        b: *const ::libc::uint8_t, len: ::libc::size_t)
                        -> ::Maybe<#wrapper> {
@@ -704,7 +715,7 @@ fn derive_serialize(span: proc_macro2::Span, prefix: &str, name: &str,
                                 span);
     quote! {
         /// Serializes this object.
-        #[::ffi_catch_abort] #[no_mangle] pub extern "system"
+        #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
         fn #ident (errp: Option<&mut *mut ::error::Error>,
                    tsk: *const #wrapper,
                    writer: *mut Box<::std::io::Write>)

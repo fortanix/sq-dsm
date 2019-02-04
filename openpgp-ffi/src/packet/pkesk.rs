@@ -13,7 +13,7 @@ use error::Status;
 ///
 /// The return value is a reference ot a `KeyID`.  The caller must not
 /// modify or free it.
-#[::ffi_catch_abort] #[no_mangle]
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "system" fn pgp_pkesk_recipient(pkesk: *const PKESK)
                                           -> *const KeyID {
     let pkesk = ffi_param_ref!(pkesk);
@@ -26,7 +26,7 @@ pub extern "system" fn pgp_pkesk_recipient(pkesk: *const PKESK)
 /// session key.  If `key` is NULL, or not large enough, then the key
 /// is not written to it.  Either way, `key_len` is set to the size of
 /// the session key.
-#[::ffi_catch_abort] #[no_mangle]
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "system" fn pgp_pkesk_decrypt(errp: Option<&mut *mut ::error::Error>,
                                         pkesk: *const PKESK,
                                         secret_key: *const Key,

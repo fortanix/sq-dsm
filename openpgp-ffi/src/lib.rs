@@ -322,7 +322,6 @@ extern crate memsec;
 
 extern crate sequoia_ffi_macros;
 use sequoia_ffi_macros::{
-    ffi_catch_abort,
     ffi_wrapper_type,
 };
 
