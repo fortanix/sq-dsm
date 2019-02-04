@@ -725,10 +725,9 @@ fn derive_parse(span: proc_macro2::Span, prefix: &str, name: &str,
         /// Parses an object from the given reader.
         #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
         fn #from_reader(errp: Option<&mut *mut ::error::Error>,
-                        reader: *mut Box<::std::io::Read>)
+                        reader: *mut super::io::Reader)
                         -> ::Maybe<#wrapper> {
-            let reader = ffi_param_ref_mut!(reader);
-            #wrapped::from_reader(reader).move_into_raw(errp)
+            #wrapped::from_reader(reader.ref_mut_raw()).move_into_raw(errp)
         }
 
         /// Parses an object from the given file.

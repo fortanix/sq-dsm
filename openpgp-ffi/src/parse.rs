@@ -9,7 +9,6 @@
 use std::mem::forget;
 use std::ptr;
 use std::slice;
-use std::io::Read;
 use libc::{uint8_t, c_char, c_int, size_t};
 
 extern crate sequoia_openpgp as openpgp;
@@ -25,8 +24,10 @@ use self::openpgp::parse::{
     PacketParserEOF,
 };
 
+use super::io::Reader;
 use error::Status;
 use MoveIntoRaw;
+use RefMutRaw;
 
 /// Starts parsing OpenPGP packets stored in a `pgp_reader_t`
 /// object.
@@ -35,10 +36,10 @@ use MoveIntoRaw;
 /// the stream.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "system" fn pgp_packet_parser_from_reader<'a>
-    (errp: Option<&mut *mut ::error::Error>, reader: *mut Box<'a + Read>)
+    (errp: Option<&mut *mut ::error::Error>, reader: *mut Reader)
      -> *mut PacketParserResult<'a> {
     ffi_make_fry_from_errp!(errp);
-    let reader = ffi_param_ref_mut!(reader);
+    let reader = reader.ref_mut_raw();
     ffi_try_box!(PacketParser::from_reader(reader))
 }
 

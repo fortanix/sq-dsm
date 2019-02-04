@@ -573,8 +573,8 @@ impl VerificationHelper for VHelper {
     }
 }
 
-fn verify_real<'a>(input: &'a mut Box<'a + Read>,
-                   dsig: Option<&'a mut Box<'a + Read>>,
+fn verify_real<'a>(input: &'a mut Read,
+                   dsig: Option<&mut io::ReaderKind>,
                    output: Option<&'a mut Box<'a + Write>>,
                    get_public_keys: GetPublicKeysCallback,
                    check_signatures: CheckSignaturesCallback,
@@ -624,8 +624,8 @@ fn verify_real<'a>(input: &'a mut Box<'a + Read>,
 /// Note: output may be NULL, if the output is not required.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub fn pgp_verify<'a>(errp: Option<&mut *mut ::error::Error>,
-                     input: *mut Box<'a + Read>,
-                     dsig: Option<&'a mut Box<'a + Read>>,
+                     input: *mut io::Reader,
+                     dsig: Maybe<io::Reader>,
                      output: Option<&'a mut Box<'a + Write>>,
                      get_public_keys: GetPublicKeysCallback,
                      check_signatures: CheckSignaturesCallback,
@@ -633,9 +633,9 @@ pub fn pgp_verify<'a>(errp: Option<&mut *mut ::error::Error>,
     -> Status
 {
     ffi_make_fry_from_errp!(errp);
-    let input = ffi_param_ref_mut!(input);
+    let input = input.ref_mut_raw();
 
-    let r = verify_real(input, dsig, output,
+    let r = verify_real(input, dsig.ref_mut_raw(), output,
         get_public_keys, check_signatures, cookie);
 
     ffi_try_status!(r)
@@ -707,7 +707,7 @@ impl DecryptionHelper for DHelper {
 
 // A helper function that returns a Result so that we can use ? to
 // propagate errors.
-fn decrypt_real<'a>(input: &'a mut Box<'a + Read>,
+fn decrypt_real<'a>(input: &'a mut io::ReaderKind,
                     output: &'a mut Box<'a + Write>,
                     get_public_keys: GetPublicKeysCallback,
                     get_secret_keys: GetSecretKeysCallback,
@@ -747,7 +747,7 @@ fn decrypt_real<'a>(input: &'a mut Box<'a + Read>,
 /// Note: all of the parameters are required; none may be NULL.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub fn pgp_decrypt<'a>(errp: Option<&mut *mut ::error::Error>,
-                      input: *mut Box<'a + Read>,
+                      input: *mut io::Reader,
                       output: *mut Box<'a + Write>,
                       get_public_keys: GetPublicKeysCallback,
                       get_secret_keys: GetSecretKeysCallback,
@@ -756,7 +756,7 @@ pub fn pgp_decrypt<'a>(errp: Option<&mut *mut ::error::Error>,
     -> Status
 {
     ffi_make_fry_from_errp!(errp);
-    let input = ffi_param_ref_mut!(input);
+    let input = input.ref_mut_raw();
     let output = ffi_param_ref_mut!(output);
 
     let r = decrypt_real(input, output,

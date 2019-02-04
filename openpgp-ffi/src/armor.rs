@@ -7,13 +7,18 @@
 use std::mem::size_of;
 use std::ptr;
 use std::slice;
-use std::io::{Read, Write};
+use std::io::Write;
 use libc::{self, uint8_t, c_char, c_int, size_t};
 
 extern crate sequoia_openpgp;
 use self::sequoia_openpgp::armor;
 
+use super::io::{Reader, ReaderKind};
+use Maybe;
 use MoveIntoRaw;
+use MoveResultIntoRaw;
+use RefRaw;
+use RefMutRaw;
 
 /// Represents a (key, value) pair in an armor header.
 #[repr(C)]
@@ -102,28 +107,28 @@ fn kind_to_int(kind: Option<armor::Kind>) -> c_int {
 /// pgp_reader_free (bytes);
 /// ```
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "system" fn pgp_armor_reader_new(inner: *mut Box<Read>,
-                                           kind: c_int)
-                                           -> *mut Box<Read> {
-    let inner = ffi_param_ref_mut!(inner);
+pub extern "system" fn pgp_armor_reader_new(inner: *mut Reader,
+                                            kind: c_int)
+                                            -> *mut Reader {
+    let inner = inner.ref_mut_raw();
     let kind = int_to_kind(kind);
 
-    box_raw!(Box::new(armor::Reader::new(inner, kind)))
+    ReaderKind::Armored(armor::Reader::new(inner, kind)).move_into_raw()
 }
 
 /// Creates a `Reader` from a file.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "system" fn pgp_armor_reader_from_file(errp: Option<&mut *mut ::error::Error>,
-                                                 filename: *const c_char,
-                                                 kind: c_int)
-                                                 -> *mut Box<Read> {
-    ffi_make_fry_from_errp!(errp);
+                                                  filename: *const c_char,
+                                                  kind: c_int)
+                                                  -> Maybe<Reader> {
     let filename = ffi_param_cstr!(filename).to_string_lossy().into_owned();
     let kind = int_to_kind(kind);
 
-    ffi_try_box!(armor::Reader::from_file(&filename, kind)
-             .map(|r| Box::new(r))
-             .map_err(|e| ::failure::Error::from(e)))
+    armor::Reader::from_file(&filename, kind)
+        .map(|r| ReaderKind::Armored(r))
+        .map_err(|e| ::failure::Error::from(e))
+        .move_into_raw(errp)
 }
 
 /// Creates a `Reader` from a buffer.
@@ -180,17 +185,17 @@ pub extern "system" fn pgp_armor_reader_from_file(errp: Option<&mut *mut ::error
 ///
 /// pgp_reader_free (armor);
 /// ```
-#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "system" fn pgp_armor_reader_from_bytes(b: *const uint8_t, len: size_t,
-                                                  kind: c_int)
-                                                  -> *mut Box<Read> {
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
+fn pgp_armor_reader_from_bytes(b: *const uint8_t, len: size_t,
+                               kind: c_int)
+                               -> *mut Reader {
     assert!(!b.is_null());
     let buf = unsafe {
         slice::from_raw_parts(b, len as usize)
     };
     let kind = int_to_kind(kind);
 
-    box_raw!(Box::new(armor::Reader::from_bytes(buf, kind)))
+    ReaderKind::Armored(armor::Reader::from_bytes(buf, kind)).move_into_raw()
 }
 
 /// Returns the kind of data this reader is for.
@@ -205,16 +210,16 @@ pub extern "system" fn pgp_armor_reader_from_bytes(b: *const uint8_t, len: size_
 ///
 ///   [this]: fn.pgp_armor_reader_new.html
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "system" fn pgp_armor_reader_kind(reader: *mut Box<Read>)
-                                            -> c_int {
-    // We need to downcast `reader`.  To do that, we need to do a
-    // little dance.  We will momentarily take ownership of `reader`,
-    // wrapping it in a Box again.  Then, at the end of the function,
-    // we will leak it again.
-    let reader = ffi_param_move!(reader as *mut Box<armor::Reader>);
-    let kind = kind_to_int(reader.kind());
-    Box::into_raw(reader);
-    kind
+pub extern "system" fn pgp_armor_reader_kind(reader: *const Reader)
+                                             -> c_int {
+    if let ReaderKind::Armored(ref armor_reader) = reader.ref_raw()
+    {
+        kind_to_int(armor_reader.kind())
+    } else {
+        panic!(
+            "FFI contract violation: Wrong parameter type: \
+             expected an armor reader")
+    }
 }
 
 /// Returns the armored headers.
@@ -236,21 +241,20 @@ pub extern "system" fn pgp_armor_reader_kind(reader: *mut Box<Read>)
 ///   [this]: fn.pgp_armor_reader_new.html
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "system" fn pgp_armor_reader_headers(errp: Option<&mut *mut ::error::Error>,
-                                               reader: *mut Box<Read>,
+                                               reader: *mut Reader,
                                                len: *mut size_t)
                                                -> *mut ArmorHeader {
     ffi_make_fry_from_errp!(errp);
     let len = ffi_param_ref_mut!(len);
 
-    // We need to downcast `reader`.  To do that, we need to do a
-    // little dance.  We will momentarily take ownership of `reader`,
-    // wrapping it in a Box again.  Then, at the end of the function,
-    // we will leak it again.
-    let mut reader = ffi_param_move!(reader as *mut Box<armor::Reader>);
+    let reader = if let ReaderKind::Armored(ref mut reader) = reader.ref_mut_raw() {
+        reader
+    } else {
+        panic!("FFI contract violation: Wrong parameter type: \
+                expected armor reader");
+    };
 
-    // We need to be extra careful here in order not to keep ownership
-    // of `reader` in case of errors.
-    let result = match reader.headers().map_err(|e| ::failure::Error::from(e)) {
+    match reader.headers().map_err(|e| ::failure::Error::from(e)) {
         Ok(headers) => {
             // Allocate space for the result.
             let buf = unsafe {
@@ -276,11 +280,7 @@ pub extern "system" fn pgp_armor_reader_headers(errp: Option<&mut *mut ::error::
             }
             ptr::null_mut()
         },
-    };
-
-    // Release temporary ownership.
-    Box::into_raw(reader);
-    result
+    }
 }
 
 /// Constructs a new filter for the given type of data.
