@@ -244,7 +244,7 @@ pub(crate) trait RefRaw<T> {
 /// Moves a mutable reference to an object from C to Rust.
 pub(crate) trait RefMutRaw<T> {
     /// Moves this mutable reference to an object from C to Rust.
-    fn ref_mut_raw(self) -> &'static mut T;
+    fn ref_mut_raw(self) -> T;
 }
 
 /// Moves an object from Rust to C, releasing ownership.

@@ -430,7 +430,7 @@ fn derive_conversion_functions(mut st: syn::ItemStruct,
         }
 
         use RefMutRaw;
-        impl RefMutRaw<#wrapped> for *mut #wrapper {
+        impl RefMutRaw<&'static mut #wrapped> for *mut #wrapper {
             fn ref_mut_raw(self) -> &'static mut #wrapped {
                 if self.is_null() {
                     panic!("FFI contract violation: Parameter is NULL");
