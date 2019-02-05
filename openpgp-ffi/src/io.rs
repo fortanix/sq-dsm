@@ -96,39 +96,42 @@ pub extern "system" fn pgp_reader_read(errp: Option<&mut *mut ::error::Error>,
 }
 
 
+/// Wraps a generic writer.
+#[::ffi_wrapper_type(prefix = "pgp_")]
+pub struct Writer(Box<io::Write>);
+
 /// Opens a file returning a writer.
 ///
 /// The file will be created if it does not exist, or be truncated
 /// otherwise.  If you need more control, use `pgp_writer_from_fd`.
-#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "system" fn pgp_writer_from_file(errp: Option<&mut *mut ::error::Error>,
-                                            filename: *const c_char)
-                                            -> *mut Box<Write> {
-    ffi_make_fry_from_errp!(errp);
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
+fn pgp_writer_from_file(errp: Option<&mut *mut ::error::Error>,
+                        filename: *const c_char)
+                        -> Maybe<Writer> {
     let filename = ffi_param_cstr!(filename).to_string_lossy().into_owned();
-    ffi_try_box!(File::create(Path::new(&filename))
-                 .map(|r| Box::new(r))
-                 .map_err(|e| ::failure::Error::from(e)))
+    File::create(Path::new(&filename))
+        .map(|w| -> Box<io::Write> { Box::new(w) })
+        .map_err(|e| ::failure::Error::from(e))
+        .move_into_raw(errp)
 }
 
 /// Opens a file descriptor returning a writer.
 #[cfg(unix)]
-#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "system" fn pgp_writer_from_fd(fd: c_int)
-                                          -> *mut Box<Write> {
-    box_raw!(Box::new(unsafe { File::from_raw_fd(fd) }))
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
+fn pgp_writer_from_fd(fd: c_int) -> *mut Writer {
+    let w: Box<io::Write> = Box::new(unsafe { File::from_raw_fd(fd) });
+    w.move_into_raw()
 }
 
 /// Creates a writer from a buffer.
-#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "system" fn pgp_writer_from_bytes(buf: *mut uint8_t,
-                                             len: size_t)
-                                             -> *mut Box<Write> {
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
+fn pgp_writer_from_bytes(buf: *mut uint8_t, len: size_t) -> *mut Writer {
     assert!(!buf.is_null());
     let buf = unsafe {
         slice::from_raw_parts_mut(buf, len as usize)
     };
-    box_raw!(Box::new(Cursor::new(buf)))
+    let w: Box<io::Write> = Box::new(Cursor::new(buf));
+    w.move_into_raw()
 }
 
 /// Creates an allocating writer.
@@ -139,17 +142,17 @@ pub extern "system" fn pgp_writer_from_bytes(buf: *mut uint8_t,
 /// reference a chunk of memory allocated using libc's heap allocator.
 /// The caller is responsible to `free` it once the writer has been
 /// destroyed.
-#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "system" fn pgp_writer_alloc(buf: *mut *mut c_void,
-                                        len: *mut size_t)
-                                        -> *mut Box<Write> {
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
+fn pgp_writer_alloc(buf: *mut *mut c_void, len: *mut size_t)
+                    -> *mut Writer {
     let buf = ffi_param_ref_mut!(buf);
     let len = ffi_param_ref_mut!(len);
 
-    box_raw!(Box::new(WriterAlloc {
+    let w: Box<io::Write> = Box::new(WriterAlloc {
         buf: buf,
         len: len,
-    }))
+    });
+    w.move_into_raw()
 }
 
 struct WriterAlloc {
@@ -185,23 +188,24 @@ impl Write for WriterAlloc {
     }
 }
 
-/// Frees a writer.
-#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "system" fn pgp_writer_free(writer: Option<&mut Box<Write>>) {
-    ffi_free!(writer)
-}
-
 /// Writes up to `len` bytes of `buf` into `writer`.
-#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "system" fn pgp_writer_write(errp: Option<&mut *mut ::error::Error>,
-                                        writer: *mut Box<Write>,
-                                        buf: *const uint8_t, len: size_t)
-                                        -> ssize_t {
-    ffi_make_fry_from_errp!(errp);
-    let writer = ffi_param_ref_mut!(writer);
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
+fn pgp_writer_write(errp: Option<&mut *mut ::error::Error>,
+                    writer: *mut Writer,
+                    buf: *const uint8_t, len: size_t)
+                    -> ssize_t {
     assert!(!buf.is_null());
     let buf = unsafe {
         slice::from_raw_parts(buf, len as usize)
     };
-    ffi_try_or!(writer.write(buf).map_err(|e| ::failure::Error::from(e)), -1) as ssize_t
+    writer.ref_mut_raw().write(buf)
+        .map(|n_read| n_read as ssize_t)
+        .unwrap_or_else(|e| {
+            if let Some(errp) = errp {
+                *errp = ::failure::Error::from(e).move_into_raw();
+            };
+
+            // Signal failure.
+            -1
+        })
 }

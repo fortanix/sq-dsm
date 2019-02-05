@@ -7,7 +7,7 @@
 use std::mem::size_of;
 use std::ptr;
 use std::slice;
-use std::io::Write;
+use std::io;
 use libc::{self, uint8_t, c_char, c_int, size_t};
 
 extern crate sequoia_openpgp;
@@ -343,14 +343,13 @@ pub extern "system" fn pgp_armor_reader_headers(errp: Option<&mut *mut ::error::
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "system" fn pgp_armor_writer_new
     (errp: Option<&mut *mut ::error::Error>,
-     inner: *mut Box<Write>,
+     inner: *mut super::io::Writer,
      kind: c_int,
      header: *const ArmorHeader,
      header_len: size_t)
-     -> *mut Box<Write>
+     -> Maybe<super::io::Writer>
 {
-    ffi_make_fry_from_errp!(errp);
-    let inner = ffi_param_ref_mut!(inner);
+    let inner = inner.ref_mut_raw();
     let kind = int_to_kind(kind).expect("KIND must not be PGP_ARMOR_KIND_ANY");
 
     let mut header_ = Vec::new();
@@ -370,7 +369,8 @@ pub extern "system" fn pgp_armor_writer_new
     let header: Vec<(&str, &str)> =
         header_.iter().map(|h| (h.0.as_ref(), h.1.as_ref())).collect();
 
-    ffi_try_box!(armor::Writer::new(inner, kind, &header)
-             .map(|r| Box::new(r))
-             .map_err(|e| ::failure::Error::from(e)))
+    armor::Writer::new(inner, kind, &header)
+        .map(|w| -> Box<io::Write> { Box::new(w) })
+        .map_err(|e| ::failure::Error::from(e))
+        .move_into_raw(errp)
 }

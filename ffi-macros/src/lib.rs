@@ -775,13 +775,13 @@ fn derive_serialize(span: proc_macro2::Span, prefix: &str, name: &str,
         /// Serializes this object.
         #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
         fn #ident (errp: Option<&mut *mut ::error::Error>,
-                   tsk: *const #wrapper,
-                   writer: *mut Box<::std::io::Write>)
+                   this: *const #wrapper,
+                   writer: *mut super::io::Writer)
                    -> ::error::Status {
             use ::RefRaw;
+            use ::RefMutRaw;
             use ::MoveResultIntoRaw;
-            let writer = ffi_param_ref_mut!(writer);
-            tsk.ref_raw().serialize(writer).move_into_raw(errp)
+            this.ref_raw().serialize(writer.ref_mut_raw()).move_into_raw(errp)
         }
     }
 }

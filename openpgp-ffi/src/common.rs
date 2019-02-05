@@ -291,7 +291,7 @@ pub mod tsk;
 use std::ptr;
 use std::slice;
 use std::io as std_io;
-use std::io::{Read, Write};
+use std::io::Read;
 use libc::{c_int, size_t, c_void};
 use failure::ResultExt;
 
@@ -575,7 +575,7 @@ impl VerificationHelper for VHelper {
 
 fn verify_real<'a>(input: &'a mut Read,
                    dsig: Option<&mut io::ReaderKind>,
-                   output: Option<&'a mut Box<'a + Write>>,
+                   output: Option<&mut Box<::std::io::Write>>,
                    get_public_keys: GetPublicKeysCallback,
                    check_signatures: CheckSignaturesCallback,
                    cookie: *mut HelperCookie)
@@ -626,7 +626,7 @@ fn verify_real<'a>(input: &'a mut Read,
 pub fn pgp_verify<'a>(errp: Option<&mut *mut ::error::Error>,
                      input: *mut io::Reader,
                      dsig: Maybe<io::Reader>,
-                     output: Option<&'a mut Box<'a + Write>>,
+                     output: Maybe<io::Writer>,
                      get_public_keys: GetPublicKeysCallback,
                      check_signatures: CheckSignaturesCallback,
                      cookie: *mut HelperCookie)
@@ -635,7 +635,7 @@ pub fn pgp_verify<'a>(errp: Option<&mut *mut ::error::Error>,
     ffi_make_fry_from_errp!(errp);
     let input = input.ref_mut_raw();
 
-    let r = verify_real(input, dsig.ref_mut_raw(), output,
+    let r = verify_real(input, dsig.ref_mut_raw(), output.ref_mut_raw(),
         get_public_keys, check_signatures, cookie);
 
     ffi_try_status!(r)
@@ -708,7 +708,7 @@ impl DecryptionHelper for DHelper {
 // A helper function that returns a Result so that we can use ? to
 // propagate errors.
 fn decrypt_real<'a>(input: &'a mut io::ReaderKind,
-                    output: &'a mut Box<'a + Write>,
+                    output: &'a mut ::std::io::Write,
                     get_public_keys: GetPublicKeysCallback,
                     get_secret_keys: GetSecretKeysCallback,
                     check_signatures: CheckSignaturesCallback,
@@ -748,7 +748,7 @@ fn decrypt_real<'a>(input: &'a mut io::ReaderKind,
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub fn pgp_decrypt<'a>(errp: Option<&mut *mut ::error::Error>,
                       input: *mut io::Reader,
-                      output: *mut Box<'a + Write>,
+                      output: *mut io::Writer,
                       get_public_keys: GetPublicKeysCallback,
                       get_secret_keys: GetSecretKeysCallback,
                       check_signatures: CheckSignaturesCallback,
@@ -757,7 +757,7 @@ pub fn pgp_decrypt<'a>(errp: Option<&mut *mut ::error::Error>,
 {
     ffi_make_fry_from_errp!(errp);
     let input = input.ref_mut_raw();
-    let output = ffi_param_ref_mut!(output);
+    let output = output.ref_mut_raw();
 
     let r = decrypt_real(input, output,
         get_public_keys, get_secret_keys, check_signatures, cookie);

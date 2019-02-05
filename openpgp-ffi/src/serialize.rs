@@ -21,6 +21,7 @@ use self::openpgp::constants::{
 };
 
 use error::Status;
+use MoveFromRaw;
 
 use self::openpgp::serialize::{
     writer,
@@ -40,11 +41,10 @@ use super::openpgp::TPK;
 /// Streams an OpenPGP message.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "system" fn pgp_writer_stack_message
-    (writer: *mut Box<Write>)
+    (writer: *mut super::io::Writer)
      -> *mut writer::Stack<'static, Cookie>
 {
-    let writer = ffi_param_move!(writer);
-    box_raw!(Message::new(writer))
+    box_raw!(Message::new(writer.move_from_raw()))
 }
 
 /// Writes up to `len` bytes of `buf` into `writer`.
