@@ -12,6 +12,9 @@ use std::os::unix::io::FromRawFd;
 extern crate sequoia_openpgp as openpgp;
 
 use Maybe;
+use RefMutRaw;
+use MoveIntoRaw;
+use MoveResultIntoRaw;
 
 /// Wraps a generic reader.
 #[::ffi_wrapper_type(prefix = "pgp_")]

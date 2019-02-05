@@ -5,6 +5,9 @@ use std::io;
 
 extern crate sequoia_openpgp as openpgp;
 
+use MoveIntoRaw;
+use RefRaw;
+
 /// Complex errors.
 ///
 /// This wraps [`failure::Error`]s.
@@ -13,7 +16,7 @@ extern crate sequoia_openpgp as openpgp;
 #[::ffi_wrapper_type(prefix = "pgp_", derive = "Display")]
 pub struct Error(failure::Error);
 
-impl MoveResultIntoRaw<::error::Status> for ::failure::Fallible<()>
+impl ::MoveResultIntoRaw<::error::Status> for ::failure::Fallible<()>
 {
     fn move_into_raw(self, errp: Option<&mut *mut ::error::Error>)
                      -> ::error::Status {

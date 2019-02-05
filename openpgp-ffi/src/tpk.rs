@@ -34,6 +34,10 @@ use super::fingerprint::Fingerprint;
 use super::packet_pile::PacketPile;
 use super::tsk::TSK;
 use Maybe;
+use RefRaw;
+use MoveFromRaw;
+use MoveIntoRaw;
+use MoveResultIntoRaw;
 
 /// A transferable public key (TPK).
 ///

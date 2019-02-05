@@ -16,6 +16,8 @@ use libc::{uint8_t, c_char, size_t};
 extern crate sequoia_openpgp as openpgp;
 use super::keyid::KeyID;
 use Maybe;
+use MoveIntoRaw;
+use RefRaw;
 
 /// Holds a fingerprint.
 ///

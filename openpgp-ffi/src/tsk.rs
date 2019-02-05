@@ -16,6 +16,10 @@ use self::openpgp::{
 
 use super::tpk::TPK;
 use ::error::Status;
+use RefRaw;
+use MoveFromRaw;
+use MoveIntoRaw;
+use MoveResultIntoRaw;
 
 /// A transferable secret key (TSK).
 ///

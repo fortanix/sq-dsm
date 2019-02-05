@@ -372,8 +372,7 @@ fn derive_conversion_functions(mut st: syn::ItemStruct,
             }
         }
 
-        use MoveFromRaw;
-        impl MoveFromRaw<#wrapped> for *mut #wrapper {
+        impl ::MoveFromRaw<#wrapped> for *mut #wrapper {
             fn move_from_raw(self) -> #wrapped {
                 if self.is_null() {
                     panic!("FFI contract violation: Parameter is NULL");
@@ -407,8 +406,7 @@ fn derive_conversion_functions(mut st: syn::ItemStruct,
             }
         }
 
-        use RefRaw;
-        impl RefRaw<#wrapped> for *const #wrapper {
+        impl ::RefRaw<#wrapped> for *const #wrapper {
             fn ref_raw(self) -> &'static #wrapped {
                 if self.is_null() {
                     panic!("FFI contract violation: Parameter is NULL");
@@ -429,8 +427,7 @@ fn derive_conversion_functions(mut st: syn::ItemStruct,
             }
         }
 
-        use RefMutRaw;
-        impl RefMutRaw<&'static mut #wrapped> for *mut #wrapper {
+        impl ::RefMutRaw<&'static mut #wrapped> for *mut #wrapper {
             fn ref_mut_raw(self) -> &'static mut #wrapped {
                 if self.is_null() {
                     panic!("FFI contract violation: Parameter is NULL");
@@ -452,7 +449,7 @@ fn derive_conversion_functions(mut st: syn::ItemStruct,
             }
         }
 
-        impl RefMutRaw<Option<&'static mut #wrapped>> for ::Maybe<#wrapper> {
+        impl ::RefMutRaw<Option<&'static mut #wrapped>> for ::Maybe<#wrapper> {
             fn ref_mut_raw(self) -> Option<&'static mut #wrapped> {
                 if self.is_none() {
                     return None;
@@ -481,26 +478,25 @@ fn derive_conversion_functions(mut st: syn::ItemStruct,
             }
         }
 
-        use MoveIntoRaw;
-        impl MoveIntoRaw<*mut #wrapper> for #wrapped {
+        impl ::MoveIntoRaw<*mut #wrapper> for #wrapped {
             fn move_into_raw(self) -> *mut #wrapper {
                 #wrapper::wrap(#ownership::Owned(self))
             }
         }
 
-        impl MoveIntoRaw<*mut #wrapper> for &#wrapped {
+        impl ::MoveIntoRaw<*mut #wrapper> for &#wrapped {
             fn move_into_raw(self) -> *mut #wrapper {
                 #wrapper::wrap(#ownership::Ref(self))
             }
         }
 
-        impl MoveIntoRaw<*mut #wrapper> for &mut #wrapped {
+        impl ::MoveIntoRaw<*mut #wrapper> for &mut #wrapped {
             fn move_into_raw(self) -> *mut #wrapper {
                 #wrapper::wrap(#ownership::RefMut(self))
             }
         }
 
-        impl MoveIntoRaw<Option<::std::ptr::NonNull<#wrapper>>>
+        impl ::MoveIntoRaw<Option<::std::ptr::NonNull<#wrapper>>>
             for Option<#wrapped>
         {
             fn move_into_raw(self) -> Option<::std::ptr::NonNull<#wrapper>> {
@@ -511,7 +507,7 @@ fn derive_conversion_functions(mut st: syn::ItemStruct,
             }
         }
 
-        impl MoveIntoRaw<Option<::std::ptr::NonNull<#wrapper>>>
+        impl ::MoveIntoRaw<Option<::std::ptr::NonNull<#wrapper>>>
             for Option<&#wrapped>
         {
             fn move_into_raw(self) -> Option<::std::ptr::NonNull<#wrapper>> {
@@ -522,7 +518,7 @@ fn derive_conversion_functions(mut st: syn::ItemStruct,
             }
         }
 
-        impl MoveIntoRaw<Option<::std::ptr::NonNull<#wrapper>>>
+        impl ::MoveIntoRaw<Option<::std::ptr::NonNull<#wrapper>>>
             for Option<&mut #wrapped>
         {
             fn move_into_raw(self) -> Option<::std::ptr::NonNull<#wrapper>> {
@@ -533,12 +529,12 @@ fn derive_conversion_functions(mut st: syn::ItemStruct,
             }
         }
 
-        use MoveResultIntoRaw;
-        impl MoveResultIntoRaw<Option<::std::ptr::NonNull<#wrapper>>>
+        impl ::MoveResultIntoRaw<Option<::std::ptr::NonNull<#wrapper>>>
             for ::failure::Fallible<#wrapped>
         {
             fn move_into_raw(self, errp: Option<&mut *mut ::error::Error>)
                              -> Option<::std::ptr::NonNull<#wrapper>> {
+                use ::MoveIntoRaw;
                 match self {
                     Ok(v) => {
                         let ptr = #wrapper::wrap(#ownership::Owned(v));
@@ -554,11 +550,12 @@ fn derive_conversion_functions(mut st: syn::ItemStruct,
             }
         }
 
-        impl MoveResultIntoRaw<Option<::std::ptr::NonNull<#wrapper>>>
+        impl ::MoveResultIntoRaw<Option<::std::ptr::NonNull<#wrapper>>>
             for ::failure::Fallible<&#wrapped>
         {
             fn move_into_raw(self, errp: Option<&mut *mut ::error::Error>)
                              -> Option<::std::ptr::NonNull<#wrapper>> {
+                use ::MoveIntoRaw;
                 match self {
                     Ok(v) => {
                         let ptr = #wrapper::wrap(#ownership::Ref(v));
@@ -574,11 +571,12 @@ fn derive_conversion_functions(mut st: syn::ItemStruct,
             }
         }
 
-        impl MoveResultIntoRaw<Option<::std::ptr::NonNull<#wrapper>>>
+        impl ::MoveResultIntoRaw<Option<::std::ptr::NonNull<#wrapper>>>
             for ::failure::Fallible<&mut #wrapped>
         {
             fn move_into_raw(self, errp: Option<&mut *mut ::error::Error>)
                              -> Option<::std::ptr::NonNull<#wrapper>> {
+                use ::MoveIntoRaw;
                 match self {
                     Ok(v) => {
                         let ptr = #wrapper::wrap(#ownership::RefMut(v));
@@ -607,6 +605,7 @@ fn derive_free(span: proc_macro2::Span, prefix: &str, name: &str,
         /// Frees this object.
         #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
         pub extern "system" fn #ident (this: Option<&mut #wrapper>) {
+            use ::MoveFromRaw;
             if let Some(ref_) = this {
                 drop((ref_ as *mut #wrapper).move_from_raw())
             }
@@ -626,6 +625,8 @@ fn derive_clone(span: proc_macro2::Span, prefix: &str, name: &str,
         #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
         pub extern "system" fn #ident (this: *const #wrapper)
                                        -> *mut #wrapper {
+            use ::RefRaw;
+            use ::MoveIntoRaw;
             this.ref_raw().clone().move_into_raw()
         }
     }
@@ -644,6 +645,7 @@ fn derive_equal(span: proc_macro2::Span, prefix: &str, name: &str,
         pub extern "system" fn #ident (a: *const #wrapper,
                                        b: *const #wrapper)
                                        -> bool {
+            use ::RefRaw;
             a.ref_raw() == b.ref_raw()
         }
     }
@@ -663,6 +665,7 @@ fn derive_to_string(span: proc_macro2::Span, prefix: &str, name: &str,
         #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
         pub extern "system" fn #ident (this: *const #wrapper)
                                        -> *mut ::libc::c_char {
+            use ::RefRaw;
             ffi_return_string!(format!("{}", this.ref_raw()))
         }
     }
@@ -681,6 +684,7 @@ fn derive_debug(span: proc_macro2::Span, prefix: &str, name: &str,
         #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
         pub extern "system" fn #ident (this: *const #wrapper)
                                        -> *mut ::libc::c_char {
+            use ::RefRaw;
             ffi_return_string!(format!("{:?}", this.ref_raw()))
         }
     }
@@ -699,6 +703,7 @@ fn derive_hash(span: proc_macro2::Span, prefix: &str, name: &str,
         pub extern "system" fn #ident (this: *const #wrapper)
                                        -> ::libc::uint64_t {
             use ::std::hash::{Hash, Hasher};
+            use ::RefRaw;
 
             let mut hasher = ::build_hasher();
             this.ref_raw().hash(&mut hasher);
@@ -727,6 +732,8 @@ fn derive_parse(span: proc_macro2::Span, prefix: &str, name: &str,
         fn #from_reader(errp: Option<&mut *mut ::error::Error>,
                         reader: *mut super::io::Reader)
                         -> ::Maybe<#wrapper> {
+            use ::RefMutRaw;
+            use ::MoveResultIntoRaw;
             #wrapped::from_reader(reader.ref_mut_raw()).move_into_raw(errp)
         }
 
@@ -735,6 +742,7 @@ fn derive_parse(span: proc_macro2::Span, prefix: &str, name: &str,
         fn #from_file(errp: Option<&mut *mut ::error::Error>,
                       filename: *const ::libc::c_char)
                       -> ::Maybe<#wrapper> {
+            use ::MoveResultIntoRaw;
             let filename =
                 ffi_param_cstr!(filename).to_string_lossy().into_owned();
             #wrapped::from_file(&filename).move_into_raw(errp)
@@ -745,6 +753,7 @@ fn derive_parse(span: proc_macro2::Span, prefix: &str, name: &str,
         fn #from_bytes(errp: Option<&mut *mut ::error::Error>,
                        b: *const ::libc::uint8_t, len: ::libc::size_t)
                        -> ::Maybe<#wrapper> {
+            use ::MoveResultIntoRaw;
             assert!(!b.is_null());
             let buf = unsafe {
                 ::std::slice::from_raw_parts(b, len as usize)
@@ -769,6 +778,8 @@ fn derive_serialize(span: proc_macro2::Span, prefix: &str, name: &str,
                    tsk: *const #wrapper,
                    writer: *mut Box<::std::io::Write>)
                    -> ::error::Status {
+            use ::RefRaw;
+            use ::MoveResultIntoRaw;
             let writer = ffi_param_ref_mut!(writer);
             tsk.ref_raw().serialize(writer).move_into_raw(errp)
         }

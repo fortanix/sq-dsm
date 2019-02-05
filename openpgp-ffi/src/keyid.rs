@@ -16,6 +16,8 @@ use libc::{uint8_t, c_char};
 extern crate sequoia_openpgp as openpgp;
 
 use Maybe;
+use RefRaw;
+use MoveIntoRaw;
 
 /// Holds a KeyID.
 ///
