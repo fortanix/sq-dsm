@@ -452,6 +452,28 @@ fn derive_conversion_functions(mut st: syn::ItemStruct,
             }
         }
 
+        impl RefMutRaw<Option<&'static mut #wrapped>> for ::Maybe<#wrapper> {
+            fn ref_mut_raw(self) -> Option<&'static mut #wrapped> {
+                if self.is_none() {
+                    return None;
+                }
+                let wrapper = unsafe {
+                    &mut (*self.unwrap().as_ptr())
+                };
+                wrapper.assert_tag();
+                match wrapper.0 {
+                    #ownership::Owned(ref mut o) => Some(o),
+                    #ownership::Ref(r) => {
+                        panic!("FFI contract violation: expected mutable \
+                                reference, got immutable reference: {:?}", r);
+                    },
+                    #ownership::RefMut(r) => unsafe {
+                        Some(&mut *r)
+                    },
+                }
+            }
+        }
+
         impl #wrapper {
             fn wrap(obj: #ownership) -> *mut #wrapper {
                 Box::into_raw(Box::new(#wrapper(obj, #magic_value,
