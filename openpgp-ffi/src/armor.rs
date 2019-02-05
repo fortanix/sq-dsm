@@ -73,7 +73,7 @@ fn kind_to_int(kind: Option<armor::Kind>) -> c_int {
 /// pgp_reader_t armor = pgp_armor_reader_new (bytes, PGP_ARMOR_KIND_ANY);
 ///
 /// pgp_error_t err;
-/// pgp_armor_header_t *header;
+/// pgp_armor_header_t header;
 /// size_t header_len;
 /// header = pgp_armor_reader_headers (&err, armor, &header_len);
 /// if (header == NULL)
@@ -153,7 +153,7 @@ pub extern "system" fn pgp_armor_reader_from_file(errp: Option<&mut *mut ::error
 ///     PGP_ARMOR_KIND_ANY);
 ///
 /// pgp_error_t err;
-/// pgp_armor_header_t *header;
+/// pgp_armor_header_t header;
 /// size_t header_len;
 /// header = pgp_armor_reader_headers (&err, armor, &header_len);
 /// if (header == NULL)
@@ -309,7 +309,7 @@ pub extern "system" fn pgp_armor_reader_headers(errp: Option<&mut *mut ::error::
 ///   pgp_error_t err;
 ///
 ///   char *message = "Hello world!";
-///   pgp_armor_header_t header[2] = {
+///   struct pgp_armor_header header[] = {
 ///     { "Key0", "Value0" },
 ///     { "Key1", "Value1" },
 ///   };

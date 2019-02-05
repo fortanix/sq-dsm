@@ -24,7 +24,7 @@ main (int argc, char **argv)
   pgp_reader_t armor;
   pgp_armor_kind_t kind;
   char message[12];
-  pgp_armor_header_t *header;
+  pgp_armor_header_t header;
   size_t header_len;
 
   bytes = pgp_reader_from_bytes ((uint8_t *) armored, strlen (armored));

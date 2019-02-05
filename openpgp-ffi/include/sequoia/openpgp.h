@@ -262,7 +262,7 @@ typedef enum pgp_armor_kind {
 typedef struct pgp_armor_header {
   char *key;
   char *value;
-} pgp_armor_header_t;
+} *pgp_armor_header_t;
 
 
 /*/
@@ -308,7 +308,7 @@ pgp_armor_kind_t pgp_armor_reader_kind (pgp_reader_t reader);
 /// allocated with `malloc`, and the caller is responsible for freeing
 /// both the array and the strings.
 /*/
-pgp_armor_header_t *pgp_armor_reader_headers (pgp_error_t *errp,
+pgp_armor_header_t pgp_armor_reader_headers (pgp_error_t *errp,
 					    pgp_reader_t reader,
 					    size_t *len);
 
@@ -320,7 +320,7 @@ pgp_armor_header_t *pgp_armor_reader_headers (pgp_error_t *errp,
 /*/
 pgp_writer_t pgp_armor_writer_new (pgp_error_t *errp, pgp_writer_t inner,
 				 pgp_armor_kind_t kind,
-				 pgp_armor_header_t *header, size_t header_len);
+				 pgp_armor_header_t header, size_t header_len);
 
 
 
