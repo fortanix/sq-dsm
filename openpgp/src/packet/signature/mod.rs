@@ -1072,8 +1072,8 @@ mod test {
         let private_mpis = mpis::SecretKey::EdDSA {
             scalar: MPI::new(&sec[..]),
         };
-        let key = Key::new_(time::now().canonicalize(),
-                            PublicKeyAlgorithm::EdDSA, public_mpis, None)
+        let key = Key::new(time::now().canonicalize(),
+                           PublicKeyAlgorithm::EdDSA, public_mpis, None)
             .unwrap();
         let msg = b"Hello, World";
         let mut hash = HashAlgorithm::SHA256.context().unwrap();

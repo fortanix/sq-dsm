@@ -88,9 +88,10 @@ impl Key {
 }
 
 impl Key {
-    pub(crate) fn new_(creation_time: time::Tm,pk_algo: PublicKeyAlgorithm,
-                       mpis: mpis::PublicKey, secret: Option<SecretKey>)
-                       -> Result<Key>
+    /// Creates a new OpenPGP key packet.
+    pub fn new(creation_time: time::Tm, pk_algo: PublicKeyAlgorithm,
+               mpis: mpis::PublicKey, secret: Option<SecretKey>)
+               -> Result<Key>
     {
         Ok(Key {
             common: Default::default(),

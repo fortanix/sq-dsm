@@ -1483,8 +1483,8 @@ impl Key {
             unimplemented!()
         };
 
-        let key = php_try!(Key::new_(time::Tm::from_pgp(creation_time),
-                                     pk_algo, mpis, secret));
+        let key = php_try!(Key::new(time::Tm::from_pgp(creation_time),
+                                    pk_algo, mpis, secret));
 
         let tag = php.header.ctb.tag;
         php.ok(match tag {

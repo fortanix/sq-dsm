@@ -340,8 +340,8 @@ mod tests {
         let private_mpis = mpis::SecretKey::ECDH {
             scalar: MPI::new(&sec[..]),
         };
-        let key = Key::new_(time::now().canonicalize(),
-                            PublicKeyAlgorithm::ECDH, public_mpis, None)
+        let key = Key::new(time::now().canonicalize(),
+                           PublicKeyAlgorithm::ECDH, public_mpis, None)
             .unwrap();
         let mut rng = Yarrow::default();
         let sess_key = SessionKey::new(&mut rng, 32);
