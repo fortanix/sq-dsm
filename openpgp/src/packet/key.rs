@@ -550,7 +550,7 @@ mod tests {
             let sk = SessionKey::new(&mut Default::default(),
                                      cipher.key_size().unwrap());
 
-            let pkesk = PKESK::new(cipher, &sk, &key).unwrap();
+            let pkesk = PKESK::for_recipient(cipher, &sk, &key).unwrap();
             let (cipher_, sk_) = pkesk.decrypt(&key, &secret).unwrap();
 
             assert_eq!(cipher, cipher_);

@@ -931,7 +931,7 @@ impl<'a> Encryptor<'a> {
 
             let mut count = 0;
             for key in keys {
-                if let Ok(pkesk) = PKESK::new(algo, &sk, key) {
+                if let Ok(pkesk) = PKESK::for_recipient(algo, &sk, key) {
                     pkesk.serialize(&mut inner)?;
                     count += 1;
                 }

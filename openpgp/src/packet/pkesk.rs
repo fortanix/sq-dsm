@@ -47,13 +47,13 @@ impl PKESK {
         })
     }
 
-    /// Creates a new PKESK packet.
+    /// Creates a new PKESK packet for the given recipent.
     ///
     /// The given symmetric algorithm must match the algorithm that is
     /// used to encrypt the payload.
-    pub fn new(algo: SymmetricAlgorithm,
-               session_key: &SessionKey, recipient: &Key)
-               -> Result<PKESK> {
+    pub fn for_recipient(algo: SymmetricAlgorithm,
+                         session_key: &SessionKey, recipient: &Key)
+                         -> Result<PKESK> {
         use PublicKeyAlgorithm::*;
         let mut rng = Yarrow::default();
 
@@ -345,7 +345,8 @@ mod tests {
             .unwrap();
         let mut rng = Yarrow::default();
         let sess_key = SessionKey::new(&mut rng, 32);
-        let pkesk = PKESK::new(SymmetricAlgorithm::AES256, &sess_key, &key).unwrap();
+        let pkesk = PKESK::for_recipient(SymmetricAlgorithm::AES256, &sess_key,
+                                         &key).unwrap();
 
         pkesk.decrypt(&key, &private_mpis).unwrap();
     }
