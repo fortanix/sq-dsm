@@ -155,6 +155,10 @@ pub enum Error {
     #[fail(display = "Malformed packet: {}", _0)]
     MalformedPacket(String),
 
+    /// Unsupported packet type.
+    #[fail(display = "Unsupported packet type.  Tag: {}", _0)]
+    UnsupportedPacketType(packet::Tag),
+
     /// Unsupported hash algorithm identifier.
     #[fail(display = "Unsupported hash algorithm: {}", _0)]
     UnsupportedHashAlgorithm(HashAlgorithm),

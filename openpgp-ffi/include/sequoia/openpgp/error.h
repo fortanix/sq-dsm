@@ -43,6 +43,11 @@ typedef enum pgp_status {
   PGP_STATUS_MALFORMED_PACKET = -5,
 
   /*/
+  /// Unsupported packet type.
+  /*/
+  PGP_STATUS_UNSUPPORTED_PACKET_TYPE = -14,
+
+  /*/
   /// Unsupported hash algorithm.
   /*/
   PGP_STATUS_UNSUPPORTED_HASH_ALGORITHM = -9,

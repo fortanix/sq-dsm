@@ -65,6 +65,9 @@ pub enum Status {
     /// The packet is malformed.
     MalformedPacket = -5,
 
+    /// Unsupported packet type.
+    UnsupportedPacketType = -14,
+
     /// Unsupported hash algorithm.
     UnsupportedHashAlgorithm = -9,
 
@@ -95,7 +98,7 @@ pub enum Status {
     /// Malformed TPK.
     MalformedTPK = -13,
 
-    // XXX: -14 was UserIDNotFound.
+    // XXX: Skipping UnsupportedPacketType = -14.
 
     // XXX: Skipping InvalidArgument = -15.
 
@@ -138,6 +141,8 @@ impl<'a> From<&'a failure::Error> for Status {
                     Status::InvalidOperation,
                 &openpgp::Error::MalformedPacket(_) =>
                     Status::MalformedPacket,
+                &openpgp::Error::UnsupportedPacketType(_) =>
+                    Status::UnsupportedPacketType,
                 &openpgp::Error::UnsupportedHashAlgorithm(_) =>
                     Status::UnsupportedHashAlgorithm,
                 &openpgp::Error::UnsupportedPublicKeyAlgorithm(_) =>

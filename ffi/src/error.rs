@@ -32,6 +32,8 @@ impl<'a> FromSequoiaError<'a> for Status {
                     Status::InvalidOperation,
                 &openpgp::Error::MalformedPacket(_) =>
                     Status::MalformedPacket,
+                &openpgp::Error::UnsupportedPacketType(_) =>
+                    Status::UnsupportedPacketType,
                 &openpgp::Error::UnsupportedHashAlgorithm(_) =>
                     Status::UnsupportedHashAlgorithm,
                 &openpgp::Error::UnsupportedPublicKeyAlgorithm(_) =>
