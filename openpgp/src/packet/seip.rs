@@ -17,7 +17,8 @@ pub struct SEIP {
 }
 
 impl SEIP {
-    pub(crate) fn new() -> Self {
+    /// Creates a new SEIP packet.
+    pub fn new() -> Self {
         Self {
             common: Default::default(),
             version: 1,
