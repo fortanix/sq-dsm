@@ -1056,7 +1056,7 @@ mod tests {
         #[allow(deprecated)]
         packets.insert(
             1,
-            Packet::PKESK(PKESK::new_(
+            Packet::PKESK(PKESK::new(
                 KeyID::from_hex("0000111122223333").unwrap(),
                 PublicKeyAlgorithm::RSAEncrypt,
                 Ciphertext::RSA { c: MPI::new(&[]) }).unwrap()));

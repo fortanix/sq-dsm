@@ -2330,8 +2330,8 @@ impl PKESK {
         }
         let mpis = crypto::mpis::Ciphertext::parse(pk_algo, &mut php)?;
 
-        let pkesk = php_try!(PKESK::new_(KeyID::from_bytes(&keyid),
-                                         pk_algo, mpis));
+        let pkesk = php_try!(PKESK::new(KeyID::from_bytes(&keyid),
+                                        pk_algo, mpis));
         php.ok(Packet::PKESK(pkesk))
     }
 }
