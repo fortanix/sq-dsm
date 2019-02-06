@@ -33,17 +33,7 @@ impl MDC {
         let mut value : [u8; 20] = Default::default();
         hash.digest(&mut value[..]);
 
-        Self::for_hash(value)
-    }
-
-    /// Creates an MDC packet containing the hash value `hash`.
-    pub fn for_hash(hash: [u8; 20]) -> Self {
-        MDC {
-            common: Default::default(),
-            // All 0s.
-            computed_hash: Default::default(),
-            hash: hash,
-        }
+        value.into()
     }
 
     /// Gets the packet's hash value.
@@ -71,5 +61,16 @@ impl MDC {
 impl From<MDC> for Packet {
     fn from(s: MDC) -> Self {
         Packet::MDC(s)
+    }
+}
+
+impl From<[u8; 20]> for MDC {
+    fn from(hash: [u8; 20]) -> Self {
+        MDC {
+            common: Default::default(),
+            // All 0s.
+            computed_hash: Default::default(),
+            hash: hash,
+        }
     }
 }

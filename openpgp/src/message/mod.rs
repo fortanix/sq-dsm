@@ -958,7 +958,7 @@ mod tests {
         seip.common.children.as_mut().unwrap().push(
             lit.clone().into());
         seip.common.children.as_mut().unwrap().push(
-            MDC::for_hash(Default::default()).into());
+            MDC::from([0u8; 20]).into());
         packets[1] = Packet::SEIP(seip);
 
         assert!(packets.iter().map(|p| p.tag()).collect::<Vec<Tag>>()
