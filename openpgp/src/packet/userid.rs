@@ -83,16 +83,11 @@ impl UserID {
     pub fn set_userid(&mut self, userid: &str) {
         self.set_userid_from_bytes(userid.as_bytes())
     }
-
-    /// Convert the `UserID` struct to a `Packet`.
-    pub fn to_packet(self) -> Packet {
-        Packet::UserID(self)
-    }
 }
 
 impl From<UserID> for Packet {
     fn from(s: UserID) -> Self {
-        s.to_packet()
+        Packet::UserID(s)
     }
 }
 

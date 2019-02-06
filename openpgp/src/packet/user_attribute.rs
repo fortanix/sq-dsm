@@ -62,16 +62,11 @@ impl UserAttribute {
     pub fn set_user_attribute(&mut self, value: &[u8]) {
         self.value = value.to_vec();
     }
-
-    /// Convert the `UserAttribute` struct to a `Packet`.
-    pub fn to_packet(self) -> Packet {
-        Packet::UserAttribute(self)
-    }
 }
 
 impl From<UserAttribute> for Packet {
     fn from(s: UserAttribute) -> Self {
-        s.to_packet()
+        Packet::UserAttribute(s)
     }
 }
 

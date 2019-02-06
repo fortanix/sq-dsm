@@ -156,9 +156,9 @@ mod integration {
 //     };
 //     let tpk = TPK::from_packet_pile(PacketPile::from_packets(vec![
 //          key.to_packet(Tag::PublicKey).unwrap(),
-//          bind1.to_packet(),
-//          bind2.to_packet(),
-//          rev.to_packet()
+//          bind1.into(),
+//          bind2.into(),
+//          rev.into()
 //     ])).unwrap();
 //
 //     {

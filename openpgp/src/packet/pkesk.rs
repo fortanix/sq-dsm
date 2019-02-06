@@ -209,16 +209,11 @@ impl PKESK {
                 .into())
         }
     }
-
-    /// Convert the `PKESK` struct to a `Packet`.
-    pub fn to_packet(self) -> Packet {
-        Packet::PKESK(self)
-    }
 }
 
 impl From<PKESK> for Packet {
     fn from(s: PKESK) -> Self {
-        s.to_packet()
+        Packet::PKESK(s)
     }
 }
 

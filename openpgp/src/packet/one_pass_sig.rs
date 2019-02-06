@@ -140,16 +140,11 @@ impl OnePassSig {
     pub fn set_last_raw(&mut self, last: u8) {
         self.last = last;
     }
-
-    /// Convert the `OnePassSig` struct to a `Packet`.
-    pub fn to_packet(self) -> Packet {
-        Packet::OnePassSig(self)
-    }
 }
 
 impl From<OnePassSig> for Packet {
     fn from(s: OnePassSig) -> Self {
-        s.to_packet()
+        Packet::OnePassSig(s)
     }
 }
 

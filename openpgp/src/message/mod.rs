@@ -371,11 +371,6 @@ impl Message {
         Self::from_packet_pile(PacketPile::from_packets(packets))
     }
 
-    /// Converts the `Message` to a `PacketPile`.
-    pub fn to_packet_pile(self) -> PacketPile {
-        self.pile
-    }
-
     /// Returns the body of the message.
     ///
     /// Returns `None` if no literal data packet is found.  This
@@ -389,6 +384,12 @@ impl Message {
 
         // No literal data packet found.
         None
+    }
+}
+
+impl From<Message> for PacketPile {
+    fn from(m: Message) -> Self {
+        m.pile
     }
 }
 
@@ -681,7 +682,7 @@ mod tests {
         let mut packets = Vec::new();
         let mut lit = Literal::new(Text);
         lit.set_body(b"data".to_vec());
-        packets.push(lit.to_packet());
+        packets.push(lit.into());
 
         let message = Message::from_packets(packets);
         assert!(message.is_ok(), "{:?}", message);
@@ -698,8 +699,8 @@ mod tests {
         let mut packets = Vec::new();
         packets.push(
             CompressedData::new(CompressionAlgorithm::Uncompressed)
-                .push(lit.clone().to_packet())
-                .to_packet());
+                .push(lit.clone().into())
+                .into());
 
         let message = Message::from_packets(packets);
         assert!(message.is_ok(), "{:?}", message);
@@ -711,9 +712,9 @@ mod tests {
         let mut packets = Vec::new();
         packets.push(
             CompressedData::new(CompressionAlgorithm::Uncompressed)
-                .push(lit.clone().to_packet())
-                .push(lit.clone().to_packet())
-                .to_packet());
+                .push(lit.clone().into())
+                .push(lit.clone().into())
+                .into());
 
         let message = Message::from_packets(packets);
         assert!(message.is_err(), "{:?}", message);
@@ -725,9 +726,9 @@ mod tests {
         let mut packets = Vec::new();
         packets.push(
             CompressedData::new(CompressionAlgorithm::Uncompressed)
-                .push(lit.clone().to_packet())
-                .to_packet());
-        packets.push(lit.clone().to_packet());
+                .push(lit.clone().into())
+                .into());
+        packets.push(lit.clone().into());
 
         let message = Message::from_packets(packets);
         assert!(message.is_err(), "{:?}", message);
@@ -741,9 +742,9 @@ mod tests {
             CompressedData::new(CompressionAlgorithm::Uncompressed)
                 .push(CompressedData::new(CompressionAlgorithm::Uncompressed)
                       .push(lit.clone()
-                            .to_packet())
-                      .to_packet())
-                .to_packet());
+                            .into())
+                      .into())
+                .into());
 
         let message = Message::from_packets(packets);
         assert!(message.is_ok(), "{:?}", message);
@@ -769,7 +770,7 @@ mod tests {
         // 0: OnePassSig
         // => bad.
         let mut packets : Vec<Packet> = Vec::new();
-        packets.push(OnePassSig::new(SignatureType::Binary).to_packet());
+        packets.push(OnePassSig::new(SignatureType::Binary).into());
 
         let message = Message::from_packets(packets);
         assert!(message.is_err(), "{:?}", message);
@@ -778,8 +779,8 @@ mod tests {
         // 1: Literal
         // => bad.
         let mut packets : Vec<Packet> = Vec::new();
-        packets.push(OnePassSig::new(SignatureType::Binary).to_packet());
-        packets.push(lit.clone().to_packet());
+        packets.push(OnePassSig::new(SignatureType::Binary).into());
+        packets.push(lit.clone().into());
 
         let message = Message::from_packets(packets);
         assert!(message.is_err(), "{:?}", message);
@@ -789,9 +790,9 @@ mod tests {
         // 2: Signature
         // => good.
         let mut packets : Vec<Packet> = Vec::new();
-        packets.push(OnePassSig::new(SignatureType::Binary).to_packet());
-        packets.push(lit.clone().to_packet());
-        packets.push(sig.clone().to_packet());
+        packets.push(OnePassSig::new(SignatureType::Binary).into());
+        packets.push(lit.clone().into());
+        packets.push(sig.clone().into());
 
         let message = Message::from_packets(packets);
         assert!(message.is_ok(), "{:?}", message);
@@ -802,10 +803,10 @@ mod tests {
         // 3: Signature
         // => bad.
         let mut packets : Vec<Packet> = Vec::new();
-        packets.push(OnePassSig::new(SignatureType::Binary).to_packet());
-        packets.push(lit.clone().to_packet());
-        packets.push(sig.clone().to_packet());
-        packets.push(sig.clone().to_packet());
+        packets.push(OnePassSig::new(SignatureType::Binary).into());
+        packets.push(lit.clone().into());
+        packets.push(sig.clone().into());
+        packets.push(sig.clone().into());
 
         let message = Message::from_packets(packets);
         assert!(message.is_err(), "{:?}", message);
@@ -817,11 +818,11 @@ mod tests {
         // 4: Signature
         // => good.
         let mut packets : Vec<Packet> = Vec::new();
-        packets.push(OnePassSig::new(SignatureType::Binary).to_packet());
-        packets.push(OnePassSig::new(SignatureType::Binary).to_packet());
-        packets.push(lit.clone().to_packet());
-        packets.push(sig.clone().to_packet());
-        packets.push(sig.clone().to_packet());
+        packets.push(OnePassSig::new(SignatureType::Binary).into());
+        packets.push(OnePassSig::new(SignatureType::Binary).into());
+        packets.push(lit.clone().into());
+        packets.push(sig.clone().into());
+        packets.push(sig.clone().into());
 
         let message = Message::from_packets(packets);
         assert!(message.is_ok(), "{:?}", message);
@@ -834,12 +835,12 @@ mod tests {
         // 5: Signature
         // => bad.
         let mut packets : Vec<Packet> = Vec::new();
-        packets.push(OnePassSig::new(SignatureType::Binary).to_packet());
-        packets.push(OnePassSig::new(SignatureType::Binary).to_packet());
-        packets.push(lit.clone().to_packet());
-        packets.push(lit.clone().to_packet());
-        packets.push(sig.clone().to_packet());
-        packets.push(sig.clone().to_packet());
+        packets.push(OnePassSig::new(SignatureType::Binary).into());
+        packets.push(OnePassSig::new(SignatureType::Binary).into());
+        packets.push(lit.clone().into());
+        packets.push(lit.clone().into());
+        packets.push(sig.clone().into());
+        packets.push(sig.clone().into());
 
         let message = Message::from_packets(packets);
         assert!(message.is_err(), "{:?}", message);
@@ -852,14 +853,14 @@ mod tests {
         // 4: Signature
         // => good.
         let mut packets : Vec<Packet> = Vec::new();
-        packets.push(OnePassSig::new(SignatureType::Binary).to_packet());
-        packets.push(OnePassSig::new(SignatureType::Binary).to_packet());
+        packets.push(OnePassSig::new(SignatureType::Binary).into());
+        packets.push(OnePassSig::new(SignatureType::Binary).into());
         packets.push(
             CompressedData::new(CompressionAlgorithm::Uncompressed)
-                .push(lit.clone().to_packet())
-                .to_packet());
-        packets.push(sig.clone().to_packet());
-        packets.push(sig.clone().to_packet());
+                .push(lit.clone().into())
+                .into());
+        packets.push(sig.clone().into());
+        packets.push(sig.clone().into());
 
         let message = Message::from_packets(packets);
         assert!(message.is_ok(), "{:?}", message);
@@ -885,7 +886,7 @@ mod tests {
         // 0: Signature
         // => bad.
         let mut packets : Vec<Packet> = Vec::new();
-        packets.push(sig.clone().to_packet());
+        packets.push(sig.clone().into());
 
         let message = Message::from_packets(packets);
         assert!(message.is_err(), "{:?}", message);
@@ -894,8 +895,8 @@ mod tests {
         // 1: Literal
         // => good.
         let mut packets : Vec<Packet> = Vec::new();
-        packets.push(sig.clone().to_packet());
-        packets.push(lit.clone().to_packet());
+        packets.push(sig.clone().into());
+        packets.push(lit.clone().into());
 
         let message = Message::from_packets(packets);
         assert!(message.is_ok(), "{:?}", message);
@@ -905,9 +906,9 @@ mod tests {
         // 2: Literal
         // => good.
         let mut packets : Vec<Packet> = Vec::new();
-        packets.push(sig.clone().to_packet());
-        packets.push(sig.clone().to_packet());
-        packets.push(lit.clone().to_packet());
+        packets.push(sig.clone().into());
+        packets.push(sig.clone().into());
+        packets.push(lit.clone().into());
 
         let message = Message::from_packets(packets);
         assert!(message.is_ok(), "{:?}", message);
@@ -932,14 +933,14 @@ mod tests {
             SymmetricAlgorithm::AES256,
             S2K::Simple { hash: HashAlgorithm::SHA256 },
             &sk,
-            &"12345678".into()).unwrap().to_packet());
+            &"12345678".into()).unwrap().into());
         let message = Message::from_packets(packets.clone());
         assert!(message.is_err(), "{:?}", message);
 
         // 0: SK-ESK
         // 1: Literal
         // => bad.
-        packets.push(lit.clone().to_packet());
+        packets.push(lit.clone().into());
 
         assert!(packets.iter().map(|p| p.tag()).collect::<Vec<Tag>>()
                 == [ Tag::SKESK, Tag::Literal ]);
@@ -955,9 +956,9 @@ mod tests {
         let mut seip = SEIP::new();
         seip.common.children = Some(Container::new());
         seip.common.children.as_mut().unwrap().push(
-            lit.clone().to_packet());
+            lit.clone().into());
         seip.common.children.as_mut().unwrap().push(
-            MDC::for_hash(Default::default()).to_packet());
+            MDC::for_hash(Default::default()).into());
         packets[1] = Packet::SEIP(seip);
 
         assert!(packets.iter().map(|p| p.tag()).collect::<Vec<Tag>>()
@@ -1020,7 +1021,7 @@ mod tests {
         //  1: MDC
         // 3: Literal
         // => bad.
-        packets[3] = lit.clone().to_packet();
+        packets[3] = lit.clone().into();
 
         assert!(packets.iter().map(|p| p.tag()).collect::<Vec<Tag>>()
                 == [ Tag::SKESK, Tag::SKESK, Tag::SEIP, Tag::Literal ]);
@@ -1036,7 +1037,7 @@ mod tests {
         //  2: Literal
         // => bad.
         packets.remove(3);
-        packets[2].children.as_mut().unwrap().push(lit.clone().to_packet());
+        packets[2].children.as_mut().unwrap().push(lit.clone().into());
 
         assert!(packets.iter().map(|p| p.tag()).collect::<Vec<Tag>>()
                 == [ Tag::SKESK, Tag::SKESK, Tag::SEIP ]);

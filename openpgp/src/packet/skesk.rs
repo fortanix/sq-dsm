@@ -173,10 +173,6 @@ impl SKESK4 {
     }
 
     /// Convert the `SKESK4` struct to a `Packet`.
-    pub fn to_packet(self) -> Packet {
-        Packet::SKESK(SKESK::V4(self))
-    }
-
     /// Derives the key inside this SKESK4 from `password`. Returns a
     /// tuple of the symmetric cipher to use with the key and the key
     /// itself.
@@ -223,7 +219,7 @@ impl SKESK4 {
 
 impl From<SKESK4> for Packet {
     fn from(s: SKESK4) -> Self {
-        s.to_packet()
+        Packet::SKESK(SKESK::V4(s))
     }
 }
 
@@ -387,16 +383,11 @@ impl SKESK5 {
     pub fn set_aead_digest(&mut self, digest: Box<[u8]>) {
         self.aead_digest = digest;
     }
-
-    /// Convert the `SKESK5` struct to a `Packet`.
-    pub fn to_packet(self) -> Packet {
-        Packet::SKESK(SKESK::V5(self))
-    }
 }
 
 impl From<SKESK5> for Packet {
     fn from(s: SKESK5) -> Self {
-        s.to_packet()
+        Packet::SKESK(SKESK::V5(s))
     }
 }
 

@@ -1520,7 +1520,7 @@ mod test {
                 .max_recursion_depth(0)
                 .buffer_unread_content()
                 //.trace()
-                .to_packet_pile().unwrap();
+                .into_packet_pile().unwrap();
 
             // 3. Get the first packet.
             let po = pile.descendants().next();
@@ -1533,7 +1533,7 @@ mod test {
                     .max_recursion_depth(0)
                     .buffer_unread_content()
                     //.trace()
-                    .to_packet_pile().unwrap();
+                    .into_packet_pile().unwrap();
 
                 // 6. Make sure the original message matches the
                 // serialized and reparsed message.
@@ -1592,10 +1592,10 @@ mod test {
         let mut top_level = Vec::new();
         top_level.push(
             CompressedData::new(CompressionAlgorithm::Uncompressed)
-                .push(one.clone().to_packet())
-                .push(two.clone().to_packet())
-                .to_packet());
-        top_level.push(three.clone().to_packet());
+                .push(one.clone().into())
+                .push(two.clone().into())
+                .into());
+        top_level.push(three.clone().into());
         messages.push(top_level);
 
         // 1: CompressedData(CompressedData { algo: 0 })
@@ -1609,14 +1609,14 @@ mod test {
         top_level.push(
             CompressedData::new(CompressionAlgorithm::Uncompressed)
                 .push(CompressedData::new(CompressionAlgorithm::Uncompressed)
-                      .push(one.clone().to_packet())
-                      .push(two.clone().to_packet())
-                      .to_packet())
+                      .push(one.clone().into())
+                      .push(two.clone().into())
+                      .into())
                 .push(CompressedData::new(CompressionAlgorithm::Uncompressed)
-                      .push(three.clone().to_packet())
-                      .push(four.clone().to_packet())
-                      .to_packet())
-                .to_packet());
+                      .push(three.clone().into())
+                      .push(four.clone().into())
+                      .into())
+                .into());
         messages.push(top_level);
 
         // 1: CompressedData(CompressedData { algo: 0 })
@@ -1635,18 +1635,18 @@ mod test {
                 .push(CompressedData::new(CompressionAlgorithm::Uncompressed)
                     .push(CompressedData::new(CompressionAlgorithm::Uncompressed)
                         .push(CompressedData::new(CompressionAlgorithm::Uncompressed)
-                            .push(one.clone().to_packet())
-                            .push(two.clone().to_packet())
-                            .to_packet())
-                        .to_packet())
-                    .to_packet())
+                            .push(one.clone().into())
+                            .push(two.clone().into())
+                            .into())
+                        .into())
+                    .into())
                 .push(CompressedData::new(CompressionAlgorithm::Uncompressed)
                     .push(CompressedData::new(CompressionAlgorithm::Uncompressed)
-                        .push(three.clone().to_packet())
-                        .to_packet())
-                    .push(four.clone().to_packet())
-                    .to_packet())
-                .to_packet());
+                        .push(three.clone().into())
+                        .into())
+                    .push(four.clone().into())
+                    .into())
+                .into());
         messages.push(top_level);
 
         // 1: CompressedData(CompressedData { algo: 0 })
@@ -1660,25 +1660,25 @@ mod test {
         let mut top_level = Vec::new();
         top_level.push(
             CompressedData::new(CompressionAlgorithm::Uncompressed)
-                .push(one.clone().to_packet())
-                .push(two.clone().to_packet())
-                .to_packet());
+                .push(one.clone().into())
+                .push(two.clone().into())
+                .into());
         top_level.push(
-            three.clone().to_packet());
+            three.clone().into());
         top_level.push(
-            four.clone().to_packet());
+            four.clone().into());
         top_level.push(
             CompressedData::new(CompressionAlgorithm::Uncompressed)
-                .push(five.to_packet())
-                .push(six.to_packet())
-                .to_packet());
+                .push(five.into())
+                .push(six.into())
+                .into());
         messages.push(top_level);
 
         // 1: UserID(UserID { value: "Foo" })
         let mut top_level = Vec::new();
         let mut uid = UserID::new();
         uid.set_userid("Foo");
-        top_level.push(uid.to_packet());
+        top_level.push(uid.into());
         messages.push(top_level);
 
         for m in messages.into_iter() {
@@ -1695,7 +1695,7 @@ mod test {
             let pile2 = PacketParserBuilder::from_bytes(&buffer[..]).unwrap()
                 //.trace()
                 .buffer_unread_content()
-                .to_packet_pile().unwrap();
+                .into_packet_pile().unwrap();
 
             // 4. Compare the messages.
             if pile != pile2 {

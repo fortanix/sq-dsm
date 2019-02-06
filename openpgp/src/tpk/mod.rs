@@ -1376,7 +1376,7 @@ impl TPK {
     ///                      b"It was the maid :/")?;
     /// assert_eq!(sig.sigtype(), SignatureType::KeyRevocation);
     ///
-    /// let tpk = tpk.merge_packets(vec![sig.clone().to_packet()])?;
+    /// let tpk = tpk.merge_packets(vec![sig.clone().into()])?;
     /// assert_eq!(RevocationStatus::Revoked(&[sig]), tpk.revoked(None));
     /// # Ok(())
     /// # }
@@ -1444,7 +1444,7 @@ impl TPK {
         -> Result<TPK>
     {
         let sig = self.revoke(primary_signer, code, reason)?;
-        self.merge_packets(vec![sig.to_packet()])
+        self.merge_packets(vec![sig.into()])
     }
 
     /// Returns whether or not the TPK has expired.
@@ -1531,7 +1531,7 @@ impl TPK {
             }
         };
 
-        self.merge_packets(vec![sig.to_packet()])
+        self.merge_packets(vec![sig.into()])
     }
 
     /// Sets the key to expire in delta.
@@ -2353,7 +2353,7 @@ impl TPK {
     /// Converts the TPK into a sequence of packets.
     ///
     /// This method discards an invalid components and bad signatures.
-    pub fn to_packets(self) -> Vec<Packet> {
+    pub fn into_packets(self) -> Vec<Packet> {
         let mut p : Vec<Packet> = Vec::new();
 
         p.push(Packet::PublicKey(self.primary));
@@ -2426,8 +2426,8 @@ impl TPK {
     /// Converts the TPK into a `PacketPile`.
     ///
     /// This method discards an invalid components and bad signatures.
-    pub fn to_packet_pile(self) -> PacketPile {
-        PacketPile::from_packets(self.to_packets())
+    pub fn into_packet_pile(self) -> PacketPile {
+        PacketPile::from_packets(self.into_packets())
     }
 
     /// Merges `other` into `self`.
@@ -2468,7 +2468,7 @@ impl TPK {
     /// This recanonicalizes the TPK.  If the packets are invalid,
     /// they are dropped.
     pub fn merge_packets(self, mut packets: Vec<Packet>) -> Result<Self> {
-        let mut combined = self.to_packets();
+        let mut combined = self.into_packets();
         combined.append(&mut packets);
         TPK::from_packet_pile(PacketPile::from_packets(combined))
     }
@@ -2483,7 +2483,7 @@ impl TPK {
     /// parts of the containing keys. Only packets for which `filter` returns
     /// true are included in the TSK.
     pub fn filter_into_tsk<F: Fn(&Packet) -> bool>(self, f: F) -> Result<TSK> {
-        let pkts = self.to_packet_pile().into_children().filter(f).collect::<Vec<_>>();
+        let pkts = self.into_packet_pile().into_children().filter(f).collect::<Vec<_>>();
         let pile = PacketPile::from_packets(pkts);
 
         Ok(TSK::from_tpk(TPK::from_packet_pile(pile)?))
@@ -3205,25 +3205,25 @@ mod test {
 
         let tpk = TPK::from_bytes(bytes!("already-revoked.pgp")).unwrap();
         let tpk2
-            = TPK::from_packet_pile(tpk.clone().to_packet_pile()).unwrap();
+            = TPK::from_packet_pile(tpk.clone().into_packet_pile()).unwrap();
         assert_eq!(tpk, tpk2);
 
         let tpk = TPK::from_bytes(
             bytes!("already-revoked-direct-revocation.pgp")).unwrap();
         let tpk2
-            = TPK::from_packet_pile(tpk.clone().to_packet_pile()).unwrap();
+            = TPK::from_packet_pile(tpk.clone().into_packet_pile()).unwrap();
         assert_eq!(tpk, tpk2);
 
         let tpk = TPK::from_bytes(
             bytes!("already-revoked-userid-revocation.pgp")).unwrap();
         let tpk2
-            = TPK::from_packet_pile(tpk.clone().to_packet_pile()).unwrap();
+            = TPK::from_packet_pile(tpk.clone().into_packet_pile()).unwrap();
         assert_eq!(tpk, tpk2);
 
         let tpk = TPK::from_bytes(
             bytes!("already-revoked-subkey-revocation.pgp")).unwrap();
         let tpk2
-            = TPK::from_packet_pile(tpk.clone().to_packet_pile()).unwrap();
+            = TPK::from_packet_pile(tpk.clone().into_packet_pile()).unwrap();
         assert_eq!(tpk, tpk2);
     }
 
@@ -3243,9 +3243,9 @@ mod test {
         assert_eq!(rev.len(), 1);
         assert_eq!(rev[0].tag(), Tag::Signature);
 
-        let packets_pre_merge = tpk.clone().to_packets().len();
+        let packets_pre_merge = tpk.clone().into_packets().len();
         let tpk = tpk.merge_packets(rev).unwrap();
-        let packets_post_merge = tpk.clone().to_packets().len();
+        let packets_post_merge = tpk.clone().into_packets().len();
         assert_eq!(packets_post_merge, packets_pre_merge + 1);
     }
 
@@ -3405,7 +3405,7 @@ mod test {
                              b"It was the maid :/").unwrap();
         assert_eq!(sig.sigtype(), SignatureType::KeyRevocation);
 
-        let tpk = tpk.merge_packets(vec![sig.to_packet()]).unwrap();
+        let tpk = tpk.merge_packets(vec![sig.into()]).unwrap();
         assert_match!(RevocationStatus::Revoked(_) = tpk.revoked(None));
     }
 
@@ -3429,7 +3429,7 @@ mod test {
                        b"It was the maid :/").unwrap()
         };
         assert_eq!(sig.sigtype(), SignatureType::CertificateRevocation);
-        let tpk = tpk.merge_packets(vec![sig.to_packet()]).unwrap();
+        let tpk = tpk.merge_packets(vec![sig.into()]).unwrap();
         assert_eq!(RevocationStatus::NotAsFarAsWeKnow, tpk.revoked(None));
 
         let uid = tpk.userids().skip(1).next().unwrap();
@@ -3496,9 +3496,9 @@ mod test {
         };
         let tpk = TPK::from_packet_pile(PacketPile::from_packets(vec![
             key.to_packet(Tag::PublicKey).unwrap(),
-            bind1.to_packet(),
-            bind2.to_packet(),
-            rev.to_packet()
+            bind1.into(),
+            bind2.into(),
+            rev.into()
         ])).unwrap();
 
         let f1: f32 = thread_rng().sample(Open01);

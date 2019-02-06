@@ -536,7 +536,7 @@ impl AutocryptSetupMessage {
 
     /// Returns the TSK consuming the `AutocryptSetupMessage` in the
     /// process.
-    pub fn to_tsk(self) -> TSK {
+    pub fn into_tsk(self) -> TSK {
         self.tsk
     }
 }
@@ -978,7 +978,7 @@ In the light of the Efail vulnerability I am asking myself if it's
         let asm = asm.parse().unwrap();
 
         // A basic check to make sure we got the key.
-        assert_eq!(asm.to_tsk().tpk().fingerprint(),
+        assert_eq!(asm.into_tsk().tpk().fingerprint(),
                    Fingerprint::from_hex(
                        "E604 68CE 44D7 7C3F CE9F  D072 71DB C565 7FDE 65A7")
                        .unwrap());

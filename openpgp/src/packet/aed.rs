@@ -121,16 +121,11 @@ impl AED {
     pub fn set_iv(&mut self, iv: Box<[u8]>) {
         self.iv = iv;
     }
-
-    /// Convert the `AED` struct to a `Packet`.
-    pub fn to_packet(self) -> Packet {
-        Packet::AED(self)
-    }
 }
 
 impl From<AED> for Packet {
     fn from(s: AED) -> Self {
-        s.to_packet()
+        Packet::AED(s)
     }
 }
 

@@ -52,15 +52,10 @@ impl Unknown {
     pub fn set_body(&mut self, data: Vec<u8>) {
         self.common.body = Some(data);
     }
-
-    /// Convert the `Unknown` struct to a `Packet`.
-    pub fn to_packet(self) -> Packet {
-        Packet::Unknown(self)
-    }
 }
 
 impl From<Unknown> for Packet {
     fn from(s: Unknown) -> Self {
-        s.to_packet()
+        Packet::Unknown(s)
     }
 }

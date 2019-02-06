@@ -28,16 +28,11 @@ impl SEIP {
     pub fn version(&self) -> u8 {
         self.version
     }
-
-    /// Convert the `SEIP` struct to a `Packet`.
-    pub fn to_packet(self) -> Packet {
-        Packet::SEIP(self)
-    }
 }
 
 impl From<SEIP> for Packet {
     fn from(s: SEIP) -> Self {
-        s.to_packet()
+        Packet::SEIP(s)
     }
 }
 

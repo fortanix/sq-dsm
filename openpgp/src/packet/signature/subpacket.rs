@@ -2238,7 +2238,7 @@ impl signature::Builder {
     pub fn set_embedded_signature(mut self, signature: Signature)
                                   -> Result<Self> {
         self.unhashed_area.replace(Subpacket::new(
-            SubpacketValue::EmbeddedSignature(signature.to_packet()),
+            SubpacketValue::EmbeddedSignature(signature.into()),
             true)?)?;
 
         Ok(self)

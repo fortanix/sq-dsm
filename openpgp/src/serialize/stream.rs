@@ -1163,10 +1163,10 @@ mod test {
         let mut reference = Vec::new();
         reference.push(
             CompressedData::new(CompressionAlgorithm::Uncompressed)
-                .push(one.to_packet())
-                .push(two.to_packet())
-                .to_packet());
-        reference.push(three.to_packet());
+                .push(one.into())
+                .push(two.into())
+                .into());
+        reference.push(three.into());
 
         let mut o = vec![];
         {
@@ -1218,14 +1218,14 @@ mod test {
         reference.push(
             CompressedData::new(CompressionAlgorithm::Uncompressed)
                 .push(CompressedData::new(CompressionAlgorithm::Uncompressed)
-                      .push(one.to_packet())
-                      .push(two.to_packet())
-                      .to_packet())
+                      .push(one.into())
+                      .push(two.into())
+                      .into())
                 .push(CompressedData::new(CompressionAlgorithm::Uncompressed)
-                      .push(three.to_packet())
-                      .push(four.to_packet())
-                      .to_packet())
-                .to_packet());
+                      .push(three.into())
+                      .push(four.into())
+                      .into())
+                .into());
 
         let mut o = vec![];
         {

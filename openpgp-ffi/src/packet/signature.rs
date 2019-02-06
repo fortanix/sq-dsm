@@ -32,7 +32,7 @@ pub extern "system" fn pgp_signature_to_packet(s: *mut Signature)
                                               -> *mut Packet
 {
     let s = ffi_param_move!(s);
-    box_raw!(s.to_packet())
+    box_raw!((*s).into())
 }
 
 /// Returns the value of the `Signature` packet's Issuer subpacket.

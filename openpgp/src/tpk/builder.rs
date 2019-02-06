@@ -554,7 +554,7 @@ mod tests {
             .set_cipher_suite(CipherSuite::Cv25519)
             .add_signing_subkey()
             .generate().unwrap();
-        let pile = tpk.clone().to_packet_pile().into_children().collect::<Vec<_>>();
+        let pile = tpk.clone().into_packet_pile().into_children().collect::<Vec<_>>();
         let exp = TPK::from_packet_pile(PacketPile::from_packets(pile))
             .unwrap();
 

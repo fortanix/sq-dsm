@@ -163,16 +163,11 @@ impl Literal {
         self.date = timestamp.map(|t| t.canonicalize())
             .unwrap_or(time::Tm::from_pgp(0));
     }
-
-    /// Convert the `Literal` struct to a `Packet`.
-    pub fn to_packet(self) -> Packet {
-        Packet::Literal(self)
-    }
 }
 
 impl From<Literal> for Packet {
     fn from(s: Literal) -> Self {
-        s.to_packet()
+        Packet::Literal(s)
     }
 }
 

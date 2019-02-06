@@ -56,11 +56,6 @@ impl MDC {
         &self.computed_hash[..]
     }
 
-    /// Converts the `MDC` struct to a `Packet`.
-    pub fn to_packet(self) -> Packet {
-        Packet::MDC(self)
-    }
-
     /// Returns whether the data protected by the MDC is valid.
     pub fn valid(&self) -> bool {
         if self.hash == [ 0; 20 ] {
@@ -75,6 +70,6 @@ impl MDC {
 
 impl From<MDC> for Packet {
     fn from(s: MDC) -> Self {
-        s.to_packet()
+        Packet::MDC(s)
     }
 }

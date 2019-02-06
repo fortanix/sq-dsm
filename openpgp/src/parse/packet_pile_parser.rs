@@ -97,7 +97,7 @@ pub struct PacketPileParser<'a> {
 impl<'a> PacketParserBuilder<'a> {
     /// Finishes configuring the `PacketParser` and returns a
     /// `PacketPileParser`.
-    pub fn to_packet_pile_parser(self) -> Result<PacketPileParser<'a>>
+    pub fn into_packet_pile_parser(self) -> Result<PacketPileParser<'a>>
             where Self: 'a {
         PacketPileParser::from_packet_parser(self.finalize()?)
     }

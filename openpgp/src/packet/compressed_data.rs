@@ -76,16 +76,11 @@ impl CompressedData {
         self.common.children.as_mut().unwrap().insert(i, packet);
         self
     }
-
-    /// Convert the `CompressedData` struct to a `Packet`.
-    pub fn to_packet(self) -> Packet {
-        Packet::CompressedData(self)
-    }
 }
 
 impl From<CompressedData> for Packet {
     fn from(s: CompressedData) -> Self {
-        s.to_packet()
+        Packet::CompressedData(s)
     }
 }
 

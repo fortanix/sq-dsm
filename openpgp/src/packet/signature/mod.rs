@@ -796,16 +796,11 @@ impl Signature {
 
         self.verify_hash(signer, self.hash_algo(), &digest[..])
     }
-
-    /// Convert the `Signature` struct to a `Packet`.
-    pub fn to_packet(self) -> Packet {
-        Packet::Signature(self)
-    }
 }
 
 impl From<Signature> for Packet {
     fn from(s: Signature) -> Self {
-        s.to_packet()
+        Packet::Signature(s)
     }
 }
 
