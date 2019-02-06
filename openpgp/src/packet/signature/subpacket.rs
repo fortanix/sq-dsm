@@ -2290,7 +2290,7 @@ fn accessors() {
     let hash_algo = HashAlgorithm::SHA512;
     let hash = hash_algo.context().unwrap();
     let mut sig = signature::Builder::new(::constants::SignatureType::Binary);
-    let mut key = ::packet::Key::new(PublicKeyAlgorithm::EdDSA).unwrap();
+    let mut key = ::packet::Key::generate(PublicKeyAlgorithm::EdDSA).unwrap();
     let sec = if let Some(SecretKey::Unencrypted { ref mpis }) = key.secret() {
         mpis.clone()
     } else {

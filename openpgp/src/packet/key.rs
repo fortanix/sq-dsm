@@ -132,7 +132,7 @@ impl Key {
 
     /// Returns a new `Key` packet.  This can be used to hold either a
     /// public key, a public subkey, a private key, or a private subkey.
-    pub fn new(pk_algo: PublicKeyAlgorithm) -> Result<Self> {
+    pub fn generate(pk_algo: PublicKeyAlgorithm) -> Result<Self> {
         use nettle::{
             rsa,
             Yarrow,
@@ -482,7 +482,7 @@ mod tests {
         for &pk_algo in &[PublicKeyAlgorithm::RSAEncryptSign,
                           PublicKeyAlgorithm::EdDSA,
                           PublicKeyAlgorithm::ECDH] {
-            let key = Key::new(pk_algo).unwrap();
+            let key = Key::generate(pk_algo).unwrap();
             let clone = key.clone();
             assert_eq!(key, clone);
         }
@@ -493,7 +493,7 @@ mod tests {
         for &pk_algo in &[PublicKeyAlgorithm::RSAEncryptSign,
                           PublicKeyAlgorithm::EdDSA,
                           PublicKeyAlgorithm::ECDH] {
-            let mut key = Key::new(pk_algo).unwrap();
+            let mut key = Key::generate(pk_algo).unwrap();
 
             let mut b = Vec::new();
             key.serialize(&mut b, Tag::SecretKey).unwrap();
@@ -535,7 +535,7 @@ mod tests {
 
         for &pk_algo in &[PublicKeyAlgorithm::RSAEncryptSign,
                           PublicKeyAlgorithm::ECDH] {
-            let key = Key::new(pk_algo).unwrap();
+            let key = Key::generate(pk_algo).unwrap();
             let secret =
                 if let Some(SecretKey::Unencrypted {
                     ref mpis,
@@ -562,7 +562,7 @@ mod tests {
         for &pk_algo in &[PublicKeyAlgorithm::RSAEncryptSign,
                           PublicKeyAlgorithm::EdDSA,
                           PublicKeyAlgorithm::ECDH] {
-            let key = Key::new(pk_algo).unwrap();
+            let key = Key::generate(pk_algo).unwrap();
             assert!(! key.secret().unwrap().is_encrypted());
 
             let password = Password::from("foobarbaz");

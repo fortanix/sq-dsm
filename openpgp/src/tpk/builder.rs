@@ -33,15 +33,15 @@ impl CipherSuite {
     fn generate_key(self, flags: &KeyFlags) -> Result<Key> {
         match self {
             CipherSuite::RSA3k =>
-                Key::new(PublicKeyAlgorithm::RSAEncryptSign),
+                Key::generate(PublicKeyAlgorithm::RSAEncryptSign),
             CipherSuite::Cv25519 => {
                 let sign = flags.can_certify() || flags.can_sign();
                 let encrypt = flags.can_encrypt_for_transport()
                     || flags.can_encrypt_at_rest();
 
                 match (sign, encrypt) {
-                    (true, false) => Key::new(PublicKeyAlgorithm::EdDSA),
-                    (false, true) => Key::new(PublicKeyAlgorithm::ECDH),
+                    (true, false) => Key::generate(PublicKeyAlgorithm::EdDSA),
+                    (false, true) => Key::generate(PublicKeyAlgorithm::ECDH),
                     (true, true) =>
                         Err(Error::InvalidOperation(
                             "Can't use key for encryption and signing".into())

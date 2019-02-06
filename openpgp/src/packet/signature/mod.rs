@@ -1003,7 +1003,7 @@ mod test {
         use constants::PublicKeyAlgorithm;
         use packet::key::SecretKey;
 
-        let key = Key::new(PublicKeyAlgorithm::EdDSA)
+        let key = Key::generate(PublicKeyAlgorithm::EdDSA)
             .unwrap();
         let msg = b"Hello, World";
 

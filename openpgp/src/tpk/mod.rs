@@ -3454,7 +3454,7 @@ mod test {
         let t1 = time::strptime("2000-1-1", "%F").unwrap();
         let t2 = time::strptime("2001-1-1", "%F").unwrap();
         let t3 = time::strptime("2002-1-1", "%F").unwrap();
-        let key = Key::new(PublicKeyAlgorithm::EdDSA).unwrap();
+        let key = Key::generate(PublicKeyAlgorithm::EdDSA).unwrap();
         let (bind1, rev, bind2) = {
             let mpis = match key.secret() {
                 Some(SecretKey::Unencrypted{ ref mpis }) => mpis,
