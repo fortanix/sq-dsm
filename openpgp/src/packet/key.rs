@@ -243,8 +243,8 @@ impl Key {
     }
 
     /// Sets the key packet's creation time field.
-    pub fn set_creation_time(&mut self, timestamp: time::Tm) {
-        self.creation_time = timestamp.canonicalize();
+    pub fn set_creation_time(&mut self, timestamp: time::Tm) -> time::Tm {
+        ::std::mem::replace(&mut self.creation_time, timestamp.canonicalize())
     }
 
     /// Gets the public key algorithm.
@@ -253,8 +253,8 @@ impl Key {
     }
 
     /// Sets the public key algorithm.
-    pub fn set_pk_algo(&mut self, pk_algo: PublicKeyAlgorithm) {
-        self.pk_algo = pk_algo;
+    pub fn set_pk_algo(&mut self, pk_algo: PublicKeyAlgorithm) -> PublicKeyAlgorithm {
+        ::std::mem::replace(&mut self.pk_algo, pk_algo)
     }
 
     /// Gets the key packet's MPIs.
@@ -268,8 +268,8 @@ impl Key {
     }
 
     /// Sets the key packet's MPIs.
-    pub fn set_mpis(&mut self, mpis: mpis::PublicKey) {
-        self.mpis = mpis;
+    pub fn set_mpis(&mut self, mpis: mpis::PublicKey) -> mpis::PublicKey {
+        ::std::mem::replace(&mut self.mpis, mpis)
     }
 
     /// Gets the key packet's SecretKey.

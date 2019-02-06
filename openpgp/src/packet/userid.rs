@@ -75,12 +75,12 @@ impl UserID {
     }
 
     /// Sets the user ID packet's value from a byte sequence.
-    pub fn set_userid_from_bytes(&mut self, userid: &[u8]) {
-        self.value = userid.to_vec();
+    pub fn set_userid_from_bytes(&mut self, userid: &[u8]) -> Vec<u8> {
+        ::std::mem::replace(&mut self.value, userid.to_vec())
     }
 
     /// Sets the user ID packet's value from a UTF-8 encoded string.
-    pub fn set_userid(&mut self, userid: &str) {
+    pub fn set_userid(&mut self, userid: &str) -> Vec<u8> {
         self.set_userid_from_bytes(userid.as_bytes())
     }
 }

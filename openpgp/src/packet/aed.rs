@@ -70,8 +70,8 @@ impl AED {
     }
 
     /// Sets the cipher algorithm.
-    pub fn set_cipher(&mut self, cipher: SymmetricAlgorithm) {
-        self.cipher = cipher;
+    pub fn set_cipher(&mut self, cipher: SymmetricAlgorithm) -> SymmetricAlgorithm {
+        ::std::mem::replace(&mut self.cipher, cipher)
     }
 
     /// Gets the AEAD algorithm.
@@ -80,8 +80,8 @@ impl AED {
     }
 
     /// Sets the AEAD algorithm.
-    pub fn set_aead(&mut self, aead: AEADAlgorithm) {
-        self.aead = aead;
+    pub fn set_aead(&mut self, aead: AEADAlgorithm) -> AEADAlgorithm {
+        ::std::mem::replace(&mut self.aead, aead)
     }
 
     /// Gets the chunk size.
@@ -118,8 +118,8 @@ impl AED {
     }
 
     /// Sets the initialization vector for the AEAD algorithm.
-    pub fn set_iv(&mut self, iv: Box<[u8]>) {
-        self.iv = iv;
+    pub fn set_iv(&mut self, iv: Box<[u8]>) -> Box<[u8]> {
+        ::std::mem::replace(&mut self.iv, iv)
     }
 }
 

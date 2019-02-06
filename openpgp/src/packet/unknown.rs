@@ -63,8 +63,8 @@ impl Unknown {
     }
 
     /// Sets the unknown packet's tag.
-    pub fn set_tag(&mut self, tag: Tag) {
-        self.tag = tag;
+    pub fn set_tag(&mut self, tag: Tag) -> Tag {
+        ::std::mem::replace(&mut self.tag, tag)
     }
 
     /// Gets the unknown packet's error.
@@ -95,8 +95,8 @@ impl Unknown {
     /// This is the raw packet content not include the CTB and length
     /// information, and not encoded using something like OpenPGP's
     /// partial body encoding.
-    pub fn set_body(&mut self, data: Vec<u8>) {
-        self.common.body = Some(data);
+    pub fn set_body(&mut self, data: Vec<u8>) -> Option<Vec<u8>> {
+        ::std::mem::replace(&mut self.common.body, Some(data))
     }
 }
 

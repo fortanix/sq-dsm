@@ -96,8 +96,8 @@ impl Literal {
     }
 
     /// Sets the Literal packet's content disposition.
-    pub fn set_format(&mut self, format: DataFormat) {
-        self.format = format;
+    pub fn set_format(&mut self, format: DataFormat) -> DataFormat {
+        ::std::mem::replace(&mut self.format, format)
     }
 
     /// Gets the literal packet's filename.

@@ -146,8 +146,8 @@ impl SKESK4 {
     }
 
     /// Sets the symmetric encryption algorithm.
-    pub fn set_symmetric_algo(&mut self, algo: SymmetricAlgorithm) {
-        self.symm_algo = algo;
+    pub fn set_symmetric_algo(&mut self, algo: SymmetricAlgorithm) -> SymmetricAlgorithm {
+        ::std::mem::replace(&mut self.symm_algo, algo)
     }
 
     /// Gets the key derivation method.
@@ -156,8 +156,8 @@ impl SKESK4 {
     }
 
     /// Sets the key derivation method.
-    pub fn set_s2k(&mut self, s2k: S2K) {
-        self.s2k = s2k;
+    pub fn set_s2k(&mut self, s2k: S2K) -> S2K {
+        ::std::mem::replace(&mut self.s2k, s2k)
     }
 
     /// Gets the encrypted session key.
@@ -360,8 +360,8 @@ impl SKESK5 {
     }
 
     /// Sets the AEAD algorithm.
-    pub fn set_aead_algo(&mut self, algo: AEADAlgorithm) {
-        self.aead_algo = algo;
+    pub fn set_aead_algo(&mut self, algo: AEADAlgorithm) -> AEADAlgorithm {
+        ::std::mem::replace(&mut self.aead_algo, algo)
     }
 
     /// Gets the AEAD initialization vector.
@@ -370,8 +370,8 @@ impl SKESK5 {
     }
 
     /// Sets the AEAD initialization vector.
-    pub fn set_aead_iv(&mut self, iv: Box<[u8]>) {
-        self.aead_iv = iv;
+    pub fn set_aead_iv(&mut self, iv: Box<[u8]>) -> Box<[u8]> {
+        ::std::mem::replace(&mut self.aead_iv, iv)
     }
 
     /// Gets the AEAD digest.
@@ -380,8 +380,8 @@ impl SKESK5 {
     }
 
     /// Sets the AEAD digest.
-    pub fn set_aead_digest(&mut self, digest: Box<[u8]>) {
-        self.aead_digest = digest;
+    pub fn set_aead_digest(&mut self, digest: Box<[u8]>) -> Box<[u8]> {
+        ::std::mem::replace(&mut self.aead_digest, digest)
     }
 }
 

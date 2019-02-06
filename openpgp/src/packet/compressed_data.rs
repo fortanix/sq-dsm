@@ -52,8 +52,8 @@ impl CompressedData {
     }
 
     /// Sets the compression algorithm.
-    pub fn set_algorithm(&mut self, algo: CompressionAlgorithm) {
-        self.algo = algo;
+    pub fn set_algorithm(&mut self, algo: CompressionAlgorithm) -> CompressionAlgorithm {
+        ::std::mem::replace(&mut self.algo, algo)
     }
 
     /// Adds a new packet to the container.

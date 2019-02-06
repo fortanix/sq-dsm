@@ -120,8 +120,8 @@ impl PKESK {
     }
 
     /// Sets the recipient.
-    pub fn set_recipient(&mut self, recipient: KeyID) {
-        self.recipient = recipient;
+    pub fn set_recipient(&mut self, recipient: KeyID) -> KeyID {
+        ::std::mem::replace(&mut self.recipient, recipient)
     }
 
     /// Gets the public key algorithm.
@@ -130,8 +130,8 @@ impl PKESK {
     }
 
     /// Sets the public key algorithm.
-    pub fn set_pk_algo(&mut self, algo: PublicKeyAlgorithm) {
-        self.pk_algo = algo;
+    pub fn set_pk_algo(&mut self, algo: PublicKeyAlgorithm) -> PublicKeyAlgorithm {
+        ::std::mem::replace(&mut self.pk_algo, algo)
     }
 
     /// Gets the encrypted session key.
@@ -140,8 +140,8 @@ impl PKESK {
     }
 
     /// Sets the encrypted session key.
-    pub fn set_esk(&mut self, esk: Ciphertext) {
-        self.esk = esk;
+    pub fn set_esk(&mut self, esk: Ciphertext) -> Ciphertext {
+        ::std::mem::replace(&mut self.esk, esk)
     }
 
     /// Decrypts the ESK and returns the session key and symmetric algorithm

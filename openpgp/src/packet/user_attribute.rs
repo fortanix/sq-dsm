@@ -59,8 +59,8 @@ impl UserAttribute {
     }
 
     /// Sets the user attribute packet's value from a byte sequence.
-    pub fn set_user_attribute(&mut self, value: &[u8]) {
-        self.value = value.to_vec();
+    pub fn set_user_attribute(&mut self, value: &[u8]) -> Vec<u8> {
+        ::std::mem::replace(&mut self.value, value.to_vec())
     }
 }
 

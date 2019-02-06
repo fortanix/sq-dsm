@@ -87,8 +87,8 @@ impl OnePassSig {
     }
 
     /// Sets the signature type.
-    pub fn set_sigtype(&mut self, t: SignatureType) {
-        self.sigtype = t;
+    pub fn set_sigtype(&mut self, t: SignatureType) -> SignatureType {
+        ::std::mem::replace(&mut self.sigtype, t)
     }
 
     /// Gets the public key algorithm.
@@ -97,8 +97,8 @@ impl OnePassSig {
     }
 
     /// Sets the public key algorithm.
-    pub fn set_pk_algo(&mut self, algo: PublicKeyAlgorithm) {
-        self.pk_algo = algo;
+    pub fn set_pk_algo(&mut self, algo: PublicKeyAlgorithm) -> PublicKeyAlgorithm {
+        ::std::mem::replace(&mut self.pk_algo, algo)
     }
 
     /// Gets the hash algorithm.
@@ -107,8 +107,8 @@ impl OnePassSig {
     }
 
     /// Sets the hash algorithm.
-    pub fn set_hash_algo(&mut self, algo: HashAlgorithm) {
-        self.hash_algo = algo;
+    pub fn set_hash_algo(&mut self, algo: HashAlgorithm) -> HashAlgorithm {
+        ::std::mem::replace(&mut self.hash_algo, algo)
     }
 
     /// Gets the issuer.
@@ -117,8 +117,8 @@ impl OnePassSig {
     }
 
     /// Sets the issuer.
-    pub fn set_issuer(&mut self, issuer: KeyID) {
-        self.issuer = issuer;
+    pub fn set_issuer(&mut self, issuer: KeyID) -> KeyID {
+        ::std::mem::replace(&mut self.issuer, issuer)
     }
 
     /// Gets the last flag.
@@ -127,8 +127,8 @@ impl OnePassSig {
     }
 
     /// Sets the last flag.
-    pub fn set_last(&mut self, last: bool) {
-        self.last = if last { 1 } else { 0 };
+    pub fn set_last(&mut self, last: bool) -> bool {
+        ::std::mem::replace(&mut self.last, if last { 1 } else { 0 }) > 0
     }
 
     /// Gets the raw value of the last flag.
@@ -137,8 +137,8 @@ impl OnePassSig {
     }
 
     /// Sets the raw value of the last flag.
-    pub fn set_last_raw(&mut self, last: u8) {
-        self.last = last;
+    pub fn set_last_raw(&mut self, last: u8) -> u8 {
+        ::std::mem::replace(&mut self.last, last)
     }
 }
 

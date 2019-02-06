@@ -389,8 +389,8 @@ impl Signature {
     }
 
     /// Sets the hash prefix.
-    pub fn set_hash_prefix(&mut self, prefix: [u8; 2]) {
-        self.hash_prefix = prefix;
+    pub fn set_hash_prefix(&mut self, prefix: [u8; 2]) -> [u8; 2] {
+        ::std::mem::replace(&mut self.hash_prefix, prefix)
     }
 
     /// Gets the signature packet's MPIs.
@@ -399,8 +399,8 @@ impl Signature {
     }
 
     /// Sets the signature packet's MPIs.
-    pub fn set_mpis(&mut self, mpis: mpis::Signature) {
-        self.mpis = mpis;
+    pub fn set_mpis(&mut self, mpis: mpis::Signature) -> mpis::Signature {
+        ::std::mem::replace(&mut self.mpis, mpis)
     }
 
     /// Gets the computed hash value.
@@ -428,8 +428,8 @@ impl Signature {
     /// A level of 0 indicates that the signature is directly over the
     /// data, a level of 1 means that the signature is a notarization
     /// over all level 0 signatures and the data, and so on.
-    pub fn set_level(&mut self, level: usize) {
-        self.level = level;
+    pub fn set_level(&mut self, level: usize) -> usize {
+        ::std::mem::replace(&mut self.level, level)
     }
 
     /// Gets the issuer.
