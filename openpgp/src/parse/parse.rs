@@ -190,15 +190,10 @@ macro_rules! make_php_try {
                         Ok(b)
                     },
                     Err(e) => {
-                        // XXX: Ugh, this is getting unwieldy, and we
-                        // are loosing information for no good reason.
-                        // Why not simply pass the error to fail()?
-                        // Otoh, currently the information isn't even
-                        // stored.
                         let e = match e.downcast::<io::Error>() {
                             Ok(e) =>
                                 if let io::ErrorKind::UnexpectedEof = e.kind() {
-                                    return $parser.fail("truncated")
+                                    return $parser.error(e.into());
                                 } else {
                                     e.into()
                                 },
@@ -207,7 +202,7 @@ macro_rules! make_php_try {
                         let e = match e.downcast::<Error>() {
                             Ok(e) => match e {
                                 Error::MalformedMPI(_) =>
-                                    return $parser.fail("malformed MPI"),
+                                    return $parser.error(e.into()),
                                 _ =>
                                     e.into(),
                             },
@@ -337,8 +332,12 @@ impl<'a> PacketHeaderParser<'a> {
 
     // Something went wrong while parsing the packet's header.  Aborts
     // and returns an Unknown packet instead.
-    fn fail(self, _reason: &'static str) -> Result<PacketParser<'a>> {
-        Unknown::parse(self)
+    fn fail(self, reason: &'static str) -> Result<PacketParser<'a>> {
+        self.error(Error::MalformedPacket(reason.into()).into())
+    }
+
+    fn error(self, error: failure::Error) -> Result<PacketParser<'a>> {
+        Unknown::parse(self, error)
     }
 
     fn field(&mut self, name: &'static str, size: usize) {
@@ -891,10 +890,11 @@ impl<'a> Parse<'a, Header> for Header {
 
 impl Unknown {
     /// Parses the body of any packet and returns an Unknown.
-    fn parse<'a>(php: PacketHeaderParser<'a>) -> Result<PacketParser<'a>>
+    fn parse<'a>(php: PacketHeaderParser<'a>, error: failure::Error)
+                 -> Result<PacketParser<'a>>
     {
         let tag = php.header.ctb.tag;
-        php.ok(Packet::Unknown(Unknown::new(tag)))
+        php.ok(Packet::Unknown(Unknown::new(tag, error)))
             .map(|pp| pp.set_decrypted(false))
     }
 }
@@ -926,7 +926,9 @@ pub(crate) fn to_unknown_packet<R: Read>(reader: R) -> Result<Unknown>
 
     let parser = PacketHeaderParser::new(
         reader, PacketParserState::new(Default::default()), vec![ 0 ], header, Vec::new());
-    let mut pp = Unknown::parse(parser)?;
+    let mut pp =
+        Unknown::parse(parser,
+                       failure::err_msg("explicit conversion to unknown"))?;
     pp.buffer_unread_content()?;
     pp.finish()?;
 
@@ -2994,7 +2996,8 @@ impl <'a> PacketParser<'a> {
             Tag::MDC =>                 MDC::parse(parser),
             Tag::PKESK =>               PKESK::parse(parser),
             Tag::AED =>                 AED::parse(parser),
-            _ =>                        Unknown::parse(parser),
+            _ => Unknown::parse(parser,
+                                Error::UnsupportedPacketType(tag).into()),
         }?;
 
         if tag == Tag::OnePassSig {
