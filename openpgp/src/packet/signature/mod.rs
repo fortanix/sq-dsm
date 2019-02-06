@@ -350,11 +350,17 @@ impl PartialEq for Signature {
 }
 
 impl Signature {
-    pub(crate) fn new(sigtype: SignatureType, pk_algo: PublicKeyAlgorithm,
-                      hash_algo: HashAlgorithm, hashed_area: SubpacketArea,
-                      unhashed_area: SubpacketArea,
-                      hash_prefix: [u8; 2],
-                      mpis: mpis::Signature) -> Self {
+    /// Creates a new signature packet.
+    ///
+    /// If you want to sign something, consider using the [`Builder`]
+    /// interface.
+    ///
+    /// [`Builder`]: struct.Builder.html
+    pub fn new(sigtype: SignatureType, pk_algo: PublicKeyAlgorithm,
+               hash_algo: HashAlgorithm, hashed_area: SubpacketArea,
+               unhashed_area: SubpacketArea,
+               hash_prefix: [u8; 2],
+               mpis: mpis::Signature) -> Self {
         Signature {
             common: Default::default(),
             fields: Builder {
