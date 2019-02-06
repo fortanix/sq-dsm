@@ -6,7 +6,7 @@ use std::cmp::Ordering;
 use time;
 
 use Error;
-use crypto::{mpis, KeyPair};
+use crypto::{mpis, KeyPair, SessionKey};
 use packet::Tag;
 use packet;
 use Packet;
@@ -169,7 +169,7 @@ impl Key {
 
             EdDSA => {
                 let mut public = [0u8; ED25519_KEY_SIZE + 1];
-                let mut private = ed25519::private_key();
+                let mut private: SessionKey = ed25519::private_key().into();
 
                 public[0] = 0x40;
                 ed25519::public_key(&mut public[1..], &private)?;
@@ -190,7 +190,7 @@ impl Key {
 
             ECDH => {
                 let mut public = [0u8; CURVE25519_SIZE + 1];
-                let mut private = curve25519::secret_key();
+                let mut private: SessionKey = curve25519::secret_key().into();
 
                 public[0] = 0x40;
 

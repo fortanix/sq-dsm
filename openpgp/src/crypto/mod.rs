@@ -1,7 +1,7 @@
 //! Cryptographic primitives.
 
 use std::io::Read;
-use std::ops::Deref;
+use std::ops::{Deref, DerefMut};
 use std::fmt;
 use std::cmp::Ordering;
 
@@ -51,6 +51,12 @@ impl Deref for SessionKey {
 
     fn deref(&self) -> &Self::Target {
         &self.0
+    }
+}
+
+impl DerefMut for SessionKey {
+    fn deref_mut(&mut self) -> &mut [u8] {
+        &mut self.0
     }
 }
 
