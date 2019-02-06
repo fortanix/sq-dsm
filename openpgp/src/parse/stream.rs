@@ -73,7 +73,7 @@ const BUFFER_SIZE: usize = 25 * 1024 * 1024;
 /// # Example
 ///
 /// ```
-/// #[macro_use] extern crate sequoia_openpgp as openpgp;
+/// extern crate sequoia_openpgp as openpgp;
 /// extern crate failure;
 /// use std::io::Read;
 /// use openpgp::{KeyID, TPK, Result};
@@ -92,18 +92,18 @@ const BUFFER_SIZE: usize = 25 * 1024 * 1024;
 ///     }
 /// }
 ///
-/// let mut reader = armored!(
-///     "-----BEGIN PGP MESSAGE-----
+/// let message =
+///    b"-----BEGIN PGP MESSAGE-----
 ///
 ///      xA0DAAoWBpwMNI3YLBkByxJiAAAAAABIZWxsbyBXb3JsZCHCdQQAFgoAJwWCW37P
 ///      8RahBI6MM/pGJjN5dtl5eAacDDSN2CwZCZAGnAw0jdgsGQAAeZQA/2amPbBXT96Q
 ///      O7PFms9DRuehsVVrFkaDtjN2WSxI4RGvAQDq/pzNdCMpy/Yo7AZNqZv5qNMtDdhE
 ///      b2WH5lghfKe/AQ==
 ///      =DjuO
-///      -----END PGP MESSAGE-----"
-/// );
+///      -----END PGP MESSAGE-----";
+///
 /// let h = Helper {};
-/// let mut v = Verifier::from_reader(reader, h)?;
+/// let mut v = Verifier::from_bytes(message, h)?;
 ///
 /// let mut content = Vec::new();
 /// v.read_to_end(&mut content)
@@ -637,7 +637,7 @@ impl<'a> io::Read for Transformer<'a> {
 /// # Example
 ///
 /// ```
-/// #[macro_use] extern crate sequoia_openpgp as openpgp;
+/// extern crate sequoia_openpgp as openpgp;
 /// extern crate failure;
 /// use std::io::{self, Read};
 /// use openpgp::{KeyID, TPK, Result};
@@ -656,18 +656,18 @@ impl<'a> io::Read for Transformer<'a> {
 ///     }
 /// }
 ///
-/// let mut sig_reader = armored!(
-///     "-----BEGIN SIGNATURE-----
+/// let signature =
+///    b"-----BEGIN SIGNATURE-----
 ///
 ///      wnUEABYKACcFglt+z/EWoQSOjDP6RiYzeXbZeXgGnAw0jdgsGQmQBpwMNI3YLBkA
 ///      AHmUAP9mpj2wV0/ekDuzxZrPQ0bnobFVaxZGg7YzdlksSOERrwEA6v6czXQjKcv2
 ///      KOwGTamb+ajTLQ3YRG9lh+ZYIXynvwE=
 ///      =IJ29
-///      -----END SIGNATURE-----"
-/// );
-/// let mut data = io::Cursor::new("Hello World!");
+///      -----END SIGNATURE-----";
+///
+/// let data = b"Hello World!";
 /// let h = Helper {};
-/// let mut v = DetachedVerifier::from_reader(sig_reader, data, h)?;
+/// let mut v = DetachedVerifier::from_bytes(signature, data, h)?;
 ///
 /// let mut content = Vec::new();
 /// v.read_to_end(&mut content)
@@ -756,7 +756,7 @@ impl DetachedVerifier {
 /// # Example
 ///
 /// ```
-/// #[macro_use] extern crate sequoia_openpgp as openpgp;
+/// extern crate sequoia_openpgp as openpgp;
 /// extern crate failure;
 /// use std::io::Read;
 /// use openpgp::{KeyID, TPK, Result, packet::{Key, PKESK, SKESK}};
@@ -783,17 +783,17 @@ impl DetachedVerifier {
 ///     }
 /// }
 ///
-/// let mut reader = armored!(
-///     "-----BEGIN PGP MESSAGE-----
+/// let message =
+///    b"-----BEGIN PGP MESSAGE-----
 ///
 ///      wy4ECQMIY5Zs8RerVcXp85UgoUKjKkevNPX3WfcS5eb7rkT9I6kw6N2eEc5PJUDh
 ///      0j0B9mnPKeIwhp2kBHpLX/en6RfNqYauX9eSeia7aqsd/AOLbO9WMCLZS5d2LTxN
 ///      rwwb8Aggyukj13Mi0FF5
 ///      =OB/8
-///      -----END PGP MESSAGE-----"
-/// );
+///      -----END PGP MESSAGE-----";
+///
 /// let h = Helper {};
-/// let mut v = Decryptor::from_reader(reader, h)?;
+/// let mut v = Decryptor::from_bytes(message, h)?;
 ///
 /// let mut content = Vec::new();
 /// v.read_to_end(&mut content)

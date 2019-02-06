@@ -47,18 +47,16 @@ not populated `main` yet.  Let's do that!  Open `src/main.rs` with
 your favorite editor, and enter:
 
 ```
-#[macro_use] // For armored!
 extern crate sequoia_openpgp as openpgp;
 use std::io;
 
 fn main() {
-    let mut reader = armored!(
-        "-----BEGIN PGP ARMORED FILE-----
+    let mut reader = openpgp::armor::Reader::from_bytes(
+       b"-----BEGIN PGP ARMORED FILE-----
 
          SGVsbG8gd29ybGQhCg==
          =XLsG
-         -----END PGP ARMORED FILE-----"
-    );
+         -----END PGP ARMORED FILE-----", None);
 
     io::copy(&mut reader, &mut io::stdout()).unwrap();
 }

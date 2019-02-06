@@ -3659,7 +3659,7 @@ mod test {
 
     #[test]
     fn issue_120() {
-        let reader = armored!("
+        let tpk = b"
 -----BEGIN PGP ARMORED FILE-----
 
 xcBNBFoVcvoBCACykTKOJddF8SSUAfCDHk86cNTaYnjCoy72rMgWJsrMLnz/V16B
@@ -3690,7 +3690,7 @@ AeGalQHjc5kAZu5R76Mwt06MEQ/HL1pIvufTFxkr/SzIv8Ih7Kexb0IrybmfD351
 Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
 =1Vzu
 -----END PGP ARMORED FILE-----
-");
-        assert!(TPK::from_reader(reader).is_err());
+";
+        assert!(TPK::from_bytes(tpk).is_err());
     }
 }

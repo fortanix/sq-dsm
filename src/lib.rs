@@ -7,18 +7,17 @@
 //!
 //! ```
 //! use std::io::Read;
-//! #[macro_use] extern crate sequoia_openpgp as openpgp;
+//! extern crate sequoia_openpgp as openpgp;
 //! # use std::io::Result;
 //! # fn main() { f().unwrap(); }
 //! # fn f() -> Result<()> {
 //!
-//! let mut reader = armored!(
-//!     "-----BEGIN PGP ARMORED FILE-----
+//! let mut reader = openpgp::armor::Reader::from_bytes(
+//!    b"-----BEGIN PGP ARMORED FILE-----
 //!
 //!      SGVsbG8gd29ybGQh
 //!      =s4Gu
-//!      -----END PGP ARMORED FILE-----"
-//! );
+//!      -----END PGP ARMORED FILE-----", None);
 //!
 //! let mut content = String::new();
 //! reader.read_to_string(&mut content)?;

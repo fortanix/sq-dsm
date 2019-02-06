@@ -790,7 +790,7 @@ impl<'a> Encryptor<'a> {
     ///
     /// ```
     /// use std::io::Write;
-    /// #[macro_use] extern crate sequoia_openpgp as openpgp; // For armored!
+    /// extern crate sequoia_openpgp as openpgp;
     /// use openpgp::constants::DataFormat;
     /// use openpgp::serialize::stream::{
     ///     Message, Encryptor, EncryptionMode, LiteralWriter,
@@ -799,9 +799,9 @@ impl<'a> Encryptor<'a> {
     /// # use openpgp::parse::Parse;
     /// # fn main() { f().unwrap(); }
     /// # fn f() -> Result<()> {
-    /// let tpk = openpgp::TPK::from_reader(armored!(
+    /// let tpk = openpgp::TPK::from_bytes(
     /// #   // We do some acrobatics here to abbreviate the TPK.
-    ///     "-----BEGIN PGP PUBLIC KEY BLOCK-----
+    ///    b"-----BEGIN PGP PUBLIC KEY BLOCK-----
     ///
     ///      mQENBFpxtsABCADZcBa1Q3ZLZnju18o0+t8LoQuIIeyeUQ0H45y6xUqyrD5HSkVM
     /// #    VGQs6IHLq70mAizBJ4VznUVqVOh/NhOlapXi6/TKpjHvttdg45o6Pgqa0Kx64luT
@@ -835,7 +835,7 @@ impl<'a> Encryptor<'a> {
     ///      ...
     ///      -----END PGP PUBLIC KEY BLOCK-----"
     /// #    */
-    /// )).unwrap();
+    /// ).unwrap();
     ///
     /// let mut o = vec![];
     /// let message = Message::new(&mut o);

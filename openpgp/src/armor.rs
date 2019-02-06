@@ -932,39 +932,6 @@ impl<'a> Read for Reader<'a> {
 
 // XXX: impl BufferedReader for Reader
 
-#[macro_export]
-/// Constructs a reader from an armored string literal.
-///
-/// # Example
-///
-/// ```
-/// use std::io::Read;
-/// #[macro_use] extern crate sequoia_openpgp as openpgp;
-/// # use std::io::Result;
-/// # fn main() { f().unwrap(); }
-/// # fn f() -> Result<()> {
-///
-/// let mut reader = armored!(
-///     "-----BEGIN PGP ARMORED FILE-----
-///
-///      SGVsbG8gd29ybGQh
-///      =s4Gu
-///      -----END PGP ARMORED FILE-----"
-/// );
-///
-/// let mut content = String::new();
-/// reader.read_to_string(&mut content)?;
-/// assert_eq!(content, "Hello world!");
-/// # Ok(())
-/// # }
-/// ```
-macro_rules! armored {
-    ($data:expr) => {{
-        use ::std::io::Cursor;
-        $crate::armor::Reader::new(Cursor::new(&$data), None)
-    }};
-}
-
 const CRC24_INIT: u32 = 0xB704CE;
 const CRC24_POLY: u32 = 0x1864CFB;
 

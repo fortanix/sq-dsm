@@ -1,12 +1,11 @@
 //! https://sequoia-pgp.org/guide/exploring-openpgp/
 
-#[macro_use] // For armored!
 extern crate sequoia_openpgp as openpgp;
 use openpgp::parse::Parse;
 
 fn main() {
-    let mut reader = armored!(
-        "-----BEGIN PGP PUBLIC KEY BLOCK-----
+    let tpk =
+       b"-----BEGIN PGP PUBLIC KEY BLOCK-----
 
          mQENBFpxtsABCADZcBa1Q3ZLZnju18o0+t8LoQuIIeyeUQ0H45y6xUqyrD5HSkVM
          VGQs6IHLq70mAizBJ4VznUVqVOh/NhOlapXi6/TKpjHvttdg45o6Pgqa0Kx64luT
@@ -35,11 +34,10 @@ fn main() {
          bGeT3KvlJlH5kthQ9shsmT14gYwGMR6rKpNUXmlpetkjqUK7pGVaHGgJWUZ9QPGU
          awwPdWWvZSyXJAPZ9lC5sTKwMJDwIxILug==
          =lAie
-         -----END PGP PUBLIC KEY BLOCK-----"
-    );
+         -----END PGP PUBLIC KEY BLOCK-----";
 
-    // Parse message.
-    let pile = openpgp::PacketPile::from_reader(&mut reader).unwrap();
+    // Parse the TPK.
+    let pile = openpgp::PacketPile::from_bytes(tpk).unwrap();
 
     // Iterate over children.
     for (i, p) in pile.children().enumerate() {
