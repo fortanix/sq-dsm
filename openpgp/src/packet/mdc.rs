@@ -20,7 +20,7 @@ pub struct MDC {
 
 impl MDC {
     /// Creates an MDC packet.
-    pub(crate) fn new_(hash: [u8; 20], computed_hash: [u8; 20]) -> Self {
+    pub fn new(hash: [u8; 20], computed_hash: [u8; 20]) -> Self {
         MDC {
             common: Default::default(),
             computed_hash: computed_hash,

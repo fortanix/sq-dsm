@@ -2101,7 +2101,7 @@ impl MDC {
         let mut hash : [u8; 20] = Default::default();
         hash.copy_from_slice(&php_try!(php.parse_bytes("hash", 20)));
 
-        php.ok(Packet::MDC(MDC::new_(hash, computed_hash)))
+        php.ok(Packet::MDC(MDC::new(hash, computed_hash)))
     }
 }
 
