@@ -28,14 +28,6 @@ impl MDC {
         }
     }
 
-    /// Creates a new MDC packet for the data hashed into `hash` Hash context.
-    pub fn new(hash: &mut nettle::Hash) -> Self {
-        let mut value : [u8; 20] = Default::default();
-        hash.digest(&mut value[..]);
-
-        value.into()
-    }
-
     /// Gets the packet's hash value.
     pub fn hash(&self) -> &[u8] {
         &self.hash[..]
@@ -74,3 +66,12 @@ impl From<[u8; 20]> for MDC {
         }
     }
 }
+
+impl From<Box<nettle::Hash>> for MDC {
+    fn from(mut hash: Box<nettle::Hash>) -> Self {
+        let mut value : [u8; 20] = Default::default();
+        hash.digest(&mut value[..]);
+        value.into()
+    }
+}
+

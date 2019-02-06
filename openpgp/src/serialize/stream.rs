@@ -1018,7 +1018,7 @@ impl<'a> Encryptor<'a> {
             BodyLength::Full(20).serialize(&mut header)?;
 
             self.hash.update(&header);
-            MDC::new(&mut self.hash).serialize(&mut w)?;
+            MDC::from(self.hash.clone()).serialize(&mut w)?;
 
             // Now recover the original writer.  First, strip the
             // Encryptor.
