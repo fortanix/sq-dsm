@@ -168,6 +168,60 @@ impl Key {
         })
     }
 
+    /// Creates a new OpenPGP public key packet for an existing Ed25519 key.
+    ///
+    /// The ECDH key will use hash algorithm `hash` and symmetric algorithm `sym`. If one or both
+    /// are `None` secure defaults will be used. The key will have it's creation date set to
+    /// `ctime` or the current time if `None` is given.
+    pub fn import_public_ed25519<T>(public_key: &[u8], ctime: T) -> Result<Self>
+        where  T: Into<Option<time::Tm>>
+    {
+        let mut point = Vec::from(public_key);
+        point.insert(0, 0x40);
+
+        Ok(Key{
+            common: Default::default(),
+            version: 4,
+            creation_time: ctime.into().unwrap_or(time::now()),
+            pk_algo: PublicKeyAlgorithm::EdDSA,
+            mpis: mpis::PublicKey::EdDSA{
+                curve: Curve::Ed25519,
+                q: mpis::MPI::new(&point),
+            },
+            secret: None,
+        })
+    }
+
+    /// Creates a new OpenPGP secret key packet for an existing Ed25519 key.
+    ///
+    /// The ECDH key will use hash algorithm `hash` and symmetric algorithm `sym`. If one or both
+    /// are `None` secure defaults will be used. The key will have it's creation date set to
+    /// `ctime` or the current time if `None` is given.
+    pub fn import_secret_ed25519<T>(secret_key: &[u8], ctime: T)
+        -> Result<Self> where T: Into<Option<time::Tm>>
+    {
+        use nettle::ed25519::{self, ED25519_KEY_SIZE};
+
+        let mut public_key = [0x40u8; ED25519_KEY_SIZE + 1];
+        ed25519::public_key(&mut public_key[1..], secret_key).unwrap();
+
+        Ok(Key{
+            common: Default::default(),
+            version: 4,
+            creation_time: ctime.into().unwrap_or(time::now()),
+            pk_algo: PublicKeyAlgorithm::EdDSA,
+            mpis: mpis::PublicKey::EdDSA{
+                curve: Curve::Ed25519,
+                q: mpis::MPI::new(&public_key),
+            },
+            secret: Some(SecretKey::Unencrypted{
+                mpis: mpis::SecretKey::EdDSA{
+                    scalar: mpis::MPI::new(&secret_key)
+                }
+            }),
+        })
+    }
+
     /// Creates a new OpenPGP public key packet for an existing RSA key.
     ///
     /// The RSA key will use public exponent `e` and modulo `n`. The key will
@@ -741,7 +795,7 @@ mod tests {
     #[test]
     fn import_rsa() {
         use packet::PKESK;
-        use crypto::{ecdh, SessionKey};
+        use crypto::SessionKey;
         use self::mpis::{MPI, Ciphertext};
         use time::{at, Timespec};
 
@@ -757,7 +811,7 @@ mod tests {
         let ciphertext = Ciphertext::RSA{
             c: MPI::new(&c[..]),
         };
-        let pkesk = PKESK::new_(key.keyid(), PublicKeyAlgorithm::RSAEncryptSign, ciphertext).unwrap();
+        let pkesk = PKESK::new(key.keyid(), PublicKeyAlgorithm::RSAEncryptSign, ciphertext).unwrap();
 
         // Session key
         let dek = b"\xA5\x58\x3A\x04\x35\x8B\xC7\x3F\x4A\xEF\x0C\x5A\xEB\xED\x59\xCA\xFD\x96\xB5\x32\x23\x26\x0C\x91\x78\xD1\x31\x12\xF0\x41\x42\x9D";
@@ -771,5 +825,41 @@ mod tests {
        let got_sk = pkesk.decrypt(&key, sec).unwrap();
 
        assert_eq!(got_sk.1, sk);
+    }
+
+    #[test]
+    fn import_ed25519() {
+        use time::{at, Timespec};
+        use {Fingerprint, KeyID};
+        use constants::SignatureType;
+        use packet::signature::Signature;
+        use packet::signature::subpacket::{
+            Subpacket, SubpacketValue, SubpacketArea};
+
+        // Ed25519 key
+        let ctime = at(Timespec::new(1548249630,0));
+        let q = b"\x57\x15\x45\x1B\x68\xA5\x13\xA2\x20\x0F\x71\x9D\xE3\x05\x3B\xED\xA2\x21\xDE\x61\x5A\xF5\x67\x45\xBB\x97\x99\x43\x53\x59\x7C\x3F";
+        let key = Key::import_public_ed25519(q, ctime).unwrap();
+
+        let mut hashed = SubpacketArea::empty();
+        let mut unhashed = SubpacketArea::empty();
+        let fpr = Fingerprint::from_hex("D81A 5DC0 DEBF EE5F 9AC8  20EB 6769 5DB9 920D 4FAC").unwrap();
+        let kid = KeyID::from_hex("6769 5DB9 920D 4FAC").unwrap();
+        let ctime = at(Timespec::new(1549460479,0));
+        let r = b"\x5A\xF9\xC7\x42\x70\x24\x73\xFF\x7F\x27\xF9\x20\x9D\x20\x0F\xE3\x8F\x71\x3C\x5F\x97\xFD\x60\x80\x39\x29\xC2\x14\xFD\xC2\x4D\x70";
+        let s = b"\x6E\x68\x74\x11\x72\xF4\x9C\xE1\x99\x99\x1F\x67\xFC\x3A\x68\x33\xF9\x3F\x3A\xB9\x1A\xA5\x72\x4E\x78\xD4\x81\xCB\x7B\xA5\xE5\x0A";
+
+        hashed.add(Subpacket::new(SubpacketValue::IssuerFingerprint(fpr), false).unwrap()).unwrap();
+        hashed.add(Subpacket::new(SubpacketValue::SignatureCreationTime(ctime), false).unwrap()).unwrap();
+        unhashed.add(Subpacket::new(SubpacketValue::Issuer(kid), false).unwrap()).unwrap();
+
+        eprintln!("fpr: {}",key.fingerprint());
+        let sig = Signature::new(SignatureType::Binary, PublicKeyAlgorithm::EdDSA,
+                                 HashAlgorithm::SHA256, hashed, unhashed,
+                                 [0xa7,0x19],
+                                 mpis::Signature::EdDSA{
+                                     r: mpis::MPI::new(r), s: mpis::MPI::new(s)
+                                 });
+        assert_eq!(sig.verify_message(&key, b"Hello, World\n").ok(), Some(true));
     }
 }
