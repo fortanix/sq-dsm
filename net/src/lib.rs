@@ -150,7 +150,7 @@ pub enum Error {
     #[fail(display = "Key not found")]
     NotFound,
     /// A given keyserver URI was malformed.
-    #[fail(display = "Malformed URI")]
+    #[fail(display = "Malformed URI; expected hpk: or hpks:")]
     MalformedUri,
     /// The server provided malformed data.
     #[fail(display = "Malformed response from server")]
