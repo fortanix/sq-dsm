@@ -8,7 +8,10 @@ CARGO_TARGET_DIR	:= $(abspath $(CARGO_TARGET_DIR))
 # We are producing binaries here.
 EXAMPLE_TARGET_DIR      ?= $(CARGO_TARGET_DIR)/debug/c-examples/openpgp-ffi
 
-EXAMPLES = example reader parser encrypt-for armor type-safety-demo use-after-free-demo
+EXAMPLES = \
+	example reader parser encrypt-for armor \
+	type-safety-demo use-after-free-demo immutable-reference-demo \
+
 CFLAGS  = -I../include -O0 -g -Wall -Werror
 LDFLAGS = -L$(CARGO_TARGET_DIR)/debug -lsequoia_openpgp_ffi
 
