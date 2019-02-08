@@ -117,6 +117,200 @@ impl From<TPKParserError> for failure::Error {
     }
 }
 
+/// Whether a packet sequence is a valid key ring.
+#[derive(Debug)]
+pub enum KeyringValidity {
+    /// The packet sequence is a valid key ring.
+    Keyring,
+    /// The packet sequence is a valid key ring prefix.
+    KeyringPrefix,
+    /// The packet sequence is definitely not a key ring.
+    Error(failure::Error),
+}
+
+impl KeyringValidity {
+    /// Returns whether the packet sequence is a valid key ring.
+    ///
+    /// Note: a `KeyringValidator` will only return this after
+    /// `KeyringValidator::finish` has been called.
+    pub fn is_keyring(&self) -> bool {
+        if let KeyringValidity::Keyring = self {
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Returns whether the packet sequence is a valid Keyring prefix.
+    ///
+    /// Note: a `KeyringValidator` will only return this before
+    /// `KeyringValidator::finish` has been called.
+    pub fn is_keyring_prefix(&self) -> bool {
+        if let KeyringValidity::KeyringPrefix = self {
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Returns whether the packet sequence is definitely not a valid
+    /// key ring.
+    pub fn is_err(&self) -> bool {
+        if let KeyringValidity::Error(_) = self {
+            true
+        } else {
+            false
+        }
+    }
+}
+
+/// Used to help validate that a packet sequence is a valid key ring.
+#[derive(Debug)]
+pub struct KeyringValidator {
+    tokens: Vec<Token>,
+    n_keys: usize,
+    finished: bool,
+
+    // If we know that the packet sequence is invalid.
+    error: Option<TPKParserError>,
+}
+
+impl Default for KeyringValidator {
+    fn default() -> Self {
+        KeyringValidator::new()
+    }
+}
+
+impl KeyringValidator {
+    /// Instantiates a new `KeyringValidator`.
+    pub fn new() -> Self {
+        KeyringValidator {
+            tokens: vec![],
+            n_keys: 0,
+            finished: false,
+            error: None,
+        }
+    }
+
+    /// Returns whether the packet sequence is a valid keyring.
+    ///
+    /// Note: a `KeyringValidator` will only return this after
+    /// `KeyringValidator::finish` has been called.
+    pub fn is_keyring(&self) -> bool {
+        self.check().is_keyring()
+    }
+
+    /// Returns whether the packet sequence forms a valid keyring
+    /// prefix.
+    ///
+    /// Note: a `KeyringValidator` will only return this before
+    /// `KeyringValidator::finish` has been called.
+    pub fn is_keyring_prefix(&self) -> bool {
+        self.check().is_keyring_prefix()
+    }
+
+    /// Returns whether the packet sequence is definitely not a valid
+    /// keyring.
+    pub fn is_err(&self) -> bool {
+        self.check().is_err()
+    }
+
+    /// Add the token `token` to the token stream.
+    pub fn push_token(&mut self, token: Token) {
+        assert!(!self.finished);
+
+        if self.error.is_some() {
+            return;
+        }
+
+        match token {
+            Token::PublicKey(_) | Token::SecretKey(_) => {
+                self.tokens.clear();
+                self.n_keys += 1;
+            },
+            _ => (),
+        }
+
+        self.tokens.push(token);
+    }
+
+    /// Add a packet of type `tag` to the token stream.
+    pub fn push(&mut self, tag: Tag) {
+        let token = match tag {
+            Tag::PublicKey => Token::PublicKey(None),
+            Tag::SecretKey => Token::SecretKey(None),
+            Tag::PublicSubkey => Token::PublicSubkey(None),
+            Tag::SecretSubkey => Token::SecretSubkey(None),
+            Tag::UserID => Token::UserID(None),
+            Tag::UserAttribute => Token::UserAttribute(None),
+            Tag::Signature => Token::Signature(None),
+            _ => {
+                // Unknown token.
+                self.error = Some(TPKParserError::OpenPGP(
+                    Error::MalformedMessage(
+                        format!("Invalid OpenPGP message: unexpected packet: {:?}",
+                                tag).into())));
+                self.tokens.clear();
+                return;
+            }
+        };
+
+        self.push_token(token)
+    }
+
+    /// Note that the entire message has been seen.
+    ///
+    /// This function may only be called once.
+    ///
+    /// Once called, this function will no longer return
+    /// `KeyringValidity::KeyringPrefix`.
+    pub fn finish(&mut self) {
+        assert!(!self.finished);
+        self.finished = true;
+    }
+
+    /// Returns whether the token stream corresponds to a valid
+    /// keyring.
+    ///
+    /// This returns a tri-state: if the packet sequence is a valid
+    /// Keyring, it returns KeyringValidity::Keyring, if the packet sequence is
+    /// invalid, then it returns KeyringValidity::Error.  If the packet
+    /// sequence could be valid, then it returns
+    /// KeyringValidity::KeyringPrefix.
+    ///
+    /// Note: if KeyringValidator::finish() *hasn't* been called, then
+    /// this function will only ever return either
+    /// KeyringValidity::KeyringPrefix or KeyringValidity::Error.  Once
+    /// KeyringValidity::finish() has been called, then only
+    /// KeyringValidity::Keyring or KeyringValidity::Bad will be called.
+    pub fn check(&self) -> KeyringValidity {
+        if let Some(ref err) = self.error {
+            return KeyringValidity::Error((*err).clone().into());
+        }
+
+        let r = TPKLowLevelParser::new().parse(
+            Lexer::from_tokens(&self.tokens));
+
+        if self.finished {
+            match r {
+                Ok(_) => KeyringValidity::Keyring,
+                Err(err) =>
+                    KeyringValidity::Error(
+                        TPKParserError::Parser(parse_error_downcast(err)).into()),
+            }
+        } else {
+            match r {
+                Ok(_) => KeyringValidity::KeyringPrefix,
+                Err(ParseError::UnrecognizedToken { token: None, .. }) =>
+                    KeyringValidity::KeyringPrefix,
+                Err(err) =>
+                    KeyringValidity::Error(
+                        TPKParserError::Parser(parse_error_downcast(err)).into()),
+            }
+        }
+    }
+}
+
 /// Whether a packet sequence is a valid TPK.
 #[derive(Debug)]
 pub enum TPKValidity {
@@ -166,13 +360,7 @@ impl TPKValidity {
 
 /// Used to help validate that a packet sequence is a valid TPK.
 #[derive(Debug)]
-pub struct TPKValidator {
-    tokens: Vec<Token>,
-    finished: bool,
-
-    // If we know that the packet sequence is invalid.
-    error: Option<TPKParserError>,
-}
+pub struct TPKValidator(KeyringValidator);
 
 impl Default for TPKValidator {
     fn default() -> Self {
@@ -183,11 +371,7 @@ impl Default for TPKValidator {
 impl TPKValidator {
     /// Instantiates a new `TPKValidator`.
     pub fn new() -> Self {
-        TPKValidator {
-            tokens: vec![],
-            finished: false,
-            error: None,
-        }
+        TPKValidator(Default::default())
     }
 
     /// Returns whether the packet sequence is a valid TPK.
@@ -215,37 +399,12 @@ impl TPKValidator {
 
     /// Add the token `token` to the token stream.
     pub fn push_token(&mut self, token: Token) {
-        assert!(!self.finished);
-
-        if self.error.is_some() {
-            return;
-        }
-
-        self.tokens.push(token);
+        self.0.push_token(token)
     }
 
     /// Add a packet of type `tag` to the token stream.
     pub fn push(&mut self, tag: Tag) {
-        let token = match tag {
-            Tag::PublicKey => Token::PublicKey(None),
-            Tag::SecretKey => Token::SecretKey(None),
-            Tag::PublicSubkey => Token::PublicSubkey(None),
-            Tag::SecretSubkey => Token::SecretSubkey(None),
-            Tag::UserID => Token::UserID(None),
-            Tag::UserAttribute => Token::UserAttribute(None),
-            Tag::Signature => Token::Signature(None),
-            _ => {
-                // Unknown token.
-                self.error = Some(TPKParserError::OpenPGP(
-                    Error::MalformedMessage(
-                        format!("Invalid OpenPGP message: unexpected packet: {:?}",
-                                tag).into())));
-                self.tokens.clear();
-                return;
-            }
-        };
-
-        self.push_token(token)
+        self.0.push(tag)
     }
 
     /// Note that the entire message has been seen.
@@ -255,8 +414,7 @@ impl TPKValidator {
     /// Once called, this function will no longer return
     /// `TPKValidity::TPKPrefix`.
     pub fn finish(&mut self) {
-        assert!(!self.finished);
-        self.finished = true;
+        self.0.finish()
     }
 
     /// Returns whether the token stream corresponds to a valid
@@ -274,29 +432,15 @@ impl TPKValidator {
     /// TPKValidity::finish() has been called, then only
     /// TPKValidity::TPK or TPKValidity::Bad will be called.
     pub fn check(&self) -> TPKValidity {
-        if let Some(ref err) = self.error {
-            return TPKValidity::Error((*err).clone().into());
+        if self.0.n_keys > 1 {
+            return TPKValidity::Error(Error::MalformedMessage(
+                    "More than one key found, this is a keyring".into()).into());
         }
 
-        let r = TPKLowLevelParser::new().parse(
-            Lexer::from_tokens(&self.tokens));
-
-        if self.finished {
-            match r {
-                Ok(_) => TPKValidity::TPK,
-                Err(err) =>
-                    TPKValidity::Error(
-                        TPKParserError::Parser(parse_error_downcast(err)).into()),
-            }
-        } else {
-            match r {
-                Ok(_) => TPKValidity::TPKPrefix,
-                Err(ParseError::UnrecognizedToken { token: None, .. }) =>
-                    TPKValidity::TPKPrefix,
-                Err(err) =>
-                    TPKValidity::Error(
-                        TPKParserError::Parser(parse_error_downcast(err)).into()),
-            }
+        match self.0.check() {
+            KeyringValidity::Keyring => TPKValidity::TPK,
+            KeyringValidity::KeyringPrefix => TPKValidity::TPKPrefix,
+            KeyringValidity::Error(e) => TPKValidity::Error(e),
         }
     }
 }
