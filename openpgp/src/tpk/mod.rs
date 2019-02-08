@@ -2435,7 +2435,7 @@ impl TPK {
             let pk_can_certify =
                 self.primary_key_signature()
                 .map(|sig| sig.key_flags().can_certify())
-                .unwrap_or(false);
+                .unwrap_or(true);
 
             if ! pk_can_certify {
                 // Primary not certification capable, all binding sigs
@@ -3819,5 +3819,37 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
 -----END PGP ARMORED FILE-----
 ";
         assert!(TPK::from_bytes(tpk).is_err());
+    }
+
+    #[test]
+    fn missing_uids() {
+        let (tpk, _) = TPKBuilder::default()
+            .add_userid("test1@example.com")
+            .add_userid("test2@example.com")
+            .add_encryption_subkey()
+            .add_certification_subkey()
+            .generate().unwrap();
+        assert_eq!(tpk.subkeys().len(), 2);
+        let pile = tpk
+            .into_packet_pile()
+            .into_children()
+            .filter(|pkt| {
+                match pkt {
+                    &Packet::PublicKey(_) | &Packet::PublicSubkey(_) => true,
+                    &Packet::Signature(ref sig) => {
+                        sig.sigtype() == SignatureType::DirectKey
+                            || sig.sigtype() == SignatureType::SubkeyBinding
+                    }
+                    e => {
+                        eprintln!("{:?}", e);
+                        false
+                    }
+                }
+            })
+        .collect::<Vec<_>>();
+        eprintln!("parse back");
+        let tpk = TPK::from_packet_pile(PacketPile::from(pile)).unwrap();
+
+        assert_eq!(tpk.subkeys().len(), 2);
     }
 }
