@@ -2374,6 +2374,12 @@ struct PacketParserState {
     /// Whether the packet sequence is a valid OpenPGP Message.
     message_validator: MessageValidator,
 
+    /// Whether the packet sequence is a valid OpenPGP keyring.
+    keyring_validator: ::tpk::KeyringValidator,
+
+    /// Whether the packet sequence is a valid OpenPGP TPK.
+    tpk_validator: ::tpk::TPKValidator,
+
     // Whether this is the first packet in the packet sequence.
     first_packet: bool,
 }
@@ -2383,6 +2389,8 @@ impl PacketParserState {
         PacketParserState {
             settings: settings,
             message_validator: Default::default(),
+            keyring_validator: Default::default(),
+            tpk_validator: Default::default(),
             first_packet: true,
         }
     }
@@ -2509,6 +2517,8 @@ impl PacketParserEOF {
     /// `PacketParserEOF` instance.
     fn new(mut state: PacketParserState) -> Self {
         state.message_validator.finish();
+        state.keyring_validator.finish();
+        state.tpk_validator.finish();
 
         PacketParserEOF {
             state: state,
@@ -2521,6 +2531,20 @@ impl PacketParserEOF {
     /// As opposed to a TPK or just a bunch of packets.
     pub fn is_message(&self) -> bool {
         self.state.message_validator.is_message()
+    }
+
+    /// Whether the message is an OpenPGP keyring.
+    ///
+    /// As opposed to a Message or just a bunch of packets.
+    pub fn is_keyring(&self) -> bool {
+        self.state.keyring_validator.is_keyring()
+    }
+
+    /// Whether the message is an OpenPGP TPK.
+    ///
+    /// As opposed to a Message or just a bunch of packets.
+    pub fn is_tpk(&self) -> bool {
+        self.state.tpk_validator.is_tpk()
     }
 
     /// Returns the path of the last packet.
@@ -2777,6 +2801,26 @@ impl <'a> PacketParser<'a> {
     /// valid prefix or definitely not an OpenPGP message.
     pub fn possible_message(&self) -> bool {
         self.state.message_validator.check().is_message_prefix()
+    }
+
+    /// Returns whether the message appears to be an OpenPGP keyring.
+    ///
+    /// Only when the whole message has been processed is it possible
+    /// to say whether the message is definitely an OpenPGP keyring.
+    /// Before that, it is only possible to say that the message is a
+    /// valid prefix or definitely not an OpenPGP keyring.
+    pub fn possible_keyring(&self) -> bool {
+        self.state.keyring_validator.check().is_keyring_prefix()
+    }
+
+    /// Returns whether the message appears to be an OpenPGP TPK.
+    ///
+    /// Only when the whole message has been processed is it possible
+    /// to say whether the message is definitely an OpenPGP TPK.
+    /// Before that, it is only possible to say that the message is a
+    /// valid prefix or definitely not an OpenPGP TPK.
+    pub fn possible_tpk(&self) -> bool {
+        self.state.tpk_validator.check().is_tpk_prefix()
     }
 
     /// Returns Ok if the data appears to be a legal packet.
@@ -3149,6 +3193,8 @@ impl <'a> PacketParser<'a> {
                 ParserResult::Success(mut pp) => {
                     pp.state.message_validator.push(
                         pp.packet.tag(), recursion_depth);
+                    pp.state.keyring_validator.push(pp.packet.tag());
+                    pp.state.tpk_validator.push(pp.packet.tag());
 
                     pp.last_path = self.last_path;
 
@@ -3217,6 +3263,8 @@ impl <'a> PacketParser<'a> {
                             pp.state.message_validator.push(
                                 pp.packet.tag(),
                                 recursion_depth);
+                            pp.state.keyring_validator.push(pp.packet.tag());
+                            pp.state.tpk_validator.push(pp.packet.tag());
 
                             pp.last_path = last_path;
 
@@ -3689,6 +3737,11 @@ mod test {
             .iter().collect()
     }
 
+    fn path_to_data(artifact: &str) -> PathBuf {
+        [env!("CARGO_MANIFEST_DIR"), "tests", "data", artifact]
+            .iter().collect()
+    }
+
     enum Data<'a> {
         File(&'a str),
         String(&'a [u8]),
@@ -3993,6 +4046,59 @@ mod test {
             assert!(saw_literal);
             if let PacketParserResult::EOF(eof) = ppr {
                 assert!(eof.is_message());
+            } else {
+                unreachable!();
+            }
+        }
+    }
+
+    #[test]
+    fn keyring_validator() {
+        for test in &["keys/testy.pgp",
+                      "keys/lutz.gpg",
+                      "keys/testy-new.pgp",
+                      "keys/neal.pgp"]
+        {
+            let path = path_to_data(test);
+            let mut ppr = PacketParserBuilder::from_reader(
+                File::open(path_to_data("keys/testy.pgp")).unwrap().chain(
+                    File::open(&path).unwrap())).unwrap()
+                .finalize()
+                .expect(&format!("Error reading {:?}", path));
+
+            while let PacketParserResult::Some(mut pp) = ppr {
+                assert!(pp.possible_keyring());
+                ppr = pp.recurse().unwrap().1;
+            }
+            if let PacketParserResult::EOF(eof) = ppr {
+                assert!(eof.is_keyring());
+                assert!(! eof.is_tpk());
+            } else {
+                unreachable!();
+            }
+        }
+    }
+
+    #[test]
+    fn tpk_validator() {
+        for test in &["keys/testy.pgp",
+                      "keys/lutz.gpg",
+                      "keys/testy-new.pgp",
+                      "keys/neal.pgp"]
+        {
+            let path = path_to_data(test);
+            let mut ppr = PacketParserBuilder::from_file(&path).unwrap()
+                .finalize()
+                .expect(&format!("Error reading {:?}", path));
+
+            while let PacketParserResult::Some(mut pp) = ppr {
+                assert!(pp.possible_keyring());
+                assert!(pp.possible_tpk());
+                ppr = pp.recurse().unwrap().1;
+            }
+            if let PacketParserResult::EOF(eof) = ppr {
+                assert!(eof.is_keyring());
+                assert!(eof.is_tpk());
             } else {
                 unreachable!();
             }

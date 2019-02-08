@@ -176,6 +176,8 @@ impl<'a> PacketParserBuilder<'a> {
             ParserResult::Success(mut pp) => {
                 // We successfully parsed the first packet's header.
                 pp.state.message_validator.push(pp.packet.tag(), 0);
+                pp.state.keyring_validator.push(pp.packet.tag());
+                pp.state.tpk_validator.push(pp.packet.tag());
                 Ok(PacketParserResult::Some(pp))
             },
             ParserResult::EOF((_reader, state, _path)) => {
