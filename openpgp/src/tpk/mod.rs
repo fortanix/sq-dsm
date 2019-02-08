@@ -279,7 +279,7 @@ impl TPKValidator {
         }
 
         let r = TPKLowLevelParser::new().parse(
-            Lexer::from_tokens(&self.tokens[..]));
+            Lexer::from_tokens(&self.tokens));
 
         if self.finished {
             match r {
@@ -475,7 +475,7 @@ impl SubkeyBinding {
                               &self.self_revocations, t);
 
         if has_self_revs {
-            return RevocationStatus::Revoked(&self.self_revocations[..]);
+            return RevocationStatus::Revoked(&self.self_revocations);
         }
 
         let has_other_revs =
@@ -483,7 +483,7 @@ impl SubkeyBinding {
                               &self.other_revocations, t);
 
         if has_other_revs {
-            RevocationStatus::CouldBe(&self.other_revocations[..])
+            RevocationStatus::CouldBe(&self.other_revocations)
         } else {
             RevocationStatus::NotAsFarAsWeKnow
         }
@@ -608,7 +608,7 @@ impl UserIDBinding {
                               &self.self_revocations, t);
 
         if has_self_revs {
-            return RevocationStatus::Revoked(&self.self_revocations[..]);
+            return RevocationStatus::Revoked(&self.self_revocations);
         }
 
         let has_other_revs =
@@ -616,7 +616,7 @@ impl UserIDBinding {
                               &self.other_revocations, t);
 
         if has_other_revs {
-            RevocationStatus::CouldBe(&self.other_revocations[..])
+            RevocationStatus::CouldBe(&self.other_revocations)
         } else {
             RevocationStatus::NotAsFarAsWeKnow
         }
@@ -717,7 +717,7 @@ impl UserAttributeBinding {
                               &self.self_revocations, t);
 
         if has_self_revs {
-            return RevocationStatus::Revoked(&self.self_revocations[..]);
+            return RevocationStatus::Revoked(&self.self_revocations);
         }
 
         let has_other_revs =
@@ -725,7 +725,7 @@ impl UserAttributeBinding {
                               &self.other_revocations, t);
 
         if has_other_revs {
-            RevocationStatus::CouldBe(&self.other_revocations[..])
+            RevocationStatus::CouldBe(&self.other_revocations)
         } else {
             RevocationStatus::NotAsFarAsWeKnow
         }
@@ -799,7 +799,7 @@ enum PacketSource<'a, I: Iterator<Item=Packet>> {
 ///
 /// # fn main() { f().unwrap(); }
 /// # fn f() -> Result<()> {
-/// #     let ppr = PacketParser::from_bytes(&b""[..])?;
+/// #     let ppr = PacketParser::from_bytes(b"")?;
 /// for tpko in TPKParser::from_packet_parser(ppr) {
 ///     match tpko {
 ///         Ok(tpk) => {
@@ -921,7 +921,7 @@ impl<'a, I: Iterator<Item=Packet>> TPKParser<'a, I> {
     ///
     /// # fn main() { f().unwrap(); }
     /// # fn f() -> Result<()> {
-    /// #     let ppr = PacketParser::from_bytes(&b""[..])?;
+    /// #     let ppr = PacketParser::from_bytes(b"")?;
     /// #     let some_keyid = KeyID::from_hex("C2B819056C652598").unwrap();
     /// for tpkr in TPKParser::from_packet_parser(ppr)
     ///     .unvalidated_tpk_filter(|tpk, _| {
@@ -1005,7 +1005,7 @@ impl<'a, I: Iterator<Item=Packet>> TPKParser<'a, I> {
         }
 
         let tpko = match TPKLowLevelParser::new()
-            .parse(Lexer::from_tokens(&tokens[..]))
+            .parse(Lexer::from_tokens(&tokens))
         {
             Ok(tpko) => tpko,
             Err(e) => return Err(
@@ -1337,7 +1337,7 @@ impl TPK {
                               &self.primary_self_revocations, t);
 
         if has_self_revs {
-            return RevocationStatus::Revoked(&self.primary_self_revocations[..]);
+            return RevocationStatus::Revoked(&self.primary_self_revocations);
         }
 
         let has_other_revs =
@@ -1345,7 +1345,7 @@ impl TPK {
                               &self.primary_other_revocations, t);
 
         if has_other_revs {
-            RevocationStatus::CouldBe(&self.primary_other_revocations[..])
+            RevocationStatus::CouldBe(&self.primary_other_revocations)
         } else {
             RevocationStatus::NotAsFarAsWeKnow
         }
@@ -1432,7 +1432,7 @@ impl TPK {
     ///     assert_eq!(sigs[0].sigtype(), SignatureType::KeyRevocation);
     ///     assert_eq!(sigs[0].reason_for_revocation(),
     ///                Some((ReasonForRevocation::KeyCompromised,
-    ///                      &b"It was the maid :/"[..])));
+    ///                      "It was the maid :/".as_bytes())));
     /// } else {
     ///     unreachable!()
     /// }
@@ -2593,11 +2593,11 @@ mod test {
 
         let test_vectors = [
             TestVector {
-                s: &[ PublicKey(None) ][..],
+                s: &[ PublicKey(None) ],
                 result: true,
             },
             TestVector {
-                s: &[ SecretKey(None) ][..],
+                s: &[ SecretKey(None) ],
                 result: true,
             },
             TestVector {
@@ -3046,17 +3046,17 @@ mod test {
                       "Neal H. Walfield <neal@pep.foundation>",
                       "Neal H. Walfield <neal@sequoia-pgp.org>",
                       "Neal H. Walfield <neal@walfield.org>",
-                   ][..]);
+                   ]);
 
         let mut subkeys = tpk.subkeys()
             .map(|sk| Some(sk.subkey.keyid()))
             .collect::<Vec<Option<KeyID>>>();
         subkeys.sort();
         assert_eq!(subkeys,
-                   &[ KeyID::from_hex(&"7223B56678E02528"[..]).ok(),
-                      KeyID::from_hex(&"A3506AFB820ABD08"[..]).ok(),
-                      KeyID::from_hex(&"C2B819056C652598"[..]).ok(),
-                   ][..]);
+                   &[ KeyID::from_hex("7223B56678E02528").ok(),
+                      KeyID::from_hex("A3506AFB820ABD08").ok(),
+                      KeyID::from_hex("C2B819056C652598").ok(),
+                   ]);
 
         // DKG's key has all of the self-signatures moved to the last
         // subkey; all user ids/user attributes/subkeys have nothing.
@@ -3074,7 +3074,7 @@ mod test {
                       "Daniel Kahn Gillmor <dkg@debian.org>",
                       "Daniel Kahn Gillmor <dkg@fifthhorseman.net>",
                       "Daniel Kahn Gillmor <dkg@openflows.com>",
-                   ][..]);
+                   ]);
 
         assert_eq!(tpk.user_attributes.len(), 1);
 
@@ -3096,7 +3096,7 @@ mod test {
                       KeyID::from_hex(&"CAEF A883 2167 5333"[..]).ok(),
                       KeyID::from_hex(&"DC10 4C4E 0CA7 57FB"[..]).ok(),
                       KeyID::from_hex(&"E3A3 2229 449B 0350"[..]).ok(),
-                   ][..]);
+                   ]);
 
     }
 
