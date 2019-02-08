@@ -31,6 +31,7 @@
 //!     dump         Lists OpenPGP packets
 //!     enarmor      Applies ASCII Armor to a file
 //!     help         Prints this message or the help of the given subcommand(s)
+//!     inspect      Inspects a sequence of OpenPGP packets
 //!     key          Manipulates keys
 //!     list         Lists key stores and known keys
 //!     split        Splits a message into OpenPGP packets
@@ -416,6 +417,24 @@
 //!
 //! OPTIONS:
 //!     -o, --output <FILE>    Sets the output file to use
+//!
+//! ARGS:
+//!     <FILE>    Sets the input file to use
+//! ```
+//!
+//! ## Subcommand inspect
+//!
+//! ```text
+//! Inspects a sequence of OpenPGP packets
+//!
+//! USAGE:
+//!     sq inspect [FLAGS] [FILE]
+//!
+//! FLAGS:
+//!         --certifications    Print third-party certifications
+//!     -h, --help              Prints help information
+//!         --keygrips          Print keygrips of keys and subkeys
+//!     -V, --version           Prints version information
 //!
 //! ARGS:
 //!     <FILE>    Sets the input file to use
