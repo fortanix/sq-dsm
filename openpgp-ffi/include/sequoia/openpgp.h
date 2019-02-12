@@ -573,7 +573,7 @@ void pgp_signature_free (pgp_signature_t signature);
 /*/
 /// Converts the signature to a packet.
 /*/
-pgp_packet_t pgp_signature_to_packet (pgp_signature_t signature);
+pgp_packet_t pgp_signature_into_packet (pgp_signature_t signature);
 
 /*/
 /// Returns the value of the `Signature` packet's Issuer subpacket.

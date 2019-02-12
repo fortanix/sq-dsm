@@ -209,7 +209,7 @@ fn int_to_reason_for_revocation(code: c_int) -> ReasonForRevocation {
 /// pgp_signer_free (primary_signer);
 /// pgp_key_pair_free (primary_keypair);
 ///
-/// pgp_packet_t packet = pgp_signature_to_packet (revocation);
+/// pgp_packet_t packet = pgp_signature_into_packet (revocation);
 /// tpk = pgp_tpk_merge_packets (NULL, tpk, &packet, 1);
 /// assert (tpk);
 ///

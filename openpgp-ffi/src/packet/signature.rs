@@ -28,7 +28,7 @@ pub extern "system" fn pgp_signature_free(s: Option<&mut Signature>) {
 
 /// Converts the signature to a packet.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "system" fn pgp_signature_to_packet(s: *mut Signature)
+pub extern "system" fn pgp_signature_into_packet(s: *mut Signature)
                                               -> *mut Packet
 {
     let s = ffi_param_move!(s);
