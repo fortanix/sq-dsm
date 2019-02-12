@@ -203,8 +203,8 @@ fn int_to_reason_for_revocation(code: c_int) -> ReasonForRevocation {
 /// assert (primary_keypair);
 /// primary_signer = pgp_key_pair_as_signer (primary_keypair);
 /// revocation = pgp_tpk_revoke (NULL, tpk, primary_signer,
-///                             PGP_REASON_FOR_REVOCATION_KEY_COMPROMISED,
-///                             "It was the maid :/");
+///                              PGP_REASON_FOR_REVOCATION_KEY_COMPROMISED,
+///                              "It was the maid :/");
 /// assert (revocation);
 /// pgp_signer_free (primary_signer);
 /// pgp_key_pair_free (primary_keypair);
