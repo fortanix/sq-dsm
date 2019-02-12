@@ -467,7 +467,7 @@ type FreeCallback = fn(*mut c_void);
 /// If the free callback is not NULL, then it is called to free the
 /// returned array of TPKs.
 type GetPublicKeysCallback = fn(*mut HelperCookie,
-                                *const &openpgp::KeyID, usize,
+                                *const *mut keyid::KeyID, usize,
                                 &mut *mut *mut TPK, *mut usize,
                                 *mut FreeCallback) -> Status;
 
@@ -512,7 +512,8 @@ impl VerificationHelper for VHelper {
     {
         // The size of KeyID is not known in C.  Convert from an array
         // of KeyIDs to an array of KeyID refs.
-        let ids : Vec<&openpgp::KeyID> = ids.iter().collect();
+        let ids : Vec<*mut keyid::KeyID> =
+            ids.iter().map(|k| k.move_into_raw()).collect();
 
         let mut tpk_refs_raw : *mut *mut TPK = ptr::null_mut();
         let mut tpk_refs_raw_len = 0usize;
@@ -524,6 +525,8 @@ impl VerificationHelper for VHelper {
             ids.as_ptr(), ids.len(),
             &mut tpk_refs_raw, &mut tpk_refs_raw_len as *mut usize,
             &mut free);
+        ids.into_iter().for_each(|k| { k.move_from_raw(); });
+
         if result != Status::Success {
             // XXX: We need to convert the status to an error.  A
             // status contains less information, but we should do the

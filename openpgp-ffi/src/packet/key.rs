@@ -8,10 +8,12 @@ use libc::{c_int, time_t};
 
 extern crate sequoia_openpgp as openpgp;
 use self::openpgp::{
-    Fingerprint,
-    KeyID,
     packet,
 };
+use super::super::fingerprint::Fingerprint;
+use super::super::keyid::KeyID;
+
+use MoveIntoRaw;
 
 /// Clones the key.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
@@ -27,7 +29,7 @@ pub extern "system" fn pgp_key_clone(key: *const packet::Key)
 pub extern "system" fn pgp_key_fingerprint(key: *const packet::Key)
                                             -> *mut Fingerprint {
     let key = ffi_param_ref!(key);
-    box_raw!(key.fingerprint())
+    key.fingerprint().move_into_raw()
 }
 
 /// Computes and returns the key's key ID as per Section 12.2 of RFC
@@ -36,7 +38,7 @@ pub extern "system" fn pgp_key_fingerprint(key: *const packet::Key)
 pub extern "system" fn pgp_key_keyid(key: *const packet::Key)
                                       -> *mut KeyID {
     let key = ffi_param_ref!(key);
-    box_raw!(key.keyid())
+    key.keyid().move_into_raw()
 }
 
 /// Returns whether the key is expired according to the provided

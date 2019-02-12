@@ -4,10 +4,12 @@ use failure;
 use libc::{uint8_t, size_t};
 
 extern crate sequoia_openpgp as openpgp;
-use self::openpgp::KeyID;
 use self::openpgp::packet::{Key, PKESK, key::SecretKey};
+use super::super::keyid::KeyID;
 
 use error::Status;
+
+use MoveIntoRaw;
 
 /// Returns the PKESK's recipient.
 ///
@@ -15,9 +17,9 @@ use error::Status;
 /// modify or free it.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "system" fn pgp_pkesk_recipient(pkesk: *const PKESK)
-                                          -> *const KeyID {
+                                           -> *const KeyID {
     let pkesk = ffi_param_ref!(pkesk);
-    pkesk.recipient()
+    pkesk.recipient().move_into_raw()
 }
 
 /// Returns the session key.
