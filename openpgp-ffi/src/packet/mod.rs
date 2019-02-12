@@ -69,7 +69,7 @@ pub extern "system" fn pgp_packet_kind(p: *const Packet)
 /// assert (strcmp (pgp_tag_to_string (2), "SIGNATURE") == 0);
 /// ```
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "system" fn pgp_tag_to_string(tag: u8) -> *const c_char {
+pub extern "system" fn pgp_tag_to_string(tag: uint8_t) -> *const c_char {
     match Tag::from(tag) {
         Tag::PKESK => "PKESK\x00",
         Tag::Signature => "SIGNATURE\x00",
