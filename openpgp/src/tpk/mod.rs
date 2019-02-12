@@ -517,37 +517,24 @@ pub struct SubkeyBinding {
 }
 
 impl SubkeyBinding {
-    /// Creates a new subkey binding signature. The subkey can be used for
-    /// encrypting transport and expires in three years.
-    pub fn new(subkey: Key, primary_key: &Key) -> Result<Self> {
+    /// Creates a new subkey binding signature certified by
+    /// `signer`. The subkey can be used for encrypting transport and
+    /// expires in three years.
+    pub fn new(subkey: Key, primary_key: &Key, signer: &mut Signer)
+               -> Result<Self> {
         use packet::KeyFlags;
         use constants::HashAlgorithm;
         use SignatureType;
-        use packet::key::SecretKey;
 
-
-        let sig = match primary_key.secret() {
-            Some(SecretKey::Unencrypted{ ref mpis }) => {
-                signature::Builder::new(SignatureType::SubkeyBinding)
-                    .set_key_flags(&KeyFlags::default().set_encrypt_for_transport(true))?
-                    .set_signature_creation_time(time::now().canonicalize())?
-                    .set_key_expiration_time(Some(time::Duration::weeks(3 * 52)))?
-                    .set_issuer_fingerprint(primary_key.fingerprint())?
-                    .set_issuer(primary_key.fingerprint().to_keyid())?
-                    .sign_subkey_binding(
-                        &mut KeyPair::new(primary_key.clone(), mpis.clone())?,
-                        primary_key, &subkey,
-                        HashAlgorithm::SHA512)?
-            }
-            Some(SecretKey::Encrypted{ .. }) => {
-                return Err(Error::InvalidOperation(
-                        "Secret key is encrypted".into()).into());
-            }
-            None => {
-                return Err(Error::InvalidOperation(
-                        "No secret key".into()).into());
-            }
-        };
+        let sig = signature::Builder::new(SignatureType::SubkeyBinding)
+            .set_key_flags(&KeyFlags::default().set_encrypt_for_transport(true))?
+            .set_signature_creation_time(time::now().canonicalize())?
+            .set_key_expiration_time(Some(time::Duration::weeks(3 * 52)))?
+            .set_issuer_fingerprint(signer.public().fingerprint())?
+            .set_issuer(signer.public().fingerprint().to_keyid())?
+            .sign_subkey_binding(signer,
+                                 primary_key, &subkey,
+                                 HashAlgorithm::SHA512)?;
 
         Ok(SubkeyBinding{
             subkey: subkey,
