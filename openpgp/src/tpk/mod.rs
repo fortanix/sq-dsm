@@ -11,7 +11,7 @@ use time;
 use failure;
 
 use {
-    crypto::{Signer, KeyPair},
+    crypto::Signer,
     Error,
     Result,
     RevocationStatus,
@@ -641,32 +641,19 @@ pub struct UserIDBinding {
 impl UserIDBinding {
     /// Creates a new self-signature binding `uid` to `key`, certified by `signer`. The signature
     /// asserts that the bound key can sign and certify and expires in three years.
-    pub fn new(key: &Key, uid: UserID, signer: &Key) -> Result<Self> {
+    pub fn new(key: &Key, uid: UserID, signer: &mut Signer) -> Result<Self> {
         use packet::KeyFlags;
         use constants::HashAlgorithm;
         use SignatureType;
-        use packet::key::SecretKey;
 
-        let sig = match signer.secret() {
-            Some(SecretKey::Unencrypted{ ref mpis }) => {
-                signature::Builder::new(SignatureType::PositiveCertificate)
-                    .set_key_flags(&KeyFlags::default().set_certify(true).set_sign(true))?
-                    .set_signature_creation_time(time::now().canonicalize())?
-                    .set_key_expiration_time(Some(time::Duration::weeks(3 * 52)))?
-                    .set_issuer_fingerprint(signer.fingerprint())?
-                    .set_issuer(signer.fingerprint().to_keyid())?
-                    .set_preferred_hash_algorithms(vec![HashAlgorithm::SHA512])?
-                    .sign_userid_binding(
-                        &mut KeyPair::new(signer.clone(), mpis.clone())?,
-                        key, &uid, HashAlgorithm::SHA512)?
-            }
-            Some(SecretKey::Encrypted{ .. }) => {
-                return Err(Error::InvalidOperation("Secret key is encrypted".into()).into());
-            }
-            None => {
-                return Err(Error::InvalidOperation("No secret key".into()).into());
-            }
-        };
+        let sig = signature::Builder::new(SignatureType::PositiveCertificate)
+            .set_key_flags(&KeyFlags::default().set_certify(true).set_sign(true))?
+            .set_signature_creation_time(time::now().canonicalize())?
+            .set_key_expiration_time(Some(time::Duration::weeks(3 * 52)))?
+            .set_issuer_fingerprint(signer.public().fingerprint())?
+            .set_issuer(signer.public().fingerprint().to_keyid())?
+            .set_preferred_hash_algorithms(vec![HashAlgorithm::SHA512])?
+            .sign_userid_binding(signer, key, &uid, HashAlgorithm::SHA512)?;
 
         Ok(UserIDBinding{
             userid: uid,
@@ -2678,6 +2665,7 @@ impl Serialize for TPK {
 
 #[cfg(test)]
 mod test {
+    use crypto::KeyPair;
     use super::*;
 
     use KeyID;
