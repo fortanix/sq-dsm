@@ -8,9 +8,7 @@ use failure;
 use libc::c_char;
 
 extern crate sequoia_openpgp as openpgp;
-use self::openpgp::{
-    packet::Signature,
-};
+use super::packet::signature::Signature;
 
 use super::tpk::TPK;
 use ::error::Status;
@@ -47,7 +45,7 @@ fn pgp_tsk_new(errp: Option<&mut *mut ::error::Error>,
     match openpgp::TSK::new(primary_uid) {
         Ok((tsk, revocation)) => {
             *tsk_out = tsk.move_into_raw();
-            *revocation_out = box_raw!(revocation);
+            *revocation_out = revocation.move_into_raw();
             Status::Success
         },
         Err(e) => Err::<(), failure::Error>(e).move_into_raw(errp),

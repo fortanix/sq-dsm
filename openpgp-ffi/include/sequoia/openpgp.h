@@ -571,6 +571,48 @@ pgp_status_t pgp_packet_pile_serialize (pgp_error_t *errp,
 void pgp_signature_free (pgp_signature_t signature);
 
 /*/
+/// Clones the Signature.
+/*/
+pgp_signature_t pgp_signature_clone (pgp_signature_t this);
+
+/*/
+/// Returns a human readable description of this object suitable for
+/// debugging.
+/*/
+char *pgp_signature_debug (const pgp_signature_t this);
+
+/*/
+/// Compares Signatures.
+/*/
+bool pgp_signature_equal (const pgp_signature_t a,
+                          const pgp_signature_t b);
+
+/*/
+/// Parses an object from the given reader.
+/*/
+pgp_signature_t pgp_signature_from_reader (pgp_error_t *errp,
+                                           pgp_reader_t reader);
+
+/*/
+/// Parses an object from the given file.
+/*/
+pgp_signature_t pgp_signature_from_file (pgp_error_t *errp,
+                                         const char *filename);
+
+/*/
+/// Parses an object from the given buffer.
+/*/
+pgp_signature_t pgp_signature_from_bytes (pgp_error_t *errp,
+                                          const uint8_t *b, size_t len);
+
+/*/
+/// Serializes this object.
+/*/
+pgp_status_t pgp_signature_serialize (pgp_error_t *errp,
+				      const pgp_signature_t this,
+				      pgp_writer_t writer);
+
+/*/
 /// Converts the signature to a packet.
 /*/
 pgp_packet_t pgp_signature_into_packet (pgp_signature_t signature);

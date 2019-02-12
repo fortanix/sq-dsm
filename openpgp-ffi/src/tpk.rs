@@ -16,7 +16,7 @@ use self::openpgp::{
     autocrypt::Autocrypt,
     crypto,
     constants::ReasonForRevocation,
-    packet::{self, Signature},
+    packet,
     parse::PacketParserResult,
     tpk::{
         CipherSuite,
@@ -29,6 +29,7 @@ use self::openpgp::{
 
 use ::error::Status;
 use super::fingerprint::Fingerprint;
+use super::packet::signature::Signature;
 use super::packet_pile::PacketPile;
 use super::tsk::TSK;
 use Maybe;
@@ -223,7 +224,7 @@ fn pgp_tpk_revoke(errp: Option<&mut *mut ::error::Error>,
                   primary_signer: *mut Box<crypto::Signer>,
                   code: c_int,
                   reason: Option<&c_char>)
-                  -> *mut packet::Signature
+                  -> Maybe<Signature>
 {
     ffi_make_fry_from_errp!(errp);
     let tpk = tpk.ref_raw();
@@ -235,7 +236,7 @@ fn pgp_tpk_revoke(errp: Option<&mut *mut ::error::Error>,
         b""
     };
 
-    ffi_try_box!(tpk.revoke(signer.as_mut(), code, reason))
+    tpk.revoke(signer.as_mut(), code, reason).move_into_raw(errp)
 }
 
 /// Adds a revocation certificate to the tpk.
@@ -397,10 +398,10 @@ pub extern "system" fn pgp_user_id_binding_user_id(
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "system" fn pgp_user_id_binding_selfsig(
     binding: *const UserIDBinding)
-    -> Option<&'static Signature>
+    -> Maybe<Signature>
 {
     let binding = ffi_param_ref!(binding);
-    binding.binding_signature()
+    binding.binding_signature().move_into_raw()
 }
 
 
@@ -475,7 +476,7 @@ pub extern "system" fn pgp_tpk_key_iter_free(
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "system" fn pgp_tpk_key_iter_next<'a>(
     iter_wrapper: *mut KeyIterWrapper<'a>,
-    sigo: Option<&mut Option<&'a packet::Signature>>,
+    sigo: Option<&mut Maybe<Signature>>,
     rso: Option<&mut &'a RevocationStatus<'a>>)
     -> Option<&'a packet::Key>
 {
@@ -484,7 +485,7 @@ pub extern "system" fn pgp_tpk_key_iter_next<'a>(
 
     if let Some((sig, rs, key)) = iter_wrapper.iter.next() {
         if let Some(ptr) = sigo {
-            *ptr = sig;
+            *ptr = sig.move_into_raw();
         }
 
         if let Some(ptr) = rso {
@@ -645,7 +646,7 @@ pub extern "system" fn pgp_tpk_builder_generate
     match tpkb.generate() {
         Ok((tpk, revocation)) => {
             *tpk_out = Some(tpk).move_into_raw();
-            *revocation_out = box_raw!(revocation);
+            *revocation_out = revocation.move_into_raw();
             Status::Success
         },
         Err(e) => {
