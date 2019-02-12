@@ -11,14 +11,17 @@ use libc::time_t;
 
 extern crate sequoia_openpgp as openpgp;
 use self::openpgp::{
-    KeyID,
     packet,
     Packet,
-    Fingerprint,
 };
 use self::openpgp::packet::{
     Signature,
 };
+use super::super::fingerprint::Fingerprint;
+use super::super::keyid::KeyID;
+
+use Maybe;
+use MoveIntoRaw;
 
 /// Frees the Signature.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
@@ -42,9 +45,9 @@ pub extern "system" fn pgp_signature_into_packet(s: *mut Signature)
 /// subpacket, this still returns NULL.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "system" fn pgp_signature_issuer(sig: *const packet::Signature)
-                                           -> *mut KeyID {
+                                            -> Maybe<KeyID> {
     let sig = ffi_param_ref!(sig);
-    maybe_box_raw!(sig.issuer())
+    sig.issuer().move_into_raw()
 }
 
 /// Returns the value of the `Signature` packet's IssuerFingerprint subpacket.
@@ -55,10 +58,10 @@ pub extern "system" fn pgp_signature_issuer(sig: *const packet::Signature)
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "system" fn pgp_signature_issuer_fingerprint(
     sig: *const packet::Signature)
-    -> *mut Fingerprint
+    -> Maybe<Fingerprint>
 {
     let sig = ffi_param_ref!(sig);
-    maybe_box_raw!(sig.issuer_fingerprint())
+    sig.issuer_fingerprint().move_into_raw()
 }
 
 
