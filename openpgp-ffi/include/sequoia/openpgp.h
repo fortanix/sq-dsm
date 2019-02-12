@@ -704,6 +704,34 @@ bool pgp_signature_expired(pgp_signature_t signature);
 bool pgp_signature_expired_at(pgp_signature_t signature, time_t when);
 
 /*/
+/// Returns whether the signature is alive.
+///
+/// A signature is alive if the creation date is in the past, and the
+/// signature has not expired.
+/*/
+bool pgp_signature_key_alive(pgp_signature_t signature, pgp_key_t key);
+
+/*/
+/// Returns whether the signature is alive at the specified time.
+///
+/// A signature is alive if the creation date is in the past, and the
+/// signature has not expired at the specified time.
+/*/
+bool pgp_signature_key_alive_at(pgp_signature_t signature, pgp_key_t key,
+                                time_t when);
+
+/*/
+/// Returns whether the signature is expired.
+/*/
+bool pgp_signature_key_expired(pgp_signature_t signature, pgp_key_t key);
+
+/*/
+/// Returns whether the signature is expired at the specified time.
+/*/
+bool pgp_signature_key_expired_at(pgp_signature_t signature, pgp_key_t key,
+                                  time_t when);
+
+/*/
 /// Returns the PKESK's recipient.
 ///
 /// The return value is a reference ot a `KeyID`.  The caller must not
@@ -1199,41 +1227,6 @@ pgp_fingerprint_t pgp_key_fingerprint (pgp_key_t p);
 /// 4880.
 /*/
 pgp_keyid_t pgp_key_keyid (pgp_key_t p);
-
-/*/
-/// Returns whether the key is expired according to the provided
-/// self-signature.
-///
-/// Note: this is with respect to the provided signature, which is not
-/// checked for validity.  That is, we do not check whether the
-/// signature is a valid self-signature for the given key.
-/*/
-bool pgp_key_expired(pgp_key_t key, pgp_signature_t self_signature);
-
-/*/
-/// Like pgp_key_expired, but at a specific time.
-/*/
-bool pgp_key_expired_at(pgp_key_t key, pgp_signature_t self_signature,
-                        time_t when);
-
-/*/
-/// Returns whether the key is alive according to the provided
-/// self-signature.
-///
-/// A key is alive if the creation date is in the past, and the key
-/// has not expired.
-///
-/// Note: this is with respect to the provided signature, which is not
-/// checked for validity.  That is, we do not check whether the
-/// signature is a valid self-signature for the given key.
-/*/
-bool pgp_key_alive(pgp_key_t key, pgp_signature_t self_signature);
-
-/*/
-/// Like pgp_key_alive, but at a specific time.
-/*/
-bool pgp_key_alive_at(pgp_key_t key, pgp_signature_t self_signature,
-                      time_t when);
 
 typedef enum pgp_public_key_algorithm {
   /*/

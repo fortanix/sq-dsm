@@ -4,7 +4,7 @@
 //!
 //!   [Section 5.5 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.5
 
-use libc::{c_int, time_t};
+use libc::c_int;
 
 extern crate sequoia_openpgp as openpgp;
 use self::openpgp::{
@@ -39,69 +39,6 @@ pub extern "system" fn pgp_key_keyid(key: *const packet::Key)
                                       -> *mut KeyID {
     let key = ffi_param_ref!(key);
     key.keyid().move_into_raw()
-}
-
-/// Returns whether the key is expired according to the provided
-/// self-signature.
-///
-/// Note: this is with respect to the provided signature, which is not
-/// checked for validity.  That is, we do not check whether the
-/// signature is a valid self-signature for the given key.
-#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "system" fn pgp_key_expired(key: *const packet::Key,
-                                      sig: *const packet::Signature)
-    -> bool
-{
-    let key = ffi_param_ref!(key);
-    let sig = ffi_param_ref!(sig);
-
-    sig.key_expired(key)
-}
-
-/// Like pgp_key_expired, but at a specific time.
-#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "system" fn pgp_key_expired_at(key: *const packet::Key,
-                                         sig: *const packet::Signature,
-                                         when: time_t)
-    -> bool
-{
-    let key = ffi_param_ref!(key);
-    let sig = ffi_param_ref!(sig);
-
-    sig.key_expired_at(key, time::at(time::Timespec::new(when as i64, 0)))
-}
-
-/// Returns whether the key is alive according to the provided
-/// self-signature.
-///
-/// A key is alive if the creation date is in the past, and the key
-/// has not expired.
-///
-/// Note: this is with respect to the provided signature, which is not
-/// checked for validity.  That is, we do not check whether the
-/// signature is a valid self-signature for the given key.
-#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "system" fn pgp_key_alive(key: *const packet::Key,
-                                      sig: *const packet::Signature)
-    -> bool
-{
-    let key = ffi_param_ref!(key);
-    let sig = ffi_param_ref!(sig);
-
-    sig.key_alive(key)
-}
-
-/// Like pgp_key_alive, but at a specific time.
-#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "system" fn pgp_key_alive_at(key: *const packet::Key,
-                                         sig: *const packet::Signature,
-                                         when: time_t)
-    -> bool
-{
-    let key = ffi_param_ref!(key);
-    let sig = ffi_param_ref!(sig);
-
-    sig.key_alive_at(key, time::at(time::Timespec::new(when as i64, 0)))
 }
 
 /// Returns the key's creation time.
