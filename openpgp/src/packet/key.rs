@@ -438,7 +438,7 @@ impl Key {
     }
 
     /// Convert the `Key` struct to a `Packet`.
-    pub fn to_packet(self, tag: Tag) -> Result<Packet> {
+    pub fn into_packet(self, tag: Tag) -> Result<Packet> {
         match tag {
             Tag::PublicKey => Ok(Packet::PublicKey(self)),
             Tag::PublicSubkey => Ok(Packet::PublicSubkey(self)),

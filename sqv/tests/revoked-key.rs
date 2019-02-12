@@ -155,7 +155,7 @@ mod integration {
 //         (bind1, rev, bind2, sig1, sig2, sig3)
 //     };
 //     let tpk = TPK::from_packet_pile(PacketPile::from_packets(vec![
-//          key.to_packet(Tag::PublicKey).unwrap(),
+//          key.into_packet(Tag::PublicKey).unwrap(),
 //          bind1.into(),
 //          bind2.into(),
 //          rev.into()
