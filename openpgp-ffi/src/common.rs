@@ -432,7 +432,7 @@ pub fn pgp_verification_result_code(result: *const VerificationResult)
 /// Returns the verification result code.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub fn pgp_verification_result_signature(result: *const VerificationResult)
-    -> *const self::openpgp::packet::Signature
+    -> *mut packet::signature::Signature
 {
     let result = ffi_param_ref!(result);
     let sig = match result {
@@ -441,7 +441,7 @@ pub fn pgp_verification_result_signature(result: *const VerificationResult)
         VerificationResult::BadChecksum(ref sig) => sig,
     };
 
-    sig as *const self::openpgp::packet::Signature
+    sig.move_into_raw()
 }
 
 /// Returns the verification result code.
