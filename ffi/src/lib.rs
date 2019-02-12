@@ -131,6 +131,7 @@ pub mod openpgp {
 }
 
 pub(crate) use openpgp::{
+    io,
     build_hasher,
     strndup,
     MoveFromRaw,

@@ -730,7 +730,7 @@ fn derive_parse(span: proc_macro2::Span, prefix: &str, name: &str,
         /// Parses an object from the given reader.
         #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
         fn #from_reader(errp: Option<&mut *mut ::error::Error>,
-                        reader: *mut super::io::Reader)
+                        reader: *mut ::io::Reader)
                         -> ::Maybe<#wrapper> {
             use ::sequoia_openpgp::parse::Parse;
             use ::RefMutRaw;
@@ -779,7 +779,7 @@ fn derive_serialize(span: proc_macro2::Span, prefix: &str, name: &str,
         #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
         fn #ident (errp: Option<&mut *mut ::error::Error>,
                    this: *const #wrapper,
-                   writer: *mut super::io::Writer)
+                   writer: *mut ::io::Writer)
                    -> ::error::Status {
             use ::sequoia_openpgp::serialize::Serialize;
             use ::RefRaw;
