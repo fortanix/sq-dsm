@@ -1212,6 +1212,46 @@ pgp_status_t pgp_tsk_serialize (pgp_error_t *errp,
                               pgp_writer_t writer);
 
 /*/
+/// Frees the key.
+/*/
+void pgp_key_free (pgp_key_t key);
+
+/*/
+/// Clones the Key.
+/*/
+pgp_key_t pgp_key_clone (pgp_key_t this);
+
+/*/
+/// Returns a human readable description of this object suitable for
+/// debugging.
+/*/
+char *pgp_key_debug (const pgp_key_t this);
+
+/*/
+/// Compares Keys.
+/*/
+bool pgp_key_equal (const pgp_key_t a,
+                    const pgp_key_t b);
+
+/*/
+/// Parses an object from the given reader.
+/*/
+pgp_key_t pgp_key_from_reader (pgp_error_t *errp,
+                               pgp_reader_t reader);
+
+/*/
+/// Parses an object from the given file.
+/*/
+pgp_key_t pgp_key_from_file (pgp_error_t *errp,
+                             const char *filename);
+
+/*/
+/// Parses an object from the given buffer.
+/*/
+pgp_key_t pgp_key_from_bytes (pgp_error_t *errp,
+                              const uint8_t *b, size_t len);
+
+/*/
 /// Clones the key.
 /*/
 pgp_key_t pgp_key_clone (pgp_key_t key);

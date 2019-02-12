@@ -10,9 +10,9 @@
 use libc::time_t;
 
 extern crate sequoia_openpgp as openpgp;
-use self::openpgp::packet;
 use super::super::fingerprint::Fingerprint;
 use super::super::keyid::KeyID;
+use super::key::Key;
 
 use Maybe;
 use MoveFromRaw;
@@ -151,9 +151,9 @@ fn pgp_signature_expired_at(sig: *const Signature, when: time_t) -> bool {
 /// A signature is alive if the creation date is in the past, and the
 /// signature has not expired.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
-fn pgp_signature_key_alive(sig: *const Signature, key: *const packet::Key)
+fn pgp_signature_key_alive(sig: *const Signature, key: *const Key)
                            -> bool {
-    sig.ref_raw().key_alive(ffi_param_ref!(key))
+    sig.ref_raw().key_alive(key.ref_raw())
 }
 
 /// Returns whether the signature is alive at the specified time.
@@ -161,25 +161,25 @@ fn pgp_signature_key_alive(sig: *const Signature, key: *const packet::Key)
 /// A signature is alive if the creation date is in the past, and the
 /// signature has not expired at the specified time.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
-fn pgp_signature_key_alive_at(sig: *const Signature, key: *const packet::Key,
+fn pgp_signature_key_alive_at(sig: *const Signature, key: *const Key,
                               when: time_t) -> bool {
     sig.ref_raw()
-        .key_alive_at(ffi_param_ref!(key),
+        .key_alive_at(key.ref_raw(),
                       time::at(time::Timespec::new(when as i64, 0)))
 }
 
 /// Returns whether the signature is expired.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
-fn pgp_signature_key_expired(sig: *const Signature, key: *const packet::Key)
+fn pgp_signature_key_expired(sig: *const Signature, key: *const Key)
                              -> bool {
-    sig.ref_raw().key_expired(ffi_param_ref!(key))
+    sig.ref_raw().key_expired(key.ref_raw())
 }
 
 /// Returns whether the signature is expired at the specified time.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
-fn pgp_signature_key_expired_at(sig: *const Signature, key: *const packet::Key,
+fn pgp_signature_key_expired_at(sig: *const Signature, key: *const Key,
                                 when: time_t) -> bool {
     sig.ref_raw()
-        .key_expired_at(ffi_param_ref!(key),
+        .key_expired_at(key.ref_raw(),
                         time::at(time::Timespec::new(when as i64, 0)))
 }

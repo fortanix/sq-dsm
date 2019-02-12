@@ -7,8 +7,10 @@
 extern crate sequoia_openpgp;
 use self::sequoia_openpgp::{
     crypto,
-    packet::Key,
 };
+use super::packet::key::Key;
+
+use MoveFromRaw;
 
 /// Frees a signer.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
@@ -25,9 +27,9 @@ pub extern "system" fn pgp_key_pair_new
      -> *mut crypto::KeyPair
 {
     ffi_make_fry_from_errp!(errp);
-    let public = ffi_param_move!(public);
+    let public = public.move_from_raw();
     let secret = ffi_param_move!(secret);
-    ffi_try_box!(crypto::KeyPair::new(*public, *secret))
+    ffi_try_box!(crypto::KeyPair::new(public, *secret))
 }
 
 /// Frees a key pair.

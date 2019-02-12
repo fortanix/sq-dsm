@@ -16,7 +16,6 @@ use self::openpgp::{
     autocrypt::Autocrypt,
     crypto,
     constants::ReasonForRevocation,
-    packet,
     parse::PacketParserResult,
     tpk::{
         CipherSuite,
@@ -29,6 +28,7 @@ use self::openpgp::{
 
 use ::error::Status;
 use super::fingerprint::Fingerprint;
+use super::packet::key::Key;
 use super::packet::signature::Signature;
 use super::packet_pile::PacketPile;
 use super::tsk::TSK;
@@ -138,13 +138,10 @@ fn pgp_tpk_into_tsk(tpk: *mut TPK)
 
 /// Returns a reference to the TPK's primary key.
 ///
-/// The tpk still owns the key.  The caller should neither modify nor
-/// free the key.
+/// The tpk still owns the key.  The caller must not modify the key.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
-fn pgp_tpk_primary(tpk: *const TPK)
-                   -> *const packet::Key {
-    let tpk = tpk.ref_raw();
-    tpk.primary()
+fn pgp_tpk_primary(tpk: *const TPK) -> *const Key {
+    tpk.ref_raw().primary().move_into_raw()
 }
 
 /// Returns the TPK's revocation status.
@@ -196,9 +193,9 @@ fn int_to_reason_for_revocation(code: c_int) -> ReasonForRevocation {
 /// assert (revocation);
 /// pgp_signature_free (revocation);    /* Free the generated one.  */
 ///
-/// primary_key = pgp_key_clone (pgp_tpk_primary (tpk));
-/// assert (primary_key);
-/// primary_keypair = pgp_key_into_key_pair (NULL, primary_key);
+/// primary_key = pgp_tpk_primary (tpk);
+/// primary_keypair = pgp_key_into_key_pair (NULL, pgp_key_clone (primary_key));
+/// pgp_key_free (primary_key);
 /// assert (primary_keypair);
 /// primary_signer = pgp_key_pair_as_signer (primary_keypair);
 /// revocation = pgp_tpk_revoke (NULL, tpk, primary_signer,
@@ -263,9 +260,9 @@ fn pgp_tpk_revoke(errp: Option<&mut *mut ::error::Error>,
 /// assert (revocation);
 /// pgp_signature_free (revocation);    /* Free the generated one.  */
 ///
-/// primary_key = pgp_key_clone (pgp_tpk_primary (tpk));
-/// assert (primary_key);
-/// primary_keypair = pgp_key_into_key_pair (NULL, primary_key);
+/// primary_key = pgp_tpk_primary (tpk);
+/// primary_keypair = pgp_key_into_key_pair (NULL, pgp_key_clone (primary_key));
+/// pgp_key_free (primary_key);
 /// assert (primary_keypair);
 /// primary_signer = pgp_key_pair_as_signer (primary_keypair);
 /// tpk = pgp_tpk_revoke_in_place (NULL, tpk, primary_signer,
@@ -478,7 +475,7 @@ pub extern "system" fn pgp_tpk_key_iter_next<'a>(
     iter_wrapper: *mut KeyIterWrapper<'a>,
     sigo: Option<&mut Maybe<Signature>>,
     rso: Option<&mut &'a RevocationStatus<'a>>)
-    -> Option<&'a packet::Key>
+    -> Maybe<Key>
 {
     let iter_wrapper = ffi_param_ref_mut!(iter_wrapper);
     iter_wrapper.rso = None;
@@ -493,7 +490,7 @@ pub extern "system" fn pgp_tpk_key_iter_next<'a>(
             *ptr = iter_wrapper.rso.as_ref().unwrap();
         }
 
-        Some(key)
+        Some(key).move_into_raw()
     } else {
         None
     }
