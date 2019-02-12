@@ -344,11 +344,14 @@ fn pgp_tpk_alive_at(tpk: *const TPK, when: time_t)
 /// This function consumes `tpk` and returns a new `TPK`.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
 fn pgp_tpk_set_expiry(errp: Option<&mut *mut ::error::Error>,
-                      tpk: *mut TPK, expiry: u32)
+                      tpk: *mut TPK, primary_signer: *mut Box<crypto::Signer>,
+                      expiry: u32)
                       -> Maybe<TPK> {
     let tpk = tpk.move_from_raw();
+    let signer = ffi_param_ref_mut!(primary_signer);
 
-    tpk.set_expiry(Some(time::Duration::seconds(expiry as i64)))
+    tpk.set_expiry(signer.as_mut(),
+                   Some(time::Duration::seconds(expiry as i64)))
         .move_into_raw(errp)
 }
 

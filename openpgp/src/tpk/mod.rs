@@ -18,7 +18,6 @@ use {
     SignatureType,
     HashAlgorithm,
     packet::Tag,
-    packet::key::SecretKey,
     packet::signature::{self, Signature},
     packet::Key,
     packet::UserID,
@@ -1634,7 +1633,8 @@ impl TPK {
     ///
     /// This function exists to facilitate testing, which is why it is
     /// not exported.
-    fn set_expiry_as_of(self, expiration: Option<time::Duration>,
+    fn set_expiry_as_of(self, primary_signer: &mut Signer,
+                        expiration: Option<time::Duration>,
                         now: time::Tm)
         -> Result<TPK>
     {
@@ -1647,32 +1647,18 @@ impl TPK {
             let hash_algo = HashAlgorithm::SHA512;
             let mut hash = hash_algo.context()?;
 
-            let pair = self.primary();
-
-            pair.hash(&mut hash);
+            self.primary().hash(&mut hash);
             if let Some(userid) = userid {
                 userid.userid().hash(&mut hash);
             } else {
                 assert_eq!(template.sigtype(), SignatureType::DirectKey);
             }
 
-            match pair.secret() {
-                Some(SecretKey::Unencrypted{ mpis: ref sec }) => {
-                    // Generate the signature.
-                    signature::Builder::from(template.clone())
-                        .set_key_expiration_time(expiration)?
-                        .set_signature_creation_time(now)?
-                        .sign_hash(
-                            &mut KeyPair::new(pair.clone(), sec.clone())?,
-                            hash_algo, hash)?
-                }
-                Some(_) =>
-                    return Err(Error::InvalidOperation(
-                        "Secret key is encrypted".into()) .into()),
-                None =>
-                    return Err(Error::InvalidOperation(
-                        "No secret key".into()).into()),
-            }
+            // Generate the signature.
+            signature::Builder::from(template.clone())
+                .set_key_expiration_time(expiration)?
+                .set_signature_creation_time(now)?
+                .sign_hash(primary_signer, hash_algo, hash)?
         };
 
         self.merge_packets(vec![sig.into()])
@@ -1682,10 +1668,11 @@ impl TPK {
     ///
     /// Note: the time is relative to the key's creation time, not the
     /// current time!
-    pub fn set_expiry(self, expiration: Option<time::Duration>)
+    pub fn set_expiry(self, primary_signer: &mut Signer,
+                      expiration: Option<time::Duration>)
         -> Result<TPK>
     {
-        self.set_expiry_as_of(expiration, time::now())
+        self.set_expiry_as_of(primary_signer, expiration, time::now())
     }
 
     /// Returns an iterator over the TPK's valid `UserIDBinding`s.
@@ -3391,8 +3378,11 @@ mod test {
             .key_expiration_time()
             .expect("Keys expire by default.");
 
+        let mut keypair = tpk.primary().clone().into_keypair().unwrap();
+
         // Clear the expiration.
         let tpk = tpk.set_expiry_as_of(
+            &mut keypair,
             None,
             now + time::Duration::seconds(10)).unwrap();
         {
@@ -3408,6 +3398,7 @@ mod test {
         assert!(expiry_expected > time::Duration::seconds(0));
 
         let tpk = tpk.set_expiry_as_of(
+            &mut keypair,
             Some(expiry_expected),
             now + time::Duration::seconds(20)).unwrap();
         {
@@ -3571,6 +3562,7 @@ mod test {
     #[test]
     fn revoked_time() {
         use packet::Features;
+        use packet::key::SecretKey;
         use constants::PublicKeyAlgorithm;
         use rand::{thread_rng, Rng, distributions::Open01};
         /*
