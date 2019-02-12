@@ -604,11 +604,24 @@ fn derive_free(span: proc_macro2::Span, prefix: &str, name: &str,
     quote! {
         /// Frees this object.
         #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-        pub extern "system" fn #ident (this: Option<&mut #wrapper>) {
-            use ::MoveFromRaw;
-            if let Some(ref_) = this {
-                drop((ref_ as *mut #wrapper).move_from_raw())
+        pub extern "system" fn #ident (this: *mut #wrapper) {
+            if this.is_null() {
+                return;
             }
+
+            let mut wrapper = unsafe {
+                Box::from_raw(this)
+            };
+            wrapper.assert_tag();
+            let _o = wrapper.0;
+
+            // Poison the wrapper.
+            unsafe {
+                // Overwrite with P.
+                memsec::memset(this as *mut u8,
+                               0x50,
+                               ::std::mem::size_of::<#wrapper>())
+            };
         }
     }
 }
