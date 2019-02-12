@@ -29,7 +29,7 @@ flate2 = { version = "1.0.1", optional = true }
 lalrpop-util = "0.16"
 memsec = "0.5.4"
 nettle = "2.2"
-quickcheck = "0.7"
+quickcheck = "0.8"
 rand = "0.6"
 time = "0.1.40"
 
