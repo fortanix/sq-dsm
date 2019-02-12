@@ -348,7 +348,8 @@ fn pgp_tpk_set_expiry(errp: Option<&mut *mut ::error::Error>,
                       -> Maybe<TPK> {
     let tpk = tpk.move_from_raw();
 
-    tpk.set_expiry_in_seconds(expiry).move_into_raw(errp)
+    tpk.set_expiry(Some(time::Duration::seconds(expiry as i64)))
+        .move_into_raw(errp)
 }
 
 /// Returns whether the TPK includes any secret key material.

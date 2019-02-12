@@ -1688,18 +1688,6 @@ impl TPK {
         self.set_expiry_as_of(expiration, time::now())
     }
 
-    /// Sets the key to expire in delta seconds.
-    ///
-    /// Note: the time is relative to the key's creation time, not the
-    /// current time!
-    pub fn set_expiry_in_seconds(self, expiration: u32)
-        -> Result<TPK>
-    {
-        self.set_expiry_as_of(
-            Some(time::Duration::seconds(expiration as i64)),
-            time::now())
-    }
-
     /// Returns an iterator over the TPK's valid `UserIDBinding`s.
     ///
     /// The primary user id is returned first.  A valid
