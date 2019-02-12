@@ -325,4 +325,6 @@ use sequoia_ffi_macros::{
     ffi_wrapper_type,
 };
 
+extern crate sequoia_openpgp;
+
 include!("common.rs");

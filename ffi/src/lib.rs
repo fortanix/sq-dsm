@@ -119,6 +119,7 @@ use sequoia_ffi_macros::{
     ffi_catch_abort,
     ffi_wrapper_type,
 };
+extern crate sequoia_openpgp;
 extern crate sequoia_core;
 extern crate sequoia_net;
 extern crate sequoia_store;

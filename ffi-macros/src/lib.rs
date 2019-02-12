@@ -732,6 +732,7 @@ fn derive_parse(span: proc_macro2::Span, prefix: &str, name: &str,
         fn #from_reader(errp: Option<&mut *mut ::error::Error>,
                         reader: *mut super::io::Reader)
                         -> ::Maybe<#wrapper> {
+            use ::sequoia_openpgp::parse::Parse;
             use ::RefMutRaw;
             use ::MoveResultIntoRaw;
             #wrapped::from_reader(reader.ref_mut_raw()).move_into_raw(errp)
@@ -742,6 +743,7 @@ fn derive_parse(span: proc_macro2::Span, prefix: &str, name: &str,
         fn #from_file(errp: Option<&mut *mut ::error::Error>,
                       filename: *const ::libc::c_char)
                       -> ::Maybe<#wrapper> {
+            use ::sequoia_openpgp::parse::Parse;
             use ::MoveResultIntoRaw;
             let filename =
                 ffi_param_cstr!(filename).to_string_lossy().into_owned();
@@ -753,6 +755,7 @@ fn derive_parse(span: proc_macro2::Span, prefix: &str, name: &str,
         fn #from_bytes(errp: Option<&mut *mut ::error::Error>,
                        b: *const ::libc::uint8_t, len: ::libc::size_t)
                        -> ::Maybe<#wrapper> {
+            use ::sequoia_openpgp::parse::Parse;
             use ::MoveResultIntoRaw;
             assert!(!b.is_null());
             let buf = unsafe {
@@ -778,6 +781,7 @@ fn derive_serialize(span: proc_macro2::Span, prefix: &str, name: &str,
                    this: *const #wrapper,
                    writer: *mut super::io::Writer)
                    -> ::error::Status {
+            use ::sequoia_openpgp::serialize::Serialize;
             use ::RefRaw;
             use ::RefMutRaw;
             use ::MoveResultIntoRaw;

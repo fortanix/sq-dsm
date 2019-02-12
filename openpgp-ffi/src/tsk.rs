@@ -10,8 +10,6 @@ use libc::c_char;
 extern crate sequoia_openpgp as openpgp;
 use self::openpgp::{
     packet::Signature,
-    parse::Parse,
-    serialize::Serialize,
 };
 
 use super::tpk::TPK;

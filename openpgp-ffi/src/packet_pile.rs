@@ -6,10 +6,6 @@
 //! [`sequoia-openpgp::PacketPile`]: ../../sequoia_openpgp/struct.PacketPile.html
 
 extern crate sequoia_openpgp as openpgp;
-use self::openpgp::{
-    parse::Parse,
-    serialize::Serialize,
-};
 
 /// A `PacketPile` holds a deserialized sequence of OpenPGP messages.
 ///

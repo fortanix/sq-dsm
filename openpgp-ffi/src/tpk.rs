@@ -18,8 +18,6 @@ use self::openpgp::{
     constants::ReasonForRevocation,
     packet::{self, Signature},
     parse::PacketParserResult,
-    parse::Parse,
-    serialize::Serialize,
     tpk::{
         CipherSuite,
         KeyIter,
