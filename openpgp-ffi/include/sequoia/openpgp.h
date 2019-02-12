@@ -1333,7 +1333,7 @@ pgp_status_t pgp_skesk_decrypt (pgp_error_t *errp, pgp_skesk_t skesk,
 /*/
 /// Returns the key's creation time.
 /*/
-uint32_t pgp_key_creation_time (pgp_key_t p);
+time_t pgp_key_creation_time (pgp_key_t p);
 
 /* openpgp::parse.  */
 

@@ -4,7 +4,7 @@
 //!
 //!   [Section 5.5 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.5
 
-use libc::c_int;
+use libc::{c_int, time_t};
 
 extern crate sequoia_openpgp as openpgp;
 use self::openpgp::{
@@ -44,12 +44,12 @@ pub extern "system" fn pgp_key_keyid(key: *const packet::Key)
 /// Returns the key's creation time.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "system" fn pgp_key_creation_time(key: *const packet::Key)
-    -> u32
+    -> time_t
 {
     let key = ffi_param_ref!(key);
     let ct = key.creation_time();
 
-    ct.to_timespec().sec as u32
+    ct.to_timespec().sec as time_t
 }
 
 /// Returns the key's public key algorithm.
