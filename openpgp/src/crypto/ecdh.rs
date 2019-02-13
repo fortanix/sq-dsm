@@ -14,12 +14,14 @@ use conversions::{
     read_be_u64,
 };
 use crypto::mpis::{MPI, PublicKey, SecretKey, Ciphertext};
-use nettle::{cipher, curve25519, mode, Mode};
+use nettle::{cipher, curve25519, mode, Mode, ecc, ecdh, Yarrow};
 
 /// Wraps a session key using Elliptic Curve Diffie-Hellman.
 pub fn wrap_session_key(recipient: &Key, session_key: &[u8])
     -> Result<Ciphertext>
 {
+    let mut rng = Yarrow::default();
+
     if let &PublicKey::ECDH {
         ref curve, ref q,..
     } = recipient.mpis() {
@@ -31,7 +33,7 @@ pub fn wrap_session_key(recipient: &Key, session_key: &[u8])
 
                 // Generate an ephemeral key pair {v, V=vG}
                 let mut v =
-                    ::crypto::SessionKey::from(curve25519::secret_key());
+                    ::crypto::SessionKey::from(curve25519::private_key(&mut rng));
 
                 // Compute the public key.  We need to add an encoding
                 // octet in front of the key.

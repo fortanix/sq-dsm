@@ -19,7 +19,7 @@ maintenance = { status = "actively-developed" }
 
 [dependencies]
 lazy_static = "1.0.0"
-nettle = "2.0"
+nettle = "4.0"
 proc-macro2 = "0.4"
 quote = "0.6"
 

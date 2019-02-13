@@ -6,8 +6,7 @@ use std::fmt;
 use std::cmp::Ordering;
 
 use memsec;
-use nettle;
-use nettle::random::Yarrow;
+use nettle::{self, Random, Yarrow};
 
 use constants::HashAlgorithm;
 use Result;

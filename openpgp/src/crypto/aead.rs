@@ -758,7 +758,7 @@ mod tests {
     #[test]
     fn roundtrip() {
         use std::io::Cursor;
-        use nettle::Yarrow;
+        use nettle::{Random, Yarrow};
         let mut rng = Yarrow::default();
 
         for cipher in [SymmetricAlgorithm::AES128,

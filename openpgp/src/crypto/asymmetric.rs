@@ -1,6 +1,6 @@
 //! Asymmetric crypt operations.
 
-use nettle::{dsa, ecdsa, ed25519, rsa, Yarrow};
+use nettle::{dsa, ecc, ecdsa, ed25519, rsa, Yarrow};
 
 use packet::Key;
 use crypto::mpis::{self, MPI};
@@ -144,13 +144,13 @@ impl Signer for KeyPair {
              &mpis::SecretKey::ECDSA { ref scalar }) => {
                 let secret = match curve {
                     Curve::NistP256 =>
-                        ecdsa::PrivateKey::new::<ecdsa::Secp256r1>(
+                        ecc::Scalar::new::<ecc::Secp256r1>(
                             &scalar.value)?,
                     Curve::NistP384 =>
-                        ecdsa::PrivateKey::new::<ecdsa::Secp384r1>(
+                        ecc::Scalar::new::<ecc::Secp384r1>(
                             &scalar.value)?,
                     Curve::NistP521 =>
-                        ecdsa::PrivateKey::new::<ecdsa::Secp521r1>(
+                        ecc::Scalar::new::<ecc::Secp521r1>(
                             &scalar.value)?,
                     _ =>
                         return Err(

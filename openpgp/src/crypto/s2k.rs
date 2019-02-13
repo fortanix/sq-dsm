@@ -14,7 +14,7 @@ use crypto::SessionKey;
 
 use std::fmt;
 
-use nettle::{Hash, Yarrow};
+use nettle::{Hash, Yarrow, Random};
 use quickcheck::{Arbitrary, Gen};
 use rand::Rng;
 

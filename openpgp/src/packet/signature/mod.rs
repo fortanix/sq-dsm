@@ -23,7 +23,7 @@ use packet;
 use packet::signature::subpacket::SubpacketArea;
 use serialize::Serialize;
 
-use nettle::{self, dsa, ecdsa, ed25519, rsa};
+use nettle::{self, dsa, ecc, ecdsa, ed25519, Hash, rsa};
 use nettle::rsa::verify_digest_pkcs1;
 
 #[cfg(test)]
@@ -531,11 +531,11 @@ impl Signature {
                 let (x, y) = q.decode_point(curve)?;
                 let key = match curve {
                     Curve::NistP256 =>
-                        ecdsa::PublicKey::new::<ecdsa::Secp256r1>(x, y)?,
+                        ecc::Point::new::<ecc::Secp256r1>(x, y)?,
                     Curve::NistP384 =>
-                        ecdsa::PublicKey::new::<ecdsa::Secp384r1>(x, y)?,
+                        ecc::Point::new::<ecc::Secp384r1>(x, y)?,
                     Curve::NistP521 =>
-                        ecdsa::PublicKey::new::<ecdsa::Secp521r1>(x, y)?,
+                        ecc::Point::new::<ecc::Secp521r1>(x, y)?,
                     _ =>
                         return Err(
                             Error::UnsupportedEllipticCurve(curve.clone())
@@ -813,7 +813,7 @@ impl From<Signature> for Packet {
 
 #[cfg(test)]
 mod test {
-    use nettle::Yarrow;
+    use nettle::{Random, Yarrow};
     use super::*;
     use crypto::KeyPair;
     use crypto::mpis::MPI;

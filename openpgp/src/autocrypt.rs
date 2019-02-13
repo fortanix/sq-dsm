@@ -331,7 +331,7 @@ impl AutocryptSetupMessage {
 
     // Generates a new passcode in "numeric9x4" format.
     fn passcode_gen() -> Password {
-        use nettle::Yarrow;
+        use nettle::{Random, Yarrow};
 
         // Generate a random passcode.
 

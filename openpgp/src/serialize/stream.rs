@@ -13,7 +13,7 @@ use std::fmt;
 use std::io::{self, Write};
 use std::iter;
 use time;
-use nettle::{Hash, Yarrow};
+use nettle::{Hash, Yarrow, Random};
 
 use {
     crypto,

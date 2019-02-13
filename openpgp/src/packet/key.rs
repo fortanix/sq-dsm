@@ -136,7 +136,7 @@ impl Key {
     /// The ECDH key will use hash algorithm `hash` and symmetric algorithm `sym`. If one or both
     /// are `None` secure defaults will be used. The key will have it's creation date set to
     /// `ctime` or the current time if `None` is given.
-    pub fn import_secret_cv25519<H,S,T>(secret_key: &[u8], hash: H, sym: S, ctime: T)
+    pub fn import_secret_cv25519<H,S,T>(private_key: &[u8], hash: H, sym: S, ctime: T)
         -> Result<Self> where H: Into<Option<HashAlgorithm>>,
                               S: Into<Option<SymmetricAlgorithm>>,
                               T: Into<Option<time::Tm>>
@@ -144,10 +144,10 @@ impl Key {
         use nettle::curve25519::{self, CURVE25519_SIZE};
 
         let mut public_key = [0x40u8; CURVE25519_SIZE + 1];
-        curve25519::mul_g(&mut public_key[1..], secret_key).unwrap();
+        curve25519::mul_g(&mut public_key[1..], private_key).unwrap();
 
-        let mut secret_key = Vec::from(secret_key);
-        secret_key.reverse();
+        let mut private_key = Vec::from(private_key);
+        private_key.reverse();
 
         Ok(Key{
             common: Default::default(),
@@ -162,7 +162,7 @@ impl Key {
             },
             secret: Some(SecretKey::Unencrypted{
                 mpis: mpis::SecretKey::ECDH{
-                    scalar: mpis::MPI::new(&secret_key)
+                    scalar: mpis::MPI::new(&private_key)
                 }
             }),
         })
@@ -197,13 +197,13 @@ impl Key {
     /// The ECDH key will use hash algorithm `hash` and symmetric algorithm `sym`. If one or both
     /// are `None` secure defaults will be used. The key will have it's creation date set to
     /// `ctime` or the current time if `None` is given.
-    pub fn import_secret_ed25519<T>(secret_key: &[u8], ctime: T)
+    pub fn import_secret_ed25519<T>(private_key: &[u8], ctime: T)
         -> Result<Self> where T: Into<Option<time::Tm>>
     {
         use nettle::ed25519::{self, ED25519_KEY_SIZE};
 
         let mut public_key = [0x40u8; ED25519_KEY_SIZE + 1];
-        ed25519::public_key(&mut public_key[1..], secret_key).unwrap();
+        ed25519::public_key(&mut public_key[1..], private_key).unwrap();
 
         Ok(Key{
             common: Default::default(),
@@ -216,7 +216,7 @@ impl Key {
             },
             secret: Some(SecretKey::Unencrypted{
                 mpis: mpis::SecretKey::EdDSA{
-                    scalar: mpis::MPI::new(&secret_key)
+                    scalar: mpis::MPI::new(&private_key)
                 }
             }),
         })
@@ -291,10 +291,11 @@ impl Key {
         use PublicKeyAlgorithm::*;
         use Error;
 
+        let mut rng = Yarrow::default();
+
         #[allow(deprecated)]
         let (mpis, secret) = match pk_algo {
             RSASign | RSAEncrypt | RSAEncryptSign => {
-                let mut rng = Yarrow::default();
                 let (public,private) = rsa::generate_keypair(&mut rng, 3072)?;
                 let (p,q,u) = private.as_rfc4880();
                 let public_mpis = PublicKey::RSA {
@@ -316,7 +317,7 @@ impl Key {
 
             EdDSA => {
                 let mut public = [0u8; ED25519_KEY_SIZE + 1];
-                let mut private: SessionKey = ed25519::private_key().into();
+                let mut private: SessionKey = ed25519::private_key(&mut rng).into();
 
                 public[0] = 0x40;
                 ed25519::public_key(&mut public[1..], &private)?;
@@ -337,7 +338,7 @@ impl Key {
 
             ECDH => {
                 let mut public = [0u8; CURVE25519_SIZE + 1];
-                let mut private: SessionKey = curve25519::secret_key().into();
+                let mut private: SessionKey = curve25519::private_key(&mut rng).into();
 
                 public[0] = 0x40;
 
@@ -542,7 +543,7 @@ impl SecretKey {
                    -> Result<(S2K, SymmetricAlgorithm, Box<[u8]>)> {
         use std::io::Write;
         use crypto::symmetric::Encryptor;
-        use nettle::Yarrow;
+        use nettle::{Random, Yarrow};
 
         match self {
             &SecretKey::Encrypted { .. } =>

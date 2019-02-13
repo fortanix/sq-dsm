@@ -1,7 +1,7 @@
 use std::ops::{Deref, DerefMut};
 use quickcheck::{Arbitrary, Gen};
 
-use nettle::Yarrow;
+use nettle::{Random, Yarrow};
 
 use Result;
 use crypto::s2k::S2K;

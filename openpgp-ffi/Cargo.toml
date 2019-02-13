@@ -30,7 +30,7 @@ memsec = "0.5.4"
 time = "0.1.40"
 
 [dev-dependencies]
-nettle = "2.0"
+nettle = "4.0"
 
 [lib]
 crate-type = ["lib", "cdylib", "staticlib"]
