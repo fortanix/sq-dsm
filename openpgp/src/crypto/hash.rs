@@ -9,7 +9,8 @@ use Error;
 use Result;
 use conversions::Time;
 
-use nettle::Hash;
+use nettle;
+use nettle::Hash as NettleHash;
 
 use std::fs::{File, OpenOptions};
 use std::io::Write;
@@ -36,11 +37,11 @@ impl HashAlgorithm {
 
     /// Creates a new Nettle hash context for this algorith. Fails if Sequoia
     /// does not support this algorithm. See `is_supported`.
-    pub fn context(self) -> Result<Box<Hash>> {
+    pub fn context(self) -> Result<Box<nettle::Hash>> {
         use nettle::hash::*;
         use nettle::hash::insecure_do_not_use::Sha1;
 
-        let c: Result<Box<Hash>> = match self {
+        let c: Result<Box<nettle::Hash>> = match self {
             HashAlgorithm::SHA1 => Ok(Box::new(Sha1::default())),
             HashAlgorithm::SHA224 => Ok(Box::new(Sha224::default())),
             HashAlgorithm::SHA256 => Ok(Box::new(Sha256::default())),
@@ -53,7 +54,7 @@ impl HashAlgorithm {
         };
 
         if let Some(prefix) = DUMP_HASHED_VALUES {
-            c.map(|c: Box<Hash>| -> Box<Hash> {
+            c.map(|c: Box<nettle::Hash>| -> Box<nettle::Hash> {
                 Box::new(HashDumper::new(c, prefix))
             })
         } else {
@@ -80,14 +81,14 @@ impl HashAlgorithm {
 }
 
 struct HashDumper {
-    h: Box<Hash>,
+    h: Box<nettle::Hash>,
     sink: File,
     filename: String,
     written: usize,
 }
 
 impl HashDumper {
-    fn new(h: Box<Hash>, prefix: &str) -> Self {
+    fn new(h: Box<nettle::Hash>, prefix: &str) -> Self {
         let mut n = 0;
         let mut filename;
         let sink = loop {
@@ -116,7 +117,7 @@ impl Drop for HashDumper {
     }
 }
 
-impl Hash for HashDumper {
+impl nettle::Hash for HashDumper {
     fn digest_size(&self) -> usize {
         self.h.digest_size()
     }
@@ -128,14 +129,14 @@ impl Hash for HashDumper {
     fn digest(&mut self, digest: &mut [u8]) {
         self.h.digest(digest);
     }
-    fn box_clone(&self) -> Box<Hash> {
+    fn box_clone(&self) -> Box<nettle::Hash> {
         Box::new(Self::new(self.h.box_clone(), &DUMP_HASHED_VALUES.unwrap()))
     }
 }
 
 impl UserID {
     /// Update the Hash with a hash of the user id.
-    pub fn hash<H: Hash>(&self, hash: &mut H) {
+    pub fn hash<H: nettle::Hash>(&self, hash: &mut H) {
         let mut header = [0; 5];
 
         header[0] = 0xB4;
@@ -152,7 +153,7 @@ impl UserID {
 
 impl UserAttribute {
     /// Update the Hash with a hash of the user attribute.
-    pub fn hash<H: Hash>(&self, hash: &mut H) {
+    pub fn hash<H: nettle::Hash>(&self, hash: &mut H) {
         let mut header = [0; 5];
 
         header[0] = 0xD1;
@@ -169,7 +170,7 @@ impl UserAttribute {
 
 impl Key {
     /// Update the Hash with a hash of the key.
-    pub fn hash<H: Hash + Write>(&self, hash: &mut H) {
+    pub fn hash<H: nettle::Hash + Write>(&self, hash: &mut H) {
         // We hash 8 bytes plus the MPIs.  But, the len doesn't
         // include the tag (1 byte) or the length (2 bytes).
         let len = (9 - 3) + self.mpis().serialized_len();
@@ -206,14 +207,14 @@ impl Key {
 
 impl Signature {
     /// Adds the `Signature` to the provided hash context.
-    pub fn hash<H: Hash>(&self, hash: &mut H) {
+    pub fn hash<H: nettle::Hash>(&self, hash: &mut H) {
         self.fields.hash(hash);
     }
 }
 
 impl signature::Builder {
     /// Adds the `Signature` to the provided hash context.
-    pub fn hash<H: Hash>(&self, hash: &mut H) {
+    pub fn hash<H: nettle::Hash>(&self, hash: &mut H) {
         // A version 4 signature packet is laid out as follows:
         //
         //   version - 1 byte                    \
@@ -277,7 +278,7 @@ impl Signature {
         where S: Into<&'a signature::Builder> {
 
         let sig = sig.into();
-        let mut h: Box<Hash> = sig.hash_algo().context().unwrap();
+        let mut h: Box<nettle::Hash> = sig.hash_algo().context().unwrap();
 
         key.hash(&mut h);
         sig.hash(&mut h);
@@ -294,7 +295,7 @@ impl Signature {
         where S: Into<&'a signature::Builder> {
 
         let sig = sig.into();
-        let mut h: Box<Hash> = sig.hash_algo().context().unwrap();
+        let mut h: Box<nettle::Hash> = sig.hash_algo().context().unwrap();
 
         key.hash(&mut h);
         subkey.hash(&mut h);
@@ -312,7 +313,7 @@ impl Signature {
         where S: Into<&'a signature::Builder> {
 
         let sig = sig.into();
-        let mut h: Box<Hash> = sig.hash_algo().context().unwrap();
+        let mut h: Box<nettle::Hash> = sig.hash_algo().context().unwrap();
 
         key.hash(&mut h);
         userid.hash(&mut h);
@@ -331,7 +332,7 @@ impl Signature {
         where S: Into<&'a signature::Builder> {
 
         let sig = sig.into();
-        let mut h: Box<Hash> = sig.hash_algo().context().unwrap();
+        let mut h: Box<nettle::Hash> = sig.hash_algo().context().unwrap();
 
         key.hash(&mut h);
         ua.hash(&mut h);

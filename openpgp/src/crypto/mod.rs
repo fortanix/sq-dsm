@@ -6,7 +6,7 @@ use std::fmt;
 use std::cmp::Ordering;
 
 use memsec;
-use nettle::Hash;
+use nettle;
 use nettle::random::Yarrow;
 
 use constants::HashAlgorithm;
@@ -157,7 +157,7 @@ impl fmt::Debug for Password {
 ///
 /// This is useful when verifying detached signatures.
 pub fn hash_file<R: Read>(reader: R, algos: &[HashAlgorithm])
-    -> Result<Vec<(HashAlgorithm, Box<Hash>)>>
+    -> Result<Vec<(HashAlgorithm, Box<nettle::Hash>)>>
 {
     use std::mem;
 

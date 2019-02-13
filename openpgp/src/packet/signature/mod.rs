@@ -22,7 +22,7 @@ use packet;
 use packet::signature::subpacket::SubpacketArea;
 use serialize::Serialize;
 
-use nettle::{dsa, ecdsa, ed25519, Hash, rsa};
+use nettle::{self, dsa, ecdsa, ed25519, rsa};
 use nettle::rsa::verify_digest_pkcs1;
 
 #[cfg(test)]
@@ -186,7 +186,7 @@ impl Builder {
     /// algorithm used by `signer`, the hash-algorithm field is set to
     /// `hash_algo`.
     pub fn sign_hash(mut self, signer: &mut Signer,
-                     hash_algo: HashAlgorithm, mut hash: Box<Hash>)
+                     hash_algo: HashAlgorithm, mut hash: Box<nettle::Hash>)
                      -> Result<Signature> {
         // Fill out some fields, then hash the packet.
         self.pk_algo = signer.public().pk_algo();
