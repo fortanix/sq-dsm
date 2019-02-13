@@ -50,21 +50,19 @@ impl MPI {
     }
 
     /// Creates new MPI for EC point.
-    pub fn new_weierstrass(x: &[u8], y: &[u8]) -> Self {
-        use std::cmp::max;
+    pub fn new_weierstrass(x: &[u8], y: &[u8], field_bits: usize) -> Self {
+        let field_sz = if field_bits % 8 > 0 { 1 } else { 0 } + field_bits / 8;
+        let mut val = vec![0x0u8; 1 + 2 * field_sz];
+        let x_missing = field_sz - x.len();
+        let y_missing = field_sz - y.len();
 
-        let coord_len = max(x.len(), y.len());
-        let mut val = vec![0x0u8; 1 + 2 * coord_len];
-        let x_missing = coord_len - x.len();
-        let y_missing = coord_len - y.len();
-
-        val[0] = 0x40;
-        val[1 + x_missing..1 + coord_len].copy_from_slice(x);
-        val[1 + coord_len + y_missing..].copy_from_slice(y);
+        val[0] = 0x4;
+        val[1 + x_missing..1 + field_sz].copy_from_slice(x);
+        val[1 + field_sz + y_missing..].copy_from_slice(y);
 
         MPI{
             value: val.into_boxed_slice(),
-            bits: 6 + 16 * coord_len,
+            bits: 3 + 16 * field_sz,
         }
     }
 

@@ -17,6 +17,7 @@ use crypto::mpis::{MPI, PublicKey, SecretKey, Ciphertext};
 use nettle::{cipher, curve25519, mode, Mode, ecc, ecdh, Yarrow};
 
 /// Wraps a session key using Elliptic Curve Diffie-Hellman.
+#[allow(non_snake_case)]
 pub fn wrap_session_key(recipient: &Key, session_key: &[u8])
     -> Result<Ciphertext>
 {
@@ -28,7 +29,6 @@ pub fn wrap_session_key(recipient: &Key, session_key: &[u8])
         match curve {
             Curve::Cv25519 => {
                 // Obtain the authenticated recipient public key R
-                #[allow(non_snake_case)]
                 let R = q.decode_point(curve)?.0;
 
                 // Generate an ephemeral key pair {v, V=vG}
@@ -37,20 +37,70 @@ pub fn wrap_session_key(recipient: &Key, session_key: &[u8])
 
                 // Compute the public key.  We need to add an encoding
                 // octet in front of the key.
-                #[allow(non_snake_case)]
                 let mut VB = [0x40; 1 + curve25519::CURVE25519_SIZE];
                 curve25519::mul_g(&mut VB[1..], &v)
                     .expect("buffers are of the wrong size");
+                let VB = MPI::new(&VB);
 
                 // Compute the shared point S = vR;
-                #[allow(non_snake_case)]
                 let mut S = [0; curve25519::CURVE25519_SIZE];
                 curve25519::mul(&mut S, &v, R)
                     .expect("buffers are of the wrong size");
 
-                wrap_session_key_deterministic(recipient, session_key, &VB, &S)
+                wrap_session_key_deterministic(recipient, session_key, VB, &S)
             }
-            _ =>
+            Curve::NistP256 | Curve::NistP384 | Curve::NistP521 => {
+                // Obtain the authenticated recipient public key R and
+                // generate an ephemeral private key v.
+                println!("q: {:?}",q);
+                let (Rx, Ry) = q.decode_point(curve)?;
+                let (R, v, field_sz) = match curve {
+                    Curve::NistP256 => {
+                        let R = ecc::Point::new::<ecc::Secp256r1>(Rx, Ry)?;
+                        let v =
+                            ecc::Scalar::new_random::<ecc::Secp256r1, _>(&mut rng);
+                        let field_sz = 256;
+
+                        (R, v, field_sz)
+                    }
+                    Curve::NistP384 => {
+                        let R = ecc::Point::new::<ecc::Secp384r1>(Rx, Ry)?;
+                        let v =
+                            ecc::Scalar::new_random::<ecc::Secp384r1, _>(&mut rng);
+                        let field_sz = 384;
+
+                        (R, v, field_sz)
+                    }
+                    Curve::NistP521 => {
+                        let R = ecc::Point::new::<ecc::Secp521r1>(Rx, Ry)?;
+                        let v =
+                            ecc::Scalar::new_random::<ecc::Secp521r1, _>(&mut rng);
+                        let field_sz = 521;
+
+                        (R, v, field_sz)
+                    }
+                    _ => unreachable!(),
+                };
+
+                // Compute the public key.  We need to add an encoding
+                // octet in front of the key.
+                let VB = ecdh::point_mul_g(&v);
+                let (VBx, VBy) = VB.as_bytes();
+                let VB = MPI::new_weierstrass(&VBx, &VBy, field_sz);
+
+                // Compute the shared point S = vR;
+                let S = ecdh::point_mul(&v, &R)?;
+                let (Sx,_) = S.as_bytes();
+
+                wrap_session_key_deterministic(recipient, session_key, VB, &Sx)
+            }
+
+            // Not implemented in Nettle
+            Curve::BrainpoolP256 | Curve::BrainpoolP512 =>
+                Err(Error::UnsupportedEllipticCurve(curve.clone()).into()),
+
+            // N/A
+            Curve::Unknown(_) | Curve::Ed25519 =>
                 Err(Error::UnsupportedEllipticCurve(curve.clone()).into()),
         }
     } else {
@@ -58,118 +108,150 @@ pub fn wrap_session_key(recipient: &Key, session_key: &[u8])
     }
 }
 
-// VB: Ephemeral public key,
+// VB: Ephemeral public key (with 0x40 prefix),
 // S: Shared DH secret.
 #[allow(non_snake_case)]
 pub(crate) fn wrap_session_key_deterministic(recipient: &Key, session_key: &[u8],
-                                    VB: &[u8; 33], S: &[u8; 32]) -> Result<Ciphertext>
+                                    VB: MPI, S: &[u8]) -> Result<Ciphertext>
 {
-    if let &PublicKey::ECDH {
-        ref curve, ref hash, ref sym,..
-    } = recipient.mpis() {
-        match curve {
-            Curve::Cv25519 => {
-                // m = symm_alg_ID || session key || checksum || pkcs5_padding;
-                let mut m = Vec::with_capacity(40);
-                m.extend_from_slice(session_key);
-                pkcs5_pad(&mut m, 40);
-                // Note: We always pad up to 40 bytes to obfuscate the
-                // length of the symmetric key.
+    match recipient.mpis() {
+        &PublicKey::ECDH{ ref curve, ref hash, ref sym,.. } => {
+            // m = symm_alg_ID || session key || checksum || pkcs5_padding;
+            let mut m = Vec::with_capacity(40);
+            m.extend_from_slice(session_key);
+            pkcs5_pad(&mut m, 40);
+            // Note: We always pad up to 40 bytes to obfuscate the
+            // length of the symmetric key.
 
-                // Compute KDF input.
-                let param = make_param(recipient, curve, hash, sym);
+            // Compute KDF input.
+            let param = make_param(recipient, curve, hash, sym);
 
-                // Z_len = the key size for the KEK_alg_ID used with AESKeyWrap
-                // Compute Z = KDF( S, Z_len, Param );
-                #[allow(non_snake_case)]
-                let Z = kdf(S, sym.key_size()?, *hash, &param)?;
+            // Z_len = the key size for the KEK_alg_ID used with AESKeyWrap
+            // Compute Z = KDF( S, Z_len, Param );
+            #[allow(non_snake_case)]
+            let Z = kdf(S, sym.key_size()?, *hash, &param)?;
 
-                // Compute C = AESKeyWrap( Z, m ) as per [RFC3394]
-                #[allow(non_snake_case)]
-                let C = aes_key_wrap(*sym, &Z, &m)?;
+            // Compute C = AESKeyWrap( Z, m ) as per [RFC3394]
+            #[allow(non_snake_case)]
+            let C = aes_key_wrap(*sym, &Z, &m)?;
 
-                // Output (MPI(VB) || len(C) || C).
-                Ok(Ciphertext::ECDH {
-                    e: MPI::new(VB),
-                    key: C.into_boxed_slice(),
-                })
-            },
-
-            _ =>
-                Err(Error::UnsupportedEllipticCurve(curve.clone()).into()),
+            // Output (MPI(VB) || len(C) || C).
+            Ok(Ciphertext::ECDH {
+                e: VB,
+                key: C.into_boxed_slice(),
+            })
         }
-    } else {
-        Err(Error::InvalidArgument("Expected an ECDHPublicKey".into()).into())
+
+        _ =>
+            Err(Error::InvalidArgument("Expected an ECDHPublicKey".into()).into()),
     }
 }
 
 /// Unwraps a session key using Elliptic Curve Diffie-Hellman.
+#[allow(non_snake_case)]
 pub fn unwrap_session_key(recipient: &Key, recipient_sec: &SecretKey,
                           ciphertext: &Ciphertext)
                           -> Result<Box<[u8]>> {
     use memsec;
 
-    if let (&PublicKey::ECDH {
-        ref curve, ref hash, ref sym, ..
-    }, SecretKey::ECDH {
-        ref scalar,
-    }, Ciphertext::ECDH {
-        ref e, ref key,
-    }) = (recipient.mpis(), recipient_sec, ciphertext) {
-        match curve {
-            Curve::Cv25519 => {
-                // Get the public part V of the ephemeral key.
-                #[allow(non_snake_case)]
-                let V = e.decode_point(curve)?.0;
+    match (recipient.mpis(), recipient_sec, ciphertext) {
+        (&PublicKey::ECDH { ref curve, ref hash, ref sym, ..},
+         SecretKey::ECDH { ref scalar, },
+         Ciphertext::ECDH { ref e, ref key, }) =>
+        {
+            let S: Box<[u8]> = match curve {
+                Curve::Cv25519 => {
+                    // Get the public part V of the ephemeral key.
+                    let V = e.decode_point(curve)?.0;
 
-                // Nettle expects the private key to be exactly
-                // CURVE25519_SIZE bytes long but OpenPGP allows leading
-                // zeros to be stripped.
-                // Padding has to be unconditionaly, otherwise we have a
-                // secret-dependant branch.
-                //
-                // Reverse the scalar.  See
-                // https://lists.gnupg.org/pipermail/gnupg-devel/2018-February/033437.html.
-                let missing = curve25519::CURVE25519_SIZE
-                    .saturating_sub(scalar.value.len());
-                let mut r = [0u8; curve25519::CURVE25519_SIZE];
+                    // Nettle expects the private key to be exactly
+                    // CURVE25519_SIZE bytes long but OpenPGP allows leading
+                    // zeros to be stripped.
+                    // Padding has to be unconditionaly, otherwise we have a
+                    // secret-dependant branch.
+                    //
+                    // Reverse the scalar.  See
+                    // https://lists.gnupg.org/pipermail/gnupg-devel/2018-February/033437.html.
+                    let missing = curve25519::CURVE25519_SIZE
+                        .saturating_sub(scalar.value.len());
+                    let mut r = [0u8; curve25519::CURVE25519_SIZE];
 
-                r[missing..].copy_from_slice(&scalar.value[..]);
-                r.reverse();
+                    r[missing..].copy_from_slice(&scalar.value[..]);
+                    r.reverse();
 
-                // Compute the shared point S = rV = rvG, where (r, R)
-                // is the recipient's key pair.
-                #[allow(non_snake_case)]
-                let mut S = [0; curve25519::CURVE25519_SIZE];
-                let res = curve25519::mul(&mut S, &r[..], V);
+                    // Compute the shared point S = rV = rvG, where (r, R)
+                    // is the recipient's key pair.
+                    let mut S = [0; curve25519::CURVE25519_SIZE];
+                    let res = curve25519::mul(&mut S, &r[..], V);
 
-                unsafe {
-                    memsec::memzero(r.as_mut_ptr(),
-                                    curve25519::CURVE25519_SIZE);
+                    unsafe {
+                        memsec::memzero(r.as_mut_ptr(),
+                        curve25519::CURVE25519_SIZE);
+                    }
+                    res.expect("buffers are of the wrong size");
+                    Box::new(S)
                 }
-                res.expect("buffers are of the wrong size");
 
-                // Compute KDF input.
-                let param = make_param(recipient, curve, hash, sym);
+                Curve::NistP256 | Curve::NistP384 | Curve::NistP521 => {
+                    // Get the public part V of the ephemeral key and
+                    // compute the shared point S = rV = rvG, where (r, R)
+                    // is the recipient's key pair.
+                    let (Vx, Vy) = e.decode_point(curve)?;
+                    let (V, r) = match curve {
+                        Curve::NistP256 => {
+                            let V =
+                                ecc::Point::new::<ecc::Secp256r1>(&Vx, &Vy)?;
+                            let r =
+                                ecc::Scalar::new::<ecc::Secp256r1>(&scalar.value[..])?;
 
-                // Z_len = the key size for the KEK_alg_ID used with AESKeyWrap
-                // Compute Z = KDF( S, Z_len, Param );
-                #[allow(non_snake_case)]
-                let Z = kdf(&S, sym.key_size()?, *hash, &param)?;
+                            (V, r)
+                        }
+                        Curve::NistP384 => {
+                            let V =
+                                ecc::Point::new::<ecc::Secp384r1>(&Vx, &Vy)?;
+                            let r =
+                                ecc::Scalar::new::<ecc::Secp384r1>(&scalar.value[..])?;
 
-                // Compute m = AESKeyUnwrap( Z, C ) as per [RFC3394]
-                let mut m = aes_key_unwrap(*sym, &Z, key)?;
-                let cipher = SymmetricAlgorithm::from(m[0]);
-                pkcs5_unpad(&mut m, 1 + cipher.key_size()? + 2)?;
+                            (V, r)
+                        }
+                        Curve::NistP521 => {
+                            let V =
+                                ecc::Point::new::<ecc::Secp521r1>(&Vx, &Vy)?;
+                            let r =
+                                ecc::Scalar::new::<ecc::Secp521r1>(&scalar.value[..])?;
 
-                Ok(m.into_boxed_slice())
-            },
+                            (V, r)
+                        }
+                        _ => unreachable!(),
+                    };
+                    let S = ecdh::point_mul(&r, &V)?;
+                    let (Sx, _) = S.as_bytes();
 
-            _ =>
-                Err(Error::UnsupportedEllipticCurve(curve.clone()).into()),
+                    Sx
+                }
+
+                _ => {
+                    return Err(Error::UnsupportedEllipticCurve(curve.clone()).into());
+                }
+            };
+            // Compute KDF input.
+            let param = make_param(recipient, curve, hash, sym);
+
+            // Z_len = the key size for the KEK_alg_ID used with AESKeyWrap
+            // Compute Z = KDF( S, Z_len, Param );
+            #[allow(non_snake_case)]
+            let Z = kdf(&S, sym.key_size()?, *hash, &param)?;
+
+            // Compute m = AESKeyUnwrap( Z, C ) as per [RFC3394]
+            let mut m = aes_key_unwrap(*sym, &Z, key)?;
+            let cipher = SymmetricAlgorithm::from(m[0]);
+            pkcs5_unpad(&mut m, 1 + cipher.key_size()? + 2)?;
+
+            Ok(m.into_boxed_slice())
         }
-    } else {
-        Err(Error::InvalidArgument("Expected an ECDHPublicKey".into()).into())
+
+        _ =>
+            Err(Error::InvalidArgument("Expected an ECDHPublicKey".into()).into()),
     }
 }
 
