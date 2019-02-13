@@ -57,7 +57,39 @@ fn path_to(artifact: &str) -> PathBuf {
     [env!("CARGO_MANIFEST_DIR"), "tests", "data", "messages", artifact]
         .iter().collect()
 }
+
+/// Packet serialization.
+///
+/// This interfaces serializes packets and packet trees.
+pub trait Serialize {
+    /// Writes a serialized version of the packet to `o`.
+    fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()>;
 
+    /// Serializes the packet to a vector.
+    fn to_vec(&self) -> Result<Vec<u8>> {
+        let mut o = Vec::with_capacity(4096);
+        self.serialize(&mut o)?;
+        Ok(o)
+    }
+}
+
+/// Key packet serialization.
+///
+/// This interface serializes key packets.
+pub trait SerializeKey {
+    /// Writes a serialized version of the key packet to `o`.
+    ///
+    /// Tag identifies the kind of packet to write.
+    fn serialize<W: io::Write>(&self, o: &mut W, tag: Tag) -> Result<()>;
+
+    /// Serializes the packet to a vector.
+    fn to_vec(&self, tag: Tag) -> Result<Vec<u8>> {
+        let mut o = Vec::with_capacity(4096);
+        self.serialize(&mut o, tag)?;
+        Ok(o)
+    }
+}
+
 fn write_byte<W: io::Write>(o: &mut W, b: u8) -> io::Result<()> {
     let b : [u8; 1] = [b; 1];
     o.write_all(&b[..])
@@ -447,38 +479,6 @@ impl Serialize for crypto::mpis::Signature {
     }
 }
 
-/// Packet serialization.
-///
-/// This interfaces serializes packets and packet trees.
-pub trait Serialize {
-    /// Writes a serialized version of the packet to `o`.
-    fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()>;
-
-    /// Serializes the packet to a vector.
-    fn to_vec(&self) -> Result<Vec<u8>> {
-        let mut o = Vec::with_capacity(4096);
-        self.serialize(&mut o)?;
-        Ok(o)
-    }
-}
-
-/// Key packet serialization.
-///
-/// This interface serializes key packets.
-pub trait SerializeKey {
-    /// Writes a serialized version of the key packet to `o`.
-    ///
-    /// Tag identifies the kind of packet to write.
-    fn serialize<W: io::Write>(&self, o: &mut W, tag: Tag) -> Result<()>;
-
-    /// Serializes the packet to a vector.
-    fn to_vec(&self, tag: Tag) -> Result<Vec<u8>> {
-        let mut o = Vec::with_capacity(4096);
-        self.serialize(&mut o, tag)?;
-        Ok(o)
-    }
-}
-
 impl Serialize for S2K {
     /// Serializes this S2K instance.
     fn serialize<W: io::Write>(&self, w: &mut W) -> Result<()> {
