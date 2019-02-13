@@ -3019,8 +3019,6 @@ impl <'a> PacketParser<'a> {
                 },
         };
 
-
-        let tag = header.ctb.tag;
         let parser = PacketHeaderParser::new(bio, state, path,
                                              header, header_bytes);
 
