@@ -2961,7 +2961,7 @@ impl <'a> PacketParser<'a> {
         let consumed = if skip == 0 {
             bio.total_out()
         } else {
-            t!("turning {} bytes of junk into a Reserved packet", skip);
+            t!("turning {} bytes of junk into an Unknown packet", skip);
 
             // Fabricate a header.
             header = Header {
@@ -3038,6 +3038,9 @@ impl <'a> PacketParser<'a> {
             Tag::MDC =>                 MDC::parse(parser),
             Tag::PKESK =>               PKESK::parse(parser),
             Tag::AED =>                 AED::parse(parser),
+            Tag::Reserved if skip > 0 => Unknown::parse(
+                parser, Error::MalformedPacket(format!(
+                    "Skipped {} bytes of junk", skip)).into()),
             _ => Unknown::parse(parser,
                                 Error::UnsupportedPacketType(tag).into()),
         }?;
@@ -4210,7 +4213,11 @@ mod test {
                 Packet::PublicSubkey(_) => subkeys += 1,
                 Packet::UserID(_) => userids += 1,
                 Packet::UserAttribute(_) => uas += 1,
-                Packet::Unknown(_) => unknown += 1,
+                Packet::Unknown(ref u) => {
+                    unknown += 1;
+                    assert_match!(Some(&Error::MalformedPacket(_))
+                                  = u.error().downcast_ref());
+                },
                 _ => (),
             }
 
