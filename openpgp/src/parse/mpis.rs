@@ -22,6 +22,7 @@ impl mpis::PublicKey {
     /// See [Section 3.2 of RFC 4880] for details.
     ///
     ///   [Section 3.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-3.2
+    #[cfg(test)]
     pub fn parse_naked<T: AsRef<[u8]>>(
         algo: PublicKeyAlgorithm, buf: T)
         -> Result<Self>
@@ -183,6 +184,7 @@ impl mpis::SecretKey {
     /// See [Section 3.2 of RFC 4880] for details.
     ///
     ///   [Section 3.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-3.2
+    #[cfg(test)]
     pub fn parse_naked<T: AsRef<[u8]>>(algo: PublicKeyAlgorithm, buf: T)
                                        -> Result<Self>
     {
@@ -279,6 +281,7 @@ impl mpis::Ciphertext {
     /// See [Section 3.2 of RFC 4880] for details.
     ///
     ///   [Section 3.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-3.2
+    #[cfg(test)]
     pub fn parse_naked<T: AsRef<[u8]>>(algo: PublicKeyAlgorithm, buf: T)
                                        -> Result<Self> {
         use std::io::Cursor;
@@ -358,6 +361,7 @@ impl mpis::Signature {
     /// See [Section 3.2 of RFC 4880] for details.
     ///
     ///   [Section 3.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-3.2
+    #[cfg(test)]
     pub fn parse_naked<T: AsRef<[u8]>>(algo: PublicKeyAlgorithm, buf: T)
                                        -> Result<Self> {
         use std::io::Cursor;
