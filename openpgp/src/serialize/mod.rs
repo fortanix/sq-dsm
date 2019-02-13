@@ -283,6 +283,19 @@ impl Serialize for KeyID {
     }
 }
 
+impl Serialize for Fingerprint {
+    fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
+        o.write_all(self.as_slice())?;
+        Ok(())
+    }
+
+    fn to_vec(&self) -> Result<Vec<u8>> {
+        let mut o = Vec::with_capacity(20);
+        self.serialize(&mut o)?;
+        Ok(o)
+    }
+}
+
 impl Serialize for crypto::mpis::MPI {
     fn serialize<W: io::Write>(&self, w: &mut W) -> Result<()> {
         write_be_u16(w, self.bits as u16)?;
