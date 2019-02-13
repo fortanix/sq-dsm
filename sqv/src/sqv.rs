@@ -16,6 +16,7 @@ use std::collections::{HashMap, HashSet};
 
 use openpgp::{TPK, Packet, packet::Signature, KeyID, RevocationStatus};
 use openpgp::constants::HashAlgorithm;
+use openpgp::crypto::Hash;
 use openpgp::parse::{Parse, PacketParserResult, PacketParser};
 use openpgp::tpk::TPKParser;
 

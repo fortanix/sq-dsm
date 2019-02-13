@@ -13,6 +13,7 @@ use constants::{
     PublicKeyAlgorithm,
     SymmetricAlgorithm,
 };
+use crypto::Hash;
 use serialize::Serialize;
 
 use nettle;
@@ -48,14 +49,6 @@ impl MPI {
         }
     }
 
-    /// Update the Hash with a hash of the MPIs.
-    pub fn hash<H: nettle::Hash>(&self, hash: &mut H) {
-        let len = &[(self.bits >> 8) as u8 & 0xFF, self.bits as u8];
-
-        hash.update(len);
-        hash.update(&self.value);
-    }
-
     fn secure_memzero(&mut self) {
         unsafe {
             ::memsec::memzero(self.value.as_mut_ptr(), self.value.len());
@@ -84,6 +77,16 @@ impl fmt::Debug for MPI {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.write_fmt(format_args!(
                 "{} bits: {}", self.bits, ::conversions::to_hex(&*self.value, true)))
+    }
+}
+
+impl Hash for MPI {
+    /// Update the Hash with a hash of the MPIs.
+    fn hash<H: nettle::Hash + Write>(&self, hash: &mut H) {
+        let len = &[(self.bits >> 8) as u8 & 0xFF, self.bits as u8];
+
+        hash.update(len);
+        hash.update(&self.value);
     }
 }
 
@@ -254,9 +257,11 @@ impl PublicKey {
             &Unknown { .. } => 0,
         }
     }
+}
 
+impl Hash for PublicKey {
     /// Update the Hash with a hash of the MPIs.
-    pub fn hash<H: nettle::Hash + Write>(&self, hash: &mut H) {
+    fn hash<H: nettle::Hash + Write>(&self, hash: &mut H) {
         self.serialize(hash).expect("hashing does not fail")
     }
 }
@@ -554,9 +559,11 @@ impl SecretKey {
                 + rest.len(),
         }
     }
+}
 
+impl Hash for SecretKey {
     /// Update the Hash with a hash of the MPIs.
-    pub fn hash<H: nettle::Hash + Write>(&self, hash: &mut H) {
+    fn hash<H: nettle::Hash + Write>(&self, hash: &mut H) {
         self.serialize(hash).expect("hashing does not fail")
     }
 }
@@ -674,9 +681,11 @@ impl Ciphertext {
             &Unknown { .. } => None,
         }
     }
+}
 
+impl Hash for Ciphertext {
     /// Update the Hash with a hash of the MPIs.
-    pub fn hash<H: nettle::Hash + Write>(&self, hash: &mut H) {
+    fn hash<H: nettle::Hash + Write>(&self, hash: &mut H) {
         self.serialize(hash).expect("hashing does not fail")
     }
 }
@@ -784,9 +793,11 @@ impl Signature {
                 + rest.len(),
         }
     }
+}
 
+impl Hash for Signature {
     /// Update the Hash with a hash of the MPIs.
-    pub fn hash<H: nettle::Hash + Write>(&self, hash: &mut H) {
+    fn hash<H: nettle::Hash + Write>(&self, hash: &mut H) {
         self.serialize(hash).expect("hashing does not fail")
     }
 }

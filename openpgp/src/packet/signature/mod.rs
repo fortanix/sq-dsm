@@ -8,6 +8,7 @@ use Error;
 use Result;
 use crypto::{
     mpis,
+    Hash,
     Signer,
 };
 use HashAlgorithm;

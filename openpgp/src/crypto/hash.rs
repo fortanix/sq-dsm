@@ -134,9 +134,15 @@ impl nettle::Hash for HashDumper {
     }
 }
 
-impl UserID {
+/// Hashes OpenPGP packets and related types.
+pub trait Hash {
+    /// Updates the given hash with this object.
+    fn hash<H: nettle::Hash + Write>(&self, hash: &mut H);
+}
+
+impl Hash for UserID {
     /// Update the Hash with a hash of the user id.
-    pub fn hash<H: nettle::Hash>(&self, hash: &mut H) {
+    fn hash<H: nettle::Hash + Write>(&self, hash: &mut H) {
         let mut header = [0; 5];
 
         header[0] = 0xB4;
@@ -151,9 +157,9 @@ impl UserID {
     }
 }
 
-impl UserAttribute {
+impl Hash for UserAttribute {
     /// Update the Hash with a hash of the user attribute.
-    pub fn hash<H: nettle::Hash>(&self, hash: &mut H) {
+    fn hash<H: nettle::Hash + Write>(&self, hash: &mut H) {
         let mut header = [0; 5];
 
         header[0] = 0xD1;
@@ -168,9 +174,9 @@ impl UserAttribute {
     }
 }
 
-impl Key {
+impl Hash for Key {
     /// Update the Hash with a hash of the key.
-    pub fn hash<H: nettle::Hash + Write>(&self, hash: &mut H) {
+    fn hash<H: nettle::Hash + Write>(&self, hash: &mut H) {
         // We hash 8 bytes plus the MPIs.  But, the len doesn't
         // include the tag (1 byte) or the length (2 bytes).
         let len = (9 - 3) + self.mpis().serialized_len();
@@ -205,16 +211,16 @@ impl Key {
     }
 }
 
-impl Signature {
+impl Hash for Signature {
     /// Adds the `Signature` to the provided hash context.
-    pub fn hash<H: nettle::Hash>(&self, hash: &mut H) {
+    fn hash<H: nettle::Hash + Write>(&self, hash: &mut H) {
         self.fields.hash(hash);
     }
 }
 
-impl signature::Builder {
+impl Hash for signature::Builder {
     /// Adds the `Signature` to the provided hash context.
-    pub fn hash<H: nettle::Hash>(&self, hash: &mut H) {
+    fn hash<H: nettle::Hash + Write>(&self, hash: &mut H) {
         // A version 4 signature packet is laid out as follows:
         //
         //   version - 1 byte                    \

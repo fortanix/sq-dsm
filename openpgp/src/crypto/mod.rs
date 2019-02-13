@@ -25,6 +25,8 @@ pub use self::asymmetric::{
     KeyPair,
 };
 
+pub use self::hash::Hash;
+
 /// Holds a session key.
 ///
 /// The session key is cleared when dropped.
