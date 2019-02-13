@@ -382,16 +382,16 @@ impl Serialize for crypto::mpis::Ciphertext {
         use crypto::mpis::Ciphertext::*;
 
         match self {
-            &crypto::mpis::Ciphertext::RSA{ ref c } => {
+            &RSA{ ref c } => {
                 c.serialize(w)?;
             }
 
-            &crypto::mpis::Ciphertext::Elgamal{ ref e, ref c } => {
+            &Elgamal{ ref e, ref c } => {
                 e.serialize(w)?;
                 c.serialize(w)?;
             }
 
-            &crypto::mpis::Ciphertext::ECDH{ ref e, ref key } => {
+            &ECDH{ ref e, ref key } => {
                 e.serialize(w)?;
 
                 w.write_all(&[key.len() as u8])?;
