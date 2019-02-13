@@ -402,6 +402,8 @@ mod tests {
 
     quickcheck! {
         fn s2k_roundtrip(s2k: S2K) -> bool {
+            use serialize::SerializeInto;
+
             eprintln!("in {:?}", s2k);
             use std::io::Cursor;
 

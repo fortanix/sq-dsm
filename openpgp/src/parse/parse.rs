@@ -1890,6 +1890,8 @@ fn compressed_data_parser_test () {
 impl SKESK {
     /// Parses the body of an SK-ESK packet.
     fn parse<'a>(mut php: PacketHeaderParser<'a>) -> Result<PacketParser<'a>> {
+        use serialize::SerializeInto;
+
         make_php_try!(php);
         let version = php_try!(php.parse_u8("version"));
         let skesk = match version {
