@@ -277,6 +277,7 @@ impl Key {
         })
     }
 
+    /// Generates a new RSA key with a public modulos of size `bits`.
     pub fn generate_rsa(bits: usize) -> Result<Self> {
         use nettle::{rsa, Yarrow};
         use crypto::mpis::{self, MPI, PublicKey};
@@ -308,6 +309,11 @@ impl Key {
         })
     }
 
+    /// Generates a new ECC key over `curve`. If `for_signing` is false a ECDH key,
+    /// if it's true either a EdDSA or ECDSA key is generated. Giving `for_signing = true` and
+    /// `curve = Cv25519` will produce an error. Similar for `for_signing = false` and `curve =
+    /// Ed25519`.
+    /// signing/encryption
     pub fn generate_ecc(for_signing: bool, curve: Curve) -> Result<Self> {
         use nettle::{
             Yarrow,
