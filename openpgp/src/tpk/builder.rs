@@ -11,7 +11,6 @@ use HashAlgorithm;
 use packet::signature::{self, Signature};
 use packet::key::SecretKey;
 use TPK;
-use PublicKeyAlgorithm;
 use Error;
 use conversions::Time;
 use constants::{
@@ -27,21 +26,43 @@ pub enum CipherSuite {
     Cv25519,
     /// 3072 bit RSA with SHA512 and AES256
     RSA3k,
+    /// EdDSA and ECDH over NIST P-256 with SHA512 and AES256
+    P256,
+    /// EdDSA and ECDH over NIST P-384 with SHA512 and AES256
+    P384,
+    /// EdDSA and ECDH over NIST P-521 with SHA512 and AES256
+    P521,
 }
 
 impl CipherSuite {
     fn generate_key(self, flags: &KeyFlags) -> Result<Key> {
+        use constants::Curve;
+
         match self {
             CipherSuite::RSA3k =>
-                Key::generate(PublicKeyAlgorithm::RSAEncryptSign),
-            CipherSuite::Cv25519 => {
+                Key::generate_rsa(3072),
+            CipherSuite::Cv25519 | CipherSuite::P256 |
+            CipherSuite::P384 | CipherSuite::P521 => {
                 let sign = flags.can_certify() || flags.can_sign();
                 let encrypt = flags.can_encrypt_for_transport()
                     || flags.can_encrypt_at_rest();
+                let curve = match self {
+                    CipherSuite::Cv25519 if sign => Curve::Ed25519,
+                    CipherSuite::Cv25519 if encrypt => Curve::Cv25519,
+                    CipherSuite::Cv25519 => {
+                        return Err(Error::InvalidOperation(
+                            "No key flags set".into())
+                            .into());
+                    }
+                    CipherSuite::P256 => Curve::NistP256,
+                    CipherSuite::P384 => Curve::NistP384,
+                    CipherSuite::P521 => Curve::NistP521,
+                    _ => unreachable!(),
+                };
 
                 match (sign, encrypt) {
-                    (true, false) => Key::generate(PublicKeyAlgorithm::EdDSA),
-                    (false, true) => Key::generate(PublicKeyAlgorithm::ECDH),
+                    (true, false) => Key::generate_ecc(true, curve),
+                    (false, true) => Key::generate_ecc(false, curve),
                     (true, true) =>
                         Err(Error::InvalidOperation(
                             "Can't use key for encryption and signing".into())
@@ -406,6 +427,7 @@ impl TPKBuilder {
 mod tests {
     use super::*;
     use packet::signature::subpacket::{SubpacketTag, Subpacket, SubpacketValue};
+    use constants::PublicKeyAlgorithm;
 
     #[test]
     fn all_opts() {
