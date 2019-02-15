@@ -277,14 +277,43 @@ impl Key {
         })
     }
 
-    /// Returns a new `Key` packet.  This can be used to hold either a
-    /// public key, a public subkey, a private key, or a private subkey.
-    pub fn generate(pk_algo: PublicKeyAlgorithm) -> Result<Self> {
+    pub fn generate_rsa(bits: usize) -> Result<Self> {
+        use nettle::{rsa, Yarrow};
+        use crypto::mpis::{self, MPI, PublicKey};
+
+        let mut rng = Yarrow::default();
+        let (public,private) = rsa::generate_keypair(&mut rng, bits as u32)?;
+        let (p,q,u) = private.as_rfc4880();
+        let public_mpis = PublicKey::RSA {
+            e: MPI::new(&*public.e()),
+            n: MPI::new(&*public.n()),
+        };
+        let private_mpis = mpis::SecretKey::RSA {
+            d: MPI::new(&*private.d()),
+            p: MPI::new(&*p),
+            q: MPI::new(&*q),
+            u: MPI::new(&*u),
+        };
+        let sec = Some(SecretKey::Unencrypted{
+            mpis: private_mpis
+        });
+
+        Ok(Key {
+            common: Default::default(),
+            version: 4,
+            creation_time: time::now().canonicalize(),
+            pk_algo: PublicKeyAlgorithm::RSAEncryptSign,
+            mpis: public_mpis,
+            secret: sec,
+        })
+    }
+
+    pub fn generate_ecc(for_signing: bool, curve: Curve) -> Result<Self> {
         use nettle::{
-            rsa,
             Yarrow,
             ed25519,ed25519::ED25519_KEY_SIZE,
             curve25519,curve25519::CURVE25519_SIZE,
+            ecc, ecdh, ecdsa,
         };
         use crypto::mpis::{self, MPI, PublicKey};
         use constants::{HashAlgorithm, SymmetricAlgorithm, Curve};
@@ -293,29 +322,8 @@ impl Key {
 
         let mut rng = Yarrow::default();
 
-        #[allow(deprecated)]
-        let (mpis, secret) = match pk_algo {
-            RSASign | RSAEncrypt | RSAEncryptSign => {
-                let (public,private) = rsa::generate_keypair(&mut rng, 3072)?;
-                let (p,q,u) = private.as_rfc4880();
-                let public_mpis = PublicKey::RSA {
-                    e: MPI::new(&*public.e()),
-                    n: MPI::new(&*public.n()),
-                };
-                let private_mpis = mpis::SecretKey::RSA {
-                    d: MPI::new(&*private.d()),
-                    p: MPI::new(&*p),
-                    q: MPI::new(&*q),
-                    u: MPI::new(&*u),
-                };
-                let sec = Some(SecretKey::Unencrypted{
-                    mpis: private_mpis
-                });
-
-                (public_mpis, sec)
-            }
-
-            EdDSA => {
+        let (mpis, secret, pk_algo) = match (curve.clone(), for_signing) {
+            (Curve::Ed25519, true) => {
                 let mut public = [0u8; ED25519_KEY_SIZE + 1];
                 let mut private: SessionKey = ed25519::private_key(&mut rng).into();
 
@@ -333,10 +341,10 @@ impl Key {
                     mpis: private_mpis,
                 });
 
-                (public_mpis, sec)
+                (public_mpis, sec, EdDSA)
             }
 
-            ECDH => {
+            (Curve::Cv25519, false) => {
                 let mut public = [0u8; CURVE25519_SIZE + 1];
                 let mut private: SessionKey = curve25519::private_key(&mut rng).into();
 
@@ -361,11 +369,87 @@ impl Key {
                     mpis: private_mpis,
                 });
 
-                (public_mpis, sec)
+                (public_mpis, sec, ECDH)
             }
 
-            pk => {
-                return Err(Error::UnsupportedPublicKeyAlgorithm(pk).into());
+            (Curve::NistP256, true)  | (Curve::NistP384, true)
+            | (Curve::NistP521, true) => {
+                let (public, private, field_sz) = match curve {
+                    Curve::NistP256 => {
+                        let (pu, sec) =
+                            ecdsa::generate_keypair::<ecc::Secp256r1, _>(&mut rng)?;
+                        (pu, sec, 256)
+                    }
+                    Curve::NistP384 => {
+                        let (pu, sec) =
+                            ecdsa::generate_keypair::<ecc::Secp384r1, _>(&mut rng)?;
+                        (pu, sec, 384)
+                    }
+                    Curve::NistP521 => {
+                        let (pu, sec) =
+                            ecdsa::generate_keypair::<ecc::Secp521r1, _>(&mut rng)?;
+                        (pu, sec, 521)
+                    }
+                    _ => unreachable!(),
+                };
+                let (pub_x, pub_y) = public.as_bytes();
+                let public_mpis =  mpis::PublicKey::ECDSA{
+                    curve: curve,
+                    q: MPI::new_weierstrass(&pub_x, &pub_y, field_sz),
+                };
+                let private_mpis = mpis::SecretKey::ECDSA{
+                    scalar: MPI::new(&private.as_bytes()),
+                };
+                let sec = Some(SecretKey::Unencrypted{
+                    mpis:  private_mpis
+                });
+
+                (public_mpis, sec, ECDSA)
+            }
+
+            (Curve::NistP256, false)  | (Curve::NistP384, false)
+            | (Curve::NistP521, false) => {
+                    let (private, hash, field_sz) = match curve {
+                        Curve::NistP256 => {
+                            let pv =
+                                ecc::Scalar::new_random::<ecc::Secp256r1, _>(&mut rng);
+
+                            (pv, HashAlgorithm::SHA256, 256)
+                        }
+                        Curve::NistP384 => {
+                            let pv =
+                                ecc::Scalar::new_random::<ecc::Secp384r1, _>(&mut rng);
+
+                            (pv, HashAlgorithm::SHA384, 384)
+                        }
+                        Curve::NistP521 => {
+                            let pv =
+                                ecc::Scalar::new_random::<ecc::Secp521r1, _>(&mut rng);
+
+                            (pv, HashAlgorithm::SHA512, 521)
+                        }
+                        _ => unreachable!(),
+                    };
+                    let public = ecdh::point_mul_g(&private);
+                    let (pub_x, pub_y) = public.as_bytes();
+                    let public_mpis = mpis::PublicKey::ECDH{
+                        curve: curve,
+                        q: MPI::new_weierstrass(&pub_x, &pub_y, field_sz),
+                        hash: hash,
+                        sym: SymmetricAlgorithm::AES256,
+                    };
+                    let private_mpis = mpis::SecretKey::ECDH{
+                        scalar: MPI::new(&private.as_bytes()),
+                    };
+                    let sec = Some(SecretKey::Unencrypted{
+                        mpis:  private_mpis
+                    });
+
+                    (public_mpis, sec, ECDH)
+                }
+
+            (cv, _) => {
+                return Err(Error::UnsupportedEllipticCurve(cv).into());
             }
         };
 
@@ -627,10 +711,20 @@ mod tests {
 
     #[test]
     fn eq() {
-        for &pk_algo in &[PublicKeyAlgorithm::RSAEncryptSign,
-                          PublicKeyAlgorithm::EdDSA,
-                          PublicKeyAlgorithm::ECDH] {
-            let key = Key::generate(pk_algo).unwrap();
+        use constants::Curve::*;
+
+        for curve in vec![NistP256, NistP384, NistP521] {
+            let sign_key = Key::generate_ecc(true, curve.clone()).unwrap();
+            let enc_key = Key::generate_ecc(false, curve).unwrap();
+            let sign_clone = sign_key.clone();
+            let enc_clone = enc_key.clone();
+
+            assert_eq!(sign_key, sign_clone);
+            assert_eq!(enc_key, enc_clone);
+        }
+
+        for bits in vec![1024, 2048, 3072, 4096] {
+            let key = Key::generate_rsa(bits).unwrap();
             let clone = key.clone();
             assert_eq!(key, clone);
         }
@@ -638,11 +732,18 @@ mod tests {
 
     #[test]
     fn roundtrip() {
-        for &pk_algo in &[PublicKeyAlgorithm::RSAEncryptSign,
-                          PublicKeyAlgorithm::EdDSA,
-                          PublicKeyAlgorithm::ECDH] {
-            let mut key = Key::generate(pk_algo).unwrap();
+        use constants::Curve::*;
 
+        let keys = vec![NistP256, NistP384, NistP521].into_iter().flat_map(|cv| {
+            let sign_key = Key::generate_ecc(true, cv.clone()).unwrap();
+            let enc_key = Key::generate_ecc(false, cv).unwrap();
+
+            vec![sign_key, enc_key]
+        }).chain(vec![1024, 2048, 3072, 4096].into_iter().map(|b| {
+            Key::generate_rsa(b).unwrap()
+        }));
+
+        for mut key in keys {
             let mut b = Vec::new();
             key.serialize(&mut b, Tag::SecretKey).unwrap();
 
@@ -680,10 +781,15 @@ mod tests {
         use packet::key::SecretKey;
         use crypto::SessionKey;
         use packet::PKESK;
+        use constants::Curve::*;
 
-        for &pk_algo in &[PublicKeyAlgorithm::RSAEncryptSign,
-                          PublicKeyAlgorithm::ECDH] {
-            let key = Key::generate(pk_algo).unwrap();
+        let keys = vec![NistP256, NistP384, NistP521].into_iter().map(|cv| {
+            Key::generate_ecc(false, cv).unwrap()
+        }).chain(vec![1024, 2048, 3072, 4096].into_iter().map(|b| {
+            Key::generate_rsa(b).unwrap()
+        }));
+
+        for mut key in keys {
             let secret =
                 if let Some(SecretKey::Unencrypted {
                     ref mpis,
@@ -707,10 +813,15 @@ mod tests {
 
     #[test]
     fn secret_encryption_roundtrip() {
-        for &pk_algo in &[PublicKeyAlgorithm::RSAEncryptSign,
-                          PublicKeyAlgorithm::EdDSA,
-                          PublicKeyAlgorithm::ECDH] {
-            let key = Key::generate(pk_algo).unwrap();
+        use constants::Curve::*;
+
+        let keys = vec![NistP256, NistP384, NistP521].into_iter().map(|cv| {
+            Key::generate_ecc(false, cv).unwrap()
+        }).chain(vec![1024, 2048, 3072, 4096].into_iter().map(|b| {
+            Key::generate_rsa(b).unwrap()
+        }));
+
+        for key in keys {
             assert!(! key.secret().unwrap().is_encrypted());
 
             let password = Password::from("foobarbaz");
@@ -721,7 +832,7 @@ mod tests {
             assert!(encrypted_key.secret().unwrap().is_encrypted());
 
             encrypted_key.secret_mut().unwrap()
-                .decrypt_in_place(pk_algo, &password).unwrap();
+                .decrypt_in_place(key.pk_algo, &password).unwrap();
             assert!(! key.secret().unwrap().is_encrypted());
             assert_eq!(key, encrypted_key);
             assert_eq!(key.secret(), encrypted_key.secret());

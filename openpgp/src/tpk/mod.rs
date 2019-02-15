@@ -3538,7 +3538,7 @@ mod test {
     fn revoked_time() {
         use packet::Features;
         use packet::key::SecretKey;
-        use constants::PublicKeyAlgorithm;
+        use constants::Curve;
         use rand::{thread_rng, Rng, distributions::Open01};
         /*
          * t1: 1st binding sig ctime
@@ -3553,7 +3553,7 @@ mod test {
         let t1 = time::strptime("2000-1-1", "%F").unwrap();
         let t2 = time::strptime("2001-1-1", "%F").unwrap();
         let t3 = time::strptime("2002-1-1", "%F").unwrap();
-        let key = Key::generate(PublicKeyAlgorithm::EdDSA).unwrap();
+        let key = Key::generate_ecc(true, Curve::Ed25519).unwrap();
         let (bind1, rev, bind2) = {
             let mpis = match key.secret() {
                 Some(SecretKey::Unencrypted{ ref mpis }) => mpis,

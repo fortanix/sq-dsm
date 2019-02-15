@@ -2285,12 +2285,13 @@ impl signature::Builder {
 fn accessors() {
     use packet::key::SecretKey;
     use crypto::KeyPair;
+    use constants::Curve;
 
     let pk_algo = PublicKeyAlgorithm::EdDSA;
     let hash_algo = HashAlgorithm::SHA512;
     let hash = hash_algo.context().unwrap();
     let mut sig = signature::Builder::new(::constants::SignatureType::Binary);
-    let mut key = ::packet::Key::generate(PublicKeyAlgorithm::EdDSA).unwrap();
+    let mut key = ::packet::Key::generate_ecc(true, Curve::Ed25519).unwrap();
     let sec = if let Some(SecretKey::Unencrypted { ref mpis }) = key.secret() {
         mpis.clone()
     } else {

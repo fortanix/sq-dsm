@@ -23,7 +23,7 @@ use packet;
 use packet::signature::subpacket::SubpacketArea;
 use serialize::Serialize;
 
-use nettle::{self, dsa, ecc, ecdsa, ed25519, Hash, rsa};
+use nettle::{self, dsa, ecc, ecdsa, ed25519, rsa};
 use nettle::rsa::verify_digest_pkcs1;
 
 #[cfg(test)]
@@ -1007,10 +1007,10 @@ mod test {
     #[test]
     fn sign_message() {
         use time;
-        use constants::PublicKeyAlgorithm;
+        use constants::Curve;
         use packet::key::SecretKey;
 
-        let key = Key::generate(PublicKeyAlgorithm::EdDSA)
+        let key = Key::generate_ecc(true, Curve::Ed25519)
             .unwrap();
         let msg = b"Hello, World";
 
