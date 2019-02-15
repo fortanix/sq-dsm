@@ -26,9 +26,9 @@ pub enum CipherSuite {
     Cv25519,
     /// 3072 bit RSA with SHA512 and AES256
     RSA3k,
-    /// EdDSA and ECDH over NIST P-256 with SHA512 and AES256
+    /// EdDSA and ECDH over NIST P-256 with SHA256 and AES256
     P256,
-    /// EdDSA and ECDH over NIST P-384 with SHA512 and AES256
+    /// EdDSA and ECDH over NIST P-384 with SHA384 and AES256
     P384,
     /// EdDSA and ECDH over NIST P-521 with SHA512 and AES256
     P521,
@@ -590,5 +590,16 @@ mod tests {
             .set_password(Some(String::from("streng geheim").into()))
             .generate().unwrap();
         assert!(tpk.primary().secret().unwrap().is_encrypted());
+    }
+
+    #[test]
+    fn all_ciphersuites() {
+        use self::CipherSuite::*;
+
+        for cs in vec![Cv25519, RSA3k, P256, P384, P521] {
+            assert!(TPKBuilder::default()
+                .set_cipher_suite(cs)
+                .generate().is_ok());
+        }
     }
 }
