@@ -368,7 +368,7 @@ impl Message {
     ///
     ///   [`Message::from_packet_pile`]: #method.from_packet_pile
     pub fn from_packets(packets: Vec<Packet>) -> Result<Self> {
-        Self::from_packet_pile(PacketPile::from_packets(packets))
+        Self::from_packet_pile(PacketPile::from(packets))
     }
 
     /// Returns the body of the message.

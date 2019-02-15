@@ -267,7 +267,7 @@ impl TPKBuilder {
         }
 
 
-        let tpk = TPK::from_packet_pile(PacketPile::from_packets(packets))?;
+        let tpk = TPK::from_packet_pile(PacketPile::from(packets))?;
         let sec =
             if let Some(SecretKey::Unencrypted { ref mpis }) = primary.secret() {
                 mpis.clone()
@@ -577,7 +577,7 @@ mod tests {
             .add_signing_subkey()
             .generate().unwrap();
         let pile = tpk.clone().into_packet_pile().into_children().collect::<Vec<_>>();
-        let exp = TPK::from_packet_pile(PacketPile::from_packets(pile))
+        let exp = TPK::from_packet_pile(PacketPile::from(pile))
             .unwrap();
 
         assert_eq!(tpk, exp);

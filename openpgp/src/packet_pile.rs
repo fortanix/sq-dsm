@@ -81,17 +81,13 @@ impl<'a> Parse<'a, PacketPile> for PacketPile {
     }
 }
 
-impl PacketPile {
-    /// Turns a vector of [`Packet`s] into a `PacketPile`.
-    ///
-    /// This is a simple wrapper function; it does not process the
-    /// packets in any way.
-    ///
-    ///   [`Packet`s]: enum.Packet.html
-    pub fn from_packets(p: Vec<Packet>) -> Self {
+impl From<Vec<Packet>> for PacketPile {
+    fn from(p: Vec<Packet>) -> Self {
         PacketPile { top_level: Container { packets: p } }
     }
+}
 
+impl PacketPile {
     /// Turns a  [`Packet`] into a `PacketPile`.
     ///
     /// This is a simple wrapper function; it does not process the
@@ -101,7 +97,7 @@ impl PacketPile {
     pub fn from_packet(p: Packet) -> Self {
         let mut top_level = Vec::with_capacity(1);
         top_level.push(p);
-        Self::from_packets(top_level)
+        Self::from(top_level)
     }
 
     /// Pretty prints the message to stderr.
@@ -330,7 +326,7 @@ impl PacketPile {
 
         if ppr.is_none() {
             // Empty message.
-            return Ok(PacketPile::from_packets(Vec::new()));
+            return Ok(PacketPile::from(Vec::new()));
         }
         let mut pp = ppr.unwrap();
 
@@ -669,7 +665,7 @@ mod test {
 
         eprintln!("{:#?}", packets);
 
-        let mut pile = PacketPile::from_packets(packets);
+        let mut pile = PacketPile::from(packets);
 
         assert_eq!(pile.path_ref(&[ 0 ]).unwrap().tag(), Tag::SEIP);
         assert_eq!(pile.path_ref_mut(&[ 0 ]).unwrap().tag(), Tag::SEIP);
@@ -731,7 +727,7 @@ mod test {
         assert!(packets.iter().map(|p| p.tag()).collect::<Vec<Tag>>()
                 == [ Tag::Literal ]);
 
-        let mut pile = PacketPile::from_packets(packets.clone());
+        let mut pile = PacketPile::from(packets.clone());
         pile.replace(
             &[ 0 ], 1,
             [ two.into()
@@ -763,7 +759,7 @@ mod test {
         for start in 0..initial.len() + 1 {
             for delete in 0..initial.len() - start + 1 {
                 for insert in 0..inserted.len() + 1 {
-                    let mut pile = PacketPile::from_packets(packets.clone());
+                    let mut pile = PacketPile::from(packets.clone());
 
                     let mut replacement : Vec<Packet> = Vec::new();
                     for &text in inserted[0..insert].iter() {
@@ -816,7 +812,7 @@ mod test {
         for start in 0..initial.len() + 1 {
             for delete in 0..initial.len() - start + 1 {
                 for insert in 0..inserted.len() + 1 {
-                    let mut pile = PacketPile::from_packets(
+                    let mut pile = PacketPile::from(
                         vec![ cd.clone().into() ]);
 
                     let mut replacement : Vec<Packet> = Vec::new();
@@ -859,7 +855,7 @@ mod test {
         one.set_body(b"one".to_vec());
         let mut packets : Vec<Packet> = Vec::new();
         packets.push(one.into());
-        let mut pile = PacketPile::from_packets(packets.clone());
+        let mut pile = PacketPile::from(packets.clone());
 
         assert!(pile.replace(&[ 1 ], 0, Vec::new()).is_ok());
         assert!(pile.replace(&[ 2 ], 0, Vec::new()).is_err());
@@ -871,7 +867,7 @@ mod test {
         let mut packets : Vec<Packet> = Vec::new();
         packets.push(CompressedData::new(CompressionAlgorithm::Uncompressed)
                      .into());
-        let mut pile = PacketPile::from_packets(packets.clone());
+        let mut pile = PacketPile::from(packets.clone());
 
         assert!(pile.replace(&[ 1 ], 0, Vec::new()).is_ok());
         assert!(pile.replace(&[ 2 ], 0, Vec::new()).is_err());

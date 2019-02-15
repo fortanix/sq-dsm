@@ -2520,7 +2520,7 @@ impl TPK {
     ///
     /// This method discards an invalid components and bad signatures.
     pub fn into_packet_pile(self) -> PacketPile {
-        PacketPile::from_packets(self.into_packets())
+        PacketPile::from(self.into_packets())
     }
 
     /// Merges `other` into `self`.
@@ -2563,7 +2563,7 @@ impl TPK {
     pub fn merge_packets(self, mut packets: Vec<Packet>) -> Result<Self> {
         let mut combined = self.into_packets();
         combined.append(&mut packets);
-        TPK::from_packet_pile(PacketPile::from_packets(combined))
+        TPK::from_packet_pile(PacketPile::from(combined))
     }
 
     /// Cast the public key into a secret key that allows using the secret
@@ -2577,7 +2577,7 @@ impl TPK {
     /// true are included in the TSK.
     pub fn filter_into_tsk<F: Fn(&Packet) -> bool>(self, f: F) -> Result<TSK> {
         let pkts = self.into_packet_pile().into_children().filter(f).collect::<Vec<_>>();
-        let pile = PacketPile::from_packets(pkts);
+        let pile = PacketPile::from(pkts);
 
         Ok(TSK::from_tpk(TPK::from_packet_pile(pile)?))
     }
@@ -3593,7 +3593,7 @@ mod test {
 
             (bind1, rev, bind2)
         };
-        let tpk = TPK::from_packet_pile(PacketPile::from_packets(vec![
+        let tpk = TPK::from_packet_pile(PacketPile::from(vec![
             key.into_packet(Tag::PublicKey).unwrap(),
             bind1.into(),
             bind2.into(),

@@ -1184,7 +1184,7 @@ mod test {
             write!(ls, "three").unwrap();
         }
 
-        let pile = PacketPile::from_packets(reference);
+        let pile = PacketPile::from(reference);
         let pile2 = PacketPile::from_bytes(&o).unwrap();
         if pile != pile2 {
             eprintln!("REFERENCE...");
@@ -1250,7 +1250,7 @@ mod test {
             write!(ls, "four").unwrap();
         }
 
-        let pile = PacketPile::from_packets(reference);
+        let pile = PacketPile::from(reference);
         let pile2 = PacketPile::from_bytes(&o).unwrap();
         if pile != pile2 {
             eprintln!("REFERENCE...");

@@ -1683,7 +1683,7 @@ mod test {
 
         for m in messages.into_iter() {
             // 1. The message.
-            let pile = PacketPile::from_packets(m);
+            let pile = PacketPile::from(m);
 
             pile.pretty_print();
 
