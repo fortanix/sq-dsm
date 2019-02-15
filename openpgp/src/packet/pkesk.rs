@@ -306,6 +306,76 @@ mod tests {
     }
 
     #[test]
+    fn decrypt_ecdh_nistp256() {
+        let tpk = TPK::from_file(
+            path_to_key("testy-nistp256-private.pgp")).unwrap();
+        let pile = PacketPile::from_file(
+            path_to_msg("encrypted-to-testy-nistp256.pgp")).unwrap();
+        let pair = tpk.subkeys().next().unwrap().subkey();
+
+        if let Some(SecretKey::Unencrypted{ mpis: ref sec }) = pair.secret() {
+            let pkg = pile.descendants().skip(0).next().clone();
+
+            if let Some(Packet::PKESK(ref pkesk)) = pkg {
+                let plain = pkesk.decrypt(&pair, sec).unwrap();
+
+                eprintln!("plain: {:?}", plain);
+            } else {
+                panic!("message is not a PKESK packet");
+            }
+        } else {
+            panic!("secret key is encrypted/missing");
+        }
+    }
+
+    #[test]
+    fn decrypt_ecdh_nistp384() {
+        let tpk = TPK::from_file(
+            path_to_key("testy-nistp384-private.pgp")).unwrap();
+        let pile = PacketPile::from_file(
+            path_to_msg("encrypted-to-testy-nistp384.pgp")).unwrap();
+        let pair = tpk.subkeys().next().unwrap().subkey();
+
+        if let Some(SecretKey::Unencrypted{ mpis: ref sec }) = pair.secret() {
+            let pkg = pile.descendants().skip(0).next().clone();
+
+            if let Some(Packet::PKESK(ref pkesk)) = pkg {
+                let plain = pkesk.decrypt(&pair, sec).unwrap();
+
+                eprintln!("plain: {:?}", plain);
+            } else {
+                panic!("message is not a PKESK packet");
+            }
+        } else {
+            panic!("secret key is encrypted/missing");
+        }
+    }
+
+    #[test]
+    fn decrypt_ecdh_nistp521() {
+        let tpk = TPK::from_file(
+            path_to_key("testy-nistp521-private.pgp")).unwrap();
+        let pile = PacketPile::from_file(
+            path_to_msg("encrypted-to-testy-nistp521.pgp")).unwrap();
+        let pair = tpk.subkeys().next().unwrap().subkey();
+
+        if let Some(SecretKey::Unencrypted{ mpis: ref sec }) = pair.secret() {
+            let pkg = pile.descendants().skip(0).next().clone();
+
+            if let Some(Packet::PKESK(ref pkesk)) = pkg {
+                let plain = pkesk.decrypt(&pair, sec).unwrap();
+
+                eprintln!("plain: {:?}", plain);
+            } else {
+                panic!("message is not a PKESK packet");
+            }
+        } else {
+            panic!("secret key is encrypted/missing");
+        }
+    }
+
+
+    #[test]
     fn decrypt_with_short_cv25519_secret_key() {
         use conversions::Time;
         use super::PKESK;
