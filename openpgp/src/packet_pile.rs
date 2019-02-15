@@ -87,19 +87,13 @@ impl From<Vec<Packet>> for PacketPile {
     }
 }
 
-impl PacketPile {
-    /// Turns a  [`Packet`] into a `PacketPile`.
-    ///
-    /// This is a simple wrapper function; it does not process the
-    /// packets in any way.
-    ///
-    ///   [`Packet`]: enum.Packet.html
-    pub fn from_packet(p: Packet) -> Self {
-        let mut top_level = Vec::with_capacity(1);
-        top_level.push(p);
-        Self::from(top_level)
+impl From<Packet> for PacketPile {
+    fn from(p: Packet) -> Self {
+        Self::from(vec![p])
     }
+}
 
+impl PacketPile {
     /// Pretty prints the message to stderr.
     ///
     /// This function is primarily intended for debugging purposes.
@@ -203,10 +197,9 @@ impl PacketPile {
     /// // A compressed data packet that contains a literal data packet.
     /// let mut literal = Literal::new(DataFormat::Text);
     /// literal.set_body(b"old".to_vec());
-    /// let mut pile = PacketPile::from_packet(
+    /// let mut pile = PacketPile::from(Packet::from(
     ///     CompressedData::new(CompressionAlgorithm::Uncompressed)
-    ///         .push(literal.into())
-    ///         .into());
+    ///         .push(literal.into())));
     ///
     /// // Replace the literal data packet.
     /// let mut literal = Literal::new(DataFormat::Text);
