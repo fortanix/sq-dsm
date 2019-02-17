@@ -8,6 +8,7 @@ test:
     - cargo --version
     - clang --version
     - SEQUOIA_CTEST_VALGRIND=/usr/bin/valgrind make test
+    - find target -type f -amin +60 -delete
     - du -sh target
     - du -sh cargo
 
