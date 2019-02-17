@@ -117,13 +117,16 @@ impl TPKBuilder {
     /// The autocrypt specification requires a UserID.  However,
     /// because it can be useful to add the UserID later, it is
     /// permitted to be none.
-    pub fn autocrypt<'a, V, S>(_: V, userid: S)
+    pub fn autocrypt<'a, V, S>(version: V, userid: S)
         -> Self
         where V: Into<Option<Autocrypt>>,
             S: Into<Option<Cow<'a, str>>>
     {
         let builder = TPKBuilder{
-            ciphersuite: CipherSuite::RSA3k,
+            ciphersuite: match version.into().unwrap_or(Default::default()) {
+                Autocrypt::V1 => CipherSuite::RSA3k,
+                Autocrypt::V1_1 => CipherSuite::Cv25519,
+            },
             primary: KeyBlueprint{
                 flags: KeyFlags::default()
                     .set_certify(true)
@@ -508,13 +511,30 @@ mod tests {
     }
 
     #[test]
-    fn autocrypt() {
-        let (tpk1, _) = TPKBuilder::autocrypt(None, Some("Foo".into()))
+    fn autocrypt_v1() {
+        let (tpk1, _) = TPKBuilder::autocrypt(Autocrypt::V1,
+                                              Some("Foo".into()))
             .generate().unwrap();
         assert_eq!(tpk1.primary().pk_algo(),
                    PublicKeyAlgorithm::RSAEncryptSign);
         assert_eq!(tpk1.subkeys().next().unwrap().subkey().pk_algo(),
                    PublicKeyAlgorithm::RSAEncryptSign);
+        assert_eq!(tpk1.userids().count(), 1);
+    }
+
+    #[test]
+    fn autocrypt_v1_1() {
+        let (tpk1, _) = TPKBuilder::autocrypt(Autocrypt::V1_1,
+                                              Some("Foo".into()))
+            .generate().unwrap();
+        assert_eq!(tpk1.primary().pk_algo(),
+                   PublicKeyAlgorithm::EdDSA);
+        assert_eq!(tpk1.subkeys().next().unwrap().subkey().pk_algo(),
+                   PublicKeyAlgorithm::ECDH);
+        assert_match!(
+            ::crypto::mpis::PublicKey::ECDH {
+                curve: ::constants::Curve::Cv25519, ..
+            } = tpk1.subkeys().next().unwrap().subkey().mpis());
         assert_eq!(tpk1.userids().count(), 1);
     }
 

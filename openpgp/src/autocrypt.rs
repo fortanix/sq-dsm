@@ -43,10 +43,12 @@ use crypto::Password;
 pub enum Autocrypt {
     /// Autocrypt <= 1.0.1
     V1,
+    /// Autocrypt version 1.1 (January 2019)
+    V1_1,
 }
 
 impl Default for Autocrypt {
-    fn default() -> Self { Autocrypt::V1 }
+    fn default() -> Self { Autocrypt::V1_1 }
 }
 
 /// An autocrypt header attribute.
