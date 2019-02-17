@@ -21,6 +21,7 @@ impl SymmetricAlgorithm {
         use nettle::cipher;
         match self {
             SymmetricAlgorithm::TripleDES => Ok(cipher::Des3::KEY_SIZE),
+            SymmetricAlgorithm::CAST5 => Ok(cipher::Cast128::KEY_SIZE),
             SymmetricAlgorithm::Blowfish => Ok(cipher::Blowfish::KEY_SIZE),
             SymmetricAlgorithm::AES128 => Ok(cipher::Aes128::KEY_SIZE),
             SymmetricAlgorithm::AES192 => Ok(cipher::Aes192::KEY_SIZE),
@@ -39,6 +40,7 @@ impl SymmetricAlgorithm {
         use nettle::cipher;
         match self {
             SymmetricAlgorithm::TripleDES => Ok(cipher::Des3::BLOCK_SIZE),
+            SymmetricAlgorithm::CAST5 => Ok(cipher::Cast128::BLOCK_SIZE),
             SymmetricAlgorithm::Blowfish => Ok(cipher::Blowfish::BLOCK_SIZE),
             SymmetricAlgorithm::AES128 => Ok(cipher::Aes128::BLOCK_SIZE),
             SymmetricAlgorithm::AES192 => Ok(cipher::Aes192::BLOCK_SIZE),
@@ -58,6 +60,9 @@ impl SymmetricAlgorithm {
             SymmetricAlgorithm::TripleDES =>
                 Ok(Box::new(
                     mode::Cfb::<cipher::Des3>::with_encrypt_key(&key[..])?)),
+            SymmetricAlgorithm::CAST5 =>
+                Ok(Box::new(
+                    mode::Cfb::<cipher::Cast128>::with_encrypt_key(&key[..])?)),
             SymmetricAlgorithm::Blowfish =>
                 Ok(Box::new(
                     mode::Cfb::<cipher::Blowfish>::with_encrypt_key(&key[..])?)),
@@ -93,6 +98,9 @@ impl SymmetricAlgorithm {
             SymmetricAlgorithm::TripleDES =>
                 Ok(Box::new(
                     mode::Cfb::<cipher::Des3>::with_decrypt_key(&key[..])?)),
+            SymmetricAlgorithm::CAST5 =>
+                Ok(Box::new(
+                    mode::Cfb::<cipher::Cast128>::with_decrypt_key(&key[..])?)),
             SymmetricAlgorithm::Blowfish =>
                 Ok(Box::new(
                     mode::Cfb::<cipher::Blowfish>::with_decrypt_key(&key[..])?)),
@@ -592,6 +600,7 @@ mod tests {
         let mut rng = Yarrow::default();
 
         for algo in [SymmetricAlgorithm::TripleDES,
+                     SymmetricAlgorithm::CAST5,
                      SymmetricAlgorithm::Blowfish,
                      SymmetricAlgorithm::AES128,
                      SymmetricAlgorithm::AES192,
