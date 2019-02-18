@@ -15,6 +15,8 @@ pub(crate) mod aead;
 mod asymmetric;
 pub(crate) mod ecdh;
 mod hash;
+mod keygrip;
+pub use self::keygrip::Keygrip;
 pub mod mpis;
 pub mod s2k;
 pub(crate) mod symmetric;
