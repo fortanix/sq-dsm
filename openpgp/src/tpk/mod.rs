@@ -2595,7 +2595,6 @@ impl TPK {
 }
 
 impl Serialize for TPK {
-    /// Serializes the TPK.
     fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
         self.primary().serialize(o, Tag::PublicKey)?;
 

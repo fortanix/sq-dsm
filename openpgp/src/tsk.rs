@@ -137,7 +137,6 @@ impl TSK {
  }
 
 impl Serialize for TSK {
-    /// Serializes the TSK.
     fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
         self.key.primary.serialize(o, Tag::SecretKey)?;
 

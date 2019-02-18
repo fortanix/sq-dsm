@@ -403,7 +403,6 @@ impl Serialize for Header {
 }
 
 impl Serialize for KeyID {
-    /// Writes a serialized version of the specified `KeyID` to `o`.
     fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
         let raw = match self {
             &KeyID::V4(ref fp) => &fp[..],
@@ -796,7 +795,6 @@ impl SerializeInto for crypto::mpis::Signature {
 }
 
 impl Serialize for S2K {
-    /// Serializes this S2K instance.
     fn serialize<W: io::Write>(&self, w: &mut W) -> Result<()> {
         match self {
             &S2K::Simple{ hash } => {
@@ -836,8 +834,6 @@ impl SerializeInto for S2K {
 }
 
 impl Serialize for Unknown {
-    /// Writes a serialized version of the specified `Unknown` packet
-    /// to `o`.
     fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
         let body = if let Some(ref body) = self.common.body {
             &body[..]
@@ -1037,20 +1033,6 @@ impl<'a> SerializeInto for SubpacketValue<'a> {
 }
 
 impl Serialize for Signature {
-    /// Writes a serialized version of the specified `Signature`
-    /// packet to `o`.
-    ///
-    /// Note: this function does not compute the signature (which
-    /// would require access to the private key); it assumes that
-    /// sig.mpis is up to date.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`Error::InvalidArgument`] if invoked on a
-    /// non-version 4 signature, or if either the hashed-area or the
-    /// unhashed-area exceeds the size limit of 2^16.
-    ///
-    /// [`Error::InvalidArgument`]: ../../enum.Error.html#variant.InvalidArgument
     fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
         let len = self.net_len();
         CTB::new(Tag::Signature).serialize(o)?;
@@ -1135,15 +1117,6 @@ impl Signature {
 }
 
 impl Serialize for OnePassSig {
-    /// Writes a serialized version of the specified `OnePassSig`
-    /// packet to `o`.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`Error::InvalidArgument`] if invoked on a
-    /// non-version 3 one-pass-signature packet.
-    ///
-    /// [`Error::InvalidArgument`]: ../enum.Error.html#variant.InvalidArgument
     fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
         let len = self.net_len();
         CTB::new(Tag::OnePassSig).serialize(o)?;
@@ -1188,15 +1161,6 @@ impl SerializeInto for OnePassSig {
 }
 
 impl SerializeKey for Key {
-    /// Writes a serialized version of the specified `Key` packet to
-    /// `o`.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`Error::InvalidArgument`] if invoked on a
-    /// non-version 4 key.
-    ///
-    /// [`Error::InvalidArgument`]: ../enum.Error.html#variant.InvalidArgument
     fn serialize<W: io::Write>(&self, o: &mut W, tag: Tag) -> Result<()> {
         assert!(tag == Tag::PublicKey
                 || tag == Tag::PublicSubkey
@@ -1300,8 +1264,6 @@ impl SerializeKeyInto for Key {
 }
 
 impl Serialize for UserID {
-    /// Writes a serialized version of the specified `UserID` packet to
-    /// `o`.
     fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
         let len = self.userid().len();
 
@@ -1325,8 +1287,6 @@ impl SerializeInto for UserID {
 }
 
 impl Serialize for UserAttribute {
-    /// Writes a serialized version of the specified `UserAttribute`
-    /// packet to `o`.
     fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
         let len = self.user_attribute().len();
 
@@ -1384,7 +1344,6 @@ impl Literal {
 }
 
 impl Serialize for Literal {
-    /// Writes a serialized version of the `Literal` data packet to `o`.
     fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
         let body = if let Some(ref body) = self.common.body {
             &body[..]
@@ -1484,15 +1443,6 @@ impl SerializeInto for CompressedData {
 }
 
 impl Serialize for PKESK {
-    /// Writes a serialized version of the specified `PKESK`
-    /// packet to `o`.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`Error::InvalidArgument`] if invoked on a
-    /// non-version 3 PKESK packet.
-    ///
-    /// [`Error::InvalidArgument`]: ../enum.Error.html#variant.InvalidArgument
     fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
         if self.version() != 3 {
             return Err(Error::InvalidArgument(
@@ -1559,15 +1509,6 @@ impl SerializeInto for SKESK {
 }
 
 impl Serialize for SKESK4 {
-    /// Writes a serialized version of the specified `SKESK`
-    /// packet to `o`.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`Error::InvalidArgument`] if invoked on a
-    /// non-version 4 SKESK packet.
-    ///
-    /// [`Error::InvalidArgument`]: ../enum.Error.html#variant.InvalidArgument
     fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
         if self.version() != 4 {
             return Err(Error::InvalidArgument(
@@ -1611,15 +1552,6 @@ impl SerializeInto for SKESK4 {
 }
 
 impl Serialize for SKESK5 {
-    /// Writes a serialized version of the specified `SKESK`
-    /// packet to `o`.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`Error::InvalidArgument`] if invoked on a
-    /// non-version 5 SKESK packet.
-    ///
-    /// [`Error::InvalidArgument`]: ../enum.Error.html#variant.InvalidArgument
     fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
         if self.version() != 5 {
             return Err(Error::InvalidArgument(
@@ -1671,6 +1603,12 @@ impl SerializeInto for SKESK5 {
 impl Serialize for SEIP {
     /// Writes a serialized version of the specified `SEIP`
     /// packet to `o`.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Error::InvalidOperation` if this packet has children.
+    /// To construct an encrypted message, use
+    /// `serialize::stream::Encryptor`.
     fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
         if let Some(ref _children) = self.common.children {
             return Err(Error::InvalidOperation(
@@ -1709,8 +1647,6 @@ impl SerializeInto for SEIP {
 }
 
 impl Serialize for MDC {
-    /// Writes a serialized version of the specified `MDC`
-    /// packet to `o`.
     fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
         CTB::new(Tag::MDC).serialize(o)?;
         BodyLength::Full(20).serialize(o)?;
@@ -1745,6 +1681,12 @@ impl AED {
 impl Serialize for AED {
     /// Writes a serialized version of the specified `AED`
     /// packet to `o`.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Error::InvalidOperation` if this packet has children.
+    /// To construct an encrypted message, use
+    /// `serialize::stream::Encryptor`.
     fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
         if let Some(ref _children) = self.common.children {
             return Err(Error::InvalidOperation(
