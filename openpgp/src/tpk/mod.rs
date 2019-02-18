@@ -31,7 +31,7 @@ use {
     TSK,
 };
 use parse::{Parse, PacketParserResult, PacketParser};
-use serialize::{Serialize, SerializeKey};
+use serialize::{Serialize, SerializeInto, SerializeKey};
 use conversions::Time;
 use constants::ReasonForRevocation;
 

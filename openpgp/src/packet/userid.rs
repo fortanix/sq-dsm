@@ -103,7 +103,7 @@ impl Arbitrary for UserID {
 mod tests {
     use super::*;
     use parse::Parse;
-    use serialize::Serialize;
+    use serialize::SerializeInto;
 
     quickcheck! {
         fn roundtrip(p: UserID) -> bool {

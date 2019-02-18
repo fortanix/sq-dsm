@@ -21,7 +21,7 @@ use packet::UserAttribute;
 use Packet;
 use packet;
 use packet::signature::subpacket::SubpacketArea;
-use serialize::Serialize;
+use serialize::SerializeInto;
 
 use nettle::{self, dsa, ecc, ecdsa, ed25519, rsa};
 use nettle::rsa::verify_digest_pkcs1;

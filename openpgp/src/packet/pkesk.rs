@@ -239,7 +239,7 @@ mod tests {
     use Packet;
     use std::path::PathBuf;
     use parse::Parse;
-    use serialize::Serialize;
+    use serialize::SerializeInto;
 
     quickcheck! {
         fn roundtrip(p: PKESK) -> bool {

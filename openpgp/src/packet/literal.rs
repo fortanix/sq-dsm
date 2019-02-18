@@ -187,7 +187,7 @@ impl Arbitrary for Literal {
 mod tests {
     use super::*;
     use parse::Parse;
-    use serialize::Serialize;
+    use serialize::SerializeInto;
 
     quickcheck! {
         fn roundtrip(p: Literal) -> bool {

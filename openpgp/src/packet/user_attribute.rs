@@ -82,7 +82,7 @@ impl Arbitrary for UserAttribute {
 mod tests {
     use super::*;
     use parse::Parse;
-    use serialize::Serialize;
+    use serialize::SerializeInto;
 
     quickcheck! {
         fn roundtrip(p: UserAttribute) -> bool {

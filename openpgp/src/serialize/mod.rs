@@ -64,13 +64,6 @@ fn path_to(artifact: &str) -> PathBuf {
 pub trait Serialize {
     /// Writes a serialized version of the packet to `o`.
     fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()>;
-
-    /// Serializes the packet to a vector.
-    fn to_vec(&self) -> Result<Vec<u8>> {
-        let mut o = Vec::with_capacity(4096);
-        self.serialize(&mut o)?;
-        Ok(o)
-    }
 }
 
 /// Key packet serialization.
@@ -81,13 +74,6 @@ pub trait SerializeKey {
     ///
     /// Tag identifies the kind of packet to write.
     fn serialize<W: io::Write>(&self, o: &mut W, tag: Tag) -> Result<()>;
-
-    /// Serializes the packet to a vector.
-    fn to_vec(&self, tag: Tag) -> Result<Vec<u8>> {
-        let mut o = Vec::with_capacity(4096);
-        self.serialize(&mut o, tag)?;
-        Ok(o)
-    }
 }
 
 /// Serialization into pre-allocated buffers.
@@ -110,6 +96,15 @@ pub trait SerializeInto {
     /// length computed by `serialized_len()`, this function returns
     /// `Error::InvalidArgument`.
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize>;
+
+    /// Serializes the packet to a vector.
+    fn to_vec(&self) -> Result<Vec<u8>> {
+        let mut o = vec![0; self.serialized_len()];
+        let len = self.serialize_into(&mut o[..])?;
+        o.truncate(len);
+        o.shrink_to_fit();
+        Ok(o)
+    }
 }
 
 trait NetLength {
@@ -158,6 +153,15 @@ pub trait SerializeKeyInto {
     /// length computed by `serialized_len()`, this function returns
     /// `Error::InvalidArgument`.
     fn serialize_into(&self, buf: &mut [u8], tag: Tag) -> Result<usize>;
+
+    /// Serializes the packet to a vector.
+    fn to_vec(&self, tag: Tag) -> Result<Vec<u8>> {
+        let mut o = vec![0; self.serialized_len(tag)];
+        let len = self.serialize_into(&mut o[..], tag)?;
+        o.truncate(len);
+        o.shrink_to_fit();
+        Ok(o)
+    }
 }
 
 /// Provides a generic implementation for SerializeInto::serialize_into.
@@ -408,13 +412,6 @@ impl Serialize for KeyID {
         o.write_all(raw)?;
         Ok(())
     }
-
-    /// Serializes the packet to a vector.
-    fn to_vec(&self) -> Result<Vec<u8>> {
-        let mut o = Vec::with_capacity(8);
-        self.serialize(&mut o)?;
-        Ok(o)
-    }
 }
 
 impl SerializeInto for KeyID {
@@ -434,12 +431,6 @@ impl Serialize for Fingerprint {
     fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
         o.write_all(self.as_slice())?;
         Ok(())
-    }
-
-    fn to_vec(&self) -> Result<Vec<u8>> {
-        let mut o = Vec::with_capacity(20);
-        self.serialize(&mut o)?;
-        Ok(o)
     }
 }
 
@@ -1173,13 +1164,6 @@ impl Serialize for OnePassSig {
 
         Ok(())
     }
-
-    /// Serializes the packet to a vector.
-    fn to_vec(&self) -> Result<Vec<u8>> {
-        let mut o = Vec::with_capacity(32);
-        self.serialize(&mut o)?;
-        Ok(o)
-    }
 }
 
 impl NetLength for OnePassSig {
@@ -1327,14 +1311,6 @@ impl Serialize for UserID {
 
         Ok(())
     }
-
-    /// Serializes the packet to a vector.
-    fn to_vec(&self) -> Result<Vec<u8>> {
-        let mut o = Vec::with_capacity(16 + self.userid().len());
-        // Writing to a vec can't fail.
-        self.serialize(&mut o)?;
-        Ok(o)
-    }
 }
 
 impl SerializeInto for UserID {
@@ -1359,13 +1335,6 @@ impl Serialize for UserAttribute {
         o.write_all(self.user_attribute())?;
 
         Ok(())
-    }
-
-    /// Serializes the packet to a vector.
-    fn to_vec(&self) -> Result<Vec<u8>> {
-        let mut o = Vec::with_capacity(16 + self.user_attribute().len());
-        self.serialize(&mut o)?;
-        Ok(o)
     }
 }
 
@@ -1436,16 +1405,6 @@ impl Serialize for Literal {
 
         Ok(())
     }
-
-    /// Serializes the packet to a vector.
-    fn to_vec(&self) -> Result<Vec<u8>> {
-        let mut o = Vec::with_capacity(
-            32 + self.common.body.as_ref().map(|b| b.len()).unwrap_or(0)
-            + self.filename().map(|b| b.len()).unwrap_or(0));
-
-        self.serialize(&mut o)?;
-        Ok(o)
-    }
 }
 
 impl SerializeInto for Literal {
@@ -1493,14 +1452,6 @@ impl Serialize for CompressedData {
         }
 
         Ok(())
-    }
-
-    /// Serializes the packet to a vector.
-    fn to_vec(&self) -> Result<Vec<u8>> {
-        let mut o = Vec::with_capacity(4 * 1024 * 1024);
-        self.serialize(&mut o)?;
-        o.shrink_to_fit();
-        Ok(o)
     }
 }
 
@@ -1865,14 +1816,6 @@ impl Serialize for Packet {
             &Packet::AED(ref p) => p.serialize(o),
         }
     }
-
-    /// Serializes the packet to a vector.
-    fn to_vec(&self) -> Result<Vec<u8>> {
-        let mut o = Vec::with_capacity(4 * 1024 * 1024);
-        self.serialize(&mut o)?;
-        o.shrink_to_fit();
-        Ok(o)
-    }
 }
 
 impl SerializeInto for Packet {
@@ -1911,14 +1854,6 @@ impl Serialize for PacketPile {
         }
 
         Ok(())
-    }
-
-    /// Serializes the packet to a vector.
-    fn to_vec(&self) -> Result<Vec<u8>> {
-        let mut o = Vec::with_capacity(4 * 1024 * 1024);
-        self.serialize(&mut o)?;
-        o.shrink_to_fit();
-        Ok(o)
     }
 }
 

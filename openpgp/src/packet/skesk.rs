@@ -418,7 +418,7 @@ mod test {
     use super::*;
     use PacketPile;
     use parse::Parse;
-    use serialize::Serialize;
+    use serialize::{Serialize, SerializeInto};
 
     quickcheck! {
         fn roundtrip(p: SKESK) -> bool {

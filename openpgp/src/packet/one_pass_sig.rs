@@ -10,7 +10,7 @@ use KeyID;
 use HashAlgorithm;
 use PublicKeyAlgorithm;
 use SignatureType;
-use serialize::Serialize;
+use serialize::SerializeInto;
 
 /// Holds a one-pass signature packet.
 ///
@@ -184,7 +184,7 @@ impl Arbitrary for OnePassSig {
 mod tests {
     use super::*;
     use parse::Parse;
-    use serialize::Serialize;
+    use serialize::SerializeInto;
 
     quickcheck! {
         fn roundtrip(p: OnePassSig) -> bool {
