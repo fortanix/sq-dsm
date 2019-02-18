@@ -1167,9 +1167,10 @@ impl Serialize for SEIP {
     /// packet to `o`.
     fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
         if let Some(ref _children) = self.common.children {
-            unimplemented!("XXX: Serialize and encrypt the content.");
+            return Err(Error::InvalidOperation(
+                "Cannot encrypt, use serialize::stream::Encryptor".into())
+                       .into());
         } else {
-            // XXX: We assume that the content is encrypted.
             let body_len = 1
                 + self.common.body.as_ref().map(|b| b.len()).unwrap_or(0);
 
@@ -1214,9 +1215,10 @@ impl Serialize for AED {
     /// packet to `o`.
     fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
         if let Some(ref _children) = self.common.children {
-            unimplemented!("XXX: Serialize and encrypt the content.");
+            return Err(Error::InvalidOperation(
+                "Cannot encrypt, use serialize::stream::Encryptor".into())
+                       .into());
         } else {
-            // XXX: We assume that the content is encrypted.
             let body_len = 4
                 + self.iv().len()
                 + self.common.body.as_ref().map(|b| b.len()).unwrap_or(0)
