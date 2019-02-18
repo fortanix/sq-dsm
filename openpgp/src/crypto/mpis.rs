@@ -27,6 +27,12 @@ pub struct MPI {
     pub value: Box<[u8]>,
 }
 
+impl From<Vec<u8>> for MPI {
+    fn from(v: Vec<u8>) -> Self {
+        Self::new(&v)
+    }
+}
+
 impl MPI {
     /// Creates a new MPI.
     ///
