@@ -1,7 +1,7 @@
 [package]
 name = "sequoia"
 description = "A cool new OpenPGP implementation"
-version = "0.3.0"
+version = "0.4.0"
 authors = [
     "Justus Winter <justus@sequoia-pgp.org>",
     "Kai Michaelis <kai@sequoia-pgp.org>",
@@ -23,16 +23,16 @@ maintenance = { status = "actively-developed" }
 
 [dependencies]
 buffered-reader = { path = "buffered-reader", version = "0.3.0" }
-sequoia-openpgp = { path = "openpgp", version = "0.3.0" }
-sequoia-openpgp-ffi = { path = "openpgp-ffi", version = "0.3.0" }
-sequoia-core = { path = "core", version = "0.3.0" }
-sequoia-ffi = { path = "ffi", version = "0.3.0" }
-sequoia-ffi-macros = { path = "ffi-macros", version = "0.3.0" }
-sequoia-net = { path = "net", version = "0.3.0" }
-sequoia-store = { path = "store", version = "0.3.0" }
-sequoia-tool = { path = "tool", version = "0.3.0" }
-sequoia-sqv = { path = "sqv", version = "0.3.0" }
-sequoia-guide = { path = "guide", version = "0.3.0" }
+sequoia-openpgp = { path = "openpgp", version = "0.4" }
+sequoia-openpgp-ffi = { path = "openpgp-ffi", version = "0.4" }
+sequoia-core = { path = "core", version = "0.4" }
+sequoia-ffi = { path = "ffi", version = "0.4" }
+sequoia-ffi-macros = { path = "ffi-macros", version = "0.4" }
+sequoia-net = { path = "net", version = "0.4" }
+sequoia-store = { path = "store", version = "0.4" }
+sequoia-tool = { path = "tool", version = "0.4" }
+sequoia-sqv = { path = "sqv", version = "0.4" }
+sequoia-guide = { path = "guide", version = "0.4" }
 
 [lib]
 name = "sequoia"
