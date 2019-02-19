@@ -566,29 +566,29 @@ impl SubkeyBinding {
     ///
     /// All self-signatures have been validated, and the newest
     /// self-signature is first.
-    pub fn selfsigs(&self) -> slice::Iter<Signature> {
-        self.selfsigs.iter()
+    pub fn selfsigs(&self) -> &[Signature] {
+        &self.selfsigs
     }
 
     /// Any third-party certifications.
     ///
     /// The signatures have *not* been validated.
-    pub fn certifications(&self) -> slice::Iter<Signature> {
-        self.certifications.iter()
+    pub fn certifications(&self) -> &[Signature] {
+        &self.certifications
     }
 
     /// Revocations issued by the key itself.
     ///
     /// The revocations have been validated, and the newest is first.
-    pub fn self_revocations(&self) -> slice::Iter<Signature> {
-        self.self_revocations.iter()
+    pub fn self_revocations(&self) -> &[Signature] {
+        &self.self_revocations
     }
 
     /// Revocations issued by other keys.
     ///
     /// The revocations have *not* been validated.
-    pub fn other_revocations(&self) -> slice::Iter<Signature> {
-        self.other_revocations.iter()
+    pub fn other_revocations(&self) -> &[Signature] {
+        &self.other_revocations
     }
 
     /// Returns the subkey's revocation status.
@@ -685,29 +685,29 @@ impl UserIDBinding {
     ///
     /// The self-signatures have been validated, and the newest
     /// self-signature is first.
-    pub fn selfsigs(&self) -> slice::Iter<Signature> {
-        self.selfsigs.iter()
+    pub fn selfsigs(&self) -> &[Signature] {
+        &self.selfsigs
     }
 
     /// Any third-party certifications.
     ///
     /// The signatures have *not* been validated.
-    pub fn certifications(&self) -> slice::Iter<Signature> {
-        self.certifications.iter()
+    pub fn certifications(&self) -> &[Signature] {
+        &self.certifications
     }
 
     /// Revocations issued by the key itself.
     ///
     /// The revocations have been validated, and the newest is first.
-    pub fn self_revocations(&self) -> slice::Iter<Signature> {
-        self.self_revocations.iter()
+    pub fn self_revocations(&self) -> &[Signature] {
+        &self.self_revocations
     }
 
     /// Revocations issued by other keys.
     ///
     /// The revocations have *not* been validated.
-    pub fn other_revocations(&self) -> slice::Iter<Signature> {
-        self.other_revocations.iter()
+    pub fn other_revocations(&self) -> &[Signature] {
+        &self.other_revocations
     }
 
     /// Returns the user id's revocation status at time `t`. If `t` is None,
@@ -795,29 +795,29 @@ impl UserAttributeBinding {
     ///
     /// The self-signatures have been validated, and the newest
     /// self-signature is first.
-    pub fn selfsigs(&self) -> slice::Iter<Signature> {
-        self.selfsigs.iter()
+    pub fn selfsigs(&self) -> &[Signature] {
+        &self.selfsigs
     }
 
     /// Any third-party certifications.
     ///
     /// The signatures have *not* been validated.
-    pub fn certifications(&self) -> slice::Iter<Signature> {
-        self.certifications.iter()
+    pub fn certifications(&self) -> &[Signature] {
+        &self.certifications
     }
 
     /// Revocations issued by the key itself.
     ///
     /// The revocations have been validated, and the newest is first.
-    pub fn self_revocations(&self) -> slice::Iter<Signature> {
-        self.self_revocations.iter()
+    pub fn self_revocations(&self) -> &[Signature] {
+        &self.self_revocations
     }
 
     /// Revocations issued by other keys.
     ///
     /// The revocations have *not* been validated.
-    pub fn other_revocations(&self) -> slice::Iter<Signature> {
-        self.other_revocations.iter()
+    pub fn other_revocations(&self) -> &[Signature] {
+        &self.other_revocations
     }
 
     /// Returns the `UserAttribute`'s revocation status.
@@ -1444,29 +1444,29 @@ impl TPK {
     ///
     /// All self-signatures have been validated, and the newest
     /// self-signature is first.
-    pub fn selfsigs(&self) -> slice::Iter<Signature> {
-        self.primary_selfsigs.iter()
+    pub fn selfsigs(&self) -> &[Signature] {
+        &self.primary_selfsigs
     }
 
     /// Any third-party certifications.
     ///
     /// The signatures have *not* been validated.
-    pub fn certifications(&self) -> slice::Iter<Signature> {
-        self.primary_certifications.iter()
+    pub fn certifications(&self) -> &[Signature] {
+        &self.primary_certifications
     }
 
     /// Revocations issued by the key itself.primary_
     ///
     /// The revocations have been validated, and the newest is first.
-    pub fn self_revocations(&self) -> slice::Iter<Signature> {
-        self.primary_self_revocations.iter()
+    pub fn self_revocations(&self) -> &[Signature] {
+        &self.primary_self_revocations
     }
 
     /// Revocations issued by other keys.
     ///
     /// The revocations have *not* been validated.
-    pub fn other_revocations(&self) -> slice::Iter<Signature> {
-        self.primary_other_revocations.iter()
+    pub fn other_revocations(&self) -> &[Signature] {
+        &self.primary_other_revocations
     }
 
     /// Returns the TPK's revocation status.
@@ -1755,7 +1755,7 @@ impl TPK {
                 None => Vec::default(),
                 Some((None, sig)) => vec![sig],
                 Some((Some(uid), sig)) =>
-                    uid.selfsigs().chain(iter::once(sig)).collect(),
+                    uid.selfsigs().iter().chain(iter::once(sig)).collect(),
             };
             let prim = Some(&self.primary)
                 .filter(|k| is_usable(k, prim_sigs.iter(), now, &cap));
@@ -1763,7 +1763,7 @@ impl TPK {
                 .iter()
                 .filter(|sb| {
                     sb.revoked(None) == RevocationStatus::NotAsFarAsWeKnow &&
-                        is_usable(sb.subkey(), sb.selfsigs(), now, &cap)
+                        is_usable(sb.subkey(), sb.selfsigs().iter(), now, &cap)
                 })
                 .map(|sb| sb.subkey())
                 .collect::<Vec<_>>();

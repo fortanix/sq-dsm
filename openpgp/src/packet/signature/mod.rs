@@ -1103,7 +1103,7 @@ mod test {
         let test2 = TPK::from_file(
             path_to("keys/test2-signed-by-test1.pgp")).unwrap();
         let uid_binding = &test2.primary_key_signature_full().unwrap().0.unwrap();
-        let cert = uid_binding.certifications().next().unwrap();
+        let cert = &uid_binding.certifications()[0];
 
         assert_eq!(cert.verify_userid_binding(cert_key1, test2.primary(), uid_binding.userid()).ok(), Some(true));
     }

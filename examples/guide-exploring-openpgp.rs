@@ -55,15 +55,15 @@ fn main() {
     for (i, u) in tpk.userids().enumerate() {
         println!("{}: UID: {}, {} self-signature(s), {} certification(s)",
                  i, u.userid(),
-                 u.selfsigs().count(),
-                 u.certifications().count());
+                 u.selfsigs().len(),
+                 u.certifications().len());
     }
 
     // List subkeys.
     for (i, s) in tpk.subkeys().enumerate() {
         println!("{}: Fingerprint: {}, {} self-signature(s), {} certification(s)",
                  i, s.subkey().fingerprint(),
-                 s.selfsigs().count(),
-                 s.certifications().count());
+                 s.selfsigs().len(),
+                 s.certifications().len());
     }
 }

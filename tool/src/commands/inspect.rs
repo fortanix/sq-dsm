@@ -123,7 +123,7 @@ fn inspect_tpk(output: &mut io::Write, tpk: &openpgp::TPK,
     writeln!(output, "    Fingerprint: {}", tpk.fingerprint())?;
     inspect_revocation(output, "", tpk.revoked(None))?;
     inspect_key(output, "", tpk.primary(), tpk.primary_key_signature(),
-                &tpk.certifications().collect::<Vec<_>>()[..],
+                tpk.certifications(),
                 print_keygrips, print_certifications)?;
     writeln!(output)?;
 
@@ -131,7 +131,7 @@ fn inspect_tpk(output: &mut io::Write, tpk: &openpgp::TPK,
         writeln!(output, "         Subkey: {}", skb.subkey().fingerprint())?;
         inspect_revocation(output, "", skb.revoked(None))?;
         inspect_key(output, "", skb.subkey(), skb.binding_signature(),
-                    &skb.certifications().collect::<Vec<_>>()[..],
+                    skb.certifications(),
                     print_keygrips, print_certifications)?;
         writeln!(output)?;
     }
@@ -147,7 +147,7 @@ fn inspect_tpk(output: &mut io::Write, tpk: &openpgp::TPK,
             }
         }
         inspect_certifications(output,
-                               &uidb.certifications().collect::<Vec<_>>()[..],
+                               uidb.certifications(),
                                print_certifications)?;
         writeln!(output)?;
     }
@@ -159,7 +159,7 @@ fn inspect_key(output: &mut io::Write,
                indent: &str,
                key: &openpgp::packet::Key,
                binding_signature: Option<&openpgp::packet::Signature>,
-               certs: &[&openpgp::packet::Signature],
+               certs: &[openpgp::packet::Signature],
                print_keygrips: bool,
                print_certifications: bool)
                -> Result<()> {
@@ -263,7 +263,7 @@ fn inspect_signatures(output: &mut io::Write,
 }
 
 fn inspect_certifications(output: &mut io::Write,
-                          certs: &[&openpgp::packet::Signature],
+                          certs: &[openpgp::packet::Signature],
                           print_certifications: bool) -> Result<()> {
     if print_certifications {
         for sig in certs {
