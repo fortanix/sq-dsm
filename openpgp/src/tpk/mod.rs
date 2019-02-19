@@ -1440,6 +1440,35 @@ impl TPK {
         }
     }
 
+    /// The self-signatures.
+    ///
+    /// All self-signatures have been validated, and the newest
+    /// self-signature is first.
+    pub fn selfsigs(&self) -> slice::Iter<Signature> {
+        self.primary_selfsigs.iter()
+    }
+
+    /// Any third-party certifications.
+    ///
+    /// The signatures have *not* been validated.
+    pub fn certifications(&self) -> slice::Iter<Signature> {
+        self.primary_certifications.iter()
+    }
+
+    /// Revocations issued by the key itself.primary_
+    ///
+    /// The revocations have been validated, and the newest is first.
+    pub fn self_revocations(&self) -> slice::Iter<Signature> {
+        self.primary_self_revocations.iter()
+    }
+
+    /// Revocations issued by other keys.
+    ///
+    /// The revocations have *not* been validated.
+    pub fn other_revocations(&self) -> slice::Iter<Signature> {
+        self.primary_other_revocations.iter()
+    }
+
     /// Returns the TPK's revocation status.
     ///
     /// Note: this only returns whether the primary key is revoked.  If you
