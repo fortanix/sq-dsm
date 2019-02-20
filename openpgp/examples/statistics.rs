@@ -16,9 +16,9 @@ use openpgp::parse::{Parse, PacketParserResult, PacketParser};
 
 fn main() {
     let args: Vec<String> = env::args().collect();
-    if args.len() != 2 {
+    if args.len() < 2 {
         panic!("Collects statistics about OpenPGP packet dumps.\n\n\
-                Usage: {} <packet-dump>\n", args[0]);
+                Usage: {} <packet-dump> [<packet-dump>...]\n", args[0]);
     }
 
     // Global stats.
@@ -40,70 +40,73 @@ fn main() {
     let mut tpk_min = PerTPK::max();
     let mut tpk_max = PerTPK::min();
 
-    // Create a parser.
-    let mut ppr = PacketParser::from_file(&args[1])
-        .expect("Failed to create reader");
+    // For each input file, create a parser.
+    for input in &args[1..] {
+        eprintln!("Parsing {}...", input);
+        let mut ppr = PacketParser::from_file(input)
+            .expect("Failed to create reader");
 
-    // Iterate over all packets.
-    while let PacketParserResult::Some(pp) = ppr {
-        // While the packet is in the parser, get some data for later.
-        let size = match pp.header().length {
-            BodyLength::Full(n) => Some(n),
-            _ => None,
-        };
+        // Iterate over all packets.
+        while let PacketParserResult::Some(pp) = ppr {
+            // While the packet is in the parser, get some data for later.
+            let size = match pp.header().length {
+                BodyLength::Full(n) => Some(n),
+                _ => None,
+            };
 
-        // Get the packet and advance the parser.
-        let (packet, tmp) = pp.next().expect("Failed to get next packet");
-        ppr = tmp;
+            // Get the packet and advance the parser.
+            let (packet, tmp) = pp.next().expect("Failed to get next packet");
+            ppr = tmp;
 
-        packet_count += 1;
-        if let Some(n) = size {
-            packet_size += n as usize;
-        }
-        let i = u8::from(packet.tag()) as usize;
-        tags_count[i] += 1;
-
-        match packet {
-            // If a new TPK starts, update TPK statistics.
-            Packet::PublicKey(_) | Packet::SecretKey(_) => {
-                if tpk_count > 0 {
-                    tpk.update_min_max(&mut tpk_min, &mut tpk_max);
-                }
-                tpk_count += 1;
-                tpk = PerTPK::min();
-            },
-
-            Packet::Signature(ref sig) => {
-                sigs_count[u8::from(sig.sigtype()) as usize] += 1;
-                tpk.sigs[u8::from(sig.sigtype()) as usize] += 1;
-            },
-
-            _ => (),
-        }
-
-        if let Packet::Unknown(_) = packet {
-            tags_unknown[i] += 1;
-        } else {
-            // Only record size statistics of packets we successfully
-            // parsed.
+            packet_count += 1;
             if let Some(n) = size {
-                tags_size_bytes[i] += n as usize;
-                tags_size_count[i] += 1;
-                if n < tags_size_min[i] {
-                    tags_size_min[i] = n;
-                }
-                if n > tags_size_max[i] {
-                    tags_size_max[i] = n;
-                }
+                packet_size += n as usize;
+            }
+            let i = u8::from(packet.tag()) as usize;
+            tags_count[i] += 1;
 
-                tpk.bytes += n as usize;
+            match packet {
+                // If a new TPK starts, update TPK statistics.
+                Packet::PublicKey(_) | Packet::SecretKey(_) => {
+                    if tpk_count > 0 {
+                        tpk.update_min_max(&mut tpk_min, &mut tpk_max);
+                    }
+                    tpk_count += 1;
+                    tpk = PerTPK::min();
+                },
+
+                Packet::Signature(ref sig) => {
+                    sigs_count[u8::from(sig.sigtype()) as usize] += 1;
+                    tpk.sigs[u8::from(sig.sigtype()) as usize] += 1;
+                },
+
+                _ => (),
             }
 
-            tpk.packets += 1;
-            tpk.tags[i] += 1;
+            if let Packet::Unknown(_) = packet {
+                tags_unknown[i] += 1;
+            } else {
+                // Only record size statistics of packets we successfully
+                // parsed.
+                if let Some(n) = size {
+                    tags_size_bytes[i] += n as usize;
+                    tags_size_count[i] += 1;
+                    if n < tags_size_min[i] {
+                        tags_size_min[i] = n;
+                    }
+                    if n > tags_size_max[i] {
+                        tags_size_max[i] = n;
+                    }
+
+                    tpk.bytes += n as usize;
+                }
+
+                tpk.packets += 1;
+                tpk.tags[i] += 1;
+            }
         }
+        tpk.update_min_max(&mut tpk_min, &mut tpk_max);
     }
-    tpk.update_min_max(&mut tpk_min, &mut tpk_max);
 
     // Print statistics.
     println!("# Packet statistics\n\n\
