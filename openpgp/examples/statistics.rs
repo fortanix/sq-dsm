@@ -11,7 +11,7 @@ use std::env;
 extern crate sequoia_openpgp as openpgp;
 use openpgp::Packet;
 use openpgp::constants::SignatureType;
-use openpgp::packet::{BodyLength, Tag};
+use openpgp::packet::{user_attribute, BodyLength, Tag};
 use openpgp::parse::{Parse, PacketParserResult, PacketParser};
 
 fn main() {
@@ -39,6 +39,11 @@ fn main() {
     let mut tpk = PerTPK::min();
     let mut tpk_min = PerTPK::max();
     let mut tpk_max = PerTPK::min();
+
+    // UserAttribute statistics.
+    let mut ua_image_count = vec![0; 256];
+    let mut ua_unknown_count = vec![0; 256];
+    let mut ua_invalid_count = 0;
 
     // For each input file, create a parser.
     for input in &args[1..] {
@@ -78,6 +83,26 @@ fn main() {
                 Packet::Signature(ref sig) => {
                     sigs_count[u8::from(sig.sigtype()) as usize] += 1;
                     tpk.sigs[u8::from(sig.sigtype()) as usize] += 1;
+                },
+
+                Packet::UserAttribute(ref ua) => {
+                    use user_attribute::Subpacket;
+                    use user_attribute::Image;
+                    for subpacket in ua.subpackets() {
+                        match subpacket {
+                            Ok(Subpacket::Image(i)) => match i {
+                                Image::JPEG(_) =>
+                                    ua_image_count[1] += 1,
+                                Image::Private(n, _) =>
+                                    ua_image_count[n as usize] += 1,
+                                Image::Unknown(n, _) =>
+                                    ua_image_count[n as usize] += 1,
+                            },
+                            Ok(Subpacket::Unknown(n, _)) =>
+                                ua_unknown_count[n as usize] += 1,
+                            Err(_) => ua_invalid_count += 1,
+                        }
+                    }
                 },
 
                 _ => (),
@@ -143,6 +168,38 @@ fn main() {
             println!("{:>22} {:>9}",
                      format!("{:?}", SignatureType::from(t as u8)),
                      sigs_count[t]);
+        }
+    }
+
+    if ua_invalid_count > 0
+        || ua_image_count.iter().any(|c| *c > 0)
+        || ua_unknown_count.iter().any(|c| *c > 0)
+    {
+        println!();
+        println!("# User Attribute Subpacket statistics");
+        println!();
+        println!("{:>18} {:>9}",
+                 "", "count",);
+        println!("----------------------------");
+        for t in 0..256 {
+            let n = ua_image_count[t];
+            if n > 0 {
+                println!("{:>18} {:>9}",
+                         match t {
+                             1 =>         "Image::JPEG".into(),
+                             100...110 => format!("Image::Private({})", t),
+                             _ =>         format!("Image::Unknown({})", t),
+                         }, n);
+            }
+        }
+        for t in 0..256 {
+            let n = ua_unknown_count[t];
+            if n > 0 {
+                println!("{:>18} {:>9}", format!("Unknown({})", t), n);
+            }
+        }
+        if ua_invalid_count > 0 {
+            println!("{:>18} {:>9}", "Invalid", ua_invalid_count);
         }
     }
 
