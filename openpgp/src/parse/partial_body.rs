@@ -371,6 +371,10 @@ impl<T: BufferedReader<Cookie>> BufferedReader<Cookie>
         return self.data_helper(amount, true, true);
     }
 
+    fn consummated(&mut self) -> bool {
+        self.partial_body_length == 0 && self.last
+    }
+
     fn get_mut(&mut self) -> Option<&mut BufferedReader<Cookie>> {
         Some(&mut self.reader)
     }

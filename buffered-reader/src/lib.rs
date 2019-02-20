@@ -565,6 +565,23 @@ pub trait BufferedReader<C> : io::Read + fmt::Debug + fmt::Display {
         self.data_hard(1).is_err()
     }
 
+    /// Checks whether this reader is consummated.
+    ///
+    /// For most readers, this function will return true once the end
+    /// of the stream is reached.  However, some readers are concerned
+    /// with packet framing (e.g. the [`Limitor`]).  Those readers
+    /// consider themselves consummated if the amount of data
+    /// indicated by the packet frame is consumed.
+    ///
+    /// This allows us to detect truncation.  A packet is truncated,
+    /// iff the end of the stream is reached, but the reader is not
+    /// consummated.
+    ///
+    /// [`Limitor`]: struct.Limitor.html
+    fn consummated(&mut self) -> bool {
+        self.eof()
+    }
+
     /// A convenience function for reading a 16-bit unsigned integer
     /// in big endian format.
     fn read_be_u16(&mut self) -> Result<u16, std::io::Error> {
@@ -814,6 +831,10 @@ impl <'a, C> BufferedReader<C> for Box<BufferedReader<C> + 'a> {
 
     fn data_consume_hard(&mut self, amount: usize) -> Result<&[u8], io::Error> {
         return self.as_mut().data_consume_hard(amount);
+    }
+
+    fn consummated(&mut self) -> bool {
+        self.as_mut().consummated()
     }
 
     fn read_be_u16(&mut self) -> Result<u16, std::io::Error> {

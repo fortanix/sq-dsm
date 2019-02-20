@@ -120,6 +120,10 @@ impl<'a, C> BufferedReader<C> for Limitor<'a, C> {
         return result;
     }
 
+    fn consummated(&mut self) -> bool {
+        self.limit == 0
+    }
+
     fn get_mut(&mut self) -> Option<&mut BufferedReader<C>> {
         Some(&mut self.reader)
     }
@@ -287,5 +291,19 @@ mod test {
                 }
             }
         }
+    }
+
+    #[test]
+    fn consummated() {
+        let data = b"0123456789";
+
+        let mut l = Limitor::new(Box::new(Memory::new(data)), 10);
+        l.drop_eof().unwrap();
+        assert!(l.consummated());
+
+        let mut l = Limitor::new(Box::new(Memory::new(data)), 20);
+        l.drop_eof().unwrap();
+        eprintln!("{:?}", l);
+        assert!(! l.consummated());
     }
 }
