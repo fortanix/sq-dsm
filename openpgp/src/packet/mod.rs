@@ -31,7 +31,7 @@ pub mod key;
 pub use self::key::Key;
 mod userid;
 pub use self::userid::UserID;
-mod user_attribute;
+pub mod user_attribute;
 pub use self::user_attribute::UserAttribute;
 mod literal;
 pub use self::literal::Literal;
