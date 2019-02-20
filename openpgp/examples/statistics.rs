@@ -4,7 +4,8 @@
 /// Note that to achieve reasonable performance, you need to compile
 /// Sequoia and this program with optimizations:
 ///
-///     % cargo run -p openpgp --example statistics --release
+///     % cargo run -p sequoia-openpgp --example statistics --release \
+///           -- <packet-dump>
 
 use std::env;
 extern crate sequoia_openpgp as openpgp;
