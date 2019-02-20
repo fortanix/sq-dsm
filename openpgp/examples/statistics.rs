@@ -109,28 +109,34 @@ fn main() {
     }
 
     // Print statistics.
-    println!("# Packet statistics\n\n\
-              {:>22} {:>9} {:>9} {:>9} {:>9} {:>9}",
+    println!("# Packet statistics");
+    println!();
+    println!("{:>14} {:>9} {:>9} {:>9} {:>9} {:>9} {:>12}",
              "", "count", "unknown",
-             "min size", "mean size", "max size");
+             "min size", "mean size", "max size", "sum size");
     println!("-------------------------------------------------------\
-              -----------------");
+              -----------------------");
 
-    println!("{:>22}", "- Packets -");
     for t in 0..64 {
         let count = tags_count[t];
         if count > 0 {
-            println!("{:>22} {:>9} {:>9} {:>9} {:>9} {:>9}",
+            println!("{:>14} {:>9} {:>9} {:>9} {:>9} {:>9} {:>12}",
                      format!("{:?}", Tag::from(t as u8)),
                      count,
                      tags_unknown[t],
                      tags_size_min[t],
                      tags_size_bytes[t] / tags_size_count[t],
-                     tags_size_max[t]);
+                     tags_size_max[t],
+                     tags_size_bytes[t]);
         }
     }
+    println!();
 
-    println!("\n{:>22}", "- Signatures -");
+    println!("# Signature statistics");
+    println!();
+    println!("{:>22} {:>9}",
+             "", "count",);
+    println!("--------------------------------");
     for t in 0..256 {
         let max = tpk_max.sigs[t];
         if max > 0 {
