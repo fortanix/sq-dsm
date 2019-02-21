@@ -2925,6 +2925,10 @@ mod test {
                        &[ 0xc6, 0x8f ]);
 
             assert_eq!(tpk.subkeys.len(), 0, "number of subkeys");
+
+            let tpk = parse_tpk(bytes!("testy.asc"), i == 0).unwrap();
+            assert_eq!(tpk.fingerprint().to_hex(),
+                       "3E8877C877274692975189F5D03F6F865226FE8B");
         }
     }
 
