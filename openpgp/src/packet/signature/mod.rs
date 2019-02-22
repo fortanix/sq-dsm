@@ -130,7 +130,7 @@ impl Builder {
         self.pk_algo = signer.public().pk_algo();
         self.hash_algo = algo;
         let digest =
-            Signature::primary_key_binding_hash(&self, signer.public());
+            Signature::primary_key_binding_hash(&self, signer.public())?;
 
         self.sign(signer, digest)
     }
@@ -145,7 +145,7 @@ impl Builder {
                                -> Result<Signature> {
         self.pk_algo = signer.public().pk_algo();
         self.hash_algo = algo;
-        let digest = Signature::userid_binding_hash(&self, key, userid);
+        let digest = Signature::userid_binding_hash(&self, key, userid)?;
 
         self.sign(signer, digest)
     }
@@ -160,7 +160,7 @@ impl Builder {
                                -> Result<Signature> {
         self.pk_algo = signer.public().pk_algo();
         self.hash_algo = algo;
-        let digest = Signature::subkey_binding_hash(&self, primary, subkey);
+        let digest = Signature::subkey_binding_hash(&self, primary, subkey)?;
 
         self.sign(signer, digest)
     }
@@ -176,7 +176,7 @@ impl Builder {
         self.pk_algo = signer.public().pk_algo();
         self.hash_algo = algo;
         let digest =
-            Signature::user_attribute_binding_hash(&self, signer.public(), ua);
+            Signature::user_attribute_binding_hash(&self, signer.public(), ua)?;
 
         self.sign(signer, digest)
     }
@@ -587,7 +587,7 @@ impl Signature {
             return Err(Error::UnsupportedSignatureType(self.sigtype()).into());
         }
 
-        let hash = Self::primary_key_binding_hash(self, pk);
+        let hash = Self::primary_key_binding_hash(self, pk)?;
         self.verify_hash(signer, self.hash_algo(), &hash[..])
     }
 
@@ -605,7 +605,7 @@ impl Signature {
             return Err(Error::UnsupportedSignatureType(self.sigtype()).into());
         }
 
-        let hash = Self::primary_key_binding_hash(self, pk);
+        let hash = Self::primary_key_binding_hash(self, pk)?;
         self.verify_hash(signer, self.hash_algo(), &hash[..])
     }
 
@@ -628,7 +628,7 @@ impl Signature {
             return Err(Error::UnsupportedSignatureType(self.sigtype()).into());
         }
 
-        let hash = Self::subkey_binding_hash(self, pk, subkey);
+        let hash = Self::subkey_binding_hash(self, pk, subkey)?;
         if self.verify_hash(signer, self.hash_algo(), &hash[..])? {
             // The signature is good, but we may still need to verify
             // the back sig.
@@ -647,7 +647,7 @@ impl Signature {
                 return Err(Error::UnsupportedSignatureType(self.sigtype()).into());
             } else {
                 // We can't use backsig.verify_subkey_binding.
-                let hash = Self::subkey_binding_hash(&backsig, pk, &subkey);
+                let hash = Self::subkey_binding_hash(&backsig, pk, &subkey)?;
                 match backsig.verify_hash(&subkey, backsig.hash_algo(), &hash[..])
                 {
                     Ok(true) => {
@@ -692,7 +692,7 @@ impl Signature {
             return Err(Error::UnsupportedSignatureType(self.sigtype()).into());
         }
 
-        let hash = Self::subkey_binding_hash(self, pk, subkey);
+        let hash = Self::subkey_binding_hash(self, pk, subkey)?;
         self.verify_hash(signer, self.hash_algo(), &hash[..])
     }
 
@@ -714,7 +714,7 @@ impl Signature {
             return Err(Error::UnsupportedSignatureType(self.sigtype()).into());
         }
 
-        let hash = Self::userid_binding_hash(self, pk, userid);
+        let hash = Self::userid_binding_hash(self, pk, userid)?;
         self.verify_hash(signer, self.hash_algo(), &hash[..])
     }
 
@@ -733,7 +733,7 @@ impl Signature {
             return Err(Error::UnsupportedSignatureType(self.sigtype()).into());
         }
 
-        let hash = Self::userid_binding_hash(self, pk, userid);
+        let hash = Self::userid_binding_hash(self, pk, userid)?;
         self.verify_hash(signer, self.hash_algo(), &hash[..])
     }
 
@@ -755,7 +755,7 @@ impl Signature {
             return Err(Error::UnsupportedSignatureType(self.sigtype()).into());
         }
 
-        let hash = Self::user_attribute_binding_hash(self, pk, ua);
+        let hash = Self::user_attribute_binding_hash(self, pk, ua)?;
         self.verify_hash(signer, self.hash_algo(), &hash[..])
     }
 
@@ -774,7 +774,7 @@ impl Signature {
             return Err(Error::UnsupportedSignatureType(self.sigtype()).into());
         }
 
-        let hash = Self::user_attribute_binding_hash(self, pk, ua);
+        let hash = Self::user_attribute_binding_hash(self, pk, ua)?;
         self.verify_hash(signer, self.hash_algo(), &hash[..])
     }
 

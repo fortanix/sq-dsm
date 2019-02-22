@@ -280,24 +280,24 @@ impl Signature {
     /// Returns the message digest of the primary key binding over the
     /// specified primary key.
     pub fn primary_key_binding_hash<'a, S>(sig: S, key: &Key)
-        -> Vec<u8>
+        -> Result<Vec<u8>>
         where S: Into<&'a signature::Builder> {
 
         let sig = sig.into();
-        let mut h: Box<nettle::Hash> = sig.hash_algo().context().unwrap();
+        let mut h: Box<nettle::Hash> = sig.hash_algo().context()?;
 
         key.hash(&mut h);
         sig.hash(&mut h);
 
         let mut digest = vec![0u8; h.digest_size()];
         h.digest(&mut digest);
-        return digest;
+        Ok(digest)
     }
 
     /// Returns the message digest of the subkey binding over the
     /// specified primary key and subkey.
     pub fn subkey_binding_hash<'a, S>(sig: S, key: &Key, subkey: &Key)
-        -> Vec<u8>
+        -> Result<Vec<u8>>
         where S: Into<&'a signature::Builder> {
 
         let sig = sig.into();
@@ -309,17 +309,17 @@ impl Signature {
 
         let mut digest = vec![0u8; h.digest_size()];
         h.digest(&mut digest);
-        return digest;
+        Ok(digest)
     }
 
     /// Returns the message digest of the user ID binding over the
     /// specified primary key, user ID, and signature.
     pub fn userid_binding_hash<'a, S>(sig: S, key: &Key, userid: &UserID)
-        -> Vec<u8>
+        -> Result<Vec<u8>>
         where S: Into<&'a signature::Builder> {
 
         let sig = sig.into();
-        let mut h: Box<nettle::Hash> = sig.hash_algo().context().unwrap();
+        let mut h: Box<nettle::Hash> = sig.hash_algo().context()?;
 
         key.hash(&mut h);
         userid.hash(&mut h);
@@ -327,18 +327,18 @@ impl Signature {
 
         let mut digest = vec![0u8; h.digest_size()];
         h.digest(&mut digest);
-        return digest;
+        Ok(digest)
     }
 
     /// Returns the message digest of the user attribute binding over
     /// the specified primary key, user attribute, and signature.
     pub fn user_attribute_binding_hash<'a, S>(sig: S, key: &Key,
                                               ua: &UserAttribute)
-        -> Vec<u8>
+        -> Result<Vec<u8>>
         where S: Into<&'a signature::Builder> {
 
         let sig = sig.into();
-        let mut h: Box<nettle::Hash> = sig.hash_algo().context().unwrap();
+        let mut h: Box<nettle::Hash> = sig.hash_algo().context()?;
 
         key.hash(&mut h);
         ua.hash(&mut h);
@@ -346,7 +346,7 @@ impl Signature {
 
         let mut digest = vec![0u8; h.digest_size()];
         h.digest(&mut digest);
-        return digest;
+        Ok(digest)
     }
 }
 
@@ -369,7 +369,7 @@ mod test {
                     let h = Signature::userid_binding_hash(
                         selfsig,
                         tpk.primary(),
-                        binding.userid());
+                        binding.userid()).unwrap();
                     if &h[..2] != selfsig.hash_prefix() {
                         eprintln!("{:?}: {:?} / {:?}",
                                   i, binding.userid(), selfsig);
@@ -385,7 +385,7 @@ mod test {
                     let h = Signature::user_attribute_binding_hash(
                         selfsig,
                         tpk.primary(),
-                        binding.user_attribute());
+                        binding.user_attribute()).unwrap();
                     if &h[..2] != selfsig.hash_prefix() {
                         eprintln!("{:?}: {:?} / {:?}",
                                   i, binding.user_attribute(), selfsig);
@@ -401,7 +401,7 @@ mod test {
                     let h = Signature::subkey_binding_hash(
                         selfsig,
                         tpk.primary(),
-                        binding.subkey());
+                        binding.subkey()).unwrap();
                     if &h[..2] != selfsig.hash_prefix() {
                         eprintln!("{:?}: {:?}", i, binding);
                         eprintln!("  Hash: {:?}", h);
