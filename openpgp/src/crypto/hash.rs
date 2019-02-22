@@ -301,7 +301,7 @@ impl Signature {
         where S: Into<&'a signature::Builder> {
 
         let sig = sig.into();
-        let mut h: Box<nettle::Hash> = sig.hash_algo().context().unwrap();
+        let mut h: Box<nettle::Hash> = sig.hash_algo().context()?;
 
         key.hash(&mut h);
         subkey.hash(&mut h);
