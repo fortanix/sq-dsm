@@ -1409,7 +1409,7 @@ impl TPK {
         // 1. Self-signature from a non-revoked UserID.
         if let Some(userid) = self.userids.get(0) {
             if userid.self_revocations.len() == 0 {
-                return Some((Some(&userid), userid.selfsigs.last().unwrap()));
+                return Some((Some(&userid), userid.selfsigs.last()?));
             }
         }
 
@@ -1420,7 +1420,7 @@ impl TPK {
 
         // 3. Treat User IDs as if they were not revoked.
         if let Some(userid) = self.userids.get(0) {
-            return Some((Some(&userid), &userid.selfsigs.last().unwrap()));
+            return Some((Some(&userid), userid.selfsigs.last()?));
         }
 
         // 4. No user ids and no direct signatures.
