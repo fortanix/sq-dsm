@@ -135,4 +135,56 @@ impl Fingerprint {
             }
         }
     }
+
+    /// Converts the hex representation of the fingerprint to a phrase in the
+    /// ICAO alphabet.
+    pub fn to_icao(&self) -> String {
+        let mut ret = String::default();
+
+        for ch in self.to_hex().chars() {
+            let word = match ch {
+                '0' => "Zero",
+                '1' => "One",
+                '2' => "Two",
+                '3' => "Three",
+                '4' => "Four",
+                '5' => "Five",
+                '6' => "Six",
+                '7' => "Seven",
+                '8' => "Eight",
+                '9' => "Niner",
+                'A' => "Alpha",
+                'B' => "Bravo",
+                'C' => "Charlie",
+                'D' => "Delta",
+                'E' => "Echo",
+                'F' => "Foxtrot",
+                _ => { continue; }
+            };
+
+            if !ret.is_empty() {
+                ret.push_str(" ");
+            }
+            ret.push_str(word);
+        }
+
+        ret
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn icao() {
+        let fpr = Fingerprint::from_hex(
+            "0123 4567 89AB CDEF 0123 4567 89AB CDEF 0123 4567").unwrap();
+        let expected = "\
+Zero One Two Three Four Five Six Seven Eight Niner Alpha Bravo Charlie Delta \
+Echo Foxtrot Zero One Two Three Four Five Six Seven Eight Niner Alpha Bravo \
+Charlie Delta Echo Foxtrot Zero One Two Three Four Five Six Seven";
+
+        assert_eq!(fpr.to_icao(), expected);
+    }
 }
