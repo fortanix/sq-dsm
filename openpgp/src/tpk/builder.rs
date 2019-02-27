@@ -6,7 +6,6 @@ use packet::Key;
 use Result;
 use packet::UserID;
 use crypto::KeyPair;
-use SymmetricAlgorithm;
 use HashAlgorithm;
 use packet::signature::{self, Signature};
 use packet::key::SecretKey;
@@ -204,7 +203,7 @@ impl TPKBuilder {
 
     /// Generates the actual TPK.
     pub fn generate(mut self) -> Result<(TPK, Signature)> {
-        use {PacketPile, Packet};
+        use {PacketPile, Packet, TSK};
         use constants::ReasonForRevocation;
 
         let mut packets = Vec::<Packet>::with_capacity(
@@ -245,32 +244,31 @@ impl TPKBuilder {
             }
         };
 
+        let mut tsk =
+            TSK::from_tpk(TPK::from_packet_pile(PacketPile::from(packets))?);
+
         // sign UserIDs. First UID was used as primary keys self-sig
         if !self.userids.is_empty() {
             for uid in self.userids[1..].iter() {
                 let uid = UserID::from(uid.as_str());
-                let sig = Self::userid(&uid, &primary)?;
 
-                packets.push(Packet::UserID(uid));
-                packets.push(Packet::Signature(sig));
+                tsk = tsk.with_userid(uid)?;
             }
         }
 
         // sign subkeys
-        for subkey in self.subkeys {
-            let (mut subkey, sig) = Self::subkey(subkey, &primary,
-                                                 self.ciphersuite)?;
+        for blueprint in self.subkeys {
+            let mut subkey = self.ciphersuite.generate_key(&blueprint.flags)?;
 
             if let Some(ref password) = self.password {
                 subkey.secret_mut().unwrap().encrypt_in_place(password)?;
             }
 
-            packets.push(Packet::PublicSubkey(subkey));
-            packets.push(Packet::Signature(sig));
+            tsk = tsk.with_subkey(subkey, &blueprint.flags, self.password.as_ref())?;
         }
 
 
-        let tpk = TPK::from_packet_pile(PacketPile::from(packets))?;
+        let tpk = tsk.into_tpk();
         let sec =
             if let Some(SecretKey::Unencrypted { ref mpis }) = primary.secret() {
                 mpis.clone()
@@ -332,97 +330,6 @@ impl TPKBuilder {
         };
 
         Ok((key, sig))
-    }
-
-    fn subkey(blueprint: KeyBlueprint, primary_key: &Key, cs: CipherSuite)
-        -> Result<(Key, Signature)>
-    {
-        use SignatureType;
-        use packet::key::SecretKey;
-
-        let subkey = cs.generate_key(&blueprint.flags)?;
-        let mut sig = signature::Builder::new(SignatureType::SubkeyBinding)
-            .set_key_flags(&blueprint.flags)?
-            .set_signature_creation_time(time::now().canonicalize())?
-            .set_key_expiration_time(Some(time::Duration::weeks(3 * 52)))?
-            .set_issuer_fingerprint(primary_key.fingerprint())?
-            .set_issuer(primary_key.fingerprint().to_keyid())?;
-
-        if blueprint.flags.can_encrypt_for_transport()
-        || blueprint.flags.can_encrypt_at_rest() {
-            sig = sig.set_preferred_symmetric_algorithms(
-                vec![SymmetricAlgorithm::AES256])?;
-        }
-
-        if blueprint.flags.can_certify() || blueprint.flags.can_sign() {
-            sig = sig.set_preferred_hash_algorithms(vec![HashAlgorithm::SHA512])?;
-
-            let backsig = match subkey.secret() {
-                Some(SecretKey::Unencrypted{ ref mpis }) => {
-                    signature::Builder::new(SignatureType::PrimaryKeyBinding)
-                        .set_signature_creation_time(time::now().canonicalize())?
-                        .set_issuer_fingerprint(subkey.fingerprint())?
-                        .set_issuer(subkey.fingerprint().to_keyid())?
-                        .sign_subkey_binding(
-                            &mut KeyPair::new(subkey.clone(), mpis.clone())?,
-                            primary_key, &subkey, HashAlgorithm::SHA512)?
-                }
-                Some(SecretKey::Encrypted{ .. }) => {
-                    return Err(Error::InvalidOperation(
-                            "Secret key is encrypted".into()).into());
-                }
-                None => {
-                    return Err(Error::InvalidOperation(
-                            "No secret key".into()).into());
-                }
-            };
-            sig = sig.set_embedded_signature(backsig)?;
-        }
-
-        let sig = match primary_key.secret() {
-            Some(SecretKey::Unencrypted{ ref mpis }) => {
-                sig.sign_subkey_binding(&mut KeyPair::new(primary_key.clone(),
-                                                          mpis.clone())?,
-                                        primary_key, &subkey,
-                                        HashAlgorithm::SHA512)?
-            }
-            Some(SecretKey::Encrypted{ .. }) => {
-                return Err(Error::InvalidOperation(
-                        "Secret key is encrypted".into()).into());
-            }
-            None => {
-                return Err(Error::InvalidOperation(
-                        "No secret key".into()).into());
-            }
-        };
-
-        Ok((subkey, sig))
-    }
-
-    fn userid(uid: &UserID, key: &Key) -> Result<Signature> {
-        use SignatureType;
-        use packet::key::SecretKey;
-        let sig = match key.secret() {
-            Some(SecretKey::Unencrypted{ ref mpis }) => {
-                signature::Builder::new(SignatureType::PositiveCertificate)
-                    .set_signature_creation_time(time::now().canonicalize())?
-                    .set_issuer_fingerprint(key.fingerprint())?
-                    .set_issuer(key.fingerprint().to_keyid())?
-                    .sign_userid_binding(
-                        &mut KeyPair::new(key.clone(), mpis.clone())?,
-                        key, &uid, HashAlgorithm::SHA512)?
-            }
-            Some(SecretKey::Encrypted{ .. }) => {
-                return Err(Error::InvalidOperation(
-                        "Secret key is encrypted".into()).into());
-            }
-            None => {
-                return Err(Error::InvalidOperation(
-                        "No secret key".into()).into());
-            }
-        };
-
-        Ok(sig)
     }
 }
 

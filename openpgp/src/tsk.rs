@@ -2,19 +2,24 @@ use std::borrow::Cow;
 use std::io;
 use std::ops::{Deref, DerefMut};
 use std::path::Path;
+use time;
 
 use {
     Result,
     TPK,
     Error,
+    Packet,
+    conversions::Time,
 };
 
-use crypto::KeyPair;
+use crypto::{KeyPair, Password};
 use packet::{
     signature::Signature,
     Tag,
     UserID,
     Key,
+    UserAttribute,
+    KeyFlags,
 };
 use serialize::{
     Serialize,
@@ -134,6 +139,211 @@ impl TSK {
                 self.certify_userid(key.primary(), uid.userid()),
         }
     }
+
+    /// Signs `userid` with this TSK.
+    pub fn sign_userid(&self, userid: &UserID) -> Result<Signature> {
+        use packet::{KeyFlags, signature, key::SecretKey};
+        use constants::{HashAlgorithm, SignatureType};
+
+        let caps = KeyFlags::default().set_certify(true);
+        let keys = self.key.select_keys(caps, None);
+
+        match keys.first() {
+            Some(my_key) => {
+                match my_key.secret() {
+                    Some(&SecretKey::Unencrypted{ ref mpis }) => {
+                        signature::Builder::new(SignatureType::PositiveCertificate)
+                            .set_signature_creation_time(time::now())?
+                            .set_issuer_fingerprint(my_key.fingerprint())?
+                            .set_issuer(my_key.fingerprint().to_keyid())?
+                            .sign_userid_binding(
+                                &mut KeyPair::new((*my_key).clone(),
+                                mpis.clone())?,
+                                my_key, userid, HashAlgorithm::SHA512)
+                    }
+                    _ => Err(Error::InvalidOperation(
+                            "secret key missing or encrypted".into()).into()),
+                }
+            }
+            None => Err(Error::InvalidOperation(
+                        "this key cannot certify keys".into()).into()),
+        }
+    }
+
+    /// Signs `userattr` with a the primary key.
+    pub fn sign_user_attribute(&self, userattr: &UserAttribute) -> Result<Signature> {
+        use packet::{KeyFlags, signature, key::SecretKey};
+        use constants::{HashAlgorithm, SignatureType};
+
+        let caps = KeyFlags::default().set_certify(true);
+        let keys = self.key.select_keys(caps, None);
+
+        match keys.first() {
+            Some(my_key) => {
+                match my_key.secret() {
+                    Some(&SecretKey::Unencrypted{ ref mpis }) => {
+                        let mut pair =
+                            KeyPair::new((*my_key).clone(), mpis.clone())?;
+
+                        signature::Builder::new(SignatureType::GenericCertificate)
+                            .set_signature_creation_time(time::now())?
+                            .set_issuer_fingerprint(my_key.fingerprint())?
+                            .set_issuer(my_key.fingerprint().to_keyid())?
+                            .sign_user_attribute_binding(
+                                &mut pair,
+                                userattr,
+                                HashAlgorithm::SHA512)
+                    }
+                    _ => Err(Error::InvalidOperation(
+                            "secret key missing or encrypted".into()).into()),
+                }
+            }
+            None => Err(Error::InvalidOperation(
+                    "this key cannot certify user attributes".into()).into()),
+        }
+    }
+
+    /// Create a binding signature between this TSK and `subkey`. Uses the TSKs
+    /// primary key to sign the binding. The binding signature will advertise
+    /// `flags` key capabilities. If `subkey` is encrypted that caller must
+    /// supply the password in `passwd`.
+    pub fn sign_subkey(&self, subkey: &Key, flags: &KeyFlags,
+                       passwd: Option<&Password>)
+        -> Result<Signature>
+    {
+        use packet::{signature, Features, key::SecretKey};
+        use constants::{HashAlgorithm, SignatureType, SymmetricAlgorithm};
+
+        let prim = self.key.primary();
+        let mut sig = signature::Builder::new(SignatureType::SubkeyBinding)
+            .set_features(&Features::sequoia())?
+            .set_key_flags(flags)?
+            .set_signature_creation_time(time::now().canonicalize())?
+            .set_key_expiration_time(Some(time::Duration::weeks(3 * 52)))?
+            .set_issuer_fingerprint(prim.fingerprint())?
+            .set_issuer(prim.fingerprint().to_keyid())?;
+
+        if flags.can_encrypt_for_transport()
+        || flags.can_encrypt_at_rest() {
+            sig = sig.set_preferred_symmetric_algorithms(
+                vec![SymmetricAlgorithm::AES256])?;
+        }
+
+        if flags.can_certify() || flags.can_sign() {
+            sig = sig.set_preferred_hash_algorithms(vec![HashAlgorithm::SHA512])?;
+
+            let sk = match passwd {
+                Some(pwd) => subkey.secret().and_then(|sk| {
+                    sk
+                        .decrypt(subkey.pk_algo(), pwd)
+                        .ok()
+                        .map(|mpi| SecretKey::Unencrypted{ mpis: mpi })
+                        .or(subkey.secret().cloned())
+                }),
+                None => subkey.secret().cloned(),
+            };
+
+            let backsig = match sk {
+                Some(SecretKey::Unencrypted{ ref mpis }) => {
+                    signature::Builder::new(SignatureType::PrimaryKeyBinding)
+                        .set_signature_creation_time(time::now().canonicalize())?
+                        .set_issuer_fingerprint(subkey.fingerprint())?
+                        .set_issuer(subkey.fingerprint().to_keyid())?
+                        .sign_subkey_binding(
+                            &mut KeyPair::new(subkey.clone(), mpis.clone())?,
+                            prim, &subkey, HashAlgorithm::SHA512)?
+                }
+                Some(SecretKey::Encrypted{ .. }) => {
+                    return Err(Error::InvalidOperation(
+                            "Secret key is encrypted".into()).into());
+                }
+                None => {
+                    return Err(Error::InvalidOperation(
+                            "No secret key".into()).into());
+                }
+            };
+            sig = sig.set_embedded_signature(backsig)?;
+        }
+
+        let sig = match prim.secret() {
+            Some(SecretKey::Unencrypted{ ref mpis }) => {
+                sig.sign_subkey_binding(&mut KeyPair::new(prim.clone(),
+                                                          mpis.clone())?,
+                                        prim, &subkey,
+                                        HashAlgorithm::SHA512)?
+            }
+            Some(SecretKey::Encrypted{ .. }) => {
+                return Err(Error::InvalidOperation(
+                        "Secret key is encrypted".into()).into());
+            }
+            None => {
+                return Err(Error::InvalidOperation(
+                        "No secret key".into()).into());
+            }
+        };
+
+        Ok(sig)
+    }
+
+    /// Adds a 3rd party certification by `certifier` of the user ID `userid`.
+    /// It's not checked whether `userid` is bound to this TSK.
+    pub fn with_userid_certification(self, certifier: &TSK, userid: &UserID)
+        -> Result<Self>
+    {
+        let sig = certifier.certify_userid(self.key.primary(), userid)?;
+
+        Ok(TSK{
+            key: self.key.merge_packets(vec![
+                Packet::Signature(sig)
+            ])?
+        })
+    }
+
+    /// Adds UserID `userid` to this TSK and bind it to the primary key.
+    /// There is no check whether the user ID is already bound to this key.
+    pub fn with_userid(self, userid: UserID) -> Result<Self> {
+        let sig = self.sign_userid(&userid)?;
+
+        Ok(TSK{
+            key: self.key.merge_packets(vec![
+                Packet::UserID(userid),
+                Packet::Signature(sig)
+            ])?
+        })
+    }
+
+    /// Adds UserID `userid` to this TSK and bind it to the primary key.
+    /// There is no check whether the user attribute is already bound to this key.
+    pub fn with_user_attribute(self, userattr: UserAttribute) -> Result<Self> {
+        let sig = self.sign_user_attribute(&userattr)?;
+
+        Ok(TSK{
+            key: self.key.merge_packets(vec![
+                Packet::UserAttribute(userattr),
+                Packet::Signature(sig)
+            ])?
+        })
+    }
+
+    /// Adds sub key `subkey` to this TSK and bind it. There is no check whether
+    /// the subkey is already part of the TSK. The binding signature will advertise
+    /// `flags` key capabilities. If `subkey` is encrypted that caller must
+    /// supply the password in `passwd`.
+    pub fn with_subkey(self, subkey: Key, flags: &KeyFlags, passwd: Option<&Password>) -> Result<Self> {
+        let sig = self.sign_subkey(&subkey, flags, passwd)?;
+        let pkt = if subkey.secret().is_some() {
+            Packet::SecretSubkey(subkey)
+        } else {
+            Packet::PublicSubkey(subkey)
+        };
+
+        Ok(TSK{
+            key: self.key.merge_packets(vec![
+                pkt,
+                Packet::Signature(sig)
+            ])?
+        })
+    }
  }
 
 impl Serialize for TSK {
@@ -245,6 +455,65 @@ mod tests {
                 tpk2.primary(),
                 tpk2.userids().next().unwrap().userid()).unwrap(),
             true);
+    }
+
+    #[test]
+    fn add_userid() {
+        use std::str;
+
+        let ui1 = b"test1@example.com";
+        let ui2 = b"test2@example.com";
+        let (tpk, _) = TPKBuilder::default()
+            .add_userid(str::from_utf8(ui1).unwrap())
+            .generate().unwrap();
+
+        let tsk = TSK::from_tpk(tpk)
+            .with_userid(UserID::from(str::from_utf8(ui2).unwrap()))
+            .unwrap();
+        let userids = tsk
+            .userids()
+            .map(|binding| binding.userid().userid())
+            .collect::<Vec<_>>();
+
+        assert_eq!(userids.len(), 2);
+        assert!((userids[0] == ui1 && userids[1] == ui2) ^
+                (userids[0] == ui2 && userids[1] == ui1));
+    }
+
+    #[test]
+    fn add_user_attr() {
+        let (tpk, _) = TPKBuilder::default()
+            .add_userid("test1@example.com")
+            .generate().unwrap();
+
+        let tsk = TSK::from_tpk(tpk)
+            .with_user_attribute(UserAttribute::from(Vec::from(&b"Hello, World"[..])))
+            .unwrap();
+        let userattrs = tsk
+            .user_attributes()
+            .map(|binding| binding.user_attribute().user_attribute())
+            .collect::<Vec<_>>();
+
+        assert_eq!(userattrs.len(), 1);
+    }
+
+    #[test]
+    fn add_subkey() {
+        let (tpk, _) = TPKBuilder::default()
+            .add_userid("test1@example.com")
+            .generate().unwrap();
+
+        let key = Key::generate_rsa(1024).unwrap();
+        let flags = KeyFlags::default().set_sign(true);
+        let tsk = TSK::from_tpk(tpk)
+            .with_subkey(key, &flags, None)
+            .unwrap();
+        let subkeys = tsk
+            .subkeys()
+            .map(|binding| binding.subkey())
+            .collect::<Vec<_>>();
+
+        assert_eq!(subkeys.len(), 1);
     }
 
     #[test]
