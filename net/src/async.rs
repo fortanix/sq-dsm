@@ -42,7 +42,8 @@ const DNS_WORKER: usize = 4;
 impl KeyServer {
     /// Returns a handle for the given URI.
     pub fn new(ctx: &Context, uri: &str, _handle: &Handle) -> Result<Self> {
-        let uri: Url = uri.parse()?;
+        let uri: Url = uri.parse()
+            .or_else(|_| format!("hkps://{}", uri).parse())?;
 
         let client: Box<AClient> = match uri.scheme() {
             "hkp" => Box::new(Client::new()),

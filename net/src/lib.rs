@@ -192,3 +192,27 @@ impl From<url::ParseError> for Error {
         Error::UriError(e)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn uris() {
+        let ctx = Context::configure("foo")
+            .network_policy(sequoia_core::NetworkPolicy::Insecure)
+            .build().unwrap();
+
+        assert!(KeyServer::new(&ctx, "keys.openpgp.org").is_ok());
+        assert!(KeyServer::new(&ctx, "hkp://keys.openpgp.org").is_ok());
+        assert!(KeyServer::new(&ctx, "hkps://keys.openpgp.org").is_ok());
+
+        let ctx = Context::configure("foo")
+            .network_policy(sequoia_core::NetworkPolicy::Encrypted)
+            .build().unwrap();
+
+        assert!(KeyServer::new(&ctx, "keys.openpgp.org").is_ok());
+        assert!(KeyServer::new(&ctx, "hkp://keys.openpgp.org").is_err());
+        assert!(KeyServer::new(&ctx, "hkps://keys.openpgp.org").is_ok());
+    }
+}
