@@ -9,7 +9,6 @@ use Error;
 use SymmetricAlgorithm;
 
 use buffered_reader::BufferedReader;
-use buffered_reader::BufferedReaderGeneric;
 
 use nettle::Cipher;
 use nettle::Mode;
@@ -284,7 +283,7 @@ impl<R: io::Read> io::Read for Decryptor<R> {
 /// A `BufferedReader` that decrypts symmetrically-encrypted data as
 /// it is read.
 pub(crate) struct BufferedReaderDecryptor<R: BufferedReader<C>, C> {
-    reader: BufferedReaderGeneric<Decryptor<R>, C>,
+    reader: buffered_reader::Generic<Decryptor<R>, C>,
 }
 
 impl <R: BufferedReader<C>, C> BufferedReaderDecryptor<R, C> {
@@ -296,7 +295,7 @@ impl <R: BufferedReader<C>, C> BufferedReaderDecryptor<R, C> {
         -> Result<Self>
     {
         Ok(BufferedReaderDecryptor {
-            reader: BufferedReaderGeneric::with_cookie(
+            reader: buffered_reader::Generic::with_cookie(
                 Decryptor::new(algo, key, reader)?, None, cookie),
         })
     }

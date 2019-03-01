@@ -5,48 +5,48 @@ use std::fmt;
 use BufferedReader;
 
 /// Always returns EOF.
-pub struct BufferedReaderEOF<C> {
+pub struct EOF<C> {
     cookie: C,
 }
 
-impl<C> fmt::Display for BufferedReaderEOF<C> {
+impl<C> fmt::Display for EOF<C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "BufferedReaderEOF")
+        write!(f, "EOF")
     }
 }
 
-impl<C> fmt::Debug for BufferedReaderEOF<C> {
+impl<C> fmt::Debug for EOF<C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("BufferedReaderEOF")
+        f.debug_struct("EOF")
             .finish()
     }
 }
 
-impl BufferedReaderEOF<()> {
-    /// Instantiates a new `BufferedReaderEOF`.
+impl EOF<()> {
+    /// Instantiates a new `EOF`.
     pub fn new() -> Self {
-        BufferedReaderEOF {
+        EOF {
             cookie: (),
         }
     }
 }
 
-impl<C> BufferedReaderEOF<C> {
-    /// Instantiates a new `BufferedReaderEOF` with a cookie.
+impl<C> EOF<C> {
+    /// Instantiates a new `EOF` with a cookie.
     pub fn with_cookie(cookie: C) -> Self {
-        BufferedReaderEOF {
+        EOF {
             cookie: cookie,
         }
     }
 }
 
-impl<C> Read for BufferedReaderEOF<C> {
+impl<C> Read for EOF<C> {
     fn read(&mut self, _buf: &mut [u8]) -> Result<usize, io::Error> {
         return Ok(0);
     }
 }
 
-impl<C> BufferedReader<C> for BufferedReaderEOF<C> {
+impl<C> BufferedReader<C> for EOF<C> {
     fn buffer(&self) -> &[u8] {
         return &b""[..];
     }
@@ -110,7 +110,7 @@ mod test {
 
     #[test]
     fn basics() {
-        let mut reader = BufferedReaderEOF::new();
+        let mut reader = EOF::new();
 
         assert_eq!(reader.buffer(), &b""[..]);
         assert_eq!(reader.data(100).unwrap(), &b""[..]);

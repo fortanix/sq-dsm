@@ -7,7 +7,7 @@
 use std::fmt;
 use quickcheck::{Arbitrary, Gen};
 
-use buffered_reader::{BufferedReader, BufferedReaderMemory};
+use buffered_reader::BufferedReader;
 
 use Error;
 use Result;
@@ -79,7 +79,7 @@ impl UserAttribute {
     /// Iterates over the subpackets.
     pub fn subpackets(&self) -> SubpacketIterator {
         SubpacketIterator {
-            reader: BufferedReaderMemory::new(&self.value[..]),
+            reader: buffered_reader::Memory::new(&self.value[..]),
         }
     }
 }
@@ -100,7 +100,7 @@ impl Arbitrary for UserAttribute {
 
 /// Iterates over subpackets.
 pub struct SubpacketIterator<'a> {
-    reader: BufferedReaderMemory<'a, ()>,
+    reader: buffered_reader::Memory<'a, ()>,
 }
 
 impl<'a> Iterator for SubpacketIterator<'a> {

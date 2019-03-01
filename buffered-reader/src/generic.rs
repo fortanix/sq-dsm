@@ -8,8 +8,8 @@ use super::*;
 /// Wraps a `Read`er.
 ///
 /// This is useful when reading from a file, and it even works with a
-/// `&[u8]` (but `BufferedReaderMemory` is more efficient).
-pub struct BufferedReaderGeneric<T: io::Read, C> {
+/// `&[u8]` (but `Memory` is more efficient).
+pub struct Generic<T: io::Read, C> {
     buffer: Option<Box<[u8]>>,
     // The next byte to read in the buffer.
     cursor: usize,
@@ -27,13 +27,13 @@ pub struct BufferedReaderGeneric<T: io::Read, C> {
     cookie: C,
 }
 
-impl<T: io::Read, C> fmt::Display for BufferedReaderGeneric<T, C> {
+impl<T: io::Read, C> fmt::Display for Generic<T, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "BufferedReaderGeneric")
+        write!(f, "Generic")
     }
 }
 
-impl<T: io::Read, C> fmt::Debug for BufferedReaderGeneric<T, C> {
+impl<T: io::Read, C> fmt::Debug for Generic<T, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let buffered_data = if let Some(ref buffer) = self.buffer {
             buffer.len() - self.cursor
@@ -41,7 +41,7 @@ impl<T: io::Read, C> fmt::Debug for BufferedReaderGeneric<T, C> {
             0
         };
 
-        f.debug_struct("BufferedReaderGeneric")
+        f.debug_struct("Generic")
             .field("preferred_chunk_size", &self.preferred_chunk_size)
             .field("buffer data", &buffered_data)
             .field("saw eof", &self.saw_eof)
@@ -50,7 +50,7 @@ impl<T: io::Read, C> fmt::Debug for BufferedReaderGeneric<T, C> {
     }
 }
 
-impl<T: io::Read> BufferedReaderGeneric<T, ()> {
+impl<T: io::Read> Generic<T, ()> {
     /// Instantiate a new generic reader.  `reader` is the source to
     /// wrap.  `preferred_chuck_size` is the preferred chuck size.  If
     /// None, then the default will be used, which is usually what you
@@ -60,14 +60,14 @@ impl<T: io::Read> BufferedReaderGeneric<T, ()> {
     }
 }
 
-impl<T: io::Read, C> BufferedReaderGeneric<T, C> {
+impl<T: io::Read, C> Generic<T, C> {
     /// Like `new()`, but sets a cookie, which can be retrieved using
     /// the `cookie_ref` and `cookie_mut` methods, and set using
     /// the `cookie_set` method.
     pub fn with_cookie(
            reader: T, preferred_chunk_size: Option<usize>, cookie: C)
            -> Self {
-        BufferedReaderGeneric {
+        Generic {
             buffer: None,
             cursor: 0,
             preferred_chunk_size:
@@ -84,7 +84,7 @@ impl<T: io::Read, C> BufferedReaderGeneric<T, C> {
     /// bytes.
     fn data_helper(&mut self, amount: usize, hard: bool, and_consume: bool)
                    -> Result<&[u8], io::Error> {
-        // println!("BufferedReaderGeneric.data_helper(\
+        // println!("Generic.data_helper(\
         //           amount: {}, hard: {}, and_consume: {} (cursor: {}, buffer: {:?})",
         //          amount, hard, and_consume,
         //          self.cursor,
@@ -198,13 +198,13 @@ impl<T: io::Read, C> BufferedReaderGeneric<T, C> {
     }
 }
 
-impl<T: io::Read, C> io::Read for BufferedReaderGeneric<T, C> {
+impl<T: io::Read, C> io::Read for Generic<T, C> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, io::Error> {
         return buffered_reader_generic_read_impl(self, buf);
     }
 }
 
-impl<T: io::Read, C> BufferedReader<C> for BufferedReaderGeneric<T, C> {
+impl<T: io::Read, C> BufferedReader<C> for Generic<T, C> {
     fn buffer(&self) -> &[u8] {
         if let Some(ref buffer) = self.buffer {
             &buffer[self.cursor..]
@@ -222,7 +222,7 @@ impl<T: io::Read, C> BufferedReader<C> for BufferedReaderGeneric<T, C> {
     }
 
     fn consume(&mut self, amount: usize) -> &[u8] {
-        // println!("BufferedReaderGeneric.consume({}) \
+        // println!("Generic.consume({}) \
         //           (cursor: {}, buffer: {:?})",
         //          amount, self.cursor,
         //          if let Some(ref buffer) = self.buffer { Some(buffer.len()) }
@@ -295,7 +295,7 @@ mod test {
                                   "src", "buffered-reader-test.txt"]
                 .iter().collect();
             let mut f = File::open(&path).expect(&path.to_string_lossy());
-            let mut bio = BufferedReaderGeneric::new(&mut f, None);
+            let mut bio = Generic::new(&mut f, None);
 
             buffered_reader_test_data_check(&mut bio);
         }
@@ -303,7 +303,7 @@ mod test {
         // Same test, but as a slice.
         {
             let mut data : &[u8] = include_bytes!("buffered-reader-test.txt");
-            let mut bio = BufferedReaderGeneric::new(&mut data, None);
+            let mut bio = Generic::new(&mut data, None);
 
             buffered_reader_test_data_check(&mut bio);
         }
@@ -325,7 +325,7 @@ mod test {
             }
         }
 
-        let mut reader = BufferedReaderGeneric::new(&input[..], None);
+        let mut reader = Generic::new(&input[..], None);
 
         // Gather some stats to make it easier to figure out whether
         // this test is working.

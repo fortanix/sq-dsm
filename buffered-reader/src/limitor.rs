@@ -5,29 +5,29 @@ use super::*;
 
 /// Limits the amount of data that can be read from a
 /// `BufferedReader`.
-pub struct BufferedReaderLimitor<'a, C> {
+pub struct Limitor<'a, C> {
     reader: Box<'a + BufferedReader<C>>,
     limit: u64,
 
     cookie: C,
 }
 
-impl<'a, C> fmt::Display for BufferedReaderLimitor<'a, C> {
+impl<'a, C> fmt::Display for Limitor<'a, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "BufferedReaderLimitor ({} bytes)", self.limit)
+        write!(f, "Limitor ({} bytes)", self.limit)
     }
 }
 
-impl<'a, C> fmt::Debug for BufferedReaderLimitor<'a, C> {
+impl<'a, C> fmt::Debug for Limitor<'a, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("BufferedReaderLimitor")
+        f.debug_struct("Limitor")
             .field("limit", &self.limit)
             .field("reader", &self.reader)
             .finish()
     }
 }
 
-impl<'a> BufferedReaderLimitor<'a, ()> {
+impl<'a> Limitor<'a, ()> {
     /// Instantiates a new limitor.
     ///
     /// `reader` is the source to wrap.  `limit` is the maximum number
@@ -37,14 +37,14 @@ impl<'a> BufferedReaderLimitor<'a, ()> {
     }
 }
 
-impl<'a, C> BufferedReaderLimitor<'a, C> {
+impl<'a, C> Limitor<'a, C> {
     /// Like `new()`, but sets a cookie.
     ///
     /// The cookie can be retrieved using the `cookie_ref` and
     /// `cookie_mut` methods, and set using the `cookie_set` method.
     pub fn with_cookie(reader: Box<'a + BufferedReader<C>>, limit: u64, cookie: C)
-            -> BufferedReaderLimitor<'a, C> {
-        BufferedReaderLimitor {
+            -> Limitor<'a, C> {
+        Limitor {
             reader: reader,
             limit: limit,
             cookie: cookie,
@@ -52,14 +52,14 @@ impl<'a, C> BufferedReaderLimitor<'a, C> {
     }
 }
 
-impl<'a, C> io::Read for BufferedReaderLimitor<'a, C> {
+impl<'a, C> io::Read for Limitor<'a, C> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, io::Error> {
         let len = cmp::min(self.limit, buf.len() as u64) as usize;
         return self.reader.read(&mut buf[0..len]);
     }
 }
 
-impl<'a, C> BufferedReader<C> for BufferedReaderLimitor<'a, C> {
+impl<'a, C> BufferedReader<C> for Limitor<'a, C> {
     fn buffer(&self) -> &[u8] {
         let buf = self.reader.buffer();
         &buf[..cmp::min(buf.len(),
@@ -153,10 +153,10 @@ mod test {
         /* Add a single limitor.  */
         {
             let mut bio : Box<BufferedReader<()>>
-                = Box::new(BufferedReaderMemory::new(data));
+                = Box::new(Memory::new(data));
 
             bio = {
-                let mut bio2 = Box::new(BufferedReaderLimitor::new(bio, 5));
+                let mut bio2 = Box::new(Limitor::new(bio, 5));
                 {
                     let result = bio2.data(5).unwrap();
                     assert_eq!(result.len(), 5);
@@ -191,15 +191,15 @@ mod test {
          * limit.  */
         {
             let mut bio : Box<BufferedReader<()>>
-                = Box::new(BufferedReaderMemory::new(data));
+                = Box::new(Memory::new(data));
 
             bio = {
                 let bio2 : Box<BufferedReader<()>>
-                    = Box::new(BufferedReaderLimitor::new(bio, 5));
+                    = Box::new(Limitor::new(bio, 5));
                 // We limit to 15 bytes, but bio2 will still limit us to 5
                 // bytes.
                 let mut bio3 : Box<BufferedReader<()>>
-                    = Box::new(BufferedReaderLimitor::new(bio2, 15));
+                    = Box::new(Limitor::new(bio2, 15));
                 {
                     let result = bio3.data(100).unwrap();
                     assert_eq!(result.len(), 5);
@@ -247,10 +247,10 @@ mod test {
             }
         }
 
-        let reader = Box::new(BufferedReaderGeneric::new(&input[..], None));
+        let reader = Box::new(Generic::new(&input[..], None));
         let size = size / 2;
         let input = &input[..size];
-        let mut reader = BufferedReaderLimitor::new(reader, input.len() as u64);
+        let mut reader = Limitor::new(reader, input.len() as u64);
 
         // Gather some stats to make it easier to figure out whether
         // this test is working.

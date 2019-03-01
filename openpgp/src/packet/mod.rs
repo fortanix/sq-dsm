@@ -182,12 +182,10 @@ impl BodyLength {
 
 #[test]
 fn body_length_new_format() {
-    use buffered_reader::BufferedReaderMemory;
-
     fn test(input: &[u8], expected_result: BodyLength) {
         assert_eq!(
             BodyLength::parse_new_format(
-                &mut BufferedReaderMemory::new(input)).unwrap(),
+                &mut buffered_reader::Memory::new(input)).unwrap(),
             expected_result);
     }
 
@@ -211,11 +209,9 @@ fn body_length_new_format() {
 
 #[test]
 fn body_length_old_format() {
-    use buffered_reader::BufferedReaderMemory;
-
     fn test(input: &[u8], plt: PacketLengthType,
             expected_result: BodyLength, expected_rest: &[u8]) {
-        let mut bio = BufferedReaderMemory::new(input);
+        let mut bio = buffered_reader::Memory::new(input);
         assert_eq!(BodyLength::parse_old_format(&mut bio, plt).unwrap(),
                    expected_result);
         let rest = bio.data_eof();

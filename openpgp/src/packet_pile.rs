@@ -5,9 +5,6 @@ use std::io;
 use std::path::Path;
 
 use buffered_reader::BufferedReader;
-use buffered_reader::BufferedReaderGeneric;
-use buffered_reader::BufferedReaderMemory;
-use buffered_reader::BufferedReaderFile;
 
 use Result;
 use Error;
@@ -57,7 +54,7 @@ impl<'a> Parse<'a, PacketPile> for PacketPile {
     ///   [`PacketParser`]: parse/struct.PacketParser.html
     ///   [`PacketPileParser`]: parse/struct.PacketPileParser.html
     fn from_reader<R: 'a + io::Read>(reader: R) -> Result<PacketPile> {
-        let bio = BufferedReaderGeneric::with_cookie(
+        let bio = buffered_reader::Generic::with_cookie(
             reader, None, Cookie::default());
         PacketPile::from_buffered_reader(Box::new(bio))
     }
@@ -68,14 +65,14 @@ impl<'a> Parse<'a, PacketPile> for PacketPile {
     /// See `from_reader` for more details and caveats.
     fn from_file<P: AsRef<Path>>(path: P) -> Result<PacketPile> {
         PacketPile::from_buffered_reader(
-            Box::new(BufferedReaderFile::with_cookie(path, Cookie::default())?))
+            Box::new(buffered_reader::File::with_cookie(path, Cookie::default())?))
     }
 
     /// Deserializes the OpenPGP message stored in the provided buffer.
     ///
     /// See `from_reader` for more details and caveats.
     fn from_bytes(data: &'a [u8]) -> Result<PacketPile> {
-        let bio = BufferedReaderMemory::with_cookie(
+        let bio = buffered_reader::Memory::with_cookie(
             data, Cookie::default());
         PacketPile::from_buffered_reader(Box::new(bio))
     }

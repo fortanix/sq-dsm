@@ -105,8 +105,8 @@
 //! `BufferedReader`:
 //!
 //! ```
-//! use buffered_reader::*;
-//! use buffered_reader::BufferedReaderFile;
+//! use buffered_reader;
+//! use buffered_reader::BufferedReader;
 //!
 //! fn parse_object(content: &[u8]) {
 //!     // Parse the object.
@@ -115,7 +115,7 @@
 //!
 //! # f(); fn f() -> Result<(), std::io::Error> {
 //! # const FILENAME : &str = "/dev/null";
-//! let mut br = BufferedReaderFile::open(FILENAME)?;
+//! let mut br = buffered_reader::File::open(FILENAME)?;
 //!
 //! // While we haven't reached EOF (i.e., we can read at
 //! // least one byte).
@@ -168,14 +168,14 @@
 //! the object parser reads from a `BufferedReader` object.  Since the
 //! framing parser is really just a limit on the object's size, we
 //! don't need to implement a special `BufferedReader`, but can use a
-//! `BufferedReaderLimitor` to impose an upper limit on the amount
+//! `Limitor` to impose an upper limit on the amount
 //! that it can read.  After the object parser has finished, we drain
 //! the object reader.  This pattern is particularly helpful when
 //! individual objects that contain errors should be skipped.
 //!
 //! ```
-//! use buffered_reader::*;
-//! use buffered_reader::BufferedReaderFile;
+//! use buffered_reader;
+//! use buffered_reader::BufferedReader;
 //!
 //! fn parse_object<R: BufferedReader<()>>(br: &mut R) {
 //!     // Parse the object.
@@ -185,7 +185,7 @@
 //! # f(); fn f() -> Result<(), std::io::Error> {
 //! # const FILENAME : &str = "/dev/null";
 //! let mut br : Box<BufferedReader<()>>
-//!     = Box::new(BufferedReaderFile::open(FILENAME)?);
+//!     = Box::new(buffered_reader::File::open(FILENAME)?);
 //!
 //! // While we haven't reached EOF (i.e., we can read at
 //! // least one byte).
@@ -194,7 +194,7 @@
 //!     let len = br.read_be_u16()? as u64;
 //!
 //!     // Set up a limit.
-//!     br = Box::new(BufferedReaderLimitor::new(br, len));
+//!     br = Box::new(buffered_reader::Limitor::new(br, len));
 //!
 //!     // Parse the actual object using a real parser.
 //!     parse_object(&mut br);
@@ -215,8 +215,8 @@
 //! erasure, but is provided by the trait.
 //!
 //! In addition to utility `BufferedReader`s like the
-//! `BufferedReaderLimitor`, this crate also includes a few
-//! general-purpose parsers, like the `BufferedReaderZip`
+//! `Limitor`, this crate also includes a few
+//! general-purpose parsers, like the `Zip`
 //! decompressor.
 //!
 //! [`BufRead`]: https://doc.rust-lang.org/stable/std/io/trait.BufRead.html
@@ -245,20 +245,20 @@ mod decompress_deflate;
 #[cfg(feature = "compression-bzip2")]
 mod decompress_bzip2;
 
-pub use self::generic::BufferedReaderGeneric;
-pub use self::memory::BufferedReaderMemory;
-pub use self::limitor::BufferedReaderLimitor;
-pub use self::reserve::BufferedReaderReserve;
-pub use self::dup::BufferedReaderDup;
-pub use self::eof::BufferedReaderEOF;
+pub use self::generic::Generic;
+pub use self::memory::Memory;
+pub use self::limitor::Limitor;
+pub use self::reserve::Reserve;
+pub use self::dup::Dup;
+pub use self::eof::EOF;
 #[cfg(feature = "compression-deflate")]
-pub use self::decompress_deflate::BufferedReaderDeflate;
+pub use self::decompress_deflate::Deflate;
 #[cfg(feature = "compression-deflate")]
-pub use self::decompress_deflate::BufferedReaderZlib;
+pub use self::decompress_deflate::Zlib;
 #[cfg(feature = "compression-bzip2")]
-pub use self::decompress_bzip2::BufferedReaderBzip;
+pub use self::decompress_bzip2::Bzip;
 
-// These are the different BufferedReaderFile implementations.  We
+// These are the different File implementations.  We
 // include the modules unconditionally, so that we catch bitrot early.
 #[allow(dead_code)]
 mod file_generic;
@@ -268,9 +268,9 @@ mod file_unix;
 
 // Then, we select the appropriate version to re-export.
 #[cfg(not(unix))]
-pub use self::file_generic::BufferedReaderFile;
+pub use self::file_generic::File;
 #[cfg(unix)]
-pub use self::file_unix::BufferedReaderFile;
+pub use self::file_unix::File;
 
 // The default buffer size.
 const DEFAULT_BUF_SIZE: usize = 8 * 1024;
@@ -284,10 +284,10 @@ pub trait BufferedReader<C> : io::Read + fmt::Debug + fmt::Display {
     ///
     /// ```
     /// # f(); fn f() -> Result<(), std::io::Error> {
-    /// use buffered_reader::*;
-    /// use buffered_reader::BufferedReaderMemory;
+    /// use buffered_reader;
+    /// use buffered_reader::BufferedReader;
     ///
-    /// let mut br = BufferedReaderMemory::new(&b"0123456789"[..]);
+    /// let mut br = buffered_reader::Memory::new(&b"0123456789"[..]);
     ///
     /// let first = br.data(10)?.len();
     /// let second = br.buffer().len();
@@ -330,10 +330,10 @@ pub trait BufferedReader<C> : io::Read + fmt::Debug + fmt::Display {
     ///
     /// ```
     /// # f(); fn f() -> Result<(), std::io::Error> {
-    /// use buffered_reader::*;
-    /// use buffered_reader::BufferedReaderMemory;
+    /// use buffered_reader;
+    /// use buffered_reader::BufferedReader;
     ///
-    /// let mut br = BufferedReaderMemory::new(&b"0123456789"[..]);
+    /// let mut br = buffered_reader::Memory::new(&b"0123456789"[..]);
     ///
     /// let first = br.data(10)?.len();
     /// let second = br.data(5)?.len();
@@ -357,10 +357,10 @@ pub trait BufferedReader<C> : io::Read + fmt::Debug + fmt::Display {
     ///
     /// ```
     /// # f(); fn f() -> Result<(), std::io::Error> {
-    /// use buffered_reader::*;
-    /// use buffered_reader::BufferedReaderMemory;
+    /// use buffered_reader;
+    /// use buffered_reader::BufferedReader;
     ///
-    /// let mut br = BufferedReaderMemory::new(&b"0123456789"[..]);
+    /// let mut br = buffered_reader::Memory::new(&b"0123456789"[..]);
     ///
     /// // Trying to read more than there is available results in an error.
     /// assert!(br.data_hard(20).is_err());
@@ -390,12 +390,12 @@ pub trait BufferedReader<C> : io::Read + fmt::Debug + fmt::Display {
     ///
     /// ```
     /// # f(); fn f() -> Result<(), std::io::Error> {
-    /// use buffered_reader::*;
-    /// use buffered_reader::BufferedReaderGeneric;
+    /// use buffered_reader;
+    /// use buffered_reader::BufferedReader;
     ///
     /// const AMOUNT : usize = 100 * 1024 * 1024;
     /// let buffer = vec![0u8; AMOUNT];
-    /// let mut br = BufferedReaderGeneric::new(&buffer[..], None);
+    /// let mut br = buffered_reader::Generic::new(&buffer[..], None);
     ///
     /// // Normally, only a small amount will be buffered.
     /// assert!(br.data(10)?.len() <= AMOUNT);
@@ -468,12 +468,12 @@ pub trait BufferedReader<C> : io::Read + fmt::Debug + fmt::Display {
     ///
     /// ```
     /// # f(); fn f() -> Result<(), std::io::Error> {
-    /// use buffered_reader::*;
-    /// use buffered_reader::BufferedReaderGeneric;
+    /// use buffered_reader;
+    /// use buffered_reader::BufferedReader;
     ///
     /// const AMOUNT : usize = 100 * 1024 * 1024;
     /// let buffer = vec![0u8; AMOUNT];
-    /// let mut br = BufferedReaderGeneric::new(&buffer[..], None);
+    /// let mut br = buffered_reader::Generic::new(&buffer[..], None);
     ///
     /// let amount = {
     ///     // We want at least 1024 bytes, but we'll be happy with
@@ -503,11 +503,11 @@ pub trait BufferedReader<C> : io::Read + fmt::Debug + fmt::Display {
     ///
     /// ```
     /// # f(); fn f() -> Result<(), std::io::Error> {
-    /// use buffered_reader::*;
-    /// use buffered_reader::BufferedReaderMemory;
+    /// use buffered_reader;
+    /// use buffered_reader::BufferedReader;
     ///
     /// let orig = b"0123456789";
-    /// let mut br = BufferedReaderMemory::new(&orig[..]);
+    /// let mut br = buffered_reader::Memory::new(&orig[..]);
     ///
     /// // We need a new scope for each call to `data_consume()`, because
     /// // the `buffer` reference locks `br`.
@@ -586,11 +586,11 @@ pub trait BufferedReader<C> : io::Read + fmt::Debug + fmt::Display {
     ///
     /// ```
     /// # f(); fn f() -> Result<(), std::io::Error> {
-    /// use buffered_reader::*;
-    /// use buffered_reader::BufferedReaderMemory;
+    /// use buffered_reader;
+    /// use buffered_reader::BufferedReader;
     ///
     /// let orig = b"0123456789";
-    /// let mut br = BufferedReaderMemory::new(&orig[..]);
+    /// let mut br = buffered_reader::Memory::new(&orig[..]);
     ///
     /// {
     ///     let s = br.read_to(b'3')?;
@@ -753,7 +753,7 @@ pub trait BufferedReader<C> : io::Read + fmt::Debug + fmt::Display {
 /// you can include the following:
 ///
 /// ```text
-/// impl<'a, T: BufferedReader> std::io::Read for BufferedReaderXXX<'a, T> {
+/// impl<'a, T: BufferedReader> std::io::Read for XXX<'a, T> {
 ///     fn read(&mut self, buf: &mut [u8]) -> Result<usize, std::io::Error> {
 ///         return buffered_reader_generic_read_impl(self, buf);
 ///     }
@@ -900,7 +900,7 @@ mod test {
 
         // Make sure data_eof works.
         {
-            let mut bio = BufferedReaderMemory::new(data);
+            let mut bio = Memory::new(data);
             let amount = {
                 bio.data_eof().unwrap().len()
             };
@@ -910,8 +910,8 @@ mod test {
 
         // Try it again with a limitor.
         {
-            let bio = Box::new(BufferedReaderMemory::new(data));
-            let mut bio2 = BufferedReaderLimitor::new(
+            let bio = Box::new(Memory::new(data));
+            let mut bio2 = Limitor::new(
                 bio, (data.len() / 2) as u64);
             let amount = {
                 bio2.data_eof().unwrap().len()
@@ -978,7 +978,7 @@ mod test {
         let data : &[u8] = include_bytes!("buffered-reader-test.txt");
 
         {
-            let bio = BufferedReaderMemory::new(data);
+            let bio = Memory::new(data);
             buffered_reader_read_test_aux (bio, data);
         }
 
@@ -992,7 +992,7 @@ mod test {
                 .iter().collect();
 
             let mut f = File::open(&path).expect(&path.to_string_lossy());
-            let bio = BufferedReaderGeneric::new(&mut f, None);
+            let bio = Generic::new(&mut f, None);
             buffered_reader_read_test_aux (bio, data);
         }
     }

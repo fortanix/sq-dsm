@@ -8,10 +8,10 @@ use super::*;
 
 /// Wraps a memory buffer.
 ///
-/// Although it is possible to use `BufferedReaderGeneric` to wrap a
+/// Although it is possible to use `Generic` to wrap a
 /// buffer, this implementation is optimized for a memory buffer, and
 /// avoids double buffering.
-pub struct BufferedReaderMemory<'a, C> {
+pub struct Memory<'a, C> {
     buffer: &'a [u8],
     // The next byte to read in the buffer.
     cursor: usize,
@@ -20,38 +20,38 @@ pub struct BufferedReaderMemory<'a, C> {
     cookie: C,
 }
 
-impl<'a, C> fmt::Display for BufferedReaderMemory<'a, C> {
+impl<'a, C> fmt::Display for Memory<'a, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "BufferedReaderMemory ({} of {} bytes read)",
+        write!(f, "Memory ({} of {} bytes read)",
                self.cursor, self.buffer.len())
     }
 }
 
-impl<'a, C> fmt::Debug for BufferedReaderMemory<'a, C> {
+impl<'a, C> fmt::Debug for Memory<'a, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("BufferedReaderMemory")
+        f.debug_struct("Memory")
             .field("buffer (bytes)", &&self.buffer.len())
             .field("cursor", &self.cursor)
             .finish()
     }
 }
 
-impl<'a> BufferedReaderMemory<'a, ()> {
-    /// Instantiates a new `BufferedReaderMemory`.
+impl<'a> Memory<'a, ()> {
+    /// Instantiates a new `Memory`.
     ///
-    /// `buffer` contains the `BufferedReaderMemory`'s contents.
+    /// `buffer` contains the `Memory`'s contents.
     pub fn new(buffer: &'a [u8]) -> Self {
         Self::with_cookie(buffer, ())
     }
 }
 
-impl<'a, C> BufferedReaderMemory<'a, C> {
+impl<'a, C> Memory<'a, C> {
     /// Like `new()`, but sets a cookie.
     ///
     /// The cookie can be retrieved using the `cookie_ref` and
     /// `cookie_mut` methods, and set using the `cookie_set` method.
     pub fn with_cookie(buffer: &'a [u8], cookie: C) -> Self {
-        BufferedReaderMemory {
+        Memory {
             buffer: buffer,
             cursor: 0,
             cookie: cookie,
@@ -65,7 +65,7 @@ impl<'a, C> BufferedReaderMemory<'a, C> {
     }
 }
 
-impl<'a, C> io::Read for BufferedReaderMemory<'a, C> {
+impl<'a, C> io::Read for Memory<'a, C> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, io::Error> {
         let amount = cmp::min(buf.len(), self.buffer.len() - self.cursor);
         buf[0..amount].copy_from_slice(
@@ -75,7 +75,7 @@ impl<'a, C> io::Read for BufferedReaderMemory<'a, C> {
     }
 }
 
-impl<'a, C> BufferedReader<C> for BufferedReaderMemory<'a, C> {
+impl<'a, C> BufferedReader<C> for Memory<'a, C> {
     fn buffer(&self) -> &[u8] {
         &self.buffer[self.cursor..]
     }
@@ -141,7 +141,7 @@ mod test {
     #[test]
     fn buffered_reader_memory_test () {
         let data : &[u8] = include_bytes!("buffered-reader-test.txt");
-        let mut bio = BufferedReaderMemory::new(data);
+        let mut bio = Memory::new(data);
 
         buffered_reader_test_data_check(&mut bio);
     }
@@ -149,7 +149,7 @@ mod test {
     // Test that buffer() returns the same data as data().
     #[test]
     fn buffer_test() {
-        // Test vector.  A BufferedReaderMemory returns all unconsumed
+        // Test vector.  A Memory returns all unconsumed
         // data.  So, use a relatively small buffer size.
         let size = DEFAULT_BUF_SIZE;
         let mut input = Vec::with_capacity(size);
@@ -163,7 +163,7 @@ mod test {
             }
         }
 
-        let mut reader = BufferedReaderMemory::new(&input[..]);
+        let mut reader = Memory::new(&input[..]);
 
         for i in 0..input.len() {
             let data = reader.data(DEFAULT_BUF_SIZE + 1).unwrap().to_vec();

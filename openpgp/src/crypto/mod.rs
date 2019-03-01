@@ -168,10 +168,9 @@ pub fn hash_file<R: Read>(reader: R, algos: &[HashAlgorithm])
     use ::parse::HashesFor;
 
     use buffered_reader::BufferedReader;
-    use buffered_reader::BufferedReaderGeneric;
 
     let reader
-        = BufferedReaderGeneric::with_cookie(
+        = buffered_reader::Generic::with_cookie(
             reader, None, Default::default());
 
     let mut reader

@@ -228,7 +228,6 @@ mod test {
     use super::*;
 
     use buffered_reader::BufferedReader;
-    use buffered_reader::BufferedReaderGeneric;
 
     #[test]
     fn hash_test_1() {
@@ -265,7 +264,7 @@ mod test {
 
         for test in tests.iter() {
             let reader
-                = BufferedReaderGeneric::with_cookie(
+                = buffered_reader::Generic::with_cookie(
                     test.data, None, Default::default());
             let mut reader
                 = HashedReader::new(reader, HashesFor::MDC,

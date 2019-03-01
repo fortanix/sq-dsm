@@ -14,10 +14,7 @@ use std::collections::HashMap;
 use std::io::{self, Read};
 use std::path::Path;
 
-use buffered_reader::{
-    BufferedReader, BufferedReaderGeneric, BufferedReaderMemory,
-    BufferedReaderFile,
-};
+use buffered_reader::BufferedReader;
 use {
     Error,
     Fingerprint,
@@ -192,7 +189,7 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
         where R: io::Read + 'a
     {
         Verifier::from_buffered_reader(
-            Box::new(BufferedReaderGeneric::with_cookie(reader, None,
+            Box::new(buffered_reader::Generic::with_cookie(reader, None,
                                                         Default::default())),
             helper)
     }
@@ -202,7 +199,7 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
         where P: AsRef<Path>
     {
         Verifier::from_buffered_reader(
-            Box::new(BufferedReaderFile::with_cookie(path,
+            Box::new(buffered_reader::File::with_cookie(path,
                                                      Default::default())?),
             helper)
     }
@@ -210,7 +207,7 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
     /// Creates a `Verifier` from the given buffer.
     pub fn from_bytes(bytes: &'a [u8], helper: H) -> Result<Verifier<'a, H>> {
         Verifier::from_buffered_reader(
-            Box::new(BufferedReaderMemory::with_cookie(bytes,
+            Box::new(buffered_reader::Memory::with_cookie(bytes,
                                                        Default::default())),
             helper)
     }
@@ -693,9 +690,9 @@ impl DetachedVerifier {
         where R: io::Read + 'a, S: io::Read + 's, H: VerificationHelper
     {
         Self::from_buffered_reader(
-            Box::new(BufferedReaderGeneric::with_cookie(signature_reader, None,
+            Box::new(buffered_reader::Generic::with_cookie(signature_reader, None,
                                                         Default::default())),
-            Box::new(BufferedReaderGeneric::new(reader, None)),
+            Box::new(buffered_reader::Generic::new(reader, None)),
             helper)
     }
 
@@ -706,9 +703,9 @@ impl DetachedVerifier {
         where P: AsRef<Path>, S: AsRef<Path>, H: VerificationHelper
     {
         Self::from_buffered_reader(
-            Box::new(BufferedReaderFile::with_cookie(signature_path,
+            Box::new(buffered_reader::File::with_cookie(signature_path,
                                                      Default::default())?),
-            Box::new(BufferedReaderFile::open(path)?),
+            Box::new(buffered_reader::File::open(path)?),
             helper)
     }
 
@@ -719,9 +716,9 @@ impl DetachedVerifier {
         where H: VerificationHelper
     {
         Self::from_buffered_reader(
-            Box::new(BufferedReaderMemory::with_cookie(signature_bytes,
+            Box::new(buffered_reader::Memory::with_cookie(signature_bytes,
                                                        Default::default())),
-            Box::new(BufferedReaderMemory::new(bytes)),
+            Box::new(buffered_reader::Memory::new(bytes)),
             helper)
     }
 
@@ -734,7 +731,7 @@ impl DetachedVerifier {
         where H: VerificationHelper
     {
         Verifier::from_buffered_reader(
-            Box::new(BufferedReaderGeneric::with_cookie(
+            Box::new(buffered_reader::Generic::with_cookie(
                 Transformer::new(signature_bio, reader)?,
                 None, Default::default())),
             helper)
@@ -904,7 +901,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
         where R: io::Read + 'a
     {
         Decryptor::from_buffered_reader(
-            Box::new(BufferedReaderGeneric::with_cookie(reader, None,
+            Box::new(buffered_reader::Generic::with_cookie(reader, None,
                                                         Default::default())),
             helper)
     }
@@ -914,7 +911,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
         where P: AsRef<Path>
     {
         Decryptor::from_buffered_reader(
-            Box::new(BufferedReaderFile::with_cookie(path,
+            Box::new(buffered_reader::File::with_cookie(path,
                                                      Default::default())?),
             helper)
     }
@@ -922,7 +919,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
     /// Creates a `Decryptor` from the given buffer.
     pub fn from_bytes(bytes: &'a [u8], helper: H) -> Result<Decryptor<'a, H>> {
         Decryptor::from_buffered_reader(
-            Box::new(BufferedReaderMemory::with_cookie(bytes,
+            Box::new(buffered_reader::Memory::with_cookie(bytes,
                                                        Default::default())),
             helper)
     }

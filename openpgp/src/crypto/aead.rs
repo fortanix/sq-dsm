@@ -4,7 +4,6 @@ use std::io::{self, Read};
 
 use nettle::{aead, cipher};
 use buffered_reader::BufferedReader;
-use buffered_reader::BufferedReaderGeneric;
 
 use constants::{
     AEADAlgorithm,
@@ -392,7 +391,7 @@ impl<R: io::Read> io::Read for Decryptor<R> {
 /// A `BufferedReader` that decrypts AEAD-encrypted data as it is
 /// read.
 pub(crate) struct BufferedReaderDecryptor<R: BufferedReader<C>, C> {
-    reader: BufferedReaderGeneric<Decryptor<R>, C>,
+    reader: buffered_reader::Generic<Decryptor<R>, C>,
 }
 
 impl <R: BufferedReader<C>, C> BufferedReaderDecryptor<R, C> {
@@ -405,7 +404,7 @@ impl <R: BufferedReader<C>, C> BufferedReaderDecryptor<R, C> {
         -> Result<Self>
     {
         Ok(BufferedReaderDecryptor {
-            reader: BufferedReaderGeneric::with_cookie(
+            reader: buffered_reader::Generic::with_cookie(
                 Decryptor::new(version, cipher, aead, chunk_size, iv, key,
                                source)?,
                 None, cookie),

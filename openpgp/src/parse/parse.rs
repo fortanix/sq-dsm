@@ -156,10 +156,10 @@ const MAX_RECURSION_DEPTH : u8 = 16;
 // This struct is not exposed to the user.  Instead, when a header has
 // been successfully parsed, a `PacketParser` is returned.
 pub(crate) struct PacketHeaderParser<'a> {
-    // The reader stack wrapped in a BufferedReaderDup so that if
+    // The reader stack wrapped in a buffered_reader::Dup so that if
     // there is a parse error, we can abort and still return an
     // Unknown packet.
-    reader: BufferedReaderDup<'a, Cookie>,
+    reader: buffered_reader::Dup<'a, Cookie>,
 
     // The current packet's header.
     header: Header,
@@ -248,7 +248,7 @@ impl<'a> PacketHeaderParser<'a> {
             None
         };
         PacketHeaderParser {
-            reader: BufferedReaderDup::with_cookie(inner, cookie),
+            reader: buffered_reader::Dup::with_cookie(inner, cookie),
             header: header,
             header_bytes: header_bytes.clone(),
             path: path,
@@ -293,7 +293,7 @@ impl<'a> PacketHeaderParser<'a> {
                 self.field("body", body.len());
             }
 
-            // This is a BufferedReaderDup, so this always has an
+            // This is a buffered_reader::Dup, so this always has an
             // inner.
             let mut inner = Box::new(self.reader).into_inner().unwrap();
 
@@ -301,14 +301,14 @@ impl<'a> PacketHeaderParser<'a> {
             let mut data = Vec::with_capacity(total_out + body.len());
             // We know that the inner reader must have at least
             // `total_out` bytes buffered, otherwise we could never
-            // have read that much from the `BufferedReaderDup`.
+            // have read that much from the `buffered_reader::Dup`.
             data.extend_from_slice(&inner.buffer()[..total_out]);
             data.extend(body);
             self.map.as_mut().unwrap().finalize(data);
 
             inner
         } else {
-            // This is a BufferedReaderDup, so this always has an
+            // This is a buffered_reader::Dup, so this always has an
             // inner.
             Box::new(self.reader).into_inner().unwrap()
         };
@@ -406,7 +406,7 @@ pub(crate) struct Cookie {
     // underlying `BufferedReader`) has no level.
     //
     // Before parsing a top-level packet, we may push a
-    // `BufferedReaderLimitor` in front of the external
+    // `buffered_reader::Limitor` in front of the external
     // `BufferedReader`.  Such `BufferedReader`s are assigned a level
     // of 0.
     //
@@ -420,7 +420,7 @@ pub(crate) struct Cookie {
     // parser.
     //
     // When the parser encounters the `CompressedData`'s first child,
-    // say, a `Literal` packet, it pushes a `BufferedReaderLimitor` on
+    // say, a `Literal` packet, it pushes a `buffered_reader::Limitor` on
     // the `BufferedReader` stack with a level of 1.  Then, a
     // `PacketParser` for the `Literal` data packet is created with a
     // recursion depth of 1.
@@ -773,7 +773,7 @@ impl S2K {
 impl<'a> Parse<'a, S2K> for S2K {
     /// Reads an S2K from `reader`.
     fn from_reader<R: 'a + Read>(reader: R) -> Result<Self> {
-        let bio = BufferedReaderGeneric::with_cookie(
+        let bio = buffered_reader::Generic::with_cookie(
             reader, None, Cookie::default());
         let mut parser = PacketHeaderParser::new_naked(Box::new(bio));
         Self::parse(&mut parser)
@@ -882,7 +882,7 @@ impl<'a> Parse<'a, Header> for Header {
     ///   [Section 4.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.2
     fn from_reader<R: 'a + Read>(reader: R) -> Result<Self>
     {
-        let mut reader = BufferedReaderGeneric::with_cookie(
+        let mut reader = buffered_reader::Generic::with_cookie(
             reader, None, Cookie::default());
         Header::parse(&mut reader)
     }
@@ -909,14 +909,14 @@ impl Unknown {
 #[cfg(test)]
 pub(crate) fn to_unknown_packet<R: Read>(reader: R) -> Result<Unknown>
 {
-    let mut reader = BufferedReaderGeneric::with_cookie(
+    let mut reader = buffered_reader::Generic::with_cookie(
         reader, None, Cookie::default());
     let header = Header::parse(&mut reader)?;
 
     let reader : Box<BufferedReader<Cookie>>
         = match header.length {
             BodyLength::Full(len) =>
-                Box::new(BufferedReaderLimitor::with_cookie(
+                Box::new(buffered_reader::Limitor::with_cookie(
                     Box::new(reader), len as u64, Cookie::default())),
             BodyLength::Partial(len) =>
                 Box::new(BufferedReaderPartialBodyFilter::with_cookie(
@@ -945,7 +945,7 @@ impl Signature {
     // field, not the ctb.  Also, any length encoding information has
     // been removed.
     pub(crate) fn parse_naked(value: &[u8]) -> Result<Packet> {
-        let bio = BufferedReaderMemory::with_cookie(
+        let bio = buffered_reader::Memory::with_cookie(
             value, Cookie::default());
         let parser = PacketHeaderParser::new_naked(Box::new(bio));
 
@@ -1010,7 +1010,7 @@ impl Signature {
             let recursion_depth = pp.recursion_depth();
 
             // We know that the top reader is not a HashedReader (it's
-            // a BufferedReaderDup).  So, start with it's child.
+            // a buffered_reader::Dup).  So, start with it's child.
             let mut r = (&mut pp.reader).get_mut();
             while let Some(tmp) = r {
                 {
@@ -1064,7 +1064,7 @@ impl Signature {
     }
 
     /// Returns whether the data appears to be a signature (no promises).
-    fn plausible(bio: &mut BufferedReaderDup<Cookie>, header: &Header) -> Result<()> {
+    fn plausible(bio: &mut buffered_reader::Dup<Cookie>, header: &Header) -> Result<()> {
         // The absolute minimum size for the header is 11 bytes (this
         // doesn't include the signature MPIs).
 
@@ -1290,7 +1290,7 @@ impl OnePassSig {
         // reader.  Since the top reader is the HashedReader, this
         // discards any following packets.  To prevent this, we push a
         // Limitor on the reader stack.
-        let mut reader = BufferedReaderLimitor::with_cookie(
+        let mut reader = buffered_reader::Limitor::with_cookie(
             Box::new(reader), 0, Cookie::default());
         reader.cookie_mut().level = Some(recursion_depth);
 
@@ -1499,7 +1499,7 @@ impl Key {
     }
 
     /// Returns whether the data appears to be a key (no promises).
-    fn plausible(bio: &mut BufferedReaderDup<Cookie>, header: &Header) -> Result<()> {
+    fn plausible(bio: &mut buffered_reader::Dup<Cookie>, header: &Header) -> Result<()> {
         // The packet's header is 6 bytes.
         if let BodyLength::Full(len) = header.length {
             if len < 6 {
@@ -1791,15 +1791,15 @@ impl CompressedData {
             },
             #[cfg(feature = "compression-deflate")]
             CompressionAlgorithm::Zip =>
-                Box::new(BufferedReaderDeflate::with_cookie(
+                Box::new(buffered_reader::Deflate::with_cookie(
                     reader, Cookie::new(recursion_depth))),
             #[cfg(feature = "compression-deflate")]
             CompressionAlgorithm::Zlib =>
-                Box::new(BufferedReaderZlib::with_cookie(
+                Box::new(buffered_reader::Zlib::with_cookie(
                     reader, Cookie::new(recursion_depth))),
             #[cfg(feature = "compression-bzip2")]
             CompressionAlgorithm::BZip2 =>
-                Box::new(BufferedReaderBzip::with_cookie(
+                Box::new(buffered_reader::Bzip::with_cookie(
                     reader, Cookie::new(recursion_depth))),
             _ => unreachable!(), // Validated above.
         };
@@ -2309,7 +2309,7 @@ impl MPI {
 impl<'a> Parse<'a, MPI> for MPI {
     // Reads an MPI from `reader`.
     fn from_reader<R: io::Read>(reader: R) -> Result<Self> {
-        let bio = BufferedReaderGeneric::with_cookie(
+        let bio = buffered_reader::Generic::with_cookie(
             reader, None, Cookie::default());
         let mut parser = PacketHeaderParser::new_naked(Box::new(bio));
         Self::parse("(none)", &mut parser)
@@ -2725,13 +2725,13 @@ impl <'a> PacketParser<'a> {
     }
 
     /// Returns the reader stack, replacing it with a
-    /// `BufferedReaderEOF` reader.
+    /// `buffered_reader::EOF` reader.
     ///
     /// This function may only be called when the `PacketParser` is in
     /// State::Body.
     fn take_reader(&mut self) -> Box<BufferedReader<Cookie> + 'a> {
         self.set_reader(
-            Box::new(BufferedReaderEOF::with_cookie(Default::default())))
+            Box::new(buffered_reader::EOF::with_cookie(Default::default())))
     }
 
     /// Replaces the reader stack.
@@ -2842,7 +2842,7 @@ impl <'a> PacketParser<'a> {
     ///
     /// Currently, we only try to recover the most interesting
     /// packets.
-    fn plausible(mut bio: &mut BufferedReaderDup<Cookie>, header: &Header) -> Result<()> {
+    fn plausible(mut bio: &mut buffered_reader::Dup<Cookie>, header: &Header) -> Result<()> {
         let bad = Err(
             Error::MalformedPacket("Can't make an educated case".into()).into());
 
@@ -2917,7 +2917,7 @@ impl <'a> PacketParser<'a> {
         // which would cause the headers to be hashed.  If so, we
         // extract the hash context.
 
-        let mut bio = BufferedReaderDup::with_cookie(bio, Cookie::default());
+        let mut bio = buffered_reader::Dup::with_cookie(bio, Cookie::default());
         let mut header;
 
         // Read the header.
@@ -2975,7 +2975,7 @@ impl <'a> PacketParser<'a> {
 
         let tag = header.ctb.tag;
 
-        // A BufferedReaderDup always has an inner.
+        // A buffered_reader::Dup always has an inner.
         let mut bio = Box::new(bio).into_inner().unwrap();
 
         // Disable hashing for literal packets, Literal::parse will
@@ -2998,7 +2998,7 @@ impl <'a> PacketParser<'a> {
                 BodyLength::Full(len) => {
                     t!("Pushing a limitor ({} bytes), level: {}.",
                        len, recursion_depth);
-                    Box::new(BufferedReaderLimitor::with_cookie(
+                    Box::new(buffered_reader::Limitor::with_cookie(
                         bio, len as u64,
                         Cookie::new(recursion_depth)))
                 },
@@ -3135,7 +3135,7 @@ impl <'a> PacketParser<'a> {
 
         let (mut fake_eof, mut reader) = buffered_reader_stack_pop(
             mem::replace(&mut self.reader,
-                         Box::new(BufferedReaderEOF::with_cookie(
+                         Box::new(buffered_reader::EOF::with_cookie(
                              Default::default()))),
             self.recursion_depth())?;
         // At this point, next() has to point to a non-container
@@ -3663,18 +3663,18 @@ impl<'a> PacketParser<'a> {
                 // be careful to not read any further.  Unfortunately,
                 // our decompressor buffers the data.  To stop the
                 // decompressor from buffering the MDC packet, we use
-                // a BufferedReaderReserve.  Note: we do this
+                // a buffered_reader::Reserve.  Note: we do this
                 // unconditionally, since it doesn't otherwise
                 // interfere with parsing.
 
                 // An MDC consists of a 1-byte CTB, a 1-byte length
                 // encoding, and a 20-byte hash.
-                let mut reader = BufferedReaderReserve::with_cookie(
+                let mut reader = buffered_reader::Reserve::with_cookie(
                     Box::new(reader), 1 + 1 + 20,
                     Cookie::new(self.recursion_depth()));
                 reader.cookie_mut().fake_eof = true;
 
-                t!("Pushing BufferedReaderReserve, level: {}.",
+                t!("Pushing buffered_reader::Reserve, level: {}.",
                    self.recursion_depth());
 
                 // Consume the header.  This shouldn't fail, because
@@ -3834,7 +3834,7 @@ mod test {
         // messages include compressed data packets, and some are
         // signed.  But what makes these particularly complex is the
         // use of an indeterminate length encoding, which checks the
-        // BufferedReaderReserve hack.
+        // buffered_reader::Reserve hack.
         DecryptTest {
             filename: "seip/msg-compression-not-signed-password-123.pgp",
             algo: SymmetricAlgorithm::AES128,

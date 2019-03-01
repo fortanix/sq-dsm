@@ -8,11 +8,11 @@ use super::*;
 
 /// Decompresses the underlying `BufferedReader` using the bzip2
 /// algorithm.
-pub struct BufferedReaderBzip<R: BufferedReader<C>, C> {
-    reader: BufferedReaderGeneric<BzDecoder<R>, C>,
+pub struct Bzip<R: BufferedReader<C>, C> {
+    reader: Generic<BzDecoder<R>, C>,
 }
 
-impl <R: BufferedReader<()>> BufferedReaderBzip<R, ()> {
+impl <R: BufferedReader<()>> Bzip<R, ()> {
     /// Instantiates a new bzip decompression reader.
     ///
     /// `reader` is the source to wrap.
@@ -21,40 +21,40 @@ impl <R: BufferedReader<()>> BufferedReaderBzip<R, ()> {
     }
 }
 
-impl <R: BufferedReader<C>, C> BufferedReaderBzip<R, C> {
+impl <R: BufferedReader<C>, C> Bzip<R, C> {
     /// Like `new()`, but uses a cookie.
     ///
     /// The cookie can be retrieved using the `cookie_ref` and
     /// `cookie_mut` methods, and set using the `cookie_set` method.
     pub fn with_cookie(reader: R, cookie: C) -> Self {
-        BufferedReaderBzip {
-            reader: BufferedReaderGeneric::with_cookie(
+        Bzip {
+            reader: Generic::with_cookie(
                 BzDecoder::new(reader), None, cookie),
         }
     }
 }
 
-impl<R: BufferedReader<C>, C> io::Read for BufferedReaderBzip<R, C> {
+impl<R: BufferedReader<C>, C> io::Read for Bzip<R, C> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, io::Error> {
         self.reader.read(buf)
     }
 }
 
-impl<R: BufferedReader<C>, C> fmt::Debug for BufferedReaderBzip<R, C> {
+impl<R: BufferedReader<C>, C> fmt::Debug for Bzip<R, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("BufferedReaderBzip")
+        f.debug_struct("Bzip")
             .field("reader", &self.get_ref().unwrap())
             .finish()
     }
 }
 
-impl<R: BufferedReader<C>, C> fmt::Display for BufferedReaderBzip<R, C> {
+impl<R: BufferedReader<C>, C> fmt::Display for Bzip<R, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "BufferedReaderBzip")
+        write!(f, "Bzip")
     }
 }
 
-impl<R: BufferedReader<C>, C> BufferedReader<C> for BufferedReaderBzip<R, C> {
+impl<R: BufferedReader<C>, C> BufferedReader<C> for Bzip<R, C> {
     fn buffer(&self) -> &[u8] {
         return self.reader.buffer();
     }

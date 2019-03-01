@@ -26,10 +26,7 @@
 //! ```
 
 extern crate base64;
-use buffered_reader::{
-    BufferedReader, BufferedReaderGeneric, BufferedReaderMemory,
-    BufferedReaderFile,
-};
+use buffered_reader::BufferedReader;
 use std::io::{Cursor, Read, Write};
 use std::io::{Result, Error, ErrorKind};
 use std::path::Path;
@@ -437,7 +434,7 @@ impl<'a> Reader<'a> {
         where R: 'a + Read
     {
         Self::from_buffered_reader(
-            Box::new(BufferedReaderGeneric::new(inner, None)),
+            Box::new(buffered_reader::Generic::new(inner, None)),
             kind)
     }
 
@@ -446,7 +443,7 @@ impl<'a> Reader<'a> {
         where R: 'a + Read
     {
         Self::from_buffered_reader(
-            Box::new(BufferedReaderGeneric::new(reader, None)),
+            Box::new(buffered_reader::Generic::new(reader, None)),
             kind)
     }
 
@@ -455,14 +452,14 @@ impl<'a> Reader<'a> {
         where P: AsRef<Path>
     {
         Ok(Self::from_buffered_reader(
-            Box::new(BufferedReaderFile::open(path)?),
+            Box::new(buffered_reader::File::open(path)?),
             kind))
     }
 
     /// Creates a `Reader` from a buffer.
     pub fn from_bytes(bytes: &'a [u8], kind: Option<Kind>) -> Self {
         Self::from_buffered_reader(
-            Box::new(BufferedReaderMemory::new(bytes)),
+            Box::new(buffered_reader::Memory::new(bytes)),
             kind)
     }
 
@@ -470,7 +467,7 @@ impl<'a> Reader<'a> {
         inner: Box<'a + BufferedReader<C>>, kind: Option<Kind>) -> Self
     {
         Reader {
-            source: Box::new(BufferedReaderGeneric::new(inner, None)),
+            source: Box::new(buffered_reader::Generic::new(inner, None)),
             kind: kind,
             strict: kind.is_some(),
             buffer: Vec::<u8>::with_capacity(1024),
@@ -697,7 +694,7 @@ fn is_armored_pgp_blob(bytes: &[u8]) -> bool {
                 if d.len() == 0 {
                     break false;
                 }
-                let mut br = BufferedReaderMemory::new(&d);
+                let mut br = buffered_reader::Memory::new(&d);
                 break Header::plausible(&mut br).is_ok()
             },
             Err(_) =>

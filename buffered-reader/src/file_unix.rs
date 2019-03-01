@@ -2,11 +2,11 @@
 //!
 //! On my (Justus) system, this implementation improves the
 //! performance of the statistics example by ~10% over the
-//! BufferedReaderGeneric.
+//! Generic.
 
 use libc::{c_void, size_t, mmap, munmap, PROT_READ, MAP_PRIVATE};
 use std::fmt;
-use std::fs::File;
+use std::fs;
 use std::io;
 use std::os::unix::io::AsRawFd;
 use std::slice;
@@ -24,17 +24,17 @@ const MMAP_THRESHOLD: u64 = 16 * 4096;
 ///
 /// This implementation tries to mmap the file, falling back to
 /// just using a generic reader.
-pub struct BufferedReaderFile<'a, C>(Imp<'a, C>);
+pub struct File<'a, C>(Imp<'a, C>);
 
-impl<'a, C> fmt::Display for BufferedReaderFile<'a, C> {
+impl<'a, C> fmt::Display for File<'a, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.0)
     }
 }
 
-impl<'a, C> fmt::Debug for BufferedReaderFile<'a, C> {
+impl<'a, C> fmt::Debug for File<'a, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_tuple("BufferedReaderFile")
+        f.debug_tuple("File")
             .field(&self.0)
             .finish()
     }
@@ -42,11 +42,11 @@ impl<'a, C> fmt::Debug for BufferedReaderFile<'a, C> {
 
 /// The implementation.
 enum Imp<'a, C> {
-    Generic(BufferedReaderGeneric<File, C>),
+    Generic(Generic<fs::File, C>),
     MMAP {
         addr: *mut c_void,
         length: size_t,
-        reader: BufferedReaderMemory<'a, C>,
+        reader: Memory<'a, C>,
     }
 }
 
@@ -64,10 +64,10 @@ impl<'a, C> Drop for Imp<'a, C> {
 
 impl<'a, C> fmt::Display for Imp<'a, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "BufferedReaderFile(")?;
+        write!(f, "File(")?;
         match self {
-            Imp::Generic(_) => write!(f, "BufferedReaderGeneric")?,
-            Imp::MMAP { .. } => write!(f, "BufferedReaderMemory")?,
+            Imp::Generic(_) => write!(f, "Generic")?,
+            Imp::MMAP { .. } => write!(f, "Memory")?,
         };
         write!(f, ")")
     }
@@ -90,24 +90,24 @@ impl<'a, C> fmt::Debug for Imp<'a, C> {
     }
 }
 
-impl<'a> BufferedReaderFile<'a, ()> {
+impl<'a> File<'a, ()> {
     /// Opens the given file.
     pub fn open<P: AsRef<Path>>(path: P) -> io::Result<Self> {
         Self::with_cookie(path, ())
     }
 }
 
-impl<'a, C> BufferedReaderFile<'a, C> {
+impl<'a, C> File<'a, C> {
     /// Like `open()`, but sets a cookie.
     pub fn with_cookie<P: AsRef<Path>>(path: P, cookie: C) -> io::Result<Self> {
         // As fallback, we use a generic reader.
         let generic = |file, cookie| {
-            Ok(BufferedReaderFile(
+            Ok(File(
                 Imp::Generic(
-                    BufferedReaderGeneric::with_cookie(file, None, cookie))))
+                    Generic::with_cookie(file, None, cookie))))
         };
 
-        let file = File::open(path)?;
+        let file = fs::File::open(path)?;
 
         // For testing and benchmarking purposes, we use the variable
         // SEQUOIA_DONT_MMAP to turn off mmapping.
@@ -142,17 +142,17 @@ impl<'a, C> BufferedReaderFile<'a, C> {
             slice::from_raw_parts(addr as *const u8, length)
         };
 
-        Ok(BufferedReaderFile(
+        Ok(File(
             Imp::MMAP {
                 addr: addr,
                 length: length,
-                reader: BufferedReaderMemory::with_cookie(slice, cookie),
+                reader: Memory::with_cookie(slice, cookie),
             }
         ))
     }
 }
 
-impl<'a, C> io::Read for BufferedReaderFile<'a, C> {
+impl<'a, C> io::Read for File<'a, C> {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         match self.0 {
             Imp::Generic(ref mut reader) => reader.read(buf),
@@ -161,7 +161,7 @@ impl<'a, C> io::Read for BufferedReaderFile<'a, C> {
     }
 }
 
-impl<'a, C> BufferedReader<C> for BufferedReaderFile<'a, C> {
+impl<'a, C> BufferedReader<C> for File<'a, C> {
     fn buffer(&self) -> &[u8] {
         match self.0 {
             Imp::Generic(ref reader) => reader.buffer(),

@@ -11,7 +11,6 @@ use {
 use constants::Curve;
 use crypto::mpis::{self, MPI};
 use parse::{
-    BufferedReaderGeneric,
     PacketHeaderParser,
     Cookie,
 };
@@ -30,7 +29,7 @@ impl mpis::PublicKey {
         use std::io::Cursor;
 
         let cur = Cursor::new(buf);
-        let bio = BufferedReaderGeneric::with_cookie(
+        let bio = buffered_reader::Generic::with_cookie(
             cur, None, Cookie::default());
         let mut php = PacketHeaderParser::new_naked(Box::new(bio));
         Self::parse(algo, &mut php)
@@ -154,7 +153,7 @@ impl mpis::SecretKey {
         use nettle::hash::insecure_do_not_use::Sha1;
 
         // read mpis
-        let bio = BufferedReaderGeneric::with_cookie(
+        let bio = buffered_reader::Generic::with_cookie(
             cur, None, Cookie::default());
         let mut php = PacketHeaderParser::new_naked(Box::new(bio));
         let mpis = Self::parse(algo, &mut php)?;
@@ -191,7 +190,7 @@ impl mpis::SecretKey {
         use std::io::Cursor;
 
         let cur = Cursor::new(buf);
-        let bio = BufferedReaderGeneric::with_cookie(
+        let bio = buffered_reader::Generic::with_cookie(
             cur, None, Cookie::default());
         let mut php = PacketHeaderParser::new_naked(Box::new(bio));
         Self::parse(algo, &mut php)
@@ -287,7 +286,7 @@ impl mpis::Ciphertext {
         use std::io::Cursor;
 
         let cur = Cursor::new(buf);
-        let bio = BufferedReaderGeneric::with_cookie(
+        let bio = buffered_reader::Generic::with_cookie(
             cur, None, Cookie::default());
         let mut php = PacketHeaderParser::new_naked(Box::new(bio));
         Self::parse(algo, &mut php)
@@ -367,7 +366,7 @@ impl mpis::Signature {
         use std::io::Cursor;
 
         let cur = Cursor::new(buf);
-        let bio = BufferedReaderGeneric::with_cookie(
+        let bio = buffered_reader::Generic::with_cookie(
             cur, None, Cookie::default());
         let mut php = PacketHeaderParser::new_naked(Box::new(bio));
         Self::parse(algo, &mut php)
@@ -463,7 +462,7 @@ fn mpis_parse_test() {
     {
         let buf = b"\x00\x01\x01\x00\x02\x02".to_vec();
         let cur = Cursor::new(buf);
-        let bio = BufferedReaderGeneric::with_cookie(
+        let bio = buffered_reader::Generic::with_cookie(
             cur, None, Cookie::default());
         let mut parser = PacketHeaderParser::new_naked(Box::new(bio));
         let mpis = mpis::PublicKey::parse(RSAEncryptSign, &mut parser).unwrap();
@@ -487,7 +486,7 @@ fn mpis_parse_test() {
     {
         let buf = b"\x00\x02\x02".to_vec();
         let cur = Cursor::new(buf);
-        let bio = BufferedReaderGeneric::with_cookie(
+        let bio = buffered_reader::Generic::with_cookie(
             cur, None, Cookie::default());
         let mut parser = PacketHeaderParser::new_naked(Box::new(bio));
         let mpis = mpis::Ciphertext::parse(RSAEncryptSign, &mut parser)

@@ -14,8 +14,7 @@ use parse::{
     Parse,
     Cookie
 };
-use buffered_reader::{BufferedReader, BufferedReaderGeneric,
-                      BufferedReaderMemory, BufferedReaderFile};
+use buffered_reader::BufferedReader;
 
 #[cfg(test)]
 #[allow(unused_macros)]
@@ -108,7 +107,7 @@ impl<'a> Parse<'a, PacketPileParser<'a>> for PacketPileParser<'a> {
     /// in the `io::Read` object.
     fn from_reader<R: io::Read + 'a>(reader: R)
              -> Result<PacketPileParser<'a>> {
-        let bio = Box::new(BufferedReaderGeneric::with_cookie(
+        let bio = Box::new(buffered_reader::Generic::with_cookie(
             reader, None, Cookie::default()));
         PacketPileParser::from_buffered_reader(bio)
     }
@@ -118,14 +117,14 @@ impl<'a> Parse<'a, PacketPileParser<'a>> for PacketPileParser<'a> {
     fn from_file<P: AsRef<Path>>(path: P)
             -> Result<PacketPileParser<'a>> {
         PacketPileParser::from_buffered_reader(
-            Box::new(BufferedReaderFile::with_cookie(path, Cookie::default())?))
+            Box::new(buffered_reader::File::with_cookie(path, Cookie::default())?))
     }
 
     /// Creates a `PacketPileParser` to parse the OpenPGP message stored
     /// in the provided buffer.
     fn from_bytes(data: &'a [u8])
             -> Result<PacketPileParser<'a>> {
-        let bio = Box::new(BufferedReaderMemory::with_cookie(
+        let bio = Box::new(buffered_reader::Memory::with_cookie(
             data, Cookie::default()));
         PacketPileParser::from_buffered_reader(bio)
     }

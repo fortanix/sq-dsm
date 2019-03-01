@@ -63,7 +63,7 @@ use time;
 
 use quickcheck::{Arbitrary, Gen};
 
-use buffered_reader::{BufferedReader, BufferedReaderMemory};
+use buffered_reader::BufferedReader;
 
 use {
     Error,
@@ -343,7 +343,7 @@ impl Hash for SubpacketArea {
 
 /// Iterates over SubpacketAreas yielding raw packets.
 struct SubpacketAreaIterRaw<'a> {
-    reader: BufferedReaderMemory<'a, ()>,
+    reader: buffered_reader::Memory<'a, ()>,
     data: &'a [u8],
 }
 
@@ -404,7 +404,7 @@ impl<'a> Iterator for SubpacketAreaIterRaw<'a> {
 impl SubpacketArea {
     fn iter_raw(&self) -> SubpacketAreaIterRaw {
         SubpacketAreaIterRaw {
-            reader: BufferedReaderMemory::new(&self.data[..]),
+            reader: buffered_reader::Memory::new(&self.data[..]),
             data: &self.data[..],
         }
     }
@@ -1097,7 +1097,7 @@ impl<'a> From<SubpacketRaw<'a>> for Subpacket<'a> {
 pub(crate) type SubpacketLength = u32;
 pub(crate) trait SubpacketLengthTrait {
     /// Parses a subpacket length.
-    fn parse<C>(bio: &mut BufferedReaderMemory<C>) -> io::Result<u32>;
+    fn parse<C>(bio: &mut buffered_reader::Memory<C>) -> io::Result<u32>;
     /// Writes the subpacket length to `w`.
     fn serialize<W: io::Write>(&self, sink: &mut W) -> io::Result<()>;
     /// Returns the length of the serialized subpacket length.
@@ -1105,7 +1105,7 @@ pub(crate) trait SubpacketLengthTrait {
 }
 
 impl SubpacketLengthTrait for SubpacketLength {
-    fn parse<C>(bio: &mut BufferedReaderMemory<C>) -> io::Result<u32> {
+    fn parse<C>(bio: &mut buffered_reader::Memory<C>) -> io::Result<u32> {
         let octet1 = bio.data_consume_hard(1)?[0];
         if octet1 < 192 {
             // One octet.
@@ -1155,7 +1155,7 @@ quickcheck! {
         let mut encoded = Vec::new();
         length.serialize(&mut encoded).unwrap();
         assert_eq!(encoded.len(), length.len());
-        let mut reader = BufferedReaderMemory::new(&encoded);
+        let mut reader = buffered_reader::Memory::new(&encoded);
         SubpacketLength::parse(&mut reader).unwrap() == length
     }
 }

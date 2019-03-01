@@ -10,7 +10,7 @@ use super::*;
 /// Note: this will likely cause the underlying stream to buffer as
 /// much data as you read.  Thus, it should only be used for peeking
 /// at the underlying `BufferedReader`.
-pub struct BufferedReaderDup<'a, C> {
+pub struct Dup<'a, C> {
     reader: Box<'a + BufferedReader<C>>,
 
     // The number of bytes that have been consumed.
@@ -20,24 +20,24 @@ pub struct BufferedReaderDup<'a, C> {
     cookie: C,
 }
 
-impl<'a, C> fmt::Display for BufferedReaderDup<'a, C> {
+impl<'a, C> fmt::Display for Dup<'a, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "BufferedReaderDup ({} bytes consumed)",
+        write!(f, "Dup ({} bytes consumed)",
                self.cursor)
     }
 }
 
-impl<'a, C> fmt::Debug for BufferedReaderDup<'a, C> {
+impl<'a, C> fmt::Debug for Dup<'a, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("BufferedReaderDup")
+        f.debug_struct("Dup")
             .field("cursor", &self.cursor)
             .field("reader", &self.reader)
             .finish()
     }
 }
 
-impl<'a> BufferedReaderDup<'a, ()> {
-    /// Instantiates a new `BufferedReaderDup` buffered reader.
+impl<'a> Dup<'a, ()> {
+    /// Instantiates a new `Dup` buffered reader.
     ///
     /// `reader` is the `BufferedReader` to duplicate.
     pub fn new(reader: Box<'a + BufferedReader<()>>) -> Self {
@@ -45,13 +45,13 @@ impl<'a> BufferedReaderDup<'a, ()> {
     }
 }
 
-impl<'a, C> BufferedReaderDup<'a, C> {
+impl<'a, C> Dup<'a, C> {
     /// Like `new()`, but uses a cookie.
     ///
     /// The cookie can be retrieved using the `cookie_ref` and
     /// `cookie_mut` methods, and set using the `cookie_set` method.
     pub fn with_cookie(reader: Box<'a + BufferedReader<C>>, cookie: C) -> Self {
-        BufferedReaderDup {
+        Dup {
             reader: reader,
             cursor: 0,
             cookie: cookie,
@@ -69,7 +69,7 @@ impl<'a, C> BufferedReaderDup<'a, C> {
     }
 }
 
-impl<'a, C> io::Read for BufferedReaderDup<'a, C> {
+impl<'a, C> io::Read for Dup<'a, C> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, io::Error> {
         let data = self.reader.data(self.cursor + buf.len())?;
         assert!(data.len() >= self.cursor);
@@ -84,7 +84,7 @@ impl<'a, C> io::Read for BufferedReaderDup<'a, C> {
     }
 }
 
-impl<'a, C> BufferedReader<C> for BufferedReaderDup<'a, C> {
+impl<'a, C> BufferedReader<C> for Dup<'a, C> {
     fn buffer(&self) -> &[u8] {
         let data = self.reader.buffer();
         assert!(data.len() >= self.cursor);
@@ -156,8 +156,8 @@ mod test {
     #[test]
     fn buffered_reader_memory_test () {
         let data : &[u8] = include_bytes!("buffered-reader-test.txt");
-        let reader = BufferedReaderMemory::new(data);
-        let mut reader = BufferedReaderDup::new(Box::new(reader));
+        let reader = Memory::new(data);
+        let mut reader = Dup::new(Box::new(reader));
 
         buffered_reader_test_data_check(&mut reader);
 
@@ -178,7 +178,7 @@ mod test {
     // Test that buffer() returns the same data as data().
     #[test]
     fn buffer_test() {
-        // Test vector.  A BufferedReaderDup returns all unconsumed
+        // Test vector.  A Dup returns all unconsumed
         // data.  So, use a relatively small buffer size.
         let size = DEFAULT_BUF_SIZE;
         let mut input = Vec::with_capacity(size);
@@ -192,8 +192,8 @@ mod test {
             }
         }
 
-        let reader = BufferedReaderMemory::new(&input[..]);
-        let mut reader = BufferedReaderDup::new(Box::new(reader));
+        let reader = Memory::new(&input[..]);
+        let mut reader = Dup::new(Box::new(reader));
 
         for i in 0..input.len() {
             let data = reader.data(DEFAULT_BUF_SIZE + 1).unwrap().to_vec();

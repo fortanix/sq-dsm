@@ -2,37 +2,37 @@ use std::io;
 
 use super::*;
 
-/// A `BufferedReaderReserve` allows a reader to read everything
+/// A `Reserve` allows a reader to read everything
 /// except for the last N bytes (the reserve) from the underlying
 /// `BufferedReader`.
 ///
-/// Note: because the `BufferedReaderReserve` doesn't generally know
+/// Note: because the `Reserve` doesn't generally know
 /// how much data can be read from the underlying `BufferedReader`,
 /// it causes at least N bytes to by buffered.
-pub struct BufferedReaderReserve<'a, C> {
+pub struct Reserve<'a, C> {
     reader: Box<'a + BufferedReader<C>>,
     reserve: usize,
 
     cookie: C,
 }
 
-impl<'a, C> fmt::Display for BufferedReaderReserve<'a, C> {
+impl<'a, C> fmt::Display for Reserve<'a, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "BufferedReaderReserve ({} bytes)", self.reserve)
+        write!(f, "Reserve ({} bytes)", self.reserve)
     }
 }
 
-impl<'a, C> fmt::Debug for BufferedReaderReserve<'a, C> {
+impl<'a, C> fmt::Debug for Reserve<'a, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("BufferedReaderReserve")
+        f.debug_struct("Reserve")
             .field("reserve", &self.reserve)
             .field("reader", &self.reader)
             .finish()
     }
 }
 
-impl<'a> BufferedReaderReserve<'a, ()> {
-    /// Instantiates a new `BufferedReaderReserve`.
+impl<'a> Reserve<'a, ()> {
+    /// Instantiates a new `Reserve`.
     ///
     /// `reader` is the source to wrap.  `reserve` is the number of
     /// bytes that will not be returned to the reader.
@@ -41,15 +41,15 @@ impl<'a> BufferedReaderReserve<'a, ()> {
     }
 }
 
-impl<'a, C> BufferedReaderReserve<'a, C> {
+impl<'a, C> Reserve<'a, C> {
     /// Like `new()`, but sets a cookie.
     ///
     /// The cookie can be retrieved using the `cookie_ref` and
     /// `cookie_mut` methods, and set using the `cookie_set` method.
     pub fn with_cookie(reader: Box<'a + BufferedReader<C>>,
                        reserve: usize, cookie: C)
-            -> BufferedReaderReserve<'a, C> {
-        BufferedReaderReserve {
+            -> Reserve<'a, C> {
+        Reserve {
             reader: reader,
             reserve: reserve,
             cookie: cookie,
@@ -57,7 +57,7 @@ impl<'a, C> BufferedReaderReserve<'a, C> {
     }
 }
 
-impl<'a, C> io::Read for BufferedReaderReserve<'a, C> {
+impl<'a, C> io::Read for Reserve<'a, C> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, io::Error> {
         let to_read = {
             let data = self.reader.data(buf.len() + self.reserve)?;
@@ -74,7 +74,7 @@ impl<'a, C> io::Read for BufferedReaderReserve<'a, C> {
     }
 }
 
-impl<'a, C> BufferedReader<C> for BufferedReaderReserve<'a, C> {
+impl<'a, C> BufferedReader<C> for Reserve<'a, C> {
     fn buffer(&self) -> &[u8] {
         let buf = self.reader.buffer();
         if buf.len() > self.reserve {
@@ -160,11 +160,11 @@ mod test {
 
     #[test]
     fn data() {
-        use ::BufferedReaderMemory;
+        use ::Memory;
 
         // orig is the original buffer
         //
-        // cursor is the BufferedReaderReserve's position in orig.
+        // cursor is the Reserve's position in orig.
         //
         // to_read is how much to read.
         //
@@ -263,8 +263,8 @@ mod test {
                 mid1: usize, mid2: usize) {
             let total = orig.len() - reserve;
 
-            let mut r = BufferedReaderReserve::new(
-                Box::new(BufferedReaderMemory::new(orig)), reserve);
+            let mut r = Reserve::new(
+                Box::new(Memory::new(orig)), reserve);
 
             // Read the first chunk.
             read_chunk(orig, &mut r, mid1, 0, total, mode);
