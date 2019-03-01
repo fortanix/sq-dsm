@@ -1,5 +1,5 @@
 use std::io;
-use std::io::Read;
+use std::io::{Error, ErrorKind, Read};
 use std::fmt;
 
 use BufferedReader;
@@ -60,14 +60,16 @@ impl<C> BufferedReader<C> for BufferedReaderEOF<C> {
         return &b""[..];
     }
 
-    fn data_consume(&mut self, amount: usize) -> Result<&[u8], io::Error> {
-        assert_eq!(amount, 0);
+    fn data_consume(&mut self, _amount: usize) -> Result<&[u8], io::Error> {
         return Ok(&b""[..]);
     }
 
     fn data_consume_hard(&mut self, amount: usize) -> Result<&[u8], io::Error> {
-        assert_eq!(amount, 0);
-        return Ok(&b""[..]);
+        if amount == 0 {
+            Ok(&b""[..])
+        } else {
+            Err(Error::new(ErrorKind::UnexpectedEof, "unexpected EOF"))
+        }
     }
 
     fn into_inner<'a>(self: Box<Self>) -> Option<Box<BufferedReader<C> + 'a>>
