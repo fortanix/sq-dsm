@@ -34,6 +34,14 @@ fn main() {
     let mut tags_size_max = vec![0; 64];
     let mut sigs_count = vec![0; 256];
 
+    // Signature Subpacket statistics.
+    let mut sigs_subpacket_tags_count = vec![0; 256];
+    let mut sigs_subpacket_tags_unknown = vec![0; 256];
+    let mut sigs_subpacket_tags_size_bytes = vec![0 as usize; 256];
+    let mut sigs_subpacket_tags_size_count = vec![0; 256];
+    let mut sigs_subpacket_tags_size_min = vec![::std::u32::MAX; 256];
+    let mut sigs_subpacket_tags_size_max = vec![0; 256];
+
     // Per-TPK statistics.
     let mut tpk_count = 0;
     let mut tpk = PerTPK::min();
@@ -83,6 +91,28 @@ fn main() {
                 Packet::Signature(ref sig) => {
                     sigs_count[u8::from(sig.sigtype()) as usize] += 1;
                     tpk.sigs[u8::from(sig.sigtype()) as usize] += 1;
+
+                    for (_offset, len, sub) in sig.hashed_area().iter()
+                        .chain(sig.unhashed_area().iter())
+                    {
+                        use openpgp::packet::signature::subpacket::*;
+                        let i = u8::from(sub.tag) as usize;
+                        sigs_subpacket_tags_count[i] += 1;
+                        if let SubpacketValue::Unknown(_) = sub.value {
+                            sigs_subpacket_tags_unknown
+                                [u8::from(sub.tag) as usize] += 1;
+                        } else {
+                            sigs_subpacket_tags_size_bytes[i] += len;
+                            sigs_subpacket_tags_size_count[i] += 1;
+                            let len = len as u32;
+                            if len < sigs_subpacket_tags_size_min[i] {
+                                sigs_subpacket_tags_size_min[i] = len;
+                            }
+                            if len > sigs_subpacket_tags_size_max[i] {
+                                sigs_subpacket_tags_size_max[i] = len;
+                            }
+                        }
+                    }
                 },
 
                 Packet::UserAttribute(ref ua) => {
@@ -169,6 +199,43 @@ fn main() {
                 println!("{:>22} {:>9}",
                          format!("{:?}", SignatureType::from(t as u8)),
                          sigs_count[t]);
+            }
+        }
+
+        println!();
+        println!("# Signature Subpacket statistics");
+        println!();
+        println!("{:>30} {:>8} {:>6} {:>4} {:>4} {:>5} {:>14}",
+                 "", "", "",
+                 "min", "mean", "max", "sum");
+        println!("{:>30} {:>8} {:>6} {:>4} {:>4} {:>5} {:>14}",
+                 "", "#", "?",
+                 "size", "size", "size", "size");
+        println!("-------------------------------------------------------\
+                  ----------------------");
+
+        for t in 0..256 {
+            use openpgp::packet::signature::subpacket::SubpacketTag;
+            let count = sigs_subpacket_tags_count[t];
+            let size_count = sigs_subpacket_tags_size_count[t];
+            let tag_name = format!("{:?}", SubpacketTag::from(t as u8));
+            let tag_short = String::from_utf8_lossy(
+                tag_name.as_bytes().chunks(30).next().unwrap());
+            if size_count > 0 {
+                println!("{:>30} {:>8} {:>6} {:>4} {:>4} {:>5} {:>14}",
+                         tag_short,
+                         count,
+                         sigs_subpacket_tags_unknown[t],
+                         sigs_subpacket_tags_size_min[t],
+                         sigs_subpacket_tags_size_bytes[t] / size_count,
+                         sigs_subpacket_tags_size_max[t],
+                         sigs_subpacket_tags_size_bytes[t]);
+            } else if count > 0 {
+                println!("{:>30} {:>8} {:>6} {:>4} {:>4} {:>5} {:>14}",
+                         tag_short,
+                         count,
+                         sigs_subpacket_tags_unknown[t],
+                         "-", "-", "-", "-");
             }
         }
     }
