@@ -935,11 +935,8 @@ enum PacketSource<'a, I: Iterator<Item=Packet>> {
 /// ```
 pub struct TPKParser<'a, I: Iterator<Item=Packet>> {
     source: PacketSource<'a, I>,
-
     packets: Vec<Packet>,
-
     saw_error: bool,
-
     filter: Vec<Box<Fn(&TPK, bool) -> bool + 'a>>,
 }
 
