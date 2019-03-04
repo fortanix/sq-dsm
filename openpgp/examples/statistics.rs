@@ -155,19 +155,21 @@ fn main() {
                      tags_size_bytes[t]);
         }
     }
-    println!();
 
-    println!("# Signature statistics");
-    println!();
-    println!("{:>22} {:>9}",
-             "", "count",);
-    println!("--------------------------------");
-    for t in 0..256 {
-        let max = tpk_max.sigs[t];
-        if max > 0 {
-            println!("{:>22} {:>9}",
-                     format!("{:?}", SignatureType::from(t as u8)),
-                     sigs_count[t]);
+    if tags_count[u8::from(Tag::Signature) as usize] > 0 {
+        println!();
+        println!("# Signature statistics");
+        println!();
+        println!("{:>22} {:>9}",
+                 "", "count",);
+        println!("--------------------------------");
+        for t in 0..256 {
+            let max = tpk_max.sigs[t];
+            if max > 0 {
+                println!("{:>22} {:>9}",
+                         format!("{:?}", SignatureType::from(t as u8)),
+                         sigs_count[t]);
+            }
         }
     }
 
