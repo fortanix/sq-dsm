@@ -148,12 +148,20 @@ impl TSK {
         let caps = KeyFlags::default().set_certify(true);
         let keys = self.key.select_keys(caps, None);
 
+        let builder =
+            if let Some(sig) = self.primary_key_signature() {
+                signature::Builder::from(sig.clone())
+                    .set_sigtype(SignatureType::PositiveCertificate)
+            } else {
+                signature::Builder::new(SignatureType::PositiveCertificate)
+            }
+        .set_signature_creation_time(time::now())?;
+
         match keys.first() {
             Some(my_key) => {
                 match my_key.secret() {
                     Some(&SecretKey::Unencrypted{ ref mpis }) => {
-                        signature::Builder::new(SignatureType::PositiveCertificate)
-                            .set_signature_creation_time(time::now())?
+                        builder
                             .set_issuer_fingerprint(my_key.fingerprint())?
                             .set_issuer(my_key.fingerprint().to_keyid())?
                             .sign_userid_binding(
