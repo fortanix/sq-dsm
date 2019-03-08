@@ -4,7 +4,6 @@ use time;
 use packet::{Features, KeyFlags};
 use packet::Key;
 use Result;
-use packet::UserID;
 use crypto::KeyPair;
 use HashAlgorithm;
 use packet::signature::{self, Signature};
@@ -12,9 +11,6 @@ use packet::key::SecretKey;
 use TPK;
 use Error;
 use conversions::Time;
-use constants::{
-    SignatureType,
-};
 use crypto::Password;
 use autocrypt::Autocrypt;
 
@@ -214,13 +210,8 @@ impl TPKBuilder {
             self.primary.flags = self.primary.flags.set_certify(true);
         }
 
-        // select the first UserID as primary, if present
-        let maybe_first_uid = self.userids.first().map(|uid| {
-            UserID::from(uid.as_str())
-        });
         // Generate & and self-sign primary key.
-        let (primary, sig) = Self::primary_key(
-            self.primary, maybe_first_uid.as_ref(), self.ciphersuite)?;
+        let (primary, sig) = Self::primary_key(self.primary, self.ciphersuite)?;
 
         packets.push(Packet::PublicKey({
             let mut primary = primary.clone();
@@ -229,31 +220,14 @@ impl TPKBuilder {
             }
             primary
         }));
-        packets.push(Packet::Signature(sig.clone()));
-
-        // Sort primary keys self-sig into the right vec.
-        match maybe_first_uid {
-            Some(uid) => {
-                // maybe to strict?
-                assert_eq!(sig.sigtype(), SignatureType::PositiveCertificate);
-
-                packets.push(Packet::UserID(uid));
-            }
-            None => {
-                assert_eq!(sig.sigtype(), SignatureType::DirectKey);
-            }
-        };
+        packets.push(sig.into());
 
         let mut tsk =
             TSK::from_tpk(TPK::from_packet_pile(PacketPile::from(packets))?);
 
-        // sign UserIDs. First UID was used as primary keys self-sig
-        if !self.userids.is_empty() {
-            for uid in self.userids[1..].iter() {
-                let uid = UserID::from(uid.as_str());
-
-                tsk = tsk.with_userid(uid)?;
-            }
+        // Sign UserIDs.
+        for uid in self.userids.iter() {
+            tsk = tsk.with_userid(uid.as_str().into())?;
         }
 
         // sign subkeys
@@ -286,20 +260,14 @@ impl TPKBuilder {
         Ok((tpk, revocation))
     }
 
-    fn primary_key(blueprint: KeyBlueprint, uid: Option<&UserID>, cs: CipherSuite)
+    fn primary_key(blueprint: KeyBlueprint, cs: CipherSuite)
         -> Result<(Key, Signature)>
     {
         use SignatureType;
         use packet::key::SecretKey;
 
         let key = cs.generate_key(&KeyFlags::default().set_certify(true))?;
-        let sigtype = if uid.is_some() {
-            SignatureType::PositiveCertificate
-        } else {
-            SignatureType::DirectKey
-        };
-
-        let sig = signature::Builder::new(sigtype)
+        let sig = signature::Builder::new(SignatureType::DirectKey)
             .set_features(&Features::sequoia())?
             .set_key_flags(&blueprint.flags)?
             .set_signature_creation_time(time::now().canonicalize())?
@@ -310,14 +278,9 @@ impl TPKBuilder {
 
         let sig = match key.secret() {
             Some(SecretKey::Unencrypted{ ref mpis }) => {
-                match uid {
-                    Some(uid) => sig.sign_userid_binding(
-                        &mut KeyPair::new(key.clone(), mpis.clone())?,
-                        &key, &uid, HashAlgorithm::SHA512)?,
-                    None => sig.sign_primary_key_binding(
-                        &mut KeyPair::new(key.clone(), mpis.clone())?,
-                        HashAlgorithm::SHA512)?,
-                }
+                sig.sign_primary_key_binding(
+                    &mut KeyPair::new(key.clone(), mpis.clone())?,
+                    HashAlgorithm::SHA512)?
             }
             Some(SecretKey::Encrypted{ .. }) => {
                 return Err(Error::InvalidOperation(
@@ -372,7 +335,8 @@ mod tests {
             .generate().unwrap();
 
         assert_eq!(tpk.userids().count(), 0);
-        assert_eq!(tpk.primary_key_signature().unwrap().sigtype(), SignatureType::DirectKey);
+        assert_eq!(tpk.primary_key_signature().unwrap().sigtype(),
+                   ::constants::SignatureType::DirectKey);
         assert_eq!(tpk.subkeys().count(), 3);
         if let Some(sig) = tpk.primary_key_signature() {
             assert!(sig.features().supports_mdc());
