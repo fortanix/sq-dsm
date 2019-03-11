@@ -1252,16 +1252,16 @@ pgp_writer_stack_t pgp_arbitrary_writer_new (pgp_error_t *errp,
 /// writes a signature packet.
 /*/
 pgp_writer_stack_t pgp_signer_new (pgp_error_t *errp,
-                                 pgp_writer_stack_t inner,
-                                 pgp_tpk_t *signers, size_t signers_len);
+                                   pgp_writer_stack_t inner,
+                                   pgp_signer_t *signers, size_t signers_len);
 
 /*/
 /// Creates a signer for a detached signature.
 /*/
 pgp_writer_stack_t pgp_signer_new_detached (pgp_error_t *errp,
-                                          pgp_writer_stack_t inner,
-                                          pgp_tpk_t *signers,
-                                          size_t signers_len);
+                                            pgp_writer_stack_t inner,
+                                            pgp_signer_t *signers,
+                                            size_t signers_len);
 
 /*/
 /// Writes a literal data packet.
