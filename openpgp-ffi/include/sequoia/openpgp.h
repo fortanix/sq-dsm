@@ -299,13 +299,13 @@ void pgp_signature_free (pgp_signature_t signature);
 /*/
 /// Clones the Signature.
 /*/
-pgp_signature_t pgp_signature_clone (pgp_signature_t this);
+pgp_signature_t pgp_signature_clone (pgp_signature_t signature);
 
 /*/
 /// Returns a human readable description of this object suitable for
 /// debugging.
 /*/
-char *pgp_signature_debug (const pgp_signature_t this);
+char *pgp_signature_debug (const pgp_signature_t signature);
 
 /*/
 /// Compares Signatures.
@@ -335,7 +335,7 @@ pgp_signature_t pgp_signature_from_bytes (pgp_error_t *errp,
 /// Serializes this object.
 /*/
 pgp_status_t pgp_signature_serialize (pgp_error_t *errp,
-				      const pgp_signature_t this,
+				      const pgp_signature_t signature,
 				      pgp_writer_t writer);
 
 /*/
@@ -858,13 +858,13 @@ void pgp_key_free (pgp_key_t key);
 /*/
 /// Clones the Key.
 /*/
-pgp_key_t pgp_key_clone (pgp_key_t this);
+pgp_key_t pgp_key_clone (pgp_key_t key);
 
 /*/
 /// Returns a human readable description of this object suitable for
 /// debugging.
 /*/
-char *pgp_key_debug (const pgp_key_t this);
+char *pgp_key_debug (const pgp_key_t key);
 
 /*/
 /// Compares Keys.
