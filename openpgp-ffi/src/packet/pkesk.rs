@@ -44,24 +44,31 @@ pub extern "system" fn pgp_pkesk_decrypt(errp: Option<&mut *mut ::error::Error>,
     let algo = ffi_param_ref_mut!(algo);
     let key_len = ffi_param_ref_mut!(key_len);
 
-    if let Some(SecretKey::Unencrypted{ mpis: ref secret_part }) = secret_key.secret() {
-        match pkesk.decrypt(secret_key, secret_part) {
-            Ok((a, k)) => {
-                *algo = a.into();
-                if !key.is_null() && *key_len >= k.len() {
-                    unsafe {
-                        ::std::ptr::copy(k.as_ptr(),
-                                         key,
-                                         k.len());
+    match secret_key.secret() {
+        Some(SecretKey::Unencrypted{ mpis: secret_parts }) => {
+            match pkesk.decrypt(secret_key, secret_parts) {
+                Ok((a, k)) => {
+                    *algo = a.into();
+                    if !key.is_null() && *key_len >= k.len() {
+                        unsafe {
+                            ::std::ptr::copy(k.as_ptr(),
+                                             key,
+                                             k.len());
+                        }
                     }
-                }
-                *key_len = k.len();
-                Status::Success
-            },
-            Err(e) => ffi_try_status!(Err::<(), failure::Error>(e)),
+                    *key_len = k.len();
+                    Status::Success
+                },
+                Err(e) => ffi_try_status!(Err::<(), failure::Error>(e)),
+            }
         }
-    } else {
-        // XXX: Better message.
-        panic!("No secret parts");
+        Some(thing @ SecretKey::Encrypted{ .. }) => {
+            // XXX: Better message, don't panic.
+            panic!("Secret parts not unencrypted: {:?}", thing);
+        }
+        None => {
+            // XXX: Better message, don't panic.
+            panic!("No secret parts: {:?}", secret_key.secret());
+        }
     }
 }
