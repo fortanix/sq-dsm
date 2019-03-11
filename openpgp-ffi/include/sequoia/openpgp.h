@@ -910,7 +910,7 @@ pgp_keyid_t pgp_key_keyid (pgp_key_t p);
 /*/
 /// Returns the key's public key algorithm.
 /*/
-sq_public_key_algo_t pgp_key_public_key_algo(pgp_key_t key);
+pgp_public_key_algo_t pgp_key_public_key_algo(pgp_key_t key);
 
 /*/
 /// Returns the public key's size in bits.

@@ -177,7 +177,7 @@ typedef enum pgp_public_key_algorithm {
   /* Dummy value to make sure the enumeration has a defined size.  Do
      not use this value.  */
   PGP_PUBLIC_KEY_ALGO_FORCE_WIDTH = INT_MAX,
-} sq_public_key_algo_t;
+} pgp_public_key_algo_t;
 
 /*/
 /// The OpenPGP packet tags as defined in [Section 4.3 of RFC 4880].
