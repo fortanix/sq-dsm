@@ -525,7 +525,6 @@ impl VerificationHelper for VHelper {
             ids.as_ptr(), ids.len(),
             &mut tpk_refs_raw, &mut tpk_refs_raw_len as *mut usize,
             &mut free);
-        ids.into_iter().for_each(|k| { k.move_from_raw(); });
 
         if result != Status::Success {
             // XXX: We need to convert the status to an error.  A
