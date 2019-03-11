@@ -22,6 +22,7 @@ use self::openpgp::constants::{
 
 use error::Status;
 use MoveFromRaw;
+use RefRaw;
 
 use self::openpgp::serialize::{
     writer,
@@ -36,7 +37,7 @@ use self::openpgp::serialize::{
     },
 };
 
-use super::openpgp::TPK;
+use super::tpk::TPK;
 
 /// Streams an OpenPGP message.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
@@ -217,7 +218,7 @@ pub extern "system" fn pgp_encryptor_new
     (errp: Option<&mut *mut ::error::Error>,
      inner: *mut writer::Stack<'static, Cookie>,
      passwords: Option<&*const c_char>, passwords_len: size_t,
-     recipients: Option<&&TPK>, recipients_len: size_t,
+     recipients: Option<&*const TPK>, recipients_len: size_t,
      encryption_mode: uint8_t)
      -> *mut writer::Stack<'static, Cookie>
 {
@@ -242,6 +243,8 @@ pub extern "system" fn pgp_encryptor_new
     } else {
         &[]
     };
+    let recipients : Vec<&::sequoia_openpgp::TPK>
+        = recipients.into_iter().map(|&tpk| tpk.ref_raw()).collect();
     let encryption_mode = match encryption_mode {
         0 => EncryptionMode::AtRest,
         1 => EncryptionMode::ForTransport,
@@ -249,6 +252,6 @@ pub extern "system" fn pgp_encryptor_new
     };
     ffi_try_box!(Encryptor::new(*inner,
                                  &passwords_.iter().collect::<Vec<&Password>>(),
-                                 &recipients,
+                                 &recipients[..],
                                  encryption_mode))
 }
