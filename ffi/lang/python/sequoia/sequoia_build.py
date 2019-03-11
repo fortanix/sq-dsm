@@ -8,6 +8,7 @@ pgp_inc = join(dirname(__file__), '../../../../openpgp-ffi/include/sequoia')
 defs = "".join(l
                for l in chain(open(join(pgp_inc, "openpgp/error.h")).readlines(),
                               open(join(pgp_inc, "io.h")).readlines(),
+                              open(join(pgp_inc, "openpgp/types.h")).readlines(),
                               open(join(pgp_inc, "openpgp/crypto.h")).readlines(),
                               open(join(pgp_inc, "openpgp.h")).readlines(),
                               open(join(sq_inc, "core.h")).readlines(),

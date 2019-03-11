@@ -1,6 +1,8 @@
 #ifndef SEQUOIA_OPENPGP_CRYPTO_H
 #define SEQUOIA_OPENPGP_CRYPTO_H
 
+#include <sequoia/openpgp/types.h>
+
 typedef struct pgp_mpi *pgp_mpi_t;
 
 /*/
@@ -25,9 +27,6 @@ void pgp_signer_free (pgp_signer_t s);
 /// are available in memory, a `KeyPair` is a convenient
 /*/
 typedef struct pgp_key_pair *pgp_key_pair_t;
-
-/* Forward declaration.  */
-typedef struct pgp_key *pgp_key_t;
 
 /*/
 /// Creates a new key pair.
