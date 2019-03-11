@@ -4,12 +4,14 @@ use failure;
 use libc::{uint8_t, size_t};
 
 extern crate sequoia_openpgp as openpgp;
-use self::openpgp::packet::{Key, PKESK, key::SecretKey};
+use self::openpgp::packet::{PKESK, key::SecretKey};
 use super::super::keyid::KeyID;
+use super::super::packet::key::Key;
 
 use error::Status;
 
 use MoveIntoRaw;
+use RefRaw;
 
 /// Returns the PKESK's recipient.
 ///
@@ -38,7 +40,7 @@ pub extern "system" fn pgp_pkesk_decrypt(errp: Option<&mut *mut ::error::Error>,
                                         -> Status {
     ffi_make_fry_from_errp!(errp);
     let pkesk = ffi_param_ref!(pkesk);
-    let secret_key = ffi_param_ref!(secret_key);
+    let secret_key = secret_key.ref_raw();
     let algo = ffi_param_ref_mut!(algo);
     let key_len = ffi_param_ref_mut!(key_len);
 
