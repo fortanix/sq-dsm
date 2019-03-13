@@ -34,7 +34,7 @@ native-tls = "0.2.0"
 time = "0.1.40"
 
 [dev-dependencies]
-nettle = "4.0"
+nettle = "5.0"
 
 [lib]
 crate-type = ["cdylib", "staticlib"]
