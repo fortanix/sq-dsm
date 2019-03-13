@@ -325,8 +325,8 @@ impl mpis::Ciphertext {
 
             ECDH => {
                 let e = MPI::parse("ecdh_e", php)?;
-                let key_len = php.parse_u8("ecdh_key_len")? as usize;
-                let key = Vec::from(&php.parse_bytes("ecdh_key", key_len)?
+                let key_len = php.parse_u8("ecdh_esk_len")? as usize;
+                let key = Vec::from(&php.parse_bytes("ecdh_esk", key_len)?
                                     [..key_len]);
 
                 Ok(mpis::Ciphertext::ECDH {

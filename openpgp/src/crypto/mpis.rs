@@ -658,7 +658,7 @@ pub enum Ciphertext {
     ECDH {
         /// Ephemeral key.
         e: MPI,
-        /// Symmetrically encrypted poition.
+        /// Symmetrically encrypted session key.
         key: Box<[u8]>,
     },
 
