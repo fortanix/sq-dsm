@@ -217,34 +217,39 @@ fn real_main() -> Result<(), failure::Error> {
             }
         },
 
-        ("dump",  Some(m)) => {
-            let mut input = open_or_stdin(m.value_of("input"))?;
-            let mut output = create_or_stdout(m.value_of("output"), force)?;
-            commands::dump(&mut input, &mut output,
-                           m.is_present("mpis"), m.is_present("hex"))?;
-        },
         ("inspect",  Some(m)) => {
             let mut output = create_or_stdout(m.value_of("output"), force)?;
             commands::inspect(m, &mut output)?;
         },
-        ("split",  Some(m)) => {
-            let mut input = open_or_stdin(m.value_of("input"))?;
-            let prefix =
+
+        ("packet", Some(m)) => match m.subcommand() {
+            ("dump",  Some(m)) => {
+                let mut input = open_or_stdin(m.value_of("input"))?;
+                let mut output = create_or_stdout(m.value_of("output"), force)?;
+                commands::dump(&mut input, &mut output,
+                               m.is_present("mpis"), m.is_present("hex"))?;
+            },
+            ("split",  Some(m)) => {
+                let mut input = open_or_stdin(m.value_of("input"))?;
+                let prefix =
                 // The prefix is either specified explicitly...
-                m.value_of("prefix").map(|p| p.to_owned())
-                .unwrap_or(
-                    // ... or we derive it from the input file...
-                    m.value_of("input").and_then(|i| {
-                        let p = PathBuf::from(i);
-                        // (but only use the filename)
-                        p.file_name().map(|f| String::from(f.to_string_lossy()))
-                    })
-                    // ... or we use a generic prefix...
-                        .unwrap_or(String::from("output"))
-                    // ... finally, add a hyphen to the derived prefix.
-                        + "-");
-            commands::split(&mut input, &prefix)?;
+                    m.value_of("prefix").map(|p| p.to_owned())
+                    .unwrap_or(
+                        // ... or we derive it from the input file...
+                        m.value_of("input").and_then(|i| {
+                            let p = PathBuf::from(i);
+                            // (but only use the filename)
+                            p.file_name().map(|f| String::from(f.to_string_lossy()))
+                        })
+                        // ... or we use a generic prefix...
+                            .unwrap_or(String::from("output"))
+                        // ... finally, add a hyphen to the derived prefix.
+                            + "-");
+                commands::split(&mut input, &prefix)?;
+            },
+            _ => unreachable!(),
         },
+
         ("keyserver",  Some(m)) => {
             let mut ks = if let Some(uri) = m.value_of("server") {
                 KeyServer::new(&ctx, &uri)

@@ -28,13 +28,12 @@
 //!     keyserver    Interacts with keyservers
 //!     autocrypt    Autocrypt support
 //!     dearmor      Removes ASCII Armor from a file
-//!     dump         Lists OpenPGP packets
 //!     enarmor      Applies ASCII Armor to a file
 //!     help         Prints this message or the help of the given subcommand(s)
 //!     inspect      Inspects a sequence of OpenPGP packets
 //!     key          Manipulates keys
 //!     list         Lists key stores and known keys
-//!     split        Splits a message into OpenPGP packets
+//!     packet       OpenPGP Packet manipulation
 //! ```
 //!
 //! ## Subcommand decrypt
@@ -382,27 +381,6 @@
 //!     <FILE>    Sets the input file to use
 //! ```
 //!
-//! ## Subcommand dump
-//!
-//! ```text
-//! Lists OpenPGP packets
-//!
-//! USAGE:
-//!     sq dump [FLAGS] [OPTIONS] [FILE]
-//!
-//! FLAGS:
-//!     -h, --help       Prints help information
-//!     -x, --hex        Print a hexdump
-//!         --mpis       Print MPIs
-//!     -V, --version    Prints version information
-//!
-//! OPTIONS:
-//!     -o, --output <FILE>    Sets the output file to use
-//!
-//! ARGS:
-//!     <FILE>    Sets the input file to use
-//! ```
-//!
 //! ## Subcommand enarmor
 //!
 //! ```text
@@ -562,13 +540,52 @@
 //!     <PREFIX>    List only stores with the given domain prefix
 //! ```
 //!
-//! ## Subcommand split
+//! ## Subcommand packet
+//!
+//! ```text
+//! OpenPGP Packet manipulation
+//!
+//! USAGE:
+//!     sq packet [SUBCOMMAND]
+//!
+//! FLAGS:
+//!     -h, --help       Prints help information
+//!     -V, --version    Prints version information
+//!
+//! SUBCOMMANDS:
+//!     dump     Lists OpenPGP packets
+//!     help     Prints this message or the help of the given subcommand(s)
+//!     split    Splits a message into OpenPGP packets
+//! ```
+//!
+//! ### Subcommand packet dump
+//!
+//! ```text
+//! Lists OpenPGP packets
+//!
+//! USAGE:
+//!     sq packet dump [FLAGS] [OPTIONS] [FILE]
+//!
+//! FLAGS:
+//!     -h, --help       Prints help information
+//!     -x, --hex        Print a hexdump
+//!         --mpis       Print MPIs
+//!     -V, --version    Prints version information
+//!
+//! OPTIONS:
+//!     -o, --output <FILE>    Sets the output file to use
+//!
+//! ARGS:
+//!     <FILE>    Sets the input file to use
+//! ```
+//!
+//! ### Subcommand packet split
 //!
 //! ```text
 //! Splits a message into OpenPGP packets
 //!
 //! USAGE:
-//!     sq split [OPTIONS] [FILE]
+//!     sq packet split [OPTIONS] [FILE]
 //!
 //! FLAGS:
 //!     -h, --help       Prints help information
