@@ -2,16 +2,18 @@ use std::io::{self, Read};
 use time;
 
 extern crate sequoia_openpgp as openpgp;
+use openpgp::constants::SymmetricAlgorithm;
 use openpgp::{Packet, Result};
 use openpgp::packet::ctb::CTB;
 use openpgp::packet::{Header, BodyLength, Signature};
 use openpgp::packet::signature::subpacket::{Subpacket, SubpacketValue};
-use openpgp::crypto::s2k::S2K;
+use openpgp::crypto::{SessionKey, s2k::S2K};
 use openpgp::parse::{map::Map, Parse, PacketParserResult};
 
 use super::TIMEFMT;
 
-pub fn dump(input: &mut io::Read, output: &mut io::Write, mpis: bool, hex: bool)
+pub fn dump(input: &mut io::Read, output: &mut io::Write, mpis: bool, hex: bool,
+            sk: Option<&SessionKey>)
         -> Result<()> {
     let mut ppr
         = openpgp::parse::PacketParserBuilder::from_reader(input)?
@@ -28,6 +30,51 @@ pub fn dump(input: &mut io::Read, output: &mut io::Write, mpis: bool, hex: bool)
                             String::from_utf8_lossy(&prefix[..n]),
                             if n == prefix.len() { "..." } else { "" }),
                 ])
+            },
+            Packet::SEIP(_) if sk.is_some() => {
+                let sk = sk.as_ref().unwrap();
+                let mut decrypted_with = None;
+                for algo in 1..20 {
+                    let algo = SymmetricAlgorithm::from(algo);
+                    if let Ok(size) = algo.key_size() {
+                        if size != sk.len() { continue; }
+                    } else {
+                        continue;
+                    }
+
+                    if let Ok(_) = pp.decrypt(algo, sk) {
+                        decrypted_with = Some(algo);
+                        break;
+                    }
+                }
+                let mut fields = Vec::new();
+                fields.push(format!("Session key: {}", to_hex(sk, false)));
+                if let Some(algo) = decrypted_with {
+                    fields.push(format!("Symmetric algo: {}", algo));
+                    fields.push("Decryption successful".into());
+                } else {
+                    fields.push("Decryption failed".into());
+                }
+                Some(fields)
+            },
+            Packet::AED(_) if sk.is_some() => {
+                let sk = sk.as_ref().unwrap();
+                let algo = if let Packet::AED(ref aed) = pp.packet {
+                    aed.cipher()
+                } else {
+                    unreachable!()
+                };
+
+                let _ = pp.decrypt(algo, sk);
+
+                let mut fields = Vec::new();
+                fields.push(format!("Session key: {}", to_hex(sk, false)));
+                if pp.decrypted() {
+                    fields.push("Decryption successful".into());
+                } else {
+                    fields.push("Decryption failed".into());
+                }
+                Some(fields)
             },
             _ => None,
         };

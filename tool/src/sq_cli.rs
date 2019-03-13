@@ -373,6 +373,12 @@ pub fn build() -> App<'static, 'static> {
                                      .long("output")
                                      .short("o")
                                      .help("Sets the output file to use"))
+                                .arg(Arg::with_name("session-key")
+                                     .long("session-key")
+                                     .takes_value(true)
+                                     .value_name("SESSION-KEY")
+                                     .help("Session key to decrypt encryption \
+                                            containers"))
                                 .arg(Arg::with_name("mpis")
                                      .long("mpis")
                                      .help("Print MPIs"))

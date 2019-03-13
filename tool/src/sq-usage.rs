@@ -573,7 +573,8 @@
 //!     -V, --version    Prints version information
 //!
 //! OPTIONS:
-//!     -o, --output <FILE>    Sets the output file to use
+//!     -o, --output <FILE>                Sets the output file to use
+//!         --session-key <SESSION-KEY>    Session key to decrypt encryption containers
 //!
 //! ARGS:
 //!     <FILE>    Sets the input file to use
