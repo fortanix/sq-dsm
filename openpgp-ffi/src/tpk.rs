@@ -456,9 +456,9 @@ pub struct KeyIterWrapper<'a> {
 ///
 /// A valid `Key` has at least one good self-signature.
 ///
-/// To return all keys, use `pgp_tpk_keys_all_iter()`.
+/// To return all keys, use `pgp_tpk_key_iter_all()`.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "system" fn pgp_tpk_keys_iter_valid(tpk: *const TPK)
+pub extern "system" fn pgp_tpk_key_iter_valid(tpk: *const TPK)
     -> *mut KeyIterWrapper<'static>
 {
     let tpk = tpk.ref_raw();
@@ -471,10 +471,10 @@ pub extern "system" fn pgp_tpk_keys_iter_valid(tpk: *const TPK)
 
 /// Returns an iterator over all `Key`s in a TPK.
 ///
-/// Compare with `pgp_tpk_keys_iter_all`, which doesn't filter out
-/// expired and revoked keys by default.
+/// Compare with `pgp_tpk_key_iter_valid`, which filters out expired
+/// and revoked keys by default.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "system" fn pgp_tpk_keys_iter_all(tpk: *const TPK)
+pub extern "system" fn pgp_tpk_key_iter_all(tpk: *const TPK)
     -> *mut KeyIterWrapper<'static>
 {
     let tpk = tpk.ref_raw();
