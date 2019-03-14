@@ -778,8 +778,9 @@ int pgp_tpk_alive_at(pgp_tpk_t tpk, time_t at);
 /// This function consumes `tpk` and returns a new `TPK`.
 /*/
 pgp_tpk_t pgp_tpk_set_expiry(pgp_error_t *errp,
-                           pgp_tpk_t tpk,
-                           uint32_t expiry);
+                             pgp_tpk_t tpk,
+                             pgp_signer_t signer,
+                             uint32_t expiry);
 
 /*/
 /// Returns whether the TPK includes any secret key material.
