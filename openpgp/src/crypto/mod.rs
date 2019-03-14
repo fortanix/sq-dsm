@@ -3,7 +3,7 @@
 use std::io::Read;
 use std::ops::{Deref, DerefMut};
 use std::fmt;
-use std::cmp::Ordering;
+use std::cmp::{min, Ordering};
 
 use memsec;
 use nettle::{self, Random, Yarrow};
@@ -214,7 +214,9 @@ fn hash_file_test() {
 /// Time-constant comparison.
 fn secure_cmp(a: &[u8], b: &[u8]) -> Ordering {
     let ord1 = a.len().cmp(&b.len());
-    let ord2 = unsafe { memsec::memcmp(a.as_ptr(), b.as_ptr(), a.len()) };
+    let ord2 = unsafe {
+        memsec::memcmp(a.as_ptr(), b.as_ptr(), min(a.len(), b.len()))
+    };
     let ord2 = match ord2 {
         0 => Ordering::Equal,
         a if a < 0 => Ordering::Less,
