@@ -20,6 +20,7 @@ use {
     packet::Tag,
     packet::signature::{self, Signature},
     packet::Key,
+    packet::key::SecretKey,
     packet::UserID,
     packet::UserAttribute,
     packet::Unknown,
@@ -861,32 +862,312 @@ pub struct UnknownBinding {
 /// in a TPK.
 ///
 /// Returned by TPK::keys().
+///
+/// `KeyIter` follows the builder pattern.  There is no need to
+/// explicitly finalize it, however: it already implements the
+/// `Iterator` interface.
+///
+/// By default, `KeyIter` will only return live, non-revoked keys.  It
+/// is possible to control how `KeyIter` filters using, for instance,
+/// `KeyIter::flags` to only return keys with particular flags set.
 pub struct KeyIter<'a> {
-    tpk: &'a TPK,
+    // This is an option to make it easier to create an empty KeyIter.
+    tpk: Option<&'a TPK>,
     primary: bool,
     subkey_iter: SubkeyBindingIter<'a>,
+
+    // If not None, only returns keys with the specified flags.
+    flags: Option<KeyFlags>,
+
+    // If not None, only returns keys that are live at the specified
+    // time.
+    alive_at: Option<time::Tm>,
+
+    // If not None, filters by revocation status.
+    revoked: Option<bool>,
+
+    // If not None, filters by whether a key has a secret.
+    secret: Option<bool>,
+
+    // If not None, filters by whether a key has an unencrypted
+    // secret.
+    unencrypted_secret: Option<bool>,
+}
+
+impl<'a> fmt::Debug for KeyIter<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("KeyIter")
+            .field("flags", &self.flags)
+            .field("alive_at", &self.alive_at)
+            .field("revoked", &self.revoked)
+            .field("secret", &self.secret)
+            .field("unencrypted_secret", &self.unencrypted_secret)
+            .finish()
+    }
 }
 
 impl<'a> Iterator for KeyIter<'a> {
     type Item = (Option<&'a Signature>, RevocationStatus<'a>, &'a Key);
 
     fn next(&mut self) -> Option<Self::Item> {
-        if ! self.primary {
-            self.primary = true;
-            Some((self.tpk.primary_key_signature(),
-                  self.tpk.revoked(None),
-                  self.tpk.primary()))
-        } else {
-            self.subkey_iter.next()
-                .map(|sk_binding| (sk_binding.binding_signature(),
-                                   sk_binding.revoked(None),
-                                   &sk_binding.subkey,))
+        tracer!(false, "KeyIter::next", 0);
+        t!("KeyIter: {:?}", self);
+
+        if self.tpk.is_none() {
+            return None;
+        }
+        let tpk = self.tpk.unwrap();
+
+        if let Some(flags) = self.flags.as_ref() {
+            if flags.is_empty() {
+                // Nothing to do.
+                t!("short circuiting: flags is empty");
+                return None;
+            }
+        }
+
+        loop {
+            let (sigo, revoked, key) = if ! self.primary {
+                self.primary = true;
+
+                (tpk.primary_key_signature(),
+                 tpk.revoked(None),
+                 tpk.primary())
+            } else {
+                self.subkey_iter.next()
+                    .map(|sk_binding| (sk_binding.binding_signature(),
+                                       sk_binding.revoked(None),
+                                       &sk_binding.subkey,))?
+            };
+
+            t!("Considering key: {:?}", key);
+
+            if let Some(flags) = self.flags.as_ref() {
+                if let Some(sig) = sigo {
+                    if (&sig.key_flags() & &flags).is_empty() {
+                        t!("Have flags: {:?}, want flags: {:?}... skipping.",
+                           sig.key_flags(), flags);
+                        continue;
+                    }
+                } else {
+                    // No self-signature, skip it.
+                    t!("No self-signature... skipping.");
+                    continue;
+                }
+            }
+
+            if let Some(alive_at) = self.alive_at {
+                if let Some(sig) = sigo {
+                    if ! sig.key_alive_at(key, alive_at) {
+                        t!("Key not alive... skipping.");
+                        continue;
+                    }
+                } else {
+                    // No self-signature, skip it.
+                    t!("No self-signature... skipping.");
+                    continue;
+                }
+            }
+
+            if let Some(want_revoked) = self.revoked {
+                if let RevocationStatus::Revoked(_) = revoked {
+                    // The key is definitely revoked.
+                    if ! want_revoked {
+                        t!("Key revoked... skipping.");
+                        continue;
+                    }
+                } else {
+                    // The key is probably not revoked.
+                    if want_revoked {
+                        t!("Key not revoked... skipping.");
+                        continue;
+                    }
+                }
+            }
+
+            if let Some(want_secret) = self.secret {
+                if key.secret().is_some() {
+                    // We have a secret.
+                    if ! want_secret {
+                        t!("Have a secret... skipping.");
+                        continue;
+                    }
+                } else {
+                    if want_secret {
+                        t!("No secret... skipping.");
+                        continue;
+                    }
+                }
+            }
+
+            if let Some(want_unencrypted_secret) = self.unencrypted_secret {
+                if let Some(secret) = key.secret() {
+                    if let SecretKey::Unencrypted { .. } = secret {
+                        if ! want_unencrypted_secret {
+                            t!("Unencrypted secret... skipping.");
+                            continue;
+                        }
+                    } else {
+                        if want_unencrypted_secret {
+                            t!("Encrypted secret... skipping.");
+                            continue;
+                        }
+                    }
+                } else {
+                    // No secret.
+                    t!("No secret... skipping.");
+                    continue;
+                }
+            }
+
+            return Some((sigo, revoked, key));
         }
     }
 }
 
-impl<'a> ExactSizeIterator for KeyIter<'a> {
-    fn len(&self) -> usize { 1 + self.subkey_iter.len() }
+impl<'a> KeyIter<'a> {
+    /// Returns a new `KeyIter` instance with no filters enabled.
+    fn new(tpk: &'a TPK) -> Self where Self: 'a {
+        KeyIter {
+            tpk: Some(tpk),
+            primary: false,
+            subkey_iter: tpk.subkeys(),
+
+            // The filters.
+            flags: None,
+            alive_at: None,
+            revoked: None,
+            secret: None,
+            unencrypted_secret: None,
+        }
+    }
+
+    /// Clears all filters.
+    ///
+    /// This causes the `KeyIter` to return all keys in the TPK.
+    pub fn unfiltered(self) -> Self {
+        KeyIter::new(self.tpk.unwrap())
+    }
+
+    /// Returns an empty KeyIter.
+    pub fn empty() -> Self {
+        KeyIter {
+            tpk: None,
+            primary: false,
+            subkey_iter: SubkeyBindingIter { iter: None },
+
+            // The filters.
+            flags: None,
+            alive_at: None,
+            revoked: None,
+            secret: None,
+            unencrypted_secret: None,
+        }
+    }
+
+    /// Returns keys that have the at least one of the flags specified
+    /// in `flags`.
+    ///
+    /// If you call this function (or one of `certification_capable`
+    /// or `signing_capable` functions) multiple times, the *union* of
+    /// the values is used.  Thus,
+    /// `tpk.flags().certification_capable().signing_capable()` will
+    /// return keys that are certification capable or signing capable.
+    ///
+    /// If you need more complex filtering, e.g., you want a key that
+    /// is both certification and signing capable, then just use a
+    /// normal [`Iterator::filter`].
+    ///
+    ///   [`Iterator::filter`]: https://doc.rust-lang.org/std/iter/trait.Iterator.html#method.filter
+    pub fn key_flags(mut self, flags: KeyFlags) -> Self {
+        if let Some(flags_old) = self.flags {
+            self.flags = Some(&flags | &flags_old);
+        } else {
+            self.flags = Some(flags);
+        }
+        self
+    }
+
+    /// Returns keys that are certification capable.
+    ///
+    /// See `key_flags` for caveats.
+    pub fn certification_capable(self) -> Self {
+        self.key_flags(KeyFlags::default().set_certify(true))
+    }
+
+    /// Returns keys that are signing capable.
+    ///
+    /// See `key_flags` for caveats.
+    pub fn signing_capable(self) -> Self {
+        self.key_flags(KeyFlags::default().set_sign(true))
+    }
+
+    /// Only returns keys that are live as of `now`.
+    ///
+    /// If `now` is none, then all keys are returned whether they are
+    /// live or not.
+    ///
+    /// A value of None disables this filter, which is set by default
+    /// to only return live keys at the current time.
+    ///
+    /// If you call this function (or `alive`) multiple times, only
+    /// the last value is used.
+    pub fn alive_at<T>(mut self, alive_at: T) -> Self
+        where T: Into<Option<time::Tm>>
+    {
+        self.alive_at = alive_at.into();
+        self
+    }
+
+    /// Only returns keys that are live right now.
+    ///
+    /// If you call this function (or `alive_at`) multiple times, only
+    /// the last value is used.
+    pub fn alive(mut self) -> Self
+    {
+        self.alive_at = Some(time::now());
+        self
+    }
+
+    /// If not None, filters by whether a key is definitely revoked.
+    ///
+    /// That is, whether it's revocation status is
+    /// `RevocationStatus::Revoked`.
+    ///
+    /// A value of None disables this filter, which is set by default
+    /// to not return revoked keys.
+    ///
+    /// If you call this function multiple times, only the last value
+    /// is used.
+    pub fn revoked<T>(mut self, revoked: T) -> Self
+        where T: Into<Option<bool>>
+    {
+        self.revoked = revoked.into();
+        self
+    }
+
+    /// If not None, filters by whether a key has a secret.
+    ///
+    /// If you call this function multiple times, only the last value
+    /// is used.
+    pub fn secret<T>(mut self, secret: T) -> Self
+        where T: Into<Option<bool>>
+    {
+        self.secret = secret.into();
+        self
+    }
+
+    /// If not None, filters by whether a key has an unencrypted
+    /// secret.
+    ///
+    /// If you call this function multiple times, only the last value
+    /// is used.
+    pub fn unencrypted_secret<T>(mut self, unencrypted_secret: T) -> Self
+        where T: Into<Option<bool>>
+    {
+        self.unencrypted_secret = unencrypted_secret.into();
+        self
+    }
 }
 
 // A TPKParser can read packets from either an Iterator or a
@@ -1343,19 +1624,27 @@ impl<'a> ExactSizeIterator for UserAttributeBindingIter<'a> {
 
 /// An iterator over `SubkeyBinding`s.
 pub struct SubkeyBindingIter<'a> {
-    iter: slice::Iter<'a, SubkeyBinding>,
+    iter: Option<slice::Iter<'a, SubkeyBinding>>,
 }
 
 impl<'a> Iterator for SubkeyBindingIter<'a> {
     type Item = &'a SubkeyBinding;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.iter.next()
+        match self.iter {
+            Some(ref mut iter) => iter.next(),
+            None => None,
+        }
     }
 }
 
 impl<'a> ExactSizeIterator for SubkeyBindingIter<'a> {
-    fn len(&self) -> usize { self.iter.len() }
+    fn len(&self) -> usize {
+        match self.iter {
+            Some(ref iter) => iter.len(),
+            None => 0,
+        }
+    }
 }
 
 
@@ -1695,10 +1984,11 @@ impl TPK {
     ///
     /// A valid `SubkeyBinding` has at least one good self-signature.
     pub fn subkeys(&self) -> SubkeyBindingIter {
-        SubkeyBindingIter { iter: self.subkeys.iter() }
+        SubkeyBindingIter { iter: Some(self.subkeys.iter()) }
     }
 
-    /// Returns an iterator over all of the TPK's valid keys.
+    /// Returns an iterator over the TPK's valid keys (live and
+    /// not-revoked).
     ///
     /// That is, this returns an iterator over the primary key and any
     /// subkeys, along with the corresponding signatures.
@@ -1712,79 +2002,20 @@ impl TPK {
     /// `None` for the primary key's signature.
     ///
     /// A valid `Key` has at least one good self-signature.
-    pub fn keys(&self) -> KeyIter {
-        KeyIter {
-            tpk: self,
-            primary: false,
-            subkey_iter: self.subkeys()
-        }
+    ///
+    /// To return all keys, do `keys().unfiltered()`.  See the
+    /// documentation of `keys` for how to control what keys are
+    /// returned.
+    pub fn keys_valid(&self) -> KeyIter {
+        KeyIter::new(self).alive().revoked(false)
     }
 
-    /// Returns all unrevoked (sub)keys that have all capabilities in `cap` and
-    /// are valid `now`. If `now` is `None` the current time is used.
+    /// Returns an iterator over the TPK's keys.
     ///
-    /// Keys are sorted by creation time (newest first). If the primary key
-    /// qualifies it will always be last. Using the first key should suffice
-    /// for most use cases.
-    pub fn select_keys<'a, T>(&'a self, cap: KeyFlags, now: T)
-        -> Vec<&'a Key>
-        where T: Into<Option<time::Tm>> {
-            use std::slice;
-            use std::iter;
-            use std::borrow::Borrow;
-
-        fn is_usable<S>(key: &Key, mut bindings: slice::Iter<S>, now: time::Tm,
-                        cap: &KeyFlags) -> bool where S: Borrow<Signature> {
-            let key_now_valid = *key.creation_time() < now;
-            let sig_now_valid = bindings.clone().any(|sig| {
-                sig.borrow().signature_alive_at(now)
-            });
-            let right_caps = bindings.any(|sig| {
-                *cap <= sig.borrow().key_flags()
-            });
-
-            key_now_valid && sig_now_valid && right_caps
-        }
-        let now = now.into().unwrap_or_else(time::now);
-
-        if self.revoked(now) == RevocationStatus::NotAsFarAsWeKnow {
-            let prim_sigs = match self.primary_key_signature_full() {
-                None => Vec::default(),
-                Some((None, sig)) => vec![sig],
-                Some((Some(uid), sig)) =>
-                    uid.selfsigs().iter().chain(iter::once(sig)).collect(),
-            };
-            let prim = Some(&self.primary)
-                .filter(|k| is_usable(k, prim_sigs.iter(), now, &cap));
-            let mut ret = self.subkeys
-                .iter()
-                .filter(|sb| {
-                    sb.revoked(None) == RevocationStatus::NotAsFarAsWeKnow &&
-                        is_usable(sb.subkey(), sb.selfsigs().iter(), now, &cap)
-                })
-                .map(|sb| sb.subkey())
-                .collect::<Vec<_>>();
-
-            ret.sort_by(|a,b| b.creation_time().cmp(a.creation_time()));
-            ret.extend(prim);
-
-            ret
-        } else {
-            Vec::default()
-        }
-    }
-
-    /// Returns all unrevoked (sub)keys that have the signing
-    /// capability and are valid `now`. If `now` is `None` the current
-    /// time is used.
-    ///
-    /// Keys are sorted by creation time (newest first). If the
-    /// primary key qualifies it will always be last. Using the first
-    /// key should suffice for most use cases.
-    pub fn select_signing_keys<'a, T>(&'a self, now: T) -> Vec<&'a Key>
-        where T: Into<Option<time::Tm>>
-    {
-        self.select_keys(KeyFlags::default().set_sign(true), now)
+    /// Unlike `TPK::keys_valid()`, this iterator also returns expired
+    /// and revoked keys.
+    pub fn keys_all(&self) -> KeyIter {
+        KeyIter::new(self)
     }
 
     /// Returns the first TPK found in the packet stream.
@@ -3111,7 +3342,7 @@ mod test {
     fn key_iter_test() {
         let key = TPK::from_bytes(bytes!("neal.pgp")).unwrap();
         assert_eq!(1 + key.subkeys().count(),
-                   key.keys().count());
+                   key.keys_all().count());
     }
 
     #[test]
@@ -3702,7 +3933,7 @@ mod test {
             .generate().unwrap();
         let flags = KeyFlags::default().set_encrypt_for_transport(true);
 
-        assert!(tpk.select_keys(flags, None).is_empty());
+        assert_eq!(tpk.keys_all().key_flags(flags).count(), 0);
     }
 
     #[test]
@@ -3712,7 +3943,7 @@ mod test {
             .generate().unwrap();
         let flags = KeyFlags::default().set_encrypt_for_transport(true);
 
-        assert_eq!(tpk.select_keys(flags, None).len(), 1);
+        assert_eq!(tpk.keys_all().key_flags(flags).count(), 1);
     }
 
     #[test]
@@ -3723,7 +3954,7 @@ mod test {
             .generate().unwrap();
         let flags = KeyFlags::default().set_encrypt_for_transport(true);
 
-        assert_eq!(tpk.select_keys(flags, None).len(), 1);
+        assert_eq!(tpk.keys_all().key_flags(flags).count(), 1);
     }
 
     #[test]
@@ -3735,7 +3966,7 @@ mod test {
         let flags = KeyFlags::default().set_encrypt_for_transport(true);
 
         now.tm_year -= 1;
-        assert_eq!(tpk.select_keys(flags, now).len(), 0);
+        assert_eq!(tpk.keys_all().key_flags(flags).alive_at(now).count(), 0);
     }
 
     #[test]
@@ -3745,7 +3976,7 @@ mod test {
             .generate().unwrap();
         let flags = KeyFlags::default().set_certify(true);
 
-        assert_eq!(tpk.select_keys(flags, None).len(), 2);
+        assert_eq!(tpk.keys_all().key_flags(flags).count(), 2);
     }
 
     // Make sure that when merging two TPKs, the primary key and

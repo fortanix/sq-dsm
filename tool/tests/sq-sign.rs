@@ -208,7 +208,7 @@ fn sq_sign_append_on_compress_then_sign() {
     // message by foot.
     let tsk = TPK::from_file(&p("keys/dennis-simon-anton-private.pgp"))
         .unwrap();
-    let key = tsk.select_signing_keys(None)[0];
+    let key = tsk.keys_all().signing_capable().nth(0).unwrap().2;
     let sec = match key.secret() {
         Some(SecretKey::Unencrypted { ref mpis }) => mpis,
         _ => unreachable!(),

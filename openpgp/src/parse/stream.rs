@@ -118,7 +118,7 @@ const BUFFER_SIZE: usize = 25 * 1024 * 1024;
 pub struct Verifier<'a, H: VerificationHelper> {
     helper: H,
     tpks: Vec<TPK>,
-    /// Maps KeyID to tpks[i].keys().nth(j).
+    /// Maps KeyID to tpks[i].keys_all().nth(j).
     keys: HashMap<KeyID, (usize, usize)>,
     oppr: Option<PacketParserResult<'a>>,
     sigs: Vec<Vec<VerificationResult>>,
@@ -350,7 +350,8 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
 
                 if let Some(issuer) = sig.get_issuer() {
                     if let Some((i, j)) = self.keys.get(&issuer) {
-                        let (_, _, key) = self.tpks[*i].keys().nth(*j).unwrap();
+                        let (_, _, key)
+                            = self.tpks[*i].keys_all().nth(*j).unwrap();
                         if sig.verify(key).unwrap_or(false) {
                             self.sigs.iter_mut().last()
                                 .expect("sigs is never empty").push(
@@ -808,7 +809,7 @@ impl DetachedVerifier {
 pub struct Decryptor<'a, H: VerificationHelper + DecryptionHelper> {
     helper: H,
     tpks: Vec<TPK>,
-    /// Maps KeyID to tpks[i].keys().nth(j).
+    /// Maps KeyID to tpks[i].keys_all().nth(j).
     keys: HashMap<KeyID, (usize, usize)>,
     oppr: Option<PacketParserResult<'a>>,
     identity: Option<Fingerprint>,
@@ -1167,7 +1168,8 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
 
                 if let Some(issuer) = sig.get_issuer() {
                     if let Some((i, j)) = self.keys.get(&issuer) {
-                        let (_, _, key) = self.tpks[*i].keys().nth(*j).unwrap();
+                        let (_, _, key)
+                            = self.tpks[*i].keys_all().nth(*j).unwrap();
                         if sig.verify(key).unwrap_or(false) {
                             self.sigs.iter_mut().last()
                                 .expect("sigs is never empty").push(
@@ -1488,7 +1490,7 @@ mod test {
         // sign 30MiB message
         let mut buf = vec![];
         {
-            let key = tpk.select_signing_keys(None)[0];
+            let key = tpk.keys_all().signing_capable().nth(0).unwrap().2;
             let sec = match key.secret() {
                 Some(SecretKey::Unencrypted { ref mpis }) => mpis,
                 _ => unreachable!(),

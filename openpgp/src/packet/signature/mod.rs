@@ -1094,12 +1094,15 @@ mod test {
 
     #[test]
     fn verify_gpg_3rd_party_cert() {
-        use {packet::KeyFlags, TPK};
+        use TPK;
 
-        let cert_kf = KeyFlags::default().set_certify(true);
         let test1 = TPK::from_file(
             path_to("keys/test1-certification-key.pgp")).unwrap();
-        let cert_key1 = test1.select_keys(cert_kf, None)[0];
+        let cert_key1 = test1.keys_all()
+            .certification_capable()
+            .nth(0)
+            .map(|x| x.2)
+            .unwrap();
         let test2 = TPK::from_file(
             path_to("keys/test2-signed-by-test1.pgp")).unwrap();
         let uid_binding = &test2.primary_key_signature_full().unwrap().0.unwrap();

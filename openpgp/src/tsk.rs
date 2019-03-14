@@ -104,13 +104,22 @@ impl TSK {
 
     /// Signs `key` and `userid` with a 3rd party certification.
     pub fn certify_userid(&self, key: &Key, userid: &UserID) -> Result<Signature> {
-        use packet::{KeyFlags, signature, key::SecretKey};
+        use packet::{signature, key::SecretKey};
         use constants::{HashAlgorithm, SignatureType};
 
-        let caps = KeyFlags::default().set_certify(true);
-        let keys = self.key.select_keys(caps, None);
+        // We're willing to use an expired certification key here,
+        // because otherwise it is impossible to extend the expiration
+        // of an expired TPK.
+        //
+        // XXX: If there are multiple certification keys, then we
+        // should prefer a non-expired one.
+        let certification_key = self.key.keys_all()
+            .certification_capable()
+            .unencrypted_secret(true)
+            .nth(0)
+            .map(|x| x.2);
 
-        match keys.first() {
+        match certification_key {
             Some(my_key) => {
                 match my_key.secret() {
                     Some(&SecretKey::Unencrypted{ ref mpis }) => {
@@ -142,11 +151,8 @@ impl TSK {
 
     /// Signs `userid` with this TSK.
     pub fn sign_userid(&self, userid: &UserID) -> Result<Signature> {
-        use packet::{KeyFlags, signature, key::SecretKey};
+        use packet::{signature, key::SecretKey};
         use constants::{HashAlgorithm, SignatureType};
-
-        let caps = KeyFlags::default().set_certify(true);
-        let keys = self.key.select_keys(caps, None);
 
         let builder =
             if let Some(sig) = self.primary_key_signature() {
@@ -157,7 +163,13 @@ impl TSK {
             }
         .set_signature_creation_time(time::now())?;
 
-        match keys.first() {
+        let certification_key = self.key.keys_valid()
+            .certification_capable()
+            .unencrypted_secret(true)
+            .nth(0)
+            .map(|x| x.2);
+
+        match certification_key {
             Some(my_key) => {
                 match my_key.secret() {
                     Some(&SecretKey::Unencrypted{ ref mpis }) => {
@@ -180,13 +192,16 @@ impl TSK {
 
     /// Signs `userattr` with a the primary key.
     pub fn sign_user_attribute(&self, userattr: &UserAttribute) -> Result<Signature> {
-        use packet::{KeyFlags, signature, key::SecretKey};
+        use packet::{signature, key::SecretKey};
         use constants::{HashAlgorithm, SignatureType};
 
-        let caps = KeyFlags::default().set_certify(true);
-        let keys = self.key.select_keys(caps, None);
+        let certification_key = self.key.keys_valid()
+            .certification_capable()
+            .unencrypted_secret(true)
+            .nth(0)
+            .map(|x| x.2);
 
-        match keys.first() {
+        match certification_key {
             Some(my_key) => {
                 match my_key.secret() {
                     Some(&SecretKey::Unencrypted{ ref mpis }) => {
@@ -441,8 +456,6 @@ mod tests {
 
     #[test]
     fn certification_user_id() {
-        use packet::KeyFlags;
-
         let (tpk1, _) = TPKBuilder::default()
             .add_certification_subkey()
             .generate().unwrap();
@@ -453,9 +466,8 @@ mod tests {
             .generate().unwrap();
 
         let sig = tsk.certify_key(&tpk2).unwrap();
-        let key = tsk.tpk().select_keys(
-            KeyFlags::default().set_certify(true),
-            None)[0];
+        let key = tsk.tpk().keys_all()
+            .certification_capable().nth(0).unwrap().2;
 
         assert_eq!(
             sig.verify_userid_binding(

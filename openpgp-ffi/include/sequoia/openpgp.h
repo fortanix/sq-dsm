@@ -503,10 +503,84 @@ pgp_signature_t pgp_user_id_binding_selfsig(pgp_user_id_binding_t binding);
 /*/
 pgp_user_id_binding_t pgp_user_id_binding_iter_next (pgp_user_id_binding_iter_t iter);
 
+/*/
 /// Frees an pgp_user_id_binding_iter_t.
+/*/
 void pgp_user_id_binding_iter_free (pgp_user_id_binding_iter_t iter);
 
 /* openpgp::tpk::KeyIter.  */
+
+/*/
+/// Changes the iterator to only return keys that are certification
+/// capable.
+///
+/// If you call this function and, e.g., the `signing_capable`
+/// function, the *union* of the values is used.  That is, the
+/// iterator will return keys that are certification capable *or*
+/// signing capable.
+///
+/// Note: you may not call this function after starting to iterate.
+/*/
+void pgp_tpk_key_iter_certification_capable (pgp_tpk_key_iter_t iter);
+
+/*/
+/// Changes the iterator to only return keys that are certification
+/// capable.
+///
+/// If you call this function and, e.g., the `signing_capable`
+/// function, the *union* of the values is used.  That is, the
+/// iterator will return keys that are certification capable *or*
+/// signing capable.
+///
+/// Note: you may not call this function after starting to iterate.
+/*/
+void pgp_tpk_key_iter_signing_capable (pgp_tpk_key_iter_t iter);
+
+/*/
+/// Changes the iterator to only return keys that are alive.
+///
+/// If you call this function (or `pgp_tpk_key_iter_alive_at`), only
+/// the last value is used.
+///
+/// Note: you may not call this function after starting to iterate.
+/*/
+void pgp_tpk_key_iter_alive (pgp_tpk_key_iter_t iter);
+
+/*/
+/// Changes the iterator to only return keys that are alive at the
+/// specified time.
+///
+/// If you call this function (or `pgp_tpk_key_iter_alive`), only the
+/// last value is used.
+///
+/// Note: you may not call this function after starting to iterate.
+/*/
+void pgp_tpk_key_iter_alive_at (pgp_tpk_key_iter_t iter, time_t when);
+
+/*/
+/// Changes the iterator to only return keys whose revocation status
+/// matches `revoked`.
+///
+/// Note: you may not call this function after starting to iterate.
+/*/
+void pgp_tpk_key_iter_revoked (pgp_tpk_key_iter_t iter, bool revoked);
+
+/*/
+/// Changes the iterator to only return keys that have secret keys (or
+/// not).
+///
+/// Note: you may not call this function after starting to iterate.
+/*/
+void pgp_tpk_key_iter_secret (pgp_tpk_key_iter_t iter, bool secret);
+
+/*/
+/// Changes the iterator to only return keys that have unencrypted
+/// secret keys (or not).
+///
+/// Note: you may not call this function after starting to iterate.
+/*/
+void pgp_tpk_key_iter_unencrypted_secret (pgp_tpk_key_iter_t iter,
+                                          bool unencrypted_secret);
 
 /*/
 /// Returns the next key.  Returns NULL if there are no more elements.
@@ -718,10 +792,33 @@ int pgp_tpk_is_tsk(pgp_tpk_t tpk);
 pgp_user_id_binding_iter_t pgp_tpk_user_id_binding_iter (pgp_tpk_t tpk);
 
 /*/
-/// Returns an iterator over all `Key`s (both the primary key and any
-/// subkeys) in a TPK.
+/// Returns an iterator over the live and unrevoked `Key`s in a TPK.
+///
+/// Compare with `pgp_tpk_keys_iter_valid`, which doesn'filters out
+/// expired and revoked keys by default.
 /*/
-pgp_tpk_key_iter_t pgp_tpk_key_iter (pgp_tpk_t tpk);
+pgp_tpk_key_iter_t pgp_tpk_keys_iter_all (pgp_tpk_t tpk);
+
+/*/
+/// Returns an iterator over all `Key`s in a TPK.
+///
+/// That is, this returns an iterator over the primary key and any
+/// subkeys, along with the corresponding signatures.
+///
+/// Note: since a primary key is different from a subkey, the iterator
+/// is over `Key`s and not `SubkeyBindings`.  Since the primary key
+/// has no binding signature, the signature carrying the primary key's
+/// key flags is returned (either a direct key signature, or the
+/// self-signature on the primary User ID).  There are corner cases
+/// where no such signature exists (e.g. partial TPKs), therefore this
+/// iterator may return `None` for the primary key's signature.
+///
+/// A valid `Key` has at least one good self-signature.
+///
+/// Compare with `pgp_tpk_keys_iter_all`, which doesn't filter out
+/// expired and revoked keys.
+/*/
+pgp_tpk_key_iter_t pgp_tpk_keys_iter_valid (pgp_tpk_t tpk);
 
 /*/
 /// Returns the TPK's primary user id (if any).

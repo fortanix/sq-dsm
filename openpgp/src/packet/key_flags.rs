@@ -156,6 +156,11 @@ impl KeyFlags {
         }
     }
 
+    /// Returns a new `KeyFlags` with all capabilities disabled.
+    pub fn empty() -> Self {
+        KeyFlags::default()
+    }
+
     /// Returns a slice referencing the raw values.
     pub(crate) fn as_vec(&self) -> Vec<u8> {
         let mut ret = if self.unknown.is_empty() {
@@ -248,6 +253,11 @@ impl KeyFlags {
     pub fn set_group_key(mut self, v: bool) -> Self {
         self.is_group_key = v;
         self
+    }
+
+    /// Returns whether no flags are set.
+    pub fn is_empty(&self) -> bool {
+        self.as_vec().into_iter().all(|b| b == 0)
     }
 }
 

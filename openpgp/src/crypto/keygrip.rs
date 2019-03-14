@@ -340,7 +340,7 @@ mod tests {
             .iter().map(|n| (n, ::TPK::from_file(path_to(n)).unwrap()))
         {
             eprintln!("{}", name);
-            for key in tpk.keys() {
+            for key in tpk.keys_all() {
                 let fp = key.2.fingerprint();
                 eprintln!("(sub)key: {}", fp);
                 assert_eq!(&key.2.mpis().keygrip().unwrap(),

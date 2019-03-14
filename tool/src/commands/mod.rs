@@ -44,7 +44,10 @@ fn tm2str(t: &time::Tm) -> String {
 fn get_signing_keys(tpks: &[openpgp::TPK]) -> Result<Vec<crypto::KeyPair>> {
     let mut keys = Vec::new();
     'next_tpk: for tsk in tpks {
-        for key in tsk.select_signing_keys(None) {
+        for key in tsk.keys_valid()
+            .signing_capable()
+            .map(|k| k.2)
+        {
             if let Some(mut secret) = key.secret() {
                 let secret_mpis = match secret {
                     SecretKey::Encrypted { .. } => {
@@ -191,7 +194,9 @@ impl<'a> VerificationHelper for VHelper<'a> {
         let mut tpks = self.tpks.take().unwrap();
         let seen: HashSet<_> = tpks.iter()
             .flat_map(|tpk| {
-                tpk.keys().map(|(_, _, key)| key.fingerprint().to_keyid())
+                // Even if a key is revoked or expired, we can still
+                // use it to verify a message.
+                tpk.keys_all().map(|(_, _, key)| key.fingerprint().to_keyid())
             }).collect();
 
         // Explicitly provided keys are trusted.

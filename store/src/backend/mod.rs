@@ -794,7 +794,7 @@ impl KeyServer {
 
     /// Keeps the mapping of (sub)KeyIDs to keys up-to-date.
     fn reindex_subkeys(c: &Connection, key_id: ID, tpk: &TPK) -> Result<()> {
-        for (_, _, key) in tpk.keys() {
+        for (_, _, key) in tpk.keys_all() {
             let keyid = key.fingerprint().to_keyid().as_u64()
                 .expect("computed keyid is valid");
 

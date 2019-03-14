@@ -25,7 +25,7 @@ fn main() {
         let tsk = openpgp::TPK::from_file(filename)
             .expect("Failed to read key");
 
-        for key in tsk.select_signing_keys(None) {
+        for key in tsk.keys_valid().signing_capable().map(|k| k.2) {
             if let Some(mut secret) = key.secret() {
                 let secret_mpis = match secret {
                     SecretKey::Encrypted { .. } => {

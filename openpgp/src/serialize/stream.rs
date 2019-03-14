@@ -228,7 +228,7 @@ impl<'a> Signer<'a> {
     /// # let tsk = TPK::from_bytes(include_bytes!(
     /// #     "../../tests/data/keys/testy-new-private.pgp"))
     /// #     .unwrap();
-    /// # let key = tsk.select_signing_keys(None)[0];
+    /// # let key = tsk.keys_valid().signing_capable().nth(0).unwrap().2;
     /// # let sec = match key.secret() {
     /// #     Some(SecretKey::Unencrypted { ref mpis }) => mpis,
     /// #     _ => unreachable!(),
@@ -284,7 +284,7 @@ impl<'a> Signer<'a> {
     /// # let tsk = TPK::from_bytes(include_bytes!(
     /// #     "../../tests/data/keys/testy-new-private.pgp"))
     /// #     .unwrap();
-    /// # let key = tsk.select_signing_keys(None)[0];
+    /// # let key = tsk.keys_valid().signing_capable().nth(0).unwrap().2;
     /// # let sec = match key.secret() {
     /// #     Some(SecretKey::Unencrypted { ref mpis }) => mpis,
     /// #     _ => unreachable!(),
@@ -1282,7 +1282,6 @@ mod test {
     #[test]
     fn signature() {
         use crypto::KeyPair;
-        use packet::KeyFlags;
         use packet::key::SecretKey;
         use std::collections::HashMap;
         use Fingerprint;
@@ -1292,8 +1291,7 @@ mod test {
             TPK::from_bytes(bytes!("keys/testy-private.pgp")).unwrap(),
             TPK::from_bytes(bytes!("keys/testy-new-private.pgp")).unwrap(),
         ] {
-            for key in tsk.select_keys(
-                KeyFlags::default().set_sign(true), None)
+            for key in tsk.keys_all().signing_capable().map(|x| x.2)
             {
                 keys.insert(key.fingerprint(), key.clone());
             }

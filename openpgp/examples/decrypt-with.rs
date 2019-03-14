@@ -57,7 +57,7 @@ impl Helper {
         // Map (sub)KeyIDs to secrets.
         let mut keys = HashMap::new();
         for tpk in tpks {
-            for (sig, _, key) in tpk.keys() {
+            for (sig, _, key) in tpk.keys_all() {
                 if sig.map(|s| (s.key_flags().can_encrypt_at_rest()
                                 || s.key_flags().can_encrypt_for_transport()))
                     .unwrap_or(false)

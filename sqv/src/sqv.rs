@@ -145,15 +145,9 @@ fn real_main() -> Result<(), failure::Error> {
         .into_iter().collect();
 
     fn tpk_has_key(tpk: &TPK, keyid: &KeyID) -> bool {
-        if *keyid == tpk.primary().keyid() {
-            return true;
-        }
-        for binding in tpk.subkeys() {
-            if *keyid == binding.subkey().keyid() {
-                return true;
-            }
-        }
-        false
+        // Even if a key is revoked or expired, we can still use it to
+        // verify a message.
+        tpk.keys_all().any(|(_, _, k)| *keyid == k.keyid())
     }
 
     // Find the keys.
@@ -215,7 +209,7 @@ fn real_main() -> Result<(), failure::Error> {
 
         if let Some(ref tpk) = tpko {
             // Find the right key.
-            for (maybe_binding, _, key) in tpk.keys() {
+            for (maybe_binding, _, key) in tpk.keys_all() {
                 let binding = match maybe_binding {
                     Some(b) => b,
                     None => continue,
@@ -223,7 +217,7 @@ fn real_main() -> Result<(), failure::Error> {
 
                 if issuer == key.keyid() {
                     if !binding.key_flags().can_sign() {
-                        eprintln!("Cannot check signature, key has no siginig \
+                        eprintln!("Cannot check signature, key has no signing \
                                    capability");
                         continue 'sig_loop;
                     }

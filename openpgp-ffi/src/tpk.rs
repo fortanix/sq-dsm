@@ -437,19 +437,51 @@ pub extern "system" fn pgp_user_id_binding_iter_next<'a>(
 pub struct KeyIterWrapper<'a> {
     iter: KeyIter<'a>,
     rso: Option<RevocationStatus<'a>>,
+    // Whether next has been called.
+    next_called: bool,
 }
 
-/// Returns an iterator over the TPK's keys.
+/// Returns an iterator over the TPK's live, non-revoked keys.
 ///
-/// This iterates over both the primary key and any subkeys.
+/// That is, this returns an iterator over the primary key and any
+/// subkeys, along with the corresponding signatures.
+///
+/// Note: since a primary key is different from a subkey, the iterator
+/// is over `Key`s and not `SubkeyBindings`.  Since the primary key
+/// has no binding signature, the signature carrying the primary key's
+/// key flags is returned (either a direct key signature, or the
+/// self-signature on the primary User ID).  There are corner cases
+/// where no such signature exists (e.g. partial TPKs), therefore this
+/// iterator may return `None` for the primary key's signature.
+///
+/// A valid `Key` has at least one good self-signature.
+///
+/// To return all keys, use `pgp_tpk_keys_all_iter()`.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "system" fn pgp_tpk_key_iter(tpk: *const TPK)
+pub extern "system" fn pgp_tpk_keys_iter_valid(tpk: *const TPK)
     -> *mut KeyIterWrapper<'static>
 {
     let tpk = tpk.ref_raw();
     box_raw!(KeyIterWrapper {
-        iter: tpk.keys(),
+        iter: tpk.keys_valid(),
         rso: None,
+        next_called: false,
+    })
+}
+
+/// Returns an iterator over all `Key`s in a TPK.
+///
+/// Compare with `pgp_tpk_keys_iter_all`, which doesn't filter out
+/// expired and revoked keys by default.
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
+pub extern "system" fn pgp_tpk_keys_iter_all(tpk: *const TPK)
+    -> *mut KeyIterWrapper<'static>
+{
+    let tpk = tpk.ref_raw();
+    box_raw!(KeyIterWrapper {
+        iter: tpk.keys_all(),
+        rso: None,
+        next_called: false,
     })
 }
 
@@ -459,6 +491,151 @@ pub extern "system" fn pgp_tpk_key_iter_free(
     iter: Option<&mut KeyIterWrapper>)
 {
     ffi_free!(iter)
+}
+
+/// Changes the iterator to only return keys that are certification
+/// capable.
+///
+/// If you call this function and, e.g., the `signing_capable`
+/// function, the *union* of the values is used.  That is, the
+/// iterator will return keys that are certification capable *or*
+/// signing capable.
+///
+/// Note: you may not call this function after starting to iterate.
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
+pub extern "system" fn pgp_tpk_key_iter_certification_capable<'a>(
+    iter_wrapper: *mut KeyIterWrapper<'a>)
+{
+    let iter_wrapper = ffi_param_ref_mut!(iter_wrapper);
+    if iter_wrapper.next_called {
+        panic!("Can't change KeyIter filter after iterating.");
+    }
+
+    use std::mem;
+    let tmp = mem::replace(&mut iter_wrapper.iter, KeyIter::empty());
+    iter_wrapper.iter = tmp.certification_capable();
+}
+
+/// Changes the iterator to only return keys that are certification
+/// capable.
+///
+/// If you call this function and, e.g., the `signing_capable`
+/// function, the *union* of the values is used.  That is, the
+/// iterator will return keys that are certification capable *or*
+/// signing capable.
+///
+/// Note: you may not call this function after starting to iterate.
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
+pub extern "system" fn pgp_tpk_key_iter_signing_capable<'a>(
+    iter_wrapper: *mut KeyIterWrapper<'a>)
+{
+    let iter_wrapper = ffi_param_ref_mut!(iter_wrapper);
+    if iter_wrapper.next_called {
+        panic!("Can't change KeyIter filter after iterating.");
+    }
+
+    use std::mem;
+    let tmp = mem::replace(&mut iter_wrapper.iter, KeyIter::empty());
+    iter_wrapper.iter = tmp.signing_capable();
+}
+
+/// Changes the iterator to only return keys that are alive.
+///
+/// If you call this function (or `pgp_tpk_key_iter_alive_at`), only
+/// the last value is used.
+///
+/// Note: you may not call this function after starting to iterate.
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
+pub extern "system" fn pgp_tpk_key_iter_alive<'a>(
+    iter_wrapper: *mut KeyIterWrapper<'a>)
+{
+    let iter_wrapper = ffi_param_ref_mut!(iter_wrapper);
+    if iter_wrapper.next_called {
+        panic!("Can't change KeyIter filter after iterating.");
+    }
+
+    use std::mem;
+    let tmp = mem::replace(&mut iter_wrapper.iter, KeyIter::empty());
+    iter_wrapper.iter = tmp.alive();
+}
+
+/// Changes the iterator to only return keys that are alive at the
+/// specified time.
+///
+/// If you call this function (or `pgp_tpk_key_iter_alive`), only the
+/// last value is used.
+///
+/// Note: you may not call this function after starting to iterate.
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
+pub extern "system" fn pgp_tpk_key_iter_alive_at<'a>(
+    iter_wrapper: *mut KeyIterWrapper<'a>,
+    when: time_t)
+{
+    let iter_wrapper = ffi_param_ref_mut!(iter_wrapper);
+    if iter_wrapper.next_called {
+        panic!("Can't change KeyIter filter after iterating.");
+    }
+
+    use std::mem;
+    let tmp = mem::replace(&mut iter_wrapper.iter, KeyIter::empty());
+    iter_wrapper.iter = tmp.alive_at(time::at(time::Timespec::new(when as i64, 0)));
+}
+
+/// Changes the iterator to only return keys whose revocation status
+/// matches `revoked`.
+///
+/// Note: you may not call this function after starting to iterate.
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
+pub extern "system" fn pgp_tpk_key_iter_revoked<'a>(
+    iter_wrapper: *mut KeyIterWrapper<'a>,
+    revoked: bool)
+{
+    let iter_wrapper = ffi_param_ref_mut!(iter_wrapper);
+    if iter_wrapper.next_called {
+        panic!("Can't change KeyIter filter after iterating.");
+    }
+
+    use std::mem;
+    let tmp = mem::replace(&mut iter_wrapper.iter, KeyIter::empty());
+    iter_wrapper.iter = tmp.revoked(Some(revoked));
+}
+
+/// Changes the iterator to only return keys that have secret keys (or
+/// not).
+///
+/// Note: you may not call this function after starting to iterate.
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
+pub extern "system" fn pgp_tpk_key_iter_secret<'a>(
+    iter_wrapper: *mut KeyIterWrapper<'a>,
+    secret: bool)
+{
+    let iter_wrapper = ffi_param_ref_mut!(iter_wrapper);
+    if iter_wrapper.next_called {
+        panic!("Can't change KeyIter filter after iterating.");
+    }
+
+    use std::mem;
+    let tmp = mem::replace(&mut iter_wrapper.iter, KeyIter::empty());
+    iter_wrapper.iter = tmp.secret(Some(secret));
+}
+
+/// Changes the iterator to only return keys that have unencrypted
+/// secret keys (or not).
+///
+/// Note: you may not call this function after starting to iterate.
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
+pub extern "system" fn pgp_tpk_key_iter_unencrypted_secret<'a>(
+    iter_wrapper: *mut KeyIterWrapper<'a>,
+    unencrypted_secret: bool)
+{
+    let iter_wrapper = ffi_param_ref_mut!(iter_wrapper);
+    if iter_wrapper.next_called {
+        panic!("Can't change KeyIter filter after iterating.");
+    }
+
+    use std::mem;
+    let tmp = mem::replace(&mut iter_wrapper.iter, KeyIter::empty());
+    iter_wrapper.iter = tmp.unencrypted_secret(Some(unencrypted_secret));
 }
 
 /// Returns the next key.  Returns NULL if there are no more elements.
@@ -479,6 +656,7 @@ pub extern "system" fn pgp_tpk_key_iter_next<'a>(
 {
     let iter_wrapper = ffi_param_ref_mut!(iter_wrapper);
     iter_wrapper.rso = None;
+    iter_wrapper.next_called = true;
 
     if let Some((sig, rs, key)) = iter_wrapper.iter.next() {
         if let Some(ptr) = sigo {
