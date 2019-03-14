@@ -1,5 +1,6 @@
 use std::fmt;
 use std::cmp;
+use std::ops::{BitAnd, BitOr};
 
 /// Describes how a key may be used, and stores additional
 /// information.
@@ -75,6 +76,44 @@ impl PartialOrd for KeyFlags {
         } else {
             None
         }
+    }
+}
+
+impl BitAnd for &KeyFlags {
+    type Output = KeyFlags;
+
+    fn bitand(self, rhs: Self) -> KeyFlags {
+        let l = self.as_vec();
+        let r = rhs.as_vec();
+
+        let mut c = Vec::with_capacity(cmp::min(l.len(), r.len()));
+        for (l, r) in l.into_iter().zip(r.into_iter()) {
+            c.push(l & r);
+        }
+
+        KeyFlags::new(&c[..])
+    }
+}
+
+impl BitOr for &KeyFlags {
+    type Output = KeyFlags;
+
+    fn bitor(self, rhs: Self) -> KeyFlags {
+        let l = self.as_vec();
+        let r = rhs.as_vec();
+
+        // Make l the longer one.
+        let (mut l, r) = if l.len() > r.len() {
+            (l, r)
+        } else {
+            (r, l)
+        };
+
+        for (i, r) in r.into_iter().enumerate() {
+            l[i] = l[i] | r;
+        }
+
+        KeyFlags::new(&l[..])
     }
 }
 
