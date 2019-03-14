@@ -189,8 +189,15 @@ fn real_main() -> Result<(), failure::Error> {
         ("enarmor",  Some(m)) => {
             let mut input = open_or_stdin(m.value_of("input"))?;
             let mut output = create_or_stdout(m.value_of("output"), force)?;
-            let mut filter = armor::Writer::new(&mut output, armor::Kind::File,
-                                                &[])?;
+            let kind = match m.value_of("kind").expect("has default value") {
+                "message" => armor::Kind::Message,
+                "publickey" => armor::Kind::PublicKey,
+                "secretkey" => armor::Kind::SecretKey,
+                "signature" => armor::Kind::Signature,
+                "file" => armor::Kind::File,
+                _ => unreachable!(),
+            };
+            let mut filter = armor::Writer::new(&mut output, kind, &[])?;
             io::copy(&mut input, &mut filter)?;
         },
         ("dearmor",  Some(m)) => {

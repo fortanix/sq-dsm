@@ -394,6 +394,8 @@
 //!     -V, --version    Prints version information
 //!
 //! OPTIONS:
+//!         --kind <KIND>      Selects the kind of header line to produce [default: file]  [possible values: message,
+//!                            publickey, secretkey, signature, file]
 //!     -o, --output <FILE>    Sets the output file to use
 //!
 //! ARGS:

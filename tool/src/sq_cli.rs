@@ -181,7 +181,15 @@ pub fn build() -> App<'static, 'static> {
                     .arg(Arg::with_name("output").value_name("FILE")
                          .long("output")
                          .short("o")
-                         .help("Sets the output file to use")))
+                         .help("Sets the output file to use"))
+                    .arg(Arg::with_name("kind")
+                         .value_name("KIND")
+                         .long("kind")
+                         .possible_values(&["message", "publickey", "secretkey",
+                                            "signature", "file"])
+                         .default_value("file")
+                         .help("Selects the kind of header line to produce")))
+
         .subcommand(SubCommand::with_name("dearmor")
                     .about("Removes ASCII Armor from a file")
                     .arg(Arg::with_name("input").value_name("FILE")
