@@ -1478,6 +1478,8 @@ impl Signature {
     /// Returns whether or not the given key is alive, i.e. the
     /// creation time has passed, but the expiration time has not.
     ///
+    /// This function does not check whether the key was revoked.
+    ///
     /// See [Section 5.2.3.6 of RFC 4880].
     ///
     ///  [Section 5.2.3.6 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.6
@@ -1488,6 +1490,8 @@ impl Signature {
     /// Returns whether or not the given key is alive at the given
     /// time, i.e. the creation time has passed, but the expiration
     /// time has not.
+    ///
+    /// This function does not check whether the key was revoked.
     ///
     /// See [Section 5.2.3.6 of RFC 4880].
     ///
