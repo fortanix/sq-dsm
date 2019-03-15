@@ -218,24 +218,22 @@ impl<'a> Signer<'a> {
     ///
     /// ```
     /// extern crate sequoia_openpgp as openpgp;
-    /// use std::io::Write;
+    /// use std::io::{Read, Write};
     /// use openpgp::constants::DataFormat;
     /// use openpgp::serialize::stream::{Message, Signer, LiteralWriter};
     /// # use openpgp::{Result, TPK};
     /// # use openpgp::packet::key::SecretKey;
     /// # use openpgp::crypto::KeyPair;
     /// # use openpgp::parse::Parse;
+    /// # use openpgp::parse::stream::{Verifier, VerificationHelper,
+    /// #                              VerificationResult};
     /// # let tsk = TPK::from_bytes(include_bytes!(
     /// #     "../../tests/data/keys/testy-new-private.pgp"))
     /// #     .unwrap();
-    /// # let key = tsk.keys_valid().signing_capable().nth(0).unwrap().2;
-    /// # let sec = match key.secret() {
-    /// #     Some(SecretKey::Unencrypted { ref mpis }) => mpis,
-    /// #     _ => unreachable!(),
-    /// # };
-    /// # let keypair = KeyPair::new(key.clone(), sec.clone()).unwrap();
-    /// # f(keypair).unwrap();
-    /// # fn f(mut signing_keypair: KeyPair) -> Result<()> {
+    /// # let keypair = tsk.keys_valid().signing_capable().nth(0).unwrap().2
+    /// #     .clone().into_keypair().unwrap();
+    /// # f(tsk, keypair).unwrap();
+    /// # fn f(tpk: TPK, mut signing_keypair: KeyPair) -> Result<()> {
     ///
     /// let mut o = vec![];
     /// {
@@ -245,6 +243,28 @@ impl<'a> Signer<'a> {
     ///     ls.write_all(b"Make it so, number one!")?;
     ///     ls.finalize()?;
     /// }
+    ///
+    /// // Now check the signature.
+    /// struct Helper<'a>(&'a openpgp::TPK);
+    /// impl<'a> VerificationHelper for Helper<'a> {
+    ///     fn get_public_keys(&mut self, _: &[openpgp::KeyID])
+    ///                        -> openpgp::Result<Vec<openpgp::TPK>> {
+    ///         Ok(vec![self.0.clone()])
+    ///     }
+    ///
+    ///     fn check(&mut self, sigs: Vec<Vec<VerificationResult>>)
+    ///              -> openpgp::Result<()> {
+    ///         if let VerificationResult::GoodChecksum(_) =
+    ///             sigs.get(0).unwrap().get(0).unwrap()
+    ///         { Ok(()) /* good */ } else { panic!() }
+    ///     }
+    /// }
+    ///
+    /// let mut verifier = Verifier::from_bytes(&o, Helper(&tpk))?;
+    ///
+    /// let mut message = String::new();
+    /// verifier.read_to_string(&mut message);
+    /// assert_eq!(&message, "Make it so, number one!");
     /// # Ok(())
     /// # }
     /// ```
@@ -284,12 +304,8 @@ impl<'a> Signer<'a> {
     /// # let tsk = TPK::from_bytes(include_bytes!(
     /// #     "../../tests/data/keys/testy-new-private.pgp"))
     /// #     .unwrap();
-    /// # let key = tsk.keys_valid().signing_capable().nth(0).unwrap().2;
-    /// # let sec = match key.secret() {
-    /// #     Some(SecretKey::Unencrypted { ref mpis }) => mpis,
-    /// #     _ => unreachable!(),
-    /// # };
-    /// # let keypair = KeyPair::new(key.clone(), sec.clone()).unwrap();
+    /// # let keypair = tsk.keys_valid().signing_capable().nth(0).unwrap().2
+    /// #     .clone().into_keypair().unwrap();
     /// # f(keypair).unwrap();
     /// # fn f(mut signing_keypair: KeyPair) -> Result<()> {
     ///
