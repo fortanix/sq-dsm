@@ -56,10 +56,11 @@ main (int argc, char **argv)
 
   writer = pgp_writer_stack_message (sink);
   writer = pgp_encryptor_new (&err,
-			     writer,
-			     NULL, 0, /* no passwords */
-			     &tpk, 1,
-			     PGP_ENCRYPTION_MODE_FOR_TRANSPORT);
+                              writer,
+                              NULL, 0, /* no passwords */
+                              &tpk, 1,
+                              PGP_ENCRYPTION_MODE_FOR_TRANSPORT,
+                              9 /* AES256 */);
   if (writer == NULL)
     error (1, 0, "pgp_encryptor_new: %s", pgp_error_to_string (err));
 

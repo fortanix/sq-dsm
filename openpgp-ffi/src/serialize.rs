@@ -221,7 +221,8 @@ pub extern "system" fn pgp_encryptor_new
      inner: *mut writer::Stack<'static, Cookie>,
      passwords: Option<&*const c_char>, passwords_len: size_t,
      recipients: Option<&*const TPK>, recipients_len: size_t,
-     encryption_mode: uint8_t)
+     encryption_mode: uint8_t,
+     cipher_algo: uint8_t)
      -> *mut writer::Stack<'static, Cookie>
 {
     ffi_make_fry_from_errp!(errp);
@@ -253,7 +254,8 @@ pub extern "system" fn pgp_encryptor_new
         _ => panic!("Bad encryption mode: {}", encryption_mode),
     };
     ffi_try_box!(Encryptor::new(*inner,
-                                 &passwords_.iter().collect::<Vec<&Password>>(),
-                                 &recipients[..],
-                                 encryption_mode))
+                                &passwords_.iter().collect::<Vec<&Password>>(),
+                                &recipients[..],
+                                encryption_mode,
+                                Some(cipher_algo.into())))
 }

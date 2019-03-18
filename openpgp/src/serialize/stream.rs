@@ -839,8 +839,8 @@ impl<'a> Encryptor<'a> {
     /// which will be encrypted using the given passwords, and all
     /// encryption-capable subkeys of the given TPKs.
     ///
-    /// The stream is encrypted using AES256, regardless of any key
-    /// preferences.
+    /// Unless otherwise specified, the stream is encrypted using
+    /// AES256.  Key preferences of the recipients are not honored.
     ///
     /// # Example
     ///
@@ -897,8 +897,7 @@ impl<'a> Encryptor<'a> {
     /// let message = Message::new(&mut o);
     /// let encryptor = Encryptor::new(message,
     ///                                &[&"совершенно секретно".into()],
-    ///                                &[&tpk],
-    ///                                EncryptionMode::AtRest)
+    ///                                &[&tpk], EncryptionMode::AtRest, None)
     ///     .expect("Failed to create encryptor");
     /// let mut w = LiteralWriter::new(encryptor, DataFormat::Text, None, None)?;
     /// w.write_all(b"Hello world.")?;
@@ -906,10 +905,13 @@ impl<'a> Encryptor<'a> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn new(mut inner: writer::Stack<'a, Cookie>,
-               passwords: &[&Password], tpks: &[&TPK],
-               encryption_mode: EncryptionMode)
-               -> Result<writer::Stack<'a, Cookie>> {
+    pub fn new<C>(mut inner: writer::Stack<'a, Cookie>,
+                  passwords: &[&Password], tpks: &[&TPK],
+                  encryption_mode: EncryptionMode,
+                  cipher_algo: C)
+                  -> Result<writer::Stack<'a, Cookie>>
+        where C: Into<Option<SymmetricAlgorithm>>
+    {
         if tpks.len() + passwords.len() == 0 {
             return Err(Error::InvalidArgument(
                 "Neither recipient keys nor passwords given".into()).into());
@@ -940,10 +942,10 @@ impl<'a> Encryptor<'a> {
         };
 
         let level = inner.as_ref().cookie_ref().level + 1;
-        let algo = SymmetricAlgorithm::AES256;
+        let algo = cipher_algo.into().unwrap_or(SymmetricAlgorithm::AES256);
 
         // Generate a session key.
-        let sk = SessionKey::new(&mut rng, algo.key_size().unwrap());
+        let sk = SessionKey::new(&mut rng, algo.key_size()?);
 
         // Write the PKESK packet(s).
         for tpk in tpks {
@@ -1052,7 +1054,7 @@ impl<'a> Encryptor<'a> {
             }));
 
             // Write the initialization vector, and the quick-check bytes.
-            let mut iv = vec![0; algo.block_size().unwrap()];
+            let mut iv = vec![0; algo.block_size()?];
             rng.random(&mut iv);
             encryptor.write_all(&iv)?;
             encryptor.write_all(&iv[iv.len() - 2..])?;
@@ -1407,7 +1409,7 @@ mod test {
             let m = Message::new(&mut o);
             let encryptor = Encryptor::new(
                 m, &passwords.iter().collect::<Vec<&Password>>(),
-                &[], EncryptionMode::ForTransport)
+                &[], EncryptionMode::ForTransport, None)
                 .unwrap();
             let mut literal = LiteralWriter::new(encryptor, DataFormat::Binary,
                                                  None, None)

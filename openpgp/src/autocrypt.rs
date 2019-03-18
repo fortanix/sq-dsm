@@ -407,7 +407,8 @@ impl AutocryptSetupMessage {
         let w = Encryptor::new(m,
                                &[ self.passcode.as_ref().unwrap() ],
                                &[],
-                               EncryptionMode::ForTransport)?;
+                               EncryptionMode::ForTransport,
+                               None)?;
 
         let mut w = LiteralWriter::new(w, DataFormat::Binary,
                                        /* filename*/ None, /* date */ None)?;

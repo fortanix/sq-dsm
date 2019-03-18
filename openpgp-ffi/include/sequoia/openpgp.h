@@ -1378,17 +1378,15 @@ pgp_writer_stack_t pgp_literal_writer_new (pgp_error_t *errp,
 /// The stream will be encrypted using a generated session key,
 /// which will be encrypted using the given passwords, and all
 /// encryption-capable subkeys of the given TPKs.
-///
-/// The stream is encrypted using AES256, regardless of any key
-/// preferences.
 /*/
 pgp_writer_stack_t pgp_encryptor_new (pgp_error_t *errp,
-                                    pgp_writer_stack_t inner,
-                                    char **passwords,
-                                    size_t passwords_len,
-                                    pgp_tpk_t *recipients,
-                                    size_t recipients_len,
-                                    pgp_encryption_mode_t mode);
+				      pgp_writer_stack_t inner,
+				      char **passwords,
+				      size_t passwords_len,
+				      pgp_tpk_t *recipients,
+				      size_t recipients_len,
+				      pgp_encryption_mode_t mode,
+				      uint8_t cipher_algo);
 
 /*/
 /// Creates an pgp_secret_t from a decrypted session key.
