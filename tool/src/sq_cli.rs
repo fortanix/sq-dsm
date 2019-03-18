@@ -61,6 +61,9 @@ pub fn build() -> App<'static, 'static> {
                          .number_of_values(1)
                          .help("Secret key to decrypt with, given as a file \
                                 (can be given multiple times)"))
+                    .arg(Arg::with_name("dump-session-key")
+                         .long("dump-session-key")
+                         .help("Prints the session key to stderr"))
                     .arg(Arg::with_name("dump")
                          .long("dump")
                          .help("Print a packet dump to stderr"))

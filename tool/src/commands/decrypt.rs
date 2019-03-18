@@ -6,6 +6,7 @@ use rpassword;
 extern crate sequoia_openpgp as openpgp;
 use sequoia_core::Context;
 use openpgp::constants::SymmetricAlgorithm;
+use openpgp::conversions::hex;
 use openpgp::crypto::SessionKey;
 use openpgp::{Fingerprint, TPK, KeyID, Result};
 use openpgp::packet::{Key, key::SecretKey, Signature, PKESK, SKESK};
@@ -22,6 +23,7 @@ struct Helper<'a> {
     secret_keys: HashMap<KeyID, Key>,
     key_identities: HashMap<KeyID, Fingerprint>,
     key_hints: HashMap<KeyID, String>,
+    dump_session_key: bool,
     dumper: Option<PacketDumper>,
     hex: bool,
 }
@@ -29,7 +31,7 @@ struct Helper<'a> {
 impl<'a> Helper<'a> {
     fn new(ctx: &'a Context, store: &'a mut store::Store,
            signatures: usize, tpks: Vec<TPK>, secrets: Vec<TPK>,
-           dump: bool, hex: bool)
+           dump_session_key: bool, dump: bool, hex: bool)
            -> Self {
         let mut keys: HashMap<KeyID, Key> = HashMap::new();
         let mut identities: HashMap<KeyID, Fingerprint> = HashMap::new();
@@ -73,6 +75,7 @@ impl<'a> Helper<'a> {
             secret_keys: keys,
             key_identities: identities,
             key_hints: hints,
+            dump_session_key: dump_session_key,
             dumper: if dump || hex {
                 Some(PacketDumper::new(false))
             } else {
@@ -117,9 +120,12 @@ impl<'a> DecryptionHelper for Helper<'a> {
             let keyid = pkesk.recipient();
             if let Some(key) = self.secret_keys.get(&keyid) {
                 if let Some(SecretKey::Unencrypted { mpis }) = key.secret() {
-                    if let Ok(_) = pkesks[0].decrypt(key, mpis)
-                        .and_then(|(algo, sk)| decrypt(algo, &sk))
+                    if let Ok(sk) = pkesks[0].decrypt(key, mpis)
+                        .and_then(|(algo, sk)| { decrypt(algo, &sk)?; Ok(sk) })
                     {
+                        if self.dump_session_key {
+                            eprintln!("Session key: {}", hex::encode(&sk));
+                        }
                         return Ok(self.key_identities.get(keyid)
                                   .map(|fp| fp.clone()));
                     }
@@ -147,9 +153,15 @@ impl<'a> DecryptionHelper for Helper<'a> {
                     if let Ok(mpis) =
                         key.secret().unwrap().decrypt(key.pk_algo(), &p)
                     {
-                        if let Ok(_) = pkesk.decrypt(key, &mpis)
-                            .and_then(|(algo, sk)| decrypt(algo, sk))
+                        if let Ok(sk) = pkesk.decrypt(key, &mpis)
+                            .and_then(|(algo, sk)| {
+                                decrypt(algo, &sk)?; Ok(sk)
+                            })
                         {
+                            if self.dump_session_key {
+                                eprintln!("Session key: {}",
+                                          hex::encode(&sk));
+                            }
                             return Ok(self.key_identities.get(keyid)
                                       .map(|fp| fp.clone()));
                         }
@@ -172,9 +184,12 @@ impl<'a> DecryptionHelper for Helper<'a> {
                     "Enter password to decrypt message: ")?.into();
 
             for skesk in skesks {
-                if let Ok(_) = skesk.decrypt(&password)
-                    .and_then(|(algo, sk)| decrypt(algo, &sk))
+                if let Ok(sk) = skesk.decrypt(&password)
+                    .and_then(|(algo, sk)| { decrypt(algo, &sk)?; Ok(sk) })
                 {
+                    if self.dump_session_key {
+                        eprintln!("Session key: {}", hex::encode(&sk));
+                    }
                     return Ok(None);
                 }
             }
@@ -187,9 +202,11 @@ impl<'a> DecryptionHelper for Helper<'a> {
 pub fn decrypt(ctx: &Context, store: &mut store::Store,
                input: &mut io::Read, output: &mut io::Write,
                signatures: usize, tpks: Vec<TPK>, secrets: Vec<TPK>,
+               dump_session_key: bool,
                dump: bool, hex: bool)
                -> Result<()> {
-    let helper = Helper::new(ctx, store, signatures, tpks, secrets, dump, hex);
+    let helper = Helper::new(ctx, store, signatures, tpks, secrets,
+                             dump_session_key, dump, hex);
     let mut decryptor = Decryptor::from_reader(input, helper)
         .context("Decryption failed")?;
 

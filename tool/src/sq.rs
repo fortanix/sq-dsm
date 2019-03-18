@@ -127,6 +127,7 @@ fn real_main() -> Result<(), failure::Error> {
             commands::decrypt(&ctx, &mut store,
                               &mut input, &mut output,
                               signatures, tpks, secrets,
+                              m.is_present("dump-session-key"),
                               m.is_present("dump"), m.is_present("hex"))?;
         },
         ("encrypt",  Some(m)) => {

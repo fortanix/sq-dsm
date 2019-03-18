@@ -45,10 +45,11 @@
 //!     sq decrypt [FLAGS] [OPTIONS] [--] [FILE]
 //!
 //! FLAGS:
-//!         --dump       Print a packet dump to stderr
-//!     -h, --help       Prints help information
-//!     -x, --hex        Print a hexdump (implies --dump)
-//!     -V, --version    Prints version information
+//!         --dump                Print a packet dump to stderr
+//!         --dump-session-key    Prints the session key to stderr
+//!     -h, --help                Prints help information
+//!     -x, --hex                 Print a hexdump (implies --dump)
+//!     -V, --version             Prints version information
 //!
 //! OPTIONS:
 //!     -o, --output <FILE>                    Sets the output file to use
