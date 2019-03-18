@@ -21,7 +21,7 @@
 
 struct decrypt_cookie {
   pgp_tpk_t key;
-  int get_secret_keys_called;
+  int decrypt_called;
 };
 
 static pgp_status_t
@@ -46,18 +46,20 @@ check_signatures_cb(void *cookie_opaque,
 }
 
 static pgp_status_t
-get_secret_keys_cb (void *cookie_opaque,
-                    pgp_pkesk_t *pkesks, size_t pkesk_count,
-                    pgp_skesk_t *skesks, size_t skesk_count,
-                    pgp_secret_t *secret)
+decrypt_cb (void *cookie_opaque,
+            pgp_pkesk_t *pkesks, size_t pkesk_count,
+            pgp_skesk_t *skesks, size_t skesk_count,
+            pgp_decryptor_do_decrypt_cb_t *decrypt,
+            void *decrypt_cookie,
+            pgp_fingerprint_t *identity_out)
 {
+  pgp_status_t rc;
   pgp_error_t err;
   struct decrypt_cookie *cookie = cookie_opaque;
 
   /* Prevent iterations, we only have one key to offer.  */
-  if (cookie->get_secret_keys_called)
-    return PGP_STATUS_UNKNOWN_ERROR;
-  cookie->get_secret_keys_called = 1;
+  assert (!cookie->decrypt_called);
+  cookie->decrypt_called = 1;
 
   for (int i = 0; i < pkesk_count; i++) {
     pgp_pkesk_t pkesk = pkesks[i];
@@ -88,8 +90,13 @@ get_secret_keys_cb (void *cookie_opaque,
     }
     pgp_key_free (key);
 
-    *secret = pgp_secret_cached (algo, session_key, session_key_len);
-    return PGP_STATUS_SUCCESS;
+    pgp_session_key_t sk = pgp_session_key_from_bytes (session_key,
+                                                       session_key_len);
+    rc = decrypt (decrypt_cookie, algo, sk);
+    pgp_session_key_free (sk);
+
+    *identity_out = pgp_tpk_fingerprint (cookie->key);
+    return rc;
   }
 
   return PGP_STATUS_UNKNOWN_ERROR;
@@ -117,10 +124,10 @@ main (int argc, char **argv)
 
   struct decrypt_cookie cookie = {
     .key = tpk,
-    .get_secret_keys_called = 0,
+    .decrypt_called = 0,
   };
   plaintext = pgp_decryptor_new (&err, source,
-                                 get_public_keys_cb, get_secret_keys_cb,
+                                 get_public_keys_cb, decrypt_cb,
                                  check_signatures_cb, &cookie);
   if (! plaintext)
     error (1, 0, "pgp_decryptor_new: %s", pgp_error_to_string (err));

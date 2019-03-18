@@ -12,9 +12,10 @@ fragments yields the [`openpgp/examples/generate-encrypt-decrypt.rs`].
 use std::io::{self, Write};
 
 extern crate sequoia_openpgp as openpgp;
+use openpgp::crypto::SessionKey;
+use openpgp::constants::SymmetricAlgorithm;
 use openpgp::serialize::stream::*;
 use openpgp::parse::stream::*;
-use openpgp::packet::key::SecretKey;
 
 const MESSAGE: &'static str = "дружба";
 
@@ -109,31 +110,26 @@ fn main() {
 # }
 #
 # impl<'a> DecryptionHelper for Helper<'a> {
-#     fn get_secret(&mut self,
-#                   _pkesks: &[&openpgp::packet::PKESK],
-#                   _skesks: &[&openpgp::packet::SKESK])
-#                   -> openpgp::Result<Option<Secret>>
+#     fn decrypt<D>(&mut self,
+#                   pkesks: &[openpgp::packet::PKESK],
+#                   _skesks: &[openpgp::packet::SKESK],
+#                   mut decrypt: D)
+#                   -> openpgp::Result<Option<openpgp::Fingerprint>>
+#         where D: FnMut(SymmetricAlgorithm, &SessionKey) -> openpgp::Result<()>
 #     {
 #         // The encryption key is the first and only subkey.
 #         let key = self.secret.subkeys().nth(0)
 #             .map(|binding| binding.subkey().clone())
 #             .unwrap();
-#
+# 
 #         // The secret key is not encrypted.
-#         let secret =
-#             if let Some(SecretKey::Unencrypted {
-#                 ref mpis,
-#             }) = key.secret() {
-#                 mpis.clone()
-#             } else {
-#                 unreachable!()
-#             };
-#
-#         Ok(Some(Secret::Asymmetric {
-#             identity: self.secret.fingerprint(),
-#             key: key,
-#             secret: secret,
-#         }))
+#         let pair = key.into_keypair().unwrap();
+# 
+#         pkesks[0].decrypt(pair.public(), pair.secret())
+#             .and_then(|(algo, session_key)| decrypt(algo, &session_key))
+#             .map(|_| None)
+#         // XXX: In production code, return the Fingerprint of the
+#         // recipient's TPK here
 #     }
 # }
 ```
@@ -150,9 +146,10 @@ create it:
 # use std::io::{self, Write};
 #
 # extern crate sequoia_openpgp as openpgp;
+# use openpgp::crypto::SessionKey;
+# use openpgp::constants::SymmetricAlgorithm;
 # use openpgp::serialize::stream::*;
 # use openpgp::parse::stream::*;
-# use openpgp::packet::key::SecretKey;
 #
 # const MESSAGE: &'static str = "дружба";
 #
@@ -247,31 +244,26 @@ fn generate() -> openpgp::Result<openpgp::TPK> {
 # }
 #
 # impl<'a> DecryptionHelper for Helper<'a> {
-#     fn get_secret(&mut self,
-#                   _pkesks: &[&openpgp::packet::PKESK],
-#                   _skesks: &[&openpgp::packet::SKESK])
-#                   -> openpgp::Result<Option<Secret>>
+#     fn decrypt<D>(&mut self,
+#                   pkesks: &[openpgp::packet::PKESK],
+#                   _skesks: &[openpgp::packet::SKESK],
+#                   mut decrypt: D)
+#                   -> openpgp::Result<Option<openpgp::Fingerprint>>
+#         where D: FnMut(SymmetricAlgorithm, &SessionKey) -> openpgp::Result<()>
 #     {
 #         // The encryption key is the first and only subkey.
 #         let key = self.secret.subkeys().nth(0)
 #             .map(|binding| binding.subkey().clone())
 #             .unwrap();
-#
+# 
 #         // The secret key is not encrypted.
-#         let secret =
-#             if let Some(SecretKey::Unencrypted {
-#                 ref mpis,
-#             }) = key.secret() {
-#                 mpis.clone()
-#             } else {
-#                 unreachable!()
-#             };
-#
-#         Ok(Some(Secret::Asymmetric {
-#             identity: self.secret.fingerprint(),
-#             key: key,
-#             secret: secret,
-#         }))
+#         let pair = key.into_keypair().unwrap();
+# 
+#         pkesks[0].decrypt(pair.public(), pair.secret())
+#             .and_then(|(algo, session_key)| decrypt(algo, &session_key))
+#             .map(|_| None)
+#         // XXX: In production code, return the Fingerprint of the
+#         // recipient's TPK here
 #     }
 # }
 ```
@@ -288,9 +280,10 @@ implements [`io::Write`], and we simply write the plaintext to it.
 # use std::io::{self, Write};
 #
 # extern crate sequoia_openpgp as openpgp;
+# use openpgp::crypto::SessionKey;
+# use openpgp::constants::SymmetricAlgorithm;
 # use openpgp::serialize::stream::*;
 # use openpgp::parse::stream::*;
-# use openpgp::packet::key::SecretKey;
 #
 # const MESSAGE: &'static str = "дружба";
 #
@@ -385,31 +378,26 @@ fn encrypt(sink: &mut Write, plaintext: &str, recipient: &openpgp::TPK)
 # }
 #
 # impl<'a> DecryptionHelper for Helper<'a> {
-#     fn get_secret(&mut self,
-#                   _pkesks: &[&openpgp::packet::PKESK],
-#                   _skesks: &[&openpgp::packet::SKESK])
-#                   -> openpgp::Result<Option<Secret>>
+#     fn decrypt<D>(&mut self,
+#                   pkesks: &[openpgp::packet::PKESK],
+#                   _skesks: &[openpgp::packet::SKESK],
+#                   mut decrypt: D)
+#                   -> openpgp::Result<Option<openpgp::Fingerprint>>
+#         where D: FnMut(SymmetricAlgorithm, &SessionKey) -> openpgp::Result<()>
 #     {
 #         // The encryption key is the first and only subkey.
 #         let key = self.secret.subkeys().nth(0)
 #             .map(|binding| binding.subkey().clone())
 #             .unwrap();
-#
+# 
 #         // The secret key is not encrypted.
-#         let secret =
-#             if let Some(SecretKey::Unencrypted {
-#                 ref mpis,
-#             }) = key.secret() {
-#                 mpis.clone()
-#             } else {
-#                 unreachable!()
-#             };
-#
-#         Ok(Some(Secret::Asymmetric {
-#             identity: self.secret.fingerprint(),
-#             key: key,
-#             secret: secret,
-#         }))
+#         let pair = key.into_keypair().unwrap();
+# 
+#         pkesks[0].decrypt(pair.public(), pair.secret())
+#             .and_then(|(algo, session_key)| decrypt(algo, &session_key))
+#             .map(|_| None)
+#         // XXX: In production code, return the Fingerprint of the
+#         // recipient's TPK here
 #     }
 # }
 ```
@@ -440,9 +428,10 @@ Decrypted data can be read from this using [`io::Read`].
 # use std::io::{self, Write};
 #
 # extern crate sequoia_openpgp as openpgp;
+# use openpgp::crypto::SessionKey;
+# use openpgp::constants::SymmetricAlgorithm;
 # use openpgp::serialize::stream::*;
 # use openpgp::parse::stream::*;
-# use openpgp::packet::key::SecretKey;
 #
 # const MESSAGE: &'static str = "дружба";
 #
@@ -537,10 +526,12 @@ impl<'a> VerificationHelper for Helper<'a> {
 }
 
 impl<'a> DecryptionHelper for Helper<'a> {
-    fn get_secret(&mut self,
-                  _pkesks: &[&openpgp::packet::PKESK],
-                  _skesks: &[&openpgp::packet::SKESK])
-                  -> openpgp::Result<Option<Secret>>
+    fn decrypt<D>(&mut self,
+                  pkesks: &[openpgp::packet::PKESK],
+                  _skesks: &[openpgp::packet::SKESK],
+                  mut decrypt: D)
+                  -> openpgp::Result<Option<openpgp::Fingerprint>>
+        where D: FnMut(SymmetricAlgorithm, &SessionKey) -> openpgp::Result<()>
     {
         // The encryption key is the first and only subkey.
         let key = self.secret.subkeys().nth(0)
@@ -548,20 +539,13 @@ impl<'a> DecryptionHelper for Helper<'a> {
             .unwrap();
 
         // The secret key is not encrypted.
-        let secret =
-            if let Some(SecretKey::Unencrypted {
-                ref mpis,
-            }) = key.secret() {
-                mpis.clone()
-            } else {
-                unreachable!()
-            };
+        let pair = key.into_keypair().unwrap();
 
-        Ok(Some(Secret::Asymmetric {
-            identity: self.secret.fingerprint(),
-            key: key,
-            secret: secret,
-        }))
+        pkesks[0].decrypt(pair.public(), pair.secret())
+            .and_then(|(algo, session_key)| decrypt(algo, &session_key))
+            .map(|_| None)
+        // XXX: In production code, return the Fingerprint of the
+        // recipient's TPK here
     }
 }
 ```

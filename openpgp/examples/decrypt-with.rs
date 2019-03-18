@@ -8,13 +8,13 @@ use std::io;
 extern crate failure;
 extern crate sequoia_openpgp as openpgp;
 
-use openpgp::packet::key::SecretKey;
+use openpgp::crypto::{KeyPair, SessionKey};
+use openpgp::constants::SymmetricAlgorithm;
 use openpgp::parse::{
     Parse,
     stream::{
         DecryptionHelper,
         Decryptor,
-        Secret,
         VerificationHelper,
         VerificationResult,
     },
@@ -47,8 +47,7 @@ pub fn main() {
 /// keys for the signature verification and implements the
 /// verification policy.
 struct Helper {
-    keys: HashMap<openpgp::KeyID, Secret>,
-    i: usize,
+    keys: HashMap<openpgp::KeyID, KeyPair>,
 }
 
 impl Helper {
@@ -62,16 +61,10 @@ impl Helper {
                                 || s.key_flags().can_encrypt_for_transport()))
                     .unwrap_or(false)
                 {
-                    // Only handle unencrypted secret keys.
-                    if let Some(SecretKey::Unencrypted { ref mpis }) =
-                        key.secret()
-                    {
+                    // This only works for unencrypted secret keys.
+                    if let Ok(keypair) = key.clone().into_keypair() {
                         keys.insert(key.fingerprint().to_keyid(),
-                                    Secret::Asymmetric {
-                                        identity: tpk.fingerprint(),
-                                        key: key.clone(),
-                                        secret: mpis.clone(),
-                                    });
+                                    keypair);
                     }
                 }
             }
@@ -79,25 +72,31 @@ impl Helper {
 
         Helper {
             keys: keys,
-            i: 0,
         }
     }
 }
 
 impl DecryptionHelper for Helper {
-    fn get_secret(&mut self,
-                  pkesks: &[&openpgp::packet::PKESK],
-                  _: &[&openpgp::packet::SKESK])
-                  -> failure::Fallible<Option<Secret>> {
-        let r = pkesks
-            .iter()
-            .nth(self.i)
-            .and_then(|pkesk| {
-                self.keys.get(pkesk.recipient())
-                    .map(|s| (*s).clone())
-            });
-        self.i += 1;
-        Ok(r)
+    fn decrypt<D>(&mut self,
+                  pkesks: &[openpgp::packet::PKESK],
+                  _skesks: &[openpgp::packet::SKESK],
+                  mut decrypt: D)
+                  -> openpgp::Result<Option<openpgp::Fingerprint>>
+        where D: FnMut(SymmetricAlgorithm, &SessionKey) -> openpgp::Result<()>
+    {
+        // Try each PKESK until we succeed.
+        for pkesk in pkesks {
+            if let Some(pair) = self.keys.get(pkesk.recipient()) {
+                if let Ok(_) = pkesks[0].decrypt(pair.public(), pair.secret())
+                    .and_then(|(algo, session_key)| decrypt(algo, &session_key))
+                {
+                    break;
+                }
+            }
+        }
+        // XXX: In production code, return the Fingerprint of the
+        // recipient's TPK here
+        Ok(None) 
     }
 }
 

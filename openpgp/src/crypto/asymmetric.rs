@@ -44,6 +44,16 @@ impl KeyPair {
             secret: secret,
         })
     }
+
+    /// Returns a reference to the public key.
+    pub fn public(&self) -> &Key {
+        &self.public
+    }
+
+    /// Returns a reference to the secret key.
+    pub fn secret(&self) -> &mpis::SecretKey {
+        &self.secret
+    }
 }
 
 impl Signer for KeyPair {

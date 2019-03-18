@@ -1388,12 +1388,6 @@ pgp_writer_stack_t pgp_encryptor_new (pgp_error_t *errp,
 				      pgp_encryption_mode_t mode,
 				      uint8_t cipher_algo);
 
-/*/
-/// Creates an pgp_secret_t from a decrypted session key.
-/*/
-pgp_secret_t pgp_secret_cached(uint8_t algo,
-                             uint8_t *session_key, size_t session_key_len);
-
 void pgp_verification_results_at_level(pgp_verification_results_t results,
                                       size_t level,
                                       pgp_verification_result_t **r,
@@ -1438,7 +1432,7 @@ int pgp_verification_result_level(pgp_verification_result_t r);
 /*/
 pgp_reader_t pgp_decryptor_new (pgp_error_t *errp, pgp_reader_t input,
     pgp_decryptor_get_public_keys_cb_t get_public_keys,
-    pgp_decryptor_get_secret_keys_cb_t get_secret_keys,
+    pgp_decryptor_decrypt_cb_t decrypt,
     pgp_decryptor_check_signatures_cb_t check_signatures,
     void *cookie);
 

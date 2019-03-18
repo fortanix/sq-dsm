@@ -5,11 +5,13 @@ use rpassword;
 
 extern crate sequoia_openpgp as openpgp;
 use sequoia_core::Context;
+use openpgp::constants::SymmetricAlgorithm;
+use openpgp::crypto::SessionKey;
 use openpgp::{Fingerprint, TPK, KeyID, Result};
 use openpgp::packet::{Key, key::SecretKey, Signature, PKESK, SKESK};
 use openpgp::parse::PacketParser;
 use openpgp::parse::stream::{
-    VerificationHelper, VerificationResult, DecryptionHelper, Decryptor, Secret,
+    VerificationHelper, VerificationResult, DecryptionHelper, Decryptor,
 };
 extern crate sequoia_store as store;
 
@@ -22,19 +24,6 @@ struct Helper<'a> {
     key_hints: HashMap<KeyID, String>,
     dumper: Option<PacketDumper>,
     hex: bool,
-    pass: Pass,
-}
-
-enum Pass {
-    UnencryptedKey(usize),
-    EncryptedKey(usize),
-    Passwords,
-}
-
-impl Default for Pass {
-    fn default() -> Self {
-        Pass::UnencryptedKey(0)
-    }
 }
 
 impl<'a> Helper<'a> {
@@ -90,7 +79,6 @@ impl<'a> Helper<'a> {
                 None
             },
             hex: hex,
-            pass: Pass::default(),
         }
     }
 }
@@ -119,87 +107,79 @@ impl<'a> DecryptionHelper for Helper<'a> {
         Ok(())
     }
 
-    fn get_secret(&mut self, pkesks: &[&PKESK], skesks: &[&SKESK])
-                  -> Result<Option<Secret>> {
-        loop {
-            self.pass = match self.pass {
-                Pass::UnencryptedKey(ref mut i) => {
-                    while let Some(pkesk) = pkesks.get(*i) {
-                        *i += 1;
-                        let keyid = pkesk.recipient();
-                        let key = if let Some(key) = self.secret_keys.get(keyid)
-                        {
-                            key
-                        } else {
-                            continue;
-                        };
-
-                        if let Some(SecretKey::Unencrypted { ref mpis }) =
-                            key.secret()
-                        {
-                            return Ok(Some(Secret::Asymmetric {
-                                identity: self.key_identities.get(keyid)
-                                    .unwrap().clone(),
-                                key: key.clone(),
-                                secret: mpis.clone(),
-                            }))
-                        }
+    fn decrypt<D>(&mut self, pkesks: &[PKESK], skesks: &[SKESK],
+                  mut decrypt: D) -> openpgp::Result<Option<Fingerprint>>
+        where D: FnMut(SymmetricAlgorithm, &SessionKey) -> openpgp::Result<()>
+    {
+        // First, we try those keys that we can use without prompting
+        // for a password.
+        for pkesk in pkesks {
+            let keyid = pkesk.recipient();
+            if let Some(key) = self.secret_keys.get(&keyid) {
+                if let Some(SecretKey::Unencrypted { mpis }) = key.secret() {
+                    if let Ok(_) = pkesks[0].decrypt(key, mpis)
+                        .and_then(|(algo, sk)| decrypt(algo, &sk))
+                    {
+                        return Ok(self.key_identities.get(keyid)
+                                  .map(|fp| fp.clone()));
                     }
-
-                    Pass::EncryptedKey(0)
-                },
-
-                Pass::EncryptedKey(ref mut i) => {
-                    while let Some(pkesk) = pkesks.get(*i) {
-                        *i += 1;
-                        let keyid = pkesk.recipient();
-                        let key = if let Some(key) = self.secret_keys.get(keyid) {
-                            key
-                        } else {
-                            continue;
-                        };
-
-                        if key.secret().map(|s| s.is_encrypted())
-                            .unwrap_or(false)
-                        {
-                            loop {
-                                let p = rpassword::prompt_password_stderr(
-                                    &format!(
-                                        "Enter password to decrypt key {}: ",
-                                        self.key_hints.get(keyid).unwrap()))?
-                                    .into();
-
-                                if let Ok(mpis) =
-                                    key.secret().unwrap()
-                                    .decrypt(key.pk_algo(), &p)
-                                {
-                                    return Ok(Some(Secret::Asymmetric {
-                                        identity: self.key_identities.get(keyid)
-                                            .unwrap().clone(),
-                                        key: key.clone(),
-                                        secret: mpis,
-                                    }));
-                                }
-
-                                eprintln!("Bad password.");
-                            }
-                        }
-                    }
-
-                    Pass::Passwords
-                },
-
-                Pass::Passwords => {
-                    if skesks.is_empty() {
-                        return
-                            Err(failure::err_msg("No key to decrypt message"));
-                    }
-                    return Ok(Some(Secret::Symmetric {
-                        password: rpassword::prompt_password_stderr(
-                            "Enter password to decrypt message: ")?.into(),
-                    }));
-                },
+                }
             }
+        }
+
+        // Second, we try those keys that are encrypted.
+        for pkesk in pkesks {
+            let keyid = pkesk.recipient();
+            if let Some(key) = self.secret_keys.get(&keyid) {
+                if key.secret().map(|s| ! s.is_encrypted())
+                    .unwrap_or(true)
+                {
+                    continue;
+                }
+
+                loop {
+                    let p = rpassword::prompt_password_stderr(
+                        &format!(
+                            "Enter password to decrypt key {}: ",
+                            self.key_hints.get(&keyid).unwrap()))
+                        ?.into();
+
+                    if let Ok(mpis) =
+                        key.secret().unwrap().decrypt(key.pk_algo(), &p)
+                    {
+                        if let Ok(_) = pkesk.decrypt(key, &mpis)
+                            .and_then(|(algo, sk)| decrypt(algo, sk))
+                        {
+                            return Ok(self.key_identities.get(keyid)
+                                      .map(|fp| fp.clone()));
+                        }
+
+                        eprintln!("Bad password.");
+                    }
+                }
+            }
+        }
+
+        if skesks.is_empty() {
+            return
+                Err(failure::err_msg("No key to decrypt message"));
+        }
+
+        // Finally, try to decrypt using the SKESKs.
+        loop {
+            let password =
+                rpassword::prompt_password_stderr(
+                    "Enter password to decrypt message: ")?.into();
+
+            for skesk in skesks {
+                if let Ok(_) = skesk.decrypt(&password)
+                    .and_then(|(algo, sk)| decrypt(algo, &sk))
+                {
+                    return Ok(None);
+                }
+            }
+
+            eprintln!("Bad password.");
         }
     }
 }

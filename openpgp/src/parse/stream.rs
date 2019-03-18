@@ -38,8 +38,6 @@ use {
     packet,
     packet::Signature,
     TPK,
-    crypto::mpis,
-    crypto::Password,
     crypto::SessionKey,
     serialize::Serialize,
 };
@@ -757,6 +755,8 @@ impl DetachedVerifier {
 /// extern crate sequoia_openpgp as openpgp;
 /// extern crate failure;
 /// use std::io::Read;
+/// use openpgp::crypto::SessionKey;
+/// use openpgp::constants::SymmetricAlgorithm;
 /// use openpgp::{KeyID, TPK, Result, packet::{Key, PKESK, SKESK}};
 /// use openpgp::parse::stream::*;
 /// # fn main() { f().unwrap(); }
@@ -773,11 +773,13 @@ impl DetachedVerifier {
 ///     }
 /// }
 /// impl DecryptionHelper for Helper {
-///     fn get_secret(&mut self, _: &[&PKESK], _: &[&SKESK])
-///                   -> Result<Option<Secret>> {
-///         Ok(Some(Secret::Symmetric {
-///             password: "streng geheim".into(),
-///         }))
+///     fn decrypt<D>(&mut self, _: &[PKESK], skesks: &[SKESK],
+///                   mut decrypt: D) -> Result<Option<openpgp::Fingerprint>>
+///         where D: FnMut(SymmetricAlgorithm, &SessionKey) -> Result<()>
+///     {
+///         skesks[0].decrypt(&"streng geheim".into())
+///             .and_then(|(algo, session_key)| decrypt(algo, &session_key))
+///             .map(|_| None)
 ///     }
 /// }
 ///
@@ -817,6 +819,9 @@ pub struct Decryptor<'a, H: VerificationHelper + DecryptionHelper> {
     reserve: Option<Vec<u8>>,
 }
 
+/// Decrypts the message.
+pub type DecryptFn = FnMut(SymmetricAlgorithm, &SessionKey) -> Result<()>;
+
 /// Helper for decrypting messages.
 pub trait DecryptionHelper {
     /// Turns mapping on or off.
@@ -829,71 +834,26 @@ pub trait DecryptionHelper {
         false
     }
 
-    /// Called once per packet.
+    /// Inspects the message.
     ///
-    /// Can be used to dump packets in encrypted messages.  The
-    /// default implementation does nothing.
+    /// Called once per packet.  Can be used to dump packets in
+    /// encrypted messages.  The default implementation does nothing.
     fn inspect(&mut self, pp: &PacketParser) -> Result<()> {
         // Do nothing.
         let _ = pp;
         Ok(())
     }
 
-    /// Retrieves the secret needed to decrypt the data.
+    /// Decrypts the message.
     ///
     /// This function is called with every `PKESK` and `SKESK` found
-    /// in the message.  It is called repeatedly until either the
-    /// decryption succeeds, or this function returns None.
-    fn get_secret(&mut self, pkesks: &[&PKESK], skesks: &[&SKESK])
-                  -> Result<Option<Secret>>;
-
-    /// Signals success decrypting the given `PKESK`.
-    ///
-    /// This can be used to cache the result of the asymmetric crypto
-    /// operation.  The default implementation does nothing.
-    fn cache_asymmetric_secret(&mut self, pkesk: &PKESK,
-                               algo: SymmetricAlgorithm, key: &SessionKey) {
-        // Do nothing.
-        let _ = (pkesk, algo, key);
-    }
-
-    /// Signals success decrypting the given `SKESK`.
-    ///
-    /// This can be used to cache the result of the symmetric crypto
-    /// operation.  The default implementation does nothing.
-    fn cache_symmetric_secret(&mut self, skesk: &SKESK,
-                              algo: SymmetricAlgorithm, key: &SessionKey) {
-        // Do nothing.
-        let _ = (skesk, algo, key);
-    }
-}
-
-/// Represents a secret to decrypt a message.
-#[derive(Clone, Debug)]
-pub enum Secret {
-    /// A key pair for asymmetric decryption.
-    Asymmetric {
-        /// The primary key's fingerprint.
-        identity: Fingerprint,
-        /// The public key.
-        key: packet::Key,
-        /// The secret key.
-        secret: mpis::SecretKey,
-    },
-
-    /// A password for symmetric decryption.
-    Symmetric {
-        /// The password.
-        password: Password,
-    },
-
-    /// A cached session key.
-    Cached {
-        /// The symmetric algorithm used to encrypt the SEIP packet.
-        algo: SymmetricAlgorithm,
-        /// The decrypted session key.
-        session_key: SessionKey,
-    },
+    /// in the message.  The implementation must decrypt the symmetric
+    /// algorithm and session key from one of the PKESK packets, the
+    /// SKESKs, or retrieve it from a cache, and then call `decrypt`
+    /// with the symmetric algorithm and session key.
+    fn decrypt<D>(&mut self, pkesks: &[PKESK], skesks: &[SKESK],
+                  decrypt: D) -> Result<Option<Fingerprint>>
+        where D: FnMut(SymmetricAlgorithm, &SessionKey) -> Result<()>;
 }
 
 impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
@@ -990,69 +950,11 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                 Packet::SEIP(_) | Packet::AED(_) => {
                     saw_content = true;
 
-                    let mut decrypted = false;
-                    let pkesk_refs: Vec<&PKESK> = pkesks.iter().collect();
-                    let skesk_refs: Vec<&SKESK> = skesks.iter().collect();
-
-                    'decrypt_seip: while let Some(secret) =
-                        v.helper.get_secret(&pkesk_refs[..], &skesk_refs[..])?
-                    {
-                        t!("helper.get_secret() returned: {:?}", secret);
-
-                        match secret {
-                            Secret::Asymmetric {
-                                ref identity, ref key, ref secret,
-                            } => {
-                                let keyid = key.fingerprint().to_keyid();
-
-                                for pkesk in pkesks.iter().filter(|p| {
-                                    let r = p.recipient();
-                                    *r == keyid || r.is_wildcard()
-                                }) {
-                                    let res = pkesk.decrypt(&key, &secret);
-                                    t!("{:?}.decrypt({:?}, {:?}) => {:?}",
-                                       pkesk, key, secret, res);
-
-                                    if let Ok((algo, key)) = res {
-                                        if pp.decrypt(algo, &key).is_ok() {
-                                            v.identity = Some(identity.clone());
-                                            decrypted = true;
-
-                                            v.helper.cache_asymmetric_secret(
-                                                pkesk, algo, &key);
-                                            break 'decrypt_seip;
-                                        }
-                                    }
-                                }
-                            },
-
-                            Secret::Symmetric { ref password } => {
-                                for skesk in skesks.iter() {
-                                    let res = skesk.decrypt(password);
-                                    t!("{:?}.decrypt({:?}) => {:?}",
-                                       skesk, password, res);
-
-                                    if let Ok((algo, key)) = res {
-                                        if pp.decrypt(algo, &key).is_ok() {
-                                            decrypted = true;
-
-                                            v.helper.cache_symmetric_secret(
-                                                skesk, algo, &key);
-                                            break 'decrypt_seip;
-                                        }
-                                    }
-                                }
-                            },
-
-                            Secret::Cached { ref algo, ref session_key } =>
-                                if pp.decrypt(*algo, session_key).is_ok() {
-                                    decrypted = true;
-                                    break 'decrypt_seip;
-                                },
-                        }
-                    }
-
-                    if ! decrypted {
+                    v.identity =
+                        v.helper.decrypt(&pkesks[..], &skesks[..],
+                                         |algo, secret| pp.decrypt(algo, secret)
+                        )?;
+                    if ! pp.decrypted() {
                         // XXX: That is not quite the right error to return.
                         return Err(
                             Error::InvalidSessionKey("No session key".into())

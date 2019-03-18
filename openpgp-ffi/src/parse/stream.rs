@@ -11,14 +11,15 @@
 //! [`sequoia-openpgp::parse::stream`]: ../../../sequoia_openpgp/parse/stream/index.html
 
 use std::ptr;
-use std::slice;
-use libc::{c_int, size_t, c_void};
+use libc::{c_int, size_t, c_void, uint8_t};
 
 extern crate sequoia_openpgp as openpgp;
 extern crate time;
 
 use self::openpgp::{
     RevocationStatus,
+    crypto::SessionKey,
+    constants::SymmetricAlgorithm,
     packet::{
         PKESK,
         SKESK,
@@ -27,7 +28,6 @@ use self::openpgp::{
 use self::openpgp::parse::stream::{
     DecryptionHelper,
     Decryptor,
-    Secret,
     VerificationHelper,
     VerificationResult,
     Verifier,
@@ -38,10 +38,12 @@ use Maybe;
 use MoveFromRaw;
 use MoveIntoRaw;
 use MoveResultIntoRaw;
+use RefRaw;
 use RefMutRaw;
 
 use super::super::{
     error::Status,
+    crypto,
     io,
     keyid,
     packet,
@@ -75,30 +77,6 @@ pub extern "system" fn pgp_revocation_status_free(
 {
     ffi_free!(rs)
 }
-
-// Secret.
-
-/// Creates an pgp_secret_t from a decrypted session key.
-#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
-fn pgp_secret_cached<'a>(algo: u8,
-                         session_key: *const u8,
-                         session_key_len: size_t)
-   -> *mut Secret
-{
-    let session_key = if session_key_len > 0 {
-        unsafe {
-            slice::from_raw_parts(session_key, session_key_len)
-        }
-    } else {
-        &[]
-    };
-
-    box_raw!(Secret::Cached {
-        algo: algo.into(),
-        session_key: session_key.to_vec().into()
-    })
-}
-
 
 // Decryptor.
 
@@ -201,11 +179,25 @@ type GetPublicKeysCallback = fn(*mut HelperCookie,
                                 &mut *mut *mut TPK, *mut usize,
                                 *mut FreeCallback) -> Status;
 
-/// Returns a session key.
-type GetSecretKeysCallback = fn(*mut HelperCookie,
-                                *const &PKESK, usize,
-                                *const &SKESK, usize,
-                                &mut *mut Secret) -> Status;
+/// Decrypts the message.
+///
+/// This function is called with every `PKESK` and `SKESK` found in
+/// the message.  The implementation must decrypt the symmetric
+/// algorithm and session key from one of the PKESK packets, the
+/// SKESKs, or retrieve it from a cache, and then call the given
+/// function with the symmetric algorithm and the session key.
+///
+/// XXX: This needlessly flattens the complex errors returned by the
+/// `decrypt` function into a status.
+type DecryptCallback = fn(*mut HelperCookie,
+                          *const *const PKESK, usize,
+                          *const *const SKESK, usize,
+                          extern "system" fn (*mut c_void, uint8_t,
+                                              *const crypto::SessionKey)
+                                              -> Status,
+                          *mut c_void,
+                          *mut Maybe<super::super::fingerprint::Fingerprint>)
+                          -> Status;
 
 /// Process the signatures.
 ///
@@ -522,19 +514,19 @@ fn pgp_detached_verifier_new<'a>(errp: Option<&mut *mut ::error::Error>,
 
 struct DHelper {
     vhelper: VHelper,
-    get_secret_keys_cb: GetSecretKeysCallback,
+    decrypt_cb: DecryptCallback,
 }
 
 impl DHelper {
     fn new(get_public_keys: GetPublicKeysCallback,
-           get_secret_keys: GetSecretKeysCallback,
+           decrypt: DecryptCallback,
            check_signatures: CheckSignaturesCallback,
            cookie: *mut HelperCookie)
        -> Self
     {
         DHelper {
             vhelper: VHelper::new(get_public_keys, check_signatures, cookie),
-            get_secret_keys_cb: get_secret_keys,
+            decrypt_cb: decrypt,
         }
     }
 }
@@ -554,15 +546,46 @@ impl VerificationHelper for DHelper {
 }
 
 impl DecryptionHelper for DHelper {
-    fn get_secret(&mut self, pkesks: &[&PKESK], skesks: &[&SKESK])
-        -> Result<Option<Secret>, failure::Error>
+    fn decrypt<D>(&mut self, pkesks: &[PKESK], skesks: &[SKESK],
+                  mut decrypt: D)
+                  -> openpgp::Result<Option<openpgp::Fingerprint>>
+        where D: FnMut(SymmetricAlgorithm, &SessionKey) -> openpgp::Result<()>
     {
-        let mut secret : *mut Secret = ptr::null_mut();
+        let mut identity: Maybe<super::super::fingerprint::Fingerprint> = None;
 
-        let result = (self.get_secret_keys_cb)(
+        // The size of PKESK is not known in C.  Convert from an array
+        // of PKESKs to an array of PKESK refs.  Likewise for SKESKs.
+        //
+        // XXX: .move_into_raw() once PKESK and SKESK are wrapped.
+        let pkesks : Vec<*const PKESK> =
+            pkesks.iter().map(|k| k as *const _).collect();
+        let skesks : Vec<*const SKESK> =
+            skesks.iter().map(|k| k as *const _).collect();
+
+        // XXX: Free the wrappers once PKESK and SKESK are wrapped.
+        //
+        // // Free the wrappers.
+        // pkesks.into_iter().for_each(|o| {
+        //     super::super::packet::pkesk::pgp_pkesk_free(o) });
+        // skesks.into_iter().for_each(|o| {
+        //     super::super::packet::skesk::pgp_skesk_free(o) });
+
+        extern "system" fn trampoline<D>(data: *mut c_void, algo: uint8_t,
+                                         sk: *const crypto::SessionKey)
+                                         -> Status
+            where D: FnMut(SymmetricAlgorithm, &SessionKey)
+                           -> openpgp::Result<()>
+        {
+            let closure: &mut D = unsafe { &mut *(data as *mut D) };
+            (*closure)(algo.into(), sk.ref_raw()).into()
+        }
+
+        let result = (self.decrypt_cb)(
             self.vhelper.cookie,
             pkesks.as_ptr(), pkesks.len(), skesks.as_ptr(), skesks.len(),
-            &mut secret);
+            trampoline::<D>,
+            &mut decrypt as *mut _ as *mut c_void,
+            &mut identity);
         if result != Status::Success {
             // XXX: We need to convert the status to an error.  A
             // status contains less information, but we should do the
@@ -572,14 +595,7 @@ impl DecryptionHelper for DHelper {
                 format!("{:?}", result)).into());
         }
 
-        if secret.is_null() {
-            return Err(openpgp::Error::MissingSessionKey(
-                "Callback did not return a session key".into()).into());
-        }
-
-        let secret = ffi_param_move!(secret);
-
-        Ok(Some(*secret))
+        Ok(identity.move_from_raw())
     }
 }
 
@@ -611,7 +627,7 @@ impl DecryptionHelper for DHelper {
 ///
 /// struct decrypt_cookie {
 ///   pgp_tpk_t key;
-///   int get_secret_keys_called;
+///   int decrypt_called;
 /// };
 ///
 /// static pgp_status_t
@@ -636,18 +652,19 @@ impl DecryptionHelper for DHelper {
 /// }
 ///
 /// static pgp_status_t
-/// get_secret_keys_cb (void *cookie_opaque,
-///                     pgp_pkesk_t *pkesks, size_t pkesk_count,
-///                     pgp_skesk_t *skesks, size_t skesk_count,
-///                     pgp_secret_t *secret)
+/// decrypt_cb (void *cookie_opaque,
+///             pgp_pkesk_t *pkesks, size_t pkesk_count,
+///             pgp_skesk_t *skesks, size_t skesk_count,
+///             pgp_decryptor_do_decrypt_cb_t *decrypt,
+///             void *decrypt_cookie,
+///             pgp_fingerprint_t *identity_out)
 /// {
+///   pgp_status_t rc;
 ///   pgp_error_t err;
 ///   struct decrypt_cookie *cookie = cookie_opaque;
 ///
-///   /* Prevent iterations, we only have one key to offer.  */
-///   if (cookie->get_secret_keys_called)
-///     return PGP_STATUS_UNKNOWN_ERROR;
-///   cookie->get_secret_keys_called = 1;
+///   assert (! cookie->decrypt_called);
+///   cookie->decrypt_called = 1;
 ///
 ///   for (int i = 0; i < pkesk_count; i++) {
 ///     pgp_pkesk_t pkesk = pkesks[i];
@@ -678,8 +695,13 @@ impl DecryptionHelper for DHelper {
 ///     }
 ///     pgp_key_free (key);
 ///
-///     *secret = pgp_secret_cached (algo, session_key, session_key_len);
-///     return PGP_STATUS_SUCCESS;
+///     pgp_session_key_t sk = pgp_session_key_from_bytes (session_key,
+///                                                        session_key_len);
+///     rc = decrypt (decrypt_cookie, algo, sk);
+///     pgp_session_key_free (sk);
+///
+///     *identity_out = pgp_tpk_fingerprint (cookie->key);
+///     return rc;
 ///   }
 ///
 ///   return PGP_STATUS_UNKNOWN_ERROR;
@@ -704,17 +726,17 @@ impl DecryptionHelper for DHelper {
 ///
 ///   struct decrypt_cookie cookie = {
 ///     .key = tpk,
-///     .get_secret_keys_called = 0,
+///     .decrypt_called = 0,
 ///   };
 ///   plaintext = pgp_decryptor_new (NULL, source,
-///                                  get_public_keys_cb, get_secret_keys_cb,
+///                                  get_public_keys_cb, decrypt_cb,
 ///                                  check_signatures_cb, &cookie);
 ///   assert (plaintext);
 ///
 ///   nread = pgp_reader_read (NULL, plaintext, buf, sizeof buf);
 ///   assert (nread == 13);
 ///   assert (memcmp (buf, "Test, 1-2-3.\n", nread) == 0);
-///   assert (cookie.get_secret_keys_called);
+///   assert (cookie.decrypt_called);
 ///
 ///   pgp_reader_free (plaintext);
 ///   pgp_reader_free (source);
@@ -726,13 +748,13 @@ impl DecryptionHelper for DHelper {
 fn pgp_decryptor_new<'a>(errp: Option<&mut *mut ::error::Error>,
                          input: *mut io::Reader,
                          get_public_keys: GetPublicKeysCallback,
-                         get_secret_keys: GetSecretKeysCallback,
+                         decrypt: DecryptCallback,
                          check_signatures: CheckSignaturesCallback,
                          cookie: *mut HelperCookie)
                          -> Maybe<io::Reader>
 {
     let helper = DHelper::new(
-        get_public_keys, get_secret_keys, check_signatures, cookie);
+        get_public_keys, decrypt, check_signatures, cookie);
 
     Decryptor::from_reader(input.ref_mut_raw(), helper)
         .map(|r| io::ReaderKind::Generic(Box::new(r)))

@@ -455,8 +455,6 @@ typedef enum pgp_encryption_mode {
   PGP_ENCRYPTION_MODE_FOR_TRANSPORT = 1,
 } pgp_encryption_mode_t;
 
-typedef struct pgp_secret *pgp_secret_t;
-
 typedef struct pgp_verification_results *pgp_verification_results_t;
 typedef struct pgp_verification_result *pgp_verification_result_t;
 
@@ -475,10 +473,17 @@ typedef pgp_status_t (*pgp_decryptor_get_public_keys_cb_t) (void *,
     pgp_tpk_t **, size_t *,
     void (**free)(void *));
 
-typedef pgp_status_t (*pgp_decryptor_get_secret_keys_cb_t) (void *,
+typedef pgp_status_t (pgp_decryptor_do_decrypt_cb_t) (
+    void *,
+    uint8_t,
+    pgp_session_key_t);
+
+typedef pgp_status_t (*pgp_decryptor_decrypt_cb_t) (void *,
     pgp_pkesk_t *, size_t,
     pgp_skesk_t *, size_t,
-    pgp_secret_t *);
+    pgp_decryptor_do_decrypt_cb_t *,
+    void *,
+    pgp_fingerprint_t *);
 
 typedef pgp_status_t (*pgp_decryptor_check_signatures_cb_t) (void *,
     pgp_verification_results_t,
