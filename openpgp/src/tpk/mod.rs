@@ -861,7 +861,7 @@ pub struct UnknownBinding {
 /// An iterator over all `Key`s (both the primary key and any subkeys)
 /// in a TPK.
 ///
-/// Returned by TPK::keys().
+/// Returned by `TPK::keys_all()` and `TPK::keys_valid()`.
 ///
 /// `KeyIter` follows the builder pattern.  There is no need to
 /// explicitly finalize it, however: it already implements the
@@ -2003,7 +2003,7 @@ impl TPK {
     ///
     /// A valid `Key` has at least one good self-signature.
     ///
-    /// To return all keys, do `keys().unfiltered()`.  See the
+    /// To return all keys, do `keys_all().unfiltered()`.  See the
     /// documentation of `keys` for how to control what keys are
     /// returned.
     pub fn keys_valid(&self) -> KeyIter {
