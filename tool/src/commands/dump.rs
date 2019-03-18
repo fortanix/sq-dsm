@@ -262,6 +262,7 @@ impl PacketDumper {
                 writeln!(output, "{}  Creation time: {}", i,
                          time::strftime(TIMEFMT, k.creation_time()).unwrap())?;
                 writeln!(output, "{}  Pk algo: {}", i, k.pk_algo())?;
+                writeln!(output, "{}  Pk size: {} bits", i, k.mpis().bits())?;
                 if self.mpis {
                     writeln!(output, "{}  MPIs: {:?}", i, k.mpis())?;
                     if let Some(secrets) = k.secret() {
