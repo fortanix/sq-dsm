@@ -2191,8 +2191,10 @@ impl MPI {
     /// See [Section 3.2 of RFC 4880] for details.
     ///
     ///   [Section 3.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-3.2
-    fn parse<'a>(name: &'static str, php: &mut PacketHeaderParser<'a>) -> Result<Self> {
-        let bits = php.parse_be_u16("mpi_len")? as usize;
+    fn parse<'a>(name_len: &'static str, name: &'static str,
+                 php: &mut PacketHeaderParser<'a>)
+                 -> Result<Self> {
+        let bits = php.parse_be_u16(name_len)? as usize;
         if bits == 0 {
             return Ok(MPI{ bits: 0, value: vec![].into_boxed_slice()});
         }
@@ -2312,7 +2314,7 @@ impl<'a> Parse<'a, MPI> for MPI {
         let bio = buffered_reader::Generic::with_cookie(
             reader, None, Cookie::default());
         let mut parser = PacketHeaderParser::new_naked(Box::new(bio));
-        Self::parse("(none)", &mut parser)
+        Self::parse("(none_len)", "(none)", &mut parser)
     }
 }
 
