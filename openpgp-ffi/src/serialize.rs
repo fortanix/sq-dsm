@@ -145,7 +145,8 @@ pub extern "system" fn pgp_signer_new
     (errp: Option<&mut *mut ::error::Error>,
      inner: *mut writer::Stack<'static, Cookie>,
      signers: *const *mut Box<self::openpgp::crypto::Signer>,
-     signers_len: size_t)
+     signers_len: size_t,
+     hash_algo: uint8_t)
      -> *mut writer::Stack<'static, Cookie>
 {
     ffi_make_fry_from_errp!(errp);
@@ -160,7 +161,7 @@ pub extern "system" fn pgp_signer_new
             ffi_param_ref_mut!(signer).as_mut()
         }
     ).collect();
-    ffi_try_box!(Signer::new(*inner, signers))
+    ffi_try_box!(Signer::new(*inner, signers, Some(hash_algo.into())))
 }
 
 /// Creates a signer for a detached signature.
@@ -169,7 +170,8 @@ pub extern "system" fn pgp_signer_new_detached
     (errp: Option<&mut *mut ::error::Error>,
      inner: *mut writer::Stack<'static, Cookie>,
      signers: *const *mut Box<self::openpgp::crypto::Signer>,
-     signers_len: size_t)
+     signers_len: size_t,
+     hash_algo: uint8_t)
      -> *mut writer::Stack<'static, Cookie>
 {
     ffi_make_fry_from_errp!(errp);
@@ -184,7 +186,7 @@ pub extern "system" fn pgp_signer_new_detached
             ffi_param_ref_mut!(signer).as_mut()
         }
     ).collect();
-    ffi_try_box!(Signer::detached(*inner, signers))
+    ffi_try_box!(Signer::detached(*inner, signers, Some(hash_algo.into())))
 }
 
 /// Writes a literal data packet.

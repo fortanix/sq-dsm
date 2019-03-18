@@ -60,7 +60,8 @@ fn main() {
     // Now, create a signer that emits a signature.
     let signer = Signer::new(
         message,
-        keys.iter_mut().map(|s| -> &mut dyn crypto::Signer { s }).collect())
+        keys.iter_mut().map(|s| -> &mut dyn crypto::Signer { s }).collect(),
+        None)
         .expect("Failed to create signer");
 
     // Then, create a literal writer to wrap the data in a literal

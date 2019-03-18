@@ -1498,7 +1498,7 @@ mod test {
             let mut keypair = KeyPair::new(key.clone(), sec.clone()).unwrap();
 
             let m = Message::new(&mut buf);
-            let signer = Signer::new(m, vec![&mut keypair]).unwrap();
+            let signer = Signer::new(m, vec![&mut keypair], None).unwrap();
             let mut ls = LiteralWriter::new(signer, DataFormat::Binary, None, None).unwrap();
 
             ls.write_all(&mut vec![42u8; 30 * 1024 * 1024]).unwrap();

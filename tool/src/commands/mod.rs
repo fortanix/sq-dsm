@@ -116,7 +116,8 @@ pub fn encrypt(store: &mut store::Store,
             sink,
             signers.iter_mut().map(|s| -> &mut dyn crypto::Signer { s })
                 .collect(),
-            &recipients)?;
+            &recipients,
+            None)?;
     }
 
     let mut literal_writer = LiteralWriter::new(sink, DataFormat::Binary,

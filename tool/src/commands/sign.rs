@@ -97,9 +97,9 @@ fn sign_data(input: &mut io::Read, output_path: Option<&str>,
     let sink = Message::new(output);
 
     let signer = if detached {
-        Signer::detached(sink, signers)
+        Signer::detached(sink, signers, None)
     } else {
-        Signer::new(sink, signers)
+        Signer::new(sink, signers, None)
     }.context("Failed to create signer")?;
 
     let mut writer = if detached {
@@ -215,7 +215,7 @@ fn sign_message(input: &mut io::Read, output_path: Option<&str>,
                 // After the first signature group, we push the signer
                 // onto the writer stack.
                 let signers = signers.take().expect("only happens once");
-                sink = Signer::new(sink, signers)
+                sink = Signer::new(sink, signers, None)
                     .context("Failed to create signer")?;
                 state = State::Signing { signature_count: 0, };
             },

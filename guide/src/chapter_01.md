@@ -56,7 +56,7 @@ fn main() {
 #     let message = Message::new(sink);
 #
 #     // We want to sign a literal data packet.
-#     let signer = Signer::new(message, vec![&mut keypair])?;
+#     let signer = Signer::new(message, vec![&mut keypair], None)?;
 #
 #     // Emit a literal data packet.
 #     let mut literal_writer = LiteralWriter::new(
@@ -186,7 +186,7 @@ fn generate() -> openpgp::Result<openpgp::TPK> {
 #     let message = Message::new(sink);
 #
 #     // We want to sign a literal data packet.
-#     let signer = Signer::new(message, vec![&mut keypair])?;
+#     let signer = Signer::new(message, vec![&mut keypair], None)?;
 #
 #     // Emit a literal data packet.
 #     let mut literal_writer = LiteralWriter::new(
@@ -316,7 +316,7 @@ fn sign(sink: &mut Write, plaintext: &str, tsk: &openpgp::TPK)
     let message = Message::new(sink);
 
     // We want to sign a literal data packet.
-    let signer = Signer::new(message, vec![&mut keypair])?;
+    let signer = Signer::new(message, vec![&mut keypair], None)?;
 
     // Emit a literal data packet.
     let mut literal_writer = LiteralWriter::new(
@@ -457,7 +457,7 @@ Verified data can be read from this using [`io::Read`].
 #     let message = Message::new(sink);
 # 
 #     // We want to sign a literal data packet.
-#     let signer = Signer::new(message, vec![&mut keypair])?;
+#     let signer = Signer::new(message, vec![&mut keypair], None)?;
 # 
 #     // Emit a literal data packet.
 #     let mut literal_writer = LiteralWriter::new(

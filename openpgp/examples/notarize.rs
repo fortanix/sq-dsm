@@ -65,7 +65,8 @@ fn main() {
     // Now, create a signer that emits a detached signature.
     let mut signer = Signer::new(
         message,
-        keys.iter_mut().map(|s| -> &mut dyn crypto::Signer { s }).collect())
+        keys.iter_mut().map(|s| -> &mut dyn crypto::Signer { s }).collect(),
+        None)
         .expect("Failed to create signer");
 
     // Create a parser for the message to be notarized.

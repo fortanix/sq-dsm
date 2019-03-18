@@ -215,7 +215,7 @@ fn sq_sign_append_on_compress_then_sign() {
     };
     let mut keypair = KeyPair::new(key.clone(), sec.clone()).unwrap();
     let signer = Signer::new(Message::new(File::create(&sig0).unwrap()),
-                             vec![&mut keypair])
+                             vec![&mut keypair], None)
         .unwrap();
     let compressor = Compressor::new(signer, CompressionAlgorithm::Uncompressed)
         .unwrap();

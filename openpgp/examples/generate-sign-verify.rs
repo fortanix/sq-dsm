@@ -47,7 +47,7 @@ fn sign(sink: &mut Write, plaintext: &str, tsk: &openpgp::TPK)
     let message = Message::new(sink);
 
     // We want to sign a literal data packet.
-    let signer = Signer::new(message, vec![&mut keypair])?;
+    let signer = Signer::new(message, vec![&mut keypair], None)?;
 
     // Emit a literal data packet.
     let mut literal_writer = LiteralWriter::new(

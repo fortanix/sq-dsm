@@ -193,6 +193,8 @@ impl<'a> writer::Stackable<'a, Cookie> for ArbitraryWriter<'a> {
 /// For every signing key, a signer writes a one-pass-signature
 /// packet, then hashes and emits the data stream, then for every key
 /// writes a signature packet.
+///
+/// Unless otherwise specified, SHA512 is used as hash algorithm.
 pub struct Signer<'a> {
     // The underlying writer.
     //
@@ -238,7 +240,7 @@ impl<'a> Signer<'a> {
     /// let mut o = vec![];
     /// {
     ///     let message = Message::new(&mut o);
-    ///     let signer = Signer::new(message, vec![&mut signing_keypair])?;
+    ///     let signer = Signer::new(message, vec![&mut signing_keypair], None)?;
     ///     let mut ls = LiteralWriter::new(signer, DataFormat::Text, None, None)?;
     ///     ls.write_all(b"Make it so, number one!")?;
     ///     ls.finalize()?;
@@ -268,10 +270,13 @@ impl<'a> Signer<'a> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn new(inner: writer::Stack<'a, Cookie>,
-               signers: Vec<&'a mut dyn crypto::Signer>)
-               -> Result<writer::Stack<'a, Cookie>> {
-        Self::make(inner, signers, None, false)
+    pub fn new<H>(inner: writer::Stack<'a, Cookie>,
+                  signers: Vec<&'a mut dyn crypto::Signer>,
+                  hash_algo: H)
+                  -> Result<writer::Stack<'a, Cookie>>
+        where H: Into<Option<HashAlgorithm>>
+    {
+        Self::make(inner, signers, None, false, hash_algo)
     }
 
     /// Creates a signer with intended recipients.
@@ -280,13 +285,16 @@ impl<'a> Signer<'a> {
     /// recipients of the encryption container containing the
     /// signature.  This prevents forwarding a signed message using a
     /// different encryption context.
-    pub fn with_intended_recipients(inner: writer::Stack<'a, Cookie>,
-                                    signers: Vec<&'a mut dyn crypto::Signer>,
-                                    recipients: &[&'a TPK])
-                                    -> Result<writer::Stack<'a, Cookie>> {
+    pub fn with_intended_recipients<H>(inner: writer::Stack<'a, Cookie>,
+                                       signers: Vec<&'a mut dyn crypto::Signer>,
+                                       recipients: &[&'a TPK],
+                                       hash_algo: H)
+                                       -> Result<writer::Stack<'a, Cookie>>
+        where H: Into<Option<HashAlgorithm>>
+    {
         Self::make(inner, signers,
                    Some(recipients.iter().map(|r| r.fingerprint()).collect()),
-                   false)
+                   false, hash_algo)
     }
 
     /// Creates a signer for a detached signature.
@@ -314,7 +322,8 @@ impl<'a> Signer<'a> {
     /// let mut o = vec![];
     /// {
     ///     let message = Message::new(&mut o);
-    ///     let mut signer = Signer::detached(message, vec![&mut signing_keypair])?;
+    ///     let mut signer =
+    ///         Signer::detached(message, vec![&mut signing_keypair], None)?;
     ///     signer.write_all(b"Make it so, number one!")?;
     ///     // In reality, just io::copy() the file to be signed.
     ///     signer.finalize()?;
@@ -346,19 +355,24 @@ impl<'a> Signer<'a> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn detached(inner: writer::Stack<'a, Cookie>,
-                    signers: Vec<&'a mut dyn crypto::Signer>)
-                    -> Result<writer::Stack<'a, Cookie>> {
-        Self::make(inner, signers, None, true)
+    pub fn detached<H>(inner: writer::Stack<'a, Cookie>,
+                       signers: Vec<&'a mut dyn crypto::Signer>,
+                       hash_algo: H)
+                       -> Result<writer::Stack<'a, Cookie>>
+        where H: Into<Option<HashAlgorithm>>
+    {
+        Self::make(inner, signers, None, true, hash_algo)
     }
 
-    fn make(inner: writer::Stack<'a, Cookie>,
-            signers: Vec<&'a mut dyn crypto::Signer>,
-            intended_recipients: Option<Vec<Fingerprint>>, detached: bool)
-            -> Result<writer::Stack<'a, Cookie>> {
+    fn make<H>(inner: writer::Stack<'a, Cookie>,
+               signers: Vec<&'a mut dyn crypto::Signer>,
+               intended_recipients: Option<Vec<Fingerprint>>, detached: bool,
+               hash_algo: H)
+               -> Result<writer::Stack<'a, Cookie>>
+        where H: Into<Option<HashAlgorithm>>
+    {
         let mut inner = writer::BoxStack::from(inner);
-        // Just always use SHA512.
-        let hash_algo = HashAlgorithm::SHA512;
+        let hash_algo = hash_algo.into().unwrap_or(HashAlgorithm::SHA512);
 
         if signers.len() == 0 {
             return Err(Error::InvalidArgument(
@@ -1355,7 +1369,8 @@ mod test {
                 m,
                 signers.iter_mut()
                     .map(|s| -> &mut dyn crypto::Signer {s})
-                    .collect())
+                    .collect(),
+                None)
                 .unwrap();
             let mut ls = LiteralWriter::new(signer, T, None, None).unwrap();
             ls.write_all(b"Tis, tis, tis.  Tis is important.").unwrap();

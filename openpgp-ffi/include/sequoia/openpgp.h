@@ -1351,7 +1351,8 @@ pgp_writer_stack_t pgp_arbitrary_writer_new (pgp_error_t *errp,
 /*/
 pgp_writer_stack_t pgp_signer_new (pgp_error_t *errp,
                                    pgp_writer_stack_t inner,
-                                   pgp_signer_t *signers, size_t signers_len);
+                                   pgp_signer_t *signers, size_t signers_len,
+				   uint8_t hash_algo);
 
 /*/
 /// Creates a signer for a detached signature.
@@ -1359,7 +1360,8 @@ pgp_writer_stack_t pgp_signer_new (pgp_error_t *errp,
 pgp_writer_stack_t pgp_signer_new_detached (pgp_error_t *errp,
                                             pgp_writer_stack_t inner,
                                             pgp_signer_t *signers,
-                                            size_t signers_len);
+                                            size_t signers_len,
+					    uint8_t hash_algo);
 
 /*/
 /// Writes a literal data packet.
