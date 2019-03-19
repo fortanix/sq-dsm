@@ -7,8 +7,9 @@ test:
     - rustc --version
     - cargo --version
     - clang --version
+    - sleep 1 ; touch timestamp
     - SEQUOIA_CTEST_VALGRIND=/usr/bin/valgrind make test
-    - find target -type f -amin +60 -delete
+    - find target -type f -a '!' -anewer timestamp -delete
     - du -sh target
     - du -sh cargo
 
