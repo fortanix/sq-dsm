@@ -4,12 +4,7 @@
 #define _GNU_SOURCE
 #include <error.h>
 #include <errno.h>
-#include <fcntl.h>
 #include <stdio.h>
-#include <sys/mman.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <unistd.h>
 #include <time.h>
 
 #include <sequoia/openpgp.h>
@@ -17,9 +12,6 @@
 int
 main (int argc, char **argv)
 {
-  struct stat st;
-  int fd;
-  uint8_t *b;
   pgp_status_t rc;
   pgp_error_t err;
   pgp_packet_parser_result_t ppr;
@@ -28,24 +20,12 @@ main (int argc, char **argv)
   if (argc != 2)
     error (1, 0, "Usage: %s <file>", argv[0]);
 
-  if (stat (argv[1], &st))
-    error (1, errno, "%s", argv[1]);
-
-  fd = open (argv[1], O_RDONLY);
-  if (fd == -1)
-    error (1, errno, "%s", argv[1]);
-
-  b = mmap (NULL, st.st_size, PROT_READ, MAP_SHARED, fd, 0);
-  close (fd);
-  if (b == MAP_FAILED)
-    error (1, errno, "mmap");
-
   size_t n = 0;
   time_t start = time (NULL);
   time_t elapsed;
   size_t tens_of_s = 0;
 
-  ppr = pgp_packet_parser_from_bytes (&err, b, st.st_size);
+  ppr = pgp_packet_parser_from_file (&err, argv[1]);
   while (ppr && (pp = pgp_packet_parser_result_packet_parser (ppr)))
     {
       // Get a reference to the packet that is currently being parsed.
@@ -88,6 +68,5 @@ main (int argc, char **argv)
            n, elapsed, (double) n / (double) elapsed);
 
   pgp_packet_parser_result_free (ppr);
-  munmap (b, st.st_size);
   return 0;
 }
