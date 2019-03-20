@@ -81,10 +81,10 @@ pub extern "system" fn pgp_revocation_status_free(
 // Secret.
 
 /// Creates an pgp_secret_t from a decrypted session key.
-#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub fn pgp_secret_cached<'a>(algo: u8,
-                            session_key: *const u8,
-                            session_key_len: size_t)
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
+fn pgp_secret_cached<'a>(algo: u8,
+                         session_key: *const u8,
+                         session_key_len: size_t)
    -> *mut Secret
 {
     let session_key = if session_key_len > 0 {
@@ -130,11 +130,11 @@ pub struct VerificationResults<'a> {
 /// This function returns the verification results for a particular
 /// level.  The result is an array of references to
 /// `VerificationResult`.
-#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub fn pgp_verification_results_at_level<'a>(results: *const VerificationResults<'a>,
-                                            level: size_t,
-                                            r: *mut *const &'a VerificationResult,
-                                            r_count: *mut size_t) {
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
+fn pgp_verification_results_at_level<'a>(results: *const VerificationResults<'a>,
+                                         level: size_t,
+                                         r: *mut *const &'a VerificationResult,
+                                         r_count: *mut size_t) {
     let results = ffi_param_ref!(results);
     let r = ffi_param_ref_mut!(r);
     let r_count = ffi_param_ref_mut!(r_count);
@@ -149,8 +149,8 @@ pub fn pgp_verification_results_at_level<'a>(results: *const VerificationResults
 }
 
 /// Returns the verification result code.
-#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub fn pgp_verification_result_code(result: *const VerificationResult)
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
+fn pgp_verification_result_code(result: *const VerificationResult)
     -> c_int
 {
     let result = ffi_param_ref!(result);
@@ -162,8 +162,8 @@ pub fn pgp_verification_result_code(result: *const VerificationResult)
 }
 
 /// Returns the verification result code.
-#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub fn pgp_verification_result_signature(result: *const VerificationResult)
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
+fn pgp_verification_result_signature(result: *const VerificationResult)
     -> *mut packet::signature::Signature
 {
     let result = ffi_param_ref!(result);
@@ -177,8 +177,8 @@ pub fn pgp_verification_result_signature(result: *const VerificationResult)
 }
 
 /// Returns the verification result code.
-#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub fn pgp_verification_result_level(result: *const VerificationResult)
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
+fn pgp_verification_result_level(result: *const VerificationResult)
     -> c_int
 {
     let result = ffi_param_ref!(result);
@@ -356,14 +356,14 @@ fn verify_real<'a>(input: &'a mut Read,
 /// treated as opaque containers.
 ///
 /// Note: output may be NULL, if the output is not required.
-#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub fn pgp_verify<'a>(errp: Option<&mut *mut ::error::Error>,
-                     input: *mut io::Reader,
-                     dsig: Maybe<io::Reader>,
-                     output: Maybe<io::Writer>,
-                     get_public_keys: GetPublicKeysCallback,
-                     check_signatures: CheckSignaturesCallback,
-                     cookie: *mut HelperCookie)
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
+fn pgp_verify<'a>(errp: Option<&mut *mut ::error::Error>,
+                  input: *mut io::Reader,
+                  dsig: Maybe<io::Reader>,
+                  output: Maybe<io::Writer>,
+                  get_public_keys: GetPublicKeysCallback,
+                  check_signatures: CheckSignaturesCallback,
+                  cookie: *mut HelperCookie)
     -> Status
 {
     ffi_make_fry_from_errp!(errp);
@@ -479,14 +479,14 @@ fn decrypt_real<'a>(input: &'a mut io::ReaderKind,
 /// first parameter to each of them.
 ///
 /// Note: all of the parameters are required; none may be NULL.
-#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub fn pgp_decrypt<'a>(errp: Option<&mut *mut ::error::Error>,
-                      input: *mut io::Reader,
-                      output: *mut io::Writer,
-                      get_public_keys: GetPublicKeysCallback,
-                      get_secret_keys: GetSecretKeysCallback,
-                      check_signatures: CheckSignaturesCallback,
-                      cookie: *mut HelperCookie)
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
+fn pgp_decrypt<'a>(errp: Option<&mut *mut ::error::Error>,
+                   input: *mut io::Reader,
+                   output: *mut io::Writer,
+                   get_public_keys: GetPublicKeysCallback,
+                   get_secret_keys: GetSecretKeysCallback,
+                   check_signatures: CheckSignaturesCallback,
+                   cookie: *mut HelperCookie)
     -> Status
 {
     ffi_make_fry_from_errp!(errp);
