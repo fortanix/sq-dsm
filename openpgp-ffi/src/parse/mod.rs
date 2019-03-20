@@ -29,6 +29,8 @@ use error::Status;
 use MoveIntoRaw;
 use RefMutRaw;
 
+pub mod stream;
+
 /// Starts parsing OpenPGP packets stored in a `pgp_reader_t`
 /// object.
 ///
