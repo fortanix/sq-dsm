@@ -4,7 +4,6 @@ extern crate nettle;
 use std::cmp::min;
 use std::env::{self, var_os};
 use std::ffi::OsStr;
-use std::fmt::Write as FmtWrite;
 use std::fs;
 use std::io::{self, BufRead, Write};
 use std::os::unix::io::AsRawFd;
@@ -13,8 +12,6 @@ use std::process::Command;
 use std::str::FromStr;
 use std::time;
 use std::mem::replace;
-
-use nettle::hash::{Hash, Sha256};
 
 /// Hooks into Rust's test system to extract, compile and run c tests.
 #[test]
@@ -176,18 +173,9 @@ fn for_all_tests<F>(path: &Path, mut fun: F)
             }
 
             if line == "//! ```" && test.len() > 0 {
-                let mut hash = Sha256::default();
-                for line in test.iter() {
-                    writeln!(&mut hash as &mut Hash, "{}", line).unwrap();
-                }
-                let mut digest = vec![0; hash.digest_size()];
-                hash.digest(&mut digest);
-                let mut name = String::new();
-                write!(&mut name, "{}_",
-                       path.file_stem().unwrap().to_string_lossy()).unwrap();
-                for b in digest {
-                    write!(&mut name, "{:02x}", b).unwrap();
-                }
+                let name = format!("{}_{}",
+                                   path.file_stem().unwrap().to_string_lossy(),
+                                   lineno); // XXX: nicer to point to the top
 
                 fun(path, test_starts_at, &name, replace(&mut test, Vec::new()),
                     run)?;
