@@ -18,6 +18,8 @@ use self::openpgp::{
 };
 use self::openpgp::constants::{
     DataFormat,
+    HashAlgorithm,
+    SymmetricAlgorithm,
 };
 
 use error::Status;
@@ -140,6 +142,10 @@ pub extern "system" fn pgp_arbitrary_writer_new
 /// For every signing key, a signer writes a one-pass-signature
 /// packet, then hashes and emits the data stream, then for every key
 /// writes a signature packet.
+///
+/// The hash is performed using the algorithm specificed in
+/// `hash_algo`.  Pass 0 for the default (which is what you usually
+/// want).
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "system" fn pgp_signer_new
     (errp: Option<&mut *mut ::error::Error>,
@@ -161,10 +167,17 @@ pub extern "system" fn pgp_signer_new
             ffi_param_ref_mut!(signer).as_mut()
         }
     ).collect();
-    ffi_try_box!(Signer::new(*inner, signers, Some(hash_algo.into())))
+    let hash_algo : Option<HashAlgorithm> = if hash_algo == 0 {
+        None
+    } else {
+        Some(hash_algo.into())
+    };
+    ffi_try_box!(Signer::new(*inner, signers, hash_algo))
 }
 
 /// Creates a signer for a detached signature.
+///
+/// See `pgp_signer_new` for details.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "system" fn pgp_signer_new_detached
     (errp: Option<&mut *mut ::error::Error>,
@@ -186,7 +199,12 @@ pub extern "system" fn pgp_signer_new_detached
             ffi_param_ref_mut!(signer).as_mut()
         }
     ).collect();
-    ffi_try_box!(Signer::detached(*inner, signers, Some(hash_algo.into())))
+    let hash_algo : Option<HashAlgorithm> = if hash_algo == 0 {
+        None
+    } else {
+        Some(hash_algo.into())
+    };
+    ffi_try_box!(Signer::detached(*inner, signers, hash_algo))
 }
 
 /// Writes a literal data packet.
@@ -213,8 +231,8 @@ pub extern "system" fn pgp_literal_writer_new
 /// which will be encrypted using the given passwords, and all
 /// encryption-capable subkeys of the given TPKs.
 ///
-/// The stream is encrypted using AES256, regardless of any key
-/// preferences.
+/// The stream is encrypted using `cipher_algo`.  Pass 0 for the
+/// default (which is what you usually want).
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "system" fn pgp_encryptor_new
     (errp: Option<&mut *mut ::error::Error>,
@@ -253,9 +271,14 @@ pub extern "system" fn pgp_encryptor_new
         1 => EncryptionMode::ForTransport,
         _ => panic!("Bad encryption mode: {}", encryption_mode),
     };
+    let cipher_algo : Option<SymmetricAlgorithm> = if cipher_algo == 0 {
+        None
+    } else {
+        Some(cipher_algo.into())
+    };
     ffi_try_box!(Encryptor::new(*inner,
                                 &passwords_.iter().collect::<Vec<&Password>>(),
                                 &recipients[..],
                                 encryption_mode,
-                                Some(cipher_algo.into())))
+                                cipher_algo))
 }
