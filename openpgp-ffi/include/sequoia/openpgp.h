@@ -1442,10 +1442,24 @@ pgp_reader_t pgp_decryptor_new (pgp_error_t *errp, pgp_reader_t input,
     pgp_sequoia_decrypt_check_signatures_cb_t check_signatures,
     void *cookie);
 
-pgp_status_t pgp_verify (pgp_error_t *errp,
-                       pgp_reader_t input, pgp_reader_t dsig, pgp_writer_t output,
-                       pgp_sequoia_decrypt_get_public_keys_cb_t get_public_keys,
-                       pgp_sequoia_decrypt_check_signatures_cb_t check_signatures,
-                       void *cookie);
+/*/
+/// Verifies an OpenPGP message.
+///
+/// No attempt is made to decrypt any encryption packets.  These are
+/// treated as opaque containers.
+/*/
+pgp_reader_t pgp_verifier_new (pgp_error_t *errp, pgp_reader_t input,
+    pgp_sequoia_decrypt_get_public_keys_cb_t get_public_keys,
+    pgp_sequoia_decrypt_check_signatures_cb_t check_signatures,
+    void *cookie);
+
+/*/
+/// Verifies a detached OpenPGP signature.
+/*/
+pgp_reader_t pgp_detached_verifier_new (pgp_error_t *errp,
+    pgp_reader_t signature_input, pgp_reader_t input,
+    pgp_sequoia_decrypt_get_public_keys_cb_t get_public_keys,
+    pgp_sequoia_decrypt_check_signatures_cb_t check_signatures,
+    void *cookie);
 
 #endif

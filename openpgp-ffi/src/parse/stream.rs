@@ -12,10 +12,7 @@
 
 use std::ptr;
 use std::slice;
-use std::io as std_io;
-use std::io::Read;
 use libc::{c_int, size_t, c_void};
-use failure::ResultExt;
 
 extern crate sequoia_openpgp as openpgp;
 extern crate time;
@@ -311,72 +308,215 @@ impl VerificationHelper for VHelper {
     }
 }
 
-fn verify_real<'a>(input: &'a mut Read,
-                   dsig: Option<&mut io::ReaderKind>,
-                   output: Option<&mut Box<::std::io::Write>>,
-                   get_public_keys: GetPublicKeysCallback,
-                   check_signatures: CheckSignaturesCallback,
-                   cookie: *mut HelperCookie)
-    -> Result<(), failure::Error>
-{
-    let h = VHelper::new(get_public_keys, check_signatures, cookie);
-    let mut v = if let Some(dsig) = dsig {
-        DetachedVerifier::from_reader(dsig, input, h)?
-    } else {
-        Verifier::from_reader(input, h)?
-    };
-
-    let r = if let Some(output) = output {
-        std_io::copy(&mut v, output)
-    } else {
-        let mut buffer = vec![0u8; 64 * 1024];
-        loop {
-            match v.read(&mut buffer) {
-                // EOF.
-                Ok(0) => break Ok(0),
-                // Some error.
-                Err(err) => break Err(err),
-                // Still something to read.
-                Ok(_) => continue,
-            }
-        }
-    };
-
-    r.map_err(|e| if e.get_ref().is_some() {
-        // Wrapped failure::Error.  Recover it.
-        failure::Error::from_boxed_compat(e.into_inner().unwrap())
-    } else {
-        // Plain io::Error.
-        ::failure::Error::from(e)
-    }).context("Verification failed")?;
-
-    Ok(())
-}
-
-
 /// Verifies an OpenPGP message.
 ///
 /// No attempt is made to decrypt any encryption packets.  These are
 /// treated as opaque containers.
 ///
-/// Note: output may be NULL, if the output is not required.
+/// # Example
+///
+/// ```c
+/// #define _GNU_SOURCE
+/// #include <assert.h>
+/// #include <error.h>
+/// #include <errno.h>
+/// #include <stdio.h>
+/// #include <stdlib.h>
+/// #include <string.h>
+///
+/// #include <sequoia/openpgp.h>
+///
+/// struct verify_cookie {
+///   pgp_tpk_t key;
+/// };
+///
+/// static pgp_status_t
+/// get_public_keys_cb (void *cookie_opaque,
+///                     pgp_keyid_t *keyids, size_t keyids_len,
+///                     pgp_tpk_t **tpks, size_t *tpks_len,
+///                     void (**our_free)(void *))
+/// {
+///   /* Feed the TPKs to the verifier here.  */
+///   struct verify_cookie *cookie = cookie_opaque;
+///   *tpks = malloc (sizeof (pgp_tpk_t));
+///   assert (*tpks);
+///   *tpks[0] = cookie->key;
+///   *tpks_len = 1;
+///   *our_free = free;
+///   return PGP_STATUS_SUCCESS;
+/// }
+///
+/// static pgp_status_t
+/// check_signatures_cb(void *cookie_opaque,
+///                    pgp_verification_results_t results, size_t levels)
+/// {
+///   /* Implement your verification policy here.  */
+///   assert (levels == 1);
+///   pgp_verification_result_t *vrs;
+///   size_t vr_count;
+///   pgp_verification_results_at_level (results, 0, &vrs, &vr_count);
+///   assert (vr_count == 1);
+///   pgp_verification_result_code_t code = pgp_verification_result_code(vrs[0]);
+///   assert (code == PGP_VERIFICATION_RESULT_CODE_GOOD_CHECKSUM);
+///   return PGP_STATUS_SUCCESS;
+/// }
+///
+/// int
+/// main (int argc, char **argv)
+/// {
+///   pgp_tpk_t tpk;
+///   pgp_reader_t source;
+///   pgp_reader_t plaintext;
+///   uint8_t buf[128];
+///   ssize_t nread;
+///
+///   tpk = pgp_tpk_from_file (NULL, "../openpgp/tests/data/keys/testy.pgp");
+///   assert(tpk);
+///
+///   source = pgp_reader_from_file (
+///       NULL, "../openpgp/tests/data/messages/signed-1-sha256-testy.gpg");
+///   assert (source);
+///
+///   struct verify_cookie cookie = {
+///     .key = tpk,  /* Move.  */
+///   };
+///   plaintext = pgp_verifier_new (NULL, source,
+///                                 get_public_keys_cb, check_signatures_cb,
+///                                 &cookie);
+///   assert (source);
+///
+///   nread = pgp_reader_read (NULL, plaintext, buf, sizeof buf);
+///   assert (nread >= 42);
+///   assert (
+///     memcmp (buf, "A Cypherpunk's Manifesto\nby Eric Hughes\n", 40) == 0);
+///
+///   pgp_reader_free (plaintext);
+///   pgp_reader_free (source);
+///   return 0;
+/// }
+/// ```
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
-fn pgp_verify<'a>(errp: Option<&mut *mut ::error::Error>,
-                  input: *mut io::Reader,
-                  dsig: Maybe<io::Reader>,
-                  output: Maybe<io::Writer>,
-                  get_public_keys: GetPublicKeysCallback,
-                  check_signatures: CheckSignaturesCallback,
-                  cookie: *mut HelperCookie)
-    -> Status
+fn pgp_verifier_new<'a>(errp: Option<&mut *mut ::error::Error>,
+                        input: *mut io::Reader,
+                        get_public_keys: GetPublicKeysCallback,
+                        check_signatures: CheckSignaturesCallback,
+                        cookie: *mut HelperCookie)
+                        -> Maybe<io::Reader>
 {
-    ffi_make_fry_from_errp!(errp);
-    let input = input.ref_mut_raw();
+    let helper = VHelper::new(get_public_keys, check_signatures, cookie);
 
-    let r = verify_real(input, dsig.ref_mut_raw(), output.ref_mut_raw(),
-        get_public_keys, check_signatures, cookie);
+    Verifier::from_reader(input.ref_mut_raw(), helper)
+        .map(|r| io::ReaderKind::Generic(Box::new(r)))
+        .move_into_raw(errp)
+}
 
-    ffi_try_status!(r)
+/// Verifies a detached OpenPGP signature.
+///
+/// # Example
+///
+/// ```c
+/// #define _GNU_SOURCE
+/// #include <assert.h>
+/// #include <error.h>
+/// #include <errno.h>
+/// #include <stdio.h>
+/// #include <stdlib.h>
+/// #include <string.h>
+///
+/// #include <sequoia/openpgp.h>
+///
+/// struct verify_cookie {
+///   pgp_tpk_t key;
+/// };
+///
+/// static pgp_status_t
+/// get_public_keys_cb (void *cookie_opaque,
+///                     pgp_keyid_t *keyids, size_t keyids_len,
+///                     pgp_tpk_t **tpks, size_t *tpks_len,
+///                     void (**our_free)(void *))
+/// {
+///   /* Feed the TPKs to the verifier here.  */
+///   struct verify_cookie *cookie = cookie_opaque;
+///   *tpks = malloc (sizeof (pgp_tpk_t));
+///   assert (*tpks);
+///   *tpks[0] = cookie->key;
+///   *tpks_len = 1;
+///   *our_free = free;
+///   return PGP_STATUS_SUCCESS;
+/// }
+///
+/// static pgp_status_t
+/// check_signatures_cb(void *cookie_opaque,
+///                    pgp_verification_results_t results, size_t levels)
+/// {
+///   /* Implement your verification policy here.  */
+///   assert (levels == 1);
+///   pgp_verification_result_t *vrs;
+///   size_t vr_count;
+///   pgp_verification_results_at_level (results, 0, &vrs, &vr_count);
+///   assert (vr_count == 1);
+///   pgp_verification_result_code_t code = pgp_verification_result_code(vrs[0]);
+///   assert (code == PGP_VERIFICATION_RESULT_CODE_GOOD_CHECKSUM);
+///   return PGP_STATUS_SUCCESS;
+/// }
+///
+/// int
+/// main (int argc, char **argv)
+/// {
+///   pgp_tpk_t tpk;
+///   pgp_reader_t signature;
+///   pgp_reader_t source;
+///   pgp_reader_t plaintext;
+///   uint8_t buf[128];
+///   ssize_t nread;
+///
+///   tpk = pgp_tpk_from_file (NULL,
+///     "../openpgp/tests/data/keys/emmelie-dorothea-dina-samantha-awina-ed25519.pgp");
+///   assert(tpk);
+///
+///   signature = pgp_reader_from_file (
+///     NULL,
+///     "../openpgp/tests/data/messages/a-cypherpunks-manifesto.txt.ed25519.sig");
+///   assert (signature);
+///
+///   source = pgp_reader_from_file (
+///     NULL, "../openpgp/tests/data/messages/a-cypherpunks-manifesto.txt");
+///   assert (source);
+///
+///   struct verify_cookie cookie = {
+///     .key = tpk,  /* Move.  */
+///   };
+///   plaintext = pgp_detached_verifier_new (NULL, signature, source,
+///     get_public_keys_cb, check_signatures_cb,
+///     &cookie);
+///   assert (source);
+///
+///   nread = pgp_reader_read (NULL, plaintext, buf, sizeof buf);
+///   assert (nread >= 42);
+///   assert (
+///     memcmp (buf, "A Cypherpunk's Manifesto\nby Eric Hughes\n", 40) == 0);
+///
+///   pgp_reader_free (plaintext);
+///   pgp_reader_free (source);
+///   pgp_reader_free (signature);
+///   return 0;
+/// }
+/// ```
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
+fn pgp_detached_verifier_new<'a>(errp: Option<&mut *mut ::error::Error>,
+                                 signature_input: *mut io::Reader,
+                                 input: *mut io::Reader,
+                                 get_public_keys: GetPublicKeysCallback,
+                                 check_signatures: CheckSignaturesCallback,
+                                 cookie: *mut HelperCookie)
+                                 -> Maybe<io::Reader>
+{
+    let helper = VHelper::new(get_public_keys, check_signatures, cookie);
+
+    DetachedVerifier::from_reader(signature_input.ref_mut_raw(),
+                                  input.ref_mut_raw(), helper)
+        .map(|r| io::ReaderKind::Generic(Box::new(r)))
+        .move_into_raw(errp)
 }
 
 
