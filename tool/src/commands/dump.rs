@@ -278,9 +278,34 @@ impl PacketDumper {
             },
 
             UserAttribute(ref u) => {
+                use openpgp::packet::user_attribute::{Subpacket, Image};
                 writeln!(output, "User Attribute Packet")?;
-                writeln!(output, "{}  Value: {} bytes", i,
-                         u.value().len())?;
+
+                for subpacket in u.subpackets() {
+                    match subpacket {
+                        Ok(Subpacket::Image(image)) => match image {
+                            Image::JPEG(data) =>
+                                writeln!(output, "{}    JPEG: {} bytes", i,
+                                         data.len())?,
+                            Image::Private(n, data) =>
+                                writeln!(output,
+                                         "{}    Private image({}): {} bytes", i,
+                                         n, data.len())?,
+                            Image::Unknown(n, data) =>
+                                writeln!(output,
+                                         "{}    Unknown image({}): {} bytes", i,
+                                         n, data.len())?,
+                        },
+                        Ok(Subpacket::Unknown(n, data)) =>
+                            writeln!(output,
+                                     "{}    Unknown subpacket({}): {} bytes", i,
+                                     n, data.len())?,
+                        Err(e) =>
+                            writeln!(output,
+                                     "{}    Invalid subpacket encoding: {}", i,
+                                     e)?,
+                    }
+                }
             },
 
             Literal(ref l) => {
