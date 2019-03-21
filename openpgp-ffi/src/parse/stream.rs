@@ -40,6 +40,7 @@ use self::openpgp::parse::stream::{
 use Maybe;
 use MoveFromRaw;
 use MoveIntoRaw;
+use MoveResultIntoRaw;
 use RefMutRaw;
 
 use super::super::{
@@ -439,34 +440,6 @@ impl DecryptionHelper for DHelper {
     }
 }
 
-// A helper function that returns a Result so that we can use ? to
-// propagate errors.
-fn decrypt_real<'a>(input: &'a mut io::ReaderKind,
-                    output: &'a mut ::std::io::Write,
-                    get_public_keys: GetPublicKeysCallback,
-                    get_secret_keys: GetSecretKeysCallback,
-                    check_signatures: CheckSignaturesCallback,
-                    cookie: *mut HelperCookie)
-    -> Result<(), failure::Error>
-{
-    let helper = DHelper::new(
-        get_public_keys, get_secret_keys, check_signatures, cookie);
-
-    let mut decryptor = Decryptor::from_reader(input, helper)
-        .context("Decryption failed")?;
-
-    std_io::copy(&mut decryptor, output)
-        .map_err(|e| if e.get_ref().is_some() {
-            // Wrapped failure::Error.  Recover it.
-            failure::Error::from_boxed_compat(e.into_inner().unwrap())
-        } else {
-            // Plain io::Error.
-            ::failure::Error::from(e)
-        }).context("Decryption failed")?;
-
-    Ok(())
-}
-
 /// Decrypts an OpenPGP message.
 ///
 /// The message is read from `input` and the content of the
@@ -572,13 +545,11 @@ fn decrypt_real<'a>(input: &'a mut io::ReaderKind,
 /// int
 /// main (int argc, char **argv)
 /// {
-///   pgp_status_t rc;
-///   pgp_error_t err;
 ///   pgp_tpk_t tpk;
 ///   pgp_reader_t source;
-///   pgp_writer_t sink;
-///   uint8_t *buf = NULL;
-///   size_t buf_len = 0;
+///   pgp_reader_t plaintext;
+///   uint8_t buf[128];
+///   ssize_t nread;
 ///
 ///   tpk = pgp_tpk_from_file (
 ///       NULL, "../openpgp/tests/data/keys/testy-private.pgp");
@@ -587,42 +558,40 @@ fn decrypt_real<'a>(input: &'a mut io::ReaderKind,
 ///   source = pgp_reader_from_file (
 ///       NULL, "../openpgp/tests/data/messages/encrypted-to-testy.gpg");
 ///   assert (source);
-///   sink = pgp_writer_alloc ((void **) &buf, &buf_len);
-///   assert (sink);
 ///
 ///   struct decrypt_cookie cookie = {
 ///     .key = tpk,
 ///     .get_secret_keys_called = 0,
 ///   };
-///   rc = pgp_decrypt (&err, source, sink,
-///                     get_public_keys_cb, get_secret_keys_cb,
-///                     check_signatures_cb, &cookie);
-///   assert (rc == PGP_STATUS_SUCCESS);
+///   plaintext = pgp_decryptor_new (NULL, source,
+///                                  get_public_keys_cb, get_secret_keys_cb,
+///                                  check_signatures_cb, &cookie);
+///   assert (plaintext);
+///
+///   nread = pgp_reader_read (NULL, plaintext, buf, sizeof buf);
+///   assert (nread == 13);
+///   assert (memcmp (buf, "Test, 1-2-3.\n", nread) == 0);
 ///   assert (cookie.get_secret_keys_called);
-///   pgp_writer_free (sink);
-///   assert (memcmp (buf, "Test, 1-2-3.\n", buf_len) == 0);
-///   free (buf);
+///
+///   pgp_reader_free (plaintext);
 ///   pgp_reader_free (source);
 ///   pgp_tpk_free (tpk);
 ///   return 0;
 /// }
 /// ```
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
-fn pgp_decrypt<'a>(errp: Option<&mut *mut ::error::Error>,
-                   input: *mut io::Reader,
-                   output: *mut io::Writer,
-                   get_public_keys: GetPublicKeysCallback,
-                   get_secret_keys: GetSecretKeysCallback,
-                   check_signatures: CheckSignaturesCallback,
-                   cookie: *mut HelperCookie)
-    -> Status
+fn pgp_decryptor_new<'a>(errp: Option<&mut *mut ::error::Error>,
+                         input: *mut io::Reader,
+                         get_public_keys: GetPublicKeysCallback,
+                         get_secret_keys: GetSecretKeysCallback,
+                         check_signatures: CheckSignaturesCallback,
+                         cookie: *mut HelperCookie)
+                         -> Maybe<io::Reader>
 {
-    ffi_make_fry_from_errp!(errp);
-    let input = input.ref_mut_raw();
-    let output = output.ref_mut_raw();
-
-    let r = decrypt_real(input, output,
+    let helper = DHelper::new(
         get_public_keys, get_secret_keys, check_signatures, cookie);
 
-    ffi_try_status!(r)
+    Decryptor::from_reader(input.ref_mut_raw(), helper)
+        .map(|r| io::ReaderKind::Generic(Box::new(r)))
+        .move_into_raw(errp)
 }

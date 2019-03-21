@@ -89,11 +89,12 @@ get_secret_keys_cb (void *cookie_opaque,
 int
 main (int argc, char **argv)
 {
-  pgp_status_t rc;
   pgp_error_t err;
   pgp_tpk_t tpk;
   pgp_reader_t source;
-  pgp_writer_t sink;
+  pgp_reader_t plaintext;
+  uint8_t buf[1024];
+  ssize_t nread;
 
   if (argc != 2)
     error (1, 0, "Usage: %s <keyfile> <cipher >plain", argv[0]);
@@ -104,20 +105,24 @@ main (int argc, char **argv)
 
   source = pgp_reader_from_fd (STDIN_FILENO);
   assert (source);
-  sink = pgp_writer_from_fd (STDOUT_FILENO);
-  assert (sink);
 
   struct decrypt_cookie cookie = {
     .key = tpk,
     .get_secret_keys_called = 0,
   };
-  rc = pgp_decrypt (&err, source, sink,
-                    get_public_keys_cb, get_secret_keys_cb,
-                    check_signatures_cb, &cookie);
-  if (rc)
-    error (1, 0, "pgp_decrypt: %s", pgp_error_to_string (err));
+  plaintext = pgp_decryptor_new (&err, source,
+                                 get_public_keys_cb, get_secret_keys_cb,
+                                 check_signatures_cb, &cookie);
+  if (! plaintext)
+    error (1, 0, "pgp_decryptor_new: %s", pgp_error_to_string (err));
 
-  pgp_writer_free (sink);
+  while ((nread = pgp_reader_read (&err, plaintext, buf, sizeof buf)) > 0) {
+    write (STDOUT_FILENO, buf, nread);
+  }
+  if (nread < 0)
+    error (1, 0, "pgp_reader_read: %s", pgp_error_to_string (err));
+
+  pgp_reader_free (plaintext);
   pgp_reader_free (source);
   pgp_tpk_free (tpk);
   return 0;

@@ -1422,11 +1422,25 @@ pgp_signature_t pgp_verification_result_signature(
 /*/
 int pgp_verification_result_level(pgp_verification_result_t r);
 
-pgp_status_t pgp_decrypt (pgp_error_t *errp, pgp_reader_t input, pgp_writer_t output,
-                        pgp_sequoia_decrypt_get_public_keys_cb_t get_public_keys,
-                        pgp_sequoia_decrypt_get_secret_keys_cb_t get_secret_keys,
-                        pgp_sequoia_decrypt_check_signatures_cb_t check_signatures,
-                        void *cookie);
+/*/
+/// Decrypts an OpenPGP message.
+///
+/// The message is read from `input` and the content of the
+/// `LiteralData` packet is written to output.  Note: the content is
+/// written even if the message is not encrypted.  You can determine
+/// whether the message was actually decrypted by recording whether
+/// the get_secret_keys callback was called in the cookie.
+///
+/// The function takes three callbacks.  The `cookie` is passed as the
+/// first parameter to each of them.
+///
+/// Note: all of the parameters are required; none may be NULL.
+/*/
+pgp_reader_t pgp_decryptor_new (pgp_error_t *errp, pgp_reader_t input,
+    pgp_sequoia_decrypt_get_public_keys_cb_t get_public_keys,
+    pgp_sequoia_decrypt_get_secret_keys_cb_t get_secret_keys,
+    pgp_sequoia_decrypt_check_signatures_cb_t check_signatures,
+    void *cookie);
 
 pgp_status_t pgp_verify (pgp_error_t *errp,
                        pgp_reader_t input, pgp_reader_t dsig, pgp_writer_t output,
