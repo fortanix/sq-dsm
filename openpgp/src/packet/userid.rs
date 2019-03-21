@@ -93,9 +93,7 @@ impl From<UserID> for Packet {
 
 impl Arbitrary for UserID {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
-        let mut u = UserID::new();
-        u.set_userid_from_bytes(&Vec::<u8>::arbitrary(g));
-        u
+        Vec::<u8>::arbitrary(g).into()
     }
 }
 

@@ -83,9 +83,7 @@ impl From<UserAttribute> for Packet {
 
 impl Arbitrary for UserAttribute {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
-        let mut u = UserAttribute::new();
-        u.set_user_attribute(&Vec::<u8>::arbitrary(g));
-        u
+        Vec::<u8>::arbitrary(g).into()
     }
 }
 
