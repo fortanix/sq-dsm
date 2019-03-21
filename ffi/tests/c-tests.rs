@@ -1,20 +1,15 @@
-extern crate libc;
+extern crate filetime;
 extern crate nettle;
 
 use std::cmp::min;
 use std::env::{self, var_os};
 use std::ffi::OsStr;
-use std::fmt::Write as FmtWrite;
 use std::fs;
 use std::io::{self, BufRead, Write};
-use std::os::unix::io::AsRawFd;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::str::FromStr;
-use std::time;
 use std::mem::replace;
-
-use nettle::hash::{Hash, Sha256};
 
 /// Hooks into Rust's test system to extract, compile and run c tests.
 #[test]
@@ -118,7 +113,26 @@ fn for_all_rs<F>(src: &Path, mut fun: F)
     Ok(())
 }
 
+/// If this looks like an exported function, returns its name.
+fn exported_function_name(line: &str) -> Option<&str> {
+    if line.starts_with("pub extern \"system\" fn ")
+        || line.starts_with("fn pgp_")
+    {
+        let fn_i = line.find("fn ")?;
+        let name_start = fn_i + 3;
+        (&line[name_start..]).split(|c| !is_valid_identifier(c)).next()
+    } else {
+        None
+    }
+}
+
+fn is_valid_identifier(c: char) -> bool {
+    char::is_alphanumeric(c) || c == '_'
+}
+
 /// Maps the given function `fun` over all tests found in `path`.
+///
+/// XXX: We need to parse the file properly with syn.
 fn for_all_tests<F>(path: &Path, mut fun: F)
                  -> io::Result<()>
     where F: FnMut(&Path, usize, &str, Vec<String>, bool) -> io::Result<()> {
@@ -144,12 +158,12 @@ fn for_all_tests<F>(path: &Path, mut fun: F)
                 continue;
             }
 
-            if line.starts_with("pub extern \"system\" fn ") && test.len() > 0 {
-                let name = &line[23..].split_terminator('(')
-                    .next().unwrap().to_owned();
-                fun(path, test_starts_at, &name, replace(&mut test, Vec::new()),
-                    run)?;
-                test.clear();
+            if let Some(name) = exported_function_name(&line) {
+                if test.len() > 0 {
+                    fun(path, test_starts_at, &name, replace(&mut test, vec![]),
+                        run)?;
+                    test.clear();
+                }
             }
         } else {
             if line == "/// ```" {
@@ -158,18 +172,9 @@ fn for_all_tests<F>(path: &Path, mut fun: F)
             }
 
             if line == "//! ```" && test.len() > 0 {
-                let mut hash = Sha256::default();
-                for line in test.iter() {
-                    writeln!(&mut hash as &mut Hash, "{}", line).unwrap();
-                }
-                let mut digest = vec![0; hash.digest_size()];
-                hash.digest(&mut digest);
-                let mut name = String::new();
-                write!(&mut name, "{}_",
-                       path.file_stem().unwrap().to_string_lossy()).unwrap();
-                for b in digest {
-                    write!(&mut name, "{:02x}", b).unwrap();
-                }
+                let name = format!("{}_{}",
+                                   path.file_stem().unwrap().to_string_lossy(),
+                                   lineno); // XXX: nicer to point to the top
 
                 fun(path, test_starts_at, &name, replace(&mut test, Vec::new()),
                     run)?;
@@ -207,27 +212,13 @@ fn build(include_dirs: &[PathBuf], ldpath: &Path, target_dir: &Path,
         for line in lines {
             writeln!(f, "{}", line)?
         }
+        drop(f);
 
         // Change the modification time of the c source to match the
         // rust source.
-        let mtime = meta_rs.modified().unwrap()
-            .duration_since(time::UNIX_EPOCH).unwrap();
-        let timevals = [
-            // Access time.
-            libc::timeval {
-                tv_sec: mtime.as_secs() as i64,
-                tv_usec: mtime.subsec_nanos() as i64 / 1000,
-            },
-            // Modification time.
-            libc::timeval {
-                tv_sec: mtime.as_secs() as i64,
-                tv_usec: mtime.subsec_nanos() as i64 / 1000,
-            },
-        ];
-        let rc = unsafe {
-            libc::futimes(f.as_raw_fd(), timevals.as_ptr())
-        };
-        assert_eq!(rc, 0);
+        use filetime::FileTime;
+        let mtime = FileTime::from_last_modification_time(&meta_rs);
+        filetime::set_file_times(target_c, mtime.clone(), mtime).unwrap();
     }
 
     let includes =

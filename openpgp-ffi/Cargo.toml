@@ -30,6 +30,7 @@ memsec = "0.5.4"
 time = "0.1.40"
 
 [dev-dependencies]
+filetime = "0.2"
 nettle = "5.0"
 
 [lib]

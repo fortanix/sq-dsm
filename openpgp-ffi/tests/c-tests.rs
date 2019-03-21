@@ -1,4 +1,4 @@
-extern crate libc;
+extern crate filetime;
 extern crate nettle;
 
 use std::cmp::min;
@@ -6,11 +6,9 @@ use std::env::{self, var_os};
 use std::ffi::OsStr;
 use std::fs;
 use std::io::{self, BufRead, Write};
-use std::os::unix::io::AsRawFd;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::str::FromStr;
-use std::time;
 use std::mem::replace;
 
 /// Hooks into Rust's test system to extract, compile and run c tests.
@@ -213,27 +211,13 @@ fn build(include_dirs: &[PathBuf], ldpath: &Path, target_dir: &Path,
         for line in lines {
             writeln!(f, "{}", line)?
         }
+        drop(f);
 
         // Change the modification time of the c source to match the
         // rust source.
-        let mtime = meta_rs.modified().unwrap()
-            .duration_since(time::UNIX_EPOCH).unwrap();
-        let timevals = [
-            // Access time.
-            libc::timeval {
-                tv_sec: mtime.as_secs() as i64,
-                tv_usec: mtime.subsec_nanos() as i64 / 1000,
-            },
-            // Modification time.
-            libc::timeval {
-                tv_sec: mtime.as_secs() as i64,
-                tv_usec: mtime.subsec_nanos() as i64 / 1000,
-            },
-        ];
-        let rc = unsafe {
-            libc::futimes(f.as_raw_fd(), timevals.as_ptr())
-        };
-        assert_eq!(rc, 0);
+        use filetime::FileTime;
+        let mtime = FileTime::from_last_modification_time(&meta_rs);
+        filetime::set_file_times(target_c, mtime.clone(), mtime).unwrap();
     }
 
     let includes =
