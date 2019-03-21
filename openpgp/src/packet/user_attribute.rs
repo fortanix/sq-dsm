@@ -40,15 +40,6 @@ impl From<Vec<u8>> for UserAttribute {
     }
 }
 
-impl<'a> From<&'a str> for UserAttribute {
-    fn from(u: &'a str) -> Self {
-        let b = u.as_bytes();
-        let mut v = Vec::with_capacity(b.len());
-        v.extend_from_slice(b);
-        v.into()
-    }
-}
-
 impl fmt::Debug for UserAttribute {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("UserAttribute")
