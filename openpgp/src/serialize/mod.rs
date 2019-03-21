@@ -2208,8 +2208,7 @@ mod test {
 
         // 1: UserID(UserID { value: "Foo" })
         let mut top_level = Vec::new();
-        let mut uid = UserID::new();
-        uid.set_userid("Foo");
+        let uid = UserID::from("Foo");
         top_level.push(uid.into());
         messages.push(top_level);
 
