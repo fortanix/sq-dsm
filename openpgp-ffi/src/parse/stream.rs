@@ -259,6 +259,9 @@ impl VerificationHelper for VHelper {
             &mut tpk_refs_raw, &mut tpk_refs_raw_len as *mut usize,
             &mut free);
 
+        // Free the KeyID wrappers.
+        ids.into_iter().for_each(|id| super::super::keyid::pgp_keyid_free(id));
+
         if result != Status::Success {
             // XXX: We need to convert the status to an error.  A
             // status contains less information, but we should do the
