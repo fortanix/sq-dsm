@@ -492,7 +492,7 @@ mod tests {
             .unwrap();
         let userids = tsk
             .userids()
-            .map(|binding| binding.userid().userid())
+            .map(|binding| binding.userid().value())
             .collect::<Vec<_>>();
 
         assert_eq!(userids.len(), 2);
@@ -545,7 +545,7 @@ mod tests {
 
         let userids = tpk
             .userids()
-            .map(|binding| binding.userid().userid())
+            .map(|binding| binding.userid().value())
             .collect::<Vec<_>>();
         assert_eq!(userids.len(), 2);
         assert!((userids[0] == b"test1@example.com"
@@ -561,7 +561,7 @@ mod tests {
 
         let userids = tpk
             .userids()
-            .map(|binding| binding.userid().userid())
+            .map(|binding| binding.userid().value())
             .collect::<Vec<_>>();
         assert_eq!(userids.len(), 1);
         assert_eq!(userids[0], b"Foo");
@@ -571,7 +571,7 @@ mod tests {
         let tpk = tsk.into_tpk();
         let userids = tpk
             .userids()
-            .map(|binding| binding.userid().userid())
+            .map(|binding| binding.userid().value())
             .collect::<Vec<_>>();
         assert_eq!(userids.len(), 1);
         assert_eq!(userids[0], b"test@example.com",

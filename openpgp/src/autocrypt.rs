@@ -849,7 +849,7 @@ In the light of the Efail vulnerability I am asking myself if it's
         assert_eq!(tpk.primary().fingerprint(),
                    Fingerprint::from_hex(
                        &"156962B0F3115069ACA970C68E3B03A279B772D6"[..]).unwrap());
-        assert_eq!(tpk.userids().next().unwrap().userid().userid(),
+        assert_eq!(tpk.userids().next().unwrap().userid().value(),
                    &b"holger krekel <holger@merlinux.eu>"[..]);
 
 
@@ -872,7 +872,7 @@ In the light of the Efail vulnerability I am asking myself if it's
         assert_eq!(tpk.primary().fingerprint(),
                    Fingerprint::from_hex(
                        &"D4AB192964F76A7F8F8A9B357BD18320DEADFA11"[..]).unwrap());
-        assert_eq!(tpk.userids().next().unwrap().userid().userid(),
+        assert_eq!(tpk.userids().next().unwrap().userid().value(),
                    &b"Vincent Breitmoser <look@my.amazin.horse>"[..]);
 
 
@@ -895,7 +895,7 @@ In the light of the Efail vulnerability I am asking myself if it's
         assert_eq!(tpk.primary().fingerprint(),
                    Fingerprint::from_hex(
                        &"4F9F89F5505AC1D1A260631CDB1187B9DD5F693B"[..]).unwrap());
-        assert_eq!(tpk.userids().next().unwrap().userid().userid(),
+        assert_eq!(tpk.userids().next().unwrap().userid().value(),
                    &b"Patrick Brunschwig <patrick@enigmail.net>"[..]);
 
         let ac2 = AutocryptHeaders::from_bytes(&PATRICK_UNFOLDED[..]).unwrap();

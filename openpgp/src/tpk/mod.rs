@@ -2106,11 +2106,11 @@ impl TPK {
 
         for binding in self.userids.iter_mut() {
             check!(format!("userid \"{}\"",
-                           String::from_utf8_lossy(binding.userid.userid())),
+                           String::from_utf8_lossy(binding.userid.value())),
                    binding, selfsigs, verify_userid_binding,
                    &binding.userid);
             check!(format!("userid \"{}\"",
-                           String::from_utf8_lossy(binding.userid.userid())),
+                           String::from_utf8_lossy(binding.userid.value())),
                    binding, self_revocations, verify_userid_revocation,
                    &binding.userid);
         }
@@ -2171,12 +2171,12 @@ impl TPK {
             for binding in self.userids.iter_mut() {
                 check_one!(format!("userid \"{}\"",
                                    String::from_utf8_lossy(
-                                       binding.userid.userid())),
+                                       binding.userid.value())),
                            binding.selfsigs, sig,
                            verify_userid_binding, &binding.userid);
                 check_one!(format!("userid \"{}\"",
                                    String::from_utf8_lossy(
-                                       binding.userid.userid())),
+                                       binding.userid.value())),
                            binding.self_revocations, sig,
                            verify_userid_revocation, &binding.userid);
             }
@@ -2281,7 +2281,7 @@ impl TPK {
         // one copy might be sorted to the front and the other to the
         // back, and the following dedup wouldn't combine the user
         // ids!
-        self.userids.sort_by(|a, b| a.userid.userid().cmp(&b.userid.userid()));
+        self.userids.sort_by(|a, b| a.userid.value().cmp(&b.userid.value()));
 
         // Then, we dedup them.
         self.userids.dedup_by(|a, b| {
@@ -2401,7 +2401,7 @@ impl TPK {
             }
 
             // Fallback to a lexicographical comparison.
-            a.userid.userid().cmp(&b.userid.userid())
+            a.userid.value().cmp(&b.userid.value())
         });
 
         // Sort the signatures so that the current valid
@@ -3102,7 +3102,7 @@ mod test {
                                 i == 0).unwrap();
             assert_eq!(tpk.primary.creation_time().to_pgp().unwrap(), 1511355130);
             assert_eq!(tpk.userids.len(), 1);
-            assert_eq!(tpk.userids[0].userid.userid(),
+            assert_eq!(tpk.userids[0].userid.value(),
                        &b"Testy McTestface <testy@example.org>"[..]);
             assert_eq!(tpk.userids[0].selfsigs.len(), 1);
             assert_eq!(tpk.userids[0].selfsigs[0].hash_prefix(),
@@ -3123,7 +3123,7 @@ mod test {
                        "3E8877C877274692975189F5D03F6F865226FE8B");
 
             assert_eq!(tpk.userids.len(), 1, "number of userids");
-            assert_eq!(tpk.userids[0].userid.userid(),
+            assert_eq!(tpk.userids[0].userid.value(),
                        &b"Testy McTestface <testy@example.org>"[..]);
             assert_eq!(tpk.userids[0].selfsigs.len(), 1);
             assert_eq!(tpk.userids[0].selfsigs[0].hash_prefix(),
@@ -3146,7 +3146,7 @@ mod test {
             assert_eq!(tpk.user_attributes.len(), 0);
 
             assert_eq!(tpk.userids.len(), 1, "number of userids");
-            assert_eq!(tpk.userids[0].userid.userid(),
+            assert_eq!(tpk.userids[0].userid.value(),
                        &b"Testy McTestface <testy@example.org>"[..]);
             assert_eq!(tpk.userids[0].selfsigs.len(), 1);
             assert_eq!(tpk.userids[0].selfsigs[0].hash_prefix(),
@@ -3389,7 +3389,7 @@ mod test {
         let tpk = TPK::from_bytes(bytes!("neal-sigs-out-of-order.pgp")).unwrap();
 
         let mut userids = tpk.userids()
-            .map(|u| String::from_utf8_lossy(u.userid.userid()).into_owned())
+            .map(|u| String::from_utf8_lossy(u.userid.value()).into_owned())
             .collect::<Vec<String>>();
         userids.sort();
 
@@ -3417,7 +3417,7 @@ mod test {
         let tpk = TPK::from_bytes(bytes!("dkg-sigs-out-of-order.pgp")).unwrap();
 
         let mut userids = tpk.userids()
-            .map(|u| String::from_utf8_lossy(u.userid.userid()).into_owned())
+            .map(|u| String::from_utf8_lossy(u.userid.value()).into_owned())
             .collect::<Vec<String>>();
         userids.sort();
 

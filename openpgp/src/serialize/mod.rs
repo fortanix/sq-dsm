@@ -1265,11 +1265,11 @@ impl SerializeKeyInto for Key {
 
 impl Serialize for UserID {
     fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
-        let len = self.userid().len();
+        let len = self.value().len();
 
         CTB::new(Tag::UserID).serialize(o)?;
         BodyLength::Full(len as u32).serialize(o)?;
-        o.write_all(self.userid())?;
+        o.write_all(self.value())?;
 
         Ok(())
     }
@@ -1277,8 +1277,8 @@ impl Serialize for UserID {
 
 impl SerializeInto for UserID {
     fn serialized_len(&self) -> usize {
-        1 + BodyLength::Full(self.userid().len() as u32).serialized_len()
-            + self.userid().len()
+        1 + BodyLength::Full(self.value().len() as u32).serialized_len()
+            + self.value().len()
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {

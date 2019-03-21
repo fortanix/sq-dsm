@@ -19,9 +19,9 @@ pub extern "system" fn pgp_user_id_value(uid: *const Packet,
     let uid = ffi_param_ref!(uid);
     if let &Packet::UserID(ref uid) = uid {
         if let Some(p) = value_len {
-            *p = uid.userid().len();
+            *p = uid.value().len();
         }
-        uid.userid().as_ptr()
+        uid.value().as_ptr()
     } else {
         panic!("Not a UserID packet");
     }

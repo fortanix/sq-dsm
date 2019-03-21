@@ -366,7 +366,7 @@ fn pgp_tpk_primary_user_id(tpk: *const TPK)
 {
     let tpk = tpk.ref_raw();
     if let Some(binding) = tpk.userids().nth(0) {
-        ffi_return_string!(binding.userid().userid())
+        ffi_return_string!(binding.userid().value())
     } else {
         ptr::null_mut()
     }
@@ -388,7 +388,7 @@ pub extern "system" fn pgp_user_id_binding_user_id(
 {
     let binding = ffi_param_ref!(binding);
 
-    ffi_return_maybe_string!(binding.userid().userid())
+    ffi_return_maybe_string!(binding.userid().value())
 }
 
 /// Returns a reference to the self-signature, if any.

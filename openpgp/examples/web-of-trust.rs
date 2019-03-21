@@ -43,7 +43,7 @@ fn main() {
                                 println!("{}, {:?}, {}",
                                          issuer.as_u64().unwrap(),
                                          String::from_utf8_lossy(
-                                             uidb.userid().userid()),
+                                             uidb.userid().value()),
                                          keyid.as_u64().unwrap());
                             } else {
                                 eprintln!("No issuer!?");

@@ -62,7 +62,7 @@ impl fmt::Debug for UserID {
 
 impl UserID {
     /// Gets the user ID packet's value.
-    pub fn userid(&self) -> &[u8] {
+    pub fn value(&self) -> &[u8] {
         self.value.as_slice()
     }
 }

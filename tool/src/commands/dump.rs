@@ -274,7 +274,7 @@ impl PacketDumper {
             UserID(ref u) => {
                 writeln!(output, "User ID Packet")?;
                 writeln!(output, "{}  Value: {}", i,
-                         String::from_utf8_lossy(u.userid()))?;
+                         String::from_utf8_lossy(u.value()))?;
             },
 
             UserAttribute(ref u) => {
