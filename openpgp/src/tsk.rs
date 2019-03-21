@@ -511,7 +511,7 @@ mod tests {
             .unwrap();
         let userattrs = tsk
             .user_attributes()
-            .map(|binding| binding.user_attribute().user_attribute())
+            .map(|binding| binding.user_attribute().value())
             .collect::<Vec<_>>();
 
         assert_eq!(userattrs.len(), 1);

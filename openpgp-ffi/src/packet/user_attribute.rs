@@ -19,9 +19,9 @@ pub extern "system" fn pgp_user_attribute_value(ua: *const Packet,
     let ua = ffi_param_ref!(ua);
     if let &Packet::UserAttribute(ref ua) = ua {
         if let Some(p) = value_len {
-            *p = ua.user_attribute().len();
+            *p = ua.value().len();
         }
-        ua.user_attribute().as_ptr()
+        ua.value().as_ptr()
     } else {
         panic!("Not a UserAttribute packet");
     }

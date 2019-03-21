@@ -57,14 +57,20 @@ impl UserAttribute {
         }
     }
 
-    /// Gets the user attribute packet's value.
-    pub fn user_attribute(&self) -> &[u8] {
+    /// Gets the user attribute packet's raw, unparsed value.
+    ///
+    /// Most likely you will want to use [`subpackets()`] to iterate
+    /// over the subpackets.
+    ///
+    /// [`subpackets()`]: #method.subpackets
+    pub fn value(&self) -> &[u8] {
         self.value.as_slice()
     }
 
-    /// Sets the user attribute packet's value from a byte sequence.
-    pub fn set_user_attribute(&mut self, value: &[u8]) -> Vec<u8> {
-        ::std::mem::replace(&mut self.value, value.to_vec())
+    /// Gets a mutable reference to the user attribute packet's raw
+    /// value.
+    pub fn value_mut(&mut self) -> &mut Vec<u8> {
+        &mut self.value
     }
 
     /// Iterates over the subpackets.

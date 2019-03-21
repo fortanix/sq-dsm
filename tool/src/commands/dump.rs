@@ -280,7 +280,7 @@ impl PacketDumper {
             UserAttribute(ref u) => {
                 writeln!(output, "User Attribute Packet")?;
                 writeln!(output, "{}  Value: {} bytes", i,
-                         u.user_attribute().len())?;
+                         u.value().len())?;
             },
 
             Literal(ref l) => {
