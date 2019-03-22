@@ -177,7 +177,7 @@ pub extern "system" fn sq_config_home(cfg: *mut Config,
                                       home: *const c_char) {
     let cfg = ffi_param_ref_mut!(cfg);
     let home = ffi_param_cstr!(home).to_string_lossy();
-    cfg.set_home(home.as_ref())
+    cfg.set_home(home.as_ref());
 }
 
 /// Set the directory containing backend servers.
@@ -186,7 +186,7 @@ pub extern "system" fn sq_config_lib(cfg: *mut Config,
                                      lib: *const c_char) {
     let cfg = ffi_param_ref_mut!(cfg);
     let lib = ffi_param_cstr!(lib).to_string_lossy();
-    cfg.set_lib(&lib.as_ref())
+    cfg.set_lib(&lib.as_ref());
 }
 
 /// Sets the network policy.

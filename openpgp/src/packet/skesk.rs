@@ -166,10 +166,12 @@ impl SKESK4 {
     }
 
     /// Sets the encrypted session key.
-    pub fn set_esk(&mut self, esk: Option<Vec<u8>>) {
-        self.esk = esk.and_then(|esk| {
-            if esk.len() == 0 { None } else { Some(esk) }
-        });
+    pub fn set_esk(&mut self, esk: Option<Vec<u8>>) -> Option<Vec<u8>> {
+        ::std::mem::replace(
+            &mut self.esk,
+            esk.and_then(|esk| {
+                if esk.len() == 0 { None } else { Some(esk) }
+            }))
     }
 
     /// Convert the `SKESK4` struct to a `Packet`.

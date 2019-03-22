@@ -411,8 +411,9 @@ impl Signature {
 
     /// Sets the computed hash value.
     pub fn set_computed_hash(&mut self, hash: Option<(HashAlgorithm, Vec<u8>)>)
+        -> Option<(HashAlgorithm, Vec<u8>)>
     {
-        self.computed_hash = hash;
+        ::std::mem::replace(&mut self.computed_hash, hash)
     }
 
     /// Gets the signature level.

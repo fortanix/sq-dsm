@@ -342,9 +342,11 @@ impl Common {
     ///
     /// Setting the body clears the old body, or any of the packet's
     /// descendants.
-    pub fn set_body(&mut self, data: Vec<u8>) {
+    pub fn set_body(&mut self, data: Vec<u8>) -> Vec<u8> {
         self.children = None;
-        self.body = if data.len() == 0 { None } else { Some(data) };
+        ::std::mem::replace(&mut self.body,
+                            if data.len() == 0 { None } else { Some(data) })
+            .unwrap_or(Vec::new())
     }
 }
 

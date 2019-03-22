@@ -86,8 +86,8 @@ impl Literal {
     }
 
     /// Sets the Literal packet's body to the provided byte string.
-    pub fn set_body(&mut self, data: Vec<u8>) {
-        self.common.set_body(data);
+    pub fn set_body(&mut self, data: Vec<u8>) -> Vec<u8> {
+        self.common.set_body(data)
     }
 
     /// Gets the Literal packet's content disposition.
@@ -117,15 +117,15 @@ impl Literal {
     /// Note: when a literal data packet is protected by a signature,
     /// only the literal data packet's body is protected, not the
     /// meta-data.  As such, this field should not be used.
-    pub fn set_filename_from_bytes(&mut self, filename: &[u8]) -> Result<()> {
-        self.filename = match filename.len() {
+    pub fn set_filename_from_bytes(&mut self, filename: &[u8])
+                                   -> Result<Option<Vec<u8>>> {
+        Ok(::std::mem::replace(&mut self.filename, match filename.len() {
             0 => None,
             1...255 => Some(filename.to_vec()),
             n => return
                 Err(Error::InvalidArgument(
                     format!("filename too long: {} bytes", n)).into()),
-        };
-        Ok(())
+        }))
     }
 
     /// Sets the literal packet's filename field from a UTF-8 encoded
@@ -137,7 +137,8 @@ impl Literal {
     /// Note: when a literal data packet is protected by a signature,
     /// only the literal data packet's body is protected, not the
     /// meta-data.  As such, this field should not be used.
-    pub fn set_filename(&mut self, filename: &str) -> Result<()> {
+    pub fn set_filename(&mut self, filename: &str)
+                        -> Result<Option<Vec<u8>>> {
         self.set_filename_from_bytes(filename.as_bytes())
     }
 
@@ -159,9 +160,17 @@ impl Literal {
     /// Note: when a literal data packet is protected by a signature,
     /// only the literal data packet's body is protected, not the
     /// meta-data.  As such, this field should not be used.
-    pub fn set_date(&mut self, timestamp: Option<time::Tm>) {
-        self.date = timestamp.map(|t| t.canonicalize())
-            .unwrap_or(time::Tm::from_pgp(0));
+    pub fn set_date(&mut self, timestamp: Option<time::Tm>) -> Option<time::Tm>
+    {
+        let old = ::std::mem::replace(
+            &mut self.date,
+            timestamp.map(|t| t.canonicalize())
+                .unwrap_or(time::Tm::from_pgp(0)));
+        if old == time::Tm::from_pgp(0) {
+            None
+        } else {
+            Some(old)
+        }
     }
 }
 
