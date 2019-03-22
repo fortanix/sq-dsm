@@ -1,6 +1,14 @@
 #define _GNU_SOURCE
 #include <errno.h>
-#include <error.h>
+/* Roughly glibc compatible error reporting.  */
+#define error(S, E, F, ...) do {                        \
+  fprintf (stderr, (F), __VA_ARGS__);                   \
+  int s = (S), e = (E);                                 \
+  if (e) { fprintf (stderr, ": %s", strerror (e)); }    \
+  fprintf (stderr, "\n");                               \
+  fflush (stderr);                                      \
+  if (s) { exit (s); }                                  \
+  } while (0)
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>

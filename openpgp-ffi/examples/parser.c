@@ -2,10 +2,20 @@
  * also serves as a simple benchmark.  */
 
 #define _GNU_SOURCE
-#include <error.h>
+/* Roughly glibc compatible error reporting.  */
+#define error(S, E, F, ...) do {                        \
+  fprintf (stderr, (F), __VA_ARGS__);                   \
+  int s = (S), e = (E);                                 \
+  if (e) { fprintf (stderr, ": %s", strerror (e)); }    \
+  fprintf (stderr, "\n");                               \
+  fflush (stderr);                                      \
+  if (s) { exit (s); }                                  \
+  } while (0)
 #include <errno.h>
 #include <stdio.h>
 #include <time.h>
+#include <string.h>
+#include <stdlib.h>
 
 #include <sequoia/openpgp.h>
 

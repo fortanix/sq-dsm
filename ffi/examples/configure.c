@@ -1,9 +1,18 @@
 #define _GNU_SOURCE
 #include <assert.h>
-#include <error.h>
+/* Roughly glibc compatible error reporting.  */
+#define error(S, E, F, ...) do {                        \
+  fprintf (stderr, (F), __VA_ARGS__);                   \
+  int s = (S), e = (E);                                 \
+  if (e) { fprintf (stderr, ": %s", strerror (e)); }    \
+  fprintf (stderr, "\n");                               \
+  fflush (stderr);                                      \
+  if (s) { exit (s); }                                  \
+  } while (0)
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include <sequoia.h>
 
@@ -34,7 +43,7 @@ main (int argc, char **argv)
       pgp_error_free (err);
     }
   else
-    error (1, 0, "This should not be allowed");
+    assert (! "reachable");
 
   sq_keyserver_free (ks);
   sq_context_free (ctx);

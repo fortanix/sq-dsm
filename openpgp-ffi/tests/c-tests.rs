@@ -262,9 +262,7 @@ fn run(ldpath: &Path, exe: &Path) -> io::Result<()> {
 
 /// Wraps the code in a main function if none exists.
 fn wrap_with_main(test: &mut Vec<String>, offset: usize) {
-    if has_main(test) {
-        return;
-    }
+    let needs_wrapping = ! has_main(test);
 
     let mut last_include = 0;
     for (n, line) in test.iter().enumerate() {
@@ -273,10 +271,28 @@ fn wrap_with_main(test: &mut Vec<String>, offset: usize) {
         }
     }
 
-    test.insert(last_include + 1, "int main() {".into());
-    test.insert(last_include + 2, format!("#line {}", last_include + 1 + offset));
+    test.insert(last_include + 1,
+                "#define error(S, E, F, ...) do {                        \\\n\
+                   fprintf (stderr, (F), __VA_ARGS__);                   \\\n\
+                   int s = (S), e = (E);                                 \\\n\
+                   if (e) { fprintf (stderr, \": %s\", strerror (e)); }    \\\n\
+                   fprintf (stderr, \"\\n\");                               \\\n\
+                   fflush (stderr);                                      \\\n\
+                   if (s) { exit (s); }                                  \\\n\
+                   } while (0)".into());
+
+    if needs_wrapping {
+        test.insert(last_include + 1, "int main() {".into());
+    }
+    test.insert(last_include + 2, format!("#line {}", last_include + offset
+                                          + if needs_wrapping {1} else {0}));
     let last = test.len();
-    test.insert(last, "}".into());
+    if needs_wrapping {
+        test.insert(last, "}".into());
+    }
+    test.insert(0, "#include <string.h>".into());
+    test.insert(0, "#include <stdlib.h>".into());
+    test.insert(0, "#include <stdio.h>".into());
     test.insert(0, "#define _GNU_SOURCE".into());
 }
 
