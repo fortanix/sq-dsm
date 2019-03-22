@@ -9,6 +9,11 @@
 typedef struct pgp_reader *pgp_reader_t;
 
 /*/
+/// A generic writer.
+/*/
+typedef struct pgp_writer *pgp_writer_t;
+
+/*/
 /// Opens a file returning a reader.
 /*/
 pgp_reader_t pgp_reader_from_file (pgp_error_t *errp, const char *filename);
@@ -32,12 +37,21 @@ void pgp_reader_free (pgp_reader_t reader);
 /// Reads up to `len` bytes into `buf`.
 /*/
 ssize_t pgp_reader_read (pgp_error_t *errp, pgp_reader_t reader,
-                        uint8_t *buf, size_t len);
+                         uint8_t *buf, size_t len);
 
 /*/
-/// A generic writer.
+/// Copies up to `len` bytes of `source` into `dest`.
+///
+/// Note: if you are doing a bulk copy (from a reader to a writer), it
+/// is more efficient to use large chunk sizes.
 /*/
-typedef struct pgp_writer *pgp_writer_t;
+ssize_t pgp_reader_copy (pgp_error_t *errp, pgp_reader_t source,
+                         pgp_writer_t dest, size_t len);
+
+/*/
+/// Reads from `source` and discards all of the data.
+/*/
+ssize_t pgp_reader_discard (pgp_error_t *errp, pgp_reader_t source);
 
 /*/
 /// Opens a file returning a writer.

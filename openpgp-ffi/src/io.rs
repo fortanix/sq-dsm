@@ -95,6 +95,46 @@ pub extern "system" fn pgp_reader_read(errp: Option<&mut *mut ::error::Error>,
         })
 }
 
+/// Copies up to `len` bytes from `source` to `dest`.
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
+pub extern "system" fn pgp_reader_copy(errp: Option<&mut *mut ::error::Error>,
+                                       source: *mut Reader,
+                                       dest: *mut Writer,
+                                       len: size_t)
+                                       -> ssize_t {
+    let source = source.ref_mut_raw();
+    let dest = dest.ref_mut_raw();
+
+    io::copy(&mut source.take(len as u64), dest)
+        .map(|n_read| n_read as ssize_t)
+        .unwrap_or_else(|e| {
+            if let Some(errp) = errp {
+                *errp = ::failure::Error::from(e).move_into_raw();
+            };
+
+            // Signal failure.
+            -1
+        })
+}
+
+/// Reads all data from reader and discards it.
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
+pub extern "system" fn pgp_reader_discard(errp: Option<&mut *mut ::error::Error>,
+                                          reader: *mut Reader)
+                                          -> ssize_t {
+    let mut reader = reader.ref_mut_raw();
+
+    io::copy(&mut reader, &mut io::sink())
+        .map(|n_read| n_read as ssize_t)
+        .unwrap_or_else(|e| {
+            if let Some(errp) = errp {
+                *errp = ::failure::Error::from(e).move_into_raw();
+            };
+
+            // Signal failure.
+            -1
+        })
+}
 
 /// Wraps a generic writer.
 #[::ffi_wrapper_type(prefix = "pgp_")]
