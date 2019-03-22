@@ -24,10 +24,15 @@ RSYNC_FLAGS	?=
 CARGO		?= cargo
 GIT		?= git
 RSYNC		?= rsync
-INSTALL		?= install
 TAR		?= tar
 XZ		?= xz
 GPG		?= gpg
+
+ifeq ($(shell uname -s), Darwin)
+	INSTALL	?= ginstall
+else
+	INSTALL	?= install
+endif
 
 VERSION		?= $(shell grep '^version[[:space:]]*=[[:space:]]*' Cargo.toml | cut -d'"' -f2)
 

@@ -6,7 +6,11 @@ SQV	?= $(CARGO_TARGET_DIR)/debug/sqv
 
 # Tools.
 CARGO	?= cargo
-INSTALL		?= install
+ifeq ($(shell uname -s), Darwin)
+	INSTALL		?= ginstall
+else
+	INSTALL		?= install
+endif
 
 all: src/sqv-usage.rs
 
