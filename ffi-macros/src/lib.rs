@@ -406,6 +406,14 @@ fn derive_conversion_functions(mut st: syn::ItemStruct,
             }
         }
 
+        impl ::MoveFromRaw<Option<#wrapped>> for
+            Option<::std::ptr::NonNull<#wrapper>>
+        {
+            fn move_from_raw(self) -> Option<#wrapped> {
+                self.map(|nn| nn.as_ptr().move_from_raw())
+            }
+        }
+
         impl ::RefRaw<#wrapped> for *const #wrapper {
             fn ref_raw(self) -> &'static #wrapped {
                 if self.is_null() {
