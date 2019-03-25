@@ -81,6 +81,12 @@ impl From<Box<[u8]>> for SessionKey {
     }
 }
 
+impl From<&[u8]> for SessionKey {
+    fn from(v: &[u8]) -> Self {
+        Vec::from(v).into()
+    }
+}
+
 impl Drop for SessionKey {
     fn drop(&mut self) {
         unsafe {
@@ -146,6 +152,12 @@ impl From<String> for Password {
 impl<'a> From<&'a str> for Password {
     fn from(v: &'a str) -> Self {
         v.to_owned().into()
+    }
+}
+
+impl From<&[u8]> for Password {
+    fn from(v: &[u8]) -> Self {
+        Vec::from(v).into()
     }
 }
 
