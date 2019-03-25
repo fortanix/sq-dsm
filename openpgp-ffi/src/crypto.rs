@@ -4,13 +4,57 @@
 //!
 //! [`sequoia-openpgp::crypto`]: ../../sequoia_openpgp/crypto/index.html
 
-extern crate sequoia_openpgp;
-use self::sequoia_openpgp::{
+use libc::{size_t, uint8_t};
+use nettle::Yarrow;
+
+extern crate sequoia_openpgp as openpgp;
+use self::openpgp::{
     crypto,
 };
 use super::packet::key::Key;
 
 use MoveFromRaw;
+use MoveIntoRaw;
+
+/// Holds a session key.
+///
+/// The session key is cleared when dropped.
+#[::ffi_wrapper_type(prefix = "pgp_", name = "session_key",
+                     derive = "Clone, Debug, PartialEq")]
+pub struct SessionKey(openpgp::crypto::SessionKey);
+
+/// Creates a new session key.
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
+fn pgp_session_key_new(size: size_t) -> *mut SessionKey {
+    openpgp::crypto::SessionKey::new(&mut Yarrow::default(), size)
+        .move_into_raw()
+}
+
+/// Creates a new session key from a buffer.
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
+fn pgp_session_key_from_bytes(buf: *const uint8_t, size: size_t)
+                              -> *mut SessionKey {
+    let buf = unsafe {
+        ::std::slice::from_raw_parts(buf, size)
+    };
+    openpgp::crypto::SessionKey::from(buf).move_into_raw()
+}
+
+/// Holds a password.
+///
+/// The password is cleared when dropped.
+#[::ffi_wrapper_type(prefix = "pgp_", name = "password",
+                     derive = "Clone, Debug, PartialEq")]
+pub struct Password(openpgp::crypto::Password);
+
+/// Creates a new password from a buffer.
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
+fn pgp_password_from_bytes(buf: *const uint8_t, size: size_t) -> *mut Password {
+    let buf = unsafe {
+        ::std::slice::from_raw_parts(buf, size)
+    };
+    openpgp::crypto::Password::from(buf).move_into_raw()
+}
 
 /// Frees a signer.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]

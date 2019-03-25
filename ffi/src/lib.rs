@@ -113,6 +113,7 @@ extern crate lazy_static;
 extern crate libc;
 extern crate native_tls;
 extern crate memsec;
+extern crate nettle;
 
 extern crate sequoia_ffi_macros;
 use sequoia_ffi_macros::{

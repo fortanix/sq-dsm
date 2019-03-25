@@ -3,6 +3,64 @@
 
 #include <sequoia/openpgp/types.h>
 
+/*/
+/// Creates a new session key.
+/*/
+pgp_session_key_t pgp_session_key_new (size_t size);
+
+/*/
+/// Creates a new session key from a buffer.
+/*/
+pgp_session_key_t pgp_session_key_from_bytes (uint8_t *buf, size_t size);
+
+/*/
+/// Frees a session key.
+/*/
+void pgp_session_key_free (pgp_session_key_t);
+
+/*/
+/// Returns a human readable description of this object suitable for
+/// debugging.
+/*/
+char *pgp_session_key_debug (const pgp_session_key_t fp);
+
+/*/
+/// Clones the session key.
+/*/
+pgp_session_key_t pgp_session_key_clone (pgp_session_key_t session_key);
+
+/*/
+/// Compares session keys.
+/*/
+int pgp_session_key_equal (const pgp_session_key_t a,
+			   const pgp_session_key_t b);
+
+/*/
+/// Creates a new password from a buffer.
+/*/
+pgp_password_t pgp_password_from_bytes (uint8_t *buf, size_t size);
+
+/*/
+/// Frees a password.
+/*/
+void pgp_password_free (pgp_password_t);
+
+/*/
+/// Returns a human readable description of this object suitable for
+/// debugging.
+/*/
+char *pgp_password_debug (const pgp_password_t fp);
+
+/*/
+/// Clones the password.
+/*/
+pgp_password_t pgp_password_clone (pgp_password_t password);
+
+/*/
+/// Compares passwords.
+/*/
+int pgp_password_equal (const pgp_password_t a, const pgp_password_t b);
+
 typedef struct pgp_mpis_secret_key *pgp_mpis_secret_key_t;
 
 /*/

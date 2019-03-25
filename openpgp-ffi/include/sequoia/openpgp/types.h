@@ -2,6 +2,20 @@
 #define SEQUOIA_OPENPGP_TYPES_H
 
 /*/
+/// Holds a session key.
+///
+/// The session key is cleared when dropped.
+/*/
+typedef struct pgp_session_key *pgp_session_key_t;
+
+/*/
+/// Holds a password.
+///
+/// The password is cleared when dropped.
+/*/
+typedef struct pgp_password *pgp_password_t;
+
+/*/
 /// Holds a fingerprint.
 /*/
 typedef struct pgp_fingerprint *pgp_fingerprint_t;
