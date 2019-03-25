@@ -456,18 +456,18 @@ typedef enum pgp_verification_result_code {
   PGP_VERIFICATION_RESULT_CODE_FORCE_WIDTH = INT_MAX,
 } pgp_verification_result_code_t;
 
-typedef pgp_status_t (*pgp_sequoia_decrypt_get_public_keys_cb_t) (void *,
-                                                                pgp_keyid_t *, size_t,
-                                                                pgp_tpk_t **, size_t *,
-                                                                void (**free)(void *));
+typedef pgp_status_t (*pgp_decryptor_get_public_keys_cb_t) (void *,
+    pgp_keyid_t *, size_t,
+    pgp_tpk_t **, size_t *,
+    void (**free)(void *));
 
-typedef pgp_status_t (*pgp_sequoia_decrypt_get_secret_keys_cb_t) (void *,
-                                                                pgp_pkesk_t *, size_t,
-                                                                pgp_skesk_t *, size_t,
-                                                                pgp_secret_t *);
+typedef pgp_status_t (*pgp_decryptor_get_secret_keys_cb_t) (void *,
+    pgp_pkesk_t *, size_t,
+    pgp_skesk_t *, size_t,
+    pgp_secret_t *);
 
-typedef pgp_status_t (*pgp_sequoia_decrypt_check_signatures_cb_t) (void *,
-                                                                 pgp_verification_results_t,
-                                                                 size_t);
+typedef pgp_status_t (*pgp_decryptor_check_signatures_cb_t) (void *,
+    pgp_verification_results_t,
+    size_t);
 
 #endif
