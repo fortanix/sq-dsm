@@ -22,6 +22,7 @@ extern crate sequoia_net;
 extern crate sequoia_store;
 
 use openpgp::{armor, autocrypt, Fingerprint, TPK};
+use openpgp::conversions::hex;
 use openpgp::parse::Parse;
 use openpgp::serialize::Serialize;
 use sequoia_core::{Context, NetworkPolicy};
@@ -235,7 +236,7 @@ fn real_main() -> Result<(), failure::Error> {
                 let mut output = create_or_stdout(m.value_of("output"), force)?;
                 let session_key: Option<openpgp::crypto::SessionKey> =
                     if let Some(sk) = m.value_of("session-key") {
-                        Some(from_hex(sk, true)?.into())
+                        Some(hex::decode_pretty(sk)?.into())
                     } else {
                         None
                     };
@@ -477,62 +478,6 @@ fn print_log(iter: LogIter, with_slug: bool) {
 fn format_time(t: &time::Timespec) -> String {
     time::strftime("%F %H:%M", &time::at(*t))
     .unwrap() // Only parse errors can happen.
-}
-
-/// A helpful function for converting a hexadecimal string to binary.
-/// This function skips whitespace if `pretty` is set.
-pub(crate) fn from_hex(hex: &str, pretty: bool) -> openpgp::Result<Vec<u8>> {
-    use openpgp::Error;
-    const BAD: u8 = 255u8;
-    const X: u8 = 'x' as u8;
-
-    let mut nibbles = hex.as_bytes().iter().filter_map(|x| {
-        match *x as char {
-            '0' => Some(0u8),
-            '1' => Some(1u8),
-            '2' => Some(2u8),
-            '3' => Some(3u8),
-            '4' => Some(4u8),
-            '5' => Some(5u8),
-            '6' => Some(6u8),
-            '7' => Some(7u8),
-            '8' => Some(8u8),
-            '9' => Some(9u8),
-            'a' | 'A' => Some(10u8),
-            'b' | 'B' => Some(11u8),
-            'c' | 'C' => Some(12u8),
-            'd' | 'D' => Some(13u8),
-            'e' | 'E' => Some(14u8),
-            'f' | 'F' => Some(15u8),
-            'x' | 'X' if pretty => Some(X),
-            _ if pretty && x.is_ascii_whitespace() => None,
-            _ => Some(BAD),
-        }
-    }).collect::<Vec<u8>>();
-
-    if pretty && nibbles.len() >= 2 && nibbles[0] == 0 && nibbles[1] == X {
-        // Drop '0x' prefix.
-        nibbles.remove(0);
-        nibbles.remove(0);
-    }
-
-    if nibbles.iter().any(|&b| b == BAD || b == X) {
-        // Not a hex character.
-        return
-            Err(Error::InvalidArgument("Invalid characters".into()).into());
-    }
-
-    // We need an even number of nibbles.
-    if nibbles.len() % 2 != 0 {
-        return
-            Err(Error::InvalidArgument("Odd number of nibbles".into()).into());
-    }
-
-    let bytes = nibbles.chunks(2).map(|nibbles| {
-        (nibbles[0] << 4) | nibbles[1]
-    }).collect::<Vec<u8>>();
-
-    Ok(bytes)
 }
 
 fn main() {

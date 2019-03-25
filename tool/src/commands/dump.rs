@@ -3,6 +3,7 @@ use time;
 
 extern crate sequoia_openpgp as openpgp;
 use openpgp::constants::SymmetricAlgorithm;
+use openpgp::conversions::hex;
 use openpgp::{Packet, Result};
 use openpgp::packet::ctb::CTB;
 use openpgp::packet::{Header, BodyLength, Signature};
@@ -48,7 +49,7 @@ pub fn dump(input: &mut io::Read, output: &mut io::Write, mpis: bool, hex: bool,
                     }
                 }
                 let mut fields = Vec::new();
-                fields.push(format!("Session key: {}", to_hex(sk, false)));
+                fields.push(format!("Session key: {}", hex::encode(sk)));
                 if let Some(algo) = decrypted_with {
                     fields.push(format!("Symmetric algo: {}", algo));
                     fields.push("Decryption successful".into());
@@ -68,7 +69,7 @@ pub fn dump(input: &mut io::Read, output: &mut io::Write, mpis: bool, hex: bool,
                 let _ = pp.decrypt(algo, sk);
 
                 let mut fields = Vec::new();
-                fields.push(format!("Session key: {}", to_hex(sk, false)));
+                fields.push(format!("Session key: {}", hex::encode(sk)));
                 if pp.decrypted() {
                     fields.push("Decryption successful".into());
                 } else {
@@ -230,7 +231,7 @@ impl PacketDumper {
                     }
                 }
                 writeln!(output, "{}  Hash prefix: {}", i,
-                         to_hex(s.hash_prefix(), false))?;
+                         hex::encode(s.hash_prefix()))?;
                 write!(output, "{}  Level: {} ", i, s.level())?;
                 match s.level() {
                     0 => writeln!(output, "(signature over data)")?,
@@ -347,7 +348,7 @@ impl PacketDumper {
                         self.dump_s2k(output, i, s.s2k())?;
                         if let Some(esk) = s.esk() {
                             writeln!(output, "{}  ESK: {}", i,
-                                     to_hex(esk, false))?;
+                                     hex::encode(esk))?;
                         }
                     },
 
@@ -359,13 +360,13 @@ impl PacketDumper {
                         write!(output, "{}  S2K: ", i)?;
                         self.dump_s2k(output, i, s.s2k())?;
                         writeln!(output, "{}  IV: {}", i,
-                                 to_hex(s.aead_iv(), false))?;
+                                 hex::encode(s.aead_iv()))?;
                         if let Some(esk) = s.esk() {
                             writeln!(output, "{}  ESK: {}", i,
-                                     to_hex(esk, false))?;
+                                     hex::encode(esk))?;
                         }
                         writeln!(output, "{}  Digest: {}", i,
-                                 to_hex(s.aead_digest(), false))?;
+                                 hex::encode(s.aead_digest()))?;
                     },
                 }
             },
@@ -378,9 +379,9 @@ impl PacketDumper {
             MDC(ref m) => {
                 writeln!(output, "Modification Detection Code Packet")?;
                 writeln!(output, "{}  Hash: {}",
-                         i, to_hex(m.hash(), false))?;
+                         i, hex::encode(m.hash()))?;
                 writeln!(output, "{}  Computed hash: {}",
-                         i, to_hex(m.computed_hash(), false))?;
+                         i, hex::encode(m.computed_hash()))?;
             },
 
             AED(ref a) => {
@@ -389,7 +390,7 @@ impl PacketDumper {
                 writeln!(output, "{}  Cipher: {}", i, a.cipher())?;
                 writeln!(output, "{}  AEAD: {}", i, a.aead())?;
                 writeln!(output, "{}  Chunk size: {}", i, a.chunk_size())?;
-                writeln!(output, "{}  IV: {}", i, to_hex(a.iv(), false))?;
+                writeln!(output, "{}  IV: {}", i, hex::encode(a.iv()))?;
             },
         }
 
@@ -491,7 +492,7 @@ impl PacketDumper {
                 write!(output, "{}    Features: {:?}", i, f)?,
             SignatureTarget{pk_algo, hash_algo, ref digest} =>
                 write!(output, "{}    Signature target: {}, {}, {}", i,
-                       pk_algo, hash_algo, to_hex(digest, false))?,
+                       pk_algo, hash_algo, hex::encode(digest))?,
             EmbeddedSignature(_) =>
             // Embedded signature is dumped below.
                 write!(output, "{}    Embedded signature: ", i)?,
@@ -532,12 +533,12 @@ impl PacketDumper {
             Salted { hash, ref salt } => {
                 writeln!(output, "Salted")?;
                 writeln!(output, "{}    Hash: {}", i, hash)?;
-                writeln!(output, "{}    Salt: {}", i, to_hex(salt, false))?;
+                writeln!(output, "{}    Salt: {}", i, hex::encode(salt))?;
             },
             Iterated { hash, ref salt, iterations } => {
                 writeln!(output, "Iterated")?;
                 writeln!(output, "{}    Hash: {}", i, hash)?;
-                writeln!(output, "{}    Salt: {}", i, to_hex(salt, false))?;
+                writeln!(output, "{}    Salt: {}", i, hex::encode(salt))?;
                 writeln!(output, "{}    Iterations: {}", i, iterations)?;
             },
             Private(n) =>
@@ -603,19 +604,4 @@ impl HexDumper {
         writeln!(sink)?;
         Ok(())
     }
-}
-
-fn to_hex(s: &[u8], pretty: bool) -> String {
-    use std::fmt::Write;
-
-    let mut result = String::new();
-    for (i, b) in s.iter().enumerate() {
-        // Add spaces every four digits to make the output more
-        // readable.
-        if pretty && i > 0 && i % 2 == 0 {
-            write!(&mut result, " ").unwrap();
-        }
-        write!(&mut result, "{:02X}", b).unwrap();
-    }
-    result
 }
