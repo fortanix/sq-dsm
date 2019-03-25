@@ -57,6 +57,12 @@ impl Deref for SessionKey {
     }
 }
 
+impl AsRef<[u8]> for SessionKey {
+    fn as_ref(&self) -> &[u8] {
+        &self.0
+    }
+}
+
 impl DerefMut for SessionKey {
     fn deref_mut(&mut self) -> &mut [u8] {
         &mut self.0
@@ -102,6 +108,12 @@ pub struct Password(Box<[u8]>);
 impl PartialEq for Password {
     fn eq(&self, other: &Self) -> bool {
         secure_cmp(&self.0, &other.0) == Ordering::Equal
+    }
+}
+
+impl AsRef<[u8]> for Password {
+    fn as_ref(&self) -> &[u8] {
+        &self.0
     }
 }
 
