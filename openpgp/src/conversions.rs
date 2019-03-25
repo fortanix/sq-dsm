@@ -67,6 +67,28 @@ impl Duration for time::Duration {
     }
 }
 
+/// Converts buffers to and from hexadecimal numbers.
+pub mod hex {
+    /// Encodes the given buffer as hexadecimal number.
+    pub fn encode<B: AsRef<[u8]>>(buffer: B) -> String {
+        super::to_hex(buffer.as_ref(), false)
+    }
+
+    /// Encodes the given buffer as hexadecimal number with spaces.
+    pub fn encode_pretty<B: AsRef<[u8]>>(buffer: B) -> String {
+        super::to_hex(buffer.as_ref(), true)
+    }
+
+    /// Decodes the given hexadecimal number.
+    pub fn decode<H: AsRef<str>>(hex: H) -> ::Result<Vec<u8>> {
+        super::from_hex(hex.as_ref(), false)
+    }
+
+    /// Decodes the given hexadecimal number, ignoring whitespace.
+    pub fn decode_pretty<H: AsRef<str>>(hex: H) -> ::Result<Vec<u8>> {
+        super::from_hex(hex.as_ref(), true)
+    }
+}
 
 /// A helpful debugging function.
 #[allow(dead_code)]
