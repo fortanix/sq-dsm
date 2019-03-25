@@ -3,7 +3,7 @@
 
 #include <sequoia/openpgp/types.h>
 
-typedef struct pgp_mpi *pgp_mpi_t;
+typedef struct pgp_mpis_secret_key *pgp_mpis_secret_key_t;
 
 /*/
 /// Creates a signature.
@@ -31,7 +31,7 @@ typedef struct pgp_key_pair *pgp_key_pair_t;
 /*/
 /// Creates a new key pair.
 /*/
-void pgp_key_pair_new (pgp_key_t pub, pgp_mpi_t secret);
+void pgp_key_pair_new (pgp_key_t pub, pgp_mpis_secret_key_t secret);
 
 /*/
 /// Frees a key pair.
