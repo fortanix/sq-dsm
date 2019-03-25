@@ -37,7 +37,9 @@ Foreign Function Interface
 --------------------------
 
 Sequoia provides a C API for use in languages other than Rust.  The
-glue code can be found in the 'sequoia-ffi' crate.
+glue code for the low-level interface can be found in the
+'sequoia-openpgp-ffi' crate, glue for the high-level interface in the
+'sequoia-ffi' crate.
 
 Project status
 ==============
