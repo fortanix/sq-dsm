@@ -16,6 +16,15 @@ use RefRaw;
 #[::ffi_wrapper_type(prefix = "pgp_", derive = "Display")]
 pub struct Error(failure::Error);
 
+impl<T> From<failure::Fallible<T>> for Status {
+    fn from(f: failure::Fallible<T>) -> ::error::Status {
+        match f {
+            Ok(_) =>  ::error::Status::Success,
+            Err(e) => ::error::Status::from(&e),
+        }
+    }
+}
+
 impl ::MoveResultIntoRaw<::error::Status> for ::failure::Fallible<()>
 {
     fn move_into_raw(self, errp: Option<&mut *mut ::error::Error>)
