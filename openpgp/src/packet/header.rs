@@ -61,11 +61,42 @@ impl Header {
             || tag == Tag::AED
         {
             // Data packet.
-            if let BodyLength::Partial(l) = self.length {
-                if l < 512 {
-                    return Err(Error::MalformedPacket(
-                        format!("Partial body length must be at least 512 (got: {})",
-                            l)).into());
+            match self.length {
+                BodyLength::Indeterminate => (),
+                BodyLength::Partial(l) => {
+                    if l < 512 {
+                        return Err(Error::MalformedPacket(
+                            format!("Partial body length must be \
+                                     at least 512 (got: {})",
+                                    l)).into());
+                    }
+                }
+                BodyLength::Full(l) => {
+                    if tag == Tag::SED && (l == 0 || l % 16 != 0) {
+                        return Err(Error::MalformedPacket(
+                            format!("{} packet's length must be \
+                                     a multiple of 16 (got: {})",
+                                    tag, l)).into());
+                    } else if tag == Tag::SEIP
+                        && (l <= 1 || (l - 1) % 16 != 0)
+                    {
+                        return Err(Error::MalformedPacket(
+                            format!("{} packet's length minus 1 must be \
+                                     a multiple of 16 (got: {})",
+                                    tag, l)).into());
+                    } else if tag == Tag::CompressedData && l == 0 {
+                        // One byte header.
+                        return Err(Error::MalformedPacket(
+                            format!("{} packet's length must be \
+                                     at least 1 byte (got ({})",
+                                    tag, l)).into());
+                    } else if tag == Tag::Literal && l < 6 {
+                        // One byte header.
+                        return Err(Error::MalformedPacket(
+                            format!("{} packet's length must be \
+                                     at least 6 bytes (got: ({})",
+                                    tag, l)).into());
+                    }
                 }
             }
         } else {
@@ -73,27 +104,49 @@ impl Header {
             match self.length {
                 BodyLength::Indeterminate =>
                     return Err(Error::MalformedPacket(
-                        format!("Indeterminite length encoding not allowed for {} packets",
+                        format!("Indeterminite length encoding \
+                                 not allowed for {} packets",
                                 tag)).into()),
                 BodyLength::Partial(_) =>
                     return Err(Error::MalformedPacket(
-                        format!("Partial Body Chunking not allowed for {} packets",
+                        format!("Partial Body Chunking not allowed \
+                                 for {} packets",
                                 tag)).into()),
                 BodyLength::Full(l) => {
                     let valid = match tag {
                         Tag::Signature =>
-                            l < (10  /* Header, fixed sized fields.  */
-                                 + 2 * 64 * 1024 /* Hashed & Unhashed areas.  */
-                                 + 64 * 1024 /* MPIs.  */),
-                        Tag::PKESK | Tag::SKESK => l < 10 * 1024,
+                            // A V3 signature is 19 bytes plus the
+                            // MPIs.  A V4 is 10 bytes plus the hash
+                            // areas and the MPIs.
+                            10 <= l
+                            && l < (10  // Header, fixed sized fields.
+                                    + 2 * 64 * 1024 // Hashed & Unhashed areas.
+                                    + 64 * 1024 // MPIs.
+                                   ),
+                        Tag::SKESK =>
+                            // 2 bytes of fixed header.  An s2k
+                            // specification (at least 1 byte), an
+                            // optional encryption session key.
+                            3 <= l && l < 10 * 1024,
+                        Tag::PKESK =>
+                            // 10 bytes of fixed header, plus the
+                            // encrypted session key.
+                            10 < l && l < 10 * 1024,
                         Tag::OnePassSig if ! future_compatible => l == 13,
                         Tag::OnePassSig => l < 1024,
                         Tag::PublicKey | Tag::PublicSubkey
                             | Tag::SecretKey | Tag::SecretSubkey =>
-                            l < 1024 * 1024,
+                            // A V3 key is 8 bytes of fixed header
+                            // plus MPIs.  A V4 key is 6 bytes of
+                            // fixed headers plus MPIs.
+                            6 < l && l < 1024 * 1024,
                         Tag::Trust => true,
-                        Tag::UserID => l < 32 * 1024,
-                        Tag::UserAttribute => true,
+                        Tag::UserID =>
+                            // Avoid insane user ids.
+                            l < 32 * 1024,
+                        Tag::UserAttribute =>
+                            // The header is at least 2 bytes.
+                            2 <= l,
                         Tag::MDC => l == 20,
 
                         Tag::Literal | Tag::CompressedData
