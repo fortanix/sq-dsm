@@ -51,9 +51,9 @@ fn get_signing_keys(tpks: &[openpgp::TPK]) -> Result<Vec<crypto::KeyPair>> {
             if let Some(mut secret) = key.secret() {
                 let secret_mpis = match secret {
                     SecretKey::Encrypted { .. } => {
-                        let password = rpassword::prompt_password_stderr(
+                        let password = rpassword::read_password_from_tty(Some(
                             &format!("Please enter password to decrypt {}/{}: ",
-                                     tsk, key)).unwrap();
+                                     tsk, key))).unwrap();
                         secret.decrypt(key.pk_algo(), &password.into())
                             .expect("decryption failed")
                     },
@@ -85,12 +85,12 @@ pub fn encrypt(store: &mut store::Store,
     let mut passwords = Vec::with_capacity(npasswords);
     for n in 0..npasswords {
         let nprompt = format!("Enter password {}: ", n + 1);
-        passwords.push(rpassword::prompt_password_stderr(
+        passwords.push(rpassword::read_password_from_tty(Some(
             if npasswords > 1 {
                 &nprompt
             } else {
                 "Enter password: "
-            })?.into());
+            }))?.into());
     }
 
     let mut signers = get_signing_keys(&signers)?;

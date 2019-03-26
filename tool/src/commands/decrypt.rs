@@ -144,10 +144,10 @@ impl<'a> DecryptionHelper for Helper<'a> {
                 }
 
                 loop {
-                    let p = rpassword::prompt_password_stderr(
+                    let p = rpassword::read_password_from_tty(Some(
                         &format!(
                             "Enter password to decrypt key {}: ",
-                            self.key_hints.get(&keyid).unwrap()))
+                            self.key_hints.get(&keyid).unwrap())))
                         ?.into();
 
                     if let Ok(mpis) =
@@ -180,8 +180,8 @@ impl<'a> DecryptionHelper for Helper<'a> {
         // Finally, try to decrypt using the SKESKs.
         loop {
             let password =
-                rpassword::prompt_password_stderr(
-                    "Enter password to decrypt message: ")?.into();
+                rpassword::read_password_from_tty(Some(
+                    "Enter password to decrypt message: "))?.into();
 
             for skesk in skesks {
                 if let Ok(sk) = skesk.decrypt(&password)

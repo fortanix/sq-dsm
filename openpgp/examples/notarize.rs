@@ -34,9 +34,9 @@ fn main() {
             if let Some(mut secret) = key.secret() {
                 let secret_mpis = match secret {
                     SecretKey::Encrypted { .. } => {
-                        let password = rpassword::prompt_password_stderr(
-                            &format!("Please enter password to decrypt {}/{}: ",
-                                     tsk, key)).unwrap();
+                        let password = rpassword::read_password_from_tty(
+                            Some(&format!("Please enter password to decrypt \
+                                           {}/{}: ",tsk, key))).unwrap();
                         secret.decrypt(key.pk_algo(), &password.into())
                             .expect("decryption failed")
                     },

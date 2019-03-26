@@ -28,7 +28,7 @@ sequoia-store = { path = "../store" }
 clap = "2.32.0"
 failure = "0.1.2"
 prettytable-rs = "0.8.0"
-rpassword = "2.0.0"
+rpassword = "3.0"
 tempfile = "3.0.4"
 time = "0.1.38"
 

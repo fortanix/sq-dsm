@@ -70,10 +70,10 @@ pub fn generate(m: &ArgMatches, force: bool) -> failure::Fallible<()> {
     }
 
     if m.is_present("with-password") {
-        let p0 = rpassword::prompt_password_stderr(
-            "Enter password to protect the key: ")?.into();
-        let p1 = rpassword::prompt_password_stderr(
-            "Repeat the password once more: ")?.into();
+        let p0 = rpassword::read_password_from_tty(Some(
+            "Enter password to protect the key: "))?.into();
+        let p1 = rpassword::read_password_from_tty(Some(
+            "Repeat the password once more: "))?.into();
 
         if p0 == p1 {
             builder = builder.set_password(Some(p0));
