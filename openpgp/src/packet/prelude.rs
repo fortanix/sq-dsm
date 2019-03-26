@@ -18,6 +18,7 @@ pub use super::{
     skesk::SKESK4,
     skesk::SKESK5,
     SEIP,
+    seip::SEIP1,
     MDC,
     AED,
     aed::AED1,

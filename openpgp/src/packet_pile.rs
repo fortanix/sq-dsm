@@ -428,7 +428,7 @@ mod test {
     use constants::DataFormat::Text;
     use packet::Literal;
     use packet::CompressedData;
-    use packet::SEIP;
+    use packet::seip::SEIP1;
     use packet::Tag;
     use parse::{Parse, PacketParser};
 
@@ -648,10 +648,10 @@ mod test {
             cd = cd.push(lit.into())
         }
 
-        let mut seip = SEIP::new();
+        let mut seip = SEIP1::new();
         seip.common.children = Some(Container::new());
         seip.common.children.as_mut().unwrap().push(cd.into());
-        packets.push(Packet::SEIP(seip));
+        packets.push(seip.into());
 
         eprintln!("{:#?}", packets);
 

@@ -1956,7 +1956,7 @@ impl SEIP {
             return php.fail("unknown version");
         }
 
-        php.ok(Packet::SEIP(SEIP::new()))
+        php.ok(SEIP1::new().into())
             .map(|pp| pp.set_decrypted(false))
     }
 }

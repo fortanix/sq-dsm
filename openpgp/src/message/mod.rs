@@ -945,13 +945,13 @@ mod tests {
         //  0: Literal
         //  1: MDC
         // => good.
-        let mut seip = SEIP::new();
+        let mut seip = SEIP1::new();
         seip.common.children = Some(Container::new());
         seip.common.children.as_mut().unwrap().push(
             lit.clone().into());
         seip.common.children.as_mut().unwrap().push(
             MDC::from([0u8; 20]).into());
-        packets[1] = Packet::SEIP(seip);
+        packets[1] = seip.into();
 
         assert!(packets.iter().map(|p| p.tag()).collect::<Vec<Tag>>()
                 == [ Tag::SKESK, Tag::SEIP ]);

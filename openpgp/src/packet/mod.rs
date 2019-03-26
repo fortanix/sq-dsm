@@ -39,8 +39,7 @@ mod literal;
 pub use self::literal::Literal;
 mod compressed_data;
 pub use self::compressed_data::CompressedData;
-mod seip;
-pub use self::seip::SEIP;
+pub mod seip;
 pub mod skesk;
 mod pkesk;
 pub use self::pkesk::PKESK;
@@ -724,6 +723,53 @@ impl SKESK {
 impl From<SKESK> for Packet {
     fn from(p: SKESK) -> Self {
         Packet::SKESK(p)
+    }
+}
+
+/// Holds an encrypted data packet.
+///
+/// An encrypted data packet is a container.  See [Section 5.13 of RFC
+/// 4880] for details.
+///
+/// [Section 5.13 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.13
+#[derive(PartialEq, Eq, Hash, Clone, Debug)]
+pub enum SEIP {
+    /// SEIP packet version 1.
+    V1(self::seip::SEIP1),
+}
+
+impl SEIP {
+    /// Gets the version.
+    pub fn version(&self) -> u8 {
+        match self {
+            SEIP::V1(_) => 1,
+        }
+    }
+}
+
+impl From<SEIP> for Packet {
+    fn from(p: SEIP) -> Self {
+        Packet::SEIP(p)
+    }
+}
+
+// Trivial forwarder for singleton enum.
+impl Deref for SEIP {
+    type Target = self::seip::SEIP1;
+
+    fn deref(&self) -> &Self::Target {
+        match self {
+            SEIP::V1(ref p) => p,
+        }
+    }
+}
+
+// Trivial forwarder for singleton enum.
+impl DerefMut for SEIP {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        match self {
+            SEIP::V1(ref mut p) => p,
+        }
     }
 }
 

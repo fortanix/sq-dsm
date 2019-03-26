@@ -1,3 +1,10 @@
+//! Symmetrically Encrypted Integrity Protected data packets.
+//!
+//! An encrypted data packet is a container.  See [Section 5.13 of RFC
+//! 4880] for details.
+//!
+//! [Section 5.13 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.13
+
 use std::ops::{Deref, DerefMut};
 use packet::{self, Common};
 use Packet;
@@ -9,36 +16,34 @@ use Packet;
 ///
 /// [Section 5.13 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.13
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
-pub struct SEIP {
+pub struct SEIP1 {
     /// CTB packet header fields.
     pub(crate) common: packet::Common,
-    /// SEIP version. Must be 1.
-    version: u8,
 }
 
-impl SEIP {
-    /// Creates a new SEIP packet.
+impl SEIP1 {
+    /// Creates a new SEIP1 packet.
     pub fn new() -> Self {
         Self {
             common: Default::default(),
-            version: 1,
         }
-    }
-
-    /// Gets the version.
-    pub fn version(&self) -> u8 {
-        self.version
     }
 }
 
-impl From<SEIP> for Packet {
-    fn from(s: SEIP) -> Self {
-        Packet::SEIP(s)
+impl From<SEIP1> for super::SEIP {
+    fn from(p: SEIP1) -> Self {
+        super::SEIP::V1(p)
+    }
+}
+
+impl From<SEIP1> for Packet {
+    fn from(s: SEIP1) -> Self {
+        Packet::SEIP(s.into())
     }
 }
 
 // Allow transparent access of common fields.
-impl<'a> Deref for SEIP {
+impl<'a> Deref for SEIP1 {
     type Target = Common;
 
     fn deref(&self) -> &Self::Target {
@@ -47,7 +52,7 @@ impl<'a> Deref for SEIP {
 }
 
 // Allow transparent access of common fields.
-impl<'a> DerefMut for SEIP {
+impl<'a> DerefMut for SEIP1 {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.common
     }
@@ -59,9 +64,8 @@ mod tests {
 
     #[test]
     fn deref() {
-        let mut s = SEIP {
+        let mut s = SEIP1 {
             common: Default::default(),
-            version: 1,
         };
         assert_eq!(s.body(), None);
         s.set_body(vec![0, 1, 2]);
