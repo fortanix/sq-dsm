@@ -3,6 +3,7 @@ use std::borrow::Cow;
 use time;
 use packet::{Features, KeyFlags};
 use packet::Key;
+use packet::key::Key4;
 use Result;
 use crypto::KeyPair;
 use HashAlgorithm;
@@ -36,7 +37,7 @@ impl CipherSuite {
 
         match self {
             CipherSuite::RSA3k =>
-                Key::generate_rsa(3072),
+                Key4::generate_rsa(3072),
             CipherSuite::Cv25519 | CipherSuite::P256 |
             CipherSuite::P384 | CipherSuite::P521 => {
                 let sign = flags.can_certify() || flags.can_sign();
@@ -57,8 +58,8 @@ impl CipherSuite {
                 };
 
                 match (sign, encrypt) {
-                    (true, false) => Key::generate_ecc(true, curve),
-                    (false, true) => Key::generate_ecc(false, curve),
+                    (true, false) => Key4::generate_ecc(true, curve),
+                    (false, true) => Key4::generate_ecc(false, curve),
                     (true, true) =>
                         Err(Error::InvalidOperation(
                             "Can't use key for encryption and signing".into())
@@ -69,7 +70,7 @@ impl CipherSuite {
                             .into()),
                 }
             },
-        }
+        }.map(|key| key.into())
     }
 }
 

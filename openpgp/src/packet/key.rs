@@ -25,11 +25,9 @@ use crypto::Password;
 ///
 ///   [Section 5.5 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.5
 #[derive(PartialEq, Eq, Hash, Clone)]
-pub struct Key {
+pub struct Key4 {
     /// CTB packet header fields.
     pub(crate) common: packet::Common,
-    /// Version of the key packet. Must be 4.
-    version: u8,
     /// When the key was created.
     creation_time: time::Tm,
     /// Public key algorithm of this signature.
@@ -41,11 +39,10 @@ pub struct Key {
 }
 
 
-impl fmt::Debug for Key {
+impl fmt::Debug for Key4 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("Key")
+        f.debug_struct("Key4")
             .field("fingerprint", &self.fingerprint())
-            .field("version", &self.version)
             .field("creation_time", &format!("{}", self.creation_time.rfc3339()))
             .field("pk_algo", &self.pk_algo)
             .field("mpis", &self.mpis)
@@ -54,26 +51,21 @@ impl fmt::Debug for Key {
     }
 }
 
-impl fmt::Display for Key {
+impl fmt::Display for Key4 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.fingerprint())
     }
 }
 
-impl Key {
+impl Key4 {
     /// Compares the public bits of two keys.
     ///
-    /// This returns Ordering::Equal if the public MPIs, version,
-    /// creation time and algorithm of the two `Key`s match.  This
+    /// This returns Ordering::Equal if the public MPIs,
+    /// creation time and algorithm of the two `Key4`s match.  This
     /// does not consider the packet's encoding, packet's tag or the
     /// secret key material.
     pub fn public_cmp(a: &Self, b: &Self) -> Ordering {
         match a.mpis.cmp(&b.mpis) {
-            Ordering::Equal => (),
-            o => return o,
-        }
-
-        match a.version.cmp(&b.version) {
             Ordering::Equal => (),
             o => return o,
         }
@@ -87,15 +79,14 @@ impl Key {
     }
 }
 
-impl Key {
+impl Key4 {
     /// Creates a new OpenPGP key packet.
     pub fn new(creation_time: time::Tm, pk_algo: PublicKeyAlgorithm,
                mpis: mpis::PublicKey, secret: Option<SecretKey>)
-               -> Result<Key>
+               -> Result<Self>
     {
-        Ok(Key {
+        Ok(Key4 {
             common: Default::default(),
-            version: 4,
             creation_time: creation_time,
             pk_algo: pk_algo,
             mpis: mpis,
@@ -116,9 +107,8 @@ impl Key {
         let mut point = Vec::from(public_key);
         point.insert(0, 0x40);
 
-        Ok(Key{
+        Ok(Key4 {
             common: Default::default(),
-            version: 4,
             creation_time: ctime.into().unwrap_or(time::now()),
             pk_algo: PublicKeyAlgorithm::ECDH,
             mpis: mpis::PublicKey::ECDH{
@@ -149,9 +139,8 @@ impl Key {
         let mut private_key = Vec::from(private_key);
         private_key.reverse();
 
-        Ok(Key{
+        Ok(Key4 {
             common: Default::default(),
-            version: 4,
             creation_time: ctime.into().unwrap_or(time::now()),
             pk_algo: PublicKeyAlgorithm::ECDH,
             mpis: mpis::PublicKey::ECDH{
@@ -179,9 +168,8 @@ impl Key {
         let mut point = Vec::from(public_key);
         point.insert(0, 0x40);
 
-        Ok(Key{
+        Ok(Key4 {
             common: Default::default(),
-            version: 4,
             creation_time: ctime.into().unwrap_or(time::now()),
             pk_algo: PublicKeyAlgorithm::EdDSA,
             mpis: mpis::PublicKey::EdDSA{
@@ -205,9 +193,8 @@ impl Key {
         let mut public_key = [0x40u8; ED25519_KEY_SIZE + 1];
         ed25519::public_key(&mut public_key[1..], private_key).unwrap();
 
-        Ok(Key{
+        Ok(Key4 {
             common: Default::default(),
-            version: 4,
             creation_time: ctime.into().unwrap_or(time::now()),
             pk_algo: PublicKeyAlgorithm::EdDSA,
             mpis: mpis::PublicKey::EdDSA{
@@ -230,9 +217,8 @@ impl Key {
     pub fn import_public_rsa<T>(e: &[u8], n: &[u8], ctime: T)
         -> Result<Self> where T: Into<Option<time::Tm>>
     {
-        Ok(Key{
+        Ok(Key4 {
             common: Default::default(),
-            version: 4,
             creation_time: ctime.into().unwrap_or(time::now()),
             pk_algo: PublicKeyAlgorithm::RSAEncryptSign,
             mpis: mpis::PublicKey::RSA{
@@ -257,9 +243,8 @@ impl Key {
         let key = sec.public_key()?;
         let (a, b, c) = sec.as_rfc4880();
 
-        Ok(Key{
+        Ok(Key4 {
             common: Default::default(),
-            version: 4,
             creation_time: ctime.into().unwrap_or(time::now()),
             pk_algo: PublicKeyAlgorithm::RSAEncryptSign,
             mpis: mpis::PublicKey::RSA{
@@ -299,9 +284,8 @@ impl Key {
             mpis: private_mpis
         });
 
-        Ok(Key {
+        Ok(Key4 {
             common: Default::default(),
-            version: 4,
             creation_time: time::now().canonicalize(),
             pk_algo: PublicKeyAlgorithm::RSAEncryptSign,
             mpis: public_mpis,
@@ -459,19 +443,13 @@ impl Key {
             }
         };
 
-        Ok(Key {
+        Ok(Key4 {
             common: Default::default(),
-            version: 4,
             creation_time: time::now().canonicalize(),
             pk_algo: pk_algo,
             mpis: mpis,
             secret: secret,
         })
-    }
-
-    /// Gets the key packet's version field.
-    pub fn version(&self) -> u8 {
-        self.version
     }
 
     /// Gets the key packet's creation time field.
@@ -531,10 +509,10 @@ impl Key {
     /// Convert the `Key` struct to a `Packet`.
     pub fn into_packet(self, tag: Tag) -> Result<Packet> {
         match tag {
-            Tag::PublicKey => Ok(Packet::PublicKey(self)),
-            Tag::PublicSubkey => Ok(Packet::PublicSubkey(self)),
-            Tag::SecretKey => Ok(Packet::SecretKey(self)),
-            Tag::SecretSubkey => Ok(Packet::SecretSubkey(self)),
+            Tag::PublicKey => Ok(Packet::PublicKey(self.into())),
+            Tag::PublicSubkey => Ok(Packet::PublicSubkey(self.into())),
+            Tag::SecretKey => Ok(Packet::SecretKey(self.into())),
+            Tag::SecretSubkey => Ok(Packet::SecretSubkey(self.into())),
             _ => Err(Error::InvalidArgument(
                 format!("Expected Tag::PublicKey, Tag::PublicSubkey, \
                          Tag::SecretKey, or Tag::SecretSubkey. \
@@ -561,7 +539,13 @@ impl Key {
                     "no secret key".into()).into()),
         };
 
-        KeyPair::new(self, secret)
+        KeyPair::new(self.into(), secret)
+    }
+}
+
+impl From<Key4> for super::Key {
+    fn from(p: Key4) -> Self {
+        super::Key::V4(p)
     }
 }
 
@@ -684,6 +668,7 @@ impl SecretKey {
 #[cfg(test)]
 mod tests {
     use packet::Tag;
+    use packet::Key;
     use TPK;
     use packet::pkesk::PKESK3;
     use packet::key::SecretKey;
@@ -703,10 +688,11 @@ mod tests {
         let mut tpk = TPK::from_file(
             path_to("testy-new-encrypted-with-123.pgp")).unwrap();
         let pair = tpk.primary_mut();
+        let pk_algo = pair.pk_algo();
         let secret = pair.secret.as_mut().unwrap();
 
         assert!(secret.is_encrypted());
-        secret.decrypt_in_place(pair.pk_algo, &"123".into()).unwrap();
+        secret.decrypt_in_place(pk_algo, &"123".into()).unwrap();
         assert!(!secret.is_encrypted());
 
         match secret {
@@ -721,8 +707,8 @@ mod tests {
         use constants::Curve::*;
 
         for curve in vec![NistP256, NistP384, NistP521] {
-            let sign_key = Key::generate_ecc(true, curve.clone()).unwrap();
-            let enc_key = Key::generate_ecc(false, curve).unwrap();
+            let sign_key = Key4::generate_ecc(true, curve.clone()).unwrap();
+            let enc_key = Key4::generate_ecc(false, curve).unwrap();
             let sign_clone = sign_key.clone();
             let enc_clone = enc_key.clone();
 
@@ -731,7 +717,7 @@ mod tests {
         }
 
         for bits in vec![1024, 2048, 3072, 4096] {
-            let key = Key::generate_rsa(bits).unwrap();
+            let key = Key4::generate_rsa(bits).unwrap();
             let clone = key.clone();
             assert_eq!(key, clone);
         }
@@ -742,12 +728,12 @@ mod tests {
         use constants::Curve::*;
 
         let keys = vec![NistP256, NistP384, NistP521].into_iter().flat_map(|cv| {
-            let sign_key = Key::generate_ecc(true, cv.clone()).unwrap();
-            let enc_key = Key::generate_ecc(false, cv).unwrap();
+            let sign_key = Key4::generate_ecc(true, cv.clone()).unwrap();
+            let enc_key = Key4::generate_ecc(false, cv).unwrap();
 
             vec![sign_key, enc_key]
         }).chain(vec![1024, 2048, 3072, 4096].into_iter().map(|b| {
-            Key::generate_rsa(b).unwrap()
+            Key4::generate_rsa(b).unwrap()
         }));
 
         for mut key in keys {
@@ -755,9 +741,10 @@ mod tests {
             key.serialize(&mut b, Tag::SecretKey).unwrap();
 
             let pp = PacketPile::from_bytes(&b).unwrap();
-            if let Some(Packet::SecretKey(ref parsed_key)) = pp.path_ref(&[0]) {
+            if let Some(Packet::SecretKey(Key::V4(ref parsed_key))) =
+                pp.path_ref(&[0])
+            {
                 assert_eq!(key.common, parsed_key.common);
-                assert_eq!(key.version, parsed_key.version);
                 assert_eq!(key.creation_time, parsed_key.creation_time);
                 assert_eq!(key.pk_algo, parsed_key.pk_algo);
                 assert_eq!(key.mpis, parsed_key.mpis);
@@ -772,7 +759,9 @@ mod tests {
             key.serialize(&mut b, Tag::PublicKey).unwrap();
 
             let pp = PacketPile::from_bytes(&b).unwrap();
-            if let Some(Packet::PublicKey(ref parsed_key)) = pp.path_ref(&[0]) {
+            if let Some(Packet::PublicKey(Key::V4(ref parsed_key))) =
+                pp.path_ref(&[0])
+            {
                 assert!(parsed_key.secret().is_none());
 
                 key.set_secret(None);
@@ -790,12 +779,13 @@ mod tests {
         use constants::Curve::*;
 
         let keys = vec![NistP256, NistP384, NistP521].into_iter().map(|cv| {
-            Key::generate_ecc(false, cv).unwrap()
+            Key4::generate_ecc(false, cv).unwrap()
         }).chain(vec![1024, 2048, 3072, 4096].into_iter().map(|b| {
-            Key::generate_rsa(b).unwrap()
+            Key4::generate_rsa(b).unwrap()
         }));
 
-        for mut key in keys {
+        for key in keys.into_iter() {
+            let key = Key::from(key);
             let secret =
                 if let Some(SecretKey::Unencrypted {
                     ref mpis,
@@ -822,9 +812,9 @@ mod tests {
         use constants::Curve::*;
 
         let keys = vec![NistP256, NistP384, NistP521].into_iter().map(|cv| {
-            Key::generate_ecc(false, cv).unwrap()
+            Key4::generate_ecc(false, cv).unwrap()
         }).chain(vec![1024, 2048, 3072, 4096].into_iter().map(|b| {
-            Key::generate_rsa(b).unwrap()
+            Key4::generate_rsa(b).unwrap()
         }));
 
         for key in keys {
@@ -854,7 +844,10 @@ mod tests {
         // X25519 key
         let ctime = at(Timespec::new(0x5c487129,0));
         let public = b"\xed\x59\x0a\x15\x08\x95\xe9\x92\xd2\x2c\x14\x01\xb3\xe9\x3b\x7f\xff\xe6\x6f\x22\x65\xec\x69\xd9\xb8\xda\x24\x2c\x64\x84\x44\x11";
-        let key = Key::import_public_cv25519(&public[..], HashAlgorithm::SHA256, SymmetricAlgorithm::AES128, ctime).unwrap();
+        let key = Key4::import_public_cv25519(&public[..],
+                                              HashAlgorithm::SHA256,
+                                              SymmetricAlgorithm::AES128,
+                                              ctime).unwrap().into();
 
         // PKESK
         let eph_pubkey = MPI::new(&b"\x40\xda\x1c\x69\xc4\xe3\xb6\x9c\x6e\xd4\xc6\x69\x6c\x89\xc7\x09\xe9\xf8\x6a\xf1\xe3\x8d\xb6\xaa\xb5\xf7\x29\xae\xa6\xe7\xdd\xfe\x38"[..]);
@@ -884,7 +877,10 @@ mod tests {
         let ctime = at(Timespec::new(0x5c487129,0));
         let public = b"\xed\x59\x0a\x15\x08\x95\xe9\x92\xd2\x2c\x14\x01\xb3\xe9\x3b\x7f\xff\xe6\x6f\x22\x65\xec\x69\xd9\xb8\xda\x24\x2c\x64\x84\x44\x11";
         let secret = b"\xa0\x27\x13\x99\xc9\xe3\x2e\xd2\x47\xf6\xd6\x63\x9d\xe6\xec\xcb\x57\x0b\x92\xbb\x17\xfe\xb8\xf1\xc4\x1f\x06\x7c\x55\xfc\xdd\x58";
-        let key = Key::import_secret_cv25519(&secret[..], HashAlgorithm::SHA256, SymmetricAlgorithm::AES128, ctime).unwrap();
+        let key: Key = Key4::import_secret_cv25519(&secret[..],
+                                                   HashAlgorithm::SHA256,
+                                                   SymmetricAlgorithm::AES128,
+                                                   ctime).unwrap().into();
         match key.mpis {
             self::mpis::PublicKey::ECDH{ ref q,.. } => assert_eq!(&q.value[1..], &public[..]),
             _ => unreachable!(),
@@ -921,7 +917,8 @@ mod tests {
         let d = b"\x14\xC4\x3A\x0C\x3A\x79\xA4\xF7\x63\x0D\x89\x93\x63\x8B\x56\x9C\x29\x2E\xCD\xCF\xBF\xB0\xEC\x66\x52\xC3\x70\x1B\x19\x21\x73\xDE\x8B\xAC\x0E\xF2\xE1\x28\x42\x66\x56\x55\x00\x3B\xFD\x50\xC4\x7C\xBC\x9D\xEB\x7D\xF4\x81\xFC\xC3\xBF\xF7\xFF\xD0\x41\x3E\x50\x3B\x5F\x5D\x5F\x56\x67\x5E\x00\xCE\xA4\x53\xB8\x59\xA0\x40\xC8\x96\x6D\x12\x09\x27\xBE\x1D\xF1\xC2\x68\xFC\xF0\x14\xD6\x52\x77\x07\xC8\x12\x36\x9C\x9A\x5C\xAF\x43\xCC\x95\x20\xBB\x0A\x44\x94\xDD\xB4\x4F\x45\x4E\x3A\x1A\x30\x0D\x66\x40\xAC\x68\xE8\xB0\xFD\xCD\x6C\x6B\x6C\xB5\xF7\xE4\x36\x95\xC2\x96\x98\xFD\xCA\x39\x6C\x1A\x2E\x55\xAD\xB6\xE0\xF8\x2C\xFF\xBC\xD3\x32\x15\x52\x39\xB3\x92\x35\xDB\x8B\x68\xAF\x2D\x4A\x6E\x64\xB8\x28\x63\xC4\x24\x94\x2D\xA9\xDB\x93\x56\xE3\xBC\xD0\xB6\x38\x84\x04\xA4\xC6\x18\x48\xFE\xB2\xF8\xE1\x60\x37\x52\x96\x41\xA5\x79\xF6\x3D\xB7\x2A\x71\x5B\x7A\x75\xBF\x7F\xA2\x5A\xC8\xA1\x38\xF2\x5A\xBD\x14\xFC\xAF\xB4\x54\x83\xA4\xBD\x49\xA2\x8B\x91\xB0\xE0\x4A\x1B\x21\x54\x07\x19\x70\x64\x7C\x3E\x9F\x8D\x8B\xE4\x70\xD1\xE7\xBE\x4E\x5C\xCE\xF1";
         let p = b"\xC8\x32\xD1\x17\x41\x4D\x8F\x37\x09\x18\x32\x4C\x4C\xF4\xA2\x15\x27\x43\x3D\xBB\xB5\xF6\x1F\xCF\xD2\xE4\x43\x61\x07\x0E\x9E\x35\x1F\x0A\x5D\xFB\x3A\x45\x74\x61\x73\x73\x7B\x5F\x1F\x87\xFB\x54\x8D\xA8\x85\x3E\xB0\xB7\xC7\xF5\xC9\x13\x99\x8D\x40\xE6\xA6\xD0\x71\x3A\xE3\x2D\x4A\xC3\xA3\xFF\xF7\x72\x82\x14\x52\xA4\xBA\x63\x0E\x17\xCA\xCA\x18\xC4\x3A\x40\x79\xF1\x86\xB3\x10\x4B\x9F\xB2\xAE\x2E\x13\x38\x8D\x2C\xF9\x88\x4C\x25\x53\xEF\xF9\xD1\x8B\x1A\x7C\xE7\xF6\x4B\x73\x51\x31\xFA\x44\x1D\x36\x65\x71\xDA\xFC\x6F";
         let q = b"\xCC\x30\xE9\xCC\xCB\x31\x28\xB5\x90\xFF\x06\x62\x42\x5B\x24\x0E\x00\xFE\xE2\x37\xC4\xAC\xBB\x3B\x8F\xF2\x0E\x3F\x78\xCF\x6B\x7C\xE8\x75\x57\x7C\x15\x9D\x1A\x66\xF2\x0A\xE5\xD3\x0B\xE7\x40\xF7\xE7\x00\xB6\x86\xB5\xD9\x20\x67\xE0\x4A\xC0\x90\xA4\x13\x4D\xC9\xB0\x12\xC5\xCD\x4C\xEB\xA1\x91\x2D\x43\x58\x6E\xB6\x75\xA0\x93\xF0\x5B\xC5\x31\xCA\xB7\xC6\x22\x0C\xD3\xEC\x84\xC5\x91\xA1\x5F\x2C\x8E\x07\x5D\xA1\x98\x67\xC5\x7A\x58\x16\x71\x3D\xED\x91\x03\x0D\xD4\x25\x07\x89\x9B\x33\x98\xA3\x70\xD9\xE7\xC8\x17\xA3\xD9";
-        let key = Key::import_secret_rsa(&d[..], &p[..], &q[..], ctime).unwrap();
+        let key: Key = Key4::import_secret_rsa(&d[..], &p[..], &q[..], ctime)
+            .unwrap().into();
 
         // PKESK
         let c = b"\x8A\x1A\xD4\x82\x91\x6B\xBF\xA1\x65\xD3\x82\x8C\x97\xAB\xD0\x91\xE4\xB4\xC4\x9D\x08\xD8\x8B\xB7\xE6\x13\x3F\x6F\x52\x14\xED\xC4\x77\xB7\x31\x00\xC1\x43\xF9\x62\x53\xBF\x21\x21\x52\x74\x35\xD8\xC7\xA2\x11\x89\xA5\xD5\x21\x98\x6D\x3C\x9F\xF0\xED\xDB\xD7\x0F\xAC\x3C\x15\x25\x34\x52\xC7\x7C\x82\x07\x5A\x99\xC1\xC6\xF6\xF2\x6D\x46\xC8\x56\x59\xE7\xC6\x34\x0C\xCA\x37\x70\xB4\x97\xDA\x18\x14\xC4\x03\x0A\xCB\xE5\x0C\x41\x43\x61\xBA\x32\xB6\x9A\xF3\xDF\x0C\xB0\xCE\xBD\xFE\x72\x6C\xCC\xC1\xE8\xF0\x05\x97\x61\xEA\x30\x10\xB9\x43\xC4\x9A\x41\xED\x72\x27\xA4\xD5\xE7\x08\x41\x6C\x57\x80\xF3\x64\xF0\x45\x70\x27\x36\xBD\x64\x59\x74\xCF\xCD\x39\xE6\xEB\x7C\x62\xC8\x38\x23\xF8\x4C\xB7\x30\x9F\xF1\x40\x4A\xE9\x72\x66\x99\xF7\x2A\x47\x1C\xE7\x12\x20\x58\xBA\x87\x00\xB8\xFC\x54\xBC\xA5\x1D\x7D\x8B\x50\xA4\x4B\xB3\xD7\x44\xC7\x68\x5E\x2D\xBB\xE9\x6E\xC4\xD0\x31\xB0\xD0\xB6\x02\xD1\x74\x6B\xC9\x3D\x19\x32\x3B\xF1\x0E\x74\xF6\x12\x13\xE6\x40\x8F\xA6\x97\xAD\x83\xB0\x84\xD6\xD9\xE5\x25\x8E\x57\x0B\x7A\x7B\xD0\x5C\x29\x96\xED\x29\xED";
@@ -957,7 +954,7 @@ mod tests {
         // Ed25519 key
         let ctime = at(Timespec::new(1548249630,0));
         let q = b"\x57\x15\x45\x1B\x68\xA5\x13\xA2\x20\x0F\x71\x9D\xE3\x05\x3B\xED\xA2\x21\xDE\x61\x5A\xF5\x67\x45\xBB\x97\x99\x43\x53\x59\x7C\x3F";
-        let key = Key::import_public_ed25519(q, ctime).unwrap();
+        let key: Key = Key4::import_public_ed25519(q, ctime).unwrap().into();
 
         let mut hashed = SubpacketArea::empty();
         let mut unhashed = SubpacketArea::empty();

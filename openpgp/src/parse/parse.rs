@@ -1342,6 +1342,31 @@ impl Key {
     /// Parses the body of a public key, public subkey, secret key or
     /// secret subkey packet.
     fn parse<'a>(mut php: PacketHeaderParser<'a>) -> Result<PacketParser<'a>> {
+        make_php_try!(php);
+        let tag = php.header.ctb.tag;
+        assert!(tag == Tag::PublicKey
+                || tag == Tag::PublicSubkey
+                || tag == Tag::SecretKey
+                || tag == Tag::SecretSubkey);
+        let version = php_try!(php.parse_u8("version"));
+
+        match version {
+            4 => Key4::parse(php),
+            _ => php.fail("unknown version"),
+        }
+    }
+
+    /// Returns whether the data appears to be a key (no promises).
+    fn plausible(bio: &mut buffered_reader::Dup<Cookie>, header: &Header)
+                 -> Result<()> {
+        Key4::plausible(bio, header)
+    }
+}
+
+impl Key4 {
+    /// Parses the body of a public key, public subkey, secret key or
+    /// secret subkey packet.
+    fn parse<'a>(mut php: PacketHeaderParser<'a>) -> Result<PacketParser<'a>> {
         use std::io::Cursor;
         use serialize::Serialize;
 
@@ -1351,11 +1376,6 @@ impl Key {
                 || tag == Tag::PublicSubkey
                 || tag == Tag::SecretKey
                 || tag == Tag::SecretSubkey);
-        let version = php_try!(php.parse_u8("version"));
-        if version != 4 {
-            // We only support version 4 keys.
-            return php.fail("unknown version");
-        }
 
         let creation_time = php_try!(php.parse_be_u32("creation_time"));
         let pk_algo: PublicKeyAlgorithm = php_try!(php.parse_u8("pk_algo")).into();
@@ -1410,15 +1430,15 @@ impl Key {
             unimplemented!()
         };
 
-        let key = php_try!(Key::new(time::Tm::from_pgp(creation_time),
-                                    pk_algo, mpis, secret));
+        let key = php_try!(Key4::new(time::Tm::from_pgp(creation_time),
+                                     pk_algo, mpis, secret));
 
         let tag = php.header.ctb.tag;
         php.ok(match tag {
-            Tag::PublicKey => Packet::PublicKey(key),
-            Tag::PublicSubkey => Packet::PublicSubkey(key),
-            Tag::SecretKey => Packet::SecretKey(key),
-            Tag::SecretSubkey => Packet::SecretSubkey(key),
+            Tag::PublicKey => Packet::PublicKey(key.into()),
+            Tag::PublicSubkey => Packet::PublicSubkey(key.into()),
+            Tag::SecretKey => Packet::SecretKey(key.into()),
+            Tag::SecretSubkey => Packet::SecretSubkey(key.into()),
             _ => unreachable!(),
         })
     }

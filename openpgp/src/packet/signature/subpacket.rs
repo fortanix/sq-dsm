@@ -2295,7 +2295,8 @@ fn accessors() {
     let hash_algo = HashAlgorithm::SHA512;
     let hash = hash_algo.context().unwrap();
     let mut sig = signature::Builder::new(::constants::SignatureType::Binary);
-    let mut key = ::packet::Key::generate_ecc(true, Curve::Ed25519).unwrap();
+    let mut key: ::packet::Key =
+        ::packet::key::Key4::generate_ecc(true, Curve::Ed25519).unwrap().into();
     let sec = if let Some(SecretKey::Unencrypted { ref mpis }) = key.secret() {
         mpis.clone()
     } else {

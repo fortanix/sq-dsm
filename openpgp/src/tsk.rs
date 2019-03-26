@@ -523,7 +523,9 @@ mod tests {
             .add_userid("test1@example.com")
             .generate().unwrap();
 
-        let key = Key::generate_rsa(1024).unwrap();
+        let key: Key =
+            ::packet::key::Key4::generate_ecc(true, ::constants::Curve::Ed25519)
+            .unwrap().into();
         let flags = KeyFlags::default().set_sign(true);
         let tsk = TSK::from_tpk(tpk)
             .with_subkey(key, &flags, None)

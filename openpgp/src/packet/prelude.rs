@@ -8,6 +8,7 @@ pub use super::{
     OnePassSig,
     one_pass_sig::OnePassSig3,
     Key,
+    key::Key4,
     key::SecretKey,
     UserID,
     UserAttribute,

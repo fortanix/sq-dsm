@@ -5,7 +5,7 @@ use nettle::hash::insecure_do_not_use::Sha1;
 
 use {
     crypto::Hash,
-    packet::Key,
+    packet::key::Key4,
     KeyID,
     Fingerprint,
 };
@@ -19,7 +19,7 @@ fn path_to(artifact: &str) -> PathBuf {
         .iter().collect()
 }
 
-impl Key {
+impl Key4 {
     /// Computes and returns the key's fingerprint as per Section 12.2
     /// of RFC 4880.
     pub fn fingerprint(&self) -> Fingerprint {

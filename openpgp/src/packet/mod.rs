@@ -30,7 +30,6 @@ pub use self::unknown::Unknown;
 pub mod signature;
 pub mod one_pass_sig;
 pub mod key;
-pub use self::key::Key;
 mod userid;
 pub use self::userid::UserID;
 pub mod user_attribute;
@@ -769,6 +768,85 @@ impl SKESK {
 impl From<SKESK> for Packet {
     fn from(p: SKESK) -> Self {
         Packet::SKESK(p)
+    }
+}
+
+/// Holds a public key, public subkey, private key or private subkey packet.
+///
+/// See [Section 5.5 of RFC 4880] for details.
+///
+///   [Section 5.5 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.5
+#[derive(PartialEq, Eq, Hash, Clone, Debug)]
+pub enum Key {
+    /// Key packet version 4.
+    V4(self::key::Key4),
+}
+
+impl fmt::Display for Key {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Key::V4(k) => k.fmt(f),
+        }
+    }
+}
+
+impl Key {
+    /// Gets the version.
+    pub fn version(&self) -> u8 {
+        match self {
+            Key::V4(_) => 4,
+        }
+    }
+
+    /// Compares the public bits of two keys.
+    ///
+    /// This returns Ordering::Equal if the public MPIs, version,
+    /// creation time and algorithm of the two `Key`s match.  This
+    /// does not consider the packet's encoding, packet's tag or the
+    /// secret key material.
+    pub fn public_cmp(a: &Self, b: &Self) -> ::std::cmp::Ordering {
+        match (a, b) {
+            (Key::V4(a), Key::V4(b)) => self::key::Key4::public_cmp(a, b),
+        }
+    }
+
+    /// Creates a new key pair from a Key packet with an unencrypted
+    /// secret key.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the secret key is missing, or encrypted.
+    pub fn into_keypair(self) -> Result<::crypto::KeyPair> {
+        match self {
+            Key::V4(p) => p.into_keypair(),
+        }
+    }
+
+    /// Convert the `Key` struct to a `Packet`.
+    pub fn into_packet(self, tag: Tag) -> Result<Packet> {
+        match self {
+            Key::V4(p) => p.into_packet(tag),
+        }
+    }
+}
+
+// Trivial forwarder for singleton enum.
+impl Deref for Key {
+    type Target = self::key::Key4;
+
+    fn deref(&self) -> &Self::Target {
+        match self {
+            Key::V4(ref p) => p,
+        }
+    }
+}
+
+// Trivial forwarder for singleton enum.
+impl DerefMut for Key {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        match self {
+            Key::V4(ref mut p) => p,
+        }
     }
 }
 

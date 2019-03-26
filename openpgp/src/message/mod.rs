@@ -748,7 +748,9 @@ mod tests {
         lit.set_body(b"data".to_vec());
 
         let hash = ::constants::HashAlgorithm::SHA512;
-        let key = ::packet::Key::generate_ecc(true, ::constants::Curve::Ed25519).unwrap();
+        let key: Key =
+            ::packet::key::Key4::generate_ecc(true, ::constants::Curve::Ed25519)
+            .unwrap().into();
         let sec =
             if let Some(SecretKey::Unencrypted { ref mpis }) = key.secret() {
                 mpis.clone()
@@ -864,7 +866,9 @@ mod tests {
         lit.set_body(b"data".to_vec());
 
         let hash = ::constants::HashAlgorithm::SHA512;
-        let key = ::packet::Key::generate_ecc(true, ::constants::Curve::Ed25519).unwrap();
+        let key: Key =
+            ::packet::key::Key4::generate_ecc(true, ::constants::Curve::Ed25519)
+            .unwrap().into();
         let sec =
             if let Some(SecretKey::Unencrypted { ref mpis }) = key.secret() {
                 mpis.clone()

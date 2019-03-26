@@ -390,6 +390,7 @@ mod tests {
         use HashAlgorithm;
         use constants::Curve;
         use packet::Key;
+        use packet::key::Key4;
         use nettle::{curve25519, Yarrow};
         use time;
 
@@ -413,9 +414,9 @@ mod tests {
         let private_mpis = mpis::SecretKey::ECDH {
             scalar: MPI::new(&sec[..]),
         };
-        let key = Key::new(time::now().canonicalize(),
-                           PublicKeyAlgorithm::ECDH, public_mpis, None)
-            .unwrap();
+        let key: Key = Key4::new(time::now().canonicalize(),
+                                 PublicKeyAlgorithm::ECDH, public_mpis, None)
+            .unwrap().into();
         let mut rng = Yarrow::default();
         let sess_key = SessionKey::new(&mut rng, 32);
         let pkesk = PKESK3::for_recipient(SymmetricAlgorithm::AES256, &sess_key,

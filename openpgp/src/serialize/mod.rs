@@ -1196,6 +1196,28 @@ impl SerializeInto for OnePassSig3 {
 
 impl SerializeKey for Key {
     fn serialize<W: io::Write>(&self, o: &mut W, tag: Tag) -> Result<()> {
+        match self {
+            &Key::V4(ref p) => p.serialize(o, tag),
+        }
+    }
+}
+
+impl SerializeKeyInto for Key {
+    fn serialized_len(&self, tag: Tag) -> usize {
+        match self {
+            &Key::V4(ref p) => p.serialized_len(tag),
+        }
+    }
+
+    fn serialize_into(&self, buf: &mut [u8], tag: Tag) -> Result<usize> {
+        match self {
+            &Key::V4(ref p) => p.serialize_into(buf, tag)
+        }
+    }
+}
+
+impl SerializeKey for Key4 {
+    fn serialize<W: io::Write>(&self, o: &mut W, tag: Tag) -> Result<()> {
         assert!(tag == Tag::PublicKey
                 || tag == Tag::PublicSubkey
                 || tag == Tag::SecretKey
@@ -1217,12 +1239,7 @@ impl SerializeKey for Key {
         CTB::new(tag).serialize(o)?;
         BodyLength::Full(len as u32).serialize(o)?;
 
-        if self.version() != 4 {
-            return Err(Error::InvalidArgument(
-                "Don't know how to serialize \
-                 non-version 4 packets.".into()).into());
-        }
-        write_byte(o, self.version())?;
+        write_byte(o, 4)?; // Version.
         write_be_u32(o, self.creation_time().to_pgp()?)?;
         write_byte(o, self.pk_algo().into())?;
         self.mpis().serialize(o)?;
@@ -1261,7 +1278,7 @@ impl SerializeKey for Key {
     }
 }
 
-impl SerializeKeyInto for Key {
+impl SerializeKeyInto for Key4 {
     fn serialized_len(&self, tag: Tag) -> usize {
         let have_secret_key =
             (tag == Tag::SecretKey || tag == Tag::SecretSubkey)

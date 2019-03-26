@@ -4,6 +4,7 @@ use HashAlgorithm;
 use packet::UserID;
 use packet::UserAttribute;
 use packet::Key;
+use packet::key::Key4;
 use packet::Signature;
 use packet::signature::{self, Signature4};
 use Error;
@@ -175,7 +176,7 @@ impl Hash for UserAttribute {
     }
 }
 
-impl Hash for Key {
+impl Hash for Key4 {
     /// Update the Hash with a hash of the key.
     fn hash<H: nettle::Hash + Write>(&self, hash: &mut H) {
         // We hash 8 bytes plus the MPIs.  But, the len doesn't

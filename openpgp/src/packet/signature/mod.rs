@@ -846,6 +846,7 @@ mod test {
     use crypto::mpis::MPI;
     use TPK;
     use parse::Parse;
+    use packet::key::Key4;
 
     #[cfg(feature = "compression-deflate")]
     #[test]
@@ -1037,8 +1038,8 @@ mod test {
         use constants::Curve;
         use packet::key::SecretKey;
 
-        let key = Key::generate_ecc(true, Curve::Ed25519)
-            .unwrap();
+        let key: Key = Key4::generate_ecc(true, Curve::Ed25519)
+            .unwrap().into();
         let msg = b"Hello, World";
 
         match key.secret() {
@@ -1106,9 +1107,9 @@ mod test {
         let private_mpis = mpis::SecretKey::EdDSA {
             scalar: MPI::new(&sec[..]),
         };
-        let key = Key::new(time::now().canonicalize(),
+        let key = Key4::new(time::now().canonicalize(),
                            PublicKeyAlgorithm::EdDSA, public_mpis, None)
-            .unwrap();
+            .unwrap().into();
         let msg = b"Hello, World";
         let mut hash = HashAlgorithm::SHA256.context().unwrap();
 
