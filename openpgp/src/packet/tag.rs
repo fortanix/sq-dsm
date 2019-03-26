@@ -166,6 +166,38 @@ impl Arbitrary for Tag {
     }
 }
 
+impl Tag {
+    /// Returns whether the `Tag` can be at the start of a valid
+    /// message.
+    ///
+    /// [TPKs] can start with `PublicKey`, [TSKs] with a `SecretKey`.
+    ///
+    ///   [TPKs]: https://tools.ietf.org/html/rfc4880#section-11.1
+    ///   [TSKs]: https://tools.ietf.org/html/rfc4880#section-11.2
+    ///
+    /// [Messages] start with a `OnePassSig`, `Signature` (old style
+    /// non-one pass signatures), `PKESK`, `SKESK`, `CompressedData`,
+    /// or `Literal`.
+    ///
+    ///   [Messages]: https://tools.ietf.org/html/rfc4880#section-11.3
+    ///
+    /// Signatures can standalone either as a [detached signature], a
+    /// third-party certification, or a revocation certificate.
+    ///
+    ///   [detached signature]: https://tools.ietf.org/html/rfc4880#section-11.3
+    pub fn valid_start_of_message(&self) -> bool {
+        // TPK
+        *self == Tag::PublicKey || *self == Tag::SecretKey
+            // Message.
+            || *self == Tag::PKESK || *self == Tag::SKESK
+            || *self == Tag::Literal || *self == Tag::CompressedData
+            // Signed message.
+            || *self == Tag::OnePassSig
+            // Standalone signature, old-style signature.
+            || *self == Tag::Signature
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
