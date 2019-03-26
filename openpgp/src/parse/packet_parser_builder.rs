@@ -153,10 +153,22 @@ impl<'a> PacketParserBuilder<'a> {
             Dearmor::Enabled => true,
             Dearmor::Disabled => false,
             Dearmor::Auto => {
-                if let Err(_) = packet::Header::plausible(&mut self.bio) {
-                    true
+                let mut reader = buffered_reader::Dup::with_cookie(
+                    self.bio, Cookie::default());
+                let header = packet::Header::parse(&mut reader);
+                self.bio = Box::new(reader).into_inner().unwrap();
+                if let Ok(header) = header {
+                    if let Err(_) = header.valid(false) {
+                        // Invalid header: better try an ASCII armor
+                        // decoder.
+                        true
+                    } else {
+                        false
+                    }
                 } else {
-                    false
+                    // Failed to parse the header: better try an ASCII
+                    // armor decoder.
+                    true
                 }
             }
         };
