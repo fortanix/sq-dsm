@@ -406,15 +406,7 @@ mod tests {
     use crypto::KeyPair;
     use crypto::s2k::S2K;
     use crypto::mpis::{Ciphertext, MPI};
-    use packet::Tag;
-    use packet::CompressedData;
-    use packet::Literal;
-    use packet::OnePassSig;
-    use packet::skesk::SKESK4;
-    use packet::PKESK;
-    use packet::SEIP;
-    use packet::MDC;
-    use packet::key::SecretKey;
+    use packet::prelude::*;
     use KeyID;
     use Container;
 
@@ -770,7 +762,7 @@ mod tests {
         // 0: OnePassSig
         // => bad.
         let mut packets : Vec<Packet> = Vec::new();
-        packets.push(OnePassSig::new(SignatureType::Binary).into());
+        packets.push(OnePassSig3::new(SignatureType::Binary).into());
 
         let message = Message::from_packets(packets);
         assert!(message.is_err(), "{:?}", message);
@@ -779,7 +771,7 @@ mod tests {
         // 1: Literal
         // => bad.
         let mut packets : Vec<Packet> = Vec::new();
-        packets.push(OnePassSig::new(SignatureType::Binary).into());
+        packets.push(OnePassSig3::new(SignatureType::Binary).into());
         packets.push(lit.clone().into());
 
         let message = Message::from_packets(packets);
@@ -790,7 +782,7 @@ mod tests {
         // 2: Signature
         // => good.
         let mut packets : Vec<Packet> = Vec::new();
-        packets.push(OnePassSig::new(SignatureType::Binary).into());
+        packets.push(OnePassSig3::new(SignatureType::Binary).into());
         packets.push(lit.clone().into());
         packets.push(sig.clone().into());
 
@@ -803,7 +795,7 @@ mod tests {
         // 3: Signature
         // => bad.
         let mut packets : Vec<Packet> = Vec::new();
-        packets.push(OnePassSig::new(SignatureType::Binary).into());
+        packets.push(OnePassSig3::new(SignatureType::Binary).into());
         packets.push(lit.clone().into());
         packets.push(sig.clone().into());
         packets.push(sig.clone().into());
@@ -818,8 +810,8 @@ mod tests {
         // 4: Signature
         // => good.
         let mut packets : Vec<Packet> = Vec::new();
-        packets.push(OnePassSig::new(SignatureType::Binary).into());
-        packets.push(OnePassSig::new(SignatureType::Binary).into());
+        packets.push(OnePassSig3::new(SignatureType::Binary).into());
+        packets.push(OnePassSig3::new(SignatureType::Binary).into());
         packets.push(lit.clone().into());
         packets.push(sig.clone().into());
         packets.push(sig.clone().into());
@@ -835,8 +827,8 @@ mod tests {
         // 5: Signature
         // => bad.
         let mut packets : Vec<Packet> = Vec::new();
-        packets.push(OnePassSig::new(SignatureType::Binary).into());
-        packets.push(OnePassSig::new(SignatureType::Binary).into());
+        packets.push(OnePassSig3::new(SignatureType::Binary).into());
+        packets.push(OnePassSig3::new(SignatureType::Binary).into());
         packets.push(lit.clone().into());
         packets.push(lit.clone().into());
         packets.push(sig.clone().into());
@@ -853,8 +845,8 @@ mod tests {
         // 4: Signature
         // => good.
         let mut packets : Vec<Packet> = Vec::new();
-        packets.push(OnePassSig::new(SignatureType::Binary).into());
-        packets.push(OnePassSig::new(SignatureType::Binary).into());
+        packets.push(OnePassSig3::new(SignatureType::Binary).into());
+        packets.push(OnePassSig3::new(SignatureType::Binary).into());
         packets.push(
             CompressedData::new(CompressionAlgorithm::Uncompressed)
                 .push(lit.clone().into())

@@ -1136,17 +1136,33 @@ impl Signature4 {
 
 impl Serialize for OnePassSig {
     fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
+        match self {
+            &OnePassSig::V3(ref s) => s.serialize(o),
+        }
+    }
+}
+
+impl SerializeInto for OnePassSig {
+    fn serialized_len(&self) -> usize {
+        match self {
+            &OnePassSig::V3(ref s) => s.serialized_len(),
+        }
+    }
+
+    fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
+        match self {
+            &OnePassSig::V3(ref s) => s.serialize_into(buf),
+        }
+    }
+}
+
+impl Serialize for OnePassSig3 {
+    fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
         let len = self.net_len();
         CTB::new(Tag::OnePassSig).serialize(o)?;
         BodyLength::Full(len as u32).serialize(o)?;
 
-        if self.version() != 3 {
-            return Err(Error::InvalidArgument(
-                "Don't know how to serialize \
-                 non-version 3 packets.".into()).into());
-        }
-
-        write_byte(o, self.version())?;
+        write_byte(o, 3)?; // Version.
         write_byte(o, self.sigtype().into())?;
         write_byte(o, self.hash_algo().into())?;
         write_byte(o, self.pk_algo().into())?;
@@ -1157,7 +1173,7 @@ impl Serialize for OnePassSig {
     }
 }
 
-impl NetLength for OnePassSig {
+impl NetLength for OnePassSig3 {
     fn net_len(&self) -> usize {
         1 // Version.
             + 1 // Signature type.
@@ -1168,7 +1184,7 @@ impl NetLength for OnePassSig {
     }
 }
 
-impl SerializeInto for OnePassSig {
+impl SerializeInto for OnePassSig3 {
     fn serialized_len(&self) -> usize {
         self.gross_len()
     }

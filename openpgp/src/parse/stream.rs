@@ -27,7 +27,7 @@ use {
         ctb::CTB,
         Key,
         Literal,
-        OnePassSig,
+        one_pass_sig::OnePassSig3,
         PKESK,
         SKESK,
         Tag,
@@ -505,7 +505,7 @@ impl<'a> Transformer<'a> {
 
         let mut opss = Vec::new();
         for (i, sig) in sigs.iter().rev().enumerate() {
-            let mut ops = Result::<OnePassSig>::from(sig)?;
+            let mut ops = Result::<OnePassSig3>::from(sig)?;
             if i == sigs.len() - 1 {
                 ops.set_last(true);
             }

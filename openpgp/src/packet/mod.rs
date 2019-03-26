@@ -28,8 +28,7 @@ pub use self::header::Header;
 mod unknown;
 pub use self::unknown::Unknown;
 pub mod signature;
-mod one_pass_sig;
-pub use self::one_pass_sig::OnePassSig;
+pub mod one_pass_sig;
 pub mod key;
 pub use self::key::Key;
 mod userid;
@@ -647,6 +646,52 @@ impl DerefMut for Signature {
     fn deref_mut(&mut self) -> &mut Self::Target {
         match self {
             Signature::V4(ref mut sig) => sig,
+        }
+    }
+}
+
+/// Holds a one-pass signature packet.
+///
+/// See [Section 5.4 of RFC 4880] for details.
+///
+///   [Section 5.4 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.4
+#[derive(PartialEq, Eq, Hash, Clone, Debug)]
+pub enum OnePassSig {
+    /// OnePassSig packet version 3.
+    V3(self::one_pass_sig::OnePassSig3),
+}
+
+impl OnePassSig {
+    /// Gets the version.
+    pub fn version(&self) -> u8 {
+        match self {
+            &OnePassSig::V3(_) => 3,
+        }
+    }
+}
+
+impl From<OnePassSig> for Packet {
+    fn from(s: OnePassSig) -> Self {
+        Packet::OnePassSig(s)
+    }
+}
+
+// Trivial forwarder for singleton enum.
+impl Deref for OnePassSig {
+    type Target = one_pass_sig::OnePassSig3;
+
+    fn deref(&self) -> &Self::Target {
+        match self {
+            OnePassSig::V3(ops) => ops,
+        }
+    }
+}
+
+// Trivial forwarder for singleton enum.
+impl DerefMut for OnePassSig {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        match self {
+            OnePassSig::V3(ref mut ops) => ops,
         }
     }
 }

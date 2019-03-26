@@ -6,6 +6,7 @@ pub use super::{
     Signature,
     signature::Signature4,
     OnePassSig,
+    one_pass_sig::OnePassSig3,
     Key,
     key::SecretKey,
     UserID,

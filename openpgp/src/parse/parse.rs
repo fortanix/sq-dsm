@@ -1067,6 +1067,20 @@ fn signature_parser_test () {
 }
 
 impl OnePassSig {
+    fn parse<'a>(php: PacketHeaderParser<'a>)
+        -> Result<PacketParser<'a>>
+    {
+        OnePassSig3::parse(php)
+    }
+}
+
+impl<'a> Parse<'a, OnePassSig> for OnePassSig {
+    fn from_reader<R: 'a + Read>(reader: R) -> Result<Self> {
+        OnePassSig3::from_reader(reader).map(|p| p.into())
+    }
+}
+
+impl OnePassSig3 {
     fn parse<'a>(mut php: PacketHeaderParser<'a>)
         -> Result<PacketParser<'a>>
     {
@@ -1091,7 +1105,7 @@ impl OnePassSig {
         let last = php_try!(php.parse_u8("last"));
 
         let hash_algo = hash_algo.into();
-        let mut sig = OnePassSig::new(sigtype.into());
+        let mut sig = OnePassSig3::new(sigtype.into());
         sig.set_hash_algo(hash_algo);
         sig.set_pk_algo(pk_algo.into());
         sig.set_issuer(KeyID::from_bytes(&issuer));
@@ -1152,7 +1166,7 @@ impl OnePassSig {
             done
         };
         // Commit here after potentially pushing a signature group.
-        let mut pp = php.ok(Packet::OnePassSig(sig))?;
+        let mut pp = php.ok(Packet::OnePassSig(sig.into()))?;
         if done {
             return Ok(pp);
         }
@@ -1233,7 +1247,7 @@ fn one_pass_sig_parser_test () {
     }
 }
 
-impl<'a> Parse<'a, OnePassSig> for OnePassSig {
+impl<'a> Parse<'a, OnePassSig3> for OnePassSig3 {
     fn from_reader<R: 'a + Read>(reader: R) -> Result<Self> {
         let ppr = PacketParserBuilder::from_reader(reader)?
             .buffer_unread_content().finalize()?;
@@ -1247,7 +1261,8 @@ impl<'a> Parse<'a, OnePassSig> for OnePassSig {
         };
 
         match (p, ppr) {
-            (Packet::OnePassSig(o), PacketParserResult::EOF(_)) =>
+            (Packet::OnePassSig(OnePassSig::V3(o)),
+             PacketParserResult::EOF(_)) =>
                 Ok(o),
             (p, PacketParserResult::EOF(_)) =>
                 Err(Error::InvalidOperation(

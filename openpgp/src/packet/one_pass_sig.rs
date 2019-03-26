@@ -1,10 +1,16 @@
+//! One-pass signature packets.
+//!
+//! See [Section 5.4 of RFC 4880] for details.
+//!
+//!   [Section 5.4 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.4
+
 use std::fmt;
 use quickcheck::{Arbitrary, Gen};
 
 use Error;
+use Packet;
 use packet;
 use packet::Signature;
-use Packet;
 use Result;
 use KeyID;
 use HashAlgorithm;
@@ -18,11 +24,9 @@ use serialize::SerializeInto;
 ///
 ///   [Section 5.4 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.4
 #[derive(Eq, Hash, Clone)]
-pub struct OnePassSig {
+pub struct OnePassSig3 {
     /// CTB packet header fields.
     pub(crate) common: packet::Common,
-    /// One-pass-signature packet version. Must be 3.
-    version: u8,
     /// Type of the signature.
     sigtype: SignatureType,
     /// Hash algorithm used to compute the signature.
@@ -36,10 +40,9 @@ pub struct OnePassSig {
     last: u8,
 }
 
-impl fmt::Debug for OnePassSig {
+impl fmt::Debug for OnePassSig3 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("OnePassSig")
-            .field("version", &self.version)
+        f.debug_struct("OnePassSig3")
             .field("sigtype", &self.sigtype)
             .field("hash_algo", &self.hash_algo)
             .field("pk_algo", &self.pk_algo)
@@ -49,8 +52,8 @@ impl fmt::Debug for OnePassSig {
     }
 }
 
-impl PartialEq for OnePassSig {
-    fn eq(&self, other: &OnePassSig) -> bool {
+impl PartialEq for OnePassSig3 {
+    fn eq(&self, other: &OnePassSig3) -> bool {
         // Comparing the relevant fields is error prone in case we add
         // a field at some point.  Instead, we compare the serialized
         // versions.
@@ -62,23 +65,17 @@ impl PartialEq for OnePassSig {
     }
 }
 
-impl OnePassSig {
+impl OnePassSig3 {
     /// Returns a new `Signature` packet.
     pub fn new(sigtype: SignatureType) ->  Self {
-        OnePassSig {
+        OnePassSig3 {
             common: Default::default(),
-            version: 3,
             sigtype: sigtype,
             hash_algo: HashAlgorithm::Unknown(0),
             pk_algo: PublicKeyAlgorithm::Unknown(0),
             issuer: KeyID::new(0),
             last: 1,
         }
-    }
-
-    /// Gets the version.
-    pub fn version(&self) -> u8 {
-        self.version
     }
 
     /// Gets the signature type.
@@ -142,13 +139,19 @@ impl OnePassSig {
     }
 }
 
-impl From<OnePassSig> for Packet {
-    fn from(s: OnePassSig) -> Self {
-        Packet::OnePassSig(s)
+impl From<OnePassSig3> for super::OnePassSig {
+    fn from(s: OnePassSig3) -> Self {
+        super::OnePassSig::V3(s)
     }
 }
 
-impl<'a> From<&'a Signature> for Result<OnePassSig> {
+impl From<OnePassSig3> for Packet {
+    fn from(p: OnePassSig3) -> Self {
+        super::OnePassSig::from(p).into()
+    }
+}
+
+impl<'a> From<&'a Signature> for Result<OnePassSig3> {
     fn from(s: &'a Signature) -> Self {
         let issuer = match s.issuer() {
             Some(i) => i,
@@ -157,9 +160,8 @@ impl<'a> From<&'a Signature> for Result<OnePassSig> {
                     "Signature has no issuer".into()).into()),
         };
 
-        Ok(OnePassSig {
+        Ok(OnePassSig3 {
             common: Default::default(),
-            version: 3,
             sigtype: s.sigtype(),
             hash_algo: s.hash_algo(),
             pk_algo: s.pk_algo(),
@@ -169,9 +171,9 @@ impl<'a> From<&'a Signature> for Result<OnePassSig> {
     }
 }
 
-impl Arbitrary for OnePassSig {
+impl Arbitrary for OnePassSig3 {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
-        let mut ops = OnePassSig::new(SignatureType::arbitrary(g));
+        let mut ops = OnePassSig3::new(SignatureType::arbitrary(g));
         ops.set_hash_algo(HashAlgorithm::arbitrary(g));
         ops.set_pk_algo(PublicKeyAlgorithm::arbitrary(g));
         ops.set_issuer(KeyID::arbitrary(g));
@@ -187,8 +189,8 @@ mod tests {
     use serialize::SerializeInto;
 
     quickcheck! {
-        fn roundtrip(p: OnePassSig) -> bool {
-            let q = OnePassSig::from_bytes(&p.to_vec().unwrap()).unwrap();
+        fn roundtrip(p: OnePassSig3) -> bool {
+            let q = OnePassSig3::from_bytes(&p.to_vec().unwrap()).unwrap();
             assert_eq!(p, q);
             true
         }
