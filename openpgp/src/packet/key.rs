@@ -685,6 +685,7 @@ impl SecretKey {
 mod tests {
     use packet::Tag;
     use TPK;
+    use packet::pkesk::PKESK3;
     use packet::key::SecretKey;
     use std::path::PathBuf;
     use super::*;
@@ -786,7 +787,6 @@ mod tests {
     fn encryption_roundtrip() {
         use packet::key::SecretKey;
         use crypto::SessionKey;
-        use packet::PKESK;
         use constants::Curve::*;
 
         let keys = vec![NistP256, NistP384, NistP521].into_iter().map(|cv| {
@@ -809,7 +809,7 @@ mod tests {
             let sk = SessionKey::new(&mut Default::default(),
                                      cipher.key_size().unwrap());
 
-            let pkesk = PKESK::for_recipient(cipher, &sk, &key).unwrap();
+            let pkesk = PKESK3::for_recipient(cipher, &sk, &key).unwrap();
             let (cipher_, sk_) = pkesk.decrypt(&key, &secret).unwrap();
 
             assert_eq!(cipher, cipher_);
@@ -912,7 +912,6 @@ mod tests {
 
     #[test]
     fn import_rsa() {
-        use packet::PKESK;
         use crypto::SessionKey;
         use self::mpis::{MPI, Ciphertext};
         use time::{at, Timespec};
@@ -929,7 +928,8 @@ mod tests {
         let ciphertext = Ciphertext::RSA{
             c: MPI::new(&c[..]),
         };
-        let pkesk = PKESK::new(key.keyid(), PublicKeyAlgorithm::RSAEncryptSign, ciphertext).unwrap();
+        let pkesk = PKESK3::new(key.keyid(), PublicKeyAlgorithm::RSAEncryptSign,
+                                ciphertext).unwrap();
 
         // Session key
         let dek = b"\xA5\x58\x3A\x04\x35\x8B\xC7\x3F\x4A\xEF\x0C\x5A\xEB\xED\x59\xCA\xFD\x96\xB5\x32\x23\x26\x0C\x91\x78\xD1\x31\x12\xF0\x41\x42\x9D";

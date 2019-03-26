@@ -41,8 +41,7 @@ mod compressed_data;
 pub use self::compressed_data::CompressedData;
 pub mod seip;
 pub mod skesk;
-mod pkesk;
-pub use self::pkesk::PKESK;
+pub mod pkesk;
 mod mdc;
 pub use self::mdc::MDC;
 pub mod aed;
@@ -691,6 +690,53 @@ impl DerefMut for OnePassSig {
     fn deref_mut(&mut self) -> &mut Self::Target {
         match self {
             OnePassSig::V3(ref mut ops) => ops,
+        }
+    }
+}
+
+/// Holds an asymmetrically encrypted session key.
+///
+/// The session key is needed to decrypt the actual ciphertext.  See
+/// [Section 5.1 of RFC 4880] for details.
+///
+///   [Section 5.1 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.1
+#[derive(PartialEq, Eq, Hash, Clone, Debug)]
+pub enum PKESK {
+    /// PKESK packet version 3.
+    V3(self::pkesk::PKESK3),
+}
+
+impl PKESK {
+    /// Gets the version.
+    pub fn version(&self) -> u8 {
+        match self {
+            PKESK::V3(_) => 3,
+        }
+    }
+}
+
+impl From<PKESK> for Packet {
+    fn from(p: PKESK) -> Self {
+        Packet::PKESK(p)
+    }
+}
+
+// Trivial forwarder for singleton enum.
+impl Deref for PKESK {
+    type Target = self::pkesk::PKESK3;
+
+    fn deref(&self) -> &Self::Target {
+        match self {
+            PKESK::V3(ref p) => p,
+        }
+    }
+}
+
+// Trivial forwarder for singleton enum.
+impl DerefMut for PKESK {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        match self {
+            PKESK::V3(ref mut p) => p,
         }
     }
 }

@@ -1478,18 +1478,34 @@ impl SerializeInto for CompressedData {
 
 impl Serialize for PKESK {
     fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
-        if self.version() != 3 {
-            return Err(Error::InvalidArgument(
-                "Don't know how to serialize \
-                 non-version 3 packets.".into()).into());
+        match self {
+            &PKESK::V3(ref p) => p.serialize(o),
         }
+    }
+}
 
+impl SerializeInto for PKESK {
+    fn serialized_len(&self) -> usize {
+        match self {
+            &PKESK::V3(ref p) => p.serialized_len(),
+        }
+    }
+
+    fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
+        match self {
+            &PKESK::V3(ref p) => generic_serialize_into(p, buf),
+        }
+    }
+}
+
+impl Serialize for PKESK3 {
+    fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
         let len = self.net_len();
 
         CTB::new(Tag::PKESK).serialize(o)?;
         BodyLength::Full(len as u32).serialize(o)?;
 
-        write_byte(o, self.version())?;
+        write_byte(o, 3)?; // Version.
         self.recipient().serialize(o)?;
         write_byte(o, self.pk_algo().into())?;
         self.esk().serialize(o)?;
@@ -1498,7 +1514,7 @@ impl Serialize for PKESK {
     }
 }
 
-impl NetLength for PKESK {
+impl NetLength for PKESK3 {
     fn net_len(&self) -> usize {
         1 // Version.
             + 8 // Recipient's key id.
@@ -1507,7 +1523,7 @@ impl NetLength for PKESK {
     }
 }
 
-impl SerializeInto for PKESK {
+impl SerializeInto for PKESK3 {
     fn serialized_len(&self) -> usize {
         self.gross_len()
     }

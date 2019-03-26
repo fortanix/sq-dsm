@@ -1,3 +1,10 @@
+//! PublicKey-Encrypted Session Key packets.
+//!
+//! The session key is needed to decrypt the actual ciphertext.  See
+//! [Section 5.1 of RFC 4880] for details.
+//!
+//!   [Section 5.1 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.1
+
 use quickcheck::{Arbitrary, Gen};
 
 use Error;
@@ -20,11 +27,9 @@ use packet;
 ///
 ///   [Section 5.1 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.1
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
-pub struct PKESK {
+pub struct PKESK3 {
     /// CTB header fields.
     pub(crate) common: packet::Common,
-    /// Packet version. Must be 3.
-    version: u8,
     /// Key ID of the key this is encrypted to.
     recipient: KeyID,
     /// Public key algorithm used to encrypt the session key.
@@ -33,27 +38,26 @@ pub struct PKESK {
     esk: Ciphertext,
 }
 
-impl PKESK {
-    /// Creates a new PKESK packet.
+impl PKESK3 {
+    /// Creates a new PKESK3 packet.
     pub fn new(recipient: KeyID, pk_algo: PublicKeyAlgorithm,
                encrypted_session_key: Ciphertext)
-               -> Result<PKESK> {
-        Ok(PKESK {
+               -> Result<PKESK3> {
+        Ok(PKESK3 {
             common: Default::default(),
-            version: 3,
             recipient: recipient,
             pk_algo: pk_algo,
             esk: encrypted_session_key,
         })
     }
 
-    /// Creates a new PKESK packet for the given recipent.
+    /// Creates a new PKESK3 packet for the given recipent.
     ///
     /// The given symmetric algorithm must match the algorithm that is
     /// used to encrypt the payload.
     pub fn for_recipient(algo: SymmetricAlgorithm,
                          session_key: &SessionKey, recipient: &Key)
-                         -> Result<PKESK> {
+                         -> Result<PKESK3> {
         use PublicKeyAlgorithm::*;
         let mut rng = Yarrow::default();
 
@@ -100,18 +104,12 @@ impl PKESK {
                 return Err(Error::UnsupportedPublicKeyAlgorithm(algo).into()),
         };
 
-        Ok(PKESK{
+        Ok(PKESK3{
             common: Default::default(),
-            version: 3,
             recipient: recipient.keyid(),
             pk_algo: recipient.pk_algo(),
             esk: esk,
         })
-    }
-
-    /// Gets the version.
-    pub fn version(&self) -> u8 {
-        self.version
     }
 
     /// Gets the recipient.
@@ -211,13 +209,19 @@ impl PKESK {
     }
 }
 
-impl From<PKESK> for Packet {
-    fn from(s: PKESK) -> Self {
-        Packet::PKESK(s)
+impl From<PKESK3> for super::PKESK {
+    fn from(p: PKESK3) -> Self {
+        super::PKESK::V3(p)
     }
 }
 
-impl Arbitrary for PKESK {
+impl From<PKESK3> for Packet {
+    fn from(p: PKESK3) -> Self {
+        Packet::PKESK(p.into())
+    }
+}
+
+impl Arbitrary for PKESK3 {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
         let (ciphertext, pk_algo) = loop {
             let ciphertext = Ciphertext::arbitrary(g);
@@ -226,7 +230,7 @@ impl Arbitrary for PKESK {
             }
         };
 
-        PKESK::new(KeyID::arbitrary(g), pk_algo, ciphertext).unwrap()
+        PKESK3::new(KeyID::arbitrary(g), pk_algo, ciphertext).unwrap()
     }
 }
 
@@ -242,8 +246,8 @@ mod tests {
     use serialize::SerializeInto;
 
     quickcheck! {
-        fn roundtrip(p: PKESK) -> bool {
-            let q = PKESK::from_bytes(&p.to_vec().unwrap()).unwrap();
+        fn roundtrip(p: PKESK3) -> bool {
+            let q = PKESK3::from_bytes(&p.to_vec().unwrap()).unwrap();
             assert_eq!(p, q);
             true
         }
@@ -378,7 +382,7 @@ mod tests {
     #[test]
     fn decrypt_with_short_cv25519_secret_key() {
         use conversions::Time;
-        use super::PKESK;
+        use super::PKESK3;
         use crypto::SessionKey;
         use crypto::mpis::{self, MPI};
         use PublicKeyAlgorithm;
@@ -414,8 +418,8 @@ mod tests {
             .unwrap();
         let mut rng = Yarrow::default();
         let sess_key = SessionKey::new(&mut rng, 32);
-        let pkesk = PKESK::for_recipient(SymmetricAlgorithm::AES256, &sess_key,
-                                         &key).unwrap();
+        let pkesk = PKESK3::for_recipient(SymmetricAlgorithm::AES256, &sess_key,
+                                          &key).unwrap();
 
         pkesk.decrypt(&key, &private_mpis).unwrap();
     }

@@ -2246,22 +2246,10 @@ impl PKESK {
     fn parse<'a>(mut php: PacketHeaderParser<'a>) -> Result<PacketParser<'a>> {
         make_php_try!(php);
         let version = php_try!(php.parse_u8("version"));
-        if version != 3 {
-            // We only support version 3 packets.
-            return php.fail("unknown version");
+        match version {
+            3 => PKESK3::parse(php),
+            _ => php.fail("unknown version"),
         }
-
-        let mut keyid = [0u8; 8];
-        keyid.copy_from_slice(&php_try!(php.parse_bytes("keyid", 8)));
-        let pk_algo: PublicKeyAlgorithm = php_try!(php.parse_u8("pk_algo")).into();
-        if ! pk_algo.can_encrypt() {
-            return php.fail("not an encryption algorithm");
-        }
-        let mpis = crypto::mpis::Ciphertext::parse(pk_algo, &mut php)?;
-
-        let pkesk = php_try!(PKESK::new(KeyID::from_bytes(&keyid),
-                                        pk_algo, mpis));
-        php.ok(Packet::PKESK(pkesk))
     }
 }
 
@@ -2288,6 +2276,36 @@ impl<'a> Parse<'a, PKESK> for PKESK {
                 Err(Error::InvalidOperation(
                     "Excess data after packet".into()).into()),
         }
+    }
+}
+
+impl PKESK3 {
+    /// Parses the body of an PK-ESK packet.
+    fn parse<'a>(mut php: PacketHeaderParser<'a>) -> Result<PacketParser<'a>> {
+        make_php_try!(php);
+        let mut keyid = [0u8; 8];
+        keyid.copy_from_slice(&php_try!(php.parse_bytes("keyid", 8)));
+        let pk_algo: PublicKeyAlgorithm = php_try!(php.parse_u8("pk_algo")).into();
+        if ! pk_algo.can_encrypt() {
+            return php.fail("not an encryption algorithm");
+        }
+        let mpis = crypto::mpis::Ciphertext::parse(pk_algo, &mut php)?;
+
+        let pkesk = php_try!(PKESK3::new(KeyID::from_bytes(&keyid),
+                                         pk_algo, mpis));
+        php.ok(pkesk.into())
+    }
+}
+
+impl<'a> Parse<'a, PKESK3> for PKESK3 {
+    fn from_reader<R: 'a + Read>(reader: R) -> Result<Self> {
+        PKESK::from_reader(reader).and_then(|p| match p {
+            PKESK::V3(p) => Ok(p),
+            // XXX: Once we have a second variant.
+            //
+            // p => Err(Error::InvalidOperation(
+            //     format!("Not a PKESKv3 packet: {:?}", p)).into()),
+        })
     }
 }
 

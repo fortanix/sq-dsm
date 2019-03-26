@@ -14,6 +14,7 @@ pub use super::{
     Literal,
     CompressedData,
     PKESK,
+    pkesk::PKESK3,
     SKESK,
     skesk::SKESK4,
     skesk::SKESK5,
