@@ -14,12 +14,14 @@ use Result;
 use Packet;
 
 pub mod ctb;
-use self::ctb::{CTB, PacketLengthType};
+use self::ctb::PacketLengthType;
 
 use buffered_reader::BufferedReader;
 
 mod tag;
 pub use self::tag::Tag;
+pub mod header;
+pub use self::header::Header;
 
 mod unknown;
 pub use self::unknown::Unknown;
@@ -348,15 +350,6 @@ impl Common {
                             if data.len() == 0 { None } else { Some(data) })
             .unwrap_or(Vec::new())
     }
-}
-
-/// An OpenPGP packet's header.
-#[derive(Clone, Debug)]
-pub struct Header {
-    /// The packet's CTB.
-    pub ctb: CTB,
-    /// The packet's length.
-    pub length: BodyLength,
 }
 
 /// Holds zero or more OpenPGP packets.
