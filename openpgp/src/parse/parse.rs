@@ -92,24 +92,6 @@ fn path_to(artifact: &str) -> PathBuf {
         .iter().collect()
 }
 
-// Allows doing things like:
-//
-// ```rust,nocompile
-// if ! destructures_to(Foo::Bar(_) = value) { ... }
-// ```
-macro_rules! destructures_to {
-    ( $error: pat = $expr:expr ) => {
-        {
-            let x = $expr;
-            if let $error = x {
-                true
-            } else {
-                false
-            }
-        }
-    };
-}
-
 /// Parsing of packets and related structures.
 ///
 /// This is a uniform interface to parse packets, messages, keys, and
