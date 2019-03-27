@@ -5,8 +5,11 @@ use std::mem;
 use std::cmp::Ordering;
 use time;
 
+use nettle::Hash as NettleHash;
+use nettle::hash::insecure_do_not_use::Sha1;
+
 use Error;
-use crypto::{mpis, KeyPair, SessionKey};
+use crypto::{mpis, Hash, KeyPair, SessionKey};
 use packet::Tag;
 use packet;
 use Packet;
@@ -18,6 +21,8 @@ use crypto::s2k::S2K;
 use Result;
 use conversions::Time;
 use crypto::Password;
+use KeyID;
+use Fingerprint;
 
 /// Holds a public key, public subkey, private key or private subkey packet.
 ///
@@ -506,6 +511,24 @@ impl Key4 {
         mem::replace(&mut self.secret, secret)
     }
 
+    /// Computes and returns the key's fingerprint as per Section 12.2
+    /// of RFC 4880.
+    pub fn fingerprint(&self) -> Fingerprint {
+        let mut h = Sha1::default();
+
+        self.hash(&mut h);
+
+        let mut digest = vec![0u8; h.digest_size()];
+        h.digest(&mut digest);
+        Fingerprint::from_bytes(digest.as_slice())
+    }
+
+    /// Computes and returns the key's key ID as per Section 12.2 of
+    /// RFC 4880.
+    pub fn keyid(&self) -> KeyID {
+        self.fingerprint().to_keyid()
+    }
+
     /// Convert the `Key` struct to a `Packet`.
     pub fn into_packet(self, tag: Tag) -> Result<Packet> {
         match tag {
@@ -976,5 +999,41 @@ mod tests {
                                       r: mpis::MPI::new(r), s: mpis::MPI::new(s)
                                   });
         assert_eq!(sig.verify_message(&key, b"Hello, World\n").ok(), Some(true));
+    }
+
+    #[test]
+    fn fingerprint_test() {
+        let path = path_to("public-key.gpg");
+        let pile = PacketPile::from_file(&path).unwrap();
+
+        // The blob contains a public key and a three subkeys.
+        let mut pki = 0;
+        let mut ski = 0;
+
+        let pks = [ "8F17 7771 18A3 3DDA 9BA4  8E62 AACB 3243 6300 52D9" ];
+        let sks = [ "C03F A641 1B03 AE12 5764  6118 7223 B566 78E0 2528",
+                    "50E6 D924 308D BF22 3CFB  510A C2B8 1905 6C65 2598",
+                    "2DC5 0AB5 5BE2 F3B0 4C2D  2CF8 A350 6AFB 820A BD08"];
+
+        for p in pile.descendants() {
+            if let &Packet::PublicKey(ref p) = p {
+                let fp = p.fingerprint().to_string();
+                // eprintln!("PK: {:?}", fp);
+
+                assert!(pki < pks.len());
+                assert_eq!(fp, pks[pki]);
+                pki += 1;
+            }
+
+            if let &Packet::PublicSubkey(ref p) = p {
+                let fp = p.fingerprint().to_string();
+                // eprintln!("SK: {:?}", fp);
+
+                assert!(ski < sks.len());
+                assert_eq!(fp, sks[ski]);
+                ski += 1;
+            }
+        }
+        assert!(pki == pks.len() && ski == sks.len());
     }
 }

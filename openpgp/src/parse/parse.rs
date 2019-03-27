@@ -48,7 +48,6 @@ mod partial_body;
 use self::partial_body::BufferedReaderPartialBodyFilter;
 
 use packet::signature::subpacket::SubpacketArea;
-mod key;
 
 mod packet_pile_parser;
 pub use self::packet_pile_parser::PacketPileParser;
