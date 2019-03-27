@@ -64,10 +64,11 @@ examples:
 # Documentation.
 .PHONY: doc
 doc:
-	RUSTDOCFLAGS="$$RUSTDOCFLAGS --html-in-header doc/highlight.js/9.12.0/inc.html" \
+	sed 's|"/|"file://$(shell pwd)/doc/|' doc/highlight.js/9.12.0/inc.html \
+		> $(CARGO_TARGET_DIR)/inc.html
+	RUSTDOCFLAGS="$$RUSTDOCFLAGS --html-in-header $(CARGO_TARGET_DIR)/inc.html" \
 	CARGO_TARGET_DIR=$(CARGO_TARGET_DIR) \
 	    $(CARGO) doc $(CARGO_FLAGS) --no-deps --all
-	cp --recursive doc/highlight.js $(CARGO_TARGET_DIR)/doc
 
 # Installation.
 .PHONY: build-release
