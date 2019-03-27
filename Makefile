@@ -16,14 +16,9 @@ CARGO_TEST_ARGS	?= --all
 # Signing source distributions.
 SIGN_WITH	?= XXXXXXXXXXXXXXXX
 
-# Deploying documentation.
-DOC_TARGET	?= sequoia-pgp.org:docs.sequoia-pgp.org
-RSYNC_FLAGS	?=
-
 # Tools.
 CARGO		?= cargo
 GIT		?= git
-RSYNC		?= rsync
 TAR		?= tar
 XZ		?= xz
 GPG		?= gpg
@@ -73,10 +68,6 @@ doc:
 	CARGO_TARGET_DIR=$(CARGO_TARGET_DIR) \
 	    $(CARGO) doc $(CARGO_FLAGS) --no-deps --all
 	cp --recursive doc/highlight.js $(CARGO_TARGET_DIR)/doc
-
-.PHONY: deploy-doc
-deploy-doc: doc
-	$(RSYNC) $(RSYNC_FLAGS) -r $(CARGO_TARGET_DIR)/doc/* $(DOC_TARGET)
 
 # Installation.
 .PHONY: build-release
