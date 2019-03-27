@@ -68,7 +68,7 @@ fn path_to(artifact: &str) -> PathBuf {
 /// # extern crate sequoia_openpgp as openpgp;
 /// # use openpgp::Result;
 /// # use openpgp::parse::{Parse, PacketPileParser};
-/// # let _ = f(include_bytes!("../../tests/data/messages/public-key.gpg"));
+/// # let _ = f(include_bytes!("../../tests/data/keys/public-key.gpg"));
 /// #
 /// # fn f(message_data: &[u8]) -> Result<()> {
 /// let mut ppp = PacketPileParser::from_bytes(message_data)?;
@@ -291,7 +291,8 @@ impl<'a> PacketPileParser<'a> {
 #[test]
 fn message_parser_test() {
     let mut count = 0;
-    let mut mp = PacketPileParser::from_file(path_to("public-key.gpg")).unwrap();
+    let mut mp = PacketPileParser::from_file(path_to("../keys/public-key.gpg"))
+        .unwrap();
     while mp.recurse() {
         count += 1;
     }

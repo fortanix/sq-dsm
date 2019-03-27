@@ -2393,7 +2393,7 @@ impl PacketParserState {
 /// # use openpgp::Result;
 /// # use openpgp::Packet;
 /// # use openpgp::parse::{Parse, PacketParserResult, PacketParser};
-/// # let _ = f(include_bytes!("../../tests/data/messages/public-key.gpg"));
+/// # let _ = f(include_bytes!("../../tests/data/keys/public-key.gpg"));
 /// #
 /// # fn f(message_data: &[u8]) -> Result<()> {
 /// let mut ppr = PacketParser::from_bytes(message_data)?;
@@ -3276,7 +3276,7 @@ impl <'a> PacketParser<'a> {
     /// # use openpgp::Packet;
     /// # use openpgp::parse::{Parse, PacketParserResult, PacketParser};
     /// # use std::string::String;
-    /// # f(include_bytes!("../../tests/data/messages/public-key.gpg"));
+    /// # f(include_bytes!("../../tests/data/keys/public-key.gpg"));
     /// #
     /// # fn f(message_data: &[u8]) -> Result<()> {
     /// let mut ppr = PacketParser::from_bytes(message_data)?;

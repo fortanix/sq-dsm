@@ -406,7 +406,7 @@ impl<'a> PacketParserBuilder<'a> {
     /// # use openpgp::Result;
     /// # use openpgp::PacketPile;
     /// # use openpgp::parse::{Parse, PacketParser, PacketParserBuilder};
-    /// # f(include_bytes!("../tests/data/messages/public-key.gpg"));
+    /// # f(include_bytes!("../tests/data/keys/public-key.gpg"));
     /// #
     /// # fn f(message_data: &[u8]) -> Result<PacketPile> {
     /// let message = PacketParserBuilder::from_bytes(message_data)?
@@ -438,7 +438,8 @@ mod test {
         // just rely on the fact that an assertion is not thrown.
 
         // A flat message.
-        let pile = PacketPile::from_bytes(bytes!("public-key.gpg")).unwrap();
+        let pile = PacketPile::from_bytes(bytes!("../keys/public-key.gpg"))
+            .unwrap();
         eprintln!("PacketPile has {} top-level packets.",
                   pile.children().len());
         eprintln!("PacketPile: {:?}", pile);

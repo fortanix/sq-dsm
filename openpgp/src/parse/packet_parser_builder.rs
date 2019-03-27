@@ -135,7 +135,7 @@ impl<'a> PacketParserBuilder<'a> {
     /// # use openpgp::parse::{
     /// #     Parse, PacketParserResult, PacketParser, PacketParserBuilder
     /// # };
-    /// # f(include_bytes!("../../tests/data/messages/public-key.gpg"));
+    /// # f(include_bytes!("../../tests/data/keys/public-key.gpg"));
     /// #
     /// # fn f(message_data: &[u8])
     /// #     -> Result<PacketParserResult> {
