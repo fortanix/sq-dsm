@@ -51,6 +51,8 @@ char *pgp_keyid_to_string (const pgp_keyid_t fp);
 /*/
 char *pgp_keyid_debug (const pgp_keyid_t fp);
 
+char *pgp_packet_debug (const pgp_packet_t fp);
+
 /*/
 /// Converts the KeyID to a hexadecimal number.
 /*/

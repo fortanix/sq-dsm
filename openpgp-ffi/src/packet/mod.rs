@@ -91,3 +91,11 @@ pub extern "system" fn pgp_tag_to_string(tag: uint8_t) -> *const c_char {
         _ => "OTHER\x00",
     }.as_bytes().as_ptr() as *const c_char
 }
+
+/// Pretty prints a packet
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
+pub extern "system" fn pgp_packet_debug(p: *const Packet) -> *const c_char {
+    let p = ffi_param_ref!(p);
+    format!("{:?}", p).as_ptr() as *const c_char
+}
+
