@@ -6,6 +6,7 @@
 
 use std::fmt;
 use quickcheck::{Arbitrary, Gen};
+use rand::Rng;
 
 use buffered_reader::BufferedReader;
 
@@ -99,7 +100,10 @@ impl From<UserAttribute> for Packet {
 
 impl Arbitrary for UserAttribute {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
-        Vec::<u8>::arbitrary(g).into()
+        UserAttribute::new(
+            &(0..g.gen_range(1, 10))
+                .map(|_| Subpacket::arbitrary(g))
+                .collect::<Vec<_>>()[..]).unwrap()
     }
 }
 
@@ -182,6 +186,19 @@ pub enum Subpacket {
     Unknown(u8, Box<[u8]>),
 }
 
+impl Arbitrary for Subpacket {
+    fn arbitrary<G: Gen>(g: &mut G) -> Self {
+        match g.gen_range(0, 2) {
+            0 => Subpacket::Image(Image::arbitrary(g)),
+            1 => Subpacket::Unknown(
+                g.gen_range(1, 256) as u8,
+                Vec::<u8>::arbitrary(g).into_boxed_slice()
+            ),
+            _ => unreachable!(),
+        }
+    }
+}
+
 /// Image subpacket.
 ///
 /// See [Section 5.12.1 of RFC 4880] for details.
@@ -196,6 +213,29 @@ pub enum Image {
     /// Unknown image format.
     Unknown(u8, Box<[u8]>),
 }
+
+impl Arbitrary for Image {
+    fn arbitrary<G: Gen>(g: &mut G) -> Self {
+        match g.gen_range(0, 3) {
+            0 =>
+                Image::JPEG(
+                    Vec::<u8>::arbitrary(g).into_boxed_slice()
+                ),
+            1 =>
+                Image::Unknown(
+                    g.gen_range(1, 100),
+                    Vec::<u8>::arbitrary(g).into_boxed_slice()
+                ),
+            2 =>
+                Image::Private(
+                    g.gen_range(100, 111),
+                    Vec::<u8>::arbitrary(g).into_boxed_slice()
+                ),
+            _ => unreachable!(),
+        }
+    }
+}
+
 
 #[cfg(test)]
 mod tests {
