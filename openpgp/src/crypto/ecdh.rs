@@ -116,7 +116,7 @@ pub(crate) fn wrap_session_key_deterministic(recipient: &Key, session_key: &[u8]
 {
     match recipient.mpis() {
         &PublicKey::ECDH{ ref curve, ref hash, ref sym,.. } => {
-            // m = symm_alg_ID || session key || checksum || pkcs5_padding;
+            // m = sym_alg_ID || session key || checksum || pkcs5_padding;
             let mut m = Vec::with_capacity(40);
             m.extend_from_slice(session_key);
             pkcs5_pad(&mut m, 40);

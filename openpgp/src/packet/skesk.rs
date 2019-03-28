@@ -64,7 +64,7 @@ pub struct SKESK4 {
     /// field.
     version: u8,
     /// Symmetric algorithm used to encrypt the session key.
-    symm_algo: SymmetricAlgorithm,
+    sym_algo: SymmetricAlgorithm,
     /// Key derivation method for the symmetric key.
     s2k: S2K,
     /// The encrypted session key.
@@ -82,7 +82,7 @@ impl SKESK4 {
         Ok(SKESK4{
             common: Default::default(),
             version: 4,
-            symm_algo: cipher,
+            sym_algo: cipher,
             s2k: s2k,
             esk: esk.and_then(|esk| {
                 if esk.len() == 0 { None } else { Some(esk) }
@@ -120,12 +120,12 @@ impl SKESK4 {
 
     /// Gets the symmetric encryption algorithm.
     pub fn symmetric_algo(&self) -> SymmetricAlgorithm {
-        self.symm_algo
+        self.sym_algo
     }
 
     /// Sets the symmetric encryption algorithm.
     pub fn set_symmetric_algo(&mut self, algo: SymmetricAlgorithm) -> SymmetricAlgorithm {
-        ::std::mem::replace(&mut self.symm_algo, algo)
+        ::std::mem::replace(&mut self.sym_algo, algo)
     }
 
     /// Gets the key derivation method.
@@ -159,14 +159,14 @@ impl SKESK4 {
     pub fn decrypt(&self, password: &Password)
         -> Result<(SymmetricAlgorithm, SessionKey)>
     {
-        let key = self.s2k.derive_key(password, self.symm_algo.key_size()?)?;
+        let key = self.s2k.derive_key(password, self.sym_algo.key_size()?)?;
 
         if let Some(ref esk) = self.esk {
             // Use the derived key to decrypt the ESK. Unlike SEP &
             // SEIP we have to use plain CFB here.
-            let blk_sz = self.symm_algo.block_size()?;
+            let blk_sz = self.sym_algo.block_size()?;
             let mut iv = vec![0u8; blk_sz];
-            let mut dec  = self.symm_algo.make_decrypt_cfb(&key[..])?;
+            let mut dec  = self.sym_algo.make_decrypt_cfb(&key[..])?;
             let mut plain = vec![0u8; esk.len()];
             let cipher = &esk[..];
 
@@ -191,7 +191,7 @@ impl SKESK4 {
                     Err(Error::InvalidOperation(
                         "SKESK4: Cannot use Simple S2K without ESK".into())
                         .into()),
-                _ => Ok((self.symm_algo, key)),
+                _ => Ok((self.sym_algo, key)),
             }
         }
     }
@@ -258,7 +258,7 @@ impl SKESK5 {
             skesk4: SKESK4{
                 common: Default::default(),
                 version: 5,
-                symm_algo: cipher,
+                sym_algo: cipher,
                 s2k: s2k,
                 esk: Some(esk),
             },

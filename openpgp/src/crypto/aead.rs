@@ -40,10 +40,10 @@ impl AEADAlgorithm {
     }
 
     /// Creates a nettle context.
-    pub fn context(&self, cipher: SymmetricAlgorithm, key: &[u8], nonce: &[u8])
+    pub fn context(&self, sym_algo: SymmetricAlgorithm, key: &[u8], nonce: &[u8])
                    -> Result<Box<aead::Aead>> {
         match self {
-            AEADAlgorithm::EAX => match cipher {
+            AEADAlgorithm::EAX => match sym_algo {
                 SymmetricAlgorithm::AES128 =>
                     Ok(Box::new(aead::Eax::<cipher::Aes128>
                                 ::with_key_and_nonce(key, nonce)?)),
@@ -66,7 +66,7 @@ impl AEADAlgorithm {
                     Ok(Box::new(aead::Eax::<cipher::Camellia256>
                                 ::with_key_and_nonce(key, nonce)?)),
                 _ =>
-                    Err(Error::UnsupportedSymmetricAlgorithm(cipher).into()),
+                    Err(Error::UnsupportedSymmetricAlgorithm(sym_algo).into()),
             },
             _ =>
                 Err(Error::UnsupportedAEADAlgorithm(self.clone()).into()),
@@ -81,7 +81,7 @@ pub struct Decryptor<R: io::Read> {
     // The encrypted data.
     source: R,
 
-    cipher: SymmetricAlgorithm,
+    sym_algo: SymmetricAlgorithm,
     aead: AEADAlgorithm,
     key: SessionKey,
     iv: Box<[u8]>,
@@ -99,18 +99,18 @@ impl<R: io::Read> Decryptor<R> {
     /// Instantiate a new AEAD decryptor.
     ///
     /// `source` is the source to wrap.
-    pub fn new(version: u8, cipher: SymmetricAlgorithm, aead: AEADAlgorithm,
+    pub fn new(version: u8, sym_algo: SymmetricAlgorithm, aead: AEADAlgorithm,
                chunk_size: usize, iv: &[u8], key: &SessionKey, source: R)
                -> Result<Self> {
         Ok(Decryptor {
             source: source,
-            cipher: cipher,
+            sym_algo: sym_algo,
             aead: aead,
             key: key.clone(),
             iv: Vec::from(iv).into_boxed_slice(),
             ad: [
                 // Prefix.
-                0xd4, version, cipher.into(), aead.into(),
+                0xd4, version, sym_algo.into(), aead.into(),
                 chunk_size.trailing_zeros() as u8 - 6,
                 // Chunk index.
                 0, 0, 0, 0, 0, 0, 0, 0,
@@ -162,7 +162,7 @@ impl<R: io::Read> Decryptor<R> {
                 }
 
                 // Instantiate the AEAD cipher.
-                let aead = self.aead.context(self.cipher, &self.key, &self.iv)?;
+                let aead = self.aead.context(self.sym_algo, &self.key, &self.iv)?;
 
                 // Restore the IV.
                 for (i, o) in &mut self.iv[iv_len - 8..].iter_mut()
@@ -398,14 +398,14 @@ impl <R: BufferedReader<C>, C> BufferedReaderDecryptor<R, C> {
     /// Like `new()`, but sets a cookie, which can be retrieved using
     /// the `cookie_ref` and `cookie_mut` methods, and set using
     /// the `cookie_set` method.
-    pub fn with_cookie(version: u8, cipher: SymmetricAlgorithm,
+    pub fn with_cookie(version: u8, sym_algo: SymmetricAlgorithm,
                        aead: AEADAlgorithm, chunk_size: usize, iv: &[u8],
                        key: &SessionKey, source: R, cookie: C)
         -> Result<Self>
     {
         Ok(BufferedReaderDecryptor {
             reader: buffered_reader::Generic::with_cookie(
-                Decryptor::new(version, cipher, aead, chunk_size, iv, key,
+                Decryptor::new(version, sym_algo, aead, chunk_size, iv, key,
                                source)?,
                 None, cookie),
         })
@@ -509,7 +509,7 @@ impl<R: BufferedReader<C>, C> BufferedReader<C>
 pub struct Encryptor<W: io::Write> {
     inner: Option<W>,
 
-    cipher: SymmetricAlgorithm,
+    sym_algo: SymmetricAlgorithm,
     aead: AEADAlgorithm,
     key: SessionKey,
     iv: Box<[u8]>,
@@ -528,7 +528,7 @@ pub struct Encryptor<W: io::Write> {
 
 impl<W: io::Write> Encryptor<W> {
     /// Instantiate a new AEAD encryptor.
-    pub fn new(version: u8, cipher: SymmetricAlgorithm, aead: AEADAlgorithm,
+    pub fn new(version: u8, sym_algo: SymmetricAlgorithm, aead: AEADAlgorithm,
                chunk_size: usize, iv: &[u8], key: &SessionKey, sink: W)
                -> Result<Self> {
         let mut scratch = Vec::with_capacity(chunk_size);
@@ -536,13 +536,13 @@ impl<W: io::Write> Encryptor<W> {
 
         Ok(Encryptor {
             inner: Some(sink),
-            cipher: cipher,
+            sym_algo: sym_algo,
             aead: aead,
             key: key.clone(),
             iv: Vec::from(iv).into_boxed_slice(),
             ad: [
                 // Prefix.
-                0xd4, version, cipher.into(), aead.into(),
+                0xd4, version, sym_algo.into(), aead.into(),
                 chunk_size.trailing_zeros() as u8 - 6,
                 // Chunk index.
                 0, 0, 0, 0, 0, 0, 0, 0,
@@ -595,7 +595,7 @@ impl<W: io::Write> Encryptor<W> {
                 }
 
                 // Instantiate the AEAD cipher.
-                let aead = self.aead.context(self.cipher, &self.key, &self.iv)?;
+                let aead = self.aead.context(self.sym_algo, &self.key, &self.iv)?;
 
                 // Restore the IV.
                 for (i, o) in &mut self.iv[iv_len - 8..].iter_mut()
@@ -760,17 +760,17 @@ mod tests {
         use nettle::{Random, Yarrow};
         let mut rng = Yarrow::default();
 
-        for cipher in [SymmetricAlgorithm::AES128,
-                       SymmetricAlgorithm::AES192,
-                       SymmetricAlgorithm::AES256,
-                       SymmetricAlgorithm::Twofish,
-                       SymmetricAlgorithm::Camellia128,
-                       SymmetricAlgorithm::Camellia192,
-                       SymmetricAlgorithm::Camellia256].iter() {
+        for sym_algo in [SymmetricAlgorithm::AES128,
+                         SymmetricAlgorithm::AES192,
+                         SymmetricAlgorithm::AES256,
+                         SymmetricAlgorithm::Twofish,
+                         SymmetricAlgorithm::Camellia128,
+                         SymmetricAlgorithm::Camellia192,
+                         SymmetricAlgorithm::Camellia256].iter() {
             for aead in [AEADAlgorithm::EAX].iter() {
                 let version = 1;
                 let chunk_size = 64;
-                let mut key = vec![0; cipher.key_size().unwrap()];
+                let mut key = vec![0; sym_algo.key_size().unwrap()];
                 rng.random(&mut key);
                 let key: SessionKey = key.into();
                 let mut iv = vec![0; aead.iv_size().unwrap()];
@@ -778,7 +778,8 @@ mod tests {
 
                 let mut ciphertext = Vec::new();
                 {
-                    let mut encryptor = Encryptor::new(version, *cipher, *aead,
+                    let mut encryptor = Encryptor::new(version, *sym_algo,
+                                                       *aead,
                                                        chunk_size, &iv, &key,
                                                        &mut ciphertext)
                         .unwrap();
@@ -788,7 +789,8 @@ mod tests {
 
                 let mut plaintext = Vec::new();
                 {
-                    let mut decryptor = Decryptor::new(version, *cipher, *aead,
+                    let mut decryptor = Decryptor::new(version, *sym_algo,
+                                                       *aead,
                                                        chunk_size, &iv, &key,
                                                        Cursor::new(&ciphertext))
                         .unwrap();

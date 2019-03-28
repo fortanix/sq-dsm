@@ -185,10 +185,10 @@ impl PKESK3 {
         }.into();
 
         let key_rgn = 1..(plain.len() - 2);
-        let symm_algo: SymmetricAlgorithm = plain[0].into();
-        let mut key = vec![0u8; symm_algo.key_size()?];
+        let sym_algo: SymmetricAlgorithm = plain[0].into();
+        let mut key = vec![0u8; sym_algo.key_size()?];
 
-        if key_rgn.len() != symm_algo.key_size()? {
+        if key_rgn.len() != sym_algo.key_size()? {
             return Err(Error::MalformedPacket(
                 format!("session key has the wrong size")).into());
         }
@@ -201,7 +201,7 @@ impl PKESK3 {
             | (plain[plain.len() - 1] as usize);
 
         if their_checksum == our_checksum {
-            Ok((symm_algo, key.into()))
+            Ok((sym_algo, key.into()))
         } else {
             Err(Error::MalformedPacket(format!("key checksum wrong"))
                 .into())

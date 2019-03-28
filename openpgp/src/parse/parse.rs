@@ -1405,7 +1405,7 @@ impl Key4 {
                 }
                 // Encrypted, S2K & SHA-1 checksum
                 254 => {
-                    let sk: SymmetricAlgorithm = php_try!(php.parse_u8("symm_algo")).into();
+                    let sk: SymmetricAlgorithm = php_try!(php.parse_u8("sym_algo")).into();
                     let s2k = php_try!(S2K::parse(&mut php));
                     let mut cipher = php_try!(php.parse_bytes_eof("encrypted_mpis"));
 
@@ -1840,20 +1840,20 @@ impl SKESK {
         let version = php_try!(php.parse_u8("version"));
         let skesk = match version {
             4 => {
-                let symm_algo = php_try!(php.parse_u8("symm_algo"));
+                let sym_algo = php_try!(php.parse_u8("sym_algo"));
                 let s2k = php_try!(S2K::parse(&mut php));
                 let esk = php_try!(php.parse_bytes_eof("esk"));
 
                 SKESK::V4(php_try!(SKESK4::new(
-                    symm_algo.into(),
+                    sym_algo.into(),
                     s2k,
                     if esk.len() > 0 { Some(esk) } else { None },
                 )))
             },
 
             5 => {
-                let symm_algo: SymmetricAlgorithm =
-                    php_try!(php.parse_u8("symm_algo")).into();
+                let sym_algo: SymmetricAlgorithm =
+                    php_try!(php.parse_u8("sym_algo")).into();
                 let aead_algo: AEADAlgorithm =
                     php_try!(php.parse_u8("aead_algo")).into();
                 let s2k = php_try!(S2K::parse(&mut php));
@@ -1873,7 +1873,7 @@ impl SKESK {
                     php_try!(php.parse_bytes("aead_digest", digest_size));
 
                 SKESK::V5(php_try!(SKESK5::new(
-                    symm_algo,
+                    sym_algo,
                     aead_algo,
                     s2k,
                     aead_iv.into_boxed_slice(),
@@ -1952,7 +1952,7 @@ fn skesk_parser_test() {
             assert_eq!(skesk.s2k(), &test.s2k);
 
             match skesk.decrypt(&test.password) {
-                Ok((_symm_algo, key)) => {
+                Ok((_sym_algo, key)) => {
                     let key = ::conversions::to_hex(&key[..], false);
                     assert_eq!(&key[..], &test.key_hex[..]);
                 }
@@ -2086,7 +2086,7 @@ impl AED1 {
         }
 
         let cipher: SymmetricAlgorithm =
-            php_try!(php.parse_u8("symm_algo")).into();
+            php_try!(php.parse_u8("sym_algo")).into();
         let aead: AEADAlgorithm =
             php_try!(php.parse_u8("aead_algo")).into();
         let chunk_size: usize =

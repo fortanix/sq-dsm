@@ -342,7 +342,7 @@ impl PacketDumper {
                 writeln!(output, "{}  Version: {}", i, s.version())?;
                 match s {
                     openpgp::packet::SKESK::V4(ref s) => {
-                        writeln!(output, "{}  Cipher: {}", i,
+                        writeln!(output, "{}  Symmetric algo: {}", i,
                                  s.symmetric_algo())?;
                         write!(output, "{}  S2K: ", i)?;
                         self.dump_s2k(output, i, s.s2k())?;
@@ -353,7 +353,7 @@ impl PacketDumper {
                     },
 
                     openpgp::packet::SKESK::V5(ref s) => {
-                        writeln!(output, "{}  Cipher: {}", i,
+                        writeln!(output, "{}  Symmetric algo: {}", i,
                                  s.symmetric_algo())?;
                         writeln!(output, "{}  AEAD: {}", i,
                                  s.aead_algo())?;
@@ -387,7 +387,7 @@ impl PacketDumper {
             AED(ref a) => {
                 writeln!(output, "AEAD Encrypted Data Packet")?;
                 writeln!(output, "{}  Version: {}", i, a.version())?;
-                writeln!(output, "{}  Cipher: {}", i, a.symmetric_algo())?;
+                writeln!(output, "{}  Symmetric algo: {}", i, a.symmetric_algo())?;
                 writeln!(output, "{}  AEAD: {}", i, a.aead())?;
                 writeln!(output, "{}  Chunk size: {}", i, a.chunk_size())?;
                 writeln!(output, "{}  IV: {}", i, hex::encode(a.iv()))?;
@@ -449,7 +449,7 @@ impl PacketDumper {
             KeyExpirationTime(ref t) =>
                 write!(output, "{}    Key expiration time: {}", i, t)?,
             PreferredSymmetricAlgorithms(ref c) =>
-                write!(output, "{}    Cipher preferences: {}", i,
+                write!(output, "{}    Symmetric algo preferences: {}", i,
                        c.iter().map(|c| format!("{:?}", c))
                        .collect::<Vec<String>>().join(", "))?,
             RevocationKey{class, pk_algo, ref fp} =>
