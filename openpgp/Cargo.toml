@@ -8,7 +8,7 @@ authors = [
     "Neal H. Walfield <neal@sequoia-pgp.org>",
 ]
 build = "build.rs"
-documentation = "https://docs.sequoia-pgp.org/sequoia_openpgp"
+documentation = "https://docs.sequoia-pgp.org/0.5.0/sequoia_openpgp"
 homepage = "https://sequoia-pgp.org/"
 repository = "https://gitlab.com/sequoia-pgp/sequoia"
 readme = "../README.md"
