@@ -12,6 +12,9 @@ CARGO_TARGET_DIR	?= $(shell pwd)/target
 CARGO_TARGET_DIR	:= $(abspath $(CARGO_TARGET_DIR))
 # The tests to run.
 CARGO_TEST_ARGS	?= --all
+# Version as stated in the top-level Cargo.toml.
+VERSION		?= $(shell grep '^version[[:space:]]*=[[:space:]]*' Cargo.toml\
+                           | cut -d'"' -f2)
 
 # Signing source distributions.
 SIGN_WITH	?= XXXXXXXXXXXXXXXX
@@ -129,3 +132,17 @@ clean:
 	CARGO_TARGET_DIR=$(CARGO_TARGET_DIR) $(CARGO) $(CARGO_FLAGS) clean
 	$(MAKE) -Copenpgp-ffi clean
 	$(MAKE) -Cffi clean
+
+.PHONY: sanity-check-versions
+sanity-check-versions:
+	set -e ; V=$(VERSION) ; VV=$(shell echo $(VERSION) | cut -d. -f1-2) ;\
+        bad() { echo "bad $$*." ; exit 1 ; } ;\
+	find . -name Cargo.toml | while read TOML ; do \
+	  echo -n "$$TOML " ;\
+	  grep '^version *=' $$TOML | grep -q $$V || bad version ;\
+	  grep '^documentation *=' $$TOML | grep -q $$V || bad documentation ;\
+	  grep '{ *path *= *"' $$TOML | while read L ; do \
+	    echo $$L | grep -q $$VV || bad intra-workspace dependency ;\
+	  done ;\
+	  echo good. ;\
+	done
