@@ -16,6 +16,8 @@ use packet::{
     BodyLength,
 };
 use Packet;
+use serialize::Serialize;
+use serialize::SerializeInto;
 
 /// Holds a UserAttribute packet.
 ///
@@ -50,11 +52,19 @@ impl fmt::Debug for UserAttribute {
 
 impl UserAttribute {
     /// Returns a new `UserAttribute` packet.
-    pub fn new() -> UserAttribute {
-        UserAttribute {
-            common: Default::default(),
-            value: Vec::new(),
+    ///
+    /// Note: a valid UserAttribute has at least one subpacket.
+    pub fn new(subpackets: &[Subpacket]) -> Result<Self> {
+        let mut value = Vec::with_capacity(
+            subpackets.iter().fold(0, |l, s| l + s.serialized_len()));
+        for s in subpackets {
+            s.serialize(&mut value)?
         }
+
+        Ok(UserAttribute {
+            common: Default::default(),
+            value
+        })
     }
 
     /// Gets the user attribute packet's raw, unparsed value.
