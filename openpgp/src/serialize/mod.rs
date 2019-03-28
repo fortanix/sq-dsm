@@ -1380,6 +1380,69 @@ impl SerializeInto for UserAttribute {
     }
 }
 
+impl Serialize for user_attribute::Subpacket {
+    fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
+        match self {
+            user_attribute::Subpacket::Image(image) =>
+                image.serialize(o)?,
+            user_attribute::Subpacket::Unknown(tag, data) => {
+                write_byte(o, *tag)?;
+                o.write_all(&data[..])?;
+            }
+        }
+
+        Ok(())
+    }
+}
+
+impl SerializeInto for user_attribute::Subpacket {
+    fn serialized_len(&self) -> usize {
+        match self {
+            user_attribute::Subpacket::Image(image) =>
+                image.serialized_len(),
+            user_attribute::Subpacket::Unknown(_tag, data) =>
+                1 + data.len(),
+        }
+    }
+
+    fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
+        generic_serialize_into(self, buf)
+    }
+}
+
+impl Serialize for user_attribute::Image {
+    fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
+        match self {
+            user_attribute::Image::JPEG(data) => {
+                write_byte(o, 0)?;
+                o.write_all(&data[..])?;
+            }
+            user_attribute::Image::Unknown(tag, data)
+            | user_attribute::Image::Private(tag, data) => {
+                write_byte(o, *tag)?;
+                o.write_all(&data[..])?;
+            }
+        }
+
+        Ok(())
+    }
+}
+
+impl SerializeInto for user_attribute::Image {
+    fn serialized_len(&self) -> usize {
+        match self {
+            user_attribute::Image::JPEG(data)
+            | user_attribute::Image::Unknown(_, data)
+            | user_attribute::Image::Private(_, data) =>
+                1 + data.len(),
+        }
+    }
+
+    fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
+        generic_serialize_into(self, buf)
+    }
+}
+
 impl Literal {
     /// Writes the headers of the `Literal` data packet to `o`.
     pub(crate) fn serialize_headers<W>(&self, o: &mut W,

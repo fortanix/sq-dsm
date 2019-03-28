@@ -12,6 +12,7 @@ pub use super::{
     key::SecretKey,
     Marker,
     UserID,
+    user_attribute,
     UserAttribute,
     Literal,
     CompressedData,
