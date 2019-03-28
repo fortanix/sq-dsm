@@ -61,7 +61,7 @@ pub fn dump(input: &mut io::Read, output: &mut io::Write, mpis: bool, hex: bool,
             Packet::AED(_) if sk.is_some() => {
                 let sk = sk.as_ref().unwrap();
                 let algo = if let Packet::AED(ref aed) = pp.packet {
-                    aed.cipher()
+                    aed.symmetric_algo()
                 } else {
                     unreachable!()
                 };
@@ -387,7 +387,7 @@ impl PacketDumper {
             AED(ref a) => {
                 writeln!(output, "AEAD Encrypted Data Packet")?;
                 writeln!(output, "{}  Version: {}", i, a.version())?;
-                writeln!(output, "{}  Cipher: {}", i, a.cipher())?;
+                writeln!(output, "{}  Cipher: {}", i, a.symmetric_algo())?;
                 writeln!(output, "{}  AEAD: {}", i, a.aead())?;
                 writeln!(output, "{}  Chunk size: {}", i, a.chunk_size())?;
                 writeln!(output, "{}  IV: {}", i, hex::encode(a.iv()))?;

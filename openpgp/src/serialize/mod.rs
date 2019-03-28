@@ -1747,7 +1747,7 @@ impl AED1 {
     fn serialize_headers<W: io::Write>(&self, o: &mut W)
                                        -> Result<()> {
         o.write_all(&[1, // Version.
-                      self.cipher().into(),
+                      self.symmetric_algo().into(),
                       self.aead().into(),
                       self.chunk_size().trailing_zeros() as u8 - 6])?;
         o.write_all(self.iv())?;

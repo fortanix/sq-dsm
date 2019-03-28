@@ -21,8 +21,8 @@ use Result;
 pub struct AED1 {
     /// CTB packet header fields.
     pub(crate) common: packet::Common,
-    /// Cipher algorithm.
-    cipher: SymmetricAlgorithm,
+    /// Symmetric algorithm.
+    sym_algo: SymmetricAlgorithm,
     /// AEAD algorithm.
     aead: AEADAlgorithm,
     /// Chunk size.
@@ -33,7 +33,7 @@ pub struct AED1 {
 
 impl AED1 {
     /// Creates a new AED1 object.
-    pub fn new(cipher: SymmetricAlgorithm,
+    pub fn new(sym_algo: SymmetricAlgorithm,
                aead: AEADAlgorithm,
                chunk_size: usize,
                iv: Box<[u8]>) -> Result<Self> {
@@ -51,21 +51,22 @@ impl AED1 {
 
         Ok(AED1 {
             common: Default::default(),
-            cipher: cipher,
+            sym_algo: sym_algo,
             aead: aead,
             chunk_size: chunk_size,
             iv: iv,
         })
     }
 
-    /// Gets the cipher algorithm.
-    pub fn cipher(&self) -> SymmetricAlgorithm {
-        self.cipher
+    /// Gets the symmetric algorithm.
+    pub fn symmetric_algo(&self) -> SymmetricAlgorithm {
+        self.sym_algo
     }
 
-    /// Sets the cipher algorithm.
-    pub fn set_cipher(&mut self, cipher: SymmetricAlgorithm) -> SymmetricAlgorithm {
-        ::std::mem::replace(&mut self.cipher, cipher)
+    /// Sets the sym_algo algorithm.
+    pub fn set_sym_algo(&mut self, sym_algo: SymmetricAlgorithm)
+                        -> SymmetricAlgorithm {
+        ::std::mem::replace(&mut self.sym_algo, sym_algo)
     }
 
     /// Gets the AEAD algorithm.

@@ -3656,7 +3656,7 @@ impl<'a> PacketParser<'a> {
                 {
                     let data = self.data(aed.chunk_digest_size()?)?;
                     let mut dec = aead::Decryptor::new(
-                        1, aed.cipher(), aed.aead(), aed.chunk_size(),
+                        1, aed.symmetric_algo(), aed.aead(), aed.chunk_size(),
                         aed.iv(), key, &data[..cmp::min(data.len(), aed.chunk_digest_size()?)])?;
                     let mut chunk = Vec::new();
                     dec.take(aed.chunk_size() as u64).read_to_end(&mut chunk)?;
@@ -3669,7 +3669,7 @@ impl<'a> PacketParser<'a> {
                 // above with the same parameters.
                 let reader = self.take_reader();
                 let mut reader = aead::BufferedReaderDecryptor::with_cookie(
-                    1, aed.cipher(), aed.aead(), aed.chunk_size(),
+                    1, aed.symmetric_algo(), aed.aead(), aed.chunk_size(),
                     aed.iv(), key, reader, Cookie::default()).unwrap();
                 reader.cookie_mut().level = Some(self.recursion_depth());
 

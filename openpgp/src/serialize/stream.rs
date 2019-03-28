@@ -1018,7 +1018,7 @@ impl<'a> Encryptor<'a> {
             writer::AEADEncryptor::new(
                 inner.into(),
                 Cookie::new(level),
-                aed.cipher(),
+                aed.symmetric_algo(),
                 aed.aead(),
                 aed.chunk_size(),
                 aed.iv(),
