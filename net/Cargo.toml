@@ -20,8 +20,8 @@ gitlab = { repository = "sequoia-pgp/sequoia" }
 maintenance = { status = "actively-developed" }
 
 [dependencies]
-sequoia-openpgp = { path = "../openpgp" }
-sequoia-core = { path = "../core" }
+sequoia-openpgp = { path = "../openpgp", version = "0.5" }
+sequoia-core = { path = "../core", version = "0.5" }
 
 capnp-rpc = "0.9"
 failure = "0.1.2"
