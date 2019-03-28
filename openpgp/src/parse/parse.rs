@@ -2184,28 +2184,13 @@ impl MPI {
         let bytes = (bits + 7) / 8;
         let value = Vec::from(&php.parse_bytes(name, bytes)?[..bytes]);
 
-        if TRACE {
-            eprintln!("bits: {}, value: {}",
-                      bits, ::conversions::to_hex(&value, true));
-        }
-
         let unused_bits = bytes * 8 - bits;
         assert_eq!(bytes * 8 - unused_bits, bits);
-
-        if TRACE {
-            eprintln!("unused bits: {}", unused_bits);
-        }
 
         // Make sure the unused bits are zeroed.
         if unused_bits > 0 {
             let mask = !((1 << (8 - unused_bits)) - 1);
             let unused_value = value[0] & mask;
-
-            if TRACE {
-                eprintln!("mask: {:08b} & first byte: {:08b} \
-                               = unused value: {:08b}",
-                               mask, value[0], unused_value);
-            }
 
             if unused_value != 0 {
                 return Err(Error::MalformedMPI(
