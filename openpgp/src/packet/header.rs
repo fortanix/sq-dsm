@@ -153,7 +153,8 @@ impl Header {
                             | Tag::SED | Tag::SEIP | Tag::AED
                             | Tag::Unknown(_) | Tag::Private(_) => true,
 
-                        Tag::Reserved | Tag::Marker => true,
+                        Tag::Marker => l == 3,
+                        Tag::Reserved => true,
                     };
 
                     if ! valid {
