@@ -1734,15 +1734,12 @@ fn literal_parser_test () {
 impl CompressedData {
     /// Parses the body of a compressed data packet.
     fn parse<'a>(mut php: PacketHeaderParser<'a>) -> Result<PacketParser<'a>> {
-        let indent = php.recursion_depth();
-        tracer!(TRACE, "CompressedData::parse", indent);
+        let recursion_depth = php.recursion_depth();
+        tracer!(TRACE, "CompressedData::parse", recursion_depth);
 
         make_php_try!(php);
         let algo: CompressionAlgorithm =
             php_try!(php.parse_u8("algo")).into();
-
-        t!("Adding decompressor, recursion depth = {:?}.",
-           php.recursion_depth());
 
         #[allow(unreachable_patterns)]
         match algo {
@@ -1761,6 +1758,9 @@ impl CompressedData {
 
         let recursion_depth = php.recursion_depth();
         let mut pp = php.ok(Packet::CompressedData(CompressedData::new(algo)))?;
+
+        t!("Pushing a decompressor for {}, recursion depth = {:?}.",
+           algo, recursion_depth);
 
         let reader = pp.take_reader();
         let reader = match algo {
