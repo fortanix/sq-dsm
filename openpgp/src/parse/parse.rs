@@ -639,7 +639,7 @@ fn buffered_reader_stack_pop<'a>(
         if level >= depth {
             let fake_eof = reader.cookie_ref().fake_eof;
 
-            t!("top reader at level {:?} (fake eof: {}), pop through: {})",
+            t!("top reader at level {:?} (fake eof: {}), pop through: {}",
                reader.cookie_ref().level, fake_eof, depth);
 
             let (dropping_content, dropped_content)
@@ -3359,7 +3359,7 @@ impl <'a> PacketParser<'a> {
 
             self.buffer_unread_content()?.len() > 0
         } else {
-            t!("{:?} at depth {}): dropping {} bytes of unread content",
+            t!("({:?} at depth {}): dropping {} bytes of unread content",
                self.packet.tag(), recursion_depth,
                self.data_eof().unwrap().len());
 
