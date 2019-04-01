@@ -149,14 +149,10 @@ impl Header {
                             2 <= l,
                         Tag::MDC => l == 20,
 
-                        Tag::Literal =>
-                            l >= (1     // Format.
-                                  + 1   // Filename length.
-                                  + 4), // Creation date.
-
-                        Tag::CompressedData
-                            | Tag::SED | Tag::SEIP | Tag::AED
-                            | Tag::Unknown(_) | Tag::Private(_) => true,
+                        Tag::Literal | Tag::CompressedData
+                            | Tag::SED | Tag::SEIP | Tag::AED =>
+                            unreachable!("handled in the data-packet branch"),
+                        Tag::Unknown(_) | Tag::Private(_) => true,
 
                         Tag::Marker => l == 3,
                         Tag::Reserved => true,
