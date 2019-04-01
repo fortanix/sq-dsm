@@ -149,7 +149,12 @@ impl Header {
                             2 <= l,
                         Tag::MDC => l == 20,
 
-                        Tag::Literal | Tag::CompressedData
+                        Tag::Literal =>
+                            l >= (1     // Format.
+                                  + 1   // Filename length.
+                                  + 4), // Creation date.
+
+                        Tag::CompressedData
                             | Tag::SED | Tag::SEIP | Tag::AED
                             | Tag::Unknown(_) | Tag::Private(_) => true,
 
