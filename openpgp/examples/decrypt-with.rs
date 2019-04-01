@@ -63,8 +63,7 @@ impl Helper {
                 {
                     // This only works for unencrypted secret keys.
                     if let Ok(keypair) = key.clone().into_keypair() {
-                        keys.insert(key.fingerprint().to_keyid(),
-                                    keypair);
+                        keys.insert(key.keyid(), keypair);
                     }
                 }
             }

@@ -274,7 +274,7 @@ impl TPKBuilder {
             .set_signature_creation_time(time::now().canonicalize())?
             .set_key_expiration_time(Some(time::Duration::weeks(3 * 52)))?
             .set_issuer_fingerprint(key.fingerprint())?
-            .set_issuer(key.fingerprint().to_keyid())?
+            .set_issuer(key.keyid())?
             .set_preferred_hash_algorithms(vec![HashAlgorithm::SHA512])?;
 
         let mut signer = key.clone().into_keypair()

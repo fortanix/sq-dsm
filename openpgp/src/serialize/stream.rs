@@ -379,7 +379,7 @@ impl<'a> Signer<'a> {
                 let mut ops = OnePassSig3::new(SignatureType::Binary);
                 ops.set_pk_algo(key.pk_algo());
                 ops.set_hash_algo(hash_algo);
-                ops.set_issuer(key.fingerprint().to_keyid());
+                ops.set_issuer(key.keyid());
                 ops.set_last(i == signers.len() - 1);
                 ops.serialize(&mut inner)?;
             }

@@ -29,6 +29,7 @@ use {
     Packet,
     PacketPile,
     TPK,
+    KeyID,
     Fingerprint,
     TSK,
 };
@@ -533,7 +534,7 @@ impl SubkeyBinding {
             .set_signature_creation_time(time::now().canonicalize())?
             .set_key_expiration_time(Some(time::Duration::weeks(3 * 52)))?
             .set_issuer_fingerprint(signer.public().fingerprint())?
-            .set_issuer(signer.public().fingerprint().to_keyid())?
+            .set_issuer(signer.public().keyid())?
             .sign_subkey_binding(signer,
                                  primary_key, &subkey,
                                  HashAlgorithm::SHA512)?;
@@ -653,7 +654,7 @@ impl UserIDBinding {
             .set_signature_creation_time(time::now().canonicalize())?
             .set_key_expiration_time(Some(time::Duration::weeks(3 * 52)))?
             .set_issuer_fingerprint(signer.public().fingerprint())?
-            .set_issuer(signer.public().fingerprint().to_keyid())?
+            .set_issuer(signer.public().keyid())?
             .set_preferred_hash_algorithms(vec![HashAlgorithm::SHA512])?
             .sign_userid_binding(signer, key, &uid, HashAlgorithm::SHA512)?;
 
@@ -1416,7 +1417,8 @@ impl<'a, I: Iterator<Item=Packet>> TPKParser<'a, I> {
 
             Some(tpk)
         }).and_then(|mut tpk| {
-            fn split_sigs(primary: &Fingerprint, sigs: Vec<Signature>)
+            fn split_sigs(primary: &Fingerprint, primary_keyid: &KeyID,
+                          sigs: Vec<Signature>)
                           -> (Vec<Signature>, Vec<Signature>,
                               Vec<Signature>, Vec<Signature>)
             {
@@ -1424,8 +1426,6 @@ impl<'a, I: Iterator<Item=Packet>> TPKParser<'a, I> {
                 let mut certifications = vec![];
                 let mut self_revs = vec![];
                 let mut other_revs = vec![];
-
-                let primary_keyid = primary.to_keyid();
 
                 for sig in sigs.into_iter() {
                     match sig {
@@ -1437,7 +1437,7 @@ impl<'a, I: Iterator<Item=Packet>> TPKParser<'a, I> {
                                 .map(|fp| fp == *primary)
                                 .unwrap_or(false)
                                 || sig.issuer()
-                                .map(|keyid| keyid == primary_keyid)
+                                .map(|keyid| keyid == *primary_keyid)
                                 .unwrap_or(false);
 
                             use self::SignatureType::*;
@@ -1465,13 +1465,14 @@ impl<'a, I: Iterator<Item=Packet>> TPKParser<'a, I> {
             }
 
             let primary_fp = tpk.primary().fingerprint();
+            let primary_keyid = primary_fp.to_keyid();
 
             // The parser puts all of the signatures on the
             // certifications field.  Split them now.
 
             let (selfsigs, certifications, self_revs, other_revs)
                 = split_sigs(
-                    &primary_fp,
+                    &primary_fp, &primary_keyid,
                     mem::replace(&mut tpk.primary_certifications, vec![]));
             tpk.primary_selfsigs = selfsigs;
             tpk.primary_certifications = certifications;
@@ -1480,7 +1481,7 @@ impl<'a, I: Iterator<Item=Packet>> TPKParser<'a, I> {
 
             for mut b in tpk.userids.iter_mut() {
                 let (selfsigs, certifications, self_revs, other_revs)
-                    = split_sigs(&primary_fp,
+                    = split_sigs(&primary_fp, &primary_keyid,
                                  mem::replace(&mut b.certifications, vec![]));
                 b.selfsigs = selfsigs;
                 b.certifications = certifications;
@@ -1489,7 +1490,7 @@ impl<'a, I: Iterator<Item=Packet>> TPKParser<'a, I> {
             }
             for mut b in tpk.user_attributes.iter_mut() {
                 let (selfsigs, certifications, self_revs, other_revs)
-                    = split_sigs(&primary_fp,
+                    = split_sigs(&primary_fp, &primary_keyid,
                                  mem::replace(&mut b.certifications, vec![]));
                 b.selfsigs = selfsigs;
                 b.certifications = certifications;
@@ -1498,7 +1499,7 @@ impl<'a, I: Iterator<Item=Packet>> TPKParser<'a, I> {
             }
             for mut b in tpk.subkeys.iter_mut() {
                 let (selfsigs, certifications, self_revs, other_revs)
-                    = split_sigs(&primary_fp,
+                    = split_sigs(&primary_fp, &primary_keyid,
                                  mem::replace(&mut b.certifications, vec![]));
                 b.selfsigs = selfsigs;
                 b.certifications = certifications;
@@ -2706,6 +2707,11 @@ impl TPK {
         self.primary().fingerprint()
     }
 
+    /// Returns the TPK's keyid.
+    pub fn keyid(&self) -> KeyID {
+        self.primary().keyid()
+    }
+
     /// Converts the TPK into a sequence of packets.
     ///
     /// This method discards an invalid components and bad signatures.
@@ -3831,7 +3837,7 @@ mod test {
                 .set_signature_creation_time(t1).unwrap()
                 .set_key_expiration_time(Some(time::Duration::weeks(10 * 52))).unwrap()
                 .set_issuer_fingerprint(key.fingerprint()).unwrap()
-                .set_issuer(key.fingerprint().to_keyid()).unwrap()
+                .set_issuer(key.keyid()).unwrap()
                 .set_preferred_hash_algorithms(vec![HashAlgorithm::SHA512]).unwrap()
                 .sign_primary_key_binding(
                     &mut KeyPair::new(key.clone(), mpis.clone()).unwrap(),
@@ -3840,7 +3846,7 @@ mod test {
             let rev = signature::Builder::new(SignatureType::KeyRevocation)
                 .set_signature_creation_time(t2).unwrap()
                 .set_issuer_fingerprint(key.fingerprint()).unwrap()
-                .set_issuer(key.fingerprint().to_keyid()).unwrap()
+                .set_issuer(key.keyid()).unwrap()
                 .sign_primary_key_binding(
                     &mut KeyPair::new(key.clone(), mpis.clone()).unwrap(),
                     HashAlgorithm::SHA512).unwrap();
@@ -3851,7 +3857,7 @@ mod test {
                 .set_signature_creation_time(t3).unwrap()
                 .set_key_expiration_time(Some(time::Duration::weeks(10 * 52))).unwrap()
                 .set_issuer_fingerprint(key.fingerprint()).unwrap()
-                .set_issuer(key.fingerprint().to_keyid()).unwrap()
+                .set_issuer(key.keyid()).unwrap()
                 .set_preferred_hash_algorithms(vec![HashAlgorithm::SHA512]).unwrap()
                 .sign_primary_key_binding(
                     &mut KeyPair::new(key.clone(), mpis.clone()).unwrap(),

@@ -286,13 +286,13 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
 
                         if can_sign(tpk.primary(),
                                     tpk.primary_key_signature()) {
-                            v.keys.insert(tpk.fingerprint().to_keyid(), (i, 0));
+                            v.keys.insert(tpk.keyid(), (i, 0));
                         }
 
                         for (j, skb) in tpk.subkeys().enumerate() {
                             let key = skb.subkey();
                             if can_sign(key, skb.binding_signature()) {
-                                v.keys.insert(key.fingerprint().to_keyid(),
+                                v.keys.insert(key.keyid(),
                                               (i, j + 1));
                             }
                         }
@@ -988,14 +988,13 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
 
                         if can_sign(tpk.primary(),
                                     tpk.primary_key_signature()) {
-                            v.keys.insert(tpk.fingerprint().to_keyid(), (i, 0));
+                            v.keys.insert(tpk.keyid(), (i, 0));
                         }
 
                         for (j, skb) in tpk.subkeys().enumerate() {
                             let key = skb.subkey();
                             if can_sign(key, skb.binding_signature()) {
-                                v.keys.insert(key.fingerprint().to_keyid(),
-                                              (i, j + 1));
+                                v.keys.insert(key.keyid(), (i, j + 1));
                             }
                         }
                     }

@@ -173,7 +173,7 @@ impl TSK {
                     Some(&SecretKey::Unencrypted{ ref mpis }) => {
                         builder
                             .set_issuer_fingerprint(my_key.fingerprint())?
-                            .set_issuer(my_key.fingerprint().to_keyid())?
+                            .set_issuer(my_key.keyid())?
                             .sign_userid_binding(
                                 &mut KeyPair::new((*my_key).clone(),
                                 mpis.clone())?,
@@ -210,7 +210,7 @@ impl TSK {
                         signature::Builder::new(SignatureType::GenericCertificate)
                             .set_signature_creation_time(time::now())?
                             .set_issuer_fingerprint(my_key.fingerprint())?
-                            .set_issuer(my_key.fingerprint().to_keyid())?
+                            .set_issuer(my_key.keyid())?
                             .sign_user_attribute_binding(
                                 &mut pair,
                                 userattr,
@@ -244,7 +244,7 @@ impl TSK {
             .set_signature_creation_time(time::now().canonicalize())?
             .set_key_expiration_time(Some(time::Duration::weeks(3 * 52)))?
             .set_issuer_fingerprint(prim.fingerprint())?
-            .set_issuer(prim.fingerprint().to_keyid())?;
+            .set_issuer(prim.keyid())?;
 
         if flags.can_encrypt_for_transport()
         || flags.can_encrypt_at_rest() {
@@ -271,7 +271,7 @@ impl TSK {
                     signature::Builder::new(SignatureType::PrimaryKeyBinding)
                         .set_signature_creation_time(time::now().canonicalize())?
                         .set_issuer_fingerprint(subkey.fingerprint())?
-                        .set_issuer(subkey.fingerprint().to_keyid())?
+                        .set_issuer(subkey.keyid())?
                         .sign_subkey_binding(
                             &mut KeyPair::new(subkey.clone(), mpis.clone())?,
                             prim, &subkey, HashAlgorithm::SHA512)?

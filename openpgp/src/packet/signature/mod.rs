@@ -1047,7 +1047,7 @@ mod test {
                 let sig = Builder::new(SignatureType::Binary)
                     .set_signature_creation_time(time::now()).unwrap()
                     .set_issuer_fingerprint(key.fingerprint()).unwrap()
-                    .set_issuer(key.fingerprint().to_keyid()).unwrap()
+                    .set_issuer(key.keyid()).unwrap()
                     .sign_message(
                         &mut KeyPair::new(key.clone(), mpis.clone()).unwrap(),
                         HashAlgorithm::SHA512, msg).unwrap();

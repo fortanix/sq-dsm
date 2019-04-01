@@ -36,7 +36,7 @@ fn main() {
         for tpk in parser {
             match tpk {
                 Ok(tpk) => {
-                    let keyid = tpk.fingerprint().to_keyid();
+                    let keyid = tpk.keyid();
                     for uidb in tpk.userids() {
                         for tps in uidb.certifications() {
                             if let Some(issuer) = tps.get_issuer() {
