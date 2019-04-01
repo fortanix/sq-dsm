@@ -1386,6 +1386,8 @@ impl Serialize for user_attribute::Subpacket {
             user_attribute::Subpacket::Image(image) =>
                 image.serialize(o)?,
             user_attribute::Subpacket::Unknown(tag, data) => {
+                BodyLength::Full(1 + data.len() as u32)
+                    .serialize(o)?;
                 write_byte(o, *tag)?;
                 o.write_all(&data[..])?;
             }
@@ -1400,8 +1402,11 @@ impl SerializeInto for user_attribute::Subpacket {
         match self {
             user_attribute::Subpacket::Image(image) =>
                 image.serialized_len(),
-            user_attribute::Subpacket::Unknown(_tag, data) =>
-                1 + data.len(),
+            user_attribute::Subpacket::Unknown(_tag, data) => {
+                let header_len = BodyLength::Full(1 + data.len() as u32)
+                    .serialized_len();
+                header_len + 1 + data.len()
+            }
         }
     }
 
@@ -1414,11 +1419,15 @@ impl Serialize for user_attribute::Image {
     fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
         match self {
             user_attribute::Image::JPEG(data) => {
+                let header = BodyLength::Full(1 + data.len() as u32);
+                header.serialize(o)?;
                 write_byte(o, 0)?;
                 o.write_all(&data[..])?;
             }
             user_attribute::Image::Unknown(tag, data)
             | user_attribute::Image::Private(tag, data) => {
+                let header = BodyLength::Full(1 + data.len() as u32);
+                header.serialize(o)?;
                 write_byte(o, *tag)?;
                 o.write_all(&data[..])?;
             }
@@ -1434,7 +1443,8 @@ impl SerializeInto for user_attribute::Image {
             user_attribute::Image::JPEG(data)
             | user_attribute::Image::Unknown(_, data)
             | user_attribute::Image::Private(_, data) =>
-                1 + data.len(),
+                1 + BodyLength::Full(1 + data.len() as u32).serialized_len()
+                + data.len(),
         }
     }
 
