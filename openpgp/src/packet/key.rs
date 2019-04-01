@@ -101,10 +101,12 @@ impl Key4 {
 
     /// Creates a new OpenPGP public key packet for an existing X25519 key.
     ///
-    /// The ECDH key will use hash algorithm `hash` and symmetric algorithm `sym`. If one or both
-    /// are `None` secure defaults will be used. The key will have it's creation date set to
+    /// The ECDH key will use hash algorithm `hash` and symmetric
+    /// algorithm `sym`.  If one or both are `None` secure defaults
+    /// will be used.  The key will have it's creation date set to
     /// `ctime` or the current time if `None` is given.
-    pub fn import_public_cv25519<H,S,T>(public_key: &[u8], hash: H, sym: S, ctime: T)
+    pub fn import_public_cv25519<H, S, T>(public_key: &[u8],
+                                          hash: H, sym: S, ctime: T)
         -> Result<Self> where H: Into<Option<HashAlgorithm>>,
                               S: Into<Option<SymmetricAlgorithm>>,
                               T: Into<Option<time::Tm>>
@@ -128,10 +130,12 @@ impl Key4 {
 
     /// Creates a new OpenPGP secret key packet for an existing X25519 key.
     ///
-    /// The ECDH key will use hash algorithm `hash` and symmetric algorithm `sym`. If one or both
-    /// are `None` secure defaults will be used. The key will have it's creation date set to
+    /// The ECDH key will use hash algorithm `hash` and symmetric
+    /// algorithm `sym`.  If one or both are `None` secure defaults
+    /// will be used.  The key will have it's creation date set to
     /// `ctime` or the current time if `None` is given.
-    pub fn import_secret_cv25519<H,S,T>(private_key: &[u8], hash: H, sym: S, ctime: T)
+    pub fn import_secret_cv25519<H, S, T>(private_key: &[u8],
+                                          hash: H, sym: S, ctime: T)
         -> Result<Self> where H: Into<Option<HashAlgorithm>>,
                               S: Into<Option<SymmetricAlgorithm>>,
                               T: Into<Option<time::Tm>>
@@ -164,8 +168,9 @@ impl Key4 {
 
     /// Creates a new OpenPGP public key packet for an existing Ed25519 key.
     ///
-    /// The ECDH key will use hash algorithm `hash` and symmetric algorithm `sym`. If one or both
-    /// are `None` secure defaults will be used. The key will have it's creation date set to
+    /// The ECDH key will use hash algorithm `hash` and symmetric
+    /// algorithm `sym`.  If one or both are `None` secure defaults
+    /// will be used.  The key will have it's creation date set to
     /// `ctime` or the current time if `None` is given.
     pub fn import_public_ed25519<T>(public_key: &[u8], ctime: T) -> Result<Self>
         where  T: Into<Option<time::Tm>>
@@ -187,8 +192,9 @@ impl Key4 {
 
     /// Creates a new OpenPGP secret key packet for an existing Ed25519 key.
     ///
-    /// The ECDH key will use hash algorithm `hash` and symmetric algorithm `sym`. If one or both
-    /// are `None` secure defaults will be used. The key will have it's creation date set to
+    /// The ECDH key will use hash algorithm `hash` and symmetric
+    /// algorithm `sym`.  If one or both are `None` secure defaults
+    /// will be used.  The key will have it's creation date set to
     /// `ctime` or the current time if `None` is given.
     pub fn import_secret_ed25519<T>(private_key: &[u8], ctime: T)
         -> Result<Self> where T: Into<Option<time::Tm>>
@@ -273,8 +279,8 @@ impl Key4 {
         use crypto::mpis::{self, MPI, PublicKey};
 
         let mut rng = Yarrow::default();
-        let (public,private) = rsa::generate_keypair(&mut rng, bits as u32)?;
-        let (p,q,u) = private.as_rfc4880();
+        let (public, private) = rsa::generate_keypair(&mut rng, bits as u32)?;
+        let (p, q, u) = private.as_rfc4880();
         let public_mpis = PublicKey::RSA {
             e: MPI::new(&*public.e()),
             n: MPI::new(&*public.n()),
@@ -298,16 +304,18 @@ impl Key4 {
         })
     }
 
-    /// Generates a new ECC key over `curve`. If `for_signing` is false a ECDH key,
-    /// if it's true either a EdDSA or ECDSA key is generated. Giving `for_signing = true` and
-    /// `curve = Cv25519` will produce an error. Similar for `for_signing = false` and `curve =
-    /// Ed25519`.
+    /// Generates a new ECC key over `curve`.
+    ///
+    /// If `for_signing` is false a ECDH key, if it's true either a
+    /// EdDSA or ECDSA key is generated.  Giving `for_signing == true`
+    /// and `curve == Cv25519` will produce an error.  Similar for
+    /// `for_signing == false` and `curve == Ed25519`.
     /// signing/encryption
     pub fn generate_ecc(for_signing: bool, curve: Curve) -> Result<Self> {
         use nettle::{
             Yarrow,
-            ed25519,ed25519::ED25519_KEY_SIZE,
-            curve25519,curve25519::CURVE25519_SIZE,
+            ed25519, ed25519::ED25519_KEY_SIZE,
+            curve25519, curve25519::CURVE25519_SIZE,
             ecc, ecdh, ecdsa,
         };
         use crypto::mpis::{self, MPI, PublicKey};
@@ -991,7 +999,7 @@ mod tests {
         hashed.add(Subpacket::new(SubpacketValue::SignatureCreationTime(ctime), false).unwrap()).unwrap();
         unhashed.add(Subpacket::new(SubpacketValue::Issuer(kid), false).unwrap()).unwrap();
 
-        eprintln!("fpr: {}",key.fingerprint());
+        eprintln!("fpr: {}", key.fingerprint());
         let sig = Signature4::new(SignatureType::Binary, PublicKeyAlgorithm::EdDSA,
                                   HashAlgorithm::SHA256, hashed, unhashed,
                                   [0xa7,0x19],
