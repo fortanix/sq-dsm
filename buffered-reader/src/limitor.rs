@@ -55,7 +55,11 @@ impl<'a, C> Limitor<'a, C> {
 impl<'a, C> io::Read for Limitor<'a, C> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, io::Error> {
         let len = cmp::min(self.limit, buf.len() as u64) as usize;
-        return self.reader.read(&mut buf[0..len]);
+        let result = self.reader.read(&mut buf[0..len]);
+        if let Ok(amount) = result {
+            self.limit -= amount as u64;
+        }
+        result
     }
 }
 
