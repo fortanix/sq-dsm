@@ -8,7 +8,7 @@ mod sqv_cli {
 }
 
 fn main() {
-    let outdir = match env::var_os("OUT_DIR") {
+    let outdir = match env::var_os("CARGO_TARGET_DIR") {
         None => return,
         Some(outdir) => outdir,
     };
