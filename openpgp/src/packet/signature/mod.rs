@@ -452,13 +452,8 @@ impl Signature4 {
     }
 
     /// Gets the issuer.
-    ///
-    /// Prefers the issuer fingerprint to the issuer keyid, which may
-    /// be stored in the unhashed area.
     pub fn get_issuer(&self) -> Option<KeyID> {
-        if let Some(fp) = self.issuer_fingerprint() {
-            Some(fp.to_keyid())
-        } else if let Some(id) = self.issuer() {
+        if let Some(id) = self.issuer() {
             Some(id)
         } else {
             None
