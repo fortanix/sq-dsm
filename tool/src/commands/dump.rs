@@ -309,6 +309,10 @@ impl PacketDumper {
                 }
             },
 
+            Marker(_) => {
+                writeln!(output, "Marker Packet")?;
+            },
+
             Literal(ref l) => {
                 writeln!(output, "Literal Data Packet")?;
                 writeln!(output, "{}  Format: {}", i, l.format())?;

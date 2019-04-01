@@ -1582,6 +1582,46 @@ impl<'a> Parse<'a, UserAttribute> for UserAttribute {
     }
 }
 
+impl Marker {
+    /// Parses the body of a marker packet.
+    fn parse<'a>(mut php: PacketHeaderParser<'a>) -> Result<PacketParser<'a>>
+    {
+        make_php_try!(php);
+        let marker = php_try!(php.parse_bytes("marker", Marker::BODY.len()));
+        if &marker[..] == Marker::BODY {
+            php.ok(Marker::default().into())
+        } else {
+            php.fail("invalid marker")
+        }
+    }
+}
+
+impl<'a> Parse<'a, Marker> for Marker {
+    fn from_reader<R: 'a + Read>(reader: R) -> Result<Self> {
+        let ppr = PacketParserBuilder::from_reader(reader)?
+            .buffer_unread_content().finalize()?;
+        let (p, ppr) = match ppr {
+            PacketParserResult::Some(mut pp) => {
+                pp.next()?
+            },
+            PacketParserResult::EOF(_) =>
+                return Err(Error::InvalidOperation(
+                    "Unexpected EOF".into()).into()),
+        };
+
+        match (p, ppr) {
+            (Packet::Marker(u), PacketParserResult::EOF(_)) =>
+                Ok(u),
+            (p, PacketParserResult::EOF(_)) =>
+                Err(Error::InvalidOperation(
+                    format!("Not a Marker packet: {:?}", p)).into()),
+            (_, PacketParserResult::Some(_)) =>
+                Err(Error::InvalidOperation(
+                    "Excess data after packet".into()).into()),
+        }
+    }
+}
+
 impl Literal {
     /// Parses the body of a literal packet.
     ///
@@ -2995,6 +3035,7 @@ impl <'a> PacketParser<'a> {
             Tag::SecretSubkey =>        Key::parse(parser),
             Tag::UserID =>              UserID::parse(parser),
             Tag::UserAttribute =>       UserAttribute::parse(parser),
+            Tag::Marker =>              Marker::parse(parser),
             Tag::Literal =>             Literal::parse(parser),
             Tag::CompressedData =>      CompressedData::parse(parser),
             Tag::SKESK =>               SKESK::parse(parser),
@@ -3249,6 +3290,7 @@ impl <'a> PacketParser<'a> {
             Packet::Unknown(_) | Packet::Signature(_) | Packet::OnePassSig(_)
                 | Packet::PublicKey(_) | Packet::PublicSubkey(_)
                 | Packet::SecretKey(_) | Packet::SecretSubkey(_)
+                | Packet::Marker(_)
                 | Packet::UserID(_) | Packet::UserAttribute(_)
                 | Packet::Literal(_) | Packet::PKESK(_) | Packet::SKESK(_)
                 | Packet::SEIP(_) | Packet::MDC(_) | Packet::AED(_) => {

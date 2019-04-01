@@ -1314,6 +1314,26 @@ impl SerializeKeyInto for Key4 {
     }
 }
 
+impl Serialize for Marker {
+    fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
+        CTB::new(Tag::Marker).serialize(o)?;
+        BodyLength::Full(Marker::BODY.len() as u32).serialize(o)?;
+        o.write_all(Marker::BODY)?;
+        Ok(())
+    }
+}
+
+impl SerializeInto for Marker {
+    fn serialized_len(&self) -> usize {
+        1 + BodyLength::Full(Marker::BODY.len() as u32).serialized_len()
+            + Marker::BODY.len()
+    }
+
+    fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
+        generic_serialize_into(self, buf)
+    }
+}
+
 impl Serialize for UserID {
     fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
         let len = self.value().len();
@@ -1823,6 +1843,7 @@ impl Serialize for Packet {
             &Packet::PublicSubkey(ref p) => p.serialize(o, tag),
             &Packet::SecretKey(ref p) => p.serialize(o, tag),
             &Packet::SecretSubkey(ref p) => p.serialize(o, tag),
+            &Packet::Marker(ref p) => p.serialize(o),
             &Packet::UserID(ref p) => p.serialize(o),
             &Packet::UserAttribute(ref p) => p.serialize(o),
             &Packet::Literal(ref p) => p.serialize(o),
@@ -1847,6 +1868,7 @@ impl SerializeInto for Packet {
             &Packet::PublicSubkey(ref p) => p.serialized_len(tag),
             &Packet::SecretKey(ref p) => p.serialized_len(tag),
             &Packet::SecretSubkey(ref p) => p.serialized_len(tag),
+            &Packet::Marker(ref p) => p.serialized_len(),
             &Packet::UserID(ref p) => p.serialized_len(),
             &Packet::UserAttribute(ref p) => p.serialized_len(),
             &Packet::Literal(ref p) => p.serialized_len(),

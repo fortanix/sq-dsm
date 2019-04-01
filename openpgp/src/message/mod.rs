@@ -212,6 +212,11 @@ impl MessageValidator {
             Tag::AED => Token::AED,
             Tag::OnePassSig => Token::OPS,
             Tag::Signature => Token::SIG,
+            Tag::Marker => {
+                // "[Marker packets] MUST be ignored when received.",
+                // section 5.8 of RFC4880.
+                return;
+            },
             _ => {
                 // Unknown token.
                 self.error = Some(MessageParserError::OpenPGP(
@@ -639,6 +644,17 @@ mod tests {
                 s: &[(OnePassSig, 0), (OnePassSig, 0), (SEIP, 0),
                      (OnePassSig, 1), (SEIP, 1), (Literal, 2), (MDC, 2),
                      (Signature, 1), (MDC, 1), (Signature, 0), (Signature, 0)],
+                result: true,
+            },
+
+            // "[A Marker packet] MUST be ignored when received.  It
+            // may be placed at the beginning of a message that uses
+            // features not available in PGP 2.6.x in order to cause
+            // that version to report that newer software is necessary
+            // to process the message.", section 5.8 of RFC4880.
+            TestVector {
+                s: &[(Marker, 0),
+                     (OnePassSig, 0), (Literal, 0), (Signature, 0)],
                 result: true,
             },
         ];

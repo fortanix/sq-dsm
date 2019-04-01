@@ -10,6 +10,7 @@ pub use super::{
     Key,
     key::Key4,
     key::SecretKey,
+    Marker,
     UserID,
     UserAttribute,
     Literal,

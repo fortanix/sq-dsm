@@ -22,7 +22,7 @@ impl Header {
     ///
     /// A header is consider invalid if:
     ///
-    ///   - The tag is Tag::Reserved or Tag::Marker.
+    ///   - The tag is Tag::Reserved.
     ///   - The tag is unknown (if future_compatible is false).
     ///   - The [length encoding] is invalid for the packet.
     ///   - The lengths are unreasonable for a packet (e.g., a
@@ -35,8 +35,8 @@ impl Header {
     pub fn valid(&self, future_compatible: bool) -> Result<()> {
         let tag = self.ctb.tag;
 
-        // Reserved packets are Marker packets are never valid.
-        if tag == Tag::Reserved || tag == Tag::Marker {
+        // Reserved packets are never valid.
+        if tag == Tag::Reserved {
             return Err(Error::UnsupportedPacketType(tag).into());
         }
 

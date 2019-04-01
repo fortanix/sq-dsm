@@ -260,6 +260,8 @@ pub enum Packet {
     SecretKey(packet::Key),
     /// Public/Secret subkey pair.
     SecretSubkey(packet::Key),
+    /// Marker packet.
+    Marker(packet::Marker),
     /// User ID packet.
     UserID(packet::UserID),
     /// User attribute packet.
@@ -296,6 +298,7 @@ impl Packet {
             &Packet::PublicSubkey(_) => Tag::PublicSubkey,
             &Packet::SecretKey(_) => Tag::SecretKey,
             &Packet::SecretSubkey(_) => Tag::SecretSubkey,
+            &Packet::Marker(_) => Tag::Marker,
             &Packet::UserID(_) => Tag::UserID,
             &Packet::UserAttribute(_) => Tag::UserAttribute,
             &Packet::Literal(_) => Tag::Literal,
@@ -325,6 +328,7 @@ impl Packet {
             &Packet::PublicSubkey(_) => Some(Tag::PublicSubkey),
             &Packet::SecretKey(_) => Some(Tag::SecretKey),
             &Packet::SecretSubkey(_) => Some(Tag::SecretSubkey),
+            &Packet::Marker(_) => Some(Tag::Marker),
             &Packet::UserID(_) => Some(Tag::UserID),
             &Packet::UserAttribute(_) => Some(Tag::UserAttribute),
             &Packet::Literal(_) => Some(Tag::Literal),
