@@ -1,7 +1,9 @@
 //! Conveniently re-exports everything below openpgp::packet.
 
-pub use super::{
+pub use Packet;
+pub use packet::{
     Tag,
+    Header,
     Unknown,
     Signature,
     signature::Signature4,
