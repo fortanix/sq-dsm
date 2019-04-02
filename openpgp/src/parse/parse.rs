@@ -660,6 +660,10 @@ fn buffered_reader_stack_pop<'a>(
                else { "nothing to drop" },
                reader);
 
+            if reader.eof() && ! reader.consummated() {
+                return Err(Error::MalformedPacket("Truncated packet".into())
+                           .into());
+            }
             reader = reader.into_inner().unwrap();
 
             if level == depth && fake_eof {
@@ -4245,5 +4249,32 @@ mod test {
             .dearmor(packet_parser_builder::Dearmor::Disabled)
             .finalize();
         assert_match!(Err(_) = ppr);
+    }
+
+    /// Issue #141.
+    #[test]
+    fn truncated_packet() {
+        for msg in &[&bytes!("../messages/literal-mode-b.gpg")[..],
+                     &bytes!("../messages/literal-mode-t-partial-body.gpg")[..],
+        ] {
+            // Make sure we can read the first packet.
+            let ppr = PacketParserBuilder::from_bytes(msg).unwrap()
+                .dearmor(packet_parser_builder::Dearmor::Disabled)
+                .finalize();
+            assert_match!(Ok(PacketParserResult::Some(ref _pp)) = ppr);
+
+            // Now truncate the packet.
+            let msg2 = &msg[..msg.len() - 1];
+            let ppr = PacketParserBuilder::from_bytes(msg2).unwrap()
+                .dearmor(packet_parser_builder::Dearmor::Disabled)
+                .finalize().unwrap();
+            if let PacketParserResult::Some(pp) = ppr {
+                let err = pp.next().err().unwrap();
+                assert_match!(Some(&Error::MalformedPacket(_))
+                              = err.downcast_ref());
+            } else {
+                panic!("No packet!?");
+            }
+        }
     }
 }
