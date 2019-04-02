@@ -98,6 +98,7 @@ impl<'a, C> BufferedReader<C> for Limitor<'a, C> {
         let amount = cmp::min(amount as u64, self.limit) as usize;
         let result = self.reader.data_consume(amount);
         if let Ok(ref buffer) = result {
+            let amount = cmp::min(amount, buffer.len());
             self.limit -= amount as u64;
             return Ok(&buffer[
                 ..cmp::min(buffer.len() as u64, self.limit + amount as u64) as usize]);
@@ -111,6 +112,7 @@ impl<'a, C> BufferedReader<C> for Limitor<'a, C> {
         }
         let result = self.reader.data_consume_hard(amount);
         if let Ok(ref buffer) = result {
+            let amount = cmp::min(amount, buffer.len());
             self.limit -= amount as u64;
             return Ok(&buffer[
                 ..cmp::min(buffer.len() as u64, self.limit + amount as u64) as usize]);
