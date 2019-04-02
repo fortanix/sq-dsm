@@ -3295,8 +3295,8 @@ impl <'a> PacketParser<'a> {
 
     /// Causes the PacketParser to buffer the packet's contents.
     ///
-    /// The packet's contents are stored in `packet.content`.  In
-    /// general, you should avoid buffering a packet's content and
+    /// The packet's contents can be retrieved using `packet.body()`.
+    /// In general, you should avoid buffering a packet's content and
     /// prefer streaming its content unless you are certain that the
     /// content is small.
     ///
@@ -3306,7 +3306,7 @@ impl <'a> PacketParser<'a> {
     /// # use openpgp::Packet;
     /// # use openpgp::parse::{Parse, PacketParserResult, PacketParser};
     /// # use std::string::String;
-    /// # f(include_bytes!("../../tests/data/keys/public-key.gpg"));
+    /// # f(include_bytes!("../../tests/data/messages/literal-mode-t-partial-body.gpg"));
     /// #
     /// # fn f(message_data: &[u8]) -> Result<()> {
     /// let mut ppr = PacketParser::from_bytes(message_data)?;
@@ -3314,10 +3314,13 @@ impl <'a> PacketParser<'a> {
     ///     // Process the packet.
     ///
     ///     if let Packet::Literal(_) = pp.packet {
-    ///         pp.buffer_unread_content();
-    ///         if let Some(ref body) = pp.packet.body {
-    ///             println!("{}", String::from_utf8_lossy(body));
-    ///         }
+    ///         assert!(pp.buffer_unread_content()?
+    ///                     .starts_with(b"A Cypherpunk's Manifesto"));
+    /// #       assert!(pp.buffer_unread_content()?
+    /// #                   .starts_with(b"A Cypherpunk's Manifesto"));
+    ///         assert!(pp.packet.body().unwrap()
+    ///                     .starts_with(b"A Cypherpunk's Manifesto"));
+    ///         assert_eq!(pp.packet.body().unwrap().len(), 5158);
     ///     }
     ///
     ///     // Start parsing the next packet.
@@ -3334,8 +3337,10 @@ impl <'a> PacketParser<'a> {
             } else {
                 self.packet.body = Some(rest);
             }
+        }
 
-            Ok(&self.packet.body.as_ref().unwrap()[..])
+        if let Some(body) = self.packet.body.as_ref() {
+            Ok(&body[..])
         } else {
             Ok(&b""[..])
         }
