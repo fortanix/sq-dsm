@@ -119,7 +119,7 @@ pub struct Verifier<'a, H: VerificationHelper> {
     /// Maps KeyID to tpks[i].keys_all().nth(j).
     keys: HashMap<KeyID, (usize, usize)>,
     oppr: Option<PacketParserResult<'a>>,
-    sigs: Vec<Vec<VerificationResult>>,
+    sigs: Vec<Vec<Signature>>,
 
     // The reserve data.
     reserve: Option<Vec<u8>>,
@@ -298,9 +298,9 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
                     v.oppr = Some(PacketParserResult::Some(pp));
                     v.finish_maybe()?;
 
-                    // Verify any queued signatures.
+                    // Stash signatures.
                     for sig in sigs.into_iter() {
-                        v.verify(Packet::Signature(sig))?;
+                        v.push_sig(Packet::Signature(sig))?;
                     }
 
                     return Ok(v);
@@ -328,9 +328,9 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
     }
 
 
-    /// Verifies the given Signature (if it is one), and stores the
-    /// result.
-    fn verify(&mut self, p: Packet) -> Result<()> {
+    /// Stashes the given Signature (if it is one) for later
+    /// verification.
+    fn push_sig(&mut self, p: Packet) -> Result<()> {
         match p {
             Packet::Signature(sig) => {
                 if self.sigs.is_empty() {
@@ -346,29 +346,8 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
                     }
                 }
 
-                if let Some(issuer) = sig.get_issuer() {
-                    if let Some((i, j)) = self.keys.get(&issuer) {
-                        let (_, _, key)
-                            = self.tpks[*i].keys_all().nth(*j).unwrap();
-                        if sig.verify(key).unwrap_or(false) {
-                            self.sigs.iter_mut().last()
-                                .expect("sigs is never empty").push(
-                                    VerificationResult::GoodChecksum(sig));
-                        } else {
-                            self.sigs.iter_mut().last()
-                                .expect("sigs is never empty").push(
-                                    VerificationResult::BadChecksum(sig));
-                        }
-                    } else {
-                        self.sigs.iter_mut().last()
-                            .expect("sigs is never empty").push(
-                                VerificationResult::MissingKey(sig));
-                    }
-                } else {
-                    self.sigs.iter_mut().last()
-                        .expect("sigs is never empty").push(
-                            VerificationResult::BadChecksum(sig));
-                }
+                self.sigs.iter_mut().last()
+                    .expect("sigs is never empty").push(sig);
             },
             _ => (),
         }
@@ -396,13 +375,40 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
                     }
 
                     let (p, ppr_tmp) = pp.recurse()?;
-                    self.verify(p)?;
+                    self.push_sig(p)?;
                     ppr = ppr_tmp;
                 }
 
                 // Verify the signatures.
-                self.helper.check(::std::mem::replace(&mut self.sigs,
-                                                      Vec::new()))
+                let mut results = Vec::new();
+                for sigs in ::std::mem::replace(&mut self.sigs, Vec::new())
+                    .into_iter()
+                {
+                    results.push(Vec::new());
+                    for sig in sigs.into_iter() {
+                        results.iter_mut().last().expect("never empty").push(
+                            if let Some(issuer) = sig.get_issuer() {
+                                if let Some((i, j)) = self.keys.get(&issuer) {
+                                    let (_, _, key)
+                                        = self.tpks[*i].keys_all().nth(*j)
+                                        .unwrap();
+                                    if sig.verify(key).unwrap_or(false) {
+                                        VerificationResult::GoodChecksum(sig)
+                                    } else {
+                                        VerificationResult::BadChecksum(sig)
+                                    }
+                                } else {
+                                    VerificationResult::MissingKey(sig)
+                                }
+                            } else {
+                                // No issuer.
+                                VerificationResult::BadChecksum(sig)
+                            }
+                        )
+                    }
+                }
+
+                self.helper.check(results)
             } else {
                 self.oppr = Some(PacketParserResult::Some(pp));
                 Ok(())
@@ -815,7 +821,7 @@ pub struct Decryptor<'a, H: VerificationHelper + DecryptionHelper> {
     keys: HashMap<KeyID, (usize, usize)>,
     oppr: Option<PacketParserResult<'a>>,
     identity: Option<Fingerprint>,
-    sigs: Vec<Vec<VerificationResult>>,
+    sigs: Vec<Vec<Signature>>,
     reserve: Option<Vec<u8>>,
 }
 
@@ -996,9 +1002,9 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                     v.oppr = Some(PacketParserResult::Some(pp));
                     v.finish_maybe()?;
 
-                    // Verify any queued signatures.
+                    // Stash signatures.
                     for sig in sigs.into_iter() {
-                        v.verify(Packet::Signature(sig))?;
+                        v.push_sig(Packet::Signature(sig))?;
                     }
 
                     return Ok(v);
@@ -1015,7 +1021,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                 Packet::SKESK(skesk) => skesks.push(skesk),
                 Packet::Signature(sig) => {
                     if saw_content {
-                        v.verify(Packet::Signature(sig))?;
+                        v.push_sig(Packet::Signature(sig))?;
                     } else {
                         if let Some(issuer) = sig.get_issuer() {
                             issuers.push(issuer);
@@ -1036,9 +1042,9 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
             "Malformed OpenPGP message".into()).into())
     }
 
-    /// Verifies the given Signature (if it is one), and stores the
-    /// result.
-    fn verify(&mut self, p: Packet) -> Result<()> {
+    /// Stashes the given Signature (if it is one) for later
+    /// verification.
+    fn push_sig(&mut self, p: Packet) -> Result<()> {
         match p {
             Packet::Signature(sig) => {
                 if self.sigs.is_empty() {
@@ -1054,43 +1060,8 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                     }
                 }
 
-                // Check intended recipients.
-                if let Some(identity) = self.identity.as_ref() {
-                    let ir = sig.intended_recipients();
-                    if !ir.is_empty() && !ir.contains(identity) {
-                        // The signature contains intended recipients,
-                        // but we are not one.  Treat the signature as
-                        // bad.
-                        self.sigs.iter_mut().last()
-                            .expect("sigs is never empty").push(
-                                VerificationResult::BadChecksum(sig));
-                        return Ok(());
-                    }
-                }
-
-                if let Some(issuer) = sig.get_issuer() {
-                    if let Some((i, j)) = self.keys.get(&issuer) {
-                        let (_, _, key)
-                            = self.tpks[*i].keys_all().nth(*j).unwrap();
-                        if sig.verify(key).unwrap_or(false) {
-                            self.sigs.iter_mut().last()
-                                .expect("sigs is never empty").push(
-                                    VerificationResult::GoodChecksum(sig));
-                        } else {
-                            self.sigs.iter_mut().last()
-                                .expect("sigs is never empty").push(
-                                    VerificationResult::BadChecksum(sig));
-                        }
-                    } else {
-                        self.sigs.iter_mut().last()
-                            .expect("sigs is never empty").push(
-                                VerificationResult::MissingKey(sig));
-                    }
-                } else {
-                    self.sigs.iter_mut().last()
-                        .expect("sigs is never empty").push(
-                            VerificationResult::BadChecksum(sig));
-                }
+                self.sigs.iter_mut().last()
+                    .expect("sigs is never empty").push(sig);
             },
             _ => (),
         }
@@ -1134,13 +1105,64 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                     }
 
                     let (p, ppr_tmp) = pp.recurse()?;
-                    self.verify(p)?;
+                    self.push_sig(p)?;
                     ppr = ppr_tmp;
                 }
 
                 // Verify the signatures.
-                self.helper.check(::std::mem::replace(&mut self.sigs,
-                                                      Vec::new()))
+                let mut results = Vec::new();
+                for sigs in ::std::mem::replace(&mut self.sigs, Vec::new())
+                    .into_iter()
+                {
+                    results.push(Vec::new());
+                    for sig in sigs.into_iter() {
+                        results.iter_mut().last().expect("never empty").push(
+                            if let Some(issuer) = sig.get_issuer() {
+                                if let Some((i, j)) = self.keys.get(&issuer) {
+                                    let (_, _, key)
+                                        = self.tpks[*i].keys_all().nth(*j)
+                                        .unwrap();
+                                    if sig.verify(key).unwrap_or(false) {
+                                        // Check intended recipients.
+                                        if let Some(identity) =
+                                            self.identity.as_ref()
+                                        {
+                                            let ir = sig.intended_recipients();
+                                            if !ir.is_empty()
+                                                && !ir.contains(identity)
+                                            {
+                                                // The signature
+                                                // contains intended
+                                                // recipients, but we
+                                                // are not one.  Treat
+                                                // the signature as
+                                                // bad.
+                                                VerificationResult::BadChecksum
+                                                    (sig)
+                                            } else {
+                                                VerificationResult::GoodChecksum
+                                                    (sig)
+                                            }
+                                        } else {
+                                            // No identity information.
+                                            VerificationResult::GoodChecksum
+                                                (sig)
+                                        }
+                                    } else {
+                                        VerificationResult::BadChecksum(sig)
+                                    }
+                                } else {
+                                    VerificationResult::MissingKey(sig)
+                                }
+                            } else {
+                                // No issuer.
+                                VerificationResult::BadChecksum(sig)
+                            }
+                        )
+                    }
+                }
+
+                self.helper.check(results)
             } else {
                 self.oppr = Some(PacketParserResult::Some(pp));
                 Ok(())
