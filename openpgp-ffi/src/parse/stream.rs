@@ -91,7 +91,7 @@ pub extern "system" fn pgp_revocation_status_free(
 ///
 /// Within each level, there can be one or more signatures.
 pub struct VerificationResults<'a> {
-    results: Vec<Vec<&'a VerificationResult>>,
+    results: Vec<Vec<&'a VerificationResult<'a>>>,
 }
 
 /// Returns the `VerificationResult`s at level `level.
@@ -109,7 +109,7 @@ pub struct VerificationResults<'a> {
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
 fn pgp_verification_results_at_level<'a>(results: *const VerificationResults<'a>,
                                          level: size_t,
-                                         r: *mut *const &'a VerificationResult,
+                                         r: *mut *const &'a VerificationResult<'a>,
                                          r_count: *mut size_t) {
     let results = ffi_param_ref!(results);
     let r = ffi_param_ref_mut!(r);
@@ -131,7 +131,7 @@ fn pgp_verification_result_code(result: *const VerificationResult)
 {
     let result = ffi_param_ref!(result);
     match result {
-        VerificationResult::GoodChecksum(_) => 1,
+        VerificationResult::GoodChecksum(..) => 1,
         VerificationResult::MissingKey(_) => 2,
         VerificationResult::BadChecksum(_) => 3,
     }
@@ -144,7 +144,7 @@ fn pgp_verification_result_signature(result: *const VerificationResult)
 {
     let result = ffi_param_ref!(result);
     let sig = match result {
-        VerificationResult::GoodChecksum(ref sig) => sig,
+        VerificationResult::GoodChecksum(ref sig, ..) => sig,
         VerificationResult::MissingKey(ref sig) => sig,
         VerificationResult::BadChecksum(ref sig) => sig,
     };

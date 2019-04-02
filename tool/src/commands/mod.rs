@@ -246,7 +246,7 @@ impl<'a> VerificationHelper for VHelper<'a> {
         for (i, results) in sigs.into_iter().enumerate() {
             for result in results {
                 let issuer = match result {
-                    GoodChecksum(ref sig) => sig.get_issuer(),
+                    GoodChecksum(ref sig, ..) => sig.get_issuer(),
                     MissingKey(ref sig) => sig.get_issuer(),
                     BadChecksum(ref sig) => sig.get_issuer(),
                 };
@@ -263,7 +263,7 @@ impl<'a> VerificationHelper for VHelper<'a> {
                 };
 
                 match result {
-                    GoodChecksum(_) => {
+                    GoodChecksum(..) => {
                         let issuer = issuer
                             .expect("good checksum has an issuer");
                         let issuer_str = format!("{}", issuer);

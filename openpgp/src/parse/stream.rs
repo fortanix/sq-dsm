@@ -35,6 +35,7 @@ use {
     KeyID,
     Packet,
     Result,
+    RevocationStatus,
     packet,
     packet::Signature,
     TPK,
@@ -127,7 +128,7 @@ pub struct Verifier<'a, H: VerificationHelper> {
 
 /// Contains the result of a signature verification.
 #[derive(Debug)]
-pub enum VerificationResult {
+pub enum VerificationResult<'a> {
     /// The signature is good.
     ///
     /// Note: A signature is considered good if it can be
@@ -138,19 +139,20 @@ pub enum VerificationResult {
     /// model, such as the [web of trust] (WoT).
     ///
     /// [web of trust]: https://en.wikipedia.org/wiki/Web_of_trust
-    GoodChecksum(Signature),
+    GoodChecksum(Signature,
+                 &'a TPK, &'a Key, Option<&'a Signature>, RevocationStatus<'a>),
     /// Unable to verify the signature because the key is missing.
     MissingKey(Signature),
     /// The signature is bad.
     BadChecksum(Signature),
 }
 
-impl VerificationResult {
+impl<'a> VerificationResult<'a> {
     /// Simple forwarder.
     pub fn level(&self) -> usize {
         use self::VerificationResult::*;
         match self {
-            &GoodChecksum(ref sig) => sig.level(),
+            &GoodChecksum(ref sig, ..) => sig.level(),
             &MissingKey(ref sig) => sig.level(),
             &BadChecksum(ref sig) => sig.level(),
         }
@@ -389,11 +391,12 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
                         results.iter_mut().last().expect("never empty").push(
                             if let Some(issuer) = sig.get_issuer() {
                                 if let Some((i, j)) = self.keys.get(&issuer) {
-                                    let (_, _, key)
-                                        = self.tpks[*i].keys_all().nth(*j)
-                                        .unwrap();
+                                    let tpk = &self.tpks[*i];
+                                    let (binding, revocation, key)
+                                        = tpk.keys_all().nth(*j).unwrap();
                                     if sig.verify(key).unwrap_or(false) {
-                                        VerificationResult::GoodChecksum(sig)
+                                        VerificationResult::GoodChecksum
+                                            (sig, tpk, key, binding, revocation)
                                     } else {
                                         VerificationResult::BadChecksum(sig)
                                     }
@@ -1119,9 +1122,9 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                         results.iter_mut().last().expect("never empty").push(
                             if let Some(issuer) = sig.get_issuer() {
                                 if let Some((i, j)) = self.keys.get(&issuer) {
-                                    let (_, _, key)
-                                        = self.tpks[*i].keys_all().nth(*j)
-                                        .unwrap();
+                                    let tpk = &self.tpks[*i];
+                                    let (binding, revocation, key)
+                                        = tpk.keys_all().nth(*j).unwrap();
                                     if sig.verify(key).unwrap_or(false) {
                                         // Check intended recipients.
                                         if let Some(identity) =
@@ -1141,12 +1144,14 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                                                     (sig)
                                             } else {
                                                 VerificationResult::GoodChecksum
-                                                    (sig)
+                                                    (sig, tpk, key, binding,
+                                                     revocation)
                                             }
                                         } else {
                                             // No identity information.
                                             VerificationResult::GoodChecksum
-                                                (sig)
+                                                (sig, tpk, key, binding,
+                                                 revocation)
                                         }
                                     } else {
                                         VerificationResult::BadChecksum(sig)
@@ -1282,7 +1287,7 @@ mod test {
             for level in sigs {
                 for result in level {
                     match result {
-                        GoodChecksum(_) => self.good += 1,
+                        GoodChecksum(..) => self.good += 1,
                         MissingKey(_) => self.unknown += 1,
                         BadChecksum(_) => self.bad += 1,
                     }

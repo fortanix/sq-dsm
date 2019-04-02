@@ -248,7 +248,7 @@ impl<'a> Signer<'a> {
     ///
     ///     fn check(&mut self, sigs: Vec<Vec<VerificationResult>>)
     ///              -> openpgp::Result<()> {
-    ///         if let VerificationResult::GoodChecksum(_) =
+    ///         if let VerificationResult::GoodChecksum(..) =
     ///             sigs.get(0).unwrap().get(0).unwrap()
     ///         { Ok(()) /* good */ } else { panic!() }
     ///     }
@@ -331,7 +331,7 @@ impl<'a> Signer<'a> {
     ///
     ///     fn check(&mut self, sigs: Vec<Vec<VerificationResult>>)
     ///              -> openpgp::Result<()> {
-    ///         if let VerificationResult::GoodChecksum(_) =
+    ///         if let VerificationResult::GoodChecksum(..) =
     ///             sigs.get(0).unwrap().get(0).unwrap()
     ///         { Ok(()) /* good */ } else { panic!() }
     ///     }

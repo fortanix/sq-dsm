@@ -119,7 +119,7 @@ fn main() {
 #         // whether the signature checks out mathematically, we apply
 #         // our policy.
 #         match sig_result {
-#             VerificationResult::GoodChecksum(_) =>
+#             VerificationResult::GoodChecksum(..) =>
 #                 Ok(()), // Good signature
 #             VerificationResult::MissingKey(_) =>
 #                 Err(failure::err_msg("Missing key to verify signature")),
@@ -249,7 +249,7 @@ fn generate() -> openpgp::Result<openpgp::TPK> {
 #         // whether the signature checks out mathematically, we apply
 #         // our policy.
 #         match sig_result {
-#             VerificationResult::GoodChecksum(_) =>
+#             VerificationResult::GoodChecksum(..) =>
 #                 Ok(()), // Good signature
 #             VerificationResult::MissingKey(_) =>
 #                 Err(failure::err_msg("Missing key to verify signature")),
@@ -379,7 +379,7 @@ fn sign(sink: &mut Write, plaintext: &str, tsk: &openpgp::TPK)
 #         // whether the signature checks out mathematically, we apply
 #         // our policy.
 #         match sig_result {
-#             VerificationResult::GoodChecksum(_) =>
+#             VerificationResult::GoodChecksum(..) =>
 #                 Ok(()), // Good signature
 #             VerificationResult::MissingKey(_) =>
 #                 Err(failure::err_msg("Missing key to verify signature")),
@@ -520,7 +520,7 @@ impl<'a> VerificationHelper for Helper<'a> {
         // whether the signature checks out mathematically, we apply
         // our policy.
         match sig_result {
-            VerificationResult::GoodChecksum(_) =>
+            VerificationResult::GoodChecksum(..) =>
                 Ok(()), // Good signature
             VerificationResult::MissingKey(_) =>
                 Err(failure::err_msg("Missing key to verify signature")),
