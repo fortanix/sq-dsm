@@ -560,6 +560,11 @@ pub trait BufferedReader<C> : io::Read + fmt::Debug + fmt::Display {
         Ok(buffer)
     }
 
+    /// Checks whether the end of the stream is reached.
+    fn eof(&mut self) -> bool {
+        self.data_hard(1).is_err()
+    }
+
     /// A convenience function for reading a 16-bit unsigned integer
     /// in big endian format.
     fn read_be_u16(&mut self) -> Result<u16, std::io::Error> {
