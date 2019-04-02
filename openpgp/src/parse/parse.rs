@@ -1514,6 +1514,40 @@ impl<'a> Parse<'a, Key> for Key {
     }
 }
 
+impl Trust {
+    /// Parses the body of a trust packet.
+    fn parse<'a>(mut php: PacketHeaderParser<'a>) -> Result<PacketParser<'a>> {
+        make_php_try!(php);
+        let value = php_try!(php.parse_bytes_eof("value"));
+        php.ok(Packet::Trust(Trust::from(value)))
+    }
+}
+
+impl<'a> Parse<'a, Trust> for Trust {
+    fn from_reader<R: 'a + Read>(reader: R) -> Result<Self> {
+        let ppr = PacketParser::from_reader(reader)?;
+        let (p, ppr) = match ppr {
+            PacketParserResult::Some(mut pp) => {
+                pp.next()?
+            },
+            PacketParserResult::EOF(_) =>
+                return Err(Error::InvalidOperation(
+                    "Unexpected EOF".into()).into()),
+        };
+
+        match (p, ppr) {
+            (Packet::Trust(u), PacketParserResult::EOF(_)) =>
+                Ok(u),
+            (p, PacketParserResult::EOF(_)) =>
+                Err(Error::InvalidOperation(
+                    format!("Not a Trust packet: {:?}", p)).into()),
+            (_, PacketParserResult::Some(_)) =>
+                Err(Error::InvalidOperation(
+                    "Excess data after packet".into()).into()),
+        }
+    }
+}
+
 impl UserID {
     /// Parses the body of a user id packet.
     fn parse<'a>(mut php: PacketHeaderParser<'a>) -> Result<PacketParser<'a>> {
@@ -3022,6 +3056,7 @@ impl <'a> PacketParser<'a> {
             Tag::PublicKey =>           Key::parse(parser),
             Tag::SecretKey =>           Key::parse(parser),
             Tag::SecretSubkey =>        Key::parse(parser),
+            Tag::Trust =>               Trust::parse(parser),
             Tag::UserID =>              UserID::parse(parser),
             Tag::UserAttribute =>       UserAttribute::parse(parser),
             Tag::Marker =>              Marker::parse(parser),
@@ -3279,7 +3314,7 @@ impl <'a> PacketParser<'a> {
             Packet::Unknown(_) | Packet::Signature(_) | Packet::OnePassSig(_)
                 | Packet::PublicKey(_) | Packet::PublicSubkey(_)
                 | Packet::SecretKey(_) | Packet::SecretSubkey(_)
-                | Packet::Marker(_)
+                | Packet::Marker(_) | Packet::Trust(_)
                 | Packet::UserID(_) | Packet::UserAttribute(_)
                 | Packet::Literal(_) | Packet::PKESK(_) | Packet::SKESK(_)
                 | Packet::SEIP(_) | Packet::MDC(_) | Packet::AED(_) => {

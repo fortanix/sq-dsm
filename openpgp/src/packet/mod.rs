@@ -32,6 +32,8 @@ pub mod one_pass_sig;
 pub mod key;
 mod marker;
 pub use self::marker::Marker;
+mod trust;
+pub use self::trust::Trust;
 mod userid;
 pub use self::userid::UserID;
 pub mod user_attribute;
@@ -67,6 +69,7 @@ impl<'a> Deref for Packet {
             &Packet::SecretKey(ref packet) => &packet.common,
             &Packet::SecretSubkey(ref packet) => &packet.common,
             &Packet::Marker(ref packet) => &packet.common,
+            &Packet::Trust(ref packet) => &packet.common,
             &Packet::UserID(ref packet) => &packet.common,
             &Packet::UserAttribute(ref packet) => &packet.common,
             &Packet::Literal(ref packet) => &packet.common,
@@ -93,6 +96,7 @@ impl<'a> DerefMut for Packet {
             &mut Packet::SecretKey(ref mut packet) => &mut packet.common,
             &mut Packet::SecretSubkey(ref mut packet) => &mut packet.common,
             &mut Packet::Marker(ref mut packet) => &mut packet.common,
+            &mut Packet::Trust(ref mut packet) => &mut packet.common,
             &mut Packet::UserID(ref mut packet) => &mut packet.common,
             &mut Packet::UserAttribute(ref mut packet) => &mut packet.common,
             &mut Packet::Literal(ref mut packet) => &mut packet.common,

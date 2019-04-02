@@ -272,6 +272,11 @@ impl PacketDumper {
                 }
             },
 
+            Trust(ref p) => {
+                writeln!(output, "Trust Packet")?;
+                writeln!(output, "{}  Value: {}", i, hex::encode(p.value()))?;
+            },
+
             UserID(ref u) => {
                 writeln!(output, "User ID Packet")?;
                 writeln!(output, "{}  Value: {}", i,

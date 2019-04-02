@@ -11,6 +11,7 @@ pub use super::{
     key::Key4,
     key::SecretKey,
     Marker,
+    Trust,
     UserID,
     user_attribute,
     UserAttribute,
