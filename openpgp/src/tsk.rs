@@ -103,8 +103,16 @@ impl TSK {
     }
 
     /// Signs `key` and `userid` with a 3rd party certification.
-    pub fn certify_userid(&self, key: &Key, userid: &UserID) -> Result<Signature> {
-        use packet::{signature, key::SecretKey};
+    ///
+    /// Note: This is a convenience function around
+    /// [`signature::Builder::sign_userid_binding()`].  If your TSK
+    /// contains encrypted or remote keys, or you want to customize
+    /// the signature, use this function instead.
+    ///
+    /// [`signature::Builder::sign_userid_binding()`]: packet/signature/struct.Builder.html#method.sign_userid_binding
+    pub fn certify_userid(&self, key: &Key, userid: &UserID)
+                          -> Result<Signature> {
+        use packet::signature;
         use constants::{HashAlgorithm, SignatureType};
 
         // We're willing to use an expired certification key here,
@@ -117,25 +125,15 @@ impl TSK {
             .certification_capable()
             .unencrypted_secret(true)
             .nth(0)
-            .map(|x| x.2);
+            .map(|x| x.2)
+            .ok_or(failure::Error::from(Error::InvalidOperation(
+                "this key cannot certify keys".into())))?;
 
-        match certification_key {
-            Some(my_key) => {
-                match my_key.secret() {
-                    Some(&SecretKey::Unencrypted{ ref mpis }) => {
-                        signature::Builder::new(SignatureType::GenericCertificate)
-                            .sign_userid_binding(
-                                &mut KeyPair::new((*my_key).clone(),
-                                                  mpis.clone())?,
-                                key, userid, HashAlgorithm::SHA512)
-                    }
-                    _ => Err(Error::InvalidOperation(
-                            "secret key missing or encrypted".into()).into()),
-                }
-            }
-            None => Err(Error::InvalidOperation(
-                        "this key cannot certify keys".into()).into()),
-        }
+        let mut signer = certification_key.clone().into_keypair()
+            .expect("filtered for unencrypted secret keys above");
+        signature::Builder::new(SignatureType::GenericCertificate)
+            .sign_userid_binding(&mut signer, key, userid,
+                                 HashAlgorithm::SHA512)
     }
 
     /// Signs the primary key's self signatures of `key`.
@@ -181,6 +179,7 @@ impl TSK {
                                 mpis.clone())?,
                                 my_key, userid, HashAlgorithm::SHA512)
                     }
+                    // XXX
                     _ => Err(Error::InvalidOperation(
                             "secret key missing or encrypted".into()).into()),
                 }
@@ -217,6 +216,7 @@ impl TSK {
                                 userattr,
                                 HashAlgorithm::SHA512)
                     }
+                    // XXX
                     _ => Err(Error::InvalidOperation(
                             "secret key missing or encrypted".into()).into()),
                 }
@@ -276,6 +276,7 @@ impl TSK {
                             &mut KeyPair::new(subkey.clone(), mpis.clone())?,
                             prim, &subkey, HashAlgorithm::SHA512)?
                 }
+                // XXX
                 Some(SecretKey::Encrypted{ .. }) => {
                     return Err(Error::InvalidOperation(
                             "Secret key is encrypted".into()).into());
@@ -295,6 +296,7 @@ impl TSK {
                                         prim, &subkey,
                                         HashAlgorithm::SHA512)?
             }
+            // XXX
             Some(SecretKey::Encrypted{ .. }) => {
                 return Err(Error::InvalidOperation(
                         "Secret key is encrypted".into()).into());

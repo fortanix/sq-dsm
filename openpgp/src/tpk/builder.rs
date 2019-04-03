@@ -266,7 +266,6 @@ impl TPKBuilder {
         -> Result<(Key, Signature)>
     {
         use SignatureType;
-        use packet::key::SecretKey;
 
         let key = cs.generate_key(&KeyFlags::default().set_certify(true))?;
         let sig = signature::Builder::new(SignatureType::DirectKey)
@@ -278,21 +277,10 @@ impl TPKBuilder {
             .set_issuer(key.fingerprint().to_keyid())?
             .set_preferred_hash_algorithms(vec![HashAlgorithm::SHA512])?;
 
-        let sig = match key.secret() {
-            Some(SecretKey::Unencrypted{ ref mpis }) => {
-                sig.sign_primary_key_binding(
-                    &mut KeyPair::new(key.clone(), mpis.clone())?,
-                    HashAlgorithm::SHA512)?
-            }
-            Some(SecretKey::Encrypted{ .. }) => {
-                return Err(Error::InvalidOperation(
-                        "Secret key is encrypted".into()).into());
-            }
-            None => {
-                return Err(Error::InvalidOperation(
-                        "No secret key".into()).into());
-            }
-        };
+        let mut signer = key.clone().into_keypair()
+            .expect("key generated above has a secret");
+        let sig = sig.sign_primary_key_binding(&mut signer,
+                                               HashAlgorithm::SHA512)?;
 
         Ok((key, sig.into()))
     }
