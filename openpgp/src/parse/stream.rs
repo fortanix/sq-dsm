@@ -171,9 +171,10 @@ pub trait VerificationHelper {
     /// Check that the required number of signatures or notarizations
     /// were confirmed as valid.
     ///
-    /// The argument is a vector, with `sigs[0]` being the vector of
-    /// signatures over the data, `vec[1]` being notarizations over
-    /// signatures of level 0, and the data, and so on.
+    /// The argument is a vector, with `sigs[sigs.len()-1]` being the
+    /// vector of signatures over the data, `sigs[sigs.len()-2]` being
+    /// notarizations over signatures of level 0, and the data, and so
+    /// on.
     ///
     /// This callback is only called before all data is returned.
     /// That is, once `io::Read` returns EOF, this callback will not
@@ -384,7 +385,7 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
                 // Verify the signatures.
                 let mut results = Vec::new();
                 for sigs in ::std::mem::replace(&mut self.sigs, Vec::new())
-                    .into_iter()
+                    .into_iter().rev()
                 {
                     results.push(Vec::new());
                     for sig in sigs.into_iter() {
@@ -1123,7 +1124,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
     fn verify_signatures(&mut self) -> Result<()> {
         let mut results = Vec::new();
         for sigs in ::std::mem::replace(&mut self.sigs, Vec::new())
-            .into_iter()
+            .into_iter().rev()
         {
             results.push(Vec::new());
             for sig in sigs.into_iter() {
@@ -1406,14 +1407,14 @@ mod test {
                 assert_eq!(sigs.len(), 2);
                 assert_eq!(sigs[0].len(), 1);
                 assert_eq!(sigs[1].len(), 1);
-                if let VerificationResult::MissingKey(ref sig) = sigs[0][0] {
+                if let VerificationResult::MissingKey(ref sig) = sigs[1][0] {
                     assert_eq!(
                         &sig.issuer_fingerprint().unwrap().to_string(),
                         "C03F A641 1B03 AE12 5764  6118 7223 B566 78E0 2528");
                 } else {
                     unreachable!()
                 }
-                if let VerificationResult::MissingKey(ref sig) = sigs[1][0] {
+                if let VerificationResult::MissingKey(ref sig) = sigs[0][0] {
                     assert_eq!(
                         &sig.issuer_fingerprint().unwrap().to_string(),
                         "8E8C 33FA 4626 3379 76D9  7978 069C 0C34 8DD8 2C19");

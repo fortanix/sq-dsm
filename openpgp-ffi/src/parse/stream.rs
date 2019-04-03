@@ -120,8 +120,8 @@ fn pgp_verification_results_at_level<'a>(results: *const VerificationResults<'a>
     // The size of VerificationResult is not known in C.  Convert from
     // an array of VerificationResult to an array of
     // VerificationResult refs.
-    *r = results.results[level].as_ptr();
-    *r_count = results.results[level].len();
+    *r = results.results[results.results.len() - level - 1].as_ptr();
+    *r_count = results.results[results.results.len() - level - 1].len();
 }
 
 /// Returns the verification result code.

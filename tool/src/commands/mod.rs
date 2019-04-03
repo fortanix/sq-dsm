@@ -243,7 +243,7 @@ impl<'a> VerificationHelper for VHelper<'a> {
 
     fn check(&mut self, sigs: Vec<Vec<VerificationResult>>) -> Result<()> {
         use self::VerificationResult::*;
-        for (i, results) in sigs.into_iter().enumerate() {
+        for (i, results) in sigs.into_iter().rev().enumerate() {
             for result in results {
                 let issuer = match result {
                     GoodChecksum(ref sig, ..) => sig.get_issuer(),
