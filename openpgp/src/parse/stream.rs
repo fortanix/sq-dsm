@@ -828,9 +828,6 @@ pub struct Decryptor<'a, H: VerificationHelper + DecryptionHelper> {
     reserve: Option<Vec<u8>>,
 }
 
-/// Decrypts the message.
-pub type DecryptFn = FnMut(SymmetricAlgorithm, &SessionKey) -> Result<()>;
-
 /// Helper for decrypting messages.
 pub trait DecryptionHelper {
     /// Turns mapping on or off.
