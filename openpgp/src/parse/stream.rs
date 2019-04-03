@@ -1353,6 +1353,45 @@ mod test {
         }
     }
 
+    /// Tests the order of signatures given to
+    /// VerificationHelper::check().
+    #[test]
+    fn verifier_levels() {
+        struct Helper(());
+        impl VerificationHelper for Helper {
+            fn get_public_keys(&mut self, _ids: &[KeyID]) -> Result<Vec<TPK>> {
+                Ok(Vec::new())
+            }
+
+            fn check(&mut self, sigs: Vec<Vec<VerificationResult>>)
+                     -> Result<()> {
+                assert_eq!(sigs.len(), 2);
+                assert_eq!(sigs[0].len(), 1);
+                assert_eq!(sigs[1].len(), 1);
+                if let VerificationResult::MissingKey(ref sig) = sigs[0][0] {
+                    assert_eq!(
+                        &sig.issuer_fingerprint().unwrap().to_string(),
+                        "C03F A641 1B03 AE12 5764  6118 7223 B566 78E0 2528");
+                } else {
+                    unreachable!()
+                }
+                if let VerificationResult::MissingKey(ref sig) = sigs[1][0] {
+                    assert_eq!(
+                        &sig.issuer_fingerprint().unwrap().to_string(),
+                        "8E8C 33FA 4626 3379 76D9  7978 069C 0C34 8DD8 2C19");
+                } else {
+                    unreachable!()
+                }
+                Ok(())
+            }
+        }
+
+        let v = Verifier::from_file(
+            path_to("messages/signed-1-notarized-by-ed25519.pgp"),
+            Helper(())).unwrap();
+        assert!(v.message_processed());
+    }
+
     #[test]
     fn detached_verifier() {
         let keys = [
