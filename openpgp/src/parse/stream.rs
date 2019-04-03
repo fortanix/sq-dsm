@@ -1242,7 +1242,7 @@ mod test {
     }
 
     #[derive(Debug, PartialEq)]
-    struct Helper {
+    struct VHelper {
         good: usize,
         unknown: usize,
         bad: usize,
@@ -1250,9 +1250,9 @@ mod test {
         keys: Vec<TPK>,
     }
 
-    impl Default for Helper {
+    impl Default for VHelper {
         fn default() -> Self {
-            Helper {
+            VHelper {
                 good: 0,
                 unknown: 0,
                 bad: 0,
@@ -1262,9 +1262,9 @@ mod test {
         }
     }
 
-    impl Helper {
+    impl VHelper {
         fn new(good: usize, unknown: usize, bad: usize, error: usize, keys: Vec<TPK>) -> Self {
-            Helper {
+            VHelper {
                 good: good,
                 unknown: unknown,
                 bad: bad,
@@ -1274,7 +1274,7 @@ mod test {
         }
     }
 
-    impl VerificationHelper for Helper {
+    impl VerificationHelper for VHelper {
         fn get_public_keys(&mut self, _ids: &[KeyID]) -> Result<Vec<TPK>> {
             Ok(self.keys.clone())
         }
@@ -1299,6 +1299,15 @@ mod test {
         }
     }
 
+    impl DecryptionHelper for VHelper {
+        fn decrypt<D>(&mut self, _: &[PKESK], _: &[SKESK], _: D)
+                      -> Result<Option<Fingerprint>>
+            where D: FnMut(SymmetricAlgorithm, &SessionKey) -> Result<()>
+        {
+            unreachable!();
+        }
+    }
+
     #[test]
     fn verifier() {
         let keys = [
@@ -1309,10 +1318,10 @@ mod test {
             path_to(&format!("keys/{}", f))).unwrap())
          .collect::<Vec<_>>();
         let tests = &[
-            ("messages/signed-1.gpg",                      Helper::new(1, 0, 0, 0, keys.clone())),
-            ("messages/signed-1-sha256-testy.gpg",         Helper::new(0, 1, 0, 0, keys.clone())),
-            ("messages/signed-1-notarized-by-ed25519.pgp", Helper::new(2, 0, 0, 0, keys.clone())),
-            ("keys/neal.pgp",                              Helper::new(0, 0, 0, 1, keys.clone())),
+            ("messages/signed-1.gpg",                      VHelper::new(1, 0, 0, 0, keys.clone())),
+            ("messages/signed-1-sha256-testy.gpg",         VHelper::new(0, 1, 0, 0, keys.clone())),
+            ("messages/signed-1-notarized-by-ed25519.pgp", VHelper::new(2, 0, 0, 0, keys.clone())),
+            ("keys/neal.pgp",                              VHelper::new(0, 0, 0, 1, keys.clone())),
         ];
 
         let mut reference = Vec::new();
@@ -1322,9 +1331,37 @@ mod test {
             .unwrap();
 
         for (f, r) in tests {
-            let mut h = Helper::new(0, 0, 0, 0, keys.clone());
+            // Test Verifier.
+            let mut h = VHelper::new(0, 0, 0, 0, keys.clone());
             let mut v =
                 match Verifier::from_file(path_to(f), h) {
+                    Ok(v) => v,
+                    Err(e) => if r.error > 0 || r.unknown > 0 {
+                        // Expected error.  No point in trying to read
+                        // something.
+                        continue;
+                    } else {
+                        panic!(e);
+                    },
+                };
+            assert!(v.message_processed());
+            assert_eq!(v.helper_ref(), r);
+
+            if v.helper_ref().error > 0 {
+                // Expected error.  No point in trying to read
+                // something.
+                continue;
+            }
+
+            let mut content = Vec::new();
+            v.read_to_end(&mut content).unwrap();
+            assert_eq!(reference.len(), content.len());
+            assert_eq!(reference, content);
+
+            // Test Decryptor.
+            let mut h = VHelper::new(0, 0, 0, 0, keys.clone());
+            let mut v =
+                match Decryptor::from_file(path_to(f), h) {
                     Ok(v) => v,
                     Err(e) => if r.error > 0 || r.unknown > 0 {
                         // Expected error.  No point in trying to read
@@ -1354,8 +1391,8 @@ mod test {
     /// VerificationHelper::check().
     #[test]
     fn verifier_levels() {
-        struct Helper(());
-        impl VerificationHelper for Helper {
+        struct VHelper(());
+        impl VerificationHelper for VHelper {
             fn get_public_keys(&mut self, _ids: &[KeyID]) -> Result<Vec<TPK>> {
                 Ok(Vec::new())
             }
@@ -1382,10 +1419,25 @@ mod test {
                 Ok(())
             }
         }
+        impl DecryptionHelper for VHelper {
+            fn decrypt<D>(&mut self, _: &[PKESK], _: &[SKESK], _: D)
+                          -> Result<Option<Fingerprint>>
+                where D: FnMut(SymmetricAlgorithm, &SessionKey) -> Result<()>
+            {
+                unreachable!();
+            }
+        }
 
+        // Test verifier.
         let v = Verifier::from_file(
             path_to("messages/signed-1-notarized-by-ed25519.pgp"),
-            Helper(())).unwrap();
+            VHelper(())).unwrap();
+        assert!(v.message_processed());
+
+        // Test decryptor.
+        let v = Decryptor::from_file(
+            path_to("messages/signed-1-notarized-by-ed25519.pgp"),
+            VHelper(())).unwrap();
         assert!(v.message_processed());
     }
 
@@ -1404,7 +1456,7 @@ mod test {
             .read_to_end(&mut reference)
             .unwrap();
 
-        let h = Helper::new(0, 0, 0, 0, keys.clone());
+        let h = VHelper::new(0, 0, 0, 0, keys.clone());
         let mut v = DetachedVerifier::from_file(
             path_to("messages/a-cypherpunks-manifesto.txt.ed25519.sig"),
             path_to("messages/a-cypherpunks-manifesto.txt"),
@@ -1421,7 +1473,7 @@ mod test {
         assert_eq!(h.bad, 0);
 
         // Same, but with readers.
-        let h = Helper::new(0, 0, 0, 0, keys.clone());
+        let h = VHelper::new(0, 0, 0, 0, keys.clone());
         let mut v = DetachedVerifier::from_reader(
             File::open(
                 path_to("messages/a-cypherpunks-manifesto.txt.ed25519.sig"))
@@ -1470,7 +1522,8 @@ mod test {
             ls.finalize().unwrap();
         }
 
-        let h = Helper::new(0, 0, 0, 0, vec![tpk.clone()]);
+        // Test Verifier.
+        let h = VHelper::new(0, 0, 0, 0, vec![tpk.clone()]);
         let mut v = Verifier::from_bytes(&buf, h).unwrap();
 
         assert!(!v.message_processed());
@@ -1492,9 +1545,56 @@ mod test {
         assert!(v.helper_ref().error == 0);
 
         // Try the same, but this time we let .check() fail.
-        let h = Helper::new(0, 0, /* makes check() fail: */ 1, 0,
-                            vec![tpk.clone()]);
+        let h = VHelper::new(0, 0, /* makes check() fail: */ 1, 0,
+                             vec![tpk.clone()]);
         let mut v = Verifier::from_bytes(&buf, h).unwrap();
+
+        assert!(!v.message_processed());
+        assert!(v.helper_ref().good == 0);
+        assert!(v.helper_ref().bad == 1);
+        assert!(v.helper_ref().unknown == 0);
+        assert!(v.helper_ref().error == 0);
+
+        let mut message = Vec::new();
+        let r = v.read_to_end(&mut message);
+        assert!(r.is_err());
+
+        // Check that we only got a truncated message.
+        assert!(v.message_processed());
+        assert!(message.len() > 0);
+        assert!(message.len() <= 5 * 1024 * 1024);
+        assert!(message.iter().all(|&b| b == 42));
+        assert!(v.helper_ref().good == 1);
+        assert!(v.helper_ref().bad == 1);
+        assert!(v.helper_ref().unknown == 0);
+        assert!(v.helper_ref().error == 0);
+
+        // Test Decryptor.
+        let h = VHelper::new(0, 0, 0, 0, vec![tpk.clone()]);
+        let mut v = Decryptor::from_bytes(&buf, h).unwrap();
+
+        assert!(!v.message_processed());
+        assert!(v.helper_ref().good == 0);
+        assert!(v.helper_ref().bad == 0);
+        assert!(v.helper_ref().unknown == 0);
+        assert!(v.helper_ref().error == 0);
+
+        let mut message = Vec::new();
+
+        v.read_to_end(&mut message).unwrap();
+
+        assert!(v.message_processed());
+        assert_eq!(30 * 1024 * 1024, message.len());
+        assert!(message.iter().all(|&b| b == 42));
+        assert!(v.helper_ref().good == 1);
+        assert!(v.helper_ref().bad == 0);
+        assert!(v.helper_ref().unknown == 0);
+        assert!(v.helper_ref().error == 0);
+
+        // Try the same, but this time we let .check() fail.
+        let h = VHelper::new(0, 0, /* makes check() fail: */ 1, 0,
+                             vec![tpk.clone()]);
+        let mut v = Decryptor::from_bytes(&buf, h).unwrap();
 
         assert!(!v.message_processed());
         assert!(v.helper_ref().good == 0);
