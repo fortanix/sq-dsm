@@ -86,7 +86,7 @@ pub extern "system" fn pgp_revocation_status_free(
 /// VerificationResult.  The outer array is for the verification level
 /// and is indexed by the verification level.  A verification level of
 /// zero corresponds to direct signatures; A verification level of 1
-/// corresponds to notorizations (i.e., signatures of signatures);
+/// corresponds to notarizations (i.e., signatures of signatures);
 /// etc.
 ///
 /// Within each level, there can be one or more signatures.
@@ -100,7 +100,7 @@ pub struct VerificationResults<'a> {
 /// VerificationResult.  The outer array is for the verification level
 /// and is indexed by the verification level.  A verification level of
 /// zero corresponds to direct signatures; A verification level of 1
-/// corresponds to notorizations (i.e., signatures of signatures);
+/// corresponds to notarizations (i.e., signatures of signatures);
 /// etc.
 ///
 /// This function returns the verification results for a particular
