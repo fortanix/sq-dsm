@@ -1109,62 +1109,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                     ppr = ppr_tmp;
                 }
 
-                // Verify the signatures.
-                let mut results = Vec::new();
-                for sigs in ::std::mem::replace(&mut self.sigs, Vec::new())
-                    .into_iter()
-                {
-                    results.push(Vec::new());
-                    for sig in sigs.into_iter() {
-                        results.iter_mut().last().expect("never empty").push(
-                            if let Some(issuer) = sig.get_issuer() {
-                                if let Some((i, j)) = self.keys.get(&issuer) {
-                                    let tpk = &self.tpks[*i];
-                                    let (binding, revocation, key)
-                                        = tpk.keys_all().nth(*j).unwrap();
-                                    if sig.verify(key).unwrap_or(false) {
-                                        // Check intended recipients.
-                                        if let Some(identity) =
-                                            self.identity.as_ref()
-                                        {
-                                            let ir = sig.intended_recipients();
-                                            if !ir.is_empty()
-                                                && !ir.contains(identity)
-                                            {
-                                                // The signature
-                                                // contains intended
-                                                // recipients, but we
-                                                // are not one.  Treat
-                                                // the signature as
-                                                // bad.
-                                                VerificationResult::BadChecksum
-                                                    (sig)
-                                            } else {
-                                                VerificationResult::GoodChecksum
-                                                    (sig, tpk, key, binding,
-                                                     revocation)
-                                            }
-                                        } else {
-                                            // No identity information.
-                                            VerificationResult::GoodChecksum
-                                                (sig, tpk, key, binding,
-                                                 revocation)
-                                        }
-                                    } else {
-                                        VerificationResult::BadChecksum(sig)
-                                    }
-                                } else {
-                                    VerificationResult::MissingKey(sig)
-                                }
-                            } else {
-                                // No issuer.
-                                VerificationResult::BadChecksum(sig)
-                            }
-                        )
-                    }
-                }
-
-                self.helper.check(results)
+                self.verify_signatures()
             } else {
                 self.oppr = Some(PacketParserResult::Some(pp));
                 Ok(())
@@ -1172,6 +1117,65 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
         } else {
             panic!("No ppr.");
         }
+    }
+
+    /// Verifies the signatures.
+    fn verify_signatures(&mut self) -> Result<()> {
+        let mut results = Vec::new();
+        for sigs in ::std::mem::replace(&mut self.sigs, Vec::new())
+            .into_iter()
+        {
+            results.push(Vec::new());
+            for sig in sigs.into_iter() {
+                results.iter_mut().last().expect("never empty").push(
+                    if let Some(issuer) = sig.get_issuer() {
+                        if let Some((i, j)) = self.keys.get(&issuer) {
+                            let tpk = &self.tpks[*i];
+                            let (binding, revocation, key)
+                                = tpk.keys_all().nth(*j).unwrap();
+                            if sig.verify(key).unwrap_or(false) {
+                                // Check intended recipients.
+                                if let Some(identity) =
+                                    self.identity.as_ref()
+                                {
+                                    let ir = sig.intended_recipients();
+                                    if !ir.is_empty()
+                                        && !ir.contains(identity)
+                                    {
+                                        // The signature
+                                        // contains intended
+                                        // recipients, but we
+                                        // are not one.  Treat
+                                        // the signature as
+                                        // bad.
+                                        VerificationResult::BadChecksum
+                                            (sig)
+                                    } else {
+                                        VerificationResult::GoodChecksum
+                                            (sig, tpk, key, binding,
+                                             revocation)
+                                    }
+                                } else {
+                                    // No identity information.
+                                    VerificationResult::GoodChecksum
+                                        (sig, tpk, key, binding,
+                                         revocation)
+                                }
+                            } else {
+                                VerificationResult::BadChecksum(sig)
+                            }
+                        } else {
+                            VerificationResult::MissingKey(sig)
+                        }
+                    } else {
+                        // No issuer.
+                        VerificationResult::BadChecksum(sig)
+                    }
+                )
+            }
+        }
+
+        self.helper.check(results)
     }
 
     /// Like `io::Read::read()`, but returns our `Result`.
