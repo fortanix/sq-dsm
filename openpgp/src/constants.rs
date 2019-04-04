@@ -310,7 +310,7 @@ pub enum SymmetricAlgorithm {
     TripleDES,
     /// CAST5/CAST128 block cipher.
     CAST5,
-    /// Scheiner et.al. Blowfish block cipher.
+    /// Schneier et.al. Blowfish block cipher.
     Blowfish,
     /// 10-round AES.
     AES128,
