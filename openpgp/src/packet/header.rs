@@ -72,17 +72,27 @@ impl Header {
                     }
                 }
                 BodyLength::Full(l) => {
-                    if tag == Tag::SED && (l == 0 || l % 16 != 0) {
+                    // In the following block cipher length checks, we
+                    // conservatively assume a block size of 8 bytes,
+                    // because Twofish, TripleDES, IDEA, and CAST-5
+                    // have a block size of 64 bits.
+                    if tag == Tag::SED && (l < (8       // Random block.
+                                                + 2     // Quickcheck bytes.
+                                                + 6)) { // Smallest literal.
                         return Err(Error::MalformedPacket(
                             format!("{} packet's length must be \
-                                     a multiple of 16 (got: {})",
+                                     at least 16 bytes in length (got: {})",
                                     tag, l)).into());
                     } else if tag == Tag::SEIP
-                        && (l <= 1 || (l - 1) % 16 != 0)
+                        && (l < (1       // Version.
+                                 + 8     // Random block.
+                                 + 2     // Quickcheck bytes.
+                                 + 6     // Smallest literal.
+                                 + 20))  // MDC packet.
                     {
                         return Err(Error::MalformedPacket(
                             format!("{} packet's length minus 1 must be \
-                                     a multiple of 16 (got: {})",
+                                     at least 37 bytes in length (got: {})",
                                     tag, l)).into());
                     } else if tag == Tag::CompressedData && l == 0 {
                         // One byte header.
@@ -91,7 +101,7 @@ impl Header {
                                      at least 1 byte (got ({})",
                                     tag, l)).into());
                     } else if tag == Tag::Literal && l < 6 {
-                        // One byte header.
+                        // Smallest literal packet consists of 6 octets.
                         return Err(Error::MalformedPacket(
                             format!("{} packet's length must be \
                                      at least 6 bytes (got: ({})",
