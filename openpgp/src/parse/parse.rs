@@ -3071,10 +3071,19 @@ impl <'a> PacketParser<'a> {
                 },
         };
 
+        // Our parser should not accept packets that fail our header
+        // syntax check.  Doing so breaks roundtripping, and seems
+        // like a bad idea anyway.
+        let header_syntax_error = header.valid(true).err();
         let parser = PacketHeaderParser::new(bio, state, path,
                                              header, header_bytes);
 
         let mut result = match tag {
+            Tag::Reserved if skip > 0 => Unknown::parse(
+                parser, Error::MalformedPacket(format!(
+                    "Skipped {} bytes of junk", skip)).into()),
+            _ if header_syntax_error.is_some() =>
+                Unknown::parse(parser, header_syntax_error.unwrap()),
             Tag::Signature =>           Signature::parse(parser),
             Tag::OnePassSig =>          OnePassSig::parse(parser),
             Tag::PublicSubkey =>        Key::parse(parser),
@@ -3092,9 +3101,6 @@ impl <'a> PacketParser<'a> {
             Tag::MDC =>                 MDC::parse(parser),
             Tag::PKESK =>               PKESK::parse(parser),
             Tag::AED =>                 AED1::parse(parser),
-            Tag::Reserved if skip > 0 => Unknown::parse(
-                parser, Error::MalformedPacket(format!(
-                    "Skipped {} bytes of junk", skip)).into()),
             _ => Unknown::parse(parser,
                                 Error::UnsupportedPacketType(tag).into()),
         }?;
@@ -4287,8 +4293,8 @@ mod test {
         assert_eq!(sigs, 53);
         assert_eq!(subkeys, 3);
         assert_eq!(userids, 5);
-        assert_eq!(uas, 1);
-        assert_eq!(unknown, 1);
+        assert_eq!(uas, 0);
+        assert_eq!(unknown, 2);
     }
 
     #[test]
