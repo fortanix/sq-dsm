@@ -269,18 +269,19 @@ impl PublicKey {
         }
     }
 
-    /// Returns the 'bits' of the public key.
+    /// Returns the length of the public key in bits.
     ///
-    /// For finite field crypto this returns the size of the field we operate
-    /// in, for ECC it returns `Curve::bits()`. This information is useless and
-    /// should not be used to gauge the security of a particular key. This
-    /// function exists only because some legacy PGP application
-    /// like HKP need it.
+    /// For finite field crypto this returns the size of the field we
+    /// operate in, for ECC it returns `Curve::bits()`.
+    ///
+    /// Note: This information is useless and should not be used to
+    /// gauge the security of a particular key. This function exists
+    /// only because some legacy PGP application like HKP need it.
     pub fn bits(&self) -> usize {
         use self::PublicKey::*;
         match self {
             &RSA { ref n,.. } => n.bits,
-            &DSA { ref q,.. } => q.bits,
+            &DSA { ref p,.. } => p.bits,
             &Elgamal { ref p,.. } => p.bits,
             &EdDSA { ref curve,.. } => curve.bits(),
             &ECDSA { ref curve,.. } => curve.bits(),
@@ -863,8 +864,14 @@ impl Arbitrary for Signature {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::PathBuf;
     use parse::Parse;
     use serialize::Serialize;
+
+    fn path_to(artifact: &str) -> PathBuf {
+        [env!("CARGO_MANIFEST_DIR"), "tests", "data", "keys", artifact]
+            .iter().collect()
+    }
 
     quickcheck! {
         fn mpi_roundtrip(mpi: MPI) -> bool {
@@ -910,6 +917,25 @@ mod tests {
             };
 
             pk == pk_
+        }
+    }
+
+    #[test]
+    fn pk_bits() {
+        for (name, key_no, bits) in &[
+            ("testy.pgp", 0, 2048),
+            ("testy-new.pgp", 1, 256),
+            ("dennis-simon-anton.pgp", 0, 2048),
+            ("dsa2048-elgamal3072.pgp", 1, 3072),
+            ("emmelie-dorothea-dina-samantha-awina-ed25519.pgp", 0, 256),
+            ("erika-corinna-daniela-simone-antonia-nistp256.pgp", 0, 256),
+            ("erika-corinna-daniela-simone-antonia-nistp384.pgp", 0, 384),
+            ("erika-corinna-daniela-simone-antonia-nistp521.pgp", 0, 521),
+        ] {
+            let tpk = ::TPK::from_file(path_to(name)).unwrap();
+            let key = tpk.keys_all().nth(*key_no).unwrap().2;
+            assert_eq!(key.mpis().bits(), *bits,
+                       "TPK {}, key no {}", name, *key_no);
         }
     }
 

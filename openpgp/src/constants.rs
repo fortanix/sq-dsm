@@ -181,12 +181,14 @@ pub enum Curve {
 }
 
 impl Curve {
-    /// Returns the 'bits' of the curve.
+    /// Returns the length of public keys over this curve in bits.
     ///
-    /// For the Kobliz curves this is the size of the underlying finite field.
-    /// For X25519 it's 128. This information is useless and should not be used
-    /// to gauge the security of a particular curve. This function exists only
-    /// because some legacy PGP application like HKP need it.
+    /// For the Kobliz curves this is the size of the underlying
+    /// finite field.  For X25519 it is 256.
+    ///
+    /// Note: This information is useless and should not be used to
+    /// gauge the security of a particular curve. This function exists
+    /// only because some legacy PGP application like HKP need it.
     pub fn bits(&self) -> usize {
         use self::Curve::*;
 
@@ -196,8 +198,8 @@ impl Curve {
             NistP521 => 521,
             BrainpoolP256 => 256,
             BrainpoolP512 => 512,
-            Ed25519 => 128,
-            Cv25519 => 128,
+            Ed25519 => 256,
+            Cv25519 => 256,
             Unknown(_) => 0,
         }
     }
