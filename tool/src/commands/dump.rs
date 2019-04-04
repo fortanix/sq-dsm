@@ -210,6 +210,7 @@ impl PacketDumper {
             Unknown(ref u) => {
                 writeln!(output, "Unknown Packet")?;
                 writeln!(output, "{}  Tag: {}", i, u.tag())?;
+                writeln!(output, "{}  Error: {}", i, u.error())?;
             },
 
             Signature(ref s) => {
