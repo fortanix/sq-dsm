@@ -1888,7 +1888,7 @@ impl Serialize for AED1 {
         } else {
             let body_len = self.net_len();
 
-            CTB::new(Tag::SEIP).serialize(o)?;
+            CTB::new(Tag::AED).serialize(o)?;
             BodyLength::Full(body_len as u32).serialize(o)?;
             self.serialize_headers(o)?;
 
@@ -1909,7 +1909,6 @@ impl NetLength for AED1 {
             4 // Headers.
                 + self.iv().len()
                 + self.common.body.as_ref().map(|b| b.len()).unwrap_or(0)
-                + self.aead().digest_size().unwrap_or(0)
         }
     }
 }
