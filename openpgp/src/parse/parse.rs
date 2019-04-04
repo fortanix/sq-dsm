@@ -2390,6 +2390,31 @@ impl<'a> Parse<'a, PKESK3> for PKESK3 {
         })
     }
 }
+
+impl<'a> Parse<'a, Packet> for Packet {
+    fn from_reader<R: 'a + Read>(reader: R) -> Result<Self> {
+        let ppr =
+            PacketParserBuilder::from_reader(reader)
+            ?.buffer_unread_content().finalize()?;
+
+        let (p, ppr) = match ppr {
+            PacketParserResult::Some(mut pp) => {
+                pp.next()?
+            },
+            PacketParserResult::EOF(_) =>
+                return Err(Error::InvalidOperation(
+                    "Unexpected EOF".into()).into()),
+        };
+
+        match (p, ppr) {
+            (p, PacketParserResult::EOF(_)) =>
+                Ok(p),
+            (_, PacketParserResult::Some(_)) =>
+                Err(Error::InvalidOperation(
+                    "Excess data after packet".into()).into()),
+        }
+    }
+}
 
 // State that lives for the life of the packet parser, not the life of
 // an individual packet.
