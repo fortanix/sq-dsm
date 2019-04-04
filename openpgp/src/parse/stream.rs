@@ -486,7 +486,6 @@ struct Transformer<'a> {
 
 #[derive(PartialEq, Debug)]
 enum TransformationState {
-    OPSs,
     Data,
     Sigs,
     Done,
@@ -494,7 +493,7 @@ enum TransformationState {
 
 impl<'a> Transformer<'a> {
     fn new<'b>(signatures: Box<'b + BufferedReader<Cookie>>,
-               data: Box<'a + BufferedReader<()>>)
+               mut data: Box<'a + BufferedReader<()>>)
                -> Result<Transformer<'a>>
     {
         let mut sigs = Vec::new();
@@ -513,43 +512,66 @@ impl<'a> Transformer<'a> {
             }
         }
 
-        let mut opss = Vec::new();
+        let mut buf = Vec::new();
         for (i, sig) in sigs.iter().rev().enumerate() {
             let mut ops = Result::<OnePassSig3>::from(sig)?;
             if i == sigs.len() - 1 {
                 ops.set_last(true);
             }
 
-            ops.serialize(&mut opss)?;
+            ops.serialize(&mut buf)?;
         }
 
+        // We need to decide whether to use partial body encoding or
+        // not.  For partial body encoding, the first chunk must be at
+        // least 512 bytes long.  Try to read 512 - HEADER_LEN bytes
+        // from data.
+        let state = {
+            const HEADER_LEN: usize = 6;
+            let data_prefix = data.data_consume(512 - HEADER_LEN)?;
+            if data_prefix.len() < 512 - HEADER_LEN {
+                // Too little data for a partial body encoding, produce a
+                // Literal Data Packet header of known length.
+                CTB::new(Tag::Literal).serialize(&mut buf)?;
+
+                let len = BodyLength::Full((data_prefix.len() + HEADER_LEN) as u32);
+                len.serialize(&mut buf)?;
+
+                let mut lit = Literal::new(DataFormat::Binary);
+                lit.serialize_headers(&mut buf, false)?;
+
+                // Copy the data, then proceed directly to the signatures.
+                buf.extend_from_slice(data_prefix);
+                TransformationState::Sigs
+            } else {
+                // Produce a Literal Data Packet header with partial
+                // length encoding.
+                CTB::new(Tag::Literal).serialize(&mut buf)?;
+
+                let len = BodyLength::Partial(512);
+                len.serialize(&mut buf)?;
+
+                let mut lit = Literal::new(DataFormat::Binary);
+                lit.serialize_headers(&mut buf, false)?;
+
+                // Copy the prefix up to the first chunk, then keep in the
+                // data state.
+                buf.extend_from_slice(&data_prefix[..512 - HEADER_LEN]);
+                TransformationState::Data
+            }
+        };
+
         Ok(Self {
-            state: TransformationState::OPSs,
+            state: state,
             sigs: sigs,
             reader: data,
-            buffer: opss,
+            buffer: buf,
         })
     }
 
     fn read_helper(&mut self, buf: &mut [u8]) -> Result<usize> {
         if self.buffer.is_empty() {
             self.state = match self.state {
-                TransformationState::OPSs => {
-                    // Produce a Literal Data Packet header.
-                    CTB::new(Tag::Literal).serialize(&mut self.buffer)?;
-
-                    let len = BodyLength::Partial(16);
-                    len.serialize(&mut self.buffer)?;
-
-                    let mut lit = Literal::new(DataFormat::Binary);
-                    lit.set_filename("aabbccddee").expect("short enough");
-                    lit.serialize_headers(&mut self.buffer, false)?;
-
-                    assert_eq!(self.buffer.len(), 18);
-
-                    TransformationState::Data
-                },
-
                 TransformationState::Data => {
                     // Find the largest power of two equal or smaller
                     // than the size of buf.
