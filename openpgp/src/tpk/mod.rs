@@ -852,7 +852,7 @@ impl UserAttributeBinding {
     }
 }
 
-/// A User Attribute and any associated signatures.
+/// An unknown component and any associated signatures.
 #[derive(Debug, Clone, PartialEq)]
 pub struct UnknownBinding {
     unknown: Unknown,
