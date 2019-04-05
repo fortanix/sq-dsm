@@ -43,6 +43,24 @@ mod for_each_artifact {
             Ok(())
         }).unwrap();
     }
+
+    #[test]
+    fn message_roundtrip() {
+        for_all_files(&test_data_dir(), |src| {
+            let p = if let Ok(tpk) = openpgp::Message::from_file(src) {
+                tpk
+            } else {
+                // Ignore non-Message files.
+                return Ok(());
+            };
+
+            let mut v = Vec::new();
+            p.serialize(&mut v)?;
+            let q = openpgp::Message::from_bytes(&v)?;
+            assert_eq!(p, q, "roundtripping {:?} failed", src);
+            Ok(())
+        }).unwrap();
+    }
 }
 
 /// Computes the path to the test directory.
@@ -66,7 +84,13 @@ fn for_all_files<F>(src: &Path, mut fun: F) -> openpgp::Result<()>
             let entry = entry?;
             let path = entry.path();
             if path.is_file() {
-                fun(&path)?;
+                match fun(&path) {
+                    Ok(_) => (),
+                    Err(e) => {
+                        eprintln!("Failed on file {:?}:\n", path);
+                        return Err(e);
+                    },
+                }
             }
             if path.is_dir() {
                 dirs.push(path.clone());
