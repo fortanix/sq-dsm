@@ -855,8 +855,10 @@ impl UserAttributeBinding {
 /// An unknown component and any associated signatures.
 #[derive(Debug, Clone, PartialEq)]
 pub struct UnknownBinding {
+    pub(crate) // XXX for TSK::serialize()
     unknown: Unknown,
 
+    pub(crate) // XXX for TSK::serialize()
     sigs: Vec<Signature>,
 }
 
@@ -2927,6 +2929,19 @@ impl Serialize for TPK {
                 s.serialize(o)?;
             }
         }
+
+        for u in self.unknowns.iter() {
+            u.unknown.serialize(o)?;
+
+            for s in u.sigs.iter() {
+                s.serialize(o)?;
+            }
+        }
+
+        for s in self.bad.iter() {
+            s.serialize(o)?;
+        }
+
         Ok(())
     }
 }

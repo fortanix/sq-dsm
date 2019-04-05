@@ -435,6 +435,19 @@ impl Serialize for TSK {
                 s.serialize(o)?;
             }
         }
+
+        for u in self.unknowns.iter() {
+            u.unknown.serialize(o)?;
+
+            for s in u.sigs.iter() {
+                s.serialize(o)?;
+            }
+        }
+
+        for s in self.bad.iter() {
+            s.serialize(o)?;
+        }
+
         Ok(())
     }
 }

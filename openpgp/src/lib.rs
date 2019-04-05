@@ -423,8 +423,10 @@ pub struct TPK {
 
     // Unknown components, e.g., some UserAttribute++ packet from the
     // future.
+    pub(crate) // XXX for TSK::serialize()
     unknowns: Vec<tpk::UnknownBinding>,
     // Signatures that we couldn't find a place for.
+    pub(crate) // XXX for TSK::serialize()
     bad: Vec<packet::Signature>,
 }
 
