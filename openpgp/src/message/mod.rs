@@ -398,6 +398,14 @@ impl From<Message> for PacketPile {
     }
 }
 
+impl ::std::ops::Deref for Message {
+    type Target = PacketPile;
+
+    fn deref(&self) -> &Self::Target {
+        &self.pile
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
