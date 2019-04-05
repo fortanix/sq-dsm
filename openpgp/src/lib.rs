@@ -438,6 +438,7 @@ pub struct TPK {
 /// 4880].
 ///
 ///   [Section 11.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-11.3
+#[derive(PartialEq)]
 pub struct Message {
     /// A message is just a validated packet pile.
     pile: PacketPile,
