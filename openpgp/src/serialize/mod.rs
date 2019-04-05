@@ -2003,6 +2003,26 @@ impl SerializeInto for PacketPile {
         generic_serialize_into(self, buf)
     }
 }
+
+impl Serialize for Message {
+    /// Writes a serialized version of the specified `Message` to `o`.
+    fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
+        use std::ops::Deref;
+        self.deref().serialize(o)
+    }
+}
+
+impl SerializeInto for Message {
+    fn serialized_len(&self) -> usize {
+        use std::ops::Deref;
+        self.deref().serialized_len()
+    }
+
+    fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
+        use std::ops::Deref;
+        self.deref().serialize_into(buf)
+    }
+}
 
 #[cfg(test)]
 mod test {
