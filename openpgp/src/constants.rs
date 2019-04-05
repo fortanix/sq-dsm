@@ -480,7 +480,7 @@ impl Arbitrary for AEADAlgorithm {
     }
 }
 
-// The OpenPGP compression algorithms as defined in [Section 9.3 of RFC 4880].
+/// The OpenPGP compression algorithms as defined in [Section 9.3 of RFC 4880].
 ///
 ///   [Section 9.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-9.3
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Debug, PartialOrd, Ord)]
