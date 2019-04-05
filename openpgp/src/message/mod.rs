@@ -339,7 +339,15 @@ impl Message {
     pub fn from_packet_pile(pile: PacketPile) -> Result<Self> {
         let mut v = MessageValidator::new();
         for (path, packet) in pile.descendants().paths() {
-            v.push(packet.tag(), path.len() as isize - 1);
+            match packet {
+                Packet::Unknown(ref u) =>
+                    return Err(MessageParserError::OpenPGP(
+                        Error::MalformedMessage(
+                            format!("Invalid OpenPGP message: \
+                                     malformed {:?} packet: {}",
+                                    u.tag(), u.error()).into())).into()),
+                _ => v.push(packet.tag(), path.len() as isize - 1),
+            }
 
             match packet {
                 Packet::CompressedData(_) | Packet::SEIP(_) | Packet::AED(_) =>
