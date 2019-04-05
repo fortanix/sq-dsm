@@ -22,6 +22,27 @@ mod for_each_artifact {
             })
         }).unwrap();
     }
+
+    #[test]
+    fn tpk_roundtrip() {
+        for_all_files(&test_data_dir(), |src| {
+            let p = if let Ok(tpk) = openpgp::TPK::from_file(src) {
+                tpk
+            } else {
+                // Ignore non-TPK files.
+                return Ok(());
+            };
+
+            let mut v = Vec::new();
+            // Temporarily convert to TSK to serialize secrets.
+            let p = p.into_tsk();
+            p.serialize(&mut v)?;
+            let p = p.into_tpk();
+            let q = openpgp::TPK::from_bytes(&v)?;
+            assert_eq!(p, q, "roundtripping {:?} failed", src);
+            Ok(())
+        }).unwrap();
+    }
 }
 
 /// Computes the path to the test directory.
