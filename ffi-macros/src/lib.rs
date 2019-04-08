@@ -7,13 +7,12 @@ use std::io::Write;
 
 extern crate lazy_static;
 use lazy_static::lazy_static;
-extern crate nettle;
-use nettle::hash::Hash;
 extern crate syn;
 use syn::spanned::Spanned;
 extern crate quote;
 extern crate proc_macro;
 extern crate proc_macro2;
+extern crate sha2;
 
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
@@ -255,13 +254,13 @@ fn derive_functions() -> &'static HashMap<&'static str, DeriveFn>
 
 /// Produces a deterministic hash of the given identifier.
 fn hash_ident(i: &syn::Ident) -> u64 {
-    let mut hash = ::nettle::hash::Sha256::default();
+    use sha2::{Sha256, Digest};
+    let mut hash = Sha256::new();
     write!(hash, "{}", i).unwrap();
 
-    let mut buf = [0; 8];
-    hash.digest(&mut buf);
+    let result = hash.result();
 
-    buf.iter().fold(0, |acc, b| (acc << 8) + (*b as u64))
+    result[..8].iter().fold(0, |acc, b| (acc << 8) + (*b as u64))
 }
 
 /// Derives type and conversion functions.

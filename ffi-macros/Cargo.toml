@@ -19,9 +19,9 @@ maintenance = { status = "actively-developed" }
 
 [dependencies]
 lazy_static = "1.0.0"
-nettle = "5.0"
 proc-macro2 = "0.4"
 quote = "0.6"
+sha2 = "0.8"
 
 [dependencies.syn]
 version = "0.15"
