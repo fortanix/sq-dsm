@@ -1435,7 +1435,7 @@ mod test {
                         // something.
                         continue;
                     } else {
-                        panic!(e);
+                        panic!("{}: {}", f, e);
                     },
                 };
             assert!(v.message_processed());
