@@ -72,6 +72,18 @@ impl PublicKeyAlgorithm {
             _ => false,
         }
     }
+
+    /// Returns whether this algorithm is supported.
+    pub fn is_supported(&self) -> bool {
+        use self::PublicKeyAlgorithm::*;
+        #[allow(deprecated)]
+        match &self {
+            RSAEncryptSign | RSAEncrypt | RSASign | DSA | ECDH | ECDSA | EdDSA
+                => true,
+            ElgamalEncrypt | ElgamalEncryptSign | Private(_) | Unknown(_)
+                => false,
+        }
+    }
 }
 
 impl From<u8> for PublicKeyAlgorithm {
@@ -272,6 +284,17 @@ impl Curve {
                     .into()),
         }
     }
+
+    /// Returns whether this algorithm is supported.
+    pub fn is_supported(&self) -> bool {
+        use self::Curve::*;
+        match &self {
+            NistP256 | NistP384 | NistP521 | Ed25519 | Cv25519
+                => true,
+            BrainpoolP256 | BrainpoolP512 | Unknown(_)
+                => false,
+        }
+    }
 }
 
 impl Arbitrary for Curve {
@@ -330,6 +353,20 @@ pub enum SymmetricAlgorithm {
     Private(u8),
     /// Unknown algorithm identifier.
     Unknown(u8),
+}
+
+impl SymmetricAlgorithm {
+    /// Returns whether this algorithm is supported.
+    pub fn is_supported(&self) -> bool {
+        use self::SymmetricAlgorithm::*;
+        match &self {
+            TripleDES | CAST5 | Blowfish | AES128 | AES192 | AES256 | Twofish
+                | Camellia128 | Camellia192 | Camellia256
+                => true,
+            Unencrypted | IDEA | Private(_) | Unknown(_)
+                => false,
+        }
+    }
 }
 
 impl From<u8> for SymmetricAlgorithm {
@@ -437,6 +474,19 @@ pub enum AEADAlgorithm {
     Unknown(u8),
 }
 
+impl AEADAlgorithm {
+    /// Returns whether this algorithm is supported.
+    pub fn is_supported(&self) -> bool {
+        use self::AEADAlgorithm::*;
+        match &self {
+            EAX
+                => true,
+            OCB | Private(_) | Unknown(_)
+                => false,
+        }
+    }
+}
+
 impl From<u8> for AEADAlgorithm {
     fn from(u: u8) -> Self {
         match u {
@@ -497,6 +547,21 @@ pub enum CompressionAlgorithm {
     Private(u8),
     /// Unknown compression algorithm identifier.
     Unknown(u8),
+}
+
+impl CompressionAlgorithm {
+    /// Returns whether this algorithm is supported.
+    pub fn is_supported(&self) -> bool {
+        use self::CompressionAlgorithm::*;
+        match &self {
+            Uncompressed => true,
+            #[cfg(feature = "compression-deflate")]
+            Zip | Zlib => true,
+            #[cfg(feature = "compression-bzip2")]
+            BZip2 => true,
+            _ => false,
+        }
+    }
 }
 
 impl From<u8> for CompressionAlgorithm {
