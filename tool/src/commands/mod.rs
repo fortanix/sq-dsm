@@ -280,7 +280,6 @@ impl<'a> VerificationHelper for VHelper<'a> {
                         let issuer = issuer
                             .expect("missing key checksum has an issuer");
                         eprintln!("No key to check {} from {}", what, issuer);
-                        assert!(! trusted);
                         self.unknown_checksums += 1;
                     },
                     BadChecksum(_) => {
@@ -321,9 +320,9 @@ pub fn verify(ctx: &Context, store: &mut store::Store,
               -> Result<()> {
     let helper = VHelper::new(ctx, store, signatures, tpks);
     let mut verifier = if let Some(dsig) = detached {
-        DetachedVerifier::from_reader(dsig, input, helper)?
+        DetachedVerifier::from_reader(dsig, input, helper, None)?
     } else {
-        Verifier::from_reader(input, helper)?
+        Verifier::from_reader(input, helper, None)?
     };
 
     io::copy(&mut verifier, output)

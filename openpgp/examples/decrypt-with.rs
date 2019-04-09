@@ -36,7 +36,7 @@ pub fn main() {
 
     // Now, create a decryptor with a helper using the given TPKs.
     let mut decryptor =
-        Decryptor::from_reader(io::stdin(), Helper::new(tpks)).unwrap();
+        Decryptor::from_reader(io::stdin(), Helper::new(tpks), None).unwrap();
 
     // Finally, stream the decrypted data to stdout.
     io::copy(&mut decryptor, &mut io::stdout())

@@ -83,7 +83,7 @@ fn main() {
 #     };
 #
 #     // Now, create a decryptor with a helper using the given TPKs.
-#     let mut decryptor = Decryptor::from_bytes(ciphertext, helper)?;
+#     let mut decryptor = Decryptor::from_bytes(ciphertext, helper, None)?;
 #
 #     // Decrypt the data.
 #     io::copy(&mut decryptor, sink)?;
@@ -217,7 +217,7 @@ fn generate() -> openpgp::Result<openpgp::TPK> {
 #     };
 #
 #     // Now, create a decryptor with a helper using the given TPKs.
-#     let mut decryptor = Decryptor::from_bytes(ciphertext, helper)?;
+#     let mut decryptor = Decryptor::from_bytes(ciphertext, helper, None)?;
 #
 #     // Decrypt the data.
 #     io::copy(&mut decryptor, sink)?;
@@ -351,7 +351,7 @@ fn encrypt(sink: &mut Write, plaintext: &str, recipient: &openpgp::TPK)
 #     };
 #
 #     // Now, create a decryptor with a helper using the given TPKs.
-#     let mut decryptor = Decryptor::from_bytes(ciphertext, helper)?;
+#     let mut decryptor = Decryptor::from_bytes(ciphertext, helper, None)?;
 #
 #     // Decrypt the data.
 #     io::copy(&mut decryptor, sink)?;
@@ -499,7 +499,7 @@ fn decrypt(sink: &mut Write, ciphertext: &[u8], recipient: &openpgp::TPK)
     };
 
     // Now, create a decryptor with a helper using the given TPKs.
-    let mut decryptor = Decryptor::from_bytes(ciphertext, helper)?;
+    let mut decryptor = Decryptor::from_bytes(ciphertext, helper, None)?;
 
     // Decrypt the data.
     io::copy(&mut decryptor, sink)?;

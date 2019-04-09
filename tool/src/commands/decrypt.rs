@@ -207,7 +207,7 @@ pub fn decrypt(ctx: &Context, store: &mut store::Store,
                -> Result<()> {
     let helper = Helper::new(ctx, store, signatures, tpks, secrets,
                              dump_session_key, dump, hex);
-    let mut decryptor = Decryptor::from_reader(input, helper)
+    let mut decryptor = Decryptor::from_reader(input, helper, None)
         .context("Decryption failed")?;
 
     io::copy(&mut decryptor, output)

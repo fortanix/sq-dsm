@@ -1436,7 +1436,7 @@ pgp_reader_t pgp_decryptor_new (pgp_error_t *errp, pgp_reader_t input,
     pgp_decryptor_get_public_keys_cb_t get_public_keys,
     pgp_decryptor_decrypt_cb_t decrypt,
     pgp_decryptor_check_signatures_cb_t check_signatures,
-    void *cookie);
+    void *cookie, time_t time);
 
 /*/
 /// Verifies an OpenPGP message.
@@ -1447,7 +1447,7 @@ pgp_reader_t pgp_decryptor_new (pgp_error_t *errp, pgp_reader_t input,
 pgp_reader_t pgp_verifier_new (pgp_error_t *errp, pgp_reader_t input,
     pgp_decryptor_get_public_keys_cb_t get_public_keys,
     pgp_decryptor_check_signatures_cb_t check_signatures,
-    void *cookie);
+    void *cookie, time_t time);
 
 /*/
 /// Verifies a detached OpenPGP signature.
@@ -1456,6 +1456,6 @@ pgp_reader_t pgp_detached_verifier_new (pgp_error_t *errp,
     pgp_reader_t signature_input, pgp_reader_t input,
     pgp_decryptor_get_public_keys_cb_t get_public_keys,
     pgp_decryptor_check_signatures_cb_t check_signatures,
-    void *cookie);
+    void *cookie, time_t time);
 
 #endif

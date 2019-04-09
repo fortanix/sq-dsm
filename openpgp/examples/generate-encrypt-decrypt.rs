@@ -74,7 +74,7 @@ fn decrypt(sink: &mut Write, ciphertext: &[u8], recipient: &openpgp::TPK)
     };
 
     // Now, create a decryptor with a helper using the given TPKs.
-    let mut decryptor = Decryptor::from_bytes(ciphertext, helper)?;
+    let mut decryptor = Decryptor::from_bytes(ciphertext, helper, None)?;
 
     // Decrypt the data.
     io::copy(&mut decryptor, sink)?;

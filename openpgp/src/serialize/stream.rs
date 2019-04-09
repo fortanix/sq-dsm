@@ -254,7 +254,7 @@ impl<'a> Signer<'a> {
     ///     }
     /// }
     ///
-    /// let mut verifier = Verifier::from_bytes(&o, Helper(&tpk))?;
+    /// let mut verifier = Verifier::from_bytes(&o, Helper(&tpk), None)?;
     ///
     /// let mut message = String::new();
     /// verifier.read_to_string(&mut message)?;
@@ -339,7 +339,7 @@ impl<'a> Signer<'a> {
     ///
     /// let mut verifier =
     ///     DetachedVerifier::from_bytes(&o, b"Make it so, number one!",
-    ///                                  Helper(&tpk))?;
+    ///                                  Helper(&tpk), None)?;
     ///
     /// let mut message = String::new();
     /// verifier.read_to_string(&mut message)?;

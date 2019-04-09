@@ -128,7 +128,7 @@ main (int argc, char **argv)
   };
   plaintext = pgp_decryptor_new (&err, source,
                                  get_public_keys_cb, decrypt_cb,
-                                 check_signatures_cb, &cookie);
+                                 check_signatures_cb, &cookie, 0);
   if (! plaintext)
     error (1, 0, "pgp_decryptor_new: %s", pgp_error_to_string (err));
 

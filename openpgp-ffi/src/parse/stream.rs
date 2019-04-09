@@ -11,7 +11,7 @@
 //! [`sequoia-openpgp::parse::stream`]: ../../../sequoia_openpgp/parse/stream/index.html
 
 use std::ptr;
-use libc::{c_int, size_t, c_void, uint8_t};
+use libc::{c_int, size_t, c_void, uint8_t, time_t};
 
 extern crate sequoia_openpgp as openpgp;
 extern crate time;
@@ -374,7 +374,7 @@ impl VerificationHelper for VHelper {
 ///   };
 ///   plaintext = pgp_verifier_new (NULL, source,
 ///                                 get_public_keys_cb, check_signatures_cb,
-///                                 &cookie);
+///                                 &cookie, 1554542219);
 ///   assert (source);
 ///
 ///   nread = pgp_reader_read (NULL, plaintext, buf, sizeof buf);
@@ -392,14 +392,23 @@ fn pgp_verifier_new<'a>(errp: Option<&mut *mut ::error::Error>,
                         input: *mut io::Reader,
                         get_public_keys: GetPublicKeysCallback,
                         check_signatures: CheckSignaturesCallback,
-                        cookie: *mut HelperCookie)
+                        cookie: *mut HelperCookie,
+                        time: time_t)
                         -> Maybe<io::Reader>
 {
     let helper = VHelper::new(get_public_keys, check_signatures, cookie);
 
-    Verifier::from_reader(input.ref_mut_raw(), helper)
+    Verifier::from_reader(input.ref_mut_raw(), helper, maybe_time(time))
         .map(|r| io::ReaderKind::Generic(Box::new(r)))
         .move_into_raw(errp)
+}
+
+fn maybe_time(t: time_t) -> Option<time::Tm> {
+    if t == 0 {
+        None
+    } else {
+        Some(time::at(time::Timespec::new(t as i64, 0)))
+    }
 }
 
 /// Verifies a detached OpenPGP signature.
@@ -480,7 +489,7 @@ fn pgp_verifier_new<'a>(errp: Option<&mut *mut ::error::Error>,
 ///   };
 ///   plaintext = pgp_detached_verifier_new (NULL, signature, source,
 ///     get_public_keys_cb, check_signatures_cb,
-///     &cookie);
+///     &cookie, 1554542219);
 ///   assert (source);
 ///
 ///   nread = pgp_reader_read (NULL, plaintext, buf, sizeof buf);
@@ -500,13 +509,14 @@ fn pgp_detached_verifier_new<'a>(errp: Option<&mut *mut ::error::Error>,
                                  input: *mut io::Reader,
                                  get_public_keys: GetPublicKeysCallback,
                                  check_signatures: CheckSignaturesCallback,
-                                 cookie: *mut HelperCookie)
+                                 cookie: *mut HelperCookie,
+                                 time: time_t)
                                  -> Maybe<io::Reader>
 {
     let helper = VHelper::new(get_public_keys, check_signatures, cookie);
 
     DetachedVerifier::from_reader(signature_input.ref_mut_raw(),
-                                  input.ref_mut_raw(), helper)
+                                  input.ref_mut_raw(), helper, maybe_time(time))
         .map(|r| io::ReaderKind::Generic(Box::new(r)))
         .move_into_raw(errp)
 }
@@ -730,7 +740,7 @@ impl DecryptionHelper for DHelper {
 ///   };
 ///   plaintext = pgp_decryptor_new (NULL, source,
 ///                                  get_public_keys_cb, decrypt_cb,
-///                                  check_signatures_cb, &cookie);
+///                                  check_signatures_cb, &cookie, 1554542219);
 ///   assert (plaintext);
 ///
 ///   nread = pgp_reader_read (NULL, plaintext, buf, sizeof buf);
@@ -750,13 +760,14 @@ fn pgp_decryptor_new<'a>(errp: Option<&mut *mut ::error::Error>,
                          get_public_keys: GetPublicKeysCallback,
                          decrypt: DecryptCallback,
                          check_signatures: CheckSignaturesCallback,
-                         cookie: *mut HelperCookie)
+                         cookie: *mut HelperCookie,
+                         time: time_t)
                          -> Maybe<io::Reader>
 {
     let helper = DHelper::new(
         get_public_keys, decrypt, check_signatures, cookie);
 
-    Decryptor::from_reader(input.ref_mut_raw(), helper)
+    Decryptor::from_reader(input.ref_mut_raw(), helper, maybe_time(time))
         .map(|r| io::ReaderKind::Generic(Box::new(r)))
         .move_into_raw(errp)
 }

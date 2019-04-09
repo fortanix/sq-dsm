@@ -73,7 +73,7 @@ fn verify(sink: &mut Write, signed_message: &[u8], sender: &openpgp::TPK)
     };
 
     // Now, create a verifier with a helper using the given TPKs.
-    let mut verifier = Verifier::from_bytes(signed_message, helper)?;
+    let mut verifier = Verifier::from_bytes(signed_message, helper, None)?;
 
     // Verify the data.
     io::copy(&mut verifier, sink)?;

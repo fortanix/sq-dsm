@@ -136,6 +136,16 @@ fn path_to(artifact: &str) -> PathBuf {
     [env!("CARGO_MANIFEST_DIR"), "tests", "data", "messages", artifact]
         .iter().collect()
 }
+
+/// Returns a timestamp for the tests.
+///
+/// The time is chosen to that the subkeys in
+/// openpgp/tests/data/keys/neal.pgp are not expired.
+#[cfg(test)]
+fn frozen_time() -> time::Tm {
+    use conversions::Time;
+    time::Tm::from_pgp(1554542220 - 1)
+}
 
 /// Crate result specialization.
 pub type Result<T> = ::std::result::Result<T, failure::Error>;

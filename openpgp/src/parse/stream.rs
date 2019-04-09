@@ -99,7 +99,7 @@ const BUFFER_SIZE: usize = 25 * 1024 * 1024;
 ///      -----END PGP MESSAGE-----";
 ///
 /// let h = Helper {};
-/// let mut v = Verifier::from_bytes(message, h)?;
+/// let mut v = Verifier::from_bytes(message, h, None)?;
 ///
 /// let mut content = Vec::new();
 /// v.read_to_end(&mut content)
@@ -124,6 +124,9 @@ pub struct Verifier<'a, H: VerificationHelper> {
 
     // The reserve data.
     reserve: Option<Vec<u8>>,
+
+    /// Signature verification relative to this time.
+    time: time::Tm,
 }
 
 /// Contains the result of a signature verification.
@@ -186,31 +189,48 @@ pub trait VerificationHelper {
 
 impl<'a, H: VerificationHelper> Verifier<'a, H> {
     /// Creates a `Verifier` from the given reader.
-    pub fn from_reader<R>(reader: R, helper: H) -> Result<Verifier<'a, H>>
-        where R: io::Read + 'a
+    ///
+    /// Signature verifications are done relative to time `t`, or the
+    /// current time, if `t` is `None`.
+    pub fn from_reader<R, T>(reader: R, helper: H, t: T)
+                          -> Result<Verifier<'a, H>>
+        where R: io::Read + 'a, T: Into<Option<time::Tm>>
     {
+        let t = t.into().unwrap_or_else(time::now_utc);
         Verifier::from_buffered_reader(
             Box::new(buffered_reader::Generic::with_cookie(reader, None,
                                                         Default::default())),
-            helper)
+            helper, t)
     }
 
     /// Creates a `Verifier` from the given file.
-    pub fn from_file<P>(path: P, helper: H) -> Result<Verifier<'a, H>>
-        where P: AsRef<Path>
+    ///
+    /// Signature verifications are done relative to time `t`, or the
+    /// current time, if `t` is `None`.
+    pub fn from_file<P, T>(path: P, helper: H, t: T) -> Result<Verifier<'a, H>>
+        where P: AsRef<Path>,
+              T: Into<Option<time::Tm>>
     {
+        let t = t.into().unwrap_or_else(time::now_utc);
         Verifier::from_buffered_reader(
             Box::new(buffered_reader::File::with_cookie(path,
                                                      Default::default())?),
-            helper)
+            helper, t)
     }
 
     /// Creates a `Verifier` from the given buffer.
-    pub fn from_bytes(bytes: &'a [u8], helper: H) -> Result<Verifier<'a, H>> {
+    ///
+    /// Signature verifications are done relative to time `t`, or the
+    /// current time, if `t` is `None`.
+    pub fn from_bytes<T>(bytes: &'a [u8], helper: H, t: T)
+                         -> Result<Verifier<'a, H>>
+        where T: Into<Option<time::Tm>>
+    {
+        let t = t.into().unwrap_or_else(time::now_utc);
         Verifier::from_buffered_reader(
             Box::new(buffered_reader::Memory::with_cookie(bytes,
                                                        Default::default())),
-            helper)
+            helper, t)
     }
 
     /// Returns a reference to the helper.
@@ -237,8 +257,12 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
     }
 
     /// Creates the `Verifier`, and buffers the data up to `BUFFER_SIZE`.
+    ///
+    /// Signature verifications are done relative to time `t`, or the
+    /// current time, if `t` is `None`.
     pub(crate) fn from_buffered_reader(bio: Box<BufferedReader<Cookie> + 'a>,
-                                       helper: H) -> Result<Verifier<'a, H>>
+                                       helper: H, t: time::Tm)
+                                       -> Result<Verifier<'a, H>>
     {
         let mut ppr = PacketParser::from_buffered_reader(bio)?;
 
@@ -249,6 +273,7 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
             oppr: None,
             sigs: Vec::new(),
             reserve: None,
+            time: t,
         };
 
         let mut issuers = Vec::new();
@@ -277,8 +302,8 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
                             if let Some(sig) = sig {
                                 sig.key_flags().can_sign()
                                 // Check expiry.
-                                    && sig.signature_alive()
-                                    && sig.key_alive(key)
+                                    && sig.signature_alive_at(t)
+                                    && sig.key_alive_at(key, t)
                             } else {
                                 false
                             }
@@ -395,7 +420,9 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
                                     let tpk = &self.tpks[*i];
                                     let (binding, revocation, key)
                                         = tpk.keys_all().nth(*j).unwrap();
-                                    if sig.verify(key).unwrap_or(false) {
+                                    if sig.verify(key).unwrap_or(false) &&
+                                        sig.signature_alive_at(self.time)
+                                    {
                                         VerificationResult::GoodChecksum
                                             (sig, tpk, key, binding, revocation)
                                     } else {
@@ -695,7 +722,7 @@ impl<'a> io::Read for Transformer<'a> {
 ///
 /// let data = b"Hello World!";
 /// let h = Helper {};
-/// let mut v = DetachedVerifier::from_bytes(signature, data, h)?;
+/// let mut v = DetachedVerifier::from_bytes(signature, data, h, None)?;
 ///
 /// let mut content = Vec::new();
 /// v.read_to_end(&mut content)
@@ -715,49 +742,66 @@ pub struct DetachedVerifier {
 
 impl DetachedVerifier {
     /// Creates a `Verifier` from the given readers.
-    pub fn from_reader<'a, 's, H, R, S>(signature_reader: S, reader: R,
-                                        helper: H)
-                                        -> Result<Verifier<'a, H>>
-        where R: io::Read + 'a, S: io::Read + 's, H: VerificationHelper
+    ///
+    /// Signature verifications are done relative to time `t`, or the
+    /// current time, if `t` is `None`.
+    pub fn from_reader<'a, 's, H, R, S, T>(signature_reader: S, reader: R,
+                                           helper: H, t: T)
+                                           -> Result<Verifier<'a, H>>
+        where R: io::Read + 'a, S: io::Read + 's, H: VerificationHelper,
+              T: Into<Option<time::Tm>>
     {
+        let t = t.into().unwrap_or_else(time::now_utc);
         Self::from_buffered_reader(
             Box::new(buffered_reader::Generic::with_cookie(signature_reader, None,
                                                         Default::default())),
             Box::new(buffered_reader::Generic::new(reader, None)),
-            helper)
+            helper, t)
     }
 
     /// Creates a `Verifier` from the given files.
-    pub fn from_file<'a, H, P, S>(signature_path: S, path: P,
-                                  helper: H)
-                                  -> Result<Verifier<'a, H>>
-        where P: AsRef<Path>, S: AsRef<Path>, H: VerificationHelper
+    ///
+    /// Signature verifications are done relative to time `t`, or the
+    /// current time, if `t` is `None`.
+    pub fn from_file<'a, H, P, S, T>(signature_path: S, path: P,
+                                     helper: H, t: T)
+                                     -> Result<Verifier<'a, H>>
+        where P: AsRef<Path>, S: AsRef<Path>, H: VerificationHelper,
+              T: Into<Option<time::Tm>>
     {
+        let t = t.into().unwrap_or_else(time::now_utc);
         Self::from_buffered_reader(
             Box::new(buffered_reader::File::with_cookie(signature_path,
                                                      Default::default())?),
             Box::new(buffered_reader::File::open(path)?),
-            helper)
+            helper, t)
     }
 
     /// Creates a `Verifier` from the given buffers.
-    pub fn from_bytes<'a, 's, H>(signature_bytes: &'s [u8], bytes: &'a [u8],
-                                 helper: H)
-                                 -> Result<Verifier<'a, H>>
-        where H: VerificationHelper
+    ///
+    /// Signature verifications are done relative to time `t`, or the
+    /// current time, if `t` is `None`.
+    pub fn from_bytes<'a, 's, H, T>(signature_bytes: &'s [u8], bytes: &'a [u8],
+                                    helper: H, t: T)
+                                    -> Result<Verifier<'a, H>>
+        where H: VerificationHelper, T: Into<Option<time::Tm>>
     {
+        let t = t.into().unwrap_or_else(time::now_utc);
         Self::from_buffered_reader(
             Box::new(buffered_reader::Memory::with_cookie(signature_bytes,
                                                        Default::default())),
             Box::new(buffered_reader::Memory::new(bytes)),
-            helper)
+            helper, t)
     }
 
     /// Creates the `Verifier`, and buffers the data up to `BUFFER_SIZE`.
+    ///
+    /// Signature verifications are done relative to time `t`, or the
+    /// current time, if `t` is `None`.
     pub(crate) fn from_buffered_reader<'a, 's, H>
         (signature_bio: Box<BufferedReader<Cookie> + 's>,
          reader: Box<'a + BufferedReader<()>>,
-         helper: H)
+         helper: H, t: time::Tm)
          -> Result<Verifier<'a, H>>
         where H: VerificationHelper
     {
@@ -765,7 +809,7 @@ impl DetachedVerifier {
             Box::new(buffered_reader::Generic::with_cookie(
                 Transformer::new(signature_bio, reader)?,
                 None, Default::default())),
-            helper)
+            helper, t)
     }
 }
 
@@ -825,7 +869,7 @@ impl DetachedVerifier {
 ///      -----END PGP MESSAGE-----";
 ///
 /// let h = Helper {};
-/// let mut v = Decryptor::from_bytes(message, h)?;
+/// let mut v = Decryptor::from_bytes(message, h, None)?;
 ///
 /// let mut content = Vec::new();
 /// v.read_to_end(&mut content)
@@ -849,6 +893,9 @@ pub struct Decryptor<'a, H: VerificationHelper + DecryptionHelper> {
     identity: Option<Fingerprint>,
     sigs: Vec<Vec<Signature>>,
     reserve: Option<Vec<u8>>,
+
+    /// Signature verification relative to this time.
+    time: time::Tm,
 }
 
 /// Helper for decrypting messages.
@@ -887,31 +934,48 @@ pub trait DecryptionHelper {
 
 impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
     /// Creates a `Decryptor` from the given reader.
-    pub fn from_reader<R>(reader: R, helper: H) -> Result<Decryptor<'a, H>>
-        where R: io::Read + 'a
+    ///
+    /// Signature verifications are done relative to time `t`, or the
+    /// current time, if `t` is `None`.
+    pub fn from_reader<R, T>(reader: R, helper: H, t: T)
+                          -> Result<Decryptor<'a, H>>
+        where R: io::Read + 'a, T: Into<Option<time::Tm>>
     {
+        let t = t.into().unwrap_or_else(time::now_utc);
         Decryptor::from_buffered_reader(
             Box::new(buffered_reader::Generic::with_cookie(reader, None,
                                                         Default::default())),
-            helper)
+            helper, t)
     }
 
     /// Creates a `Decryptor` from the given file.
-    pub fn from_file<P>(path: P, helper: H) -> Result<Decryptor<'a, H>>
-        where P: AsRef<Path>
+    ///
+    /// Signature verifications are done relative to time `t`, or the
+    /// current time, if `t` is `None`.
+    pub fn from_file<P, T>(path: P, helper: H, t: T) -> Result<Decryptor<'a, H>>
+        where P: AsRef<Path>,
+              T: Into<Option<time::Tm>>
     {
+        let t = t.into().unwrap_or_else(time::now_utc);
         Decryptor::from_buffered_reader(
             Box::new(buffered_reader::File::with_cookie(path,
                                                      Default::default())?),
-            helper)
+            helper, t)
     }
 
     /// Creates a `Decryptor` from the given buffer.
-    pub fn from_bytes(bytes: &'a [u8], helper: H) -> Result<Decryptor<'a, H>> {
+    ///
+    /// Signature verifications are done relative to time `t`, or the
+    /// current time, if `t` is `None`.
+    pub fn from_bytes<T>(bytes: &'a [u8], helper: H, t: T)
+                         -> Result<Decryptor<'a, H>>
+        where T: Into<Option<time::Tm>>
+    {
+        let t = t.into().unwrap_or_else(time::now_utc);
         Decryptor::from_buffered_reader(
             Box::new(buffered_reader::Memory::with_cookie(bytes,
                                                        Default::default())),
-            helper)
+            helper, t)
     }
 
     /// Returns a reference to the helper.
@@ -939,7 +1003,8 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
 
     /// Creates the `Decryptor`, and buffers the data up to `BUFFER_SIZE`.
     pub(crate) fn from_buffered_reader(bio: Box<BufferedReader<Cookie> + 'a>,
-                                       helper: H) -> Result<Decryptor<'a, H>>
+                                       helper: H, t: time::Tm)
+                                       -> Result<Decryptor<'a, H>>
     {
         tracer!(TRACE, "Decryptor::from_buffered_reader", 0);
 
@@ -954,6 +1019,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
             identity: None,
             sigs: Vec::new(),
             reserve: None,
+            time: t,
         };
 
         let mut issuers = Vec::new();
@@ -1001,8 +1067,8 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                             if let Some(sig) = sig {
                                 sig.key_flags().can_sign()
                                 // Check expiry.
-                                    && sig.signature_alive()
-                                    && sig.key_alive(key)
+                                    && sig.signature_alive_at(t)
+                                    && sig.key_alive_at(key, t)
                             } else {
                                 false
                             }
@@ -1155,7 +1221,9 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                             let tpk = &self.tpks[*i];
                             let (binding, revocation, key)
                                 = tpk.keys_all().nth(*j).unwrap();
-                            if sig.verify(key).unwrap_or(false) {
+                            if sig.verify(key).unwrap_or(false) &&
+                                sig.signature_alive_at(self.time)
+                            {
                                 // Check intended recipients.
                                 if let Some(identity) =
                                     self.identity.as_ref()
@@ -1360,7 +1428,7 @@ mod test {
             // Test Verifier.
             let mut h = VHelper::new(0, 0, 0, 0, keys.clone());
             let mut v =
-                match Verifier::from_file(path_to(f), h) {
+                match Verifier::from_file(path_to(f), h, ::frozen_time()) {
                     Ok(v) => v,
                     Err(e) => if r.error > 0 || r.unknown > 0 {
                         // Expected error.  No point in trying to read
@@ -1387,7 +1455,7 @@ mod test {
             // Test Decryptor.
             let mut h = VHelper::new(0, 0, 0, 0, keys.clone());
             let mut v =
-                match Decryptor::from_file(path_to(f), h) {
+                match Decryptor::from_file(path_to(f), h, ::frozen_time()) {
                     Ok(v) => v,
                     Err(e) => if r.error > 0 || r.unknown > 0 {
                         // Expected error.  No point in trying to read
@@ -1457,13 +1525,13 @@ mod test {
         // Test verifier.
         let v = Verifier::from_file(
             path_to("messages/signed-1-notarized-by-ed25519.pgp"),
-            VHelper(())).unwrap();
+            VHelper(()), ::frozen_time()).unwrap();
         assert!(v.message_processed());
 
         // Test decryptor.
         let v = Decryptor::from_file(
             path_to("messages/signed-1-notarized-by-ed25519.pgp"),
-            VHelper(())).unwrap();
+            VHelper(()), ::frozen_time()).unwrap();
         assert!(v.message_processed());
     }
 
@@ -1486,7 +1554,7 @@ mod test {
         let mut v = DetachedVerifier::from_file(
             path_to("messages/a-cypherpunks-manifesto.txt.ed25519.sig"),
             path_to("messages/a-cypherpunks-manifesto.txt"),
-            h).unwrap();
+            h, ::frozen_time()).unwrap();
         assert!(v.message_processed());
 
         let mut content = Vec::new();
@@ -1507,7 +1575,7 @@ mod test {
             File::open(
                 path_to("messages/a-cypherpunks-manifesto.txt"))
                 .unwrap(),
-            h).unwrap();
+            h, ::frozen_time()).unwrap();
         assert!(v.message_processed());
 
         let mut content = Vec::new();
@@ -1550,7 +1618,7 @@ mod test {
 
         // Test Verifier.
         let h = VHelper::new(0, 0, 0, 0, vec![tpk.clone()]);
-        let mut v = Verifier::from_bytes(&buf, h).unwrap();
+        let mut v = Verifier::from_bytes(&buf, h, None).unwrap();
 
         assert!(!v.message_processed());
         assert!(v.helper_ref().good == 0);
@@ -1573,7 +1641,7 @@ mod test {
         // Try the same, but this time we let .check() fail.
         let h = VHelper::new(0, 0, /* makes check() fail: */ 1, 0,
                              vec![tpk.clone()]);
-        let mut v = Verifier::from_bytes(&buf, h).unwrap();
+        let mut v = Verifier::from_bytes(&buf, h, None).unwrap();
 
         assert!(!v.message_processed());
         assert!(v.helper_ref().good == 0);
@@ -1597,7 +1665,7 @@ mod test {
 
         // Test Decryptor.
         let h = VHelper::new(0, 0, 0, 0, vec![tpk.clone()]);
-        let mut v = Decryptor::from_bytes(&buf, h).unwrap();
+        let mut v = Decryptor::from_bytes(&buf, h, None).unwrap();
 
         assert!(!v.message_processed());
         assert!(v.helper_ref().good == 0);
@@ -1620,7 +1688,7 @@ mod test {
         // Try the same, but this time we let .check() fail.
         let h = VHelper::new(0, 0, /* makes check() fail: */ 1, 0,
                              vec![tpk.clone()]);
-        let mut v = Decryptor::from_bytes(&buf, h).unwrap();
+        let mut v = Decryptor::from_bytes(&buf, h, None).unwrap();
 
         assert!(!v.message_processed());
         assert!(v.helper_ref().good == 0);
