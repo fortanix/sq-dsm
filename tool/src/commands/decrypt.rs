@@ -134,7 +134,7 @@ impl<'a> DecryptionHelper for Helper<'a> {
         }
 
         // Second, we try those keys that are encrypted.
-        for pkesk in pkesks {
+        'pkesk_loop: for pkesk in pkesks {
             let keyid = pkesk.recipient();
             if let Some(key) = self.secret_keys.get(&keyid) {
                 if key.secret().map(|s| ! s.is_encrypted())
@@ -153,19 +153,27 @@ impl<'a> DecryptionHelper for Helper<'a> {
                     if let Ok(mpis) =
                         key.secret().unwrap().decrypt(key.pk_algo(), &p)
                     {
-                        if let Ok(sk) = pkesk.decrypt(key, &mpis)
+                        match pkesk.decrypt(key, &mpis)
                             .and_then(|(algo, sk)| {
                                 decrypt(algo, &sk)?; Ok(sk)
                             })
                         {
-                            if self.dump_session_key {
-                                eprintln!("Session key: {}",
-                                          hex::encode(&sk));
-                            }
-                            return Ok(self.key_identities.get(keyid)
-                                      .map(|fp| fp.clone()));
+                            Ok(sk) => {
+                                if self.dump_session_key {
+                                    eprintln!("Session key: {}",
+                                              hex::encode(&sk));
+                                }
+                                return Ok(self.key_identities.get(keyid)
+                                          .map(|fp| fp.clone()));
+                            },
+                            Err(e) => {
+                                eprintln!("Decryption using {} failed:\n  {}",
+                                          self.key_hints.get(&keyid).unwrap(),
+                                          e);
+                                continue 'pkesk_loop;
+                            },
                         }
-
+                    } else {
                         eprintln!("Bad password.");
                     }
                 }
