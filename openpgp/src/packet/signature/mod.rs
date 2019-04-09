@@ -461,6 +461,16 @@ impl Signature4 {
     }
 
     /// Verifies the signature against `hash`.
+    ///
+    /// Note: This only verifies the cryptographic signature.
+    /// Constraints on the signature, like creation and expiration
+    /// time, or signature revocations must be checked by the caller.
+    ///
+    /// Likewise, this function does not check whether `key` can made
+    /// valid signatures; it is up to the caller to make sure the key
+    /// is not revoked, not expired, has a valid self-signature, has a
+    /// subkey binding signature (if appropriate), has the signing
+    /// capability, etc.
     pub fn verify_hash(&self, key: &Key, hash_algo: HashAlgorithm, hash: &[u8])
         -> Result<bool>
     {
@@ -565,11 +575,15 @@ impl Signature4 {
         }
     }
 
-    /// Returns whether `key` made the signature.
+    /// Verifies the signature using `key`.
     ///
-    /// This function does not check whether `key` can made valid
-    /// signatures; it is up to the caller to make sure the key is
-    /// not revoked, not expired, has a valid self-signature, has a
+    /// Note: This only verifies the cryptographic signature.
+    /// Constraints on the signature, like creation and expiration
+    /// time, or signature revocations must be checked by the caller.
+    ///
+    /// Likewise, this function does not check whether `key` can made
+    /// valid signatures; it is up to the caller to make sure the key
+    /// is not revoked, not expired, has a valid self-signature, has a
     /// subkey binding signature (if appropriate), has the signing
     /// capability, etc.
     pub fn verify(&self, key: &Key) -> Result<bool> {
@@ -593,6 +607,16 @@ impl Signature4 {
     /// key.
     ///
     /// For a self-signature, `signer` and `pk` will be the same.
+    ///
+    /// Note: This only verifies the cryptographic signature.
+    /// Constraints on the signature, like creation and expiration
+    /// time, or signature revocations must be checked by the caller.
+    ///
+    /// Likewise, this function does not check whether `signer` can
+    /// made valid signatures; it is up to the caller to make sure the
+    /// key is not revoked, not expired, has a valid self-signature,
+    /// has a subkey binding signature (if appropriate), has the
+    /// signing capability, etc.
     pub fn verify_primary_key_binding(&self, signer: &Key, pk: &Key)
         -> Result<bool>
     {
@@ -611,6 +635,16 @@ impl Signature4 {
     /// primary key,
     ///
     /// For a self-signature, `signer` and `pk` will be the same.
+    ///
+    /// Note: This only verifies the cryptographic signature.
+    /// Constraints on the signature, like creation and expiration
+    /// time, or signature revocations must be checked by the caller.
+    ///
+    /// Likewise, this function does not check whether `signer` can
+    /// made valid signatures; it is up to the caller to make sure the
+    /// key is not revoked, not expired, has a valid self-signature,
+    /// has a subkey binding signature (if appropriate), has the
+    /// signing capability, etc.
     pub fn verify_primary_key_revocation(&self, signer: &Key, pk: &Key)
         -> Result<bool>
     {
@@ -634,6 +668,16 @@ impl Signature4 {
     /// subkey, then the back signature is also verified.  If it is
     /// missing or can't be verified, then this function returns
     /// false.
+    ///
+    /// Note: This only verifies the cryptographic signature.
+    /// Constraints on the signature, like creation and expiration
+    /// time, or signature revocations must be checked by the caller.
+    ///
+    /// Likewise, this function does not check whether `signer` can
+    /// made valid signatures; it is up to the caller to make sure the
+    /// key is not revoked, not expired, has a valid self-signature,
+    /// has a subkey binding signature (if appropriate), has the
+    /// signing capability, etc.
     pub fn verify_subkey_binding(&self, signer: &Key, pk: &Key, subkey: &Key)
         -> Result<bool>
     {
@@ -699,6 +743,16 @@ impl Signature4 {
     /// key, and `subkey` is the subkey.
     ///
     /// For a self-revocation, `signer` and `pk` will be the same.
+    ///
+    /// Note: This only verifies the cryptographic signature.
+    /// Constraints on the signature, like creation and expiration
+    /// time, or signature revocations must be checked by the caller.
+    ///
+    /// Likewise, this function does not check whether `signer` can
+    /// made valid signatures; it is up to the caller to make sure the
+    /// key is not revoked, not expired, has a valid self-signature,
+    /// has a subkey binding signature (if appropriate), has the
+    /// signing capability, etc.
     pub fn verify_subkey_revocation(&self, signer: &Key, pk: &Key,
                                     subkey: &Key)
         -> Result<bool>
@@ -718,6 +772,16 @@ impl Signature4 {
     /// and `userid` is the user id.
     ///
     /// For a self-signature, `signer` and `pk` will be the same.
+    ///
+    /// Note: This only verifies the cryptographic signature.
+    /// Constraints on the signature, like creation and expiration
+    /// time, or signature revocations must be checked by the caller.
+    ///
+    /// Likewise, this function does not check whether `signer` can
+    /// made valid signatures; it is up to the caller to make sure the
+    /// key is not revoked, not expired, has a valid self-signature,
+    /// has a subkey binding signature (if appropriate), has the
+    /// signing capability, etc.
     pub fn verify_userid_binding(&self, signer: &Key,
                                  pk: &Key, userid: &UserID)
         -> Result<bool>
@@ -740,6 +804,16 @@ impl Signature4 {
     /// and `userid` is the user id.
     ///
     /// For a self-signature, `signer` and `pk` will be the same.
+    ///
+    /// Note: This only verifies the cryptographic signature.
+    /// Constraints on the signature, like creation and expiration
+    /// time, or signature revocations must be checked by the caller.
+    ///
+    /// Likewise, this function does not check whether `signer` can
+    /// made valid signatures; it is up to the caller to make sure the
+    /// key is not revoked, not expired, has a valid self-signature,
+    /// has a subkey binding signature (if appropriate), has the
+    /// signing capability, etc.
     pub fn verify_userid_revocation(&self, signer: &Key,
                                     pk: &Key, userid: &UserID)
         -> Result<bool>
@@ -759,6 +833,16 @@ impl Signature4 {
     /// key, and `ua` is the user attribute.
     ///
     /// For a self-signature, `signer` and `pk` will be the same.
+    ///
+    /// Note: This only verifies the cryptographic signature.
+    /// Constraints on the signature, like creation and expiration
+    /// time, or signature revocations must be checked by the caller.
+    ///
+    /// Likewise, this function does not check whether `signer` can
+    /// made valid signatures; it is up to the caller to make sure the
+    /// key is not revoked, not expired, has a valid self-signature,
+    /// has a subkey binding signature (if appropriate), has the
+    /// signing capability, etc.
     pub fn verify_user_attribute_binding(&self, signer: &Key,
                                          pk: &Key, ua: &UserAttribute)
         -> Result<bool>
@@ -781,6 +865,16 @@ impl Signature4 {
     /// key, and `ua` is the user attribute.
     ///
     /// For a self-signature, `signer` and `pk` will be the same.
+    ///
+    /// Note: This only verifies the cryptographic signature.
+    /// Constraints on the signature, like creation and expiration
+    /// time, or signature revocations must be checked by the caller.
+    ///
+    /// Likewise, this function does not check whether `signer` can
+    /// made valid signatures; it is up to the caller to make sure the
+    /// key is not revoked, not expired, has a valid self-signature,
+    /// has a subkey binding signature (if appropriate), has the
+    /// signing capability, etc.
     pub fn verify_user_attribute_revocation(&self, signer: &Key,
                                             pk: &Key, ua: &UserAttribute)
         -> Result<bool>
@@ -800,6 +894,16 @@ impl Signature4 {
     ///
     /// This function is for short messages, if you want to verify larger files
     /// use `Verifier`.
+    ///
+    /// Note: This only verifies the cryptographic signature.
+    /// Constraints on the signature, like creation and expiration
+    /// time, or signature revocations must be checked by the caller.
+    ///
+    /// Likewise, this function does not check whether `signer` can
+    /// made valid signatures; it is up to the caller to make sure the
+    /// key is not revoked, not expired, has a valid self-signature,
+    /// has a subkey binding signature (if appropriate), has the
+    /// signing capability, etc.
     pub fn verify_message(&self, signer: &Key, msg: &[u8])
         -> Result<bool>
     {
