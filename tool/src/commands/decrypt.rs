@@ -135,6 +135,12 @@ impl<'a> DecryptionHelper for Helper<'a> {
 
         // Second, we try those keys that are encrypted.
         'pkesk_loop: for pkesk in pkesks {
+            // Don't ask the user to decrypt a key if we don't support
+            // the algorithm.
+            if ! pkesk.pk_algo().is_supported() {
+                continue;
+            }
+
             let keyid = pkesk.recipient();
             if let Some(key) = self.secret_keys.get(&keyid) {
                 if key.secret().map(|s| ! s.is_encrypted())
