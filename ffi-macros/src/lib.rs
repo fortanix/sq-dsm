@@ -192,7 +192,8 @@ pub fn ffi_wrapper_type(args: TokenStream, input: TokenStream) -> TokenStream {
 
     // First, we derive the conversion functions.  As a side-effect,
     // this function injects fields into the struct definition.
-    impls.extend(derive_conversion_functions(st, &prefix, &name, &wrapped_type));
+    impls.extend(derive_conversion_functions(st.clone(), &prefix, &name,
+                                             &wrapped_type));
 
     // Now, we derive both the default and the requested functions.
     let default_derives: &[DeriveFn] = &[
@@ -200,7 +201,7 @@ pub fn ffi_wrapper_type(args: TokenStream, input: TokenStream) -> TokenStream {
     ];
     for dfn in derive.into_iter().chain(default_derives.iter()) {
         impls.extend(dfn(proc_macro2::Span::call_site(), &prefix, &name,
-                         &wrapper, &wrapped_type));
+                         &st, &wrapped_type));
     }
 
     impls.into()
@@ -230,7 +231,7 @@ fn ident2c_tests() {
 }
 
 /// Describes our custom derive functions.
-type DeriveFn = fn(proc_macro2::Span, &str, &str, &syn::Ident, &syn::Type)
+type DeriveFn = fn(proc_macro2::Span, &str, &str, &syn::ItemStruct, &syn::Type)
                    -> TokenStream2;
 
 /// Maps trait names to our generator functions.
@@ -275,6 +276,15 @@ fn derive_conversion_functions(mut st: syn::ItemStruct,
     // We now inject a field into the struct definition.  This tag
     // uniquely identifies this wrapper at runtime.
 
+    // Get the generics for lifetimes.
+    let generics = &st.generics;
+
+    let ref_lifetime = if generics.lifetimes().count() > 0 {
+        generics.lifetimes().nth(0).unwrap().clone()
+    } else {
+        syn::parse_quote!('static)
+    };
+
     // We use a word sized unsigned type to avoid alignment issues.
     let tag_type = syn::parse_quote!(u64);
 
@@ -314,7 +324,7 @@ fn derive_conversion_functions(mut st: syn::ItemStruct,
                     vis: syn::Visibility::Inherited,
                     ident: None,
                     colon_token: None,
-                    ty: syn::parse_quote!(#ownership),
+                    ty: syn::parse_quote!(#ownership #generics),
                 }
             );
             fields.unnamed.push(
@@ -344,7 +354,7 @@ fn derive_conversion_functions(mut st: syn::ItemStruct,
     };
 
     quote! {
-        enum #ownership {
+        enum #ownership #generics {
             Owned(#wrapped),
             Ref(*const #wrapped),
             RefMut(*mut #wrapped),
@@ -352,7 +362,7 @@ fn derive_conversion_functions(mut st: syn::ItemStruct,
 
         #st
 
-        impl #wrapper {
+        impl #generics #wrapper #generics {
             fn assert_tag(&self) {
                 if self.1 != #magic_value {
                     if self.1 == 0x5050505050505050 {
@@ -371,7 +381,7 @@ fn derive_conversion_functions(mut st: syn::ItemStruct,
             }
         }
 
-        impl ::MoveFromRaw<#wrapped> for *mut #wrapper {
+        impl #generics ::MoveFromRaw<#wrapped> for *mut #wrapper #generics {
             fn move_from_raw(self) -> #wrapped {
                 if self.is_null() {
                     panic!("FFI contract violation: Parameter is NULL");
@@ -405,16 +415,18 @@ fn derive_conversion_functions(mut st: syn::ItemStruct,
             }
         }
 
-        impl ::MoveFromRaw<Option<#wrapped>> for
-            Option<::std::ptr::NonNull<#wrapper>>
+        impl #generics ::MoveFromRaw<Option<#wrapped>> for
+            Option<::std::ptr::NonNull<#wrapper #generics>>
         {
             fn move_from_raw(self) -> Option<#wrapped> {
                 self.map(|nn| nn.as_ptr().move_from_raw())
             }
         }
 
-        impl ::RefRaw<&'static #wrapped> for *const #wrapper {
-            fn ref_raw(self) -> &'static #wrapped {
+        impl #generics ::RefRaw<& #ref_lifetime #wrapped> for
+            *const #wrapper #generics
+        {
+            fn ref_raw(self) -> & #ref_lifetime #wrapped {
                 if self.is_null() {
                     panic!("FFI contract violation: Parameter is NULL");
                 }
@@ -434,8 +446,10 @@ fn derive_conversion_functions(mut st: syn::ItemStruct,
             }
         }
 
-        impl ::RefMutRaw<&'static mut #wrapped> for *mut #wrapper {
-            fn ref_mut_raw(self) -> &'static mut #wrapped {
+        impl #generics ::RefMutRaw<& #ref_lifetime mut #wrapped> for
+            *mut #wrapper #generics
+        {
+            fn ref_mut_raw(self) -> & #ref_lifetime mut #wrapped {
                 if self.is_null() {
                     panic!("FFI contract violation: Parameter is NULL");
                 }
@@ -456,8 +470,10 @@ fn derive_conversion_functions(mut st: syn::ItemStruct,
             }
         }
 
-        impl ::RefMutRaw<Option<&'static mut #wrapped>> for ::Maybe<#wrapper> {
-            fn ref_mut_raw(self) -> Option<&'static mut #wrapped> {
+        impl #generics ::RefMutRaw<Option<& #ref_lifetime mut #wrapped>> for
+            ::Maybe<#wrapper #generics>
+        {
+            fn ref_mut_raw(self) -> Option<& #ref_lifetime mut #wrapped> {
                 if self.is_none() {
                     return None;
                 }
@@ -478,35 +494,36 @@ fn derive_conversion_functions(mut st: syn::ItemStruct,
             }
         }
 
-        impl #wrapper {
+        impl #generics #wrapper #generics {
             fn wrap(obj: #ownership) -> *mut #wrapper {
                 Box::into_raw(Box::new(#wrapper(obj, #magic_value,
                                                 #c_type_name_padded_literal)))
             }
         }
 
-        impl ::MoveIntoRaw<*mut #wrapper> for #wrapped {
-            fn move_into_raw(self) -> *mut #wrapper {
+        impl #generics ::MoveIntoRaw<*mut #wrapper #generics> for #wrapped {
+            fn move_into_raw(self) -> *mut #wrapper #generics {
                 #wrapper::wrap(#ownership::Owned(self))
             }
         }
 
-        impl ::MoveIntoRaw<*mut #wrapper> for &#wrapped {
-            fn move_into_raw(self) -> *mut #wrapper {
+        impl #generics ::MoveIntoRaw<*mut #wrapper #generics> for &#wrapped {
+            fn move_into_raw(self) -> *mut #wrapper #generics {
                 #wrapper::wrap(#ownership::Ref(self))
             }
         }
 
-        impl ::MoveIntoRaw<*mut #wrapper> for &mut #wrapped {
-            fn move_into_raw(self) -> *mut #wrapper {
+        impl #generics ::MoveIntoRaw<*mut #wrapper #generics> for &mut #wrapped
+        {
+            fn move_into_raw(self) -> *mut #wrapper #generics {
                 #wrapper::wrap(#ownership::RefMut(self))
             }
         }
 
-        impl ::MoveIntoRaw<Option<::std::ptr::NonNull<#wrapper>>>
+        impl #generics ::MoveIntoRaw<Option<::std::ptr::NonNull<#wrapper #generics>>>
             for Option<#wrapped>
         {
-            fn move_into_raw(self) -> Option<::std::ptr::NonNull<#wrapper>> {
+            fn move_into_raw(self) -> Option<::std::ptr::NonNull<#wrapper #generics>> {
                 self.map(|mut v| {
                     let ptr = #wrapper::wrap(#ownership::Owned(v));
                     ::std::ptr::NonNull::new(ptr).unwrap()
@@ -514,10 +531,10 @@ fn derive_conversion_functions(mut st: syn::ItemStruct,
             }
         }
 
-        impl ::MoveIntoRaw<Option<::std::ptr::NonNull<#wrapper>>>
+        impl #generics ::MoveIntoRaw<Option<::std::ptr::NonNull<#wrapper #generics>>>
             for Option<&#wrapped>
         {
-            fn move_into_raw(self) -> Option<::std::ptr::NonNull<#wrapper>> {
+            fn move_into_raw(self) -> Option<::std::ptr::NonNull<#wrapper #generics>> {
                 self.map(|mut v| {
                     let ptr = #wrapper::wrap(#ownership::Ref(v));
                     ::std::ptr::NonNull::new(ptr).unwrap()
@@ -525,10 +542,10 @@ fn derive_conversion_functions(mut st: syn::ItemStruct,
             }
         }
 
-        impl ::MoveIntoRaw<Option<::std::ptr::NonNull<#wrapper>>>
+        impl #generics ::MoveIntoRaw<Option<::std::ptr::NonNull<#wrapper #generics>>>
             for Option<&mut #wrapped>
         {
-            fn move_into_raw(self) -> Option<::std::ptr::NonNull<#wrapper>> {
+            fn move_into_raw(self) -> Option<::std::ptr::NonNull<#wrapper #generics>> {
                 self.map(|mut v| {
                     let ptr = #wrapper::wrap(#ownership::RefMut(v));
                     ::std::ptr::NonNull::new(ptr).unwrap()
@@ -536,11 +553,12 @@ fn derive_conversion_functions(mut st: syn::ItemStruct,
             }
         }
 
-        impl ::MoveResultIntoRaw<Option<::std::ptr::NonNull<#wrapper>>>
+        impl #generics ::MoveResultIntoRaw<Option<::std::ptr::NonNull<#wrapper #generics>>>
             for ::failure::Fallible<#wrapped>
         {
             fn move_into_raw(self, errp: Option<&mut *mut ::error::Error>)
-                             -> Option<::std::ptr::NonNull<#wrapper>> {
+                             -> Option<::std::ptr::NonNull<#wrapper #generics>>
+            {
                 use ::MoveIntoRaw;
                 match self {
                     Ok(v) => {
@@ -557,11 +575,12 @@ fn derive_conversion_functions(mut st: syn::ItemStruct,
             }
         }
 
-        impl ::MoveResultIntoRaw<Option<::std::ptr::NonNull<#wrapper>>>
+        impl #generics ::MoveResultIntoRaw<Option<::std::ptr::NonNull<#wrapper #generics>>>
             for ::failure::Fallible<&#wrapped>
         {
             fn move_into_raw(self, errp: Option<&mut *mut ::error::Error>)
-                             -> Option<::std::ptr::NonNull<#wrapper>> {
+                             -> Option<::std::ptr::NonNull<#wrapper #generics>>
+            {
                 use ::MoveIntoRaw;
                 match self {
                     Ok(v) => {
@@ -578,11 +597,12 @@ fn derive_conversion_functions(mut st: syn::ItemStruct,
             }
         }
 
-        impl ::MoveResultIntoRaw<Option<::std::ptr::NonNull<#wrapper>>>
+        impl #generics ::MoveResultIntoRaw<Option<::std::ptr::NonNull<#wrapper #generics>>>
             for ::failure::Fallible<&mut #wrapped>
         {
             fn move_into_raw(self, errp: Option<&mut *mut ::error::Error>)
-                             -> Option<::std::ptr::NonNull<#wrapper>> {
+                             -> Option<::std::ptr::NonNull<#wrapper #generics>>
+            {
                 use ::MoveIntoRaw;
                 match self {
                     Ok(v) => {
@@ -603,19 +623,22 @@ fn derive_conversion_functions(mut st: syn::ItemStruct,
 
 /// Derives prefix_name_free.
 fn derive_free(span: proc_macro2::Span, prefix: &str, name: &str,
-               wrapper: &syn::Ident, _wrapped: &syn::Type)
+               wrapper_st: &syn::ItemStruct, _wrapped: &syn::Type)
                -> TokenStream2
 {
+    let wrapper = &wrapper_st.ident;
+    let generics = &wrapper_st.generics;
     let ident = syn::Ident::new(&format!("{}{}_free", prefix, name),
                                 span);
     quote! {
         /// Frees this object.
-        #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-        pub extern "system" fn #ident (this: *mut #wrapper) {
+        #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
+        fn #ident #generics (this: *mut #wrapper #generics) {
             if this.is_null() {
                 return;
             }
 
+            #[allow(unused_mut)]
             let mut wrapper = unsafe {
                 Box::from_raw(this)
             };
@@ -627,7 +650,7 @@ fn derive_free(span: proc_macro2::Span, prefix: &str, name: &str,
                 // Overwrite with P.
                 memsec::memset(this as *mut u8,
                                0x50,
-                               ::std::mem::size_of::<#wrapper>())
+                               ::std::mem::size_of::<#wrapper #generics>())
             };
         }
     }
@@ -635,16 +658,18 @@ fn derive_free(span: proc_macro2::Span, prefix: &str, name: &str,
 
 /// Derives prefix_name_clone.
 fn derive_clone(span: proc_macro2::Span, prefix: &str, name: &str,
-                wrapper: &syn::Ident, _wrapped: &syn::Type)
+                wrapper_st: &syn::ItemStruct, _wrapped: &syn::Type)
                 -> TokenStream2
 {
+    let wrapper = &wrapper_st.ident;
+    let generics = &wrapper_st.generics;
     let ident = syn::Ident::new(&format!("{}{}_clone", prefix, name),
                                 span);
     quote! {
         /// Clones this object.
-        #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-        pub extern "system" fn #ident (this: *const #wrapper)
-                                       -> *mut #wrapper {
+        #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
+        fn #ident #generics (this: *const #wrapper #generics)
+                             -> *mut #wrapper #generics {
             use ::RefRaw;
             use ::MoveIntoRaw;
             this.ref_raw().clone().move_into_raw()
@@ -654,17 +679,19 @@ fn derive_clone(span: proc_macro2::Span, prefix: &str, name: &str,
 
 /// Derives prefix_name_equal.
 fn derive_equal(span: proc_macro2::Span, prefix: &str, name: &str,
-                wrapper: &syn::Ident, _wrapped: &syn::Type)
+                wrapper_st: &syn::ItemStruct, _wrapped: &syn::Type)
                 -> TokenStream2
 {
+    let wrapper = &wrapper_st.ident;
+    let generics = &wrapper_st.generics;
     let ident = syn::Ident::new(&format!("{}{}_equal", prefix, name),
                                 span);
     quote! {
         /// Compares objects.
-        #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-        pub extern "system" fn #ident (a: *const #wrapper,
-                                       b: *const #wrapper)
-                                       -> bool {
+        #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
+        fn #ident #generics (a: *const #wrapper #generics,
+                             b: *const #wrapper #generics)
+                             -> bool {
             use ::RefRaw;
             a.ref_raw() == b.ref_raw()
         }
@@ -674,17 +701,19 @@ fn derive_equal(span: proc_macro2::Span, prefix: &str, name: &str,
 
 /// Derives prefix_name_to_string.
 fn derive_to_string(span: proc_macro2::Span, prefix: &str, name: &str,
-                    wrapper: &syn::Ident, _wrapped: &syn::Type)
+                    wrapper_st: &syn::ItemStruct, _wrapped: &syn::Type)
                     -> TokenStream2
 {
+    let wrapper = &wrapper_st.ident;
+    let generics = &wrapper_st.generics;
     let ident = syn::Ident::new(&format!("{}{}_to_string", prefix, name),
                                 span);
     quote! {
         /// Returns a human readable description of this object
         /// intended for communication with end users.
-        #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-        pub extern "system" fn #ident (this: *const #wrapper)
-                                       -> *mut ::libc::c_char {
+        #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
+        fn #ident #generics (this: *const #wrapper #generics)
+                             -> *mut ::libc::c_char {
             use ::RefRaw;
             ffi_return_string!(format!("{}", this.ref_raw()))
         }
@@ -693,17 +722,19 @@ fn derive_to_string(span: proc_macro2::Span, prefix: &str, name: &str,
 
 /// Derives prefix_name_debug.
 fn derive_debug(span: proc_macro2::Span, prefix: &str, name: &str,
-                wrapper: &syn::Ident, _wrapped: &syn::Type)
+                wrapper_st: &syn::ItemStruct, _wrapped: &syn::Type)
                 -> TokenStream2
 {
+    let wrapper = &wrapper_st.ident;
+    let generics = &wrapper_st.generics;
     let ident = syn::Ident::new(&format!("{}{}_debug", prefix, name),
                                 span);
     quote! {
         /// Returns a human readable description of this object
         /// suitable for debugging.
-        #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-        pub extern "system" fn #ident (this: *const #wrapper)
-                                       -> *mut ::libc::c_char {
+        #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
+        fn #ident #generics (this: *const #wrapper #generics)
+                             -> *mut ::libc::c_char {
             use ::RefRaw;
             ffi_return_string!(format!("{:?}", this.ref_raw()))
         }
@@ -712,16 +743,18 @@ fn derive_debug(span: proc_macro2::Span, prefix: &str, name: &str,
 
 /// Derives prefix_name_hash.
 fn derive_hash(span: proc_macro2::Span, prefix: &str, name: &str,
-               wrapper: &syn::Ident, _wrapped: &syn::Type)
+               wrapper_st: &syn::ItemStruct, _wrapped: &syn::Type)
                -> TokenStream2
 {
+    let wrapper = &wrapper_st.ident;
+    let generics = &wrapper_st.generics;
     let ident = syn::Ident::new(&format!("{}{}_hash", prefix, name),
                                 span);
     quote! {
         /// Hashes this object.
-        #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-        pub extern "system" fn #ident (this: *const #wrapper)
-                                       -> ::libc::uint64_t {
+        #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
+        fn #ident #generics (this: *const #wrapper #generics)
+                             -> ::libc::uint64_t {
             use ::std::hash::{Hash, Hasher};
             use ::RefRaw;
 
@@ -734,9 +767,11 @@ fn derive_hash(span: proc_macro2::Span, prefix: &str, name: &str,
 
 /// Derives prefix_name_parse_*.
 fn derive_parse(span: proc_macro2::Span, prefix: &str, name: &str,
-                wrapper: &syn::Ident, wrapped: &syn::Type)
+                wrapper_st: &syn::ItemStruct, wrapped: &syn::Type)
                 -> TokenStream2
 {
+    let wrapper = &wrapper_st.ident;
+    let generics = &wrapper_st.generics;
     let from_reader = syn::Ident::new(&format!("{}{}_from_reader",
                                                prefix, name),
                                       span);
@@ -749,9 +784,9 @@ fn derive_parse(span: proc_macro2::Span, prefix: &str, name: &str,
     quote! {
         /// Parses an object from the given reader.
         #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
-        fn #from_reader(errp: Option<&mut *mut ::error::Error>,
-                        reader: *mut ::io::Reader)
-                        -> ::Maybe<#wrapper> {
+        fn #from_reader #generics(errp: Option<&mut *mut ::error::Error>,
+                                  reader: *mut ::io::Reader)
+                                  -> ::Maybe<#wrapper #generics> {
             use ::sequoia_openpgp::parse::Parse;
             use ::RefMutRaw;
             use ::MoveResultIntoRaw;
@@ -760,9 +795,9 @@ fn derive_parse(span: proc_macro2::Span, prefix: &str, name: &str,
 
         /// Parses an object from the given file.
         #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
-        fn #from_file(errp: Option<&mut *mut ::error::Error>,
-                      filename: *const ::libc::c_char)
-                      -> ::Maybe<#wrapper> {
+        fn #from_file #generics(errp: Option<&mut *mut ::error::Error>,
+                                filename: *const ::libc::c_char)
+                                -> ::Maybe<#wrapper #generics> {
             use ::sequoia_openpgp::parse::Parse;
             use ::MoveResultIntoRaw;
             let filename =
@@ -772,9 +807,9 @@ fn derive_parse(span: proc_macro2::Span, prefix: &str, name: &str,
 
         /// Parses an object from the given buffer.
         #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
-        fn #from_bytes(errp: Option<&mut *mut ::error::Error>,
-                       b: *const ::libc::uint8_t, len: ::libc::size_t)
-                       -> ::Maybe<#wrapper> {
+        fn #from_bytes #generics(errp: Option<&mut *mut ::error::Error>,
+                                 b: *const ::libc::uint8_t, len: ::libc::size_t)
+                                 -> ::Maybe<#wrapper #generics> {
             use ::sequoia_openpgp::parse::Parse;
             use ::MoveResultIntoRaw;
             assert!(!b.is_null());
@@ -789,18 +824,20 @@ fn derive_parse(span: proc_macro2::Span, prefix: &str, name: &str,
 
 /// Derives prefix_name_serialize.
 fn derive_serialize(span: proc_macro2::Span, prefix: &str, name: &str,
-                    wrapper: &syn::Ident, _wrapped: &syn::Type)
+                    wrapper_st: &syn::ItemStruct, _wrapped: &syn::Type)
                     -> TokenStream2
 {
+    let wrapper = &wrapper_st.ident;
+    let generics = &wrapper_st.generics;
     let ident = syn::Ident::new(&format!("{}{}_serialize", prefix, name),
                                 span);
     quote! {
         /// Serializes this object.
         #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
-        fn #ident (errp: Option<&mut *mut ::error::Error>,
-                   this: *const #wrapper,
-                   writer: *mut ::io::Writer)
-                   -> ::error::Status {
+        fn #ident #generics (errp: Option<&mut *mut ::error::Error>,
+                             this: *const #wrapper #generics,
+                             writer: *mut ::io::Writer)
+                             -> ::error::Status {
             use ::sequoia_openpgp::serialize::Serialize;
             use ::RefRaw;
             use ::RefMutRaw;
