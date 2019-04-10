@@ -265,6 +265,7 @@ fn derive_functions() -> &'static HashMap<&'static str, DeriveFn>
             h.insert("Debug", derive_debug as DeriveFn);
             h.insert("Parse", derive_parse as DeriveFn);
             h.insert("Serialize", derive_serialize as DeriveFn);
+            h.insert("Iterator", derive_iterator as DeriveFn);
             h
         };
     }
@@ -901,6 +902,37 @@ fn derive_serialize(span: proc_macro2::Span, prefix: &str, name: &str,
             use ::RefMutRaw;
             use ::MoveResultIntoRaw;
             this.ref_raw().serialize(writer.ref_mut_raw()).move_into_raw(errp)
+        }
+    }
+}
+
+/// Derives prefix_name_next.
+fn derive_iterator(span: proc_macro2::Span, prefix: &str, name: &str,
+                   wrapper_st: &syn::ItemStruct, _wrapped: &syn::Type,
+                   arg: &Option<String>)
+                   -> TokenStream2
+{
+    let wrapper = &wrapper_st.ident;
+    let generics = &wrapper_st.generics;
+    if arg.is_none() {
+        return syn::Error::new(span, "Expected type argument for Iterator")
+            .to_compile_error();
+    }
+    let item_type = match syn::parse_str::<syn::Type>(&arg.clone().unwrap()) {
+        Ok(t) => t,
+        Err(e) => return e.to_compile_error(),
+    };
+    let ident = syn::Ident::new(&format!("{}{}_next", prefix, name),
+                                span);
+
+    quote! {
+        /// Gets the next item from the iterator.
+        #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
+        fn #ident #generics (this: *mut #wrapper #generics)
+                             -> Option<::std::ptr::NonNull<#item_type>> {
+            use ::RefMutRaw;
+            use ::MoveResultIntoRaw;
+            this.ref_mut_raw().next().move_into_raw()
         }
     }
 }
