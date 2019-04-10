@@ -221,7 +221,31 @@ fn real_main() -> Result<(), failure::Error> {
                             tpk.serialize(&mut filter)?;
                         }
                     }
-                }
+                },
+                ("encode-sender",  Some(m)) => {
+                    let mut input = open_or_stdin(m.value_of("input"))?;
+                    let mut output = create_or_stdout(m.value_of("output"),
+                                                      force)?;
+                    let tpk = TPK::from_reader(input)?;
+                    let addr = m.value_of("address").map(|a| a.to_string())
+                        .or_else(|| {
+                            if let Some(Ok(Some(a))) =
+                                tpk.userids().nth(0).map(|u| u.userid().address())
+                            {
+                                Some(a)
+                            } else {
+                                None
+                            }
+                        });
+                    let ac = autocrypt::AutocryptHeader::new_sender(
+                        &tpk,
+                        &addr.ok_or(failure::err_msg(
+                            "No well-formed primary userid found, use \
+                             --address to specify one"))?,
+                        m.value_of("prefer-encrypt").expect("has default"))?;
+                    write!(&mut output, "Autocrypt: ")?;
+                    ac.serialize(&mut output)?;
+                },
                 _ => unreachable!(),
             }
         },

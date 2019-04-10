@@ -12,6 +12,7 @@
 use std::io::{self, Write};
 use std::cmp;
 
+use autocrypt;
 use super::*;
 
 mod partial_body;
@@ -2021,6 +2022,23 @@ impl SerializeInto for Message {
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
         use std::ops::Deref;
         self.deref().serialize_into(buf)
+    }
+}
+
+impl Serialize for autocrypt::AutocryptHeader {
+    fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
+        if self.key.is_none() {
+            return Err(Error::InvalidOperation("No key".into()).into());
+        }
+
+        for attr in self.attributes.iter() {
+            write!(o, "{}={}; ", attr.key, attr.value)?;
+        }
+
+        let mut buf = Vec::new();
+        self.key.as_ref().unwrap().serialize(&mut buf)?;
+        write!(o, "keydata={} ", base64::encode(&buf))?;
+        Ok(())
     }
 }
 

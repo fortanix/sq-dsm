@@ -97,6 +97,74 @@ impl AutocryptHeader {
         }
     }
 
+    /// Creates a new "Autocrypt" header.
+    pub fn new_sender<'a, P>(tpk: &TPK, addr: &str, prefer_encrypt: P)
+                             -> Result<Self>
+        where P: Into<Option<&'a str>>
+    {
+        use packet::Tag;
+
+        // Minimize TPK.
+        let mut acc = Vec::new();
+
+        // The primary key and the most recent selfsig.
+        acc.push(tpk.primary().clone().into_packet(Tag::PublicKey)?);
+        tpk.selfsigs().iter().take(1)
+            .for_each(|s| acc.push(s.clone().into()));
+
+        // The subkeys and the most recent selfsig.
+        for skb in tpk.subkeys() {
+            // Skip if revoked.
+            if ! skb.self_revocations().is_empty()
+                || ! skb.other_revocations().is_empty()
+            {
+                continue;
+            }
+
+            acc.push(skb.subkey().clone().into_packet(Tag::PublicSubkey)?);
+            skb.selfsigs().iter().take(1)
+                .for_each(|s| acc.push(s.clone().into()));
+        }
+
+        // The UserIDs matching ADDR.
+        for uidb in tpk.userids() {
+            // XXX: Fix match once we have the rfc2822-name-addr.
+            if let Ok(Some(a)) = uidb.userid().address() {
+                if &a == addr {
+                    acc.push(uidb.userid().clone().into());
+                    uidb.selfsigs().iter().take(1)
+                        .for_each(|s| acc.push(s.clone().into()));
+                } else {
+                    // Address is not matching.
+                    continue;
+                }
+            } else {
+                // Malformed UserID.
+                continue;
+            }
+        }
+
+        let cleaned_tpk = TPK::from_packet_pile(acc.into())?;
+
+        Ok(AutocryptHeader {
+            header_type: AutocryptHeaderType::Sender,
+            key: Some(cleaned_tpk),
+            attributes: vec![
+                Attribute {
+                    critical: true,
+                    key: "addr".into(),
+                    value: addr.into(),
+                },
+                Attribute {
+                    critical: true,
+                    key: "prefer-encrypt".into(),
+                    value: prefer_encrypt.into()
+                        .unwrap_or("nopreference").into(),
+                },
+            ],
+        })
+    }
+
     /// Looks up an attribute.
     pub fn get(&self, key: &str) -> Option<&Attribute> {
         for a in &self.attributes {
@@ -1001,5 +1069,35 @@ In the light of the Efail vulnerability I am asking myself if it's
         asm2.decrypt(asm.passcode().unwrap()).unwrap();
         let asm2 = asm2.parse().unwrap();
         assert_eq!(asm, asm2);
+    }
+
+    #[test]
+    fn autocrypt_header_new() {
+        let tpk = TPK::from_bytes(bytes!("keys/testy.pgp")).unwrap();
+        let header = AutocryptHeader::new_sender(&tpk, "testy@example.org",
+                                                 "mutual").unwrap();
+        let mut buf = Vec::new();
+        write!(&mut buf, "Autocrypt: ").unwrap();
+        header.serialize(&mut buf).unwrap();
+
+        let ac = AutocryptHeaders::from_bytes(&buf).unwrap();
+
+        // We expect exactly one Autocrypt header.
+        assert_eq!(ac.headers.len(), 1);
+
+        assert_eq!(ac.headers[0].get("addr").unwrap().value,
+                   "testy@example.org");
+
+        assert_eq!(ac.headers[0].get("prefer-encrypt").unwrap().value,
+                   "mutual");
+
+        let tpk = ac.headers[0].key.as_ref()
+            .expect("Failed to parse key material.");
+        assert_eq!(&tpk.primary().fingerprint().to_string(),
+                   "3E88 77C8 7727 4692 9751  89F5 D03F 6F86 5226 FE8B");
+        assert_eq!(tpk.userids().len(), 1);
+        assert_eq!(tpk.subkeys().len(), 1);
+        assert_eq!(tpk.userids().next().unwrap().userid().value(),
+                   &b"Testy McTestface <testy@example.org>"[..]);
     }
 }

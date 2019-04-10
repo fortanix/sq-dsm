@@ -340,8 +340,9 @@
 //!     -V, --version    Prints version information
 //!
 //! SUBCOMMANDS:
-//!     decode    Converts Autocrypt-encoded keys to OpenPGP TPKs
-//!     help      Prints this message or the help of the given subcommand(s)
+//!     decode           Converts Autocrypt-encoded keys to OpenPGP TPKs
+//!     encode-sender    Encodes the senders' OpenPGP TPKs into an Autocrypt header
+//!     help             Prints this message or the help of the given subcommand(s)
 //! ```
 //!
 //! ### Subcommand autocrypt decode
@@ -358,6 +359,28 @@
 //!
 //! OPTIONS:
 //!     -o, --output <FILE>    Sets the output file to use
+//!
+//! ARGS:
+//!     <FILE>    Sets the input file to use
+//! ```
+//!
+//! ### Subcommand autocrypt encode-sender
+//!
+//! ```text
+//! Encodes the senders' OpenPGP TPKs into an Autocrypt header
+//!
+//! USAGE:
+//!     sq autocrypt encode-sender [OPTIONS] [FILE]
+//!
+//! FLAGS:
+//!     -h, --help       Prints help information
+//!     -V, --version    Prints version information
+//!
+//! OPTIONS:
+//!         --address <address>                  Select userid to use.  [default: primary userid]
+//!     -o, --output <FILE>                      Sets the output file to use
+//!         --prefer-encrypt <prefer-encrypt>    Sets the prefer-encrypt attribute [default: nopreference]  [possible
+//!                                              values: nopreference, mutual]
 //!
 //! ARGS:
 //!     <FILE>    Sets the input file to use
