@@ -141,8 +141,25 @@ pub fn ffi_wrapper_type(args: TokenStream, input: TokenStream) -> TokenStream {
                     "derive" => {
                         for ident in value.split(",").map(|d| d.trim()
                                                           .to_string()) {
-                            if let Some(f) = derive_functions().get::<str>(&ident) {
-                                derive.push(f);
+                            let (ident, arg) =
+                                if let Some(i) = ident.find('(') {
+                                    if ! ident.ends_with(")") {
+                                        return syn::Error::new(
+                                            mnv.ident.span(),
+                                            format!("missing closing \
+                                                     parenthesis: \
+                                                     {}", ident))
+                                        .to_compile_error().into();
+                                    }
+                                    let arg =
+                                        ident[i+1..ident.len()-1].to_string();
+                                    (&ident[..i], Some(arg))
+                                } else {
+                                    (&ident[..], None)
+                                };
+
+                            if let Some(f) = derive_functions().get(ident) {
+                                derive.push((*f, arg));
                             } else {
                                 return syn::Error::new(
                                     mnv.ident.span(),
@@ -196,12 +213,12 @@ pub fn ffi_wrapper_type(args: TokenStream, input: TokenStream) -> TokenStream {
                                              &wrapped_type));
 
     // Now, we derive both the default and the requested functions.
-    let default_derives: &[DeriveFn] = &[
-        derive_free,
+    let default_derives = [
+        (derive_free as DeriveFn, None),
     ];
-    for dfn in derive.into_iter().chain(default_derives.iter()) {
+    for (dfn, arg) in derive.iter().chain(default_derives.into_iter()) {
         impls.extend(dfn(proc_macro2::Span::call_site(), &prefix, &name,
-                         &st, &wrapped_type));
+                         &st, &wrapped_type, arg));
     }
 
     impls.into()
@@ -231,7 +248,8 @@ fn ident2c_tests() {
 }
 
 /// Describes our custom derive functions.
-type DeriveFn = fn(proc_macro2::Span, &str, &str, &syn::ItemStruct, &syn::Type)
+type DeriveFn = fn(proc_macro2::Span, &str, &str, &syn::ItemStruct, &syn::Type,
+                   &Option<String>)
                    -> TokenStream2;
 
 /// Maps trait names to our generator functions.
@@ -623,11 +641,16 @@ fn derive_conversion_functions(mut st: syn::ItemStruct,
 
 /// Derives prefix_name_free.
 fn derive_free(span: proc_macro2::Span, prefix: &str, name: &str,
-               wrapper_st: &syn::ItemStruct, _wrapped: &syn::Type)
+               wrapper_st: &syn::ItemStruct, _wrapped: &syn::Type,
+               arg: &Option<String>)
                -> TokenStream2
 {
     let wrapper = &wrapper_st.ident;
     let generics = &wrapper_st.generics;
+    if arg.is_some() {
+        return syn::Error::new(span, "Superfluous argument")
+            .to_compile_error();
+    }
     let ident = syn::Ident::new(&format!("{}{}_free", prefix, name),
                                 span);
     quote! {
@@ -658,11 +681,16 @@ fn derive_free(span: proc_macro2::Span, prefix: &str, name: &str,
 
 /// Derives prefix_name_clone.
 fn derive_clone(span: proc_macro2::Span, prefix: &str, name: &str,
-                wrapper_st: &syn::ItemStruct, _wrapped: &syn::Type)
+                wrapper_st: &syn::ItemStruct, _wrapped: &syn::Type,
+                arg: &Option<String>)
                 -> TokenStream2
 {
     let wrapper = &wrapper_st.ident;
     let generics = &wrapper_st.generics;
+    if arg.is_some() {
+        return syn::Error::new(span, "Superfluous argument")
+            .to_compile_error();
+    }
     let ident = syn::Ident::new(&format!("{}{}_clone", prefix, name),
                                 span);
     quote! {
@@ -679,11 +707,16 @@ fn derive_clone(span: proc_macro2::Span, prefix: &str, name: &str,
 
 /// Derives prefix_name_equal.
 fn derive_equal(span: proc_macro2::Span, prefix: &str, name: &str,
-                wrapper_st: &syn::ItemStruct, _wrapped: &syn::Type)
+                wrapper_st: &syn::ItemStruct, _wrapped: &syn::Type,
+                arg: &Option<String>)
                 -> TokenStream2
 {
     let wrapper = &wrapper_st.ident;
     let generics = &wrapper_st.generics;
+    if arg.is_some() {
+        return syn::Error::new(span, "Superfluous argument")
+            .to_compile_error();
+    }
     let ident = syn::Ident::new(&format!("{}{}_equal", prefix, name),
                                 span);
     quote! {
@@ -701,11 +734,16 @@ fn derive_equal(span: proc_macro2::Span, prefix: &str, name: &str,
 
 /// Derives prefix_name_to_string.
 fn derive_to_string(span: proc_macro2::Span, prefix: &str, name: &str,
-                    wrapper_st: &syn::ItemStruct, _wrapped: &syn::Type)
+                    wrapper_st: &syn::ItemStruct, _wrapped: &syn::Type,
+                    arg: &Option<String>)
                     -> TokenStream2
 {
     let wrapper = &wrapper_st.ident;
     let generics = &wrapper_st.generics;
+    if arg.is_some() {
+        return syn::Error::new(span, "Superfluous argument")
+            .to_compile_error();
+    }
     let ident = syn::Ident::new(&format!("{}{}_to_string", prefix, name),
                                 span);
     quote! {
@@ -722,11 +760,16 @@ fn derive_to_string(span: proc_macro2::Span, prefix: &str, name: &str,
 
 /// Derives prefix_name_debug.
 fn derive_debug(span: proc_macro2::Span, prefix: &str, name: &str,
-                wrapper_st: &syn::ItemStruct, _wrapped: &syn::Type)
+                wrapper_st: &syn::ItemStruct, _wrapped: &syn::Type,
+                arg: &Option<String>)
                 -> TokenStream2
 {
     let wrapper = &wrapper_st.ident;
     let generics = &wrapper_st.generics;
+    if arg.is_some() {
+        return syn::Error::new(span, "Superfluous argument")
+            .to_compile_error();
+    }
     let ident = syn::Ident::new(&format!("{}{}_debug", prefix, name),
                                 span);
     quote! {
@@ -743,11 +786,16 @@ fn derive_debug(span: proc_macro2::Span, prefix: &str, name: &str,
 
 /// Derives prefix_name_hash.
 fn derive_hash(span: proc_macro2::Span, prefix: &str, name: &str,
-               wrapper_st: &syn::ItemStruct, _wrapped: &syn::Type)
+               wrapper_st: &syn::ItemStruct, _wrapped: &syn::Type,
+               arg: &Option<String>)
                -> TokenStream2
 {
     let wrapper = &wrapper_st.ident;
     let generics = &wrapper_st.generics;
+    if arg.is_some() {
+        return syn::Error::new(span, "Superfluous argument")
+            .to_compile_error();
+    }
     let ident = syn::Ident::new(&format!("{}{}_hash", prefix, name),
                                 span);
     quote! {
@@ -767,11 +815,16 @@ fn derive_hash(span: proc_macro2::Span, prefix: &str, name: &str,
 
 /// Derives prefix_name_parse_*.
 fn derive_parse(span: proc_macro2::Span, prefix: &str, name: &str,
-                wrapper_st: &syn::ItemStruct, wrapped: &syn::Type)
+                wrapper_st: &syn::ItemStruct, wrapped: &syn::Type,
+                arg: &Option<String>)
                 -> TokenStream2
 {
     let wrapper = &wrapper_st.ident;
     let generics = &wrapper_st.generics;
+    if arg.is_some() {
+        return syn::Error::new(span, "Superfluous argument")
+            .to_compile_error();
+    }
     let from_reader = syn::Ident::new(&format!("{}{}_from_reader",
                                                prefix, name),
                                       span);
@@ -824,11 +877,16 @@ fn derive_parse(span: proc_macro2::Span, prefix: &str, name: &str,
 
 /// Derives prefix_name_serialize.
 fn derive_serialize(span: proc_macro2::Span, prefix: &str, name: &str,
-                    wrapper_st: &syn::ItemStruct, _wrapped: &syn::Type)
+                    wrapper_st: &syn::ItemStruct, _wrapped: &syn::Type,
+                    arg: &Option<String>)
                     -> TokenStream2
 {
     let wrapper = &wrapper_st.ident;
     let generics = &wrapper_st.generics;
+    if arg.is_some() {
+        return syn::Error::new(span, "Superfluous argument")
+            .to_compile_error();
+    }
     let ident = syn::Ident::new(&format!("{}{}_serialize", prefix, name),
                                 span);
     quote! {
