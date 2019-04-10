@@ -413,7 +413,7 @@ fn derive_conversion_functions(mut st: syn::ItemStruct,
             }
         }
 
-        impl ::RefRaw<#wrapped> for *const #wrapper {
+        impl ::RefRaw<&'static #wrapped> for *const #wrapper {
             fn ref_raw(self) -> &'static #wrapped {
                 if self.is_null() {
                     panic!("FFI contract violation: Parameter is NULL");

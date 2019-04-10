@@ -238,7 +238,7 @@ pub(crate) trait MoveFromRaw<T> {
 /// Moves a reference to an object from C to Rust.
 pub(crate) trait RefRaw<T> {
     /// Moves this reference to an object from C to Rust.
-    fn ref_raw(self) -> &'static T;
+    fn ref_raw(self) -> T;
 }
 
 /// Moves a mutable reference to an object from C to Rust.
