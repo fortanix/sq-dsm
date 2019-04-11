@@ -412,10 +412,11 @@ impl PacketDumper {
 
         if let Some(map) = map {
             writeln!(output)?;
-            let mut hd = HexDumper::new("");
+            let mut hd = HexDumper::new(output, "");
             for field in map.iter() {
-                hd.write(output, field.data, field.name)?;
+                hd.write(field.data, field.name)?;
             }
+            let output = hd.into_inner();
             writeln!(output)?;
         } else {
             writeln!(output, "{}", i)?;
@@ -560,60 +561,67 @@ impl PacketDumper {
     }
 }
 
-pub struct HexDumper {
+pub struct HexDumper<W: io::Write> {
+    inner: W,
     indent: String,
     offset: usize,
 }
 
-impl HexDumper {
-    pub fn new<I: AsRef<str>>(indent: I) -> Self {
+impl<W: io::Write> HexDumper<W> {
+    pub fn new<I: AsRef<str>>(inner: W, indent: I) -> Self {
         HexDumper {
+            inner: inner,
             indent: indent.as_ref().into(),
             offset: 0,
         }
     }
 
-    pub fn write(&mut self, sink: &mut io::Write, buf: &[u8], msg: &str)
-             -> Result<()> {
+    /// Returns the inner writer.
+    pub fn into_inner(self) -> W {
+        self.inner
+    }
+
+    pub fn write(&mut self, buf: &[u8], msg: &str) -> Result<()> {
         let mut msg_printed = false;
-        write!(sink, "{}{:08x}  ", self.indent, self.offset)?;
+        write!(self.inner, "{}{:08x}  ", self.indent, self.offset)?;
         for i in 0 .. self.offset % 16 {
             if i != 7 {
-                write!(sink, "   ")?;
+                write!(self.inner, "   ")?;
             } else {
-                write!(sink, "    ")?;
+                write!(self.inner, "    ")?;
             }
         }
 
         for c in buf {
-            write!(sink, "{:02x} ", c)?;
+            write!(self.inner, "{:02x} ", c)?;
             self.offset += 1;
             match self.offset % 16 {
                 0 => {
                     if ! msg_printed {
-                        write!(sink, "  {}", msg)?;
+                        write!(self.inner, "  {}", msg)?;
                         msg_printed = true;
                     }
 
-                    write!(sink, "\n{}{:08x}  ", self.indent, self.offset)?;
+                    write!(self.inner,
+                           "\n{}{:08x}  ", self.indent, self.offset)?;
                 },
-                8 => write!(sink, " ")?,
+                8 => write!(self.inner, " ")?,
                 _ => (),
             }
         }
 
         for i in self.offset % 16 .. 16 {
             if i != 7 {
-                write!(sink, "   ")?;
+                write!(self.inner, "   ")?;
             } else {
-                write!(sink, "    ")?;
+                write!(self.inner, "    ")?;
             }
         }
 
         if ! msg_printed {
-            write!(sink, "  {}", msg)?;
+            write!(self.inner, "  {}", msg)?;
         }
-        writeln!(sink)?;
+        writeln!(self.inner)?;
         Ok(())
     }
 }
