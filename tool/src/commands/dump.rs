@@ -412,7 +412,7 @@ impl PacketDumper {
 
         if let Some(map) = map {
             writeln!(output)?;
-            let mut hd = HexDumper::new();
+            let mut hd = HexDumper::new("");
             for field in map.iter() {
                 hd.write(output, field.data, field.name)?;
             }
@@ -561,12 +561,14 @@ impl PacketDumper {
 }
 
 pub struct HexDumper {
+    indent: String,
     offset: usize,
 }
 
 impl HexDumper {
-    pub fn new() -> Self {
+    pub fn new<I: AsRef<str>>(indent: I) -> Self {
         HexDumper {
+            indent: indent.as_ref().into(),
             offset: 0,
         }
     }
@@ -574,7 +576,7 @@ impl HexDumper {
     pub fn write(&mut self, sink: &mut io::Write, buf: &[u8], msg: &str)
              -> Result<()> {
         let mut msg_printed = false;
-        write!(sink, "{:08x}  ", self.offset)?;
+        write!(sink, "{}{:08x}  ", self.indent, self.offset)?;
         for i in 0 .. self.offset % 16 {
             if i != 7 {
                 write!(sink, "   ")?;
@@ -593,7 +595,7 @@ impl HexDumper {
                         msg_printed = true;
                     }
 
-                    write!(sink, "\n{:08x}  ", self.offset)?;
+                    write!(sink, "\n{}{:08x}  ", self.indent, self.offset)?;
                 },
                 8 => write!(sink, " ")?,
                 _ => (),
