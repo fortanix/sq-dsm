@@ -77,7 +77,7 @@ impl<'a> Helper<'a> {
             key_hints: hints,
             dump_session_key: dump_session_key,
             dumper: if dump || hex {
-                Some(PacketDumper::new(false))
+                Some(PacketDumper::new(80, false))
             } else {
                 None
             },

@@ -19,7 +19,7 @@ pub fn dump(input: &mut io::Read, output: &mut io::Write, mpis: bool, hex: bool,
     let mut ppr
         = openpgp::parse::PacketParserBuilder::from_reader(input)?
         .map(hex).finalize()?;
-    let mut dumper = PacketDumper::new(mpis);
+    let mut dumper = PacketDumper::new(80, mpis);
 
     while let PacketParserResult::Some(mut pp) = ppr {
         let additional_fields = match pp.packet {
@@ -94,11 +94,6 @@ pub fn dump(input: &mut io::Read, output: &mut io::Write, mpis: bool, hex: bool,
     dumper.flush(output)
 }
 
-pub struct PacketDumper {
-    mpis: bool,
-    root: Option<Node>,
-}
-
 struct Node {
     header: Header,
     packet: Packet,
@@ -128,9 +123,16 @@ impl Node {
     }
 }
 
+pub struct PacketDumper {
+    width: usize,
+    mpis: bool,
+    root: Option<Node>,
+}
+
 impl PacketDumper {
-    pub fn new(mpis: bool) -> Self {
+    pub fn new(width: usize, mpis: bool) -> Self {
         PacketDumper {
+            width: width,
             mpis: mpis,
             root: None,
         }
@@ -411,13 +413,28 @@ impl PacketDumper {
         }
 
         if let Some(map) = map {
-            writeln!(output)?;
-            let mut hd = HexDumper::new(output, "");
+            let hd_indent = ::std::cmp::max(
+                0,
+                ::std::cmp::min(
+                    self.width as isize
+                        - 63 // Length of address, hex digits, and whitespace.
+                        - map.iter().map(|f| f.name.len()).max()
+                        .expect("we always have one entry") as isize,
+                    i.len() as isize),
+            ) as usize;
+
+            writeln!(output, "{}", i)?;
+            let mut hd = HexDumper::new(
+                output,
+                format!("{}  ",
+                        &i.chars().take(hd_indent).collect::<String>()));
+
             for field in map.iter() {
                 hd.write(field.data, field.name)?;
             }
+
             let output = hd.into_inner();
-            writeln!(output)?;
+            writeln!(output, "{}", i)?;
         } else {
             writeln!(output, "{}", i)?;
         }
