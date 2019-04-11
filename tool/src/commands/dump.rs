@@ -612,7 +612,14 @@ impl<W: io::Write> HexDumper<W> {
             }
         }
 
+        let mut offset_printed = true;
         for c in buf {
+            if ! offset_printed {
+                write!(self.inner,
+                       "\n{}{:08x}  ", self.indent, self.offset)?;
+                offset_printed = true;
+            }
+
             write!(self.inner, "{:02x} ", c)?;
             self.offset += 1;
             match self.offset % 16 {
@@ -621,27 +628,93 @@ impl<W: io::Write> HexDumper<W> {
                         write!(self.inner, "  {}", msg)?;
                         msg_printed = true;
                     }
-
-                    write!(self.inner,
-                           "\n{}{:08x}  ", self.indent, self.offset)?;
+                    offset_printed = false;
                 },
                 8 => write!(self.inner, " ")?,
                 _ => (),
             }
         }
 
-        for i in self.offset % 16 .. 16 {
-            if i != 7 {
-                write!(self.inner, "   ")?;
-            } else {
-                write!(self.inner, "    ")?;
-            }
-        }
-
         if ! msg_printed {
+            for i in self.offset % 16 .. 16 {
+                if i != 7 {
+                    write!(self.inner, "   ")?;
+                } else {
+                    write!(self.inner, "    ")?;
+                }
+            }
+
             write!(self.inner, "  {}", msg)?;
         }
         writeln!(self.inner)?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn hex_dumper() {
+        let mut dumper = HexDumper::new(Vec::new(), "III");
+        dumper.write(&[0x89, 0x01, 0x33], "frame").unwrap();
+        let buf = dumper.into_inner();
+        assert_eq!(
+            ::std::str::from_utf8(&buf[..]).unwrap(),
+            "III00000000  \
+             89 01 33                                           \
+             frame\n");
+
+        let mut dumper = HexDumper::new(Vec::new(), "III");
+        dumper.write(&[0x89, 0x01, 0x33, 0x89, 0x01, 0x33, 0x89, 0x01], "frame")
+            .unwrap();
+        let buf = dumper.into_inner();
+        assert_eq!(
+            ::std::str::from_utf8(&buf[..]).unwrap(),
+            "III00000000  \
+             89 01 33 89 01 33 89 01                            \
+             frame\n");
+
+        let mut dumper = HexDumper::new(Vec::new(), "III");
+        dumper.write(&[0x89, 0x01, 0x33, 0x89, 0x01, 0x33, 0x89, 0x01,
+                       0x89, 0x01, 0x33, 0x89, 0x01, 0x33, 0x89, 0x01], "frame")
+            .unwrap();
+        let buf = dumper.into_inner();
+        assert_eq!(
+            ::std::str::from_utf8(&buf[..]).unwrap(),
+            "III00000000  \
+             89 01 33 89 01 33 89 01  89 01 33 89 01 33 89 01   \
+             frame\n");
+
+        let mut dumper = HexDumper::new(Vec::new(), "III");
+        dumper.write(&[0x89, 0x01, 0x33, 0x89, 0x01, 0x33, 0x89, 0x01,
+                       0x89, 0x01, 0x33, 0x89, 0x01, 0x33, 0x89, 0x01,
+                       0x89, 0x01, 0x33, 0x89, 0x01, 0x33, 0x89, 0x01,
+                       0x89, 0x01, 0x33, 0x89, 0x01, 0x33, 0x89, 0x01], "frame")
+            .unwrap();
+        let buf = dumper.into_inner();
+        assert_eq!(
+            ::std::str::from_utf8(&buf[..]).unwrap(),
+            "III00000000  \
+             89 01 33 89 01 33 89 01  89 01 33 89 01 33 89 01   \
+             frame\n\
+             III00000010  \
+             89 01 33 89 01 33 89 01  89 01 33 89 01 33 89 01 \n");
+
+        let mut dumper = HexDumper::new(Vec::new(), "");
+        dumper.write(&[0x89, 0x01, 0x33], "frame").unwrap();
+        dumper.write(&[0x04], "version").unwrap();
+        dumper.write(&[0x00], "sigtype").unwrap();
+        let buf = dumper.into_inner();
+        assert_eq!(
+            ::std::str::from_utf8(&buf[..]).unwrap(),
+            "00000000  89 01 33                                           \
+             frame\n\
+             00000003           04                                        \
+             version\n\
+             00000004              00                                     \
+             sigtype\n\
+             ");
     }
 }
