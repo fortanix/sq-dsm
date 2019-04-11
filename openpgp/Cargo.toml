@@ -32,6 +32,7 @@ nettle = "5.0"
 quickcheck = "0.8"
 rand = "0.6"
 time = "0.1.40"
+sequoia-rfc2822 = { path = "../rfc2822", version = "*" }
 
 [build-dependencies]
 lalrpop = "0.16"
