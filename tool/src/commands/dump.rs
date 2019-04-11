@@ -581,6 +581,23 @@ impl PacketDumper {
     }
 }
 
+/// Writes annotated hex dumps, like hd(1).
+///
+/// # Example
+///
+/// ```rust
+/// let mut dumper = HexDumper::new(Vec::new(), "");
+/// dumper.write(&[0x89, 0x01, 0x33], "frame").unwrap();
+/// dumper.write(&[0x04], "version").unwrap();
+/// dumper.write(&[0x00], "sigtype").unwrap();
+/// let buf = dumper.into_inner();
+/// assert_eq!(
+///     ::std::str::from_utf8(&buf[..]).unwrap(),
+///     "00000000  89 01 33                                           frame\n\
+///      00000003           04                                        version\n\
+///      00000004              00                                     sigtype\n\
+///      ");
+/// ```
 pub struct HexDumper<W: io::Write> {
     inner: W,
     indent: String,
@@ -588,6 +605,10 @@ pub struct HexDumper<W: io::Write> {
 }
 
 impl<W: io::Write> HexDumper<W> {
+    /// Creates a new dumper.
+    ///
+    /// The dump is written to `inner`.  Every line is indented with
+    /// `indent`.
     pub fn new<I: AsRef<str>>(inner: W, indent: I) -> Self {
         HexDumper {
             inner: inner,
@@ -601,6 +622,9 @@ impl<W: io::Write> HexDumper<W> {
         self.inner
     }
 
+    /// Writes a chunk of data.
+    ///
+    /// The `label` is printed at the end of the first line.
     pub fn write(&mut self, buf: &[u8], msg: &str) -> Result<()> {
         let mut msg_printed = false;
         write!(self.inner, "{}{:08x}  ", self.indent, self.offset)?;
