@@ -69,6 +69,8 @@ impl Duration for time::Duration {
 
 /// Converts buffers to and from hexadecimal numbers.
 pub mod hex {
+    use std::io;
+
     /// Encodes the given buffer as hexadecimal number.
     pub fn encode<B: AsRef<[u8]>>(buffer: B) -> String {
         super::to_hex(buffer.as_ref(), false)
@@ -87,6 +89,103 @@ pub mod hex {
     /// Decodes the given hexadecimal number, ignoring whitespace.
     pub fn decode_pretty<H: AsRef<str>>(hex: H) -> ::Result<Vec<u8>> {
         super::from_hex(hex.as_ref(), true)
+    }
+
+    /// Writes annotated hex dumps, like hd(1).
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    ///  use sequoia_openpgp::conversions::hex;
+    ///
+    /// let mut dumper = hex::Dumper::new(Vec::new(), "");
+    /// dumper.write(&[0x89, 0x01, 0x33], "frame").unwrap();
+    /// dumper.write(&[0x04], "version").unwrap();
+    /// dumper.write(&[0x00], "sigtype").unwrap();
+    ///
+    /// let buf = dumper.into_inner();
+    /// assert_eq!(
+    ///     ::std::str::from_utf8(&buf[..]).unwrap(),
+    ///     "00000000  89 01 33                                           frame\n\
+    ///      00000003           04                                        version\n\
+    ///      00000004              00                                     sigtype\n\
+    ///      ");
+    /// ```
+    pub struct Dumper<W: io::Write> {
+        inner: W,
+        indent: String,
+        offset: usize,
+    }
+
+    impl<W: io::Write> Dumper<W> {
+        /// Creates a new dumper.
+        ///
+        /// The dump is written to `inner`.  Every line is indented with
+        /// `indent`.
+        pub fn new<I: AsRef<str>>(inner: W, indent: I) -> Self {
+            Dumper {
+                inner: inner,
+                indent: indent.as_ref().into(),
+                offset: 0,
+            }
+        }
+
+        /// Returns the inner writer.
+        pub fn into_inner(self) -> W {
+            self.inner
+        }
+
+        /// Writes a chunk of data.
+        ///
+        /// The `label` is printed at the end of the first line.
+        pub fn write(&mut self, buf: &[u8], msg: &str) -> io::Result<()> {
+            let mut msg_printed = false;
+            write!(self.inner, "{}{:08x}  ", self.indent, self.offset)?;
+            for i in 0 .. self.offset % 16 {
+                if i != 7 {
+                    write!(self.inner, "   ")?;
+                } else {
+                    write!(self.inner, "    ")?;
+                }
+            }
+
+            let mut offset_printed = true;
+            for c in buf {
+                if ! offset_printed {
+                    write!(self.inner,
+                           "\n{}{:08x}  ", self.indent, self.offset)?;
+                    offset_printed = true;
+                }
+
+                write!(self.inner, "{:02x} ", c)?;
+                self.offset += 1;
+                match self.offset % 16 {
+                    0 => {
+                        if ! msg_printed {
+                            write!(self.inner, "  {}", msg)?;
+                            msg_printed = true;
+                        }
+                        offset_printed = false;
+                    },
+                    8 => write!(self.inner, " ")?,
+                    _ => (),
+                }
+            }
+
+            if ! msg_printed {
+                for i in self.offset % 16 .. 16 {
+                    if i != 7 {
+                        write!(self.inner, "   ")?;
+                    } else {
+                        write!(self.inner, "    ")?;
+                    }
+                }
+
+                write!(self.inner, "  {}", msg)?;
+            }
+            writeln!(self.inner)?;
+            Ok(())
+        }
     }
 }
 
@@ -248,6 +347,71 @@ mod test {
             let hex = super::to_hex(&data, true);
             data == super::from_hex(&hex, true).unwrap()
         }
+    }
+
+    #[test]
+    fn hex_dumper() {
+        use super::hex::Dumper;
+
+        let mut dumper = Dumper::new(Vec::new(), "III");
+        dumper.write(&[0x89, 0x01, 0x33], "frame").unwrap();
+        let buf = dumper.into_inner();
+        assert_eq!(
+            ::std::str::from_utf8(&buf[..]).unwrap(),
+            "III00000000  \
+             89 01 33                                           \
+             frame\n");
+
+        let mut dumper = Dumper::new(Vec::new(), "III");
+        dumper.write(&[0x89, 0x01, 0x33, 0x89, 0x01, 0x33, 0x89, 0x01], "frame")
+            .unwrap();
+        let buf = dumper.into_inner();
+        assert_eq!(
+            ::std::str::from_utf8(&buf[..]).unwrap(),
+            "III00000000  \
+             89 01 33 89 01 33 89 01                            \
+             frame\n");
+
+        let mut dumper = Dumper::new(Vec::new(), "III");
+        dumper.write(&[0x89, 0x01, 0x33, 0x89, 0x01, 0x33, 0x89, 0x01,
+                       0x89, 0x01, 0x33, 0x89, 0x01, 0x33, 0x89, 0x01], "frame")
+            .unwrap();
+        let buf = dumper.into_inner();
+        assert_eq!(
+            ::std::str::from_utf8(&buf[..]).unwrap(),
+            "III00000000  \
+             89 01 33 89 01 33 89 01  89 01 33 89 01 33 89 01   \
+             frame\n");
+
+        let mut dumper = Dumper::new(Vec::new(), "III");
+        dumper.write(&[0x89, 0x01, 0x33, 0x89, 0x01, 0x33, 0x89, 0x01,
+                       0x89, 0x01, 0x33, 0x89, 0x01, 0x33, 0x89, 0x01,
+                       0x89, 0x01, 0x33, 0x89, 0x01, 0x33, 0x89, 0x01,
+                       0x89, 0x01, 0x33, 0x89, 0x01, 0x33, 0x89, 0x01], "frame")
+            .unwrap();
+        let buf = dumper.into_inner();
+        assert_eq!(
+            ::std::str::from_utf8(&buf[..]).unwrap(),
+            "III00000000  \
+             89 01 33 89 01 33 89 01  89 01 33 89 01 33 89 01   \
+             frame\n\
+             III00000010  \
+             89 01 33 89 01 33 89 01  89 01 33 89 01 33 89 01 \n");
+
+        let mut dumper = Dumper::new(Vec::new(), "");
+        dumper.write(&[0x89, 0x01, 0x33], "frame").unwrap();
+        dumper.write(&[0x04], "version").unwrap();
+        dumper.write(&[0x00], "sigtype").unwrap();
+        let buf = dumper.into_inner();
+        assert_eq!(
+            ::std::str::from_utf8(&buf[..]).unwrap(),
+            "00000000  89 01 33                                           \
+             frame\n\
+             00000003           04                                        \
+             version\n\
+             00000004              00                                     \
+             sigtype\n\
+             ");
     }
 
     quickcheck! {
