@@ -140,7 +140,7 @@ pub mod hex {
         /// The `label` is printed at the end of the first line.
         pub fn write(&mut self, buf: &[u8], msg: &str) -> io::Result<()> {
             let mut msg_printed = false;
-            write!(self.inner, "{}{:08x}  ", self.indent, self.offset)?;
+            write!(self.inner, "{}{:08x} ", self.indent, self.offset)?;
             for i in 0 .. self.offset % 16 {
                 if i != 7 {
                     write!(self.inner, "   ")?;
@@ -153,16 +153,16 @@ pub mod hex {
             for c in buf {
                 if ! offset_printed {
                     write!(self.inner,
-                           "\n{}{:08x}  ", self.indent, self.offset)?;
+                           "\n{}{:08x} ", self.indent, self.offset)?;
                     offset_printed = true;
                 }
 
-                write!(self.inner, "{:02x} ", c)?;
+                write!(self.inner, " {:02x}", c)?;
                 self.offset += 1;
                 match self.offset % 16 {
                     0 => {
                         if ! msg_printed {
-                            write!(self.inner, "  {}", msg)?;
+                            write!(self.inner, "   {}", msg)?;
                             msg_printed = true;
                         }
                         offset_printed = false;
@@ -181,7 +181,7 @@ pub mod hex {
                     }
                 }
 
-                write!(self.inner, "  {}", msg)?;
+                write!(self.inner, "   {}", msg)?;
             }
             writeln!(self.inner)?;
             Ok(())
@@ -396,7 +396,7 @@ mod test {
              89 01 33 89 01 33 89 01  89 01 33 89 01 33 89 01   \
              frame\n\
              III00000010  \
-             89 01 33 89 01 33 89 01  89 01 33 89 01 33 89 01 \n");
+             89 01 33 89 01 33 89 01  89 01 33 89 01 33 89 01\n");
 
         let mut dumper = Dumper::new(Vec::new(), "");
         dumper.write(&[0x89, 0x01, 0x33], "frame").unwrap();
