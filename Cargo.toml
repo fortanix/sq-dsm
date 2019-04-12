@@ -1,13 +1,13 @@
 [package]
 name = "sequoia"
 description = "A cool new OpenPGP implementation"
-version = "0.5.0"
+version = "0.6.0"
 authors = [
     "Justus Winter <justus@sequoia-pgp.org>",
     "Kai Michaelis <kai@sequoia-pgp.org>",
     "Neal H. Walfield <neal@sequoia-pgp.org>",
 ]
-documentation = "https://docs.sequoia-pgp.org/0.5.0/"
+documentation = "https://docs.sequoia-pgp.org/0.6.0/"
 homepage = "https://sequoia-pgp.org/"
 repository = "https://gitlab.com/sequoia-pgp/sequoia"
 readme = "README.md"
@@ -22,18 +22,18 @@ maintenance = { status = "actively-developed" }
 [workspace]
 
 [dependencies]
-buffered-reader = { path = "buffered-reader", version = "0.5" }
-sequoia-rfc2822 = { path = "rfc2822", version = "0.1" }
-sequoia-openpgp = { path = "openpgp", version = "0.5" }
-sequoia-openpgp-ffi = { path = "openpgp-ffi", version = "0.5" }
-sequoia-core = { path = "core", version = "0.5" }
-sequoia-ffi = { path = "ffi", version = "0.5" }
-sequoia-ffi-macros = { path = "ffi-macros", version = "0.5" }
-sequoia-net = { path = "net", version = "0.5" }
-sequoia-store = { path = "store", version = "0.5" }
-sequoia-tool = { path = "tool", version = "0.5" }
-sequoia-sqv = { path = "sqv", version = "0.5" }
-sequoia-guide = { path = "guide", version = "0.5" }
+buffered-reader = { path = "buffered-reader", version = "0.6" }
+sequoia-rfc2822 = { path = "rfc2822", version = "0.6" }
+sequoia-openpgp = { path = "openpgp", version = "0.6" }
+sequoia-openpgp-ffi = { path = "openpgp-ffi", version = "0.6" }
+sequoia-core = { path = "core", version = "0.6" }
+sequoia-ffi = { path = "ffi", version = "0.6" }
+sequoia-ffi-macros = { path = "ffi-macros", version = "0.6" }
+sequoia-net = { path = "net", version = "0.6" }
+sequoia-store = { path = "store", version = "0.6" }
+sequoia-tool = { path = "tool", version = "0.6" }
+sequoia-sqv = { path = "sqv", version = "0.6" }
+sequoia-guide = { path = "guide", version = "0.6" }
 
 [lib]
 name = "sequoia"

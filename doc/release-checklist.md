@@ -13,6 +13,7 @@ This is a checklist for doing Sequoia releases.
  9. For the following crates, cd into the directory, and do 'cargo
     publish':
        - buffered-reader
+       - rfc2822
        - openpgp
        - sqv
 10. In case of errors, correct them, and go back to 6.

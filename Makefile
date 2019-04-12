@@ -155,7 +155,8 @@ sanity-check-versions:
 	find . -name Cargo.toml | while read TOML ; do \
 	  echo -n "$$TOML " ;\
 	  grep '^version *=' $$TOML | grep -q $$V || bad version ;\
-	  grep '^documentation *=' $$TOML | grep -q $$V || bad documentation ;\
+	  grep '^documentation *=' $$TOML \
+	    | egrep -q "($${V})|(https://docs.rs/)" || bad documentation ;\
 	  grep '{ *path *= *"' $$TOML | while read L ; do \
 	    echo $$L | grep -q $$VV || bad intra-workspace dependency ;\
 	  done ;\
