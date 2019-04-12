@@ -247,7 +247,47 @@ impl PacketDumper {
                                            level <= {} and data)", n - 1)?,
                 }
                 if self.mpis {
-                    writeln!(output, "{}  MPIs: {:?}", i, s.mpis())?;
+                    use openpgp::crypto::mpis::Signature::*;
+                    writeln!(output, "{}", i)?;
+                    writeln!(output, "{}  Signature:", i)?;
+
+                    let ii = format!("{}    ", i);
+                    match s.mpis() {
+                        RSA { s } =>
+                            self.dump_mpis(output, &ii,
+                                           &[&s.value],
+                                           &["s"])?,
+                        DSA { r, s } =>
+                            self.dump_mpis(output, &ii,
+                                           &[&r.value, &s.value],
+                                           &["r", "s"])?,
+                        Elgamal { r, s } =>
+                            self.dump_mpis(output, &ii,
+                                           &[&r.value, &s.value],
+                                           &["r", "s"])?,
+                        EdDSA { r, s } =>
+                            self.dump_mpis(output, &ii,
+                                           &[&r.value, &s.value],
+                                           &["r", "s"])?,
+                        ECDSA { r, s } =>
+                            self.dump_mpis(output, &ii,
+                                           &[&r.value, &s.value],
+                                           &["r", "s"])?,
+                        Unknown { mpis, rest } => {
+                            let keys: Vec<String> =
+                                (0..mpis.len()).map(
+                                    |i| format!("mpi{}", i)).collect();
+                            self.dump_mpis(
+                                output, &ii,
+                                &mpis.iter().map(|m| m.value.iter().as_slice())
+                                    .collect::<Vec<_>>()[..],
+                                &keys.iter().map(|k| k.as_str())
+                                    .collect::<Vec<_>>()[..],
+                            )?;
+
+                            self.dump_mpis(output, &ii, &[&rest[..]], &["rest"])?;
+                        },
+                    }
                 }
             },
 
@@ -271,9 +311,116 @@ impl PacketDumper {
                 writeln!(output, "{}  Pk algo: {}", i, k.pk_algo())?;
                 writeln!(output, "{}  Pk size: {} bits", i, k.mpis().bits())?;
                 if self.mpis {
-                    writeln!(output, "{}  MPIs: {:?}", i, k.mpis())?;
+                    use openpgp::crypto::mpis::PublicKey::*;
+                    writeln!(output, "{}", i)?;
+                    writeln!(output, "{}  Public Key:", i)?;
+                    writeln!(output, "{}", i)?;
+
+                    let ii = format!("{}    ", i);
+                    match k.mpis() {
+                        RSA { e, n } =>
+                            self.dump_mpis(output, &ii,
+                                           &[&e.value, &n.value],
+                                           &["e", "n"])?,
+                        DSA { p, q, g, y } =>
+                            self.dump_mpis(output, &ii,
+                                           &[&p.value, &q.value, &g.value,
+                                             &y.value],
+                                           &["p", "q", "g", "y"])?,
+                        Elgamal { p, g, y } =>
+                            self.dump_mpis(output, &ii,
+                                           &[&p.value, &g.value, &y.value],
+                                           &["p", "g", "y"])?,
+                        EdDSA { curve, q } => {
+                            writeln!(output, "{}  Curve: {}", ii, curve)?;
+                            self.dump_mpis(output, &ii, &[&q.value], &["q"])?;
+                        },
+                        ECDSA { curve, q } => {
+                            writeln!(output, "{}  Curve: {}", ii, curve)?;
+                            self.dump_mpis(output, &ii, &[&q.value], &["q"])?;
+                        },
+                        ECDH { curve, q, hash, sym } => {
+                            writeln!(output, "{}  Curve: {}", ii, curve)?;
+                            writeln!(output, "{}  Hash algo: {}", ii, hash)?;
+                            writeln!(output, "{}  Symmetric algo: {}", ii,
+                                     sym)?;
+                            self.dump_mpis(output, &ii, &[&q.value], &["q"])?;
+                        },
+                        Unknown { mpis, rest } => {
+                            let keys: Vec<String> =
+                                (0..mpis.len()).map(
+                                    |i| format!("mpi{}", i)).collect();
+                            self.dump_mpis(
+                                output, &ii,
+                                &mpis.iter().map(|m| m.value.iter().as_slice())
+                                    .collect::<Vec<_>>()[..],
+                                &keys.iter().map(|k| k.as_str())
+                                    .collect::<Vec<_>>()[..],
+                            )?;
+
+                            self.dump_mpis(output, &ii, &[&rest[..]], &["rest"])?;
+                        },
+                    }
+
                     if let Some(secrets) = k.secret() {
-                        writeln!(output, "{}  Secrets: {:?}", i, secrets)?;
+                        use openpgp::crypto::mpis::SecretKey::*;
+                        writeln!(output, "{}", i)?;
+                        writeln!(output, "{}  Secret Key:", i)?;
+
+                        let ii = format!("{}    ", i);
+                        match secrets {
+                            openpgp::packet::key::SecretKey::Unencrypted {
+                                mpis,
+                            } => match mpis {
+                                RSA { d, p, q, u } =>
+                                    self.dump_mpis(output, &ii,
+                                                   &[&d.value, &p.value, &q.value,
+                                                     &u.value],
+                                                   &["d", "p", "q", "u"])?,
+                                DSA { x } =>
+                                    self.dump_mpis(output, &ii, &[&x.value],
+                                                   &["x"])?,
+                                Elgamal { x } =>
+                                    self.dump_mpis(output, &ii, &[&x.value],
+                                                   &["x"])?,
+                                EdDSA { scalar } =>
+                                    self.dump_mpis(output, &ii, &[&scalar.value],
+                                                   &["scalar"])?,
+                                ECDSA { scalar } =>
+                                    self.dump_mpis(output, &ii, &[&scalar.value],
+                                                   &["scalar"])?,
+                                ECDH { scalar } =>
+                                    self.dump_mpis(output, &ii, &[&scalar.value],
+                                                   &["scalar"])?,
+                                Unknown { mpis, rest } => {
+                                    let keys: Vec<String> =
+                                        (0..mpis.len()).map(
+                                            |i| format!("mpi{}", i)).collect();
+                                    self.dump_mpis(
+                                        output, &ii,
+                                        &mpis.iter()
+                                            .map(|m| m.value.iter().as_slice())
+                                            .collect::<Vec<_>>()[..],
+                                        &keys.iter().map(|k| k.as_str())
+                                            .collect::<Vec<_>>()[..],
+                                    )?;
+
+                                    self.dump_mpis(output, &ii, &[rest],
+                                                   &["rest"])?;
+                                },
+                            },
+                            openpgp::packet::key::SecretKey::Encrypted {
+                                s2k, algorithm, ciphertext,
+                            } => {
+                                writeln!(output, "{}", i)?;
+                                write!(output, "{}  S2K: ", ii)?;
+                                self.dump_s2k(output, &ii, s2k)?;
+                                writeln!(output, "{}  Sym. algo: {}", ii,
+                                         algorithm)?;
+                                self.dump_mpis(output, &ii, &[&ciphertext[..]],
+                                               &["ciphertext"])?;
+                            },
+                        }
                     }
                 }
             },
@@ -348,7 +495,39 @@ impl PacketDumper {
                 writeln!(output, "{}  Recipient: {}", i, p.recipient())?;
                 writeln!(output, "{}  Pk algo: {}", i, p.pk_algo())?;
                 if self.mpis {
-                    writeln!(output, "{}  ESK: {:?}", i, p.esk())?;
+                    use openpgp::crypto::mpis::Ciphertext::*;
+                    writeln!(output, "{}", i)?;
+                    writeln!(output, "{}  Encrypted session key:", i)?;
+
+                    let ii = format!("{}    ", i);
+                    match p.esk() {
+                        RSA { c } =>
+                            self.dump_mpis(output, &ii,
+                                           &[&c.value],
+                                           &["c"])?,
+                        Elgamal { e, c } =>
+                            self.dump_mpis(output, &ii,
+                                           &[&e.value, &c.value],
+                                           &["e", "c"])?,
+                        ECDH { e, key } =>
+                            self.dump_mpis(output, &ii,
+                                           &[&e.value, key],
+                                           &["e", "key"])?,
+                        Unknown { mpis, rest } => {
+                            let keys: Vec<String> =
+                                (0..mpis.len()).map(
+                                    |i| format!("mpi{}", i)).collect();
+                            self.dump_mpis(
+                                output, &ii,
+                                &mpis.iter().map(|m| m.value.iter().as_slice())
+                                    .collect::<Vec<_>>()[..],
+                                &keys.iter().map(|k| k.as_str())
+                                    .collect::<Vec<_>>()[..],
+                            )?;
+
+                            self.dump_mpis(output, &ii, &[rest], &["rest"])?;
+                        },
+                    }
                 }
             },
 
@@ -416,21 +595,10 @@ impl PacketDumper {
         }
 
         if let Some(map) = map {
-            let hd_indent = ::std::cmp::max(
-                0,
-                ::std::cmp::min(
-                    self.width as isize
-                        - 63 // Length of address, hex digits, and whitespace.
-                        - map.iter().map(|f| f.name.len()).max()
-                        .expect("we always have one entry") as isize,
-                    i.len() as isize),
-            ) as usize;
-
             writeln!(output, "{}", i)?;
-            let mut hd = hex::Dumper::new(
-                output,
-                format!("{}  ",
-                        &i.chars().take(hd_indent).collect::<String>()));
+            let mut hd = hex::Dumper::new(output, self.indentation_for_hexdump(
+                i, map.iter().map(|f| f.name.len()).max()
+                    .expect("we always have one entry")));
 
             for field in map.iter() {
                 hd.write(field.data, field.name)?;
@@ -579,4 +747,40 @@ impl PacketDumper {
         }
         Ok(())
     }
+
+    fn dump_mpis(&self, output: &mut io::Write, i: &str,
+                 chunks: &[&[u8]], keys: &[&str]) -> Result<()> {
+        assert_eq!(chunks.len(), keys.len());
+        assert!(chunks.len() > 0);
+        let max_key_len = keys.iter().map(|k| k.len()).max().unwrap();
+
+        for (chunk, key) in chunks.iter().zip(keys.iter()) {
+            writeln!(output, "{}", i)?;
+            let mut hd = hex::Dumper::new(
+                Vec::new(), self.indentation_for_hexdump(i, max_key_len));
+            hd.write(*chunk, *key)?;
+            output.write_all(&hd.into_inner())?;
+        }
+
+        Ok(())
+    }
+
+    /// Returns indentation for hex dumps.
+    ///
+    /// Returns a prefix of `i` so that a hexdump with labels no
+    /// longer than `max_label_len` will fit into the target width.
+    fn indentation_for_hexdump(&self, i: &str, max_label_len: usize) -> String {
+        let amount = ::std::cmp::max(
+            0,
+            ::std::cmp::min(
+                self.width as isize
+                    - 63 // Length of address, hex digits, and whitespace.
+                    - max_label_len as isize,
+                i.len() as isize),
+        ) as usize;
+
+        format!("{}  ", &i.chars().take(amount).collect::<String>())
+    }
+
+
 }
