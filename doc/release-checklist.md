@@ -1,6 +1,7 @@
 This is a checklist for doing Sequoia releases.
 
- 1. Starting from origin/master, create a branch for the release.
+ 0. Starting from origin/master, create a branch for the release.
+ 1. Run 'cargo update && make check'.
  2. For all 'Cargo.toml's: Bump version = "XXX".
  3. For all 'Cargo.toml's: Bump documentation = "https://.../XXX/...".
  4. For all 'Cargo.toml's: Bump intra-workspace dependencies.
