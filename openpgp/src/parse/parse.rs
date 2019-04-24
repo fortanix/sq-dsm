@@ -2214,13 +2214,25 @@ impl MPI {
     fn parse<'a>(name_len: &'static str, name: &'static str,
                  php: &mut PacketHeaderParser<'a>)
                  -> Result<Self> {
-        let bits = php.parse_be_u16(name_len)? as usize;
+        // This function is used to parse MPIs from unknown
+        // algorithms, which may use an encoding unknown to us.
+        // Therefore, we need to be extra careful only to consume the
+        // data once we found a well-formed MPI.
+        let bits = {
+            let buf = php.reader.data_hard(2)?;
+            u16::from_be_bytes([buf[0], buf[1]]) as usize
+        };
         if bits == 0 {
+            // Now consume the data.
+            php.parse_be_u16(name_len).expect("worked before");
             return Ok(MPI{ bits: 0, value: vec![].into_boxed_slice()});
         }
 
         let bytes = (bits + 7) / 8;
-        let value = Vec::from(&php.parse_bytes(name, bytes)?[..bytes]);
+        let value = {
+            let buf = php.reader.data_hard(2 + bytes)?;
+            Vec::from(&buf[2..2 + bytes])
+        };
 
         let unused_bits = bytes * 8 - bits;
         assert_eq!(bytes * 8 - unused_bits, bits);
@@ -2245,6 +2257,9 @@ impl MPI {
                              first_used_bit, value[0], value[0])).into());
         }
 
+        // Now consume the data.
+        php.parse_be_u16(name_len).expect("worked before");
+        php.parse_bytes(name, bytes).expect("worked before");
         Ok(MPI{
             bits: bits,
             value: value.into_boxed_slice()
