@@ -176,7 +176,9 @@ fn inspect_key(output: &mut io::Write,
                  key.mpis().keygrip()?)?;
     }
     writeln!(output, "{}Public-key algo: {}", indent, key.pk_algo())?;
-    writeln!(output, "{}Public-key size: {} bits", indent, key.mpis().bits())?;
+    if let Some(bits) = key.mpis().bits() {
+        writeln!(output, "{}Public-key size: {} bits", indent, bits)?;
+    }
     writeln!(output, "{}  Creation time: {}", indent,
              time::strftime(TIMEFMT, key.creation_time())?)?;
     if let Some(sig) = binding_signature {

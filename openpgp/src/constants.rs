@@ -189,18 +189,20 @@ impl Curve {
     /// Note: This information is useless and should not be used to
     /// gauge the security of a particular curve. This function exists
     /// only because some legacy PGP application like HKP need it.
-    pub fn bits(&self) -> usize {
+    ///
+    /// Returns `None` for unknown curves.
+    pub fn bits(&self) -> Option<usize> {
         use self::Curve::*;
 
         match self {
-            NistP256 => 256,
-            NistP384 => 384,
-            NistP521 => 521,
-            BrainpoolP256 => 256,
-            BrainpoolP512 => 512,
-            Ed25519 => 256,
-            Cv25519 => 256,
-            Unknown(_) => 0,
+            NistP256 => Some(256),
+            NistP384 => Some(384),
+            NistP521 => Some(521),
+            BrainpoolP256 => Some(256),
+            BrainpoolP512 => Some(512),
+            Ed25519 => Some(256),
+            Cv25519 => Some(256),
+            Unknown(_) => None,
         }
     }
 }

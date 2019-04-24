@@ -309,7 +309,9 @@ impl PacketDumper {
                 writeln!(output, "{}  Creation time: {}", i,
                          time::strftime(TIMEFMT, k.creation_time()).unwrap())?;
                 writeln!(output, "{}  Pk algo: {}", i, k.pk_algo())?;
-                writeln!(output, "{}  Pk size: {} bits", i, k.mpis().bits())?;
+                if let Some(bits) = k.mpis().bits() {
+                    writeln!(output, "{}  Pk size: {} bits", i, bits)?;
+                }
                 if self.mpis {
                     use openpgp::crypto::mpis::PublicKey::*;
                     writeln!(output, "{}", i)?;

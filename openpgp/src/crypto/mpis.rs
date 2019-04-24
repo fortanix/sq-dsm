@@ -269,6 +269,11 @@ impl PublicKey {
         }
     }
 
+    /// Returns the algorithm the key is for.
+    pub fn algo(&self) -> Option<PublicKeyAlgorithm> {
+        unimplemented!()
+    }
+
     /// Returns the length of the public key in bits.
     ///
     /// For finite field crypto this returns the size of the field we
@@ -277,16 +282,18 @@ impl PublicKey {
     /// Note: This information is useless and should not be used to
     /// gauge the security of a particular key. This function exists
     /// only because some legacy PGP application like HKP need it.
-    pub fn bits(&self) -> usize {
+    ///
+    /// Returns `None` for unknown keys and curves.
+    pub fn bits(&self) -> Option<usize> {
         use self::PublicKey::*;
         match self {
-            &RSA { ref n,.. } => n.bits,
-            &DSA { ref p,.. } => p.bits,
-            &Elgamal { ref p,.. } => p.bits,
+            &RSA { ref n,.. } => Some(n.bits),
+            &DSA { ref p,.. } => Some(p.bits),
+            &Elgamal { ref p,.. } => Some(p.bits),
             &EdDSA { ref curve,.. } => curve.bits(),
             &ECDSA { ref curve,.. } => curve.bits(),
             &ECDH { ref curve,.. } => curve.bits(),
-            &Unknown { .. } => 0,
+            &Unknown { .. } => None,
         }
     }
 }
@@ -934,7 +941,7 @@ mod tests {
         ] {
             let tpk = ::TPK::from_file(path_to(name)).unwrap();
             let key = tpk.keys_all().nth(*key_no).unwrap().2;
-            assert_eq!(key.mpis().bits(), *bits,
+            assert_eq!(key.mpis().bits().unwrap(), *bits,
                        "TPK {}, key no {}", name, *key_no);
         }
     }
