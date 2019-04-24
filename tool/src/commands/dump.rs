@@ -316,7 +316,6 @@ impl PacketDumper {
                     use openpgp::crypto::mpis::PublicKey::*;
                     writeln!(output, "{}", i)?;
                     writeln!(output, "{}  Public Key:", i)?;
-                    writeln!(output, "{}", i)?;
 
                     let ii = format!("{}    ", i);
                     match k.mpis() {
