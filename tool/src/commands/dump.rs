@@ -752,7 +752,10 @@ impl PacketDumper {
     fn dump_mpis(&self, output: &mut io::Write, i: &str,
                  chunks: &[&[u8]], keys: &[&str]) -> Result<()> {
         assert_eq!(chunks.len(), keys.len());
-        assert!(chunks.len() > 0);
+        if chunks.len() == 0 {
+            return Ok(());
+        }
+
         let max_key_len = keys.iter().map(|k| k.len()).max().unwrap();
 
         for (chunk, key) in chunks.iter().zip(keys.iter()) {
