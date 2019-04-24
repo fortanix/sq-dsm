@@ -17,7 +17,7 @@ mod for_each_artifact {
                 let mut v = Vec::new();
                 p.serialize(&mut v)?;
                 let q = openpgp::Packet::from_bytes(&v)?;
-                assert_eq!(p, &q);
+                assert_eq!(p, &q, "roundtripping {:?} failed", src);
                 Ok(())
             })
         }).unwrap();
@@ -47,8 +47,8 @@ mod for_each_artifact {
     #[test]
     fn message_roundtrip() {
         for_all_files(&test_data_dir(), |src| {
-            let p = if let Ok(tpk) = openpgp::Message::from_file(src) {
-                tpk
+            let p = if let Ok(msg) = openpgp::Message::from_file(src) {
+                msg
             } else {
                 // Ignore non-Message files.
                 return Ok(());
@@ -84,6 +84,23 @@ fn for_all_files<F>(src: &Path, mut fun: F) -> openpgp::Result<()>
             let entry = entry?;
             let path = entry.path();
             if path.is_file() {
+                // XXX: Look at the file extension and skip non-PGP
+                // files.  We need to do this because the
+                // Armor-heuristic is so slow.  See #204.
+                if let Some(extension) =
+                    path.extension().and_then(|e| e.to_str())
+                {
+                    match extension {
+                        "pgp" | "gpg" | "asc" | "key" => (),
+                        e if e.contains("key") => (),
+                        _ => continue,
+                    }
+                } else {
+                    // No extension or not valid UTF-8.
+                    continue;
+                }
+
+                eprintln!("Processing {:?}", path);
                 match fun(&path) {
                     Ok(_) => (),
                     Err(e) => {
