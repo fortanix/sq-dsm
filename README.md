@@ -84,7 +84,7 @@ Debian:
 
 Notes:
 
-  - You need at least rustc version 1.31.0.  The version in Debian 9
+  - You need at least rustc version 1.32.0.  The version in Debian 9
     (Debian Stable as of 2018) is too old.  The version from testing
     works fine.
   - The version of Nettle in Debian 9 (Debian Stable as of 2018), is
