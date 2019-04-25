@@ -9,6 +9,7 @@ use {
     TPK,
     Error,
     Packet,
+    packet,
     conversions::Time,
 };
 
@@ -87,7 +88,8 @@ impl TSK {
     {
         use tpk::TPKBuilder;
 
-        let key = TPKBuilder::autocrypt(None, primary_uid);
+        let key = TPKBuilder::autocrypt(
+            None, primary_uid.into().map(|s| packet::UserID::from(s.deref())));
         let (tpk, revocation) = key.generate()?;
         Ok((TSK::from_tpk(tpk), revocation))
     }
@@ -573,7 +575,7 @@ mod tests {
                 "User ids: {:?}", userids);
 
 
-        let (tpk, _) = TPKBuilder::autocrypt(None, Some("Foo".into()))
+        let (tpk, _) = TPKBuilder::autocrypt(None, Some("Foo"))
             .generate()
             .unwrap();
 

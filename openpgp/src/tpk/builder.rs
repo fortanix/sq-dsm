@@ -1,6 +1,6 @@
-use std::borrow::Cow;
-
 use time;
+
+use packet;
 use packet::{Features, KeyFlags};
 use packet::Key;
 use packet::key::Key4;
@@ -87,7 +87,7 @@ pub struct TPKBuilder {
     ciphersuite: CipherSuite,
     primary: KeyBlueprint,
     subkeys: Vec<KeyBlueprint>,
-    userids: Vec<String>,
+    userids: Vec<packet::UserID>,
     password: Option<Password>,
 }
 
@@ -114,10 +114,10 @@ impl TPKBuilder {
     /// The autocrypt specification requires a UserID.  However,
     /// because it can be useful to add the UserID later, it is
     /// permitted to be none.
-    pub fn autocrypt<'a, V, S>(version: V, userid: S)
+    pub fn autocrypt<'a, V, U>(version: V, userid: Option<U>)
         -> Self
         where V: Into<Option<Autocrypt>>,
-            S: Into<Option<Cow<'a, str>>>
+              U: Into<packet::UserID>
     {
         let builder = TPKBuilder{
             ciphersuite: match version.into().unwrap_or(Default::default()) {
@@ -140,8 +140,8 @@ impl TPKBuilder {
             password: None,
         };
 
-        if let Some(userid) = userid.into() {
-            builder.add_userid(userid)
+        if let Some(userid) = userid {
+            builder.add_userid(userid.into())
         } else {
             builder
         }
@@ -154,10 +154,10 @@ impl TPKBuilder {
     }
 
     /// Adds a new user ID. The first user ID added will be the primary user ID.
-    pub fn add_userid<'a, S>(mut self, uid: S) -> Self
-        where S: Into<Cow<'a, str>>
+    pub fn add_userid<'a, U>(mut self, uid: U) -> Self
+        where U: Into<packet::UserID>
     {
-        self.userids.push(uid.into().into_owned());
+        self.userids.push(uid.into());
         self
     }
 
@@ -228,8 +228,8 @@ impl TPKBuilder {
             TSK::from_tpk(TPK::from_packet_pile(PacketPile::from(packets))?);
 
         // Sign UserIDs.
-        for uid in self.userids.iter() {
-            tsk = tsk.with_userid(uid.as_str().into())?;
+        for uid in self.userids.into_iter() {
+            tsk = tsk.with_userid(uid)?;
         }
 
         // sign subkeys
@@ -374,7 +374,7 @@ mod tests {
     #[test]
     fn autocrypt_v1() {
         let (tpk1, _) = TPKBuilder::autocrypt(Autocrypt::V1,
-                                              Some("Foo".into()))
+                                              Some("Foo"))
             .generate().unwrap();
         assert_eq!(tpk1.primary().pk_algo(),
                    PublicKeyAlgorithm::RSAEncryptSign);
@@ -386,7 +386,7 @@ mod tests {
     #[test]
     fn autocrypt_v1_1() {
         let (tpk1, _) = TPKBuilder::autocrypt(Autocrypt::V1_1,
-                                              Some("Foo".into()))
+                                              Some("Foo"))
             .generate().unwrap();
         assert_eq!(tpk1.primary().pk_algo(),
                    PublicKeyAlgorithm::EdDSA);
