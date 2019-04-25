@@ -41,6 +41,7 @@ use constants::ReasonForRevocation;
 mod lexer;
 mod grammar;
 mod builder;
+mod bindings;
 
 use self::lexer::Lexer;
 pub use self::lexer::Token;
@@ -740,21 +741,6 @@ impl UserIDBinding {
         } else {
             RevocationStatus::NotAsFarAsWeKnow
         }
-    }
-
-    /// Returns a revocation certificate for the user id.
-    pub fn revoke(&self, signer: &mut Signer,
-                  code: ReasonForRevocation, reason: &[u8])
-        -> Result<Signature>
-    {
-        let key = signer.public().clone();
-
-        signature::Builder::new(SignatureType::CertificateRevocation)
-            .set_signature_creation_time(time::now_utc())?
-            .set_issuer_fingerprint(signer.public().fingerprint())?
-            .set_issuer(signer.public().keyid())?
-            .set_reason_for_revocation(code, reason)?
-            .sign_userid_binding(signer, &key, self.userid(), HashAlgorithm::SHA512)
     }
 }
 
@@ -3799,9 +3785,10 @@ mod test {
             assert_eq!(RevocationStatus::NotAsFarAsWeKnow, uid.revoked(None));
 
             let mut keypair = tpk.primary().clone().into_keypair().unwrap();
-            uid.revoke(&mut keypair,
-                       ReasonForRevocation::UIDRetired,
-                       b"It was the maid :/").unwrap()
+            uid.userid()
+                .revoke(&mut keypair, &tpk,
+                        ReasonForRevocation::UIDRetired,
+                        b"It was the maid :/", None, None).unwrap()
         };
         assert_eq!(sig.sigtype(), SignatureType::CertificateRevocation);
         let tpk = tpk.merge_packets(vec![sig.into()]).unwrap();
