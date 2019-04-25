@@ -50,6 +50,15 @@ impl<'a> From<&'a str> for UserID {
     }
 }
 
+impl<'a> From<::std::borrow::Cow<'a, str>> for UserID {
+    fn from(u: ::std::borrow::Cow<'a, str>) -> Self {
+        let b = u.as_bytes();
+        let mut v = Vec::with_capacity(b.len());
+        v.extend_from_slice(b);
+        v.into()
+    }
+}
+
 impl fmt::Display for UserID {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let userid = String::from_utf8_lossy(&self.value[..]);
