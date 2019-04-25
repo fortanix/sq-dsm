@@ -213,6 +213,7 @@ impl TSK {
                             .set_issuer(my_key.keyid())?
                             .sign_user_attribute_binding(
                                 &mut pair,
+                                &my_key,
                                 userattr,
                                 HashAlgorithm::SHA512)
                     }

@@ -166,18 +166,19 @@ impl Builder {
         self.sign(signer, digest)
     }
 
-    /// Signs `ua` using `signer`.
+    /// Signs binding between `ua` and `key` using `signer`.
     ///
     /// The Signature's public-key algorithm field is set to the
     /// algorithm used by `signer`, the hash-algorithm field is set to
     /// `hash_algo`.
     pub fn sign_user_attribute_binding(mut self, signer: &mut Signer,
-                                       ua: &UserAttribute, algo: HashAlgorithm)
+                                       key: &Key, ua: &UserAttribute,
+                                       algo: HashAlgorithm)
                                        -> Result<Signature> {
         self.pk_algo = signer.public().pk_algo();
         self.hash_algo = algo;
         let digest =
-            Signature::user_attribute_binding_hash(&self, signer.public(), ua)?;
+            Signature::user_attribute_binding_hash(&self, key, ua)?;
 
         self.sign(signer, digest)
     }
