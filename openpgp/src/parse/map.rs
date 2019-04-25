@@ -67,7 +67,8 @@ impl Map {
     ///     .map(true).finalize()?;
     /// assert_eq!(ppo.unwrap().map().unwrap().iter()
     ///            .map(|f| (f.name, f.data)).collect::<Vec<(&str, &[u8])>>(),
-    ///            [("frame", &b"\xcb\x12"[..]),
+    ///            [("CTB", &b"\xcb"[..]),
+    ///             ("length", &b"\x12"[..]),
     ///             ("format", b"t"),
     ///             ("filename_len", b"\x00"),
     ///             ("date", b"\x00\x00\x00\x00"),
@@ -94,25 +95,37 @@ pub struct Field<'a> {
 }
 
 impl<'a> Field<'a> {
-    fn new(map: &'a Map, i: usize) -> Field<'a> {
+    fn new(map: &'a Map, i: usize) -> Option<Field<'a>> {
+        // Old-style CTB with indeterminate length emits no length
+        // field.
+        let has_length = map.header.len() > 1;
         if i == 0 {
-            Field {
+            Some(Field {
                 offset: 0,
-                length: map.header.len(),
-                name: "frame",
-                data: map.header.as_slice()
-            }
+                length: 1,
+                name: "CTB",
+                data: &map.header.as_slice()[..1],
+            })
+        } else if i == 1 && has_length {
+            Some(Field {
+                offset: 1,
+                length: map.header.len() - 1,
+                name: "length",
+                data: &map.header.as_slice()[1..]
+            })
         } else {
-            let len = map.data.len();
-            let e = &map.entries[i - 1];
-            let start = cmp::min(len, e.offset);
-            let end = cmp::min(len, e.offset + e.length);
-            Field {
-                offset: map.header.len() + e.offset,
-                length: e.length,
-                name: e.field,
-                data: &map.data[start..end],
-            }
+            let offset_length = if has_length { 1 } else { 0 };
+            map.entries.get(i - 1 - offset_length).map(|e| {
+                let len = map.data.len();
+                let start = cmp::min(len, e.offset);
+                let end = cmp::min(len, e.offset + e.length);
+                Field {
+                    offset: map.header.len() + e.offset,
+                    length: e.length,
+                    name: e.field,
+                    data: &map.data[start..end],
+                }
+            })
         }
     }
 }
@@ -136,11 +149,10 @@ impl<'a> Iterator for Iter<'a> {
     type Item = Field<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.i < self.map.entries.len() + 1 {
+        let field = Field::new(self.map, self.i);
+        if field.is_some() {
             self.i += 1;
-            Some(Field::new(self.map, self.i - 1))
-        } else {
-            None
         }
+        field
     }
 }
