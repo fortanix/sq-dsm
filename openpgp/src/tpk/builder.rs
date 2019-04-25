@@ -88,6 +88,7 @@ pub struct TPKBuilder {
     primary: KeyBlueprint,
     subkeys: Vec<KeyBlueprint>,
     userids: Vec<packet::UserID>,
+    user_attributes: Vec<packet::UserAttribute>,
     password: Option<Password>,
 }
 
@@ -100,6 +101,7 @@ impl Default for TPKBuilder {
             },
             subkeys: vec![],
             userids: vec![],
+            user_attributes: vec![],
             password: None,
         }
     }
@@ -137,6 +139,7 @@ impl TPKBuilder {
                 }
             ],
             userids: vec![],
+            user_attributes: vec![],
             password: None,
         };
 
@@ -158,6 +161,14 @@ impl TPKBuilder {
         where U: Into<packet::UserID>
     {
         self.userids.push(uid.into());
+        self
+    }
+
+    /// Adds a new user attribute.
+    pub fn add_user_attribute<'a, U>(mut self, ua: U) -> Self
+        where U: Into<packet::UserAttribute>
+    {
+        self.user_attributes.push(ua.into());
         self
     }
 
@@ -205,7 +216,8 @@ impl TPKBuilder {
         use constants::ReasonForRevocation;
 
         let mut packets = Vec::<Packet>::with_capacity(
-            1 + 1 + self.subkeys.len() + self.userids.len());
+            1 + 1 + self.subkeys.len() + self.userids.len()
+                + self.user_attributes.len());
 
         // make sure the primary key can sign subkeys
         if !self.subkeys.is_empty() {
@@ -230,6 +242,11 @@ impl TPKBuilder {
         // Sign UserIDs.
         for uid in self.userids.into_iter() {
             tsk = tsk.with_userid(uid)?;
+        }
+
+        // Sign UserAttributes.
+        for ua in self.user_attributes.into_iter() {
+            tsk = tsk.with_user_attribute(ua)?;
         }
 
         // sign subkeys
