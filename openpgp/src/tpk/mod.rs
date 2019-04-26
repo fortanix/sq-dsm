@@ -2843,16 +2843,6 @@ impl TPK {
         TSK::from_tpk(self)
     }
 
-    /// Cast the public key into a secret key that allows using the secret
-    /// parts of the containing keys. Only packets for which `filter` returns
-    /// true are included in the TSK.
-    pub fn filter_into_tsk<F: Fn(&Packet) -> bool>(self, f: F) -> Result<TSK> {
-        let pkts = self.into_packet_pile().into_children().filter(f).collect::<Vec<_>>();
-        let pile = PacketPile::from(pkts);
-
-        Ok(TSK::from_tpk(TPK::from_packet_pile(pile)?))
-    }
-
     /// Returns whether at least one of the keys includes a secret
     /// part.
     pub fn is_tsk(&self) -> bool {
@@ -3909,26 +3899,6 @@ mod test {
         for uid in tpk.userids() {
             assert_eq!(uid.revoked(None), RevocationStatus::NotAsFarAsWeKnow);
         }
-    }
-
-    #[test]
-    fn tsk_filter() {
-        let (tpk, _) = TPKBuilder::default()
-            .add_signing_subkey()
-            .add_encryption_subkey()
-            .generate().unwrap();
-
-        assert!(!tpk.subkeys.is_empty());
-
-        // filter subkeys
-        let tsk = tpk.filter_into_tsk(|pkt| {
-            match pkt {
-                &Packet::PublicSubkey(_) | &Packet::SecretSubkey(_) => false,
-                _ => true
-            }
-        }).unwrap();
-
-        assert!(tsk.tpk().subkeys.is_empty());
     }
 
     #[test]
