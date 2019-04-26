@@ -34,10 +34,7 @@ mod for_each_artifact {
             };
 
             let mut v = Vec::new();
-            // Temporarily convert to TSK to serialize secrets.
-            let p = p.into_tsk();
-            p.serialize(&mut v)?;
-            let p = p.into_tpk();
+            p.as_tsk().serialize(&mut v)?;
             let q = openpgp::TPK::from_bytes(&v)?;
             assert_eq!(p, q, "roundtripping {:?} failed", src);
             Ok(())

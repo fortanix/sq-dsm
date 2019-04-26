@@ -128,12 +128,14 @@ fn pgp_tpk_fingerprint(tpk: *const TPK)
     tpk.fingerprint().move_into_raw()
 }
 
-/// Cast the public key into a secret key that allows using the secret
-/// parts of the containing keys.
+/// Derive a [`TSK`] object from this key.
+///
+/// This object writes out secret keys during serialization.
+///
+/// [`TSK`]: tpk/struct.TSK.html
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
-fn pgp_tpk_into_tsk(tpk: *mut TPK)
-                    -> *mut TSK {
-    tpk.move_from_raw().into_tsk().move_into_raw()
+fn pgp_tpk_as_tsk(tpk: *const TPK) -> *mut TSK<'static> {
+    tpk.ref_raw().as_tsk().move_into_raw()
 }
 
 /// Returns a reference to the TPK's primary key.

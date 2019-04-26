@@ -126,9 +126,6 @@ use constants::{
 
 mod fingerprint;
 mod keyid;
-
-mod tsk;
-pub use tsk::TSK;
 
 #[cfg(test)]
 use std::path::PathBuf;
@@ -393,6 +390,16 @@ pub struct PacketPile {
 /// passed through as is.
 ///
 /// [RFC 4880, section 11.1]: https://tools.ietf.org/html/rfc4880#section-11.1
+///
+/// # Secret keys
+///
+/// Any key in a `TPK` may have a secret key attached to it.  To
+/// protect secret keys from being leaked, secret keys are not written
+/// out if a `TPK` is serialized.  To also serialize the secret keys,
+/// you need to use [`TPK::as_tsk()`] to get an object that writes
+/// them out during serialization.
+///
+/// [`TPK::as_tsk()`]: #method.as_tsk
 ///
 /// # Example
 ///

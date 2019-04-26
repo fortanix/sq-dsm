@@ -675,10 +675,13 @@ pgp_fingerprint_t pgp_tpk_fingerprint (const pgp_tpk_t tpk);
 
 
 /*/
-/// Cast the public key into a secret key that allows using the secret
-/// parts of the containing keys.
+/// Derive a [`TSK`] object from this key.
+///
+/// This object writes out secret keys during serialization.
+///
+/// [`TSK`]: tpk/struct.TSK.html
 /*/
-pgp_tsk_t pgp_tpk_into_tsk (pgp_tpk_t tpk);
+pgp_tsk_t pgp_tpk_as_tsk (pgp_tpk_t tpk);
 
 /*/
 /// Returns a reference to the TPK's primary key.
@@ -855,61 +858,9 @@ pgp_tpk_t pgp_tpk_builder_generate(pgp_error_t *errp, pgp_tpk_builder_t tpkb,
 /* TSK */
 
 /*/
-/// Generates a new RSA 3072 bit key with UID `primary_uid`.
-/*/
-pgp_status_t pgp_tsk_new (pgp_error_t *errp, char *primary_uid,
-                        pgp_tsk_t *tpk, pgp_signature_t *revocation);
-
-/*/
-/// Returns the first TSK encountered in the reader.
-/*/
-pgp_tsk_t pgp_tsk_from_reader (pgp_error_t *errp,
-                               pgp_reader_t reader);
-
-/*/
-/// Returns the first TSK encountered in the file.
-/*/
-pgp_tsk_t pgp_tsk_from_file (pgp_error_t *errp,
-                             const char *filename);
-
-/*/
-/// Returns the first TSK found in `buf`.
-///
-/// `buf` must be an OpenPGP-encoded TSK.
-/*/
-pgp_tsk_t pgp_tsk_from_bytes (pgp_error_t *errp,
-                              const uint8_t *b, size_t len);
-
-/*/
 /// Frees the TSK.
 /*/
 void pgp_tsk_free (pgp_tsk_t tsk);
-
-/*/
-/// Clones the TSK.
-/*/
-pgp_tsk_t pgp_tsk_clone (pgp_tsk_t message);
-
-/*/
-/// Returns a human readable description of this object suitable for
-/// debugging.
-/*/
-char *pgp_tsk_debug (const pgp_tsk_t);
-
-/*/
-/// Compares TPKs.
-/*/
-bool pgp_tsk_equal (const pgp_tsk_t a, const pgp_tsk_t b);
-
-/*/
-/// Returns a reference to the corresponding TPK.
-/*/
-pgp_tpk_t pgp_tsk_tpk (pgp_tsk_t tsk);
-
-/*/
-/// Converts the TSK into a TPK.
-/*/
-pgp_tpk_t pgp_tsk_into_tpk (pgp_tsk_t tsk);
 
 /*/
 /// Serializes the TSK.

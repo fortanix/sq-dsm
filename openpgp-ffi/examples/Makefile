@@ -11,6 +11,7 @@ EXAMPLE_TARGET_DIR      ?= $(CARGO_TARGET_DIR)/debug/c-examples/openpgp-ffi
 EXAMPLES = \
 	example reader parser encrypt-for armor \
 	decrypt-with \
+	generate-key \
 	type-safety-demo use-after-free-demo immutable-reference-demo \
 
 CFLAGS  = -I../include -O0 -g -Wall -Werror

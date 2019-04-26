@@ -1,3 +1,6 @@
+//! This file is no longer used, but serves as reference for
+//! high-level operations that can be done on TPKs.
+
 use std::borrow::Cow;
 use std::io;
 use std::ops::{Deref, DerefMut};

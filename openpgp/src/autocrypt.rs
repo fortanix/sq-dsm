@@ -486,9 +486,7 @@ impl AutocryptSetupMessage {
             &[ (&"Autocrypt-Prefer-Encrypt"[..],
                 self.prefer_encrypt().unwrap_or(&"nopreference"[..])) ])?;
 
-        // XXX
-        let tsk = self.tpk.clone().into_tsk();
-        tsk.serialize(&mut w)?;
+        self.tpk.as_tsk().serialize(&mut w)?;
 
         Ok(w.finalize()?)
     }

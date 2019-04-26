@@ -31,7 +31,6 @@ use {
     TPK,
     KeyID,
     Fingerprint,
-    TSK,
 };
 use parse::{Parse, PacketParserResult, PacketParser};
 use serialize::{Serialize, SerializeInto, SerializeKey};
@@ -42,6 +41,8 @@ mod lexer;
 mod grammar;
 mod builder;
 mod bindings;
+mod tsk;
+pub use self::tsk::TSK;
 
 use self::lexer::Lexer;
 pub use self::lexer::Token;
@@ -2823,10 +2824,13 @@ impl TPK {
         TPK::from_packet_pile(PacketPile::from(combined))
     }
 
-    /// Cast the public key into a secret key that allows using the secret
-    /// parts of the containing keys.
-    pub fn into_tsk(self) -> TSK {
-        TSK::from_tpk(self)
+    /// Derive a [`TSK`] object from this key.
+    ///
+    /// This object writes out secret keys during serialization.
+    ///
+    /// [`TSK`]: tpk/struct.TSK.html
+    pub fn as_tsk<'a>(&'a self) -> TSK<'a> {
+        TSK::new(self)
     }
 
     /// Returns whether at least one of the keys includes a secret

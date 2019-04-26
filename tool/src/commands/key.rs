@@ -84,7 +84,6 @@ pub fn generate(m: &ArgMatches, force: bool) -> failure::Fallible<()> {
 
     // Generate the key
     let (tpk, rev) = builder.generate()?;
-    let tsk = tpk.into_tsk();
 
     // Export
     if m.is_present("export") {
@@ -114,7 +113,7 @@ pub fn generate(m: &ArgMatches, force: bool) -> failure::Fallible<()> {
         {
             let w = create_or_stdout(Some(&key_path), force)?;
             let mut w = Writer::new(w, Kind::SecretKey, &[])?;
-            tsk.serialize(&mut w)?;
+            tpk.as_tsk().serialize(&mut w)?;
         }
 
         // write out rev cert
