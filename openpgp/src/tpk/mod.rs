@@ -3610,8 +3610,8 @@ mod test {
     fn set_expiry() {
         let now = time::now_utc();
 
-        let (tsk, _) = TSK::new(Some("Test".into())).unwrap();
-        let tpk = tsk.into_tpk();
+        let (tpk, _) = TPKBuilder::autocrypt(None, Some("Test"))
+            .generate().unwrap();
         let expiry_orig = tpk.primary_key_signature().unwrap()
             .key_expiration_time()
             .expect("Keys expire by default.");
@@ -3756,8 +3756,8 @@ mod test {
 
     #[test]
     fn revoke() {
-        let (tsk, _) = TSK::new(Some("Test".into())).unwrap();
-        let tpk = tsk.into_tpk();
+        let (tpk, _) = TPKBuilder::autocrypt(None, Some("Test"))
+            .generate().unwrap();
         assert_eq!(RevocationStatus::NotAsFarAsWeKnow, tpk.revoked(None));
 
         let mut keypair = tpk.primary().clone().into_keypair().unwrap();
@@ -3967,9 +3967,9 @@ mod test {
     // subkeys with and without a private key are merged.
     #[test]
     fn public_private_merge() {
-        let (tsk, _) = TSK::new(Some("foo@example.com".into())).unwrap();
+        let (tsk, _) = TPKBuilder::autocrypt(None, Some("foo@example.com"))
+            .generate().unwrap();
         // tsk is now a tpk, but it still has its private bits.
-        let tsk = tsk.into_tpk();
         assert!(tsk.primary.secret().is_some());
         assert!(tsk.is_tsk());
         let subkey_count = tsk.subkeys().len();

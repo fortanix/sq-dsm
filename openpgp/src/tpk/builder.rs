@@ -5,16 +5,18 @@ use packet::{Features, KeyFlags};
 use packet::Key;
 use packet::key::Key4;
 use Result;
-use crypto::KeyPair;
-use HashAlgorithm;
 use packet::Signature;
 use packet::signature;
-use packet::key::SecretKey;
 use TPK;
 use Error;
 use conversions::Time;
 use crypto::Password;
 use autocrypt::Autocrypt;
+use constants::{
+    HashAlgorithm,
+    SignatureType,
+    SymmetricAlgorithm,
+};
 
 /// Groups symmetric and asymmetric algorithms
 #[derive(Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Debug)]
@@ -212,7 +214,7 @@ impl TPKBuilder {
 
     /// Generates the actual TPK.
     pub fn generate(mut self) -> Result<(TPK, Signature)> {
-        use {PacketPile, Packet, TSK};
+        use {PacketPile, Packet};
         use constants::ReasonForRevocation;
 
         let mut packets = Vec::<Packet>::with_capacity(
@@ -226,6 +228,7 @@ impl TPKBuilder {
 
         // Generate & and self-sign primary key.
         let (primary, sig) = Self::primary_key(self.primary, self.ciphersuite)?;
+        let mut signer = primary.clone().into_keypair().unwrap();
 
         packets.push(Packet::PublicKey({
             let mut primary = primary.clone();
@@ -234,41 +237,73 @@ impl TPKBuilder {
             }
             primary
         }));
-        packets.push(sig.into());
+        packets.push(sig.clone().into());
 
-        let mut tsk =
-            TSK::from_tpk(TPK::from_packet_pile(PacketPile::from(packets))?);
+        let mut tpk =
+            TPK::from_packet_pile(PacketPile::from(packets))?;
 
         // Sign UserIDs.
         for uid in self.userids.into_iter() {
-            tsk = tsk.with_userid(uid)?;
+            let builder = signature::Builder::from(sig.clone())
+                .set_sigtype(SignatureType::PositiveCertificate);
+            let signature = uid.bind(&mut signer, &tpk, builder, None, None)?;
+            tpk = tpk.merge_packets(vec![uid.into(), signature.into()])?;
         }
 
         // Sign UserAttributes.
         for ua in self.user_attributes.into_iter() {
-            tsk = tsk.with_user_attribute(ua)?;
+            let builder = signature::Builder::from(sig.clone())
+                .set_sigtype(SignatureType::PositiveCertificate);
+            let signature = ua.bind(&mut signer, &tpk, builder, None, None)?;
+            tpk = tpk.merge_packets(vec![ua.into(), signature.into()])?;
         }
 
         // sign subkeys
         for blueprint in self.subkeys {
-            let mut subkey = self.ciphersuite.generate_key(&blueprint.flags)?;
+            let flags = &blueprint.flags;
+            let mut subkey = self.ciphersuite.generate_key(flags)?;
 
             if let Some(ref password) = self.password {
                 subkey.secret_mut().unwrap().encrypt_in_place(password)?;
             }
 
-            tsk = tsk.with_subkey(subkey, &blueprint.flags, self.password.as_ref())?;
+            let mut builder =
+                signature::Builder::new(SignatureType::SubkeyBinding)
+                .set_features(&Features::sequoia())?
+                .set_key_flags(flags)?
+                .set_key_expiration_time(Some(time::Duration::weeks(3 * 52)))?;
+
+            if flags.can_encrypt_for_transport() || flags.can_encrypt_at_rest()
+            {
+                builder = builder.set_preferred_symmetric_algorithms(vec![
+                    SymmetricAlgorithm::AES256,
+                ])?;
+            }
+
+            if flags.can_certify() || flags.can_sign() {
+                builder = builder.set_preferred_hash_algorithms(vec![
+                    HashAlgorithm::SHA512,
+                ])?;
+
+                // We need to create a primary key binding signature.
+                let mut subkey_signer = subkey.clone().into_keypair().unwrap();
+                let backsig =
+                    signature::Builder::new(SignatureType::PrimaryKeyBinding)
+                    .set_signature_creation_time(time::now().canonicalize())?
+                    .set_issuer_fingerprint(subkey.fingerprint())?
+                    .set_issuer(subkey.keyid())?
+                    .sign_subkey_binding(&mut subkey_signer, &primary, &subkey,
+                                         HashAlgorithm::SHA512)?;
+                builder = builder.set_embedded_signature(backsig)?;
+            }
+
+            let signature =
+                subkey.bind(&mut signer, &tpk, builder, None, None)?;
+            tpk = tpk.merge_packets(vec![Packet::SecretSubkey(subkey),
+                                         signature.into()])?;
         }
 
-
-        let tpk = tsk.into_tpk();
-        let sec =
-            if let Some(SecretKey::Unencrypted { ref mpis }) = primary.secret() {
-                mpis.clone()
-            } else {
-                unreachable!()
-            };
-        let revocation = tpk.revoke(&mut KeyPair::new(primary, sec)?,
+        let revocation = tpk.revoke(&mut signer,
                                     ReasonForRevocation::Unspecified,
                                     b"Unspecified")?;
 

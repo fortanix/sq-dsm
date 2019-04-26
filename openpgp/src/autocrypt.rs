@@ -26,7 +26,6 @@ use Result;
 use Packet;
 use packet::SKESK;
 use TPK;
-use TSK;
 use parse::{
     Parse,
     PacketParserResult, PacketParser,
@@ -324,11 +323,11 @@ pub struct AutocryptSetupMessage {
     // passcode.
     passcode_begin: Option<String>,
 
-    tsk: TSK,
+    tpk: TPK,
 }
 
 impl AutocryptSetupMessage {
-    /// Creates a new Autocrypt Setup Message for the specified `TSK`.
+    /// Creates a new Autocrypt Setup Message for the specified `TPK`.
     ///
     /// You can set the `prefer_encrypt` setting, which defaults to
     /// "nopreference", using `set_prefer_encrypt`.
@@ -338,13 +337,13 @@ impl AutocryptSetupMessage {
     ///
     /// To decode an Autocrypt Setup Message, use the `from_bytes` or
     /// `from_reader` methods.
-    pub fn new(tsk: TSK) -> Self {
+    pub fn new(tpk: TPK) -> Self {
         AutocryptSetupMessage {
             prefer_encrypt: None,
             passcode: None,
             passcode_format: None,
             passcode_begin: None,
-            tsk: tsk,
+            tpk: tpk,
         }
     }
 
@@ -481,13 +480,15 @@ impl AutocryptSetupMessage {
         let mut w = LiteralWriter::new(w, DataFormat::Binary,
                                        /* filename*/ None, /* date */ None)?;
 
-        // The inner message is an ASCII-armored encoded TSK.
+        // The inner message is an ASCII-armored encoded TPK.
         let mut w = armor::Writer::new(
             &mut w, armor::Kind::SecretKey,
             &[ (&"Autocrypt-Prefer-Encrypt"[..],
                 self.prefer_encrypt().unwrap_or(&"nopreference"[..])) ])?;
 
-        self.tsk.serialize(&mut w)?;
+        // XXX
+        let tsk = self.tpk.clone().into_tsk();
+        tsk.serialize(&mut w)?;
 
         Ok(w.finalize()?)
     }
@@ -605,10 +606,10 @@ impl AutocryptSetupMessage {
         })
     }
 
-    /// Returns the TSK consuming the `AutocryptSetupMessage` in the
+    /// Returns the TPK consuming the `AutocryptSetupMessage` in the
     /// process.
-    pub fn into_tsk(self) -> TSK {
-        self.tsk
+    pub fn into_tpk(self) -> TPK {
+        self.tpk
     }
 }
 
@@ -678,7 +679,7 @@ impl<'a> AutocryptSetupMessageParser<'a> {
         }
 
         // Get the literal data packet.
-        let (prefer_encrypt, tsk) = if let PacketParserResult::Some(mut pp) = ppr {
+        let (prefer_encrypt, tpk) = if let PacketParserResult::Some(mut pp) = ppr {
             match pp.packet {
                 Packet::Literal(_) => (),
                 p => return Err(Error::MalformedMessage(
@@ -688,8 +689,8 @@ impl<'a> AutocryptSetupMessageParser<'a> {
             }
 
             // The inner message consists of an ASCII-armored encoded
-            // TSK.
-            let (prefer_encrypt, tsk) = {
+            // TPK.
+            let (prefer_encrypt, tpk) = {
                 let mut r = armor::Reader::new(&mut pp,
                                                Some(armor::Kind::SecretKey));
 
@@ -714,14 +715,14 @@ impl<'a> AutocryptSetupMessageParser<'a> {
                     }
                 };
 
-                let tsk = TSK::from_tpk(TPK::from_reader(r)?);
+                let tpk = TPK::from_reader(r)?;
 
-                (prefer_encrypt, tsk)
+                (prefer_encrypt, tpk)
             };
 
             ppr = pp.recurse()?.1;
 
-            (prefer_encrypt, tsk)
+            (prefer_encrypt, tpk)
         } else {
             return Err(
                 Error::MalformedMessage(
@@ -767,7 +768,7 @@ impl<'a> AutocryptSetupMessageParser<'a> {
             passcode: self.passcode,
             passcode_format: self.passcode_format,
             passcode_begin: self.passcode_begin,
-            tsk: tsk,
+            tpk: tpk,
         })
     }
 }
@@ -1049,18 +1050,18 @@ In the light of the Efail vulnerability I am asking myself if it's
         let asm = asm.parse().unwrap();
 
         // A basic check to make sure we got the key.
-        assert_eq!(asm.into_tsk().tpk().fingerprint(),
+        assert_eq!(asm.into_tpk().fingerprint(),
                    Fingerprint::from_hex(
                        "E604 68CE 44D7 7C3F CE9F  D072 71DB C565 7FDE 65A7")
                        .unwrap());
 
 
         // Create an ASM for testy-private.  Then decrypt it and make
-        // sure the TSK, etc. survived the round trip.
-        let tsk = TSK::from_tpk(
-            TPK::from_bytes(bytes!("keys/testy-private.pgp")).unwrap());
+        // sure the TPK, etc. survived the round trip.
+        let tpk =
+            TPK::from_bytes(bytes!("keys/testy-private.pgp")).unwrap();
 
-        let mut asm = AutocryptSetupMessage::new(tsk)
+        let mut asm = AutocryptSetupMessage::new(tpk)
             .set_prefer_encrypt("mutual");
         let mut buffer = Vec::new();
         asm.serialize(&mut buffer).unwrap();
