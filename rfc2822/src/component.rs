@@ -83,42 +83,6 @@ macro_rules! components_concat {
     }};
 }
 
-// Kills leading (`left`) and/or trailing (`right`) whitespace
-// (`Component::WS`).
-pub(crate) fn components_kill_ws(v: Option<Vec<Component>>,
-                                 left: bool, right: bool)
-    -> Vec<Component>
-{
-    tracer!(::TRACE, "components_kill_ws");
-    t!("v: {:?}, left: {}, right: {}", v, left, right);
-
-    let v = if let Some(mut v) = v {
-        if v.len() > 0 && right {
-            let mut kill = false;
-            if let Component::WS = v[v.len() - 1] {
-                kill = true;
-            }
-            if kill {
-                v.pop();
-            }
-        }
-        if v.len() > 0 && left {
-            let mut kill = false;
-            if let Component::WS = v[0] {
-                kill = true;
-            }
-            if kill {
-                v.remove(0);
-            }
-        }
-        v
-    } else {
-        vec![]
-    };
-    t!("=> {:?}", v);
-    v
-}
-
 // Merge the components in the vector.
 pub(crate) fn components_merge(components: Vec<Component>)
     -> Vec<Component>
@@ -142,7 +106,6 @@ pub(crate) fn components_merge(components: Vec<Component>)
             None,
             Middle,
             MiddleRight,
-            Right,
         };
         let mut kill = Kill::None;
 
@@ -163,9 +126,9 @@ pub(crate) fn components_merge(components: Vec<Component>)
                 l.push_str(r);
                 kill = Kill::MiddleRight;
             },
-            (_,
+            (Component::WS,
              Component::WS,
-             Some(Component::WS)) => {
+             _) => {
                 // This can happen when we have a local-part of the
                 // following form:
                 //
@@ -176,7 +139,13 @@ pub(crate) fn components_merge(components: Vec<Component>)
                 // the right:
                 //
                 //   COMMENT WS WS COMMENT TEXT
-                kill = Kill::Right;
+                //
+                // It is also possible to have:
+                //
+                //   WS WS COMMENT TEXT
+                //
+                // as CFWS can expand to just a WS.
+                kill = Kill::Middle;
             },
             _ => (),
         }
@@ -188,10 +157,6 @@ pub(crate) fn components_merge(components: Vec<Component>)
             }
             Kill::MiddleRight => {
                 middleo = iter.next();
-                righto = iter.next();
-            }
-            Kill::Right => {
-                middleo = Some(middle);
                 righto = iter.next();
             }
             Kill::None => {

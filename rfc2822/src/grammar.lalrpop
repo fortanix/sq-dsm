@@ -8,7 +8,6 @@ use strings::{
 };
 use component::{
     Component,
-    components_kill_ws,
     components_merge,
 };
 use lexer;
@@ -45,6 +44,10 @@ CRLF: () = {
 //                         %d12 /
 //                         %d14-127 /
 //                         obs-text
+pub(crate) Text : Token<'input> = {
+    text,
+}
+
 text : Token<'input> = {
     WSP,
     NO_WS_CTL,
@@ -99,6 +102,12 @@ quoted_pair : Token<'input> = {
 //   Runs of FWS, comment or CFWS that occur between lexical tokens in
 //   a structured field header are semantically interpreted as a
 //   single space character.
+
+// FWS can't be exported, because it uses inline.
+pub(crate) FWS_ : Component = {
+    FWS
+}
+
 #[inline]
 FWS : Component = {
    (WSP* CRLF)? WSP+ => Component::WS,
@@ -108,6 +117,10 @@ FWS : Component = {
 //                         %d33-39 /       ; The rest of the US-ASCII
 //                         %d42-91 /       ;  characters not including "(",
 //                         %d93-126        ;  ")", or "\"
+pub(crate) CText : Token<'input> = {
+    ctext
+}
+
 ctext : Token<'input> = {
     NO_WS_CTL,
 
@@ -254,9 +267,9 @@ pub(crate) Atom : Vec<Component> = {
 atom : Vec<Component> = {
     <c1:CFWS?> <a:atext_dot_plus> <c2:CFWS?> =>
         components_concat!(
-            components_kill_ws(c1, false, true),
+            c1,
             Component::Text(a),
-            components_kill_ws(c2, true, false)),
+            c2),
 }
 
 // See the phrase production for this variant of the 'atom' production
@@ -277,28 +290,19 @@ pub(crate) DotAtom : Vec<Component> = {
 
 dot_atom : Vec<Component> = {
     <c1:CFWS?> <a:dot_atom_text> <c2:CFWS?> =>
-        components_concat!(
-            components_kill_ws(c1, false, true),
-            a,
-            components_kill_ws(c2, true, false)),
+        components_concat!(c1, a, c2),
 }
 
 // A variant of dot_atom that places all comments to the left.
 dot_atom_left : Vec<Component> = {
     <c1:CFWS?> <a:dot_atom_text> <c2:CFWS?> =>
-        components_concat!(
-            components_kill_ws(
-                Some(components_concat!(c1, c2)), false, true),
-            a),
+        components_concat!(c1, c2, a),
 }
 
 // A variant of dot_atom that places all comments to the right.
 dot_atom_right : Vec<Component> = {
     <c1:CFWS?> <a:dot_atom_text> <c2:CFWS?> =>
-        components_concat!(
-            a,
-            components_kill_ws(
-                Some(components_concat!(c1, c2)), true, false)),
+        components_concat!(a, c1, c2),
 }
 
 // dot-atom-text   =       1*atext *("." 1*atext)
@@ -340,6 +344,10 @@ qtext : Token<'input> = {
 }
 
 // qcontent        =       qtext / quoted-pair
+pub(crate) QContent : Vec<Component> = {
+    <q:qcontent> => components_merge(vec![ q ]),
+}
+
 qcontent : Component = {
     <c:qtext> => Component::Text(c.to_string()),
     <c:quoted_pair> => Component::Text(c.to_string()),
@@ -359,6 +367,9 @@ quoted_string : Vec<Component> = {
         components_concat!(
             // c1 is an Option<Vec<Component>>.
             c1,
+            // If we have "" make sure we return Component::Text("")
+            // instead of nothing.
+            Component::Text("".into()),
             // c is a Vec<(Option<Component>, Component)>.  Turn it
             // into a Vec<Component>.
             c.into_iter()
@@ -385,7 +396,11 @@ quoted_string_left : Vec<Component> = {
         // quotes is turned into Component::Text.
         components_concat!(
             // c1 is an Option<Vec<Component>>.
-            components_kill_ws(Some(components_concat!(c1, c2)), false, true),
+            c1,
+            c2,
+            // If we have "" make sure we return Component::Text("")
+            // instead of nothing.
+            Component::Text("".into()),
             // c is a Vec<(Option<Component>, Component)>.  Turn it
             // into a Vec<Component>.
             c.into_iter()
@@ -411,6 +426,9 @@ quoted_string_prime : Vec<Component> = {
         // Make sure any leading and trailing whitespace *inside* the
         // quotes is turned into Component::Text.
         components_concat!(
+            // If we have "" make sure we return Component::Text("")
+            // instead of nothing.
+            Component::Text("".into()),
             // c is a Vec<(Option<Component>, Component)>.  Turn it
             // into a Vec<Component>.
             c.into_iter()
@@ -459,11 +477,11 @@ pub(crate) Phrase : Vec<Component> = {
 //                /                    \
 //           atom                        atom
 //       /    |    \                 /    |    \
-// CFWS+?   atext+   CFWS?     CFWS+?   atext+   CFWS?
+//  CFWS?   atext+   CFWS?      CFWS?   atext+   CFWS?
 //
 // This has an ambiguity!  Does a CFWS immediate after the first
 // atext+ belong to the first atom or the second?  And, if there are
-// no CFWSes, how do we split the atext?
+// no CFWSes, how do we split the atext+?
 //
 // To avoid these problems, we modify the grammar as presented in the
 // RFC as follows:
@@ -528,9 +546,22 @@ pub(crate) NameAddr : Vec<Component> = {
 // The display_name ends in an optional CFWS and the angle_addr starts
 // with one.  This causes an ambiguity.  The angle_addr_prime
 // production removes the optional leading CFWS non-terminal.
+//
+// But, this creates a small problem.  Consider:
+//
+//   " <email@example.org>"
+//
+// This is: [CFWS angle-addr].  Now, we are using angle-addr-prime so
+// that it won't match leading CFWSes, because they are matched by
+// display-name.  But display-name doesn't match in this case because
+// there are no phrases, and it requires at least on phrase!  The
+// second rule below covers this edge case.
 name_addr : Vec<Component> = {
     <n:display_name?> <a:angle_addr_prime> =>
         components_concat!(n, a),
+
+    <c:CFWS> <a:angle_addr_prime> =>
+        components_concat!(c, a),
 }
 
 
@@ -551,8 +582,12 @@ angle_addr_prime : Vec<Component> = {
 
 
 // display-name    =       phrase
+pub(crate) DisplayName : Vec<Component> = {
+    <d:display_name> => components_merge(d),
+}
+
 display_name : Vec<Component> = {
-    <p:phrase> => components_kill_ws(Some(p), true, true),
+    <p:phrase> => p,
 }
 
 // 3.4.1. Addr-spec specification
@@ -596,15 +631,23 @@ addr_spec : Vec<Component> = {
 }
 
 // local-part      =       dot-atom / quoted-string / obs-local-part
+pub(crate) LocalPart : Vec<Component> = {
+    <l:local_part> => components_merge(l),
+}
+
 local_part : Vec<Component> = {
     dot_atom_left,
     quoted_string_left,
 }
 
 // domain          =       dot-atom / domain-literal / obs-domain
+pub(crate) Domain : Vec<Component> = {
+    <d:domain> => components_merge(d),
+}
+
 domain : Vec<Component> = {
     dot_atom_right,
-    domain_literal,
+    domain_literal_right,
 }
 
 
@@ -640,8 +683,38 @@ domain_literal : Vec<Component> = {
     }
 }
 
+domain_literal_right : Vec<Component> = {
+    <c1:CFWS?> LBRACKET <c:(<FWS?> <dcontent>)*> <d:FWS?> RBRACKET <c2:CFWS?> => {
+        components_concat!(
+            Component::Text("[".into()),
+            // c is a Vec<(Option<Component>, Component)>.  Turn it
+            // into a Vec<Component>.
+            c.into_iter()
+                .map(|(fws, c)| {
+                    let c = Component::Text(c.to_string());
+                    if let Some(fws) = fws {
+                        vec![fws, c]
+                    } else {
+                        vec![c]
+                    }
+                })
+                .flatten()
+                .collect::<Vec<Component>>(),
+            // d is an Option<Component>, turn it into a
+            // Option<Vec<Component>>.
+            d.map(|x| vec![x]),
+            Component::Text("]".into()),
+            c1,
+            c2)
+    }
+}
+
 
 // dcontent        =       dtext / quoted-pair
+pub(crate) DContent : Vec<Component> = {
+    <d:dcontent> => components_merge(vec![ Component::Text(d.to_string()) ]),
+}
+
 dcontent : Token<'input> = {
     dtext,
     quoted_pair,

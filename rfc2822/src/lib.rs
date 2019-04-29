@@ -1,6 +1,10 @@
 extern crate failure;
 extern crate lalrpop_util;
 
+#[cfg(test)] #[macro_use] extern crate lazy_static;
+#[cfg(test)] #[macro_use] extern crate quickcheck;
+#[cfg(test)] extern crate rand;
+
 use lalrpop_util::ParseError;
 
 #[macro_use] mod macros;
@@ -21,6 +25,9 @@ mod grammar;
 #[cfg(not(test))]
 #[allow(unused_imports, dead_code)]
 mod grammar;
+
+#[cfg(test)]
+mod roundtrip;
 
 const TRACE : bool = false;
 
@@ -488,9 +495,17 @@ mod tests {
         // If a CFWS precedes an atom, any comments are retained, but
         // trailing white space is removed.
         c("\r\n foobar  \r\n ",
-          Some(vec![Component::Text("foobar".into())]));
+          Some(vec![
+              Component::WS,
+              Component::Text("foobar".into()),
+              Component::WS,
+          ]));
         c("  \r\n foobar  ",
-          Some(vec![Component::Text("foobar".into())]));
+          Some(vec![
+              Component::WS,
+              Component::Text("foobar".into()),
+              Component::WS,
+          ]));
 
         c("(some comment)foobar",
           Some(vec![
@@ -500,11 +515,13 @@ mod tests {
         c("(some comment) foobar",
           Some(vec![
               Component::Comment("some comment".into()),
+              Component::WS,
               Component::Text("foobar".into())
           ]));
         c("(so\r\n m   \r\n e co\r\n   mme  \r\n   nt\r\n ) \r\n    foobar",
           Some(vec![
               Component::Comment("so m e co mme nt ".into()),
+              Component::WS,
               Component::Text("foobar".into())
           ]));
 
@@ -525,8 +542,9 @@ mod tests {
               Component::Comment("b".into()),
               Component::WS,
               Component::Comment("c".into()),
-              // Whitespace between a comment and an atom is elided.
+              Component::WS,
               Component::Text("foobar".into()),
+              Component::WS,
               Component::Comment("d".into()),
               Component::Comment("e".into()),
               Component::WS,
@@ -685,37 +703,55 @@ mod tests {
         // Internal space is not allowed.
         c("foo bar", None);
 
-        // But lead and trailing space is okay (and it is removed).
+        // But leading and trailing space is okay.
         c(" f",
-          Some(vec![Component::Text("f".into())]));
+          Some(vec![
+              Component::WS,
+              Component::Text("f".into()),
+          ]));
         c("  f",
-          Some(vec![Component::Text("f".into())]));
+          Some(vec![
+              Component::WS,
+              Component::Text("f".into()),
+          ]));
         c("f ",
-          Some(vec![Component::Text("f".into())]));
+          Some(vec![
+              Component::Text("f".into()),
+              Component::WS,
+          ]));
         c("f  ",
-          Some(vec![Component::Text("f".into())]));
+          Some(vec![
+              Component::Text("f".into()),
+              Component::WS,
+          ]));
 
         // Comments are also okay.
         c("(comment) f",
           Some(vec![
               Component::Comment("comment".into()),
+              Component::WS,
               Component::Text("f".into()),
           ]));
         c(" (comment) f",
           Some(vec![
               Component::WS,
               Component::Comment("comment".into()),
+              Component::WS,
               Component::Text("f".into()),
           ]));
         c(" f (comment) ",
           Some(vec![
+              Component::WS,
               Component::Text("f".into()),
+              Component::WS,
               Component::Comment("comment".into()),
               Component::WS,
           ]));
         c(" f (comment)",
           Some(vec![
+              Component::WS,
               Component::Text("f".into()),
+              Component::WS,
               Component::Comment("comment".into()),
           ]));
     }
@@ -782,21 +818,34 @@ mod tests {
         // White space is ignored at the beginning and ending of the
         // local part, but not in the middle.
         c("<  \r\n   foo.bar@x>",
-          Some(vec![Component::Address("foo.bar@x".into())]));
+          Some(vec![
+              Component::WS,
+              Component::Address("foo.bar@x".into()),
+          ]));
         c("<  \r\n   foo.bar \r\n @x>",
-          Some(vec![Component::Address("foo.bar@x".into())]));
+          Some(vec![
+              Component::WS,
+              Component::Address("foo.bar@x".into())
+          ]));
         c("<  (quuz) \r\n   foo.bar@x>",
           Some(vec![
               Component::WS,
               Component::Comment("quuz".into()),
+              Component::WS,
               Component::Address("foo.bar@x".into()),
           ]));
         c("<  \r\n   foo.bar \r\n @x>",
-          Some(vec![Component::Address("foo.bar@x".into())]));
+          Some(vec![
+              Component::WS,
+              Component::Address("foo.bar@x".into()),
+          ]));
         c("<f  \r\n   oo.bar@x>", None);
 
         c("<foo.bar@x \r\n >",
-          Some(vec![Component::Address("foo.bar@x".into())]));
+          Some(vec![
+              Component::Address("foo.bar@x".into()),
+              Component::WS,
+          ]));
         c("<f  \r\n   oo.bar@x \r\n y>", None);
 
         c("  <foo.bar@x>  ",
@@ -811,7 +860,10 @@ mod tests {
           Some(vec![
               Component::WS,
               Component::Comment("Hello!".into()),
-              Component::Address("foo.bar@x".into())]));
+              Component::WS,
+              Component::Address("foo.bar@x".into()),
+              Component::WS,
+          ]));
         // Comments in the local part are always moved left.
         c("< (Hello!) foo.bar (bye?) \r\n @x \r\n >",
           Some(vec![
@@ -819,17 +871,24 @@ mod tests {
               Component::Comment("Hello!".into()),
               Component::WS,
               Component::Comment("bye?".into()),
+              Component::WS,
               Component::Address("foo.bar@x".into()),
+              Component::WS,
           ]));
         c("< (Hello!) foo.bar@x \r\n >",
           Some(vec![
               Component::WS,
               Component::Comment("Hello!".into()),
-              Component::Address("foo.bar@x".into())]));
+              Component::WS,
+              Component::Address("foo.bar@x".into()),
+              Component::WS,
+          ]));
         // Comments in the domain part are always moved right.
         c("< x@  (Hello!) foo.bar (bye?) >",
           Some(vec![
+              Component::WS,
               Component::Address("x@foo.bar".into()),
+              Component::WS,
               Component::Comment("Hello!".into()),
               Component::WS,
               Component::Comment("bye?".into()),
@@ -841,7 +900,10 @@ mod tests {
           Some(vec![
               Component::WS,
               Component::Comment("Hello!".into()),
-              Component::Address("f oo.bar@x".into())]));
+              Component::WS,
+              Component::Address("f oo.bar@x".into()),
+              Component::WS,
+          ]));
     }
 
     #[test]
