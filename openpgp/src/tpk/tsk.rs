@@ -1,5 +1,3 @@
-use std::io;
-
 use Result;
 use TPK;
 use packet::{Key, Tag};
@@ -72,9 +70,11 @@ impl<'a> TSK<'a> {
 }
 
 impl<'a> Serialize for TSK<'a> {
-    fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
+    fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         // Serializes public or secret key depending on the filter.
-        let serialize_key = |o: &mut W, key: &'a Key, tag_public, tag_secret| {
+        let serialize_key =
+            |o: &mut dyn std::io::Write, key: &'a Key, tag_public, tag_secret|
+        {
             key.serialize(o,
                           if self.filter.as_ref().map(
                               |f| f(key)).unwrap_or(true)

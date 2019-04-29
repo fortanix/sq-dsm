@@ -2846,7 +2846,7 @@ impl TPK {
 }
 
 impl Serialize for TPK {
-    fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
+    fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         self.primary().serialize(o, Tag::PublicKey)?;
 
         for s in self.primary_selfsigs.iter() {

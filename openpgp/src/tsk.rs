@@ -378,7 +378,7 @@ impl TSK {
  }
 
 impl Serialize for TSK {
-    fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
+    fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         self.key.primary.serialize(o, Tag::SecretKey)?;
 
         for s in self.key.primary_selfsigs.iter() {

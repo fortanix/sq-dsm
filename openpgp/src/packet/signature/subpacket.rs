@@ -1099,7 +1099,7 @@ pub(crate) trait SubpacketLengthTrait {
     /// Parses a subpacket length.
     fn parse<C>(bio: &mut buffered_reader::Memory<C>) -> io::Result<u32>;
     /// Writes the subpacket length to `w`.
-    fn serialize<W: io::Write>(&self, sink: &mut W) -> io::Result<()>;
+    fn serialize(&self, sink: &mut dyn std::io::Write) -> io::Result<()>;
     /// Returns the length of the serialized subpacket length.
     fn len(&self) -> usize;
 }
@@ -1122,7 +1122,7 @@ impl SubpacketLengthTrait for SubpacketLength {
         Ok(bio.read_be_u32()?)
     }
 
-    fn serialize<W: io::Write>(&self, sink: &mut W) -> io::Result<()> {
+        fn serialize(&self, sink: &mut dyn std::io::Write) -> io::Result<()> {
         let v = *self;
         if v < 192 {
             sink.write_all(&[v as u8])

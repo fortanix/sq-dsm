@@ -46,7 +46,7 @@ fn path_to(artifact: &str) -> PathBuf {
 /// This interfaces serializes packets and packet trees.
 pub trait Serialize {
     /// Writes a serialized version of the packet to `o`.
-    fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()>;
+    fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()>;
 }
 
 /// Key packet serialization.
@@ -56,7 +56,7 @@ pub trait SerializeKey {
     /// Writes a serialized version of the key packet to `o`.
     ///
     /// Tag identifies the kind of packet to write.
-    fn serialize<W: io::Write>(&self, o: &mut W, tag: Tag) -> Result<()>;
+    fn serialize(&self, o: &mut dyn io::Write, tag: Tag) -> Result<()>;
 }
 
 /// Serialization into pre-allocated buffers.
@@ -165,17 +165,17 @@ fn generic_serialize_into<T: Serialize + SerializeInto>(o: &T, buf: &mut [u8])
     Ok(cursor.position() as usize)
 }
 
-fn write_byte<W: io::Write>(o: &mut W, b: u8) -> io::Result<()> {
+fn write_byte(o: &mut dyn std::io::Write, b: u8) -> io::Result<()> {
     let b : [u8; 1] = [b; 1];
     o.write_all(&b[..])
 }
 
-fn write_be_u16<W: io::Write>(o: &mut W, n: u16) -> io::Result<()> {
+fn write_be_u16(o: &mut dyn std::io::Write, n: u16) -> io::Result<()> {
     let b : [u8; 2] = [ ((n >> 8) & 0xFF) as u8, (n & 0xFF) as u8 ];
     o.write_all(&b[..])
 }
 
-fn write_be_u32<W: io::Write>(o: &mut W, n: u32) -> io::Result<()> {
+fn write_be_u32(o: &mut dyn std::io::Write, n: u32) -> io::Result<()> {
     let b : [u8; 4] = [ (n >> 24) as u8, ((n >> 16) & 0xFF) as u8,
                          ((n >> 8) & 0xFF) as u8, (n & 0xFF) as u8 ];
     o.write_all(&b[..])
@@ -218,7 +218,7 @@ impl Serialize for BodyLength {
     /// [`Error::InvalidArgument`]: ../enum.Error.html#variant.InvalidArgument
     /// [`BodyLength::Indeterminate`]: ../packet/enum.BodyLength.html#variant.Indeterminate
     /// [`serialize_old(..)`]: #method.serialize_old
-    fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
+    fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         match self {
             &BodyLength::Full(l) => {
                 if l <= 191 {
@@ -327,7 +327,7 @@ impl BodyLength {
 }
 
 impl Serialize for CTBNew {
-    fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
+    fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         let tag: u8 = self.common.tag.into();
         o.write_all(&[0b1100_0000u8 | tag])?;
         Ok(())
@@ -343,7 +343,7 @@ impl SerializeInto for CTBNew {
 }
 
 impl Serialize for CTBOld {
-    fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
+    fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         let tag: u8 = self.common.tag.into();
         let length_type: u8 = self.length_type.into();
         o.write_all(&[0b1000_0000u8 | (tag << 2) | length_type])?;
@@ -360,7 +360,7 @@ impl SerializeInto for CTBOld {
 }
 
 impl Serialize for CTB {
-    fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
+    fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         match self {
             &CTB::New(ref c) => c.serialize(o),
             &CTB::Old(ref c) => c.serialize(o),
@@ -378,7 +378,7 @@ impl SerializeInto for CTB {
 }
 
 impl Serialize for Header {
-    fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
+    fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         self.ctb.serialize(o)?;
         self.length.serialize(o)?;
         Ok(())
@@ -386,7 +386,7 @@ impl Serialize for Header {
 }
 
 impl Serialize for KeyID {
-    fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
+    fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         let raw = match self {
             &KeyID::V4(ref fp) => &fp[..],
             &KeyID::Invalid(ref fp) => &fp[..],
@@ -410,7 +410,7 @@ impl SerializeInto for KeyID {
 }
 
 impl Serialize for Fingerprint {
-    fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
+    fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         o.write_all(self.as_slice())?;
         Ok(())
     }
@@ -430,7 +430,7 @@ impl SerializeInto for Fingerprint {
 }
 
 impl Serialize for crypto::mpis::MPI {
-    fn serialize<W: io::Write>(&self, w: &mut W) -> Result<()> {
+    fn serialize(&self, w: &mut dyn std::io::Write) -> Result<()> {
         write_be_u16(w, self.bits as u16)?;
         w.write_all(&self.value)?;
         Ok(())
@@ -448,7 +448,7 @@ impl SerializeInto for crypto::mpis::MPI {
 }
 
 impl Serialize for crypto::mpis::PublicKey {
-    fn serialize<W: io::Write>(&self, w: &mut W) -> Result<()> {
+    fn serialize(&self, w: &mut dyn std::io::Write) -> Result<()> {
         use crypto::mpis::PublicKey::*;
 
         match self {
@@ -543,7 +543,7 @@ impl SerializeInto for crypto::mpis::PublicKey {
 }
 
 impl Serialize for crypto::mpis::SecretKey {
-    fn serialize<W: io::Write>(&self, w: &mut W) -> Result<()> {
+    fn serialize(&self, w: &mut dyn std::io::Write) -> Result<()> {
         use crypto::mpis::SecretKey::*;
 
         match self {
@@ -648,7 +648,7 @@ impl crypto::mpis::SecretKey {
 }
 
 impl Serialize for crypto::mpis::Ciphertext {
-    fn serialize<W: io::Write>(&self, w: &mut W) -> Result<()> {
+    fn serialize(&self, w: &mut dyn std::io::Write) -> Result<()> {
         use crypto::mpis::Ciphertext::*;
 
         match self {
@@ -709,7 +709,7 @@ impl SerializeInto for crypto::mpis::Ciphertext {
 }
 
 impl Serialize for crypto::mpis::Signature {
-    fn serialize<W: io::Write>(&self, w: &mut W) -> Result<()> {
+    fn serialize(&self, w: &mut dyn std::io::Write) -> Result<()> {
         use crypto::mpis::Signature::*;
 
         match self {
@@ -778,7 +778,7 @@ impl SerializeInto for crypto::mpis::Signature {
 }
 
 impl Serialize for S2K {
-    fn serialize<W: io::Write>(&self, w: &mut W) -> Result<()> {
+    fn serialize(&self, w: &mut dyn std::io::Write) -> Result<()> {
         match self {
             &S2K::Simple{ hash } => {
                 w.write_all(&[0, hash.into()])?;
@@ -817,7 +817,7 @@ impl SerializeInto for S2K {
 }
 
 impl Serialize for Unknown {
-    fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
+    fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         let body = if let Some(ref body) = self.common.body {
             &body[..]
         } else {
@@ -844,7 +844,7 @@ impl SerializeInto for Unknown {
 }
 
 impl<'a> Serialize for Subpacket<'a> {
-    fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
+    fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         let tag = u8::from(self.tag)
             | if self.critical { 1 << 7 } else { 0 };
         let len = 1 + self.value.len();
@@ -866,7 +866,7 @@ impl<'a> SerializeInto for Subpacket<'a> {
 }
 
 impl<'a> Serialize for SubpacketValue<'a> {
-    fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
+    fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         use self::SubpacketValue::*;
         match self {
             SignatureCreationTime(t) =>
@@ -1016,7 +1016,7 @@ impl<'a> SerializeInto for SubpacketValue<'a> {
 }
 
 impl Serialize for Signature {
-    fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
+    fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         match self {
             &Signature::V4(ref s) => s.serialize(o),
         }
@@ -1052,7 +1052,7 @@ impl Serialize for Signature4 {
     /// unhashed-area exceeds the size limit of 2^16.
     ///
     /// [`Error::InvalidArgument`]: ../../enum.Error.html#variant.InvalidArgument
-    fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
+    fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         let len = self.net_len();
         CTB::new(Tag::Signature).serialize(o)?;
         BodyLength::Full(len as u32).serialize(o)?;
@@ -1101,7 +1101,8 @@ impl Signature4 {
     /// unhashed-area exceeds the size limit of 2^16.
     ///
     /// [`Error::InvalidArgument`]: ../enum.Error.html#variant.InvalidArgument
-    pub(crate) fn serialize_naked<W: io::Write>(&self, o: &mut W) -> Result<()> {
+    pub(crate) fn serialize_naked(&self, o: &mut dyn std::io::Write)
+                                  -> Result<()> {
         if self.version() != 4 {
             return Err(Error::InvalidArgument(
                 "Don't know how to serialize \
@@ -1136,7 +1137,7 @@ impl Signature4 {
 }
 
 impl Serialize for OnePassSig {
-    fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
+    fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         match self {
             &OnePassSig::V3(ref s) => s.serialize(o),
         }
@@ -1158,7 +1159,7 @@ impl SerializeInto for OnePassSig {
 }
 
 impl Serialize for OnePassSig3 {
-    fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
+    fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         let len = self.net_len();
         CTB::new(Tag::OnePassSig).serialize(o)?;
         BodyLength::Full(len as u32).serialize(o)?;
@@ -1196,7 +1197,7 @@ impl SerializeInto for OnePassSig3 {
 }
 
 impl SerializeKey for Key {
-    fn serialize<W: io::Write>(&self, o: &mut W, tag: Tag) -> Result<()> {
+    fn serialize(&self, o: &mut io::Write, tag: Tag) -> Result<()> {
         match self {
             &Key::V4(ref p) => p.serialize(o, tag),
         }
@@ -1218,7 +1219,7 @@ impl SerializeKeyInto for Key {
 }
 
 impl SerializeKey for Key4 {
-    fn serialize<W: io::Write>(&self, o: &mut W, tag: Tag) -> Result<()> {
+    fn serialize(&self, o: &mut io::Write, tag: Tag) -> Result<()> {
         assert!(tag == Tag::PublicKey
                 || tag == Tag::PublicSubkey
                 || tag == Tag::SecretKey
@@ -1316,7 +1317,7 @@ impl SerializeKeyInto for Key4 {
 }
 
 impl Serialize for Marker {
-    fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
+    fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         CTB::new(Tag::Marker).serialize(o)?;
         BodyLength::Full(Marker::BODY.len() as u32).serialize(o)?;
         o.write_all(Marker::BODY)?;
@@ -1336,7 +1337,7 @@ impl SerializeInto for Marker {
 }
 
 impl Serialize for Trust {
-    fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
+    fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         let len = self.value().len();
 
         CTB::new(Tag::Trust).serialize(o)?;
@@ -1359,7 +1360,7 @@ impl SerializeInto for Trust {
 }
 
 impl Serialize for UserID {
-    fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
+    fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         let len = self.value().len();
 
         CTB::new(Tag::UserID).serialize(o)?;
@@ -1382,7 +1383,7 @@ impl SerializeInto for UserID {
 }
 
 impl Serialize for UserAttribute {
-    fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
+    fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         let len = self.value().len();
 
         CTB::new(Tag::UserAttribute).serialize(o)?;
@@ -1405,7 +1406,7 @@ impl SerializeInto for UserAttribute {
 }
 
 impl Serialize for user_attribute::Subpacket {
-    fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
+    fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         match self {
             user_attribute::Subpacket::Image(image) =>
                 image.serialize(o)?,
@@ -1440,7 +1441,7 @@ impl SerializeInto for user_attribute::Subpacket {
 }
 
 impl Serialize for user_attribute::Image {
-    fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
+    fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         match self {
             user_attribute::Image::JPEG(data) => {
                 let header = BodyLength::Full(1 + data.len() as u32);
@@ -1479,10 +1480,8 @@ impl SerializeInto for user_attribute::Image {
 
 impl Literal {
     /// Writes the headers of the `Literal` data packet to `o`.
-    pub(crate) fn serialize_headers<W>(&self, o: &mut W,
-                                       write_tag: bool)
-                                       -> Result<()>
-        where W: io::Write
+    pub(crate) fn serialize_headers(&self, o: &mut dyn std::io::Write,
+                                    write_tag: bool) -> Result<()>
     {
         let filename = if let Some(ref filename) = self.filename() {
             let len = cmp::min(filename.len(), 255) as u8;
@@ -1512,7 +1511,7 @@ impl Literal {
 }
 
 impl Serialize for Literal {
-    fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
+    fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         let body = if let Some(ref body) = self.common.body {
             &body[..]
         } else {
@@ -1553,7 +1552,7 @@ impl Serialize for CompressedData {
     ///
     /// This function works recursively: if the `CompressedData` packet
     /// contains any packets, they are also serialized.
-    fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
+    fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         if TRACE {
             eprintln!("CompressedData::serialize(\
                        algo: {}, {:?} children, {:?} bytes)",
@@ -1611,7 +1610,7 @@ impl SerializeInto for CompressedData {
 }
 
 impl Serialize for PKESK {
-    fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
+    fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         match self {
             &PKESK::V3(ref p) => p.serialize(o),
         }
@@ -1633,7 +1632,7 @@ impl SerializeInto for PKESK {
 }
 
 impl Serialize for PKESK3 {
-    fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
+    fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         let len = self.net_len();
 
         CTB::new(Tag::PKESK).serialize(o)?;
@@ -1668,7 +1667,7 @@ impl SerializeInto for PKESK3 {
 }
 
 impl Serialize for SKESK {
-    fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
+    fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         match self {
             &SKESK::V4(ref s) => s.serialize(o),
             &SKESK::V5(ref s) => s.serialize(o),
@@ -1693,7 +1692,7 @@ impl SerializeInto for SKESK {
 }
 
 impl Serialize for SKESK4 {
-    fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
+    fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         let len = self.net_len();
 
         CTB::new(Tag::SKESK).serialize(o)?;
@@ -1730,7 +1729,7 @@ impl SerializeInto for SKESK4 {
 }
 
 impl Serialize for SKESK5 {
-    fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
+    fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         let len = self.net_len();
 
         CTB::new(Tag::SKESK).serialize(o)?;
@@ -1781,7 +1780,7 @@ impl Serialize for SEIP {
     /// Returns `Error::InvalidOperation` if this packet has children.
     /// To construct an encrypted message, use
     /// `serialize::stream::Encryptor`.
-    fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
+    fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         if let Some(ref _children) = self.common.children {
             return Err(Error::InvalidOperation(
                 "Cannot encrypt, use serialize::stream::Encryptor".into())
@@ -1819,7 +1818,7 @@ impl SerializeInto for SEIP {
 }
 
 impl Serialize for MDC {
-    fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
+    fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         CTB::new(Tag::MDC).serialize(o)?;
         BodyLength::Full(20).serialize(o)?;
         o.write_all(self.hash())?;
@@ -1838,7 +1837,7 @@ impl SerializeInto for MDC {
 }
 
 impl Serialize for AED {
-    fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
+    fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         match self {
             &AED::V1(ref p) => p.serialize(o),
         }
@@ -1861,8 +1860,7 @@ impl SerializeInto for AED {
 
 impl AED1 {
     /// Writes the headers of the `AED` data packet to `o`.
-    fn serialize_headers<W: io::Write>(&self, o: &mut W)
-                                       -> Result<()> {
+    fn serialize_headers(&self, o: &mut dyn std::io::Write) -> Result<()> {
         o.write_all(&[1, // Version.
                       self.symmetric_algo().into(),
                       self.aead().into(),
@@ -1881,7 +1879,7 @@ impl Serialize for AED1 {
     /// Returns `Error::InvalidOperation` if this packet has children.
     /// To construct an encrypted message, use
     /// `serialize::stream::Encryptor`.
-    fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
+    fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         if let Some(ref _children) = self.common.children {
             return Err(Error::InvalidOperation(
                 "Cannot encrypt, use serialize::stream::Encryptor".into())
@@ -1929,7 +1927,7 @@ impl Serialize for Packet {
     ///
     /// This function works recursively: if the packet contains any
     /// packets, they are also serialized.
-    fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
+    fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         let tag = self.tag();
         match self {
             &Packet::Unknown(ref p) => p.serialize(o),
@@ -1986,7 +1984,7 @@ impl SerializeInto for Packet {
 
 impl Serialize for PacketPile {
     /// Writes a serialized version of the specified `PacketPile` to `o`.
-    fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
+    fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         for p in self.children() {
             p.serialize(o)?;
         }
@@ -2007,7 +2005,7 @@ impl SerializeInto for PacketPile {
 
 impl Serialize for Message {
     /// Writes a serialized version of the specified `Message` to `o`.
-    fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
+    fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         use std::ops::Deref;
         self.deref().serialize(o)
     }
@@ -2026,7 +2024,7 @@ impl SerializeInto for Message {
 }
 
 impl Serialize for autocrypt::AutocryptHeader {
-    fn serialize<W: io::Write>(&self, o: &mut W) -> Result<()> {
+    fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         if self.key.is_none() {
             return Err(Error::InvalidOperation("No key".into()).into());
         }
