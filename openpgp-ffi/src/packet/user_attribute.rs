@@ -6,7 +6,9 @@
 
 use libc::{uint8_t, size_t};
 extern crate sequoia_openpgp as openpgp;
-use self::openpgp::Packet;
+use super::Packet;
+
+use RefRaw;
 
 /// Returns the value of the User Attribute Packet.
 ///
@@ -16,8 +18,7 @@ use self::openpgp::Packet;
 pub extern "system" fn pgp_user_attribute_value(ua: *const Packet,
                                                value_len: Option<&mut size_t>)
                                                -> *const uint8_t {
-    let ua = ffi_param_ref!(ua);
-    if let &Packet::UserAttribute(ref ua) = ua {
+    if let &openpgp::Packet::UserAttribute(ref ua) = ua.ref_raw() {
         if let Some(p) = value_len {
             *p = ua.value().len();
         }

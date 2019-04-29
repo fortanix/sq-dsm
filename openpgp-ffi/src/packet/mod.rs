@@ -10,7 +10,6 @@ extern crate sequoia_openpgp as openpgp;
 extern crate time;
 
 use self::openpgp::{
-    Packet,
     packet::Tag,
 };
 
@@ -22,23 +21,41 @@ pub mod skesk;
 pub mod user_attribute;
 pub mod userid;
 
-/// Frees the Packet.
-#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "system" fn pgp_packet_free(p: Option<&mut Packet>) {
-    ffi_free!(p)
-}
+use Maybe;
+use MoveIntoRaw;
+use RefRaw;
+
+/// The OpenPGP packets that Sequoia understands.
+///
+/// The different OpenPGP packets are detailed in [Section 5 of RFC 4880].
+///
+/// The `Unknown` packet allows Sequoia to deal with packets that it
+/// doesn't understand.  The `Unknown` packet is basically a binary
+/// blob that includes the packet's tag.
+///
+/// The unknown packet is also used for packets that are understood,
+/// but use unsupported options.  For instance, when the packet parser
+/// encounters a compressed data packet with an unknown compression
+/// algorithm, it returns the packet in an `Unknown` packet rather
+/// than a `CompressedData` packet.
+///
+///   [Section 5 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5
+///
+/// Wraps [`sequoia-openpgp::Packet`].
+///
+/// [`sequoia-openpgp::Packet`]: ../../sequoia_openpgp/enum.Packet.html
+#[::ffi_wrapper_type(prefix = "pgp_",
+                     derive = "Clone, Debug, Hash, PartialEq")]
+pub struct Packet(openpgp::Packet);
 
 /// Returns the `Packet's` corresponding OpenPGP tag.
 ///
 /// Tags are explained in [Section 4.3 of RFC 4880].
 ///
 ///   [Section 4.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.3
-#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "system" fn pgp_packet_tag(p: *const Packet)
-                                     -> uint8_t {
-    let p = ffi_param_ref!(p);
-    let tag: u8 = p.tag().into();
-    tag as uint8_t
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
+fn pgp_packet_tag(p: *const Packet) -> uint8_t {
+    u8::from(p.ref_raw().tag()) as uint8_t
 }
 
 /// Returns the parsed `Packet's` corresponding OpenPGP tag.
@@ -48,11 +65,9 @@ pub extern "system" fn pgp_packet_tag(p: *const Packet)
 /// Signature Packet uses some unsupported methods, it is parsed
 /// into an `Packet::Unknown`.  `tag()` returns `PGP_TAG_SIGNATURE`,
 /// whereas `kind()` returns `0`.
-#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "system" fn pgp_packet_kind(p: *const Packet)
-                                      -> uint8_t {
-    let p = ffi_param_ref!(p);
-    if let Some(kind) = p.kind() {
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
+fn pgp_packet_kind(p: *const Packet) -> uint8_t {
+    if let Some(kind) = p.ref_raw().kind() {
         kind.into()
     } else {
         0
@@ -92,10 +107,17 @@ pub extern "system" fn pgp_tag_to_string(tag: uint8_t) -> *const c_char {
     }.as_bytes().as_ptr() as *const c_char
 }
 
-/// Pretty prints a packet
-#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "system" fn pgp_packet_debug(p: *const Packet) -> *const c_char {
-    let p = ffi_param_ref!(p);
-    format!("{:?}", p).as_ptr() as *const c_char
+/// Given a packet references the contained signature, if any.
+///
+/// If the Packet is not of the `Packet::Signature` variant, this
+/// function returns `NULL`.  Objects returned from this function must
+/// be deallocated using `pgp_signature_free` even though they only
+/// reference the given packet.
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
+fn pgp_packet_ref_signature(p: *const Packet) -> Maybe<signature::Signature> {
+    if let openpgp::Packet::Signature(ref p) = p.ref_raw() {
+        ::std::ptr::NonNull::new(p.move_into_raw())
+    } else {
+        None
+    }
 }
-

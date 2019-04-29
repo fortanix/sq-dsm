@@ -235,22 +235,25 @@ class SEIP(SQObject):
 
 class Packet(SQObject):
     _map = {
-        Tag.PublicKey: lambda x, **kwargs: PublicKey(x.key, **kwargs),
-        Tag.PublicSubkey: lambda x, **kwargs: PublicSubkey(x.key, **kwargs),
-        Tag.SecretKey: lambda x, **kwargs: SecretKey(x.key, **kwargs),
-        Tag.SecretSubkey: lambda x, **kwargs: SecretSubkey(x.key, **kwargs),
-        Tag.UserID: lambda x, **kwargs: UserID(x.user_id, **kwargs),
-        Tag.UserAttribute: lambda x, **kwargs: UserAttribute(x.user_attribute, **kwargs),
-        Tag.SKESK: lambda x, **kwargs: SKESK(x.skesk, **kwargs),
-        Tag.SEIP: lambda x, **kwargs: SEIP(x.seip, **kwargs),
+        Tag.PublicKey: lambda x, **kwargs: PublicKey(x, **kwargs),
+        Tag.PublicSubkey: lambda x, **kwargs: PublicSubkey(x, **kwargs),
+        Tag.SecretKey: lambda x, **kwargs: SecretKey(x, **kwargs),
+        Tag.SecretSubkey: lambda x, **kwargs: SecretSubkey(x, **kwargs),
+        Tag.UserID: lambda x, **kwargs: UserID(x, **kwargs),
+        Tag.UserAttribute: lambda x, **kwargs: UserAttribute(x, **kwargs),
+        Tag.SKESK: lambda x, **kwargs: SKESK(x, **kwargs),
+        Tag.SEIP: lambda x, **kwargs: SEIP(x, **kwargs),
     }
     @property
     def tag(self):
         return Tag(lib.pgp_packet_tag(self.ref()))
+    @property
+    def kind(self):
+        return Tag(lib.pgp_packet_kind(self.ref()))
     def __str__(self):
         return "<Packet tag={}>".format(self.tag)
     def match(self):
-        return self._map[self.tag](self.ref(), context=self.context(), owner=self)
+        return self._map[self.kind](self.ref(), context=self.context(), owner=self)
 
 class PacketParserResult(SQObject):
     _del = lib.pgp_packet_parser_result_free

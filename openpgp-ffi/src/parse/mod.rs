@@ -14,7 +14,7 @@ use libc::{uint8_t, c_char, c_int, size_t};
 extern crate sequoia_openpgp as openpgp;
 extern crate time;
 
-use self::openpgp::{
+use super::packet::{
     Packet,
 };
 use self::openpgp::parse::{
@@ -113,7 +113,7 @@ pub extern "system" fn pgp_packet_parser_packet
     (pp: *const PacketParser)
      -> *const Packet {
     let pp = ffi_param_ref!(pp);
-    &pp.packet
+    (&pp.packet).move_into_raw()
 }
 
 /// Returns the current packet's recursion depth.
@@ -208,7 +208,7 @@ pub extern "system" fn pgp_packet_parser_next<'a>
     match pp.next() {
         Ok((old_p, new_ppr)) => {
             if let Some(p) = old_packet {
-                *p = box_raw!(old_p);
+                *p = old_p.move_into_raw();
             }
             if let Some(p) = ppr {
                 *p = box_raw!(new_ppr);
@@ -252,7 +252,7 @@ pub extern "system" fn pgp_packet_parser_recurse<'a>
     match pp.recurse() {
         Ok((old_p, new_ppr)) => {
             if let Some(p) = old_packet {
-                *p = box_raw!(old_p);
+                *p = old_p.move_into_raw();
             }
             if let Some(p) = ppr {
                 *p = box_raw!(new_ppr);
@@ -298,7 +298,7 @@ pub extern "system" fn pgp_packet_parser_finish<'a>
     match pp.finish() {
         Ok(p) => {
             if let Some(out_p) = packet {
-                *out_p = p;
+                *out_p = p.move_into_raw();
             }
             Status::Success
         },

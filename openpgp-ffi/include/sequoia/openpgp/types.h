@@ -321,20 +321,7 @@ typedef struct pgp_mdc *pgp_mdc_t;
 ///
 ///   [Section 5 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5
 /*/
-typedef union pgp_packet {
-  pgp_unknown_t unknown;
-  pgp_signature_t signature;
-  pgp_one_pass_sig_t one_pass_sig;
-  pgp_key_t key;
-  pgp_user_id_t user_id;
-  pgp_user_attribute_t user_attribute;
-  pgp_literal_t literal;
-  pgp_compressed_data_t compressed_data;
-  pgp_pkesk_t pkesk;
-  pgp_skesk_t skesk;
-  pgp_seip_t seip;
-  pgp_mdc_t mdc;
-} pgp_packet_t;
+typedef struct pgp_packet *pgp_packet_t;
 
 /*/
 /// A low-level OpenPGP message parser.

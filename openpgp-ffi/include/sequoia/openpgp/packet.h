@@ -2,20 +2,30 @@
 #define SEQUOIA_OPENPGP_PACKET_H
 
 /*/
-/// Returns a human-readable tag name.
-/*/
-const char *pgp_tag_to_string (pgp_tag_t tag);
-
-/*/
 /// Frees the Packet.
 /*/
 void pgp_packet_free (pgp_packet_t p);
+
+/*/
+/// Clones this object.
+/*/
+pgp_packet_t pgp_packet_clone (pgp_packet_t keyid);
 
 /*/
 /// Returns a human readable description of this object suitable for
 /// debugging.
 /*/
 char *pgp_packet_debug (const pgp_packet_t fp);
+
+/*/
+/// Compares objects of this kind.
+/*/
+int pgp_packet_equal (const pgp_packet_t a, const pgp_packet_t b);
+
+/*/
+/// Hashes this object.
+/*/
+uint64_t pgp_packet_hash (pgp_packet_t keyid);
 
 /*/
 /// Returns the `Packet's` corresponding OpenPGP tag.
@@ -36,5 +46,20 @@ pgp_tag_t pgp_packet_tag (pgp_packet_t p);
 /// whereas `kind()` returns `0`.
 /*/
 pgp_tag_t pgp_packet_kind (pgp_packet_t p);
+
+/*/
+/// Returns a human-readable tag name.
+/*/
+const char *pgp_tag_to_string (pgp_tag_t tag);
+
+/*/
+/// Given a packet references the contained signature, if any.
+///
+/// If the Packet is not of the `Packet::Signature` variant, this
+/// function returns `NULL`.  Objects returned from this function must
+/// be deallocated using `pgp_signature_free` even though they only
+/// reference the given packet.
+/*/
+pgp_signature_t pgp_packet_ref_signature (pgp_packet_t p);
 
 #endif

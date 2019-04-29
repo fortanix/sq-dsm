@@ -1001,7 +1001,7 @@ pgp_key_pair_t pgp_key_into_key_pair (pgp_error_t *errp, pgp_key_t key);
 /// The returned pointer is valid until `uid` is deallocated.  If
 /// `value_len` is not `NULL`, the size of value is stored there.
 /*/
-const uint8_t *pgp_user_id_value (pgp_user_id_t uid,
+const uint8_t *pgp_user_id_value (pgp_packet_t uid,
 				 size_t *value_len);
 
 /*/
@@ -1010,7 +1010,7 @@ const uint8_t *pgp_user_id_value (pgp_user_id_t uid,
 /// The returned pointer is valid until `ua` is deallocated.  If
 /// `value_len` is not `NULL`, the size of value is stored there.
 /*/
-const uint8_t *pgp_user_attribute_value (pgp_user_attribute_t ua,
+const uint8_t *pgp_user_attribute_value (pgp_packet_t ua,
 					size_t *value_len);
 
 /*/
@@ -1021,7 +1021,7 @@ const uint8_t *pgp_user_attribute_value (pgp_user_attribute_t ua,
 /// is not written to it.  Either way, `key_len` is set to the size of
 /// the session key.
 /*/
-pgp_status_t pgp_skesk_decrypt (pgp_error_t *errp, pgp_skesk_t skesk,
+pgp_status_t pgp_skesk_decrypt (pgp_error_t *errp, pgp_packet_t skesk,
                               const uint8_t *password, size_t password_len,
                               uint8_t *algo, /* XXX */
                               uint8_t *key, size_t *key_len);

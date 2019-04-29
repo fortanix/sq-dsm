@@ -5,9 +5,10 @@ use libc::{uint8_t, size_t};
 
 use failure;
 extern crate sequoia_openpgp as openpgp;
-use self::openpgp::Packet;
+use super::Packet;
 
 use error::Status;
+use RefRaw;
 
 /// Returns the session key.
 ///
@@ -25,7 +26,6 @@ pub extern "system" fn pgp_skesk_decrypt(errp: Option<&mut *mut ::error::Error>,
                                         key_len: *mut size_t)
                                         -> Status {
     ffi_make_fry_from_errp!(errp);
-    let skesk = ffi_param_ref!(skesk);
     assert!(!password.is_null());
     let password = unsafe {
         slice::from_raw_parts(password, password_len as usize)
@@ -33,7 +33,7 @@ pub extern "system" fn pgp_skesk_decrypt(errp: Option<&mut *mut ::error::Error>,
     let algo = ffi_param_ref_mut!(algo);
     let key_len = ffi_param_ref_mut!(key_len);
 
-    if let &Packet::SKESK(ref skesk) = skesk {
+    if let &openpgp::Packet::SKESK(ref skesk) = skesk.ref_raw() {
         match skesk.decrypt(&password.to_owned().into()) {
             Ok((a, k)) => {
                 *algo = a.into();

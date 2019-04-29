@@ -9,36 +9,51 @@
   fflush (stderr);                                      \
   if (s) { exit (s); }                                  \
   } while (0)
-#include <fcntl.h>
+#include <assert.h>
 #include <stdio.h>
-#include <stdlib.h>
-#include <sys/mman.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <unistd.h>
+#include <string.h>
 
 #include <sequoia/openpgp.h>
+
+const char *SIGNATURE =
+  "-----BEGIN PGP SIGNATURE-----\n"
+  "\n"
+  "woQEHxYKADYCHgMCmwEFglzG4sgFiQWfpgAWIQRQOSL5kHbC6ABk1wR4FqN0BApT\n"
+  "FwkQeBajdAQKUxcCFQoAAApUAP9IqLtwGgfxwzwGYqBSQszNwsg9OHAdputlUvVZ\n"
+  "WZ+vqgEA5lRTlWwcS3ofH758FQWJFyHwHBQ6weler8510ZEahg4=\n"
+  "=Ebj8\n"
+  "-----END PGP SIGNATURE-----\n";
 
 int
 main (int argc, char **argv)
 {
-  /* Create a new TSK.  */
-  pgp_tsk_t tsk;
-  pgp_signature_t revocation;
-  pgp_tsk_new (NULL, "", &tsk, &revocation);
-  pgp_signature_free (revocation);
+  /* Let's parse a signature.  */
+  pgp_packet_parser_result_t ppr;
+  pgp_packet_parser_t pp;
+  ppr = pgp_packet_parser_from_bytes (NULL,
+                                      (uint8_t *) SIGNATURE,
+                                      strlen (SIGNATURE));
+  while ((pp = pgp_packet_parser_result_packet_parser (ppr)))
+    {
+      /* Let's borrow a immutable reference from the parser.  */
+      pgp_packet_t p = pgp_packet_parser_packet (pp);
 
-  /* Let's borrow a immutable reference from it.  */
-  pgp_tpk_t tpk = pgp_tsk_tpk (tsk);
+      /* We happen to know that it is a signature.  */
+      pgp_signature_t sig = pgp_packet_ref_signature (p);
+      assert(sig);
 
-  /* Let's violate The Rules and forge a mutable reference from
-   * the immutable one!  */
-  pgp_tpk_t tpk_mut = (pgp_tpk_t) tpk;
+      /* Let's violate The Rules and forge a mutable reference from
+       * the immutable one!  */
+      pgp_signature_t sig_mut = (pgp_signature_t) sig;
 
-  /* And try to convert the TPK to a TSK, moving the ownership!  */
-  pgp_tpk_into_tsk (tpk_mut);
+      /* And try to convert the Signature to a Packet, moving the ownership!  */
+      pgp_signature_into_packet (sig_mut);
 
-  /* Always clean up though.  */
-  pgp_tsk_free (tsk);
+      /* Always clean up though.  */
+      pgp_signature_free (sig);
+      pgp_packet_free (p);
+    }
+
+  pgp_packet_parser_result_free (ppr);
   return 0;
 }
