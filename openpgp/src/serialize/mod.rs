@@ -156,16 +156,41 @@ pub trait SerializeKeyInto {
 /// no_std configuration of this crate.
 fn generic_serialize_into<T: Serialize + SerializeInto>(o: &T, buf: &mut [u8])
                                                         -> Result<usize> {
-    if buf.len() < o.serialized_len() {
-        return Err(Error::InvalidArgument(
-            format!("Invalid buffer size, expected {}, got {}",
-                    o.serialized_len(), buf.len())).into());
-    }
-
+    let buf_len = buf.len();
     let mut cursor = ::std::io::Cursor::new(buf);
-    o.serialize(&mut cursor)?;
+    match o.serialize(&mut cursor) {
+        Ok(_) => (),
+        Err(e) => {
+            let short_write =
+                if let Some(ioe) = e.downcast_ref::<io::Error>() {
+                    ioe.kind() == io::ErrorKind::WriteZero
+                } else {
+                    false
+                };
+            return if short_write {
+                Err(Error::InvalidArgument(
+                    format!("Invalid buffer size, expected {}, got {}",
+                            o.serialized_len(), buf_len)).into())
+            } else {
+                Err(e)
+            }
+        }
+    };
     Ok(cursor.position() as usize)
 }
+
+#[test]
+fn test_generic_serialize_into() {
+    let u = UserID::from("Mr. Pink");
+    let mut b = vec![0; u.serialized_len()];
+    u.serialize_into(&mut b[..]).unwrap();
+
+    // Short buffer.
+    let mut b = vec![0; u.serialized_len() - 1];
+    let e = u.serialize_into(&mut b[..]).unwrap_err();
+    assert_match!(Some(Error::InvalidArgument(_)) = e.downcast_ref());
+}
+
 
 fn write_byte(o: &mut dyn std::io::Write, b: u8) -> io::Result<()> {
     let b : [u8; 1] = [b; 1];
