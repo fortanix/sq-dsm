@@ -33,7 +33,7 @@ use {
     Fingerprint,
 };
 use parse::{Parse, PacketParserResult, PacketParser};
-use serialize::{Serialize, SerializeInto, SerializeKey};
+use serialize::SerializeInto;
 use conversions::Time;
 use constants::ReasonForRevocation;
 
@@ -41,8 +41,6 @@ mod lexer;
 mod grammar;
 mod builder;
 mod bindings;
-mod tsk;
-pub use self::tsk::TSK;
 
 use self::lexer::Lexer;
 pub use self::lexer::Token;
@@ -842,10 +840,10 @@ impl UserAttributeBinding {
 /// An unknown component and any associated signatures.
 #[derive(Debug, Clone, PartialEq)]
 pub struct UnknownBinding {
-    pub(crate) // XXX for TSK::serialize()
+    pub(crate) // XXX for serialization, see #245
     unknown: Unknown,
 
-    pub(crate) // XXX for TSK::serialize()
+    pub(crate) // XXX for serialization, see #245
     sigs: Vec<Signature>,
 }
 
@@ -2824,15 +2822,6 @@ impl TPK {
         TPK::from_packet_pile(PacketPile::from(combined))
     }
 
-    /// Derive a [`TSK`] object from this key.
-    ///
-    /// This object writes out secret keys during serialization.
-    ///
-    /// [`TSK`]: tpk/struct.TSK.html
-    pub fn as_tsk<'a>(&'a self) -> TSK<'a> {
-        TSK::new(self)
-    }
-
     /// Returns whether at least one of the keys includes a secret
     /// part.
     pub fn is_tsk(&self) -> bool {
@@ -2845,90 +2834,10 @@ impl TPK {
     }
 }
 
-impl Serialize for TPK {
-    fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
-        self.primary().serialize(o, Tag::PublicKey)?;
-
-        for s in self.primary_selfsigs.iter() {
-            s.serialize(o)?;
-        }
-        for s in self.primary_self_revocations.iter() {
-            s.serialize(o)?;
-        }
-        for s in self.primary_certifications.iter() {
-            s.serialize(o)?;
-        }
-        for s in self.primary_other_revocations.iter() {
-            s.serialize(o)?;
-        }
-
-        for u in self.userids.iter() {
-            u.userid.serialize(o)?;
-            for s in u.self_revocations() {
-                s.serialize(o)?;
-            }
-            for s in u.selfsigs.iter() {
-                s.serialize(o)?;
-            }
-            for s in u.other_revocations() {
-                s.serialize(o)?;
-            }
-            for s in u.certifications.iter() {
-                s.serialize(o)?;
-            }
-        }
-
-        for u in self.user_attributes.iter() {
-            u.user_attribute.serialize(o)?;
-            for s in u.self_revocations() {
-                s.serialize(o)?;
-            }
-            for s in u.selfsigs.iter() {
-                s.serialize(o)?;
-            }
-            for s in u.other_revocations() {
-                s.serialize(o)?;
-            }
-            for s in u.certifications.iter() {
-                s.serialize(o)?;
-            }
-        }
-
-        for k in self.subkeys.iter() {
-            k.subkey.serialize(o, Tag::PublicSubkey)?;
-            for s in k.self_revocations() {
-                s.serialize(o)?;
-            }
-            for s in k.selfsigs.iter() {
-                s.serialize(o)?;
-            }
-            for s in k.other_revocations() {
-                s.serialize(o)?;
-            }
-            for s in k.certifications.iter() {
-                s.serialize(o)?;
-            }
-        }
-
-        for u in self.unknowns.iter() {
-            u.unknown.serialize(o)?;
-
-            for s in u.sigs.iter() {
-                s.serialize(o)?;
-            }
-        }
-
-        for s in self.bad.iter() {
-            s.serialize(o)?;
-        }
-
-        Ok(())
-    }
-}
-
 #[cfg(test)]
 mod test {
     use crypto::KeyPair;
+    use serialize::Serialize;
     use super::*;
 
     use KeyID;

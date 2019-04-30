@@ -17,4 +17,4 @@ extern crate sequoia_openpgp as openpgp;
 ///
 /// [`sequoia-openpgp::tpk::TSK`]: ../../sequoia_openpgp/enum.TSK.html
 #[::ffi_wrapper_type(prefix = "pgp_", name = "tsk", derive = "Serialize")]
-pub struct TSK<'a>(openpgp::tpk::TSK<'a>);
+pub struct TSK<'a>(openpgp::serialize::TSK<'a>);

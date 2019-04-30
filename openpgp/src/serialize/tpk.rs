@@ -3,6 +3,98 @@ use TPK;
 use packet::{Key, Tag};
 use serialize::{Serialize, SerializeKey};
 
+impl Serialize for TPK {
+    fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
+        self.primary().serialize(o, Tag::PublicKey)?;
+
+        for s in self.selfsigs() {
+            s.serialize(o)?;
+        }
+        for s in self.self_revocations() {
+            s.serialize(o)?;
+        }
+        for s in self.other_revocations() {
+            s.serialize(o)?;
+        }
+        for s in self.certifications() {
+            s.serialize(o)?;
+        }
+
+        for u in self.userids.iter() {
+            u.userid().serialize(o)?;
+            for s in u.self_revocations() {
+                s.serialize(o)?;
+            }
+            for s in u.selfsigs() {
+                s.serialize(o)?;
+            }
+            for s in u.other_revocations() {
+                s.serialize(o)?;
+            }
+            for s in u.certifications() {
+                s.serialize(o)?;
+            }
+        }
+
+        for u in self.user_attributes.iter() {
+            u.user_attribute().serialize(o)?;
+            for s in u.self_revocations() {
+                s.serialize(o)?;
+            }
+            for s in u.selfsigs() {
+                s.serialize(o)?;
+            }
+            for s in u.other_revocations() {
+                s.serialize(o)?;
+            }
+            for s in u.certifications() {
+                s.serialize(o)?;
+            }
+        }
+
+        for k in self.subkeys.iter() {
+            k.subkey().serialize(o, Tag::PublicSubkey)?;
+            for s in k.self_revocations() {
+                s.serialize(o)?;
+            }
+            for s in k.selfsigs() {
+                s.serialize(o)?;
+            }
+            for s in k.other_revocations() {
+                s.serialize(o)?;
+            }
+            for s in k.certifications() {
+                s.serialize(o)?;
+            }
+        }
+
+        for u in self.unknowns.iter() {
+            u.unknown.serialize(o)?;
+
+            for s in u.sigs.iter() {
+                s.serialize(o)?;
+            }
+        }
+
+        for s in self.bad.iter() {
+            s.serialize(o)?;
+        }
+
+        Ok(())
+    }
+}
+
+impl TPK {
+    /// Derive a [`TSK`] object from this key.
+    ///
+    /// This object writes out secret keys during serialization.
+    ///
+    /// [`TSK`]: serialize/struct.TSK.html
+    pub fn as_tsk<'a>(&'a self) -> TSK<'a> {
+        TSK::new(self)
+    }
+}
+
 /// A reference to a TPK that allows serialization of secret keys.
 ///
 /// To avoid accidental leakage `TPK::serialize()` skips secret keys.
@@ -34,7 +126,7 @@ pub struct TSK<'a> {
 
 impl<'a> TSK<'a> {
     /// Creates a new view for the given `TPK`.
-    pub(crate) fn new(tpk: &'a TPK) -> Self {
+    fn new(tpk: &'a TPK) -> Self {
         Self {
             tpk: tpk,
             filter: None,
