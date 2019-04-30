@@ -1,3 +1,63 @@
+//! This crates provides support for parsing a subset of [RFC 2822].
+//! In particular, it exports functions that parse a string according
+//! to the [`name-addr`] production, and the [`addr-spec`] production.
+//!
+//! This crate does not yet parse [RFC 2822] [`dates and times`] or
+//! [`message headers`].  Given the infrastructure, adding support for
+//! these productions should be straightforward.  However, the main
+//! user of this crate is [Sequoia], an [OpenPGP implementation], and
+//! it only uses this crate to parse [User IDs], which usually include
+//! an [RFC 2822] mail [`name-addr`].  If you require this
+//! functionality, please feel free to open an [issue].
+//!
+//!   [RFC 2822]: https://tools.ietf.org/html/rfc2822
+//!   [`name-addr`]: https://tools.ietf.org/html/rfc2822#section-3.4
+//!   [`addr-spec`]: https://tools.ietf.org/html/rfc2822#section-3.4.1
+//!   [`dates and times`]: https://tools.ietf.org/html/rfc2822#section-3.3
+//!   [`message headers`]: https://tools.ietf.org/html/rfc2822#section-3.6
+//!   [Sequoia]: https://sequoia-pgp.org/
+//!   [OpenPGP implementation]: https://tools.ietf.org/html/rfc4880
+//!   [User IDs]: https://tools.ietf.org/html/rfc4880#section-5.11
+//!   [issue]: https://gitlab.com/sequoia-pgp/sequoia/issues
+//!
+//! # Examples
+//!
+//! Parsing a [`name-addr`]:
+//!
+//! ```
+//! use sequoia_rfc2822::NameAddr;
+//!
+//! let nameaddr = NameAddr::parse(
+//!     "Professor Pippy P. Poopypants <pippy@jerome-horwitz.k12.oh.us>")
+//!     .expect("Valid name-addr");
+//! assert_eq!(nameaddr.name(), Some("Professor Pippy P. Poopypants"));
+//! assert_eq!(nameaddr.comment(), None);
+//! assert_eq!(nameaddr.address(), Some("pippy@jerome-horwitz.k12.oh.us"));
+//!
+//! // Extra angle brackets.
+//! assert!(NameAddr::parse("Invalid <<pippy@jerome-horwitz.k12.oh.us>>")
+//!        .is_err());
+//!
+//! // No angle brackets.
+//! assert!(NameAddr::parse("pippy@jerome-horwitz.k12.oh.us")
+//!        .is_err());
+//! ```
+//!
+//! Parsing an [`addr-spec`]:
+//!
+//! ```
+//! use sequoia_rfc2822::AddrSpec;
+//!
+//! let addrspec = AddrSpec::parse(
+//!     "pippy@jerome-horwitz.k12.oh.us")
+//!     .expect("Valid addr-spec");
+//! assert_eq!(addrspec.address(), "pippy@jerome-horwitz.k12.oh.us");
+//!
+//! // Angle brackets are not allowed.
+//! assert!(AddrSpec::parse("<pippy@jerome-horwitz.k12.oh.us>")
+//!        .is_err());
+//! ```
+
 extern crate failure;
 extern crate lalrpop_util;
 
@@ -84,7 +144,7 @@ fn parse_error_downcast<'a>(e: ParseError<usize, lexer::Token<'a>, Error>)
 /// But not:
 ///
 /// ```text
-/// email@example.org
+/// <email@example.org>
 /// ```
 ///
 /// RFC 2822 comments are ignored.
