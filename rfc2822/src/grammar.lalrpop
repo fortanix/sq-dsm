@@ -33,7 +33,8 @@ grammar<'input>;
 // A further convention is an ssh-host-uri production:
 //
 //   ssh-host-uri = "ssh://" dns-hostname
-
+//
+// Support for this should be added in the future.
 
 CRLF: () = {
     CR LF
@@ -83,7 +84,7 @@ specials : Token<'input> = {
 
 // quoted-pair     =       ("\" text) / obs-qp
 //
-// In RFC 2822, text is a single character and the BACKSLAH is
+// In RFC 2822, text is a single character and the BACKSLASH is
 // followed by exactly one character.  As an optimization, our lexer
 // groups runs of 'text' characters into a single token, Token::OTHER.
 // Since a quoted pair can always be followed by a run of OTHER
@@ -272,8 +273,8 @@ atom : Vec<Component> = {
             c2),
 }
 
-// See the phrase production for this variant of the 'atom' production
-// exists, and why the 'CFWS?'es are not included.
+// See the phrase production for why this variant of the 'atom'
+// production exists, and why the 'CFWS?'es are not included.
 atom_prime : Component = {
     <a:atext_dot_plus> => Component::Text(a),
 }
@@ -544,18 +545,18 @@ pub(crate) NameAddr : Vec<Component> = {
 }
 
 // The display_name ends in an optional CFWS and the angle_addr starts
-// with one.  This causes an ambiguity.  The angle_addr_prime
-// production removes the optional leading CFWS non-terminal.
-//
-// But, this creates a small problem.  Consider:
+// with one.  This causes an ambiguity.  We resolve the ambiguity by
+// introducing the angle_addr_prime production, which doesn't match a
+// leading CFWS non-terminal.  But, this creates another small
+// problem.  Consider:
 //
 //   " <email@example.org>"
 //
-// This is: [CFWS angle-addr].  Now, we are using angle-addr-prime so
-// that it won't match leading CFWSes, because they are matched by
-// display-name.  But display-name doesn't match in this case because
-// there are no phrases, and it requires at least on phrase!  The
-// second rule below covers this edge case.
+// This is: [CFWS angle-addr-prime].  The CFWS isn't folded into the
+// angle-addr-prime to fix the aforementioned ambiguity.  But it also
+// doesn't reduce to a display-name, because there are no phrases, and
+// display-name requires at least one phrase!  Thus, we special case
+// this.
 name_addr : Vec<Component> = {
     <n:display_name?> <a:angle_addr_prime> =>
         components_concat!(n, a),
@@ -609,7 +610,7 @@ addr_spec : Vec<Component> = {
         //
         // is valid (it's foo@bar.com).
 
-        // The local part may start with commends and the domain part
+        // The local part may start with comments and the domain part
         // may end with comments.
         let local_part = l.pop().expect("empty local_part");
         let domain = d.remove(0);
@@ -675,7 +676,7 @@ domain_literal : Vec<Component> = {
                 })
                 .flatten()
                 .collect::<Vec<Component>>(),
-            // d is an Option<Component>, turn it into a
+            // d is an Option<Component>, turn it into an
             // Option<Vec<Component>>.
             d.map(|x| vec![x]),
             Component::Text("]".into()),
@@ -700,7 +701,7 @@ domain_literal_right : Vec<Component> = {
                 })
                 .flatten()
                 .collect::<Vec<Component>>(),
-            // d is an Option<Component>, turn it into a
+            // d is an Option<Component>, turn it into an
             // Option<Vec<Component>>.
             d.map(|x| vec![x]),
             Component::Text("]".into()),

@@ -85,44 +85,6 @@ impl<'input> Lexer<'input> {
 
 // 3.2.1. Primitive Tokens
 
-// The symbols.  The default tokenizer returns &str, but we want
-// chars.  So, we need to do a little dance.
-//
-// match {
-//     // All unicode white space.
-//     // 2.2.2. says that whitespace is only ' ' and '\t'.
-//     r" \t" => WSP_TOKEN,
-// 
-//     r"(?x)
-//         [\x01-\x08         # %d1-8 /
-//          \x0b              # %d11 /
-//          \x0c              # %d12 /
-//          \x0e-\x1f         # %d14-31 /
-//          \x7f              # %d127
-//         ]" => NO_WS_CTL_TOKEN,
-// 
-//     "\r" => CR_TOKEN,
-//     "\n" => LF_TOKEN,
-// 
-//     // specials
-//     "(" => LPAREN_TOKEN,
-//     ")" => RPAREN_TOKEN,
-//     "<" => LANGLE_TOKEN,
-//     ">" => RANGLE_TOKEN,
-//     "[" => LBRACKET_TOKEN,
-//     "]" => RBRACKET_TOKEN,
-//     ":" => COLON_TOKEN,
-//     ";" => SEMICOLON_TOKEN,
-//     "@" => AT_TOKEN,
-//     "\\" => BACKSLASH_TOKEN,
-//     "," => COMMA_TOKEN,
-//     "." => DOT_TOKEN,
-//     "\"" =>  DQUOTE_TOKEN,
-// } else {
-//     // Everything else.
-//     r"." =>  OTHER_TOKEN
-// }
-
 impl<'input> Iterator for Lexer<'input> {
     type Item = LexerItem<Token<'input>, usize, Error>;
 
