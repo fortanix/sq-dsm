@@ -34,7 +34,10 @@ use std::cmp::min;
 use std::str;
 use quickcheck::{Arbitrary, Gen};
 
-use packet::Header;
+use packet::prelude::*;
+use packet::BodyLength;
+use packet::ctb::{CTBNew, CTBOld};
+use serialize::SerializeInto;
 
 /// The encoded output stream must be represented in lines of no more
 /// than 76 characters each (see (see [RFC 4880, section
@@ -118,6 +121,19 @@ impl Kind {
 
     fn end(&self) -> String {
         format!("-----END PGP {}-----", self.blurb())
+    }
+
+    /// Returns the length of the header.
+    ///
+    /// This does not include any trailing newline.  It is simply the
+    /// length of:
+    ///
+    /// ```norun
+    /// -----BEGIN PGP BLUB -----
+    /// ```
+    fn header_len(&self) -> usize {
+        "-----BEGIN PGP -----".len()
+            + self.blurb().len()
     }
 
     /// Returns the maximal size of the footer with CRC.
@@ -504,79 +520,108 @@ impl<'a> Reader<'a> {
     fn initialize(&mut self) -> Result<()> {
         if self.initialized { return Ok(()) }
 
+        // The range of the first 6 bits of a message is limited.
+        // Save cpu cycles by only considering base64 data that starts
+        // with one of those characters.
+        lazy_static!{
+            static ref START_CHARS : Vec<u8> = {
+                let mut valid_start = Vec::new();
+                for &tag in [ Tag::PKESK, Tag::SKESK,
+                              Tag::OnePassSig, Tag::Signature,
+                              Tag::PublicKey, Tag::SecretKey,
+                              Tag::CompressedData, Tag::Literal ].into_iter() {
+                    let mut ctb = [ 0u8; 1 ];
+                    let mut o = [ 0u8; 4 ];
+
+                    CTBNew::new(tag).serialize_into(&mut ctb[..]).unwrap();
+                    base64::encode_config_slice(&ctb[..], base64::MIME, &mut o[..]);
+                    valid_start.push(o[0]);
+
+                    CTBOld::new(tag, BodyLength::Full(0)).unwrap()
+                        .serialize_into(&mut ctb[..]).unwrap();
+                    base64::encode_config_slice(&ctb[..], base64::MIME, &mut o[..]);
+                    valid_start.push(o[0]);
+                }
+
+                // The standard start of an ASCII armor header e.g.,
+                //
+                //   -----BEGIN PGP MESSAGE-----
+                valid_start.push('-' as u8);
+
+                valid_start.sort();
+                valid_start.dedup();
+                valid_start
+            };
+
+        }
+
         // Look for the Armor Header Line, skipping any garbage in the
         // process.
-        let mut n = 0;
         let mut found_blob = false;
-        'search: loop {
-            self.source.consume(n);
+        let start_chars = if self.strict {
+            &[b'-'][..]
+        } else {
+            &START_CHARS[..]
+        };
 
-            let line = self.source.read_to('\n' as u8)?;
-            n = line.len();
-            if n == 0 {
-                return Err(
-                    Error::new(ErrorKind::InvalidInput,
-                               "Reached EOF looking for Armor Header Line"));
+        let mut lines = 0;
+        let n = 'search: loop {
+            if lines > 0 {
+                // Find the start of the next line.
+                self.source.drop_through(&[b'\n'])?;
+            }
+            lines += 1;
+
+            // Ignore leading whitespace, etc.
+            while self.source.data_hard(1)?[0].is_ascii_whitespace() {
+                self.source.consume(1);
             }
 
-            // If the user did not specify what kind of data we want,
-            // we aggressively try to decode any data, even if we do
-            // not see a valid header.
-            if ! self.strict {
-                // Try the whole string, as well as substrings
-                // starting at each whitespace sequence.
-                let mut offset = 0;
-                loop {
-                    if is_armored_pgp_blob(&line[offset..]) {
-                        // Consume anything up to this point.
-                        n = offset;
-                        found_blob = true;
-                        break 'search;
-                    }
-
-                    if let Some(o) = &line[offset..].iter()
-                        .position(|c| c.is_ascii_whitespace())
-                    {
-                        offset += *o;
-
-                        // Skip whitespaces.
-                        while offset < line.len()
-                            && line[offset].is_ascii_whitespace()
-                        {
-                            offset += 1;
-                        }
-                    } else {
-                        // No armored blob found in this line.
-                        break;
-                    }
-                }
-            }
-
-            if line.len() < 27 {
-                // Line is too short to contain the shortest header.
+            // Don't bother if the first byte is not plausible.
+            if !start_chars.binary_search(&self.source.data_hard(1)?[0]).is_ok()
+            {
+                self.source.consume(1);
                 continue;
             }
 
-            for i in 0..(line.len() - 27 + 1) {
-                if let Some(kind) = Kind::detect(&line[i..]) {
-                    if self.kind == None {
-                        // Found any!
-                        self.kind = Some(kind);
-                        break 'search;
-                    }
+            {
+                let mut input = self.source.data(128)?;
+                let n = input.len();
 
-                    if self.kind == Some(kind) {
-                        // Found it!
-                        break 'search;
-                    }
+                if n == 0 {
+                    return Err(
+                        Error::new(ErrorKind::InvalidInput,
+                                   "Reached EOF looking for Armor Header Line"));
+                }
+                if n > 128 {
+                    input = &input[..128];
                 }
 
-                if ! line[i].is_ascii_whitespace() {
-                    // Non-whitespace prefix.
-                    continue 'search;
+                if input[0] == '-' as u8 {
+                    // Possible ASCII-armor header.
+                    if let Some(kind) = Kind::detect(&input) {
+                        if self.kind == None {
+                            // Found any!
+                            self.kind = Some(kind);
+                            break 'search kind.header_len();
+                        }
+
+                        if self.kind == Some(kind) {
+                            // Found it!
+                            break 'search kind.header_len();
+                        }
+                    }
+                } else if ! self.strict {
+                    // The user did not specify what kind of data she
+                    // wants.  We aggressively try to decode any data,
+                    // even if we do not see a valid header.
+                    if is_armored_pgp_blob(input) {
+                        found_blob = true;
+                        break 'search 0;
+                    }
                 }
             }
-        }
+        };
         self.source.consume(n);
 
         if found_blob {
@@ -585,13 +630,28 @@ impl<'a> Reader<'a> {
             return Ok(());
         }
 
-        // Read the headers.
+        // We consumed the header above, but not any trailing
+        // whitespace and the trailing new line.  We do that now.
+        // Other data between the header and the new line are not
+        // allowed.  But, instead of failing, we try to recover, by
+        // stopping at the first non-whitespace character.
+        let n = {
+            let line = self.source.read_to('\n' as u8)?;
+            line.iter().position(|&c| {
+                !c.is_ascii_whitespace()
+            }).unwrap_or(line.len())
+        };
+        self.source.consume(n);
+
+        // Read the key-value headers.
         let mut n = 0;
+        let mut lines = 0;
         loop {
             self.source.consume(n);
 
             let line = self.source.read_to('\n' as u8)?;
             n = line.len();
+            lines += 1;
 
             let line = str::from_utf8(line);
             // Ignore---don't error out---lines that are not valid UTF8.
@@ -621,6 +681,13 @@ impl<'a> Reader<'a> {
             if key_value.len() == 1 {
                 if line.trim_start().len() == 0 {
                     // Empty line.
+                    break;
+                } else if lines == 1 {
+                    // This is the first line and we don't have a
+                    // key-value pair.  It seems more likely that
+                    // we're just missing a newline and this invalid
+                    // header is actually part of the body.
+                    n = 0;
                     break;
                 }
             } else {
