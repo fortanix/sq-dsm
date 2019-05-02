@@ -673,6 +673,68 @@ pub trait BufferedReader<C> : io::Read + fmt::Debug + fmt::Display {
         Ok(&self.buffer()[..len])
     }
 
+    /// Discards the input until one of the bytes in terminals is
+    /// encountered.
+    ///
+    /// The matching byte is not discarded.
+    ///
+    /// Returns the number of bytes discarded.
+    ///
+    /// The end of file is considered a match.
+    ///
+    /// `terminals` must be sorted.
+    fn drop_until(&mut self, terminals: &[u8])
+        -> Result<usize, std::io::Error>
+    {
+        // Make sure terminals is sorted.
+        for t in terminals.windows(2) {
+            assert!(t[0] <= t[1]);
+        }
+
+        let mut total = 0;
+        let position = 'outer: loop {
+            let len = {
+                let buffer = self.data(DEFAULT_BUF_SIZE)?;
+                if buffer.len() == 0 {
+                    break 'outer 0;
+                }
+
+                if let Some(position) = buffer.iter().position(
+                    |c| terminals.binary_search(c).is_ok())
+                {
+                    break 'outer position;
+                }
+
+                buffer.len()
+            };
+
+            self.consume(len);
+            total += len;
+        };
+
+        self.consume(position);
+        return Ok(total + position);
+    }
+
+    /// Discards the input until one of the bytes in `terminals` is
+    /// encountered.
+    ///
+    /// The matching byte is also discarded.
+    ///
+    /// Returns the terminal byte and the number of bytes discarded.
+    ///
+    /// Unlike `drop_until`, The end of file is *not* considered a
+    /// match.
+    ///
+    /// `terminals` must be sorted.
+    fn drop_through(&mut self, terminals: &[u8])
+        -> Result<(u8, usize), std::io::Error>
+    {
+        let dropped = self.drop_until(terminals)?;
+        let terminal = self.data_consume_hard(1)?[0];
+        Ok((terminal, dropped + 1))
+    }
+
     /// Like `data_consume_hard()`, but returns the data in a
     /// caller-owned buffer.
     ///
@@ -1021,5 +1083,42 @@ mod test {
             let bio = Generic::new(&mut f, None);
             buffered_reader_read_test_aux (bio, data);
         }
+    }
+
+    #[test]
+    fn drop_until() {
+        let data : &[u8] = &b"abcd"[..];
+        let mut reader = Memory::new(data);
+
+        // Matches the 'a' at 0 and consumes 0 bytes.
+        assert_eq!(reader.drop_until(b"ab").unwrap(), 0);
+        // Matches the 'b' at 1 and consumes 1 byte.
+        assert_eq!(reader.drop_until(b"bc").unwrap(), 1);
+        // Matches the 'b' at 1 and consumes 0 bytes.
+        assert_eq!(reader.drop_until(b"ab").unwrap(), 0);
+        // Matches the 'd' at 4 and consumes 2 bytes.
+        assert_eq!(reader.drop_until(b"de").unwrap(), 2);
+        // Matches nothing, consuming the last 1 byte.
+        assert_eq!(reader.drop_until(b"e").unwrap(), 1);
+        // Matches nothing, consuming nothing.
+        assert_eq!(reader.drop_until(b"e").unwrap(), 0);
+    }
+
+    #[test]
+    fn drop_through() {
+        let data : &[u8] = &b"abcd"[..];
+        let mut reader = Memory::new(data);
+
+        // Matches the 'a' at 0 and consumes 1 byte.
+        assert_eq!(reader.drop_through(b"ab").unwrap(),
+                   (b'a', 1));
+        // Matches the 'b' at 1 and consumes 1 byte.
+        assert_eq!(reader.drop_through(b"ab").unwrap(),
+                   (b'b', 1));
+        // Matches the 'd' at 4 and consumes 2 byte.
+        assert_eq!(reader.drop_through(b"def").unwrap(),
+                   (b'd', 2));
+        // Doesn't match (eof).
+        assert!(reader.drop_through(b"def").is_err())
     }
 }
