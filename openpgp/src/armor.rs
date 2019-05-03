@@ -1250,7 +1250,7 @@ mod test {
         let mut r = Reader::new(Cursor::new(&garbage), None);
         let mut buf = [0; 5];
         let e = r.read(&mut buf);
-        assert!(r.kind() == Some(Kind::File));
+        assert_eq!(r.kind(), Some(Kind::File));
         assert!(e.is_ok());
 
         // Again, but this time add a non-whitespace character in the
