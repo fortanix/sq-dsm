@@ -390,7 +390,7 @@ impl<'a> Reader<'a> {
     /// To select strict mode, specify a kind argument.  In strict
     /// mode, the reader will match on the armor frame.  The reader
     /// ignores any data in front of the Armor Header Line, as long as
-    /// the line the header is in is only prefixed by whitespace.
+    /// the line the header is only prefixed by whitespace.
     ///
     ///   [ASCII Armor]: https://tools.ietf.org/html/rfc4880#section-6.2
     ///
