@@ -1,7 +1,8 @@
 use Result;
 use TPK;
 use packet::{Key, Tag};
-use serialize::{Serialize, SerializeKey};
+use serialize::{Serialize, SerializeKey,
+                SerializeInto, SerializeKeyInto, generic_serialize_into};
 
 impl Serialize for TPK {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
@@ -81,6 +82,92 @@ impl Serialize for TPK {
         }
 
         Ok(())
+    }
+}
+
+impl SerializeInto for TPK {
+    fn serialized_len(&self) -> usize {
+        let mut l = 0;
+        l += self.primary().serialized_len(Tag::PublicKey);
+
+        for s in self.selfsigs() {
+            l += s.serialized_len();
+        }
+        for s in self.self_revocations() {
+            l += s.serialized_len();
+        }
+        for s in self.other_revocations() {
+            l += s.serialized_len();
+        }
+        for s in self.certifications() {
+            l += s.serialized_len();
+        }
+
+        for u in self.userids.iter() {
+            l += u.userid().serialized_len();
+            for s in u.self_revocations() {
+                l += s.serialized_len();
+            }
+            for s in u.selfsigs() {
+                l += s.serialized_len();
+            }
+            for s in u.other_revocations() {
+                l += s.serialized_len();
+            }
+            for s in u.certifications() {
+                l += s.serialized_len();
+            }
+        }
+
+        for u in self.user_attributes.iter() {
+            l += u.user_attribute().serialized_len();
+            for s in u.self_revocations() {
+                l += s.serialized_len();
+            }
+            for s in u.selfsigs() {
+                l += s.serialized_len();
+            }
+            for s in u.other_revocations() {
+                l += s.serialized_len();
+            }
+            for s in u.certifications() {
+                l += s.serialized_len();
+            }
+        }
+
+        for k in self.subkeys.iter() {
+            l += k.subkey().serialized_len(Tag::PublicSubkey);
+            for s in k.self_revocations() {
+                l += s.serialized_len();
+            }
+            for s in k.selfsigs() {
+                l += s.serialized_len();
+            }
+            for s in k.other_revocations() {
+                l += s.serialized_len();
+            }
+            for s in k.certifications() {
+                l += s.serialized_len();
+            }
+        }
+
+        for u in self.unknowns.iter() {
+            l += u.unknown.serialized_len();
+
+            for s in u.sigs.iter() {
+                l += s.serialized_len();
+            }
+        }
+
+        for s in self.bad.iter() {
+            l += s.serialized_len();
+        }
+
+        l
+    }
+
+    fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
+        Ok(generic_serialize_into(self, buf).unwrap())
     }
 }
 
@@ -255,6 +342,105 @@ impl<'a> Serialize for TSK<'a> {
     }
 }
 
+impl<'a> SerializeInto for TSK<'a> {
+    fn serialized_len(&self) -> usize {
+        let mut l = 0;
+
+        // Serializes public or secret key depending on the filter.
+        let serialized_len_key = |key: &'a Key, tag_public, tag_secret|
+        {
+            key.serialized_len(
+                if self.filter.as_ref().map(|f| f(key)).unwrap_or(true) {
+                    tag_secret
+                } else {
+                    tag_public
+                })
+        };
+        l += serialized_len_key(&self.tpk.primary,
+                                Tag::PublicKey, Tag::SecretKey);
+
+        for s in self.tpk.selfsigs() {
+            l += s.serialized_len();
+        }
+        for s in self.tpk.self_revocations() {
+            l += s.serialized_len();
+        }
+        for s in self.tpk.other_revocations() {
+            l += s.serialized_len();
+        }
+        for s in self.tpk.certifications() {
+            l += s.serialized_len();
+        }
+
+        for u in self.tpk.userids.iter() {
+            l += u.userid().serialized_len();
+            for s in u.self_revocations() {
+                l += s.serialized_len();
+            }
+            for s in u.selfsigs() {
+                l += s.serialized_len();
+            }
+            for s in u.other_revocations() {
+                l += s.serialized_len();
+            }
+            for s in u.certifications() {
+                l += s.serialized_len();
+            }
+        }
+
+        for u in self.tpk.user_attributes.iter() {
+            l += u.user_attribute().serialized_len();
+            for s in u.self_revocations() {
+                l += s.serialized_len();
+            }
+            for s in u.selfsigs() {
+                l += s.serialized_len();
+            }
+            for s in u.other_revocations() {
+                l += s.serialized_len();
+            }
+            for s in u.certifications() {
+                l += s.serialized_len();
+            }
+        }
+
+        for k in self.tpk.subkeys.iter() {
+            l += serialized_len_key(k.subkey(),
+                                    Tag::PublicSubkey, Tag::SecretSubkey);
+            for s in k.self_revocations() {
+                l += s.serialized_len();
+            }
+            for s in k.selfsigs() {
+                l += s.serialized_len();
+            }
+            for s in k.other_revocations() {
+                l += s.serialized_len();
+            }
+            for s in k.certifications() {
+                l += s.serialized_len();
+            }
+        }
+
+        for u in self.tpk.unknowns.iter() {
+            l += u.unknown.serialized_len();
+
+            for s in u.sigs.iter() {
+                l += s.serialized_len();
+            }
+        }
+
+        for s in self.tpk.bad.iter() {
+            l += s.serialized_len();
+        }
+
+        l
+    }
+
+    fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
+        Ok(generic_serialize_into(self, buf).expect("XXX"))
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -307,9 +493,7 @@ mod test {
                 Err(_) => continue,
             };
             assert!(! tpk.is_tsk());
-
-            let mut buf = Vec::new();
-            tpk.as_tsk().serialize(&mut buf).unwrap();
+            let buf = tpk.as_tsk().to_vec().unwrap();
             let tpk_ = TPK::from_bytes(&buf).unwrap();
 
             assert_eq!(tpk, tpk_, "roundtripping {}.pgp failed", test);
