@@ -752,57 +752,70 @@ fn is_armored_pgp_blob(bytes: &[u8]) -> bool {
         return false;
     };
 
-    // We may need to drop some characters at the end.
-    let mut end = bytes.len();
-    loop {
-        match base64::decode_config(&bytes[..end], base64::MIME) {
-            Ok(d) => {
-                // Don't consider an empty message to be valid.
-                if d.len() == 0 {
-                    break false;
-                }
+    match base64::decode_config(bytes, base64::MIME) {
+        Ok(d) => {
+            // Don't consider an empty message to be valid.
+            if d.len() == 0 {
+                false
+            } else {
                 let mut br = buffered_reader::Memory::new(&d);
-                break if let Ok(header) = Header::parse(&mut br) {
+                if let Ok(header) = Header::parse(&mut br) {
                     header.ctb.tag.valid_start_of_message()
                         && header.valid(false).is_ok()
                 } else {
                     false
-                };
-            },
-            Err(_) =>
-                if end == 0 {
-                    break false;
-                } else {
-                    end -= 1;
-                },
-        }
+                }
+            }
+        },
+        Err(_err) => false,
     }
 }
 
 /// Gets a slice containing the largest valid base64 prefix.
 fn get_base64_prefix(bytes: &[u8]) -> Option<&[u8]> {
-    let mut seen_padding = false;
+    let mut padding = 0;
+    let mut base64_chars = 0;
+
+    let mut result = bytes;
     for (i, c) in bytes.iter().enumerate() {
         if c.is_ascii_whitespace() {
             continue;
         }
 
-        if seen_padding && *c != '=' as u8 {
-            return Some(&bytes[..i]);
+        if padding > 0 && *c != '=' as u8 {
+            result = &bytes[..i];
+            break;
         }
 
         if *c == '=' as u8 {
-            seen_padding = true;
-        } else if ! is_base64_char(c) {
+            padding += 1;
+            base64_chars += 1;
+            if base64_chars % 4 == 0 || padding == 2 {
+                result = &bytes[..i];
+                break;
+            }
+        } else if is_base64_char(c) {
+            base64_chars += 1;
+        } else {
             if i == 0 {
                 return None;
             } else {
-                return Some(&bytes[..i]);
+                result = &bytes[..i];
+                break;
             }
         }
     }
 
-    return Some(bytes);
+    // If we have too much, just chop off a few characters.
+    while base64_chars % 4 != 0 {
+        let suffix = result[result.len() - 1];
+        if is_base64_char(&suffix) || suffix == b'=' {
+            base64_chars -= 1;
+        }
+        result = &result[..result.len() - 1];
+    }
+
+    return Some(result);
 }
 
 /// Checks whether the given byte is in the base64 character set.
