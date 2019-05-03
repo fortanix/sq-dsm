@@ -859,10 +859,15 @@ impl Serialize for Unknown {
     }
 }
 
+impl NetLength for Unknown {
+    fn net_len(&self) -> usize {
+        self.body().unwrap_or(&b""[..]).len()
+    }
+}
+
 impl SerializeInto for Unknown {
     fn serialized_len(&self) -> usize {
-        let body = self.body().unwrap_or(&b""[..]);
-        1 + BodyLength::Full(body.len() as u32).serialized_len() + body.len()
+        self.gross_len()
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
@@ -1263,7 +1268,7 @@ impl SerializeKey for Key4 {
             t => t,
         };
 
-        let len = self.serialized_len(tag);
+        let len = self.net_len(tag);
 
         CTB::new(tag).serialize(o)?;
         BodyLength::Full(len as u32).serialize(o)?;
@@ -1307,8 +1312,8 @@ impl SerializeKey for Key4 {
     }
 }
 
-impl SerializeKeyInto for Key4 {
-    fn serialized_len(&self, tag: Tag) -> usize {
+impl Key4 {
+    fn net_len(&self, tag: Tag) -> usize {
         let have_secret_key =
             (tag == Tag::SecretKey || tag == Tag::SecretSubkey)
             && self.secret().is_some();
@@ -1328,6 +1333,16 @@ impl SerializeKeyInto for Key4 {
             } else {
                 0
             }
+    }
+}
+
+impl SerializeKeyInto for Key4 {
+    fn serialized_len(&self, tag: Tag) -> usize {
+        // gross_len() by foot.
+        let net = self.net_len(tag);
+        1 // CTB
+            + BodyLength::Full(net as u32).serialized_len()
+            + net
     }
 
     fn serialize_into(&self, buf: &mut [u8], tag: Tag) -> Result<usize> {
@@ -1352,10 +1367,15 @@ impl Serialize for Marker {
     }
 }
 
+impl NetLength for Marker {
+    fn net_len(&self) -> usize {
+        Marker::BODY.len()
+    }
+}
+
 impl SerializeInto for Marker {
     fn serialized_len(&self) -> usize {
-        1 + BodyLength::Full(Marker::BODY.len() as u32).serialized_len()
-            + Marker::BODY.len()
+        self.gross_len()
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
@@ -1375,10 +1395,15 @@ impl Serialize for Trust {
     }
 }
 
+impl NetLength for Trust {
+    fn net_len(&self) -> usize {
+        self.value().len()
+    }
+}
+
 impl SerializeInto for Trust {
     fn serialized_len(&self) -> usize {
-        1 + BodyLength::Full(self.value().len() as u32).serialized_len()
-            + self.value().len()
+        self.gross_len()
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
@@ -1398,10 +1423,15 @@ impl Serialize for UserID {
     }
 }
 
+impl NetLength for UserID {
+    fn net_len(&self) -> usize {
+        self.value().len()
+    }
+}
+
 impl SerializeInto for UserID {
     fn serialized_len(&self) -> usize {
-        1 + BodyLength::Full(self.value().len() as u32).serialized_len()
-            + self.value().len()
+        self.gross_len()
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
@@ -1421,10 +1451,15 @@ impl Serialize for UserAttribute {
     }
 }
 
+impl NetLength for UserAttribute {
+    fn net_len(&self) -> usize {
+        self.value().len()
+    }
+}
+
 impl SerializeInto for UserAttribute {
     fn serialized_len(&self) -> usize {
-        1 + BodyLength::Full(self.value().len() as u32)
-            .serialized_len() + self.value().len()
+        self.gross_len()
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
@@ -1560,12 +1595,16 @@ impl Serialize for Literal {
     }
 }
 
+impl NetLength for Literal {
+    fn net_len(&self) -> usize {
+        1 + (1 + self.filename().map(|f| f.len()).unwrap_or(0)) + 4
+            + self.common.body.as_ref().map(|b| b.len()).unwrap_or(0)
+    }
+}
+
 impl SerializeInto for Literal {
     fn serialized_len(&self) -> usize {
-        let len = 1 + (1 + self.filename().map(|f| f.len()).unwrap_or(0)) + 4
-            + self.common.body.as_ref().map(|b| b.len()).unwrap_or(0);
-
-        1 + BodyLength::Full(len as u32).serialized_len() + len
+        self.gross_len()
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
@@ -1604,7 +1643,24 @@ impl Serialize for CompressedData {
             o.write_all(data)?;
         }
 
-        Ok(())
+        o.finalize()
+    }
+}
+
+impl NetLength for CompressedData {
+    fn net_len(&self) -> usize {
+        let inner_length =
+            self.common.children.as_ref().map(|children| {
+                children.packets.iter().map(|p| p.serialized_len())
+                    .sum()
+            }).unwrap_or(0)
+            + self.common.body.as_ref().map(|body| body.len()).unwrap_or(0);
+
+        // Worst case, the data get's larger.  Account for that.
+        let inner_length = inner_length + cmp::max(inner_length / 10, 32);
+
+        1 // Algorithm.
+            + inner_length // Compressed data.
     }
 }
 
@@ -1622,13 +1678,7 @@ impl SerializeInto for CompressedData {
     ///
     /// If serialization would fail, this function returns 0.
     fn serialized_len(&self) -> usize {
-        let inner_length =
-            self.common.children.as_ref().map(|children| {
-                children.packets.iter().map(|p| p.serialized_len())
-                    .sum()
-            }).unwrap_or(0)
-            + self.common.body.as_ref().map(|body| body.len()).unwrap_or(0);
-        1 + inner_length + inner_length / 10
+        self.gross_len()
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
@@ -1828,14 +1878,19 @@ impl Serialize for SEIP {
     }
 }
 
+impl NetLength for SEIP {
+    fn net_len(&self) -> usize {
+        1 // Version.
+            + self.common.body.as_ref().map(|b| b.len()).unwrap_or(0)
+    }
+}
+
 impl SerializeInto for SEIP {
     fn serialized_len(&self) -> usize {
         if self.common.children.is_some() {
-            0
+            0 // XXX
         } else {
-            1 // CTB.
-                + 1 // Version.
-                + self.common.body.as_ref().map(|b| b.len()).unwrap_or(0)
+            self.gross_len()
         }
     }
 
@@ -1853,9 +1908,15 @@ impl Serialize for MDC {
     }
 }
 
+impl NetLength for MDC {
+    fn net_len(&self) -> usize {
+        20
+    }
+}
+
 impl SerializeInto for MDC {
     fn serialized_len(&self) -> usize {
-        1 + BodyLength::Full(20).serialized_len() + 20
+        self.gross_len()
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
