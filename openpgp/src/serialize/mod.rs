@@ -1318,12 +1318,15 @@ impl Key4 {
             (tag == Tag::SecretKey || tag == Tag::SecretSubkey)
             && self.secret().is_some();
 
-        1 + 4 + 1
+        1 // Version.
+            + 4 // Creation time.
+            + 1 // PK algo.
             + self.mpis().serialized_len()
             + if have_secret_key {
                 1 + match self.secret().as_ref().unwrap() {
                     &SecretKey::Unencrypted { ref mpis } =>
-                        mpis.serialized_len() + 2,
+                        mpis.serialized_len()
+                        + 2, // Two octet checksum.
                     &SecretKey::Encrypted {
                         ref s2k,
                         ref ciphertext,
