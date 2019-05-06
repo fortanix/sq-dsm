@@ -956,6 +956,80 @@ const uint8_t *pgp_user_id_value (pgp_packet_t uid,
 				 size_t *value_len);
 
 /*/
+/// Returns the User ID's display name, if any.
+///
+/// The User ID is parsed as an [RFC 2822 mailbox], and the display
+/// name is extracted.
+///
+/// If the User ID is not a valid RFC 2822 mailbox production,
+/// then an error is returned.
+///
+/// If the User ID does not contain a display, *name is set
+/// to NULL.
+///
+///   [RFC 2822 mailbox]: https://tools.ietf.org/html/rfc2822#section-3.4
+/*/
+pgp_status_t pgp_user_id_name(pgp_error_t *errp, pgp_packet_t uid,
+                              char **namep);
+
+/*/
+/// Returns the User ID's comment, if any.
+///
+/// The User ID is parsed as an [RFC 2822 mailbox], and the first
+/// comment is extracted.
+///
+/// If the User ID is not a valid RFC 2822 mailbox production,
+/// then an error is returned.
+///
+/// If the User ID does not contain a comment, *commentp is set
+/// to NULL.
+///
+///   [RFC 2822 mailbox]: https://tools.ietf.org/html/rfc2822#section-3.4
+/*/
+pgp_status_t pgp_user_id_comment(pgp_error_t *errp, pgp_packet_t uid,
+                                 char **commentp);
+
+/*/
+/// Returns the User ID's email address, if any.
+///
+/// The User ID is parsed as an [RFC 2822 mailbox], and the email
+/// address is extracted.
+///
+/// If the User ID is not a valid RFC 2822 mailbox production,
+/// then an error is returned.
+///
+/// If the User ID does not contain an email address, *addressp is set
+/// to NULL.
+///
+///   [RFC 2822 mailbox]: https://tools.ietf.org/html/rfc2822#section-3.4
+/*/
+pgp_status_t pgp_user_id_address(pgp_error_t *errp, pgp_packet_t uid,
+                                 char **addressp);
+
+/*/
+/// Returns a normalized version of the UserID's email address.
+///
+/// Normalized email addresses are primarily needed when email
+/// addresses are compared.
+///
+/// Note: normalized email addresses are still valid email
+/// addresses.
+///
+/// This function normalizes an email address by doing [puny-code
+/// normalization] on the domain, and lowercasing the local part in
+/// the so-called [empty locale].
+///
+/// Note: this normalization procedure is the same as the
+/// normalization procedure recommended by [Autocrypt].
+///
+///   [puny-code normalization]: https://tools.ietf.org/html/rfc5891.html#section-4.4
+///   [empty locale]: https://www.w3.org/International/wiki/Case_folding
+///   [Autocryt]: https://autocrypt.org/level1.html#e-mail-address-canonicalization
+/*/
+pgp_status_t pgp_user_id_address_normalized(pgp_error_t *errp, pgp_packet_t uid,
+                                            char **addressp);
+
+/*/
 /// Returns the value of the User Attribute Packet.
 ///
 /// The returned pointer is valid until `ua` is deallocated.  If
