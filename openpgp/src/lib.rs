@@ -69,6 +69,8 @@ extern crate time;
 extern crate sequoia_rfc2822 as rfc2822;
 
 #[macro_use] extern crate lazy_static;
+
+extern crate idna;
 
 #[macro_use]
 mod macros;

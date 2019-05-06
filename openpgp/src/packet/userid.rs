@@ -165,6 +165,55 @@ impl UserID {
             None => unreachable!(),
         }
     }
+
+    /// Returns a normalized version of the UserID's email address.
+    ///
+    /// Normalized email addresses are primarily needed when email
+    /// addresses are compared.
+    ///
+    /// Note: normalized email addresses are still valid email
+    /// addresses.
+    ///
+    /// This function normalizes an email address by doing [puny-code
+    /// normalization] on the domain, and lowercasing the local part in
+    /// the so-called [empty locale].
+    ///
+    /// Note: this normalization procedure is the same as the
+    /// normalization procedure recommended by [Autocrypt].
+    ///
+    ///   [puny-code normalization]: https://tools.ietf.org/html/rfc5891.html#section-4.4
+    ///   [empty locale]: https://www.w3.org/International/wiki/Case_folding
+    ///   [Autocryt]: https://autocrypt.org/level1.html#e-mail-address-canonicalization
+    pub fn address_normalized(&self) -> Result<Option<String>> {
+        match self.address() {
+            e @ Err(_) => e,
+            Ok(None) => Ok(None),
+            Ok(Some(address)) => {
+                let mut iter = address.split('@');
+                let localpart = iter.next().expect("Invalid email address");
+                let domain = iter.next().expect("Invalid email address");
+                assert!(iter.next().is_none(), "Invalid email address");
+
+                // Normalize Unicode in domains.
+                let domain = idna::domain_to_ascii(domain)
+                    .map_err(|e| failure::format_err!(
+                        "punycode conversion failed: {:?}", e))?;
+
+                // Join.
+                let address = format!("{}@{}", localpart, domain);
+
+                // Convert to lowercase without tailoring, i.e. without taking
+                // any locale into account.  See:
+                //
+                //  - https://www.w3.org/International/wiki/Case_folding
+                //  - https://doc.rust-lang.org/std/primitive.str.html#method.to_lowercase
+                //  - http://www.unicode.org/versions/Unicode7.0.0/ch03.pdf#G33992
+                let address = address.to_lowercase();
+
+                Ok(Some(address))
+            }
+        }
+    }
 }
 
 impl From<UserID> for Packet {
@@ -265,5 +314,20 @@ mod tests {
         c("huxley@@old-world.org", false, None, None, None);
         c("huxley@old-world.org.", false, None, None, None);
         c("@old-world.org", false, None, None, None);
+    }
+
+    #[test]
+    fn address_normalized() {
+        fn c(value: &str, expected: &str) {
+            let u = UserID::from(value);
+            let got = u.address_normalized().unwrap().unwrap();
+            assert_eq!(expected, got);
+        }
+
+        c("Henry Ford (CEO) <henry@ford.com>", "henry@ford.com");
+        c("Henry Ford (CEO) <Henry@Ford.com>", "henry@ford.com");
+        c("Henry Ford (CEO) <Henry@Ford.com>", "henry@ford.com");
+        c("hans@bücher.tld", "hans@xn--bcher-kva.tld");
+        c("hANS@bücher.tld", "hans@xn--bcher-kva.tld");
     }
 }
