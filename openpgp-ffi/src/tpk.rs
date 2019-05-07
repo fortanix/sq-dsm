@@ -128,7 +128,7 @@ fn pgp_tpk_fingerprint(tpk: *const TPK)
     tpk.fingerprint().move_into_raw()
 }
 
-/// Derive a [`TSK`] object from this key.
+/// Derives a [`TSK`] object from this key.
 ///
 /// This object writes out secret keys during serialization.
 ///
