@@ -33,6 +33,12 @@ pub enum CipherSuite {
     P521,
 }
 
+impl Default for CipherSuite {
+    fn default() -> Self {
+        CipherSuite::RSA3k
+    }
+}
+
 impl CipherSuite {
     fn generate_key(self, flags: &KeyFlags) -> Result<Key> {
         use constants::Curve;
