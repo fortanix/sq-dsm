@@ -24,14 +24,14 @@ use MoveIntoRaw;
 pub struct SessionKey(openpgp::crypto::SessionKey);
 
 /// Creates a new session key.
-#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_session_key_new(size: size_t) -> *mut SessionKey {
     openpgp::crypto::SessionKey::new(&mut Yarrow::default(), size)
         .move_into_raw()
 }
 
 /// Creates a new session key from a buffer.
-#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_session_key_from_bytes(buf: *const uint8_t, size: size_t)
                               -> *mut SessionKey {
     let buf = unsafe {
@@ -48,7 +48,7 @@ fn pgp_session_key_from_bytes(buf: *const uint8_t, size: size_t)
 pub struct Password(openpgp::crypto::Password);
 
 /// Creates a new password from a buffer.
-#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_password_from_bytes(buf: *const uint8_t, size: size_t) -> *mut Password {
     let buf = unsafe {
         ::std::slice::from_raw_parts(buf, size)
@@ -58,7 +58,7 @@ fn pgp_password_from_bytes(buf: *const uint8_t, size: size_t) -> *mut Password {
 
 /// Frees a signer.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "system" fn pgp_signer_free
+pub extern "C" fn pgp_signer_free
     (s: Option<&mut &'static mut crypto::Signer>)
 {
     ffi_free!(s)
@@ -66,7 +66,7 @@ pub extern "system" fn pgp_signer_free
 
 /// Creates a new key pair.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "system" fn pgp_key_pair_new
+pub extern "C" fn pgp_key_pair_new
     (errp: Option<&mut *mut ::error::Error>, public: *mut Key, secret: *mut crypto::mpis::SecretKey)
      -> *mut crypto::KeyPair
 {
@@ -78,7 +78,7 @@ pub extern "system" fn pgp_key_pair_new
 
 /// Frees a key pair.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "system" fn pgp_key_pair_free
+pub extern "C" fn pgp_key_pair_free
     (kp: Option<&mut crypto::KeyPair>)
 {
     ffi_free!(kp)
@@ -89,7 +89,7 @@ pub extern "system" fn pgp_key_pair_free
 /// Note that the returned object merely references the key pair, and
 /// must not outlive the key pair.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "system" fn pgp_key_pair_as_signer
+pub extern "C" fn pgp_key_pair_as_signer
     (kp: *mut crypto::KeyPair)
      -> *mut &'static mut crypto::Signer
 {

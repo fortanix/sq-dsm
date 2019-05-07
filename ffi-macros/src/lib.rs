@@ -46,7 +46,7 @@ pub fn extern_fn(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// ```rust,ignore
 /// #[ffi_catch_abort]
 /// #[no_mangle]
-/// pub extern "system" fn sahnetorte() {
+/// pub extern "C" fn sahnetorte() {
 ///     assert_eq!(2 * 3, 4);  // See what happens...
 /// }
 /// ```
@@ -632,7 +632,7 @@ fn derive_free(span: proc_macro2::Span, prefix: &str, name: &str,
                                 span);
     quote! {
         /// Frees this object.
-        #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
+        #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
         fn #ident #generics (this: *mut #wrapper #generics) {
             if this.is_null() {
                 return;
@@ -667,7 +667,7 @@ fn derive_clone(span: proc_macro2::Span, prefix: &str, name: &str,
                                 span);
     quote! {
         /// Clones this object.
-        #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
+        #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
         fn #ident #generics (this: *const #wrapper #generics)
                              -> *mut #wrapper #generics {
             use ::RefRaw;
@@ -688,7 +688,7 @@ fn derive_equal(span: proc_macro2::Span, prefix: &str, name: &str,
                                 span);
     quote! {
         /// Compares objects.
-        #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
+        #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
         fn #ident #generics (a: *const #wrapper #generics,
                              b: *const #wrapper #generics)
                              -> bool {
@@ -711,7 +711,7 @@ fn derive_to_string(span: proc_macro2::Span, prefix: &str, name: &str,
     quote! {
         /// Returns a human readable description of this object
         /// intended for communication with end users.
-        #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
+        #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
         fn #ident #generics (this: *const #wrapper #generics)
                              -> *mut ::libc::c_char {
             use ::RefRaw;
@@ -732,7 +732,7 @@ fn derive_debug(span: proc_macro2::Span, prefix: &str, name: &str,
     quote! {
         /// Returns a human readable description of this object
         /// suitable for debugging.
-        #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
+        #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
         fn #ident #generics (this: *const #wrapper #generics)
                              -> *mut ::libc::c_char {
             use ::RefRaw;
@@ -752,7 +752,7 @@ fn derive_hash(span: proc_macro2::Span, prefix: &str, name: &str,
                                 span);
     quote! {
         /// Hashes this object.
-        #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
+        #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
         fn #ident #generics (this: *const #wrapper #generics)
                              -> ::libc::uint64_t {
             use ::std::hash::{Hash, Hasher};
@@ -783,7 +783,7 @@ fn derive_parse(span: proc_macro2::Span, prefix: &str, name: &str,
                                      span);
     quote! {
         /// Parses an object from the given reader.
-        #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
+        #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
         fn #from_reader #generics(errp: Option<&mut *mut ::error::Error>,
                                   reader: *mut ::io::Reader)
                                   -> ::Maybe<#wrapper #generics> {
@@ -794,7 +794,7 @@ fn derive_parse(span: proc_macro2::Span, prefix: &str, name: &str,
         }
 
         /// Parses an object from the given file.
-        #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
+        #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
         fn #from_file #generics(errp: Option<&mut *mut ::error::Error>,
                                 filename: *const ::libc::c_char)
                                 -> ::Maybe<#wrapper #generics> {
@@ -806,7 +806,7 @@ fn derive_parse(span: proc_macro2::Span, prefix: &str, name: &str,
         }
 
         /// Parses an object from the given buffer.
-        #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
+        #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
         fn #from_bytes #generics(errp: Option<&mut *mut ::error::Error>,
                                  b: *const ::libc::uint8_t, len: ::libc::size_t)
                                  -> ::Maybe<#wrapper #generics> {
@@ -833,7 +833,7 @@ fn derive_serialize(span: proc_macro2::Span, prefix: &str, name: &str,
                                 span);
     quote! {
         /// Serializes this object.
-        #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
+        #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
         fn #ident #generics (errp: Option<&mut *mut ::error::Error>,
                              this: *const #wrapper #generics,
                              writer: *mut ::io::Writer)

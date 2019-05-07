@@ -60,7 +60,7 @@ fn revocation_status_to_int(rs: &RevocationStatus) -> c_int {
 
 /// Returns the TPK's revocation status variant.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "system" fn pgp_revocation_status_variant(
+pub extern "C" fn pgp_revocation_status_variant(
     rs: *mut RevocationStatus)
     -> c_int
 {
@@ -72,7 +72,7 @@ pub extern "system" fn pgp_revocation_status_variant(
 
 /// Frees a pgp_revocation_status_t.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "system" fn pgp_revocation_status_free(
+pub extern "C" fn pgp_revocation_status_free(
     rs: Option<&mut RevocationStatus>)
 {
     ffi_free!(rs)
@@ -106,7 +106,7 @@ pub struct VerificationResults<'a> {
 /// This function returns the verification results for a particular
 /// level.  The result is an array of references to
 /// `VerificationResult`.
-#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_verification_results_at_level<'a>(results: *const VerificationResults<'a>,
                                          level: size_t,
                                          r: *mut *const &'a VerificationResult<'a>,
@@ -125,7 +125,7 @@ fn pgp_verification_results_at_level<'a>(results: *const VerificationResults<'a>
 }
 
 /// Returns the verification result code.
-#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_verification_result_code(result: *const VerificationResult)
     -> c_int
 {
@@ -138,7 +138,7 @@ fn pgp_verification_result_code(result: *const VerificationResult)
 }
 
 /// Returns the verification result code.
-#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_verification_result_signature(result: *const VerificationResult)
     -> *mut packet::signature::Signature
 {
@@ -153,7 +153,7 @@ fn pgp_verification_result_signature(result: *const VerificationResult)
 }
 
 /// Returns the verification result code.
-#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_verification_result_level(result: *const VerificationResult)
     -> c_int
 {
@@ -192,7 +192,7 @@ type GetPublicKeysCallback = fn(*mut HelperCookie,
 type DecryptCallback = fn(*mut HelperCookie,
                           *const *const PKESK, usize,
                           *const *const SKESK, usize,
-                          extern "system" fn (*mut c_void, uint8_t,
+                          extern "C" fn (*mut c_void, uint8_t,
                                               *const crypto::SessionKey)
                                               -> Status,
                           *mut c_void,
@@ -387,7 +387,7 @@ impl VerificationHelper for VHelper {
 ///   return 0;
 /// }
 /// ```
-#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_verifier_new<'a>(errp: Option<&mut *mut ::error::Error>,
                         input: *mut io::Reader,
                         get_public_keys: GetPublicKeysCallback,
@@ -503,7 +503,7 @@ fn maybe_time(t: time_t) -> Option<time::Tm> {
 ///   return 0;
 /// }
 /// ```
-#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_detached_verifier_new<'a>(errp: Option<&mut *mut ::error::Error>,
                                  signature_input: *mut io::Reader,
                                  input: *mut io::Reader,
@@ -580,7 +580,7 @@ impl DecryptionHelper for DHelper {
         // skesks.into_iter().for_each(|o| {
         //     super::super::packet::skesk::pgp_skesk_free(o) });
 
-        extern "system" fn trampoline<D>(data: *mut c_void, algo: uint8_t,
+        extern "C" fn trampoline<D>(data: *mut c_void, algo: uint8_t,
                                          sk: *const crypto::SessionKey)
                                          -> Status
             where D: FnMut(SymmetricAlgorithm, &SessionKey)
@@ -754,7 +754,7 @@ impl DecryptionHelper for DHelper {
 ///   return 0;
 /// }
 /// ```
-#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_decryptor_new<'a>(errp: Option<&mut *mut ::error::Error>,
                          input: *mut io::Reader,
                          get_public_keys: GetPublicKeysCallback,

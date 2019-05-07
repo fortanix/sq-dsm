@@ -29,20 +29,20 @@ pub struct Key(openpgp::packet::Key);
 
 /// Computes and returns the key's fingerprint as per Section 12.2
 /// of RFC 4880.
-#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_key_fingerprint(key: *const Key) -> *mut Fingerprint {
     key.ref_raw().fingerprint().move_into_raw()
 }
 
 /// Computes and returns the key's key ID as per Section 12.2 of RFC
 /// 4880.
-#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_key_keyid(key: *const Key) -> *mut KeyID {
     key.ref_raw().keyid().move_into_raw()
 }
 
 /// Returns the key's creation time.
-#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_key_creation_time(key: *const Key) -> time_t {
     let key = key.ref_raw();
     let ct = key.creation_time();
@@ -51,7 +51,7 @@ fn pgp_key_creation_time(key: *const Key) -> time_t {
 }
 
 /// Returns the key's public key algorithm.
-#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_key_public_key_algo(key: *const Key) -> c_int {
     let key = key.ref_raw();
     let pk_algo : u8 = key.pk_algo().into();
@@ -59,7 +59,7 @@ fn pgp_key_public_key_algo(key: *const Key) -> c_int {
 }
 
 /// Returns the public key's size in bits.
-#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_key_public_key_bits(key: *const Key) -> c_int {
     use self::openpgp::crypto::mpis::PublicKey::*;
 
@@ -81,7 +81,7 @@ fn pgp_key_public_key_bits(key: *const Key) -> c_int {
 /// # Errors
 ///
 /// Fails if the secret key is missing, or encrypted.
-#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_key_into_key_pair(errp: Option<&mut *mut ::error::Error>,
                          key: *mut Key)
                          -> *mut self::openpgp::crypto::KeyPair {

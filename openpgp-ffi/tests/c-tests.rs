@@ -114,7 +114,7 @@ fn for_all_rs<F>(src: &Path, mut fun: F)
 
 /// If this looks like an exported function, returns its name.
 fn exported_function_name(line: &str) -> Option<&str> {
-    if line.starts_with("pub extern \"system\" fn ")
+    if line.starts_with("pub extern \"C\" fn ")
         || line.starts_with("fn pgp_")
     {
         let fn_i = line.find("fn ")?;

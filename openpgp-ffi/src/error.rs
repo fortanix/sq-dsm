@@ -45,7 +45,7 @@ impl ::MoveResultIntoRaw<::error::Status> for ::failure::Fallible<()>
 
 /// Returns the error status code.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "system" fn pgp_error_status(error: *const Error)
+pub extern "C" fn pgp_error_status(error: *const Error)
                                        -> Status {
     error.ref_raw().into()
 }
@@ -145,7 +145,7 @@ pub enum Status {
 ///
 /// The returned value must *not* be freed.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "system" fn pgp_status_to_string(status: Status) -> *const c_char {
+pub extern "C" fn pgp_status_to_string(status: Status) -> *const c_char {
     use error::Status::*;
 
     match status {

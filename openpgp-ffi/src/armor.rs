@@ -107,7 +107,7 @@ fn kind_to_int(kind: Option<armor::Kind>) -> c_int {
 /// pgp_reader_free (bytes);
 /// ```
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "system" fn pgp_armor_reader_new(inner: *mut Reader,
+pub extern "C" fn pgp_armor_reader_new(inner: *mut Reader,
                                             kind: c_int)
                                             -> *mut Reader {
     let inner = inner.ref_mut_raw();
@@ -118,7 +118,7 @@ pub extern "system" fn pgp_armor_reader_new(inner: *mut Reader,
 
 /// Creates a `Reader` from a file.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "system" fn pgp_armor_reader_from_file(errp: Option<&mut *mut ::error::Error>,
+pub extern "C" fn pgp_armor_reader_from_file(errp: Option<&mut *mut ::error::Error>,
                                                   filename: *const c_char,
                                                   kind: c_int)
                                                   -> Maybe<Reader> {
@@ -185,7 +185,7 @@ pub extern "system" fn pgp_armor_reader_from_file(errp: Option<&mut *mut ::error
 ///
 /// pgp_reader_free (armor);
 /// ```
-#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_armor_reader_from_bytes(b: *const uint8_t, len: size_t,
                                kind: c_int)
                                -> *mut Reader {
@@ -210,7 +210,7 @@ fn pgp_armor_reader_from_bytes(b: *const uint8_t, len: size_t,
 ///
 ///   [this]: fn.pgp_armor_reader_new.html
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "system" fn pgp_armor_reader_kind(reader: *const Reader)
+pub extern "C" fn pgp_armor_reader_kind(reader: *const Reader)
                                              -> c_int {
     if let ReaderKind::Armored(ref armor_reader) = reader.ref_raw()
     {
@@ -240,7 +240,7 @@ pub extern "system" fn pgp_armor_reader_kind(reader: *const Reader)
 ///
 ///   [this]: fn.pgp_armor_reader_new.html
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "system" fn pgp_armor_reader_headers(errp: Option<&mut *mut ::error::Error>,
+pub extern "C" fn pgp_armor_reader_headers(errp: Option<&mut *mut ::error::Error>,
                                                reader: *mut Reader,
                                                len: *mut size_t)
                                                -> *mut ArmorHeader {
@@ -341,7 +341,7 @@ pub extern "system" fn pgp_armor_reader_headers(errp: Option<&mut *mut ::error::
 /// }
 /// ```
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "system" fn pgp_armor_writer_new
+pub extern "C" fn pgp_armor_writer_new
     (errp: Option<&mut *mut ::error::Error>,
      inner: *mut super::io::Writer,
      kind: c_int,

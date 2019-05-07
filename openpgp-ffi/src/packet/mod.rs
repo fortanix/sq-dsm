@@ -53,7 +53,7 @@ pub struct Packet(openpgp::Packet);
 /// Tags are explained in [Section 4.3 of RFC 4880].
 ///
 ///   [Section 4.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.3
-#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_packet_tag(p: *const Packet) -> uint8_t {
     u8::from(p.ref_raw().tag()) as uint8_t
 }
@@ -65,7 +65,7 @@ fn pgp_packet_tag(p: *const Packet) -> uint8_t {
 /// Signature Packet uses some unsupported methods, it is parsed
 /// into an `Packet::Unknown`.  `tag()` returns `PGP_TAG_SIGNATURE`,
 /// whereas `kind()` returns `0`.
-#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_packet_kind(p: *const Packet) -> uint8_t {
     if let Some(kind) = p.ref_raw().kind() {
         kind.into()
@@ -84,7 +84,7 @@ fn pgp_packet_kind(p: *const Packet) -> uint8_t {
 /// assert (strcmp (pgp_tag_to_string (2), "SIGNATURE") == 0);
 /// ```
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "system" fn pgp_tag_to_string(tag: uint8_t) -> *const c_char {
+pub extern "C" fn pgp_tag_to_string(tag: uint8_t) -> *const c_char {
     match Tag::from(tag) {
         Tag::PKESK => "PKESK\x00",
         Tag::Signature => "SIGNATURE\x00",
@@ -113,7 +113,7 @@ pub extern "system" fn pgp_tag_to_string(tag: uint8_t) -> *const c_char {
 /// function returns `NULL`.  Objects returned from this function must
 /// be deallocated using `pgp_signature_free` even though they only
 /// reference the given packet.
-#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_packet_ref_signature(p: *const Packet) -> Maybe<signature::Signature> {
     if let openpgp::Packet::Signature(ref p) = p.ref_raw() {
         ::std::ptr::NonNull::new(p.move_into_raw())

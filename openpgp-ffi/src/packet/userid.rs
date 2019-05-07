@@ -16,7 +16,7 @@ use RefRaw;
 /// The returned pointer is valid until `uid` is deallocated.  If
 /// `value_len` is not `NULL`, the size of value is stored there.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "system" fn pgp_user_id_value(uid: *const Packet,
+pub extern "C" fn pgp_user_id_value(uid: *const Packet,
                                         value_len: Option<&mut size_t>)
                                         -> *const uint8_t {
     if let &openpgp::Packet::UserID(ref uid) = uid.ref_raw() {
@@ -42,7 +42,7 @@ pub extern "system" fn pgp_user_id_value(uid: *const Packet,
 ///
 ///   [RFC 2822 mailbox]: https://tools.ietf.org/html/rfc2822#section-3.4
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "system" fn pgp_user_id_name(
+pub extern "C" fn pgp_user_id_name(
     errp: Option<&mut *mut ::error::Error>, uid: *const Packet,
     namep: &mut *mut c_char)
     -> Status
@@ -85,7 +85,7 @@ pub extern "system" fn pgp_user_id_name(
 ///
 ///   [RFC 2822 mailbox]: https://tools.ietf.org/html/rfc2822#section-3.4
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "system" fn pgp_user_id_comment(
+pub extern "C" fn pgp_user_id_comment(
     errp: Option<&mut *mut ::error::Error>, uid: *const Packet,
     commentp: &mut *mut c_char)
     -> Status
@@ -128,7 +128,7 @@ pub extern "system" fn pgp_user_id_comment(
 ///
 ///   [RFC 2822 mailbox]: https://tools.ietf.org/html/rfc2822#section-3.4
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "system" fn pgp_user_id_address(
+pub extern "C" fn pgp_user_id_address(
     errp: Option<&mut *mut ::error::Error>, uid: *const Packet,
     addressp: &mut *mut c_char)
     -> Status
@@ -177,7 +177,7 @@ pub extern "system" fn pgp_user_id_address(
 ///   [empty locale]: https://www.w3.org/International/wiki/Case_folding
 ///   [Autocryt]: https://autocrypt.org/level1.html#e-mail-address-canonicalization
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "system" fn pgp_user_id_address_normalized(
+pub extern "C" fn pgp_user_id_address_normalized(
     errp: Option<&mut *mut ::error::Error>, uid: *const Packet,
     addressp: &mut *mut c_char)
     -> Status

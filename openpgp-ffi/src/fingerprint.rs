@@ -35,7 +35,7 @@ use RefRaw;
 pub struct Fingerprint(openpgp::Fingerprint);
 
 /// Reads a binary fingerprint.
-#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_fingerprint_from_bytes(buf: *const uint8_t,
                               len: size_t)
                               -> *mut Fingerprint {
@@ -66,7 +66,7 @@ fn pgp_fingerprint_from_bytes(buf: *const uint8_t,
 /// free (pretty);
 /// pgp_fingerprint_free (fp);
 /// ```
-#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_fingerprint_from_hex(hex: *const c_char)
                             -> Maybe<Fingerprint> {
     let hex = ffi_param_cstr!(hex).to_string_lossy();
@@ -77,7 +77,7 @@ fn pgp_fingerprint_from_hex(hex: *const c_char)
 ///
 /// This returns a reference to the internal buffer that is valid as
 /// long as the fingerprint is.
-#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_fingerprint_as_bytes(fp: *const Fingerprint,
                             fp_len: Option<&mut size_t>)
                             -> *const uint8_t {
@@ -89,14 +89,14 @@ fn pgp_fingerprint_as_bytes(fp: *const Fingerprint,
 }
 
 /// Converts the fingerprint to a hexadecimal number.
-#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_fingerprint_to_hex(fp: *const Fingerprint)
                           -> *mut c_char {
     ffi_return_string!(fp.ref_raw().to_hex())
 }
 
 /// Converts the fingerprint to a key ID.
-#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_fingerprint_to_keyid(fp: *const Fingerprint)
                             -> *mut KeyID {
     fp.ref_raw().to_keyid().move_into_raw()

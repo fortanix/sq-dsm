@@ -50,9 +50,8 @@ use Maybe;
 /// e.g. `hkps://examle.org`.
 ///
 /// Returns `NULL` on errors.
-#[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_keyserver_new(ctx: *mut Context,
-                                        uri: *const c_char) -> *mut KeyServer {
+#[::ffi_catch_abort] #[no_mangle] pub extern "C"
+fn sq_keyserver_new(ctx: *mut Context, uri: *const c_char) -> *mut KeyServer {
     let ctx = ffi_param_ref_mut!(ctx);
     ffi_make_fry_from_ctx!(ctx);
     let uri = ffi_param_cstr!(uri).to_string_lossy();
@@ -67,11 +66,11 @@ pub extern "system" fn sq_keyserver_new(ctx: *mut Context,
 /// size `len` used to authenticate the server.
 ///
 /// Returns `NULL` on errors.
-#[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_keyserver_with_cert(ctx: *mut Context,
-                                              uri: *const c_char,
-                                              cert: *const uint8_t,
-                                              len: size_t) -> *mut KeyServer {
+#[::ffi_catch_abort] #[no_mangle] pub extern "C"
+fn sq_keyserver_with_cert(ctx: *mut Context,
+                          uri: *const c_char,
+                          cert: *const uint8_t,
+                          len: size_t) -> *mut KeyServer {
     let ctx = ffi_param_ref_mut!(ctx);
     ffi_make_fry_from_ctx!(ctx);
     let uri = ffi_param_cstr!(uri).to_string_lossy();
@@ -96,28 +95,27 @@ pub extern "system" fn sq_keyserver_with_cert(ctx: *mut Context,
 /// included in this library.  It is a good default choice.
 ///
 /// Returns `NULL` on errors.
-#[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_keyserver_sks_pool(ctx: *mut Context)
-                                             -> *mut KeyServer {
+#[::ffi_catch_abort] #[no_mangle] pub extern "C"
+fn sq_keyserver_sks_pool(ctx: *mut Context) -> *mut KeyServer {
     let ctx = ffi_param_ref_mut!(ctx);
     ffi_make_fry_from_ctx!(ctx);
     ffi_try_box!(KeyServer::sks_pool(&ctx.c))
 }
 
 /// Frees a keyserver object.
-#[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_keyserver_free(ks: Option<&mut KeyServer>) {
+#[::ffi_catch_abort] #[no_mangle] pub extern "C"
+fn sq_keyserver_free(ks: Option<&mut KeyServer>) {
     ffi_free!(ks)
 }
 
 /// Retrieves the key with the given `keyid`.
 ///
 /// Returns `NULL` on errors.
-#[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_keyserver_get(ctx: *mut Context,
-                                        ks: *mut KeyServer,
-                                        id: *const KeyID)
-                                        -> Maybe<TPK> {
+#[::ffi_catch_abort] #[no_mangle] pub extern "C"
+fn sq_keyserver_get(ctx: *mut Context,
+                    ks: *mut KeyServer,
+                    id: *const KeyID)
+                    -> Maybe<TPK> {
     let ctx = ffi_param_ref_mut!(ctx);
     ffi_make_fry_from_ctx!(ctx);
     let ks = ffi_param_ref_mut!(ks);
@@ -129,11 +127,11 @@ pub extern "system" fn sq_keyserver_get(ctx: *mut Context,
 /// Sends the given key to the server.
 ///
 /// Returns != 0 on errors.
-#[::ffi_catch_abort] #[no_mangle]
-pub extern "system" fn sq_keyserver_send(ctx: *mut Context,
-                                         ks: *mut KeyServer,
-                                         tpk: *const TPK)
-                                         -> Status {
+#[::ffi_catch_abort] #[no_mangle] pub extern "C"
+fn sq_keyserver_send(ctx: *mut Context,
+                     ks: *mut KeyServer,
+                     tpk: *const TPK)
+                     -> Status {
     let ctx = ffi_param_ref_mut!(ctx);
     ffi_make_fry_from_ctx!(ctx);
     let ks = ffi_param_ref_mut!(ks);
