@@ -520,34 +520,6 @@ pub struct SubkeyBinding {
 }
 
 impl SubkeyBinding {
-    /// Creates a new subkey binding signature certified by
-    /// `signer`. The subkey can be used for encrypting transport and
-    /// expires in three years.
-    pub fn new(subkey: Key, primary_key: &Key, signer: &mut Signer)
-               -> Result<Self> {
-        use packet::KeyFlags;
-        use constants::HashAlgorithm;
-        use SignatureType;
-
-        let sig = signature::Builder::new(SignatureType::SubkeyBinding)
-            .set_key_flags(&KeyFlags::default().set_encrypt_for_transport(true))?
-            .set_signature_creation_time(time::now().canonicalize())?
-            .set_key_expiration_time(Some(time::Duration::weeks(3 * 52)))?
-            .set_issuer_fingerprint(signer.public().fingerprint())?
-            .set_issuer(signer.public().keyid())?
-            .sign_subkey_binding(signer,
-                                 primary_key, &subkey,
-                                 HashAlgorithm::SHA512)?;
-
-        Ok(SubkeyBinding{
-            subkey: subkey,
-            selfsigs: vec![sig.into()],
-            certifications: vec![],
-            self_revocations: vec![],
-            other_revocations: vec![],
-        })
-    }
-
     /// The key.
     pub fn subkey(&self) -> &Key {
         &self.subkey
@@ -642,31 +614,6 @@ pub struct UserIDBinding {
 }
 
 impl UserIDBinding {
-    /// Creates a new self-signature binding `uid` to `key`, certified by `signer`. The signature
-    /// asserts that the bound key can sign and certify and expires in three years.
-    pub fn new(key: &Key, uid: UserID, signer: &mut Signer) -> Result<Self> {
-        use packet::KeyFlags;
-        use constants::HashAlgorithm;
-        use SignatureType;
-
-        let sig = signature::Builder::new(SignatureType::PositiveCertificate)
-            .set_key_flags(&KeyFlags::default().set_certify(true).set_sign(true))?
-            .set_signature_creation_time(time::now().canonicalize())?
-            .set_key_expiration_time(Some(time::Duration::weeks(3 * 52)))?
-            .set_issuer_fingerprint(signer.public().fingerprint())?
-            .set_issuer(signer.public().keyid())?
-            .set_preferred_hash_algorithms(vec![HashAlgorithm::SHA512])?
-            .sign_userid_binding(signer, key, &uid, HashAlgorithm::SHA512)?;
-
-        Ok(UserIDBinding{
-            userid: uid,
-            selfsigs: vec![sig.into()],
-            certifications: vec![],
-            self_revocations: vec![],
-            other_revocations: vec![],
-        })
-    }
-
     /// Returns the user id certified by this binding.
     pub fn userid(&self) -> &UserID {
         &self.userid
