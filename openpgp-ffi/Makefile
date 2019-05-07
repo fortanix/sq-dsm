@@ -58,7 +58,7 @@ test check: check-headers
 check-headers: force-build
 	nm -g --defined-only \
 		$(CARGO_TARGET_DIR)/debug/libsequoia_openpgp_ffi.$(_SEQ_LIB_EXT) \
-		| cut -d' ' -f3 | sort -u | grep pgp_ \
+		| sed s/^_// | cut -d' ' -f3 | sort -u | grep pgp_ \
 		| while read SYM ; \
 			do git grep -q "$$SYM" include || echo $$SYM ; \
 		done | tee $(CARGO_TARGET_DIR)/debug/.check-headers ; \
