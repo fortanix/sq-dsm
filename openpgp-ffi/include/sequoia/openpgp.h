@@ -811,6 +811,15 @@ char *pgp_tpk_primary_user_id(pgp_tpk_t tpk);
 pgp_tpk_builder_t pgp_tpk_builder_new(void);
 
 /*/
+/// Generates a general-purpose key.
+///
+/// The key's primary key is certification- and signature-capable.
+/// The key has one subkey, an encryption-capable subkey.
+/*/
+pgp_tpk_builder_t pgp_tpk_builder_general_purpose(pgp_tpk_cipher_suite_t cs,
+                                                  const char *uid);
+
+/*/
 /// Generates a key compliant to [Autocrypt Level 1].
 ///
 ///   [Autocrypt Level 1]: https://autocrypt.org/level1.html

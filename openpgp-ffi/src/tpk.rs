@@ -709,6 +709,24 @@ pub extern "system" fn pgp_tpk_builder_new() -> *mut TPKBuilder {
     box_raw!(TPKBuilder::new())
 }
 
+/// Generates a general-purpose key.
+///
+/// The key's primary key is certification- and signature-capable.
+/// The key has one subkey, an encryption-capable subkey.
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
+pub extern "system" fn pgp_tpk_builder_general_purpose(cs: c_int,
+                                                       uid: *const c_char)
+    -> *mut TPKBuilder
+{
+    let uid = if uid.is_null() {
+        None
+    } else {
+        Some(ffi_param_cstr!(uid).to_string_lossy())
+    };
+    box_raw!(TPKBuilder::general_purpose(
+        Some(int_to_cipher_suite(cs)), uid))
+}
+
 /// Generates a key compliant to [Autocrypt Level 1].
 ///
 /// Autocrypt requires a user id, however, if `uid` is NULL, a TPK is
