@@ -291,9 +291,8 @@ fn wrap_with_main(test: &mut Vec<String>, offset: usize) {
     }
     test.insert(last_include + 2, format!("#line {}", last_include + offset
                                           + if needs_wrapping {1} else {0}));
-    let last = test.len();
     if needs_wrapping {
-        test.insert(last, "}".into());
+        test.push("}".into());
     }
     test.insert(0, "#include <string.h>".into());
     test.insert(0, "#include <stdlib.h>".into());
@@ -303,13 +302,9 @@ fn wrap_with_main(test: &mut Vec<String>, offset: usize) {
 
 /// Checks if the code contains a main function.
 fn has_main(test: &mut Vec<String>) -> bool {
-    for line in test {
-        if line.contains("main()") || line.contains("main ()")
+    test.iter().any(|line| {
+        line.contains("main()") || line.contains("main ()")
             || line.contains("main(int argc, char **argv)")
             || line.contains("main (int argc, char **argv)")
-        {
-            return true;
-        }
-    }
-    false
+    })
 }
