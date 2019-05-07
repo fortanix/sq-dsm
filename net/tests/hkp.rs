@@ -133,7 +133,7 @@ fn start_server() -> SocketAddr {
         tx.send(addr).unwrap();
         hyper::rt::run(server
                        .serve(|| service_fn(service))
-                       .map_err(|e| panic!(e)));
+                       .map_err(|e| panic!("{}", e)));
     });
 
     let addr = rx.wait().unwrap();
