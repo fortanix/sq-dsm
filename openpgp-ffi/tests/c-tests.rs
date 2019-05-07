@@ -264,6 +264,9 @@ fn run(ldpath: &Path, exe: &Path) -> io::Result<()> {
 fn wrap_with_main(test: &mut Vec<String>, offset: usize) {
     let needs_wrapping = ! has_main(test);
 
+    // Replace glibc-style error handling.
+    test.retain(|l| l != "#include <error.h>");
+
     let mut last_include = 0;
     for (n, line) in test.iter().enumerate() {
         if line.starts_with("#include") {
