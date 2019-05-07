@@ -802,9 +802,13 @@ char *pgp_tpk_primary_user_id(pgp_tpk_t tpk);
 /* TPKBuilder */
 
 /*/
-/// Creates a default `pgp_tpk_builder_t`.
+/// Creates a new `pgp_tpk_builder_t`.
+///
+/// The returned TPKBuilder is setup to only create a
+/// certification-capable primary key using the default cipher suite.
+/// You'll almost certainly want to add subkeys, and user ids.
 /*/
-pgp_tpk_builder_t pgp_tpk_builder_default(void);
+pgp_tpk_builder_t pgp_tpk_builder_new(void);
 
 /*/
 /// Generates a key compliant to [Autocrypt Level 1].

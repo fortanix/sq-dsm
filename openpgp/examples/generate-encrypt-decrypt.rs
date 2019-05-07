@@ -27,7 +27,7 @@ fn main() {
 
 /// Generates an encryption-capable key.
 fn generate() -> openpgp::Result<openpgp::TPK> {
-    let (tpk, _revocation) = openpgp::tpk::TPKBuilder::default()
+    let (tpk, _revocation) = openpgp::tpk::TPKBuilder::new()
         .add_userid("someone@example.org")
         .add_encryption_subkey()
         .generate()?;

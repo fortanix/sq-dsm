@@ -1792,7 +1792,7 @@ impl TPK {
     /// # fn main() { f().unwrap(); }
     /// # fn f() -> Result<()>
     /// # {
-    /// let (tpk, _) = TPKBuilder::default()
+    /// let (tpk, _) = TPKBuilder::new()
     ///     .set_cipher_suite(CipherSuite::Cv25519)
     ///     .generate()?;
     /// assert_eq!(RevocationStatus::NotAsFarAsWeKnow, tpk.revoked(None));
@@ -1844,7 +1844,7 @@ impl TPK {
     /// # fn main() { f().unwrap(); }
     /// # fn f() -> Result<()>
     /// # {
-    /// let (mut tpk, _) = TPKBuilder::default()
+    /// let (mut tpk, _) = TPKBuilder::new()
     ///     .set_cipher_suite(CipherSuite::Cv25519)
     ///     .generate()?;
     /// assert_eq!(RevocationStatus::NotAsFarAsWeKnow, tpk.revoked(None));
@@ -3565,7 +3565,7 @@ mod test {
         // XXX: testing sequoia against itself isn't optimal, but I couldn't
         // find a tool to generate direct key signatures :-(
 
-        let (tpk1, _) = TPKBuilder::default().generate().unwrap();
+        let (tpk1, _) = TPKBuilder::new().generate().unwrap();
         let mut buf = Vec::default();
 
         tpk1.serialize(&mut buf).unwrap();
@@ -3687,7 +3687,7 @@ mod test {
     fn revoke_uid() {
         use std::{thread, time};
 
-        let (tpk, _) = TPKBuilder::default()
+        let (tpk, _) = TPKBuilder::new()
             .add_userid("Test1")
             .add_userid("Test2")
             .generate().unwrap();
@@ -3826,7 +3826,7 @@ mod test {
 
     #[test]
     fn select_no_keys() {
-        let (tpk, _) = TPKBuilder::default()
+        let (tpk, _) = TPKBuilder::new()
             .generate().unwrap();
         let flags = KeyFlags::default().set_encrypt_for_transport(true);
 
@@ -3835,7 +3835,7 @@ mod test {
 
     #[test]
     fn select_valid_and_right_flags() {
-        let (tpk, _) = TPKBuilder::default()
+        let (tpk, _) = TPKBuilder::new()
             .add_encryption_subkey()
             .generate().unwrap();
         let flags = KeyFlags::default().set_encrypt_for_transport(true);
@@ -3845,7 +3845,7 @@ mod test {
 
     #[test]
     fn select_valid_and_wrong_flags() {
-        let (tpk, _) = TPKBuilder::default()
+        let (tpk, _) = TPKBuilder::new()
             .add_encryption_subkey()
             .add_signing_subkey()
             .generate().unwrap();
@@ -3856,7 +3856,7 @@ mod test {
 
     #[test]
     fn select_invalid_and_right_flags() {
-        let (tpk, _) = TPKBuilder::default()
+        let (tpk, _) = TPKBuilder::new()
             .add_encryption_subkey()
             .generate().unwrap();
         let mut now = time::now();
@@ -3868,7 +3868,7 @@ mod test {
 
     #[test]
     fn select_primary() {
-        let (tpk, _) = TPKBuilder::default()
+        let (tpk, _) = TPKBuilder::new()
             .add_certification_subkey()
             .generate().unwrap();
         let flags = KeyFlags::default().set_certify(true);
@@ -3952,7 +3952,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
 
     #[test]
     fn missing_uids() {
-        let (tpk, _) = TPKBuilder::default()
+        let (tpk, _) = TPKBuilder::new()
             .add_userid("test1@example.com")
             .add_userid("test2@example.com")
             .add_encryption_subkey()

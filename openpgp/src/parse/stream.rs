@@ -1593,7 +1593,7 @@ mod test {
         use crypto::KeyPair;
         use std::io::Write;
 
-        let (tpk, _) = TPKBuilder::default()
+        let (tpk, _) = TPKBuilder::new()
             .set_cipher_suite(CipherSuite::Cv25519)
             .add_signing_subkey()
             .generate().unwrap();

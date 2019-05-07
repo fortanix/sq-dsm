@@ -9,7 +9,7 @@ use openpgp::serialize::Serialize;
 use ::create_or_stdout;
 
 pub fn generate(m: &ArgMatches, force: bool) -> failure::Fallible<()> {
-    let mut builder = TPKBuilder::default();
+    let mut builder = TPKBuilder::new();
 
     // User ID
     match m.value_of("userid") {

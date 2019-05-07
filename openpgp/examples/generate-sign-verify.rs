@@ -26,7 +26,7 @@ fn main() {
 
 /// Generates an signing-capable key.
 fn generate() -> openpgp::Result<openpgp::TPK> {
-    let (tpk, _revocation) = openpgp::tpk::TPKBuilder::default()
+    let (tpk, _revocation) = openpgp::tpk::TPKBuilder::new()
         .add_userid("someone@example.org")
         .add_signing_subkey()
         .generate()?;

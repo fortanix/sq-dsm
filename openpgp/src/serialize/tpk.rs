@@ -196,7 +196,7 @@ impl TPK {
 /// # use sequoia_openpgp::{*, tpk::*, parse::Parse, serialize::Serialize};
 /// # f().unwrap();
 /// # fn f() -> Result<()> {
-/// let (tpk, _) = TPKBuilder::default().generate()?;
+/// let (tpk, _) = TPKBuilder::new().generate()?;
 /// assert!(tpk.is_tsk());
 ///
 /// let mut buf = Vec::new();
@@ -229,7 +229,7 @@ impl<'a> TSK<'a> {
     /// # use sequoia_openpgp::{*, tpk::*, parse::Parse, serialize::Serialize};
     /// # f().unwrap();
     /// # fn f() -> Result<()> {
-    /// let (tpk, _) = TPKBuilder::default().add_signing_subkey().generate()?;
+    /// let (tpk, _) = TPKBuilder::new().add_signing_subkey().generate()?;
     /// assert_eq!(tpk.keys_valid().secret(true).count(), 2);
     ///
     /// // Only write out the primary key's secret.

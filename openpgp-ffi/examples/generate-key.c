@@ -8,7 +8,7 @@ main () {
   pgp_status_t rc;
 
   /* First, generate the key.  */
-  pgp_tpk_builder_t builder = pgp_tpk_builder_default ();
+  pgp_tpk_builder_t builder = pgp_tpk_builder_new ();
   pgp_tpk_builder_set_cipher_suite (&builder, PGP_TPK_CIPHER_SUITE_CV25519);
 
   pgp_tpk_t tpk;

@@ -28,7 +28,7 @@ impl Key {
     /// # f().unwrap();
     /// # fn f() -> Result<()> {
     /// // Generate a TPK, and create a keypair from the primary key.
-    /// let (tpk, _) = TPKBuilder::default().generate()?;
+    /// let (tpk, _) = TPKBuilder::new().generate()?;
     /// let mut keypair = tpk.primary().clone().into_keypair()?;
     ///
     /// // Let's add an encryption subkey.
@@ -84,7 +84,7 @@ impl Key {
     /// # f().unwrap();
     /// # fn f() -> Result<()> {
     /// // Generate a TPK, and create a keypair from the primary key.
-    /// let (tpk, _) = TPKBuilder::default()
+    /// let (tpk, _) = TPKBuilder::new()
     ///     .add_encryption_subkey()
     ///     .generate()?;
     /// let mut keypair = tpk.primary().clone().into_keypair()?;
@@ -150,7 +150,7 @@ impl UserID {
     /// # f().unwrap();
     /// # fn f() -> Result<()> {
     /// // Generate a TPK, and create a keypair from the primary key.
-    /// let (tpk, _) = TPKBuilder::default().generate()?;
+    /// let (tpk, _) = TPKBuilder::new().generate()?;
     /// let mut keypair = tpk.primary().clone().into_keypair()?;
     /// assert_eq!(tpk.userids().len(), 0);
     ///
@@ -210,14 +210,14 @@ impl UserID {
     /// # f().unwrap();
     /// # fn f() -> Result<()> {
     /// // Generate a TPK, and create a keypair from the primary key.
-    /// let (alice, _) = TPKBuilder::default()
+    /// let (alice, _) = TPKBuilder::new()
     ///     .primary_keyflags(KeyFlags::default().set_certify(true))
     ///     .add_userid("alice@example.org")
     ///     .generate()?;
     /// let mut keypair = alice.primary().clone().into_keypair()?;
     ///
     /// // Generate a TPK for Bob.
-    /// let (bob, _) = TPKBuilder::default()
+    /// let (bob, _) = TPKBuilder::new()
     ///     .primary_keyflags(KeyFlags::default().set_certify(true))
     ///     .add_userid("bob@example.org")
     ///     .generate()?;
@@ -278,7 +278,7 @@ impl UserID {
     /// # f().unwrap();
     /// # fn f() -> Result<()> {
     /// // Generate a TPK, and create a keypair from the primary key.
-    /// let (tpk, _) = TPKBuilder::default()
+    /// let (tpk, _) = TPKBuilder::new()
     ///     .add_userid("some@example.org")
     ///     .generate()?;
     /// let mut keypair = tpk.primary().clone().into_keypair()?;
@@ -345,7 +345,7 @@ impl UserAttribute {
     /// # f().unwrap();
     /// # fn f() -> Result<()> {
     /// // Generate a TPK, and create a keypair from the primary key.
-    /// let (tpk, _) = TPKBuilder::default()
+    /// let (tpk, _) = TPKBuilder::new()
     ///     .generate()?;
     /// let mut keypair = tpk.primary().clone().into_keypair()?;
     /// assert_eq!(tpk.userids().len(), 0);
@@ -410,7 +410,7 @@ impl UserAttribute {
     /// # f().unwrap();
     /// # fn f() -> Result<()> {
     /// // Generate a TPK, and create a keypair from the primary key.
-    /// let (alice, _) = TPKBuilder::default()
+    /// let (alice, _) = TPKBuilder::new()
     ///     .add_userid("alice@example.org")
     ///     .generate()?;
     /// let mut keypair = alice.primary().clone().into_keypair()?;
@@ -420,7 +420,7 @@ impl UserAttribute {
     ///     Subpacket::Image(
     ///         Image::Private(100, vec![0, 1, 2].into_boxed_slice())),
     /// ])?;
-    /// let (bob, _) = TPKBuilder::default()
+    /// let (bob, _) = TPKBuilder::new()
     ///     .primary_keyflags(KeyFlags::default().set_certify(true))
     ///     .add_user_attribute(user_attr)
     ///     .generate()?;
@@ -487,7 +487,7 @@ impl UserAttribute {
     ///     Subpacket::Image(
     ///         Image::Private(100, vec![0, 1, 2].into_boxed_slice())),
     /// ])?;
-    /// let (tpk, _) = TPKBuilder::default()
+    /// let (tpk, _) = TPKBuilder::new()
     ///     .add_user_attribute(user_attr)
     ///     .generate()?;
     /// let mut keypair = tpk.primary().clone().into_keypair()?;

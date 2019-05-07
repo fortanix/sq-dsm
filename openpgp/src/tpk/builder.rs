@@ -94,8 +94,17 @@ pub struct TPKBuilder {
     password: Option<Password>,
 }
 
-impl Default for TPKBuilder {
-    fn default() -> Self {
+impl TPKBuilder {
+    /// Returns a new TPKBuilder.
+    ///
+    /// The returned TPKBuilder is setup to only create a
+    /// certification-capable primary key using the default cipher
+    /// suite (currently: `CipherSuite::RSA3k`).  You'll almost
+    /// certainly want to add subkeys (using
+    /// `TPKBuilder::add_signing_subkey`, or
+    /// `TPKBuilder::add_encryption_subkey`, for instance), and user
+    /// ids (using `TPKBuilder::add_userid`).
+    pub fn new() -> Self {
         TPKBuilder{
             ciphersuite: CipherSuite::RSA3k,
             primary: KeyBlueprint{
@@ -107,9 +116,7 @@ impl Default for TPKBuilder {
             password: None,
         }
     }
-}
 
-impl TPKBuilder {
     /// Generates a key compliant to
     /// [Autocrypt](https://autocrypt.org/).
     ///
@@ -346,7 +353,7 @@ mod tests {
 
     #[test]
     fn all_opts() {
-        let (tpk, _) = TPKBuilder::default()
+        let (tpk, _) = TPKBuilder::new()
             .set_cipher_suite(CipherSuite::Cv25519)
             .add_userid("test1@example.com")
             .add_userid("test2@example.com")
@@ -369,7 +376,7 @@ mod tests {
 
     #[test]
     fn direct_key_sig() {
-        let (tpk, _) = TPKBuilder::default()
+        let (tpk, _) = TPKBuilder::new()
             .set_cipher_suite(CipherSuite::Cv25519)
             .add_signing_subkey()
             .add_encryption_subkey()
@@ -390,14 +397,14 @@ mod tests {
 
     #[test]
     fn setter() {
-        let (tpk1, _) = TPKBuilder::default()
+        let (tpk1, _) = TPKBuilder::new()
             .set_cipher_suite(CipherSuite::Cv25519)
             .set_cipher_suite(CipherSuite::RSA3k)
             .set_cipher_suite(CipherSuite::Cv25519)
             .generate().unwrap();
         assert_eq!(tpk1.primary().pk_algo(), PublicKeyAlgorithm::EdDSA);
 
-        let (tpk2, _) = TPKBuilder::default()
+        let (tpk2, _) = TPKBuilder::new()
             .add_userid("test2@example.com")
             .add_encryption_subkey()
             .generate().unwrap();
@@ -409,7 +416,7 @@ mod tests {
 
     #[test]
     fn defaults() {
-        let (tpk1, _) = TPKBuilder::default()
+        let (tpk1, _) = TPKBuilder::new()
             .add_userid("test2@example.com")
             .generate().unwrap();
         assert_eq!(tpk1.primary().pk_algo(),
@@ -453,7 +460,7 @@ mod tests {
 
     #[test]
     fn always_certify() {
-        let (tpk1, _) = TPKBuilder::default()
+        let (tpk1, _) = TPKBuilder::new()
             .set_cipher_suite(CipherSuite::Cv25519)
             .primary_keyflags(KeyFlags::default())
             .add_encryption_subkey()
@@ -472,7 +479,7 @@ mod tests {
 
     #[test]
     fn gen_wired_subkeys() {
-        let (tpk1, _) = TPKBuilder::default()
+        let (tpk1, _) = TPKBuilder::new()
             .set_cipher_suite(CipherSuite::Cv25519)
             .primary_keyflags(KeyFlags::default())
             .add_subkey(KeyFlags::default().set_certify(true))
@@ -492,7 +499,7 @@ mod tests {
     #[test]
     fn generate_revocation_certificate() {
         use RevocationStatus;
-        let (tpk, revocation) = TPKBuilder::default()
+        let (tpk, revocation) = TPKBuilder::new()
             .set_cipher_suite(CipherSuite::Cv25519)
             .generate().unwrap();
         assert_eq!(tpk.revoked(None), RevocationStatus::NotAsFarAsWeKnow);
@@ -505,7 +512,7 @@ mod tests {
     fn builder_roundtrip() {
         use PacketPile;
 
-        let (tpk,_) = TPKBuilder::default()
+        let (tpk,_) = TPKBuilder::new()
             .set_cipher_suite(CipherSuite::Cv25519)
             .add_signing_subkey()
             .generate().unwrap();
@@ -518,7 +525,7 @@ mod tests {
 
     #[test]
     fn encrypted_secrets() {
-        let (tpk,_) = TPKBuilder::default()
+        let (tpk,_) = TPKBuilder::new()
             .set_cipher_suite(CipherSuite::Cv25519)
             .set_password(Some(String::from("streng geheim").into()))
             .generate().unwrap();
@@ -530,7 +537,7 @@ mod tests {
         use self::CipherSuite::*;
 
         for cs in vec![Cv25519, RSA3k, P256, P384, P521] {
-            assert!(TPKBuilder::default()
+            assert!(TPKBuilder::new()
                 .set_cipher_suite(cs)
                 .generate().is_ok());
         }

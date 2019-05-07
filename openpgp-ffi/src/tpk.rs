@@ -188,7 +188,7 @@ fn int_to_reason_for_revocation(code: c_int) -> ReasonForRevocation {
 /// pgp_key_pair_t primary_keypair;
 /// pgp_signer_t primary_signer;
 ///
-/// builder = pgp_tpk_builder_default ();
+/// builder = pgp_tpk_builder_new ();
 /// pgp_tpk_builder_set_cipher_suite (&builder, PGP_TPK_CIPHER_SUITE_CV25519);
 /// pgp_tpk_builder_generate (NULL, builder, &tpk, &revocation);
 /// assert (tpk);
@@ -255,7 +255,7 @@ fn pgp_tpk_revoke(errp: Option<&mut *mut ::error::Error>,
 /// pgp_key_pair_t primary_keypair;
 /// pgp_signer_t primary_signer;
 ///
-/// builder = pgp_tpk_builder_default ();
+/// builder = pgp_tpk_builder_new ();
 /// pgp_tpk_builder_set_cipher_suite (&builder, PGP_TPK_CIPHER_SUITE_CV25519);
 /// pgp_tpk_builder_generate (NULL, builder, &tpk, &revocation);
 /// assert (tpk);
@@ -690,7 +690,7 @@ pub extern "system" fn pgp_tpk_key_iter_next<'a>(
 /// pgp_tpk_t tpk;
 /// pgp_signature_t revocation;
 ///
-/// builder = pgp_tpk_builder_default ();
+/// builder = pgp_tpk_builder_new ();
 /// pgp_tpk_builder_set_cipher_suite (&builder, PGP_TPK_CIPHER_SUITE_CV25519);
 /// pgp_tpk_builder_add_userid (&builder, "some@example.org");
 /// pgp_tpk_builder_add_signing_subkey (&builder);
@@ -705,8 +705,8 @@ pub extern "system" fn pgp_tpk_key_iter_next<'a>(
 /// pgp_tpk_free (tpk);
 /// ```
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "system" fn pgp_tpk_builder_default() -> *mut TPKBuilder {
-    box_raw!(TPKBuilder::default())
+pub extern "system" fn pgp_tpk_builder_new() -> *mut TPKBuilder {
+    box_raw!(TPKBuilder::new())
 }
 
 /// Generates a key compliant to [Autocrypt Level 1].

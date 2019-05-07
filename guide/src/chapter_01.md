@@ -35,7 +35,7 @@ fn main() {
 #
 # /// Generates an signing-capable key.
 # fn generate() -> openpgp::Result<openpgp::TPK> {
-#     let (tpk, _revocation) = openpgp::tpk::TPKBuilder::default()
+#     let (tpk, _revocation) = openpgp::tpk::TPKBuilder::new()
 #         .add_userid("someone@example.org")
 #         .add_signing_subkey()
 #         .generate()?;
@@ -165,7 +165,7 @@ create it:
 #
 /// Generates an signing-capable key.
 fn generate() -> openpgp::Result<openpgp::TPK> {
-    let (tpk, _revocation) = openpgp::tpk::TPKBuilder::default()
+    let (tpk, _revocation) = openpgp::tpk::TPKBuilder::new()
         .add_userid("someone@example.org")
         .add_signing_subkey()
         .generate()?;
@@ -295,7 +295,7 @@ implements [`io::Write`], and we simply write the plaintext to it.
 #
 # /// Generates an signing-capable key.
 # fn generate() -> openpgp::Result<openpgp::TPK> {
-#     let (tpk, _revocation) = openpgp::tpk::TPKBuilder::default()
+#     let (tpk, _revocation) = openpgp::tpk::TPKBuilder::new()
 #         .add_userid("someone@example.org")
 #         .add_signing_subkey()
 #         .generate()?;
@@ -436,7 +436,7 @@ Verified data can be read from this using [`io::Read`].
 # 
 # /// Generates an signing-capable key.
 # fn generate() -> openpgp::Result<openpgp::TPK> {
-#     let (tpk, _revocation) = openpgp::tpk::TPKBuilder::default()
+#     let (tpk, _revocation) = openpgp::tpk::TPKBuilder::new()
 #         .add_userid("someone@example.org")
 #         .add_signing_subkey()
 #         .generate()?;
