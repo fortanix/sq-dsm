@@ -962,6 +962,16 @@ int pgp_key_public_key_bits(pgp_key_t key);
 pgp_key_pair_t pgp_key_into_key_pair (pgp_error_t *errp, pgp_key_t key);
 
 /*/
+/// Create a new User ID with the value `value`.
+/*/
+pgp_packet_t pgp_user_id_new (const char *value);
+
+/*/
+/// Create a new User ID with the value `value`.
+/*/
+pgp_packet_t pgp_user_id_from_raw (const char *value, size_t len);
+
+/*/
 /// Returns the value of the User ID Packet.
 ///
 /// The returned pointer is valid until `uid` is deallocated.  If
