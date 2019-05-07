@@ -123,6 +123,34 @@ impl TPKBuilder {
         }
     }
 
+    /// Generates a general-purpose key.
+    ///
+    /// The key's primary key is certification- and signature-capable.
+    /// The key has one subkey, an encryption-capable subkey.
+    pub fn general_purpose<C, U>(ciphersuite: C, userids: Option<U>) -> Self
+        where C: Into<Option<CipherSuite>>,
+              U: Into<packet::UserID>
+    {
+        TPKBuilder {
+            ciphersuite: ciphersuite.into().unwrap_or(Default::default()),
+            primary: KeyBlueprint{
+                flags: KeyFlags::default()
+                    .set_certify(true)
+                    .set_sign(true)
+            },
+            subkeys: vec![
+                KeyBlueprint{
+                    flags: KeyFlags::default()
+                        .set_encrypt_for_transport(true)
+                        .set_encrypt_at_rest(true)
+                }
+            ],
+            userids: userids.into_iter().map(|x| x.into()).collect(),
+            user_attributes: vec![],
+            password: None,
+        }
+    }
+
     /// Generates a key compliant to
     /// [Autocrypt](https://autocrypt.org/).
     ///
