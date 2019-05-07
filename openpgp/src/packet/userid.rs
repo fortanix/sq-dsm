@@ -41,6 +41,16 @@ impl From<Vec<u8>> for UserID {
     }
 }
 
+impl From<&[u8]> for UserID {
+    fn from(u: &[u8]) -> Self {
+        UserID {
+            common: Default::default(),
+            value: u.to_vec(),
+            parsed: RefCell::new(None),
+        }
+    }
+}
+
 impl<'a> From<&'a str> for UserID {
     fn from(u: &'a str) -> Self {
         let b = u.as_bytes();
