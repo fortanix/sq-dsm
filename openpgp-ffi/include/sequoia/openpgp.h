@@ -815,7 +815,7 @@ pgp_tpk_builder_t pgp_tpk_builder_new(void);
 ///
 ///   [Autocrypt Level 1]: https://autocrypt.org/level1.html
 /*/
-pgp_tpk_builder_t pgp_tpk_builder_autocrypt(void);
+pgp_tpk_builder_t pgp_tpk_builder_autocrypt(const char *uid);
 
 /*/
 /// Frees an `pgp_tpk_builder_t`.
