@@ -864,8 +864,10 @@ void pgp_tpk_builder_add_certification_subkey(pgp_tpk_builder_t *tpkb);
 ///
 /// Consumes `tpkb`.
 /*/
-pgp_tpk_t pgp_tpk_builder_generate(pgp_error_t *errp, pgp_tpk_builder_t tpkb,
-                                 pgp_tpk_t *tpk, pgp_signature_t *revocation);
+pgp_status_t pgp_tpk_builder_generate(pgp_error_t *errp,
+                                      pgp_tpk_builder_t tpkb,
+                                      pgp_tpk_t *tpk,
+                                      pgp_signature_t *revocation);
 
 
 /* TSK */
