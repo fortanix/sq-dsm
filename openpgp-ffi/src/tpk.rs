@@ -739,20 +739,28 @@ pub extern "system" fn pgp_tpk_builder_free(tpkb: Option<&mut TPKBuilder>)
     ffi_free!(tpkb)
 }
 
+fn int_to_cipher_suite(cs: c_int) -> CipherSuite {
+    use self::CipherSuite::*;
+
+    match cs {
+        0 => Cv25519,
+        1 => RSA3k,
+        2 => P256,
+        3 => P384,
+        4 => P521,
+        n => panic!("Bad ciphersuite: {}", n),
+     }
+}
+
 /// Sets the encryption and signature algorithms for primary and all
 /// subkeys.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "system" fn pgp_tpk_builder_set_cipher_suite
     (tpkb: *mut *mut TPKBuilder, cs: c_int)
 {
-    use self::CipherSuite::*;
     let tpkb = ffi_param_ref_mut!(tpkb);
     let tpkb_ = ffi_param_move!(*tpkb);
-    let cs = match cs {
-        0 => Cv25519,
-        1 => RSA3k,
-        n => panic!("Bad ciphersuite: {}", n),
-    };
+    let cs = int_to_cipher_suite(cs);
     let tpkb_ = tpkb_.set_cipher_suite(cs);
     *tpkb = box_raw!(tpkb_);
 }
