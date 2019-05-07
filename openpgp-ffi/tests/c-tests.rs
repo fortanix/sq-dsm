@@ -265,7 +265,9 @@ fn wrap_with_main(test: &mut Vec<String>, offset: usize) {
     let needs_wrapping = ! has_main(test);
 
     // Replace glibc-style error handling.
-    test.retain(|l| l != "#include <error.h>");
+    test.iter_mut().for_each(|l| {
+        if l == "#include <error.h>" { *l = "".into() }
+    });
 
     let mut last_include = 0;
     for (n, line) in test.iter().enumerate() {
