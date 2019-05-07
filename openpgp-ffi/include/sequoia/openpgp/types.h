@@ -408,6 +408,21 @@ typedef enum pgp_tpk_cipher_suite {
   /*/
   PGP_TPK_CIPHER_SUITE_RSA3K,
 
+  /*/
+  /// EdDSA and ECDH over NIST P-256 with SHA256 and AES256
+  /*/
+  PGP_TPK_CIPHER_SUITE_P256,
+
+  /*/
+  /// EdDSA and ECDH over NIST P-384 with SHA384 and AES256
+  /*/
+  PGP_TPK_CIPHER_SUITE_P384,
+
+  /*/
+  /// EdDSA and ECDH over NIST P-521 with SHA512 and AES256
+  /*/
+  PGP_TPK_CIPHER_SUITE_P521,
+
   /* Dummy value to make sure the enumeration has a defined size.  Do
      not use this value.  */
   PGP_TPK_CIPHER_SUITE_FORCE_WIDTH = INT_MAX,
