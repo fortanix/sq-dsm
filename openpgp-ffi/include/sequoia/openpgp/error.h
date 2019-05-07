@@ -128,6 +128,13 @@ typedef enum pgp_status {
 } pgp_status_t;
 
 /*/
+/// Returns the error message.
+///
+/// The returned value must *not* be freed.
+/*/
+const char *pgp_status_to_string(pgp_status_t status);
+
+/*/
 /// Complex errors returned from Sequoia.
 /*/
 typedef struct pgp_error *pgp_error_t;

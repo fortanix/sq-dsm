@@ -2,6 +2,7 @@
 
 use failure;
 use std::io;
+use libc::c_char;
 
 extern crate sequoia_openpgp as openpgp;
 
@@ -138,6 +139,44 @@ pub enum Status {
     // XXX: Skipping ManipulatedMessage = -25
     // XXX: Skipping UnsupportedAEADAlgorithm = -26
     // XXX: Skipping MissingSessionKey = -27
+}
+
+/// Returns the error message.
+///
+/// The returned value must *not* be freed.
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
+pub extern "system" fn pgp_status_to_string(status: Status) -> *const c_char {
+    use error::Status::*;
+
+    match status {
+        Success => "Success\x00",
+        UnknownError => "An unknown error occurred\x00",
+        NetworkPolicyViolation =>
+            "The network policy was violated by the given action\x00",
+        IoError => "An IO error occurred\x00",
+        InvalidArgument => "A given argument is invalid\x00",
+        InvalidOperation => "The requested operation is invalid\x00",
+        MalformedPacket => "The packet is malformed\x00",
+        UnsupportedPacketType => "Unsupported packet type\x00",
+        UnsupportedHashAlgorithm => "Unsupported hash algorithm\x00",
+        UnsupportedPublicKeyAlgorithm =>
+            "Unsupported public key algorithm\x00",
+        UnsupportedEllipticCurve => "Unsupported elliptic curve\x00",
+        UnsupportedSymmetricAlgorithm =>
+            "Unsupported symmetric algorithm\x00",
+        UnsupportedAEADAlgorithm => "Unsupported AEAD algorithm\x00",
+        UnsupportedSignatureType => "Unsupport signature type\x00",
+        InvalidPassword => "Invalid password\x00",
+        InvalidSessionKey => "Invalid session key\x00",
+        MissingSessionKey => "Missing session key\x00",
+        MalformedTPK => "Malformed TPK\x00",
+        MalformedMPI => "Malformed MPI\x00",
+        BadSignature => "Bad signature\x00",
+        ManipulatedMessage => "Message has been manipulated\x00",
+        MalformedMessage => "Malformed message\x00",
+        IndexOutOfRange => "Index out of range\x00",
+        UnsupportedTPK => "TPK not supported\x00",
+    }.as_bytes().as_ptr() as *const c_char
 }
 
 impl<'a> From<&'a failure::Error> for Status {
