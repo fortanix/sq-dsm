@@ -17,7 +17,6 @@ extern crate sequoia_openpgp as openpgp;
 extern crate time;
 
 use self::openpgp::{
-    RevocationStatus,
     crypto::SessionKey,
     constants::SymmetricAlgorithm,
     packet::{
@@ -49,34 +48,6 @@ use super::super::{
     packet,
     tpk::TPK,
 };
-
-fn revocation_status_to_int(rs: &RevocationStatus) -> c_int {
-    match rs {
-        RevocationStatus::Revoked(_) => 0,
-        RevocationStatus::CouldBe(_) => 1,
-        RevocationStatus::NotAsFarAsWeKnow => 2,
-    }
-}
-
-/// Returns the TPK's revocation status variant.
-#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "C" fn pgp_revocation_status_variant(
-    rs: *mut RevocationStatus)
-    -> c_int
-{
-    let rs = ffi_param_move!(rs);
-    let variant = revocation_status_to_int(rs.as_ref());
-    Box::into_raw(rs);
-    variant
-}
-
-/// Frees a pgp_revocation_status_t.
-#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "C" fn pgp_revocation_status_free(
-    rs: Option<&mut RevocationStatus>)
-{
-    ffi_free!(rs)
-}
 
 // Decryptor.
 

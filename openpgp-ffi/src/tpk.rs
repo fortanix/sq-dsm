@@ -12,7 +12,6 @@ use libc::{c_char, c_int, size_t, time_t, uint8_t};
 extern crate sequoia_openpgp as openpgp;
 use self::openpgp::{
     Packet,
-    RevocationStatus,
     autocrypt::Autocrypt,
     crypto,
     constants::ReasonForRevocation,
@@ -36,6 +35,8 @@ use super::packet::key::Key;
 use super::packet::signature::Signature;
 use super::packet_pile::PacketPile;
 use super::tsk::TSK;
+use super::revocation_status::RevocationStatus;
+
 use Maybe;
 use RefRaw;
 use MoveFromRaw;
@@ -158,8 +159,7 @@ fn pgp_tpk_primary(tpk: *const TPK) -> *const Key {
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_tpk_revocation_status(tpk: *const TPK)
                              -> *mut RevocationStatus<'static> {
-    let tpk = tpk.ref_raw();
-    box_raw!(tpk.revoked(None))
+    tpk.ref_raw().revoked(None).move_into_raw()
 }
 
 fn int_to_reason_for_revocation(code: c_int) -> ReasonForRevocation {
@@ -442,7 +442,6 @@ pub extern "C" fn pgp_user_id_binding_iter_next<'a>(
 /// Wrapers a KeyIter for export via the FFI.
 pub struct KeyIterWrapper<'a> {
     iter: KeyIter<'a>,
-    rso: Option<RevocationStatus<'a>>,
     // Whether next has been called.
     next_called: bool,
 }
@@ -470,7 +469,6 @@ pub extern "C" fn pgp_tpk_key_iter_valid(tpk: *const TPK)
     let tpk = tpk.ref_raw();
     box_raw!(KeyIterWrapper {
         iter: tpk.keys_valid(),
-        rso: None,
         next_called: false,
     })
 }
@@ -486,7 +484,6 @@ pub extern "C" fn pgp_tpk_key_iter_all(tpk: *const TPK)
     let tpk = tpk.ref_raw();
     box_raw!(KeyIterWrapper {
         iter: tpk.keys_all(),
-        rso: None,
         next_called: false,
     })
 }
@@ -657,11 +654,10 @@ pub extern "C" fn pgp_tpk_key_iter_unencrypted_secret<'a>(
 pub extern "C" fn pgp_tpk_key_iter_next<'a>(
     iter_wrapper: *mut KeyIterWrapper<'a>,
     sigo: Option<&mut Maybe<Signature>>,
-    rso: Option<&mut &'a RevocationStatus<'a>>)
+    rso: Option<&mut *mut RevocationStatus<'a>>)
     -> Maybe<Key>
 {
     let iter_wrapper = ffi_param_ref_mut!(iter_wrapper);
-    iter_wrapper.rso = None;
     iter_wrapper.next_called = true;
 
     if let Some((sig, rs, key)) = iter_wrapper.iter.next() {
@@ -670,8 +666,7 @@ pub extern "C" fn pgp_tpk_key_iter_next<'a>(
         }
 
         if let Some(ptr) = rso {
-            iter_wrapper.rso = Some(rs);
-            *ptr = iter_wrapper.rso.as_ref().unwrap();
+            *ptr = rs.move_into_raw();
         }
 
         Some(key).move_into_raw()

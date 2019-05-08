@@ -137,6 +137,11 @@ pgp_revocation_status_variant_t pgp_revocation_status_variant (
 /*/
 void pgp_revocation_status_free (pgp_revocation_status_t rs);
 
+/*/
+/// Returns a human readable description of this object suitable for
+/// debugging.
+/*/
+char *pgp_revocation_status_debug (const pgp_revocation_status_t);
 
 /* openpgp::armor.  */
 
