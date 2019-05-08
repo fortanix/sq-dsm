@@ -34,7 +34,6 @@ use {
 };
 use parse::{Parse, PacketParserResult, PacketParser};
 use serialize::SerializeInto;
-use conversions::Time;
 use constants::ReasonForRevocation;
 
 mod lexer;
