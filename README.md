@@ -75,10 +75,24 @@ dependency in your `Cargo.toml` file as with any other project.  Note
 that we depend on a number of C libraries, which must be present along
 with their development packages.
 
-To build Sequoia, you need a Rust toolchain and a few libraries. You can install
-the needed libraries with one of the following commands:
+Besides being a Rust crate, we also provide a C API, and bindings to
+other languages.  We also consider the needs of packagers in times
+where distribution support for packaging Rust projects is not yet
+mature enough to handle a project like Sequoia.  Therefore, we provide
+a `Makefile` to simplify building, testing, and installing Sequoia.
 
-Debian:
+To build Sequoia, simply execute `make`.  To run the test suites,
+execute `make test` (or use the `check` alias).  To install Sequoia,
+use `make install`.  The latter target honors `PREFIX` and `DESTDIR`.
+Finally, to return your source tree to its pristine state, run `make
+clean`.
+
+To build Sequoia, you need at least Rust 1.32.0 and a few
+libraries.  Please see below for OS-specific notes.
+
+### Debian
+
+You can install the needed libraries with the following command:
 
     $ sudo apt install git rustc cargo clang make pkg-config nettle-dev libssl-dev capnproto libsqlite3-dev
 
@@ -91,21 +105,23 @@ Notes:
     too old.  Instead, you need at least version 3.4, which is
     available from Debian testing.
 
-Arch Linux:
+### Arch Linux
+
+You can install the needed libraries with the following command:
 
     $ sudo pacman -S git cargo clang make pkg-config nettle openssl capnproto sqlite3 --needed
 
-Furthermore, we also provide a C API, and bindings to other languages.
-We also consider the needs of packagers in times where distribution
-support for packaging Rust projects is not yet mature enough to handle
-a project like Sequoia.  Therefore, we provide a `Makefile` to
-simplify building, testing, and installing Sequoia.
+### macOS (Mojave), using MacPorts
 
-To build Sequoia, simply execute `make`.  To run the test suites,
-execute `make test` (or use the `check` alias).  To install Sequoia,
-use `make install`.  The latter target honors `PREFIX` and `DESTDIR`.
-Finally, to return your source tree to its pristine state, run `make
-clean`.
+You can install the needed libraries with the following command:
+
+    $ sudo port install cargo rustc capnproto nettle pkgconfig
+
+### Windows
+
+Please make sure to preserve line-endings when cloning the Sequoia
+repository.  The relevant git option is `core.autocrlf` which must be
+set to false.
 
 Bindings
 --------
@@ -118,9 +134,13 @@ and installing the Python bindings, use `make PYTHON=disable`.
 To build the Python bindings, you will need the Python headers,
 setuptools, cffi, and pytest for Python3.
 
-Debian:
+#### Debian
 
     $ sudo apt install python3-dev python3-setuptools python3-cffi python3-pytest
+
+#### macOS (Mojave), using MacPorts
+
+    $ sudo port install py37-setuptools
 
 Getting help
 ============
