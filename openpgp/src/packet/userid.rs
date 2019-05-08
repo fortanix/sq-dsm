@@ -193,7 +193,7 @@ impl UserID {
     ///
     ///   [puny-code normalization]: https://tools.ietf.org/html/rfc5891.html#section-4.4
     ///   [empty locale]: https://www.w3.org/International/wiki/Case_folding
-    ///   [Autocryt]: https://autocrypt.org/level1.html#e-mail-address-canonicalization
+    ///   [Autocrypt]: https://autocrypt.org/level1.html#e-mail-address-canonicalization
     pub fn address_normalized(&self) -> Result<Option<String>> {
         match self.address() {
             e @ Err(_) => e,
