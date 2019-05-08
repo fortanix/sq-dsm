@@ -16,7 +16,7 @@ use MoveIntoRaw;
 ///
 /// `value` need not be valid UTF-8, but it must be NUL terminated.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "system" fn pgp_user_id_new(value: *const c_char)
+pub extern "C" fn pgp_user_id_new(value: *const c_char)
     -> *mut Packet
 {
     let value : &[u8] = ffi_param_cstr!(value).to_bytes();
@@ -28,7 +28,7 @@ pub extern "system" fn pgp_user_id_new(value: *const c_char)
 ///
 /// `value` need not be valid UTF-8.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "system" fn pgp_user_id_from_raw(value: *const uint8_t, len: size_t)
+pub extern "C" fn pgp_user_id_from_raw(value: *const uint8_t, len: size_t)
     -> *mut Packet
 {
     let value : &[u8] = unsafe { std::slice::from_raw_parts(value, len) };
