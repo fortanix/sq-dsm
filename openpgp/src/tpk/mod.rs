@@ -539,7 +539,7 @@ impl SubkeyBinding {
     /// The self-signatures.
     ///
     /// All self-signatures have been validated, and the newest
-    /// self-signature is first.
+    /// self-signature is last.
     pub fn selfsigs(&self) -> &[Signature] {
         &self.selfsigs
     }
@@ -553,7 +553,7 @@ impl SubkeyBinding {
 
     /// Revocations issued by the key itself.
     ///
-    /// The revocations have been validated, and the newest is first.
+    /// The revocations have been validated, and the newest is last.
     pub fn self_revocations(&self) -> &[Signature] {
         &self.self_revocations
     }
@@ -632,8 +632,8 @@ impl UserIDBinding {
 
     /// The self-signatures.
     ///
-    /// The self-signatures have been validated, and the newest
-    /// self-signature is first.
+    /// All self-signatures have been validated, and the newest
+    /// self-signature is last.
     pub fn selfsigs(&self) -> &[Signature] {
         &self.selfsigs
     }
@@ -647,7 +647,7 @@ impl UserIDBinding {
 
     /// Revocations issued by the key itself.
     ///
-    /// The revocations have been validated, and the newest is first.
+    /// The revocations have been validated, and the newest is last.
     pub fn self_revocations(&self) -> &[Signature] {
         &self.self_revocations
     }
@@ -727,8 +727,8 @@ impl UserAttributeBinding {
 
     /// The self-signatures.
     ///
-    /// The self-signatures have been validated, and the newest
-    /// self-signature is first.
+    /// All self-signatures have been validated, and the newest
+    /// self-signature is last.
     pub fn selfsigs(&self) -> &[Signature] {
         &self.selfsigs
     }
@@ -742,7 +742,7 @@ impl UserAttributeBinding {
 
     /// Revocations issued by the key itself.
     ///
-    /// The revocations have been validated, and the newest is first.
+    /// The revocations have been validated, and the newest is last.
     pub fn self_revocations(&self) -> &[Signature] {
         &self.self_revocations
     }
@@ -1669,7 +1669,7 @@ impl TPK {
     /// The self-signatures.
     ///
     /// All self-signatures have been validated, and the newest
-    /// self-signature is first.
+    /// self-signature is last.
     pub fn selfsigs(&self) -> &[Signature] {
         &self.primary_selfsigs
     }
@@ -1683,7 +1683,7 @@ impl TPK {
 
     /// Revocations issued by the key itself.
     ///
-    /// The revocations have been validated, and the newest is first.
+    /// The revocations have been validated, and the newest is last.
     pub fn self_revocations(&self) -> &[Signature] {
         &self.primary_self_revocations
     }
@@ -2195,7 +2195,7 @@ impl TPK {
 
 
         // Sort the signatures so that the current valid
-        // self-signature is first.
+        // self-signature is last.
         for userid in &mut self.userids {
             userid.selfsigs.sort_by(sig_cmp);
             userid.selfsigs.dedup_by_key(sig_key);
@@ -2345,7 +2345,7 @@ impl TPK {
         });
 
         // Sort the signatures so that the current valid
-        // self-signature is first.
+        // self-signature is last.
         for attribute in &mut self.user_attributes {
             attribute.selfsigs.sort_by(sig_cmp);
             attribute.selfsigs.dedup_by_key(sig_key);
@@ -2475,7 +2475,7 @@ impl TPK {
 
 
         // Sort the signatures so that the current valid
-        // self-signature is first.
+        // self-signature is last.
         for subkey in &mut self.subkeys {
             subkey.selfsigs.sort_by(sig_cmp);
             subkey.selfsigs.dedup_by_key(sig_key);
@@ -3926,5 +3926,18 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
         let tpk = TPK::from_packet_pile(PacketPile::from(pile)).unwrap();
 
         assert_eq!(tpk.subkeys().len(), 2);
+    }
+
+    #[test]
+    fn signature_order() {
+        let neal = TPK::from_bytes(bytes!("neal.pgp")).unwrap();
+        let uidb = neal.userids().nth(0).unwrap();
+        // Signatures are sorted in ascending order wrt the signature
+        // creation time.
+        assert!(uidb.selfsigs()[0].signature_creation_time()
+                < uidb.selfsigs()[1].signature_creation_time());
+        // Make sure we return the most recent here.
+        assert_eq!(uidb.selfsigs().last().unwrap(),
+                   uidb.binding_signature().unwrap());
     }
 }
