@@ -448,10 +448,11 @@ impl TPKValidator {
 
 const TRACE : bool = false;
 
-/// Compare the creation time of two signatures.  Order them so
-/// that the more recent signature is first.
-fn canonical_signature_order(a: Option<time::Tm>, b: Option<time::Tm>) -> Ordering {
-    match (a,b) {
+/// Compare the creation time of two signatures.  Order them so that
+/// the more recent signature is first.
+fn canonical_signature_order(a: Option<time::Tm>, b: Option<time::Tm>)
+                             -> Ordering {
+    match (a, b) {
         (None, None) => Ordering::Equal,
         (None, Some(_)) => Ordering::Greater,
         (Some(_), None) => Ordering::Less,
