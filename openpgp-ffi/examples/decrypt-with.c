@@ -38,9 +38,90 @@ get_public_keys_cb (void *cookie_raw,
 }
 
 static pgp_status_t
-check_signatures_cb(void *cookie_opaque,
-                   pgp_verification_results_t results, size_t levels)
+check_cb (void *cookie_opaque, pgp_message_structure_t structure)
 {
+  pgp_message_structure_iter_t iter = pgp_message_structure_iter (structure);
+
+  for (pgp_message_layer_t layer = pgp_message_structure_iter_next (iter);
+       layer;
+       layer = pgp_message_structure_iter_next (iter)) {
+    uint8_t algo;
+    uint8_t aead_algo;
+    pgp_verification_result_iter_t results;
+
+    switch (pgp_message_layer_variant (layer)) {
+    case PGP_MESSAGE_LAYER_COMPRESSION:
+      pgp_message_layer_compression (layer, &algo);
+      fprintf (stderr, "Compressed using %d\n", algo);
+      break;
+
+    case PGP_MESSAGE_LAYER_ENCRYPTION:
+      pgp_message_layer_encryption (layer, &algo, &aead_algo);
+      if (aead_algo) {
+        fprintf (stderr, "Encrypted and protected using %d/%d\n",
+                 algo, aead_algo);
+      } else {
+        fprintf (stderr, "Encrypted using %d\n", algo);
+      }
+      break;
+
+    case PGP_MESSAGE_LAYER_SIGNATURE_GROUP:
+      pgp_message_layer_signature_group (layer, &results);
+      for (pgp_verification_result_t result =
+             pgp_verification_result_iter_next (results);
+           result;
+           result = pgp_verification_result_iter_next (results)) {
+        pgp_signature_t sig;
+        pgp_keyid_t keyid;
+        char *keyid_str = NULL;
+
+        switch (pgp_verification_result_variant (result)) {
+        case PGP_VERIFICATION_RESULT_GOOD_CHECKSUM:
+          pgp_verification_result_good_checksum (result, &sig, NULL,
+                                                 NULL, NULL, NULL);
+          keyid = pgp_signature_issuer (sig);
+          keyid_str = pgp_keyid_to_string (keyid);
+          fprintf (stderr, "Good signature from %s\n", keyid_str);
+          break;
+
+        case PGP_VERIFICATION_RESULT_MISSING_KEY:
+          pgp_verification_result_missing_key (result, &sig);
+          keyid = pgp_signature_issuer (sig);
+          keyid_str = pgp_keyid_to_string (keyid);
+          fprintf (stderr, "No key to check signature from %s\n", keyid_str);
+          break;
+
+        case PGP_VERIFICATION_RESULT_BAD_CHECKSUM:
+          pgp_verification_result_bad_checksum (result, &sig);
+          keyid = pgp_signature_issuer (sig);
+          if (keyid) {
+            keyid_str = pgp_keyid_to_string (keyid);
+            fprintf (stderr, "Bad signature from %s\n", keyid_str);
+          } else {
+            fprintf (stderr, "Bad signature without issuer information\n");
+          }
+          break;
+
+        default:
+          assert (! "reachable");
+        }
+        free (keyid_str);
+        pgp_signature_free (sig);
+        pgp_verification_result_free (result);
+      }
+      pgp_verification_result_iter_free (results);
+      break;
+
+    default:
+      assert (! "reachable");
+    }
+
+    pgp_message_layer_free (layer);
+  }
+
+  pgp_message_structure_iter_free (iter);
+  pgp_message_structure_free (structure);
+
   /* Implement your verification policy here.  */
   return PGP_STATUS_SUCCESS;
 }
@@ -128,7 +209,7 @@ main (int argc, char **argv)
   };
   plaintext = pgp_decryptor_new (&err, source,
                                  get_public_keys_cb, decrypt_cb,
-                                 check_signatures_cb, &cookie, 0);
+                                 check_cb, &cookie, 0);
   if (! plaintext)
     error (1, 0, "pgp_decryptor_new: %s", pgp_error_to_string (err));
 

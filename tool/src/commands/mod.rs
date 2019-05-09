@@ -18,6 +18,7 @@ use openpgp::parse::{
 };
 use openpgp::parse::stream::{
     Verifier, DetachedVerifier, VerificationResult, VerificationHelper,
+    MessageStructure, MessageLayer,
 };
 use openpgp::serialize::stream::{
     Message, Signer, LiteralWriter, Encryptor, EncryptionMode,
@@ -189,6 +190,66 @@ impl<'a> VHelper<'a> {
             eprintln!(".");
         }
     }
+
+    fn print_sigs(&mut self, results: &[VerificationResult]) {
+        use self::VerificationResult::*;
+        for result in results {
+            let (issuer, level) = match result {
+                GoodChecksum(ref sig, ..) => (sig.get_issuer(), sig.level()),
+                MissingKey(ref sig) => (sig.get_issuer(), sig.level()),
+                BadChecksum(ref sig) => (sig.get_issuer(), sig.level()),
+            };
+
+            let trusted = issuer.as_ref().map(|i| {
+                self.trusted.contains(&i)
+            }).unwrap_or(false);
+            let what = match (level == 0, trusted) {
+                (true,  true)  => "signature".into(),
+                (false, true)  => format!("level {} notarization", level),
+                (true,  false) => "checksum".into(),
+                (false, false) =>
+                    format!("level {} notarizing checksum", level),
+            };
+
+            match result {
+                GoodChecksum(..) => {
+                    let issuer = issuer
+                        .expect("good checksum has an issuer");
+                    let issuer_str = format!("{}", issuer);
+                    eprintln!("Good {} from {}", what,
+                              self.labels.get(&issuer).unwrap_or(
+                                  &issuer_str));
+                    if trusted {
+                        self.good_signatures += 1;
+                    } else {
+                        self.good_checksums += 1;
+                    }
+                },
+                MissingKey(_) => {
+                    let issuer = issuer
+                        .expect("missing key checksum has an issuer");
+                    eprintln!("No key to check {} from {}", what, issuer);
+                    self.unknown_checksums += 1;
+                },
+                BadChecksum(_) => {
+                    if let Some(issuer) = issuer {
+                        let issuer_str = format!("{}", issuer);
+                        eprintln!("Bad {} from {}", what,
+                                  self.labels.get(&issuer).unwrap_or(
+                                      &issuer_str));
+                    } else {
+                        eprintln!("Bad {} without issuer information",
+                                  what);
+                    }
+                    if trusted {
+                        self.bad_signatures += 1;
+                    } else {
+                        self.bad_checksums += 1;
+                    }
+                },
+            }
+        }
+    }
 }
 
 impl<'a> VerificationHelper for VHelper<'a> {
@@ -241,64 +302,20 @@ impl<'a> VerificationHelper for VHelper<'a> {
         Ok(tpks)
     }
 
-    fn check(&mut self, sigs: Vec<Vec<VerificationResult>>) -> Result<()> {
-        use self::VerificationResult::*;
-        for (i, results) in sigs.into_iter().rev().enumerate() {
-            for result in results {
-                let issuer = match result {
-                    GoodChecksum(ref sig, ..) => sig.get_issuer(),
-                    MissingKey(ref sig) => sig.get_issuer(),
-                    BadChecksum(ref sig) => sig.get_issuer(),
-                };
-
-                let trusted = issuer.as_ref().map(|i| {
-                    self.trusted.contains(&i)
-                }).unwrap_or(false);
-                let what = match (i == 0, trusted) {
-                    (true,  true)  => "signature".into(),
-                    (false, true)  => format!("level {} notarization", i),
-                    (true,  false) => "checksum".into(),
-                    (false, false) =>
-                        format!("level {} notarizing checksum", i),
-                };
-
-                match result {
-                    GoodChecksum(..) => {
-                        let issuer = issuer
-                            .expect("good checksum has an issuer");
-                        let issuer_str = format!("{}", issuer);
-                        eprintln!("Good {} from {}", what,
-                                  self.labels.get(&issuer).unwrap_or(
-                                      &issuer_str));
-                        if trusted {
-                            self.good_signatures += 1;
-                        } else {
-                            self.good_checksums += 1;
-                        }
+    fn check(&mut self, structure: &MessageStructure) -> Result<()> {
+        for layer in structure.iter() {
+            match layer {
+                MessageLayer::Compression { algo } =>
+                    eprintln!("Compressed using {}", algo),
+                MessageLayer::Encryption { sym_algo, aead_algo } =>
+                    if let Some(aead_algo) = aead_algo {
+                        eprintln!("Encrypted and protected using {}/{}",
+                                  sym_algo, aead_algo);
+                    } else {
+                        eprintln!("Encrypted using {}", sym_algo);
                     },
-                    MissingKey(_) => {
-                        let issuer = issuer
-                            .expect("missing key checksum has an issuer");
-                        eprintln!("No key to check {} from {}", what, issuer);
-                        self.unknown_checksums += 1;
-                    },
-                    BadChecksum(_) => {
-                        if let Some(issuer) = issuer {
-                            let issuer_str = format!("{}", issuer);
-                            eprintln!("Bad {} from {}", what,
-                                      self.labels.get(&issuer).unwrap_or(
-                                          &issuer_str));
-                        } else {
-                            eprintln!("Bad {} without issuer information",
-                                      what);
-                        }
-                        if trusted {
-                            self.bad_signatures += 1;
-                        } else {
-                            self.bad_checksums += 1;
-                        }
-                    },
-                }
+                MessageLayer::SignatureGroup { ref results } =>
+                    self.print_sigs(results),
             }
         }
 

@@ -11,7 +11,7 @@
 //! [`sequoia-openpgp::parse::stream`]: ../../../sequoia_openpgp/parse/stream/index.html
 
 use std::ptr;
-use libc::{c_int, size_t, c_void, uint8_t, time_t};
+use libc::{c_int, c_void, uint8_t, time_t};
 
 extern crate sequoia_openpgp as openpgp;
 extern crate time;
@@ -25,10 +25,10 @@ use self::openpgp::{
     },
 };
 use self::openpgp::parse::stream::{
+    self,
     DecryptionHelper,
     Decryptor,
     VerificationHelper,
-    VerificationResult,
     Verifier,
     DetachedVerifier,
 };
@@ -45,93 +45,221 @@ use super::super::{
     crypto,
     io,
     keyid,
-    packet,
     tpk::TPK,
+    packet::signature::Signature,
+    packet::key::Key,
+    revocation_status::RevocationStatus,
 };
 
-// Decryptor.
+/// Communicates the message structure to the VerificationHelper.
+#[::ffi_wrapper_type(prefix = "pgp_", derive = "Debug")]
+pub struct MessageStructure<'a>(stream::MessageStructure<'a>);
 
-/// A message's verification results.
-///
-/// Conceptually, the verification results are an array of an array of
-/// VerificationResult.  The outer array is for the verification level
-/// and is indexed by the verification level.  A verification level of
-/// zero corresponds to direct signatures; A verification level of 1
-/// corresponds to notarizations (i.e., signatures of signatures);
-/// etc.
-///
-/// Within each level, there can be one or more signatures.
-pub struct VerificationResults<'a> {
-    results: Vec<Vec<&'a VerificationResult<'a>>>,
+/// Iterates over the message structure.
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
+fn pgp_message_structure_iter(structure: *const MessageStructure)
+                              -> *mut MessageStructureIter {
+    structure.ref_raw().iter().move_into_raw()
 }
 
-/// Returns the `VerificationResult`s at level `level.
-///
-/// Conceptually, the verification results are an array of an array of
-/// VerificationResult.  The outer array is for the verification level
-/// and is indexed by the verification level.  A verification level of
-/// zero corresponds to direct signatures; A verification level of 1
-/// corresponds to notarizations (i.e., signatures of signatures);
-/// etc.
-///
-/// This function returns the verification results for a particular
-/// level.  The result is an array of references to
-/// `VerificationResult`.
+/// Iterates over the message structure.
+#[::ffi_wrapper_type(prefix = "pgp_", derive = "Iterator(MessageLayer)")]
+pub struct MessageStructureIter<'a>(stream::MessageStructureIter<'a>);
+
+/// Represents a layer of the message structure.
+#[::ffi_wrapper_type(prefix = "pgp_", derive = "Debug")]
+pub struct MessageLayer<'a>(stream::MessageLayer<'a>);
+
+/// Returns the message layer variant.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn pgp_verification_results_at_level<'a>(results: *const VerificationResults<'a>,
-                                         level: size_t,
-                                         r: *mut *const &'a VerificationResult<'a>,
-                                         r_count: *mut size_t) {
-    let results = ffi_param_ref!(results);
-    let r = ffi_param_ref_mut!(r);
-    let r_count = ffi_param_ref_mut!(r_count);
-
-    assert!(level < results.results.len());
-
-    // The size of VerificationResult is not known in C.  Convert from
-    // an array of VerificationResult to an array of
-    // VerificationResult refs.
-    *r = results.results[results.results.len() - level - 1].as_ptr();
-    *r_count = results.results[results.results.len() - level - 1].len();
-}
-
-/// Returns the verification result code.
-#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn pgp_verification_result_code(result: *const VerificationResult)
+fn pgp_message_layer_variant(result: *const MessageLayer)
     -> c_int
 {
-    let result = ffi_param_ref!(result);
-    match result {
-        VerificationResult::GoodChecksum(..) => 1,
-        VerificationResult::MissingKey(_) => 2,
-        VerificationResult::BadChecksum(_) => 3,
+    use self::stream::MessageLayer::*;
+    match result.ref_raw() {
+        Compression { .. } => 1,
+        Encryption { .. } => 2,
+        SignatureGroup { .. } => 3,
     }
 }
 
-/// Returns the verification result code.
+/// Decomposes a `MessageLayer::Compression`.
+///
+/// Returns `true` iff the given value is a
+/// `MessageLayer::Compression`, and returns each of the variants
+/// members if the corresponding parameter is not `NULL`.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn pgp_verification_result_signature(result: *const VerificationResult)
-    -> *mut packet::signature::Signature
+fn pgp_message_layer_compression(v: *const MessageLayer,
+                                 algo_r: Maybe<uint8_t>)
+                                 -> bool
 {
-    let result = ffi_param_ref!(result);
-    let sig = match result {
-        VerificationResult::GoodChecksum(ref sig, ..) => sig,
-        VerificationResult::MissingKey(ref sig) => sig,
-        VerificationResult::BadChecksum(ref sig) => sig,
-    };
-
-    sig.move_into_raw()
+    use self::stream::MessageLayer::*;
+    if let Compression { algo } = v.ref_raw() {
+        if let Some(mut p) = algo_r {
+            *unsafe { p.as_mut() } = (*algo).into();
+        }
+        true
+    } else {
+        false
+    }
 }
 
-/// Returns the verification result code.
+/// Decomposes a `MessageLayer::Encryption`.
+///
+/// Returns `true` iff the given value is a
+/// `MessageLayer::Encryption`, and returns each of the variants
+/// members if the corresponding parameter is not `NULL`.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn pgp_verification_result_level(result: *const VerificationResult)
+fn pgp_message_layer_encryption(v: *const MessageLayer,
+                                sym_algo_r: Maybe<uint8_t>,
+                                aead_algo_r: Maybe<uint8_t>)
+                                 -> bool
+{
+    use self::stream::MessageLayer::*;
+    if let Encryption { sym_algo, aead_algo } = v.ref_raw() {
+        if let Some(mut p) = sym_algo_r {
+            *unsafe { p.as_mut() } = (*sym_algo).into();
+        }
+        if let Some(mut p) = aead_algo_r {
+            *unsafe { p.as_mut() } =
+                aead_algo.map(|a| a.into()).unwrap_or(0);
+        }
+        true
+    } else {
+        false
+    }
+}
+
+/// Decomposes a `MessageLayer::SignatureGroup`.
+///
+/// Returns `true` iff the given value is a
+/// `MessageLayer::SignatureGroup`, and returns each of the variants
+/// members if the corresponding parameter is not `NULL`.
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
+fn pgp_message_layer_signature_group<'a>(
+    v: *const MessageLayer<'a>,
+    results_r: Maybe<* mut VerificationResultIter<'a>>)
+    -> bool
+{
+    use self::stream::MessageLayer::*;
+    if let SignatureGroup { results } = v.ref_raw() {
+        if let Some(mut p) = results_r {
+            *unsafe { p.as_mut() } = results.iter().move_into_raw();
+        }
+        true
+    } else {
+        false
+    }
+}
+
+/// A message's verification results.
+#[::ffi_wrapper_type(prefix = "pgp_", derive = "Iterator(VerificationResult)")]
+pub struct VerificationResultIter<'a>(
+    ::std::slice::Iter<'a, stream::VerificationResult<'a>>);
+
+/// A message's verification results.
+#[::ffi_wrapper_type(prefix = "pgp_", derive = "Debug")]
+pub struct VerificationResult<'a>(stream::VerificationResult<'a>);
+
+/// Returns the verification result variant.
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
+fn pgp_verification_result_variant(result: *const VerificationResult)
     -> c_int
 {
-    let result = ffi_param_ref!(result);
-    result.level() as c_int
+    use self::stream::VerificationResult::*;
+    match result.ref_raw() {
+        GoodChecksum(..) => 1,
+        MissingKey(_) => 2,
+        BadChecksum(_) => 3,
+    }
 }
 
+/// Decomposes a `VerificationResult::GoodChecksum`.
+///
+/// Returns `true` iff the given value is a
+/// `VerificationResult::GoodChecksum`, and returns the variants members
+/// in `sig_r` and the like iff `sig_r != NULL`.
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
+fn pgp_verification_result_good_checksum<'a>(
+    result: *const VerificationResult<'a>,
+    sig_r: Maybe<*mut Signature>,
+    tpk_r: Maybe<*mut TPK>,
+    key_r: Maybe<*mut Key>,
+    binding_r: Maybe<Maybe<Signature>>,
+    revocation_status_r:
+    Maybe<*mut RevocationStatus<'a>>)
+    -> bool
+{
+    use self::stream::VerificationResult::*;
+    if let GoodChecksum(ref sig, ref tpk, ref key, ref binding, ref revocation)
+        = result.ref_raw()
+    {
+        if let Some(mut p) = sig_r {
+            *unsafe { p.as_mut() } = sig.move_into_raw();
+        }
+        if let Some(mut p) = tpk_r {
+            *unsafe { p.as_mut() } = tpk.move_into_raw();
+        }
+        if let Some(mut p) = key_r {
+            *unsafe { p.as_mut() } = key.move_into_raw();
+        }
+        if let Some(mut p) = binding_r {
+            *unsafe { p.as_mut() } = binding.move_into_raw();
+        }
+        if let Some(mut p) = revocation_status_r {
+            *unsafe { p.as_mut() } = revocation.move_into_raw();
+        }
+        true
+    } else {
+        false
+    }
+}
+
+/// Decomposes a `VerificationResult::MissingKey`.
+///
+/// Returns `true` iff the given value is a
+/// `VerificationResult::MissingKey`, and returns the variants members
+/// in `sig_r` and the like iff `sig_r != NULL`.
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
+fn pgp_verification_result_missing_key<'a>(
+    result: *const VerificationResult<'a>,
+    sig_r: Maybe<*mut Signature>)
+    -> bool
+{
+    use self::stream::VerificationResult::*;
+    if let MissingKey(ref sig) = result.ref_raw()
+    {
+        if let Some(mut p) = sig_r {
+            *unsafe { p.as_mut() } = sig.move_into_raw();
+        }
+        true
+    } else {
+        false
+    }
+}
+
+/// Decomposes a ``VerificationResult::BadChecksum`.
+///
+/// Returns `true` iff the given value is a
+/// `VerificationResult::BadChecksum`, and returns the variants
+/// members in `sig_r` and the like iff `sig_r != NULL`.
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
+fn pgp_verification_result_bad_checksum<'a>(
+    result: *const VerificationResult<'a>,
+    sig_r: Maybe<*mut Signature>)
+    -> bool
+{
+    use self::stream::VerificationResult::*;
+    if let BadChecksum(ref sig) = result.ref_raw()
+    {
+        if let Some(mut p) = sig_r {
+            *unsafe { p.as_mut() } = sig.move_into_raw();
+        }
+        true
+    } else {
+        false
+    }
+}
 
 /// Passed as the first argument to the callbacks used by pgp_verify
 /// and pgp_decrypt.
@@ -174,20 +302,20 @@ type DecryptCallback = fn(*mut HelperCookie,
 ///
 /// If the result is not Status::Success, then this aborts the
 /// Verification.
-type CheckSignaturesCallback = fn(*mut HelperCookie,
-                                  *const VerificationResults,
-                                  usize) -> Status;
+type CheckCallback = fn(*mut HelperCookie,
+                                  *const MessageStructure)
+                                  -> Status;
 
 // This fetches keys and computes the validity of the verification.
 struct VHelper {
     get_public_keys_cb: GetPublicKeysCallback,
-    check_signatures_cb: CheckSignaturesCallback,
+    check_signatures_cb: CheckCallback,
     cookie: *mut HelperCookie,
 }
 
 impl VHelper {
     fn new(get_public_keys: GetPublicKeysCallback,
-           check_signatures: CheckSignaturesCallback,
+           check_signatures: CheckCallback,
            cookie: *mut HelperCookie)
        -> Self
     {
@@ -244,20 +372,11 @@ impl VerificationHelper for VHelper {
         Ok(tpks)
     }
 
-    fn check(&mut self, sigs: Vec<Vec<VerificationResult>>)
+    fn check(&mut self, structure: &stream::MessageStructure)
         -> Result<(), failure::Error>
     {
-        // The size of VerificationResult is not known in C.  Convert
-        // from an array of VerificationResults to an array of
-        // VerificationResult refs.
-        let results = VerificationResults {
-            results: sigs.iter().map(
-                |r| r.iter().collect::<Vec<&VerificationResult>>()).collect()
-        };
-
         let result = (self.check_signatures_cb)(self.cookie,
-                                                &results,
-                                                results.results.len());
+                                                structure.move_into_raw());
         if result != Status::Success {
             // XXX: We need to convert the status to an error.  A
             // status contains less information, but we should do the
@@ -310,17 +429,31 @@ impl VerificationHelper for VHelper {
 /// }
 ///
 /// static pgp_status_t
-/// check_signatures_cb(void *cookie_opaque,
-///                    pgp_verification_results_t results, size_t levels)
+/// check_cb (void *cookie_opaque, pgp_message_structure_t structure)
 /// {
-///   /* Implement your verification policy here.  */
-///   assert (levels == 1);
-///   pgp_verification_result_t *vrs;
-///   size_t vr_count;
-///   pgp_verification_results_at_level (results, 0, &vrs, &vr_count);
-///   assert (vr_count == 1);
-///   pgp_verification_result_code_t code = pgp_verification_result_code(vrs[0]);
-///   assert (code == PGP_VERIFICATION_RESULT_CODE_GOOD_CHECKSUM);
+///   pgp_message_structure_iter_t iter =
+///     pgp_message_structure_iter (structure);
+///   pgp_message_layer_t layer = pgp_message_structure_iter_next (iter);
+///   assert (layer);
+///   assert (pgp_message_layer_compression (layer, NULL));
+///   pgp_message_layer_free (layer);
+///   layer = pgp_message_structure_iter_next (iter);
+///   assert (layer);
+///   pgp_verification_result_iter_t results;
+///   if (pgp_message_layer_signature_group (layer, &results)) {
+///     pgp_verification_result_t result =
+///       pgp_verification_result_iter_next (results);
+///     assert (result);
+///     assert (pgp_verification_result_good_checksum (result, NULL, NULL,
+///                                                    NULL, NULL, NULL));
+///     pgp_verification_result_free (result);
+///   } else {
+///     assert (! "reachable");
+///   }
+///   pgp_verification_result_iter_free (results);
+///   pgp_message_layer_free (layer);
+///   pgp_message_structure_iter_free (iter);
+///   pgp_message_structure_free (structure);
 ///   return PGP_STATUS_SUCCESS;
 /// }
 ///
@@ -344,7 +477,7 @@ impl VerificationHelper for VHelper {
 ///     .key = tpk,  /* Move.  */
 ///   };
 ///   plaintext = pgp_verifier_new (NULL, source,
-///                                 get_public_keys_cb, check_signatures_cb,
+///                                 get_public_keys_cb, check_cb,
 ///                                 &cookie, 1554542219);
 ///   assert (source);
 ///
@@ -362,12 +495,12 @@ impl VerificationHelper for VHelper {
 fn pgp_verifier_new<'a>(errp: Option<&mut *mut ::error::Error>,
                         input: *mut io::Reader,
                         get_public_keys: GetPublicKeysCallback,
-                        check_signatures: CheckSignaturesCallback,
+                        check: CheckCallback,
                         cookie: *mut HelperCookie,
                         time: time_t)
                         -> Maybe<io::Reader>
 {
-    let helper = VHelper::new(get_public_keys, check_signatures, cookie);
+    let helper = VHelper::new(get_public_keys, check, cookie);
 
     Verifier::from_reader(input.ref_mut_raw(), helper, maybe_time(time))
         .map(|r| io::ReaderKind::Generic(Box::new(r)))
@@ -418,17 +551,27 @@ fn maybe_time(t: time_t) -> Option<time::Tm> {
 /// }
 ///
 /// static pgp_status_t
-/// check_signatures_cb(void *cookie_opaque,
-///                    pgp_verification_results_t results, size_t levels)
+/// check_cb (void *cookie_opaque, pgp_message_structure_t structure)
 /// {
-///   /* Implement your verification policy here.  */
-///   assert (levels == 1);
-///   pgp_verification_result_t *vrs;
-///   size_t vr_count;
-///   pgp_verification_results_at_level (results, 0, &vrs, &vr_count);
-///   assert (vr_count == 1);
-///   pgp_verification_result_code_t code = pgp_verification_result_code(vrs[0]);
-///   assert (code == PGP_VERIFICATION_RESULT_CODE_GOOD_CHECKSUM);
+///   pgp_message_structure_iter_t iter =
+///     pgp_message_structure_iter (structure);
+///   pgp_message_layer_t layer = pgp_message_structure_iter_next (iter);
+///   assert (layer);
+///   pgp_verification_result_iter_t results;
+///   if (pgp_message_layer_signature_group (layer, &results)) {
+///     pgp_verification_result_t result =
+///       pgp_verification_result_iter_next (results);
+///     assert (result);
+///     assert (pgp_verification_result_good_checksum (result, NULL, NULL,
+///                                                    NULL, NULL, NULL));
+///     pgp_verification_result_free (result);
+///   } else {
+///     assert (! "reachable");
+///   }
+///   pgp_verification_result_iter_free (results);
+///   pgp_message_layer_free (layer);
+///   pgp_message_structure_iter_free (iter);
+///   pgp_message_structure_free (structure);
 ///   return PGP_STATUS_SUCCESS;
 /// }
 ///
@@ -459,7 +602,7 @@ fn maybe_time(t: time_t) -> Option<time::Tm> {
 ///     .key = tpk,  /* Move.  */
 ///   };
 ///   plaintext = pgp_detached_verifier_new (NULL, signature, source,
-///     get_public_keys_cb, check_signatures_cb,
+///     get_public_keys_cb, check_cb,
 ///     &cookie, 1554542219);
 ///   assert (source);
 ///
@@ -479,12 +622,12 @@ fn pgp_detached_verifier_new<'a>(errp: Option<&mut *mut ::error::Error>,
                                  signature_input: *mut io::Reader,
                                  input: *mut io::Reader,
                                  get_public_keys: GetPublicKeysCallback,
-                                 check_signatures: CheckSignaturesCallback,
+                                 check: CheckCallback,
                                  cookie: *mut HelperCookie,
                                  time: time_t)
                                  -> Maybe<io::Reader>
 {
-    let helper = VHelper::new(get_public_keys, check_signatures, cookie);
+    let helper = VHelper::new(get_public_keys, check, cookie);
 
     DetachedVerifier::from_reader(signature_input.ref_mut_raw(),
                                   input.ref_mut_raw(), helper, maybe_time(time))
@@ -501,12 +644,12 @@ struct DHelper {
 impl DHelper {
     fn new(get_public_keys: GetPublicKeysCallback,
            decrypt: DecryptCallback,
-           check_signatures: CheckSignaturesCallback,
+           check: CheckCallback,
            cookie: *mut HelperCookie)
        -> Self
     {
         DHelper {
-            vhelper: VHelper::new(get_public_keys, check_signatures, cookie),
+            vhelper: VHelper::new(get_public_keys, check, cookie),
             decrypt_cb: decrypt,
         }
     }
@@ -519,10 +662,10 @@ impl VerificationHelper for DHelper {
         self.vhelper.get_public_keys(ids)
     }
 
-    fn check(&mut self, sigs: Vec<Vec<VerificationResult>>)
+    fn check(&mut self, structure: &stream::MessageStructure)
         -> Result<(), failure::Error>
     {
-        self.vhelper.check(sigs)
+        self.vhelper.check(structure)
     }
 }
 
@@ -625,10 +768,16 @@ impl DecryptionHelper for DHelper {
 /// }
 ///
 /// static pgp_status_t
-/// check_signatures_cb(void *cookie_opaque,
-///                     pgp_verification_results_t results, size_t levels)
+/// check_cb (void *cookie_opaque, pgp_message_structure_t structure)
 /// {
-///   /* Implement your verification policy here.  */
+///   pgp_message_structure_iter_t iter =
+///     pgp_message_structure_iter (structure);
+///   pgp_message_layer_t layer = pgp_message_structure_iter_next (iter);
+///   assert (layer);
+///   assert (pgp_message_layer_encryption (layer, NULL, NULL));
+///   pgp_message_layer_free (layer);
+///   pgp_message_structure_iter_free (iter);
+///   pgp_message_structure_free (structure);
 ///   return PGP_STATUS_SUCCESS;
 /// }
 ///
@@ -711,7 +860,7 @@ impl DecryptionHelper for DHelper {
 ///   };
 ///   plaintext = pgp_decryptor_new (NULL, source,
 ///                                  get_public_keys_cb, decrypt_cb,
-///                                  check_signatures_cb, &cookie, 1554542219);
+///                                  check_cb, &cookie, 1554542219);
 ///   assert (plaintext);
 ///
 ///   nread = pgp_reader_read (NULL, plaintext, buf, sizeof buf);
@@ -730,13 +879,13 @@ fn pgp_decryptor_new<'a>(errp: Option<&mut *mut ::error::Error>,
                          input: *mut io::Reader,
                          get_public_keys: GetPublicKeysCallback,
                          decrypt: DecryptCallback,
-                         check_signatures: CheckSignaturesCallback,
+                         check: CheckCallback,
                          cookie: *mut HelperCookie,
                          time: time_t)
                          -> Maybe<io::Reader>
 {
     let helper = DHelper::new(
-        get_public_keys, decrypt, check_signatures, cookie);
+        get_public_keys, decrypt, check, cookie);
 
     Decryptor::from_reader(input.ref_mut_raw(), helper, maybe_time(time))
         .map(|r| io::ReaderKind::Generic(Box::new(r)))

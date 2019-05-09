@@ -17,6 +17,8 @@ use openpgp::parse::{
         Decryptor,
         VerificationHelper,
         VerificationResult,
+        MessageStructure,
+        MessageLayer,
     },
 };
 
@@ -95,7 +97,7 @@ impl DecryptionHelper for Helper {
         }
         // XXX: In production code, return the Fingerprint of the
         // recipient's TPK here
-        Ok(None) 
+        Ok(None)
     }
 }
 
@@ -104,8 +106,46 @@ impl VerificationHelper for Helper {
                        -> failure::Fallible<Vec<openpgp::TPK>> {
         Ok(Vec::new()) // Feed the TPKs to the verifier here.
     }
-    fn check(&mut self, _sigs: Vec<Vec<VerificationResult>>)
+    fn check(&mut self, structure: &MessageStructure)
              -> failure::Fallible<()> {
+        use self::VerificationResult::*;
+        for layer in structure.iter() {
+            match layer {
+                MessageLayer::Compression { algo } =>
+                    eprintln!("Compressed using {}", algo),
+                MessageLayer::Encryption { sym_algo, aead_algo } =>
+                    if let Some(aead_algo) = aead_algo {
+                        eprintln!("Encrypted and protected using {}/{}",
+                                  sym_algo, aead_algo);
+                    } else {
+                        eprintln!("Encrypted using {}", sym_algo);
+                    },
+                MessageLayer::SignatureGroup { ref results } =>
+                    for result in results {
+                        match result {
+                            GoodChecksum(ref sig, ..) => {
+                                let issuer = sig.issuer()
+                                    .expect("good checksum has an issuer");
+                                eprintln!("Good signature from {}", issuer);
+                            },
+                            MissingKey(ref sig) => {
+                                let issuer = sig.issuer()
+                                    .expect("missing key checksum has an \
+                                             issuer");
+                                eprintln!("No key to check signature from {}",
+                                          issuer);
+                            },
+                            BadChecksum(ref sig) =>
+                                if let Some(issuer) = sig.issuer() {
+                                    eprintln!("Bad signature from {}", issuer);
+                                } else {
+                                    eprintln!("Bad signature without issuer \
+                                               information");
+                                },
+                        }
+                    }
+            }
+        }
         Ok(()) // Implement your verification policy here.
     }
 }

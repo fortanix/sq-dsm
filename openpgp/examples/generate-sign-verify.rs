@@ -92,30 +92,41 @@ impl<'a> VerificationHelper for Helper<'a> {
         Ok(vec![self.tpk.clone()])
     }
 
-    fn check(&mut self, sigs: Vec<Vec<VerificationResult>>)
+    fn check(&mut self, structure: &MessageStructure)
              -> openpgp::Result<()> {
         // In this function, we implement our signature verification
         // policy.
 
-        // First, we are interested in signatures over the data,
-        // i.e. level 0 signatures.
-        let sigs_over_data = sigs.get(0)
-            .ok_or_else(|| failure::err_msg("No level 0 signatures found"))?;
+        let mut good = false;
+        for (i, layer) in structure.iter().enumerate() {
+            match (i, layer) {
+                // First, we are interested in signatures over the
+                // data, i.e. level 0 signatures.
+                (0, MessageLayer::SignatureGroup { ref results }) => {
+                    // Finally, given a VerificationResult, which only says
+                    // whether the signature checks out mathematically, we apply
+                    // our policy.
+                    match results.get(0) {
+                        Some(VerificationResult::GoodChecksum(..)) =>
+                            good = true,
+                        Some(VerificationResult::MissingKey(_)) =>
+                            return Err(failure::err_msg(
+                                "Missing key to verify signature")),
+                        Some(VerificationResult::BadChecksum(_)) =>
+                            return Err(failure::err_msg("Bad signature")),
+                        None =>
+                            return Err(failure::err_msg("No signature")),
+                    }
+                },
+                _ => return Err(failure::err_msg(
+                    "Unexpected message structure")),
+            }
+        }
 
-        // Now, let's see if there is a signature on that level.
-        let sig_result = sigs_over_data.get(0)
-            .ok_or_else(|| failure::err_msg("No signature found"))?;
-
-        // Finally, given a VerificationResult, which only says
-        // whether the signature checks out mathematically, we apply
-        // our policy.
-        match sig_result {
-            VerificationResult::GoodChecksum(..) =>
-                Ok(()), // Good signature
-            VerificationResult::MissingKey(_) =>
-                Err(failure::err_msg("Missing key to verify signature")),
-            VerificationResult::BadChecksum(_) =>
-                Err(failure::err_msg("Bad signature")),
+        if good {
+            Ok(()) // Good signature.
+        } else {
+            Err(failure::err_msg("Signature verification failed"))
         }
     }
 }

@@ -219,8 +219,7 @@ impl<'a> Signer<'a> {
     /// # use openpgp::packet::key::SecretKey;
     /// # use openpgp::crypto::KeyPair;
     /// # use openpgp::parse::Parse;
-    /// # use openpgp::parse::stream::{Verifier, VerificationHelper,
-    /// #                              VerificationResult};
+    /// # use openpgp::parse::stream::*;
     /// # let tsk = TPK::from_bytes(include_bytes!(
     /// #     "../../tests/data/keys/testy-new-private.pgp"))
     /// #     .unwrap();
@@ -246,11 +245,15 @@ impl<'a> Signer<'a> {
     ///         Ok(vec![self.0.clone()])
     ///     }
     ///
-    ///     fn check(&mut self, sigs: Vec<Vec<VerificationResult>>)
+    ///     fn check(&mut self, structure: &MessageStructure)
     ///              -> openpgp::Result<()> {
-    ///         if let VerificationResult::GoodChecksum(..) =
-    ///             sigs.get(0).unwrap().get(0).unwrap()
-    ///         { Ok(()) /* good */ } else { panic!() }
+    ///         if let MessageLayer::SignatureGroup { ref results } =
+    ///             structure.iter().nth(0).unwrap()
+    ///         {
+    ///             if let VerificationResult::GoodChecksum(..) =
+    ///                 results.get(0).unwrap()
+    ///             { Ok(()) /* good */ } else { panic!() }
+    ///         } else { panic!() }
     ///     }
     /// }
     ///
@@ -301,8 +304,7 @@ impl<'a> Signer<'a> {
     /// # use openpgp::packet::key::SecretKey;
     /// # use openpgp::crypto::KeyPair;
     /// # use openpgp::parse::Parse;
-    /// # use openpgp::parse::stream::{DetachedVerifier, VerificationHelper,
-    /// #                              VerificationResult};
+    /// # use openpgp::parse::stream::*;
     /// # let tsk = TPK::from_bytes(include_bytes!(
     /// #     "../../tests/data/keys/testy-new-private.pgp"))
     /// #     .unwrap();
@@ -329,11 +331,15 @@ impl<'a> Signer<'a> {
     ///         Ok(vec![self.0.clone()])
     ///     }
     ///
-    ///     fn check(&mut self, sigs: Vec<Vec<VerificationResult>>)
+    ///     fn check(&mut self, structure: &MessageStructure)
     ///              -> openpgp::Result<()> {
-    ///         if let VerificationResult::GoodChecksum(..) =
-    ///             sigs.get(0).unwrap().get(0).unwrap()
-    ///         { Ok(()) /* good */ } else { panic!() }
+    ///         if let MessageLayer::SignatureGroup { ref results } =
+    ///             structure.iter().nth(0).unwrap()
+    ///         {
+    ///             if let VerificationResult::GoodChecksum(..) =
+    ///                 results.get(0).unwrap()
+    ///             { Ok(()) /* good */ } else { panic!() }
+    ///         } else { panic!() }
     ///     }
     /// }
     ///

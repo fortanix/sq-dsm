@@ -1447,33 +1447,91 @@ pgp_writer_stack_t pgp_encryptor_new (pgp_error_t *errp,
 				      pgp_encryption_mode_t mode,
 				      uint8_t cipher_algo);
 
-void pgp_verification_results_at_level(pgp_verification_results_t results,
-                                      size_t level,
-                                      pgp_verification_result_t **r,
-                                      size_t *r_count);
-
+/*/
+/// Frees this object.
+/*/
+void pgp_message_structure_free (pgp_message_structure_t);
 
 /*/
-/// Returns the verification result code.
+/// Returns a human readable description of this object suitable for
+/// debugging.
 /*/
-pgp_verification_result_code_t pgp_verification_result_code(
+char *pgp_message_structure_debug (const pgp_message_structure_t);
+
+pgp_message_structure_iter_t
+pgp_message_structure_iter (pgp_message_structure_t);
+
+/*/
+/// Frees this object.
+/*/
+void pgp_message_structure_iter_free (pgp_message_structure_iter_t);
+
+pgp_message_layer_t
+pgp_message_structure_iter_next (pgp_message_structure_iter_t);
+
+/*/
+/// Frees this object.
+/*/
+void pgp_message_layer_free (pgp_message_layer_t);
+
+/*/
+/// Returns a human readable description of this object suitable for
+/// debugging.
+/*/
+char *pgp_message_layer_debug (const pgp_message_layer_t);
+
+/*/
+/// Returns the message layer variant.
+/*/
+pgp_message_layer_variant_t
+pgp_message_layer_variant (pgp_message_layer_t);
+
+/*/
+/// Return the fields of the variants.
+/*/
+bool pgp_message_layer_compression (pgp_message_layer_t, uint8_t *);
+bool pgp_message_layer_encryption (pgp_message_layer_t, uint8_t *, uint8_t *);
+bool pgp_message_layer_signature_group (pgp_message_layer_t,
+					pgp_verification_result_iter_t *);
+
+/*/
+/// Frees this object.
+/*/
+void pgp_verification_result_iter_free (pgp_verification_result_iter_t);
+
+pgp_verification_result_t
+pgp_verification_result_iter_next (pgp_verification_result_iter_t);
+
+/*/
+/// Frees this object.
+/*/
+void pgp_verification_result_free (pgp_verification_result_t);
+
+/*/
+/// Returns a human readable description of this object suitable for
+/// debugging.
+/*/
+char *pgp_verification_result_debug (const pgp_verification_result_t);
+
+/*/
+/// Returns the verification result variant.
+/*/
+pgp_verification_result_variant_t pgp_verification_result_variant (
     pgp_verification_result_t r);
 
 /*/
-/// Returns a reference to the signature.
-///
-/// Do not modify the signature nor free it.
+/// Return the fields of the variants.
 /*/
-pgp_signature_t pgp_verification_result_signature(
-    pgp_verification_result_t r);
-
-/*/
-/// Returns the signature's level.
-///
-/// A level of zero means that the data was signed, a level of one
-/// means that one or more signatures were notarized, etc.
-/*/
-int pgp_verification_result_level(pgp_verification_result_t r);
+bool pgp_verification_result_good_checksum (pgp_verification_result_t,
+					    pgp_signature_t *,
+					    pgp_tpk_t *,
+					    pgp_key_t *,
+					    pgp_signature_t *,
+					    pgp_revocation_status_t *);
+bool pgp_verification_result_missing_key (pgp_verification_result_t,
+					  pgp_signature_t *);
+bool pgp_verification_result_bad_checksum (pgp_verification_result_t,
+					  pgp_signature_t *);
 
 /*/
 /// Decrypts an OpenPGP message.
@@ -1492,7 +1550,7 @@ int pgp_verification_result_level(pgp_verification_result_t r);
 pgp_reader_t pgp_decryptor_new (pgp_error_t *errp, pgp_reader_t input,
     pgp_decryptor_get_public_keys_cb_t get_public_keys,
     pgp_decryptor_decrypt_cb_t decrypt,
-    pgp_decryptor_check_signatures_cb_t check_signatures,
+    pgp_decryptor_check_cb_t check,
     void *cookie, time_t time);
 
 /*/
@@ -1503,7 +1561,7 @@ pgp_reader_t pgp_decryptor_new (pgp_error_t *errp, pgp_reader_t input,
 /*/
 pgp_reader_t pgp_verifier_new (pgp_error_t *errp, pgp_reader_t input,
     pgp_decryptor_get_public_keys_cb_t get_public_keys,
-    pgp_decryptor_check_signatures_cb_t check_signatures,
+    pgp_decryptor_check_cb_t check,
     void *cookie, time_t time);
 
 /*/
@@ -1512,7 +1570,7 @@ pgp_reader_t pgp_verifier_new (pgp_error_t *errp, pgp_reader_t input,
 pgp_reader_t pgp_detached_verifier_new (pgp_error_t *errp,
     pgp_reader_t signature_input, pgp_reader_t input,
     pgp_decryptor_get_public_keys_cb_t get_public_keys,
-    pgp_decryptor_check_signatures_cb_t check_signatures,
+    pgp_decryptor_check_cb_t check,
     void *cookie, time_t time);
 
 #endif

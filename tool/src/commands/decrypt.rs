@@ -13,7 +13,7 @@ use openpgp::{Fingerprint, TPK, KeyID, Result};
 use openpgp::packet::{Key, key::SecretKey, Signature, PKESK, SKESK};
 use openpgp::parse::PacketParser;
 use openpgp::parse::stream::{
-    VerificationHelper, VerificationResult, DecryptionHelper, Decryptor,
+    VerificationHelper, DecryptionHelper, Decryptor, MessageStructure,
 };
 extern crate sequoia_store as store;
 
@@ -93,8 +93,8 @@ impl<'a> VerificationHelper for Helper<'a> {
     fn get_public_keys(&mut self, ids: &[KeyID]) -> Result<Vec<TPK>> {
         self.vhelper.get_public_keys(ids)
     }
-    fn check(&mut self, sigs: Vec<Vec<VerificationResult>>) -> Result<()> {
-        self.vhelper.check(sigs)
+    fn check(&mut self, structure: &MessageStructure) -> Result<()> {
+        self.vhelper.check(structure)
     }
 }
 

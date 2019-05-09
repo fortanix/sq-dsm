@@ -464,18 +464,38 @@ typedef enum pgp_encryption_mode {
   PGP_ENCRYPTION_MODE_FOR_TRANSPORT = 1,
 } pgp_encryption_mode_t;
 
-typedef struct pgp_verification_results *pgp_verification_results_t;
+/// Communicates the message structure to the VerificationHelper.
+typedef struct pgp_message_structure *pgp_message_structure_t;
+
+/// Iterates over the message structure.
+typedef struct pgp_message_structure_iter *pgp_message_structure_iter_t;
+
+/// Represents a layer of the message structure.
+typedef struct pgp_message_layer *pgp_message_layer_t;
+
+typedef enum pgp_message_layer_variant {
+  PGP_MESSAGE_LAYER_COMPRESSION = 1,
+  PGP_MESSAGE_LAYER_ENCRYPTION = 2,
+  PGP_MESSAGE_LAYER_SIGNATURE_GROUP = 3,
+
+  /* Dummy value to make sure the enumeration has a defined size.  Do
+     not use this value.  */
+  PGP_MESSAGE_LAYER_CODE_FORCE_WIDTH = INT_MAX,
+} pgp_message_layer_variant_t;
+
 typedef struct pgp_verification_result *pgp_verification_result_t;
 
-typedef enum pgp_verification_result_code {
-  PGP_VERIFICATION_RESULT_CODE_GOOD_CHECKSUM = 1,
-  PGP_VERIFICATION_RESULT_CODE_MISSING_KEY = 2,
-  PGP_VERIFICATION_RESULT_CODE_BAD_CHECKSUM = 3,
+typedef struct pgp_verification_result_iter *pgp_verification_result_iter_t;
+
+typedef enum pgp_verification_result_variant {
+  PGP_VERIFICATION_RESULT_GOOD_CHECKSUM = 1,
+  PGP_VERIFICATION_RESULT_MISSING_KEY = 2,
+  PGP_VERIFICATION_RESULT_BAD_CHECKSUM = 3,
 
   /* Dummy value to make sure the enumeration has a defined size.  Do
      not use this value.  */
   PGP_VERIFICATION_RESULT_CODE_FORCE_WIDTH = INT_MAX,
-} pgp_verification_result_code_t;
+} pgp_verification_result_variant_t;
 
 typedef pgp_status_t (*pgp_decryptor_get_public_keys_cb_t) (void *,
     pgp_keyid_t *, size_t,
@@ -494,8 +514,7 @@ typedef pgp_status_t (*pgp_decryptor_decrypt_cb_t) (void *,
     void *,
     pgp_fingerprint_t *);
 
-typedef pgp_status_t (*pgp_decryptor_check_signatures_cb_t) (void *,
-    pgp_verification_results_t,
-    size_t);
+typedef pgp_status_t (*pgp_decryptor_check_cb_t) (void *,
+    pgp_message_structure_t);
 
 #endif

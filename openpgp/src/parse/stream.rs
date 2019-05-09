@@ -19,6 +19,8 @@ use {
     Error,
     Fingerprint,
     constants::{
+        AEADAlgorithm,
+        CompressionAlgorithm,
         DataFormat,
         SymmetricAlgorithm,
     },
@@ -27,6 +29,7 @@ use {
         ctb::CTB,
         Key,
         Literal,
+        OnePassSig,
         one_pass_sig::OnePassSig3,
         PKESK,
         SKESK,
@@ -83,7 +86,7 @@ const BUFFER_SIZE: usize = 25 * 1024 * 1024;
 ///     fn get_public_keys(&mut self, _ids: &[KeyID]) -> Result<Vec<TPK>> {
 ///         Ok(Vec::new()) // Feed the TPKs to the verifier here...
 ///     }
-///     fn check(&mut self, sigs: Vec<Vec<VerificationResult>>) -> Result<()> {
+///     fn check(&mut self, structure: &MessageStructure) -> Result<()> {
 ///         Ok(()) // Implement your verification policy here.
 ///     }
 /// }
@@ -120,7 +123,7 @@ pub struct Verifier<'a, H: VerificationHelper> {
     /// Maps KeyID to tpks[i].keys_all().nth(j).
     keys: HashMap<KeyID, (usize, usize)>,
     oppr: Option<PacketParserResult<'a>>,
-    sigs: Vec<Vec<Signature>>,
+    structure: IMessageStructure,
 
     // The reserve data.
     reserve: Option<Vec<u8>>,
@@ -162,29 +165,229 @@ impl<'a> VerificationResult<'a> {
     }
 }
 
+/// Communicates the message structure to the VerificationHelper.
+#[derive(Debug)]
+pub struct MessageStructure<'a>(Vec<MessageLayer<'a>>);
+
+impl<'a> MessageStructure<'a> {
+    fn new() -> Self {
+        MessageStructure(Vec::new())
+    }
+
+    fn new_compression_layer(&mut self, algo: CompressionAlgorithm) {
+        self.0.push(MessageLayer::Compression {
+            algo: algo,
+        })
+    }
+
+    fn new_encryption_layer(&mut self, sym_algo: SymmetricAlgorithm,
+                            aead_algo: Option<AEADAlgorithm>) {
+        self.0.push(MessageLayer::Encryption {
+            sym_algo: sym_algo,
+            aead_algo: aead_algo,
+        })
+    }
+
+    fn new_signature_group(&mut self) {
+        self.0.push(MessageLayer::SignatureGroup {
+            results: Vec::new(),
+        })
+    }
+
+    fn push_verification_result(&mut self, sig: VerificationResult<'a>) {
+        if let Some(MessageLayer::SignatureGroup { ref mut results }) =
+            self.0.iter_mut().last()
+        {
+            results.push(sig);
+        } else {
+            panic!("cannot push to encryption or compression layer");
+        }
+    }
+
+    /// Iterates over the message structure.
+    pub fn iter(&self) -> MessageStructureIter {
+        MessageStructureIter(self.0.iter())
+    }
+}
+
+/// Iterates over the message structure.
+pub struct MessageStructureIter<'a>(::std::slice::Iter<'a, MessageLayer<'a>>);
+
+impl<'a> Iterator for MessageStructureIter<'a> {
+    type Item = &'a MessageLayer<'a>;
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.next()
+    }
+}
+
+/// Represents a layer of the message structure.
+#[derive(Debug)]
+pub enum MessageLayer<'a> {
+    /// Represents an compression container.
+    Compression {
+        /// Compression algorithm used.
+        algo: CompressionAlgorithm,
+    },
+    /// Represents an encryption container.
+    Encryption {
+        /// Symmetric algorithm used.
+        sym_algo: SymmetricAlgorithm,
+        /// AEAD algorithm used, if any.
+        aead_algo: Option<AEADAlgorithm>,
+    },
+    /// Represents a signature group.
+    SignatureGroup {
+        /// The results of the signature verifications.
+        results: Vec<VerificationResult<'a>>,
+    }
+}
+
+/// Internal version of the message structure.
+///
+/// In contrast to MessageStructure, this owns unverified
+/// signature packets.
+#[derive(Debug)]
+struct IMessageStructure {
+    layers: Vec<IMessageLayer>,
+
+    // We insert a SignatureGroup layer every time we see a OnePassSig
+    // packet with the last flag.
+    //
+    // However, we need to make sure that we insert a SignatureGroup
+    // layer even if the OnePassSig packet has the last flag set to
+    // false.  To do that, we keep track of the fact that we saw such
+    // a OPS packet.
+    sig_group_counter: usize,
+}
+
+impl IMessageStructure {
+    fn new() -> Self {
+        IMessageStructure {
+            layers: Vec::new(),
+            sig_group_counter: 0,
+        }
+    }
+
+    fn new_compression_layer(&mut self, algo: CompressionAlgorithm) {
+        self.insert_missing_signature_group();
+        self.layers.push(IMessageLayer::Compression {
+            algo: algo,
+        });
+    }
+
+    fn new_encryption_layer(&mut self, sym_algo: SymmetricAlgorithm,
+                            aead_algo: Option<AEADAlgorithm>) {
+        self.insert_missing_signature_group();
+        self.layers.push(IMessageLayer::Encryption {
+            sym_algo: sym_algo,
+            aead_algo: aead_algo,
+        });
+    }
+
+    /// Makes sure that we insert a signature group even if the
+    /// previous OPS packet had the last flag set to false.
+    fn insert_missing_signature_group(&mut self) {
+        if self.sig_group_counter > 0 {
+            self.layers.push(IMessageLayer::SignatureGroup {
+                sigs: Vec::new(),
+                count: self.sig_group_counter,
+            });
+        }
+        self.sig_group_counter = 0;
+    }
+
+    fn push_ops(&mut self, ops: &OnePassSig) {
+        self.sig_group_counter += 1;
+        if ops.last() {
+            self.layers.push(IMessageLayer::SignatureGroup {
+                sigs: Vec::new(),
+                count: self.sig_group_counter,
+            });
+            self.sig_group_counter = 0;
+        }
+    }
+
+    fn push_signature(&mut self, sig: Signature) {
+        for layer in self.layers.iter_mut().rev() {
+            match layer {
+                IMessageLayer::SignatureGroup {
+                    ref mut sigs, ref mut count,
+                } if *count > 0 => {
+                    sigs.push(sig);
+                    *count -= 1;
+                    return;
+                },
+                _ => (),
+            }
+        }
+        panic!("signature unaccounted for");
+    }
+
+    fn push_bare_signature(&mut self, sig: Signature) {
+        if let Some(IMessageLayer::SignatureGroup { .. }) = self.layers.iter().last() {
+            // The last layer is a SignatureGroup.  We will append the
+            // signature there without accounting for it.
+        } else {
+            // The last layer is not a SignatureGroup, or there is no
+            // layer at all.  Create one.
+            self.layers.push(IMessageLayer::SignatureGroup {
+                sigs: Vec::new(),
+                count: 0,
+            });
+        }
+
+        if let IMessageLayer::SignatureGroup { ref mut sigs, .. } =
+            self.layers.iter_mut().last().expect("just checked or created")
+        {
+            sigs.push(sig);
+        } else {
+            unreachable!()
+        }
+    }
+
+}
+
+/// Internal version of a layer of the message structure.
+///
+/// In contrast to MessageLayer, this owns unverified signature packets.
+#[derive(Debug)]
+enum IMessageLayer {
+    Compression {
+        algo: CompressionAlgorithm,
+    },
+    Encryption {
+        sym_algo: SymmetricAlgorithm,
+        aead_algo: Option<AEADAlgorithm>,
+    },
+    SignatureGroup {
+        sigs: Vec<Signature>,
+        count: usize,
+    }
+}
+
 /// Helper for signature verification.
 pub trait VerificationHelper {
     /// Retrieves the TPKs containing the specified keys.
     fn get_public_keys(&mut self, &[KeyID]) -> Result<Vec<TPK>>;
 
-    /// Conveys the result of a signature verification.
+    /// Conveys the message structure.
+    ///
+    /// The message structure contains the results of signature
+    /// verifications.  See [`MessageStructure`] for more information.
+    ///
+    /// [`MessageStructure`]: struct.MessageStructure.html
     ///
     /// This is called after the last signature has been verified.
     /// This is the place to implement your verification policy.
     /// Check that the required number of signatures or notarizations
     /// were confirmed as valid.
     ///
-    /// The argument is a vector, with `sigs[sigs.len()-1]` being the
-    /// vector of signatures over the data, `sigs[sigs.len()-2]` being
-    /// notarizations over signatures of level 0, and the data, and so
-    /// on.
-    ///
     /// This callback is only called before all data is returned.
     /// That is, once `io::Read` returns EOF, this callback will not
     /// be called again.  As such, any error returned by this function
     /// will abort reading, and the error will be propagated via the
     /// `io::Read` operation.
-    fn check(&mut self, sigs: Vec<Vec<VerificationResult>>) -> Result<()>;
+    fn check(&mut self, structure: &MessageStructure) -> Result<()>;
 }
 
 impl<'a, H: VerificationHelper> Verifier<'a, H> {
@@ -271,18 +474,12 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
             tpks: Vec::new(),
             keys: HashMap::new(),
             oppr: None,
-            sigs: Vec::new(),
+            structure: IMessageStructure::new(),
             reserve: None,
             time: t,
         };
 
         let mut issuers = Vec::new();
-        // The following structure is allowed:
-        //
-        //   SIG LITERAL
-        //
-        // In this case, we queue the signature packets.
-        let mut sigs = Vec::new();
 
         while let PacketParserResult::Some(pp) = ppr {
             if ! pp.possible_message() {
@@ -291,9 +488,14 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
             }
 
             match pp.packet {
-                Packet::OnePassSig(ref ops) =>
-                    issuers.push(ops.issuer().clone()),
+                Packet::CompressedData(ref p) =>
+                    v.structure.new_compression_layer(p.algorithm()),
+                Packet::OnePassSig(ref ops) => {
+                    v.structure.push_ops(ops);
+                    issuers.push(ops.issuer().clone());
+                },
                 Packet::Literal(_) => {
+                    v.structure.insert_missing_signature_group();
                     // Query keys.
                     v.tpks = v.helper.get_public_keys(&issuers)?;
 
@@ -325,12 +527,6 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
 
                     v.oppr = Some(PacketParserResult::Some(pp));
                     v.finish_maybe()?;
-
-                    // Stash signatures.
-                    for sig in sigs.into_iter() {
-                        v.push_sig(Packet::Signature(sig))?;
-                    }
-
                     return Ok(v);
                 },
                 _ => (),
@@ -338,12 +534,19 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
 
             let (p, ppr_tmp) = pp.recurse()?;
             if let Packet::Signature(sig) = p {
+                // The following structure is allowed:
+                //
+                //   SIG LITERAL
+                //
+                // In this case, we get the issuer from the
+                // signature itself.
                 if let Some(issuer) = sig.get_issuer() {
                     issuers.push(issuer);
                 } else {
                     issuers.push(KeyID::wildcard());
                 }
-                sigs.push(sig);
+
+                v.structure.push_bare_signature(sig);
             }
 
             ppr = ppr_tmp;
@@ -361,21 +564,7 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
     fn push_sig(&mut self, p: Packet) -> Result<()> {
         match p {
             Packet::Signature(sig) => {
-                if self.sigs.is_empty() {
-                    self.sigs.push(Vec::new());
-                }
-
-                if let Some(current_level) = self.sigs.iter().last()
-                    .expect("sigs is never empty")
-                    .get(0).map(|r| r.level())
-                {
-                    if current_level != sig.level() {
-                        self.sigs.push(Vec::new());
-                    }
-                }
-
-                self.sigs.iter_mut().last()
-                    .expect("sigs is never empty").push(sig);
+                self.structure.push_signature(sig);
             },
             _ => (),
         }
@@ -408,38 +597,52 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
                 }
 
                 // Verify the signatures.
-                let mut results = Vec::new();
-                for sigs in ::std::mem::replace(&mut self.sigs, Vec::new())
-                    .into_iter().rev()
+                let mut results = MessageStructure::new();
+                for layer in ::std::mem::replace(&mut self.structure,
+                                                 IMessageStructure::new())
+                    .layers.into_iter()
                 {
-                    results.push(Vec::new());
-                    for sig in sigs.into_iter() {
-                        results.iter_mut().last().expect("never empty").push(
-                            if let Some(issuer) = sig.get_issuer() {
-                                if let Some((i, j)) = self.keys.get(&issuer) {
-                                    let tpk = &self.tpks[*i];
-                                    let (binding, revocation, key)
-                                        = tpk.keys_all().nth(*j).unwrap();
-                                    if sig.verify(key).unwrap_or(false) &&
-                                        sig.signature_alive_at(self.time)
-                                    {
-                                        VerificationResult::GoodChecksum
-                                            (sig, tpk, key, binding, revocation)
+                    match layer {
+                        IMessageLayer::Compression { algo } =>
+                            results.new_compression_layer(algo),
+                        IMessageLayer::Encryption { .. } =>
+                            unreachable!("not decrypting messages"),
+                        IMessageLayer::SignatureGroup { sigs, .. } => {
+                            results.new_signature_group();
+                            for sig in sigs.into_iter() {
+                                results.push_verification_result(
+                                    if let Some(issuer) = sig.get_issuer() {
+                                        if let Some((i, j)) =
+                                            self.keys.get(&issuer)
+                                        {
+                                            let tpk = &self.tpks[*i];
+                                            let (binding, revocation, key)
+                                                = tpk.keys_all().nth(*j)
+                                                .unwrap();
+                                            if sig.verify(key).unwrap_or(false)
+                                                && sig.signature_alive_at(self.time)
+                                            {
+                                                VerificationResult::GoodChecksum
+                                                    (sig, tpk, key, binding,
+                                                     revocation)
+                                            } else {
+                                                VerificationResult::BadChecksum
+                                                    (sig)
+                                            }
+                                        } else {
+                                            VerificationResult::MissingKey(sig)
+                                        }
                                     } else {
+                                        // No issuer.
                                         VerificationResult::BadChecksum(sig)
                                     }
-                                } else {
-                                    VerificationResult::MissingKey(sig)
-                                }
-                            } else {
-                                // No issuer.
-                                VerificationResult::BadChecksum(sig)
+                                )
                             }
-                        )
+                        },
                     }
                 }
 
-                self.helper.check(results)
+                self.helper.check(&results)
             } else {
                 self.oppr = Some(PacketParserResult::Some(pp));
                 Ok(())
@@ -706,7 +909,7 @@ impl<'a> io::Read for Transformer<'a> {
 ///     fn get_public_keys(&mut self, _ids: &[KeyID]) -> Result<Vec<TPK>> {
 ///         Ok(Vec::new()) // Feed the TPKs to the verifier here...
 ///     }
-///     fn check(&mut self, sigs: Vec<Vec<VerificationResult>>) -> Result<()> {
+///     fn check(&mut self, structure: &MessageStructure) -> Result<()> {
 ///         Ok(()) // Implement your verification policy here.
 ///     }
 /// }
@@ -844,7 +1047,7 @@ impl DetachedVerifier {
 ///     fn get_public_keys(&mut self, _ids: &[KeyID]) -> Result<Vec<TPK>> {
 ///         Ok(Vec::new()) // Feed the TPKs to the verifier here...
 ///     }
-///     fn check(&mut self, sigs: Vec<Vec<VerificationResult>>) -> Result<()> {
+///     fn check(&mut self, structure: &MessageStructure) -> Result<()> {
 ///         Ok(()) // Implement your verification policy here.
 ///     }
 /// }
@@ -891,7 +1094,7 @@ pub struct Decryptor<'a, H: VerificationHelper + DecryptionHelper> {
     keys: HashMap<KeyID, (usize, usize)>,
     oppr: Option<PacketParserResult<'a>>,
     identity: Option<Fingerprint>,
-    sigs: Vec<Vec<Signature>>,
+    structure: IMessageStructure,
     reserve: Option<Vec<u8>>,
 
     /// Signature verification relative to this time.
@@ -1017,18 +1220,12 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
             keys: HashMap::new(),
             oppr: None,
             identity: None,
-            sigs: Vec::new(),
+            structure: IMessageStructure::new(),
             reserve: None,
             time: t,
         };
 
         let mut issuers = Vec::new();
-        // The following structure is allowed:
-        //
-        //   SIG LITERAL
-        //
-        // In this case, we queue the signature packets.
-        let mut sigs = Vec::new();
         let mut pkesks: Vec<packet::PKESK> = Vec::new();
         let mut skesks: Vec<packet::SKESK> = Vec::new();
         let mut saw_content = false;
@@ -1042,23 +1239,49 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
             }
 
             match pp.packet {
+                Packet::CompressedData(ref p) =>
+                    v.structure.new_compression_layer(p.algorithm()),
                 Packet::SEIP(_) | Packet::AED(_) => {
                     saw_content = true;
 
-                    v.identity =
-                        v.helper.decrypt(&pkesks[..], &skesks[..],
-                                         |algo, secret| pp.decrypt(algo, secret)
-                        )?;
+                    // Get the symmetric algorithm from the decryption
+                    // proxy function.  This is necessary because we
+                    // cannot get the algorithm from the SEIP packet.
+                    let mut sym_algo = None;
+                    {
+                        let decryption_proxy = |algo, secret: &SessionKey| {
+                            let result = pp.decrypt(algo, secret);
+                            if let Ok(_) = result {
+                                sym_algo = Some(algo);
+                            }
+                            result
+                        };
+
+                        v.identity =
+                            v.helper.decrypt(&pkesks[..], &skesks[..],
+                                             decryption_proxy)?;
+                    }
                     if ! pp.decrypted() {
                         // XXX: That is not quite the right error to return.
                         return Err(
                             Error::InvalidSessionKey("No session key".into())
                                 .into());
                     }
+
+                    v.structure.new_encryption_layer(
+                        sym_algo.expect("if we got here, sym_algo is set"),
+                        if let Packet::AED(ref p) = pp.packet {
+                            Some(p.aead())
+                        } else {
+                            None
+                        });
                 },
-                Packet::OnePassSig(ref ops) =>
-                    issuers.push(ops.issuer().clone()),
+                Packet::OnePassSig(ref ops) => {
+                    v.structure.push_ops(ops);
+                    issuers.push(ops.issuer().clone());
+                },
                 Packet::Literal(_) => {
+                    v.structure.insert_missing_signature_group();
                     // Query keys.
                     v.tpks = v.helper.get_public_keys(&issuers)?;
 
@@ -1090,11 +1313,6 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                     v.oppr = Some(PacketParserResult::Some(pp));
                     v.finish_maybe()?;
 
-                    // Stash signatures.
-                    for sig in sigs.into_iter() {
-                        v.push_sig(Packet::Signature(sig))?;
-                    }
-
                     return Ok(v);
                 },
                 Packet::MDC(ref mdc) => if ! mdc.valid() {
@@ -1108,16 +1326,20 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                 Packet::PKESK(pkesk) => pkesks.push(pkesk),
                 Packet::SKESK(skesk) => skesks.push(skesk),
                 Packet::Signature(sig) => {
-                    if saw_content {
-                        v.push_sig(Packet::Signature(sig))?;
-                    } else {
+                    if ! saw_content {
+                        // The following structure is allowed:
+                        //
+                        //   SIG LITERAL
+                        //
+                        // In this case, we get the issuer from the
+                        // signature itself.
                         if let Some(issuer) = sig.get_issuer() {
                             issuers.push(issuer);
                         } else {
                             issuers.push(KeyID::wildcard());
                         }
-                        sigs.push(sig);
                     }
+                    v.structure.push_bare_signature(sig);
                 }
                 _ => (),
             }
@@ -1135,21 +1357,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
     fn push_sig(&mut self, p: Packet) -> Result<()> {
         match p {
             Packet::Signature(sig) => {
-                if self.sigs.is_empty() {
-                    self.sigs.push(Vec::new());
-                }
-
-                if let Some(current_level) = self.sigs.iter().last()
-                    .expect("sigs is never empty")
-                    .get(0).map(|r| r.level())
-                {
-                    if current_level != sig.level() {
-                        self.sigs.push(Vec::new());
-                    }
-                }
-
-                self.sigs.iter_mut().last()
-                    .expect("sigs is never empty").push(sig);
+                self.structure.push_signature(sig);
             },
             _ => (),
         }
@@ -1209,63 +1417,72 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
 
     /// Verifies the signatures.
     fn verify_signatures(&mut self) -> Result<()> {
-        let mut results = Vec::new();
-        for sigs in ::std::mem::replace(&mut self.sigs, Vec::new())
-            .into_iter().rev()
+        let mut results = MessageStructure::new();
+        for layer in ::std::mem::replace(&mut self.structure,
+                                         IMessageStructure::new())
+            .layers.into_iter()
         {
-            results.push(Vec::new());
-            for sig in sigs.into_iter() {
-                results.iter_mut().last().expect("never empty").push(
-                    if let Some(issuer) = sig.get_issuer() {
-                        if let Some((i, j)) = self.keys.get(&issuer) {
-                            let tpk = &self.tpks[*i];
-                            let (binding, revocation, key)
-                                = tpk.keys_all().nth(*j).unwrap();
-                            if sig.verify(key).unwrap_or(false) &&
-                                sig.signature_alive_at(self.time)
-                            {
-                                // Check intended recipients.
-                                if let Some(identity) =
-                                    self.identity.as_ref()
-                                {
-                                    let ir = sig.intended_recipients();
-                                    if !ir.is_empty()
-                                        && !ir.contains(identity)
+            match layer {
+                IMessageLayer::Compression { algo } =>
+                    results.new_compression_layer(algo),
+                IMessageLayer::Encryption { sym_algo, aead_algo } =>
+                    results.new_encryption_layer(sym_algo, aead_algo),
+                IMessageLayer::SignatureGroup { sigs, .. } => {
+                    results.new_signature_group();
+                    for sig in sigs.into_iter() {
+                        results.push_verification_result(
+                            if let Some(issuer) = sig.get_issuer() {
+                                if let Some((i, j)) = self.keys.get(&issuer) {
+                                    let tpk = &self.tpks[*i];
+                                    let (binding, revocation, key)
+                                        = tpk.keys_all().nth(*j).unwrap();
+                                    if sig.verify(key).unwrap_or(false) &&
+                                        sig.signature_alive_at(self.time)
                                     {
-                                        // The signature
-                                        // contains intended
-                                        // recipients, but we
-                                        // are not one.  Treat
-                                        // the signature as
-                                        // bad.
-                                        VerificationResult::BadChecksum
-                                            (sig)
+                                        // Check intended recipients.
+                                        if let Some(identity) =
+                                            self.identity.as_ref()
+                                        {
+                                            let ir = sig.intended_recipients();
+                                            if !ir.is_empty()
+                                                && !ir.contains(identity)
+                                            {
+                                                // The signature
+                                                // contains intended
+                                                // recipients, but we
+                                                // are not one.  Treat
+                                                // the signature as
+                                                // bad.
+                                                VerificationResult::BadChecksum
+                                                    (sig)
+                                            } else {
+                                                VerificationResult::GoodChecksum
+                                                    (sig, tpk, key, binding,
+                                                     revocation)
+                                            }
+                                        } else {
+                                            // No identity information.
+                                            VerificationResult::GoodChecksum
+                                                (sig, tpk, key, binding,
+                                                 revocation)
+                                        }
                                     } else {
-                                        VerificationResult::GoodChecksum
-                                            (sig, tpk, key, binding,
-                                             revocation)
+                                        VerificationResult::BadChecksum(sig)
                                     }
                                 } else {
-                                    // No identity information.
-                                    VerificationResult::GoodChecksum
-                                        (sig, tpk, key, binding,
-                                         revocation)
+                                    VerificationResult::MissingKey(sig)
                                 }
                             } else {
+                                // No issuer.
                                 VerificationResult::BadChecksum(sig)
                             }
-                        } else {
-                            VerificationResult::MissingKey(sig)
-                        }
-                    } else {
-                        // No issuer.
-                        VerificationResult::BadChecksum(sig)
+                        )
                     }
-                )
+                }
             }
         }
 
-        self.helper.check(results)
+        self.helper.check(&results)
     }
 
     /// Like `io::Read::read()`, but returns our `Result`.
@@ -1373,15 +1590,20 @@ mod test {
             Ok(self.keys.clone())
         }
 
-        fn check(&mut self, sigs: Vec<Vec<VerificationResult>>) -> Result<()> {
+        fn check(&mut self, structure: &MessageStructure) -> Result<()> {
             use self::VerificationResult::*;
-            for level in sigs {
-                for result in level {
-                    match result {
-                        GoodChecksum(..) => self.good += 1,
-                        MissingKey(_) => self.unknown += 1,
-                        BadChecksum(_) => self.bad += 1,
-                    }
+            for layer in structure.iter() {
+                match layer {
+                    MessageLayer::SignatureGroup { ref results } =>
+                        for result in results {
+                            match result {
+                                GoodChecksum(..) => self.good += 1,
+                                MissingKey(_) => self.unknown += 1,
+                                BadChecksum(_) => self.bad += 1,
+                            }
+                        }
+                    MessageLayer::Compression { .. } => (),
+                    _ => unreachable!(),
                 }
             }
 
@@ -1491,24 +1713,28 @@ mod test {
                 Ok(Vec::new())
             }
 
-            fn check(&mut self, sigs: Vec<Vec<VerificationResult>>)
-                     -> Result<()> {
-                assert_eq!(sigs.len(), 2);
-                assert_eq!(sigs[0].len(), 1);
-                assert_eq!(sigs[1].len(), 1);
-                if let VerificationResult::MissingKey(ref sig) = sigs[1][0] {
-                    assert_eq!(
-                        &sig.issuer_fingerprint().unwrap().to_string(),
-                        "C03F A641 1B03 AE12 5764  6118 7223 B566 78E0 2528");
-                } else {
-                    unreachable!()
-                }
-                if let VerificationResult::MissingKey(ref sig) = sigs[0][0] {
-                    assert_eq!(
-                        &sig.issuer_fingerprint().unwrap().to_string(),
-                        "8E8C 33FA 4626 3379 76D9  7978 069C 0C34 8DD8 2C19");
-                } else {
-                    unreachable!()
+            fn check(&mut self, structure: &MessageStructure) -> Result<()> {
+                assert_eq!(structure.iter().count(), 2);
+                for (i, layer) in structure.iter().enumerate() {
+                    match layer {
+                        MessageLayer::SignatureGroup { ref results } => {
+                            assert_eq!(results.len(), 1);
+                            if let VerificationResult::MissingKey(ref sig) =
+                                results[0]
+                            {
+                                assert_eq!(
+                                    &sig.issuer_fingerprint().unwrap()
+                                        .to_string(),
+                                    match i {
+                                        0 => "8E8C 33FA 4626 3379 76D9  7978 069C 0C34 8DD8 2C19",
+                                        1 => "C03F A641 1B03 AE12 5764  6118 7223 B566 78E0 2528",
+                                        _ => unreachable!(),
+                                    }
+                                );
+                            }
+                        },
+                        _ => unreachable!(),
+                    }
                 }
                 Ok(())
             }
