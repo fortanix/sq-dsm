@@ -1681,7 +1681,7 @@ impl TPK {
         &self.primary_certifications
     }
 
-    /// Revocations issued by the key itself.primary_
+    /// Revocations issued by the key itself.
     ///
     /// The revocations have been validated, and the newest is first.
     pub fn self_revocations(&self) -> &[Signature] {
