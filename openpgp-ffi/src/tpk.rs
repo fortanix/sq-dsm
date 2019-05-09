@@ -7,7 +7,7 @@
 
 use std::ptr;
 use std::slice;
-use libc::{c_char, c_int, size_t, time_t};
+use libc::{c_char, c_int, size_t, time_t, uint8_t};
 
 extern crate sequoia_openpgp as openpgp;
 use self::openpgp::{
@@ -16,11 +16,15 @@ use self::openpgp::{
     autocrypt::Autocrypt,
     crypto,
     constants::ReasonForRevocation,
-    parse::PacketParserResult,
+    parse::{
+        PacketParserResult,
+        Parse,
+    },
     tpk::{
         CipherSuite,
         KeyIter,
         TPKBuilder,
+        TPKParser,
         UserIDBinding,
         UserIDBindingIter,
     },
@@ -674,6 +678,66 @@ pub extern "C" fn pgp_tpk_key_iter_next<'a>(
     } else {
         None
     }
+}
+
+/// Wrappers a TPKParser for export via the FFI.
+pub struct TPKParserWrapper<'a> {
+    parser: TPKParser<'a, std::vec::IntoIter<Packet>>,
+}
+
+/// Returns a TPKParser.
+///
+/// A `TPKParser` parses a keyring, which is simply zero or more TPKs
+/// concatenated together.
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
+fn pgp_tpk_parser_from_bytes(errp: Option<&mut *mut ::error::Error>,
+                             buf: *mut uint8_t, len: size_t)
+    -> *mut TPKParserWrapper<'static>
+{
+    ffi_make_fry_from_errp!(errp);
+
+    let buf : &[u8] = unsafe { std::slice::from_raw_parts(buf, len) };
+    box_raw!(TPKParserWrapper { parser: ffi_try!(TPKParser::from_bytes(buf)) })
+}
+
+/// Returns a TPKParser.
+///
+/// A `TPKParser` parses a keyring, which is simply zero or more TPKs
+/// concatenated together.
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
+fn pgp_tpk_parser_from_packet_parser(ppr: *mut PacketParserResult<'static>)
+    -> *mut TPKParserWrapper<'static>
+{
+    let ppr = ffi_param_move!(ppr);
+    let parser = TPKParser::from_packet_parser(*ppr);
+    box_raw!(TPKParserWrapper { parser: parser })
+}
+
+
+/// Returns the next TPK, if any.
+///
+/// If there is an error parsing the TPK, it is returned in *errp.
+///
+/// If this function returns NULL and does not set *errp, then the end
+/// of the file was reached.
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
+fn pgp_tpk_parser_next(errp: Option<&mut *mut ::error::Error>,
+                       parser: *mut TPKParserWrapper)
+    -> *mut TPK
+{
+    ffi_make_fry_from_errp!(errp);
+    let wrapper : &mut TPKParserWrapper = ffi_param_ref_mut!(parser);
+    match wrapper.parser.next() {
+        Some(tpkr) => ffi_try!(tpkr).move_into_raw(),
+        None => ::std::ptr::null_mut(),
+    }
+}
+
+/// Frees a pgp_tpk_parser_t.
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
+pub extern "C" fn pgp_tpk_parser_free(parser: Option<&mut TPKParserWrapper>)
+{
+    ffi_free!(parser)
 }
 
 /* TPKBuilder */

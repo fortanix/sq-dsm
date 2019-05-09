@@ -799,6 +799,38 @@ pgp_tpk_key_iter_t pgp_tpk_key_iter_valid (pgp_tpk_t tpk);
 /*/
 char *pgp_tpk_primary_user_id(pgp_tpk_t tpk);
 
+/*/
+/// Returns a TPKParser.
+///
+/// A TPK parser parses a keyring, which is simply zero or more TPKs
+/// concatenated together.
+/*/
+pgp_tpk_parser_t pgp_tpk_parser_from_bytes(pgp_error_t *errp,
+                                           char *buf, size_t len);
+
+/*/
+/// Returns a TPKParser.
+///
+/// A TPK parser parses a keyring, which is simply zero or more TPKs
+/// concatenated together.
+/*/
+pgp_tpk_parser_t pgp_tpk_parser_from_packet_parser(pgp_packet_parser_result_t ppr);
+
+/*/
+/// Returns the next TPK, if any.
+///
+/// If there is an error parsing the TPK, it is returned in *errp.
+///
+/// If this function returns NULL and does not set *errp, then the end
+/// of the file was reached.
+/*/
+pgp_tpk_t pgp_tpk_parser_next(pgp_error_t *errp, pgp_tpk_parser_t parser);
+
+/*/
+/// Frees an pgp_tpk_key_iter_t.
+/*/
+void pgp_tpk_parser_free (pgp_tpk_parser_t parser);
+
 /* TPKBuilder */
 
 /*/

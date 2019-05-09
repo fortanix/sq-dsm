@@ -385,6 +385,13 @@ typedef struct pgp_tpk_key_iter *pgp_tpk_key_iter_t;
 /*/
 typedef struct pgp_tpk *pgp_tpk_t;
 
+/*/
+/// A parser for TPKs
+///
+/// A `TPKParser` parses a keyring, which is simply zero or more
+/// binary TPKs concatenated together.
+/*/
+typedef struct pgp_tpk_parser *pgp_tpk_parser_t;
 
 /*/
 /// A transferable secret key (TSK).
