@@ -567,7 +567,9 @@ pgp_key_t pgp_tpk_key_iter_next (pgp_tpk_key_iter_t iter,
                                  pgp_signature_t *signature,
                                  pgp_revocation_status_t *rev);
 
+/*/
 /// Frees an pgp_tpk_key_iter_t.
+/*/
 void pgp_tpk_key_iter_free (pgp_tpk_key_iter_t iter);
 
 /* openpgp::tpk.  */
