@@ -10,6 +10,7 @@
 use libc::time_t;
 
 extern crate sequoia_openpgp as openpgp;
+use super::Packet;
 use super::super::fingerprint::Fingerprint;
 use super::super::keyid::KeyID;
 use super::key::Key;
@@ -37,8 +38,9 @@ pub struct Signature(openpgp::packet::Signature);
 
 /// Converts the signature to a packet.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn pgp_signature_into_packet(s: *mut Signature) -> *mut openpgp::Packet {
-    box_raw!(s.move_from_raw().into())
+fn pgp_signature_into_packet(s: *mut Signature) -> *mut Packet {
+    let p : openpgp::Packet = s.move_from_raw().into();
+    p.move_into_raw()
 }
 
 /// Returns the value of the `Signature` packet's Issuer subpacket.

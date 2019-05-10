@@ -11,7 +11,6 @@ use libc::{c_char, c_int, size_t, time_t, uint8_t};
 
 extern crate sequoia_openpgp as openpgp;
 use self::openpgp::{
-    Packet,
     autocrypt::Autocrypt,
     crypto,
     constants::ReasonForRevocation,
@@ -32,6 +31,7 @@ use self::openpgp::{
 use ::error::Status;
 use super::fingerprint::Fingerprint;
 use super::packet::key::Key;
+use super::packet::Packet;
 use super::packet::signature::Signature;
 use super::packet_pile::PacketPile;
 use super::tsk::TSK;
@@ -121,7 +121,7 @@ fn pgp_tpk_merge_packets(errp: Option<&mut *mut ::error::Error>,
         slice::from_raw_parts_mut(packets, packets_len)
     };
     let packets =
-        packets.iter_mut().map(|p| *unsafe { Box::from_raw(*p) } ).collect();
+        packets.iter_mut().map(|&mut p| p.move_from_raw()).collect();
     tpk.merge_packets(packets).move_into_raw(errp)
 }
 
@@ -677,7 +677,7 @@ pub extern "C" fn pgp_tpk_key_iter_next<'a>(
 
 /// Wrappers a TPKParser for export via the FFI.
 pub struct TPKParserWrapper<'a> {
-    parser: TPKParser<'a, std::vec::IntoIter<Packet>>,
+    parser: TPKParser<'a, std::vec::IntoIter<self::openpgp::Packet>>,
 }
 
 /// Returns a TPKParser.
