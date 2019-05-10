@@ -4,6 +4,7 @@ use std::hash::{Hash, Hasher};
 use std::cell::RefCell;
 use quickcheck::{Arbitrary, Gen};
 use rfc2822::{NameAddr, AddrSpec};
+use failure::ResultExt;
 
 use Result;
 use packet;
@@ -135,7 +136,9 @@ impl UserID {
                         (None, None, Some(a.address().to_string()))
                     } else {
                         // Return the error from the NameAddr parser.
-                        return Err(err.into());
+                        let err : failure::Error = err.into();
+                        return Err(err).context(format!(
+                            "Not a valid RFC 2822 mailbox: {:?}", s))?;
                     }
                 }
             });
