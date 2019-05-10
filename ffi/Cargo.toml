@@ -1,13 +1,13 @@
 [package]
 name = "sequoia-ffi"
 description = "C API for Sequoia"
-version = "0.6.0"
+version = "0.7.0"
 authors = [
     "Justus Winter <justus@sequoia-pgp.org>",
     "Kai Michaelis <kai@sequoia-pgp.org>",
     "Neal H. Walfield <neal@sequoia-pgp.org>",
 ]
-documentation = "https://docs.sequoia-pgp.org/0.6.0/sequoia_ffi"
+documentation = "https://docs.sequoia-pgp.org/0.7.0/sequoia_ffi"
 homepage = "https://sequoia-pgp.org/"
 repository = "https://gitlab.com/sequoia-pgp/sequoia"
 readme = "../README.md"
@@ -21,11 +21,11 @@ gitlab = { repository = "sequoia-pgp/sequoia" }
 maintenance = { status = "actively-developed" }
 
 [dependencies]
-sequoia-ffi-macros = { path = "../ffi-macros", version = "0.6" }
-sequoia-openpgp = { path = "../openpgp", version = "0.6" }
-sequoia-core = { path = "../core", version = "0.6" }
-sequoia-store = { path = "../store", version = "0.6" }
-sequoia-net = { path = "../net", version = "0.6" }
+sequoia-ffi-macros = { path = "../ffi-macros", version = "0.7" }
+sequoia-openpgp = { path = "../openpgp", version = "0.7" }
+sequoia-core = { path = "../core", version = "0.7" }
+sequoia-store = { path = "../store", version = "0.7" }
+sequoia-net = { path = "../net", version = "0.7" }
 failure = "0.1.2"
 lazy_static = "1.0.0"
 libc = "0.2.33"
