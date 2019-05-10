@@ -1673,6 +1673,18 @@ impl Signature4 {
             .collect()
     }
 
+    /// Returns the value of all Notation Data subpackets with the
+    /// given name.
+    pub fn notation(&self, name: &str) -> Vec<&[u8]> {
+        self.subpackets(SubpacketTag::NotationData)
+            .into_iter().filter_map(|s| match s.value {
+                SubpacketValue::NotationData(ref v)
+                    if v.name == name.as_bytes() => Some(v.value),
+                _ => None,
+            })
+            .collect()
+    }
+
     /// Returns the value of the Preferred Hash Algorithms subpacket,
     /// which contains the list of hash algorithms that the key
     /// holders prefers, ordered according by the key holder's
@@ -2168,6 +2180,45 @@ impl signature::Builder {
         Ok(self)
     }
 
+    /// Sets the value of the Notation Data subpacket with the given
+    /// name.
+    ///
+    /// Any existing Notation Data subpacket with the given name are
+    /// replaced.
+    pub fn set_notation<F>(mut self, name: &str, value: &[u8], flags: F,
+                           critical: bool)
+                           -> Result<Self>
+        where F: Into<Option<NotationDataFlags>>
+    {
+        self.hashed_area = self.hashed_area.iter().filter_map(|s| {
+            match s.2.value {
+                SubpacketValue::NotationData(ref v)
+                    if v.name == name.as_bytes() => None,
+                _ => Some(s),
+            }
+        }).collect();
+        self.add_notation(name, value,
+                          flags.into().unwrap_or_default(),
+                          critical)
+    }
+
+    /// Adds a Notation Data subpacket with the given name, value, and
+    /// flags.
+    ///
+    /// Any existing Notation Data subpacket with the given name are
+    /// kept.
+    pub fn add_notation<F>(mut self, name: &str, value: &[u8], flags: F,
+                           critical: bool)
+                           -> Result<Self>
+        where F: Into<Option<NotationDataFlags>>
+    {
+        self.hashed_area.add(Subpacket::new(SubpacketValue::NotationData(
+            NotationData::new(name, value,
+                              flags.into().unwrap_or_default())),
+                                            critical)?)?;
+        Ok(self)
+    }
+
     /// Sets the value of the Preferred Hash Algorithms subpacket,
     /// which contains the list of hash algorithms that the key
     /// holders prefers, ordered according by the key holder's
@@ -2589,6 +2640,25 @@ fn accessors() {
     let sig_ =
         sig.clone().sign_hash(&mut keypair, hash_algo, hash.clone()).unwrap();
     assert_eq!(sig_.intended_recipients(), fps);
+
+    sig = sig.set_notation("test@example.org", &[0, 1, 2], None, false)
+        .unwrap();
+    let sig_ =
+        sig.clone().sign_hash(&mut keypair, hash_algo, hash.clone()).unwrap();
+    assert_eq!(sig_.notation("test@example.org"), vec![&[0, 1, 2]]);
+
+    sig = sig.add_notation("test@example.org", &[3, 4, 5], None, false)
+        .unwrap();
+    let sig_ =
+        sig.clone().sign_hash(&mut keypair, hash_algo, hash.clone()).unwrap();
+    assert_eq!(sig_.notation("test@example.org"), vec![&[0, 1, 2],
+                                                       &[3, 4, 5]]);
+
+    sig = sig.set_notation("test@example.org", &[6, 7, 8], None, false)
+        .unwrap();
+    let sig_ =
+        sig.clone().sign_hash(&mut keypair, hash_algo, hash.clone()).unwrap();
+    assert_eq!(sig_.notation("test@example.org"), vec![&[6, 7, 8]]);
 }
 
 #[cfg(feature = "compression-deflate")]
