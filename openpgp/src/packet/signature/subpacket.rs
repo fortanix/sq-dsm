@@ -587,6 +587,17 @@ pub struct NotationData<'a> {
 }
 
 impl<'a> NotationData<'a> {
+    /// Creates a new Notation Data subpacket payload.
+    pub fn new<F>(name: &'a str, value: &'a [u8], flags: F) -> Self
+        where F: Into<Option<NotationDataFlags>>
+    {
+        Self {
+            flags: flags.into().unwrap_or_default(),
+            name: name.as_bytes(),
+            value,
+        }
+    }
+
     /// Returns the flags.
     pub fn flags(&self) -> NotationDataFlags {
         self.flags
