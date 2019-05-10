@@ -640,7 +640,7 @@ char *pgp_tpk_to_string (const pgp_tpk_t fp);
 /// Returns a human readable description of this object suitable for
 /// debugging.
 /*/
-char *pgp_tpk_debug (const pgp_tpk_t fp);
+char *pgp_tpk_debug (const pgp_tpk_t tpk);
 
 /*/
 /// Serializes the TPK.
