@@ -57,6 +57,7 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
+use std::iter::FromIterator;
 use std::fmt;
 use std::io;
 use time;
@@ -435,6 +436,25 @@ impl<'a> Iterator for Iter<'a> {
     }
 }
 
+impl<'a> IntoIterator for &'a SubpacketArea {
+    type Item = (usize, usize, Subpacket<'a>);
+    type IntoIter = Iter<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
+
+impl<'a> FromIterator<(usize, usize, Subpacket<'a>)> for SubpacketArea {
+    fn from_iter<I>(iter: I) -> Self
+        where I: IntoIterator<Item=(usize, usize, Subpacket<'a>)>
+    {
+        use serialize::Serialize;
+        let mut data = Vec::new();
+        iter.into_iter().for_each(|(_, _, s)| s.serialize(&mut data).unwrap());
+        Self::new(data)
+    }
+}
 
 impl SubpacketArea {
     /// Returns a new subpacket area based on `data`.
