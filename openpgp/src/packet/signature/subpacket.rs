@@ -561,14 +561,14 @@ impl SubpacketArea {
 /// Payload of a NotationData subpacket.
 #[derive(Debug, PartialEq, Clone)]
 pub struct NotationData<'a> {
-    flags: u32,
+    flags: NotationDataFlags,
     name: &'a [u8],
     value: &'a [u8],
 }
 
 impl<'a> NotationData<'a> {
     /// Returns the flags.
-    pub fn flags(&self) -> u32 {
+    pub fn flags(&self) -> NotationDataFlags {
         self.flags
     }
 
@@ -580,6 +580,43 @@ impl<'a> NotationData<'a> {
     /// Returns the value.
     pub fn value(&self) -> &'a [u8] {
         self.value
+    }
+}
+
+/// Flags for the Notation Data subpacket.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct NotationDataFlags(u32);
+
+impl Default for NotationDataFlags {
+    fn default() -> Self {
+        NotationDataFlags(0)
+    }
+}
+
+const NOTATION_DATA_FLAG_HUMAN_READABLE: u32 = 0x80000000;
+
+impl NotationDataFlags {
+    /// Returns whether the value is human-readable.
+    pub fn human_readable(&self) -> bool {
+        self.0 & NOTATION_DATA_FLAG_HUMAN_READABLE > 0
+    }
+
+    /// Asserts that the value is human-readable or not.
+    pub fn set_human_readable(mut self, value: bool) -> Self {
+        if value {
+            self.0 |= NOTATION_DATA_FLAG_HUMAN_READABLE;
+        } else {
+            self.0 &= ! NOTATION_DATA_FLAG_HUMAN_READABLE;
+        }
+        self
+    }
+
+    /// Returns the raw value.
+    ///
+    /// XXX: This is for the serialization code, which we will have to
+    /// move here eventually.
+    pub(crate) fn raw(&self) -> u32 {
+        self.0
     }
 }
 
@@ -947,7 +984,7 @@ impl<'a> From<SubpacketRaw<'a>> for Subpacket<'a> {
                     if raw.value.len() == 8 + name_len + value_len {
                         Some(SubpacketValue::NotationData(
                             NotationData {
-                                flags: flags,
+                                flags: NotationDataFlags(flags),
                                 name: &raw.value[8..8 + name_len],
                                 value: &raw.value[8 + name_len..]
                             }))
@@ -2764,7 +2801,7 @@ fn subpacket_test_2() {
                    }));
 
         let n = NotationData {
-            flags: 1 << 31,
+            flags: NotationDataFlags::default().set_human_readable(true),
             name: "rank@navy.mil".as_bytes(),
             value: "midshipman".as_bytes()
         };
@@ -2946,17 +2983,17 @@ fn subpacket_test_2() {
                    }));
 
         let n1 = NotationData {
-            flags: 1 << 31,
+            flags: NotationDataFlags::default().set_human_readable(true),
             name: "rank@navy.mil".as_bytes(),
             value: "third lieutenant".as_bytes()
         };
         let n2 = NotationData {
-            flags: 1 << 31,
+            flags: NotationDataFlags::default().set_human_readable(true),
             name: "foo@navy.mil".as_bytes(),
             value: "bar".as_bytes()
         };
         let n3 = NotationData {
-            flags: 1 << 31,
+            flags: NotationDataFlags::default().set_human_readable(true),
             name: "whistleblower@navy.mil".as_bytes(),
             value: "true".as_bytes()
         };

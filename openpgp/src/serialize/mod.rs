@@ -928,7 +928,7 @@ impl<'a> Serialize for SubpacketValue<'a> {
             Issuer(ref id) =>
                 o.write_all(id.as_slice())?,
             NotationData(nd) => {
-                write_be_u32(o, nd.flags())?;
+                write_be_u32(o, nd.flags().raw())?;
                 write_be_u16(o, nd.name().len() as u16)?;
                 write_be_u16(o, nd.value().len() as u16)?;
                 o.write_all(nd.name())?;
