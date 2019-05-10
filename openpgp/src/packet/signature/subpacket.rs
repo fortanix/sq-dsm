@@ -1584,7 +1584,7 @@ impl Signature4 {
     /// Returns the value of all Notation Data packets.
     ///
     /// If the subpacket is not present or malformed, this returns
-    /// `None`.
+    /// an empty vector.
     ///
     /// Note: unlike other subpacket accessor functions, this function
     /// returns all the Notation Data subpackets, not just the last
