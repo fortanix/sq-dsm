@@ -4274,13 +4274,13 @@ mod test {
 
     #[test]
     fn corrupted_tpk() {
-        use armor::{Reader, Kind};
+        use armor::{Reader, ReaderMode, Kind};
 
         // The following TPK is corrupted about a third the way
         // through.  Make sure we can recover.
         let mut ppr = PacketParser::from_reader(
             Reader::from_bytes(bytes!("../keys/corrupted.pgp"),
-                               Some(Kind::PublicKey)))
+                               ReaderMode::Tolerant(Some(Kind::PublicKey))))
             .unwrap();
 
         let mut sigs = 0;

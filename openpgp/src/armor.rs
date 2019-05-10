@@ -19,10 +19,10 @@
 //! ```rust, no_run
 //! extern crate sequoia_openpgp as openpgp;
 //! use std::fs::File;
-//! use openpgp::armor::{Reader, Kind};
+//! use openpgp::armor::{Reader, ReaderMode, Kind};
 //!
 //! let mut file = File::open("somefile.asc").unwrap();
-//! let mut r = Reader::new(&mut file, Some(Kind::File));
+//! let mut r = Reader::new(&mut file, ReaderMode::Tolerant(Some(Kind::File)));
 //! ```
 
 extern crate base64;
@@ -362,17 +362,54 @@ impl<W: Write> Drop for Writer<W> {
     }
 }
 
+/// How an ArmorReader should act.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum ReaderMode {
+    /// Makes the armor reader tolerant of simple errors.
+    ///
+    /// The armor reader will be tolerant of common formatting errors,
+    /// such as incorrect line folding, but the armor header line
+    /// (e.g., `----- BEGIN PGP MESSAGE -----`) and the footer must be
+    /// intact.
+    ///
+    /// If a Kind is specified, then only ASCII Armor blocks with the
+    /// appropriate header are recognized.
+    ///
+    /// This mode is appropriate when reading from a file.
+    Tolerant(Option<Kind>),
+
+    /// Makes the armor reader very tolerant of errors.
+    ///
+    /// Unlike in `Tolerant` mode, in this mode, the armor reader
+    /// doesn't require an armor header line.  Instead, it examines
+    /// chunks that look like valid base64 data, and attempts to parse
+    /// them.
+    ///
+    /// Although this mode looks for OpenPGP fingerprints before
+    /// invoking the full parser, due to the number of false
+    /// positives, this mode of operation is CPU intense, particularly
+    /// on large text files.  It is primarily appropriate when reading
+    /// text that the user cut and pasted into a text area.
+    VeryTolerant,
+}
+
 /// A filter that strips ASCII Armor from a stream of data.
 pub struct Reader<'a> {
     source: Box<'a + BufferedReader<()>>,
     kind: Option<Kind>,
-    strict: bool,
+    mode: ReaderMode,
     buffer: Vec<u8>,
     crc: CRC,
     expect_crc: Option<u32>,
     initialized: bool,
     headers: Vec<(String, String)>,
     finalized: bool,
+}
+
+impl Default for ReaderMode {
+    fn default() -> Self {
+        ReaderMode::Tolerant(None)
+    }
 }
 
 impl<'a> Reader<'a> {
@@ -400,7 +437,7 @@ impl<'a> Reader<'a> {
     /// # use std::io::Read;
     /// # extern crate sequoia_openpgp as openpgp;
     /// # use openpgp::{Result, Message};
-    /// # use openpgp::armor::Reader;
+    /// # use openpgp::armor::{Reader, ReaderMode};
     /// # use openpgp::parse::Parse;
     /// # use std::io;
     /// # fn main() { f().unwrap(); }
@@ -408,7 +445,7 @@ impl<'a> Reader<'a> {
     /// let data = "yxJiAAAAAABIZWxsbyB3b3JsZCE="; // base64 over literal data packet
     ///
     /// let mut cursor = io::Cursor::new(&data);
-    /// let mut reader = Reader::new(&mut cursor, None);
+    /// let mut reader = Reader::new(&mut cursor, ReaderMode::VeryTolerant);
     ///
     /// let mut buf = Vec::new();
     /// reader.read_to_end(&mut buf)?;
@@ -425,7 +462,7 @@ impl<'a> Reader<'a> {
     /// ```
     /// # use std::io::Read;
     /// # extern crate sequoia_openpgp as openpgp;
-    /// # use openpgp::armor::{Reader, Kind};
+    /// # use openpgp::armor::{Reader, ReaderMode, Kind};
     /// # use std::io::{self, Result};
     /// # fn main() { f().unwrap(); }
     /// # fn f() -> Result<()> {
@@ -437,7 +474,7 @@ impl<'a> Reader<'a> {
     ///      -----END PGP ARMORED FILE-----";
     ///
     /// let mut cursor = io::Cursor::new(&data);
-    /// let mut reader = Reader::new(&mut cursor, Some(Kind::File));
+    /// let mut reader = Reader::new(&mut cursor, ReaderMode::Tolerant(Some(Kind::File)));
     ///
     /// let mut content = String::new();
     /// reader.read_to_string(&mut content)?;
@@ -446,46 +483,54 @@ impl<'a> Reader<'a> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn new<R>(inner: R, kind: Option<Kind>) -> Self
-        where R: 'a + Read
+    pub fn new<R, M>(inner: R, mode: M) -> Self
+        where R: 'a + Read,
+              M: Into<Option<ReaderMode>>
     {
         Self::from_buffered_reader(
             Box::new(buffered_reader::Generic::new(inner, None)),
-            kind)
+            mode)
     }
 
     /// Creates a `Reader` from an `io::Read`er.
-    pub fn from_reader<R>(reader: R, kind: Option<Kind>) -> Self
-        where R: 'a + Read
+    pub fn from_reader<R, M>(reader: R, mode: M) -> Self
+        where R: 'a + Read,
+              M: Into<Option<ReaderMode>>
     {
         Self::from_buffered_reader(
             Box::new(buffered_reader::Generic::new(reader, None)),
-            kind)
+            mode)
     }
 
     /// Creates a `Reader` from a file.
-    pub fn from_file<P>(path: P, kind: Option<Kind>) -> Result<Self>
-        where P: AsRef<Path>
+    pub fn from_file<P, M>(path: P, mode: M) -> Result<Self>
+        where P: AsRef<Path>,
+              M: Into<Option<ReaderMode>>
     {
         Ok(Self::from_buffered_reader(
             Box::new(buffered_reader::File::open(path)?),
-            kind))
+            mode))
     }
 
     /// Creates a `Reader` from a buffer.
-    pub fn from_bytes(bytes: &'a [u8], kind: Option<Kind>) -> Self {
+    pub fn from_bytes<M>(bytes: &'a [u8], mode: M) -> Self
+        where M: Into<Option<ReaderMode>>
+    {
         Self::from_buffered_reader(
             Box::new(buffered_reader::Memory::new(bytes)),
-            kind)
+            mode)
     }
 
-    pub(crate) fn from_buffered_reader<C: 'a>(
-        inner: Box<'a + BufferedReader<C>>, kind: Option<Kind>) -> Self
+    pub(crate) fn from_buffered_reader<C: 'a, M>(
+        inner: Box<'a + BufferedReader<C>>, mode: M) -> Self
+        where M: Into<Option<ReaderMode>>
     {
+        let mode = mode.into().unwrap_or(Default::default());
+
         Reader {
             source: Box::new(buffered_reader::Generic::new(inner, None)),
-            kind: kind,
-            strict: kind.is_some(),
+            kind: None,
+            mode: mode,
             buffer: Vec::<u8>::with_capacity(1024),
             crc: CRC::new(),
             expect_crc: None,
@@ -558,7 +603,7 @@ impl<'a> Reader<'a> {
         // Look for the Armor Header Line, skipping any garbage in the
         // process.
         let mut found_blob = false;
-        let start_chars = if self.strict {
+        let start_chars = if self.mode != ReaderMode::VeryTolerant {
             &[b'-'][..]
         } else {
             &START_CHARS[..]
@@ -578,7 +623,8 @@ impl<'a> Reader<'a> {
             }
 
             // Don't bother if the first byte is not plausible.
-            if !start_chars.binary_search(&self.source.data_hard(1)?[0]).is_ok()
+            let start = self.source.data_hard(1)?[0];
+            if !start_chars.binary_search(&start).is_ok()
             {
                 self.source.consume(1);
                 continue;
@@ -600,18 +646,24 @@ impl<'a> Reader<'a> {
                 if input[0] == '-' as u8 {
                     // Possible ASCII-armor header.
                     if let Some(kind) = Kind::detect(&input) {
-                        if self.kind == None {
+                        let mut expected_kind = None;
+                        if let ReaderMode::Tolerant(Some(kind)) = self.mode {
+                            expected_kind = Some(kind);
+                        }
+
+                        if expected_kind == None {
                             // Found any!
                             self.kind = Some(kind);
                             break 'search kind.header_len();
                         }
 
-                        if self.kind == Some(kind) {
+                        if expected_kind == Some(kind) {
                             // Found it!
+                            self.kind = Some(kind);
                             break 'search kind.header_len();
                         }
                     }
-                } else if ! self.strict {
+                } else if self.mode == ReaderMode::VeryTolerant {
                     // The user did not specify what kind of data she
                     // wants.  We aggressively try to decode any data,
                     // even if we do not see a valid header.
@@ -912,8 +964,8 @@ impl<'a> Read for Reader<'a> {
                 if raw.len() == got {
                     // EOF.  Decide how to proceed.
 
-                    if self.strict {
-                        // If we are here, we should have seen an
+                    if self.mode != ReaderMode::VeryTolerant {
+                        // If we are here, we should have seen a
                         // footer by now.
                         return Err(Error::new(ErrorKind::UnexpectedEof,
                                               "Armor footer is missing"));
@@ -1151,7 +1203,7 @@ mod test {
                -----END PGP ARMORED FILE-----\n"[..]);
     }
 
-    use super::Reader;
+    use super::{Reader, ReaderMode};
 
     #[test]
     fn dearmor_robust() {
@@ -1166,7 +1218,7 @@ mod test {
                 let filename = format!("tests/data/armor/literal-{}{}.asc",
                                        len, test);
                 let mut file = File::open(filename).unwrap();
-                let mut r = Reader::new(&mut file, None);
+                let mut r = Reader::new(&mut file, ReaderMode::VeryTolerant);
                 let mut dearmored = Vec::<u8>::new();
                 r.read_to_end(&mut dearmored).unwrap();
 
@@ -1179,7 +1231,8 @@ mod test {
     fn dearmor_binary() {
         for len in TEST_VECTORS.iter() {
             let mut file = File::open(format!("tests/data/armor/test-{}.bin", len)).unwrap();
-            let mut r = Reader::new(&mut file, Some(Kind::Message));
+            let mut r = Reader::new(
+                &mut file, ReaderMode::Tolerant(Some(Kind::Message)));
             let mut buf = [0; 5];
             let e = r.read(&mut buf);
             assert!(e.is_err());
@@ -1189,7 +1242,8 @@ mod test {
     #[test]
     fn dearmor_wrong_kind() {
         let mut file = File::open("tests/data/armor/test-0.asc").unwrap();
-        let mut r = Reader::new(&mut file, Some(Kind::Message));
+        let mut r = Reader::new(
+            &mut file, ReaderMode::Tolerant(Some(Kind::Message)));
         let mut buf = [0; 5];
         let e = r.read(&mut buf);
         assert!(e.is_err());
@@ -1198,7 +1252,8 @@ mod test {
     #[test]
     fn dearmor_wrong_crc() {
         let mut file = File::open("tests/data/armor/test-0.bad-crc.asc").unwrap();
-        let mut r = Reader::new(&mut file, Some(Kind::File));
+        let mut r = Reader::new(
+            &mut file, ReaderMode::Tolerant(Some(Kind::File)));
         let mut buf = [0; 5];
         let e = r.read(&mut buf);
         assert!(e.is_err());
@@ -1207,7 +1262,8 @@ mod test {
     #[test]
     fn dearmor_wrong_footer() {
         let mut file = File::open("tests/data/armor/test-2.bad-footer.asc").unwrap();
-        let mut r = Reader::new(&mut file, Some(Kind::File));
+        let mut r = Reader::new(
+            &mut file, ReaderMode::Tolerant(Some(Kind::File)));
         let mut buf = [0; 5];
         let e = r.read(&mut buf);
         assert!(e.is_err());
@@ -1216,7 +1272,8 @@ mod test {
     #[test]
     fn dearmor_no_crc() {
         let mut file = File::open("tests/data/armor/test-1.no-crc.asc").unwrap();
-        let mut r = Reader::new(&mut file, Some(Kind::File));
+        let mut r = Reader::new(
+            &mut file, ReaderMode::Tolerant(Some(Kind::File)));
         let mut buf = [0; 5];
         let e = r.read(&mut buf);
         assert!(e.unwrap() == 1 && buf[0] == 0xde);
@@ -1225,7 +1282,8 @@ mod test {
     #[test]
     fn dearmor_with_header() {
         let mut file = File::open("tests/data/armor/test-3.with-headers.asc").unwrap();
-        let mut r = Reader::new(&mut file, Some(Kind::File));
+        let mut r = Reader::new(
+            &mut file, ReaderMode::Tolerant(Some(Kind::File)));
         assert_eq!(r.headers().unwrap(),
                    &[("Comment".into(), "Some Header".into()),
                      ("Comment".into(), "Another one".into())]);
@@ -1237,7 +1295,7 @@ mod test {
     #[test]
     fn dearmor_any() {
         let mut file = File::open("tests/data/armor/test-3.with-headers.asc").unwrap();
-        let mut r = Reader::new(&mut file, None);
+        let mut r = Reader::new(&mut file, ReaderMode::VeryTolerant);
         let mut buf = [0; 5];
         let e = r.read(&mut buf);
         assert!(r.kind() == Some(Kind::File));
@@ -1260,7 +1318,8 @@ mod test {
         write!(&mut garbage, "Some\ngarbage\nlines\n\t\r  ").unwrap();
         garbage.extend_from_slice(&armored);
 
-        let mut r = Reader::new(Cursor::new(&garbage), None);
+        let mut r = Reader::new(Cursor::new(&garbage),
+                                ReaderMode::VeryTolerant);
         let mut buf = [0; 5];
         let e = r.read(&mut buf);
         assert_eq!(r.kind(), Some(Kind::File));
@@ -1272,7 +1331,8 @@ mod test {
         write!(&mut garbage, "Some\ngarbage\nlines\n\t.\r  ").unwrap();
         garbage.extend_from_slice(&armored);
 
-        let mut r = Reader::new(Cursor::new(&garbage), None);
+        let mut r = Reader::new(Cursor::new(&garbage),
+                                ReaderMode::VeryTolerant);
         let mut buf = [0; 5];
         let e = r.read(&mut buf);
         assert!(e.is_err());
@@ -1286,7 +1346,8 @@ mod test {
             file.read_to_end(&mut bin).unwrap();
 
             let mut file = File::open(format!("tests/data/armor/test-{}.asc", len)).unwrap();
-            let mut r = Reader::new(&mut file, Some(Kind::File));
+            let mut r = Reader::new(
+                &mut file, ReaderMode::Tolerant(Some(Kind::File)));
             let mut dearmored = Vec::<u8>::new();
             r.read_to_end(&mut dearmored).unwrap();
 
@@ -1302,7 +1363,8 @@ mod test {
             file.read_to_end(&mut bin).unwrap();
 
             let mut file = File::open(format!("tests/data/armor/test-{}.asc", len)).unwrap();
-            let r = Reader::new(&mut file, Some(Kind::File));
+            let r = Reader::new(
+                &mut file, ReaderMode::Tolerant(Some(Kind::File)));
             let mut dearmored = Vec::<u8>::new();
             for c in r.bytes() {
                 dearmored.push(c.unwrap());
@@ -1317,14 +1379,14 @@ mod test {
         let mut file =
             File::open("tests/data/keys/yuge-key-so-yuge-the-yugest.asc")
             .unwrap();
-        let mut r = Reader::new(&mut file, None);
+        let mut r = Reader::new(&mut file, ReaderMode::VeryTolerant);
         let mut dearmored = Vec::<u8>::new();
         r.read_to_end(&mut dearmored).unwrap();
 
         let mut file =
             File::open("tests/data/keys/yuge-key-so-yuge-the-yugest.asc")
             .unwrap();
-        let r = Reader::new(&mut file, None);
+        let r = Reader::new(&mut file, ReaderMode::VeryTolerant);
         let mut dearmored = Vec::<u8>::new();
         for c in r.bytes() {
             dearmored.push(c.unwrap());
@@ -1348,12 +1410,13 @@ mod test {
                 .unwrap();
 
             let mut recovered = Vec::new();
-            Reader::new(Cursor::new(&encoded), Some(kind))
+            Reader::new(Cursor::new(&encoded),
+                        ReaderMode::Tolerant(Some(kind)))
                 .read_to_end(&mut recovered)
                 .unwrap();
 
             let mut recovered_any = Vec::new();
-            Reader::new(Cursor::new(&encoded), None)
+            Reader::new(Cursor::new(&encoded), ReaderMode::VeryTolerant)
                 .read_to_end(&mut recovered_any)
                 .unwrap();
 

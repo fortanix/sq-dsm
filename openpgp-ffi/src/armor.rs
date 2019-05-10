@@ -50,6 +50,20 @@ fn kind_to_int(kind: Option<armor::Kind>) -> c_int {
     }
 }
 
+fn int_to_reader_mode(mode: c_int) -> armor::ReaderMode {
+    match mode {
+        -1 => armor::ReaderMode::VeryTolerant,
+        _ => armor::ReaderMode::Tolerant(int_to_kind(mode)),
+    }
+}
+
+// fn reader_mode_to_int(mode: armor::ReaderMode) -> c_int {
+//     match mode {
+//         armor::ReaderMode::VeryTolerant => -1,
+//         armor::ReaderMode::Tolerant(kind) => kind_to_int(kind),
+//     }
+// }
+
 /// Constructs a new filter for the given type of data.
 ///
 /// A filter that strips ASCII Armor from a stream of data.
@@ -108,24 +122,26 @@ fn kind_to_int(kind: Option<armor::Kind>) -> c_int {
 /// ```
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "C" fn pgp_armor_reader_new(inner: *mut Reader,
-                                            kind: c_int)
-                                            -> *mut Reader {
+                                       mode: c_int)
+    -> *mut Reader
+{
     let inner = inner.ref_mut_raw();
-    let kind = int_to_kind(kind);
+    let mode = int_to_reader_mode(mode);
 
-    ReaderKind::Armored(armor::Reader::new(inner, kind)).move_into_raw()
+    ReaderKind::Armored(armor::Reader::new(inner, mode)).move_into_raw()
 }
 
 /// Creates a `Reader` from a file.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "C" fn pgp_armor_reader_from_file(errp: Option<&mut *mut ::error::Error>,
-                                                  filename: *const c_char,
-                                                  kind: c_int)
-                                                  -> Maybe<Reader> {
+                                             filename: *const c_char,
+                                             mode: c_int)
+    -> Maybe<Reader>
+{
     let filename = ffi_param_cstr!(filename).to_string_lossy().into_owned();
-    let kind = int_to_kind(kind);
+    let mode = int_to_reader_mode(mode);
 
-    armor::Reader::from_file(&filename, kind)
+    armor::Reader::from_file(&filename, mode)
         .map(|r| ReaderKind::Armored(r))
         .map_err(|e| ::failure::Error::from(e))
         .move_into_raw(errp)
@@ -187,15 +203,15 @@ pub extern "C" fn pgp_armor_reader_from_file(errp: Option<&mut *mut ::error::Err
 /// ```
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_armor_reader_from_bytes(b: *const uint8_t, len: size_t,
-                               kind: c_int)
+                               mode: c_int)
                                -> *mut Reader {
     assert!(!b.is_null());
     let buf = unsafe {
         slice::from_raw_parts(b, len as usize)
     };
-    let kind = int_to_kind(kind);
+    let mode = int_to_reader_mode(mode);
 
-    ReaderKind::Armored(armor::Reader::from_bytes(buf, kind)).move_into_raw()
+    ReaderKind::Armored(armor::Reader::from_bytes(buf, mode)).move_into_raw()
 }
 
 /// Returns the kind of data this reader is for.

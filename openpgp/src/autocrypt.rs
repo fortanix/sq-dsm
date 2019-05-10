@@ -508,7 +508,8 @@ impl AutocryptSetupMessage {
         -> Result<AutocryptSetupMessageParser<'a>> {
         // The outer message uses ASCII-armor.  It includes a password
         // hint.  Hence, we need to parse it aggressively.
-        let mut r = armor::Reader::new(r, Some(armor::Kind::Message));
+        let mut r = armor::Reader::new(
+            r, armor::ReaderMode::Tolerant(Some(armor::Kind::Message)));
 
         // Note, it is essential that we call r.headers here so that
         // we can return any error now and not in
@@ -689,8 +690,10 @@ impl<'a> AutocryptSetupMessageParser<'a> {
             // The inner message consists of an ASCII-armored encoded
             // TPK.
             let (prefer_encrypt, tpk) = {
-                let mut r = armor::Reader::new(&mut pp,
-                                               Some(armor::Kind::SecretKey));
+                let mut r = armor::Reader::new(
+                    &mut pp,
+                    armor::ReaderMode::Tolerant(
+                        Some(armor::Kind::SecretKey)));
 
                 let prefer_encrypt = {
                     let headers = r.headers()?;

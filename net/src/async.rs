@@ -132,7 +132,9 @@ impl KeyServer {
                              StatusCode::OK => {
                                  let c = Cursor::new(body.as_ref());
                                  let r = armor::Reader::new(
-                                     c, Some(armor::Kind::PublicKey));
+                                     c,
+                                     armor::ReaderMode::Tolerant(
+                                         Some(armor::Kind::PublicKey)));
                                  future::done(TPK::from_reader(r))
                              },
                              StatusCode::NOT_FOUND =>
