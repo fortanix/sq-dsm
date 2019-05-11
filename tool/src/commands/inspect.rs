@@ -108,7 +108,7 @@ pub fn inspect(m: &clap::ArgMatches, output: &mut io::Write)
         } else {
             writeln!(output, "Unknown sequence of OpenPGP packets.")?;
             writeln!(output)?;
-            writeln!(output, "Hint: Try 'sq dump {}'", input_name)?;
+            writeln!(output, "Hint: Try 'sq packet dump {}'", input_name)?;
         }
     } else {
         unreachable!()
