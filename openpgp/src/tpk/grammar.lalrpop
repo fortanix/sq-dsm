@@ -116,7 +116,11 @@ OptionalSignatures: Option<Vec<Signature>> = {
             Token::Signature(None) => return None,
             tok => unreachable!("Expected signature token, got {:?}", tok),
         }
-    }
+    },
+
+    // A trust packet can go whereever a signature can go, but they
+    // are ignored.
+    <OptionalSignatures> TRUST,
 }
 
 OptionalComponents: Option<Vec<Component>> = {
@@ -270,6 +274,7 @@ extern {
         USERID => lexer::Token::UserID(_),
         USER_ATTRIBUTE => lexer::Token::UserAttribute(_),
         SIGNATURE => lexer::Token::Signature(_),
+        TRUST => lexer::Token::Trust(_),
         UNKNOWN => lexer::Token::Unknown(_, _),
     }
 }

@@ -248,6 +248,7 @@ impl KeyringValidator {
             Tag::UserID => Token::UserID(None),
             Tag::UserAttribute => Token::UserAttribute(None),
             Tag::Signature => Token::Signature(None),
+            Tag::Trust => Token::Trust(None),
             _ => {
                 // Unknown token.
                 self.error = Some(TPKParserError::OpenPGP(

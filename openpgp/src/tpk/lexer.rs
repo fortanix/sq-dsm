@@ -36,6 +36,9 @@ pub enum Token {
     /// A `Signature` packet.
     Signature(Option<Packet>),
 
+    /// A `Trust` packet
+    Trust(Option<Packet>),
+
     /// An `Unknown` packet.
     Unknown(Tag, Option<Packet>),
 }
@@ -62,6 +65,7 @@ impl<'a> From<&'a Token> for Tag {
             &Token::UserID(_) => Tag::UserID,
             &Token::UserAttribute(_) => Tag::UserAttribute,
             &Token::Signature(_) => Tag::Signature,
+            &Token::Trust(_) => Tag::Trust,
             &Token::Unknown(tag, _) => tag,
         }
     }
@@ -83,6 +87,7 @@ impl From<Token> for Option<Packet> {
             Token::UserID(p @ Some(_)) => p,
             Token::UserAttribute(p @ Some(_)) => p,
             Token::Signature(p @ Some(_)) => p,
+            Token::Trust(p @ Some(_)) => p,
             Token::Unknown(_, p @ Some(_)) => p,
 
             Token::PublicKey(None)
@@ -92,6 +97,7 @@ impl From<Token> for Option<Packet> {
             | Token::UserID(None)
             | Token::UserAttribute(None)
             | Token::Signature(None)
+            | Token::Trust(None)
             | Token::Unknown(_, None)
                 => None,
         }
@@ -108,6 +114,7 @@ impl From<Packet> for Option<Token> {
             p @ Packet::UserID(_) => Some(Token::UserID(Some(p))),
             p @ Packet::UserAttribute(_) => Some(Token::UserAttribute(Some(p))),
             p @ Packet::Signature(_) => Some(Token::Signature(Some(p))),
+            p @ Packet::Trust(_) => Some(Token::Trust(Some(p))),
             p @ Packet::Unknown(_) => Some(Token::Unknown(p.tag(), Some(p))),
             _ => None,
         }
