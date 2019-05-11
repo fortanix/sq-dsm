@@ -170,23 +170,28 @@ impl MessageValidator {
         self.tokens.push(token);
     }
 
-    /// Add the token `token` at depth `depth` to the token stream.
+    /// Add the token `token` at position `path` to the token stream.
     ///
-    /// Note: top-level packets are at depth 0, their immediate
-    /// children are a depth 1, etc.
+    /// Note: top-level packets are at `[ n ]`, their immediate
+    /// children are at `[ n, m ]`, etc.
     ///
-    /// The token *must* correspond to a packet; this function will
-    /// panic if `token` is Token::Pop.
-    pub fn push_token(&mut self, token: Token, depth: isize) {
+    /// This function pushes any required `Token::Pop` tokens based on
+    /// changes in the `path`.
+    ///
+    /// Note: the token *must* correspond to a packet; this function
+    /// will panic if `token` is `Token::Pop`.
+    pub fn push_token(&mut self, token: Token, path: &[usize]) {
         assert!(!self.finished);
         assert!(self.depth.is_some());
         assert!(token != Token::Pop);
+        assert!(path.len() > 0);
 
         if self.error.is_some() {
             return;
         }
 
         // We popped one or more containers.
+        let depth = path.len() as isize - 1;
         if self.depth.unwrap() > depth {
             for _ in 1..self.depth.unwrap() - depth + 1 {
                 self.tokens.push(Token::Pop);
@@ -197,11 +202,20 @@ impl MessageValidator {
         self.tokens.push(token);
     }
 
-    /// Add a packet of type `tag` at depth `depth` to the token
+    /// Add a packet of type `tag` at position `path` to the token
     /// stream.
     ///
-    /// Note: top-level packets are at depth 0.
-    pub fn push(&mut self, tag: Tag, depth: isize) {
+    /// Note: top-level packets are at `[ n ]`, their immediate
+    /// children are at `[ n, m ]`, etc.
+    ///
+    /// Unlike `push_token`, this function does not automatically
+    /// account for changes in the depth.  If you use this function
+    /// directly, you must push any required `Token::Pop` tokens.
+    pub fn push(&mut self, tag: Tag, path: &[usize]) {
+        if self.error.is_some() {
+            return;
+        }
+
         let token = match tag {
             Tag::Literal => Token::Literal,
             Tag::CompressedData => Token::CompressedData,
@@ -221,14 +235,15 @@ impl MessageValidator {
                 // Unknown token.
                 self.error = Some(MessageParserError::OpenPGP(
                     Error::MalformedMessage(
-                        format!("Invalid OpenPGP message: unexpected packet: {:?}",
-                                tag).into())));
+                        format!("Invalid OpenPGP message: \
+                                 {:?} packet (at {:?}) not expected",
+                                tag, path).into())));
                 self.tokens.clear();
                 return;
             }
         };
 
-        self.push_token(token, depth)
+        self.push_token(token, path)
     }
 
     /// Note that the entire message has been seen.
@@ -338,15 +353,16 @@ impl Message {
     ///   [Section 11.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-11.3
     pub fn from_packet_pile(pile: PacketPile) -> Result<Self> {
         let mut v = MessageValidator::new();
-        for (path, packet) in pile.descendants().paths() {
+        for (mut path, packet) in pile.descendants().paths() {
             match packet {
                 Packet::Unknown(ref u) =>
                     return Err(MessageParserError::OpenPGP(
                         Error::MalformedMessage(
                             format!("Invalid OpenPGP message: \
-                                     malformed {:?} packet: {}",
-                                    u.tag(), u.error()).into())).into()),
-                _ => v.push(packet.tag(), path.len() as isize - 1),
+                                     {:?} packet (at {:?}) not expected: {}",
+                                    u.tag(), path, u.error()).into()))
+                               .into()),
+                _ => v.push(packet.tag(), &path),
             }
 
             match packet {
@@ -355,9 +371,9 @@ impl Message {
                     // If a container's content is not unpacked, then
                     // we treat the content as an opaque message.
 
+                    path.push(0);
                     if packet.children.is_none() && packet.body.is_some() {
-                        v.push_token(Token::OpaqueContent,
-                                     path.len() as isize - 1 + 1);
+                        v.push_token(Token::OpaqueContent, &path);
                     }
                 }
                 _ => {}
@@ -678,7 +694,10 @@ mod tests {
         for v in test_vectors.into_iter() {
             let mut l = MessageValidator::new();
             for (token, depth) in v.s.iter() {
-                l.push(*token, *depth);
+                l.push(*token,
+                       &(0..1 + *depth)
+                           .map(|x| x as usize)
+                           .collect::<Vec<_>>()[..]);
                 if v.result {
                     assert_match!(MessageValidity::MessagePrefix = l.check());
                 }

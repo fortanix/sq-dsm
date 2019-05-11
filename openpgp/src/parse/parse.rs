@@ -3303,8 +3303,8 @@ impl <'a> PacketParser<'a> {
                     }
                 },
                 ParserResult::Success(mut pp) => {
-                    pp.state.message_validator.push(
-                        pp.packet.tag(), recursion_depth);
+                    let path = pp.path().to_vec();
+                    pp.state.message_validator.push(pp.packet.tag(), &path);
                     pp.state.keyring_validator.push(pp.packet.tag());
                     pp.state.tpk_validator.push(pp.packet.tag());
 
@@ -3365,16 +3365,15 @@ impl <'a> PacketParser<'a> {
                     let mut path = self.path;
                     path.push(0);
 
-                    let recursion_depth = path.len() as isize - 1;
-
-                    match PacketParser::parse(self.reader, self.state, path)? {
+                    match PacketParser::parse(self.reader, self.state,
+                                              path.clone())?
+                    {
                         ParserResult::Success(mut pp) => {
                             t!("Recursed into the {:?} packet, got a {:?}.",
                                self.packet.tag(), pp.packet.tag());
 
                             pp.state.message_validator.push(
-                                pp.packet.tag(),
-                                recursion_depth);
+                                pp.packet.tag(), &path);
                             pp.state.keyring_validator.push(pp.packet.tag());
                             pp.state.tpk_validator.push(pp.packet.tag());
 
@@ -3497,9 +3496,10 @@ impl <'a> PacketParser<'a> {
                 Tag::SEIP | Tag::AED | Tag::SED | Tag::CompressedData => {
                     // We didn't (fully) process a container's content.  Add
                     // this as opaque conent to the message validator.
+                    let mut path = self.path().to_vec();
+                    path.push(0);
                     self.state.message_validator.push_token(
-                        message::Token::OpaqueContent,
-                        recursion_depth + 1);
+                        message::Token::OpaqueContent, &path);
                 }
                 _ => {},
             }
@@ -4249,7 +4249,7 @@ mod test {
             }
             assert!(! saw_literal);
             if let PacketParserResult::EOF(eof) = ppr {
-                eprintln!("eof: {:?}", eof);
+                eprintln!("eof: {:?}; message: {:?}", eof, eof.is_message());
                 assert!(eof.is_message().is_ok());
             } else {
                 unreachable!();
