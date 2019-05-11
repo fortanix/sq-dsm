@@ -72,7 +72,11 @@ pub fn inspect(m: &clap::ArgMatches, output: &mut io::Write)
     }
 
     if let PacketParserResult::EOF(eof) = ppr {
-        if eof.is_message().is_ok() {
+        let is_message = eof.is_message();
+        let is_tpk = eof.is_tpk();
+        let is_keyring = eof.is_keyring();
+
+        if is_message.is_ok() {
             writeln!(output, "{}OpenPGP Message.",
                      match (encrypted, ! sigs.is_empty()) {
                          (false, false) => "",
@@ -94,7 +98,7 @@ pub fn inspect(m: &clap::ArgMatches, output: &mut io::Write)
                          if literal_prefix.len() == 40 { "..." } else { "" })?;
             }
 
-        } else if eof.is_tpk().is_ok() || eof.is_keyring().is_ok() {
+        } else if is_tpk.is_ok() || is_keyring.is_ok() {
             let pp = openpgp::PacketPile::from(packets);
             let tpk = openpgp::TPK::from_packet_pile(pp)?;
             inspect_tpk(output, &tpk, print_keygrips, print_certifications)?;
@@ -107,6 +111,9 @@ pub fn inspect(m: &clap::ArgMatches, output: &mut io::Write)
             writeln!(output, "No OpenPGP data.")?;
         } else {
             writeln!(output, "Unknown sequence of OpenPGP packets.")?;
+            writeln!(output, "  Message: {}", is_message.unwrap_err())?;
+            writeln!(output, "  TPK: {}", is_tpk.unwrap_err())?;
+            writeln!(output, "  Keyring: {}", is_keyring.unwrap_err())?;
             writeln!(output)?;
             writeln!(output, "Hint: Try 'sq packet dump {}'", input_name)?;
         }
