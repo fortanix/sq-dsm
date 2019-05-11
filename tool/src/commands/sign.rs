@@ -8,7 +8,7 @@ extern crate sequoia_openpgp as openpgp;
 use openpgp::armor;
 use openpgp::constants::DataFormat;
 use openpgp::crypto;
-use openpgp::{Packet, Error, Result};
+use openpgp::{Packet, Result};
 use openpgp::packet::Signature;
 use openpgp::parse::{
     Parse,
@@ -179,9 +179,8 @@ fn sign_message(input: &mut io::Read, output_path: Option<&str>,
         };
 
     while let PacketParserResult::Some(mut pp) = ppr {
-        if ! pp.possible_message() {
-            return Err(Error::MalformedMessage(
-                "Malformed OpenPGP message".into()).into());
+        if let Err(err) = pp.possible_message() {
+            return Err(err.context("Malformed OpenPGP message").into());
         }
 
         match pp.packet {
@@ -301,9 +300,8 @@ fn sign_message(input: &mut io::Read, output_path: Option<&str>,
     }
 
     if let PacketParserResult::EOF(eof) = ppr {
-        if ! eof.is_message() {
-            return Err(Error::MalformedMessage(
-                "Malformed OpenPGP message".into()).into());
+        if let Err(err) = eof.is_message() {
+            return Err(err.context("Malformed OpenPGP message").into());
         }
     } else {
         unreachable!()

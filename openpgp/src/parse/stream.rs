@@ -482,9 +482,8 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
         let mut issuers = Vec::new();
 
         while let PacketParserResult::Some(pp) = ppr {
-            if ! pp.possible_message() {
-                return Err(Error::MalformedMessage(
-                    "Malformed OpenPGP message".into()).into());
+            if let Err(err) = pp.possible_message() {
+                return Err(err.context("Malformed OpenPGP message").into());
             }
 
             match pp.packet {
@@ -586,9 +585,9 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
                 // Process the rest of the packets.
                 let mut ppr = PacketParserResult::Some(pp);
                 while let PacketParserResult::Some(mut pp) = ppr {
-                    if ! pp.possible_message() {
-                        return Err(Error::MalformedMessage(
-                            "Malformed OpenPGP message".into()).into());
+                    if let Err(err) = pp.possible_message() {
+                        return Err(err.context(
+                            "Malformed OpenPGP message").into());
                     }
 
                     let (p, ppr_tmp) = pp.recurse()?;
@@ -1232,10 +1231,9 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
 
         while let PacketParserResult::Some(mut pp) = ppr {
             v.helper.inspect(&pp)?;
-            if ! pp.possible_message() {
-                t!("Malformed message");
-                return Err(Error::MalformedMessage(
-                    "Malformed OpenPGP message".into()).into());
+            if let Err(err) = pp.possible_message() {
+                t!("Malformed message: {}", err);
+                return Err(err.context("Malformed OpenPGP message").into());
             }
 
             match pp.packet {
@@ -1388,9 +1386,9 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                         self.helper.inspect(&pp)?;
                     }
 
-                    if ! pp.possible_message() {
-                        return Err(Error::MalformedMessage(
-                            "Malformed OpenPGP message".into()).into());
+                    if let Err(err) = pp.possible_message() {
+                        return Err(err.context(
+                            "Malformed OpenPGP message").into());
                     }
 
                     match pp.packet {

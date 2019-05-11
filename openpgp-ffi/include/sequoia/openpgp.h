@@ -1195,8 +1195,12 @@ void pgp_packet_parser_free (pgp_packet_parser_t pp);
 
 /*/
 /// Returns whether the message is a well-formed OpenPGP message.
+///
+/// If the message is not well-formed, `*errp` explains why this is
+/// not the case.
 /*/
-bool pgp_packet_parser_eof_is_message(pgp_packet_parser_eof_t eof);
+bool pgp_packet_parser_eof_is_message(pgp_error_t *errp,
+                                      pgp_packet_parser_eof_t eof);
 
 /*/
 /// Frees the packet parser EOF object.

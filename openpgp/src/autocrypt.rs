@@ -752,9 +752,9 @@ impl<'a> AutocryptSetupMessageParser<'a> {
                 // If we've gotten this far, then the outer message
                 // has the right sequence of packets, but we haven't
                 // carefully checked the nesting.  We do that now.
-                if ! pp.is_message() {
-                    return Err(Error::MalformedMessage(
-                        "Invalid OpenPGP Message".into()).into());
+                if let Err(err) = pp.is_message() {
+                    return Err(err.context(
+                        "Invalid OpenPGP Message").into());
                 }
             }
             PacketParserResult::Some(pp) =>

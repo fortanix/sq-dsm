@@ -92,11 +92,13 @@ pub extern "C" fn pgp_packet_parser_free(pp: Option<&mut PacketParser>) {
 /// Frees the packet parser EOF object.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "C" fn pgp_packet_parser_eof_is_message(
+    errp: Option<&mut *mut ::error::Error>,
     eof: *const PacketParserEOF) -> bool
 {
+    ffi_make_fry_from_errp!(errp);
     let eof = ffi_param_ref!(eof);
-
-    eof.is_message()
+    ffi_try_or!(eof.is_message(), false);
+    true
 }
 
 /// Frees the packet parser EOF object.

@@ -280,7 +280,7 @@ class PacketParserEOF(SQObject):
     _del = lib.pgp_packet_parser_eof_free
 
     def is_message(self):
-        return bool(lib.pgp_packet_parser_eof_is_message(self.ref()))
+        return invoke(lib.pgp_packet_parser_eof_is_message, self.ref())
 
 class PacketParser(SQObject):
     _del = lib.pgp_packet_parser_free

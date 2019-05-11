@@ -2596,22 +2596,40 @@ impl PacketParserEOF {
     /// Whether the message is an OpenPGP Message.
     ///
     /// As opposed to a TPK or just a bunch of packets.
-    pub fn is_message(&self) -> bool {
-        self.state.message_validator.is_message()
+    pub fn is_message(&self) -> Result<()> {
+        use message::MessageValidity;
+
+        match self.state.message_validator.check() {
+            MessageValidity::Message => Ok(()),
+            MessageValidity::MessagePrefix => unreachable!(),
+            MessageValidity::Error(err) => Err(err),
+        }
     }
 
     /// Whether the message is an OpenPGP keyring.
     ///
     /// As opposed to a Message or just a bunch of packets.
-    pub fn is_keyring(&self) -> bool {
-        self.state.keyring_validator.is_keyring()
+    pub fn is_keyring(&self) -> Result<()> {
+        use tpk::KeyringValidity;
+
+        match self.state.keyring_validator.check() {
+            KeyringValidity::Keyring => Ok(()),
+            KeyringValidity::KeyringPrefix => unreachable!(),
+            KeyringValidity::Error(err) => Err(err),
+        }
     }
 
     /// Whether the message is an OpenPGP TPK.
     ///
     /// As opposed to a Message or just a bunch of packets.
-    pub fn is_tpk(&self) -> bool {
-        self.state.tpk_validator.is_tpk()
+    pub fn is_tpk(&self) -> Result<()> {
+        use tpk::TPKValidity;
+
+        match self.state.tpk_validator.check() {
+            TPKValidity::TPK => Ok(()),
+            TPKValidity::TPKPrefix => unreachable!(),
+            TPKValidity::Error(err) => Err(err),
+        }
     }
 
     /// Returns the path of the last packet.
@@ -2866,8 +2884,14 @@ impl <'a> PacketParser<'a> {
     /// to say whether the message is definitely an OpenPGP Message.
     /// Before that, it is only possible to say that the message is a
     /// valid prefix or definitely not an OpenPGP message.
-    pub fn possible_message(&self) -> bool {
-        self.state.message_validator.check().is_message_prefix()
+    pub fn possible_message(&self) -> Result<()> {
+        use message::MessageValidity;
+
+        match self.state.message_validator.check() {
+            MessageValidity::Message => unreachable!(),
+            MessageValidity::MessagePrefix => Ok(()),
+            MessageValidity::Error(err) => Err(err),
+        }
     }
 
     /// Returns whether the message appears to be an OpenPGP keyring.
@@ -2876,8 +2900,14 @@ impl <'a> PacketParser<'a> {
     /// to say whether the message is definitely an OpenPGP keyring.
     /// Before that, it is only possible to say that the message is a
     /// valid prefix or definitely not an OpenPGP keyring.
-    pub fn possible_keyring(&self) -> bool {
-        self.state.keyring_validator.check().is_keyring_prefix()
+    pub fn possible_keyring(&self) -> Result<()> {
+        use tpk::KeyringValidity;
+
+        match self.state.keyring_validator.check() {
+            KeyringValidity::Keyring => unreachable!(),
+            KeyringValidity::KeyringPrefix => Ok(()),
+            KeyringValidity::Error(err) => Err(err),
+        }
     }
 
     /// Returns whether the message appears to be an OpenPGP TPK.
@@ -2886,8 +2916,14 @@ impl <'a> PacketParser<'a> {
     /// to say whether the message is definitely an OpenPGP TPK.
     /// Before that, it is only possible to say that the message is a
     /// valid prefix or definitely not an OpenPGP TPK.
-    pub fn possible_tpk(&self) -> bool {
-        self.state.tpk_validator.check().is_tpk_prefix()
+    pub fn possible_tpk(&self) -> Result<()> {
+        use tpk::TPKValidity;
+
+        match self.state.tpk_validator.check() {
+            TPKValidity::TPK => unreachable!(),
+            TPKValidity::TPKPrefix => Ok(()),
+            TPKValidity::Error(err) => Err(err),
+        }
     }
 
     /// Returns Ok if the data appears to be a legal packet.
@@ -4108,7 +4144,7 @@ mod test {
             // Make sure we actually decrypted...
             let mut saw_literal = false;
             while let PacketParserResult::Some(mut pp) = ppr {
-                assert!(pp.possible_message());
+                assert!(pp.possible_message().is_ok());
 
                 match pp.packet {
                     Packet::SEIP(_) | Packet::AED(_) => {
@@ -4127,7 +4163,7 @@ mod test {
             }
             assert!(saw_literal);
             if let PacketParserResult::EOF(eof) = ppr {
-                assert!(eof.is_message());
+                assert!(eof.is_message().is_ok());
             } else {
                 unreachable!();
             }
@@ -4149,12 +4185,12 @@ mod test {
                 .expect(&format!("Error reading {:?}", path));
 
             while let PacketParserResult::Some(mut pp) = ppr {
-                assert!(pp.possible_keyring());
+                assert!(pp.possible_keyring().is_ok());
                 ppr = pp.recurse().unwrap().1;
             }
             if let PacketParserResult::EOF(eof) = ppr {
-                assert!(eof.is_keyring());
-                assert!(! eof.is_tpk());
+                assert!(eof.is_keyring().is_ok());
+                assert!(eof.is_tpk().is_err());
             } else {
                 unreachable!();
             }
@@ -4174,13 +4210,13 @@ mod test {
                 .expect(&format!("Error reading {:?}", path));
 
             while let PacketParserResult::Some(mut pp) = ppr {
-                assert!(pp.possible_keyring());
-                assert!(pp.possible_tpk());
+                assert!(pp.possible_keyring().is_ok());
+                assert!(pp.possible_tpk().is_ok());
                 ppr = pp.recurse().unwrap().1;
             }
             if let PacketParserResult::EOF(eof) = ppr {
-                assert!(eof.is_keyring());
-                assert!(eof.is_tpk());
+                assert!(eof.is_keyring().is_ok());
+                assert!(eof.is_tpk().is_ok());
             } else {
                 unreachable!();
             }
@@ -4199,7 +4235,7 @@ mod test {
 
             let mut saw_literal = false;
             while let PacketParserResult::Some(mut pp) = ppr {
-                assert!(pp.possible_message());
+                assert!(pp.possible_message().is_ok());
 
                 match pp.packet {
                     Packet::Literal(_) => {
@@ -4214,7 +4250,7 @@ mod test {
             assert!(! saw_literal);
             if let PacketParserResult::EOF(eof) = ppr {
                 eprintln!("eof: {:?}", eof);
-                assert!(eof.is_message());
+                assert!(eof.is_message().is_ok());
             } else {
                 unreachable!();
             }

@@ -76,8 +76,8 @@ fn main() {
         .expect("Failed to build parser");
 
     while let PacketParserResult::Some(mut pp) = ppr {
-        if ! pp.possible_message() {
-            panic!("Malformed OpenPGP message");
+        if let Err(err) = pp.possible_message() {
+            panic!("Malformed OpenPGP message: {}", err);
         }
 
         match pp.packet {
@@ -108,8 +108,8 @@ fn main() {
         ppr = pp.recurse().expect("Failed to recurse").1;
     }
     if let PacketParserResult::EOF(eof) = ppr {
-        if ! eof.is_message() {
-            panic!("Malformed OpenPGP message")
+        if let Err(err) = eof.is_message() {
+            panic!("Malformed OpenPGP message: {}", err)
         }
     } else {
         unreachable!()

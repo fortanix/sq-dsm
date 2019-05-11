@@ -31,7 +31,9 @@ pub fn inspect(m: &clap::ArgMatches, output: &mut io::Write)
     while let PacketParserResult::Some(mut pp) = ppr {
         match pp.packet {
             Packet::PublicKey(_) | Packet::SecretKey(_) => {
-                if ! pp.possible_tpk() && pp.possible_keyring() {
+                if pp.possible_tpk().is_err()
+                    && pp.possible_keyring().is_ok()
+                {
                     if ! type_called {
                         writeln!(output, "OpenPGP Keyring.")?;
                         writeln!(output)?;
@@ -53,7 +55,7 @@ pub fn inspect(m: &clap::ArgMatches, output: &mut io::Write)
             _ => (),
         }
 
-        let possible_keyring = pp.possible_keyring();
+        let possible_keyring = pp.possible_keyring().is_ok();
         let (packet, ppr_) = pp.recurse()?;
         ppr = ppr_;
 
@@ -70,7 +72,7 @@ pub fn inspect(m: &clap::ArgMatches, output: &mut io::Write)
     }
 
     if let PacketParserResult::EOF(eof) = ppr {
-        if eof.is_message() {
+        if eof.is_message().is_ok() {
             writeln!(output, "{}OpenPGP Message.",
                      match (encrypted, ! sigs.is_empty()) {
                          (false, false) => "",
@@ -92,7 +94,7 @@ pub fn inspect(m: &clap::ArgMatches, output: &mut io::Write)
                          if literal_prefix.len() == 40 { "..." } else { "" })?;
             }
 
-        } else if eof.is_tpk() || eof.is_keyring() {
+        } else if eof.is_tpk().is_ok() || eof.is_keyring().is_ok() {
             let pp = openpgp::PacketPile::from(packets);
             let tpk = openpgp::TPK::from_packet_pile(pp)?;
             inspect_tpk(output, &tpk, print_keygrips, print_certifications)?;
