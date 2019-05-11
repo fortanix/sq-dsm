@@ -249,7 +249,7 @@ impl KeyringValidator {
                 // Unknown token.
                 self.error = Some(TPKParserError::OpenPGP(
                     Error::MalformedMessage(
-                        format!("Invalid OpenPGP message: unexpected packet: {:?}",
+                        format!("Invalid TPK: unexpected packet: {:?}",
                                 tag).into())));
                 self.tokens.clear();
                 return;
