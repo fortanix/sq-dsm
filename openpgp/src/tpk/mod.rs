@@ -170,6 +170,7 @@ impl KeyringValidity {
 pub struct KeyringValidator {
     tokens: Vec<Token>,
     n_keys: usize,
+    n_packets: usize,
     finished: bool,
 
     // If we know that the packet sequence is invalid.
@@ -188,6 +189,7 @@ impl KeyringValidator {
         KeyringValidator {
             tokens: vec![],
             n_keys: 0,
+            n_packets: 0,
             finished: false,
             error: None,
         }
@@ -232,6 +234,7 @@ impl KeyringValidator {
             _ => (),
         }
 
+        self.n_packets += 1;
         self.tokens.push(token);
     }
 
@@ -249,8 +252,8 @@ impl KeyringValidator {
                 // Unknown token.
                 self.error = Some(TPKParserError::OpenPGP(
                     Error::MalformedMessage(
-                        format!("Invalid TPK: unexpected packet: {:?}",
-                                tag).into())));
+                        format!("Invalid TPK: {:?} packet (at {}) not expected",
+                                tag, self.n_packets).into())));
                 self.tokens.clear();
                 return;
             }
