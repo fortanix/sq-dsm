@@ -132,6 +132,9 @@ mod fingerprint;
 mod keyid;
 
 #[cfg(test)]
+mod tests;
+
+#[cfg(test)]
 use std::path::PathBuf;
 
 #[cfg(test)]

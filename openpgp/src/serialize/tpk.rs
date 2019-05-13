@@ -447,48 +447,12 @@ mod test {
     use parse::Parse;
     use serialize::Serialize;
 
-    fn test_tpk(name: &str) -> Result<TPK> {
-        let path = format!("tests/data/keys/{}.pgp", name);
-        TPK::from_file(path)
-    }
-
-    fn test_tsk(name: &str) -> Result<TPK> {
-        let path = format!("tests/data/keys/{}-private.pgp", name);
-        TPK::from_file(path)
-    }
-
-    const PUBLIC_TESTS: &[&str] = &[
-        "dennis-simon-anton",
-        "dsa2048-elgamal3072",
-        "emmelie-dorothea-dina-samantha-awina-ed25519",
-        "erika-corinna-daniela-simone-antonia-nistp256",
-        "erika-corinna-daniela-simone-antonia-nistp384",
-        "erika-corinna-daniela-simone-antonia-nistp521",
-        "testy-new",
-        "testy",
-        "neal",
-        "dkg-sigs-out-of-order",
-    ];
-    const SECRET_TESTS: &[&str] = &[
-        "dennis-simon-anton",
-        "dsa2048-elgamal3072",
-        "emmelie-dorothea-dina-samantha-awina-ed25519",
-        "erika-corinna-daniela-simone-antonia-nistp256",
-        "erika-corinna-daniela-simone-antonia-nistp384",
-        "erika-corinna-daniela-simone-antonia-nistp521",
-        "testy-new",
-        "testy-nistp256",
-        "testy-nistp384",
-        "testy-nistp521",
-        "testy",
-    ];
-
     /// Demonstrates that public keys and all components are
     /// serialized.
     #[test]
     fn roundtrip_tpk() {
-        for test in PUBLIC_TESTS {
-            let tpk = match test_tpk(dbg!(test)) {
+        for test in ::tests::TPKS {
+            let tpk = match TPK::from_bytes(test.bytes) {
                 Ok(t) => t,
                 Err(_) => continue,
             };
@@ -504,8 +468,8 @@ mod test {
     /// serialized.
     #[test]
     fn roundtrip_tsk() {
-        for test in SECRET_TESTS {
-            let tpk = test_tsk(test).unwrap();
+        for test in ::tests::TSKS {
+            let tpk = TPK::from_bytes(test.bytes).unwrap();
             assert!(tpk.is_tsk());
 
             let mut buf = Vec::new();
@@ -527,8 +491,8 @@ mod test {
     /// reduces to TPK::serialize().
     #[test]
     fn reduce_to_tpk_serialize() {
-        for test in SECRET_TESTS {
-            let tpk = test_tsk(test).unwrap();
+        for test in ::tests::TSKS {
+            let tpk = TPK::from_bytes(test.bytes).unwrap();
             assert!(tpk.is_tsk());
 
             // First, use TPK::serialize().
