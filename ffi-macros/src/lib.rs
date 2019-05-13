@@ -927,7 +927,7 @@ fn derive_iterator(span: proc_macro2::Span, prefix: &str, name: &str,
 
     quote! {
         /// Gets the next item from the iterator.
-        #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
+        #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
         fn #ident #generics (this: *mut #wrapper #generics)
                              -> Option<::std::ptr::NonNull<#item_type>> {
             use ::RefMutRaw;

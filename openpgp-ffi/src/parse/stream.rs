@@ -56,7 +56,7 @@ use super::super::{
 pub struct MessageStructure<'a>(stream::MessageStructure<'a>);
 
 /// Iterates over the message structure.
-#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "system"
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_message_structure_iter(structure: *const MessageStructure)
                               -> *mut MessageStructureIter {
     structure.ref_raw().iter().move_into_raw()
