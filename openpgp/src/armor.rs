@@ -1101,7 +1101,7 @@ impl CRC {
 
 #[cfg(test)]
 mod test {
-    use std::io::Write;
+    use std::io::{Cursor, Read, Write};
     use super::CRC;
     use super::Kind;
     use super::Writer;
@@ -1127,54 +1127,63 @@ mod test {
         }
     }
 
-    use std::fs::File;
-    use std::io::prelude::*;
+    macro_rules! t {
+        ( $path: expr ) => {
+            include_bytes!(concat!("../tests/data/armor/", $path))
+        }
+    }
+    macro_rules! vectors {
+        ( $prefix: expr, $suffix: expr ) => {
+            &[t!(concat!($prefix, "-0", $suffix)),
+              t!(concat!($prefix, "-1", $suffix)),
+              t!(concat!($prefix, "-2", $suffix)),
+              t!(concat!($prefix, "-3", $suffix)),
+              t!(concat!($prefix, "-47", $suffix)),
+              t!(concat!($prefix, "-48", $suffix)),
+              t!(concat!($prefix, "-49", $suffix)),
+              t!(concat!($prefix, "-50", $suffix)),
+              t!(concat!($prefix, "-51", $suffix))]
+        }
+    }
 
-    const TEST_VECTORS: [u8; 9] = [0, 1, 2, 3, 47, 48, 49, 50, 51];
+    const TEST_BIN: &[&[u8]] = vectors!("test", ".bin");
+    const TEST_ASC: &[&[u8]] = vectors!("test", ".asc");
+    const LITERAL_BIN: &[&[u8]] = vectors!("literal", ".bin");
+    const LITERAL_ASC: &[&[u8]] = vectors!("literal", ".asc");
+    const LITERAL_NO_HEADER_ASC: &[&[u8]] =
+        vectors!("literal", "-no-header.asc");
+    const LITERAL_NO_HEADER_WITH_CHKSUM_ASC: &[&[u8]] =
+        vectors!("literal", "-no-header-with-chksum.asc");
+    const LITERAL_NO_NEWLINES_ASC: &[&[u8]] =
+        vectors!("literal", "-no-newlines.asc");
 
     #[test]
     fn enarmor() {
-        for len in TEST_VECTORS.iter() {
-            let mut file = File::open(format!("tests/data/armor/test-{}.bin", len)).unwrap();
-            let mut bin = Vec::<u8>::new();
-            file.read_to_end(&mut bin).unwrap();
-
-            let mut file = File::open(format!("tests/data/armor/test-{}.asc", len)).unwrap();
-            let mut asc = Vec::<u8>::new();
-            file.read_to_end(&mut asc).unwrap();
-
+        for (bin, asc) in TEST_BIN.iter().zip(TEST_ASC.iter()) {
             let mut buf = Vec::new();
             {
                 let mut w = Writer::new(&mut buf, Kind::File, &[]).unwrap();
                 w.write(&[]).unwrap();  // Avoid zero-length optimization.
-                w.write_all(&bin).unwrap();
+                w.write_all(bin).unwrap();
             }
             assert_eq!(String::from_utf8_lossy(&buf),
-                       String::from_utf8_lossy(&asc));
+                       String::from_utf8_lossy(asc));
         }
     }
 
     #[test]
     fn enarmor_bytewise() {
-        for len in TEST_VECTORS.iter() {
-            let mut file = File::open(format!("tests/data/armor/test-{}.bin", len)).unwrap();
-            let mut bin = Vec::<u8>::new();
-            file.read_to_end(&mut bin).unwrap();
-
-            let mut file = File::open(format!("tests/data/armor/test-{}.asc", len)).unwrap();
-            let mut asc = Vec::<u8>::new();
-            file.read_to_end(&mut asc).unwrap();
-
+        for (bin, asc) in TEST_BIN.iter().zip(TEST_ASC.iter()) {
             let mut buf = Vec::new();
             {
                 let mut w = Writer::new(&mut buf, Kind::File, &[]).unwrap();
                 w.write(&[]).unwrap();  // Avoid zero-length optimization.
-                for (i, _) in bin.iter().enumerate() {
-                    w.write(&bin[i..i+1]).unwrap();
+                for b in bin.iter() {
+                    w.write(&[*b]).unwrap();
                 }
             }
             assert_eq!(String::from_utf8_lossy(&buf),
-                       String::from_utf8_lossy(&asc));
+                       String::from_utf8_lossy(asc));
         }
     }
 
@@ -1207,32 +1216,26 @@ mod test {
 
     #[test]
     fn dearmor_robust() {
-        for len in TEST_VECTORS.iter() {
-            let mut file = File::open(format!("tests/data/armor/literal-{}.bin",
-                                              len)).unwrap();
-            let mut reference = Vec::<u8>::new();
-            file.read_to_end(&mut reference).unwrap();
-
-            for test in &["", "-no-header-with-chksum", "-no-header",
-                          "-no-newlines"] {
-                let filename = format!("tests/data/armor/literal-{}{}.asc",
-                                       len, test);
-                let mut file = File::open(filename).unwrap();
-                let mut r = Reader::new(&mut file, ReaderMode::VeryTolerant);
+        for (i, reference) in LITERAL_BIN.iter().enumerate() {
+            for test in &[LITERAL_ASC[i],
+                          LITERAL_NO_HEADER_WITH_CHKSUM_ASC[i],
+                          LITERAL_NO_HEADER_ASC[i],
+                          LITERAL_NO_NEWLINES_ASC[i]] {
+                let mut r = Reader::new(Cursor::new(test),
+                                        ReaderMode::VeryTolerant);
                 let mut dearmored = Vec::<u8>::new();
                 r.read_to_end(&mut dearmored).unwrap();
 
-                assert_eq!(&reference, &dearmored);
+                assert_eq!(&dearmored, reference);
             }
         }
     }
 
     #[test]
     fn dearmor_binary() {
-        for len in TEST_VECTORS.iter() {
-            let mut file = File::open(format!("tests/data/armor/test-{}.bin", len)).unwrap();
+        for bin in TEST_BIN.iter() {
             let mut r = Reader::new(
-                &mut file, ReaderMode::Tolerant(Some(Kind::Message)));
+                Cursor::new(bin), ReaderMode::Tolerant(Some(Kind::Message)));
             let mut buf = [0; 5];
             let e = r.read(&mut buf);
             assert!(e.is_err());
@@ -1241,9 +1244,9 @@ mod test {
 
     #[test]
     fn dearmor_wrong_kind() {
-        let mut file = File::open("tests/data/armor/test-0.asc").unwrap();
         let mut r = Reader::new(
-            &mut file, ReaderMode::Tolerant(Some(Kind::Message)));
+            Cursor::new(&include_bytes!("../tests/data/armor/test-0.asc")[..]),
+            ReaderMode::Tolerant(Some(Kind::Message)));
         let mut buf = [0; 5];
         let e = r.read(&mut buf);
         assert!(e.is_err());
@@ -1251,9 +1254,10 @@ mod test {
 
     #[test]
     fn dearmor_wrong_crc() {
-        let mut file = File::open("tests/data/armor/test-0.bad-crc.asc").unwrap();
         let mut r = Reader::new(
-            &mut file, ReaderMode::Tolerant(Some(Kind::File)));
+            Cursor::new(
+                &include_bytes!("../tests/data/armor/test-0.bad-crc.asc")[..]),
+            ReaderMode::Tolerant(Some(Kind::File)));
         let mut buf = [0; 5];
         let e = r.read(&mut buf);
         assert!(e.is_err());
@@ -1261,9 +1265,11 @@ mod test {
 
     #[test]
     fn dearmor_wrong_footer() {
-        let mut file = File::open("tests/data/armor/test-2.bad-footer.asc").unwrap();
         let mut r = Reader::new(
-            &mut file, ReaderMode::Tolerant(Some(Kind::File)));
+            Cursor::new(
+                &include_bytes!("../tests/data/armor/test-2.bad-footer.asc")[..]
+            ),
+            ReaderMode::Tolerant(Some(Kind::File)));
         let mut buf = [0; 5];
         let e = r.read(&mut buf);
         assert!(e.is_err());
@@ -1271,9 +1277,10 @@ mod test {
 
     #[test]
     fn dearmor_no_crc() {
-        let mut file = File::open("tests/data/armor/test-1.no-crc.asc").unwrap();
         let mut r = Reader::new(
-            &mut file, ReaderMode::Tolerant(Some(Kind::File)));
+            Cursor::new(
+                &include_bytes!("../tests/data/armor/test-1.no-crc.asc")[..]),
+            ReaderMode::Tolerant(Some(Kind::File)));
         let mut buf = [0; 5];
         let e = r.read(&mut buf);
         assert!(e.unwrap() == 1 && buf[0] == 0xde);
@@ -1281,9 +1288,11 @@ mod test {
 
     #[test]
     fn dearmor_with_header() {
-        let mut file = File::open("tests/data/armor/test-3.with-headers.asc").unwrap();
         let mut r = Reader::new(
-            &mut file, ReaderMode::Tolerant(Some(Kind::File)));
+            Cursor::new(
+                &include_bytes!("../tests/data/armor/test-3.with-headers.asc")[..]
+            ),
+            ReaderMode::Tolerant(Some(Kind::File)));
         assert_eq!(r.headers().unwrap(),
                    &[("Comment".into(), "Some Header".into()),
                      ("Comment".into(), "Another one".into())]);
@@ -1294,8 +1303,11 @@ mod test {
 
     #[test]
     fn dearmor_any() {
-        let mut file = File::open("tests/data/armor/test-3.with-headers.asc").unwrap();
-        let mut r = Reader::new(&mut file, ReaderMode::VeryTolerant);
+        let mut r = Reader::new(
+            Cursor::new(
+                &include_bytes!("../tests/data/armor/test-3.with-headers.asc")[..]
+            ),
+            ReaderMode::VeryTolerant);
         let mut buf = [0; 5];
         let e = r.read(&mut buf);
         assert!(r.kind() == Some(Kind::File));
@@ -1304,22 +1316,12 @@ mod test {
 
     #[test]
     fn dearmor_with_garbage() {
-        use std::io::Cursor;
-
-        // Get some valid data.
-        let mut armored = Vec::new();
-        File::open("tests/data/armor/test-3.with-headers.asc")
-            .unwrap()
-            .read_to_end(&mut armored)
-            .unwrap();
-
+        let armored =
+            include_bytes!("../tests/data/armor/test-3.with-headers.asc");
         // Slap some garbage in front and make sure it still reads ok.
-        let mut garbage = Vec::new();
-        write!(&mut garbage, "Some\ngarbage\nlines\n\t\r  ").unwrap();
-        garbage.extend_from_slice(&armored);
-
-        let mut r = Reader::new(Cursor::new(&garbage),
-                                ReaderMode::VeryTolerant);
+        let mut b: Vec<u8> = "Some\ngarbage\nlines\n\t\r  ".into();
+        b.extend_from_slice(armored);
+        let mut r = Reader::new(Cursor::new(b), ReaderMode::VeryTolerant);
         let mut buf = [0; 5];
         let e = r.read(&mut buf);
         assert_eq!(r.kind(), Some(Kind::File));
@@ -1327,12 +1329,9 @@ mod test {
 
         // Again, but this time add a non-whitespace character in the
         // line of the header.
-        let mut garbage = Vec::new();
-        write!(&mut garbage, "Some\ngarbage\nlines\n\t.\r  ").unwrap();
-        garbage.extend_from_slice(&armored);
-
-        let mut r = Reader::new(Cursor::new(&garbage),
-                                ReaderMode::VeryTolerant);
+        let mut b: Vec<u8> = "Some\ngarbage\nlines\n\t.\r  ".into();
+        b.extend_from_slice(armored);
+        let mut r = Reader::new(Cursor::new(b), ReaderMode::VeryTolerant);
         let mut buf = [0; 5];
         let e = r.read(&mut buf);
         assert!(e.is_err());
@@ -1340,53 +1339,43 @@ mod test {
 
     #[test]
     fn dearmor() {
-        for len in TEST_VECTORS.iter() {
-            let mut file = File::open(format!("tests/data/armor/test-{}.bin", len)).unwrap();
-            let mut bin = Vec::<u8>::new();
-            file.read_to_end(&mut bin).unwrap();
-
-            let mut file = File::open(format!("tests/data/armor/test-{}.asc", len)).unwrap();
+        for (bin, asc) in TEST_BIN.iter().zip(TEST_ASC.iter()) {
             let mut r = Reader::new(
-                &mut file, ReaderMode::Tolerant(Some(Kind::File)));
+                Cursor::new(asc),
+                ReaderMode::Tolerant(Some(Kind::File)));
             let mut dearmored = Vec::<u8>::new();
             r.read_to_end(&mut dearmored).unwrap();
 
-            assert_eq!(&bin, &dearmored);
+            assert_eq!(&dearmored, bin);
         }
     }
 
     #[test]
     fn dearmor_bytewise() {
-        for len in TEST_VECTORS.iter() {
-            let mut file = File::open(format!("tests/data/armor/test-{}.bin", len)).unwrap();
-            let mut bin = Vec::<u8>::new();
-            file.read_to_end(&mut bin).unwrap();
-
-            let mut file = File::open(format!("tests/data/armor/test-{}.asc", len)).unwrap();
+        for (bin, asc) in TEST_BIN.iter().zip(TEST_ASC.iter()) {
             let r = Reader::new(
-                &mut file, ReaderMode::Tolerant(Some(Kind::File)));
+                Cursor::new(asc),
+                ReaderMode::Tolerant(Some(Kind::File)));
             let mut dearmored = Vec::<u8>::new();
             for c in r.bytes() {
                 dearmored.push(c.unwrap());
             }
 
-            assert_eq!(&bin, &dearmored);
+            assert_eq!(&dearmored, bin);
         }
     }
 
     #[test]
     fn dearmor_yuge() {
-        let mut file =
-            File::open("tests/data/keys/yuge-key-so-yuge-the-yugest.asc")
-            .unwrap();
-        let mut r = Reader::new(&mut file, ReaderMode::VeryTolerant);
+        let yuge_key = include_bytes!(
+            "../tests/data/keys/yuge-key-so-yuge-the-yugest.asc");
+        let mut r = Reader::new(Cursor::new(&yuge_key[..]),
+                                ReaderMode::VeryTolerant);
         let mut dearmored = Vec::<u8>::new();
         r.read_to_end(&mut dearmored).unwrap();
 
-        let mut file =
-            File::open("tests/data/keys/yuge-key-so-yuge-the-yugest.asc")
-            .unwrap();
-        let r = Reader::new(&mut file, ReaderMode::VeryTolerant);
+        let r = Reader::new(Cursor::new(&yuge_key[..]),
+                            ReaderMode::VeryTolerant);
         let mut dearmored = Vec::<u8>::new();
         for c in r.bytes() {
             dearmored.push(c.unwrap());
@@ -1395,8 +1384,6 @@ mod test {
 
     quickcheck! {
         fn roundtrip(kind: Kind, payload: Vec<u8>) -> bool {
-            use std::io::Cursor;
-
             if payload.is_empty() {
                 // Empty payloads do not emit an armor framing unless
                 // one does an explicit empty write (and .write_all()
