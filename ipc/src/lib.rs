@@ -149,6 +149,7 @@ impl Descriptor {
             Ok(rpc_system)
         };
 
+        fs::create_dir_all(self.ctx.home())?;
         let mut file = fs::OpenOptions::new()
             .read(true)
             .write(true)

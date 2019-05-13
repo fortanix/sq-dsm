@@ -24,7 +24,6 @@ extern crate tempdir;
 extern crate failure;
 
 use std::fmt;
-use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 use tempdir::TempDir;
@@ -221,7 +220,6 @@ impl Config {
                         format_err!("Failed to get users home directory"))?
                 .join(".sequoia");
             }
-            fs::create_dir_all(c.home())?;
         }
         Ok(c)
     }
