@@ -1,3 +1,5 @@
+extern crate failure;
+use failure::{Fallible as Result, ResultExt};
 extern crate filetime;
 extern crate nettle;
 
@@ -76,7 +78,7 @@ fn c_doctests() {
 }
 
 /// Builds the shared object.
-fn build_so(base: &Path) -> io::Result<()> {
+fn build_so(base: &Path) -> Result<()> {
     let st = Command::new("cargo")
         .current_dir(base)
         .arg("build")
@@ -85,7 +87,8 @@ fn build_so(base: &Path) -> io::Result<()> {
         .arg("sequoia-openpgp-ffi")
         .status().unwrap();
     if ! st.success() {
-        return Err(io::Error::new(io::ErrorKind::Other, "compilation failed"));
+        return Err(io::Error::new(io::ErrorKind::Other, "compilation failed")
+                   .into());
     }
 
     Ok(())
@@ -93,8 +96,8 @@ fn build_so(base: &Path) -> io::Result<()> {
 
 /// Maps the given function `fun` over all Rust files in `src`.
 fn for_all_rs<F>(src: &Path, mut fun: F)
-                 -> io::Result<()>
-    where F: FnMut(&Path) -> io::Result<()> {
+                 -> Result<()>
+    where F: FnMut(&Path) -> Result<()> {
     let mut dirs = vec![src.to_path_buf()];
 
     while let Some(dir) = dirs.pop() {
@@ -133,8 +136,8 @@ fn is_valid_identifier(c: char) -> bool {
 ///
 /// XXX: We need to parse the file properly with syn.
 fn for_all_tests<F>(path: &Path, mut fun: F)
-                 -> io::Result<()>
-    where F: FnMut(&Path, usize, &str, Vec<String>, bool) -> io::Result<()> {
+                 -> Result<()>
+    where F: FnMut(&Path, usize, &str, Vec<String>, bool) -> Result<()> {
     let mut lineno = 0;
     let mut test_starts_at = 0;
     let f = fs::File::open(path)?;
@@ -191,7 +194,7 @@ fn for_all_tests<F>(path: &Path, mut fun: F)
 /// Writes and builds the c test iff it is out of date.
 fn build(include_dirs: &[PathBuf], ldpath: &Path, target_dir: &Path,
          src: &Path, lineno: usize, name: &str, mut lines: Vec<String>)
-         -> io::Result<PathBuf> {
+         -> Result<PathBuf> {
     let target = target_dir.join(&format!("{}", name));
     let target_c = target_dir.join(&format!("{}.c", name));
     let meta_rs = fs::metadata(&src).expect("rust source must be there");
@@ -229,16 +232,19 @@ fn build(include_dirs: &[PathBuf], ldpath: &Path, target_dir: &Path,
         .arg("-C").arg(&target_dir)
         .arg("--quiet")
         .arg(target.file_name().unwrap())
-        .status()?;
+        .status()
+        .context("Compiling the C-tests requires Make \
+                  and a cc-compatible compiler")?;
     if ! st.success() {
-        return Err(io::Error::new(io::ErrorKind::Other, "compilation failed"));
+        return Err(io::Error::new(io::ErrorKind::Other, "compilation failed")
+                   .into());
     }
 
     Ok(target)
 }
 
 /// Runs the test case.
-fn run(ldpath: &Path, exe: &Path) -> io::Result<()> {
+fn run(ldpath: &Path, exe: &Path) -> Result<()> {
     let st =
         if let Ok(valgrind) = env::var("SEQUOIA_CTEST_VALGRIND") {
             Command::new(valgrind)
@@ -255,7 +261,7 @@ fn run(ldpath: &Path, exe: &Path) -> io::Result<()> {
                 .status()?
         };
     if ! st.success() {
-        return Err(io::Error::new(io::ErrorKind::Other, "failed"));
+        return Err(io::Error::new(io::ErrorKind::Other, "failed").into());
     }
     Ok(())
 }
