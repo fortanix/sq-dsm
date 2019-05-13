@@ -1660,7 +1660,7 @@ impl NetLength for CompressedData {
             + self.common.body.as_ref().map(|body| body.len()).unwrap_or(0);
 
         // Worst case, the data gets larger.  Account for that.
-        let inner_length = inner_length + cmp::max(inner_length / 10, 32);
+        let inner_length = inner_length + cmp::max(inner_length / 2, 128);
 
         1 // Algorithm.
             + inner_length // Compressed data.
