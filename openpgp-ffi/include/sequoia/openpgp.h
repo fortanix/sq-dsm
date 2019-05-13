@@ -5,7 +5,6 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <limits.h>
-#include <unistd.h>
 #include <time.h>
 
 #include <sequoia/io.h>
