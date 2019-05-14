@@ -7,9 +7,8 @@ test:
     - rustc --version
     - cargo --version
     - clang --version
-    - sleep 1 ; touch timestamp
     - SEQUOIA_CTEST_VALGRIND=/usr/bin/valgrind make test
-    - find target -type f -a '!' -anewer timestamp -delete
+    - cargo clean -p buffered-reader -p sequoia-rfc2822 -p sequoia-openpgp -p sequoia-openpgp-ffi -p sequoia-core -p sequoia-ffi -p sequoia-ffi-macros -p sequoia-ipc -p sequoia-net -p sequoia-store -p sequoia-tool -p sequoia-sqv -p sequoia-guide
     - du -sh target
     - du -sh cargo
 
