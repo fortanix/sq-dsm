@@ -201,14 +201,10 @@ impl<'a> PacketParserBuilder<'a> {
 mod tests {
     use super::*;
 
-    macro_rules! bytes {
-        ( $x:expr ) => { include_bytes!(concat!("../../tests/data/messages/", $x)) };
-    }
-
     #[test]
     fn armor() {
         // Not ASCII armor encoded data.
-        let msg = bytes!("sig.gpg");
+        let msg = ::tests::message("sig.gpg");
 
         // Make sure we can read the first packet.
         let ppr = PacketParserBuilder::from_bytes(msg).unwrap()
@@ -233,7 +229,7 @@ mod tests {
         assert_match!(Ok(PacketParserResult::EOF(ref _pp)) = ppr);
 
         // ASCII armor encoded data.
-        let msg = bytes!("a-cypherpunks-manifesto.txt.ed25519.sig");
+        let msg = ::tests::message("a-cypherpunks-manifesto.txt.ed25519.sig");
 
         // Make sure we can read the first packet.
         let ppr = PacketParserBuilder::from_bytes(msg).unwrap()

@@ -1367,8 +1367,7 @@ mod test {
 
     #[test]
     fn dearmor_yuge() {
-        let yuge_key = include_bytes!(
-            "../tests/data/keys/yuge-key-so-yuge-the-yugest.asc");
+        let yuge_key = ::tests::key("yuge-key-so-yuge-the-yugest.asc");
         let mut r = Reader::new(Cursor::new(&yuge_key[..]),
                                 ReaderMode::VeryTolerant);
         let mut dearmored = Vec::<u8>::new();

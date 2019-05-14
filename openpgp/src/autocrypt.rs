@@ -780,10 +780,6 @@ mod test {
 
     use Fingerprint;
 
-    macro_rules! bytes {
-        ( $x:expr ) => { include_bytes!(concat!("../tests/data/", $x)) };
-    }
-
     #[test]
     fn decode_test() {
         const HPK : &'static [u8] = b"\
@@ -1040,7 +1036,7 @@ In the light of the Efail vulnerability I am asking myself if it's
     fn autocrypt_setup_message() {
         // Try the example autocrypt setup message.
         let mut asm = AutocryptSetupMessage::from_bytes(
-            bytes!("autocrypt/setup-message.txt")).unwrap();
+            ::tests::file("autocrypt/setup-message.txt")).unwrap();
 
         // A bad passcode.
         assert!(asm.decrypt(&"123".into()).is_err());
@@ -1060,7 +1056,7 @@ In the light of the Efail vulnerability I am asking myself if it's
         // Create an ASM for testy-private.  Then decrypt it and make
         // sure the TPK, etc. survived the round trip.
         let tpk =
-            TPK::from_bytes(bytes!("keys/testy-private.pgp")).unwrap();
+            TPK::from_bytes(::tests::key("testy-private.pgp")).unwrap();
 
         let mut asm = AutocryptSetupMessage::new(tpk)
             .set_prefer_encrypt("mutual");
@@ -1075,7 +1071,7 @@ In the light of the Efail vulnerability I am asking myself if it's
 
     #[test]
     fn autocrypt_header_new() {
-        let tpk = TPK::from_bytes(bytes!("keys/testy.pgp")).unwrap();
+        let tpk = TPK::from_bytes(::tests::key("testy.pgp")).unwrap();
         let header = AutocryptHeader::new_sender(&tpk, "testy@example.org",
                                                  "mutual").unwrap();
         let mut buf = Vec::new();

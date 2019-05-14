@@ -15,12 +15,6 @@ use parse::{
     Cookie
 };
 use buffered_reader::BufferedReader;
-
-#[cfg(test)]
-#[allow(unused_macros)]
-macro_rules! bytes {
-    ( $x:expr ) => { include_bytes!(concat!("../../tests/data/messages/", $x)) };
-}
 
 /// A `PacketPileParser` parses an OpenPGP message with the convenience
 /// of `PacketPile::from_file` and the flexibility of a `PacketParser`.
@@ -298,7 +292,7 @@ fn message_parser_test() {
 fn message_parser_reader_interface() {
     use std::io::Read;
 
-    let expected = ::tests::message("a-cypherpunks-manifesto.txt");
+    let expected = ::tests::manifesto();
 
     // A message containing a compressed packet that contains a
     // literal packet.

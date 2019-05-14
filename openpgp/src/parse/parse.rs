@@ -64,11 +64,6 @@ pub mod stream;
 
 // Whether to trace execution by default (on stderr).
 const TRACE : bool = false;
-
-#[cfg(test)]
-macro_rules! bytes {
-    ( $x:expr ) => { include_bytes!(concat!("../../tests/data/messages/", $x)) };
-}
 
 /// Parsing of packets and related structures.
 ///
@@ -1040,7 +1035,7 @@ impl<'a> Parse<'a, Signature> for Signature {
 
 #[test]
 fn signature_parser_test () {
-    let data = bytes!("sig.gpg");
+    let data = ::tests::message("sig.gpg");
 
     {
         let pp = PacketParser::from_bytes(data).unwrap().unwrap();
@@ -1224,7 +1219,7 @@ fn one_pass_sig_parser_test () {
     use PublicKeyAlgorithm;
 
     // This test assumes that the first packet is a OnePassSig packet.
-    let data = bytes!("signed-1.gpg");
+    let data = ::tests::message("signed-1.gpg");
     let mut pp = PacketParser::from_bytes(data).unwrap().unwrap();
     let p = pp.finish().unwrap();
     // eprintln!("packet: {:?}", p);
@@ -1724,7 +1719,7 @@ impl<'a> Parse<'a, Literal> for Literal {
 fn literal_parser_test () {
     use constants::DataFormat;
     {
-        let data = bytes!("literal-mode-b.gpg");
+        let data = ::tests::message("literal-mode-b.gpg");
         let mut pp = PacketParser::from_bytes(data).unwrap().unwrap();
         assert_eq!(pp.header.length, BodyLength::Full(18));
         let content = pp.steal_eof().unwrap();
@@ -1741,7 +1736,7 @@ fn literal_parser_test () {
     }
 
     {
-        let data = bytes!("literal-mode-t-partial-body.gpg");
+        let data = ::tests::message("literal-mode-t-partial-body.gpg");
         let mut pp = PacketParser::from_bytes(data).unwrap().unwrap();
         assert_eq!(pp.header.length, BodyLength::Partial(4096));
         let content = pp.steal_eof().unwrap();
@@ -1752,7 +1747,7 @@ fn literal_parser_test () {
                        b"manifesto.txt"[..]);
             assert_eq!(p.date(), Some(&time::Tm::from_pgp(1508000649)));
 
-            let expected = bytes!("a-cypherpunks-manifesto.txt");
+            let expected = ::tests::manifesto();
 
             assert_eq!(&content[..], &expected[..]);
         } else {
@@ -1854,7 +1849,7 @@ impl<'a> Parse<'a, CompressedData> for CompressedData {
 fn compressed_data_parser_test () {
     use constants::DataFormat;
 
-    let expected = bytes!("a-cypherpunks-manifesto.txt");
+    let expected = ::tests::manifesto();
 
     for i in 1..4 {
         match CompressionAlgorithm::from(i) {
@@ -3636,7 +3631,7 @@ fn packet_parser_reader_interface() {
     // We need the Read trait.
     use std::io::Read;
 
-    let expected = bytes!("a-cypherpunks-manifesto.txt");
+    let expected = ::tests::manifesto();
 
     // A message containing a compressed packet that contains a
     // literal packet.
@@ -4286,7 +4281,7 @@ mod test {
         // The following TPK is corrupted about a third the way
         // through.  Make sure we can recover.
         let mut ppr = PacketParser::from_reader(
-            Reader::from_bytes(bytes!("../keys/corrupted.pgp"),
+            Reader::from_bytes(::tests::key("corrupted.pgp"),
                                ReaderMode::Tolerant(Some(Kind::PublicKey))))
             .unwrap();
 
@@ -4322,7 +4317,7 @@ mod test {
     #[test]
     fn junk_prefix() {
         // Make sure we can read the first packet.
-        let msg = bytes!("../messages/sig.gpg");
+        let msg = ::tests::message("sig.gpg");
 
         let ppr = PacketParserBuilder::from_bytes(msg).unwrap()
             .dearmor(packet_parser_builder::Dearmor::Disabled)
@@ -4347,8 +4342,8 @@ mod test {
     /// Issue #141.
     #[test]
     fn truncated_packet() {
-        for msg in &[&bytes!("../messages/literal-mode-b.gpg")[..],
-                     &bytes!("../messages/literal-mode-t-partial-body.gpg")[..],
+        for msg in &[&::tests::message("literal-mode-b.gpg")[..],
+                     &::tests::message("literal-mode-t-partial-body.gpg")[..],
         ] {
             // Make sure we can read the first packet.
             let ppr = PacketParserBuilder::from_bytes(msg).unwrap()

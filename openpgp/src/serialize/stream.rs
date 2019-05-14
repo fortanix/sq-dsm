@@ -1168,10 +1168,6 @@ mod test {
     use super::*;
     use constants::DataFormat::Text as T;
 
-    macro_rules! bytes {
-        ( $x:expr ) => { include_bytes!(concat!("../../tests/data/", $x)) };
-    }
-
     #[test]
     fn arbitrary() {
         let mut o = vec![];
@@ -1344,8 +1340,8 @@ mod test {
 
         let mut keys: HashMap<Fingerprint, Key> = HashMap::new();
         for tsk in &[
-            TPK::from_bytes(bytes!("keys/testy-private.pgp")).unwrap(),
-            TPK::from_bytes(bytes!("keys/testy-new-private.pgp")).unwrap(),
+            TPK::from_bytes(::tests::key("testy-private.pgp")).unwrap(),
+            TPK::from_bytes(::tests::key("testy-new-private.pgp")).unwrap(),
         ] {
             for key in tsk.keys_all().signing_capable().map(|x| x.2)
             {

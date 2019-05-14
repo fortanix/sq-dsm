@@ -16,10 +16,6 @@ use parse::PacketParserBuilder;
 use parse::Parse;
 use parse::Cookie;
 
-#[cfg(test)]
-macro_rules! bytes {
-    ( $x:expr ) => { include_bytes!(concat!("../tests/data/messages/", $x)) };
-}
 
 impl fmt::Debug for PacketPile {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -428,7 +424,7 @@ mod test {
         // just rely on the fact that an assertion is not thrown.
 
         // A flat message.
-        let pile = PacketPile::from_bytes(bytes!("../keys/public-key.gpg"))
+        let pile = PacketPile::from_bytes(::tests::key("public-key.gpg"))
             .unwrap();
         eprintln!("PacketPile has {} top-level packets.",
                   pile.children().len());
@@ -486,7 +482,7 @@ mod test {
     // lutz's key is a v3 key.
     #[test]
     fn torture() {
-        let data = bytes!("../keys/dkg.gpg");
+        let data = ::tests::key("dkg.gpg");
         let mut ppp = PacketParserBuilder::from_bytes(data).unwrap()
             //.trace()
             .buffer_unread_content()
@@ -500,7 +496,7 @@ mod test {
         //pile.pretty_print();
         assert_eq!(pile.children().len(), 1450);
 
-        let data = bytes!("../keys/lutz.gpg");
+        let data = ::tests::key("lutz.gpg");
         let mut ppp = PacketParserBuilder::from_bytes(data).unwrap()
             //.trace()
             .buffer_unread_content()

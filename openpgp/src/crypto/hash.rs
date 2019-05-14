@@ -367,10 +367,6 @@ mod test {
     use TPK;
     use parse::Parse;
 
-    macro_rules! bytes {
-        ( $x:expr ) => { include_bytes!(concat!("../../tests/data/keys/", $x)) };
-    }
-
     #[test]
     fn hash_verification() {
         fn check(tpk: TPK) -> (usize, usize, usize) {
@@ -426,13 +422,13 @@ mod test {
             (userid_sigs, ua_sigs, subkey_sigs)
         }
 
-        check(TPK::from_bytes(bytes!("hash-algos/SHA224.gpg")).unwrap());
-        check(TPK::from_bytes(bytes!("hash-algos/SHA256.gpg")).unwrap());
-        check(TPK::from_bytes(bytes!("hash-algos/SHA384.gpg")).unwrap());
-        check(TPK::from_bytes(bytes!("hash-algos/SHA512.gpg")).unwrap());
-        check(TPK::from_bytes(bytes!("bannon-all-uids-subkeys.gpg")).unwrap());
+        check(TPK::from_bytes(::tests::key("hash-algos/SHA224.gpg")).unwrap());
+        check(TPK::from_bytes(::tests::key("hash-algos/SHA256.gpg")).unwrap());
+        check(TPK::from_bytes(::tests::key("hash-algos/SHA384.gpg")).unwrap());
+        check(TPK::from_bytes(::tests::key("hash-algos/SHA512.gpg")).unwrap());
+        check(TPK::from_bytes(::tests::key("bannon-all-uids-subkeys.gpg")).unwrap());
         let (_userid_sigs, ua_sigs, _subkey_sigs)
-            = check(TPK::from_bytes(bytes!("dkg.gpg")).unwrap());
+            = check(TPK::from_bytes(::tests::key("dkg.gpg")).unwrap());
         assert!(ua_sigs > 0);
     }
 }

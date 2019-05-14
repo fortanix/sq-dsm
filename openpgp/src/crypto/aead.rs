@@ -750,9 +750,6 @@ mod tests {
     use super::*;
     use std::io::{Read, Write};
 
-    const PLAINTEXT: &[u8]
-        = include_bytes!("../../tests/data/messages/a-cypherpunks-manifesto.txt");
-
     /// This test tries to encrypt, then decrypt some data.
     #[test]
     fn roundtrip() {
@@ -784,7 +781,7 @@ mod tests {
                                                        &mut ciphertext)
                         .unwrap();
 
-                    encryptor.write_all(PLAINTEXT).unwrap();
+                    encryptor.write_all(::tests::manifesto()).unwrap();
                 }
 
                 let mut plaintext = Vec::new();
@@ -798,7 +795,7 @@ mod tests {
                     decryptor.read_to_end(&mut plaintext).unwrap();
                 }
 
-                assert_eq!(&plaintext[..], &PLAINTEXT[..]);
+                assert_eq!(&plaintext[..], ::tests::manifesto());
             }
         }
     }
