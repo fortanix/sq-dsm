@@ -91,15 +91,6 @@ use conversions::{
     Time,
     Duration,
 };
-
-#[cfg(test)]
-use std::path::PathBuf;
-
-#[cfg(test)]
-fn path_to(artifact: &str) -> PathBuf {
-    [env!("CARGO_MANIFEST_DIR"), "tests", "data", "messages", artifact]
-        .iter().collect()
-}
 
 /// The subpacket types specified by [Section 5.2.3.1 of RFC 4880].
 ///
@@ -2667,8 +2658,7 @@ fn subpacket_test_1 () {
     use PacketPile;
     use parse::Parse;
 
-    let path = path_to("signed.gpg");
-    let pile = PacketPile::from_file(&path).unwrap();
+    let pile = PacketPile::from_bytes(::tests::message("signed.gpg")).unwrap();
     eprintln!("PacketPile has {} top-level packets.", pile.children().len());
     eprintln!("PacketPile: {:?}", pile);
 
@@ -2750,8 +2740,8 @@ fn subpacket_test_2() {
     //
     // XXX: The subpackets marked with * are not tested.
 
-    let pile = PacketPile::from_file(
-        path_to("../keys/subpackets/shaw.gpg")).unwrap();
+    let pile = PacketPile::from_bytes(
+        ::tests::key("subpackets/shaw.gpg")).unwrap();
 
     // Test #1
     if let (Some(&Packet::PublicKey(ref key)),
@@ -2955,8 +2945,8 @@ fn subpacket_test_2() {
                    }));
     }
 
-    let pile = PacketPile::from_file(
-        path_to("../keys/subpackets/marven.gpg")).unwrap();
+    let pile = PacketPile::from_bytes(
+        ::tests::key("subpackets/marven.gpg")).unwrap();
 
     // Test #3
     if let Some(&Packet::Signature(ref sig)) = pile.children().nth(1) {

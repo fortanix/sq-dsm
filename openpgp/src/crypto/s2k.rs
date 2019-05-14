@@ -265,12 +265,6 @@ mod tests {
     use parse::{Parse, PacketParser};
     use serialize::Serialize;
 
-    use std::path::PathBuf;
-    fn path_to(artifact: &str) -> PathBuf {
-        [env!("CARGO_MANIFEST_DIR"), "tests", "data", "messages", "s2k", artifact]
-            .iter().collect()
-    }
-
     #[test]
     fn s2k_parser_test() {
         use packet::SKESK;
@@ -375,8 +369,8 @@ mod tests {
         ];
 
         for test in tests.iter() {
-            let path = path_to(test.filename);
-            let mut pp = PacketParser::from_file(path).unwrap().unwrap();
+            let path = ::tests::message(&format!("s2k/{}", test.filename));
+            let mut pp = PacketParser::from_bytes(path).unwrap().unwrap();
             if let Packet::SKESK(SKESK::V4(ref skesk)) = pp.packet {
                 assert_eq!(skesk.symmetric_algo(), test.cipher_algo);
                 assert_eq!(skesk.s2k(), &test.s2k);

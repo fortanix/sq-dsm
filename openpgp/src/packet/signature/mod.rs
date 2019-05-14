@@ -27,19 +27,9 @@ use serialize::SerializeInto;
 use nettle::{self, dsa, ecc, ecdsa, ed25519, rsa};
 use nettle::rsa::verify_digest_pkcs1;
 
-#[cfg(test)]
-use std::path::PathBuf;
-
 pub mod subpacket;
 
 const TRACE : bool = false;
-
-#[cfg(test)]
-#[allow(dead_code)]
-fn path_to(artifact: &str) -> PathBuf {
-    [env!("CARGO_MANIFEST_DIR"), "tests", "data", artifact]
-        .iter().collect()
-}
 
 /// Builds a signature packet.
 ///
@@ -1035,12 +1025,11 @@ mod test {
             eprintln!("{}, expect {} good signatures:",
                       test.data, test.good);
 
-            let tpk = TPK::from_file(
-                path_to(&format!("keys/{}", test.key)[..])).unwrap();
+            let tpk = TPK::from_bytes(::tests::key(test.key)).unwrap();
 
             let mut good = 0;
-            let mut ppr = PacketParser::from_file(
-                path_to(&format!("messages/{}", test.data)[..])).unwrap();
+            let mut ppr = PacketParser::from_bytes(
+                ::tests::message(test.data)).unwrap();
             while let PacketParserResult::Some(mut pp) = ppr {
                 if let Packet::Signature(ref sig) = pp.packet {
                     let result = sig.verify(tpk.primary()).unwrap_or(false);
@@ -1071,8 +1060,8 @@ mod test {
     #[test]
     fn signature_level() {
         use PacketPile;
-        let p = PacketPile::from_file(
-            path_to("messages/signed-1-notarized-by-ed25519.pgp")).unwrap()
+        let p = PacketPile::from_bytes(
+            ::tests::message("signed-1-notarized-by-ed25519.pgp")).unwrap()
             .into_children().collect::<Vec<Packet>>();
 
         if let Packet::Signature(ref sig) = &p[3] {
@@ -1097,14 +1086,14 @@ mod test {
         Yarrow::default().random(&mut hash);
 
         for key in &[
-            "keys/testy-private.pgp",
-            "keys/dennis-simon-anton-private.pgp",
-            "keys/erika-corinna-daniela-simone-antonia-nistp256-private.pgp",
-            "keys/erika-corinna-daniela-simone-antonia-nistp384-private.pgp",
-            "keys/erika-corinna-daniela-simone-antonia-nistp521-private.pgp",
-            "keys/emmelie-dorothea-dina-samantha-awina-ed25519-private.pgp",
+            "testy-private.pgp",
+            "dennis-simon-anton-private.pgp",
+            "erika-corinna-daniela-simone-antonia-nistp256-private.pgp",
+            "erika-corinna-daniela-simone-antonia-nistp384-private.pgp",
+            "erika-corinna-daniela-simone-antonia-nistp521-private.pgp",
+            "emmelie-dorothea-dina-samantha-awina-ed25519-private.pgp",
         ] {
-            let tpk = TPK::from_file(path_to(key)).unwrap();
+            let tpk = TPK::from_bytes(::tests::key(key)).unwrap();
             let pair = tpk.primary();
 
             if let Some(SecretKey::Unencrypted{ mpis: ref sec }) = pair.secret() {
@@ -1160,26 +1149,12 @@ mod test {
 
     #[test]
     fn verify_message() {
-        use std::fs::File;
-        use std::io::Read;
-
-        let tpk = TPK::from_file(path_to(
-                "keys/emmelie-dorothea-dina-samantha-awina-ed25519.pgp"))
+        let tpk = TPK::from_bytes(::tests::key(
+                "emmelie-dorothea-dina-samantha-awina-ed25519.pgp")).unwrap();
+        let msg = ::tests::manifesto();
+        let sig = Signature::from_bytes(
+            ::tests::message("a-cypherpunks-manifesto.txt.ed25519.sig"))
             .unwrap();
-        let msg = {
-            let mut fd = File::open(
-                path_to("messages/a-cypherpunks-manifesto.txt")).unwrap();
-            let mut buf = Vec::default();
-
-            fd.read_to_end(&mut buf).unwrap();
-            buf
-        };
-        let sig = {
-            let mut fd = File::open(path_to(
-                "messages/a-cypherpunks-manifesto.txt.ed25519.sig")).unwrap();
-
-            Signature::from_reader(&mut fd).unwrap()
-        };
 
         assert!(sig.verify_message(tpk.primary(), &msg[..]).unwrap());
     }
@@ -1224,15 +1199,15 @@ mod test {
     fn verify_gpg_3rd_party_cert() {
         use TPK;
 
-        let test1 = TPK::from_file(
-            path_to("keys/test1-certification-key.pgp")).unwrap();
+        let test1 = TPK::from_bytes(
+            ::tests::key("test1-certification-key.pgp")).unwrap();
         let cert_key1 = test1.keys_all()
             .certification_capable()
             .nth(0)
             .map(|x| x.2)
             .unwrap();
-        let test2 = TPK::from_file(
-            path_to("keys/test2-signed-by-test1.pgp")).unwrap();
+        let test2 = TPK::from_bytes(
+            ::tests::key("test2-signed-by-test1.pgp")).unwrap();
         let uid_binding = &test2.primary_key_signature_full().unwrap().0.unwrap();
         let cert = &uid_binding.certifications()[0];
 

@@ -21,15 +21,6 @@ use buffered_reader::BufferedReader;
 macro_rules! bytes {
     ( $x:expr ) => { include_bytes!(concat!("../../tests/data/messages/", $x)) };
 }
-
-#[cfg(test)]
-use std::path::PathBuf;
-
-#[cfg(test)]
-fn path_to(artifact: &str) -> PathBuf {
-    [env!("CARGO_MANIFEST_DIR"), "tests", "data", "messages", artifact]
-        .iter().collect()
-}
 
 /// A `PacketPileParser` parses an OpenPGP message with the convenience
 /// of `PacketPile::from_file` and the flexibility of a `PacketParser`.
@@ -291,7 +282,8 @@ impl<'a> PacketPileParser<'a> {
 #[test]
 fn message_parser_test() {
     let mut count = 0;
-    let mut mp = PacketPileParser::from_file(path_to("../keys/public-key.gpg"))
+    let mut mp =
+        PacketPileParser::from_bytes(::tests::key("public-key.gpg"))
         .unwrap();
     while mp.recurse() {
         count += 1;
@@ -306,12 +298,12 @@ fn message_parser_test() {
 fn message_parser_reader_interface() {
     use std::io::Read;
 
-    let expected = bytes!("a-cypherpunks-manifesto.txt");
+    let expected = ::tests::message("a-cypherpunks-manifesto.txt");
 
     // A message containing a compressed packet that contains a
     // literal packet.
-    let path = path_to("compressed-data-algo-1.gpg");
-    let mut mp = PacketPileParser::from_file(path).unwrap();
+    let mut mp = PacketPileParser::from_bytes(
+        ::tests::message("compressed-data-algo-1.gpg")).unwrap();
     let mut count = 0;
     while mp.recurse() {
         let pp = mp.ppr.as_mut().unwrap();

@@ -546,14 +546,8 @@ impl<'a> Iterator for PacketPathIter<'a> {
 // Tests the `paths`() iter and `path_ref`().
 #[test]
 fn packet_path_iter() {
-    use std::path::PathBuf;
     use parse::Parse;
     use PacketPile;
-
-    fn path_to(artifact: &str) -> PathBuf {
-        [env!("CARGO_MANIFEST_DIR"), "tests", "data", "messages", artifact]
-            .iter().collect()
-    }
 
     fn paths(iter: slice::Iter<Packet>) -> Vec<Vec<usize>> {
         let mut lpaths : Vec<Vec<usize>> = Vec::new();
@@ -573,8 +567,8 @@ fn packet_path_iter() {
     }
 
     for i in 1..5 {
-        let pile = PacketPile::from_file(
-            path_to(&format!("recursive-{}.gpg", i)[..])).unwrap();
+        let pile = PacketPile::from_bytes(
+            ::tests::message(&format!("recursive-{}.gpg", i)[..])).unwrap();
 
         let mut paths1 : Vec<Vec<usize>> = Vec::new();
         for path in paths(pile.children()).iter() {

@@ -69,15 +69,6 @@ const TRACE : bool = false;
 macro_rules! bytes {
     ( $x:expr ) => { include_bytes!(concat!("../../tests/data/messages/", $x)) };
 }
-
-#[cfg(test)]
-use std::path::PathBuf;
-
-#[cfg(test)]
-fn path_to(artifact: &str) -> PathBuf {
-    [env!("CARGO_MANIFEST_DIR"), "tests", "data", "messages", artifact]
-        .iter().collect()
-}
 
 /// Parsing of packets and related structures.
 ///
@@ -1301,7 +1292,8 @@ fn one_pass_sig_test () {
 
     for test in tests.iter() {
         eprintln!("Trying {}...", test.filename);
-        let mut ppr = PacketParserBuilder::from_file(path_to(test.filename))
+        let mut ppr = PacketParserBuilder::from_bytes(
+            ::tests::message(test.filename))
             .expect(&format!("Reading {}", test.filename)[..])
             .finalize().unwrap();
 
@@ -1872,8 +1864,8 @@ fn compressed_data_parser_test () {
             CompressionAlgorithm::BZip2 => (),
             _ => continue,
         }
-        let path = path_to(&format!("compressed-data-algo-{}.gpg", i)[..]);
-        let mut pp = PacketParser::from_file(path).unwrap().unwrap();
+        let mut pp = PacketParser::from_bytes(::tests::message(
+            &format!("compressed-data-algo-{}.gpg", i))).unwrap().unwrap();
 
         // We expect a compressed packet containing a literal data
         // packet, and that is it.
@@ -2021,8 +2013,8 @@ fn skesk_parser_test() {
     ];
 
     for test in tests.iter() {
-        let path = path_to(test.filename);
-        let mut pp = PacketParser::from_file(path).unwrap().unwrap();
+        let mut pp = PacketParser::from_bytes(
+            ::tests::message(test.filename)).unwrap().unwrap();
         if let Packet::SKESK(SKESK::V4(ref skesk)) = pp.packet {
             eprintln!("{:?}", skesk);
 
@@ -3648,8 +3640,8 @@ fn packet_parser_reader_interface() {
 
     // A message containing a compressed packet that contains a
     // literal packet.
-    let path = path_to("compressed-data-algo-1.gpg");
-    let pp = PacketParser::from_file(path).unwrap().unwrap();
+    let pp = PacketParser::from_bytes(
+        ::tests::message("compressed-data-algo-1.gpg")).unwrap().unwrap();
 
     // The message has the form:
     //
@@ -3847,19 +3839,6 @@ impl<'a> PacketParser<'a> {
 mod test {
     use super::*;
 
-    use std::fs::File;
-
-    use std::path::PathBuf;
-    fn path_to(artifact: &str) -> PathBuf {
-        [env!("CARGO_MANIFEST_DIR"), "tests", "data", "messages", artifact]
-            .iter().collect()
-    }
-
-    fn path_to_data(artifact: &str) -> PathBuf {
-        [env!("CARGO_MANIFEST_DIR"), "tests", "data", artifact]
-            .iter().collect()
-    }
-
     enum Data<'a> {
         File(&'a str),
         String(&'a [u8]),
@@ -3868,15 +3847,7 @@ mod test {
     impl<'a> Data<'a> {
         fn content(&self) -> Vec<u8> {
             match self {
-                Data::File(filename) => {
-                    let path = path_to(filename);
-                    let mut f = File::open(path.clone())
-                        .expect(&format!("Opening '{:?}'", path)[..]);
-                    let mut buffer : Vec<u8> = vec![];
-                    f.read_to_end(&mut buffer)
-                        .expect(&format!("Reading '{:?}'", path)[..]);
-                    buffer
-                },
+                Data::File(filename) => ::tests::message(filename).to_vec(),
                 Data::String(data) => data.to_vec(),
             }
         }
@@ -4069,8 +4040,8 @@ mod test {
             eprintln!("Decrypting {}, streaming content: {}",
                       test.filename, stream);
 
-            let path = path_to(test.filename);
-            let mut ppr = PacketParserBuilder::from_file(&path).unwrap()
+            let mut ppr = PacketParserBuilder::from_bytes(
+                ::tests::message(test.filename)).unwrap()
                 .buffer_unread_content()
                 .finalize()
                 .expect(&format!("Error reading {}", test.filename)[..]);
@@ -4136,8 +4107,8 @@ mod test {
     #[test]
     fn message_validator() {
         for test in DECRYPT_TESTS.iter() {
-            let path = path_to(test.filename);
-            let mut ppr = PacketParserBuilder::from_file(&path).unwrap()
+            let mut ppr = PacketParserBuilder::from_bytes(
+                ::tests::message(test.filename)).unwrap()
                 .finalize()
                 .expect(&format!("Error reading {}", test.filename)[..]);
 
@@ -4172,17 +4143,17 @@ mod test {
 
     #[test]
     fn keyring_validator() {
-        for test in &["keys/testy.pgp",
-                      "keys/lutz.gpg",
-                      "keys/testy-new.pgp",
-                      "keys/neal.pgp"]
+        use std::io::Cursor;
+        for test in &["testy.pgp",
+                      "lutz.gpg",
+                      "testy-new.pgp",
+                      "neal.pgp"]
         {
-            let path = path_to_data(test);
             let mut ppr = PacketParserBuilder::from_reader(
-                File::open(path_to_data("keys/testy.pgp")).unwrap().chain(
-                    File::open(&path).unwrap())).unwrap()
+                Cursor::new(::tests::key("testy.pgp")).chain(
+                    Cursor::new(::tests::key(test)))).unwrap()
                 .finalize()
-                .expect(&format!("Error reading {:?}", path));
+                .expect(&format!("Error reading {:?}", test));
 
             while let PacketParserResult::Some(mut pp) = ppr {
                 assert!(pp.possible_keyring().is_ok());
@@ -4199,15 +4170,15 @@ mod test {
 
     #[test]
     fn tpk_validator() {
-        for test in &["keys/testy.pgp",
-                      "keys/lutz.gpg",
-                      "keys/testy-new.pgp",
-                      "keys/neal.pgp"]
+        for test in &["testy.pgp",
+                      "lutz.gpg",
+                      "testy-new.pgp",
+                      "neal.pgp"]
         {
-            let path = path_to_data(test);
-            let mut ppr = PacketParserBuilder::from_file(&path).unwrap()
+            let mut ppr = PacketParserBuilder::from_bytes(::tests::key(test))
+                .unwrap()
                 .finalize()
-                .expect(&format!("Error reading {:?}", path));
+                .expect(&format!("Error reading {:?}", test));
 
             while let PacketParserResult::Some(mut pp) = ppr {
                 assert!(pp.possible_keyring().is_ok());
@@ -4228,8 +4199,8 @@ mod test {
     #[test]
     fn message_validator_opaque_content() {
         for test in DECRYPT_TESTS.iter() {
-            let path = path_to(test.filename);
-            let mut ppr = PacketParserBuilder::from_file(&path).unwrap()
+            let mut ppr = PacketParserBuilder::from_bytes(
+                ::tests::message(test.filename)).unwrap()
                 .finalize()
                 .expect(&format!("Error reading {}", test.filename)[..]);
 
@@ -4262,8 +4233,8 @@ mod test {
         for test in DECRYPT_TESTS.iter() {
             eprintln!("Decrypting {}", test.filename);
 
-            let path = path_to(test.filename);
-            let mut ppr = PacketParserBuilder::from_file(&path).unwrap()
+            let mut ppr = PacketParserBuilder::from_bytes(
+                ::tests::message(test.filename)).unwrap()
                 .finalize()
                 .expect(&format!("Error reading {}", test.filename)[..]);
 

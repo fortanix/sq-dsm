@@ -512,19 +512,7 @@ impl<W: io::Write> Drop for Encryptor<W> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::fs::File;
-    use std::io::{Read, Write};
-    use std::path::PathBuf;
-
-    const PLAINTEXT: &[u8]
-        = include_bytes!("../../tests/data/messages/a-cypherpunks-manifesto.txt");
-
-    #[cfg(test)]
-    #[allow(dead_code)]
-    fn path_to(artifact: &str) -> PathBuf {
-        [env!("CARGO_MANIFEST_DIR"), "tests", "data", artifact]
-            .iter().collect()
-    }
+    use std::io::{Cursor, Read, Write};
 
     /// This test is designed to test the buffering logic in Decryptor
     /// by reading directly from it (i.e. without any buffering
@@ -541,10 +529,10 @@ mod tests {
                 key[0] = i as u8;
             }
 
-            let filename = path_to(&format!(
+            let filename = &format!(
                     "raw/a-cypherpunks-manifesto.aes{}.key_ascending_from_0",
-                algo.key_size().unwrap() * 8)[..]);
-            let ciphertext = File::open(filename).unwrap();
+                algo.key_size().unwrap() * 8);
+            let ciphertext = Cursor::new(::tests::file(filename));
             let decryptor = Decryptor::new(*algo, &key, ciphertext).unwrap();
 
             // Read bytewise to test the buffer logic.
@@ -553,7 +541,7 @@ mod tests {
                 plaintext.push(b.unwrap());
             }
 
-            assert_eq!(&PLAINTEXT[..], &plaintext[..]);
+            assert_eq!(::tests::manifesto(), &plaintext[..]);
         }
     }
 
@@ -576,15 +564,15 @@ mod tests {
                     .unwrap();
 
                 // Write bytewise to test the buffer logic.
-                for b in PLAINTEXT.chunks(1) {
+                for b in ::tests::manifesto().chunks(1) {
                     encryptor.write_all(b).unwrap();
                 }
             }
 
-            let filename = path_to(&format!(
+            let filename = format!(
                 "raw/a-cypherpunks-manifesto.aes{}.key_ascending_from_0",
-                algo.key_size().unwrap() * 8)[..]);
-            let mut cipherfile = File::open(filename).unwrap();
+                algo.key_size().unwrap() * 8);
+            let mut cipherfile = Cursor::new(::tests::file(&filename));
             let mut reference = Vec::new();
             cipherfile.read_to_end(&mut reference).unwrap();
             assert_eq!(&reference[..], &ciphertext[..]);
@@ -616,7 +604,7 @@ mod tests {
                 let mut encryptor = Encryptor::new(*algo, &key, &mut ciphertext)
                     .unwrap();
 
-                encryptor.write_all(PLAINTEXT).unwrap();
+                encryptor.write_all(::tests::manifesto()).unwrap();
             }
 
             let mut plaintext = Vec::new();
@@ -628,7 +616,7 @@ mod tests {
                 decryptor.read_to_end(&mut plaintext).unwrap();
             }
 
-            assert_eq!(&plaintext[..], &PLAINTEXT[..]);
+            assert_eq!(&plaintext[..], &::tests::manifesto()[..]);
         }
     }
 }

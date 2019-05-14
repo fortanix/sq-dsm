@@ -241,7 +241,6 @@ mod tests {
     use PacketPile;
     use packet::key::SecretKey;
     use Packet;
-    use std::path::PathBuf;
     use parse::Parse;
     use serialize::SerializeInto;
 
@@ -253,22 +252,12 @@ mod tests {
         }
     }
 
-    fn path_to_key(artifact: &str) -> PathBuf {
-        [env!("CARGO_MANIFEST_DIR"), "tests", "data", "keys", artifact]
-            .iter().collect()
-    }
-
-    fn path_to_msg(artifact: &str) -> PathBuf {
-        [env!("CARGO_MANIFEST_DIR"), "tests", "data", "messages", artifact]
-            .iter().collect()
-    }
-
     #[test]
     fn decrypt_rsa() {
-        let tpk = TPK::from_file(
-            path_to_key("testy-private.pgp")).unwrap();
-        let pile = PacketPile::from_file(
-            path_to_msg("encrypted-to-testy.gpg")).unwrap();
+        let tpk = TPK::from_bytes(
+            ::tests::key("testy-private.pgp")).unwrap();
+        let pile = PacketPile::from_bytes(
+            ::tests::message("encrypted-to-testy.gpg")).unwrap();
         let pair = tpk.subkeys().next().unwrap().subkey();
 
         if let Some(SecretKey::Unencrypted{ mpis: ref sec }) = pair.secret() {
@@ -288,10 +277,10 @@ mod tests {
 
     #[test]
     fn decrypt_ecdh_cv25519() {
-        let tpk = TPK::from_file(
-            path_to_key("testy-new-private.pgp")).unwrap();
-        let pile = PacketPile::from_file(
-            path_to_msg("encrypted-to-testy-new.pgp")).unwrap();
+        let tpk = TPK::from_bytes(
+            ::tests::key("testy-new-private.pgp")).unwrap();
+        let pile = PacketPile::from_bytes(
+            ::tests::message("encrypted-to-testy-new.pgp")).unwrap();
         let pair = tpk.subkeys().next().unwrap().subkey();
 
         if let Some(SecretKey::Unencrypted{ mpis: ref sec }) = pair.secret() {
@@ -311,10 +300,10 @@ mod tests {
 
     #[test]
     fn decrypt_ecdh_nistp256() {
-        let tpk = TPK::from_file(
-            path_to_key("testy-nistp256-private.pgp")).unwrap();
-        let pile = PacketPile::from_file(
-            path_to_msg("encrypted-to-testy-nistp256.pgp")).unwrap();
+        let tpk = TPK::from_bytes(
+            ::tests::key("testy-nistp256-private.pgp")).unwrap();
+        let pile = PacketPile::from_bytes(
+            ::tests::message("encrypted-to-testy-nistp256.pgp")).unwrap();
         let pair = tpk.subkeys().next().unwrap().subkey();
 
         if let Some(SecretKey::Unencrypted{ mpis: ref sec }) = pair.secret() {
@@ -334,10 +323,10 @@ mod tests {
 
     #[test]
     fn decrypt_ecdh_nistp384() {
-        let tpk = TPK::from_file(
-            path_to_key("testy-nistp384-private.pgp")).unwrap();
-        let pile = PacketPile::from_file(
-            path_to_msg("encrypted-to-testy-nistp384.pgp")).unwrap();
+        let tpk = TPK::from_bytes(
+            ::tests::key("testy-nistp384-private.pgp")).unwrap();
+        let pile = PacketPile::from_bytes(
+            ::tests::message("encrypted-to-testy-nistp384.pgp")).unwrap();
         let pair = tpk.subkeys().next().unwrap().subkey();
 
         if let Some(SecretKey::Unencrypted{ mpis: ref sec }) = pair.secret() {
@@ -357,10 +346,10 @@ mod tests {
 
     #[test]
     fn decrypt_ecdh_nistp521() {
-        let tpk = TPK::from_file(
-            path_to_key("testy-nistp521-private.pgp")).unwrap();
-        let pile = PacketPile::from_file(
-            path_to_msg("encrypted-to-testy-nistp521.pgp")).unwrap();
+        let tpk = TPK::from_bytes(
+            ::tests::key("testy-nistp521-private.pgp")).unwrap();
+        let pile = PacketPile::from_bytes(
+            ::tests::message("encrypted-to-testy-nistp521.pgp")).unwrap();
         let pair = tpk.subkeys().next().unwrap().subkey();
 
         if let Some(SecretKey::Unencrypted{ mpis: ref sec }) = pair.secret() {

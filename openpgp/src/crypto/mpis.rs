@@ -871,14 +871,8 @@ impl Arbitrary for Signature {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::path::PathBuf;
     use parse::Parse;
     use serialize::Serialize;
-
-    fn path_to(artifact: &str) -> PathBuf {
-        [env!("CARGO_MANIFEST_DIR"), "tests", "data", "keys", artifact]
-            .iter().collect()
-    }
 
     quickcheck! {
         fn mpi_roundtrip(mpi: MPI) -> bool {
@@ -939,7 +933,7 @@ mod tests {
             ("erika-corinna-daniela-simone-antonia-nistp384.pgp", 0, 384),
             ("erika-corinna-daniela-simone-antonia-nistp521.pgp", 0, 521),
         ] {
-            let tpk = ::TPK::from_file(path_to(name)).unwrap();
+            let tpk = ::TPK::from_bytes(::tests::key(name)).unwrap();
             let key = tpk.keys_all().nth(*key_no).unwrap().2;
             assert_eq!(key.mpis().bits().unwrap(), *bits,
                        "TPK {}, key no {}", name, *key_no);

@@ -20,16 +20,6 @@ use parse::Cookie;
 macro_rules! bytes {
     ( $x:expr ) => { include_bytes!(concat!("../tests/data/messages/", $x)) };
 }
-
-#[cfg(test)]
-use std::path::PathBuf;
-
-#[cfg(test)]
-#[allow(dead_code)]
-fn path_to(artifact: &str) -> PathBuf {
-    [env!("CARGO_MANIFEST_DIR"), "tests", "data", "messages", artifact]
-        .iter().collect()
-}
 
 impl fmt::Debug for PacketPile {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -458,8 +448,8 @@ mod test {
     fn deserialize_test_2 () {
         // A message containing a compressed packet that contains a
         // literal packet.
-        let path = path_to("compressed-data-algo-1.gpg");
-        let pile = PacketPile::from_file(&path).unwrap();
+        let pile = PacketPile::from_bytes(
+            ::tests::message("compressed-data-algo-1.gpg")).unwrap();
         eprintln!("PacketPile has {} top-level packets.",
                   pile.children().len());
         eprintln!("PacketPile: {:?}", pile);
@@ -475,8 +465,8 @@ mod test {
     #[cfg(feature = "compression-deflate")]
     #[test]
     fn deserialize_test_3 () {
-        let path = path_to("signed.gpg");
-        let pile = PacketPile::from_file(&path).unwrap();
+        let pile =
+            PacketPile::from_bytes(::tests::message("signed.gpg")).unwrap();
         eprintln!("PacketPile has {} top-level packets.",
                   pile.children().len());
         eprintln!("PacketPile: {:?}", pile);
@@ -535,9 +525,9 @@ mod test {
     fn compression_quine_test_1 () {
         // Use the PacketPile::from_file interface to parse an OpenPGP
         // quine.
-        let path = path_to("compression-quine.gpg");
         let max_recursion_depth = 128;
-        let pile = PacketParserBuilder::from_file(path).unwrap()
+        let pile = PacketParserBuilder::from_bytes(
+            ::tests::message("compression-quine.gpg")).unwrap()
             .max_recursion_depth(max_recursion_depth)
             .into_packet_pile().unwrap();
 
@@ -556,10 +546,10 @@ mod test {
     #[test]
     fn compression_quine_test_2 () {
         // Use the iterator interface to parse an OpenPGP quine.
-        let path = path_to("compression-quine.gpg");
         let max_recursion_depth = 255;
         let mut ppr : PacketParserResult
-            = PacketParserBuilder::from_file(path).unwrap()
+            = PacketParserBuilder::from_bytes(
+                ::tests::message("compression-quine.gpg")).unwrap()
                 .max_recursion_depth(max_recursion_depth)
                 .finalize().unwrap();
 
@@ -590,8 +580,8 @@ mod test {
         // literal packet.  When we read some of the compressed
         // packet, we expect recurse() to not recurse.
 
-        let ppr = PacketParserBuilder::from_file(
-                path_to("compressed-data-algo-1.gpg")).unwrap()
+        let ppr = PacketParserBuilder::from_bytes(
+                ::tests::message("compressed-data-algo-1.gpg")).unwrap()
             .buffer_unread_content()
             .finalize().unwrap();
 

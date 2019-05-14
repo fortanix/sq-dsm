@@ -211,14 +211,8 @@ fn ecc_param(curve: &Curve, i: usize) -> MPI {
 
 #[cfg(test)]
 mod tests {
-    use std::path::PathBuf;
     use super::*;
     use ::conversions::from_hex;
-
-    fn path_to(artifact: &str) -> PathBuf {
-        [env!("CARGO_MANIFEST_DIR"), "tests", "data", "keys", artifact]
-            .iter().collect()
-    }
 
     /// Test vectors from libgcrypt/tests/basic.c.
     #[test]
@@ -337,7 +331,7 @@ mod tests {
             "erika-corinna-daniela-simone-antonia-nistp384.pgp",
             "erika-corinna-daniela-simone-antonia-nistp521.pgp",
         ]
-            .iter().map(|n| (n, ::TPK::from_file(path_to(n)).unwrap()))
+            .iter().map(|n| (n, ::TPK::from_bytes(::tests::key(n)).unwrap()))
         {
             eprintln!("{}", name);
             for key in tpk.keys_all() {

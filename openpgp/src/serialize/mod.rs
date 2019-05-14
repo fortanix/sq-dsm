@@ -33,15 +33,6 @@ use packet::prelude::*;
 
 // Whether to trace the modules execution (on stderr).
 const TRACE : bool = false;
-
-#[cfg(test)]
-use std::path::PathBuf;
-
-#[cfg(test)]
-fn path_to(artifact: &str) -> PathBuf {
-    [env!("CARGO_MANIFEST_DIR"), "tests", "data", "messages", artifact]
-        .iter().collect()
-}
 
 /// Packet serialization.
 ///
@@ -2133,9 +2124,6 @@ impl Serialize for autocrypt::AutocryptHeader {
 
 #[cfg(test)]
 mod test {
-    use std::fs::File;
-    use std::io::Read;
-
     use super::*;
     use constants::CompressionAlgorithm;
     use parse::to_unknown_packet;
@@ -2256,10 +2244,7 @@ mod test {
 
         for filename in filenames.iter() {
             // 1. Read the message byte stream into a local buffer.
-            let path = path_to(filename);
-            let mut data = Vec::new();
-            File::open(&path).expect(&path.to_string_lossy())
-                .read_to_end(&mut data).expect("Reading test data");
+            let data = ::tests::message(filename);
 
             // 2. Parse the message.
             let pile = PacketPile::from_bytes(&data[..]).unwrap();
@@ -2315,10 +2300,7 @@ mod test {
 
         for filename in filenames.iter() {
             // 1. Read the message byte stream into a local buffer.
-            let path = path_to(filename);
-            let mut data = Vec::new();
-            File::open(&path).expect(&path.to_string_lossy())
-                .read_to_end(&mut data).expect("Reading test data");
+            let data = ::tests::message(filename);
 
             // 2. Parse the message.
             let u = to_unknown_packet(&data[..]).unwrap();
@@ -2361,10 +2343,7 @@ mod test {
             eprintln!("{}...", filename);
 
             // 1. Read the message into a local buffer.
-            let path = path_to(filename);
-            let mut data = Vec::new();
-            File::open(&path).expect(&path.to_string_lossy())
-                .read_to_end(&mut data).expect("Reading test data");
+            let data = ::tests::message(filename);
 
             // 2. Do a shallow parse of the messsage.  In other words,
             // never recurse so that the resulting message only

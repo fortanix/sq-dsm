@@ -214,7 +214,6 @@ pub fn hash_file<R: Read>(reader: R, algos: &[HashAlgorithm])
 #[test]
 fn hash_file_test() {
     use std::collections::HashMap;
-    use std::fs::File;
 
     let expected: HashMap<HashAlgorithm, &str> = [
         (HashAlgorithm::SHA1, "7945E3DA269C25C04F9EF435A5C0F25D9662C771"),
@@ -222,7 +221,7 @@ fn hash_file_test() {
     ].iter().cloned().collect();
 
     let result =
-        hash_file(File::open(::path_to("a-cypherpunks-manifesto.txt")).unwrap(),
+        hash_file(::std::io::Cursor::new(::tests::manifesto()),
                   &expected.keys().cloned().collect::<Vec<HashAlgorithm>>())
         .unwrap();
 

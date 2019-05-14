@@ -4,6 +4,7 @@
 //! structured way.
 
 use std::fmt;
+use std::collections::BTreeMap;
 
 pub struct Test {
     path: &'static str,
@@ -51,3 +52,43 @@ pub const TSKS: &[&Test] = &[
     t!("keys/testy-nistp521-private.pgp"),
     t!("keys/testy-private.pgp"),
 ];
+
+/// Returns the content of the given file below `openpgp/tests/data`.
+pub fn file(name: &str) -> &'static [u8] {
+    lazy_static! {
+        static ref FILES: BTreeMap<&'static str, &'static [u8]> = {
+            let mut m: BTreeMap<&'static str, &'static [u8]> =
+                Default::default();
+
+            macro_rules! add {
+                ( $key: expr, $path: expr ) => {
+                    m.insert($key, include_bytes!($path))
+                }
+            }
+            include!(concat!(env!("OUT_DIR"), "/tests.index.rs.inc"));
+
+            // Sanity checks.
+            assert!(m.contains_key("messages/a-cypherpunks-manifesto.txt"));
+            assert!(m.contains_key("keys/testy.pgp"));
+            assert!(m.contains_key("keys/testy-private.pgp"));
+            m
+        };
+    }
+
+    FILES.get(name).unwrap_or_else(|| panic!("No such file {:?}", name))
+}
+
+/// Returns the content of the given file below `openpgp/tests/data/keys`.
+pub fn key(name: &str) -> &'static [u8] {
+    file(&format!("keys/{}", name))
+}
+
+/// Returns the content of the given file below `openpgp/tests/data/messages`.
+pub fn message(name: &str) -> &'static [u8] {
+    file(&format!("messages/{}", name))
+}
+
+/// Returns the cypherpunks manifesto.
+pub fn manifesto() -> &'static [u8] {
+    message("a-cypherpunks-manifesto.txt")
+}

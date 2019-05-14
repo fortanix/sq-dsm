@@ -1540,15 +1540,8 @@ impl<'a, H: VerificationHelper + DecryptionHelper> io::Read for Decryptor<'a, H>
 #[cfg(test)]
 mod test {
     use failure;
-    use std::fs::File;
-    use std::path::PathBuf;
     use super::*;
     use parse::Parse;
-
-    fn path_to(artifact: &str) -> PathBuf {
-    [env!("CARGO_MANIFEST_DIR"), "tests", "data", artifact]
-        .iter().collect()
-    }
 
     #[derive(Debug, PartialEq)]
     struct VHelper {
@@ -1628,8 +1621,7 @@ mod test {
             "neal.pgp",
             "emmelie-dorothea-dina-samantha-awina-ed25519.pgp"
         ].iter()
-         .map(|f| TPK::from_file(
-            path_to(&format!("keys/{}", f))).unwrap())
+         .map(|f| TPK::from_bytes(::tests::key(f)).unwrap())
          .collect::<Vec<_>>();
         let tests = &[
             ("messages/signed-1.gpg",                      VHelper::new(1, 0, 0, 0, keys.clone())),
@@ -1638,17 +1630,14 @@ mod test {
             ("keys/neal.pgp",                              VHelper::new(0, 0, 0, 1, keys.clone())),
         ];
 
-        let mut reference = Vec::new();
-        File::open(path_to("messages/a-cypherpunks-manifesto.txt"))
-            .unwrap()
-            .read_to_end(&mut reference)
-            .unwrap();
+        let reference = ::tests::manifesto();
 
         for (f, r) in tests {
             // Test Verifier.
             let mut h = VHelper::new(0, 0, 0, 0, keys.clone());
             let mut v =
-                match Verifier::from_file(path_to(f), h, ::frozen_time()) {
+                match Verifier::from_bytes(::tests::file(f), h,
+                                           ::frozen_time()) {
                     Ok(v) => v,
                     Err(e) => if r.error > 0 || r.unknown > 0 {
                         // Expected error.  No point in trying to read
@@ -1670,12 +1659,13 @@ mod test {
             let mut content = Vec::new();
             v.read_to_end(&mut content).unwrap();
             assert_eq!(reference.len(), content.len());
-            assert_eq!(reference, content);
+            assert_eq!(reference, &content[..]);
 
             // Test Decryptor.
             let mut h = VHelper::new(0, 0, 0, 0, keys.clone());
             let mut v =
-                match Decryptor::from_file(path_to(f), h, ::frozen_time()) {
+                match Decryptor::from_bytes(::tests::file(f), h,
+                                            ::frozen_time()) {
                     Ok(v) => v,
                     Err(e) => if r.error > 0 || r.unknown > 0 {
                         // Expected error.  No point in trying to read
@@ -1697,7 +1687,7 @@ mod test {
             let mut content = Vec::new();
             v.read_to_end(&mut content).unwrap();
             assert_eq!(reference.len(), content.len());
-            assert_eq!(reference, content);
+            assert_eq!(reference, &content[..]);
         }
     }
 
@@ -1747,14 +1737,14 @@ mod test {
         }
 
         // Test verifier.
-        let v = Verifier::from_file(
-            path_to("messages/signed-1-notarized-by-ed25519.pgp"),
+        let v = Verifier::from_bytes(
+            ::tests::message("signed-1-notarized-by-ed25519.pgp"),
             VHelper(()), ::frozen_time()).unwrap();
         assert!(v.message_processed());
 
         // Test decryptor.
-        let v = Decryptor::from_file(
-            path_to("messages/signed-1-notarized-by-ed25519.pgp"),
+        let v = Decryptor::from_bytes(
+            ::tests::message("signed-1-notarized-by-ed25519.pgp"),
             VHelper(()), ::frozen_time()).unwrap();
         assert!(v.message_processed());
     }
@@ -1764,48 +1754,41 @@ mod test {
         let keys = [
             "emmelie-dorothea-dina-samantha-awina-ed25519.pgp"
         ].iter()
-         .map(|f| TPK::from_file(
-            path_to(&format!("keys/{}", f))).unwrap())
+         .map(|f| TPK::from_bytes(::tests::key(f)).unwrap())
          .collect::<Vec<_>>();
 
-        let mut reference = Vec::new();
-        File::open(path_to("messages/a-cypherpunks-manifesto.txt"))
-            .unwrap()
-            .read_to_end(&mut reference)
-            .unwrap();
+        let reference = ::tests::manifesto();
 
         let h = VHelper::new(0, 0, 0, 0, keys.clone());
-        let mut v = DetachedVerifier::from_file(
-            path_to("messages/a-cypherpunks-manifesto.txt.ed25519.sig"),
-            path_to("messages/a-cypherpunks-manifesto.txt"),
+        let mut v = DetachedVerifier::from_bytes(
+            ::tests::message("a-cypherpunks-manifesto.txt.ed25519.sig"),
+            ::tests::manifesto(),
             h, ::frozen_time()).unwrap();
         assert!(v.message_processed());
 
         let mut content = Vec::new();
         v.read_to_end(&mut content).unwrap();
         assert_eq!(reference.len(), content.len());
-        assert_eq!(reference, content);
+        assert_eq!(reference, &content[..]);
 
         let h = v.into_helper();
         assert_eq!(h.good, 1);
         assert_eq!(h.bad, 0);
 
         // Same, but with readers.
+        use std::io::Cursor;
         let h = VHelper::new(0, 0, 0, 0, keys.clone());
         let mut v = DetachedVerifier::from_reader(
-            File::open(
-                path_to("messages/a-cypherpunks-manifesto.txt.ed25519.sig"))
-                .unwrap(),
-            File::open(
-                path_to("messages/a-cypherpunks-manifesto.txt"))
-                .unwrap(),
+            Cursor::new(
+                ::tests::message("a-cypherpunks-manifesto.txt.ed25519.sig")),
+            Cursor::new(::tests::manifesto()),
             h, ::frozen_time()).unwrap();
         assert!(v.message_processed());
 
         let mut content = Vec::new();
         v.read_to_end(&mut content).unwrap();
         assert_eq!(reference.len(), content.len());
-        assert_eq!(reference, content);
+        assert_eq!(reference, &content[..]);
     }
 
     #[test]

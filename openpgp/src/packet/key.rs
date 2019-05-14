@@ -703,21 +703,15 @@ mod tests {
     use TPK;
     use packet::pkesk::PKESK3;
     use packet::key::SecretKey;
-    use std::path::PathBuf;
     use super::*;
     use PacketPile;
     use serialize::SerializeKey;
     use parse::Parse;
 
-    fn path_to(artifact: &str) -> PathBuf {
-        [env!("CARGO_MANIFEST_DIR"), "tests", "data", "keys", artifact]
-            .iter().collect()
-    }
-
     #[test]
     fn encrypted_rsa_key() {
-        let mut tpk = TPK::from_file(
-            path_to("testy-new-encrypted-with-123.pgp")).unwrap();
+        let mut tpk = TPK::from_bytes(
+            ::tests::key("testy-new-encrypted-with-123.pgp")).unwrap();
         let pair = tpk.primary_mut();
         let pk_algo = pair.pk_algo();
         let secret = pair.secret.as_mut().unwrap();
@@ -1011,8 +1005,8 @@ mod tests {
 
     #[test]
     fn fingerprint_test() {
-        let path = path_to("public-key.gpg");
-        let pile = PacketPile::from_file(&path).unwrap();
+        let pile =
+            PacketPile::from_bytes(::tests::key("public-key.gpg")).unwrap();
 
         // The blob contains a public key and a three subkeys.
         let mut pki = 0;

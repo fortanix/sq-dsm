@@ -134,15 +134,6 @@ mod keyid;
 #[cfg(test)]
 mod tests;
 
-#[cfg(test)]
-use std::path::PathBuf;
-
-#[cfg(test)]
-fn path_to(artifact: &str) -> PathBuf {
-    [env!("CARGO_MANIFEST_DIR"), "tests", "data", "messages", artifact]
-        .iter().collect()
-}
-
 /// Returns a timestamp for the tests.
 ///
 /// The time is chosen to that the subkeys in
