@@ -273,7 +273,9 @@ fn real_main() -> Result<(), failure::Error> {
                                     }
                                 }
 
-                                if tpk.revoked(t) != RevocationStatus::NotAsFarAsWeKnow {
+                                if tpk.revocation_status_at(t)
+                                    != RevocationStatus::NotAsFarAsWeKnow
+                                {
                                     eprintln!(
                                         "Primary key was revoked when the \
                                          signature was created.");

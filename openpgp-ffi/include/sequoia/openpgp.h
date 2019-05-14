@@ -698,13 +698,23 @@ pgp_tsk_t pgp_tpk_as_tsk (pgp_tpk_t tpk);
 pgp_key_t pgp_tpk_primary (pgp_tpk_t tpk);
 
 /*/
-/// Returns the TPK's revocation status.
+/// Returns the TPK's current revocation status.
 ///
 /// Note: this only returns whether the TPK has been revoked, and does
 /// not reflect whether an individual user id, user attribute or
 /// subkey has been revoked.
 /*/
 pgp_revocation_status_t pgp_tpk_revocation_status (pgp_tpk_t tpk);
+
+/*/
+/// Returns the TPK's revocation status at the specified time.
+///
+/// Note: this only returns whether the TPK has been revoked, and does
+/// not reflect whether an individual user id, user attribute or
+/// subkey has been revoked.
+/*/
+pgp_revocation_status_t pgp_tpk_revocation_status_at (pgp_tpk_t tpk,
+                                                      time_t when);
 
 /*/
 /// Writes a revocation certificate to the writer.

@@ -151,15 +151,35 @@ fn pgp_tpk_primary(tpk: *const TPK) -> *const Key {
     tpk.ref_raw().primary().move_into_raw()
 }
 
-/// Returns the TPK's revocation status.
+/// Returns the TPK's revocation status as of a given time.
+///
+/// Note: this only returns whether the TPK has been revoked, and does
+/// not reflect whether an individual user id, user attribute or
+/// subkey has been revoked.
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
+fn pgp_tpk_revocation_status_at(tpk: *const TPK, when: time_t)
+    -> *mut RevocationStatus<'static>
+{
+    let when = when as i64;
+    let when = if when == 0 {
+        None
+    } else {
+        Some(time::at(time::Timespec::new(when, 0)))
+    };
+
+    tpk.ref_raw().revocation_status_at(when).move_into_raw()
+}
+
+/// Returns the TPK's current revocation status.
 ///
 /// Note: this only returns whether the TPK has been revoked, and does
 /// not reflect whether an individual user id, user attribute or
 /// subkey has been revoked.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_tpk_revocation_status(tpk: *const TPK)
-                             -> *mut RevocationStatus<'static> {
-    tpk.ref_raw().revoked(None).move_into_raw()
+    -> *mut RevocationStatus<'static>
+{
+    tpk.ref_raw().revocation_status().move_into_raw()
 }
 
 fn int_to_reason_for_revocation(code: c_int) -> ReasonForRevocation {

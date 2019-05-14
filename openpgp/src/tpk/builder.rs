@@ -536,10 +536,12 @@ mod tests {
         let (tpk, revocation) = TPKBuilder::new()
             .set_cipher_suite(CipherSuite::Cv25519)
             .generate().unwrap();
-        assert_eq!(tpk.revoked(None), RevocationStatus::NotAsFarAsWeKnow);
+        assert_eq!(tpk.revocation_status(),
+                   RevocationStatus::NotAsFarAsWeKnow);
 
         let tpk = tpk.merge_packets(vec![revocation.clone().into()]).unwrap();
-        assert_eq!(tpk.revoked(None), RevocationStatus::Revoked(&[revocation]));
+        assert_eq!(tpk.revocation_status(),
+                   RevocationStatus::Revoked(&[revocation]));
     }
 
     #[test]
