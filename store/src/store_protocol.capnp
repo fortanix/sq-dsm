@@ -1,9 +1,9 @@
 @0xf4bd406fa822c9db;
 
 interface Node {
-  open @0 (domain: Text, networkPolicy: NetworkPolicy, ephemeral: Bool, name: Text)
+  open @0 (realm: Text, networkPolicy: NetworkPolicy, ephemeral: Bool, name: Text)
          -> (result: Result(Store));
-  iter @1 (domainPrefix: Text) -> (result: Result(StoreIter));
+  iter @1 (realmPrefix: Text) -> (result: Result(StoreIter));
   iterKeys @2 () -> (result: Result(KeyIter));
   log @3 () -> (result: Result(LogIter));
   import @4 (key: Data) -> (result: Result(Key));
@@ -43,7 +43,7 @@ interface Node {
     next @0 () -> (result: Result(Item));
 
     struct Item {
-      domain @0 :Text;
+      realm @0 :Text;
       name @1 :Text;
       networkPolicy @2 :NetworkPolicy;
       store @3 :Store;

@@ -7,8 +7,7 @@ from sequoia.openpgp import ArmorReader, ArmorWriter, Kind
 
 TEST_VECTORS = [0, 1, 2, 3, 47, 48, 49, 50, 51]
 
-ctx = Context("org.sequoia-pgp.tests",
-              network_policy=NetworkPolicy.Offline,
+ctx = Context(network_policy=NetworkPolicy.Offline,
               ephemeral=True)
 
 def fn_bin(t):

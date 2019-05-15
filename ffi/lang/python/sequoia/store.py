@@ -1,11 +1,17 @@
 from _sequoia import ffi, lib
 
 from .error import Error
-from .glue import _str, SQObject, sq_iterator, sq_time
+from .glue import _str, _static_str, SQObject, sq_iterator, sq_time
 from .openpgp import Fingerprint, TPK
 
 class Store(SQObject):
     _del = lib.sq_store_free
+
+    # Keys used for communications.
+    REALM_CONTACTS = _static_str(lib.SQ_REALM_CONTACTS)
+
+    # Keys used for signing software updates.
+    REALM_SOFTWARE_UPDATES = _static_str(lib.SQ_REALM_SOFTWARE_UPDATES)
 
     @classmethod
     def server_log(cls, ctx):
@@ -34,8 +40,8 @@ class Store(SQObject):
             next_fn)
 
     @classmethod
-    def open(cls, ctx, name):
-        return Store(lib.sq_store_open(ctx.ref(), name.encode()), context=ctx)
+    def open(cls, ctx, realm=REALM_CONTACTS, name="default"):
+        return Store(lib.sq_store_open(ctx.ref(), realm.encode(), name.encode()), context=ctx)
 
 
     def add(self, label, fingerprint):

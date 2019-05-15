@@ -24,7 +24,7 @@ main (int argc, char **argv)
   sq_context_t ctx;
   sq_keyserver_t ks;
 
-  cfg = sq_context_configure ("org.sequoia-pgp.example");
+  cfg = sq_context_configure ();
   sq_config_network_policy (cfg, SQ_NETWORK_POLICY_OFFLINE);
   ctx = sq_config_build (cfg, &err);
   if (ctx == NULL)

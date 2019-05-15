@@ -142,7 +142,7 @@ fn start_server() -> SocketAddr {
 
 #[test]
 fn get() {
-    let ctx = Context::configure("org.sequoia-pgp.api.tests")
+    let ctx = Context::configure()
         .ephemeral()
         .network_policy(NetworkPolicy::Insecure)
         .build().unwrap();
@@ -161,7 +161,7 @@ fn get() {
 
 #[test]
 fn send() {
-    let ctx = Context::configure("org.sequoia-pgp.api.tests")
+    let ctx = Context::configure()
         .ephemeral()
         .network_policy(NetworkPolicy::Insecure)
         .build().unwrap();

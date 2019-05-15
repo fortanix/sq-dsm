@@ -1,18 +1,18 @@
 from sequoia.prelude import Context, Store, Fingerprint
 
 def test_open():
-    c = Context("org.sequoia-pgp.tests", ephemeral=True)
-    Store.open(c, "default")
+    c = Context(ephemeral=True)
+    Store.open(c)
 
 def test_add():
-    c = Context("org.sequoia-pgp.tests", ephemeral=True)
-    s = Store.open(c, "default")
+    c = Context(ephemeral=True)
+    s = Store.open(c)
     fp = Fingerprint.from_hex("7DCA58B54EB143169DDEE15F247F6DABC84914FE")
     s.add("Ἀριστοτέλης", fp)
 
 def test_iterate():
-    c = Context("org.sequoia-pgp.tests", ephemeral=True)
-    s = Store.open(c, "default")
+    c = Context(ephemeral=True)
+    s = Store.open(c)
     fp = Fingerprint.from_hex("7DCA58B54EB143169DDEE15F247F6DABC84914FE")
     s.add("Ἀριστοτέλης", fp)
     l = list(s.iter())
@@ -23,8 +23,8 @@ def test_iterate():
     assert fpi == fp
 
 def test_logs():
-    c = Context("org.sequoia-pgp.tests", ephemeral=True)
-    s = Store.open(c, "default")
+    c = Context(ephemeral=True)
+    s = Store.open(c)
     fp = Fingerprint.from_hex("7DCA58B54EB143169DDEE15F247F6DABC84914FE")
     b = s.add("Ἀριστοτέλης", fp)
     l = list(s.iter())

@@ -14,7 +14,7 @@
 /// # Example
 ///
 /// ```c
-/// struct sq_context *ctx sq_context_new("org.sequoia-pgp.example");
+/// struct sq_context *ctx sq_context_new();
 /// if (ctx == NULL) { ... }
 /// ```
 /*/
@@ -125,14 +125,10 @@ typedef enum sq_ipc_policy {
 /*/
 /// Creates a Context with reasonable defaults.
 ///
-/// `domain` should uniquely identify your application, it is strongly
-/// suggested to use a reversed fully qualified domain name that is
-/// associated with your application.  `domain` must not be `NULL`.
-///
 /// Returns `NULL` on errors.  If `errp` is not `NULL`, the error is
 /// stored there.
 /*/
-sq_context_t sq_context_new(const char *domain, pgp_error_t *errp);
+sq_context_t sq_context_new(pgp_error_t *errp);
 
 /*/
 /// Frees a context.
@@ -142,20 +138,11 @@ void sq_context_free(sq_context_t context);
 /*/
 /// Creates a Context that can be configured.
 ///
-/// `domain` should uniquely identify your application, it is strongly
-/// suggested to use a reversed fully qualified domain name that is
-/// associated with your application.  `domain` must not be `NULL`.
-///
 /// The configuration is seeded like in `sq_context_new`, but can be
 /// modified.  A configuration has to be finalized using
 /// `sq_config_build()` in order to turn it into a Context.
 /*/
-sq_config_t sq_context_configure(const char *domain);
-
-/*/
-/// Returns the domain of the context.
-/*/
-const char *sq_context_domain(const sq_context_t ctx);
+sq_config_t sq_context_configure(void);
 
 /*/
 /// Returns the directory containing shared state.

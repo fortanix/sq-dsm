@@ -5,45 +5,45 @@ use std::env::current_exe;
 use std::path::PathBuf;
 
 use sequoia_core::{Context, NetworkPolicy, IPCPolicy};
-use sequoia_store::Store;
+use sequoia_store::{Store, REALM_CONTACTS};
 
 #[test]
 fn ipc_policy_external() {
-    let ctx = Context::configure("org.sequoia-pgp.tests")
+    let ctx = Context::configure()
         .ephemeral()
         .lib(current_exe().unwrap().parent().unwrap().parent().unwrap())
         .network_policy(NetworkPolicy::Offline)
         .ipc_policy(IPCPolicy::External)
         .build().unwrap();
-    Store::open(&ctx, "default").unwrap();
+    Store::open(&ctx, REALM_CONTACTS, "default").unwrap();
 }
 
 #[test]
 fn ipc_policy_internal() {
-    let ctx = Context::configure("org.sequoia-pgp.tests")
+    let ctx = Context::configure()
         .ephemeral()
         .lib(PathBuf::from("/i/do/not/exist"))
         .network_policy(NetworkPolicy::Offline)
         .ipc_policy(IPCPolicy::Internal)
         .build().unwrap();
-    Store::open(&ctx, "default").unwrap();
+    Store::open(&ctx, REALM_CONTACTS, "default").unwrap();
 }
 
 #[test]
 fn ipc_policy_robust() {
-    let ctx = Context::configure("org.sequoia-pgp.tests")
+    let ctx = Context::configure()
         .ephemeral()
         .lib(current_exe().unwrap().parent().unwrap().parent().unwrap())
         .network_policy(NetworkPolicy::Offline)
         .ipc_policy(IPCPolicy::Robust)
         .build().unwrap();
-    Store::open(&ctx, "default").unwrap();
+    Store::open(&ctx, REALM_CONTACTS, "default").unwrap();
 
-    let ctx = Context::configure("org.sequoia-pgp.tests")
+    let ctx = Context::configure()
         .ephemeral()
         .lib(PathBuf::from("/i/do/not/exist"))
         .network_policy(NetworkPolicy::Offline)
         .ipc_policy(IPCPolicy::Robust)
         .build().unwrap();
-    Store::open(&ctx, "default").unwrap();
+    Store::open(&ctx, REALM_CONTACTS, "default").unwrap();
 }

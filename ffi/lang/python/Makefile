@@ -50,7 +50,7 @@ ifneq "$(PYTHON)" "disable"
 	cp build/*/_sequoia.abi*.so . # XXX can we get setuptools to do that?
 	LDFLAGS=-L$(CARGO_TARGET_DIR)/debug LD_LIBRARY_PATH=$(CARGO_TARGET_DIR)/debug \
 		$(IPYTHON) -i -c \
-'from sequoia.prelude import *; ctx = Context("org.sequoia-pgp.tests.interactive")'
+'from sequoia.prelude import *; ctx = Context()'
 endif
 
 # Installation.

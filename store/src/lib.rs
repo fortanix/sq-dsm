@@ -24,14 +24,14 @@
 //! # extern crate sequoia_store;
 //! # use openpgp::Fingerprint;
 //! # use sequoia_core::{Context, NetworkPolicy, IPCPolicy};
-//! # use sequoia_store::{Store, Result};
+//! # use sequoia_store::*;
 //! # fn main() { f().unwrap(); }
 //! # fn f() -> Result<()> {
-//! # let ctx = Context::configure("org.sequoia-pgp.demo.store")
+//! # let ctx = Context::configure()
 //! #     .network_policy(NetworkPolicy::Offline)
 //! #     .ipc_policy(IPCPolicy::Internal)
 //! #     .ephemeral().build()?;
-//! let store = Store::open(&ctx, "default")?;
+//! let store = Store::open(&ctx, REALM_CONTACTS, "default")?;
 //!
 //! let fp = Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb");
 //! let binding = store.add("Mister B.", &fp)?;
@@ -107,6 +107,14 @@ pub fn descriptor(c: &Context) -> ipc::Descriptor {
     )
 }
 
+/// Keys used for communications.
+pub const REALM_CONTACTS: &'static str =
+    "org.sequoia-pgp.contacts";
+
+/// Keys used for signing software updates.
+pub const REALM_SOFTWARE_UPDATES: &'static str =
+    "org.sequoia-pgp.software-updates";
+
 /// The common key pool.
 pub struct Pool {
 }
@@ -126,7 +134,7 @@ impl Pool {
     /// # use sequoia_store::{Pool, Result};
     /// # fn main() { f().unwrap(); }
     /// # fn f() -> Result<()> {
-    /// # let ctx = Context::configure("org.sequoia-pgp.demo.store")
+    /// # let ctx = Context::configure()
     /// #     .network_policy(NetworkPolicy::Offline)
     /// #     .ipc_policy(IPCPolicy::Internal)
     /// #     .ephemeral().build()?;
@@ -162,7 +170,7 @@ impl Pool {
     /// # use sequoia_store::{Pool, Result};
     /// # fn main() { f().unwrap(); }
     /// # fn f() -> Result<()> {
-    /// # let ctx = Context::configure("org.sequoia-pgp.demo.store")
+    /// # let ctx = Context::configure()
     /// #     .network_policy(NetworkPolicy::Offline)
     /// #     .ipc_policy(IPCPolicy::Internal)
     /// #     .ephemeral().build()?;
@@ -197,7 +205,7 @@ impl Pool {
     /// # use sequoia_store::{Pool, Result};
     /// # fn main() { f().unwrap(); }
     /// # fn f() -> Result<()> {
-    /// # let ctx = Context::configure("org.sequoia-pgp.demo.store")
+    /// # let ctx = Context::configure()
     /// #     .network_policy(NetworkPolicy::Offline)
     /// #     .ipc_policy(IPCPolicy::Internal)
     /// #     .ephemeral().build()?;
@@ -233,7 +241,7 @@ impl Pool {
     /// # use sequoia_store::{Pool, Result};
     /// # fn main() { f().unwrap(); }
     /// # fn f() -> Result<()> {
-    /// # let ctx = Context::configure("org.sequoia-pgp.demo.store")
+    /// # let ctx = Context::configure()
     /// #     .network_policy(NetworkPolicy::Offline)
     /// #     .ipc_policy(IPCPolicy::Internal)
     /// #     .ephemeral().build()?;
@@ -313,11 +321,11 @@ impl Store {
     /// of the context that created the store in the first place.
     /// Opening the store with a different network policy is
     /// forbidden.
-    pub fn open(c: &Context, name: &str) -> Result<Self> {
+    pub fn open(c: &Context, realm: &str, name: &str) -> Result<Self> {
         let (mut core, client) = Self::connect(c)?;
 
         let mut request = client.open_request();
-        request.get().set_domain(c.domain());
+        request.get().set_realm(realm);
         request.get().set_network_policy(c.network_policy().into());
         request.get().set_ephemeral(c.ephemeral());
         request.get().set_name(name);
@@ -331,10 +339,10 @@ impl Store {
     }
 
     /// Lists all stores with the given prefix.
-    pub fn list(c: &Context, domain_prefix: &str) -> Result<StoreIter> {
+    pub fn list(c: &Context, realm_prefix: &str) -> Result<StoreIter> {
         let (mut core, client) = Self::connect(c)?;
         let mut request = client.iter_request();
-        request.get().set_domain_prefix(domain_prefix);
+        request.get().set_realm_prefix(realm_prefix);
         let iter = make_request!(&mut core, request)?;
         Ok(StoreIter{core: Rc::new(RefCell::new(core)), iter: iter})
     }
@@ -365,14 +373,14 @@ impl Store {
     /// # extern crate sequoia_store;
     /// # use openpgp::Fingerprint;
     /// # use sequoia_core::{Context, NetworkPolicy, IPCPolicy};
-    /// # use sequoia_store::{Store, Result};
+    /// # use sequoia_store::*;
     /// # fn main() { f().unwrap(); }
     /// # fn f() -> Result<()> {
-    /// # let ctx = Context::configure("org.sequoia-pgp.demo.store")
+    /// # let ctx = Context::configure()
     /// #     .network_policy(NetworkPolicy::Offline)
     /// #     .ipc_policy(IPCPolicy::Internal)
     /// #     .ephemeral().build()?;
-    /// let store = Store::open(&ctx, "default")?;
+    /// let store = Store::open(&ctx, REALM_CONTACTS, "default")?;
     /// let fp = Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb");
     /// store.add("Mister B.", &fp)?;
     /// # Ok(())
@@ -397,16 +405,16 @@ impl Store {
     /// # use openpgp::TPK;
     /// # use openpgp::parse::Parse;
     /// # use sequoia_core::{Context, NetworkPolicy, IPCPolicy};
-    /// # use sequoia_store::{Store, Result};
+    /// # use sequoia_store::*;
     /// # fn main() { f().unwrap(); }
     /// # fn f() -> Result<()> {
-    /// # let ctx = Context::configure("org.sequoia-pgp.demo.store")
+    /// # let ctx = Context::configure()
     /// #     .network_policy(NetworkPolicy::Offline)
     /// #     .ipc_policy(IPCPolicy::Internal)
     /// #     .ephemeral().build()?;
     /// # let tpk = TPK::from_bytes(
     /// #     include_bytes!("../../openpgp/tests/data/keys/testy.pgp")).unwrap();
-    /// let store = Store::open(&ctx, "default")?;
+    /// let store = Store::open(&ctx, REALM_CONTACTS, "default")?;
     /// store.import("Testy McTestface", &tpk)?;
     /// # Ok(())
     /// # }
@@ -431,19 +439,19 @@ impl Store {
     /// # extern crate sequoia_store;
     /// # use openpgp::Fingerprint;
     /// # use sequoia_core::{Context, NetworkPolicy, IPCPolicy};
-    /// # use sequoia_store::{Store, Result};
+    /// # use sequoia_store::*;
     /// # fn main() { f().unwrap(); }
     /// # fn f() -> Result<()> {
-    /// # let ctx = Context::configure("org.sequoia-pgp.demo.store")
+    /// # let ctx = Context::configure()
     /// #     .network_policy(NetworkPolicy::Offline)
     /// #     .ipc_policy(IPCPolicy::Internal)
     /// #     .ephemeral().build()?;
-    /// let store = Store::open(&ctx, "default")?;
+    /// let store = Store::open(&ctx, REALM_CONTACTS, "default")?;
     /// let fp = Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb");
     /// store.add("Mister B.", &fp)?;
     /// drop(store);
     /// // ...
-    /// let store = Store::open(&ctx, "default")?;
+    /// let store = Store::open(&ctx, REALM_CONTACTS, "default")?;
     /// let binding = store.lookup("Mister B.")?;
     /// # Ok(())
     /// # }
@@ -468,17 +476,17 @@ impl Store {
     /// # use openpgp::{TPK, KeyID};
     /// # use openpgp::parse::Parse;
     /// # use sequoia_core::{Context, NetworkPolicy, IPCPolicy};
-    /// # use sequoia_store::{Store, Result};
+    /// # use sequoia_store::*;
     /// # fn main() { f().unwrap(); }
     /// # fn f() -> Result<()> {
-    /// # let ctx = Context::configure("org.sequoia-pgp.demo.store")
+    /// # let ctx = Context::configure()
     /// #     .network_policy(NetworkPolicy::Offline)
     /// #     .ipc_policy(IPCPolicy::Internal)
     /// #     .ephemeral().build()?;
     /// # let tpk = TPK::from_bytes(
     /// #     include_bytes!("../../openpgp/tests/data/keys/emmelie-dorothea-dina-samantha-awina-ed25519.pgp"))
     /// #     .unwrap();
-    /// let store = Store::open(&ctx, "default")?;
+    /// let store = Store::open(&ctx, REALM_CONTACTS, "default")?;
     /// store.import("Emmelie", &tpk)?;
     ///
     /// // Lookup by the primary key's KeyID.
@@ -512,19 +520,19 @@ impl Store {
     /// # extern crate sequoia_store;
     /// # use openpgp::Fingerprint;
     /// # use sequoia_core::{Context, NetworkPolicy, IPCPolicy};
-    /// # use sequoia_store::{Store, Result, Error};
+    /// # use sequoia_store::*;
     /// # fn main() { f().unwrap(); }
     /// # fn f() -> Result<()> {
-    /// # let ctx = Context::configure("org.sequoia-pgp.demo.store")
+    /// # let ctx = Context::configure()
     /// #     .network_policy(NetworkPolicy::Offline)
     /// #     .ipc_policy(IPCPolicy::Internal)
     /// #     .ephemeral().build()?;
-    /// let store = Store::open(&ctx, "default")?;
+    /// let store = Store::open(&ctx, REALM_CONTACTS, "default")?;
     /// let fp = Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb");
     /// store.add("Mister B.", &fp)?;
     /// store.delete()?;
     /// // ...
-    /// let store = Store::open(&ctx, "default")?;
+    /// let store = Store::open(&ctx, REALM_CONTACTS, "default")?;
     /// let binding = store.lookup("Mister B.");
     /// assert!(binding.is_err()); // not found
     /// # Ok(())
@@ -604,14 +612,14 @@ impl Binding {
     /// # extern crate sequoia_store;
     /// # use openpgp::Fingerprint;
     /// # use sequoia_core::{Context, NetworkPolicy, IPCPolicy};
-    /// # use sequoia_store::{Store, Result};
+    /// # use sequoia_store::*;
     /// # fn main() { f().unwrap(); }
     /// # fn f() -> Result<()> {
-    /// # let ctx = Context::configure("org.sequoia-pgp.demo.store")
+    /// # let ctx = Context::configure()
     /// #     .network_policy(NetworkPolicy::Offline)
     /// #     .ipc_policy(IPCPolicy::Internal)
     /// #     .ephemeral().build()?;
-    /// let store = Store::open(&ctx, "default")?;
+    /// let store = Store::open(&ctx, REALM_CONTACTS, "default")?;
     ///
     /// let fp = Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb");
     /// let binding = store.add("Mister B.", &fp)?;
@@ -668,10 +676,10 @@ impl Binding {
     /// # use openpgp::TPK;
     /// # use openpgp::parse::Parse;
     /// # use sequoia_core::{Context, NetworkPolicy, IPCPolicy};
-    /// # use sequoia_store::{Store, Result, Error};
+    /// # use sequoia_store::*;
     /// # fn main() { f().unwrap(); }
     /// # fn f() -> Result<()> {
-    /// # let ctx = Context::configure("org.sequoia-pgp.demo.store")
+    /// # let ctx = Context::configure()
     /// #     .network_policy(NetworkPolicy::Offline)
     /// #     .ipc_policy(IPCPolicy::Internal)
     /// #     .ephemeral().build()?;
@@ -679,7 +687,7 @@ impl Binding {
     /// #     include_bytes!("../../openpgp/tests/data/keys/testy.pgp")).unwrap();
     /// # let new = TPK::from_bytes(
     /// #     include_bytes!("../../openpgp/tests/data/keys/testy-new.pgp")).unwrap();
-    /// let store = Store::open(&ctx, "default")?;
+    /// let store = Store::open(&ctx, REALM_CONTACTS, "default")?;
     /// store.import("Testy McTestface", &old)?;
     /// // later...
     /// let binding = store.lookup("Testy McTestface")?;
@@ -723,10 +731,10 @@ impl Binding {
     /// # use openpgp::TPK;
     /// # use openpgp::parse::Parse;
     /// # use sequoia_core::{Context, NetworkPolicy, IPCPolicy};
-    /// # use sequoia_store::{Store, Result, Error};
+    /// # use sequoia_store::*;
     /// # fn main() { f().unwrap(); }
     /// # fn f() -> Result<()> {
-    /// # let ctx = Context::configure("org.sequoia-pgp.demo.store")
+    /// # let ctx = Context::configure()
     /// #     .network_policy(NetworkPolicy::Offline)
     /// #     .ipc_policy(IPCPolicy::Internal)
     /// #     .ephemeral().build()?;
@@ -734,7 +742,7 @@ impl Binding {
     /// #     include_bytes!("../../openpgp/tests/data/keys/testy.pgp")).unwrap();
     /// # let new = TPK::from_bytes(
     /// #     include_bytes!("../../openpgp/tests/data/keys/testy-new.pgp")).unwrap();
-    /// let store = Store::open(&ctx, "default")?;
+    /// let store = Store::open(&ctx, REALM_CONTACTS, "default")?;
     /// store.import("Testy McTestface", &old)?;
     /// // later...
     /// let binding = store.lookup("Testy McTestface")?;
@@ -767,14 +775,14 @@ impl Binding {
     /// # extern crate sequoia_store;
     /// # use openpgp::Fingerprint;
     /// # use sequoia_core::{Context, NetworkPolicy, IPCPolicy};
-    /// # use sequoia_store::{Store, Result, Error};
+    /// # use sequoia_store::*;
     /// # fn main() { f().unwrap(); }
     /// # fn f() -> Result<()> {
-    /// # let ctx = Context::configure("org.sequoia-pgp.demo.store")
+    /// # let ctx = Context::configure()
     /// #     .network_policy(NetworkPolicy::Offline)
     /// #     .ipc_policy(IPCPolicy::Internal)
     /// #     .ephemeral().build()?;
-    /// let store = Store::open(&ctx, "default")?;
+    /// let store = Store::open(&ctx, REALM_CONTACTS, "default")?;
     /// let fp = Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb");
     /// let binding = store.add("Mister B.", &fp)?;
     /// binding.delete()?;
@@ -875,10 +883,10 @@ impl Key {
     /// # use openpgp::TPK;
     /// # use openpgp::parse::Parse;
     /// # use sequoia_core::{Context, NetworkPolicy, IPCPolicy};
-    /// # use sequoia_store::{Store, Result, Error};
+    /// # use sequoia_store::*;
     /// # fn main() { f().unwrap(); }
     /// # fn f() -> Result<()> {
-    /// # let ctx = Context::configure("org.sequoia-pgp.demo.store")
+    /// # let ctx = Context::configure()
     /// #     .network_policy(NetworkPolicy::Offline)
     /// #     .ipc_policy(IPCPolicy::Internal)
     /// #     .ephemeral().build()?;
@@ -886,7 +894,7 @@ impl Key {
     /// #     include_bytes!("../../openpgp/tests/data/keys/testy.pgp")).unwrap();
     /// # let new = TPK::from_bytes(
     /// #     include_bytes!("../../openpgp/tests/data/keys/testy-new.pgp")).unwrap();
-    /// let store = Store::open(&ctx, "default")?;
+    /// let store = Store::open(&ctx, REALM_CONTACTS, "default")?;
     /// let fp = Fingerprint::from_hex("3E8877C877274692975189F5D03F6F865226FE8B").unwrap();
     /// let binding = store.add("Testy McTestface", &fp)?;
     /// let key = binding.key()?;
@@ -1066,7 +1074,7 @@ impl Iterator for StoreIter {
                 self.core.borrow_mut(), request,
                 |r: node::store_iter::item::Reader|
                 Ok((
-                    r.get_domain()?.into(),
+                    r.get_realm()?.into(),
                     r.get_name()?.into(),
                     r.get_network_policy()?.into(),
                     Store::new(self.core.clone(), r.get_name()?, r.get_store()?))))
@@ -1225,7 +1233,7 @@ impl From<capnp::NotInSchema> for Error {
 
 #[cfg(test)]
 mod test {
-    use super::{core, Store, Error, TPK, Fingerprint};
+    use super::*;
     use openpgp::parse::Parse;
 
     macro_rules! bytes {
@@ -1234,32 +1242,32 @@ mod test {
 
     #[test]
     fn store_network_policy_mismatch() {
-        let ctx = core::Context::configure("org.sequoia-pgp.tests")
+        let ctx = core::Context::configure()
             .ephemeral()
             .network_policy(core::NetworkPolicy::Offline)
             .ipc_policy(core::IPCPolicy::Internal)
             .build().unwrap();
         // Create store.
-        Store::open(&ctx, "default").unwrap();
+        Store::open(&ctx, REALM_CONTACTS, "default").unwrap();
 
-        let ctx2 = core::Context::configure("org.sequoia-pgp.tests")
+        let ctx2 = core::Context::configure()
             .home(ctx.home())
             .network_policy(core::NetworkPolicy::Encrypted)
             .ipc_policy(core::IPCPolicy::Internal)
             .build().unwrap();
-        let store = Store::open(&ctx2, "default");
+        let store = Store::open(&ctx2, REALM_CONTACTS, "default");
         assert_match!(core::Error::NetworkPolicyViolation(_)
                       = store.err().unwrap().downcast::<core::Error>().unwrap());
     }
 
     #[test]
     fn import_key() {
-        let ctx = core::Context::configure("org.sequoia-pgp.tests")
+        let ctx = core::Context::configure()
             .ephemeral()
             .network_policy(core::NetworkPolicy::Offline)
             .ipc_policy(core::IPCPolicy::Internal)
             .build().unwrap();
-        let store = Store::open(&ctx, "default").unwrap();
+        let store = Store::open(&ctx, REALM_CONTACTS, "default").unwrap();
         let tpk = TPK::from_bytes(bytes!("testy.pgp")).unwrap();
         store.import("Mr. McTestface", &tpk).unwrap();
         let binding = store.lookup("Mr. McTestface").unwrap();
@@ -1269,12 +1277,12 @@ mod test {
 
     #[test]
     fn key_not_found() {
-        let ctx = core::Context::configure("org.sequoia-pgp.tests")
+        let ctx = core::Context::configure()
             .ephemeral()
             .network_policy(core::NetworkPolicy::Offline)
             .ipc_policy(core::IPCPolicy::Internal)
             .build().unwrap();
-        let store = Store::open(&ctx, "default").unwrap();
+        let store = Store::open(&ctx, REALM_CONTACTS, "default").unwrap();
         let r = store.lookup("I do not exist");
         assert_match!(Error::NotFound
                       = r.err().unwrap().downcast::<Error>().unwrap());
@@ -1282,12 +1290,12 @@ mod test {
 
     #[test]
     fn add_then_import_wrong_key() {
-        let ctx = core::Context::configure("org.sequoia-pgp.tests")
+        let ctx = core::Context::configure()
             .ephemeral()
             .network_policy(core::NetworkPolicy::Offline)
             .ipc_policy(core::IPCPolicy::Internal)
             .build().unwrap();
-        let store = Store::open(&ctx, "default").unwrap();
+        let store = Store::open(&ctx, REALM_CONTACTS, "default").unwrap();
         let tpk = TPK::from_bytes(bytes!("testy.pgp")).unwrap();
         let fp = Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb");
         let binding = store.add("Mister B.", &fp).unwrap();
@@ -1298,12 +1306,12 @@ mod test {
 
     #[test]
     fn add_then_add_different_key() {
-        let ctx = core::Context::configure("org.sequoia-pgp.tests")
+        let ctx = core::Context::configure()
             .ephemeral()
             .network_policy(core::NetworkPolicy::Offline)
             .ipc_policy(core::IPCPolicy::Internal)
             .build().unwrap();
-        let store = Store::open(&ctx, "default").unwrap();
+        let store = Store::open(&ctx, REALM_CONTACTS, "default").unwrap();
         let b = Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb");
         store.add("Mister B.", &b).unwrap();
         let c = Fingerprint::from_bytes(b"cccccccccccccccccccc");
@@ -1314,26 +1322,26 @@ mod test {
 
     #[test]
     fn delete_store_twice() {
-        let ctx = core::Context::configure("org.sequoia-pgp.tests")
+        let ctx = core::Context::configure()
             .ephemeral()
             .network_policy(core::NetworkPolicy::Offline)
             .ipc_policy(core::IPCPolicy::Internal)
             .build().unwrap();
-        let s0 = Store::open(&ctx, "default").unwrap();
-        let s1 = Store::open(&ctx, "default").unwrap();
+        let s0 = Store::open(&ctx, REALM_CONTACTS, "default").unwrap();
+        let s1 = Store::open(&ctx, REALM_CONTACTS, "default").unwrap();
         s0.delete().unwrap();
         s1.delete().unwrap();
     }
 
     #[test]
     fn delete_store_then_use() {
-        let ctx = core::Context::configure("org.sequoia-pgp.tests")
+        let ctx = core::Context::configure()
             .ephemeral()
             .network_policy(core::NetworkPolicy::Offline)
             .ipc_policy(core::IPCPolicy::Internal)
             .build().unwrap();
-        let s0 = Store::open(&ctx, "default").unwrap();
-        let s1 = Store::open(&ctx, "default").unwrap();
+        let s0 = Store::open(&ctx, REALM_CONTACTS, "default").unwrap();
+        let s1 = Store::open(&ctx, REALM_CONTACTS, "default").unwrap();
         s0.delete().unwrap();
         let binding = s1.lookup("Foobarbaz");
         assert_match!(Error::NotFound
@@ -1346,12 +1354,12 @@ mod test {
 
     #[test]
     fn delete_binding_twice() {
-        let ctx = core::Context::configure("org.sequoia-pgp.tests")
+        let ctx = core::Context::configure()
             .ephemeral()
             .network_policy(core::NetworkPolicy::Offline)
             .ipc_policy(core::IPCPolicy::Internal)
             .build().unwrap();
-        let store = Store::open(&ctx, "default").unwrap();
+        let store = Store::open(&ctx, REALM_CONTACTS, "default").unwrap();
         let fp = Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb");
         let b0 = store.add("Mister B.", &fp).unwrap();
         let b1 = store.lookup("Mister B.").unwrap();
@@ -1361,12 +1369,12 @@ mod test {
 
     #[test]
     fn delete_binding_then_use() {
-        let ctx = core::Context::configure("org.sequoia-pgp.tests")
+        let ctx = core::Context::configure()
             .ephemeral()
             .network_policy(core::NetworkPolicy::Offline)
             .ipc_policy(core::IPCPolicy::Internal)
             .build().unwrap();
-        let store = Store::open(&ctx, "default").unwrap();
+        let store = Store::open(&ctx, REALM_CONTACTS, "default").unwrap();
         let fp = Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb");
         let b0 = store.add("Mister B.", &fp).unwrap();
         let b1 = store.lookup("Mister B.").unwrap();
@@ -1378,24 +1386,25 @@ mod test {
     }
 
     fn make_some_stores() -> core::Context {
-        let ctx0 = core::Context::configure("org.sequoia-pgp.tests.foo")
+        let ctx0 = core::Context::configure()
             .ephemeral()
             .network_policy(core::NetworkPolicy::Offline)
             .ipc_policy(core::IPCPolicy::Internal)
             .build().unwrap();
-        let store = Store::open(&ctx0, "default").unwrap();
+        let store = Store::open(&ctx0, REALM_CONTACTS, "default").unwrap();
         let fp = Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb");
         store.add("Mister B.", &fp).unwrap();
         store.add("B4", &fp).unwrap();
 
-        Store::open(&ctx0, "another store").unwrap();
+        Store::open(&ctx0, REALM_CONTACTS, "another store").unwrap();
 
-        let ctx1 = core::Context::configure("org.sequoia-pgp.tests.bar")
+        let ctx1 = core::Context::configure()
             .home(ctx0.home())
             .network_policy(core::NetworkPolicy::Offline)
             .ipc_policy(core::IPCPolicy::Internal)
             .build().unwrap();
-        let store = Store::open(&ctx1, "default").unwrap();
+        let store =
+            Store::open(&ctx1, REALM_SOFTWARE_UPDATES, "default").unwrap();
         let fp = Fingerprint::from_bytes(b"cccccccccccccccccccc");
         store.add("Mister C.", &fp).unwrap();
 
@@ -1405,7 +1414,7 @@ mod test {
     #[test]
     fn stats() {
         let ctx = make_some_stores();
-        let store = Store::open(&ctx, "default").unwrap();
+        let store = Store::open(&ctx, REALM_CONTACTS, "default").unwrap();
         let fp = Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb");
         let binding = store.add("Mister B.", &fp).unwrap();
 
@@ -1441,15 +1450,15 @@ mod test {
     #[test]
     fn store_iterator() {
         let ctx = make_some_stores();
-        let mut iter = Store::list(&ctx, "org.sequoia-pgp.tests.f").unwrap();
-        let (domain, name, network_policy, store) = iter.next().unwrap();
-        assert_eq!(domain, "org.sequoia-pgp.tests.foo");
+        let mut iter = Store::list(&ctx, REALM_CONTACTS).unwrap();
+        let (realm, name, network_policy, store) = iter.next().unwrap();
+        assert_eq!(realm, REALM_CONTACTS);
         assert_eq!(name, "default");
         assert_eq!(network_policy, core::NetworkPolicy::Offline);
         let fp = Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb");
         store.add("Mister B.", &fp).unwrap();
-        let (domain, name, network_policy, store) = iter.next().unwrap();
-        assert_eq!(domain, "org.sequoia-pgp.tests.foo");
+        let (realm, name, network_policy, store) = iter.next().unwrap();
+        assert_eq!(realm, REALM_CONTACTS);
         assert_eq!(name, "another store");
         assert_eq!(network_policy, core::NetworkPolicy::Offline);
         store.add("Mister B.", &fp).unwrap();
@@ -1459,7 +1468,7 @@ mod test {
     #[test]
     fn binding_iterator() {
         let ctx = make_some_stores();
-        let store = Store::open(&ctx, "default").unwrap();
+        let store = Store::open(&ctx, REALM_CONTACTS, "default").unwrap();
         let mut iter = store.iter().unwrap();
         let (label, fingerprint, binding) = iter.next().unwrap();
         let fp = Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb");

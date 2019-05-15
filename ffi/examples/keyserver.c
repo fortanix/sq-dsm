@@ -24,7 +24,7 @@ main (int argc, char **argv)
   sq_keyserver_t ks;
   pgp_tpk_t tpk;
 
-  ctx = sq_context_new ("org.sequoia-pgp.example", &err);
+  ctx = sq_context_new (&err);
   if (ctx == NULL)
     error (1, 0, "Initializing sequoia failed: %s",
            pgp_error_to_string (err));

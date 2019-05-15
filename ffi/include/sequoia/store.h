@@ -4,6 +4,16 @@
 #include <sequoia/core.h>
 
 /*/
+/// Keys used for communications.
+/*/
+const char *SQ_REALM_CONTACTS = "org.sequoia-pgp.contacts";
+
+/*/
+/// Keys used for signing software updates.
+/*/
+const char *SQ_REALM_SOFTWARE_UPDATES = "org.sequoia-pgp.software-updates";
+
+/*/
 /// A public key store.
 /*/
 typedef struct sq_store *sq_store_t;
@@ -156,13 +166,13 @@ typedef struct sq_store_iter *sq_store_iter_t;
 /*/
 /// Returns the next store.
 ///
-/// Returns `NULL` on exhaustion.  If `domainp` is not `NULL`, the
-/// stores domain is stored there.  If `namep` is not `NULL`, the
+/// Returns `NULL` on exhaustion.  If `realmp` is not `NULL`, the
+/// stores realm is stored there.  If `namep` is not `NULL`, the
 /// stores name is stored there.  If `policyp` is not `NULL`, the
 /// stores network policy is stored there.
 /*/
 sq_store_t sq_store_iter_next (sq_store_iter_t iter,
-			       char **domainp,
+			       char **realmp,
 			       char **namep,
 			       uint8_t *policyp);
 
@@ -242,17 +252,17 @@ sq_key_iter_t sq_store_list_keys (sq_context_t ctx);
 /*/
 /// Opens a store.
 ///
-/// Opens a store with the given name.  If the store does not
-/// exist, it is created.  Stores are handles for objects
-/// maintained by a background service.  The background service
-/// associates state with this name.
+/// Opens a store with the given name in the given realm.  If the
+/// store does not exist, it is created.  Stores are handles for
+/// objects maintained by a background service.  The background
+/// service associates state with this name.
 ///
 /// The store updates TPKs in compliance with the network policy
 /// of the context that created the store in the first place.
 /// Opening the store with a different network policy is
 /// forbidden.
 /*/
-sq_store_t sq_store_open (sq_context_t ctx, const char *name);
+sq_store_t sq_store_open (sq_context_t ctx, const char *realm, const char *name);
 
 /*/
 /// Adds a key identified by fingerprint to the store.

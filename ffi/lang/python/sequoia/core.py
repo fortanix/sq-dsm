@@ -18,12 +18,12 @@ class IPCPolicy(Enum):
 
 class Context(SQObject):
     _del = lib.sq_context_free
-    def __init__(self, domain,
+    def __init__(self,
                  home=None,
                  network_policy=NetworkPolicy.Encrypted,
                  ipc_policy=IPCPolicy.Robust,
                  ephemeral=False):
-        cfg = lib.sq_context_configure(domain.encode())
+        cfg = lib.sq_context_configure()
         if home:
             lib.sq_config_home(cfg, home.encode())
         lib.sq_config_network_policy(cfg, network_policy.value)

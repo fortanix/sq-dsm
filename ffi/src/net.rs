@@ -21,7 +21,7 @@
 //! sq_keyserver_t ks;
 //! pgp_tpk_t tpk;
 //!
-//! ctx = sq_context_new ("org.sequoia-pgp.example", NULL);
+//! ctx = sq_context_new (NULL);
 //! ks = sq_keyserver_sks_pool (ctx);
 //! id = pgp_keyid_from_bytes ((uint8_t *) "\x24\x7F\x6D\xAB\xC8\x49\x14\xFE");
 //! tpk = sq_keyserver_get (ctx, ks, id);

@@ -146,7 +146,7 @@ impl node::Server for NodeServer {
         // XXX maybe check ephemeral and use in-core sqlite db
 
         let store = sry!(StoreServer::open(self.c.clone(),
-                                           pry!(params.get_domain()),
+                                           pry!(params.get_realm()),
                                            pry!(params.get_network_policy()).into(),
                                            pry!(params.get_name())));
         pry!(pry!(results.get().get_result()).set_ok(
@@ -159,7 +159,7 @@ impl node::Server for NodeServer {
             mut results: node::IterResults)
             -> Promise<(), capnp::Error> {
         bind_results!(results);
-        let prefix = pry!(pry!(params.get()).get_domain_prefix());
+        let prefix = pry!(pry!(params.get()).get_realm_prefix());
         let iter = StoreIterServer::new(self.c.clone(), prefix);
         pry!(pry!(results.get().get_result()).set_ok(
             node::store_iter::ToClient::new(iter).into_client::<capnp_rpc::Server>()));
@@ -277,7 +277,7 @@ impl Query for StoreServer {
 
     fn slug(&self) -> String {
         self.c.query_row(
-            "SELECT domain, name FROM stores WHERE id = ?1",
+            "SELECT realm, name FROM stores WHERE id = ?1",
             &[&self.id], |row| -> String {
                 format!("{}:{}", row.get::<_, String>(0), row.get::<_, String>(1))
             })
@@ -292,18 +292,18 @@ impl StoreServer {
         StoreServer{c: c, id: id}
     }
 
-    fn open(c: Rc<Connection>, domain: &str, policy: core::NetworkPolicy, name: &str)
+    fn open(c: Rc<Connection>, realm: &str, policy: core::NetworkPolicy, name: &str)
            -> Result<Self> {
         // We cannot implement ToSql and friends for
         // core::NetworkPolicy, hence we need to do it by foot.
         let p: u8 = (&policy).into();
 
         c.execute(
-            "INSERT OR IGNORE INTO stores (domain, network_policy, name) VALUES (?1, ?2, ?3)",
-            &[&domain, &p, &name])?;
+            "INSERT OR IGNORE INTO stores (realm, network_policy, name) VALUES (?1, ?2, ?3)",
+            &[&realm, &p, &name])?;
         let (id, store_policy): (ID, i64) = c.query_row(
-            "SELECT id, network_policy FROM stores WHERE domain = ?1 AND name = ?2",
-            &[&domain, &name], |row| (row.get(0), row.get(1)))?;
+            "SELECT id, network_policy FROM stores WHERE realm = ?1 AND name = ?2",
+            &[&realm, &name], |row| (row.get(0), row.get(1)))?;
 
         // We cannot implement FromSql and friends for
         // core::NetworkPolicy, hence we need to do it by foot.
@@ -894,7 +894,7 @@ impl KeyServer {
         let fingerprint = openpgp::Fingerprint::from_hex(&fingerprint)
             .map_err(|_| node::Error::SystemError)?;
 
-        let ctx = core::Context::configure("org.sequoia-pgp.store")
+        let ctx = core::Context::configure()
             .network_policy(network_policy).build()?;
         let keyserver = net::async::KeyServer::sks_pool(&ctx, handle)?;
 
@@ -1129,10 +1129,10 @@ impl node::store_iter::Server for StoreIterServer {
             mut results: node::store_iter::NextResults)
             -> Promise<(), capnp::Error> {
         bind_results!(results);
-        let (id, domain, name, network_policy): (ID, String, String, i64) =
+        let (id, realm, name, network_policy): (ID, String, String, i64) =
             sry!(self.c.query_row(
-                 "SELECT id, domain, name, network_policy FROM stores
-                      WHERE id > ?1 AND domain like ?2
+                 "SELECT id, realm, name, network_policy FROM stores
+                      WHERE id > ?1 AND realm like ?2
                       ORDER BY id LIMIT 1",
                 &[&self.n, &self.prefix],
                 |row| (row.get(0), row.get(1), row.get(2), row.get(3))));
@@ -1145,7 +1145,7 @@ impl node::store_iter::Server for StoreIterServer {
         let network_policy = core::NetworkPolicy::from(network_policy as u8);
 
         let mut entry = pry!(results.get().get_result()).init_ok();
-        entry.set_domain(&domain);
+        entry.set_realm(&realm);
         entry.set_name(&name);
         entry.set_network_policy(network_policy.into());
         entry.set_store(node::store::ToClient::new(
@@ -1359,10 +1359,10 @@ INSERT INTO version (id, version) VALUES (1, 1);
 
 CREATE TABLE stores (
     id INTEGER PRIMARY KEY,
-    domain TEXT NOT NULL,
+    realm TEXT NOT NULL,
     network_policy INTEGER NOT NULL,
     name TEXT NOT NULL,
-    UNIQUE (domain, name));
+    UNIQUE (realm, name));
 
 CREATE TABLE bindings (
     id INTEGER PRIMARY KEY,

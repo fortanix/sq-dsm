@@ -39,13 +39,14 @@ fn main() {
          -----END PGP PUBLIC KEY BLOCK-----";
 
     // Provide some context.
-    let ctx = core::Context::new("org.sequoia-pgp.guide").unwrap();
+    let ctx = core::Context::new().unwrap();
 
     // Parse TPK.
     let tpk = openpgp::TPK::from_bytes(tpk).unwrap();
 
     // Open a store.
-    let store = store::Store::open(&ctx, "default").unwrap();
+    let store =
+        store::Store::open(&ctx, store::REALM_CONTACTS, "default").unwrap();
 
     // Store the TPK.
     store.import("Ἀριστοτέλης", &tpk).unwrap();

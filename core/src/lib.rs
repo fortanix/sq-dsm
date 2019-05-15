@@ -13,7 +13,7 @@
 /// # use sequoia_core::{Context, Result};
 /// # f().unwrap();
 /// # fn f() -> Result<()> {
-/// let c = Context::new("org.example.webmail")?;
+/// let c = Context::new();
 /// # Ok(())
 /// # }
 /// ```
@@ -39,7 +39,7 @@ use tempdir::TempDir;
 /// # use sequoia_core::{Context, Result};
 /// # f().unwrap();
 /// # fn f() -> Result<()> {
-/// let c = Context::new("org.example.webmail")?;
+/// let c = Context::new()?;
 /// # Ok(())
 /// # }
 /// ```
@@ -51,7 +51,7 @@ use tempdir::TempDir;
 /// # use sequoia_core::{Context, NetworkPolicy, Result};
 /// # f().unwrap();
 /// # fn f() -> Result<()> {
-/// let c = Context::configure("org.example.webmail")
+/// let c = Context::configure()
 /// #           .ephemeral()
 ///             .network_policy(NetworkPolicy::Offline)
 ///             .build()?;
@@ -59,7 +59,6 @@ use tempdir::TempDir;
 /// # }
 /// ```
 pub struct Context {
-    domain: String,
     home: PathBuf,
     lib: PathBuf,
     network_policy: NetworkPolicy,
@@ -71,7 +70,6 @@ pub struct Context {
 impl Clone for Context {
     fn clone(&self) -> Self {
         Context {
-            domain: self.domain.clone(),
             home: self.home.clone(),
             lib: self.lib.clone(),
             network_policy: self.network_policy,
@@ -100,26 +98,17 @@ fn prefix() -> PathBuf {
 
 impl Context {
     /// Creates a Context with reasonable defaults.
-    ///
-    /// `domain` should uniquely identify your application, it is
-    /// strongly suggested to use a reversed fully qualified domain
-    /// name that is associated with your application.
-    pub fn new(domain: &str) -> Result<Self> {
-        Self::configure(domain).build()
+    pub fn new() -> Result<Self> {
+        Self::configure().build()
     }
 
     /// Creates a Context that can be configured.
     ///
-    /// `domain` should uniquely identify your application, it is
-    /// strongly suggested to use a reversed fully qualified domain
-    /// name that is associated with your application.
-    ///
     /// The configuration is seeded like in `Context::new`, but can be
     /// modified.  A configuration has to be finalized using
     /// `.build()` in order to turn it into a Context.
-    pub fn configure(domain: &str) -> Config {
+    pub fn configure() -> Config {
         Config(Context {
-            domain: String::from(domain),
             home: PathBuf::from(""),  // Defer computation of default.
             lib: prefix().join("lib").join("sequoia"),
             network_policy: NetworkPolicy::Encrypted,
@@ -127,11 +116,6 @@ impl Context {
             ephemeral: false,
             cleanup: false,
         })
-    }
-
-    /// Returns the domain of the context.
-    pub fn domain(&self) -> &str {
-        &self.domain
     }
 
     /// Returns the directory containing shared state.
@@ -169,7 +153,7 @@ impl Context {
 /// # use sequoia_core::{Context, NetworkPolicy, Result};
 /// # f().unwrap();
 /// # fn f() -> Result<()> {
-/// let c = Context::configure("org.example.webmail")
+/// let c = Context::configure()
 /// #           .ephemeral()
 ///             .network_policy(NetworkPolicy::Offline)
 ///             .build()?;
@@ -185,8 +169,7 @@ impl Context {
 /// # use std::path::Path;
 /// # f().unwrap();
 /// # fn f() -> Result<()> {
-/// let c = Context::configure("org.example.my.test")
-///             .ephemeral().build()?;
+/// let c = Context::configure().ephemeral().build()?;
 /// let ephemeral_home = c.home().to_path_buf();
 /// // Do some tests.
 /// drop(c);

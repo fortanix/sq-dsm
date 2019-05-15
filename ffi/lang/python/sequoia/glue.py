@@ -109,6 +109,10 @@ def sq_str(s):
     return t
 _str = sq_str
 
+def sq_static_str(s):
+    return ffi.string(s).decode()
+_static_str = sq_static_str
+
 def sq_iterator(iterator, next_fn, map=lambda x: x):
     while True:
         entry = next_fn(iterator)

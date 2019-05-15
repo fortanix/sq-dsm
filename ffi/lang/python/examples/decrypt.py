@@ -5,8 +5,7 @@ from enum import Enum, auto
 from sequoia.core import Context, NetworkPolicy
 from sequoia.openpgp import Tag, PacketParser
 
-ctx = Context("org.sequoia-pgp.examples",
-              network_policy=NetworkPolicy.Offline,
+ctx = Context(network_policy=NetworkPolicy.Offline,
               ephemeral=True)
 
 class State(Enum):

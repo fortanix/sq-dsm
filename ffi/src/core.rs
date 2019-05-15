@@ -13,7 +13,7 @@
 //! #include <sequoia.h>
 //!
 //! sq_context_t ctx;
-//! ctx = sq_context_new ("org.sequoia-pgp.example", NULL);
+//! ctx = sq_context_new (NULL);
 //!
 //! /* Use Sequoia.  */
 //!
@@ -29,7 +29,7 @@
 //! sq_config_t cfg;
 //! sq_context_t ctx;
 //!
-//! cfg = sq_context_configure ("org.sequoia-pgp.example");
+//! cfg = sq_context_configure ();
 //! sq_config_network_policy (cfg, SQ_NETWORK_POLICY_OFFLINE);
 //! ctx = sq_config_build (cfg, NULL);
 //!
@@ -72,20 +72,13 @@ fn sq_context_last_error(ctx: *mut Context) -> *mut ::error::Error {
 
 /// Creates a Context with reasonable defaults.
 ///
-/// `domain` should uniquely identify your application, it is strongly
-/// suggested to use a reversed fully qualified domain name that is
-/// associated with your application.  `domain` must not be `NULL`.
-///
 /// Returns `NULL` on errors.  If `errp` is not `NULL`, the error is
 /// stored there.
 #[::ffi_catch_abort] #[no_mangle] pub extern "C"
-fn sq_context_new(domain: *const c_char,
-                  errp: Option<&mut *mut ::error::Error>)
+fn sq_context_new(errp: Option<&mut *mut ::error::Error>)
                   -> *mut Context {
     ffi_make_fry_from_errp!(errp);
-    let domain = ffi_param_cstr!(domain).to_string_lossy();
-
-    ffi_try_box!(core::Context::new(&domain).map(|ctx| Context::new(ctx)))
+    ffi_try_box!(core::Context::new().map(|ctx| Context::new(ctx)))
 }
 
 /// Frees a context.
@@ -96,25 +89,12 @@ fn sq_context_free(context: Option<&mut Context>) {
 
 /// Creates a Context that can be configured.
 ///
-/// `domain` should uniquely identify your application, it is strongly
-/// suggested to use a reversed fully qualified domain name that is
-/// associated with your application.  `domain` must not be `NULL`.
-///
 /// The configuration is seeded like in `sq_context_new`, but can be
 /// modified.  A configuration has to be finalized using
 /// `sq_config_build()` in order to turn it into a Context.
 #[::ffi_catch_abort] #[no_mangle] pub extern "C"
-fn sq_context_configure(domain: *const c_char) -> *mut Config {
-    let domain = ffi_param_cstr!(domain).to_string_lossy();
-
-    Box::into_raw(Box::new(core::Context::configure(&domain)))
-}
-
-/// Returns the domain of the context.
-#[::ffi_catch_abort] #[no_mangle] pub extern "C"
-fn sq_context_domain(ctx: *const Context) -> *const c_char {
-    let ctx = ffi_param_ref!(ctx);
-    ctx.c.domain().as_bytes().as_ptr() as *const c_char
+fn sq_context_configure() -> *mut Config {
+    Box::into_raw(Box::new(core::Context::configure()))
 }
 
 /// Returns the directory containing shared state.

@@ -46,32 +46,32 @@ use Maybe;
 /// Lists all stores with the given prefix.
 #[::ffi_catch_abort] #[no_mangle] pub extern "C"
 fn sq_store_list_stores(ctx: *mut Context,
-                        domain_prefix: *const c_char)
+                        realm_prefix: *const c_char)
                         -> *mut StoreIter {
     let ctx = ffi_param_ref_mut!(ctx);
     ffi_make_fry_from_ctx!(ctx);
-    let domain_prefix = ffi_param_cstr!(domain_prefix).to_string_lossy();
+    let realm_prefix = ffi_param_cstr!(realm_prefix).to_string_lossy();
 
-    ffi_try_box!(Store::list(&ctx.c, &domain_prefix))
+    ffi_try_box!(Store::list(&ctx.c, &realm_prefix))
 }
 
 /// Returns the next store.
 ///
-/// Returns `NULL` on exhaustion.  If `domainp` is not `NULL`, the
-/// stores domain is stored there.  If `namep` is not `NULL`, the
+/// Returns `NULL` on exhaustion.  If `realmp` is not `NULL`, the
+/// stores realm is stored there.  If `namep` is not `NULL`, the
 /// stores name is stored there.  If `policyp` is not `NULL`, the
 /// stores network policy is stored there.
 #[::ffi_catch_abort] #[no_mangle] pub extern "C"
 fn sq_store_iter_next(iter: *mut StoreIter,
-                      domainp: Option<&mut *mut c_char>,
+                      realmp: Option<&mut *mut c_char>,
                       namep: Option<&mut *mut c_char>,
                       policyp: Option<&mut uint8_t>)
                       -> *mut Store {
     let iter = ffi_param_ref_mut!(iter);
     match iter.next() {
-        Some((domain, name, policy, store)) => {
-            if domainp.is_some() {
-                *domainp.unwrap() = ffi_return_maybe_string!(domain);
+        Some((realm, name, policy, store)) => {
+            if realmp.is_some() {
+                *realmp.unwrap() = ffi_return_maybe_string!(realm);
             }
 
             if namep.is_some() {
@@ -191,13 +191,15 @@ fn sq_log_iter_free(iter: Option<&mut LogIter>) {
 /// forbidden.
 #[::ffi_catch_abort] #[no_mangle] pub extern "C"
 fn sq_store_open(ctx: *mut Context,
+                 realm: *const c_char,
                  name: *const c_char)
                  -> *mut Store {
     let ctx = ffi_param_ref_mut!(ctx);
     ffi_make_fry_from_ctx!(ctx);
+    let realm = ffi_param_cstr!(realm).to_string_lossy();
     let name = ffi_param_cstr!(name).to_string_lossy();
 
-    ffi_try_box!(Store::open(&ctx.c, &name))
+    ffi_try_box!(Store::open(&ctx.c, &realm, &name))
 }
 
 /// Frees a sq_store_t.

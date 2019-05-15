@@ -22,7 +22,7 @@
 //! # use sequoia_net::{KeyServer, Result};
 //! # fn main() { f().unwrap(); }
 //! # fn f() -> Result<()> {
-//! let ctx = Context::new("org.sequoia-pgp.example")?;
+//! let ctx = Context::new()?;
 //! let mut ks = KeyServer::sks_pool(&ctx)?;
 //! let keyid = KeyID::from_hex("31855247603831FD").unwrap();
 //! println!("{:?}", ks.get(&keyid));
@@ -195,7 +195,7 @@ mod tests {
 
     #[test]
     fn uris() {
-        let ctx = Context::configure("foo")
+        let ctx = Context::configure()
             .network_policy(sequoia_core::NetworkPolicy::Insecure)
             .build().unwrap();
 
@@ -203,7 +203,7 @@ mod tests {
         assert!(KeyServer::new(&ctx, "hkp://keys.openpgp.org").is_ok());
         assert!(KeyServer::new(&ctx, "hkps://keys.openpgp.org").is_ok());
 
-        let ctx = Context::configure("foo")
+        let ctx = Context::configure()
             .network_policy(sequoia_core::NetworkPolicy::Encrypted)
             .build().unwrap();
 

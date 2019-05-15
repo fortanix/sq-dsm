@@ -311,7 +311,7 @@ impl Server {
                      --ephemeral true|false", args[0]));
             }
 
-        let mut cfg = core::Context::configure("org.sequoia.api.server")
+        let mut cfg = core::Context::configure()
             .home(&args[2]).lib(&args[4]);
 
         if let Ok(ephemeral) = args[6].parse() {

@@ -100,15 +100,20 @@ fn real_main() -> Result<(), failure::Error> {
         },
     };
     let force = matches.is_present("force");
-    let domain_name =
-        matches.value_of("domain").unwrap_or("org.sequoia-pgp.sq");
-    let mut builder = Context::configure(domain_name)
+    let (realm_name, store_name) = {
+        let s = matches.value_of("store").expect("has a default value");
+        if let Some(i) = s.find('/') {
+            (&s[..i], &s[i+1..])
+        } else {
+            (s, "default")
+        }
+    };
+    let mut builder = Context::configure()
         .network_policy(policy);
     if let Some(dir) = matches.value_of("home") {
         builder = builder.home(dir);
     }
     let ctx = builder.build()?;
-    let store_name = matches.value_of("store").unwrap_or("default");
 
     match matches.subcommand() {
         ("decrypt",  Some(m)) => {
@@ -122,7 +127,7 @@ fn real_main() -> Result<(), failure::Error> {
             let secrets = m.values_of("secret-key-file")
                 .map(load_tpks)
                 .unwrap_or(Ok(vec![]))?;
-            let mut store = Store::open(&ctx, store_name)
+            let mut store = Store::open(&ctx, realm_name, store_name)
                 .context("Failed to open the store")?;
             commands::decrypt(&ctx, &mut store,
                               &mut input, &mut output,
@@ -140,7 +145,7 @@ fn real_main() -> Result<(), failure::Error> {
             } else {
                 output
             };
-            let mut store = Store::open(&ctx, store_name)
+            let mut store = Store::open(&ctx, realm_name, store_name)
                 .context("Failed to open the store")?;
             let recipients = m.values_of("recipient")
                 .map(|r| r.collect())
@@ -181,7 +186,7 @@ fn real_main() -> Result<(), failure::Error> {
             let tpks = m.values_of("public-key-file")
                 .map(load_tpks)
                 .unwrap_or(Ok(vec![]))?;
-            let mut store = Store::open(&ctx, store_name)
+            let mut store = Store::open(&ctx, realm_name, store_name)
                 .context("Failed to open the store")?;
             commands::verify(&ctx, &mut store, &mut input,
                              detached.as_mut().map(|r| r as &mut io::Read),
@@ -335,12 +340,12 @@ fn real_main() -> Result<(), failure::Error> {
             }
         },
         ("store",  Some(m)) => {
-            let store = Store::open(&ctx, store_name)
+            let store = Store::open(&ctx, realm_name, store_name)
                 .context("Failed to open the store")?;
 
             match m.subcommand() {
                 ("list",  Some(_)) => {
-                    list_bindings(&store, domain_name, store_name)?;
+                    list_bindings(&store, realm_name, store_name)?;
                 },
                 ("add",  Some(m)) => {
                     let fp = Fingerprint::from_hex(m.value_of("fingerprint").unwrap())
@@ -403,12 +408,12 @@ fn real_main() -> Result<(), failure::Error> {
                 ("stores",  Some(m)) => {
                     let mut table = Table::new();
                     table.set_format(*prettytable::format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
-                    table.set_titles(row!["domain", "name", "network policy"]);
+                    table.set_titles(row!["realm", "name", "network policy"]);
 
-                    for (domain, name, network_policy, _)
+                    for (realm, name, network_policy, _)
                         in Store::list(&ctx, m.value_of("prefix").unwrap_or(""))? {
                             table.add_row(Row::new(vec![
-                                Cell::new(&domain),
+                                Cell::new(&realm),
                                 Cell::new(&name),
                                 Cell::new(&format!("{:?}", network_policy))
                             ]));
@@ -417,9 +422,9 @@ fn real_main() -> Result<(), failure::Error> {
                     table.printstd();
                 },
                 ("bindings",  Some(m)) => {
-                    for (domain, name, _, store)
+                    for (realm, name, _, store)
                         in Store::list(&ctx, m.value_of("prefix").unwrap_or(""))? {
-                            list_bindings(&store, &domain, &name)?;
+                            list_bindings(&store, &realm, &name)?;
                         }
                 },
                 ("keys",  Some(_)) => {
@@ -459,13 +464,13 @@ fn real_main() -> Result<(), failure::Error> {
     return Ok(())
 }
 
-fn list_bindings(store: &Store, domain: &str, name: &str) -> Result<(), failure::Error> {
+fn list_bindings(store: &Store, realm: &str, name: &str) -> Result<(), failure::Error> {
     if store.iter()?.count() == 0 {
-        println!("No label-key bindings in the \"{}/{}\" store.", domain, name);
+        println!("No label-key bindings in the \"{}/{}\" store.", realm, name);
         return Ok(());
     }
 
-    println!("Domain: {:?}, store: {:?}:", domain, name);
+    println!("Realm: {:?}, store: {:?}:", realm, name);
 
     let mut table = Table::new();
     table.set_format(*prettytable::format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
