@@ -2,6 +2,7 @@ image: registry.gitlab.com/sequoia-pgp/build-docker-image:latest
 
 test:
   script:
+    - if [ -f cache.tar ]; then du -sh cache.tar ; tar xf cache.tar ; rm cache.tar ; fi
     - if [ -d target ]; then find target | wc --lines; du -sh target; fi
     - if [ -d cargo ]; then find cargo | wc --lines; du -sh cargo; fi
     - rustc --version
@@ -11,11 +12,12 @@ test:
     - cargo clean -p buffered-reader -p sequoia-rfc2822 -p sequoia-openpgp -p sequoia-openpgp-ffi -p sequoia-core -p sequoia-ffi -p sequoia-ffi-macros -p sequoia-ipc -p sequoia-net -p sequoia-store -p sequoia-tool -p sequoia-sqv -p sequoia-guide
     - du -sh target
     - du -sh cargo
+    - tar cf cache.tar target cargo
 
 cache:
+  key: tarred-cache
   paths:
-    - target/
-    - cargo/
+    - cache.tar
 
 variables:
   CARGO_HOME: $CI_PROJECT_DIR/cargo
