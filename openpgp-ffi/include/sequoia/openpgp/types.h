@@ -522,4 +522,7 @@ typedef pgp_status_t (*pgp_decryptor_decrypt_cb_t) (void *,
 typedef pgp_status_t (*pgp_decryptor_check_cb_t) (void *,
     pgp_message_structure_t);
 
+typedef pgp_status_t (*pgp_decryptor_inspect_cb_t) (void *,
+    pgp_packet_parser_t);
+
 #endif

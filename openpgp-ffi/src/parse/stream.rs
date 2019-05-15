@@ -48,6 +48,7 @@ use super::super::{
     tpk::TPK,
     packet::signature::Signature,
     packet::key::Key,
+    parse::PacketParser,
     revocation_status::RevocationStatus,
 };
 
@@ -277,6 +278,12 @@ type GetPublicKeysCallback = fn(*mut HelperCookie,
                                 *const *mut keyid::KeyID, usize,
                                 &mut *mut *mut TPK, *mut usize,
                                 *mut FreeCallback) -> Status;
+
+/// Inspect packets as they are decrypted.
+///
+/// This function is called on every packet that the decryptor
+/// observes.
+type InspectCallback = fn(*mut HelperCookie, *const PacketParser) -> Status;
 
 /// Decrypts the message.
 ///
@@ -638,6 +645,7 @@ fn pgp_detached_verifier_new<'a>(errp: Option<&mut *mut ::error::Error>,
 
 struct DHelper {
     vhelper: VHelper,
+    inspect_cb: Option<InspectCallback>,
     decrypt_cb: DecryptCallback,
 }
 
@@ -645,11 +653,13 @@ impl DHelper {
     fn new(get_public_keys: GetPublicKeysCallback,
            decrypt: DecryptCallback,
            check: CheckCallback,
+           inspect: Option<InspectCallback>,
            cookie: *mut HelperCookie)
        -> Self
     {
         DHelper {
             vhelper: VHelper::new(get_public_keys, check, cookie),
+            inspect_cb: inspect,
             decrypt_cb: decrypt,
         }
     }
@@ -670,6 +680,19 @@ impl VerificationHelper for DHelper {
 }
 
 impl DecryptionHelper for DHelper {
+    fn inspect(&mut self, pp: &PacketParser) -> failure::Fallible<()> {
+        if let Some(cb) = self.inspect_cb {
+            match cb(self.vhelper.cookie, pp) {
+                Status::Success => Ok(()),
+                // XXX: Convert the status to an error better.
+                status => Err(failure::format_err!(
+                    "Inspect Callback returned an error: {:?}", status).into()),
+            }
+        } else {
+            Ok(())
+        }
+    }
+
     fn decrypt<D>(&mut self, pkesks: &[PKESK], skesks: &[SKESK],
                   mut decrypt: D)
                   -> openpgp::Result<Option<openpgp::Fingerprint>>
@@ -860,7 +883,7 @@ impl DecryptionHelper for DHelper {
 ///   };
 ///   plaintext = pgp_decryptor_new (NULL, source,
 ///                                  get_public_keys_cb, decrypt_cb,
-///                                  check_cb, &cookie, 1554542219);
+///                                  check_cb, NULL, &cookie, 1554542219);
 ///   assert (plaintext);
 ///
 ///   nread = pgp_reader_read (NULL, plaintext, buf, sizeof buf);
@@ -880,12 +903,13 @@ fn pgp_decryptor_new<'a>(errp: Option<&mut *mut ::error::Error>,
                          get_public_keys: GetPublicKeysCallback,
                          decrypt: DecryptCallback,
                          check: CheckCallback,
+                         inspect: Option<InspectCallback>,
                          cookie: *mut HelperCookie,
                          time: time_t)
                          -> Maybe<io::Reader>
 {
     let helper = DHelper::new(
-        get_public_keys, decrypt, check, cookie);
+        get_public_keys, decrypt, check, inspect, cookie);
 
     Decryptor::from_reader(input.ref_mut_raw(), helper, maybe_time(time))
         .map(|r| io::ReaderKind::Generic(Box::new(r)))

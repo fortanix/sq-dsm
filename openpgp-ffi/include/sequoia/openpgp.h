@@ -1564,6 +1564,7 @@ pgp_reader_t pgp_decryptor_new (pgp_error_t *errp, pgp_reader_t input,
     pgp_decryptor_get_public_keys_cb_t get_public_keys,
     pgp_decryptor_decrypt_cb_t decrypt,
     pgp_decryptor_check_cb_t check,
+    pgp_decryptor_inspect_cb_t inspect,
     void *cookie, time_t time);
 
 /*/
