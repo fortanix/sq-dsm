@@ -430,6 +430,11 @@ typedef enum pgp_tpk_cipher_suite {
   /*/
   PGP_TPK_CIPHER_SUITE_P521,
 
+  /*/
+  /// 2048 bit RSA with SHA512 and AES256.
+  /*/
+  PGP_TPK_CIPHER_SUITE_RSA2K,
+
   /* Dummy value to make sure the enumeration has a defined size.  Do
      not use this value.  */
   PGP_TPK_CIPHER_SUITE_FORCE_WIDTH = INT_MAX,

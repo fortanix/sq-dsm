@@ -845,6 +845,7 @@ fn int_to_cipher_suite(cs: c_int) -> CipherSuite {
         2 => P256,
         3 => P384,
         4 => P521,
+        5 => RSA2k,
         n => panic!("Bad ciphersuite: {}", n),
      }
 }

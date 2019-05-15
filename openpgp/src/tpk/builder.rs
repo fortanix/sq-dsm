@@ -31,6 +31,8 @@ pub enum CipherSuite {
     P384,
     /// EdDSA and ECDH over NIST P-521 with SHA512 and AES256
     P521,
+    /// 2048 bit RSA with SHA512 and AES256
+    RSA2k,
 }
 
 impl Default for CipherSuite {
@@ -44,6 +46,8 @@ impl CipherSuite {
         use constants::Curve;
 
         match self {
+            CipherSuite::RSA2k =>
+                Key4::generate_rsa(2048),
             CipherSuite::RSA3k =>
                 Key4::generate_rsa(3072),
             CipherSuite::Cv25519 | CipherSuite::P256 |
@@ -572,7 +576,7 @@ mod tests {
     fn all_ciphersuites() {
         use self::CipherSuite::*;
 
-        for cs in vec![Cv25519, RSA3k, P256, P384, P521] {
+        for cs in vec![Cv25519, RSA3k, P256, P384, P521, RSA2k] {
             assert!(TPKBuilder::new()
                 .set_cipher_suite(cs)
                 .generate().is_ok());
