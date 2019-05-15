@@ -102,6 +102,7 @@ pub struct TPKBuilder {
     userids: Vec<packet::UserID>,
     user_attributes: Vec<packet::UserAttribute>,
     password: Option<Password>,
+    expiration: Option<time::Duration>,
 }
 
 impl TPKBuilder {
@@ -124,6 +125,7 @@ impl TPKBuilder {
             userids: vec![],
             user_attributes: vec![],
             password: None,
+            expiration: None,
         }
     }
 
@@ -152,6 +154,7 @@ impl TPKBuilder {
             userids: userids.into_iter().map(|x| x.into()).collect(),
             user_attributes: vec![],
             password: None,
+            expiration: Some(time::Duration::weeks(3 * 52)),
         }
     }
 
@@ -188,6 +191,7 @@ impl TPKBuilder {
             userids: vec![],
             user_attributes: vec![],
             password: None,
+            expiration: Some(time::Duration::weeks(3 * 52)),
         };
 
         if let Some(userid) = userid {
@@ -257,6 +261,16 @@ impl TPKBuilder {
         self
     }
 
+    /// Sets the expiration time.
+    ///
+    /// A value of None means never.
+    pub fn set_expiration<T>(mut self, expiration: T) -> Self
+        where T: Into<Option<time::Duration>>
+    {
+        self.expiration = expiration.into();
+        self
+    }
+
     /// Generates the actual TPK.
     pub fn generate(mut self) -> Result<(TPK, Signature)> {
         use {PacketPile, Packet};
@@ -272,7 +286,7 @@ impl TPKBuilder {
         }
 
         // Generate & and self-sign primary key.
-        let (primary, sig) = Self::primary_key(self.primary, self.ciphersuite)?;
+        let (primary, sig) = self.primary_key()?;
         let mut signer = primary.clone().into_keypair().unwrap();
 
         packets.push(Packet::PublicKey({
@@ -316,7 +330,7 @@ impl TPKBuilder {
                 signature::Builder::new(SignatureType::SubkeyBinding)
                 .set_features(&Features::sequoia())?
                 .set_key_flags(flags)?
-                .set_key_expiration_time(Some(time::Duration::weeks(3 * 52)))?;
+                .set_key_expiration_time(self.expiration)?;
 
             if flags.can_encrypt_for_transport() || flags.can_encrypt_at_rest()
             {
@@ -359,17 +373,18 @@ impl TPKBuilder {
         Ok((tpk, revocation))
     }
 
-    fn primary_key(blueprint: KeyBlueprint, cs: CipherSuite)
+    fn primary_key(&self)
         -> Result<(Key, Signature)>
     {
         use SignatureType;
 
-        let key = cs.generate_key(&KeyFlags::default().set_certify(true))?;
+        let key = self.ciphersuite.generate_key(
+            &KeyFlags::default().set_certify(true))?;
         let sig = signature::Builder::new(SignatureType::DirectKey)
             .set_features(&Features::sequoia())?
-            .set_key_flags(&blueprint.flags)?
+            .set_key_flags(&self.primary.flags)?
             .set_signature_creation_time(time::now().canonicalize())?
-            .set_key_expiration_time(Some(time::Duration::weeks(3 * 52)))?
+            .set_key_expiration_time(self.expiration)?
             .set_issuer_fingerprint(key.fingerprint())?
             .set_issuer(key.keyid())?
             .set_preferred_hash_algorithms(vec![HashAlgorithm::SHA512])?;
