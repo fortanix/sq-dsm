@@ -373,7 +373,9 @@ fn sq_sign_detached() {
     // Verify detached.
     Assert::cargo_binary("sq")
         .with_args(
-            &["verify",
+            &["--home",
+              &tmp_dir.path().to_string_lossy(),
+              "verify",
               "--public-key-file",
               &p("keys/dennis-simon-anton.pgp"),
               "--detached",
@@ -417,7 +419,9 @@ fn sq_sign_detached_append() {
     // Verify detached.
     Assert::cargo_binary("sq")
         .with_args(
-            &["verify",
+            &["--home",
+              &tmp_dir.path().to_string_lossy(),
+              "verify",
               "--public-key-file",
               &p("keys/dennis-simon-anton.pgp"),
               "--detached",
@@ -476,7 +480,9 @@ fn sq_sign_detached_append() {
     // Verify both detached signatures.
     Assert::cargo_binary("sq")
         .with_args(
-            &["verify",
+            &["--home",
+              &tmp_dir.path().to_string_lossy(),
+              "verify",
               "--public-key-file",
               &p("keys/dennis-simon-anton.pgp"),
               "--detached",
@@ -485,7 +491,9 @@ fn sq_sign_detached_append() {
         .unwrap();
     Assert::cargo_binary("sq")
         .with_args(
-            &["verify",
+            &["--home",
+              &tmp_dir.path().to_string_lossy(),
+              "verify",
               "--public-key-file",
               &p("keys/erika-corinna-daniela-simone-antonia-nistp256.pgp"),
               "--detached",
@@ -497,7 +505,9 @@ fn sq_sign_detached_append() {
     // goes wrong.
     Assert::cargo_binary("sq")
         .with_args(
-            &["sign",
+            &["--home",
+              &tmp_dir.path().to_string_lossy(),
+              "sign",
               "--detached",
               "--append",
               "--secret-key-file",
