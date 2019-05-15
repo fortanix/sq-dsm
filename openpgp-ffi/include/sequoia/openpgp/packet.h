@@ -62,4 +62,15 @@ const char *pgp_tag_to_string (pgp_tag_t tag);
 /*/
 pgp_signature_t pgp_packet_ref_signature (pgp_packet_t p);
 
+/*/
+/// Given a packet references the contained literal data packet, if
+/// any.
+///
+/// If the Packet is not of the `Packet::Literal` variant, this
+/// function returns `NULL`.  Objects returned from this function must
+/// be deallocated using `pgp_literal_data_free` even though they only
+/// reference the given packet.
+/*/
+pgp_literal_t pgp_packet_ref_literal (pgp_packet_t p);
+
 #endif

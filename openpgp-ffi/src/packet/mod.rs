@@ -20,6 +20,7 @@ pub mod signature;
 pub mod skesk;
 pub mod user_attribute;
 pub mod userid;
+pub mod literal;
 
 use Maybe;
 use MoveIntoRaw;
@@ -116,6 +117,22 @@ pub extern "C" fn pgp_tag_to_string(tag: uint8_t) -> *const c_char {
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_packet_ref_signature(p: *const Packet) -> Maybe<signature::Signature> {
     if let openpgp::Packet::Signature(ref p) = p.ref_raw() {
+        ::std::ptr::NonNull::new(p.move_into_raw())
+    } else {
+        None
+    }
+}
+
+/// Given a packet references the contained literal data packet, if
+/// any.
+///
+/// If the Packet is not of the `Packet::Literal` variant, this
+/// function returns `NULL`.  Objects returned from this function must
+/// be deallocated using `pgp_literal_data_free` even though they only
+/// reference the given packet.
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
+fn pgp_packet_ref_literal(p: *const Packet) -> Maybe<literal::Literal> {
+    if let openpgp::Packet::Literal(ref p) = p.ref_raw() {
         ::std::ptr::NonNull::new(p.move_into_raw())
     } else {
         None

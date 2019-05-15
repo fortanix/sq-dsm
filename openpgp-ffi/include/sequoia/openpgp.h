@@ -452,6 +452,61 @@ pgp_status_t pgp_pkesk_decrypt (pgp_error_t *errp, pgp_pkesk_t pkesk,
                               uint8_t *algo, /* XXX */
                               uint8_t *key, size_t *key_len);
 
+
+/*/
+/// Returns the filename as a c string.
+///
+/// If the filename is not set, returns NULL.
+///
+/// Note: the filename is *not* protected by any signature and thus
+/// can be modified in transit without detection.
+///
+/// Note: the filename may contain embedded NULs.  This function
+/// returns NULL in such cases.
+/*/
+char *pgp_literal_filename (pgp_literal_t literal);
+
+/*/
+/// Returns a human readable description of this object suitable for
+/// debugging.
+/*/
+char *pgp_literal_debug (const pgp_literal_t literal);
+
+/*/
+/// Parses an object from the given reader.
+/*/
+pgp_literal_t pgp_literal_from_reader (pgp_error_t *errp,
+                                       pgp_reader_t reader);
+
+/*/
+/// Parses an object from the given file.
+/*/
+pgp_literal_t pgp_literal_from_file (pgp_error_t *errp,
+                                     const char *filename);
+
+/*/
+/// Parses an object from the given buffer.
+/*/
+pgp_literal_t pgp_literal_from_bytes (pgp_error_t *errp,
+                                      const uint8_t *b, size_t len);
+
+/*/
+/// Serializes this object.
+/*/
+pgp_status_t pgp_literal_serialize (pgp_error_t *errp,
+                                    const pgp_literal_t literal,
+                                    pgp_writer_t writer);
+
+/*/
+/// Converts the literal to a packet.
+/*/
+pgp_packet_t pgp_literal_into_packet (pgp_literal_t literal);
+
+/*/
+/// Frees the literal data packet.
+/*/
+void pgp_literal_free (pgp_literal_t literal);
+
 /* openpgp::tpk::UserIDBinding.  */
 
 /*/
