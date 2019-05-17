@@ -837,14 +837,6 @@ int pgp_tpk_is_tsk(pgp_tpk_t tpk);
 pgp_user_id_binding_iter_t pgp_tpk_user_id_binding_iter (pgp_tpk_t tpk);
 
 /*/
-/// Returns an iterator over the live and unrevoked `Key`s in a TPK.
-///
-/// Compare with `pgp_tpk_key_iter_valid`, which doesn'filters out
-/// expired and revoked keys by default.
-/*/
-pgp_tpk_key_iter_t pgp_tpk_key_iter_all (pgp_tpk_t tpk);
-
-/*/
 /// Returns an iterator over all `Key`s in a TPK.
 ///
 /// That is, this returns an iterator over the primary key and any
@@ -860,8 +852,16 @@ pgp_tpk_key_iter_t pgp_tpk_key_iter_all (pgp_tpk_t tpk);
 ///
 /// A valid `Key` has at least one good self-signature.
 ///
-/// Compare with `pgp_tpk_key_iter_all`, which filters out expired and
+/// Compare with `pgp_tpk_key_iter_valid`, which filters out expired and
 /// revoked keys.
+/*/
+pgp_tpk_key_iter_t pgp_tpk_key_iter_all (pgp_tpk_t tpk);
+
+/*/
+/// Returns an iterator over the live and unrevoked `Key`s in a TPK.
+///
+/// Compare with `pgp_tpk_key_iter_all`, which doesn't filter out
+/// expired and revoked keys by default.
 /*/
 pgp_tpk_key_iter_t pgp_tpk_key_iter_valid (pgp_tpk_t tpk);
 
