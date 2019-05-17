@@ -27,6 +27,7 @@ sequoia-net = { path = "../net", version = "0.7" }
 sequoia-store = { path = "../store", version = "0.7" }
 clap = "2.32.0"
 failure = "0.1.2"
+itertools = "0.8"
 prettytable-rs = "0.8.0"
 rpassword = "3.0"
 tempfile = "3.0.4"

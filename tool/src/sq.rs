@@ -8,6 +8,7 @@ extern crate prettytable;
 extern crate rpassword;
 extern crate tempfile;
 extern crate time;
+extern crate itertools;
 
 use failure::ResultExt;
 use prettytable::{Table, Cell, Row};

@@ -356,6 +356,14 @@ pub fn build() -> App<'static, 'static> {
                              .long("with-password")
                              .help("Prompt for a password to protect the \
                                     generated key with."))
+                        .arg(Arg::with_name("expiry")
+                             .value_name("EXPIRY")
+                             .long("expiry")
+                             // Catch negative numbers.
+                             .allow_hyphen_values(true)
+                             .help("When the key should expire.  \
+                                    Either 'N[ymwd]', for N years, months, \
+                                    weeks, or days, or 'never'."))
 
                         .group(ArgGroup::with_name("cap-sign")
                                .args(&["can-sign", "cannot-sign"]))

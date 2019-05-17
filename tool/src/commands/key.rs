@@ -1,5 +1,7 @@
 use failure;
+use failure::Fail;
 use clap::ArgMatches;
+use itertools::Itertools;
 
 use openpgp::tpk::{TPKBuilder, CipherSuite};
 use openpgp::packet::KeyFlags;
@@ -18,6 +20,95 @@ pub fn generate(m: &ArgMatches, force: bool) -> failure::Fallible<()> {
             eprintln!("No user ID given, using direct key signature");
         }
     }
+
+    // Expiration.
+    const SECONDS_IN_DAY : i64 = 24 * 60 * 60;
+    const SECONDS_IN_YEAR : i64 =
+        // Average number of days in a year.
+        (365.2422222 * SECONDS_IN_DAY as f64) as i64;
+
+    let even_off = |s| {
+        if s < 7 * SECONDS_IN_DAY {
+            // Don't round down, too small.
+            s
+        } else {
+            s - (s % SECONDS_IN_DAY)
+        }
+    };
+
+    match m.value_of("expiry") {
+        Some(expiry) if expiry == "never" =>
+            builder = builder.set_expiration(None),
+
+        Some(expiry) => {
+            let mut expiry = expiry.chars().peekable();
+
+            let _ = expiry.by_ref()
+                .peeking_take_while(|c| c.is_whitespace())
+                .for_each(|_| ());
+            let digits = expiry.by_ref()
+                .peeking_take_while(|c| {
+                    *c == '+' || *c == '-' || c.is_digit(10)
+                }).collect::<String>();
+            let _ = expiry.by_ref()
+                .peeking_take_while(|c| c.is_whitespace())
+                .for_each(|_| ());
+            let suffix = expiry.next();
+            let _ = expiry.by_ref()
+                .peeking_take_while(|c| c.is_whitespace())
+                .for_each(|_| ());
+            let junk = expiry.collect::<String>();
+
+            if digits == "" {
+                return Err(format_err!(
+                    "--expiry: missing count \
+                     (try: '2y' for 2 years)"));
+            }
+
+            let count : i64 = match digits.parse::<i32>() {
+                Ok(count) if count < 0 =>
+                    return Err(format_err!(
+                        "--expiry: Expiration can't be in the past")),
+                Ok(count) => count as i64,
+                Err(err) =>
+                    return Err(err.context(
+                        "--expiry: count is out of range").into()),
+            };
+
+            let factor = match suffix {
+                Some('y') | Some('Y') => SECONDS_IN_YEAR,
+                Some('m') | Some('M') => SECONDS_IN_YEAR / 12,
+                Some('w') | Some('W') => 7 * SECONDS_IN_DAY,
+                Some('d') | Some('D') => SECONDS_IN_DAY,
+                None =>
+                    return Err(format_err!(
+                        "--expiry: missing suffix \
+                         (try: '{}y', '{}m', '{}w' or '{}d' instead)",
+                        digits, digits, digits, digits)),
+                Some(suffix) =>
+                    return Err(format_err!(
+                        "--expiry: invalid suffix '{}' \
+                         (try: '{}y', '{}m', '{}w' or '{}d' instead)",
+                        suffix, digits, digits, digits, digits)),
+            };
+
+            if junk != "" {
+                return Err(format_err!(
+                    "--expiry: contains trailing junk ('{:?}') \
+                     (try: '{}{}')",
+                    junk, count, factor));
+            }
+
+            builder = builder.set_expiration(
+                Some(time::Duration::seconds(even_off(count * factor))));
+        }
+
+        // Not specified.  Use the default.
+        None => {
+            builder = builder.set_expiration(
+                Some(time::Duration::seconds(even_off(3 * SECONDS_IN_YEAR))));
+        }
+    };
 
     // Cipher Suite
     match m.value_of("cipher-suite") {
