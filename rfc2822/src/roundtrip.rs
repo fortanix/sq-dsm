@@ -187,15 +187,20 @@ macro_rules! parser_quickcheck {
                         } = err
                         {
                             eprintln!("Context:");
-                            // XXX: This won't work with multi-byte
-                            // characters.  But at that point we've
-                            // already printed the error message.
-                            for i in (cmp::max(5, start) - 5)
-                                ..cmp::min(end + 5, s.len() - 1)
-                            {
+                            let chars = s.char_indices()
+                                .filter_map(|(i, c)| {
+                                    if cmp::max(8, start) - 8 <= i
+                                        && i <= end + 8
+                                    {
+                                        Some((i, c))
+                                    } else {
+                                        None
+                                    }
+                                });
+                            for (i, c) in chars {
                                 eprintln!("{} {}: {:?}",
                                           if i == start { "*" } else { " " },
-                                          i, &s[i..i+1]);
+                                          i, c);
                             }
                         }
                         false
