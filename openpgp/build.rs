@@ -34,7 +34,9 @@ fn include_test_data() -> io::Result<()> {
             if path.is_file() {
                 writeln!(
                     &mut sink, "    add!({:?}, {:?});",
-                    path.components().skip(2).collect::<PathBuf>(),
+                    path.components().skip(2)
+                        .map(|c| c.as_os_str().to_str().expect("valid UTF-8"))
+                        .collect::<Vec<_>>().join("/"),
                     cwd.join(path))?;
             } else if path.is_dir() {
                 dirs.push(path.clone());
