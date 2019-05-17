@@ -1036,13 +1036,13 @@ pgp_key_t pgp_key_clone (pgp_key_t key);
 /// Computes and returns the key's fingerprint as per Section 12.2
 /// of RFC 4880.
 /*/
-pgp_fingerprint_t pgp_key_fingerprint (pgp_key_t p);
+pgp_fingerprint_t pgp_key_fingerprint (pgp_key_t key);
 
 /*/
 /// Computes and returns the key's key ID as per Section 12.2 of RFC
 /// 4880.
 /*/
-pgp_keyid_t pgp_key_keyid (pgp_key_t p);
+pgp_keyid_t pgp_key_keyid (pgp_key_t key);
 
 /*/
 /// Returns the key's public key algorithm.
