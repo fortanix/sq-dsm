@@ -110,7 +110,8 @@ impl S2K {
                         },
                         &S2K::Iterated { ref salt, hash_bytes, .. } => {
                             let octs_per_iter = salt.len() + string.len();
-                            let mut data = vec![0u8; octs_per_iter];
+                            let mut data: SessionKey =
+                                vec![0u8; octs_per_iter].into();
                             let full = hash_bytes as usize / octs_per_iter;
                             let tail = hash_bytes as usize - (full * octs_per_iter);
 
