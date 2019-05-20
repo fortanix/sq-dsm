@@ -100,9 +100,15 @@ impl S2K {
                             hash.update(salt);
                             hash.update(string);
                         }
-                        &S2K::Iterated { ref salt, hash_bytes, .. } => {
+                        &S2K::Iterated { ref salt, hash_bytes, .. }
+                        if (hash_bytes as usize) < salt.len() + string.len() =>
+                        {
                             // Independent of what the hash count is, we
                             // always hash the whole salt and password once.
+                            hash.update(&salt[..]);
+                            hash.update(&string);
+                        },
+                        &S2K::Iterated { ref salt, hash_bytes, .. } => {
                             let octs_per_iter = salt.len() + string.len();
                             let mut data = vec![0u8; octs_per_iter];
                             let full = hash_bytes as usize / octs_per_iter;
