@@ -60,6 +60,11 @@ impl Default for S2K {
         let mut salt = [0u8; 8];
         Yarrow::default().random(&mut salt);
         S2K::Iterated {
+            // SHA2-256, being optimized for implementations on
+            // architectures with a word size of 32 bit, has a more
+            // consistent runtime across different architectures than
+            // SHA2-512.  Furthermore, the digest size is large enough
+            // for every cipher algorithm currently in use.
             hash: HashAlgorithm::SHA256,
             salt: salt,
             iterations: 26214400, // XXX: Calibrate somehow.
