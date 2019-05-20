@@ -805,10 +805,10 @@ impl Serialize for S2K {
                 w.write_all(&[1, hash.into()])?;
                 w.write_all(&salt[..])?;
             }
-            &S2K::Iterated{ hash, salt, iterations } => {
+            &S2K::Iterated{ hash, salt, hash_bytes } => {
                 w.write_all(&[3, hash.into()])?;
                 w.write_all(&salt[..])?;
-                w.write_all(&[S2K::encode_count(iterations)?])?;
+                w.write_all(&[S2K::encode_count(hash_bytes)?])?;
             }
             &S2K::Private(s2k) | &S2K::Unknown(s2k) => {
                 w.write_all(&[s2k])?;

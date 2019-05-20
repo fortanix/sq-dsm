@@ -735,11 +735,11 @@ impl PacketDumper {
                 writeln!(output, "{}    Hash: {}", i, hash)?;
                 writeln!(output, "{}    Salt: {}", i, hex::encode(salt))?;
             },
-            Iterated { hash, ref salt, iterations } => {
+            Iterated { hash, ref salt, hash_bytes } => {
                 writeln!(output, "Iterated")?;
                 writeln!(output, "{}    Hash: {}", i, hash)?;
                 writeln!(output, "{}    Salt: {}", i, hex::encode(salt))?;
-                writeln!(output, "{}    Iterations: {}", i, iterations)?;
+                writeln!(output, "{}    Hash bytes: {}", i, hash_bytes)?;
             },
             Private(n) =>
                 writeln!(output, "Private({})", n)?,

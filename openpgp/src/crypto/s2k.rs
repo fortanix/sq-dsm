@@ -46,7 +46,7 @@ pub enum S2K {
         /// Public salt value mixed into the password.
         salt: [u8; 8],
         /// Number of bytes to hash.
-        iterations: u32,
+        hash_bytes: u32,
     },
     /// Private S2K algorithm
     Private(u8),
@@ -67,7 +67,7 @@ impl Default for S2K {
             // for every cipher algorithm currently in use.
             hash: HashAlgorithm::SHA256,
             salt: salt,
-            iterations: 26214400, // XXX: Calibrate somehow.
+            hash_bytes: 26214400, // XXX: Calibrate somehow.
         }
     }
 }
@@ -100,15 +100,13 @@ impl S2K {
                             hash.update(salt);
                             hash.update(string);
                         }
-                        &S2K::Iterated { ref salt, iterations, .. } => {
-                            // Independent of what the iteration count is, we
+                        &S2K::Iterated { ref salt, hash_bytes, .. } => {
+                            // Independent of what the hash count is, we
                             // always hash the whole salt and password once.
-                            // The iteration value counts the _bytes_ to be
-                            // hashed.
                             let octs_per_iter = salt.len() + string.len();
                             let mut data = vec![0u8; octs_per_iter];
-                            let full = iterations as usize / octs_per_iter;
-                            let tail = iterations as usize - (full * octs_per_iter);
+                            let full = hash_bytes as usize / octs_per_iter;
+                            let tail = hash_bytes as usize - (full * octs_per_iter);
 
                             data[0..salt.len()].clone_from_slice(salt);
                             data[salt.len()..].clone_from_slice(string);
@@ -168,7 +166,7 @@ impl S2K {
         }
      }
 
-    /// Decodes the OpenPGP encoding of S2K iterations.
+    /// Decodes the OpenPGP encoding of the number of bytes to hash.
     pub fn decode_count(coded: u8) -> u32 {
         use std::cmp;
 
@@ -224,14 +222,15 @@ impl fmt::Display for S2K {
                     salt[0], salt[1], salt[2], salt[3],
                     salt[4], salt[5], salt[6], salt[7]))
             }
-            S2K::Iterated{ hash, salt, iterations, } => {
+            S2K::Iterated{ hash, salt, hash_bytes, } => {
                 f.write_fmt(
                     format_args!("Iterated and Salted S2K with {}, \
-                      salt {:x}{:x}{:x}{:x}{:x}{:x}{:x}{:x} and {} iterations",
+                      salt {:x}{:x}{:x}{:x}{:x}{:x}{:x}{:x} and \
+                      {} bytes to hash",
                     hash,
                     salt[0], salt[1], salt[2], salt[3],
                     salt[4], salt[5], salt[6], salt[7],
-                    iterations))
+                    hash_bytes))
             }
             S2K::Private(u) =>
                 f.write_fmt(format_args!("Private/Experimental S2K {}", u)),
@@ -251,7 +250,7 @@ impl Arbitrary for S2K {
             2 => S2K::Iterated{
                 hash: HashAlgorithm::arbitrary(g),
                 salt: g.gen(),
-                iterations: S2K::nearest_iteration_count(g.gen()),
+                hash_bytes: S2K::nearest_iteration_count(g.gen()),
             },
             3 => S2K::Private(g.gen_range(100, 111)),
             4 => S2K::Unknown(g.gen_range(4, 100)),
@@ -322,7 +321,7 @@ mod tests {
                 s2k: S2K::Iterated {
                     hash: HashAlgorithm::SHA1,
                     salt: [0x78, 0x45, 0xf0, 0x5b, 0x55, 0xf7, 0xb4, 0x9e],
-                    iterations: S2K::decode_count(241),
+                    hash_bytes: S2K::decode_count(241),
                 },
                 password: "qwerty".into(),
                 key_hex: "575AD156187A3F8CEC11108309236EB499F1E682F0D1AFADFAC4ECF97613108A",
@@ -333,7 +332,7 @@ mod tests {
                 s2k: S2K::Iterated {
                     hash: HashAlgorithm::SHA1,
                     salt: [0xb9, 0x67, 0xea, 0x96, 0x53, 0xdb, 0x6a, 0xc8],
-                    iterations: S2K::decode_count(43),
+                    hash_bytes: S2K::decode_count(43),
                 },
                 password: "9876".into(),
                 key_hex: "736C226B8C64E4E6D0325C6C552EF7C0738F98F48FED65FD8C93265103EFA23A",
@@ -344,7 +343,7 @@ mod tests {
                 s2k: S2K::Iterated {
                     hash: HashAlgorithm::SHA1,
                     salt: [0x8f, 0x81, 0x74, 0xc5, 0xd9, 0x61, 0xc7, 0x79],
-                    iterations: S2K::decode_count(238),
+                    hash_bytes: S2K::decode_count(238),
                 },
                 password: "123".into(),
                 key_hex: "915E96FC694E7F90A6850B740125EA005199C725F3BD27E3",
@@ -355,7 +354,7 @@ mod tests {
                 s2k: S2K::Iterated {
                     hash: HashAlgorithm::SHA1,
                     salt: [0x51, 0xed, 0xfc, 0x15, 0x45, 0x40, 0x65, 0xac],
-                    iterations: S2K::decode_count(238),
+                    hash_bytes: S2K::decode_count(238),
                 },
                 password: "0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789".into(),
                 key_hex: "EA264FADA5A859C40D88A159B344ECF1F51FF327FDB3C558B0A7DC299777173E",
@@ -366,7 +365,7 @@ mod tests {
                 s2k: S2K::Iterated {
                     hash: HashAlgorithm::SHA1,
                     salt: [0x06, 0xe4, 0x61, 0x5c, 0xa4, 0x48, 0xf9, 0xdd],
-                    iterations: S2K::decode_count(238),
+                    hash_bytes: S2K::decode_count(238),
                 },
                 password: "0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789".into(),
                 key_hex: "F3D0CE52ED6143637443E3399437FD0F",
@@ -441,8 +440,9 @@ mod tests {
     #[test]
     fn s2k_coded_count_roundtrip() {
         for cc in 0..0x100usize {
-            let iters = S2K::decode_count(cc as u8);
-            assert!(iters >= 1024 && S2K::encode_count(iters).unwrap() == cc as u8);
+            let hash_bytes = S2K::decode_count(cc as u8);
+            assert!(hash_bytes >= 1024
+                    && S2K::encode_count(hash_bytes).unwrap() == cc as u8);
         }
     }
 

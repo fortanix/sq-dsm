@@ -712,7 +712,7 @@ impl S2K {
             3 => S2K::Iterated {
                 hash: HashAlgorithm::from(php.parse_u8("s2k_hash_algo")?),
                 salt: Self::read_salt(php)?,
-                iterations: S2K::decode_count(php.parse_u8("s2k_count")?),
+                hash_bytes: S2K::decode_count(php.parse_u8("s2k_count")?),
             },
             100...110 => S2K::Private(s2k),
             u => S2K::Unknown(u),
@@ -2000,7 +2000,7 @@ fn skesk_parser_test() {
             s2k: S2K::Iterated {
                 hash: HashAlgorithm::SHA1,
                 salt: [0x82, 0x59, 0xa0, 0x6e, 0x98, 0xda, 0x94, 0x1c],
-                iterations: S2K::decode_count(238),
+                hash_bytes: S2K::decode_count(238),
             },
             password: "bgtyhn".into(),
             key_hex: "474E5C373BA18AF0A499FCAFE6093F131DF636F6A3812B9A8AE707F1F0214AE9",
