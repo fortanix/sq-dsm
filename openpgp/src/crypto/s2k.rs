@@ -109,14 +109,22 @@ impl S2K {
                             hash.update(&string);
                         },
                         &S2K::Iterated { ref salt, hash_bytes, .. } => {
-                            let octs_per_iter = salt.len() + string.len();
+                            // Unroll the processing loop N times.
+                            const N: usize = 16;
+                            let data_len = salt.len() + string.len();
+                            let octs_per_iter = N * data_len;
                             let mut data: SessionKey =
                                 vec![0u8; octs_per_iter].into();
                             let full = hash_bytes as usize / octs_per_iter;
                             let tail = hash_bytes as usize - (full * octs_per_iter);
 
-                            data[0..salt.len()].clone_from_slice(salt);
-                            data[salt.len()..].clone_from_slice(string);
+                            for i in 0..N {
+                                let o = data_len * i;
+                                data[o..o + salt.len()]
+                                    .clone_from_slice(salt);
+                                data[o + salt.len()..o + data_len]
+                                    .clone_from_slice(string);
+                            }
 
                             for _ in 0..full {
                                 hash.update(&data);
