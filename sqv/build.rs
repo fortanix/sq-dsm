@@ -1,6 +1,7 @@
 extern crate clap;
 
 use std::env;
+use std::fs;
 use clap::Shell;
 
 mod sqv_cli {
@@ -12,6 +13,7 @@ fn main() {
         None => return,
         Some(outdir) => outdir,
     };
+    fs::create_dir_all(&outdir).unwrap();
     let mut sqv = sqv_cli::build();
     for shell in &[Shell::Bash, Shell::Fish, Shell::Zsh, Shell::PowerShell,
                    Shell::Elvish] {
