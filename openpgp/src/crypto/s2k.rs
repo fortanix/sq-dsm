@@ -149,33 +149,34 @@ impl S2K {
         }
     }
 
-    /// Not all iteration counts are encodable as Iterated and Salted S2K. This function returns
-    /// an encodabled iteration count larger or equal `iters`.
-    /// # Note
-    /// The largest encodable iteration count is 0x3e00000.
-    pub fn nearest_iteration_count(iters: usize) -> u32 {
+    /// This function returns an encodabled iteration count larger or
+    /// equal `hash_bytes`.
+    ///
+    /// Not all iteration counts are encodable as *Iterated and Salted
+    /// S2K*.  The largest encodable hash count is `0x3e00000`.
+    pub fn nearest_hash_count(hash_bytes: usize) -> u32 {
         use std::usize;
 
-        match iters {
+        match hash_bytes {
             0...1024 => 1024,
-            1025...2048 => iters as u32,
+            1025...2048 => hash_bytes as u32,
             0x3e00001...usize::MAX => 0x3e00000,
-            iters => {
-                let iters = iters as u32;
-                let msb = 32 - iters.leading_zeros();
+            hash_bytes => {
+                let hash_bytes = hash_bytes as u32;
+                let msb = 32 - hash_bytes.leading_zeros();
                 let mantissa_mask = 0b1111_000000 << (msb - 11);
                 let tail_mask = (1 << (msb - 11)) - 1;
-                let mantissa = (iters & mantissa_mask) >> (msb - 5);
+                let mantissa = (hash_bytes & mantissa_mask) >> (msb - 5);
                 let exp = if msb < 11 { 0 } else { msb - 11 };
 
-                if iters & tail_mask != 0 {
+                if hash_bytes & tail_mask != 0 {
                     if mantissa < 0b1111 {
                         Self::decode_count((mantissa as u8 + 1) | exp as u8)
                     } else {
                         Self::decode_count(mantissa as u8 | (exp as u8 + 1))
                     }
                 } else {
-                    iters
+                    hash_bytes
                 }
             }
         }
@@ -196,9 +197,9 @@ impl S2K {
     /// # Errors
     ///
     /// Fails with `Error::InvalidArgument` if `hash_bytes` cannot be
-    /// encoded. See also [`S2K::nearest_iteration_count()`].
+    /// encoded. See also [`S2K::nearest_hash_count()`].
     ///
-    /// [`S2K::nearest_iteration_count()`]: #method.nearest_iteration_count
+    /// [`S2K::nearest_hash_count()`]: #method.nearest_hash_count
     pub fn encode_count(hash_bytes: u32) -> Result<u8> {
         // eeee.mmmm -> (16 + mmmm) * 2^(6 + e)
 
@@ -271,7 +272,7 @@ impl Arbitrary for S2K {
             2 => S2K::Iterated{
                 hash: HashAlgorithm::arbitrary(g),
                 salt: g.gen(),
-                hash_bytes: S2K::nearest_iteration_count(g.gen()),
+                hash_bytes: S2K::nearest_hash_count(g.gen()),
             },
             3 => S2K::Private(g.gen_range(100, 111)),
             4 => S2K::Unknown(g.gen_range(4, 100)),
@@ -469,7 +470,7 @@ mod tests {
 
     quickcheck!{
         fn s2k_coded_count_approx(i: usize) -> bool {
-            let approx = S2K::nearest_iteration_count(i);
+            let approx = S2K::nearest_hash_count(i);
             let cc = S2K::encode_count(approx).unwrap();
 
             (approx as usize >= i || i > 0x3e00000) && S2K::decode_count(cc) == approx
