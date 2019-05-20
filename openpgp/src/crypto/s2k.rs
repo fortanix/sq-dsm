@@ -54,7 +54,6 @@ pub enum S2K {
     Unknown(u8),
 }
 
-// XXX: Check defaults.
 impl Default for S2K {
     fn default() -> Self {
         let mut salt = [0u8; 8];
@@ -67,7 +66,10 @@ impl Default for S2K {
             // for every cipher algorithm currently in use.
             hash: HashAlgorithm::SHA256,
             salt: salt,
-            hash_bytes: 26214400, // XXX: Calibrate somehow.
+            // This is the largest count that OpenPGP can represent.
+            // On moderate machines, like my Intel(R) Core(TM) i5-2400
+            // CPU @ 3.10GHz, it takes ~354ms to derive a key.
+            hash_bytes: 65_011_712,
         }
     }
 }
