@@ -191,17 +191,23 @@ impl S2K {
         mantissa << cmp::min(32 - 5, exp)
     }
 
-    /// Converts `iters` into coded count representation. Fails if `iters` cannot be encoded. See
-    /// also `nearest_iteration_count`.
-    pub fn encode_count(iters: u32) -> Result<u8> {
+    /// Converts `hash_bytes` into coded count representation.
+    ///
+    /// # Errors
+    ///
+    /// Fails with `Error::InvalidArgument` if `hash_bytes` cannot be
+    /// encoded. See also [`S2K::nearest_iteration_count()`].
+    ///
+    /// [`S2K::nearest_iteration_count()`]: #method.nearest_iteration_count
+    pub fn encode_count(hash_bytes: u32) -> Result<u8> {
         // eeee.mmmm -> (16 + mmmm) * 2^(6 + e)
 
-        let msb = 32 - iters.leading_zeros();
+        let msb = 32 - hash_bytes.leading_zeros();
         let (mantissa_mask, tail_mask) = match msb {
             0...10 => {
-                return Err(Error::MalformedPacket(
-                        format!("S2K: cannot encode iteration count of {}",
-                                iters)).into());
+                return Err(Error::InvalidArgument(
+                    format!("S2K: cannot encode iteration count of {}",
+                            hash_bytes)).into());
             }
             11...32 => {
                 let m = 0b1111_000000 << (msb - 11);
@@ -212,12 +218,12 @@ impl S2K {
             _ => unreachable!()
         };
         let exp = if msb < 11 { 0 } else { msb - 11 };
-        let mantissa = (iters & mantissa_mask) >> (msb - 5);
+        let mantissa = (hash_bytes & mantissa_mask) >> (msb - 5);
 
-        if tail_mask & iters != 0 {
-            return Err(Error::MalformedPacket(
-                    format!("S2K: cannot encode iteration count of {}",
-                            iters)).into());
+        if tail_mask & hash_bytes != 0 {
+            return Err(Error::InvalidArgument(
+                format!("S2K: cannot encode iteration count of {}",
+                        hash_bytes)).into());
         }
 
         Ok(mantissa as u8 | (exp as u8) << 4)
