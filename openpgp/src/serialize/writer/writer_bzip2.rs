@@ -46,10 +46,10 @@ impl<'a, C: 'a> Stackable<'a, C> for BZ<'a, C> {
         Ok(Some(inner))
     }
     fn pop(&mut self) -> Result<Option<BoxStack<'a, C>>> {
-        unimplemented!()
+        unreachable!("Only implemented by Signer")
     }
     fn mount(&mut self, _new: BoxStack<'a, C>) {
-        unimplemented!()
+        unreachable!("Only implemented by Signer")
     }
     fn inner_mut(&mut self) -> Option<&mut Stackable<'a, C>> {
         self.inner.inner_mut()

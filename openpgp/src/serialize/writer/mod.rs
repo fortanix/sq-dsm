@@ -83,9 +83,13 @@ pub(crate) trait Stackable<'a, C> : io::Write + fmt::Debug {
     /// Pops the stackable from the stack, detaching it.
     ///
     /// Returns the detached stack.
+    ///
+    /// Note: Only the Signer implements this interface.
     fn pop(&mut self) -> Result<Option<BoxStack<'a, C>>>;
 
     /// Sets the inner stackable.
+    ///
+    /// Note: Only the Signer implements this interface.
     fn mount(&mut self, new: BoxStack<'a, C>);
 
     /// Returns a mutable reference to the inner `Writer`, if
@@ -380,10 +384,10 @@ impl<'a, C: 'a> Stackable<'a, C> for Encryptor<'a, C> {
         Ok(Some(inner))
     }
     fn pop(&mut self) -> Result<Option<BoxStack<'a, C>>> {
-        unimplemented!()
+        unreachable!("Only implemented by Signer")
     }
     fn mount(&mut self, _new: BoxStack<'a, C>) {
-        unimplemented!()
+        unreachable!("Only implemented by Signer")
     }
     fn inner_mut(&mut self) -> Option<&mut Stackable<'a, C>> {
         self.inner.inner_mut()
@@ -448,10 +452,10 @@ impl<'a, C: 'a> Stackable<'a, C> for AEADEncryptor<'a, C> {
         Ok(Some(inner))
     }
     fn pop(&mut self) -> Result<Option<BoxStack<'a, C>>> {
-        unimplemented!()
+        unreachable!("Only implemented by Signer")
     }
     fn mount(&mut self, _new: BoxStack<'a, C>) {
-        unimplemented!()
+        unreachable!("Only implemented by Signer")
     }
     fn inner_mut(&mut self) -> Option<&mut Stackable<'a, C>> {
         self.inner.inner_mut()

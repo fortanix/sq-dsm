@@ -157,11 +157,11 @@ impl<'a> writer::Stackable<'a, Cookie> for ArbitraryWriter<'a> {
         Box::new(self.inner).into_inner()
     }
     fn pop(&mut self) -> Result<Option<writer::BoxStack<'a, Cookie>>> {
-        unimplemented!()
+        unreachable!("Only implemented by Signer")
     }
     /// Sets the inner stackable.
     fn mount(&mut self, _new: writer::BoxStack<'a, Cookie>) {
-        unimplemented!()
+        unreachable!("Only implemented by Signer")
     }
     fn inner_ref(&self) -> Option<&writer::Stackable<'a, Cookie>> {
         self.inner.inner_ref()
@@ -664,11 +664,11 @@ impl<'a> writer::Stackable<'a, Cookie> for LiteralWriter<'a> {
     }
 
     fn pop(&mut self) -> Result<Option<writer::BoxStack<'a, Cookie>>> {
-        unimplemented!()
+        unreachable!("Only implemented by Signer")
     }
     /// Sets the inner stackable.
     fn mount(&mut self, _new: writer::BoxStack<'a, Cookie>) {
-        unimplemented!()
+        unreachable!("Only implemented by Signer")
     }
     fn inner_ref(&self) -> Option<&writer::Stackable<'a, Cookie>> {
         self.inner.inner_ref()
@@ -782,11 +782,11 @@ impl<'a> writer::Stackable<'a, Cookie> for Compressor<'a> {
         Box::new(self.inner).into_inner()?.unwrap().into_inner()
     }
     fn pop(&mut self) -> Result<Option<writer::BoxStack<'a, Cookie>>> {
-        unimplemented!()
+        unreachable!("Only implemented by Signer")
     }
     /// Sets the inner stackable.
     fn mount(&mut self, _new: writer::BoxStack<'a, Cookie>) {
-        unimplemented!()
+        unreachable!("Only implemented by Signer")
     }
     fn inner_ref(&self) -> Option<&writer::Stackable<'a, Cookie>> {
         self.inner.inner_ref()
@@ -1127,11 +1127,11 @@ impl<'a> Write for Encryptor<'a> {
 
 impl<'a> writer::Stackable<'a, Cookie> for Encryptor<'a> {
     fn pop(&mut self) -> Result<Option<writer::BoxStack<'a, Cookie>>> {
-        unimplemented!()
+        unreachable!("Only implemented by Signer")
     }
     /// Sets the inner stackable.
     fn mount(&mut self, _new: writer::BoxStack<'a, Cookie>) {
-        unimplemented!()
+        unreachable!("Only implemented by Signer")
     }
     fn inner_ref(&self) -> Option<&writer::Stackable<'a, Cookie>> {
         if let Some(ref i) = self.inner {
