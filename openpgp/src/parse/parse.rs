@@ -1919,15 +1919,25 @@ impl MDC {
 
 impl_parse_generic_packet!(MDC);
 
-impl AED1 {
+impl AED {
     /// Parses the body of a AED packet.
     fn parse<'a>(mut php: PacketHeaderParser<'a>) -> Result<PacketParser<'a>> {
         make_php_try!(php);
         let version = php_try!(php.parse_u8("version"));
-        if version != 1 {
-            return php.fail("unknown version");
-        }
 
+        match version {
+            1 => AED1::parse(php),
+            _ => php.fail("unknown version"),
+        }
+    }
+}
+
+impl_parse_generic_packet!(AED);
+
+impl AED1 {
+    /// Parses the body of a AED packet.
+    fn parse<'a>(mut php: PacketHeaderParser<'a>) -> Result<PacketParser<'a>> {
+        make_php_try!(php);
         let cipher: SymmetricAlgorithm =
             php_try!(php.parse_u8("sym_algo")).into();
         let aead: AEADAlgorithm =
@@ -1944,8 +1954,6 @@ impl AED1 {
         php.ok(aed.into()).map(|pp| pp.set_decrypted(false))
     }
 }
-
-impl_parse_generic_packet!(AED);
 
 impl MPI {
     /// Parses an OpenPGP MPI.
@@ -2869,7 +2877,7 @@ impl <'a> PacketParser<'a> {
             Tag::SEIP =>                SEIP::parse(parser),
             Tag::MDC =>                 MDC::parse(parser),
             Tag::PKESK =>               PKESK::parse(parser),
-            Tag::AED =>                 AED1::parse(parser),
+            Tag::AED =>                 AED::parse(parser),
             _ => Unknown::parse(parser,
                                 Error::UnsupportedPacketType(tag).into()),
         }?;
