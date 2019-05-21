@@ -269,11 +269,6 @@ impl PublicKey {
         }
     }
 
-    /// Returns the algorithm the key is for.
-    pub fn algo(&self) -> Option<PublicKeyAlgorithm> {
-        unimplemented!()
-    }
-
     /// Returns the length of the public key in bits.
     ///
     /// For finite field crypto this returns the size of the field we
