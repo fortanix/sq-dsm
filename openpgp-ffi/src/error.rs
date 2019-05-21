@@ -93,6 +93,9 @@ pub enum Status {
     /// Unsupported AEAD algorithm.
     UnsupportedAEADAlgorithm = -26,
 
+    /// Unsupported Compression algorithm.
+    UnsupportedCompressionAlgorithm = -28,
+
     /// Unsupport signature type.
     UnsupportedSignatureType = -20,
 
@@ -139,6 +142,7 @@ pub enum Status {
     // XXX: Skipping ManipulatedMessage = -25
     // XXX: Skipping UnsupportedAEADAlgorithm = -26
     // XXX: Skipping MissingSessionKey = -27
+    // XXX: Skipping UnsupportedCompressionAlgorithm = -28
 }
 
 /// Returns the error message.
@@ -165,6 +169,8 @@ pub extern "C" fn pgp_status_to_string(status: Status) -> *const c_char {
         UnsupportedSymmetricAlgorithm =>
             "Unsupported symmetric algorithm\x00",
         UnsupportedAEADAlgorithm => "Unsupported AEAD algorithm\x00",
+        UnsupportedCompressionAlgorithm =>
+            "Unsupported compression algorithm\x00",
         UnsupportedSignatureType => "Unsupport signature type\x00",
         InvalidPassword => "Invalid password\x00",
         InvalidSessionKey => "Invalid session key\x00",
@@ -201,6 +207,8 @@ impl<'a> From<&'a failure::Error> for Status {
                     Status::UnsupportedSymmetricAlgorithm,
                 &openpgp::Error::UnsupportedAEADAlgorithm(_) =>
                     Status::UnsupportedAEADAlgorithm,
+                &openpgp::Error::UnsupportedCompressionAlgorithm(_) =>
+                    Status::UnsupportedCompressionAlgorithm,
                 &openpgp::Error::UnsupportedSignatureType(_) =>
                     Status::UnsupportedSignatureType,
                 &openpgp::Error::InvalidPassword =>

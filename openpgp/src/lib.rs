@@ -186,6 +186,10 @@ pub enum Error {
     #[fail(display = "Unsupported AEAD algorithm: {}", _0)]
     UnsupportedAEADAlgorithm(constants::AEADAlgorithm),
 
+    /// Unsupported Compression algorithm.
+    #[fail(display = "Unsupported Compression algorithm: {}", _0)]
+    UnsupportedCompressionAlgorithm(constants::CompressionAlgorithm),
+
     /// Unsupported signature type.
     #[fail(display = "Unsupported signature type: {}", _0)]
     UnsupportedSignatureType(SignatureType),

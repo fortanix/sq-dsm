@@ -751,7 +751,8 @@ impl<'a> Compressor<'a> {
             #[cfg(feature = "compression-bzip2")]
             CompressionAlgorithm::BZip2 =>
                 writer::BZ::new(inner, Cookie::new(level)),
-            _ => unimplemented!(),
+            a =>
+                return Err(Error::UnsupportedCompressionAlgorithm(a).into()),
         };
 
         Ok(writer::Stack::from(Box::new(Self{inner: inner.into()})))

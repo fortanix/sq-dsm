@@ -44,6 +44,8 @@ impl<'a> FromSequoiaError<'a> for Status {
                     Status::UnsupportedSymmetricAlgorithm,
                 &openpgp::Error::UnsupportedAEADAlgorithm(_) =>
                     Status::UnsupportedAEADAlgorithm,
+                &openpgp::Error::UnsupportedCompressionAlgorithm(_) =>
+                    Status::UnsupportedCompressionAlgorithm,
                 &openpgp::Error::UnsupportedSignatureType(_) =>
                     Status::UnsupportedSignatureType,
                 &openpgp::Error::InvalidPassword =>
