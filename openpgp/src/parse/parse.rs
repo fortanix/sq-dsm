@@ -95,6 +95,37 @@ pub trait Parse<'a, T> {
         Self::from_reader(io::Cursor::new(data))
     }
 }
+
+macro_rules! impl_parse_generic_packet {
+    ($typ: ident) => {
+        impl<'a> Parse<'a, $typ> for $typ {
+            fn from_reader<R: 'a + Read>(reader: R) -> Result<Self> {
+                let ppr = PacketParserBuilder::from_reader(reader)?
+                    .buffer_unread_content().finalize()?;
+                let (p, ppr) = match ppr {
+                    PacketParserResult::Some(mut pp) => {
+                        pp.next()?
+                    },
+                    PacketParserResult::EOF(_) =>
+                        return Err(Error::InvalidOperation(
+                            "Unexpected EOF".into()).into()),
+                };
+
+                match (p, ppr) {
+                    (Packet::$typ(o), PacketParserResult::EOF(_))
+                        => Ok(o),
+                    (p, PacketParserResult::EOF(_)) =>
+                        Err(Error::InvalidOperation(
+                            format!("Not a {} packet: {:?}", stringify!($typ),
+                                    p)).into()),
+                    (_, PacketParserResult::Some(_)) =>
+                        Err(Error::InvalidOperation(
+                            "Excess data after packet".into()).into()),
+                }
+            }
+        }
+    };
+}
 
 /// The default amount of acceptable nesting.  Typically, we expect a
 /// message to looking like:
@@ -1007,31 +1038,7 @@ impl Signature4 {
     }
 }
 
-impl<'a> Parse<'a, Signature> for Signature {
-    fn from_reader<R: 'a + Read>(reader: R) -> Result<Self> {
-        let ppr = PacketParserBuilder::from_reader(reader)?
-            .buffer_unread_content().finalize()?;
-        let (p, ppr) = match ppr {
-            PacketParserResult::Some(mut pp) => {
-                pp.next()?
-            },
-            PacketParserResult::EOF(_) =>
-                return Err(Error::InvalidOperation(
-                    "Unexpected EOF".into()).into()),
-        };
-
-        match (p, ppr) {
-            (Packet::Signature(o), PacketParserResult::EOF(_)) =>
-                Ok(o),
-            (p, PacketParserResult::EOF(_)) =>
-                Err(Error::InvalidOperation(
-                    format!("Not a Signature packet: {:?}", p)).into()),
-            (_, PacketParserResult::Some(_)) =>
-                Err(Error::InvalidOperation(
-                    "Excess data after packet".into()).into()),
-        }
-    }
-}
+impl_parse_generic_packet!(Signature);
 
 #[test]
 fn signature_parser_test () {
@@ -1063,11 +1070,7 @@ impl OnePassSig {
     }
 }
 
-impl<'a> Parse<'a, OnePassSig> for OnePassSig {
-    fn from_reader<R: 'a + Read>(reader: R) -> Result<Self> {
-        OnePassSig3::from_reader(reader).map(|p| p.into())
-    }
-}
+impl_parse_generic_packet!(OnePassSig);
 
 impl OnePassSig3 {
     fn parse<'a>(mut php: PacketHeaderParser<'a>)
@@ -1238,28 +1241,13 @@ fn one_pass_sig_parser_test () {
 
 impl<'a> Parse<'a, OnePassSig3> for OnePassSig3 {
     fn from_reader<R: 'a + Read>(reader: R) -> Result<Self> {
-        let ppr = PacketParserBuilder::from_reader(reader)?
-            .buffer_unread_content().finalize()?;
-        let (p, ppr) = match ppr {
-            PacketParserResult::Some(mut pp) => {
-                pp.next()?
-            },
-            PacketParserResult::EOF(_) =>
-                return Err(Error::InvalidOperation(
-                    "Unexpected EOF".into()).into()),
-        };
-
-        match (p, ppr) {
-            (Packet::OnePassSig(OnePassSig::V3(o)),
-             PacketParserResult::EOF(_)) =>
-                Ok(o),
-            (p, PacketParserResult::EOF(_)) =>
-                Err(Error::InvalidOperation(
-                    format!("Not a OnePassSig packet: {:?}", p)).into()),
-            (_, PacketParserResult::Some(_)) =>
-                Err(Error::InvalidOperation(
-                    "Excess data after packet".into()).into()),
-        }
+        OnePassSig::from_reader(reader).and_then(|p| match p {
+            OnePassSig::V3(p) => Ok(p),
+            // XXX: Once we have a second variant.
+            //
+            // p => Err(Error::InvalidOperation(
+            //     format!("Not a OnePassSig::V3 packet: {:?}", p)).into()),
+        })
     }
 }
 
@@ -1510,30 +1498,7 @@ impl Trust {
     }
 }
 
-impl<'a> Parse<'a, Trust> for Trust {
-    fn from_reader<R: 'a + Read>(reader: R) -> Result<Self> {
-        let ppr = PacketParser::from_reader(reader)?;
-        let (p, ppr) = match ppr {
-            PacketParserResult::Some(mut pp) => {
-                pp.next()?
-            },
-            PacketParserResult::EOF(_) =>
-                return Err(Error::InvalidOperation(
-                    "Unexpected EOF".into()).into()),
-        };
-
-        match (p, ppr) {
-            (Packet::Trust(u), PacketParserResult::EOF(_)) =>
-                Ok(u),
-            (p, PacketParserResult::EOF(_)) =>
-                Err(Error::InvalidOperation(
-                    format!("Not a Trust packet: {:?}", p)).into()),
-            (_, PacketParserResult::Some(_)) =>
-                Err(Error::InvalidOperation(
-                    "Excess data after packet".into()).into()),
-        }
-    }
-}
+impl_parse_generic_packet!(Trust);
 
 impl UserID {
     /// Parses the body of a user id packet.
@@ -1546,30 +1511,7 @@ impl UserID {
     }
 }
 
-impl<'a> Parse<'a, UserID> for UserID {
-    fn from_reader<R: 'a + Read>(reader: R) -> Result<Self> {
-        let ppr = PacketParser::from_reader(reader)?;
-        let (p, ppr) = match ppr {
-            PacketParserResult::Some(mut pp) => {
-                pp.next()?
-            },
-            PacketParserResult::EOF(_) =>
-                return Err(Error::InvalidOperation(
-                    "Unexpected EOF".into()).into()),
-        };
-
-        match (p, ppr) {
-            (Packet::UserID(u), PacketParserResult::EOF(_)) =>
-                Ok(u),
-            (p, PacketParserResult::EOF(_)) =>
-                Err(Error::InvalidOperation(
-                    format!("Not a UserID packet: {:?}", p)).into()),
-            (_, PacketParserResult::Some(_)) =>
-                Err(Error::InvalidOperation(
-                    "Excess data after packet".into()).into()),
-        }
-    }
-}
+impl_parse_generic_packet!(UserID);
 
 impl UserAttribute {
     /// Parses the body of a user attribute packet.
@@ -1582,30 +1524,7 @@ impl UserAttribute {
     }
 }
 
-impl<'a> Parse<'a, UserAttribute> for UserAttribute {
-    fn from_reader<R: 'a + Read>(reader: R) -> Result<Self> {
-        let ppr = PacketParser::from_reader(reader)?;
-        let (p, ppr) = match ppr {
-            PacketParserResult::Some(mut pp) => {
-                pp.next()?
-            },
-            PacketParserResult::EOF(_) =>
-                return Err(Error::InvalidOperation(
-                    "Unexpected EOF".into()).into()),
-        };
-
-        match (p, ppr) {
-            (Packet::UserAttribute(u), PacketParserResult::EOF(_)) =>
-                Ok(u),
-            (p, PacketParserResult::EOF(_)) =>
-                Err(Error::InvalidOperation(
-                    format!("Not a UserAttribute packet: {:?}", p)).into()),
-            (_, PacketParserResult::Some(_)) =>
-                Err(Error::InvalidOperation(
-                    "Excess data after packet".into()).into()),
-        }
-    }
-}
+impl_parse_generic_packet!(UserAttribute);
 
 impl Marker {
     /// Parses the body of a marker packet.
@@ -1621,31 +1540,7 @@ impl Marker {
     }
 }
 
-impl<'a> Parse<'a, Marker> for Marker {
-    fn from_reader<R: 'a + Read>(reader: R) -> Result<Self> {
-        let ppr = PacketParserBuilder::from_reader(reader)?
-            .buffer_unread_content().finalize()?;
-        let (p, ppr) = match ppr {
-            PacketParserResult::Some(mut pp) => {
-                pp.next()?
-            },
-            PacketParserResult::EOF(_) =>
-                return Err(Error::InvalidOperation(
-                    "Unexpected EOF".into()).into()),
-        };
-
-        match (p, ppr) {
-            (Packet::Marker(u), PacketParserResult::EOF(_)) =>
-                Ok(u),
-            (p, PacketParserResult::EOF(_)) =>
-                Err(Error::InvalidOperation(
-                    format!("Not a Marker packet: {:?}", p)).into()),
-            (_, PacketParserResult::Some(_)) =>
-                Err(Error::InvalidOperation(
-                    "Excess data after packet".into()).into()),
-        }
-    }
-}
+impl_parse_generic_packet!(Marker);
 
 impl Literal {
     /// Parses the body of a literal packet.
@@ -1689,31 +1584,7 @@ impl Literal {
     }
 }
 
-impl<'a> Parse<'a, Literal> for Literal {
-    fn from_reader<R: 'a + Read>(reader: R) -> Result<Self> {
-        let ppr = PacketParserBuilder::from_reader(reader)?
-            .buffer_unread_content().finalize()?;
-        let (p, ppr) = match ppr {
-            PacketParserResult::Some(mut pp) => {
-                pp.next()?
-            },
-            PacketParserResult::EOF(_) =>
-                return Err(Error::InvalidOperation(
-                    "Unexpected EOF".into()).into()),
-        };
-
-        match (p, ppr) {
-            (Packet::Literal(u), PacketParserResult::EOF(_)) =>
-                Ok(u),
-            (p, PacketParserResult::EOF(_)) =>
-                Err(Error::InvalidOperation(
-                    format!("Not a Literal packet: {:?}", p)).into()),
-            (_, PacketParserResult::Some(_)) =>
-                Err(Error::InvalidOperation(
-                    "Excess data after packet".into()).into()),
-        }
-    }
-}
+impl_parse_generic_packet!(Literal);
 
 #[test]
 fn literal_parser_test () {
@@ -1818,31 +1689,7 @@ impl CompressedData {
     }
 }
 
-impl<'a> Parse<'a, CompressedData> for CompressedData {
-    fn from_reader<R: 'a + Read>(reader: R) -> Result<Self> {
-        let ppr = PacketParserBuilder::from_reader(reader)?
-            .buffer_unread_content().finalize()?;
-        let (p, ppr) = match ppr {
-            PacketParserResult::Some(mut pp) => {
-                pp.next()?
-            },
-            PacketParserResult::EOF(_) =>
-                return Err(Error::InvalidOperation(
-                    "Unexpected EOF".into()).into()),
-        };
-
-        match (p, ppr) {
-            (Packet::CompressedData(u), PacketParserResult::EOF(_)) =>
-                Ok(u),
-            (p, PacketParserResult::EOF(_)) =>
-                Err(Error::InvalidOperation(
-                    format!("Not a CompressedData packet: {:?}", p)).into()),
-            (_, PacketParserResult::Some(_)) =>
-                Err(Error::InvalidOperation(
-                    "Excess data after packet".into()).into()),
-        }
-    }
-}
+impl_parse_generic_packet!(CompressedData);
 
 #[cfg(any(feature = "compression-deflate", feature = "compression-bzip2"))]
 #[test]
@@ -1957,30 +1804,7 @@ impl SKESK {
     }
 }
 
-impl<'a> Parse<'a, SKESK> for SKESK {
-    fn from_reader<R: 'a + Read>(reader: R) -> Result<Self> {
-        let ppr = PacketParser::from_reader(reader)?;
-        let (p, ppr) = match ppr {
-            PacketParserResult::Some(mut pp) => {
-                pp.next()?
-            },
-            PacketParserResult::EOF(_) =>
-                return Err(Error::InvalidOperation(
-                    "Unexpected EOF".into()).into()),
-        };
-
-        match (p, ppr) {
-            (Packet::SKESK(u), PacketParserResult::EOF(_)) =>
-                Ok(u),
-            (p, PacketParserResult::EOF(_)) =>
-                Err(Error::InvalidOperation(
-                    format!("Not a SKESK packet: {:?}", p)).into()),
-            (_, PacketParserResult::Some(_)) =>
-                Err(Error::InvalidOperation(
-                    "Excess data after packet".into()).into()),
-        }
-    }
-}
+impl_parse_generic_packet!(SKESK);
 
 #[test]
 fn skesk_parser_test() {
@@ -2045,30 +1869,7 @@ impl SEIP {
     }
 }
 
-impl<'a> Parse<'a, SEIP> for SEIP {
-    fn from_reader<R: 'a + Read>(reader: R) -> Result<Self> {
-        let ppr = PacketParser::from_reader(reader)?;
-        let (p, ppr) = match ppr {
-            PacketParserResult::Some(mut pp) => {
-                pp.next()?
-            },
-            PacketParserResult::EOF(_) =>
-                return Err(Error::InvalidOperation(
-                    "Unexpected EOF".into()).into()),
-        };
-
-        match (p, ppr) {
-            (Packet::SEIP(u), PacketParserResult::EOF(_)) =>
-                Ok(u),
-            (p, PacketParserResult::EOF(_)) =>
-                Err(Error::InvalidOperation(
-                    format!("Not a SEIP packet: {:?}", p)).into()),
-            (_, PacketParserResult::Some(_)) =>
-                Err(Error::InvalidOperation(
-                    "Excess data after packet".into()).into()),
-        }
-    }
-}
+impl_parse_generic_packet!(SEIP);
 
 impl MDC {
     /// Parses the body of an MDC packet.
@@ -2116,30 +1917,7 @@ impl MDC {
     }
 }
 
-impl<'a> Parse<'a, MDC> for MDC {
-    fn from_reader<R: 'a + Read>(reader: R) -> Result<Self> {
-        let ppr = PacketParser::from_reader(reader)?;
-        let (p, ppr) = match ppr {
-            PacketParserResult::Some(mut pp) => {
-                pp.next()?
-            },
-            PacketParserResult::EOF(_) =>
-                return Err(Error::InvalidOperation(
-                    "Unexpected EOF".into()).into()),
-        };
-
-        match (p, ppr) {
-            (Packet::MDC(u), PacketParserResult::EOF(_)) =>
-                Ok(u),
-            (p, PacketParserResult::EOF(_)) =>
-                Err(Error::InvalidOperation(
-                    format!("Not a MDC packet: {:?}", p)).into()),
-            (_, PacketParserResult::Some(_)) =>
-                Err(Error::InvalidOperation(
-                    "Excess data after packet".into()).into()),
-        }
-    }
-}
+impl_parse_generic_packet!(MDC);
 
 impl AED1 {
     /// Parses the body of a AED packet.
@@ -2167,30 +1945,7 @@ impl AED1 {
     }
 }
 
-impl<'a> Parse<'a, AED> for AED {
-    fn from_reader<R: 'a + Read>(reader: R) -> Result<Self> {
-        let ppr = PacketParser::from_reader(reader)?;
-        let (p, ppr) = match ppr {
-            PacketParserResult::Some(mut pp) => {
-                pp.next()?
-            },
-            PacketParserResult::EOF(_) =>
-                return Err(Error::InvalidOperation(
-                    "Unexpected EOF".into()).into()),
-        };
-
-        match (p, ppr) {
-            (Packet::AED(u), PacketParserResult::EOF(_)) =>
-                Ok(u),
-            (p, PacketParserResult::EOF(_)) =>
-                Err(Error::InvalidOperation(
-                    format!("Not a AED packet: {:?}", p)).into()),
-            (_, PacketParserResult::Some(_)) =>
-                Err(Error::InvalidOperation(
-                    "Excess data after packet".into()).into()),
-        }
-    }
-}
+impl_parse_generic_packet!(AED);
 
 impl MPI {
     /// Parses an OpenPGP MPI.
@@ -2337,31 +2092,7 @@ impl PKESK {
     }
 }
 
-impl<'a> Parse<'a, PKESK> for PKESK {
-    fn from_reader<R: 'a + Read>(reader: R) -> Result<Self> {
-        let ppr = PacketParserBuilder::from_reader(reader)?
-            .buffer_unread_content().finalize()?;
-        let (p, ppr) = match ppr {
-            PacketParserResult::Some(mut pp) => {
-                pp.next()?
-            },
-            PacketParserResult::EOF(_) =>
-                return Err(Error::InvalidOperation(
-                    "Unexpected EOF".into()).into()),
-        };
-
-        match (p, ppr) {
-            (Packet::PKESK(o), PacketParserResult::EOF(_)) =>
-                Ok(o),
-            (p, PacketParserResult::EOF(_)) =>
-                Err(Error::InvalidOperation(
-                    format!("Not a PKESK packet: {:?}", p)).into()),
-            (_, PacketParserResult::Some(_)) =>
-                Err(Error::InvalidOperation(
-                    "Excess data after packet".into()).into()),
-        }
-    }
-}
+impl_parse_generic_packet!(PKESK);
 
 impl PKESK3 {
     /// Parses the body of an PK-ESK packet.
