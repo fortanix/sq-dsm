@@ -1417,7 +1417,7 @@ impl Key4 {
         } else if tag == Tag::PublicKey || tag == Tag::PublicSubkey {
             None
         } else {
-            unimplemented!()
+            unreachable!("tag is one of {Public, Secret} x {Key, Subkey}")
         };
 
         let key = php_try!(Key4::new(time::Tm::from_pgp(creation_time),
