@@ -89,8 +89,8 @@ fn sign_data(input: &mut io::Read, output_path: Option<&str>,
 
     // When extending a detached signature, prepend any existing
     // signatures first.
-    for sig in prepend_sigs {
-        sig.serialize(&mut output)?;
+    for sig in prepend_sigs.into_iter() {
+        Packet::Signature(sig).serialize(&mut output)?;
     }
 
     // Stream an OpenPGP message.
@@ -284,12 +284,12 @@ fn sign_message(input: &mut io::Read, output_path: Option<&str>,
                     _ => (),
                 }
 
-                ops.serialize(&mut sink)?;
+                Packet::OnePassSig(ops).serialize(&mut sink)?;
                 seen_signature = true;
             },
 
-            Packet::Signature(ref sig) => {
-                sig.serialize(&mut sink)
+            Packet::Signature(sig) => {
+                Packet::Signature(sig).serialize(&mut sink)
                     .context("Failed to serialize")?;
                 if let State::Signing { ref mut signature_count } = state {
                     *signature_count -= 1;

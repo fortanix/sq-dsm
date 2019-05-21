@@ -253,7 +253,8 @@ mod tests {
 
     #[test]
     fn image() {
-        let ua = UserAttribute::from_bytes(b"
+        use Packet;
+        let p = Packet::from_bytes(b"
 -----BEGIN PGP ARMORED FILE-----
 
 0cFuwWwBEAABAQAAAAAAAAAAAAAAAP/Y/+AAEEpGSUYAAQEBASwBLAAA//4AE0Ny
@@ -271,7 +272,11 @@ ABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAT8Qf//Z
 =nUQg
 -----END PGP ARMORED FILE-----
 ").unwrap();
-        let subpackets: Vec<_> = ua.subpackets().collect();
+        let subpackets: Vec<_> = if let Packet::UserAttribute(ua) = p {
+            ua.subpackets().collect()
+        } else {
+            panic!("Expected an UserAttribute, got: {:?}", p);
+        };
         assert_eq!(subpackets.len(), 1);
         if let Ok(Subpacket::Image(Image::JPEG(img))) = &subpackets[0] {
             assert_eq!(img.len(), 539);

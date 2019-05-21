@@ -1152,9 +1152,14 @@ mod test {
         let tpk = TPK::from_bytes(::tests::key(
                 "emmelie-dorothea-dina-samantha-awina-ed25519.pgp")).unwrap();
         let msg = ::tests::manifesto();
-        let sig = Signature::from_bytes(
+        let p = Packet::from_bytes(
             ::tests::message("a-cypherpunks-manifesto.txt.ed25519.sig"))
             .unwrap();
+        let sig = if let Packet::Signature(s) = p {
+            s
+        } else {
+            panic!("Expected a Signature, got: {:?}", p);
+        };
 
         assert!(sig.verify_message(tpk.primary(), &msg[..]).unwrap());
     }

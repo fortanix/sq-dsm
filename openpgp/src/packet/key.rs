@@ -698,14 +698,13 @@ impl SecretKey {
 
 #[cfg(test)]
 mod tests {
-    use packet::Tag;
     use packet::Key;
     use TPK;
     use packet::pkesk::PKESK3;
     use packet::key::SecretKey;
     use super::*;
     use PacketPile;
-    use serialize::SerializeKey;
+    use serialize::Serialize;
     use parse::Parse;
 
     #[test]
@@ -763,7 +762,7 @@ mod tests {
 
         for mut key in keys {
             let mut b = Vec::new();
-            key.serialize(&mut b, Tag::SecretKey).unwrap();
+            Packet::SecretKey(key.clone().into()).serialize(&mut b).unwrap();
 
             let pp = PacketPile::from_bytes(&b).unwrap();
             if let Some(Packet::SecretKey(Key::V4(ref parsed_key))) =
@@ -781,7 +780,7 @@ mod tests {
             }
 
             let mut b = Vec::new();
-            key.serialize(&mut b, Tag::PublicKey).unwrap();
+            Packet::PublicKey(key.clone().into()).serialize(&mut b).unwrap();
 
             let pp = PacketPile::from_bytes(&b).unwrap();
             if let Some(Packet::PublicKey(Key::V4(ref parsed_key))) =

@@ -100,18 +100,14 @@ macro_rules! impl_parse_generic_packet {
     ($typ: ident) => {
         impl<'a> Parse<'a, $typ> for $typ {
             fn from_reader<R: 'a + Read>(reader: R) -> Result<Self> {
-                let ppr = PacketParserBuilder::from_reader(reader)?
-                    .buffer_unread_content().finalize()?;
-                let (p, ppr) = match ppr {
-                    PacketParserResult::Some(mut pp) => {
-                        pp.next()?
-                    },
-                    PacketParserResult::EOF(_) =>
-                        return Err(Error::InvalidOperation(
-                            "Unexpected EOF".into()).into()),
-                };
+                let bio = buffered_reader::Generic::with_cookie(
+                    reader, None, Cookie::default());
+                let parser = PacketHeaderParser::new_naked(Box::new(bio));
 
-                match (p, ppr) {
+                let mut pp = Self::parse(parser)?;
+                pp.buffer_unread_content()?;
+
+                match pp.next()? {
                     (Packet::$typ(o), PacketParserResult::EOF(_))
                         => Ok(o),
                     (p, PacketParserResult::EOF(_)) =>
@@ -1462,18 +1458,14 @@ impl Key4 {
 
 impl<'a> Parse<'a, Key> for Key {
     fn from_reader<R: 'a + Read>(reader: R) -> Result<Self> {
-        let ppr = PacketParserBuilder::from_reader(reader)?
-            .buffer_unread_content().finalize()?;
-        let (p, ppr) = match ppr {
-            PacketParserResult::Some(mut pp) => {
-                pp.next()?
-            },
-            PacketParserResult::EOF(_) =>
-                return Err(Error::InvalidOperation(
-                    "Unexpected EOF".into()).into()),
-        };
+        let bio = buffered_reader::Generic::with_cookie(
+            reader, None, Cookie::default());
+        let parser = PacketHeaderParser::new_naked(Box::new(bio));
 
-        match (p, ppr) {
+        let mut pp = Self::parse(parser)?;
+        pp.buffer_unread_content()?;
+
+        match pp.next()? {
             (Packet::PublicKey(o), PacketParserResult::EOF(_))
             | (Packet::PublicSubkey(o), PacketParserResult::EOF(_))
             | (Packet::SecretKey(o), PacketParserResult::EOF(_))

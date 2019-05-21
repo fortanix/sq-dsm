@@ -748,7 +748,7 @@ impl<'a> Transformer<'a> {
                 ops.set_last(true);
             }
 
-            ops.serialize(&mut buf)?;
+            Packet::OnePassSig(ops.into()).serialize(&mut buf)?;
         }
 
         // We need to decide whether to use partial body encoding or
@@ -845,8 +845,8 @@ impl<'a> Transformer<'a> {
                 },
 
                 TransformationState::Sigs => {
-                    for sig in self.sigs.iter() {
-                        sig.serialize(&mut self.buffer)?;
+                    for sig in self.sigs.drain(..) {
+                        Packet::Signature(sig).serialize(&mut self.buffer)?;
                     }
 
                     TransformationState::Done

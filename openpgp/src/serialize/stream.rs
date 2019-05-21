@@ -387,7 +387,7 @@ impl<'a> Signer<'a> {
                 ops.set_hash_algo(hash_algo);
                 ops.set_issuer(key.keyid());
                 ops.set_last(i == signers.len() - 1);
-                ops.serialize(&mut inner)?;
+                Packet::OnePassSig(ops.into()).serialize(&mut inner)?;
             }
         }
 
@@ -431,7 +431,7 @@ impl<'a> Signer<'a> {
                 let sig = sig.sign_hash(*signer, HashAlgorithm::SHA512, hash)?;
 
                 // And emit the packet.
-                sig.serialize(sink)?;
+                Packet::Signature(sig).serialize(sink)?;
             }
         }
         Ok(())
@@ -730,11 +730,19 @@ impl<'a> Compressor<'a> {
 
         // Packet header.
         CTB::new(Tag::CompressedData).serialize(&mut inner)?;
-
-        let mut inner: writer::Stack<'a, Cookie>
+        let inner: writer::Stack<'a, Cookie>
             = PartialBodyFilter::new(writer::Stack::from(inner),
                                      Cookie::new(level));
 
+        Self::new_naked(inner, algo, level)
+    }
+
+
+    /// Creates a new compressor using the given algorithm.
+    pub(crate) // For CompressedData::serialize.
+        fn new_naked(mut inner: writer::Stack<'a, Cookie>, algo: CompressionAlgorithm,
+                     level: usize)
+                 -> Result<writer::Stack<'a, Cookie>> {
         // Compressed data header.
         inner.as_mut().write_u8(algo.into())?;
 
@@ -989,7 +997,7 @@ impl<'a> Encryptor<'a> {
             let mut count = 0;
             for key in keys {
                 if let Ok(pkesk) = PKESK3::for_recipient(algo, &sk, key) {
-                    pkesk.serialize(&mut inner)?;
+                    Packet::PKESK(pkesk.into()).serialize(&mut inner)?;
                     count += 1;
                 }
             }
@@ -1007,11 +1015,11 @@ impl<'a> Encryptor<'a> {
                 let skesk = SKESK5::with_password(algo, aead.algo,
                                                   Default::default(),
                                                   &sk, password).unwrap();
-                skesk.serialize(&mut inner)?;
+                Packet::SKESK(skesk.into()).serialize(&mut inner)?;
             } else {
                 let skesk = SKESK4::with_password(algo, Default::default(),
                                                   &sk, password).unwrap();
-                skesk.serialize(&mut inner)?;
+                Packet::SKESK(skesk.into()).serialize(&mut inner)?;
             }
         }
 
@@ -1075,7 +1083,7 @@ impl<'a> Encryptor<'a> {
             BodyLength::Full(20).serialize(&mut header)?;
 
             self.hash.update(&header);
-            MDC::from(self.hash.clone()).serialize(&mut w)?;
+            Packet::MDC(MDC::from(self.hash.clone())).serialize(&mut w)?;
 
             // Now recover the original writer.  First, strip the
             // Encryptor.

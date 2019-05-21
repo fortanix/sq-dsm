@@ -34,25 +34,13 @@ use packet::prelude::*;
 // Whether to trace the modules execution (on stderr).
 const TRACE : bool = false;
 
-/// Packet serialization.
-///
-/// This interfaces serializes packets and packet trees.
+/// Serializes OpenPGP data structures.
 pub trait Serialize {
-    /// Writes a serialized version of the packet to `o`.
+    /// Writes a serialized version of the object to `o`.
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()>;
 }
 
-/// Key packet serialization.
-///
-/// This interface serializes key packets.
-pub trait SerializeKey {
-    /// Writes a serialized version of the key packet to `o`.
-    ///
-    /// Tag identifies the kind of packet to write.
-    fn serialize(&self, o: &mut dyn io::Write, tag: Tag) -> Result<()>;
-}
-
-/// Serialization into pre-allocated buffers.
+/// Serializes OpenPGP data structures into pre-allocated buffers.
 pub trait SerializeInto {
     /// Computes the maximal length of the serialized representation.
     ///
@@ -106,37 +94,6 @@ trait NetLength {
         1 // CTB
             + BodyLength::Full(net as u32).serialized_len()
             + net
-    }
-}
-
-/// Serialization into pre-allocated buffers.
-pub trait SerializeKeyInto {
-    /// Computes the maximal length of the serialized representation.
-    ///
-    /// # Errors
-    ///
-    /// If serialization would fail, this function underestimates the
-    /// length.
-    fn serialized_len(&self, tag: Tag) -> usize;
-
-    /// Serializes into the given buffer.
-    ///
-    /// Returns the length of the serialized representation.
-    ///
-    /// # Errors
-    ///
-    /// If the length of the given slice is smaller than the maximal
-    /// length computed by `serialized_len()`, this function returns
-    /// `Error::InvalidArgument`.
-    fn serialize_into(&self, buf: &mut [u8], tag: Tag) -> Result<usize>;
-
-    /// Serializes the packet to a vector.
-    fn to_vec(&self, tag: Tag) -> Result<Vec<u8>> {
-        let mut o = vec![0; self.serialized_len(tag)];
-        let len = self.serialize_into(&mut o[..], tag)?;
-        o.truncate(len);
-        o.shrink_to_fit();
-        Ok(o)
     }
 }
 
@@ -842,8 +799,6 @@ impl Serialize for Unknown {
             &b""[..]
         };
 
-        CTB::new(self.tag()).serialize(o)?;
-        BodyLength::Full(body.len() as u32).serialize(o)?;
         o.write_all(&body[..])?;
 
         Ok(())
@@ -858,7 +813,7 @@ impl NetLength for Unknown {
 
 impl SerializeInto for Unknown {
     fn serialized_len(&self) -> usize {
-        self.gross_len()
+        self.net_len()
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
@@ -1076,10 +1031,6 @@ impl Serialize for Signature4 {
     ///
     /// [`Error::InvalidArgument`]: ../../enum.Error.html#variant.InvalidArgument
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
-        let len = self.net_len();
-        CTB::new(Tag::Signature).serialize(o)?;
-        BodyLength::Full(len as u32).serialize(o)?;
-
         self.serialize_naked(o)
     }
 }
@@ -1101,7 +1052,7 @@ impl NetLength for Signature4 {
 
 impl SerializeInto for Signature4 {
     fn serialized_len(&self) -> usize {
-        self.gross_len()
+        self.net_len()
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
@@ -1183,10 +1134,6 @@ impl SerializeInto for OnePassSig {
 
 impl Serialize for OnePassSig3 {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
-        let len = self.net_len();
-        CTB::new(Tag::OnePassSig).serialize(o)?;
-        BodyLength::Full(len as u32).serialize(o)?;
-
         write_byte(o, 3)?; // Version.
         write_byte(o, self.sigtype().into())?;
         write_byte(o, self.hash_algo().into())?;
@@ -1211,7 +1158,7 @@ impl NetLength for OnePassSig3 {
 
 impl SerializeInto for OnePassSig3 {
     fn serialized_len(&self) -> usize {
-        self.gross_len()
+        self.net_len()
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
@@ -1219,50 +1166,44 @@ impl SerializeInto for OnePassSig3 {
     }
 }
 
-impl SerializeKey for Key {
-    fn serialize(&self, o: &mut io::Write, tag: Tag) -> Result<()> {
+impl Serialize for Key {
+    fn serialize(&self, o: &mut io::Write) -> Result<()> {
         match self {
-            &Key::V4(ref p) => p.serialize(o, tag),
+            &Key::V4(ref p) => p.serialize(o),
         }
     }
 }
 
-impl SerializeKeyInto for Key {
-    fn serialized_len(&self, tag: Tag) -> usize {
+impl SerializeInto for Key {
+    fn serialized_len(&self) -> usize {
         match self {
-            &Key::V4(ref p) => p.serialized_len(tag),
+            &Key::V4(ref p) => p.serialized_len(),
         }
     }
 
-    fn serialize_into(&self, buf: &mut [u8], tag: Tag) -> Result<usize> {
+    fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
         match self {
-            &Key::V4(ref p) => p.serialize_into(buf, tag)
+            &Key::V4(ref p) => p.serialize_into(buf)
         }
     }
 }
 
-impl SerializeKey for Key4 {
-    fn serialize(&self, o: &mut io::Write, tag: Tag) -> Result<()> {
-        assert!(tag == Tag::PublicKey
-                || tag == Tag::PublicSubkey
-                || tag == Tag::SecretKey
-                || tag == Tag::SecretSubkey);
-        let have_secret_key =
-            (tag == Tag::SecretKey || tag == Tag::SecretSubkey)
-            && self.secret().is_some();
+impl Serialize for Key4 {
+    fn serialize(&self, o: &mut io::Write) -> Result<()> {
+        self.serialize_key(o, true)
+    }
+}
 
-        // Only emit packets with the SecretKey or SecretSubkey tags
-        // if we have secrets.
-        let tag = match tag {
-            Tag::SecretKey    if ! have_secret_key => Tag::PublicKey,
-            Tag::SecretSubkey if ! have_secret_key => Tag::PublicSubkey,
-            t => t,
-        };
+impl Key4 {
+    pub(crate) // For tests in key.
+    fn serialize_key(&self, o: &mut io::Write, serialize_secrets: bool)
+                     -> Result<()> {
+        if serialize_secrets && ! self.secret().is_some() {
+            return Err(Error::InvalidOperation(
+                "Cannot serialize secret key: No secrets".into()).into());
+        }
 
-        let len = self.net_len(tag);
-
-        CTB::new(tag).serialize(o)?;
-        BodyLength::Full(len as u32).serialize(o)?;
+        let have_secret_key = self.secret().is_some() && serialize_secrets;
 
         write_byte(o, 4)?; // Version.
         write_be_u32(o, self.creation_time().to_pgp()?)?;
@@ -1301,13 +1242,9 @@ impl SerializeKey for Key4 {
 
         Ok(())
     }
-}
 
-impl Key4 {
-    fn net_len(&self, tag: Tag) -> usize {
-        let have_secret_key =
-            (tag == Tag::SecretKey || tag == Tag::SecretSubkey)
-            && self.secret().is_some();
+    fn net_len_key(&self, serialize_secrets: bool) -> usize {
+        let have_secret_key = self.secret().is_some() && serialize_secrets;
 
         1 // Version.
             + 4 // Creation time.
@@ -1330,32 +1267,18 @@ impl Key4 {
     }
 }
 
-impl SerializeKeyInto for Key4 {
-    fn serialized_len(&self, tag: Tag) -> usize {
-        // gross_len() by foot.
-        let net = self.net_len(tag);
-        1 // CTB
-            + BodyLength::Full(net as u32).serialized_len()
-            + net
+impl SerializeInto for Key4 {
+    fn serialized_len(&self) -> usize {
+        self.net_len_key(true)
     }
 
-    fn serialize_into(&self, buf: &mut [u8], tag: Tag) -> Result<usize> {
-        if buf.len() != self.serialized_len(tag) {
-            return Err(Error::InvalidArgument(
-                format!("Invalid buffer size, expected {}, got {}",
-                        self.serialized_len(tag), buf.len())).into());
-        }
-
-        let mut cursor = ::std::io::Cursor::new(buf);
-        self.serialize(&mut cursor, tag)?;
-        Ok(cursor.position() as usize)
+    fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
+        generic_serialize_into(self, buf)
     }
 }
 
 impl Serialize for Marker {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
-        CTB::new(Tag::Marker).serialize(o)?;
-        BodyLength::Full(Marker::BODY.len() as u32).serialize(o)?;
         o.write_all(Marker::BODY)?;
         Ok(())
     }
@@ -1369,7 +1292,7 @@ impl NetLength for Marker {
 
 impl SerializeInto for Marker {
     fn serialized_len(&self) -> usize {
-        self.gross_len()
+        self.net_len()
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
@@ -1379,12 +1302,7 @@ impl SerializeInto for Marker {
 
 impl Serialize for Trust {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
-        let len = self.value().len();
-
-        CTB::new(Tag::Trust).serialize(o)?;
-        BodyLength::Full(len as u32).serialize(o)?;
         o.write_all(self.value())?;
-
         Ok(())
     }
 }
@@ -1397,7 +1315,7 @@ impl NetLength for Trust {
 
 impl SerializeInto for Trust {
     fn serialized_len(&self) -> usize {
-        self.gross_len()
+        self.net_len()
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
@@ -1407,12 +1325,7 @@ impl SerializeInto for Trust {
 
 impl Serialize for UserID {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
-        let len = self.value().len();
-
-        CTB::new(Tag::UserID).serialize(o)?;
-        BodyLength::Full(len as u32).serialize(o)?;
         o.write_all(self.value())?;
-
         Ok(())
     }
 }
@@ -1425,7 +1338,7 @@ impl NetLength for UserID {
 
 impl SerializeInto for UserID {
     fn serialized_len(&self) -> usize {
-        self.gross_len()
+        self.net_len()
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
@@ -1435,12 +1348,7 @@ impl SerializeInto for UserID {
 
 impl Serialize for UserAttribute {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
-        let len = self.value().len();
-
-        CTB::new(Tag::UserAttribute).serialize(o)?;
-        BodyLength::Full(len as u32).serialize(o)?;
         o.write_all(self.value())?;
-
         Ok(())
     }
 }
@@ -1453,7 +1361,7 @@ impl NetLength for UserAttribute {
 
 impl SerializeInto for UserAttribute {
     fn serialized_len(&self) -> usize {
-        self.gross_len()
+        self.net_len()
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
@@ -1582,7 +1490,7 @@ impl Serialize for Literal {
                       body.len());
         }
 
-        self.serialize_headers(o, true)?;
+        self.serialize_headers(o, false)?;
         o.write_all(body)?;
 
         Ok(())
@@ -1598,7 +1506,7 @@ impl NetLength for Literal {
 
 impl SerializeInto for Literal {
     fn serialized_len(&self) -> usize {
-        self.gross_len()
+        self.net_len()
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
@@ -1623,7 +1531,7 @@ impl Serialize for CompressedData {
         }
 
         let o = stream::Message::new(o);
-        let mut o = stream::Compressor::new(o, self.algorithm())?;
+        let mut o = stream::Compressor::new_naked(o, self.algorithm(), 0)?;
 
         // Serialize the packets.
         if let Some(ref children) = self.common.children {
@@ -1672,7 +1580,7 @@ impl SerializeInto for CompressedData {
     ///
     /// If serialization would fail, this function returns 0.
     fn serialized_len(&self) -> usize {
-        self.gross_len()
+        self.net_len()
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
@@ -1704,11 +1612,6 @@ impl SerializeInto for PKESK {
 
 impl Serialize for PKESK3 {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
-        let len = self.net_len();
-
-        CTB::new(Tag::PKESK).serialize(o)?;
-        BodyLength::Full(len as u32).serialize(o)?;
-
         write_byte(o, 3)?; // Version.
         self.recipient().serialize(o)?;
         write_byte(o, self.pk_algo().into())?;
@@ -1729,7 +1632,7 @@ impl NetLength for PKESK3 {
 
 impl SerializeInto for PKESK3 {
     fn serialized_len(&self) -> usize {
-        self.gross_len()
+        self.net_len()
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
@@ -1742,6 +1645,15 @@ impl Serialize for SKESK {
         match self {
             &SKESK::V4(ref s) => s.serialize(o),
             &SKESK::V5(ref s) => s.serialize(o),
+        }
+    }
+}
+
+impl NetLength for SKESK {
+    fn net_len(&self) -> usize {
+        match self {
+            &SKESK::V4(ref s) => s.net_len(),
+            &SKESK::V5(ref s) => s.net_len(),
         }
     }
 }
@@ -1764,11 +1676,6 @@ impl SerializeInto for SKESK {
 
 impl Serialize for SKESK4 {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
-        let len = self.net_len();
-
-        CTB::new(Tag::SKESK).serialize(o)?;
-        BodyLength::Full(len as u32).serialize(o)?;
-
         write_byte(o, 4)?; // Version.
         write_byte(o, self.symmetric_algo().into())?;
         self.s2k().serialize(o)?;
@@ -1791,7 +1698,7 @@ impl NetLength for SKESK4 {
 
 impl SerializeInto for SKESK4 {
     fn serialized_len(&self) -> usize {
-        self.gross_len()
+        self.net_len()
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
@@ -1801,11 +1708,6 @@ impl SerializeInto for SKESK4 {
 
 impl Serialize for SKESK5 {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
-        let len = self.net_len();
-
-        CTB::new(Tag::SKESK).serialize(o)?;
-        BodyLength::Full(len as u32).serialize(o)?;
-
         write_byte(o, 5)?; // Version.
         write_byte(o, self.symmetric_algo().into())?;
         write_byte(o, self.aead_algo().into())?;
@@ -1834,7 +1736,7 @@ impl NetLength for SKESK5 {
 
 impl SerializeInto for SKESK5 {
     fn serialized_len(&self) -> usize {
-        self.gross_len()
+        self.net_len()
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
@@ -1857,11 +1759,6 @@ impl Serialize for SEIP {
                 "Cannot encrypt, use serialize::stream::Encryptor".into())
                        .into());
         } else {
-            let body_len = 1
-                + self.common.body.as_ref().map(|b| b.len()).unwrap_or(0);
-
-            CTB::new(Tag::SEIP).serialize(o)?;
-            BodyLength::Full(body_len as u32).serialize(o)?;
             o.write_all(&[self.version()])?;
             if let Some(ref body) = self.common.body {
                 o.write_all(&body[..])?;
@@ -1895,8 +1792,6 @@ impl SerializeInto for SEIP {
 
 impl Serialize for MDC {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
-        CTB::new(Tag::MDC).serialize(o)?;
-        BodyLength::Full(20).serialize(o)?;
         o.write_all(self.hash())?;
         Ok(())
     }
@@ -1910,7 +1805,7 @@ impl NetLength for MDC {
 
 impl SerializeInto for MDC {
     fn serialized_len(&self) -> usize {
-        self.gross_len()
+        self.net_len()
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
@@ -1967,10 +1862,6 @@ impl Serialize for AED1 {
                 "Cannot encrypt, use serialize::stream::Encryptor".into())
                        .into());
         } else {
-            let body_len = self.net_len();
-
-            CTB::new(Tag::AED).serialize(o)?;
-            BodyLength::Full(body_len as u32).serialize(o)?;
             self.serialize_headers(o)?;
 
             if let Some(ref body) = self.common.body {
@@ -1996,7 +1887,7 @@ impl NetLength for AED1 {
 
 impl SerializeInto for AED1 {
     fn serialized_len(&self) -> usize {
-        self.gross_len()
+        self.net_len()
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
@@ -2010,21 +1901,34 @@ impl Serialize for Packet {
     /// This function works recursively: if the packet contains any
     /// packets, they are also serialized.
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
-        let tag = self.tag();
+        CTB::new(self.tag()).serialize(o)?;
+
+        // Special-case the compressed data packet, because we need
+        // the accurate length, and CompressedData::net_len()
+        // overestimates the size.
+        if let Packet::CompressedData(ref p) = self {
+            let mut body = Vec::new();
+            p.serialize(&mut body)?;
+            BodyLength::Full(body.len() as u32).serialize(o)?;
+            o.write_all(&body)?;
+            return Ok(());
+        }
+
+        BodyLength::Full(self.net_len() as u32).serialize(o)?;
         match self {
             &Packet::Unknown(ref p) => p.serialize(o),
             &Packet::Signature(ref p) => p.serialize(o),
             &Packet::OnePassSig(ref p) => p.serialize(o),
-            &Packet::PublicKey(ref p) => p.serialize(o, tag),
-            &Packet::PublicSubkey(ref p) => p.serialize(o, tag),
-            &Packet::SecretKey(ref p) => p.serialize(o, tag),
-            &Packet::SecretSubkey(ref p) => p.serialize(o, tag),
+            &Packet::PublicKey(ref p) => p.serialize_key(o, false),
+            &Packet::PublicSubkey(ref p) => p.serialize_key(o, false),
+            &Packet::SecretKey(ref p) => p.serialize_key(o, true),
+            &Packet::SecretSubkey(ref p) => p.serialize_key(o, true),
             &Packet::Marker(ref p) => p.serialize(o),
             &Packet::Trust(ref p) => p.serialize(o),
             &Packet::UserID(ref p) => p.serialize(o),
             &Packet::UserAttribute(ref p) => p.serialize(o),
             &Packet::Literal(ref p) => p.serialize(o),
-            &Packet::CompressedData(ref p) => p.serialize(o),
+            &Packet::CompressedData(_) => unreachable!("handled above"),
             &Packet::PKESK(ref p) => p.serialize(o),
             &Packet::SKESK(ref p) => p.serialize(o),
             &Packet::SEIP(ref p) => p.serialize(o),
@@ -2034,17 +1938,41 @@ impl Serialize for Packet {
     }
 }
 
+impl NetLength for Packet {
+    fn net_len(&self) -> usize {
+        match self {
+            &Packet::Unknown(ref p) => p.net_len(),
+            &Packet::Signature(ref p) => p.net_len(),
+            &Packet::OnePassSig(ref p) => p.net_len(),
+            &Packet::PublicKey(ref p) => p.net_len_key(false),
+            &Packet::PublicSubkey(ref p) => p.net_len_key(false),
+            &Packet::SecretKey(ref p) => p.net_len_key(true),
+            &Packet::SecretSubkey(ref p) => p.net_len_key(true),
+            &Packet::Marker(ref p) => p.net_len(),
+            &Packet::Trust(ref p) => p.net_len(),
+            &Packet::UserID(ref p) => p.net_len(),
+            &Packet::UserAttribute(ref p) => p.net_len(),
+            &Packet::Literal(ref p) => p.net_len(),
+            &Packet::CompressedData(ref p) => p.net_len(),
+            &Packet::PKESK(ref p) => p.net_len(),
+            &Packet::SKESK(ref p) => p.net_len(),
+            &Packet::SEIP(ref p) => p.net_len(),
+            &Packet::MDC(ref p) => p.net_len(),
+            &Packet::AED(ref p) => p.net_len(),
+        }
+    }
+}
+
 impl SerializeInto for Packet {
     fn serialized_len(&self) -> usize {
-        let tag = self.tag();
-        match self {
+        (match self {
             &Packet::Unknown(ref p) => p.serialized_len(),
             &Packet::Signature(ref p) => p.serialized_len(),
             &Packet::OnePassSig(ref p) => p.serialized_len(),
-            &Packet::PublicKey(ref p) => p.serialized_len(tag),
-            &Packet::PublicSubkey(ref p) => p.serialized_len(tag),
-            &Packet::SecretKey(ref p) => p.serialized_len(tag),
-            &Packet::SecretSubkey(ref p) => p.serialized_len(tag),
+            &Packet::PublicKey(ref p) => p.serialized_len(),
+            &Packet::PublicSubkey(ref p) => p.serialized_len(),
+            &Packet::SecretKey(ref p) => p.serialized_len(),
+            &Packet::SecretSubkey(ref p) => p.serialized_len(),
             &Packet::Marker(ref p) => p.serialized_len(),
             &Packet::Trust(ref p) => p.serialized_len(),
             &Packet::UserID(ref p) => p.serialized_len(),
@@ -2056,7 +1984,9 @@ impl SerializeInto for Packet {
             &Packet::SEIP(ref p) => p.serialized_len(),
             &Packet::MDC(ref p) => p.serialized_len(),
             &Packet::AED(ref p) => p.serialized_len(),
-        }
+        })
+            + 1 // CTB.
+            + BodyLength::Full(self.net_len() as u32).serialized_len()
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
@@ -2257,28 +2187,14 @@ mod test {
             let p = pile.descendants().next().unwrap();
             let mut buffer = Vec::new();
             match p {
-                &Packet::Literal(ref l) => {
-                    l.serialize(&mut buffer).unwrap();
-                },
-                &Packet::Signature(ref s) => {
-                    s.serialize(&mut buffer).unwrap();
-                },
-                &Packet::PublicKey(ref pk) => {
-                    pk.serialize(&mut buffer, Tag::PublicKey).unwrap();
-                },
-                &Packet::PublicSubkey(ref pk) => {
-                    pk.serialize(&mut buffer, Tag::PublicSubkey).unwrap();
-                },
-                &Packet::UserID(ref userid) => {
-                    userid.serialize(&mut buffer).unwrap();
-                },
-                &Packet::SKESK(ref skesk) => {
-                    skesk.serialize(&mut buffer).unwrap();
-                },
+                Packet::Literal(_) | Packet::Signature(_)
+                    | Packet::PublicKey(_) | Packet::PublicSubkey(_)
+                    | Packet::UserID(_) | Packet::SKESK(_) => (),
                 ref p => {
                     panic!("Didn't expect a {:?} packet.", p.tag());
                 },
             }
+            p.serialize(&mut buffer).unwrap();
 
             // 4. Modulo the body length encoding, check that the
             // reserialized content is identical to the original data.
@@ -2303,15 +2219,14 @@ mod test {
             let data = ::tests::message(filename);
 
             // 2. Parse the message.
-            let u = to_unknown_packet(&data[..]).unwrap();
+            let u = Packet::Unknown(to_unknown_packet(&data[..]).unwrap());
 
             // 3. Serialize the packet it into a local buffer.
             let data2 = u.to_vec().unwrap();
 
             // 4. Modulo the body length encoding, check that the
             // reserialized content is identical to the original data.
-            packets_bitwise_compare(filename, &Packet::Unknown(u),
-                                    &data[..], &data2[..]);
+            packets_bitwise_compare(filename, &u, &data[..], &data2[..]);
         }
 
     }
@@ -2359,7 +2274,8 @@ mod test {
             let po = pile.descendants().next();
             if let Some(&Packet::CompressedData(ref cd)) = po {
                 // 4. Serialize the container.
-                let buffer = cd.to_vec().unwrap();
+                let buffer =
+                    Packet::CompressedData(cd.clone()).to_vec().unwrap();
 
                 // 5. Reparse it.
                 let pile2 = PacketParserBuilder::from_bytes(&buffer[..]).unwrap()

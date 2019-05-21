@@ -3,6 +3,7 @@ use failure::Fail;
 use clap::ArgMatches;
 use itertools::Itertools;
 
+use openpgp::Packet;
 use openpgp::tpk::{TPKBuilder, CipherSuite};
 use openpgp::packet::KeyFlags;
 use openpgp::armor::{Writer, Kind};
@@ -211,7 +212,7 @@ pub fn generate(m: &ArgMatches, force: bool) -> failure::Fallible<()> {
         {
             let w = create_or_stdout(Some(&rev_path), force)?;
             let mut w = Writer::new(w, Kind::Signature, &[])?;
-            rev.serialize(&mut w)?;
+            Packet::Signature(rev).serialize(&mut w)?;
         }
     } else {
         return Err(
