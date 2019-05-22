@@ -437,7 +437,7 @@ impl<'a> SerializeInto for TSK<'a> {
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
-        Ok(generic_serialize_into(self, buf).expect("XXX"))
+        generic_serialize_into(self, buf)
     }
 }
 
