@@ -1746,8 +1746,6 @@ fn compressed_data_parser_test () {
 impl SKESK {
     /// Parses the body of an SK-ESK packet.
     fn parse<'a>(mut php: PacketHeaderParser<'a>) -> Result<PacketParser<'a>> {
-        use serialize::SerializeInto;
-
         make_php_try!(php);
         let version = php_try!(php.parse_u8("version"));
         let skesk = match version {
@@ -1772,17 +1770,17 @@ impl SKESK {
                 let iv_size = php_try!(aead_algo.iv_size());
                 let digest_size = php_try!(aead_algo.digest_size());
                 let aead_iv = php_try!(php.parse_bytes("aead_iv", iv_size));
-                let body_length = match php.header.length {
-                    BodyLength::Full(l) => l as usize,
-                    _ => return Err(Error::MalformedPacket(
-                        "SKESK packet must not use partial body or \
-                         indeterminate length".into()).into()),
-                };
-                let esk_size = body_length
-                    - 1 - 1 - 1 - s2k.serialized_len() - iv_size - digest_size;
-                let esk = php_try!(php.parse_bytes("esk", esk_size));
-                let aead_digest =
-                    php_try!(php.parse_bytes("aead_digest", digest_size));
+
+                // The rest of the packet is the ESK, and the AEAD
+                // digest.  We don't know the size of the former, but
+                // we know the size of the latter.
+                let mut esk = php_try!(php.reader.steal_eof()
+                                       .map_err(|e| failure::Error::from(e)));
+                let l = esk.len();
+                let aead_digest = esk.split_off(l - digest_size);
+                // Now fix the map.
+                php.field("esk", esk.len());
+                php.field("aead_digest", aead_digest.len());
 
                 SKESK::V5(php_try!(SKESK5::new(
                     sym_algo,
