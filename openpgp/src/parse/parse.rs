@@ -845,26 +845,6 @@ pub(crate) fn to_unknown_packet<R: Read>(reader: R) -> Result<Unknown>
 }
 
 impl Signature {
-    // Parses a Signature packet without any OpenPGP framing.  That
-    // is, the first byte of `value` is the Signature packet's version
-    // field, not the ctb.  Also, any length encoding information has
-    // been removed.
-    pub(crate) fn parse_naked(value: &[u8]) -> Result<Packet> {
-        let bio = buffered_reader::Memory::with_cookie(
-            value, Cookie::default());
-        let parser = PacketHeaderParser::new_naked(Box::new(bio));
-
-        let mut pp = Signature::parse(parser)?;
-        pp.buffer_unread_content()?;
-        pp.finish()?;
-
-        match pp.packet {
-            Packet::Signature(_) => Ok(pp.packet),
-            Packet::Unknown(_) => Ok(pp.packet),
-            _ => panic!("Internal inconsistency."),
-        }
-    }
-
     // Parses a signature packet.
     fn parse<'a>(mut php: PacketHeaderParser<'a>)
         -> Result<PacketParser<'a>>

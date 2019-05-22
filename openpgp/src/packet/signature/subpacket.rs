@@ -1088,12 +1088,19 @@ impl<'a> From<SubpacketRaw<'a>> for Subpacket<'a> {
                 },
 
             SubpacketTag::EmbeddedSignature => {
+                use parse::Parse;
                 // A signature packet.
-                if let Ok(p) = Signature::parse_naked(&raw.value) {
-                    Some(SubpacketValue::EmbeddedSignature(p))
-                } else {
-                    None
-                }
+                Some(SubpacketValue::EmbeddedSignature(
+                    match Signature::from_bytes(&raw.value) {
+                        Ok(s) => Packet::Signature(s),
+                        Err(e) => {
+                            use packet::{Tag, Unknown};
+                            let mut u = Unknown::new(Tag::Signature, e);
+                            u.set_body(raw.value.to_vec());
+                            Packet::Unknown(u)
+                        },
+                    }
+                ))
             },
 
             SubpacketTag::IssuerFingerprint => {
