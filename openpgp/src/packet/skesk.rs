@@ -197,6 +197,12 @@ impl SKESK4 {
     }
 }
 
+impl From<SKESK4> for super::SKESK {
+    fn from(p: SKESK4) -> Self {
+        super::SKESK::V4(p)
+    }
+}
+
 impl From<SKESK4> for Packet {
     fn from(s: SKESK4) -> Self {
         Packet::SKESK(SKESK::V4(s))
@@ -356,6 +362,12 @@ impl SKESK5 {
     /// Sets the AEAD digest.
     pub fn set_aead_digest(&mut self, digest: Box<[u8]>) -> Box<[u8]> {
         ::std::mem::replace(&mut self.aead_digest, digest)
+    }
+}
+
+impl From<SKESK5> for super::SKESK {
+    fn from(p: SKESK5) -> Self {
+        super::SKESK::V5(p)
     }
 }
 
