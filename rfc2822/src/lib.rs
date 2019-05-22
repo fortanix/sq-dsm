@@ -178,8 +178,9 @@ impl AddrSpec {
     pub fn parse<S>(input: S) -> Result<Self>
         where S: AsRef<str>
     {
-        let lexer = lexer::Lexer::new(input.as_ref());
-        let components = match grammar::AddrSpecParser::new().parse(lexer) {
+        let input = input.as_ref();
+        let lexer = lexer::Lexer::new(input);
+        let components = match grammar::AddrSpecParser::new().parse(input, lexer) {
             Ok(components) => components,
             Err(err) => return Err(parse_error_downcast(err).into()),
         };
@@ -290,8 +291,9 @@ impl NameAddr {
     pub fn parse<S>(input: S) -> Result<Self>
         where S: AsRef<str>
     {
-        let lexer = lexer::Lexer::new(input.as_ref());
-        let components = match grammar::NameAddrParser::new().parse(lexer) {
+        let input = input.as_ref();
+        let lexer = lexer::Lexer::new(input);
+        let components = match grammar::NameAddrParser::new().parse(input, lexer) {
             Ok(components) => components,
             Err(err) => return Err(parse_error_downcast(err).into()),
         };
@@ -343,11 +345,11 @@ mod tests {
             fn c<S>(input: S, expected: Option<$t>)
                 where S: AsRef<str>
             {
-                let input = input.as_ref().to_string();
+                let input = input.as_ref();
                 eprintln!("\n\ninput: '{:?}'", input);
 
                 let lexer = lexer::Lexer::new(&input[..]);
-                let result = $parser.parse(lexer);
+                let result = $parser.parse(input, lexer);
 
                 if let Some(expected) = expected {
                     if let Ok(result) = result {
@@ -829,6 +831,152 @@ mod tests {
               Component::WS,
               Component::Text("[ foo.bar.com quux:biz ]".into()),
               Component::WS,
+          ]));
+    }
+
+    // addr-spec-or-other     =       local-part "@" domain
+    //                        |       anything
+    #[test]
+    fn addr_spec_or_other_parser() {
+        fn e() -> ParseError<usize, String, LexicalError> {
+            ParseError::User { error: LexicalError::NoError }
+        }
+
+        c!(grammar::AddrSpecOrOtherParser::new(), Vec<Component>);
+
+        // Normal email addresses.
+        c("foo@bar.com", Some(vec![Component::Address("foo@bar.com".into())]));
+        c("foo@bar", Some(vec![Component::Address("foo@bar".into())]));
+        c("foo.bar@x", Some(vec![Component::Address("foo.bar@x".into())]));
+        c("foo.bar@ß", Some(vec![Component::Address("foo.bar@ß".into())]));
+
+        // Some invalid email addresses...
+
+        // [ is not a valid localpart.
+        c("[@x",
+          Some(vec![
+              Component::InvalidAddress(e(), "[@x".into())
+          ]));
+        c("[ß@x",
+          Some(vec![
+              Component::InvalidAddress(e(), "[ß@x".into())
+          ]));
+        c("[@xß",
+          Some(vec![
+              Component::InvalidAddress(e(), "[@xß".into())
+          ]));
+        c("[@xßℝ",
+          Some(vec![
+              Component::InvalidAddress(e(), "[@xßℝ".into())
+          ]));
+        c("foo[@x",
+          Some(vec![
+              Component::InvalidAddress(e(), "foo[@x".into())
+          ]));
+
+        // What happens with comments?
+        c("(c)[@x",
+          Some(vec![
+              Component::InvalidAddress(e(), "(c)[@x".into())
+          ]));
+        c("[(c)@x",
+          Some(vec![
+              Component::InvalidAddress(e(), "[(c)@x".into())
+          ]));
+        c("[@(c)x",
+          Some(vec![
+              Component::InvalidAddress(e(), "[@(c)x".into())
+          ]));
+
+        c("foo(c)[@x",
+          Some(vec![
+              Component::InvalidAddress(e(), "foo(c)[@x".into())
+          ]));
+        c("foo[(c)@x",
+          Some(vec![
+              Component::InvalidAddress(e(), "foo[(c)@x".into())
+          ]));
+        c("foo[@(c)x",
+          Some(vec![
+              Component::InvalidAddress(e(), "foo[@(c)x".into())
+          ]));
+
+        c("[@x (c)",
+          Some(vec![
+              Component::InvalidAddress(e(), "[@x (c)".into())
+          ]));
+
+        c("(c) foo[@x",
+          Some(vec![
+              Component::InvalidAddress(e(), "(c) foo[@x".into())
+          ]));
+        c("foo[ (c)@x",
+          Some(vec![
+              Component::InvalidAddress(e(), "foo[ (c)@x".into())
+          ]));
+
+        // @ is not a valid domain part.
+        c("foo.bar@@dings",
+          Some(vec![
+              Component::InvalidAddress(e(), "foo.bar@@dings".into())
+          ]));
+        c("foo.bar@x@dings",
+          Some(vec![
+              Component::InvalidAddress(e(), "foo.bar@x@dings".into())
+          ]));
+
+        // Again, what happens with comments?
+        c("foo.bar  (1)@@(2)dings",
+          Some(vec![
+              Component::InvalidAddress(e(), "foo.bar  (1)@@(2)dings".into())
+          ]));
+        c("foo.bar  (1) @@ (2)dings",
+          Some(vec![
+              Component::InvalidAddress(e(), "foo.bar  (1) @@ (2)dings".into())
+          ]));
+
+        c("foo.bar(1)@x@dings",
+          Some(vec![
+              Component::InvalidAddress(e(), "foo.bar(1)@x@dings".into())
+          ]));
+        c("foo.bar@(1)x@dings",
+          Some(vec![
+              Component::InvalidAddress(e(), "foo.bar@(1)x@dings".into())
+          ]));
+        c("foo.bar@x(1)@dings",
+          Some(vec![
+              Component::InvalidAddress(e(), "foo.bar@x(1)@dings".into())
+          ]));
+        c("foo.bar@x@(1)dings",
+          Some(vec![
+              Component::InvalidAddress(e(), "foo.bar@x@(1)dings".into())
+          ]));
+        c("foo.bar@x@  (1)  dings",
+          Some(vec![
+              Component::InvalidAddress(e(), "foo.bar@x@  (1)  dings".into())
+          ]));
+
+
+
+        // Try some URIs for completeness.
+        c("ssh://user:pasword@example.org/resource",
+          Some(vec![
+              Component::InvalidAddress(e(), "ssh://user:pasword@example.org/resource".into())
+          ]));
+
+        c("(not a comment)   ssh://user:pasword@example.org/resource",
+          Some(vec![
+              Component::InvalidAddress(e(), "(not a comment)   ssh://user:pasword@example.org/resource".into())
+          ]));
+
+        c("shark://grrrr/39874293847092837443987492834",
+          Some(vec![
+              Component::InvalidAddress(e(), "shark://grrrr/39874293847092837443987492834".into())
+          ]));
+
+        c("shark://bait/8uyoi3lu4hl2..dfoif983j4b@%",
+          Some(vec![
+              Component::InvalidAddress(e(), "shark://bait/8uyoi3lu4hl2..dfoif983j4b@%".into())
           ]));
     }
 

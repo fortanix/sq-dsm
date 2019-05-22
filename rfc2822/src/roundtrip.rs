@@ -155,9 +155,10 @@ macro_rules! parser_quickcheck {
         quickcheck! {
             fn $parser(t: $type) -> bool {
                 let s = t.clone().input();
-                let lexer = lexer::Lexer::new(s.as_ref());
+                let s = s.as_ref();
+                let lexer = lexer::Lexer::new(s);
 
-                match grammar::$parser::new().parse(lexer) {
+                match grammar::$parser::new().parse(s, lexer) {
                     Ok(components) => {
                         let got = components;
                         let expected = t.components();
@@ -306,9 +307,10 @@ token!(Text, g, {
 quickcheck! {
     fn text_roundtrip(t: Text) -> bool {
         let s = t.clone().to_string();
-        let lexer = lexer::Lexer::new(s.as_ref());
+        let s = s.as_ref();
+        let lexer = lexer::Lexer::new(s);
 
-        match grammar::TextParser::new().parse(lexer) {
+        match grammar::TextParser::new().parse(s, lexer) {
             Ok(token) => token.to_string() == s,
             Err(err) => {
                 eprintln!("Parsing: {:?}: {:?}", t, err);
@@ -348,9 +350,10 @@ production!(FWS, g, {
 quickcheck! {
     fn fws_roundtrip(fws: FWS) -> bool {
         let s = fws.input();
-        let lexer = lexer::Lexer::new(s.as_ref());
+        let s = s.as_ref();
+        let lexer = lexer::Lexer::new(s);
 
-        match grammar::FWS_Parser::new().parse(lexer) {
+        match grammar::FWS_Parser::new().parse(s, lexer) {
             Ok(component) =>
                 destructures_to!(Component::WS = component),
             Err(err) => {
@@ -384,9 +387,10 @@ token!(CText, g, {
 quickcheck! {
     fn ctext_roundtrip(t: CText) -> bool {
         let s = t.clone().to_string();
-        let lexer = lexer::Lexer::new(s.as_ref());
+        let s = s.as_ref();
+        let lexer = lexer::Lexer::new(s);
 
-        match grammar::CTextParser::new().parse(lexer) {
+        match grammar::CTextParser::new().parse(s, lexer) {
             Ok(token) => token.to_string() == s,
             Err(err) => {
                 eprintln!("Parsing: {:?}: {:?}", t, err);
@@ -489,9 +493,10 @@ production!(Comment, g, {
 quickcheck! {
     fn comment_roundtrip(t: Comment) -> bool {
         let s = t.clone().input();
-        let lexer = lexer::Lexer::new(s.as_ref());
+        let s = s.as_ref();
+        let lexer = lexer::Lexer::new(s);
 
-        match grammar::CommentParser::new().parse(lexer) {
+        match grammar::CommentParser::new().parse(s, lexer) {
             Ok(component) => {
                 let got = vec![ component ];
                 let expected = t.components();
@@ -536,9 +541,10 @@ production!(CFWS, g, {
 quickcheck! {
     fn cfws_roundtrip(t: CFWS) -> bool {
         let s = t.clone().input();
-        let lexer = lexer::Lexer::new(s.as_ref());
+        let s = s.as_ref();
+        let lexer = lexer::Lexer::new(s);
 
-        match grammar::CfwsParser::new().parse(lexer) {
+        match grammar::CfwsParser::new().parse(s, lexer) {
             Ok(components) => {
                 let got = components;
                 let expected = t.components();
@@ -638,9 +644,10 @@ production!(Atom, g, {
 quickcheck! {
     fn atom_roundtrip(t: Atom) -> bool {
         let s = t.clone().input();
-        let lexer = lexer::Lexer::new(s.as_ref());
+        let s = s.as_ref();
+        let lexer = lexer::Lexer::new(s);
 
-        match grammar::AtomParser::new().parse(lexer) {
+        match grammar::AtomParser::new().parse(s, lexer) {
             Ok(components) => {
                 let got = components;
                 let expected = t.components();

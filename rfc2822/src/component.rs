@@ -1,3 +1,6 @@
+use lalrpop_util::ParseError;
+use lexer::LexicalError;
+
 /// A UserID value typically looks something like:
 ///
 ///    Text (Comment) <name@example.org>
@@ -8,7 +11,7 @@
 /// The actual format allows for lots of interleaved comments and
 /// multiple texts.  Thus, when parsing we build up a vector of
 /// Components in the order that they were encountered.
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, Clone)]
 pub enum Component {
     // A text string.
     Text(String),
@@ -19,8 +22,34 @@ pub enum Component {
     Comment(String),
     // An email address.
     Address(String),
+
+    // The text found where an address was expected.
+    InvalidAddress(ParseError<usize, String, LexicalError>, String),
+
     // White space.
     WS,
+}
+
+// When comparing two `Component::InvalidAddress`es, we consider them
+// equal if the values match; we don't compare the saved errors.  This
+// is because the parser will always generate the same error for the
+// same input.  And, the PartialEq implementation is only used to
+// support comparing two `Component`s in assertions.
+impl PartialEq for Component {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Component::Text(a), Component::Text(b)) => a == b,
+            (Component::Comment(a), Component::Comment(b)) => a == b,
+            (Component::Address(a), Component::Address(b)) => a == b,
+            (Component::InvalidAddress(_, a), Component::InvalidAddress(_, b)) =>
+                a == b,
+            (Component::WS, Component::WS) => true,
+            (_, _) => false,
+        }
+    }
+}
+
+impl Eq for Component {
 }
 
 impl From<Component> for Vec<Component> {

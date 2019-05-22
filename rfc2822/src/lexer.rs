@@ -2,6 +2,9 @@ use std::fmt;
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub enum LexicalError {
+    // Not possible.  Used by the tests to compare
+    // Component::InvalidAddresses.
+    NoError,
 }
 
 impl fmt::Display for LexicalError {

@@ -1,4 +1,5 @@
 // -*- mode: Rust; -*-
+use parse_error_downcast;
 use strings::{
     strings_flatten_into,
     strings_flatten2,
@@ -11,7 +12,9 @@ use component::{
 use lexer;
 use lexer::{Token, LexicalError};
 
-grammar<'input>;
+// Pass in the original, untokenized input to facilitate error
+// recovery.  See, for instance, the `addr-spec-or-other` production.
+grammar<'input>(input: &'input str);
 
 // RFC 4880 says:
 //
@@ -628,6 +631,34 @@ addr_spec : Vec<Component> = {
         components_concat!(l, addr, d)
     },
 }
+
+// An extention to extract anything where an email address is
+// expected.  This is useful for OpenPGP, because sometimes the
+// address is not an email address, but a URI.  Instead of adding a
+// whole URI parser, we just return the raw content.
+//
+// addr-spec-or-other     =       local-part "@" domain
+//                        |       anything
+pub(crate) AddrSpecOrOther : Vec<Component> = {
+    <a:addr_spec_or_other> => components_merge(a),
+}
+
+addr_spec_or_other : Vec<Component> = {
+    addr_spec,
+    <start:@L> <e:!> <end:@R> => {
+        match e {
+            lalrpop_util::ErrorRecovery { error, .. } => {
+                vec![
+                    Component::InvalidAddress(
+                        parse_error_downcast(error),
+                        input[start..end].to_string()
+                    )
+                ]
+            }
+        }
+    }
+}
+
 
 // local-part      =       dot-atom / quoted-string / obs-local-part
 pub(crate) LocalPart : Vec<Component> = {
