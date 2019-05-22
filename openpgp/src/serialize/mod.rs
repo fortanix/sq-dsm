@@ -1153,6 +1153,14 @@ impl Serialize for Key {
     }
 }
 
+impl Key {
+    fn net_len_key(&self, serialize_secrets: bool) -> usize {
+        match self {
+            &Key::V4(ref p) => p.net_len_key(serialize_secrets),
+        }
+    }
+}
+
 impl SerializeInto for Key {
     fn serialized_len(&self) -> usize {
         match self {
@@ -1971,6 +1979,124 @@ impl SerializeInto for Packet {
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
         generic_serialize_into(self, buf)
     }
+}
+
+impl Packet {
+    /// Serializes the given packet structure.
+    ///
+    /// This function writes a CTB, the length, and the given
+    /// serializable object.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Error::InvalidOperation` if `tag` is
+    /// `Tag::PublicKey`, `Tag::PublicSubkey`, `Tag::SecretKey`, or
+    /// `Tag::SecretSubkey`.
+    pub fn serialize_ref(o: &mut dyn std::io::Write, tag: Tag,
+                         packet: &Serialize) -> Result<()> {
+        use packet::Tag::*;
+        match tag {
+            PublicKey | PublicSubkey | SecretKey | SecretSubkey =>
+                return Err(Error::InvalidOperation(
+                    "Use Packet::serialize_key_ref to serialize a key".into())
+                           .into()),
+            _ => (),
+        };
+
+        let mut body = Vec::new();
+        packet.serialize(&mut body)?;
+        CTB::new(tag).serialize(o)?;
+        BodyLength::Full(body.len() as u32).serialize(o)?;
+        o.write_all(&body)?;
+        Ok(())
+    }
+
+    /// Returns the length of the given packet structure.
+    ///
+    /// This includes a CTB, the length, and the given serializable
+    /// object.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Error::InvalidOperation` if `tag` is
+    /// `Tag::PublicKey`, `Tag::PublicSubkey`, `Tag::SecretKey`, or
+    /// `Tag::SecretSubkey`.
+    pub fn serialized_len_ref(tag: Tag, packet: &SerializeInto)
+                              -> Result<usize> {
+        use packet::Tag::*;
+        match tag {
+            PublicKey | PublicSubkey | SecretKey | SecretSubkey =>
+                return Err(Error::InvalidOperation(
+                    "Use Packet::serialized_len_key_ref to for keys".into())
+                           .into()),
+            _ => (),
+        };
+
+        let body_len = packet.serialized_len();
+        Ok(1 + BodyLength::Full(body_len as u32).serialized_len() + body_len)
+    }
+
+    /// Serializes the given key packet structure.
+    ///
+    /// This function writes a CTB, the length, and the given key.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Error::InvalidOperation` if `tag` is not one of
+    /// `Tag::PublicKey`, `Tag::PublicSubkey`, `Tag::SecretKey`, or
+    /// `Tag::SecretSubkey`.  Returns `Error::InvalidOperation` if
+    /// `tag` is `Tag::SecretKey` or `Tag::SecretSubkey`, but the
+    /// given `key` has no secret key.
+    pub fn serialize_key_ref(o: &mut dyn std::io::Write, tag: Tag,
+                             key: &Key) -> Result<()> {
+        use packet::Tag::*;
+        let serialize_secrets = match tag {
+            SecretKey | SecretSubkey if key.secret().is_none() =>
+                return Err(Error::InvalidOperation(
+                    format!("Key has no secret key, but tag {} was given", tag))
+                           .into()),
+            PublicKey | PublicSubkey => false,
+            SecretKey | SecretSubkey => true,
+            _ =>
+                return Err(Error::InvalidOperation(
+                    format!("Expected a key tag, got {}", tag)).into()),
+        };
+
+        let mut body = Vec::new();
+        key.serialize_key(&mut body, serialize_secrets)?;
+        CTB::new(tag).serialize(o)?;
+        BodyLength::Full(body.len() as u32).serialize(o)?;
+        o.write_all(&body)?;
+        Ok(())
+    }
+
+    /// Returns the length of the given key packet structure.
+    ///
+    /// This includes a CTB, the length, and the given key.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Error::InvalidOperation` if `tag` is
+    /// `Tag::PublicKey`, `Tag::PublicSubkey`, `Tag::SecretKey`, or
+    /// `Tag::SecretSubkey`.
+    pub fn serialized_len_key_ref(tag: Tag, key: &Key) -> Result<usize> {
+        use packet::Tag::*;
+        let serialize_secrets = match tag {
+            SecretKey | SecretSubkey if key.secret().is_none() =>
+                return Err(Error::InvalidOperation(
+                    format!("Key has no secret key, but tag {} was given", tag))
+                           .into()),
+            PublicKey | PublicSubkey => false,
+            SecretKey | SecretSubkey => true,
+            _ =>
+                return Err(Error::InvalidOperation(
+                    format!("Expected a key tag, got {}", tag)).into()),
+        };
+
+        let body_len = key.net_len_key(serialize_secrets);
+        Ok(1 + BodyLength::Full(body_len as u32).serialized_len() + body_len)
+    }
+
 }
 
 impl Serialize for PacketPile {

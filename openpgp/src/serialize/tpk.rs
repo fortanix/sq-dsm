@@ -6,79 +6,79 @@ use serialize::{Serialize, SerializeInto, generic_serialize_into};
 
 impl Serialize for TPK {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
-        Packet::PublicKey(self.primary().clone()).serialize(o)?;
+        Packet::serialize_key_ref(o, Tag::PublicKey, self.primary())?;
 
         for s in self.selfsigs() {
-            Packet::Signature(s.clone()).serialize(o)?;
+            Packet::serialize_ref(o, Tag::Signature, s)?;
         }
         for s in self.self_revocations() {
-            Packet::Signature(s.clone()).serialize(o)?;
+            Packet::serialize_ref(o, Tag::Signature, s)?;
         }
         for s in self.other_revocations() {
-            Packet::Signature(s.clone()).serialize(o)?;
+            Packet::serialize_ref(o, Tag::Signature, s)?;
         }
         for s in self.certifications() {
-            Packet::Signature(s.clone()).serialize(o)?;
+            Packet::serialize_ref(o, Tag::Signature, s)?;
         }
 
         for u in self.userids.iter() {
-            Packet::UserID(u.userid().clone()).serialize(o)?;
+            Packet::serialize_ref(o, Tag::UserID, u.userid())?;
             for s in u.self_revocations() {
-                Packet::Signature(s.clone()).serialize(o)?;
+                Packet::serialize_ref(o, Tag::Signature, s)?;
             }
             for s in u.selfsigs() {
-                Packet::Signature(s.clone()).serialize(o)?;
+                Packet::serialize_ref(o, Tag::Signature, s)?;
             }
             for s in u.other_revocations() {
-                Packet::Signature(s.clone()).serialize(o)?;
+                Packet::serialize_ref(o, Tag::Signature, s)?;
             }
             for s in u.certifications() {
-                Packet::Signature(s.clone()).serialize(o)?;
+                Packet::serialize_ref(o, Tag::Signature, s)?;
             }
         }
 
         for u in self.user_attributes.iter() {
-            Packet::UserAttribute(u.user_attribute().clone()).serialize(o)?;
+            Packet::serialize_ref(o, Tag::UserAttribute, u.user_attribute())?;
             for s in u.self_revocations() {
-                Packet::Signature(s.clone()).serialize(o)?;
+                Packet::serialize_ref(o, Tag::Signature, s)?;
             }
             for s in u.selfsigs() {
-                Packet::Signature(s.clone()).serialize(o)?;
+                Packet::serialize_ref(o, Tag::Signature, s)?;
             }
             for s in u.other_revocations() {
-                Packet::Signature(s.clone()).serialize(o)?;
+                Packet::serialize_ref(o, Tag::Signature, s)?;
             }
             for s in u.certifications() {
-                Packet::Signature(s.clone()).serialize(o)?;
+                Packet::serialize_ref(o, Tag::Signature, s)?;
             }
         }
 
         for k in self.subkeys.iter() {
-            Packet::PublicSubkey(k.subkey().clone()).serialize(o)?;
+            Packet::serialize_key_ref(o, Tag::PublicSubkey, k.subkey())?;
             for s in k.self_revocations() {
-                Packet::Signature(s.clone()).serialize(o)?;
+                Packet::serialize_ref(o, Tag::Signature, s)?;
             }
             for s in k.selfsigs() {
-                Packet::Signature(s.clone()).serialize(o)?;
+                Packet::serialize_ref(o, Tag::Signature, s)?;
             }
             for s in k.other_revocations() {
-                Packet::Signature(s.clone()).serialize(o)?;
+                Packet::serialize_ref(o, Tag::Signature, s)?;
             }
             for s in k.certifications() {
-                Packet::Signature(s.clone()).serialize(o)?;
+                Packet::serialize_ref(o, Tag::Signature, s)?;
             }
         }
 
         for u in self.unknowns.iter() {
-            Packet::Unknown(u.unknown.clone()).serialize(o)?;
+            Packet::serialize_ref(o, u.unknown.tag(), &u.unknown)?;
 
             for s in u.sigs.iter() {
-                Packet::Signature(s.clone()).serialize(o)?;
+                Packet::serialize_ref(o, Tag::Signature, s)?;
             }
         }
 
         for s in self.bad.iter() {
-            Packet::Signature(s.clone()).serialize(o)?;
+            Packet::serialize_ref(o, Tag::Signature, s)?;
         }
 
         Ok(())
@@ -88,79 +88,86 @@ impl Serialize for TPK {
 impl SerializeInto for TPK {
     fn serialized_len(&self) -> usize {
         let mut l = 0;
-        l += Packet::PublicKey(self.primary().clone()).serialized_len();
+        l += Packet::serialized_len_key_ref(Tag::PublicKey, self.primary())
+            .unwrap_or(0);
 
         for s in self.selfsigs() {
-            l += Packet::Signature(s.clone()).serialized_len();
+            l += Packet::serialized_len_ref(Tag::Signature, s).unwrap_or(0);
         }
         for s in self.self_revocations() {
-            l += Packet::Signature(s.clone()).serialized_len();
+            l += Packet::serialized_len_ref(Tag::Signature, s).unwrap_or(0);
         }
         for s in self.other_revocations() {
-            l += Packet::Signature(s.clone()).serialized_len();
+            l += Packet::serialized_len_ref(Tag::Signature, s).unwrap_or(0);
         }
         for s in self.certifications() {
-            l += Packet::Signature(s.clone()).serialized_len();
+            l += Packet::serialized_len_ref(Tag::Signature, s).unwrap_or(0);
         }
 
         for u in self.userids.iter() {
-            l += Packet::UserID(u.userid().clone()).serialized_len();
+            l += Packet::serialized_len_ref(Tag::UserID, u.userid())
+                .unwrap_or(0);
+
             for s in u.self_revocations() {
-                l += Packet::Signature(s.clone()).serialized_len();
+                l += Packet::serialized_len_ref(Tag::Signature, s).unwrap_or(0);
             }
             for s in u.selfsigs() {
-                l += Packet::Signature(s.clone()).serialized_len();
+                l += Packet::serialized_len_ref(Tag::Signature, s).unwrap_or(0);
             }
             for s in u.other_revocations() {
-                l += Packet::Signature(s.clone()).serialized_len();
+                l += Packet::serialized_len_ref(Tag::Signature, s).unwrap_or(0);
             }
             for s in u.certifications() {
-                l += Packet::Signature(s.clone()).serialized_len();
+                l += Packet::serialized_len_ref(Tag::Signature, s).unwrap_or(0);
             }
         }
 
         for u in self.user_attributes.iter() {
-            l += Packet::UserAttribute(u.user_attribute().clone()).serialized_len();
+            l += Packet::serialized_len_ref(
+                Tag::UserAttribute, u.user_attribute()).unwrap_or(0);
             for s in u.self_revocations() {
-                l += Packet::Signature(s.clone()).serialized_len();
+                l += Packet::serialized_len_ref(Tag::Signature, s).unwrap_or(0);
             }
             for s in u.selfsigs() {
-                l += Packet::Signature(s.clone()).serialized_len();
+                l += Packet::serialized_len_ref(Tag::Signature, s).unwrap_or(0);
             }
             for s in u.other_revocations() {
-                l += Packet::Signature(s.clone()).serialized_len();
+                l += Packet::serialized_len_ref(Tag::Signature, s).unwrap_or(0);
             }
             for s in u.certifications() {
-                l += Packet::Signature(s.clone()).serialized_len();
+                l += Packet::serialized_len_ref(Tag::Signature, s).unwrap_or(0);
             }
         }
 
         for k in self.subkeys.iter() {
-            l += Packet::PublicSubkey(k.subkey().clone()).serialized_len();
+            l += Packet::serialized_len_key_ref(Tag::PublicSubkey, k.subkey())
+                .unwrap_or(0);
+
             for s in k.self_revocations() {
-                l += Packet::Signature(s.clone()).serialized_len();
+                l += Packet::serialized_len_ref(Tag::Signature, s).unwrap_or(0);
             }
             for s in k.selfsigs() {
-                l += Packet::Signature(s.clone()).serialized_len();
+                l += Packet::serialized_len_ref(Tag::Signature, s).unwrap_or(0);
             }
             for s in k.other_revocations() {
-                l += Packet::Signature(s.clone()).serialized_len();
+                l += Packet::serialized_len_ref(Tag::Signature, s).unwrap_or(0);
             }
             for s in k.certifications() {
-                l += Packet::Signature(s.clone()).serialized_len();
+                l += Packet::serialized_len_ref(Tag::Signature, s).unwrap_or(0);
             }
         }
 
         for u in self.unknowns.iter() {
-            l += Packet::Unknown(u.unknown.clone()).serialized_len();
+            l += Packet::serialized_len_ref(u.unknown.tag(), &u.unknown)
+                .unwrap_or(0);
 
             for s in u.sigs.iter() {
-                l += Packet::Signature(s.clone()).serialized_len();
+                l += Packet::serialized_len_ref(Tag::Signature, s).unwrap_or(0);
             }
         }
 
         for s in self.bad.iter() {
-            l += Packet::Signature(s.clone()).serialized_len();
+            l += Packet::serialized_len_ref(Tag::Signature, s).unwrap_or(0);
         }
 
         l
@@ -261,91 +268,81 @@ impl<'a> Serialize for TSK<'a> {
                 tag_public
             };
 
-            match tag {
-                Tag::PublicKey =>
-                    Packet::PublicKey(key.clone()).serialize(o),
-                Tag::PublicSubkey =>
-                    Packet::PublicSubkey(key.clone()).serialize(o),
-                Tag::SecretKey =>
-                    Packet::SecretKey(key.clone()).serialize(o),
-                Tag::SecretSubkey =>
-                    Packet::SecretSubkey(key.clone()).serialize(o),
-                _ => unreachable!(),
-            }
+            Packet::serialize_key_ref(o, tag, key)
         };
         serialize_key(o, &self.tpk.primary, Tag::PublicKey, Tag::SecretKey)?;
 
         for s in self.tpk.primary_selfsigs.iter() {
-            Packet::Signature(s.clone()).serialize(o)?;
+            Packet::serialize_ref(o, Tag::Signature, s)?;
         }
         for s in self.tpk.primary_self_revocations.iter() {
-            Packet::Signature(s.clone()).serialize(o)?;
+            Packet::serialize_ref(o, Tag::Signature, s)?;
         }
         for s in self.tpk.primary_certifications.iter() {
-            Packet::Signature(s.clone()).serialize(o)?;
+            Packet::serialize_ref(o, Tag::Signature, s)?;
         }
         for s in self.tpk.primary_other_revocations.iter() {
-            Packet::Signature(s.clone()).serialize(o)?;
+            Packet::serialize_ref(o, Tag::Signature, s)?;
         }
 
         for u in self.tpk.userids() {
-            Packet::UserID(u.userid().clone()).serialize(o)?;
+            Packet::serialize_ref(o, Tag::UserID, u.userid())?;
             for s in u.self_revocations() {
-                Packet::Signature(s.clone()).serialize(o)?;
+                Packet::serialize_ref(o, Tag::Signature, s)?;
             }
             for s in u.selfsigs() {
-                Packet::Signature(s.clone()).serialize(o)?;
+                Packet::serialize_ref(o, Tag::Signature, s)?;
             }
             for s in u.other_revocations() {
-                Packet::Signature(s.clone()).serialize(o)?;
+                Packet::serialize_ref(o, Tag::Signature, s)?;
             }
             for s in u.certifications() {
-                Packet::Signature(s.clone()).serialize(o)?;
+                Packet::serialize_ref(o, Tag::Signature, s)?;
             }
         }
 
         for u in self.tpk.user_attributes() {
-            Packet::UserAttribute(u.user_attribute().clone()).serialize(o)?;
+            Packet::serialize_ref(o, Tag::UserAttribute, u.user_attribute())?;
             for s in u.self_revocations() {
-                Packet::Signature(s.clone()).serialize(o)?;
+                Packet::serialize_ref(o, Tag::Signature, s)?;
             }
             for s in u.selfsigs() {
-                Packet::Signature(s.clone()).serialize(o)?;
+                Packet::serialize_ref(o, Tag::Signature, s)?;
             }
             for s in u.other_revocations() {
-                Packet::Signature(s.clone()).serialize(o)?;
+                Packet::serialize_ref(o, Tag::Signature, s)?;
             }
             for s in u.certifications() {
-                Packet::Signature(s.clone()).serialize(o)?;
+                Packet::serialize_ref(o, Tag::Signature, s)?;
             }
         }
 
         for k in self.tpk.subkeys() {
             serialize_key(o, k.subkey(), Tag::PublicSubkey, Tag::SecretSubkey)?;
             for s in k.self_revocations() {
-                Packet::Signature(s.clone()).serialize(o)?;
+                Packet::serialize_ref(o, Tag::Signature, s)?;
             }
             for s in k.selfsigs() {
-                Packet::Signature(s.clone()).serialize(o)?;
+                Packet::serialize_ref(o, Tag::Signature, s)?;
             }
             for s in k.other_revocations() {
-                Packet::Signature(s.clone()).serialize(o)?;
+                Packet::serialize_ref(o, Tag::Signature, s)?;
             }
             for s in k.certifications() {
-                Packet::Signature(s.clone()).serialize(o)?;
+                Packet::serialize_ref(o, Tag::Signature, s)?;
             }
         }
 
         for u in self.tpk.unknowns.iter() {
-            Packet::Unknown(u.unknown.clone()).serialize(o)?;
+            Packet::serialize_ref(o, u.unknown.tag(), &u.unknown)?;
 
             for s in u.sigs.iter() {
-                Packet::Signature(s.clone()).serialize(o)?;
+                Packet::serialize_ref(o, Tag::Signature, s)?;
             }
         }
 
         for s in self.tpk.bad.iter() {
-            Packet::Signature(s.clone()).serialize(o)?;
+            Packet::serialize_ref(o, Tag::Signature, s)?;
         }
 
         Ok(())
@@ -366,93 +363,89 @@ impl<'a> SerializeInto for TSK<'a> {
                 tag_public
             };
 
-            match tag {
-                Tag::PublicKey =>
-                    Packet::PublicKey(key.clone()).serialized_len(),
-                Tag::PublicSubkey =>
-                    Packet::PublicSubkey(key.clone()).serialized_len(),
-                Tag::SecretKey =>
-                    Packet::SecretKey(key.clone()).serialized_len(),
-                Tag::SecretSubkey =>
-                    Packet::SecretSubkey(key.clone()).serialized_len(),
-                _ => unreachable!(),
-            }
+            Packet::serialized_len_key_ref(tag, key).unwrap_or(0)
         };
         l += serialized_len_key(&self.tpk.primary,
                                 Tag::PublicKey, Tag::SecretKey);
 
         for s in self.tpk.selfsigs() {
-            l += Packet::Signature(s.clone()).serialized_len();
+            l += Packet::serialized_len_ref(Tag::Signature, s).unwrap_or(0);
         }
         for s in self.tpk.self_revocations() {
-            l += Packet::Signature(s.clone()).serialized_len();
+            l += Packet::serialized_len_ref(Tag::Signature, s).unwrap_or(0);
         }
         for s in self.tpk.other_revocations() {
-            l += Packet::Signature(s.clone()).serialized_len();
+            l += Packet::serialized_len_ref(Tag::Signature, s).unwrap_or(0);
         }
         for s in self.tpk.certifications() {
-            l += Packet::Signature(s.clone()).serialized_len();
+            l += Packet::serialized_len_ref(Tag::Signature, s).unwrap_or(0);
         }
 
         for u in self.tpk.userids.iter() {
-            l += Packet::UserID(u.userid().clone()).serialized_len();
+            l += Packet::serialized_len_ref(Tag::UserID, u.userid())
+                .unwrap_or(0);
+
             for s in u.self_revocations() {
-                l += Packet::Signature(s.clone()).serialized_len();
+                l += Packet::serialized_len_ref(Tag::Signature, s).unwrap_or(0);
             }
             for s in u.selfsigs() {
-                l += Packet::Signature(s.clone()).serialized_len();
+                l += Packet::serialized_len_ref(Tag::Signature, s).unwrap_or(0);
             }
             for s in u.other_revocations() {
-                l += Packet::Signature(s.clone()).serialized_len();
+                l += Packet::serialized_len_ref(Tag::Signature, s).unwrap_or(0);
             }
             for s in u.certifications() {
-                l += Packet::Signature(s.clone()).serialized_len();
+                l += Packet::serialized_len_ref(Tag::Signature, s).unwrap_or(0);
             }
         }
 
         for u in self.tpk.user_attributes.iter() {
-            l += Packet::UserAttribute(u.user_attribute().clone()).serialized_len();
+            l += Packet::serialized_len_ref(
+                Tag::UserAttribute, u.user_attribute()).unwrap_or(0);
+
             for s in u.self_revocations() {
-                l += Packet::Signature(s.clone()).serialized_len();
+                l += Packet::serialized_len_ref(Tag::Signature, s).unwrap_or(0);
             }
             for s in u.selfsigs() {
-                l += Packet::Signature(s.clone()).serialized_len();
+                l += Packet::serialized_len_ref(Tag::Signature, s).unwrap_or(0);
             }
             for s in u.other_revocations() {
-                l += Packet::Signature(s.clone()).serialized_len();
+                l += Packet::serialized_len_ref(Tag::Signature, s).unwrap_or(0);
             }
             for s in u.certifications() {
-                l += Packet::Signature(s.clone()).serialized_len();
+                l += Packet::serialized_len_ref(Tag::Signature, s).unwrap_or(0);
             }
         }
 
         for k in self.tpk.subkeys.iter() {
             l += serialized_len_key(k.subkey(),
                                     Tag::PublicSubkey, Tag::SecretSubkey);
+
             for s in k.self_revocations() {
-                l += Packet::Signature(s.clone()).serialized_len();
+                l += Packet::serialized_len_ref(Tag::Signature, s).unwrap_or(0);
             }
             for s in k.selfsigs() {
-                l += Packet::Signature(s.clone()).serialized_len();
+                l += Packet::serialized_len_ref(Tag::Signature, s).unwrap_or(0);
             }
             for s in k.other_revocations() {
-                l += Packet::Signature(s.clone()).serialized_len();
+                l += Packet::serialized_len_ref(Tag::Signature, s).unwrap_or(0);
             }
             for s in k.certifications() {
-                l += Packet::Signature(s.clone()).serialized_len();
+                l += Packet::serialized_len_ref(Tag::Signature, s).unwrap_or(0);
             }
         }
 
         for u in self.tpk.unknowns.iter() {
-            l += Packet::Unknown(u.unknown.clone()).serialized_len();
+            l += Packet::serialized_len_ref(u.unknown.tag(), &u.unknown)
+                .unwrap_or(0);
 
             for s in u.sigs.iter() {
-                l += Packet::Signature(s.clone()).serialized_len();
+                l += Packet::serialized_len_ref(Tag::Signature, s).unwrap_or(0);
             }
         }
 
         for s in self.tpk.bad.iter() {
-            l += Packet::Signature(s.clone()).serialized_len();
+            l += Packet::serialized_len_ref(Tag::Signature, s).unwrap_or(0);
         }
 
         l
