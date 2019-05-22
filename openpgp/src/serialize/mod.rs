@@ -911,7 +911,7 @@ impl<'a> Serialize for SubpacketValue<'a> {
                 o.write_all(digest)?;
             },
             EmbeddedSignature(ref p) => match p {
-                &Packet::Signature(ref sig) => sig.serialize_naked(o)?,
+                &Packet::Signature(ref sig) => sig.serialize(o)?,
                 _ => return Err(Error::InvalidArgument(
                     format!("Not a signature: {:?}", p)).into()),
             },
@@ -1031,52 +1031,6 @@ impl Serialize for Signature4 {
     ///
     /// [`Error::InvalidArgument`]: ../../enum.Error.html#variant.InvalidArgument
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
-        self.serialize_naked(o)
-    }
-}
-
-impl NetLength for Signature4 {
-    fn net_len(&self) -> usize {
-        1 // Version.
-            + 1 // Signature type.
-            + 1 // PK algorithm.
-            + 1 // Hash algorithm.
-            + 2 // Hashed area size.
-            + self.hashed_area().data.len()
-            + 2 // Unhashed area size.
-            + self.unhashed_area().data.len()
-            + 2 // Hash prefix.
-            + self.mpis().serialized_len()
-    }
-}
-
-impl SerializeInto for Signature4 {
-    fn serialized_len(&self) -> usize {
-        self.net_len()
-    }
-
-    fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
-        generic_serialize_into(self, buf)
-    }
-}
-
-impl Signature4 {
-    /// Writes a serialized version of the specified `Signature`
-    /// packet without framing to `o`.
-    ///
-    /// Note: this function does not compute the signature (which
-    /// would require access to the private key); it assumes that
-    /// sig.mpis is up to date.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`Error::InvalidArgument`] if invoked on a
-    /// non-version 4 signature, or if either the hashed-area or the
-    /// unhashed-area exceeds the size limit of 2^16.
-    ///
-    /// [`Error::InvalidArgument`]: ../enum.Error.html#variant.InvalidArgument
-    pub(crate) fn serialize_naked(&self, o: &mut dyn std::io::Write)
-                                  -> Result<()> {
         if self.version() != 4 {
             return Err(Error::InvalidArgument(
                 "Don't know how to serialize \
@@ -1107,6 +1061,31 @@ impl Signature4 {
         self.mpis().serialize(o)?;
 
         Ok(())
+    }
+}
+
+impl NetLength for Signature4 {
+    fn net_len(&self) -> usize {
+        1 // Version.
+            + 1 // Signature type.
+            + 1 // PK algorithm.
+            + 1 // Hash algorithm.
+            + 2 // Hashed area size.
+            + self.hashed_area().data.len()
+            + 2 // Unhashed area size.
+            + self.unhashed_area().data.len()
+            + 2 // Hash prefix.
+            + self.mpis().serialized_len()
+    }
+}
+
+impl SerializeInto for Signature4 {
+    fn serialized_len(&self) -> usize {
+        self.net_len()
+    }
+
+    fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
+        generic_serialize_into(self, buf)
     }
 }
 

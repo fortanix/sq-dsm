@@ -785,8 +785,9 @@ impl<'a> SubpacketValue<'a> {
             SignatureTarget { ref digest, .. } => 1 + 1 + digest.len(),
             EmbeddedSignature(p) => match p {
                 &Packet::Signature(Signature::V4(ref sig)) => {
+                    use serialize::Serialize;
                     let mut w = Vec::new();
-                    sig.serialize_naked(&mut w).unwrap();
+                    sig.serialize(&mut w).unwrap();
                     w.len()
                 },
                 // Bogus.
