@@ -17,9 +17,11 @@ use tokio_core::reactor::Handle;
 use url::Url;
 
 use openpgp::TPK;
-use openpgp::{KeyID, armor, serialize::Serialize};
 use openpgp::parse::Parse;
+use openpgp::{KeyID, armor, serialize::Serialize};
 use sequoia_core::{Context, NetworkPolicy};
+
+use wkd as net_wkd;
 
 use super::{Error, Result};
 
@@ -227,4 +229,70 @@ impl AClient for Client<HttpsConnector<HttpConnector>> {
 
 pub(crate) fn url2uri(uri: Url) -> hyper::Uri {
     format!("{}", uri).parse().unwrap()
+}
+
+pub mod wkd {
+    //! Asynchronously access Web Key Directories.
+    use super::*;
+    /// Retrieves the TPKs that contain userids with a given email address
+    /// from a Web Key Directory URL.
+    ///
+    /// This function is call by [net::wkd::get](../../wkd/fn.get.html).
+    ///
+    /// From [draft-koch]:
+    ///
+    /// ```text
+    /// There are two variants on how to form the request URI: The advanced
+    /// and the direct method. Implementations MUST first try the advanced
+    /// method. Only if the required sub-domain does not exist, they SHOULD
+    /// fall back to the direct method.
+    ///
+    /// [...]
+    ///
+    /// The HTTP GET method MUST return the binary representation of the
+    /// OpenPGP key for the given mail address.
+    ///
+    /// [...]
+    ///
+    /// Note that the key may be revoked or expired - it is up to the
+    /// client to handle such conditions. To ease distribution of revoked
+    /// keys, a server may return revoked keys in addition to a new key.
+    /// The keys are returned by a single request as concatenated key
+    /// blocks.
+    /// ```
+    ///
+    /// [draft-koch]: https://datatracker.ietf.org/doc/html/draft-koch-openpgp-webkey-service/#section-3.1
+
+    // XXX: Maybe the direct method should be tried on other errors too.
+    // https://mailarchive.ietf.org/arch/msg/openpgp/6TxZc2dQFLKXtS0Hzmrk963EteE
+    pub fn get<S: AsRef<str>>(email_address: S)
+        -> impl Future<Item=Vec<TPK>, Error=failure::Error> {
+        let email = email_address.as_ref().to_string();
+        future::lazy(move || -> Result<_> {
+            // First, prepare URIs and client.
+            let wkd_url = net_wkd::Url::from(&email)?;
+
+            // WKD must use TLS, so build a client for that.
+            let https = HttpsConnector::new(4)?;
+            let client = Client::builder().build::<_, hyper::Body>(https);
+
+            Ok((email, client, wkd_url.to_uri(false)?, wkd_url.to_uri(true)?))
+        }).and_then(|(email, client, advanced_uri, direct_uri)| {
+            // First, try the Advanced Method.
+            client.get(advanced_uri)
+                // Fall back to the Direct Method.
+                .or_else(move |_| {
+                    client.get(direct_uri)
+                })
+                .from_err()
+                .map(|res| (email, res))
+        }).and_then(|(email, res)| {
+            // Join the response body.
+            res.into_body().concat2().from_err()
+                .map(|body| (email, body))
+        }).and_then(|(email, body)| {
+            // And parse the response.
+            net_wkd::parse_body(&body, &email)
+        })
+    }
 }

@@ -34,6 +34,7 @@
 
 extern crate sequoia_openpgp as openpgp;
 extern crate sequoia_core;
+extern crate sequoia_rfc2822 as rfc2822;
 
 #[macro_use]
 extern crate failure;
@@ -42,11 +43,13 @@ extern crate http;
 extern crate hyper;
 extern crate hyper_tls;
 extern crate native_tls;
+extern crate nettle;
 extern crate tokio_core;
 extern crate tokio_io;
 #[macro_use]
 extern crate percent_encoding;
 extern crate url;
+extern crate zbase32;
 
 use hyper::client::{ResponseFuture, HttpConnector};
 use hyper::{Client, Request, Body};
@@ -62,6 +65,7 @@ use sequoia_core::Context;
 
 pub mod async;
 use async::url2uri;
+pub mod wkd;
 
 /// For accessing keyservers using HKP.
 pub struct KeyServer {
@@ -169,6 +173,15 @@ pub enum Error {
     /// A `native_tls::Error` occurred.
     #[fail(display = "TLS Error")]
     TlsError(native_tls::Error),
+
+    /// wkd errors:
+    /// An email address is malformed
+    #[fail(display = "Malformed email address {}", _0)]
+    MalformedEmail(String),
+
+    /// An email address was not found in TPK userids.
+    #[fail(display = "Email address {} not found in TPK's userids", _0)]
+    EmailNotInUserids(String),
 }
 
 impl From<http::Error> for Error {
