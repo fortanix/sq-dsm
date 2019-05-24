@@ -31,6 +31,12 @@ impl From<KeyID> for Vec<u8> {
     }
 }
 
+impl From<u64> for KeyID {
+    fn from(id: u64) -> Self {
+        Self::new(id)
+    }
+}
+
 impl KeyID {
     /// Converts a u64 to a KeyID.
     pub fn new(data: u64) -> KeyID {
