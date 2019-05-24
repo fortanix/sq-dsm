@@ -27,7 +27,7 @@ use openpgp::conversions::hex;
 use openpgp::parse::Parse;
 use openpgp::serialize::Serialize;
 use sequoia_core::{Context, NetworkPolicy};
-use sequoia_net::KeyServer;
+use sequoia_net::{KeyServer, wkd};
 use sequoia_store::{Store, LogIter};
 
 mod sq_cli;
@@ -458,6 +458,36 @@ fn real_main() -> Result<(), failure::Error> {
         ("key", Some(m)) => match m.subcommand() {
             ("generate", Some(m)) => commands::key::generate(m, force)?,
             _ => unreachable!(),
+        },
+        ("wkd",  Some(m)) => {
+            match m.subcommand() {
+                ("url",  Some(m)) => {
+                    let email_address = m.value_of("input").unwrap();
+                    let wkd_url = wkd::Url::from(email_address)?;
+                    // XXX: Add other subcomand to specify whether it should be
+                    // created with the advanced or the direct method.
+                    let url = wkd_url.to_url(None)?;
+                    println!("{}", url);
+                },
+                ("get",  Some(m)) => {
+                    let email_address = m.value_of("input").unwrap();
+                    // XXX: EmailAddress could be created here to
+                    // check it's a valid email address, print the error to
+                    // stderr and exit.
+                    // Because it might be created a WkdServer struct, not
+                    // doing it for now.
+                    let tpks = wkd::get(&email_address)?;
+                    // This is different to `store export` and `keyserver get`,
+                    // Since the output is always bytes.
+                    // XXX: Still give the possibility to write to a file.
+                    let mut output = create_or_stdout(m.value_of("output"), force)?;
+
+                    for tpk in tpks {
+                        tpk.serialize(&mut output)?;
+                    }
+                },
+                _ => unreachable!(),
+            }
         },
         _ => unreachable!(),
     }

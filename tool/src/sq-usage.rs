@@ -34,6 +34,7 @@
 //!     key          Manipulates keys
 //!     list         Lists key stores and known keys
 //!     packet       OpenPGP Packet manipulation
+//!     wkd          Interacts with Web Key Directories
 //! ```
 //!
 //! ## Subcommand decrypt
@@ -624,6 +625,50 @@
 //!
 //! ARGS:
 //!     <FILE>    Sets the input file to use
+//! ```
+//! ## Subcommand wkd
+//! ```text
+//! Interacts with Web Key Directories
+//!
+//! USAGE:
+//!     sq wkd [SUBCOMMAND]
+//!
+//! FLAGS:
+//!     -h, --help       Prints help information
+//!     -V, --version    Prints version information
+//!
+//! SUBCOMMANDS:
+//! get     Writes to the standard output the Transferable Public Key retrieved from a Web Key Directory, given an email address
+//! help    Prints this message or the help of the given subcommand(s)
+//! url     Prints the Web Key Directory URI of an email address.
+//! ```
+//! ### Subcommand wkd url
+//! ```text
+//! Prints the Web Key Directory URI of an email address
+//!
+//! USAGE:
+//!     sq wkd url [EMAIL_ADDRESS]
+//!
+//! FLAGS:
+//!     -h, --help       Prints help information
+//!     -V, --version    Prints version information
+//!
+//! ARGS:
+//!     <EMAIL_ADDRESS>     The email address from which to obtain the WKD URI.
+//! ```
+//! ### Subcommand wkd get
+//! ```text
+//!
+//! Writes to the standard output the Transferable Public Key retrieved from a Web Key Directory, given an email address
+//! USAGE:
+//!     sq wkd get [EMAIL_ADDRESS]
+//!
+//! FLAGS:
+//!     -h, --help       Prints help information
+//!     -V, --version    Prints version information
+//!
+//! ARGS:
+//!     <EMAIL_ADDRESS>    The email address from which to obtain the TPK from a WKD.
 //! ```
 
 include!("sq.rs");

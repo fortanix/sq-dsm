@@ -433,4 +433,25 @@ pub fn build() -> App<'static, 'static> {
                                      .help("Sets the prefix to use for output files \
                                             (defaults to the input filename with a dash, \
                                             or 'output')"))))
+
+        .subcommand(SubCommand::with_name("wkd")
+                    .about("Interacts with Web Key Directories")
+                    .setting(AppSettings::ArgRequiredElseHelp)
+                    .subcommand(SubCommand::with_name("url")
+                                .about("Prints the Web Key Directory URl of \
+                                        an email address.")
+                                .arg(Arg::with_name("input")
+                                    .value_name("EMAIL_ADDRESS")
+                                    .help("The email address from which to \
+                                            obtain the WKD URI.")))
+                    .subcommand(SubCommand::with_name("get")
+                                .about("Writes to the standard output the \
+                                        Transferable Public Key retrieved \
+                                        from a Web Key Directory, given an \
+                                        email address")
+                                .arg(Arg::with_name("input")
+                                    .value_name("EMAIL_ADDRESS")
+                                    .help("The email address from which to \
+                                            obtain the TPK from a WKD.")))
+        )
 }
