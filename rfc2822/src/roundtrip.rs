@@ -183,7 +183,7 @@ macro_rules! parser_quickcheck {
                     Err(err) => {
                         eprintln!("Parsing: {:?}: {:?}", t, err);
                         if let ParseError::UnrecognizedToken {
-                            token: Some((start, _, end)), ..
+                            token: (start, _, end), ..
                         } = err
                         {
                             eprintln!("Context:");

@@ -104,17 +104,10 @@ fn parse_error_downcast<'a>(e: ParseError<usize, lexer::Token<'a>, Error>)
 {
     match e {
         ParseError::UnrecognizedToken {
-            token: Some((start, t, end)),
+            token: (start, t, end),
             expected,
         } => ParseError::UnrecognizedToken {
-            token: Some((start, t.into(), end)),
-            expected,
-        },
-        ParseError::UnrecognizedToken {
-            token: None,
-            expected,
-        } => ParseError::UnrecognizedToken {
-            token: None,
+            token: (start, t.into(), end),
             expected,
         },
 
@@ -129,6 +122,9 @@ fn parse_error_downcast<'a>(e: ParseError<usize, lexer::Token<'a>, Error>)
 
         ParseError::User { error }
         => ParseError::User { error },
+
+        ParseError::UnrecognizedEOF { location, expected }
+        => ParseError::UnrecognizedEOF { location, expected },
     }
 }
 

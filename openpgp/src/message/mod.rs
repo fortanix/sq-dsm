@@ -291,7 +291,7 @@ impl MessageValidator {
         } else {
             match r {
                 Ok(_) => MessageValidity::MessagePrefix,
-                Err(ParseError::UnrecognizedToken { token: None, .. }) =>
+                Err(ParseError::UnrecognizedEOF { .. }) =>
                     MessageValidity::MessagePrefix,
                 Err(ref err) =>
                     MessageValidity::Error(

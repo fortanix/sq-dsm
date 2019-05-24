@@ -64,17 +64,10 @@ fn parse_error_downcast(e: ParseError<usize, Token, Error>)
 {
     match e {
         ParseError::UnrecognizedToken {
-            token: Some((start, t, end)),
+            token: (start, t, end),
             expected,
         } => ParseError::UnrecognizedToken {
-            token: Some((start, t.into(), end)),
-            expected,
-        },
-        ParseError::UnrecognizedToken {
-            token: None,
-            expected,
-        } => ParseError::UnrecognizedToken {
-            token: None,
+            token: (start, t.into(), end),
             expected,
         },
 
@@ -89,6 +82,9 @@ fn parse_error_downcast(e: ParseError<usize, Token, Error>)
 
         ParseError::User { error }
         => ParseError::User { error },
+
+        ParseError::UnrecognizedEOF { location, expected }
+        => ParseError::UnrecognizedEOF { location, expected },
     }
 }
 
@@ -306,7 +302,7 @@ impl KeyringValidator {
         } else {
             match r {
                 Ok(_) => KeyringValidity::KeyringPrefix,
-                Err(ParseError::UnrecognizedToken { token: None, .. }) =>
+                Err(ParseError::UnrecognizedEOF { .. }) =>
                     KeyringValidity::KeyringPrefix,
                 Err(err) =>
                     KeyringValidity::Error(
