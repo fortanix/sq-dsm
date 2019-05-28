@@ -23,6 +23,7 @@ pub(crate) mod symmetric;
 
 pub use self::asymmetric::{
     Signer,
+    Decryptor,
     KeyPair,
 };
 

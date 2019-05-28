@@ -3,6 +3,7 @@
 use nettle::{dsa, ecc, ecdsa, ed25519, rsa, Yarrow};
 
 use packet::Key;
+use crypto::SessionKey;
 use crypto::mpis::{self, MPI};
 use constants::{Curve, HashAlgorithm};
 
@@ -22,6 +23,21 @@ pub trait Signer {
     /// Creates a signature over the `digest` produced by `hash_algo`.
     fn sign(&mut self, hash_algo: HashAlgorithm, digest: &[u8])
             -> Result<mpis::Signature>;
+}
+
+/// Decrypts a message.
+///
+/// This is a low-level mechanism to decrypt an arbitrary OpenPGP
+/// ciphertext.  Using this trait allows Sequoia to perform all
+/// operations involving decryption to use a variety of secret key
+/// storage mechanisms (e.g. smart cards).
+pub trait Decryptor {
+    /// Returns a reference to the public key.
+    fn public(&self) -> &Key;
+
+    /// Creates a signature over the `digest` produced by `hash_algo`.
+    fn decrypt(&mut self, ciphertext: &mpis::Ciphertext)
+               -> Result<SessionKey>;
 }
 
 /// A cryptographic key pair.
@@ -181,5 +197,52 @@ impl Signer for KeyPair {
                  and secret key {:?}",
                 pk_algo, self.public, self.secret)).into()),
         }
+    }
+}
+
+impl Decryptor for KeyPair {
+    fn public(&self) -> &Key {
+        &self.public
+    }
+
+    /// Creates a signature over the `digest` produced by `hash_algo`.
+    fn decrypt(&mut self, ciphertext: &mpis::Ciphertext)
+               -> Result<SessionKey>
+    {
+        use PublicKeyAlgorithm::*;
+        use crypto::mpis::PublicKey;
+        use nettle::rsa;
+
+        Ok(match (self.public.mpis(), &self.secret, ciphertext)
+        {
+            (PublicKey::RSA{ ref e, ref n },
+             mpis::SecretKey::RSA{ ref p, ref q, ref d, .. },
+             mpis::Ciphertext::RSA{ ref c }) => {
+                let public = rsa::PublicKey::new(&n.value, &e.value)?;
+                let secret = rsa::PrivateKey::new(&d.value, &p.value,
+                                                  &q.value, Option::None)?;
+                let mut rand = Yarrow::default();
+                rsa::decrypt_pkcs1(&public, &secret, &mut rand, &c.value)?
+            }
+
+            (PublicKey::Elgamal{ .. },
+             mpis::SecretKey::Elgamal{ .. },
+             mpis::Ciphertext::Elgamal{ .. }) =>
+                return Err(
+                    Error::UnsupportedPublicKeyAlgorithm(ElgamalEncrypt).into()),
+
+            (PublicKey::ECDH{ .. },
+             mpis::SecretKey::ECDH { .. },
+             mpis::Ciphertext::ECDH { .. }) =>
+                ::crypto::ecdh::unwrap_session_key(&self.public,
+                                                   &self.secret,
+                                                   ciphertext)?,
+
+            (public, secret, ciphertext) =>
+                return Err(Error::MalformedPacket(format!(
+                    "unsupported combination of key pair {:?}/{:?} \
+                     and ciphertext {:?}",
+                    public, secret, ciphertext)).into()),
+        }.into())
     }
 }
