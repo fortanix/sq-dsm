@@ -837,147 +837,246 @@ mod tests {
     // addr-spec-or-other     =       local-part "@" domain
     //                        |       anything
     #[test]
-    fn addr_spec_or_other_parser() {
+    fn or_other_parsers() {
         fn e() -> ParseError<usize, String, LexicalError> {
             ParseError::User { error: LexicalError::NoError }
         }
 
-        c!(grammar::AddrSpecOrOtherParser::new(), Vec<Component>);
+        struct Test<'a> {
+            input: &'a str,
+            output: Option<Vec<Component>>,
+        };
 
-        // Normal email addresses.
-        c("foo@bar.com", Some(vec![Component::Address("foo@bar.com".into())]));
-        c("foo@bar", Some(vec![Component::Address("foo@bar".into())]));
-        c("foo.bar@x", Some(vec![Component::Address("foo.bar@x".into())]));
-        c("foo.bar@ß", Some(vec![Component::Address("foo.bar@ß".into())]));
+        let tests : &[Test] = &[
+            // First, some normal, valid email addresses.
+            Test {
+                input: "foo@bar.com",
+                output: Some(vec![Component::Address("foo@bar.com".into())])
+            },
+            Test {
+                input: "foo@bar",
+                output: Some(vec![Component::Address("foo@bar".into())])
+            },
+            Test {
+                input: "foo.bar@x",
+                output: Some(vec![Component::Address("foo.bar@x".into())])
+            },
+            // Last character is a multibyte character.
+            Test {
+                input: "foo.bar@ß",
+                output: Some(vec![Component::Address("foo.bar@ß".into())])
+            },
 
-        // Some invalid email addresses...
+            // Then some invalid email addresses...
 
-        // [ is not a valid localpart.
-        c("[@x",
-          Some(vec![
-              Component::InvalidAddress(e(), "[@x".into())
-          ]));
-        c("[ß@x",
-          Some(vec![
-              Component::InvalidAddress(e(), "[ß@x".into())
-          ]));
-        c("[@xß",
-          Some(vec![
-              Component::InvalidAddress(e(), "[@xß".into())
-          ]));
-        c("[@xßℝ",
-          Some(vec![
-              Component::InvalidAddress(e(), "[@xßℝ".into())
-          ]));
-        c("foo[@x",
-          Some(vec![
-              Component::InvalidAddress(e(), "foo[@x".into())
-          ]));
+            // [ is not a valid localpart.
+            Test {
+                input: "[@x",
+                output: Some(vec![
+                    Component::InvalidAddress(e(), "[@x".into())
+                ])
+            },
+            Test {
+                input: "[ß@x",
+                output: Some(vec![
+                    Component::InvalidAddress(e(), "[ß@x".into())
+                ])
+            },
+            // Last character is a multibyte character.
+            Test {
+                input: "[@xß",
+                output: Some(vec![
+                    Component::InvalidAddress(e(), "[@xß".into())
+                ])
+            },
+            Test {
+                input: "[@xßℝ",
+                output: Some(vec![
+                    Component::InvalidAddress(e(), "[@xßℝ".into())
+                ])
+            },
+            Test {
+                input: "foo[@x",
+                output: Some(vec![
+                    Component::InvalidAddress(e(), "foo[@x".into())
+                ])
+            },
 
-        // What happens with comments?
-        c("(c)[@x",
-          Some(vec![
-              Component::InvalidAddress(e(), "(c)[@x".into())
-          ]));
-        c("[(c)@x",
-          Some(vec![
-              Component::InvalidAddress(e(), "[(c)@x".into())
-          ]));
-        c("[@(c)x",
-          Some(vec![
-              Component::InvalidAddress(e(), "[@(c)x".into())
-          ]));
+            // What happens with comments?
+            Test {
+                input: "(c)[@x",
+                output: Some(vec![
+                    Component::InvalidAddress(e(), "(c)[@x".into())
+                ])
+            },
+            Test {
+                input: "[(c)@x",
+                output: Some(vec![
+                    Component::InvalidAddress(e(), "[(c)@x".into())
+                ])
+            },
+            Test {
+                input: "[@(c)x",
+                output: Some(vec![
+                    Component::InvalidAddress(e(), "[@(c)x".into())
+                ])
+            },
 
-        c("foo(c)[@x",
-          Some(vec![
-              Component::InvalidAddress(e(), "foo(c)[@x".into())
-          ]));
-        c("foo[(c)@x",
-          Some(vec![
-              Component::InvalidAddress(e(), "foo[(c)@x".into())
-          ]));
-        c("foo[@(c)x",
-          Some(vec![
-              Component::InvalidAddress(e(), "foo[@(c)x".into())
-          ]));
+            Test {
+                input: "foo(c)[@x",
+                output: Some(vec![
+                    Component::InvalidAddress(e(), "foo(c)[@x".into())
+                ])
+            },
+            Test {
+                input: "foo[(c)@x",
+                output: Some(vec![
+                    Component::InvalidAddress(e(), "foo[(c)@x".into())
+                ])
+            },
+            Test {
+                input: "foo[@(c)x",
+                output: Some(vec![
+                    Component::InvalidAddress(e(), "foo[@(c)x".into())
+                ])
+            },
 
-        c("[@x (c)",
-          Some(vec![
-              Component::InvalidAddress(e(), "[@x (c)".into())
-          ]));
+            Test {
+                input: "[@x (c)",
+                output: Some(vec![
+                    Component::InvalidAddress(e(), "[@x (c)".into())
+                ])
+            },
 
-        c("(c) foo[@x",
-          Some(vec![
-              Component::InvalidAddress(e(), "(c) foo[@x".into())
-          ]));
-        c("foo[ (c)@x",
-          Some(vec![
-              Component::InvalidAddress(e(), "foo[ (c)@x".into())
-          ]));
+            Test {
+                input: "(c) foo[@x",
+                output: Some(vec![
+                    Component::InvalidAddress(e(), "(c) foo[@x".into())
+                ])
+            },
+            Test {
+                input: "foo[ (c)@x",
+                output: Some(vec![
+                    Component::InvalidAddress(e(), "foo[ (c)@x".into())
+                ])
+            },
 
-        // @ is not a valid domain part.
-        c("foo.bar@@dings",
-          Some(vec![
-              Component::InvalidAddress(e(), "foo.bar@@dings".into())
-          ]));
-        c("foo.bar@x@dings",
-          Some(vec![
-              Component::InvalidAddress(e(), "foo.bar@x@dings".into())
-          ]));
+            // @ is not a valid domain part.
+            Test {
+                input: "foo.bar@@dings",
+                output: Some(vec![
+                    Component::InvalidAddress(e(), "foo.bar@@dings".into())
+                ])
+            },
+            Test {
+                input: "foo.bar@x@dings",
+                output: Some(vec![
+                    Component::InvalidAddress(e(), "foo.bar@x@dings".into())
+                ])
+            },
 
-        // Again, what happens with comments?
-        c("foo.bar  (1)@@(2)dings",
-          Some(vec![
-              Component::InvalidAddress(e(), "foo.bar  (1)@@(2)dings".into())
-          ]));
-        c("foo.bar  (1) @@ (2)dings",
-          Some(vec![
-              Component::InvalidAddress(e(), "foo.bar  (1) @@ (2)dings".into())
-          ]));
+            // Again, what happens with comments?
+            Test {
+                input: "foo.bar  (1)@@(2)dings",
+                output: Some(vec![
+                    Component::InvalidAddress(e(), "foo.bar  (1)@@(2)dings".into())
+                ])
+            },
+            Test {
+                input: "foo.bar  (1) @@ (2)dings",
+                output: Some(vec![
+                    Component::InvalidAddress(e(), "foo.bar  (1) @@ (2)dings".into())
+                ])
+            },
 
-        c("foo.bar(1)@x@dings",
-          Some(vec![
-              Component::InvalidAddress(e(), "foo.bar(1)@x@dings".into())
-          ]));
-        c("foo.bar@(1)x@dings",
-          Some(vec![
-              Component::InvalidAddress(e(), "foo.bar@(1)x@dings".into())
-          ]));
-        c("foo.bar@x(1)@dings",
-          Some(vec![
-              Component::InvalidAddress(e(), "foo.bar@x(1)@dings".into())
-          ]));
-        c("foo.bar@x@(1)dings",
-          Some(vec![
-              Component::InvalidAddress(e(), "foo.bar@x@(1)dings".into())
-          ]));
-        c("foo.bar@x@  (1)  dings",
-          Some(vec![
-              Component::InvalidAddress(e(), "foo.bar@x@  (1)  dings".into())
-          ]));
+            Test {
+                input: "foo.bar(1)@x@dings",
+                output: Some(vec![
+                    Component::InvalidAddress(e(), "foo.bar(1)@x@dings".into())
+                ])
+            },
+            Test {
+                input: "foo.bar@(1)x@dings",
+                output: Some(vec![
+                    Component::InvalidAddress(e(), "foo.bar@(1)x@dings".into())
+                ])
+            },
+            Test {
+                input: "foo.bar@x(1)@dings",
+                output: Some(vec![
+                    Component::InvalidAddress(e(), "foo.bar@x(1)@dings".into())
+                ])
+            },
+            Test {
+                input: "foo.bar@x@(1)dings",
+                output: Some(vec![
+                    Component::InvalidAddress(e(), "foo.bar@x@(1)dings".into())
+                ])
+            },
+            Test {
+                input: "foo.bar@x@  (1)  dings",
+                output: Some(vec![
+                    Component::InvalidAddress(e(), "foo.bar@x@  (1)  dings".into())
+                ])
+            },
 
 
 
-        // Try some URIs for completeness.
-        c("ssh://user:pasword@example.org/resource",
-          Some(vec![
-              Component::InvalidAddress(e(), "ssh://user:pasword@example.org/resource".into())
-          ]));
+            // Try some URIs for completeness.
+            Test {
+                input: "ssh://user:pasword@example.org/resource",
+                output: Some(vec![
+                    Component::InvalidAddress(
+                        e(), "ssh://user:pasword@example.org/resource".into())
+                ])
+            },
 
-        c("(not a comment)   ssh://user:pasword@example.org/resource",
-          Some(vec![
-              Component::InvalidAddress(e(), "(not a comment)   ssh://user:pasword@example.org/resource".into())
-          ]));
+            Test {
+                input: "(not a comment)   ssh://user:pasword@example.org/resource",
+                output: Some(vec![
+                    Component::InvalidAddress(
+                        e(), "(not a comment)   ssh://user:pasword@example.org/resource".into())
+                ])
+            },
 
-        c("shark://grrrr/39874293847092837443987492834",
-          Some(vec![
-              Component::InvalidAddress(e(), "shark://grrrr/39874293847092837443987492834".into())
-          ]));
+            Test {
+                input: "shark://grrrr/39874293847092837443987492834",
+                output: Some(vec![
+                    Component::InvalidAddress(
+                        e(), "shark://grrrr/39874293847092837443987492834".into())
+                ])
+            },
 
-        c("shark://bait/8uyoi3lu4hl2..dfoif983j4b@%",
-          Some(vec![
-              Component::InvalidAddress(e(), "shark://bait/8uyoi3lu4hl2..dfoif983j4b@%".into())
-          ]));
+            Test {
+                input: "shark://bait/8uyoi3lu4hl2..dfoif983j4b@%",
+                output: Some(vec![
+                    Component::InvalidAddress(
+                        e(), "shark://bait/8uyoi3lu4hl2..dfoif983j4b@%".into())
+                ])
+            },
+        ][..];
+
+        for t in tests.iter() {
+            {
+                c!(grammar::AddrSpecOrOtherParser::new(), Vec<Component>);
+                c(t.input.to_string(), t.output.clone())
+            }
+
+            {
+                c!(grammar::AngleAddrOrOtherParser::new(), Vec<Component>);
+                c(format!("<{}>", t.input), t.output.clone())
+            }
+
+            {
+                c!(grammar::NameAddrOrOtherParser::new(), Vec<Component>);
+                c(format!("Foo Bar <{}>", t.input),
+                  t.output.clone().map(|mut x| {
+                      x.insert(0, Component::WS);
+                      x.insert(0, Component::Text("Foo Bar".into()));
+                      x
+                  }))
+            }
+        }
     }
 
     // angle-addr      =       [CFWS] "<" addr-spec ">" [CFWS] / obs-angle-addr

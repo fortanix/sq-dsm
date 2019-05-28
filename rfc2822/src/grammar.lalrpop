@@ -566,6 +566,20 @@ name_addr : Vec<Component> = {
         components_concat!(c, a),
 }
 
+// An extension.  See addr-spec-or-other for details.
+
+// name-addr-or-other       =       [display-name] angle-addr-or-other
+pub(crate) NameAddrOrOther : Vec<Component> = {
+    <n:name_addr_or_other> => components_merge(n),
+}
+
+name_addr_or_other : Vec<Component> = {
+    <n:display_name?> <a:angle_addr_or_other_prime> =>
+        components_concat!(n, a),
+
+    <c:CFWS> <a:angle_addr_or_other_prime> =>
+        components_concat!(c, a),
+}
 
 // angle-addr      =       [CFWS] "<" addr-spec ">" [CFWS] / obs-angle-addr
 pub(crate) AngleAddr : Vec<Component> = {
@@ -579,6 +593,24 @@ angle_addr : Vec<Component> = {
 
 angle_addr_prime : Vec<Component> = {
     LANGLE <a:addr_spec> RANGLE <c2:CFWS?> =>
+        components_concat!(a, c2),
+}
+
+
+// An extension.  See addr-spec-or-other for details.
+
+// angle-addr-or-other      =       [CFWS] "<" addr-spec-or-other ">" [CFWS]
+pub(crate) AngleAddrOrOther : Vec<Component> = {
+    <a:angle_addr_or_other> => components_merge(a),
+}
+
+angle_addr_or_other : Vec<Component> = {
+    <c1:CFWS?> LANGLE <a:addr_spec_or_other> RANGLE <c2:CFWS?> =>
+        components_concat!(c1, a, c2),
+}
+
+angle_addr_or_other_prime : Vec<Component> = {
+    LANGLE <a:addr_spec_or_other> RANGLE <c2:CFWS?> =>
         components_concat!(a, c2),
 }
 
