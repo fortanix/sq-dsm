@@ -1089,8 +1089,13 @@ const uint8_t *pgp_user_id_value (pgp_packet_t uid,
 /// The User ID is parsed as an [RFC 2822 mailbox], and the display
 /// name is extracted.
 ///
-/// If the User ID is not a valid RFC 2822 mailbox production,
-/// then an error is returned.
+/// Note: invalid email addresses are accepted in order to support
+/// things like URIs of the form `Hostname
+/// <ssh://server@example.net>`.
+///
+/// If the User ID is otherwise not a valid RFC 2822 mailbox
+/// production, then an error is returned.
+///
 ///
 /// If the User ID does not contain a display, *name is set
 /// to NULL.
@@ -1106,8 +1111,12 @@ pgp_status_t pgp_user_id_name(pgp_error_t *errp, pgp_packet_t uid,
 /// The User ID is parsed as an [RFC 2822 mailbox], and the first
 /// comment is extracted.
 ///
-/// If the User ID is not a valid RFC 2822 mailbox production,
-/// then an error is returned.
+/// Note: invalid email addresses are accepted in order to support
+/// things like URIs of the form `Hostname
+/// <ssh://server@example.net>`.
+///
+/// If the User ID is otherwise not a valid RFC 2822 mailbox
+/// production, then an error is returned.
 ///
 /// If the User ID does not contain a comment, *commentp is set
 /// to NULL.
@@ -1123,8 +1132,12 @@ pgp_status_t pgp_user_id_comment(pgp_error_t *errp, pgp_packet_t uid,
 /// The User ID is parsed as an [RFC 2822 mailbox], and the email
 /// address is extracted.
 ///
-/// If the User ID is not a valid RFC 2822 mailbox production,
-/// then an error is returned.
+/// Note: invalid email addresses are accepted in order to support
+/// things like URIs of the form `Hostname
+/// <ssh://server@example.net>`.
+///
+/// If the User ID is otherwise not a valid RFC 2822 mailbox
+/// production, then an error is returned.
 ///
 /// If the User ID does not contain an email address, *addressp is set
 /// to NULL.
@@ -1133,6 +1146,48 @@ pgp_status_t pgp_user_id_comment(pgp_error_t *errp, pgp_packet_t uid,
 /*/
 pgp_status_t pgp_user_id_address(pgp_error_t *errp, pgp_packet_t uid,
                                  char **addressp);
+
+/*/
+/// Returns the User ID's invalid address, if any.
+///
+/// The User ID is parsed as an [RFC 2822 mailbox], and if the address
+/// is invalid, that is returned.
+///
+/// Note: invalid email addresses are accepted in order to support
+/// things like URIs of the form `Hostname
+/// <ssh://server@example.net>`.
+///
+/// If the User ID is otherwise not a valid RFC 2822 mailbox
+/// production, then an error is returned.
+///
+/// If the User ID does not contain an invalid address, *otherp is
+/// set to NULL.
+///
+///   [RFC 2822 mailbox]: https://tools.ietf.org/html/rfc2822#section-3.4
+/*/
+pgp_status_t pgp_user_id_other(pgp_error_t *errp, pgp_packet_t uid,
+                               char **addressp);
+
+/*/
+/// Returns the User ID's email address, if any.
+///
+/// The User ID is parsed as an [RFC 2822 mailbox], and the email
+/// address, whether it is valid or not, is extracted.
+///
+/// Note: invalid email addresses are accepted in order to support
+/// things like URIs of the form `Hostname
+/// <ssh://server@example.net>`.
+///
+/// If the User ID is otherwise not a valid RFC 2822 mailbox
+/// production, then an error is returned.
+///
+/// If the User ID does not contain an address (valid or invalid),
+/// *addressp is set to NULL.
+///
+///   [RFC 2822 mailbox]: https://tools.ietf.org/html/rfc2822#section-3.4
+/*/
+pgp_status_t pgp_user_id_address_or_other(pgp_error_t *errp, pgp_packet_t uid,
+                                          char **addressp);
 
 /*/
 /// Returns a normalized version of the UserID's email address.
