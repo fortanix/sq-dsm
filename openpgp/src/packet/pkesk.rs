@@ -186,7 +186,7 @@ impl PKESK3 {
 
         let key_rgn = 1..(plain.len() - 2);
         let sym_algo: SymmetricAlgorithm = plain[0].into();
-        let mut key = vec![0u8; sym_algo.key_size()?];
+        let mut key: SessionKey = vec![0u8; sym_algo.key_size()?].into();
 
         if key_rgn.len() != sym_algo.key_size()? {
             return Err(Error::MalformedPacket(
@@ -201,7 +201,7 @@ impl PKESK3 {
             | (plain[plain.len() - 1] as usize);
 
         if their_checksum == our_checksum {
-            Ok((sym_algo, key.into()))
+            Ok((sym_algo, key))
         } else {
             Err(Error::MalformedPacket(format!("key checksum wrong"))
                 .into())
