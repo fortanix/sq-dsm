@@ -1,6 +1,4 @@
 // -*- mode: Rust; -*-
-use Error;
-
 use strings::{
     strings_flatten_into,
     strings_flatten2,
@@ -11,7 +9,7 @@ use component::{
     components_merge,
 };
 use lexer;
-use lexer::Token;
+use lexer::{Token, LexicalError};
 
 grammar<'input>;
 
@@ -747,7 +745,7 @@ dtext : Token<'input> = {
 
 extern {
     type Location = usize;
-    type Error = Error;
+    type Error = LexicalError;
 
     enum lexer::Token<'input> {
         WSP => lexer::Token::WSP(_),

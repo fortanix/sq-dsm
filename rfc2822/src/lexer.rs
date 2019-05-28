@@ -1,14 +1,25 @@
 use std::fmt;
 
-use Error;
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub enum LexicalError {
+}
 
-pub type Spanned<Token, Loc, Error> = Result<(Loc, Token, Loc), Error>;
+impl fmt::Display for LexicalError {
+    // This trait requires `fmt` with this exact signature.
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", "{}")
+    }
+}
+
+pub type Spanned<Token, Loc, LexicalError>
+    = Result<(Loc, Token, Loc), LexicalError>;
 
 // The type of the parser's input.
 //
 // The parser iterators over tuples consisting of the token's starting
 // position, the token itself, and the token's ending position.
-pub(crate) type LexerItem<Token, Loc, Error> = Spanned<Token, Loc, Error>;
+pub(crate) type LexerItem<Token, Loc, LexicalError>
+    = Spanned<Token, Loc, LexicalError>;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Token<'a> {
@@ -86,7 +97,7 @@ impl<'input> Lexer<'input> {
 // 3.2.1. Primitive Tokens
 
 impl<'input> Iterator for Lexer<'input> {
-    type Item = LexerItem<Token<'input>, usize, Error>;
+    type Item = LexerItem<Token<'input>, usize, LexicalError>;
 
     fn next(&mut self) -> Option<Self::Item> {
         use self::Token::*;

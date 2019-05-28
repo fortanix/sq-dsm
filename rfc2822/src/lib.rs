@@ -75,6 +75,7 @@ use component::{
     Component
 };
 mod lexer;
+use lexer::LexicalError;
 
 // We expose a number of productions for testing purposes.
 // Unfortunately, lalrpop doesn't understand the #[cfg(test)]
@@ -91,16 +92,15 @@ mod roundtrip;
 
 const TRACE : bool = false;
 
-pub type Result<T> = ::std::result::Result<T, Error>;
-pub type Error = failure::Error;
+pub type Result<T> = ::std::result::Result<T, failure::Error>;
 
 // A failure needs to have a 'static life time.  lexer::Tokens don't.
 // Convert tokens into strings.
 //
 // Unfortunately, we can't implement From, because we don't define the
 // ParseError in this crate.
-fn parse_error_downcast<'a>(e: ParseError<usize, lexer::Token<'a>, Error>)
-    -> ParseError<usize, String, Error>
+fn parse_error_downcast<'a>(e: ParseError<usize, lexer::Token<'a>, LexicalError>)
+    -> ParseError<usize, String, LexicalError>
 {
     match e {
         ParseError::UnrecognizedToken {
