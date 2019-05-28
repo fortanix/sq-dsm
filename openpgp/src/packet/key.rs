@@ -798,7 +798,6 @@ mod tests {
 
     #[test]
     fn encryption_roundtrip() {
-        use packet::key::SecretKey;
         use crypto::SessionKey;
         use constants::Curve::*;
 
@@ -810,21 +809,13 @@ mod tests {
 
         for key in keys.into_iter() {
             let key = Key::from(key);
-            let secret =
-                if let Some(SecretKey::Unencrypted {
-                    ref mpis,
-                }) = key.secret() {
-                    mpis.clone()
-                } else {
-                    unreachable!()
-                };
-
+            let mut keypair = key.clone().into_keypair().unwrap();
             let cipher = SymmetricAlgorithm::AES256;
             let sk = SessionKey::new(&mut Default::default(),
                                      cipher.key_size().unwrap());
 
             let pkesk = PKESK3::for_recipient(cipher, &sk, &key).unwrap();
-            let (cipher_, sk_) = pkesk.decrypt(&key, &secret).unwrap();
+            let (cipher_, sk_) = pkesk.decrypt(&mut keypair).unwrap();
 
             assert_eq!(cipher, cipher_);
             assert_eq!(sk, sk_);
@@ -956,14 +947,11 @@ mod tests {
         let dek = b"\xA5\x58\x3A\x04\x35\x8B\xC7\x3F\x4A\xEF\x0C\x5A\xEB\xED\x59\xCA\xFD\x96\xB5\x32\x23\x26\x0C\x91\x78\xD1\x31\x12\xF0\x41\x42\x9D";
         let sk = SessionKey::from(Vec::from(&dek[..]));
 
-       // Expected
-       let sec = match key.secret() {
-           Some(&SecretKey::Unencrypted{ ref mpis }) => mpis,
-           _ => unreachable!(),
-       };
-       let got_sk = pkesk.decrypt(&key, sec).unwrap();
+        // Expected
+        let mut decryptor = key.into_keypair().unwrap();
+        let got_sk = pkesk.decrypt(&mut decryptor).unwrap();
 
-       assert_eq!(got_sk.1, sk);
+        assert_eq!(got_sk.1, sk);
     }
 
     #[test]

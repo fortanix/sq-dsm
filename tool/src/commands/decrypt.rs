@@ -122,8 +122,9 @@ impl<'a> DecryptionHelper for Helper<'a> {
         for pkesk in pkesks {
             let keyid = pkesk.recipient();
             if let Some(key) = self.secret_keys.get(&keyid) {
-                if let Some(SecretKey::Unencrypted { mpis }) = key.secret() {
-                    if let Ok(sk) = pkesks[0].decrypt(key, mpis)
+                if let Some(SecretKey::Unencrypted { .. }) = key.secret() {
+                    if let Ok(sk) = key.clone().into_keypair()
+                        .and_then(|mut keypair| pkesks[0].decrypt(&mut keypair))
                         .and_then(|(algo, sk)| { decrypt(algo, &sk)?; Ok(sk) })
                     {
                         if self.dump_session_key {
@@ -159,10 +160,14 @@ impl<'a> DecryptionHelper for Helper<'a> {
                             self.key_hints.get(&keyid).unwrap())))
                         ?.into();
 
-                    if let Ok(mpis) =
-                        key.secret().unwrap().decrypt(key.pk_algo(), &p)
+                    let mut key = key.clone();
+                    let algo = key.pk_algo();
+                    if let Some(()) =
+                        key.secret_mut()
+                        .and_then(|s| s.decrypt_in_place(algo, &p).ok())
                     {
-                        match pkesk.decrypt(key, &mpis)
+                        let mut keypair = key.into_keypair().unwrap();
+                        match pkesk.decrypt(&mut keypair)
                             .and_then(|(algo, sk)| {
                                 decrypt(algo, &sk)?; Ok(sk)
                             })

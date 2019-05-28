@@ -121,11 +121,11 @@ fn main() {
 #         let key = self.secret.subkeys().nth(0)
 #             .map(|binding| binding.subkey().clone())
 #             .unwrap();
-# 
+#
 #         // The secret key is not encrypted.
-#         let pair = key.into_keypair().unwrap();
-# 
-#         pkesks[0].decrypt(pair.public(), pair.secret())
+#         let mut pair = key.into_keypair().unwrap();
+#
+#         pkesks[0].decrypt(&mut pair)
 #             .and_then(|(algo, session_key)| decrypt(algo, &session_key))
 #             .map(|_| None)
 #         // XXX: In production code, return the Fingerprint of the
@@ -255,11 +255,11 @@ fn generate() -> openpgp::Result<openpgp::TPK> {
 #         let key = self.secret.subkeys().nth(0)
 #             .map(|binding| binding.subkey().clone())
 #             .unwrap();
-# 
+#
 #         // The secret key is not encrypted.
-#         let pair = key.into_keypair().unwrap();
-# 
-#         pkesks[0].decrypt(pair.public(), pair.secret())
+#         let mut pair = key.into_keypair().unwrap();
+#
+#         pkesks[0].decrypt(&mut pair)
 #             .and_then(|(algo, session_key)| decrypt(algo, &session_key))
 #             .map(|_| None)
 #         // XXX: In production code, return the Fingerprint of the
@@ -389,11 +389,11 @@ fn encrypt(sink: &mut Write, plaintext: &str, recipient: &openpgp::TPK)
 #         let key = self.secret.subkeys().nth(0)
 #             .map(|binding| binding.subkey().clone())
 #             .unwrap();
-# 
+#
 #         // The secret key is not encrypted.
-#         let pair = key.into_keypair().unwrap();
-# 
-#         pkesks[0].decrypt(pair.public(), pair.secret())
+#         let mut pair = key.into_keypair().unwrap();
+#
+#         pkesks[0].decrypt(&mut pair)
 #             .and_then(|(algo, session_key)| decrypt(algo, &session_key))
 #             .map(|_| None)
 #         // XXX: In production code, return the Fingerprint of the
@@ -539,9 +539,9 @@ impl<'a> DecryptionHelper for Helper<'a> {
             .unwrap();
 
         // The secret key is not encrypted.
-        let pair = key.into_keypair().unwrap();
+        let mut pair = key.into_keypair().unwrap();
 
-        pkesks[0].decrypt(pair.public(), pair.secret())
+        pkesks[0].decrypt(&mut pair)
             .and_then(|(algo, session_key)| decrypt(algo, &session_key))
             .map(|_| None)
         // XXX: In production code, return the Fingerprint of the

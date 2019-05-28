@@ -4,7 +4,7 @@ use failure;
 use libc::{uint8_t, size_t};
 
 extern crate sequoia_openpgp as openpgp;
-use self::openpgp::packet::{PKESK, key::SecretKey};
+use self::openpgp::packet::PKESK;
 use super::super::keyid::KeyID;
 use super::super::packet::key::Key;
 
@@ -44,9 +44,9 @@ pub extern "C" fn pgp_pkesk_decrypt(errp: Option<&mut *mut ::error::Error>,
     let algo = ffi_param_ref_mut!(algo);
     let key_len = ffi_param_ref_mut!(key_len);
 
-    match secret_key.secret() {
-        Some(SecretKey::Unencrypted{ mpis: secret_parts }) => {
-            match pkesk.decrypt(secret_key, secret_parts) {
+    match secret_key.clone().into_keypair() {
+        Ok(mut keypair) => {
+            match pkesk.decrypt(&mut keypair) {
                 Ok((a, k)) => {
                     *algo = a.into();
                     if !key.is_null() && *key_len >= k.len() {
@@ -61,14 +61,10 @@ pub extern "C" fn pgp_pkesk_decrypt(errp: Option<&mut *mut ::error::Error>,
                 },
                 Err(e) => ffi_try_status!(Err::<(), failure::Error>(e)),
             }
-        }
-        Some(thing @ SecretKey::Encrypted{ .. }) => {
+        },
+        Err(e) => {
             // XXX: Better message, don't panic.
-            panic!("Secret parts not unencrypted: {:?}", thing);
-        }
-        None => {
-            // XXX: Better message, don't panic.
-            panic!("No secret parts: {:?}", secret_key.secret());
-        }
+            panic!("Secret parts not unencrypted in {:?}: {}", secret_key, e);
+        },
     }
 }

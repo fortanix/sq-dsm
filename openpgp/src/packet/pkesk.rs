@@ -10,6 +10,7 @@ use quickcheck::{Arbitrary, Gen};
 use Error;
 use packet::Key;
 use KeyID;
+use crypto::Decryptor;
 use crypto::mpis::{self, MPI, Ciphertext};
 use Packet;
 use PublicKeyAlgorithm;
@@ -144,46 +145,10 @@ impl PKESK3 {
 
     /// Decrypts the ESK and returns the session key and symmetric algorithm
     /// used to encrypt the following payload.
-    pub fn decrypt(&self, recipient: &Key, recipient_sec: &mpis::SecretKey)
+    pub fn decrypt(&self, decryptor: &mut Decryptor)
         -> Result<(SymmetricAlgorithm, SessionKey)>
     {
-        use PublicKeyAlgorithm::*;
-        use crypto::mpis::PublicKey;
-        use nettle::rsa;
-
-        let plain: SessionKey = match
-            (self.pk_algo, recipient.mpis(), recipient_sec, &self.esk)
-        {
-            (RSAEncryptSign,
-             &PublicKey::RSA{ ref e, ref n },
-             &mpis::SecretKey::RSA{ ref p, ref q, ref d, .. },
-             &mpis::Ciphertext::RSA{ ref c }) => {
-                let public = rsa::PublicKey::new(&n.value, &e.value)?;
-                let secret = rsa::PrivateKey::new(&d.value, &p.value,
-                                                  &q.value, Option::None)?;
-                let mut rand = Yarrow::default();
-                rsa::decrypt_pkcs1(&public, &secret, &mut rand, &c.value)?
-            }
-
-            (ElgamalEncrypt,
-             &PublicKey::Elgamal{ .. },
-             &mpis::SecretKey::Elgamal{ .. },
-             &mpis::Ciphertext::Elgamal{ .. }) =>
-                return Err(
-                    Error::UnsupportedPublicKeyAlgorithm(self.pk_algo).into()),
-
-            (ECDH,
-             PublicKey::ECDH{ .. },
-             mpis::SecretKey::ECDH { .. },
-             mpis::Ciphertext::ECDH { .. }) =>
-                ecdh::unwrap_session_key(recipient, recipient_sec, &self.esk)?,
-
-            (algo, public, secret, cipher) =>
-                return Err(Error::MalformedPacket(format!(
-                    "unsupported combination of algorithm {:?}, key pair {:?}/{:?} and ciphertext {:?}",
-                    algo, public, secret, cipher)).into()),
-        }.into();
-
+        let plain = decryptor.decrypt(&self.esk)?;
         let key_rgn = 1..(plain.len() - 2);
         let sym_algo: SymmetricAlgorithm = plain[0].into();
         let mut key: SessionKey = vec![0u8; sym_algo.key_size()?].into();
@@ -258,20 +223,18 @@ mod tests {
             ::tests::key("testy-private.pgp")).unwrap();
         let pile = PacketPile::from_bytes(
             ::tests::message("encrypted-to-testy.gpg")).unwrap();
-        let pair = tpk.subkeys().next().unwrap().subkey();
+        let mut keypair =
+            tpk.subkeys().next().unwrap()
+            .subkey().clone().into_keypair().unwrap();
 
-        if let Some(SecretKey::Unencrypted{ mpis: ref sec }) = pair.secret() {
-            let pkg = pile.descendants().skip(0).next().clone();
+        let pkg = pile.descendants().skip(0).next().clone();
 
-            if let Some(Packet::PKESK(ref pkesk)) = pkg {
-                let plain = pkesk.decrypt(&pair, sec).unwrap();
+        if let Some(Packet::PKESK(ref pkesk)) = pkg {
+            let plain = pkesk.decrypt(&mut keypair).unwrap();
 
-                eprintln!("plain: {:?}", plain);
-            } else {
-                panic!("message is not a PKESK packet");
-            }
+            eprintln!("plain: {:?}", plain);
         } else {
-            panic!("secret key is encrypted/missing");
+            panic!("message is not a PKESK packet");
         }
     }
 
@@ -281,20 +244,18 @@ mod tests {
             ::tests::key("testy-new-private.pgp")).unwrap();
         let pile = PacketPile::from_bytes(
             ::tests::message("encrypted-to-testy-new.pgp")).unwrap();
-        let pair = tpk.subkeys().next().unwrap().subkey();
+        let mut keypair =
+            tpk.subkeys().next().unwrap()
+            .subkey().clone().into_keypair().unwrap();
 
-        if let Some(SecretKey::Unencrypted{ mpis: ref sec }) = pair.secret() {
-            let pkg = pile.descendants().skip(0).next().clone();
+        let pkg = pile.descendants().skip(0).next().clone();
 
-            if let Some(Packet::PKESK(ref pkesk)) = pkg {
-                let plain = pkesk.decrypt(&pair, sec).unwrap();
+        if let Some(Packet::PKESK(ref pkesk)) = pkg {
+            let plain = pkesk.decrypt(&mut keypair).unwrap();
 
-                eprintln!("plain: {:?}", plain);
-            } else {
-                panic!("message is not a PKESK packet");
-            }
+            eprintln!("plain: {:?}", plain);
         } else {
-            panic!("secret key is encrypted/missing");
+            panic!("message is not a PKESK packet");
         }
     }
 
@@ -304,20 +265,18 @@ mod tests {
             ::tests::key("testy-nistp256-private.pgp")).unwrap();
         let pile = PacketPile::from_bytes(
             ::tests::message("encrypted-to-testy-nistp256.pgp")).unwrap();
-        let pair = tpk.subkeys().next().unwrap().subkey();
+        let mut keypair =
+            tpk.subkeys().next().unwrap()
+            .subkey().clone().into_keypair().unwrap();
 
-        if let Some(SecretKey::Unencrypted{ mpis: ref sec }) = pair.secret() {
-            let pkg = pile.descendants().skip(0).next().clone();
+        let pkg = pile.descendants().skip(0).next().clone();
 
-            if let Some(Packet::PKESK(ref pkesk)) = pkg {
-                let plain = pkesk.decrypt(&pair, sec).unwrap();
+        if let Some(Packet::PKESK(ref pkesk)) = pkg {
+            let plain = pkesk.decrypt(&mut keypair).unwrap();
 
-                eprintln!("plain: {:?}", plain);
-            } else {
-                panic!("message is not a PKESK packet");
-            }
+            eprintln!("plain: {:?}", plain);
         } else {
-            panic!("secret key is encrypted/missing");
+            panic!("message is not a PKESK packet");
         }
     }
 
@@ -327,20 +286,18 @@ mod tests {
             ::tests::key("testy-nistp384-private.pgp")).unwrap();
         let pile = PacketPile::from_bytes(
             ::tests::message("encrypted-to-testy-nistp384.pgp")).unwrap();
-        let pair = tpk.subkeys().next().unwrap().subkey();
+        let mut keypair =
+            tpk.subkeys().next().unwrap()
+            .subkey().clone().into_keypair().unwrap();
 
-        if let Some(SecretKey::Unencrypted{ mpis: ref sec }) = pair.secret() {
-            let pkg = pile.descendants().skip(0).next().clone();
+        let pkg = pile.descendants().skip(0).next().clone();
 
-            if let Some(Packet::PKESK(ref pkesk)) = pkg {
-                let plain = pkesk.decrypt(&pair, sec).unwrap();
+        if let Some(Packet::PKESK(ref pkesk)) = pkg {
+            let plain = pkesk.decrypt(&mut keypair).unwrap();
 
-                eprintln!("plain: {:?}", plain);
-            } else {
-                panic!("message is not a PKESK packet");
-            }
+            eprintln!("plain: {:?}", plain);
         } else {
-            panic!("secret key is encrypted/missing");
+            panic!("message is not a PKESK packet");
         }
     }
 
@@ -350,20 +307,18 @@ mod tests {
             ::tests::key("testy-nistp521-private.pgp")).unwrap();
         let pile = PacketPile::from_bytes(
             ::tests::message("encrypted-to-testy-nistp521.pgp")).unwrap();
-        let pair = tpk.subkeys().next().unwrap().subkey();
+        let mut keypair =
+            tpk.subkeys().next().unwrap()
+            .subkey().clone().into_keypair().unwrap();
 
-        if let Some(SecretKey::Unencrypted{ mpis: ref sec }) = pair.secret() {
-            let pkg = pile.descendants().skip(0).next().clone();
+        let pkg = pile.descendants().skip(0).next().clone();
 
-            if let Some(Packet::PKESK(ref pkesk)) = pkg {
-                let plain = pkesk.decrypt(&pair, sec).unwrap();
+        if let Some(Packet::PKESK(ref pkesk)) = pkg {
+            let plain = pkesk.decrypt(&mut keypair).unwrap();
 
-                eprintln!("plain: {:?}", plain);
-            } else {
-                panic!("message is not a PKESK packet");
-            }
+            eprintln!("plain: {:?}", plain);
         } else {
-            panic!("secret key is encrypted/missing");
+            panic!("message is not a PKESK packet");
         }
     }
 
@@ -403,14 +358,18 @@ mod tests {
         let private_mpis = mpis::SecretKey::ECDH {
             scalar: MPI::new(&sec[..]),
         };
-        let key: Key = Key4::new(time::now().canonicalize(),
-                                 PublicKeyAlgorithm::ECDH, public_mpis, None)
+        let mut key: Key = Key4::new(time::now().canonicalize(),
+                                     PublicKeyAlgorithm::ECDH,
+                                     public_mpis, None)
             .unwrap().into();
+        key.set_secret(Some(SecretKey::Unencrypted {
+            mpis: private_mpis,
+        }));
         let mut rng = Yarrow::default();
         let sess_key = SessionKey::new(&mut rng, 32);
         let pkesk = PKESK3::for_recipient(SymmetricAlgorithm::AES256, &sess_key,
                                           &key).unwrap();
-
-        pkesk.decrypt(&key, &private_mpis).unwrap();
+        let mut keypair = key.into_keypair().unwrap();
+        pkesk.decrypt(&mut keypair).unwrap();
     }
 }

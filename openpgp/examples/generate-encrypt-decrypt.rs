@@ -114,9 +114,9 @@ impl<'a> DecryptionHelper for Helper<'a> {
             .unwrap();
 
         // The secret key is not encrypted.
-        let pair = key.into_keypair().unwrap();
+        let mut pair = key.into_keypair().unwrap();
 
-        pkesks[0].decrypt(pair.public(), pair.secret())
+        pkesks[0].decrypt(&mut pair)
             .and_then(|(algo, session_key)| decrypt(algo, &session_key))
             .map(|_| None)
         // XXX: In production code, return the Fingerprint of the
