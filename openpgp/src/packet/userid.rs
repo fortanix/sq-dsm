@@ -347,7 +347,22 @@ mod tests {
 
             let u = UserID::from(value);
             for _ in 0..2 {
-                match u.name() {
+                let name_got = u.name();
+                let comment_got = u.comment();
+                let address_got = u.address();
+                let other_got = u.other();
+
+                eprintln!("Parsing {:?}", value);
+                eprintln!("name: expected: {:?}, got: {:?}",
+                          name, name_got);
+                eprintln!("comment: expected: {:?}, got: {:?}",
+                          comment, comment_got);
+                eprintln!("address: expected: {:?}, got: {:?}",
+                          address, address_got);
+                eprintln!("other: expected: {:?}, got: {:?}",
+                          other, other_got);
+
+                match name_got {
                     Ok(ref v) if ok =>
                         assert_eq!(v, &name),
                     Ok(_) if !ok =>
@@ -358,7 +373,7 @@ mod tests {
                         (),
                     _ => unreachable!(),
                 };
-                match u.comment() {
+                match comment_got {
                     Ok(ref v) if ok =>
                         assert_eq!(v, &comment),
                     Ok(_) if !ok =>
@@ -369,7 +384,7 @@ mod tests {
                         (),
                     _ => unreachable!(),
                 };
-                match u.address() {
+                match address_got {
                     Ok(ref v) if ok =>
                         assert_eq!(v, &address),
                     Ok(_) if !ok =>
@@ -380,7 +395,7 @@ mod tests {
                         (),
                     _ => unreachable!(),
                 };
-                match u.other() {
+                match other_got {
                     Ok(ref v) if ok =>
                         assert_eq!(v, &other),
                     Ok(_) if !ok =>
