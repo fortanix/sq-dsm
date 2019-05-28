@@ -3,12 +3,25 @@ use std::str;
 use std::hash::{Hash, Hasher};
 use std::cell::RefCell;
 use quickcheck::{Arbitrary, Gen};
-use rfc2822::{NameAddr, AddrSpec};
+use rfc2822::{NameAddrOrOther, AddrSpecOrOther};
 use failure::ResultExt;
 
 use Result;
 use packet;
 use Packet;
+
+struct ParsedUserID {
+    name: Option<String>,
+    comment: Option<String>,
+    address: Result<String>,
+    // Handles invalid email addresses.  For instance:
+    //
+    //     Hostname <ssh://server@example.net>
+    //
+    // would have no address, but other would be
+    // "ssh://server@example.net".
+    other: Option<String>,
+}
 
 /// Holds a UserID packet.
 ///
@@ -29,7 +42,7 @@ pub struct UserID {
     /// Use `UserID::default()` to get a UserID with a default settings.
     value: Vec<u8>,
 
-    parsed: RefCell<Option<(Option<String>, Option<String>, Option<String>)>>,
+    parsed: RefCell<Option<ParsedUserID>>,
 }
 
 impl From<Vec<u8>> for UserID {
@@ -126,16 +139,24 @@ impl UserID {
         if self.parsed.borrow().is_none() {
             let s = str::from_utf8(&self.value)?;
 
-            *self.parsed.borrow_mut() = Some(match NameAddr::parse(s) {
-                Ok(na) => (na.name().map(|s| s.to_string()),
-                           na.comment().map(|s| s.to_string()),
-                           na.address().map(|s| s.to_string())),
+            *self.parsed.borrow_mut() = Some(match NameAddrOrOther::parse(s) {
+                Ok(na) => ParsedUserID {
+                    name: na.name().map(|s| s.to_string()),
+                    comment: na.comment().map(|s| s.to_string()),
+                    address: na.address().map(|s| s.to_string()),
+                    other: na.other().map(|s| s.to_string()),
+                },
                 Err(err) => {
                     // Try with the addr-spec parser.
-                    if let Ok(a) = AddrSpec::parse(s) {
-                        (None, None, Some(a.address().to_string()))
+                    if let Ok(a) = AddrSpecOrOther::parse(s) {
+                        ParsedUserID {
+                            name: None,
+                            comment: None,
+                            address: a.address().map(|s| s.to_string()),
+                            other: a.other().map(|s| s.to_string()),
+                        }
                     } else {
-                        // Return the error from the NameAddr parser.
+                        // Return the error from the NameAddrOrOther parser.
                         let err : failure::Error = err.into();
                         return Err(err).context(format!(
                             "Not a valid RFC 2822 mailbox: {:?}", s))?;
@@ -148,10 +169,13 @@ impl UserID {
 
     /// Treats the user ID as an RFC 2822 name-addr and extracts the
     /// display name, if any.
+    ///
+    /// Note: if the email address is invalid, but the rest of the
+    /// input is okay, this still returns the display name.
     pub fn name(&self) -> Result<Option<String>> {
         self.do_parse()?;
         match *self.parsed.borrow() {
-            Some((ref name, ref _comment, ref _address)) =>
+            Some(ParsedUserID { ref name, .. }) =>
                 Ok(name.as_ref().map(|s| s.clone())),
             None => unreachable!(),
         }
@@ -159,22 +183,77 @@ impl UserID {
 
     /// Treats the user ID as an RFC 2822 name-addr and extracts the
     /// first comment, if any.
+    ///
+    /// Note: if the email address is invalid, but the rest of the
+    /// input is okay, this still returns the first comment.
     pub fn comment(&self) -> Result<Option<String>> {
         self.do_parse()?;
         match *self.parsed.borrow() {
-            Some((ref _name, ref comment, ref _address)) =>
+            Some(ParsedUserID { ref comment, .. }) =>
                 Ok(comment.as_ref().map(|s| s.clone())),
             None => unreachable!(),
         }
     }
 
     /// Treats the user ID as an RFC 2822 name-addr and extracts the
-    /// address, if any.
+    /// address, if valid.
+    ///
+    /// If the email address is invalid, returns `Ok(None)`.  In this
+    /// case, the invalid email address can be returned using
+    /// `UserID::other_address()`.
     pub fn address(&self) -> Result<Option<String>> {
         self.do_parse()?;
         match *self.parsed.borrow() {
-            Some((ref _name, ref _comment, ref address)) =>
-                Ok(address.as_ref().map(|s| s.clone())),
+            Some(ParsedUserID { address: Ok(ref address), .. }) =>
+                Ok(Some(address.clone())),
+            Some(ParsedUserID { address: Err(_), .. }) =>
+                Ok(None),
+            None => unreachable!(),
+        }
+    }
+
+    /// Treats the user ID as an RFC 2822 name-addr and, if the
+    /// address is invalid, returns that.
+    ///
+    /// If the address is valid, this returns None.
+    ///
+    /// This is particularly useful with the following types of User
+    /// IDs:
+    ///
+    /// ```text
+    /// First Last (Comment) <ssh://server.example.net>
+    /// ```
+    ///
+    /// will be successfully parsed.  In this case,
+    /// `NameAddrOrOther::address()` will return the parse error, and the
+    /// invalid address can be obtained using `NameAddrOrOther::other()`.
+    pub fn other(&self) -> Result<Option<String>> {
+        self.do_parse()?;
+        match *self.parsed.borrow() {
+            Some(ParsedUserID { ref other, .. }) =>
+                Ok(other.as_ref().map(|s| s.clone())),
+            None => unreachable!(),
+        }
+    }
+
+    /// Treats the user ID as an RFC 2822 name-addr and returns the
+    /// address.
+    ///
+    /// If the address is invalid, that is returned.  For instance:
+    ///
+    /// ```text
+    /// First Last (Comment) <ssh://server.example.net>
+    /// ```
+    ///
+    /// will be successfully parsed and this function will return
+    /// `ssh://server.example.net`.
+    pub fn other_or_address(&self) -> Result<Option<String>> {
+        self.do_parse()?;
+        match *self.parsed.borrow() {
+            Some(ParsedUserID { address: Ok(ref address), .. }) =>
+                Ok(Some(address.clone())),
+            Some(ParsedUserID { ref other, .. }) =>
+                Ok(other.as_ref().map(|s| s.clone())),
             None => unreachable!(),
         }
     }
@@ -258,11 +337,13 @@ mod tests {
     #[test]
     fn name_addr() {
         fn c(value: &str, ok: bool,
-             name: Option<&str>, comment: Option<&str>, address: Option<&str>)
+             name: Option<&str>, comment: Option<&str>,
+             address: Option<&str>, other: Option<&str>)
         {
             let name = name.map(|s| s.to_string());
             let comment = comment.map(|s| s.to_string());
             let address = address.map(|s| s.to_string());
+            let other = other.map(|s| s.to_string());
 
             let u = UserID::from(value);
             for _ in 0..2 {
@@ -299,34 +380,51 @@ mod tests {
                         (),
                     _ => unreachable!(),
                 };
+                match u.other() {
+                    Ok(ref v) if ok =>
+                        assert_eq!(v, &other),
+                    Ok(_) if !ok =>
+                        panic!("Expected parse to fail."),
+                    Err(ref err) if ok =>
+                        panic!("Expected parse to succeed: {:?}", err),
+                    Err(_) if !ok =>
+                        (),
+                    _ => unreachable!(),
+                };
             }
         }
 
         c("Henry Ford (CEO) <henry@ford.com>", true,
-          Some("Henry Ford"), Some("CEO"), Some("henry@ford.com"));
+          Some("Henry Ford"), Some("CEO"), Some("henry@ford.com"), None);
 
         // The quotes disappear.  Unexpected, but true.
         c("Thomas \"Tomakin\" (DHC) <thomas@clh.co.uk>", true,
-          Some("Thomas Tomakin"), Some("DHC"), Some("thomas@clh.co.uk"));
+          Some("Thomas Tomakin"), Some("DHC"),
+          Some("thomas@clh.co.uk"), None);
 
         c("Aldous L. Huxley <huxley@old-world.org>", true,
-          Some("Aldous L. Huxley"), None, Some("huxley@old-world.org"));
+          Some("Aldous L. Huxley"), None,
+          Some("huxley@old-world.org"), None);
 
         // Make sure bare email addresses work.  This is an extension
         // to 2822 where addresses normally have to be in angle
         // brackets.
         c("huxley@old-world.org", true,
-          None, None, Some("huxley@old-world.org"));
+          None, None, Some("huxley@old-world.org"), None);
 
         // Tricky...
         c("\"<loki@bar.com>\" <foo@bar.com>", true,
-          Some("<loki@bar.com>"), None, Some("foo@bar.com"));
+          Some("<loki@bar.com>"), None, Some("foo@bar.com"), None);
 
         // Invalid.
-        c("<huxley@@old-world.org>", false, None, None, None);
-        c("huxley@@old-world.org", false, None, None, None);
-        c("huxley@old-world.org.", false, None, None, None);
-        c("@old-world.org", false, None, None, None);
+        c("<huxley@@old-world.org>", true,
+          None, None, None, Some("huxley@@old-world.org"));
+        c("huxley@@old-world.org", true,
+          None, None, None, Some("huxley@@old-world.org"));
+        c("huxley@old-world.org.", true,
+          None, None, None, Some("huxley@old-world.org."));
+        c("@old-world.org", true,
+          None, None, None, Some("@old-world.org"));
     }
 
     #[test]
