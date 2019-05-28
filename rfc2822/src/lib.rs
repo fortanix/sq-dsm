@@ -202,6 +202,114 @@ impl AddrSpec {
     }
 }
 
+/// A parsed RFC 2822 `addr-spec`, which also recognizes invalid email
+/// addresses.
+///
+/// For this parser to recognize an email address, the input must not
+/// include angle brackets.  That is, this parser recognizes addresses
+/// of the form:
+///
+/// ```text
+/// email@example.org
+/// ```
+///
+/// But not:
+///
+/// ```text
+/// <email@example.org>
+/// ```
+///
+/// When parsing valid email addresses, RFC 2822 comments are ignored.
+///
+/// If the input is not a valid email address, no error is returned by
+/// `AddrSpecOrOther::parse()` (unlike `AddrSpec::parse()`).  Instead,
+/// the invalid email address can be obtained using
+/// `AddrSpecOrOther::other()`.  Consider:
+///
+/// ```text
+/// ssh://server.example.net
+/// ```
+///
+/// In this case, `AddrSpecOrOther::other()` returns
+/// `ssh://server.example.net`.  The parse error can still be obtained
+/// using `AddrSpecOrOther::address()`.
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct AddrSpecOrOther {
+    components: Vec<Component>,
+}
+
+impl AddrSpecOrOther {
+    /// Creates an RFC 2822 `addr-spec` or other.
+    ///
+    /// Not yet exported as this function does *not* do any escaping.
+    #[allow(dead_code)]
+    fn new<S>(address: S)
+        -> Result<Self>
+        where S: AsRef<str> + Eq + std::fmt::Debug,
+    {
+        let address = address.as_ref();
+
+        // Make sure the input is valid.
+        let a = match Self::parse(address) {
+            Err(err) => return Err(err.into()),
+            Ok(a) => a,
+        };
+
+        Ok(a)
+    }
+
+    /// Parses a string that allegedly contains an [RFC 2822
+    /// `addr-spec`] or other.
+    ///
+    /// [RFC 2822 `addr-spec`]: https://tools.ietf.org/html/rfc2822#section-3.4
+    pub fn parse<S>(input: S) -> Result<Self>
+        where S: AsRef<str>
+    {
+        let input = input.as_ref();
+        let lexer = lexer::Lexer::new(input);
+        let components = match grammar::AddrSpecOrOtherParser::new().parse(input, lexer) {
+            Ok(components) => components,
+            Err(err) => return Err(parse_error_downcast(err).into()),
+        };
+
+        Ok(Self {
+            components,
+        })
+    }
+
+    /// Returns the address, if any.
+    ///
+    /// If the address is invalid, then the parse error is returned.
+    pub fn address(&self) -> Result<&str> {
+        for c in self.components.iter() {
+            if let Component::Address(t) = c {
+                return Ok(&t[..]);
+            }
+            if let Component::InvalidAddress(e, _) = c {
+                return Err(e.clone().into());
+            }
+        }
+
+        unreachable!();
+    }
+
+    /// Returns the invalid address, if any.
+    ///
+    /// If the address is valid, then this returns None.
+    pub fn other(&self) -> Option<&str> {
+        for c in self.components.iter() {
+            if let Component::Address(_) = c {
+                return None;
+            }
+            if let Component::InvalidAddress(_, t) = c {
+                return Some(&t[..]);
+            }
+        }
+
+        unreachable!();
+    }
+}
+
 /// A parsed [RFC 2822 `name-addr`].
 ///
 /// `name-addr`s are typically of the form:
@@ -333,6 +441,169 @@ impl NameAddr {
             }
         }
         None
+    }
+}
+
+/// A parsed [RFC 2822 `name-addr`], which also recognizes invalid
+/// email addresses.
+///
+/// `name-addr`s are typically of the form:
+///
+/// ```text
+/// First Last (Comment) <email@example.org>
+/// ```
+///
+/// The name and comment are optional, but the comment is only allowed
+/// if there is also a name.
+///
+/// Note: this does not recognize bare addresses.  That is, the angle
+/// brackets are required and the following is not recognized (even as
+/// an invalid address) as a `name-addr`:
+///
+/// ```text
+/// email@example.org
+/// ```
+///
+/// [RFC 2822 `name-addr`]: https://tools.ietf.org/html/rfc2822#section-3.4
+///
+/// This version of the `name-addr` parser also recognizes invalid
+/// email addresses.  For instance:
+///
+/// ```text
+/// First Last (Comment) <ssh://server.example.net>
+/// ```
+///
+/// will be successfully parsed.  In this case,
+/// `NameAddrOrOther::address()` will return the parse error, and the
+/// invalid address can be obtained using `NameAddrOrOther::other()`.
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct NameAddrOrOther {
+    components: Vec<Component>,
+}
+
+impl NameAddrOrOther {
+    /// Creates an RFC 2822 `name-addr` with an optionally invalid
+    /// email address.
+    ///
+    /// Not yet exported as this function does *not* do any escaping.
+    #[allow(dead_code)]
+    fn new<S>(name: Option<S>, comment: Option<S>, address: Option<S>)
+        -> Result<Self>
+        where S: AsRef<str> + Eq + std::fmt::Debug,
+    {
+        let mut s = if let Some(ref name) = name {
+            String::from(name.as_ref())
+        } else {
+            String::new()
+        };
+
+        if let Some(ref comment) = comment {
+            if name.is_some() {
+                s.push(' ');
+            }
+            s.push_str(&format!("({})", comment.as_ref())[..]);
+        }
+
+        if let Some(ref address) = address {
+            if name.is_some() || comment.is_some() {
+                s.push(' ');
+            }
+            s.push_str(&format!("<{}>", address.as_ref())[..]);
+        }
+
+        // Make sure the input is valid.
+        let na = match Self::parse(s) {
+            Err(err) => return Err(err.into()),
+            Ok(na) => na,
+        };
+
+        if let Some(name_reparsed) = na.name() {
+            assert!(name.is_some());
+            assert_eq!(name_reparsed, name.unwrap().as_ref());
+        } else {
+            assert!(name.is_none());
+        }
+        if let Some(comment_reparsed) = na.comment() {
+            assert!(comment.is_some());
+            assert_eq!(comment_reparsed, comment.unwrap().as_ref());
+        } else {
+            assert!(comment.is_none());
+        }
+
+        Ok(na)
+    }
+
+    /// Parses a string that allegedly contains an [RFC 2822
+    /// `name-addr`] with an optionally invalid email address.
+    ///
+    /// [RFC 2822 `name-addr`]: https://tools.ietf.org/html/rfc2822#section-3.4
+    pub fn parse<S>(input: S) -> Result<Self>
+        where S: AsRef<str>
+    {
+        let input = input.as_ref();
+        let lexer = lexer::Lexer::new(input);
+        let components = match grammar::NameAddrOrOtherParser::new().parse(input, lexer) {
+            Ok(components) => components,
+            Err(err) => return Err(parse_error_downcast(err).into()),
+        };
+
+        Ok(Self {
+            components,
+        })
+    }
+
+    /// Returns the [display name].
+    ///
+    /// [display name]: https://tools.ietf.org/html/rfc2822#section-3.4
+    pub fn name(&self) -> Option<&str> {
+        for c in self.components.iter() {
+            if let Component::Text(t) = c {
+                return Some(&t[..]);
+            }
+        }
+        None
+    }
+
+    /// Returns the first comment.
+    pub fn comment(&self) -> Option<&str> {
+        for c in self.components.iter() {
+            if let Component::Comment(t) = c {
+                return Some(&t[..]);
+            }
+        }
+        None
+    }
+
+    /// Returns the address, if any.
+    ///
+    /// If the address is invalid, then the parse error is returned.
+    pub fn address(&self) -> Result<&str> {
+        for c in self.components.iter() {
+            if let Component::Address(t) = c {
+                return Ok(&t[..]);
+            }
+            if let Component::InvalidAddress(e, _) = c {
+                return Err(e.clone().into());
+            }
+        }
+
+        unreachable!()
+    }
+
+    /// Returns the invalid address, if any.
+    ///
+    /// If the address is valid, then this returns None.
+    pub fn other(&self) -> Option<&str> {
+        for c in self.components.iter() {
+            if let Component::Address(_) = c {
+                return None;
+            }
+            if let Component::InvalidAddress(_, t) = c {
+                return Some(&t[..]);
+            }
+        }
+
+        unreachable!()
     }
 }
 
@@ -1240,6 +1511,46 @@ mod tests {
     }
 
     #[test]
+    fn name_addr_or_other_api() {
+        fn c_(name: Option<&str>, comment: Option<&str>,
+              email: Option<&str>, valid: bool)
+        {
+            eprintln!("checking: name: {:?}, comment: {:?}, email: {:?}",
+                      name, comment, email);
+            let na = NameAddrOrOther::new(name, comment, email).unwrap();
+            assert_eq!(na.name(), name);
+            assert_eq!(na.comment(), comment);
+            if let Some(email) = email {
+                if valid {
+                    assert_eq!(na.address().unwrap(), email);
+                    assert!(na.other().is_none());
+                } else {
+                    assert!(na.address().is_err());
+                    assert_eq!(na.other().unwrap(), email);
+                }
+            }
+        }
+
+        fn c(name: &str, comment: &str, email: &str, valid: bool)
+        {
+            // A name-addr requires an address.  And, it only allows a
+            // comment if there is also a name.
+
+            c_(Some(name), Some(comment), Some(email), valid);
+            // c_(None, Some(comment), Some(email), valid);
+            c_(Some(name), None, Some(email), valid);
+            // c_(Some(name), Some(comment), None, valid);
+            c_(None, None, Some(email), valid);
+            // c_(None, Some(comment), None, valid);
+            // c_(Some(name), None, None, valid);
+        }
+
+        c("Harold Hutchins", "(artist)", "harold.hutchins@captain-underpants.com", true);
+        c("Mr. Meaner", "(Gym Teacher)", "kenny@jerome-horwitz.k12.us", true);
+        c("Mr. Meaner", "(Gym Teacher)", "ssh://nas.jerome-horwitz.k12.us", false);
+    }
+
+    #[test]
     fn addr_spec_api() {
         fn c(email: &str, ok: bool)
         {
@@ -1248,6 +1559,32 @@ mod tests {
                 Ok(ref a) if !ok =>
                     panic!("Expected parser to fail for '{:?}': got '{:?}'",
                            email, a),
+                Err(ref err) if ok =>
+                    panic!("Expected parser to succeed for '{:?}': {:?}",
+                           email, err),
+                Err(_) if !ok => (),
+                _ => unreachable!(),
+            }
+        }
+
+        c("example@foo.com", true);
+        c("<example@foo.com>", false);
+        c("example@@foo.com", false);
+    }
+
+    #[test]
+    fn addr_spec_or_other_api() {
+        fn c(email: &str, ok: bool)
+        {
+            match AddrSpecOrOther::new(email) {
+                Ok(ref a) if ok => {
+                    assert_eq!(a.address().unwrap(), email);
+                    assert_eq!(a.other(), None);
+                }
+                Ok(ref a) if !ok => {
+                    assert!(a.address().is_err());
+                    assert_eq!(a.other(), Some(email));
+                }
                 Err(ref err) if ok =>
                     panic!("Expected parser to succeed for '{:?}': {:?}",
                            email, err),
