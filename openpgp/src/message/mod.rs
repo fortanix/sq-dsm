@@ -440,7 +440,6 @@ mod tests {
     use SymmetricAlgorithm;
     use PublicKeyAlgorithm;
     use SignatureType;
-    use crypto::KeyPair;
     use crypto::s2k::S2K;
     use crypto::mpis::{Ciphertext, MPI};
     use packet::prelude::*;
@@ -802,15 +801,9 @@ mod tests {
         let key: Key =
             ::packet::key::Key4::generate_ecc(true, ::constants::Curve::Ed25519)
             .unwrap().into();
-        let sec =
-            if let Some(SecretKey::Unencrypted { ref mpis }) = key.secret() {
-                mpis.clone()
-            } else {
-                panic!()
-            };
+        let mut pair = key.clone().into_keypair().unwrap();
         let sig = ::packet::signature::Builder::new(SignatureType::Binary)
-            .sign_hash(&mut KeyPair::new(key, sec).unwrap(),
-                       hash, hash.context().unwrap()).unwrap();
+            .sign_hash(&mut pair, hash, hash.context().unwrap()).unwrap();
 
         // 0: OnePassSig
         // => bad.
@@ -920,15 +913,9 @@ mod tests {
         let key: Key =
             ::packet::key::Key4::generate_ecc(true, ::constants::Curve::Ed25519)
             .unwrap().into();
-        let sec =
-            if let Some(SecretKey::Unencrypted { ref mpis }) = key.secret() {
-                mpis.clone()
-            } else {
-                panic!()
-            };
+        let mut pair = key.clone().into_keypair().unwrap();
         let sig = ::packet::signature::Builder::new(SignatureType::Binary)
-            .sign_hash(&mut KeyPair::new(key, sec).unwrap(),
-                       hash, hash.context().unwrap()).unwrap();
+            .sign_hash(&mut pair, hash, hash.context().unwrap()).unwrap();
 
         // 0: Signature
         // => bad.

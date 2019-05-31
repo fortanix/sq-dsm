@@ -2405,8 +2405,6 @@ impl signature::Builder {
 
 #[test]
 fn accessors() {
-    use packet::key::SecretKey;
-    use crypto::KeyPair;
     use constants::Curve;
 
     let pk_algo = PublicKeyAlgorithm::EdDSA;
@@ -2415,12 +2413,7 @@ fn accessors() {
     let mut sig = signature::Builder::new(::constants::SignatureType::Binary);
     let mut key: ::packet::Key =
         ::packet::key::Key4::generate_ecc(true, Curve::Ed25519).unwrap().into();
-    let sec = if let Some(SecretKey::Unencrypted { ref mpis }) = key.secret() {
-        mpis.clone()
-    } else {
-        panic!()
-    };
-    let mut keypair = KeyPair::new(key.clone(), sec.clone()).unwrap();
+    let mut keypair = key.clone().into_keypair().unwrap();
 
     // Cook up a timestamp without ns resolution.
     let now = time::Tm::from_pgp(time::now_utc().to_pgp().unwrap());
@@ -2488,7 +2481,6 @@ fn accessors() {
     assert_eq!(sig_.revocable(), Some(false));
 
     key.set_creation_time(now);
-    let mut keypair = KeyPair::new(key.clone(), sec).unwrap();
     sig = sig.set_key_expiration_time(Some(five_minutes)).unwrap();
     let sig_ =
         sig.clone().sign_hash(&mut keypair, hash_algo, hash.clone()).unwrap();

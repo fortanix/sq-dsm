@@ -1343,7 +1343,6 @@ mod test {
     #[test]
     fn signature() {
         use crypto::KeyPair;
-        use packet::key::SecretKey;
         use std::collections::HashMap;
         use Fingerprint;
 
@@ -1361,12 +1360,8 @@ mod test {
         let mut o = vec![];
         {
             let mut signers = keys.iter().map(|(_, key)| {
-                match key.secret() {
-                    Some(SecretKey::Unencrypted { ref mpis }) =>
-                        KeyPair::new(key.clone(), mpis.clone()).unwrap(),
-                    s =>
-                        panic!("expected unencrypted secret key, got: {:?}", s),
-                }
+                key.clone().into_keypair()
+                    .expect("expected unencrypted secret key")
             }).collect::<Vec<KeyPair>>();
 
             let m = Message::new(&mut o);

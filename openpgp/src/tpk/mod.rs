@@ -2795,7 +2795,6 @@ impl TPK {
 
 #[cfg(test)]
 mod test {
-    use crypto::KeyPair;
     use serialize::Serialize;
     use super::*;
 
@@ -3675,7 +3674,7 @@ mod test {
     #[test]
     fn revoked_time() {
         use packet::Features;
-        use packet::key::{Key4, SecretKey};
+        use packet::key::Key4;
         use constants::Curve;
         use rand::{thread_rng, Rng, distributions::Open01};
         /*
@@ -3692,11 +3691,8 @@ mod test {
         let t2 = time::strptime("2001-1-1", "%F").unwrap();
         let t3 = time::strptime("2002-1-1", "%F").unwrap();
         let key: Key = Key4::generate_ecc(true, Curve::Ed25519).unwrap().into();
+        let mut pair = key.clone().into_keypair().unwrap();
         let (bind1, rev, bind2) = {
-            let mpis = match key.secret() {
-                Some(SecretKey::Unencrypted{ ref mpis }) => mpis,
-                _ => unreachable!(),
-            };
             let bind1 = signature::Builder::new(SignatureType::DirectKey)
                 .set_features(&Features::sequoia()).unwrap()
                 .set_key_flags(&KeyFlags::default()).unwrap()
@@ -3705,17 +3701,15 @@ mod test {
                 .set_issuer_fingerprint(key.fingerprint()).unwrap()
                 .set_issuer(key.keyid()).unwrap()
                 .set_preferred_hash_algorithms(vec![HashAlgorithm::SHA512]).unwrap()
-                .sign_primary_key_binding(
-                    &mut KeyPair::new(key.clone(), mpis.clone()).unwrap(),
-                    HashAlgorithm::SHA512).unwrap();
+                .sign_primary_key_binding(&mut pair,
+                                          HashAlgorithm::SHA512).unwrap();
 
             let rev = signature::Builder::new(SignatureType::KeyRevocation)
                 .set_signature_creation_time(t2).unwrap()
                 .set_issuer_fingerprint(key.fingerprint()).unwrap()
                 .set_issuer(key.keyid()).unwrap()
-                .sign_primary_key_binding(
-                    &mut KeyPair::new(key.clone(), mpis.clone()).unwrap(),
-                    HashAlgorithm::SHA512).unwrap();
+                .sign_primary_key_binding(&mut pair,
+                                          HashAlgorithm::SHA512).unwrap();
 
             let bind2 = signature::Builder::new(SignatureType::DirectKey)
                 .set_features(&Features::sequoia()).unwrap()
@@ -3725,9 +3719,8 @@ mod test {
                 .set_issuer_fingerprint(key.fingerprint()).unwrap()
                 .set_issuer(key.keyid()).unwrap()
                 .set_preferred_hash_algorithms(vec![HashAlgorithm::SHA512]).unwrap()
-                .sign_primary_key_binding(
-                    &mut KeyPair::new(key.clone(), mpis.clone()).unwrap(),
-                    HashAlgorithm::SHA512).unwrap();
+                .sign_primary_key_binding(&mut pair,
+                                          HashAlgorithm::SHA512).unwrap();
 
             (bind1, rev, bind2)
         };

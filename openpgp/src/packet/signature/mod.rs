@@ -932,7 +932,6 @@ impl From<Signature4> for super::Signature {
 mod test {
     use nettle::{Random, Yarrow};
     use super::*;
-    use crypto::KeyPair;
     use crypto::mpis::MPI;
     use TPK;
     use parse::Parse;
@@ -1079,8 +1078,6 @@ mod test {
 
     #[test]
     fn sign_verify() {
-        use packet::key::SecretKey;
-
         let hash_algo = HashAlgorithm::SHA512;
         let mut hash = vec![0; hash_algo.context().unwrap().digest_size()];
         Yarrow::default().random(&mut hash);
@@ -1094,30 +1091,25 @@ mod test {
             "emmelie-dorothea-dina-samantha-awina-ed25519-private.pgp",
         ] {
             let tpk = TPK::from_bytes(::tests::key(key)).unwrap();
-            let pair = tpk.primary();
+            let mut pair = tpk.primary().clone().into_keypair()
+                .expect("secret key is encrypted/missing");
 
-            if let Some(SecretKey::Unencrypted{ mpis: ref sec }) = pair.secret() {
-                let mut sig = Builder::new(SignatureType::Binary);
-                let mut hash = hash_algo.context().unwrap();
+            let mut sig = Builder::new(SignatureType::Binary);
+            let mut hash = hash_algo.context().unwrap();
 
-                // Make signature.
-                let sig = sig.sign_hash(&mut KeyPair::new(pair.clone(),
-                                                          sec.clone()).unwrap(),
-                                        hash_algo, hash).unwrap();
+            // Make signature.
+            let sig = sig.sign_hash(&mut pair, hash_algo, hash).unwrap();
 
-                // Good signature.
-                let mut hash = hash_algo.context().unwrap();
-                sig.hash(&mut hash);
-                let mut digest = vec![0u8; hash.digest_size()];
-                hash.digest(&mut digest);
-                assert!(sig.verify_hash(&pair, hash_algo, &digest).unwrap());
+            // Good signature.
+            let mut hash = hash_algo.context().unwrap();
+            sig.hash(&mut hash);
+            let mut digest = vec![0u8; hash.digest_size()];
+            hash.digest(&mut digest);
+            assert!(sig.verify_hash(pair.public(), hash_algo, &digest).unwrap());
 
-                // Bad signature.
-                digest[0] ^= 0xff;
-                assert!(! sig.verify_hash(&pair, hash_algo, &digest).unwrap());
-            } else {
-                panic!("secret key is encrypted/missing");
-            }
+            // Bad signature.
+            digest[0] ^= 0xff;
+            assert!(! sig.verify_hash(pair.public(), hash_algo, &digest).unwrap());
         }
     }
 
@@ -1125,26 +1117,18 @@ mod test {
     fn sign_message() {
         use time;
         use constants::Curve;
-        use packet::key::SecretKey;
 
         let key: Key = Key4::generate_ecc(true, Curve::Ed25519)
             .unwrap().into();
         let msg = b"Hello, World";
+        let mut pair = key.into_keypair().unwrap();
+        let sig = Builder::new(SignatureType::Binary)
+            .set_signature_creation_time(time::now()).unwrap()
+            .set_issuer_fingerprint(pair.public().fingerprint()).unwrap()
+            .set_issuer(pair.public().keyid()).unwrap()
+            .sign_message(&mut pair, HashAlgorithm::SHA512, msg).unwrap();
 
-        match key.secret() {
-            Some(SecretKey::Unencrypted{ ref mpis }) => {
-                let sig = Builder::new(SignatureType::Binary)
-                    .set_signature_creation_time(time::now()).unwrap()
-                    .set_issuer_fingerprint(key.fingerprint()).unwrap()
-                    .set_issuer(key.keyid()).unwrap()
-                    .sign_message(
-                        &mut KeyPair::new(key.clone(), mpis.clone()).unwrap(),
-                        HashAlgorithm::SHA512, msg).unwrap();
-
-                assert!(sig.verify_message(&key, msg).unwrap());
-            }
-            _ => unreachable!()
-        };
+        assert!(sig.verify_message(pair.public(), msg).unwrap());
     }
 
     #[test]
@@ -1166,6 +1150,7 @@ mod test {
 
     #[test]
     fn sign_with_short_ed25519_secret_key() {
+        use packet::key::SecretKey;
         use conversions::Time;
         use nettle;
         use time;
@@ -1188,16 +1173,19 @@ mod test {
             scalar: MPI::new(&sec[..]),
         };
         let key = Key4::new(time::now().canonicalize(),
-                           PublicKeyAlgorithm::EdDSA, public_mpis, None)
-            .unwrap().into();
+                            PublicKeyAlgorithm::EdDSA,
+                            public_mpis, Some(SecretKey::Unencrypted {
+                                mpis: private_mpis,
+                            }))
+            .unwrap();
+        let mut pair = key.into_keypair().unwrap();
         let msg = b"Hello, World";
         let mut hash = HashAlgorithm::SHA256.context().unwrap();
 
         hash.update(&msg[..]);
 
         Builder::new(SignatureType::Text)
-            .sign_hash(&mut KeyPair::new(key, private_mpis).unwrap(),
-                       HashAlgorithm::SHA256, hash).unwrap();
+            .sign_hash(&mut pair, HashAlgorithm::SHA256, hash).unwrap();
     }
 
     #[test]

@@ -1796,8 +1796,6 @@ mod test {
         use constants::DataFormat;
         use tpk::{TPKBuilder, CipherSuite};
         use serialize::stream::{LiteralWriter, Signer, Message};
-        use packet::key::SecretKey;
-        use crypto::KeyPair;
         use std::io::Write;
 
         let (tpk, _) = TPKBuilder::new()
@@ -1809,11 +1807,7 @@ mod test {
         let mut buf = vec![];
         {
             let key = tpk.keys_all().signing_capable().nth(0).unwrap().2;
-            let sec = match key.secret() {
-                Some(SecretKey::Unencrypted { ref mpis }) => mpis,
-                _ => unreachable!(),
-            };
-            let mut keypair = KeyPair::new(key.clone(), sec.clone()).unwrap();
+            let mut keypair = key.clone().into_keypair().unwrap();
 
             let m = Message::new(&mut buf);
             let signer = Signer::new(m, vec![&mut keypair], None).unwrap();
