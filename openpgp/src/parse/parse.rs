@@ -1298,7 +1298,8 @@ impl Key {
     fn parse<'a>(mut php: PacketHeaderParser<'a>) -> Result<PacketParser<'a>> {
         make_php_try!(php);
         let tag = php.header.ctb.tag;
-        assert!(tag == Tag::PublicKey
+        assert!(tag == Tag::Reserved
+                || tag == Tag::PublicKey
                 || tag == Tag::PublicSubkey
                 || tag == Tag::SecretKey
                 || tag == Tag::SecretSubkey);
@@ -1326,7 +1327,8 @@ impl Key4 {
 
         make_php_try!(php);
         let tag = php.header.ctb.tag;
-        assert!(tag == Tag::PublicKey
+        assert!(tag == Tag::Reserved
+                || tag == Tag::PublicKey
                 || tag == Tag::PublicSubkey
                 || tag == Tag::SecretKey
                 || tag == Tag::SecretSubkey);
@@ -1334,8 +1336,7 @@ impl Key4 {
         let creation_time = php_try!(php.parse_be_u32("creation_time"));
         let pk_algo: PublicKeyAlgorithm = php_try!(php.parse_u8("pk_algo")).into();
         let mpis = php_try!(PublicKey::_parse(pk_algo, &mut php));
-        let secret = if tag == Tag::SecretKey || tag == Tag::SecretSubkey {
-            let s2k_usage = php_try!(php.parse_u8("s2k_usage"));
+        let secret = if let Ok(s2k_usage) = php.parse_u8("s2k_usage") {
             let sec = match s2k_usage {
                 // Unencrypted
                 0 => {
@@ -1378,17 +1379,36 @@ impl Key4 {
             };
 
             Some(sec)
-        } else if tag == Tag::PublicKey || tag == Tag::PublicSubkey {
-            None
         } else {
-            unreachable!("tag is one of {Public, Secret} x {Key, Subkey}")
+            None
         };
+
+        let have_secret = secret.is_some();
+        if have_secret && tag != Tag::Reserved {
+            if tag == Tag::PublicKey || tag == Tag::PublicSubkey {
+                return Err(Error::MalformedPacket(
+                    format!("Expected a secret key for {:?} packet", tag))
+                           .into());
+            }
+        } else {
+            if tag == Tag::SecretKey || tag == Tag::SecretSubkey {
+                return Err(Error::MalformedPacket(
+                    format!("Expected no secret key for {:?} packet", tag))
+                           .into());
+            }
+        }
 
         let key = php_try!(Key4::new(time::Tm::from_pgp(creation_time),
                                      pk_algo, mpis, secret));
 
         let tag = php.header.ctb.tag;
         php.ok(match tag {
+            // For the benefit of Key::from_bytes.
+            Tag::Reserved => if have_secret {
+                Packet::SecretKey(key.into())
+            } else {
+                Packet::PublicKey(key.into())
+            },
             Tag::PublicKey => Packet::PublicKey(key.into()),
             Tag::PublicSubkey => Packet::PublicSubkey(key.into()),
             Tag::SecretKey => Packet::SecretKey(key.into()),
