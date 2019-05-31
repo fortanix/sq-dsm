@@ -25,6 +25,81 @@ fn pgp_user_id_new(value: *const c_char)
     packet.move_into_raw()
 }
 
+/// Constructs a User ID.
+///
+/// This escapes the name.  The comment and address must be well
+/// formed according to RFC 2822.  Only the address is required.
+///
+/// If you already have a full RFC 2822 mailbox, then you can just
+/// use `UserID::from()`.
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
+pub extern "C"
+fn pgp_user_id_from_address(
+    errp: Option<&mut *mut ::error::Error>,
+    name: Option<&c_char>,
+    comment: Option<&c_char>,
+    address: *const c_char)
+    -> *mut Packet
+{
+    ffi_make_fry_from_errp!(errp);
+
+    let name = if let Some(name) = name {
+        Some(ffi_try!(ffi_param_cstr!(name as *const c_char).to_str()))
+    } else {
+        None
+    };
+    let comment = if let Some(comment) = comment {
+        Some(ffi_try!(ffi_param_cstr!(comment as *const c_char).to_str()))
+    } else {
+        None
+    };
+    let address = ffi_try!(ffi_param_cstr!(address).to_str());
+
+    let packet : openpgp::Packet
+        = ffi_try!(openpgp::packet::UserID::from_address(name, comment,
+                                                         address)).into();
+    packet.move_into_raw()
+}
+
+/// Constructs a User ID.
+///
+/// This escapes the name.  The comment must be well formed, the
+/// address can be arbitrary.
+///
+/// This is useful when you want to specify a URI instead of an
+/// email address.
+///
+/// If you have a full RFC 2822 mailbox, then you can just use
+/// `UserID::from()`.
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
+pub extern "C"
+fn pgp_user_id_from_unchecked_address(
+    errp: Option<&mut *mut ::error::Error>,
+    name: Option<&c_char>,
+    comment: Option<&c_char>,
+    address: *const c_char)
+    -> *mut Packet
+{
+    ffi_make_fry_from_errp!(errp);
+
+    let name = if let Some(name) = name {
+        Some(ffi_try!(ffi_param_cstr!(name as *const c_char).to_str()))
+    } else {
+        None
+    };
+    let comment = if let Some(comment) = comment {
+        Some(ffi_try!(ffi_param_cstr!(comment as *const c_char).to_str()))
+    } else {
+        None
+    };
+    let address = ffi_try!(ffi_param_cstr!(address).to_str());
+
+    let packet : openpgp::Packet
+        = ffi_try!(openpgp::packet::UserID::from_unchecked_address(
+            name, comment, address)).into();
+    packet.move_into_raw()
+}
+
 /// Create a new User ID with the value `value`.
 ///
 /// `value` need not be valid UTF-8.

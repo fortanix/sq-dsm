@@ -1065,6 +1065,37 @@ int pgp_key_public_key_bits(pgp_key_t key);
 pgp_key_pair_t pgp_key_into_key_pair (pgp_error_t *errp, pgp_key_t key);
 
 /*/
+/// Constructs a User ID.
+///
+/// This escapes the name.  The comment and address must be well
+/// formed according to RFC 2822.  Only the address is required.
+///
+/// If you already have a full RFC 2822 mailbox, then you can just
+/// use `UserID::from()`.
+/*/
+pgp_packet_t pgp_user_id_from_address (pgp_error_t *errp,
+                                       const char *name,
+                                       const char *comment,
+                                       const char *address);
+
+/*/
+/// Constructs a User ID.
+///
+/// This escapes the name.  The comment must be well formed, the
+/// address can be arbitrary.
+///
+/// This is useful when you want to specify a URI instead of an
+/// email address.
+///
+/// If you have a full RFC 2822 mailbox, then you can just use
+/// `UserID::from()`.
+/*/
+pgp_packet_t pgp_user_id_from_unchecked_address (pgp_error_t *errp,
+                                                 const char *name,
+                                                 const char *comment,
+                                                 const char *address);
+
+/*/
 /// Create a new User ID with the value `value`.
 /*/
 pgp_packet_t pgp_user_id_new (const char *value);
