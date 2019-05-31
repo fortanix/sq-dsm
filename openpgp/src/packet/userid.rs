@@ -74,6 +74,13 @@ impl<'a> From<&'a str> for UserID {
     }
 }
 
+impl From<String> for UserID {
+    fn from(u: String) -> Self {
+        let u = &u[..];
+        u.into()
+    }
+}
+
 impl<'a> From<::std::borrow::Cow<'a, str>> for UserID {
     fn from(u: ::std::borrow::Cow<'a, str>) -> Self {
         let b = u.as_bytes();
