@@ -35,7 +35,7 @@ pub trait Decryptor {
     /// Returns a reference to the public key.
     fn public(&self) -> &Key;
 
-    /// Creates a signature over the `digest` produced by `hash_algo`.
+    /// Decrypts `ciphertext`, returning the plain session key.
     fn decrypt(&mut self, ciphertext: &mpis::Ciphertext)
                -> Result<SessionKey>;
 }
