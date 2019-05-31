@@ -150,8 +150,10 @@ macro_rules! ffi_make_fry_from_errp {
                     Ok(_) => ::error::Status::Success,
                     Err(e) => {
                         use MoveIntoRaw;
+                        use failure::Error;
                         let status = ::error::Status::from(&e);
                         if let Some(errp) = $errp {
+                            let e : Error = e.into();
                             *errp = e.move_into_raw();
                         }
                         status
@@ -171,7 +173,9 @@ macro_rules! ffi_make_fry_from_errp {
                     Ok(v) => v,
                     Err(e) => {
                         use MoveIntoRaw;
+                        use failure::Error;
                         if let Some(errp) = $errp {
+                            let e : Error = e.into();
                             *errp = e.move_into_raw();
                         }
                         return $or;
