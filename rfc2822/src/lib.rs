@@ -128,6 +128,27 @@ fn parse_error_downcast<'a>(e: ParseError<usize, lexer::Token<'a>, LexicalError>
     }
 }
 
+/// A `DisplayName`.
+pub struct Name {
+}
+
+impl Name {
+    /// Returns an escaped version of `name`, which is appropriate for
+    /// use in a `name-addr`.
+    ///
+    /// Returns an error if `name` contains characters that cannot be
+    /// escaped (NUL, CR and LF).
+    pub fn escaped<S>(name: S) -> Result<String>
+        where S: AsRef<str>
+    {
+        let name = name.as_ref();
+
+        let lexer = lexer::Lexer::new(name);
+        grammar::EscapedDisplayNameParser::new().parse(name, lexer)
+            .map_err(|e| parse_error_downcast(e).into())
+    }
+}
+
 /// A parsed RFC 2822 `addr-spec`.
 ///
 /// The address must not include angle brackets.  That is, this parser
@@ -1596,5 +1617,42 @@ mod tests {
         c("example@foo.com", true);
         c("<example@foo.com>", false);
         c("example@@foo.com", false);
+    }
+
+    #[test]
+    fn name_escape_test() {
+        fn c(raw: &str, escaped_expected: &str) {
+            eprintln!("\nInput: {:?}", raw);
+            eprintln!("Expecting escaped version to be: {:?}", escaped_expected);
+            let escaped_got = Name::escaped(raw).expect("Parse error");
+            eprintln!("             Escaped version is: {:?}", escaped_got);
+
+            // There are often multiple ways to validly escape a name.
+            // This check relies on knowing how a name is escaped.  In
+            // other words: if the implementation changes and this
+            // test fails, then this failure may not be indicative of
+            // a bug; we may just need to adjust what this test
+            // expects.
+            assert_eq!(escaped_got, escaped_expected);
+
+            // Make sure when we parse it, we get the original back.
+            let lexer = lexer::Lexer::new(&escaped_got);
+            let raw_got = grammar::DisplayNameParser::new()
+                .parse(&escaped_got, lexer)
+                .expect(&format!("Parse error: {}", escaped_got));
+
+            eprintln!("Parsing escaped version, got: {:?}", raw_got);
+
+            assert_eq!(raw_got, vec![ Component::Text(raw.to_string()) ]);
+        }
+
+        c("Foo Q. Bar", r#""Foo Q. Bar""#);
+        c(r#""Foo Q. Bar""#, r#""\"Foo Q. Bar\"""#);
+        c(r#""Foo Q Bar""#, r#""\"Foo Q Bar\"""#);
+        c("Foo, the Bar", r#""Foo, the Bar""#);
+
+        // Make sure leading and trailing spaces are quoted.
+        c(" Foo Bar", r#"" Foo Bar""#);
+        c("Foo Bar ", r#""Foo Bar ""#);
     }
 }

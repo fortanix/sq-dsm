@@ -246,7 +246,7 @@ atext_plus : String = {
 
 
 // The display-name in a name-addr production often includes a ., but
-// is not quoted.  The RFC even recommends supporting this variation.
+// is not quoted.  The RFC even recommends supporting this variant.
 other_or_dot : String = {
     <a:OTHER> => a.to_string(),
     <d:DOT> => d.to_string(),
@@ -804,6 +804,63 @@ dtext : Token<'input> = {
     DQUOTE,
 
     OTHER,
+}
+
+// A production to escape a display name.
+//
+// Note: all characters are allowed in display names except NUL, CR and LF.
+pub(crate) EscapedDisplayName : String = {
+    escaped_display_name
+}
+
+escaped_display_name : String = {
+    escaped_display_name_token* => {
+        let (need_quote, last_was_space, s) =
+            <>.into_iter()
+            .fold((false, true, String::new()),
+                  |(need_quote, last_was_space, mut s), (_need_quote, t)| {
+                      s.push_str(&t);
+                      let is_space = t == " ";
+                      ((need_quote || _need_quote
+                        || (last_was_space && is_space)),
+                       is_space,
+                       s)
+                  });
+        if need_quote || last_was_space {
+            format!("\"{}\"", s)
+        } else {
+            s
+        }
+    }
+}
+
+// The bool means whether to put the whole thing in quotes.
+escaped_display_name_token : (bool, String) = {
+    WSP => (false, <>.to_string()),
+
+    // Needs to be put in quotes and escaped.
+    NO_WS_CTL => (true, format!("\\{}", <>)),
+
+    // CR and LF are invalid in a display name.
+
+    // Except for DQUOTE, specials can be put in quotes.
+    LPAREN => (true, <>.to_string()),
+    RPAREN => (true, <>.to_string()),
+    LANGLE => (true, <>.to_string()),
+    RANGLE => (true, <>.to_string()),
+    LBRACKET => (true, <>.to_string()),
+    RBRACKET => (true, <>.to_string()),
+    COLON => (true, <>.to_string()),
+    SEMICOLON => (true, <>.to_string()),
+    AT => (true, <>.to_string()),
+    BACKSLASH => (true, <>.to_string()),
+    COMMA => (true, <>.to_string()),
+    DOT => (true, <>.to_string()),
+
+    // Needs to be put in quotes and escaped.
+    DQUOTE => (true, "\\\"".to_string()),
+
+    OTHER => (false, <>.to_string()),
 }
 
 extern {
