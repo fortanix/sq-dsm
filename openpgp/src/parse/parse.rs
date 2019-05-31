@@ -899,7 +899,7 @@ impl Signature4 {
             return php.fail("not a signature algorithm");
         }
         let mpis = php_try!(
-            crypto::mpis::Signature::parse(pk_algo, &mut php));
+            crypto::mpis::Signature::_parse(pk_algo, &mut php));
 
         let hash_algo = hash_algo.into();
         let mut pp = php.ok(Packet::Signature(Signature4::new(
@@ -1333,14 +1333,14 @@ impl Key4 {
 
         let creation_time = php_try!(php.parse_be_u32("creation_time"));
         let pk_algo: PublicKeyAlgorithm = php_try!(php.parse_u8("pk_algo")).into();
-        let mpis = php_try!(PublicKey::parse(pk_algo, &mut php));
+        let mpis = php_try!(PublicKey::_parse(pk_algo, &mut php));
         let secret = if tag == Tag::SecretKey || tag == Tag::SecretSubkey {
             let s2k_usage = php_try!(php.parse_u8("s2k_usage"));
             let sec = match s2k_usage {
                 // Unencrypted
                 0 => {
                     let sec = php_try!(
-                        crypto::mpis::SecretKey::parse(pk_algo, &mut php));
+                        crypto::mpis::SecretKey::_parse(pk_algo, &mut php));
                     let their_chksum = php_try!(php.parse_be_u16("checksum"));
                     let mut cur = Cursor::new(Vec::default());
 
@@ -2082,7 +2082,7 @@ impl PKESK3 {
         if ! pk_algo.can_encrypt() {
             return php.fail("not an encryption algorithm");
         }
-        let mpis = crypto::mpis::Ciphertext::parse(pk_algo, &mut php)?;
+        let mpis = crypto::mpis::Ciphertext::_parse(pk_algo, &mut php)?;
 
         let pkesk = php_try!(PKESK3::new(KeyID::from_bytes(&keyid),
                                          pk_algo, mpis));

@@ -891,22 +891,22 @@ mod tests {
             #[allow(deprecated)]
             let pk_ = match &pk {
                 PublicKey::RSA { .. } =>
-                    PublicKey::parse_naked(
+                    PublicKey::parse(
                         RSAEncryptSign, cur.into_inner()).unwrap(),
                 PublicKey::DSA { .. } =>
-                    PublicKey::parse_naked(
+                    PublicKey::parse(
                         DSA, cur.into_inner()).unwrap(),
                 PublicKey::Elgamal { .. } =>
-                    PublicKey::parse_naked(
+                    PublicKey::parse(
                         ElgamalEncrypt, cur.into_inner()).unwrap(),
                 PublicKey::EdDSA { .. } =>
-                    PublicKey::parse_naked(
+                    PublicKey::parse(
                         EdDSA, cur.into_inner()).unwrap(),
                 PublicKey::ECDSA { .. } =>
-                    PublicKey::parse_naked(
+                    PublicKey::parse(
                         ECDSA, cur.into_inner()).unwrap(),
                 PublicKey::ECDH { .. } =>
-                    PublicKey::parse_naked(
+                    PublicKey::parse(
                         ECDH, cur.into_inner()).unwrap(),
 
                 PublicKey::Unknown { .. } => unreachable!(),
@@ -949,22 +949,22 @@ mod tests {
             #[allow(deprecated)]
             let sk_ = match &sk {
                 SecretKey::RSA { .. } =>
-                    SecretKey::parse_naked(
+                    SecretKey::parse(
                         RSAEncryptSign, cur.into_inner()).unwrap(),
                 SecretKey::DSA { .. } =>
-                    SecretKey::parse_naked(
+                    SecretKey::parse(
                         DSA, cur.into_inner()).unwrap(),
                 SecretKey::EdDSA { .. } =>
-                    SecretKey::parse_naked(
+                    SecretKey::parse(
                         EdDSA, cur.into_inner()).unwrap(),
                 SecretKey::ECDSA { .. } =>
-                    SecretKey::parse_naked(
+                    SecretKey::parse(
                         ECDSA, cur.into_inner()).unwrap(),
                 SecretKey::ECDH { .. } =>
-                    SecretKey::parse_naked(
+                    SecretKey::parse(
                         ECDH, cur.into_inner()).unwrap(),
                 SecretKey::Elgamal { .. } =>
-                    SecretKey::parse_naked(
+                    SecretKey::parse(
                         ElgamalEncrypt, cur.into_inner()).unwrap(),
 
                 SecretKey::Unknown { .. } => unreachable!(),
@@ -988,13 +988,13 @@ mod tests {
             #[allow(deprecated)]
             let ct_ = match &ct {
                 Ciphertext::RSA { .. } =>
-                    Ciphertext::parse_naked(
+                    Ciphertext::parse(
                         RSAEncryptSign, cur.into_inner()).unwrap(),
                 Ciphertext::Elgamal { .. } =>
-                    Ciphertext::parse_naked(
+                    Ciphertext::parse(
                         ElgamalEncrypt, cur.into_inner()).unwrap(),
                 Ciphertext::ECDH { .. } =>
-                    Ciphertext::parse_naked(
+                    Ciphertext::parse(
                         ECDH, cur.into_inner()).unwrap(),
 
                 Ciphertext::Unknown { .. } => unreachable!(),
@@ -1018,19 +1018,19 @@ mod tests {
             #[allow(deprecated)]
             let sig_ = match &sig {
                 Signature::RSA { .. } =>
-                    Signature::parse_naked(
+                    Signature::parse(
                         RSAEncryptSign, cur.into_inner()).unwrap(),
                 Signature::DSA { .. } =>
-                    Signature::parse_naked(
+                    Signature::parse(
                         DSA, cur.into_inner()).unwrap(),
                 Signature::Elgamal { .. } =>
-                    Signature::parse_naked(
+                    Signature::parse(
                         ElgamalEncryptSign, cur.into_inner()).unwrap(),
                 Signature::EdDSA { .. } =>
-                    Signature::parse_naked(
+                    Signature::parse(
                         EdDSA, cur.into_inner()).unwrap(),
                 Signature::ECDSA { .. } =>
-                    Signature::parse_naked(
+                    Signature::parse(
                         ECDSA, cur.into_inner()).unwrap(),
 
                 Signature::Unknown { .. } => unreachable!(),

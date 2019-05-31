@@ -21,8 +21,7 @@ impl mpis::PublicKey {
     /// See [Section 3.2 of RFC 4880] for details.
     ///
     ///   [Section 3.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-3.2
-    #[cfg(test)]
-    pub fn parse_naked<T: AsRef<[u8]>>(
+    pub fn parse<T: AsRef<[u8]>>(
         algo: PublicKeyAlgorithm, buf: T)
         -> Result<Self>
     {
@@ -32,7 +31,7 @@ impl mpis::PublicKey {
         let bio = buffered_reader::Generic::with_cookie(
             cur, None, Cookie::default());
         let mut php = PacketHeaderParser::new_naked(Box::new(bio));
-        Self::parse(algo, &mut php)
+        Self::_parse(algo, &mut php)
     }
 
     /// Parses a set of OpenPGP MPIs representing a public key.
@@ -40,7 +39,7 @@ impl mpis::PublicKey {
     /// See [Section 3.2 of RFC 4880] for details.
     ///
     ///   [Section 3.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-3.2
-    pub(crate) fn parse<'a>(algo: PublicKeyAlgorithm,
+    pub(crate) fn _parse<'a>(algo: PublicKeyAlgorithm,
                             php: &mut PacketHeaderParser<'a>)
         -> Result<Self>
     {
@@ -160,7 +159,7 @@ impl mpis::SecretKey {
         let bio = buffered_reader::Generic::with_cookie(
             cur, None, Cookie::default());
         let mut php = PacketHeaderParser::new_naked(Box::new(bio));
-        let mpis = Self::parse(algo, &mut php)?;
+        let mpis = Self::_parse(algo, &mut php)?;
 
         // read expected sha1 hash of the mpis
         let their_chksum = php.parse_bytes("checksum", 20)?;
@@ -187,9 +186,8 @@ impl mpis::SecretKey {
     /// See [Section 3.2 of RFC 4880] for details.
     ///
     ///   [Section 3.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-3.2
-    #[cfg(test)]
-    pub fn parse_naked<T: AsRef<[u8]>>(algo: PublicKeyAlgorithm, buf: T)
-                                       -> Result<Self>
+    pub fn parse<T: AsRef<[u8]>>(algo: PublicKeyAlgorithm, buf: T)
+                                 -> Result<Self>
     {
         use std::io::Cursor;
 
@@ -197,7 +195,7 @@ impl mpis::SecretKey {
         let bio = buffered_reader::Generic::with_cookie(
             cur, None, Cookie::default());
         let mut php = PacketHeaderParser::new_naked(Box::new(bio));
-        Self::parse(algo, &mut php)
+        Self::_parse(algo, &mut php)
     }
 
     /// Parses a set of OpenPGP MPIs representing a secret key.
@@ -205,9 +203,9 @@ impl mpis::SecretKey {
     /// See [Section 3.2 of RFC 4880] for details.
     ///
     ///   [Section 3.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-3.2
-    pub(crate) fn parse<'a>(algo: PublicKeyAlgorithm,
-                            php: &mut PacketHeaderParser<'a>)
-                            -> Result<Self>
+    pub(crate) fn _parse<'a>(algo: PublicKeyAlgorithm,
+                             php: &mut PacketHeaderParser<'a>)
+                             -> Result<Self>
     {
         use PublicKeyAlgorithm::*;
 
@@ -286,16 +284,15 @@ impl mpis::Ciphertext {
     /// See [Section 3.2 of RFC 4880] for details.
     ///
     ///   [Section 3.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-3.2
-    #[cfg(test)]
-    pub fn parse_naked<T: AsRef<[u8]>>(algo: PublicKeyAlgorithm, buf: T)
-                                       -> Result<Self> {
+    pub fn parse<T: AsRef<[u8]>>(algo: PublicKeyAlgorithm, buf: T)
+                                 -> Result<Self> {
         use std::io::Cursor;
 
         let cur = Cursor::new(buf);
         let bio = buffered_reader::Generic::with_cookie(
             cur, None, Cookie::default());
         let mut php = PacketHeaderParser::new_naked(Box::new(bio));
-        Self::parse(algo, &mut php)
+        Self::_parse(algo, &mut php)
     }
 
     /// Parses a set of OpenPGP MPIs representing a ciphertext.
@@ -304,9 +301,9 @@ impl mpis::Ciphertext {
     /// See [Section 3.2 of RFC 4880] for details.
     ///
     ///   [Section 3.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-3.2
-    pub(crate) fn parse<'a>(algo: PublicKeyAlgorithm,
-                            php: &mut PacketHeaderParser<'a>)
-                            -> Result<Self> {
+    pub(crate) fn _parse<'a>(algo: PublicKeyAlgorithm,
+                             php: &mut PacketHeaderParser<'a>)
+                             -> Result<Self> {
         use PublicKeyAlgorithm::*;
 
         #[allow(deprecated)]
@@ -368,16 +365,15 @@ impl mpis::Signature {
     /// See [Section 3.2 of RFC 4880] for details.
     ///
     ///   [Section 3.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-3.2
-    #[cfg(test)]
-    pub fn parse_naked<T: AsRef<[u8]>>(algo: PublicKeyAlgorithm, buf: T)
-                                       -> Result<Self> {
+    pub fn parse<T: AsRef<[u8]>>(algo: PublicKeyAlgorithm, buf: T)
+                                 -> Result<Self> {
         use std::io::Cursor;
 
         let cur = Cursor::new(buf);
         let bio = buffered_reader::Generic::with_cookie(
             cur, None, Cookie::default());
         let mut php = PacketHeaderParser::new_naked(Box::new(bio));
-        Self::parse(algo, &mut php)
+        Self::_parse(algo, &mut php)
     }
 
     /// Parses a set of OpenPGP MPIs representing a signature.
@@ -386,9 +382,9 @@ impl mpis::Signature {
     /// See [Section 3.2 of RFC 4880] for details.
     ///
     ///   [Section 3.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-3.2
-    pub(crate) fn parse<'a>(algo: PublicKeyAlgorithm,
-                            php: &mut PacketHeaderParser<'a>)
-                            -> Result<Self> {
+    pub(crate) fn _parse<'a>(algo: PublicKeyAlgorithm,
+                             php: &mut PacketHeaderParser<'a>)
+                             -> Result<Self> {
         use PublicKeyAlgorithm::*;
 
         #[allow(deprecated)]
@@ -472,17 +468,12 @@ impl mpis::Signature {
 #[test]
 fn mpis_parse_test() {
     use super::Parse;
-    use std::io::Cursor;
     use PublicKeyAlgorithm::*;
 
     // Dummy RSA public key.
     {
         let buf = b"\x00\x01\x01\x00\x02\x02".to_vec();
-        let cur = Cursor::new(buf);
-        let bio = buffered_reader::Generic::with_cookie(
-            cur, None, Cookie::default());
-        let mut parser = PacketHeaderParser::new_naked(Box::new(bio));
-        let mpis = mpis::PublicKey::parse(RSAEncryptSign, &mut parser).unwrap();
+        let mpis = mpis::PublicKey::parse(RSAEncryptSign, buf).unwrap();
 
         //assert_eq!(mpis.serialized_len(), 6);
         match &mpis {
@@ -502,12 +493,7 @@ fn mpis_parse_test() {
     // The number 2.
     {
         let buf = b"\x00\x02\x02".to_vec();
-        let cur = Cursor::new(buf);
-        let bio = buffered_reader::Generic::with_cookie(
-            cur, None, Cookie::default());
-        let mut parser = PacketHeaderParser::new_naked(Box::new(bio));
-        let mpis = mpis::Ciphertext::parse(RSAEncryptSign, &mut parser)
-            .unwrap();
+        let mpis = mpis::Ciphertext::parse(RSAEncryptSign, buf).unwrap();
 
         assert_eq!(mpis.serialized_len(), 3);
     }
