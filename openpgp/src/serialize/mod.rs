@@ -1185,11 +1185,6 @@ impl Key4 {
     pub(crate) // For tests in key.
     fn serialize_key(&self, o: &mut io::Write, serialize_secrets: bool)
                      -> Result<()> {
-        if serialize_secrets && ! self.secret().is_some() {
-            return Err(Error::InvalidOperation(
-                "Cannot serialize secret key: No secrets".into()).into());
-        }
-
         let have_secret_key = self.secret().is_some() && serialize_secrets;
 
         write_byte(o, 4)?; // Version.
