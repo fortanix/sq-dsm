@@ -7,7 +7,6 @@ extern crate rpassword;
 extern crate sequoia_openpgp as openpgp;
 use openpgp::armor;
 use openpgp::crypto;
-use openpgp::packet::key::SecretKey;
 use openpgp::parse::Parse;
 use openpgp::serialize::stream::{Message, Signer};
 
@@ -21,31 +20,31 @@ fn main() {
 
     // Read the transferable secret keys from the given files.
     let mut keys = Vec::new();
-    'nextfile: for filename in &args[1..] {
+    for filename in &args[1..] {
         let tsk = openpgp::TPK::from_file(filename)
             .expect("Failed to read key");
+        let mut n = 0;
 
-        for key in tsk.keys_valid().signing_capable().map(|k| k.2) {
-            if let Some(mut secret) = key.secret() {
-                let secret_mpis = match secret {
-                    SecretKey::Encrypted { .. } => {
-                        let password = rpassword::read_password_from_tty(
-                            Some(&format!("Please enter password to decrypt \
-                                           {}/{}: ",tsk, key))).unwrap();
-                        secret.decrypt(key.pk_algo(), &password.into())
-                            .expect("decryption failed")
-                    },
-                    SecretKey::Unencrypted { ref mpis } =>
-                        mpis.clone(),
-                };
-
-                keys.push(crypto::KeyPair::new(key.clone(), secret_mpis)
-                          .unwrap());
-                break 'nextfile;
-            }
+        for (_, _, key) in tsk.keys_valid().signing_capable().secret(true) {
+            keys.push({
+                let mut key = key.clone();
+                if key.secret().expect("filtered").is_encrypted() {
+                    let password = rpassword::read_password_from_tty(
+                        Some(&format!("Please enter password to decrypt \
+                                       {}/{}: ",tsk, key))).unwrap();
+                    let algo = key.pk_algo();
+                    key.secret_mut().expect("filtered")
+                        .decrypt_in_place(algo, &password.into())
+                        .expect("decryption failed");
+                }
+                n += 1;
+                key.into_keypair().unwrap()
+            });
         }
 
-        panic!("Found no suitable signing key on {}", tsk);
+        if n == 0 {
+            panic!("Found no suitable signing key on {}", tsk);
+        }
     }
 
     // Compose a writer stack corresponding to the output format and
