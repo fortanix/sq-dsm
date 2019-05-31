@@ -3,7 +3,13 @@ use std::str;
 use std::hash::{Hash, Hasher};
 use std::cell::RefCell;
 use quickcheck::{Arbitrary, Gen};
-use rfc2822::{NameAddrOrOther, AddrSpecOrOther};
+use rfc2822::{
+    AddrSpec,
+    AddrSpecOrOther,
+    Name,
+    NameAddr,
+    NameAddrOrOther,
+};
 use failure::ResultExt;
 
 use Result;
@@ -137,6 +143,147 @@ impl Clone for UserID {
 }
 
 impl UserID {
+    /// Constructs a User ID.
+    ///
+    /// This escapes the name.  The comment and address must be well
+    /// formed according to RFC 2822.  Only the address is required.
+    ///
+    /// If you already have a full RFC 2822 mailbox, then you can just
+    /// use `UserID::from()`.
+    ///
+    /// ```
+    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use openpgp::packet::UserID;
+    /// assert_eq!(UserID::from_address(
+    ///                "John \"the Boat\" Smith".into(),
+    ///                None, "boat@example.org").unwrap().value(),
+    ///            &b"\"John \\\"the Boat\\\" Smith\" <boat@example.org>"[..]);
+    /// ```
+    pub fn from_address<O, S>(name: O, comment: O, address: S)
+        -> Result<Self>
+        where S: AsRef<str>,
+              O: Into<Option<S>>
+    {
+        let name = name.into();
+        let comment = comment.into();
+        let address = address.as_ref();
+
+        // Make sure the address is valid.
+        AddrSpec::parse(address)
+            .context(format!("Invalid address: {:?}", address))?;
+
+        // XXX: Currently we don't have an interface to just parse a
+        // comment, but we check it's validity below.
+
+        let is_name_addr = name.is_some() || comment.is_some();
+
+        let combined = match (name, comment) {
+            (Some(name), Some(comment)) => {
+                let name = name.as_ref();
+
+                format!("{} ({}) <{}>",
+                        Name::escaped(name)
+                            .context(format!("Invalid display name: {:?}",
+                                             name))?,
+                        comment.as_ref(), address)
+            }
+            (Some(name), None) => {
+                let name = name.as_ref();
+
+                format!("{} <{}>",
+                        Name::escaped(name)
+                            .context(format!("Invalid display name: {:?}",
+                                             name))?,
+                        address)
+            }
+            (None, Some(comment)) =>
+                // A comment can't exist without a display name.
+                format!("\"\" {} <{}>",
+                        comment.as_ref(), address),
+            (None, None) =>
+                address.into(),
+        };
+
+        if is_name_addr {
+            // Make sure the whole thing is valid (this also checks the
+            // comment).
+            NameAddr::parse(&combined)?;
+        }
+
+        Ok(combined.into())
+    }
+
+    /// Constructs a User ID.
+    ///
+    /// This escapes the name.  The comment must be well formed, the
+    /// address can be arbitrary.
+    ///
+    /// This is useful when you want to specify a URI instead of an
+    /// email address.
+    ///
+    /// If you have a full RFC 2822 mailbox, then you can just use
+    /// `UserID::from()`.
+    ///
+    /// ```
+    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use openpgp::packet::UserID;
+    /// assert_eq!(UserID::from_unchecked_address(
+    ///                "NAS".into(),
+    ///                None, "ssh://host.example.org").unwrap().value(),
+    ///            &b"NAS <ssh://host.example.org>"[..]);
+    /// ```
+    pub fn from_unchecked_address<O, S>(name: O, comment: O, address: S)
+        -> Result<Self>
+        where S: AsRef<str>,
+              O: Into<Option<S>>
+    {
+        let name = name.into();
+        let comment = comment.into();
+        let address = address.as_ref();
+
+        // XXX: Currently we don't have an interface to just parse a
+        // comment, but we check it's validity below.
+
+        let is_name_addr = name.is_some() || comment.is_some();
+
+        let combined = match (name, comment) {
+            (Some(name), Some(comment)) => {
+                let name = name.as_ref();
+
+                format!("{} ({}) <{}>",
+                        Name::escaped(name)
+                            .context(format!("Invalid display name: {:?}",
+                                             name))?,
+                        comment.as_ref(), address)
+            }
+            (Some(name), None) => {
+                let name = name.as_ref();
+
+                format!("{} <{}>",
+                        Name::escaped(name)
+                            .context(format!("Invalid display name: {:?}",
+                                             name))?,
+                        address)
+            }
+            (None, Some(comment)) =>
+                // A comment can't exist without a display name.
+                format!("\"\" {} <{}>",
+                        comment.as_ref(), address),
+            (None, None) =>
+                address.into(),
+        };
+
+        // Make sure the whole thing is valid (this also checks the
+        // comment).
+        if is_name_addr {
+            // Make sure the whole thing is valid (this also checks the
+            // comment).
+            NameAddrOrOther::parse(&combined)?;
+        }
+
+        Ok(combined.into())
+    }
+
     /// Gets the user ID packet's value.
     pub fn value(&self) -> &[u8] {
         self.value.as_slice()
@@ -462,5 +609,16 @@ mod tests {
         c("Henry Ford (CEO) <Henry@Ford.com>", "henry@ford.com");
         c("hans@bücher.tld", "hans@xn--bcher-kva.tld");
         c("hANS@bücher.tld", "hans@xn--bcher-kva.tld");
+    }
+
+    #[test]
+    fn from_address() {
+        assert_eq!(UserID::from_address(None, None, "foo@bar.com")
+                       .unwrap().value(),
+                   b"foo@bar.com");
+        assert!(UserID::from_address(None, None, "foo@@bar.com").is_err());
+        assert_eq!(UserID::from_address("Foo Q. Bar".into(), None, "foo@bar.com")
+                      .unwrap().value(),
+                   b"\"Foo Q. Bar\" <foo@bar.com>");
     }
 }
