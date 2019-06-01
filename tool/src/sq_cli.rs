@@ -8,7 +8,7 @@ use clap::{App, Arg, ArgGroup, SubCommand, AppSettings};
 
 pub fn build() -> App<'static, 'static> {
     App::new("sq")
-        .version("0.1.0")
+        .version(env!("CARGO_PKG_VERSION"))
         .about("Sequoia is an implementation of OpenPGP.  This is a command-line frontend.")
         .setting(AppSettings::SubcommandRequiredElseHelp)
         .arg(Arg::with_name("home").value_name("DIRECTORY")

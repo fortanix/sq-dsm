@@ -9,7 +9,7 @@ use clap::{App, Arg, AppSettings};
 // The argument parser.
 pub fn build() -> App<'static, 'static> {
     App::new("sqv")
-        .version("0.1.0")
+        .version(env!("CARGO_PKG_VERSION"))
         .about("sqv is a command-line OpenPGP signature verification tool.")
         .setting(AppSettings::ArgRequiredElseHelp)
         .arg(Arg::with_name("keyring").value_name("FILE")
