@@ -81,6 +81,9 @@ install:
 	$(INSTALL) -d $(DESTDIR)$(PREFIX)/include/sequoia
 	$(INSTALL) -t $(DESTDIR)$(PREFIX)/include/sequoia \
 		include/sequoia/*.h
+	$(INSTALL) -d $(DESTDIR)$(PREFIX)/include/sequoia/openpgp
+	$(INSTALL) -t $(DESTDIR)$(PREFIX)/include/sequoia/openpgp \
+		include/sequoia/openpgp/*.h
 	$(INSTALL) -d $(DESTDIR)$(PREFIX)/lib
 	$(INSTALL) $(CARGO_TARGET_DIR)/release/libsequoia_openpgp_ffi.$(_SEQ_LIB_EXT) \
 		$(DESTDIR)$(PREFIX)/lib/libsequoia_openpgp_ffi.$(_SEQ_LIB_EXT).$(VERSION)
