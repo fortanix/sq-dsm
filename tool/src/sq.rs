@@ -26,6 +26,7 @@ use openpgp::{armor, autocrypt, Fingerprint, TPK};
 use openpgp::conversions::hex;
 use openpgp::parse::Parse;
 use openpgp::serialize::Serialize;
+use openpgp::tpk::armor::Encoder;
 use sequoia_core::{Context, NetworkPolicy};
 use sequoia_net::{KeyServer, wkd};
 use sequoia_store::{Store, LogIter};
@@ -362,17 +363,12 @@ fn real_main() -> Result<(), failure::Error> {
                 },
                 ("export",  Some(m)) => {
                     let tpk = store.lookup(m.value_of("label").unwrap())?.tpk()?;
-
                     let mut output = create_or_stdout(m.value_of("output"), force)?;
-                    let mut output = if ! m.is_present("binary") {
-                        Box::new(armor::Writer::new(&mut output,
-                                                    armor::Kind::PublicKey,
-                                                    &[])?)
+                    if m.is_present("binary") {
+                        tpk.serialize(&mut output)?;
                     } else {
-                        output
-                    };
-
-                    tpk.serialize(&mut output)?;
+                        Encoder::new(&tpk).serialize(&mut output)?;
+                    }
                 },
                 ("delete",  Some(m)) => {
                     if m.is_present("label") == m.is_present("the-store") {
