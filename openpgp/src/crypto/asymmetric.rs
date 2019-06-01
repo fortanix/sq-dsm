@@ -47,6 +47,7 @@ pub trait Decryptor {
 /// implementation of [`Signer`].
 ///
 /// [`Signer`]: trait.Signer.html
+#[derive(Clone)]
 pub struct KeyPair {
     public: Key,
     secret: mpis::SecretKey,
