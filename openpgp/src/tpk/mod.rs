@@ -36,6 +36,7 @@ use parse::{Parse, PacketParserResult, PacketParser};
 use serialize::SerializeInto;
 use constants::ReasonForRevocation;
 
+pub mod armor;
 mod lexer;
 mod grammar;
 mod builder;
