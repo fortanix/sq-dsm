@@ -2,7 +2,7 @@
 
 use nettle::{dsa, ecc, ecdsa, ed25519, rsa, Yarrow};
 
-use packet::Key;
+use packet::{self, Key};
 use crypto::SessionKey;
 use crypto::mpis::{self, MPI};
 use constants::{Curve, HashAlgorithm};
@@ -245,4 +245,15 @@ impl Decryptor for KeyPair {
                     public, secret, ciphertext)).into()),
         }.into())
     }
+}
+
+impl From<KeyPair> for packet::Key {
+    fn from(p: KeyPair) -> Self {
+        let (mut key, secret) = (p.public, p.secret);
+        key.set_secret(Some(packet::key::SecretKey::Unencrypted {
+            mpis: secret,
+        }));
+        key
+    }
+
 }
