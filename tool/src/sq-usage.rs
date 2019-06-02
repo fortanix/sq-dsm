@@ -626,12 +626,14 @@
 //! ARGS:
 //!     <FILE>    Sets the input file to use
 //! ```
+//!
 //! ## Subcommand wkd
+//!
 //! ```text
 //! Interacts with Web Key Directories
 //!
 //! USAGE:
-//!     sq wkd [SUBCOMMAND]
+//!     sq wkd <SUBCOMMAND>
 //!
 //! FLAGS:
 //!     -h, --help       Prints help information
@@ -640,30 +642,36 @@
 //! SUBCOMMANDS:
 //! get     Writes to the standard output the Transferable Public Key retrieved from a Web Key Directory, given an email address
 //! help    Prints this message or the help of the given subcommand(s)
-//! url     Prints the Web Key Directory URI of an email address.
+//! url     Prints the Web Key Directory URL of an email address.
 //! ```
+//!
 //! ### Subcommand wkd url
+//!
 //! ```text
-//! Prints the Web Key Directory URI of an email address
+//! Prints the Web Key Directory URL of an email address
 //!
 //! USAGE:
-//!     sq wkd url [EMAIL_ADDRESS]
+//!     sq wkd url [FLAGS] <EMAIL_ADDRESS>
 //!
 //! FLAGS:
 //!     -h, --help       Prints help information
 //!     -V, --version    Prints version information
 //!
 //! ARGS:
-//!     <EMAIL_ADDRESS>     The email address from which to obtain the WKD URI.
+//!     <EMAIL_ADDRESS>     The email address from which to obtain the WKD URL.
 //! ```
+//!
 //! ### Subcommand wkd get
+//!
 //! ```text
 //!
 //! Writes to the standard output the Transferable Public Key retrieved from a Web Key Directory, given an email address
+//!
 //! USAGE:
-//!     sq wkd get [EMAIL_ADDRESS]
+//!     sq wkd get [FLAGS] [OPTIONS] <EMAIL_ADDRESS>
 //!
 //! FLAGS:
+//!     -B, --binary     Don't ASCII-armor encode the OpenPGP data
 //!     -h, --help       Prints help information
 //!     -V, --version    Prints version information
 //!

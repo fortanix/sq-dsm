@@ -454,6 +454,10 @@ pub fn build() -> App<'static, 'static> {
                                 .arg(Arg::with_name("input")
                                     .value_name("EMAIL_ADDRESS")
                                     .help("The email address from which to \
-                                            obtain the TPK from a WKD.")))
+                                            obtain the TPK from a WKD."))
+                                .arg(Arg::with_name("binary")
+                                    .long("binary")
+                                    .short("B")
+                                    .help("Don't ASCII-armor encode the OpenPGP data")))
         )
 }

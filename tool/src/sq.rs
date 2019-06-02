@@ -481,6 +481,13 @@ fn real_main() -> Result<(), failure::Error> {
                     // Since the output is always bytes.
                     // XXX: Still give the possibility to write to a file.
                     let mut output = create_or_stdout(m.value_of("output"), force)?;
+                    let mut output = if ! m.is_present("binary") {
+                        Box::new(armor::Writer::new(&mut output,
+                                                    armor::Kind::PublicKey,
+                                                    &[])?)
+                    } else {
+                        output
+                    };
 
                     for tpk in tpks {
                         tpk.serialize(&mut output)?;
