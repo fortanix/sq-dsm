@@ -16,6 +16,7 @@ use autocrypt;
 use super::*;
 
 mod partial_body;
+mod sexp;
 mod tpk;
 pub use self::tpk::TSK;
 use self::partial_body::PartialBodyFilter;

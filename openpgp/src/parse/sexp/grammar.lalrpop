@@ -1,0 +1,64 @@
+// -*- mode: Rust; -*-
+//
+// This implements parsing of [S-Expressions] encoded using the
+// canonical and basic transport encoding.
+//
+// [S-Expressions]: https://people.csail.mit.edu/rivest/Sexp.txt
+
+use parse::sexp::lexer::{self, LexicalError};
+use crypto::sexp::{Sexp, String_};
+
+grammar<'input>;
+
+// For canonical and basic transport:
+//
+// <sexpr>    	:: <string> | <list>
+pub Sexpr: Sexp = {
+    String,
+    List,
+};
+
+// <list>     	:: "(" <sexp>* ")" ;
+List: Sexp = {
+    LPAREN <Sexpr*> RPAREN => Sexp::List(<>),
+};
+
+// <string>   	:: <display>? <simple-string> ;
+String: Sexp = {
+    <d: Display> <s: SimpleString> =>
+        Sexp::String(String_::with_display_hint(s, d)),
+    <s: SimpleString> =>
+        Sexp::String(String_::new(s)),
+};
+
+// <simple-string>	:: <raw> ;
+SimpleString: Vec<u8> =
+    RAW => if let lexer::Token::RAW(r) = <> {
+        r.iter().cloned().collect::<Vec<_>>()
+    } else {
+        unreachable!("Production matched on Token::RAW")
+    };
+
+// <display>  	:: "[" <simple-string> "]" ;
+Display = LBRACKET <SimpleString> RBRACKET;
+
+// <raw>      	:: <decimal> ":" <bytes> ;
+// <decimal-digit> :: "0" | ... | "9" ;
+// <decimal>  	:: <decimal-digit>+ ;
+// 		-- decimal numbers should have no unnecessary leading zeros
+// <bytes> 	-- any string of bytes, of the indicated length
+//
+// RAW is handled in the lexer.
+
+extern {
+    type Location = usize;
+    type Error = LexicalError;
+
+    enum lexer::Token<'input> {
+        LPAREN => lexer::Token::LPAREN,
+        RPAREN => lexer::Token::RPAREN,
+        LBRACKET => lexer::Token::LBRACKET,
+        RBRACKET => lexer::Token::RBRACKET,
+        RAW => lexer::Token::RAW(_),
+    }
+}

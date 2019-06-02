@@ -19,6 +19,7 @@ mod keygrip;
 pub use self::keygrip::Keygrip;
 pub mod mpis;
 pub mod s2k;
+pub mod sexp;
 pub(crate) mod symmetric;
 
 pub use self::asymmetric::{

@@ -60,6 +60,7 @@ pub use self::packet_parser_builder::PacketParserBuilder;
 
 pub mod map;
 mod mpis;
+mod sexp;
 pub mod stream;
 
 // Whether to trace execution by default (on stderr).
