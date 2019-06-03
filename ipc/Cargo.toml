@@ -9,6 +9,7 @@ authors = [
     "Neal H. Walfield <neal@sequoia-pgp.org>",
 ]
 documentation = "https://docs.sequoia-pgp.org/0.8.0/sequoia_ipc"
+build = "build.rs"
 homepage = "https://sequoia-pgp.org/"
 repository = "https://gitlab.com/sequoia-pgp/sequoia"
 readme = "README.md"
@@ -26,8 +27,16 @@ capnp-rpc = "0.9"
 failure = "0.1.2"
 fs2 = "0.4.2"
 futures = "0.1"
+lalrpop-util = "0.17"
 libc = "0.2.33"
 memsec = "0.5.6"
 rand = "0.6"
+tokio = "0.1"
 tokio-core = "0.1"
 tokio-io = "0.1.4"
+
+[build-dependencies]
+lalrpop = "0.17"
+
+[dev-dependencies]
+clap = "2.32.0"

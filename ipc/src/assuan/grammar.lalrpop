@@ -1,0 +1,226 @@
+// -*- mode: Rust; -*-
+//
+// This implements parsing of [S-Expressions] encoded using the
+// canonical and basic transport encoding.
+//
+// [S-Expressions]: https://people.csail.mit.edu/rivest/Sexp.txt
+
+use assuan::{
+    Response,
+    lexer::{self, LexicalError},
+};
+
+grammar;
+
+// 3.1 Server responses
+pub Response: Response = {
+    Ok,
+    Error,
+    Status,
+    Comment,
+    Data,
+    Inquire,
+};
+
+// 'OK [<arbitrary debugging information>]'
+//      Request was successful.
+Ok: Response = O K <message: HumanReadable?> =>
+    Response::Ok { message };
+
+// 'ERR ERRORCODE [<human readable error description>]'
+//      Request could not be fulfilled.  The possible error codes are
+//      defined by 'libgpg-error'.
+Error: Response = E R R SPACE <code: Integer> <message: HumanReadable?> =>
+    Response::Error { code, message };
+
+// 'S KEYWORD <status information depending on keyword>'
+//      Informational output by the server, which is still processing the
+//      request.  A client may not send such lines to the server while
+//      processing an Inquiry command.  KEYWORD shall start with a letter
+//      or an underscore.
+Status: Response = S SPACE <keyword: Keyword> <message: HumanReadable> =>
+    Response::Status { keyword, message };
+
+Keyword: String = {
+    <p:Letter> <q:KeywordChar*> =>
+        String::from_utf8_lossy(
+            &std::iter::once(&p).chain(q.iter()).map(|t| u8::from(*t)).collect::<Vec<_>>()
+        ).into_owned(),
+    <p:UNDERSCORE> <q:KeywordChar*> =>
+        String::from_utf8_lossy(
+            &std::iter::once(&p).chain(q.iter()).map(|t| u8::from(*t)).collect::<Vec<_>>()
+        ).into_owned(),
+
+};
+
+KeywordChar: lexer::Token = {
+    UNDERSCORE,
+    Digit,
+    Letter,
+};
+
+// '# <string>'
+//      Comment line issued only for debugging purposes.  Totally ignored.
+Comment: Response = HASH <message: HumanReadable> =>
+    Response::Comment { message };
+
+// 'D <raw data>'
+//      Raw data returned to client.  There must be exactly one space after
+//      the 'D'. The values for '%', CR and LF must be percent escaped;
+//      these are encoded as %25, %0D and %0A, respectively.  Only
+//      uppercase letters should be used in the hexadecimal representation.
+//      Other characters may be percent escaped for easier debugging.  All
+//      Data lines are considered one data stream up to the OK or ERR
+//      response.  Status and Inquiry Responses may be mixed with the Data
+//      lines.
+Data: Response = D <partial: RawData> =>
+    Response::Data { partial };
+
+// 'INQUIRE KEYWORD <parameters>'
+//      The server needs further information from the client.  The client
+//      should respond with data (using the "D" command and terminated by
+//      "END"). Alternatively, the client may cancel the current operation
+//      by responding with "CAN".
+Inquire: Response =
+    I N Q U I R E SPACE <keyword: Keyword> <parameters: RawData?> =>
+    Response::Inquire { keyword, parameters };
+
+// A string without %-escaping.
+HumanReadable: String = SPACE <ANY*> =>
+    String::from_utf8_lossy(
+        &<>.iter().map(|t| u8::from(*t)).collect::<Vec<_>>()
+    ).into_owned();
+
+// A raw string with %-escaping.
+RawData: Vec<u8> = SPACE <ANY_ESCAPED*> =>
+    <>.iter().map(|t| u8::from(*t)).collect();
+
+ANY_ESCAPED: lexer::Token = {
+    EscapedOctet,
+    SPACE,
+    UNDERSCORE,
+    HASH,
+    Digit,
+    Letter,
+    OTHER,
+};
+
+EscapedOctet: lexer::Token = PERCENT <msn:HexDigit> <lsn:HexDigit> =>
+    lexer::Token::OTHER(
+        (msn.hex_value().unwrap() << 4) + lsn.hex_value().unwrap()
+    );
+
+Integer: usize = <Digit+> => <>.iter().fold(0, |acc, d| {
+    acc * 10 + (u8::from(*d) - 0x30) as usize
+});
+
+Digit: lexer::Token = {
+    N0,
+    N1,
+    N2,
+    N3,
+    N4,
+    N5,
+    N6,
+    N7,
+    N8,
+    N9,
+};
+
+HexDigit: lexer::Token = {
+    Digit,
+    A,
+    B,
+    C,
+    D,
+    E,
+    F,
+};
+
+Letter: lexer::Token = {
+    A,
+    B,
+    C,
+    D,
+    E,
+    F,
+    G,
+    H,
+    I,
+    J,
+    K,
+    L,
+    M,
+    N,
+    O,
+    P,
+    Q,
+    R,
+    S,
+    T,
+    U,
+    V,
+    W,
+    X,
+    Y,
+    Z,
+};
+
+ANY: lexer::Token = {
+    SPACE,
+    HASH,
+    PERCENT,
+    UNDERSCORE,
+    Digit,
+    Letter,
+    OTHER,
+};
+
+extern {
+    type Location = usize;
+    type Error = LexicalError;
+
+    enum lexer::Token {
+        SPACE => lexer::Token::SPACE,
+        HASH => lexer::Token::HASH,
+        PERCENT => lexer::Token::PERCENT,
+        N0 => lexer::Token::N0,
+        N1 => lexer::Token::N1,
+        N2 => lexer::Token::N2,
+        N3 => lexer::Token::N3,
+        N4 => lexer::Token::N4,
+        N5 => lexer::Token::N5,
+        N6 => lexer::Token::N6,
+        N7 => lexer::Token::N7,
+        N8 => lexer::Token::N8,
+        N9 => lexer::Token::N9,
+        A => lexer::Token::A,
+        B => lexer::Token::B,
+        C => lexer::Token::C,
+        D => lexer::Token::D,
+        E => lexer::Token::E,
+        F => lexer::Token::F,
+        G => lexer::Token::G,
+        H => lexer::Token::H,
+        I => lexer::Token::I,
+        J => lexer::Token::J,
+        K => lexer::Token::K,
+        L => lexer::Token::L,
+        M => lexer::Token::M,
+        N => lexer::Token::N,
+        O => lexer::Token::O,
+        P => lexer::Token::P,
+        Q => lexer::Token::Q,
+        R => lexer::Token::R,
+        S => lexer::Token::S,
+        T => lexer::Token::T,
+        U => lexer::Token::U,
+        V => lexer::Token::V,
+        W => lexer::Token::W,
+        X => lexer::Token::X,
+        Y => lexer::Token::Y,
+        Z => lexer::Token::Z,
+        UNDERSCORE => lexer::Token::UNDERSCORE,
+        OTHER => lexer::Token::OTHER(_),
+    }
+}

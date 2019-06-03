@@ -45,7 +45,9 @@ extern crate capnp_rpc;
 #[macro_use] extern crate failure;
 extern crate fs2;
 extern crate futures;
+extern crate lalrpop_util;
 extern crate memsec;
+extern crate tokio;
 extern crate tokio_core;
 extern crate tokio_io;
 
@@ -74,6 +76,9 @@ use std::thread;
 extern crate sequoia_core;
 
 use sequoia_core as core;
+
+#[macro_use] mod trace;
+pub mod assuan;
 
 /// Servers need to implement this trait.
 pub trait Handler {
@@ -466,4 +471,15 @@ impl PartialEq for Cookie {
                                 self.0.len())
             }
     }
+}
+
+#[derive(Fail, Debug)]
+/// Errors returned from the network routines.
+pub enum Error {
+    /// Handshake failed.
+    #[fail(display = "Handshake failed: {}", _0)]
+    HandshakeFailed(String),
+    /// Connection closed unexpectedly.
+    #[fail(display = "Connection closed unexpectedly.")]
+    ConnectionClosed(Vec<u8>),
 }
