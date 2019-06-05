@@ -1502,6 +1502,22 @@ mod tests {
     }
 
     #[test]
+    fn name_addr_parser() {
+        c!(grammar::NameAddrParser::new(), Vec<Component>);
+
+        // A name-addr doesn't match a bare email address.
+        c("foo@example.org", None);
+
+        // Tricky, tricky: the local part is the empty string.
+        c("<\"\"@example.org>",
+          Some(vec![ Component::Address("@example.org".into()) ]));
+        c("Willi Wonka <\"\"@無.com>",
+          Some(vec![ Component::Text("Willi Wonka".into()),
+                     Component::WS,
+                     Component::Address("@無.com".into()) ]));
+    }
+
+    #[test]
     fn name_addr_api() {
         fn c_(name: Option<&str>, comment: Option<&str>, email: Option<&str>)
         {
