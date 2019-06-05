@@ -645,7 +645,8 @@ addr_spec : Vec<Component> = {
 
         // The local part may start with comments and the domain part
         // may end with comments.
-        let local_part = l.pop().expect("empty local_part");
+        let local_part = l.pop()
+            .expect(&format!("empty local-part ({:?})", input));
         let domain = d.remove(0);
 
         let mut v = components_merge(
