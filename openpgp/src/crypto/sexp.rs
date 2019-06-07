@@ -6,18 +6,28 @@
 //!
 //! [S-Expressions]: https://people.csail.mit.edu/rivest/Sexp.txt
 
+use std::fmt;
 use std::ops::Deref;
 use quickcheck::{Arbitrary, Gen};
 
 /// An *S-Expression*.
 ///
 /// An *S-Expression* is either a string, or a list of *S-Expressions*.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub enum Sexp {
     /// Just a string.
     String(String_),
     /// A list of *S-Expressions*.
     List(Vec<Sexp>),
+}
+
+impl fmt::Debug for Sexp {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Sexp::String(ref s) => s.fmt(f),
+            Sexp::List(ref l) => l.fmt(f),
+        }
+    }
 }
 
 impl Arbitrary for Sexp {
@@ -37,8 +47,36 @@ impl Arbitrary for Sexp {
 /// A string.
 ///
 /// A string can optionally have a display hint.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct String_(Box<[u8]>, Option<Box<[u8]>>);
+
+impl fmt::Debug for String_ {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        fn bstring(f: &mut fmt::Formatter, buf: &[u8]) -> fmt::Result {
+            write!(f, "b\"")?;
+            for &b in buf {
+                match b {
+                    0...31 | 128...255 =>
+                        write!(f, "\\x{:02x}", b)?,
+                    0x22 => // "
+                        write!(f, "\\\"")?,
+                    0x5c => // \
+                        write!(f, "\\\\")?,
+                    _ =>
+                        write!(f, "{}", b as char)?,
+                }
+            }
+            write!(f, "\"")
+        }
+
+        if let Some(hint) = self.display_hint() {
+            write!(f, "[")?;
+            bstring(f, hint)?;
+            write!(f, "]")?;
+        }
+        bstring(f, &self.0)
+    }
+}
 
 impl String_ {
     /// Constructs a new *Simple String*.
