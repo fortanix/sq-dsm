@@ -56,7 +56,7 @@ mod hashed_reader;
 pub(crate) use self::hashed_reader::HashedReader;
 
 mod packet_parser_builder;
-pub use self::packet_parser_builder::PacketParserBuilder;
+pub use self::packet_parser_builder::{Dearmor, PacketParserBuilder};
 
 pub mod map;
 mod mpis;
