@@ -10,6 +10,11 @@ use std::fmt;
 use std::ops::Deref;
 use quickcheck::{Arbitrary, Gen};
 
+use crypto::mpis;
+
+use Error;
+use Result;
+
 /// An *S-Expression*.
 ///
 /// An *S-Expression* is either a string, or a list of *S-Expressions*.
@@ -26,6 +31,107 @@ impl fmt::Debug for Sexp {
         match self {
             Sexp::String(ref s) => s.fmt(f),
             Sexp::List(ref l) => l.fmt(f),
+        }
+    }
+}
+
+impl Sexp {
+    /// Parses this s-expression to a signature.
+    pub fn to_signature(&self) -> Result<mpis::Signature> {
+        let not_a_signature = || -> failure::Error {
+            Error::MalformedMPI(
+                format!("Not a signature: {:?}", self)).into()
+        };
+
+        let sig = self.get(b"sig-val")?.ok_or_else(not_a_signature)?
+            .into_iter().nth(0).ok_or_else(not_a_signature)?;
+
+        if let Some(param) = sig.get(b"eddsa")? {
+            let r = param.iter().find_map(|p| {
+                p.get(b"r").ok().unwrap_or_default()
+                    .and_then(|l| l.get(0).and_then(Sexp::string).cloned())
+            }).ok_or_else(not_a_signature)?;
+            let s = param.iter().find_map(|p| {
+                p.get(b"s").ok().unwrap_or_default()
+                    .and_then(|l| l.get(0).and_then(Sexp::string).cloned())
+            }).ok_or_else(not_a_signature)?;
+            Ok(mpis::Signature::EdDSA {
+                r: mpis::MPI::new(&r),
+                s: mpis::MPI::new(&s),
+            })
+        } else if let Some(param) = sig.get(b"ecdsa")? {
+            let r = param.iter().find_map(|p| {
+                p.get(b"r").ok().unwrap_or_default()
+                    .and_then(|l| l.get(0).and_then(Sexp::string).cloned())
+            }).ok_or_else(not_a_signature)?;
+            let s = param.iter().find_map(|p| {
+                p.get(b"s").ok().unwrap_or_default()
+                    .and_then(|l| l.get(0).and_then(Sexp::string).cloned())
+            }).ok_or_else(not_a_signature)?;
+            Ok(mpis::Signature::ECDSA {
+                r: mpis::MPI::new(&r),
+                s: mpis::MPI::new(&s),
+            })
+        } else if let Some(param) = sig.get(b"rsa")? {
+            let s = param.iter().find_map(|p| {
+                p.get(b"s").ok().unwrap_or_default()
+                    .and_then(|l| l.get(0).and_then(Sexp::string).cloned())
+            }).ok_or_else(not_a_signature)?;
+            Ok(mpis::Signature::RSA {
+                s: mpis::MPI::new(&s),
+            })
+        } else if let Some(param) = sig.get(b"dsa")? {
+            let r = param.iter().find_map(|p| {
+                p.get(b"r").ok().unwrap_or_default()
+                    .and_then(|l| l.get(0).and_then(Sexp::string).cloned())
+            }).ok_or_else(not_a_signature)?;
+            let s = param.iter().find_map(|p| {
+                p.get(b"s").ok().unwrap_or_default()
+                    .and_then(|l| l.get(0).and_then(Sexp::string).cloned())
+            }).ok_or_else(not_a_signature)?;
+            Ok(mpis::Signature::DSA {
+                r: mpis::MPI::new(&r),
+                s: mpis::MPI::new(&s),
+            })
+        } else {
+            Err(Error::MalformedMPI(
+                format!("Unknown signature sexp: {:?}", self)).into())
+        }
+    }
+
+    /// Casts this to a string.
+    pub fn string(&self) -> Option<&String_> {
+        match self {
+            Sexp::String(ref s) => Some(s),
+            _ => None,
+        }
+    }
+
+    /// Casts this to a list.
+    pub fn list(&self) -> Option<&[Sexp]> {
+        match self {
+            Sexp::List(ref s) => Some(s.as_slice()),
+            _ => None,
+        }
+    }
+
+    /// Given an alist, selects by key and returns the value.
+    fn get(&self, key: &[u8]) -> Result<Option<Vec<Sexp>>> {
+        match self {
+            Sexp::List(ref ll) => match ll.get(0) {
+                Some(Sexp::String(ref tag)) =>
+                    if tag.deref() == key {
+                        Ok(Some(ll[1..].iter().cloned().collect()))
+                    } else {
+                        Ok(None)
+                    }
+                _ =>
+                    Err(Error::InvalidArgument(
+                        format!("Malformed alist: {:?}", ll)).into()),
+            },
+            _ =>
+                Err(Error::InvalidArgument(
+                    format!("Malformed alist: {:?}", self)).into()),
         }
     }
 }
@@ -138,5 +244,22 @@ mod tests {
             assert_eq!(s, t);
             true
         }
+    }
+
+    #[test]
+    fn to_signature() {
+        use crypto::mpis::Signature::*;
+        assert_match!(DSA { .. } = Sexp::from_bytes(
+            ::tests::file("sexp/dsa-signature.sexp")).unwrap()
+                      .to_signature().unwrap());
+        assert_match!(ECDSA { .. } = Sexp::from_bytes(
+            ::tests::file("sexp/ecdsa-signature.sexp")).unwrap()
+                      .to_signature().unwrap());
+        assert_match!(EdDSA { .. } = Sexp::from_bytes(
+            ::tests::file("sexp/eddsa-signature.sexp")).unwrap()
+                      .to_signature().unwrap());
+        assert_match!(RSA { .. } = Sexp::from_bytes(
+            ::tests::file("sexp/rsa-signature.sexp")).unwrap()
+                      .to_signature().unwrap());
     }
 }

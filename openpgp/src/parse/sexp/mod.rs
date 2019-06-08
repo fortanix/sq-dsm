@@ -127,6 +127,12 @@ mod tests {
     #[test]
     fn signatures() {
         assert!(Sexp::from_bytes(
+            ::tests::file("sexp/dsa-signature.sexp")).is_ok());
+        assert!(Sexp::from_bytes(
+            ::tests::file("sexp/ecdsa-signature.sexp")).is_ok());
+        assert!(Sexp::from_bytes(
+            ::tests::file("sexp/eddsa-signature.sexp")).is_ok());
+        assert!(Sexp::from_bytes(
             ::tests::file("sexp/rsa-signature.sexp")).is_ok());
     }
 }
