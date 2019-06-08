@@ -1385,17 +1385,17 @@ impl Key4 {
         };
 
         let have_secret = secret.is_some();
-        if have_secret && tag != Tag::Reserved {
+        if have_secret {
             if tag == Tag::PublicKey || tag == Tag::PublicSubkey {
-                return Err(Error::MalformedPacket(
-                    format!("Expected a secret key for {:?} packet", tag))
-                           .into());
+                return php.error(Error::MalformedPacket(
+                    format!("Unexpected secret key found in {:?} packet", tag)
+                ).into());
             }
         } else {
             if tag == Tag::SecretKey || tag == Tag::SecretSubkey {
-                return Err(Error::MalformedPacket(
-                    format!("Expected no secret key for {:?} packet", tag))
-                           .into());
+                return php.error(Error::MalformedPacket(
+                    format!("Expected secret key in {:?} packet", tag)
+                ).into());
             }
         }
 
