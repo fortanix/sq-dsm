@@ -20,13 +20,13 @@ use packet;
 pub enum Dearmor {
     /// Unconditionally treat the input as if it were an OpenPGP
     /// message encoded using ASCII armor.
-    Enabled,
+    Enabled(armor::ReaderMode),
     /// Unconditionally treat the input as if it were a binary OpenPGP
     /// message.
     Disabled,
     /// If input does not appear to be a binary encoded OpenPGP
     /// message, treat it as if it were encoded using ASCII armor.
-    Auto,
+    Auto(armor::ReaderMode),
 }
 
 /// A builder for configuring a `PacketParser`.
@@ -77,7 +77,7 @@ impl<'a> PacketParserBuilder<'a> {
         bio.cookie_mut().level = None;
         Ok(PacketParserBuilder {
             bio: bio,
-            dearmor: Dearmor::Auto,
+            dearmor: Dearmor::Auto(Default::default()),
             settings: PacketParserSettings::default(),
         })
     }
@@ -149,10 +149,10 @@ impl<'a> PacketParserBuilder<'a> {
     {
         let state = PacketParserState::new(self.settings);
 
-        let dearmor = match self.dearmor {
-            Dearmor::Enabled => true,
-            Dearmor::Disabled => false,
-            Dearmor::Auto => {
+        let dearmor_mode = match self.dearmor {
+            Dearmor::Enabled(mode) => Some(mode),
+            Dearmor::Disabled => None,
+            Dearmor::Auto(mode) => {
                 let mut reader = buffered_reader::Dup::with_cookie(
                     self.bio, Cookie::default());
                 let header = packet::Header::parse(&mut reader);
@@ -161,21 +161,21 @@ impl<'a> PacketParserBuilder<'a> {
                     if let Err(_) = header.valid(false) {
                         // Invalid header: better try an ASCII armor
                         // decoder.
-                        true
+                        Some(mode)
                     } else {
-                        false
+                        None
                     }
                 } else {
                     // Failed to parse the header: better try an ASCII
                     // armor decoder.
-                    true
+                    Some(mode)
                 }
             }
         };
 
-        if dearmor {
+        if let Some(mode) = dearmor_mode {
             self.bio = Box::new(buffered_reader::Generic::with_cookie(
-                armor::Reader::from_buffered_reader(self.bio, None),
+                armor::Reader::from_buffered_reader(self.bio, Some(mode)),
                 None,
                 Default::default()));
         }
@@ -213,12 +213,12 @@ mod tests {
         assert_match!(Ok(PacketParserResult::Some(ref _pp)) = ppr);
 
         let ppr = PacketParserBuilder::from_bytes(msg).unwrap()
-            .dearmor(Dearmor::Auto)
+            .dearmor(Dearmor::Auto(Default::default()))
             .finalize();
         assert_match!(Ok(PacketParserResult::Some(ref _pp)) = ppr);
 
         let ppr = PacketParserBuilder::from_bytes(msg).unwrap()
-            .dearmor(Dearmor::Enabled)
+            .dearmor(Dearmor::Enabled(Default::default()))
             .finalize();
         // XXX: If the dearmorer doesn't find a header and has no
         // data, then it should return an error.  Fix this when
@@ -238,12 +238,12 @@ mod tests {
         assert_match!(Err(_) = ppr);
 
         let ppr = PacketParserBuilder::from_bytes(msg).unwrap()
-            .dearmor(Dearmor::Auto)
+            .dearmor(Dearmor::Auto(Default::default()))
             .finalize();
         assert_match!(Ok(PacketParserResult::Some(ref _pp)) = ppr);
 
         let ppr = PacketParserBuilder::from_bytes(msg).unwrap()
-            .dearmor(Dearmor::Enabled)
+            .dearmor(Dearmor::Enabled(Default::default()))
             .finalize();
         assert_match!(Ok(PacketParserResult::Some(ref _pp)) = ppr);
     }
