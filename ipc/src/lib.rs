@@ -80,6 +80,7 @@ use sequoia_core as core;
 
 #[macro_use] mod trace;
 pub mod assuan;
+pub mod gnupg;
 
 /// Servers need to implement this trait.
 pub trait Handler {
