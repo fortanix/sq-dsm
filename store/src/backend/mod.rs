@@ -873,7 +873,7 @@ impl KeyServer {
     }
 
     /// Helper for `update`.
-    fn update_helper(c: &Rc<Connection>, handle: &Handle,
+    fn update_helper(c: &Rc<Connection>,
                      network_policy: core::NetworkPolicy)
                      -> Result<(KeyServer,
                                 openpgp::KeyID,
@@ -896,7 +896,7 @@ impl KeyServer {
 
         let ctx = core::Context::configure()
             .network_policy(network_policy).build()?;
-        let keyserver = net::async::KeyServer::sks_pool(&ctx, handle)?;
+        let keyserver = net::async::KeyServer::sks_pool(&ctx)?;
 
         Ok((KeyServer::new(c.clone(), id),
             fingerprint.to_keyid(),
@@ -904,11 +904,11 @@ impl KeyServer {
     }
 
     /// Updates the key that was least recently updated.
-    fn update(c: &Rc<Connection>, handle: &Handle,
+    fn update(c: &Rc<Connection>,
               network_policy: core::NetworkPolicy)
               -> Box<Future<Item=Duration, Error=failure::Error> + 'static> {
         let (key, id, mut keyserver)
-            = match Self::update_helper(c, handle, network_policy) {
+            = match Self::update_helper(c, network_policy) {
             Ok((key, id, keyserver)) => (key, id, keyserver),
             Err(e) => return Box::new(future::err(e.into())),
         };
@@ -952,8 +952,7 @@ impl KeyServer {
             let network_policy = core::NetworkPolicy::Encrypted;
 
             let h1 = h0.clone();
-
-            Self::update(&c, &h0, network_policy)
+            Self::update(&c, network_policy)
                 .then(move |d| {
                     let d = d.unwrap_or(min_sleep_time());
                      Timeout::new(

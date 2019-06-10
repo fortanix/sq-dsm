@@ -77,7 +77,7 @@ impl KeyServer {
     /// Returns a handle for the given URI.
     pub fn new(ctx: &Context, uri: &str) -> Result<Self> {
         let core = Core::new()?;
-        let ks = async::KeyServer::new(ctx, uri, &core.handle())?;
+        let ks = async::KeyServer::new(ctx, uri)?;
         Ok(KeyServer{core: core, ks: ks})
     }
 
@@ -86,7 +86,7 @@ impl KeyServer {
     /// `cert` is used to authenticate the server.
     pub fn with_cert(ctx: &Context, uri: &str, cert: Certificate) -> Result<Self> {
         let core = Core::new()?;
-        let ks = async::KeyServer::with_cert(ctx, uri, cert, &core.handle())?;
+        let ks = async::KeyServer::with_cert(ctx, uri, cert)?;
         Ok(KeyServer{core: core, ks: ks})
     }
 

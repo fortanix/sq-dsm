@@ -13,7 +13,6 @@ use native_tls::{Certificate, TlsConnector};
 use percent_encoding::{percent_encode, DEFAULT_ENCODE_SET};
 use std::convert::From;
 use std::io::Cursor;
-use tokio_core::reactor::Handle;
 use url::Url;
 
 use openpgp::TPK;
@@ -43,7 +42,7 @@ const DNS_WORKER: usize = 4;
 
 impl KeyServer {
     /// Returns a handle for the given URI.
-    pub fn new(ctx: &Context, uri: &str, _handle: &Handle) -> Result<Self> {
+    pub fn new(ctx: &Context, uri: &str) -> Result<Self> {
         let uri: Url = uri.parse()
             .or_else(|_| format!("hkps://{}", uri).parse())?;
 
@@ -62,8 +61,8 @@ impl KeyServer {
     /// Returns a handle for the given URI.
     ///
     /// `cert` is used to authenticate the server.
-    pub fn with_cert(ctx: &Context, uri: &str, cert: Certificate,
-                     _handle: &Handle) -> Result<Self> {
+    pub fn with_cert(ctx: &Context, uri: &str, cert: Certificate)
+                     -> Result<Self> {
         let uri: Url = uri.parse()?;
 
         let client: Box<AClient> = {
@@ -85,11 +84,11 @@ impl KeyServer {
     /// The pool `hkps://hkps.pool.sks-keyservers.net` provides HKP
     /// services over https.  It is authenticated using a certificate
     /// included in this library.  It is a good default choice.
-    pub fn sks_pool(ctx: &Context, handle: &Handle) -> Result<Self> {
+    pub fn sks_pool(ctx: &Context) -> Result<Self> {
         let uri = "hkps://hkps.pool.sks-keyservers.net";
         let cert = Certificate::from_der(
             include_bytes!("sks-keyservers.netCA.der")).unwrap();
-        Self::with_cert(ctx, uri, cert, handle)
+        Self::with_cert(ctx, uri, cert)
     }
 
     /// Common code for the above functions.
