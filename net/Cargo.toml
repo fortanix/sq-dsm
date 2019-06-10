@@ -20,7 +20,7 @@ gitlab = { repository = "sequoia-pgp/sequoia" }
 maintenance = { status = "actively-developed" }
 
 [dependencies]
-sequoia-openpgp = { path = "../openpgp", version = "0.7" }
+sequoia-openpgp = { path = "../openpgp", version = "0.7", default-features = false }
 sequoia-core = { path = "../core", version = "0.7" }
 sequoia-rfc2822 = { path = "../rfc2822", version = "0.7" }
 
@@ -40,3 +40,12 @@ zbase32 = "0.1.2"
 
 [dev-dependencies]
 rand = "0.6"
+
+[features]
+default = ["compression"]
+
+# The compression algorithms.
+compression = ["compression-deflate", "compression-bzip2"]
+compression-deflate = ["sequoia-openpgp/compression-deflate"]
+compression-bzip2 = ["sequoia-openpgp/compression-bzip2"]
+
