@@ -224,7 +224,7 @@ impl Config {
         self
     }
 
-    /// Sets the directory containing shared state.
+    /// Sets the directory containing backend servers.
     pub fn set_lib<P: AsRef<Path>>(&mut self, lib: P) -> PathBuf {
         ::std::mem::replace(&mut self.0.lib, PathBuf::new().join(lib))
     }
