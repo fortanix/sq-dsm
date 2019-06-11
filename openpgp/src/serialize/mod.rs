@@ -1977,122 +1977,182 @@ impl SerializeInto for Packet {
     }
 }
 
-impl Packet {
-    /// Serializes the given packet structure.
-    ///
-    /// This function writes a CTB, the length, and the given
-    /// serializable object.
-    ///
-    /// # Errors
-    ///
-    /// Returns `Error::InvalidOperation` if `tag` is
-    /// `Tag::PublicKey`, `Tag::PublicSubkey`, `Tag::SecretKey`, or
-    /// `Tag::SecretSubkey`.
-    pub fn serialize_ref(o: &mut dyn std::io::Write, tag: Tag,
-                         packet: &Serialize) -> Result<()> {
-        use packet::Tag::*;
-        match tag {
-            PublicKey | PublicSubkey | SecretKey | SecretSubkey =>
-                return Err(Error::InvalidOperation(
-                    "Use Packet::serialize_key_ref to serialize a key".into())
-                           .into()),
-            _ => (),
-        };
+/// References packet bodies.
+///
+/// Like [`openpgp::Packet`], but instead of owning the packet's bodies,
+/// they are referenced.  `PacketRef` is only used to serialize packet
+/// bodies (like [`packet::Signature`]) encapsulating them in OpenPGP
+/// frames.
+///
+/// [`openpgp::Packet`]: ../enum.Packet.html
+/// [`packet::Signature`]: ../packet/enum.Signature.html
+pub enum PacketRef<'a> {
+    /// Unknown packet.
+    Unknown(&'a packet::Unknown),
+    /// Signature packet.
+    Signature(&'a packet::Signature),
+    /// One pass signature packet.
+    OnePassSig(&'a packet::OnePassSig),
+    /// Public key packet.
+    PublicKey(&'a packet::Key),
+    /// Public subkey packet.
+    PublicSubkey(&'a packet::Key),
+    /// Public/Secret key pair.
+    SecretKey(&'a packet::Key),
+    /// Public/Secret subkey pair.
+    SecretSubkey(&'a packet::Key),
+    /// Marker packet.
+    Marker(&'a packet::Marker),
+    /// Trust packet.
+    Trust(&'a packet::Trust),
+    /// User ID packet.
+    UserID(&'a packet::UserID),
+    /// User attribute packet.
+    UserAttribute(&'a packet::UserAttribute),
+    /// Literal data packet.
+    Literal(&'a packet::Literal),
+    /// Compressed literal data packet.
+    CompressedData(&'a packet::CompressedData),
+    /// Public key encrypted data packet.
+    PKESK(&'a packet::PKESK),
+    /// Symmetric key encrypted data packet.
+    SKESK(&'a packet::SKESK),
+    /// Symmetric key encrypted, integrity protected data packet.
+    SEIP(&'a packet::SEIP),
+    /// Modification detection code packet.
+    MDC(&'a packet::MDC),
+    /// AEAD Encrypted Data Packet.
+    AED(&'a packet::AED),
+}
 
-        let mut body = Vec::new();
-        packet.serialize(&mut body)?;
-        CTB::new(tag).serialize(o)?;
-        BodyLength::Full(body.len() as u32).serialize(o)?;
-        o.write_all(&body)?;
-        Ok(())
+impl<'a> PacketRef<'a> {
+    /// Returns the `PacketRef's` corresponding OpenPGP tag.
+    ///
+    /// Tags are explained in [Section 4.3 of RFC 4880].
+    ///
+    ///   [Section 4.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.3
+    fn tag(&self) -> packet::Tag {
+        use packet::Tag;
+        match self {
+            PacketRef::Unknown(ref packet) => packet.tag(),
+            PacketRef::Signature(_) => Tag::Signature,
+            PacketRef::OnePassSig(_) => Tag::OnePassSig,
+            PacketRef::PublicKey(_) => Tag::PublicKey,
+            PacketRef::PublicSubkey(_) => Tag::PublicSubkey,
+            PacketRef::SecretKey(_) => Tag::SecretKey,
+            PacketRef::SecretSubkey(_) => Tag::SecretSubkey,
+            PacketRef::Marker(_) => Tag::Marker,
+            PacketRef::Trust(_) => Tag::Trust,
+            PacketRef::UserID(_) => Tag::UserID,
+            PacketRef::UserAttribute(_) => Tag::UserAttribute,
+            PacketRef::Literal(_) => Tag::Literal,
+            PacketRef::CompressedData(_) => Tag::CompressedData,
+            PacketRef::PKESK(_) => Tag::PKESK,
+            PacketRef::SKESK(_) => Tag::SKESK,
+            PacketRef::SEIP(_) => Tag::SEIP,
+            PacketRef::MDC(_) => Tag::MDC,
+            PacketRef::AED(_) => Tag::AED,
+        }
+    }
+}
+
+impl<'a> Serialize for PacketRef<'a> {
+    /// Writes a serialized version of the specified `Packet` to `o`.
+    ///
+    /// This function works recursively: if the packet contains any
+    /// packets, they are also serialized.
+    fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
+        CTB::new(self.tag()).serialize(o)?;
+
+        // Special-case the compressed data packet, because we need
+        // the accurate length, and CompressedData::net_len()
+        // overestimates the size.
+        if let PacketRef::CompressedData(ref p) = self {
+            let mut body = Vec::new();
+            p.serialize(&mut body)?;
+            BodyLength::Full(body.len() as u32).serialize(o)?;
+            o.write_all(&body)?;
+            return Ok(());
+        }
+
+        BodyLength::Full(self.net_len() as u32).serialize(o)?;
+        match self {
+            PacketRef::Unknown(p) => p.serialize(o),
+            PacketRef::Signature(p) => p.serialize(o),
+            PacketRef::OnePassSig(p) => p.serialize(o),
+            PacketRef::PublicKey(p) => p.serialize_key(o, false),
+            PacketRef::PublicSubkey(p) => p.serialize_key(o, false),
+            PacketRef::SecretKey(p) => p.serialize_key(o, true),
+            PacketRef::SecretSubkey(p) => p.serialize_key(o, true),
+            PacketRef::Marker(p) => p.serialize(o),
+            PacketRef::Trust(p) => p.serialize(o),
+            PacketRef::UserID(p) => p.serialize(o),
+            PacketRef::UserAttribute(p) => p.serialize(o),
+            PacketRef::Literal(p) => p.serialize(o),
+            PacketRef::CompressedData(_) => unreachable!("handled above"),
+            PacketRef::PKESK(p) => p.serialize(o),
+            PacketRef::SKESK(p) => p.serialize(o),
+            PacketRef::SEIP(p) => p.serialize(o),
+            PacketRef::MDC(p) => p.serialize(o),
+            PacketRef::AED(p) => p.serialize(o),
+        }
+    }
+}
+
+impl<'a> NetLength for PacketRef<'a> {
+    fn net_len(&self) -> usize {
+        match self {
+            PacketRef::Unknown(p) => p.net_len(),
+            PacketRef::Signature(p) => p.net_len(),
+            PacketRef::OnePassSig(p) => p.net_len(),
+            PacketRef::PublicKey(p) => p.net_len_key(false),
+            PacketRef::PublicSubkey(p) => p.net_len_key(false),
+            PacketRef::SecretKey(p) => p.net_len_key(true),
+            PacketRef::SecretSubkey(p) => p.net_len_key(true),
+            PacketRef::Marker(p) => p.net_len(),
+            PacketRef::Trust(p) => p.net_len(),
+            PacketRef::UserID(p) => p.net_len(),
+            PacketRef::UserAttribute(p) => p.net_len(),
+            PacketRef::Literal(p) => p.net_len(),
+            PacketRef::CompressedData(p) => p.net_len(),
+            PacketRef::PKESK(p) => p.net_len(),
+            PacketRef::SKESK(p) => p.net_len(),
+            PacketRef::SEIP(p) => p.net_len(),
+            PacketRef::MDC(p) => p.net_len(),
+            PacketRef::AED(p) => p.net_len(),
+        }
+    }
+}
+
+impl<'a> SerializeInto for PacketRef<'a> {
+    fn serialized_len(&self) -> usize {
+        (match self {
+            PacketRef::Unknown(p) => p.serialized_len(),
+            PacketRef::Signature(p) => p.serialized_len(),
+            PacketRef::OnePassSig(p) => p.serialized_len(),
+            PacketRef::PublicKey(p) => p.serialized_len(),
+            PacketRef::PublicSubkey(p) => p.serialized_len(),
+            PacketRef::SecretKey(p) => p.serialized_len(),
+            PacketRef::SecretSubkey(p) => p.serialized_len(),
+            PacketRef::Marker(p) => p.serialized_len(),
+            PacketRef::Trust(p) => p.serialized_len(),
+            PacketRef::UserID(p) => p.serialized_len(),
+            PacketRef::UserAttribute(p) => p.serialized_len(),
+            PacketRef::Literal(p) => p.serialized_len(),
+            PacketRef::CompressedData(p) => p.serialized_len(),
+            PacketRef::PKESK(p) => p.serialized_len(),
+            PacketRef::SKESK(p) => p.serialized_len(),
+            PacketRef::SEIP(p) => p.serialized_len(),
+            PacketRef::MDC(p) => p.serialized_len(),
+            PacketRef::AED(p) => p.serialized_len(),
+        })
+            + 1 // CTB.
+            + BodyLength::Full(self.net_len() as u32).serialized_len()
     }
 
-    /// Returns the length of the given packet structure.
-    ///
-    /// This includes a CTB, the length, and the given serializable
-    /// object.
-    ///
-    /// # Errors
-    ///
-    /// Returns `Error::InvalidOperation` if `tag` is
-    /// `Tag::PublicKey`, `Tag::PublicSubkey`, `Tag::SecretKey`, or
-    /// `Tag::SecretSubkey`.
-    pub fn serialized_len_ref(tag: Tag, packet: &SerializeInto)
-                              -> Result<usize> {
-        use packet::Tag::*;
-        match tag {
-            PublicKey | PublicSubkey | SecretKey | SecretSubkey =>
-                return Err(Error::InvalidOperation(
-                    "Use Packet::serialized_len_key_ref to for keys".into())
-                           .into()),
-            _ => (),
-        };
-
-        let body_len = packet.serialized_len();
-        Ok(1 + BodyLength::Full(body_len as u32).serialized_len() + body_len)
+    fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
+        generic_serialize_into(self, buf)
     }
-
-    /// Serializes the given key packet structure.
-    ///
-    /// This function writes a CTB, the length, and the given key.
-    ///
-    /// # Errors
-    ///
-    /// Returns `Error::InvalidOperation` if `tag` is not one of
-    /// `Tag::PublicKey`, `Tag::PublicSubkey`, `Tag::SecretKey`, or
-    /// `Tag::SecretSubkey`.  Returns `Error::InvalidOperation` if
-    /// `tag` is `Tag::SecretKey` or `Tag::SecretSubkey`, but the
-    /// given `key` has no secret key.
-    pub fn serialize_key_ref(o: &mut dyn std::io::Write, tag: Tag,
-                             key: &Key) -> Result<()> {
-        use packet::Tag::*;
-        let serialize_secrets = match tag {
-            SecretKey | SecretSubkey if key.secret().is_none() =>
-                return Err(Error::InvalidOperation(
-                    format!("Key has no secret key, but tag {} was given", tag))
-                           .into()),
-            PublicKey | PublicSubkey => false,
-            SecretKey | SecretSubkey => true,
-            _ =>
-                return Err(Error::InvalidOperation(
-                    format!("Expected a key tag, got {}", tag)).into()),
-        };
-
-        let mut body = Vec::new();
-        key.serialize_key(&mut body, serialize_secrets)?;
-        CTB::new(tag).serialize(o)?;
-        BodyLength::Full(body.len() as u32).serialize(o)?;
-        o.write_all(&body)?;
-        Ok(())
-    }
-
-    /// Returns the length of the given key packet structure.
-    ///
-    /// This includes a CTB, the length, and the given key.
-    ///
-    /// # Errors
-    ///
-    /// Returns `Error::InvalidOperation` if `tag` is
-    /// `Tag::PublicKey`, `Tag::PublicSubkey`, `Tag::SecretKey`, or
-    /// `Tag::SecretSubkey`.
-    pub fn serialized_len_key_ref(tag: Tag, key: &Key) -> Result<usize> {
-        use packet::Tag::*;
-        let serialize_secrets = match tag {
-            SecretKey | SecretSubkey if key.secret().is_none() =>
-                return Err(Error::InvalidOperation(
-                    format!("Key has no secret key, but tag {} was given", tag))
-                           .into()),
-            PublicKey | PublicSubkey => false,
-            SecretKey | SecretSubkey => true,
-            _ =>
-                return Err(Error::InvalidOperation(
-                    format!("Expected a key tag, got {}", tag)).into()),
-        };
-
-        let body_len = key.net_len_key(serialize_secrets);
-        Ok(1 + BodyLength::Full(body_len as u32).serialized_len() + body_len)
-    }
-
 }
 
 impl Serialize for PacketPile {
