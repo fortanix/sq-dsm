@@ -87,8 +87,7 @@ impl<'a> Serialize for Encoder<'a> {
 #[cfg(test)]
 mod tests {
     use armor::{Kind, Reader, ReaderMode};
-    use tpk::{TPKParser, TPKBuilder};
-    use Message;
+    use tpk::TPKBuilder;
     use parse::Parse;
 
     use super::*;
