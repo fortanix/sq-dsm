@@ -127,11 +127,7 @@ impl Fingerprint {
             &Fingerprint::V4(ref fp) =>
                 KeyID::from_bytes(&fp[fp.len() - 8..]),
             &Fingerprint::Invalid(ref fp) => {
-                if fp.len() < 8 {
-                    KeyID::from_bytes(&[0; 8])
-                } else {
-                    KeyID::from_bytes(&fp[fp.len() - 8..])
-                }
+                KeyID::Invalid(fp.clone())
             }
         }
     }
