@@ -188,4 +188,23 @@ mod test {
             KeyID::new(id).as_u64().unwrap() == id
         }
     }
+
+    #[test]
+    fn from_hex() {
+        KeyID::from_hex("FB3751F1587DAEF1").unwrap();
+        KeyID::from_hex("39D100AB67D5BD8C04010205FB3751F1587DAEF1")
+            .unwrap();
+        KeyID::from_hex("0xFB3751F1587DAEF1").unwrap();
+        KeyID::from_hex("0x39D100AB67D5BD8C04010205FB3751F1587DAEF1")
+            .unwrap();
+        KeyID::from_hex("FB37 51F1 587D AEF1").unwrap();
+        KeyID::from_hex("39D1 00AB 67D5 BD8C 0401  0205 FB37 51F1 587D AEF1")
+            .unwrap();
+        KeyID::from_hex("GB3751F1587DAEF1").unwrap_err();
+        KeyID::from_hex("EFB3751F1587DAEF1").unwrap_err();
+        KeyID::from_hex("%FB3751F1587DAEF1").unwrap_err();
+        assert_match!(KeyID::Invalid(_) = KeyID::from_hex("587DAEF1").unwrap());
+        assert_match!(KeyID::Invalid(_) =
+                      KeyID::from_hex("0x587DAEF1").unwrap());
+    }
 }
