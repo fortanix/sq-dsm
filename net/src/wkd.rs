@@ -14,9 +14,14 @@
 
 // XXX: We might want to merge the 2 structs in the future and move the
 // functions to methods.
+extern crate tempfile;
 extern crate tokio_core;
 
 use std::fmt;
+use std::fs;
+use std::io::Write;
+use std::os::unix::fs::{DirBuilderExt, PermissionsExt};
+use std::path::{Path, PathBuf};
 
 use futures::{future, Future, Stream};
 use hyper::{Uri, Client};
@@ -31,6 +36,7 @@ use url;
 
 use crate::openpgp::TPK;
 use crate::openpgp::parse::Parse;
+use crate::openpgp::serialize::Serialize;
 use crate::openpgp::tpk::TPKParser;
 
 use super::{Result, Error};
@@ -82,7 +88,7 @@ impl EmailAddress {
 ///
 /// NOTE: This is a different `Url` than [`url::Url`] (`url` crate) that is
 /// actually returned with the method [to_url](#method.to_url)
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Url {
     domain: String,
     local_encoded: String,
@@ -136,6 +142,29 @@ impl Url {
         let url_string = self.build(direct_method);
         let uri = url_string.as_str().parse::<Uri>()?;
         Ok(uri)
+    }
+
+    /// Returns a [`PathBuf`].
+    pub fn to_file_path<T>(&self, direct_method: T) -> Result<PathBuf>
+        where T: Into<Option<bool>>
+    {
+        // Create the directories string.
+        let direct_method = direct_method.into().unwrap_or(false);
+        let url = self.to_url(direct_method)?;
+        // Can not create path_buf as:
+        // let path_buf: PathBuf = [url.domain().unwrap(), url.path()]
+        //    .iter().collect();
+        // or:
+        // let mut path_buf = PathBuf::new();
+        // path_buf.push(url.domain().unwrap());
+        // path_buf.push(url.path());
+        // Because the domain part will disapear, dunno why.
+        // url.to_file_path() would not create the directory with the domain,
+        // but expect the hostname to match the domain.
+        // Ignore the query part of the url, take only the domain and path.
+        let string = format!("{}{}", url.domain().unwrap(), url.path());
+        let path_buf = PathBuf::from(string);
+        Ok(path_buf)
     }
 }
 
@@ -266,6 +295,70 @@ pub fn get<S: AsRef<str>>(email_address: S)
     })
 }
 
+/// Generates a Web Key Directory for the given domain and keys.
+///
+/// The owner of the directory and files will be the user that runs this
+/// command.
+/// This command only works on Unix-like systems.
+pub fn generate<S, T, P>(domain: S, tpks: &[TPK], base_path: P,
+                      direct_method: T)
+    -> Result<()>
+    where S: AsRef<str>,
+          T: Into<Option<bool>>,
+          P: AsRef<Path>
+{
+    let domain = domain.as_ref();
+    let base_path = base_path.as_ref();
+    println!("Generating WKD for domain {}.", domain);
+
+    // Create the directories first, instead of creating it for every file.
+    // Since the email local part would be the file name which is not created
+    // now, it does not matter here.
+    let file_path = Url::from(&format!("whatever@{}", domain))?
+        .to_file_path(direct_method)?;
+    // The parent will be the directory without the file name.
+    // This can not fail, otherwise file_path would have fail.
+    let dir_path = base_path.join(
+        Path::new(&file_path).parent().unwrap());
+    println!("Creating {:?} directory.", dir_path);
+    // With fs::create_dir_all the permissions can't be set.
+    fs::DirBuilder::new()
+        .mode(0o744)
+        .recursive(true)
+        .create(&dir_path)?;
+
+    let mut found_a_key = false;
+    // Create the files.
+    // This is very similar to parse_body, but here the userids must contain
+    // a domain, not be equal to an email address.
+    for tpk in tpks {
+        let mut tpk_bytes: Vec<u8> = Vec::new();
+        for uidb in tpk.userids() {
+            if let Some(address) = uidb.userid().address()? {
+                let wkd_url = Url::from(&address)?;
+                if wkd_url.domain == domain {
+                    found_a_key = true;
+                    // Since dir_path contains all the hierarchy, only the file
+                    // name is needed.
+                    let file_path = dir_path.join(wkd_url.local_encoded);
+                    let mut file = fs::File::create(&file_path)?;
+                    // Set Read/write for owner and read for others.
+                    file.metadata()?.permissions().set_mode(0o644);
+                    tpk.serialize(&mut tpk_bytes)?;
+                    file.write_all(&tpk_bytes)?;
+                    println!("Key {} published for {} in {}",
+                             tpk.fingerprint().to_string(), address,
+                             file_path.as_path().to_str().unwrap());
+                }
+            }
+        }
+    }
+    if !found_a_key {
+        println!("No keys found for the domain.");
+    }
+    Ok(())
+}
+
 
 #[cfg(test)]
 mod tests {
@@ -317,6 +410,26 @@ mod tests {
     }
 
     #[test]
+    fn url_to_file_path() {
+        // Advanced method
+        let expected_path =
+            "openpgpkey.example.com/\
+             .well-known/openpgpkey/example.com/hu/\
+             stnkabub89rpcphiz4ppbxixkwyt1pic";
+        let wkd_url = Url::from("test1@example.com").unwrap();
+        assert_eq!(expected_path,
+            wkd_url.clone().to_file_path(None).unwrap().to_str().unwrap());
+
+        // Direct method
+        let expected_path =
+            "example.com/\
+             .well-known/openpgpkey/hu/\
+             stnkabub89rpcphiz4ppbxixkwyt1pic";
+        assert_eq!(expected_path,
+            wkd_url.to_file_path(true).unwrap().to_str().unwrap());
+    }
+
+    #[test]
     fn test_parse_body() {
         let (tpk, _) = TPKBuilder::new()
             .add_userid("test@example.example")
@@ -339,5 +452,50 @@ mod tests {
         assert!(valid_tpks.is_ok());
         assert!(valid_tpks.unwrap().len() == 1);
         // XXX: Test with more TPKs
+    }
+
+    #[test]
+    fn wkd_generate() {
+       let (tpk, _) = TPKBuilder::new()
+            .add_userid("test1@example.example")
+            .add_userid("juga@sequoia-pgp.org")
+            .generate()
+            .unwrap();
+        let (tpk2, _) = TPKBuilder::new()
+            .add_userid("justus@sequoia-pgp.org")
+            .generate()
+            .unwrap();
+        let tpks = [tpk, tpk2];
+
+        let dir = tempfile::tempdir().unwrap();
+        let dir_path = dir.path();
+        let result = generate("sequoia-pgp.org", &tpks, &dir_path, None);
+        assert!(result.is_ok());
+
+        // justus and juga files will be generated, but not test one.
+        let path = dir_path.join(
+            "openpgpkey.sequoia-pgp.org/\
+             .well-known/openpgpkey/sequoia-pgp.org/hu\
+             /jwp7xjqkdujgz5op6bpsoypg34pnrgmq");
+        // Check parent directory permissions
+        assert_eq!(path.parent().unwrap().metadata().unwrap().permissions()
+                   .mode(),16868);  // 744
+        // Check that justus file was created
+        assert!(path.is_file());
+        // Check the permissions of the file.
+        assert_eq!(path.metadata().unwrap().permissions().mode(),33188); // 644
+        let path = dir_path.join(
+            "openpgpkey.sequoia-pgp.org/\
+             .well-known/openpgpkey/sequoia-pgp.org/hu\
+             /7t1uqk9cwh1955776rc4z1gqf388566j");
+        // Check that juga file was created.
+        assert!(path.is_file());
+        assert_eq!(path.metadata().unwrap().permissions().mode(),33188);
+        // Check that the file for test uid is not created.
+        let path = dir_path.join(
+            "openpgpkey.example.com/\
+             .well-known/openpgpkey/example.com/hu/\
+             stnkabub89rpcphiz4ppbxixkwyt1pic");
+        assert!(!path.is_file());
     }
 }
