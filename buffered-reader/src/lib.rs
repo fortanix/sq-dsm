@@ -430,9 +430,7 @@ pub trait BufferedReader<C> : io::Read + fmt::Debug + fmt::Display {
                         //  mutable more than once at a time.
                         //
                         // Instead, we break out of the loop, and then
-                        // call self.data(s) again.  This extra call
-                        // won't have any significant cost, because
-                        // the buffer is already prepared.
+                        // call self.buffer().
                         s = buffer.len();
                         break;
                     } else {
