@@ -271,7 +271,6 @@ mod tests {
             .unwrap();
         let mut buffer: Vec<u8> = Vec::new();
         tpk.serialize(&mut buffer).unwrap();
-        // FIXME!!!!
         let valid_tpks = parse_body(&buffer, "juga@sequoia-pgp.org");
         // The userid is not in the TPK
         assert!(valid_tpks.is_err());

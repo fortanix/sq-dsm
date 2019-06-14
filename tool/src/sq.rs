@@ -473,9 +473,13 @@ fn real_main() -> Result<(), failure::Error> {
                     // Because it might be created a WkdServer struct, not
                     // doing it for now.
                     let tpks = wkd::get(&email_address)?;
-                    // This is different to `store export` and `keyserver get`,
-                    // Since the output is always bytes.
-                    // XXX: Still give the possibility to write to a file.
+                    // ```text
+                    //     The HTTP GET method MUST return the binary representation of the
+                    //     OpenPGP key for the given mail address.
+                    // [draft-koch]: https://datatracker.ietf.org/doc/html/draft-koch-openpgp-webkey-service-07
+                    // ```
+                    // But to keep the parallelism with `store export` and `keyserver get`,
+                    // The output is armored if not `--binary` option is given.
                     let mut output = create_or_stdout(m.value_of("output"), force)?;
                     let mut output = if ! m.is_present("binary") {
                         Box::new(armor::Writer::new(&mut output,
