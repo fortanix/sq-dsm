@@ -6,7 +6,7 @@
 //! Sequoia is an implementation of OpenPGP.  This is a command-line frontend.
 //!
 //! USAGE:
-//!     sq [FLAGS] [OPTIONS] [SUBCOMMAND]
+//!     sq [FLAGS] [OPTIONS] <SUBCOMMAND>
 //!
 //! FLAGS:
 //!     -f, --force      Overwrite existing files
@@ -14,10 +14,9 @@
 //!     -V, --version    Prints version information
 //!
 //! OPTIONS:
-//!     -d, --domain <DOMAIN>            Sets the domain to use
 //!         --home <DIRECTORY>           Sets the home directory to use
 //!     -p, --policy <NETWORK-POLICY>    Sets the network policy to use
-//!     -s, --store <STORE>              Sets the store to use (default: 'default')
+//!     -s, --store <STORE>              Sets the realm and store to use [default: org.sequoia-pgp.contacts/default]
 //!
 //! SUBCOMMANDS:
 //!     decrypt      Decrypts an OpenPGP message
@@ -138,7 +137,7 @@
 //! Interacts with key stores
 //!
 //! USAGE:
-//!     sq store [SUBCOMMAND]
+//!     sq store <SUBCOMMAND>
 //!
 //! FLAGS:
 //!     -h, --help       Prints help information
@@ -277,7 +276,7 @@
 //! Interacts with keyservers
 //!
 //! USAGE:
-//!     sq keyserver [OPTIONS] [SUBCOMMAND]
+//!     sq keyserver [OPTIONS] <SUBCOMMAND>
 //!
 //! FLAGS:
 //!     -h, --help       Prints help information
@@ -334,7 +333,7 @@
 //! Autocrypt support
 //!
 //! USAGE:
-//!     sq autocrypt [SUBCOMMAND]
+//!     sq autocrypt <SUBCOMMAND>
 //!
 //! FLAGS:
 //!     -h, --help       Prints help information
@@ -451,7 +450,7 @@
 //! Manipulates keys
 //!
 //! USAGE:
-//!     sq key [SUBCOMMAND]
+//!     sq key <SUBCOMMAND>
 //!
 //! FLAGS:
 //!     -h, --help       Prints help information
@@ -483,6 +482,8 @@
 //!                                          values: transport, rest, all]
 //!     -c, --cipher-suite <CIPHER-SUITE>    Cryptographic algorithms used for the key. [default: rsa3k]  [possible values:
 //!                                          rsa3k, cv25519]
+//!         --expiry <EXPIRY>                When the key should expire.  Either 'N[ymwd]', for N years, months, weeks, or
+//!                                          days, or 'never'.
 //!     -e, --export <OUTFILE>               Exports the key instead of saving it in the store
 //!         --rev-cert <FILE or ->           Sets the output file for the revocation certificate. Default is <OUTFILE>.rev,
 //!                                          mandatory if OUTFILE is '-'.
@@ -495,7 +496,7 @@
 //! Lists key stores and known keys
 //!
 //! USAGE:
-//!     sq list [SUBCOMMAND]
+//!     sq list <SUBCOMMAND>
 //!
 //! FLAGS:
 //!     -h, --help       Prints help information
@@ -522,7 +523,7 @@
 //!     -V, --version    Prints version information
 //!
 //! ARGS:
-//!     <PREFIX>    List only bindings from stores with the given domain prefix
+//!     <PREFIX>    List only bindings from stores with the given realm prefix
 //! ```
 //!
 //! ### Subcommand list keys
@@ -564,7 +565,7 @@
 //!     -V, --version    Prints version information
 //!
 //! ARGS:
-//!     <PREFIX>    List only stores with the given domain prefix
+//!     <PREFIX>    List only stores with the given realm prefix
 //! ```
 //!
 //! ## Subcommand packet
@@ -573,7 +574,7 @@
 //! OpenPGP Packet manipulation
 //!
 //! USAGE:
-//!     sq packet [SUBCOMMAND]
+//!     sq packet <SUBCOMMAND>
 //!
 //! FLAGS:
 //!     -h, --help       Prints help information
@@ -633,42 +634,26 @@
 //! Interacts with Web Key Directories
 //!
 //! USAGE:
-//!     sq wkd <SUBCOMMAND>
+//!     sq wkd [SUBCOMMAND]
 //!
 //! FLAGS:
 //!     -h, --help       Prints help information
 //!     -V, --version    Prints version information
 //!
 //! SUBCOMMANDS:
-//! get     Writes to the standard output the Transferable Public Key retrieved from a Web Key Directory, given an email address
-//! help    Prints this message or the help of the given subcommand(s)
-//! url     Prints the Web Key Directory URL of an email address.
-//! ```
-//!
-//! ### Subcommand wkd url
-//!
-//! ```text
-//! Prints the Web Key Directory URL of an email address
-//!
-//! USAGE:
-//!     sq wkd url [FLAGS] <EMAIL_ADDRESS>
-//!
-//! FLAGS:
-//!     -h, --help       Prints help information
-//!     -V, --version    Prints version information
-//!
-//! ARGS:
-//!     <EMAIL_ADDRESS>     The email address from which to obtain the WKD URL.
+//!     get     Writes to the standard output the Transferable Public Key retrieved from a Web Key Directory, given an
+//!             email address
+//!     help    Prints this message or the help of the given subcommand(s)
+//!     url     Prints the Web Key Directory URl of an email address.
 //! ```
 //!
 //! ### Subcommand wkd get
 //!
 //! ```text
-//!
 //! Writes to the standard output the Transferable Public Key retrieved from a Web Key Directory, given an email address
 //!
 //! USAGE:
-//!     sq wkd get [FLAGS] [OPTIONS] <EMAIL_ADDRESS>
+//!     sq wkd get [FLAGS] [EMAIL_ADDRESS]
 //!
 //! FLAGS:
 //!     -B, --binary     Don't ASCII-armor encode the OpenPGP data
@@ -677,6 +662,27 @@
 //!
 //! ARGS:
 //!     <EMAIL_ADDRESS>    The email address from which to obtain the TPK from a WKD.
+//! ```
+//!
+//! ### Subcommand wkd email
+//!
+//! ```text
+//! ```
+//!
+//! ### Subcommand wkd url
+//!
+//! ```text
+//! Prints the Web Key Directory URl of an email address.
+//!
+//! USAGE:
+//!     sq wkd url [EMAIL_ADDRESS]
+//!
+//! FLAGS:
+//!     -h, --help       Prints help information
+//!     -V, --version    Prints version information
+//!
+//! ARGS:
+//!     <EMAIL_ADDRESS>    The email address from which to obtain the WKD URI.
 //! ```
 
 include!("sq.rs");
