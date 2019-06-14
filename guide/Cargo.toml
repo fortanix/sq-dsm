@@ -1,16 +1,17 @@
 [package]
 name = "sequoia-guide"
-version = "0.7.0"
+version = "0.8.0"
 authors = [
+    "Juga <juga@sequoia-pgp.org>",
     "Justus Winter <justus@sequoia-pgp.org>",
     "Kai Michaelis <kai@sequoia-pgp.org>",
     "Neal H. Walfield <neal@sequoia-pgp.org>",
 ]
-documentation = "https://docs.sequoia-pgp.org/0.7.0/guide/"
+documentation = "https://docs.sequoia-pgp.org/0.8.0/guide/"
 homepage = "https://sequoia-pgp.org/"
 repository = "https://gitlab.com/sequoia-pgp/sequoia"
 build = "build.rs"
 
 [dependencies]
-sequoia-openpgp = { path = "../openpgp", version = "0.7" }
+sequoia-openpgp = { path = "../openpgp", version = "0.8" }
 failure = "0.1.2"

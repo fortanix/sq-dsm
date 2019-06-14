@@ -1,8 +1,9 @@
 [package]
 name = "buffered-reader"
 description = "A super-powered Reader"
-version = "0.7.0"
+version = "0.8.0"
 authors = [
+    "Juga <juga@sequoia-pgp.org>",
     "Justus Winter <justus@sequoia-pgp.org>",
     "Kai Michaelis <kai@sequoia-pgp.org>",
     "Neal H. Walfield <neal@sequoia-pgp.org>",

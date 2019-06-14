@@ -1,8 +1,9 @@
 [package]
 name = "sequoia-rfc2822"
 description = "An RFC 2822 name-addr parser"
-version = "0.7.0"
+version = "0.8.0"
 authors = [
+    "Juga <juga@sequoia-pgp.org>",
     "Justus Winter <justus@sequoia-pgp.org>",
     "Neal H. Walfield <neal@sequoia-pgp.org>",
 ]

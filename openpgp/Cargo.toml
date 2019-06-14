@@ -1,14 +1,15 @@
 [package]
 name = "sequoia-openpgp"
 description = "OpenPGP data types and associated machinery"
-version = "0.7.0"
+version = "0.8.0"
 authors = [
+    "Juga <juga@sequoia-pgp.org>",
     "Justus Winter <justus@sequoia-pgp.org>",
     "Kai Michaelis <kai@sequoia-pgp.org>",
     "Neal H. Walfield <neal@sequoia-pgp.org>",
 ]
 build = "build.rs"
-documentation = "https://docs.sequoia-pgp.org/0.7.0/sequoia_openpgp"
+documentation = "https://docs.sequoia-pgp.org/0.8.0/sequoia_openpgp"
 homepage = "https://sequoia-pgp.org/"
 repository = "https://gitlab.com/sequoia-pgp/sequoia"
 readme = "../README.md"
@@ -21,7 +22,7 @@ gitlab = { repository = "sequoia-pgp/sequoia" }
 maintenance = { status = "actively-developed" }
 
 [dependencies]
-buffered-reader = { path = "../buffered-reader", version = "0.7", default-features = false }
+buffered-reader = { path = "../buffered-reader", version = "0.8", default-features = false }
 base64 = "0.9.0"
 bzip2 = { version = "0.3.2", optional = true }
 failure = "0.1.2"
@@ -34,7 +35,7 @@ nettle = "5.0"
 quickcheck = "0.8"
 rand = "0.6"
 time = "0.1.40"
-sequoia-rfc2822 = { path = "../rfc2822", version = "0.7" }
+sequoia-rfc2822 = { path = "../rfc2822", version = "0.8" }
 
 [build-dependencies]
 lalrpop = "0.17"
