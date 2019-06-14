@@ -416,7 +416,9 @@ pub trait BufferedReader<C> : io::Read + fmt::Debug + fmt::Display {
         // large!  Instead, try with increasingly larger buffers until
         // the read is (strictly) shorter than the specified size.
         let mut s = DEFAULT_BUF_SIZE;
-        while s < std::usize::MAX {
+        // We will break the loop eventually, because self.data(s)
+        // must return a slice shorter than std::usize::MAX.
+        loop {
             match self.data(s) {
                 Ok(ref buffer) => {
                     if buffer.len() < s {
