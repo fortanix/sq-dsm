@@ -34,6 +34,7 @@ dump_help() { # subcommand, indention
         printf "$help\n" |
             sed -n '/^SUBCOMMANDS:/,$p' |
 	    tail -n+2 |
+	    grep '^    [^ ]' |
 	    while read subcommand desc
 	    do
 	        if [ "$subcommand" = help ]; then
