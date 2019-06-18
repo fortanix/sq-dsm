@@ -634,7 +634,7 @@
 //! Interacts with Web Key Directories
 //!
 //! USAGE:
-//!     sq wkd [SUBCOMMAND]
+//!     sq wkd <SUBCOMMAND>
 //!
 //! FLAGS:
 //!     -h, --help       Prints help information
@@ -644,7 +644,7 @@
 //!     get     Writes to the standard output the Transferable Public Key retrieved from a Web Key Directory, given an
 //!             email address
 //!     help    Prints this message or the help of the given subcommand(s)
-//!     url     Prints the Web Key Directory URl of an email address.
+//!     url     Prints the Web Key Directory URL of an email address.
 //! ```
 //!
 //! ### Subcommand wkd get
@@ -653,7 +653,7 @@
 //! Writes to the standard output the Transferable Public Key retrieved from a Web Key Directory, given an email address
 //!
 //! USAGE:
-//!     sq wkd get [FLAGS] [EMAIL_ADDRESS]
+//!     sq wkd get [FLAGS] <EMAIL_ADDRESS>
 //!
 //! FLAGS:
 //!     -B, --binary     Don't ASCII-armor encode the OpenPGP data
@@ -664,18 +664,13 @@
 //!     <EMAIL_ADDRESS>    The email address from which to obtain the TPK from a WKD.
 //! ```
 //!
-//! ### Subcommand wkd email
-//!
-//! ```text
-//! ```
-//!
 //! ### Subcommand wkd url
 //!
 //! ```text
-//! Prints the Web Key Directory URl of an email address.
+//! Prints the Web Key Directory URL of an email address.
 //!
 //! USAGE:
-//!     sq wkd url [EMAIL_ADDRESS]
+//!     sq wkd url <EMAIL_ADDRESS>
 //!
 //! FLAGS:
 //!     -h, --help       Prints help information

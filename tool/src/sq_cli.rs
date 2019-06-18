@@ -436,23 +436,23 @@ pub fn build() -> App<'static, 'static> {
 
         .subcommand(SubCommand::with_name("wkd")
                     .about("Interacts with Web Key Directories")
-                    .setting(AppSettings::ArgRequiredElseHelp)
+                    .setting(AppSettings::SubcommandRequiredElseHelp)
                     .subcommand(SubCommand::with_name("url")
-                                .setting(AppSettings::SubcommandRequiredElseHelp)
-                                .about("Prints the Web Key Directory URl of \
+                                .about("Prints the Web Key Directory URL of \
                                         an email address.")
                                 .arg(Arg::with_name("input")
                                     .value_name("EMAIL_ADDRESS")
+                                    .required(true)
                                     .help("The email address from which to \
                                             obtain the WKD URI.")))
                     .subcommand(SubCommand::with_name("get")
-                                .setting(AppSettings::SubcommandRequiredElseHelp)
                                 .about("Writes to the standard output the \
                                         Transferable Public Key retrieved \
                                         from a Web Key Directory, given an \
                                         email address")
                                 .arg(Arg::with_name("input")
                                     .value_name("EMAIL_ADDRESS")
+                                    .required(true)
                                     .help("The email address from which to \
                                             obtain the TPK from a WKD."))
                                 .arg(Arg::with_name("binary")
