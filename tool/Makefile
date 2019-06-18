@@ -11,4 +11,4 @@ all: src/sq-usage.rs
 update-usage: src/sq-usage.rs
 
 src/sq-usage.rs: make-usage.sh $(SQ)
-	sh make-usage.sh $(SQ) >$@
+	sh make-usage.sh $(SQ) >$@~ && mv $@~ $@
