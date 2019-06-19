@@ -113,11 +113,11 @@ impl Url {
             where T: Into<Option<bool>> {
         let direct_method = direct_method.into().unwrap_or(false);
         if direct_method {
-            format!("https://{}/.well-known/openpgpkey/hu/{}?l={}:443",
+            format!("https://{}/.well-known/openpgpkey/hu/{}?l={}",
                     self.domain, self.local_encoded, self.local_part)
         } else {
             format!("https://openpgpkey.{}/.well-known/openpgpkey/{}/hu/{}\
-                    ?l={}:443", self.domain, self.domain, self.local_encoded,
+                    ?l={}", self.domain, self.domain, self.local_encoded,
                     self.local_part)
         }
     }
@@ -296,7 +296,7 @@ mod tests {
         let expected_url =
             "https://openpgpkey.example.com/\
              .well-known/openpgpkey/example.com/hu/\
-             stnkabub89rpcphiz4ppbxixkwyt1pic?l=test1:443";
+             stnkabub89rpcphiz4ppbxixkwyt1pic?l=test1";
         let wkd_url = Url::from("test1@example.com").unwrap();
         assert_eq!(expected_url, wkd_url.clone().to_string());
         assert_eq!(url::Url::parse(expected_url).unwrap(),
@@ -308,7 +308,7 @@ mod tests {
         let expected_url =
             "https://example.com/\
              .well-known/openpgpkey/hu/\
-             stnkabub89rpcphiz4ppbxixkwyt1pic?l=test1:443";
+             stnkabub89rpcphiz4ppbxixkwyt1pic?l=test1";
         assert_eq!(expected_url, wkd_url.clone().build(true));
         assert_eq!(url::Url::parse(expected_url).unwrap(),
                    wkd_url.clone().to_url(true).unwrap());
