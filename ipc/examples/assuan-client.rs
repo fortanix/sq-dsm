@@ -1,5 +1,6 @@
 extern crate futures;
 use futures::future::Future;
+use futures::stream::Stream;
 extern crate clap;
 extern crate sequoia_ipc as ipc;
 use ipc::assuan::Client;
@@ -21,8 +22,8 @@ fn main() {
         .wait().unwrap();
     for command in matches.values_of("commands").unwrap() {
         eprintln!("> {}", command);
-        let responses = c.send(command).wait().unwrap();
-        for response in responses {
+        c.send(command).wait().unwrap();
+        for response in c.by_ref().wait() {
             eprintln!("< {:?}", response);
         }
     }
