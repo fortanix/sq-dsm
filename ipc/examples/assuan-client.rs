@@ -22,9 +22,10 @@ fn main() {
         .wait().unwrap();
     for command in matches.values_of("commands").unwrap() {
         eprintln!("> {}", command);
-        c.send(command).wait().unwrap();
-        for response in c.by_ref().wait() {
+        c.send(command).unwrap();
+        c.by_ref().for_each(|response| {
             eprintln!("< {:?}", response);
-        }
+            Ok(())
+        }).wait().unwrap();
     }
 }

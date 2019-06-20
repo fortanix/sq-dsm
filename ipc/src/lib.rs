@@ -74,6 +74,7 @@ use std::os::unix::io::AsRawFd;
 use std::thread;
 
 extern crate sequoia_core;
+extern crate sequoia_openpgp as openpgp;
 
 use sequoia_core as core;
 
