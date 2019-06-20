@@ -93,22 +93,27 @@ impl Client {
         let mut data = data.as_ref();
         let mut request = Vec::with_capacity(data.len());
         while ! data.is_empty() {
-            let line_len = 2;
             if request.len() > 0 {
                 request.push(0x0a);
             }
             write!(&mut request, "D ").unwrap();
+            let mut line_len = 2;
             while ! data.is_empty() && line_len < MAX_LINE_LENGTH - 3 {
                 let c = data[0];
                 data = &data[1..];
                 match c as char {
-                    '%' | '\n' | '\r' =>
-                        write!(&mut request, "%{:02X}", c).unwrap(),
-                    _ => request.push(c),
+                    '%' | '\n' | '\r' => {
+                        line_len += 3;
+                        write!(&mut request, "%{:02X}", c).unwrap();
+                    },
+                    _ => {
+                        line_len += 1;
+                        request.push(c);
+                    },
                 }
             }
         }
-        write!(&mut request, "END").unwrap();
+        write!(&mut request, "\nEND").unwrap();
         self.send(request)
     }
 }
