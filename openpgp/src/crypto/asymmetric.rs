@@ -193,7 +193,7 @@ impl Signer for KeyPair {
                 })
             },
 
-            (pk_algo, _, _) => Err(Error::InvalidArgument(format!(
+            (pk_algo, _, _) => Err(Error::InvalidOperation(format!(
                 "unsupported combination of algorithm {:?}, key {:?}, \
                  and secret key {:?}",
                 pk_algo, self.public, self.secret)).into()),
@@ -240,7 +240,7 @@ impl Decryptor for KeyPair {
                                                    ciphertext)?,
 
             (public, secret, ciphertext) =>
-                return Err(Error::MalformedPacket(format!(
+                return Err(Error::InvalidOperation(format!(
                     "unsupported combination of key pair {:?}/{:?} \
                      and ciphertext {:?}",
                     public, secret, ciphertext)).into()),
