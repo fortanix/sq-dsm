@@ -875,10 +875,11 @@ mod tests {
         let dek = b"\x09\x0D\xDC\x40\xC5\x71\x51\x88\xAC\xBD\x45\x56\xD4\x2A\xDF\x77\xCD\xF4\x82\xA2\x1B\x8F\x2E\x48\x3B\xCA\xBF\xD3\xE8\x6D\x0A\x7C\xDF\x10\xe6";
         let sk = SessionKey::from(Vec::from(&dek[..]));
 
-       // Expected
-       let got_enc = ecdh::wrap_session_key_deterministic(&key, &sk, eph_pubkey, shared_sec).unwrap();
+        // Expected
+        let got_enc = ecdh::encrypt_shared(&key, &sk, eph_pubkey, shared_sec)
+            .unwrap();
 
-       assert_eq!(ciphertext, got_enc);
+        assert_eq!(ciphertext, got_enc);
     }
 
     #[test]
@@ -914,10 +915,10 @@ mod tests {
                 Some(SecretKey::Unencrypted{ ref mpis }) => mpis,
                 _ => unreachable!(),
             };
-       // Expected
-       let got_dek = ecdh::unwrap_session_key(&key, sec, &ciphertext).unwrap();
+        // Expected
+        let got_dek = ecdh::decrypt(&key, sec, &ciphertext).unwrap();
 
-       assert_eq!(&dek[..], &got_dek[..]);
+        assert_eq!(&dek[..], &got_dek[..]);
     }
 
     #[test]

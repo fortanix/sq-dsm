@@ -18,8 +18,7 @@ use nettle::{cipher, curve25519, mode, Mode, ecc, ecdh, Yarrow};
 
 /// Wraps a session key using Elliptic Curve Diffie-Hellman.
 #[allow(non_snake_case)]
-pub fn wrap_session_key(recipient: &Key, session_key: &[u8])
-    -> Result<Ciphertext>
+pub fn encrypt(recipient: &Key, session_key: &[u8]) -> Result<Ciphertext>
 {
     let mut rng = Yarrow::default();
 
@@ -47,7 +46,7 @@ pub fn wrap_session_key(recipient: &Key, session_key: &[u8])
                 curve25519::mul(&mut S, &v, R)
                     .expect("buffers are of the wrong size");
 
-                wrap_session_key_deterministic(recipient, session_key, VB, &S)
+                encrypt_shared(recipient, session_key, VB, &S)
             }
             Curve::NistP256 | Curve::NistP384 | Curve::NistP521 => {
                 // Obtain the authenticated recipient public key R and
@@ -91,7 +90,7 @@ pub fn wrap_session_key(recipient: &Key, session_key: &[u8])
                 let S = ecdh::point_mul(&v, &R)?;
                 let (Sx,_) = S.as_bytes();
 
-                wrap_session_key_deterministic(recipient, session_key, VB, &Sx)
+                encrypt_shared(recipient, session_key, VB, &Sx)
             }
 
             // Not implemented in Nettle
@@ -107,11 +106,17 @@ pub fn wrap_session_key(recipient: &Key, session_key: &[u8])
     }
 }
 
-// VB: Ephemeral public key (with 0x40 prefix),
-// S: Shared DH secret.
+/// Wraps a session key.
+///
+/// After using Elliptic Curve Diffie-Hellman to compute a shared
+/// secret, this function deterministically encrypts the given session
+/// key.
+///
+/// `VB` is the ephemeral public key (with 0x40 prefix), `S` is the
+/// shared Diffie-Hellman secret.
 #[allow(non_snake_case)]
-pub(crate) fn wrap_session_key_deterministic(recipient: &Key, session_key: &[u8],
-                                    VB: MPI, S: &[u8]) -> Result<Ciphertext>
+pub fn encrypt_shared(recipient: &Key, session_key: &[u8], VB: MPI, S: &[u8])
+                      -> Result<Ciphertext>
 {
     match recipient.mpis() {
         &PublicKey::ECDH{ ref curve, ref hash, ref sym,.. } => {
@@ -148,9 +153,9 @@ pub(crate) fn wrap_session_key_deterministic(recipient: &Key, session_key: &[u8]
 
 /// Unwraps a session key using Elliptic Curve Diffie-Hellman.
 #[allow(non_snake_case)]
-pub fn unwrap_session_key(recipient: &Key, recipient_sec: &SecretKey,
-                          ciphertext: &Ciphertext)
-                          -> Result<Box<[u8]>> {
+pub fn decrypt(recipient: &Key, recipient_sec: &SecretKey,
+               ciphertext: &Ciphertext)
+               -> Result<Box<[u8]>> {
     use memsec;
 
     match (recipient.mpis(), recipient_sec, ciphertext) {

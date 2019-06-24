@@ -235,9 +235,8 @@ impl Decryptor for KeyPair {
             (PublicKey::ECDH{ .. },
              mpis::SecretKey::ECDH { .. },
              mpis::Ciphertext::ECDH { .. }) =>
-                ::crypto::ecdh::unwrap_session_key(&self.public,
-                                                   &self.secret,
-                                                   ciphertext)?,
+                ::crypto::ecdh::decrypt(&self.public, &self.secret,
+                                        ciphertext)?,
 
             (public, secret, ciphertext) =>
                 return Err(Error::InvalidOperation(format!(

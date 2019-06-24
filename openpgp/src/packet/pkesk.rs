@@ -98,9 +98,8 @@ impl PKESK3 {
                 }
             },
 
-            ECDH => {
-                ecdh::wrap_session_key(recipient, &psk)?
-            }
+            ECDH => ecdh::encrypt(recipient, &psk)?,
+
             algo =>
                 return Err(Error::UnsupportedPublicKeyAlgorithm(algo).into()),
         };
