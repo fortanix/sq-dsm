@@ -164,9 +164,9 @@ pub fn decrypt(recipient: &Key, recipient_sec: &SecretKey,
     use memsec;
 
     match (recipient.mpis(), recipient_sec, ciphertext) {
-        (&PublicKey::ECDH { ref curve, ref hash, ref sym, ..},
+        (PublicKey::ECDH { ref curve, ..},
          SecretKey::ECDH { ref scalar, },
-         Ciphertext::ECDH { ref e, ref key, }) =>
+         Ciphertext::ECDH { ref e, .. }) =>
         {
             let S: SessionKey = match curve {
                 Curve::Cv25519 => {
@@ -244,6 +244,29 @@ pub fn decrypt(recipient: &Key, recipient_sec: &SecretKey,
                     return Err(Error::UnsupportedEllipticCurve(curve.clone()).into());
                 }
             };
+
+            decrypt_shared(recipient, &S, ciphertext)
+        }
+
+        _ =>
+            Err(Error::InvalidArgument("Expected an ECDHPublicKey".into()).into()),
+    }
+}
+
+/// Unwraps a session key.
+///
+/// After using Elliptic Curve Diffie-Hellman to compute the shared
+/// secret, this function decrypts the given encrypted session key.
+///
+/// `recipient` is the message receiver's public key, `S` is the
+/// shared Diffie-Hellman secret used to encrypt `ciphertext`.
+#[allow(non_snake_case)]
+pub fn decrypt_shared(recipient: &Key, S: &SessionKey, ciphertext: &Ciphertext)
+                      -> Result<SessionKey>
+{
+    match (recipient.mpis(), ciphertext) {
+        (PublicKey::ECDH { ref curve, ref hash, ref sym, ..},
+         Ciphertext::ECDH { ref key, .. }) => {
             // Compute KDF input.
             let param = make_param(recipient, curve, hash, sym);
 
@@ -258,10 +281,11 @@ pub fn decrypt(recipient: &Key, recipient_sec: &SecretKey,
             let m = pkcs5_unpad(m, 1 + cipher.key_size()? + 2)?;
 
             Ok(m)
-        }
+        },
 
         _ =>
-            Err(Error::InvalidArgument("Expected an ECDHPublicKey".into()).into()),
+            Err(Error::InvalidArgument(
+                "Expected an ECDH key and ciphertext".into()).into()),
     }
 }
 
