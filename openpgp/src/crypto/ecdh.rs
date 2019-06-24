@@ -82,8 +82,7 @@ pub fn wrap_session_key(recipient: &Key, session_key: &[u8])
                     _ => unreachable!(),
                 };
 
-                // Compute the public key.  We need to add an encoding
-                // octet in front of the key.
+                // Compute the public key.
                 let VB = ecdh::point_mul_g(&v);
                 let (VBx, VBy) = VB.as_bytes();
                 let VB = MPI::new_weierstrass(&VBx, &VBy, field_sz);
