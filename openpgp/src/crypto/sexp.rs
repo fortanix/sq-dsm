@@ -10,7 +10,7 @@ use std::fmt;
 use std::ops::Deref;
 use quickcheck::{Arbitrary, Gen};
 
-use crypto::mpis;
+use crypto::{self, mpis, SessionKey};
 
 use Error;
 use Result;
@@ -36,7 +36,153 @@ impl fmt::Debug for Sexp {
 }
 
 impl Sexp {
+    /// Constructs an S-Expression representing `ciphertext`.
+    ///
+    /// The resulting expression is suitable for gpg-agent's `INQUIRE
+    /// CIPHERTEXT` inquiry.
+    pub fn from_ciphertext(ciphertext: &mpis::Ciphertext) -> Result<Self> {
+        use crypto::mpis::Ciphertext::*;
+        match ciphertext {
+            RSA { ref c } =>
+                Ok(Sexp::List(vec![
+                    Sexp::String("enc-val".into()),
+                    Sexp::List(vec![
+                        Sexp::String("rsa".into()),
+                        Sexp::List(vec![
+                            Sexp::String("a".into()),
+                            Sexp::String(c.value.as_ref().into())])])])),
+
+            &Elgamal { ref e, ref c } =>
+                Ok(Sexp::List(vec![
+                    Sexp::String("enc-val".into()),
+                    Sexp::List(vec![
+                        Sexp::String("elg".into()),
+                        Sexp::List(vec![
+                            Sexp::String("a".into()),
+                            Sexp::String(e.value.as_ref().into())]),
+                        Sexp::List(vec![
+                            Sexp::String("b".into()),
+                            Sexp::String(c.value.as_ref().into())])])])),
+
+            &ECDH { ref e, ref key } =>
+                Ok(Sexp::List(vec![
+                    Sexp::String("enc-val".into()),
+                    Sexp::List(vec![
+                        Sexp::String("ecdh".into()),
+                        Sexp::List(vec![
+                            Sexp::String("s".into()),
+                            Sexp::String(key.as_ref().into())]),
+                        Sexp::List(vec![
+                            Sexp::String("e".into()),
+                            Sexp::String(e.value.as_ref().into())])])])),
+
+            &Unknown { .. } =>
+                Err(Error::InvalidArgument(
+                    format!("Don't know how to convert {:?}", ciphertext))
+                    .into()),
+        }
+    }
+
+    /// Completes the decryption of this S-Expression representing a
+    /// wrapped session key.
+    ///
+    /// Such an expression is returned from gpg-agent's `PKDECRYPT`
+    /// command.  `padding` must be set according to the status
+    /// messages sent.
+    pub fn finish_decryption(&self,
+                             recipient: &::packet::Key,
+                             ciphertext: &mpis::Ciphertext,
+                             padding: bool)
+                             -> Result<SessionKey> {
+        use crypto::mpis::PublicKey;
+        let not_a_session_key = || -> failure::Error {
+            Error::MalformedMPI(
+                format!("Not a session key: {:?}", self)).into()
+        };
+
+        let value = self.get(b"value")?.ok_or_else(not_a_session_key)?
+            .into_iter().nth(0).ok_or_else(not_a_session_key)?;
+
+        match value {
+            Sexp::String(ref s) => match recipient.mpis() {
+                PublicKey::RSA { .. } | PublicKey::Elgamal { .. } if padding =>
+                {
+                    // The session key is padded.  The format is
+                    // described in g10/pubkey-enc.c (note that we,
+                    // like GnuPG 2.2, only support the new encoding):
+                    //
+                    //   * Later versions encode the DEK like this:
+                    //   *
+                    //   *     0  2  RND(n bytes)  [...]
+                    //   *
+                    //   * (mpi_get_buffer already removed the leading zero).
+                    //   *
+                    //   * RND are non-zero random bytes.
+                    let mut s = &s[..];
+
+                    // The leading 0 may or may not be swallowed along
+                    // the way due to MPI encoding.
+                    if s[0] == 0 {
+                        s = &s[1..];
+                    }
+
+                    // Version.
+                    if s[0] != 2 {
+                        return Err(Error::MalformedMPI(
+                            format!("DEK encoding version {} not understood",
+                                    s[0])).into());
+                    }
+
+                    // Skip non-zero bytes.
+                    while s.len() > 0 && s[0] > 0 {
+                        s = &s[1..];
+                    }
+
+                    if s.len() == 0 {
+                        return Err(Error::MalformedMPI(
+                            "Invalid DEK encoding, no zero found".into())
+                                   .into());
+                    }
+
+                    // Skip zero.
+                    s = &s[1..];
+
+                    Ok(s.to_vec().into())
+                },
+
+                PublicKey::RSA { .. } | PublicKey::Elgamal { .. } => {
+                    // The session key is not padded.  Currently, this
+                    // happens if the session key is decrypted using
+                    // scdaemon.
+                    assert!(! padding);
+                    Ok(s.to_vec().into())
+                },
+
+                PublicKey::ECDH { curve, .. } => {
+                    // The shared point has been computed by the
+                    // remote agent.  The shared point is not padded.
+                    let mut s = mpis::MPI::new(s);
+                    #[allow(non_snake_case)]
+                    let S: SessionKey = s.decode_point(curve)?.0.into();
+                    s.secure_memzero();
+
+                    // Now finish the decryption.
+                    crypto::ecdh::decrypt_shared(recipient, &S, ciphertext)
+                },
+
+                _ =>
+                    Err(Error::InvalidArgument(
+                        format!("Don't know how to handle key {:?}", recipient))
+                        .into()),
+            }
+            Sexp::List(..) => Err(not_a_session_key()),
+        }
+    }
+
     /// Parses this s-expression to a signature.
+    ///
+    /// Such an expression is returned from gpg-agent's `PKSIGN`
+    /// command.
     pub fn to_signature(&self) -> Result<mpis::Signature> {
         let not_a_signature = || -> failure::Error {
             Error::MalformedMPI(
@@ -202,6 +348,12 @@ impl String_ {
     /// Gets a reference to this *String*'s display hint, if any.
     pub fn display_hint(&self) -> Option<&[u8]> {
         self.1.as_ref().map(|b| b.as_ref())
+    }
+}
+
+impl From<&str> for String_ {
+    fn from(b: &str) -> Self {
+        Self::new(b.as_bytes().to_vec())
     }
 }
 

@@ -80,7 +80,7 @@ impl MPI {
         hash.update(&self.value);
     }
 
-    fn secure_memzero(&mut self) {
+    pub(crate) fn secure_memzero(&mut self) {
         unsafe {
             ::memsec::memzero(self.value.as_mut_ptr(), self.value.len());
         }
