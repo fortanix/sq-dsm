@@ -124,7 +124,7 @@ impl<'a> DecryptionHelper for Helper<'a> {
             if let Some(key) = self.secret_keys.get(&keyid) {
                 if let Some(SecretKey::Unencrypted { .. }) = key.secret() {
                     if let Ok(sk) = key.clone().into_keypair()
-                        .and_then(|mut keypair| pkesks[0].decrypt(&mut keypair))
+                        .and_then(|mut keypair| pkesk.decrypt(&mut keypair))
                         .and_then(|(algo, sk)| { decrypt(algo, &sk)?; Ok(sk) })
                     {
                         if self.dump_session_key {
