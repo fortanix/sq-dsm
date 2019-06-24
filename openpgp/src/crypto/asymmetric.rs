@@ -224,6 +224,7 @@ impl Decryptor for KeyPair {
                                                   &q.value, Option::None)?;
                 let mut rand = Yarrow::default();
                 rsa::decrypt_pkcs1(&public, &secret, &mut rand, &c.value)?
+                    .into()
             }
 
             (PublicKey::Elgamal{ .. },
@@ -243,7 +244,7 @@ impl Decryptor for KeyPair {
                     "unsupported combination of key pair {:?}/{:?} \
                      and ciphertext {:?}",
                     public, secret, ciphertext)).into()),
-        }.into())
+        })
     }
 }
 

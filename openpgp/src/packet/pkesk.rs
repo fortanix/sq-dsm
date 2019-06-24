@@ -73,6 +73,7 @@ impl PKESK3 {
             = session_key.iter().map(|&x| x as usize).sum::<usize>() & 0xffff;
         psk.push((checksum >> 8) as u8);
         psk.push((checksum >> 0) as u8);
+        let psk: SessionKey = psk.into();
 
         #[allow(deprecated)]
         let esk = match recipient.pk_algo() {
