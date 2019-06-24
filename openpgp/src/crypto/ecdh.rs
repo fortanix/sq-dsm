@@ -52,7 +52,7 @@ pub fn wrap_session_key(recipient: &Key, session_key: &[u8])
             Curve::NistP256 | Curve::NistP384 | Curve::NistP521 => {
                 // Obtain the authenticated recipient public key R and
                 // generate an ephemeral private key v.
-                println!("q: {:?}",q);
+
                 let (Rx, Ry) = q.decode_point(curve)?;
                 let (R, v, field_sz) = match curve {
                     Curve::NistP256 => {
