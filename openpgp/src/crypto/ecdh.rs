@@ -449,6 +449,7 @@ pub fn aes_key_wrap(algo: SymmetricAlgorithm, key: &SessionKey,
 
         let mut b = [0; 16];
         let mut tmp = [0; 16];
+        let mut iv: SessionKey = vec![0; cipher.block_size()].into();
 
         //   2) Calculate intermediate values.
 
@@ -459,7 +460,7 @@ pub fn aes_key_wrap(algo: SymmetricAlgorithm, key: &SessionKey,
                 // B = AES(K, A | R[i])
                 write_be_u64(&mut tmp[..8], a);
                 &mut tmp[8..].copy_from_slice(&r[8 * i..8 * (i + 1)]);
-                let mut iv = vec![0; cipher.block_size()]; // Turn CBC into ECB.
+                iv.iter_mut().for_each(|p| *p = 0); // Turn CBC into ECB.
                 cipher.encrypt(&mut iv, &mut b, &tmp)?;
 
                 // A = MSB(64, B) ^ t where t = (n*j)+i
@@ -536,6 +537,7 @@ pub fn aes_key_unwrap(algo: SymmetricAlgorithm, key: &SessionKey,
 
         let mut b = [0; 16];
         let mut tmp = [0; 16];
+        let mut iv: SessionKey = vec![0; cipher.block_size()].into();
 
         // For j = 5 to 0
         for j in (0..6_usize).into_iter().map(|x| 5 - x) {
@@ -546,7 +548,7 @@ pub fn aes_key_unwrap(algo: SymmetricAlgorithm, key: &SessionKey,
                 &mut tmp[8..].copy_from_slice(&r[8 * i..8 * (i + 1)]);
                 // (Note that our i runs from n-1 to 0 instead of n to
                 // 1, hence the index shift.
-                let mut iv = vec![0; cipher.block_size()]; // Turn CBC into ECB.
+                iv.iter_mut().for_each(|p| *p = 0); // Turn CBC into ECB.
                 cipher.decrypt(&mut iv, &mut b, &tmp)?;
 
                 // A = MSB(64, B)
