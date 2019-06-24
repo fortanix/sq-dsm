@@ -49,6 +49,11 @@ impl SessionKey {
         rng.random(&mut sk);
         sk.into()
     }
+
+    /// Converts to a buffer for modification.
+    pub unsafe fn into_vec(mut self) -> Vec<u8> {
+        std::mem::replace(&mut self.0, vec![].into()).into()
+    }
 }
 
 impl Deref for SessionKey {
