@@ -552,8 +552,7 @@ impl Key4 {
         }
     }
 
-    /// Creates a new key pair from a Key packet with an unencrypted
-    /// secret key.
+    /// Converts this packet with an unencrypted secret key into a `KeyPair`.
     ///
     /// # Errors
     ///
