@@ -44,9 +44,10 @@ pub trait Decryptor {
 ///
 /// A `KeyPair` is a combination of public and secret key.  If both
 /// are available in memory, a `KeyPair` is a convenient
-/// implementation of [`Signer`].
+/// implementation of [`Signer`] and [`Decryptor`].
 ///
 /// [`Signer`]: trait.Signer.html
+/// [`Decryptor`]: trait.Decryptor.html
 #[derive(Clone)]
 pub struct KeyPair {
     public: Key,
