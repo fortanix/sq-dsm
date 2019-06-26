@@ -156,12 +156,6 @@ impl BodyLength {
                 Ok(BodyLength::Partial(1 << (octet1 & 0x1F))),
             255 => // Five octets.
                 Ok(BodyLength::Full(bio.read_be_u32()?)),
-            _ =>
-                // The rust compiler doesn't yet check whether an
-                // integer is covered.
-                //
-                // https://github.com/rust-lang/rfcs/issues/1550
-                unreachable!(),
         }
     }
 

@@ -1376,7 +1376,6 @@ impl Key4 {
                 255 => {
                     return php.fail("unsupported secret key encryption");
                 }
-                 _ => unreachable!()
             };
 
             Some(sec)
