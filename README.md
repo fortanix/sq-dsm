@@ -87,7 +87,7 @@ use `make install`.  The latter target honors `PREFIX` and `DESTDIR`.
 Finally, to return your source tree to its pristine state, run `make
 clean`.
 
-To build Sequoia, you need at least Rust 1.32.0 and a few
+To build Sequoia, you need at least Rust 1.34 and a few
 libraries.  Please see below for OS-specific notes.
 
 ### Debian
@@ -98,7 +98,7 @@ You can install the needed libraries with the following command:
 
 Notes:
 
-  - You need at least rustc version 1.32.0.  The version in Debian 9
+  - You need at least rustc version 1.34.  The version in Debian 9
     (Debian Stable as of 2018) is too old.  The version from testing
     works fine.
   - The version of Nettle in Debian 9 (Debian Stable as of 2018), is
