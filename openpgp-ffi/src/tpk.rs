@@ -7,7 +7,7 @@
 
 use std::ptr;
 use std::slice;
-use libc::{c_char, c_int, size_t, time_t, uint8_t};
+use libc::{c_char, c_int, size_t, time_t};
 
 extern crate sequoia_openpgp as openpgp;
 use self::openpgp::{
@@ -706,7 +706,7 @@ pub struct TPKParserWrapper<'a> {
 /// concatenated together.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_tpk_parser_from_bytes(errp: Option<&mut *mut ::error::Error>,
-                             buf: *mut uint8_t, len: size_t)
+                             buf: *mut u8, len: size_t)
     -> *mut TPKParserWrapper<'static>
 {
     ffi_make_fry_from_errp!(errp);

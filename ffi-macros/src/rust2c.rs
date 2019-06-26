@@ -29,6 +29,16 @@ fn ident2c(ident: &syn::Ident) -> (String, bool) {
         "int8_t" | "int16_t" | "int32_t" | "int64_t" |
         "uint8_t" | "uint16_t" | "uint32_t" | "uint64_t"
             => return (ident_string.clone(), false),
+
+        // Primitive types.
+        "u8" => return ("uint8_t".into(), false),
+        "u16" => return ("uint16_t".into(), false),
+        "u32" => return ("uint32_t".into(), false),
+        "u64" => return ("uint64_t".into(), false),
+        "i8" => return ("int8_t".into(), false),
+        "i16" => return ("int16_t".into(), false),
+        "i32" => return ("int32_t".into(), false),
+        "i64" => return ("int64_t".into(), false),
         _ => (),
     }
 

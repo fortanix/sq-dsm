@@ -9,7 +9,7 @@
 use std::mem::forget;
 use std::ptr;
 use std::slice;
-use libc::{uint8_t, c_char, c_int, size_t};
+use libc::{c_char, c_int, size_t};
 
 extern crate sequoia_openpgp as openpgp;
 extern crate time;
@@ -64,7 +64,7 @@ pub extern "C" fn pgp_packet_parser_from_file
 /// the stream.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "C" fn pgp_packet_parser_from_bytes
-    (errp: Option<&mut *mut ::error::Error>, b: *const uint8_t, len: size_t)
+    (errp: Option<&mut *mut ::error::Error>, b: *const u8, len: size_t)
      -> *mut PacketParserResult<'static> {
     ffi_make_fry_from_errp!(errp);
     assert!(!b.is_null());
@@ -125,7 +125,7 @@ pub extern "C" fn pgp_packet_parser_packet
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "C" fn pgp_packet_parser_recursion_depth
     (pp: *const PacketParser)
-     -> uint8_t {
+     -> u8 {
     let pp = ffi_param_ref!(pp);
     pp.recursion_depth() as u8
 }
@@ -276,7 +276,7 @@ pub extern "C" fn pgp_packet_parser_buffer_unread_content<'a>
     (errp: Option<&mut *mut ::error::Error>,
      pp: *mut PacketParser<'a>,
      len: *mut usize)
-     -> *const uint8_t {
+     -> *const u8 {
     ffi_make_fry_from_errp!(errp);
     let pp = ffi_param_ref_mut!(pp);
     let len = ffi_param_ref_mut!(len);
@@ -327,8 +327,8 @@ pub extern "C" fn pgp_packet_parser_finish<'a>
 pub extern "C" fn pgp_packet_parser_decrypt<'a>
     (errp: Option<&mut *mut ::error::Error>,
      pp: *mut PacketParser<'a>,
-     algo: uint8_t, // XXX
-     key: *const uint8_t, key_len: size_t)
+     algo: u8, // XXX
+     key: *const u8, key_len: size_t)
      -> Status {
     ffi_make_fry_from_errp!(errp);
     let pp = ffi_param_ref_mut!(pp);

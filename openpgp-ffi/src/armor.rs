@@ -8,7 +8,7 @@ use std::mem::size_of;
 use std::ptr;
 use std::slice;
 use std::io;
-use libc::{self, uint8_t, c_char, c_int, size_t};
+use libc::{self, c_char, c_int, size_t};
 
 extern crate sequoia_openpgp;
 use self::sequoia_openpgp::armor;
@@ -202,7 +202,7 @@ pub extern "C" fn pgp_armor_reader_from_file(errp: Option<&mut *mut ::error::Err
 /// pgp_reader_free (armor);
 /// ```
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn pgp_armor_reader_from_bytes(b: *const uint8_t, len: size_t,
+fn pgp_armor_reader_from_bytes(b: *const u8, len: size_t,
                                mode: c_int)
                                -> *mut Reader {
     assert!(!b.is_null());

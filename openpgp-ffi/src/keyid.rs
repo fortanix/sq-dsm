@@ -11,7 +11,7 @@
 //! [`sequoia-openpgp::KeyID`]: ../../sequoia_openpgp/enum.KeyID.html
 
 use std::slice;
-use libc::{uint8_t, c_char};
+use libc::{c_char};
 
 extern crate sequoia_openpgp as openpgp;
 
@@ -53,7 +53,7 @@ pub struct KeyID(openpgp::KeyID);
 /// free (mr_b_as_string);
 /// ```
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn pgp_keyid_from_bytes(id: *const uint8_t) -> *mut KeyID {
+fn pgp_keyid_from_bytes(id: *const u8) -> *mut KeyID {
     assert!(!id.is_null());
     let id = unsafe { slice::from_raw_parts(id, 8) };
     openpgp::KeyID::from_bytes(id).move_into_raw()

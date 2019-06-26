@@ -11,7 +11,7 @@
 //! [`sequoia-openpgp::Fingerprint`]: ../../sequoia_openpgp/enum.Fingerprint.html
 
 use std::slice;
-use libc::{uint8_t, c_char, size_t};
+use libc::{c_char, size_t};
 
 extern crate sequoia_openpgp as openpgp;
 use super::keyid::KeyID;
@@ -36,7 +36,7 @@ pub struct Fingerprint(openpgp::Fingerprint);
 
 /// Reads a binary fingerprint.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn pgp_fingerprint_from_bytes(buf: *const uint8_t,
+fn pgp_fingerprint_from_bytes(buf: *const u8,
                               len: size_t)
                               -> *mut Fingerprint {
     assert!(!buf.is_null());
@@ -80,7 +80,7 @@ fn pgp_fingerprint_from_hex(hex: *const c_char)
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_fingerprint_as_bytes(fp: *const Fingerprint,
                             fp_len: Option<&mut size_t>)
-                            -> *const uint8_t {
+                            -> *const u8 {
     let fp = fp.ref_raw();
     if let Some(p) = fp_len {
         *p = fp.as_slice().len();

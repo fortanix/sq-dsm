@@ -23,7 +23,7 @@
 //! ```
 
 
-use libc::{uint8_t, uint64_t, c_char};
+use libc::c_char;
 use std::ptr;
 
 extern crate sequoia_openpgp as openpgp;
@@ -65,7 +65,7 @@ fn sq_store_list_stores(ctx: *mut Context,
 fn sq_store_iter_next(iter: *mut StoreIter,
                       realmp: Option<&mut *mut c_char>,
                       namep: Option<&mut *mut c_char>,
-                      policyp: Option<&mut uint8_t>)
+                      policyp: Option<&mut u8>)
                       -> *mut Store {
     let iter = ffi_param_ref_mut!(iter);
     match iter.next() {
@@ -159,7 +159,7 @@ fn sq_log_iter_next(iter: *mut LogIter) -> *mut Log {
             };
 
             box_raw!(Log{
-                timestamp: e.timestamp.sec as uint64_t,
+                timestamp: e.timestamp.sec as u64,
                 store: maybe_box_raw!(e.store),
                 binding: maybe_box_raw!(e.binding),
                 key: maybe_box_raw!(e.key),
@@ -569,23 +569,23 @@ fn sq_stats_free(stats: Option<&mut Stats>) {
 #[repr(C)]
 pub struct Stamps {
     /// Counts how many times this has been used.
-    pub count: uint64_t,
+    pub count: u64,
 
     /// Records the time when this has been used first.
-    pub first:  uint64_t,
+    pub first:  u64,
 
     /// Records the time when this has been used last.
-    pub last: uint64_t,
+    pub last: u64,
 }
 
 impl Stamps {
     fn new(s: &sequoia_store::Stamps) -> Stamps {
         Stamps{
-            count: s.count as uint64_t,
+            count: s.count as u64,
             first: s.first.map(|t| t.sec).unwrap_or(0)
-                as uint64_t,
+                as u64,
             last: s.last.map(|t| t.sec).unwrap_or(0)
-                as uint64_t,
+                as u64,
         }
     }
 }
@@ -598,10 +598,10 @@ impl Stamps {
 #[repr(C)]
 pub struct Stats {
     /// Records the time this item was created.
-    pub created: uint64_t,
+    pub created: u64,
 
     /// Records the time this item was last updated.
-    pub updated: uint64_t,
+    pub updated: u64,
 
     /// Records counters and timestamps of encryptions.
     pub encryption: Stamps,
@@ -613,8 +613,8 @@ pub struct Stats {
 impl Stats {
     fn new(s: sequoia_store::Stats) -> Stats {
         Stats {
-            created: s.created.map(|t| t.sec).unwrap_or(0) as uint64_t,
-            updated: s.updated.map(|t| t.sec).unwrap_or(0) as uint64_t,
+            created: s.created.map(|t| t.sec).unwrap_or(0) as u64,
+            updated: s.updated.map(|t| t.sec).unwrap_or(0) as u64,
             encryption: Stamps::new(&s.encryption),
             verification: Stamps::new(&s.verification),
         }
@@ -625,7 +625,7 @@ impl Stats {
 #[repr(C)]
 pub struct Log {
     /// Records the time of the entry.
-    pub timestamp: uint64_t,
+    pub timestamp: u64,
 
     /// Relates the entry to a store.
     ///

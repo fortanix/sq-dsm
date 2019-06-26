@@ -11,7 +11,7 @@
 //! [`sequoia-openpgp::parse::stream`]: ../../../sequoia_openpgp/parse/stream/index.html
 
 use std::ptr;
-use libc::{c_int, c_void, uint8_t, time_t};
+use libc::{c_int, c_void, time_t};
 
 extern crate sequoia_openpgp as openpgp;
 extern crate time;
@@ -91,7 +91,7 @@ fn pgp_message_layer_variant(result: *const MessageLayer)
 /// members if the corresponding parameter is not `NULL`.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_message_layer_compression(v: *const MessageLayer,
-                                 algo_r: Maybe<uint8_t>)
+                                 algo_r: Maybe<u8>)
                                  -> bool
 {
     use self::stream::MessageLayer::*;
@@ -112,8 +112,8 @@ fn pgp_message_layer_compression(v: *const MessageLayer,
 /// members if the corresponding parameter is not `NULL`.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_message_layer_encryption(v: *const MessageLayer,
-                                sym_algo_r: Maybe<uint8_t>,
-                                aead_algo_r: Maybe<uint8_t>)
+                                sym_algo_r: Maybe<u8>,
+                                aead_algo_r: Maybe<u8>)
                                  -> bool
 {
     use self::stream::MessageLayer::*;
@@ -298,7 +298,7 @@ type InspectCallback = fn(*mut HelperCookie, *const PacketParser) -> Status;
 type DecryptCallback = fn(*mut HelperCookie,
                           *const *const PKESK, usize,
                           *const *const SKESK, usize,
-                          extern "C" fn (*mut c_void, uint8_t,
+                          extern "C" fn (*mut c_void, u8,
                                               *const crypto::SessionKey)
                                               -> Status,
                           *mut c_void,
@@ -717,7 +717,7 @@ impl DecryptionHelper for DHelper {
         // skesks.into_iter().for_each(|o| {
         //     super::super::packet::skesk::pgp_skesk_free(o) });
 
-        extern "C" fn trampoline<D>(data: *mut c_void, algo: uint8_t,
+        extern "C" fn trampoline<D>(data: *mut c_void, algo: u8,
                                          sk: *const crypto::SessionKey)
                                          -> Status
             where D: FnMut(SymmetricAlgorithm, &SessionKey)

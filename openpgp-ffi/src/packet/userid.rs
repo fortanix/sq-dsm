@@ -5,7 +5,7 @@
 //!   [Section 5.11 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.11
 
 extern crate sequoia_openpgp as openpgp;
-use libc::{uint8_t, c_char, size_t};
+use libc::{c_char, size_t};
 use error::Status;
 use super::Packet;
 
@@ -105,7 +105,7 @@ fn pgp_user_id_from_unchecked_address(
 /// `value` need not be valid UTF-8.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "C"
-fn pgp_user_id_from_raw(value: *const uint8_t, len: size_t)
+fn pgp_user_id_from_raw(value: *const u8, len: size_t)
     -> *mut Packet
 {
     let value : &[u8] = unsafe { std::slice::from_raw_parts(value, len) };
@@ -120,7 +120,7 @@ fn pgp_user_id_from_raw(value: *const uint8_t, len: size_t)
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "C"
 fn pgp_user_id_value(uid: *const Packet, value_len: Option<&mut size_t>)
-    -> *const uint8_t
+    -> *const u8
 {
     if let &openpgp::Packet::UserID(ref uid) = uid.ref_raw() {
         if let Some(p) = value_len {

@@ -4,7 +4,7 @@
 //!
 //! [`sequoia-openpgp::crypto`]: ../../sequoia_openpgp/crypto/index.html
 
-use libc::{size_t, uint8_t};
+use libc::size_t;
 use nettle::Yarrow;
 
 extern crate sequoia_openpgp as openpgp;
@@ -32,7 +32,7 @@ fn pgp_session_key_new(size: size_t) -> *mut SessionKey {
 
 /// Creates a new session key from a buffer.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn pgp_session_key_from_bytes(buf: *const uint8_t, size: size_t)
+fn pgp_session_key_from_bytes(buf: *const u8, size: size_t)
                               -> *mut SessionKey {
     let buf = unsafe {
         ::std::slice::from_raw_parts(buf, size)
@@ -49,7 +49,7 @@ pub struct Password(openpgp::crypto::Password);
 
 /// Creates a new password from a buffer.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn pgp_password_from_bytes(buf: *const uint8_t, size: size_t) -> *mut Password {
+fn pgp_password_from_bytes(buf: *const u8, size: size_t) -> *mut Password {
     let buf = unsafe {
         ::std::slice::from_raw_parts(buf, size)
     };

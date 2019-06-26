@@ -1,7 +1,7 @@
 //! Symmetrically encrypted session keys.
 
 use std::slice;
-use libc::{uint8_t, size_t};
+use libc::size_t;
 
 use failure;
 extern crate sequoia_openpgp as openpgp;
@@ -19,10 +19,10 @@ use RefRaw;
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "C" fn pgp_skesk_decrypt(errp: Option<&mut *mut ::error::Error>,
                                         skesk: *const Packet,
-                                        password: *const uint8_t,
+                                        password: *const u8,
                                         password_len: size_t,
-                                        algo: *mut uint8_t, // XXX
-                                        key: *mut uint8_t,
+                                        algo: *mut u8, // XXX
+                                        key: *mut u8,
                                         key_len: *mut size_t)
                                         -> Status {
     ffi_make_fry_from_errp!(errp);

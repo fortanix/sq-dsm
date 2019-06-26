@@ -870,7 +870,7 @@ fn derive_hash(span: proc_macro2::Span, prefix: &str, name: &str,
         /// Hashes this object.
         #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
         fn #ident #generics (this: *const #wrapper #generics)
-                             -> ::libc::uint64_t {
+                             -> u64 {
             use ::std::hash::{Hash, Hasher};
             use ::RefRaw;
 
@@ -929,7 +929,7 @@ fn derive_parse(span: proc_macro2::Span, prefix: &str, name: &str,
         /// Parses an object from the given buffer.
         #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
         fn #from_bytes #generics(errp: Option<&mut *mut ::error::Error>,
-                                 b: *const ::libc::uint8_t, len: ::libc::size_t)
+                                 b: *const u8, len: ::libc::size_t)
                                  -> ::Maybe<#wrapper #generics> {
             use ::sequoia_openpgp::parse::Parse;
             use ::MoveResultIntoRaw;

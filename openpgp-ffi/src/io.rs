@@ -4,7 +4,7 @@ use std::fs::File;
 use std::io::{self, Read, Write, Cursor};
 use std::path::Path;
 use std::slice;
-use libc::{uint8_t, c_void, c_char, c_int, size_t, ssize_t, realloc};
+use libc::{c_void, c_char, c_int, size_t, ssize_t, realloc};
 
 #[cfg(unix)]
 use std::os::unix::io::FromRawFd;
@@ -63,7 +63,7 @@ pub extern "C" fn pgp_reader_from_fd(fd: c_int)
 
 /// Creates a reader from a buffer.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "C" fn pgp_reader_from_bytes(buf: *const uint8_t,
+pub extern "C" fn pgp_reader_from_bytes(buf: *const u8,
                                              len: size_t)
                                              -> *mut Reader {
     assert!(!buf.is_null());
@@ -77,7 +77,7 @@ pub extern "C" fn pgp_reader_from_bytes(buf: *const uint8_t,
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "C" fn pgp_reader_read(errp: Option<&mut *mut ::error::Error>,
                                        reader: *mut Reader,
-                                       buf: *mut uint8_t, len: size_t)
+                                       buf: *mut u8, len: size_t)
                                        -> ssize_t {
     assert!(!buf.is_null());
     let buf = unsafe {
@@ -165,7 +165,7 @@ fn pgp_writer_from_fd(fd: c_int) -> *mut Writer {
 
 /// Creates a writer from a buffer.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn pgp_writer_from_bytes(buf: *mut uint8_t, len: size_t) -> *mut Writer {
+fn pgp_writer_from_bytes(buf: *mut u8, len: size_t) -> *mut Writer {
     assert!(!buf.is_null());
     let buf = unsafe {
         slice::from_raw_parts_mut(buf, len as usize)
@@ -232,7 +232,7 @@ impl Write for WriterAlloc {
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_writer_write(errp: Option<&mut *mut ::error::Error>,
                     writer: *mut Writer,
-                    buf: *const uint8_t, len: size_t)
+                    buf: *const u8, len: size_t)
                     -> ssize_t {
     assert!(!buf.is_null());
     let buf = unsafe {

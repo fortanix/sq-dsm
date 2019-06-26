@@ -27,7 +27,7 @@
 //! tpk = sq_keyserver_get (ctx, ks, id);
 //! ```
 
-use libc::{uint8_t, c_char, size_t};
+use libc::{c_char, size_t};
 use native_tls::Certificate;
 use std::ptr;
 use std::slice;
@@ -69,7 +69,7 @@ fn sq_keyserver_new(ctx: *mut Context, uri: *const c_char) -> *mut KeyServer {
 #[::ffi_catch_abort] #[no_mangle] pub extern "C"
 fn sq_keyserver_with_cert(ctx: *mut Context,
                           uri: *const c_char,
-                          cert: *const uint8_t,
+                          cert: *const u8,
                           len: size_t) -> *mut KeyServer {
     let ctx = ffi_param_ref_mut!(ctx);
     ffi_make_fry_from_ctx!(ctx);

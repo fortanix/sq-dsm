@@ -39,7 +39,7 @@
 //! ```
 
 use std::ptr;
-use libc::{uint8_t, c_char, c_int};
+use libc::{c_char, c_int};
 
 use sequoia_core as core;
 use sequoia_core::Config;
@@ -127,7 +127,7 @@ fn sq_context_ipc_policy(ctx: *const Context) -> c_int {
 
 /// Returns whether or not this is an ephemeral context.
 #[::ffi_catch_abort] #[no_mangle] pub extern "C"
-fn sq_context_ephemeral(ctx: *const Context) -> uint8_t {
+fn sq_context_ephemeral(ctx: *const Context) -> u8 {
     let ctx = ffi_param_ref!(ctx);
     if ctx.c.ephemeral() { 1 } else { 0 }
 }

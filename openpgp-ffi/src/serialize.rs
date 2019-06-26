@@ -8,7 +8,7 @@
 use std::ptr;
 use std::slice;
 use std::io::Write;
-use libc::{uint8_t, c_char, size_t, ssize_t};
+use libc::{c_char, size_t, ssize_t};
 
 extern crate sequoia_openpgp as openpgp;
 extern crate time;
@@ -55,7 +55,7 @@ pub extern "C" fn pgp_writer_stack_message
 pub extern "C" fn pgp_writer_stack_write
     (errp: Option<&mut *mut ::error::Error>,
      writer: *mut writer::Stack<'static, Cookie>,
-     buf: *const uint8_t, len: size_t)
+     buf: *const u8, len: size_t)
      -> ssize_t
 {
     ffi_make_fry_from_errp!(errp);
@@ -76,7 +76,7 @@ pub extern "C" fn pgp_writer_stack_write
 pub extern "C" fn pgp_writer_stack_write_all
     (errp: Option<&mut *mut ::error::Error>,
      writer: *mut writer::Stack<'static, Cookie>,
-     buf: *const uint8_t, len: size_t)
+     buf: *const u8, len: size_t)
      -> Status
 {
     ffi_make_fry_from_errp!(errp);
@@ -129,7 +129,7 @@ pub extern "C" fn pgp_writer_stack_finalize
 pub extern "C" fn pgp_arbitrary_writer_new
     (errp: Option<&mut *mut ::error::Error>,
      inner: *mut writer::Stack<'static, Cookie>,
-     tag: uint8_t)
+     tag: u8)
      -> *mut writer::Stack<'static, Cookie>
 {
     ffi_make_fry_from_errp!(errp);
@@ -152,7 +152,7 @@ pub extern "C" fn pgp_signer_new
      inner: *mut writer::Stack<'static, Cookie>,
      signers: *const *mut Box<self::openpgp::crypto::Signer>,
      signers_len: size_t,
-     hash_algo: uint8_t)
+     hash_algo: u8)
      -> *mut writer::Stack<'static, Cookie>
 {
     ffi_make_fry_from_errp!(errp);
@@ -184,7 +184,7 @@ pub extern "C" fn pgp_signer_new_detached
      inner: *mut writer::Stack<'static, Cookie>,
      signers: *const *mut Box<self::openpgp::crypto::Signer>,
      signers_len: size_t,
-     hash_algo: uint8_t)
+     hash_algo: u8)
      -> *mut writer::Stack<'static, Cookie>
 {
     ffi_make_fry_from_errp!(errp);
@@ -239,8 +239,8 @@ pub extern "C" fn pgp_encryptor_new
      inner: *mut writer::Stack<'static, Cookie>,
      passwords: Option<&*const c_char>, passwords_len: size_t,
      recipients: Option<&*const TPK>, recipients_len: size_t,
-     encryption_mode: uint8_t,
-     cipher_algo: uint8_t)
+     encryption_mode: u8,
+     cipher_algo: u8)
      -> *mut writer::Stack<'static, Cookie>
 {
     ffi_make_fry_from_errp!(errp);

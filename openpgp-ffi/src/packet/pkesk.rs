@@ -1,7 +1,7 @@
 //! Asymmetrically encrypted session keys.
 
 use failure;
-use libc::{uint8_t, size_t};
+use libc::size_t;
 
 extern crate sequoia_openpgp as openpgp;
 use self::openpgp::packet::PKESK;
@@ -34,8 +34,8 @@ pub extern "C" fn pgp_pkesk_recipient(pkesk: *const PKESK)
 pub extern "C" fn pgp_pkesk_decrypt(errp: Option<&mut *mut ::error::Error>,
                                         pkesk: *const PKESK,
                                         secret_key: *const Key,
-                                        algo: *mut uint8_t, // XXX
-                                        key: *mut uint8_t,
+                                        algo: *mut u8, // XXX
+                                        key: *mut u8,
                                         key_len: *mut size_t)
                                         -> Status {
     ffi_make_fry_from_errp!(errp);

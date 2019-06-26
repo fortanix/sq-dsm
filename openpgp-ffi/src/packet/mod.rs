@@ -4,7 +4,7 @@
 //!
 //!   [Section 4 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4
 
-use libc::{uint8_t, c_char};
+use libc::c_char;
 
 extern crate sequoia_openpgp as openpgp;
 extern crate time;
@@ -55,8 +55,8 @@ pub struct Packet(openpgp::Packet);
 ///
 ///   [Section 4.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.3
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn pgp_packet_tag(p: *const Packet) -> uint8_t {
-    u8::from(p.ref_raw().tag()) as uint8_t
+fn pgp_packet_tag(p: *const Packet) -> u8 {
+    u8::from(p.ref_raw().tag()) as u8
 }
 
 /// Returns the parsed `Packet's` corresponding OpenPGP tag.
@@ -67,7 +67,7 @@ fn pgp_packet_tag(p: *const Packet) -> uint8_t {
 /// into an `Packet::Unknown`.  `tag()` returns `PGP_TAG_SIGNATURE`,
 /// whereas `kind()` returns `0`.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn pgp_packet_kind(p: *const Packet) -> uint8_t {
+fn pgp_packet_kind(p: *const Packet) -> u8 {
     if let Some(kind) = p.ref_raw().kind() {
         kind.into()
     } else {
@@ -85,7 +85,7 @@ fn pgp_packet_kind(p: *const Packet) -> uint8_t {
 /// assert (strcmp (pgp_tag_to_string (2), "SIGNATURE") == 0);
 /// ```
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "C" fn pgp_tag_to_string(tag: uint8_t) -> *const c_char {
+pub extern "C" fn pgp_tag_to_string(tag: u8) -> *const c_char {
     match Tag::from(tag) {
         Tag::PKESK => "PKESK\x00",
         Tag::Signature => "SIGNATURE\x00",

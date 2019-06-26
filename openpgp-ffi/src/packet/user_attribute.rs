@@ -4,7 +4,7 @@
 //!
 //!   [Section 5.12 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.12
 
-use libc::{uint8_t, size_t};
+use libc::size_t;
 extern crate sequoia_openpgp as openpgp;
 use super::Packet;
 
@@ -17,7 +17,7 @@ use RefRaw;
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "C" fn pgp_user_attribute_value(ua: *const Packet,
                                                value_len: Option<&mut size_t>)
-                                               -> *const uint8_t {
+                                               -> *const u8 {
     if let &openpgp::Packet::UserAttribute(ref ua) = ua.ref_raw() {
         if let Some(p) = value_len {
             *p = ua.value().len();
