@@ -1195,7 +1195,9 @@ impl Key4 {
 
         if have_secret_key {
             match self.secret().unwrap() {
-                &SecretKey::Unencrypted { ref mpis } => {
+                SecretKey::Unencrypted(ref u) => {
+                    let mpis = u.mpis();
+
                     // S2K usage.
                     write_byte(o, 0)?;
 
@@ -1209,16 +1211,12 @@ impl Key4 {
                     o.write_all(&buf)?;
                     write_be_u16(o, checksum as u16)?;
                 },
-                &SecretKey::Encrypted {
-                    ref s2k,
-                    algorithm,
-                    ref ciphertext,
-                } => {
+                SecretKey::Encrypted(ref e) => {
                     // S2K usage.
                     write_byte(o, 254)?;
-                    write_byte(o, algorithm.into())?;
-                    s2k.serialize(o)?;
-                    o.write_all(ciphertext)?;
+                    write_byte(o, e.algo().into())?;
+                    e.s2k().serialize(o)?;
+                    o.write_all(e.ciphertext())?;
                 },
             }
         }
@@ -1235,14 +1233,11 @@ impl Key4 {
             + self.mpis().serialized_len()
             + if have_secret_key {
                 1 + match self.secret().as_ref().unwrap() {
-                    &SecretKey::Unencrypted { ref mpis } =>
-                        mpis.serialized_len()
+                    SecretKey::Unencrypted(ref u) =>
+                        u.mpis().serialized_len()
                         + 2, // Two octet checksum.
-                    &SecretKey::Encrypted {
-                        ref s2k,
-                        ref ciphertext,
-                        ..
-                    } => 1 + s2k.serialized_len() + ciphertext.len(),
+                    SecretKey::Encrypted(ref e) =>
+                        1 + e.s2k().serialized_len() + e.ciphertext().len(),
                 }
             } else {
                 0

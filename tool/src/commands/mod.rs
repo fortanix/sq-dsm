@@ -50,19 +50,18 @@ fn get_signing_keys(tpks: &[openpgp::TPK]) -> Result<Vec<crypto::KeyPair>> {
             .map(|k| k.2)
         {
             if let Some(mut secret) = key.secret() {
-                let secret_mpis = match secret {
-                    SecretKey::Encrypted { .. } => {
+                let unencrypted = match secret {
+                    SecretKey::Encrypted(ref e) => {
                         let password = rpassword::read_password_from_tty(Some(
                             &format!("Please enter password to decrypt {}/{}: ",
                                      tsk, key))).unwrap();
-                        secret.decrypt(key.pk_algo(), &password.into())
+                        e.decrypt(key.pk_algo(), &password.into())
                             .expect("decryption failed")
                     },
-                    SecretKey::Unencrypted { ref mpis } =>
-                        mpis.clone(),
+                    SecretKey::Unencrypted(ref u) => u.clone(),
                 };
 
-                keys.push(crypto::KeyPair::new(key.clone(), secret_mpis)
+                keys.push(crypto::KeyPair::new(key.clone(), unencrypted)
                           .unwrap());
                 break 'next_tpk;
             }

@@ -364,15 +364,15 @@ impl PacketDumper {
                     }
 
                     if let Some(secrets) = k.secret() {
+                        use openpgp::packet::key::SecretKey;
                         use openpgp::crypto::mpis::SecretKey::*;
                         writeln!(output, "{}", i)?;
                         writeln!(output, "{}  Secret Key:", i)?;
 
                         let ii = format!("{}    ", i);
                         match secrets {
-                            openpgp::packet::key::SecretKey::Unencrypted {
-                                mpis,
-                            } => match mpis {
+                            SecretKey::Unencrypted(ref u) => match u.mpis()
+                            {
                                 RSA { d, p, q, u } =>
                                     self.dump_mpis(output, &ii,
                                                    &[&d.value, &p.value, &q.value,
@@ -410,15 +410,13 @@ impl PacketDumper {
                                                    &["rest"])?;
                                 },
                             },
-                            openpgp::packet::key::SecretKey::Encrypted {
-                                s2k, algorithm, ciphertext,
-                            } => {
+                            SecretKey::Encrypted(ref e) => {
                                 writeln!(output, "{}", i)?;
                                 write!(output, "{}  S2K: ", ii)?;
-                                self.dump_s2k(output, &ii, s2k)?;
+                                self.dump_s2k(output, &ii, e.s2k())?;
                                 writeln!(output, "{}  Sym. algo: {}", ii,
-                                         algorithm)?;
-                                self.dump_mpis(output, &ii, &[&ciphertext[..]],
+                                         e.algo())?;
+                                self.dump_mpis(output, &ii, &[e.ciphertext()],
                                                &["ciphertext"])?;
                             },
                         }

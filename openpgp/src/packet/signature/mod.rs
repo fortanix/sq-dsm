@@ -1150,7 +1150,6 @@ mod test {
 
     #[test]
     fn sign_with_short_ed25519_secret_key() {
-        use packet::key::SecretKey;
         use conversions::Time;
         use nettle;
         use time;
@@ -1174,9 +1173,7 @@ mod test {
         };
         let key = Key4::new(time::now().canonicalize(),
                             PublicKeyAlgorithm::EdDSA,
-                            public_mpis, Some(SecretKey::Unencrypted {
-                                mpis: private_mpis,
-                            }))
+                            public_mpis, Some(private_mpis.into()))
             .unwrap();
         let mut pair = key.into_keypair().unwrap();
         let msg = b"Hello, World";

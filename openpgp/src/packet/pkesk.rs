@@ -204,7 +204,6 @@ mod tests {
     use super::*;
     use TPK;
     use PacketPile;
-    use packet::key::SecretKey;
     use Packet;
     use parse::Parse;
     use serialize::SerializeInto;
@@ -362,9 +361,7 @@ mod tests {
                                      PublicKeyAlgorithm::ECDH,
                                      public_mpis, None)
             .unwrap().into();
-        key.set_secret(Some(SecretKey::Unencrypted {
-            mpis: private_mpis,
-        }));
+        key.set_secret(Some(private_mpis.into()));
         let mut rng = Yarrow::default();
         let sess_key = SessionKey::new(&mut rng, 32);
         let pkesk = PKESK3::for_recipient(SymmetricAlgorithm::AES256, &sess_key,

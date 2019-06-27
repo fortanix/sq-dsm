@@ -158,11 +158,9 @@ impl Key4 {
                 sym: sym.into().unwrap_or(SymmetricAlgorithm::AES256),
                 q: mpis::MPI::new(&public_key),
             },
-            secret: Some(SecretKey::Unencrypted{
-                mpis: mpis::SecretKey::ECDH{
-                    scalar: mpis::MPI::new(&private_key)
-                }
-            }),
+            secret: Some(mpis::SecretKey::ECDH {
+                scalar: mpis::MPI::new(&private_key)
+            }.into()),
         })
     }
 
@@ -212,11 +210,9 @@ impl Key4 {
                 curve: Curve::Ed25519,
                 q: mpis::MPI::new(&public_key),
             },
-            secret: Some(SecretKey::Unencrypted{
-                mpis: mpis::SecretKey::EdDSA{
-                    scalar: mpis::MPI::new(&private_key)
-                }
-            }),
+            secret: Some(mpis::SecretKey::EdDSA {
+                scalar: mpis::MPI::new(&private_key)
+            }.into()),
         })
     }
 
@@ -262,14 +258,12 @@ impl Key4 {
                 e: mpis::MPI::new(&key.e()[..]),
                 n: mpis::MPI::new(&key.n()[..]),
             },
-            secret: Some(SecretKey::Unencrypted{
-                mpis: mpis::SecretKey::RSA{
+            secret: Some(mpis::SecretKey::RSA {
                     d: mpis::MPI::new(d),
                     p: mpis::MPI::new(&a[..]),
                     q: mpis::MPI::new(&b[..]),
                     u: mpis::MPI::new(&c[..]),
-                }
-            })
+                }.into()),
         })
     }
 
@@ -291,9 +285,7 @@ impl Key4 {
             q: MPI::new(&*q),
             u: MPI::new(&*u),
         };
-        let sec = Some(SecretKey::Unencrypted{
-            mpis: private_mpis
-        });
+        let sec = Some(private_mpis.into());
 
         Ok(Key4 {
             common: Default::default(),
@@ -340,9 +332,7 @@ impl Key4 {
                 let private_mpis = mpis::SecretKey::EdDSA {
                     scalar: MPI::new(&private),
                 };
-                let sec = Some(SecretKey::Unencrypted{
-                    mpis: private_mpis,
-                });
+                let sec = Some(private_mpis.into());
 
                 (public_mpis, sec, EdDSA)
             }
@@ -368,9 +358,7 @@ impl Key4 {
                 let private_mpis = mpis::SecretKey::ECDH {
                     scalar: MPI::new(&private),
                 };
-                let sec = Some(SecretKey::Unencrypted{
-                    mpis: private_mpis,
-                });
+                let sec = Some(private_mpis.into());
 
                 (public_mpis, sec, ECDH)
             }
@@ -403,9 +391,7 @@ impl Key4 {
                 let private_mpis = mpis::SecretKey::ECDSA{
                     scalar: MPI::new(&private.as_bytes()),
                 };
-                let sec = Some(SecretKey::Unencrypted{
-                    mpis:  private_mpis
-                });
+                let sec = Some(private_mpis.into());
 
                 (public_mpis, sec, ECDSA)
             }
@@ -444,9 +430,7 @@ impl Key4 {
                     let private_mpis = mpis::SecretKey::ECDH{
                         scalar: MPI::new(&private.as_bytes()),
                     };
-                    let sec = Some(SecretKey::Unencrypted{
-                        mpis:  private_mpis
-                    });
+                    let sec = Some(private_mpis.into());
 
                     (public_mpis, sec, ECDH)
                 }
@@ -560,8 +544,8 @@ impl Key4 {
     pub fn into_keypair(mut self) -> Result<KeyPair> {
         use packet::key::SecretKey;
         let secret = match self.set_secret(None) {
-            Some(SecretKey::Unencrypted { mpis }) => mpis,
-            Some(SecretKey::Encrypted { .. }) =>
+            Some(SecretKey::Unencrypted(secret)) => secret,
+            Some(SecretKey::Encrypted(_)) =>
                 return Err(Error::InvalidArgument(
                     "secret key is encrypted".into()).into()),
             None =>
@@ -585,19 +569,27 @@ impl From<Key4> for super::Key {
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub enum SecretKey {
     /// Unencrypted secret key. Can be used as-is.
-    Unencrypted {
-        /// MPIs of the secret key.
-        mpis: mpis::SecretKey,
-    },
+    Unencrypted(Unencrypted),
     /// The secret key is encrypted with a password.
-    Encrypted {
-        /// Key derivation mechanism to use.
-        s2k: S2K,
-        /// Symmetric algorithm used for encryption the secret key.
-        algorithm: SymmetricAlgorithm,
-        /// Encrypted MPIs prefixed with the IV.
-        ciphertext: Box<[u8]>,
-    },
+    Encrypted(Encrypted),
+}
+
+impl From<mpis::SecretKey> for SecretKey {
+    fn from(mpis: mpis::SecretKey) -> Self {
+        SecretKey::Unencrypted(mpis.into())
+    }
+}
+
+impl From<Unencrypted> for SecretKey {
+    fn from(key: Unencrypted) -> Self {
+        SecretKey::Unencrypted(key)
+    }
+}
+
+impl From<Encrypted> for SecretKey {
+    fn from(key: Encrypted) -> Self {
+        SecretKey::Encrypted(key)
+    }
 }
 
 impl SecretKey {
@@ -605,83 +597,33 @@ impl SecretKey {
     ///
     /// The SecretKey type does not know what kind of key it is, so
     /// `pk_algo` is needed to parse the correct number of MPIs.
-    pub fn decrypt(&self, pk_algo: PublicKeyAlgorithm, password: &Password)
-                   -> Result<mpis::SecretKey> {
-        use std::io::{Cursor, Read};
-        use crypto::symmetric::Decryptor;
-
-        match self {
-            &SecretKey::Unencrypted { .. } =>
-                Err(Error::InvalidOperation("Key is not encrypted".into())
-                    .into()),
-            &SecretKey::Encrypted { ref s2k, algorithm, ref ciphertext } => {
-                let key = s2k.derive_key(password, algorithm.key_size()?)?;
-                let mut cur = Cursor::new(ciphertext);
-                let mut dec = Decryptor::new(algorithm, &key, cur)?;
-                let mut trash = vec![0u8; algorithm.block_size()?];
-
-                dec.read_exact(&mut trash)?;
-                mpis::SecretKey::parse_chksumd(pk_algo, &mut dec)
-            }
-        }
-    }
-
-    /// Decrypts this secret key using `password`.
-    ///
-    /// The SecretKey type does not know what kind of key it is, so
-    /// `pk_algo` is needed to parse the correct number of MPIs.
     pub fn decrypt_in_place(&mut self, pk_algo: PublicKeyAlgorithm,
                             password: &Password)
                             -> Result<()> {
-        if self.is_encrypted() {
-            *self = SecretKey::Unencrypted {
-                mpis: self.decrypt(pk_algo, password)?,
-            };
+        let new = match self {
+            SecretKey::Encrypted(ref e) =>
+                Some(e.decrypt(pk_algo, password)?.into()),
+            SecretKey::Unencrypted(_) => None,
+        };
+
+        if let Some(v) = new {
+            *self = v;
         }
 
         Ok(())
     }
 
     /// Encrypts this secret key using `password`.
-    pub fn encrypt(&self, password: &Password)
-                   -> Result<(S2K, SymmetricAlgorithm, Box<[u8]>)> {
-        use std::io::Write;
-        use crypto::symmetric::Encryptor;
-        use nettle::{Random, Yarrow};
-
-        match self {
-            &SecretKey::Encrypted { .. } =>
-                Err(Error::InvalidOperation("Key is already encrypted".into())
-                    .into()),
-            &SecretKey::Unencrypted { ref mpis } => {
-                let s2k = S2K::default();
-                let cipher = SymmetricAlgorithm::AES256;
-                let key = s2k.derive_key(password, cipher.key_size()?)?;
-
-                // Ciphertext is preceded by a random block.
-                let mut trash = vec![0u8; cipher.block_size()?];
-                Yarrow::default().random(&mut trash);
-
-                let mut esk = Vec::new();
-                {
-                    let mut encryptor = Encryptor::new(cipher, &key, &mut esk)?;
-                    encryptor.write_all(&trash)?;
-                    mpis.serialize_chksumd(&mut encryptor)?;
-                }
-
-                Ok((s2k, cipher, esk.into_boxed_slice()))
-            },
-        }
-    }
-
-    /// Encrypts this secret key using `password`.
     pub fn encrypt_in_place(&mut self, password: &Password) -> Result<()> {
-        let (s2k, cipher, esk) = self.encrypt(password)?;
-        *self = SecretKey::Encrypted {
-            s2k: s2k,
-            algorithm: cipher,
-            ciphertext: esk,
+        let new = match self {
+            SecretKey::Unencrypted(ref u) =>
+                Some(u.encrypt(password)?.into()),
+            SecretKey::Encrypted(_) => None,
         };
+
+        if let Some(v) = new {
+            *self = v;
+        }
 
         Ok(())
     }
@@ -689,9 +631,109 @@ impl SecretKey {
     /// Returns true if this secret key is encrypted.
     pub fn is_encrypted(&self) -> bool {
         match self {
-            &SecretKey::Encrypted { .. } => true,
-            &SecretKey::Unencrypted { .. } => false,
+            SecretKey::Encrypted(_) => true,
+            SecretKey::Unencrypted(_) => false,
         }
+    }
+}
+
+/// Unencrypted secret key. Can be used as-is.
+#[derive(PartialEq, Eq, Hash, Clone, Debug)]
+pub struct Unencrypted {
+    /// MPIs of the secret key.
+    mpis: mpis::SecretKey,
+}
+
+impl From<mpis::SecretKey> for Unencrypted {
+    fn from(mpis: mpis::SecretKey) -> Self {
+        Unencrypted { mpis }
+    }
+}
+
+impl Unencrypted {
+    /// Returns a reference to the secret key.
+    pub fn mpis(&self) -> &mpis::SecretKey {
+        &self.mpis
+    }
+
+    /// Encrypts this secret key using `password`.
+    pub fn encrypt(&self, password: &Password)
+                   -> Result<Encrypted> {
+        use std::io::Write;
+        use crypto::symmetric::Encryptor;
+        use nettle::{Random, Yarrow};
+
+        let s2k = S2K::default();
+        let algo = SymmetricAlgorithm::AES256;
+        let key = s2k.derive_key(password, algo.key_size()?)?;
+
+        // Ciphertext is preceded by a random block.
+        let mut trash = vec![0u8; algo.block_size()?];
+        Yarrow::default().random(&mut trash);
+
+        let mut esk = Vec::new();
+        {
+            let mut encryptor = Encryptor::new(algo, &key, &mut esk)?;
+            encryptor.write_all(&trash)?;
+            self.mpis.serialize_chksumd(&mut encryptor)?;
+        }
+
+        Ok(Encrypted { s2k, algo, ciphertext: esk.into_boxed_slice() })
+    }
+}
+
+/// The secret key is encrypted with a password.
+#[derive(PartialEq, Eq, Hash, Clone, Debug)]
+pub struct Encrypted {
+    /// Key derivation mechanism to use.
+    s2k: S2K,
+    /// Symmetric algorithm used for encryption the secret key.
+    algo: SymmetricAlgorithm,
+    /// Encrypted MPIs prefixed with the IV.
+    ciphertext: Box<[u8]>,
+}
+
+impl Encrypted {
+    /// Creates a new encrypted key object.
+    pub fn new(s2k: S2K, algo: SymmetricAlgorithm, ciphertext: Box<[u8]>)
+               -> Self {
+        Encrypted { s2k, algo, ciphertext }
+    }
+
+    /// Returns the key derivation mechanism.
+    pub fn s2k(&self) -> &S2K {
+        &self.s2k
+    }
+
+    /// Returns the symmetric algorithm used for encryption the secret
+    /// key.
+    pub fn algo(&self) -> SymmetricAlgorithm {
+        self.algo
+    }
+
+    /// Returns the key derivation mechanism.
+    pub fn ciphertext(&self) -> &[u8] {
+        &self.ciphertext
+    }
+
+    /// Decrypts this secret key using `password`.
+    ///
+    /// The `Encrypted` key does not know what kind of key it is, so
+    /// `pk_algo` is needed to parse the correct number of MPIs.
+    pub fn decrypt(&self, pk_algo: PublicKeyAlgorithm, password: &Password)
+                   -> Result<Unencrypted> {
+        use std::io::{Cursor, Read};
+        use crypto::symmetric::Decryptor;
+
+        let key = self.s2k.derive_key(password, self.algo.key_size()?)?;
+        let cur = Cursor::new(&self.ciphertext);
+        let mut dec = Decryptor::new(self.algo, &key, cur)?;
+
+        // Consume the first block.
+        let mut trash = vec![0u8; self.algo.block_size()?];
+        dec.read_exact(&mut trash)?;
+
+        mpis::SecretKey::parse_chksumd(pk_algo, &mut dec).map(|m| m.into())
     }
 }
 
@@ -719,9 +761,11 @@ mod tests {
         assert!(!secret.is_encrypted());
 
         match secret {
-            &mut SecretKey::Unencrypted { mpis: mpis::SecretKey::RSA { .. } } =>
-                {}
-            _ => { unreachable!() }
+            SecretKey::Unencrypted(ref u) => match u.mpis() {
+                mpis::SecretKey::RSA { .. } => (),
+                _ => panic!(),
+            },
+            _ => panic!(),
         }
     }
 
@@ -910,11 +954,11 @@ mod tests {
 
         // Session key
         let dek = b"\x09\x0D\xDC\x40\xC5\x71\x51\x88\xAC\xBD\x45\x56\xD4\x2A\xDF\x77\xCD\xF4\x82\xA2\x1B\x8F\x2E\x48\x3B\xCA\xBF\xD3\xE8\x6D\x0A\x7C\xDF\x10\xe6";
+        let sec = match key.secret() {
+            Some(SecretKey::Unencrypted(ref u)) => u.mpis(),
+            _ => unreachable!(),
+        };
 
-            let sec = match key.secret() {
-                Some(SecretKey::Unencrypted{ ref mpis }) => mpis,
-                _ => unreachable!(),
-            };
         // Expected
         let got_dek = ecdh::decrypt(&key, sec, &ciphertext).unwrap();
 

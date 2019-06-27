@@ -26,7 +26,6 @@ use {
     packet::prelude::*,
     Packet,
     KeyID,
-    packet::key::SecretKey,
     crypto::SessionKey,
 };
 use constants::{
@@ -1354,7 +1353,7 @@ impl Key4 {
                         return php.fail("wrong secret key checksum");
                     }
 
-                    SecretKey::Unencrypted{ mpis: sec }
+                    sec.into()
                 }
                 // Encrypted & MD5 for key derivation: unsupported
                 1...253 => {
@@ -1366,11 +1365,8 @@ impl Key4 {
                     let s2k = php_try!(S2K::parse(&mut php));
                     let mut cipher = php_try!(php.parse_bytes_eof("encrypted_mpis"));
 
-                    SecretKey::Encrypted{
-                        s2k: s2k,
-                        algorithm: sk,
-                        ciphertext: cipher.into_boxed_slice(),
-                    }
+                    ::packet::key::Encrypted::new(
+                        s2k, sk, cipher.into_boxed_slice()).into()
                 }
                 // Encrypted, S2K & mod 65536 checksum: unsupported
                 255 => {

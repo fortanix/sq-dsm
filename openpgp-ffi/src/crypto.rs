@@ -67,7 +67,8 @@ pub extern "C" fn pgp_signer_free
 /// Creates a new key pair.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "C" fn pgp_key_pair_new
-    (errp: Option<&mut *mut ::error::Error>, public: *mut Key, secret: *mut crypto::mpis::SecretKey)
+    (errp: Option<&mut *mut ::error::Error>, public: *mut Key,
+     secret: *mut openpgp::packet::key::Unencrypted)
      -> *mut crypto::KeyPair
 {
     ffi_make_fry_from_errp!(errp);

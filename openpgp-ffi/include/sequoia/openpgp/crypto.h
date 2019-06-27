@@ -61,7 +61,7 @@ pgp_password_t pgp_password_clone (pgp_password_t password);
 /*/
 int pgp_password_equal (const pgp_password_t a, const pgp_password_t b);
 
-typedef struct pgp_mpis_secret_key *pgp_mpis_secret_key_t;
+typedef struct pgp_key_unencrypted *pgp_key_unencrypted_t;
 
 /*/
 /// Creates a signature.
@@ -89,7 +89,7 @@ typedef struct pgp_key_pair *pgp_key_pair_t;
 /*/
 /// Creates a new key pair.
 /*/
-void pgp_key_pair_new (pgp_key_t pub, pgp_mpis_secret_key_t secret);
+void pgp_key_pair_new (pgp_key_t pub, pgp_key_unencrypted_t secret);
 
 /*/
 /// Frees a key pair.

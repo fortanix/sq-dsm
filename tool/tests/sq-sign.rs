@@ -210,10 +210,10 @@ fn sq_sign_append_on_compress_then_sign() {
         .unwrap();
     let key = tsk.keys_all().signing_capable().nth(0).unwrap().2;
     let sec = match key.secret() {
-        Some(SecretKey::Unencrypted { ref mpis }) => mpis,
+        Some(SecretKey::Unencrypted(ref u)) => u.clone(),
         _ => unreachable!(),
     };
-    let mut keypair = KeyPair::new(key.clone(), sec.clone()).unwrap();
+    let mut keypair = KeyPair::new(key.clone(), sec).unwrap();
     let signer = Signer::new(Message::new(File::create(&sig0).unwrap()),
                              vec![&mut keypair], None)
         .unwrap();

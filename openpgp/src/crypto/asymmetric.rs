@@ -51,12 +51,12 @@ pub trait Decryptor {
 #[derive(Clone)]
 pub struct KeyPair {
     public: Key,
-    secret: mpis::SecretKey,
+    secret: packet::key::Unencrypted,
 }
 
 impl KeyPair {
     /// Creates a new key pair.
-    pub fn new(public: Key, secret: mpis::SecretKey) -> Result<Self> {
+    pub fn new(public: Key, secret: packet::key::Unencrypted) -> Result<Self> {
         Ok(Self {
             public: public,
             secret: secret,
@@ -69,7 +69,7 @@ impl KeyPair {
     }
 
     /// Returns a reference to the secret key.
-    pub fn secret(&self) -> &mpis::SecretKey {
+    pub fn secret(&self) -> &packet::key::Unencrypted {
         &self.secret
     }
 }
@@ -89,7 +89,7 @@ impl Signer for KeyPair {
         let mut rng = Yarrow::default();
 
         #[allow(deprecated)]
-        match (self.public.pk_algo(), self.public.mpis(), &self.secret)
+        match (self.public.pk_algo(), self.public.mpis(), &self.secret.mpis())
         {
             (RSASign,
              &PublicKey::RSA { ref e, ref n },
@@ -215,7 +215,7 @@ impl Decryptor for KeyPair {
         use crypto::mpis::PublicKey;
         use nettle::rsa;
 
-        Ok(match (self.public.mpis(), &self.secret, ciphertext)
+        Ok(match (self.public.mpis(), &self.secret.mpis(), ciphertext)
         {
             (PublicKey::RSA{ ref e, ref n },
              mpis::SecretKey::RSA{ ref p, ref q, ref d, .. },
@@ -237,7 +237,7 @@ impl Decryptor for KeyPair {
             (PublicKey::ECDH{ .. },
              mpis::SecretKey::ECDH { .. },
              mpis::Ciphertext::ECDH { .. }) =>
-                ::crypto::ecdh::decrypt(&self.public, &self.secret,
+                ::crypto::ecdh::decrypt(&self.public, &self.secret.mpis(),
                                         ciphertext)?,
 
             (public, secret, ciphertext) =>
@@ -252,9 +252,7 @@ impl Decryptor for KeyPair {
 impl From<KeyPair> for packet::Key {
     fn from(p: KeyPair) -> Self {
         let (mut key, secret) = (p.public, p.secret);
-        key.set_secret(Some(packet::key::SecretKey::Unencrypted {
-            mpis: secret,
-        }));
+        key.set_secret(Some(secret.into()));
         key
     }
 
