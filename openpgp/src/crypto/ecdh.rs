@@ -14,6 +14,7 @@ use conversions::{
     read_be_u64,
 };
 use crypto::SessionKey;
+use crypto::mem::Protected;
 use crypto::mpis::{MPI, PublicKey, SecretKey, Ciphertext};
 use nettle::{cipher, curve25519, mode, Mode, ecc, ecdh, Yarrow};
 
@@ -32,7 +33,7 @@ pub fn encrypt(recipient: &Key, session_key: &SessionKey) -> Result<Ciphertext>
                 let R = q.decode_point(curve)?.0;
 
                 // Generate an ephemeral key pair {v, V=vG}
-                let mut v: SessionKey =
+                let mut v: Protected =
                     curve25519::private_key(&mut rng).into();
 
                 // Compute the public key.  We need to add an encoding
@@ -43,7 +44,7 @@ pub fn encrypt(recipient: &Key, session_key: &SessionKey) -> Result<Ciphertext>
                 let VB = MPI::new(&VB);
 
                 // Compute the shared point S = vR;
-                let mut S: SessionKey =
+                let mut S: Protected =
                     vec![0; curve25519::CURVE25519_SIZE].into();
                 curve25519::mul(&mut S, &v, R)
                     .expect("buffers are of the wrong size");
@@ -92,7 +93,7 @@ pub fn encrypt(recipient: &Key, session_key: &SessionKey) -> Result<Ciphertext>
 
                 // Compute the shared point S = vR;
                 let S = ecdh::point_mul(&v, &R)?;
-                let Sx: SessionKey = S.as_bytes().0.into();
+                let Sx: Protected = S.as_bytes().0.into();
 
                 encrypt_shared(recipient, session_key, VB, &Sx)
             }
@@ -120,7 +121,7 @@ pub fn encrypt(recipient: &Key, session_key: &SessionKey) -> Result<Ciphertext>
 /// shared Diffie-Hellman secret.
 #[allow(non_snake_case)]
 pub fn encrypt_shared(recipient: &Key, session_key: &SessionKey, VB: MPI,
-                      S: &SessionKey)
+                      S: &Protected)
                       -> Result<Ciphertext>
 {
     match recipient.mpis() {
@@ -168,7 +169,7 @@ pub fn decrypt(recipient: &Key, recipient_sec: &SecretKey,
          SecretKey::ECDH { ref scalar, },
          Ciphertext::ECDH { ref e, .. }) =>
         {
-            let S: SessionKey = match curve {
+            let S: Protected = match curve {
                 Curve::Cv25519 => {
                     // Get the public part V of the ephemeral key.
                     let V = e.decode_point(curve)?.0;
@@ -190,7 +191,7 @@ pub fn decrypt(recipient: &Key, recipient_sec: &SecretKey,
 
                     // Compute the shared point S = rV = rvG, where (r, R)
                     // is the recipient's key pair.
-                    let mut S: SessionKey =
+                    let mut S: Protected =
                         vec![0; curve25519::CURVE25519_SIZE].into();
                     let res = curve25519::mul(&mut S, &r[..], V);
 
@@ -261,7 +262,7 @@ pub fn decrypt(recipient: &Key, recipient_sec: &SecretKey,
 /// `recipient` is the message receiver's public key, `S` is the
 /// shared Diffie-Hellman secret used to encrypt `ciphertext`.
 #[allow(non_snake_case)]
-pub fn decrypt_shared(recipient: &Key, S: &SessionKey, ciphertext: &Ciphertext)
+pub fn decrypt_shared(recipient: &Key, S: &Protected, ciphertext: &Ciphertext)
                       -> Result<SessionKey>
 {
     match (recipient.mpis(), ciphertext) {
@@ -280,7 +281,7 @@ pub fn decrypt_shared(recipient: &Key, S: &SessionKey, ciphertext: &Ciphertext)
             let cipher = SymmetricAlgorithm::from(m[0]);
             let m = pkcs5_unpad(m, 1 + cipher.key_size()? + 2)?;
 
-            Ok(m)
+            Ok(m.into())
         },
 
         _ =>
@@ -328,8 +329,8 @@ fn make_param(recipient: &Key, curve: &Curve, hash: &HashAlgorithm,
 /// See [Section 7 of RFC 6637].
 ///
 ///   [Section 7 of RFC 6637]: https://tools.ietf.org/html/rfc6637#section-7
-pub fn kdf(x: &SessionKey, obits: usize, hash: HashAlgorithm, param: &[u8])
-           -> Result<SessionKey> {
+pub fn kdf(x: &Protected, obits: usize, hash: HashAlgorithm, param: &[u8])
+           -> Result<Protected> {
     let mut hash = hash.context()?;
     if obits > hash.digest_size() {
         return Err(
@@ -341,7 +342,7 @@ pub fn kdf(x: &SessionKey, obits: usize, hash: HashAlgorithm, param: &[u8])
     hash.update(param);
 
     // Providing a smaller buffer will truncate the digest.
-    let mut key: SessionKey = vec![0; obits].into();
+    let mut key: Protected = vec![0; obits].into();
     hash.digest(&mut key);
     Ok(key)
 }
@@ -351,7 +352,7 @@ pub fn kdf(x: &SessionKey, obits: usize, hash: HashAlgorithm, param: &[u8])
 /// See [Section 8 of RFC 6637].
 ///
 ///   [Section 8 of RFC 6637]: https://tools.ietf.org/html/rfc6637#section-8
-pub fn pkcs5_pad(sk: SessionKey, target_len: usize) -> SessionKey {
+pub fn pkcs5_pad(sk: Protected, target_len: usize) -> Protected {
     let mut buf: Vec<u8> = unsafe {
         sk.into_vec()
     };
@@ -369,7 +370,7 @@ pub fn pkcs5_pad(sk: SessionKey, target_len: usize) -> SessionKey {
 /// See [Section 8 of RFC 6637].
 ///
 ///   [Section 8 of RFC 6637]: https://tools.ietf.org/html/rfc6637#section-8
-pub fn pkcs5_unpad(sk: SessionKey, target_len: usize) -> Result<SessionKey> {
+pub fn pkcs5_unpad(sk: Protected, target_len: usize) -> Result<Protected> {
     if sk.len() > 0xff {
         return Err(Error::InvalidArgument("message too large".into()).into());
     }
@@ -391,7 +392,7 @@ pub fn pkcs5_unpad(sk: SessionKey, target_len: usize) -> Result<SessionKey> {
         buf.truncate(target_len);
         Ok(buf.into())
     } else {
-        let sk: SessionKey = buf.into();
+        let sk: Protected = buf.into();
         drop(sk);
         Err(Error::InvalidArgument("bad padding".into()).into())
     }
@@ -402,8 +403,8 @@ pub fn pkcs5_unpad(sk: SessionKey, target_len: usize) -> Result<SessionKey> {
 /// See [RFC 3394].
 ///
 ///  [RFC 3394]: https://tools.ietf.org/html/rfc3394
-pub fn aes_key_wrap(algo: SymmetricAlgorithm, key: &SessionKey,
-                    plaintext: &SessionKey)
+pub fn aes_key_wrap(algo: SymmetricAlgorithm, key: &Protected,
+                    plaintext: &Protected)
                     -> Result<Vec<u8>> {
     use SymmetricAlgorithm::*;
 
@@ -449,7 +450,7 @@ pub fn aes_key_wrap(algo: SymmetricAlgorithm, key: &SessionKey,
 
         let mut b = [0; 16];
         let mut tmp = [0; 16];
-        let mut iv: SessionKey = vec![0; cipher.block_size()].into();
+        let mut iv: Protected = vec![0; cipher.block_size()].into();
 
         //   2) Calculate intermediate values.
 
@@ -488,9 +489,9 @@ pub fn aes_key_wrap(algo: SymmetricAlgorithm, key: &SessionKey,
 /// See [RFC 3394].
 ///
 ///  [RFC 3394]: https://tools.ietf.org/html/rfc3394
-pub fn aes_key_unwrap(algo: SymmetricAlgorithm, key: &SessionKey,
+pub fn aes_key_unwrap(algo: SymmetricAlgorithm, key: &Protected,
                       ciphertext: &[u8])
-                      -> Result<SessionKey> {
+                      -> Result<Protected> {
     use SymmetricAlgorithm::*;
 
     if ciphertext.len() % 8 != 0 {
@@ -529,7 +530,7 @@ pub fn aes_key_unwrap(algo: SymmetricAlgorithm, key: &SessionKey,
     //           R[i] = C[i]
     let mut a = read_be_u64(&ciphertext[..8]);
     plaintext.extend_from_slice(&ciphertext[8..]);
-    let mut plaintext: SessionKey = plaintext.into();
+    let mut plaintext: Protected = plaintext.into();
 
     //   2) Calculate intermediate values.
     {
@@ -537,7 +538,7 @@ pub fn aes_key_unwrap(algo: SymmetricAlgorithm, key: &SessionKey,
 
         let mut b = [0; 16];
         let mut tmp = [0; 16];
-        let mut iv: SessionKey = vec![0; cipher.block_size()].into();
+        let mut iv: Protected = vec![0; cipher.block_size()].into();
 
         // For j = 5 to 0
         for j in (0..6_usize).into_iter().map(|x| 5 - x) {
@@ -584,14 +585,14 @@ mod tests {
     #[test]
     fn pkcs5_padding() {
         let v = pkcs5_pad(vec![0, 0, 0].into(), 8);
-        assert_eq!(&v, &SessionKey::from(&[0, 0, 0, 5, 5, 5, 5, 5][..]));
+        assert_eq!(&v, &Protected::from(&[0, 0, 0, 5, 5, 5, 5, 5][..]));
         let v = pkcs5_unpad(v, 3).unwrap();
-        assert_eq!(&v, &SessionKey::from(&[0, 0, 0][..]));
+        assert_eq!(&v, &Protected::from(&[0, 0, 0][..]));
 
         let v = pkcs5_pad(vec![].into(), 8);
-        assert_eq!(&v, &SessionKey::from(&[8, 8, 8, 8, 8, 8, 8, 8][..]));
+        assert_eq!(&v, &Protected::from(&[8, 8, 8, 8, 8, 8, 8, 8][..]));
         let v = pkcs5_unpad(v, 0).unwrap();
-        assert_eq!(&v, &SessionKey::from(&[][..]));
+        assert_eq!(&v, &Protected::from(&[][..]));
     }
 
     #[test]
@@ -694,7 +695,7 @@ mod tests {
                                           &test.kek.into(),
                                           &ciphertext[..])
                 .unwrap();
-            assert_eq!(&SessionKey::from(test.key_data), &key_data);
+            assert_eq!(&Protected::from(test.key_data), &key_data);
         }
     }
 }

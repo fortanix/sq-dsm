@@ -11,6 +11,7 @@ use std::ops::Deref;
 use quickcheck::{Arbitrary, Gen};
 
 use crypto::{self, mpis, SessionKey};
+use crypto::mem::Protected;
 
 use Error;
 use Result;
@@ -163,7 +164,7 @@ impl Sexp {
                     // remote agent.  The shared point is not padded.
                     let mut s = mpis::MPI::new(s);
                     #[allow(non_snake_case)]
-                    let S: SessionKey = s.decode_point(curve)?.0.into();
+                    let S: Protected = s.decode_point(curve)?.0.into();
                     s.secure_memzero();
 
                     // Now finish the decryption.
