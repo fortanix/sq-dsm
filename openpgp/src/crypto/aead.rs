@@ -15,7 +15,7 @@ use conversions::{
 use Error;
 use Result;
 use crypto::SessionKey;
-use super::secure_cmp;
+use crypto::mem::secure_cmp;
 
 impl AEADAlgorithm {
     /// Returns the digest size of the AEAD algorithm.

@@ -3,9 +3,7 @@
 use std::io::Read;
 use std::ops::{Deref, DerefMut};
 use std::fmt;
-use std::cmp::{min, Ordering};
 
-use memsec;
 use nettle::{self, Random, Yarrow};
 
 use constants::HashAlgorithm;
@@ -17,6 +15,7 @@ pub(crate) mod ecdh;
 mod hash;
 mod keygrip;
 pub use self::keygrip::Keygrip;
+pub(crate) mod mem;
 pub mod mpis;
 pub mod s2k;
 pub mod sexp;
@@ -33,26 +32,20 @@ pub use self::hash::Hash;
 /// Holds a session key.
 ///
 /// The session key is cleared when dropped.
-#[derive(Clone, Eq)]
-pub struct SessionKey(Box<[u8]>);
-
-impl PartialEq for SessionKey {
-    fn eq(&self, other: &Self) -> bool {
-        secure_cmp(&self.0, &other.0) == Ordering::Equal
-    }
-}
+#[derive(Clone, PartialEq, Eq)]
+pub struct SessionKey(mem::Protected);
 
 impl SessionKey {
     /// Creates a new session key.
     pub fn new(rng: &mut Yarrow, size: usize) -> Self {
-        let mut sk = vec![0; size];
+        let mut sk: mem::Protected = vec![0; size].into();
         rng.random(&mut sk);
-        sk.into()
+        Self(sk)
     }
 
     /// Converts to a buffer for modification.
-    pub unsafe fn into_vec(mut self) -> Vec<u8> {
-        std::mem::replace(&mut self.0, vec![].into()).into()
+    pub unsafe fn into_vec(self) -> Vec<u8> {
+        self.0.into_vec()
     }
 }
 
@@ -76,15 +69,21 @@ impl DerefMut for SessionKey {
     }
 }
 
+impl From<mem::Protected> for SessionKey {
+    fn from(v: mem::Protected) -> Self {
+        SessionKey(v)
+    }
+}
+
 impl From<Vec<u8>> for SessionKey {
     fn from(v: Vec<u8>) -> Self {
-        SessionKey(v.into_boxed_slice())
+        SessionKey(v.into())
     }
 }
 
 impl From<Box<[u8]>> for SessionKey {
     fn from(v: Box<[u8]>) -> Self {
-        SessionKey(v)
+        SessionKey(v.into())
     }
 }
 
@@ -94,35 +93,17 @@ impl From<&[u8]> for SessionKey {
     }
 }
 
-impl Drop for SessionKey {
-    fn drop(&mut self) {
-        unsafe {
-            memsec::memzero(self.0.as_mut_ptr(), self.0.len());
-        }
-    }
-}
-
 impl fmt::Debug for SessionKey {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        if cfg!(debug_assertions) {
-            write!(f, "SessionKey ({:?})", self.0)
-        } else {
-            f.write_str("SessionKey ( <Redacted> )")
-        }
+        write!(f, "SessionKey ({:?})", self.0)
     }
 }
 
 /// Holds a password.
 ///
 /// The password is cleared when dropped.
-#[derive(Clone, Eq)]
-pub struct Password(Box<[u8]>);
-
-impl PartialEq for Password {
-    fn eq(&self, other: &Self) -> bool {
-        secure_cmp(&self.0, &other.0) == Ordering::Equal
-    }
-}
+#[derive(Clone, PartialEq, Eq)]
+pub struct Password(mem::Protected);
 
 impl AsRef<[u8]> for Password {
     fn as_ref(&self) -> &[u8] {
@@ -140,13 +121,13 @@ impl Deref for Password {
 
 impl From<Vec<u8>> for Password {
     fn from(v: Vec<u8>) -> Self {
-        Password(v.into_boxed_slice())
+        Password(v.into())
     }
 }
 
 impl From<Box<[u8]>> for Password {
     fn from(v: Box<[u8]>) -> Self {
-        Password(v)
+        Password(v.into())
     }
 }
 
@@ -168,21 +149,9 @@ impl From<&[u8]> for Password {
     }
 }
 
-impl Drop for Password {
-    fn drop(&mut self) {
-        unsafe {
-            memsec::memzero(self.0.as_mut_ptr(), self.0.len());
-        }
-    }
-}
-
 impl fmt::Debug for Password {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        if cfg!(debug_assertions) {
-            write!(f, "Password ({:?})", self.0)
-        } else {
-            f.write_str("Password ( <Redacted> )")
-        }
+        write!(f, "Password ({:?})", self.0)
     }
 }
 
@@ -239,20 +208,4 @@ fn hash_file_test() {
         assert_eq!(*expected.get(&algo).unwrap(),
                    &::conversions::to_hex(&digest[..], false));
     }
-}
-
-/// Time-constant comparison.
-fn secure_cmp(a: &[u8], b: &[u8]) -> Ordering {
-    let ord1 = a.len().cmp(&b.len());
-    let ord2 = unsafe {
-        memsec::memcmp(a.as_ptr(), b.as_ptr(), min(a.len(), b.len()))
-    };
-    let ord2 = match ord2 {
-        0 => Ordering::Equal,
-        a if a < 0 => Ordering::Less,
-        a if a > 0 => Ordering::Greater,
-        _ => unreachable!(),
-    };
-
-    if ord1 == Ordering::Equal { ord2 } else { ord1 }
 }

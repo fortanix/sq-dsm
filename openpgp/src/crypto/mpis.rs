@@ -14,6 +14,7 @@ use constants::{
     SymmetricAlgorithm,
 };
 use crypto::Hash;
+use crypto::mem::secure_cmp;
 use serialize::Serialize;
 
 use nettle;
@@ -443,7 +444,7 @@ impl fmt::Debug for SecretKey {
 
 fn secure_mpi_cmp(a: &MPI, b: &MPI) -> Ordering {
     let ord1 = a.bits.cmp(&b.bits);
-    let ord2 = super::secure_cmp(&a.value, &b.value);
+    let ord2 = secure_cmp(&a.value, &b.value);
 
     if ord1 == Ordering::Equal { ord2 } else { ord1 }
 }
@@ -499,7 +500,7 @@ impl PartialOrd for SecretKey {
             }
             (&SecretKey::Unknown{ mpis: ref mpis1, rest: ref rest1 }
             ,&SecretKey::Unknown{ mpis: ref mpis2, rest: ref rest2 }) => {
-                let o1 = super::secure_cmp(rest1, rest2);
+                let o1 = secure_cmp(rest1, rest2);
                 let on = mpis1.iter().zip(mpis2.iter()).map(|(a,b)| {
                     secure_mpi_cmp(a, b)
                 }).collect::<Vec<_>>();
