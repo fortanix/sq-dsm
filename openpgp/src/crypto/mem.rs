@@ -3,6 +3,7 @@
 use std::cmp::{min, Ordering};
 use std::fmt;
 use std::ops::{Deref, DerefMut};
+use std::pin::Pin;
 
 use memsec;
 
@@ -10,7 +11,7 @@ use memsec;
 ///
 /// The session key is cleared when dropped.
 #[derive(Clone, Eq)]
-pub struct Protected(Box<[u8]>);
+pub struct Protected(Pin<Box<[u8]>>);
 
 impl PartialEq for Protected {
     fn eq(&self, other: &Self) -> bool {
@@ -20,8 +21,8 @@ impl PartialEq for Protected {
 
 impl Protected {
     /// Converts to a buffer for modification.
-    pub unsafe fn into_vec(mut self) -> Vec<u8> {
-        std::mem::replace(&mut self.0, vec![].into()).into()
+    pub unsafe fn into_vec(self) -> Vec<u8> {
+        self.iter().cloned().collect()
     }
 }
 
@@ -47,13 +48,13 @@ impl DerefMut for Protected {
 
 impl From<Vec<u8>> for Protected {
     fn from(v: Vec<u8>) -> Self {
-        Protected(v.into_boxed_slice())
+        Protected(Pin::new(v.into_boxed_slice()))
     }
 }
 
 impl From<Box<[u8]>> for Protected {
     fn from(v: Box<[u8]>) -> Self {
-        Protected(v)
+        Protected(Pin::new(v))
     }
 }
 
