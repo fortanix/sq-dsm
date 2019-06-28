@@ -92,8 +92,8 @@ impl MPI {
     /// # Errors
     ///
     /// Returns `Error::UnsupportedEllipticCurve` if the curve is not
-    /// supported, `Error::InvalidArgument` if the point is
-    /// formatted incorrectly.
+    /// supported, `Error::MalformedMPI` if the point is formatted
+    /// incorrectly.
     pub fn decode_point(&self, curve: &Curve) -> Result<(&[u8], &[u8])> {
         use nettle::{ed25519, curve25519};
         use self::Curve::*;
@@ -104,14 +104,14 @@ impl MPI {
                 // This curve uses a custom compression format which
                 // only contains the X coordinate.
                 if self.value().len() != 1 + curve25519::CURVE25519_SIZE {
-                    return Err(Error::MalformedPacket(
+                    return Err(Error::MalformedMPI(
                         format!("Bad size of Curve25519 key: {} expected: {}",
                                 self.value().len(),
                                 1 + curve25519::CURVE25519_SIZE)).into());
                 }
 
                 if self.value().get(0).map(|&b| b != 0x40).unwrap_or(true) {
-                    return Err(Error::MalformedPacket(
+                    return Err(Error::MalformedMPI(
                         "Bad encoding of Curve25519 key".into()).into());
                 }
 
@@ -130,13 +130,13 @@ impl MPI {
                        * coordinate_length);
 
                 if self.value().len() != expected_length {
-                    return Err(Error::InvalidArgument(
+                    return Err(Error::MalformedMPI(
                         format!("Invalid length of MPI: {} (expected {})",
                                 self.value().len(), expected_length)).into());
                 }
 
                 if self.value().get(0).map(|&b| b != 0x04).unwrap_or(true) {
-                    return Err(Error::InvalidArgument(
+                    return Err(Error::MalformedMPI(
                         format!("Bad prefix: {:?} (expected Some(0x04))",
                                 self.value().get(0))).into());
                 }
