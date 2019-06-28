@@ -409,7 +409,9 @@ impl PacketDumper {
 
                         let ii = format!("{}    ", i);
                         match secrets {
-                            SecretKey::Unencrypted(ref u) => match u.mpis()
+                            SecretKey::Unencrypted(ref u) => u.map(
+                                |mpis| -> Result<()> {
+                                    match mpis
                             {
                                 mpis::SecretKey::RSA { d, p, q, u } =>
                                     self.dump_mpis(output, &ii,
@@ -450,7 +452,7 @@ impl PacketDumper {
                                     self.dump_mpis(output, &ii, &[rest],
                                                    &["rest"])?;
                                 },
-                            },
+                            } Ok(()) })?,
                             SecretKey::Encrypted(ref e) => {
                                 writeln!(output, "{}", i)?;
                                 write!(output, "{}  S2K: ", ii)?;

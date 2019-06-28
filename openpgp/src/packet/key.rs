@@ -650,9 +650,11 @@ impl From<mpis::SecretKey> for Unencrypted {
 }
 
 impl Unencrypted {
-    /// Returns a reference to the secret key.
-    pub fn mpis(&self) -> &mpis::SecretKey {
-        &self.mpis
+    /// Maps the given function over the secret.
+    pub fn map<F, T>(&self, mut fun: F) -> T
+        where F: FnMut(&mpis::SecretKey) -> T
+    {
+        fun(&self.mpis)
     }
 
     /// Encrypts this secret key using `password`.
@@ -673,7 +675,7 @@ impl Unencrypted {
         {
             let mut encryptor = Encryptor::new(algo, &key, &mut esk)?;
             encryptor.write_all(&trash)?;
-            self.mpis.serialize_chksumd(&mut encryptor)?;
+            self.map(|mpis| mpis.serialize_chksumd(&mut encryptor))?;
         }
 
         Ok(Encrypted { s2k, algo, ciphertext: esk.into_boxed_slice() })
@@ -759,10 +761,10 @@ mod tests {
         assert!(!secret.is_encrypted());
 
         match secret {
-            SecretKey::Unencrypted(ref u) => match u.mpis() {
+            SecretKey::Unencrypted(ref u) => u.map(|mpis| match mpis {
                 mpis::SecretKey::RSA { .. } => (),
                 _ => panic!(),
-            },
+            }),
             _ => panic!(),
         }
     }
@@ -952,13 +954,13 @@ mod tests {
 
         // Session key
         let dek = b"\x09\x0D\xDC\x40\xC5\x71\x51\x88\xAC\xBD\x45\x56\xD4\x2A\xDF\x77\xCD\xF4\x82\xA2\x1B\x8F\x2E\x48\x3B\xCA\xBF\xD3\xE8\x6D\x0A\x7C\xDF\x10\xe6";
-        let sec = match key.secret() {
-            Some(SecretKey::Unencrypted(ref u)) => u.mpis(),
+
+        let got_dek = match key.secret() {
+            Some(SecretKey::Unencrypted(ref u)) => u.map(|mpis| {
+                ecdh::decrypt(&key, mpis, &ciphertext).unwrap()
+            }),
             _ => unreachable!(),
         };
-
-        // Expected
-        let got_dek = ecdh::decrypt(&key, sec, &ciphertext).unwrap();
 
         assert_eq!(&dek[..], &got_dek[..]);
     }

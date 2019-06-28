@@ -88,8 +88,9 @@ impl Signer for KeyPair {
 
         let mut rng = Yarrow::default();
 
-        #[allow(deprecated)]
-        match (self.public.pk_algo(), self.public.mpis(), &self.secret.mpis())
+        self.secret.map(|secret| {
+            #[allow(deprecated)]
+            match (self.public.pk_algo(), self.public.mpis(), secret)
         {
             (RSASign,
              &PublicKey::RSA { ref e, ref n },
@@ -198,7 +199,7 @@ impl Signer for KeyPair {
                 "unsupported combination of algorithm {:?}, key {:?}, \
                  and secret key {:?}",
                 pk_algo, self.public, self.secret)).into()),
-        }
+        }})
     }
 }
 
@@ -215,7 +216,8 @@ impl Decryptor for KeyPair {
         use crate::crypto::mpis::PublicKey;
         use nettle::rsa;
 
-        Ok(match (self.public.mpis(), &self.secret.mpis(), ciphertext)
+        self.secret.map(
+            |secret| Ok(match (self.public.mpis(), secret, ciphertext)
         {
             (PublicKey::RSA{ ref e, ref n },
              mpis::SecretKey::RSA{ ref p, ref q, ref d, .. },
@@ -237,15 +239,14 @@ impl Decryptor for KeyPair {
             (PublicKey::ECDH{ .. },
              mpis::SecretKey::ECDH { .. },
              mpis::Ciphertext::ECDH { .. }) =>
-                crate::crypto::ecdh::decrypt(&self.public, &self.secret.mpis(),
-                                        ciphertext)?,
+                crate::crypto::ecdh::decrypt(&self.public, secret, ciphertext)?,
 
             (public, secret, ciphertext) =>
                 return Err(Error::InvalidOperation(format!(
                     "unsupported combination of key pair {:?}/{:?} \
                      and ciphertext {:?}",
                     public, secret, ciphertext)).into()),
-        })
+        }))
     }
 }
 
