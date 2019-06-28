@@ -7,9 +7,10 @@ use std::pin::Pin;
 
 use memsec;
 
-/// Holds a session key.
+/// Protected memory.
 ///
-/// The session key is cleared when dropped.
+/// The memory is guaranteed not to be copied around, and is cleared
+/// when the object is dropped.
 #[derive(Clone, Eq, Hash)]
 pub struct Protected(Pin<Box<[u8]>>);
 
