@@ -1,12 +1,11 @@
 //! Public key, public subkey, private key and private subkey packets.
 
 use std::fmt;
-use std::mem;
 use std::cmp::Ordering;
 use time;
 
 use crate::Error;
-use crate::crypto::{self, mem::Protected, mpis, hash::Hash, KeyPair};
+use crate::crypto::{self, mem::{self, Protected}, mpis, hash::Hash, KeyPair};
 use crate::packet::Tag;
 use crate::packet;
 use crate::Packet;
@@ -499,7 +498,7 @@ impl Key4 {
     pub fn set_secret(&mut self, secret: Option<SecretKey>)
         -> Option<SecretKey>
     {
-        mem::replace(&mut self.secret, secret)
+        std::mem::replace(&mut self.secret, secret)
     }
 
     /// Computes and returns the key's fingerprint as per Section 12.2
@@ -637,15 +636,28 @@ impl SecretKey {
 }
 
 /// Unencrypted secret key. Can be used as-is.
-#[derive(PartialEq, Eq, Hash, Clone, Debug)]
+#[derive(Eq, Hash, Clone, Debug)]
 pub struct Unencrypted {
     /// MPIs of the secret key.
-    mpis: mpis::SecretKey,
+    mpis: mem::Encrypted,
+}
+
+impl PartialEq for Unencrypted {
+    fn eq(&self, other: &Self) -> bool {
+        self.map(|a| other.map(|b| a == b))
+    }
 }
 
 impl From<mpis::SecretKey> for Unencrypted {
     fn from(mpis: mpis::SecretKey) -> Self {
-        Unencrypted { mpis }
+        use crate::serialize::Serialize;
+        let mut plaintext = Vec::new();
+        // We need to store the type.
+        plaintext.push(
+            mpis.algo().unwrap_or(PublicKeyAlgorithm::Unknown(0)).into());
+        mpis.serialize(&mut plaintext)
+            .expect("MPI serialization to vec failed");
+        Unencrypted { mpis: mem::Encrypted::new(plaintext.into()), }
     }
 }
 
@@ -654,7 +666,12 @@ impl Unencrypted {
     pub fn map<F, T>(&self, mut fun: F) -> T
         where F: FnMut(&mpis::SecretKey) -> T
     {
-        fun(&self.mpis)
+        self.mpis.map(|plaintext| {
+            let algo: PublicKeyAlgorithm = plaintext[0].into();
+            let mpis = mpis::SecretKey::parse(algo, &plaintext[1..])
+                .expect("Decrypted secret key is malformed");
+            fun(&mpis)
+        })
     }
 
     /// Encrypts this secret key using `password`.
