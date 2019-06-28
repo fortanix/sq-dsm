@@ -61,18 +61,7 @@ fn pgp_key_public_key_algo(key: *const Key) -> c_int {
 /// Returns the public key's size in bits.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_key_public_key_bits(key: *const Key) -> c_int {
-    use self::openpgp::crypto::mpis::PublicKey::*;
-
-    let key = key.ref_raw();
-    match key.mpis() {
-        RSA { e: _, n } => n.bits as c_int,
-        DSA { p: _, q: _, g: _, y } => y.bits as c_int,
-        Elgamal { p: _, g: _, y } => y.bits as c_int,
-        EdDSA { curve: _, q } => q.bits as c_int,
-        ECDSA { curve: _, q } =>  q.bits as c_int,
-        ECDH { curve: _, q, hash: _, sym: _ } =>  q.bits as c_int,
-        Unknown { mpis: _, rest: _ } => 0,
-    }
+    key.ref_raw().mpis().bits().unwrap_or(0) as c_int
 }
 
 /// Creates a new key pair from a Key packet with an unencrypted
