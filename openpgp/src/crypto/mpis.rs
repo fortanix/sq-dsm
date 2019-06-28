@@ -25,8 +25,6 @@ use nettle;
 /// Holds a single MPI.
 #[derive(Clone, Hash)]
 pub struct MPI {
-    /// Length of the integer in bits.
-    bits: usize,
     /// Integer value as big-endian.
     value: Box<[u8]>,
 }
@@ -54,7 +52,6 @@ impl MPI {
         let value = Vec::from(&value[offset..]).into_boxed_slice();
 
         MPI {
-            bits: value.len() * 8 - leading_zeros % 8,
             value: value,
         }
     }
@@ -72,13 +69,14 @@ impl MPI {
 
         MPI{
             value: val.into_boxed_slice(),
-            bits: 3 + 16 * field_sz,
         }
     }
 
     /// Returns the length of the MPI in bits.
     pub fn bits(&self) -> usize {
-        self.bits
+        self.value.len() * 8
+            - self.value.get(0).map(|&b| b.leading_zeros() as usize)
+                  .unwrap_or(0)
     }
 
     /// Returns the value of this MPI.
@@ -149,7 +147,7 @@ impl MPI {
 
     /// Update the Hash with a hash of the MPIs.
     pub fn hash<H: nettle::Hash>(&self, hash: &mut H) {
-        let len = &[(self.bits >> 8) as u8 & 0xFF, self.bits as u8];
+        let len = &[(self.bits() >> 8) as u8 & 0xFF, self.bits() as u8];
 
         hash.update(len);
         hash.update(&self.value);
@@ -182,14 +180,15 @@ impl MPI {
 impl fmt::Debug for MPI {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.write_fmt(format_args!(
-                "{} bits: {}", self.bits, ::conversions::to_hex(&*self.value, true)))
+            "{} bits: {}", self.bits(),
+            ::conversions::to_hex(&*self.value, true)))
     }
 }
 
 impl Hash for MPI {
     /// Update the Hash with a hash of the MPIs.
     fn hash<H: nettle::Hash + Write>(&self, hash: &mut H) {
-        let len = &[(self.bits >> 8) as u8 & 0xFF, self.bits as u8];
+        let len = &[(self.bits() >> 8) as u8 & 0xFF, self.bits() as u8];
 
         hash.update(len);
         hash.update(&self.value);
@@ -357,9 +356,9 @@ impl PublicKey {
     pub fn bits(&self) -> Option<usize> {
         use self::PublicKey::*;
         match self {
-            &RSA { ref n,.. } => Some(n.bits),
-            &DSA { ref p,.. } => Some(p.bits),
-            &Elgamal { ref p,.. } => Some(p.bits),
+            &RSA { ref n,.. } => Some(n.bits()),
+            &DSA { ref p,.. } => Some(p.bits()),
+            &Elgamal { ref p,.. } => Some(p.bits()),
             &EdDSA { ref curve,.. } => curve.bits(),
             &ECDSA { ref curve,.. } => curve.bits(),
             &ECDH { ref curve,.. } => curve.bits(),
@@ -517,7 +516,7 @@ impl fmt::Debug for SecretKey {
 }
 
 fn secure_mpi_cmp(a: &MPI, b: &MPI) -> Ordering {
-    let ord1 = a.bits.cmp(&b.bits);
+    let ord1 = a.bits().cmp(&b.bits());
     let ord2 = secure_cmp(&a.value, &b.value);
 
     if ord1 == Ordering::Equal { ord2 } else { ord1 }
