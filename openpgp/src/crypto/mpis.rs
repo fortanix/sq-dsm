@@ -420,6 +420,21 @@ impl PublicKey {
             &Unknown { .. } => None,
         }
     }
+
+    /// Returns, if known, the public-key algorithm for this public
+    /// key.
+    pub fn algo(&self) -> Option<PublicKeyAlgorithm> {
+        use self::PublicKey::*;
+        match self {
+            RSA { .. } => Some(PublicKeyAlgorithm::RSAEncryptSign),
+            DSA { .. } => Some(PublicKeyAlgorithm::DSA),
+            Elgamal { .. } => Some(PublicKeyAlgorithm::ElgamalEncrypt),
+            EdDSA { .. } => Some(PublicKeyAlgorithm::EdDSA),
+            ECDSA { .. } => Some(PublicKeyAlgorithm::ECDSA),
+            ECDH { .. } => Some(PublicKeyAlgorithm::ECDH),
+            Unknown { .. } => None,
+        }
+    }
 }
 
 impl Hash for PublicKey {
@@ -690,6 +705,21 @@ impl SecretKey {
             &Unknown { ref mpis, ref rest } =>
                 mpis.iter().map(|m| 2 + m.value.len()).sum::<usize>()
                 + rest.len(),
+        }
+    }
+
+    /// Returns, if known, the public-key algorithm for this secret
+    /// key.
+    pub fn algo(&self) -> Option<PublicKeyAlgorithm> {
+        use self::SecretKey::*;
+        match self {
+            RSA { .. } => Some(PublicKeyAlgorithm::RSAEncryptSign),
+            DSA { .. } => Some(PublicKeyAlgorithm::DSA),
+            Elgamal { .. } => Some(PublicKeyAlgorithm::ElgamalEncrypt),
+            EdDSA { .. } => Some(PublicKeyAlgorithm::EdDSA),
+            ECDSA { .. } => Some(PublicKeyAlgorithm::ECDSA),
+            ECDH { .. } => Some(PublicKeyAlgorithm::ECDH),
+            Unknown { .. } => None,
         }
     }
 }
