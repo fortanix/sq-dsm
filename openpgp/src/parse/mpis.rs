@@ -218,10 +218,10 @@ impl mpis::SecretKey {
                 let u = MPI::parse("rsa_secret_u_len", "rsa_secret_u", php)?;
 
                 Ok(mpis::SecretKey::RSA {
-                    d: d,
-                    p: p,
-                    q: q,
-                    u: u,
+                    d: d.into(),
+                    p: p.into(),
+                    q: q.into(),
+                    u: u.into(),
                 })
             }
 
@@ -229,7 +229,7 @@ impl mpis::SecretKey {
                 let x = MPI::parse("dsa_secret_len", "dsa_secret", php)?;
 
                 Ok(mpis::SecretKey::DSA {
-                    x: x,
+                    x: x.into(),
                 })
             }
 
@@ -238,25 +238,28 @@ impl mpis::SecretKey {
                                    php)?;
 
                 Ok(mpis::SecretKey::Elgamal {
-                    x: x,
+                    x: x.into(),
                 })
             }
 
             EdDSA => {
                 Ok(mpis::SecretKey::EdDSA {
                     scalar: MPI::parse("eddsa_secret_len", "eddsa_secret", php)?
+                                .into()
                 })
             }
 
             ECDSA => {
                 Ok(mpis::SecretKey::ECDSA {
                     scalar: MPI::parse("ecdsa_secret_len", "ecdsa_secret", php)?
+                                .into()
                 })
             }
 
             ECDH => {
                 Ok(mpis::SecretKey::ECDH {
                     scalar: MPI::parse("ecdh_secret_len", "ecdh_secret", php)?
+                                .into()
                 })
             }
 
@@ -264,13 +267,13 @@ impl mpis::SecretKey {
                 let mut mpis = Vec::new();
                 while let Ok(mpi) = MPI::parse("unknown_parameter_len",
                                                "unknown_parameter", php) {
-                    mpis.push(mpi);
+                    mpis.push(mpi.into());
                 }
                 let mut rest = php.parse_bytes_eof("rest")?;
 
                 Ok(mpis::SecretKey::Unknown {
                     mpis: mpis.into_boxed_slice(),
-                    rest: rest.into_boxed_slice(),
+                    rest: rest.into(),
                 })
             }
         }

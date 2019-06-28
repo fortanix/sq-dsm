@@ -10,7 +10,7 @@ use memsec;
 /// Holds a session key.
 ///
 /// The session key is cleared when dropped.
-#[derive(Clone, Eq)]
+#[derive(Clone, Eq, Hash)]
 pub struct Protected(Pin<Box<[u8]>>);
 
 impl PartialEq for Protected {

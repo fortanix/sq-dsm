@@ -1169,7 +1169,7 @@ mod test {
             q: MPI::new(&pnt[..]),
         };
         let private_mpis = mpis::SecretKey::EdDSA {
-            scalar: MPI::new(&sec[..]),
+            scalar: MPI::new(&sec[..]).into(),
         };
         let key = Key4::new(time::now().canonicalize(),
                             PublicKeyAlgorithm::EdDSA,

@@ -14,7 +14,7 @@ use constants::{
     SymmetricAlgorithm,
 };
 use crypto::Hash;
-use crypto::mem::secure_cmp;
+use crypto::mem::{secure_cmp, Protected};
 use serialize::Serialize;
 
 use Error;
@@ -227,6 +227,61 @@ impl PartialEq for MPI {
 
 impl Eq for MPI {}
 
+/// Holds a single MPI containing secrets.
+///
+/// The memory will be cleared when the object is dropped.
+#[derive(Clone, Hash)]
+pub struct ProtectedMPI {
+    /// Integer value as big-endian.
+    value: Protected,
+}
+
+impl From<Vec<u8>> for ProtectedMPI {
+    fn from(m: Vec<u8>) -> Self {
+        MPI::from(m).into()
+    }
+}
+
+impl From<Protected> for ProtectedMPI {
+    fn from(m: Protected) -> Self {
+        MPI::new(&m).into()
+    }
+}
+
+impl From<MPI> for ProtectedMPI {
+    fn from(m: MPI) -> Self {
+        ProtectedMPI {
+            value: m.value.into(),
+        }
+    }
+}
+
+impl ProtectedMPI {
+    /// Returns the length of the MPI in bits.
+    pub fn bits(&self) -> usize {
+        self.value.len() * 8
+            - self.value.get(0).map(|&b| b.leading_zeros() as usize)
+                  .unwrap_or(0)
+    }
+
+    /// Returns the value of this MPI.
+    pub fn value(&self) -> &[u8] {
+        &self.value
+    }
+}
+
+impl fmt::Debug for ProtectedMPI {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        if cfg!(debug_assertions) {
+            f.write_fmt(format_args!(
+                "{} bits: {}", self.bits(),
+                ::conversions::to_hex(&*self.value, true)))
+        } else {
+            f.write_str("<Redacted>")
+        }
+    }
+}
+
 /// Holds a public key.
 ///
 /// Provides a typed and structured way of storing multiple MPIs (and
@@ -427,51 +482,51 @@ pub enum SecretKey {
     /// RSA secret key.
     RSA {
         /// Secret exponent, inverse of e in Phi(N).
-        d: MPI,
+        d: ProtectedMPI,
         /// Larger secret prime.
-        p: MPI,
+        p: ProtectedMPI,
         /// Smaller secret prime.
-        q: MPI,
+        q: ProtectedMPI,
         /// Inverse of p mod q.
-        u: MPI,
+        u: ProtectedMPI,
     },
 
     /// NIST DSA secret key.
     DSA {
         /// Secret key log_g(y) in Zp.
-        x: MPI,
+        x: ProtectedMPI,
     },
 
     /// Elgamal secret key.
     Elgamal {
         /// Secret key log_g(y) in Zp.
-        x: MPI,
+        x: ProtectedMPI,
     },
 
     /// DJBs "Twisted" Edwards curve DSA secret key.
     EdDSA {
         /// Secret scalar.
-        scalar: MPI,
+        scalar: ProtectedMPI,
     },
 
     /// NISTs Elliptic curve DSA secret key.
     ECDSA {
         /// Secret scalar.
-        scalar: MPI,
+        scalar: ProtectedMPI,
     },
 
     /// Elliptic curve Elgamal secret key.
     ECDH {
         /// Secret scalar.
-        scalar: MPI,
+        scalar: ProtectedMPI,
     },
 
     /// Unknown number of MPIs for an unknown algorithm.
     Unknown {
         /// The successfully parsed MPIs.
-        mpis: Box<[MPI]>,
+        mpis: Box<[ProtectedMPI]>,
         /// Any data that failed to parse.
-        rest: Box<[u8]>,
+        rest: Protected,
     },
 }
 
@@ -515,7 +570,7 @@ impl fmt::Debug for SecretKey {
     }
 }
 
-fn secure_mpi_cmp(a: &MPI, b: &MPI) -> Ordering {
+fn secure_mpi_cmp(a: &ProtectedMPI, b: &ProtectedMPI) -> Ordering {
     let ord1 = a.bits().cmp(&b.bits());
     let ord2 = secure_cmp(&a.value, &b.value);
 
@@ -609,36 +664,6 @@ impl PartialEq for SecretKey {
 
 impl Eq for SecretKey {}
 
-impl Drop for SecretKey {
-    fn drop(&mut self) {
-        use self::SecretKey::*;
-        match self {
-            RSA { ref mut d, ref mut p, ref mut q, ref mut u } => {
-                d.secure_memzero();
-                p.secure_memzero();
-                q.secure_memzero();
-                u.secure_memzero();
-            },
-            DSA { ref mut x } =>
-                x.secure_memzero(),
-            Elgamal { ref mut x } =>
-                x.secure_memzero(),
-            EdDSA { ref mut scalar } =>
-                scalar.secure_memzero(),
-            ECDSA { ref mut scalar } =>
-                scalar.secure_memzero(),
-            ECDH { ref mut scalar } =>
-                scalar.secure_memzero(),
-            Unknown { ref mut mpis, ref mut rest } => {
-                mpis.iter_mut().for_each(|m| m.secure_memzero());
-                unsafe {
-                    ::memsec::memzero(rest.as_mut_ptr(), rest.len());
-                }
-            },
-        }
-    }
-}
-
 impl SecretKey {
     /// Number of octets all MPIs of this instance occupy when serialized.
     pub fn serialized_len(&self) -> usize {
@@ -680,30 +705,30 @@ impl Arbitrary for SecretKey {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
         match g.gen_range(0, 6) {
             0 => SecretKey::RSA {
-                d: MPI::arbitrary(g),
-                p: MPI::arbitrary(g),
-                q: MPI::arbitrary(g),
-                u: MPI::arbitrary(g),
+                d: MPI::arbitrary(g).into(),
+                p: MPI::arbitrary(g).into(),
+                q: MPI::arbitrary(g).into(),
+                u: MPI::arbitrary(g).into(),
             },
 
             1 => SecretKey::DSA {
-                x: MPI::arbitrary(g),
+                x: MPI::arbitrary(g).into(),
             },
 
             2 => SecretKey::Elgamal {
-                x: MPI::arbitrary(g),
+                x: MPI::arbitrary(g).into(),
             },
 
             3 => SecretKey::EdDSA {
-                scalar: MPI::arbitrary(g),
+                scalar: MPI::arbitrary(g).into(),
             },
 
             4 => SecretKey::ECDSA {
-                scalar: MPI::arbitrary(g),
+                scalar: MPI::arbitrary(g).into(),
             },
 
             5 => SecretKey::ECDH {
-                scalar: MPI::arbitrary(g),
+                scalar: MPI::arbitrary(g).into(),
             },
 
             _ => unreachable!(),

@@ -355,7 +355,7 @@ mod tests {
             sym: SymmetricAlgorithm::AES256,
         };
         let private_mpis = mpis::SecretKey::ECDH {
-            scalar: MPI::new(&sec[..]),
+            scalar: MPI::new(&sec[..]).into(),
         };
         let mut key: Key = Key4::new(time::now().canonicalize(),
                                      PublicKeyAlgorithm::ECDH,

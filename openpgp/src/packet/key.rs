@@ -9,7 +9,7 @@ use nettle::Hash as NettleHash;
 use nettle::hash::insecure_do_not_use::Sha1;
 
 use Error;
-use crypto::{mpis, Hash, KeyPair, SessionKey};
+use crypto::{mem::Protected, mpis, Hash, KeyPair};
 use packet::Tag;
 use packet;
 use Packet;
@@ -159,7 +159,7 @@ impl Key4 {
                 q: mpis::MPI::new(&public_key),
             },
             secret: Some(mpis::SecretKey::ECDH {
-                scalar: mpis::MPI::new(&private_key)
+                scalar: private_key.into(),
             }.into()),
         })
     }
@@ -211,7 +211,7 @@ impl Key4 {
                 q: mpis::MPI::new(&public_key),
             },
             secret: Some(mpis::SecretKey::EdDSA {
-                scalar: mpis::MPI::new(&private_key)
+                scalar: mpis::MPI::new(private_key).into(),
             }.into()),
         })
     }
@@ -259,11 +259,11 @@ impl Key4 {
                 n: mpis::MPI::new(&key.n()[..]),
             },
             secret: Some(mpis::SecretKey::RSA {
-                    d: mpis::MPI::new(d),
-                    p: mpis::MPI::new(&a[..]),
-                    q: mpis::MPI::new(&b[..]),
-                    u: mpis::MPI::new(&c[..]),
-                }.into()),
+                d: mpis::MPI::new(d).into(),
+                p: mpis::MPI::new(&a[..]).into(),
+                q: mpis::MPI::new(&b[..]).into(),
+                u: mpis::MPI::new(&c[..]).into(),
+            }.into()),
         })
     }
 
@@ -276,14 +276,14 @@ impl Key4 {
         let (public, private) = rsa::generate_keypair(&mut rng, bits as u32)?;
         let (p, q, u) = private.as_rfc4880();
         let public_mpis = PublicKey::RSA {
-            e: MPI::new(&*public.e()),
-            n: MPI::new(&*public.n()),
+            e: MPI::new(&*public.e()).into(),
+            n: MPI::new(&*public.n()).into(),
         };
         let private_mpis = mpis::SecretKey::RSA {
-            d: MPI::new(&*private.d()),
-            p: MPI::new(&*p),
-            q: MPI::new(&*q),
-            u: MPI::new(&*u),
+            d: MPI::new(&*private.d()).into(),
+            p: MPI::new(&*p).into(),
+            q: MPI::new(&*q).into(),
+            u: MPI::new(&*u).into(),
         };
         let sec = Some(private_mpis.into());
 
@@ -320,7 +320,8 @@ impl Key4 {
         let (mpis, secret, pk_algo) = match (curve.clone(), for_signing) {
             (Curve::Ed25519, true) => {
                 let mut public = [0u8; ED25519_KEY_SIZE + 1];
-                let mut private: SessionKey = ed25519::private_key(&mut rng).into();
+                let mut private: Protected =
+                    ed25519::private_key(&mut rng).into();
 
                 public[0] = 0x40;
                 ed25519::public_key(&mut public[1..], &private)?;
@@ -330,7 +331,7 @@ impl Key4 {
                     q: MPI::new(&public),
                 };
                 let private_mpis = mpis::SecretKey::EdDSA {
-                    scalar: MPI::new(&private),
+                    scalar: private.into(),
                 };
                 let sec = Some(private_mpis.into());
 
@@ -339,7 +340,8 @@ impl Key4 {
 
             (Curve::Cv25519, false) => {
                 let mut public = [0u8; CURVE25519_SIZE + 1];
-                let mut private: SessionKey = curve25519::private_key(&mut rng).into();
+                let mut private: Protected =
+                    curve25519::private_key(&mut rng).into();
 
                 public[0] = 0x40;
 
@@ -356,7 +358,7 @@ impl Key4 {
                     sym: SymmetricAlgorithm::AES256,
                 };
                 let private_mpis = mpis::SecretKey::ECDH {
-                    scalar: MPI::new(&private),
+                    scalar: private.into(),
                 };
                 let sec = Some(private_mpis.into());
 
@@ -389,7 +391,7 @@ impl Key4 {
                     q: MPI::new_weierstrass(&pub_x, &pub_y, field_sz),
                 };
                 let private_mpis = mpis::SecretKey::ECDSA{
-                    scalar: MPI::new(&private.as_bytes()),
+                    scalar: MPI::new(&private.as_bytes()).into(),
                 };
                 let sec = Some(private_mpis.into());
 
@@ -428,7 +430,7 @@ impl Key4 {
                         sym: SymmetricAlgorithm::AES256,
                     };
                     let private_mpis = mpis::SecretKey::ECDH{
-                        scalar: MPI::new(&private.as_bytes()),
+                        scalar: MPI::new(&private.as_bytes()).into(),
                     };
                     let sec = Some(private_mpis.into());
 

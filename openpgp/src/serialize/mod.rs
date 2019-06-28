@@ -423,6 +423,24 @@ impl SerializeInto for crypto::mpis::MPI {
     }
 }
 
+impl Serialize for crypto::mpis::ProtectedMPI {
+    fn serialize(&self, w: &mut dyn std::io::Write) -> Result<()> {
+        write_be_u16(w, self.bits() as u16)?;
+        w.write_all(self.value())?;
+        Ok(())
+    }
+}
+
+impl SerializeInto for crypto::mpis::ProtectedMPI {
+    fn serialized_len(&self) -> usize {
+        2 + self.value().len()
+    }
+
+    fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
+        generic_serialize_into(self, buf)
+    }
+}
+
 impl Serialize for crypto::mpis::PublicKey {
     fn serialize(&self, w: &mut dyn std::io::Write) -> Result<()> {
         use crypto::mpis::PublicKey::*;
