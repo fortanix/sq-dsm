@@ -476,7 +476,7 @@ impl Signature4 {
             (RSAEncryptSign,
              &PublicKey::RSA{ ref e, ref n },
              &mpis::Signature::RSA { ref s }) => {
-                let key = rsa::PublicKey::new(&n.value, &e.value)?;
+                let key = rsa::PublicKey::new(n.value(), e.value())?;
 
                 // As described in [Section 5.2.2 and 5.2.3 of RFC 4880],
                 // to verify the signature, we need to encode the
@@ -484,15 +484,15 @@ impl Signature4 {
                 //
                 //   [Section 5.2.2 and 5.2.3 of RFC 4880]:
                 //   https://tools.ietf.org/html/rfc4880#section-5.2.2
-                verify_digest_pkcs1(&key, hash, hash_algo.oid()?, &s.value)
+                verify_digest_pkcs1(&key, hash, hash_algo.oid()?, s.value())
             }
 
             (DSA,
              &PublicKey::DSA{ ref y, ref p, ref q, ref g },
              &mpis::Signature::DSA { ref s, ref r }) => {
-                let key = dsa::PublicKey::new(&y.value);
-                let params = dsa::Params::new(&p.value, &q.value, &g.value);
-                let signature = dsa::Signature::new(&r.value, &s.value);
+                let key = dsa::PublicKey::new(y.value());
+                let params = dsa::Params::new(p.value(), q.value(), g.value());
+                let signature = dsa::Signature::new(r.value(), s.value());
 
                 Ok(dsa::verify(&params, &key, hash, &signature))
             }
@@ -501,7 +501,7 @@ impl Signature4 {
              &PublicKey::EdDSA{ ref curve, ref q },
              &mpis::Signature::EdDSA { ref r, ref s }) => match curve {
                 Curve::Ed25519 => {
-                    if q.value[0] != 0x40 {
+                    if q.value().get(0).map(|&b| b != 0x40).unwrap_or(true) {
                         return Err(Error::MalformedPacket(
                             "Invalid point encoding".into()).into());
                     }
@@ -515,24 +515,24 @@ impl Signature4 {
                     // We need to zero-pad them at the front, because
                     // the MPI encoding drops leading zero bytes.
                     let half = ed25519::ED25519_SIGNATURE_SIZE / 2;
-                    for _ in 0..half - r.value.len() {
+                    for _ in 0..half - r.value().len() {
                         signature.push(0);
                     }
-                    signature.extend_from_slice(&r.value);
-                    for _ in 0..half - s.value.len() {
+                    signature.extend_from_slice(r.value());
+                    for _ in 0..half - s.value().len() {
                         signature.push(0);
                     }
-                    signature.extend_from_slice(&s.value);
+                    signature.extend_from_slice(s.value());
 
                     // Let's see if we got it right.
                     if signature.len() != ed25519::ED25519_SIGNATURE_SIZE {
                         return Err(Error::MalformedPacket(
                             format!(
                                 "Invalid signature size: {}, r: {:?}, s: {:?}",
-                                signature.len(), &r.value, &s.value)).into());
+                                signature.len(), r.value(), s.value())).into());
                     }
 
-                    ed25519::verify(&q.value[1..], hash, &signature)
+                    ed25519::verify(&q.value()[1..], hash, &signature)
                 },
                 _ =>
                     Err(Error::UnsupportedEllipticCurve(curve.clone())
@@ -556,7 +556,7 @@ impl Signature4 {
                                 .into()),
                 };
 
-                let signature = dsa::Signature::new(&r.value, &s.value);
+                let signature = dsa::Signature::new(r.value(), s.value());
                 Ok(ecdsa::verify(&key, hash, &signature))
             },
 

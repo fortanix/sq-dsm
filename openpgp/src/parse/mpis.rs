@@ -478,12 +478,12 @@ fn mpis_parse_test() {
         //assert_eq!(mpis.serialized_len(), 6);
         match &mpis {
             &mpis::PublicKey::RSA{ ref n, ref e } => {
-                assert_eq!(n.bits, 1);
-                assert_eq!(n.value[0], 1);
-                assert_eq!(n.value.len(), 1);
-                assert_eq!(e.bits, 2);
-                assert_eq!(e.value[0], 2);
-                assert_eq!(e.value.len(), 1);
+                assert_eq!(n.bits(), 1);
+                assert_eq!(n.value()[0], 1);
+                assert_eq!(n.value().len(), 1);
+                assert_eq!(e.bits(), 2);
+                assert_eq!(e.value()[0], 2);
+                assert_eq!(e.value().len(), 1);
             }
 
             _ => assert!(false),
@@ -500,10 +500,10 @@ fn mpis_parse_test() {
 
     // The number 511.
     let mpi = MPI::from_bytes(b"\x00\x09\x01\xff").unwrap();
-    assert_eq!(mpi.value.len(), 2);
-    assert_eq!(mpi.bits, 9);
-    assert_eq!(mpi.value[0], 1);
-    assert_eq!(mpi.value[1], 0xff);
+    assert_eq!(mpi.value().len(), 2);
+    assert_eq!(mpi.bits(), 9);
+    assert_eq!(mpi.value()[0], 1);
+    assert_eq!(mpi.value()[1], 0xff);
 
     // The number 1, incorrectly encoded (the length should be 1,
     // not 2).

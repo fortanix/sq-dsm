@@ -23,9 +23,9 @@ use nettle;
 #[derive(Clone, Hash)]
 pub struct MPI {
     /// Length of the integer in bits.
-    pub bits: usize,
+    bits: usize,
     /// Integer value as big-endian.
-    pub value: Box<[u8]>,
+    value: Box<[u8]>,
 }
 
 impl From<Vec<u8>> for MPI {
@@ -71,6 +71,16 @@ impl MPI {
             value: val.into_boxed_slice(),
             bits: 3 + 16 * field_sz,
         }
+    }
+
+    /// Returns the length of the MPI in bits.
+    pub fn bits(&self) -> usize {
+        self.bits
+    }
+
+    /// Returns the value of this MPI.
+    pub fn value(&self) -> &[u8] {
+        &self.value
     }
 
     /// Update the Hash with a hash of the MPIs.

@@ -82,9 +82,9 @@ impl PKESK3 {
                 match recipient.mpis() {
                     &mpis::PublicKey::RSA { ref e, ref n } => {
                         // The ciphertext has the length of the modulus.
-                        let mut esk = vec![0u8; n.value.len()];
+                        let mut esk = vec![0u8; n.value().len()];
 
-                        let pk = rsa::PublicKey::new(&n.value, &e.value)?;
+                        let pk = rsa::PublicKey::new(n.value(), e.value())?;
                         rsa::encrypt_pkcs1(&pk, &mut rng, &psk, &mut esk)?;
                         Ciphertext::RSA {c: MPI::new(&esk)}
                     }

@@ -97,12 +97,12 @@ impl Signer for KeyPair {
             (RSAEncryptSign,
              &PublicKey::RSA { ref e, ref n },
              &mpis::SecretKey::RSA { ref p, ref q, ref d, .. }) => {
-                let public = rsa::PublicKey::new(&n.value, &e.value)?;
-                let secret = rsa::PrivateKey::new(&d.value, &p.value,
-                                                  &q.value, Option::None)?;
+                let public = rsa::PublicKey::new(n.value(), e.value())?;
+                let secret = rsa::PrivateKey::new(d.value(), p.value(),
+                                                  q.value(), Option::None)?;
 
                 // The signature has the length of the modulus.
-                let mut sig = vec![0u8; n.value.len()];
+                let mut sig = vec![0u8; n.value().len()];
 
                 // As described in [Section 5.2.2 and 5.2.3 of RFC 4880],
                 // to verify the signature, we need to encode the
@@ -122,8 +122,8 @@ impl Signer for KeyPair {
             (DSA,
              &PublicKey::DSA { ref p, ref q, ref g, .. },
              &mpis::SecretKey::DSA { ref x }) => {
-                let params = dsa::Params::new(&p.value, &q.value, &g.value);
-                let secret = dsa::PrivateKey::new(&x.value);
+                let params = dsa::Params::new(p.value(), q.value(), g.value());
+                let secret = dsa::PrivateKey::new(x.value());
 
                 let sig = dsa::sign(&params, &secret, digest, &mut rng)?;
 
@@ -147,9 +147,9 @@ impl Signer for KeyPair {
                     // Padding has to be unconditionaly, otherwise we have a
                     // secret-dependant branch.
                     let missing = ed25519::ED25519_KEY_SIZE
-                        .saturating_sub(scalar.value.len());
+                        .saturating_sub(scalar.value().len());
                     let mut sec = [0u8; ed25519::ED25519_KEY_SIZE];
-                    sec[missing..].copy_from_slice(&scalar.value[..]);
+                    sec[missing..].copy_from_slice(scalar.value());
 
                     let res = ed25519::sign(public, &sec[..], digest, &mut sig);
                     unsafe {
@@ -173,13 +173,13 @@ impl Signer for KeyPair {
                 let secret = match curve {
                     Curve::NistP256 =>
                         ecc::Scalar::new::<ecc::Secp256r1>(
-                            &scalar.value)?,
+                            scalar.value())?,
                     Curve::NistP384 =>
                         ecc::Scalar::new::<ecc::Secp384r1>(
-                            &scalar.value)?,
+                            scalar.value())?,
                     Curve::NistP521 =>
                         ecc::Scalar::new::<ecc::Secp521r1>(
-                            &scalar.value)?,
+                            scalar.value())?,
                     _ =>
                         return Err(
                             Error::UnsupportedEllipticCurve(curve.clone())
@@ -220,11 +220,11 @@ impl Decryptor for KeyPair {
             (PublicKey::RSA{ ref e, ref n },
              mpis::SecretKey::RSA{ ref p, ref q, ref d, .. },
              mpis::Ciphertext::RSA{ ref c }) => {
-                let public = rsa::PublicKey::new(&n.value, &e.value)?;
-                let secret = rsa::PrivateKey::new(&d.value, &p.value,
-                                                  &q.value, Option::None)?;
+                let public = rsa::PublicKey::new(n.value(), e.value())?;
+                let secret = rsa::PrivateKey::new(d.value(), p.value(),
+                                                  q.value(), Option::None)?;
                 let mut rand = Yarrow::default();
-                rsa::decrypt_pkcs1(&public, &secret, &mut rand, &c.value)?
+                rsa::decrypt_pkcs1(&public, &secret, &mut rand, c.value())?
                     .into()
             }
 

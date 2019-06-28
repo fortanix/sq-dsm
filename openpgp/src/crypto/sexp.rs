@@ -51,7 +51,7 @@ impl Sexp {
                         Sexp::String("rsa".into()),
                         Sexp::List(vec![
                             Sexp::String("a".into()),
-                            Sexp::String(c.value.as_ref().into())])])])),
+                            Sexp::String(c.value().into())])])])),
 
             &Elgamal { ref e, ref c } =>
                 Ok(Sexp::List(vec![
@@ -60,10 +60,10 @@ impl Sexp {
                         Sexp::String("elg".into()),
                         Sexp::List(vec![
                             Sexp::String("a".into()),
-                            Sexp::String(e.value.as_ref().into())]),
+                            Sexp::String(e.value().into())]),
                         Sexp::List(vec![
                             Sexp::String("b".into()),
-                            Sexp::String(c.value.as_ref().into())])])])),
+                            Sexp::String(c.value().into())])])])),
 
             &ECDH { ref e, ref key } =>
                 Ok(Sexp::List(vec![
@@ -75,7 +75,7 @@ impl Sexp {
                             Sexp::String(key.as_ref().into())]),
                         Sexp::List(vec![
                             Sexp::String("e".into()),
-                            Sexp::String(e.value.as_ref().into())])])])),
+                            Sexp::String(e.value().into())])])])),
 
             &Unknown { .. } =>
                 Err(Error::InvalidArgument(

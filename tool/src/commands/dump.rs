@@ -255,23 +255,23 @@ impl PacketDumper {
                     match s.mpis() {
                         RSA { s } =>
                             self.dump_mpis(output, &ii,
-                                           &[&s.value],
+                                           &[s.value()],
                                            &["s"])?,
                         DSA { r, s } =>
                             self.dump_mpis(output, &ii,
-                                           &[&r.value, &s.value],
+                                           &[r.value(), s.value()],
                                            &["r", "s"])?,
                         Elgamal { r, s } =>
                             self.dump_mpis(output, &ii,
-                                           &[&r.value, &s.value],
+                                           &[r.value(), s.value()],
                                            &["r", "s"])?,
                         EdDSA { r, s } =>
                             self.dump_mpis(output, &ii,
-                                           &[&r.value, &s.value],
+                                           &[r.value(), s.value()],
                                            &["r", "s"])?,
                         ECDSA { r, s } =>
                             self.dump_mpis(output, &ii,
-                                           &[&r.value, &s.value],
+                                           &[r.value(), s.value()],
                                            &["r", "s"])?,
                         Unknown { mpis, rest } => {
                             let keys: Vec<String> =
@@ -279,8 +279,9 @@ impl PacketDumper {
                                     |i| format!("mpi{}", i)).collect();
                             self.dump_mpis(
                                 output, &ii,
-                                &mpis.iter().map(|m| m.value.iter().as_slice())
-                                    .collect::<Vec<_>>()[..],
+                                &mpis.iter().map(|m| {
+                                    m.value().iter().as_slice()
+                                }).collect::<Vec<_>>()[..],
                                 &keys.iter().map(|k| k.as_str())
                                     .collect::<Vec<_>>()[..],
                             )?;
@@ -321,31 +322,31 @@ impl PacketDumper {
                     match k.mpis() {
                         RSA { e, n } =>
                             self.dump_mpis(output, &ii,
-                                           &[&e.value, &n.value],
+                                           &[e.value(), n.value()],
                                            &["e", "n"])?,
                         DSA { p, q, g, y } =>
                             self.dump_mpis(output, &ii,
-                                           &[&p.value, &q.value, &g.value,
-                                             &y.value],
+                                           &[p.value(), q.value(), g.value(),
+                                             y.value()],
                                            &["p", "q", "g", "y"])?,
                         Elgamal { p, g, y } =>
                             self.dump_mpis(output, &ii,
-                                           &[&p.value, &g.value, &y.value],
+                                           &[p.value(), g.value(), y.value()],
                                            &["p", "g", "y"])?,
                         EdDSA { curve, q } => {
                             writeln!(output, "{}  Curve: {}", ii, curve)?;
-                            self.dump_mpis(output, &ii, &[&q.value], &["q"])?;
+                            self.dump_mpis(output, &ii, &[q.value()], &["q"])?;
                         },
                         ECDSA { curve, q } => {
                             writeln!(output, "{}  Curve: {}", ii, curve)?;
-                            self.dump_mpis(output, &ii, &[&q.value], &["q"])?;
+                            self.dump_mpis(output, &ii, &[q.value()], &["q"])?;
                         },
                         ECDH { curve, q, hash, sym } => {
                             writeln!(output, "{}  Curve: {}", ii, curve)?;
                             writeln!(output, "{}  Hash algo: {}", ii, hash)?;
                             writeln!(output, "{}  Symmetric algo: {}", ii,
                                      sym)?;
-                            self.dump_mpis(output, &ii, &[&q.value], &["q"])?;
+                            self.dump_mpis(output, &ii, &[q.value()], &["q"])?;
                         },
                         Unknown { mpis, rest } => {
                             let keys: Vec<String> =
@@ -353,8 +354,9 @@ impl PacketDumper {
                                     |i| format!("mpi{}", i)).collect();
                             self.dump_mpis(
                                 output, &ii,
-                                &mpis.iter().map(|m| m.value.iter().as_slice())
-                                    .collect::<Vec<_>>()[..],
+                                &mpis.iter().map(|m| {
+                                    m.value().iter().as_slice()
+                                }).collect::<Vec<_>>()[..],
                                 &keys.iter().map(|k| k.as_str())
                                     .collect::<Vec<_>>()[..],
                             )?;
@@ -375,23 +377,26 @@ impl PacketDumper {
                             {
                                 RSA { d, p, q, u } =>
                                     self.dump_mpis(output, &ii,
-                                                   &[&d.value, &p.value, &q.value,
-                                                     &u.value],
+                                                   &[d.value(), p.value(),
+                                                     q.value(), u.value()],
                                                    &["d", "p", "q", "u"])?,
                                 DSA { x } =>
-                                    self.dump_mpis(output, &ii, &[&x.value],
+                                    self.dump_mpis(output, &ii, &[x.value()],
                                                    &["x"])?,
                                 Elgamal { x } =>
-                                    self.dump_mpis(output, &ii, &[&x.value],
+                                    self.dump_mpis(output, &ii, &[x.value()],
                                                    &["x"])?,
                                 EdDSA { scalar } =>
-                                    self.dump_mpis(output, &ii, &[&scalar.value],
+                                    self.dump_mpis(output, &ii,
+                                                   &[scalar.value()],
                                                    &["scalar"])?,
                                 ECDSA { scalar } =>
-                                    self.dump_mpis(output, &ii, &[&scalar.value],
+                                    self.dump_mpis(output, &ii,
+                                                   &[scalar.value()],
                                                    &["scalar"])?,
                                 ECDH { scalar } =>
-                                    self.dump_mpis(output, &ii, &[&scalar.value],
+                                    self.dump_mpis(output, &ii,
+                                                   &[scalar.value()],
                                                    &["scalar"])?,
                                 Unknown { mpis, rest } => {
                                     let keys: Vec<String> =
@@ -399,9 +404,9 @@ impl PacketDumper {
                                             |i| format!("mpi{}", i)).collect();
                                     self.dump_mpis(
                                         output, &ii,
-                                        &mpis.iter()
-                                            .map(|m| m.value.iter().as_slice())
-                                            .collect::<Vec<_>>()[..],
+                                        &mpis.iter().map(|m| {
+                                            m.value().iter().as_slice()
+                                        }).collect::<Vec<_>>()[..],
                                         &keys.iter().map(|k| k.as_str())
                                             .collect::<Vec<_>>()[..],
                                     )?;
@@ -502,15 +507,15 @@ impl PacketDumper {
                     match p.esk() {
                         RSA { c } =>
                             self.dump_mpis(output, &ii,
-                                           &[&c.value],
+                                           &[c.value()],
                                            &["c"])?,
                         Elgamal { e, c } =>
                             self.dump_mpis(output, &ii,
-                                           &[&e.value, &c.value],
+                                           &[e.value(), c.value()],
                                            &["e", "c"])?,
                         ECDH { e, key } =>
                             self.dump_mpis(output, &ii,
-                                           &[&e.value, key],
+                                           &[e.value(), key],
                                            &["e", "key"])?,
                         Unknown { mpis, rest } => {
                             let keys: Vec<String> =
@@ -518,8 +523,9 @@ impl PacketDumper {
                                     |i| format!("mpi{}", i)).collect();
                             self.dump_mpis(
                                 output, &ii,
-                                &mpis.iter().map(|m| m.value.iter().as_slice())
-                                    .collect::<Vec<_>>()[..],
+                                &mpis.iter().map(|m| {
+                                    m.value().iter().as_slice()
+                                }).collect::<Vec<_>>()[..],
                                 &keys.iter().map(|k| k.as_str())
                                     .collect::<Vec<_>>()[..],
                             )?;

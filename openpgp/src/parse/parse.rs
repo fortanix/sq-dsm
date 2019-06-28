@@ -1961,7 +1961,7 @@ impl MPI {
         if bits == 0 {
             // Now consume the data.
             php.parse_be_u16(name_len).expect("worked before");
-            return Ok(MPI{ bits: 0, value: vec![].into_boxed_slice()});
+            return Ok(vec![].into());
         }
 
         let bytes = (bits + 7) / 8;
@@ -1996,10 +1996,7 @@ impl MPI {
         // Now consume the data.
         php.parse_be_u16(name_len).expect("worked before");
         php.parse_bytes(name, bytes).expect("worked before");
-        Ok(MPI{
-            bits: bits,
-            value: value.into_boxed_slice()
-        })
+        Ok(value.into())
     }
 
     /// Dissects this MPI describing a point into the individual
@@ -2019,19 +2016,19 @@ impl MPI {
                            ed25519::ED25519_KEY_SIZE);
                 // This curve uses a custom compression format which
                 // only contains the X coordinate.
-                if self.value.len() != 1 + curve25519::CURVE25519_SIZE {
+                if self.value().len() != 1 + curve25519::CURVE25519_SIZE {
                     return Err(Error::MalformedPacket(
                         format!("Bad size of Curve25519 key: {} expected: {}",
-                                self.value.len(),
+                                self.value().len(),
                                 1 + curve25519::CURVE25519_SIZE)).into());
                 }
 
-                if self.value[0] != 0x40 {
+                if self.value().get(0).map(|&b| b != 0x40).unwrap_or(true) {
                     return Err(Error::MalformedPacket(
                         "Bad encoding of Curve25519 key".into()).into());
                 }
 
-                Ok((&self.value[1..], &[]))
+                Ok((&self.value()[1..], &[]))
             },
 
             _ => {
@@ -2045,20 +2042,20 @@ impl MPI {
                     + (2 // (x, y)
                        * coordinate_length);
 
-                if self.value.len() != expected_length {
+                if self.value().len() != expected_length {
                     return Err(Error::InvalidArgument(
                         format!("Invalid length of MPI: {} (expected {})",
-                                self.value.len(), expected_length)).into());
+                                self.value().len(), expected_length)).into());
                 }
 
-                if self.value[0] != 0x04 {
+                if self.value().get(0).map(|&b| b != 0x04).unwrap_or(true) {
                     return Err(Error::InvalidArgument(
-                        format!("Bad prefix: {:x} (expected 0x04)", self.value[0]))
-                               .into());
+                        format!("Bad prefix: {:?} (expected Some(0x04))",
+                                self.value().get(0))).into());
                 }
 
-                Ok((&self.value[1..1 + coordinate_length],
-                    &self.value[1 + coordinate_length..]))
+                Ok((&self.value()[1..1 + coordinate_length],
+                    &self.value()[1 + coordinate_length..]))
             },
         }
     }

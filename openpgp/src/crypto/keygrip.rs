@@ -57,9 +57,9 @@ impl PublicKey {
             where H: Hash + ::std::io::Write
         {
             write!(hash, "(1:{}{}:",
-                   kind, mpi.value.len() + prefix.len()).unwrap();
+                   kind, mpi.value().len() + prefix.len()).unwrap();
             hash.update(prefix);
-            hash.update(&mpi.value);
+            hash.update(mpi.value());
             write!(hash, ")").unwrap();
         }
 
@@ -75,11 +75,11 @@ impl PublicKey {
                     if i == 6 { q.clone() } else { ecc_param(curve, i) };
 
                 // Opaque encoding?
-                if m.value[0] == 0x40 {
+                if m.value()[0] == 0x40 {
                     // Drop the prefix!
-                    let mut p = Vec::from(m.value);
+                    let mut p = Vec::from(m.value());
                     p.remove(0);
-                    m.value = p.into();
+                    m = p.into();
                 }
 
                 hash_sexp_mpi(hash, name, &[], &m);
@@ -99,7 +99,7 @@ impl PublicKey {
                 // overwhelming empirical evidence suggest that we
                 // need to prepend a 0.
                 hash.update(&[0]);
-                hash.update(&n.value);
+                hash.update(n.value());
             },
 
             &DSA { ref p, ref q, ref g, ref y } => {

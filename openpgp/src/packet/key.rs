@@ -941,7 +941,8 @@ mod tests {
                                                    SymmetricAlgorithm::AES128,
                                                    ctime).unwrap().into();
         match key.mpis {
-            self::mpis::PublicKey::ECDH{ ref q,.. } => assert_eq!(&q.value[1..], &public[..]),
+            self::mpis::PublicKey::ECDH{ ref q,.. } =>
+                assert_eq!(&q.value()[1..], &public[..]),
             _ => unreachable!(),
         }
 

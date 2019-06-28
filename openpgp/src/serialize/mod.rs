@@ -407,15 +407,15 @@ impl SerializeInto for Fingerprint {
 
 impl Serialize for crypto::mpis::MPI {
     fn serialize(&self, w: &mut dyn std::io::Write) -> Result<()> {
-        write_be_u16(w, self.bits as u16)?;
-        w.write_all(&self.value)?;
+        write_be_u16(w, self.bits() as u16)?;
+        w.write_all(self.value())?;
         Ok(())
     }
 }
 
 impl SerializeInto for crypto::mpis::MPI {
     fn serialized_len(&self) -> usize {
-        2 + self.value.len()
+        2 + self.value().len()
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {

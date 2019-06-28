@@ -183,10 +183,10 @@ pub fn decrypt(recipient: &Key, recipient_sec: &SecretKey,
                     // Reverse the scalar.  See
                     // https://lists.gnupg.org/pipermail/gnupg-devel/2018-February/033437.html.
                     let missing = curve25519::CURVE25519_SIZE
-                        .saturating_sub(scalar.value.len());
+                        .saturating_sub(scalar.value().len());
                     let mut r = [0u8; curve25519::CURVE25519_SIZE];
 
-                    r[missing..].copy_from_slice(&scalar.value[..]);
+                    r[missing..].copy_from_slice(scalar.value());
                     r.reverse();
 
                     // Compute the shared point S = rV = rvG, where (r, R)
@@ -213,7 +213,7 @@ pub fn decrypt(recipient: &Key, recipient_sec: &SecretKey,
                             let V =
                                 ecc::Point::new::<ecc::Secp256r1>(&Vx, &Vy)?;
                             let r =
-                                ecc::Scalar::new::<ecc::Secp256r1>(&scalar.value[..])?;
+                                ecc::Scalar::new::<ecc::Secp256r1>(scalar.value())?;
 
                             (V, r)
                         }
@@ -221,7 +221,7 @@ pub fn decrypt(recipient: &Key, recipient_sec: &SecretKey,
                             let V =
                                 ecc::Point::new::<ecc::Secp384r1>(&Vx, &Vy)?;
                             let r =
-                                ecc::Scalar::new::<ecc::Secp384r1>(&scalar.value[..])?;
+                                ecc::Scalar::new::<ecc::Secp384r1>(scalar.value())?;
 
                             (V, r)
                         }
@@ -229,7 +229,7 @@ pub fn decrypt(recipient: &Key, recipient_sec: &SecretKey,
                             let V =
                                 ecc::Point::new::<ecc::Secp521r1>(&Vx, &Vy)?;
                             let r =
-                                ecc::Scalar::new::<ecc::Secp521r1>(&scalar.value[..])?;
+                                ecc::Scalar::new::<ecc::Secp521r1>(scalar.value())?;
 
                             (V, r)
                         }
