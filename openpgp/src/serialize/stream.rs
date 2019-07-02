@@ -13,7 +13,7 @@ use std::fmt;
 use std::io::{self, Write};
 use std::iter;
 use time;
-use nettle::{Hash, Yarrow, Random};
+use nettle::{Yarrow, Random};
 
 use {
     crypto,
@@ -201,7 +201,7 @@ pub struct Signer<'a> {
     signers: Vec<&'a mut dyn crypto::Signer>,
     intended_recipients: Option<Vec<Fingerprint>>,
     detached: bool,
-    hash: Box<Hash>,
+    hash: crypto::hash::Context,
     cookie: Cookie,
 }
 
@@ -816,7 +816,7 @@ impl<'a> writer::Stackable<'a, Cookie> for Compressor<'a> {
 /// Encrypts a packet stream.
 pub struct Encryptor<'a> {
     inner: Option<writer::BoxStack<'a, Cookie>>,
-    hash: Box<Hash>,
+    hash: crypto::hash::Context,
     cookie: Cookie,
 }
 

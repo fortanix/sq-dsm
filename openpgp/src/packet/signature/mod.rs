@@ -8,7 +8,7 @@ use Error;
 use Result;
 use crypto::{
     mpis,
-    hash::Hash,
+    hash::{self, Hash},
     Signer,
 };
 use HashAlgorithm;
@@ -24,7 +24,7 @@ use packet;
 use packet::signature::subpacket::SubpacketArea;
 use serialize::SerializeInto;
 
-use nettle::{self, dsa, ecc, ecdsa, ed25519, rsa};
+use nettle::{dsa, ecc, ecdsa, ed25519, rsa};
 use nettle::rsa::verify_digest_pkcs1;
 
 pub mod subpacket;
@@ -179,7 +179,7 @@ impl Builder {
     /// algorithm used by `signer`, the hash-algorithm field is set to
     /// `hash_algo`.
     pub fn sign_hash(mut self, signer: &mut Signer,
-                     hash_algo: HashAlgorithm, mut hash: Box<nettle::Hash>)
+                     hash_algo: HashAlgorithm, mut hash: hash::Context)
                      -> Result<Signature> {
         // Fill out some fields, then hash the packet.
         self.pk_algo = signer.public().pk_algo();

@@ -10,8 +10,6 @@ use std::path::Path;
 use time;
 use failure;
 
-use nettle;
-
 use ::buffered_reader::*;
 
 use {
@@ -478,7 +476,7 @@ pub(crate) struct SignatureGroup {
     ops_count: usize,
 
     /// Maps hash algorithms to hash contexts.
-    pub(crate) hashes: HashMap<HashAlgorithm, Box<nettle::Hash>>,
+    pub(crate) hashes: HashMap<HashAlgorithm, crypto::hash::Context>,
 }
 
 impl fmt::Debug for SignatureGroup {

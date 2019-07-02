@@ -4,7 +4,7 @@ use std::io::Read;
 use std::ops::{Deref, DerefMut};
 use std::fmt;
 
-use nettle::{self, Random, Yarrow};
+use nettle::{Random, Yarrow};
 
 use constants::HashAlgorithm;
 use Result;
@@ -158,7 +158,7 @@ impl fmt::Debug for Password {
 ///
 /// This is useful when verifying detached signatures.
 pub fn hash_file<R: Read>(reader: R, algos: &[HashAlgorithm])
-    -> Result<Vec<(HashAlgorithm, Box<nettle::Hash>)>>
+    -> Result<Vec<(HashAlgorithm, hash::Context)>>
 {
     use std::mem;
 

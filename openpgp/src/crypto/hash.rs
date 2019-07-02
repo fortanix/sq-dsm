@@ -15,11 +15,49 @@ use nettle;
 use nettle::Hash as NettleHash;
 
 use std::fs::{File, OpenOptions};
-use std::io::Write;
+use std::io::{self, Write};
 
 // If set to e.g. Some("/tmp/hash"), we will dump everything that is
 // hashed to files /tmp/hash-N, where N is a number.
 const DUMP_HASHED_VALUES: Option<&str> = None;
+
+/// State of a hash function.
+#[derive(Clone)]
+pub struct Context(Box<nettle::Hash>);
+
+impl Context {
+    /// Size of the digest in bytes
+    pub fn digest_size(&self) -> usize {
+        self.0.digest_size()
+    }
+
+    /// Writes data into the hash function.
+    pub fn update<D: AsRef<[u8]>>(&mut self, data: D) {
+        self.0.update(data.as_ref());
+    }
+
+    /// Finalizes the hash function and writes the digest into the
+    /// provided slice.
+    ///
+    /// Resets the hash function contexts.
+    ///
+    /// `digest` must be at least `self.digest_size()` bytes large,
+    /// otherwise the digest will be truncated.
+    pub fn digest<D: AsMut<[u8]>>(&mut self, mut digest: D) {
+        self.0.digest(digest.as_mut());
+    }
+}
+
+impl io::Write for Context {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        self.update(buf);
+        Ok(buf.len())
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+}
 
 impl HashAlgorithm {
     /// Whether Sequoia supports this algorithm.
@@ -46,7 +84,7 @@ impl HashAlgorithm {
     /// [`HashAlgorithm::is_supported`].
     ///
     ///   [`HashAlgorithm::is_supported`]: #method.is_supported
-    pub fn context(self) -> Result<Box<nettle::Hash>> {
+    pub fn context(self) -> Result<Context> {
         use nettle::hash::*;
         use nettle::hash::insecure_do_not_use::Sha1;
 
@@ -63,11 +101,11 @@ impl HashAlgorithm {
         };
 
         if let Some(prefix) = DUMP_HASHED_VALUES {
-            c.map(|c: Box<nettle::Hash>| -> Box<nettle::Hash> {
-                Box::new(HashDumper::new(c, prefix))
+            c.map(|c: Box<nettle::Hash>| {
+                Context(Box::new(HashDumper::new(c, prefix)))
             })
         } else {
-            c
+            c.map(|c| Context(c))
         }
     }
 
@@ -146,12 +184,12 @@ impl nettle::Hash for HashDumper {
 /// Hashes OpenPGP packets and related types.
 pub trait Hash {
     /// Updates the given hash with this object.
-    fn hash<H: nettle::Hash + Write>(&self, hash: &mut H);
+    fn hash(&self, hash: &mut Context);
 }
 
 impl Hash for UserID {
     /// Update the Hash with a hash of the user id.
-    fn hash<H: nettle::Hash + Write>(&self, hash: &mut H) {
+    fn hash(&self, hash: &mut Context) {
         let mut header = [0; 5];
 
         header[0] = 0xB4;
@@ -168,7 +206,7 @@ impl Hash for UserID {
 
 impl Hash for UserAttribute {
     /// Update the Hash with a hash of the user attribute.
-    fn hash<H: nettle::Hash + Write>(&self, hash: &mut H) {
+    fn hash(&self, hash: &mut Context) {
         let mut header = [0; 5];
 
         header[0] = 0xD1;
@@ -185,7 +223,7 @@ impl Hash for UserAttribute {
 
 impl Hash for Key4 {
     /// Update the Hash with a hash of the key.
-    fn hash<H: nettle::Hash + Write>(&self, hash: &mut H) {
+    fn hash(&self, hash: &mut Context) {
         // We hash 8 bytes plus the MPIs.  But, the len doesn't
         // include the tag (1 byte) or the length (2 bytes).
         let len = (9 - 3) + self.mpis().serialized_len();
@@ -222,7 +260,7 @@ impl Hash for Key4 {
 
 impl Hash for Signature {
     /// Adds the `Signature` to the provided hash context.
-    fn hash<H: nettle::Hash + Write>(&self, hash: &mut H) {
+    fn hash(&self, hash: &mut Context) {
         match self {
             Signature::V4(sig) => sig.hash(hash),
         }
@@ -231,14 +269,14 @@ impl Hash for Signature {
 
 impl Hash for Signature4 {
     /// Adds the `Signature` to the provided hash context.
-    fn hash<H: nettle::Hash + Write>(&self, hash: &mut H) {
+    fn hash(&self, hash: &mut Context) {
         self.fields.hash(hash);
     }
 }
 
 impl Hash for signature::Builder {
     /// Adds the `Signature` to the provided hash context.
-    fn hash<H: nettle::Hash + Write>(&self, hash: &mut H) {
+    fn hash(&self, hash: &mut Context) {
         // A version 4 signature packet is laid out as follows:
         //
         //   version - 1 byte                    \
@@ -302,7 +340,7 @@ impl Signature {
         where S: Into<&'a signature::Builder> {
 
         let sig = sig.into();
-        let mut h: Box<nettle::Hash> = sig.hash_algo().context()?;
+        let mut h = sig.hash_algo().context()?;
 
         key.hash(&mut h);
         sig.hash(&mut h);
@@ -319,7 +357,7 @@ impl Signature {
         where S: Into<&'a signature::Builder> {
 
         let sig = sig.into();
-        let mut h: Box<nettle::Hash> = sig.hash_algo().context()?;
+        let mut h = sig.hash_algo().context()?;
 
         key.hash(&mut h);
         subkey.hash(&mut h);
@@ -337,7 +375,7 @@ impl Signature {
         where S: Into<&'a signature::Builder> {
 
         let sig = sig.into();
-        let mut h: Box<nettle::Hash> = sig.hash_algo().context()?;
+        let mut h = sig.hash_algo().context()?;
 
         key.hash(&mut h);
         userid.hash(&mut h);
@@ -356,7 +394,7 @@ impl Signature {
         where S: Into<&'a signature::Builder> {
 
         let sig = sig.into();
-        let mut h: Box<nettle::Hash> = sig.hash_algo().context()?;
+        let mut h = sig.hash_algo().context()?;
 
         key.hash(&mut h);
         ua.hash(&mut h);

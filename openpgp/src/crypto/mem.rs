@@ -41,6 +41,12 @@ impl AsRef<[u8]> for Protected {
     }
 }
 
+impl AsMut<[u8]> for Protected {
+    fn as_mut(&mut self) -> &mut [u8] {
+        &mut self.0
+    }
+}
+
 impl DerefMut for Protected {
     fn deref_mut(&mut self) -> &mut [u8] {
         &mut self.0

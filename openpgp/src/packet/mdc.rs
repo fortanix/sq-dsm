@@ -1,4 +1,4 @@
-use nettle;
+use crypto;
 use packet;
 use Packet;
 
@@ -67,8 +67,8 @@ impl From<[u8; 20]> for MDC {
     }
 }
 
-impl From<Box<nettle::Hash>> for MDC {
-    fn from(mut hash: Box<nettle::Hash>) -> Self {
+impl From<crypto::hash::Context> for MDC {
+    fn from(mut hash: crypto::hash::Context) -> Self {
         let mut value : [u8; 20] = Default::default();
         hash.digest(&mut value[..]);
         value.into()

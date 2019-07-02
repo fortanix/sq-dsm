@@ -5,9 +5,6 @@ use std::mem;
 use std::cmp::Ordering;
 use time;
 
-use nettle::Hash as NettleHash;
-use nettle::hash::insecure_do_not_use::Sha1;
-
 use Error;
 use crypto::{mem::Protected, mpis, hash::Hash, KeyPair};
 use packet::Tag;
@@ -508,7 +505,7 @@ impl Key4 {
     /// Computes and returns the key's fingerprint as per Section 12.2
     /// of RFC 4880.
     pub fn fingerprint(&self) -> Fingerprint {
-        let mut h = Sha1::default();
+        let mut h = HashAlgorithm::SHA1.context().unwrap();
 
         self.hash(&mut h);
 

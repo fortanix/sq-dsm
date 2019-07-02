@@ -1,7 +1,6 @@
 //! Multi Precision Integers.
 
 use std::fmt;
-use std::io::Write;
 use std::cmp::Ordering;
 
 use quickcheck::{Arbitrary, Gen};
@@ -13,7 +12,7 @@ use constants::{
     PublicKeyAlgorithm,
     SymmetricAlgorithm,
 };
-use crypto::hash::Hash;
+use crypto::hash::{self, Hash};
 use crypto::mem::{secure_cmp, Protected};
 use serialize::Serialize;
 
@@ -187,7 +186,7 @@ impl fmt::Debug for MPI {
 
 impl Hash for MPI {
     /// Update the Hash with a hash of the MPIs.
-    fn hash<H: nettle::Hash + Write>(&self, hash: &mut H) {
+    fn hash(&self, hash: &mut hash::Context) {
         let len = &[(self.bits() >> 8) as u8 & 0xFF, self.bits() as u8];
 
         hash.update(len);
@@ -439,7 +438,7 @@ impl PublicKey {
 
 impl Hash for PublicKey {
     /// Update the Hash with a hash of the MPIs.
-    fn hash<H: nettle::Hash + Write>(&self, hash: &mut H) {
+    fn hash(&self, hash: &mut hash::Context) {
         self.serialize(hash).expect("hashing does not fail")
     }
 }
@@ -726,7 +725,7 @@ impl SecretKey {
 
 impl Hash for SecretKey {
     /// Update the Hash with a hash of the MPIs.
-    fn hash<H: nettle::Hash + Write>(&self, hash: &mut H) {
+    fn hash(&self, hash: &mut hash::Context) {
         self.serialize(hash).expect("hashing does not fail")
     }
 }
@@ -848,7 +847,7 @@ impl Ciphertext {
 
 impl Hash for Ciphertext {
     /// Update the Hash with a hash of the MPIs.
-    fn hash<H: nettle::Hash + Write>(&self, hash: &mut H) {
+    fn hash(&self, hash: &mut hash::Context) {
         self.serialize(hash).expect("hashing does not fail")
     }
 }
@@ -960,7 +959,7 @@ impl Signature {
 
 impl Hash for Signature {
     /// Update the Hash with a hash of the MPIs.
-    fn hash<H: nettle::Hash + Write>(&self, hash: &mut H) {
+    fn hash(&self, hash: &mut hash::Context) {
         self.serialize(hash).expect("hashing does not fail")
     }
 }

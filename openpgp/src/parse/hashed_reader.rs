@@ -3,8 +3,6 @@ use std::cmp;
 use std::mem;
 use std::fmt;
 
-use nettle::Hash;
-
 use buffered_reader::BufferedReader;
 use buffered_reader::buffered_reader_generic_read_impl;
 
