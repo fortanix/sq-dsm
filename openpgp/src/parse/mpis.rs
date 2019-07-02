@@ -152,8 +152,6 @@ impl mpis::SecretKey {
                                   -> Result<Self> {
         use std::io::Cursor;
         use serialize::Serialize;
-        use nettle::Hash;
-        use nettle::hash::insecure_do_not_use::Sha1;
 
         // read mpis
         let bio = buffered_reader::Generic::with_cookie(
@@ -168,7 +166,7 @@ impl mpis::SecretKey {
         // compute sha1 hash
         mpis.serialize(&mut cur)?;
         let buf = cur.into_inner();
-        let mut hsh = Sha1::default();
+        let mut hsh = HashAlgorithm::SHA1.context().unwrap();
 
         hsh.update(&buf);
         let mut our_chksum = [0u8; 20];

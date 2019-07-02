@@ -1,11 +1,8 @@
 use std::fmt;
 
-use nettle;
-use nettle::Hash;
-
 use Error;
 use Result;
-use constants::Curve;
+use constants::{Curve, HashAlgorithm};
 use crypto::mpis::{MPI, PublicKey};
 
 /// A proprietary, protocol agnostic identifier for public keys.
@@ -50,11 +47,13 @@ impl Keygrip {
 impl PublicKey {
     /// Computes the keygrip.
     pub fn keygrip(&self) -> Result<Keygrip> {
+        use crypto::hash;
+        use std::io::Write;
         use self::PublicKey::*;
-        let mut hash = nettle::hash::insecure_do_not_use::Sha1::default();
+        let mut hash = HashAlgorithm::SHA1.context().unwrap();
 
-        fn hash_sexp_mpi<H>(hash: &mut H, kind: char, prefix: &[u8], mpi: &MPI)
-            where H: Hash + ::std::io::Write
+        fn hash_sexp_mpi(hash: &mut hash::Context, kind: char, prefix: &[u8],
+                         mpi: &MPI)
         {
             write!(hash, "(1:{}{}:",
                    kind, mpi.value().len() + prefix.len()).unwrap();
@@ -63,8 +62,7 @@ impl PublicKey {
             write!(hash, ")").unwrap();
         }
 
-        fn hash_ecc<H>(hash: &mut H, curve: &Curve, q: &MPI)
-            where H: Hash + ::std::io::Write
+        fn hash_ecc(hash: &mut hash::Context, curve: &Curve, q: &MPI)
         {
             for (i, name) in "pabgnhq".chars().enumerate() {
                 if i == 5 {
