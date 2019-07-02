@@ -930,8 +930,8 @@ impl From<Signature4> for super::Signature {
 
 #[cfg(test)]
 mod test {
-    use nettle::{Random, Yarrow};
     use super::*;
+    use crypto;
     use crypto::mpis::MPI;
     use TPK;
     use parse::Parse;
@@ -1080,7 +1080,7 @@ mod test {
     fn sign_verify() {
         let hash_algo = HashAlgorithm::SHA512;
         let mut hash = vec![0; hash_algo.context().unwrap().digest_size()];
-        Yarrow::default().random(&mut hash);
+        crypto::random(&mut hash);
 
         for key in &[
             "testy-private.pgp",

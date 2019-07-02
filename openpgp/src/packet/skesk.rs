@@ -9,9 +9,8 @@
 use std::ops::{Deref, DerefMut};
 use quickcheck::{Arbitrary, Gen};
 
-use nettle::{Random, Yarrow};
-
 use Result;
+use crypto;
 use crypto::s2k::S2K;
 use Error;
 use constants::{
@@ -282,7 +281,7 @@ impl SKESK5 {
         // Derive key and make a cipher.
         let key = s2k.derive_key(password, cipher.key_size()?)?;
         let mut iv = vec![0u8; aead.iv_size()?];
-        Yarrow::default().random(&mut iv);
+        crypto::random(&mut iv);
         let mut ctx = aead.context(cipher, &key, &iv)?;
 
         // Prepare associated data.

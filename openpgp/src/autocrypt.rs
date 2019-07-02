@@ -400,17 +400,13 @@ impl AutocryptSetupMessage {
 
     // Generates a new passcode in "numeric9x4" format.
     fn passcode_gen() -> Password {
-        use nettle::{Random, Yarrow};
-
         // Generate a random passcode.
 
         // The passcode consists of 36 digits, which encode
         // approximately 119 bits of information.  120 bits = 15
         // bytes.
-        let mut rng = Yarrow::default();
-
         let mut p_as_vec = vec![0; 15];
-        rng.random(&mut p_as_vec[..]);
+        ::crypto::random(&mut p_as_vec[..]);
         let p = Password::from(p_as_vec);
 
         // Turn it into a 128-bit number.

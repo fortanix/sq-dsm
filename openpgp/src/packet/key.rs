@@ -6,7 +6,7 @@ use std::cmp::Ordering;
 use time;
 
 use Error;
-use crypto::{mem::Protected, mpis, hash::Hash, KeyPair};
+use crypto::{self, mem::Protected, mpis, hash::Hash, KeyPair};
 use packet::Tag;
 use packet;
 use Packet;
@@ -660,7 +660,6 @@ impl Unencrypted {
                    -> Result<Encrypted> {
         use std::io::Write;
         use crypto::symmetric::Encryptor;
-        use nettle::{Random, Yarrow};
 
         let s2k = S2K::default();
         let algo = SymmetricAlgorithm::AES256;
@@ -668,7 +667,7 @@ impl Unencrypted {
 
         // Ciphertext is preceded by a random block.
         let mut trash = vec![0u8; algo.block_size()?];
-        Yarrow::default().random(&mut trash);
+        crypto::random(&mut trash);
 
         let mut esk = Vec::new();
         {

@@ -583,8 +583,6 @@ mod tests {
     #[test]
     fn roundtrip() {
         use std::io::Cursor;
-        use nettle::{Random, Yarrow};
-        let mut rng = Yarrow::default();
 
         for algo in [SymmetricAlgorithm::TripleDES,
                      SymmetricAlgorithm::CAST5,
@@ -597,7 +595,7 @@ mod tests {
                      SymmetricAlgorithm::Camellia192,
                      SymmetricAlgorithm::Camellia256].iter() {
             let mut key = vec![0; algo.key_size().unwrap()];
-            rng.random(&mut key);
+            ::crypto::random(&mut key);
 
             let mut ciphertext = Vec::new();
             {

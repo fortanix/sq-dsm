@@ -754,8 +754,6 @@ mod tests {
     #[test]
     fn roundtrip() {
         use std::io::Cursor;
-        use nettle::{Random, Yarrow};
-        let mut rng = Yarrow::default();
 
         for sym_algo in [SymmetricAlgorithm::AES128,
                          SymmetricAlgorithm::AES192,
@@ -768,10 +766,10 @@ mod tests {
                 let version = 1;
                 let chunk_size = 64;
                 let mut key = vec![0; sym_algo.key_size().unwrap()];
-                rng.random(&mut key);
+                ::crypto::random(&mut key);
                 let key: SessionKey = key.into();
                 let mut iv = vec![0; aead.iv_size().unwrap()];
-                rng.random(&mut iv);
+                ::crypto::random(&mut iv);
 
                 let mut ciphertext = Vec::new();
                 {

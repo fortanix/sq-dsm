@@ -14,7 +14,6 @@ use crypto::SessionKey;
 
 use std::fmt;
 
-use nettle::{Yarrow, Random};
 use quickcheck::{Arbitrary, Gen};
 use rand::Rng;
 
@@ -57,7 +56,7 @@ pub enum S2K {
 impl Default for S2K {
     fn default() -> Self {
         let mut salt = [0u8; 8];
-        Yarrow::default().random(&mut salt);
+        ::crypto::random(&mut salt);
         S2K::Iterated {
             // SHA2-256, being optimized for implementations on
             // architectures with a word size of 32 bit, has a more

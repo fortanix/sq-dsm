@@ -27,6 +27,13 @@ pub use self::asymmetric::{
     KeyPair,
 };
 
+/// Fills the given buffer with random data.
+pub fn random<B: AsMut<[u8]>>(mut buf: B) {
+    use std::cell::RefCell;
+    thread_local!(static RNG: RefCell<Yarrow> = Default::default());
+    RNG.with(|rng| rng.borrow_mut().random(buf.as_mut()));
+}
+
 /// Holds a session key.
 ///
 /// The session key is cleared when dropped.
@@ -37,7 +44,7 @@ impl SessionKey {
     /// Creates a new session key.
     pub fn new(size: usize) -> Self {
         let mut sk: mem::Protected = vec![0; size].into();
-        Yarrow::default().random(&mut sk);
+        random(&mut sk);
         Self(sk)
     }
 

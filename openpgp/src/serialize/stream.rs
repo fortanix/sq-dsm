@@ -13,7 +13,6 @@ use std::fmt;
 use std::io::{self, Write};
 use std::iter;
 use time;
-use nettle::{Yarrow, Random};
 
 use {
     crypto,
@@ -924,8 +923,6 @@ impl<'a> Encryptor<'a> {
                 "Neither recipient keys nor passwords given".into()).into());
         }
 
-        let mut rng = Yarrow::default();
-
         struct AEADParameters {
             algo: AEADAlgorithm,
             chunk_size: usize,
@@ -938,7 +935,7 @@ impl<'a> Encryptor<'a> {
                 .unwrap_or(false)
         }) {
             let mut nonce = vec![0; AEADAlgorithm::EAX.iv_size()?];
-            rng.random(&mut nonce);
+            crypto::random(&mut nonce);
             Some(AEADParameters {
                 algo: AEADAlgorithm::EAX, // Must implement EAX.
                 chunk_size: 4096, // A page, 3 per mille overhead.
@@ -1062,7 +1059,7 @@ impl<'a> Encryptor<'a> {
 
             // Write the initialization vector, and the quick-check bytes.
             let mut iv = vec![0; algo.block_size()?];
-            rng.random(&mut iv);
+            crypto::random(&mut iv);
             encryptor.write_all(&iv)?;
             encryptor.write_all(&iv[iv.len() - 2..])?;
 
