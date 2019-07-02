@@ -37,8 +37,15 @@ impl HashAlgorithm {
         }
     }
 
-    /// Creates a new Nettle hash context for this algorith. Fails if Sequoia
-    /// does not support this algorithm. See `is_supported`.
+    /// Creates a new Nettle hash context for this algorith.
+    ///
+    /// # Errors
+    ///
+    /// Fails with `Error::UnsupportedHashAlgorithm` if Sequoia does
+    /// not support this algorithm. See
+    /// [`HashAlgorithm::is_supported`].
+    ///
+    ///   [`HashAlgorithm::is_supported`]: #method.is_supported
     pub fn context(self) -> Result<Box<nettle::Hash>> {
         use nettle::hash::*;
         use nettle::hash::insecure_do_not_use::Sha1;

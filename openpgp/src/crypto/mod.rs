@@ -12,7 +12,7 @@ use Result;
 pub(crate) mod aead;
 mod asymmetric;
 pub(crate) mod ecdh;
-mod hash;
+pub mod hash;
 mod keygrip;
 pub use self::keygrip::Keygrip;
 pub(crate) mod mem;
@@ -26,8 +26,6 @@ pub use self::asymmetric::{
     Decryptor,
     KeyPair,
 };
-
-pub use self::hash::Hash;
 
 /// Holds a session key.
 ///

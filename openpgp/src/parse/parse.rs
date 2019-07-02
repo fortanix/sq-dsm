@@ -15,7 +15,7 @@ use nettle;
 use ::buffered_reader::*;
 
 use {
-    crypto::{aead, Hash},
+    crypto::{aead, hash::Hash},
     Result,
     CTB,
     BodyLength,

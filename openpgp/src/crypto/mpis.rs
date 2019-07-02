@@ -13,7 +13,7 @@ use constants::{
     PublicKeyAlgorithm,
     SymmetricAlgorithm,
 };
-use crypto::Hash;
+use crypto::hash::Hash;
 use crypto::mem::{secure_cmp, Protected};
 use serialize::Serialize;
 

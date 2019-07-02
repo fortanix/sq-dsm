@@ -11,7 +11,7 @@ use time;
 use failure;
 
 use {
-    crypto::{Hash, Signer},
+    crypto::{hash::Hash, Signer},
     Error,
     Result,
     RevocationStatus,

@@ -9,7 +9,7 @@ use nettle::Hash as NettleHash;
 use nettle::hash::insecure_do_not_use::Sha1;
 
 use Error;
-use crypto::{mem::Protected, mpis, Hash, KeyPair};
+use crypto::{mem::Protected, mpis, hash::Hash, KeyPair};
 use packet::Tag;
 use packet;
 use Packet;
