@@ -19,8 +19,6 @@ use serialize::Serialize;
 use Error;
 use Result;
 
-use nettle;
-
 /// Holds a single MPI.
 #[derive(Clone, Hash)]
 pub struct MPI {
@@ -142,14 +140,6 @@ impl MPI {
                     &self.value()[1 + coordinate_length..]))
             },
         }
-    }
-
-    /// Update the Hash with a hash of the MPIs.
-    pub fn hash<H: nettle::Hash>(&self, hash: &mut H) {
-        let len = &[(self.bits() >> 8) as u8 & 0xFF, self.bits() as u8];
-
-        hash.update(len);
-        hash.update(&self.value);
     }
 
     pub(crate) fn secure_memzero(&mut self) {
