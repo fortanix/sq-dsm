@@ -5,7 +5,6 @@
 //! [`sequoia-openpgp::crypto`]: ../../sequoia_openpgp/crypto/index.html
 
 use libc::size_t;
-use nettle::Yarrow;
 
 extern crate sequoia_openpgp as openpgp;
 use self::openpgp::{
@@ -26,7 +25,7 @@ pub struct SessionKey(openpgp::crypto::SessionKey);
 /// Creates a new session key.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_session_key_new(size: size_t) -> *mut SessionKey {
-    openpgp::crypto::SessionKey::new(&mut Yarrow::default(), size)
+    openpgp::crypto::SessionKey::new(size)
         .move_into_raw()
 }
 

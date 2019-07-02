@@ -962,7 +962,7 @@ mod tests {
         // 0: SK-ESK
         // => bad.
         let mut packets : Vec<Packet> = Vec::new();
-        let sk = ::crypto::SessionKey::new(&mut Default::default(), 8);
+        let sk = ::crypto::SessionKey::new(8);
         packets.push(SKESK4::with_password(
             SymmetricAlgorithm::AES256,
             S2K::Simple { hash: HashAlgorithm::SHA256 },

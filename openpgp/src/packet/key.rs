@@ -853,8 +853,7 @@ mod tests {
             let key = Key::from(key);
             let mut keypair = key.clone().into_keypair().unwrap();
             let cipher = SymmetricAlgorithm::AES256;
-            let sk = SessionKey::new(&mut Default::default(),
-                                     cipher.key_size().unwrap());
+            let sk = SessionKey::new(cipher.key_size().unwrap());
 
             let pkesk = PKESK3::for_recipient(cipher, &sk, &key).unwrap();
             let (cipher_, sk_) = pkesk.decrypt(&mut keypair).unwrap();

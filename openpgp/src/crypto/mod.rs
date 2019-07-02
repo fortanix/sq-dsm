@@ -35,9 +35,9 @@ pub struct SessionKey(mem::Protected);
 
 impl SessionKey {
     /// Creates a new session key.
-    pub fn new(rng: &mut Yarrow, size: usize) -> Self {
+    pub fn new(size: usize) -> Self {
         let mut sk: mem::Protected = vec![0; size].into();
-        rng.random(&mut sk);
+        Yarrow::default().random(&mut sk);
         Self(sk)
     }
 

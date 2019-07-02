@@ -952,7 +952,7 @@ impl<'a> Encryptor<'a> {
         let algo = cipher_algo.into().unwrap_or(SymmetricAlgorithm::AES256);
 
         // Generate a session key.
-        let sk = SessionKey::new(&mut rng, algo.key_size()?);
+        let sk = SessionKey::new(algo.key_size()?);
 
         // Write the PKESK packet(s).
         for tpk in tpks {

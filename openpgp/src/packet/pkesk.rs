@@ -334,7 +334,7 @@ mod tests {
         use constants::Curve;
         use packet::Key;
         use packet::key::Key4;
-        use nettle::{curve25519, Yarrow};
+        use nettle::curve25519;
         use time;
 
         // 20 byte sec key
@@ -362,8 +362,7 @@ mod tests {
                                      public_mpis, None)
             .unwrap().into();
         key.set_secret(Some(private_mpis.into()));
-        let mut rng = Yarrow::default();
-        let sess_key = SessionKey::new(&mut rng, 32);
+        let sess_key = SessionKey::new(32);
         let pkesk = PKESK3::for_recipient(SymmetricAlgorithm::AES256, &sess_key,
                                           &key).unwrap();
         let mut keypair = key.into_keypair().unwrap();
