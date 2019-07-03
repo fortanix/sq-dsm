@@ -37,7 +37,7 @@ pub enum CipherSuite {
 
 impl Default for CipherSuite {
     fn default() -> Self {
-        CipherSuite::RSA3k
+        CipherSuite::Cv25519
     }
 }
 
@@ -110,14 +110,13 @@ impl TPKBuilder {
     ///
     /// The returned TPKBuilder is setup to only create a
     /// certification-capable primary key using the default cipher
-    /// suite (currently: `CipherSuite::RSA3k`).  You'll almost
-    /// certainly want to add subkeys (using
+    /// suite.  You'll almost certainly want to add subkeys (using
     /// `TPKBuilder::add_signing_subkey`, or
     /// `TPKBuilder::add_encryption_subkey`, for instance), and user
     /// ids (using `TPKBuilder::add_userid`).
     pub fn new() -> Self {
         TPKBuilder{
-            ciphersuite: CipherSuite::RSA3k,
+            ciphersuite: CipherSuite::default(),
             primary: KeyBlueprint{
                 flags: KeyFlags::default().set_certify(true),
             },
@@ -458,6 +457,7 @@ mod tests {
         assert_eq!(tpk1.primary().pk_algo(), PublicKeyAlgorithm::EdDSA);
 
         let (tpk2, _) = TPKBuilder::new()
+            .set_cipher_suite(CipherSuite::RSA3k)
             .add_userid("test2@example.com")
             .add_encryption_subkey()
             .generate().unwrap();
@@ -473,7 +473,7 @@ mod tests {
             .add_userid("test2@example.com")
             .generate().unwrap();
         assert_eq!(tpk1.primary().pk_algo(),
-                   PublicKeyAlgorithm::RSAEncryptSign);
+                   PublicKeyAlgorithm::EdDSA);
         assert!(tpk1.subkeys().next().is_none());
         if let Some(sig) = tpk1.primary_key_signature() {
             assert!(sig.features().supports_mdc());
