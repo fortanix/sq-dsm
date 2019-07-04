@@ -74,6 +74,12 @@ impl DerefMut for SessionKey {
     }
 }
 
+impl AsMut<[u8]> for SessionKey {
+    fn as_mut(&mut self) -> &mut [u8] {
+        &mut self.0
+    }
+}
+
 impl From<mem::Protected> for SessionKey {
     fn from(v: mem::Protected) -> Self {
         SessionKey(v)
