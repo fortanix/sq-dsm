@@ -93,9 +93,19 @@ pub fn encrypt(recipient: &Key, session_key: &SessionKey) -> Result<Ciphertext>
 
                 // Compute the shared point S = vR;
                 let S = ecdh::point_mul(&v, &R)?;
-                let Sx: Protected = S.as_bytes().0.into();
 
-                encrypt_shared(recipient, session_key, VB, &Sx)
+                // Get the X coordinate, safely dispose of Y.
+                let (Sx, Sy) = S.as_bytes();
+                Protected::from(Sy); // Just a precaution.
+
+                // Zero-pad to the size of the underlying field,
+                // rounded to the next byte.
+                let mut Sx = Vec::from(Sx);
+                while Sx.len() < (field_sz + 7) / 8 {
+                    Sx.insert(0, 0);
+                }
+
+                encrypt_shared(recipient, session_key, VB, &Sx.into())
             }
 
             // Not implemented in Nettle
@@ -208,14 +218,14 @@ pub fn decrypt(recipient: &Key, recipient_sec: &SecretKey,
                     // compute the shared point S = rV = rvG, where (r, R)
                     // is the recipient's key pair.
                     let (Vx, Vy) = e.decode_point(curve)?;
-                    let (V, r) = match curve {
+                    let (V, r, field_sz) = match curve {
                         Curve::NistP256 => {
                             let V =
                                 ecc::Point::new::<ecc::Secp256r1>(&Vx, &Vy)?;
                             let r =
                                 ecc::Scalar::new::<ecc::Secp256r1>(scalar.value())?;
 
-                            (V, r)
+                            (V, r, 256)
                         }
                         Curve::NistP384 => {
                             let V =
@@ -223,7 +233,7 @@ pub fn decrypt(recipient: &Key, recipient_sec: &SecretKey,
                             let r =
                                 ecc::Scalar::new::<ecc::Secp384r1>(scalar.value())?;
 
-                            (V, r)
+                            (V, r, 384)
                         }
                         Curve::NistP521 => {
                             let V =
@@ -231,12 +241,22 @@ pub fn decrypt(recipient: &Key, recipient_sec: &SecretKey,
                             let r =
                                 ecc::Scalar::new::<ecc::Secp521r1>(scalar.value())?;
 
-                            (V, r)
+                            (V, r, 521)
                         }
                         _ => unreachable!(),
                     };
                     let S = ecdh::point_mul(&r, &V)?;
-                    let (Sx, _) = S.as_bytes();
+
+                    // Get the X coordinate, safely dispose of Y.
+                    let (Sx, Sy) = S.as_bytes();
+                    Protected::from(Sy); // Just a precaution.
+
+                    // Zero-pad to the size of the underlying field,
+                    // rounded to the next byte.
+                    let mut Sx = Vec::from(Sx);
+                    while Sx.len() < (field_sz + 7) / 8 {
+                        Sx.insert(0, 0);
+                    }
 
                     Sx.into()
                 }
