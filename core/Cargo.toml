@@ -21,6 +21,6 @@ gitlab = { repository = "sequoia-pgp/sequoia" }
 maintenance = { status = "actively-developed" }
 
 [dependencies]
-dirs = "1.0"
+dirs = "2.0"
 failure = "0.1.2"
 tempdir = "0.3.5"
