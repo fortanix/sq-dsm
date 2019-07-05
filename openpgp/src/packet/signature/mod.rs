@@ -337,13 +337,23 @@ impl fmt::Debug for Signature4 {
 }
 
 impl PartialEq for Signature4 {
+    /// This method tests for self and other values to be equal, and
+    /// is used by ==.
+    ///
+    /// Note: We ignore the unhashed subpacket area when comparing
+    /// signatures.  This prevents a malicious party to take valid
+    /// signatures, add subpackets to the unhashed area, yielding
+    /// valid but distinct signatures.
+    ///
+    /// The problem we are trying to avoid here is signature spamming.
+    /// Ignoring the unhashed subpackets means that we can deduplicate
+    /// signatures using this predicate.
     fn eq(&self, other: &Signature4) -> bool {
         self.fields.version == other.fields.version
             && self.fields.sigtype == other.fields.sigtype
             && self.fields.pk_algo == other.fields.pk_algo
             && self.fields.hash_algo == other.fields.hash_algo
             && self.fields.hashed_area == other.fields.hashed_area
-            && self.fields.unhashed_area == other.fields.unhashed_area
             && self.mpis == other.mpis
     }
 }
