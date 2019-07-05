@@ -309,7 +309,7 @@ impl<'a> fmt::Debug for SubpacketRaw<'a> {
 }
 
 /// Subpacket area.
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, Eq)]
 pub struct SubpacketArea {
     /// Raw, unparsed subpacket data.
     pub data: Vec<u8>,
@@ -323,6 +323,12 @@ pub struct SubpacketArea {
     //
     // This is an option, because we parse the subpacket area lazily.
     parsed: RefCell<Option<HashMap<SubpacketTag, (bool, u16, u16)>>>,
+}
+
+impl PartialEq for SubpacketArea {
+    fn eq(&self, other: &SubpacketArea) -> bool {
+        self.data == other.data
+    }
 }
 
 impl Hash for SubpacketArea {
