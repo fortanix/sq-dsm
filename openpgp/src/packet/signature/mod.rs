@@ -22,7 +22,6 @@ use packet::UserAttribute;
 use Packet;
 use packet;
 use packet::signature::subpacket::SubpacketArea;
-use serialize::SerializeInto;
 
 use nettle::{dsa, ecc, ecdsa, ed25519, rsa};
 use nettle::rsa::verify_digest_pkcs1;
@@ -339,22 +338,13 @@ impl fmt::Debug for Signature4 {
 
 impl PartialEq for Signature4 {
     fn eq(&self, other: &Signature4) -> bool {
-        // Comparing the relevant fields is error prone in case we add
-        // a field at some point.  Instead, we compare the serialized
-        // versions.  As a small optimization, we compare the MPIs.
-        // Note: two `Signature4s` could be different even if they have
-        // the same MPI if the MPI was not invalidated when changing a
-        // field.
-        if self.mpis != other.mpis {
-            return false;
-        }
-
-        // Do a full check by serializing the fields.
-        if let (Ok(a), Ok(b)) = (self.to_vec(), other.to_vec()) {
-            a == b
-        } else {
-            false
-        }
+        self.fields.version == other.fields.version
+            && self.fields.sigtype == other.fields.sigtype
+            && self.fields.pk_algo == other.fields.pk_algo
+            && self.fields.hash_algo == other.fields.hash_algo
+            && self.fields.hashed_area == other.fields.hashed_area
+            && self.fields.unhashed_area == other.fields.unhashed_area
+            && self.mpis == other.mpis
     }
 }
 
