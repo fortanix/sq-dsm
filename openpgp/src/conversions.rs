@@ -212,8 +212,8 @@ pub(crate) fn from_hex(hex: &str, pretty: bool) -> Result<Vec<u8>> {
     const BAD: u8 = 255u8;
     const X: u8 = 'x' as u8;
 
-    let mut nibbles = hex.as_bytes().iter().filter_map(|x| {
-        match *x as char {
+    let mut nibbles = hex.chars().filter_map(|x| {
+        match x {
             '0' => Some(0u8),
             '1' => Some(1u8),
             '2' => Some(2u8),
@@ -231,7 +231,7 @@ pub(crate) fn from_hex(hex: &str, pretty: bool) -> Result<Vec<u8>> {
             'e' | 'E' => Some(14u8),
             'f' | 'F' => Some(15u8),
             'x' | 'X' if pretty => Some(X),
-            _ if pretty && x.is_ascii_whitespace() => None,
+            _ if pretty && x.is_whitespace() => None,
             _ => Some(BAD),
         }
     }).collect::<Vec<u8>>();
@@ -329,6 +329,8 @@ mod test {
         assert_eq!(fh(" 00 99", true).ok(), Some(vec![0x00, 0x99]));
         assert_eq!(fh(" 00 ff", true).ok(), Some(vec![0x00, 0xff]));
         assert_eq!(fh("\t\n\x0c\r ", true).ok(), Some(vec![]));
+        // Fancy Unicode spaces are ok too:
+        assert_eq!(fh("     23", true).ok(), Some(vec![0x23]));
         assert_eq!(fh("a", true).ok(), None);
         assert_eq!(fh(" 0x", true).ok(), Some(vec![]));
         assert_eq!(fh(" 0x0", true).ok(), None);
