@@ -15,8 +15,8 @@ use openpgp::parse::{map::Map, Parse, PacketParserResult};
 
 use super::TIMEFMT;
 
-pub fn dump(input: &mut io::Read, output: &mut io::Write, mpis: bool, hex: bool,
-            sk: Option<&SessionKey>)
+pub fn dump(input: &mut dyn io::Read, output: &mut dyn io::Write,
+            mpis: bool, hex: bool, sk: Option<&SessionKey>)
         -> Result<()> {
     let mut ppr
         = openpgp::parse::PacketParserBuilder::from_reader(input)?
@@ -141,7 +141,7 @@ impl PacketDumper {
         }
     }
 
-    pub fn packet(&mut self, output: &mut io::Write, depth: usize,
+    pub fn packet(&mut self, output: &mut dyn io::Write, depth: usize,
                   header: Header, p: Packet, map: Option<Map>,
                   additional_fields: Option<Vec<String>>)
                   -> Result<()> {
@@ -161,14 +161,14 @@ impl PacketDumper {
         Ok(())
     }
 
-    pub fn flush(&self, output: &mut io::Write) -> Result<()> {
+    pub fn flush(&self, output: &mut dyn io::Write) -> Result<()> {
         if let Some(root) = self.root.as_ref() {
             self.dump_tree(output, "", &root)?;
         }
         Ok(())
     }
 
-    fn dump_tree(&self, output: &mut io::Write, indent: &str, node: &Node)
+    fn dump_tree(&self, output: &mut dyn io::Write, indent: &str, node: &Node)
                  -> Result<()> {
         let indent_node =
             format!("{}{} ", indent,
@@ -192,7 +192,7 @@ impl PacketDumper {
         Ok(())
     }
 
-    fn dump_packet(&self, output: &mut io::Write, i: &str,
+    fn dump_packet(&self, output: &mut dyn io::Write, i: &str,
                   header: Option<&Header>, p: &Packet, map: Option<&Map>,
                   additional_fields: Option<&Vec<String>>)
                   -> Result<()> {
@@ -618,7 +618,7 @@ impl PacketDumper {
         Ok(())
     }
 
-    fn dump_subpacket(&self, output: &mut io::Write, i: &str,
+    fn dump_subpacket(&self, output: &mut dyn io::Write, i: &str,
                       s: Subpacket, sig: &Signature)
                       -> Result<()> {
         use self::SubpacketValue::*;
@@ -726,7 +726,7 @@ impl PacketDumper {
         Ok(())
     }
 
-    fn dump_s2k(&self, output: &mut io::Write, i: &str, s2k: &S2K)
+    fn dump_s2k(&self, output: &mut dyn io::Write, i: &str, s2k: &S2K)
                 -> Result<()> {
         use self::S2K::*;
         match s2k {
@@ -753,7 +753,7 @@ impl PacketDumper {
         Ok(())
     }
 
-    fn dump_mpis(&self, output: &mut io::Write, i: &str,
+    fn dump_mpis(&self, output: &mut dyn io::Write, i: &str,
                  chunks: &[&[u8]], keys: &[&str]) -> Result<()> {
         assert_eq!(chunks.len(), keys.len());
         if chunks.len() == 0 {
