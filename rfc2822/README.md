@@ -23,7 +23,9 @@ comment rules are rather complex.  This crate implements the whole
 grammar.
 
 As an extension, in addition to ASCII, we also recognize all UTF-8
-text.
+code points.  NUL, controls, and specials retain their meaning as
+defined in RFC 2822.  Other UTF-8 code points are considered to be
+text like `a`.
 
 Further, we also allow dots (`.`) and at symbols (`@`) in the `atom`
 production.  That is, the `atom` production is extended from:
