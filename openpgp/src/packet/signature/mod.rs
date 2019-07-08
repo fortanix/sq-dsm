@@ -463,6 +463,53 @@ impl Signature4 {
         }
     }
 
+    /// Normalizes the signature.
+    ///
+    /// This function normalizes the *unhashed* signature subpackets.
+    /// All but the following subpackets are removed:
+    ///
+    ///   - `SubpacketValue::Issuer` is left in place, is added, or
+    ///     updated from the *hashed* signature subpackets, and
+    ///   - the first `SubpacketValue::EmbeddedSignature` is left in
+    ///     place.
+    pub fn normalize(&self) -> Self {
+        use packet::signature::subpacket::{Subpacket, SubpacketTag,
+                                           SubpacketValue};
+        let mut sig = self.clone();
+        {
+            let area = sig.unhashed_area_mut();
+            area.clear();
+
+            // First, add an Issuer subpacket derived from information
+            // from the hashed area.
+            if let Some(issuer) = self.issuer_fingerprint() {
+                // Prefer the IssuerFingerprint.
+                area.add(Subpacket::new(
+                    SubpacketValue::Issuer(issuer.to_keyid()), false).unwrap())
+                    .unwrap();
+            } else if let Some(issuer) = self.issuer() {
+                // Fall back to the Issuer, which we will also get
+                // from the unhashed area if necessary.
+                area.add(Subpacket::new(
+                    SubpacketValue::Issuer(issuer), false).unwrap()).unwrap();
+            }
+
+            // Second, re-add the EmbeddedSignature, if present.
+            if let Some(embedded_sig) =
+                self.unhashed_area().iter().find_map(|(_, _, v)| {
+                    if v.tag == SubpacketTag::EmbeddedSignature {
+                        Some(v)
+                    } else {
+                        None
+                    }
+                })
+            {
+                area.add(embedded_sig).unwrap();
+            }
+        }
+        sig
+    }
+
     /// Verifies the signature against `hash`.
     ///
     /// Note: This only verifies the cryptographic signature.
@@ -1214,5 +1261,58 @@ mod test {
         let cert = &uid_binding.certifications()[0];
 
         assert_eq!(cert.verify_userid_binding(cert_key1, test2.primary(), uid_binding.userid()).ok(), Some(true));
+    }
+
+    #[test]
+    fn normalize() {
+        use Fingerprint;
+        use packet::signature::subpacket::*;
+
+        let mut pair = Key4::generate_ecc(true, Curve::Ed25519).unwrap()
+            .into_keypair().unwrap();
+        let msg = b"Hello, World";
+        let mut hash = HashAlgorithm::SHA256.context().unwrap();
+        hash.update(&msg[..]);
+
+        let fp = Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb");
+        let keyid = fp.to_keyid();
+
+        // First, make sure any superfluous subpackets are removed,
+        // yet the Issuer and EmbeddedSignature ones are kept.
+        let mut builder = Builder::new(SignatureType::Text);
+        // This subpacket does not belong there, and should be
+        // removed.
+        builder.unhashed_area_mut().add(Subpacket::new(
+            SubpacketValue::IssuerFingerprint(fp.clone()), false).unwrap())
+            .unwrap();
+        builder.unhashed_area_mut().add(Subpacket::new(
+            SubpacketValue::Issuer(keyid.clone()), false).unwrap())
+            .unwrap();
+
+        // Build and add an embedded sig.
+        let embedded_sig = Builder::new(SignatureType::PrimaryKeyBinding)
+            .sign_hash(&mut pair, HashAlgorithm::SHA256, hash.clone()).unwrap();
+        builder.unhashed_area_mut().add(Subpacket::new(
+            SubpacketValue::EmbeddedSignature(embedded_sig.into()), false)
+                                        .unwrap()).unwrap();
+        let sig = builder.sign_hash(&mut pair, HashAlgorithm::SHA256,
+                                    hash.clone()).unwrap().normalize();
+        assert_eq!(sig.unhashed_area().iter().count(), 2);
+        assert_eq!(sig.unhashed_area().iter().nth(0).unwrap().2,
+                   Subpacket::new(SubpacketValue::Issuer(keyid.clone()),
+                                  false).unwrap());
+        assert_eq!(sig.unhashed_area().iter().nth(1).unwrap().2.tag,
+                   SubpacketTag::EmbeddedSignature);
+
+        // Now, make sure that an Issuer subpacket is synthesized from
+        // the hashed area for compatibility.
+        let sig = Builder::new(SignatureType::Text)
+            .set_issuer_fingerprint(fp).unwrap()
+            .sign_hash(&mut pair, HashAlgorithm::SHA256,
+                       hash.clone()).unwrap().normalize();
+        assert_eq!(sig.unhashed_area().iter().count(), 1);
+        assert_eq!(sig.unhashed_area().iter().nth(0).unwrap().2,
+                   Subpacket::new(SubpacketValue::Issuer(keyid.clone()),
+                                  false).unwrap());
     }
 }
