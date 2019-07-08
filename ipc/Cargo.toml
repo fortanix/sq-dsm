@@ -1,14 +1,14 @@
 [package]
 name = "sequoia-ipc"
 description = "Interprocess communication infrastructure for Sequoia"
-version = "0.8.0"
+version = "0.9.0"
 authors = [
     "Juga <juga@sequoia-pgp.org>",
     "Justus Winter <justus@sequoia-pgp.org>",
     "Kai Michaelis <kai@sequoia-pgp.org>",
     "Neal H. Walfield <neal@sequoia-pgp.org>",
 ]
-documentation = "https://docs.sequoia-pgp.org/0.8.0/sequoia_ipc"
+documentation = "https://docs.sequoia-pgp.org/0.9.0/sequoia_ipc"
 build = "build.rs"
 homepage = "https://sequoia-pgp.org/"
 repository = "https://gitlab.com/sequoia-pgp/sequoia"
@@ -20,8 +20,8 @@ gitlab = { repository = "sequoia-pgp/sequoia" }
 maintenance = { status = "actively-developed" }
 
 [dependencies]
-sequoia-openpgp = { path = "../openpgp", version = "0.8" }
-sequoia-core = { path = "../core", version = "0.8" }
+sequoia-openpgp = { path = "../openpgp", version = "0.9" }
+sequoia-core = { path = "../core", version = "0.9" }
 
 capnp-rpc = "0.10"
 failure = "0.1.2"
