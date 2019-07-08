@@ -2,15 +2,15 @@ use std::io::{self, Read};
 use time;
 
 extern crate sequoia_openpgp as openpgp;
-use openpgp::constants::SymmetricAlgorithm;
-use openpgp::conversions::hex;
-use openpgp::crypto::mpis;
-use openpgp::{Packet, Result};
-use openpgp::packet::ctb::CTB;
-use openpgp::packet::{Header, BodyLength, Signature};
-use openpgp::packet::signature::subpacket::{Subpacket, SubpacketValue};
-use openpgp::crypto::{SessionKey, s2k::S2K};
-use openpgp::parse::{map::Map, Parse, PacketParserResult};
+use self::openpgp::constants::SymmetricAlgorithm;
+use self::openpgp::conversions::hex;
+use self::openpgp::crypto::mpis;
+use self::openpgp::{Packet, Result};
+use self::openpgp::packet::ctb::CTB;
+use self::openpgp::packet::{Header, BodyLength, Signature};
+use self::openpgp::packet::signature::subpacket::{Subpacket, SubpacketValue};
+use self::openpgp::crypto::{SessionKey, s2k::S2K};
+use self::openpgp::parse::{map::Map, Parse, PacketParserResult};
 
 use super::TIMEFMT;
 
@@ -31,7 +31,7 @@ pub fn dump<W>(input: &mut dyn io::Read, output: &mut dyn io::Write,
     where W: Into<Option<usize>>
 {
     let mut ppr
-        = openpgp::parse::PacketParserBuilder::from_reader(input)?
+        = self::openpgp::parse::PacketParserBuilder::from_reader(input)?
         .map(hex).finalize()?;
     let mut message_encrypted = false;
     let width = width.into().unwrap_or(80);
@@ -403,7 +403,7 @@ impl PacketDumper {
                     }
 
                     if let Some(secrets) = k.secret() {
-                        use openpgp::packet::key::SecretKey;
+                        use self::openpgp::packet::key::SecretKey;
                         writeln!(output, "{}", i)?;
                         writeln!(output, "{}  Secret Key:", i)?;
 
@@ -477,7 +477,7 @@ impl PacketDumper {
             },
 
             UserAttribute(ref u) => {
-                use openpgp::packet::user_attribute::{Subpacket, Image};
+                use self::openpgp::packet::user_attribute::{Subpacket, Image};
                 writeln!(output, "User Attribute Packet")?;
 
                 for subpacket in u.subpackets() {
@@ -575,7 +575,7 @@ impl PacketDumper {
                 writeln!(output, "Symmetric-key Encrypted Session Key Packet")?;
                 writeln!(output, "{}  Version: {}", i, s.version())?;
                 match s {
-                    openpgp::packet::SKESK::V4(ref s) => {
+                    self::openpgp::packet::SKESK::V4(ref s) => {
                         writeln!(output, "{}  Symmetric algo: {}", i,
                                  s.symmetric_algo())?;
                         write!(output, "{}  S2K: ", i)?;
@@ -586,7 +586,7 @@ impl PacketDumper {
                         }
                     },
 
-                    openpgp::packet::SKESK::V5(ref s) => {
+                    self::openpgp::packet::SKESK::V5(ref s) => {
                         writeln!(output, "{}  Symmetric algo: {}", i,
                                  s.symmetric_algo())?;
                         writeln!(output, "{}  AEAD: {}", i,
