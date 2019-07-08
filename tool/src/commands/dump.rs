@@ -1,8 +1,6 @@
 use std::io::{self, Read};
 use time;
 
-extern crate termsize;
-
 extern crate sequoia_openpgp as openpgp;
 use openpgp::constants::SymmetricAlgorithm;
 use openpgp::conversions::hex;
@@ -15,13 +13,16 @@ use openpgp::parse::{map::Map, Parse, PacketParserResult};
 
 use super::TIMEFMT;
 
-pub fn dump(input: &mut dyn io::Read, output: &mut dyn io::Write,
-            mpis: bool, hex: bool, sk: Option<&SessionKey>)
-        -> Result<()> {
+pub fn dump<W>(input: &mut dyn io::Read, output: &mut dyn io::Write,
+               mpis: bool, hex: bool, sk: Option<&SessionKey>,
+               width: W)
+               -> Result<()>
+    where W: Into<Option<usize>>
+{
     let mut ppr
         = openpgp::parse::PacketParserBuilder::from_reader(input)?
         .map(hex).finalize()?;
-    let width = termsize::get().map(|s| s.cols as usize).unwrap_or(80);
+    let width = width.into().unwrap_or(80);
     let mut dumper = PacketDumper::new(width, mpis);
 
     while let PacketParserResult::Some(mut pp) = ppr {

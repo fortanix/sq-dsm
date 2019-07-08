@@ -7,6 +7,7 @@ extern crate failure;
 extern crate prettytable;
 extern crate rpassword;
 extern crate tempfile;
+extern crate termsize;
 extern crate time;
 extern crate itertools;
 
@@ -272,9 +273,10 @@ fn real_main() -> Result<(), failure::Error> {
                     } else {
                         None
                     };
+                let width = termsize::get().map(|s| s.cols as usize);
                 commands::dump(&mut input, &mut output,
                                m.is_present("mpis"), m.is_present("hex"),
-                               session_key.as_ref())?;
+                               session_key.as_ref(), width)?;
             },
             ("split",  Some(m)) => {
                 let mut input = open_or_stdin(m.value_of("input"))?;
