@@ -99,11 +99,11 @@ You can install the needed libraries with the following command:
 Notes:
 
   - You need at least rustc version 1.34.  The version in Debian 9
-    (Debian Stable as of 2018) is too old.  The version from testing
-    works fine.
-  - The version of Nettle in Debian 9 (Debian Stable as of 2018), is
-    too old.  Instead, you need at least version 3.4, which is
-    available from Debian testing.
+    (Stretch) is too old.  The version from Debian 10 (Buster) works
+    fine.
+  - The version of Nettle in Debian 9 (Stretch), is too old.  Instead,
+    you need at least version 3.4, which is available from Debian 10
+    (Buster).
 
 ### Arch Linux
 
