@@ -25,19 +25,40 @@ grammar.
 As an extension, in addition to ASCII, we also recognize all UTF-8
 text.
 
-Further, we also allow dots in the name-addr Name.  That is:
+Further, we also allow dots (`.`) and at symbols (`@`) in the `atom`
+production.  That is, the `atom` production is extended from:
+
+```
+atom            =       [CFWS] 1*atext [CFWS]
+```
+
+to:
+
+```
+atom               =       [CFWS] 1*atext_or_dot_or_at [CFWS]
+atext_or_dot_or_at =       atext | DOT | AT
+```
+
+And, as such:
 
 ```
 Professor Pippy P. Poopypants <pippy@jerome-horwitz.k12.oh.us>
 ```
 
-is recognized.  But [RFC 2822] strictly requires that the name be
-quoted:
+is recognized as a `name-addr` even though [RFC 2822] strictly
+requires that the `display-name` be quoted like:
 
 ```
 "Professor Pippy P. Poopypants" <pippy@jerome-horwitz.k12.oh.us>
 ```
 
+Likewise,
+
+```
+foo@bar.com <foo@bar.com>
+```
+
+is recognized as a `name-addr` even though the `@` should be quoted.
 
 This crate does not (yet) implement the new [RFC 5322].
 
