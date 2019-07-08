@@ -4,6 +4,7 @@ use time;
 extern crate sequoia_openpgp as openpgp;
 use openpgp::constants::SymmetricAlgorithm;
 use openpgp::conversions::hex;
+use openpgp::crypto::mpis;
 use openpgp::{Packet, Result};
 use openpgp::packet::ctb::CTB;
 use openpgp::packet::{Header, BodyLength, Signature};
@@ -248,33 +249,32 @@ impl PacketDumper {
                                            level <= {} and data)", n - 1)?,
                 }
                 if self.mpis {
-                    use openpgp::crypto::mpis::Signature::*;
                     writeln!(output, "{}", i)?;
                     writeln!(output, "{}  Signature:", i)?;
 
                     let ii = format!("{}    ", i);
                     match s.mpis() {
-                        RSA { s } =>
+                        mpis::Signature::RSA { s } =>
                             self.dump_mpis(output, &ii,
                                            &[s.value()],
                                            &["s"])?,
-                        DSA { r, s } =>
+                        mpis::Signature::DSA { r, s } =>
                             self.dump_mpis(output, &ii,
                                            &[r.value(), s.value()],
                                            &["r", "s"])?,
-                        Elgamal { r, s } =>
+                        mpis::Signature::Elgamal { r, s } =>
                             self.dump_mpis(output, &ii,
                                            &[r.value(), s.value()],
                                            &["r", "s"])?,
-                        EdDSA { r, s } =>
+                        mpis::Signature::EdDSA { r, s } =>
                             self.dump_mpis(output, &ii,
                                            &[r.value(), s.value()],
                                            &["r", "s"])?,
-                        ECDSA { r, s } =>
+                        mpis::Signature::ECDSA { r, s } =>
                             self.dump_mpis(output, &ii,
                                            &[r.value(), s.value()],
                                            &["r", "s"])?,
-                        Unknown { mpis, rest } => {
+                        mpis::Signature::Unknown { mpis, rest } => {
                             let keys: Vec<String> =
                                 (0..mpis.len()).map(
                                     |i| format!("mpi{}", i)).collect();
@@ -315,41 +315,40 @@ impl PacketDumper {
                     writeln!(output, "{}  Pk size: {} bits", i, bits)?;
                 }
                 if self.mpis {
-                    use openpgp::crypto::mpis::PublicKey::*;
                     writeln!(output, "{}", i)?;
                     writeln!(output, "{}  Public Key:", i)?;
 
                     let ii = format!("{}    ", i);
                     match k.mpis() {
-                        RSA { e, n } =>
+                        mpis::PublicKey::RSA { e, n } =>
                             self.dump_mpis(output, &ii,
                                            &[e.value(), n.value()],
                                            &["e", "n"])?,
-                        DSA { p, q, g, y } =>
+                        mpis::PublicKey::DSA { p, q, g, y } =>
                             self.dump_mpis(output, &ii,
                                            &[p.value(), q.value(), g.value(),
                                              y.value()],
                                            &["p", "q", "g", "y"])?,
-                        Elgamal { p, g, y } =>
+                        mpis::PublicKey::Elgamal { p, g, y } =>
                             self.dump_mpis(output, &ii,
                                            &[p.value(), g.value(), y.value()],
                                            &["p", "g", "y"])?,
-                        EdDSA { curve, q } => {
+                        mpis::PublicKey::EdDSA { curve, q } => {
                             writeln!(output, "{}  Curve: {}", ii, curve)?;
                             self.dump_mpis(output, &ii, &[q.value()], &["q"])?;
                         },
-                        ECDSA { curve, q } => {
+                        mpis::PublicKey::ECDSA { curve, q } => {
                             writeln!(output, "{}  Curve: {}", ii, curve)?;
                             self.dump_mpis(output, &ii, &[q.value()], &["q"])?;
                         },
-                        ECDH { curve, q, hash, sym } => {
+                        mpis::PublicKey::ECDH { curve, q, hash, sym } => {
                             writeln!(output, "{}  Curve: {}", ii, curve)?;
                             writeln!(output, "{}  Hash algo: {}", ii, hash)?;
                             writeln!(output, "{}  Symmetric algo: {}", ii,
                                      sym)?;
                             self.dump_mpis(output, &ii, &[q.value()], &["q"])?;
                         },
-                        Unknown { mpis, rest } => {
+                        mpis::PublicKey::Unknown { mpis, rest } => {
                             let keys: Vec<String> =
                                 (0..mpis.len()).map(
                                     |i| format!("mpi{}", i)).collect();
@@ -368,7 +367,6 @@ impl PacketDumper {
 
                     if let Some(secrets) = k.secret() {
                         use openpgp::packet::key::SecretKey;
-                        use openpgp::crypto::mpis::SecretKey::*;
                         writeln!(output, "{}", i)?;
                         writeln!(output, "{}  Secret Key:", i)?;
 
@@ -376,30 +374,30 @@ impl PacketDumper {
                         match secrets {
                             SecretKey::Unencrypted(ref u) => match u.mpis()
                             {
-                                RSA { d, p, q, u } =>
+                                mpis::SecretKey::RSA { d, p, q, u } =>
                                     self.dump_mpis(output, &ii,
                                                    &[d.value(), p.value(),
                                                      q.value(), u.value()],
                                                    &["d", "p", "q", "u"])?,
-                                DSA { x } =>
+                                mpis::SecretKey::DSA { x } =>
                                     self.dump_mpis(output, &ii, &[x.value()],
                                                    &["x"])?,
-                                Elgamal { x } =>
+                                mpis::SecretKey::Elgamal { x } =>
                                     self.dump_mpis(output, &ii, &[x.value()],
                                                    &["x"])?,
-                                EdDSA { scalar } =>
+                                mpis::SecretKey::EdDSA { scalar } =>
                                     self.dump_mpis(output, &ii,
                                                    &[scalar.value()],
                                                    &["scalar"])?,
-                                ECDSA { scalar } =>
+                                mpis::SecretKey::ECDSA { scalar } =>
                                     self.dump_mpis(output, &ii,
                                                    &[scalar.value()],
                                                    &["scalar"])?,
-                                ECDH { scalar } =>
+                                mpis::SecretKey::ECDH { scalar } =>
                                     self.dump_mpis(output, &ii,
                                                    &[scalar.value()],
                                                    &["scalar"])?,
-                                Unknown { mpis, rest } => {
+                                mpis::SecretKey::Unknown { mpis, rest } => {
                                     let keys: Vec<String> =
                                         (0..mpis.len()).map(
                                             |i| format!("mpi{}", i)).collect();
@@ -500,25 +498,24 @@ impl PacketDumper {
                 writeln!(output, "{}  Recipient: {}", i, p.recipient())?;
                 writeln!(output, "{}  Pk algo: {}", i, p.pk_algo())?;
                 if self.mpis {
-                    use openpgp::crypto::mpis::Ciphertext::*;
                     writeln!(output, "{}", i)?;
                     writeln!(output, "{}  Encrypted session key:", i)?;
 
                     let ii = format!("{}    ", i);
                     match p.esk() {
-                        RSA { c } =>
+                        mpis::Ciphertext::RSA { c } =>
                             self.dump_mpis(output, &ii,
                                            &[c.value()],
                                            &["c"])?,
-                        Elgamal { e, c } =>
+                        mpis::Ciphertext::Elgamal { e, c } =>
                             self.dump_mpis(output, &ii,
                                            &[e.value(), c.value()],
                                            &["e", "c"])?,
-                        ECDH { e, key } =>
+                        mpis::Ciphertext::ECDH { e, key } =>
                             self.dump_mpis(output, &ii,
                                            &[e.value(), key],
                                            &["e", "key"])?,
-                        Unknown { mpis, rest } => {
+                        mpis::Ciphertext::Unknown { mpis, rest } => {
                             let keys: Vec<String> =
                                 (0..mpis.len()).map(
                                     |i| format!("mpi{}", i)).collect();
