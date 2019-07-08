@@ -247,13 +247,19 @@ atext_plus : String = {
 
 // The display-name in a name-addr production often includes a ., but
 // is not quoted.  The RFC even recommends supporting this variant.
-other_or_dot : String = {
+// Also some OpenPGP implementations create User IDs that look like:
+//
+//   foo@bar.com <foo@bar.com>
+//
+// That is, with an unquoted at!  Support that too.
+other_or_dot_or_at : String = {
     <a:OTHER> => a.to_string(),
     <d:DOT> => d.to_string(),
+    <a:AT> => a.to_string(),
 }
 
-atext_dot_plus : String = {
-    <a:other_or_dot+> => strings_flatten(a.into_iter(), ""),
+atext_dot_at_plus : String = {
+    <a:other_or_dot_or_at+> => strings_flatten(a.into_iter(), ""),
 }
 
 // atom            =       [CFWS] 1*atext [CFWS]
@@ -267,7 +273,7 @@ pub(crate) Atom : Vec<Component> = {
 }
 
 atom : Vec<Component> = {
-    <c1:CFWS?> <a:atext_dot_plus> <c2:CFWS?> =>
+    <c1:CFWS?> <a:atext_dot_at_plus> <c2:CFWS?> =>
         components_concat!(
             c1,
             Component::Text(a),
@@ -277,7 +283,7 @@ atom : Vec<Component> = {
 // See the phrase production for why this variant of the 'atom'
 // production exists, and why the 'CFWS?'es are not included.
 atom_prime : Component = {
-    <a:atext_dot_plus> => Component::Text(a),
+    <a:atext_dot_at_plus> => Component::Text(a),
 }
 
 // dot-atom        =       [CFWS] dot-atom-text [CFWS]

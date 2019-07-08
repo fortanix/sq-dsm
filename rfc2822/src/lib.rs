@@ -805,7 +805,7 @@ mod tests {
 
     // atom            =       [CFWS] 1*atext [CFWS]
     //
-    // Note: our atom parser also allows for dots.
+    // Note: our atom parser also allows for dots and ats.
     //
     // An atom is a sequence of characters.
     //
@@ -825,7 +825,7 @@ mod tests {
                   "!", "#", "$", "%", "&", "'", "*", "+", "-",
                    "/", "=", "?", "^", "_", "`", "{", "|", "}", "~",
                    // Extension:
-                   "."]
+                   ".", "@"]
             .into_iter()
         {
             c(s, Some(vec![Component::Text(s.to_string())]))
@@ -833,7 +833,7 @@ mod tests {
 
         for &s in ["\x02", " ",
                   "(", ")", "<", ">", "[", "]", ":", ";",
-                  "@", "\\", ",", "\""]
+                  "\\", ",", "\""]
             .into_iter()
         {
             c(s, None)
@@ -1518,6 +1518,22 @@ mod tests {
     }
 
     #[test]
+    fn display_name_parser() {
+        c!(grammar::DisplayNameParser::new(), Vec<Component>);
+
+        c("Willi Wonka",
+          Some(vec![ Component::Text("Willi Wonka".into()) ]));
+
+        // As an extention we unquoted dots.
+        c("Willi A. Wonka",
+          Some(vec![ Component::Text("Willi A. Wonka".into()) ]));
+
+        // As an extention we unquoted ats.
+        c("foo@example.org",
+          Some(vec![ Component::Text("foo@example.org".into()) ]));
+    }
+
+    #[test]
     fn name_addr_api() {
         fn c_(name: Option<&str>, comment: Option<&str>, email: Option<&str>)
         {
@@ -1545,6 +1561,7 @@ mod tests {
 
         c("Harold Hutchins", "(artist)", "harold.hutchins@captain-underpants.com");
         c("Mr. Meaner", "(Gym Teacher)", "kenny@jerome-horwitz.k12.us");
+        c("foo@bar.com", "display name with at", "foo@bar.com");
     }
 
     #[test]
