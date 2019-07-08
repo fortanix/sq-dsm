@@ -14,15 +14,26 @@ use openpgp::parse::{map::Map, Parse, PacketParserResult};
 
 use super::TIMEFMT;
 
+#[derive(Debug)]
+pub enum Kind {
+    Message {
+        encrypted: bool,
+    },
+    Keyring,
+    TPK,
+    Unknown,
+}
+
 pub fn dump<W>(input: &mut dyn io::Read, output: &mut dyn io::Write,
                mpis: bool, hex: bool, sk: Option<&SessionKey>,
                width: W)
-               -> Result<()>
+               -> Result<Kind>
     where W: Into<Option<usize>>
 {
     let mut ppr
         = openpgp::parse::PacketParserBuilder::from_reader(input)?
         .map(hex).finalize()?;
+    let mut message_encrypted = false;
     let width = width.into().unwrap_or(80);
     let mut dumper = PacketDumper::new(width, mpis);
 
@@ -37,7 +48,12 @@ pub fn dump<W>(input: &mut dyn io::Read, output: &mut dyn io::Write,
                             if n == prefix.len() { "..." } else { "" }),
                 ])
             },
+            Packet::SEIP(_) if sk.is_none() => {
+                message_encrypted = true;
+                Some(vec!["No session key supplied".into()])
+            }
             Packet::SEIP(_) if sk.is_some() => {
+                message_encrypted = true;
                 let sk = sk.as_ref().unwrap();
                 let mut decrypted_with = None;
                 for algo in 1..20 {
@@ -63,7 +79,12 @@ pub fn dump<W>(input: &mut dyn io::Read, output: &mut dyn io::Write,
                 }
                 Some(fields)
             },
+            Packet::AED(_) if sk.is_none() => {
+                message_encrypted = true;
+                Some(vec!["No session key supplied".into()])
+            }
             Packet::AED(_) if sk.is_some() => {
+                message_encrypted = true;
                 let sk = sk.as_ref().unwrap();
                 let algo = if let Packet::AED(ref aed) = pp.packet {
                     aed.symmetric_algo()
@@ -96,7 +117,23 @@ pub fn dump<W>(input: &mut dyn io::Read, output: &mut dyn io::Write,
                       header, packet, map, additional_fields)?;
     }
 
-    dumper.flush(output)
+    dumper.flush(output)?;
+
+    if let PacketParserResult::EOF(eof) = ppr {
+        if eof.is_message().is_ok() {
+            Ok(Kind::Message {
+                encrypted: message_encrypted,
+            })
+        } else if eof.is_tpk().is_ok() {
+            Ok(Kind::TPK)
+        } else if eof.is_keyring().is_ok() {
+            Ok(Kind::Keyring)
+        } else {
+            Ok(Kind::Unknown)
+        }
+    } else {
+        unreachable!()
+    }
 }
 
 struct Node {
