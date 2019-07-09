@@ -12,12 +12,12 @@ pub use self::writer_deflate::{ZIP, ZLIB};
 use std::fmt;
 use std::io;
 
-use crypto::{aead, symmetric};
-use constants::{
+use crate::crypto::{aead, symmetric};
+use crate::constants::{
     AEADAlgorithm,
     SymmetricAlgorithm,
 };
-use {
+use crate::{
     Result,
     crypto::SessionKey,
 };

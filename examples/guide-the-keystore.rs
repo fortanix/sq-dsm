@@ -3,7 +3,7 @@
 extern crate sequoia_openpgp as openpgp;
 extern crate sequoia;
 use sequoia::{core, store};
-use openpgp::parse::Parse;
+use crate::openpgp::parse::Parse;
 
 fn main() {
     let tpk =

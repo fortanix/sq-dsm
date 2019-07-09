@@ -1,8 +1,8 @@
 use std::fmt;
 use quickcheck::{Arbitrary, Gen};
 
-use packet;
-use Packet;
+use crate::packet;
+use crate::Packet;
 
 /// Holds a Trust packet.
 ///
@@ -34,7 +34,7 @@ impl fmt::Display for Trust {
 impl fmt::Debug for Trust {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("Trust")
-            .field("value", &::conversions::hex::encode(&self.value))
+            .field("value", &crate::conversions::hex::encode(&self.value))
             .finish()
     }
 }
@@ -61,8 +61,8 @@ impl Arbitrary for Trust {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use parse::Parse;
-    use serialize::SerializeInto;
+    use crate::parse::Parse;
+    use crate::serialize::SerializeInto;
 
     quickcheck! {
         fn roundtrip(p: Trust) -> bool {

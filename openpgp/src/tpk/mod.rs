@@ -10,7 +10,7 @@ use std::vec;
 use time;
 use failure;
 
-use {
+use crate::{
     crypto::{hash::Hash, Signer},
     Error,
     Result,
@@ -32,9 +32,9 @@ use {
     KeyID,
     Fingerprint,
 };
-use parse::{Parse, PacketParserResult, PacketParser};
-use serialize::SerializeInto;
-use constants::ReasonForRevocation;
+use crate::parse::{Parse, PacketParserResult, PacketParser};
+use crate::serialize::SerializeInto;
+use crate::constants::ReasonForRevocation;
 
 pub mod armor;
 mod lexer;
@@ -2796,10 +2796,10 @@ impl TPK {
 
 #[cfg(test)]
 mod test {
-    use serialize::Serialize;
+    use crate::serialize::Serialize;
     use super::*;
 
-    use KeyID;
+    use crate::KeyID;
 
     #[test]
     fn tokens() {
@@ -2953,23 +2953,23 @@ mod test {
 
     #[test]
     fn broken() {
-        use conversions::Time;
+        use crate::conversions::Time;
         for i in 0..2 {
-            let tpk = parse_tpk(::tests::key("testy-broken-no-pk.pgp"),
+            let tpk = parse_tpk(crate::tests::key("testy-broken-no-pk.pgp"),
                                 i == 0);
             assert_match!(Error::MalformedTPK(_)
                           = tpk.err().unwrap().downcast::<Error>().unwrap());
 
             // According to 4880, a TPK must have a UserID.  But, we
             // don't require it.
-            let tpk = parse_tpk(::tests::key("testy-broken-no-uid.pgp"),
+            let tpk = parse_tpk(crate::tests::key("testy-broken-no-uid.pgp"),
                                 i == 0);
             assert!(tpk.is_ok());
 
             // We have:
             //
             //   [ pk, user id, sig, subkey ]
-            let tpk = parse_tpk(::tests::key("testy-broken-no-sig-on-subkey.pgp"),
+            let tpk = parse_tpk(crate::tests::key("testy-broken-no-sig-on-subkey.pgp"),
                                 i == 0).unwrap();
             assert_eq!(tpk.primary.creation_time().to_pgp().unwrap(), 1511355130);
             assert_eq!(tpk.userids.len(), 1);
@@ -2985,9 +2985,9 @@ mod test {
 
     #[test]
     fn basics() {
-        use conversions::Time;
+        use crate::conversions::Time;
         for i in 0..2 {
-            let tpk = parse_tpk(::tests::key("testy.pgp"),
+            let tpk = parse_tpk(crate::tests::key("testy.pgp"),
                                 i == 0).unwrap();
             assert_eq!(tpk.primary.creation_time().to_pgp().unwrap(), 1511355130);
             assert_eq!(tpk.fingerprint().to_hex(),
@@ -3008,7 +3008,7 @@ mod test {
             assert_eq!(tpk.subkeys[0].selfsigs[0].hash_prefix(),
                        &[ 0xb7, 0xb9 ]);
 
-            let tpk = parse_tpk(::tests::key("testy-no-subkey.pgp"),
+            let tpk = parse_tpk(crate::tests::key("testy-no-subkey.pgp"),
                                 i == 0).unwrap();
             assert_eq!(tpk.primary.creation_time().to_pgp().unwrap(), 1511355130);
             assert_eq!(tpk.fingerprint().to_hex(),
@@ -3025,7 +3025,7 @@ mod test {
 
             assert_eq!(tpk.subkeys.len(), 0, "number of subkeys");
 
-            let tpk = parse_tpk(::tests::key("testy.asc"), i == 0).unwrap();
+            let tpk = parse_tpk(crate::tests::key("testy.asc"), i == 0).unwrap();
             assert_eq!(tpk.fingerprint().to_hex(),
                        "3E8877C877274692975189F5D03F6F865226FE8B");
         }
@@ -3035,7 +3035,7 @@ mod test {
     fn only_a_public_key() {
         // Make sure the TPK parser can parse a key that just consists
         // of a public key---no signatures, no user ids, nothing.
-        let tpk = TPK::from_bytes(::tests::key("testy-only-a-pk.pgp")).unwrap();
+        let tpk = TPK::from_bytes(crate::tests::key("testy-only-a-pk.pgp")).unwrap();
         assert_eq!(tpk.userids.len(), 0);
         assert_eq!(tpk.user_attributes.len(), 0);
         assert_eq!(tpk.subkeys.len(), 0);
@@ -3043,7 +3043,7 @@ mod test {
 
     #[test]
     fn merge() {
-        use ::tests::key;
+        use crate::tests::key;
         let tpk_base = TPK::from_bytes(key("bannon-base.gpg")).unwrap();
 
         // When we merge it with itself, we should get the exact same
@@ -3212,7 +3212,7 @@ mod test {
 
     #[test]
     fn key_iter_test() {
-        let key = TPK::from_bytes(::tests::key("neal.pgp")).unwrap();
+        let key = TPK::from_bytes(crate::tests::key("neal.pgp")).unwrap();
         assert_eq!(1 + key.subkeys().count(),
                    key.keys_all().count());
     }
@@ -3258,7 +3258,7 @@ mod test {
         // 21/20. auth subkey #3: A3506AFB820ABD08 (bad)
         // 22/19. sig over subkey #2
 
-        let tpk = TPK::from_bytes(::tests::key("neal-sigs-out-of-order.pgp"))
+        let tpk = TPK::from_bytes(crate::tests::key("neal-sigs-out-of-order.pgp"))
             .unwrap();
 
         let mut userids = tpk.userids()
@@ -3288,7 +3288,7 @@ mod test {
         // DKG's key has all of the self-signatures moved to the last
         // subkey; all user ids/user attributes/subkeys have nothing.
         let tpk =
-            TPK::from_bytes(::tests::key("dkg-sigs-out-of-order.pgp")).unwrap();
+            TPK::from_bytes(crate::tests::key("dkg-sigs-out-of-order.pgp")).unwrap();
 
         let mut userids = tpk.userids()
             .map(|u| String::from_utf8_lossy(u.userid.value()).into_owned())
@@ -3333,8 +3333,8 @@ mod test {
     // dkg's includes some v3 signatures.
     #[test]
     fn v3_packets() {
-        let dkg = ::tests::key("dkg.gpg");
-        let lutz = ::tests::key("lutz.gpg");
+        let dkg = crate::tests::key("dkg.gpg");
+        let lutz = crate::tests::key("lutz.gpg");
 
         // v3 primary keys are not supported.
         let tpk = TPK::from_bytes(lutz);
@@ -3347,8 +3347,8 @@ mod test {
 
     #[test]
     fn keyring_with_v3_public_keys() {
-        let dkg = ::tests::key("dkg.gpg");
-        let lutz = ::tests::key("lutz.gpg");
+        let dkg = crate::tests::key("dkg.gpg");
+        let lutz = crate::tests::key("lutz.gpg");
 
         let tpk = TPK::from_bytes(dkg);
         assert!(tpk.is_ok(), "dkg.gpg: {:?}", tpk);
@@ -3414,13 +3414,13 @@ mod test {
 
     #[test]
     fn merge_with_incomplete_update() {
-        let tpk = TPK::from_bytes(::tests::key("about-to-expire.expired.pgp"))
+        let tpk = TPK::from_bytes(crate::tests::key("about-to-expire.expired.pgp"))
             .unwrap();
         assert!(tpk.primary_key_signature().unwrap()
                 .key_expired(tpk.primary()));
 
         let update =
-            TPK::from_bytes(::tests::key("about-to-expire.update-no-uid.pgp"))
+            TPK::from_bytes(crate::tests::key("about-to-expire.update-no-uid.pgp"))
             .unwrap();
         let tpk = tpk.merge(update).unwrap();
         assert!(! tpk.primary_key_signature().unwrap()
@@ -3432,25 +3432,25 @@ mod test {
         // Make sure TPK::from_packet_pile(TPK::to_packet_pile(tpk))
         // does a clean round trip.
 
-        let tpk = TPK::from_bytes(::tests::key("already-revoked.pgp")).unwrap();
+        let tpk = TPK::from_bytes(crate::tests::key("already-revoked.pgp")).unwrap();
         let tpk2
             = TPK::from_packet_pile(tpk.clone().into_packet_pile()).unwrap();
         assert_eq!(tpk, tpk2);
 
         let tpk = TPK::from_bytes(
-            ::tests::key("already-revoked-direct-revocation.pgp")).unwrap();
+            crate::tests::key("already-revoked-direct-revocation.pgp")).unwrap();
         let tpk2
             = TPK::from_packet_pile(tpk.clone().into_packet_pile()).unwrap();
         assert_eq!(tpk, tpk2);
 
         let tpk = TPK::from_bytes(
-            ::tests::key("already-revoked-userid-revocation.pgp")).unwrap();
+            crate::tests::key("already-revoked-userid-revocation.pgp")).unwrap();
         let tpk2
             = TPK::from_packet_pile(tpk.clone().into_packet_pile()).unwrap();
         assert_eq!(tpk, tpk2);
 
         let tpk = TPK::from_bytes(
-            ::tests::key("already-revoked-subkey-revocation.pgp")).unwrap();
+            crate::tests::key("already-revoked-subkey-revocation.pgp")).unwrap();
         let tpk2
             = TPK::from_packet_pile(tpk.clone().into_packet_pile()).unwrap();
         assert_eq!(tpk, tpk2);
@@ -3458,13 +3458,13 @@ mod test {
 
     #[test]
     fn merge_packets() {
-        use armor;
+        use crate::armor;
 
         // Merge the revocation certificate into the TPK and make sure
         // it shows up.
-        let tpk = TPK::from_bytes(::tests::key("already-revoked.pgp")).unwrap();
+        let tpk = TPK::from_bytes(crate::tests::key("already-revoked.pgp")).unwrap();
 
-        let rev = ::tests::key("already-revoked.rev");
+        let rev = crate::tests::key("already-revoked.rev");
         let rev = PacketPile::from_reader(armor::Reader::new(&rev[..], None))
             .unwrap();
 
@@ -3520,7 +3520,7 @@ mod test {
 
     #[test]
     fn direct_key_sig() {
-        use constants::SignatureType;
+        use crate::constants::SignatureType;
         // XXX: testing sequoia against itself isn't optimal, but I couldn't
         // find a tool to generate direct key signatures :-(
 
@@ -3582,11 +3582,11 @@ mod test {
             }
         }
 
-        let tpk = TPK::from_bytes(::tests::key("already-revoked.pgp")).unwrap();
+        let tpk = TPK::from_bytes(crate::tests::key("already-revoked.pgp")).unwrap();
         check(&tpk, false, false, false);
 
         let d = TPK::from_bytes(
-            ::tests::key("already-revoked-direct-revocation.pgp")).unwrap();
+            crate::tests::key("already-revoked-direct-revocation.pgp")).unwrap();
         check(&d, true, false, false);
 
         check(&tpk.clone().merge(d.clone()).unwrap(), true, false, false);
@@ -3594,14 +3594,14 @@ mod test {
         check(&d.clone().merge(tpk.clone()).unwrap(), true, false, false);
 
         let u = TPK::from_bytes(
-            ::tests::key("already-revoked-userid-revocation.pgp")).unwrap();
+            crate::tests::key("already-revoked-userid-revocation.pgp")).unwrap();
         check(&u, false, true, false);
 
         check(&tpk.clone().merge(u.clone()).unwrap(), false, true, false);
         check(&u.clone().merge(tpk.clone()).unwrap(), false, true, false);
 
         let k = TPK::from_bytes(
-            ::tests::key("already-revoked-subkey-revocation.pgp")).unwrap();
+            crate::tests::key("already-revoked-subkey-revocation.pgp")).unwrap();
         check(&k, false, false, true);
 
         check(&tpk.clone().merge(k.clone()).unwrap(), false, false, true);
@@ -3674,9 +3674,9 @@ mod test {
 
     #[test]
     fn revoked_time() {
-        use packet::Features;
-        use packet::key::Key4;
-        use constants::Curve;
+        use crate::packet::Features;
+        use crate::packet::key::Key4;
+        use crate::constants::Curve;
         use rand::{thread_rng, Rng, distributions::Open01};
         /*
          * t1: 1st binding sig ctime
@@ -3750,7 +3750,7 @@ mod test {
     #[test]
     fn unrevoked() {
         let tpk =
-            TPK::from_bytes(::tests::key("un-revoked-userid.pgp")).unwrap();
+            TPK::from_bytes(crate::tests::key("un-revoked-userid.pgp")).unwrap();
 
         for uid in tpk.userids() {
             assert_eq!(uid.revoked(None), RevocationStatus::NotAsFarAsWeKnow);
@@ -3760,18 +3760,18 @@ mod test {
     #[test]
     fn is_tsk() {
         let tpk = TPK::from_bytes(
-            ::tests::key("already-revoked.pgp")).unwrap();
+            crate::tests::key("already-revoked.pgp")).unwrap();
         assert!(! tpk.is_tsk());
 
         let tpk = TPK::from_bytes(
-            ::tests::key("already-revoked-private.pgp")).unwrap();
+            crate::tests::key("already-revoked-private.pgp")).unwrap();
         assert!(tpk.is_tsk());
     }
 
     #[test]
     fn export_only_exports_public_key() {
         let tpk = TPK::from_bytes(
-            ::tests::key("testy-new-private.pgp")).unwrap();
+            crate::tests::key("testy-new-private.pgp")).unwrap();
         assert!(tpk.is_tsk());
 
         let mut v = Vec::new();
@@ -3940,7 +3940,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
 
     #[test]
     fn signature_order() {
-        let neal = TPK::from_bytes(::tests::key("neal.pgp")).unwrap();
+        let neal = TPK::from_bytes(crate::tests::key("neal.pgp")).unwrap();
         let uidb = neal.userids().nth(0).unwrap();
         // Signatures are sorted in ascending order wrt the signature
         // creation time.

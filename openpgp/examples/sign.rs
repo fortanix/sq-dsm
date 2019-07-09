@@ -4,11 +4,11 @@ use std::env;
 use std::io;
 
 extern crate sequoia_openpgp as openpgp;
-use openpgp::armor;
-use openpgp::crypto;
-use openpgp::constants::DataFormat;
-use openpgp::parse::Parse;
-use openpgp::serialize::stream::{Message, LiteralWriter, Signer};
+use crate::openpgp::armor;
+use crate::openpgp::crypto;
+use crate::openpgp::constants::DataFormat;
+use crate::openpgp::parse::Parse;
+use crate::openpgp::serialize::stream::{Message, LiteralWriter, Signer};
 
 fn main() {
     let args: Vec<String> = env::args().collect();

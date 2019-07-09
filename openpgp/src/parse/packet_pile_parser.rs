@@ -1,13 +1,13 @@
 use std::io;
 use std::path::Path;
 
-use {
+use crate::{
     Result,
     Packet,
     Container,
     PacketPile,
 };
-use parse::{
+use crate::parse::{
     PacketParserBuilder,
     PacketParserResult,
     PacketParser,
@@ -277,7 +277,7 @@ impl<'a> PacketPileParser<'a> {
 fn message_parser_test() {
     let mut count = 0;
     let mut mp =
-        PacketPileParser::from_bytes(::tests::key("public-key.gpg"))
+        PacketPileParser::from_bytes(crate::tests::key("public-key.gpg"))
         .unwrap();
     while mp.recurse() {
         count += 1;
@@ -292,12 +292,12 @@ fn message_parser_test() {
 fn message_parser_reader_interface() {
     use std::io::Read;
 
-    let expected = ::tests::manifesto();
+    let expected = crate::tests::manifesto();
 
     // A message containing a compressed packet that contains a
     // literal packet.
     let mut mp = PacketPileParser::from_bytes(
-        ::tests::message("compressed-data-algo-1.gpg")).unwrap();
+        crate::tests::message("compressed-data-algo-1.gpg")).unwrap();
     let mut count = 0;
     while mp.recurse() {
         let pp = mp.ppr.as_mut().unwrap();

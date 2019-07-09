@@ -33,12 +33,12 @@ use self::openpgp::parse::stream::{
     DetachedVerifier,
 };
 
-use Maybe;
-use MoveFromRaw;
-use MoveIntoRaw;
-use MoveResultIntoRaw;
-use RefRaw;
-use RefMutRaw;
+use crate::Maybe;
+use crate::MoveFromRaw;
+use crate::MoveIntoRaw;
+use crate::MoveResultIntoRaw;
+use crate::RefRaw;
+use crate::RefMutRaw;
 
 use super::super::{
     error::Status,
@@ -53,7 +53,7 @@ use super::super::{
 };
 
 /// Communicates the message structure to the VerificationHelper.
-#[::ffi_wrapper_type(prefix = "pgp_", derive = "Debug")]
+#[crate::ffi_wrapper_type(prefix = "pgp_", derive = "Debug")]
 pub struct MessageStructure<'a>(stream::MessageStructure<'a>);
 
 /// Iterates over the message structure.
@@ -64,11 +64,11 @@ fn pgp_message_structure_iter(structure: *const MessageStructure)
 }
 
 /// Iterates over the message structure.
-#[::ffi_wrapper_type(prefix = "pgp_", derive = "Iterator(MessageLayer)")]
+#[crate::ffi_wrapper_type(prefix = "pgp_", derive = "Iterator(MessageLayer)")]
 pub struct MessageStructureIter<'a>(stream::MessageStructureIter<'a>);
 
 /// Represents a layer of the message structure.
-#[::ffi_wrapper_type(prefix = "pgp_", derive = "Debug")]
+#[crate::ffi_wrapper_type(prefix = "pgp_", derive = "Debug")]
 pub struct MessageLayer<'a>(stream::MessageLayer<'a>);
 
 /// Returns the message layer variant.
@@ -154,12 +154,12 @@ fn pgp_message_layer_signature_group<'a>(
 }
 
 /// A message's verification results.
-#[::ffi_wrapper_type(prefix = "pgp_", derive = "Iterator(VerificationResult)")]
+#[crate::ffi_wrapper_type(prefix = "pgp_", derive = "Iterator(VerificationResult)")]
 pub struct VerificationResultIter<'a>(
     ::std::slice::Iter<'a, stream::VerificationResult<'a>>);
 
 /// A message's verification results.
-#[::ffi_wrapper_type(prefix = "pgp_", derive = "Debug")]
+#[crate::ffi_wrapper_type(prefix = "pgp_", derive = "Debug")]
 pub struct VerificationResult<'a>(stream::VerificationResult<'a>);
 
 /// Returns the verification result variant.
@@ -499,7 +499,7 @@ impl VerificationHelper for VHelper {
 /// }
 /// ```
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn pgp_verifier_new<'a>(errp: Option<&mut *mut ::error::Error>,
+fn pgp_verifier_new<'a>(errp: Option<&mut *mut crate::error::Error>,
                         input: *mut io::Reader,
                         get_public_keys: GetPublicKeysCallback,
                         check: CheckCallback,
@@ -625,7 +625,7 @@ fn maybe_time(t: time_t) -> Option<time::Tm> {
 /// }
 /// ```
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn pgp_detached_verifier_new<'a>(errp: Option<&mut *mut ::error::Error>,
+fn pgp_detached_verifier_new<'a>(errp: Option<&mut *mut crate::error::Error>,
                                  signature_input: *mut io::Reader,
                                  input: *mut io::Reader,
                                  get_public_keys: GetPublicKeysCallback,
@@ -898,7 +898,7 @@ impl DecryptionHelper for DHelper {
 /// }
 /// ```
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn pgp_decryptor_new<'a>(errp: Option<&mut *mut ::error::Error>,
+fn pgp_decryptor_new<'a>(errp: Option<&mut *mut crate::error::Error>,
                          input: *mut io::Reader,
                          get_public_keys: GetPublicKeysCallback,
                          decrypt: DecryptCallback,

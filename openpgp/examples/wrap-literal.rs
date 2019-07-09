@@ -7,9 +7,9 @@ use std::env;
 use std::io;
 
 extern crate sequoia_openpgp as openpgp;
-use openpgp::armor;
-use openpgp::constants::DataFormat;
-use openpgp::serialize::stream::{Message, LiteralWriter};
+use crate::openpgp::armor;
+use crate::openpgp::constants::DataFormat;
+use crate::openpgp::serialize::stream::{Message, LiteralWriter};
 
 fn main() {
     let args: Vec<String> = env::args().collect();

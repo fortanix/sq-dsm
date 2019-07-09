@@ -4,8 +4,8 @@ use std::io::{self, Write};
 
 extern crate failure;
 extern crate sequoia_openpgp as openpgp;
-use openpgp::serialize::stream::*;
-use openpgp::parse::stream::*;
+use crate::openpgp::serialize::stream::*;
+use crate::openpgp::parse::stream::*;
 
 const MESSAGE: &'static str = "дружба";
 

@@ -5,12 +5,12 @@ use std::io;
 
 extern crate sequoia_openpgp as openpgp;
 use sequoia_core as core;
-pub use openpgp::error::Status;
+pub use crate::openpgp::error::Status;
 
-pub(crate) use ::openpgp::error::Error;
+pub(crate) use crate::openpgp::error::Error;
 
 trait FromSequoiaError<'a> {
-    fn from_sequoia_error(&'a failure::Error) -> Status;
+    fn from_sequoia_error(_: &'a failure::Error) -> Status;
 }
 
 impl<'a> FromSequoiaError<'a> for Status {

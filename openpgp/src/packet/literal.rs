@@ -3,12 +3,12 @@ use std::cmp;
 use time;
 use quickcheck::{Arbitrary, Gen};
 
-use constants::DataFormat;
-use conversions::Time;
-use Error;
-use packet;
-use Packet;
-use Result;
+use crate::constants::DataFormat;
+use crate::conversions::Time;
+use crate::Error;
+use crate::packet;
+use crate::Packet;
+use crate::Result;
 
 /// Holds a literal packet.
 ///
@@ -195,8 +195,8 @@ impl Arbitrary for Literal {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use parse::Parse;
-    use serialize::SerializeInto;
+    use crate::parse::Parse;
+    use crate::serialize::SerializeInto;
 
     quickcheck! {
         fn roundtrip(p: Literal) -> bool {

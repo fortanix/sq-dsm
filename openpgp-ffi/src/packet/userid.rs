@@ -6,11 +6,11 @@
 
 extern crate sequoia_openpgp as openpgp;
 use libc::{c_char, size_t};
-use error::Status;
+use crate::error::Status;
 use super::Packet;
 
-use RefRaw;
-use MoveIntoRaw;
+use crate::RefRaw;
+use crate::MoveIntoRaw;
 
 /// Create a new User ID with the value `value`.
 ///
@@ -35,7 +35,7 @@ fn pgp_user_id_new(value: *const c_char)
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "C"
 fn pgp_user_id_from_address(
-    errp: Option<&mut *mut ::error::Error>,
+    errp: Option<&mut *mut crate::error::Error>,
     name: Option<&c_char>,
     comment: Option<&c_char>,
     address: *const c_char)
@@ -74,7 +74,7 @@ fn pgp_user_id_from_address(
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "C"
 fn pgp_user_id_from_unchecked_address(
-    errp: Option<&mut *mut ::error::Error>,
+    errp: Option<&mut *mut crate::error::Error>,
     name: Option<&c_char>,
     comment: Option<&c_char>,
     address: *const c_char)
@@ -152,7 +152,7 @@ fn pgp_user_id_value(uid: *const Packet, value_len: Option<&mut size_t>)
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "C"
 fn pgp_user_id_name(
-    errp: Option<&mut *mut ::error::Error>, uid: *const Packet,
+    errp: Option<&mut *mut crate::error::Error>, uid: *const Packet,
     namep: &mut *mut c_char)
     -> Status
 {
@@ -166,8 +166,8 @@ fn pgp_user_id_name(
             Ok(None) =>
                 *namep = ::std::ptr::null_mut(),
             Err(err) => {
-                use MoveIntoRaw;
-                let status = ::error::Status::from(&err);
+                use crate::MoveIntoRaw;
+                let status = crate::error::Status::from(&err);
                 if let Some(errp) = errp {
                     *errp = err.move_into_raw();
                 }
@@ -200,7 +200,7 @@ fn pgp_user_id_name(
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "C"
 fn pgp_user_id_comment(
-    errp: Option<&mut *mut ::error::Error>, uid: *const Packet,
+    errp: Option<&mut *mut crate::error::Error>, uid: *const Packet,
     commentp: &mut *mut c_char)
     -> Status
 {
@@ -214,8 +214,8 @@ fn pgp_user_id_comment(
             Ok(None) =>
                 *commentp = ::std::ptr::null_mut(),
             Err(err) => {
-                use MoveIntoRaw;
-                let status = ::error::Status::from(&err);
+                use crate::MoveIntoRaw;
+                let status = crate::error::Status::from(&err);
                 if let Some(errp) = errp {
                     *errp = err.move_into_raw();
                 }
@@ -248,7 +248,7 @@ fn pgp_user_id_comment(
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "C"
 fn pgp_user_id_address(
-    errp: Option<&mut *mut ::error::Error>, uid: *const Packet,
+    errp: Option<&mut *mut crate::error::Error>, uid: *const Packet,
     addressp: &mut *mut c_char)
     -> Status
 {
@@ -262,8 +262,8 @@ fn pgp_user_id_address(
             Ok(None) =>
                 *addressp = ::std::ptr::null_mut(),
             Err(err) => {
-                use MoveIntoRaw;
-                let status = ::error::Status::from(&err);
+                use crate::MoveIntoRaw;
+                let status = crate::error::Status::from(&err);
                 if let Some(errp) = errp {
                     *errp = err.move_into_raw();
                 }
@@ -296,7 +296,7 @@ fn pgp_user_id_address(
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "C"
 fn pgp_user_id_other(
-    errp: Option<&mut *mut ::error::Error>, uid: *const Packet,
+    errp: Option<&mut *mut crate::error::Error>, uid: *const Packet,
     otherp: &mut *mut c_char)
     -> Status
 {
@@ -310,8 +310,8 @@ fn pgp_user_id_other(
             Ok(None) =>
                 *otherp = ::std::ptr::null_mut(),
             Err(err) => {
-                use MoveIntoRaw;
-                let status = ::error::Status::from(&err);
+                use crate::MoveIntoRaw;
+                let status = crate::error::Status::from(&err);
                 if let Some(errp) = errp {
                     *errp = err.move_into_raw();
                 }
@@ -344,7 +344,7 @@ fn pgp_user_id_other(
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "C"
 fn pgp_user_id_address_or_other(
-    errp: Option<&mut *mut ::error::Error>, uid: *const Packet,
+    errp: Option<&mut *mut crate::error::Error>, uid: *const Packet,
     addressp: &mut *mut c_char)
     -> Status
 {
@@ -362,8 +362,8 @@ fn pgp_user_id_address_or_other(
                     Ok(None) =>
                         *addressp = ::std::ptr::null_mut(),
                     Err(err) => {
-                        use MoveIntoRaw;
-                        let status = ::error::Status::from(&err);
+                        use crate::MoveIntoRaw;
+                        let status = crate::error::Status::from(&err);
                         if let Some(errp) = errp {
                             *errp = err.move_into_raw();
                         }
@@ -371,8 +371,8 @@ fn pgp_user_id_address_or_other(
                     }
                 },
             Err(err) => {
-                use MoveIntoRaw;
-                let status = ::error::Status::from(&err);
+                use crate::MoveIntoRaw;
+                let status = crate::error::Status::from(&err);
                 if let Some(errp) = errp {
                     *errp = err.move_into_raw();
                 }
@@ -407,7 +407,7 @@ fn pgp_user_id_address_or_other(
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "C"
 fn pgp_user_id_address_normalized(
-    errp: Option<&mut *mut ::error::Error>, uid: *const Packet,
+    errp: Option<&mut *mut crate::error::Error>, uid: *const Packet,
     addressp: &mut *mut c_char)
     -> Status
 {
@@ -421,8 +421,8 @@ fn pgp_user_id_address_normalized(
             Ok(None) =>
                 *addressp = ::std::ptr::null_mut(),
             Err(err) => {
-                use MoveIntoRaw;
-                let status = ::error::Status::from(&err);
+                use crate::MoveIntoRaw;
+                let status = crate::error::Status::from(&err);
                 if let Some(errp) = errp {
                     *errp = err.move_into_raw();
                 }

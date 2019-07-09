@@ -14,7 +14,7 @@ use std::io::{self, Write};
 use std::iter;
 use time;
 
-use {
+use crate::{
     crypto,
     Error,
     Fingerprint,
@@ -26,21 +26,21 @@ use {
     packet::signature,
     TPK,
 };
-use packet::ctb::CTB;
-use packet::BodyLength;
+use crate::packet::ctb::CTB;
+use crate::packet::BodyLength;
 use super::{
     PartialBodyFilter,
     Serialize,
     writer,
 };
-use constants::{
+use crate::constants::{
     AEADAlgorithm,
     CompressionAlgorithm,
     DataFormat,
     SignatureType,
     SymmetricAlgorithm,
 };
-use conversions::Time;
+use crate::conversions::Time;
 
 /// Cookie must be public because the writers are.
 #[doc(hidden)]
@@ -1169,10 +1169,10 @@ impl<'a> writer::Stackable<'a, Cookie> for Encryptor<'a> {
 #[cfg(test)]
 mod test {
     use std::io::Read;
-    use {Packet, PacketPile, packet::CompressedData};
-    use parse::{Parse, PacketParserResult, PacketParser};
+    use crate::{Packet, PacketPile, packet::CompressedData};
+    use crate::parse::{Parse, PacketParserResult, PacketParser};
     use super::*;
-    use constants::DataFormat::Text as T;
+    use crate::constants::DataFormat::Text as T;
 
     #[test]
     fn arbitrary() {
@@ -1339,14 +1339,14 @@ mod test {
 
     #[test]
     fn signature() {
-        use crypto::KeyPair;
+        use crate::crypto::KeyPair;
         use std::collections::HashMap;
-        use Fingerprint;
+        use crate::Fingerprint;
 
         let mut keys: HashMap<Fingerprint, Key> = HashMap::new();
         for tsk in &[
-            TPK::from_bytes(::tests::key("testy-private.pgp")).unwrap(),
-            TPK::from_bytes(::tests::key("testy-new-private.pgp")).unwrap(),
+            TPK::from_bytes(crate::tests::key("testy-private.pgp")).unwrap(),
+            TPK::from_bytes(crate::tests::key("testy-new-private.pgp")).unwrap(),
         ] {
             for key in tsk.keys_all().signing_capable().map(|x| x.2)
             {

@@ -5,17 +5,17 @@ use std::io::{self, Read};
 use nettle::{aead, cipher};
 use buffered_reader::BufferedReader;
 
-use constants::{
+use crate::constants::{
     AEADAlgorithm,
     SymmetricAlgorithm,
 };
-use conversions::{
+use crate::conversions::{
     write_be_u64,
 };
-use Error;
-use Result;
-use crypto::SessionKey;
-use crypto::mem::secure_cmp;
+use crate::Error;
+use crate::Result;
+use crate::crypto::SessionKey;
+use crate::crypto::mem::secure_cmp;
 
 impl AEADAlgorithm {
     /// Returns the digest size of the AEAD algorithm.
@@ -766,10 +766,10 @@ mod tests {
                 let version = 1;
                 let chunk_size = 64;
                 let mut key = vec![0; sym_algo.key_size().unwrap()];
-                ::crypto::random(&mut key);
+                crate::crypto::random(&mut key);
                 let key: SessionKey = key.into();
                 let mut iv = vec![0; aead.iv_size().unwrap()];
-                ::crypto::random(&mut iv);
+                crate::crypto::random(&mut iv);
 
                 let mut ciphertext = Vec::new();
                 {
@@ -779,7 +779,7 @@ mod tests {
                                                        &mut ciphertext)
                         .unwrap();
 
-                    encryptor.write_all(::tests::manifesto()).unwrap();
+                    encryptor.write_all(crate::tests::manifesto()).unwrap();
                 }
 
                 let mut plaintext = Vec::new();
@@ -793,7 +793,7 @@ mod tests {
                     decryptor.read_to_end(&mut plaintext).unwrap();
                 }
 
-                assert_eq!(&plaintext[..], ::tests::manifesto());
+                assert_eq!(&plaintext[..], crate::tests::manifesto());
             }
         }
     }

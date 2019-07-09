@@ -3,7 +3,7 @@ use bzip2::write::BzEncoder;
 use std::fmt;
 use std::io;
 
-use Result;
+use crate::Result;
 use super::{Generic, Stack, BoxStack, Stackable};
 
 /// BZing writer.

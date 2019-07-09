@@ -1,9 +1,9 @@
 use std::fmt;
 
-use Error;
-use Result;
-use constants::{Curve, HashAlgorithm};
-use crypto::mpis::{MPI, PublicKey};
+use crate::Error;
+use crate::Result;
+use crate::constants::{Curve, HashAlgorithm};
+use crate::crypto::mpis::{MPI, PublicKey};
 
 /// A proprietary, protocol agnostic identifier for public keys.
 ///
@@ -32,7 +32,7 @@ impl fmt::Display for Keygrip {
 impl Keygrip {
     /// Parses a keygrip.
     pub fn from_hex(hex: &str) -> Result<Self> {
-        let bytes = ::conversions::from_hex(hex, true)?;
+        let bytes = crate::conversions::from_hex(hex, true)?;
         if bytes.len() != 20 {
             return Err(Error::InvalidArgument(
                 format!("Expected 20 bytes, got {}", bytes.len())).into());
@@ -47,7 +47,7 @@ impl Keygrip {
 impl PublicKey {
     /// Computes the keygrip.
     pub fn keygrip(&self) -> Result<Keygrip> {
-        use crypto::hash;
+        use crate::crypto::hash;
         use std::io::Write;
         use self::PublicKey::*;
         let mut hash = HashAlgorithm::SHA1.context().unwrap();
@@ -204,13 +204,13 @@ fn ecc_param(curve: &Curve, i: usize) -> MPI {
         (_, _) => unreachable!(),
     };
 
-    ::conversions::from_hex(hex, true).unwrap().into()
+    crate::conversions::from_hex(hex, true).unwrap().into()
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ::conversions::from_hex;
+    use crate::conversions::from_hex;
 
     /// Test vectors from libgcrypt/tests/basic.c.
     #[test]
@@ -276,9 +276,9 @@ mod tests {
     #[test]
     fn our_keys() {
         use std::collections::HashMap;
-        use ::Fingerprint as FP;
+        use crate::Fingerprint as FP;
         use super::Keygrip as KG;
-        use ::parse::Parse;
+        use crate::parse::Parse;
 
         let keygrips: HashMap<FP, KG> = [
             // testy.pgp
@@ -329,7 +329,7 @@ mod tests {
             "erika-corinna-daniela-simone-antonia-nistp384.pgp",
             "erika-corinna-daniela-simone-antonia-nistp521.pgp",
         ]
-            .iter().map(|n| (n, ::TPK::from_bytes(::tests::key(n)).unwrap()))
+            .iter().map(|n| (n, crate::TPK::from_bytes(crate::tests::key(n)).unwrap()))
         {
             eprintln!("{}", name);
             for key in tpk.keys_all() {

@@ -7,8 +7,8 @@ use failure;
 extern crate sequoia_openpgp as openpgp;
 use super::Packet;
 
-use error::Status;
-use RefRaw;
+use crate::error::Status;
+use crate::RefRaw;
 
 /// Returns the session key.
 ///
@@ -17,7 +17,7 @@ use RefRaw;
 /// is not written to it.  Either way, `key_len` is set to the size of
 /// the session key.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "C" fn pgp_skesk_decrypt(errp: Option<&mut *mut ::error::Error>,
+pub extern "C" fn pgp_skesk_decrypt(errp: Option<&mut *mut crate::error::Error>,
                                         skesk: *const Packet,
                                         password: *const u8,
                                         password_len: size_t,

@@ -7,12 +7,12 @@ extern crate tempfile;
 use tempfile::TempDir;
 
 extern crate sequoia_openpgp as openpgp;
-use openpgp::{Packet, PacketPile, TPK};
-use openpgp::crypto::KeyPair;
-use openpgp::packet::key::SecretKey;
-use openpgp::constants::{CompressionAlgorithm, DataFormat, SignatureType};
-use openpgp::parse::Parse;
-use openpgp::serialize::stream::{Message, Signer, Compressor, LiteralWriter};
+use crate::openpgp::{Packet, PacketPile, TPK};
+use crate::openpgp::crypto::KeyPair;
+use crate::openpgp::packet::key::SecretKey;
+use crate::openpgp::constants::{CompressionAlgorithm, DataFormat, SignatureType};
+use crate::openpgp::parse::Parse;
+use crate::openpgp::serialize::stream::{Message, Signer, Compressor, LiteralWriter};
 
 fn p(filename: &str) -> String {
     format!("../openpgp/tests/data/{}", filename)

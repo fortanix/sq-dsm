@@ -6,18 +6,18 @@ use std::cmp::Ordering;
 use quickcheck::{Arbitrary, Gen};
 use rand::Rng;
 
-use constants::{
+use crate::constants::{
     Curve,
     HashAlgorithm,
     PublicKeyAlgorithm,
     SymmetricAlgorithm,
 };
-use crypto::hash::{self, Hash};
-use crypto::mem::{secure_cmp, Protected};
-use serialize::Serialize;
+use crate::crypto::hash::{self, Hash};
+use crate::crypto::mem::{secure_cmp, Protected};
+use crate::serialize::Serialize;
 
-use Error;
-use Result;
+use crate::Error;
+use crate::Result;
 
 /// Holds a single MPI.
 #[derive(Clone, Hash)]
@@ -170,7 +170,7 @@ impl fmt::Debug for MPI {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.write_fmt(format_args!(
             "{} bits: {}", self.bits(),
-            ::conversions::to_hex(&*self.value, true)))
+            crate::conversions::to_hex(&*self.value, true)))
     }
 }
 
@@ -264,7 +264,7 @@ impl fmt::Debug for ProtectedMPI {
         if cfg!(debug_assertions) {
             f.write_fmt(format_args!(
                 "{} bits: {}", self.bits(),
-                ::conversions::to_hex(&*self.value, true)))
+                crate::conversions::to_hex(&*self.value, true)))
         } else {
             f.write_str("<Redacted>")
         }
@@ -984,8 +984,8 @@ impl Arbitrary for Signature {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use parse::Parse;
-    use serialize::Serialize;
+    use crate::parse::Parse;
+    use crate::serialize::Serialize;
 
     quickcheck! {
         fn mpi_roundtrip(mpi: MPI) -> bool {
@@ -998,8 +998,8 @@ mod tests {
     quickcheck! {
         fn pk_roundtrip(pk: PublicKey) -> bool {
             use std::io::Cursor;
-            use PublicKeyAlgorithm::*;
-            use serialize::Serialize;
+            use crate::PublicKeyAlgorithm::*;
+            use crate::serialize::Serialize;
 
             let buf = Vec::<u8>::default();
             let mut cur = Cursor::new(buf);
@@ -1046,7 +1046,7 @@ mod tests {
             ("erika-corinna-daniela-simone-antonia-nistp384.pgp", 0, 384),
             ("erika-corinna-daniela-simone-antonia-nistp521.pgp", 0, 521),
         ] {
-            let tpk = ::TPK::from_bytes(::tests::key(name)).unwrap();
+            let tpk = crate::TPK::from_bytes(crate::tests::key(name)).unwrap();
             let key = tpk.keys_all().nth(*key_no).unwrap().2;
             assert_eq!(key.mpis().bits().unwrap(), *bits,
                        "TPK {}, key no {}", name, *key_no);
@@ -1056,8 +1056,8 @@ mod tests {
     quickcheck! {
         fn sk_roundtrip(sk: SecretKey) -> bool {
             use std::io::Cursor;
-            use PublicKeyAlgorithm::*;
-            use serialize::Serialize;
+            use crate::PublicKeyAlgorithm::*;
+            use crate::serialize::Serialize;
 
             let buf = Vec::<u8>::default();
             let mut cur = Cursor::new(buf);
@@ -1095,8 +1095,8 @@ mod tests {
     quickcheck! {
         fn ct_roundtrip(ct: Ciphertext) -> bool {
             use std::io::Cursor;
-            use PublicKeyAlgorithm::*;
-            use serialize::Serialize;
+            use crate::PublicKeyAlgorithm::*;
+            use crate::serialize::Serialize;
 
             let buf = Vec::<u8>::default();
             let mut cur = Cursor::new(buf);
@@ -1125,8 +1125,8 @@ mod tests {
     quickcheck! {
         fn signature_roundtrip(sig: Signature) -> bool {
             use std::io::Cursor;
-            use PublicKeyAlgorithm::*;
-            use serialize::Serialize;
+            use crate::PublicKeyAlgorithm::*;
+            use crate::serialize::Serialize;
 
             let buf = Vec::<u8>::default();
             let mut cur = Cursor::new(buf);

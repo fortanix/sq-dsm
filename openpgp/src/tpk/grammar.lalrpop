@@ -1,17 +1,17 @@
 // -*- mode: Rust; -*-
 
-use Error;
-use packet::Signature;
-use packet::UserID;
-use packet::UserAttribute;
-use packet::Key;
-use packet::Unknown;
-use Packet;
-use TPK;
+use crate::Error;
+use crate::packet::Signature;
+use crate::packet::UserID;
+use crate::packet::UserAttribute;
+use crate::packet::Key;
+use crate::packet::Unknown;
+use crate::Packet;
+use crate::TPK;
 
-use tpk::lexer;
-use tpk::lexer::{Token, Component};
-use tpk::{SubkeyBinding, UserIDBinding, UserAttributeBinding, UnknownBinding};
+use crate::tpk::lexer;
+use crate::tpk::lexer::{Token, Component};
+use crate::tpk::{SubkeyBinding, UserIDBinding, UserAttributeBinding, UnknownBinding};
 
 use lalrpop_util::ParseError;
 

@@ -6,12 +6,12 @@
 
 use std::ops::Deref;
 
-use {
+use crate::{
     packet::Tag,
     Error,
     Result
 };
-use packet::BodyLength;
+use crate::packet::BodyLength;
 
 /// OpenPGP defines two packet formats: the old and the new format.
 /// They both include the packet's so-called tag.

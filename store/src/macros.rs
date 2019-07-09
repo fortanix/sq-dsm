@@ -12,7 +12,7 @@
 // Sends the given request and decodes the result.
 macro_rules! make_request {
     ( $core: expr, $request: expr ) => {{
-        use node::result::Which;
+        use crate::node::result::Which;
 
         let r: std::result::Result<Result<_>, capnp::Error> = $core.run(
             $request.send().promise
@@ -34,7 +34,7 @@ macro_rules! make_request {
 
 macro_rules! make_request_map {
     ( $core: expr, $request: expr, $map: expr ) => {{
-        use node::result::Which;
+        use crate::node::result::Which;
 
         let r: std::result::Result<Result<_>, capnp::Error> = $core.run(
             $request.send().promise

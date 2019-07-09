@@ -12,7 +12,7 @@ use failure;
 
 use ::buffered_reader::*;
 
-use {
+use crate::{
     crypto::{aead, hash::Hash},
     Result,
     CTB,
@@ -26,7 +26,7 @@ use {
     KeyID,
     crypto::SessionKey,
 };
-use constants::{
+use crate::constants::{
     AEADAlgorithm,
     CompressionAlgorithm,
     SignatureType,
@@ -34,16 +34,16 @@ use constants::{
     PublicKeyAlgorithm,
     SymmetricAlgorithm,
 };
-use conversions::Time;
-use crypto::{self, mpis::{PublicKey, MPI}};
-use crypto::symmetric::{Decryptor, BufferedReaderDecryptor};
-use message;
-use message::MessageValidator;
+use crate::conversions::Time;
+use crate::crypto::{self, mpis::{PublicKey, MPI}};
+use crate::crypto::symmetric::{Decryptor, BufferedReaderDecryptor};
+use crate::message;
+use crate::message::MessageValidator;
 
 mod partial_body;
 use self::partial_body::BufferedReaderPartialBodyFilter;
 
-use packet::signature::subpacket::SubpacketArea;
+use crate::packet::signature::subpacket::SubpacketArea;
 
 mod packet_pile_parser;
 pub use self::packet_pile_parser::PacketPileParser;
@@ -1015,7 +1015,7 @@ impl_parse_generic_packet!(Signature);
 
 #[test]
 fn signature_parser_test () {
-    let data = ::tests::message("sig.gpg");
+    let data = crate::tests::message("sig.gpg");
 
     {
         let pp = PacketParser::from_bytes(data).unwrap().unwrap();
@@ -1191,11 +1191,11 @@ impl OnePassSig3 {
 
 #[test]
 fn one_pass_sig_parser_test () {
-    use SignatureType;
-    use PublicKeyAlgorithm;
+    use crate::SignatureType;
+    use crate::PublicKeyAlgorithm;
 
     // This test assumes that the first packet is a OnePassSig packet.
-    let data = ::tests::message("signed-1.gpg");
+    let data = crate::tests::message("signed-1.gpg");
     let mut pp = PacketParser::from_bytes(data).unwrap().unwrap();
     let p = pp.finish().unwrap();
     // eprintln!("packet: {:?}", p);
@@ -1249,7 +1249,7 @@ fn one_pass_sig_test () {
     for test in tests.iter() {
         eprintln!("Trying {}...", test.filename);
         let mut ppr = PacketParserBuilder::from_bytes(
-            ::tests::message(test.filename))
+            crate::tests::message(test.filename))
             .expect(&format!("Reading {}", test.filename)[..])
             .finalize().unwrap();
 
@@ -1262,10 +1262,10 @@ fn one_pass_sig_test () {
             } else if let Packet::Signature(ref sig) = pp.packet {
                 eprintln!("  {}:\n  prefix: expected: {}, in sig: {}",
                           test.filename,
-                          ::conversions::to_hex(&test.hash_prefix[sigs][..], false),
-                          ::conversions::to_hex(sig.hash_prefix(), false));
+                          crate::conversions::to_hex(&test.hash_prefix[sigs][..], false),
+                          crate::conversions::to_hex(sig.hash_prefix(), false));
                 eprintln!("  computed hash: {}",
-                          ::conversions::to_hex(&sig.computed_hash().unwrap().1,
+                          crate::conversions::to_hex(&sig.computed_hash().unwrap().1,
                                                 false));
 
                 assert_eq!(&test.hash_prefix[sigs], sig.hash_prefix());
@@ -1320,7 +1320,7 @@ impl Key4 {
     /// secret subkey packet.
     fn parse<'a>(mut php: PacketHeaderParser<'a>) -> Result<PacketParser<'a>> {
         use std::io::Cursor;
-        use serialize::Serialize;
+        use crate::serialize::Serialize;
 
         make_php_try!(php);
         let tag = php.header.ctb.tag;
@@ -1362,7 +1362,7 @@ impl Key4 {
                     let s2k = php_try!(S2K::parse(&mut php));
                     let mut cipher = php_try!(php.parse_bytes_eof("encrypted_mpis"));
 
-                    ::packet::key::Encrypted::new(
+                    crate::packet::key::Encrypted::new(
                         s2k, sk, cipher.into_boxed_slice()).into()
                 }
                 // Encrypted, S2K & mod 65536 checksum: unsupported
@@ -1573,9 +1573,9 @@ impl_parse_generic_packet!(Literal);
 
 #[test]
 fn literal_parser_test () {
-    use constants::DataFormat;
+    use crate::constants::DataFormat;
     {
-        let data = ::tests::message("literal-mode-b.gpg");
+        let data = crate::tests::message("literal-mode-b.gpg");
         let mut pp = PacketParser::from_bytes(data).unwrap().unwrap();
         assert_eq!(pp.header.length, BodyLength::Full(18));
         let content = pp.steal_eof().unwrap();
@@ -1592,7 +1592,7 @@ fn literal_parser_test () {
     }
 
     {
-        let data = ::tests::message("literal-mode-t-partial-body.gpg");
+        let data = crate::tests::message("literal-mode-t-partial-body.gpg");
         let mut pp = PacketParser::from_bytes(data).unwrap().unwrap();
         assert_eq!(pp.header.length, BodyLength::Partial(4096));
         let content = pp.steal_eof().unwrap();
@@ -1603,7 +1603,7 @@ fn literal_parser_test () {
                        b"manifesto.txt"[..]);
             assert_eq!(p.date(), Some(&time::Tm::from_pgp(1508000649)));
 
-            let expected = ::tests::manifesto();
+            let expected = crate::tests::manifesto();
 
             assert_eq!(&content[..], &expected[..]);
         } else {
@@ -1679,9 +1679,9 @@ impl_parse_generic_packet!(CompressedData);
 #[cfg(any(feature = "compression-deflate", feature = "compression-bzip2"))]
 #[test]
 fn compressed_data_parser_test () {
-    use constants::DataFormat;
+    use crate::constants::DataFormat;
 
-    let expected = ::tests::manifesto();
+    let expected = crate::tests::manifesto();
 
     for i in 1..4 {
         match CompressionAlgorithm::from(i) {
@@ -1691,7 +1691,7 @@ fn compressed_data_parser_test () {
             CompressionAlgorithm::BZip2 => (),
             _ => continue,
         }
-        let mut pp = PacketParser::from_bytes(::tests::message(
+        let mut pp = PacketParser::from_bytes(crate::tests::message(
             &format!("compressed-data-algo-{}.gpg", i))).unwrap().unwrap();
 
         // We expect a compressed packet containing a literal data
@@ -1791,7 +1791,7 @@ impl_parse_generic_packet!(SKESK);
 
 #[test]
 fn skesk_parser_test() {
-    use crypto::Password;
+    use crate::crypto::Password;
     struct Test<'a> {
         filename: &'a str,
         s2k: S2K,
@@ -1816,7 +1816,7 @@ fn skesk_parser_test() {
 
     for test in tests.iter() {
         let mut pp = PacketParser::from_bytes(
-            ::tests::message(test.filename)).unwrap().unwrap();
+            crate::tests::message(test.filename)).unwrap().unwrap();
         if let Packet::SKESK(SKESK::V4(ref skesk)) = pp.packet {
             eprintln!("{:?}", skesk);
 
@@ -1825,7 +1825,7 @@ fn skesk_parser_test() {
 
             match skesk.decrypt(&test.password) {
                 Ok((_sym_algo, key)) => {
-                    let key = ::conversions::to_hex(&key[..], false);
+                    let key = crate::conversions::to_hex(&key[..], false);
                     assert_eq!(&key[..], &test.key_hex[..]);
                 }
                 Err(e) => {
@@ -2087,10 +2087,10 @@ struct PacketParserState {
     message_validator: MessageValidator,
 
     /// Whether the packet sequence is a valid OpenPGP keyring.
-    keyring_validator: ::tpk::KeyringValidator,
+    keyring_validator: crate::tpk::KeyringValidator,
 
     /// Whether the packet sequence is a valid OpenPGP TPK.
-    tpk_validator: ::tpk::TPKValidator,
+    tpk_validator: crate::tpk::TPKValidator,
 
     // Whether this is the first packet in the packet sequence.
     first_packet: bool,
@@ -2242,7 +2242,7 @@ impl PacketParserEOF {
     ///
     /// As opposed to a TPK or just a bunch of packets.
     pub fn is_message(&self) -> Result<()> {
-        use message::MessageValidity;
+        use crate::message::MessageValidity;
 
         match self.state.message_validator.check() {
             MessageValidity::Message => Ok(()),
@@ -2255,7 +2255,7 @@ impl PacketParserEOF {
     ///
     /// As opposed to a Message or just a bunch of packets.
     pub fn is_keyring(&self) -> Result<()> {
-        use tpk::KeyringValidity;
+        use crate::tpk::KeyringValidity;
 
         match self.state.keyring_validator.check() {
             KeyringValidity::Keyring => Ok(()),
@@ -2268,7 +2268,7 @@ impl PacketParserEOF {
     ///
     /// As opposed to a Message or just a bunch of packets.
     pub fn is_tpk(&self) -> Result<()> {
-        use tpk::TPKValidity;
+        use crate::tpk::TPKValidity;
 
         match self.state.tpk_validator.check() {
             TPKValidity::TPK => Ok(()),
@@ -2530,7 +2530,7 @@ impl <'a> PacketParser<'a> {
     /// Before that, it is only possible to say that the message is a
     /// valid prefix or definitely not an OpenPGP message.
     pub fn possible_message(&self) -> Result<()> {
-        use message::MessageValidity;
+        use crate::message::MessageValidity;
 
         match self.state.message_validator.check() {
             MessageValidity::Message => unreachable!(),
@@ -2546,7 +2546,7 @@ impl <'a> PacketParser<'a> {
     /// Before that, it is only possible to say that the message is a
     /// valid prefix or definitely not an OpenPGP keyring.
     pub fn possible_keyring(&self) -> Result<()> {
-        use tpk::KeyringValidity;
+        use crate::tpk::KeyringValidity;
 
         match self.state.keyring_validator.check() {
             KeyringValidity::Keyring => unreachable!(),
@@ -2562,7 +2562,7 @@ impl <'a> PacketParser<'a> {
     /// Before that, it is only possible to say that the message is a
     /// valid prefix or definitely not an OpenPGP TPK.
     pub fn possible_tpk(&self) -> Result<()> {
-        use tpk::TPKValidity;
+        use crate::tpk::TPKValidity;
 
         match self.state.tpk_validator.check() {
             TPKValidity::TPK => unreachable!(),
@@ -3289,12 +3289,12 @@ fn packet_parser_reader_interface() {
     // We need the Read trait.
     use std::io::Read;
 
-    let expected = ::tests::manifesto();
+    let expected = crate::tests::manifesto();
 
     // A message containing a compressed packet that contains a
     // literal packet.
     let pp = PacketParser::from_bytes(
-        ::tests::message("compressed-data-algo-1.gpg")).unwrap().unwrap();
+        crate::tests::message("compressed-data-algo-1.gpg")).unwrap().unwrap();
 
     // The message has the form:
     //
@@ -3390,7 +3390,7 @@ impl<'a> PacketParser<'a> {
                         return Err(Error::InvalidSessionKey(
                             format!(
                                 "Last two 16-bit quantities don't match: {}",
-                                ::conversions::to_hex(&header[..], false)))
+                                crate::conversions::to_hex(&header[..], false)))
                                    .into());
                     }
                 }
@@ -3500,7 +3500,7 @@ mod test {
     impl<'a> Data<'a> {
         fn content(&self) -> Vec<u8> {
             match self {
-                Data::File(filename) => ::tests::message(filename).to_vec(),
+                Data::File(filename) => crate::tests::message(filename).to_vec(),
                 Data::String(data) => data.to_vec(),
             }
         }
@@ -3694,7 +3694,7 @@ mod test {
                       test.filename, stream);
 
             let mut ppr = PacketParserBuilder::from_bytes(
-                ::tests::message(test.filename)).unwrap()
+                crate::tests::message(test.filename)).unwrap()
                 .buffer_unread_content()
                 .finalize()
                 .expect(&format!("Error reading {}", test.filename)[..]);
@@ -3703,7 +3703,7 @@ mod test {
                 ppr, false, &[ Tag::SEIP, Tag::AED ][..],
                 &[ Tag::SKESK, Tag::PKESK ][..] );
             if let PacketParserResult::Some(ref mut pp) = ppr {
-                let key = ::conversions::from_hex(test.key_hex, false)
+                let key = crate::conversions::from_hex(test.key_hex, false)
                     .unwrap().into();
 
                 pp.decrypt(test.algo, &key).unwrap();
@@ -3761,7 +3761,7 @@ mod test {
     fn message_validator() {
         for test in DECRYPT_TESTS.iter() {
             let mut ppr = PacketParserBuilder::from_bytes(
-                ::tests::message(test.filename)).unwrap()
+                crate::tests::message(test.filename)).unwrap()
                 .finalize()
                 .expect(&format!("Error reading {}", test.filename)[..]);
 
@@ -3772,7 +3772,7 @@ mod test {
 
                 match pp.packet {
                     Packet::SEIP(_) | Packet::AED(_) => {
-                        let key = ::conversions::from_hex(test.key_hex, false)
+                        let key = crate::conversions::from_hex(test.key_hex, false)
                             .unwrap().into();
                         pp.decrypt(test.algo, &key).unwrap();
                     },
@@ -3803,8 +3803,8 @@ mod test {
                       "neal.pgp"]
         {
             let mut ppr = PacketParserBuilder::from_reader(
-                Cursor::new(::tests::key("testy.pgp")).chain(
-                    Cursor::new(::tests::key(test)))).unwrap()
+                Cursor::new(crate::tests::key("testy.pgp")).chain(
+                    Cursor::new(crate::tests::key(test)))).unwrap()
                 .finalize()
                 .expect(&format!("Error reading {:?}", test));
 
@@ -3828,7 +3828,7 @@ mod test {
                       "testy-new.pgp",
                       "neal.pgp"]
         {
-            let mut ppr = PacketParserBuilder::from_bytes(::tests::key(test))
+            let mut ppr = PacketParserBuilder::from_bytes(crate::tests::key(test))
                 .unwrap()
                 .finalize()
                 .expect(&format!("Error reading {:?}", test));
@@ -3853,7 +3853,7 @@ mod test {
     fn message_validator_opaque_content() {
         for test in DECRYPT_TESTS.iter() {
             let mut ppr = PacketParserBuilder::from_bytes(
-                ::tests::message(test.filename)).unwrap()
+                crate::tests::message(test.filename)).unwrap()
                 .finalize()
                 .expect(&format!("Error reading {}", test.filename)[..]);
 
@@ -3887,7 +3887,7 @@ mod test {
             eprintln!("Decrypting {}", test.filename);
 
             let mut ppr = PacketParserBuilder::from_bytes(
-                ::tests::message(test.filename)).unwrap()
+                crate::tests::message(test.filename)).unwrap()
                 .finalize()
                 .expect(&format!("Error reading {}", test.filename)[..]);
 
@@ -3909,7 +3909,7 @@ mod test {
 
                 match pp.packet {
                     Packet::SEIP(_) | Packet::AED(_) => {
-                        let key = ::conversions::from_hex(test.key_hex, false)
+                        let key = crate::conversions::from_hex(test.key_hex, false)
                             .unwrap().into();
 
                         pp.decrypt(test.algo, &key).unwrap();
@@ -3934,12 +3934,12 @@ mod test {
 
     #[test]
     fn corrupted_tpk() {
-        use armor::{Reader, ReaderMode, Kind};
+        use crate::armor::{Reader, ReaderMode, Kind};
 
         // The following TPK is corrupted about a third the way
         // through.  Make sure we can recover.
         let mut ppr = PacketParser::from_reader(
-            Reader::from_bytes(::tests::key("corrupted.pgp"),
+            Reader::from_bytes(crate::tests::key("corrupted.pgp"),
                                ReaderMode::Tolerant(Some(Kind::PublicKey))))
             .unwrap();
 
@@ -3975,7 +3975,7 @@ mod test {
     #[test]
     fn junk_prefix() {
         // Make sure we can read the first packet.
-        let msg = ::tests::message("sig.gpg");
+        let msg = crate::tests::message("sig.gpg");
 
         let ppr = PacketParserBuilder::from_bytes(msg).unwrap()
             .dearmor(packet_parser_builder::Dearmor::Disabled)
@@ -4000,8 +4000,8 @@ mod test {
     /// Issue #141.
     #[test]
     fn truncated_packet() {
-        for msg in &[&::tests::message("literal-mode-b.gpg")[..],
-                     &::tests::message("literal-mode-t-partial-body.gpg")[..],
+        for msg in &[&crate::tests::message("literal-mode-b.gpg")[..],
+                     &crate::tests::message("literal-mode-t-partial-body.gpg")[..],
         ] {
             // Make sure we can read the first packet.
             let ppr = PacketParserBuilder::from_bytes(msg).unwrap()

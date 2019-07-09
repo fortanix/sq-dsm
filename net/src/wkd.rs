@@ -28,11 +28,11 @@ use nettle::{
 use tokio_core::reactor::Core;
 use url;
 
-use openpgp::TPK;
-use openpgp::parse::Parse;
-use openpgp::tpk::TPKParser;
+use crate::openpgp::TPK;
+use crate::openpgp::parse::Parse;
+use crate::openpgp::tpk::TPKParser;
 
-use super::{Result, Error, async};
+use super::{Result, Error, r#async};
 
 
 /// Stores the local_part and domain of an email address.
@@ -210,14 +210,14 @@ pub(crate) fn parse_body<S: AsRef<str>>(body: &[u8], email_address: S)
 // XXX: Maybe implement WkdServer and AWkdClient.
 pub fn get<S: AsRef<str>>(email_address: S) -> Result<Vec<TPK>> {
     let mut core = Core::new()?;
-    core.run(async::wkd::get(&email_address))
+    core.run(r#async::wkd::get(&email_address))
 }
 
 
 #[cfg(test)]
 mod tests {
-    use openpgp::serialize::Serialize;
-    use openpgp::tpk::TPKBuilder;
+    use crate::openpgp::serialize::Serialize;
+    use crate::openpgp::tpk::TPKBuilder;
 
     use super::*;
 

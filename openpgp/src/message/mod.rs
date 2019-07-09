@@ -16,14 +16,14 @@ use std::path::Path;
 
 use failure;
 
-use Result;
-use Error;
-use Packet;
-use PacketPile;
-use Message;
-use packet::Literal;
-use packet::Tag;
-use parse::Parse;
+use crate::Result;
+use crate::Error;
+use crate::Packet;
+use crate::PacketPile;
+use crate::Message;
+use crate::packet::Literal;
+use crate::packet::Tag;
+use crate::parse::Parse;
 
 mod lexer;
 mod grammar;
@@ -434,17 +434,17 @@ impl ::std::ops::Deref for Message {
 mod tests {
     use super::*;
 
-    use constants::DataFormat::Text;
-    use HashAlgorithm;
-    use constants::CompressionAlgorithm;
-    use SymmetricAlgorithm;
-    use PublicKeyAlgorithm;
-    use SignatureType;
-    use crypto::s2k::S2K;
-    use crypto::mpis::{Ciphertext, MPI};
-    use packet::prelude::*;
-    use KeyID;
-    use Container;
+    use crate::constants::DataFormat::Text;
+    use crate::HashAlgorithm;
+    use crate::constants::CompressionAlgorithm;
+    use crate::SymmetricAlgorithm;
+    use crate::PublicKeyAlgorithm;
+    use crate::SignatureType;
+    use crate::crypto::s2k::S2K;
+    use crate::crypto::mpis::{Ciphertext, MPI};
+    use crate::packet::prelude::*;
+    use crate::KeyID;
+    use crate::Container;
 
     #[test]
     fn tokens() {
@@ -592,7 +592,7 @@ mod tests {
 
     #[test]
     fn tags() {
-        use packet::Tag::*;
+        use crate::packet::Tag::*;
 
         struct TestVector<'a> {
             s: &'a [(Tag, isize)],
@@ -797,12 +797,12 @@ mod tests {
         let mut lit = Literal::new(Text);
         lit.set_body(b"data".to_vec());
 
-        let hash = ::constants::HashAlgorithm::SHA512;
+        let hash = crate::constants::HashAlgorithm::SHA512;
         let key: Key =
-            ::packet::key::Key4::generate_ecc(true, ::constants::Curve::Ed25519)
+            crate::packet::key::Key4::generate_ecc(true, crate::constants::Curve::Ed25519)
             .unwrap().into();
         let mut pair = key.clone().into_keypair().unwrap();
-        let sig = ::packet::signature::Builder::new(SignatureType::Binary)
+        let sig = crate::packet::signature::Builder::new(SignatureType::Binary)
             .sign_hash(&mut pair, hash, hash.context().unwrap()).unwrap();
 
         // 0: OnePassSig
@@ -909,12 +909,12 @@ mod tests {
         let mut lit = Literal::new(Text);
         lit.set_body(b"data".to_vec());
 
-        let hash = ::constants::HashAlgorithm::SHA512;
+        let hash = crate::constants::HashAlgorithm::SHA512;
         let key: Key =
-            ::packet::key::Key4::generate_ecc(true, ::constants::Curve::Ed25519)
+            crate::packet::key::Key4::generate_ecc(true, crate::constants::Curve::Ed25519)
             .unwrap().into();
         let mut pair = key.clone().into_keypair().unwrap();
-        let sig = ::packet::signature::Builder::new(SignatureType::Binary)
+        let sig = crate::packet::signature::Builder::new(SignatureType::Binary)
             .sign_hash(&mut pair, hash, hash.context().unwrap()).unwrap();
 
         // 0: Signature
@@ -962,7 +962,7 @@ mod tests {
         // 0: SK-ESK
         // => bad.
         let mut packets : Vec<Packet> = Vec::new();
-        let sk = ::crypto::SessionKey::new(8);
+        let sk = crate::crypto::SessionKey::new(8);
         packets.push(SKESK4::with_password(
             SymmetricAlgorithm::AES256,
             S2K::Simple { hash: HashAlgorithm::SHA256 },

@@ -8,10 +8,10 @@ use self::openpgp::packet::PKESK;
 use super::super::keyid::KeyID;
 use super::super::packet::key::Key;
 
-use error::Status;
+use crate::error::Status;
 
-use MoveIntoRaw;
-use RefRaw;
+use crate::MoveIntoRaw;
+use crate::RefRaw;
 
 /// Returns the PKESK's recipient.
 ///
@@ -31,7 +31,7 @@ pub extern "C" fn pgp_pkesk_recipient(pkesk: *const PKESK)
 /// is not written to it.  Either way, `key_len` is set to the size of
 /// the session key.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "C" fn pgp_pkesk_decrypt(errp: Option<&mut *mut ::error::Error>,
+pub extern "C" fn pgp_pkesk_decrypt(errp: Option<&mut *mut crate::error::Error>,
                                         pkesk: *const PKESK,
                                         secret_key: *const Key,
                                         algo: *mut u8, // XXX

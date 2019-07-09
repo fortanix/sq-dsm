@@ -34,10 +34,10 @@ use std::cmp::min;
 use std::str;
 use quickcheck::{Arbitrary, Gen};
 
-use packet::prelude::*;
-use packet::BodyLength;
-use packet::ctb::{CTBNew, CTBOld};
-use serialize::SerializeInto;
+use crate::packet::prelude::*;
+use crate::packet::BodyLength;
+use crate::packet::ctb::{CTBNew, CTBOld};
+use crate::serialize::SerializeInto;
 
 /// The encoded output stream must be represented in lines of no more
 /// than 76 characters each (see (see [RFC 4880, section
@@ -1367,7 +1367,7 @@ mod test {
 
     #[test]
     fn dearmor_yuge() {
-        let yuge_key = ::tests::key("yuge-key-so-yuge-the-yugest.asc");
+        let yuge_key = crate::tests::key("yuge-key-so-yuge-the-yugest.asc");
         let mut r = Reader::new(Cursor::new(&yuge_key[..]),
                                 ReaderMode::VeryTolerant);
         let mut dearmored = Vec::<u8>::new();

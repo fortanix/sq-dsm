@@ -4,10 +4,10 @@ use libc::c_int;
 
 extern crate sequoia_openpgp as openpgp;
 
-use RefRaw;
+use crate::RefRaw;
 
 /// The revocation status.
-#[::ffi_wrapper_type(prefix = "pgp_", derive = "Debug")]
+#[crate::ffi_wrapper_type(prefix = "pgp_", derive = "Debug")]
 pub struct RevocationStatus<'a>(openpgp::RevocationStatus<'a>);
 
 fn revocation_status_to_int(rs: &openpgp::RevocationStatus) -> c_int {

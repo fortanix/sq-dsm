@@ -21,14 +21,14 @@ use tokio_core::reactor::{Handle, Timeout};
 use tokio_core;
 use tokio_io::io::ReadHalf;
 
-use openpgp::{self, TPK, KeyID, Fingerprint};
-use openpgp::parse::Parse;
-use openpgp::serialize::Serialize;
+use crate::openpgp::{self, TPK, KeyID, Fingerprint};
+use crate::openpgp::parse::Parse;
+use crate::openpgp::serialize::Serialize;
 use sequoia_core as core;
 use sequoia_net as net;
 use sequoia_ipc as ipc;
 
-use store_protocol_capnp::node;
+use crate::store_protocol_capnp::node;
 
 use super::Result;
 
@@ -877,7 +877,7 @@ impl KeyServer {
                      network_policy: core::NetworkPolicy)
                      -> Result<(KeyServer,
                                 openpgp::KeyID,
-                                net::async::KeyServer)> {
+                                net::r#async::KeyServer)> {
         assert!(network_policy != core::NetworkPolicy::Offline);
         let network_policy_u8 = u8::from(&network_policy);
 
@@ -896,7 +896,7 @@ impl KeyServer {
 
         let ctx = core::Context::configure()
             .network_policy(network_policy).build()?;
-        let keyserver = net::async::KeyServer::sks_pool(&ctx)?;
+        let keyserver = net::r#async::KeyServer::sks_pool(&ctx)?;
 
         Ok((KeyServer::new(c.clone(), id),
             fingerprint.to_keyid(),

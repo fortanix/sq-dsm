@@ -9,8 +9,8 @@ use std::result;
 
 use quickcheck::{Arbitrary, Gen};
 
-use Error;
-use Result;
+use crate::Error;
+use crate::Result;
 
 /// The OpenPGP public key algorithms as defined in [Section 9.1 of
 /// RFC 4880], and [Section 5 of RFC 6637].
@@ -88,7 +88,7 @@ impl PublicKeyAlgorithm {
 
 impl From<u8> for PublicKeyAlgorithm {
     fn from(u: u8) -> Self {
-        use PublicKeyAlgorithm::*;
+        use crate::PublicKeyAlgorithm::*;
         #[allow(deprecated)]
         match u {
             1 => RSAEncryptSign,
@@ -108,7 +108,7 @@ impl From<u8> for PublicKeyAlgorithm {
 
 impl From<PublicKeyAlgorithm> for u8 {
     fn from(p: PublicKeyAlgorithm) -> u8 {
-        use PublicKeyAlgorithm::*;
+        use crate::PublicKeyAlgorithm::*;
         #[allow(deprecated)]
         match p {
             RSAEncryptSign => 1,
@@ -128,7 +128,7 @@ impl From<PublicKeyAlgorithm> for u8 {
 
 impl fmt::Display for PublicKeyAlgorithm {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        use PublicKeyAlgorithm::*;
+        use crate::PublicKeyAlgorithm::*;
         #[allow(deprecated)]
         match *self {
             RSAEncryptSign => f.write_str("RSA (Encrypt or Sign)"),

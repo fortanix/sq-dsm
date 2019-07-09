@@ -12,10 +12,10 @@ use std::path::Path;
 use buffered_reader::{self, BufferedReader};
 use lalrpop_util::{lalrpop_mod, ParseError};
 
-use Error;
-use Result;
-use crypto::sexp::Sexp;
-use parse::Parse;
+use crate::Error;
+use crate::Result;
+use crate::crypto::sexp::Sexp;
+use crate::parse::Parse;
 
 mod lexer;
 use self::lexer::Lexer;
@@ -74,8 +74,8 @@ impl<'a> Parse<'a, Sexp> for Sexp {
 
 #[cfg(test)]
 mod tests {
-    use crypto::sexp::{Sexp, String_};
-    use parse::Parse;
+    use crate::crypto::sexp::{Sexp, String_};
+    use crate::parse::Parse;
 
     #[test]
     fn basics() {
@@ -127,12 +127,12 @@ mod tests {
     #[test]
     fn signatures() {
         assert!(Sexp::from_bytes(
-            ::tests::file("sexp/dsa-signature.sexp")).is_ok());
+            crate::tests::file("sexp/dsa-signature.sexp")).is_ok());
         assert!(Sexp::from_bytes(
-            ::tests::file("sexp/ecdsa-signature.sexp")).is_ok());
+            crate::tests::file("sexp/ecdsa-signature.sexp")).is_ok());
         assert!(Sexp::from_bytes(
-            ::tests::file("sexp/eddsa-signature.sexp")).is_ok());
+            crate::tests::file("sexp/eddsa-signature.sexp")).is_ok());
         assert!(Sexp::from_bytes(
-            ::tests::file("sexp/rsa-signature.sexp")).is_ok());
+            crate::tests::file("sexp/rsa-signature.sexp")).is_ok());
     }
 }

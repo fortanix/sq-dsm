@@ -1,6 +1,6 @@
 // -*- mode: Rust; -*-
 
-use message::lexer;
+use crate::message::lexer;
 
 grammar;
 

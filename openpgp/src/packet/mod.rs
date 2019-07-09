@@ -10,8 +10,8 @@ use std::slice;
 use std::vec;
 use std::io;
 
-use Result;
-use Packet;
+use crate::Result;
+use crate::Packet;
 
 pub mod prelude;
 
@@ -540,8 +540,8 @@ impl<'a> Iterator for PacketPathIter<'a> {
 // Tests the `paths`() iter and `path_ref`().
 #[test]
 fn packet_path_iter() {
-    use parse::Parse;
-    use PacketPile;
+    use crate::parse::Parse;
+    use crate::PacketPile;
 
     fn paths(iter: slice::Iter<Packet>) -> Vec<Vec<usize>> {
         let mut lpaths : Vec<Vec<usize>> = Vec::new();
@@ -562,7 +562,7 @@ fn packet_path_iter() {
 
     for i in 1..5 {
         let pile = PacketPile::from_bytes(
-            ::tests::message(&format!("recursive-{}.gpg", i)[..])).unwrap();
+            crate::tests::message(&format!("recursive-{}.gpg", i)[..])).unwrap();
 
         let mut paths1 : Vec<Vec<usize>> = Vec::new();
         for path in paths(pile.children()).iter() {
@@ -812,7 +812,7 @@ impl Key {
     /// # Errors
     ///
     /// Fails if the secret key is missing, or encrypted.
-    pub fn into_keypair(self) -> Result<::crypto::KeyPair> {
+    pub fn into_keypair(self) -> Result<crate::crypto::KeyPair> {
         match self {
             Key::V4(p) => p.into_keypair(),
         }

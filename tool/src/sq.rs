@@ -23,11 +23,11 @@ extern crate sequoia_core;
 extern crate sequoia_net;
 extern crate sequoia_store;
 
-use openpgp::{armor, autocrypt, Fingerprint, TPK};
-use openpgp::conversions::hex;
-use openpgp::parse::Parse;
-use openpgp::serialize::Serialize;
-use openpgp::tpk::armor::Encoder;
+use crate::openpgp::{armor, autocrypt, Fingerprint, TPK};
+use crate::openpgp::conversions::hex;
+use crate::openpgp::parse::Parse;
+use crate::openpgp::serialize::Serialize;
+use crate::openpgp::tpk::armor::Encoder;
 use sequoia_core::{Context, NetworkPolicy};
 use sequoia_net::{KeyServer, wkd};
 use sequoia_store::{Store, LogIter};

@@ -1,15 +1,15 @@
 //! Functionality to hash packets, and generate hashes.
 
-use HashAlgorithm;
-use packet::UserID;
-use packet::UserAttribute;
-use packet::Key;
-use packet::key::Key4;
-use packet::Signature;
-use packet::signature::{self, Signature4};
-use Error;
-use Result;
-use conversions::Time;
+use crate::HashAlgorithm;
+use crate::packet::UserID;
+use crate::packet::UserAttribute;
+use crate::packet::Key;
+use crate::packet::key::Key4;
+use crate::packet::Signature;
+use crate::packet::signature::{self, Signature4};
+use crate::Error;
+use crate::Result;
+use crate::conversions::Time;
 
 use nettle;
 use nettle::Hash as NettleHash;
@@ -409,8 +409,8 @@ impl Signature {
 #[cfg(test)]
 mod test {
     use super::*;
-    use TPK;
-    use parse::Parse;
+    use crate::TPK;
+    use crate::parse::Parse;
 
     #[test]
     fn hash_verification() {
@@ -467,13 +467,13 @@ mod test {
             (userid_sigs, ua_sigs, subkey_sigs)
         }
 
-        check(TPK::from_bytes(::tests::key("hash-algos/SHA224.gpg")).unwrap());
-        check(TPK::from_bytes(::tests::key("hash-algos/SHA256.gpg")).unwrap());
-        check(TPK::from_bytes(::tests::key("hash-algos/SHA384.gpg")).unwrap());
-        check(TPK::from_bytes(::tests::key("hash-algos/SHA512.gpg")).unwrap());
-        check(TPK::from_bytes(::tests::key("bannon-all-uids-subkeys.gpg")).unwrap());
+        check(TPK::from_bytes(crate::tests::key("hash-algos/SHA224.gpg")).unwrap());
+        check(TPK::from_bytes(crate::tests::key("hash-algos/SHA256.gpg")).unwrap());
+        check(TPK::from_bytes(crate::tests::key("hash-algos/SHA384.gpg")).unwrap());
+        check(TPK::from_bytes(crate::tests::key("hash-algos/SHA512.gpg")).unwrap());
+        check(TPK::from_bytes(crate::tests::key("bannon-all-uids-subkeys.gpg")).unwrap());
         let (_userid_sigs, ua_sigs, _subkey_sigs)
-            = check(TPK::from_bytes(::tests::key("dkg.gpg")).unwrap());
+            = check(TPK::from_bytes(crate::tests::key("dkg.gpg")).unwrap());
         assert!(ua_sigs > 0);
     }
 }

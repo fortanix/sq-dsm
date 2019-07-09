@@ -12,15 +12,15 @@ use futures::{Async, Future, Stream};
 extern crate libc;
 extern crate tempfile;
 
-use openpgp::constants::HashAlgorithm;
-use openpgp::conversions::hex;
-use openpgp::crypto;
-use openpgp::crypto::sexp::Sexp;
-use openpgp::parse::Parse;
-use openpgp::serialize::Serialize;
+use crate::openpgp::constants::HashAlgorithm;
+use crate::openpgp::conversions::hex;
+use crate::openpgp::crypto;
+use crate::openpgp::crypto::sexp::Sexp;
+use crate::openpgp::parse::Parse;
+use crate::openpgp::serialize::Serialize;
 
-use Result;
-use assuan;
+use crate::Result;
+use crate::assuan;
 
 /// A GnuPG context.
 #[derive(Debug)]
@@ -696,8 +696,8 @@ impl<'a> crypto::Signer for KeyPair<'a> {
     fn sign(&mut self, hash_algo: HashAlgorithm, digest: &[u8])
             -> Result<openpgp::crypto::mpis::Signature>
     {
-        use openpgp::constants::PublicKeyAlgorithm::*;
-        use openpgp::crypto::mpis::PublicKey;
+        use crate::openpgp::constants::PublicKeyAlgorithm::*;
+        use crate::openpgp::crypto::mpis::PublicKey;
 
         #[allow(deprecated)]
         match (self.public.pk_algo(), self.public.mpis())
@@ -727,7 +727,7 @@ impl<'a> crypto::Decryptor for KeyPair<'a> {
     fn decrypt(&mut self, ciphertext: &crypto::mpis::Ciphertext)
                -> Result<crypto::SessionKey>
     {
-        use openpgp::crypto::mpis::{PublicKey, Ciphertext};
+        use crate::openpgp::crypto::mpis::{PublicKey, Ciphertext};
 
         match (self.public.mpis(), ciphertext) {
             (PublicKey::RSA { .. }, Ciphertext::RSA { .. })

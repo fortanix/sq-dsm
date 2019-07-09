@@ -79,17 +79,17 @@ extern crate sequoia_core;
 extern crate sequoia_ipc;
 extern crate sequoia_net;
 
-use openpgp::Fingerprint;
-use openpgp::KeyID;
-use openpgp::TPK;
-use openpgp::parse::Parse;
-use openpgp::serialize::Serialize;
+use crate::openpgp::Fingerprint;
+use crate::openpgp::KeyID;
+use crate::openpgp::TPK;
+use crate::openpgp::parse::Parse;
+use crate::openpgp::serialize::Serialize;
 use sequoia_core as core;
 use sequoia_core::Context;
 use sequoia_ipc as ipc;
 
 #[allow(dead_code)] mod store_protocol_capnp;
-use store_protocol_capnp::node;
+use crate::store_protocol_capnp::node;
 
 /// Macros managing requests and responses.
 #[macro_use] mod macros;
@@ -1234,7 +1234,7 @@ impl From<capnp::NotInSchema> for Error {
 #[cfg(test)]
 mod test {
     use super::*;
-    use openpgp::parse::Parse;
+    use crate::openpgp::parse::Parse;
 
     macro_rules! bytes {
         ( $x:expr ) => { include_bytes!(concat!("../../openpgp/tests/data/keys/", $x)) };

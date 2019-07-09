@@ -6,8 +6,8 @@ use std::fmt;
 
 use nettle::{Random, Yarrow};
 
-use constants::HashAlgorithm;
-use Result;
+use crate::constants::HashAlgorithm;
+use crate::Result;
 
 pub(crate) mod aead;
 mod asymmetric;
@@ -169,8 +169,8 @@ pub fn hash_file<R: Read>(reader: R, algos: &[HashAlgorithm])
 {
     use std::mem;
 
-    use ::parse::HashedReader;
-    use ::parse::HashesFor;
+    use crate::parse::HashedReader;
+    use crate::parse::HashesFor;
 
     use buffered_reader::BufferedReader;
 
@@ -202,7 +202,7 @@ fn hash_file_test() {
     ].iter().cloned().collect();
 
     let result =
-        hash_file(::std::io::Cursor::new(::tests::manifesto()),
+        hash_file(::std::io::Cursor::new(crate::tests::manifesto()),
                   &expected.keys().cloned().collect::<Vec<HashAlgorithm>>())
         .unwrap();
 
@@ -211,6 +211,6 @@ fn hash_file_test() {
         hash.digest(&mut digest);
 
         assert_eq!(*expected.get(&algo).unwrap(),
-                   &::conversions::to_hex(&digest[..], false));
+                   &crate::conversions::to_hex(&digest[..], false));
     }
 }

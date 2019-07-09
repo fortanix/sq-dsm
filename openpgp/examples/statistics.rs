@@ -9,10 +9,10 @@
 
 use std::env;
 extern crate sequoia_openpgp as openpgp;
-use openpgp::Packet;
-use openpgp::constants::SignatureType;
-use openpgp::packet::{user_attribute, BodyLength, Tag};
-use openpgp::parse::{Parse, PacketParserResult, PacketParser};
+use crate::openpgp::Packet;
+use crate::openpgp::constants::SignatureType;
+use crate::openpgp::packet::{user_attribute, BodyLength, Tag};
+use crate::openpgp::parse::{Parse, PacketParserResult, PacketParser};
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -95,7 +95,7 @@ fn main() {
                     for (_offset, len, sub) in sig.hashed_area().iter()
                         .chain(sig.unhashed_area().iter())
                     {
-                        use openpgp::packet::signature::subpacket::*;
+                        use crate::openpgp::packet::signature::subpacket::*;
                         let i = u8::from(sub.tag) as usize;
                         sigs_subpacket_tags_count[i] += 1;
                         if let SubpacketValue::Unknown(_) = sub.value {
@@ -116,8 +116,8 @@ fn main() {
                 },
 
                 Packet::UserAttribute(ref ua) => {
-                    use user_attribute::Subpacket;
-                    use user_attribute::Image;
+                    use crate::user_attribute::Subpacket;
+                    use crate::user_attribute::Image;
                     for subpacket in ua.subpackets() {
                         match subpacket {
                             Ok(Subpacket::Image(i)) => match i {
@@ -215,7 +215,7 @@ fn main() {
                   ----------------------");
 
         for t in 0..256 {
-            use openpgp::packet::signature::subpacket::SubpacketTag;
+            use crate::openpgp::packet::signature::subpacket::SubpacketTag;
             let count = sigs_subpacket_tags_count[t];
             let size_count = sigs_subpacket_tags_size_count[t];
             let tag_name = format!("{:?}", SubpacketTag::from(t as u8));

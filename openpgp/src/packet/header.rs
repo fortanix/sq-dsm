@@ -1,12 +1,12 @@
 //! OpenPGP Header.
 
-use {
+use crate::{
     Error,
     Result,
     BodyLength,
 };
-use packet::tag::Tag;
-use packet::ctb::CTB;
+use crate::packet::tag::Tag;
+use crate::packet::ctb::CTB;
 
 /// An OpenPGP packet's header.
 #[derive(Clone, Debug)]

@@ -3,17 +3,17 @@ use std::path::Path;
 
 use buffered_reader::BufferedReader;
 
-use Result;
-use parse::PacketParserResult;
-use parse::PacketParser;
-use parse::PacketParserEOF;
-use parse::PacketParserState;
-use parse::PacketParserSettings;
-use parse::ParserResult;
-use parse::Parse;
-use parse::Cookie;
-use armor;
-use packet;
+use crate::Result;
+use crate::parse::PacketParserResult;
+use crate::parse::PacketParser;
+use crate::parse::PacketParserEOF;
+use crate::parse::PacketParserState;
+use crate::parse::PacketParserSettings;
+use crate::parse::ParserResult;
+use crate::parse::Parse;
+use crate::parse::Cookie;
+use crate::armor;
+use crate::packet;
 
 /// How to decode the input.
 #[derive(PartialEq)]
@@ -204,7 +204,7 @@ mod tests {
     #[test]
     fn armor() {
         // Not ASCII armor encoded data.
-        let msg = ::tests::message("sig.gpg");
+        let msg = crate::tests::message("sig.gpg");
 
         // Make sure we can read the first packet.
         let ppr = PacketParserBuilder::from_bytes(msg).unwrap()
@@ -229,7 +229,7 @@ mod tests {
         assert_match!(Ok(PacketParserResult::EOF(ref _pp)) = ppr);
 
         // ASCII armor encoded data.
-        let msg = ::tests::message("a-cypherpunks-manifesto.txt.ed25519.sig");
+        let msg = crate::tests::message("a-cypherpunks-manifesto.txt.ed25519.sig");
 
         // Make sure we can read the first packet.
         let ppr = PacketParserBuilder::from_bytes(msg).unwrap()

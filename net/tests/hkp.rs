@@ -22,10 +22,10 @@ extern crate sequoia_openpgp as openpgp;
 extern crate sequoia_core;
 extern crate sequoia_net;
 
-use openpgp::armor::Reader;
-use openpgp::TPK;
-use openpgp::{Fingerprint, KeyID};
-use openpgp::parse::Parse;
+use crate::openpgp::armor::Reader;
+use crate::openpgp::TPK;
+use crate::openpgp::{Fingerprint, KeyID};
+use crate::openpgp::parse::Parse;
 use sequoia_core::{Context, NetworkPolicy};
 use sequoia_net::KeyServer;
 

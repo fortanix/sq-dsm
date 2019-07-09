@@ -59,25 +59,25 @@ use std::convert::From;
 use tokio_core::reactor::Core;
 use url::Url;
 
-use openpgp::KeyID;
-use openpgp::TPK;
+use crate::openpgp::KeyID;
+use crate::openpgp::TPK;
 use sequoia_core::Context;
 
-pub mod async;
-use async::url2uri;
+pub mod r#async;
+use crate::r#async::url2uri;
 pub mod wkd;
 
 /// For accessing keyservers using HKP.
 pub struct KeyServer {
     core: Core,
-    ks: async::KeyServer,
+    ks: r#async::KeyServer,
 }
 
 impl KeyServer {
     /// Returns a handle for the given URI.
     pub fn new(ctx: &Context, uri: &str) -> Result<Self> {
         let core = Core::new()?;
-        let ks = async::KeyServer::new(ctx, uri)?;
+        let ks = r#async::KeyServer::new(ctx, uri)?;
         Ok(KeyServer{core: core, ks: ks})
     }
 
@@ -86,7 +86,7 @@ impl KeyServer {
     /// `cert` is used to authenticate the server.
     pub fn with_cert(ctx: &Context, uri: &str, cert: Certificate) -> Result<Self> {
         let core = Core::new()?;
-        let ks = async::KeyServer::with_cert(ctx, uri, cert)?;
+        let ks = r#async::KeyServer::with_cert(ctx, uri, cert)?;
         Ok(KeyServer{core: core, ks: ks})
     }
 

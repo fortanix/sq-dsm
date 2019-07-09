@@ -5,20 +5,20 @@ use std::path::PathBuf;
 use tempfile::NamedTempFile;
 
 extern crate sequoia_openpgp as openpgp;
-use openpgp::armor;
-use openpgp::constants::DataFormat;
-use openpgp::crypto;
-use openpgp::{Packet, Result};
-use openpgp::packet::Signature;
-use openpgp::parse::{
+use crate::openpgp::armor;
+use crate::openpgp::constants::DataFormat;
+use crate::openpgp::crypto;
+use crate::openpgp::{Packet, Result};
+use crate::openpgp::packet::Signature;
+use crate::openpgp::parse::{
     Parse,
     PacketParserResult,
 };
-use openpgp::serialize::Serialize;
-use openpgp::serialize::stream::{
+use crate::openpgp::serialize::Serialize;
+use crate::openpgp::serialize::stream::{
     Message, Signer, LiteralWriter,
 };
-use create_or_stdout;
+use crate::create_or_stdout;
 
 pub fn sign(input: &mut io::Read, output_path: Option<&str>,
             secrets: Vec<openpgp::TPK>, detached: bool, binary: bool,

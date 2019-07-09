@@ -10,9 +10,9 @@ extern crate sequoia_openpgp as openpgp;
 use super::super::fingerprint::Fingerprint;
 use super::super::keyid::KeyID;
 
-use MoveFromRaw;
-use MoveIntoRaw;
-use RefRaw;
+use crate::MoveFromRaw;
+use crate::MoveIntoRaw;
+use crate::RefRaw;
 
 /// Holds a public key, public subkey, private key or private subkey packet.
 ///
@@ -23,7 +23,7 @@ use RefRaw;
 /// Wraps [`sequoia-openpgp::packet::key::Key`].
 ///
 /// [`sequoia-openpgp::packet::key::Key`]: ../../sequoia_openpgp/packet/key/struct.Key.html
-#[::ffi_wrapper_type(prefix = "pgp_",
+#[crate::ffi_wrapper_type(prefix = "pgp_",
                      derive = "Clone, Debug, PartialEq, Parse")]
 pub struct Key(openpgp::packet::Key);
 
@@ -71,7 +71,7 @@ fn pgp_key_public_key_bits(key: *const Key) -> c_int {
 ///
 /// Fails if the secret key is missing, or encrypted.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn pgp_key_into_key_pair(errp: Option<&mut *mut ::error::Error>,
+fn pgp_key_into_key_pair(errp: Option<&mut *mut crate::error::Error>,
                          key: *mut Key)
                          -> *mut self::openpgp::crypto::KeyPair {
     ffi_make_fry_from_errp!(errp);

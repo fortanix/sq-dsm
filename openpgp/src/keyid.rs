@@ -1,10 +1,10 @@
 use std::fmt;
 use quickcheck::{Arbitrary, Gen};
 
-use Error;
-use Fingerprint;
-use KeyID;
-use Result;
+use crate::Error;
+use crate::Fingerprint;
+use crate::KeyID;
+use crate::Result;
 
 impl fmt::Display for KeyID {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -84,7 +84,7 @@ impl KeyID {
 
     /// Reads a hex-encoded Key ID.
     pub fn from_hex(hex: &str) -> Result<KeyID> {
-        let bytes = ::conversions::from_hex(hex, true)?;
+        let bytes = crate::conversions::from_hex(hex, true)?;
 
         // A KeyID is exactly 8 bytes long.
         if bytes.len() == 8 {

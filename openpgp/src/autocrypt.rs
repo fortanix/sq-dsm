@@ -19,23 +19,23 @@ use std::path::Path;
 use std::fs::File;
 use std::str;
 
-use armor;
+use crate::armor;
 
-use Error;
-use Result;
-use Packet;
-use packet::SKESK;
-use TPK;
-use parse::{
+use crate::Error;
+use crate::Result;
+use crate::Packet;
+use crate::packet::SKESK;
+use crate::TPK;
+use crate::parse::{
     Parse,
     PacketParserResult, PacketParser,
 };
-use serialize::Serialize;
-use serialize::stream::{
+use crate::serialize::Serialize;
+use crate::serialize::stream::{
     Message, LiteralWriter, Encryptor, EncryptionMode,
 };
-use constants::DataFormat;
-use crypto::Password;
+use crate::constants::DataFormat;
+use crate::crypto::Password;
 
 /// Version of Autocrypt to use. `Autocrypt::default()` always returns the
 /// latest version.
@@ -101,7 +101,7 @@ impl AutocryptHeader {
                              -> Result<Self>
         where P: Into<Option<&'a str>>
     {
-        use packet::Tag;
+        use crate::packet::Tag;
 
         // Minimize TPK.
         let mut acc = Vec::new();
@@ -406,7 +406,7 @@ impl AutocryptSetupMessage {
         // approximately 119 bits of information.  120 bits = 15
         // bytes.
         let mut p_as_vec = vec![0; 15];
-        ::crypto::random(&mut p_as_vec[..]);
+        crate::crypto::random(&mut p_as_vec[..]);
         let p = Password::from(p_as_vec);
 
         // Turn it into a 128-bit number.
@@ -774,7 +774,7 @@ impl<'a> AutocryptSetupMessageParser<'a> {
 mod test {
     use super::*;
 
-    use Fingerprint;
+    use crate::Fingerprint;
 
     #[test]
     fn decode_test() {
@@ -1032,7 +1032,7 @@ In the light of the Efail vulnerability I am asking myself if it's
     fn autocrypt_setup_message() {
         // Try the example autocrypt setup message.
         let mut asm = AutocryptSetupMessage::from_bytes(
-            ::tests::file("autocrypt/setup-message.txt")).unwrap();
+            crate::tests::file("autocrypt/setup-message.txt")).unwrap();
 
         // A bad passcode.
         assert!(asm.decrypt(&"123".into()).is_err());
@@ -1052,7 +1052,7 @@ In the light of the Efail vulnerability I am asking myself if it's
         // Create an ASM for testy-private.  Then decrypt it and make
         // sure the TPK, etc. survived the round trip.
         let tpk =
-            TPK::from_bytes(::tests::key("testy-private.pgp")).unwrap();
+            TPK::from_bytes(crate::tests::key("testy-private.pgp")).unwrap();
 
         let mut asm = AutocryptSetupMessage::new(tpk)
             .set_prefer_encrypt("mutual");
@@ -1067,7 +1067,7 @@ In the light of the Efail vulnerability I am asking myself if it's
 
     #[test]
     fn autocrypt_header_new() {
-        let tpk = TPK::from_bytes(::tests::key("testy.pgp")).unwrap();
+        let tpk = TPK::from_bytes(crate::tests::key("testy.pgp")).unwrap();
         let header = AutocryptHeader::new_sender(&tpk, "testy@example.org",
                                                  "mutual").unwrap();
         let mut buf = Vec::new();

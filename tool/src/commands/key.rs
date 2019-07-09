@@ -3,13 +3,13 @@ use failure::Fail;
 use clap::ArgMatches;
 use itertools::Itertools;
 
-use openpgp::Packet;
-use openpgp::tpk::{TPKBuilder, CipherSuite};
-use openpgp::packet::KeyFlags;
-use openpgp::armor::{Writer, Kind};
-use openpgp::serialize::Serialize;
+use crate::openpgp::Packet;
+use crate::openpgp::tpk::{TPKBuilder, CipherSuite};
+use crate::openpgp::packet::KeyFlags;
+use crate::openpgp::armor::{Writer, Kind};
+use crate::openpgp::serialize::Serialize;
 
-use ::create_or_stdout;
+use crate::create_or_stdout;
 
 pub fn generate(m: &ArgMatches, force: bool) -> failure::Fallible<()> {
     let mut builder = TPKBuilder::new();

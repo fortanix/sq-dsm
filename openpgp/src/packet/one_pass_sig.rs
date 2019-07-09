@@ -7,16 +7,16 @@
 use std::fmt;
 use quickcheck::{Arbitrary, Gen};
 
-use Error;
-use Packet;
-use packet;
-use packet::Signature;
-use Result;
-use KeyID;
-use HashAlgorithm;
-use PublicKeyAlgorithm;
-use SignatureType;
-use serialize::SerializeInto;
+use crate::Error;
+use crate::Packet;
+use crate::packet;
+use crate::packet::Signature;
+use crate::Result;
+use crate::KeyID;
+use crate::HashAlgorithm;
+use crate::PublicKeyAlgorithm;
+use crate::SignatureType;
+use crate::serialize::SerializeInto;
 
 /// Holds a one-pass signature packet.
 ///
@@ -185,8 +185,8 @@ impl Arbitrary for OnePassSig3 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use parse::Parse;
-    use serialize::SerializeInto;
+    use crate::parse::Parse;
+    use crate::serialize::SerializeInto;
 
     quickcheck! {
         fn roundtrip(p: OnePassSig3) -> bool {

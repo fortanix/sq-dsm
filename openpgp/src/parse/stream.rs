@@ -15,7 +15,7 @@ use std::io::{self, Read};
 use std::path::Path;
 
 use buffered_reader::BufferedReader;
-use {
+use crate::{
     Error,
     Fingerprint,
     constants::{
@@ -45,7 +45,7 @@ use {
     crypto::SessionKey,
     serialize::Serialize,
 };
-use parse::{
+use crate::parse::{
     Cookie,
     PacketParser,
     PacketParserBuilder,
@@ -368,7 +368,7 @@ enum IMessageLayer {
 /// Helper for signature verification.
 pub trait VerificationHelper {
     /// Retrieves the TPKs containing the specified keys.
-    fn get_public_keys(&mut self, &[KeyID]) -> Result<Vec<TPK>>;
+    fn get_public_keys(&mut self, _: &[KeyID]) -> Result<Vec<TPK>>;
 
     /// Conveys the message structure.
     ///
@@ -1541,7 +1541,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> io::Read for Decryptor<'a, H>
 mod test {
     use failure;
     use super::*;
-    use parse::Parse;
+    use crate::parse::Parse;
 
     #[derive(Debug, PartialEq)]
     struct VHelper {
@@ -1621,7 +1621,7 @@ mod test {
             "neal.pgp",
             "emmelie-dorothea-dina-samantha-awina-ed25519.pgp"
         ].iter()
-         .map(|f| TPK::from_bytes(::tests::key(f)).unwrap())
+         .map(|f| TPK::from_bytes(crate::tests::key(f)).unwrap())
          .collect::<Vec<_>>();
         let tests = &[
             ("messages/signed-1.gpg",                      VHelper::new(1, 0, 0, 0, keys.clone())),
@@ -1630,14 +1630,14 @@ mod test {
             ("keys/neal.pgp",                              VHelper::new(0, 0, 0, 1, keys.clone())),
         ];
 
-        let reference = ::tests::manifesto();
+        let reference = crate::tests::manifesto();
 
         for (f, r) in tests {
             // Test Verifier.
             let mut h = VHelper::new(0, 0, 0, 0, keys.clone());
             let mut v =
-                match Verifier::from_bytes(::tests::file(f), h,
-                                           ::frozen_time()) {
+                match Verifier::from_bytes(crate::tests::file(f), h,
+                                           crate::frozen_time()) {
                     Ok(v) => v,
                     Err(e) => if r.error > 0 || r.unknown > 0 {
                         // Expected error.  No point in trying to read
@@ -1664,8 +1664,8 @@ mod test {
             // Test Decryptor.
             let mut h = VHelper::new(0, 0, 0, 0, keys.clone());
             let mut v =
-                match Decryptor::from_bytes(::tests::file(f), h,
-                                            ::frozen_time()) {
+                match Decryptor::from_bytes(crate::tests::file(f), h,
+                                            crate::frozen_time()) {
                     Ok(v) => v,
                     Err(e) => if r.error > 0 || r.unknown > 0 {
                         // Expected error.  No point in trying to read
@@ -1738,14 +1738,14 @@ mod test {
 
         // Test verifier.
         let v = Verifier::from_bytes(
-            ::tests::message("signed-1-notarized-by-ed25519.pgp"),
-            VHelper(()), ::frozen_time()).unwrap();
+            crate::tests::message("signed-1-notarized-by-ed25519.pgp"),
+            VHelper(()), crate::frozen_time()).unwrap();
         assert!(v.message_processed());
 
         // Test decryptor.
         let v = Decryptor::from_bytes(
-            ::tests::message("signed-1-notarized-by-ed25519.pgp"),
-            VHelper(()), ::frozen_time()).unwrap();
+            crate::tests::message("signed-1-notarized-by-ed25519.pgp"),
+            VHelper(()), crate::frozen_time()).unwrap();
         assert!(v.message_processed());
     }
 
@@ -1754,16 +1754,16 @@ mod test {
         let keys = [
             "emmelie-dorothea-dina-samantha-awina-ed25519.pgp"
         ].iter()
-         .map(|f| TPK::from_bytes(::tests::key(f)).unwrap())
+         .map(|f| TPK::from_bytes(crate::tests::key(f)).unwrap())
          .collect::<Vec<_>>();
 
-        let reference = ::tests::manifesto();
+        let reference = crate::tests::manifesto();
 
         let h = VHelper::new(0, 0, 0, 0, keys.clone());
         let mut v = DetachedVerifier::from_bytes(
-            ::tests::message("a-cypherpunks-manifesto.txt.ed25519.sig"),
-            ::tests::manifesto(),
-            h, ::frozen_time()).unwrap();
+            crate::tests::message("a-cypherpunks-manifesto.txt.ed25519.sig"),
+            crate::tests::manifesto(),
+            h, crate::frozen_time()).unwrap();
         assert!(v.message_processed());
 
         let mut content = Vec::new();
@@ -1780,9 +1780,9 @@ mod test {
         let h = VHelper::new(0, 0, 0, 0, keys.clone());
         let mut v = DetachedVerifier::from_reader(
             Cursor::new(
-                ::tests::message("a-cypherpunks-manifesto.txt.ed25519.sig")),
-            Cursor::new(::tests::manifesto()),
-            h, ::frozen_time()).unwrap();
+                crate::tests::message("a-cypherpunks-manifesto.txt.ed25519.sig")),
+            Cursor::new(crate::tests::manifesto()),
+            h, crate::frozen_time()).unwrap();
         assert!(v.message_processed());
 
         let mut content = Vec::new();
@@ -1793,9 +1793,9 @@ mod test {
 
     #[test]
     fn verify_long_message() {
-        use constants::DataFormat;
-        use tpk::{TPKBuilder, CipherSuite};
-        use serialize::stream::{LiteralWriter, Signer, Message};
+        use crate::constants::DataFormat;
+        use crate::tpk::{TPKBuilder, CipherSuite};
+        use crate::serialize::stream::{LiteralWriter, Signer, Message};
         use std::io::Write;
 
         let (tpk, _) = TPKBuilder::new()

@@ -7,15 +7,15 @@ use futures::future::Future;
 use futures::stream::Stream;
 
 extern crate sequoia_openpgp as openpgp;
-use openpgp::constants::SymmetricAlgorithm;
-use openpgp::crypto::SessionKey;
-use openpgp::packet::KeyFlags;
-use openpgp::parse::stream::*;
-use openpgp::serialize::{Serialize, stream::*};
-use openpgp::tpk::{TPKBuilder, CipherSuite};
+use crate::openpgp::constants::SymmetricAlgorithm;
+use crate::openpgp::crypto::SessionKey;
+use crate::openpgp::packet::KeyFlags;
+use crate::openpgp::parse::stream::*;
+use crate::openpgp::serialize::{Serialize, stream::*};
+use crate::openpgp::tpk::{TPKBuilder, CipherSuite};
 
 extern crate sequoia_ipc as ipc;
-use ipc::gnupg::{Context, Agent, KeyPair};
+use crate::ipc::gnupg::{Context, Agent, KeyPair};
 
 macro_rules! make_context {
     () => {{

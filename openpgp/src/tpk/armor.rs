@@ -2,11 +2,11 @@
 use std::io;
 use std::str;
 
-use armor;
-use Result;
-use RevocationStatus;
-use serialize::Serialize;
-use TPK;
+use crate::armor;
+use crate::Result;
+use crate::RevocationStatus;
+use crate::serialize::Serialize;
+use crate::TPK;
 
 
 /// Whether or not a character is printable.
@@ -86,9 +86,9 @@ impl<'a> Serialize for Encoder<'a> {
 
 #[cfg(test)]
 mod tests {
-    use armor::{Kind, Reader, ReaderMode};
-    use tpk::TPKBuilder;
-    use parse::Parse;
+    use crate::armor::{Kind, Reader, ReaderMode};
+    use crate::tpk::TPKBuilder;
+    use crate::parse::Parse;
 
     use super::*;
 

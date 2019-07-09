@@ -5,9 +5,9 @@ use std::fmt;
 use std::io;
 use std::cmp;
 
-use Error;
-use Result;
-use ::BodyLength;
+use crate::Error;
+use crate::Result;
+use crate::BodyLength;
 use super::{writer, write_byte, Serialize};
 
 pub struct PartialBodyFilter<'a, C: 'a> {
@@ -234,7 +234,7 @@ impl<'a, C: 'a> writer::Stackable<'a, C> for PartialBodyFilter<'a, C> {
 mod test {
     use std::io::Write;
     use super::*;
-    use serialize::stream::Message;
+    use crate::serialize::stream::Message;
 
     #[test]
     fn basic() {

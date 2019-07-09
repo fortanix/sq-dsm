@@ -160,7 +160,7 @@ mod test {
 
     #[test]
     fn data() {
-        use ::Memory;
+        use crate::Memory;
 
         // orig is the original buffer
         //

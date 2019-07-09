@@ -15,12 +15,12 @@ use std::convert::From;
 use std::io::Cursor;
 use url::Url;
 
-use openpgp::TPK;
-use openpgp::parse::Parse;
-use openpgp::{KeyID, armor, serialize::Serialize};
+use crate::openpgp::TPK;
+use crate::openpgp::parse::Parse;
+use crate::openpgp::{KeyID, armor, serialize::Serialize};
 use sequoia_core::{Context, NetworkPolicy};
 
-use wkd as net_wkd;
+use crate::wkd as net_wkd;
 
 use super::{Error, Result};
 
@@ -148,7 +148,7 @@ impl KeyServer {
     /// Sends the given key to the server.
     pub fn send(&mut self, key: &TPK)
                 -> Box<Future<Item=(), Error=failure::Error> + 'static> {
-        use openpgp::armor::{Writer, Kind};
+        use crate::openpgp::armor::{Writer, Kind};
 
         let uri =
             match self.uri.join("pks/add") {

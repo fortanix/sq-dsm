@@ -6,11 +6,11 @@ extern crate clap;
 extern crate sequoia_openpgp as openpgp;
 extern crate sequoia_ipc as ipc;
 
-use openpgp::armor;
-use openpgp::constants::DataFormat;
-use openpgp::parse::Parse;
-use openpgp::serialize::stream::{Message, LiteralWriter, Signer};
-use ipc::gnupg::{Context, KeyPair};
+use crate::openpgp::armor;
+use crate::openpgp::constants::DataFormat;
+use crate::openpgp::parse::Parse;
+use crate::openpgp::serialize::stream::{Message, LiteralWriter, Signer};
+use crate::ipc::gnupg::{Context, KeyPair};
 
 fn main() {
     let matches = clap::App::new("gpg-agent-sign")

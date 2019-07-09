@@ -1,9 +1,9 @@
-use Error;
-use Result;
-use TPK;
-use constants::{HashAlgorithm, SignatureType, ReasonForRevocation};
-use crypto::Signer;
-use packet::{UserID, UserAttribute, Key, signature, Signature};
+use crate::Error;
+use crate::Result;
+use crate::TPK;
+use crate::constants::{HashAlgorithm, SignatureType, ReasonForRevocation};
+use crate::crypto::Signer;
+use crate::packet::{UserID, UserAttribute, Key, signature, Signature};
 
 impl Key {
     /// Creates a binding signature.

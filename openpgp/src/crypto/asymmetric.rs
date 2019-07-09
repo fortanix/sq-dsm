@@ -2,13 +2,13 @@
 
 use nettle::{dsa, ecc, ecdsa, ed25519, rsa, Yarrow};
 
-use packet::{self, Key};
-use crypto::SessionKey;
-use crypto::mpis::{self, MPI};
-use constants::{Curve, HashAlgorithm};
+use crate::packet::{self, Key};
+use crate::crypto::SessionKey;
+use crate::crypto::mpis::{self, MPI};
+use crate::constants::{Curve, HashAlgorithm};
 
-use Error;
-use Result;
+use crate::Error;
+use crate::Result;
 
 /// Creates a signature.
 ///
@@ -82,8 +82,8 @@ impl Signer for KeyPair {
     fn sign(&mut self, hash_algo: HashAlgorithm, digest: &[u8])
             -> Result<mpis::Signature>
     {
-        use PublicKeyAlgorithm::*;
-        use crypto::mpis::PublicKey;
+        use crate::PublicKeyAlgorithm::*;
+        use crate::crypto::mpis::PublicKey;
         use memsec;
 
         let mut rng = Yarrow::default();
@@ -211,8 +211,8 @@ impl Decryptor for KeyPair {
     fn decrypt(&mut self, ciphertext: &mpis::Ciphertext)
                -> Result<SessionKey>
     {
-        use PublicKeyAlgorithm::*;
-        use crypto::mpis::PublicKey;
+        use crate::PublicKeyAlgorithm::*;
+        use crate::crypto::mpis::PublicKey;
         use nettle::rsa;
 
         Ok(match (self.public.mpis(), &self.secret.mpis(), ciphertext)
@@ -237,7 +237,7 @@ impl Decryptor for KeyPair {
             (PublicKey::ECDH{ .. },
              mpis::SecretKey::ECDH { .. },
              mpis::Ciphertext::ECDH { .. }) =>
-                ::crypto::ecdh::decrypt(&self.public, &self.secret.mpis(),
+                crate::crypto::ecdh::decrypt(&self.public, &self.secret.mpis(),
                                         ciphertext)?,
 
             (public, secret, ciphertext) =>

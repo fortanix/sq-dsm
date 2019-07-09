@@ -5,7 +5,7 @@ use futures::future::Future;
 use futures::stream::Stream;
 extern crate clap;
 extern crate sequoia_ipc as ipc;
-use ipc::gnupg::{Context, Agent};
+use crate::ipc::gnupg::{Context, Agent};
 
 fn main() {
     let matches = clap::App::new("gpg-agent-client")

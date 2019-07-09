@@ -1,8 +1,8 @@
 use std::fmt;
 
-use Fingerprint;
-use KeyID;
-use Result;
+use crate::Fingerprint;
+use crate::KeyID;
+use crate::Result;
 
 impl fmt::Display for Fingerprint {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -45,7 +45,7 @@ impl Fingerprint {
     /// assert_eq!(fp.unwrap().to_hex(), hex);
     /// ```
     pub fn from_hex(hex: &str) -> Result<Fingerprint> {
-        Ok(Fingerprint::from_bytes(&::conversions::from_hex(hex, true)?[..]))
+        Ok(Fingerprint::from_bytes(&crate::conversions::from_hex(hex, true)?[..]))
     }
 
     /// Returns a reference to the raw Fingerprint.

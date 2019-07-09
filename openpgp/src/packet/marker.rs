@@ -1,7 +1,7 @@
 use quickcheck::{Arbitrary, Gen};
 
-use packet;
-use Packet;
+use crate::packet;
+use crate::Packet;
 
 /// Holds a Marker packet.
 ///
@@ -41,8 +41,8 @@ impl Arbitrary for Marker {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use parse::Parse;
-    use serialize::SerializeInto;
+    use crate::parse::Parse;
+    use crate::serialize::SerializeInto;
 
     #[test]
     fn roundtrip() {

@@ -6,8 +6,8 @@
 //! [Section 5.13 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.13
 
 use std::ops::{Deref, DerefMut};
-use packet::{self, Common};
-use Packet;
+use crate::packet::{self, Common};
+use crate::Packet;
 
 /// Holds an encrypted data packet.
 ///

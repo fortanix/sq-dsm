@@ -1,6 +1,6 @@
-use crypto;
-use packet;
-use Packet;
+use crate::crypto;
+use crate::packet;
+use crate::Packet;
 
 /// Holds an MDC packet.
 ///

@@ -1,16 +1,16 @@
 // -*- mode: Rust; -*-
-use parse_error_downcast;
-use strings::{
+use crate::parse_error_downcast;
+use crate::strings::{
     strings_flatten_into,
     strings_flatten2,
     strings_flatten,
 };
-use component::{
+use crate::component::{
     Component,
     components_merge,
 };
-use lexer;
-use lexer::{Token, LexicalError};
+use crate::lexer;
+use crate::lexer::{Token, LexicalError};
 
 // Pass in the original, untokenized input to facilitate error
 // recovery.  See, for instance, the `addr-spec-or-other` production.

@@ -5,21 +5,21 @@ use std::mem;
 use std::cmp::Ordering;
 use time;
 
-use Error;
-use crypto::{self, mem::Protected, mpis, hash::Hash, KeyPair};
-use packet::Tag;
-use packet;
-use Packet;
-use PublicKeyAlgorithm;
-use SymmetricAlgorithm;
-use HashAlgorithm;
-use constants::Curve;
-use crypto::s2k::S2K;
-use Result;
-use conversions::Time;
-use crypto::Password;
-use KeyID;
-use Fingerprint;
+use crate::Error;
+use crate::crypto::{self, mem::Protected, mpis, hash::Hash, KeyPair};
+use crate::packet::Tag;
+use crate::packet;
+use crate::Packet;
+use crate::PublicKeyAlgorithm;
+use crate::SymmetricAlgorithm;
+use crate::HashAlgorithm;
+use crate::constants::Curve;
+use crate::crypto::s2k::S2K;
+use crate::Result;
+use crate::conversions::Time;
+use crate::crypto::Password;
+use crate::KeyID;
+use crate::Fingerprint;
 
 /// Holds a public key, public subkey, private key or private subkey packet.
 ///
@@ -267,7 +267,7 @@ impl Key4 {
     /// Generates a new RSA key with a public modulos of size `bits`.
     pub fn generate_rsa(bits: usize) -> Result<Self> {
         use nettle::{rsa, Yarrow};
-        use crypto::mpis::{self, MPI, PublicKey};
+        use crate::crypto::mpis::{self, MPI, PublicKey};
 
         let mut rng = Yarrow::default();
         let (public, private) = rsa::generate_keypair(&mut rng, bits as u32)?;
@@ -307,10 +307,10 @@ impl Key4 {
             curve25519, curve25519::CURVE25519_SIZE,
             ecc, ecdh, ecdsa,
         };
-        use crypto::mpis::{self, MPI, PublicKey};
-        use constants::{HashAlgorithm, SymmetricAlgorithm, Curve};
-        use PublicKeyAlgorithm::*;
-        use Error;
+        use crate::crypto::mpis::{self, MPI, PublicKey};
+        use crate::constants::{HashAlgorithm, SymmetricAlgorithm, Curve};
+        use crate::PublicKeyAlgorithm::*;
+        use crate::Error;
 
         let mut rng = Yarrow::default();
 
@@ -541,7 +541,7 @@ impl Key4 {
     ///
     /// Fails if the secret key is missing, or encrypted.
     pub fn into_keypair(mut self) -> Result<KeyPair> {
-        use packet::key::SecretKey;
+        use crate::packet::key::SecretKey;
         let secret = match self.set_secret(None) {
             Some(SecretKey::Unencrypted(secret)) => secret,
             Some(SecretKey::Encrypted(_)) =>
@@ -659,7 +659,7 @@ impl Unencrypted {
     pub fn encrypt(&self, password: &Password)
                    -> Result<Encrypted> {
         use std::io::Write;
-        use crypto::symmetric::Encryptor;
+        use crate::crypto::symmetric::Encryptor;
 
         let s2k = S2K::default();
         let algo = SymmetricAlgorithm::AES256;
@@ -721,7 +721,7 @@ impl Encrypted {
     pub fn decrypt(&self, pk_algo: PublicKeyAlgorithm, password: &Password)
                    -> Result<Unencrypted> {
         use std::io::{Cursor, Read};
-        use crypto::symmetric::Decryptor;
+        use crate::crypto::symmetric::Decryptor;
 
         let key = self.s2k.derive_key(password, self.algo.key_size()?)?;
         let cur = Cursor::new(&self.ciphertext);
@@ -737,19 +737,19 @@ impl Encrypted {
 
 #[cfg(test)]
 mod tests {
-    use packet::Key;
-    use TPK;
-    use packet::pkesk::PKESK3;
-    use packet::key::SecretKey;
+    use crate::packet::Key;
+    use crate::TPK;
+    use crate::packet::pkesk::PKESK3;
+    use crate::packet::key::SecretKey;
     use super::*;
-    use PacketPile;
-    use serialize::Serialize;
-    use parse::Parse;
+    use crate::PacketPile;
+    use crate::serialize::Serialize;
+    use crate::parse::Parse;
 
     #[test]
     fn encrypted_rsa_key() {
         let mut tpk = TPK::from_bytes(
-            ::tests::key("testy-new-encrypted-with-123.pgp")).unwrap();
+            crate::tests::key("testy-new-encrypted-with-123.pgp")).unwrap();
         let pair = tpk.primary_mut();
         let pk_algo = pair.pk_algo();
         let secret = pair.secret.as_mut().unwrap();
@@ -769,7 +769,7 @@ mod tests {
 
     #[test]
     fn eq() {
-        use constants::Curve::*;
+        use crate::constants::Curve::*;
 
         for curve in vec![NistP256, NistP384, NistP521] {
             let sign_key = Key4::generate_ecc(true, curve.clone()).unwrap();
@@ -790,7 +790,7 @@ mod tests {
 
     #[test]
     fn roundtrip() {
-        use constants::Curve::*;
+        use crate::constants::Curve::*;
 
         let keys = vec![NistP256, NistP384, NistP521].into_iter().flat_map(|cv| {
             let sign_key = Key4::generate_ecc(true, cv.clone()).unwrap();
@@ -839,8 +839,8 @@ mod tests {
 
     #[test]
     fn encryption_roundtrip() {
-        use crypto::SessionKey;
-        use constants::Curve::*;
+        use crate::crypto::SessionKey;
+        use crate::constants::Curve::*;
 
         let keys = vec![NistP256, NistP384, NistP521].into_iter().map(|cv| {
             Key4::generate_ecc(false, cv).unwrap()
@@ -864,7 +864,7 @@ mod tests {
 
     #[test]
     fn secret_encryption_roundtrip() {
-        use constants::Curve::*;
+        use crate::constants::Curve::*;
 
         let keys = vec![NistP256, NistP384, NistP521].into_iter().map(|cv| {
             Key4::generate_ecc(false, cv).unwrap()
@@ -892,7 +892,7 @@ mod tests {
 
     #[test]
     fn import_cv25519() {
-        use crypto::{ecdh, mem, SessionKey};
+        use crate::crypto::{ecdh, mem, SessionKey};
         use self::mpis::{MPI, Ciphertext};
         use time::{at, Timespec};
 
@@ -925,7 +925,7 @@ mod tests {
 
     #[test]
     fn import_cv25519_sec() {
-        use crypto::ecdh;
+        use crate::crypto::ecdh;
         use self::mpis::{MPI, Ciphertext};
         use time::{at, Timespec};
 
@@ -965,7 +965,7 @@ mod tests {
 
     #[test]
     fn import_rsa() {
-        use crypto::SessionKey;
+        use crate::crypto::SessionKey;
         use self::mpis::{MPI, Ciphertext};
         use time::{at, Timespec};
 
@@ -999,10 +999,10 @@ mod tests {
     #[test]
     fn import_ed25519() {
         use time::{at, Timespec};
-        use {Fingerprint, KeyID};
-        use constants::SignatureType;
-        use packet::signature::Signature4;
-        use packet::signature::subpacket::{
+        use crate::{Fingerprint, KeyID};
+        use crate::constants::SignatureType;
+        use crate::packet::signature::Signature4;
+        use crate::packet::signature::subpacket::{
             Subpacket, SubpacketValue, SubpacketArea};
 
         // Ed25519 key
@@ -1035,7 +1035,7 @@ mod tests {
     #[test]
     fn fingerprint_test() {
         let pile =
-            PacketPile::from_bytes(::tests::key("public-key.gpg")).unwrap();
+            PacketPile::from_bytes(crate::tests::key("public-key.gpg")).unwrap();
 
         // The blob contains a public key and a three subkeys.
         let mut pki = 0;

@@ -6,15 +6,15 @@ use std::path::Path;
 
 use buffered_reader::BufferedReader;
 
-use Result;
-use Error;
-use Packet;
-use packet::{Container, PacketIter};
-use PacketPile;
-use parse::PacketParserResult;
-use parse::PacketParserBuilder;
-use parse::Parse;
-use parse::Cookie;
+use crate::Result;
+use crate::Error;
+use crate::Packet;
+use crate::packet::{Container, PacketIter};
+use crate::PacketPile;
+use crate::parse::PacketParserResult;
+use crate::parse::PacketParserBuilder;
+use crate::parse::Parse;
+use crate::parse::Cookie;
 
 
 impl fmt::Debug for PacketPile {
@@ -410,13 +410,13 @@ impl<'a> PacketParserBuilder<'a> {
 mod test {
     use super::*;
 
-    use constants::CompressionAlgorithm;
-    use constants::DataFormat::Text;
-    use packet::Literal;
-    use packet::CompressedData;
-    use packet::seip::SEIP1;
-    use packet::Tag;
-    use parse::{Parse, PacketParser};
+    use crate::constants::CompressionAlgorithm;
+    use crate::constants::DataFormat::Text;
+    use crate::packet::Literal;
+    use crate::packet::CompressedData;
+    use crate::packet::seip::SEIP1;
+    use crate::packet::Tag;
+    use crate::parse::{Parse, PacketParser};
 
     #[test]
     fn deserialize_test_1 () {
@@ -424,7 +424,7 @@ mod test {
         // just rely on the fact that an assertion is not thrown.
 
         // A flat message.
-        let pile = PacketPile::from_bytes(::tests::key("public-key.gpg"))
+        let pile = PacketPile::from_bytes(crate::tests::key("public-key.gpg"))
             .unwrap();
         eprintln!("PacketPile has {} top-level packets.",
                   pile.children().len());
@@ -445,7 +445,7 @@ mod test {
         // A message containing a compressed packet that contains a
         // literal packet.
         let pile = PacketPile::from_bytes(
-            ::tests::message("compressed-data-algo-1.gpg")).unwrap();
+            crate::tests::message("compressed-data-algo-1.gpg")).unwrap();
         eprintln!("PacketPile has {} top-level packets.",
                   pile.children().len());
         eprintln!("PacketPile: {:?}", pile);
@@ -462,7 +462,7 @@ mod test {
     #[test]
     fn deserialize_test_3 () {
         let pile =
-            PacketPile::from_bytes(::tests::message("signed.gpg")).unwrap();
+            PacketPile::from_bytes(crate::tests::message("signed.gpg")).unwrap();
         eprintln!("PacketPile has {} top-level packets.",
                   pile.children().len());
         eprintln!("PacketPile: {:?}", pile);
@@ -482,7 +482,7 @@ mod test {
     // lutz's key is a v3 key.
     #[test]
     fn torture() {
-        let data = ::tests::key("dkg.gpg");
+        let data = crate::tests::key("dkg.gpg");
         let mut ppp = PacketParserBuilder::from_bytes(data).unwrap()
             //.trace()
             .buffer_unread_content()
@@ -496,7 +496,7 @@ mod test {
         //pile.pretty_print();
         assert_eq!(pile.children().len(), 1450);
 
-        let data = ::tests::key("lutz.gpg");
+        let data = crate::tests::key("lutz.gpg");
         let mut ppp = PacketParserBuilder::from_bytes(data).unwrap()
             //.trace()
             .buffer_unread_content()
@@ -523,7 +523,7 @@ mod test {
         // quine.
         let max_recursion_depth = 128;
         let pile = PacketParserBuilder::from_bytes(
-            ::tests::message("compression-quine.gpg")).unwrap()
+            crate::tests::message("compression-quine.gpg")).unwrap()
             .max_recursion_depth(max_recursion_depth)
             .into_packet_pile().unwrap();
 
@@ -545,7 +545,7 @@ mod test {
         let max_recursion_depth = 255;
         let mut ppr : PacketParserResult
             = PacketParserBuilder::from_bytes(
-                ::tests::message("compression-quine.gpg")).unwrap()
+                crate::tests::message("compression-quine.gpg")).unwrap()
                 .max_recursion_depth(max_recursion_depth)
                 .finalize().unwrap();
 
@@ -577,7 +577,7 @@ mod test {
         // packet, we expect recurse() to not recurse.
 
         let ppr = PacketParserBuilder::from_bytes(
-                ::tests::message("compressed-data-algo-1.gpg")).unwrap()
+                crate::tests::message("compressed-data-algo-1.gpg")).unwrap()
             .buffer_unread_content()
             .finalize().unwrap();
 

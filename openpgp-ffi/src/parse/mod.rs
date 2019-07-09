@@ -25,9 +25,9 @@ use self::openpgp::parse::{
 };
 
 use super::io::Reader;
-use error::Status;
-use MoveIntoRaw;
-use RefMutRaw;
+use crate::error::Status;
+use crate::MoveIntoRaw;
+use crate::RefMutRaw;
 
 pub mod stream;
 
@@ -38,7 +38,7 @@ pub mod stream;
 /// the stream.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "C" fn pgp_packet_parser_from_reader<'a>
-    (errp: Option<&mut *mut ::error::Error>, reader: *mut Reader)
+    (errp: Option<&mut *mut crate::error::Error>, reader: *mut Reader)
      -> *mut PacketParserResult<'a> {
     ffi_make_fry_from_errp!(errp);
     let reader = reader.ref_mut_raw();
@@ -51,7 +51,7 @@ pub extern "C" fn pgp_packet_parser_from_reader<'a>
 /// the stream.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "C" fn pgp_packet_parser_from_file
-    (errp: Option<&mut *mut ::error::Error>, filename: *const c_char)
+    (errp: Option<&mut *mut crate::error::Error>, filename: *const c_char)
      -> *mut PacketParserResult<'static> {
     ffi_make_fry_from_errp!(errp);
     let filename = ffi_param_cstr!(filename).to_string_lossy().into_owned();
@@ -64,7 +64,7 @@ pub extern "C" fn pgp_packet_parser_from_file
 /// the stream.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "C" fn pgp_packet_parser_from_bytes
-    (errp: Option<&mut *mut ::error::Error>, b: *const u8, len: size_t)
+    (errp: Option<&mut *mut crate::error::Error>, b: *const u8, len: size_t)
      -> *mut PacketParserResult<'static> {
     ffi_make_fry_from_errp!(errp);
     assert!(!b.is_null());
@@ -92,7 +92,7 @@ pub extern "C" fn pgp_packet_parser_free(pp: Option<&mut PacketParser>) {
 /// Frees the packet parser EOF object.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "C" fn pgp_packet_parser_eof_is_message(
-    errp: Option<&mut *mut ::error::Error>,
+    errp: Option<&mut *mut crate::error::Error>,
     eof: *const PacketParserEOF) -> bool
 {
     ffi_make_fry_from_errp!(errp);
@@ -199,7 +199,7 @@ pub extern "C" fn pgp_packet_parser_recursion_depth
 /// Consumes the given packet parser.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "C" fn pgp_packet_parser_next<'a>
-    (errp: Option<&mut *mut ::error::Error>,
+    (errp: Option<&mut *mut crate::error::Error>,
      pp: *mut PacketParser<'a>,
      old_packet: Option<&mut *mut Packet>,
      ppr: Option<&mut *mut PacketParserResult<'a>>)
@@ -243,7 +243,7 @@ pub extern "C" fn pgp_packet_parser_next<'a>
 /// Consumes the given packet parser.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "C" fn pgp_packet_parser_recurse<'a>
-    (errp: Option<&mut *mut ::error::Error>,
+    (errp: Option<&mut *mut crate::error::Error>,
      pp: *mut PacketParser<'a>,
      old_packet: Option<&mut *mut Packet>,
      ppr: Option<&mut *mut PacketParserResult<'a>>)
@@ -273,7 +273,7 @@ pub extern "C" fn pgp_packet_parser_recurse<'a>
 /// content is small.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "C" fn pgp_packet_parser_buffer_unread_content<'a>
-    (errp: Option<&mut *mut ::error::Error>,
+    (errp: Option<&mut *mut crate::error::Error>,
      pp: *mut PacketParser<'a>,
      len: *mut usize)
      -> *const u8 {
@@ -291,7 +291,7 @@ pub extern "C" fn pgp_packet_parser_buffer_unread_content<'a>
 /// `PacketParserBuild` to customize the default behavior.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "C" fn pgp_packet_parser_finish<'a>
-    (errp: Option<&mut *mut ::error::Error>, pp: *mut PacketParser<'a>,
+    (errp: Option<&mut *mut crate::error::Error>, pp: *mut PacketParser<'a>,
      packet: Option<&mut *const Packet>)
      -> Status
 {
@@ -325,7 +325,7 @@ pub extern "C" fn pgp_packet_parser_finish<'a>
 /// returns `Error::InvalidOperation`.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "C" fn pgp_packet_parser_decrypt<'a>
-    (errp: Option<&mut *mut ::error::Error>,
+    (errp: Option<&mut *mut crate::error::Error>,
      pp: *mut PacketParser<'a>,
      algo: u8, // XXX
      key: *const u8, key_len: size_t)

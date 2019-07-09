@@ -109,8 +109,8 @@ pub mod conversions;
 pub mod crypto;
 
 pub mod packet;
-use packet::{BodyLength, Header, Container};
-use packet::ctb::{CTB, CTBOld, CTBNew};
+use crate::packet::{BodyLength, Header, Container};
+use crate::packet::ctb::{CTB, CTBOld, CTBNew};
 
 pub mod parse;
 
@@ -121,7 +121,7 @@ mod packet_pile;
 pub mod message;
 
 pub mod constants;
-use constants::{
+use crate::constants::{
     PublicKeyAlgorithm,
     SymmetricAlgorithm,
     HashAlgorithm,
@@ -140,7 +140,7 @@ mod tests;
 /// openpgp/tests/data/keys/neal.pgp are not expired.
 #[cfg(test)]
 fn frozen_time() -> time::Tm {
-    use conversions::Time;
+    use crate::conversions::Time;
     time::Tm::from_pgp(1554542220 - 1)
 }
 
@@ -302,7 +302,7 @@ impl Packet {
     ///
     ///   [Section 4.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.3
     pub fn tag(&self) -> packet::Tag {
-        use packet::Tag;
+        use crate::packet::Tag;
         match self {
             &Packet::Unknown(ref packet) => packet.tag(),
             &Packet::Signature(_) => Tag::Signature,
@@ -333,7 +333,7 @@ impl Packet {
     /// into an `Packet::Unknown`.  `tag()` returns `Tag::Signature`,
     /// whereas `kind()` returns `None`.
     pub fn kind(&self) -> Option<packet::Tag> {
-        use packet::Tag;
+        use crate::packet::Tag;
         match self {
             &Packet::Unknown(_) => None,
             &Packet::Signature(_) => Some(Tag::Signature),

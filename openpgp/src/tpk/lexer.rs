@@ -1,12 +1,12 @@
 use std::fmt;
 
-use Error;
-use Packet;
-use packet::Tag;
-use tpk::SubkeyBinding;
-use tpk::UserIDBinding;
-use tpk::UserAttributeBinding;
-use tpk::UnknownBinding;
+use crate::Error;
+use crate::Packet;
+use crate::packet::Tag;
+use crate::tpk::SubkeyBinding;
+use crate::tpk::UserIDBinding;
+use crate::tpk::UserAttributeBinding;
+use crate::tpk::UnknownBinding;
 
 // The type of the parser's input.
 //

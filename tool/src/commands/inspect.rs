@@ -4,8 +4,8 @@ use time;
 use clap;
 
 extern crate sequoia_openpgp as openpgp;
-use openpgp::{Packet, Result};
-use openpgp::parse::{Parse, PacketParserResult};
+use crate::openpgp::{Packet, Result};
+use crate::openpgp::parse::{Parse, PacketParserResult};
 
 use super::TIMEFMT;
 
@@ -27,7 +27,7 @@ pub fn inspect(m: &clap::ArgMatches, output: &mut io::Write)
     let mut literal_prefix = Vec::new();
 
     let mut ppr =
-        openpgp::parse::PacketParser::from_reader(::open_or_stdin(input)?)?;
+        openpgp::parse::PacketParser::from_reader(crate::open_or_stdin(input)?)?;
     while let PacketParserResult::Some(mut pp) = ppr {
         match pp.packet {
             Packet::PublicKey(_) | Packet::SecretKey(_) => {
@@ -212,7 +212,7 @@ fn inspect_revocation(output: &mut io::Write,
                       indent: &str,
                       revoked: openpgp::RevocationStatus)
                       -> Result<()> {
-    use openpgp::RevocationStatus::*;
+    use crate::openpgp::RevocationStatus::*;
     match revoked {
         Revoked(_) =>
             writeln!(output, "{}                 Revoked", indent)?,
@@ -251,7 +251,7 @@ fn inspect_key_flags(flags: openpgp::packet::KeyFlags) -> Option<String> {
 
 fn inspect_signatures(output: &mut io::Write,
                       sigs: &[openpgp::packet::Signature]) -> Result<()> {
-    use openpgp::constants::SignatureType::*;
+    use crate::openpgp::constants::SignatureType::*;
     for sig in sigs {
         match sig.sigtype() {
             Binary | Text => (),

@@ -28,7 +28,7 @@ use self::openpgp::{
     },
 };
 
-use ::error::Status;
+use crate::error::Status;
 use super::fingerprint::Fingerprint;
 use super::packet::key::Key;
 use super::packet::Packet;
@@ -37,11 +37,11 @@ use super::packet_pile::PacketPile;
 use super::tsk::TSK;
 use super::revocation_status::RevocationStatus;
 
-use Maybe;
-use RefRaw;
-use MoveFromRaw;
-use MoveIntoRaw;
-use MoveResultIntoRaw;
+use crate::Maybe;
+use crate::RefRaw;
+use crate::MoveFromRaw;
+use crate::MoveIntoRaw;
+use crate::MoveResultIntoRaw;
 
 /// A transferable public key (TPK).
 ///
@@ -59,7 +59,7 @@ use MoveResultIntoRaw;
 /// passed through as is.
 ///
 /// [RFC 4880, section 11.1]: https://tools.ietf.org/html/rfc4880#section-11.1
-#[::ffi_wrapper_type(
+#[crate::ffi_wrapper_type(
     prefix = "pgp_", name = "tpk",
     derive = "Clone, Debug, Display, PartialEq, Parse, Serialize")]
 pub struct TPK(openpgp::TPK);
@@ -68,7 +68,7 @@ pub struct TPK(openpgp::TPK);
 ///
 /// Consumes `m`.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn pgp_tpk_from_packet_pile(errp: Option<&mut *mut ::error::Error>,
+fn pgp_tpk_from_packet_pile(errp: Option<&mut *mut crate::error::Error>,
                             m: *mut PacketPile)
                             -> Maybe<TPK> {
     openpgp::TPK::from_packet_pile(m.move_from_raw()).move_into_raw(errp)
@@ -78,7 +78,7 @@ fn pgp_tpk_from_packet_pile(errp: Option<&mut *mut ::error::Error>,
 ///
 /// Consumes the packet parser result.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn pgp_tpk_from_packet_parser(errp: Option<&mut *mut ::error::Error>,
+fn pgp_tpk_from_packet_parser(errp: Option<&mut *mut crate::error::Error>,
                               ppr: *mut PacketParserResult)
                               -> Maybe<TPK>
 {
@@ -94,7 +94,7 @@ fn pgp_tpk_from_packet_parser(errp: Option<&mut *mut ::error::Error>,
 ///
 /// Consumes `tpk` and `other`.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn pgp_tpk_merge(errp: Option<&mut *mut ::error::Error>,
+fn pgp_tpk_merge(errp: Option<&mut *mut crate::error::Error>,
                  tpk: *mut TPK,
                  other: *mut TPK)
                  -> Maybe<TPK> {
@@ -111,7 +111,7 @@ fn pgp_tpk_merge(errp: Option<&mut *mut ::error::Error>,
 /// Consumes `tpk` and the packets in `packets`.  The buffer, however,
 /// must be managed by the caller.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn pgp_tpk_merge_packets(errp: Option<&mut *mut ::error::Error>,
+fn pgp_tpk_merge_packets(errp: Option<&mut *mut crate::error::Error>,
                          tpk: *mut TPK,
                          packets: *mut *mut Packet,
                          packets_len: size_t)
@@ -242,7 +242,7 @@ fn int_to_reason_for_revocation(code: c_int) -> ReasonForRevocation {
 /// pgp_tpk_free (tpk);
 /// ```
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn pgp_tpk_revoke(errp: Option<&mut *mut ::error::Error>,
+fn pgp_tpk_revoke(errp: Option<&mut *mut crate::error::Error>,
                   tpk: *const TPK,
                   primary_signer: *mut Box<crypto::Signer>,
                   code: c_int,
@@ -305,7 +305,7 @@ fn pgp_tpk_revoke(errp: Option<&mut *mut ::error::Error>,
 /// pgp_tpk_free (tpk);
 /// ```
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn pgp_tpk_revoke_in_place(errp: Option<&mut *mut ::error::Error>,
+fn pgp_tpk_revoke_in_place(errp: Option<&mut *mut crate::error::Error>,
                            tpk: *mut TPK,
                            primary_signer: *mut Box<crypto::Signer>,
                            code: c_int,
@@ -365,7 +365,7 @@ fn pgp_tpk_alive_at(tpk: *const TPK, when: time_t)
 ///
 /// This function consumes `tpk` and returns a new `TPK`.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn pgp_tpk_set_expiry(errp: Option<&mut *mut ::error::Error>,
+fn pgp_tpk_set_expiry(errp: Option<&mut *mut crate::error::Error>,
                       tpk: *mut TPK, primary_signer: *mut Box<crypto::Signer>,
                       expiry: u32)
                       -> Maybe<TPK> {
@@ -705,7 +705,7 @@ pub struct TPKParserWrapper<'a> {
 /// A `TPKParser` parses a keyring, which is simply zero or more TPKs
 /// concatenated together.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn pgp_tpk_parser_from_bytes(errp: Option<&mut *mut ::error::Error>,
+fn pgp_tpk_parser_from_bytes(errp: Option<&mut *mut crate::error::Error>,
                              buf: *mut u8, len: size_t)
     -> *mut TPKParserWrapper<'static>
 {
@@ -736,7 +736,7 @@ fn pgp_tpk_parser_from_packet_parser(ppr: *mut PacketParserResult<'static>)
 /// If this function returns NULL and does not set *errp, then the end
 /// of the file was reached.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn pgp_tpk_parser_next(errp: Option<&mut *mut ::error::Error>,
+fn pgp_tpk_parser_next(errp: Option<&mut *mut crate::error::Error>,
                        parser: *mut TPKParserWrapper)
     -> *mut TPK
 {
@@ -918,7 +918,7 @@ pub extern "C" fn pgp_tpk_builder_add_certification_subkey
 /// Consumes `tpkb`.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "C" fn pgp_tpk_builder_generate
-    (errp: Option<&mut *mut ::error::Error>, tpkb: *mut TPKBuilder,
+    (errp: Option<&mut *mut crate::error::Error>, tpkb: *mut TPKBuilder,
      tpk_out: *mut Maybe<TPK>,
      revocation_out: *mut *mut Signature)
     -> Status

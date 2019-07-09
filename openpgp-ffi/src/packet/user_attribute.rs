@@ -8,7 +8,7 @@ use libc::size_t;
 extern crate sequoia_openpgp as openpgp;
 use super::Packet;
 
-use RefRaw;
+use crate::RefRaw;
 
 /// Returns the value of the User Attribute Packet.
 ///

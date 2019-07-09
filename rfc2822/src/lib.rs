@@ -71,11 +71,11 @@ use lalrpop_util::ParseError;
 #[macro_use] mod trace;
 mod strings;
 #[macro_use] mod component;
-use component::{
+use crate::component::{
     Component
 };
 mod lexer;
-use lexer::LexicalError;
+use crate::lexer::LexicalError;
 
 // We expose a number of productions for testing purposes.
 // Unfortunately, lalrpop doesn't understand the #[cfg(test)]

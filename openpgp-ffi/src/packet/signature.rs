@@ -15,10 +15,10 @@ use super::super::fingerprint::Fingerprint;
 use super::super::keyid::KeyID;
 use super::key::Key;
 
-use Maybe;
-use MoveFromRaw;
-use MoveIntoRaw;
-use RefRaw;
+use crate::Maybe;
+use crate::MoveFromRaw;
+use crate::MoveIntoRaw;
+use crate::RefRaw;
 
 /// Holds a signature packet.
 ///
@@ -32,7 +32,7 @@ use RefRaw;
 /// Wraps [`sequoia-openpgp::packet::signature::Signature`].
 ///
 /// [`sequoia-openpgp::packet::signature::Signature`]: ../../sequoia_openpgp/packet/signature/struct.Signature.html
-#[::ffi_wrapper_type(prefix = "pgp_",
+#[crate::ffi_wrapper_type(prefix = "pgp_",
                      derive = "Clone, Debug, PartialEq, Parse, Serialize")]
 pub struct Signature(openpgp::packet::Signature);
 

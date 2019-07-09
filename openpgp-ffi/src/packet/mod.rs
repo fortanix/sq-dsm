@@ -22,9 +22,9 @@ pub mod user_attribute;
 pub mod userid;
 pub mod literal;
 
-use Maybe;
-use MoveIntoRaw;
-use RefRaw;
+use crate::Maybe;
+use crate::MoveIntoRaw;
+use crate::RefRaw;
 
 /// The OpenPGP packets that Sequoia understands.
 ///
@@ -45,7 +45,7 @@ use RefRaw;
 /// Wraps [`sequoia-openpgp::Packet`].
 ///
 /// [`sequoia-openpgp::Packet`]: ../../sequoia_openpgp/enum.Packet.html
-#[::ffi_wrapper_type(prefix = "pgp_",
+#[crate::ffi_wrapper_type(prefix = "pgp_",
                      derive = "Clone, Debug, Hash, PartialEq")]
 pub struct Packet(openpgp::Packet);
 

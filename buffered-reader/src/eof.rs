@@ -2,7 +2,7 @@ use std::io;
 use std::io::{Error, ErrorKind, Read};
 use std::fmt;
 
-use BufferedReader;
+use crate::BufferedReader;
 
 /// Always returns EOF.
 pub struct EOF<C> {

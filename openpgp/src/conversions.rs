@@ -2,13 +2,13 @@
 
 use time;
 
-use Error;
-use Result;
+use crate::Error;
+use crate::Result;
 
 /// Conversions for OpenPGP time stamps.
 pub trait Time {
     /// Converts an OpenPGP time stamp to broken-down time.
-    fn from_pgp(u32) -> Self;
+    fn from_pgp(_: u32) -> Self;
     /// Converts broken-down time to an OpenPGP time stamp.
     fn to_pgp(&self) -> Result<u32>;
     /// Strips off any subseconds that OpenPGP cannot represent, and
@@ -40,7 +40,7 @@ impl Time for time::Tm {
 /// Conversions for OpenPGP durations.
 pub trait Duration {
     /// Converts an OpenPGP duration to ISO 8601 time duration.
-    fn from_pgp(u32) -> Self;
+    fn from_pgp(_: u32) -> Self;
     /// Converts ISO 8601 time duration to an OpenPGP duration.
     fn to_pgp(&self) -> Result<u32>;
     /// Strips off any subseconds that OpenPGP cannot represent.
@@ -82,12 +82,12 @@ pub mod hex {
     }
 
     /// Decodes the given hexadecimal number.
-    pub fn decode<H: AsRef<str>>(hex: H) -> ::Result<Vec<u8>> {
+    pub fn decode<H: AsRef<str>>(hex: H) -> crate::Result<Vec<u8>> {
         super::from_hex(hex.as_ref(), false)
     }
 
     /// Decodes the given hexadecimal number, ignoring whitespace.
-    pub fn decode_pretty<H: AsRef<str>>(hex: H) -> ::Result<Vec<u8>> {
+    pub fn decode_pretty<H: AsRef<str>>(hex: H) -> crate::Result<Vec<u8>> {
         super::from_hex(hex.as_ref(), true)
     }
 

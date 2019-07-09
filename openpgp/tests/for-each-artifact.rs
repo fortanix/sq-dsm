@@ -4,8 +4,8 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 extern crate sequoia_openpgp as openpgp;
-use openpgp::parse::*;
-use openpgp::serialize::*;
+use crate::openpgp::parse::*;
+use crate::openpgp::serialize::*;
 
 mod for_each_artifact {
     use super::*;

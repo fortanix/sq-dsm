@@ -3,10 +3,10 @@
 use std::io::{self, Write};
 
 extern crate sequoia_openpgp as openpgp;
-use openpgp::crypto::SessionKey;
-use openpgp::constants::SymmetricAlgorithm;
-use openpgp::serialize::stream::*;
-use openpgp::parse::stream::*;
+use crate::openpgp::crypto::SessionKey;
+use crate::openpgp::constants::SymmetricAlgorithm;
+use crate::openpgp::serialize::stream::*;
+use crate::openpgp::parse::stream::*;
 
 const MESSAGE: &'static str = "дружба";
 

@@ -2,14 +2,14 @@
 
 use std::ops::{Deref, DerefMut};
 
-use constants::{
+use crate::constants::{
     AEADAlgorithm,
     SymmetricAlgorithm,
 };
-use packet::{self, Common};
-use Packet;
-use Error;
-use Result;
+use crate::packet::{self, Common};
+use crate::Packet;
+use crate::Error;
+use crate::Result;
 
 /// Holds an AEAD encrypted data packet.
 ///

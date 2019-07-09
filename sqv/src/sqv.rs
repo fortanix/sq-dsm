@@ -14,11 +14,11 @@ use std::process::exit;
 use std::fs::File;
 use std::collections::{HashMap, HashSet};
 
-use openpgp::{TPK, Packet, packet::Signature, KeyID, RevocationStatus};
-use openpgp::constants::HashAlgorithm;
-use openpgp::crypto::hash::Hash;
-use openpgp::parse::{Parse, PacketParserResult, PacketParser};
-use openpgp::tpk::TPKParser;
+use crate::openpgp::{TPK, Packet, packet::Signature, KeyID, RevocationStatus};
+use crate::openpgp::constants::HashAlgorithm;
+use crate::openpgp::crypto::hash::Hash;
+use crate::openpgp::parse::{Parse, PacketParserResult, PacketParser};
+use crate::openpgp::tpk::TPKParser;
 
 mod sqv_cli;
 

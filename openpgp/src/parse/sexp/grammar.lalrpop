@@ -5,8 +5,8 @@
 //
 // [S-Expressions]: https://people.csail.mit.edu/rivest/Sexp.txt
 
-use parse::sexp::lexer::{self, LexicalError};
-use crypto::sexp::{Sexp, String_};
+use crate::parse::sexp::lexer::{self, LexicalError};
+use crate::crypto::sexp::{Sexp, String_};
 
 grammar<'input>;
 

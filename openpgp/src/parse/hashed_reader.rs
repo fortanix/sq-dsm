@@ -6,8 +6,8 @@ use std::fmt;
 use buffered_reader::BufferedReader;
 use buffered_reader::buffered_reader_generic_read_impl;
 
-use HashAlgorithm;
-use parse::{Cookie, HashesFor, Hashing};
+use crate::HashAlgorithm;
+use crate::parse::{Cookie, HashesFor, Hashing};
 
 const TRACE : bool = false;
 
@@ -87,7 +87,7 @@ impl Cookie {
 
         if self.hashing == Hashing::Disabled {
             t!("    hash_update: NOT hashing {} bytes: {}.",
-               data.len(), ::conversions::to_hex(data, true));
+               data.len(), crate::conversions::to_hex(data, true));
             return;
         }
 
@@ -95,7 +95,7 @@ impl Cookie {
         for (i, sig_group) in self.sig_groups.iter_mut().enumerate() {
             if topmost_group(i) && self.hashing != Hashing::Enabled {
                 t!("topmost group {} NOT hashing {} bytes: {}.",
-                   i, data.len(), ::conversions::to_hex(data, true));
+                   i, data.len(), crate::conversions::to_hex(data, true));
 
                 return;
             }
@@ -279,7 +279,7 @@ mod test {
                 hash.digest(&mut digest);
 
                 assert_eq!(digest,
-                           &::conversions::from_hex(test.expected.get(algo)
+                           &crate::conversions::from_hex(test.expected.get(algo)
                                                     .unwrap(), true)
                            .unwrap()[..],
                            "Algo: {:?}", algo);

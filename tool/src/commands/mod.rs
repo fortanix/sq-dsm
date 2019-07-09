@@ -8,19 +8,19 @@ use rpassword;
 
 extern crate sequoia_openpgp as openpgp;
 use sequoia_core::Context;
-use openpgp::constants::DataFormat;
-use openpgp::crypto;
-use openpgp::{TPK, KeyID, Result};
-use openpgp::packet::key::SecretKey;
-use openpgp::parse::{
+use crate::openpgp::constants::DataFormat;
+use crate::openpgp::crypto;
+use crate::openpgp::{TPK, KeyID, Result};
+use crate::openpgp::packet::key::SecretKey;
+use crate::openpgp::parse::{
     Parse,
     PacketParserResult,
 };
-use openpgp::parse::stream::{
+use crate::openpgp::parse::stream::{
     Verifier, DetachedVerifier, VerificationResult, VerificationHelper,
     MessageStructure, MessageLayer,
 };
-use openpgp::serialize::stream::{
+use crate::openpgp::serialize::stream::{
     Message, Signer, LiteralWriter, Encryptor, EncryptionMode,
 };
 extern crate sequoia_store as store;

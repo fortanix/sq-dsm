@@ -14,11 +14,11 @@ extern crate sequoia_openpgp;
 use self::sequoia_openpgp::armor;
 
 use super::io::{Reader, ReaderKind};
-use Maybe;
-use MoveIntoRaw;
-use MoveResultIntoRaw;
-use RefRaw;
-use RefMutRaw;
+use crate::Maybe;
+use crate::MoveIntoRaw;
+use crate::MoveResultIntoRaw;
+use crate::RefRaw;
+use crate::RefMutRaw;
 
 /// Represents a (key, value) pair in an armor header.
 #[repr(C)]
@@ -133,7 +133,7 @@ pub extern "C" fn pgp_armor_reader_new(inner: *mut Reader,
 
 /// Creates a `Reader` from a file.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "C" fn pgp_armor_reader_from_file(errp: Option<&mut *mut ::error::Error>,
+pub extern "C" fn pgp_armor_reader_from_file(errp: Option<&mut *mut crate::error::Error>,
                                              filename: *const c_char,
                                              mode: c_int)
     -> Maybe<Reader>
@@ -256,7 +256,7 @@ pub extern "C" fn pgp_armor_reader_kind(reader: *const Reader)
 ///
 ///   [this]: fn.pgp_armor_reader_new.html
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "C" fn pgp_armor_reader_headers(errp: Option<&mut *mut ::error::Error>,
+pub extern "C" fn pgp_armor_reader_headers(errp: Option<&mut *mut crate::error::Error>,
                                                reader: *mut Reader,
                                                len: *mut size_t)
                                                -> *mut ArmorHeader {
@@ -358,7 +358,7 @@ pub extern "C" fn pgp_armor_reader_headers(errp: Option<&mut *mut ::error::Error
 /// ```
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "C" fn pgp_armor_writer_new
-    (errp: Option<&mut *mut ::error::Error>,
+    (errp: Option<&mut *mut crate::error::Error>,
      inner: *mut super::io::Writer,
      kind: c_int,
      header: *const ArmorHeader,

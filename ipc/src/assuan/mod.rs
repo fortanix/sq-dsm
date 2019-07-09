@@ -14,10 +14,10 @@ use tokio::net::UnixStream;
 use tokio_io::io;
 use tokio_io::AsyncRead;
 
-use openpgp;
+use crate::openpgp;
 
-use Error;
-use Result;
+use crate::Error;
+use crate::Result;
 
 mod lexer;
 

@@ -3,25 +3,25 @@
 use std::fmt;
 use std::ops::Deref;
 
-use constants::Curve;
-use Error;
-use Result;
-use crypto::{
+use crate::constants::Curve;
+use crate::Error;
+use crate::Result;
+use crate::crypto::{
     mpis,
     hash::{self, Hash},
     Signer,
 };
-use HashAlgorithm;
-use PublicKeyAlgorithm;
-use SignatureType;
-use packet::Signature;
-use packet::Key;
-use KeyID;
-use packet::UserID;
-use packet::UserAttribute;
-use Packet;
-use packet;
-use packet::signature::subpacket::SubpacketArea;
+use crate::HashAlgorithm;
+use crate::PublicKeyAlgorithm;
+use crate::SignatureType;
+use crate::packet::Signature;
+use crate::packet::Key;
+use crate::KeyID;
+use crate::packet::UserID;
+use crate::packet::UserAttribute;
+use crate::Packet;
+use crate::packet;
+use crate::packet::signature::subpacket::SubpacketArea;
 
 use nettle::{dsa, ecc, ecdsa, ed25519, rsa};
 use nettle::rsa::verify_digest_pkcs1;
@@ -323,10 +323,10 @@ impl fmt::Debug for Signature4 {
             .field("hashed_area", self.hashed_area())
             .field("unhashed_area", self.unhashed_area())
             .field("hash_prefix",
-                   &::conversions::to_hex(&self.hash_prefix, false))
+                   &crate::conversions::to_hex(&self.hash_prefix, false))
             .field("computed_hash",
                    &if let Some((algo, ref hash)) = self.computed_hash {
-                       Some((algo, ::conversions::to_hex(&hash[..], false)))
+                       Some((algo, crate::conversions::to_hex(&hash[..], false)))
                    } else {
                        None
                    })
@@ -473,7 +473,7 @@ impl Signature4 {
     ///   - the first `SubpacketValue::EmbeddedSignature` is left in
     ///     place.
     pub fn normalize(&self) -> Self {
-        use packet::signature::subpacket::{Subpacket, SubpacketTag,
+        use crate::packet::signature::subpacket::{Subpacket, SubpacketTag,
                                            SubpacketValue};
         let mut sig = self.clone();
         {
@@ -524,8 +524,8 @@ impl Signature4 {
     pub fn verify_hash(&self, key: &Key, hash_algo: HashAlgorithm, hash: &[u8])
         -> Result<bool>
     {
-        use PublicKeyAlgorithm::*;
-        use crypto::mpis::PublicKey;
+        use crate::PublicKeyAlgorithm::*;
+        use crate::crypto::mpis::PublicKey;
 
         #[allow(deprecated)]
         match (self.pk_algo(), key.mpis(), self.mpis()) {
@@ -990,19 +990,19 @@ impl From<Signature4> for super::Signature {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crypto;
-    use crypto::mpis::MPI;
-    use TPK;
-    use parse::Parse;
-    use packet::key::Key4;
+    use crate::crypto;
+    use crate::crypto::mpis::MPI;
+    use crate::TPK;
+    use crate::parse::Parse;
+    use crate::packet::key::Key4;
 
     #[cfg(feature = "compression-deflate")]
     #[test]
     fn signature_verification_test() {
         use super::*;
 
-        use TPK;
-        use parse::{PacketParserResult, PacketParser};
+        use crate::TPK;
+        use crate::parse::{PacketParserResult, PacketParser};
 
         struct Test<'a> {
             key: &'a str,
@@ -1083,11 +1083,11 @@ mod test {
             eprintln!("{}, expect {} good signatures:",
                       test.data, test.good);
 
-            let tpk = TPK::from_bytes(::tests::key(test.key)).unwrap();
+            let tpk = TPK::from_bytes(crate::tests::key(test.key)).unwrap();
 
             let mut good = 0;
             let mut ppr = PacketParser::from_bytes(
-                ::tests::message(test.data)).unwrap();
+                crate::tests::message(test.data)).unwrap();
             while let PacketParserResult::Some(mut pp) = ppr {
                 if let Packet::Signature(ref sig) = pp.packet {
                     let result = sig.verify(tpk.primary()).unwrap_or(false);
@@ -1117,9 +1117,9 @@ mod test {
 
     #[test]
     fn signature_level() {
-        use PacketPile;
+        use crate::PacketPile;
         let p = PacketPile::from_bytes(
-            ::tests::message("signed-1-notarized-by-ed25519.pgp")).unwrap()
+            crate::tests::message("signed-1-notarized-by-ed25519.pgp")).unwrap()
             .into_children().collect::<Vec<Packet>>();
 
         if let Packet::Signature(ref sig) = &p[3] {
@@ -1149,7 +1149,7 @@ mod test {
             "erika-corinna-daniela-simone-antonia-nistp521-private.pgp",
             "emmelie-dorothea-dina-samantha-awina-ed25519-private.pgp",
         ] {
-            let tpk = TPK::from_bytes(::tests::key(key)).unwrap();
+            let tpk = TPK::from_bytes(crate::tests::key(key)).unwrap();
             let mut pair = tpk.primary().clone().into_keypair()
                 .expect("secret key is encrypted/missing");
 
@@ -1175,7 +1175,7 @@ mod test {
     #[test]
     fn sign_message() {
         use time;
-        use constants::Curve;
+        use crate::constants::Curve;
 
         let key: Key = Key4::generate_ecc(true, Curve::Ed25519)
             .unwrap().into();
@@ -1192,11 +1192,11 @@ mod test {
 
     #[test]
     fn verify_message() {
-        let tpk = TPK::from_bytes(::tests::key(
+        let tpk = TPK::from_bytes(crate::tests::key(
                 "emmelie-dorothea-dina-samantha-awina-ed25519.pgp")).unwrap();
-        let msg = ::tests::manifesto();
+        let msg = crate::tests::manifesto();
         let p = Packet::from_bytes(
-            ::tests::message("a-cypherpunks-manifesto.txt.ed25519.sig"))
+            crate::tests::message("a-cypherpunks-manifesto.txt.ed25519.sig"))
             .unwrap();
         let sig = if let Packet::Signature(s) = p {
             s
@@ -1209,7 +1209,7 @@ mod test {
 
     #[test]
     fn sign_with_short_ed25519_secret_key() {
-        use conversions::Time;
+        use crate::conversions::Time;
         use nettle;
         use time;
 
@@ -1246,17 +1246,17 @@ mod test {
 
     #[test]
     fn verify_gpg_3rd_party_cert() {
-        use TPK;
+        use crate::TPK;
 
         let test1 = TPK::from_bytes(
-            ::tests::key("test1-certification-key.pgp")).unwrap();
+            crate::tests::key("test1-certification-key.pgp")).unwrap();
         let cert_key1 = test1.keys_all()
             .certification_capable()
             .nth(0)
             .map(|x| x.2)
             .unwrap();
         let test2 = TPK::from_bytes(
-            ::tests::key("test2-signed-by-test1.pgp")).unwrap();
+            crate::tests::key("test2-signed-by-test1.pgp")).unwrap();
         let uid_binding = &test2.primary_key_signature_full().unwrap().0.unwrap();
         let cert = &uid_binding.certifications()[0];
 
@@ -1265,8 +1265,8 @@ mod test {
 
     #[test]
     fn normalize() {
-        use Fingerprint;
-        use packet::signature::subpacket::*;
+        use crate::Fingerprint;
+        use crate::packet::signature::subpacket::*;
 
         let mut pair = Key4::generate_ecc(true, Curve::Ed25519).unwrap()
             .into_keypair().unwrap();

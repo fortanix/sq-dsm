@@ -1,10 +1,10 @@
 use std::fmt;
 use std::ops::{Deref, DerefMut};
 
-use packet::{self, Common};
-use Packet;
-use Container;
-use constants::CompressionAlgorithm;
+use crate::packet::{self, Common};
+use crate::Packet;
+use crate::Container;
+use crate::constants::CompressionAlgorithm;
 
 /// Holds a compressed data packet.
 ///

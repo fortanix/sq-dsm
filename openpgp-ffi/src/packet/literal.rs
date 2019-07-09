@@ -13,9 +13,9 @@ extern crate sequoia_openpgp as openpgp;
 
 use super::Packet;
 
-use MoveFromRaw;
-use MoveIntoRaw;
-use RefRaw;
+use crate::MoveFromRaw;
+use crate::MoveIntoRaw;
+use crate::RefRaw;
 
 /// Holds a Literal Data packet.
 ///
@@ -29,7 +29,7 @@ use RefRaw;
 /// Wraps [`sequoia-openpgp::packet::literal::Literal`].
 ///
 /// [`sequoia-openpgp::packet::literal::Literal`]: ../../sequoia_openpgp/packet/literal/struct.Literal.html
-#[::ffi_wrapper_type(prefix = "pgp_",
+#[crate::ffi_wrapper_type(prefix = "pgp_",
                      derive = "Debug, Parse, Serialize")]
 pub struct Literal(openpgp::packet::Literal);
 

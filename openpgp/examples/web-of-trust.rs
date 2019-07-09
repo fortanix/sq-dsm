@@ -10,8 +10,8 @@
 use std::env;
 
 extern crate sequoia_openpgp as openpgp;
-use openpgp::tpk::TPKParser;
-use openpgp::parse::Parse;
+use crate::openpgp::tpk::TPKParser;
+use crate::openpgp::parse::Parse;
 
 fn main() {
     let args: Vec<String> = env::args().collect();

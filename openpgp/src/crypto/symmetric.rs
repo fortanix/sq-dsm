@@ -4,9 +4,9 @@ use std::io;
 use std::cmp;
 use std::fmt;
 
-use Result;
-use Error;
-use SymmetricAlgorithm;
+use crate::Result;
+use crate::Error;
+use crate::SymmetricAlgorithm;
 
 use buffered_reader::BufferedReader;
 
@@ -532,7 +532,7 @@ mod tests {
             let filename = &format!(
                     "raw/a-cypherpunks-manifesto.aes{}.key_ascending_from_0",
                 algo.key_size().unwrap() * 8);
-            let ciphertext = Cursor::new(::tests::file(filename));
+            let ciphertext = Cursor::new(crate::tests::file(filename));
             let decryptor = Decryptor::new(*algo, &key, ciphertext).unwrap();
 
             // Read bytewise to test the buffer logic.
@@ -541,7 +541,7 @@ mod tests {
                 plaintext.push(b.unwrap());
             }
 
-            assert_eq!(::tests::manifesto(), &plaintext[..]);
+            assert_eq!(crate::tests::manifesto(), &plaintext[..]);
         }
     }
 
@@ -564,7 +564,7 @@ mod tests {
                     .unwrap();
 
                 // Write bytewise to test the buffer logic.
-                for b in ::tests::manifesto().chunks(1) {
+                for b in crate::tests::manifesto().chunks(1) {
                     encryptor.write_all(b).unwrap();
                 }
             }
@@ -572,7 +572,7 @@ mod tests {
             let filename = format!(
                 "raw/a-cypherpunks-manifesto.aes{}.key_ascending_from_0",
                 algo.key_size().unwrap() * 8);
-            let mut cipherfile = Cursor::new(::tests::file(&filename));
+            let mut cipherfile = Cursor::new(crate::tests::file(&filename));
             let mut reference = Vec::new();
             cipherfile.read_to_end(&mut reference).unwrap();
             assert_eq!(&reference[..], &ciphertext[..]);
@@ -595,14 +595,14 @@ mod tests {
                      SymmetricAlgorithm::Camellia192,
                      SymmetricAlgorithm::Camellia256].iter() {
             let mut key = vec![0; algo.key_size().unwrap()];
-            ::crypto::random(&mut key);
+            crate::crypto::random(&mut key);
 
             let mut ciphertext = Vec::new();
             {
                 let mut encryptor = Encryptor::new(*algo, &key, &mut ciphertext)
                     .unwrap();
 
-                encryptor.write_all(::tests::manifesto()).unwrap();
+                encryptor.write_all(crate::tests::manifesto()).unwrap();
             }
 
             let mut plaintext = Vec::new();
@@ -614,7 +614,7 @@ mod tests {
                 decryptor.read_to_end(&mut plaintext).unwrap();
             }
 
-            assert_eq!(&plaintext[..], &::tests::manifesto()[..]);
+            assert_eq!(&plaintext[..], &crate::tests::manifesto()[..]);
         }
     }
 }

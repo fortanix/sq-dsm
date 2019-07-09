@@ -5,7 +5,7 @@
 //
 // [S-Expressions]: https://people.csail.mit.edu/rivest/Sexp.txt
 
-use assuan::{
+use crate::assuan::{
     Response,
     lexer::{self, LexicalError},
 };

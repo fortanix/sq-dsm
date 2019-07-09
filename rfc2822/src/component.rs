@@ -1,5 +1,5 @@
 use lalrpop_util::ParseError;
-use lexer::LexicalError;
+use crate::lexer::LexicalError;
 
 /// A UserID value typically looks something like:
 ///
@@ -116,7 +116,7 @@ macro_rules! components_concat {
 pub(crate) fn components_merge(components: Vec<Component>)
     -> Vec<Component>
 {
-    tracer!(::TRACE, "components_merge", 0);
+    tracer!(crate::TRACE, "components_merge", 0);
     t!("{:?}", components);
 
     let mut iter = components.into_iter();

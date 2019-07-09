@@ -181,8 +181,8 @@ pub fn ffi_catch_abort(_attr: TokenStream, item: TokenStream) -> TokenStream {
 ///
 /// ```rust,ignore
 /// /// Holds a fingerprint.
-/// #[::ffi_wrapper_type(prefix = "pgp_",
-///                      derive = "Clone, Debug, Display, PartialEq, Hash")]
+/// #[crate::ffi_wrapper_type(prefix = "pgp_",
+///                           derive = "Clone, Debug, Display, PartialEq, Hash")]
 /// pub struct Fingerprint(openpgp::Fingerprint);
 /// ```
 #[proc_macro_attribute]
@@ -467,7 +467,7 @@ fn derive_conversion_functions(mut st: syn::ItemStruct,
             }
         }
 
-        impl #generics ::MoveFromRaw<#wrapped> for *mut #wrapper #generics {
+        impl #generics crate::MoveFromRaw<#wrapped> for *mut #wrapper #generics {
             fn move_from_raw(self) -> #wrapped {
                 if self.is_null() {
                     panic!("FFI contract violation: Parameter is NULL");
@@ -501,7 +501,7 @@ fn derive_conversion_functions(mut st: syn::ItemStruct,
             }
         }
 
-        impl #generics ::MoveFromRaw<Option<#wrapped>> for
+        impl #generics crate::MoveFromRaw<Option<#wrapped>> for
             Option<::std::ptr::NonNull<#wrapper #generics>>
         {
             fn move_from_raw(self) -> Option<#wrapped> {
@@ -509,7 +509,7 @@ fn derive_conversion_functions(mut st: syn::ItemStruct,
             }
         }
 
-        impl #generics ::RefRaw<& #ref_lifetime #wrapped> for
+        impl #generics crate::RefRaw<& #ref_lifetime #wrapped> for
             *const #wrapper #generics
         {
             fn ref_raw(self) -> & #ref_lifetime #wrapped {
@@ -532,7 +532,7 @@ fn derive_conversion_functions(mut st: syn::ItemStruct,
             }
         }
 
-        impl #generics ::RefMutRaw<& #ref_lifetime mut #wrapped> for
+        impl #generics crate::RefMutRaw<& #ref_lifetime mut #wrapped> for
             *mut #wrapper #generics
         {
             fn ref_mut_raw(self) -> & #ref_lifetime mut #wrapped {
@@ -556,8 +556,8 @@ fn derive_conversion_functions(mut st: syn::ItemStruct,
             }
         }
 
-        impl #generics ::RefMutRaw<Option<& #ref_lifetime mut #wrapped>> for
-            ::Maybe<#wrapper #generics>
+        impl #generics crate::RefMutRaw<Option<& #ref_lifetime mut #wrapped>> for
+            crate::Maybe<#wrapper #generics>
         {
             fn ref_mut_raw(self) -> Option<& #ref_lifetime mut #wrapped> {
                 if self.is_none() {
@@ -587,26 +587,26 @@ fn derive_conversion_functions(mut st: syn::ItemStruct,
             }
         }
 
-        impl #generics ::MoveIntoRaw<*mut #wrapper #generics> for #wrapped {
+        impl #generics crate::MoveIntoRaw<*mut #wrapper #generics> for #wrapped {
             fn move_into_raw(self) -> *mut #wrapper #generics {
                 #wrapper::wrap(#ownership::Owned(self))
             }
         }
 
-        impl #generics ::MoveIntoRaw<*mut #wrapper #generics> for &#wrapped {
+        impl #generics crate::MoveIntoRaw<*mut #wrapper #generics> for &#wrapped {
             fn move_into_raw(self) -> *mut #wrapper #generics {
                 #wrapper::wrap(#ownership::Ref(self))
             }
         }
 
-        impl #generics ::MoveIntoRaw<*mut #wrapper #generics> for &mut #wrapped
+        impl #generics crate::MoveIntoRaw<*mut #wrapper #generics> for &mut #wrapped
         {
             fn move_into_raw(self) -> *mut #wrapper #generics {
                 #wrapper::wrap(#ownership::RefMut(self))
             }
         }
 
-        impl #generics ::MoveIntoRaw<Option<::std::ptr::NonNull<#wrapper #generics>>>
+        impl #generics crate::MoveIntoRaw<Option<::std::ptr::NonNull<#wrapper #generics>>>
             for Option<#wrapped>
         {
             fn move_into_raw(self) -> Option<::std::ptr::NonNull<#wrapper #generics>> {
@@ -617,7 +617,7 @@ fn derive_conversion_functions(mut st: syn::ItemStruct,
             }
         }
 
-        impl #generics ::MoveIntoRaw<Option<::std::ptr::NonNull<#wrapper #generics>>>
+        impl #generics crate::MoveIntoRaw<Option<::std::ptr::NonNull<#wrapper #generics>>>
             for Option<&#wrapped>
         {
             fn move_into_raw(self) -> Option<::std::ptr::NonNull<#wrapper #generics>> {
@@ -628,7 +628,7 @@ fn derive_conversion_functions(mut st: syn::ItemStruct,
             }
         }
 
-        impl #generics ::MoveIntoRaw<Option<::std::ptr::NonNull<#wrapper #generics>>>
+        impl #generics crate::MoveIntoRaw<Option<::std::ptr::NonNull<#wrapper #generics>>>
             for Option<&mut #wrapped>
         {
             fn move_into_raw(self) -> Option<::std::ptr::NonNull<#wrapper #generics>> {
@@ -639,13 +639,13 @@ fn derive_conversion_functions(mut st: syn::ItemStruct,
             }
         }
 
-        impl #generics ::MoveResultIntoRaw<Option<::std::ptr::NonNull<#wrapper #generics>>>
+        impl #generics crate::MoveResultIntoRaw<Option<::std::ptr::NonNull<#wrapper #generics>>>
             for ::failure::Fallible<#wrapped>
         {
-            fn move_into_raw(self, errp: Option<&mut *mut ::error::Error>)
+            fn move_into_raw(self, errp: Option<&mut *mut crate::error::Error>)
                              -> Option<::std::ptr::NonNull<#wrapper #generics>>
             {
-                use ::MoveIntoRaw;
+                use crate::MoveIntoRaw;
                 match self {
                     Ok(v) => {
                         let ptr = #wrapper::wrap(#ownership::Owned(v));
@@ -661,13 +661,13 @@ fn derive_conversion_functions(mut st: syn::ItemStruct,
             }
         }
 
-        impl #generics ::MoveResultIntoRaw<Option<::std::ptr::NonNull<#wrapper #generics>>>
+        impl #generics crate::MoveResultIntoRaw<Option<::std::ptr::NonNull<#wrapper #generics>>>
             for ::failure::Fallible<&#wrapped>
         {
-            fn move_into_raw(self, errp: Option<&mut *mut ::error::Error>)
+            fn move_into_raw(self, errp: Option<&mut *mut crate::error::Error>)
                              -> Option<::std::ptr::NonNull<#wrapper #generics>>
             {
-                use ::MoveIntoRaw;
+                use crate::MoveIntoRaw;
                 match self {
                     Ok(v) => {
                         let ptr = #wrapper::wrap(#ownership::Ref(v));
@@ -683,13 +683,13 @@ fn derive_conversion_functions(mut st: syn::ItemStruct,
             }
         }
 
-        impl #generics ::MoveResultIntoRaw<Option<::std::ptr::NonNull<#wrapper #generics>>>
+        impl #generics crate::MoveResultIntoRaw<Option<::std::ptr::NonNull<#wrapper #generics>>>
             for ::failure::Fallible<&mut #wrapped>
         {
-            fn move_into_raw(self, errp: Option<&mut *mut ::error::Error>)
+            fn move_into_raw(self, errp: Option<&mut *mut crate::error::Error>)
                              -> Option<::std::ptr::NonNull<#wrapper #generics>>
             {
-                use ::MoveIntoRaw;
+                use crate::MoveIntoRaw;
                 match self {
                     Ok(v) => {
                         let ptr = #wrapper::wrap(#ownership::RefMut(v));
@@ -766,8 +766,8 @@ fn derive_clone(span: proc_macro2::Span, prefix: &str, name: &str,
         #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
         fn #ident #generics (this: *const #wrapper #generics)
                              -> *mut #wrapper #generics {
-            use ::RefRaw;
-            use ::MoveIntoRaw;
+            use crate::RefRaw;
+            use crate::MoveIntoRaw;
             this.ref_raw().clone().move_into_raw()
         }
     }
@@ -793,7 +793,7 @@ fn derive_equal(span: proc_macro2::Span, prefix: &str, name: &str,
         fn #ident #generics (a: *const #wrapper #generics,
                              b: *const #wrapper #generics)
                              -> bool {
-            use ::RefRaw;
+            use crate::RefRaw;
             a.ref_raw() == b.ref_raw()
         }
     }
@@ -820,7 +820,7 @@ fn derive_to_string(span: proc_macro2::Span, prefix: &str, name: &str,
         #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
         fn #ident #generics (this: *const #wrapper #generics)
                              -> *mut ::libc::c_char {
-            use ::RefRaw;
+            use crate::RefRaw;
             ffi_return_string!(format!("{}", this.ref_raw()))
         }
     }
@@ -846,7 +846,7 @@ fn derive_debug(span: proc_macro2::Span, prefix: &str, name: &str,
         #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
         fn #ident #generics (this: *const #wrapper #generics)
                              -> *mut ::libc::c_char {
-            use ::RefRaw;
+            use crate::RefRaw;
             ffi_return_string!(format!("{:?}", this.ref_raw()))
         }
     }
@@ -872,9 +872,9 @@ fn derive_hash(span: proc_macro2::Span, prefix: &str, name: &str,
         fn #ident #generics (this: *const #wrapper #generics)
                              -> u64 {
             use ::std::hash::{Hash, Hasher};
-            use ::RefRaw;
+            use crate::RefRaw;
 
-            let mut hasher = ::build_hasher();
+            let mut hasher = crate::build_hasher();
             this.ref_raw().hash(&mut hasher);
             hasher.finish()
         }
@@ -905,22 +905,22 @@ fn derive_parse(span: proc_macro2::Span, prefix: &str, name: &str,
     quote! {
         /// Parses an object from the given reader.
         #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-        fn #from_reader #generics(errp: Option<&mut *mut ::error::Error>,
-                                  reader: *mut ::io::Reader)
-                                  -> ::Maybe<#wrapper #generics> {
+        fn #from_reader #generics(errp: Option<&mut *mut crate::error::Error>,
+                                  reader: *mut crate::io::Reader)
+                                  -> crate::Maybe<#wrapper #generics> {
             use ::sequoia_openpgp::parse::Parse;
-            use ::RefMutRaw;
-            use ::MoveResultIntoRaw;
+            use crate::RefMutRaw;
+            use crate::MoveResultIntoRaw;
             #wrapped::from_reader(reader.ref_mut_raw()).move_into_raw(errp)
         }
 
         /// Parses an object from the given file.
         #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-        fn #from_file #generics(errp: Option<&mut *mut ::error::Error>,
+        fn #from_file #generics(errp: Option<&mut *mut crate::error::Error>,
                                 filename: *const ::libc::c_char)
-                                -> ::Maybe<#wrapper #generics> {
+                                -> crate::Maybe<#wrapper #generics> {
             use ::sequoia_openpgp::parse::Parse;
-            use ::MoveResultIntoRaw;
+            use crate::MoveResultIntoRaw;
             let filename =
                 ffi_param_cstr!(filename).to_string_lossy().into_owned();
             #wrapped::from_file(&filename).move_into_raw(errp)
@@ -928,11 +928,11 @@ fn derive_parse(span: proc_macro2::Span, prefix: &str, name: &str,
 
         /// Parses an object from the given buffer.
         #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-        fn #from_bytes #generics(errp: Option<&mut *mut ::error::Error>,
+        fn #from_bytes #generics(errp: Option<&mut *mut crate::error::Error>,
                                  b: *const u8, len: ::libc::size_t)
-                                 -> ::Maybe<#wrapper #generics> {
+                                 -> crate::Maybe<#wrapper #generics> {
             use ::sequoia_openpgp::parse::Parse;
-            use ::MoveResultIntoRaw;
+            use crate::MoveResultIntoRaw;
             assert!(!b.is_null());
             let buf = unsafe {
                 ::std::slice::from_raw_parts(b, len as usize)
@@ -960,14 +960,14 @@ fn derive_serialize(span: proc_macro2::Span, prefix: &str, name: &str,
     quote! {
         /// Serializes this object.
         #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-        fn #ident #generics (errp: Option<&mut *mut ::error::Error>,
+        fn #ident #generics (errp: Option<&mut *mut crate::error::Error>,
                              this: *const #wrapper #generics,
-                             writer: *mut ::io::Writer)
-                             -> ::error::Status {
+                             writer: *mut crate::io::Writer)
+                             -> crate::error::Status {
             use ::sequoia_openpgp::serialize::Serialize;
-            use ::RefRaw;
-            use ::RefMutRaw;
-            use ::MoveResultIntoRaw;
+            use crate::RefRaw;
+            use crate::RefMutRaw;
+            use crate::MoveResultIntoRaw;
             this.ref_raw().serialize(writer.ref_mut_raw()).move_into_raw(errp)
         }
     }
@@ -997,8 +997,8 @@ fn derive_iterator(span: proc_macro2::Span, prefix: &str, name: &str,
         #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
         fn #ident #generics (this: *mut #wrapper #generics)
                              -> Option<::std::ptr::NonNull<#item_type>> {
-            use ::RefMutRaw;
-            use ::MoveResultIntoRaw;
+            use crate::RefMutRaw;
+            use crate::MoveResultIntoRaw;
             this.ref_mut_raw().next().move_into_raw()
         }
     }

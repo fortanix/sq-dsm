@@ -3,7 +3,7 @@ use flate2::write::{DeflateEncoder, ZlibEncoder};
 use std::fmt;
 use std::io;
 
-use Result;
+use crate::Result;
 use super::{Generic, Stack, BoxStack, Stackable};
 
 /// ZIPing writer.

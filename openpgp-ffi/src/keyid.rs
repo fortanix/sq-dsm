@@ -15,9 +15,9 @@ use libc::{c_char};
 
 extern crate sequoia_openpgp as openpgp;
 
-use Maybe;
-use RefRaw;
-use MoveIntoRaw;
+use crate::Maybe;
+use crate::RefRaw;
+use crate::MoveIntoRaw;
 
 /// Holds a KeyID.
 ///
@@ -30,7 +30,7 @@ use MoveIntoRaw;
 /// Wraps [`sequoia-openpgp::KeyID`].
 ///
 /// [`sequoia-openpgp::KeyID`]: ../../sequoia_openpgp/enum.KeyID.html
-#[::ffi_wrapper_type(prefix = "pgp_", name = "keyid",
+#[crate::ffi_wrapper_type(prefix = "pgp_", name = "keyid",
                      derive = "Clone, Debug, Display, Hash, PartialEq")]
 pub struct KeyID(openpgp::KeyID);
 

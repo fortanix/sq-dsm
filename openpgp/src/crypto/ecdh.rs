@@ -1,21 +1,21 @@
 //! Elliptic Curve Diffie-Hellman.
 
-use Error;
-use packet::Key;
-use Result;
-use constants::{
+use crate::Error;
+use crate::packet::Key;
+use crate::Result;
+use crate::constants::{
     Curve,
     HashAlgorithm,
     SymmetricAlgorithm,
     PublicKeyAlgorithm,
 };
-use conversions::{
+use crate::conversions::{
     write_be_u64,
     read_be_u64,
 };
-use crypto::SessionKey;
-use crypto::mem::Protected;
-use crypto::mpis::{MPI, PublicKey, SecretKey, Ciphertext};
+use crate::crypto::SessionKey;
+use crate::crypto::mem::Protected;
+use crate::crypto::mpis::{MPI, PublicKey, SecretKey, Ciphertext};
 use nettle::{cipher, curve25519, mode, Mode, ecc, ecdh, Yarrow};
 
 /// Wraps a session key using Elliptic Curve Diffie-Hellman.
@@ -426,7 +426,7 @@ pub fn pkcs5_unpad(sk: Protected, target_len: usize) -> Result<Protected> {
 pub fn aes_key_wrap(algo: SymmetricAlgorithm, key: &Protected,
                     plaintext: &Protected)
                     -> Result<Vec<u8>> {
-    use SymmetricAlgorithm::*;
+    use crate::SymmetricAlgorithm::*;
 
     if plaintext.len() % 8 != 0 {
         return Err(Error::InvalidArgument(
@@ -512,7 +512,7 @@ pub fn aes_key_wrap(algo: SymmetricAlgorithm, key: &Protected,
 pub fn aes_key_unwrap(algo: SymmetricAlgorithm, key: &Protected,
                       ciphertext: &[u8])
                       -> Result<Protected> {
-    use SymmetricAlgorithm::*;
+    use crate::SymmetricAlgorithm::*;
 
     if ciphertext.len() % 8 != 0 {
         return Err(Error::InvalidArgument(

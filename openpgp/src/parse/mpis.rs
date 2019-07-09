@@ -1,16 +1,16 @@
 //! Functions for parsing MPIs.
 
 use std::io::Read;
-use {
+use crate::{
     Result,
     Error,
     PublicKeyAlgorithm,
     SymmetricAlgorithm,
     HashAlgorithm,
 };
-use constants::Curve;
-use crypto::mpis::{self, MPI};
-use parse::{
+use crate::constants::Curve;
+use crate::crypto::mpis::{self, MPI};
+use crate::parse::{
     PacketHeaderParser,
     Cookie,
 };
@@ -43,7 +43,7 @@ impl mpis::PublicKey {
                             php: &mut PacketHeaderParser<'a>)
         -> Result<Self>
     {
-        use PublicKeyAlgorithm::*;
+        use crate::PublicKeyAlgorithm::*;
 
         #[allow(deprecated)]
         match algo {
@@ -151,7 +151,7 @@ impl mpis::SecretKey {
     pub fn parse_chksumd<T: Read>(algo: PublicKeyAlgorithm, cur: T)
                                   -> Result<Self> {
         use std::io::Cursor;
-        use serialize::Serialize;
+        use crate::serialize::Serialize;
 
         // read mpis
         let bio = buffered_reader::Generic::with_cookie(
@@ -205,7 +205,7 @@ impl mpis::SecretKey {
                              php: &mut PacketHeaderParser<'a>)
                              -> Result<Self>
     {
-        use PublicKeyAlgorithm::*;
+        use crate::PublicKeyAlgorithm::*;
 
         #[allow(deprecated)]
         match algo {
@@ -305,7 +305,7 @@ impl mpis::Ciphertext {
     pub(crate) fn _parse<'a>(algo: PublicKeyAlgorithm,
                              php: &mut PacketHeaderParser<'a>)
                              -> Result<Self> {
-        use PublicKeyAlgorithm::*;
+        use crate::PublicKeyAlgorithm::*;
 
         #[allow(deprecated)]
         match algo {
@@ -386,7 +386,7 @@ impl mpis::Signature {
     pub(crate) fn _parse<'a>(algo: PublicKeyAlgorithm,
                              php: &mut PacketHeaderParser<'a>)
                              -> Result<Self> {
-        use PublicKeyAlgorithm::*;
+        use crate::PublicKeyAlgorithm::*;
 
         #[allow(deprecated)]
         match algo {
@@ -469,7 +469,7 @@ impl mpis::Signature {
 #[test]
 fn mpis_parse_test() {
     use super::Parse;
-    use PublicKeyAlgorithm::*;
+    use crate::PublicKeyAlgorithm::*;
 
     // Dummy RSA public key.
     {

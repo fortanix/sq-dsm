@@ -10,15 +10,15 @@ use rand::Rng;
 
 use buffered_reader::BufferedReader;
 
-use Error;
-use Result;
-use packet::{
+use crate::Error;
+use crate::Result;
+use crate::packet::{
     self,
     BodyLength,
 };
-use Packet;
-use serialize::Serialize;
-use serialize::SerializeInto;
+use crate::Packet;
+use crate::serialize::Serialize;
+use crate::serialize::SerializeInto;
 
 /// Holds a UserAttribute packet.
 ///
@@ -240,8 +240,8 @@ impl Arbitrary for Image {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use parse::Parse;
-    use serialize::SerializeInto;
+    use crate::parse::Parse;
+    use crate::serialize::SerializeInto;
 
     quickcheck! {
         fn roundtrip(p: UserAttribute) -> bool {
@@ -253,7 +253,7 @@ mod tests {
 
     #[test]
     fn image() {
-        use Packet;
+        use crate::Packet;
         let p = Packet::from_bytes(b"
 -----BEGIN PGP ARMORED FILE-----
 

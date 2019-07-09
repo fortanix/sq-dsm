@@ -6,13 +6,13 @@ extern crate termsize;
 
 extern crate sequoia_openpgp as openpgp;
 use sequoia_core::Context;
-use openpgp::constants::SymmetricAlgorithm;
-use openpgp::conversions::hex;
-use openpgp::crypto::SessionKey;
-use openpgp::{Fingerprint, TPK, KeyID, Result};
-use openpgp::packet::{Key, key::SecretKey, Signature, PKESK, SKESK};
-use openpgp::parse::PacketParser;
-use openpgp::parse::stream::{
+use crate::openpgp::constants::SymmetricAlgorithm;
+use crate::openpgp::conversions::hex;
+use crate::openpgp::crypto::SessionKey;
+use crate::openpgp::{Fingerprint, TPK, KeyID, Result};
+use crate::openpgp::packet::{Key, key::SecretKey, Signature, PKESK, SKESK};
+use crate::openpgp::parse::PacketParser;
+use crate::openpgp::parse::stream::{
     VerificationHelper, DecryptionHelper, Decryptor, MessageStructure,
 };
 extern crate sequoia_store as store;

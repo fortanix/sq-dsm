@@ -112,7 +112,7 @@ macro_rules! ffi_return_string {
     ($name:expr) => {{
         let string = $name;
         let bytes: &[u8] = string.as_ref();
-        ::strndup(bytes).expect(
+        crate::strndup(bytes).expect(
             &format!("Returned string {} contains a 0 byte.", stringify!($name))
         )
     }};
@@ -128,7 +128,7 @@ macro_rules! ffi_return_maybe_string {
     ($name:expr) => {{
         let string = $name;
         let bytes: &[u8] = string.as_ref();
-        ::strndup(bytes).unwrap_or(::std::ptr::null_mut())
+        crate::strndup(bytes).unwrap_or(::std::ptr::null_mut())
     }};
 }
 
@@ -147,11 +147,11 @@ macro_rules! ffi_make_fry_from_errp {
         macro_rules! ffi_try_status {
             ($expr:expr) => {
                 match $expr {
-                    Ok(_) => ::error::Status::Success,
+                    Ok(_) => crate::error::Status::Success,
                     Err(e) => {
-                        use MoveIntoRaw;
+                        use crate::MoveIntoRaw;
                         use failure::Error;
-                        let status = ::error::Status::from(&e);
+                        let status = crate::error::Status::from(&e);
                         if let Some(errp) = $errp {
                             let e : Error = e.into();
                             *errp = e.move_into_raw();
@@ -172,7 +172,7 @@ macro_rules! ffi_make_fry_from_errp {
                 match $expr {
                     Ok(v) => v,
                     Err(e) => {
-                        use MoveIntoRaw;
+                        use crate::MoveIntoRaw;
                         use failure::Error;
                         if let Some(errp) = $errp {
                             let e : Error = e.into();

@@ -15,9 +15,9 @@ use libc::{c_char, size_t};
 
 extern crate sequoia_openpgp as openpgp;
 use super::keyid::KeyID;
-use Maybe;
-use MoveIntoRaw;
-use RefRaw;
+use crate::Maybe;
+use crate::MoveIntoRaw;
+use crate::RefRaw;
 
 /// Holds a fingerprint.
 ///
@@ -30,7 +30,7 @@ use RefRaw;
 /// Wraps [`sequoia-openpgp::Fingerprint`].
 ///
 /// [`sequoia-openpgp::Fingerprint`]: ../../sequoia_openpgp/enum.Fingerprint.html
-#[::ffi_wrapper_type(prefix = "pgp_",
+#[crate::ffi_wrapper_type(prefix = "pgp_",
                      derive = "Clone, Debug, Display, Hash, PartialEq")]
 pub struct Fingerprint(openpgp::Fingerprint);
 

@@ -12,7 +12,7 @@
 use std::io::{self, Write};
 use std::cmp;
 
-use autocrypt;
+use crate::autocrypt;
 use super::*;
 
 mod partial_body;
@@ -22,15 +22,15 @@ pub use self::tpk::TSK;
 use self::partial_body::PartialBodyFilter;
 pub mod writer;
 pub mod stream;
-use crypto::s2k::S2K;
-use packet::signature::subpacket::{
+use crate::crypto::s2k::S2K;
+use crate::packet::signature::subpacket::{
     Subpacket, SubpacketValue, SubpacketLengthTrait,
 };
-use conversions::{
+use crate::conversions::{
     Time,
     Duration,
 };
-use packet::prelude::*;
+use crate::packet::prelude::*;
 
 // Whether to trace the modules execution (on stderr).
 const TRACE : bool = false;
@@ -443,7 +443,7 @@ impl SerializeInto for crypto::mpis::ProtectedMPI {
 
 impl Serialize for crypto::mpis::PublicKey {
     fn serialize(&self, w: &mut dyn std::io::Write) -> Result<()> {
-        use crypto::mpis::PublicKey::*;
+        use crate::crypto::mpis::PublicKey::*;
 
         match self {
             &RSA { ref e, ref n } => {
@@ -497,7 +497,7 @@ impl Serialize for crypto::mpis::PublicKey {
 
 impl SerializeInto for crypto::mpis::PublicKey {
     fn serialized_len(&self) -> usize {
-        use crypto::mpis::PublicKey::*;
+        use crate::crypto::mpis::PublicKey::*;
         match self {
             &RSA { ref e, ref n } => {
                 n.serialized_len() + e.serialized_len()
@@ -538,7 +538,7 @@ impl SerializeInto for crypto::mpis::PublicKey {
 
 impl Serialize for crypto::mpis::SecretKey {
     fn serialize(&self, w: &mut dyn std::io::Write) -> Result<()> {
-        use crypto::mpis::SecretKey::*;
+        use crate::crypto::mpis::SecretKey::*;
 
         match self {
             &RSA{ ref d, ref p, ref q, ref u } => {
@@ -582,7 +582,7 @@ impl Serialize for crypto::mpis::SecretKey {
 
 impl SerializeInto for crypto::mpis::SecretKey {
     fn serialized_len(&self) -> usize {
-        use crypto::mpis::SecretKey::*;
+        use crate::crypto::mpis::SecretKey::*;
         match self {
             &RSA{ ref d, ref p, ref q, ref u } => {
                 d.serialized_len() + p.serialized_len() + q.serialized_len()
@@ -640,7 +640,7 @@ impl crypto::mpis::SecretKey {
 
 impl Serialize for crypto::mpis::Ciphertext {
     fn serialize(&self, w: &mut dyn std::io::Write) -> Result<()> {
-        use crypto::mpis::Ciphertext::*;
+        use crate::crypto::mpis::Ciphertext::*;
 
         match self {
             &RSA{ ref c } => {
@@ -673,7 +673,7 @@ impl Serialize for crypto::mpis::Ciphertext {
 
 impl SerializeInto for crypto::mpis::Ciphertext {
     fn serialized_len(&self) -> usize {
-        use crypto::mpis::Ciphertext::*;
+        use crate::crypto::mpis::Ciphertext::*;
         match self {
             &RSA{ ref c } => {
                 c.serialized_len()
@@ -701,7 +701,7 @@ impl SerializeInto for crypto::mpis::Ciphertext {
 
 impl Serialize for crypto::mpis::Signature {
     fn serialize(&self, w: &mut dyn std::io::Write) -> Result<()> {
-        use crypto::mpis::Signature::*;
+        use crate::crypto::mpis::Signature::*;
 
         match self {
             &RSA { ref s } => {
@@ -738,7 +738,7 @@ impl Serialize for crypto::mpis::Signature {
 
 impl SerializeInto for crypto::mpis::Signature {
     fn serialized_len(&self) -> usize {
-        use crypto::mpis::Signature::*;
+        use crate::crypto::mpis::Signature::*;
         match self {
             &RSA { ref s } => {
                 s.serialized_len()
@@ -2042,7 +2042,7 @@ impl<'a> PacketRef<'a> {
     ///
     ///   [Section 4.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.3
     fn tag(&self) -> packet::Tag {
-        use packet::Tag;
+        use crate::packet::Tag;
         match self {
             PacketRef::Unknown(ref packet) => packet.tag(),
             PacketRef::Signature(_) => Tag::Signature,
@@ -2226,10 +2226,10 @@ impl Serialize for autocrypt::AutocryptHeader {
 #[cfg(test)]
 mod test {
     use super::*;
-    use constants::CompressionAlgorithm;
-    use parse::to_unknown_packet;
-    use parse::PacketParserBuilder;
-    use parse::Parse;
+    use crate::constants::CompressionAlgorithm;
+    use crate::parse::to_unknown_packet;
+    use crate::parse::PacketParserBuilder;
+    use crate::parse::Parse;
 
     // A convenient function to dump binary data to stdout.
     fn binary_pp(data: &[u8]) -> String {
@@ -2345,7 +2345,7 @@ mod test {
 
         for filename in filenames.iter() {
             // 1. Read the message byte stream into a local buffer.
-            let data = ::tests::message(filename);
+            let data = crate::tests::message(filename);
 
             // 2. Parse the message.
             let pile = PacketPile::from_bytes(&data[..]).unwrap();
@@ -2387,7 +2387,7 @@ mod test {
 
         for filename in filenames.iter() {
             // 1. Read the message byte stream into a local buffer.
-            let data = ::tests::message(filename);
+            let data = crate::tests::message(filename);
 
             // 2. Parse the message.
             let u = Packet::Unknown(to_unknown_packet(&data[..]).unwrap());
@@ -2429,7 +2429,7 @@ mod test {
             eprintln!("{}...", filename);
 
             // 1. Read the message into a local buffer.
-            let data = ::tests::message(filename);
+            let data = crate::tests::message(filename);
 
             // 2. Do a shallow parse of the messsage.  In other words,
             // never recurse so that the resulting message only
@@ -2484,7 +2484,7 @@ mod test {
     // reparse them, and make sure we get the same result.
     #[test]
     fn serialize_test_3() {
-        use constants::DataFormat::Text as T;
+        use crate::constants::DataFormat::Text as T;
 
         // serialize_test_1 and serialize_test_2 parse a byte stream.
         // This tests creates the message, and then serializes and

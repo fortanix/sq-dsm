@@ -1,18 +1,18 @@
 use time;
 
-use packet;
-use packet::{Features, KeyFlags};
-use packet::Key;
-use packet::key::Key4;
-use Result;
-use packet::Signature;
-use packet::signature;
-use TPK;
-use Error;
-use conversions::Time;
-use crypto::Password;
-use autocrypt::Autocrypt;
-use constants::{
+use crate::packet;
+use crate::packet::{Features, KeyFlags};
+use crate::packet::Key;
+use crate::packet::key::Key4;
+use crate::Result;
+use crate::packet::Signature;
+use crate::packet::signature;
+use crate::TPK;
+use crate::Error;
+use crate::conversions::Time;
+use crate::crypto::Password;
+use crate::autocrypt::Autocrypt;
+use crate::constants::{
     HashAlgorithm,
     SignatureType,
     SymmetricAlgorithm,
@@ -43,7 +43,7 @@ impl Default for CipherSuite {
 
 impl CipherSuite {
     fn generate_key(self, flags: &KeyFlags) -> Result<Key> {
-        use constants::Curve;
+        use crate::constants::Curve;
 
         match self {
             CipherSuite::RSA2k =>
@@ -272,8 +272,8 @@ impl TPKBuilder {
 
     /// Generates the actual TPK.
     pub fn generate(mut self) -> Result<(TPK, Signature)> {
-        use {PacketPile, Packet};
-        use constants::ReasonForRevocation;
+        use crate::{PacketPile, Packet};
+        use crate::constants::ReasonForRevocation;
 
         let mut packets = Vec::<Packet>::with_capacity(
             1 + 1 + self.subkeys.len() + self.userids.len()
@@ -375,7 +375,7 @@ impl TPKBuilder {
     fn primary_key(&self)
         -> Result<(Key, Signature)>
     {
-        use SignatureType;
+        use crate::SignatureType;
 
         let key = self.ciphersuite.generate_key(
             &KeyFlags::default().set_certify(true))?;
@@ -400,8 +400,8 @@ impl TPKBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use packet::signature::subpacket::{SubpacketTag, Subpacket, SubpacketValue};
-    use constants::PublicKeyAlgorithm;
+    use crate::packet::signature::subpacket::{SubpacketTag, Subpacket, SubpacketValue};
+    use crate::constants::PublicKeyAlgorithm;
 
     #[test]
     fn all_opts() {
@@ -437,7 +437,7 @@ mod tests {
 
         assert_eq!(tpk.userids().count(), 0);
         assert_eq!(tpk.primary_key_signature().unwrap().sigtype(),
-                   ::constants::SignatureType::DirectKey);
+                   crate::constants::SignatureType::DirectKey);
         assert_eq!(tpk.subkeys().count(), 3);
         if let Some(sig) = tpk.primary_key_signature() {
             assert!(sig.features().supports_mdc());
@@ -505,8 +505,8 @@ mod tests {
         assert_eq!(tpk1.subkeys().next().unwrap().subkey().pk_algo(),
                    PublicKeyAlgorithm::ECDH);
         assert_match!(
-            ::crypto::mpis::PublicKey::ECDH {
-                curve: ::constants::Curve::Cv25519, ..
+            crate::crypto::mpis::PublicKey::ECDH {
+                curve: crate::constants::Curve::Cv25519, ..
             } = tpk1.subkeys().next().unwrap().subkey().mpis());
         assert_eq!(tpk1.userids().count(), 1);
     }
@@ -551,7 +551,7 @@ mod tests {
 
     #[test]
     fn generate_revocation_certificate() {
-        use RevocationStatus;
+        use crate::RevocationStatus;
         let (tpk, revocation) = TPKBuilder::new()
             .set_cipher_suite(CipherSuite::Cv25519)
             .generate().unwrap();
@@ -565,7 +565,7 @@ mod tests {
 
     #[test]
     fn builder_roundtrip() {
-        use PacketPile;
+        use crate::PacketPile;
 
         let (tpk,_) = TPKBuilder::new()
             .set_cipher_suite(CipherSuite::Cv25519)

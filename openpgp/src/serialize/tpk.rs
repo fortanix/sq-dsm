@@ -1,7 +1,7 @@
-use Result;
-use TPK;
-use packet::{Key, Tag};
-use serialize::{PacketRef, Serialize, SerializeInto, generic_serialize_into};
+use crate::Result;
+use crate::TPK;
+use crate::packet::{Key, Tag};
+use crate::serialize::{PacketRef, Serialize, SerializeInto, generic_serialize_into};
 
 impl Serialize for TPK {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
@@ -467,14 +467,14 @@ impl<'a> SerializeInto for TSK<'a> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use parse::Parse;
-    use serialize::Serialize;
+    use crate::parse::Parse;
+    use crate::serialize::Serialize;
 
     /// Demonstrates that public keys and all components are
     /// serialized.
     #[test]
     fn roundtrip_tpk() {
-        for test in ::tests::TPKS {
+        for test in crate::tests::TPKS {
             let tpk = match TPK::from_bytes(test.bytes) {
                 Ok(t) => t,
                 Err(_) => continue,
@@ -491,7 +491,7 @@ mod test {
     /// serialized.
     #[test]
     fn roundtrip_tsk() {
-        for test in ::tests::TSKS {
+        for test in crate::tests::TSKS {
             let tpk = TPK::from_bytes(test.bytes).unwrap();
             assert!(tpk.is_tsk());
 
@@ -514,7 +514,7 @@ mod test {
     /// reduces to TPK::serialize().
     #[test]
     fn reduce_to_tpk_serialize() {
-        for test in ::tests::TSKS {
+        for test in crate::tests::TSKS {
             let tpk = TPK::from_bytes(test.bytes).unwrap();
             assert!(tpk.is_tsk());
 

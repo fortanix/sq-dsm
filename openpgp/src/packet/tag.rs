@@ -55,7 +55,7 @@ pub enum Tag {
 
 impl From<u8> for Tag {
     fn from(u: u8) -> Self {
-        use packet::Tag::*;
+        use crate::packet::Tag::*;
 
         match u {
             0 => Reserved,

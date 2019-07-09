@@ -66,7 +66,7 @@ use quickcheck::{Arbitrary, Gen};
 
 use buffered_reader::BufferedReader;
 
-use {
+use crate::{
     Error,
     Result,
     packet::Signature,
@@ -79,7 +79,7 @@ use {
     packet::Key,
     KeyID,
 };
-use constants::{
+use crate::constants::{
     AEADAlgorithm,
     CompressionAlgorithm,
     HashAlgorithm,
@@ -87,7 +87,7 @@ use constants::{
     ReasonForRevocation,
     SymmetricAlgorithm,
 };
-use conversions::{
+use crate::conversions::{
     Time,
     Duration,
 };
@@ -446,7 +446,7 @@ impl<'a> FromIterator<(usize, usize, Subpacket<'a>)> for SubpacketArea {
     fn from_iter<I>(iter: I) -> Self
         where I: IntoIterator<Item=(usize, usize, Subpacket<'a>)>
     {
-        use serialize::Serialize;
+        use crate::serialize::Serialize;
         let mut data = Vec::new();
         iter.into_iter().for_each(|(_, _, s)| s.serialize(&mut data).unwrap());
         Self::new(data)
@@ -512,7 +512,7 @@ impl SubpacketArea {
     /// Returns `Error::MalformedPacket` if adding the packet makes
     /// the subpacket area exceed the size limit.
     pub fn add(&mut self, packet: Subpacket) -> Result<()> {
-        use serialize::Serialize;
+        use crate::serialize::Serialize;
 
         if self.data.len() + packet.len() > ::std::u16::MAX as usize {
             return Err(Error::MalformedPacket(
@@ -791,7 +791,7 @@ impl<'a> SubpacketValue<'a> {
             SignatureTarget { ref digest, .. } => 1 + 1 + digest.len(),
             EmbeddedSignature(p) => match p {
                 &Packet::Signature(Signature::V4(ref sig)) => {
-                    use serialize::Serialize;
+                    use crate::serialize::Serialize;
                     let mut w = Vec::new();
                     sig.serialize(&mut w).unwrap();
                     w.len()
@@ -1094,13 +1094,13 @@ impl<'a> From<SubpacketRaw<'a>> for Subpacket<'a> {
                 },
 
             SubpacketTag::EmbeddedSignature => {
-                use parse::Parse;
+                use crate::parse::Parse;
                 // A signature packet.
                 Some(SubpacketValue::EmbeddedSignature(
                     match Signature::from_bytes(&raw.value) {
                         Ok(s) => Packet::Signature(s),
                         Err(e) => {
-                            use packet::{Tag, Unknown};
+                            use crate::packet::{Tag, Unknown};
                             let mut u = Unknown::new(Tag::Signature, e);
                             u.set_body(raw.value.to_vec());
                             Packet::Unknown(u)
@@ -2411,14 +2411,14 @@ impl signature::Builder {
 
 #[test]
 fn accessors() {
-    use constants::Curve;
+    use crate::constants::Curve;
 
     let pk_algo = PublicKeyAlgorithm::EdDSA;
     let hash_algo = HashAlgorithm::SHA512;
     let hash = hash_algo.context().unwrap();
-    let mut sig = signature::Builder::new(::constants::SignatureType::Binary);
-    let mut key: ::packet::Key =
-        ::packet::key::Key4::generate_ecc(true, Curve::Ed25519).unwrap().into();
+    let mut sig = signature::Builder::new(crate::constants::SignatureType::Binary);
+    let mut key: crate::packet::Key =
+        crate::packet::key::Key4::generate_ecc(true, Curve::Ed25519).unwrap().into();
     let mut keypair = key.clone().into_keypair().unwrap();
 
     // Cook up a timestamp without ns resolution.
@@ -2661,10 +2661,10 @@ fn accessors() {
 #[cfg(feature = "compression-deflate")]
 #[test]
 fn subpacket_test_1 () {
-    use PacketPile;
-    use parse::Parse;
+    use crate::PacketPile;
+    use crate::parse::Parse;
 
-    let pile = PacketPile::from_bytes(::tests::message("signed.gpg")).unwrap();
+    let pile = PacketPile::from_bytes(crate::tests::message("signed.gpg")).unwrap();
     eprintln!("PacketPile has {} top-level packets.", pile.children().len());
     eprintln!("PacketPile: {:?}", pile);
 
@@ -2714,9 +2714,9 @@ fn subpacket_test_1 () {
 
 #[test]
 fn subpacket_test_2() {
-    use conversions::Time;
-    use parse::Parse;
-    use PacketPile;
+    use crate::conversions::Time;
+    use crate::parse::Parse;
+    use crate::PacketPile;
 
     //   Test #    Subpacket
     // 1 2 3 4 5 6   SignatureCreationTime
@@ -2747,7 +2747,7 @@ fn subpacket_test_2() {
     // XXX: The subpackets marked with * are not tested.
 
     let pile = PacketPile::from_bytes(
-        ::tests::key("subpackets/shaw.gpg")).unwrap();
+        crate::tests::key("subpackets/shaw.gpg")).unwrap();
 
     // Test #1
     if let (Some(&Packet::PublicKey(ref key)),
@@ -2952,7 +2952,7 @@ fn subpacket_test_2() {
     }
 
     let pile = PacketPile::from_bytes(
-        ::tests::key("subpackets/marven.gpg")).unwrap();
+        crate::tests::key("subpackets/marven.gpg")).unwrap();
 
     // Test #3
     if let Some(&Packet::Signature(ref sig)) = pile.children().nth(1) {

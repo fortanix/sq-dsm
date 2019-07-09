@@ -8,9 +8,9 @@ use std::io;
 extern crate failure;
 extern crate sequoia_openpgp as openpgp;
 
-use openpgp::crypto::{KeyPair, SessionKey};
-use openpgp::constants::SymmetricAlgorithm;
-use openpgp::parse::{
+use crate::openpgp::crypto::{KeyPair, SessionKey};
+use crate::openpgp::constants::SymmetricAlgorithm;
+use crate::openpgp::parse::{
     Parse,
     stream::{
         DecryptionHelper,

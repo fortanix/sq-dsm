@@ -1,7 +1,7 @@
-use Result;
-use serialize::{Serialize, SerializeInto, generic_serialize_into};
+use crate::Result;
+use crate::serialize::{Serialize, SerializeInto, generic_serialize_into};
 
-use crypto::sexp::{Sexp, String_};
+use crate::crypto::sexp::{Sexp, String_};
 
 impl Serialize for Sexp {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {

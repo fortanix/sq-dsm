@@ -1,7 +1,7 @@
 //! Conveniently re-exports everything below openpgp::packet.
 
-pub use Packet;
-pub use packet::{
+pub use crate::Packet;
+pub use crate::packet::{
     Tag,
     Header,
     Unknown,

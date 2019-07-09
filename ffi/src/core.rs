@@ -48,7 +48,7 @@ use sequoia_core::Config;
 #[doc(hidden)]
 pub struct Context {
     pub(crate) c: core::Context,
-    e: *mut ::error::Error,
+    e: *mut crate::error::Error,
 }
 
 impl Context {
@@ -56,7 +56,7 @@ impl Context {
         Context{c: c, e: ptr::null_mut()}
     }
 
-    pub(crate) fn errp(&mut self) -> &mut *mut ::error::Error {
+    pub(crate) fn errp(&mut self) -> &mut *mut crate::error::Error {
         &mut self.e
     }
 }
@@ -64,8 +64,8 @@ impl Context {
 /// Returns the last error.
 ///
 /// Returns and removes the last error from the context.
-#[::ffi_catch_abort] #[no_mangle] pub extern "C"
-fn sq_context_last_error(ctx: *mut Context) -> *mut ::error::Error {
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
+fn sq_context_last_error(ctx: *mut Context) -> *mut crate::error::Error {
     let ctx = ffi_param_ref_mut!(ctx);
     ::std::mem::replace(&mut ctx.e, ptr::null_mut())
 }
@@ -74,15 +74,15 @@ fn sq_context_last_error(ctx: *mut Context) -> *mut ::error::Error {
 ///
 /// Returns `NULL` on errors.  If `errp` is not `NULL`, the error is
 /// stored there.
-#[::ffi_catch_abort] #[no_mangle] pub extern "C"
-fn sq_context_new(errp: Option<&mut *mut ::error::Error>)
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
+fn sq_context_new(errp: Option<&mut *mut crate::error::Error>)
                   -> *mut Context {
     ffi_make_fry_from_errp!(errp);
     ffi_try_box!(core::Context::new().map(|ctx| Context::new(ctx)))
 }
 
 /// Frees a context.
-#[::ffi_catch_abort] #[no_mangle] pub extern "C"
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn sq_context_free(context: Option<&mut Context>) {
     ffi_free!(context)
 }
@@ -92,41 +92,41 @@ fn sq_context_free(context: Option<&mut Context>) {
 /// The configuration is seeded like in `sq_context_new`, but can be
 /// modified.  A configuration has to be finalized using
 /// `sq_config_build()` in order to turn it into a Context.
-#[::ffi_catch_abort] #[no_mangle] pub extern "C"
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn sq_context_configure() -> *mut Config {
     Box::into_raw(Box::new(core::Context::configure()))
 }
 
 /// Returns the directory containing shared state.
-#[::ffi_catch_abort] #[no_mangle] pub extern "C"
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn sq_context_home(ctx: *const Context) -> *const c_char {
     let ctx = ffi_param_ref!(ctx);
     ctx.c.home().to_string_lossy().as_ptr() as *const c_char
 }
 
 /// Returns the directory containing backend servers.
-#[::ffi_catch_abort] #[no_mangle] pub extern "C"
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn sq_context_lib(ctx: *const Context) -> *const c_char {
     let ctx = ffi_param_ref!(ctx);
     ctx.c.lib().to_string_lossy().as_bytes().as_ptr() as *const c_char
 }
 
 /// Returns the network policy.
-#[::ffi_catch_abort] #[no_mangle] pub extern "C"
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn sq_context_network_policy(ctx: *const Context) -> c_int {
     let ctx = ffi_param_ref!(ctx);
     u8::from(ctx.c.network_policy()) as c_int
 }
 
 /// Returns the IPC policy.
-#[::ffi_catch_abort] #[no_mangle] pub extern "C"
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn sq_context_ipc_policy(ctx: *const Context) -> c_int {
     let ctx = ffi_param_ref!(ctx);
     u8::from(ctx.c.ipc_policy()) as c_int
 }
 
 /// Returns whether or not this is an ephemeral context.
-#[::ffi_catch_abort] #[no_mangle] pub extern "C"
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn sq_context_ephemeral(ctx: *const Context) -> u8 {
     let ctx = ffi_param_ref!(ctx);
     if ctx.c.ephemeral() { 1 } else { 0 }
@@ -139,8 +139,8 @@ fn sq_context_ephemeral(ctx: *const Context) -> u8 {
 ///
 /// Consumes `cfg`.  Returns `NULL` on errors. Returns `NULL` on
 /// errors.  If `errp` is not `NULL`, the error is stored there.
-#[::ffi_catch_abort] #[no_mangle] pub extern "C"
-fn sq_config_build(cfg: *mut Config, errp: Option<&mut *mut ::error::Error>)
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
+fn sq_config_build(cfg: *mut Config, errp: Option<&mut *mut crate::error::Error>)
                    -> *mut Context {
     ffi_make_fry_from_errp!(errp);
     let cfg = ffi_param_move!(cfg);
@@ -149,7 +149,7 @@ fn sq_config_build(cfg: *mut Config, errp: Option<&mut *mut ::error::Error>)
 }
 
 /// Sets the directory containing shared state.
-#[::ffi_catch_abort] #[no_mangle] pub extern "C"
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn sq_config_home(cfg: *mut Config, home: *const c_char) {
     let cfg = ffi_param_ref_mut!(cfg);
     let home = ffi_param_cstr!(home).to_string_lossy();
@@ -157,7 +157,7 @@ fn sq_config_home(cfg: *mut Config, home: *const c_char) {
 }
 
 /// Set the directory containing backend servers.
-#[::ffi_catch_abort] #[no_mangle] pub extern "C"
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn sq_config_lib(cfg: *mut Config, lib: *const c_char) {
     let cfg = ffi_param_ref_mut!(cfg);
     let lib = ffi_param_cstr!(lib).to_string_lossy();
@@ -165,7 +165,7 @@ fn sq_config_lib(cfg: *mut Config, lib: *const c_char) {
 }
 
 /// Sets the network policy.
-#[::ffi_catch_abort] #[no_mangle] pub extern "C"
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn sq_config_network_policy(cfg: *mut Config, policy: c_int) {
     let cfg = ffi_param_ref_mut!(cfg);
     if policy < 0 || policy > 3 {
@@ -175,7 +175,7 @@ fn sq_config_network_policy(cfg: *mut Config, policy: c_int) {
 }
 
 /// Sets the IPC policy.
-#[::ffi_catch_abort] #[no_mangle] pub extern "C"
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn sq_config_ipc_policy(cfg: *mut Config, policy: c_int) {
     let cfg = ffi_param_ref_mut!(cfg);
     if policy < 0 || policy > 2 {
@@ -185,7 +185,7 @@ fn sq_config_ipc_policy(cfg: *mut Config, policy: c_int) {
 }
 
 /// Makes this context ephemeral.
-#[::ffi_catch_abort] #[no_mangle] pub extern "C"
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn sq_config_ephemeral(cfg: *mut Config) {
     let cfg = ffi_param_ref_mut!(cfg);
     cfg.set_ephemeral();

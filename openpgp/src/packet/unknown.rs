@@ -1,9 +1,9 @@
 use failure;
 use std::hash::{Hash, Hasher};
 
-use packet::Tag;
-use packet;
-use Packet;
+use crate::packet::Tag;
+use crate::packet;
+use crate::Packet;
 
 /// Holds an unknown packet.
 ///

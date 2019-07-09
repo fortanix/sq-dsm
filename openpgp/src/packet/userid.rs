@@ -3,7 +3,7 @@ use std::str;
 use std::hash::{Hash, Hasher};
 use std::cell::RefCell;
 use quickcheck::{Arbitrary, Gen};
-use rfc2822::{
+use crate::rfc2822::{
     AddrSpec,
     AddrSpecOrOther,
     Name,
@@ -12,9 +12,9 @@ use rfc2822::{
 };
 use failure::ResultExt;
 
-use Result;
-use packet;
-use Packet;
+use crate::Result;
+use crate::packet;
+use crate::Packet;
 
 struct ParsedUserID {
     name: Option<String>,
@@ -477,8 +477,8 @@ impl Arbitrary for UserID {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use parse::Parse;
-    use serialize::SerializeInto;
+    use crate::parse::Parse;
+    use crate::serialize::SerializeInto;
 
     quickcheck! {
         fn roundtrip(p: UserID) -> bool {
