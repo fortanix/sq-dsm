@@ -15,6 +15,7 @@ readme = "README.md"
 license = "GPL-3.0"
 keywords = ["rfc2822", "rfc822", "name-addr", "email"]
 categories = ["email"]
+edition = "2018"
 
 [badges]
 gitlab = { repository = "sequoia-pgp/sequoia" }
