@@ -49,7 +49,7 @@ fn get_signing_keys(tpks: &[openpgp::TPK]) -> Result<Vec<crypto::KeyPair>> {
             .signing_capable()
             .map(|k| k.2)
         {
-            if let Some(mut secret) = key.secret() {
+            if let Some(secret) = key.secret() {
                 let unencrypted = match secret {
                     SecretKey::Encrypted(ref e) => {
                         let password = rpassword::read_password_from_tty(Some(

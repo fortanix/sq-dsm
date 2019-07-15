@@ -45,7 +45,7 @@ fn sign_data(input: &mut io::Read, output_path: Option<&str>,
             let mut ppr =
                 openpgp::parse::PacketParser::from_file(output_path.unwrap())?;
 
-            while let PacketParserResult::Some(mut pp) = ppr {
+            while let PacketParserResult::Some(pp) = ppr {
                 let (packet, ppr_tmp) = pp.recurse()?;
                 ppr = ppr_tmp;
 

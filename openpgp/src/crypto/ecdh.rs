@@ -33,7 +33,7 @@ pub fn encrypt(recipient: &Key, session_key: &SessionKey) -> Result<Ciphertext>
                 let R = q.decode_point(curve)?.0;
 
                 // Generate an ephemeral key pair {v, V=vG}
-                let mut v: Protected =
+                let v: Protected =
                     curve25519::private_key(&mut rng).into();
 
                 // Compute the public key.  We need to add an encoding
@@ -297,7 +297,7 @@ pub fn decrypt_shared(recipient: &Key, S: &Protected, ciphertext: &Ciphertext)
             let Z = kdf(&S, sym.key_size()?, *hash, &param)?;
 
             // Compute m = AESKeyUnwrap( Z, C ) as per [RFC3394]
-            let mut m = aes_key_unwrap(*sym, &Z, key)?;
+            let m = aes_key_unwrap(*sym, &Z, key)?;
             let cipher = SymmetricAlgorithm::from(m[0]);
             let m = pkcs5_unpad(m, 1 + cipher.key_size()? + 2)?;
 

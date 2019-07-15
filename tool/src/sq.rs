@@ -219,7 +219,7 @@ fn real_main() -> Result<(), failure::Error> {
         ("autocrypt", Some(m)) => {
             match m.subcommand() {
                 ("decode",  Some(m)) => {
-                    let mut input = open_or_stdin(m.value_of("input"))?;
+                    let input = open_or_stdin(m.value_of("input"))?;
                     let mut output = create_or_stdout(m.value_of("output"), force)?;
                     let ac = autocrypt::AutocryptHeaders::from_reader(input)?;
                     for h in &ac.headers {
@@ -231,7 +231,7 @@ fn real_main() -> Result<(), failure::Error> {
                     }
                 },
                 ("encode-sender",  Some(m)) => {
-                    let mut input = open_or_stdin(m.value_of("input"))?;
+                    let input = open_or_stdin(m.value_of("input"))?;
                     let mut output = create_or_stdout(m.value_of("output"),
                                                       force)?;
                     let tpk = TPK::from_reader(input)?;

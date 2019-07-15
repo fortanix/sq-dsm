@@ -274,7 +274,7 @@ impl<'a> PacketHeaderParser<'a> {
 
             // This is a buffered_reader::Dup, so this always has an
             // inner.
-            let mut inner = Box::new(self.reader).into_inner().unwrap();
+            let inner = Box::new(self.reader).into_inner().unwrap();
 
             // Combine the header with the body for the map.
             let mut data = Vec::with_capacity(total_out + body.len());
@@ -1360,7 +1360,8 @@ impl Key4 {
                 254 => {
                     let sk: SymmetricAlgorithm = php_try!(php.parse_u8("sym_algo")).into();
                     let s2k = php_try!(S2K::parse(&mut php));
-                    let mut cipher = php_try!(php.parse_bytes_eof("encrypted_mpis"));
+                    let cipher =
+                        php_try!(php.parse_bytes_eof("encrypted_mpis"));
 
                     crate::packet::key::Encrypted::new(
                         s2k, sk, cipher.into_boxed_slice()).into()
@@ -1691,7 +1692,7 @@ fn compressed_data_parser_test () {
             CompressionAlgorithm::BZip2 => (),
             _ => continue,
         }
-        let mut pp = PacketParser::from_bytes(crate::tests::message(
+        let pp = PacketParser::from_bytes(crate::tests::message(
             &format!("compressed-data-algo-{}.gpg", i))).unwrap().unwrap();
 
         // We expect a compressed packet containing a literal data
@@ -1815,7 +1816,7 @@ fn skesk_parser_test() {
     ];
 
     for test in tests.iter() {
-        let mut pp = PacketParser::from_bytes(
+        let pp = PacketParser::from_bytes(
             crate::tests::message(test.filename)).unwrap().unwrap();
         if let Packet::SKESK(SKESK::V4(ref skesk)) = pp.packet {
             eprintln!("{:?}", skesk);
@@ -1876,7 +1877,7 @@ impl MDC {
                     let state = bio.cookie_mut();
                     if state.hashes_for == HashesFor::MDC {
                         if state.sig_group().hashes.len() > 0 {
-                            let mut h = state.sig_group_mut().hashes
+                            let h = state.sig_group_mut().hashes
                                 .get_mut(&HashAlgorithm::SHA1)
                                 .unwrap();
                             h.digest(&mut computed_hash);
@@ -2058,7 +2059,7 @@ impl<'a> Parse<'a, Packet> for Packet {
             ?.buffer_unread_content().finalize()?;
 
         let (p, ppr) = match ppr {
-            PacketParserResult::Some(mut pp) => {
+            PacketParserResult::Some(pp) => {
                 pp.next()?
             },
             PacketParserResult::EOF(_) =>
@@ -3453,7 +3454,7 @@ impl<'a> PacketParser<'a> {
                 // comsume them in case we can't.
                 {
                     let data = self.data(aed.chunk_digest_size()?)?;
-                    let mut dec = aead::Decryptor::new(
+                    let dec = aead::Decryptor::new(
                         1, aed.symmetric_algo(), aed.aead(), aed.chunk_size(),
                         aed.iv(), key, &data[..cmp::min(data.len(), aed.chunk_digest_size()?)])?;
                     let mut chunk = Vec::new();
@@ -3693,7 +3694,7 @@ mod test {
             eprintln!("Decrypting {}, streaming content: {}",
                       test.filename, stream);
 
-            let mut ppr = PacketParserBuilder::from_bytes(
+            let ppr = PacketParserBuilder::from_bytes(
                 crate::tests::message(test.filename)).unwrap()
                 .buffer_unread_content()
                 .finalize()
@@ -3738,7 +3739,7 @@ mod test {
                 panic!("Expected a Literal packet.  Got: {:?}", ppr);
             }
 
-            let mut ppr = consume_until(
+            let ppr = consume_until(
                 ppr, true, &[ Tag::MDC ][..], &[ Tag::Signature ][..]);
             if let PacketParserResult::Some(
                 PacketParser { packet: Packet::MDC(ref mdc), .. }) = ppr
@@ -3808,7 +3809,7 @@ mod test {
                 .finalize()
                 .expect(&format!("Error reading {:?}", test));
 
-            while let PacketParserResult::Some(mut pp) = ppr {
+            while let PacketParserResult::Some(pp) = ppr {
                 assert!(pp.possible_keyring().is_ok());
                 ppr = pp.recurse().unwrap().1;
             }
@@ -3833,7 +3834,7 @@ mod test {
                 .finalize()
                 .expect(&format!("Error reading {:?}", test));
 
-            while let PacketParserResult::Some(mut pp) = ppr {
+            while let PacketParserResult::Some(pp) = ppr {
                 assert!(pp.possible_keyring().is_ok());
                 assert!(pp.possible_tpk().is_ok());
                 ppr = pp.recurse().unwrap().1;
@@ -3858,7 +3859,7 @@ mod test {
                 .expect(&format!("Error reading {}", test.filename)[..]);
 
             let mut saw_literal = false;
-            while let PacketParserResult::Some(mut pp) = ppr {
+            while let PacketParserResult::Some(pp) = ppr {
                 assert!(pp.possible_message().is_ok());
 
                 match pp.packet {
@@ -3924,7 +3925,7 @@ mod test {
                        "Message shorter than expected (expecting: {:?})",
                        paths);
 
-            if let PacketParserResult::EOF(mut eof) = ppr {
+            if let PacketParserResult::EOF(eof) = ppr {
                 assert_eq!(last_path, eof.last_path());
             } else {
                 panic!("Expect an EOF");

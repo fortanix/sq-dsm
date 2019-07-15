@@ -134,7 +134,7 @@ impl mpis::PublicKey {
                                                "unknown_parameter", php) {
                     mpis.push(mpi);
                 }
-                let mut rest = php.parse_bytes_eof("rest")?;
+                let rest = php.parse_bytes_eof("rest")?;
 
                 Ok(mpis::PublicKey::Unknown {
                     mpis: mpis.into_boxed_slice(),
@@ -267,7 +267,7 @@ impl mpis::SecretKey {
                                                "unknown_parameter", php) {
                     mpis.push(mpi.into());
                 }
-                let mut rest = php.parse_bytes_eof("rest")?;
+                let rest = php.parse_bytes_eof("rest")?;
 
                 Ok(mpis::SecretKey::Unknown {
                     mpis: mpis.into_boxed_slice(),
@@ -345,7 +345,7 @@ impl mpis::Ciphertext {
                                                "unknown_parameter", php) {
                     mpis.push(mpi);
                 }
-                let mut rest = php.parse_bytes_eof("rest")?;
+                let rest = php.parse_bytes_eof("rest")?;
 
                 Ok(mpis::Ciphertext::Unknown {
                     mpis: mpis.into_boxed_slice(),
@@ -452,7 +452,7 @@ impl mpis::Signature {
                                                "unknown_parameter", php) {
                     mpis.push(mpi);
                 }
-                let mut rest = php.parse_bytes_eof("rest")?;
+                let rest = php.parse_bytes_eof("rest")?;
 
                 Ok(mpis::Signature::Unknown {
                     mpis: mpis.into_boxed_slice(),

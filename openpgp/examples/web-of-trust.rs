@@ -30,7 +30,7 @@ fn main() {
     // For each input file, create a parser.
     for input in &args[1..] {
         eprintln!("Parsing {}...", input);
-        let mut parser = TPKParser::from_file(input)
+        let parser = TPKParser::from_file(input)
             .expect("Failed to create reader");
 
         for tpk in parser {

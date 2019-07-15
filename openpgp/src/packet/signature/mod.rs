@@ -1088,7 +1088,7 @@ mod test {
             let mut good = 0;
             let mut ppr = PacketParser::from_bytes(
                 crate::tests::message(test.data)).unwrap();
-            while let PacketParserResult::Some(mut pp) = ppr {
+            while let PacketParserResult::Some(pp) = ppr {
                 if let Packet::Signature(ref sig) = pp.packet {
                     let result = sig.verify(tpk.primary()).unwrap_or(false);
                     eprintln!("  Primary {:?}: {:?}",
@@ -1153,8 +1153,8 @@ mod test {
             let mut pair = tpk.primary().clone().into_keypair()
                 .expect("secret key is encrypted/missing");
 
-            let mut sig = Builder::new(SignatureType::Binary);
-            let mut hash = hash_algo.context().unwrap();
+            let sig = Builder::new(SignatureType::Binary);
+            let hash = hash_algo.context().unwrap();
 
             // Make signature.
             let sig = sig.sign_hash(&mut pair, hash_algo, hash).unwrap();

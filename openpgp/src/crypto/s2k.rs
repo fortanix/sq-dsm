@@ -397,7 +397,7 @@ mod tests {
 
         for test in tests.iter() {
             let path = crate::tests::message(&format!("s2k/{}", test.filename));
-            let mut pp = PacketParser::from_bytes(path).unwrap().unwrap();
+            let pp = PacketParser::from_bytes(path).unwrap().unwrap();
             if let Packet::SKESK(SKESK::V4(ref skesk)) = pp.packet {
                 assert_eq!(skesk.symmetric_algo(), test.cipher_algo);
                 assert_eq!(skesk.s2k(), &test.s2k);

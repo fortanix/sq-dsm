@@ -412,7 +412,7 @@ impl<'a> Signer<'a> {
             for signer in self.signers.iter_mut() {
                 // Part of the signature packet is hashed in,
                 // therefore we need to clone the hash.
-                let mut hash = self.hash.clone();
+                let hash = self.hash.clone();
 
                 // Make and hash a signature packet.
                 let mut sig = signature::Builder::new(SignatureType::Binary)
@@ -1084,9 +1084,9 @@ impl<'a> Encryptor<'a> {
 
             // Now recover the original writer.  First, strip the
             // Encryptor.
-            let mut w = w.into_inner()?.unwrap();
+            let w = w.into_inner()?.unwrap();
             // And the partial body filter.
-            let mut w = w.into_inner()?.unwrap();
+            let w = w.into_inner()?.unwrap();
 
             Ok(w)
         } else {

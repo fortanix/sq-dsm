@@ -317,7 +317,7 @@ impl Key4 {
         let (mpis, secret, pk_algo) = match (curve.clone(), for_signing) {
             (Curve::Ed25519, true) => {
                 let mut public = [0u8; ED25519_KEY_SIZE + 1];
-                let mut private: Protected =
+                let private: Protected =
                     ed25519::private_key(&mut rng).into();
 
                 public[0] = 0x40;

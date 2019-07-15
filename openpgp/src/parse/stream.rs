@@ -584,7 +584,7 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
 
                 // Process the rest of the packets.
                 let mut ppr = PacketParserResult::Some(pp);
-                while let PacketParserResult::Some(mut pp) = ppr {
+                while let PacketParserResult::Some(pp) = ppr {
                     if let Err(err) = pp.possible_message() {
                         return Err(err.context(
                             "Malformed OpenPGP message").into());
@@ -766,7 +766,7 @@ impl<'a> Transformer<'a> {
                 let len = BodyLength::Full((data_prefix.len() + HEADER_LEN) as u32);
                 len.serialize(&mut buf)?;
 
-                let mut lit = Literal::new(DataFormat::Binary);
+                let lit = Literal::new(DataFormat::Binary);
                 lit.serialize_headers(&mut buf, false)?;
 
                 // Copy the data, then proceed directly to the signatures.
@@ -780,7 +780,7 @@ impl<'a> Transformer<'a> {
                 let len = BodyLength::Partial(512);
                 len.serialize(&mut buf)?;
 
-                let mut lit = Literal::new(DataFormat::Binary);
+                let lit = Literal::new(DataFormat::Binary);
                 lit.serialize_headers(&mut buf, false)?;
 
                 // Copy the prefix up to the first chunk, then keep in the
@@ -1377,7 +1377,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                 // Process the rest of the packets.
                 let mut ppr = PacketParserResult::Some(pp);
                 let mut first = true;
-                while let PacketParserResult::Some(mut pp) = ppr {
+                while let PacketParserResult::Some(pp) = ppr {
                     // The literal data packet was already inspected.
                     if first {
                         assert_eq!(pp.packet.tag(), packet::Tag::Literal);
@@ -1634,7 +1634,7 @@ mod test {
 
         for (f, r) in tests {
             // Test Verifier.
-            let mut h = VHelper::new(0, 0, 0, 0, keys.clone());
+            let h = VHelper::new(0, 0, 0, 0, keys.clone());
             let mut v =
                 match Verifier::from_bytes(crate::tests::file(f), h,
                                            crate::frozen_time()) {
@@ -1662,7 +1662,7 @@ mod test {
             assert_eq!(reference, &content[..]);
 
             // Test Decryptor.
-            let mut h = VHelper::new(0, 0, 0, 0, keys.clone());
+            let h = VHelper::new(0, 0, 0, 0, keys.clone());
             let mut v =
                 match Decryptor::from_bytes(crate::tests::file(f), h,
                                             crate::frozen_time()) {
