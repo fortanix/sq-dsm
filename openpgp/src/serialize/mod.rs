@@ -39,6 +39,23 @@ const TRACE : bool = false;
 pub trait Serialize {
     /// Writes a serialized version of the object to `o`.
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()>;
+
+    /// Exports a serialized version of the object to `o`.
+    ///
+    /// This is similar to [`serialize(..)`], with these exceptions:
+    ///
+    ///   - It is an error to export a [`Signature`] if it is marked
+    ///     as non-exportable.
+    ///   - When exporting a [`TPK`], non-exportable signatures are
+    ///     not exported, and any component bound merely by
+    ///     non-exportable signatures are not exported.
+    ///
+    ///   [`serialize(..)`]: #tymethod.serialize
+    ///   [`Signature`]: ../packet/enum.Signature.html
+    ///   [`TPK`]: ../struct.TPK.html
+    fn export(&self, o: &mut dyn std::io::Write) -> Result<()> {
+        self.serialize(o)
+    }
 }
 
 /// Serializes OpenPGP data structures into pre-allocated buffers.
@@ -66,6 +83,53 @@ pub trait SerializeInto {
     fn to_vec(&self) -> Result<Vec<u8>> {
         let mut o = vec![0; self.serialized_len()];
         let len = self.serialize_into(&mut o[..])?;
+        o.truncate(len);
+        o.shrink_to_fit();
+        Ok(o)
+    }
+
+    /// Exports into the given buffer.
+    ///
+    /// This is similar to [`serialize_into(..)`], with these
+    /// exceptions:
+    ///
+    ///   - It is an error to export a [`Signature`] if it is marked
+    ///     as non-exportable.
+    ///   - When exporting a [`TPK`], non-exportable signatures are
+    ///     not exported, and any component bound merely by
+    ///     non-exportable signatures are not exported.
+    ///
+    ///   [`serialize_into(..)`]: #tymethod.serialize_into
+    ///   [`Signature`]: ../packet/enum.Signature.html
+    ///   [`TPK`]: ../struct.TPK.html
+    ///
+    /// Returns the length of the serialized representation.
+    ///
+    /// # Errors
+    ///
+    /// If the length of the given slice is smaller than the maximal
+    /// length computed by `serialized_len()`, this function returns
+    /// `Error::InvalidArgument`.
+    fn export_into(&self, buf: &mut [u8]) -> Result<usize> {
+        self.serialize_into(buf)
+    }
+
+    /// Exports to a vector.
+    ///
+    /// This is similar to [`to_vec()`], with these exceptions:
+    ///
+    ///   - It is an error to export a [`Signature`] if it is marked
+    ///     as non-exportable.
+    ///   - When exporting a [`TPK`], non-exportable signatures are
+    ///     not exported, and any component bound merely by
+    ///     non-exportable signatures are not exported.
+    ///
+    ///   [`to_vec()`]: #method.to_vec
+    ///   [`Signature`]: ../packet/enum.Signature.html
+    ///   [`TPK`]: ../struct.TPK.html
+    fn export_to_vec(&self) -> Result<Vec<u8>> {
+        let mut o = vec![0; self.serialized_len()];
+        let len = self.export_into(&mut o[..])?;
         o.truncate(len);
         o.shrink_to_fit();
         Ok(o)
@@ -128,6 +192,36 @@ fn generic_serialize_into<T: Serialize + SerializeInto>(o: &T, buf: &mut [u8])
     Ok(cursor.position() as usize)
 }
 
+/// Provides a generic implementation for SerializeInto::export_into.
+///
+/// For now, we express SerializeInto using Serialize.  In the future,
+/// we may provide implementations not relying on Serialize for a
+/// no_std configuration of this crate.
+fn generic_export_into<T: Serialize + SerializeInto>(o: &T, buf: &mut [u8])
+                                                        -> Result<usize> {
+    let buf_len = buf.len();
+    let mut cursor = ::std::io::Cursor::new(buf);
+    match o.export(&mut cursor) {
+        Ok(_) => (),
+        Err(e) => {
+            let short_write =
+                if let Some(ioe) = e.downcast_ref::<io::Error>() {
+                    ioe.kind() == io::ErrorKind::WriteZero
+                } else {
+                    false
+                };
+            return if short_write {
+                Err(Error::InvalidArgument(
+                    format!("Invalid buffer size, expected {}, got {}",
+                            o.serialized_len(), buf_len)).into())
+            } else {
+                Err(e)
+            }
+        }
+    };
+    Ok(cursor.position() as usize)
+}
+
 #[test]
 fn test_generic_serialize_into() {
     let u = UserID::from("Mr. Pink");
@@ -140,6 +234,17 @@ fn test_generic_serialize_into() {
     assert_match!(Some(Error::InvalidArgument(_)) = e.downcast_ref());
 }
 
+#[test]
+fn test_generic_export_into() {
+    let u = UserID::from("Mr. Pink");
+    let mut b = vec![0; u.serialized_len()];
+    u.export_into(&mut b[..]).unwrap();
+
+    // Short buffer.
+    let mut b = vec![0; u.serialized_len() - 1];
+    let e = u.export_into(&mut b[..]).unwrap_err();
+    assert_match!(Some(Error::InvalidArgument(_)) = e.downcast_ref());
+}
 
 fn write_byte(o: &mut dyn std::io::Write, b: u8) -> io::Result<()> {
     let b : [u8; 1] = [b; 1];
@@ -1015,6 +1120,12 @@ impl Serialize for Signature {
             &Signature::V4(ref s) => s.serialize(o),
         }
     }
+
+    fn export(&self, o: &mut dyn std::io::Write) -> Result<()> {
+        match self {
+            &Signature::V4(ref s) => s.export(o),
+        }
+    }
 }
 
 impl SerializeInto for Signature {
@@ -1027,6 +1138,18 @@ impl SerializeInto for Signature {
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
         match self {
             &Signature::V4(ref s) => s.serialize_into(buf),
+        }
+    }
+
+    fn export_into(&self, buf: &mut [u8]) -> Result<usize> {
+        match self {
+            &Signature::V4(ref s) => s.export_into(buf),
+        }
+    }
+
+    fn export_to_vec(&self) -> Result<Vec<u8>> {
+        match self {
+            &Signature::V4(ref s) => s.export_to_vec(),
         }
     }
 }
@@ -1069,6 +1192,15 @@ impl Serialize for Signature4 {
 
         Ok(())
     }
+
+    fn export(&self, o: &mut dyn std::io::Write) -> Result<()> {
+        if ! self.exportable_certification().unwrap_or(true) {
+            return Err(Error::InvalidOperation(
+                "Cannot export non-exportable certification".into()).into());
+        }
+
+        self.serialize(o)
+    }
 }
 
 impl NetLength for Signature4 {
@@ -1093,6 +1225,24 @@ impl SerializeInto for Signature4 {
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
         generic_serialize_into(self, buf)
+    }
+
+    fn export_into(&self, buf: &mut [u8]) -> Result<usize> {
+        if ! self.exportable_certification().unwrap_or(true) {
+            return Err(Error::InvalidOperation(
+                "Cannot export non-exportable certification".into()).into());
+        }
+
+        self.serialize_into(buf)
+    }
+
+    fn export_to_vec(&self) -> Result<Vec<u8>> {
+        if ! self.exportable_certification().unwrap_or(true) {
+            return Err(Error::InvalidOperation(
+                "Cannot export non-exportable certification".into()).into());
+        }
+
+        self.to_vec()
     }
 }
 
@@ -1919,6 +2069,47 @@ impl Serialize for Packet {
             &Packet::AED(ref p) => p.serialize(o),
         }
     }
+
+    /// Exports a serialized version of the specified `Packet` to `o`.
+    ///
+    /// This function works recursively: if the packet contains any
+    /// packets, they are also serialized.
+    fn export(&self, o: &mut dyn std::io::Write) -> Result<()> {
+        CTB::new(self.tag()).serialize(o)?;
+
+        // Special-case the compressed data packet, because we need
+        // the accurate length, and CompressedData::net_len()
+        // overestimates the size.
+        if let Packet::CompressedData(ref p) = self {
+            let mut body = Vec::new();
+            p.export(&mut body)?;
+            BodyLength::Full(body.len() as u32).export(o)?;
+            o.write_all(&body)?;
+            return Ok(());
+        }
+
+        BodyLength::Full(self.net_len() as u32).export(o)?;
+        match self {
+            &Packet::Unknown(ref p) => p.export(o),
+            &Packet::Signature(ref p) => p.export(o),
+            &Packet::OnePassSig(ref p) => p.export(o),
+            &Packet::PublicKey(ref p) => p.serialize_key(o, false),
+            &Packet::PublicSubkey(ref p) => p.serialize_key(o, false),
+            &Packet::SecretKey(ref p) => p.serialize_key(o, true),
+            &Packet::SecretSubkey(ref p) => p.serialize_key(o, true),
+            &Packet::Marker(ref p) => p.export(o),
+            &Packet::Trust(ref p) => p.export(o),
+            &Packet::UserID(ref p) => p.export(o),
+            &Packet::UserAttribute(ref p) => p.export(o),
+            &Packet::Literal(ref p) => p.export(o),
+            &Packet::CompressedData(_) => unreachable!("handled above"),
+            &Packet::PKESK(ref p) => p.export(o),
+            &Packet::SKESK(ref p) => p.export(o),
+            &Packet::SEIP(ref p) => p.export(o),
+            &Packet::MDC(ref p) => p.export(o),
+            &Packet::AED(ref p) => p.export(o),
+        }
+    }
 }
 
 impl NetLength for Packet {
@@ -1974,6 +2165,10 @@ impl SerializeInto for Packet {
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
         generic_serialize_into(self, buf)
+    }
+
+    fn export_into(&self, buf: &mut [u8]) -> Result<usize> {
+        generic_export_into(self, buf)
     }
 }
 
@@ -2097,6 +2292,47 @@ impl<'a> Serialize for PacketRef<'a> {
             PacketRef::AED(p) => p.serialize(o),
         }
     }
+
+    /// Exports a serialized version of the specified `Packet` to `o`.
+    ///
+    /// This function works recursively: if the packet contains any
+    /// packets, they are also serialized.
+    fn export(&self, o: &mut dyn std::io::Write) -> Result<()> {
+        CTB::new(self.tag()).serialize(o)?;
+
+        // Special-case the compressed data packet, because we need
+        // the accurate length, and CompressedData::net_len()
+        // overestimates the size.
+        if let PacketRef::CompressedData(ref p) = self {
+            let mut body = Vec::new();
+            p.export(&mut body)?;
+            BodyLength::Full(body.len() as u32).export(o)?;
+            o.write_all(&body)?;
+            return Ok(());
+        }
+
+        BodyLength::Full(self.net_len() as u32).export(o)?;
+        match self {
+            PacketRef::Unknown(p) => p.export(o),
+            PacketRef::Signature(p) => p.export(o),
+            PacketRef::OnePassSig(p) => p.export(o),
+            PacketRef::PublicKey(p) => p.serialize_key(o, false),
+            PacketRef::PublicSubkey(p) => p.serialize_key(o, false),
+            PacketRef::SecretKey(p) => p.serialize_key(o, true),
+            PacketRef::SecretSubkey(p) => p.serialize_key(o, true),
+            PacketRef::Marker(p) => p.export(o),
+            PacketRef::Trust(p) => p.export(o),
+            PacketRef::UserID(p) => p.export(o),
+            PacketRef::UserAttribute(p) => p.export(o),
+            PacketRef::Literal(p) => p.export(o),
+            PacketRef::CompressedData(_) => unreachable!("handled above"),
+            PacketRef::PKESK(p) => p.export(o),
+            PacketRef::SKESK(p) => p.export(o),
+            PacketRef::SEIP(p) => p.export(o),
+            PacketRef::MDC(p) => p.export(o),
+            PacketRef::AED(p) => p.export(o),
+        }
+    }
 }
 
 impl<'a> NetLength for PacketRef<'a> {
@@ -2153,6 +2389,10 @@ impl<'a> SerializeInto for PacketRef<'a> {
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
         generic_serialize_into(self, buf)
     }
+
+    fn export_into(&self, buf: &mut [u8]) -> Result<usize> {
+        generic_export_into(self, buf)
+    }
 }
 
 impl Serialize for PacketPile {
@@ -2160,6 +2400,15 @@ impl Serialize for PacketPile {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         for p in self.children() {
             p.serialize(o)?;
+        }
+
+        Ok(())
+    }
+
+    /// Exports a serialized version of the specified `PacketPile` to `o`.
+    fn export(&self, o: &mut dyn std::io::Write) -> Result<()> {
+        for p in self.children() {
+            dbg!(dbg!(p).export(o))?;
         }
 
         Ok(())
@@ -2173,6 +2422,10 @@ impl SerializeInto for PacketPile {
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
         generic_serialize_into(self, buf)
+    }
+
+    fn export_into(&self, buf: &mut [u8]) -> Result<usize> {
+        generic_export_into(self, buf)
     }
 }
 
@@ -2193,6 +2446,11 @@ impl SerializeInto for Message {
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
         use std::ops::Deref;
         self.deref().serialize_into(buf)
+    }
+
+    fn export_into(&self, buf: &mut [u8]) -> Result<usize> {
+        use std::ops::Deref;
+        self.deref().export_into(buf)
     }
 }
 
@@ -2660,5 +2918,89 @@ mod test {
             BodyLength::Full(0xffffffff).serialize(&mut buf).unwrap();
             assert_eq!(&buf[..], &b"\xff\xff\xff\xff\xff"[..]);
         }
+    }
+
+    #[test]
+    fn export_signature() {
+        use crate::tpk::TPKBuilder;
+
+        let (tpk, _) = TPKBuilder::new().generate().unwrap();
+        let mut keypair = tpk.primary().clone().into_keypair().unwrap();
+        let uid = UserID::from("foo");
+
+        // Make a signature w/o an exportable certification subpacket.
+        let sig = uid.bind(
+            &mut keypair, &tpk,
+            signature::Builder::new(SignatureType::GenericCertificate),
+            None, None).unwrap();
+
+        // The signature is exportable.  Try to export it in
+        // various ways.
+        sig.export(&mut Vec::new()).unwrap();
+        sig.export_into(&mut vec![0; sig.serialized_len()]).unwrap();
+        sig.export_to_vec().unwrap();
+        PacketRef::Signature(&sig).export(&mut Vec::new()).unwrap();
+        PacketRef::Signature(&sig).export_into(
+            &mut vec![0; PacketRef::Signature(&sig).serialized_len()]).unwrap();
+        PacketRef::Signature(&sig).export_to_vec().unwrap();
+        let p = Packet::Signature(sig);
+        p.export(&mut Vec::new()).unwrap();
+        p.export_into(&mut vec![0; p.serialized_len()]).unwrap();
+        p.export_to_vec().unwrap();
+        let pp = PacketPile::from(vec![p]);
+        pp.export(&mut Vec::new()).unwrap();
+        pp.export_into(&mut vec![0; pp.serialized_len()]).unwrap();
+        pp.export_to_vec().unwrap();
+
+        // Make a signature that is explicitly marked as exportable.
+        let sig = uid.bind(
+            &mut keypair, &tpk,
+            signature::Builder::new(SignatureType::GenericCertificate)
+                .set_exportable_certification(true).unwrap(),
+            None, None).unwrap();
+
+        // The signature is exportable.  Try to export it in
+        // various ways.
+        sig.export(&mut Vec::new()).unwrap();
+        sig.export_into(&mut vec![0; sig.serialized_len()]).unwrap();
+        sig.export_to_vec().unwrap();
+        PacketRef::Signature(&sig).export(&mut Vec::new()).unwrap();
+        PacketRef::Signature(&sig).export_into(
+            &mut vec![0; PacketRef::Signature(&sig).serialized_len()]).unwrap();
+        PacketRef::Signature(&sig).export_to_vec().unwrap();
+        let p = Packet::Signature(sig);
+        p.export(&mut Vec::new()).unwrap();
+        p.export_into(&mut vec![0; p.serialized_len()]).unwrap();
+        p.export_to_vec().unwrap();
+        let pp = PacketPile::from(vec![p]);
+        pp.export(&mut Vec::new()).unwrap();
+        pp.export_into(&mut vec![0; pp.serialized_len()]).unwrap();
+        pp.export_to_vec().unwrap();
+
+        // Make a non-exportable signature.
+        let sig = uid.bind(
+            &mut keypair, &tpk,
+            signature::Builder::new(SignatureType::GenericCertificate)
+                .set_exportable_certification(false).unwrap(),
+            None, None).unwrap();
+
+        // The signature is not exportable.  Try to export it in
+        // various ways.
+        sig.export(&mut Vec::new()).unwrap_err();
+        sig.export_into(&mut vec![0; sig.serialized_len()]).unwrap_err();
+        sig.export_to_vec().unwrap_err();
+        PacketRef::Signature(&sig).export(&mut Vec::new()).unwrap_err();
+        PacketRef::Signature(&sig).export_into(
+            &mut vec![0; PacketRef::Signature(&sig).serialized_len()])
+            .unwrap_err();
+        PacketRef::Signature(&sig).export_to_vec().unwrap_err();
+        let p = Packet::Signature(sig);
+        p.export(&mut Vec::new()).unwrap_err();
+        p.export_into(&mut vec![0; p.serialized_len()]).unwrap_err();
+        p.export_to_vec().unwrap_err();
+        let pp = PacketPile::from(vec![p]);
+        pp.export(&mut Vec::new()).unwrap_err();
+        pp.export_into(&mut vec![0; pp.serialized_len()]).unwrap_err();
+        pp.export_to_vec().unwrap_err();
     }
 }
