@@ -1035,10 +1035,6 @@ impl Serialize for Signature4 {
     /// Writes a serialized version of the specified `Signature`
     /// packet to `o`.
     ///
-    /// Note: this function does not compute the signature (which
-    /// would require access to the private key); it assumes that
-    /// sig.mpis is up to date.
-    ///
     /// # Errors
     ///
     /// Returns [`Error::InvalidArgument`] if either the hashed-area
