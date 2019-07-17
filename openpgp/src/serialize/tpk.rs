@@ -169,7 +169,7 @@ impl SerializeInto for TPK {
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
-        Ok(generic_serialize_into(self, buf).unwrap())
+        generic_serialize_into(self, buf)
     }
 }
 
