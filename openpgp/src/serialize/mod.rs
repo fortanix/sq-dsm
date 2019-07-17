@@ -1041,17 +1041,12 @@ impl Serialize for Signature4 {
     ///
     /// # Errors
     ///
-    /// Returns [`Error::InvalidArgument`] if invoked on a
-    /// non-version 4 signature, or if either the hashed-area or the
-    /// unhashed-area exceeds the size limit of 2^16.
+    /// Returns [`Error::InvalidArgument`] if either the hashed-area
+    /// or the unhashed-area exceeds the size limit of 2^16.
     ///
     /// [`Error::InvalidArgument`]: ../../enum.Error.html#variant.InvalidArgument
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
-        if self.version() != 4 {
-            return Err(Error::InvalidArgument(
-                "Don't know how to serialize \
-                 non-version 4 packets.".into()).into());
-        }
+        assert_eq!(self.version(), 4);
         write_byte(o, self.version())?;
         write_byte(o, self.sigtype().into())?;
         write_byte(o, self.pk_algo().into())?;
