@@ -1993,6 +1993,8 @@ impl TPK {
     }
 
     fn canonicalize(mut self) -> Self {
+        tracer!(TRACE, "canonicalize", 0);
+
         // Helper functions.
         // Turn a signature into a key for use by dedup.
         fn sig_key(a: &mut Signature) -> Box<[u8]> {
@@ -2028,6 +2030,9 @@ impl TPK {
         macro_rules! check {
             ($desc:expr, $binding:expr, $sigs:ident,
              $verify_method:ident, $($verify_args:expr),*) => ({
+                t!("check!({}, {}, {:?}, {}, ...)",
+                   $desc, stringify!($binding), $binding.$sigs,
+                   stringify!($verify_method));
                 for sig in mem::replace(&mut $binding.$sigs, Vec::new())
                     .into_iter()
                 {
@@ -2036,12 +2041,9 @@ impl TPK {
                                                          $($verify_args),*) {
                         $binding.$sigs.push(sig);
                     } else {
-                        if TRACE {
-                            eprintln!("Sig {:02X}{:02X}, type = {} \
-                                       doesn't belong to {}",
-                                      sig.hash_prefix()[0], sig.hash_prefix()[1],
-                                      sig.sigtype(), $desc);
-                        }
+                        t!("Sig {:02X}{:02X}, type = {} doesn't belong to {}",
+                           sig.hash_prefix()[0], sig.hash_prefix()[1],
+                           sig.sigtype(), $desc);
 
                         self.bad.push(sig);
                     }
@@ -2094,18 +2096,19 @@ impl TPK {
             macro_rules! check_one {
                 ($desc:expr, $sigs:expr, $sig:expr,
                  $verify_method:ident, $($verify_args:expr),*) => ({
+                     t!("check!({}, {:?}, {:?}, {}, ...)",
+                        $desc, $sigs, $sig,
+                        stringify!($verify_method));
                      if let Ok(true)
                          = $sig.$verify_method(&self.primary,
                                                &self.primary,
                                                $($verify_args),*)
                      {
-                         if TRACE {
-                             eprintln!("Sig {:02X}{:02X}, {:?} \
-                                        was out of place.  Belongs to {}.",
-                                       $sig.hash_prefix()[0],
-                                       $sig.hash_prefix()[1],
-                                       $sig.sigtype(), $desc);
-                         }
+                         t!("Sig {:02X}{:02X}, {:?} \
+                             was out of place.  Belongs to {}.",
+                            $sig.hash_prefix()[0],
+                            $sig.hash_prefix()[1],
+                            $sig.sigtype(), $desc);
 
                          $sigs.push($sig);
                          continue 'outer;
@@ -2156,18 +2159,16 @@ impl TPK {
             }
 
             // Keep them for later.
-            if TRACE {
-                eprintln!("Self-sig {:02X}{:02X}, {:?} doesn't belong \
-                           to any known component or is bad.",
-                          sig.hash_prefix()[0], sig.hash_prefix()[1],
-                          sig.sigtype());
-            }
+            t!("Self-sig {:02X}{:02X}, {:?} doesn't belong \
+                to any known component or is bad.",
+               sig.hash_prefix()[0], sig.hash_prefix()[1],
+               sig.sigtype());
             self.bad.push(sig);
         }
 
-        if self.bad.len() > 0 && TRACE {
-            eprintln!("{}: ignoring {} bad self-signatures",
-                      self.primary().keyid(), self.bad.len());
+        if self.bad.len() > 0 {
+            t!("{}: ignoring {} bad self-signatures",
+               self.primary().keyid(), self.bad.len());
         }
 
         // Only keep user ids / user attributes / subkeys with at
@@ -2175,14 +2176,17 @@ impl TPK {
         self.userids.retain(|userid| {
             userid.selfsigs.len() > 0 || userid.self_revocations.len() > 0
         });
+        t!("Retained {} userids", self.userids.len());
 
         self.user_attributes.retain(|ua| {
             ua.selfsigs.len() > 0 || ua.self_revocations.len() > 0
         });
+        t!("Retained {} user_attributes", self.user_attributes.len());
 
         self.subkeys.retain(|subkey| {
             subkey.selfsigs.len() > 0 || subkey.self_revocations.len() > 0
         });
+        t!("Retained {} subkeys", self.subkeys.len());
 
         fn sig_cmp(a: &Signature, b: &Signature) -> Ordering {
             canonical_signature_order(a.signature_creation_time(),
@@ -2622,6 +2626,7 @@ impl TPK {
             if ! pk_can_certify {
                 // Primary not certification capable, all binding sigs
                 // are invalid.
+                t!("Primary key not certification capable, dropping subkeys");
                 self.subkeys.clear();
             }
         }
