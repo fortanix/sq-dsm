@@ -70,7 +70,7 @@ impl<'a> Serialize for Encoder<'a> {
     fn serialize(&self, o: &mut dyn io::Write) -> Result<()> {
         let length_value = armor::LINE_LENGTH - "Comment: ".len();
         // Create a header per userid.
-        let mut headers: Vec<(String, String)> = self.tpk.userids()
+        let mut headers: Vec<String> = self.tpk.userids()
             // Ignore revoked userids.
             .filter_map(|uidb| {
                 if let RevocationStatus::Revoked(_) = uidb.revoked(None) {
@@ -94,20 +94,17 @@ impl<'a> Serialize for Encoder<'a> {
                     }
                 }
                 // Make sure the line length does not exceed armor::LINE_LENGTH
-                let header: String = value.chars().take(length_value)
-                    .collect();
-                Some(("Comment".into(), header))
+                Some(value.chars().take(length_value).collect())
             }).collect();
 
         // Add the fingerprint to the headers
-        let fpr = self.tpk.fingerprint().to_string();
-        headers.push(("Comment".into(), fpr));
+        headers.push(self.tpk.fingerprint().to_string());
 
-        // Convert the Vec<(String, String)> into Vec<(&str, &str)>
+        // Convert the Vec<String> into Vec<(&str, &str)>
         // `iter_into` can not be used here because will take ownership and
         // what is needed is the reference.
         let headers: Vec<_> = headers.iter()
-            .map(|&(ref x, ref y)| (&x[..], &y[..]))
+            .map(|value| ("Comment", value.as_str()))
             .collect();
 
         let mut w = armor::Writer::new(o, armor::Kind::PublicKey, &headers)?;
