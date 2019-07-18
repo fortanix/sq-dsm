@@ -5,7 +5,7 @@ use std::str;
 use crate::armor;
 use crate::Result;
 use crate::RevocationStatus;
-use crate::serialize::Serialize;
+use crate::serialize::{Serialize, SerializeInto, generic_serialize_into};
 use crate::TPK;
 
 
@@ -30,22 +30,20 @@ impl TPK {
     /// ```rust
     /// use sequoia_openpgp as openpgp;
     /// use openpgp::tpk;
-    /// use openpgp::serialize::Serialize;
+    /// use openpgp::serialize::SerializeInto;
     ///
     /// # f().unwrap();
     /// # fn f() -> openpgp::Result<()> {
     /// let (tpk, _) =
     ///     tpk::TPKBuilder::general_purpose(None, Some("Mr. Pink ☮☮☮"))
     ///     .generate()?;
-    /// let mut buf = Vec::new();
-    /// tpk.armored().serialize(&mut buf)?;
-    /// let armored = String::from_utf8(buf)?;
+    /// let armored = String::from_utf8(tpk.armored().to_vec()?)?;
     ///
     /// assert!(armored.starts_with("-----BEGIN PGP PUBLIC KEY BLOCK-----"));
     /// assert!(armored.contains("Mr. Pink ☮☮☮"));
     /// # Ok(()) }
     /// ```
-    pub fn armored<'a>(&'a self) -> impl Serialize + 'a {
+    pub fn armored<'a>(&'a self) -> impl Serialize + SerializeInto + 'a {
         Encoder::new(self)
     }
 }
@@ -115,6 +113,26 @@ impl<'a> Serialize for Encoder<'a> {
 
         let mut w = armor::Writer::new(o, armor::Kind::PublicKey, &headers)?;
         self.tpk.serialize(&mut w)
+    }
+}
+
+impl<'a> SerializeInto for Encoder<'a> {
+    fn serialized_len(&self) -> usize {
+        let h = self.headers();
+        let headers_len =
+            "Comment: ".len() * h.len()
+            + h.iter().map(|c| c.len()).sum::<usize>();
+        let body_len = (self.tpk.serialized_len() + 2) / 3 * 4; // base64
+
+        "-----BEGIN PGP PUBLIC KEY BLOCK-----\n\n".len()
+            + headers_len
+            + body_len
+            + (body_len + armor::LINE_LENGTH - 1) / armor::LINE_LENGTH // NLs
+            + "=FUaG\n-----END PGP PUBLIC KEY BLOCK-----\n".len()
+    }
+
+    fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
+        generic_serialize_into(self, buf)
     }
 }
 
