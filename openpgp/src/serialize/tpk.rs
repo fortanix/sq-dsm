@@ -748,6 +748,28 @@ mod test {
         assert_eq!(tpk_.userids().count(), 0);
         assert_eq!(tpk_.user_attributes().count(), 0);
 
+        // Same, this time using the armor encoder.
+        let mut buf = Vec::new();
+        tpk.armored().export(&mut buf).unwrap();
+        let tpk_ = TPK::from_bytes(&buf).unwrap();
+        assert_eq!(tpk_.subkeys().count(), 0);
+        assert_eq!(tpk_.userids().count(), 0);
+        assert_eq!(tpk_.user_attributes().count(), 0);
+
+        let mut buf = vec![0; tpk.serialized_len()];
+        let l = tpk.armored().export_into(&mut buf).unwrap();
+        buf.truncate(l);
+        let tpk_ = TPK::from_bytes(&buf).unwrap();
+        assert_eq!(tpk_.subkeys().count(), 0);
+        assert_eq!(tpk_.userids().count(), 0);
+        assert_eq!(tpk_.user_attributes().count(), 0);
+
+        let tpk_ =
+            TPK::from_bytes(&tpk.armored().export_to_vec().unwrap()).unwrap();
+        assert_eq!(tpk_.subkeys().count(), 0);
+        assert_eq!(tpk_.userids().count(), 0);
+        assert_eq!(tpk_.user_attributes().count(), 0);
+
         // Same, this time as TSKs.
         let mut buf = Vec::new();
         tpk.as_tsk().export(&mut buf).unwrap();

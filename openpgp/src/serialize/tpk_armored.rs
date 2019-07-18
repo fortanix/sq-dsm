@@ -5,7 +5,9 @@ use std::str;
 use crate::armor;
 use crate::Result;
 use crate::RevocationStatus;
-use crate::serialize::{Serialize, SerializeInto, generic_serialize_into};
+use crate::serialize::{
+    Serialize, SerializeInto, generic_serialize_into, generic_export_into,
+};
 use crate::TPK;
 
 
@@ -97,11 +99,9 @@ impl<'a> Encoder<'a> {
 
         headers
     }
-}
 
-impl<'a> Serialize for Encoder<'a> {
-    /// Enarmor and serialize the `TPK` including headers.
-    fn serialize(&self, o: &mut dyn io::Write) -> Result<()> {
+    fn serialize_common(&self, o: &mut dyn io::Write, export: bool)
+                        -> Result<()> {
         let headers = self.headers();
 
         // Convert the Vec<String> into Vec<(&str, &str)>
@@ -112,7 +112,21 @@ impl<'a> Serialize for Encoder<'a> {
             .collect();
 
         let mut w = armor::Writer::new(o, armor::Kind::PublicKey, &headers)?;
-        self.tpk.serialize(&mut w)
+        if export {
+            self.tpk.export(&mut w)
+        } else {
+            self.tpk.serialize(&mut w)
+        }
+    }
+}
+
+impl<'a> Serialize for Encoder<'a> {
+    fn serialize(&self, o: &mut dyn io::Write) -> Result<()> {
+        self.serialize_common(o, false)
+    }
+
+    fn export(&self, o: &mut dyn io::Write) -> Result<()> {
+        self.serialize_common(o, true)
     }
 }
 
@@ -133,6 +147,10 @@ impl<'a> SerializeInto for Encoder<'a> {
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
         generic_serialize_into(self, buf)
+    }
+
+    fn export_into(&self, buf: &mut [u8]) -> Result<usize> {
+        generic_export_into(self, buf)
     }
 }
 
