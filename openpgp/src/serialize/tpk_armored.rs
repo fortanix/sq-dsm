@@ -63,11 +63,8 @@ impl<'a> Encoder<'a> {
             tpk: tpk,
         }
     }
-}
 
-impl<'a> Serialize for Encoder<'a> {
-    /// Enarmor and serialize the `TPK` including headers.
-    fn serialize(&self, o: &mut dyn io::Write) -> Result<()> {
+    fn headers(&self) -> Vec<String> {
         let length_value = armor::LINE_LENGTH - "Comment: ".len();
         // Create a header per userid.
         let mut headers: Vec<String> = self.tpk.userids()
@@ -99,6 +96,15 @@ impl<'a> Serialize for Encoder<'a> {
 
         // Add the fingerprint to the headers
         headers.push(self.tpk.fingerprint().to_string());
+
+        headers
+    }
+}
+
+impl<'a> Serialize for Encoder<'a> {
+    /// Enarmor and serialize the `TPK` including headers.
+    fn serialize(&self, o: &mut dyn io::Write) -> Result<()> {
+        let headers = self.headers();
 
         // Convert the Vec<String> into Vec<(&str, &str)>
         // `iter_into` can not be used here because will take ownership and
