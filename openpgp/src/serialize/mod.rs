@@ -49,7 +49,7 @@ pub trait Serialize {
     ///     as non-exportable.
     ///   - When exporting a [`TPK`], non-exportable signatures are
     ///     not exported, and any component bound merely by
-    ///     non-exportable signatures are not exported.
+    ///     non-exportable signatures is not exported.
     ///
     ///   [`serialize(..)`]: #tymethod.serialize
     ///   [`Signature`]: ../packet/enum.Signature.html
@@ -98,7 +98,7 @@ pub trait SerializeInto {
     ///     as non-exportable.
     ///   - When exporting a [`TPK`], non-exportable signatures are
     ///     not exported, and any component bound merely by
-    ///     non-exportable signatures are not exported.
+    ///     non-exportable signatures is not exported.
     ///
     ///   [`serialize_into(..)`]: #tymethod.serialize_into
     ///   [`Signature`]: ../packet/enum.Signature.html
@@ -123,7 +123,7 @@ pub trait SerializeInto {
     ///     as non-exportable.
     ///   - When exporting a [`TPK`], non-exportable signatures are
     ///     not exported, and any component bound merely by
-    ///     non-exportable signatures are not exported.
+    ///     non-exportable signatures is not exported.
     ///
     ///   [`to_vec()`]: #method.to_vec
     ///   [`Signature`]: ../packet/enum.Signature.html
