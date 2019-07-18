@@ -17,16 +17,48 @@ pub(crate) fn is_printable(c: &char) -> bool {
     !c.is_control() && !c.is_ascii_control()
 }
 
+impl TPK {
+    /// Wraps this TPK in an armor structure when serialized.
+    ///
+    /// Derives an object from this TPK that adds an armor structure
+    /// to the serialized TPK when it is serialized.  Additionally,
+    /// the TPK's userids are added as comments, so that it is easier
+    /// to identify the TPK when looking at the armored data.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::tpk;
+    /// use openpgp::serialize::Serialize;
+    ///
+    /// # f().unwrap();
+    /// # fn f() -> openpgp::Result<()> {
+    /// let (tpk, _) =
+    ///     tpk::TPKBuilder::general_purpose(None, Some("Mr. Pink ☮☮☮"))
+    ///     .generate()?;
+    /// let mut buf = Vec::new();
+    /// tpk.armored().serialize(&mut buf)?;
+    /// let armored = String::from_utf8(buf)?;
+    ///
+    /// assert!(armored.starts_with("-----BEGIN PGP PUBLIC KEY BLOCK-----"));
+    /// assert!(armored.contains("Mr. Pink ☮☮☮"));
+    /// # Ok(()) }
+    /// ```
+    pub fn armored<'a>(&'a self) -> impl Serialize + 'a {
+        Encoder::new(self)
+    }
+}
 
 /// A `TPK` to be armored and serialized.
-pub struct Encoder<'a> {
+struct Encoder<'a> {
     tpk: &'a TPK,
 }
 
 
 impl<'a> Encoder<'a> {
     /// Returns a new Encoder to enarmor and serialize a `TPK`.
-    pub fn new(tpk: &'a TPK) -> Self {
+    fn new(tpk: &'a TPK) -> Self {
         Self {
             tpk: tpk,
         }
@@ -128,7 +160,7 @@ mod tests {
 
         // Enarmor the TPK.
         let mut buffer = Vec::new();
-        Encoder::new(&tpk)
+        tpk.armored()
             .serialize(&mut buffer)
             .unwrap();
 
@@ -203,7 +235,7 @@ mod tests {
 
         // Enarmor the TPK.
         let mut buffer = Vec::new();
-        Encoder::new(&tpk)
+        tpk.armored()
             .serialize(&mut buffer)
             .unwrap();
 

@@ -36,7 +36,6 @@ use crate::parse::{Parse, PacketParserResult, PacketParser};
 use crate::serialize::SerializeInto;
 use crate::constants::ReasonForRevocation;
 
-pub mod armor;
 mod lexer;
 mod grammar;
 mod builder;

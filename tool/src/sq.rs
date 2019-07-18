@@ -27,7 +27,6 @@ use crate::openpgp::{armor, autocrypt, Fingerprint, TPK};
 use crate::openpgp::conversions::hex;
 use crate::openpgp::parse::Parse;
 use crate::openpgp::serialize::Serialize;
-use crate::openpgp::tpk::armor::Encoder;
 use sequoia_core::{Context, NetworkPolicy};
 use sequoia_net::{KeyServer, wkd};
 use sequoia_store::{Store, LogIter};
@@ -369,7 +368,7 @@ fn real_main() -> Result<(), failure::Error> {
                     if m.is_present("binary") {
                         tpk.serialize(&mut output)?;
                     } else {
-                        Encoder::new(&tpk).serialize(&mut output)?;
+                        tpk.armored().serialize(&mut output)?;
                     }
                 },
                 ("delete",  Some(m)) => {

@@ -19,6 +19,7 @@ mod partial_body;
 mod sexp;
 mod tpk;
 pub use self::tpk::TSK;
+mod tpk_armored;
 use self::partial_body::PartialBodyFilter;
 pub mod writer;
 pub mod stream;
