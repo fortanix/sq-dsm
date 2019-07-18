@@ -94,8 +94,8 @@ impl<'a> Encoder<'a> {
                 Some(value.chars().take(length_value).collect())
             }).collect();
 
-        // Add the fingerprint to the headers
-        headers.push(self.tpk.fingerprint().to_string());
+        // Add the fingerprint to the front.
+        headers.insert(0, self.tpk.fingerprint().to_string());
 
         headers
     }
@@ -290,11 +290,13 @@ mod tests {
             .map(|header| {
                 assert_eq!(&header.0[..], "Comment");
                 &header.1[..]})
+            .skip(1) // Ignore the first header since it is the fingerprint
             .collect();
+        // TPK canonicalization does not preserve the order of
+        // userids.
         headers.sort();
 
-        // Ignore the first header since it is the fingerprint
-        let mut headers_iter = headers[1..].into_iter();
+        let mut headers_iter = headers.into_iter();
         assert_eq!(headers_iter.next().unwrap(), &userid1_expected);
         assert_eq!(headers_iter.next().unwrap(), &userid5);
         assert_eq!(headers_iter.next().unwrap(), &userid2_expected);
