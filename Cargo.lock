@@ -1040,7 +1040,7 @@ dependencies = [
 
 [[package]]
 name = "nettle-src"
-version = "3.5.1-0"
+version = "3.5.1-2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "cc 1.0.37 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1052,7 +1052,7 @@ version = "2.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "bindgen 0.47.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "nettle-src 3.5.1-0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "nettle-src 3.5.1-2 (registry+https://github.com/rust-lang/crates.io-index)",
  "pkg-config 0.3.14 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -2497,7 +2497,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum native-tls 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)" = "4b2df1a4c22fd44a62147fd8f13dd0f95c9d8ca7b2610299b2a2f9cf8964274e"
 "checksum net2 0.2.33 (registry+https://github.com/rust-lang/crates.io-index)" = "42550d9fb7b6684a6d404d9fa7250c2eb2646df731d1c06afc06dcee9e1bcf88"
 "checksum nettle 5.0.3 (registry+https://github.com/rust-lang/crates.io-index)" = "c40aad15a496df1ae843b5ca10cef328e64d04854404464f464fd5e11aa6d77d"
-"checksum nettle-src 3.5.1-0 (registry+https://github.com/rust-lang/crates.io-index)" = "b7a7edc4649e09f7d8f3644786ccabef3bd8ffa9b3b0c9830f6cf0c9ff42e6b1"
+"checksum nettle-src 3.5.1-2 (registry+https://github.com/rust-lang/crates.io-index)" = "fad3c0d4be23880e92170c10f009f1d4b0dd842a523dd8b35c89738fd3b640c8"
 "checksum nettle-sys 2.0.2 (registry+https://github.com/rust-lang/crates.io-index)" = "ba2d78d13ac7f81027fd80be4f499ad395335cb0749d4ab206c8b9d9c9dec2d6"
 "checksum new_debug_unreachable 1.0.3 (registry+https://github.com/rust-lang/crates.io-index)" = "f40f005c60db6e03bae699e414c58bf9aa7ea02a2d0b9bfbcf19286cc4c82b30"
 "checksum nodrop 0.1.13 (registry+https://github.com/rust-lang/crates.io-index)" = "2f9667ddcc6cc8a43afc9b7917599d7216aa09c463919ea32c59ed6cac8bc945"
