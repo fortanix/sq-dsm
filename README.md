@@ -115,7 +115,7 @@ You can install the needed libraries with the following command:
 
 You can install the needed libraries with the following command:
 
-    $ sudo port install cargo rustc capnproto nettle pkgconfig coreutils
+    $ sudo port install cargo rust capnproto nettle pkgconfig coreutils
 
 ### Windows
 
