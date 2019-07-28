@@ -375,8 +375,6 @@ impl TPKBuilder {
     fn primary_key(&self)
         -> Result<(Key, Signature)>
     {
-        use crate::SignatureType;
-
         let key = self.ciphersuite.generate_key(
             &KeyFlags::default().set_certify(true))?;
         let sig = signature::Builder::new(SignatureType::DirectKey)

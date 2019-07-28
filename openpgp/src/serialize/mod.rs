@@ -2228,7 +2228,6 @@ impl<'a> PacketRef<'a> {
     ///
     ///   [Section 4.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.3
     fn tag(&self) -> packet::Tag {
-        use crate::packet::Tag;
         match self {
             PacketRef::Unknown(ref packet) => packet.tag(),
             PacketRef::Signature(_) => Tag::Signature,

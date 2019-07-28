@@ -84,7 +84,6 @@ impl Signer for KeyPair {
     {
         use crate::PublicKeyAlgorithm::*;
         use crate::crypto::mpis::PublicKey;
-        use memsec;
 
         let mut rng = Yarrow::default();
 
@@ -214,7 +213,6 @@ impl Decryptor for KeyPair {
     {
         use crate::PublicKeyAlgorithm::*;
         use crate::crypto::mpis::PublicKey;
-        use nettle::rsa;
 
         self.secret.map(
             |secret| Ok(match (self.public.mpis(), secret, ciphertext)

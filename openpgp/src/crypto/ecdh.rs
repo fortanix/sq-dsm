@@ -172,8 +172,6 @@ pub fn encrypt_shared(recipient: &Key, session_key: &SessionKey, VB: MPI,
 pub fn decrypt(recipient: &Key, recipient_sec: &SecretKey,
                ciphertext: &Ciphertext)
                -> Result<SessionKey> {
-    use memsec;
-
     match (recipient.mpis(), recipient_sec, ciphertext) {
         (PublicKey::ECDH { ref curve, ..},
          SecretKey::ECDH { ref scalar, },

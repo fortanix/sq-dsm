@@ -266,7 +266,7 @@ impl Key4 {
     /// Generates a new RSA key with a public modulos of size `bits`.
     pub fn generate_rsa(bits: usize) -> Result<Self> {
         use nettle::{rsa, Yarrow};
-        use crate::crypto::mpis::{self, MPI, PublicKey};
+        use crate::crypto::mpis::{MPI, PublicKey};
 
         let mut rng = Yarrow::default();
         let (public, private) = rsa::generate_keypair(&mut rng, bits as u32)?;
@@ -306,10 +306,8 @@ impl Key4 {
             curve25519, curve25519::CURVE25519_SIZE,
             ecc, ecdh, ecdsa,
         };
-        use crate::crypto::mpis::{self, MPI, PublicKey};
-        use crate::constants::{HashAlgorithm, SymmetricAlgorithm, Curve};
+        use crate::crypto::mpis::{MPI, PublicKey};
         use crate::PublicKeyAlgorithm::*;
-        use crate::Error;
 
         let mut rng = Yarrow::default();
 
@@ -540,7 +538,6 @@ impl Key4 {
     ///
     /// Fails if the secret key is missing, or encrypted.
     pub fn into_keypair(mut self) -> Result<KeyPair> {
-        use crate::packet::key::SecretKey;
         let secret = match self.set_secret(None) {
             Some(SecretKey::Unencrypted(secret)) => secret,
             Some(SecretKey::Encrypted(_)) =>
