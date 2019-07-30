@@ -231,7 +231,14 @@ impl KeyringValidator {
         }
 
         self.n_packets += 1;
-        self.tokens.push(token);
+        if destructures_to!(Token::Signature(None) = &token)
+            && destructures_to!(Some(Token::Signature(None)) = self.tokens.last())
+        {
+            // Compress multiple signatures in a row.  This is
+            // essential for dealing with flooded keys.
+        } else {
+            self.tokens.push(token);
+        }
     }
 
     /// Add a packet of type `tag` to the token stream.
