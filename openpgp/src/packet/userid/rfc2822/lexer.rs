@@ -105,7 +105,7 @@ impl<'input> Iterator for Lexer<'input> {
     fn next(&mut self) -> Option<Self::Item> {
         use self::Token::*;
 
-        tracer!(crate::TRACE, "Lexer::next");
+        tracer!(super::TRACE, "Lexer::next");
 
         // Returns the length of the first character in s in bytes.
         // If s is empty, returns 0.

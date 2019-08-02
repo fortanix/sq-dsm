@@ -24,7 +24,6 @@ maintenance = { status = "actively-developed" }
 [dependencies]
 sequoia-openpgp = { path = "../openpgp", version = "0.10", default-features = false }
 sequoia-core = { path = "../core", version = "0.10" }
-sequoia-rfc2822 = { path = "../rfc2822", version = "0.10" }
 
 failure = "0.1.2"
 futures = "0.1"

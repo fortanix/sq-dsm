@@ -38,6 +38,9 @@ pub(crate) fn indent(i: usize) -> &'static str {
 }
 
 macro_rules! tracer {
+    ( $TRACE:expr, $func:expr ) => {
+        tracer!($TRACE, $func, 0)
+    };
     ( $TRACE:expr, $func:expr, $indent:expr ) => {
         // Currently, Rust doesn't support $( ... ) in a nested
         // macro's definition.  See:

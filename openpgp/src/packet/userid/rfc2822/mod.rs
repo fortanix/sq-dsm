@@ -19,63 +19,19 @@
 //!   [OpenPGP implementation]: https://tools.ietf.org/html/rfc4880
 //!   [User IDs]: https://tools.ietf.org/html/rfc4880#section-5.11
 //!   [issue]: https://gitlab.com/sequoia-pgp/sequoia/issues
-//!
-//! # Examples
-//!
-//! Parsing a [`name-addr`]:
-//!
-//! ```
-//! use sequoia_rfc2822::NameAddr;
-//!
-//! let nameaddr = NameAddr::parse(
-//!     "Professor Pippy P. Poopypants <pippy@jerome-horwitz.k12.oh.us>")
-//!     .expect("Valid name-addr");
-//! assert_eq!(nameaddr.name(), Some("Professor Pippy P. Poopypants"));
-//! assert_eq!(nameaddr.comment(), None);
-//! assert_eq!(nameaddr.address(), Some("pippy@jerome-horwitz.k12.oh.us"));
-//!
-//! // Extra angle brackets.
-//! assert!(NameAddr::parse("Invalid <<pippy@jerome-horwitz.k12.oh.us>>")
-//!        .is_err());
-//!
-//! // No angle brackets.
-//! assert!(NameAddr::parse("pippy@jerome-horwitz.k12.oh.us")
-//!        .is_err());
-//! ```
-//!
-//! Parsing an [`addr-spec`]:
-//!
-//! ```
-//! use sequoia_rfc2822::AddrSpec;
-//!
-//! let addrspec = AddrSpec::parse(
-//!     "pippy@jerome-horwitz.k12.oh.us")
-//!     .expect("Valid addr-spec");
-//! assert_eq!(addrspec.address(), "pippy@jerome-horwitz.k12.oh.us");
-//!
-//! // Angle brackets are not allowed.
-//! assert!(AddrSpec::parse("<pippy@jerome-horwitz.k12.oh.us>")
-//!        .is_err());
-//! ```
 
 extern crate failure;
 extern crate lalrpop_util;
 
-#[cfg(test)] #[macro_use] extern crate lazy_static;
-#[cfg(test)] #[macro_use] extern crate quickcheck;
-#[cfg(test)] extern crate rand;
-
 use lalrpop_util::ParseError;
 
-#[macro_use] mod macros;
-#[macro_use] mod trace;
 mod strings;
 #[macro_use] mod component;
-use crate::component::{
+use component::{
     Component
 };
 mod lexer;
-use crate::lexer::LexicalError;
+use lexer::LexicalError;
 
 // We expose a number of productions for testing purposes.
 // Unfortunately, lalrpop doesn't understand the #[cfg(test)]
@@ -88,11 +44,12 @@ mod grammar;
 mod grammar;
 
 #[cfg(test)]
+#[allow(non_snake_case)]
 mod roundtrip;
 
-const TRACE : bool = false;
+use crate::Result;
 
-pub type Result<T> = ::std::result::Result<T, failure::Error>;
+const TRACE : bool = false;
 
 // A failure needs to have a 'static life time.  lexer::Tokens don't.
 // Convert tokens into strings.
@@ -129,7 +86,7 @@ fn parse_error_downcast<'a>(e: ParseError<usize, lexer::Token<'a>, LexicalError>
 }
 
 /// A `DisplayName`.
-pub struct Name {
+pub(crate) struct Name {
 }
 
 impl Name {
@@ -138,7 +95,7 @@ impl Name {
     ///
     /// Returns an error if `name` contains characters that cannot be
     /// escaped (NUL, CR and LF).
-    pub fn escaped<S>(name: S) -> Result<String>
+    pub(crate) fn escaped<S>(name: S) -> Result<String>
         where S: AsRef<str>
     {
         let name = name.as_ref();
@@ -166,7 +123,7 @@ impl Name {
 ///
 /// RFC 2822 comments are ignored.
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct AddrSpec {
+pub(crate) struct AddrSpec {
     components: Vec<Component>,
 }
 
@@ -196,7 +153,7 @@ impl AddrSpec {
     /// `addr-spec`].
     ///
     /// [RFC 2822 `addr-spec`]: https://tools.ietf.org/html/rfc2822#section-3.4
-    pub fn parse<S>(input: S) -> Result<Self>
+    pub(crate) fn parse<S>(input: S) -> Result<Self>
         where S: AsRef<str>
     {
         let input = input.as_ref();
@@ -212,7 +169,7 @@ impl AddrSpec {
     }
 
     /// Returns the address.
-    pub fn address(&self) -> &str {
+    pub(crate) fn address(&self) -> &str {
         for c in self.components.iter() {
             if let Component::Address(t) = c {
                 return &t[..];
@@ -255,7 +212,7 @@ impl AddrSpec {
 /// `ssh://server.example.net`.  The parse error can still be obtained
 /// using `AddrSpecOrOther::address()`.
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct AddrSpecOrOther {
+pub(crate) struct AddrSpecOrOther {
     components: Vec<Component>,
 }
 
@@ -283,7 +240,7 @@ impl AddrSpecOrOther {
     /// `addr-spec`] or other.
     ///
     /// [RFC 2822 `addr-spec`]: https://tools.ietf.org/html/rfc2822#section-3.4
-    pub fn parse<S>(input: S) -> Result<Self>
+    pub(crate) fn parse<S>(input: S) -> Result<Self>
         where S: AsRef<str>
     {
         let input = input.as_ref();
@@ -301,7 +258,7 @@ impl AddrSpecOrOther {
     /// Returns the address, if any.
     ///
     /// If the address is invalid, then the parse error is returned.
-    pub fn address(&self) -> Result<&str> {
+    pub(crate) fn address(&self) -> Result<&str> {
         for c in self.components.iter() {
             if let Component::Address(t) = c {
                 return Ok(&t[..]);
@@ -317,7 +274,7 @@ impl AddrSpecOrOther {
     /// Returns the invalid address, if any.
     ///
     /// If the address is valid, then this returns None.
-    pub fn other(&self) -> Option<&str> {
+    pub(crate) fn other(&self) -> Option<&str> {
         for c in self.components.iter() {
             if let Component::Address(_) = c {
                 return None;
@@ -352,7 +309,7 @@ impl AddrSpecOrOther {
 ///
 /// [RFC 2822 `name-addr`]: https://tools.ietf.org/html/rfc2822#section-3.4
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct NameAddr {
+pub(crate) struct NameAddr {
     components: Vec<Component>,
 }
 
@@ -417,7 +374,7 @@ impl NameAddr {
     /// `name-addr`].
     ///
     /// [RFC 2822 `name-addr`]: https://tools.ietf.org/html/rfc2822#section-3.4
-    pub fn parse<S>(input: S) -> Result<Self>
+    pub(crate) fn parse<S>(input: S) -> Result<Self>
         where S: AsRef<str>
     {
         let input = input.as_ref();
@@ -435,7 +392,7 @@ impl NameAddr {
     /// Returns the [display name].
     ///
     /// [display name]: https://tools.ietf.org/html/rfc2822#section-3.4
-    pub fn name(&self) -> Option<&str> {
+    pub(crate) fn name(&self) -> Option<&str> {
         for c in self.components.iter() {
             if let Component::Text(t) = c {
                 return Some(&t[..]);
@@ -445,7 +402,7 @@ impl NameAddr {
     }
 
     /// Returns the first comment.
-    pub fn comment(&self) -> Option<&str> {
+    pub(crate) fn comment(&self) -> Option<&str> {
         for c in self.components.iter() {
             if let Component::Comment(t) = c {
                 return Some(&t[..]);
@@ -455,7 +412,7 @@ impl NameAddr {
     }
 
     /// Returns the address.
-    pub fn address(&self) -> Option<&str> {
+    pub(crate) fn address(&self) -> Option<&str> {
         for c in self.components.iter() {
             if let Component::Address(t) = c {
                 return Some(&t[..]);
@@ -498,7 +455,7 @@ impl NameAddr {
 /// `NameAddrOrOther::address()` will return the parse error, and the
 /// invalid address can be obtained using `NameAddrOrOther::other()`.
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct NameAddrOrOther {
+pub(crate) struct NameAddrOrOther {
     components: Vec<Component>,
 }
 
@@ -558,7 +515,7 @@ impl NameAddrOrOther {
     /// `name-addr`] with an optionally invalid email address.
     ///
     /// [RFC 2822 `name-addr`]: https://tools.ietf.org/html/rfc2822#section-3.4
-    pub fn parse<S>(input: S) -> Result<Self>
+    pub(crate) fn parse<S>(input: S) -> Result<Self>
         where S: AsRef<str>
     {
         let input = input.as_ref();
@@ -576,7 +533,7 @@ impl NameAddrOrOther {
     /// Returns the [display name].
     ///
     /// [display name]: https://tools.ietf.org/html/rfc2822#section-3.4
-    pub fn name(&self) -> Option<&str> {
+    pub(crate) fn name(&self) -> Option<&str> {
         for c in self.components.iter() {
             if let Component::Text(t) = c {
                 return Some(&t[..]);
@@ -586,7 +543,7 @@ impl NameAddrOrOther {
     }
 
     /// Returns the first comment.
-    pub fn comment(&self) -> Option<&str> {
+    pub(crate) fn comment(&self) -> Option<&str> {
         for c in self.components.iter() {
             if let Component::Comment(t) = c {
                 return Some(&t[..]);
@@ -598,7 +555,7 @@ impl NameAddrOrOther {
     /// Returns the address, if any.
     ///
     /// If the address is invalid, then the parse error is returned.
-    pub fn address(&self) -> Result<&str> {
+    pub(crate) fn address(&self) -> Result<&str> {
         for c in self.components.iter() {
             if let Component::Address(t) = c {
                 return Ok(&t[..]);
@@ -614,7 +571,7 @@ impl NameAddrOrOther {
     /// Returns the invalid address, if any.
     ///
     /// If the address is valid, then this returns None.
-    pub fn other(&self) -> Option<&str> {
+    pub(crate) fn other(&self) -> Option<&str> {
         for c in self.components.iter() {
             if let Component::Address(_) = c {
                 return None;

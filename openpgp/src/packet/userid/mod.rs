@@ -6,18 +6,20 @@ use std::cmp::Ordering;
 use std::sync::Mutex;
 
 use quickcheck::{Arbitrary, Gen};
-use crate::rfc2822::{
+use failure::ResultExt;
+
+use crate::Result;
+use crate::packet;
+use crate::Packet;
+
+mod rfc2822;
+use rfc2822::{
     AddrSpec,
     AddrSpecOrOther,
     Name,
     NameAddr,
     NameAddrOrOther,
 };
-use failure::ResultExt;
-
-use crate::Result;
-use crate::packet;
-use crate::Packet;
 
 struct ParsedUserID {
     name: Option<String>,

@@ -36,7 +36,6 @@ nettle = "5.0.2"
 quickcheck = { version = "0.9", default-features = false }
 rand = { version = "0.7", default-features = false }
 time = "0.1.40"
-sequoia-rfc2822 = { path = "../rfc2822", version = "0.10" }
 
 [build-dependencies]
 lalrpop = "0.17"

@@ -3,9 +3,9 @@ use std::cmp;
 use lalrpop_util::ParseError;
 use quickcheck::{Arbitrary, Gen};
 use rand::Rng;
-use crate::lexer;
-use crate::grammar;
-use crate::component::{Component, components_merge};
+use super::lexer;
+use super::grammar;
+use super::component::{Component, components_merge};
 
 // We put each type of token in its own struct, which contains exactly
 // one element, a String (e.g., 'Foo(String)').
