@@ -30,7 +30,7 @@ use buffered_reader::BufferedReader;
 use std::io::{Cursor, Read, Write};
 use std::io::{Result, Error, ErrorKind};
 use std::path::Path;
-use std::cmp::min;
+use std::cmp;
 use std::str;
 use quickcheck::{Arbitrary, Gen};
 
@@ -340,7 +340,7 @@ impl<W: Write> Write for Writer<W> {
         written += input.len();
         let mut enc = encoded.as_bytes();
         while enc.len() > 0 {
-            let n = min(LINE_LENGTH - self.column, enc.len());
+            let n = cmp::min(LINE_LENGTH - self.column, enc.len());
             self.sink.write_all(&enc[..n])?;
             enc = &enc[n..];
             self.column += n;
@@ -928,7 +928,7 @@ impl<'a> Read for Reader<'a> {
         let mut read = 0;
 
         // First, use what we have in the buffer.
-        let amount = min(buf.len(), self.buffer.len());
+        let amount = cmp::min(buf.len(), self.buffer.len());
         &mut buf[..amount].copy_from_slice(&self.buffer[..amount]);
         self.buffer.drain(..amount);
         read += amount;
@@ -976,7 +976,7 @@ impl<'a> Read for Reader<'a> {
                         // done.
 
                         // We need to try to discard garbage at the end.
-                        let mut end = min(raw.len(), want);
+                        let mut end = cmp::min(raw.len(), want);
                         loop {
                             match base64::decode_config(&raw[..end],
                                                         base64::MIME) {
