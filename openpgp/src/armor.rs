@@ -32,6 +32,7 @@ use std::io::{Result, Error, ErrorKind};
 use std::path::Path;
 use std::cmp;
 use std::str;
+use std::borrow::Cow;
 use quickcheck::{Arbitrary, Gen};
 
 use crate::packet::prelude::*;
@@ -134,16 +135,6 @@ impl Kind {
     fn header_len(&self) -> usize {
         "-----BEGIN PGP -----".len()
             + self.blurb().len()
-    }
-
-    /// Returns the maximal size of the footer with CRC.
-    fn footer_max_len(&self) -> usize {
-        (5    // CRC
-         + 4  // CR NL CR NL
-         + 18 // "-----END PGP -----"
-         + self.blurb().len()
-         + 2  // CR NL
-        )
     }
 }
 
@@ -579,12 +570,12 @@ impl<'a> Reader<'a> {
                     let mut o = [ 0u8; 4 ];
 
                     CTBNew::new(tag).serialize_into(&mut ctb[..]).unwrap();
-                    base64::encode_config_slice(&ctb[..], base64::MIME, &mut o[..]);
+                    base64::encode_config_slice(&ctb[..], base64::STANDARD, &mut o[..]);
                     valid_start.push(o[0]);
 
                     CTBOld::new(tag, BodyLength::Full(0)).unwrap()
                         .serialize_into(&mut ctb[..]).unwrap();
-                    base64::encode_config_slice(&ctb[..], base64::MIME, &mut o[..]);
+                    base64::encode_config_slice(&ctb[..], base64::STANDARD, &mut o[..]);
                     valid_start.push(o[0]);
                 }
 
@@ -754,57 +745,139 @@ impl<'a> Reader<'a> {
         self.initialized = true;
         Ok(())
     }
+}
 
-    /// Parses the footer.
-    fn finalize(footer: &[u8], kind: Option<Kind>) -> Result<Option<u32>> {
-        let mut off = 0;
+// Remove whitespace, etc. from the base64 data.
+//
+// This function returns the filtered base64 data (i.e., stripped of
+// all skipable data like whitespace), and the amount of unfiltered
+// data that corresponds to.  Thus, if we have the following 7 bytes:
+//
+//     ab  cde
+//     0123456
+//
+// This function returns ("abcd", 6), because the 'd' is the last
+// character in the last complete base64 chunk, and it is at offset 5.
+//
+// If 'd' is follow by whitespace, it is undefined whether that
+// whitespace is included in the count.
+//
+// This function only returns full chunks of base64 data.  As a
+// consequence, if base64_data_max is less than 4, then this will not
+// return any data.
+//
+// This function will stop after it sees base64 padding, and if it
+// sees invalid base64 data.
+fn base64_filter(mut bytes: Cow<[u8]>, base64_data_max: usize)
+    -> (Cow<[u8]>, usize)
+{
+    let mut leading_whitespace = 0;
 
-        /* Look for CRC.  The CRC is optional.  */
-        let crc = if footer.len() >= 6 && footer[0] == '=' as u8
-            && footer[1..5].iter().all(is_base64_char)
-        {
-            /* Found.  */
-            let crc = match base64::decode_config(&footer[1..5], base64::MIME) {
-                Ok(d) => d,
-                Err(e) => return Err(Error::new(ErrorKind::InvalidInput, e)),
-            };
+    // Round down to the nearest chunk size.
+    let base64_data_max = base64_data_max / 4 * 4;
 
-            assert_eq!(crc.len(), 3);
-            let crc =
-                (crc[0] as u32) << 16
-                | (crc[1] as u32) << 8
-                | crc[2] as u32;
+    // Number of bytes of base64 data.  Since we update `bytes` in
+    // place, the base64 data is `&bytes[..base64_len]`.
+    let mut base64_len = 0;
 
-            /* Update offset, skip whitespace.  */
-            off += 5;
-            while off < footer.len() && footer[off].is_ascii_whitespace() {
-                off += 1;
+    // Offset of the next byte of unfiltered data to process.
+    let mut unfiltered_offset = 0;
+
+    // Offset of the last byte of the last ***complete*** base64 chunk
+    // in the unfiltered data.
+    let mut unfiltered_complete_len = 0;
+
+    // Number of bytes of padding that we've seen so far.
+    let mut padding = 0;
+
+    while unfiltered_offset < bytes.len()
+        && base64_len < base64_data_max
+        // A valid base64 chunk never starts with padding.
+        && ! (padding > 0 && base64_len % 4 == 0)
+    {
+        match bytes[unfiltered_offset] {
+            // White space.
+            c if c.is_ascii_whitespace() => {
+                if unfiltered_offset == 0 {
+                    match bytes {
+                        Cow::Borrowed(s) => {
+                            // We're at the beginning.  Avoid moving
+                            // data by cutting off the start of the
+                            // slice.
+                            bytes = Cow::Borrowed(&s[1..]);
+                            leading_whitespace += 1;
+                            continue;
+                        }
+                        Cow::Owned(_) => (),
+                    }
+                }
             }
 
-            Some(crc)
-        } else {
-            None
-        };
+            // Padding.
+            b'=' => {
+                if padding == 2 {
+                    // There can never be more than two bytes of
+                    // padding.
+                    break;
+                }
+                if base64_len % 4 == 0 {
+                    // Padding can never occur at the start of a
+                    // base64 chunk.
+                    break;
+                }
 
-        if let Some(kind) = kind {
-            if ! footer[off..].starts_with(&kind.end().into_bytes()) {
-                return Err(Error::new(ErrorKind::InvalidInput, "Invalid ASCII Armor footer."));
+                if unfiltered_offset != base64_len {
+                    bytes.to_mut()[base64_len] = b'=';
+                }
+                base64_len += 1;
+                if base64_len % 4 == 0 {
+                    unfiltered_complete_len = unfiltered_offset + 1;
+                }
+                padding += 1;
             }
+
+            // The only thing that can occur after padding is
+            // whitespace or padding.  Those cases were covered above.
+            _ if padding > 0 => break,
+
+            // Base64 data!
+            b if is_base64_char(&b) => {
+                if unfiltered_offset != base64_len {
+                    bytes.to_mut()[base64_len] = b;
+                }
+                base64_len += 1;
+                if base64_len % 4 == 0 {
+                    unfiltered_complete_len = unfiltered_offset + 1;
+                }
+            }
+
+            // Not base64 data.
+            _ => break,
         }
 
-        Ok(crc)
+        unfiltered_offset += 1;
+    }
+
+    let base64_len = base64_len - (base64_len % 4);
+    unfiltered_complete_len += leading_whitespace;
+    match bytes {
+        Cow::Borrowed(s) =>
+            (Cow::Borrowed(&s[..base64_len]), unfiltered_complete_len),
+        Cow::Owned(mut v) => {
+            v.truncate(base64_len);
+            (Cow::Owned(v), unfiltered_complete_len)
+        }
     }
 }
 
 /// Checks whether the given bytes contain armored OpenPGP data.
 fn is_armored_pgp_blob(bytes: &[u8]) -> bool {
-    let bytes = if let Some(msg) = get_base64_prefix(bytes) {
-        msg
-    }  else {
-        return false;
-    };
+    // Get up to 32 bytes of base64 data.  That's 24 bytes of data
+    // (ignoring padding), which is more than enough to get the first
+    // packet's header.
+    let (bytes, _) = base64_filter(Cow::Borrowed(bytes), 32);
 
-    match base64::decode_config(bytes, base64::MIME) {
+    match base64::decode_config(&bytes, base64::STANDARD) {
         Ok(d) => {
             // Don't consider an empty message to be valid.
             if d.len() == 0 {
@@ -823,244 +896,222 @@ fn is_armored_pgp_blob(bytes: &[u8]) -> bool {
     }
 }
 
-/// Gets a slice containing the largest valid base64 prefix.
-fn get_base64_prefix(bytes: &[u8]) -> Option<&[u8]> {
-    let mut padding = 0;
-    let mut base64_chars = 0;
-
-    let mut result = bytes;
-    for (i, c) in bytes.iter().enumerate() {
-        if c.is_ascii_whitespace() {
-            continue;
-        }
-
-        if padding > 0 && *c != '=' as u8 {
-            result = &bytes[..i];
-            break;
-        }
-
-        if *c == '=' as u8 {
-            padding += 1;
-            base64_chars += 1;
-            if base64_chars % 4 == 0 || padding == 2 {
-                result = &bytes[..i];
-                break;
-            }
-        } else if is_base64_char(c) {
-            base64_chars += 1;
-        } else {
-            if i == 0 {
-                return None;
-            } else {
-                result = &bytes[..i];
-                break;
-            }
-        }
-    }
-
-    // If we have too much, just chop off a few characters.
-    while base64_chars % 4 != 0 {
-        let suffix = result[result.len() - 1];
-        if is_base64_char(&suffix) || suffix == b'=' {
-            base64_chars -= 1;
-        }
-        result = &result[..result.len() - 1];
-    }
-
-    return Some(result);
-}
-
 /// Checks whether the given byte is in the base64 character set.
 fn is_base64_char(b: &u8) -> bool {
     b.is_ascii_alphanumeric() || *b == '+' as u8 || *b == '/' as u8
 }
 
-/// Checks whether the given slice looks like an armor footer.  If so,
-/// returns the size of the footer.
-fn is_footer(buf: &[u8], reference: &[u8]) -> Option<usize> {
-    if buf.len() < reference.len() {
-        return None;
-    }
-
-    let mut off = 0;
-
-    // Look for CRC.  The CRC is optional.
-    if buf.len() >= 6 && buf[0] == '=' as u8
-        && buf[1..5].iter().all(is_base64_char)
-    {
-        // Found.  Update offset, skip whitespace.
-        off += 5;
-        while off < buf.len() && buf[off].is_ascii_whitespace() {
-            off += 1;
-        }
-    }
-
-    if buf[off..].starts_with(reference) {
-        Some(off + reference.len())
-    } else {
-        None
-    }
+/// Returns the number of bytes of base64 data are needed to encode
+/// `s` bytes of raw data.
+fn base64_size(s: usize) -> usize {
+    (s + 3 - 1) / 3 * 4
 }
 
-/// Looks for the footer, returning the footer's offset, and the end
-/// of the footer.
-fn find_footer(buf: &[u8], kind: Kind) -> Option<(usize, usize)> {
-    let reference = kind.end().into_bytes();
-
-    if buf.len() < reference.len() {
-        return None;
-    }
-
-    for i in 0..buf.len() - reference.len() {
-        if let Some(length) = is_footer(&buf[i..], &reference) {
-            // Found footer at offset i.
-            return Some((i, i + length));
-        }
-    }
-    None
+#[test]
+fn base64_size_test() {
+    assert_eq!(base64_size(0), 0);
+    assert_eq!(base64_size(1), 4);
+    assert_eq!(base64_size(2), 4);
+    assert_eq!(base64_size(3), 4);
+    assert_eq!(base64_size(4), 8);
+    assert_eq!(base64_size(5), 8);
+    assert_eq!(base64_size(6), 8);
+    assert_eq!(base64_size(7), 12);
 }
 
 impl<'a> Read for Reader<'a> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
-        self.initialize()?;
-
-        /* How much did we get?  */
-        let mut read = 0;
-
-        // First, use what we have in the buffer.
-        let amount = cmp::min(buf.len(), self.buffer.len());
-        &mut buf[..amount].copy_from_slice(&self.buffer[..amount]);
-        self.buffer.drain(..amount);
-        read += amount;
-
-        // If we could satisfy the read from the buffer, we're done.
-        if read == buf.len() {
-            return Ok(read);
+        if ! self.initialized {
+            self.initialize()?;
         }
-        assert_eq!(self.buffer.len(), 0);
 
-        // Our buffer is drained.  If we are finalized, nothing more
-        // can be read.
         if self.finalized {
-            return Ok(read);
+            assert_eq!(self.buffer.len(), 0);
+            return Ok(0);
         }
 
-        let (consumed, decoded) = {
-            // Try to get enough bytes to fill buf, account for bytes
-            // filled using our buffer, round up, and add enough for
-            // the footer.
-            //
-            // Later, we may have to get some more until we have a
-            // multiple of four non-whitespace ASCII characters.
-            let mut want = (buf.len() - read + 2) / 3 * 4
-                + self.kind.map(|k| k.footer_max_len()).unwrap_or(46);
+        let (consumed, decoded) = if self.buffer.len() > 0 {
+            // We have something buffered, use that.
 
-            // Keep track of how much we got last time to detect
-            // hitting EOF.
-            let mut got = 0;
+            let amount = cmp::min(buf.len(), self.buffer.len());
+            buf[..amount].copy_from_slice(&self.buffer[..amount]);
+            self.buffer.drain(..amount);
 
-            'readloop: loop {
-                let raw = self.source.data(want)?;
-                if raw.len() == got {
-                    // EOF.  Decide how to proceed.
-
-                    if self.mode != ReaderMode::VeryTolerant {
-                        // If we are here, we should have seen a
-                        // footer by now.
-                        return Err(Error::new(ErrorKind::UnexpectedEof,
-                                              "Armor footer is missing"));
-                    } else {
-                        // Otherwise, we may have found only the blob,
-                        // or the footer is damaged, or missing.  Try
-                        // to decode what we have got, then we are
-                        // done.
-
-                        // We need to try to discard garbage at the end.
-                        let mut end = cmp::min(raw.len(), want);
-                        loop {
-                            match base64::decode_config(&raw[..end],
-                                                        base64::MIME) {
-                                Ok(d) => break 'readloop (end, d),
-                                Err(_) =>
-                                    if end == 0 {
-                                        // No more valid data.
-                                        break 'readloop (raw.len(), vec![]);
-                                    } else {
-                                        end -= 1;
-                                    },
-                            }
-                        }
-                    }
-                } else {
-                    got = raw.len();
-                }
-
-                // Check if we see the footer.  If so, we're almost done.
-                if let Some(kind) = self.kind {
-                    if let Some((n, end)) = find_footer(&raw, kind) {
-                        self.expect_crc = Reader::finalize(&raw[n..], self.kind)?;
-                        self.finalized = true;
-                        match base64::decode_config(&raw[..n], base64::MIME) {
-                            Ok(d) => break (end, d),
-                            Err(e) =>
-                                return Err(Error::new(ErrorKind::InvalidInput, e)),
-                        }
-                    }
-                }
-
-                // See how many valid characters we got.
-                let n = &raw.iter().filter(
-                    |c| ! (**c).is_ascii_whitespace()).count();
-                if n % 4 == 0 {
-                    // Enough!  Try to decode them.
-
-                    // We need to try to discard garbage at the end.
-                    let mut end = raw.len();
-                    loop {
-                        match base64::decode_config(&raw[..end],
-                                                    base64::MIME) {
-                            Ok(d) => break 'readloop (end, d),
-                            Err(_) =>
-                                if end == 0 {
-                                    // No more valid data.
-                                    break 'readloop (raw.len(), vec![]);
-                                } else {
-                                    end -= 1;
-                                },
-                        }
-                    }
-                }
-
-                // Otherwise, get some more bytes.
-                want = got + 4 - n % 4;
-            }
-        };
-        self.source.consume(consumed);
-        self.crc.update(&decoded);
-
-        /* Check how much we got vs how much was requested.  */
-        if decoded.len() <= (buf.len() - read) {
-            &mut buf[read..read + decoded.len()].copy_from_slice(&decoded);
-            read += decoded.len();
+            (0, amount)
         } else {
-            // We got more than we wanted, spill the surplus into our
-            // buffer.
-            let spill = decoded.len() - (buf.len() - read);
+            // We need to decode some data.  We consider three cases,
+            // all a function of the size of `buf`:
+            //
+            //   - Tiny: if `buf` can hold less than three bytes, then
+            //     we almost certainly have to double buffer: except
+            //     at the very end, a base64 chunk consists of 3 bytes
+            //     of data.
+            //
+            //     Note: this happens if the caller does `for c in
+            //     Reader::new(...).bytes() ...`.  Then it reads one
+            //     byte of decoded data at a time.
+            //
+            //   - Small: if the caller only requests a few bytes at a
+            //     time, we may as well double buffer to reduce
+            //     decoding overhead.
+            //
+            //   - Large: if `buf` is large, we can decode directly
+            //     into `buf` and avoid double buffering.  But,
+            //     because we ignore whitespace, it is hard to
+            //     determine exactly how much data to read to
+            //     maximally fill `buf`.
 
-            &mut buf[read..read + decoded.len() - spill].copy_from_slice(
-                &decoded[..decoded.len() - spill]);
-            read += decoded.len() - spill;
+            // We use 64, because ASCII-armor text usually contains 64
+            // characters of base64 data per line, and this prevents
+            // turning the borrow into an own.
+            const THRESHOLD : usize = 64;
 
-            self.buffer.extend_from_slice(&decoded[decoded.len() - spill..]);
-        }
+            let to_read =
+                cmp::max(
+                    // Tiny or small:
+                    THRESHOLD + 2,
 
-        /* If we are finalized, we may have found a crc sum.  */
-        if let Some(crc) = self.expect_crc {
-            if self.crc.finalize() != crc {
-                return Err(Error::new(ErrorKind::InvalidInput, "Bad CRC sum."));
+                    // Large: a heuristic:
+
+                    base64_size(buf.len())
+                    // Assume about 2 bytes of whitespace (crlf) per
+                    // 64 character line.
+                        + 2 * ((buf.len() + 63) / 64));
+
+            let base64data = self.source.data(to_read)?;
+            let base64data = if base64data.len() > to_read {
+                &base64data[..to_read]
+            } else {
+                base64data
+            };
+
+            let (base64data, consumed)
+                = base64_filter(Cow::Borrowed(base64data),
+                                // base64_size rounds up, but we want
+                                // to round down as we have to double
+                                // buffer partial chunks.
+                                cmp::max(THRESHOLD, buf.len() / 3 * 4));
+
+            // We shouldn't have any partial chunks.
+            assert_eq!(base64data.len() % 4, 0);
+
+            let decoded = if base64data.len() / 4 * 3 > buf.len() {
+                // We need to double buffer.  Decode into a vector.
+                // (Note: the computed size *might* be a slight
+                // overestimate, because the last base64 chunk may
+                // include padding.)
+                self.buffer = base64::decode_config(
+                    &base64data, base64::STANDARD)
+                    .map_err(|e| Error::new(ErrorKind::InvalidData, e))?;
+
+                self.crc.update(&self.buffer);
+
+                let copied = cmp::min(buf.len(), self.buffer.len());
+                buf[..copied].copy_from_slice(&self.buffer[..copied]);
+                self.buffer.drain(..copied);
+
+                copied
+            } else {
+                // We can decode directly into the caller-supplied
+                // buffer.
+                let decoded = base64::decode_config_slice(
+                    &base64data, base64::STANDARD, buf)
+                    .map_err(|e| Error::new(ErrorKind::InvalidData, e))?;
+
+                self.crc.update(&buf[..decoded]);
+
+                decoded
+            };
+
+            (consumed, decoded)
+        };
+
+        self.source.consume(consumed);
+
+        if decoded == 0 {
+            self.finalized = true;
+
+            /* Look for CRC.  The CRC is optional.  */
+            let consumed = {
+                // Skip whitespace.
+                while self.source.data(1)?.len() > 0
+                    && self.source.buffer()[0].is_ascii_whitespace()
+                {
+                    self.source.consume(1);
+                }
+
+                let data = self.source.data(5)?;
+                let data = if data.len() > 5 {
+                    &data[..5]
+                } else {
+                    data
+                };
+
+                if data.len() == 5
+                    && data[0] == '=' as u8
+                    && data[1..5].iter().all(is_base64_char)
+                {
+                    /* Found.  */
+                    let crc = match base64::decode_config(
+                        &data[1..5], base64::STANDARD)
+                    {
+                        Ok(d) => d,
+                        Err(e) => return Err(Error::new(ErrorKind::InvalidInput, e)),
+                    };
+
+                    assert_eq!(crc.len(), 3);
+                    let crc =
+                        (crc[0] as u32) << 16
+                        | (crc[1] as u32) << 8
+                        | crc[2] as u32;
+
+                    self.expect_crc = Some(crc);
+                    5
+                } else {
+                    0
+                }
+            };
+            self.source.consume(consumed);
+
+            // Look for a footer.
+            let consumed = {
+                // Skip whitespace.
+                while self.source.data(1)?.len() > 0
+                    && self.source.buffer()[0].is_ascii_whitespace()
+                {
+                    self.source.consume(1);
+                }
+
+                // If we had a header, we require a footer.
+                if let Some(kind) = self.kind {
+                    let footer = kind.end();
+                    let got = self.source.data(footer.len())?;
+                    let got = if got.len() > footer.len() {
+                        &got[..footer.len()]
+                    } else {
+                        got
+                    };
+                    if footer.as_bytes() != got {
+                        return Err(Error::new(ErrorKind::InvalidInput,
+                                              "Invalid ASCII Armor footer."));
+                    }
+
+                    footer.len()
+                } else {
+                    0
+                }
+            };
+            self.source.consume(consumed);
+
+            if let Some(crc) = self.expect_crc {
+                if self.crc.finalize() != crc {
+                    return Err(Error::new(ErrorKind::InvalidInput,
+                                          "Bad CRC sum."));
+                }
             }
         }
-        Ok(read)
+
+        Ok(decoded)
     }
 }
 
