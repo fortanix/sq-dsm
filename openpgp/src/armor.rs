@@ -1270,9 +1270,16 @@ mod test {
                 &include_bytes!("../tests/data/armor/test-2.bad-footer.asc")[..]
             ),
             ReaderMode::Tolerant(Some(Kind::File)));
-        let mut buf = [0; 5];
-        let e = r.read(&mut buf);
-        assert!(e.is_err());
+        let mut read = 0;
+        loop {
+            let mut buf = [0; 5];
+            match r.read(&mut buf) {
+                Ok(0) => panic!("Reached EOF, but expected an error!"),
+                Ok(r) => read += r,
+                Err(_) => break,
+            }
+        }
+        assert!(read <= 2);
     }
 
     #[test]
