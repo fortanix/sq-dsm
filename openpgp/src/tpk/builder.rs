@@ -452,14 +452,14 @@ mod tests {
             .set_cipher_suite(CipherSuite::RSA3k)
             .set_cipher_suite(CipherSuite::Cv25519)
             .generate().unwrap();
-        assert_eq!(tpk1.primary().pk_algo(), PublicKeyAlgorithm::EdDSA);
+        assert_eq!(tpk1.primary().key().pk_algo(), PublicKeyAlgorithm::EdDSA);
 
         let (tpk2, _) = TPKBuilder::new()
             .set_cipher_suite(CipherSuite::RSA3k)
             .add_userid("test2@example.com")
             .add_encryption_subkey()
             .generate().unwrap();
-        assert_eq!(tpk2.primary().pk_algo(),
+        assert_eq!(tpk2.primary().key().pk_algo(),
                    PublicKeyAlgorithm::RSAEncryptSign);
         assert_eq!(tpk2.subkeys().next().unwrap().key().pk_algo(),
                    PublicKeyAlgorithm::RSAEncryptSign);
@@ -470,7 +470,7 @@ mod tests {
         let (tpk1, _) = TPKBuilder::new()
             .add_userid("test2@example.com")
             .generate().unwrap();
-        assert_eq!(tpk1.primary().pk_algo(),
+        assert_eq!(tpk1.primary().key().pk_algo(),
                    PublicKeyAlgorithm::EdDSA);
         assert!(tpk1.subkeys().next().is_none());
         if let Some(sig) = tpk1.primary_key_signature() {
@@ -486,7 +486,7 @@ mod tests {
         let (tpk1, _) = TPKBuilder::autocrypt(Autocrypt::V1,
                                               Some("Foo"))
             .generate().unwrap();
-        assert_eq!(tpk1.primary().pk_algo(),
+        assert_eq!(tpk1.primary().key().pk_algo(),
                    PublicKeyAlgorithm::RSAEncryptSign);
         assert_eq!(tpk1.subkeys().next().unwrap().key().pk_algo(),
                    PublicKeyAlgorithm::RSAEncryptSign);
@@ -498,7 +498,7 @@ mod tests {
         let (tpk1, _) = TPKBuilder::autocrypt(Autocrypt::V1_1,
                                               Some("Foo"))
             .generate().unwrap();
-        assert_eq!(tpk1.primary().pk_algo(),
+        assert_eq!(tpk1.primary().key().pk_algo(),
                    PublicKeyAlgorithm::EdDSA);
         assert_eq!(tpk1.subkeys().next().unwrap().key().pk_algo(),
                    PublicKeyAlgorithm::ECDH);
@@ -582,7 +582,7 @@ mod tests {
             .set_cipher_suite(CipherSuite::Cv25519)
             .set_password(Some(String::from("streng geheim").into()))
             .generate().unwrap();
-        assert!(tpk.primary().secret().unwrap().is_encrypted());
+        assert!(tpk.primary().key().secret().unwrap().is_encrypted());
     }
 
     #[test]

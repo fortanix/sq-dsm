@@ -745,9 +745,9 @@ mod tests {
 
     #[test]
     fn encrypted_rsa_key() {
-        let mut tpk = TPK::from_bytes(
+        let tpk = TPK::from_bytes(
             crate::tests::key("testy-new-encrypted-with-123.pgp")).unwrap();
-        let pair = tpk.primary_mut();
+        let mut pair = tpk.primary().key().clone();
         let pk_algo = pair.pk_algo();
         let secret = pair.secret.as_mut().unwrap();
 

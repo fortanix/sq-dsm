@@ -34,11 +34,13 @@ pub TPK: Option<TPK> = {
                 let c = c.unwrap();
 
                 let mut tpk = TPK {
-                    primary: key,
-                    primary_selfsigs: vec![],
-                    primary_certifications: sigs,
-                    primary_self_revocations: vec![],
-                    primary_other_revocations: vec![],
+                    primary: KeyBinding {
+                        component: key,
+                        selfsigs: vec![],
+                        certifications: sigs,
+                        self_revocations: vec![],
+                        other_revocations: vec![],
+                    },
                     subkeys: vec![],
                     userids: vec![],
                     user_attributes: vec![],

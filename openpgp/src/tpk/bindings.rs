@@ -29,7 +29,7 @@ impl Key {
     /// # fn f() -> Result<()> {
     /// // Generate a TPK, and create a keypair from the primary key.
     /// let (tpk, _) = TPKBuilder::new().generate()?;
-    /// let mut keypair = tpk.primary().clone().into_keypair()?;
+    /// let mut keypair = tpk.primary().key().clone().into_keypair()?;
     ///
     /// // Let's add an encryption subkey.
     /// let flags = KeyFlags::default().set_encrypt_at_rest(true);
@@ -61,7 +61,7 @@ impl Key {
             .set_issuer_fingerprint(signer.public().fingerprint())?
             .set_issuer(signer.public().keyid())?
             .sign_subkey_binding(
-                signer, tpk.primary(), self,
+                signer, tpk.primary().key(), self,
                 hash_algo.into().unwrap_or(HashAlgorithm::SHA512))
     }
 
@@ -87,7 +87,7 @@ impl Key {
     /// let (tpk, _) = TPKBuilder::new()
     ///     .add_encryption_subkey()
     ///     .generate()?;
-    /// let mut keypair = tpk.primary().clone().into_keypair()?;
+    /// let mut keypair = tpk.primary().key().clone().into_keypair()?;
     ///
     /// // Generate the revocation for the first and only Subkey.
     /// let revocation =
@@ -151,7 +151,7 @@ impl UserID {
     /// # fn f() -> Result<()> {
     /// // Generate a TPK, and create a keypair from the primary key.
     /// let (tpk, _) = TPKBuilder::new().generate()?;
-    /// let mut keypair = tpk.primary().clone().into_keypair()?;
+    /// let mut keypair = tpk.primary().key().clone().into_keypair()?;
     /// assert_eq!(tpk.userids().len(), 0);
     ///
     /// // Generate a userid and a binding signature.
@@ -179,7 +179,7 @@ impl UserID {
             .set_issuer_fingerprint(signer.public().fingerprint())?
             .set_issuer(signer.public().keyid())?
             .sign_userid_binding(
-                signer, tpk.primary(), self,
+                signer, tpk.primary().key(), self,
                 hash_algo.into().unwrap_or(HashAlgorithm::SHA512))
     }
 
@@ -214,7 +214,7 @@ impl UserID {
     ///     .primary_keyflags(KeyFlags::default().set_certify(true))
     ///     .add_userid("alice@example.org")
     ///     .generate()?;
-    /// let mut keypair = alice.primary().clone().into_keypair()?;
+    /// let mut keypair = alice.primary().key().clone().into_keypair()?;
     ///
     /// // Generate a TPK for Bob.
     /// let (bob, _) = TPKBuilder::new()
@@ -281,7 +281,7 @@ impl UserID {
     /// let (tpk, _) = TPKBuilder::new()
     ///     .add_userid("some@example.org")
     ///     .generate()?;
-    /// let mut keypair = tpk.primary().clone().into_keypair()?;
+    /// let mut keypair = tpk.primary().key().clone().into_keypair()?;
     ///
     /// // Generate the revocation for the first and only UserID.
     /// let revocation =
@@ -347,7 +347,7 @@ impl UserAttribute {
     /// // Generate a TPK, and create a keypair from the primary key.
     /// let (tpk, _) = TPKBuilder::new()
     ///     .generate()?;
-    /// let mut keypair = tpk.primary().clone().into_keypair()?;
+    /// let mut keypair = tpk.primary().key().clone().into_keypair()?;
     /// assert_eq!(tpk.userids().len(), 0);
     ///
     /// // Generate a user attribute and a binding signature.
@@ -378,7 +378,7 @@ impl UserAttribute {
             .set_issuer_fingerprint(signer.public().fingerprint())?
             .set_issuer(signer.public().keyid())?
             .sign_user_attribute_binding(
-                signer, tpk.primary(), self,
+                signer, tpk.primary().key(), self,
                 hash_algo.into().unwrap_or(HashAlgorithm::SHA512))
     }
 
@@ -413,7 +413,7 @@ impl UserAttribute {
     /// let (alice, _) = TPKBuilder::new()
     ///     .add_userid("alice@example.org")
     ///     .generate()?;
-    /// let mut keypair = alice.primary().clone().into_keypair()?;
+    /// let mut keypair = alice.primary().key().clone().into_keypair()?;
     ///
     /// // Generate a TPK for Bob.
     /// let user_attr = UserAttribute::new(&[
@@ -490,7 +490,7 @@ impl UserAttribute {
     /// let (tpk, _) = TPKBuilder::new()
     ///     .add_user_attribute(user_attr)
     ///     .generate()?;
-    /// let mut keypair = tpk.primary().clone().into_keypair()?;
+    /// let mut keypair = tpk.primary().key().clone().into_keypair()?;
     ///
     /// // Generate the revocation for the first and only UserAttribute.
     /// let revocation =

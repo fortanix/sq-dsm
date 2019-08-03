@@ -510,7 +510,7 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
                             }
                         };
 
-                        if can_sign(tpk.primary(),
+                        if can_sign(tpk.primary().key(),
                                     tpk.primary_key_signature()) {
                             v.keys.insert(tpk.keyid(), (i, 0));
                         }
@@ -1295,7 +1295,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                             }
                         };
 
-                        if can_sign(tpk.primary(),
+                        if can_sign(tpk.primary().key(),
                                     tpk.primary_key_signature()) {
                             v.keys.insert(tpk.keyid(), (i, 0));
                         }

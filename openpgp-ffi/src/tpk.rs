@@ -147,8 +147,8 @@ fn pgp_tpk_as_tsk(tpk: *const TPK) -> *mut TSK<'static> {
 ///
 /// The tpk still owns the key.  The caller must not modify the key.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn pgp_tpk_primary(tpk: *const TPK) -> *const Key {
-    tpk.ref_raw().primary().move_into_raw()
+fn pgp_tpk_primary_key(tpk: *const TPK) -> *const Key {
+    tpk.ref_raw().primary().key().move_into_raw()
 }
 
 /// Returns the TPK's revocation status as of a given time.
@@ -219,7 +219,7 @@ fn int_to_reason_for_revocation(code: c_int) -> ReasonForRevocation {
 /// assert (revocation);
 /// pgp_signature_free (revocation);    /* Free the generated one.  */
 ///
-/// primary_key = pgp_tpk_primary (tpk);
+/// primary_key = pgp_tpk_primary_key (tpk);
 /// primary_keypair = pgp_key_into_key_pair (NULL, pgp_key_clone (primary_key));
 /// pgp_key_free (primary_key);
 /// assert (primary_keypair);
@@ -286,7 +286,7 @@ fn pgp_tpk_revoke(errp: Option<&mut *mut crate::error::Error>,
 /// assert (revocation);
 /// pgp_signature_free (revocation);    /* Free the generated one.  */
 ///
-/// primary_key = pgp_tpk_primary (tpk);
+/// primary_key = pgp_tpk_primary_key (tpk);
 /// primary_keypair = pgp_key_into_key_pair (NULL, pgp_key_clone (primary_key));
 /// pgp_key_free (primary_key);
 /// assert (primary_keypair);

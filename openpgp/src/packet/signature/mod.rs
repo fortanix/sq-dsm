@@ -1090,9 +1090,9 @@ mod test {
                 crate::tests::message(test.data)).unwrap();
             while let PacketParserResult::Some(pp) = ppr {
                 if let Packet::Signature(ref sig) = pp.packet {
-                    let result = sig.verify(tpk.primary()).unwrap_or(false);
+                    let result = sig.verify(tpk.primary().key()).unwrap_or(false);
                     eprintln!("  Primary {:?}: {:?}",
-                              tpk.primary().fingerprint(), result);
+                              tpk.primary().key().fingerprint(), result);
                     if result {
                         good += 1;
                     }
@@ -1150,7 +1150,7 @@ mod test {
             "emmelie-dorothea-dina-samantha-awina-ed25519-private.pgp",
         ] {
             let tpk = TPK::from_bytes(crate::tests::key(key)).unwrap();
-            let mut pair = tpk.primary().clone().into_keypair()
+            let mut pair = tpk.primary().key().clone().into_keypair()
                 .expect("secret key is encrypted/missing");
 
             let sig = Builder::new(SignatureType::Binary);
@@ -1204,7 +1204,7 @@ mod test {
             panic!("Expected a Signature, got: {:?}", p);
         };
 
-        assert!(sig.verify_message(tpk.primary(), &msg[..]).unwrap());
+        assert!(sig.verify_message(tpk.primary().key(), &msg[..]).unwrap());
     }
 
     #[test]
@@ -1261,7 +1261,10 @@ mod test {
         let uid_binding = &test2.primary_key_signature_full().unwrap().0.unwrap();
         let cert = &uid_binding.certifications()[0];
 
-        assert_eq!(cert.verify_userid_binding(cert_key1, test2.primary(), uid_binding.userid()).ok(), Some(true));
+        assert_eq!(cert.verify_userid_binding(cert_key1,
+                                              test2.primary().key(),
+                                              uid_binding.userid()).ok(),
+                   Some(true));
     }
 
     #[test]

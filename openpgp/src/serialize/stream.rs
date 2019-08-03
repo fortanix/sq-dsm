@@ -984,12 +984,12 @@ impl<'a> Encryptor<'a> {
 
             // Check if the primary key is encryption-capable.
             let primary_can_encrypt =
-                can_encrypt(tpk.primary(), tpk.primary_key_signature());
+                can_encrypt(tpk.primary().key(), tpk.primary_key_signature());
 
             // If the primary key is encryption-capable, prepend to
             // subkeys via iterator magic.
             let keys =
-                iter::once(tpk.primary())
+                iter::once(tpk.primary().key())
                 .filter(|_| primary_can_encrypt)
                 .chain(subkeys);
 

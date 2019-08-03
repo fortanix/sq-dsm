@@ -107,7 +107,7 @@ impl AutocryptHeader {
         let mut acc = Vec::new();
 
         // The primary key and the most recent selfsig.
-        acc.push(tpk.primary().clone().into_packet(Tag::PublicKey)?);
+        acc.push(tpk.primary().key().clone().into_packet(Tag::PublicKey)?);
         tpk.selfsigs().iter().take(1)
             .for_each(|s| acc.push(s.clone().into()));
 
@@ -908,7 +908,7 @@ In the light of the Efail vulnerability I am asking myself if it's
 
         let tpk = ac.headers[0].key.as_ref()
             .expect("Failed to parse key material.");
-        assert_eq!(tpk.primary().fingerprint(),
+        assert_eq!(tpk.primary().key().fingerprint(),
                    Fingerprint::from_hex(
                        &"156962B0F3115069ACA970C68E3B03A279B772D6"[..]).unwrap());
         assert_eq!(tpk.userids().next().unwrap().userid().value(),
@@ -931,7 +931,7 @@ In the light of the Efail vulnerability I am asking myself if it's
 
         let tpk = ac.headers[0].key.as_ref()
             .expect("Failed to parse key material.");
-        assert_eq!(tpk.primary().fingerprint(),
+        assert_eq!(tpk.primary().key().fingerprint(),
                    Fingerprint::from_hex(
                        &"D4AB192964F76A7F8F8A9B357BD18320DEADFA11"[..]).unwrap());
         assert_eq!(tpk.userids().next().unwrap().userid().value(),
@@ -954,7 +954,7 @@ In the light of the Efail vulnerability I am asking myself if it's
 
         let tpk = ac.headers[0].key.as_ref()
             .expect("Failed to parse key material.");
-        assert_eq!(tpk.primary().fingerprint(),
+        assert_eq!(tpk.primary().key().fingerprint(),
                    Fingerprint::from_hex(
                        &"4F9F89F5505AC1D1A260631CDB1187B9DD5F693B"[..]).unwrap());
         assert_eq!(tpk.userids().next().unwrap().userid().value(),
@@ -1087,7 +1087,7 @@ In the light of the Efail vulnerability I am asking myself if it's
 
         let tpk = ac.headers[0].key.as_ref()
             .expect("Failed to parse key material.");
-        assert_eq!(&tpk.primary().fingerprint().to_string(),
+        assert_eq!(&tpk.primary().key().fingerprint().to_string(),
                    "3E88 77C8 7727 4692 9751  89F5 D03F 6F86 5226 FE8B");
         assert_eq!(tpk.userids().len(), 1);
         assert_eq!(tpk.subkeys().len(), 1);

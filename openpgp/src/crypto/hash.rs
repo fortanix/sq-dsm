@@ -420,7 +420,7 @@ mod test {
                 for selfsig in binding.selfsigs() {
                     let h = Signature::userid_binding_hash(
                         selfsig,
-                        tpk.primary(),
+                        tpk.primary().key(),
                         binding.userid()).unwrap();
                     if &h[..2] != selfsig.hash_prefix() {
                         eprintln!("{:?}: {:?} / {:?}",
@@ -436,7 +436,7 @@ mod test {
                 for selfsig in binding.selfsigs() {
                     let h = Signature::user_attribute_binding_hash(
                         selfsig,
-                        tpk.primary(),
+                        tpk.primary().key(),
                         binding.user_attribute()).unwrap();
                     if &h[..2] != selfsig.hash_prefix() {
                         eprintln!("{:?}: {:?} / {:?}",
@@ -452,7 +452,7 @@ mod test {
                 for selfsig in binding.selfsigs() {
                     let h = Signature::subkey_binding_hash(
                         selfsig,
-                        tpk.primary(),
+                        tpk.primary().key(),
                         binding.key()).unwrap();
                     if &h[..2] != selfsig.hash_prefix() {
                         eprintln!("{:?}: {:?}", i, binding);

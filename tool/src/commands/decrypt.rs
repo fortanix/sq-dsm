@@ -53,9 +53,9 @@ impl<'a> Helper<'a> {
                 None => format!("{}", tsk.fingerprint().to_keyid()),
             };
 
-            if can_encrypt(tsk.primary(), tsk.primary_key_signature()) {
+            if can_encrypt(tsk.primary().key(), tsk.primary_key_signature()) {
                 let id = tsk.fingerprint().to_keyid();
-                keys.insert(id.clone(), tsk.primary().clone());
+                keys.insert(id.clone(), tsk.primary().key().clone());
                 identities.insert(id.clone(), tsk.fingerprint());
                 hints.insert(id, hint.clone());
             }

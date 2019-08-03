@@ -750,7 +750,7 @@ pgp_tsk_t pgp_tpk_as_tsk (pgp_tpk_t tpk);
 /// The tpk still owns the key.  The caller should neither modify nor
 /// free the key.
 /*/
-pgp_key_t pgp_tpk_primary (pgp_tpk_t tpk);
+pgp_key_t pgp_tpk_primary_key (pgp_tpk_t tpk);
 
 /*/
 /// Returns the TPK's current revocation status.

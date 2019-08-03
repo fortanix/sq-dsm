@@ -25,7 +25,7 @@ impl TPK {
     fn serialize_common(&self, o: &mut dyn std::io::Write, export: bool)
                         -> Result<()>
     {
-        PacketRef::PublicKey(self.primary()).serialize(o)?;
+        PacketRef::PublicKey(self.primary().key()).serialize(o)?;
 
         // Writes a signature if it is exportable or `! export`.
         let serialize_sig =
@@ -158,7 +158,7 @@ impl TPK {
 impl SerializeInto for TPK {
     fn serialized_len(&self) -> usize {
         let mut l = 0;
-        l += PacketRef::PublicKey(self.primary()).serialized_len();
+        l += PacketRef::PublicKey(self.primary().key()).serialized_len();
 
         for s in self.selfsigs() {
             l += PacketRef::Signature(s).serialized_len();
@@ -320,11 +320,11 @@ impl<'a> TSK<'a> {
     ///
     /// // Only write out the primary key's secret.
     /// let mut buf = Vec::new();
-    /// tpk.as_tsk().set_filter(|k| k == tpk.primary()).serialize(&mut buf)?;
+    /// tpk.as_tsk().set_filter(|k| k == tpk.primary().key()).serialize(&mut buf)?;
     ///
     /// let tpk_ = TPK::from_bytes(&buf)?;
     /// assert_eq!(tpk_.keys_valid().secret(true).count(), 1);
-    /// assert!(tpk_.primary().secret().is_some());
+    /// assert!(tpk_.primary().key().secret().is_some());
     /// # Ok(()) }
     pub fn set_filter<P>(mut self, predicate: P) -> Self
         where P: 'a + Fn(&'a Key) -> bool
@@ -376,18 +376,19 @@ impl<'a> TSK<'a> {
 
             packet.serialize(o)
         };
-        serialize_key(o, &self.tpk.primary(), Tag::PublicKey, Tag::SecretKey)?;
+        serialize_key(o, &self.tpk.primary().key(),
+                      Tag::PublicKey, Tag::SecretKey)?;
 
-        for s in self.tpk.selfsigs() {
+        for s in self.tpk.primary().selfsigs() {
             serialize_sig(o, s)?;
         }
-        for s in self.tpk.self_revocations() {
+        for s in self.tpk.primary().self_revocations() {
             serialize_sig(o, s)?;
         }
-        for s in self.tpk.certifications() {
+        for s in self.tpk.primary().certifications() {
             serialize_sig(o, s)?;
         }
-        for s in self.tpk.other_revocations() {
+        for s in self.tpk.primary().other_revocations() {
             serialize_sig(o, s)?;
         }
 
@@ -526,7 +527,7 @@ impl<'a> SerializeInto for TSK<'a> {
 
             packet.serialized_len()
         };
-        l += serialized_len_key(self.tpk.primary(),
+        l += serialized_len_key(self.tpk.primary().key(),
                                 Tag::PublicKey, Tag::SecretKey);
 
         for s in self.tpk.selfsigs() {
@@ -715,7 +716,7 @@ mod test {
         };
 
         let (tpk, _) = TPKBuilder::new().generate().unwrap();
-        let mut keypair = tpk.primary().clone().into_keypair().unwrap();
+        let mut keypair = tpk.primary().key().clone().into_keypair().unwrap();
 
         let key: Key =
             Key4::generate_ecc(false, Curve::Cv25519).unwrap().into();

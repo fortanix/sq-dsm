@@ -84,7 +84,7 @@ impl<'a> Iterator for KeyIter<'a> {
 
                 (tpk.primary_key_signature(),
                  tpk.revocation_status(),
-                 tpk.primary())
+                 tpk.primary().key())
             } else {
                 self.subkey_iter.next()
                     .map(|sk_binding| (sk_binding.binding_signature(),

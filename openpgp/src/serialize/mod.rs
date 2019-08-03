@@ -2925,7 +2925,7 @@ mod test {
         use crate::tpk::TPKBuilder;
 
         let (tpk, _) = TPKBuilder::new().generate().unwrap();
-        let mut keypair = tpk.primary().clone().into_keypair().unwrap();
+        let mut keypair = tpk.primary().key().clone().into_keypair().unwrap();
         let uid = UserID::from("foo");
 
         // Make a signature w/o an exportable certification subpacket.
