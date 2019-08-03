@@ -262,7 +262,7 @@ fn real_main() -> Result<(), failure::Error> {
                                 let binding = tpk
                                     .subkeys()
                                     .find(|s| {
-                                        s.subkey().fingerprint() == key.fingerprint()
+                                        s.key().fingerprint() == key.fingerprint()
                                     });
                                 if let Some(binding) = binding {
                                     if binding.revoked(t) != RevocationStatus::NotAsFarAsWeKnow {

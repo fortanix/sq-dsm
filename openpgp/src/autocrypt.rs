@@ -120,7 +120,7 @@ impl AutocryptHeader {
                 continue;
             }
 
-            acc.push(skb.subkey().clone().into_packet(Tag::PublicSubkey)?);
+            acc.push(skb.key().clone().into_packet(Tag::PublicSubkey)?);
             skb.selfsigs().iter().take(1)
                 .for_each(|s| acc.push(s.clone().into()));
         }

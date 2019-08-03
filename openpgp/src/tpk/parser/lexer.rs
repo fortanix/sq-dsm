@@ -3,7 +3,7 @@ use std::fmt;
 use crate::Error;
 use crate::Packet;
 use crate::packet::Tag;
-use crate::tpk::SubkeyBinding;
+use crate::tpk::KeyBinding;
 use crate::tpk::UserIDBinding;
 use crate::tpk::UserAttributeBinding;
 use crate::tpk::UnknownBinding;
@@ -49,7 +49,7 @@ pub enum Token {
 /// public.  But, since this module is not public, it will not
 /// actually be exported to used of the library.
 pub enum Component {
-    SubkeyBinding(SubkeyBinding),
+    KeyBinding(KeyBinding),
     UserIDBinding(UserIDBinding),
     UserAttributeBinding(UserAttributeBinding),
     UnknownBinding(UnknownBinding),

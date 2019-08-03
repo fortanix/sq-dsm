@@ -7,7 +7,7 @@ use crate::{
     packet::KeyFlags,
     packet::Signature,
     TPK,
-    tpk::SubkeyBindingIter,
+    tpk::KeyBindingIter,
 };
 
 /// An iterator over all `Key`s (both the primary key and any subkeys)
@@ -26,7 +26,7 @@ pub struct KeyIter<'a> {
     // This is an option to make it easier to create an empty KeyIter.
     tpk: Option<&'a TPK>,
     primary: bool,
-    subkey_iter: SubkeyBindingIter<'a>,
+    subkey_iter: KeyBindingIter<'a>,
 
     // If not None, only returns keys with the specified flags.
     flags: Option<KeyFlags>,
@@ -89,7 +89,7 @@ impl<'a> Iterator for KeyIter<'a> {
                 self.subkey_iter.next()
                     .map(|sk_binding| (sk_binding.binding_signature(),
                                        sk_binding.revoked(None),
-                                       sk_binding.subkey(),))?
+                                       sk_binding.key(),))?
             };
 
             t!("Considering key: {:?}", key);
@@ -206,7 +206,7 @@ impl<'a> KeyIter<'a> {
         KeyIter {
             tpk: None,
             primary: false,
-            subkey_iter: SubkeyBindingIter { iter: None },
+            subkey_iter: KeyBindingIter { iter: None },
 
             // The filters.
             flags: None,

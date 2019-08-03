@@ -108,7 +108,7 @@ impl TPK {
                 continue;
             }
 
-            PacketRef::PublicSubkey(k.subkey()).serialize(o)?;
+            PacketRef::PublicSubkey(k.key()).serialize(o)?;
             for s in k.self_revocations() {
                 serialize_sig(o, s)?;
             }
@@ -208,7 +208,7 @@ impl SerializeInto for TPK {
         }
 
         for k in self.subkeys() {
-            l += PacketRef::PublicSubkey(k.subkey()).serialized_len();
+            l += PacketRef::PublicSubkey(k.key()).serialized_len();
 
             for s in k.self_revocations() {
                 l += PacketRef::Signature(s).serialized_len();
@@ -445,7 +445,7 @@ impl<'a> TSK<'a> {
                 continue;
             }
 
-            serialize_key(o, k.subkey(), Tag::PublicSubkey, Tag::SecretSubkey)?;
+            serialize_key(o, k.key(), Tag::PublicSubkey, Tag::SecretSubkey)?;
             for s in k.self_revocations() {
                 serialize_sig(o, s)?;
             }
@@ -577,7 +577,7 @@ impl<'a> SerializeInto for TSK<'a> {
         }
 
         for k in self.tpk.subkeys() {
-            l += serialized_len_key(k.subkey(),
+            l += serialized_len_key(k.key(),
                                     Tag::PublicSubkey, Tag::SecretSubkey);
 
             for s in k.self_revocations() {

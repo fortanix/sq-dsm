@@ -453,7 +453,7 @@ mod test {
                     let h = Signature::subkey_binding_hash(
                         selfsig,
                         tpk.primary(),
-                        binding.subkey()).unwrap();
+                        binding.key()).unwrap();
                     if &h[..2] != selfsig.hash_prefix() {
                         eprintln!("{:?}: {:?}", i, binding);
                         eprintln!("  Hash: {:?}", h);

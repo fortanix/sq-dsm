@@ -11,7 +11,7 @@ use crate::TPK;
 
 use crate::tpk::parser::lexer;
 use crate::tpk::parser::lexer::{Token, Component};
-use crate::tpk::{SubkeyBinding, UserIDBinding, UserAttributeBinding, UnknownBinding};
+use crate::tpk::{KeyBinding, UserIDBinding, UserAttributeBinding, UnknownBinding};
 
 use lalrpop_util::ParseError;
 
@@ -48,7 +48,7 @@ pub TPK: Option<TPK> = {
 
                 for c in c.into_iter() {
                     match c {
-                        Component::SubkeyBinding(b) =>
+                        Component::KeyBinding(b) =>
                             tpk.subkeys.push(b),
                         Component::UserIDBinding(b) =>
                             tpk.userids.push(b),
@@ -143,7 +143,7 @@ Component: Option<Component> = {
             Some(key) => {
                 let sigs = sigs.unwrap();
 
-                Some(Component::SubkeyBinding(SubkeyBinding {
+                Some(Component::KeyBinding(KeyBinding {
                     component: key,
                     selfsigs: vec![],
                     certifications: sigs,

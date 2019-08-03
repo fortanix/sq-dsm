@@ -516,7 +516,7 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
                         }
 
                         for (j, skb) in tpk.subkeys().enumerate() {
-                            let key = skb.subkey();
+                            let key = skb.key();
                             if can_sign(key, skb.binding_signature()) {
                                 v.keys.insert(key.keyid(),
                                               (i, j + 1));
@@ -1301,7 +1301,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                         }
 
                         for (j, skb) in tpk.subkeys().enumerate() {
-                            let key = skb.subkey();
+                            let key = skb.key();
                             if can_sign(key, skb.binding_signature()) {
                                 v.keys.insert(key.keyid(), (i, j + 1));
                             }

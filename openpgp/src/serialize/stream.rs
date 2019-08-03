@@ -974,7 +974,7 @@ impl<'a> Encryptor<'a> {
 
             // Gather all encryption-capable subkeys.
             let subkeys = tpk.subkeys().filter_map(|skb| {
-                let key = skb.subkey();
+                let key = skb.key();
                 if can_encrypt(key, skb.binding_signature()) {
                     Some(key)
                 } else {

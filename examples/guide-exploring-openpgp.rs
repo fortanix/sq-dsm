@@ -62,7 +62,7 @@ fn main() {
     // List subkeys.
     for (i, s) in tpk.subkeys().enumerate() {
         println!("{}: Fingerprint: {}, {} self-signature(s), {} certification(s)",
-                 i, s.subkey().fingerprint(),
+                 i, s.key().fingerprint(),
                  s.selfsigs().len(),
                  s.certifications().len());
     }

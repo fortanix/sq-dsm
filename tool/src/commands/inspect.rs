@@ -137,9 +137,9 @@ fn inspect_tpk(output: &mut io::Write, tpk: &openpgp::TPK,
     writeln!(output)?;
 
     for skb in tpk.subkeys() {
-        writeln!(output, "         Subkey: {}", skb.subkey().fingerprint())?;
+        writeln!(output, "         Subkey: {}", skb.key().fingerprint())?;
         inspect_revocation(output, "", skb.revoked(None))?;
-        inspect_key(output, "", skb.subkey(), skb.binding_signature(),
+        inspect_key(output, "", skb.key(), skb.binding_signature(),
                     skb.certifications(),
                     print_keygrips, print_certifications)?;
         writeln!(output)?;

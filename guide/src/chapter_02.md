@@ -119,7 +119,7 @@ fn main() {
 #     {
 #         // The encryption key is the first and only subkey.
 #         let key = self.secret.subkeys().nth(0)
-#             .map(|binding| binding.subkey().clone())
+#             .map(|binding| binding.key().clone())
 #             .unwrap();
 #
 #         // The secret key is not encrypted.
@@ -253,7 +253,7 @@ fn generate() -> openpgp::Result<openpgp::TPK> {
 #     {
 #         // The encryption key is the first and only subkey.
 #         let key = self.secret.subkeys().nth(0)
-#             .map(|binding| binding.subkey().clone())
+#             .map(|binding| binding.key().clone())
 #             .unwrap();
 #
 #         // The secret key is not encrypted.
@@ -387,7 +387,7 @@ fn encrypt(sink: &mut Write, plaintext: &str, recipient: &openpgp::TPK)
 #     {
 #         // The encryption key is the first and only subkey.
 #         let key = self.secret.subkeys().nth(0)
-#             .map(|binding| binding.subkey().clone())
+#             .map(|binding| binding.key().clone())
 #             .unwrap();
 #
 #         // The secret key is not encrypted.
@@ -535,7 +535,7 @@ impl<'a> DecryptionHelper for Helper<'a> {
     {
         // The encryption key is the first and only subkey.
         let key = self.secret.subkeys().nth(0)
-            .map(|binding| binding.subkey().clone())
+            .map(|binding| binding.key().clone())
             .unwrap();
 
         // The secret key is not encrypted.

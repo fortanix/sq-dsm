@@ -110,7 +110,7 @@ fn active_revocation(sigs: &[Signature], revs: &[Signature], t: time::Tm)
 }
 
 /// A subkey and any associated signatures.
-pub type SubkeyBinding = ComponentBinding<Key>;
+pub type KeyBinding = ComponentBinding<Key>;
 
 /// A User ID and any associated signatures.
 pub type UserIDBinding = ComponentBinding<UserID>;
@@ -229,12 +229,12 @@ impl<C> ComponentBinding<C> {
 
 impl ComponentBinding<Key> {
     /// Returns a reference to the key.
-    pub fn subkey(&self) -> &Key {
+    pub fn key(&self) -> &Key {
         self.component()
     }
 
     /// Returns a mut reference to the key.
-    fn subkey_mut(&mut self) -> &mut Key {
+    fn key_mut(&mut self) -> &mut Key {
         self.component_mut()
     }
 }
@@ -414,7 +414,7 @@ impl<'a, I: Iterator<Item=Packet>> TPKParser<'a, I> {
     ///             return true;
     ///         }
     ///         for binding in tpk.subkeys() {
-    ///             if binding.subkey().keyid() == some_keyid {
+    ///             if binding.key().keyid() == some_keyid {
     ///                 return true;
     ///             }
     ///         }
@@ -717,13 +717,13 @@ impl<'a> ExactSizeIterator for UserAttributeBindingIter<'a> {
     fn len(&self) -> usize { self.iter.len() }
 }
 
-/// An iterator over `SubkeyBinding`s.
-pub struct SubkeyBindingIter<'a> {
-    iter: Option<slice::Iter<'a, SubkeyBinding>>,
+/// An iterator over `KeyBinding`s.
+pub struct KeyBindingIter<'a> {
+    iter: Option<slice::Iter<'a, KeyBinding>>,
 }
 
-impl<'a> Iterator for SubkeyBindingIter<'a> {
-    type Item = &'a SubkeyBinding;
+impl<'a> Iterator for KeyBindingIter<'a> {
+    type Item = &'a KeyBinding;
 
     fn next(&mut self) -> Option<Self::Item> {
         match self.iter {
@@ -733,7 +733,7 @@ impl<'a> Iterator for SubkeyBindingIter<'a> {
     }
 }
 
-impl<'a> ExactSizeIterator for SubkeyBindingIter<'a> {
+impl<'a> ExactSizeIterator for KeyBindingIter<'a> {
     fn len(&self) -> usize {
         match self.iter {
             Some(ref iter) => iter.len(),
@@ -831,7 +831,7 @@ pub struct TPK {
 
     userids: Vec<UserIDBinding>,
     user_attributes: Vec<UserAttributeBinding>,
-    subkeys: Vec<SubkeyBinding>,
+    subkeys: Vec<KeyBinding>,
 
     // Unknown components, e.g., some UserAttribute++ packet from the
     // future.
@@ -1186,9 +1186,9 @@ impl TPK {
 
     /// Returns an iterator over the TPK's valid subkeys.
     ///
-    /// A valid `SubkeyBinding` has at least one good self-signature.
-    pub fn subkeys(&self) -> SubkeyBindingIter {
-        SubkeyBindingIter { iter: Some(self.subkeys.iter()) }
+    /// A valid `KeyBinding` has at least one good self-signature.
+    pub fn subkeys(&self) -> KeyBindingIter {
+        KeyBindingIter { iter: Some(self.subkeys.iter()) }
     }
 
     /// Returns an iterator over the TPK's valid unknown components.
@@ -1213,7 +1213,7 @@ impl TPK {
     /// subkeys, along with the corresponding signatures.
     ///
     /// Note: since a primary key is different from a binding, the
-    /// iterator is over `Key`s and not `SubkeyBindings`.
+    /// iterator is over `Key`s and not `KeyBindings`.
     /// Furthermore, the primary key has no binding signature.  Here,
     /// the signature carrying the primary key's key flags is
     /// returned.  There are corner cases where no such signature
@@ -1356,12 +1356,12 @@ impl TPK {
         }
 
         for binding in self.subkeys.iter_mut() {
-            check!(format!("subkey {}", binding.subkey().keyid()),
+            check!(format!("subkey {}", binding.key().keyid()),
                    binding, selfsigs, verify_subkey_binding,
-                   binding.subkey());
-            check!(format!("subkey {}", binding.subkey().keyid()),
+                   binding.key());
+            check!(format!("subkey {}", binding.key().keyid()),
                    binding, self_revocations, verify_subkey_revocation,
-                   binding.subkey());
+                   binding.key());
         }
 
         // See if the signatures that didn't validate are just out of
@@ -1425,12 +1425,12 @@ impl TPK {
             }
 
             for binding in self.subkeys.iter_mut() {
-                check_one!(format!("subkey {}", binding.subkey().keyid()),
+                check_one!(format!("subkey {}", binding.key().keyid()),
                            binding.selfsigs, sig,
-                           verify_subkey_binding, binding.subkey());
-                check_one!(format!("subkey {}", binding.subkey().keyid()),
+                           verify_subkey_binding, binding.key());
+                check_one!(format!("subkey {}", binding.key().keyid()),
                            binding.self_revocations, sig,
-                           verify_subkey_revocation, binding.subkey());
+                           verify_subkey_revocation, binding.key());
             }
 
             // Keep them for later.
@@ -1789,21 +1789,21 @@ impl TPK {
         // user ids, we can't do the final sort here, because we rely
         // on the self-signatures.
         self.subkeys.sort_by(
-            |a, b| Key::public_cmp(a.subkey(), b.subkey()));
+            |a, b| Key::public_cmp(a.key(), b.key()));
 
         // And, dedup them.
         //
         // If the public keys match, but only one of them has a secret
         // key, then merge the key and keep the secret key.
         self.subkeys.dedup_by(|a, b| {
-            if Key::public_cmp(a.subkey(), b.subkey()) == Ordering::Equal
-                && (a.subkey().secret() == b.subkey().secret()
-                    || a.subkey().secret().is_none()
-                    || b.subkey().secret().is_none())
+            if Key::public_cmp(a.key(), b.key()) == Ordering::Equal
+                && (a.key().secret() == b.key().secret()
+                    || a.key().secret().is_none()
+                    || b.key().secret().is_none())
             {
                 // Recall: if a and b are equal, a will be dropped.
-                if b.subkey().secret().is_none() && a.subkey().secret().is_some() {
-                    b.subkey_mut().set_secret(a.subkey_mut().set_secret(None));
+                if b.key().secret().is_none() && a.key().secret().is_some() {
+                    b.key_mut().set_secret(a.key_mut().set_secret(None));
                 }
 
                 b.selfsigs.append(&mut a.selfsigs);
@@ -1881,13 +1881,13 @@ impl TPK {
             }
 
             // Creation time (more recent first).
-            let cmp = b.subkey().creation_time().cmp(&a.subkey().creation_time());
+            let cmp = b.key().creation_time().cmp(&a.key().creation_time());
             if cmp != Ordering::Equal {
                 return cmp;
             }
 
             // Fallback to the lexicographical comparison.
-            a.subkey().mpis().cmp(&b.subkey().mpis())
+            a.key().mpis().cmp(&b.key().mpis())
         });
 
         // In case we have subkeys bound to the primary, it must be
@@ -2069,7 +2069,7 @@ impl TPK {
             return true;
         }
         self.subkeys().any(|sk| {
-            sk.binding_signature().is_some() && sk.subkey().secret().is_some()
+            sk.binding_signature().is_some() && sk.key().secret().is_some()
         })
     }
 }
@@ -2145,7 +2145,7 @@ mod test {
             assert_eq!(tpk.user_attributes.len(), 0);
 
             assert_eq!(tpk.subkeys.len(), 1, "number of subkeys");
-            assert_eq!(tpk.subkeys[0].subkey().creation_time().to_pgp().unwrap(),
+            assert_eq!(tpk.subkeys[0].key().creation_time().to_pgp().unwrap(),
                        1511355130);
             assert_eq!(tpk.subkeys[0].selfsigs[0].hash_prefix(),
                        &[ 0xb7, 0xb9 ]);
@@ -2411,7 +2411,7 @@ mod test {
                    ]);
 
         let mut subkeys = tpk.subkeys()
-            .map(|sk| Some(sk.subkey().keyid()))
+            .map(|sk| Some(sk.key().keyid()))
             .collect::<Vec<Option<KeyID>>>();
         subkeys.sort();
         assert_eq!(subkeys,
@@ -2442,7 +2442,7 @@ mod test {
         assert_eq!(tpk.user_attributes.len(), 1);
 
         let mut subkeys = tpk.subkeys()
-            .map(|sk| Some(sk.subkey().keyid()))
+            .map(|sk| Some(sk.key().keyid()))
             .collect::<Vec<Option<KeyID>>>();
         subkeys.sort();
         assert_eq!(subkeys,
@@ -2926,7 +2926,7 @@ mod test {
         assert!(tsk.is_tsk());
         let subkey_count = tsk.subkeys().len();
         assert!(subkey_count > 0);
-        assert!(tsk.subkeys().all(|k| k.subkey().secret().is_some()));
+        assert!(tsk.subkeys().all(|k| k.key().secret().is_some()));
 
         // This will write out the tsk as a tpk, i.e., without any
         // private bits.
@@ -2937,19 +2937,19 @@ mod test {
         let tpk = TPK::from_bytes(&tpk_bytes[..]).unwrap();
         assert!(tpk.primary.secret().is_none());
         assert!(!tpk.is_tsk());
-        assert!(tpk.subkeys().all(|k| k.subkey().secret().is_none()));
+        assert!(tpk.subkeys().all(|k| k.key().secret().is_none()));
 
         let merge1 = tpk.clone().merge(tsk.clone()).unwrap();
         assert!(merge1.is_tsk());
         assert!(merge1.primary.secret().is_some());
         assert_eq!(merge1.subkeys().len(), subkey_count);
-        assert!(merge1.subkeys().all(|k| k.subkey().secret().is_some()));
+        assert!(merge1.subkeys().all(|k| k.key().secret().is_some()));
 
         let merge2 = tsk.clone().merge(tpk.clone()).unwrap();
         assert!(merge2.is_tsk());
         assert!(merge2.primary.secret().is_some());
         assert_eq!(merge2.subkeys().len(), subkey_count);
-        assert!(merge2.subkeys().all(|k| k.subkey().secret().is_some()));
+        assert!(merge2.subkeys().all(|k| k.key().secret().is_some()));
     }
 
     #[test]

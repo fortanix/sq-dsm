@@ -224,7 +224,7 @@ mod tests {
             crate::tests::message("encrypted-to-testy.gpg")).unwrap();
         let mut keypair =
             tpk.subkeys().next().unwrap()
-            .subkey().clone().into_keypair().unwrap();
+            .key().clone().into_keypair().unwrap();
 
         let pkg = pile.descendants().skip(0).next().clone();
 
@@ -245,7 +245,7 @@ mod tests {
             crate::tests::message("encrypted-to-testy-new.pgp")).unwrap();
         let mut keypair =
             tpk.subkeys().next().unwrap()
-            .subkey().clone().into_keypair().unwrap();
+            .key().clone().into_keypair().unwrap();
 
         let pkg = pile.descendants().skip(0).next().clone();
 
@@ -266,7 +266,7 @@ mod tests {
             crate::tests::message("encrypted-to-testy-nistp256.pgp")).unwrap();
         let mut keypair =
             tpk.subkeys().next().unwrap()
-            .subkey().clone().into_keypair().unwrap();
+            .key().clone().into_keypair().unwrap();
 
         let pkg = pile.descendants().skip(0).next().clone();
 
@@ -287,7 +287,7 @@ mod tests {
             crate::tests::message("encrypted-to-testy-nistp384.pgp")).unwrap();
         let mut keypair =
             tpk.subkeys().next().unwrap()
-            .subkey().clone().into_keypair().unwrap();
+            .key().clone().into_keypair().unwrap();
 
         let pkg = pile.descendants().skip(0).next().clone();
 
@@ -308,7 +308,7 @@ mod tests {
             crate::tests::message("encrypted-to-testy-nistp521.pgp")).unwrap();
         let mut keypair =
             tpk.subkeys().next().unwrap()
-            .subkey().clone().into_keypair().unwrap();
+            .key().clone().into_keypair().unwrap();
 
         let pkg = pile.descendants().skip(0).next().clone();
 

@@ -91,7 +91,7 @@ impl Key {
     ///
     /// // Generate the revocation for the first and only Subkey.
     /// let revocation =
-    ///     tpk.subkeys().nth(0).unwrap().subkey()
+    ///     tpk.subkeys().nth(0).unwrap().key()
     ///         .revoke(&mut keypair, &tpk,
     ///                 ReasonForRevocation::KeyRetired,
     ///                 b"Smells funny.", None, None)?;

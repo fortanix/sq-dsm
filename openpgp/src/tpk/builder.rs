@@ -461,7 +461,7 @@ mod tests {
             .generate().unwrap();
         assert_eq!(tpk2.primary().pk_algo(),
                    PublicKeyAlgorithm::RSAEncryptSign);
-        assert_eq!(tpk2.subkeys().next().unwrap().subkey().pk_algo(),
+        assert_eq!(tpk2.subkeys().next().unwrap().key().pk_algo(),
                    PublicKeyAlgorithm::RSAEncryptSign);
     }
 
@@ -488,7 +488,7 @@ mod tests {
             .generate().unwrap();
         assert_eq!(tpk1.primary().pk_algo(),
                    PublicKeyAlgorithm::RSAEncryptSign);
-        assert_eq!(tpk1.subkeys().next().unwrap().subkey().pk_algo(),
+        assert_eq!(tpk1.subkeys().next().unwrap().key().pk_algo(),
                    PublicKeyAlgorithm::RSAEncryptSign);
         assert_eq!(tpk1.userids().count(), 1);
     }
@@ -500,12 +500,12 @@ mod tests {
             .generate().unwrap();
         assert_eq!(tpk1.primary().pk_algo(),
                    PublicKeyAlgorithm::EdDSA);
-        assert_eq!(tpk1.subkeys().next().unwrap().subkey().pk_algo(),
+        assert_eq!(tpk1.subkeys().next().unwrap().key().pk_algo(),
                    PublicKeyAlgorithm::ECDH);
         assert_match!(
             crate::crypto::mpis::PublicKey::ECDH {
                 curve: crate::constants::Curve::Cv25519, ..
-            } = tpk1.subkeys().next().unwrap().subkey().mpis());
+            } = tpk1.subkeys().next().unwrap().key().mpis());
         assert_eq!(tpk1.userids().count(), 1);
     }
 
