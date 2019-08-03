@@ -144,7 +144,7 @@ Component: Option<Component> = {
                 let sigs = sigs.unwrap();
 
                 Some(Component::SubkeyBinding(SubkeyBinding {
-                    subkey: key,
+                    component: key,
                     selfsigs: vec![],
                     certifications: sigs,
                     self_revocations: vec![],
@@ -161,7 +161,7 @@ Component: Option<Component> = {
                 let sigs = sigs.unwrap();
 
                 Some(Component::UserIDBinding(UserIDBinding {
-                    userid: u,
+                    component: u,
                     selfsigs: vec![],
                     certifications: sigs,
                     self_revocations: vec![],
@@ -178,7 +178,7 @@ Component: Option<Component> = {
                 let sigs = sigs.unwrap();
 
                 Some(Component::UserAttributeBinding(UserAttributeBinding {
-                    user_attribute: u,
+                    component: u,
                     selfsigs: vec![],
                     certifications: sigs,
                     self_revocations: vec![],
@@ -195,8 +195,11 @@ Component: Option<Component> = {
                 let sigs = sigs.unwrap();
 
                 Some(Component::UnknownBinding(UnknownBinding {
-                    unknown: u,
-                    sigs: sigs,
+                    component: u,
+                    selfsigs: vec![],
+                    certifications: sigs,
+                    self_revocations: vec![],
+                    other_revocations: vec![],
                 }))
             },
             // Just validating a message...

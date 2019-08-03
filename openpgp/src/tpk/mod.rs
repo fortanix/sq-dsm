@@ -508,9 +508,27 @@ fn active_revocation(sigs: &[Signature], revs: &[Signature], t: time::Tm)
 }
 
 /// A subkey and any associated signatures.
+pub type SubkeyBinding = ComponentBinding<Key>;
+
+/// A User ID and any associated signatures.
+pub type UserIDBinding = ComponentBinding<UserID>;
+
+/// A User Attribute and any associated signatures.
+pub type UserAttributeBinding = ComponentBinding<UserAttribute>;
+
+/// An unknown component and any associated signatures.
+///
+/// Note: all signatures are stored as certifications.
+pub type UnknownBinding = ComponentBinding<Unknown>;
+
+/// A TPK component binding.
+///
+/// A TPK component is a primary key, a subkey, a user id, or a user
+/// attribute.  A binding is a TPK component and any related
+/// signatures.
 #[derive(Debug, Clone, PartialEq)]
-pub struct SubkeyBinding {
-    subkey: Key,
+pub struct ComponentBinding<C> {
+    component: C,
 
     // Self signatures.
     selfsigs: Vec<Signature>,
@@ -526,10 +544,15 @@ pub struct SubkeyBinding {
     other_revocations: Vec<Signature>,
 }
 
-impl SubkeyBinding {
-    /// The key.
-    pub fn subkey(&self) -> &Key {
-        &self.subkey
+impl<C> ComponentBinding<C> {
+    /// Returns a reference to the component.
+    pub fn component(&self) -> &C {
+        &self.component
+    }
+
+    /// Returns a mutable reference to the component.
+    fn component_mut(&mut self) -> &mut C {
+        &mut self.component
     }
 
     /// Returns the most recent binding signature.
@@ -602,203 +625,37 @@ impl SubkeyBinding {
     }
 }
 
-/// A User ID and any associated signatures.
-#[derive(Debug, Clone, PartialEq)]
-pub struct UserIDBinding {
-    userid: UserID,
+impl ComponentBinding<Key> {
+    /// Returns a reference to the key.
+    pub fn subkey(&self) -> &Key {
+        self.component()
+    }
 
-    // Self signatures.
-    selfsigs: Vec<Signature>,
-
-    // Third-party certifications.
-    certifications: Vec<Signature>,
-
-    // Self revocations.
-    self_revocations: Vec<Signature>,
-
-    // Third-party revocations (e.g., designated revokers).
-    other_revocations: Vec<Signature>,
+    /// Returns a mut reference to the key.
+    fn subkey_mut(&mut self) -> &mut Key {
+        self.component_mut()
+    }
 }
 
-impl UserIDBinding {
-    /// Returns the user id certified by this binding.
+impl ComponentBinding<UserID> {
+    /// Returns a reference to the User ID.
     pub fn userid(&self) -> &UserID {
-        &self.userid
-    }
-
-    /// Returns the most recent binding signature.
-    ///
-    /// This will never return a revocation certificate.
-    ///
-    /// Normally, we ignore user ids that don't have a binding
-    /// signature.  However, if there is a valid revocation
-    /// certificate for the user id, we keep it.  In such cases, this
-    /// function will return None.
-    pub fn binding_signature(&self) -> Option<&Signature> {
-        self.selfsigs.last()
-    }
-
-    /// The self-signatures.
-    ///
-    /// All self-signatures have been validated, and the newest
-    /// self-signature is last.
-    pub fn selfsigs(&self) -> &[Signature] {
-        &self.selfsigs
-    }
-
-    /// Any third-party certifications.
-    ///
-    /// The signatures have *not* been validated.
-    pub fn certifications(&self) -> &[Signature] {
-        &self.certifications
-    }
-
-    /// Revocations issued by the key itself.
-    ///
-    /// The revocations have been validated, and the newest is last.
-    pub fn self_revocations(&self) -> &[Signature] {
-        &self.self_revocations
-    }
-
-    /// Revocations issued by other keys.
-    ///
-    /// The revocations have *not* been validated.
-    pub fn other_revocations(&self) -> &[Signature] {
-        &self.other_revocations
-    }
-
-    /// Returns the user id's revocation status at time `t`. If `t` is None,
-    /// the current time is used.
-    ///
-    /// Note: this only returns whether the user id is revoked.  If
-    /// you want to know whether the key, subkey, etc., is revoked,
-    /// then you need to query them separately.
-    pub fn revoked<T>(&self, t: T) -> RevocationStatus
-        where T: Into<Option<time::Tm>>
-    {
-        let t = t.into().unwrap_or_else(time::now_utc);
-        let has_self_revs =
-            active_revocation(&self.selfsigs,
-                              &self.self_revocations, t);
-
-        if has_self_revs {
-            return RevocationStatus::Revoked(&self.self_revocations);
-        }
-
-        let has_other_revs =
-            active_revocation(&self.selfsigs,
-                              &self.other_revocations, t);
-
-        if has_other_revs {
-            RevocationStatus::CouldBe(&self.other_revocations)
-        } else {
-            RevocationStatus::NotAsFarAsWeKnow
-        }
+        self.component()
     }
 }
 
-/// A User Attribute and any associated signatures.
-#[derive(Debug, Clone, PartialEq)]
-pub struct UserAttributeBinding {
-    user_attribute: UserAttribute,
-
-    // Self signatures.
-    selfsigs: Vec<Signature>,
-
-    // Third-party certifications.
-    certifications: Vec<Signature>,
-
-    // Self revocations.
-    self_revocations: Vec<Signature>,
-
-    // Third-party revocations (e.g., designated revokers).
-    other_revocations: Vec<Signature>,
-}
-
-impl UserAttributeBinding {
-    /// The User attribute.
+impl ComponentBinding<UserAttribute> {
+    /// Returns a reference to the User Attribute.
     pub fn user_attribute(&self) -> &UserAttribute {
-        &self.user_attribute
-    }
-
-    /// Returns the most recent binding signature.
-    ///
-    /// This will never return a revocation certificate.
-    ///
-    /// Normally, we ignore user attributes that don't have a binding
-    /// signature.  However, if there is a valid revocation
-    /// certificate for the user attribute, we keep it.  In such
-    /// cases, this function will return None.
-    pub fn binding_signature(&self) -> Option<&Signature> {
-        self.selfsigs.last()
-    }
-
-    /// The self-signatures.
-    ///
-    /// All self-signatures have been validated, and the newest
-    /// self-signature is last.
-    pub fn selfsigs(&self) -> &[Signature] {
-        &self.selfsigs
-    }
-
-    /// Any third-party certifications.
-    ///
-    /// The signatures have *not* been validated.
-    pub fn certifications(&self) -> &[Signature] {
-        &self.certifications
-    }
-
-    /// Revocations issued by the key itself.
-    ///
-    /// The revocations have been validated, and the newest is last.
-    pub fn self_revocations(&self) -> &[Signature] {
-        &self.self_revocations
-    }
-
-    /// Revocations issued by other keys.
-    ///
-    /// The revocations have *not* been validated.
-    pub fn other_revocations(&self) -> &[Signature] {
-        &self.other_revocations
-    }
-
-    /// Returns the `UserAttribute`'s revocation status.
-    ///
-    /// Note: this only returns whether the user attribute is revoked.
-    /// If you want to know whether the key, subkey, etc., is revoked,
-    /// then you need to query them separately.
-    pub fn revoked<T>(&self, t: T) -> RevocationStatus
-        where T: Into<Option<time::Tm>>
-    {
-        let t = t.into().unwrap_or_else(time::now_utc);
-        let has_self_revs =
-            active_revocation(&self.selfsigs,
-                              &self.self_revocations, t);
-
-        if has_self_revs {
-            return RevocationStatus::Revoked(&self.self_revocations);
-        }
-
-        let has_other_revs =
-            active_revocation(&self.selfsigs,
-                              &self.other_revocations, t);
-
-        if has_other_revs {
-            RevocationStatus::CouldBe(&self.other_revocations)
-        } else {
-            RevocationStatus::NotAsFarAsWeKnow
-        }
+        self.component()
     }
 }
 
-/// An unknown component and any associated signatures.
-#[derive(Debug, Clone, PartialEq)]
-pub struct UnknownBinding {
-    pub(crate) // XXX for serialization, see #245
-    unknown: Unknown,
-
-    pub(crate) // XXX for serialization, see #245
-    sigs: Vec<Signature>,
+impl ComponentBinding<Unknown> {
+    /// Returns a reference to the unknown component.
+    pub fn unknown(&self) -> &Unknown {
+        self.component()
+    }
 }
 
 /// An iterator over all `Key`s (both the primary key and any subkeys)
@@ -880,7 +737,7 @@ impl<'a> Iterator for KeyIter<'a> {
                 self.subkey_iter.next()
                     .map(|sk_binding| (sk_binding.binding_signature(),
                                        sk_binding.revoked(None),
-                                       &sk_binding.subkey,))?
+                                       sk_binding.subkey(),))?
             };
 
             t!("Considering key: {:?}", key);
@@ -2068,31 +1925,31 @@ impl TPK {
 
         for binding in self.userids.iter_mut() {
             check!(format!("userid \"{}\"",
-                           String::from_utf8_lossy(binding.userid.value())),
+                           String::from_utf8_lossy(binding.userid().value())),
                    binding, selfsigs, verify_userid_binding,
-                   &binding.userid);
+                   binding.userid());
             check!(format!("userid \"{}\"",
-                           String::from_utf8_lossy(binding.userid.value())),
+                           String::from_utf8_lossy(binding.userid().value())),
                    binding, self_revocations, verify_userid_revocation,
-                   &binding.userid);
+                   binding.userid());
         }
 
         for binding in self.user_attributes.iter_mut() {
             check!("user attribute",
                    binding, selfsigs, verify_user_attribute_binding,
-                   &binding.user_attribute);
+                   binding.user_attribute());
             check!("user attribute",
                    binding, self_revocations, verify_user_attribute_revocation,
-                   &binding.user_attribute);
+                   binding.user_attribute());
         }
 
         for binding in self.subkeys.iter_mut() {
-            check!(format!("subkey {}", binding.subkey.keyid()),
+            check!(format!("subkey {}", binding.subkey().keyid()),
                    binding, selfsigs, verify_subkey_binding,
-                   &binding.subkey);
-            check!(format!("subkey {}", binding.subkey.keyid()),
+                   binding.subkey());
+            check!(format!("subkey {}", binding.subkey().keyid()),
                    binding, self_revocations, verify_subkey_revocation,
-                   &binding.subkey);
+                   binding.subkey());
         }
 
         // See if the signatures that didn't validate are just out of
@@ -2134,34 +1991,34 @@ impl TPK {
             for binding in self.userids.iter_mut() {
                 check_one!(format!("userid \"{}\"",
                                    String::from_utf8_lossy(
-                                       binding.userid.value())),
+                                       binding.userid().value())),
                            binding.selfsigs, sig,
-                           verify_userid_binding, &binding.userid);
+                           verify_userid_binding, binding.userid());
                 check_one!(format!("userid \"{}\"",
                                    String::from_utf8_lossy(
-                                       binding.userid.value())),
+                                       binding.userid().value())),
                            binding.self_revocations, sig,
-                           verify_userid_revocation, &binding.userid);
+                           verify_userid_revocation, binding.userid());
             }
 
             for binding in self.user_attributes.iter_mut() {
                 check_one!("user attribute",
                            binding.selfsigs, sig,
                            verify_user_attribute_binding,
-                           &binding.user_attribute);
+                           binding.user_attribute());
                 check_one!("user attribute",
                            binding.self_revocations, sig,
                            verify_user_attribute_revocation,
-                           &binding.user_attribute);
+                           binding.user_attribute());
             }
 
             for binding in self.subkeys.iter_mut() {
-                check_one!(format!("subkey {}", binding.subkey.keyid()),
+                check_one!(format!("subkey {}", binding.subkey().keyid()),
                            binding.selfsigs, sig,
-                           verify_subkey_binding, &binding.subkey);
-                check_one!(format!("subkey {}", binding.subkey.keyid()),
+                           verify_subkey_binding, binding.subkey());
+                check_one!(format!("subkey {}", binding.subkey().keyid()),
                            binding.self_revocations, sig,
-                           verify_subkey_revocation, &binding.subkey);
+                           verify_subkey_revocation, binding.subkey());
             }
 
             // Keep them for later.
@@ -2245,11 +2102,11 @@ impl TPK {
         // one copy might be sorted to the front and the other to the
         // back, and the following dedup wouldn't combine the user
         // ids!
-        self.userids.sort_by(|a, b| a.userid.value().cmp(&b.userid.value()));
+        self.userids.sort_by(|a, b| a.userid().value().cmp(&b.userid().value()));
 
         // Then, we dedup them.
         self.userids.dedup_by(|a, b| {
-            if a.userid == b.userid {
+            if a.userid() == b.userid() {
                 // Merge the content of duplicate user ids.
 
                 // Recall: if a and b are equal, a will be dropped.
@@ -2365,7 +2222,7 @@ impl TPK {
             }
 
             // Fallback to a lexicographical comparison.
-            a.userid.value().cmp(&b.userid.value())
+            a.userid().value().cmp(&b.userid().value())
         });
 
         // Sort the signatures so that the current valid
@@ -2390,12 +2247,12 @@ impl TPK {
         // for the user ids, we can't do the final sort here, because
         // we rely on the self-signatures.
         self.user_attributes.sort_by(
-            |a, b| a.user_attribute.value()
-                .cmp(&b.user_attribute.value()));
+            |a, b| a.user_attribute().value()
+                .cmp(&b.user_attribute().value()));
 
         // And, dedup them.
         self.user_attributes.dedup_by(|a, b| {
-            if a.user_attribute == b.user_attribute {
+            if a.user_attribute() == b.user_attribute() {
                 // Recall: if a and b are equal, a will be dropped.
                 b.selfsigs.append(&mut a.selfsigs);
                 b.selfsigs.sort_by(sig_cmp);
@@ -2493,8 +2350,8 @@ impl TPK {
             }
 
             // Fallback to a lexicographical comparison.
-            a.user_attribute.value()
-                .cmp(&b.user_attribute.value())
+            a.user_attribute().value()
+                .cmp(&b.user_attribute().value())
         });
 
 
@@ -2520,21 +2377,21 @@ impl TPK {
         // user ids, we can't do the final sort here, because we rely
         // on the self-signatures.
         self.subkeys.sort_by(
-            |a, b| Key::public_cmp(&a.subkey, &b.subkey));
+            |a, b| Key::public_cmp(a.subkey(), b.subkey()));
 
         // And, dedup them.
         //
         // If the public keys match, but only one of them has a secret
         // key, then merge the key and keep the secret key.
         self.subkeys.dedup_by(|a, b| {
-            if Key::public_cmp(&a.subkey, &b.subkey) == Ordering::Equal
-                && (a.subkey.secret() == b.subkey.secret()
-                    || a.subkey.secret().is_none()
-                    || b.subkey.secret().is_none())
+            if Key::public_cmp(a.subkey(), b.subkey()) == Ordering::Equal
+                && (a.subkey().secret() == b.subkey().secret()
+                    || a.subkey().secret().is_none()
+                    || b.subkey().secret().is_none())
             {
                 // Recall: if a and b are equal, a will be dropped.
-                if b.subkey.secret().is_none() && a.subkey.secret().is_some() {
-                    b.subkey.set_secret(a.subkey.set_secret(None));
+                if b.subkey().secret().is_none() && a.subkey().secret().is_some() {
+                    b.subkey_mut().set_secret(a.subkey_mut().set_secret(None));
                 }
 
                 b.selfsigs.append(&mut a.selfsigs);
@@ -2612,13 +2469,13 @@ impl TPK {
             }
 
             // Creation time (more recent first).
-            let cmp = b.subkey.creation_time().cmp(&a.subkey.creation_time());
+            let cmp = b.subkey().creation_time().cmp(&a.subkey().creation_time());
             if cmp != Ordering::Equal {
                 return cmp;
             }
 
             // Fallback to the lexicographical comparison.
-            a.subkey.mpis().cmp(&b.subkey.mpis())
+            a.subkey().mpis().cmp(&b.subkey().mpis())
         });
 
         // In case we have subkeys bound to the primary, it must be
@@ -2692,7 +2549,7 @@ impl TPK {
         }
 
         for u in self.userids.into_iter() {
-            p.push(Packet::UserID(u.userid));
+            p.push(Packet::UserID(u.component));
             for s in u.self_revocations.into_iter() {
                 p.push(Packet::Signature(s));
             }
@@ -2708,7 +2565,7 @@ impl TPK {
         }
 
         for u in self.user_attributes.into_iter() {
-            p.push(Packet::UserAttribute(u.user_attribute));
+            p.push(Packet::UserAttribute(u.component));
             for s in u.self_revocations.into_iter() {
                 p.push(Packet::Signature(s));
             }
@@ -2725,7 +2582,7 @@ impl TPK {
 
         let subkeys = self.subkeys;
         for k in subkeys.into_iter() {
-            p.push(Packet::PublicSubkey(k.subkey));
+            p.push(Packet::PublicSubkey(k.component));
             for s in k.self_revocations.into_iter() {
                 p.push(Packet::Signature(s));
             }
@@ -2984,7 +2841,7 @@ mod test {
                                 i == 0).unwrap();
             assert_eq!(tpk.primary.creation_time().to_pgp().unwrap(), 1511355130);
             assert_eq!(tpk.userids.len(), 1);
-            assert_eq!(tpk.userids[0].userid.value(),
+            assert_eq!(tpk.userids[0].userid().value(),
                        &b"Testy McTestface <testy@example.org>"[..]);
             assert_eq!(tpk.userids[0].selfsigs.len(), 1);
             assert_eq!(tpk.userids[0].selfsigs[0].hash_prefix(),
@@ -3005,7 +2862,7 @@ mod test {
                        "3E8877C877274692975189F5D03F6F865226FE8B");
 
             assert_eq!(tpk.userids.len(), 1, "number of userids");
-            assert_eq!(tpk.userids[0].userid.value(),
+            assert_eq!(tpk.userids[0].userid().value(),
                        &b"Testy McTestface <testy@example.org>"[..]);
             assert_eq!(tpk.userids[0].selfsigs.len(), 1);
             assert_eq!(tpk.userids[0].selfsigs[0].hash_prefix(),
@@ -3014,7 +2871,7 @@ mod test {
             assert_eq!(tpk.user_attributes.len(), 0);
 
             assert_eq!(tpk.subkeys.len(), 1, "number of subkeys");
-            assert_eq!(tpk.subkeys[0].subkey.creation_time().to_pgp().unwrap(),
+            assert_eq!(tpk.subkeys[0].subkey().creation_time().to_pgp().unwrap(),
                        1511355130);
             assert_eq!(tpk.subkeys[0].selfsigs[0].hash_prefix(),
                        &[ 0xb7, 0xb9 ]);
@@ -3028,7 +2885,7 @@ mod test {
             assert_eq!(tpk.user_attributes.len(), 0);
 
             assert_eq!(tpk.userids.len(), 1, "number of userids");
-            assert_eq!(tpk.userids[0].userid.value(),
+            assert_eq!(tpk.userids[0].userid().value(),
                        &b"Testy McTestface <testy@example.org>"[..]);
             assert_eq!(tpk.userids[0].selfsigs.len(), 1);
             assert_eq!(tpk.userids[0].selfsigs[0].hash_prefix(),
@@ -3273,7 +3130,7 @@ mod test {
             .unwrap();
 
         let mut userids = tpk.userids()
-            .map(|u| String::from_utf8_lossy(u.userid.value()).into_owned())
+            .map(|u| String::from_utf8_lossy(u.userid().value()).into_owned())
             .collect::<Vec<String>>();
         userids.sort();
 
@@ -3287,7 +3144,7 @@ mod test {
                    ]);
 
         let mut subkeys = tpk.subkeys()
-            .map(|sk| Some(sk.subkey.keyid()))
+            .map(|sk| Some(sk.subkey().keyid()))
             .collect::<Vec<Option<KeyID>>>();
         subkeys.sort();
         assert_eq!(subkeys,
@@ -3302,7 +3159,7 @@ mod test {
             TPK::from_bytes(crate::tests::key("dkg-sigs-out-of-order.pgp")).unwrap();
 
         let mut userids = tpk.userids()
-            .map(|u| String::from_utf8_lossy(u.userid.value()).into_owned())
+            .map(|u| String::from_utf8_lossy(u.userid().value()).into_owned())
             .collect::<Vec<String>>();
         userids.sort();
 
@@ -3318,7 +3175,7 @@ mod test {
         assert_eq!(tpk.user_attributes.len(), 1);
 
         let mut subkeys = tpk.subkeys()
-            .map(|sk| Some(sk.subkey.keyid()))
+            .map(|sk| Some(sk.subkey().keyid()))
             .collect::<Vec<Option<KeyID>>>();
         subkeys.sort();
         assert_eq!(subkeys,
@@ -3854,7 +3711,7 @@ mod test {
         assert!(tsk.is_tsk());
         let subkey_count = tsk.subkeys().len();
         assert!(subkey_count > 0);
-        assert!(tsk.subkeys().all(|k| k.subkey.secret().is_some()));
+        assert!(tsk.subkeys().all(|k| k.subkey().secret().is_some()));
 
         // This will write out the tsk as a tpk, i.e., without any
         // private bits.
@@ -3865,19 +3722,19 @@ mod test {
         let tpk = TPK::from_bytes(&tpk_bytes[..]).unwrap();
         assert!(tpk.primary.secret().is_none());
         assert!(!tpk.is_tsk());
-        assert!(tpk.subkeys().all(|k| k.subkey.secret().is_none()));
+        assert!(tpk.subkeys().all(|k| k.subkey().secret().is_none()));
 
         let merge1 = tpk.clone().merge(tsk.clone()).unwrap();
         assert!(merge1.is_tsk());
         assert!(merge1.primary.secret().is_some());
         assert_eq!(merge1.subkeys().len(), subkey_count);
-        assert!(merge1.subkeys().all(|k| k.subkey.secret().is_some()));
+        assert!(merge1.subkeys().all(|k| k.subkey().secret().is_some()));
 
         let merge2 = tsk.clone().merge(tpk.clone()).unwrap();
         assert!(merge2.is_tsk());
         assert!(merge2.primary.secret().is_some());
         assert_eq!(merge2.subkeys().len(), subkey_count);
-        assert!(merge2.subkeys().all(|k| k.subkey.secret().is_some()));
+        assert!(merge2.subkeys().all(|k| k.subkey().secret().is_some()));
     }
 
     #[test]

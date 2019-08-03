@@ -415,7 +415,7 @@ mod tests {
             .generate().unwrap();
 
         let mut userids = tpk.userids()
-            .map(|u| String::from_utf8_lossy(u.userid.value()).into_owned())
+            .map(|u| String::from_utf8_lossy(u.userid().value()).into_owned())
             .collect::<Vec<String>>();
         userids.sort();
 

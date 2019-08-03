@@ -124,16 +124,16 @@ impl TPK {
         }
 
         for u in self.unknowns.iter() {
-            if export && ! u.sigs.iter().any(
+            if export && ! u.certifications().iter().any(
                 |s| s.exportable_certification().unwrap_or(true))
             {
                 // No exportable selfsig on this component, skip it.
                 continue;
             }
 
-            PacketRef::Unknown(&u.unknown).serialize(o)?;
+            PacketRef::Unknown(u.unknown()).serialize(o)?;
 
-            for s in u.sigs.iter() {
+            for s in u.certifications().iter() {
                 serialize_sig(o, s)?;
             }
         }
@@ -216,9 +216,9 @@ impl SerializeInto for TPK {
         }
 
         for u in self.unknowns.iter() {
-            l += PacketRef::Unknown(&u.unknown).serialized_len();
+            l += PacketRef::Unknown(u.unknown()).serialized_len();
 
-            for s in u.sigs.iter() {
+            for s in u.certifications().iter() {
                 l += PacketRef::Signature(s).serialized_len();
             }
         }
@@ -443,16 +443,16 @@ impl<'a> TSK<'a> {
         }
 
         for u in self.tpk.unknowns.iter() {
-            if export && ! u.sigs.iter().any(
+            if export && ! u.certifications().iter().any(
                 |s| s.exportable_certification().unwrap_or(true))
             {
                 // No exportable selfsig on this component, skip it.
                 continue;
             }
 
-            PacketRef::Unknown(&u.unknown).serialize(o)?;
+            PacketRef::Unknown(&u.unknown()).serialize(o)?;
 
-            for s in u.sigs.iter() {
+            for s in u.certifications().iter() {
                 serialize_sig(o, s)?;
             }
         }
@@ -568,9 +568,9 @@ impl<'a> SerializeInto for TSK<'a> {
         }
 
         for u in self.tpk.unknowns.iter() {
-            l += PacketRef::Unknown(&u.unknown).serialized_len();
+            l += PacketRef::Unknown(u.unknown()).serialized_len();
 
-            for s in u.sigs.iter() {
+            for s in u.certifications().iter() {
                 l += PacketRef::Signature(s).serialized_len();
             }
         }
