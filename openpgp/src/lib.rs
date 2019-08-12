@@ -109,7 +109,7 @@ pub mod conversions;
 pub mod crypto;
 
 pub mod packet;
-use crate::packet::{BodyLength, Header, Container};
+use crate::packet::{BodyLength, Header, Container, key};
 use crate::packet::ctb::{CTB, CTBOld, CTBNew};
 
 pub mod parse;
@@ -265,13 +265,13 @@ pub enum Packet {
     /// One pass signature packet.
     OnePassSig(packet::OnePassSig),
     /// Public key packet.
-    PublicKey(packet::Key),
+    PublicKey(packet::key::PublicKey),
     /// Public subkey packet.
-    PublicSubkey(packet::Key),
+    PublicSubkey(packet::key::PublicSubkey),
     /// Public/Secret key pair.
-    SecretKey(packet::Key),
+    SecretKey(packet::key::SecretKey),
     /// Public/Secret subkey pair.
-    SecretSubkey(packet::Key),
+    SecretSubkey(packet::key::SecretSubkey),
     /// Marker packet.
     Marker(packet::Marker),
     /// Trust packet.

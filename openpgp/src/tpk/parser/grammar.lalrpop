@@ -4,14 +4,20 @@ use crate::Error;
 use crate::packet::Signature;
 use crate::packet::UserID;
 use crate::packet::UserAttribute;
-use crate::packet::Key;
+use crate::packet::{key, Key};
 use crate::packet::Unknown;
 use crate::Packet;
 use crate::TPK;
 
 use crate::tpk::parser::lexer;
 use crate::tpk::parser::lexer::{Token, Component};
-use crate::tpk::{KeyBinding, UserIDBinding, UserAttributeBinding, UnknownBinding};
+use crate::tpk::{
+    PrimaryKeyBinding,
+    SubkeyBinding,
+    UserIDBinding,
+    UserAttributeBinding,
+    UnknownBinding,
+};
 
 use lalrpop_util::ParseError;
 
@@ -29,12 +35,17 @@ grammar;
 pub TPK: Option<TPK> = {
     <p:Primary> <c:OptionalComponents> =>? {
         match p {
-            Some((Packet::PublicKey(key), sigs))
-            | Some((Packet::SecretKey(key), sigs)) => {
+            Some((Packet::PublicKey(_), _))
+            | Some((Packet::SecretKey(_), _)) => {
+                let (key, sigs) = match p {
+                    Some((Packet::PublicKey(key), sigs)) => (key, sigs),
+                    Some((Packet::SecretKey(key), sigs)) => (key.into(), sigs),
+                    _ => unreachable!(),
+                };
                 let c = c.unwrap();
 
                 let mut tpk = TPK {
-                    primary: KeyBinding {
+                    primary: PrimaryKeyBinding {
                         component: key,
                         selfsigs: vec![],
                         certifications: sigs,
@@ -50,7 +61,7 @@ pub TPK: Option<TPK> = {
 
                 for c in c.into_iter() {
                     match c {
-                        Component::KeyBinding(b) =>
+                        Component::SubkeyBinding(b) =>
                             tpk.subkeys.push(b),
                         Component::UserIDBinding(b) =>
                             tpk.userids.push(b),
@@ -145,7 +156,7 @@ Component: Option<Component> = {
             Some(key) => {
                 let sigs = sigs.unwrap();
 
-                Some(Component::KeyBinding(KeyBinding {
+                Some(Component::SubkeyBinding(SubkeyBinding {
                     component: key,
                     selfsigs: vec![],
                     certifications: sigs,
@@ -210,7 +221,7 @@ Component: Option<Component> = {
     },
 }
 
-Subkey: Option<Key> = {
+Subkey: Option<Key<key::PublicParts, key::SubordinateRole>> = {
     <t:PUBLIC_SUBKEY> => {
         match t.into() {
             Some(Packet::PublicSubkey(key)) => Some(key),
@@ -222,7 +233,7 @@ Subkey: Option<Key> = {
     },
     <t:SECRET_SUBKEY> => {
         match t.into() {
-            Some(Packet::SecretSubkey(key)) => Some(key),
+            Some(Packet::SecretSubkey(key)) => Some(key.mark_parts_public()),
             // Just validating a message...
             None => None,
             Some(pkt) =>

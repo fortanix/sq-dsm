@@ -151,7 +151,8 @@ pub extern "C" fn pgp_arbitrary_writer_new
 pub extern "C" fn pgp_signer_new
     (errp: Option<&mut *mut crate::error::Error>,
      inner: *mut writer::Stack<'static, Cookie>,
-     signers: *const *mut Box<self::openpgp::crypto::Signer>,
+     signers: *const *mut Box<self::openpgp::crypto::Signer<
+             self::openpgp::packet::key::UnspecifiedRole>>,
      signers_len: size_t,
      hash_algo: u8)
      -> *mut writer::Stack<'static, Cookie>
@@ -163,7 +164,7 @@ pub extern "C" fn pgp_signer_new
         slice::from_raw_parts(signers, signers_len)
     };
     let signers = signers.into_iter().map(
-        |s| -> &mut dyn self::openpgp::crypto::Signer {
+        |s| -> &mut dyn self::openpgp::crypto::Signer<_> {
             let signer = *s;
             ffi_param_ref_mut!(signer).as_mut()
         }
@@ -183,7 +184,8 @@ pub extern "C" fn pgp_signer_new
 pub extern "C" fn pgp_signer_new_detached
     (errp: Option<&mut *mut crate::error::Error>,
      inner: *mut writer::Stack<'static, Cookie>,
-     signers: *const *mut Box<self::openpgp::crypto::Signer>,
+     signers: *const *mut Box<self::openpgp::crypto::Signer<
+             self::openpgp::packet::key::UnspecifiedRole>>,
      signers_len: size_t,
      hash_algo: u8)
      -> *mut writer::Stack<'static, Cookie>
@@ -195,7 +197,7 @@ pub extern "C" fn pgp_signer_new_detached
         slice::from_raw_parts(signers, signers_len)
     };
     let signers = signers.into_iter().map(
-        |s| -> &mut dyn self::openpgp::crypto::Signer {
+        |s| -> &mut dyn self::openpgp::crypto::Signer<_> {
             let signer = *s;
             ffi_param_ref_mut!(signer).as_mut()
         }

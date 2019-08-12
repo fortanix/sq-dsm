@@ -27,6 +27,7 @@ use crate::{
     packet::{
         BodyLength,
         ctb::CTB,
+        key,
         Key,
         Literal,
         OnePassSig,
@@ -146,7 +147,10 @@ pub enum VerificationResult<'a> {
     ///
     /// [web of trust]: https://en.wikipedia.org/wiki/Web_of_trust
     GoodChecksum(Signature,
-                 &'a TPK, &'a Key, Option<&'a Signature>, RevocationStatus<'a>),
+                 &'a TPK,
+                 &'a key::UnspecifiedPublic,
+                 Option<&'a Signature>,
+                 RevocationStatus<'a>),
     /// Unable to verify the signature because the key is missing.
     MissingKey(Signature),
     /// The signature is bad.
@@ -467,6 +471,20 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
                                        helper: H, t: time::Tm)
                                        -> Result<Verifier<'a, H>>
     {
+        fn can_sign<P, R>(key: &Key<P, R>, sig: Option<&Signature>, t: time::Tm)
+            -> bool
+            where P: key::KeyParts, R: key::KeyRole
+        {
+            if let Some(sig) = sig {
+                sig.key_flags().can_sign()
+                // Check expiry.
+                    && sig.signature_alive_at(t)
+                    && sig.key_alive_at(key, t)
+            } else {
+                false
+            }
+        }
+
         let mut ppr = PacketParser::from_buffered_reader(bio)?;
 
         let mut v = Verifier {
@@ -499,25 +517,14 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
                     v.tpks = v.helper.get_public_keys(&issuers)?;
 
                     for (i, tpk) in v.tpks.iter().enumerate() {
-                        let can_sign = |key: &Key, sig: Option<&Signature>| -> bool {
-                            if let Some(sig) = sig {
-                                sig.key_flags().can_sign()
-                                // Check expiry.
-                                    && sig.signature_alive_at(t)
-                                    && sig.key_alive_at(key, t)
-                            } else {
-                                false
-                            }
-                        };
-
                         if can_sign(tpk.primary().key(),
-                                    tpk.primary_key_signature()) {
+                                    tpk.primary_key_signature(), t) {
                             v.keys.insert(tpk.keyid(), (i, 0));
                         }
 
                         for (j, skb) in tpk.subkeys().enumerate() {
                             let key = skb.key();
-                            if can_sign(key, skb.binding_signature()) {
+                            if can_sign(key, skb.binding_signature(), t) {
                                 v.keys.insert(key.keyid(),
                                               (i, j + 1));
                             }
@@ -1284,7 +1291,9 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                     v.tpks = v.helper.get_public_keys(&issuers)?;
 
                     for (i, tpk) in v.tpks.iter().enumerate() {
-                        let can_sign = |key: &Key, sig: Option<&Signature>| -> bool {
+                        let can_sign = |key: &key::UnspecifiedKey,
+                                        sig: Option<&Signature>| -> bool
+                        {
                             if let Some(sig) = sig {
                                 sig.key_flags().can_sign()
                                 // Check expiry.
@@ -1295,14 +1304,14 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                             }
                         };
 
-                        if can_sign(tpk.primary().key(),
+                        if can_sign(tpk.primary().key().into(),
                                     tpk.primary_key_signature()) {
                             v.keys.insert(tpk.keyid(), (i, 0));
                         }
 
                         for (j, skb) in tpk.subkeys().enumerate() {
                             let key = skb.key();
-                            if can_sign(key, skb.binding_signature()) {
+                            if can_sign(key.into(), skb.binding_signature()) {
                                 v.keys.insert(key.keyid(), (i, j + 1));
                             }
                         }
@@ -1455,7 +1464,9 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                                                     (sig)
                                             } else {
                                                 VerificationResult::GoodChecksum
-                                                    (sig, tpk, key, binding,
+                                                    (sig, tpk,
+                                                     key,
+                                                     binding,
                                                      revocation)
                                             }
                                         } else {
@@ -1807,7 +1818,7 @@ mod test {
         let mut buf = vec![];
         {
             let key = tpk.keys_all().signing_capable().nth(0).unwrap().2;
-            let mut keypair = key.clone().into_keypair().unwrap();
+            let mut keypair = key.clone().mark_parts_secret().into_keypair().unwrap();
 
             let m = Message::new(&mut buf);
             let signer = Signer::new(m, vec![&mut keypair], None).unwrap();

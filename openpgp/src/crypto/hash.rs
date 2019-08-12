@@ -3,7 +3,7 @@
 use crate::HashAlgorithm;
 use crate::packet::UserID;
 use crate::packet::UserAttribute;
-use crate::packet::Key;
+use crate::packet::key;
 use crate::packet::key::Key4;
 use crate::packet::Signature;
 use crate::packet::signature::{self, Signature4};
@@ -221,7 +221,10 @@ impl Hash for UserAttribute {
     }
 }
 
-impl Hash for Key4 {
+impl<P, R> Hash for Key4<P, R>
+    where P: key::KeyParts,
+          R: key::KeyRole,
+{
     /// Update the Hash with a hash of the key.
     fn hash(&self, hash: &mut Context) {
         // We hash 8 bytes plus the MPIs.  But, the len doesn't
@@ -335,9 +338,10 @@ impl Hash for signature::Builder {
 impl Signature {
     /// Returns the message digest of the primary key binding over the
     /// specified primary key.
-    pub fn primary_key_binding_hash<'a, S>(sig: S, key: &Key)
+    pub fn primary_key_binding_hash<'a, S>(sig: S, key: &key::PublicKey)
         -> Result<Vec<u8>>
-        where S: Into<&'a signature::Builder> {
+        where S: Into<&'a signature::Builder>
+    {
 
         let sig = sig.into();
         let mut h = sig.hash_algo().context()?;
@@ -352,9 +356,12 @@ impl Signature {
 
     /// Returns the message digest of the subkey binding over the
     /// specified primary key and subkey.
-    pub fn subkey_binding_hash<'a, S>(sig: S, key: &Key, subkey: &Key)
+    pub fn subkey_binding_hash<'a, S>(sig: S,
+                                      key: &key::PublicKey,
+                                      subkey: &key::PublicSubkey)
         -> Result<Vec<u8>>
-        where S: Into<&'a signature::Builder> {
+        where S: Into<&'a signature::Builder>
+    {
 
         let sig = sig.into();
         let mut h = sig.hash_algo().context()?;
@@ -370,10 +377,12 @@ impl Signature {
 
     /// Returns the message digest of the user ID binding over the
     /// specified primary key, user ID, and signature.
-    pub fn userid_binding_hash<'a, S>(sig: S, key: &Key, userid: &UserID)
+    pub fn userid_binding_hash<'a, S>(sig: S,
+                                      key: &key::PublicKey,
+                                      userid: &UserID)
         -> Result<Vec<u8>>
-        where S: Into<&'a signature::Builder> {
-
+        where S: Into<&'a signature::Builder>
+    {
         let sig = sig.into();
         let mut h = sig.hash_algo().context()?;
 
@@ -388,10 +397,12 @@ impl Signature {
 
     /// Returns the message digest of the user attribute binding over
     /// the specified primary key, user attribute, and signature.
-    pub fn user_attribute_binding_hash<'a, S>(sig: S, key: &Key,
+    pub fn user_attribute_binding_hash<'a, S>(sig: S,
+                                              key: &key::PublicKey,
                                               ua: &UserAttribute)
         -> Result<Vec<u8>>
-        where S: Into<&'a signature::Builder> {
+        where S: Into<&'a signature::Builder>
+    {
 
         let sig = sig.into();
         let mut h = sig.hash_algo().context()?;

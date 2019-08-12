@@ -186,7 +186,9 @@ impl<'a> writer::Stackable<'a, Cookie> for ArbitraryWriter<'a> {
 /// writes a signature packet.
 ///
 /// Unless otherwise specified, SHA512 is used as hash algorithm.
-pub struct Signer<'a> {
+pub struct Signer<'a, R>
+    where R: key::KeyRole
+{
     // The underlying writer.
     //
     // Because this writer implements `Drop`, we cannot move the inner
@@ -197,14 +199,16 @@ pub struct Signer<'a> {
     // take our inner reader.  If that happens, we only update the
     // digests.
     inner: Option<writer::BoxStack<'a, Cookie>>,
-    signers: Vec<&'a mut dyn crypto::Signer>,
+    signers: Vec<&'a mut dyn crypto::Signer<R>>,
     intended_recipients: Option<Vec<Fingerprint>>,
     detached: bool,
     hash: crypto::hash::Context,
     cookie: Cookie,
 }
 
-impl<'a> Signer<'a> {
+impl<'a, R> Signer<'a, R>
+    where R: key::KeyRole
+{
     /// Creates a signer.
     ///
     /// # Example
@@ -215,7 +219,7 @@ impl<'a> Signer<'a> {
     /// use openpgp::constants::DataFormat;
     /// use openpgp::serialize::stream::{Message, Signer, LiteralWriter};
     /// # use openpgp::{Result, TPK};
-    /// # use openpgp::packet::key::SecretKeyMaterial;
+    /// # use openpgp::packet::prelude::*;
     /// # use openpgp::crypto::KeyPair;
     /// # use openpgp::parse::Parse;
     /// # use openpgp::parse::stream::*;
@@ -223,9 +227,9 @@ impl<'a> Signer<'a> {
     /// #     "../../tests/data/keys/testy-new-private.pgp"))
     /// #     .unwrap();
     /// # let keypair = tsk.keys_valid().signing_capable().nth(0).unwrap().2
-    /// #     .clone().into_keypair().unwrap();
+    /// #     .clone().mark_parts_secret().into_keypair().unwrap();
     /// # f(tsk, keypair).unwrap();
-    /// # fn f(tpk: TPK, mut signing_keypair: KeyPair) -> Result<()> {
+    /// # fn f<R: key::KeyRole>(tpk: TPK, mut signing_keypair: KeyPair<R>) -> Result<()> {
     ///
     /// let mut o = vec![];
     /// {
@@ -265,9 +269,9 @@ impl<'a> Signer<'a> {
     /// # }
     /// ```
     pub fn new<H>(inner: writer::Stack<'a, Cookie>,
-                  signers: Vec<&'a mut dyn crypto::Signer>,
+                  signers: Vec<&'a mut dyn crypto::Signer<R>>,
                   hash_algo: H)
-                  -> Result<writer::Stack<'a, Cookie>>
+        -> Result<writer::Stack<'a, Cookie>>
         where H: Into<Option<HashAlgorithm>>
     {
         Self::make(inner, signers, None, false, hash_algo)
@@ -280,10 +284,10 @@ impl<'a> Signer<'a> {
     /// signature.  This prevents forwarding a signed message using a
     /// different encryption context.
     pub fn with_intended_recipients<H>(inner: writer::Stack<'a, Cookie>,
-                                       signers: Vec<&'a mut dyn crypto::Signer>,
+                                       signers: Vec<&'a mut dyn crypto::Signer<R>>,
                                        recipients: &[&'a TPK],
                                        hash_algo: H)
-                                       -> Result<writer::Stack<'a, Cookie>>
+        -> Result<writer::Stack<'a, Cookie>>
         where H: Into<Option<HashAlgorithm>>
     {
         Self::make(inner, signers,
@@ -300,7 +304,7 @@ impl<'a> Signer<'a> {
     /// use std::io::{Read, Write};
     /// use openpgp::serialize::stream::{Message, Signer, LiteralWriter};
     /// # use openpgp::{Result, TPK};
-    /// # use openpgp::packet::key::SecretKeyMaterial;
+    /// # use openpgp::packet::prelude::*;
     /// # use openpgp::crypto::KeyPair;
     /// # use openpgp::parse::Parse;
     /// # use openpgp::parse::stream::*;
@@ -308,9 +312,9 @@ impl<'a> Signer<'a> {
     /// #     "../../tests/data/keys/testy-new-private.pgp"))
     /// #     .unwrap();
     /// # let keypair = tsk.keys_valid().signing_capable().nth(0).unwrap().2
-    /// #     .clone().into_keypair().unwrap();
+    /// #     .clone().mark_parts_secret().into_keypair().unwrap();
     /// # f(tsk, keypair).unwrap();
-    /// # fn f(tpk: TPK, mut signing_keypair: KeyPair) -> Result<()> {
+    /// # fn f<R: key::KeyRole>(tpk: TPK, mut signing_keypair: KeyPair<R>) -> Result<()> {
     ///
     /// let mut o = vec![];
     /// {
@@ -353,19 +357,19 @@ impl<'a> Signer<'a> {
     /// # }
     /// ```
     pub fn detached<H>(inner: writer::Stack<'a, Cookie>,
-                       signers: Vec<&'a mut dyn crypto::Signer>,
+                       signers: Vec<&'a mut dyn crypto::Signer<R>>,
                        hash_algo: H)
-                       -> Result<writer::Stack<'a, Cookie>>
+        -> Result<writer::Stack<'a, Cookie>>
         where H: Into<Option<HashAlgorithm>>
     {
         Self::make(inner, signers, None, true, hash_algo)
     }
 
     fn make<H>(inner: writer::Stack<'a, Cookie>,
-               signers: Vec<&'a mut dyn crypto::Signer>,
+               signers: Vec<&'a mut dyn crypto::Signer<R>>,
                intended_recipients: Option<Vec<Fingerprint>>, detached: bool,
                hash_algo: H)
-               -> Result<writer::Stack<'a, Cookie>>
+        -> Result<writer::Stack<'a, Cookie>>
         where H: Into<Option<HashAlgorithm>>
     {
         let mut inner = writer::BoxStack::from(inner);
@@ -437,13 +441,17 @@ impl<'a> Signer<'a> {
     }
 }
 
-impl<'a> Drop for Signer<'a> {
+impl<'a, R> Drop for Signer<'a, R>
+    where R: key::KeyRole
+{
     fn drop(&mut self) {
         let _ = self.emit_signatures();
     }
 }
 
-impl<'a> fmt::Debug for Signer<'a> {
+impl<'a, R> fmt::Debug for Signer<'a, R>
+    where R: key::KeyRole
+{
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("Signer")
             .field("inner", &self.inner)
@@ -452,7 +460,9 @@ impl<'a> fmt::Debug for Signer<'a> {
     }
 }
 
-impl<'a> Write for Signer<'a> {
+impl<'a, R> Write for Signer<'a, R>
+    where R: key::KeyRole
+{
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         let written = match self.inner.as_mut() {
             // If we are creating a normal signature, pass data
@@ -483,7 +493,9 @@ impl<'a> Write for Signer<'a> {
     }
 }
 
-impl<'a> writer::Stackable<'a, Cookie> for Signer<'a> {
+impl<'a, R> writer::Stackable<'a, Cookie> for Signer<'a, R>
+    where R: key::KeyRole
+{
     fn pop(&mut self) -> Result<Option<writer::BoxStack<'a, Cookie>>> {
         Ok(self.inner.take())
     }
@@ -956,7 +968,11 @@ impl<'a> Encryptor<'a> {
         // Write the PKESK packet(s).
         for tpk in tpks {
             // We need to find all applicable encryption (sub)keys.
-            let can_encrypt = |key: &Key, sig: Option<&Signature>| -> bool {
+            fn can_encrypt<P, R>(key: &Key<P, R>, sig: Option<&Signature>,
+                                 encryption_mode: &EncryptionMode)
+                -> bool
+                where P: key::KeyParts, R: key::KeyRole
+            {
                 if let Some(sig) = sig {
                     (match encryption_mode {
                         EncryptionMode::AtRest =>
@@ -973,9 +989,10 @@ impl<'a> Encryptor<'a> {
             };
 
             // Gather all encryption-capable subkeys.
-            let subkeys = tpk.subkeys().filter_map(|skb| {
-                let key = skb.key();
-                if can_encrypt(key, skb.binding_signature()) {
+            let subkeys = tpk.subkeys().filter_map(|skb|
+            {
+                let key : &key::UnspecifiedPublic = skb.key().into();
+                if can_encrypt(key, skb.binding_signature(), &encryption_mode) {
                     Some(key)
                 } else {
                     None
@@ -984,12 +1001,13 @@ impl<'a> Encryptor<'a> {
 
             // Check if the primary key is encryption-capable.
             let primary_can_encrypt =
-                can_encrypt(tpk.primary().key(), tpk.primary_key_signature());
+                can_encrypt(tpk.primary().key(), tpk.primary_key_signature(),
+                            &encryption_mode);
 
             // If the primary key is encryption-capable, prepend to
             // subkeys via iterator magic.
             let keys =
-                iter::once(tpk.primary().key())
+                iter::once(tpk.primary().key().into())
                 .filter(|_| primary_can_encrypt)
                 .chain(subkeys);
 
@@ -1345,7 +1363,7 @@ mod test {
         use std::collections::HashMap;
         use crate::Fingerprint;
 
-        let mut keys: HashMap<Fingerprint, Key> = HashMap::new();
+        let mut keys: HashMap<Fingerprint, key::UnspecifiedPublic> = HashMap::new();
         for tsk in &[
             TPK::from_bytes(crate::tests::key("testy-private.pgp")).unwrap(),
             TPK::from_bytes(crate::tests::key("testy-new-private.pgp")).unwrap(),
@@ -1359,15 +1377,15 @@ mod test {
         let mut o = vec![];
         {
             let mut signers = keys.iter().map(|(_, key)| {
-                key.clone().into_keypair()
+                key.clone().mark_parts_secret().into_keypair()
                     .expect("expected unencrypted secret key")
-            }).collect::<Vec<KeyPair>>();
+            }).collect::<Vec<KeyPair<_>>>();
 
             let m = Message::new(&mut o);
             let signer = Signer::new(
                 m,
                 signers.iter_mut()
-                    .map(|s| -> &mut dyn crypto::Signer {s})
+                    .map(|s| -> &mut dyn crypto::Signer<_> {s})
                     .collect(),
                 None)
                 .unwrap();

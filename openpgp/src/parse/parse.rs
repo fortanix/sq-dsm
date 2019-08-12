@@ -1289,7 +1289,11 @@ fn one_pass_sig_test () {
     }
 }
 
-impl Key {
+// Key::parse doesn't actually use the Key type parameters.  So, we
+// can just set them to anything.  This avoids the caller having to
+// set them to something.
+impl Key<key::UnspecifiedParts, key::UnspecifiedRole>
+{
     /// Parses the body of a public key, public subkey, secret key or
     /// secret subkey packet.
     fn parse<'a>(mut php: PacketHeaderParser<'a>) -> Result<PacketParser<'a>> {
@@ -1315,7 +1319,11 @@ impl Key {
     }
 }
 
-impl Key4 {
+// Key4::parse doesn't actually use the Key4 type parameters.  So, we
+// can just set them to anything.  This avoids the caller having to
+// set them to something.
+impl Key4<key::UnspecifiedParts, key::UnspecifiedRole>
+{
     /// Parses the body of a public key, public subkey, secret key or
     /// secret subkey packet.
     fn parse<'a>(mut php: PacketHeaderParser<'a>) -> Result<PacketParser<'a>> {
@@ -1392,23 +1400,41 @@ impl Key4 {
             }
         }
 
-        let key = php_try!(Key4::new(time::Tm::from_pgp(creation_time),
-                                     pk_algo, mpis, secret));
+        fn k<P, R>(creation_time: u32,
+                   pk_algo: PublicKeyAlgorithm,
+                   mpis: PublicKey,
+                   secret: Option<SecretKeyMaterial>)
+            -> Result<Key4<P, R>>
+            where P: key::KeyParts,
+                  R: key::KeyRole,
+        {
+            Key4::new(time::Tm::from_pgp(creation_time),
+                      pk_algo, mpis, secret)
+        }
 
         let tag = php.header.ctb.tag;
-        php.ok(match tag {
+
+        let p : Packet = match tag {
             // For the benefit of Key::from_bytes.
             Tag::Reserved => if have_secret {
-                Packet::SecretKey(key.into())
+                Packet::SecretKey(
+                    php_try!(k(creation_time, pk_algo, mpis, secret)).into())
             } else {
-                Packet::PublicKey(key.into())
+                Packet::PublicKey(
+                    php_try!(k(creation_time, pk_algo, mpis, secret)).into())
             },
-            Tag::PublicKey => Packet::PublicKey(key.into()),
-            Tag::PublicSubkey => Packet::PublicSubkey(key.into()),
-            Tag::SecretKey => Packet::SecretKey(key.into()),
-            Tag::SecretSubkey => Packet::SecretSubkey(key.into()),
+            Tag::PublicKey => Packet::PublicKey(
+                php_try!(k(creation_time, pk_algo, mpis, secret)).into()),
+            Tag::PublicSubkey => Packet::PublicSubkey(
+                php_try!(k(creation_time, pk_algo, mpis, secret)).into()),
+            Tag::SecretKey => Packet::SecretKey(
+                php_try!(k(creation_time, pk_algo, mpis, secret)).into()),
+            Tag::SecretSubkey => Packet::SecretSubkey(
+                php_try!(k(creation_time, pk_algo, mpis, secret)).into()),
             _ => unreachable!(),
-        })
+        };
+
+        php.ok(p)
     }
 
     /// Returns whether the data appears to be a key (no promises).
@@ -1450,7 +1476,7 @@ impl Key4 {
     }
 }
 
-impl<'a> Parse<'a, Key> for Key {
+impl<'a> Parse<'a, key::UnspecifiedKey> for key::UnspecifiedKey {
     fn from_reader<R: 'a + Read>(reader: R) -> Result<Self> {
         let bio = buffered_reader::Generic::with_cookie(
             reader, None, Cookie::default());
@@ -1460,11 +1486,10 @@ impl<'a> Parse<'a, Key> for Key {
         pp.buffer_unread_content()?;
 
         match pp.next()? {
-            (Packet::PublicKey(o), PacketParserResult::EOF(_))
-            | (Packet::PublicSubkey(o), PacketParserResult::EOF(_))
-            | (Packet::SecretKey(o), PacketParserResult::EOF(_))
-            | (Packet::SecretSubkey(o), PacketParserResult::EOF(_)) =>
-                Ok(o),
+            (Packet::PublicKey(o), PacketParserResult::EOF(_)) => Ok(o.into()),
+            (Packet::PublicSubkey(o), PacketParserResult::EOF(_)) => Ok(o.into()),
+            (Packet::SecretKey(o), PacketParserResult::EOF(_)) => Ok(o.into()),
+            (Packet::SecretSubkey(o), PacketParserResult::EOF(_)) => Ok(o.into()),
             (p, PacketParserResult::EOF(_)) =>
                 Err(Error::InvalidOperation(
                     format!("Not a Key packet: {:?}", p)).into()),

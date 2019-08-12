@@ -21,6 +21,7 @@ use crate::{
     packet::Signature,
     packet::signature,
     packet::Key,
+    packet::key,
     packet::UserID,
     packet::UserAttribute,
     packet::Unknown,
@@ -109,8 +110,20 @@ fn active_revocation(sigs: &[Signature], revs: &[Signature], t: time::Tm)
     }
 }
 
+/// A key (primary or subkey, public or private) and any associated
+/// signatures.
+pub type KeyBinding<KeyPart, KeyRole> = ComponentBinding<Key<KeyPart, KeyRole>>;
+
+/// A primary key and any associated signatures.
+pub type PrimaryKeyBinding<KeyPart> = KeyBinding<KeyPart, key::PrimaryRole>;
+
 /// A subkey and any associated signatures.
-pub type KeyBinding = ComponentBinding<Key>;
+pub type SubkeyBinding<KeyPart> = KeyBinding<KeyPart, key::SubordinateRole>;
+
+/// A key (primary or subkey, public or private) and any associated
+/// signatures.
+pub type GenericKeyBinding
+    = ComponentBinding<Key<key::UnspecifiedParts, key::UnspecifiedRole>>;
 
 /// A User ID and any associated signatures.
 pub type UserIDBinding = ComponentBinding<UserID>;
@@ -227,14 +240,14 @@ impl<C> ComponentBinding<C> {
     }
 }
 
-impl ComponentBinding<Key> {
+impl<P: key::KeyParts, R: key::KeyRole> ComponentBinding<Key<P, R>> {
     /// Returns a reference to the key.
-    pub fn key(&self) -> &Key {
+    pub fn key(&self) -> &Key<P, R> {
         self.component()
     }
 
     /// Returns a mut reference to the key.
-    fn key_mut(&mut self) -> &mut Key {
+    fn key_mut(&mut self) -> &mut Key<P, R> {
         self.component_mut()
     }
 }
@@ -718,12 +731,14 @@ impl<'a> ExactSizeIterator for UserAttributeBindingIter<'a> {
 }
 
 /// An iterator over `KeyBinding`s.
-pub struct KeyBindingIter<'a> {
-    iter: Option<slice::Iter<'a, KeyBinding>>,
+pub struct KeyBindingIter<'a, P: key::KeyParts, R: key::KeyRole> {
+    iter: Option<slice::Iter<'a, ComponentBinding<Key<P, R>>>>,
 }
 
-impl<'a> Iterator for KeyBindingIter<'a> {
-    type Item = &'a KeyBinding;
+impl<'a, P: key::KeyParts, R: key::KeyRole> Iterator
+    for KeyBindingIter<'a, P, R>
+{
+    type Item = &'a ComponentBinding<Key<P, R>>;
 
     fn next(&mut self) -> Option<Self::Item> {
         match self.iter {
@@ -733,7 +748,9 @@ impl<'a> Iterator for KeyBindingIter<'a> {
     }
 }
 
-impl<'a> ExactSizeIterator for KeyBindingIter<'a> {
+impl<'a, P: key::KeyParts, R: key::KeyRole> ExactSizeIterator
+    for KeyBindingIter<'a, P, R>
+{
     fn len(&self) -> usize {
         match self.iter {
             Some(ref iter) => iter.len(),
@@ -821,11 +838,11 @@ impl<'a> ExactSizeIterator for UnknownBindingIter<'a> {
 /// # }
 #[derive(Debug, Clone, PartialEq)]
 pub struct TPK {
-    primary: KeyBinding,
+    primary: PrimaryKeyBinding<key::PublicParts>,
 
     userids: Vec<UserIDBinding>,
     user_attributes: Vec<UserAttributeBinding>,
-    subkeys: Vec<KeyBinding>,
+    subkeys: Vec<SubkeyBinding<key::PublicParts>>,
 
     // Unknown components, e.g., some UserAttribute++ packet from the
     // future.
@@ -855,7 +872,7 @@ impl<'a> Parse<'a, TPK> for TPK {
 
 impl TPK {
     /// Returns a reference to the primary key.
-    pub fn primary(&self) -> &KeyBinding {
+    pub fn primary(&self) -> &PrimaryKeyBinding<key::PublicParts> {
         &self.primary
     }
 
@@ -994,7 +1011,8 @@ impl TPK {
     /// assert_eq!(RevocationStatus::NotAsFarAsWeKnow,
     ///            tpk.revocation_status());
     ///
-    /// let mut keypair = tpk.primary().key().clone().into_keypair()?;
+    /// let mut keypair = tpk.primary().key().clone()
+    ///     .mark_parts_secret().into_keypair()?;
     /// let sig = tpk.revoke(&mut keypair, ReasonForRevocation::KeyCompromised,
     ///                      b"It was the maid :/")?;
     /// assert_eq!(sig.typ(), SignatureType::KeyRevocation);
@@ -1004,9 +1022,10 @@ impl TPK {
     ///            tpk.revocation_status());
     /// # Ok(())
     /// # }
-    pub fn revoke(&self, primary_signer: &mut Signer,
-                  code: ReasonForRevocation, reason: &[u8])
+    pub fn revoke<R>(&self, primary_signer: &mut Signer<R>,
+                     code: ReasonForRevocation, reason: &[u8])
         -> Result<Signature>
+        where R: key::KeyRole
     {
         if primary_signer.public().fingerprint() != self.fingerprint() {
             return Err(Error::InvalidArgument(
@@ -1048,7 +1067,8 @@ impl TPK {
     /// assert_eq!(RevocationStatus::NotAsFarAsWeKnow,
     ///            tpk.revocation_status());
     ///
-    /// let mut keypair = tpk.primary().key().clone().into_keypair()?;
+    /// let mut keypair = tpk.primary().key().clone()
+    ///     .mark_parts_secret().into_keypair()?;
     /// let tpk = tpk.revoke_in_place(&mut keypair,
     ///                               ReasonForRevocation::KeyCompromised,
     ///                               b"It was the maid :/")?;
@@ -1064,9 +1084,10 @@ impl TPK {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn revoke_in_place(self, primary_signer: &mut Signer,
-                           code: ReasonForRevocation, reason: &[u8])
+    pub fn revoke_in_place<R>(self, primary_signer: &mut Signer<R>,
+                              code: ReasonForRevocation, reason: &[u8])
         -> Result<TPK>
+        where R: key::KeyRole
     {
         let sig = self.revoke(primary_signer, code, reason)?;
         self.merge_packets(vec![sig.into()])
@@ -1115,10 +1136,11 @@ impl TPK {
     ///
     /// This function exists to facilitate testing, which is why it is
     /// not exported.
-    fn set_expiry_as_of(self, primary_signer: &mut Signer,
-                        expiration: Option<time::Duration>,
-                        now: time::Tm)
+    fn set_expiry_as_of<R>(self, primary_signer: &mut Signer<R>,
+                           expiration: Option<time::Duration>,
+                           now: time::Tm)
         -> Result<TPK>
+        where R: key::KeyRole
     {
         let sig = {
             let (userid, template) = self
@@ -1150,9 +1172,10 @@ impl TPK {
     ///
     /// Note: the time is relative to the key's creation time, not the
     /// current time!
-    pub fn set_expiry(self, primary_signer: &mut Signer,
-                      expiration: Option<time::Duration>)
+    pub fn set_expiry<R>(self, primary_signer: &mut Signer<R>,
+                         expiration: Option<time::Duration>)
         -> Result<TPK>
+        where R: key::KeyRole
     {
         self.set_expiry_as_of(primary_signer, expiration, time::now())
     }
@@ -1176,7 +1199,9 @@ impl TPK {
     /// Returns an iterator over the TPK's valid subkeys.
     ///
     /// A valid `KeyBinding` has at least one good self-signature.
-    pub fn subkeys(&self) -> KeyBindingIter {
+    pub fn subkeys(&self) -> KeyBindingIter<key::PublicParts,
+                                            key::SubordinateRole>
+    {
         KeyBindingIter { iter: Some(self.subkeys.iter()) }
     }
 
@@ -1214,7 +1239,9 @@ impl TPK {
     /// To return all keys, do `keys_all().unfiltered()`.  See the
     /// documentation of `keys` for how to control what keys are
     /// returned.
-    pub fn keys_valid(&self) -> KeyIter {
+    pub fn keys_valid(&self)
+        -> KeyIter<key::PublicParts, key::UnspecifiedRole>
+    {
         KeyIter::new(self).alive().revoked(false)
     }
 
@@ -1222,7 +1249,9 @@ impl TPK {
     ///
     /// Unlike `TPK::keys_valid()`, this iterator also returns expired
     /// and revoked keys.
-    pub fn keys_all(&self) -> KeyIter {
+    pub fn keys_all(&self)
+        -> KeyIter<key::PublicParts, key::UnspecifiedRole>
+    {
         KeyIter::new(self)
     }
 
@@ -2614,7 +2643,8 @@ mod test {
             .key_expiration_time()
             .expect("Keys expire by default.");
 
-        let mut keypair = tpk.primary().key().clone().into_keypair().unwrap();
+        let mut keypair = tpk.primary().key().clone().mark_parts_secret()
+            .into_keypair().unwrap();
 
         // Clear the expiration.
         let tpk = tpk.set_expiry_as_of(
@@ -2759,7 +2789,8 @@ mod test {
         assert_eq!(RevocationStatus::NotAsFarAsWeKnow,
                    tpk.revocation_status());
 
-        let mut keypair = tpk.primary().key().clone().into_keypair().unwrap();
+        let mut keypair = tpk.primary().key().clone().mark_parts_secret()
+            .into_keypair().unwrap();
         let sig = tpk.revoke(&mut keypair,
                              ReasonForRevocation::KeyCompromised,
                              b"It was the maid :/").unwrap();
@@ -2783,7 +2814,8 @@ mod test {
             let uid = tpk.userids().skip(1).next().unwrap();
             assert_eq!(RevocationStatus::NotAsFarAsWeKnow, uid.revoked(None));
 
-            let mut keypair = tpk.primary().key().clone().into_keypair().unwrap();
+            let mut keypair = tpk.primary().key().clone().mark_parts_secret()
+                .into_keypair().unwrap();
             uid.userid()
                 .revoke(&mut keypair, &tpk,
                         ReasonForRevocation::UIDRetired,
@@ -2817,7 +2849,8 @@ mod test {
         let t1 = time::strptime("2000-1-1", "%F").unwrap();
         let t2 = time::strptime("2001-1-1", "%F").unwrap();
         let t3 = time::strptime("2002-1-1", "%F").unwrap();
-        let key: Key = Key4::generate_ecc(true, Curve::Ed25519).unwrap().into();
+        let key: key::SecretKey
+            = Key4::generate_ecc(true, Curve::Ed25519).unwrap().into();
         let mut pair = key.clone().into_keypair().unwrap();
         let (bind1, rev, bind2) = {
             let bind1 = signature::Builder::new(SignatureType::DirectKey)
@@ -2851,8 +2884,9 @@ mod test {
 
             (bind1, rev, bind2)
         };
+        let pk : key::PublicKey = key.into();
         let tpk = TPK::from_packet_pile(PacketPile::from(vec![
-            key.into_packet(Tag::PublicKey).unwrap(),
+            pk.into(),
             bind1.into(),
             bind2.into(),
             rev.into()

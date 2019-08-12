@@ -1,7 +1,10 @@
 //! Elliptic Curve Diffie-Hellman.
 
 use crate::Error;
-use crate::packet::Key;
+use crate::packet::{
+    Key,
+    key,
+};
 use crate::Result;
 use crate::constants::{
     Curve,
@@ -20,7 +23,10 @@ use nettle::{cipher, curve25519, mode, Mode, ecc, ecdh, Yarrow};
 
 /// Wraps a session key using Elliptic Curve Diffie-Hellman.
 #[allow(non_snake_case)]
-pub fn encrypt(recipient: &Key, session_key: &SessionKey) -> Result<Ciphertext>
+pub fn encrypt<R>(recipient: &Key<key::PublicParts, R>,
+                  session_key: &SessionKey)
+    -> Result<Ciphertext>
+    where R: key::KeyRole
 {
     let mut rng = Yarrow::default();
 
@@ -130,9 +136,11 @@ pub fn encrypt(recipient: &Key, session_key: &SessionKey) -> Result<Ciphertext>
 /// `VB` is the ephemeral public key (with 0x40 prefix), `S` is the
 /// shared Diffie-Hellman secret.
 #[allow(non_snake_case)]
-pub fn encrypt_shared(recipient: &Key, session_key: &SessionKey, VB: MPI,
-                      S: &Protected)
-                      -> Result<Ciphertext>
+pub fn encrypt_shared<R>(recipient: &Key<key::PublicParts, R>,
+                         session_key: &SessionKey, VB: MPI,
+                         S: &Protected)
+    -> Result<Ciphertext>
+    where R: key::KeyRole
 {
     match recipient.mpis() {
         &PublicKey::ECDH{ ref curve, ref hash, ref sym,.. } => {
@@ -169,9 +177,12 @@ pub fn encrypt_shared(recipient: &Key, session_key: &SessionKey, VB: MPI,
 
 /// Unwraps a session key using Elliptic Curve Diffie-Hellman.
 #[allow(non_snake_case)]
-pub fn decrypt(recipient: &Key, recipient_sec: &SecretKeyMaterial,
-               ciphertext: &Ciphertext)
-               -> Result<SessionKey> {
+pub fn decrypt<R>(recipient: &Key<key::PublicParts, R>,
+                  recipient_sec: &SecretKeyMaterial,
+                  ciphertext: &Ciphertext)
+    -> Result<SessionKey>
+    where R: key::KeyRole
+{
     match (recipient.mpis(), recipient_sec, ciphertext) {
         (PublicKey::ECDH { ref curve, ..},
          SecretKeyMaterial::ECDH { ref scalar, },
@@ -280,8 +291,11 @@ pub fn decrypt(recipient: &Key, recipient_sec: &SecretKeyMaterial,
 /// `recipient` is the message receiver's public key, `S` is the
 /// shared Diffie-Hellman secret used to encrypt `ciphertext`.
 #[allow(non_snake_case)]
-pub fn decrypt_shared(recipient: &Key, S: &Protected, ciphertext: &Ciphertext)
-                      -> Result<SessionKey>
+pub fn decrypt_shared<R>(recipient: &Key<key::PublicParts, R>,
+                         S: &Protected,
+                         ciphertext: &Ciphertext)
+    -> Result<SessionKey>
+    where R: key::KeyRole
 {
     match (recipient.mpis(), ciphertext) {
         (PublicKey::ECDH { ref curve, ref hash, ref sym, ..},
@@ -308,8 +322,13 @@ pub fn decrypt_shared(recipient: &Key, S: &Protected, ciphertext: &Ciphertext)
     }
 }
 
-fn make_param(recipient: &Key, curve: &Curve, hash: &HashAlgorithm,
-              sym: &SymmetricAlgorithm) -> Vec<u8> {
+fn make_param<P, R>(recipient: &Key<P, R>,
+              curve: &Curve, hash: &HashAlgorithm,
+              sym: &SymmetricAlgorithm)
+    -> Vec<u8>
+    where P: key::KeyParts,
+          R: key::KeyRole
+{
     // Param = curve_OID_len || curve_OID ||
     // public_key_alg_ID || 03 || 01 || KDF_hash_ID ||
     // KEK_alg_ID for AESKeyWrap || "Anonymous Sender    " ||

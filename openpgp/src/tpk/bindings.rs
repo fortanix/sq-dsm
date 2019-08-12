@@ -3,9 +3,9 @@ use crate::Result;
 use crate::TPK;
 use crate::constants::{HashAlgorithm, SignatureType, ReasonForRevocation};
 use crate::crypto::Signer;
-use crate::packet::{UserID, UserAttribute, Key, signature, Signature};
+use crate::packet::{UserID, UserAttribute, key, Key, signature, Signature};
 
-impl Key {
+impl Key<key::PublicParts, key::SubordinateRole> {
     /// Creates a binding signature.
     ///
     /// The signature binds this userid to `tpk`. `signer` will be used
@@ -29,31 +29,34 @@ impl Key {
     /// # fn f() -> Result<()> {
     /// // Generate a TPK, and create a keypair from the primary key.
     /// let (tpk, _) = TPKBuilder::new().generate()?;
-    /// let mut keypair = tpk.primary().key().clone().into_keypair()?;
+    /// let mut keypair = tpk.primary().key().clone()
+    ///     .mark_parts_secret().into_keypair()?;
     ///
     /// // Let's add an encryption subkey.
     /// let flags = KeyFlags::default().set_encrypt_at_rest(true);
     /// assert_eq!(tpk.keys_valid().key_flags(flags.clone()).count(), 0);
     ///
     /// // Generate a subkey and a binding signature.
-    /// let subkey = Key::V4(Key4::generate_ecc(false, Curve::Cv25519)?);
+    /// let subkey : key::PublicSubkey
+    ///     = Key::V4(Key4::generate_ecc(false, Curve::Cv25519)?);
     /// let builder = signature::Builder::new(SignatureType::SubkeyBinding)
     ///     .set_key_flags(&flags)?;
     /// let binding = subkey.bind(&mut keypair, &tpk, builder, None, None)?;
     ///
     /// // Now merge the key and binding signature into the TPK.
-    /// let tpk = tpk.merge_packets(vec![subkey.into_packet(Tag::SecretSubkey)?,
+    /// let tpk = tpk.merge_packets(vec![subkey.into(),
     ///                                  binding.into()])?;
     ///
     /// // Check that we have an encryption subkey.
     /// assert_eq!(tpk.keys_valid().key_flags(flags).count(), 1);
     /// # Ok(()) }
-    pub fn bind<H, T>(&self, signer: &mut Signer, tpk: &TPK,
-                      signature: signature::Builder,
-                      hash_algo: H, creation_time: T)
-                      -> Result<Signature>
+    pub fn bind<H, T, R>(&self, signer: &mut Signer<R>, tpk: &TPK,
+                         signature: signature::Builder,
+                         hash_algo: H, creation_time: T)
+        -> Result<Signature>
         where H: Into<Option<HashAlgorithm>>,
-              T: Into<Option<time::Tm>>
+              T: Into<Option<time::Tm>>,
+              R: key::KeyRole
     {
         signature
             .set_signature_creation_time(
@@ -87,7 +90,8 @@ impl Key {
     /// let (tpk, _) = TPKBuilder::new()
     ///     .add_encryption_subkey()
     ///     .generate()?;
-    /// let mut keypair = tpk.primary().key().clone().into_keypair()?;
+    /// let mut keypair = tpk.primary().key().clone()
+    ///     .mark_parts_secret().into_keypair()?;
     ///
     /// // Generate the revocation for the first and only Subkey.
     /// let revocation =
@@ -110,12 +114,13 @@ impl Key {
     /// }
     /// # Ok(()) }
     /// ```
-    pub fn revoke<H, T>(&self, signer: &mut Signer, tpk: &TPK,
-                        code: ReasonForRevocation, reason: &[u8],
-                        hash_algo: H, creation_time: T)
+    pub fn revoke<H, T, R>(&self, signer: &mut Signer<R>, tpk: &TPK,
+                           code: ReasonForRevocation, reason: &[u8],
+                           hash_algo: H, creation_time: T)
         -> Result<Signature>
         where H: Into<Option<HashAlgorithm>>,
-              T: Into<Option<time::Tm>>
+              T: Into<Option<time::Tm>>,
+              R: key::KeyRole
     {
         self.bind(signer, tpk,
                   signature::Builder::new(SignatureType::SubkeyRevocation)
@@ -151,7 +156,8 @@ impl UserID {
     /// # fn f() -> Result<()> {
     /// // Generate a TPK, and create a keypair from the primary key.
     /// let (tpk, _) = TPKBuilder::new().generate()?;
-    /// let mut keypair = tpk.primary().key().clone().into_keypair()?;
+    /// let mut keypair = tpk.primary().key().clone()
+    ///     .mark_parts_secret().into_keypair()?;
     /// assert_eq!(tpk.userids().len(), 0);
     ///
     /// // Generate a userid and a binding signature.
@@ -166,12 +172,13 @@ impl UserID {
     /// // Check that we have a userid.
     /// assert_eq!(tpk.userids().len(), 1);
     /// # Ok(()) }
-    pub fn bind<H, T>(&self, signer: &mut Signer, tpk: &TPK,
+    pub fn bind<H, T, R>(&self, signer: &mut Signer<R>, tpk: &TPK,
                       signature: signature::Builder,
                       hash_algo: H, creation_time: T)
                       -> Result<Signature>
         where H: Into<Option<HashAlgorithm>>,
-              T: Into<Option<time::Tm>>
+              T: Into<Option<time::Tm>>,
+              R: key::KeyRole
     {
         signature
             .set_signature_creation_time(
@@ -214,7 +221,8 @@ impl UserID {
     ///     .primary_keyflags(KeyFlags::default().set_certify(true))
     ///     .add_userid("alice@example.org")
     ///     .generate()?;
-    /// let mut keypair = alice.primary().key().clone().into_keypair()?;
+    /// let mut keypair = alice.primary().key().clone()
+    ///     .mark_parts_secret().into_keypair()?;
     ///
     /// // Generate a TPK for Bob.
     /// let (bob, _) = TPKBuilder::new()
@@ -234,13 +242,14 @@ impl UserID {
     /// // Check that we have a certification on the userid.
     /// assert_eq!(bob.userids().nth(0).unwrap().certifications().len(), 1);
     /// # Ok(()) }
-    pub fn certify<S, H, T>(&self, signer: &mut Signer, tpk: &TPK,
-                            signature_type: S,
-                            hash_algo: H, creation_time: T)
-                            -> Result<Signature>
+    pub fn certify<S, H, T, R>(&self, signer: &mut Signer<R>, tpk: &TPK,
+                               signature_type: S,
+                               hash_algo: H, creation_time: T)
+        -> Result<Signature>
         where S: Into<Option<SignatureType>>,
               H: Into<Option<HashAlgorithm>>,
-              T: Into<Option<time::Tm>>
+              T: Into<Option<time::Tm>>,
+              R: key::KeyRole
     {
         let typ = signature_type.into();
         let typ = match typ {
@@ -281,7 +290,8 @@ impl UserID {
     /// let (tpk, _) = TPKBuilder::new()
     ///     .add_userid("some@example.org")
     ///     .generate()?;
-    /// let mut keypair = tpk.primary().key().clone().into_keypair()?;
+    /// let mut keypair = tpk.primary().key().clone()
+    ///     .mark_parts_secret().into_keypair()?;
     ///
     /// // Generate the revocation for the first and only UserID.
     /// let revocation =
@@ -304,12 +314,13 @@ impl UserID {
     /// }
     /// # Ok(()) }
     /// ```
-    pub fn revoke<H, T>(&self, signer: &mut Signer, tpk: &TPK,
-                        code: ReasonForRevocation, reason: &[u8],
-                        hash_algo: H, creation_time: T)
+    pub fn revoke<H, T, R>(&self, signer: &mut Signer<R>, tpk: &TPK,
+                           code: ReasonForRevocation, reason: &[u8],
+                           hash_algo: H, creation_time: T)
         -> Result<Signature>
         where H: Into<Option<HashAlgorithm>>,
-              T: Into<Option<time::Tm>>
+              T: Into<Option<time::Tm>>,
+              R: key::KeyRole
     {
         self.bind(signer, tpk,
                   signature::Builder::new(SignatureType::CertificateRevocation)
@@ -347,7 +358,8 @@ impl UserAttribute {
     /// // Generate a TPK, and create a keypair from the primary key.
     /// let (tpk, _) = TPKBuilder::new()
     ///     .generate()?;
-    /// let mut keypair = tpk.primary().key().clone().into_keypair()?;
+    /// let mut keypair = tpk.primary().key().clone()
+    ///     .mark_parts_secret().into_keypair()?;
     /// assert_eq!(tpk.userids().len(), 0);
     ///
     /// // Generate a user attribute and a binding signature.
@@ -365,12 +377,13 @@ impl UserAttribute {
     /// // Check that we have a user attribute.
     /// assert_eq!(tpk.user_attributes().len(), 1);
     /// # Ok(()) }
-    pub fn bind<H, T>(&self, signer: &mut Signer, tpk: &TPK,
-                      signature: signature::Builder,
-                      hash_algo: H, creation_time: T)
-                      -> Result<Signature>
+    pub fn bind<H, T, R>(&self, signer: &mut Signer<R>, tpk: &TPK,
+                         signature: signature::Builder,
+                         hash_algo: H, creation_time: T)
+        -> Result<Signature>
         where H: Into<Option<HashAlgorithm>>,
-              T: Into<Option<time::Tm>>
+              T: Into<Option<time::Tm>>,
+              R: key::KeyRole
     {
         signature
             .set_signature_creation_time(
@@ -413,7 +426,8 @@ impl UserAttribute {
     /// let (alice, _) = TPKBuilder::new()
     ///     .add_userid("alice@example.org")
     ///     .generate()?;
-    /// let mut keypair = alice.primary().key().clone().into_keypair()?;
+    /// let mut keypair = alice.primary().key().clone()
+    ///     .mark_parts_secret().into_keypair()?;
     ///
     /// // Generate a TPK for Bob.
     /// let user_attr = UserAttribute::new(&[
@@ -438,13 +452,14 @@ impl UserAttribute {
     /// assert_eq!(bob.user_attributes().nth(0).unwrap().certifications().len(),
     ///            1);
     /// # Ok(()) }
-    pub fn certify<S, H, T>(&self, signer: &mut Signer, tpk: &TPK,
-                            signature_type: S,
-                            hash_algo: H, creation_time: T)
-                            -> Result<Signature>
+    pub fn certify<S, H, T, R>(&self, signer: &mut Signer<R>, tpk: &TPK,
+                               signature_type: S,
+                               hash_algo: H, creation_time: T)
+        -> Result<Signature>
         where S: Into<Option<SignatureType>>,
               H: Into<Option<HashAlgorithm>>,
-              T: Into<Option<time::Tm>>
+              T: Into<Option<time::Tm>>,
+              R: key::KeyRole
     {
         let typ = signature_type.into();
         let typ = match typ {
@@ -490,7 +505,8 @@ impl UserAttribute {
     /// let (tpk, _) = TPKBuilder::new()
     ///     .add_user_attribute(user_attr)
     ///     .generate()?;
-    /// let mut keypair = tpk.primary().key().clone().into_keypair()?;
+    /// let mut keypair = tpk.primary().key().clone()
+    ///     .mark_parts_secret().into_keypair()?;
     ///
     /// // Generate the revocation for the first and only UserAttribute.
     /// let revocation =
@@ -513,12 +529,13 @@ impl UserAttribute {
     /// }
     /// # Ok(()) }
     /// ```
-    pub fn revoke<H, T>(&self, signer: &mut Signer, tpk: &TPK,
+    pub fn revoke<H, T, R>(&self, signer: &mut Signer<R>, tpk: &TPK,
                         code: ReasonForRevocation, reason: &[u8],
                         hash_algo: H, creation_time: T)
         -> Result<Signature>
         where H: Into<Option<HashAlgorithm>>,
-              T: Into<Option<time::Tm>>
+              T: Into<Option<time::Tm>>,
+              R: key::KeyRole
     {
         self.bind(signer, tpk,
                   signature::Builder::new(SignatureType::CertificateRevocation)

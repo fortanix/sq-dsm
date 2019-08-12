@@ -1303,7 +1303,7 @@ impl SerializeInto for OnePassSig3 {
     }
 }
 
-impl Serialize for Key {
+impl<P: key::KeyParts, R: key::KeyRole> Serialize for Key<P, R> {
     fn serialize(&self, o: &mut io::Write) -> Result<()> {
         match self {
             &Key::V4(ref p) => p.serialize(o),
@@ -1311,7 +1311,7 @@ impl Serialize for Key {
     }
 }
 
-impl Key {
+impl<P: key::KeyParts, R: key::KeyRole> Key<P, R> {
     fn net_len_key(&self, serialize_secrets: bool) -> usize {
         match self {
             &Key::V4(ref p) => p.net_len_key(serialize_secrets),
@@ -1319,7 +1319,7 @@ impl Key {
     }
 }
 
-impl SerializeInto for Key {
+impl<P: key::KeyParts, R: key::KeyRole> SerializeInto for Key<P, R> {
     fn serialized_len(&self) -> usize {
         match self {
             &Key::V4(ref p) => p.serialized_len(),
@@ -1328,18 +1328,24 @@ impl SerializeInto for Key {
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
         match self {
-            &Key::V4(ref p) => p.serialize_into(buf)
+            &Key::V4(ref p) => p.serialize_into(buf),
         }
     }
 }
 
-impl Serialize for Key4 {
+impl<P, R> Serialize for Key4<P, R>
+    where P: key::KeyParts,
+          R: key::KeyRole,
+{
     fn serialize(&self, o: &mut io::Write) -> Result<()> {
         self.serialize_key(o, true)
     }
 }
 
-impl Key4 {
+impl<P, R> Key4<P, R>
+    where P: key::KeyParts,
+          R: key::KeyRole,
+{
     pub(crate) // For tests in key.
     fn serialize_key(&self, o: &mut io::Write, serialize_secrets: bool)
                      -> Result<()> {
@@ -1401,7 +1407,10 @@ impl Key4 {
     }
 }
 
-impl SerializeInto for Key4 {
+impl<P, R> SerializeInto for Key4<P, R>
+    where P: key::KeyParts,
+          R: key::KeyRole,
+{
     fn serialized_len(&self) -> usize {
         self.net_len_key(true)
     }
@@ -2190,13 +2199,13 @@ pub enum PacketRef<'a> {
     /// One pass signature packet.
     OnePassSig(&'a packet::OnePassSig),
     /// Public key packet.
-    PublicKey(&'a packet::Key),
+    PublicKey(&'a packet::key::PublicKey),
     /// Public subkey packet.
-    PublicSubkey(&'a packet::Key),
+    PublicSubkey(&'a packet::key::PublicSubkey),
     /// Public/Secret key pair.
-    SecretKey(&'a packet::Key),
+    SecretKey(&'a packet::key::SecretKey),
     /// Public/Secret subkey pair.
-    SecretSubkey(&'a packet::Key),
+    SecretSubkey(&'a packet::key::SecretSubkey),
     /// Marker packet.
     Marker(&'a packet::Marker),
     /// Trust packet.
@@ -2925,7 +2934,8 @@ mod test {
         use crate::tpk::TPKBuilder;
 
         let (tpk, _) = TPKBuilder::new().generate().unwrap();
-        let mut keypair = tpk.primary().key().clone().into_keypair().unwrap();
+        let mut keypair = tpk.primary().key().clone().mark_parts_secret()
+            .into_keypair().unwrap();
         let uid = UserID::from("foo");
 
         // Make a signature w/o an exportable certification subpacket.

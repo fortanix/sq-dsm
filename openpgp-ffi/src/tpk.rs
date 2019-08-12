@@ -148,7 +148,9 @@ fn pgp_tpk_as_tsk(tpk: *const TPK) -> *mut TSK<'static> {
 /// The tpk still owns the key.  The caller must not modify the key.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_tpk_primary_key(tpk: *const TPK) -> *const Key {
-    tpk.ref_raw().primary().key().move_into_raw()
+    let key : &self::openpgp::packet::key::UnspecifiedKey
+        = tpk.ref_raw().primary().key().into();
+    key.move_into_raw()
 }
 
 /// Returns the TPK's revocation status as of a given time.
@@ -244,7 +246,8 @@ fn int_to_reason_for_revocation(code: c_int) -> ReasonForRevocation {
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_tpk_revoke(errp: Option<&mut *mut crate::error::Error>,
                   tpk: *const TPK,
-                  primary_signer: *mut Box<crypto::Signer>,
+                  primary_signer: *mut Box<crypto::Signer<
+                          openpgp::packet::key::UnspecifiedRole>>,
                   code: c_int,
                   reason: Option<&c_char>)
                   -> Maybe<Signature>
@@ -307,7 +310,8 @@ fn pgp_tpk_revoke(errp: Option<&mut *mut crate::error::Error>,
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_tpk_revoke_in_place(errp: Option<&mut *mut crate::error::Error>,
                            tpk: *mut TPK,
-                           primary_signer: *mut Box<crypto::Signer>,
+                           primary_signer: *mut Box<crypto::Signer<
+                                   openpgp::packet::key::UnspecifiedRole>>,
                            code: c_int,
                            reason: Option<&c_char>)
                            -> Maybe<TPK>
@@ -366,7 +370,8 @@ fn pgp_tpk_alive_at(tpk: *const TPK, when: time_t)
 /// This function consumes `tpk` and returns a new `TPK`.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_tpk_set_expiry(errp: Option<&mut *mut crate::error::Error>,
-                      tpk: *mut TPK, primary_signer: *mut Box<crypto::Signer>,
+                      tpk: *mut TPK, primary_signer: *mut Box<crypto::Signer<
+                              openpgp::packet::key::UnspecifiedRole>>,
                       expiry: u32)
                       -> Maybe<TPK> {
     let tpk = tpk.move_from_raw();
@@ -461,7 +466,8 @@ pub extern "C" fn pgp_user_id_binding_iter_next<'a>(
 
 /// Wraps a KeyIter for export via the FFI.
 pub struct KeyIterWrapper<'a> {
-    iter: KeyIter<'a>,
+    iter: KeyIter<'a, openpgp::packet::key::PublicParts,
+                  openpgp::packet::key::UnspecifiedRole>,
     // Whether next has been called.
     next_called: bool,
 }
@@ -689,6 +695,8 @@ pub extern "C" fn pgp_tpk_key_iter_next<'a>(
             *ptr = rs.move_into_raw();
         }
 
+        let key : &self::openpgp::packet::key::UnspecifiedKey
+            = key.into();
         Some(key).move_into_raw()
     } else {
         None

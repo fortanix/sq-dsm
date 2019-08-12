@@ -101,13 +101,13 @@ impl AutocryptHeader {
                              -> Result<Self>
         where P: Into<Option<&'a str>>
     {
-        use crate::packet::Tag;
+        use crate::packet::key;
 
         // Minimize TPK.
         let mut acc = Vec::new();
 
         // The primary key and the most recent selfsig.
-        acc.push(tpk.primary().key().clone().into_packet(Tag::PublicKey)?);
+        acc.push(tpk.primary().key().clone().into());
         tpk.selfsigs().iter().take(1)
             .for_each(|s| acc.push(s.clone().into()));
 
@@ -120,7 +120,8 @@ impl AutocryptHeader {
                 continue;
             }
 
-            acc.push(skb.key().clone().into_packet(Tag::PublicSubkey)?);
+            let k : key::PublicSubkey = skb.key().clone();
+            acc.push(k.into());
             skb.selfsigs().iter().take(1)
                 .for_each(|s| acc.push(s.clone().into()));
         }

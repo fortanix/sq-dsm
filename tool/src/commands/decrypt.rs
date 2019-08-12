@@ -10,7 +10,7 @@ use crate::openpgp::constants::SymmetricAlgorithm;
 use crate::openpgp::conversions::hex;
 use crate::openpgp::crypto::SessionKey;
 use crate::openpgp::{Fingerprint, TPK, KeyID, Result};
-use crate::openpgp::packet::{Key, key::SecretKeyMaterial, Signature, PKESK, SKESK};
+use crate::openpgp::packet::prelude::*;
 use crate::openpgp::parse::PacketParser;
 use crate::openpgp::parse::stream::{
     VerificationHelper, DecryptionHelper, Decryptor, MessageStructure,
@@ -21,7 +21,8 @@ use super::{dump::PacketDumper, VHelper};
 
 struct Helper<'a> {
     vhelper: VHelper<'a>,
-    secret_keys: HashMap<KeyID, Key>,
+    secret_keys:
+        HashMap<KeyID, key::UnspecifiedSecret>,
     key_identities: HashMap<KeyID, Fingerprint>,
     key_hints: HashMap<KeyID, String>,
     dump_session_key: bool,
@@ -34,18 +35,22 @@ impl<'a> Helper<'a> {
            signatures: usize, tpks: Vec<TPK>, secrets: Vec<TPK>,
            dump_session_key: bool, dump: bool, hex: bool)
            -> Self {
-        let mut keys: HashMap<KeyID, Key> = HashMap::new();
+        let mut keys: HashMap<KeyID, key::UnspecifiedSecret>
+            = HashMap::new();
         let mut identities: HashMap<KeyID, Fingerprint> = HashMap::new();
         let mut hints: HashMap<KeyID, String> = HashMap::new();
         for tsk in secrets {
-            let can_encrypt = |_: &Key, sig: Option<&Signature>| -> bool {
+            fn can_encrypt<R, P>(_: &Key<P, R>, sig: Option<&Signature>) -> bool
+                where P: key::KeyParts,
+                      R: key::KeyRole,
+            {
                 if let Some(sig) = sig {
                     sig.key_flags().can_encrypt_at_rest()
                         || sig.key_flags().can_encrypt_for_transport()
                 } else {
                     false
                 }
-            };
+            }
 
             let hint = match tsk.userids().nth(0) {
                 Some(uid) => format!("{} ({})", uid.userid(),
@@ -55,7 +60,7 @@ impl<'a> Helper<'a> {
 
             if can_encrypt(tsk.primary().key(), tsk.primary_key_signature()) {
                 let id = tsk.fingerprint().to_keyid();
-                keys.insert(id.clone(), tsk.primary().key().clone());
+                keys.insert(id.clone(), tsk.primary().key().clone().into());
                 identities.insert(id.clone(), tsk.fingerprint());
                 hints.insert(id, hint.clone());
             }
@@ -64,7 +69,7 @@ impl<'a> Helper<'a> {
                 let key = skb.key();
                 if can_encrypt(key, skb.binding_signature()) {
                     let id = key.fingerprint().to_keyid();
-                    keys.insert(id.clone(), key.clone());
+                    keys.insert(id.clone(), key.clone().into());
                     identities.insert(id.clone(), tsk.fingerprint());
                     hints.insert(id, hint.clone());
                 }

@@ -202,7 +202,11 @@ fn pgp_verification_result_good_checksum<'a>(
             *unsafe { p.as_mut() } = tpk.move_into_raw();
         }
         if let Some(mut p) = key_r {
-            *unsafe { p.as_mut() } = key.move_into_raw();
+            *unsafe { p.as_mut() } = {
+                let key : &self::openpgp::packet::key::UnspecifiedKey
+                    = (*key).into();
+                key.move_into_raw()
+            };
         }
         if let Some(mut p) = binding_r {
             *unsafe { p.as_mut() } = binding.move_into_raw();

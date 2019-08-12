@@ -164,14 +164,17 @@ fn inspect_tpk(output: &mut io::Write, tpk: &openpgp::TPK,
     Ok(())
 }
 
-fn inspect_key(output: &mut io::Write,
-               indent: &str,
-               key: &openpgp::packet::Key,
-               binding_signature: Option<&openpgp::packet::Signature>,
-               certs: &[openpgp::packet::Signature],
-               print_keygrips: bool,
-               print_certifications: bool)
-               -> Result<()> {
+fn inspect_key<P, R>(output: &mut io::Write,
+                     indent: &str,
+                     key: &openpgp::packet::Key<P, R>,
+                     binding_signature: Option<&openpgp::packet::Signature>,
+                     certs: &[openpgp::packet::Signature],
+                     print_keygrips: bool,
+                     print_certifications: bool)
+        -> Result<()>
+        where P: openpgp::packet::key::KeyParts,
+              R: openpgp::packet::key::KeyRole
+{
     if let Some(sig) = binding_signature {
         if sig.key_expired(key) {
             writeln!(output, "{}                 Expired", indent)?;

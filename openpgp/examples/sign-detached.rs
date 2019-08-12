@@ -38,7 +38,7 @@ fn main() {
                         .expect("decryption failed");
                 }
                 n += 1;
-                key.into_keypair().unwrap()
+                key.mark_parts_secret().into_keypair().unwrap()
             });
         }
 
@@ -59,7 +59,7 @@ fn main() {
     // Now, create a signer that emits a detached signature.
     let mut signer = Signer::detached(
         message,
-        keys.iter_mut().map(|s| -> &mut dyn crypto::Signer { s }).collect(),
+        keys.iter_mut().map(|s| -> &mut dyn crypto::Signer<_> { s }).collect(),
         None)
         .expect("Failed to create signer");
 

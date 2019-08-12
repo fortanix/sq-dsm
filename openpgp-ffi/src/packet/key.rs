@@ -25,7 +25,7 @@ use crate::RefRaw;
 /// [`sequoia-openpgp::packet::key::Key`]: ../../sequoia_openpgp/packet/key/struct.Key.html
 #[crate::ffi_wrapper_type(prefix = "pgp_",
                      derive = "Clone, Debug, PartialEq, Parse")]
-pub struct Key(openpgp::packet::Key);
+pub struct Key(openpgp::packet::key::UnspecifiedKey);
 
 /// Computes and returns the key's fingerprint as per Section 12.2
 /// of RFC 4880.
@@ -73,7 +73,11 @@ fn pgp_key_public_key_bits(key: *const Key) -> c_int {
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_key_into_key_pair(errp: Option<&mut *mut crate::error::Error>,
                          key: *mut Key)
-                         -> *mut self::openpgp::crypto::KeyPair {
+                         -> *mut self::openpgp::crypto::KeyPair<
+                                self::openpgp::packet::key::UnspecifiedRole>
+{
     ffi_make_fry_from_errp!(errp);
-    ffi_try_box!(key.move_from_raw().into_keypair())
+    let key : self::openpgp::packet::key::UnspecifiedSecret
+        = key.move_from_raw().into();
+    ffi_try_box!(key.into_keypair())
 }

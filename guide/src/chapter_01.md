@@ -14,6 +14,7 @@ use std::io::{self, Write};
 extern crate failure;
 extern crate sequoia_openpgp as openpgp;
 use openpgp::serialize::stream::*;
+use openpgp::packet::prelude::*;
 use openpgp::parse::stream::*;
 
 const MESSAGE: &'static str = "дружба";
@@ -49,8 +50,9 @@ fn main() {
 # fn sign(sink: &mut Write, plaintext: &str, tsk: &openpgp::TPK)
 #            -> openpgp::Result<()> {
 #     // Get the keypair to do the signing from the TPK.
-#     let mut keypair = tsk.keys_valid().signing_capable().nth(0).unwrap().2
-#         .clone().into_keypair()?;
+#     let key : key::UnspecifiedSecret
+#         = tsk.keys_valid().signing_capable().nth(0).unwrap().2.clone().into();
+#     let mut keypair = key.into_keypair()?;
 #
 #     // Start streaming an OpenPGP message.
 #     let message = Message::new(sink);
@@ -156,6 +158,7 @@ create it:
 # extern crate sequoia_openpgp as openpgp;
 # use openpgp::serialize::stream::*;
 # use openpgp::parse::stream::*;
+# use openpgp::packet::prelude::*;
 #
 # const MESSAGE: &'static str = "дружба";
 #
@@ -190,8 +193,9 @@ fn generate() -> openpgp::Result<openpgp::TPK> {
 # fn sign(sink: &mut Write, plaintext: &str, tsk: &openpgp::TPK)
 #            -> openpgp::Result<()> {
 #     // Get the keypair to do the signing from the TPK.
-#     let mut keypair = tsk.keys_valid().signing_capable().nth(0).unwrap().2
-#         .clone().into_keypair()?;
+#     let key : key::UnspecifiedSecret
+#         = tsk.keys_valid().signing_capable().nth(0).unwrap().2.clone().into();
+#     let mut keypair = key.into_keypair()?;
 #
 #     // Start streaming an OpenPGP message.
 #     let message = Message::new(sink);
@@ -296,6 +300,7 @@ implements [`io::Write`], and we simply write the plaintext to it.
 # extern crate failure;
 # extern crate sequoia_openpgp as openpgp;
 # use openpgp::serialize::stream::*;
+# use openpgp::packet::prelude::*;
 # use openpgp::parse::stream::*;
 #
 # const MESSAGE: &'static str = "дружба";
@@ -331,8 +336,9 @@ implements [`io::Write`], and we simply write the plaintext to it.
 fn sign(sink: &mut Write, plaintext: &str, tsk: &openpgp::TPK)
            -> openpgp::Result<()> {
     // Get the keypair to do the signing from the TPK.
-    let mut keypair = tsk.keys_valid().signing_capable().nth(0).unwrap().2
-        .clone().into_keypair()?;
+    let key : key::UnspecifiedSecret
+        = tsk.keys_valid().signing_capable().nth(0).unwrap().2.clone().into();
+    let mut keypair = key.into_keypair()?;
 
     // Start streaming an OpenPGP message.
     let message = Message::new(sink);
@@ -448,6 +454,7 @@ Verified data can be read from this using [`io::Read`].
 # extern crate failure;
 # extern crate sequoia_openpgp as openpgp;
 # use openpgp::serialize::stream::*;
+# use openpgp::packet::prelude::*;
 # use openpgp::parse::stream::*;
 # 
 # const MESSAGE: &'static str = "дружба";
@@ -483,8 +490,9 @@ Verified data can be read from this using [`io::Read`].
 # fn sign(sink: &mut Write, plaintext: &str, tsk: &openpgp::TPK)
 #            -> openpgp::Result<()> {
 #     // Get the keypair to do the signing from the TPK.
-#     let mut keypair = tsk.keys_valid().signing_capable().nth(0).unwrap().2
-#         .clone().into_keypair()?;
+#     let key : key::UnspecifiedSecret
+#         = tsk.keys_valid().signing_capable().nth(0).unwrap().2.clone().into();
+#     let mut keypair = key.into_keypair()?;
 # 
 #     // Start streaming an OpenPGP message.
 #     let message = Message::new(sink);

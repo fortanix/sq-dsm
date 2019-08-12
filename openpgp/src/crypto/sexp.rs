@@ -90,11 +90,14 @@ impl Sexp {
     /// Such an expression is returned from gpg-agent's `PKDECRYPT`
     /// command.  `padding` must be set according to the status
     /// messages sent.
-    pub fn finish_decryption(&self,
-                             recipient: &crate::packet::Key,
-                             ciphertext: &mpis::Ciphertext,
-                             padding: bool)
-                             -> Result<SessionKey> {
+    pub fn finish_decryption<R>(&self,
+                                recipient: &crate::packet::Key<
+                                        crate::packet::key::PublicParts, R>,
+                                ciphertext: &mpis::Ciphertext,
+                                padding: bool)
+        -> Result<SessionKey>
+        where R: crate::packet::key::KeyRole
+    {
         use crate::crypto::mpis::PublicKey;
         let not_a_session_key = || -> failure::Error {
             Error::MalformedMPI(

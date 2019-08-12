@@ -16,6 +16,7 @@ use crate::openpgp::constants::HashAlgorithm;
 use crate::openpgp::conversions::hex;
 use crate::openpgp::crypto;
 use crate::openpgp::crypto::sexp::Sexp;
+use crate::openpgp::packet::prelude::*;
 use crate::openpgp::parse::Parse;
 use crate::openpgp::serialize::Serialize;
 
@@ -283,20 +284,24 @@ impl Agent {
 
     /// Creates a signature over the `digest` produced by `algo` using
     /// `key` with the secret bits managed by the agent.
-    pub fn sign<'a>(&'a mut self, key: &'a openpgp::packet::Key,
-                    algo: HashAlgorithm, digest: &'a [u8])
-                    -> impl Future<Item = crypto::mpis::Signature,
-                                   Error = failure::Error> + 'a
+    pub fn sign<'a, R>(&'a mut self,
+                       key: &'a Key<key::PublicParts, R>,
+                       algo: HashAlgorithm, digest: &'a [u8])
+        -> impl Future<Item = crypto::mpis::Signature,
+                       Error = failure::Error> + 'a
+        where R: key::KeyRole
     {
         SigningRequest::new(&mut self.c, key, algo, digest)
     }
 
     /// Decrypts `ciphertext` using `key` with the secret bits managed
     /// by the agent.
-    pub fn decrypt<'a>(&'a mut self, key: &'a openpgp::packet::Key,
-                       ciphertext: &'a crypto::mpis::Ciphertext)
-                       -> impl Future<Item = crypto::SessionKey,
-                                      Error = failure::Error> + 'a
+    pub fn decrypt<'a, R>(&'a mut self,
+                          key: &'a Key<key::PublicParts, R>,
+                          ciphertext: &'a crypto::mpis::Ciphertext)
+        -> impl Future<Item = crypto::SessionKey,
+                       Error = failure::Error> + 'a
+        where R: key::KeyRole
     {
         DecryptionRequest::new(&mut self.c, key, ciphertext)
     }
@@ -345,18 +350,22 @@ impl Agent {
     }
 }
 
-struct SigningRequest<'a, 'b, 'c> {
+struct SigningRequest<'a, 'b, 'c, R>
+    where R: key::KeyRole
+{
     c: &'a mut assuan::Client,
-    key: &'b openpgp::packet::Key,
+    key: &'b Key<key::PublicParts, R>,
     algo: HashAlgorithm,
     digest: &'c [u8],
     options: Vec<String>,
     state: SigningRequestState,
 }
 
-impl<'a, 'b, 'c> SigningRequest<'a, 'b, 'c> {
+impl<'a, 'b, 'c, R> SigningRequest<'a, 'b, 'c, R>
+    where R: key::KeyRole
+{
     fn new(c: &'a mut assuan::Client,
-           key: &'b openpgp::packet::Key,
+           key: &'b Key<key::PublicParts, R>,
            algo: HashAlgorithm,
            digest: &'c [u8])
            -> Self {
@@ -394,7 +403,9 @@ fn protocol_error<T>(response: &assuan::Response) -> Result<T> {
         .into())
 }
 
-impl<'a, 'b, 'c> Future for SigningRequest<'a, 'b, 'c> {
+impl<'a, 'b, 'c, R> Future for SigningRequest<'a, 'b, 'c, R>
+    where R: key::KeyRole
+{
     type Item = crypto::mpis::Signature;
     type Error = failure::Error;
 
@@ -504,17 +515,21 @@ impl<'a, 'b, 'c> Future for SigningRequest<'a, 'b, 'c> {
     }
 }
 
-struct DecryptionRequest<'a, 'b, 'c> {
+struct DecryptionRequest<'a, 'b, 'c, R>
+    where R: key::KeyRole
+{
     c: &'a mut assuan::Client,
-    key: &'b openpgp::packet::Key,
+    key: &'b Key<key::PublicParts, R>,
     ciphertext: &'c crypto::mpis::Ciphertext,
     options: Vec<String>,
     state: DecryptionRequestState,
 }
 
-impl<'a, 'b, 'c> DecryptionRequest<'a, 'b, 'c> {
+impl<'a, 'b, 'c, R> DecryptionRequest<'a, 'b, 'c, R>
+    where R: key::KeyRole
+{
     fn new(c: &'a mut assuan::Client,
-           key: &'b openpgp::packet::Key,
+           key: &'b Key<key::PublicParts, R>,
            ciphertext: &'c crypto::mpis::Ciphertext)
            -> Self {
         Self {
@@ -536,7 +551,9 @@ enum DecryptionRequestState {
     Inquire(Vec<u8>, bool), // Buffer and padding.
 }
 
-impl<'a, 'b, 'c> Future for DecryptionRequest<'a, 'b, 'c> {
+impl<'a, 'b, 'c, R> Future for DecryptionRequest<'a, 'b, 'c, R>
+    where R: key::KeyRole
+{
     type Item = crypto::SessionKey;
     type Error = failure::Error;
 
@@ -668,19 +685,23 @@ impl<'a, 'b, 'c> Future for DecryptionRequest<'a, 'b, 'c> {
 /// A `KeyPair` is a combination of public and secret key.  This
 /// particular implementation does not have the secret key, but
 /// diverges the cryptographic operations to `gpg-agent`.
-pub struct KeyPair<'a> {
-    public: &'a openpgp::packet::Key,
+pub struct KeyPair<'a, R>
+    where R: key::KeyRole
+{
+    public: &'a Key<key::PublicParts, R>,
     agent_socket: PathBuf,
 }
 
-impl<'a> KeyPair<'a> {
+impl<'a, R> KeyPair<'a, R>
+    where R: key::KeyRole
+{
     /// Returns a `KeyPair` for `key` with the secret bits managed by
     /// the agent.
     ///
     /// This provides a convenient, synchronous interface for use with
     /// the low-level Sequoia crate.
-    pub fn new(ctx: &Context, key: &'a openpgp::packet::Key)
-               -> Result<KeyPair<'a>> {
+    pub fn new(ctx: &Context, key: &'a Key<key::PublicParts, R>)
+               -> Result<KeyPair<'a, R>> {
         Ok(KeyPair {
             public: key,
             agent_socket: ctx.socket("agent")?.into(),
@@ -688,8 +709,10 @@ impl<'a> KeyPair<'a> {
     }
 }
 
-impl<'a> crypto::Signer for KeyPair<'a> {
-    fn public(&self) -> &openpgp::packet::Key {
+impl<'a, R> crypto::Signer<R> for KeyPair<'a, R>
+    where R: key::KeyRole
+{
+    fn public(&self) -> &Key<key::PublicParts, R> {
         self.public
     }
 
@@ -719,8 +742,10 @@ impl<'a> crypto::Signer for KeyPair<'a> {
     }
 }
 
-impl<'a> crypto::Decryptor for KeyPair<'a> {
-    fn public(&self) -> &openpgp::packet::Key {
+impl<'a, R> crypto::Decryptor<R> for KeyPair<'a, R>
+    where R: key::KeyRole
+{
+    fn public(&self) -> &Key<key::PublicParts, R> {
         self.public
     }
 

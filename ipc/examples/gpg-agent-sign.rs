@@ -41,11 +41,11 @@ fn main() {
     // Construct a KeyPair for every signing-capable (sub)key.
     let mut keypairs = tpks.iter().flat_map(|tpk| tpk.keys_valid().signing_capable().filter_map(|(_, _, key)| {
         KeyPair::new(&ctx, key).ok()
-    })).collect::<Vec<KeyPair>>();
+    })).collect::<Vec<KeyPair<_>>>();
 
     // Well, this is awkward...
     let signers = keypairs.iter_mut()
-        .map(|s| -> &mut dyn openpgp::crypto::Signer { s })
+        .map(|s| -> &mut dyn openpgp::crypto::Signer<_> { s })
         .collect();
 
     // Compose a writer stack corresponding to the output format and

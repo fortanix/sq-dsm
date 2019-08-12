@@ -84,7 +84,7 @@ fn sign_data(input: &mut io::Read, output_path: Option<&str>,
 
     let mut keypairs = super::get_signing_keys(&secrets)?;
     let signers = keypairs.iter_mut()
-        .map(|s| -> &mut dyn crypto::Signer { s })
+        .map(|s| -> &mut dyn crypto::Signer<_> { s })
         .collect();
 
     // When extending a detached signature, prepend any existing
@@ -146,8 +146,8 @@ fn sign_message(input: &mut io::Read, output_path: Option<&str>,
     // the loop, because the borrow checker does not understand that
     // it happens only once.
     let mut signers = Some(keypairs.iter_mut()
-                           .map(|s| -> &mut dyn crypto::Signer { s })
-                           .collect::<Vec<&mut dyn crypto::Signer>>());
+                           .map(|s| -> &mut dyn crypto::Signer<_> { s })
+                           .collect::<Vec<&mut dyn crypto::Signer<_>>>());
 
     let mut sink = Message::new(output);
 

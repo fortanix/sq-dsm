@@ -72,11 +72,12 @@ use crate::{
     packet::Signature,
     packet::signature::{self, Signature4},
     packet::Features,
+    packet::key,
+    packet::Key,
     packet::KeyFlags,
     packet::KeyServerPreferences,
     Packet,
     Fingerprint,
-    packet::Key,
     KeyID,
 };
 use crate::constants::{
@@ -1526,7 +1527,10 @@ impl Signature4 {
     /// See [Section 5.2.3.6 of RFC 4880].
     ///
     ///  [Section 5.2.3.6 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.6
-    pub fn key_expired(&self, key: &Key) -> bool {
+    pub fn key_expired<P, R>(&self, key: &Key<P, R>) -> bool
+        where P: key::KeyParts,
+            R: key::KeyRole
+    {
         self.key_expired_at(key, time::now_utc())
     }
 
@@ -1535,7 +1539,10 @@ impl Signature4 {
     /// See [Section 5.2.3.6 of RFC 4880].
     ///
     ///  [Section 5.2.3.6 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.6
-    pub fn key_expired_at(&self, key: &Key, tm: time::Tm) -> bool {
+    pub fn key_expired_at<P, R>(&self, key: &Key<P, R>, tm: time::Tm) -> bool
+        where P: key::KeyParts,
+            R: key::KeyRole
+    {
         match self.key_expiration_time() {
             Some(e) if e.num_seconds() == 0 =>
                 false, // Zero expiration time, does not expire.
@@ -1554,7 +1561,10 @@ impl Signature4 {
     /// See [Section 5.2.3.6 of RFC 4880].
     ///
     ///  [Section 5.2.3.6 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.6
-    pub fn key_alive(&self, key: &Key) -> bool {
+    pub fn key_alive<P, R>(&self, key: &Key<P, R>) -> bool
+        where P: key::KeyParts,
+            R: key::KeyRole
+    {
         self.key_alive_at(key, time::now_utc())
     }
 
@@ -1567,7 +1577,10 @@ impl Signature4 {
     /// See [Section 5.2.3.6 of RFC 4880].
     ///
     ///  [Section 5.2.3.6 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.6
-    pub fn key_alive_at(&self, key: &Key, tm: time::Tm) -> bool {
+    pub fn key_alive_at<P, R>(&self, key: &Key<P, R>, tm: time::Tm) -> bool
+        where P: key::KeyParts,
+            R: key::KeyRole
+    {
         *key.creation_time() <= tm && ! self.key_expired_at(key, tm)
     }
 
@@ -2415,9 +2428,9 @@ fn accessors() {
     let hash_algo = HashAlgorithm::SHA512;
     let hash = hash_algo.context().unwrap();
     let mut sig = signature::Builder::new(crate::constants::SignatureType::Binary);
-    let mut key: crate::packet::Key =
+    let mut key: crate::packet::key::PublicKey =
         crate::packet::key::Key4::generate_ecc(true, Curve::Ed25519).unwrap().into();
-    let mut keypair = key.clone().into_keypair().unwrap();
+    let mut keypair = key.clone().mark_parts_secret().into_keypair().unwrap();
 
     // Cook up a timestamp without ns resolution.
     let now = time::Tm::from_pgp(time::now_utc().to_pgp().unwrap());

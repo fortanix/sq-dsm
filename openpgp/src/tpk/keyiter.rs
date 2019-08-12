@@ -2,6 +2,7 @@ use std::fmt;
 
 use crate::{
     RevocationStatus,
+    packet::key,
     packet::Key,
     packet::key::SecretKeyMaterial,
     packet::KeyFlags,
@@ -22,11 +23,13 @@ use crate::{
 /// By default, `KeyIter` will only return live, non-revoked keys.  It
 /// is possible to control how `KeyIter` filters using, for instance,
 /// `KeyIter::flags` to only return keys with particular flags set.
-pub struct KeyIter<'a> {
+pub struct KeyIter<'a, P: key::KeyParts, R: key::KeyRole> {
     // This is an option to make it easier to create an empty KeyIter.
     tpk: Option<&'a TPK>,
     primary: bool,
-    subkey_iter: KeyBindingIter<'a>,
+    subkey_iter: KeyBindingIter<'a,
+                                key::PublicParts,
+                                key::SubordinateRole>,
 
     // If not None, only returns keys with the specified flags.
     flags: Option<KeyFlags>,
@@ -44,9 +47,14 @@ pub struct KeyIter<'a> {
     // If not None, filters by whether a key has an unencrypted
     // secret.
     unencrypted_secret: Option<bool>,
+
+    _p: std::marker::PhantomData<P>,
+    _r: std::marker::PhantomData<R>,
 }
 
-impl<'a> fmt::Debug for KeyIter<'a> {
+impl<'a, P: key::KeyParts, R: key::KeyRole> fmt::Debug
+    for KeyIter<'a, P, R>
+{
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("KeyIter")
             .field("flags", &self.flags)
@@ -58,8 +66,12 @@ impl<'a> fmt::Debug for KeyIter<'a> {
     }
 }
 
-impl<'a> Iterator for KeyIter<'a> {
-    type Item = (Option<&'a Signature>, RevocationStatus<'a>, &'a Key);
+impl<'a, P: 'a + key::KeyParts, R: 'a + key::KeyRole> Iterator
+    for KeyIter<'a, P, R>
+    where &'a Key<P, R>: From<&'a Key<key::PublicParts,
+                                      key::UnspecifiedRole>>
+{
+    type Item = (Option<&'a Signature>, RevocationStatus<'a>, &'a Key<P, R>);
 
     fn next(&mut self) -> Option<Self::Item> {
         tracer!(false, "KeyIter::next", 0);
@@ -79,18 +91,19 @@ impl<'a> Iterator for KeyIter<'a> {
         }
 
         loop {
-            let (sigo, revoked, key) = if ! self.primary {
-                self.primary = true;
+            let (sigo, revoked, key) : (_, _, &key::UnspecifiedPublic)
+                = if ! self.primary {
+                    self.primary = true;
 
-                (tpk.primary_key_signature(),
-                 tpk.revocation_status(),
-                 tpk.primary().key())
-            } else {
-                self.subkey_iter.next()
-                    .map(|sk_binding| (sk_binding.binding_signature(),
-                                       sk_binding.revoked(None),
-                                       sk_binding.key(),))?
-            };
+                    (tpk.primary_key_signature(),
+                     tpk.revocation_status(),
+                     tpk.primary().key().into())
+                } else {
+                    self.subkey_iter.next()
+                        .map(|sk_binding| (sk_binding.binding_signature(),
+                                           sk_binding.revoked(None),
+                                           sk_binding.key().into(),))?
+                };
 
             t!("Considering key: {:?}", key);
 
@@ -172,12 +185,13 @@ impl<'a> Iterator for KeyIter<'a> {
                 }
             }
 
-            return Some((sigo, revoked, key));
+            return Some((sigo, revoked, key.into()));
         }
     }
 }
 
-impl<'a> KeyIter<'a> {
+impl<'a, P: 'a + key::KeyParts, R: 'a + key::KeyRole> KeyIter<'a, P, R>
+{
     /// Returns a new `KeyIter` instance with no filters enabled.
     pub(crate) fn new(tpk: &'a TPK) -> Self where Self: 'a {
         KeyIter {
@@ -191,6 +205,9 @@ impl<'a> KeyIter<'a> {
             revoked: None,
             secret: None,
             unencrypted_secret: None,
+
+            _p: std::marker::PhantomData,
+            _r: std::marker::PhantomData,
         }
     }
 
@@ -214,6 +231,9 @@ impl<'a> KeyIter<'a> {
             revoked: None,
             secret: None,
             unencrypted_secret: None,
+
+            _p: std::marker::PhantomData,
+            _r: std::marker::PhantomData,
         }
     }
 
@@ -298,7 +318,7 @@ impl<'a> KeyIter<'a> {
         self
     }
 
-    /// If not None, filters by whether a key has a secret.
+    /// If not None, filters by whether a key has secret key material.
     ///
     /// If you call this function multiple times, only the last value
     /// is used.

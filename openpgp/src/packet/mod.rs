@@ -775,12 +775,12 @@ impl From<SKESK> for Packet {
 ///
 ///   [Section 5.5 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.5
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
-pub enum Key {
+pub enum Key<P: key::KeyParts, R: key::KeyRole> {
     /// Key packet version 4.
-    V4(self::key::Key4),
+    V4(self::key::Key4<P, R>),
 }
 
-impl fmt::Display for Key {
+impl<P: key::KeyParts, R: key::KeyRole> fmt::Display for Key<P, R> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Key::V4(k) => k.fmt(f),
@@ -788,7 +788,7 @@ impl fmt::Display for Key {
     }
 }
 
-impl Key {
+impl<P: key::KeyParts, R: key::KeyRole> Key<P, R> {
     /// Gets the version.
     pub fn version(&self) -> u8 {
         match self {
@@ -807,14 +807,44 @@ impl Key {
             (Key::V4(a), Key::V4(b)) => self::key::Key4::public_cmp(a, b),
         }
     }
+}
 
+impl From<Key<key::PublicParts, key::PrimaryRole>> for Packet {
+    /// Convert the `Key` struct to a `Packet`.
+    fn from(k: Key<key::PublicParts, key::PrimaryRole>) -> Self {
+        Packet::PublicKey(k.into())
+    }
+}
+
+impl From<Key<key::PublicParts, key::SubordinateRole>> for Packet {
+    /// Convert the `Key` struct to a `Packet`.
+    fn from(k: Key<key::PublicParts, key::SubordinateRole>) -> Self {
+        Packet::PublicSubkey(k.into())
+    }
+}
+
+impl From<Key<key::SecretParts, key::PrimaryRole>> for Packet {
+    /// Convert the `Key` struct to a `Packet`.
+    fn from(k: Key<key::SecretParts, key::PrimaryRole>) -> Self {
+        Packet::SecretKey(k.into())
+    }
+}
+
+impl From<Key<key::SecretParts, key::SubordinateRole>> for Packet {
+    /// Convert the `Key` struct to a `Packet`.
+    fn from(k: Key<key::SecretParts, key::SubordinateRole>) -> Self {
+        Packet::SecretSubkey(k.into())
+    }
+}
+
+impl<R: key::KeyRole> Key<key::SecretParts, R> {
     /// Creates a new key pair from a Key packet with an unencrypted
     /// secret key.
     ///
     /// # Errors
     ///
     /// Fails if the secret key is missing, or encrypted.
-    pub fn into_keypair(mut self) -> Result<KeyPair> {
+    pub fn into_keypair(mut self) -> Result<KeyPair<R>> {
         use crate::packet::key::SecretKeyMaterial;
         let secret = match self.set_secret(None) {
             Some(SecretKeyMaterial::Unencrypted(secret)) => secret,
@@ -828,18 +858,11 @@ impl Key {
 
         KeyPair::new(self.into(), secret)
     }
-
-    /// Convert the `Key` struct to a `Packet`.
-    pub fn into_packet(self, tag: Tag) -> Result<Packet> {
-        match self {
-            Key::V4(p) => p.into_packet(tag),
-        }
-    }
 }
 
 // Trivial forwarder for singleton enum.
-impl Deref for Key {
-    type Target = self::key::Key4;
+impl<P: key::KeyParts, R: key::KeyRole> Deref for Key<P, R> {
+    type Target = self::key::Key4<P, R>;
 
     fn deref(&self) -> &Self::Target {
         match self {
@@ -849,7 +872,7 @@ impl Deref for Key {
 }
 
 // Trivial forwarder for singleton enum.
-impl DerefMut for Key {
+impl<P: key::KeyParts, R: key::KeyRole> DerefMut for Key<P, R> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         match self {
             Key::V4(ref mut p) => p,

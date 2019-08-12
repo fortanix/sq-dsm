@@ -1,4 +1,54 @@
 //! Public key, public subkey, private key and private subkey packets.
+//! Key variants.
+//!
+//! There are four variants of OpenPGP keys: public keys, public
+//! subkeys, secret keys, and secret subkeys.  These are based on
+//! the cross product of two attributes: whether the key contains
+//! any secret key material, and the key's role.
+//!
+//! The underlying representation of these four variants is
+//! identical (even a public key and a secret key are the same:
+//! the public key variant just contains 0 bits of secret key
+//! material), and many (but not all) operations can be done on
+//! all four variants.
+//!
+//! We separate these variants into two types: parts (public or
+//! secret) and roles (primary or secondary).  We also add
+//! unspecified variants, because sometimes we want a slice of
+//! keys, and we don't care about the key's role.  For instance,
+//! when iterating over all of the keys in a TPK, we want the
+//! primary and the subkeys.  These can't be put in the same slice
+//! without first wrapping them, which is awkward.
+//!
+//! For the most part, the user doesn't need to worry about the
+//! markers.  Occasionally, it is necessary to change a key's markers.
+//! For these cases, it is possible to just use the `From` trait to
+//! get the require markers.  But, it is also possible to explicitly
+//! set markers.  Compare:
+//!
+//! ```rust
+//! # extern crate sequoia_openpgp as openpgp;
+//! # use openpgp::Result;
+//! # use openpgp::parse::{Parse, PacketParserResult, PacketParser};
+//! # use openpgp::tpk::TPKParser;
+//! # use openpgp::tpk::{CipherSuite, TPKBuilder};
+//! use openpgp::packet::{Key, key};
+//!
+//! # fn main() { f().unwrap(); }
+//! # fn f() -> Result<()>
+//! # {
+//! #     let (tpk, _) = TPKBuilder::new()
+//! #         .set_cipher_suite(CipherSuite::Cv25519)
+//! #         .generate()?;
+//! // Get a handle to the TPK's primary key that allows using the
+//! // secret key material.
+//! let sk : &key::SecretKey = tpk.primary().key().into();
+//!
+//! // Make the conversion explicit.
+//! let sk : &key::SecretKey = tpk.primary().key().mark_parts_secret_ref();
+//! #     Ok(())
+//! # }
+//! ```
 
 use std::fmt;
 use std::cmp::Ordering;
@@ -6,9 +56,8 @@ use time;
 
 use crate::Error;
 use crate::crypto::{self, mem::{self, Protected}, mpis, hash::Hash};
-use crate::packet::Tag;
 use crate::packet;
-use crate::Packet;
+use crate::packet::prelude::*;
 use crate::PublicKeyAlgorithm;
 use crate::SymmetricAlgorithm;
 use crate::HashAlgorithm;
@@ -20,13 +69,447 @@ use crate::crypto::Password;
 use crate::KeyID;
 use crate::Fingerprint;
 
+/// A marker trait that indicates whether a `Key` only contains
+/// public key material or *may* also contains secret key
+/// material.
+pub trait KeyParts: fmt::Debug {}
+
+/// A marker trait that indicates whether a `Key` is a primary key or
+/// subordinate key (i.e., a subkey).
+pub trait KeyRole: fmt::Debug {}
+
+/// Indicates that a `Key` should be treated like a public key.
+///
+/// Note: this doesn't indicate whether the data structure contains
+/// secret key material; it indicates whether any secret key material
+/// should be ignored.  For instance, when exporting a key with the
+/// `PublicParts` marker, secret key material will *not* be exported.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct PublicParts;
+impl KeyParts for PublicParts {}
+
+/// Indicates that a `Key` should be treated like a secret key.
+///
+/// Note: this doesn't indicate whether the data structure contains
+/// secret key material; it indicates whether any secret key material
+/// should be used.  For instance, when exporting a key with the
+/// `SecretParts` marker, secret key material will be exported.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct SecretParts;
+impl KeyParts for SecretParts {}
+
+/// Indicates that a `Key`'s parts are unspecified.
+///
+/// Neither public key-specific nor secret key-specific operations are
+/// allowed on such keys.
+///
+/// For instance, it is not possible to export a key with the
+/// `UnspecifiedParts` marker, because it is unclear how to treat any
+/// secret key material.  To export such a key, you need to use a
+/// different `KeyParts` marker.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct UnspecifiedParts;
+impl KeyParts for UnspecifiedParts {}
+
+/// Indicates that a `Key` should treated like a primary key.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct PrimaryRole;
+impl KeyRole for PrimaryRole {}
+
+/// Indicates that a `Key` should treated like a subkey key.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct SubordinateRole;
+impl KeyRole for SubordinateRole {}
+
+/// Indicates that a `Key`'s role is unknown.
+///
+/// Neither primary key-specific nor subkey-specific operations
+/// are allowed.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct UnspecifiedRole;
+impl KeyRole for UnspecifiedRole {}
+
+/// A Public Key.
+pub type PublicKey = Key<PublicParts, PrimaryRole>;
+/// A Public Subkey.
+pub type PublicSubkey = Key<PublicParts, SubordinateRole>;
+/// A Secret Key.
+pub type SecretKey = Key<SecretParts, PrimaryRole>;
+/// A Secret Subkey.
+pub type SecretSubkey = Key<SecretParts, SubordinateRole>;
+
+/// A key with public parts, and an unspecified role
+/// (`UnspecifiedRole`).
+pub type UnspecifiedPublic = Key<PublicParts, UnspecifiedRole>;
+/// A key with secret parts, and an unspecified role
+/// (`UnspecifiedRole`).
+pub type UnspecifiedSecret = Key<SecretParts, UnspecifiedRole>;
+
+/// A primary key with unspecified parts (`UnspecifiedParts`).
+pub type UnspecifiedPrimary = Key<UnspecifiedParts, PrimaryRole>;
+/// A subkey key with unspecified parts (`UnspecifiedParts`).
+pub type UnspecifiedSecondary = Key<UnspecifiedParts, SubordinateRole>;
+
+/// A key whose parts and role are unspecified
+/// (`UnspecifiedParts`, `UnspecifiedRole`).
+pub type UnspecifiedKey = Key<UnspecifiedParts, UnspecifiedRole>;
+
+macro_rules! convert {
+    ( $x:ident ) => {
+        // XXX: This is ugly, but how can we do better?
+        unsafe { std::mem::transmute($x) }
+    }
+}
+
+macro_rules! convert_ref {
+    ( $x:ident ) => {
+        // XXX: This is ugly, but how can we do better?
+        unsafe { std::mem::transmute($x) }
+    }
+}
+
+// Make it possible to go from an arbitrary Key<P, R> to an
+// arbitrary Key<P', R'> (or &Key<P, R> to &Key<P', R'>) in a
+// single .into().
+//
+// To allow the programmer to make the intent clearer, also
+// provide explicit conversion function.
+
+// In principle, this is as easy as the following:
+//
+//     impl<P, P2, R, R2> From<Key<P, R>> for Key<P2, R2>
+//         where P: KeyParts, P2: KeyParts, R: KeyRole, R2: KeyRole
+//     {
+//         fn from(p: Key<P, R>) -> Self {
+//             unimplemented!()
+//         }
+//     }
+//
+// But that results in:
+//
+//     error[E0119]: conflicting implementations of trait `std::convert::From<packet::Key<_, _>>` for type `packet::Key<_, _>`:
+//     = note: conflicting implementation in crate `core`:
+//             - impl<T> std::convert::From<T> for T;
+//
+// Unfortunately, it's not enough to make one type variable
+// concrete, as the following errors demonstrate:
+//
+//     error[E0119]: conflicting implementations of trait `std::convert::From<packet::Key<packet::key::PublicParts, _>>` for type `packet::Key<packet::key::PublicParts, _>`:
+//     ...
+//         = note: conflicting implementation in crate `core`:
+//                 - impl<T> std::convert::From<T> for T;
+//
+//     impl<P, R, R2> From<Key<P, R>> for Key<PublicParts, R2>
+//         where P: KeyParts, R: KeyRole, R2: KeyRole
+//     {
+//         fn from(p: Key<P, R>) -> Self {
+//             unimplemented!()
+//         }
+//     }
+//
+//   error[E0119]: conflicting implementations of trait `std::convert::From<packet::Key<packet::key::PublicParts, _>>` for type `packet::Key<packet::key::PublicParts, _>`:
+//      --> openpgp/src/packet/key.rs:186:5
+//   ...
+//       = note: conflicting implementation in crate `core`:
+//               - impl<T> std::convert::From<T> for T;
+//   impl<P2, R, R2> From<Key<PublicParts, R>> for Key<P2, R2>
+//       where P2: KeyParts, R: KeyRole, R2: KeyRole
+//   {
+//       fn from(p: Key<PublicParts, R>) -> Self {
+//           unimplemented!()
+//       }
+//   }
+//
+// To solve this, we need at least one generic variable to be
+// concrete on both sides of the `From`.
+
+macro_rules! create_conversions {
+    ( $Key:ident ) => {
+        // Convert between two KeyParts for a constant KeyRole.
+        // Unfortunately, we can't let the KeyRole vary as otherwise we
+        // get conflicting types when we do the same to convert between
+        // two KeyRoles for a constant KeyParts. :(
+        macro_rules! p {
+            ( <$from_parts:ty> -> <$to_parts:ty>) => {
+                impl<R> From<$Key<$from_parts, R>> for $Key<$to_parts, R>
+                    where R: KeyRole
+                {
+                    fn from(p: $Key<$from_parts, R>) -> Self {
+                        convert!(p)
+                    }
+                }
+
+                impl<R> From<&$Key<$from_parts, R>> for &$Key<$to_parts, R>
+                    where R: KeyRole
+                {
+                    fn from(p: &$Key<$from_parts, R>) -> Self {
+                        convert_ref!(p)
+                    }
+                }
+            }
+        }
+
+        p!(<PublicParts> -> <SecretParts>);
+        p!(<PublicParts> -> <UnspecifiedParts>);
+
+        p!(<SecretParts> -> <PublicParts>);
+        p!(<SecretParts> -> <UnspecifiedParts>);
+
+        p!(<UnspecifiedParts> -> <PublicParts>);
+        p!(<UnspecifiedParts> -> <SecretParts>);
+
+        // Convert between two KeyRoles for a constant KeyParts.  See
+        // the comment for the p macro above.
+        macro_rules! r {
+            ( <$from_role:ty> -> <$to_role:ty>) => {
+                impl<P> From<$Key<P, $from_role>> for $Key<P, $to_role>
+                    where P: KeyParts
+                {
+                    fn from(p: $Key<P, $from_role>) -> Self {
+                        convert!(p)
+                    }
+                }
+
+                impl<P> From<&$Key<P, $from_role>> for &$Key<P, $to_role>
+                    where P: KeyParts
+                {
+                    fn from(p: &$Key<P, $from_role>) -> Self {
+                        convert_ref!(p)
+                    }
+                }
+            }
+        }
+
+        r!(<PrimaryRole> -> <SubordinateRole>);
+        r!(<PrimaryRole> -> <UnspecifiedRole>);
+
+        r!(<SubordinateRole> -> <PrimaryRole>);
+        r!(<SubordinateRole> -> <UnspecifiedRole>);
+
+        r!(<UnspecifiedRole> -> <PrimaryRole>);
+        r!(<UnspecifiedRole> -> <SubordinateRole>);
+
+        // We now handle converting both the part and the role at the same
+        // time.
+
+        macro_rules! f {
+            ( <$from_parts:ty, $from_role:ty> -> <$to_parts:ty, $to_role:ty> ) => {
+                impl From<$Key<$from_parts, $from_role>> for $Key<$to_parts, $to_role>
+                {
+                    fn from(p: $Key<$from_parts, $from_role>) -> Self {
+                        convert!(p)
+                    }
+                }
+
+                impl From<&$Key<$from_parts, $from_role>> for &$Key<$to_parts, $to_role>
+                {
+                    fn from(p: &$Key<$from_parts, $from_role>) -> Self {
+                        convert_ref!(p)
+                    }
+                }
+            }
+        }
+
+        // The calls that are comment out are the calls for the
+        // combinations where either the KeyParts or the KeyRole does not
+        // change.
+
+        //f!(<PublicParts, PrimaryRole> -> <PublicParts, PrimaryRole>);
+        //f!(<PublicParts, PrimaryRole> -> <PublicParts, SubordinateRole>);
+        //f!(<PublicParts, PrimaryRole> -> <PublicParts, UnspecifiedRole>);
+        //f!(<PublicParts, PrimaryRole> -> <SecretParts, PrimaryRole>);
+        f!(<PublicParts, PrimaryRole> -> <SecretParts, SubordinateRole>);
+        f!(<PublicParts, PrimaryRole> -> <SecretParts, UnspecifiedRole>);
+        //f!(<PublicParts, PrimaryRole> -> <UnspecifiedParts, PrimaryRole>);
+        f!(<PublicParts, PrimaryRole> -> <UnspecifiedParts, SubordinateRole>);
+        f!(<PublicParts, PrimaryRole> -> <UnspecifiedParts, UnspecifiedRole>);
+
+        //f!(<PublicParts, SubordinateRole> -> <PublicParts, PrimaryRole>);
+        //f!(<PublicParts, SubordinateRole> -> <PublicParts, SubordinateRole>);
+        //f!(<PublicParts, SubordinateRole> -> <PublicParts, UnspecifiedRole>);
+        f!(<PublicParts, SubordinateRole> -> <SecretParts, PrimaryRole>);
+        //f!(<PublicParts, SubordinateRole> -> <SecretParts, SubordinateRole>);
+        f!(<PublicParts, SubordinateRole> -> <SecretParts, UnspecifiedRole>);
+        f!(<PublicParts, SubordinateRole> -> <UnspecifiedParts, PrimaryRole>);
+        //f!(<PublicParts, SubordinateRole> -> <UnspecifiedParts, SubordinateRole>);
+        f!(<PublicParts, SubordinateRole> -> <UnspecifiedParts, UnspecifiedRole>);
+
+        //f!(<PublicParts, UnspecifiedRole> -> <PublicParts, PrimaryRole>);
+        //f!(<PublicParts, UnspecifiedRole> -> <PublicParts, SubordinateRole>);
+        //f!(<PublicParts, UnspecifiedRole> -> <PublicParts, UnspecifiedRole>);
+        f!(<PublicParts, UnspecifiedRole> -> <SecretParts, PrimaryRole>);
+        f!(<PublicParts, UnspecifiedRole> -> <SecretParts, SubordinateRole>);
+        //f!(<PublicParts, UnspecifiedRole> -> <SecretParts, UnspecifiedRole>);
+        f!(<PublicParts, UnspecifiedRole> -> <UnspecifiedParts, PrimaryRole>);
+        f!(<PublicParts, UnspecifiedRole> -> <UnspecifiedParts, SubordinateRole>);
+        //f!(<PublicParts, UnspecifiedRole> -> <UnspecifiedParts, UnspecifiedRole>);
+
+        //f!(<SecretParts, PrimaryRole> -> <PublicParts, PrimaryRole>);
+        f!(<SecretParts, PrimaryRole> -> <PublicParts, SubordinateRole>);
+        f!(<SecretParts, PrimaryRole> -> <PublicParts, UnspecifiedRole>);
+        //f!(<SecretParts, PrimaryRole> -> <SecretParts, PrimaryRole>);
+        //f!(<SecretParts, PrimaryRole> -> <SecretParts, SubordinateRole>);
+        //f!(<SecretParts, PrimaryRole> -> <SecretParts, UnspecifiedRole>);
+        //f!(<SecretParts, PrimaryRole> -> <UnspecifiedParts, PrimaryRole>);
+        f!(<SecretParts, PrimaryRole> -> <UnspecifiedParts, SubordinateRole>);
+        f!(<SecretParts, PrimaryRole> -> <UnspecifiedParts, UnspecifiedRole>);
+
+        f!(<SecretParts, SubordinateRole> -> <PublicParts, PrimaryRole>);
+        //f!(<SecretParts, SubordinateRole> -> <PublicParts, SubordinateRole>);
+        f!(<SecretParts, SubordinateRole> -> <PublicParts, UnspecifiedRole>);
+        //f!(<SecretParts, SubordinateRole> -> <SecretParts, PrimaryRole>);
+        //f!(<SecretParts, SubordinateRole> -> <SecretParts, SubordinateRole>);
+        //f!(<SecretParts, SubordinateRole> -> <SecretParts, UnspecifiedRole>);
+        f!(<SecretParts, SubordinateRole> -> <UnspecifiedParts, PrimaryRole>);
+        //f!(<SecretParts, SubordinateRole> -> <UnspecifiedParts, SubordinateRole>);
+        f!(<SecretParts, SubordinateRole> -> <UnspecifiedParts, UnspecifiedRole>);
+
+        f!(<SecretParts, UnspecifiedRole> -> <PublicParts, PrimaryRole>);
+        f!(<SecretParts, UnspecifiedRole> -> <PublicParts, SubordinateRole>);
+        //f!(<SecretParts, UnspecifiedRole> -> <PublicParts, UnspecifiedRole>);
+        //f!(<SecretParts, UnspecifiedRole> -> <SecretParts, PrimaryRole>);
+        //f!(<SecretParts, UnspecifiedRole> -> <SecretParts, SubordinateRole>);
+        //f!(<SecretParts, UnspecifiedRole> -> <SecretParts, UnspecifiedRole>);
+        f!(<SecretParts, UnspecifiedRole> -> <UnspecifiedParts, PrimaryRole>);
+        f!(<SecretParts, UnspecifiedRole> -> <UnspecifiedParts, SubordinateRole>);
+        //f!(<SecretParts, UnspecifiedRole> -> <UnspecifiedParts, UnspecifiedRole>);
+
+        //f!(<UnspecifiedParts, PrimaryRole> -> <PublicParts, PrimaryRole>);
+        f!(<UnspecifiedParts, PrimaryRole> -> <PublicParts, SubordinateRole>);
+        f!(<UnspecifiedParts, PrimaryRole> -> <PublicParts, UnspecifiedRole>);
+        //f!(<UnspecifiedParts, PrimaryRole> -> <SecretParts, PrimaryRole>);
+        f!(<UnspecifiedParts, PrimaryRole> -> <SecretParts, SubordinateRole>);
+        f!(<UnspecifiedParts, PrimaryRole> -> <SecretParts, UnspecifiedRole>);
+        //f!(<UnspecifiedParts, PrimaryRole> -> <UnspecifiedParts, PrimaryRole>);
+        //f!(<UnspecifiedParts, PrimaryRole> -> <UnspecifiedParts, SubordinateRole>);
+        //f!(<UnspecifiedParts, PrimaryRole> -> <UnspecifiedParts, UnspecifiedRole>);
+
+        f!(<UnspecifiedParts, SubordinateRole> -> <PublicParts, PrimaryRole>);
+        //f!(<UnspecifiedParts, SubordinateRole> -> <PublicParts, SubordinateRole>);
+        f!(<UnspecifiedParts, SubordinateRole> -> <PublicParts, UnspecifiedRole>);
+        f!(<UnspecifiedParts, SubordinateRole> -> <SecretParts, PrimaryRole>);
+        //f!(<UnspecifiedParts, SubordinateRole> -> <SecretParts, SubordinateRole>);
+        f!(<UnspecifiedParts, SubordinateRole> -> <SecretParts, UnspecifiedRole>);
+        //f!(<UnspecifiedParts, SubordinateRole> -> <UnspecifiedParts, PrimaryRole>);
+        //f!(<UnspecifiedParts, SubordinateRole> -> <UnspecifiedParts, SubordinateRole>);
+        //f!(<UnspecifiedParts, SubordinateRole> -> <UnspecifiedParts, UnspecifiedRole>);
+
+        f!(<UnspecifiedParts, UnspecifiedRole> -> <PublicParts, PrimaryRole>);
+        f!(<UnspecifiedParts, UnspecifiedRole> -> <PublicParts, SubordinateRole>);
+        //f!(<UnspecifiedParts, UnspecifiedRole> -> <PublicParts, UnspecifiedRole>);
+        f!(<UnspecifiedParts, UnspecifiedRole> -> <SecretParts, PrimaryRole>);
+        f!(<UnspecifiedParts, UnspecifiedRole> -> <SecretParts, SubordinateRole>);
+        //f!(<UnspecifiedParts, UnspecifiedRole> -> <SecretParts, UnspecifiedRole>);
+        //f!(<UnspecifiedParts, UnspecifiedRole> -> <UnspecifiedParts, PrimaryRole>);
+        //f!(<UnspecifiedParts, UnspecifiedRole> -> <UnspecifiedParts, SubordinateRole>);
+        //f!(<UnspecifiedParts, UnspecifiedRole> -> <UnspecifiedParts, UnspecifiedRole>);
+
+
+        impl<P, R> $Key<P, R> where P: KeyParts, R: KeyRole
+        {
+            /// Changes the key's parts tag to `PublicParts`.
+            pub fn mark_parts_public(self) -> $Key<PublicParts, R> {
+                // Ideally, we'd use self.into() to do the actualy
+                // conversion.  But, because P is not concrete, we get the
+                // following error:
+                //
+                //     error[E0277]: the trait bound `packet::Key<packet::key::PublicParts, R>: std::convert::From<packet::Key<P, R>>` is not satisfied
+                //        --> openpgp/src/packet/key.rs:401:18
+                //         |
+                //     401 |             self.into()
+                //         |                  ^^^^ the trait `std::convert::From<packet::Key<P, R>>` is not implemented for `packet::Key<packet::key::PublicParts, R>`
+                //         |
+                //         = help: consider adding a `where packet::Key<packet::key::PublicParts, R>: std::convert::From<packet::Key<P, R>>` bound
+                //         = note: required because of the requirements on the impl of `std::convert::Into<packet::Key<packet::key::PublicParts, R>>` for `packet::Key<P, R>`
+                //
+                // But we can't implement implement `From<Key<P, R>>` for
+                // `Key<PublicParts, R>`, because that conflicts with a
+                // standard conversion!  (See the comment for the `p`
+                // macro above.)
+                //
+                // Adding the trait bound is annoying, because then we'd
+                // have to add it everywhere that we use into.
+                convert!(self)
+            }
+
+            /// Changes the key's parts tag to `PublicParts`.
+            pub fn mark_parts_public_ref(&self) -> &$Key<PublicParts, R> {
+                convert_ref!(self)
+            }
+
+            /// Changes the key's parts tag to `SecretParts`.
+            pub fn mark_parts_secret(self) -> $Key<SecretParts, R> {
+                convert!(self)
+            }
+
+            /// Changes the key's parts tag to `SecretParts`.
+            pub fn mark_parts_secret_ref(&self) -> &$Key<SecretParts, R> {
+                convert_ref!(self)
+            }
+
+            /// Changes the key's parts tag to `UnspecifiedParts`.
+            pub fn mark_parts_unspecified(self) -> $Key<UnspecifiedParts, R> {
+                convert!(self)
+            }
+
+            /// Changes the key's parts tag to `UnspecifiedParts`.
+            pub fn mark_parts_unspecified_ref(&self) -> &$Key<UnspecifiedParts, R> {
+                convert_ref!(self)
+            }
+        }
+
+        impl<P, R> $Key<P, R> where P: KeyParts, R: KeyRole
+        {
+            /// Changes the key's role tag to `PrimaryRole`.
+            pub fn mark_role_primary(self) -> $Key<P, PrimaryRole> {
+                convert!(self)
+            }
+
+            /// Changes the key's role tag to `PrimaryRole`.
+            pub fn mark_role_primary_ref(&self) -> &$Key<P, PrimaryRole> {
+                convert_ref!(self)
+            }
+
+            /// Changes the key's role tag to `SubordinateRole`.
+            pub fn mark_role_secondary(self) -> $Key<P, SubordinateRole>
+            {
+                convert!(self)
+            }
+
+            /// Changes the key's role tag to `SubordinateRole`.
+            pub fn mark_role_secondary_ref(&self) -> &$Key<P, SubordinateRole>
+            {
+                convert_ref!(self)
+            }
+
+            /// Changes the key's role tag to `UnspecifiedRole`.
+            pub fn mark_role_unspecified(self) -> $Key<P, UnspecifiedRole>
+            {
+                convert!(self)
+            }
+
+            /// Changes the key's role tag to `UnspecifiedRole`.
+            pub fn mark_role_unspecified_ref(&self) -> &$Key<P, UnspecifiedRole>
+            {
+                convert_ref!(self)
+            }
+        }
+    }
+}
+
+create_conversions!(Key);
+create_conversions!(Key4);
+
+
 /// Holds a public key, public subkey, private key or private subkey packet.
 ///
 /// See [Section 5.5 of RFC 4880] for details.
 ///
 ///   [Section 5.5 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.5
 #[derive(PartialEq, Eq, Hash, Clone)]
-pub struct Key4 {
+pub struct Key4<P, R>
+    where P: KeyParts, R: KeyRole
+{
     /// CTB packet header fields.
     pub(crate) common: packet::Common,
     /// When the key was created.
@@ -37,10 +520,16 @@ pub struct Key4 {
     mpis: mpis::PublicKey,
     /// Optional secret part of the key.
     secret: Option<SecretKeyMaterial>,
+
+    p: std::marker::PhantomData<P>,
+    r: std::marker::PhantomData<R>,
 }
 
 
-impl fmt::Debug for Key4 {
+impl<P, R> fmt::Debug for Key4<P, R>
+    where P: key::KeyParts,
+          R: key::KeyRole,
+{
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("Key4")
             .field("fingerprint", &self.fingerprint())
@@ -52,13 +541,19 @@ impl fmt::Debug for Key4 {
     }
 }
 
-impl fmt::Display for Key4 {
+impl<P, R> fmt::Display for Key4<P, R>
+    where P: key::KeyParts,
+          R: key::KeyRole,
+{
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.fingerprint())
     }
 }
 
-impl Key4 {
+impl<P, R> Key4<P, R>
+    where P: key::KeyParts,
+          R: key::KeyRole,
+{
     /// Compares the public bits of two keys.
     ///
     /// This returns Ordering::Equal if the public MPIs,
@@ -80,7 +575,10 @@ impl Key4 {
     }
 }
 
-impl Key4 {
+impl<P, R> Key4<P, R>
+    where P: key::KeyParts,
+          R: key::KeyRole,
+{
     /// Creates a new OpenPGP key packet.
     pub fn new(creation_time: time::Tm, pk_algo: PublicKeyAlgorithm,
                mpis: mpis::PublicKey, secret: Option<SecretKeyMaterial>)
@@ -92,6 +590,8 @@ impl Key4 {
             pk_algo: pk_algo,
             mpis: mpis,
             secret: secret,
+            p: std::marker::PhantomData,
+            r: std::marker::PhantomData,
         })
     }
 
@@ -121,6 +621,8 @@ impl Key4 {
                 q: mpis::MPI::new(&point),
             },
             secret: None,
+            p: std::marker::PhantomData,
+            r: std::marker::PhantomData,
         })
     }
 
@@ -157,6 +659,8 @@ impl Key4 {
             secret: Some(mpis::SecretKeyMaterial::ECDH {
                 scalar: private_key.into(),
             }.into()),
+            p: std::marker::PhantomData,
+            r: std::marker::PhantomData,
         })
     }
 
@@ -181,6 +685,8 @@ impl Key4 {
                 q: mpis::MPI::new(&point),
             },
             secret: None,
+            p: std::marker::PhantomData,
+            r: std::marker::PhantomData,
         })
     }
 
@@ -209,6 +715,8 @@ impl Key4 {
             secret: Some(mpis::SecretKeyMaterial::EdDSA {
                 scalar: mpis::MPI::new(private_key).into(),
             }.into()),
+            p: std::marker::PhantomData,
+            r: std::marker::PhantomData,
         })
     }
 
@@ -224,11 +732,13 @@ impl Key4 {
             common: Default::default(),
             creation_time: ctime.into().unwrap_or(time::now()),
             pk_algo: PublicKeyAlgorithm::RSAEncryptSign,
-            mpis: mpis::PublicKey::RSA{
+            mpis: mpis::PublicKey::RSA {
                 e: mpis::MPI::new(e),
                 n: mpis::MPI::new(n),
             },
             secret: None,
+            p: std::marker::PhantomData,
+            r: std::marker::PhantomData,
         })
     }
 
@@ -250,7 +760,7 @@ impl Key4 {
             common: Default::default(),
             creation_time: ctime.into().unwrap_or(time::now()),
             pk_algo: PublicKeyAlgorithm::RSAEncryptSign,
-            mpis: mpis::PublicKey::RSA{
+            mpis: mpis::PublicKey::RSA {
                 e: mpis::MPI::new(&key.e()[..]),
                 n: mpis::MPI::new(&key.n()[..]),
             },
@@ -260,6 +770,8 @@ impl Key4 {
                 q: mpis::MPI::new(&b[..]).into(),
                 u: mpis::MPI::new(&c[..]).into(),
             }.into()),
+            p: std::marker::PhantomData,
+            r: std::marker::PhantomData,
         })
     }
 
@@ -289,6 +801,8 @@ impl Key4 {
             pk_algo: PublicKeyAlgorithm::RSAEncryptSign,
             mpis: public_mpis,
             secret: sec,
+            p: std::marker::PhantomData,
+            r: std::marker::PhantomData,
         })
     }
 
@@ -442,6 +956,8 @@ impl Key4 {
             pk_algo: pk_algo,
             mpis: mpis,
             secret: secret,
+            p: std::marker::PhantomData,
+            r: std::marker::PhantomData,
         })
     }
 
@@ -516,25 +1032,13 @@ impl Key4 {
     pub fn keyid(&self) -> KeyID {
         self.fingerprint().to_keyid()
     }
-
-    /// Convert the `Key` struct to a `Packet`.
-    pub fn into_packet(self, tag: Tag) -> Result<Packet> {
-        match tag {
-            Tag::PublicKey => Ok(Packet::PublicKey(self.into())),
-            Tag::PublicSubkey => Ok(Packet::PublicSubkey(self.into())),
-            Tag::SecretKey => Ok(Packet::SecretKey(self.into())),
-            Tag::SecretSubkey => Ok(Packet::SecretSubkey(self.into())),
-            _ => Err(Error::InvalidArgument(
-                format!("Expected Tag::PublicKey, Tag::PublicSubkey, \
-                         Tag::SecretKey, or Tag::SecretSubkey. \
-                         Got: Tag::{:?}",
-                        tag)).into()),
-        }
-    }
 }
 
-impl From<Key4> for super::Key {
-    fn from(p: Key4) -> Self {
+impl<P, R> From<Key4<P, R>> for super::Key<P, R>
+    where P: key::KeyParts,
+          R: key::KeyRole,
+{
+    fn from(p: Key4<P, R>) -> Self {
         super::Key::V4(p)
     }
 }
@@ -737,7 +1241,9 @@ mod tests {
     use crate::packet::Key;
     use crate::TPK;
     use crate::packet::pkesk::PKESK3;
+    use crate::packet::key;
     use crate::packet::key::SecretKeyMaterial;
+    use crate::packet::Packet;
     use super::*;
     use crate::PacketPile;
     use crate::serialize::Serialize;
@@ -769,8 +1275,10 @@ mod tests {
         use crate::constants::Curve::*;
 
         for curve in vec![NistP256, NistP384, NistP521] {
-            let sign_key = Key4::generate_ecc(true, curve.clone()).unwrap();
-            let enc_key = Key4::generate_ecc(false, curve).unwrap();
+            let sign_key : Key4<key::PublicParts, key::UnspecifiedRole>
+                = Key4::generate_ecc(true, curve.clone()).unwrap();
+            let enc_key : Key4<key::PublicParts, key::UnspecifiedRole>
+                = Key4::generate_ecc(false, curve).unwrap();
             let sign_clone = sign_key.clone();
             let enc_clone = enc_key.clone();
 
@@ -779,7 +1287,8 @@ mod tests {
         }
 
         for bits in vec![1024, 2048, 3072, 4096] {
-            let key = Key4::generate_rsa(bits).unwrap();
+            let key : Key4<key::PublicParts, key::UnspecifiedRole>
+                = Key4::generate_rsa(bits).unwrap();
             let clone = key.clone();
             assert_eq!(key, clone);
         }
@@ -789,8 +1298,10 @@ mod tests {
     fn roundtrip() {
         use crate::constants::Curve::*;
 
-        let keys = vec![NistP256, NistP384, NistP521].into_iter().flat_map(|cv| {
-            let sign_key = Key4::generate_ecc(true, cv.clone()).unwrap();
+        let keys = vec![NistP256, NistP384, NistP521].into_iter().flat_map(|cv|
+        {
+            let sign_key : Key4<key::SecretParts, key::PrimaryRole>
+                = Key4::generate_ecc(true, cv.clone()).unwrap();
             let enc_key = Key4::generate_ecc(false, cv).unwrap();
 
             vec![sign_key, enc_key]
@@ -818,7 +1329,8 @@ mod tests {
             }
 
             let mut b = Vec::new();
-            Packet::PublicKey(key.clone().into()).serialize(&mut b).unwrap();
+            let pk4 : Key4<PublicParts, PrimaryRole> = key.clone().into();
+            Packet::PublicKey(pk4.into()).serialize(&mut b).unwrap();
 
             let pp = PacketPile::from_bytes(&b).unwrap();
             if let Some(Packet::PublicKey(Key::V4(ref parsed_key))) =
@@ -827,7 +1339,7 @@ mod tests {
                 assert!(parsed_key.secret().is_none());
 
                 key.set_secret(None);
-                assert_eq!(&key, parsed_key);
+                assert_eq!(&key.mark_parts_public(), parsed_key);
             } else {
                 panic!("bad packet: {:?}", pp.path_ref(&[0]));
             }
@@ -846,8 +1358,9 @@ mod tests {
         }));
 
         for key in keys.into_iter() {
-            let key = Key::from(key);
-            let mut keypair = key.clone().into_keypair().unwrap();
+            let key : key::PublicKey = key.into();
+            let mut keypair
+                = key.clone().mark_parts_secret().into_keypair().unwrap();
             let cipher = SymmetricAlgorithm::AES256;
             let sk = SessionKey::new(cipher.key_size().unwrap());
 
@@ -864,7 +1377,9 @@ mod tests {
         use crate::constants::Curve::*;
 
         let keys = vec![NistP256, NistP384, NistP521].into_iter().map(|cv| {
-            Key4::generate_ecc(false, cv).unwrap()
+            let k : Key4<key::SecretParts, key::PrimaryRole>
+                = Key4::generate_ecc(false, cv).unwrap();
+            k
         }).chain(vec![1024, 2048, 3072, 4096].into_iter().map(|b| {
             Key4::generate_rsa(b).unwrap()
         }));
@@ -896,10 +1411,11 @@ mod tests {
         // X25519 key
         let ctime = at(Timespec::new(0x5c487129,0));
         let public = b"\xed\x59\x0a\x15\x08\x95\xe9\x92\xd2\x2c\x14\x01\xb3\xe9\x3b\x7f\xff\xe6\x6f\x22\x65\xec\x69\xd9\xb8\xda\x24\x2c\x64\x84\x44\x11";
-        let key = Key4::import_public_cv25519(&public[..],
-                                              HashAlgorithm::SHA256,
-                                              SymmetricAlgorithm::AES128,
-                                              ctime).unwrap().into();
+        let key : key::SecretKey
+            = Key4::import_public_cv25519(&public[..],
+                                          HashAlgorithm::SHA256,
+                                          SymmetricAlgorithm::AES128,
+                                          ctime).unwrap().into();
 
         // PKESK
         let eph_pubkey = MPI::new(&b"\x40\xda\x1c\x69\xc4\xe3\xb6\x9c\x6e\xd4\xc6\x69\x6c\x89\xc7\x09\xe9\xf8\x6a\xf1\xe3\x8d\xb6\xaa\xb5\xf7\x29\xae\xa6\xe7\xdd\xfe\x38"[..]);
@@ -914,7 +1430,8 @@ mod tests {
         let sk = SessionKey::from(Vec::from(&dek[..]));
 
         // Expected
-        let got_enc = ecdh::encrypt_shared(&key, &sk, eph_pubkey, &shared_sec)
+        let got_enc = ecdh::encrypt_shared(&key.mark_parts_public(),
+                                           &sk, eph_pubkey, &shared_sec)
             .unwrap();
 
         assert_eq!(ciphertext, got_enc);
@@ -930,10 +1447,11 @@ mod tests {
         let ctime = at(Timespec::new(0x5c487129,0));
         let public = b"\xed\x59\x0a\x15\x08\x95\xe9\x92\xd2\x2c\x14\x01\xb3\xe9\x3b\x7f\xff\xe6\x6f\x22\x65\xec\x69\xd9\xb8\xda\x24\x2c\x64\x84\x44\x11";
         let secret = b"\xa0\x27\x13\x99\xc9\xe3\x2e\xd2\x47\xf6\xd6\x63\x9d\xe6\xec\xcb\x57\x0b\x92\xbb\x17\xfe\xb8\xf1\xc4\x1f\x06\x7c\x55\xfc\xdd\x58";
-        let key: Key = Key4::import_secret_cv25519(&secret[..],
-                                                   HashAlgorithm::SHA256,
-                                                   SymmetricAlgorithm::AES128,
-                                                   ctime).unwrap().into();
+        let key: key::PublicKey
+            = Key4::import_secret_cv25519(&secret[..],
+                                          HashAlgorithm::SHA256,
+                                          SymmetricAlgorithm::AES128,
+                                          ctime).unwrap().into();
         match key.mpis {
             self::mpis::PublicKey::ECDH{ ref q,.. } =>
                 assert_eq!(&q.value()[1..], &public[..]),
@@ -971,7 +1489,8 @@ mod tests {
         let d = b"\x14\xC4\x3A\x0C\x3A\x79\xA4\xF7\x63\x0D\x89\x93\x63\x8B\x56\x9C\x29\x2E\xCD\xCF\xBF\xB0\xEC\x66\x52\xC3\x70\x1B\x19\x21\x73\xDE\x8B\xAC\x0E\xF2\xE1\x28\x42\x66\x56\x55\x00\x3B\xFD\x50\xC4\x7C\xBC\x9D\xEB\x7D\xF4\x81\xFC\xC3\xBF\xF7\xFF\xD0\x41\x3E\x50\x3B\x5F\x5D\x5F\x56\x67\x5E\x00\xCE\xA4\x53\xB8\x59\xA0\x40\xC8\x96\x6D\x12\x09\x27\xBE\x1D\xF1\xC2\x68\xFC\xF0\x14\xD6\x52\x77\x07\xC8\x12\x36\x9C\x9A\x5C\xAF\x43\xCC\x95\x20\xBB\x0A\x44\x94\xDD\xB4\x4F\x45\x4E\x3A\x1A\x30\x0D\x66\x40\xAC\x68\xE8\xB0\xFD\xCD\x6C\x6B\x6C\xB5\xF7\xE4\x36\x95\xC2\x96\x98\xFD\xCA\x39\x6C\x1A\x2E\x55\xAD\xB6\xE0\xF8\x2C\xFF\xBC\xD3\x32\x15\x52\x39\xB3\x92\x35\xDB\x8B\x68\xAF\x2D\x4A\x6E\x64\xB8\x28\x63\xC4\x24\x94\x2D\xA9\xDB\x93\x56\xE3\xBC\xD0\xB6\x38\x84\x04\xA4\xC6\x18\x48\xFE\xB2\xF8\xE1\x60\x37\x52\x96\x41\xA5\x79\xF6\x3D\xB7\x2A\x71\x5B\x7A\x75\xBF\x7F\xA2\x5A\xC8\xA1\x38\xF2\x5A\xBD\x14\xFC\xAF\xB4\x54\x83\xA4\xBD\x49\xA2\x8B\x91\xB0\xE0\x4A\x1B\x21\x54\x07\x19\x70\x64\x7C\x3E\x9F\x8D\x8B\xE4\x70\xD1\xE7\xBE\x4E\x5C\xCE\xF1";
         let p = b"\xC8\x32\xD1\x17\x41\x4D\x8F\x37\x09\x18\x32\x4C\x4C\xF4\xA2\x15\x27\x43\x3D\xBB\xB5\xF6\x1F\xCF\xD2\xE4\x43\x61\x07\x0E\x9E\x35\x1F\x0A\x5D\xFB\x3A\x45\x74\x61\x73\x73\x7B\x5F\x1F\x87\xFB\x54\x8D\xA8\x85\x3E\xB0\xB7\xC7\xF5\xC9\x13\x99\x8D\x40\xE6\xA6\xD0\x71\x3A\xE3\x2D\x4A\xC3\xA3\xFF\xF7\x72\x82\x14\x52\xA4\xBA\x63\x0E\x17\xCA\xCA\x18\xC4\x3A\x40\x79\xF1\x86\xB3\x10\x4B\x9F\xB2\xAE\x2E\x13\x38\x8D\x2C\xF9\x88\x4C\x25\x53\xEF\xF9\xD1\x8B\x1A\x7C\xE7\xF6\x4B\x73\x51\x31\xFA\x44\x1D\x36\x65\x71\xDA\xFC\x6F";
         let q = b"\xCC\x30\xE9\xCC\xCB\x31\x28\xB5\x90\xFF\x06\x62\x42\x5B\x24\x0E\x00\xFE\xE2\x37\xC4\xAC\xBB\x3B\x8F\xF2\x0E\x3F\x78\xCF\x6B\x7C\xE8\x75\x57\x7C\x15\x9D\x1A\x66\xF2\x0A\xE5\xD3\x0B\xE7\x40\xF7\xE7\x00\xB6\x86\xB5\xD9\x20\x67\xE0\x4A\xC0\x90\xA4\x13\x4D\xC9\xB0\x12\xC5\xCD\x4C\xEB\xA1\x91\x2D\x43\x58\x6E\xB6\x75\xA0\x93\xF0\x5B\xC5\x31\xCA\xB7\xC6\x22\x0C\xD3\xEC\x84\xC5\x91\xA1\x5F\x2C\x8E\x07\x5D\xA1\x98\x67\xC5\x7A\x58\x16\x71\x3D\xED\x91\x03\x0D\xD4\x25\x07\x89\x9B\x33\x98\xA3\x70\xD9\xE7\xC8\x17\xA3\xD9";
-        let key: Key = Key4::import_secret_rsa(&d[..], &p[..], &q[..], ctime)
+        let key: key::SecretKey
+            = Key4::import_secret_rsa(&d[..], &p[..], &q[..], ctime)
             .unwrap().into();
 
         // PKESK
@@ -1005,7 +1524,8 @@ mod tests {
         // Ed25519 key
         let ctime = at(Timespec::new(1548249630,0));
         let q = b"\x57\x15\x45\x1B\x68\xA5\x13\xA2\x20\x0F\x71\x9D\xE3\x05\x3B\xED\xA2\x21\xDE\x61\x5A\xF5\x67\x45\xBB\x97\x99\x43\x53\x59\x7C\x3F";
-        let key: Key = Key4::import_public_ed25519(q, ctime).unwrap().into();
+        let key: key::PublicKey
+            = Key4::import_public_ed25519(q, ctime).unwrap().into();
 
         let mut hashed = SubpacketArea::empty();
         let mut unhashed = SubpacketArea::empty();

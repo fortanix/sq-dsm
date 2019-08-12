@@ -15,6 +15,7 @@ extern crate sequoia_openpgp as openpgp;
 use openpgp::crypto::SessionKey;
 use openpgp::constants::SymmetricAlgorithm;
 use openpgp::serialize::stream::*;
+use openpgp::packet::prelude::*;
 use openpgp::parse::stream::*;
 
 const MESSAGE: &'static str = "дружба";
@@ -118,9 +119,10 @@ fn main() {
 #         where D: FnMut(SymmetricAlgorithm, &SessionKey) -> openpgp::Result<()>
 #     {
 #         // The encryption key is the first and only subkey.
-#         let key = self.secret.subkeys().nth(0)
+#         let key : key::UnspecifiedSecret
+#             = self.secret.subkeys().nth(0)
 #             .map(|binding| binding.key().clone())
-#             .unwrap();
+#             .unwrap().into();
 #
 #         // The secret key is not encrypted.
 #         let mut pair = key.into_keypair().unwrap();
@@ -149,6 +151,7 @@ create it:
 # use openpgp::crypto::SessionKey;
 # use openpgp::constants::SymmetricAlgorithm;
 # use openpgp::serialize::stream::*;
+# use openpgp::packet::prelude::*;
 # use openpgp::parse::stream::*;
 #
 # const MESSAGE: &'static str = "дружба";
@@ -252,9 +255,10 @@ fn generate() -> openpgp::Result<openpgp::TPK> {
 #         where D: FnMut(SymmetricAlgorithm, &SessionKey) -> openpgp::Result<()>
 #     {
 #         // The encryption key is the first and only subkey.
-#         let key = self.secret.subkeys().nth(0)
+#         let key : key::UnspecifiedSecret
+#             = self.secret.subkeys().nth(0)
 #             .map(|binding| binding.key().clone())
-#             .unwrap();
+#             .unwrap().into();
 #
 #         // The secret key is not encrypted.
 #         let mut pair = key.into_keypair().unwrap();
@@ -283,6 +287,7 @@ implements [`io::Write`], and we simply write the plaintext to it.
 # use openpgp::crypto::SessionKey;
 # use openpgp::constants::SymmetricAlgorithm;
 # use openpgp::serialize::stream::*;
+# use openpgp::packet::prelude::*;
 # use openpgp::parse::stream::*;
 #
 # const MESSAGE: &'static str = "дружба";
@@ -386,9 +391,10 @@ fn encrypt(sink: &mut Write, plaintext: &str, recipient: &openpgp::TPK)
 #         where D: FnMut(SymmetricAlgorithm, &SessionKey) -> openpgp::Result<()>
 #     {
 #         // The encryption key is the first and only subkey.
-#         let key = self.secret.subkeys().nth(0)
+#         let key : key::UnspecifiedSecret
+#             = self.secret.subkeys().nth(0)
 #             .map(|binding| binding.key().clone())
-#             .unwrap();
+#             .unwrap().into();
 #
 #         // The secret key is not encrypted.
 #         let mut pair = key.into_keypair().unwrap();
@@ -431,6 +437,7 @@ Decrypted data can be read from this using [`io::Read`].
 # use openpgp::crypto::SessionKey;
 # use openpgp::constants::SymmetricAlgorithm;
 # use openpgp::serialize::stream::*;
+# use openpgp::packet::prelude::*;
 # use openpgp::parse::stream::*;
 #
 # const MESSAGE: &'static str = "дружба";
@@ -534,9 +541,10 @@ impl<'a> DecryptionHelper for Helper<'a> {
         where D: FnMut(SymmetricAlgorithm, &SessionKey) -> openpgp::Result<()>
     {
         // The encryption key is the first and only subkey.
-        let key = self.secret.subkeys().nth(0)
+        let key : key::UnspecifiedSecret
+            = self.secret.subkeys().nth(0)
             .map(|binding| binding.key().clone())
-            .unwrap();
+            .unwrap().into();
 
         // The secret key is not encrypted.
         let mut pair = key.into_keypair().unwrap();

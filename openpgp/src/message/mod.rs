@@ -798,7 +798,7 @@ mod tests {
         lit.set_body(b"data".to_vec());
 
         let hash = crate::constants::HashAlgorithm::SHA512;
-        let key: Key =
+        let key: key::SecretKey =
             crate::packet::key::Key4::generate_ecc(true, crate::constants::Curve::Ed25519)
             .unwrap().into();
         let mut pair = key.clone().into_keypair().unwrap();
@@ -910,7 +910,7 @@ mod tests {
         lit.set_body(b"data".to_vec());
 
         let hash = crate::constants::HashAlgorithm::SHA512;
-        let key: Key =
+        let key: key::SecretKey =
             crate::packet::key::Key4::generate_ecc(true, crate::constants::Curve::Ed25519)
             .unwrap().into();
         let mut pair = key.clone().into_keypair().unwrap();

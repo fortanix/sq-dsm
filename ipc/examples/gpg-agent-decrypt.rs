@@ -63,7 +63,7 @@ fn main() {
 /// verification policy.
 struct Helper<'a> {
     ctx: &'a Context,
-    keys: HashMap<openpgp::KeyID, openpgp::packet::Key>,
+    keys: HashMap<openpgp::KeyID, openpgp::packet::key::UnspecifiedPublic>,
 }
 
 impl<'a> Helper<'a> {
@@ -77,7 +77,7 @@ impl<'a> Helper<'a> {
                                 || s.key_flags().can_encrypt_for_transport()))
                     .unwrap_or(false)
                 {
-                    keys.insert(key.keyid(), key.clone());
+                    keys.insert(key.keyid(), key.clone().into());
                 }
             }
         }
