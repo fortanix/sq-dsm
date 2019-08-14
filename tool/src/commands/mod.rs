@@ -11,7 +11,7 @@ use sequoia_core::Context;
 use crate::openpgp::constants::DataFormat;
 use crate::openpgp::crypto;
 use crate::openpgp::{TPK, KeyID, Result};
-use crate::openpgp::packet::key::SecretKey;
+use crate::openpgp::packet::key::SecretKeyMaterial;
 use crate::openpgp::parse::{
     Parse,
     PacketParserResult,
@@ -51,14 +51,14 @@ fn get_signing_keys(tpks: &[openpgp::TPK]) -> Result<Vec<crypto::KeyPair>> {
         {
             if let Some(secret) = key.secret() {
                 let unencrypted = match secret {
-                    SecretKey::Encrypted(ref e) => {
+                    SecretKeyMaterial::Encrypted(ref e) => {
                         let password = rpassword::read_password_from_tty(Some(
                             &format!("Please enter password to decrypt {}/{}: ",
                                      tsk, key))).unwrap();
                         e.decrypt(key.pk_algo(), &password.into())
                             .expect("decryption failed")
                     },
-                    SecretKey::Unencrypted(ref u) => u.clone(),
+                    SecretKeyMaterial::Unencrypted(ref u) => u.clone(),
                 };
 
                 keys.push(crypto::KeyPair::new(key.clone(), unencrypted)

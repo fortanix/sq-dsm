@@ -36,7 +36,7 @@ pub struct Key4 {
     /// Public key MPIs.
     mpis: mpis::PublicKey,
     /// Optional secret part of the key.
-    secret: Option<SecretKey>,
+    secret: Option<SecretKeyMaterial>,
 }
 
 
@@ -83,7 +83,7 @@ impl Key4 {
 impl Key4 {
     /// Creates a new OpenPGP key packet.
     pub fn new(creation_time: time::Tm, pk_algo: PublicKeyAlgorithm,
-               mpis: mpis::PublicKey, secret: Option<SecretKey>)
+               mpis: mpis::PublicKey, secret: Option<SecretKeyMaterial>)
                -> Result<Self>
     {
         Ok(Key4 {
@@ -154,7 +154,7 @@ impl Key4 {
                 sym: sym.into().unwrap_or(SymmetricAlgorithm::AES256),
                 q: mpis::MPI::new(&public_key),
             },
-            secret: Some(mpis::SecretKey::ECDH {
+            secret: Some(mpis::SecretKeyMaterial::ECDH {
                 scalar: private_key.into(),
             }.into()),
         })
@@ -206,7 +206,7 @@ impl Key4 {
                 curve: Curve::Ed25519,
                 q: mpis::MPI::new(&public_key),
             },
-            secret: Some(mpis::SecretKey::EdDSA {
+            secret: Some(mpis::SecretKeyMaterial::EdDSA {
                 scalar: mpis::MPI::new(private_key).into(),
             }.into()),
         })
@@ -254,7 +254,7 @@ impl Key4 {
                 e: mpis::MPI::new(&key.e()[..]),
                 n: mpis::MPI::new(&key.n()[..]),
             },
-            secret: Some(mpis::SecretKey::RSA {
+            secret: Some(mpis::SecretKeyMaterial::RSA {
                 d: mpis::MPI::new(d).into(),
                 p: mpis::MPI::new(&a[..]).into(),
                 q: mpis::MPI::new(&b[..]).into(),
@@ -275,7 +275,7 @@ impl Key4 {
             e: MPI::new(&*public.e()).into(),
             n: MPI::new(&*public.n()).into(),
         };
-        let private_mpis = mpis::SecretKey::RSA {
+        let private_mpis = mpis::SecretKeyMaterial::RSA {
             d: MPI::new(&*private.d()).into(),
             p: MPI::new(&*p).into(),
             q: MPI::new(&*q).into(),
@@ -324,7 +324,7 @@ impl Key4 {
                     curve: Curve::Ed25519,
                     q: MPI::new(&public),
                 };
-                let private_mpis = mpis::SecretKey::EdDSA {
+                let private_mpis = mpis::SecretKeyMaterial::EdDSA {
                     scalar: private.into(),
                 };
                 let sec = Some(private_mpis.into());
@@ -351,7 +351,7 @@ impl Key4 {
                     hash: HashAlgorithm::SHA256,
                     sym: SymmetricAlgorithm::AES256,
                 };
-                let private_mpis = mpis::SecretKey::ECDH {
+                let private_mpis = mpis::SecretKeyMaterial::ECDH {
                     scalar: private.into(),
                 };
                 let sec = Some(private_mpis.into());
@@ -384,7 +384,7 @@ impl Key4 {
                     curve: curve,
                     q: MPI::new_weierstrass(&pub_x, &pub_y, field_sz),
                 };
-                let private_mpis = mpis::SecretKey::ECDSA{
+                let private_mpis = mpis::SecretKeyMaterial::ECDSA{
                     scalar: MPI::new(&private.as_bytes()).into(),
                 };
                 let sec = Some(private_mpis.into());
@@ -423,7 +423,7 @@ impl Key4 {
                         hash: hash,
                         sym: SymmetricAlgorithm::AES256,
                     };
-                    let private_mpis = mpis::SecretKey::ECDH{
+                    let private_mpis = mpis::SecretKeyMaterial::ECDH{
                         scalar: MPI::new(&private.as_bytes()).into(),
                     };
                     let sec = Some(private_mpis.into());
@@ -480,21 +480,21 @@ impl Key4 {
         ::std::mem::replace(&mut self.mpis, mpis)
     }
 
-    /// Gets the key packet's SecretKey.
-    pub fn secret(&self) -> Option<&SecretKey> {
+    /// Gets the key packet's `SecretKeyMaterial`.
+    pub fn secret(&self) -> Option<&SecretKeyMaterial> {
         self.secret.as_ref()
     }
 
-    /// Gets a mutable reference to the key packet's SecretKey.
-    pub fn secret_mut(&mut self) -> Option<&mut SecretKey> {
+    /// Gets a mutable reference to the key packet's `SecretKeyMaterial`.
+    pub fn secret_mut(&mut self) -> Option<&mut SecretKeyMaterial> {
         self.secret.as_mut()
     }
 
-    /// Sets the key packet's SecretKey.
+    /// Sets the key packet's `SecretKeyMaterial`.
     ///
     /// Returns the old value.
-    pub fn set_secret(&mut self, secret: Option<SecretKey>)
-        -> Option<SecretKey>
+    pub fn set_secret(&mut self, secret: Option<SecretKeyMaterial>)
+        -> Option<SecretKeyMaterial>
     {
         std::mem::replace(&mut self.secret, secret)
     }
@@ -538,9 +538,10 @@ impl Key4 {
     ///
     /// Fails if the secret key is missing, or encrypted.
     pub fn into_keypair(mut self) -> Result<KeyPair> {
+        use crate::packet::key::SecretKeyMaterial;
         let secret = match self.set_secret(None) {
-            Some(SecretKey::Unencrypted(secret)) => secret,
-            Some(SecretKey::Encrypted(_)) =>
+            Some(SecretKeyMaterial::Unencrypted(secret)) => secret,
+            Some(SecretKeyMaterial::Encrypted(_)) =>
                 return Err(Error::InvalidArgument(
                     "secret key is encrypted".into()).into()),
             None =>
@@ -562,43 +563,43 @@ impl From<Key4> for super::Key {
 ///
 /// This type allows postponing the decryption of the secret key until we need to use it.
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
-pub enum SecretKey {
+pub enum SecretKeyMaterial {
     /// Unencrypted secret key. Can be used as-is.
     Unencrypted(Unencrypted),
     /// The secret key is encrypted with a password.
     Encrypted(Encrypted),
 }
 
-impl From<mpis::SecretKey> for SecretKey {
-    fn from(mpis: mpis::SecretKey) -> Self {
-        SecretKey::Unencrypted(mpis.into())
+impl From<mpis::SecretKeyMaterial> for SecretKeyMaterial {
+    fn from(mpis: mpis::SecretKeyMaterial) -> Self {
+        SecretKeyMaterial::Unencrypted(mpis.into())
     }
 }
 
-impl From<Unencrypted> for SecretKey {
+impl From<Unencrypted> for SecretKeyMaterial {
     fn from(key: Unencrypted) -> Self {
-        SecretKey::Unencrypted(key)
+        SecretKeyMaterial::Unencrypted(key)
     }
 }
 
-impl From<Encrypted> for SecretKey {
+impl From<Encrypted> for SecretKeyMaterial {
     fn from(key: Encrypted) -> Self {
-        SecretKey::Encrypted(key)
+        SecretKeyMaterial::Encrypted(key)
     }
 }
 
-impl SecretKey {
+impl SecretKeyMaterial {
     /// Decrypts this secret key using `password`.
     ///
-    /// The SecretKey type does not know what kind of key it is, so
+    /// The `SecretKeyMaterial` type does not know what kind of key it is, so
     /// `pk_algo` is needed to parse the correct number of MPIs.
     pub fn decrypt_in_place(&mut self, pk_algo: PublicKeyAlgorithm,
                             password: &Password)
                             -> Result<()> {
         let new = match self {
-            SecretKey::Encrypted(ref e) =>
+            SecretKeyMaterial::Encrypted(ref e) =>
                 Some(e.decrypt(pk_algo, password)?.into()),
-            SecretKey::Unencrypted(_) => None,
+            SecretKeyMaterial::Unencrypted(_) => None,
         };
 
         if let Some(v) = new {
@@ -611,9 +612,9 @@ impl SecretKey {
     /// Encrypts this secret key using `password`.
     pub fn encrypt_in_place(&mut self, password: &Password) -> Result<()> {
         let new = match self {
-            SecretKey::Unencrypted(ref u) =>
+            SecretKeyMaterial::Unencrypted(ref u) =>
                 Some(u.encrypt(password)?.into()),
-            SecretKey::Encrypted(_) => None,
+            SecretKeyMaterial::Encrypted(_) => None,
         };
 
         if let Some(v) = new {
@@ -626,8 +627,8 @@ impl SecretKey {
     /// Returns true if this secret key is encrypted.
     pub fn is_encrypted(&self) -> bool {
         match self {
-            SecretKey::Encrypted(_) => true,
-            SecretKey::Unencrypted(_) => false,
+            SecretKeyMaterial::Encrypted(_) => true,
+            SecretKeyMaterial::Unencrypted(_) => false,
         }
     }
 }
@@ -645,8 +646,8 @@ impl PartialEq for Unencrypted {
     }
 }
 
-impl From<mpis::SecretKey> for Unencrypted {
-    fn from(mpis: mpis::SecretKey) -> Self {
+impl From<mpis::SecretKeyMaterial> for Unencrypted {
+    fn from(mpis: mpis::SecretKeyMaterial) -> Self {
         use crate::serialize::Serialize;
         let mut plaintext = Vec::new();
         // We need to store the type.
@@ -661,11 +662,11 @@ impl From<mpis::SecretKey> for Unencrypted {
 impl Unencrypted {
     /// Maps the given function over the secret.
     pub fn map<F, T>(&self, mut fun: F) -> T
-        where F: FnMut(&mpis::SecretKey) -> T
+        where F: FnMut(&mpis::SecretKeyMaterial) -> T
     {
         self.mpis.map(|plaintext| {
             let algo: PublicKeyAlgorithm = plaintext[0].into();
-            let mpis = mpis::SecretKey::parse(algo, &plaintext[1..])
+            let mpis = mpis::SecretKeyMaterial::parse(algo, &plaintext[1..])
                 .expect("Decrypted secret key is malformed");
             fun(&mpis)
         })
@@ -747,7 +748,7 @@ impl Encrypted {
         let mut trash = vec![0u8; self.algo.block_size()?];
         dec.read_exact(&mut trash)?;
 
-        mpis::SecretKey::parse_chksumd(pk_algo, &mut dec).map(|m| m.into())
+        mpis::SecretKeyMaterial::parse_chksumd(pk_algo, &mut dec).map(|m| m.into())
     }
 }
 
@@ -756,7 +757,7 @@ mod tests {
     use crate::packet::Key;
     use crate::TPK;
     use crate::packet::pkesk::PKESK3;
-    use crate::packet::key::SecretKey;
+    use crate::packet::key::SecretKeyMaterial;
     use super::*;
     use crate::PacketPile;
     use crate::serialize::Serialize;
@@ -775,8 +776,8 @@ mod tests {
         assert!(!secret.is_encrypted());
 
         match secret {
-            SecretKey::Unencrypted(ref u) => u.map(|mpis| match mpis {
-                mpis::SecretKey::RSA { .. } => (),
+            SecretKeyMaterial::Unencrypted(ref u) => u.map(|mpis| match mpis {
+                mpis::SecretKeyMaterial::RSA { .. } => (),
                 _ => panic!(),
             }),
             _ => panic!(),
@@ -970,7 +971,7 @@ mod tests {
         let dek = b"\x09\x0D\xDC\x40\xC5\x71\x51\x88\xAC\xBD\x45\x56\xD4\x2A\xDF\x77\xCD\xF4\x82\xA2\x1B\x8F\x2E\x48\x3B\xCA\xBF\xD3\xE8\x6D\x0A\x7C\xDF\x10\xe6";
 
         let got_dek = match key.secret() {
-            Some(SecretKey::Unencrypted(ref u)) => u.map(|mpis| {
+            Some(SecretKeyMaterial::Unencrypted(ref u)) => u.map(|mpis| {
                 ecdh::decrypt(&key, mpis, &ciphertext).unwrap()
             }),
             _ => unreachable!(),

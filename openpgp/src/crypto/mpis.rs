@@ -482,7 +482,7 @@ impl Arbitrary for PublicKey {
 /// Provides a typed and structured way of storing multiple MPIs in
 /// packets.
 #[derive(Clone, Hash)]
-pub enum SecretKey {
+pub enum SecretKeyMaterial {
     /// RSA secret key.
     RSA {
         /// Secret exponent, inverse of e in Phi(N).
@@ -534,40 +534,40 @@ pub enum SecretKey {
     },
 }
 
-impl fmt::Debug for SecretKey {
+impl fmt::Debug for SecretKeyMaterial {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         if cfg!(debug_assertions) {
             match self {
-                &SecretKey::RSA{ ref d, ref p, ref q, ref u } =>
+                &SecretKeyMaterial::RSA{ ref d, ref p, ref q, ref u } =>
                     write!(f, "RSA {{ d: {:?}, p: {:?}, q: {:?}, u: {:?} }}", d, p, q, u),
-                &SecretKey::DSA{ ref x } =>
+                &SecretKeyMaterial::DSA{ ref x } =>
                     write!(f, "DSA {{ x: {:?} }}", x),
-                &SecretKey::Elgamal{ ref x } =>
+                &SecretKeyMaterial::Elgamal{ ref x } =>
                     write!(f, "Elgamal {{ x: {:?} }}", x),
-                &SecretKey::EdDSA{ ref scalar } =>
+                &SecretKeyMaterial::EdDSA{ ref scalar } =>
                     write!(f, "EdDSA {{ scalar: {:?} }}", scalar),
-                &SecretKey::ECDSA{ ref scalar } =>
+                &SecretKeyMaterial::ECDSA{ ref scalar } =>
                     write!(f, "ECDSA {{ scalar: {:?} }}", scalar),
-                &SecretKey::ECDH{ ref scalar } =>
+                &SecretKeyMaterial::ECDH{ ref scalar } =>
                     write!(f, "ECDH {{ scalar: {:?} }}", scalar),
-                &SecretKey::Unknown{ ref mpis, ref rest } =>
+                &SecretKeyMaterial::Unknown{ ref mpis, ref rest } =>
                     write!(f, "Unknown {{ mips: {:?}, rest: {:?} }}", mpis, rest),
             }
         } else {
             match self {
-                &SecretKey::RSA{ .. } =>
+                &SecretKeyMaterial::RSA{ .. } =>
                     f.write_str("RSA { <Redacted> }"),
-                &SecretKey::DSA{ .. } =>
+                &SecretKeyMaterial::DSA{ .. } =>
                     f.write_str("DSA { <Redacted> }"),
-                &SecretKey::Elgamal{ .. } =>
+                &SecretKeyMaterial::Elgamal{ .. } =>
                     f.write_str("Elgamal { <Redacted> }"),
-                &SecretKey::EdDSA{ .. } =>
+                &SecretKeyMaterial::EdDSA{ .. } =>
                     f.write_str("EdDSA { <Redacted> }"),
-                &SecretKey::ECDSA{ .. } =>
+                &SecretKeyMaterial::ECDSA{ .. } =>
                     f.write_str("ECDSA { <Redacted> }"),
-                &SecretKey::ECDH{ .. } =>
+                &SecretKeyMaterial::ECDH{ .. } =>
                     f.write_str("ECDH { <Redacted> }"),
-                &SecretKey::Unknown{ .. } =>
+                &SecretKeyMaterial::Unknown{ .. } =>
                     f.write_str("Unknown { <Redacted> }"),
             }
         }
@@ -581,25 +581,25 @@ fn secure_mpi_cmp(a: &ProtectedMPI, b: &ProtectedMPI) -> Ordering {
     if ord1 == Ordering::Equal { ord2 } else { ord1 }
 }
 
-impl PartialOrd for SecretKey {
-    fn partial_cmp(&self, other: &SecretKey) -> Option<Ordering> {
+impl PartialOrd for SecretKeyMaterial {
+    fn partial_cmp(&self, other: &SecretKeyMaterial) -> Option<Ordering> {
         use std::iter;
 
-        fn discriminant(sk: &SecretKey) -> usize {
+        fn discriminant(sk: &SecretKeyMaterial) -> usize {
             match sk {
-                &SecretKey::RSA{ .. } => 0,
-                &SecretKey::DSA{ .. } => 1,
-                &SecretKey::Elgamal{ .. } => 2,
-                &SecretKey::EdDSA{ .. } => 3,
-                &SecretKey::ECDSA{ .. } => 4,
-                &SecretKey::ECDH{ .. } => 5,
-                &SecretKey::Unknown{ .. } => 6,
+                &SecretKeyMaterial::RSA{ .. } => 0,
+                &SecretKeyMaterial::DSA{ .. } => 1,
+                &SecretKeyMaterial::Elgamal{ .. } => 2,
+                &SecretKeyMaterial::EdDSA{ .. } => 3,
+                &SecretKeyMaterial::ECDSA{ .. } => 4,
+                &SecretKeyMaterial::ECDH{ .. } => 5,
+                &SecretKeyMaterial::Unknown{ .. } => 6,
             }
         }
 
         let ret = match (self, other) {
-            (&SecretKey::RSA{ d: ref d1, p: ref p1, q: ref q1, u: ref u1 }
-            ,&SecretKey::RSA{ d: ref d2, p: ref p2, q: ref q2, u: ref u2 }) => {
+            (&SecretKeyMaterial::RSA{ d: ref d1, p: ref p1, q: ref q1, u: ref u1 }
+            ,&SecretKeyMaterial::RSA{ d: ref d2, p: ref p2, q: ref q2, u: ref u2 }) => {
                 let o1 = secure_mpi_cmp(d1, d2);
                 let o2 = secure_mpi_cmp(p1, p2);
                 let o3 = secure_mpi_cmp(q1, q2);
@@ -610,28 +610,28 @@ impl PartialOrd for SecretKey {
                 if o3 != Ordering::Equal { return Some(o3); }
                 o4
             }
-            (&SecretKey::DSA{ x: ref x1 }
-            ,&SecretKey::DSA{ x: ref x2 }) => {
+            (&SecretKeyMaterial::DSA{ x: ref x1 }
+            ,&SecretKeyMaterial::DSA{ x: ref x2 }) => {
                 secure_mpi_cmp(x1, x2)
             }
-            (&SecretKey::Elgamal{ x: ref x1 }
-            ,&SecretKey::Elgamal{ x: ref x2 }) => {
+            (&SecretKeyMaterial::Elgamal{ x: ref x1 }
+            ,&SecretKeyMaterial::Elgamal{ x: ref x2 }) => {
                 secure_mpi_cmp(x1, x2)
             }
-            (&SecretKey::EdDSA{ scalar: ref scalar1 }
-            ,&SecretKey::EdDSA{ scalar: ref scalar2 }) => {
+            (&SecretKeyMaterial::EdDSA{ scalar: ref scalar1 }
+            ,&SecretKeyMaterial::EdDSA{ scalar: ref scalar2 }) => {
                 secure_mpi_cmp(scalar1, scalar2)
             }
-            (&SecretKey::ECDSA{ scalar: ref scalar1 }
-            ,&SecretKey::ECDSA{ scalar: ref scalar2 }) => {
+            (&SecretKeyMaterial::ECDSA{ scalar: ref scalar1 }
+            ,&SecretKeyMaterial::ECDSA{ scalar: ref scalar2 }) => {
                 secure_mpi_cmp(scalar1, scalar2)
             }
-            (&SecretKey::ECDH{ scalar: ref scalar1 }
-            ,&SecretKey::ECDH{ scalar: ref scalar2 }) => {
+            (&SecretKeyMaterial::ECDH{ scalar: ref scalar1 }
+            ,&SecretKeyMaterial::ECDH{ scalar: ref scalar2 }) => {
                 secure_mpi_cmp(scalar1, scalar2)
             }
-            (&SecretKey::Unknown{ mpis: ref mpis1, rest: ref rest1 }
-            ,&SecretKey::Unknown{ mpis: ref mpis2, rest: ref rest2 }) => {
+            (&SecretKeyMaterial::Unknown{ mpis: ref mpis1, rest: ref rest1 }
+            ,&SecretKeyMaterial::Unknown{ mpis: ref mpis2, rest: ref rest2 }) => {
                 let o1 = secure_cmp(rest1, rest2);
                 let on = mpis1.iter().zip(mpis2.iter()).map(|(a,b)| {
                     secure_mpi_cmp(a, b)
@@ -656,22 +656,22 @@ impl PartialOrd for SecretKey {
     }
 }
 
-impl Ord for SecretKey {
+impl Ord for SecretKeyMaterial {
     fn cmp(&self, other: &Self) -> Ordering {
         self.partial_cmp(other).unwrap()
     }
 }
 
-impl PartialEq for SecretKey {
+impl PartialEq for SecretKeyMaterial {
     fn eq(&self, other: &Self) -> bool { self.cmp(other) == Ordering::Equal }
 }
 
-impl Eq for SecretKey {}
+impl Eq for SecretKeyMaterial {}
 
-impl SecretKey {
+impl SecretKeyMaterial {
     /// Number of octets all MPIs of this instance occupy when serialized.
     pub fn serialized_len(&self) -> usize {
-        use self::SecretKey::*;
+        use self::SecretKeyMaterial::*;
 
         // Fields are mostly MPIs that consist of two octets length
         // plus the big endian value itself. All other field types are
@@ -700,7 +700,7 @@ impl SecretKey {
     /// Returns, if known, the public-key algorithm for this secret
     /// key.
     pub fn algo(&self) -> Option<PublicKeyAlgorithm> {
-        use self::SecretKey::*;
+        use self::SecretKeyMaterial::*;
         match self {
             RSA { .. } => Some(PublicKeyAlgorithm::RSAEncryptSign),
             DSA { .. } => Some(PublicKeyAlgorithm::DSA),
@@ -713,40 +713,40 @@ impl SecretKey {
     }
 }
 
-impl Hash for SecretKey {
+impl Hash for SecretKeyMaterial {
     /// Update the Hash with a hash of the MPIs.
     fn hash(&self, hash: &mut hash::Context) {
         self.serialize(hash).expect("hashing does not fail")
     }
 }
 
-impl Arbitrary for SecretKey {
+impl Arbitrary for SecretKeyMaterial {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
         match g.gen_range(0, 6) {
-            0 => SecretKey::RSA {
+            0 => SecretKeyMaterial::RSA {
                 d: MPI::arbitrary(g).into(),
                 p: MPI::arbitrary(g).into(),
                 q: MPI::arbitrary(g).into(),
                 u: MPI::arbitrary(g).into(),
             },
 
-            1 => SecretKey::DSA {
+            1 => SecretKeyMaterial::DSA {
                 x: MPI::arbitrary(g).into(),
             },
 
-            2 => SecretKey::Elgamal {
+            2 => SecretKeyMaterial::Elgamal {
                 x: MPI::arbitrary(g).into(),
             },
 
-            3 => SecretKey::EdDSA {
+            3 => SecretKeyMaterial::EdDSA {
                 scalar: MPI::arbitrary(g).into(),
             },
 
-            4 => SecretKey::ECDSA {
+            4 => SecretKeyMaterial::ECDSA {
                 scalar: MPI::arbitrary(g).into(),
             },
 
-            5 => SecretKey::ECDH {
+            5 => SecretKeyMaterial::ECDH {
                 scalar: MPI::arbitrary(g).into(),
             },
 
@@ -1054,7 +1054,7 @@ mod tests {
     }
 
     quickcheck! {
-        fn sk_roundtrip(sk: SecretKey) -> bool {
+        fn sk_roundtrip(sk: SecretKeyMaterial) -> bool {
             use std::io::Cursor;
             use crate::PublicKeyAlgorithm::*;
             use crate::serialize::Serialize;
@@ -1066,26 +1066,26 @@ mod tests {
 
             #[allow(deprecated)]
             let sk_ = match &sk {
-                SecretKey::RSA { .. } =>
-                    SecretKey::parse(
+                SecretKeyMaterial::RSA { .. } =>
+                    SecretKeyMaterial::parse(
                         RSAEncryptSign, cur.into_inner()).unwrap(),
-                SecretKey::DSA { .. } =>
-                    SecretKey::parse(
+                SecretKeyMaterial::DSA { .. } =>
+                    SecretKeyMaterial::parse(
                         DSA, cur.into_inner()).unwrap(),
-                SecretKey::EdDSA { .. } =>
-                    SecretKey::parse(
+                SecretKeyMaterial::EdDSA { .. } =>
+                    SecretKeyMaterial::parse(
                         EdDSA, cur.into_inner()).unwrap(),
-                SecretKey::ECDSA { .. } =>
-                    SecretKey::parse(
+                SecretKeyMaterial::ECDSA { .. } =>
+                    SecretKeyMaterial::parse(
                         ECDSA, cur.into_inner()).unwrap(),
-                SecretKey::ECDH { .. } =>
-                    SecretKey::parse(
+                SecretKeyMaterial::ECDH { .. } =>
+                    SecretKeyMaterial::parse(
                         ECDH, cur.into_inner()).unwrap(),
-                SecretKey::Elgamal { .. } =>
-                    SecretKey::parse(
+                SecretKeyMaterial::Elgamal { .. } =>
+                    SecretKeyMaterial::parse(
                         ElgamalEncrypt, cur.into_inner()).unwrap(),
 
-                SecretKey::Unknown { .. } => unreachable!(),
+                SecretKeyMaterial::Unknown { .. } => unreachable!(),
             };
 
             sk == sk_

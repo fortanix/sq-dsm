@@ -215,7 +215,7 @@ impl<'a> Signer<'a> {
     /// use openpgp::constants::DataFormat;
     /// use openpgp::serialize::stream::{Message, Signer, LiteralWriter};
     /// # use openpgp::{Result, TPK};
-    /// # use openpgp::packet::key::SecretKey;
+    /// # use openpgp::packet::key::SecretKeyMaterial;
     /// # use openpgp::crypto::KeyPair;
     /// # use openpgp::parse::Parse;
     /// # use openpgp::parse::stream::*;
@@ -300,7 +300,7 @@ impl<'a> Signer<'a> {
     /// use std::io::{Read, Write};
     /// use openpgp::serialize::stream::{Message, Signer, LiteralWriter};
     /// # use openpgp::{Result, TPK};
-    /// # use openpgp::packet::key::SecretKey;
+    /// # use openpgp::packet::key::SecretKeyMaterial;
     /// # use openpgp::crypto::KeyPair;
     /// # use openpgp::parse::Parse;
     /// # use openpgp::parse::stream::*;

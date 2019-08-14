@@ -10,7 +10,7 @@ use crate::openpgp::constants::SymmetricAlgorithm;
 use crate::openpgp::conversions::hex;
 use crate::openpgp::crypto::SessionKey;
 use crate::openpgp::{Fingerprint, TPK, KeyID, Result};
-use crate::openpgp::packet::{Key, key::SecretKey, Signature, PKESK, SKESK};
+use crate::openpgp::packet::{Key, key::SecretKeyMaterial, Signature, PKESK, SKESK};
 use crate::openpgp::parse::PacketParser;
 use crate::openpgp::parse::stream::{
     VerificationHelper, DecryptionHelper, Decryptor, MessageStructure,
@@ -122,7 +122,7 @@ impl<'a> DecryptionHelper for Helper<'a> {
         for pkesk in pkesks {
             let keyid = pkesk.recipient();
             if let Some(key) = self.secret_keys.get(&keyid) {
-                if let Some(SecretKey::Unencrypted { .. }) = key.secret() {
+                if let Some(SecretKeyMaterial::Unencrypted { .. }) = key.secret() {
                     if let Ok(sk) = key.clone().into_keypair()
                         .and_then(|mut keypair| pkesk.decrypt(&mut keypair))
                         .and_then(|(algo, sk)| { decrypt(algo, &sk)?; Ok(sk) })

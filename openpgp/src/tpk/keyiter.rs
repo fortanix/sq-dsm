@@ -3,7 +3,7 @@ use std::fmt;
 use crate::{
     RevocationStatus,
     packet::Key,
-    packet::key::SecretKey,
+    packet::key::SecretKeyMaterial,
     packet::KeyFlags,
     packet::Signature,
     TPK,
@@ -154,7 +154,7 @@ impl<'a> Iterator for KeyIter<'a> {
 
             if let Some(want_unencrypted_secret) = self.unencrypted_secret {
                 if let Some(secret) = key.secret() {
-                    if let SecretKey::Unencrypted { .. } = secret {
+                    if let SecretKeyMaterial::Unencrypted { .. } = secret {
                         if ! want_unencrypted_secret {
                             t!("Unencrypted secret... skipping.");
                             continue;

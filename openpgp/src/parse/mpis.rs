@@ -145,7 +145,7 @@ impl mpis::PublicKey {
     }
 }
 
-impl mpis::SecretKey {
+impl mpis::SecretKeyMaterial {
     /// Parses secret key MPIs for `algo` plus their SHA1 checksum. Fails if the
     /// checksum is wrong.
     pub fn parse_chksumd<T: Read>(algo: PublicKeyAlgorithm, cur: T)
@@ -215,7 +215,7 @@ impl mpis::SecretKey {
                 let q = MPI::parse("rsa_secret_q_len", "rsa_secret_q", php)?;
                 let u = MPI::parse("rsa_secret_u_len", "rsa_secret_u", php)?;
 
-                Ok(mpis::SecretKey::RSA {
+                Ok(mpis::SecretKeyMaterial::RSA {
                     d: d.into(),
                     p: p.into(),
                     q: q.into(),
@@ -226,7 +226,7 @@ impl mpis::SecretKey {
             DSA => {
                 let x = MPI::parse("dsa_secret_len", "dsa_secret", php)?;
 
-                Ok(mpis::SecretKey::DSA {
+                Ok(mpis::SecretKeyMaterial::DSA {
                     x: x.into(),
                 })
             }
@@ -235,27 +235,27 @@ impl mpis::SecretKey {
                 let x = MPI::parse("elgamal_secret_len", "elgamal_secret",
                                    php)?;
 
-                Ok(mpis::SecretKey::Elgamal {
+                Ok(mpis::SecretKeyMaterial::Elgamal {
                     x: x.into(),
                 })
             }
 
             EdDSA => {
-                Ok(mpis::SecretKey::EdDSA {
+                Ok(mpis::SecretKeyMaterial::EdDSA {
                     scalar: MPI::parse("eddsa_secret_len", "eddsa_secret", php)?
                                 .into()
                 })
             }
 
             ECDSA => {
-                Ok(mpis::SecretKey::ECDSA {
+                Ok(mpis::SecretKeyMaterial::ECDSA {
                     scalar: MPI::parse("ecdsa_secret_len", "ecdsa_secret", php)?
                                 .into()
                 })
             }
 
             ECDH => {
-                Ok(mpis::SecretKey::ECDH {
+                Ok(mpis::SecretKeyMaterial::ECDH {
                     scalar: MPI::parse("ecdh_secret_len", "ecdh_secret", php)?
                                 .into()
                 })
@@ -269,7 +269,7 @@ impl mpis::SecretKey {
                 }
                 let rest = php.parse_bytes_eof("rest")?;
 
-                Ok(mpis::SecretKey::Unknown {
+                Ok(mpis::SecretKeyMaterial::Unknown {
                     mpis: mpis.into_boxed_slice(),
                     rest: rest.into(),
                 })

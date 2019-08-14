@@ -1227,7 +1227,7 @@ mod test {
             curve: Curve::Ed25519,
             q: MPI::new(&pnt[..]),
         };
-        let private_mpis = mpis::SecretKey::EdDSA {
+        let private_mpis = mpis::SecretKeyMaterial::EdDSA {
             scalar: MPI::new(&sec[..]).into(),
         };
         let key = Key4::new(time::now().canonicalize(),

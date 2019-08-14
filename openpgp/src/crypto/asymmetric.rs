@@ -93,10 +93,10 @@ impl Signer for KeyPair {
         {
             (RSASign,
              &PublicKey::RSA { ref e, ref n },
-             &mpis::SecretKey::RSA { ref p, ref q, ref d, .. }) |
+             &mpis::SecretKeyMaterial::RSA { ref p, ref q, ref d, .. }) |
             (RSAEncryptSign,
              &PublicKey::RSA { ref e, ref n },
-             &mpis::SecretKey::RSA { ref p, ref q, ref d, .. }) => {
+             &mpis::SecretKeyMaterial::RSA { ref p, ref q, ref d, .. }) => {
                 let public = rsa::PublicKey::new(n.value(), e.value())?;
                 let secret = rsa::PrivateKey::new(d.value(), p.value(),
                                                   q.value(), Option::None)?;
@@ -121,7 +121,7 @@ impl Signer for KeyPair {
 
             (DSA,
              &PublicKey::DSA { ref p, ref q, ref g, .. },
-             &mpis::SecretKey::DSA { ref x }) => {
+             &mpis::SecretKeyMaterial::DSA { ref x }) => {
                 let params = dsa::Params::new(p.value(), q.value(), g.value());
                 let secret = dsa::PrivateKey::new(x.value());
 
@@ -135,7 +135,7 @@ impl Signer for KeyPair {
 
             (EdDSA,
              &PublicKey::EdDSA { ref curve, ref q },
-             &mpis::SecretKey::EdDSA { ref scalar }) => match curve {
+             &mpis::SecretKeyMaterial::EdDSA { ref scalar }) => match curve {
                 Curve::Ed25519 => {
                     let public = q.decode_point(&Curve::Ed25519)?.0;
 
@@ -169,7 +169,7 @@ impl Signer for KeyPair {
 
             (ECDSA,
              &PublicKey::ECDSA { ref curve, .. },
-             &mpis::SecretKey::ECDSA { ref scalar }) => {
+             &mpis::SecretKeyMaterial::ECDSA { ref scalar }) => {
                 let secret = match curve {
                     Curve::NistP256 =>
                         ecc::Scalar::new::<ecc::Secp256r1>(
@@ -218,7 +218,7 @@ impl Decryptor for KeyPair {
             |secret| Ok(match (self.public.mpis(), secret, ciphertext)
         {
             (PublicKey::RSA{ ref e, ref n },
-             mpis::SecretKey::RSA{ ref p, ref q, ref d, .. },
+             mpis::SecretKeyMaterial::RSA{ ref p, ref q, ref d, .. },
              mpis::Ciphertext::RSA{ ref c }) => {
                 let public = rsa::PublicKey::new(n.value(), e.value())?;
                 let secret = rsa::PrivateKey::new(d.value(), p.value(),
@@ -229,13 +229,13 @@ impl Decryptor for KeyPair {
             }
 
             (PublicKey::Elgamal{ .. },
-             mpis::SecretKey::Elgamal{ .. },
+             mpis::SecretKeyMaterial::Elgamal{ .. },
              mpis::Ciphertext::Elgamal{ .. }) =>
                 return Err(
                     Error::UnsupportedPublicKeyAlgorithm(ElgamalEncrypt).into()),
 
             (PublicKey::ECDH{ .. },
-             mpis::SecretKey::ECDH { .. },
+             mpis::SecretKeyMaterial::ECDH { .. },
              mpis::Ciphertext::ECDH { .. }) =>
                 crate::crypto::ecdh::decrypt(&self.public, secret, ciphertext)?,
 

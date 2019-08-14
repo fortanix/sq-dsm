@@ -13,7 +13,7 @@ pub use crate::packet::{
     Key,
     KeyFlags,
     key::Key4,
-    key::SecretKey,
+    key::SecretKeyMaterial,
     Marker,
     Trust,
     UserID,

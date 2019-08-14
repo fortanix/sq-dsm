@@ -15,7 +15,7 @@ use crate::conversions::{
 };
 use crate::crypto::SessionKey;
 use crate::crypto::mem::Protected;
-use crate::crypto::mpis::{MPI, PublicKey, SecretKey, Ciphertext};
+use crate::crypto::mpis::{MPI, PublicKey, SecretKeyMaterial, Ciphertext};
 use nettle::{cipher, curve25519, mode, Mode, ecc, ecdh, Yarrow};
 
 /// Wraps a session key using Elliptic Curve Diffie-Hellman.
@@ -169,12 +169,12 @@ pub fn encrypt_shared(recipient: &Key, session_key: &SessionKey, VB: MPI,
 
 /// Unwraps a session key using Elliptic Curve Diffie-Hellman.
 #[allow(non_snake_case)]
-pub fn decrypt(recipient: &Key, recipient_sec: &SecretKey,
+pub fn decrypt(recipient: &Key, recipient_sec: &SecretKeyMaterial,
                ciphertext: &Ciphertext)
                -> Result<SessionKey> {
     match (recipient.mpis(), recipient_sec, ciphertext) {
         (PublicKey::ECDH { ref curve, ..},
-         SecretKey::ECDH { ref scalar, },
+         SecretKeyMaterial::ECDH { ref scalar, },
          Ciphertext::ECDH { ref e, .. }) =>
         {
             let S: Protected = match curve {

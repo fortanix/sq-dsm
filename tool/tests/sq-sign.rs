@@ -9,7 +9,7 @@ use tempfile::TempDir;
 extern crate sequoia_openpgp as openpgp;
 use crate::openpgp::{Packet, PacketPile, TPK};
 use crate::openpgp::crypto::KeyPair;
-use crate::openpgp::packet::key::SecretKey;
+use crate::openpgp::packet::key::SecretKeyMaterial;
 use crate::openpgp::constants::{CompressionAlgorithm, DataFormat, SignatureType};
 use crate::openpgp::parse::Parse;
 use crate::openpgp::serialize::stream::{Message, Signer, Compressor, LiteralWriter};
@@ -210,7 +210,7 @@ fn sq_sign_append_on_compress_then_sign() {
         .unwrap();
     let key = tsk.keys_all().signing_capable().nth(0).unwrap().2;
     let sec = match key.secret() {
-        Some(SecretKey::Unencrypted(ref u)) => u.clone(),
+        Some(SecretKeyMaterial::Unencrypted(ref u)) => u.clone(),
         _ => unreachable!(),
     };
     let mut keypair = KeyPair::new(key.clone(), sec).unwrap();

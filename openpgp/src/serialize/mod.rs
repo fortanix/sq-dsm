@@ -642,9 +642,9 @@ impl SerializeInto for crypto::mpis::PublicKey {
     }
 }
 
-impl Serialize for crypto::mpis::SecretKey {
+impl Serialize for crypto::mpis::SecretKeyMaterial {
     fn serialize(&self, w: &mut dyn std::io::Write) -> Result<()> {
-        use crate::crypto::mpis::SecretKey::*;
+        use crate::crypto::mpis::SecretKeyMaterial::*;
 
         match self {
             &RSA{ ref d, ref p, ref q, ref u } => {
@@ -686,9 +686,9 @@ impl Serialize for crypto::mpis::SecretKey {
     }
 }
 
-impl SerializeInto for crypto::mpis::SecretKey {
+impl SerializeInto for crypto::mpis::SecretKeyMaterial {
     fn serialized_len(&self) -> usize {
-        use crate::crypto::mpis::SecretKey::*;
+        use crate::crypto::mpis::SecretKeyMaterial::*;
         match self {
             &RSA{ ref d, ref p, ref q, ref u } => {
                 d.serialized_len() + p.serialized_len() + q.serialized_len()
@@ -727,7 +727,7 @@ impl SerializeInto for crypto::mpis::SecretKey {
     }
 }
 
-impl crypto::mpis::SecretKey {
+impl crypto::mpis::SecretKeyMaterial {
     /// Writes this secret key with a checksum to `w`.
     pub fn serialize_chksumd<W: io::Write>(&self, w: &mut W) -> Result<()> {
         // First, the MPIs.
@@ -1352,7 +1352,7 @@ impl Key4 {
 
         if have_secret_key {
             match self.secret().unwrap() {
-                SecretKey::Unencrypted(ref u) => u.map(|mpis| -> Result<()> {
+                SecretKeyMaterial::Unencrypted(ref u) => u.map(|mpis| -> Result<()> {
                     // S2K usage.
                     write_byte(o, 0)?;
 
@@ -1367,7 +1367,7 @@ impl Key4 {
                     write_be_u16(o, checksum as u16)?;
                     Ok(())
                 })?,
-                SecretKey::Encrypted(ref e) => {
+                SecretKeyMaterial::Encrypted(ref e) => {
                     // S2K usage.
                     write_byte(o, 254)?;
                     write_byte(o, e.algo().into())?;
@@ -1389,10 +1389,10 @@ impl Key4 {
             + self.mpis().serialized_len()
             + if have_secret_key {
                 1 + match self.secret().as_ref().unwrap() {
-                    SecretKey::Unencrypted(ref u) =>
+                    SecretKeyMaterial::Unencrypted(ref u) =>
                         u.map(|mpis| mpis.serialized_len())
                         + 2, // Two octet checksum.
-                    SecretKey::Encrypted(ref e) =>
+                    SecretKeyMaterial::Encrypted(ref e) =>
                         1 + e.s2k().serialized_len() + e.ciphertext().len(),
                 }
             } else {

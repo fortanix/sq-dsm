@@ -1338,7 +1338,7 @@ impl Key4 {
                 // Unencrypted
                 0 => {
                     let sec = php_try!(
-                        crypto::mpis::SecretKey::_parse(pk_algo, &mut php));
+                        crypto::mpis::SecretKeyMaterial::_parse(pk_algo, &mut php));
                     let their_chksum = php_try!(php.parse_be_u16("checksum"));
                     let mut cur = Cursor::new(Vec::default());
 

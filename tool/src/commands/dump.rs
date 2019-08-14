@@ -403,40 +403,40 @@ impl PacketDumper {
                     }
 
                     if let Some(secrets) = k.secret() {
-                        use self::openpgp::packet::key::SecretKey;
+                        use self::openpgp::packet::key::SecretKeyMaterial;
                         writeln!(output, "{}", i)?;
                         writeln!(output, "{}  Secret Key:", i)?;
 
                         let ii = format!("{}    ", i);
                         match secrets {
-                            SecretKey::Unencrypted(ref u) => u.map(
+                            SecretKeyMaterial::Unencrypted(ref u) => u.map(
                                 |mpis| -> Result<()> {
                                     match mpis
                             {
-                                mpis::SecretKey::RSA { d, p, q, u } =>
+                                mpis::SecretKeyMaterial::RSA { d, p, q, u } =>
                                     self.dump_mpis(output, &ii,
                                                    &[d.value(), p.value(),
                                                      q.value(), u.value()],
                                                    &["d", "p", "q", "u"])?,
-                                mpis::SecretKey::DSA { x } =>
+                                mpis::SecretKeyMaterial::DSA { x } =>
                                     self.dump_mpis(output, &ii, &[x.value()],
                                                    &["x"])?,
-                                mpis::SecretKey::Elgamal { x } =>
+                                mpis::SecretKeyMaterial::Elgamal { x } =>
                                     self.dump_mpis(output, &ii, &[x.value()],
                                                    &["x"])?,
-                                mpis::SecretKey::EdDSA { scalar } =>
+                                mpis::SecretKeyMaterial::EdDSA { scalar } =>
                                     self.dump_mpis(output, &ii,
                                                    &[scalar.value()],
                                                    &["scalar"])?,
-                                mpis::SecretKey::ECDSA { scalar } =>
+                                mpis::SecretKeyMaterial::ECDSA { scalar } =>
                                     self.dump_mpis(output, &ii,
                                                    &[scalar.value()],
                                                    &["scalar"])?,
-                                mpis::SecretKey::ECDH { scalar } =>
+                                mpis::SecretKeyMaterial::ECDH { scalar } =>
                                     self.dump_mpis(output, &ii,
                                                    &[scalar.value()],
                                                    &["scalar"])?,
-                                mpis::SecretKey::Unknown { mpis, rest } => {
+                                mpis::SecretKeyMaterial::Unknown { mpis, rest } => {
                                     let keys: Vec<String> =
                                         (0..mpis.len()).map(
                                             |i| format!("mpi{}", i)).collect();
@@ -453,7 +453,7 @@ impl PacketDumper {
                                                    &["rest"])?;
                                 },
                             } Ok(()) })?,
-                            SecretKey::Encrypted(ref e) => {
+                            SecretKeyMaterial::Encrypted(ref e) => {
                                 writeln!(output, "{}", i)?;
                                 write!(output, "{}  S2K: ", ii)?;
                                 self.dump_s2k(output, &ii, e.s2k())?;
