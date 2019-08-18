@@ -5,7 +5,7 @@ use std::cmp::Ordering;
 use time;
 
 use crate::Error;
-use crate::crypto::{self, mem::{self, Protected}, mpis, hash::Hash, KeyPair};
+use crate::crypto::{self, mem::{self, Protected}, mpis, hash::Hash};
 use crate::packet::Tag;
 use crate::packet;
 use crate::Packet;
@@ -530,26 +530,6 @@ impl Key4 {
                          Got: Tag::{:?}",
                         tag)).into()),
         }
-    }
-
-    /// Converts this packet with an unencrypted secret key into a `KeyPair`.
-    ///
-    /// # Errors
-    ///
-    /// Fails if the secret key is missing, or encrypted.
-    pub fn into_keypair(mut self) -> Result<KeyPair> {
-        use crate::packet::key::SecretKeyMaterial;
-        let secret = match self.set_secret(None) {
-            Some(SecretKeyMaterial::Unencrypted(secret)) => secret,
-            Some(SecretKeyMaterial::Encrypted(_)) =>
-                return Err(Error::InvalidArgument(
-                    "secret key is encrypted".into()).into()),
-            None =>
-                return Err(Error::InvalidArgument(
-                    "no secret key".into()).into()),
-        };
-
-        KeyPair::new(self.into(), secret)
     }
 }
 

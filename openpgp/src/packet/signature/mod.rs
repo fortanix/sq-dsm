@@ -1230,10 +1230,11 @@ mod test {
         let private_mpis = mpis::SecretKeyMaterial::EdDSA {
             scalar: MPI::new(&sec[..]).into(),
         };
-        let key = Key4::new(time::now().canonicalize(),
-                            PublicKeyAlgorithm::EdDSA,
-                            public_mpis, Some(private_mpis.into()))
+        let key4 = Key4::new(time::now().canonicalize(),
+                             PublicKeyAlgorithm::EdDSA,
+                             public_mpis, Some(private_mpis.into()))
             .unwrap();
+        let key : Key = key4.into();
         let mut pair = key.into_keypair().unwrap();
         let msg = b"Hello, World";
         let mut hash = HashAlgorithm::SHA256.context().unwrap();
@@ -1268,8 +1269,9 @@ mod test {
         use crate::Fingerprint;
         use crate::packet::signature::subpacket::*;
 
-        let mut pair = Key4::generate_ecc(true, Curve::Ed25519).unwrap()
-            .into_keypair().unwrap();
+        let key4 = Key4::generate_ecc(true, Curve::Ed25519).unwrap();
+        let key : Key = key4.into();
+        let mut pair = key.into_keypair().unwrap();
         let msg = b"Hello, World";
         let mut hash = HashAlgorithm::SHA256.context().unwrap();
         hash.update(&msg[..]);

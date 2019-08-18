@@ -10,6 +10,7 @@ use std::slice;
 use std::vec;
 use std::io;
 
+use crate::Error;
 use crate::Result;
 use crate::Packet;
 
@@ -17,6 +18,7 @@ pub mod prelude;
 
 pub mod ctb;
 use self::ctb::PacketLengthType;
+use crate::crypto::KeyPair;
 
 use buffered_reader::BufferedReader;
 
@@ -812,10 +814,19 @@ impl Key {
     /// # Errors
     ///
     /// Fails if the secret key is missing, or encrypted.
-    pub fn into_keypair(self) -> Result<crate::crypto::KeyPair> {
-        match self {
-            Key::V4(p) => p.into_keypair(),
-        }
+    pub fn into_keypair(mut self) -> Result<KeyPair> {
+        use crate::packet::key::SecretKeyMaterial;
+        let secret = match self.set_secret(None) {
+            Some(SecretKeyMaterial::Unencrypted(secret)) => secret,
+            Some(SecretKeyMaterial::Encrypted(_)) =>
+                return Err(Error::InvalidArgument(
+                    "secret key is encrypted".into()).into()),
+            None =>
+                return Err(Error::InvalidArgument(
+                    "no secret key".into()).into()),
+        };
+
+        KeyPair::new(self.into(), secret)
     }
 
     /// Convert the `Key` struct to a `Packet`.
