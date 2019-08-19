@@ -360,9 +360,7 @@ impl<'a> Iterator for SubpacketAreaIterRaw<'a> {
             // Subpacket extends beyond the end of the hashed
             // area.  Skip it.
             self.reader.drop_eof().unwrap();
-            eprintln!("Invalid subpacket: subpacket extends beyond \
-                       end of hashed area ({} bytes, but  {} bytes left).",
-                      len, self.reader.data(0).unwrap().len());
+            // XXX: Return an error.  See #200.
             return None;
         }
 
