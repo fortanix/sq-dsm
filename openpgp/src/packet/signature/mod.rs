@@ -387,7 +387,7 @@ impl Signature4 {
             fields: Builder {
                 version: 4,
                 typ: typ,
-                pk_algo: pk_algo.into(),
+                pk_algo: pk_algo,
                 hash_algo: hash_algo,
                 hashed_area: hashed_area,
                 unhashed_area: unhashed_area,
