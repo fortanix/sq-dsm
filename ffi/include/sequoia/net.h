@@ -34,15 +34,14 @@ sq_keyserver_t sq_keyserver_with_cert (sq_context_t ctx,
 				       size_t len);
 
 /*/
-/// Returns a handle for the SKS keyserver pool.
+/// Returns a handle for keys.openpgp.org.
 ///
-/// The pool `hkps://hkps.pool.sks-keyservers.net` provides HKP
-/// services over https.  It is authenticated using a certificate
-/// included in this library.  It is a good default choice.
+/// The server at `hkps://keys.openpgp.org` distributes updates for
+/// OpenPGP certificates.  It is a good default choice.
 ///
 /// Returns `NULL` on errors.
 /*/
-sq_keyserver_t sq_keyserver_sks_pool (sq_context_t ctx);
+sq_keyserver_t sq_keyserver_keys_openpgp_org (sq_context_t ctx);
 
 /*/
 /// Frees a keyserver object.

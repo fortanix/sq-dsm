@@ -22,7 +22,7 @@
 //! pgp_tpk_t tpk;
 //!
 //! ctx = sq_context_new (NULL);
-//! ks = sq_keyserver_sks_pool (ctx);
+//! ks = sq_keyserver_keys_openpgp_org (ctx);
 //! id = pgp_keyid_from_bytes ((uint8_t *) "\x24\x7F\x6D\xAB\xC8\x49\x14\xFE");
 //! tpk = sq_keyserver_get (ctx, ks, id);
 //! ```
@@ -89,18 +89,17 @@ fn sq_keyserver_with_cert(ctx: *mut Context,
     ffi_try_box!(KeyServer::with_cert(&ctx.c, &uri, cert))
 }
 
-/// Returns a handle for the SKS keyserver pool.
+/// Returns a handle for keys.openpgp.org.
 ///
-/// The pool `hkps://hkps.pool.sks-keyservers.net` provides HKP
-/// services over https.  It is authenticated using a certificate
-/// included in this library.  It is a good default choice.
+/// The server at `hkps://keys.openpgp.org` distributes updates for
+/// OpenPGP certificates.  It is a good default choice.
 ///
 /// Returns `NULL` on errors.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn sq_keyserver_sks_pool(ctx: *mut Context) -> *mut KeyServer {
+fn sq_keyserver_keys_openpgp_org(ctx: *mut Context) -> *mut KeyServer {
     let ctx = ffi_param_ref_mut!(ctx);
     ffi_make_fry_from_ctx!(ctx);
-    ffi_try_box!(KeyServer::sks_pool(&ctx.c))
+    ffi_try_box!(KeyServer::keys_openpgp_org(&ctx.c))
 }
 
 /// Frees a keyserver object.

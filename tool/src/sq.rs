@@ -304,7 +304,7 @@ fn real_main() -> Result<(), failure::Error> {
             let mut ks = if let Some(uri) = m.value_of("server") {
                 KeyServer::new(&ctx, &uri)
             } else {
-                KeyServer::sks_pool(&ctx)
+                KeyServer::keys_openpgp_org(&ctx)
             }.context("Malformed keyserver URI")?;
 
             match m.subcommand() {

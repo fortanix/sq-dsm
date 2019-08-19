@@ -896,7 +896,7 @@ impl KeyServer {
 
         let ctx = core::Context::configure()
             .network_policy(network_policy).build()?;
-        let keyserver = net::KeyServer::sks_pool(&ctx)?;
+        let keyserver = net::KeyServer::keys_openpgp_org(&ctx)?;
 
         Ok((KeyServer::new(c.clone(), id),
             fingerprint.to_keyid(),

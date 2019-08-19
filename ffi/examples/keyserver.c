@@ -29,7 +29,7 @@ main (int argc, char **argv)
     error (1, 0, "Initializing sequoia failed: %s",
            pgp_error_to_string (err));
 
-  ks = sq_keyserver_sks_pool (ctx);
+  ks = sq_keyserver_keys_openpgp_org (ctx);
   if (ks == NULL)
     {
       pgp_error_t err = sq_context_last_error (ctx);

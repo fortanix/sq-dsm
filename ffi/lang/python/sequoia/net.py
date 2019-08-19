@@ -19,8 +19,8 @@ class KeyServer(SQObject):
         return KeyServer(ks, context=ctx)
 
     @classmethod
-    def sks_pool(cls, ctx):
-        return KeyServer(lib.sq_keyserver_sks_pool(ctx.ref()),
+    def keys_openpgp_org(cls, ctx):
+        return KeyServer(lib.sq_keyserver_keys_openpgp_org(ctx.ref()),
                          context=ctx)
 
     def get(self, keyid):

@@ -26,7 +26,7 @@
 //! # fn f() -> Result<()> {
 //! let mut core = Core::new().unwrap();
 //! let ctx = Context::new()?;
-//! let mut ks = KeyServer::sks_pool(&ctx)?;
+//! let mut ks = KeyServer::keys_openpgp_org(&ctx)?;
 //! let keyid = KeyID::from_hex("31855247603831FD").unwrap();
 //! println!("{:?}", core.run(ks.get(&keyid)));
 //! Ok(())
@@ -127,16 +127,12 @@ impl KeyServer {
         Self::make(ctx, client, uri)
     }
 
-    /// Returns a handle for the SKS keyserver pool.
+    /// Returns a handle for keys.openpgp.org.
     ///
-    /// The pool `hkps://hkps.pool.sks-keyservers.net` provides HKP
-    /// services over https.  It is authenticated using a certificate
-    /// included in this library.  It is a good default choice.
-    pub fn sks_pool(ctx: &Context) -> Result<Self> {
-        let uri = "hkps://hkps.pool.sks-keyservers.net";
-        let cert = Certificate::from_der(
-            include_bytes!("sks-keyservers.netCA.der")).unwrap();
-        Self::with_cert(ctx, uri, cert)
+    /// The server at `hkps://keys.openpgp.org` distributes updates
+    /// for OpenPGP certificates.  It is a good default choice.
+    pub fn keys_openpgp_org(ctx: &Context) -> Result<Self> {
+        Self::new(ctx, "hkps://keys.openpgp.org")
     }
 
     /// Common code for the above functions.
