@@ -153,6 +153,7 @@ macro_rules! production {
 macro_rules! parser_quickcheck {
     ( $type:ident, $parser:ident ) => {
         quickcheck! {
+            #[allow(non_snake_case)]
             fn $parser(t: $type) -> bool {
                 let s = t.clone().input();
                 let s = s.as_ref();
