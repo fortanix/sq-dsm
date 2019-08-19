@@ -33,6 +33,7 @@ use std::ptr;
 use std::slice;
 
 extern crate sequoia_openpgp as openpgp;
+extern crate tokio_core;
 
 use sequoia_net::KeyServer;
 
@@ -121,7 +122,8 @@ fn sq_keyserver_get(ctx: *mut Context,
     let ks = ffi_param_ref_mut!(ks);
     let id = id.ref_raw();
 
-    ks.get(&id).move_into_raw(Some(ctx.errp()))
+    let mut core = ffi_try_or!(tokio_core::reactor::Core::new(), None);
+    core.run(ks.get(&id)).move_into_raw(Some(ctx.errp()))
 }
 
 /// Sends the given key to the server.
@@ -137,5 +139,7 @@ fn sq_keyserver_send(ctx: *mut Context,
     let ks = ffi_param_ref_mut!(ks);
     let tpk = tpk.ref_raw();
 
-    ffi_try_status!(ks.send(tpk))
+    ffi_try_status!(tokio_core::reactor::Core::new()
+                    .map_err(|e| e.into())
+                    .and_then(|mut core| core.run(ks.send(tpk))))
 }

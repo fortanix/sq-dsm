@@ -10,6 +10,7 @@ extern crate tempfile;
 extern crate termsize;
 extern crate time;
 extern crate itertools;
+extern crate tokio_core;
 
 use failure::ResultExt;
 use prettytable::{Table, Cell, Row};
@@ -116,6 +117,7 @@ fn real_main() -> Result<(), failure::Error> {
         builder = builder.home(dir);
     }
     let ctx = builder.build()?;
+    let mut core = tokio_core::reactor::Core::new()?;
 
     match matches.subcommand() {
         ("decrypt",  Some(m)) => {
@@ -326,7 +328,7 @@ fn real_main() -> Result<(), failure::Error> {
                         output
                     };
 
-                    ks.get(&id)
+                    core.run(ks.get(&id))
                         .context("Failed to retrieve key")?
                     .serialize(&mut output)
                         .context("Failed to serialize key")?;
@@ -336,7 +338,7 @@ fn real_main() -> Result<(), failure::Error> {
                     let tpk = TPK::from_reader(&mut input).
                         context("Malformed key")?;
 
-                    ks.send(&tpk)
+                    core.run(ks.send(&tpk))
                         .context("Failed to send key to server")?;
                 },
                 _ => unreachable!(),
@@ -473,7 +475,7 @@ fn real_main() -> Result<(), failure::Error> {
                     // stderr and exit.
                     // Because it might be created a WkdServer struct, not
                     // doing it for now.
-                    let tpks = wkd::get(&email_address)?;
+                    let tpks = core.run(wkd::get(&email_address))?;
                     // ```text
                     //     The HTTP GET method MUST return the binary representation of the
                     //     OpenPGP key for the given mail address.

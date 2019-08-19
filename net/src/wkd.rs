@@ -18,21 +18,22 @@ extern crate tokio_core;
 
 use std::fmt;
 
-use hyper::Uri;
+use futures::{future, Future, Stream};
+use hyper::{Uri, Client};
+use hyper_tls::HttpsConnector;
 // Hash implements the traits for Sha1
 // Sha1 is used to obtain a 20 bytes digest that after zbase32 encoding can
 // be used as file name
 use nettle::{
     Hash, hash::insecure_do_not_use::Sha1,
 };
-use tokio_core::reactor::Core;
 use url;
 
 use crate::openpgp::TPK;
 use crate::openpgp::parse::Parse;
 use crate::openpgp::tpk::TPKParser;
 
-use super::{Result, Error, r#async};
+use super::{Result, Error};
 
 
 /// Stores the local_part and domain of an email address.
@@ -194,23 +195,75 @@ pub(crate) fn parse_body<S: AsRef<str>>(body: &[u8], email_address: S)
 /// Retrieves the TPKs that contain userids with a given email address
 /// from a Web Key Directory URL.
 ///
-/// This function calls the [async::wkd::get](../async/wkd/fn.get.html)
-/// function.
+/// This function is call by [net::wkd::get](../../wkd/fn.get.html).
 ///
+/// From [draft-koch]:
+///
+/// ```text
+/// There are two variants on how to form the request URI: The advanced
+/// and the direct method. Implementations MUST first try the advanced
+/// method. Only if the required sub-domain does not exist, they SHOULD
+/// fall back to the direct method.
+///
+/// [...]
+///
+/// The HTTP GET method MUST return the binary representation of the
+/// OpenPGP key for the given mail address.
+///
+/// [...]
+///
+/// Note that the key may be revoked or expired - it is up to the
+/// client to handle such conditions. To ease distribution of revoked
+/// keys, a server may return revoked keys in addition to a new key.
+/// The keys are returned by a single request as concatenated key
+/// blocks.
+/// ```
+///
+/// [draft-koch]: https://datatracker.ietf.org/doc/html/draft-koch-openpgp-webkey-service/#section-3.1
 /// # Example
 ///
-/// ```
+/// ```no_run
+/// extern crate tokio_core;
+/// use tokio_core::reactor::Core;
 /// extern crate sequoia_net;
 /// use sequoia_net::wkd;
 ///
 /// let email_address = "foo@bar.baz";
-/// let tpks = wkd::get(&email_address);
+/// let mut core = Core::new().unwrap();
+/// let tpks = core.run(wkd::get(&email_address)).unwrap();
 /// ```
-// This function must have the same signature as async::wkd::get.
-// XXX: Maybe implement WkdServer and AWkdClient.
-pub fn get<S: AsRef<str>>(email_address: S) -> Result<Vec<TPK>> {
-    let mut core = Core::new()?;
-    core.run(r#async::wkd::get(&email_address))
+
+// XXX: Maybe the direct method should be tried on other errors too.
+// https://mailarchive.ietf.org/arch/msg/openpgp/6TxZc2dQFLKXtS0Hzmrk963EteE
+pub fn get<S: AsRef<str>>(email_address: S)
+                          -> impl Future<Item=Vec<TPK>, Error=failure::Error> {
+    let email = email_address.as_ref().to_string();
+    future::lazy(move || -> Result<_> {
+        // First, prepare URIs and client.
+        let wkd_url = Url::from(&email)?;
+
+        // WKD must use TLS, so build a client for that.
+        let https = HttpsConnector::new(4)?;
+        let client = Client::builder().build::<_, hyper::Body>(https);
+
+        Ok((email, client, wkd_url.to_uri(false)?, wkd_url.to_uri(true)?))
+    }).and_then(|(email, client, advanced_uri, direct_uri)| {
+        // First, try the Advanced Method.
+        client.get(advanced_uri)
+        // Fall back to the Direct Method.
+            .or_else(move |_| {
+                client.get(direct_uri)
+            })
+            .from_err()
+            .map(|res| (email, res))
+    }).and_then(|(email, res)| {
+        // Join the response body.
+        res.into_body().concat2().from_err()
+            .map(|body| (email, body))
+    }).and_then(|(email, body)| {
+        // And parse the response.
+        parse_body(&body, &email)
+    })
 }
 
 

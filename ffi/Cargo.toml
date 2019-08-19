@@ -35,6 +35,7 @@ memsec = "0.5.6"
 native-tls = "0.2.0"
 nettle = "5.0"
 time = "0.1.40"
+tokio-core = "0.1"
 
 [dev-dependencies]
 filetime = "0.2"

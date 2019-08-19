@@ -877,7 +877,7 @@ impl KeyServer {
                      network_policy: core::NetworkPolicy)
                      -> Result<(KeyServer,
                                 openpgp::KeyID,
-                                net::r#async::KeyServer)> {
+                                net::KeyServer)> {
         assert!(network_policy != core::NetworkPolicy::Offline);
         let network_policy_u8 = u8::from(&network_policy);
 
@@ -896,7 +896,7 @@ impl KeyServer {
 
         let ctx = core::Context::configure()
             .network_policy(network_policy).build()?;
-        let keyserver = net::r#async::KeyServer::sks_pool(&ctx)?;
+        let keyserver = net::KeyServer::sks_pool(&ctx)?;
 
         Ok((KeyServer::new(c.clone(), id),
             fingerprint.to_keyid(),
