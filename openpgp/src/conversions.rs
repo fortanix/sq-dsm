@@ -101,14 +101,14 @@ pub mod hex {
     /// let mut dumper = hex::Dumper::new(Vec::new(), "");
     /// dumper.write(&[0x89, 0x01, 0x33], "frame").unwrap();
     /// dumper.write(&[0x04], "version").unwrap();
-    /// dumper.write(&[0x00], "sigtype").unwrap();
+    /// dumper.write(&[0x00], "type").unwrap();
     ///
     /// let buf = dumper.into_inner();
     /// assert_eq!(
     ///     ::std::str::from_utf8(&buf[..]).unwrap(),
     ///     "00000000  89 01 33                                           frame\n\
     ///      00000003           04                                        version\n\
-    ///      00000004              00                                     sigtype\n\
+    ///      00000004              00                                     type\n\
     ///      ");
     /// ```
     pub struct Dumper<W: io::Write> {
@@ -403,7 +403,7 @@ mod test {
         let mut dumper = Dumper::new(Vec::new(), "");
         dumper.write(&[0x89, 0x01, 0x33], "frame").unwrap();
         dumper.write(&[0x04], "version").unwrap();
-        dumper.write(&[0x00], "sigtype").unwrap();
+        dumper.write(&[0x00], "type").unwrap();
         let buf = dumper.into_inner();
         assert_eq!(
             ::std::str::from_utf8(&buf[..]).unwrap(),
@@ -412,7 +412,7 @@ mod test {
              00000003           04                                        \
              version\n\
              00000004              00                                     \
-             sigtype\n\
+             type\n\
              ");
     }
 

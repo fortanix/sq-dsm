@@ -253,7 +253,7 @@ fn inspect_signatures(output: &mut io::Write,
                       sigs: &[openpgp::packet::Signature]) -> Result<()> {
     use crate::openpgp::constants::SignatureType::*;
     for sig in sigs {
-        match sig.sigtype() {
+        match sig.typ() {
             Binary | Text => (),
             signature_type @ _ =>
                 writeln!(output, "           Kind: {}", signature_type)?,

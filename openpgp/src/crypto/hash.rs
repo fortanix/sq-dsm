@@ -280,7 +280,7 @@ impl Hash for signature::Builder {
         // A version 4 signature packet is laid out as follows:
         //
         //   version - 1 byte                    \
-        //   sigtype - 1 byte                     \
+        //   type - 1 byte                        \
         //   pk_algo - 1 byte                      \
         //   hash_algo - 1 byte                      Included in the hash
         //   hashed_area_len - 2 bytes (big endian)/
@@ -291,7 +291,7 @@ impl Hash for signature::Builder {
 
         // Version.
         header[0] = 4;
-        header[1] = self.sigtype().into();
+        header[1] = self.typ().into();
         header[2] = self.pk_algo().into();
         header[3] = self.hash_algo().into();
 

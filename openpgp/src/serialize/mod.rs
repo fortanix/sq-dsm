@@ -1168,7 +1168,7 @@ impl Serialize for Signature4 {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         assert_eq!(self.version(), 4);
         write_byte(o, self.version())?;
-        write_byte(o, self.sigtype().into())?;
+        write_byte(o, self.typ().into())?;
         write_byte(o, self.pk_algo().into())?;
         write_byte(o, self.hash_algo().into())?;
 
@@ -1272,7 +1272,7 @@ impl SerializeInto for OnePassSig {
 impl Serialize for OnePassSig3 {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         write_byte(o, 3)?; // Version.
-        write_byte(o, self.sigtype().into())?;
+        write_byte(o, self.typ().into())?;
         write_byte(o, self.hash_algo().into())?;
         write_byte(o, self.pk_algo().into())?;
         o.write_all(self.issuer().as_slice())?;

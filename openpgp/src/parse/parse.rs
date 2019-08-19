@@ -879,7 +879,7 @@ impl Signature4 {
 
         make_php_try!(php);
 
-        let sigtype = php_try!(php.parse_u8("sigtype"));
+        let typ = php_try!(php.parse_u8("type"));
         let pk_algo: PublicKeyAlgorithm = php_try!(php.parse_u8("pk_algo")).into();
         let hash_algo = php_try!(php.parse_u8("hash_algo"));
         let hashed_area_len = php_try!(php.parse_be_u16("hashed_area_len"));
@@ -900,7 +900,7 @@ impl Signature4 {
 
         let hash_algo = hash_algo.into();
         let mut pp = php.ok(Packet::Signature(Signature4::new(
-            sigtype.into(), pk_algo.into(), hash_algo,
+            typ.into(), pk_algo.into(), hash_algo,
             SubpacketArea::new(hashed_area),
             SubpacketArea::new(unhashed_area),
             [hash_prefix1, hash_prefix2],
@@ -994,12 +994,12 @@ impl Signature4 {
 
         // Assume unknown == bad.
         let version = data[0];
-        let sigtype : SignatureType = data[1].into();
+        let typ : SignatureType = data[1].into();
         let pk_algo : PublicKeyAlgorithm = data[2].into();
         let hash_algo : HashAlgorithm = data[3].into();
 
         if version == 4
-            && !destructures_to!(SignatureType::Unknown(_) = sigtype)
+            && !destructures_to!(SignatureType::Unknown(_) = typ)
             && !destructures_to!(PublicKeyAlgorithm::Unknown(_) = pk_algo)
             && !destructures_to!(HashAlgorithm::Unknown(_) = hash_algo)
         {
@@ -1022,7 +1022,7 @@ fn signature_parser_test () {
         assert_eq!(pp.header.length, BodyLength::Full(307));
         if let Packet::Signature(ref p) = pp.packet {
             assert_eq!(p.version(), 4);
-            assert_eq!(p.sigtype(), SignatureType::Binary);
+            assert_eq!(p.typ(), SignatureType::Binary);
             assert_eq!(p.pk_algo(), PublicKeyAlgorithm::RSAEncryptSign);
             assert_eq!(p.hash_algo(), HashAlgorithm::SHA512);
             assert_eq!(p.hashed_area().data.len(), 29);
@@ -1062,7 +1062,7 @@ impl OnePassSig3 {
             return php.fail("unknown version");
         }
 
-        let sigtype = php_try!(php.parse_u8("sigtype"));
+        let typ = php_try!(php.parse_u8("type"));
         let hash_algo = php_try!(php.parse_u8("hash_algo"));
         let pk_algo = php_try!(php.parse_u8("pk_algo"));
         let mut issuer = [0u8; 8];
@@ -1070,7 +1070,7 @@ impl OnePassSig3 {
         let last = php_try!(php.parse_u8("last"));
 
         let hash_algo = hash_algo.into();
-        let mut sig = OnePassSig3::new(sigtype.into());
+        let mut sig = OnePassSig3::new(typ.into());
         sig.set_hash_algo(hash_algo);
         sig.set_pk_algo(pk_algo.into());
         sig.set_issuer(KeyID::from_bytes(&issuer));
@@ -1202,7 +1202,7 @@ fn one_pass_sig_parser_test () {
 
     if let &Packet::OnePassSig(ref p) = p {
         assert_eq!(p.version(), 3);
-        assert_eq!(p.sigtype(), SignatureType::Binary);
+        assert_eq!(p.typ(), SignatureType::Binary);
         assert_eq!(p.hash_algo(), HashAlgorithm::SHA512);
         assert_eq!(p.pk_algo(), PublicKeyAlgorithm::RSAEncryptSign);
         assert_eq!(p.issuer().to_hex(), "7223B56678E02528");

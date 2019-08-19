@@ -89,8 +89,8 @@ fn main() {
                 },
 
                 Packet::Signature(ref sig) => {
-                    sigs_count[u8::from(sig.sigtype()) as usize] += 1;
-                    tpk.sigs[u8::from(sig.sigtype()) as usize] += 1;
+                    sigs_count[u8::from(sig.typ()) as usize] += 1;
+                    tpk.sigs[u8::from(sig.typ()) as usize] += 1;
 
                     for (_offset, len, sub) in sig.hashed_area().iter()
                         .chain(sig.unhashed_area().iter())

@@ -518,7 +518,7 @@ impl<'a, I: Iterator<Item=Packet>> TPKParser<'a, I> {
                 for sig in sigs.into_iter() {
                     match sig {
                         Signature::V4(sig) => {
-                            let sigtype = sig.sigtype();
+                            let typ = sig.typ();
 
                             let is_selfsig =
                                 sig.issuer_fingerprint()
@@ -529,9 +529,9 @@ impl<'a, I: Iterator<Item=Packet>> TPKParser<'a, I> {
                                 .unwrap_or(false);
 
                             use self::SignatureType::*;
-                            if sigtype == KeyRevocation
-                                || sigtype == SubkeyRevocation
-                                || sigtype == CertificateRevocation
+                            if typ == KeyRevocation
+                                || typ == SubkeyRevocation
+                                || typ == CertificateRevocation
                             {
                                 if is_selfsig {
                                     self_revs.push(sig.into());
@@ -911,7 +911,7 @@ impl TPK {
     /// let mut keypair = tpk.primary().clone().into_keypair()?;
     /// let sig = tpk.revoke(&mut keypair, ReasonForRevocation::KeyCompromised,
     ///                      b"It was the maid :/")?;
-    /// assert_eq!(sig.sigtype(), SignatureType::KeyRevocation);
+    /// assert_eq!(sig.typ(), SignatureType::KeyRevocation);
     ///
     /// let tpk = tpk.merge_packets(vec![sig.clone().into()])?;
     /// assert_eq!(RevocationStatus::Revoked(&[sig]),
@@ -968,7 +968,7 @@ impl TPK {
     ///                               b"It was the maid :/")?;
     /// if let RevocationStatus::Revoked(sigs) = tpk.revocation_status() {
     ///     assert_eq!(sigs.len(), 1);
-    ///     assert_eq!(sigs[0].sigtype(), SignatureType::KeyRevocation);
+    ///     assert_eq!(sigs[0].typ(), SignatureType::KeyRevocation);
     ///     assert_eq!(sigs[0].reason_for_revocation(),
     ///                Some((ReasonForRevocation::KeyCompromised,
     ///                      "It was the maid :/".as_bytes())));
@@ -1047,7 +1047,7 @@ impl TPK {
             if let Some(userid) = userid {
                 userid.userid().hash(&mut hash);
             } else {
-                assert_eq!(template.sigtype(), SignatureType::DirectKey);
+                assert_eq!(template.typ(), SignatureType::DirectKey);
             }
 
             // Generate the signature.
@@ -1196,7 +1196,7 @@ impl TPK {
                     } else {
                         t!("Sig {:02X}{:02X}, type = {} doesn't belong to {}",
                            sig.hash_prefix()[0], sig.hash_prefix()[1],
-                           sig.sigtype(), $desc);
+                           sig.typ(), $desc);
 
                         self.bad.push(sig);
                     }
@@ -1261,7 +1261,7 @@ impl TPK {
                              was out of place.  Belongs to {}.",
                             $sig.hash_prefix()[0],
                             $sig.hash_prefix()[1],
-                            $sig.sigtype(), $desc);
+                            $sig.typ(), $desc);
 
                          $sigs.push($sig);
                          continue 'outer;
@@ -1315,7 +1315,7 @@ impl TPK {
             t!("Self-sig {:02X}{:02X}, {:?} doesn't belong \
                 to any known component or is bad.",
                sig.hash_prefix()[0], sig.hash_prefix()[1],
-               sig.sigtype());
+               sig.typ());
             self.bad.push(sig);
         }
 
@@ -2543,7 +2543,7 @@ mod test {
         tpk1.serialize(&mut buf).unwrap();
         let tpk2 = TPK::from_bytes(&buf).unwrap();
 
-        assert_eq!(tpk2.primary_key_signature().unwrap().sigtype(), SignatureType::DirectKey);
+        assert_eq!(tpk2.primary_key_signature().unwrap().typ(), SignatureType::DirectKey);
         assert_eq!(tpk2.userids().count(), 0);
     }
 
@@ -2553,8 +2553,8 @@ mod test {
                  userid_revoked: bool, subkey_revoked: bool) {
             // If we have a user id---even if it is revoked---we have
             // a primary key signature.
-            let sigtype = tpk.primary_key_signature().unwrap().sigtype();
-            assert_eq!(sigtype, SignatureType::PositiveCertificate,
+            let typ = tpk.primary_key_signature().unwrap().typ();
+            assert_eq!(typ, SignatureType::PositiveCertificate,
                        "{:#?}", tpk);
 
             let revoked = tpk.revocation_status();
@@ -2567,8 +2567,8 @@ mod test {
             }
 
             for userid in tpk.userids() {
-                let sigtype = userid.binding_signature().unwrap().sigtype();
-                assert_eq!(sigtype, SignatureType::PositiveCertificate,
+                let typ = userid.binding_signature().unwrap().typ();
+                assert_eq!(typ, SignatureType::PositiveCertificate,
                            "{:#?}", tpk);
 
                 let revoked = userid.revoked(None);
@@ -2581,8 +2581,8 @@ mod test {
             }
 
             for subkey in tpk.subkeys() {
-                let sigtype = subkey.binding_signature().unwrap().sigtype();
-                assert_eq!(sigtype, SignatureType::SubkeyBinding,
+                let typ = subkey.binding_signature().unwrap().typ();
+                assert_eq!(typ, SignatureType::SubkeyBinding,
                            "{:#?}", tpk);
 
                 let revoked = subkey.revoked(None);
@@ -2650,7 +2650,7 @@ mod test {
         let sig = tpk.revoke(&mut keypair,
                              ReasonForRevocation::KeyCompromised,
                              b"It was the maid :/").unwrap();
-        assert_eq!(sig.sigtype(), SignatureType::KeyRevocation);
+        assert_eq!(sig.typ(), SignatureType::KeyRevocation);
 
         let tpk = tpk.merge_packets(vec![sig.into()]).unwrap();
         assert_match!(RevocationStatus::Revoked(_) = tpk.revocation_status());
@@ -2676,7 +2676,7 @@ mod test {
                         ReasonForRevocation::UIDRetired,
                         b"It was the maid :/", None, None).unwrap()
         };
-        assert_eq!(sig.sigtype(), SignatureType::CertificateRevocation);
+        assert_eq!(sig.typ(), SignatureType::CertificateRevocation);
         let tpk = tpk.merge_packets(vec![sig.into()]).unwrap();
         assert_eq!(RevocationStatus::NotAsFarAsWeKnow,
                    tpk.revocation_status());
@@ -2883,8 +2883,8 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
                 match pkt {
                     &Packet::PublicKey(_) | &Packet::PublicSubkey(_) => true,
                     &Packet::Signature(ref sig) => {
-                        sig.sigtype() == SignatureType::DirectKey
-                            || sig.sigtype() == SignatureType::SubkeyBinding
+                        sig.typ() == SignatureType::DirectKey
+                            || sig.typ() == SignatureType::SubkeyBinding
                     }
                     e => {
                         eprintln!("{:?}", e);

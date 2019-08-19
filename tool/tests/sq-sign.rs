@@ -42,7 +42,7 @@ fn sq_sign() {
     assert_eq!(packets.len(), 3);
     if let Packet::OnePassSig(ref ops) = packets[0] {
         assert!(ops.last());
-        assert_eq!(ops.sigtype(), SignatureType::Binary);
+        assert_eq!(ops.typ(), SignatureType::Binary);
     } else {
         panic!("expected one pass signature");
     }
@@ -52,7 +52,7 @@ fn sq_sign() {
         panic!("expected literal");
     }
     if let Packet::Signature(ref sig) = packets[2] {
-        assert_eq!(sig.sigtype(), SignatureType::Binary);
+        assert_eq!(sig.typ(), SignatureType::Binary);
     } else {
         panic!("expected signature");
     }
@@ -96,7 +96,7 @@ fn sq_sign_append() {
     assert_eq!(packets.len(), 3);
     if let Packet::OnePassSig(ref ops) = packets[0] {
         assert!(ops.last());
-        assert_eq!(ops.sigtype(), SignatureType::Binary);
+        assert_eq!(ops.typ(), SignatureType::Binary);
     } else {
         panic!("expected one pass signature");
     }
@@ -106,7 +106,7 @@ fn sq_sign_append() {
         panic!("expected literal");
     }
     if let Packet::Signature(ref sig) = packets[2] {
-        assert_eq!(sig.sigtype(), SignatureType::Binary);
+        assert_eq!(sig.typ(), SignatureType::Binary);
     } else {
         panic!("expected signature");
     }
@@ -146,13 +146,13 @@ fn sq_sign_append() {
     assert_eq!(packets.len(), 5);
     if let Packet::OnePassSig(ref ops) = packets[0] {
         assert!(! ops.last());
-        assert_eq!(ops.sigtype(), SignatureType::Binary);
+        assert_eq!(ops.typ(), SignatureType::Binary);
     } else {
         panic!("expected one pass signature");
     }
     if let Packet::OnePassSig(ref ops) = packets[1] {
         assert!(ops.last());
-        assert_eq!(ops.sigtype(), SignatureType::Binary);
+        assert_eq!(ops.typ(), SignatureType::Binary);
     } else {
         panic!("expected one pass signature");
     }
@@ -162,13 +162,13 @@ fn sq_sign_append() {
         panic!("expected literal");
     }
     if let Packet::Signature(ref sig) = packets[3] {
-        assert_eq!(sig.sigtype(), SignatureType::Binary);
+        assert_eq!(sig.typ(), SignatureType::Binary);
         assert_eq!(sig.level(), 0);
     } else {
         panic!("expected signature");
     }
     if let Packet::Signature(ref sig) = packets[4] {
-        assert_eq!(sig.sigtype(), SignatureType::Binary);
+        assert_eq!(sig.typ(), SignatureType::Binary);
         assert_eq!(sig.level(), 0);
     } else {
         panic!("expected signature");
@@ -235,7 +235,7 @@ fn sq_sign_append_on_compress_then_sign() {
     assert_eq!(packets.len(), 3);
     if let Packet::OnePassSig(ref ops) = packets[0] {
         assert!(ops.last());
-        assert_eq!(ops.sigtype(), SignatureType::Binary);
+        assert_eq!(ops.typ(), SignatureType::Binary);
     } else {
         panic!("expected one pass signature");
     }
@@ -245,7 +245,7 @@ fn sq_sign_append_on_compress_then_sign() {
         panic!("expected compressed data");
     }
     if let Packet::Signature(ref sig) = packets[2] {
-        assert_eq!(sig.sigtype(), SignatureType::Binary);
+        assert_eq!(sig.typ(), SignatureType::Binary);
     } else {
         panic!("expected signature");
     }
@@ -286,13 +286,13 @@ fn sq_sign_append_on_compress_then_sign() {
     assert_eq!(packets.len(), 5);
     if let Packet::OnePassSig(ref ops) = packets[0] {
         assert!(! ops.last());
-        assert_eq!(ops.sigtype(), SignatureType::Binary);
+        assert_eq!(ops.typ(), SignatureType::Binary);
     } else {
         panic!("expected one pass signature");
     }
     if let Packet::OnePassSig(ref ops) = packets[1] {
         assert!(ops.last());
-        assert_eq!(ops.sigtype(), SignatureType::Binary);
+        assert_eq!(ops.typ(), SignatureType::Binary);
     } else {
         panic!("expected one pass signature");
     }
@@ -302,13 +302,13 @@ fn sq_sign_append_on_compress_then_sign() {
         panic!("expected compressed data");
     }
     if let Packet::Signature(ref sig) = packets[3] {
-        assert_eq!(sig.sigtype(), SignatureType::Binary);
+        assert_eq!(sig.typ(), SignatureType::Binary);
         assert_eq!(sig.level(), 0);
     } else {
         panic!("expected signature");
     }
     if let Packet::Signature(ref sig) = packets[4] {
-        assert_eq!(sig.sigtype(), SignatureType::Binary);
+        assert_eq!(sig.typ(), SignatureType::Binary);
         assert_eq!(sig.level(), 0);
     } else {
         panic!("expected signature");
@@ -362,7 +362,7 @@ fn sq_sign_detached() {
         PacketPile::from_file(&sig).unwrap().into_children().collect();
     assert_eq!(packets.len(), 1);
     if let Packet::Signature(ref sig) = packets[0] {
-        assert_eq!(sig.sigtype(), SignatureType::Binary);
+        assert_eq!(sig.typ(), SignatureType::Binary);
     } else {
         panic!("expected signature");
     }
@@ -408,7 +408,7 @@ fn sq_sign_detached_append() {
         PacketPile::from_file(&sig).unwrap().into_children().collect();
     assert_eq!(packets.len(), 1);
     if let Packet::Signature(ref sig) = packets[0] {
-        assert_eq!(sig.sigtype(), SignatureType::Binary);
+        assert_eq!(sig.typ(), SignatureType::Binary);
     } else {
         panic!("expected signature");
     }
@@ -464,12 +464,12 @@ fn sq_sign_detached_append() {
         PacketPile::from_file(&sig).unwrap().into_children().collect();
     assert_eq!(packets.len(), 2);
     if let Packet::Signature(ref sig) = packets[0] {
-        assert_eq!(sig.sigtype(), SignatureType::Binary);
+        assert_eq!(sig.typ(), SignatureType::Binary);
     } else {
         panic!("expected signature");
     }
     if let Packet::Signature(ref sig) = packets[1] {
-        assert_eq!(sig.sigtype(), SignatureType::Binary);
+        assert_eq!(sig.typ(), SignatureType::Binary);
     } else {
         panic!("expected signature");
     }
@@ -524,12 +524,12 @@ fn sq_sign_detached_append() {
         PacketPile::from_file(&sig).unwrap().into_children().collect();
     assert_eq!(packets.len(), 2);
     if let Packet::Signature(ref sig) = packets[0] {
-        assert_eq!(sig.sigtype(), SignatureType::Binary);
+        assert_eq!(sig.typ(), SignatureType::Binary);
     } else {
         panic!("expected signature");
     }
     if let Packet::Signature(ref sig) = packets[1] {
-        assert_eq!(sig.sigtype(), SignatureType::Binary);
+        assert_eq!(sig.typ(), SignatureType::Binary);
     } else {
         panic!("expected signature");
     }
@@ -562,19 +562,19 @@ fn sq_sign_append_a_notarization() {
     assert_eq!(packets.len(), 7);
     if let Packet::OnePassSig(ref ops) = packets[0] {
         assert!(! ops.last());
-        assert_eq!(ops.sigtype(), SignatureType::Binary);
+        assert_eq!(ops.typ(), SignatureType::Binary);
     } else {
         panic!("expected one pass signature");
     }
     if let Packet::OnePassSig(ref ops) = packets[1] {
         assert!(ops.last());
-        assert_eq!(ops.sigtype(), SignatureType::Binary);
+        assert_eq!(ops.typ(), SignatureType::Binary);
     } else {
         panic!("expected one pass signature");
     }
     if let Packet::OnePassSig(ref ops) = packets[2] {
         assert!(ops.last());
-        assert_eq!(ops.sigtype(), SignatureType::Binary);
+        assert_eq!(ops.typ(), SignatureType::Binary);
     } else {
         panic!("expected one pass signature");
     }
@@ -584,19 +584,19 @@ fn sq_sign_append_a_notarization() {
         panic!("expected literal");
     }
     if let Packet::Signature(ref sig) = packets[4] {
-        assert_eq!(sig.sigtype(), SignatureType::Binary);
+        assert_eq!(sig.typ(), SignatureType::Binary);
         assert_eq!(sig.level(), 0);
     } else {
         panic!("expected signature");
     }
     if let Packet::Signature(ref sig) = packets[5] {
-        assert_eq!(sig.sigtype(), SignatureType::Binary);
+        assert_eq!(sig.typ(), SignatureType::Binary);
         assert_eq!(sig.level(), 1);
     } else {
         panic!("expected signature");
     }
     if let Packet::Signature(ref sig) = packets[6] {
-        assert_eq!(sig.sigtype(), SignatureType::Binary);
+        assert_eq!(sig.typ(), SignatureType::Binary);
         assert_eq!(sig.level(), 1);
     } else {
         panic!("expected signature");
@@ -660,13 +660,13 @@ fn sq_sign_notarize() {
     assert_eq!(packets.len(), 5);
     if let Packet::OnePassSig(ref ops) = packets[0] {
         assert!(ops.last());
-        assert_eq!(ops.sigtype(), SignatureType::Binary);
+        assert_eq!(ops.typ(), SignatureType::Binary);
     } else {
         panic!("expected one pass signature");
     }
     if let Packet::OnePassSig(ref ops) = packets[1] {
         assert!(ops.last());
-        assert_eq!(ops.sigtype(), SignatureType::Binary);
+        assert_eq!(ops.typ(), SignatureType::Binary);
     } else {
         panic!("expected one pass signature");
     }
@@ -676,13 +676,13 @@ fn sq_sign_notarize() {
         panic!("expected literal");
     }
     if let Packet::Signature(ref sig) = packets[3] {
-        assert_eq!(sig.sigtype(), SignatureType::Binary);
+        assert_eq!(sig.typ(), SignatureType::Binary);
         assert_eq!(sig.level(), 0);
     } else {
         panic!("expected signature");
     }
     if let Packet::Signature(ref sig) = packets[4] {
-        assert_eq!(sig.sigtype(), SignatureType::Binary);
+        assert_eq!(sig.typ(), SignatureType::Binary);
         assert_eq!(sig.level(), 1);
     } else {
         panic!("expected signature");
@@ -737,19 +737,19 @@ fn sq_sign_notarize_a_notarization() {
     assert_eq!(packets.len(), 7);
     if let Packet::OnePassSig(ref ops) = packets[0] {
         assert!(ops.last());
-        assert_eq!(ops.sigtype(), SignatureType::Binary);
+        assert_eq!(ops.typ(), SignatureType::Binary);
     } else {
         panic!("expected one pass signature");
     }
     if let Packet::OnePassSig(ref ops) = packets[1] {
         assert!(ops.last());
-        assert_eq!(ops.sigtype(), SignatureType::Binary);
+        assert_eq!(ops.typ(), SignatureType::Binary);
     } else {
         panic!("expected one pass signature");
     }
     if let Packet::OnePassSig(ref ops) = packets[2] {
         assert!(ops.last());
-        assert_eq!(ops.sigtype(), SignatureType::Binary);
+        assert_eq!(ops.typ(), SignatureType::Binary);
     } else {
         panic!("expected one pass signature");
     }
@@ -759,19 +759,19 @@ fn sq_sign_notarize_a_notarization() {
         panic!("expected literal");
     }
     if let Packet::Signature(ref sig) = packets[4] {
-        assert_eq!(sig.sigtype(), SignatureType::Binary);
+        assert_eq!(sig.typ(), SignatureType::Binary);
         assert_eq!(sig.level(), 0);
     } else {
         panic!("expected signature");
     }
     if let Packet::Signature(ref sig) = packets[5] {
-        assert_eq!(sig.sigtype(), SignatureType::Binary);
+        assert_eq!(sig.typ(), SignatureType::Binary);
         assert_eq!(sig.level(), 1);
     } else {
         panic!("expected signature");
     }
     if let Packet::Signature(ref sig) = packets[6] {
-        assert_eq!(sig.sigtype(), SignatureType::Binary);
+        assert_eq!(sig.typ(), SignatureType::Binary);
         assert_eq!(sig.level(), 2);
     } else {
         panic!("expected signature");

@@ -28,7 +28,7 @@ pub struct OnePassSig3 {
     /// CTB packet header fields.
     pub(crate) common: packet::Common,
     /// Type of the signature.
-    sigtype: SignatureType,
+    typ: SignatureType,
     /// Hash algorithm used to compute the signature.
     hash_algo: HashAlgorithm,
     /// Public key algorithm of this signature.
@@ -43,7 +43,7 @@ pub struct OnePassSig3 {
 impl fmt::Debug for OnePassSig3 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("OnePassSig3")
-            .field("sigtype", &self.sigtype)
+            .field("typ", &self.typ)
             .field("hash_algo", &self.hash_algo)
             .field("pk_algo", &self.pk_algo)
             .field("issuer", &self.issuer)
@@ -67,10 +67,10 @@ impl PartialEq for OnePassSig3 {
 
 impl OnePassSig3 {
     /// Returns a new `Signature` packet.
-    pub fn new(sigtype: SignatureType) ->  Self {
+    pub fn new(typ: SignatureType) ->  Self {
         OnePassSig3 {
             common: Default::default(),
-            sigtype: sigtype,
+            typ: typ,
             hash_algo: HashAlgorithm::Unknown(0),
             pk_algo: PublicKeyAlgorithm::Unknown(0),
             issuer: KeyID::new(0),
@@ -79,13 +79,13 @@ impl OnePassSig3 {
     }
 
     /// Gets the signature type.
-    pub fn sigtype(&self) -> SignatureType {
-        self.sigtype
+    pub fn typ(&self) -> SignatureType {
+        self.typ
     }
 
     /// Sets the signature type.
-    pub fn set_sigtype(&mut self, t: SignatureType) -> SignatureType {
-        ::std::mem::replace(&mut self.sigtype, t)
+    pub fn set_type(&mut self, t: SignatureType) -> SignatureType {
+        ::std::mem::replace(&mut self.typ, t)
     }
 
     /// Gets the public key algorithm.
@@ -162,7 +162,7 @@ impl<'a> From<&'a Signature> for Result<OnePassSig3> {
 
         Ok(OnePassSig3 {
             common: Default::default(),
-            sigtype: s.sigtype(),
+            typ: s.typ(),
             hash_algo: s.hash_algo(),
             pk_algo: s.pk_algo(),
             issuer: issuer,

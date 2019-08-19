@@ -303,7 +303,7 @@ impl TPKBuilder {
         // Sign UserIDs.
         for uid in self.userids.into_iter() {
             let builder = signature::Builder::from(sig.clone())
-                .set_sigtype(SignatureType::PositiveCertificate);
+                .set_type(SignatureType::PositiveCertificate);
             let signature = uid.bind(&mut signer, &tpk, builder, None, None)?;
             tpk = tpk.merge_packets(vec![uid.into(), signature.into()])?;
         }
@@ -311,7 +311,7 @@ impl TPKBuilder {
         // Sign UserAttributes.
         for ua in self.user_attributes.into_iter() {
             let builder = signature::Builder::from(sig.clone())
-                .set_sigtype(SignatureType::PositiveCertificate);
+                .set_type(SignatureType::PositiveCertificate);
             let signature = ua.bind(&mut signer, &tpk, builder, None, None)?;
             tpk = tpk.merge_packets(vec![ua.into(), signature.into()])?;
         }
@@ -436,7 +436,7 @@ mod tests {
             .generate().unwrap();
 
         assert_eq!(tpk.userids().count(), 0);
-        assert_eq!(tpk.primary_key_signature().unwrap().sigtype(),
+        assert_eq!(tpk.primary_key_signature().unwrap().typ(),
                    crate::constants::SignatureType::DirectKey);
         assert_eq!(tpk.subkeys().count(), 3);
         if let Some(sig) = tpk.primary_key_signature() {

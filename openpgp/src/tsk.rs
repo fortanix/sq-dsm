@@ -160,7 +160,7 @@ impl TSK {
         let builder =
             if let Some(sig) = self.primary_key_signature() {
                 signature::Builder::from(sig.clone())
-                    .set_sigtype(SignatureType::PositiveCertificate)
+                    .set_type(SignatureType::PositiveCertificate)
             } else {
                 signature::Builder::new(SignatureType::PositiveCertificate)
             }

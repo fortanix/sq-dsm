@@ -95,7 +95,7 @@ impl Key {
     ///         .revoke(&mut keypair, &tpk,
     ///                 ReasonForRevocation::KeyRetired,
     ///                 b"Smells funny.", None, None)?;
-    /// assert_eq!(revocation.sigtype(), SignatureType::SubkeyRevocation);
+    /// assert_eq!(revocation.typ(), SignatureType::SubkeyRevocation);
     ///
     /// // Now merge the revocation signature into the TPK.
     /// let tpk = tpk.merge_packets(vec![revocation.clone().into()])?;
@@ -289,7 +289,7 @@ impl UserID {
     ///         .revoke(&mut keypair, &tpk,
     ///                 ReasonForRevocation::UIDRetired,
     ///                 b"Left example.org.", None, None)?;
-    /// assert_eq!(revocation.sigtype(), SignatureType::CertificateRevocation);
+    /// assert_eq!(revocation.typ(), SignatureType::CertificateRevocation);
     ///
     /// // Now merge the revocation signature into the TPK.
     /// let tpk = tpk.merge_packets(vec![revocation.clone().into()])?;
@@ -498,7 +498,7 @@ impl UserAttribute {
     ///         .revoke(&mut keypair, &tpk,
     ///                 ReasonForRevocation::UIDRetired,
     ///                 b"I look different now.", None, None)?;
-    /// assert_eq!(revocation.sigtype(), SignatureType::CertificateRevocation);
+    /// assert_eq!(revocation.typ(), SignatureType::CertificateRevocation);
     ///
     /// // Now merge the revocation signature into the TPK.
     /// let tpk = tpk.merge_packets(vec![revocation.clone().into()])?;

@@ -1160,14 +1160,14 @@ mod tests {
 
 
     quickcheck! {
-        fn sigtype_roundtrip(t: SignatureType) -> bool {
+        fn signature_type_roundtrip(t: SignatureType) -> bool {
             let val: u8 = t.clone().into();
             t == SignatureType::from(val)
         }
     }
 
     quickcheck! {
-        fn sigtype_display(t: SignatureType) -> bool {
+        fn signature_type_display(t: SignatureType) -> bool {
             let s = format!("{}", t);
             !s.is_empty()
         }

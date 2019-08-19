@@ -39,7 +39,7 @@ pub struct Builder {
     /// Version of the signature packet. Must be 4.
     version: u8,
     /// Type of signature.
-    sigtype: SignatureType,
+    typ: SignatureType,
     /// Pub(Crate)lic-key algorithm used for this signature.
     pk_algo: PublicKeyAlgorithm,
     /// Hash algorithm used to compute the signature.
@@ -52,10 +52,10 @@ pub struct Builder {
 
 impl Builder {
     /// Returns a new `Builder` object.
-    pub fn new(sigtype: SignatureType) ->  Self {
+    pub fn new(typ: SignatureType) ->  Self {
         Builder {
             version: 4,
-            sigtype: sigtype,
+            typ: typ,
             pk_algo: PublicKeyAlgorithm::Unknown(0),
             hash_algo: HashAlgorithm::Unknown(0),
             hashed_area: SubpacketArea::empty(),
@@ -69,13 +69,13 @@ impl Builder {
     }
 
     /// Gets the signature type.
-    pub fn sigtype(&self) -> SignatureType {
-        self.sigtype
+    pub fn typ(&self) -> SignatureType {
+        self.typ
     }
 
     /// Sets the signature type.
-    pub fn set_sigtype(mut self, t: SignatureType) -> Self {
-        self.sigtype = t;
+    pub fn set_type(mut self, t: SignatureType) -> Self {
+        self.typ = t;
         self
     }
 
@@ -316,7 +316,7 @@ impl fmt::Debug for Signature4 {
 
         f.debug_struct("Signature4")
             .field("version", &self.version())
-            .field("sigtype", &self.sigtype())
+            .field("typ", &self.typ())
             .field("issuer", &issuer)
             .field("pk_algo", &self.pk_algo())
             .field("hash_algo", &self.hash_algo())
@@ -350,7 +350,7 @@ impl PartialEq for Signature4 {
     /// signatures using this predicate.
     fn eq(&self, other: &Signature4) -> bool {
         self.fields.version == other.fields.version
-            && self.fields.sigtype == other.fields.sigtype
+            && self.fields.typ == other.fields.typ
             && self.fields.pk_algo == other.fields.pk_algo
             && self.fields.hash_algo == other.fields.hash_algo
             && self.fields.hashed_area == other.fields.hashed_area
@@ -362,7 +362,7 @@ impl std::hash::Hash for Signature4 {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         use std::hash::Hash as StdHash;
         self.fields.version.hash(state);
-        self.fields.sigtype.hash(state);
+        self.fields.typ.hash(state);
         self.fields.pk_algo.hash(state);
         self.fields.hash_algo.hash(state);
         self.fields.hashed_area.hash(state);
@@ -377,7 +377,7 @@ impl Signature4 {
     /// interface.
     ///
     /// [`Builder`]: struct.Builder.html
-    pub fn new(sigtype: SignatureType, pk_algo: PublicKeyAlgorithm,
+    pub fn new(typ: SignatureType, pk_algo: PublicKeyAlgorithm,
                hash_algo: HashAlgorithm, hashed_area: SubpacketArea,
                unhashed_area: SubpacketArea,
                hash_prefix: [u8; 2],
@@ -386,7 +386,7 @@ impl Signature4 {
             common: Default::default(),
             fields: Builder {
                 version: 4,
-                sigtype: sigtype.into(),
+                typ: typ,
                 pk_algo: pk_algo.into(),
                 hash_algo: hash_algo,
                 hashed_area: hashed_area,
@@ -637,10 +637,10 @@ impl Signature4 {
     /// subkey binding signature (if appropriate), has the signing
     /// capability, etc.
     pub fn verify(&self, key: &Key) -> Result<bool> {
-        if !(self.sigtype() == SignatureType::Binary
-             || self.sigtype() == SignatureType::Text
-             || self.sigtype() == SignatureType::Standalone) {
-            return Err(Error::UnsupportedSignatureType(self.sigtype()).into());
+        if !(self.typ() == SignatureType::Binary
+             || self.typ() == SignatureType::Text
+             || self.typ() == SignatureType::Standalone) {
+            return Err(Error::UnsupportedSignatureType(self.typ()).into());
         }
 
         if let Some((hash_algo, ref hash)) = self.computed_hash {
@@ -670,8 +670,8 @@ impl Signature4 {
     pub fn verify_primary_key_binding(&self, signer: &Key, pk: &Key)
         -> Result<bool>
     {
-        if self.sigtype() != SignatureType::DirectKey {
-            return Err(Error::UnsupportedSignatureType(self.sigtype()).into());
+        if self.typ() != SignatureType::DirectKey {
+            return Err(Error::UnsupportedSignatureType(self.typ()).into());
         }
 
         let hash = Signature::primary_key_binding_hash(self, pk)?;
@@ -698,8 +698,8 @@ impl Signature4 {
     pub fn verify_primary_key_revocation(&self, signer: &Key, pk: &Key)
         -> Result<bool>
     {
-        if self.sigtype() != SignatureType::KeyRevocation {
-            return Err(Error::UnsupportedSignatureType(self.sigtype()).into());
+        if self.typ() != SignatureType::KeyRevocation {
+            return Err(Error::UnsupportedSignatureType(self.typ()).into());
         }
 
         let hash = Signature::primary_key_binding_hash(self, pk)?;
@@ -731,8 +731,8 @@ impl Signature4 {
     pub fn verify_subkey_binding(&self, signer: &Key, pk: &Key, subkey: &Key)
         -> Result<bool>
     {
-        if self.sigtype() != SignatureType::SubkeyBinding {
-            return Err(Error::UnsupportedSignatureType(self.sigtype()).into());
+        if self.typ() != SignatureType::SubkeyBinding {
+            return Err(Error::UnsupportedSignatureType(self.typ()).into());
         }
 
         let hash = Signature::subkey_binding_hash(self, pk, subkey)?;
@@ -752,8 +752,8 @@ impl Signature4 {
         if let Some(Packet::Signature(super::Signature::V4(backsig))) =
             self.embedded_signature()
         {
-            if backsig.sigtype() != SignatureType::PrimaryKeyBinding {
-                return Err(Error::UnsupportedSignatureType(self.sigtype()).into());
+            if backsig.typ() != SignatureType::PrimaryKeyBinding {
+                return Err(Error::UnsupportedSignatureType(self.typ()).into());
             } else {
                 // We can't use backsig.verify_subkey_binding.
                 let hash = Signature::subkey_binding_hash(&backsig, pk, &subkey)?;
@@ -807,8 +807,8 @@ impl Signature4 {
                                     subkey: &Key)
         -> Result<bool>
     {
-        if self.sigtype() != SignatureType::SubkeyRevocation {
-            return Err(Error::UnsupportedSignatureType(self.sigtype()).into());
+        if self.typ() != SignatureType::SubkeyRevocation {
+            return Err(Error::UnsupportedSignatureType(self.typ()).into());
         }
 
         let hash = Signature::subkey_binding_hash(self, pk, subkey)?;
@@ -836,11 +836,11 @@ impl Signature4 {
                                  pk: &Key, userid: &UserID)
         -> Result<bool>
     {
-        if !(self.sigtype() == SignatureType::GenericCertificate
-             || self.sigtype() == SignatureType::PersonaCertificate
-             || self.sigtype() == SignatureType::CasualCertificate
-             || self.sigtype() == SignatureType::PositiveCertificate) {
-            return Err(Error::UnsupportedSignatureType(self.sigtype()).into());
+        if !(self.typ() == SignatureType::GenericCertificate
+             || self.typ() == SignatureType::PersonaCertificate
+             || self.typ() == SignatureType::CasualCertificate
+             || self.typ() == SignatureType::PositiveCertificate) {
+            return Err(Error::UnsupportedSignatureType(self.typ()).into());
         }
 
         let hash = Signature::userid_binding_hash(self, pk, userid)?;
@@ -868,8 +868,8 @@ impl Signature4 {
                                     pk: &Key, userid: &UserID)
         -> Result<bool>
     {
-        if self.sigtype() != SignatureType::CertificateRevocation {
-            return Err(Error::UnsupportedSignatureType(self.sigtype()).into());
+        if self.typ() != SignatureType::CertificateRevocation {
+            return Err(Error::UnsupportedSignatureType(self.typ()).into());
         }
 
         let hash = Signature::userid_binding_hash(self, pk, userid)?;
@@ -897,11 +897,11 @@ impl Signature4 {
                                          pk: &Key, ua: &UserAttribute)
         -> Result<bool>
     {
-        if !(self.sigtype() == SignatureType::GenericCertificate
-             || self.sigtype() == SignatureType::PersonaCertificate
-             || self.sigtype() == SignatureType::CasualCertificate
-             || self.sigtype() == SignatureType::PositiveCertificate) {
-            return Err(Error::UnsupportedSignatureType(self.sigtype()).into());
+        if !(self.typ() == SignatureType::GenericCertificate
+             || self.typ() == SignatureType::PersonaCertificate
+             || self.typ() == SignatureType::CasualCertificate
+             || self.typ() == SignatureType::PositiveCertificate) {
+            return Err(Error::UnsupportedSignatureType(self.typ()).into());
         }
 
         let hash = Signature::user_attribute_binding_hash(self, pk, ua)?;
@@ -929,8 +929,8 @@ impl Signature4 {
                                             pk: &Key, ua: &UserAttribute)
         -> Result<bool>
     {
-        if self.sigtype() != SignatureType::CertificateRevocation {
-            return Err(Error::UnsupportedSignatureType(self.sigtype()).into());
+        if self.typ() != SignatureType::CertificateRevocation {
+            return Err(Error::UnsupportedSignatureType(self.typ()).into());
         }
 
         let hash = Signature::user_attribute_binding_hash(self, pk, ua)?;
@@ -957,9 +957,9 @@ impl Signature4 {
     pub fn verify_message(&self, signer: &Key, msg: &[u8])
         -> Result<bool>
     {
-        if self.sigtype() != SignatureType::Binary &&
-            self.sigtype() != SignatureType::Text {
-            return Err(Error::UnsupportedSignatureType(self.sigtype()).into());
+        if self.typ() != SignatureType::Binary &&
+            self.typ() != SignatureType::Text {
+            return Err(Error::UnsupportedSignatureType(self.typ()).into());
         }
 
         // Compute the digest.

@@ -260,7 +260,7 @@ impl PacketDumper {
             Signature(ref s) => {
                 writeln!(output, "Signature Packet")?;
                 writeln!(output, "{}  Version: {}", i, s.version())?;
-                writeln!(output, "{}  Type: {}", i, s.sigtype())?;
+                writeln!(output, "{}  Type: {}", i, s.typ())?;
                 writeln!(output, "{}  Pk algo: {}", i, s.pk_algo())?;
                 writeln!(output, "{}  Hash algo: {}", i, s.hash_algo())?;
                 if s.hashed_area().iter().count() > 0 {
@@ -333,7 +333,7 @@ impl PacketDumper {
             OnePassSig(ref o) => {
                 writeln!(output, "One-Pass Signature Packet")?;
                 writeln!(output, "{}  Version: {}", i, o.version())?;
-                writeln!(output, "{}  Type: {}", i, o.sigtype())?;
+                writeln!(output, "{}  Type: {}", i, o.typ())?;
                 writeln!(output, "{}  Pk algo: {}", i, o.pk_algo())?;
                 writeln!(output, "{}  Hash algo: {}", i, o.hash_algo())?;
                 writeln!(output, "{}  Issuer: {}", i, o.issuer())?;

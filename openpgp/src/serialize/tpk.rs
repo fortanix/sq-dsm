@@ -697,7 +697,7 @@ mod test {
             &mut keypair, &tpk,
             signature::Builder::from(
                 tpk.primary_key_signature().unwrap().clone())
-                .set_sigtype(SignatureType::PositiveCertificate)
+                .set_type(SignatureType::PositiveCertificate)
                 .set_exportable_certification(false).unwrap(),
             None, None).unwrap();
 
@@ -708,7 +708,7 @@ mod test {
             &mut keypair, &tpk,
             signature::Builder::from(
                 tpk.primary_key_signature().unwrap().clone())
-                .set_sigtype(SignatureType::PositiveCertificate)
+                .set_type(SignatureType::PositiveCertificate)
                 .set_exportable_certification(false).unwrap(),
             None, None).unwrap();
 
