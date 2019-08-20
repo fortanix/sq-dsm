@@ -228,7 +228,8 @@ fn build(include_dirs: &[PathBuf], ldpath: &Path, target_dir: &Path,
         include_dirs.iter().map(|dir| format!("-I{:?}", dir))
         .collect::<Vec<String>>().join(" ");
     let st = Command::new("make")
-        .env("CFLAGS", &format!("-O0 -ggdb {}", includes))
+        .env("CFLAGS", &format!("-Wall -O0 -ggdb {} {}", includes,
+                                env::var("CFLAGS").unwrap_or("".into())))
         .env("LDFLAGS", &format!("-L{:?} -lsequoia_ffi", ldpath))
         .arg("-C").arg(&target_dir)
         .arg("--quiet")
