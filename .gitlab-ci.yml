@@ -25,3 +25,5 @@ variables:
   CARGO_FLAGS: --color always
   CARGO_INCREMENTAL: 0
   RUST_BACKTRACE: full
+  RUSTFLAGS: -D warnings
+  CFLAGS: -Werror
