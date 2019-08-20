@@ -25,6 +25,11 @@
 //! ks = sq_keyserver_keys_openpgp_org (ctx);
 //! id = pgp_keyid_from_bytes ((uint8_t *) "\x24\x7F\x6D\xAB\xC8\x49\x14\xFE");
 //! tpk = sq_keyserver_get (ctx, ks, id);
+//!
+//! pgp_tpk_free (tpk);
+//! pgp_keyid_free (id);
+//! sq_keyserver_free (ks);
+//! sq_context_free (ctx);
 //! ```
 
 use libc::{c_char, size_t};
