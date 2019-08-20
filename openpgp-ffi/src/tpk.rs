@@ -459,7 +459,7 @@ pub extern "C" fn pgp_user_id_binding_iter_next<'a>(
 
 /* tpk::KeyIter. */
 
-/// Wrapers a KeyIter for export via the FFI.
+/// Wraps a KeyIter for export via the FFI.
 pub struct KeyIterWrapper<'a> {
     iter: KeyIter<'a>,
     // Whether next has been called.
@@ -695,7 +695,7 @@ pub extern "C" fn pgp_tpk_key_iter_next<'a>(
     }
 }
 
-/// Wrappers a TPKParser for export via the FFI.
+/// Wraps a TPKParser for export via the FFI.
 pub struct TPKParserWrapper<'a> {
     parser: TPKParser<'a, std::vec::IntoIter<self::openpgp::Packet>>,
 }
