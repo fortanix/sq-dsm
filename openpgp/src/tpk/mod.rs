@@ -1125,11 +1125,21 @@ impl TPK {
         KeyIter::new(self)
     }
 
-    /// Returns the first TPK found in the packet stream.
+    /// Returns the TPK found in the packet stream.
+    ///
+    /// If there are more packets after the TPK, e.g. because the
+    /// packet stream is a keyring, this function will return
+    /// `Error::MalformedTPK`.
     pub fn from_packet_parser(ppr: PacketParserResult) -> Result<Self> {
         let mut parser = TPKParser::from_packet_parser(ppr);
         if let Some(tpk_result) = parser.next() {
-            tpk_result
+            if parser.next().is_some() {
+                Err(Error::MalformedTPK(
+                    "Additional packets found, is this a keyring?".into()
+                ).into())
+            } else {
+                tpk_result
+            }
         } else {
             Err(Error::MalformedTPK("No data".into()).into())
         }
@@ -2910,5 +2920,13 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
         // Make sure we return the most recent here.
         assert_eq!(uidb.selfsigs().last().unwrap(),
                    uidb.binding_signature().unwrap());
+    }
+
+    #[test]
+    fn tpk_reject_keyrings() {
+        let mut keyring = Vec::new();
+        keyring.extend_from_slice(crate::tests::key("neal.pgp"));
+        keyring.extend_from_slice(crate::tests::key("neal.pgp"));
+        assert!(TPK::from_bytes(&keyring).is_err());
     }
 }
