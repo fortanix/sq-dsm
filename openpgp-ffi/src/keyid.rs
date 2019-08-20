@@ -44,7 +44,8 @@ pub struct KeyID(openpgp::KeyID);
 /// #include <string.h>
 /// #include <sequoia/openpgp.h>
 ///
-/// pgp_keyid_t mr_b = pgp_keyid_from_bytes ("\xbb\xbb\xbb\xbb\xbb\xbb\xbb\xbb");
+/// pgp_keyid_t mr_b =
+///     pgp_keyid_from_bytes ((uint8_t *) "\xbb\xbb\xbb\xbb\xbb\xbb\xbb\xbb");
 ///
 /// char *mr_b_as_string = pgp_keyid_to_string (mr_b);
 /// assert (strcmp (mr_b_as_string, "BBBB BBBB BBBB BBBB") == 0);

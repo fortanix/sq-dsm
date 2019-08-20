@@ -299,7 +299,8 @@
 //!   "-----END PGP ARMORED FILE-----\n";
 //!
 //! pgp_reader_t armor =
-//!     pgp_armor_reader_from_bytes (armored, strlen (armored), PGP_ARMOR_KIND_ANY);
+//!     pgp_armor_reader_from_bytes ((uint8_t *) armored, strlen (armored),
+//!                                  PGP_ARMOR_KIND_ANY);
 //!
 //! pgp_error_t err;
 //! char message[12];
