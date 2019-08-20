@@ -447,7 +447,7 @@ pub fn build() -> App<'static, 'static> {
                                             obtain the WKD URI.")))
                     .subcommand(SubCommand::with_name("get")
                                 .about("Writes to the standard output the \
-                                        Transferable Public Key retrieved \
+                                        TPK retrieved \
                                         from a Web Key Directory, given an \
                                         email address")
                                 .arg(Arg::with_name("input")

@@ -641,8 +641,7 @@
 //!     -V, --version    Prints version information
 //!
 //! SUBCOMMANDS:
-//!     get     Writes to the standard output the Transferable Public Key retrieved from a Web Key Directory, given an
-//!             email address
+//!     get     Writes to the standard output the TPK retrieved from a Web Key Directory, given an email address
 //!     help    Prints this message or the help of the given subcommand(s)
 //!     url     Prints the Web Key Directory URL of an email address.
 //! ```
@@ -650,7 +649,7 @@
 //! ### Subcommand wkd get
 //!
 //! ```text
-//! Writes to the standard output the Transferable Public Key retrieved from a Web Key Directory, given an email address
+//! Writes to the standard output the TPK retrieved from a Web Key Directory, given an email address
 //!
 //! USAGE:
 //!     sq wkd get [FLAGS] <EMAIL_ADDRESS>
