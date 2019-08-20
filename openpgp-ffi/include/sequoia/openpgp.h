@@ -1599,7 +1599,8 @@ pgp_writer_stack_t pgp_encryptor_new (pgp_error_t *errp,
 				      pgp_tpk_t *recipients,
 				      size_t recipients_len,
 				      pgp_encryption_mode_t mode,
-				      uint8_t cipher_algo);
+				      uint8_t cipher_algo,
+				      uint8_t aead_algo);
 
 /*/
 /// Frees this object.

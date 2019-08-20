@@ -108,7 +108,7 @@ pub fn encrypt(store: &mut store::Store,
                                   &passwords_,
                                   &recipients,
                                   EncryptionMode::AtRest,
-                                  None)
+                                  None, None)
         .context("Failed to create encryptor")?;
 
     // Optionally sign message.

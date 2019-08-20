@@ -48,7 +48,7 @@ fn encrypt(sink: &mut Write, plaintext: &str, recipient: &openpgp::TPK)
                                    &[], // No symmetric encryption.
                                    &[recipient],
                                    EncryptionMode::ForTransport,
-                                   None)?;
+                                   None, None)?;
 
     // Emit a literal data packet.
     let mut literal_writer = LiteralWriter::new(

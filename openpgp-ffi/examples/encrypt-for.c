@@ -48,7 +48,8 @@ main (int argc, char **argv)
                               NULL, 0, /* no passwords */
                               &tpk, 1,
                               PGP_ENCRYPTION_MODE_FOR_TRANSPORT,
-                              9 /* AES256 */);
+                              9 /* AES256 */,
+                              0 /* No AEAD */);
   if (writer == NULL)
     error (1, 0, "pgp_encryptor_new: %s", pgp_error_to_string (err));
 

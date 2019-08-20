@@ -471,7 +471,7 @@ impl AutocryptSetupMessage {
                                &[ self.passcode.as_ref().unwrap() ],
                                &[],
                                EncryptionMode::ForTransport,
-                               None)?;
+                               None, None)?;
 
         let mut w = LiteralWriter::new(w, DataFormat::Binary,
                                        /* filename*/ None, /* date */ None)?;

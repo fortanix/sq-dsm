@@ -57,7 +57,7 @@ fn main() {
 #                                    &[], // No symmetric encryption.
 #                                    &[recipient],
 #                                    EncryptionMode::ForTransport,
-#                                    None)?;
+#                                    None, None)?;
 #
 #     // Emit a literal data packet.
 #     let mut literal_writer = LiteralWriter::new(
@@ -191,7 +191,7 @@ fn generate() -> openpgp::Result<openpgp::TPK> {
 #                                    &[], // No symmetric encryption.
 #                                    &[recipient],
 #                                    EncryptionMode::ForTransport,
-#                                    None)?;
+#                                    None, None)?;
 #
 #     // Emit a literal data packet.
 #     let mut literal_writer = LiteralWriter::new(
@@ -325,7 +325,7 @@ fn encrypt(sink: &mut Write, plaintext: &str, recipient: &openpgp::TPK)
                                    &[], // No symmetric encryption.
                                    &[recipient],
                                    EncryptionMode::ForTransport,
-                                   None)?;
+                                   None, None)?;
 
     // Emit a literal data packet.
     let mut literal_writer = LiteralWriter::new(
@@ -473,7 +473,7 @@ Decrypted data can be read from this using [`io::Read`].
 #                                    &[], // No symmetric encryption.
 #                                    &[recipient],
 #                                    EncryptionMode::ForTransport,
-#                                    None)?;
+#                                    None, None)?;
 #
 #     // Emit a literal data packet.
 #     let mut literal_writer = LiteralWriter::new(

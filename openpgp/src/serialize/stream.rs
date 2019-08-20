@@ -903,7 +903,8 @@ impl<'a> Encryptor<'a> {
     /// let message = Message::new(&mut o);
     /// let encryptor = Encryptor::new(message,
     ///                                &[&"совершенно секретно".into()],
-    ///                                &[&tpk], EncryptionMode::AtRest, None)
+    ///                                &[&tpk], EncryptionMode::AtRest, None,
+    ///                                None)
     ///     .expect("Failed to create encryptor");
     /// let mut w = LiteralWriter::new(encryptor, DataFormat::Text, None, None)?;
     /// w.write_all(b"Hello world.")?;
@@ -911,12 +912,14 @@ impl<'a> Encryptor<'a> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn new<C>(mut inner: writer::Stack<'a, Cookie>,
-                  passwords: &[&Password], tpks: &[&TPK],
-                  encryption_mode: EncryptionMode,
-                  cipher_algo: C)
-                  -> Result<writer::Stack<'a, Cookie>>
-        where C: Into<Option<SymmetricAlgorithm>>
+    pub fn new<C, A>(mut inner: writer::Stack<'a, Cookie>,
+                     passwords: &[&Password], tpks: &[&TPK],
+                     encryption_mode: EncryptionMode,
+                     cipher_algo: C,
+                     aead_algo: A)
+                     -> Result<writer::Stack<'a, Cookie>>
+        where C: Into<Option<SymmetricAlgorithm>>,
+              A: Into<Option<AEADAlgorithm>>
     {
         if tpks.len() + passwords.len() == 0 {
             return Err(Error::InvalidArgument(
@@ -929,15 +932,11 @@ impl<'a> Encryptor<'a> {
             nonce: Box<[u8]>,
         }
 
-        // Use AEAD if there are TPKs and all of them support AEAD.
-        let aead = if tpks.len() > 0 && tpks.iter().all(|t| {
-            t.primary_key_signature().map(|s| s.features().supports_aead())
-                .unwrap_or(false)
-        }) {
-            let mut nonce = vec![0; AEADAlgorithm::EAX.iv_size()?];
+        let aead = if let Some(algo) = aead_algo.into() {
+            let mut nonce = vec![0; algo.iv_size()?];
             crypto::random(&mut nonce);
             Some(AEADParameters {
-                algo: AEADAlgorithm::EAX, // Must implement EAX.
+                algo: algo,
                 chunk_size: 4096, // A page, 3 per mille overhead.
                 nonce: nonce.into_boxed_slice(),
             })
@@ -1404,7 +1403,7 @@ mod test {
             let m = Message::new(&mut o);
             let encryptor = Encryptor::new(
                 m, &passwords.iter().collect::<Vec<&Password>>(),
-                &[], EncryptionMode::ForTransport, None)
+                &[], EncryptionMode::ForTransport, None, None)
                 .unwrap();
             let mut literal = LiteralWriter::new(encryptor, DataFormat::Binary,
                                                  None, None)

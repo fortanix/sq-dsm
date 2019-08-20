@@ -208,7 +208,7 @@ fn decrypt() {
                                            &[], // No symmetric encryption.
                                            &[&tpk],
                                            EncryptionMode::ForTransport,
-                                           None).unwrap();
+                                           None, None).unwrap();
 
             // Emit a literal data packet.
             let mut literal_writer = LiteralWriter::new(

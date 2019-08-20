@@ -17,6 +17,7 @@ use self::openpgp::{
     crypto::Password,
 };
 use self::openpgp::constants::{
+    AEADAlgorithm,
     DataFormat,
     HashAlgorithm,
     SymmetricAlgorithm,
@@ -240,7 +241,8 @@ pub extern "C" fn pgp_encryptor_new
      passwords: Option<&*const c_char>, passwords_len: size_t,
      recipients: Option<&*const TPK>, recipients_len: size_t,
      encryption_mode: u8,
-     cipher_algo: u8)
+     cipher_algo: u8,
+     aead_algo: u8)
      -> *mut writer::Stack<'static, Cookie>
 {
     ffi_make_fry_from_errp!(errp);
@@ -276,9 +278,15 @@ pub extern "C" fn pgp_encryptor_new
     } else {
         Some(cipher_algo.into())
     };
+    let aead_algo : Option<AEADAlgorithm> = if aead_algo == 0 {
+        None
+    } else {
+        Some(aead_algo.into())
+    };
     ffi_try_box!(Encryptor::new(*inner,
                                 &passwords_.iter().collect::<Vec<&Password>>(),
                                 &recipients[..],
                                 encryption_mode,
-                                cipher_algo))
+                                cipher_algo,
+                                aead_algo))
 }

@@ -50,7 +50,7 @@ fn main() {
                                    &[], // No symmetric encryption.
                                    &recipients,
                                    mode,
-                                   None)
+                                   None, None)
         .expect("Failed to create encryptor");
     let mut literal_writer = LiteralWriter::new(encryptor, DataFormat::Binary,
                                                 None, None)
