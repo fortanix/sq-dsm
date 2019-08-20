@@ -380,12 +380,12 @@ pub fn build() -> App<'static, 'static> {
                         .arg(Arg::with_name("can-encrypt").value_name("PURPOSE")
                              .long("can-encrypt")
                              .possible_values(&["transport", "rest", "all"])
-                             .default_value("all")
                              .help("The key has an encryption-capable subkey \
                                     (default)"))
                         .arg(Arg::with_name("cannot-encrypt")
                              .long("cannot-encrypt")
                              .help("The key will not be able to encrypt data"))
+
                         .arg(Arg::with_name("export").value_name("OUTFILE")
                              .long("export")
                              .short("e")
