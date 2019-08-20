@@ -478,10 +478,10 @@
 //!         --with-password     Prompt for a password to protect the generated key with.
 //!
 //! OPTIONS:
-//!         --can-encrypt <PURPOSE>          The key has an encryption-capable subkey (default) [default: all]  [possible
-//!                                          values: transport, rest, all]
-//!     -c, --cipher-suite <CIPHER-SUITE>    Cryptographic algorithms used for the key. [default: rsa3k]  [possible values:
-//!                                          rsa3k, cv25519]
+//!         --can-encrypt <PURPOSE>          The key has an encryption-capable subkey (default) [possible values: transport,
+//!                                          rest, all]
+//!     -c, --cipher-suite <CIPHER-SUITE>    Cryptographic algorithms used for the key. [default: cv25519]  [possible
+//!                                          values: rsa3k, cv25519]
 //!         --expiry <EXPIRY>                When the key should expire.  Either 'N[ymwd]', for N years, months, weeks, or
 //!                                          days, or 'never'.
 //!     -e, --export <OUTFILE>               Exports the key instead of saving it in the store
