@@ -16,6 +16,7 @@ use crate::{
     RevocationStatus,
     SignatureType,
     HashAlgorithm,
+    packet,
     packet::Tag,
     packet::Signature,
     packet::signature,
@@ -25,7 +26,6 @@ use crate::{
     packet::Unknown,
     Packet,
     PacketPile,
-    TPK,
     KeyID,
     Fingerprint,
 };
@@ -742,6 +742,80 @@ impl<'a> ExactSizeIterator for SubkeyBindingIter<'a> {
     }
 }
 
+/// A transferable public key (TPK).
+///
+/// A TPK (see [RFC 4880, section 11.1]) can be used to verify
+/// signatures and encrypt data.  It can be stored in a keystore and
+/// uploaded to keyservers.
+///
+/// TPKs are always canonicalized in the sense that only elements
+/// (user id, user attribute, subkey) with at least one valid
+/// self-signature are preserved.  Also, invalid self-signatures are
+/// dropped.  The self-signatures are sorted so that the newest
+/// self-signature comes first.  User IDs are sorted so that the first
+/// `UserID` is the primary User ID.  Third-party certifications are
+/// *not* validated, as the keys are not available; they are simply
+/// passed through as is.
+///
+/// [RFC 4880, section 11.1]: https://tools.ietf.org/html/rfc4880#section-11.1
+///
+/// # Secret keys
+///
+/// Any key in a `TPK` may have a secret key attached to it.  To
+/// protect secret keys from being leaked, secret keys are not written
+/// out if a `TPK` is serialized.  To also serialize the secret keys,
+/// you need to use [`TPK::as_tsk()`] to get an object that writes
+/// them out during serialization.
+///
+/// [`TPK::as_tsk()`]: #method.as_tsk
+///
+/// # Example
+///
+/// ```rust
+/// # extern crate sequoia_openpgp as openpgp;
+/// # use openpgp::Result;
+/// # use openpgp::parse::{Parse, PacketParserResult, PacketParser};
+/// use openpgp::TPK;
+///
+/// # fn main() { f().unwrap(); }
+/// # fn f() -> Result<()> {
+/// #     let ppr = PacketParser::from_bytes(&b""[..])?;
+/// match TPK::from_packet_parser(ppr) {
+///     Ok(tpk) => {
+///         println!("Key: {}", tpk.primary());
+///         for binding in tpk.userids() {
+///             println!("User ID: {}", binding.userid());
+///         }
+///     }
+///     Err(err) => {
+///         eprintln!("Error parsing TPK: {}", err);
+///     }
+/// }
+///
+/// #     Ok(())
+/// # }
+#[derive(Debug, Clone, PartialEq)]
+pub struct TPK {
+    primary: packet::Key,
+    primary_selfsigs: Vec<packet::Signature>,
+    primary_certifications: Vec<packet::Signature>,
+    primary_self_revocations: Vec<packet::Signature>,
+    // Other revocations (these may or may not be by known designated
+    // revokers).
+    primary_other_revocations: Vec<packet::Signature>,
+
+    userids: Vec<UserIDBinding>,
+    user_attributes: Vec<UserAttributeBinding>,
+    subkeys: Vec<SubkeyBinding>,
+
+    // Unknown components, e.g., some UserAttribute++ packet from the
+    // future.
+    pub(crate) // XXX for TSK::serialize()
+    unknowns: Vec<UnknownBinding>,
+    // Signatures that we couldn't find a place for.
+    pub(crate) // XXX for TSK::serialize()
+    bad: Vec<packet::Signature>,
+}
 
 impl<'a> Parse<'a, TPK> for TPK {
     /// Returns the first TPK encountered in the reader.
