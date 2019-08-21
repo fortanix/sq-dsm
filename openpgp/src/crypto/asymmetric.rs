@@ -144,8 +144,8 @@ impl Signer for KeyPair {
                     // Nettle expects the private key to be exactly
                     // ED25519_KEY_SIZE bytes long but OpenPGP allows leading
                     // zeros to be stripped.
-                    // Padding has to be unconditionaly, otherwise we have a
-                    // secret-dependant branch.
+                    // Padding has to be unconditional; otherwise we have a
+                    // secret-dependent branch.
                     let missing = ed25519::ED25519_KEY_SIZE
                         .saturating_sub(scalar.value().len());
                     let mut sec = [0u8; ed25519::ED25519_KEY_SIZE];
