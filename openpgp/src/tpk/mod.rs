@@ -742,6 +742,31 @@ impl<'a> ExactSizeIterator for SubkeyBindingIter<'a> {
     }
 }
 
+/// An iterator over `UnknownBinding`s.
+pub struct UnknownBindingIter<'a> {
+    iter: Option<slice::Iter<'a, UnknownBinding>>,
+}
+
+impl<'a> Iterator for UnknownBindingIter<'a> {
+    type Item = &'a UnknownBinding;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.iter {
+            Some(ref mut iter) => iter.next(),
+            None => None,
+        }
+    }
+}
+
+impl<'a> ExactSizeIterator for UnknownBindingIter<'a> {
+    fn len(&self) -> usize {
+        match self.iter {
+            Some(ref iter) => iter.len(),
+            None => 0,
+        }
+    }
+}
+
 /// A transferable public key (TPK).
 ///
 /// A TPK (see [RFC 4880, section 11.1]) can be used to verify
@@ -810,7 +835,6 @@ pub struct TPK {
 
     // Unknown components, e.g., some UserAttribute++ packet from the
     // future.
-    pub(crate) // XXX for TSK::serialize()
     unknowns: Vec<UnknownBinding>,
     // Signatures that we couldn't find a place for.
     pub(crate) // XXX for TSK::serialize()
@@ -1166,6 +1190,13 @@ impl TPK {
     /// A valid `SubkeyBinding` has at least one good self-signature.
     pub fn subkeys(&self) -> SubkeyBindingIter {
         SubkeyBindingIter { iter: Some(self.subkeys.iter()) }
+    }
+
+    /// Returns an iterator over the TPK's valid unknown components.
+    ///
+    /// A valid `UnknownBinding` has at least one good self-signature.
+    pub fn unknowns(&self) -> UnknownBindingIter {
+        UnknownBindingIter { iter: Some(self.unknowns.iter()) }
     }
 
     /// Returns an iterator over the TPK's valid keys (live and

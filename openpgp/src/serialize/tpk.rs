@@ -123,7 +123,7 @@ impl TPK {
             }
         }
 
-        for u in self.unknowns.iter() {
+        for u in self.unknowns() {
             if export && ! u.certifications().iter().any(
                 |s| s.exportable_certification().unwrap_or(true))
             {
@@ -224,7 +224,7 @@ impl SerializeInto for TPK {
             }
         }
 
-        for u in self.unknowns.iter() {
+        for u in self.unknowns() {
             l += PacketRef::Unknown(u.unknown()).serialized_len();
 
             for s in u.self_revocations() {
@@ -460,7 +460,7 @@ impl<'a> TSK<'a> {
             }
         }
 
-        for u in self.tpk.unknowns.iter() {
+        for u in self.tpk.unknowns() {
             if export && ! u.certifications().iter().any(
                 |s| s.exportable_certification().unwrap_or(true))
             {
@@ -594,7 +594,7 @@ impl<'a> SerializeInto for TSK<'a> {
             }
         }
 
-        for u in self.tpk.unknowns.iter() {
+        for u in self.tpk.unknowns() {
             l += PacketRef::Unknown(u.unknown()).serialized_len();
 
             for s in u.self_revocations() {
