@@ -1097,7 +1097,7 @@ mod test {
                         good += 1;
                     }
 
-                    for sk in &tpk.subkeys {
+                    for sk in tpk.subkeys() {
                         let result = sig.verify(sk.subkey()).unwrap_or(false);
                         eprintln!("   Subkey {:?}: {:?}",
                                   sk.subkey().fingerprint(), result);
