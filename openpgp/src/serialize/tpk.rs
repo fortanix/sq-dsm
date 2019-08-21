@@ -133,7 +133,16 @@ impl TPK {
 
             PacketRef::Unknown(u.unknown()).serialize(o)?;
 
-            for s in u.certifications().iter() {
+            for s in u.self_revocations() {
+                serialize_sig(o, s)?;
+            }
+            for s in u.selfsigs() {
+                serialize_sig(o, s)?;
+            }
+            for s in u.other_revocations() {
+                serialize_sig(o, s)?;
+            }
+            for s in u.certifications() {
                 serialize_sig(o, s)?;
             }
         }
@@ -218,7 +227,16 @@ impl SerializeInto for TPK {
         for u in self.unknowns.iter() {
             l += PacketRef::Unknown(u.unknown()).serialized_len();
 
-            for s in u.certifications().iter() {
+            for s in u.self_revocations() {
+                l += PacketRef::Signature(s).serialized_len();
+            }
+            for s in u.selfsigs() {
+                l += PacketRef::Signature(s).serialized_len();
+            }
+            for s in u.other_revocations() {
+                l += PacketRef::Signature(s).serialized_len();
+            }
+            for s in u.certifications() {
                 l += PacketRef::Signature(s).serialized_len();
             }
         }
@@ -452,7 +470,16 @@ impl<'a> TSK<'a> {
 
             PacketRef::Unknown(&u.unknown()).serialize(o)?;
 
-            for s in u.certifications().iter() {
+            for s in u.self_revocations() {
+                serialize_sig(o, s)?;
+            }
+            for s in u.selfsigs() {
+                serialize_sig(o, s)?;
+            }
+            for s in u.other_revocations() {
+                serialize_sig(o, s)?;
+            }
+            for s in u.certifications() {
                 serialize_sig(o, s)?;
             }
         }
@@ -570,7 +597,16 @@ impl<'a> SerializeInto for TSK<'a> {
         for u in self.tpk.unknowns.iter() {
             l += PacketRef::Unknown(u.unknown()).serialized_len();
 
-            for s in u.certifications().iter() {
+            for s in u.self_revocations() {
+                l += PacketRef::Signature(s).serialized_len();
+            }
+            for s in u.selfsigs() {
+                l += PacketRef::Signature(s).serialized_len();
+            }
+            for s in u.other_revocations() {
+                l += PacketRef::Signature(s).serialized_len();
+            }
+            for s in u.certifications() {
                 l += PacketRef::Signature(s).serialized_len();
             }
         }
