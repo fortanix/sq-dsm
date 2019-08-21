@@ -39,7 +39,7 @@ use buffered_reader::BufferedReader;
 /// to the packet (`&mut Packet`) that is currently being processed
 /// while continuing to support streaming operations.  It is also not
 /// possible to return a mutable reference to the `PacketParser`.
-/// Thus, we expose the `Option<PacketParser>` directly to the user.
+/// Thus, we expose the `PacketParserResult` directly to the user.
 /// *However*, do *not* directly call `PacketParser::next()` or
 /// `PacketParser::recurse()`.  This will break the `PacketPileParser`
 /// implementation.
