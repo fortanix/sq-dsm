@@ -846,7 +846,10 @@ impl<'a> Encryptor<'a> {
     /// encryption-capable subkeys of the given TPKs.
     ///
     /// Unless otherwise specified, the stream is encrypted using
-    /// AES256.  Key preferences of the recipients are not honored.
+    /// AES256.  If `aead_algo` is `None`, a `SEIP` packet is emitted,
+    /// otherwise the given AEAD algorithm is used.
+    ///
+    /// Key preferences of the recipients are not honored.
     ///
     /// # Example
     ///
