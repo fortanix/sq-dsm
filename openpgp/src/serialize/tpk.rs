@@ -147,7 +147,7 @@ impl TPK {
             }
         }
 
-        for s in self.bad.iter() {
+        for s in self.bad_signatures() {
             serialize_sig(o, s)?;
         }
 
@@ -241,7 +241,7 @@ impl SerializeInto for TPK {
             }
         }
 
-        for s in self.bad.iter() {
+        for s in self.bad_signatures() {
             l += PacketRef::Signature(s).serialized_len();
         }
 
@@ -484,7 +484,7 @@ impl<'a> TSK<'a> {
             }
         }
 
-        for s in self.tpk.bad.iter() {
+        for s in self.tpk.bad_signatures() {
             serialize_sig(o, s)?;
         }
 
@@ -611,7 +611,7 @@ impl<'a> SerializeInto for TSK<'a> {
             }
         }
 
-        for s in self.tpk.bad.iter() {
+        for s in self.tpk.bad_signatures() {
             l += PacketRef::Signature(s).serialized_len();
         }
 

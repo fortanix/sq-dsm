@@ -837,7 +837,6 @@ pub struct TPK {
     // future.
     unknowns: Vec<UnknownBinding>,
     // Signatures that we couldn't find a place for.
-    pub(crate) // XXX for TSK::serialize()
     bad: Vec<packet::Signature>,
 }
 
@@ -1197,6 +1196,14 @@ impl TPK {
     /// A valid `UnknownBinding` has at least one good self-signature.
     pub fn unknowns(&self) -> UnknownBindingIter {
         UnknownBindingIter { iter: Some(self.unknowns.iter()) }
+    }
+
+    /// Returns a slice containing all bad signatures.
+    ///
+    /// Bad signatures are signatures that we could not associate with
+    /// one of the components.
+    pub fn bad_signatures(&self) -> &[Signature] {
+        &self.bad
     }
 
     /// Returns an iterator over the TPK's valid keys (live and
