@@ -49,7 +49,6 @@ extern crate native_tls;
 extern crate nettle;
 extern crate tokio_core;
 extern crate tokio_io;
-#[macro_use]
 extern crate percent_encoding;
 extern crate url;
 extern crate zbase32;
@@ -60,7 +59,8 @@ use hyper::header::{CONTENT_LENGTH, CONTENT_TYPE, HeaderValue};
 use hyper::{Client, Body, StatusCode, Request};
 use hyper_tls::HttpsConnector;
 use native_tls::{Certificate, TlsConnector};
-use percent_encoding::{percent_encode, DEFAULT_ENCODE_SET};
+use percent_encoding::{percent_encode, AsciiSet, CONTROLS};
+
 use std::convert::From;
 use std::io::Cursor;
 use url::Url;
@@ -72,13 +72,14 @@ use sequoia_core::{Context, NetworkPolicy};
 
 pub mod wkd;
 
-define_encode_set! {
-    /// Encoding used for submitting keys.
-    ///
-    /// The SKS keyserver as of version 1.1.6 is a bit picky with
-    /// respect to the encoding.
-    pub KEYSERVER_ENCODE_SET = [DEFAULT_ENCODE_SET] | {'-', '+', '/' }
-}
+/// https://url.spec.whatwg.org/#fragment-percent-encode-set
+const KEYSERVER_ENCODE_SET: &AsciiSet =
+    // Formerly DEFAULT_ENCODE_SET
+    &CONTROLS.add(b' ').add(b'"').add(b'#').add(b'<').add(b'>').add(b'`')
+    .add(b'?').add(b'{').add(b'}')
+    // The SKS keyserver as of version 1.1.6 is a bit picky with
+    // respect to the encoding.
+    .add(b'-').add(b'+').add(b'/');
 
 /// For accessing keyservers using HKP.
 pub struct KeyServer {
