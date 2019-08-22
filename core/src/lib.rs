@@ -19,14 +19,13 @@
 /// ```
 
 extern crate dirs;
-extern crate tempdir;
+extern crate tempfile;
 #[macro_use]
 extern crate failure;
 
 use std::fmt;
 use std::io;
 use std::path::{Path, PathBuf};
-use tempdir::TempDir;
 
 /// A `Context` for Sequoia.
 ///
@@ -193,7 +192,7 @@ impl Config {
         // share home directories, e.g. client and server processes
         // share one home.
         if c.ephemeral && home_not_set {
-            let tmp = TempDir::new("sequoia")?;
+            let tmp = tempfile::Builder::new().prefix("sequoia").tempdir()?;
             c.home = tmp.into_path();
             c.cleanup = true;
         } else {
