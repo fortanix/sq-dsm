@@ -50,19 +50,19 @@ pub fn cdecl(_attr: TokenStream, item: TokenStream) -> TokenStream {
                   acc
               });
     let vis = &fun.vis;
-    let constness = &fun.constness;
-    let unsafety = &fun.unsafety;
-    let asyncness = &fun.asyncness;
-    let abi = &fun.abi;
-    let ident = &fun.ident;
+    let constness = &fun.sig.constness;
+    let unsafety = &fun.sig.unsafety;
+    let asyncness = &fun.sig.asyncness;
+    let abi = &fun.sig.abi;
+    let ident = &fun.sig.ident;
 
-    let decl = &fun.decl;
-    let fn_token = &decl.fn_token;
-    let fn_generics = &decl.generics;
-    let fn_out = &decl.output;
+    let fn_token = &fun.sig.fn_token;
+    let fn_generics = &fun.sig.generics;
+    let fn_out = &fun.sig.output;
 
     let mut fn_params = TokenStream2::new();
-    decl.paren_token.surround(&mut fn_params, |ts| decl.inputs.to_tokens(ts));
+    fun.sig.paren_token.surround(&mut fn_params,
+                                 |ts| fun.sig.inputs.to_tokens(ts));
 
     let block = &fun.block;
 
@@ -131,19 +131,19 @@ pub fn ffi_catch_abort(_attr: TokenStream, item: TokenStream) -> TokenStream {
                   acc
               });
     let vis = &fun.vis;
-    let constness = &fun.constness;
-    let unsafety = &fun.unsafety;
-    let asyncness = &fun.asyncness;
-    let abi = &fun.abi;
-    let ident = &fun.ident;
+    let constness = &fun.sig.constness;
+    let unsafety = &fun.sig.unsafety;
+    let asyncness = &fun.sig.asyncness;
+    let abi = &fun.sig.abi;
+    let ident = &fun.sig.ident;
 
-    let decl = &fun.decl;
-    let fn_token = &decl.fn_token;
-    let fn_generics = &decl.generics;
-    let fn_out = &decl.output;
+    let fn_token = &fun.sig.fn_token;
+    let fn_generics = &fun.sig.generics;
+    let fn_out = &fun.sig.output;
 
     let mut fn_params = TokenStream2::new();
-    decl.paren_token.surround(&mut fn_params, |ts| decl.inputs.to_tokens(ts));
+    fun.sig.paren_token.surround(&mut fn_params,
+                                 |ts| fun.sig.inputs.to_tokens(ts));
 
     let block = &fun.block;
 
@@ -202,7 +202,15 @@ pub fn ffi_wrapper_type(args: TokenStream, input: TokenStream) -> TokenStream {
                     syn::Lit::Str(ref s) => s.value(),
                     _ => unreachable!(),
                 };
-                match mnv.ident.to_string().as_ref() {
+                let mnv_ident = if let Some(i) = mnv.path.get_ident() {
+                    i
+                } else {
+                    return syn::Error::new(
+                        mnv.path.span(),
+                        "unexpected path, must be an ident")
+                        .to_compile_error().into();
+                };
+                match mnv_ident.to_string().as_ref() {
                     "name" => name = Some(value),
                     "prefix" => prefix = Some(value),
                     "derive" => {
@@ -212,7 +220,7 @@ pub fn ffi_wrapper_type(args: TokenStream, input: TokenStream) -> TokenStream {
                                 if let Some(i) = ident.find('(') {
                                     if ! ident.ends_with(")") {
                                         return syn::Error::new(
-                                            mnv.ident.span(),
+                                            mnv.path.span(),
                                             format!("missing closing \
                                                      parenthesis: \
                                                      {}", ident))
@@ -229,14 +237,14 @@ pub fn ffi_wrapper_type(args: TokenStream, input: TokenStream) -> TokenStream {
                                 derive.push((*f, arg));
                             } else {
                                 return syn::Error::new(
-                                    mnv.ident.span(),
+                                    mnv.path.span(),
                                     format!("unknown derive: {}", ident))
                                     .to_compile_error().into();
                             }
                         }
                     },
                     name => return
-                        syn::Error::new(mnv.ident.span(),
+                        syn::Error::new(mnv.path.span(),
                                         format!("unexpected parameter: {}",
                                                 name))
                         .to_compile_error().into(),
@@ -262,7 +270,7 @@ pub fn ffi_wrapper_type(args: TokenStream, input: TokenStream) -> TokenStream {
                                     "expected a single field")
                     .to_compile_error().into();
             }
-            fields.unnamed.first().unwrap().value().ty.clone()
+            fields.unnamed.first().unwrap().ty.clone()
         },
         _ => return
             syn::Error::new(argument_span,
