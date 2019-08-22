@@ -37,7 +37,7 @@ nettle = "5.0"
 percent-encoding = "1.0.1"
 tokio-core = "0.1"
 tokio-io = "0.1.4"
-url = "1.6.0"
+url = "2.1"
 zbase32 = "0.1.2"
 
 [dev-dependencies]
