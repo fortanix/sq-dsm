@@ -35,7 +35,7 @@ capnp = "0.10"
 capnp-rpc = "0.10"
 failure = "0.1.2"
 futures = "0.1.17"
-rand = "0.6"
+rand = { version = "0.6", default-features = false }
 rusqlite = "0.14"
 time = "0.1.38"
 tokio-core = "0.1.10"

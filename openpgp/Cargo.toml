@@ -33,8 +33,8 @@ lalrpop-util = "0.17"
 lazy_static = "1.3"
 memsec = "0.5.6"
 nettle = "5.0.2"
-quickcheck = "0.8"
-rand = "0.6"
+quickcheck = { version = "0.8", default-features = false }
+rand = { version = "0.6", default-features = false }
 time = "0.1.40"
 sequoia-rfc2822 = { path = "../rfc2822", version = "0.9" }
 

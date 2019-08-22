@@ -31,7 +31,7 @@ futures = "0.1"
 lalrpop-util = "0.17"
 libc = "0.2.33"
 memsec = "0.5.6"
-rand = "0.6"
+rand = { version = "0.6", default-features = false }
 tempfile = "3.0"
 tokio = "0.1"
 tokio-core = "0.1"
