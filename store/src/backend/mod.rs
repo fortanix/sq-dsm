@@ -15,8 +15,12 @@ use futures::Future;
 use futures::future::{self, loop_fn, Loop};
 use rand::distributions::{Distribution, Uniform};
 use rand::thread_rng;
-use rusqlite::Connection;
-use rusqlite;
+use rusqlite::{
+    self,
+    Connection,
+    NO_PARAMS,
+    types::ToSql,
+};
 use tokio_core::reactor::{Handle, Timeout};
 use tokio_core;
 use tokio_io::io::ReadHalf;
@@ -119,7 +123,7 @@ impl NodeServer {
     fn init(&self) -> Result<()> {
         let v = self.c.query_row(
             "SELECT version FROM version WHERE id=1",
-            &[], |row| row.get(0));
+            NO_PARAMS, |row| row.get(0));
 
         if let Ok(v) = v {
             match v {
@@ -278,8 +282,10 @@ impl Query for StoreServer {
     fn slug(&self) -> String {
         self.c.query_row(
             "SELECT realm, name FROM stores WHERE id = ?1",
-            &[&self.id], |row| -> String {
-                format!("{}:{}", row.get::<_, String>(0), row.get::<_, String>(1))
+            &[&self.id], |row| -> rusqlite::Result<String> {
+                Ok(format!("{}:{}",
+                           row.get::<_, String>(0)?,
+                           row.get::<_, String>(1)?))
             })
             .unwrap_or(
                 format!("{}::{}", Self::table_name(), self.id())
@@ -300,10 +306,11 @@ impl StoreServer {
 
         c.execute(
             "INSERT OR IGNORE INTO stores (realm, network_policy, name) VALUES (?1, ?2, ?3)",
-            &[&realm, &p, &name])?;
+            &[&realm as &ToSql, &p, &name])?;
         let (id, store_policy): (ID, i64) = c.query_row(
             "SELECT id, network_policy FROM stores WHERE realm = ?1 AND name = ?2",
-            &[&realm, &name], |row| (row.get(0), row.get(1)))?;
+            &[&realm, &name],
+            |row| Ok((row.get(0)?, row.get(1)?)))?;
 
         // We cannot implement FromSql and friends for
         // core::NetworkPolicy, hence we need to do it by foot.
@@ -362,7 +369,7 @@ impl node::store::Server for StoreServer {
         let binding_id: ID = sry!(
             self.c.query_row(
                 "SELECT id FROM bindings WHERE store = ?1 AND label = ?2",
-                &[&self.id, &label], |row| row.get(0)));
+                &[&self.id as &ToSql, &label], |row| row.get(0)));
 
         pry!(pry!(results.get().get_result()).set_ok(
             node::binding::ToClient::new(
@@ -452,7 +459,11 @@ impl BindingServer {
         let key_id = KeyServer::lookup_or_create(c, fp)?;
         if let Ok((binding, key)) = c.query_row(
             "SELECT id, key FROM bindings WHERE store = ?1 AND label = ?2",
-            &[&store, &label], |row| -> (ID, ID) {(row.get(0), row.get(1))}) {
+            &[&store as &ToSql, &label],
+            |row| -> rusqlite::Result<(ID, ID)> {
+                Ok((row.get(0)?, row.get(1)?))
+            })
+        {
             if key == key_id {
                 Ok((binding, key_id, false))
             } else {
@@ -462,7 +473,7 @@ impl BindingServer {
             let r = c.execute(
                 "INSERT INTO bindings (store, label, key, created)
                  VALUES (?, ?, ?, ?)",
-                &[&store, &label, &key_id, &Timestamp::now()]);
+                &[&store as &ToSql, &label, &key_id, &Timestamp::now()]);
 
             // Some other mutator might race us to the insertion.
             match r {
@@ -471,7 +482,8 @@ impl BindingServer {
                     rusqlite::ErrorCode::ConstraintViolation => {
                         let (binding, key): (ID, ID) = c.query_row(
                             "SELECT id, key FROM bindings WHERE store = ?1 AND label = ?2",
-                            &[&store, &label], |row| (row.get(0), row.get(1)))?;
+                            &[&store as &ToSql, &label],
+                            |row| Ok((row.get(0)?, row.get(1)?)))?;
                         if key == key_id {
                             Ok((binding, key_id, false))
                         } else {
@@ -504,7 +516,7 @@ impl Query for BindingServer {
     fn slug(&self) -> String {
         self.c.query_row(
             "SELECT label FROM bindings WHERE id = ?1",
-            &[&self.id], |row| -> String {
+            &[&self.id], |row| -> rusqlite::Result<String> {
                 row.get(0)
             })
             .unwrap_or(
@@ -552,7 +564,7 @@ impl node::binding::Server for BindingServer {
             = sry!(self.c.query_row(
                 "SELECT fingerprint, key FROM keys WHERE id = ?1",
                 &[&key_id],
-                |row| (row.get(0), row.get_checked(1).ok())));
+                |row| Ok((row.get(0)?, row.get(1).ok()))));
 
         // If we found one, convert it to TPK.
         let current = if let Some(current) = key {
@@ -590,7 +602,7 @@ impl node::binding::Server for BindingServer {
         sry!(new.serialize(&mut blob));
 
         sry!(self.c.execute("UPDATE keys SET key = ?1 WHERE id = ?2",
-                            &[&blob, &key_id]));
+                            &[&blob as &ToSql, &key_id]));
         sry!(KeyServer::reindex_subkeys(&self.c, key_id, &new));
 
         pry!(pry!(results.get().get_result()).set_ok(&blob[..]));
@@ -621,14 +633,14 @@ impl node::binding::Server for BindingServer {
                            encryption_first = coalesce(encryption_first, ?2),
                            encryption_last = ?2
                        WHERE id = ?1",
-                      &[&self.id, &now]));
+                      &[&self.id as &ToSql, &now]));
         sry!(self.c
              .execute("UPDATE keys
                        SET encryption_count = encryption_count + 1,
                            encryption_first = coalesce(encryption_first, ?2),
                            encryption_last = ?2
                        WHERE id = ?1",
-                      &[&key, &now]));
+                      &[&key as &ToSql, &now]));
 
         sry!(self.query_stats( pry!(results.get().get_result()).init_ok()));
         Promise::ok(())
@@ -648,14 +660,14 @@ impl node::binding::Server for BindingServer {
                            verification_first = coalesce(verification_first, ?2),
                            verification_last = ?2
                        WHERE id = ?1",
-                      &[&self.id, &now]));
+                      &[&self.id as &ToSql, &now]));
         sry!(self.c
              .execute("UPDATE keys
                        SET verification_count = verification_count + 1,
                            verification_first = coalesce(verification_first, ?2),
                            verification_last = ?2
                        WHERE id = ?1",
-                      &[&key, &now]));
+                      &[&key as &ToSql, &now]));
 
         sry!(self.query_stats( pry!(results.get().get_result()).init_ok()));
         Promise::ok(())
@@ -679,7 +691,7 @@ impl node::binding::Server for BindingServer {
         bind_results!(results);
         let label = sry!(self.c.query_row(
             "SELECT label FROM bindings WHERE id = ?1",
-            &[&self.id], |row| -> String {
+            &[&self.id], |row| -> rusqlite::Result<String> {
                 row.get(0)
             }));
 
@@ -733,7 +745,7 @@ impl KeyServer {
         } else {
             let r = c.execute(
                 "INSERT INTO keys (fingerprint, created, update_at) VALUES (?1, ?2, ?2)",
-                &[&fp, &Timestamp::now()]);
+                &[&fp as &ToSql, &Timestamp::now()]);
 
             // Some other mutator might race us to the insertion.
             match r {
@@ -763,7 +775,7 @@ impl KeyServer {
             = self.c.query_row(
                 "SELECT fingerprint, key FROM keys WHERE id = ?1",
                 &[&self.id],
-                |row| (row.get(0), row.get_checked(1).ok()))?;
+                |row| Ok((row.get(0)?, row.get(1).ok())))?;
 
         // If there was a key stored there, merge it.
         if let Some(current) = key {
@@ -786,7 +798,7 @@ impl KeyServer {
         new.serialize(&mut blob)?;
 
         self.c.execute("UPDATE keys SET key = ?1 WHERE id = ?2",
-                       &[&blob, &self.id])?;
+                       &[&blob as &ToSql, &self.id])?;
         KeyServer::reindex_subkeys(&self.c, self.id, &new)?;
 
         Ok(blob)
@@ -800,7 +812,7 @@ impl KeyServer {
 
             let r = c.execute(
                 "INSERT INTO key_by_keyid (keyid, key) VALUES (?1, ?2)",
-                &[&(keyid as i64), &key_id]);
+                &[&(keyid as i64) as &ToSql, &key_id]);
 
             // The mapping might already be present.  This is not an error.
             match r {
@@ -825,7 +837,7 @@ impl KeyServer {
         self.c.execute("UPDATE keys
                         SET updated = ?2, update_at = ?3
                         WHERE id = ?1",
-                       &[&self.id, &Timestamp::now(),
+                       &[&self.id as &ToSql, &Timestamp::now(),
                          &(Timestamp::now() + next)])?;
         Ok(())
     }
@@ -837,7 +849,7 @@ impl KeyServer {
         self.c.execute("UPDATE keys
                         SET update_at = ?2
                         WHERE id = ?1",
-                       &[&self.id,
+                       &[&self.id as &ToSql,
                          &(Timestamp::now() + next)])?;
         Ok(())
     }
@@ -854,7 +866,9 @@ impl KeyServer {
                  JOIN stores on stores.id = bindings.store
                  WHERE stores.network_policy = ?1
                  ORDER BY keys.update_at LIMIT 1",
-            &[&network_policy_u8], |row| -> Timestamp {row.get(0)}).ok()
+            &[&network_policy_u8], |row| -> rusqlite::Result<Timestamp> {
+                row.get(0)
+            }).ok()
     }
 
     /// Returns the number of keys using the given policy.
@@ -889,8 +903,8 @@ impl KeyServer {
                  WHERE stores.network_policy >= ?1
                    AND keys.update_at < ?2
                  ORDER BY keys.update_at LIMIT 1",
-            &[&network_policy_u8, &Timestamp::now()], |row| (row.get(0),
-                                                             row.get(1)))?;
+            &[&network_policy_u8 as &ToSql, &Timestamp::now()],
+            |row| Ok((row.get(0)?, row.get(1)?)))?;
         let fingerprint = openpgp::Fingerprint::from_hex(&fingerprint)
             .map_err(|_| node::Error::SystemError)?;
 
@@ -990,7 +1004,7 @@ impl Query for KeyServer {
     fn slug(&self) -> String {
         self.c.query_row(
             "SELECT fingerprint FROM keys WHERE id = ?1",
-            &[&self.id], |row| -> String { row.get(0) })
+            &[&self.id], |row| -> rusqlite::Result<String> { row.get(0) })
             .ok()
             .and_then(|fp| Fingerprint::from_hex(&fp).ok())
             .map(|fp| fp.to_keyid().to_string())
@@ -1019,7 +1033,7 @@ impl node::key::Server for KeyServer {
             self.c.query_row(
                 "SELECT key FROM keys WHERE id = ?1",
                 &[&self.id],
-                |row| row.get_checked(0).unwrap_or(vec![])));
+                |row| Ok(row.get(0).unwrap_or(vec![]))));
         pry!(pry!(results.get().get_result()).set_ok(key.as_slice()));
         Promise::ok(())
     }
@@ -1080,9 +1094,10 @@ trait Query {
                           verification_last
                           FROM {0}
                           WHERE id = ?1", Self::table_name()),
-                &[&self.id()], |row| (row.get(0), row.get(1),
-                                      row.get(2), row.get(3), row.get(4),
-                                      row.get(5), row.get(6), row.get(7)))?;
+                &[&self.id()],
+                |row| Ok((row.get(0)?, row.get(1)?,
+                          row.get(2)?, row.get(3)?, row.get(4)?,
+                          row.get(5)?, row.get(6)?, row.get(7)?)))?;
         macro_rules! set_some {
             ( $object: ident) => {
                 macro_rules! set {
@@ -1133,8 +1148,8 @@ impl node::store_iter::Server for StoreIterServer {
                  "SELECT id, realm, name, network_policy FROM stores
                       WHERE id > ?1 AND realm like ?2
                       ORDER BY id LIMIT 1",
-                &[&self.n, &self.prefix],
-                |row| (row.get(0), row.get(1), row.get(2), row.get(3))));
+                &[&self.n as &ToSql, &self.prefix],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))));
 
         // We cannot implement FromSql and friends for
         // core::NetworkPolicy, hence we need to do it by foot.
@@ -1179,7 +1194,7 @@ impl node::binding_iter::Server for BindingIterServer {
                       WHERE bindings.id > ?1 AND bindings.store = ?2
                       ORDER BY bindings.id LIMIT 1",
                 &[&self.n, &self.store_id],
-                |row| (row.get(0), row.get(1), row.get(2))));
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?))));
 
         let mut entry = pry!(results.get().get_result()).init_ok();
         entry.set_label(&label);
@@ -1214,7 +1229,7 @@ impl node::key_iter::Server for KeyIterServer {
                       WHERE keys.id > ?1
                       ORDER BY id LIMIT 1",
                 &[&self.n],
-                |row| (row.get(0), row.get(1))));
+                |row| Ok((row.get(0)?, row.get(1)?))));
 
         let mut entry = pry!(results.get().get_result()).init_ok();
         entry.set_fingerprint(&fingerprint);

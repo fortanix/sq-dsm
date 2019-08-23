@@ -1,9 +1,9 @@
 //! Logging for the backend.
 
 // XXX: Implement log levels and trim the log.
-
+use rusqlite::{Connection, types::ToSql};
 use super::{
-    ID, Timestamp, Connection, Rc, Result, node,
+    ID, Timestamp, Rc, Result, node,
     StoreServer, BindingServer, KeyServer,
     Promise, capnp, capnp_rpc
 };
@@ -61,7 +61,7 @@ fn log(c: &Rc<Connection>, refers: Refers,
     c.execute("INSERT INTO log
                    (timestamp, level, store, binding, key, slug, message, error)
                    VALUES (?1, 0, ?2, ?3, ?4, ?5, ?6, ?7)",
-              &[&Timestamp::now(),
+              &[&Timestamp::now() as &ToSql,
                 &refers.store, &refers.binding, &refers.key,
                 &slug, &message, &error])?;
     Ok(c.last_insert_rowid().into())
@@ -113,9 +113,9 @@ impl node::log_iter::Server for IterServer {
                          WHERE id < ?1
                          ORDER BY id DESC LIMIT 1",
                     &[&self.n],
-                    |row| (row.get(0), row.get(1),
-                           row.get(2), row.get(3), row.get(4),
-                           row.get(5), row.get(6), row.get(7))),
+                    |row| Ok((row.get(0)?, row.get(1)?,
+                              row.get(2)?, row.get(3)?, row.get(4)?,
+                              row.get(5)?, row.get(6)?, row.get(7)?))),
 
             Selector::Store(store) =>
                 self.c.query_row(
@@ -129,9 +129,9 @@ impl node::log_iter::Server for IterServer {
                                 OR key IN (SELECT key FROM bindings WHERE store = ?2))
                          ORDER BY id DESC LIMIT 1",
                     &[&self.n, &store],
-                    |row| (row.get(0), row.get(1),
-                           row.get(2), row.get(3), row.get(4),
-                           row.get(5), row.get(6), row.get(7))),
+                    |row| Ok((row.get(0)?, row.get(1)?,
+                              row.get(2)?, row.get(3)?, row.get(4)?,
+                              row.get(5)?, row.get(6)?, row.get(7)?))),
 
             Selector::Binding(binding) =>
                 self.c.query_row(
@@ -144,9 +144,9 @@ impl node::log_iter::Server for IterServer {
                                 OR key IN (SELECT key FROM bindings WHERE id = ?2))
                          ORDER BY id DESC LIMIT 1",
                     &[&self.n, &binding],
-                    |row| (row.get(0), row.get(1),
-                           row.get(2), row.get(3), row.get(4),
-                           row.get(5), row.get(6), row.get(7))),
+                    |row| Ok((row.get(0)?, row.get(1)?,
+                              row.get(2)?, row.get(3)?, row.get(4)?,
+                              row.get(5)?, row.get(6)?, row.get(7)?))),
 
             Selector::Key(key) =>
                 self.c.query_row(
@@ -158,9 +158,9 @@ impl node::log_iter::Server for IterServer {
                            AND key = ?2
                          ORDER BY id DESC LIMIT 1",
                     &[&self.n, &key],
-                    |row| (row.get(0), row.get(1),
-                           row.get(2), row.get(3), row.get(4),
-                           row.get(5), row.get(6), row.get(7))),
+                    |row| Ok((row.get(0)?, row.get(1)?,
+                              row.get(2)?, row.get(3)?, row.get(4)?,
+                              row.get(5)?, row.get(6)?, row.get(7)?))),
         });
 
         let mut entry = pry!(results.get().get_result()).init_ok();
