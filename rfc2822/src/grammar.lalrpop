@@ -57,6 +57,24 @@ text : Token<'input> = {
     OTHER,
 }
 
+// To reduce the size of this grammar, we have a list of common tokens
+// that is reused throughout this grammar.
+common_xtext : Token<'input> = {
+    // LPAREN,
+    // RPAREN,
+    LANGLE,
+    RANGLE,
+    // LBRACKET,
+    // RBRACKET,
+    COLON,
+    SEMICOLON,
+    AT,
+    // BACKSLASH,
+    COMMA,
+    DOT,
+    // DQUOTE,
+}
+
 // specials        =       "(" / ")" /     ; Special characters used in
 //                         "<" / ">" /     ;  other parts of the syntax
 //                         "[" / "]" /
@@ -67,17 +85,11 @@ text : Token<'input> = {
 specials : Token<'input> = {
     LPAREN,
     RPAREN,
-    LANGLE,
-    RANGLE,
     LBRACKET,
     RBRACKET,
-    COLON,
-    SEMICOLON,
-    AT,
     BACKSLASH,
-    COMMA,
-    DOT,
     DQUOTE,
+    common_xtext,
 };
 
 
@@ -128,17 +140,11 @@ ctext : Token<'input> = {
 
     // LPAREN,
     // RPAREN,
-    LANGLE,
-    RANGLE,
     LBRACKET,
     RBRACKET,
-    COLON,
-    SEMICOLON,
-    AT,
     // BACKSLASH,
-    COMMA,
-    DOT,
     DQUOTE,
+    common_xtext,
 
     OTHER,
 }
@@ -336,17 +342,11 @@ qtext : Token<'input> = {
 
     LPAREN,
     RPAREN,
-    LANGLE,
-    RANGLE,
     LBRACKET,
     RBRACKET,
-    COLON,
-    SEMICOLON,
-    AT,
     // BACKSLASH,
-    COMMA,
-    DOT,
     // DQUOTE,
+    common_xtext,
 
     OTHER,
 }
@@ -798,17 +798,11 @@ dtext : Token<'input> = {
 
     LPAREN,
     RPAREN,
-    LANGLE,
-    RANGLE,
     //LBRACKET,
     //RBRACKET,
-    COLON,
-    SEMICOLON,
-    AT,
     //BACKSLASH,
-    COMMA,
-    DOT,
     DQUOTE,
+    common_xtext,
 
     OTHER,
 }
