@@ -20,6 +20,48 @@ pub(crate) fn is_printable(c: &char) -> bool {
 }
 
 impl TPK {
+    /// Creates descriptive armor headers.
+    ///
+    /// Returns armor headers that describe this TPK.  The TPK's
+    /// primary fingerprint and userids are included as comments, so
+    /// that it is easier to identify the TPK when looking at the
+    /// armored data.
+    pub fn armor_headers(&self) -> Vec<String> {
+        let length_value = armor::LINE_LENGTH - "Comment: ".len();
+        // Create a header per userid.
+        let mut headers: Vec<String> = self.userids()
+            // Ignore revoked userids.
+            .filter_map(|uidb| {
+                if let RevocationStatus::Revoked(_) = uidb.revoked(None) {
+                    None
+                } else {
+                    Some(uidb)
+                }
+            // Ignore userids not "alive".
+            }).filter_map(|uidb| {
+                if uidb.binding_signature()?.signature_alive() {
+                    Some(uidb)
+                } else {
+                    None
+                }
+            // Ignore userids with non-printable characters.
+            }).filter_map(|uidb| {
+                let value = str::from_utf8(uidb.userid().value()).ok()?;
+                for c in value.chars().take(length_value) {
+                    if !is_printable(&c){
+                        return None;
+                    }
+                }
+                // Make sure the line length does not exceed armor::LINE_LENGTH
+                Some(value.chars().take(length_value).collect())
+            }).collect();
+
+        // Add the fingerprint to the front.
+        headers.insert(0, self.fingerprint().to_string());
+
+        headers
+    }
+
     /// Wraps this TPK in an armor structure when serialized.
     ///
     /// Derives an object from this TPK that adds an armor structure
@@ -64,45 +106,9 @@ impl<'a> Encoder<'a> {
         }
     }
 
-    fn headers(&self) -> Vec<String> {
-        let length_value = armor::LINE_LENGTH - "Comment: ".len();
-        // Create a header per userid.
-        let mut headers: Vec<String> = self.tpk.userids()
-            // Ignore revoked userids.
-            .filter_map(|uidb| {
-                if let RevocationStatus::Revoked(_) = uidb.revoked(None) {
-                    None
-                } else {
-                    Some(uidb)
-                }
-            // Ignore userids not "alive".
-            }).filter_map(|uidb| {
-                if uidb.binding_signature()?.signature_alive() {
-                    Some(uidb)
-                } else {
-                    None
-                }
-            // Ignore userids with non-printable characters.
-            }).filter_map(|uidb| {
-                let value = str::from_utf8(uidb.userid().value()).ok()?;
-                for c in value.chars().take(length_value) {
-                    if !is_printable(&c){
-                        return None;
-                    }
-                }
-                // Make sure the line length does not exceed armor::LINE_LENGTH
-                Some(value.chars().take(length_value).collect())
-            }).collect();
-
-        // Add the fingerprint to the front.
-        headers.insert(0, self.tpk.fingerprint().to_string());
-
-        headers
-    }
-
     fn serialize_common(&self, o: &mut dyn io::Write, export: bool)
                         -> Result<()> {
-        let headers = self.headers();
+        let headers = self.tpk.armor_headers();
 
         // Convert the Vec<String> into Vec<(&str, &str)>
         // `iter_into` can not be used here because will take ownership and
@@ -132,7 +138,7 @@ impl<'a> Serialize for Encoder<'a> {
 
 impl<'a> SerializeInto for Encoder<'a> {
     fn serialized_len(&self) -> usize {
-        let h = self.headers();
+        let h = self.tpk.armor_headers();
         let headers_len =
             "Comment: ".len() * h.len()
             + h.iter().map(|c| c.len()).sum::<usize>();
