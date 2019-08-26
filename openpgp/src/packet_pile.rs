@@ -64,6 +64,14 @@ impl<'a> Parse<'a, PacketPile> for PacketPile {
     }
 }
 
+impl std::str::FromStr for PacketPile {
+    type Err = failure::Error;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        Self::from_bytes(s.as_bytes())
+    }
+}
+
 impl From<Vec<Packet>> for PacketPile {
     fn from(p: Vec<Packet>) -> Self {
         PacketPile { top_level: Container { packets: p } }

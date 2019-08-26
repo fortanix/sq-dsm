@@ -29,6 +29,14 @@ impl fmt::Display for Keygrip {
     }
 }
 
+impl std::str::FromStr for Keygrip {
+    type Err = failure::Error;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        Self::from_hex(s)
+    }
+}
+
 impl Keygrip {
     /// Parses a keygrip.
     pub fn from_hex(hex: &str) -> Result<Self> {

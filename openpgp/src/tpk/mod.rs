@@ -368,6 +368,14 @@ impl<'a> Parse<'a, TPKParser<'a, vec::IntoIter<Packet>>>
     }
 }
 
+impl std::str::FromStr for TPK {
+    type Err = failure::Error;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        Self::from_bytes(s.as_bytes())
+    }
+}
+
 impl<'a, I: Iterator<Item=Packet>> TPKParser<'a, I> {
     /// Initializes a TPKParser from an iterator over Packets.
     pub fn from_iter(iter: I) -> Self {

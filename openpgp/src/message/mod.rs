@@ -338,6 +338,14 @@ impl<'a> Parse<'a, Message> for Message {
     }
 }
 
+impl std::str::FromStr for Message {
+    type Err = failure::Error;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        Self::from_bytes(s.as_bytes())
+    }
+}
+
 impl Message {
     /// Converts the `PacketPile` to a `Message`.
     ///

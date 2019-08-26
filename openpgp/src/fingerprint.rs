@@ -18,6 +18,14 @@ impl fmt::Debug for Fingerprint {
     }
 }
 
+impl std::str::FromStr for Fingerprint {
+    type Err = failure::Error;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        Self::from_hex(s)
+    }
+}
+
 impl Fingerprint {
     /// Reads a binary fingerprint.
     pub fn from_bytes(raw: &[u8]) -> Fingerprint {

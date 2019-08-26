@@ -251,19 +251,19 @@ impl Pool {
     /// Pool::import(&ctx, &tpk)?;
     ///
     /// // Lookup by the primary key's KeyID.
-    /// let key = Pool::lookup_by_subkeyid(&ctx, &KeyID::from_hex("AACB3243630052D9")?)?;
+    /// let key = Pool::lookup_by_subkeyid(&ctx, &"AACB3243630052D9".parse()?)?;
     /// assert_eq!(key.tpk()?.fingerprint(), tpk.fingerprint());
     ///
     /// // Lookup by the signing subkey's KeyID.
-    /// let key = Pool::lookup_by_subkeyid(&ctx, &KeyID::from_hex("7223B56678E02528")?)?;
+    /// let key = Pool::lookup_by_subkeyid(&ctx, &"7223B56678E02528".parse()?)?;
     /// assert_eq!(key.tpk()?.fingerprint(), tpk.fingerprint());
     ///
     /// // Lookup by the encryption subkey's KeyID.
-    /// let key = Pool::lookup_by_subkeyid(&ctx, &KeyID::from_hex("C2B819056C652598")?)?;
+    /// let key = Pool::lookup_by_subkeyid(&ctx, &"C2B819056C652598".parse()?)?;
     /// assert_eq!(key.tpk()?.fingerprint(), tpk.fingerprint());
     ///
     /// // Lookup by the authentication subkey's KeyID.
-    /// let key = Pool::lookup_by_subkeyid(&ctx, &KeyID::from_hex("A3506AFB820ABD08")?)?;
+    /// let key = Pool::lookup_by_subkeyid(&ctx, &"A3506AFB820ABD08".parse()?)?;
     /// assert_eq!(key.tpk()?.fingerprint(), tpk.fingerprint());
     /// # Ok(())
     /// # }
@@ -490,12 +490,12 @@ impl Store {
     /// store.import("Emmelie", &tpk)?;
     ///
     /// // Lookup by the primary key's KeyID.
-    /// let tpk_ = store.lookup_by_subkeyid(&KeyID::from_hex("069C0C348DD82C19")?)?
+    /// let tpk_ = store.lookup_by_subkeyid(&"069C0C348DD82C19".parse()?)?
     ///     .tpk()?;
     /// assert_eq!(tpk, tpk_);
     ///
     /// // Lookup by the subkey's KeyID.
-    /// let tpk_ = store.lookup_by_subkeyid(&KeyID::from_hex("22E3FAFE96B56C32")?)?
+    /// let tpk_ = store.lookup_by_subkeyid(&"22E3FAFE96B56C32".parse()?)?
     ///     .tpk()?;
     /// assert_eq!(tpk, tpk_);
     /// # Ok(())

@@ -20,6 +20,14 @@ impl fmt::Debug for KeyID {
     }
 }
 
+impl std::str::FromStr for KeyID {
+    type Err = failure::Error;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        Self::from_hex(s)
+    }
+}
+
 impl From<KeyID> for Vec<u8> {
     fn from(id: KeyID) -> Self {
         let mut r = Vec::with_capacity(8);
