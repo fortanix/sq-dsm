@@ -76,6 +76,41 @@ fn load_tpks<'a, I>(files: I) -> openpgp::Result<Vec<TPK>>
     Ok(tpks)
 }
 
+/// Serializes a keyring, adding descriptive headers if armored.
+fn serialize_keyring(mut output: &mut io::Write, tpks: &[TPK], binary: bool)
+                     -> openpgp::Result<()> {
+    // Handle the easy options first.  No armor no cry:
+    if binary {
+        for tpk in tpks {
+            tpk.serialize(&mut output)?;
+        }
+        return Ok(());
+    }
+
+    // Just one TPK?  Ez:
+    if tpks.len() == 1 {
+        return tpks[0].armored().serialize(&mut output);
+    }
+
+    // Otherwise, collect the headers first:
+    let mut headers = Vec::new();
+    for (i, tpk) in tpks.iter().enumerate() {
+        headers.push(format!("Key #{}", i));
+        headers.append(&mut tpk.armor_headers());
+    }
+
+    let headers: Vec<_> = headers.iter()
+        .map(|value| ("Comment", value.as_str()))
+        .collect();
+    let mut output = armor::Writer::new(&mut output,
+                                        armor::Kind::PublicKey,
+                                        &headers)?;
+    for tpk in tpks {
+        tpk.serialize(&mut output)?;
+    }
+    Ok(())
+}
+
 /// Prints a warning if the user supplied "help" or "-help" to an
 /// positional argument.
 ///
@@ -479,17 +514,8 @@ fn real_main() -> Result<(), failure::Error> {
                     // But to keep the parallelism with `store export` and `keyserver get`,
                     // The output is armored if not `--binary` option is given.
                     let mut output = create_or_stdout(m.value_of("output"), force)?;
-                    let mut output = if ! m.is_present("binary") {
-                        Box::new(armor::Writer::new(&mut output,
-                                                    armor::Kind::PublicKey,
-                                                    &[])?)
-                    } else {
-                        output
-                    };
-
-                    for tpk in tpks {
-                        tpk.serialize(&mut output)?;
-                    }
+                    serialize_keyring(&mut output, &tpks,
+                                      m.is_present("binary"))?;
                 },
                 _ => unreachable!(),
             }
