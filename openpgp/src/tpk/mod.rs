@@ -526,17 +526,15 @@ impl<'a, I: Iterator<Item=Packet>> TPKParser<'a, I> {
 
             Some(tpk)
         }).and_then(|mut tpk| {
-            fn split_sigs(primary: &Fingerprint, primary_keyid: &KeyID,
-                          sigs: Vec<Signature>)
-                          -> (Vec<Signature>, Vec<Signature>,
-                              Vec<Signature>, Vec<Signature>)
+            fn split_sigs<C>(primary: &Fingerprint, primary_keyid: &KeyID,
+                             b: &mut ComponentBinding<C>)
             {
                 let mut selfsigs = vec![];
                 let mut certifications = vec![];
                 let mut self_revs = vec![];
                 let mut other_revs = vec![];
 
-                for sig in sigs.into_iter() {
+                for sig in mem::replace(&mut b.certifications, vec![]) {
                     match sig {
                         Signature::V4(sig) => {
                             let typ = sig.typ();
@@ -570,7 +568,10 @@ impl<'a, I: Iterator<Item=Packet>> TPKParser<'a, I> {
                     }
                 }
 
-                (selfsigs, certifications, self_revs, other_revs)
+                b.selfsigs = selfsigs;
+                b.certifications = certifications;
+                b.self_revocations = self_revs;
+                b.other_revocations = other_revs;
             }
 
             let primary_fp = tpk.primary().key().fingerprint();
@@ -579,41 +580,16 @@ impl<'a, I: Iterator<Item=Packet>> TPKParser<'a, I> {
             // The parser puts all of the signatures on the
             // certifications field.  Split them now.
 
-            let (selfsigs, certifications, self_revs, other_revs)
-                = split_sigs(
-                    &primary_fp, &primary_keyid,
-                    mem::replace(&mut tpk.primary.certifications, vec![]));
-            tpk.primary.selfsigs = selfsigs;
-            tpk.primary.certifications = certifications;
-            tpk.primary.self_revocations = self_revs;
-            tpk.primary.other_revocations = other_revs;
+            split_sigs(&primary_fp, &primary_keyid, &mut tpk.primary);
 
-            for mut b in tpk.userids.iter_mut() {
-                let (selfsigs, certifications, self_revs, other_revs)
-                    = split_sigs(&primary_fp, &primary_keyid,
-                                 mem::replace(&mut b.certifications, vec![]));
-                b.selfsigs = selfsigs;
-                b.certifications = certifications;
-                b.self_revocations = self_revs;
-                b.other_revocations = other_revs;
+            for b in tpk.userids.iter_mut() {
+                split_sigs(&primary_fp, &primary_keyid, b);
             }
-            for mut b in tpk.user_attributes.iter_mut() {
-                let (selfsigs, certifications, self_revs, other_revs)
-                    = split_sigs(&primary_fp, &primary_keyid,
-                                 mem::replace(&mut b.certifications, vec![]));
-                b.selfsigs = selfsigs;
-                b.certifications = certifications;
-                b.self_revocations = self_revs;
-                b.other_revocations = other_revs;
+            for b in tpk.user_attributes.iter_mut() {
+                split_sigs(&primary_fp, &primary_keyid, b);
             }
-            for mut b in tpk.subkeys.iter_mut() {
-                let (selfsigs, certifications, self_revs, other_revs)
-                    = split_sigs(&primary_fp, &primary_keyid,
-                                 mem::replace(&mut b.certifications, vec![]));
-                b.selfsigs = selfsigs;
-                b.certifications = certifications;
-                b.self_revocations = self_revs;
-                b.other_revocations = other_revs;
+            for b in tpk.subkeys.iter_mut() {
+                split_sigs(&primary_fp, &primary_keyid, b);
             }
 
             let tpk = tpk.canonicalize();
