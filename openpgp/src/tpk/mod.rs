@@ -680,76 +680,23 @@ impl fmt::Display for TPK {
     }
 }
 
-/// An iterator over `UserIDBinding`s.
-pub struct UserIDBindingIter<'a> {
-    iter: slice::Iter<'a, UserIDBinding>,
-}
-
-impl<'a> Iterator for UserIDBindingIter<'a> {
-    type Item = &'a UserIDBinding;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.iter.next()
-    }
-}
-
-impl<'a> ExactSizeIterator for UserIDBindingIter<'a> {
-    fn len(&self) -> usize { self.iter.len() }
-}
-
-/// An iterator over `UserAttributeBinding`s.
-pub struct UserAttributeBindingIter<'a> {
-    iter: slice::Iter<'a, UserAttributeBinding>,
-}
-
-impl<'a> Iterator for UserAttributeBindingIter<'a> {
-    type Item = &'a UserAttributeBinding;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.iter.next()
-    }
-}
-
-impl<'a> ExactSizeIterator for UserAttributeBindingIter<'a> {
-    fn len(&self) -> usize { self.iter.len() }
+/// An iterator over `ComponetBinding`s.
+pub struct ComponentBindingIter<'a, C> {
+    iter: Option<slice::Iter<'a, ComponentBinding<C>>>,
 }
 
 /// An iterator over `KeyBinding`s.
-pub struct KeyBindingIter<'a, P: key::KeyParts, R: key::KeyRole> {
-    iter: Option<slice::Iter<'a, ComponentBinding<Key<P, R>>>>,
-}
-
-impl<'a, P: key::KeyParts, R: key::KeyRole> Iterator
-    for KeyBindingIter<'a, P, R>
-{
-    type Item = &'a ComponentBinding<Key<P, R>>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        match self.iter {
-            Some(ref mut iter) => iter.next(),
-            None => None,
-        }
-    }
-}
-
-impl<'a, P: key::KeyParts, R: key::KeyRole> ExactSizeIterator
-    for KeyBindingIter<'a, P, R>
-{
-    fn len(&self) -> usize {
-        match self.iter {
-            Some(ref iter) => iter.len(),
-            None => 0,
-        }
-    }
-}
-
+pub type KeyBindingIter<'a, P, R> = ComponentBindingIter<'a, Key<P, R>>;
+/// An iterator over `UserIDBinding`s.
+pub type UserIDBindingIter<'a> = ComponentBindingIter<'a, UserID>;
+/// An iterator over `UserAttributeBinding`s.
+pub type UserAttributeBindingIter<'a> = ComponentBindingIter<'a, UserAttribute>;
 /// An iterator over `UnknownBinding`s.
-pub struct UnknownBindingIter<'a> {
-    iter: Option<slice::Iter<'a, UnknownBinding>>,
-}
+pub type UnknownBindingIter<'a> = ComponentBindingIter<'a, Unknown>;
 
-impl<'a> Iterator for UnknownBindingIter<'a> {
-    type Item = &'a UnknownBinding;
+impl<'a, C> Iterator for ComponentBindingIter<'a, C>
+{
+    type Item = &'a ComponentBinding<C>;
 
     fn next(&mut self) -> Option<Self::Item> {
         match self.iter {
@@ -759,7 +706,8 @@ impl<'a> Iterator for UnknownBindingIter<'a> {
     }
 }
 
-impl<'a> ExactSizeIterator for UnknownBindingIter<'a> {
+impl<'a, C> ExactSizeIterator for ComponentBindingIter<'a, C>
+{
     fn len(&self) -> usize {
         match self.iter {
             Some(ref iter) => iter.len(),
@@ -1169,7 +1117,7 @@ impl TPK {
     /// The primary user id is returned first.  A valid
     /// `UserIDBinding` has at least one good self-signature.
     pub fn userids(&self) -> UserIDBindingIter {
-        UserIDBindingIter { iter: self.userids.iter() }
+        UserIDBindingIter { iter: Some(self.userids.iter()) }
     }
 
     /// Returns an iterator over the TPK's valid `UserAttributeBinding`s.
@@ -1177,7 +1125,7 @@ impl TPK {
     /// A valid `UserIDAttributeBinding` has at least one good
     /// self-signature.
     pub fn user_attributes(&self) -> UserAttributeBindingIter {
-        UserAttributeBindingIter { iter: self.user_attributes.iter() }
+        UserAttributeBindingIter { iter: Some(self.user_attributes.iter()) }
     }
 
     /// Returns an iterator over the TPK's valid subkeys.
