@@ -320,18 +320,13 @@ fn real_main() -> Result<(), failure::Error> {
                     let id = id.unwrap();
 
                     let mut output = create_or_stdout(m.value_of("output"), force)?;
-                    let mut output = if ! m.is_present("binary") {
-                        Box::new(armor::Writer::new(&mut output,
-                                                    armor::Kind::PublicKey,
-                                                    &[])?)
+                    let tpk = core.run(ks.get(&id))
+                        .context("Failed to retrieve key")?;
+                    if ! m.is_present("binary") {
+                        tpk.armored().serialize(&mut output)
                     } else {
-                        output
-                    };
-
-                    core.run(ks.get(&id))
-                        .context("Failed to retrieve key")?
-                    .serialize(&mut output)
-                        .context("Failed to serialize key")?;
+                        tpk.serialize(&mut output)
+                    }.context("Failed to serialize key")?;
                 },
                 ("send",  Some(m)) => {
                     let mut input = open_or_stdin(m.value_of("input"))?;
