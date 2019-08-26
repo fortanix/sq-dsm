@@ -201,17 +201,28 @@ pub fn generate(m: &ArgMatches, force: bool) -> failure::Fallible<()> {
                                      --export")),
             };
 
+        let headers = tpk.armor_headers();
+
         // write out key
         {
+            let headers: Vec<_> = headers.iter()
+                .map(|value| ("Comment", value.as_str()))
+                .collect();
+
             let w = create_or_stdout(Some(&key_path), force)?;
-            let mut w = Writer::new(w, Kind::SecretKey, &[])?;
+            let mut w = Writer::new(w, Kind::SecretKey, &headers)?;
             tpk.as_tsk().serialize(&mut w)?;
         }
 
         // write out rev cert
         {
+            let mut headers: Vec<_> = headers.iter()
+                .map(|value| ("Comment", value.as_str()))
+                .collect();
+            headers.insert(0, ("Comment", "Revocation certificate for"));
+
             let w = create_or_stdout(Some(&rev_path), force)?;
-            let mut w = Writer::new(w, Kind::Signature, &[])?;
+            let mut w = Writer::new(w, Kind::Signature, &headers)?;
             Packet::Signature(rev).serialize(&mut w)?;
         }
     } else {
