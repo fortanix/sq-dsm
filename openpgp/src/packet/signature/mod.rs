@@ -665,7 +665,8 @@ impl Signature4 {
         }
     }
 
-    /// Verifies the signature using `key`.
+    /// Verifies the signature over text or binary documents using
+    /// `key`.
     ///
     /// Note: This only verifies the cryptographic signature.
     /// Constraints on the signature, like creation and expiration
@@ -680,8 +681,7 @@ impl Signature4 {
         where R: key::KeyRole
     {
         if !(self.typ() == SignatureType::Binary
-             || self.typ() == SignatureType::Text
-             || self.typ() == SignatureType::Standalone) {
+             || self.typ() == SignatureType::Text) {
             return Err(Error::UnsupportedSignatureType(self.typ()).into());
         }
 
