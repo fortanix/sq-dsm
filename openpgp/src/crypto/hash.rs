@@ -336,6 +336,20 @@ impl Hash for signature::Builder {
 
 /// Hashing-related functionality.
 impl Signature {
+    /// Computes the message digest of standalone signatures.
+    pub fn standalone_hash<'a, S>(sig: S) -> Result<Vec<u8>>
+        where S: Into<&'a signature::Builder>
+    {
+        let sig = sig.into();
+        let mut h = sig.hash_algo().context()?;
+
+        sig.hash(&mut h);
+
+        let mut digest = vec![0u8; h.digest_size()];
+        h.digest(&mut digest);
+        Ok(digest)
+    }
+
     /// Returns the message digest of the primary key binding over the
     /// specified primary key.
     pub fn primary_key_binding_hash<'a, S>(sig: S, key: &key::PublicKey)

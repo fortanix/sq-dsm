@@ -112,6 +112,18 @@ impl Builder {
         &mut self.unhashed_area
     }
 
+    /// Creates a standalone signature.
+    pub fn sign_standalone<R>(mut self, signer: &mut Signer<R>,
+                              algo: HashAlgorithm)
+                              -> Result<Signature>
+        where R: key::KeyRole
+    {
+        self.pk_algo = signer.public().pk_algo();
+        self.hash_algo = algo;
+        let digest = Signature::standalone_hash(&self)?;
+        self.sign(signer, digest)
+    }
+
     /// Signs `signer` using itself.
     ///
     /// The Signature's public-key algorithm field is set to the
@@ -678,6 +690,31 @@ impl Signature4 {
         } else {
             Err(Error::BadSignature("Hash not computed.".to_string()).into())
         }
+    }
+
+    /// Verifies the standalone signature using `key`.
+    ///
+    /// Note: This only verifies the cryptographic signature.
+    /// Constraints on the signature, like creation and expiration
+    /// time, or signature revocations must be checked by the caller.
+    ///
+    /// Likewise, this function does not check whether `key` can make
+    /// valid signatures; it is up to the caller to make sure the key
+    /// is not revoked, not expired, has a valid self-signature, has a
+    /// subkey binding signature (if appropriate), has the signing
+    /// capability, etc.
+    pub fn verify_standalone<R>(&self, key: &Key<key::PublicParts, R>)
+                                -> Result<bool>
+        where R: key::KeyRole
+    {
+        if self.typ() != SignatureType::Standalone {
+            return Err(Error::UnsupportedSignatureType(self.typ()).into());
+        }
+
+        // Standalone signatures are like binary-signatures over the
+        // zero-sized string.
+        let digest = Signature::standalone_hash(self)?;
+        self.verify_hash(key, self.hash_algo(), &digest)
     }
 
     /// Verifies the primary key binding.
@@ -1381,5 +1418,21 @@ mod test {
         assert_eq!(sig.unhashed_area().iter().nth(0).unwrap().2,
                    Subpacket::new(SubpacketValue::Issuer(keyid.clone()),
                                   false).unwrap());
+    }
+
+    #[test]
+    fn standalone_signature_roundtrip() {
+        let key : key::SecretKey
+            = Key4::generate_ecc(true, Curve::Ed25519).unwrap().into();
+        let mut pair = key.into_keypair().unwrap();
+
+        let sig = Builder::new(SignatureType::Standalone)
+            .set_signature_creation_time(time::now()).unwrap()
+            .set_issuer_fingerprint(pair.public().fingerprint()).unwrap()
+            .set_issuer(pair.public().keyid()).unwrap()
+            .sign_standalone(&mut pair, HashAlgorithm::SHA256)
+            .unwrap();
+
+        assert!(sig.verify_standalone(pair.public()).unwrap());
     }
 }
