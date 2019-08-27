@@ -43,6 +43,11 @@ typedef enum pgp_status {
   PGP_STATUS_MALFORMED_PACKET = -5,
 
   /*/
+  /// Packet size exceeds the configured limit.
+  /*/
+  PGP_STATUS_PACKET_TOO_LARGE = -29,
+
+  /*/
   /// Unsupported packet type.
   /*/
   PGP_STATUS_UNSUPPORTED_PACKET_TYPE = -14,

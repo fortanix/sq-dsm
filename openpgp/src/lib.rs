@@ -163,6 +163,11 @@ pub enum Error {
     #[fail(display = "Malformed packet: {}", _0)]
     MalformedPacket(String),
 
+    /// Packet size exceeds the configured limit.
+    #[fail(display = "{} Packet ({} bytes) exceeds limit of {} bytes",
+           _0, _1, _2)]
+    PacketTooLarge(packet::Tag, u32, u32),
+
     /// Unsupported packet type.
     #[fail(display = "Unsupported packet type.  Tag: {}", _0)]
     UnsupportedPacketType(packet::Tag),

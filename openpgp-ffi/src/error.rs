@@ -75,6 +75,9 @@ pub enum Status {
     /// The packet is malformed.
     MalformedPacket = -5,
 
+    /// Packet size exceeds the configured limit.
+    PacketTooLarge = -29,
+
     /// Unsupported packet type.
     UnsupportedPacketType = -14,
 
@@ -143,6 +146,7 @@ pub enum Status {
     // XXX: Skipping UnsupportedAEADAlgorithm = -26
     // XXX: Skipping MissingSessionKey = -27
     // XXX: Skipping UnsupportedCompressionAlgorithm = -28
+    // XXX: Skipping PacketTooLarge = -29
 }
 
 /// Returns the error message.
@@ -161,6 +165,7 @@ pub extern "C" fn pgp_status_to_string(status: Status) -> *const c_char {
         InvalidArgument => "A given argument is invalid\x00",
         InvalidOperation => "The requested operation is invalid\x00",
         MalformedPacket => "The packet is malformed\x00",
+        PacketTooLarge => "Packet size exceeds the configured limit\x00",
         UnsupportedPacketType => "Unsupported packet type\x00",
         UnsupportedHashAlgorithm => "Unsupported hash algorithm\x00",
         UnsupportedPublicKeyAlgorithm =>
@@ -195,6 +200,8 @@ impl<'a> From<&'a failure::Error> for Status {
                     Status::InvalidOperation,
                 &openpgp::Error::MalformedPacket(_) =>
                     Status::MalformedPacket,
+                &openpgp::Error::PacketTooLarge(_, _, _) =>
+                    Status::PacketTooLarge,
                 &openpgp::Error::UnsupportedPacketType(_) =>
                     Status::UnsupportedPacketType,
                 &openpgp::Error::UnsupportedHashAlgorithm(_) =>

@@ -128,6 +128,19 @@ macro_rules! impl_parse_generic_packet {
 /// So, this should be more than enough.
 const MAX_RECURSION_DEPTH : u8 = 16;
 
+/// The default maximum size of non-container packets.
+///
+/// Packets that exceed this limit will be returned as
+/// `Packet::Unknown`, with the error set to `Error::PacketTooLarge`.
+///
+/// This limit applies to any packet type that is *not* a container
+/// packet, i.e. any packet that is not a literal data packet, a
+/// compressed data packet, a symmetrically encrypted data packet, or
+/// an AEAD encrypted data packet.
+///
+/// The default is 1 MiB.
+const MAX_PACKET_SIZE: u32 = 1 << 20; // 1 MiB
+
 // Used to parse an OpenPGP packet's header (note: in this case, the
 // header means a Packet's fixed data, not the OpenPGP framing
 // information, such as the CTB, and length information).
@@ -701,6 +714,18 @@ struct PacketParserSettings {
     // then a read from the reader pipeline could blow the stack.
     max_recursion_depth: u8,
 
+    // The maximum size of non-container packets.
+    //
+    // Packets that exceed this limit will be returned as
+    // `Packet::Unknown`, with the error set to
+    // `Error::PacketTooLarge`.
+    //
+    // This limit applies to any packet type that is *not* a
+    // container packet, i.e. any packet that is not a literal data
+    // packet, a compressed data packet, a symmetrically encrypted
+    // data packet, or an AEAD encrypted data packet.
+    max_packet_size: u32,
+
     // Whether a packet's contents should be buffered or dropped when
     // the next packet is retrieved.
     buffer_unread_content: bool,
@@ -714,6 +739,7 @@ impl Default for PacketParserSettings {
     fn default() -> Self {
         PacketParserSettings {
             max_recursion_depth: MAX_RECURSION_DEPTH,
+            max_packet_size: MAX_PACKET_SIZE,
             buffer_unread_content: false,
             map: false,
         }
@@ -2796,7 +2822,27 @@ impl <'a> PacketParser<'a> {
         // Our parser should not accept packets that fail our header
         // syntax check.  Doing so breaks roundtripping, and seems
         // like a bad idea anyway.
-        let header_syntax_error = header.valid(true).err();
+        let mut header_syntax_error = header.valid(true).err();
+
+        // Check packet size.
+        if header_syntax_error.is_none() {
+            let max_size = state.settings.max_packet_size;
+            match tag {
+                // Don't check the size for container packets, those
+                // can be safely streamed.
+                Tag::Literal | Tag::CompressedData | Tag::SED | Tag::SEIP
+                    | Tag::AED => (),
+                _ => match header.length {
+                    BodyLength::Full(l) => if l > max_size {
+                        header_syntax_error = Some(
+                            Error::PacketTooLarge(tag, l, max_size).into());
+                    },
+                    _ => unreachable!("non-data packets have full length, \
+                                       syntax check above"),
+                }
+            }
+        }
+
         let parser = PacketHeaderParser::new(bio, state, path,
                                              header, header_bytes);
 
@@ -4048,5 +4094,40 @@ mod test {
                 panic!("No packet!?");
             }
         }
+    }
+
+    #[test]
+    fn max_packet_size() {
+        use crate::serialize::Serialize;
+        let uid = Packet::UserID("foobar".into());
+        let mut buf = Vec::new();
+        uid.serialize(&mut buf).unwrap();
+
+        // Make sure we can read it.
+        let ppr = PacketParserBuilder::from_bytes(&buf).unwrap()
+            .finalize().unwrap();
+        if let PacketParserResult::Some(pp) = ppr {
+            assert_eq!(Packet::UserID("foobar".into()), pp.packet);
+        } else {
+            panic!("failed to parse userid");
+        }
+
+        // But if we set the maximum packet size too low, it is parsed
+        // into a unknown packet.
+        let ppr = PacketParserBuilder::from_bytes(&buf).unwrap()
+            .max_packet_size(5)
+            .finalize().unwrap();
+        if let PacketParserResult::Some(pp) = ppr {
+            if let Packet::Unknown(ref u) = pp.packet {
+                assert_eq!(u.tag(), Tag::UserID);
+                assert_match!(Some(&Error::PacketTooLarge(_, _, _))
+                              = u.error().downcast_ref());
+            } else {
+                panic!("expected an unknown packet, got {:?}", pp.packet);
+            }
+        } else {
+            panic!("failed to parse userid");
+        }
+
     }
 }

@@ -95,6 +95,23 @@ impl<'a> PacketParserBuilder<'a> {
         self
     }
 
+    /// Sets the maximum size of non-container packets.
+    ///
+    /// Packets that exceed this limit will be returned as
+    /// `Packet::Unknown`, with the error set to
+    /// `Error::PacketTooLarge`.
+    ///
+    /// This limit applies to any packet type that is *not* a
+    /// container packet, i.e. any packet that is not a literal data
+    /// packet, a compressed data packet, a symmetrically encrypted
+    /// data packet, or an AEAD encrypted data packet.
+    ///
+    /// The default is 1 MiB.
+    pub fn max_packet_size(mut self, value: u32) -> Self {
+        self.settings.max_packet_size = value;
+        self
+    }
+
     /// Causes `PacketParser::finish()` to buffer any unread content.
     ///
     /// The unread content is stored in the `Packet::content` Option.
