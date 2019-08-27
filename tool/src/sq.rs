@@ -111,6 +111,17 @@ fn serialize_keyring(mut output: &mut io::Write, tpks: &[TPK], binary: bool)
     Ok(())
 }
 
+fn parse_armor_kind(kind: Option<&str>) -> armor::Kind {
+    match kind.expect("has default value") {
+        "message" => armor::Kind::Message,
+        "publickey" => armor::Kind::PublicKey,
+        "secretkey" => armor::Kind::SecretKey,
+        "signature" => armor::Kind::Signature,
+        "file" => armor::Kind::File,
+        _ => unreachable!(),
+    }
+}
+
 /// Prints a warning if the user supplied "help" or "-help" to an
 /// positional argument.
 ///
@@ -235,14 +246,7 @@ fn real_main() -> Result<(), failure::Error> {
         ("enarmor",  Some(m)) => {
             let mut input = open_or_stdin(m.value_of("input"))?;
             let mut output = create_or_stdout(m.value_of("output"), force)?;
-            let kind = match m.value_of("kind").expect("has default value") {
-                "message" => armor::Kind::Message,
-                "publickey" => armor::Kind::PublicKey,
-                "secretkey" => armor::Kind::SecretKey,
-                "signature" => armor::Kind::Signature,
-                "file" => armor::Kind::File,
-                _ => unreachable!(),
-            };
+            let kind = parse_armor_kind(m.value_of("kind"));
             let mut filter = armor::Writer::new(&mut output, kind, &[])?;
             io::copy(&mut input, &mut filter)?;
         },
