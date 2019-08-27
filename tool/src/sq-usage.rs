@@ -583,6 +583,7 @@
 //! SUBCOMMANDS:
 //!     dump     Lists OpenPGP packets
 //!     help     Prints this message or the help of the given subcommand(s)
+//!     join     Joins OpenPGP packets split across files
 //!     split    Splits a message into OpenPGP packets
 //! ```
 //!
@@ -606,6 +607,28 @@
 //!
 //! ARGS:
 //!     <FILE>    Sets the input file to use
+//! ```
+//!
+//! ### Subcommand packet join
+//!
+//! ```text
+//! Joins OpenPGP packets split across files
+//!
+//! USAGE:
+//!     sq packet join [FLAGS] [OPTIONS] [FILE]...
+//!
+//! FLAGS:
+//!     -B, --binary     Don't ASCII-armor encode the OpenPGP data
+//!     -h, --help       Prints help information
+//!     -V, --version    Prints version information
+//!
+//! OPTIONS:
+//!         --kind <KIND>      Selects the kind of header line to produce [default: file]  [possible values: message,
+//!                            publickey, secretkey, signature, file]
+//!     -o, --output <FILE>    Sets the output file to use
+//!
+//! ARGS:
+//!     <FILE>...    Sets the input files to use
 //! ```
 //!
 //! ### Subcommand packet split

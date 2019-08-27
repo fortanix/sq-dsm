@@ -432,7 +432,31 @@ pub fn build() -> App<'static, 'static> {
                                      .short("p")
                                      .help("Sets the prefix to use for output files \
                                             (defaults to the input filename with a dash, \
-                                            or 'output')"))))
+                                            or 'output')")))
+                    .subcommand(SubCommand::with_name("join")
+                                .about("Joins OpenPGP packets split across \
+                                        files")
+                                .arg(Arg::with_name("input").value_name("FILE")
+                                     .multiple(true)
+                                     .help("Sets the input files to use"))
+                                .arg(Arg::with_name("output").value_name("FILE")
+                                     .long("output")
+                                     .short("o")
+                                     .help("Sets the output file to use"))
+                                .arg(Arg::with_name("kind")
+                                     .value_name("KIND")
+                                     .long("kind")
+                                     .possible_values(&["message", "publickey",
+                                                        "secretkey",
+                                                        "signature", "file"])
+                                     .default_value("file")
+                                     .help("Selects the kind of header line to \
+                                            produce"))
+                                .arg(Arg::with_name("binary")
+                                     .long("binary")
+                                     .short("B")
+                                     .help("Don't ASCII-armor encode the \
+                                            OpenPGP data"))))
 
         .subcommand(SubCommand::with_name("wkd")
                     .about("Interacts with Web Key Directories")

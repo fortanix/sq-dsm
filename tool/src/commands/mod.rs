@@ -402,6 +402,41 @@ pub fn split(input: &mut io::Read, prefix: &str)
     Ok(())
 }
 
+/// Joins the given files.
+pub fn join(inputs: Option<clap::Values>, output: &mut io::Write)
+            -> Result<()> {
+    /// Writes a bit-accurate copy of all top-level packets in PPR to
+    /// OUTPUT.
+    fn copy(mut ppr: PacketParserResult, output: &mut io::Write)
+            -> Result<()> {
+        while let PacketParserResult::Some(pp) = ppr {
+            // We (ab)use the mapping feature to create byte-accurate
+            // copies.
+            for field in pp.map().expect("must be mapped").iter() {
+                output.write_all(field.data)?;
+            }
+
+            ppr = pp.next()?.1;
+        }
+        Ok(())
+    }
+
+    if let Some(inputs) = inputs {
+        for name in inputs {
+            let ppr =
+                openpgp::parse::PacketParserBuilder::from_file(name)?
+                .map(true).finalize()?;
+            copy(ppr, output)?;
+        }
+    } else {
+        let ppr =
+            openpgp::parse::PacketParserBuilder::from_reader(io::stdin())?
+            .map(true).finalize()?;
+        copy(ppr, output)?;
+    }
+    Ok(())
+}
+
 pub fn store_print_stats(store: &store::Store, label: &str) -> Result<()> {
     fn print_stamps(st: &store::Stamps) -> Result<()> {
         println!("{} messages using this key", st.count);

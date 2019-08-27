@@ -336,6 +336,16 @@ fn real_main() -> Result<(), failure::Error> {
                             + "-");
                 commands::split(&mut input, &prefix)?;
             },
+            ("join",  Some(m)) => {
+                let output = create_or_stdout(m.value_of("output"), force)?;
+                let mut output = if ! m.is_present("binary") {
+                    let kind = parse_armor_kind(m.value_of("kind"));
+                    Box::new(armor::Writer::new(output, kind, &[])?)
+                } else {
+                    output
+                };
+                commands::join(m.values_of("input"), &mut output)?;
+            },
             _ => unreachable!(),
         },
 
