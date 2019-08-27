@@ -41,16 +41,16 @@ impl TPK {
             Ok(())
         };
 
-        for s in self.selfsigs() {
+        for s in self.primary().selfsigs() {
             serialize_sig(o, s)?;
         }
-        for s in self.self_revocations() {
+        for s in self.primary().self_revocations() {
             serialize_sig(o, s)?;
         }
-        for s in self.other_revocations() {
+        for s in self.primary().other_revocations() {
             serialize_sig(o, s)?;
         }
-        for s in self.certifications() {
+        for s in self.primary().certifications() {
             serialize_sig(o, s)?;
         }
 
@@ -160,16 +160,16 @@ impl SerializeInto for TPK {
         let mut l = 0;
         l += PacketRef::PublicKey(self.primary().key()).serialized_len();
 
-        for s in self.selfsigs() {
+        for s in self.primary().selfsigs() {
             l += PacketRef::Signature(s).serialized_len();
         }
-        for s in self.self_revocations() {
+        for s in self.primary().self_revocations() {
             l += PacketRef::Signature(s).serialized_len();
         }
-        for s in self.other_revocations() {
+        for s in self.primary().other_revocations() {
             l += PacketRef::Signature(s).serialized_len();
         }
-        for s in self.certifications() {
+        for s in self.primary().certifications() {
             l += PacketRef::Signature(s).serialized_len();
         }
 
@@ -539,16 +539,16 @@ impl<'a> SerializeInto for TSK<'a> {
         l += serialized_len_key(self.tpk.primary().key().into(),
                                 Tag::PublicKey, Tag::SecretKey);
 
-        for s in self.tpk.selfsigs() {
+        for s in self.tpk.primary().selfsigs() {
             l += PacketRef::Signature(s).serialized_len();
         }
-        for s in self.tpk.self_revocations() {
+        for s in self.tpk.primary().self_revocations() {
             l += PacketRef::Signature(s).serialized_len();
         }
-        for s in self.tpk.other_revocations() {
+        for s in self.tpk.primary().other_revocations() {
             l += PacketRef::Signature(s).serialized_len();
         }
-        for s in self.tpk.certifications() {
+        for s in self.tpk.primary().certifications() {
             l += PacketRef::Signature(s).serialized_len();
         }
 

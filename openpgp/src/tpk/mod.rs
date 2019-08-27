@@ -856,35 +856,6 @@ impl TPK {
         }
     }
 
-    /// The self-signatures.
-    ///
-    /// All self-signatures have been validated, and the newest
-    /// self-signature is last.
-    pub fn selfsigs(&self) -> &[Signature] {
-        &self.primary.selfsigs
-    }
-
-    /// Any third-party certifications.
-    ///
-    /// The signatures have *not* been validated.
-    pub fn certifications(&self) -> &[Signature] {
-        &self.primary.certifications
-    }
-
-    /// Revocations issued by the key itself.
-    ///
-    /// The revocations have been validated, and the newest is last.
-    pub fn self_revocations(&self) -> &[Signature] {
-        &self.primary.self_revocations
-    }
-
-    /// Revocations issued by other keys.
-    ///
-    /// The revocations have *not* been validated.
-    pub fn other_revocations(&self) -> &[Signature] {
-        &self.primary.other_revocations
-    }
-
     /// Returns the TPK's revocation status at the specified time.
     ///
     /// Note: this only returns whether the primary key is revoked.  If you

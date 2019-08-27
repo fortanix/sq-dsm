@@ -108,7 +108,7 @@ impl AutocryptHeader {
 
         // The primary key and the most recent selfsig.
         acc.push(tpk.primary().key().clone().into());
-        tpk.selfsigs().iter().take(1)
+        tpk.primary().selfsigs().iter().take(1)
             .for_each(|s| acc.push(s.clone().into()));
 
         // The subkeys and the most recent selfsig.
