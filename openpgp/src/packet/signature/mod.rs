@@ -1474,6 +1474,21 @@ mod test {
     }
 
     #[test]
+    fn timestamp_signature() {
+        let alpha = TPK::from_bytes(crate::tests::file(
+            "contrib/gnupg/keys/alpha.pgp")).unwrap();
+        let p = Packet::from_bytes(crate::tests::file(
+            "contrib/gnupg/timestamp-signature-by-alice.asc")).unwrap();
+        if let Packet::Signature(sig) = p {
+            let digest = Signature::standalone_hash(&sig).unwrap();
+            eprintln!("{}", crate::conversions::hex::encode(&digest));
+            assert!(sig.verify_timestamp(alpha.primary().key()).unwrap());
+        } else {
+            panic!("expected a signature packet");
+        }
+    }
+
+    #[test]
     fn timestamp_signature_roundtrip() {
         let key : key::SecretKey
             = Key4::generate_ecc(true, Curve::Ed25519).unwrap().into();
