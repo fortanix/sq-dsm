@@ -46,6 +46,7 @@ use crate::conversions::Time;
 #[doc(hidden)]
 #[derive(Debug)]
 pub struct Cookie {
+    pub(crate) // For padding.rs
     level: usize,
     private: Private,
 }
@@ -57,6 +58,7 @@ enum Private {
 }
 
 impl Cookie {
+    pub(crate) // For padding.rs
     fn new(level: usize) -> Self {
         Cookie {
             level: level,
