@@ -930,11 +930,6 @@ impl TPK {
         -> Result<Signature>
         where R: key::KeyRole
     {
-        if primary_signer.public().fingerprint() != self.fingerprint() {
-            return Err(Error::InvalidArgument(
-                "signer is not the primary key".into()).into());
-        }
-
         // Recompute the signature.
         let hash_algo = HashAlgorithm::SHA512;
         let mut hash = hash_algo.context()?;
@@ -943,8 +938,8 @@ impl TPK {
 
         signature::Builder::new(SignatureType::KeyRevocation)
             .set_signature_creation_time(time::now_utc())?
-            .set_issuer_fingerprint(self.primary().key().fingerprint())?
-            .set_issuer(self.primary().key().keyid())?
+            .set_issuer_fingerprint(primary_signer.public().fingerprint())?
+            .set_issuer(primary_signer.public().keyid())?
             .set_reason_for_revocation(code, reason)?
             .sign_hash(primary_signer, hash_algo, hash)
     }
@@ -2698,9 +2693,27 @@ mod test {
                              ReasonForRevocation::KeyCompromised,
                              b"It was the maid :/").unwrap();
         assert_eq!(sig.typ(), SignatureType::KeyRevocation);
+        assert_eq!(sig.issuer(), Some(tpk.primary().key().keyid()));
+        assert_eq!(sig.issuer_fingerprint(),
+                   Some(tpk.primary().key().fingerprint()));
 
         let tpk = tpk.merge_packets(vec![sig.into()]).unwrap();
         assert_match!(RevocationStatus::Revoked(_) = tpk.revocation_status());
+
+
+        // Have other revoke tpk.
+        let (other, _) = TPKBuilder::autocrypt(None, Some("Test 2"))
+            .generate().unwrap();
+
+        let mut keypair = other.primary().key().clone().mark_parts_secret()
+            .into_keypair().unwrap();
+        let sig = tpk.revoke(&mut keypair,
+                             ReasonForRevocation::KeyCompromised,
+                             b"It was the maid :/").unwrap();
+        assert_eq!(sig.typ(), SignatureType::KeyRevocation);
+        assert_eq!(sig.issuer(), Some(other.primary().key().keyid()));
+        assert_eq!(sig.issuer_fingerprint(),
+                   Some(other.primary().key().fingerprint()));
     }
 
     #[test]
