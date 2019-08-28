@@ -350,6 +350,13 @@ impl Signature {
         Ok(digest)
     }
 
+    /// Computes the message digest of timestamp signatures.
+    pub fn timestamp_hash<'a, S>(sig: S) -> Result<Vec<u8>>
+        where S: Into<&'a signature::Builder>
+    {
+        Self::standalone_hash(sig)
+    }
+
     /// Returns the message digest of the primary key binding over the
     /// specified primary key.
     pub fn primary_key_binding_hash<'a, S>(sig: S, key: &key::PublicKey)
