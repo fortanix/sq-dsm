@@ -58,6 +58,14 @@ use parser::{
 
 const TRACE : bool = false;
 
+// Helper functions.
+
+// Turn a signature into a key for use by dedup.
+fn sig_key(a: &mut Signature) -> Box<[u8]> {
+    a.to_vec().expect("XXX: this better not fail")
+        .into_boxed_slice()
+}
+
 /// Compare the creation time of two signatures.  Order them so that
 /// the more recent signature is first.
 fn canonical_signature_order(a: Option<time::Tm>, b: Option<time::Tm>)
@@ -68,6 +76,11 @@ fn canonical_signature_order(a: Option<time::Tm>, b: Option<time::Tm>)
         (Some(_), None) => Ordering::Less,
         (Some(ref a), Some(ref b)) => a.cmp(b),
     }
+}
+
+fn sig_cmp(a: &Signature, b: &Signature) -> Ordering {
+    canonical_signature_order(a.signature_creation_time(),
+                              b.signature_creation_time())
 }
 
 /// Returns the first signature with creation time not less than `t`.
@@ -250,6 +263,27 @@ impl<C> ComponentBinding<C> {
             .chain(self.certifications.into_iter().map(|s| s.into()))
             .chain(self.self_revocations.into_iter().map(|s| s.into()))
             .chain(self.other_revocations.into_iter().map(|s| s.into()))
+    }
+
+    // Sorts and dedups the binding's signatures.
+    //
+    // This function assumes that the signatures have already been
+    // cryptographically checked.
+    fn sort_and_dedup(&mut self)
+    {
+        self.selfsigs.sort_by(sig_cmp);
+        self.selfsigs.dedup_by_key(sig_key);
+
+        // There is no need to sort the certifications, but we do
+        // want to remove dups and sorting is a prerequisite.
+        self.certifications.sort_by(sig_cmp);
+        self.certifications.dedup_by_key(sig_key);
+
+        self.self_revocations.sort_by(sig_cmp);
+        self.self_revocations.dedup_by_key(sig_key);
+
+        self.other_revocations.sort_by(sig_cmp);
+        self.other_revocations.dedup_by_key(sig_key);
     }
 }
 
@@ -1199,13 +1233,6 @@ impl TPK {
     fn canonicalize(mut self) -> Self {
         tracer!(TRACE, "canonicalize", 0);
 
-        // Helper functions.
-        // Turn a signature into a key for use by dedup.
-        fn sig_key(a: &mut Signature) -> Box<[u8]> {
-            a.to_vec().expect("XXX: this better not fail")
-                .into_boxed_slice()
-        }
-
         // Fallback time.
         let time_zero = time::at_utc(time::Timespec::new(0, 0));
 
@@ -1392,46 +1419,20 @@ impl TPK {
         });
         t!("Retained {} subkeys", self.subkeys.len());
 
-        fn sig_cmp(a: &Signature, b: &Signature) -> Ordering {
-            canonical_signature_order(a.signature_creation_time(),
-                                      b.signature_creation_time())
-        }
 
-        // Sort and dedup the primary key's signatures.
-        self.primary.selfsigs.sort_by(sig_cmp);
-        self.primary.selfsigs.dedup_by_key(sig_key);
-
-        // There is no need to sort the certifications, but we do
-        // want to remove dups and sorting is a prerequisite.
-        self.primary.certifications.sort_by(sig_cmp);
-        self.primary.certifications.dedup_by_key(sig_key);
-
-        self.primary.self_revocations.sort_by(sig_cmp);
-        self.primary.self_revocations.dedup_by_key(sig_key);
-
-        self.primary.other_revocations.sort_by(sig_cmp);
-        self.primary.other_revocations.dedup_by_key(sig_key);
+        self.primary.sort_and_dedup();
 
         self.bad.sort_by(sig_cmp);
         self.bad.dedup_by_key(sig_key);
 
-
-        // Sort the signatures so that the current valid
-        // self-signature is last.
-        for userid in &mut self.userids {
-            userid.selfsigs.sort_by(sig_cmp);
-            userid.selfsigs.dedup_by_key(sig_key);
-
-            // There is no need to sort the certifications, but we do
-            // want to remove dups and sorting is a prerequisite.
-            userid.certifications.sort_by(sig_cmp);
-            userid.certifications.dedup_by_key(sig_key);
-
-            userid.self_revocations.sort_by(sig_cmp);
-            userid.self_revocations.dedup_by_key(sig_key);
-
-            userid.other_revocations.sort_by(sig_cmp);
-            userid.other_revocations.dedup_by_key(sig_key);
+        for binding in &mut self.userids {
+            binding.sort_and_dedup();
+        }
+        for binding in &mut self.user_attributes {
+            binding.sort_and_dedup();
+        }
+        for binding in &mut self.subkeys {
+            binding.sort_and_dedup();
         }
 
         // First, we sort the bindings lexographically by user id in
@@ -1452,20 +1453,11 @@ impl TPK {
 
                 // Recall: if a and b are equal, a will be dropped.
                 b.selfsigs.append(&mut a.selfsigs);
-                b.selfsigs.sort_by(sig_cmp);
-                b.selfsigs.dedup_by_key(sig_key);
-
                 b.certifications.append(&mut a.certifications);
-                b.certifications.sort_by(sig_cmp);
-                b.certifications.dedup_by_key(sig_key);
-
                 b.self_revocations.append(&mut a.self_revocations);
-                b.self_revocations.sort_by(sig_cmp);
-                b.self_revocations.dedup_by_key(sig_key);
-
                 b.other_revocations.append(&mut a.self_revocations);
-                b.other_revocations.sort_by(sig_cmp);
-                b.other_revocations.dedup_by_key(sig_key);
+
+                b.sort_and_dedup();
 
                 true
             } else {
@@ -1566,24 +1558,6 @@ impl TPK {
             a.userid().value().cmp(&b.userid().value())
         });
 
-        // Sort the signatures so that the current valid
-        // self-signature is last.
-        for attribute in &mut self.user_attributes {
-            attribute.selfsigs.sort_by(sig_cmp);
-            attribute.selfsigs.dedup_by_key(sig_key);
-
-            // There is no need to sort the certifications, but we do
-            // want to remove dups and sorting is a prerequisite.
-            attribute.certifications.sort_by(sig_cmp);
-            attribute.certifications.dedup_by_key(sig_key);
-
-            attribute.self_revocations.sort_by(sig_cmp);
-            attribute.self_revocations.dedup_by_key(sig_key);
-
-            attribute.other_revocations.sort_by(sig_cmp);
-            attribute.other_revocations.dedup_by_key(sig_key);
-        }
-
         // Sort the user attributes in preparation for a dedup.  As
         // for the user ids, we can't do the final sort here, because
         // we rely on the self-signatures.
@@ -1596,20 +1570,11 @@ impl TPK {
             if a.user_attribute() == b.user_attribute() {
                 // Recall: if a and b are equal, a will be dropped.
                 b.selfsigs.append(&mut a.selfsigs);
-                b.selfsigs.sort_by(sig_cmp);
-                b.selfsigs.dedup_by_key(sig_key);
-
                 b.certifications.append(&mut a.certifications);
-                b.certifications.sort_by(sig_cmp);
-                b.certifications.dedup_by_key(sig_key);
-
                 b.self_revocations.append(&mut a.self_revocations);
-                b.self_revocations.sort_by(sig_cmp);
-                b.self_revocations.dedup_by_key(sig_key);
-
                 b.other_revocations.append(&mut a.self_revocations);
-                b.other_revocations.sort_by(sig_cmp);
-                b.other_revocations.dedup_by_key(sig_key);
+
+                b.sort_and_dedup();
 
                 true
             } else {
@@ -1696,24 +1661,6 @@ impl TPK {
         });
 
 
-        // Sort the signatures so that the current valid
-        // self-signature is last.
-        for subkey in &mut self.subkeys {
-            subkey.selfsigs.sort_by(sig_cmp);
-            subkey.selfsigs.dedup_by_key(sig_key);
-
-            // There is no need to sort the certifications, but we do
-            // want to remove dups and sorting is a prerequisite.
-            subkey.certifications.sort_by(sig_cmp);
-            subkey.certifications.dedup_by_key(sig_key);
-
-            subkey.self_revocations.sort_by(sig_cmp);
-            subkey.self_revocations.dedup_by_key(sig_key);
-
-            subkey.other_revocations.sort_by(sig_cmp);
-            subkey.other_revocations.dedup_by_key(sig_key);
-        }
-
         // Sort the subkeys in preparation for a dedup.  As for the
         // user ids, we can't do the final sort here, because we rely
         // on the self-signatures.
@@ -1736,20 +1683,11 @@ impl TPK {
                 }
 
                 b.selfsigs.append(&mut a.selfsigs);
-                b.selfsigs.sort_by(sig_cmp);
-                b.selfsigs.dedup_by_key(sig_key);
-
                 b.certifications.append(&mut a.certifications);
-                b.certifications.sort_by(sig_cmp);
-                b.certifications.dedup_by_key(sig_key);
-
                 b.self_revocations.append(&mut a.self_revocations);
-                b.self_revocations.sort_by(sig_cmp);
-                b.self_revocations.dedup_by_key(sig_key);
-
                 b.other_revocations.append(&mut a.self_revocations);
-                b.other_revocations.sort_by(sig_cmp);
-                b.other_revocations.dedup_by_key(sig_key);
+
+                b.sort_and_dedup();
 
                 true
             } else {
