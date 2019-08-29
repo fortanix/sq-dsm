@@ -100,22 +100,13 @@ impl<'a, C: 'a> PartialBodyFilter<'a, C> {
                 unimplemented!();
             }
             BodyLength::Full(l as u32).serialize(inner).map_err(
-                |e| {
-                    match e.downcast::<io::Error>() {
+                |e| match e.downcast::<io::Error>() {
+                        // An io::Error.  Pass as-is.
                         Ok(err) => err,
-                        Err(e) => {
-                            match e.downcast::<Error>()
-                                .expect("Unexpected error encoding full length")
-                            {
-                                Error::InvalidArgument(s) =>
-                                    panic!("Error encoding full length: {}", s),
-                                _ =>
-                                    panic!("Unexpected error encoding \
-                                            full length"),
-                            }
-                        }
-                    }
-                })?;
+                        // A failure.  Create a compat object and wrap it.
+                        Err(e) => io::Error::new(io::ErrorKind::Other,
+                                                 e.compat()),
+                    })?;
 
             // Write the body.
             inner.write_all(&self.buffer[..])?;
