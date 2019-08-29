@@ -72,8 +72,11 @@ fn canonical_signature_order(a: Option<time::Tm>, b: Option<time::Tm>)
 }
 
 fn sig_cmp(a: &Signature, b: &Signature) -> Ordering {
-    canonical_signature_order(a.signature_creation_time(),
-                              b.signature_creation_time())
+    match canonical_signature_order(a.signature_creation_time(),
+                                    b.signature_creation_time()) {
+        Ordering::Equal => a.mpis().cmp(b.mpis()),
+        r => r
+    }
 }
 
 /// Returns the first signature with creation time not less than `t`.
