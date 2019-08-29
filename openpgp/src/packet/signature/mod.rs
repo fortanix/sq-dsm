@@ -398,12 +398,12 @@ impl PartialEq for Signature4 {
     /// Ignoring the unhashed subpackets means that we can deduplicate
     /// signatures using this predicate.
     fn eq(&self, other: &Signature4) -> bool {
-        self.fields.version == other.fields.version
+        self.mpis == other.mpis
+            && self.fields.version == other.fields.version
             && self.fields.typ == other.fields.typ
             && self.fields.pk_algo == other.fields.pk_algo
             && self.fields.hash_algo == other.fields.hash_algo
             && self.fields.hashed_area == other.fields.hashed_area
-            && self.mpis == other.mpis
     }
 }
 
