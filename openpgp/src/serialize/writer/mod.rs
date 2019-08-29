@@ -111,6 +111,9 @@ pub(crate) trait Stackable<'a, C> : io::Write + fmt::Debug {
     /// Returns a mutable reference to the cookie.
     fn cookie_mut(&mut self) -> &mut C;
 
+    /// Returns the number of bytes written to this filter.
+    fn position(&self) -> u64;
+
     /// Writes a byte.
     fn write_u8(&mut self, b: u8) -> io::Result<()> {
         let b : [u8; 1] = [b; 1];
@@ -158,6 +161,9 @@ impl <'a, C> Stackable<'a, C> for BoxStack<'a, C> {
     }
     fn cookie_mut(&mut self) -> &mut C {
         self.as_mut().cookie_mut()
+    }
+    fn position(&self) -> u64 {
+        self.as_ref().position()
     }
 }
 
@@ -272,12 +278,16 @@ impl<'a, C> Stackable<'a, C> for Identity<'a, C> {
     fn cookie_mut(&mut self) -> &mut C {
         &mut self.cookie
     }
+    fn position(&self) -> u64 {
+        self.inner.as_ref().map(|i| i.position()).unwrap_or(0)
+    }
 }
 
 /// Generic writer wrapping `io::Write`.
 pub struct Generic<W: io::Write, C> {
     inner: W,
     cookie: C,
+    position: u64,
 }
 
 impl<'a, W: 'a + io::Write, C: 'a> Generic<W, C> {
@@ -290,6 +300,7 @@ impl<'a, W: 'a + io::Write, C: 'a> Generic<W, C> {
         Generic {
             inner: inner,
             cookie: cookie,
+            position: 0,
         }
     }
 }
@@ -303,7 +314,13 @@ impl<W: io::Write, C> fmt::Debug for Generic<W, C> {
 
 impl<W: io::Write, C> io::Write for Generic<W, C> {
     fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
-        self.inner.write(bytes)
+        match self.inner.write(bytes) {
+            Ok(n) => {
+                self.position += n as u64;
+                Ok(n)
+            },
+            Err(e) => Err(e),
+        }
     }
 
     fn flush(&mut self) -> io::Result<()> {
@@ -337,6 +354,9 @@ impl<'a, W: io::Write, C> Stackable<'a, C> for Generic<W, C> {
     }
     fn cookie_mut(&mut self) -> &mut C {
         &mut self.cookie
+    }
+    fn position(&self) -> u64 {
+        self.position
     }
 }
 
@@ -403,6 +423,9 @@ impl<'a, C: 'a> Stackable<'a, C> for Encryptor<'a, C> {
     }
     fn cookie_mut(&mut self) -> &mut C {
         self.inner.cookie_mut()
+    }
+    fn position(&self) -> u64 {
+        self.inner.position
     }
 }
 
@@ -471,6 +494,9 @@ impl<'a, C: 'a> Stackable<'a, C> for AEADEncryptor<'a, C> {
     }
     fn cookie_mut(&mut self) -> &mut C {
         self.inner.cookie_mut()
+    }
+    fn position(&self) -> u64 {
+        self.inner.position
     }
 }
 

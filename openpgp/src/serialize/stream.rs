@@ -177,6 +177,9 @@ impl<'a> writer::Stackable<'a, Cookie> for ArbitraryWriter<'a> {
     fn cookie_mut(&mut self) -> &mut Cookie {
         self.inner.cookie_mut()
     }
+    fn position(&self) -> u64 {
+        self.inner.position()
+    }
 }
 
 /// Signs a packet stream.
@@ -204,6 +207,7 @@ pub struct Signer<'a, R>
     detached: bool,
     hash: crypto::hash::Context,
     cookie: Cookie,
+    position: u64,
 }
 
 impl<'a, R> Signer<'a, R>
@@ -405,6 +409,7 @@ impl<'a, R> Signer<'a, R>
                 level: level,
                 private: Private::Signer,
             },
+            position: 0,
         })))
     }
 
@@ -478,6 +483,7 @@ impl<'a, R> Write for Signer<'a, R>
 
         if let Ok(amount) = written {
             self.hash.update(&buf[..amount]);
+            self.position += amount as u64;
         }
 
         written
@@ -529,6 +535,9 @@ impl<'a, R> writer::Stackable<'a, Cookie> for Signer<'a, R>
     }
     fn cookie_mut(&mut self) -> &mut Cookie {
         &mut self.cookie
+    }
+    fn position(&self) -> u64 {
+        self.position
     }
 }
 
@@ -696,6 +705,9 @@ impl<'a> writer::Stackable<'a, Cookie> for LiteralWriter<'a> {
     fn cookie_mut(&mut self) -> &mut Cookie {
         self.inner.cookie_mut()
     }
+    fn position(&self) -> u64 {
+        self.inner.position()
+    }
 }
 
 /// Compresses a packet stream.
@@ -821,6 +833,9 @@ impl<'a> writer::Stackable<'a, Cookie> for Compressor<'a> {
     }
     fn cookie_mut(&mut self) -> &mut Cookie {
         self.inner.cookie_mut()
+    }
+    fn position(&self) -> u64 {
+        self.inner.position()
     }
 }
 
@@ -1183,6 +1198,9 @@ impl<'a> writer::Stackable<'a, Cookie> for Encryptor<'a> {
     }
     fn cookie_mut(&mut self) -> &mut Cookie {
         &mut self.cookie
+    }
+    fn position(&self) -> u64 {
+        self.inner.as_ref().map(|i| i.position()).unwrap_or(0)
     }
 }
 

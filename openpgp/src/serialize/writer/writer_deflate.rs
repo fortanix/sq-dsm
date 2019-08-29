@@ -66,6 +66,9 @@ impl<'a, C: 'a> Stackable<'a, C> for ZIP<'a, C> {
     fn cookie_mut(&mut self) -> &mut C {
         self.inner.cookie_mut()
     }
+    fn position(&self) -> u64 {
+        self.inner.position
+    }
 }
 
 /// ZLIBing writer.
@@ -127,5 +130,8 @@ impl<'a, C: 'a> Stackable<'a, C> for ZLIB<'a, C> {
     }
     fn cookie_mut(&mut self) -> &mut C {
         self.inner.cookie_mut()
+    }
+    fn position(&self) -> u64 {
+        self.inner.position
     }
 }
