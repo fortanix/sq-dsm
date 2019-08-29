@@ -238,6 +238,19 @@ impl<C> ComponentBinding<C> {
             RevocationStatus::NotAsFarAsWeKnow
         }
     }
+
+    // Converts the component into an iterator over the contained
+    // packets.
+    fn into_packets<'a>(self) -> impl Iterator<Item=Packet>
+        where Packet: From<C>
+    {
+        let p : Packet = self.component.into();
+        std::iter::once(p)
+            .chain(self.selfsigs.into_iter().map(|s| s.into()))
+            .chain(self.certifications.into_iter().map(|s| s.into()))
+            .chain(self.self_revocations.into_iter().map(|s| s.into()))
+            .chain(self.other_revocations.into_iter().map(|s| s.into()))
+    }
 }
 
 impl<P: key::KeyParts, R: key::KeyRole> ComponentBinding<Key<P, R>> {
@@ -1855,84 +1868,21 @@ impl TPK {
         self.primary().key().keyid()
     }
 
-    /// Converts the TPK into a sequence of packets.
+    /// Converts the TPK into an iterator over a sequence of packets.
     ///
-    /// This method discards an invalid components and bad signatures.
-    pub fn into_packets(self) -> Vec<Packet> {
-        let mut p : Vec<Packet> = Vec::new();
-
-        p.push(Packet::PublicKey(self.primary.component));
-
-        for s in self.primary.selfsigs.into_iter() {
-            p.push(Packet::Signature(s));
-        }
-        for s in self.primary.self_revocations.into_iter() {
-            p.push(Packet::Signature(s));
-        }
-        for s in self.primary.certifications.into_iter() {
-            p.push(Packet::Signature(s));
-        }
-        for s in self.primary.other_revocations.into_iter() {
-            p.push(Packet::Signature(s));
-        }
-
-        for u in self.userids.into_iter() {
-            p.push(Packet::UserID(u.component));
-            for s in u.self_revocations.into_iter() {
-                p.push(Packet::Signature(s));
-            }
-            for s in u.selfsigs.into_iter() {
-                p.push(Packet::Signature(s));
-            }
-            for s in u.other_revocations.into_iter() {
-                p.push(Packet::Signature(s));
-            }
-            for s in u.certifications.into_iter() {
-                p.push(Packet::Signature(s));
-            }
-        }
-
-        for u in self.user_attributes.into_iter() {
-            p.push(Packet::UserAttribute(u.component));
-            for s in u.self_revocations.into_iter() {
-                p.push(Packet::Signature(s));
-            }
-            for s in u.selfsigs.into_iter() {
-                p.push(Packet::Signature(s));
-            }
-            for s in u.other_revocations.into_iter() {
-                p.push(Packet::Signature(s));
-            }
-            for s in u.certifications.into_iter() {
-                p.push(Packet::Signature(s));
-            }
-        }
-
-        let subkeys = self.subkeys;
-        for k in subkeys.into_iter() {
-            p.push(Packet::PublicSubkey(k.component));
-            for s in k.self_revocations.into_iter() {
-                p.push(Packet::Signature(s));
-            }
-            for s in k.selfsigs.into_iter() {
-                p.push(Packet::Signature(s));
-            }
-            for s in k.other_revocations.into_iter() {
-                p.push(Packet::Signature(s));
-            }
-            for s in k.certifications.into_iter() {
-                p.push(Packet::Signature(s));
-            }
-        }
-
-        p
+    /// This method discards invalid components and bad signatures.
+    pub fn into_packets(self) -> impl Iterator<Item=Packet> {
+        self.primary.into_packets()
+            .chain(self.userids.into_iter().flat_map(|b| b.into_packets()))
+            .chain(self.user_attributes.into_iter().flat_map(|b| b.into_packets()))
+            .chain(self.subkeys.into_iter().flat_map(|b| b.into_packets()))
     }
 
     /// Converts the TPK into a `PacketPile`.
     ///
     /// This method discards an invalid components and bad signatures.
     pub fn into_packet_pile(self) -> PacketPile {
-        PacketPile::from(self.into_packets())
+        PacketPile::from(self.into_packets().collect::<Vec<Packet>>())
     }
 
     /// Merges `other` into `self`.
@@ -1975,7 +1925,7 @@ impl TPK {
     /// This recanonicalizes the TPK.  If the packets are invalid,
     /// they are dropped.
     pub fn merge_packets(self, mut packets: Vec<Packet>) -> Result<Self> {
-        let mut combined = self.into_packets();
+        let mut combined = self.into_packets().collect::<Vec<_>>();
         combined.append(&mut packets);
         TPK::from_packet_pile(PacketPile::from(combined))
     }
@@ -2525,9 +2475,9 @@ mod test {
         assert_eq!(rev.len(), 1);
         assert_eq!(rev[0].tag(), Tag::Signature);
 
-        let packets_pre_merge = tpk.clone().into_packets().len();
+        let packets_pre_merge = tpk.clone().into_packets().count();
         let tpk = tpk.merge_packets(rev).unwrap();
-        let packets_post_merge = tpk.clone().into_packets().len();
+        let packets_post_merge = tpk.clone().into_packets().count();
         assert_eq!(packets_post_merge, packets_pre_merge + 1);
     }
 
