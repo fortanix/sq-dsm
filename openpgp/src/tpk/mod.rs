@@ -31,7 +31,6 @@ use crate::{
     Fingerprint,
 };
 use crate::parse::{Parse, PacketParserResult, PacketParser};
-use crate::serialize::SerializeInto;
 use crate::constants::ReasonForRevocation;
 
 mod builder;
@@ -59,12 +58,6 @@ use parser::{
 const TRACE : bool = false;
 
 // Helper functions.
-
-// Turn a signature into a key for use by dedup.
-fn sig_key(a: &mut Signature) -> Box<[u8]> {
-    a.to_vec().expect("XXX: this better not fail")
-        .into_boxed_slice()
-}
 
 /// Compare the creation time of two signatures.  Order them so that
 /// the more recent signature is first.
@@ -269,21 +262,27 @@ impl<C> ComponentBinding<C> {
     //
     // This function assumes that the signatures have already been
     // cryptographically checked.
+    //
+    // Note: this uses Signature::eq to compare signatures.  That
+    // function ignores unhashed packets.  If there are two signatures
+    // that only differ in their unhashed subpackets, they will be
+    // deduped.  The unhashed areas are *not* merged; the one that is
+    // kept is undefined.
     fn sort_and_dedup(&mut self)
     {
         self.selfsigs.sort_by(sig_cmp);
-        self.selfsigs.dedup_by_key(sig_key);
+        self.selfsigs.dedup();
 
         // There is no need to sort the certifications, but we do
         // want to remove dups and sorting is a prerequisite.
         self.certifications.sort_by(sig_cmp);
-        self.certifications.dedup_by_key(sig_key);
+        self.certifications.dedup();
 
         self.self_revocations.sort_by(sig_cmp);
-        self.self_revocations.dedup_by_key(sig_key);
+        self.self_revocations.dedup();
 
         self.other_revocations.sort_by(sig_cmp);
-        self.other_revocations.dedup_by_key(sig_key);
+        self.other_revocations.dedup();
     }
 }
 
@@ -1423,7 +1422,7 @@ impl TPK {
         self.primary.sort_and_dedup();
 
         self.bad.sort_by(sig_cmp);
-        self.bad.dedup_by_key(sig_key);
+        self.bad.dedup();
 
         for binding in &mut self.userids {
             binding.sort_and_dedup();
