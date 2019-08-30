@@ -163,10 +163,10 @@ impl<'a> writer::Stackable<'a, Cookie> for ArbitraryWriter<'a> {
         unreachable!("Only implemented by Signer")
     }
     fn inner_ref(&self) -> Option<&writer::Stackable<'a, Cookie>> {
-        self.inner.inner_ref()
+        Some(self.inner.as_ref())
     }
     fn inner_mut(&mut self) -> Option<&mut writer::Stackable<'a, Cookie>> {
-        self.inner.inner_mut()
+        Some(self.inner.as_mut())
     }
     fn cookie_set(&mut self, cookie: Cookie) -> Cookie {
         self.inner.cookie_set(cookie)
@@ -687,10 +687,10 @@ impl<'a> writer::Stackable<'a, Cookie> for LiteralWriter<'a> {
         unreachable!("Only implemented by Signer")
     }
     fn inner_ref(&self) -> Option<&writer::Stackable<'a, Cookie>> {
-        self.inner.inner_ref()
+        Some(self.inner.as_ref())
     }
     fn inner_mut(&mut self) -> Option<&mut writer::Stackable<'a, Cookie>> {
-        self.inner.inner_mut()
+        Some(self.inner.as_mut())
     }
     fn cookie_set(&mut self, cookie: Cookie) -> Cookie {
         self.inner.cookie_set(cookie)
@@ -816,10 +816,10 @@ impl<'a> writer::Stackable<'a, Cookie> for Compressor<'a> {
         unreachable!("Only implemented by Signer")
     }
     fn inner_ref(&self) -> Option<&writer::Stackable<'a, Cookie>> {
-        self.inner.inner_ref()
+        Some(self.inner.as_ref())
     }
     fn inner_mut(&mut self) -> Option<&mut writer::Stackable<'a, Cookie>> {
-        self.inner.inner_mut()
+        Some(self.inner.as_mut())
     }
     fn cookie_set(&mut self, cookie: Cookie) -> Cookie {
         self.inner.cookie_set(cookie)
