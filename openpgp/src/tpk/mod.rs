@@ -6,6 +6,8 @@ use std::path::Path;
 use std::slice;
 use std::mem;
 use std::fmt;
+use std::ops::{Deref, DerefMut};
+
 use time;
 
 use crate::{
@@ -357,6 +359,73 @@ impl<'a, C> ExactSizeIterator for ComponentBindingIter<'a, C>
     }
 }
 
+/// A collection of `ComponentBindings`.
+///
+/// Note: we need this, because we can't `impl Vec<ComponentBindings>`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ComponentBindings<C> {
+    bindings: Vec<ComponentBinding<C>>,
+}
+
+impl<C> Deref for ComponentBindings<C> {
+    type Target = Vec<ComponentBinding<C>>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.bindings
+    }
+}
+
+impl<C> DerefMut for ComponentBindings<C> {
+    fn deref_mut(&mut self) -> &mut Vec<ComponentBinding<C>> {
+        &mut self.bindings
+    }
+}
+
+impl<C> Into<Vec<ComponentBinding<C>>> for ComponentBindings<C> {
+    fn into(self) -> Vec<ComponentBinding<C>> {
+        self.bindings
+    }
+}
+
+impl<C> IntoIterator for ComponentBindings<C> {
+    type Item = ComponentBinding<C>;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.bindings.into_iter()
+    }
+}
+
+impl<C> ComponentBindings<C> {
+    fn new() -> Self {
+        Self { bindings: vec![] }
+    }
+}
+
+/// A vecor of key (primary or subkey, public or private) and any
+/// associated signatures.
+pub type KeyBindings<KeyPart, KeyRole> = ComponentBindings<Key<KeyPart, KeyRole>>;
+
+/// A vector of subkeys and any associated signatures.
+pub type SubkeyBindings<KeyPart> = KeyBindings<KeyPart, key::SubordinateRole>;
+
+/// A vector of key (primary or subkey, public or private) and any
+/// associated signatures.
+pub type GenericKeyBindings
+    = ComponentBindings<Key<key::UnspecifiedParts, key::UnspecifiedRole>>;
+
+/// A vector of User ID bindings and any associated signatures.
+pub type UserIDBindings = ComponentBindings<UserID>;
+
+/// A vector of User Attribute bindings and any associated signatures.
+pub type UserAttributeBindings = ComponentBindings<UserAttribute>;
+
+/// A vector of unknown components and any associated signatures.
+///
+/// Note: all signatures are stored as certifications.
+pub type UnknownBindings = ComponentBindings<Unknown>;
+
+
 /// A transferable public key (TPK).
 ///
 /// A TPK (see [RFC 4880, section 11.1]) can be used to verify
@@ -413,13 +482,13 @@ impl<'a, C> ExactSizeIterator for ComponentBindingIter<'a, C>
 pub struct TPK {
     primary: PrimaryKeyBinding<key::PublicParts>,
 
-    userids: Vec<UserIDBinding>,
-    user_attributes: Vec<UserAttributeBinding>,
-    subkeys: Vec<SubkeyBinding<key::PublicParts>>,
+    userids: UserIDBindings,
+    user_attributes: UserAttributeBindings,
+    subkeys: SubkeyBindings<key::PublicParts>,
 
     // Unknown components, e.g., some UserAttribute++ packet from the
     // future.
-    unknowns: Vec<UnknownBinding>,
+    unknowns: UnknownBindings,
     // Signatures that we couldn't find a place for.
     bad: Vec<packet::Signature>,
 }
@@ -1027,13 +1096,13 @@ impl TPK {
         self.bad.sort_by(sig_cmp);
         self.bad.dedup();
 
-        for binding in &mut self.userids {
+        for binding in &mut self.userids.iter_mut() {
             binding.sort_and_dedup();
         }
-        for binding in &mut self.user_attributes {
+        for binding in &mut self.user_attributes.iter_mut() {
             binding.sort_and_dedup();
         }
-        for binding in &mut self.subkeys {
+        for binding in &mut self.subkeys.iter_mut() {
             binding.sort_and_dedup();
         }
 

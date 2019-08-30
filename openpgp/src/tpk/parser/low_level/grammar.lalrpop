@@ -12,6 +12,7 @@ use crate::TPK;
 use crate::tpk::parser::low_level::lexer;
 use crate::tpk::parser::low_level::lexer::{Token, Component};
 use crate::tpk::{
+    ComponentBindings,
     PrimaryKeyBinding,
     SubkeyBinding,
     UserIDBinding,
@@ -52,10 +53,10 @@ pub TPK: Option<TPK> = {
                         self_revocations: vec![],
                         other_revocations: vec![],
                     },
-                    subkeys: vec![],
-                    userids: vec![],
-                    user_attributes: vec![],
-                    unknowns: vec![],
+                    subkeys: ComponentBindings::new(),
+                    userids: ComponentBindings::new(),
+                    user_attributes: ComponentBindings::new(),
+                    unknowns: ComponentBindings::new(),
                     bad: vec![],
                 };
 
