@@ -9,8 +9,8 @@ use crate::packet::Unknown;
 use crate::Packet;
 use crate::TPK;
 
-use crate::tpk::parser::lexer;
-use crate::tpk::parser::lexer::{Token, Component};
+use crate::tpk::parser::low_level::lexer;
+use crate::tpk::parser::low_level::lexer::{Token, Component};
 use crate::tpk::{
     PrimaryKeyBinding,
     SubkeyBinding,

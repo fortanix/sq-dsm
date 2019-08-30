@@ -49,10 +49,10 @@ pub use parser::{
     TPKValidator,
 };
 
-use parser::{
+use parser::low_level::{
     Lexer,
     Token,
-    TPKLowLevelParser,
+    TPKParser as TPKLowLevelParser,
 };
 
 const TRACE : bool = false;
@@ -564,8 +564,8 @@ impl<'a, I: Iterator<Item=Packet>> TPKParser<'a, I> {
         {
             Ok(tpko) => tpko,
             Err(e) => return Err(
-                parser::parse_error_to_openpgp_error(
-                    parser::parse_error_downcast(e)).into()),
+                parser::low_level::parse_error_to_openpgp_error(
+                    parser::low_level::parse_error_downcast(e)).into()),
         }.and_then(|tpk| {
             for filter in &self.filter {
                 if !filter(&tpk, true) {
