@@ -516,11 +516,7 @@ impl<'a, R> writer::Stackable<'a, Cookie> for Signer<'a, R>
         }
     }
     fn inner_ref(&self) -> Option<&writer::Stackable<'a, Cookie>> {
-        if let Some(ref i) = self.inner {
-            Some(i)
-        } else {
-            None
-        }
+        self.inner.as_ref().map(|r| r.as_ref())
     }
     fn into_inner(mut self: Box<Self>)
                   -> Result<Option<writer::BoxStack<'a, Cookie>>> {
@@ -1174,11 +1170,7 @@ impl<'a> writer::Stackable<'a, Cookie> for Encryptor<'a> {
         unreachable!("Only implemented by Signer")
     }
     fn inner_ref(&self) -> Option<&writer::Stackable<'a, Cookie>> {
-        if let Some(ref i) = self.inner {
-            Some(i)
-        } else {
-            None
-        }
+        self.inner.as_ref().map(|r| r.as_ref())
     }
     fn inner_mut(&mut self) -> Option<&mut writer::Stackable<'a, Cookie>> {
         if let Some(ref mut i) = self.inner {
