@@ -52,10 +52,10 @@ impl<'a, C: 'a> Stackable<'a, C> for ZIP<'a, C> {
         unreachable!("Only implemented by Signer")
     }
     fn inner_mut(&mut self) -> Option<&mut Stackable<'a, C>> {
-        self.inner.inner_mut()
+        Some(self.inner.inner.get_mut())
     }
     fn inner_ref(&self) -> Option<&Stackable<'a, C>> {
-        self.inner.inner_ref()
+        Some(self.inner.inner.get_ref())
     }
     fn cookie_set(&mut self, cookie: C) -> C {
         self.inner.cookie_set(cookie)
@@ -117,10 +117,10 @@ impl<'a, C: 'a> Stackable<'a, C> for ZLIB<'a, C> {
         unreachable!("Only implemented by Signer")
     }
     fn inner_mut(&mut self) -> Option<&mut Stackable<'a, C>> {
-        self.inner.inner_mut()
+        Some(self.inner.inner.get_mut())
     }
     fn inner_ref(&self) -> Option<&Stackable<'a, C>> {
-        self.inner.inner_ref()
+        Some(self.inner.inner.get_ref())
     }
     fn cookie_set(&mut self, cookie: C) -> C {
         self.inner.cookie_set(cookie)

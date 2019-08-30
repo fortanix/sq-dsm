@@ -341,9 +341,17 @@ impl<'a, W: io::Write, C> Stackable<'a, C> for Generic<W, C> {
     fn mount(&mut self, _new: BoxStack<'a, C>) {
     }
     fn inner_mut(&mut self) -> Option<&mut Stackable<'a, C>> {
+        // If you use Generic to wrap an io::Writer, and you know that
+        // the io::Writer's inner is also a Stackable, then return a
+        // reference to the innermost Stackable in your
+        // implementation.  See e.g. writer::ZLIB.
         None
     }
     fn inner_ref(&self) -> Option<&Stackable<'a, C>> {
+        // If you use Generic to wrap an io::Writer, and you know that
+        // the io::Writer's inner is also a Stackable, then return a
+        // reference to the innermost Stackable in your
+        // implementation.  See e.g. writer::ZLIB.
         None
     }
     fn cookie_set(&mut self, cookie: C) -> C {
@@ -410,10 +418,12 @@ impl<'a, C: 'a> Stackable<'a, C> for Encryptor<'a, C> {
         unreachable!("Only implemented by Signer")
     }
     fn inner_mut(&mut self) -> Option<&mut Stackable<'a, C>> {
-        self.inner.inner_mut()
+        // XXX: Unfortunately, this doesn't work due to a lifetime mismatch:
+        // self.inner.inner.get_mut().map(|r| r.as_mut())
+        None
     }
     fn inner_ref(&self) -> Option<&Stackable<'a, C>> {
-        self.inner.inner_ref()
+        self.inner.inner.get_ref().map(|r| r.as_ref())
     }
     fn cookie_set(&mut self, cookie: C) -> C {
         self.inner.cookie_set(cookie)
@@ -481,10 +491,12 @@ impl<'a, C: 'a> Stackable<'a, C> for AEADEncryptor<'a, C> {
         unreachable!("Only implemented by Signer")
     }
     fn inner_mut(&mut self) -> Option<&mut Stackable<'a, C>> {
-        self.inner.inner_mut()
+        // XXX: Unfortunately, this doesn't work due to a lifetime mismatch:
+        // self.inner.inner.get_mut().map(|r| r.as_mut())
+        None
     }
     fn inner_ref(&self) -> Option<&Stackable<'a, C>> {
-        self.inner.inner_ref()
+        self.inner.inner.get_ref().map(|r| r.as_ref())
     }
     fn cookie_set(&mut self, cookie: C) -> C {
         self.inner.cookie_set(cookie)

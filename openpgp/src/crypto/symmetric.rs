@@ -440,6 +440,17 @@ impl<W: io::Write> Encryptor<W> {
                                "Inner writer was taken").into())
         }
     }
+
+    /// Acquires a reference to the underlying writer.
+    pub fn get_ref(&self) -> Option<&W> {
+        self.inner.as_ref()
+    }
+
+    /// Acquires a mutable reference to the underlying writer.
+    #[allow(dead_code)]
+    pub fn get_mut(&mut self) -> Option<&mut W> {
+        self.inner.as_mut()
+    }
 }
 
 impl<W: io::Write> io::Write for Encryptor<W> {
