@@ -25,7 +25,9 @@ impl Eq for Unknown {}
 
 impl PartialEq for Unknown {
     fn eq(&self, other: &Unknown) -> bool {
-        self.common == other.common && self.tag == other.tag
+        assert!(self.common.children.is_none());
+        assert!(other.common.children.is_none());
+        self.common.body == other.common.body && self.tag == other.tag
     }
 }
 
