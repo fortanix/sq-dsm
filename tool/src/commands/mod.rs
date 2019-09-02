@@ -8,7 +8,10 @@ use rpassword;
 
 extern crate sequoia_openpgp as openpgp;
 use sequoia_core::Context;
-use crate::openpgp::constants::DataFormat;
+use crate::openpgp::constants::{
+    CompressionAlgorithm,
+    DataFormat,
+};
 use crate::openpgp::crypto;
 use crate::openpgp::{TPK, KeyID, Result};
 use crate::openpgp::packet::prelude::*;
@@ -22,6 +25,11 @@ use crate::openpgp::parse::stream::{
 };
 use crate::openpgp::serialize::stream::{
     Message, Signer, LiteralWriter, Encryptor, EncryptionMode,
+    Compressor,
+};
+use crate::openpgp::serialize::padding::{
+    Padder,
+    padme,
 };
 extern crate sequoia_store as store;
 
@@ -80,7 +88,8 @@ fn get_signing_keys(tpks: &[openpgp::TPK])
 pub fn encrypt(store: &mut store::Store,
                input: &mut io::Read, output: &mut io::Write,
                npasswords: usize, recipients: Vec<&str>,
-               mut tpks: Vec<openpgp::TPK>, signers: Vec<openpgp::TPK>)
+               mut tpks: Vec<openpgp::TPK>, signers: Vec<openpgp::TPK>,
+               compression: &str)
                -> Result<()> {
     for r in recipients {
         tpks.push(store.lookup(r).context("No such key found")?.tpk()?);
@@ -113,6 +122,18 @@ pub fn encrypt(store: &mut store::Store,
                                   EncryptionMode::AtRest,
                                   None, None)
         .context("Failed to create encryptor")?;
+
+    match compression {
+        "none" => (),
+        "pad" => sink = Padder::new(sink, padme)?,
+        "zip" =>
+            sink = Compressor::new(sink, CompressionAlgorithm::Zip, None)?,
+        "zlib" =>
+            sink = Compressor::new(sink, CompressionAlgorithm::Zlib, None)?,
+        "bzip2" =>
+            sink = Compressor::new(sink, CompressionAlgorithm::BZip2, None)?,
+        _ => unreachable!("all possible choices are handled")
+    }
 
     // Optionally sign message.
     if ! signers.is_empty() {

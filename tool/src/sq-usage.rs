@@ -76,6 +76,8 @@
 //!     -V, --version      Prints version information
 //!
 //! OPTIONS:
+//!         --compression <KIND>                  Selects compression scheme to use [default: pad]  [possible values: none,
+//!                                               pad, zip, zlib, bzip2]
 //!     -o, --output <FILE>                       Sets the output file to use
 //!     -r, --recipient <LABEL>...                Recipient to encrypt for (can be given multiple times)
 //!         --recipient-key-file <TPK-FILE>...    Recipient to encrypt for, given as a file (can be given multiple times)

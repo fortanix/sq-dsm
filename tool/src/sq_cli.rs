@@ -111,7 +111,15 @@ pub fn build() -> App<'static, 'static> {
                          .short("s")
                          .multiple(true)
                          .help("Encrypt with a password \
-                                (can be given multiple times)")))
+                                (can be given multiple times)"))
+                    .arg(Arg::with_name("compression")
+                         .value_name("KIND")
+                         .long("compression")
+                         .possible_values(&["none", "pad", "zip", "zlib",
+                                            "bzip2"])
+                         .default_value("pad")
+                         .help("Selects compression scheme to use")))
+
         .subcommand(SubCommand::with_name("sign")
                     .display_order(25)
                     .about("Signs a message")

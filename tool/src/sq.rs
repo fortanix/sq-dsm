@@ -208,7 +208,8 @@ fn real_main() -> Result<(), failure::Error> {
                 .unwrap_or(Ok(vec![]))?;
             commands::encrypt(&mut store, &mut input, &mut output,
                               m.occurrences_of("symmetric") as usize,
-                              recipients, additional_tpks, additional_secrets)?;
+                              recipients, additional_tpks, additional_secrets,
+                              m.value_of("compression").expect("has default"))?;
         },
         ("sign",  Some(m)) => {
             let mut input = open_or_stdin(m.value_of("input"))?;
