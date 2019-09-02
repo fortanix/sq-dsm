@@ -2,6 +2,8 @@ use std::fmt;
 use std::str;
 use std::hash::{Hash, Hasher};
 use std::cell::RefCell;
+use std::cmp::Ordering;
+
 use quickcheck::{Arbitrary, Gen};
 use crate::rfc2822::{
     AddrSpec,
@@ -122,6 +124,17 @@ impl PartialEq for UserID {
 impl Eq for UserID {
 }
 
+impl PartialOrd for UserID {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for UserID {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.value.cmp(&other.value)
+    }
+}
 
 impl Hash for UserID {
     fn hash<H: Hasher>(&self, state: &mut H) {
