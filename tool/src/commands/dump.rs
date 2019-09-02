@@ -651,11 +651,32 @@ impl PacketDumper {
         if let Some(map) = map {
             writeln!(output, "{}", i)?;
             let mut hd = hex::Dumper::new(output, self.indentation_for_hexdump(
-                i, map.iter().map(|f| f.name.len()).max()
+                i, map.iter()
+                    .map(|f| if f.name == "body" { 16 } else { f.name.len() })
+                    .max()
                     .expect("we always have one entry")));
 
             for field in map.iter() {
-                hd.write(field.data, field.name)?;
+                if field.name == "body" {
+                    hd.write_labeled(field.data, |offset, data| {
+                        let mut l = String::new();
+                        for _ in 0..offset {
+                            l.push(' ');
+                        }
+                        for &c in data {
+                            l.push(if c < 32 {
+                                '.'
+                            } else if c < 128 {
+                                c.into()
+                            } else {
+                                '.'
+                            })
+                        }
+                        Some(l)
+                    })?;
+                } else {
+                    hd.write(field.data, field.name)?;
+                }
             }
 
             let output = hd.into_inner();
