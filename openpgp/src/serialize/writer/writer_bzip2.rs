@@ -1,10 +1,9 @@
-use bzip2::Compression as BzCompression;
 use bzip2::write::BzEncoder;
 use std::fmt;
 use std::io;
 
 use crate::Result;
-use super::{Generic, Stack, BoxStack, Stackable};
+use super::{Generic, Stack, BoxStack, Stackable, CompressionLevel};
 
 /// BZing writer.
 pub struct BZ<'a, C: 'a> {
@@ -13,10 +12,13 @@ pub struct BZ<'a, C: 'a> {
 
 impl<'a, C: 'a> BZ<'a, C> {
     /// Makes a BZ compressing writer.
-    pub fn new(inner: Stack<'a, C>, cookie: C) -> Stack<'a, C> {
+    pub fn new<L>(inner: Stack<'a, C>, cookie: C, level: L) -> Stack<'a, C>
+        where L: Into<Option<CompressionLevel>>
+    {
         Stack::from(Box::new(BZ {
             inner: Generic::new_unboxed(
-                BzEncoder::new(inner.into(), BzCompression::Default),
+                BzEncoder::new(inner.into(),
+                               level.into().unwrap_or_default().into()),
                 cookie),
         }))
     }

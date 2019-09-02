@@ -1,10 +1,9 @@
-use flate2::Compression as FlateCompression;
 use flate2::write::{DeflateEncoder, ZlibEncoder};
 use std::fmt;
 use std::io;
 
 use crate::Result;
-use super::{Generic, Stack, BoxStack, Stackable};
+use super::{Generic, Stack, BoxStack, Stackable, CompressionLevel};
 
 /// ZIPing writer.
 pub struct ZIP<'a, C: 'a> {
@@ -13,10 +12,13 @@ pub struct ZIP<'a, C: 'a> {
 
 impl<'a, C: 'a> ZIP<'a, C> {
     /// Makes a ZIP compressing writer.
-    pub fn new(inner: Stack<'a, C>, cookie: C) -> Stack<'a, C> {
+    pub fn new<L>(inner: Stack<'a, C>, cookie: C, level: L) -> Stack<'a, C>
+        where L: Into<Option<CompressionLevel>>
+    {
         Stack::from(Box::new(ZIP {
             inner: Generic::new_unboxed(
-                DeflateEncoder::new(inner.into(), FlateCompression::default()),
+                DeflateEncoder::new(inner.into(),
+                                    level.into().unwrap_or_default().into()),
                 cookie),
         }))
     }
@@ -78,10 +80,13 @@ pub struct ZLIB<'a, C: 'a> {
 
 impl<'a, C: 'a> ZLIB<'a, C> {
     /// Makes a ZLIB compressing writer.
-    pub fn new(inner: Stack<'a, C>, cookie: C) -> Stack<'a, C> {
+    pub fn new<L>(inner: Stack<'a, C>, cookie: C, level: L) -> Stack<'a, C>
+        where L: Into<Option<CompressionLevel>>
+    {
         Stack::from(Box::new(ZLIB {
             inner: Generic::new_unboxed(
-                ZlibEncoder::new(inner.into(), FlateCompression::default()),
+                ZlibEncoder::new(inner.into(),
+                                 level.into().unwrap_or_default().into()),
                 cookie),
         }))
     }

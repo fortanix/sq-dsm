@@ -217,7 +217,8 @@ fn sq_sign_append_on_compress_then_sign() {
     let signer = Signer::new(Message::new(File::create(&sig0).unwrap()),
                              vec![&mut keypair], None)
         .unwrap();
-    let compressor = Compressor::new(signer, CompressionAlgorithm::Uncompressed)
+    let compressor = Compressor::new(signer, CompressionAlgorithm::Uncompressed,
+                                     None)
         .unwrap();
     let mut literal = LiteralWriter::new(compressor, DataFormat::Binary, None,
                                          None)

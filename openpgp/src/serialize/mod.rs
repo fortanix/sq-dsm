@@ -1676,7 +1676,8 @@ impl Serialize for CompressedData {
         }
 
         let o = stream::Message::new(o);
-        let mut o = stream::Compressor::new_naked(o, self.algorithm(), 0)?;
+        let mut o =
+            stream::Compressor::new_naked(o, self.algorithm(), None, 0)?;
 
         // Serialize the packets.
         if let Some(ref children) = self.common.children {

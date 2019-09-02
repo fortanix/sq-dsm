@@ -127,7 +127,7 @@ impl<'a, P: Fn(u64) -> u64 + 'a> Padder<'a, P> {
 
         // Create an appropriate filter.
         let inner: writer::Stack<'a, Cookie> =
-            writer::ZLIB::new(inner, Cookie::new(level));
+            writer::ZLIB::new(inner, Cookie::new(level), None);
 
         Ok(writer::Stack::from(Box::new(Self {
             inner: inner.into(),
