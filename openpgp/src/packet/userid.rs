@@ -115,8 +115,7 @@ impl fmt::Debug for UserID {
 
 impl PartialEq for UserID {
     fn eq(&self, other: &UserID) -> bool {
-        self.common == other.common
-            && self.value == other.value
+        self.value == other.value
     }
 }
 
