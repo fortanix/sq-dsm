@@ -1365,7 +1365,7 @@ mod test {
         }
     }
 
-    #[cfg(feature = "compression-deflate")]
+    #[cfg(feature = "compression-bzip2")]
     #[test]
     fn stream_big() {
         let zeros = vec![0; 1024 * 1024 * 4];
