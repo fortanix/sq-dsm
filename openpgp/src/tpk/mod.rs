@@ -1,6 +1,7 @@
 //! Transferable public keys.
 
 use std::io;
+use std::cmp;
 use std::cmp::Ordering;
 use std::path::Path;
 use std::slice;
@@ -145,7 +146,7 @@ pub type UnknownBinding = ComponentBinding<Unknown>;
 /// A TPK component is a primary key, a subkey, a user id, or a user
 /// attribute.  A binding is a TPK component and any related
 /// signatures.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct ComponentBinding<C> {
     component: C,
 
@@ -317,13 +318,337 @@ impl ComponentBinding<Unknown> {
     }
 }
 
+// Order by:
+//
+//  - Whether the User IDs are marked as primary.
+//
+//  - The timestamp (reversed).
+//
+//  - The User IDs' lexographical order.
+//
+// Note: Comparing the lexographical order of the serialized form
+// is useless since that will be the same as the User IDs'
+// lexographical order.
+impl PartialOrd for UserIDBinding {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl PartialEq for UserIDBinding {
+    fn eq(&self, other: &Self) -> bool {
+        self.partial_cmp(other) == Some(Ordering::Equal)
+    }
+}
+
+impl Eq for UserIDBinding {
+}
+
+impl Ord for UserIDBinding {
+    fn cmp(&self, b: &UserIDBinding) -> Ordering {
+        // Fallback time.
+        let time_zero = time::at_utc(time::Timespec::new(0, 0));
+
+
+        // Compare their revocation status.  Components known to be
+        // revoked come last.
+        let a_revoked = self.self_revocations.len() > 0;
+        let b_revoked = b.self_revocations.len() > 0;
+
+        if a_revoked && ! b_revoked {
+            return Ordering::Greater;
+        }
+        if ! a_revoked && b_revoked {
+            return Ordering::Less;
+        }
+
+        let a_selfsig = self.binding_signature();
+        let b_selfsig = b.binding_signature();
+
+        if a_revoked && b_revoked {
+            // Both are revoked.
+
+            // Sort user ids that have at least one self signature
+            // towards the front.
+            if a_selfsig.is_some() && b_selfsig.is_none() {
+                return Ordering::Less;
+            }
+            if a_selfsig.is_none() && b_selfsig.is_some() {
+                return Ordering::Greater;
+            }
+
+            // Sort by reversed revocation time (i.e., most
+            // recently revoked user id first).
+            let cmp = b.self_revocations[0].signature_creation_time().cmp(
+                &self.self_revocations[0].signature_creation_time());
+            if cmp != Ordering::Equal {
+                return cmp;
+            }
+
+            // They were revoked at the same time.  This is
+            // unlikely.  We just need to do something
+            // deterministic.
+        }
+
+        // Compare their primary status.
+        let a_primary =
+            a_selfsig.map(|sig| sig.primary_userid()).unwrap_or(None);
+        let b_primary =
+            b_selfsig.map(|sig| sig.primary_userid()).unwrap_or(None);
+
+        if a_primary.is_some() && b_primary.is_none() {
+            return Ordering::Less;
+        } else if a_primary.is_none() && b_primary.is_some() {
+            return Ordering::Greater;
+        } else if a_primary.is_some() && b_primary.is_some() {
+            // Both are marked as primary.  Fallback to the date.
+            let mut a_timestamp = time_zero;
+            if let Some(sig) = a_selfsig {
+                if let Some(ts) = sig.signature_creation_time() {
+                    a_timestamp = ts;
+                }
+            }
+            let mut b_timestamp = time_zero;
+            if let Some(sig) = a_selfsig {
+                if let Some(ts) = sig.signature_creation_time() {
+                    b_timestamp = ts;
+                }
+            }
+
+            // We want the more recent date first.
+            let cmp = b_timestamp.cmp(&a_timestamp);
+            if cmp != Ordering::Equal {
+                return cmp;
+            }
+        }
+
+        // Fallback to a lexicographical comparison.
+        self.userid().value().cmp(&b.userid().value())
+    }
+}
+
+impl PartialOrd for UserAttributeBinding {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl PartialEq for UserAttributeBinding {
+    fn eq(&self, other: &Self) -> bool {
+        self.partial_cmp(other) == Some(Ordering::Equal)
+    }
+}
+
+impl Eq for UserAttributeBinding {
+}
+
+impl Ord for UserAttributeBinding {
+    fn cmp(&self, b: &UserAttributeBinding) -> Ordering {
+        // Fallback time.
+        let time_zero = time::at_utc(time::Timespec::new(0, 0));
+
+
+        // Compare their revocation status.  Components known be
+        // revoked come last.
+        let a_revoked = self.self_revocations.len() > 0;
+        let b_revoked = b.self_revocations.len() > 0;
+
+        if a_revoked && ! b_revoked {
+            return Ordering::Greater;
+        }
+        if ! a_revoked && b_revoked {
+            return Ordering::Less;
+        }
+
+        let a_selfsig = self.binding_signature();
+        let b_selfsig = b.binding_signature();
+
+        if a_revoked && b_revoked {
+            // Both are revoked.
+
+            // Sort user attributes that have at least one self
+            // signature towards the front.
+            if a_selfsig.is_some() && b_selfsig.is_none() {
+                return Ordering::Less;
+            }
+            if a_selfsig.is_none() && b_selfsig.is_some() {
+                return Ordering::Greater;
+            }
+
+            // Sort by reversed revocation time (i.e., most
+            // recently revoked user attribute first).
+            let cmp = b.self_revocations[0].signature_creation_time().cmp(
+                &self.self_revocations[0].signature_creation_time());
+            if cmp != Ordering::Equal {
+                return cmp;
+            }
+
+            // They were revoked at the same time.  This is
+            // unlikely.  We just need to do something
+            // deterministic.
+        }
+
+        // Compare their primary status.
+        let a_primary =
+            a_selfsig.map(|sig| sig.primary_userid()).unwrap_or(None);
+        let b_primary =
+            b_selfsig.map(|sig| sig.primary_userid()).unwrap_or(None);
+
+        if a_primary.is_some() && b_primary.is_none() {
+            return Ordering::Less;
+        } else if a_primary.is_none() && b_primary.is_some() {
+            return Ordering::Greater;
+        } else if a_primary.is_some() && b_primary.is_some() {
+            // Both are marked as primary.  Fallback to the date.
+            let mut a_timestamp = time_zero;
+            if let Some(sig) = a_selfsig {
+                if let Some(ts) = sig.signature_creation_time() {
+                    a_timestamp = ts;
+                }
+            }
+            let mut b_timestamp = time_zero;
+            if let Some(sig) = a_selfsig {
+                if let Some(ts) = sig.signature_creation_time() {
+                    b_timestamp = ts;
+                }
+            }
+
+            // We want the more recent date first.
+            let cmp = b_timestamp.cmp(&a_timestamp);
+            if cmp != Ordering::Equal {
+                return cmp;
+            }
+        }
+
+        // Fallback to a lexicographical comparison.
+        self.user_attribute().value()
+            .cmp(&b.user_attribute().value())
+    }
+}
+
+
+impl<P, R> PartialOrd for KeyBinding<P, R>
+    where P: key::KeyParts, R: key::KeyRole
+{
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl<P, R> PartialEq for KeyBinding<P, R>
+    where P: key::KeyParts, R: key::KeyRole
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.partial_cmp(other) == Some(Ordering::Equal)
+    }
+}
+
+impl<P, R> Eq for KeyBinding<P, R>
+    where P: key::KeyParts, R: key::KeyRole
+{
+}
+
+impl<P, R> Ord for KeyBinding<P, R>
+    where P: key::KeyParts, R: key::KeyRole
+{
+    fn cmp(&self, b: &KeyBinding<P, R>) -> Ordering {
+        // Compare their revocation status.  Components known to be
+        // revoked come last.
+        let a_revoked = self.self_revocations.len() > 0;
+        let b_revoked = b.self_revocations.len() > 0;
+
+        if a_revoked && ! b_revoked {
+            return Ordering::Greater;
+        }
+        if ! a_revoked && b_revoked {
+            return Ordering::Less;
+        }
+
+        let a_selfsig = self.binding_signature();
+        let b_selfsig = b.binding_signature();
+
+        if a_revoked && b_revoked {
+            // Both are revoked.
+
+            // Sort keys that have at least one self signature
+            // towards the front.
+            if a_selfsig.is_some() && b_selfsig.is_none() {
+                return Ordering::Less;
+            }
+            if a_selfsig.is_none() && b_selfsig.is_some() {
+                return Ordering::Greater;
+            }
+
+            // Sort by reversed revocation time (i.e., most
+            // recently revoked key first).
+            let cmp = b.self_revocations[0].signature_creation_time().cmp(
+                &self.self_revocations[0].signature_creation_time());
+            if cmp != Ordering::Equal {
+                return cmp;
+            }
+
+            // They were revoked at the same time.  This is
+            // unlikely.  We just need to do something
+            // deterministic.
+        }
+
+        // Features.
+        let a_features =
+            a_selfsig.map(|sig| sig.features()).unwrap_or(Default::default());
+        let b_features =
+            b_selfsig.map(|sig| sig.features()).unwrap_or(Default::default());
+
+        let cmp = a_features.as_vec().cmp(&b_features.as_vec());
+        if cmp != Ordering::Equal {
+            return cmp;
+        }
+
+        // Creation time (more recent first).
+        let cmp = b.key().creation_time().cmp(&self.key().creation_time());
+        if cmp != Ordering::Equal {
+            return cmp;
+        }
+
+        // Fallback to the lexicographical comparison.
+        self.key().mpis().cmp(&b.key().mpis())
+    }
+}
+
+
+impl PartialOrd for UnknownBinding
+{
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl PartialEq for UnknownBinding
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.partial_cmp(other) == Some(Ordering::Equal)
+    }
+}
+
+impl Eq for UnknownBinding
+{
+}
+
+impl Ord for UnknownBinding
+{
+    fn cmp(&self, b: &Self) -> Ordering {
+        self.component.cmp(&b.component)
+    }
+}
+
+
+
 impl fmt::Display for TPK {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.primary().key().fingerprint())
     }
 }
 
-/// An iterator over `ComponetBinding`s.
+/// An iterator over `ComponentBinding`s.
 pub struct ComponentBindingIter<'a, C> {
     iter: Option<slice::Iter<'a, ComponentBinding<C>>>,
 }
@@ -363,11 +688,15 @@ impl<'a, C> ExactSizeIterator for ComponentBindingIter<'a, C>
 ///
 /// Note: we need this, because we can't `impl Vec<ComponentBindings>`.
 #[derive(Debug, Clone, PartialEq)]
-pub struct ComponentBindings<C> {
+pub struct ComponentBindings<C>
+    where ComponentBinding<C>: cmp::PartialEq
+{
     bindings: Vec<ComponentBinding<C>>,
 }
 
-impl<C> Deref for ComponentBindings<C> {
+impl<C> Deref for ComponentBindings<C>
+    where ComponentBinding<C>: cmp::PartialEq
+{
     type Target = Vec<ComponentBinding<C>>;
 
     fn deref(&self) -> &Self::Target {
@@ -375,19 +704,25 @@ impl<C> Deref for ComponentBindings<C> {
     }
 }
 
-impl<C> DerefMut for ComponentBindings<C> {
+impl<C> DerefMut for ComponentBindings<C>
+    where ComponentBinding<C>: cmp::PartialEq
+{
     fn deref_mut(&mut self) -> &mut Vec<ComponentBinding<C>> {
         &mut self.bindings
     }
 }
 
-impl<C> Into<Vec<ComponentBinding<C>>> for ComponentBindings<C> {
+impl<C> Into<Vec<ComponentBinding<C>>> for ComponentBindings<C>
+    where ComponentBinding<C>: cmp::PartialEq
+{
     fn into(self) -> Vec<ComponentBinding<C>> {
         self.bindings
     }
 }
 
-impl<C> IntoIterator for ComponentBindings<C> {
+impl<C> IntoIterator for ComponentBindings<C>
+    where ComponentBinding<C>: cmp::PartialEq
+{
     type Item = ComponentBinding<C>;
     type IntoIter = std::vec::IntoIter<Self::Item>;
 
@@ -396,9 +731,58 @@ impl<C> IntoIterator for ComponentBindings<C> {
     }
 }
 
-impl<C> ComponentBindings<C> {
+impl<C> ComponentBindings<C>
+    where ComponentBinding<C>: cmp::PartialEq
+{
     fn new() -> Self {
         Self { bindings: vec![] }
+    }
+}
+
+impl<C> ComponentBindings<C>
+    where ComponentBinding<C>: cmp::Ord
+{
+    // Sort and dedup the components.
+    //
+    // `cmp` is a function to sort the components for deduping.
+    //
+    // `merge` is a function that merges the first component into the
+    // second component.
+    fn sort_and_dedup<F, F2>(&mut self, cmp: F, merge: F2)
+        where F: Fn(&C, &C) -> Ordering,
+              F2: Fn(&mut C, &mut C)
+    {
+        // We dedup by component (not bindings!).  To do this, we need
+        // to sort the bindings by the component.
+
+        self.bindings.sort_unstable_by(
+            |a, b| cmp(&a.component, &b.component));
+
+        self.bindings.dedup_by(|a, b| {
+            if cmp(&a.component, &b.component) == Ordering::Equal {
+                // Merge.
+                merge(&mut a.component, &mut b.component);
+
+                // Recall: if a and b are equal, a will be dropped.
+                b.selfsigs.append(&mut a.selfsigs);
+                b.certifications.append(&mut a.certifications);
+                b.self_revocations.append(&mut a.self_revocations);
+                b.other_revocations.append(&mut a.self_revocations);
+
+                true
+            } else {
+                false
+            }
+        });
+
+        // Now, resort the bindings.  When sorting by bindings, we also
+        // consider the information on the current self signature.
+        self.sort_unstable();
+
+        // And sort the certificates.
+        for b in self.bindings.iter_mut() {
+            b.sort_and_dedup();
+        }
     }
 }
 
@@ -904,10 +1288,6 @@ impl TPK {
     fn canonicalize(mut self) -> Self {
         tracer!(TRACE, "canonicalize", 0);
 
-        // Fallback time.
-        let time_zero = time::at_utc(time::Timespec::new(0, 0));
-
-
         // The very first thing that we do is verify the
         // self-signatures.  There are a few things that we need to be
         // aware of:
@@ -1106,327 +1486,23 @@ impl TPK {
             binding.sort_and_dedup();
         }
 
-        // First, we sort the bindings lexographically by user id in
-        // preparation for a dedup.
+        self.userids.sort_and_dedup(UserID::cmp, |_, _| {});
+        self.user_attributes.sort_and_dedup(UserAttribute::cmp, |_, _| {});
+        // XXX: If we have two keys with the same public parts and
+        // different non-empty secret parts, then one will be dropped
+        // (non-deterministicly)!
         //
-        // Note: we cannot do the final sort here, because a user ID
-        // might appear multiple times, sometimes being marked as
-        // primary and sometimes not, for example.  In such a case,
-        // one copy might be sorted to the front and the other to the
-        // back, and the following dedup wouldn't combine the user
-        // ids!
-        self.userids.sort_by(|a, b| a.userid().value().cmp(&b.userid().value()));
-
-        // Then, we dedup them.
-        self.userids.dedup_by(|a, b| {
-            if a.userid() == b.userid() {
-                // Merge the content of duplicate user ids.
-
+        // This can happen if:
+        //
+        //   - One is corrupted
+        //   - There are two versions that are encrypted differently
+        self.subkeys.sort_and_dedup(Key::public_cmp,
+            |ref mut a, ref mut b| {
                 // Recall: if a and b are equal, a will be dropped.
-                b.selfsigs.append(&mut a.selfsigs);
-                b.certifications.append(&mut a.certifications);
-                b.self_revocations.append(&mut a.self_revocations);
-                b.other_revocations.append(&mut a.self_revocations);
-
-                b.sort_and_dedup();
-
-                true
-            } else {
-                false
-            }
-        });
-
-        // Now, resort using the information provided in the self-sig.
-        //
-        // Recall: we know that there are no duplicates, and that
-        // self-signatures have been sorted.
-        //
-        // Order by:
-        //
-        //  - Whether the User IDs are marked as primary.
-        //
-        //  - The timestamp (reversed).
-        //
-        //  - The User IDs' lexographical order.
-        //
-        // Note: Comparing the lexographical order of the serialized form
-        // is useless since that will be the same as the User IDs'
-        // lexographical order.
-        self.userids.sort_by(|a, b| {
-            // Compare their revocation status.  Components known be
-            // revoked come last.
-            let a_revoked = a.self_revocations.len() > 0;
-            let b_revoked = b.self_revocations.len() > 0;
-
-            if a_revoked && ! b_revoked {
-                return Ordering::Greater;
-            }
-            if ! a_revoked && b_revoked {
-                return Ordering::Less;
-            }
-
-            let a_selfsig = a.binding_signature();
-            let b_selfsig = b.binding_signature();
-
-            if a_revoked && b_revoked {
-                // Both are revoked.
-
-                // Sort user ids that have at least one self signature
-                // towards the front.
-                if a_selfsig.is_some() && b_selfsig.is_none() {
-                    return Ordering::Less;
+                if b.secret().is_none() && a.secret().is_some() {
+                    b.set_secret(a.set_secret(None));
                 }
-                if a_selfsig.is_none() && b_selfsig.is_some() {
-                    return Ordering::Greater;
-                }
-
-                // Sort by reversed revocation time (i.e., most
-                // recently revoked user id first).
-                let cmp = b.self_revocations[0].signature_creation_time().cmp(
-                    &a.self_revocations[0].signature_creation_time());
-                if cmp != Ordering::Equal {
-                    return cmp;
-                }
-
-                // They were revoked at the same time.  This is
-                // unlikely.  We just need to do something
-                // deterministic.
-            }
-
-            // Compare their primary status.
-            let a_primary =
-                a_selfsig.map(|sig| sig.primary_userid()).unwrap_or(None);
-            let b_primary =
-                b_selfsig.map(|sig| sig.primary_userid()).unwrap_or(None);
-
-            if a_primary.is_some() && b_primary.is_none() {
-                return Ordering::Less;
-            } else if a_primary.is_none() && b_primary.is_some() {
-                return Ordering::Greater;
-            } else if a_primary.is_some() && b_primary.is_some() {
-                // Both are marked as primary.  Fallback to the date.
-                let mut a_timestamp = time_zero;
-                if let Some(sig) = a_selfsig {
-                    if let Some(ts) = sig.signature_creation_time() {
-                        a_timestamp = ts;
-                    }
-                }
-                let mut b_timestamp = time_zero;
-                if let Some(sig) = a_selfsig {
-                    if let Some(ts) = sig.signature_creation_time() {
-                        b_timestamp = ts;
-                    }
-                }
-
-                // We want the more recent date first.
-                let cmp = b_timestamp.cmp(&a_timestamp);
-                if cmp != Ordering::Equal {
-                    return cmp;
-                }
-            }
-
-            // Fallback to a lexicographical comparison.
-            a.userid().value().cmp(&b.userid().value())
-        });
-
-        // Sort the user attributes in preparation for a dedup.  As
-        // for the user ids, we can't do the final sort here, because
-        // we rely on the self-signatures.
-        self.user_attributes.sort_by(
-            |a, b| a.user_attribute().value()
-                .cmp(&b.user_attribute().value()));
-
-        // And, dedup them.
-        self.user_attributes.dedup_by(|a, b| {
-            if a.user_attribute() == b.user_attribute() {
-                // Recall: if a and b are equal, a will be dropped.
-                b.selfsigs.append(&mut a.selfsigs);
-                b.certifications.append(&mut a.certifications);
-                b.self_revocations.append(&mut a.self_revocations);
-                b.other_revocations.append(&mut a.self_revocations);
-
-                b.sort_and_dedup();
-
-                true
-            } else {
-                false
-            }
-        });
-
-        self.user_attributes.sort_by(|a, b| {
-            // Compare their revocation status.  Components known be
-            // revoked come last.
-            let a_revoked = a.self_revocations.len() > 0;
-            let b_revoked = b.self_revocations.len() > 0;
-
-            if a_revoked && ! b_revoked {
-                return Ordering::Greater;
-            }
-            if ! a_revoked && b_revoked {
-                return Ordering::Less;
-            }
-
-            let a_selfsig = a.binding_signature();
-            let b_selfsig = b.binding_signature();
-
-            if a_revoked && b_revoked {
-                // Both are revoked.
-
-                // Sort user attributes that have at least one self
-                // signature towards the front.
-                if a_selfsig.is_some() && b_selfsig.is_none() {
-                    return Ordering::Less;
-                }
-                if a_selfsig.is_none() && b_selfsig.is_some() {
-                    return Ordering::Greater;
-                }
-
-                // Sort by reversed revocation time (i.e., most
-                // recently revoked user attribute first).
-                let cmp = b.self_revocations[0].signature_creation_time().cmp(
-                    &a.self_revocations[0].signature_creation_time());
-                if cmp != Ordering::Equal {
-                    return cmp;
-                }
-
-                // They were revoked at the same time.  This is
-                // unlikely.  We just need to do something
-                // deterministic.
-            }
-
-            // Compare their primary status.
-            let a_primary =
-                a_selfsig.map(|sig| sig.primary_userid()).unwrap_or(None);
-            let b_primary =
-                b_selfsig.map(|sig| sig.primary_userid()).unwrap_or(None);
-
-            if a_primary.is_some() && b_primary.is_none() {
-                return Ordering::Less;
-            } else if a_primary.is_none() && b_primary.is_some() {
-                return Ordering::Greater;
-            } else if a_primary.is_some() && b_primary.is_some() {
-                // Both are marked as primary.  Fallback to the date.
-                let mut a_timestamp = time_zero;
-                if let Some(sig) = a_selfsig {
-                    if let Some(ts) = sig.signature_creation_time() {
-                        a_timestamp = ts;
-                    }
-                }
-                let mut b_timestamp = time_zero;
-                if let Some(sig) = a_selfsig {
-                    if let Some(ts) = sig.signature_creation_time() {
-                        b_timestamp = ts;
-                    }
-                }
-
-                // We want the more recent date first.
-                let cmp = b_timestamp.cmp(&a_timestamp);
-                if cmp != Ordering::Equal {
-                    return cmp;
-                }
-            }
-
-            // Fallback to a lexicographical comparison.
-            a.user_attribute().value()
-                .cmp(&b.user_attribute().value())
-        });
-
-
-        // Sort the subkeys in preparation for a dedup.  As for the
-        // user ids, we can't do the final sort here, because we rely
-        // on the self-signatures.
-        self.subkeys.sort_by(
-            |a, b| Key::public_cmp(a.key(), b.key()));
-
-        // And, dedup them.
-        //
-        // If the public keys match, but only one of them has a secret
-        // key, then merge the key and keep the secret key.
-        self.subkeys.dedup_by(|a, b| {
-            if Key::public_cmp(a.key(), b.key()) == Ordering::Equal
-                && (a.key().secret() == b.key().secret()
-                    || a.key().secret().is_none()
-                    || b.key().secret().is_none())
-            {
-                // Recall: if a and b are equal, a will be dropped.
-                if b.key().secret().is_none() && a.key().secret().is_some() {
-                    b.key_mut().set_secret(a.key_mut().set_secret(None));
-                }
-
-                b.selfsigs.append(&mut a.selfsigs);
-                b.certifications.append(&mut a.certifications);
-                b.self_revocations.append(&mut a.self_revocations);
-                b.other_revocations.append(&mut a.self_revocations);
-
-                b.sort_and_dedup();
-
-                true
-            } else {
-                false
-            }
-        });
-
-        self.subkeys.sort_by(|a, b| {
-            // Compare their revocation status.  Components known to be
-            // revoked come last.
-            let a_revoked = a.self_revocations.len() > 0;
-            let b_revoked = b.self_revocations.len() > 0;
-
-            if a_revoked && ! b_revoked {
-                return Ordering::Greater;
-            }
-            if ! a_revoked && b_revoked {
-                return Ordering::Less;
-            }
-
-            let a_selfsig = a.binding_signature();
-            let b_selfsig = b.binding_signature();
-
-            if a_revoked && b_revoked {
-                // Both are revoked.
-
-                // Sort keys that have at least one self signature
-                // towards the front.
-                if a_selfsig.is_some() && b_selfsig.is_none() {
-                    return Ordering::Less;
-                }
-                if a_selfsig.is_none() && b_selfsig.is_some() {
-                    return Ordering::Greater;
-                }
-
-                // Sort by reversed revocation time (i.e., most
-                // recently revoked key first).
-                let cmp = b.self_revocations[0].signature_creation_time().cmp(
-                    &a.self_revocations[0].signature_creation_time());
-                if cmp != Ordering::Equal {
-                    return cmp;
-                }
-
-                // They were revoked at the same time.  This is
-                // unlikely.  We just need to do something
-                // deterministic.
-            }
-
-            // Features.
-            let a_features =
-                a_selfsig.map(|sig| sig.features()).unwrap_or(Default::default());
-            let b_features =
-                b_selfsig.map(|sig| sig.features()).unwrap_or(Default::default());
-
-            let cmp = a_features.as_vec().cmp(&b_features.as_vec());
-            if cmp != Ordering::Equal {
-                return cmp;
-            }
-
-            // Creation time (more recent first).
-            let cmp = b.key().creation_time().cmp(&a.key().creation_time());
-            if cmp != Ordering::Equal {
-                return cmp;
-            }
-
-            // Fallback to the lexicographical comparison.
-            a.key().mpis().cmp(&b.key().mpis())
-        });
+            });
 
         // In case we have subkeys bound to the primary, it must be
         // certification capable.
