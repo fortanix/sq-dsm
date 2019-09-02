@@ -541,9 +541,19 @@ impl Arbitrary for AEADAlgorithm {
 pub enum CompressionAlgorithm {
     /// Null compression.
     Uncompressed,
-    /// DEFLATE
+    /// DEFLATE Compressed Data.
+    ///
+    /// See [RFC 1951] for details.  [Section 9.3 of RFC 4880]
+    /// recommends that this algorithm should be implemented.
+    ///
+    /// [RFC 1951]: https://tools.ietf.org/html/rfc1951
+    /// [Section 9.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-9.3
     Zip,
-    /// ZLIB
+    /// ZLIB Compressed Data.
+    ///
+    /// See [RFC 1950] for details.
+    ///
+    /// [RFC 1950]: https://tools.ietf.org/html/rfc1950
     Zlib,
     /// bzip2
     BZip2,
