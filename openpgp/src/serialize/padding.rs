@@ -309,4 +309,30 @@ mod test {
             true
         }
     }
+
+    /// Asserts that we can consume the padded messages.
+    #[test]
+    fn roundtrip() {
+        use std::io::Write;
+        use crate::constants::DataFormat;
+        use crate::parse::Parse;
+        use crate::serialize::stream::*;
+
+        let mut msg = vec![0; rand::random::<usize>() % 1024];
+        crate::crypto::random(&mut msg);
+
+        let mut padded = vec![];
+        {
+            let message = Message::new(&mut padded);
+            let padder = Padder::new(message, padme).unwrap();
+            let mut w =
+                LiteralWriter::new(padder, DataFormat::Binary, None, None)
+                .unwrap();
+            w.write_all(&msg).unwrap();
+            w.finalize().unwrap();
+        }
+
+        let m = crate::Message::from_bytes(&padded).unwrap();
+        assert_eq!(m.body().unwrap().body().unwrap(), &msg[..]);
+    }
 }
