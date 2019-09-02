@@ -91,17 +91,27 @@ use crate::constants::{
 /// # f().unwrap();
 /// # fn f() -> Result<()> {
 ///
-/// let mut o = vec![];
+/// let mut unpadded = vec![];
 /// {
-///     let message = Message::new(&mut o);
+///     let message = Message::new(&mut unpadded);
 ///     // XXX: Insert Encryptor here.
-///     let w = Padder::new(message, padme)?;
 ///     // XXX: Insert Signer here.
-///     let mut w = LiteralWriter::new(w, DataFormat::Text, None, None)?;
+///     let mut w = LiteralWriter::new(message, DataFormat::Text, None, None)?;
 ///     w.write_all(b"Hello world.")?;
 ///     w.finalize()?;
 /// }
-/// assert_eq!(o.len(), 28);
+///
+/// let mut padded = vec![];
+/// {
+///     let message = Message::new(&mut padded);
+///     // XXX: Insert Encryptor here.
+///     let padder = Padder::new(message, padme)?;
+///     // XXX: Insert Signer here.
+///     let mut w = LiteralWriter::new(padder, DataFormat::Text, None, None)?;
+///     w.write_all(b"Hello world.")?;
+///     w.finalize()?;
+/// }
+/// assert!(unpadded.len() < padded.len());
 /// # Ok(())
 /// # }
 pub struct Padder<'a, P: Fn(u64) -> u64 + 'a> {
@@ -127,7 +137,8 @@ impl<'a, P: Fn(u64) -> u64 + 'a> Padder<'a, P> {
 
         // Create an appropriate filter.
         let inner: writer::Stack<'a, Cookie> =
-            writer::ZLIB::new(inner, Cookie::new(level), None);
+            writer::ZLIB::new(inner, Cookie::new(level),
+                              writer::CompressionLevel::none());
 
         Ok(writer::Stack::from(Box::new(Self {
             inner: inner.into(),
@@ -334,5 +345,30 @@ mod test {
 
         let m = crate::Message::from_bytes(&padded).unwrap();
         assert_eq!(m.body().unwrap().body().unwrap(), &msg[..]);
+    }
+
+    /// Asserts that no actual compression is done.
+    ///
+    /// We want to avoid having the size of the data stream depend on
+    /// the data's compressibility, therefore it is best to disable
+    /// the compression.
+    #[test]
+    fn no_compression() {
+        use std::io::Write;
+        use crate::constants::DataFormat;
+        use crate::serialize::stream::*;
+        const MSG: &[u8] = b"@@@@@@@@@@@@@@";
+        let mut padded = vec![];
+        {
+            let message = Message::new(&mut padded);
+            let padder = Padder::new(message, padme).unwrap();
+            let mut w = LiteralWriter::new(padder, DataFormat::Text, None, None)
+                .unwrap();
+            w.write_all(MSG).unwrap();
+            w.finalize().unwrap();
+        }
+
+        assert!(padded.windows(MSG.len()).any(|ch| ch == MSG),
+                "Could not find uncompressed message");
     }
 }
