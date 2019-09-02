@@ -1,4 +1,5 @@
 use std::fmt;
+use std::cmp::Ordering;
 
 use quickcheck::{Arbitrary, Gen};
 
@@ -7,7 +8,7 @@ use quickcheck::{Arbitrary, Gen};
 ///   [Section 4.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.3
 ///
 /// The values correspond to the serialized format.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, Hash)]
 pub enum Tag {
     /// Reserved Packet tag.
     Reserved,
@@ -51,6 +52,30 @@ pub enum Tag {
     Unknown(u8),
     /// Experimental packets.
     Private(u8),
+}
+
+impl Eq for Tag {}
+
+impl PartialEq for Tag {
+    fn eq(&self, other: &Tag) -> bool {
+        self.cmp(other) == Ordering::Equal
+    }
+}
+
+impl PartialOrd for Tag
+{
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for Tag
+{
+    fn cmp(&self, other: &Self) -> Ordering {
+        let a : u8 = (*self).into();
+        let b : u8 = (*other).into();
+        a.cmp(&b)
+    }
 }
 
 impl From<u8> for Tag {
