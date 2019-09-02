@@ -5,6 +5,8 @@
 //!   [Section 5.12 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.12
 
 use std::fmt;
+use std::cmp::Ordering;
+
 use quickcheck::{Arbitrary, Gen};
 use rand::Rng;
 
@@ -25,7 +27,7 @@ use crate::serialize::SerializeInto;
 /// See [Section 5.12 of RFC 4880] for details.
 ///
 ///   [Section 5.12 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.12
-#[derive(PartialEq, Eq, Hash, Clone)]
+#[derive(Hash, Clone)]
 pub struct UserAttribute {
     /// CTB packet header fields.
     pub(crate) common: packet::Common,
@@ -48,6 +50,27 @@ impl fmt::Debug for UserAttribute {
         f.debug_struct("UserAttribute")
             .field("value (bytes)", &self.value.len())
             .finish()
+    }
+}
+
+impl PartialEq for UserAttribute {
+    fn eq(&self, other: &UserAttribute) -> bool {
+        self.value == other.value
+    }
+}
+
+impl Eq for UserAttribute {
+}
+
+impl PartialOrd for UserAttribute {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for UserAttribute {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.value.cmp(&other.value)
     }
 }
 
