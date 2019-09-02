@@ -65,12 +65,19 @@ use crate::constants::{
 ///
 /// # Compatibility
 ///
-/// This implementation uses the [ZLIB] compression format.  According
-/// to [Section 2.2 of RFC 1950], any data appended after the trailing
-/// checksum is not part of the zlib stream.
+/// This implementation uses the [DEFLATE] compression format.  The
+/// packet structure contains a flag signaling the end of the stream
+/// (see [Section 3.2.3 of RFC 1951]), and any data appended after
+/// that is not part of the stream.
 ///
-/// [ZLIB]: https://tools.ietf.org/html/rfc1950
-/// [Section 2.2 of RFC 1950]: https://tools.ietf.org/html/rfc1950#page-4
+/// [DEFLATE]: https://tools.ietf.org/html/rfc1951
+/// [Section 3.2.3 of RFC 1951]: https://tools.ietf.org/html/rfc1951#page-9
+///
+/// [Section 9.3 of RFC 4880] recommends that this algorithm should be
+/// implemented, therefore support across various implementations
+/// should be good.
+///
+/// [Section 9.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-9.3
 ///
 /// # Example
 ///
@@ -133,12 +140,12 @@ impl<'a, P: Fn(u64) -> u64 + 'a> Padder<'a, P> {
                                      Cookie::new(level));
 
         // Compressed data header.
-        inner.as_mut().write_u8(CompressionAlgorithm::Zlib.into())?;
+        inner.as_mut().write_u8(CompressionAlgorithm::Zip.into())?;
 
         // Create an appropriate filter.
         let inner: writer::Stack<'a, Cookie> =
-            writer::ZLIB::new(inner, Cookie::new(level),
-                              writer::CompressionLevel::none());
+            writer::ZIP::new(inner, Cookie::new(level),
+                             writer::CompressionLevel::none());
 
         Ok(writer::Stack::from(Box::new(Self {
             inner: inner.into(),
