@@ -905,13 +905,14 @@ impl<'a> Parse<'a, TPK> for TPK {
 }
 
 impl TPK {
-    /// Returns a reference to the primary key.
+    /// Returns a reference to the primary key binding.
     pub fn primary(&self) -> &PrimaryKeyBinding<key::PublicParts> {
         &self.primary
     }
 
-    /// Returns the primary key's current self-signature and, if it
-    /// belong to a user id, a reference to the `UserIDBinding`.
+    /// Returns the primary key's current self-signature and, if the
+    /// self-signature belongs to a user id (as opposed to a direct
+    /// signature), a reference to the `UserIDBinding`.
     ///
     /// Normally, the primary key's current self-signature is the
     /// primary user id's newest, non-revoked self-signature.
@@ -1572,8 +1573,7 @@ impl TPK {
 
     /// Merges `other` into `self`.
     ///
-    /// If `other` is a different key, then nothing is merged into
-    /// `self`, but `self` is still canonicalized.
+    /// If `other` is a different key, then an error is returned.
     pub fn merge(mut self, mut other: TPK) -> Result<Self> {
         if self.primary().key().fingerprint()
             != other.primary().key().fingerprint()
