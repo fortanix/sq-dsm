@@ -137,9 +137,31 @@ pub mod hex {
 
         /// Writes a chunk of data.
         ///
-        /// The `label` is printed at the end of the first line.
+        /// The `msg` is printed at the end of the first line.
         pub fn write(&mut self, buf: &[u8], msg: &str) -> io::Result<()> {
-            let mut msg_printed = false;
+            let mut first = true;
+            self.write_labeled(buf, move |_, _| {
+                if first {
+                    first = false;
+                    Some(msg.into())
+                } else {
+                    None
+                }
+            })
+        }
+
+        /// Writes a chunk of data.
+        ///
+        /// For each line, the given function is called to compute a
+        /// label that printed at the end of the first line.  The
+        /// functions first argument is the offset in the current line
+        /// (0..16), the second the slice of the displayed data.
+        pub fn write_labeled<L>(&mut self, buf: &[u8], mut labeler: L)
+                                -> io::Result<()>
+            where L: FnMut(usize, &[u8]) -> Option<String>
+        {
+            let mut first_label_offset = self.offset % 16;
+
             write!(self.inner, "{}{:08x} ", self.indent, self.offset)?;
             for i in 0 .. self.offset % 16 {
                 if i != 7 {
@@ -150,7 +172,8 @@ pub mod hex {
             }
 
             let mut offset_printed = true;
-            for c in buf {
+            let mut data_start = 0;
+            for (i, c) in buf.iter().enumerate() {
                 if ! offset_printed {
                     write!(self.inner,
                            "\n{}{:08x} ", self.indent, self.offset)?;
@@ -161,10 +184,14 @@ pub mod hex {
                 self.offset += 1;
                 match self.offset % 16 {
                     0 => {
-                        if ! msg_printed {
+                        if let Some(msg) = labeler(
+                            first_label_offset, &buf[data_start..i + 1])
+                        {
                             write!(self.inner, "   {}", msg)?;
-                            msg_printed = true;
+                            // Only the first label is offset.
+                            first_label_offset = 0;
                         }
+                        data_start = i + 1;
                         offset_printed = false;
                     },
                     8 => write!(self.inner, " ")?,
@@ -172,7 +199,9 @@ pub mod hex {
                 }
             }
 
-            if ! msg_printed {
+            if let Some(msg) = labeler(
+                first_label_offset, &buf[data_start..])
+            {
                 for i in self.offset % 16 .. 16 {
                     if i != 7 {
                         write!(self.inner, "   ")?;
