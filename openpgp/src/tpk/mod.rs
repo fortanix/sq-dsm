@@ -775,14 +775,14 @@ impl<C> ComponentBindings<C>
             }
         });
 
-        // Now, resort the bindings.  When sorting by bindings, we also
-        // consider the information on the current self signature.
-        self.sort_unstable();
-
         // And sort the certificates.
         for b in self.bindings.iter_mut() {
             b.sort_and_dedup();
         }
+
+        // Now, resort the bindings.  When sorting by bindings, we also
+        // consider the information on the current self signature.
+        self.sort_unstable();
     }
 }
 
@@ -1476,16 +1476,6 @@ impl TPK {
 
         self.bad.sort_by(sig_cmp);
         self.bad.dedup();
-
-        for binding in &mut self.userids.iter_mut() {
-            binding.sort_and_dedup();
-        }
-        for binding in &mut self.user_attributes.iter_mut() {
-            binding.sort_and_dedup();
-        }
-        for binding in &mut self.subkeys.iter_mut() {
-            binding.sort_and_dedup();
-        }
 
         self.userids.sort_and_dedup(UserID::cmp, |_, _| {});
         self.user_attributes.sort_and_dedup(UserAttribute::cmp, |_, _| {});
