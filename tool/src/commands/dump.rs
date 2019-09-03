@@ -693,11 +693,24 @@ impl PacketDumper {
                       -> Result<()> {
         use self::SubpacketValue::*;
 
+        let hexdump_unknown = |output: &mut dyn io::Write, buf| -> Result<()> {
+            let mut hd = hex::Dumper::new(output, self.indentation_for_hexdump(
+                &format!("{}    ", i), 0));
+            hd.write_labeled(buf, |_, _| None)?;
+            Ok(())
+        };
+
         match s.value {
-            Unknown(ref b) =>
-                write!(output, "{}    Unknown: {:?}", i, b)?,
-            Invalid(ref b) =>
-                write!(output, "{}    Invalid: {:?}", i, b)?,
+            Unknown(ref b) => {
+                writeln!(output, "{}    {:?}{}:", i, s.tag,
+                         if s.critical { " (critical)" } else { "" })?;
+                hexdump_unknown(output, b)?;
+            },
+            Invalid(ref b) => {
+                writeln!(output, "{}    {:?}{}:", i, s.tag,
+                         if s.critical { " (critical)" } else { "" })?;
+                hexdump_unknown(output, b)?;
+            },
             SignatureCreationTime(ref t) =>
                 write!(output, "{}    Signature creation time: {}", i,
                        time::strftime(TIMEFMT, t).unwrap())?,
@@ -780,17 +793,22 @@ impl PacketDumper {
                 write!(output, "{}    Intended Recipient: {}", i, fp)?,
         }
 
-        if s.critical {
-            write!(output, " (critical)")?;
-        }
-        writeln!(output)?;
-
         match s.value {
+            Unknown(_) | Invalid(_) => (),
             EmbeddedSignature(ref sig) => {
+                if s.critical {
+                    write!(output, " (critical)")?;
+                }
+                writeln!(output)?;
                 let indent = format!("{}      ", i);
                 self.dump_packet(output, &indent, None, sig, None, None)?;
             },
-            _ => (),
+            _ => {
+                if s.critical {
+                    write!(output, " (critical)")?;
+                }
+                writeln!(output)?;
+            }
         }
 
         Ok(())
