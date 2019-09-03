@@ -861,4 +861,10 @@ mod test {
         assert!(pile.replace(&[ 0, 0 ], 0, Vec::new()).is_ok());
         assert!(pile.replace(&[ 0, 1 ], 0, Vec::new()).is_err());
     }
+
+    #[test]
+    fn packet_pile_is_send_and_sync() {
+        fn f<T: Send + Sync>(_: T) {}
+        f(PacketPile::from(vec![]));
+    }
 }

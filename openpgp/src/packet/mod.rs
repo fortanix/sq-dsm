@@ -973,3 +973,14 @@ impl DerefMut for AED {
         }
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn packet_is_send_and_sync() {
+        fn f<T: Send + Sync>(_: T) {}
+        f(Packet::Marker(Default::default()));
+    }
+}

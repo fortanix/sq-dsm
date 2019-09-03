@@ -1109,4 +1109,10 @@ mod tests {
         let message = Message::from_packets(packets.clone());
         assert!(message.is_ok(), "{:#?}", message);
     }
+
+    #[test]
+    fn message_is_send_and_sync() {
+        fn f<T: Send + Sync>(_: T) {}
+        f(Message::from_packets(vec![]));
+    }
 }

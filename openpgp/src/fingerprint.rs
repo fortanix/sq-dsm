@@ -191,4 +191,11 @@ Charlie Delta Echo Foxtrot Zero One Two Three Four Five Six Seven";
 
         assert_eq!(fpr.to_icao(), expected);
     }
+
+    #[test]
+    fn fingerprint_is_send_and_sync() {
+        fn f<T: Send + Sync>(_: T) {}
+        f(Fingerprint::from_hex(
+            "0123 4567 89AB CDEF 0123 4567 89AB CDEF 0123 4567").unwrap());
+    }
 }

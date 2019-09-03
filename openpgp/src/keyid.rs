@@ -215,4 +215,10 @@ mod test {
         assert_match!(KeyID::Invalid(_) =
                       KeyID::from_hex("0x587DAEF1").unwrap());
     }
+
+    #[test]
+    fn keyid_is_send_and_sync() {
+        fn f<T: Send + Sync>(_: T) {}
+        f(KeyID::from_hex("89AB CDEF 0123 4567").unwrap());
+    }
 }

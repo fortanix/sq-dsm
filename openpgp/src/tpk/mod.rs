@@ -2616,4 +2616,10 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
         keyring.extend_from_slice(crate::tests::key("neal.pgp"));
         assert!(TPK::from_bytes(&keyring).is_err());
     }
+
+    #[test]
+    fn tpk_is_send_and_sync() {
+        fn f<T: Send + Sync>(_: T) {}
+        f(TPK::from_bytes(crate::tests::key("testy-new.pgp")).unwrap());
+    }
 }
