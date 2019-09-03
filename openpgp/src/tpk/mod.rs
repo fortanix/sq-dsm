@@ -906,6 +906,13 @@ impl<'a> Parse<'a, TPK> for TPK {
 
 impl TPK {
     /// Returns a reference to the primary key binding.
+    ///
+    /// Note: information about the primary key is often stored on the
+    /// primary User ID's self signature.  Since these signatures are
+    /// associated with the UserID and not the primary key, that
+    /// information is not contained in the key binding.  Instead, you
+    /// should use methods like `TPK::primary_key_signature()` to get
+    /// information about the primary key.
     pub fn primary(&self) -> &PrimaryKeyBinding<key::PublicParts> {
         &self.primary
     }
