@@ -1494,6 +1494,7 @@ impl TPK {
                     b.set_secret(a.set_secret(None));
                 }
             });
+        self.unknowns.sort_and_dedup(Unknown::cmp, |_, _| {});
 
         // In case we have subkeys bound to the primary, it must be
         // certification capable.
