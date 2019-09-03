@@ -3,6 +3,7 @@ use std::str;
 use std::hash::{Hash, Hasher};
 use std::cell::RefCell;
 use std::cmp::Ordering;
+use std::sync::Mutex;
 
 use quickcheck::{Arbitrary, Gen};
 use crate::rfc2822::{
@@ -50,7 +51,7 @@ pub struct UserID {
     /// Use `UserID::default()` to get a UserID with a default settings.
     value: Vec<u8>,
 
-    parsed: RefCell<Option<ParsedUserID>>,
+    parsed: Mutex<RefCell<Option<ParsedUserID>>>,
 }
 
 impl From<Vec<u8>> for UserID {
@@ -58,7 +59,7 @@ impl From<Vec<u8>> for UserID {
         UserID {
             common: Default::default(),
             value: u,
-            parsed: RefCell::new(None),
+            parsed: Mutex::new(RefCell::new(None)),
         }
     }
 }
@@ -294,10 +295,11 @@ impl UserID {
     }
 
     fn do_parse(&self) -> Result<()> {
-        if self.parsed.borrow().is_none() {
+        if self.parsed.lock().unwrap().borrow().is_none() {
             let s = str::from_utf8(&self.value)?;
 
-            *self.parsed.borrow_mut() = Some(match NameAddrOrOther::parse(s) {
+            *self.parsed.lock().unwrap().borrow_mut() =
+              Some(match NameAddrOrOther::parse(s) {
                 Ok(na) => ParsedUserID {
                     name: na.name().map(|s| s.to_string()),
                     comment: na.comment().map(|s| s.to_string()),
@@ -332,7 +334,7 @@ impl UserID {
     /// input is okay, this still returns the display name.
     pub fn name(&self) -> Result<Option<String>> {
         self.do_parse()?;
-        match *self.parsed.borrow() {
+        match *self.parsed.lock().unwrap().borrow() {
             Some(ParsedUserID { ref name, .. }) =>
                 Ok(name.as_ref().map(|s| s.clone())),
             None => unreachable!(),
@@ -346,7 +348,7 @@ impl UserID {
     /// input is okay, this still returns the first comment.
     pub fn comment(&self) -> Result<Option<String>> {
         self.do_parse()?;
-        match *self.parsed.borrow() {
+        match *self.parsed.lock().unwrap().borrow() {
             Some(ParsedUserID { ref comment, .. }) =>
                 Ok(comment.as_ref().map(|s| s.clone())),
             None => unreachable!(),
@@ -361,7 +363,7 @@ impl UserID {
     /// `UserID::other_address()`.
     pub fn address(&self) -> Result<Option<String>> {
         self.do_parse()?;
-        match *self.parsed.borrow() {
+        match *self.parsed.lock().unwrap().borrow() {
             Some(ParsedUserID { address: Ok(ref address), .. }) =>
                 Ok(Some(address.clone())),
             Some(ParsedUserID { address: Err(_), .. }) =>
@@ -387,7 +389,7 @@ impl UserID {
     /// invalid address can be obtained using `NameAddrOrOther::other()`.
     pub fn other(&self) -> Result<Option<String>> {
         self.do_parse()?;
-        match *self.parsed.borrow() {
+        match *self.parsed.lock().unwrap().borrow() {
             Some(ParsedUserID { ref other, .. }) =>
                 Ok(other.as_ref().map(|s| s.clone())),
             None => unreachable!(),
@@ -407,7 +409,7 @@ impl UserID {
     /// `ssh://server.example.net`.
     pub fn other_or_address(&self) -> Result<Option<String>> {
         self.do_parse()?;
-        match *self.parsed.borrow() {
+        match *self.parsed.lock().unwrap().borrow() {
             Some(ParsedUserID { address: Ok(ref address), .. }) =>
                 Ok(Some(address.clone())),
             Some(ParsedUserID { ref other, .. }) =>
