@@ -58,6 +58,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 use std::iter::FromIterator;
+use std::sync::Mutex;
 use std::fmt;
 use std::io;
 use time;
@@ -310,7 +311,6 @@ impl<'a> fmt::Debug for SubpacketRaw<'a> {
 }
 
 /// Subpacket area.
-#[derive(Clone, Eq)]
 pub struct SubpacketArea {
     /// Raw, unparsed subpacket data.
     pub data: Vec<u8>,
@@ -323,7 +323,13 @@ pub struct SubpacketArea {
     // to reference the content in the area.
     //
     // This is an option, because we parse the subpacket area lazily.
-    parsed: RefCell<Option<HashMap<SubpacketTag, (bool, u16, u16)>>>,
+    parsed: Mutex<RefCell<Option<HashMap<SubpacketTag, (bool, u16, u16)>>>>,
+}
+
+impl Clone for SubpacketArea {
+    fn clone(&self) -> Self {
+        Self::new(self.data.clone())
+    }
 }
 
 impl PartialEq for SubpacketArea {
@@ -331,6 +337,7 @@ impl PartialEq for SubpacketArea {
         self.data == other.data
     }
 }
+impl Eq for SubpacketArea {}
 
 impl Hash for SubpacketArea {
     fn hash<H: Hasher>(&self, state: &mut H) {
@@ -455,7 +462,7 @@ impl<'a> FromIterator<(usize, usize, Subpacket<'a>)> for SubpacketArea {
 impl SubpacketArea {
     /// Returns a new subpacket area based on `data`.
     pub fn new(data: Vec<u8>) -> SubpacketArea {
-        SubpacketArea { data: data, parsed: RefCell::new(None) }
+        SubpacketArea { data: data, parsed: Mutex::new(RefCell::new(None)) }
     }
 
     /// Returns a empty subpacket area.
@@ -468,19 +475,19 @@ impl SubpacketArea {
     // Initialize `Signature::hashed_area_parsed` from
     // `Signature::hashed_area`, if necessary.
     fn cache_init(&self) {
-        if self.parsed.borrow().is_none() {
+        if self.parsed.lock().unwrap().borrow().is_none() {
             let mut hash = HashMap::new();
             for (start, len, sb) in self.iter_raw() {
                 hash.insert(sb.tag, (sb.critical, start as u16, len as u16));
             }
 
-            *self.parsed.borrow_mut() = Some(hash);
+            *self.parsed.lock().unwrap().borrow_mut() = Some(hash);
         }
     }
 
     /// Invalidates the cache.
     fn cache_invalidate(&self) {
-        *self.parsed.borrow_mut() = None;
+        *self.parsed.lock().unwrap().borrow_mut() = None;
     }
 
     /// Iterates over the subpackets.
@@ -492,7 +499,7 @@ impl SubpacketArea {
     pub fn lookup(&self, tag: SubpacketTag) -> Option<Subpacket> {
         self.cache_init();
 
-        match self.parsed.borrow().as_ref().unwrap().get(&tag) {
+        match self.parsed.lock().unwrap().borrow().as_ref().unwrap().get(&tag) {
             Some(&(critical, start, len)) =>
                 return Some(SubpacketRaw {
                     critical: critical,
