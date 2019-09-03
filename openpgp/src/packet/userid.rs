@@ -65,11 +65,7 @@ impl From<Vec<u8>> for UserID {
 
 impl From<&[u8]> for UserID {
     fn from(u: &[u8]) -> Self {
-        UserID {
-            common: Default::default(),
-            value: u.to_vec(),
-            parsed: RefCell::new(None),
-        }
+        u.to_vec().into()
     }
 }
 
@@ -146,11 +142,7 @@ impl Hash for UserID {
 
 impl Clone for UserID {
     fn clone(&self) -> Self {
-        UserID {
-            common: self.common.clone(),
-            value: self.value.clone(),
-            parsed: RefCell::new(None),
-        }
+        self.value.clone().into()
     }
 }
 
