@@ -854,7 +854,7 @@ impl fmt::Display for SignatureType {
             SignatureType::Confirmation =>
                 f.write_str("Confirmation"),
             SignatureType::Unknown(u) =>
-                f.write_fmt(format_args!("Unknown signature type {}", u)),
+                f.write_fmt(format_args!("Unknown signature type 0x{:x}", u)),
         }
     }
 }
