@@ -67,7 +67,7 @@ impl<'a> Helper<'a> {
 
             for skb in tsk.subkeys() {
                 let key = skb.key();
-                if can_encrypt(key, skb.binding_signature()) {
+                if can_encrypt(key, skb.binding_signature(None)) {
                     let id = key.fingerprint().to_keyid();
                     keys.insert(id.clone(), key.clone().into());
                     identities.insert(id.clone(), tsk.fingerprint());

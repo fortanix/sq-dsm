@@ -175,16 +175,26 @@ impl<C> ComponentBinding<C> {
         &mut self.component
     }
 
-    /// Returns the most recent binding signature.
+    /// Returns the active binding signature at time `t`.
     ///
-    /// This will never return a revocation certificate.
+    /// An active binding signature is a non-revoked, self-signature
+    /// that is alive at time `t` (`creation time <= t`, `t <=
+    /// expiry`).
     ///
-    /// Normally, we ignore subkeys that don't have a binding
-    /// signature.  However, if there is a valid revocation
-    /// certificate for the subkey, we keep it.  In such cases, this
-    /// function will return None.
-    pub fn binding_signature(&self) -> Option<&Signature> {
-        self.selfsigs.last()
+    /// This function returns None if there are no active binding
+    /// signatures at time `t`.
+    pub fn binding_signature<T>(&self, t: T) -> Option<&Signature>
+        where T: Into<Option<time::Tm>>
+    {
+        let t = t.into().unwrap_or_else(time::now_utc);
+        let time_zero = time::at_utc(time::Timespec::new(0, 0));
+
+        self.selfsigs.iter().filter(|s| {
+            s.signature_alive_at(t)
+        }).max_by(|a, b| {
+            a.signature_creation_time().unwrap_or(time_zero).cmp(
+                &b.signature_creation_time().unwrap_or(time_zero))
+        })
     }
 
     /// The self-signatures.
@@ -364,8 +374,8 @@ impl Ord for UserIDBinding {
             return Ordering::Less;
         }
 
-        let a_selfsig = self.binding_signature();
-        let b_selfsig = b.binding_signature();
+        let a_selfsig = self.binding_signature(None);
+        let b_selfsig = b.binding_signature(None);
 
         if a_revoked && b_revoked {
             // Both are revoked.
@@ -462,8 +472,8 @@ impl Ord for UserAttributeBinding {
             return Ordering::Less;
         }
 
-        let a_selfsig = self.binding_signature();
-        let b_selfsig = b.binding_signature();
+        let a_selfsig = self.binding_signature(None);
+        let b_selfsig = b.binding_signature(None);
 
         if a_revoked && b_revoked {
             // Both are revoked.
@@ -566,8 +576,8 @@ impl<P, R> Ord for KeyBinding<P, R>
             return Ordering::Less;
         }
 
-        let a_selfsig = self.binding_signature();
-        let b_selfsig = b.binding_signature();
+        let a_selfsig = self.binding_signature(None);
+        let b_selfsig = b.binding_signature(None);
 
         if a_revoked && b_revoked {
             // Both are revoked.
@@ -1624,7 +1634,7 @@ impl TPK {
             return true;
         }
         self.subkeys().any(|sk| {
-            sk.binding_signature().is_some() && sk.key().secret().is_some()
+            sk.binding_signature(None).is_some() && sk.key().secret().is_some()
         })
     }
 }
@@ -2246,7 +2256,7 @@ mod test {
             }
 
             for userid in tpk.userids() {
-                let typ = userid.binding_signature().unwrap().typ();
+                let typ = userid.binding_signature(None).unwrap().typ();
                 assert_eq!(typ, SignatureType::PositiveCertificate,
                            "{:#?}", tpk);
 
@@ -2260,7 +2270,7 @@ mod test {
             }
 
             for subkey in tpk.subkeys() {
-                let typ = subkey.binding_signature().unwrap().typ();
+                let typ = subkey.binding_signature(None).unwrap().typ();
                 assert_eq!(typ, SignatureType::SubkeyBinding,
                            "{:#?}", tpk);
 
@@ -2610,7 +2620,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
                 < uidb.selfsigs()[1].signature_creation_time());
         // Make sure we return the most recent here.
         assert_eq!(uidb.selfsigs().last().unwrap(),
-                   uidb.binding_signature().unwrap());
+                   uidb.binding_signature(None).unwrap());
     }
 
     #[test]

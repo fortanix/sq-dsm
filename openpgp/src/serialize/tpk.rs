@@ -767,11 +767,11 @@ mod test {
         ]).unwrap();
 
         assert_eq!(tpk.subkeys().count(), 1);
-        assert!(tpk.subkeys().nth(0).unwrap().binding_signature().is_some());
+        assert!(tpk.subkeys().nth(0).unwrap().binding_signature(None).is_some());
         assert_eq!(tpk.userids().count(), 1);
-        assert!(tpk.userids().nth(0).unwrap().binding_signature().is_some());
+        assert!(tpk.userids().nth(0).unwrap().binding_signature(None).is_some());
         assert_eq!(tpk.user_attributes().count(), 1);
-        assert!(tpk.user_attributes().nth(0).unwrap().binding_signature()
+        assert!(tpk.user_attributes().nth(0).unwrap().binding_signature(None)
                 .is_some());
 
         // The binding signature is not exportable, so when we export

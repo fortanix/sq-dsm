@@ -429,7 +429,7 @@ pub extern "C" fn pgp_user_id_binding_selfsig(
     -> Maybe<Signature>
 {
     let binding = ffi_param_ref!(binding);
-    binding.binding_signature().move_into_raw()
+    binding.binding_signature(None).move_into_raw()
 }
 
 

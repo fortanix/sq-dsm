@@ -139,7 +139,7 @@ fn inspect_tpk(output: &mut io::Write, tpk: &openpgp::TPK,
     for skb in tpk.subkeys() {
         writeln!(output, "         Subkey: {}", skb.key().fingerprint())?;
         inspect_revocation(output, "", skb.revoked(None))?;
-        inspect_key(output, "", skb.key(), skb.binding_signature(),
+        inspect_key(output, "", skb.key(), skb.binding_signature(None),
                     skb.certifications(),
                     print_keygrips, print_certifications)?;
         writeln!(output)?;
@@ -148,7 +148,7 @@ fn inspect_tpk(output: &mut io::Write, tpk: &openpgp::TPK,
     for uidb in tpk.userids() {
         writeln!(output, "         UserID: {}", uidb.userid())?;
         inspect_revocation(output, "", uidb.revoked(None))?;
-        if let Some(sig) = uidb.binding_signature() {
+        if let Some(sig) = uidb.binding_signature(None) {
             if sig.signature_expired() {
                 writeln!(output, "                 Expired")?;
             } else if ! sig.signature_alive() {
