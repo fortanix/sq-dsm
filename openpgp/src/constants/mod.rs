@@ -987,6 +987,51 @@ impl Arbitrary for ReasonForRevocation {
     }
 }
 
+/// Describes whether a `ReasonForRevocation` should be consider hard
+/// or soft.
+///
+/// A hard revocation is a revocation that indicates that the key was
+/// somehow compromised, and the provence of *all* artifacts should be
+/// called into question.
+///
+/// A soft revocation is a revocation that indicates that the key
+/// should be considered invalid *after* the revocation signature's
+/// creation time.  `KeySuperseded`, `KeyRetired`, and `UIDRetired`
+/// are considered soft revocations.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum RevocationType {
+    /// A hard revocation.
+    ///
+    /// Artifacts stemming from the revoked object should not be
+    /// trusted.
+    Hard,
+    /// A soft revocation.
+    ///
+    /// Artifacts stemming from the revoked object *after* the
+    /// revocation time should not be trusted.  Earlier objects should
+    /// be considered okay.
+    ///
+    /// Only `KeySuperseded`, `KeyRetired`, and `UIDRetired` are
+    /// considered soft revocations.  All other reasons for
+    /// revocations including unknown reasons are considered hard
+    /// revocations.
+    Soft,
+}
+
+impl ReasonForRevocation {
+    /// Returns the revocation's `RevocationType`.
+    pub fn revocation_type(&self) -> RevocationType {
+        match self {
+            ReasonForRevocation::Unspecified => RevocationType::Hard,
+            ReasonForRevocation::KeySuperseded => RevocationType::Soft,
+            ReasonForRevocation::KeyCompromised => RevocationType::Hard,
+            ReasonForRevocation::KeyRetired => RevocationType::Soft,
+            ReasonForRevocation::UIDRetired => RevocationType::Soft,
+            ReasonForRevocation::Private(_) => RevocationType::Hard,
+            ReasonForRevocation::Unknown(_) => RevocationType::Hard,
+        }
+    }
+}
 
 /// Describes the format of the body of a literal data packet.
 ///
