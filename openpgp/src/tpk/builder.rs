@@ -566,7 +566,7 @@ mod tests {
 
         let tpk = tpk.merge_packets(vec![revocation.clone().into()]).unwrap();
         assert_eq!(tpk.revocation_status(),
-                   RevocationStatus::Revoked(&[revocation]));
+                   RevocationStatus::Revoked(vec![ &revocation ]));
     }
 
     #[test]

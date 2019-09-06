@@ -434,18 +434,14 @@ pub enum KeyID {
 pub enum RevocationStatus<'a> {
     /// The key is definitely revoked.
     ///
-    /// All self-revocations are returned, the most recent revocation
-    /// first.
-    Revoked(&'a [packet::Signature]),
-    /// We have a third-party revocation certificate that is allegedly
-    /// from a designated revoker, but we don't have the designated
-    /// revoker's key to check its validity.
+    /// The relevant self-revocations are returned.
+    Revoked(Vec<&'a packet::Signature>),
+    /// There is a revocation certificate from a possible designated
+    /// revoker.
+    CouldBe(Vec<&'a packet::Signature>),
+    /// The key does not appear to be revoked.
     ///
-    /// All such certificates are returned.  The caller must check
-    /// them manually.
-    CouldBe(&'a [packet::Signature]),
-    /// The key does not appear to be revoked, but perhaps an attacker
-    /// has performed a DoS, which prevents us from seeing the
-    /// revocation certificate.
+    /// An attacker could still have performed a DoS, which prevents
+    /// us from seeing the revocation certificate.
     NotAsFarAsWeKnow,
 }

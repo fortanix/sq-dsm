@@ -230,7 +230,8 @@ impl<C> ComponentBinding<C> {
                               &self.self_revocations, t);
 
         if has_self_revs {
-            return RevocationStatus::Revoked(&self.self_revocations);
+            return RevocationStatus::Revoked(
+                self.self_revocations.iter().collect());
         }
 
         let has_other_revs =
@@ -238,7 +239,8 @@ impl<C> ComponentBinding<C> {
                               &self.other_revocations, t);
 
         if has_other_revs {
-            RevocationStatus::CouldBe(&self.other_revocations)
+            RevocationStatus::CouldBe(
+                self.other_revocations.iter().collect())
         } else {
             RevocationStatus::NotAsFarAsWeKnow
         }
@@ -980,7 +982,8 @@ impl TPK {
                               &self.primary.self_revocations, t);
 
         if has_self_revs {
-            return RevocationStatus::Revoked(&self.primary.self_revocations);
+            return RevocationStatus::Revoked(
+                self.primary.self_revocations.iter().collect());
         }
 
         let has_other_revs =
@@ -988,7 +991,8 @@ impl TPK {
                               &self.primary.other_revocations, t);
 
         if has_other_revs {
-            RevocationStatus::CouldBe(&self.primary.other_revocations)
+            RevocationStatus::CouldBe(
+                self.primary.other_revocations.iter().collect())
         } else {
             RevocationStatus::NotAsFarAsWeKnow
         }
@@ -1031,7 +1035,7 @@ impl TPK {
     /// assert_eq!(sig.typ(), SignatureType::KeyRevocation);
     ///
     /// let tpk = tpk.merge_packets(vec![sig.clone().into()])?;
-    /// assert_eq!(RevocationStatus::Revoked(&[sig]),
+    /// assert_eq!(RevocationStatus::Revoked(vec![&sig]),
     ///            tpk.revocation_status());
     /// # Ok(())
     /// # }

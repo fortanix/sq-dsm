@@ -108,7 +108,7 @@ impl Key<key::PublicParts, key::SubordinateRole> {
     /// let subkey = tpk.subkeys().nth(0).unwrap();
     /// if let RevocationStatus::Revoked(revocations) = subkey.revoked(None) {
     ///     assert_eq!(revocations.len(), 1);
-    ///     assert_eq!(revocations[0], revocation);
+    ///     assert_eq!(*revocations[0], revocation);
     /// } else {
     ///     panic!("Subkey is not revoked.");
     /// }
@@ -308,7 +308,7 @@ impl UserID {
     /// let uid = tpk.userids().nth(0).unwrap();
     /// if let RevocationStatus::Revoked(revocations) = uid.revoked(None) {
     ///     assert_eq!(revocations.len(), 1);
-    ///     assert_eq!(revocations[0], revocation);
+    ///     assert_eq!(*revocations[0], revocation);
     /// } else {
     ///     panic!("UserID is not revoked.");
     /// }
@@ -523,7 +523,7 @@ impl UserAttribute {
     /// let ua = tpk.user_attributes().nth(0).unwrap();
     /// if let RevocationStatus::Revoked(revocations) = ua.revoked(None) {
     ///     assert_eq!(revocations.len(), 1);
-    ///     assert_eq!(revocations[0], revocation);
+    ///     assert_eq!(*revocations[0], revocation);
     /// } else {
     ///     panic!("UserAttribute is not revoked.");
     /// }
