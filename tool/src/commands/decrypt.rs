@@ -8,7 +8,7 @@ extern crate sequoia_openpgp as openpgp;
 use sequoia_core::Context;
 use crate::openpgp::constants::SymmetricAlgorithm;
 use crate::openpgp::conversions::hex;
-use crate::openpgp::crypto::SessionKey;
+use crate::openpgp::crypto::{self, SessionKey};
 use crate::openpgp::{Fingerprint, TPK, KeyID, Result};
 use crate::openpgp::packet::prelude::*;
 use crate::openpgp::parse::PacketParser;
@@ -92,6 +92,34 @@ impl<'a> Helper<'a> {
             hex: hex,
         }
     }
+
+    /// Tries to decrypt the given PKESK packet with `keypair` and try
+    /// to decrypt the packet parser using `decrypt`.
+    fn try_decrypt<D>(&self, pkesk: &PKESK,
+                      keypair: &mut crypto::Decryptor<key::UnspecifiedRole>,
+                      decrypt: &mut D)
+                      -> openpgp::Result<Option<Fingerprint>>
+        where D: FnMut(SymmetricAlgorithm, &SessionKey) -> openpgp::Result<()>
+    {
+        let keyid = keypair.public().fingerprint().to_keyid();
+        match pkesk.decrypt(keypair)
+            .and_then(|(algo, sk)| {
+                decrypt(algo, &sk)?; Ok(sk)
+            })
+        {
+            Ok(sk) => {
+                if self.dump_session_key {
+                    eprintln!("Session key: {}", hex::encode(&sk));
+                }
+                Ok(self.key_identities.get(&keyid).map(|fp| fp.clone()))
+            },
+            Err(e) => {
+                eprintln!("Decryption using {} failed:\n  {}",
+                          self.key_hints.get(&keyid).unwrap(), e);
+                Err(e)
+            },
+        }
+    }
 }
 
 impl<'a> VerificationHelper for Helper<'a> {
@@ -127,23 +155,19 @@ impl<'a> DecryptionHelper for Helper<'a> {
         for pkesk in pkesks {
             let keyid = pkesk.recipient();
             if let Some(key) = self.secret_keys.get(&keyid) {
-                if let Some(SecretKeyMaterial::Unencrypted { .. }) = key.secret() {
-                    if let Ok(sk) = key.clone().into_keypair()
-                        .and_then(|mut keypair| pkesk.decrypt(&mut keypair))
-                        .and_then(|(algo, sk)| { decrypt(algo, &sk)?; Ok(sk) })
+                if key.secret().map(|s| ! s.is_encrypted()).unwrap_or(false) {
+                    if let Ok(fp) = key.clone().into_keypair()
+                        .and_then(|mut k|
+                                  self.try_decrypt(pkesk, &mut k, &mut decrypt))
                     {
-                        if self.dump_session_key {
-                            eprintln!("Session key: {}", hex::encode(&sk));
-                        }
-                        return Ok(self.key_identities.get(keyid)
-                                  .map(|fp| fp.clone()));
+                        return Ok(fp);
                     }
                 }
             }
         }
 
         // Second, we try those keys that are encrypted.
-        'pkesk_loop: for pkesk in pkesks {
+        for pkesk in pkesks {
             // Don't ask the user to decrypt a key if we don't support
             // the algorithm.
             if ! pkesk.pk_algo().is_supported() {
@@ -151,50 +175,32 @@ impl<'a> DecryptionHelper for Helper<'a> {
             }
 
             let keyid = pkesk.recipient();
-            if let Some(key) = self.secret_keys.get(&keyid) {
-                if key.secret().map(|s| ! s.is_encrypted())
-                    .unwrap_or(true)
-                {
-                    continue;
-                }
+            if let Some(key) = self.secret_keys.get_mut(&keyid) {
+                let mut keypair = loop {
+                    if key.secret().map(|s| ! s.is_encrypted()).unwrap_or(false)
+                    {
+                        break key.clone().into_keypair().unwrap();
+                    }
 
-                loop {
                     let p = rpassword::read_password_from_tty(Some(
                         &format!(
                             "Enter password to decrypt key {}: ",
-                            self.key_hints.get(&keyid).unwrap())))
-                        ?.into();
+                            self.key_hints.get(&keyid).unwrap())))?.into();
 
-                    let mut key = key.clone();
                     let algo = key.pk_algo();
                     if let Some(()) =
                         key.secret_mut()
                         .and_then(|s| s.decrypt_in_place(algo, &p).ok())
                     {
-                        let mut keypair = key.into_keypair().unwrap();
-                        match pkesk.decrypt(&mut keypair)
-                            .and_then(|(algo, sk)| {
-                                decrypt(algo, &sk)?; Ok(sk)
-                            })
-                        {
-                            Ok(sk) => {
-                                if self.dump_session_key {
-                                    eprintln!("Session key: {}",
-                                              hex::encode(&sk));
-                                }
-                                return Ok(self.key_identities.get(keyid)
-                                          .map(|fp| fp.clone()));
-                            },
-                            Err(e) => {
-                                eprintln!("Decryption using {} failed:\n  {}",
-                                          self.key_hints.get(&keyid).unwrap(),
-                                          e);
-                                continue 'pkesk_loop;
-                            },
-                        }
+                        break key.clone().into_keypair().unwrap()
                     } else {
                         eprintln!("Bad password.");
                     }
+                };
+
+                if let Ok(fp) = self.try_decrypt(pkesk, &mut keypair,
+                                                 &mut decrypt) {
+                    return Ok(fp);
                 }
             }
         }
