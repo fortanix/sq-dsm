@@ -205,6 +205,66 @@ impl<'a> DecryptionHelper for Helper<'a> {
             }
         }
 
+        // Third, we try to decrypt PKESK packets with wildcard
+        // recipients using those keys that we can use without
+        // prompting for a password.
+        for pkesk in pkesks.iter().filter(|p| p.recipient().is_wildcard()) {
+            for key in self.secret_keys.values() {
+                if key.secret().map(|s| ! s.is_encrypted()).unwrap_or(false) {
+                    if let Ok(fp) = key.clone().into_keypair()
+                        .and_then(|mut k|
+                                  self.try_decrypt(pkesk, &mut k, &mut decrypt))
+                    {
+                        return Ok(fp);
+                    }
+                }
+            }
+        }
+
+        // Fourth, we try to decrypt PKESK packets with wildcard
+        // recipients using those keys that are encrypted.
+        for pkesk in pkesks.iter().filter(|p| p.recipient().is_wildcard()) {
+            // Don't ask the user to decrypt a key if we don't support
+            // the algorithm.
+            if ! pkesk.pk_algo().is_supported() {
+                continue;
+            }
+
+            // To appease the borrow checker, iterate over the
+            // hashmap, awkwardly.
+            for keyid in self.secret_keys.keys().cloned().collect::<Vec<_>>()
+            {
+                let mut keypair = loop {
+                    let key = self.secret_keys.get_mut(&keyid).unwrap(); // Yuck
+
+                    if key.secret().map(|s| ! s.is_encrypted()).unwrap_or(false)
+                    {
+                        break key.clone().into_keypair().unwrap();
+                    }
+
+                    let p = rpassword::read_password_from_tty(Some(
+                        &format!(
+                            "Enter password to decrypt key {}: ",
+                            self.key_hints.get(&keyid).unwrap())))?.into();
+
+                    let algo = key.pk_algo();
+                    if let Some(()) =
+                        key.secret_mut()
+                        .and_then(|s| s.decrypt_in_place(algo, &p).ok())
+                    {
+                        break key.clone().into_keypair().unwrap()
+                    } else {
+                        eprintln!("Bad password.");
+                    }
+                };
+
+                if let Ok(fp) = self.try_decrypt(pkesk, &mut keypair,
+                                                 &mut decrypt) {
+                    return Ok(fp);
+                }
+            }
+        }
+
         if skesks.is_empty() {
             return
                 Err(failure::err_msg("No key to decrypt message"));
