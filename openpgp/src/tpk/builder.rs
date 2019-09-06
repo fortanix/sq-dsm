@@ -327,10 +327,6 @@ impl TPKBuilder {
             let flags = &blueprint.flags;
             let mut subkey = self.ciphersuite.generate_key(flags)?;
 
-            if let Some(ref password) = self.password {
-                subkey.secret_mut().unwrap().encrypt_in_place(password)?;
-            }
-
             let mut builder =
                 signature::Builder::new(SignatureType::SubkeyBinding)
                 .set_features(&Features::sequoia())?
@@ -364,6 +360,10 @@ impl TPKBuilder {
 
             let signature = subkey.mark_parts_public_ref()
                 .bind(&mut signer, &tpk, builder, None, None)?;
+
+            if let Some(ref password) = self.password {
+                subkey.secret_mut().unwrap().encrypt_in_place(password)?;
+            }
             tpk = tpk.merge_packets(vec![Packet::SecretSubkey(subkey),
                                          signature.into()])?;
         }
