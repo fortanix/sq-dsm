@@ -274,6 +274,20 @@ impl<'a, P: 'a + key::KeyParts, R: 'a + key::KeyRole> KeyIter<'a, P, R>
         self.key_flags(KeyFlags::default().set_sign(true))
     }
 
+    /// Returns keys that are capable of encrypting data at rest.
+    ///
+    /// See `key_flags` for caveats.
+    pub fn encrypting_capable_at_rest(self) -> Self {
+        self.key_flags(KeyFlags::default().set_encrypt_at_rest(true))
+    }
+
+    /// Returns keys that are capable of encrypting data for transport.
+    ///
+    /// See `key_flags` for caveats.
+    pub fn encrypting_capable_for_transport(self) -> Self {
+        self.key_flags(KeyFlags::default().set_encrypt_for_transport(true))
+    }
+
     /// Only returns keys that are live as of `now`.
     ///
     /// If `now` is none, then all keys are returned whether they are

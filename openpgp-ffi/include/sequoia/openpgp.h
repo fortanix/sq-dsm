@@ -566,6 +566,32 @@ void pgp_tpk_key_iter_certification_capable (pgp_tpk_key_iter_t iter);
 void pgp_tpk_key_iter_signing_capable (pgp_tpk_key_iter_t iter);
 
 /*/
+/// Changes the iterator to only return keys that are capable of
+/// encrypting data at rest.
+///
+/// If you call this function and, e.g., the `signing_capable`
+/// function, the *union* of the values is used.  That is, the
+/// iterator will return keys that are certification capable *or*
+/// signing capable.
+///
+/// Note: you may not call this function after starting to iterate.
+/*/
+void pgp_tpk_key_iter_encrypting_capable_at_rest (pgp_tpk_key_iter_t);
+
+/*/
+/// Changes the iterator to only return keys that are capable of
+/// encrypting data for transport.
+///
+/// If you call this function and, e.g., the `signing_capable`
+/// function, the *union* of the values is used.  That is, the
+/// iterator will return keys that are certification capable *or*
+/// signing capable.
+///
+/// Note: you may not call this function after starting to iterate.
+/*/
+void pgp_tpk_key_iter_encrypting_capable_for_transport (pgp_tpk_key_iter_t);
+
+/*/
 /// Changes the iterator to only return keys that are alive.
 ///
 /// If you call this function (or `pgp_tpk_key_iter_alive_at`), only
