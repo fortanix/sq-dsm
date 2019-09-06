@@ -41,7 +41,7 @@ url = "2.1"
 zbase32 = "0.1.2"
 
 [dev-dependencies]
-rand = { version = "0.6", default-features = false }
+rand = { version = "0.7", default-features = false }
 
 [features]
 default = ["compression"]

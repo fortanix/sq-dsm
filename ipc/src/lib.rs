@@ -235,7 +235,7 @@ impl Descriptor {
     /// Try to create a TCP socket, bind it to a random port on
     /// localhost.
     fn listen(&self) -> Result<TcpListener> {
-        let port = OsRng::new()?.next_u32() as u16;
+        let port = OsRng.next_u32() as u16;
         Ok(TcpListener::bind((LOCALHOST, port))?)
     }
 
@@ -414,7 +414,7 @@ impl Cookie {
     /// Make a new cookie.
     fn new() -> Result<Self> {
         let mut c = vec![0; COOKIE_SIZE];
-        OsRng::new()?.fill_bytes(&mut c);
+        OsRng.fill_bytes(&mut c);
         Ok(Cookie(c))
     }
 

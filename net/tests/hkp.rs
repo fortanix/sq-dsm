@@ -124,7 +124,7 @@ fn start_server() -> SocketAddr {
     let (tx, rx) = oneshot::channel::<SocketAddr>();
     thread::spawn(move || {
         let (addr, server) = loop {
-            let port = OsRng::new().unwrap().next_u32() as u16;
+            let port = OsRng.next_u32() as u16;
             let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
                                        port);
             if let Ok(s) = Server::try_bind(&addr) {
