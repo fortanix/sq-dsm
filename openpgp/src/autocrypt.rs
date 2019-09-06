@@ -32,7 +32,7 @@ use crate::parse::{
 };
 use crate::serialize::Serialize;
 use crate::serialize::stream::{
-    Message, LiteralWriter, Encryptor, EncryptionMode,
+    Message, LiteralWriter, Encryptor,
 };
 use crate::constants::DataFormat;
 use crate::crypto::Password;
@@ -471,7 +471,6 @@ impl AutocryptSetupMessage {
         let w = Encryptor::new(m,
                                &[ self.passcode.as_ref().unwrap() ],
                                &[],
-                               EncryptionMode::ForTransport,
                                None, None)?;
 
         let mut w = LiteralWriter::new(w, DataFormat::Binary,

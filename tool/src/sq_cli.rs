@@ -112,6 +112,16 @@ pub fn build() -> App<'static, 'static> {
                          .multiple(true)
                          .help("Encrypt with a password \
                                 (can be given multiple times)"))
+                    .arg(Arg::with_name("mode").value_name("MODE")
+                         .long("mode")
+                         .possible_values(&["transport", "rest", "all"])
+                         .default_value("all")
+                         .help("Selects what kind of keys are considered for \
+                                encryption.  Transport select subkeys marked \
+                                as suitable for transport encryption, rest \
+                                selects those for encrypting data at rest, \
+                                and all selects all encryption-capable \
+                                subkeys"))
                     .arg(Arg::with_name("compression")
                          .value_name("KIND")
                          .long("compression")

@@ -9,9 +9,9 @@
 //!
 //! [encryption example]: struct.Encryptor.html#example
 
+use std::borrow::Borrow;
 use std::fmt;
 use std::io::{self, Write};
-use std::iter;
 use time;
 
 use crate::{
@@ -19,11 +19,16 @@ use crate::{
     Error,
     Fingerprint,
     HashAlgorithm,
+    KeyID,
     Result,
     crypto::Password,
     crypto::SessionKey,
     packet::prelude::*,
     packet::signature,
+    packet::key::{
+        PublicParts,
+        UnspecifiedRole,
+    },
     TPK,
 };
 use crate::packet::ctb::CTB;
@@ -851,30 +856,42 @@ impl<'a> writer::Stackable<'a, Cookie> for Compressor<'a> {
     }
 }
 
+/// A recipient of an encrypted message.
+#[derive(Debug)]
+pub struct Recipient<'a> {
+    keyid: KeyID,
+    key: &'a Key<PublicParts, UnspecifiedRole>,
+}
+
+impl<'a> From<&'a Key<PublicParts, UnspecifiedRole>> for Recipient<'a> {
+    fn from(key: &'a Key<PublicParts, UnspecifiedRole>) -> Self {
+        Self::new(key.keyid(), key)
+    }
+}
+
+impl<'a> Recipient<'a> {
+    /// Creates a new recipient with an explicit recipient keyid.
+    pub fn new(keyid: KeyID, key: &'a Key<PublicParts, UnspecifiedRole>)
+               -> Recipient<'a> {
+        Recipient { keyid, key }
+    }
+
+    /// Gets the KeyID.
+    pub fn keyid(&self) -> &KeyID {
+        &self.keyid
+    }
+
+    /// Sets the KeyID.
+    pub fn set_keyid(&mut self, keyid: KeyID) -> KeyID {
+        std::mem::replace(&mut self.keyid, keyid)
+    }
+}
+
 /// Encrypts a packet stream.
 pub struct Encryptor<'a> {
     inner: Option<writer::BoxStack<'a, Cookie>>,
     hash: crypto::hash::Context,
     cookie: Cookie,
-}
-
-/// Specifies whether to encrypt for archival purposes or for
-/// transport.
-pub enum EncryptionMode {
-    /// Encrypt data for long-term storage.
-    ///
-    /// This should be used for things that should be decryptable for
-    /// a long period of time, e.g. backups, archives, etc.
-    AtRest,
-
-    /// Encrypt data for transport.
-    ///
-    /// This should be used to protect a message in transit.  The
-    /// recipient is expected to take additional steps if she wants to
-    /// be able to decrypt it later on, e.g. store the decrypted
-    /// session key, or re-encrypt the session key with a different
-    /// key.
-    ForTransport,
 }
 
 impl<'a> Encryptor<'a> {
@@ -896,8 +913,9 @@ impl<'a> Encryptor<'a> {
     /// use std::io::Write;
     /// extern crate sequoia_openpgp as openpgp;
     /// use openpgp::constants::DataFormat;
+    /// use openpgp::packet::KeyFlags;
     /// use openpgp::serialize::stream::{
-    ///     Message, Encryptor, EncryptionMode, LiteralWriter,
+    ///     Message, Encryptor, LiteralWriter,
     /// };
     /// # use openpgp::Result;
     /// # use openpgp::parse::Parse;
@@ -941,12 +959,20 @@ impl<'a> Encryptor<'a> {
     /// #    */
     /// ).unwrap();
     ///
+    /// // Build a vector of recipients to hand to Encryptor.
+    /// let recipients =
+    ///     tpk.keys_valid()
+    ///     .key_flags(KeyFlags::default()
+    ///                .set_encrypt_at_rest(true)
+    ///                .set_encrypt_for_transport(true))
+    ///     .map(|(_, _, key)| key.into())
+    ///     .collect::<Vec<_>>();
+    ///
     /// let mut o = vec![];
     /// let message = Message::new(&mut o);
     /// let encryptor = Encryptor::new(message,
     ///                                &[&"совершенно секретно".into()],
-    ///                                &[&tpk], EncryptionMode::AtRest, None,
-    ///                                None)
+    ///                                &recipients, None, None)
     ///     .expect("Failed to create encryptor");
     /// let mut w = LiteralWriter::new(encryptor, DataFormat::Text, None, None)?;
     /// w.write_all(b"Hello world.")?;
@@ -954,16 +980,19 @@ impl<'a> Encryptor<'a> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn new<C, A>(mut inner: writer::Stack<'a, Cookie>,
-                     passwords: &[&Password], tpks: &[&TPK],
-                     encryption_mode: EncryptionMode,
-                     cipher_algo: C,
-                     aead_algo: A)
-                     -> Result<writer::Stack<'a, Cookie>>
+    pub fn new<C, A, R>(mut inner: writer::Stack<'a, Cookie>,
+                        passwords: &[&Password],
+                        recipients: R,
+                        cipher_algo: C,
+                        aead_algo: A)
+                        -> Result<writer::Stack<'a, Cookie>>
         where C: Into<Option<SymmetricAlgorithm>>,
-              A: Into<Option<AEADAlgorithm>>
+              A: Into<Option<AEADAlgorithm>>,
+              R: IntoIterator,
+              R::Item: Borrow<Recipient<'a>>
     {
-        if tpks.len() + passwords.len() == 0 {
+        let recipients = recipients.into_iter().collect::<Vec<_>>();
+        if recipients.len() + passwords.len() == 0 {
             return Err(Error::InvalidArgument(
                 "Neither recipient keys nor passwords given".into()).into());
         }
@@ -993,64 +1022,11 @@ impl<'a> Encryptor<'a> {
         let sk = SessionKey::new(algo.key_size()?);
 
         // Write the PKESK packet(s).
-        for tpk in tpks {
-            // We need to find all applicable encryption (sub)keys.
-            fn can_encrypt<P, R>(key: &Key<P, R>, sig: Option<&Signature>,
-                                 encryption_mode: &EncryptionMode)
-                -> bool
-                where P: key::KeyParts, R: key::KeyRole
-            {
-                if let Some(sig) = sig {
-                    (match encryption_mode {
-                        EncryptionMode::AtRest =>
-                            sig.key_flags().can_encrypt_at_rest(),
-                        EncryptionMode::ForTransport =>
-                            sig.key_flags().can_encrypt_for_transport(),
-                    }
-                     // Check expiry.
-                     && sig.signature_alive()
-                     && sig.key_alive(key))
-                } else {
-                    false
-                }
-            };
-
-            // Gather all encryption-capable subkeys.
-            let subkeys = tpk.subkeys().filter_map(|skb|
-            {
-                let key : &key::UnspecifiedPublic = skb.key().into();
-                if can_encrypt(key, skb.binding_signature(), &encryption_mode) {
-                    Some(key)
-                } else {
-                    None
-                }
-            });
-
-            // Check if the primary key is encryption-capable.
-            let primary_can_encrypt =
-                can_encrypt(tpk.primary().key(), tpk.primary_key_signature(),
-                            &encryption_mode);
-
-            // If the primary key is encryption-capable, prepend to
-            // subkeys via iterator magic.
-            let keys =
-                iter::once(tpk.primary().key().into())
-                .filter(|_| primary_can_encrypt)
-                .chain(subkeys);
-
-            let mut count = 0;
-            for key in keys {
-                if let Ok(pkesk) = PKESK3::for_recipient(algo, &sk, key) {
-                    Packet::PKESK(pkesk.into()).serialize(&mut inner)?;
-                    count += 1;
-                }
-            }
-
-            if count == 0 {
-                return Err(Error::InvalidOperation(
-                    format!("Key {} has no suitable encryption subkey",
-                            tpk)).into());
-            }
+        for recipient in recipients {
+            let recipient = recipient.borrow();
+            let mut pkesk = PKESK3::for_recipient(algo, &sk, recipient.key)?;
+            pkesk.set_recipient(recipient.keyid.clone());
+            Packet::PKESK(pkesk.into()).serialize(&mut inner)?;
         }
 
         // Write the SKESK packet(s).
@@ -1450,7 +1426,7 @@ mod test {
             let m = Message::new(&mut o);
             let encryptor = Encryptor::new(
                 m, &passwords.iter().collect::<Vec<&Password>>(),
-                &[], EncryptionMode::ForTransport, None, None)
+                &[], None, None)
                 .unwrap();
             let mut literal = LiteralWriter::new(encryptor, DataFormat::Binary,
                                                  None, None)

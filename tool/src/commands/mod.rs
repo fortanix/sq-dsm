@@ -24,7 +24,7 @@ use crate::openpgp::parse::stream::{
     MessageStructure, MessageLayer,
 };
 use crate::openpgp::serialize::stream::{
-    Message, Signer, LiteralWriter, Encryptor, EncryptionMode,
+    Message, Signer, LiteralWriter, Encryptor, Recipient,
     Compressor,
 };
 use crate::openpgp::serialize::padding::{
@@ -89,6 +89,7 @@ pub fn encrypt(store: &mut store::Store,
                input: &mut io::Read, output: &mut io::Write,
                npasswords: usize, recipients: Vec<&str>,
                mut tpks: Vec<openpgp::TPK>, signers: Vec<openpgp::TPK>,
+               mode: KeyFlags,
                compression: &str)
                -> Result<()> {
     for r in recipients {
@@ -107,8 +108,23 @@ pub fn encrypt(store: &mut store::Store,
 
     let mut signers = get_signing_keys(&signers)?;
 
-    // Build a vector of references to hand to Encryptor.
+    // Build a vector of references to hand to Signer.
     let recipients: Vec<&openpgp::TPK> = tpks.iter().collect();
+
+    // Build a vector of recipients to hand to Encryptor.
+    let mut recipient_subkeys: Vec<Recipient> = Vec::new();
+    for tpk in tpks.iter() {
+        let mut count = 0;
+        for (_, _, key) in tpk.keys_valid().key_flags(mode.clone()) {
+            recipient_subkeys.push(key.into());
+            count += 1;
+        }
+        if count == 0 {
+            return Err(failure::format_err!(
+                "Key {} has no suitable encryption key", tpk));
+        }
+    }
+
     let passwords_: Vec<&openpgp::crypto::Password> =
         passwords.iter().collect();
 
@@ -118,8 +134,7 @@ pub fn encrypt(store: &mut store::Store,
     // We want to encrypt a literal data packet.
     let mut sink = Encryptor::new(message,
                                   &passwords_,
-                                  &recipients,
-                                  EncryptionMode::AtRest,
+                                  recipient_subkeys,
                                   None, None)
         .context("Failed to create encryptor")?;
 

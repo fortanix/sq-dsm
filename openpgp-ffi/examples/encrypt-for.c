@@ -36,6 +36,13 @@ main (int argc, char **argv)
   if (tpk == NULL)
     error (1, 0, "pgp_tpk_from_file: %s", pgp_error_to_string (err));
 
+  pgp_tpk_key_iter_t iter = pgp_tpk_key_iter_valid (tpk);
+  pgp_tpk_key_iter_encrypting_capable_at_rest (iter);
+  pgp_tpk_key_iter_encrypting_capable_for_transport (iter);
+  size_t recipients_len;
+  pgp_recipient_t *recipients =
+    pgp_recipients_from_key_iter (iter, &recipients_len);
+
   sink = pgp_writer_from_fd (STDOUT_FILENO);
 
   if (use_armor)
@@ -46,8 +53,7 @@ main (int argc, char **argv)
   writer = pgp_encryptor_new (&err,
                               writer,
                               NULL, 0, /* no passwords */
-                              &tpk, 1,
-                              PGP_ENCRYPTION_MODE_FOR_TRANSPORT,
+                              recipients, recipients_len,
                               9 /* AES256 */,
                               0 /* No AEAD */);
   if (writer == NULL)
@@ -79,6 +85,9 @@ main (int argc, char **argv)
   if (rc)
     error (1, 0, "pgp_writer_stack_write: %s", pgp_error_to_string (err));
 
+  for (size_t i = 0; i < recipients_len; i++)
+    pgp_recipient_free (recipients[i]);
+  free (recipients);
   pgp_tpk_free (tpk);
   return 0;
 }

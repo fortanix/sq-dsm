@@ -7,9 +7,10 @@ use std::io;
 extern crate sequoia_openpgp as openpgp;
 use crate::openpgp::armor;
 use crate::openpgp::constants::DataFormat;
+use crate::openpgp::packet::KeyFlags;
 use crate::openpgp::parse::Parse;
 use crate::openpgp::serialize::stream::{
-    Message, LiteralWriter, Encryptor, EncryptionMode,
+    Message, LiteralWriter, Encryptor,
 };
 
 fn main() {
@@ -21,8 +22,8 @@ fn main() {
     }
 
     let mode = match args[1].as_ref() {
-        "at-rest" => EncryptionMode::AtRest,
-        "for-transport" => EncryptionMode::ForTransport,
+        "at-rest" => KeyFlags::default().set_encrypt_at_rest(true),
+        "for-transport" => KeyFlags::default().set_encrypt_for_transport(true),
         x => panic!("invalid mode: {:?}, \
                      must be either 'at-rest' or 'for-transport'",
                     x),
@@ -33,8 +34,13 @@ fn main() {
         openpgp::TPK::from_file(f)
             .expect("Failed to read key")
     }).collect();
-    // Build a vector of references to hand to Encryptor.
-    let recipients: Vec<&openpgp::TPK> = tpks.iter().collect();
+
+    // Build a vector of recipients to hand to Encryptor.
+    let recipients =
+        tpks.iter()
+        .flat_map(|tpk| tpk.keys_valid().key_flags(mode.clone()))
+        .map(|(_, _, key)| key.into())
+        .collect::<Vec<_>>();
 
     // Compose a writer stack corresponding to the output format and
     // packet structure we want.  First, we want the output to be
@@ -49,7 +55,6 @@ fn main() {
     let encryptor = Encryptor::new(message,
                                    &[], // No symmetric encryption.
                                    &recipients,
-                                   mode,
                                    None, None)
         .expect("Failed to create encryptor");
     let mut literal_writer = LiteralWriter::new(encryptor, DataFormat::Binary,

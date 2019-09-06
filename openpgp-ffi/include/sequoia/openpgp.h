@@ -12,6 +12,7 @@
 #include <sequoia/openpgp/error.h>
 #include <sequoia/openpgp/crypto.h>
 #include <sequoia/openpgp/packet.h>
+#include <sequoia/openpgp/serialize.h>
 
 /* sequoia::openpgp::KeyID.  */
 
@@ -1622,9 +1623,8 @@ pgp_writer_stack_t pgp_encryptor_new (pgp_error_t *errp,
 				      pgp_writer_stack_t inner,
 				      char **passwords,
 				      size_t passwords_len,
-				      pgp_tpk_t *recipients,
+				      pgp_recipient_t *recipients,
 				      size_t recipients_len,
-				      pgp_encryption_mode_t mode,
 				      uint8_t cipher_algo,
 				      uint8_t aead_algo);
 

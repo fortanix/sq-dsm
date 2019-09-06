@@ -50,14 +50,22 @@ fn main() {
 # /// Encrypts the given message.
 # fn encrypt(sink: &mut Write, plaintext: &str, recipient: &openpgp::TPK)
 #            -> openpgp::Result<()> {
+#    // Build a vector of recipients to hand to Encryptor.
+#    let recipients =
+#        recipient.keys_valid()
+#        .key_flags(KeyFlags::default()
+#                   .set_encrypt_at_rest(true)
+#                   .set_encrypt_for_transport(true))
+#        .map(|(_, _, key)| key.into())
+#        .collect::<Vec<_>>();
+#
 #     // Start streaming an OpenPGP message.
 #     let message = Message::new(sink);
 #
 #     // We want to encrypt a literal data packet.
 #     let encryptor = Encryptor::new(message,
 #                                    &[], // No symmetric encryption.
-#                                    &[recipient],
-#                                    EncryptionMode::ForTransport,
+#                                    &recipients,
 #                                    None, None)?;
 #
 #     // Emit a literal data packet.
@@ -186,14 +194,22 @@ fn generate() -> openpgp::Result<openpgp::TPK> {
 # /// Encrypts the given message.
 # fn encrypt(sink: &mut Write, plaintext: &str, recipient: &openpgp::TPK)
 #            -> openpgp::Result<()> {
+#    // Build a vector of recipients to hand to Encryptor.
+#    let recipients =
+#        recipient.keys_valid()
+#        .key_flags(KeyFlags::default()
+#                   .set_encrypt_at_rest(true)
+#                   .set_encrypt_for_transport(true))
+#        .map(|(_, _, key)| key.into())
+#        .collect::<Vec<_>>();
+#
 #     // Start streaming an OpenPGP message.
 #     let message = Message::new(sink);
 #
 #     // We want to encrypt a literal data packet.
 #     let encryptor = Encryptor::new(message,
 #                                    &[], // No symmetric encryption.
-#                                    &[recipient],
-#                                    EncryptionMode::ForTransport,
+#                                    &recipients,
 #                                    None, None)?;
 #
 #     // Emit a literal data packet.
@@ -322,14 +338,22 @@ implements [`io::Write`], and we simply write the plaintext to it.
 /// Encrypts the given message.
 fn encrypt(sink: &mut Write, plaintext: &str, recipient: &openpgp::TPK)
            -> openpgp::Result<()> {
+    // Build a vector of recipients to hand to Encryptor.
+    let recipients =
+        recipient.keys_valid()
+        .key_flags(KeyFlags::default()
+                   .set_encrypt_at_rest(true)
+                   .set_encrypt_for_transport(true))
+        .map(|(_, _, key)| key.into())
+        .collect::<Vec<_>>();
+
     // Start streaming an OpenPGP message.
     let message = Message::new(sink);
 
     // We want to encrypt a literal data packet.
     let encryptor = Encryptor::new(message,
                                    &[], // No symmetric encryption.
-                                   &[recipient],
-                                   EncryptionMode::ForTransport,
+                                   &recipients,
                                    None, None)?;
 
     // Emit a literal data packet.
@@ -472,14 +496,22 @@ Decrypted data can be read from this using [`io::Read`].
 # /// Encrypts the given message.
 # fn encrypt(sink: &mut Write, plaintext: &str, recipient: &openpgp::TPK)
 #            -> openpgp::Result<()> {
+#    // Build a vector of recipients to hand to Encryptor.
+#    let recipients =
+#        recipient.keys_valid()
+#        .key_flags(KeyFlags::default()
+#                   .set_encrypt_at_rest(true)
+#                   .set_encrypt_for_transport(true))
+#        .map(|(_, _, key)| key.into())
+#        .collect::<Vec<_>>();
+#
 #     // Start streaming an OpenPGP message.
 #     let message = Message::new(sink);
 #
 #     // We want to encrypt a literal data packet.
 #     let encryptor = Encryptor::new(message,
 #                                    &[], // No symmetric encryption.
-#                                    &[recipient],
-#                                    EncryptionMode::ForTransport,
+#                                    &recipients,
 #                                    None, None)?;
 #
 #     // Emit a literal data packet.

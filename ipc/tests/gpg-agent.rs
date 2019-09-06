@@ -200,14 +200,20 @@ fn decrypt() {
 
         let mut message = Vec::new();
         {
+            // Build a vector of recipients to hand to Encryptor.
+            let recipients =
+                tpk.keys_valid().key_flags(
+                    KeyFlags::default().set_encrypt_for_transport(true))
+                .map(|(_, _, key)| key.into())
+                .collect::<Vec<Recipient>>();
+
             // Start streaming an OpenPGP message.
             let message = Message::new(&mut message);
 
             // We want to encrypt a literal data packet.
             let encryptor = Encryptor::new(message,
                                            &[], // No symmetric encryption.
-                                           &[&tpk],
-                                           EncryptionMode::ForTransport,
+                                           recipients,
                                            None, None).unwrap();
 
             // Emit a literal data packet.

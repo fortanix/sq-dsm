@@ -26,6 +26,7 @@ extern crate sequoia_store;
 
 use crate::openpgp::{armor, autocrypt, Fingerprint, TPK};
 use crate::openpgp::conversions::hex;
+use crate::openpgp::packet::KeyFlags;
 use crate::openpgp::parse::Parse;
 use crate::openpgp::serialize::Serialize;
 use sequoia_core::{Context, NetworkPolicy};
@@ -206,9 +207,20 @@ fn real_main() -> Result<(), failure::Error> {
             let additional_secrets = m.values_of("signer-key-file")
                 .map(load_tpks)
                 .unwrap_or(Ok(vec![]))?;
+            let mode = match m.value_of("mode").expect("has default") {
+                "rest" => KeyFlags::default()
+                    .set_encrypt_at_rest(true),
+                "transport" => KeyFlags::default()
+                    .set_encrypt_for_transport(true),
+                "all" => KeyFlags::default()
+                    .set_encrypt_at_rest(true)
+                    .set_encrypt_for_transport(true),
+                _ => unreachable!("uses possible_values"),
+            };
             commands::encrypt(&mut store, &mut input, &mut output,
                               m.occurrences_of("symmetric") as usize,
                               recipients, additional_tpks, additional_secrets,
+                              mode,
                               m.value_of("compression").expect("has default"))?;
         },
         ("sign",  Some(m)) => {

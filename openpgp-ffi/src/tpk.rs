@@ -466,6 +466,7 @@ pub extern "C" fn pgp_user_id_binding_iter_next<'a>(
 
 /// Wraps a KeyIter for export via the FFI.
 pub struct KeyIterWrapper<'a> {
+    pub(crate) // For serialize.rs.
     iter: KeyIter<'a, openpgp::packet::key::PublicParts,
                   openpgp::packet::key::UnspecifiedRole>,
     // Whether next has been called.

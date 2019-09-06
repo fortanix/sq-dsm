@@ -25,7 +25,9 @@ use self::openpgp::constants::{
 
 use crate::error::Status;
 use crate::MoveFromRaw;
+use crate::MoveIntoRaw;
 use crate::RefRaw;
+use crate::RefMutRaw;
 
 use self::openpgp::serialize::{
     writer,
@@ -35,12 +37,13 @@ use self::openpgp::serialize::{
         ArbitraryWriter,
         Signer,
         LiteralWriter,
-        EncryptionMode,
         Encryptor,
     },
 };
 
-use super::tpk::TPK;
+use super::keyid::KeyID;
+use super::packet::key::Key;
+use super::tpk::KeyIterWrapper;
 
 /// Streams an OpenPGP message.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
@@ -228,6 +231,74 @@ pub extern "C" fn pgp_literal_writer_new
                                      None))
 }
 
+/// A recipient of an encrypted message.
+///
+/// Wraps [`sequoia-openpgp::serialize::stream::Recipient`].
+///
+/// [`sequoia-openpgp::serialize::stream::Recipient`]: ../../sequoia_openpgp/serialize/stream/struct.Recipient.html
+#[crate::ffi_wrapper_type(prefix = "pgp_", derive = "Debug")]
+pub struct Recipient<'a>(openpgp::serialize::stream::Recipient<'a>);
+
+/// Creates a new recipient with an explicit recipient keyid.
+///
+/// Consumes `keyid`, references `key`.
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
+fn pgp_recipient_new<'a>(keyid: *mut KeyID,
+                         key: *const Key)
+                         -> *mut Recipient<'a>
+{
+    openpgp::serialize::stream::Recipient::new(
+        keyid.move_from_raw(),
+        key.ref_raw().mark_parts_public_ref(),
+    ).move_into_raw()
+}
+
+/// Gets the KeyID.
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
+fn pgp_recipient_keyid(recipient: *const Recipient) -> *mut KeyID {
+    recipient.ref_raw().keyid().clone().move_into_raw()
+}
+
+/// Sets the KeyID.
+///
+/// Consumes `keyid`.
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
+fn pgp_recipient_set_keyid(recipient: *mut Recipient, keyid: *mut KeyID) {
+    recipient.ref_mut_raw().set_keyid(keyid.move_from_raw());
+}
+
+/// Collects recipients from a `pgp_tpk_key_iter_t`.
+///
+/// Consumes the iterator.  The returned buffer must be freed using
+/// libc's allocator.
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
+fn pgp_recipients_from_key_iter<'a>(
+    iter_wrapper: *mut KeyIterWrapper<'a>,
+    result_len: *mut size_t)
+    -> *mut *mut Recipient<'a>
+{
+    let iter_wrapper = ffi_param_move!(iter_wrapper);
+    let result_len = ffi_param_ref_mut!(result_len);
+    let recipients =
+        iter_wrapper.iter
+        .map(|(_, _, key)| key.into())
+        .collect::<Vec<openpgp::serialize::stream::Recipient>>();
+
+    let result = unsafe {
+        libc::calloc(recipients.len(), std::mem::size_of::<* mut Recipient>())
+            as *mut *mut Recipient
+    };
+    let r = unsafe {
+        slice::from_raw_parts_mut(result,
+                                  recipients.len())
+    };
+    *result_len = recipients.len();
+    r.iter_mut().zip(recipients.into_iter())
+        .for_each(|(r, recipient)| *r = recipient.move_into_raw());
+    result
+}
+
+
 /// Creates a new encryptor.
 ///
 /// The stream will be encrypted using a generated session key,
@@ -237,15 +308,14 @@ pub extern "C" fn pgp_literal_writer_new
 /// The stream is encrypted using `cipher_algo`.  Pass 0 for the
 /// default (which is what you usually want).
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "C" fn pgp_encryptor_new
+pub extern "C" fn pgp_encryptor_new<'a>
     (errp: Option<&mut *mut crate::error::Error>,
-     inner: *mut writer::Stack<'static, Cookie>,
+     inner: *mut writer::Stack<'a, Cookie>,
      passwords: Option<&*const c_char>, passwords_len: size_t,
-     recipients: Option<&*const TPK>, recipients_len: size_t,
-     encryption_mode: u8,
+     recipients: Option<&*const Recipient<'a>>, recipients_len: size_t,
      cipher_algo: u8,
      aead_algo: u8)
-     -> *mut writer::Stack<'static, Cookie>
+     -> *mut writer::Stack<'a, Cookie>
 {
     ffi_make_fry_from_errp!(errp);
     let inner = ffi_param_move!(inner);
@@ -260,20 +330,15 @@ pub extern "C" fn pgp_encryptor_new
                             .to_bytes().to_owned().into());
         }
     }
-    let recipients = if recipients_len > 0 {
+    let mut recipients_ = Vec::new();
+    if recipients_len > 0 {
         let recipients = recipients.expect("Recipients is NULL");
-        unsafe {
+        let recipients = unsafe {
             slice::from_raw_parts(recipients, recipients_len)
+        };
+        for recipient in recipients {
+            recipients_.push(recipient.ref_raw());
         }
-    } else {
-        &[]
-    };
-    let recipients : Vec<&::sequoia_openpgp::TPK>
-        = recipients.into_iter().map(|&tpk| tpk.ref_raw()).collect();
-    let encryption_mode = match encryption_mode {
-        0 => EncryptionMode::AtRest,
-        1 => EncryptionMode::ForTransport,
-        _ => panic!("Bad encryption mode: {}", encryption_mode),
     };
     let cipher_algo : Option<SymmetricAlgorithm> = if cipher_algo == 0 {
         None
@@ -287,8 +352,7 @@ pub extern "C" fn pgp_encryptor_new
     };
     ffi_try_box!(Encryptor::new(*inner,
                                 &passwords_.iter().collect::<Vec<&Password>>(),
-                                &recipients[..],
-                                encryption_mode,
+                                recipients_,
                                 cipher_algo,
                                 aead_algo))
 }
