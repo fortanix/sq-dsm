@@ -17,10 +17,12 @@
 extern crate tempfile;
 extern crate tokio_core;
 
+use std::collections::HashMap;
 use std::fmt;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use failure::ResultExt;
 use futures::{future, Future, Stream};
 use hyper::{Uri, Client};
 use hyper_tls::HttpsConnector;
@@ -32,7 +34,10 @@ use nettle::{
 };
 use url;
 
-use crate::openpgp::TPK;
+use crate::openpgp::{
+    Fingerprint,
+    TPK,
+};
 use crate::openpgp::parse::Parse;
 use crate::openpgp::serialize::Serialize;
 use crate::openpgp::tpk::TPKParser;
@@ -296,7 +301,8 @@ pub fn get<S: AsRef<str>>(email_address: S)
 /// Inserts a key into a Web Key Directory.
 ///
 /// Creates a WKD hierarchy at `base_path` for `domain`, and inserts
-/// the given `tpk`.
+/// the given `tpk`.  If `tpk` already exists in the WKD, it is
+/// updated.  Any existing TPKs are left in place.
 ///
 /// # Errors
 ///
@@ -337,12 +343,57 @@ pub fn insert<P, S, T>(base_path: P, domain: S, direct_method: T,
     for address in addresses.into_iter() {
         let path = base_path.join(address.to_file_path(direct_method)?);
         fs::create_dir_all(path.parent().expect("by construction"))?;
-        // XXX: Update keyring, don't merely replace it!
+        let mut keyring = KeyRing::default();
+        if path.is_file() {
+            for t in TPKParser::from_file(&path).context(
+                format!("Error parsing existing file {:?}", path))?
+            {
+                keyring.insert(t.context(
+                    format!("Malformed TPK in existing {:?}", path))?)?;
+            }
+        }
+        keyring.insert(tpk.clone())?;
         let mut file = fs::File::create(&path)?;
-        tpk.export(&mut file)?;
+        keyring.export(&mut file)?;
     }
 
     Ok(())
+}
+
+struct KeyRing(HashMap<Fingerprint, TPK>);
+
+impl Default for KeyRing {
+    fn default() -> Self {
+        Self(Default::default())
+    }
+}
+
+impl KeyRing {
+    fn insert(&mut self, tpk: TPK) -> Result<()> {
+        let fp = tpk.fingerprint();
+        if let Some(existing) = self.0.get_mut(&fp) {
+            *existing = existing.clone().merge(tpk)?;
+        } else {
+            self.0.insert(fp, tpk);
+        }
+        Ok(())
+    }
+}
+
+impl Serialize for KeyRing {
+    fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
+        for tpk in self.0.values() {
+            tpk.serialize(o)?;
+        }
+        Ok(())
+    }
+
+    fn export(&self, o: &mut dyn std::io::Write) -> Result<()> {
+        for tpk in self.0.values() {
+            tpk.export(o)?;
+        }
+        Ok(())
+    }
 }
 
 
