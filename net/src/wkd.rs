@@ -20,7 +20,6 @@ extern crate tokio_core;
 use std::fmt;
 use std::fs;
 use std::io::Write;
-use std::os::unix::fs::{DirBuilderExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 
 use futures::{future, Future, Stream};
@@ -296,10 +295,6 @@ pub fn get<S: AsRef<str>>(email_address: S)
 }
 
 /// Generates a Web Key Directory for the given domain and keys.
-///
-/// The owner of the directory and files will be the user that runs this
-/// command.
-/// This command only works on Unix-like systems.
 pub fn generate<S, T, P>(domain: S, tpks: &[TPK], base_path: P,
                       direct_method: T)
     -> Result<()>
@@ -320,11 +315,7 @@ pub fn generate<S, T, P>(domain: S, tpks: &[TPK], base_path: P,
     let dir_path = base_path.join(
         Path::new(&file_path).parent().unwrap());
 
-    // With fs::create_dir_all the permissions can't be set.
-    fs::DirBuilder::new()
-        .mode(0o744)
-        .recursive(true)
-        .create(&dir_path)?;
+    fs::create_dir_all(&dir_path)?;
 
     // Create the files.
     // This is very similar to parse_body, but here the userids must contain
@@ -339,8 +330,6 @@ pub fn generate<S, T, P>(domain: S, tpks: &[TPK], base_path: P,
                     // name is needed.
                     let file_path = dir_path.join(wkd_url.local_encoded);
                     let mut file = fs::File::create(&file_path)?;
-                    // Set Read/write for owner and read for others.
-                    file.metadata()?.permissions().set_mode(0o644);
                     tpk.serialize(&mut tpk_bytes)?;
                     file.write_all(&tpk_bytes)?;
                 }
@@ -468,20 +457,14 @@ mod tests {
             "openpgpkey.sequoia-pgp.org/\
              .well-known/openpgpkey/sequoia-pgp.org/hu\
              /jwp7xjqkdujgz5op6bpsoypg34pnrgmq");
-        // Check parent directory permissions
-        assert_eq!(path.parent().unwrap().metadata().unwrap().permissions()
-                   .mode(),16868);  // 744
         // Check that justus file was created
         assert!(path.is_file());
-        // Check the permissions of the file.
-        assert_eq!(path.metadata().unwrap().permissions().mode(),33188); // 644
         let path = dir_path.join(
             "openpgpkey.sequoia-pgp.org/\
              .well-known/openpgpkey/sequoia-pgp.org/hu\
              /7t1uqk9cwh1955776rc4z1gqf388566j");
         // Check that juga file was created.
         assert!(path.is_file());
-        assert_eq!(path.metadata().unwrap().permissions().mode(),33188);
         // Check that the file for test uid is not created.
         let path = dir_path.join(
             "openpgpkey.example.com/\

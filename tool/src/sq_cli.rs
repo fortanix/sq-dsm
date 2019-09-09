@@ -503,10 +503,7 @@ pub fn build() -> App<'static, 'static> {
                                     .help("Don't ASCII-armor encode the OpenPGP data")))
                     .subcommand(SubCommand::with_name("generate")
                                 .about("Generates a Web Key Directory for the \
-                                        given domain and keys.\n\
-                                        The owner of the directory and files will be the user \
-                                        that runs this command.\n\
-                                        This command only works on Unix-like systems.")
+                                        given domain and keys.")
                                 .arg(Arg::with_name("output")
                                      .long("output")
                                      .short("o")
