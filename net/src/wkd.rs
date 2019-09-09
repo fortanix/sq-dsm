@@ -309,7 +309,6 @@ pub fn generate<S, T, P>(domain: S, tpks: &[TPK], base_path: P,
 {
     let domain = domain.as_ref();
     let base_path = base_path.as_ref();
-    println!("Generating WKD for domain {}.", domain);
 
     // Create the directories first, instead of creating it for every file.
     // Since the email local part would be the file name which is not created
@@ -320,14 +319,13 @@ pub fn generate<S, T, P>(domain: S, tpks: &[TPK], base_path: P,
     // This can not fail, otherwise file_path would have fail.
     let dir_path = base_path.join(
         Path::new(&file_path).parent().unwrap());
-    println!("Creating {:?} directory.", dir_path);
+
     // With fs::create_dir_all the permissions can't be set.
     fs::DirBuilder::new()
         .mode(0o744)
         .recursive(true)
         .create(&dir_path)?;
 
-    let mut found_a_key = false;
     // Create the files.
     // This is very similar to parse_body, but here the userids must contain
     // a domain, not be equal to an email address.
@@ -337,7 +335,6 @@ pub fn generate<S, T, P>(domain: S, tpks: &[TPK], base_path: P,
             if let Some(address) = uidb.userid().address()? {
                 let wkd_url = Url::from(&address)?;
                 if wkd_url.domain == domain {
-                    found_a_key = true;
                     // Since dir_path contains all the hierarchy, only the file
                     // name is needed.
                     let file_path = dir_path.join(wkd_url.local_encoded);
@@ -346,15 +343,9 @@ pub fn generate<S, T, P>(domain: S, tpks: &[TPK], base_path: P,
                     file.metadata()?.permissions().set_mode(0o644);
                     tpk.serialize(&mut tpk_bytes)?;
                     file.write_all(&tpk_bytes)?;
-                    println!("Key {} published for {} in {}",
-                             tpk.fingerprint().to_string(), address,
-                             file_path.as_path().to_str().unwrap());
                 }
             }
         }
-    }
-    if !found_a_key {
-        println!("No keys found for the domain.");
     }
     Ok(())
 }
