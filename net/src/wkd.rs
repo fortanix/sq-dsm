@@ -19,7 +19,6 @@ extern crate tokio_core;
 
 use std::fmt;
 use std::fs;
-use std::io::Write;
 use std::path::{Path, PathBuf};
 
 use futures::{future, Future, Stream};
@@ -294,48 +293,55 @@ pub fn get<S: AsRef<str>>(email_address: S)
     })
 }
 
-/// Generates a Web Key Directory for the given domain and keys.
-pub fn generate<S, T, P>(domain: S, tpks: &[TPK], base_path: P,
-                      direct_method: T)
-    -> Result<()>
-    where S: AsRef<str>,
-          T: Into<Option<bool>>,
-          P: AsRef<Path>
+/// Inserts a key into a Web Key Directory.
+///
+/// Creates a WKD hierarchy at `base_path` for `domain`, and inserts
+/// the given `tpk`.
+///
+/// # Errors
+///
+/// If the TPK does not have a well-formed UserID with `domain`,
+/// `Error::InvalidArgument` is returned.
+pub fn insert<P, S, T>(base_path: P, domain: S, direct_method: T,
+                       tpk: &TPK)
+                       -> Result<()>
+    where P: AsRef<Path>,
+          S: AsRef<str>,
+          T: Into<Option<bool>>
 {
-    let domain = domain.as_ref();
     let base_path = base_path.as_ref();
+    let domain = domain.as_ref();
+    let direct_method = direct_method.into().unwrap_or(false);
 
-    // Create the directories first, instead of creating it for every file.
-    // Since the email local part would be the file name which is not created
-    // now, it does not matter here.
-    let file_path = Url::from(&format!("whatever@{}", domain))?
-        .to_file_path(direct_method)?;
-    // The parent will be the directory without the file name.
-    // This can not fail, otherwise file_path would have fail.
-    let dir_path = base_path.join(
-        Path::new(&file_path).parent().unwrap());
-
-    fs::create_dir_all(&dir_path)?;
-
-    // Create the files.
-    // This is very similar to parse_body, but here the userids must contain
-    // a domain, not be equal to an email address.
-    for tpk in tpks {
-        let mut tpk_bytes: Vec<u8> = Vec::new();
-        for uidb in tpk.userids() {
-            if let Some(address) = uidb.userid().address()? {
-                let wkd_url = Url::from(&address)?;
-                if wkd_url.domain == domain {
-                    // Since dir_path contains all the hierarchy, only the file
-                    // name is needed.
-                    let file_path = dir_path.join(wkd_url.local_encoded);
-                    let mut file = fs::File::create(&file_path)?;
-                    tpk.serialize(&mut tpk_bytes)?;
-                    file.write_all(&tpk_bytes)?;
-                }
+    // First, check which UserIDs are in `domain`.
+    let addresses = tpk.userids().filter_map(|uidb| {
+        uidb.userid().address().unwrap_or(None).and_then(|addr| {
+            if EmailAddress::from(&addr).ok().map(|e| e.domain == domain)
+                .unwrap_or(false)
+            {
+                Url::from(&addr).ok()
+            } else {
+                None
             }
-        }
+        })
+    }).collect::<Vec<_>>();
+
+    // Any?
+    if addresses.len() == 0 {
+        return Err(openpgp::Error::InvalidArgument(
+            format!("Key {} does not have a UserID in {}", tpk, domain)
+        ).into());
     }
+
+    // Finally, create the files.
+    for address in addresses.into_iter() {
+        let path = base_path.join(address.to_file_path(direct_method)?);
+        fs::create_dir_all(path.parent().expect("by construction"))?;
+        // XXX: Update keyring, don't merely replace it!
+        let mut file = fs::File::create(&path)?;
+        tpk.serialize(&mut file)?;
+    }
+
     Ok(())
 }
 
@@ -445,12 +451,11 @@ mod tests {
             .add_userid("justus@sequoia-pgp.org")
             .generate()
             .unwrap();
-        let tpks = [tpk, tpk2];
 
         let dir = tempfile::tempdir().unwrap();
         let dir_path = dir.path();
-        let result = generate("sequoia-pgp.org", &tpks, &dir_path, None);
-        assert!(result.is_ok());
+        insert(&dir_path, "sequoia-pgp.org", None, &tpk).unwrap();
+        insert(&dir_path, "sequoia-pgp.org", None, &tpk2).unwrap();
 
         // justus and juga files will be generated, but not test one.
         let path = dir_path.join(
