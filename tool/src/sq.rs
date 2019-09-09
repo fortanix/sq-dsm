@@ -547,7 +547,7 @@ fn real_main() -> Result<(), failure::Error> {
                 },
                 ("generate", Some(m)) => {
                     let domain = m.value_of("domain").unwrap();
-                    let mut f = open_or_stdin(m.value_of("input"))?;
+                    let f = open_or_stdin(m.value_of("input"))?;
                     // XXX: is a bad idea to use this default dir?
                     let base_path = m.value_of("output")
                         .unwrap_or("/var/www/html");
@@ -556,9 +556,7 @@ fn real_main() -> Result<(), failure::Error> {
                     } else {
                         wkd::Variant::Advanced
                     };
-                    let mut buffer: Vec<u8> = Vec::new();
-                    f.read_to_end(&mut buffer)?;
-                    let parser = TPKParser::from_bytes(&buffer)?;
+                    let parser = TPKParser::from_reader(f)?;
                     let tpks: Vec<TPK> = parser.filter_map(|tpk| tpk.ok())
                         .collect();
                     for tpk in tpks {
