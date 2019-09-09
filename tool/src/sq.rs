@@ -548,9 +548,8 @@ fn real_main() -> Result<(), failure::Error> {
                 ("generate", Some(m)) => {
                     let domain = m.value_of("domain").unwrap();
                     let f = open_or_stdin(m.value_of("input"))?;
-                    // XXX: is a bad idea to use this default dir?
-                    let base_path = m.value_of("output")
-                        .unwrap_or("/var/www/html");
+                    let base_path =
+                        m.value_of("base_directory").expect("required");
                     let variant = if m.is_present("direct_method") {
                         wkd::Variant::Direct
                     } else {

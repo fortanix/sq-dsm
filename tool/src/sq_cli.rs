@@ -502,19 +502,16 @@ pub fn build() -> App<'static, 'static> {
                                     .short("B")
                                     .help("Don't ASCII-armor encode the OpenPGP data")))
                     .subcommand(SubCommand::with_name("generate")
-                                .about("Generates a Web Key Directory for the \
-                                        given domain and keys.")
-                                .arg(Arg::with_name("output")
-                                     .long("output")
-                                     .short("o")
-                                     .takes_value(true)
-                                     .help("The top level directory directory. \
-                                            [default: /var/www/html]"))
-                                .arg(Arg::with_name("direct_method")
-                                     .long("direct_method")
-                                     .short("d")
-                                     .help("Use the direct method. \
-                                            [default: advanced method]"))
+                                .about("Generates a Web Key Directory \
+                                        for the given domain and keys.  \
+                                        If the WKD exists, the new \
+                                        keys will be inserted and it \
+                                        is updated and existing ones \
+                                        will be updated.")
+                                .arg(Arg::with_name("base_directory")
+                                     .value_name("BASE-DIRECTORY")
+                                     .required(true)
+                                     .help("The location to write the WKD to"))
                                 .arg(Arg::with_name("domain")
                                     .value_name("DOMAIN")
                                     .help("The domain for the WKD.")
@@ -522,6 +519,11 @@ pub fn build() -> App<'static, 'static> {
                                 .arg(Arg::with_name("input")
                                     .value_name("KEYRING")
                                     .help("The keyring file with the keys to add to the WKD."))
+                                .arg(Arg::with_name("direct_method")
+                                     .long("direct_method")
+                                     .short("d")
+                                     .help("Use the direct method. \
+                                            [default: advanced method]"))
                     )
         )
 }
