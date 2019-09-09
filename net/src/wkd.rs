@@ -339,7 +339,7 @@ pub fn insert<P, S, T>(base_path: P, domain: S, direct_method: T,
         fs::create_dir_all(path.parent().expect("by construction"))?;
         // XXX: Update keyring, don't merely replace it!
         let mut file = fs::File::create(&path)?;
-        tpk.serialize(&mut file)?;
+        tpk.export(&mut file)?;
     }
 
     Ok(())
