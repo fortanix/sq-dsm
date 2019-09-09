@@ -44,6 +44,29 @@ use crate::openpgp::tpk::TPKParser;
 
 use super::{Result, Error};
 
+/// WKD variants.
+///
+/// There are two variants of the URL scheme.  `Advanced` should be
+/// preferred.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Variant {
+    /// Advanced variant.
+    ///
+    /// This method uses a separate subdomain and is more flexible.
+    /// This method should be preferred.
+    Advanced,
+    /// Direct variant.
+    ///
+    /// This method is deprecated.
+    Direct,
+}
+
+impl Default for Variant {
+    fn default() -> Self {
+        Variant::Advanced
+    }
+}
+
 
 /// Stores the local_part and domain of an email address.
 pub struct EmailAddress {
@@ -118,10 +141,11 @@ impl Url {
     }
 
     /// Returns an URL string from a [`Url`].
-    pub fn build<T>(&self, direct_method: T) -> String
-            where T: Into<Option<bool>> {
-        let direct_method = direct_method.into().unwrap_or(false);
-        if direct_method {
+    pub fn build<V>(&self, variant: V) -> String
+        where V: Into<Option<Variant>>
+    {
+        let variant = variant.into().unwrap_or_default();
+        if variant == Variant::Direct {
             format!("https://{}/.well-known/openpgpkey/hu/{}?l={}",
                     self.domain, self.local_encoded, self.local_part)
         } else {
@@ -132,28 +156,28 @@ impl Url {
     }
 
     /// Returns an [`url::Url`].
-    pub fn to_url<T>(&self, direct_method: T) -> Result<url::Url>
-            where T: Into<Option<bool>> {
-        let url_string = self.build(direct_method);
+    pub fn to_url<V>(&self, variant: V) -> Result<url::Url>
+            where V: Into<Option<Variant>> {
+        let url_string = self.build(variant);
         let url_url = url::Url::parse(url_string.as_str())?;
         Ok(url_url)
     }
 
     /// Returns an [`hyper::Uri`].
-    pub fn to_uri<T>(&self, direct_method: T) -> Result<Uri>
-            where T: Into<Option<bool>> {
-        let url_string = self.build(direct_method);
+    pub fn to_uri<V>(&self, variant: V) -> Result<Uri>
+            where V: Into<Option<Variant>> {
+        let url_string = self.build(variant);
         let uri = url_string.as_str().parse::<Uri>()?;
         Ok(uri)
     }
 
     /// Returns a [`PathBuf`].
-    pub fn to_file_path<T>(&self, direct_method: T) -> Result<PathBuf>
-        where T: Into<Option<bool>>
+    pub fn to_file_path<V>(&self, variant: V) -> Result<PathBuf>
+        where V: Into<Option<Variant>>
     {
         // Create the directories string.
-        let direct_method = direct_method.into().unwrap_or(false);
-        let url = self.to_url(direct_method)?;
+        let variant = variant.into().unwrap_or_default();
+        let url = self.to_url(variant)?;
         // Can not create path_buf as:
         // let path_buf: PathBuf = [url.domain().unwrap(), url.path()]
         //    .iter().collect();
@@ -278,7 +302,8 @@ pub fn get<S: AsRef<str>>(email_address: S)
         let https = HttpsConnector::new(4)?;
         let client = Client::builder().build::<_, hyper::Body>(https);
 
-        Ok((email, client, wkd_url.to_uri(false)?, wkd_url.to_uri(true)?))
+        use self::Variant::*;
+        Ok((email, client, wkd_url.to_uri(Advanced)?, wkd_url.to_uri(Direct)?))
     }).and_then(|(email, client, advanced_uri, direct_uri)| {
         // First, try the Advanced Method.
         client.get(advanced_uri)
@@ -308,16 +333,16 @@ pub fn get<S: AsRef<str>>(email_address: S)
 ///
 /// If the TPK does not have a well-formed UserID with `domain`,
 /// `Error::InvalidArgument` is returned.
-pub fn insert<P, S, T>(base_path: P, domain: S, direct_method: T,
+pub fn insert<P, S, V>(base_path: P, domain: S, variant: V,
                        tpk: &TPK)
                        -> Result<()>
     where P: AsRef<Path>,
           S: AsRef<str>,
-          T: Into<Option<bool>>
+          V: Into<Option<Variant>>
 {
     let base_path = base_path.as_ref();
     let domain = domain.as_ref();
-    let direct_method = direct_method.into().unwrap_or(false);
+    let variant = variant.into().unwrap_or_default();
 
     // First, check which UserIDs are in `domain`.
     let addresses = tpk.userids().filter_map(|uidb| {
@@ -341,7 +366,7 @@ pub fn insert<P, S, T>(base_path: P, domain: S, direct_method: T,
 
     // Finally, create the files.
     for address in addresses.into_iter() {
-        let path = base_path.join(address.to_file_path(direct_method)?);
+        let path = base_path.join(address.to_file_path(variant)?);
         fs::create_dir_all(path.parent().expect("by construction"))?;
         let mut keyring = KeyRing::default();
         if path.is_file() {
@@ -403,6 +428,7 @@ mod tests {
     use crate::openpgp::tpk::TPKBuilder;
 
     use super::*;
+    use self::Variant::*;
 
     #[test]
     fn encode_local_part_succed() {
@@ -439,11 +465,11 @@ mod tests {
             "https://example.com/\
              .well-known/openpgpkey/hu/\
              stnkabub89rpcphiz4ppbxixkwyt1pic?l=test1";
-        assert_eq!(expected_url, wkd_url.clone().build(true));
+        assert_eq!(expected_url, wkd_url.clone().build(Direct));
         assert_eq!(url::Url::parse(expected_url).unwrap(),
-                   wkd_url.clone().to_url(true).unwrap());
+                   wkd_url.clone().to_url(Direct).unwrap());
         assert_eq!(expected_url.parse::<Uri>().unwrap(),
-                   wkd_url.to_uri(true).unwrap());
+                   wkd_url.to_uri(Direct).unwrap());
     }
 
     #[test]
@@ -463,7 +489,7 @@ mod tests {
              .well-known/openpgpkey/hu/\
              stnkabub89rpcphiz4ppbxixkwyt1pic";
         assert_eq!(expected_path,
-            wkd_url.to_file_path(true).unwrap().to_str().unwrap());
+            wkd_url.to_file_path(Direct).unwrap().to_str().unwrap());
     }
 
     #[test]

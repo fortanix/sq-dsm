@@ -551,14 +551,18 @@ fn real_main() -> Result<(), failure::Error> {
                     // XXX: is a bad idea to use this default dir?
                     let base_path = m.value_of("output")
                         .unwrap_or("/var/www/html");
-                    let direct_method = m.is_present("direct_method");
+                    let variant = if m.is_present("direct_method") {
+                        wkd::Variant::Direct
+                    } else {
+                        wkd::Variant::Advanced
+                    };
                     let mut buffer: Vec<u8> = Vec::new();
                     f.read_to_end(&mut buffer)?;
                     let parser = TPKParser::from_bytes(&buffer)?;
                     let tpks: Vec<TPK> = parser.filter_map(|tpk| tpk.ok())
                         .collect();
                     for tpk in tpks {
-                        wkd::insert(&base_path, domain, direct_method, &tpk)
+                        wkd::insert(&base_path, domain, variant, &tpk)
                             .context(format!("Failed to generate the WKD in \
                                               {}.", base_path))?;
                     }
