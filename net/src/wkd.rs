@@ -230,6 +230,10 @@ pub(crate) fn parse_body<S: AsRef<str>>(body: &[u8], email_address: S)
     let packets = TPKParser::from_bytes(&body)?;
     // Collect only the correct packets.
     let tpks: Vec<TPK> = packets.flatten().collect();
+    if tpks.is_empty() {
+        return Err(Error::NotFound.into());
+    }
+
     // Collect only the TPKs that contain the email in any of their userids
     let valid_tpks: Vec<TPK> = tpks.iter()
         // XXX: This filter could become a TPK method, but it adds other API
