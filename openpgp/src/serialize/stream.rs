@@ -194,8 +194,6 @@ impl<'a> writer::Stackable<'a, Cookie> for ArbitraryWriter<'a> {
 /// For every signing key, a signer writes a one-pass-signature
 /// packet, then hashes and emits the data stream, then for every key
 /// writes a signature packet.
-///
-/// Unless otherwise specified, SHA512 is used as hash algorithm.
 pub struct Signer<'a, R>
     where R: key::KeyRole
 {
@@ -285,7 +283,8 @@ impl<'a, R> Signer<'a, R>
         -> Result<writer::Stack<'a, Cookie>>
         where H: Into<Option<HashAlgorithm>>
     {
-        Self::make(inner, signers, None, false, hash_algo)
+        Self::make(inner, signers, None, false,
+                   hash_algo.into().unwrap_or_default())
     }
 
     /// Creates a signer with intended recipients.
@@ -303,7 +302,7 @@ impl<'a, R> Signer<'a, R>
     {
         Self::make(inner, signers,
                    Some(recipients.iter().map(|r| r.fingerprint()).collect()),
-                   false, hash_algo)
+                   false, hash_algo.into().unwrap_or_default())
     }
 
     /// Creates a signer for a detached signature.
@@ -373,18 +372,17 @@ impl<'a, R> Signer<'a, R>
         -> Result<writer::Stack<'a, Cookie>>
         where H: Into<Option<HashAlgorithm>>
     {
-        Self::make(inner, signers, None, true, hash_algo)
+        Self::make(inner, signers, None, true,
+                   hash_algo.into().unwrap_or_default())
     }
 
-    fn make<H>(inner: writer::Stack<'a, Cookie>,
-               signers: Vec<&'a mut dyn crypto::Signer<R>>,
-               intended_recipients: Option<Vec<Fingerprint>>, detached: bool,
-               hash_algo: H)
+    fn make(inner: writer::Stack<'a, Cookie>,
+            signers: Vec<&'a mut dyn crypto::Signer<R>>,
+            intended_recipients: Option<Vec<Fingerprint>>, detached: bool,
+            hash_algo: HashAlgorithm)
         -> Result<writer::Stack<'a, Cookie>>
-        where H: Into<Option<HashAlgorithm>>
     {
         let mut inner = writer::BoxStack::from(inner);
-        let hash_algo = hash_algo.into().unwrap_or(HashAlgorithm::SHA512);
 
         if signers.len() == 0 {
             return Err(Error::InvalidArgument(
@@ -443,7 +441,7 @@ impl<'a, R> Signer<'a, R>
                 }
 
                 // Compute the signature.
-                let sig = sig.sign_hash(*signer, HashAlgorithm::SHA512, hash)?;
+                let sig = sig.sign_hash(*signer, self.hash.algo(), hash)?;
 
                 // And emit the packet.
                 Packet::Signature(sig).serialize(sink)?;
