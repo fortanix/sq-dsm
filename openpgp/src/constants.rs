@@ -563,6 +563,20 @@ pub enum CompressionAlgorithm {
     Unknown(u8),
 }
 
+impl Default for CompressionAlgorithm {
+    fn default() -> Self {
+        use self::CompressionAlgorithm::*;
+        #[cfg(feature = "compression-deflate")]
+        { Zip }
+        #[cfg(all(feature = "compression-bzip2",
+                  not(feature = "compression-deflate")))]
+        { BZip2 }
+        #[cfg(all(not(feature = "compression-bzip2"),
+                  not(feature = "compression-deflate")))]
+        { Uncompressed }
+    }
+}
+
 impl CompressionAlgorithm {
     /// Returns whether this algorithm is supported.
     pub fn is_supported(&self) -> bool {
