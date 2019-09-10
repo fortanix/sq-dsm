@@ -1804,7 +1804,6 @@ mod test {
 
     #[test]
     fn verify_long_message() {
-        use crate::constants::DataFormat;
         use crate::tpk::{TPKBuilder, CipherSuite};
         use crate::serialize::stream::{LiteralWriter, Signer, Message};
         use std::io::Write;
@@ -1822,7 +1821,7 @@ mod test {
 
             let m = Message::new(&mut buf);
             let signer = Signer::new(m, vec![&mut keypair], None).unwrap();
-            let mut ls = LiteralWriter::new(signer, DataFormat::Binary, None, None).unwrap();
+            let mut ls = LiteralWriter::new(signer, None, None, None).unwrap();
 
             ls.write_all(&mut vec![42u8; 30 * 1024 * 1024]).unwrap();
             ls.finalize().unwrap();

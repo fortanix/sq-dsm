@@ -90,7 +90,6 @@ use crate::constants::{
 /// ```
 /// extern crate sequoia_openpgp as openpgp;
 /// use std::io::Write;
-/// use openpgp::constants::DataFormat;
 /// use openpgp::serialize::stream::{Message, LiteralWriter};
 /// use openpgp::serialize::padding::{Padder, padme};
 /// use openpgp::constants::CompressionAlgorithm;
@@ -103,7 +102,7 @@ use crate::constants::{
 ///     let message = Message::new(&mut unpadded);
 ///     // XXX: Insert Encryptor here.
 ///     // XXX: Insert Signer here.
-///     let mut w = LiteralWriter::new(message, DataFormat::Text, None, None)?;
+///     let mut w = LiteralWriter::new(message, None, None, None)?;
 ///     w.write_all(b"Hello world.")?;
 ///     w.finalize()?;
 /// }
@@ -114,7 +113,7 @@ use crate::constants::{
 ///     // XXX: Insert Encryptor here.
 ///     let padder = Padder::new(message, padme)?;
 ///     // XXX: Insert Signer here.
-///     let mut w = LiteralWriter::new(padder, DataFormat::Text, None, None)?;
+///     let mut w = LiteralWriter::new(padder, None, None, None)?;
 ///     w.write_all(b"Hello world.")?;
 ///     w.finalize()?;
 /// }
@@ -332,7 +331,6 @@ mod test {
     #[test]
     fn roundtrip() {
         use std::io::Write;
-        use crate::constants::DataFormat;
         use crate::parse::Parse;
         use crate::serialize::stream::*;
 
@@ -344,7 +342,7 @@ mod test {
             let message = Message::new(&mut padded);
             let padder = Padder::new(message, padme).unwrap();
             let mut w =
-                LiteralWriter::new(padder, DataFormat::Binary, None, None)
+                LiteralWriter::new(padder, None, None, None)
                 .unwrap();
             w.write_all(&msg).unwrap();
             w.finalize().unwrap();
@@ -362,14 +360,13 @@ mod test {
     #[test]
     fn no_compression() {
         use std::io::Write;
-        use crate::constants::DataFormat;
         use crate::serialize::stream::*;
         const MSG: &[u8] = b"@@@@@@@@@@@@@@";
         let mut padded = vec![];
         {
             let message = Message::new(&mut padded);
             let padder = Padder::new(message, padme).unwrap();
-            let mut w = LiteralWriter::new(padder, DataFormat::Text, None, None)
+            let mut w = LiteralWriter::new(padder, None, None, None)
                 .unwrap();
             w.write_all(MSG).unwrap();
             w.finalize().unwrap();

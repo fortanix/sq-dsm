@@ -10,7 +10,6 @@ extern crate sequoia_openpgp as openpgp;
 use sequoia_core::Context;
 use crate::openpgp::constants::{
     CompressionAlgorithm,
-    DataFormat,
 };
 use crate::openpgp::crypto;
 use crate::openpgp::{TPK, KeyID, Result};
@@ -160,8 +159,7 @@ pub fn encrypt(store: &mut store::Store,
             None)?;
     }
 
-    let mut literal_writer = LiteralWriter::new(sink, DataFormat::Binary,
-                                                None, None)
+    let mut literal_writer = LiteralWriter::new(sink, None, None, None)
         .context("Failed to create literal writer")?;
 
     // Finally, copy stdin to our writer stack to encrypt the data.

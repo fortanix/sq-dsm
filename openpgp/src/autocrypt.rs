@@ -34,7 +34,6 @@ use crate::serialize::Serialize;
 use crate::serialize::stream::{
     Message, LiteralWriter, Encryptor,
 };
-use crate::constants::DataFormat;
 use crate::crypto::Password;
 
 /// Version of Autocrypt to use. `Autocrypt::default()` always returns the
@@ -473,7 +472,7 @@ impl AutocryptSetupMessage {
                                &[],
                                None, None)?;
 
-        let mut w = LiteralWriter::new(w, DataFormat::Binary,
+        let mut w = LiteralWriter::new(w, None,
                                        /* filename*/ None, /* date */ None)?;
 
         // The inner message is an ASCII-armored encoded TPK.

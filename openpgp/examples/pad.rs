@@ -6,7 +6,6 @@ use std::io;
 
 extern crate sequoia_openpgp as openpgp;
 use crate::openpgp::armor;
-use crate::openpgp::constants::DataFormat;
 use crate::openpgp::KeyID;
 use crate::openpgp::packet::KeyFlags;
 use crate::openpgp::parse::Parse;
@@ -63,8 +62,7 @@ fn main() {
     let padder = Padder::new(encryptor, padme)
         .expect("Failed to create padder");
 
-    let mut literal_writer = LiteralWriter::new(padder, DataFormat::Binary,
-                                                None, None)
+    let mut literal_writer = LiteralWriter::new(padder, None, None, None)
         .expect("Failed to create literal writer");
 
     // Copy stdin to our writer stack to encrypt the data.

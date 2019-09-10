@@ -9,7 +9,6 @@ use crate::openpgp::{
     armor,
     crypto,
     Packet,
-    constants::DataFormat,
     parse::{Parse, PacketParserResult},
     serialize::Serialize,
 };
@@ -90,7 +89,7 @@ fn main() {
                 // Then, create a literal writer to wrap the data in a
                 // literal message packet.
                 let mut literal =
-                    LiteralWriter::new(signer, DataFormat::Binary, None, None)
+                    LiteralWriter::new(signer, None, None, None)
                     .expect("Failed to create literal writer");
 
                 // Copy all the data.

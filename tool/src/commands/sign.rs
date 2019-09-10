@@ -6,7 +6,6 @@ use tempfile::NamedTempFile;
 
 extern crate sequoia_openpgp as openpgp;
 use crate::openpgp::armor;
-use crate::openpgp::constants::DataFormat;
 use crate::openpgp::crypto;
 use crate::openpgp::{Packet, Result};
 use crate::openpgp::packet::Signature;
@@ -108,7 +107,7 @@ fn sign_data(input: &mut io::Read, output_path: Option<&str>,
         signer
     } else {
         // We want to wrap the data in a literal data packet.
-        LiteralWriter::new(signer, DataFormat::Binary, None, None)
+        LiteralWriter::new(signer, None, None, None)
             .context("Failed to create literal writer")?
     };
 

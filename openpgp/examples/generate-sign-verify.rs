@@ -50,8 +50,7 @@ fn sign(sink: &mut Write, plaintext: &str, tsk: &openpgp::TPK)
     let signer = Signer::new(message, vec![&mut keypair], None)?;
 
     // Emit a literal data packet.
-    let mut literal_writer = LiteralWriter::new(
-        signer, openpgp::constants::DataFormat::Binary, None, None)?;
+    let mut literal_writer = LiteralWriter::new(signer, None, None, None)?;
 
     // Sign the data.
     literal_writer.write_all(plaintext.as_bytes())?;

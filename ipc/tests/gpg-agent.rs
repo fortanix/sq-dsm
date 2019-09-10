@@ -110,8 +110,7 @@ fn sign() {
 
             // Emit a literal data packet.
             let mut literal_writer = LiteralWriter::new(
-                signer, openpgp::constants::DataFormat::Binary, None, None)
-                .unwrap();
+                signer, None, None, None).unwrap();
 
             // Sign the data.
             literal_writer.write_all(MESSAGE.as_bytes()).unwrap();
@@ -222,8 +221,7 @@ fn decrypt() {
 
             // Emit a literal data packet.
             let mut literal_writer = LiteralWriter::new(
-                encryptor, openpgp::constants::DataFormat::Binary, None, None)
-                .unwrap();
+                encryptor, None, None, None).unwrap();
 
             // Encrypt the data.
             literal_writer.write_all(MESSAGE.as_bytes()).unwrap();
