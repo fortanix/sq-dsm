@@ -995,6 +995,12 @@ pub enum DataFormat {
     Unknown(char),
 }
 
+impl Default for DataFormat {
+    fn default() -> Self {
+        DataFormat::Binary
+    }
+}
+
 impl From<u8> for DataFormat {
     fn from(u: u8) -> Self {
         (u as char).into()
