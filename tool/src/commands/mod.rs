@@ -411,7 +411,7 @@ pub fn split(input: &mut io::Read, prefix: &str)
 
             // Write all the bytes.
             for field in map.iter() {
-                sink.write_all(field.data)?;
+                sink.write_all(field.data())?;
             }
         }
 
@@ -444,7 +444,7 @@ pub fn join(inputs: Option<clap::Values>, output: &mut io::Write)
             // We (ab)use the mapping feature to create byte-accurate
             // copies.
             for field in pp.map().expect("must be mapped").iter() {
-                output.write_all(field.data)?;
+                output.write_all(field.data())?;
             }
 
             ppr = pp.next()?.1;

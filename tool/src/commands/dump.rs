@@ -652,13 +652,13 @@ impl PacketDumper {
             writeln!(output, "{}", i)?;
             let mut hd = hex::Dumper::new(output, self.indentation_for_hexdump(
                 i, map.iter()
-                    .map(|f| if f.name == "body" { 16 } else { f.name.len() })
+                    .map(|f| if f.name() == "body" { 16 } else { f.name().len() })
                     .max()
                     .expect("we always have one entry")));
 
             for field in map.iter() {
-                if field.name == "body" {
-                    hd.write_labeled(field.data, |offset, data| {
+                if field.name() == "body" {
+                    hd.write_labeled(field.data(), |offset, data| {
                         let mut l = String::new();
                         for _ in 0..offset {
                             l.push(' ');
@@ -675,7 +675,7 @@ impl PacketDumper {
                         Some(l)
                     })?;
                 } else {
-                    hd.write(field.data, field.name)?;
+                    hd.write(field.data(), field.name())?;
                 }
             }
 

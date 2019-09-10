@@ -66,7 +66,8 @@ impl Map {
     /// let ppo = PacketParserBuilder::from_bytes(msg)?
     ///     .map(true).finalize()?;
     /// assert_eq!(ppo.unwrap().map().unwrap().iter()
-    ///            .map(|f| (f.name, f.data)).collect::<Vec<(&str, &[u8])>>(),
+    ///            .map(|f| (f.name(), f.data()))
+    ///            .collect::<Vec<(&str, &[u8])>>(),
     ///            [("CTB", &b"\xcb"[..]),
     ///             ("length", &b"\x12"[..]),
     ///             ("format", b"t"),
@@ -85,13 +86,13 @@ impl Map {
 #[derive(Clone, Debug)]
 pub struct Field<'a> {
     /// Name of the field.
-    pub name: &'static str,
+    name: &'static str,
     /// Offset of the field in the packet.
-    pub offset: usize,
+    offset: usize,
     /// Length of the field.
-    pub length: usize,
+    length: usize,
     /// Value of the field.
-    pub data: &'a [u8],
+    data: &'a [u8],
 }
 
 impl<'a> Field<'a> {
@@ -127,6 +128,26 @@ impl<'a> Field<'a> {
                 }
             })
         }
+    }
+
+    /// Returns the name of the field.
+    pub fn name(&self) -> &'a str {
+        self.name
+    }
+
+    /// Returns the offset of the field in the packet.
+    pub fn offset(&self) -> usize {
+        self.offset
+    }
+
+    /// Returns the length of the field.
+    pub fn length(&self) -> usize {
+        self.length
+    }
+
+    /// Returns the value of the field.
+    pub fn data(&self) -> &'a [u8] {
+        self.data
     }
 }
 
