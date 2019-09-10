@@ -223,7 +223,7 @@ fn encode_local_part<S: AsRef<str>>(local_part: S) -> String {
 /// The key needs to carry a User ID packet ([RFC4880]) with that mail
 /// address.
 /// ```
-pub(crate) fn parse_body<S: AsRef<str>>(body: &[u8], email_address: S)
+fn parse_body<S: AsRef<str>>(body: &[u8], email_address: S)
         -> Result<Vec<TPK>> {
     let email_address = email_address.as_ref();
     // This will fail on the first packet that can not be parsed.
