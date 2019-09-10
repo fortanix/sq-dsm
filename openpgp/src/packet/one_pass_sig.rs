@@ -151,8 +151,10 @@ impl From<OnePassSig3> for Packet {
     }
 }
 
-impl<'a> From<&'a Signature> for Result<OnePassSig3> {
-    fn from(s: &'a Signature) -> Self {
+impl<'a> std::convert::TryFrom<&'a Signature> for OnePassSig3 {
+    type Error = failure::Error;
+
+    fn try_from(s: &'a Signature) -> Result<Self> {
         let issuer = match s.issuer() {
             Some(i) => i,
             None =>

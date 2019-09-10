@@ -10,6 +10,7 @@
 //! [verification example]: struct.Verifier.html#example
 
 use std::cmp;
+use std::convert::TryFrom;
 use std::collections::HashMap;
 use std::io::{self, Read};
 use std::path::Path;
@@ -750,7 +751,7 @@ impl<'a> Transformer<'a> {
 
         let mut buf = Vec::new();
         for (i, sig) in sigs.iter().rev().enumerate() {
-            let mut ops = Result::<OnePassSig3>::from(sig)?;
+            let mut ops = OnePassSig3::try_from(sig)?;
             if i == sigs.len() - 1 {
                 ops.set_last(true);
             }
