@@ -1024,7 +1024,7 @@ impl<'a> Encryptor<'a> {
         };
 
         let level = inner.as_ref().cookie_ref().level + 1;
-        let algo = cipher_algo.into().unwrap_or(SymmetricAlgorithm::AES256);
+        let algo = cipher_algo.into().unwrap_or_default();
 
         // Generate a session key.
         let sk = SessionKey::new(algo.key_size()?);

@@ -359,6 +359,12 @@ pub enum SymmetricAlgorithm {
     Unknown(u8),
 }
 
+impl Default for SymmetricAlgorithm {
+    fn default() -> Self {
+        SymmetricAlgorithm::AES256
+    }
+}
+
 impl SymmetricAlgorithm {
     /// Returns whether this algorithm is supported.
     pub fn is_supported(&self) -> bool {
