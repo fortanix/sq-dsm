@@ -89,8 +89,6 @@ pub struct Field<'a> {
     name: &'static str,
     /// Offset of the field in the packet.
     offset: usize,
-    /// Length of the field.
-    length: usize,
     /// Value of the field.
     data: &'a [u8],
 }
@@ -103,14 +101,12 @@ impl<'a> Field<'a> {
         if i == 0 {
             Some(Field {
                 offset: 0,
-                length: 1,
                 name: "CTB",
                 data: &map.header.as_slice()[..1],
             })
         } else if i == 1 && has_length {
             Some(Field {
                 offset: 1,
-                length: map.header.len() - 1,
                 name: "length",
                 data: &map.header.as_slice()[1..]
             })
@@ -122,7 +118,6 @@ impl<'a> Field<'a> {
                 let end = cmp::min(len, e.offset + e.length);
                 Field {
                     offset: map.header.len() + e.offset,
-                    length: e.length,
                     name: e.field,
                     data: &map.data[start..end],
                 }
@@ -142,7 +137,7 @@ impl<'a> Field<'a> {
 
     /// Returns the length of the field.
     pub fn length(&self) -> usize {
-        self.length
+        self.data.len()
     }
 
     /// Returns the value of the field.
