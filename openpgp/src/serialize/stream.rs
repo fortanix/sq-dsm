@@ -765,6 +765,7 @@ impl<'a> Compressor<'a> {
         where L: Into<Option<writer::CompressionLevel>>
     {
         let mut inner = writer::BoxStack::from(inner);
+        let compression_level = compression_level.into().unwrap_or_default();
         let level = inner.cookie_ref().level + 1;
 
         // Packet header.
@@ -779,12 +780,11 @@ impl<'a> Compressor<'a> {
 
     /// Creates a new compressor using the given algorithm.
     pub(crate) // For CompressedData::serialize.
-    fn new_naked<L>(mut inner: writer::Stack<'a, Cookie>,
-                    algo: CompressionAlgorithm,
-                    compression_level: L,
-                    level: usize)
-                    -> Result<writer::Stack<'a, Cookie>>
-        where L: Into<Option<writer::CompressionLevel>>
+    fn new_naked(mut inner: writer::Stack<'a, Cookie>,
+                 algo: CompressionAlgorithm,
+                 compression_level: writer::CompressionLevel,
+                 level: usize)
+                 -> Result<writer::Stack<'a, Cookie>>
     {
         // Compressed data header.
         inner.as_mut().write_u8(algo.into())?;
