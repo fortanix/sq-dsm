@@ -76,7 +76,7 @@ impl Map {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn iter<'a>(&'a self) -> Iter<'a> {
+    pub fn iter<'a>(&'a self) -> impl Iterator<Item = Field<'a>> {
         Iter::new(self)
     }
 }
@@ -131,7 +131,7 @@ impl<'a> Field<'a> {
 }
 
 /// An iterator over the map.
-pub struct Iter<'a> {
+struct Iter<'a> {
     map: &'a Map,
     i: usize,
 }
