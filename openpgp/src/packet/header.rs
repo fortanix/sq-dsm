@@ -30,8 +30,9 @@ impl Header {
     ///
     /// [length encoding]: https://tools.ietf.org/html/rfc4880#section-4.2.2.4
     ///
-    /// This function does not check the packet's content.  Use
-    /// `PacketParser::plausible` for that.
+    /// This function does not check the packet's content.
+    // Note: To check the packet's content, use
+    //       `PacketParser::plausible`.
     pub fn valid(&self, future_compatible: bool) -> Result<()> {
         let tag = self.ctb.tag;
 
