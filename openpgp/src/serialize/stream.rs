@@ -759,12 +759,14 @@ impl<'a> Compressor<'a> {
     ///
     /// Passing `None` to `compression_level` selects the default
     /// compression level.
-    pub fn new<L>(inner: writer::Stack<'a, Cookie>, algo: CompressionAlgorithm,
-                  compression_level: L)
-                  -> Result<writer::Stack<'a, Cookie>>
-        where L: Into<Option<writer::CompressionLevel>>
+    pub fn new<C, L>(inner: writer::Stack<'a, Cookie>,
+                     algo: C, compression_level: L)
+                     -> Result<writer::Stack<'a, Cookie>>
+        where C: Into<Option<CompressionAlgorithm>>,
+              L: Into<Option<writer::CompressionLevel>>
     {
         let mut inner = writer::BoxStack::from(inner);
+        let algo = algo.into().unwrap_or_default();
         let compression_level = compression_level.into().unwrap_or_default();
         let level = inner.cookie_ref().level + 1;
 
