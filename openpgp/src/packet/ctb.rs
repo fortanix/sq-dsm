@@ -5,7 +5,6 @@
 //!   [Section 4.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.2
 
 use std::convert::TryFrom;
-use std::ops::Deref;
 
 use crate::{
     packet::Tag,
@@ -21,7 +20,7 @@ use crate::packet::BodyLength;
 ///
 ///   [Section 4.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.2
 #[derive(Clone, Debug)]
-pub struct CTBCommon {
+struct CTBCommon {
     /// RFC4880 Packet tag
     tag: Tag,
 }
@@ -34,7 +33,7 @@ pub struct CTBCommon {
 #[derive(Clone, Debug)]
 pub struct CTBNew {
     /// Packet CTB fields
-    pub common: CTBCommon,
+    common: CTBCommon,
 }
 
 impl CTBNew {
@@ -50,15 +49,6 @@ impl CTBNew {
     /// Returns the packet's tag.
     pub fn tag(&self) -> Tag {
         self.common.tag
-    }
-}
-
-// Allow transparent access of common fields.
-impl Deref for CTBNew {
-    type Target = CTBCommon;
-
-    fn deref(&self) -> &Self::Target {
-        &self.common
     }
 }
 
@@ -118,7 +108,7 @@ impl From<PacketLengthType> for u8 {
 #[derive(Clone, Debug)]
 pub struct CTBOld {
     /// Common CTB fields.
-    pub common: CTBCommon,
+    common: CTBCommon,
     /// Type of length sepcifier.
     pub length_type: PacketLengthType,
 }
@@ -175,15 +165,6 @@ impl CTBOld {
     }
 }
 
-// Allow transparent access of common fields.
-impl Deref for CTBOld {
-    type Target = CTBCommon;
-
-    fn deref(&self) -> &Self::Target {
-        &self.common
-    }
-}
-
 /// A sum type for the different CTB variants.
 ///
 /// There are two CTB variants: the [old CTB format] and the [new CTB
@@ -206,21 +187,7 @@ impl CTB {
     pub fn new(tag: Tag) -> Self {
         CTB::New(CTBNew::new(tag))
     }
-}
 
-// Allow transparent access of common fields.
-impl Deref for CTB {
-    type Target = CTBCommon;
-
-    fn deref(&self) -> &Self::Target {
-        match self {
-            &CTB::New(ref ctb) => return &ctb.common,
-            &CTB::Old(ref ctb) => return &ctb.common,
-        }
-    }
-}
-
-impl CTB {
     /// Parses a CTB as described in [Section 4.2 of RFC 4880].  This
     /// function parses both new and old format CTBs.
     ///
