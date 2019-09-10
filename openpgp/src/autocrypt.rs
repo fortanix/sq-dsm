@@ -468,9 +468,8 @@ impl AutocryptSetupMessage {
         // Passphrase-Format header with value numeric9x4
         let m = Message::new(w);
         let w = Encryptor::new(m,
-                               &[ self.passcode.as_ref().unwrap() ],
-                               &[],
-                               None, None)?;
+                               vec![ self.passcode.as_ref().unwrap() ],
+                               &[], None, None)?;
 
         let mut w = LiteralWriter::new(w, None,
                                        /* filename*/ None, /* date */ None)?;

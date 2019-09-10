@@ -13,9 +13,6 @@ use libc::{c_char, size_t, ssize_t};
 extern crate sequoia_openpgp as openpgp;
 extern crate time;
 
-use self::openpgp::{
-    crypto::Password,
-};
 use self::openpgp::constants::{
     AEADAlgorithm,
     HashAlgorithm,
@@ -347,7 +344,7 @@ pub extern "C" fn pgp_encryptor_new<'a>
         Some(aead_algo.into())
     };
     ffi_try_box!(Encryptor::new(*inner,
-                                &passwords_.iter().collect::<Vec<&Password>>(),
+                                passwords_.iter().collect::<Vec<_>>(),
                                 recipients_,
                                 cipher_algo,
                                 aead_algo))

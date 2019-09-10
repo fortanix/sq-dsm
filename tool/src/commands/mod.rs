@@ -94,7 +94,7 @@ pub fn encrypt(store: &mut store::Store,
     for r in recipients {
         tpks.push(store.lookup(r).context("No such key found")?.tpk()?);
     }
-    let mut passwords = Vec::with_capacity(npasswords);
+    let mut passwords: Vec<crypto::Password> = Vec::with_capacity(npasswords);
     for n in 0..npasswords {
         let nprompt = format!("Enter password {}: ", n + 1);
         passwords.push(rpassword::read_password_from_tty(Some(
@@ -124,15 +124,12 @@ pub fn encrypt(store: &mut store::Store,
         }
     }
 
-    let passwords_: Vec<&openpgp::crypto::Password> =
-        passwords.iter().collect();
-
     // Stream an OpenPGP message.
     let message = Message::new(output);
 
     // We want to encrypt a literal data packet.
     let mut sink = Encryptor::new(message,
-                                  &passwords_,
+                                  passwords,
                                   recipient_subkeys,
                                   None, None)
         .context("Failed to create encryptor")?;

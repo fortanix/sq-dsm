@@ -979,7 +979,7 @@ impl<'a> Encryptor<'a> {
     /// let mut o = vec![];
     /// let message = Message::new(&mut o);
     /// let encryptor = Encryptor::new(message,
-    ///                                &[&"совершенно секретно".into()],
+    ///                                &["совершенно секретно".into()],
     ///                                &recipients, None, None)
     ///     .expect("Failed to create encryptor");
     /// let mut w = LiteralWriter::new(encryptor, None, None, None)?;
@@ -988,28 +988,30 @@ impl<'a> Encryptor<'a> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn new<C, A, R>(inner: writer::Stack<'a, Cookie>,
-                        passwords: &[&Password],
-                        recipients: R,
-                        cipher_algo: C,
-                        aead_algo: A)
-                        -> Result<writer::Stack<'a, Cookie>>
-        where C: Into<Option<SymmetricAlgorithm>>,
-              A: Into<Option<AEADAlgorithm>>,
+    pub fn new<'r, P, R, C, A>(inner: writer::Stack<'a, Cookie>,
+                               passwords: P, recipients: R,
+                               cipher_algo: C, aead_algo: A)
+                               -> Result<writer::Stack<'a, Cookie>>
+        where P: IntoIterator,
+              P::Item: Borrow<Password>,
               R: IntoIterator,
-              R::Item: Borrow<Recipient<'a>> + 'a
+              R::Item: Borrow<Recipient<'r>>,
+              C: Into<Option<SymmetricAlgorithm>>,
+              A: Into<Option<AEADAlgorithm>>,
     {
+        let passwords = passwords.into_iter().collect::<Vec<_>>();
+        let passwords_ref = passwords.iter().map(|r| r.borrow()).collect();
         let recipients = recipients.into_iter().collect::<Vec<_>>();
         let recipients_ref = recipients.iter().map(|r| r.borrow()).collect();
         Self::make(inner,
-                   passwords,
+                   passwords_ref,
                    recipients_ref,
                    cipher_algo.into().unwrap_or_default(),
                    aead_algo.into())
     }
 
     fn make(mut inner: writer::Stack<'a, Cookie>,
-            passwords: &[&Password],
+            passwords: Vec<&Password>,
             recipients: Vec<&Recipient>,
             algo: SymmetricAlgorithm,
             aead_algo: Option<AEADAlgorithm>)
@@ -1447,7 +1449,7 @@ mod test {
         {
             let m = Message::new(&mut o);
             let encryptor = Encryptor::new(
-                m, &passwords.iter().collect::<Vec<&Password>>(),
+                m, &passwords,
                 &[], None, None)
                 .unwrap();
             let mut literal = LiteralWriter::new(encryptor, None, None, None)
