@@ -3,10 +3,10 @@
 use crate::{
     Error,
     Result,
-    BodyLength,
 };
 use crate::packet::tag::Tag;
-use crate::packet::ctb::CTB;
+pub use crate::packet::BodyLength;
+pub use crate::packet::ctb::{self, CTB};
 
 /// An OpenPGP packet's header.
 #[derive(Clone, Debug)]

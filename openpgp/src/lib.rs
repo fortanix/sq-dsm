@@ -109,8 +109,7 @@ pub mod conversions;
 pub mod crypto;
 
 pub mod packet;
-use crate::packet::{BodyLength, Header, Container, key};
-use crate::packet::ctb::{CTB, CTBOld, CTBNew};
+use crate::packet::{Container, key};
 
 pub mod parse;
 

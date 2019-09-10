@@ -15,11 +15,13 @@ use ::buffered_reader::*;
 use crate::{
     crypto::{aead, hash::Hash},
     Result,
-    CTB,
-    BodyLength,
+    packet::header::{
+        CTB,
+        BodyLength,
+    },
     crypto::s2k::S2K,
     Error,
-    Header,
+    packet::Header,
     packet::signature::Signature4,
     packet::prelude::*,
     Packet,
