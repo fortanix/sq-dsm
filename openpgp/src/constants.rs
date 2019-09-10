@@ -650,6 +650,12 @@ pub enum HashAlgorithm {
     Unknown(u8),
 }
 
+impl Default for HashAlgorithm {
+    fn default() -> Self {
+        HashAlgorithm::SHA256
+    }
+}
+
 impl From<u8> for HashAlgorithm {
     fn from(u: u8) -> Self {
         match u {
