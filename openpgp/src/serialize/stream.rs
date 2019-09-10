@@ -988,7 +988,7 @@ impl<'a> Encryptor<'a> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn new<C, A, R>(mut inner: writer::Stack<'a, Cookie>,
+    pub fn new<C, A, R>(inner: writer::Stack<'a, Cookie>,
                         passwords: &[&Password],
                         recipients: R,
                         cipher_algo: C,
@@ -997,9 +997,24 @@ impl<'a> Encryptor<'a> {
         where C: Into<Option<SymmetricAlgorithm>>,
               A: Into<Option<AEADAlgorithm>>,
               R: IntoIterator,
-              R::Item: Borrow<Recipient<'a>>
+              R::Item: Borrow<Recipient<'a>> + 'a
     {
         let recipients = recipients.into_iter().collect::<Vec<_>>();
+        let recipients_ref = recipients.iter().map(|r| r.borrow()).collect();
+        Self::make(inner,
+                   passwords,
+                   recipients_ref,
+                   cipher_algo.into().unwrap_or_default(),
+                   aead_algo.into())
+    }
+
+    fn make(mut inner: writer::Stack<'a, Cookie>,
+            passwords: &[&Password],
+            recipients: Vec<&Recipient>,
+            algo: SymmetricAlgorithm,
+            aead_algo: Option<AEADAlgorithm>)
+            -> Result<writer::Stack<'a, Cookie>>
+    {
         if recipients.len() + passwords.len() == 0 {
             return Err(Error::InvalidArgument(
                 "Neither recipient keys nor passwords given".into()).into());
@@ -1011,7 +1026,7 @@ impl<'a> Encryptor<'a> {
             nonce: Box<[u8]>,
         }
 
-        let aead = if let Some(algo) = aead_algo.into() {
+        let aead = if let Some(algo) = aead_algo {
             let mut nonce = vec![0; algo.iv_size()?];
             crypto::random(&mut nonce);
             Some(AEADParameters {
@@ -1024,7 +1039,6 @@ impl<'a> Encryptor<'a> {
         };
 
         let level = inner.as_ref().cookie_ref().level + 1;
-        let algo = cipher_algo.into().unwrap_or_default();
 
         // Generate a session key.
         let sk = SessionKey::new(algo.key_size()?);
