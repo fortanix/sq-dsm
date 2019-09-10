@@ -12,12 +12,27 @@ use crate::packet::ctb::CTB;
 #[derive(Clone, Debug)]
 pub struct Header {
     /// The packet's CTB.
-    pub ctb: CTB,
+    ctb: CTB,
     /// The packet's length.
-    pub length: BodyLength,
+    length: BodyLength,
 }
 
 impl Header {
+    /// Creates a new header.
+    pub fn new(ctb: CTB, length: BodyLength) -> Self {
+        Header { ctb, length }
+    }
+
+    /// Returns the packet's CTB.
+    pub fn ctb(&self) -> &CTB {
+        &self.ctb
+    }
+
+    /// Returns the packet's length.
+    pub fn length(&self) -> &BodyLength {
+        &self.length
+    }
+
     /// Syntax checks the header.
     ///
     /// A header is consider invalid if:

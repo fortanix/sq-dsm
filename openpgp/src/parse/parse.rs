@@ -258,10 +258,8 @@ impl<'a> PacketHeaderParser<'a> {
         PacketHeaderParser::new(inner,
                                 PacketParserState::new(Default::default()),
                                 vec![ 0 ],
-                                Header {
-                                    ctb: CTB::new(Tag::Reserved),
-                                    length: BodyLength::Full(0),
-                                },
+                                Header::new(CTB::new(Tag::Reserved),
+                                            BodyLength::Full(0)),
                                 Vec::new())
     }
 
@@ -799,7 +797,7 @@ impl Header {
             CTB::Old(ref ctb) =>
                 BodyLength::parse_old_format(bio, ctb.length_type)?,
         };
-        return Ok(Header { ctb: ctb, length: length });
+        return Ok(Header::new(ctb, length));
     }
 }
 
@@ -821,7 +819,7 @@ impl Unknown {
     fn parse<'a>(php: PacketHeaderParser<'a>, error: failure::Error)
                  -> Result<PacketParser<'a>>
     {
-        let tag = php.header.ctb.tag;
+        let tag = php.header.ctb().tag;
         php.ok(Packet::Unknown(Unknown::new(tag, error)))
             .map(|pp| pp.set_decrypted(false))
     }
@@ -842,11 +840,11 @@ pub(crate) fn to_unknown_packet<R: Read>(reader: R) -> Result<Unknown>
     let header = Header::parse(&mut reader)?;
 
     let reader : Box<BufferedReader<Cookie>>
-        = match header.length {
-            BodyLength::Full(len) =>
+        = match header.length() {
+            &BodyLength::Full(len) =>
                 Box::new(buffered_reader::Limitor::with_cookie(
                     Box::new(reader), len as u64, Cookie::default())),
-            BodyLength::Partial(len) =>
+            &BodyLength::Partial(len) =>
                 Box::new(BufferedReaderPartialBodyFilter::with_cookie(
                     reader, len, true, Cookie::default())),
             _ => Box::new(reader),
@@ -997,7 +995,7 @@ impl Signature4 {
         // The absolute minimum size for the header is 11 bytes (this
         // doesn't include the signature MPIs).
 
-        if let BodyLength::Full(len) = header.length {
+        if let &BodyLength::Full(len) = header.length() {
             if len < 11 {
                 // Much too short.
                 return Err(
@@ -1007,7 +1005,7 @@ impl Signature4 {
             return Err(
                 Error::MalformedPacket(
                     format!("Unexpected body length encoding: {:?}",
-                            header.length)
+                            header.length())
                         .into()).into());
         }
 
@@ -1045,7 +1043,7 @@ fn signature_parser_test () {
 
     {
         let pp = PacketParser::from_bytes(data).unwrap().unwrap();
-        assert_eq!(pp.header.length, BodyLength::Full(307));
+        assert_eq!(pp.header.length(), &BodyLength::Full(307));
         if let Packet::Signature(ref p) = pp.packet {
             assert_eq!(p.version(), 4);
             assert_eq!(p.typ(), SignatureType::Binary);
@@ -1324,7 +1322,7 @@ impl Key<key::UnspecifiedParts, key::UnspecifiedRole>
     /// secret subkey packet.
     fn parse<'a>(mut php: PacketHeaderParser<'a>) -> Result<PacketParser<'a>> {
         make_php_try!(php);
-        let tag = php.header.ctb.tag;
+        let tag = php.header.ctb().tag;
         assert!(tag == Tag::Reserved
                 || tag == Tag::PublicKey
                 || tag == Tag::PublicSubkey
@@ -1357,7 +1355,7 @@ impl Key4<key::UnspecifiedParts, key::UnspecifiedRole>
         use crate::serialize::Serialize;
 
         make_php_try!(php);
-        let tag = php.header.ctb.tag;
+        let tag = php.header.ctb().tag;
         assert!(tag == Tag::Reserved
                 || tag == Tag::PublicKey
                 || tag == Tag::PublicSubkey
@@ -1438,7 +1436,7 @@ impl Key4<key::UnspecifiedParts, key::UnspecifiedRole>
                       pk_algo, mpis, secret)
         }
 
-        let tag = php.header.ctb.tag;
+        let tag = php.header.ctb().tag;
 
         let p : Packet = match tag {
             // For the benefit of Key::from_bytes.
@@ -1466,7 +1464,7 @@ impl Key4<key::UnspecifiedParts, key::UnspecifiedRole>
     /// Returns whether the data appears to be a key (no promises).
     fn plausible(bio: &mut buffered_reader::Dup<Cookie>, header: &Header) -> Result<()> {
         // The packet's header is 6 bytes.
-        if let BodyLength::Full(len) = header.length {
+        if let &BodyLength::Full(len) = header.length() {
             if len < 6 {
                 // Much too short.
                 return Err(Error::MalformedPacket(
@@ -1476,7 +1474,7 @@ impl Key4<key::UnspecifiedParts, key::UnspecifiedRole>
             return Err(
                 Error::MalformedPacket(
                     format!("Unexpected body length encoding: {:?}",
-                            header.length)
+                            header.length())
                         .into()).into());
         }
 
@@ -1629,7 +1627,7 @@ fn literal_parser_test () {
     {
         let data = crate::tests::message("literal-mode-b.gpg");
         let mut pp = PacketParser::from_bytes(data).unwrap().unwrap();
-        assert_eq!(pp.header.length, BodyLength::Full(18));
+        assert_eq!(pp.header.length(), &BodyLength::Full(18));
         let content = pp.steal_eof().unwrap();
         let p = pp.finish().unwrap();
         // eprintln!("{:?}", p);
@@ -1646,7 +1644,7 @@ fn literal_parser_test () {
     {
         let data = crate::tests::message("literal-mode-t-partial-body.gpg");
         let mut pp = PacketParser::from_bytes(data).unwrap().unwrap();
-        assert_eq!(pp.header.length, BodyLength::Partial(4096));
+        assert_eq!(pp.header.length(), &BodyLength::Partial(4096));
         let content = pp.steal_eof().unwrap();
         let p = pp.finish().unwrap();
         if let &Packet::Literal(ref p) = p {
@@ -2644,7 +2642,7 @@ impl <'a> PacketParser<'a> {
         let bad = Err(
             Error::MalformedPacket("Can't make an educated case".into()).into());
 
-        match header.ctb.tag {
+        match header.ctb().tag {
             Tag::Reserved | Tag::Marker
             | Tag::Unknown(_) | Tag::Private(_) =>
                 Err(Error::MalformedPacket("Looks like garbage".into()).into()),
@@ -2764,14 +2762,12 @@ impl <'a> PacketParser<'a> {
             t!("turning {} bytes of junk into an Unknown packet", skip);
 
             // Fabricate a header.
-            header = Header {
-                ctb: CTB::new(Tag::Reserved),
-                length: BodyLength::Full(skip as u32),
-            };
+            header = Header::new(CTB::new(Tag::Reserved),
+                                 BodyLength::Full(skip as u32));
             0
         };
 
-        let tag = header.ctb.tag;
+        let tag = header.ctb().tag;
 
         // A buffered_reader::Dup always has an inner.
         let mut bio = Box::new(bio).into_inner().unwrap();
@@ -2792,15 +2788,15 @@ impl <'a> PacketParser<'a> {
             Vec::from(&bio.data_consume_hard(consumed)?[..consumed]);
 
         let bio : Box<BufferedReader<Cookie>>
-            = match header.length {
-                BodyLength::Full(len) => {
+            = match header.length() {
+                &BodyLength::Full(len) => {
                     t!("Pushing a limitor ({} bytes), level: {}.",
                        len, recursion_depth);
                     Box::new(buffered_reader::Limitor::with_cookie(
                         bio, len as u64,
                         Cookie::new(recursion_depth)))
                 },
-                BodyLength::Partial(len) => {
+                &BodyLength::Partial(len) => {
                     t!("Pushing a partial body chunk decoder, level: {}.",
                        recursion_depth);
                     Box::new(BufferedReaderPartialBodyFilter::with_cookie(
@@ -2832,8 +2828,8 @@ impl <'a> PacketParser<'a> {
                 // can be safely streamed.
                 Tag::Literal | Tag::CompressedData | Tag::SED | Tag::SEIP
                     | Tag::AED => (),
-                _ => match header.length {
-                    BodyLength::Full(l) => if l > max_size {
+                _ => match header.length() {
+                    &BodyLength::Full(l) => if l > max_size {
                         header_syntax_error = Some(
                             Error::PacketTooLarge(tag, l, max_size).into());
                     },

@@ -240,8 +240,8 @@ impl PacketDumper {
 
         if let Some(h) = header {
             write!(output, "{} CTB, {}: ",
-                   if let CTB::Old(_) = h.ctb { "Old" } else { "New" },
-                   match h.length {
+                   if let CTB::Old(_) = h.ctb() { "Old" } else { "New" },
+                   match h.length() {
                        BodyLength::Full(n) =>
                            format!("{} bytes", n),
                        BodyLength::Partial(n) =>

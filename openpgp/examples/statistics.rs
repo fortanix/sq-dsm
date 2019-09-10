@@ -62,8 +62,8 @@ fn main() {
         // Iterate over all packets.
         while let PacketParserResult::Some(pp) = ppr {
             // While the packet is in the parser, get some data for later.
-            let size = match pp.header().length {
-                BodyLength::Full(n) => Some(n),
+            let size = match pp.header().length() {
+                &BodyLength::Full(n) => Some(n),
                 _ => None,
             };
 

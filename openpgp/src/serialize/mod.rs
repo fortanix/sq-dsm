@@ -463,8 +463,8 @@ impl SerializeInto for CTB {
 
 impl Serialize for Header {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
-        self.ctb.serialize(o)?;
-        self.length.serialize(o)?;
+        self.ctb().serialize(o)?;
+        self.length().serialize(o)?;
         Ok(())
     }
 }
