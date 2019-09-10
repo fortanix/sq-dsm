@@ -4,6 +4,7 @@
 //!
 //!   [Section 4.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.2
 
+use std::convert::TryFrom;
 use std::ops::Deref;
 
 use crate::{
@@ -78,11 +79,10 @@ pub enum PacketLengthType {
     Indeterminate,
 }
 
-// XXX: TryFrom is nightly only.
-impl /* TryFrom<u8> for */ PacketLengthType {
-    /* type Error = failure::Error; */
-    /// Mirrors the nightly only TryFrom trait.
-    pub fn try_from(u: u8) -> Result<Self> {
+impl TryFrom<u8> for PacketLengthType {
+    type Error = failure::Error;
+
+    fn try_from(u: u8) -> Result<Self> {
         match u {
             0 => Ok(PacketLengthType::OneOctet),
             1 => Ok(PacketLengthType::TwoOctets),
