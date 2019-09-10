@@ -26,7 +26,7 @@ impl Header {
     ///   - The tag is unknown (if future_compatible is false).
     ///   - The [length encoding] is invalid for the packet.
     ///   - The lengths are unreasonable for a packet (e.g., a
-    ///     >10 kb large PKESK or SKESK).
+    ///     PKESK or SKESK larger than 10 kb).
     ///
     /// [length encoding]: https://tools.ietf.org/html/rfc4880#section-4.2.2.4
     ///
