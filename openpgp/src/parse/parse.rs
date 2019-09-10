@@ -819,7 +819,7 @@ impl Unknown {
     fn parse<'a>(php: PacketHeaderParser<'a>, error: failure::Error)
                  -> Result<PacketParser<'a>>
     {
-        let tag = php.header.ctb().tag;
+        let tag = php.header.ctb().tag();
         php.ok(Packet::Unknown(Unknown::new(tag, error)))
             .map(|pp| pp.set_decrypted(false))
     }
@@ -1322,7 +1322,7 @@ impl Key<key::UnspecifiedParts, key::UnspecifiedRole>
     /// secret subkey packet.
     fn parse<'a>(mut php: PacketHeaderParser<'a>) -> Result<PacketParser<'a>> {
         make_php_try!(php);
-        let tag = php.header.ctb().tag;
+        let tag = php.header.ctb().tag();
         assert!(tag == Tag::Reserved
                 || tag == Tag::PublicKey
                 || tag == Tag::PublicSubkey
@@ -1355,7 +1355,7 @@ impl Key4<key::UnspecifiedParts, key::UnspecifiedRole>
         use crate::serialize::Serialize;
 
         make_php_try!(php);
-        let tag = php.header.ctb().tag;
+        let tag = php.header.ctb().tag();
         assert!(tag == Tag::Reserved
                 || tag == Tag::PublicKey
                 || tag == Tag::PublicSubkey
@@ -1436,7 +1436,7 @@ impl Key4<key::UnspecifiedParts, key::UnspecifiedRole>
                       pk_algo, mpis, secret)
         }
 
-        let tag = php.header.ctb().tag;
+        let tag = php.header.ctb().tag();
 
         let p : Packet = match tag {
             // For the benefit of Key::from_bytes.
@@ -2642,7 +2642,7 @@ impl <'a> PacketParser<'a> {
         let bad = Err(
             Error::MalformedPacket("Can't make an educated case".into()).into());
 
-        match header.ctb().tag {
+        match header.ctb().tag() {
             Tag::Reserved | Tag::Marker
             | Tag::Unknown(_) | Tag::Private(_) =>
                 Err(Error::MalformedPacket("Looks like garbage".into()).into()),
@@ -2767,7 +2767,7 @@ impl <'a> PacketParser<'a> {
             0
         };
 
-        let tag = header.ctb().tag;
+        let tag = header.ctb().tag();
 
         // A buffered_reader::Dup always has an inner.
         let mut bio = Box::new(bio).into_inner().unwrap();

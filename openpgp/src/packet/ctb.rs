@@ -23,7 +23,7 @@ use crate::packet::BodyLength;
 #[derive(Clone, Debug)]
 pub struct CTBCommon {
     /// RFC4880 Packet tag
-    pub tag: Tag,
+    tag: Tag,
 }
 
 /// The new CTB format.
@@ -45,6 +45,11 @@ impl CTBNew {
                 tag: tag,
             },
         }
+    }
+
+    /// Returns the packet's tag.
+    pub fn tag(&self) -> Tag {
+        self.common.tag
     }
 }
 
@@ -163,6 +168,11 @@ impl CTBOld {
             length_type: length_type,
         })
     }
+
+    /// Returns the packet's tag.
+    pub fn tag(&self) -> Tag {
+        self.common.tag
+    }
 }
 
 // Allow transparent access of common fields.
@@ -252,13 +262,21 @@ impl CTB {
 
         Ok(ctb)
     }
+
+    /// Returns the packet's tag.
+    pub fn tag(&self) -> Tag {
+        match self {
+            CTB::New(c) => c.tag(),
+            CTB::Old(c) => c.tag(),
+        }
+    }
 }
 
 #[test]
 fn ctb() {
     // 0x99 = public key packet
     if let CTB::Old(ctb) = CTB::from_ptag(0x99).unwrap() {
-        assert_eq!(ctb.tag, Tag::PublicKey);
+        assert_eq!(ctb.tag(), Tag::PublicKey);
         assert_eq!(ctb.length_type, PacketLengthType::TwoOctets);
     } else {
         panic!("Expected an old format packet.");
@@ -266,7 +284,7 @@ fn ctb() {
 
     // 0xa3 = old compressed packet
     if let CTB::Old(ctb) = CTB::from_ptag(0xa3).unwrap() {
-        assert_eq!(ctb.tag, Tag::CompressedData);
+        assert_eq!(ctb.tag(), Tag::CompressedData);
         assert_eq!(ctb.length_type, PacketLengthType::Indeterminate);
     } else {
         panic!("Expected an old format packet.");
@@ -274,7 +292,7 @@ fn ctb() {
 
     // 0xcb: new literal
     if let CTB::New(ctb) = CTB::from_ptag(0xcb).unwrap() {
-        assert_eq!(ctb.tag, Tag::Literal);
+        assert_eq!(ctb.tag(), Tag::Literal);
     } else {
         panic!("Expected a new format packet.");
     }

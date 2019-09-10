@@ -49,7 +49,7 @@ impl Header {
     // Note: To check the packet's content, use
     //       `PacketParser::plausible`.
     pub fn valid(&self, future_compatible: bool) -> Result<()> {
-        let tag = self.ctb.tag;
+        let tag = self.ctb.tag();
 
         // Reserved packets are never valid.
         if tag == Tag::Reserved {

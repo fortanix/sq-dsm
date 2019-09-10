@@ -412,7 +412,7 @@ impl BodyLength {
 
 impl Serialize for CTBNew {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
-        let tag: u8 = self.common.tag.into();
+        let tag: u8 = self.tag().into();
         o.write_all(&[0b1100_0000u8 | tag])?;
         Ok(())
     }
@@ -428,7 +428,7 @@ impl SerializeInto for CTBNew {
 
 impl Serialize for CTBOld {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
-        let tag: u8 = self.common.tag.into();
+        let tag: u8 = self.tag().into();
         let length_type: u8 = self.length_type.into();
         o.write_all(&[0b1000_0000u8 | (tag << 2) | length_type])?;
         Ok(())

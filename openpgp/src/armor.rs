@@ -885,7 +885,7 @@ fn is_armored_pgp_blob(bytes: &[u8]) -> bool {
             } else {
                 let mut br = buffered_reader::Memory::new(&d);
                 if let Ok(header) = Header::parse(&mut br) {
-                    header.ctb().tag.valid_start_of_message()
+                    header.ctb().tag().valid_start_of_message()
                         && header.valid(false).is_ok()
                 } else {
                     false
