@@ -23,17 +23,25 @@ const DUMP_HASHED_VALUES: Option<&str> = None;
 
 /// State of a hash function.
 #[derive(Clone)]
-pub struct Context(Box<nettle::Hash>);
+pub struct Context {
+    algo: HashAlgorithm,
+    ctx: Box<nettle::Hash>,
+}
 
 impl Context {
+    /// Returns the algorithm.
+    pub fn algo(&self) -> HashAlgorithm {
+        self.algo
+    }
+
     /// Size of the digest in bytes
     pub fn digest_size(&self) -> usize {
-        self.0.digest_size()
+        self.ctx.digest_size()
     }
 
     /// Writes data into the hash function.
     pub fn update<D: AsRef<[u8]>>(&mut self, data: D) {
-        self.0.update(data.as_ref());
+        self.ctx.update(data.as_ref());
     }
 
     /// Finalizes the hash function and writes the digest into the
@@ -44,7 +52,7 @@ impl Context {
     /// `digest` must be at least `self.digest_size()` bytes large,
     /// otherwise the digest will be truncated.
     pub fn digest<D: AsMut<[u8]>>(&mut self, mut digest: D) {
-        self.0.digest(digest.as_mut());
+        self.ctx.digest(digest.as_mut());
     }
 }
 
@@ -102,10 +110,13 @@ impl HashAlgorithm {
 
         if let Some(prefix) = DUMP_HASHED_VALUES {
             c.map(|c: Box<nettle::Hash>| {
-                Context(Box::new(HashDumper::new(c, prefix)))
+                Context {
+                    algo: self,
+                    ctx: Box::new(HashDumper::new(c, prefix)),
+                }
             })
         } else {
-            c.map(|c| Context(c))
+            c.map(|c| Context { algo: self, ctx: c })
         }
     }
 
