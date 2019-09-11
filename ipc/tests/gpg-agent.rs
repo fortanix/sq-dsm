@@ -12,7 +12,7 @@ use crate::openpgp::constants::{
     SymmetricAlgorithm,
 };
 use crate::openpgp::crypto::SessionKey;
-use crate::openpgp::packet::KeyFlags;
+use crate::openpgp::constants::KeyFlags;
 use crate::openpgp::parse::stream::*;
 use crate::openpgp::serialize::{Serialize, stream::*};
 use crate::openpgp::tpk::{TPKBuilder, CipherSuite};

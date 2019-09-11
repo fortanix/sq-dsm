@@ -719,10 +719,10 @@ mod test {
     fn export() {
         use crate::Packet;
         use crate::tpk::TPKBuilder;
-        use crate::constants::{Curve, SignatureType};
+        use crate::constants::{Curve, KeyFlags, SignatureType};
         use crate::packet::{
             signature, UserID, user_attribute::{UserAttribute, Subpacket},
-            KeyFlags, key::Key4,
+            key::Key4,
         };
 
         let (tpk, _) = TPKBuilder::new().generate().unwrap();

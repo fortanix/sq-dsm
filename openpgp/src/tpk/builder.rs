@@ -1,7 +1,6 @@
 use time;
 
 use crate::packet;
-use crate::packet::{KeyFlags};
 use crate::packet::{
     key,
     Key,
@@ -18,6 +17,7 @@ use crate::autocrypt::Autocrypt;
 use crate::constants::{
     Features,
     HashAlgorithm,
+    KeyFlags,
     SignatureType,
     SymmetricAlgorithm,
 };

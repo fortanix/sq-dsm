@@ -5,7 +5,7 @@ use crate::{
     packet::key,
     packet::Key,
     packet::key::SecretKeyMaterial,
-    packet::KeyFlags,
+    constants::KeyFlags,
     packet::Signature,
     TPK,
     tpk::KeyBindingIter,

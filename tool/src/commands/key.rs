@@ -5,7 +5,7 @@ use itertools::Itertools;
 
 use crate::openpgp::Packet;
 use crate::openpgp::tpk::{TPKBuilder, CipherSuite};
-use crate::openpgp::packet::KeyFlags;
+use crate::openpgp::constants::KeyFlags;
 use crate::openpgp::armor::{Writer, Kind};
 use crate::openpgp::serialize::Serialize;
 

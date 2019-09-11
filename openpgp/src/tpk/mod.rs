@@ -1632,7 +1632,7 @@ mod test {
 
     use crate::{
         KeyID,
-        packet::KeyFlags,
+        constants::KeyFlags,
     };
 
     fn parse_tpk(data: &[u8], as_message: bool) -> Result<TPK> {

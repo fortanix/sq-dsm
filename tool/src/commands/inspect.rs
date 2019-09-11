@@ -227,7 +227,7 @@ fn inspect_revocation(output: &mut io::Write,
     Ok(())
 }
 
-fn inspect_key_flags(flags: openpgp::packet::KeyFlags) -> Option<String> {
+fn inspect_key_flags(flags: openpgp::constants::KeyFlags) -> Option<String> {
     let mut capabilities = Vec::new();
     if flags.can_certify() {
         capabilities.push("certification")

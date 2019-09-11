@@ -921,7 +921,7 @@ impl<'a> Encryptor<'a> {
     /// ```
     /// use std::io::Write;
     /// extern crate sequoia_openpgp as openpgp;
-    /// use openpgp::packet::KeyFlags;
+    /// use openpgp::constants::KeyFlags;
     /// use openpgp::serialize::stream::{
     ///     Message, Encryptor, LiteralWriter,
     /// };

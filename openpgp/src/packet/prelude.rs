@@ -12,7 +12,6 @@ pub use crate::packet::{
     one_pass_sig::OnePassSig3,
     Key,
     key,
-    KeyFlags,
     key::Key4,
     key::SecretKeyMaterial,
     Marker,

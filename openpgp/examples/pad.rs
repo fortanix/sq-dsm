@@ -7,7 +7,7 @@ use std::io;
 extern crate sequoia_openpgp as openpgp;
 use crate::openpgp::armor;
 use crate::openpgp::KeyID;
-use crate::openpgp::packet::KeyFlags;
+use crate::openpgp::constants::KeyFlags;
 use crate::openpgp::parse::Parse;
 use crate::openpgp::serialize::stream::{
     Message, LiteralWriter, Encryptor, Recipient,

@@ -13,9 +13,8 @@ use std::io::{self, Write};
 
 extern crate sequoia_openpgp as openpgp;
 use openpgp::crypto::SessionKey;
-use openpgp::constants::SymmetricAlgorithm;
+use openpgp::constants::{KeyFlags, SymmetricAlgorithm};
 use openpgp::serialize::stream::*;
-use openpgp::packet::prelude::*;
 use openpgp::parse::stream::*;
 
 const MESSAGE: &'static str = "дружба";
@@ -126,13 +125,12 @@ fn main() {
 #         where D: FnMut(SymmetricAlgorithm, &SessionKey) -> openpgp::Result<()>
 #     {
 #         // The encryption key is the first and only subkey.
-#         let key : key::UnspecifiedSecret
-#             = self.secret.subkeys().nth(0)
+#         let key = self.secret.subkeys().nth(0)
 #             .map(|binding| binding.key().clone())
-#             .unwrap().into();
+#             .unwrap();
 #
 #         // The secret key is not encrypted.
-#         let mut pair = key.into_keypair().unwrap();
+#         let mut pair = key.mark_parts_secret().into_keypair().unwrap();
 #
 #         pkesks[0].decrypt(&mut pair)
 #             .and_then(|(algo, session_key)| decrypt(algo, &session_key))
@@ -156,9 +154,8 @@ create it:
 #
 # extern crate sequoia_openpgp as openpgp;
 # use openpgp::crypto::SessionKey;
-# use openpgp::constants::SymmetricAlgorithm;
+# use openpgp::constants::{KeyFlags, SymmetricAlgorithm};
 # use openpgp::serialize::stream::*;
-# use openpgp::packet::prelude::*;
 # use openpgp::parse::stream::*;
 #
 # const MESSAGE: &'static str = "дружба";
@@ -269,13 +266,12 @@ fn generate() -> openpgp::Result<openpgp::TPK> {
 #         where D: FnMut(SymmetricAlgorithm, &SessionKey) -> openpgp::Result<()>
 #     {
 #         // The encryption key is the first and only subkey.
-#         let key : key::UnspecifiedSecret
-#             = self.secret.subkeys().nth(0)
+#         let key = self.secret.subkeys().nth(0)
 #             .map(|binding| binding.key().clone())
-#             .unwrap().into();
+#             .unwrap();
 #
 #         // The secret key is not encrypted.
-#         let mut pair = key.into_keypair().unwrap();
+#         let mut pair = key.mark_parts_secret().into_keypair().unwrap();
 #
 #         pkesks[0].decrypt(&mut pair)
 #             .and_then(|(algo, session_key)| decrypt(algo, &session_key))
@@ -299,9 +295,8 @@ implements [`io::Write`], and we simply write the plaintext to it.
 #
 # extern crate sequoia_openpgp as openpgp;
 # use openpgp::crypto::SessionKey;
-# use openpgp::constants::SymmetricAlgorithm;
+# use openpgp::constants::{KeyFlags, SymmetricAlgorithm};
 # use openpgp::serialize::stream::*;
-# use openpgp::packet::prelude::*;
 # use openpgp::parse::stream::*;
 #
 # const MESSAGE: &'static str = "дружба";
@@ -412,13 +407,12 @@ fn encrypt(sink: &mut Write, plaintext: &str, recipient: &openpgp::TPK)
 #         where D: FnMut(SymmetricAlgorithm, &SessionKey) -> openpgp::Result<()>
 #     {
 #         // The encryption key is the first and only subkey.
-#         let key : key::UnspecifiedSecret
-#             = self.secret.subkeys().nth(0)
+#         let key = self.secret.subkeys().nth(0)
 #             .map(|binding| binding.key().clone())
-#             .unwrap().into();
+#             .unwrap();
 #
 #         // The secret key is not encrypted.
-#         let mut pair = key.into_keypair().unwrap();
+#         let mut pair = key.mark_parts_secret().into_keypair().unwrap();
 #
 #         pkesks[0].decrypt(&mut pair)
 #             .and_then(|(algo, session_key)| decrypt(algo, &session_key))
@@ -456,9 +450,8 @@ Decrypted data can be read from this using [`io::Read`].
 #
 # extern crate sequoia_openpgp as openpgp;
 # use openpgp::crypto::SessionKey;
-# use openpgp::constants::SymmetricAlgorithm;
+# use openpgp::constants::{KeyFlags, SymmetricAlgorithm};
 # use openpgp::serialize::stream::*;
-# use openpgp::packet::prelude::*;
 # use openpgp::parse::stream::*;
 #
 # const MESSAGE: &'static str = "дружба";
@@ -569,13 +562,12 @@ impl<'a> DecryptionHelper for Helper<'a> {
         where D: FnMut(SymmetricAlgorithm, &SessionKey) -> openpgp::Result<()>
     {
         // The encryption key is the first and only subkey.
-        let key : key::UnspecifiedSecret
-            = self.secret.subkeys().nth(0)
+        let key = self.secret.subkeys().nth(0)
             .map(|binding| binding.key().clone())
-            .unwrap().into();
+            .unwrap();
 
         // The secret key is not encrypted.
-        let mut pair = key.into_keypair().unwrap();
+        let mut pair = key.mark_parts_secret().into_keypair().unwrap();
 
         pkesks[0].decrypt(&mut pair)
             .and_then(|(algo, session_key)| decrypt(algo, &session_key))

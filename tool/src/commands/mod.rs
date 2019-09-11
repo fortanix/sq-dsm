@@ -88,7 +88,7 @@ pub fn encrypt(store: &mut store::Store,
                input: &mut io::Read, output: &mut io::Write,
                npasswords: usize, recipients: Vec<&str>,
                mut tpks: Vec<openpgp::TPK>, signers: Vec<openpgp::TPK>,
-               mode: KeyFlags,
+               mode: openpgp::constants::KeyFlags,
                compression: &str)
                -> Result<()> {
     for r in recipients {

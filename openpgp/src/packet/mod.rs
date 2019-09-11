@@ -45,8 +45,6 @@ pub mod pkesk;
 mod mdc;
 pub use self::mdc::MDC;
 pub mod aed;
-mod key_flags;
-pub use self::key_flags::KeyFlags;
 mod server_preferences;
 pub use self::server_preferences::KeyServerPreferences;
 
