@@ -16,8 +16,7 @@ use crate::Packet;
 
 pub mod prelude;
 
-pub mod ctb;
-use self::ctb::PacketLengthType;
+use self::header::ctb::PacketLengthType;
 use crate::crypto::KeyPair;
 
 use buffered_reader::BufferedReader;

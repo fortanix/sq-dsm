@@ -37,7 +37,7 @@ use quickcheck::{Arbitrary, Gen};
 
 use crate::packet::prelude::*;
 use crate::packet::BodyLength;
-use crate::packet::ctb::{CTBNew, CTBOld};
+use crate::packet::header::ctb::{CTBNew, CTBOld};
 use crate::serialize::SerializeInto;
 
 /// The encoded output stream must be represented in lines of no more

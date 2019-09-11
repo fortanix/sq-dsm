@@ -27,7 +27,7 @@ use crate::{
     },
     packet::{
         BodyLength,
-        ctb::CTB,
+        header::CTB,
         key,
         Key,
         Literal,

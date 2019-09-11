@@ -42,7 +42,7 @@ use crate::{
     Result,
     packet::prelude::*,
 };
-use crate::packet::ctb::CTB;
+use crate::packet::header::CTB;
 use super::{
     PartialBodyFilter,
     Serialize,

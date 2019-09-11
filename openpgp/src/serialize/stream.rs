@@ -31,7 +31,7 @@ use crate::{
     },
     TPK,
 };
-use crate::packet::ctb::CTB;
+use crate::packet::header::CTB;
 use crate::packet::BodyLength;
 use super::{
     PartialBodyFilter,
