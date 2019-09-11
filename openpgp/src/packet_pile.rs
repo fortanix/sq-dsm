@@ -9,7 +9,7 @@ use buffered_reader::BufferedReader;
 use crate::Result;
 use crate::Error;
 use crate::Packet;
-use crate::packet::{Container, PacketIter};
+use crate::packet::{self, Container};
 use crate::PacketPile;
 use crate::parse::PacketParserResult;
 use crate::parse::PacketParserBuilder;
@@ -265,7 +265,7 @@ impl PacketPile {
 
     /// Returns an iterator over all of the packet's descendants, in
     /// depth-first order.
-    pub fn descendants(&self) -> PacketIter {
+    pub fn descendants(&self) -> packet::Iter {
         self.top_level.descendants()
     }
 

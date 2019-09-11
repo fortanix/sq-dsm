@@ -194,8 +194,8 @@ impl Default for Common {
 impl Common {
     /// Returns an iterator over all of the packet's descendants, in
     /// depth-first order.
-    pub fn descendants(&self) -> PacketIter {
-        return PacketIter {
+    pub fn descendants(&self) -> Iter {
+        return Iter {
             children: if let Some(ref container) = self.children {
                 container.packets.iter()
             } else {
@@ -266,8 +266,8 @@ impl Container {
 
     /// Returns an iterator over the packet's descendants.  The
     /// descendants are visited in depth-first order.
-    pub fn descendants(&self) -> PacketIter {
-        return PacketIter {
+    pub fn descendants(&self) -> Iter {
+        return Iter {
             // Iterate over each packet in the message.
             children: self.children(),
             child: None,
@@ -310,23 +310,23 @@ impl Container {
     }
 }
 
-/// A `PacketIter` iterates over the *contents* of a packet in
+/// A `Iter` iterates over the *contents* of a packet in
 /// depth-first order.  It starts by returning the current packet.
-pub struct PacketIter<'a> {
+pub struct Iter<'a> {
     // An iterator over the current message's children.
     children: slice::Iter<'a, Packet>,
     // The current child (i.e., the last value returned by
     // children.next()).
     child: Option<&'a Packet>,
     // The an iterator over the current child's children.
-    grandchildren: Option<Box<PacketIter<'a>>>,
+    grandchildren: Option<Box<Iter<'a>>>,
 
     // The depth of the last returned packet.  This is used by the
     // `paths` iter.
     depth: usize,
 }
 
-impl<'a> Iterator for PacketIter<'a> {
+impl<'a> Iterator for Iter<'a> {
     type Item = &'a Packet;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -356,8 +356,8 @@ impl<'a> Iterator for PacketIter<'a> {
     }
 }
 
-impl<'a> PacketIter<'a> {
-    /// Extends a `PacketIter` to also return each packet's path.
+impl<'a> Iter<'a> {
+    /// Extends a `Iter` to also return each packet's path.
     ///
     /// This is similar to `enumerate`, but instead of counting, this
     /// returns each packet's path in addition to a reference to the
@@ -372,9 +372,9 @@ impl<'a> PacketIter<'a> {
 
 
 /// Like `enumerate`, this augments the packet returned by a
-/// `PacketIter` with its `Path`.
+/// `Iter` with its `Path`.
 struct PacketPathIter<'a> {
-    iter: PacketIter<'a>,
+    iter: Iter<'a>,
 
     // The path to the most recently returned node relative to the
     // start of the iterator.
