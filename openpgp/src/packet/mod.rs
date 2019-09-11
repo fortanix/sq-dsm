@@ -362,7 +362,7 @@ impl<'a> PacketIter<'a> {
     /// This is similar to `enumerate`, but instead of counting, this
     /// returns each packet's path in addition to a reference to the
     /// packet.
-    pub fn paths(self) -> PacketPathIter<'a> {
+    pub fn paths(self) -> impl Iterator<Item = (Vec<usize>, &'a Packet)> {
         PacketPathIter {
             iter: self,
             path: None,
@@ -373,7 +373,7 @@ impl<'a> PacketIter<'a> {
 
 /// Like `enumerate`, this augments the packet returned by a
 /// `PacketIter` with its `Path`.
-pub struct PacketPathIter<'a> {
+struct PacketPathIter<'a> {
     iter: PacketIter<'a>,
 
     // The path to the most recently returned node relative to the
