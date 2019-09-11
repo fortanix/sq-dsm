@@ -45,8 +45,6 @@ pub mod pkesk;
 mod mdc;
 pub use self::mdc::MDC;
 pub mod aed;
-mod server_preferences;
-pub use self::server_preferences::KeyServerPreferences;
 
 // Allow transparent access of common fields.
 impl<'a> Deref for Packet {
