@@ -72,7 +72,6 @@ use crate::{
     Result,
     packet::Signature,
     packet::signature::{self, Signature4},
-    packet::Features,
     packet::key,
     packet::Key,
     packet::KeyFlags,
@@ -84,6 +83,7 @@ use crate::{
 use crate::constants::{
     AEADAlgorithm,
     CompressionAlgorithm,
+    Features,
     HashAlgorithm,
     PublicKeyAlgorithm,
     ReasonForRevocation,

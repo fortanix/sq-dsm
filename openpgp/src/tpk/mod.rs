@@ -2382,7 +2382,7 @@ mod test {
 
     #[test]
     fn revoked_time() {
-        use crate::packet::Features;
+        use crate::constants::Features;
         use crate::packet::key::Key4;
         use crate::constants::Curve;
         use rand::{thread_rng, Rng, distributions::Open01};
