@@ -32,7 +32,10 @@ use crate::{
     Fingerprint,
 };
 use crate::parse::{Parse, PacketParserResult, PacketParser};
-use crate::constants::ReasonForRevocation;
+use crate::constants::{
+    ReasonForRevocation,
+    RevocationType,
+};
 
 mod builder;
 mod bindings;
@@ -72,46 +75,6 @@ fn sig_cmp(a: &Signature, b: &Signature) -> Ordering {
                                     b.signature_creation_time()) {
         Ordering::Equal => a.mpis().cmp(b.mpis()),
         r => r
-    }
-}
-
-/// Returns the first signature with creation time not less than `t`.
-fn greatest_lower_bound<'a>(t: time::Tm, sigs: &'a [Signature])
-    -> Option<&'a Signature>
-{
-    let idx = sigs
-        .binary_search_by(|s| {
-            canonical_signature_order(s.signature_creation_time(), Some(t))
-        });
-
-    match idx {
-        Ok(i) => sigs.get(i),
-        Err(0) => None,
-        Err(i) => sigs.get(i - 1),
-    }
-}
-
-/// Returns true if latest revocation signature in `revs` is newer than the
-/// latest self signature in sigs. Signatures _must_ be sorted by
-/// `canonical_signature_order`.
-///
-/// Signatures are expected to have the right signature types and be
-/// cryptographically sound.
-fn active_revocation(sigs: &[Signature], revs: &[Signature], t: time::Tm)
-    -> bool
-{
-    let sig = greatest_lower_bound(t, sigs);
-    let rev = greatest_lower_bound(t, revs);
-
-    match (sig, rev) {
-        (None, Some(_)) => true,
-        (Some(_), None) => false,
-        (None, None) => false,
-        (Some(ref sig), Some(ref revc)) => {
-            canonical_signature_order(
-                sig.signature_creation_time(),
-                revc.signature_creation_time()) != Ordering::Greater
-        }
     }
 }
 
@@ -226,31 +189,100 @@ impl<C> ComponentBinding<C> {
         &self.other_revocations
     }
 
-    /// Returns the subkey's revocation status.
+    /// Returns the component's revocation status at time `t`.
     ///
-    /// Note: this only returns whether the subkey is revoked.  If you
-    /// want to know whether the key, subkey, etc., is revoked, then
-    /// you need to query them separately.
-    pub fn revoked<T>(&self, t: T) -> RevocationStatus
+    /// A component is considered to be revoked at time `t` if:
+    ///
+    ///   - There is a live revocation at time `t` that is newer than
+    ///     all live self signatures at time `t`.
+    ///
+    ///   - `hard_revocations_are_final` is true, and there is a hard
+    ///     revocation (even if it is not live at time `t`, and even
+    ///     if there is a newer self-signature).
+    ///
+    /// selfsig must be the newest live self signature at time `t`.
+    fn _revoked<'a, T>(&'a self, hard_revocations_are_final: bool,
+                       selfsig: Option<&Signature>, t: T)
+        -> RevocationStatus<'a>
         where T: Into<Option<time::Tm>>
     {
+        // Fallback time.
+        let time_zero = || time::at_utc(time::Timespec::new(0, 0));
         let t = t.into().unwrap_or_else(time::now_utc);
-        let has_self_revs =
-            active_revocation(&self.selfsigs,
-                              &self.self_revocations, t);
+        let selfsig_creation_time
+            = selfsig.and_then(|s| s.signature_creation_time())
+                     .unwrap_or_else(time_zero);
 
-        if has_self_revs {
-            return RevocationStatus::Revoked(
-                self.self_revocations.iter().collect());
+        tracer!(TRACE, "ComponentBinding::_revoked", 0);
+        t!("hard_revocations_are_final: {}, selfsig: {}, t: {}",
+           hard_revocations_are_final,
+           selfsig_creation_time.rfc822(),
+           t.rfc822());
+
+        // XXX: TPK::primary_key_signature returns the most recent
+        // self signature, not the most recent self signature that was
+        // valid at time `t`.  Enable this assert when that is fixed.
+        //
+        // if let Some(selfsig) = selfsig {
+        //     assert!(selfsig.signature_alive_at(t));
+        // }
+
+        macro_rules! check {
+            ($revs:expr) => ({
+                let revs = $revs.iter().filter_map(|rev| {
+                    if hard_revocations_are_final
+                        && rev.reason_for_revocation()
+                               .map(|(r, _)| {
+                                   r.revocation_type() == RevocationType::Hard
+                               })
+                               // If there is no Reason for Revocation
+                               // packet, assume that it is a hard
+                               // revocation.
+                               .unwrap_or(true)
+                    {
+                        t!("  got a hard revocation: {}, {:?}",
+                           rev.signature_creation_time()
+                               .unwrap_or_else(time_zero).rfc822(),
+                           rev.reason_for_revocation()
+                               .map(|r| (r.0, String::from_utf8_lossy(r.1))));
+                        Some(rev)
+                    } else if selfsig_creation_time
+                              > rev.signature_creation_time()
+                                    .unwrap_or_else(time_zero)
+                    {
+                        t!("  ignoring out of date revocation ({})",
+                           rev.signature_creation_time()
+                               .unwrap_or_else(time_zero).rfc822());
+                        None
+                    } else if !rev.signature_alive_at(t) {
+                        t!("  ignoring revocation that is not alive ({} - {})",
+                           rev.signature_creation_time()
+                               .unwrap_or_else(time_zero).rfc822(),
+                           rev.signature_expiration_time()
+                               .unwrap_or_else(time::Duration::zero));
+                        None
+                    } else {
+                        t!("  got a revocation: {} ({:?})",
+                           rev.signature_creation_time()
+                               .unwrap_or_else(time_zero).rfc822(),
+                           rev.reason_for_revocation()
+                               .map(|r| (r.0, String::from_utf8_lossy(r.1))));
+                        Some(rev)
+                    }
+                }).collect::<Vec<&Signature>>();
+
+                if revs.len() == 0 {
+                    None
+                } else {
+                    Some(revs)
+                }
+            })
         }
 
-        let has_other_revs =
-            active_revocation(&self.selfsigs,
-                              &self.other_revocations, t);
-
-        if has_other_revs {
-            RevocationStatus::CouldBe(
-                self.other_revocations.iter().collect())
+        if let Some(revs) = check!(&self.self_revocations) {
+            RevocationStatus::Revoked(revs)
+        } else if let Some(revs) = check!(&self.other_revocations) {
+            RevocationStatus::CouldBe(revs)
         } else {
             RevocationStatus::NotAsFarAsWeKnow
         }
@@ -309,10 +341,55 @@ impl<P: key::KeyParts, R: key::KeyRole> ComponentBinding<Key<P, R>> {
     }
 }
 
+impl<P: key::KeyParts> ComponentBinding<Key<P, key::SubordinateRole>> {
+    /// Returns the subkey's revocation status at time `t`.
+    ///
+    /// A subkey is revoked at time `t` if:
+    ///
+    ///   - There is a live revocation at time `t` that is newer than
+    ///     all live self signatures at time `t`, or
+    ///
+    ///   - There is a hard revocation (even if it is not live at
+    ///     time `t`, and even if there is a newer self-signature).
+    ///
+    /// Note: TPKs and subkeys have different criteria from User IDs
+    /// and User Attributes.
+    ///
+    /// Note: this only returns whether this subkey is revoked; it
+    /// does not imply anything about the TPK or other components.
+    pub fn revoked<T>(&self, t: T)
+        -> RevocationStatus
+        where T: Into<Option<time::Tm>>
+    {
+        let t = t.into();
+        self._revoked(true, self.binding_signature(t), t)
+    }
+}
+
 impl ComponentBinding<UserID> {
     /// Returns a reference to the User ID.
     pub fn userid(&self) -> &UserID {
         self.component()
+    }
+
+    /// Returns the User ID's revocation status at time `t`.
+    ///
+    /// A User ID is revoked at time `t` if:
+    ///
+    ///   - There is a live revocation at time `t` that is newer than
+    ///     all live self signatures at time `t`, or
+    ///
+    /// Note: TPKs and subkeys have different criteria from User IDs
+    /// and User Attributes.
+    ///
+    /// Note: this only returns whether this User ID is revoked; it
+    /// does not imply anything about the TPK or other components.
+    pub fn revoked<T>(&self, t: T)
+        -> RevocationStatus
+        where T: Into<Option<time::Tm>>
+    {
+        let t = t.into();
+        self._revoked(false, self.binding_signature(t), t)
     }
 }
 
@@ -320,6 +397,26 @@ impl ComponentBinding<UserAttribute> {
     /// Returns a reference to the User Attribute.
     pub fn user_attribute(&self) -> &UserAttribute {
         self.component()
+    }
+
+    /// Returns the User Attribute's revocation status at time `t`.
+    ///
+    /// A User Attribute is revoked at time `t` if:
+    ///
+    ///   - There is a live revocation at time `t` that is newer than
+    ///     all live self signatures at time `t`, or
+    ///
+    /// Note: TPKs and subkeys have different criteria from User IDs
+    /// and User Attributes.
+    ///
+    /// Note: this only returns whether this User Attribute is revoked;
+    /// it does not imply anything about the TPK or other components.
+    pub fn revoked<T>(&self, t: T)
+        -> RevocationStatus
+        where T: Into<Option<time::Tm>>
+    {
+        let t = t.into();
+        self._revoked(false, self.binding_signature(t), t)
     }
 }
 
@@ -978,34 +1075,25 @@ impl TPK {
         }
     }
 
-    /// Returns the TPK's revocation status at the specified time.
+    /// Returns the TPK's revocation status at time `t`.
     ///
-    /// Note: this only returns whether the primary key is revoked.  If you
-    /// want to know whether a subkey, user id, etc., is revoked, then
-    /// you need to query them separately.
+    /// A TPK is revoked at time `t` if:
+    ///
+    ///   - There is a live revocation at time `t` that is newer than
+    ///     all live self signatures at time `t`, or
+    ///
+    ///   - There is a hard revocation (even if it is not live at
+    ///     time `t`, and even if there is a newer self-signature).
+    ///
+    /// Note: TPKs and subkeys have different criteria from User IDs
+    /// and User Attributes.
+    ///
+    /// Note: this only returns whether this TPK is revoked; it does
+    /// not imply anything about the TPK or other components.
     pub fn revocation_status_at<T>(&self, t: T) -> RevocationStatus
         where T: Into<Option<time::Tm>>
     {
-        let t = t.into().unwrap_or_else(time::now_utc);
-        let has_self_revs =
-            active_revocation(&self.primary.selfsigs,
-                              &self.primary.self_revocations, t);
-
-        if has_self_revs {
-            return RevocationStatus::Revoked(
-                self.primary.self_revocations.iter().collect());
-        }
-
-        let has_other_revs =
-            active_revocation(&self.primary.selfsigs,
-                              &self.primary.other_revocations, t);
-
-        if has_other_revs {
-            RevocationStatus::CouldBe(
-                self.primary.other_revocations.iter().collect())
-        } else {
-            RevocationStatus::NotAsFarAsWeKnow
-        }
+        self.primary._revoked(true, self.primary_key_signature(), t)
     }
 
     /// Returns the TPK's current revocation status.
@@ -2395,28 +2483,34 @@ mod test {
     }
 
     #[test]
-    fn revoked_time() {
+    fn key_revoked() {
         use crate::constants::Features;
         use crate::packet::key::Key4;
         use crate::constants::Curve;
         use rand::{thread_rng, Rng, distributions::Open01};
         /*
          * t1: 1st binding sig ctime
-         * t2: rev sig ctime
+         * t2: soft rev sig ctime
          * t3: 2nd binding sig ctime
+         * t4: hard rev sig ctime
          *
          * [0,t1): invalid, but not revoked
-         * [t1,t2): valid
-         * [t2,t3): revoked
-         * [t3,inf): valid again
+         * [t1,t2): valid (not revocations)
+         * [t2,t3): revoked (soft revocation)
+         * [t3,t4): valid again (new self sig)
+         * [t4,inf): hard revocation (hard revocation)
+         *
+         * One the hard revocation is merged, then the TPK is
+         * considered revoked at all times.
          */
         let t1 = time::strptime("2000-1-1", "%F").unwrap();
         let t2 = time::strptime("2001-1-1", "%F").unwrap();
         let t3 = time::strptime("2002-1-1", "%F").unwrap();
+        let t4 = time::strptime("2003-1-1", "%F").unwrap();
         let key: key::SecretKey
             = Key4::generate_ecc(true, Curve::Ed25519).unwrap().into();
         let mut pair = key.clone().into_keypair().unwrap();
-        let (bind1, rev, bind2) = {
+        let (bind1, rev1, bind2, rev2) = {
             let bind1 = signature::Builder::new(SignatureType::DirectKey)
                 .set_features(&Features::sequoia()).unwrap()
                 .set_key_flags(&KeyFlags::default()).unwrap()
@@ -2428,8 +2522,10 @@ mod test {
                 .sign_primary_key_binding(&mut pair,
                                           HashAlgorithm::SHA512).unwrap();
 
-            let rev = signature::Builder::new(SignatureType::KeyRevocation)
+            let rev1 = signature::Builder::new(SignatureType::KeyRevocation)
                 .set_signature_creation_time(t2).unwrap()
+                .set_reason_for_revocation(ReasonForRevocation::KeySuperseded,
+                                           &b""[..]).unwrap()
                 .set_issuer_fingerprint(key.fingerprint()).unwrap()
                 .set_issuer(key.keyid()).unwrap()
                 .sign_primary_key_binding(&mut pair,
@@ -2446,14 +2542,23 @@ mod test {
                 .sign_primary_key_binding(&mut pair,
                                           HashAlgorithm::SHA512).unwrap();
 
-            (bind1, rev, bind2)
+            let rev2 = signature::Builder::new(SignatureType::KeyRevocation)
+                .set_signature_creation_time(t4).unwrap()
+                .set_reason_for_revocation(ReasonForRevocation::KeyCompromised,
+                                           &b""[..]).unwrap()
+                .set_issuer_fingerprint(key.fingerprint()).unwrap()
+                .set_issuer(key.keyid()).unwrap()
+                .sign_primary_key_binding(&mut pair,
+                                          HashAlgorithm::SHA512).unwrap();
+
+            (bind1, rev1, bind2, rev2)
         };
         let pk : key::PublicKey = key.into();
         let tpk = TPK::from_packet_pile(PacketPile::from(vec![
             pk.into(),
             bind1.into(),
             bind2.into(),
-            rev.into()
+            rev1.into()
         ])).unwrap();
 
         let f1: f32 = thread_rng().sample(Open01);
@@ -2462,13 +2567,232 @@ mod test {
         let te1 = t1 - time::Duration::days((300.0 * f1) as i64);
         let t12 = t1 + time::Duration::days((300.0 * f2) as i64);
         let t23 = t2 + time::Duration::days((300.0 * f3) as i64);
+        let t34 = t3 + time::Duration::days((300.0 * f3) as i64);
+
         assert_eq!(tpk.revocation_status_at(te1), RevocationStatus::NotAsFarAsWeKnow);
         assert_eq!(tpk.revocation_status_at(t12), RevocationStatus::NotAsFarAsWeKnow);
-        match tpk.revocation_status_at(t23) {
-            RevocationStatus::Revoked(_) => {}
-            _ => unreachable!(),
+        // XXX: TPK::primary_key_signature returns the most recent
+        // self signature, not the most recent self signature that was
+        // valid at time `t`.  Reenable this test when that is fixed.
+        //
+        // assert_match!(RevocationStatus::Revoked(_) = tpk.revocation_status_at(t23));
+        assert_eq!(tpk.revocation_status_at(t34), RevocationStatus::NotAsFarAsWeKnow);
+
+        // Merge in the hard revocation.
+        let tpk = tpk.merge_packets(vec![ rev2.into() ]).unwrap();
+        assert_match!(RevocationStatus::Revoked(_)
+                      = tpk.revocation_status_at(te1));
+        assert_match!(RevocationStatus::Revoked(_)
+                      = tpk.revocation_status_at(t12));
+        assert_match!(RevocationStatus::Revoked(_)
+                      = tpk.revocation_status_at(t23));
+        assert_match!(RevocationStatus::Revoked(_)
+                      = tpk.revocation_status_at(t34));
+        assert_match!(RevocationStatus::Revoked(_)
+                      = tpk.revocation_status_at(t4));
+        assert_match!(RevocationStatus::Revoked(_)
+                      = tpk.revocation_status_at(time::now_utc()));
+    }
+
+    #[test]
+    fn key_revoked2() {
+        tracer!(true, "tpk_revoked2", 0);
+
+        fn tpk_revoked<T>(tpk: &TPK, t: T) -> bool
+            where T: Into<Option<time::Tm>>
+        {
+            !destructures_to!(RevocationStatus::NotAsFarAsWeKnow
+                              = tpk.revocation_status_at(t))
         }
-        assert_eq!(tpk.revocation_status_at(time::now_utc()), RevocationStatus::NotAsFarAsWeKnow);
+
+        fn subkey_revoked<T>(tpk: &TPK, t: T) -> bool
+            where T: Into<Option<time::Tm>>
+        {
+            !destructures_to!(RevocationStatus::NotAsFarAsWeKnow
+                              = tpk.subkeys().nth(0).unwrap().revoked(t))
+        }
+
+        let tests : [(&str, Box<Fn(&TPK, _) -> bool>); 2] = [
+            ("tpk", Box::new(tpk_revoked)),
+            ("subkey", Box::new(subkey_revoked)),
+        ];
+
+        for (f, revoked) in tests.iter()
+        {
+            t!("Checking {} revocation", f);
+
+            t!("Normal key");
+            let tpk = TPK::from_bytes(
+                crate::tests::key(
+                    &format!("really-revoked-{}-0-public.pgp", f))).unwrap();
+            let selfsig0 = tpk.primary_key_signature().unwrap()
+                .signature_creation_time().unwrap();
+
+            assert!(!revoked(&tpk, Some(selfsig0)));
+            assert!(!revoked(&tpk, None));
+
+            t!("Soft revocation");
+            let tpk = tpk.merge(
+                TPK::from_bytes(
+                    crate::tests::key(
+                        &format!("really-revoked-{}-1-soft-revocation.pgp", f))
+                ).unwrap()).unwrap();
+            // A soft revocation made after `t` is ignored when
+            // determining whether the key is revoked at time `t`.
+            assert!(!revoked(&tpk, Some(selfsig0)));
+            assert!(revoked(&tpk, None));
+
+            t!("New self signature");
+            let tpk = tpk.merge(
+                TPK::from_bytes(
+                    crate::tests::key(
+                        &format!("really-revoked-{}-2-new-self-sig.pgp", f))
+                ).unwrap()).unwrap();
+            assert!(!revoked(&tpk, Some(selfsig0)));
+            // Newer self-sig override older soft revocations.
+            assert!(!revoked(&tpk, None));
+
+            t!("Hard revocation");
+            let tpk = tpk.merge(
+                TPK::from_bytes(
+                    crate::tests::key(
+                        &format!("really-revoked-{}-3-hard-revocation.pgp", f))
+                ).unwrap()).unwrap();
+            // Hard revocations trump all.
+            assert!(revoked(&tpk, Some(selfsig0)));
+            assert!(revoked(&tpk, None));
+
+            t!("New self signature");
+            let tpk = tpk.merge(
+                TPK::from_bytes(
+                    crate::tests::key(
+                        &format!("really-revoked-{}-4-new-self-sig.pgp", f))
+                ).unwrap()).unwrap();
+            assert!(revoked(&tpk, Some(selfsig0)));
+            assert!(revoked(&tpk, None));
+        }
+    }
+
+    #[test]
+    fn userid_revoked2() {
+        fn check_userids<T>(tpk: &TPK, revoked: bool, t: T)
+            where T: Into<Option<time::Tm>>, T: Copy
+        {
+            assert_match!(RevocationStatus::NotAsFarAsWeKnow
+                          = tpk.revocation_status());
+
+            let mut slim_shady = false;
+            let mut eminem = false;
+            for b in tpk.userids() {
+                if b.userid().value() == b"Slim Shady" {
+                    assert!(!slim_shady);
+                    slim_shady = true;
+
+                    if revoked {
+                        assert_match!(RevocationStatus::Revoked(_)
+                                      = b.revoked(t));
+                    } else {
+                        assert_match!(RevocationStatus::NotAsFarAsWeKnow
+                                      = b.revoked(t));
+                    }
+                } else {
+                    assert!(!eminem);
+                    eminem = true;
+
+                    assert_match!(RevocationStatus::NotAsFarAsWeKnow
+                                  = b.revoked(t));
+                }
+            }
+
+            assert!(slim_shady);
+            assert!(eminem);
+        }
+
+        fn check_uas<T>(tpk: &TPK, revoked: bool, t: T)
+            where T: Into<Option<time::Tm>>, T: Copy
+        {
+            assert_match!(RevocationStatus::NotAsFarAsWeKnow
+                          = tpk.revocation_status());
+
+            assert_eq!(tpk.user_attributes().count(), 1);
+            let ua = tpk.user_attributes().nth(0).unwrap();
+            if revoked {
+                assert_match!(RevocationStatus::Revoked(_)
+                              = ua.revoked(t));
+            } else {
+                assert_match!(RevocationStatus::NotAsFarAsWeKnow
+                              = ua.revoked(t));
+            }
+        }
+
+        tracer!(true, "userid_revoked2", 0);
+
+        let tests : [(&str, Box<Fn(&TPK, bool, _)>); 2] = [
+            ("userid", Box::new(check_userids)),
+            ("user-attribute", Box::new(check_uas)),
+        ];
+
+        for (f, check) in tests.iter()
+        {
+            t!("Checking {} revocation", f);
+
+            t!("Normal key");
+            let tpk = TPK::from_bytes(
+                crate::tests::key(
+                    &format!("really-revoked-{}-0-public.pgp", f))).unwrap();
+
+            let now = time::now_utc();
+            let selfsig0
+                = tpk.userids().map(|b| {
+                    b.binding_signature(now).unwrap()
+                        .signature_creation_time().unwrap()
+                })
+                .max().unwrap();
+
+            check(&tpk, false, selfsig0);
+            check(&tpk, false, now);
+
+            // A soft-revocation.
+            let tpk = tpk.merge(
+                TPK::from_bytes(
+                    crate::tests::key(
+                        &format!("really-revoked-{}-1-soft-revocation.pgp", f))
+                ).unwrap()).unwrap();
+
+            check(&tpk, false, selfsig0);
+            check(&tpk, true, now);
+
+            // A new self signature.  This should override the soft-revocation.
+            let tpk = tpk.merge(
+                TPK::from_bytes(
+                    crate::tests::key(
+                        &format!("really-revoked-{}-2-new-self-sig.pgp", f))
+                ).unwrap()).unwrap();
+
+            check(&tpk, false, selfsig0);
+            check(&tpk, false, now);
+
+            // A hard revocation.  Unlike for TPKs, this does NOT trumps
+            // everything.
+            let tpk = tpk.merge(
+                TPK::from_bytes(
+                    crate::tests::key(
+                        &format!("really-revoked-{}-3-hard-revocation.pgp", f))
+                ).unwrap()).unwrap();
+
+            check(&tpk, false, selfsig0);
+            check(&tpk, true, now);
+
+            // A newer self siganture.
+            let tpk = tpk.merge(
+                TPK::from_bytes(
+                    crate::tests::key(
+                        &format!("really-revoked-{}-4-new-self-sig.pgp", f))
+                ).unwrap()).unwrap();
+
+            check(&tpk, false, selfsig0);
+            check(&tpk, false, now);
+        }
     }
 
     #[test]

@@ -6,7 +6,8 @@ mod integration {
     use std::path;
 
     #[test]
-    fn valid_at_signature_ctime() {
+    fn not_valid_at_signature_ctime() {
+        // A hard revocation is never ignored.
         Assert::cargo_binary("sqv")
             .current_dir(path::Path::new("tests").join("data"))
             .with_args(
@@ -14,7 +15,7 @@ mod integration {
                   &"revoked-unrevoked.key",
                   &"rev-unrev-t1-t2.sig",
                   &"msg.txt"])
-            .stdout().is("7859 B79C 7312 7826 6852  15BE 8254 0C25 2B52 1ED8")
+            .fails()
             .unwrap();
     }
 
@@ -32,7 +33,8 @@ mod integration {
     }
 
     #[test]
-    fn valid_now() {
+    fn unrevoked() {
+        // Hard revocations are never ignored.
         Assert::cargo_binary("sqv")
             .current_dir(path::Path::new("tests").join("data"))
             .with_args(
@@ -40,7 +42,7 @@ mod integration {
                   &"revoked-unrevoked.key",
                   &"rev-unrev-t3-now.sig",
                   &"msg.txt"])
-            .stdout().is("7859 B79C 7312 7826 6852  15BE 8254 0C25 2B52 1ED8")
+            .fails()
             .unwrap();
     }
 }
