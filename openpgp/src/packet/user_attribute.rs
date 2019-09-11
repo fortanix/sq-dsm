@@ -277,7 +277,7 @@ mod tests {
     #[test]
     fn image() {
         use crate::Packet;
-        let p = Packet::from_bytes(b"
+        let p = Packet::from_bytes("
 -----BEGIN PGP ARMORED FILE-----
 
 0cFuwWwBEAABAQAAAAAAAAAAAAAAAP/Y/+AAEEpGSUYAAQEBASwBLAAA//4AE0Ny

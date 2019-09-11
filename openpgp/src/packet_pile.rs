@@ -57,9 +57,9 @@ impl<'a> Parse<'a, PacketPile> for PacketPile {
     /// Deserializes the OpenPGP message stored in the provided buffer.
     ///
     /// See `from_reader` for more details and caveats.
-    fn from_bytes(data: &'a [u8]) -> Result<PacketPile> {
+    fn from_bytes<D: AsRef<[u8]> + ?Sized>(data: &'a D) -> Result<PacketPile> {
         let bio = buffered_reader::Memory::with_cookie(
-            data, Cookie::default());
+            data.as_ref(), Cookie::default());
         PacketPile::from_buffered_reader(Box::new(bio))
     }
 }

@@ -231,8 +231,8 @@ impl<'a, R> Signer<'a, R>
     /// # use openpgp::crypto::KeyPair;
     /// # use openpgp::parse::Parse;
     /// # use openpgp::parse::stream::*;
-    /// # let tsk = TPK::from_bytes(include_bytes!(
-    /// #     "../../tests/data/keys/testy-new-private.pgp"))
+    /// # let tsk = TPK::from_bytes(&include_bytes!(
+    /// #     "../../tests/data/keys/testy-new-private.pgp")[..])
     /// #     .unwrap();
     /// # let keypair = tsk.keys_valid().signing_capable().nth(0).unwrap().2
     /// #     .clone().mark_parts_secret().into_keypair().unwrap();
@@ -317,8 +317,8 @@ impl<'a, R> Signer<'a, R>
     /// # use openpgp::crypto::KeyPair;
     /// # use openpgp::parse::Parse;
     /// # use openpgp::parse::stream::*;
-    /// # let tsk = TPK::from_bytes(include_bytes!(
-    /// #     "../../tests/data/keys/testy-new-private.pgp"))
+    /// # let tsk = TPK::from_bytes(&include_bytes!(
+    /// #     "../../tests/data/keys/testy-new-private.pgp")[..])
     /// #     .unwrap();
     /// # let keypair = tsk.keys_valid().signing_capable().nth(0).unwrap().2
     /// #     .clone().mark_parts_secret().into_keypair().unwrap();
@@ -931,7 +931,7 @@ impl<'a> Encryptor<'a> {
     /// # fn f() -> Result<()> {
     /// let tpk = openpgp::TPK::from_bytes(
     /// #   // We do some acrobatics here to abbreviate the TPK.
-    ///    b"-----BEGIN PGP PUBLIC KEY BLOCK-----
+    ///     "-----BEGIN PGP PUBLIC KEY BLOCK-----
     ///
     ///      mQENBFpxtsABCADZcBa1Q3ZLZnju18o0+t8LoQuIIeyeUQ0H45y6xUqyrD5HSkVM
     /// #    VGQs6IHLq70mAizBJ4VznUVqVOh/NhOlapXi6/TKpjHvttdg45o6Pgqa0Kx64luT

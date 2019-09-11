@@ -7,7 +7,7 @@ use crate::openpgp::parse::Parse;
 
 fn main() {
     let tpk =
-       b"-----BEGIN PGP PUBLIC KEY BLOCK-----
+        "-----BEGIN PGP PUBLIC KEY BLOCK-----
 
          mQENBFpxtsABCADZcBa1Q3ZLZnju18o0+t8LoQuIIeyeUQ0H45y6xUqyrD5HSkVM
          VGQs6IHLq70mAizBJ4VznUVqVOh/NhOlapXi6/TKpjHvttdg45o6Pgqa0Kx64luT

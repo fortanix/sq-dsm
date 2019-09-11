@@ -157,7 +157,7 @@ impl Store {
     /// #     .ipc_policy(IPCPolicy::Internal)
     /// #     .ephemeral().build()?;
     /// # let tpk = TPK::from_bytes(
-    /// #     include_bytes!("../../openpgp/tests/data/keys/testy.pgp")).unwrap();
+    /// #     &include_bytes!("../../openpgp/tests/data/keys/testy.pgp")[..]).unwrap();
     /// let key = Store::import(&ctx, &tpk)?;
     /// assert_eq!(key.tpk()?.fingerprint(), tpk.fingerprint());
     /// # Ok(())
@@ -193,7 +193,7 @@ impl Store {
     /// #     .ipc_policy(IPCPolicy::Internal)
     /// #     .ephemeral().build()?;
     /// # let tpk = TPK::from_bytes(
-    /// #     include_bytes!("../../openpgp/tests/data/keys/testy.pgp")).unwrap();
+    /// #     &include_bytes!("../../openpgp/tests/data/keys/testy.pgp")[..]).unwrap();
     /// Store::import(&ctx, &tpk)?;
     /// let key = Store::lookup(&ctx, &tpk.fingerprint())?;
     /// assert_eq!(key.tpk()?.fingerprint(), tpk.fingerprint());
@@ -228,7 +228,7 @@ impl Store {
     /// #     .ipc_policy(IPCPolicy::Internal)
     /// #     .ephemeral().build()?;
     /// # let tpk = TPK::from_bytes(
-    /// #     include_bytes!("../../openpgp/tests/data/keys/testy.pgp")).unwrap();
+    /// #     &include_bytes!("../../openpgp/tests/data/keys/testy.pgp")[..]).unwrap();
     /// Store::import(&ctx, &tpk)?;
     /// let key = Store::lookup_by_keyid(&ctx, &tpk.fingerprint().to_keyid())?;
     /// assert_eq!(key.tpk()?.fingerprint(), tpk.fingerprint());
@@ -264,7 +264,7 @@ impl Store {
     /// #     .ipc_policy(IPCPolicy::Internal)
     /// #     .ephemeral().build()?;
     /// # let tpk = TPK::from_bytes(
-    /// #     include_bytes!("../../openpgp/tests/data/keys/neal.pgp"))
+    /// #     &include_bytes!("../../openpgp/tests/data/keys/neal.pgp")[..])
     /// #     .unwrap();
     /// Store::import(&ctx, &tpk)?;
     ///
@@ -412,7 +412,7 @@ impl Mapping {
     /// #     .ipc_policy(IPCPolicy::Internal)
     /// #     .ephemeral().build()?;
     /// # let tpk = TPK::from_bytes(
-    /// #     include_bytes!("../../openpgp/tests/data/keys/testy.pgp")).unwrap();
+    /// #     &include_bytes!("../../openpgp/tests/data/keys/testy.pgp")[..]).unwrap();
     /// let mapping = Mapping::open(&ctx, REALM_CONTACTS, "default")?;
     /// mapping.import("Testy McTestface", &tpk)?;
     /// # Ok(())
@@ -483,7 +483,7 @@ impl Mapping {
     /// #     .ipc_policy(IPCPolicy::Internal)
     /// #     .ephemeral().build()?;
     /// # let tpk = TPK::from_bytes(
-    /// #     include_bytes!("../../openpgp/tests/data/keys/emmelie-dorothea-dina-samantha-awina-ed25519.pgp"))
+    /// #     &include_bytes!("../../openpgp/tests/data/keys/emmelie-dorothea-dina-samantha-awina-ed25519.pgp")[..])
     /// #     .unwrap();
     /// let mapping = Mapping::open(&ctx, REALM_CONTACTS, "default")?;
     /// mapping.import("Emmelie", &tpk)?;
@@ -683,9 +683,9 @@ impl Binding {
     /// #     .ipc_policy(IPCPolicy::Internal)
     /// #     .ephemeral().build()?;
     /// # let old = TPK::from_bytes(
-    /// #     include_bytes!("../../openpgp/tests/data/keys/testy.pgp")).unwrap();
+    /// #     &include_bytes!("../../openpgp/tests/data/keys/testy.pgp")[..]).unwrap();
     /// # let new = TPK::from_bytes(
-    /// #     include_bytes!("../../openpgp/tests/data/keys/testy-new.pgp")).unwrap();
+    /// #     &include_bytes!("../../openpgp/tests/data/keys/testy-new.pgp")[..]).unwrap();
     /// let mapping = Mapping::open(&ctx, REALM_CONTACTS, "default")?;
     /// mapping.import("Testy McTestface", &old)?;
     /// // later...
@@ -738,9 +738,9 @@ impl Binding {
     /// #     .ipc_policy(IPCPolicy::Internal)
     /// #     .ephemeral().build()?;
     /// # let old = TPK::from_bytes(
-    /// #     include_bytes!("../../openpgp/tests/data/keys/testy.pgp")).unwrap();
+    /// #     &include_bytes!("../../openpgp/tests/data/keys/testy.pgp")[..]).unwrap();
     /// # let new = TPK::from_bytes(
-    /// #     include_bytes!("../../openpgp/tests/data/keys/testy-new.pgp")).unwrap();
+    /// #     &include_bytes!("../../openpgp/tests/data/keys/testy-new.pgp")[..]).unwrap();
     /// let mapping = Mapping::open(&ctx, REALM_CONTACTS, "default")?;
     /// mapping.import("Testy McTestface", &old)?;
     /// // later...
@@ -890,9 +890,9 @@ impl Key {
     /// #     .ipc_policy(IPCPolicy::Internal)
     /// #     .ephemeral().build()?;
     /// # let old = TPK::from_bytes(
-    /// #     include_bytes!("../../openpgp/tests/data/keys/testy.pgp")).unwrap();
+    /// #     &include_bytes!("../../openpgp/tests/data/keys/testy.pgp")[..]).unwrap();
     /// # let new = TPK::from_bytes(
-    /// #     include_bytes!("../../openpgp/tests/data/keys/testy-new.pgp")).unwrap();
+    /// #     &include_bytes!("../../openpgp/tests/data/keys/testy-new.pgp")[..]).unwrap();
     /// let mapping = Mapping::open(&ctx, REALM_CONTACTS, "default")?;
     /// let fp = Fingerprint::from_hex("3E8877C877274692975189F5D03F6F865226FE8B").unwrap();
     /// let binding = mapping.add("Testy McTestface", &fp)?;
@@ -1267,7 +1267,7 @@ mod test {
             .ipc_policy(core::IPCPolicy::Internal)
             .build().unwrap();
         let mapping = Mapping::open(&ctx, REALM_CONTACTS, "default").unwrap();
-        let tpk = TPK::from_bytes(bytes!("testy.pgp")).unwrap();
+        let tpk = TPK::from_bytes(&bytes!("testy.pgp")[..]).unwrap();
         mapping.import("Mr. McTestface", &tpk).unwrap();
         let binding = mapping.lookup("Mr. McTestface").unwrap();
         let tpk_retrieved = binding.tpk().unwrap();
@@ -1295,7 +1295,7 @@ mod test {
             .ipc_policy(core::IPCPolicy::Internal)
             .build().unwrap();
         let mapping = Mapping::open(&ctx, REALM_CONTACTS, "default").unwrap();
-        let tpk = TPK::from_bytes(bytes!("testy.pgp")).unwrap();
+        let tpk = TPK::from_bytes(&bytes!("testy.pgp")[..]).unwrap();
         let fp = Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb");
         let binding = mapping.add("Mister B.", &fp).unwrap();
         let r = binding.import(&tpk);

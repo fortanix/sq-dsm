@@ -34,8 +34,13 @@ impl<'a> Parse<'a, Sexp> for Sexp {
             buffered_reader::File::open(path)?.data_eof()?)
     }
 
-    fn from_bytes(data: &'a [u8]) -> Result<Sexp>
-    {
+    fn from_bytes<D: AsRef<[u8]> + ?Sized>(data: &'a D) -> Result<Sexp> {
+        Self::from_bytes_private(data.as_ref())
+    }
+}
+
+impl Sexp {
+    fn from_bytes_private(data: &[u8]) -> Result<Sexp> {
         match self::grammar::SexprParser::new().parse(Lexer::new(data)) {
             Ok(r) => Ok(r),
             Err(err) => {

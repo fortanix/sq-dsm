@@ -107,10 +107,10 @@ impl<'a> Parse<'a, PacketPileParser<'a>> for PacketPileParser<'a> {
 
     /// Creates a `PacketPileParser` to parse the OpenPGP message stored
     /// in the provided buffer.
-    fn from_bytes(data: &'a [u8])
+    fn from_bytes<D: AsRef<[u8]> + ?Sized>(data: &'a D)
             -> Result<PacketPileParser<'a>> {
         let bio = Box::new(buffered_reader::Memory::with_cookie(
-            data, Cookie::default()));
+            data.as_ref(), Cookie::default()));
         PacketPileParser::from_buffered_reader(bio)
     }
 }

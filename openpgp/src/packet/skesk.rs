@@ -437,7 +437,7 @@ mod test {
             0xbd, 0x45, 0x6d, 0x17, 0x38, 0xc6, 0x3c, 0x36,
         ];
         let packets: Vec<Packet> =
-            PacketPile::from_bytes(&raw).unwrap().into_children().collect();
+            PacketPile::from_bytes(&raw[..]).unwrap().into_children().collect();
         assert_eq!(packets.len(), 1);
         if let Packet::SKESK(SKESK::V5(ref s)) = packets[0] {
             assert_eq!(&s.s2k().derive_key(

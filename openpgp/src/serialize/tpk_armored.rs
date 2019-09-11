@@ -199,9 +199,7 @@ mod tests {
 
     #[test]
     fn serialize_succeed() {
-        let tpk = TPK::from_bytes(include_bytes!(
-            "../../tests/data/keys/neal.pgp"))
-            .unwrap();
+        let tpk = TPK::from_bytes(crate::tests::key("neal.pgp")).unwrap();
 
         // Enarmor the TPK.
         let mut buffer = Vec::new();

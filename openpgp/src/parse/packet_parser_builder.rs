@@ -59,10 +59,10 @@ impl<'a> Parse<'a, PacketParserBuilder<'a>> for PacketParserBuilder<'a> {
 
     /// Creates a `PacketParserBuilder` for an OpenPGP message stored
     /// in the specified buffer.
-    fn from_bytes(bytes: &'a [u8]) -> Result<PacketParserBuilder> {
+    fn from_bytes<D: AsRef<[u8]> + ?Sized>(data: &'a D) -> Result<PacketParserBuilder<'a>> {
         PacketParserBuilder::from_buffered_reader(
             Box::new(buffered_reader::Memory::with_cookie(
-                bytes, Cookie::default())))
+                data.as_ref(), Cookie::default())))
     }
 }
 

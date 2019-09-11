@@ -1003,8 +1003,8 @@ impl<'a> Parse<'a, TPK> for TPK {
     /// Returns the first TPK found in `buf`.
     ///
     /// `buf` must be an OpenPGP-encoded message.
-    fn from_bytes(buf: &[u8]) -> Result<Self> {
-        TPK::from_packet_parser(PacketParser::from_bytes(buf)?)
+    fn from_bytes<D: AsRef<[u8]> + ?Sized>(data: &'a D) -> Result<Self> {
+        TPK::from_packet_parser(PacketParser::from_bytes(data)?)
     }
 }
 
@@ -2963,7 +2963,7 @@ mod test {
 
     #[test]
     fn issue_120() {
-        let tpk = b"
+        let tpk = "
 -----BEGIN PGP ARMORED FILE-----
 
 xcBNBFoVcvoBCACykTKOJddF8SSUAfCDHk86cNTaYnjCoy72rMgWJsrMLnz/V16B

@@ -90,8 +90,7 @@ pub trait Parse<'a, T> {
     /// implementations can provide their own specialized version.
     ///
     /// [`from_reader(..)`]: #tymethod.from_reader
-    fn from_bytes(data: &'a [u8]) -> Result<T>
-    {
+    fn from_bytes<D: AsRef<[u8]> + ?Sized>(data: &'a D) -> Result<T> {
         Self::from_reader(io::Cursor::new(data))
     }
 }
@@ -2582,9 +2581,9 @@ impl<'a> Parse<'a, PacketParserResult<'a>> for PacketParser<'a> {
     ///
     /// This function returns a `PacketParser` for the first packet in
     /// the stream.
-    fn from_bytes(bytes: &'a [u8])
+    fn from_bytes<D: AsRef<[u8]> + ?Sized>(data: &'a D)
             -> Result<PacketParserResult<'a>> {
-        PacketParserBuilder::from_bytes(bytes)?.finalize()
+        PacketParserBuilder::from_bytes(data)?.finalize()
     }
 }
 

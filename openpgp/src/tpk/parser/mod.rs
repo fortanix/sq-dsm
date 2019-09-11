@@ -462,7 +462,7 @@ impl<'a> Parse<'a, TPKParser<'a, vec::IntoIter<Packet>>>
     }
 
     /// Initializes a `TPKParser` from a byte string.
-    fn from_bytes(data: &'a [u8]) -> Result<Self> {
+    fn from_bytes<D: AsRef<[u8]> + ?Sized>(data: &'a D) -> Result<Self> {
         Ok(Self::from_packet_parser(PacketParser::from_bytes(data)?))
     }
 }

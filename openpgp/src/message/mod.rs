@@ -333,8 +333,8 @@ impl<'a> Parse<'a, Message> for Message {
     /// See [`Message::from_packet_pile`] for more details.
     ///
     ///   [`Message::from_packet_pile`]: #method.from_packet_pile
-    fn from_bytes(buf: &'a [u8]) -> Result<Self> {
-        Self::from_packet_pile(PacketPile::from_bytes(buf)?)
+    fn from_bytes<D: AsRef<[u8]> + ?Sized>(data: &'a D) -> Result<Self> {
+        Self::from_packet_pile(PacketPile::from_bytes(data)?)
     }
 }
 
