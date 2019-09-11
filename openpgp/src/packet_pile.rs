@@ -602,12 +602,12 @@ mod test {
 
         // recurse should now not recurse.  Since there is nothing
         // following the compressed packet, ppr should be EOF.
-        let (mut packet, ppr) = pp.next().unwrap();
+        let (packet, ppr) = pp.next().unwrap();
         assert!(ppr.is_none());
 
         // Get the rest of the content and put the initial byte that
         // we stole back.
-        let mut content = packet.body.take().unwrap();
+        let mut content = packet.body().unwrap().to_vec();
         content.insert(0, data[0]);
 
         let content = &content.into_boxed_slice()[..];
@@ -659,16 +659,16 @@ mod test {
         assert_eq!(pile.path_ref_mut(&[ 0, 0 ]).unwrap().tag(),
                    Tag::CompressedData);
 
-        for (i, t) in text.iter().enumerate() {
+        for (i, t) in text.into_iter().enumerate() {
             assert_eq!(pile.path_ref(&[ 0, 0, i ]).unwrap().tag(),
                        Tag::Literal);
             assert_eq!(pile.path_ref_mut(&[ 0, 0, i ]).unwrap().tag(),
                        Tag::Literal);
 
-            assert_eq!(pile.path_ref(&[ 0, 0, i ]).unwrap().body,
-                       Some(t.to_vec()));
-            assert_eq!(pile.path_ref_mut(&[ 0, 0, i ]).unwrap().body,
-                       Some(t.to_vec()));
+            assert_eq!(pile.path_ref(&[ 0, 0, i ]).unwrap().body(),
+                       Some(t));
+            assert_eq!(pile.path_ref_mut(&[ 0, 0, i ]).unwrap().body(),
+                       Some(t));
         }
 
         // Try a few out of bounds accesses.
@@ -721,7 +721,7 @@ mod test {
         let children = pile.into_children().collect::<Vec<Packet>>();
         assert_eq!(children.len(), 1, "{:#?}", children);
         if let Packet::Literal(ref literal) = children[0] {
-            assert_eq!(literal.common.body, Some(b"two".to_vec()),
+            assert_eq!(literal.body(), Some(&b"two"[..]),
                        "{:#?}", literal);
         } else {
             panic!("WTF");
@@ -759,7 +759,7 @@ mod test {
                         .children()
                         .map(|p| {
                             if let Packet::Literal(ref literal) = p {
-                                &literal.common.body.as_ref().unwrap()[..]
+                                literal.body().unwrap()
                             } else {
                                 panic!("Expected a literal packet, got: {:?}", p);
                             }
@@ -816,7 +816,7 @@ mod test {
                         .children.as_ref().unwrap().children()
                         .map(|p| {
                             if let Packet::Literal(ref literal) = p {
-                                &literal.common.body.as_ref().unwrap()[..]
+                                literal.body().unwrap()
                             } else {
                                 panic!("Expected a literal packet, got: {:?}", p);
                             }

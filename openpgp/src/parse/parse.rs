@@ -3257,15 +3257,14 @@ impl <'a> PacketParser<'a> {
     pub fn buffer_unread_content(&mut self) -> Result<&[u8]> {
         let mut rest = self.steal_eof()?;
         if rest.len() > 0 {
-            if let Some(mut body) = self.packet.body.take() {
+            if let Some(body) = self.packet.body_mut() {
                 body.append(&mut rest);
-                self.packet.body = Some(body);
             } else {
-                self.packet.body = Some(rest);
+                self.packet.set_body(rest);
             }
         }
 
-        if let Some(body) = self.packet.body.as_ref() {
+        if let Some(body) = self.packet.body() {
             Ok(&body[..])
         } else {
             Ok(&b""[..])
@@ -3503,7 +3502,7 @@ fn packet_parser_reader_interface() {
     let (packet, ppr) = pp.recurse().unwrap();
     assert!(ppr.is_none());
     // Since we read all of the data, we expect content to be None.
-    assert!(packet.body.is_none());
+    assert!(packet.body().is_none());
 }
 
 impl<'a> PacketParser<'a> {
@@ -3895,7 +3894,7 @@ mod test {
                                "{:?}", pp.packet);
                 } else {
                     pp.buffer_unread_content().unwrap();
-                    assert_eq!(&pp.packet.body.as_ref().unwrap()[..],
+                    assert_eq!(pp.packet.body().unwrap(),
                                &test.plaintext.content()[..],
                                "{:?}", pp.packet);
                 }

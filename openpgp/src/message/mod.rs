@@ -380,7 +380,7 @@ impl Message {
                     // we treat the content as an opaque message.
 
                     path.push(0);
-                    if packet.children.is_none() && packet.body.is_some() {
+                    if packet.children.is_none() && packet.body().is_some() {
                         v.push_token(Token::OpaqueContent, &path);
                     }
                 }

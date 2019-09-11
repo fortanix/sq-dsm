@@ -163,7 +163,7 @@ pub struct Common {
     /// `PacketParser` is configured to buffer unread content, then
     /// this is not the packet's entire content; it is just the unread
     /// content.
-    pub body: Option<Vec<u8>>,
+    body: Option<Vec<u8>>,
 }
 
 impl fmt::Debug for Common {
@@ -220,6 +220,11 @@ impl Common {
         ::std::mem::replace(&mut self.body,
                             if data.len() == 0 { None } else { Some(data) })
             .unwrap_or(Vec::new())
+    }
+
+    pub(crate) // For parse.rs
+    fn body_mut(&mut self) -> Option<&mut Vec<u8>> {
+        self.body.as_mut()
     }
 }
 
