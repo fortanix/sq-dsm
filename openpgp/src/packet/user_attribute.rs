@@ -16,7 +16,7 @@ use crate::Error;
 use crate::Result;
 use crate::packet::{
     self,
-    BodyLength,
+    header::BodyLength,
 };
 use crate::Packet;
 use crate::serialize::Serialize;

@@ -11,7 +11,7 @@ use std::env;
 extern crate sequoia_openpgp as openpgp;
 use crate::openpgp::Packet;
 use crate::openpgp::constants::SignatureType;
-use crate::openpgp::packet::{user_attribute, BodyLength, Tag};
+use crate::openpgp::packet::{user_attribute, header::BodyLength, Tag};
 use crate::openpgp::parse::{Parse, PacketParserResult, PacketParser};
 
 fn main() {

@@ -11,7 +11,7 @@ use crate::{
     Error,
     Result
 };
-use crate::packet::BodyLength;
+use crate::packet::header::BodyLength;
 
 /// OpenPGP defines two packet formats: the old and the new format.
 /// They both include the packet's so-called tag.

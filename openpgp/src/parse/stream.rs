@@ -26,7 +26,7 @@ use crate::{
         SymmetricAlgorithm,
     },
     packet::{
-        BodyLength,
+        header::BodyLength,
         header::CTB,
         key,
         Key,

@@ -36,7 +36,7 @@ use std::borrow::Cow;
 use quickcheck::{Arbitrary, Gen};
 
 use crate::packet::prelude::*;
-use crate::packet::BodyLength;
+use crate::packet::header::BodyLength;
 use crate::packet::header::ctb::{CTBNew, CTBOld};
 use crate::serialize::SerializeInto;
 

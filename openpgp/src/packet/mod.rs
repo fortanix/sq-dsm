@@ -8,7 +8,6 @@ use std::fmt;
 use std::ops::{Deref, DerefMut};
 use std::slice;
 use std::vec;
-use std::io;
 
 use crate::Error;
 use crate::Result;
@@ -16,10 +15,7 @@ use crate::Packet;
 
 pub mod prelude;
 
-use self::header::ctb::PacketLengthType;
 use crate::crypto::KeyPair;
-
-use buffered_reader::BufferedReader;
 
 mod tag;
 pub use self::tag::Tag;
@@ -110,124 +106,6 @@ impl<'a> DerefMut for Packet {
             &mut Packet::AED(AED::V1(ref mut packet)) => &mut packet.common,
         }
     }
-}
-
-/// The size of a packet.
-///
-/// A packet's size can be expressed in three different ways.  Either
-/// the size of the packet is fully known (Full), the packet is
-/// chunked using OpenPGP's partial body encoding (Partial), or the
-/// packet extends to the end of the file (Indeterminate).  See
-/// [Section 4.2 of RFC 4880] for more details.
-///
-///   [Section 4.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.2
-#[derive(Debug)]
-// We need PartialEq so that assert_eq! works.
-#[derive(PartialEq)]
-#[derive(Clone, Copy)]
-pub enum BodyLength {
-    /// Packet size is fully known.
-    Full(u32),
-    /// The parameter is the number of bytes in the current chunk.
-    /// This type is only used with new format packets.
-    Partial(u32),
-    /// The packet extends until an EOF is encountered.  This type is
-    /// only used with old format packets.
-    Indeterminate,
-}
-
-impl BodyLength {
-    /// Decodes a new format body length as described in [Section
-    /// 4.2.2 of RFC 4880].
-    ///
-    ///   [Section 4.2.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.2.2
-    pub(crate) fn parse_new_format<T: BufferedReader<C>, C> (bio: &mut T)
-        -> io::Result<BodyLength>
-    {
-        let octet1 : u8 = bio.data_consume_hard(1)?[0];
-        match octet1 {
-            0...191 => // One octet.
-                Ok(BodyLength::Full(octet1 as u32)),
-            192...223 => { // Two octets length.
-                let octet2 = bio.data_consume_hard(1)?[0];
-                Ok(BodyLength::Full(((octet1 as u32 - 192) << 8)
-                                    + octet2 as u32 + 192))
-            },
-            224...254 => // Partial body length.
-                Ok(BodyLength::Partial(1 << (octet1 & 0x1F))),
-            255 => // Five octets.
-                Ok(BodyLength::Full(bio.read_be_u32()?)),
-        }
-    }
-
-    /// Decodes an old format body length as described in [Section
-    /// 4.2.1 of RFC 4880].
-    ///
-    ///   [Section 4.2.1 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.2.1
-    pub(crate) fn parse_old_format<T: BufferedReader<C>, C>
-        (bio: &mut T, length_type: PacketLengthType)
-         -> Result<BodyLength>
-    {
-        match length_type {
-            PacketLengthType::OneOctet =>
-                Ok(BodyLength::Full(bio.data_consume_hard(1)?[0] as u32)),
-            PacketLengthType::TwoOctets =>
-                Ok(BodyLength::Full(bio.read_be_u16()? as u32)),
-            PacketLengthType::FourOctets =>
-                Ok(BodyLength::Full(bio.read_be_u32()? as u32)),
-            PacketLengthType::Indeterminate =>
-                Ok(BodyLength::Indeterminate),
-        }
-    }
-}
-
-#[test]
-fn body_length_new_format() {
-    fn test(input: &[u8], expected_result: BodyLength) {
-        assert_eq!(
-            BodyLength::parse_new_format(
-                &mut buffered_reader::Memory::new(input)).unwrap(),
-            expected_result);
-    }
-
-    // Examples from Section 4.2.3 of RFC4880.
-
-    // Example #1.
-    test(&[0x64][..], BodyLength::Full(100));
-
-    // Example #2.
-    test(&[0xC5, 0xFB][..], BodyLength::Full(1723));
-
-    // Example #3.
-    test(&[0xFF, 0x00, 0x01, 0x86, 0xA0][..], BodyLength::Full(100000));
-
-    // Example #4.
-    test(&[0xEF][..], BodyLength::Partial(32768));
-    test(&[0xE1][..], BodyLength::Partial(2));
-    test(&[0xF0][..], BodyLength::Partial(65536));
-    test(&[0xC5, 0xDD][..], BodyLength::Full(1693));
-}
-
-#[test]
-fn body_length_old_format() {
-    fn test(input: &[u8], plt: PacketLengthType,
-            expected_result: BodyLength, expected_rest: &[u8]) {
-        let mut bio = buffered_reader::Memory::new(input);
-        assert_eq!(BodyLength::parse_old_format(&mut bio, plt).unwrap(),
-                   expected_result);
-        let rest = bio.data_eof();
-        assert_eq!(rest.unwrap(), expected_rest);
-    }
-
-    test(&[1], PacketLengthType::OneOctet, BodyLength::Full(1), &b""[..]);
-    test(&[1, 2], PacketLengthType::TwoOctets,
-         BodyLength::Full((1 << 8) + 2), &b""[..]);
-    test(&[1, 2, 3, 4], PacketLengthType::FourOctets,
-         BodyLength::Full((1 << 24) + (2 << 16) + (3 << 8) + 4), &b""[..]);
-    test(&[1, 2, 3, 4, 5, 6], PacketLengthType::FourOctets,
-         BodyLength::Full((1 << 24) + (2 << 16) + (3 << 8) + 4), &[5, 6][..]);
-    test(&[1, 2, 3, 4], PacketLengthType::Indeterminate,
-         BodyLength::Indeterminate, &[1, 2, 3, 4][..]);
 }
 
 /// Fields used by multiple packet types.

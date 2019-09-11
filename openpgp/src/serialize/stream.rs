@@ -32,7 +32,7 @@ use crate::{
     TPK,
 };
 use crate::packet::header::CTB;
-use crate::packet::BodyLength;
+use crate::packet::header::BodyLength;
 use super::{
     PartialBodyFilter,
     Serialize,
