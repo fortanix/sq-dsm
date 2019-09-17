@@ -322,7 +322,7 @@ impl<'a> VerificationHelper for VHelper<'a> {
         // Try to get missing TPKs from the pool.
         for id in ids.iter().filter(|i| !seen.contains(i)) {
             let _ =
-                store::Pool::lookup_by_subkeyid(self.ctx, id)
+                store::Store::lookup_by_subkeyid(self.ctx, id)
                 .and_then(|key| {
                     // Keys from the pool are NOT trusted.
                     key.tpk()

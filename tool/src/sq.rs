@@ -490,7 +490,7 @@ fn real_main() -> Result<(), failure::Error> {
                     table.set_format(*prettytable::format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
                     table.set_titles(row!["fingerprint", "updated", "status"]);
 
-                    for (fingerprint, key) in store::Pool::list_keys(&ctx)? {
+                    for (fingerprint, key) in store::Store::list_keys(&ctx)? {
                             let stats = key.stats()
                                 .context("Failed to get key stats")?;
                             table.add_row(Row::new(vec![
@@ -507,7 +507,7 @@ fn real_main() -> Result<(), failure::Error> {
                     table.printstd();
                 },
                 ("log",  Some(_)) => {
-                    print_log(store::Pool::server_log(&ctx)?, true);
+                    print_log(store::Store::server_log(&ctx)?, true);
                 },
                 _ => unreachable!(),
             }

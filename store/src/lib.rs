@@ -116,10 +116,10 @@ pub const REALM_SOFTWARE_UPDATES: &'static str =
     "org.sequoia-pgp.software-updates";
 
 /// The common key pool.
-pub struct Pool {
+pub struct Store {
 }
 
-impl Pool {
+impl Store {
     /// Establishes a connection to the backend.
     fn connect(c: &Context) -> Result<(Core, node::Client)> {
         let descriptor = descriptor(c);
@@ -149,7 +149,7 @@ impl Pool {
     /// # use openpgp::TPK;
     /// # use openpgp::parse::Parse;
     /// # use sequoia_core::{Context, NetworkPolicy, IPCPolicy};
-    /// # use sequoia_store::{Pool, Result};
+    /// # use sequoia_store::{Store, Result};
     /// # fn main() { f().unwrap(); }
     /// # fn f() -> Result<()> {
     /// # let ctx = Context::configure()
@@ -158,7 +158,7 @@ impl Pool {
     /// #     .ephemeral().build()?;
     /// # let tpk = TPK::from_bytes(
     /// #     include_bytes!("../../openpgp/tests/data/keys/testy.pgp")).unwrap();
-    /// let key = Pool::import(&ctx, &tpk)?;
+    /// let key = Store::import(&ctx, &tpk)?;
     /// assert_eq!(key.tpk()?.fingerprint(), tpk.fingerprint());
     /// # Ok(())
     /// # }
@@ -185,7 +185,7 @@ impl Pool {
     /// # use openpgp::TPK;
     /// # use openpgp::parse::Parse;
     /// # use sequoia_core::{Context, NetworkPolicy, IPCPolicy};
-    /// # use sequoia_store::{Pool, Result};
+    /// # use sequoia_store::{Store, Result};
     /// # fn main() { f().unwrap(); }
     /// # fn f() -> Result<()> {
     /// # let ctx = Context::configure()
@@ -194,8 +194,8 @@ impl Pool {
     /// #     .ephemeral().build()?;
     /// # let tpk = TPK::from_bytes(
     /// #     include_bytes!("../../openpgp/tests/data/keys/testy.pgp")).unwrap();
-    /// Pool::import(&ctx, &tpk)?;
-    /// let key = Pool::lookup(&ctx, &tpk.fingerprint())?;
+    /// Store::import(&ctx, &tpk)?;
+    /// let key = Store::lookup(&ctx, &tpk.fingerprint())?;
     /// assert_eq!(key.tpk()?.fingerprint(), tpk.fingerprint());
     /// # Ok(())
     /// # }
@@ -220,7 +220,7 @@ impl Pool {
     /// # use openpgp::TPK;
     /// # use openpgp::parse::Parse;
     /// # use sequoia_core::{Context, NetworkPolicy, IPCPolicy};
-    /// # use sequoia_store::{Pool, Result};
+    /// # use sequoia_store::{Store, Result};
     /// # fn main() { f().unwrap(); }
     /// # fn f() -> Result<()> {
     /// # let ctx = Context::configure()
@@ -229,8 +229,8 @@ impl Pool {
     /// #     .ephemeral().build()?;
     /// # let tpk = TPK::from_bytes(
     /// #     include_bytes!("../../openpgp/tests/data/keys/testy.pgp")).unwrap();
-    /// Pool::import(&ctx, &tpk)?;
-    /// let key = Pool::lookup_by_keyid(&ctx, &tpk.fingerprint().to_keyid())?;
+    /// Store::import(&ctx, &tpk)?;
+    /// let key = Store::lookup_by_keyid(&ctx, &tpk.fingerprint().to_keyid())?;
     /// assert_eq!(key.tpk()?.fingerprint(), tpk.fingerprint());
     /// # Ok(())
     /// # }
@@ -256,7 +256,7 @@ impl Pool {
     /// # use openpgp::{TPK, KeyID};
     /// # use openpgp::parse::Parse;
     /// # use sequoia_core::{Context, NetworkPolicy, IPCPolicy};
-    /// # use sequoia_store::{Pool, Result};
+    /// # use sequoia_store::{Store, Result};
     /// # fn main() { f().unwrap(); }
     /// # fn f() -> Result<()> {
     /// # let ctx = Context::configure()
@@ -266,22 +266,22 @@ impl Pool {
     /// # let tpk = TPK::from_bytes(
     /// #     include_bytes!("../../openpgp/tests/data/keys/neal.pgp"))
     /// #     .unwrap();
-    /// Pool::import(&ctx, &tpk)?;
+    /// Store::import(&ctx, &tpk)?;
     ///
     /// // Lookup by the primary key's KeyID.
-    /// let key = Pool::lookup_by_subkeyid(&ctx, &"AACB3243630052D9".parse()?)?;
+    /// let key = Store::lookup_by_subkeyid(&ctx, &"AACB3243630052D9".parse()?)?;
     /// assert_eq!(key.tpk()?.fingerprint(), tpk.fingerprint());
     ///
     /// // Lookup by the signing subkey's KeyID.
-    /// let key = Pool::lookup_by_subkeyid(&ctx, &"7223B56678E02528".parse()?)?;
+    /// let key = Store::lookup_by_subkeyid(&ctx, &"7223B56678E02528".parse()?)?;
     /// assert_eq!(key.tpk()?.fingerprint(), tpk.fingerprint());
     ///
     /// // Lookup by the encryption subkey's KeyID.
-    /// let key = Pool::lookup_by_subkeyid(&ctx, &"C2B819056C652598".parse()?)?;
+    /// let key = Store::lookup_by_subkeyid(&ctx, &"C2B819056C652598".parse()?)?;
     /// assert_eq!(key.tpk()?.fingerprint(), tpk.fingerprint());
     ///
     /// // Lookup by the authentication subkey's KeyID.
-    /// let key = Pool::lookup_by_subkeyid(&ctx, &"A3506AFB820ABD08".parse()?)?;
+    /// let key = Store::lookup_by_subkeyid(&ctx, &"A3506AFB820ABD08".parse()?)?;
     /// assert_eq!(key.tpk()?.fingerprint(), tpk.fingerprint());
     /// # Ok(())
     /// # }
@@ -337,7 +337,7 @@ impl Mapping {
     /// Opening the mapping with a different network policy is
     /// forbidden.
     pub fn open(c: &Context, realm: &str, name: &str) -> Result<Self> {
-        let (mut core, client) = Pool::connect(c)?;
+        let (mut core, client) = Store::connect(c)?;
 
         let mut request = client.open_request();
         request.get().set_realm(realm);
@@ -355,7 +355,7 @@ impl Mapping {
 
     /// Lists all mappings with the given prefix.
     pub fn list(c: &Context, realm_prefix: &str) -> Result<MappingIter> {
-        let (mut core, client) = Pool::connect(c)?;
+        let (mut core, client) = Store::connect(c)?;
         let mut request = client.iter_request();
         request.get().set_realm_prefix(realm_prefix);
         let iter = make_request!(&mut core, request)?;
@@ -1484,7 +1484,7 @@ mod test {
     #[test]
     fn key_iterator() {
         let ctx = make_some_mappings();
-        let mut iter = Pool::list_keys(&ctx).unwrap();
+        let mut iter = Store::list_keys(&ctx).unwrap();
         let (fingerprint, key) = iter.next().unwrap();
         assert_eq!(fingerprint, Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb"));
         key.stats().unwrap();

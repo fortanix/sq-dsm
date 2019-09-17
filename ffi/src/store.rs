@@ -29,7 +29,7 @@ use std::ptr;
 extern crate sequoia_openpgp as openpgp;
 
 use sequoia_store::{
-    self, Mapping, MappingIter, Binding, BindingIter, Key, KeyIter, LogIter, Pool,
+    self, Mapping, MappingIter, Binding, BindingIter, Key, KeyIter, LogIter, Store,
 };
 
 use super::error::Status;
@@ -100,7 +100,7 @@ fn sq_store_list_keys(ctx: *mut Context) -> *mut KeyIter {
     let ctx = ffi_param_ref_mut!(ctx);
     ffi_make_fry_from_ctx!(ctx);
 
-    ffi_try_box!(Pool::list_keys(&ctx.c))
+    ffi_try_box!(Store::list_keys(&ctx.c))
 }
 
 /// Lists all log entries.
@@ -109,7 +109,7 @@ fn sq_store_server_log(ctx: *mut Context) -> *mut LogIter {
     let ctx = ffi_param_ref_mut!(ctx);
     ffi_make_fry_from_ctx!(ctx);
 
-    ffi_try_box!(Pool::server_log(&ctx.c))
+    ffi_try_box!(Store::server_log(&ctx.c))
 }
 
 /// Returns the next key.
@@ -263,7 +263,7 @@ fn sq_store_lookup_by_keyid(ctx: *mut Context, keyid: *const KeyID)
     ffi_make_fry_from_ctx!(ctx);
     let keyid = keyid.ref_raw();
 
-    ffi_try_box!(Pool::lookup_by_keyid(&ctx.c, keyid))
+    ffi_try_box!(Store::lookup_by_keyid(&ctx.c, keyid))
 }
 
 /// Looks up a key in the common key pool by (Sub)KeyID.
@@ -275,7 +275,7 @@ fn sq_store_lookup_by_subkeyid(ctx: *mut Context, keyid: *const KeyID)
     ffi_make_fry_from_ctx!(ctx);
     let keyid = keyid.ref_raw();
 
-    ffi_try_box!(Pool::lookup_by_subkeyid(&ctx.c, keyid))
+    ffi_try_box!(Store::lookup_by_subkeyid(&ctx.c, keyid))
 }
 
 /// Deletes this mapping.
