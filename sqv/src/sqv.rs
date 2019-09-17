@@ -273,7 +273,7 @@ fn real_main() -> Result<(), failure::Error> {
                                     }
                                 }
 
-                                if tpk.revocation_status_at(t)
+                                if tpk.revoked(t)
                                     != RevocationStatus::NotAsFarAsWeKnow
                                 {
                                     eprintln!(

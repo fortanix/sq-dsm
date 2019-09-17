@@ -1178,20 +1178,11 @@ impl TPK {
     ///
     /// Note: this only returns whether this TPK is revoked; it does
     /// not imply anything about the TPK or other components.
-    pub fn revocation_status_at<T>(&self, t: T) -> RevocationStatus
+    pub fn revoked<T>(&self, t: T) -> RevocationStatus
         where T: Into<Option<time::Tm>>
     {
         let t = t.into();
         self.primary._revoked(true, self.primary_key_signature(t), t)
-    }
-
-    /// Returns the TPK's current revocation status.
-    ///
-    /// Note: this only returns whether the primary key is revoked.  If you
-    /// want to know whether a subkey, user id, etc., is revoked, then
-    /// you need to query them separately.
-    pub fn revocation_status(&self) -> RevocationStatus {
-        self.revocation_status_at(None)
     }
 
     /// Returns a revocation certificate for the TPK.
@@ -1213,7 +1204,7 @@ impl TPK {
     ///     .set_cipher_suite(CipherSuite::Cv25519)
     ///     .generate()?;
     /// assert_eq!(RevocationStatus::NotAsFarAsWeKnow,
-    ///            tpk.revocation_status());
+    ///            tpk.revoked(None));
     ///
     /// let mut keypair = tpk.primary().key().clone()
     ///     .mark_parts_secret().into_keypair()?;
@@ -1223,7 +1214,7 @@ impl TPK {
     ///
     /// let tpk = tpk.merge_packets(vec![sig.clone().into()])?;
     /// assert_eq!(RevocationStatus::Revoked(vec![&sig]),
-    ///            tpk.revocation_status());
+    ///            tpk.revoked(None));
     /// # Ok(())
     /// # }
     pub fn revoke<R>(&self, primary_signer: &mut Signer<R>,
@@ -1264,14 +1255,14 @@ impl TPK {
     ///     .set_cipher_suite(CipherSuite::Cv25519)
     ///     .generate()?;
     /// assert_eq!(RevocationStatus::NotAsFarAsWeKnow,
-    ///            tpk.revocation_status());
+    ///            tpk.revoked(None));
     ///
     /// let mut keypair = tpk.primary().key().clone()
     ///     .mark_parts_secret().into_keypair()?;
     /// let tpk = tpk.revoke_in_place(&mut keypair,
     ///                               ReasonForRevocation::KeyCompromised,
     ///                               b"It was the maid :/")?;
-    /// if let RevocationStatus::Revoked(sigs) = tpk.revocation_status() {
+    /// if let RevocationStatus::Revoked(sigs) = tpk.revoked(None) {
     ///     assert_eq!(sigs.len(), 1);
     ///     assert_eq!(sigs[0].typ(), SignatureType::KeyRevocation);
     ///     assert_eq!(sigs[0].reason_for_revocation(),
@@ -2451,7 +2442,7 @@ mod test {
             assert_eq!(typ, SignatureType::PositiveCertificate,
                        "{:#?}", tpk);
 
-            let revoked = tpk.revocation_status();
+            let revoked = tpk.revoked(None);
             if direct_revoked {
                 assert_match!(RevocationStatus::Revoked(_) = revoked,
                               "{:#?}", tpk);
@@ -2538,7 +2529,7 @@ mod test {
         let (tpk, _) = TPKBuilder::autocrypt(None, Some("Test"))
             .generate().unwrap();
         assert_eq!(RevocationStatus::NotAsFarAsWeKnow,
-                   tpk.revocation_status());
+                   tpk.revoked(None));
 
         let mut keypair = tpk.primary().key().clone().mark_parts_secret()
             .into_keypair().unwrap();
@@ -2551,7 +2542,7 @@ mod test {
                    Some(tpk.primary().key().fingerprint()));
 
         let tpk = tpk.merge_packets(vec![sig.into()]).unwrap();
-        assert_match!(RevocationStatus::Revoked(_) = tpk.revocation_status());
+        assert_match!(RevocationStatus::Revoked(_) = tpk.revoked(None));
 
 
         // Have other revoke tpk.
@@ -2593,7 +2584,7 @@ mod test {
         assert_eq!(sig.typ(), SignatureType::CertificateRevocation);
         let tpk = tpk.merge_packets(vec![sig.into()]).unwrap();
         assert_eq!(RevocationStatus::NotAsFarAsWeKnow,
-                   tpk.revocation_status());
+                   tpk.revoked(None));
 
         let uid = tpk.userids().skip(1).next().unwrap();
         assert_match!(RevocationStatus::Revoked(_) = uid.revoked(None));
@@ -2686,25 +2677,20 @@ mod test {
         let t23 = t2 + time::Duration::days((300.0 * f3) as i64);
         let t34 = t3 + time::Duration::days((300.0 * f3) as i64);
 
-        assert_eq!(tpk.revocation_status_at(te1), RevocationStatus::NotAsFarAsWeKnow);
-        assert_eq!(tpk.revocation_status_at(t12), RevocationStatus::NotAsFarAsWeKnow);
-        assert_match!(RevocationStatus::Revoked(_) = tpk.revocation_status_at(t23));
-        assert_eq!(tpk.revocation_status_at(t34), RevocationStatus::NotAsFarAsWeKnow);
+        assert_eq!(tpk.revoked(te1), RevocationStatus::NotAsFarAsWeKnow);
+        assert_eq!(tpk.revoked(t12), RevocationStatus::NotAsFarAsWeKnow);
+        assert_match!(RevocationStatus::Revoked(_) = tpk.revoked(t23));
+        assert_eq!(tpk.revoked(t34), RevocationStatus::NotAsFarAsWeKnow);
 
         // Merge in the hard revocation.
         let tpk = tpk.merge_packets(vec![ rev2.into() ]).unwrap();
+        assert_match!(RevocationStatus::Revoked(_) = tpk.revoked(te1));
+        assert_match!(RevocationStatus::Revoked(_) = tpk.revoked(t12));
+        assert_match!(RevocationStatus::Revoked(_) = tpk.revoked(t23));
+        assert_match!(RevocationStatus::Revoked(_) = tpk.revoked(t34));
+        assert_match!(RevocationStatus::Revoked(_) = tpk.revoked(t4));
         assert_match!(RevocationStatus::Revoked(_)
-                      = tpk.revocation_status_at(te1));
-        assert_match!(RevocationStatus::Revoked(_)
-                      = tpk.revocation_status_at(t12));
-        assert_match!(RevocationStatus::Revoked(_)
-                      = tpk.revocation_status_at(t23));
-        assert_match!(RevocationStatus::Revoked(_)
-                      = tpk.revocation_status_at(t34));
-        assert_match!(RevocationStatus::Revoked(_)
-                      = tpk.revocation_status_at(t4));
-        assert_match!(RevocationStatus::Revoked(_)
-                      = tpk.revocation_status_at(time::now_utc()));
+                      = tpk.revoked(time::now_utc()));
     }
 
     #[test]
@@ -2715,7 +2701,7 @@ mod test {
             where T: Into<Option<time::Tm>>
         {
             !destructures_to!(RevocationStatus::NotAsFarAsWeKnow
-                              = tpk.revocation_status_at(t))
+                              = tpk.revoked(t))
         }
 
         fn subkey_revoked<T>(tpk: &TPK, t: T) -> bool
@@ -2792,7 +2778,7 @@ mod test {
             where T: Into<Option<time::Tm>>, T: Copy
         {
             assert_match!(RevocationStatus::NotAsFarAsWeKnow
-                          = tpk.revocation_status());
+                          = tpk.revoked(None));
 
             let mut slim_shady = false;
             let mut eminem = false;
@@ -2825,7 +2811,7 @@ mod test {
             where T: Into<Option<time::Tm>>, T: Copy
         {
             assert_match!(RevocationStatus::NotAsFarAsWeKnow
-                          = tpk.revocation_status());
+                          = tpk.revoked(None));
 
             assert_eq!(tpk.user_attributes().count(), 1);
             let ua = tpk.user_attributes().nth(0).unwrap();

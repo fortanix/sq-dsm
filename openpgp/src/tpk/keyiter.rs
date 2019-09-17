@@ -96,7 +96,7 @@ impl<'a, P: 'a + key::KeyParts, R: 'a + key::KeyRole> Iterator
                     self.primary = true;
 
                     (tpk.primary_key_signature(None),
-                     tpk.revocation_status(),
+                     tpk.revoked(None),
                      tpk.primary().key().into())
                 } else {
                     self.subkey_iter.next()

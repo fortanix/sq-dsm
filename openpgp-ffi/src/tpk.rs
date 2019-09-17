@@ -158,8 +158,11 @@ fn pgp_tpk_primary_key(tpk: *const TPK) -> *const Key {
 /// Note: this only returns whether the TPK has been revoked, and does
 /// not reflect whether an individual user id, user attribute or
 /// subkey has been revoked.
+///
+/// If `when` is 0, then returns the TPK's revocation status as of the
+/// time of the call.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn pgp_tpk_revocation_status_at(tpk: *const TPK, when: time_t)
+fn pgp_tpk_revoked(tpk: *const TPK, when: time_t)
     -> *mut RevocationStatus<'static>
 {
     let when = when as i64;
@@ -169,19 +172,7 @@ fn pgp_tpk_revocation_status_at(tpk: *const TPK, when: time_t)
         Some(time::at(time::Timespec::new(when, 0)))
     };
 
-    tpk.ref_raw().revocation_status_at(when).move_into_raw()
-}
-
-/// Returns the TPK's current revocation status.
-///
-/// Note: this only returns whether the TPK has been revoked, and does
-/// not reflect whether an individual user id, user attribute or
-/// subkey has been revoked.
-#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn pgp_tpk_revocation_status(tpk: *const TPK)
-    -> *mut RevocationStatus<'static>
-{
-    tpk.ref_raw().revocation_status().move_into_raw()
+    tpk.ref_raw().revoked(when).move_into_raw()
 }
 
 fn int_to_reason_for_revocation(code: c_int) -> ReasonForRevocation {
@@ -237,7 +228,7 @@ fn int_to_reason_for_revocation(code: c_int) -> ReasonForRevocation {
 /// tpk = pgp_tpk_merge_packets (NULL, tpk, &packet, 1);
 /// assert (tpk);
 ///
-/// pgp_revocation_status_t rs = pgp_tpk_revocation_status (tpk);
+/// pgp_revocation_status_t rs = pgp_tpk_revoked (tpk, 0);
 /// assert (pgp_revocation_status_variant (rs) == PGP_REVOCATION_STATUS_REVOKED);
 /// pgp_revocation_status_free (rs);
 ///
@@ -301,7 +292,7 @@ fn pgp_tpk_revoke(errp: Option<&mut *mut crate::error::Error>,
 /// pgp_signer_free (primary_signer);
 /// pgp_key_pair_free (primary_keypair);
 ///
-/// pgp_revocation_status_t rs = pgp_tpk_revocation_status (tpk);
+/// pgp_revocation_status_t rs = pgp_tpk_revoked (tpk, 0);
 /// assert (pgp_revocation_status_variant (rs) == PGP_REVOCATION_STATUS_REVOKED);
 /// pgp_revocation_status_free (rs);
 ///
