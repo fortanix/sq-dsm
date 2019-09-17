@@ -442,10 +442,10 @@ mod tests {
             .generate().unwrap();
 
         assert_eq!(tpk.userids().count(), 0);
-        assert_eq!(tpk.primary_key_signature().unwrap().typ(),
+        assert_eq!(tpk.primary_key_signature(None).unwrap().typ(),
                    crate::constants::SignatureType::DirectKey);
         assert_eq!(tpk.subkeys().count(), 3);
-        if let Some(sig) = tpk.primary_key_signature() {
+        if let Some(sig) = tpk.primary_key_signature(None) {
             assert!(sig.features().supports_mdc());
             assert!(sig.features().supports_aead());
         } else {
@@ -481,7 +481,7 @@ mod tests {
         assert_eq!(tpk1.primary().key().pk_algo(),
                    PublicKeyAlgorithm::EdDSA);
         assert!(tpk1.subkeys().next().is_none());
-        if let Some(sig) = tpk1.primary_key_signature() {
+        if let Some(sig) = tpk1.primary_key_signature(None) {
             assert!(sig.features().supports_mdc());
             assert!(sig.features().supports_aead());
         } else {
@@ -524,7 +524,7 @@ mod tests {
             .primary_keyflags(KeyFlags::default())
             .add_encryption_subkey()
             .generate().unwrap();
-        let sig_pkts = &tpk1.primary_key_signature().unwrap().hashed_area();
+        let sig_pkts = &tpk1.primary_key_signature(None).unwrap().hashed_area();
 
         match sig_pkts.lookup(SubpacketTag::KeyFlags) {
             Some(Subpacket{ value: SubpacketValue::KeyFlags(ref ks),.. }) => {

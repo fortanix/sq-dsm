@@ -1394,7 +1394,7 @@ mod test {
             .unwrap();
         let test2 = TPK::from_bytes(
             crate::tests::key("test2-signed-by-test1.pgp")).unwrap();
-        let uid_binding = &test2.primary_key_signature_full().unwrap().0.unwrap();
+        let uid_binding = &test2.primary_key_signature_full(None).unwrap().0.unwrap();
         let cert = &uid_binding.certifications()[0];
 
         assert_eq!(cert.verify_userid_binding(cert_key1,

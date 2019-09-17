@@ -744,7 +744,7 @@ mod test {
         let uid_binding = uid.bind(
             &mut keypair, &tpk,
             signature::Builder::from(
-                tpk.primary_key_signature().unwrap().clone())
+                tpk.primary_key_signature(None).unwrap().clone())
                 .set_type(SignatureType::PositiveCertificate)
                 .set_exportable_certification(false).unwrap(),
             None, None).unwrap();
@@ -755,7 +755,7 @@ mod test {
         let ua_binding = ua.bind(
             &mut keypair, &tpk,
             signature::Builder::from(
-                tpk.primary_key_signature().unwrap().clone())
+                tpk.primary_key_signature(None).unwrap().clone())
                 .set_type(SignatureType::PositiveCertificate)
                 .set_exportable_certification(false).unwrap(),
             None, None).unwrap();

@@ -218,14 +218,9 @@ impl<C> ComponentBinding<C> {
            hard_revocations_are_final,
            selfsig_creation_time.rfc822(),
            t.rfc822());
-
-        // XXX: TPK::primary_key_signature returns the most recent
-        // self signature, not the most recent self signature that was
-        // valid at time `t`.  Enable this assert when that is fixed.
-        //
-        // if let Some(selfsig) = selfsig {
-        //     assert!(selfsig.signature_alive_at(t));
-        // }
+        if let Some(selfsig) = selfsig {
+            assert!(selfsig.signature_alive_at(t));
+        }
 
         macro_rules! check {
             ($revs:expr) => ({
@@ -1108,36 +1103,45 @@ impl TPK {
             .map(|b| b.0)
     }
 
-    /// Returns the primary key's current self-signature and, if the
-    /// self-signature belongs to a user id (as opposed to a direct
-    /// signature), a reference to the `UserIDBinding`.
+    /// Returns the primary key's current self-signature as of `t` and
+    /// the corresponding User ID binding, if any.
     ///
-    /// Normally, the primary key's current self-signature is the
-    /// primary user id's newest, non-revoked self-signature.
-    /// However, if all user ids are revoked and there is a direct
-    /// signature, that is returned.  If there is no direct signature,
-    /// then we return the newest self-signature on the most recently
-    /// revoked user id (i.e., the binding signature that was last
-    /// valid).  If there are no user ids at all and no direct
-    /// signatures, then we return None.
-    pub fn primary_key_signature_full(&self)
+    /// The primary key's current self-signature as of `t` is, in
+    /// order of preference:
+    ///
+    ///   - The binding signature of the primary User ID at time `t`,
+    ///     if the primary User ID is not revoked at time `t`.
+    ///
+    ///   - The newest, live, direct self signature at time `t`.
+    ///
+    ///   - The binding signature of the primary User ID at time `t`
+    ///     (this can only happen if there are only revoked User IDs
+    ///     at time `t`).
+    ///
+    /// If there are no applicable signatures, `None` is returned.
+    pub fn primary_key_signature_full<T>(&self, t: T)
         -> Option<(Option<&UserIDBinding>, &Signature)>
+        where T: Into<Option<time::Tm>>
     {
-        // 1. Self-signature from a non-revoked UserID.
-        if let Some(userid) = self.userids.get(0) {
-            if userid.self_revocations.len() == 0 {
-                return Some((Some(&userid), userid.selfsigs.last()?));
+        let t = t.into().unwrap_or_else(time::now_utc);
+
+        // 1. Self-signature from the non-revoked primary UserID.
+        let primary_userid = self.primary_userid_full(t);
+        if let Some((ref u, ref s, ref r)) = primary_userid {
+            if !destructures_to!(RevocationStatus::Revoked(_) = r) {
+                return Some((Some(u), s));
             }
         }
 
         // 2. Direct signature.
-        if let Some(sig) = self.primary.selfsigs.last() {
-            return Some((None, sig));
+        if let Some(s) = self.primary.binding_signature(t) {
+            return Some((None, s));
         }
 
-        // 3. Treat User IDs as if they were not revoked.
-        if let Some(userid) = self.userids.get(0) {
-            return Some((Some(&userid), userid.selfsigs.last()?));
+        // 3. All User IDs are revoked.
+        if let Some((u, s, r)) = primary_userid {
+            assert!(destructures_to!(RevocationStatus::Revoked(_) = r));
+            return Some((Some(u), s));
         }
 
         // 4. No user ids and no direct signatures.
@@ -1149,8 +1153,10 @@ impl TPK {
     /// This function is identical to
     /// `TPK::primary_key_signature_full()`, but it doesn't return the
     /// `UserIDBinding`.
-    pub fn primary_key_signature(&self) -> Option<&Signature> {
-        if let Some((_, sig)) = self.primary_key_signature_full() {
+    pub fn primary_key_signature<T>(&self, t: T) -> Option<&Signature>
+        where T: Into<Option<time::Tm>>
+    {
+        if let Some((_, sig)) = self.primary_key_signature_full(t) {
             Some(sig)
         } else {
             None
@@ -1175,7 +1181,8 @@ impl TPK {
     pub fn revocation_status_at<T>(&self, t: T) -> RevocationStatus
         where T: Into<Option<time::Tm>>
     {
-        self.primary._revoked(true, self.primary_key_signature(), t)
+        let t = t.into();
+        self.primary._revoked(true, self.primary_key_signature(t), t)
     }
 
     /// Returns the TPK's current revocation status.
@@ -1287,7 +1294,7 @@ impl TPK {
 
     /// Returns whether or not the TPK has expired.
     pub fn expired(&self) -> bool {
-        if let Some(Signature::V4(sig)) = self.primary_key_signature() {
+        if let Some(Signature::V4(sig)) = self.primary_key_signature(None) {
             sig.key_expired(self.primary().key())
         } else {
             false
@@ -1296,7 +1303,7 @@ impl TPK {
 
     /// Returns whether or not the key is expired at the given time.
     pub fn expired_at(&self, tm: time::Tm) -> bool {
-        if let Some(Signature::V4(sig)) = self.primary_key_signature() {
+        if let Some(Signature::V4(sig)) = self.primary_key_signature(tm) {
             sig.key_expired_at(self.primary().key(), tm)
         } else {
             false
@@ -1305,7 +1312,7 @@ impl TPK {
 
     /// Returns whether or not the TPK is alive.
     pub fn alive(&self) -> bool {
-        if let Some(sig) = self.primary_key_signature() {
+        if let Some(sig) = self.primary_key_signature(None) {
             sig.key_alive(self.primary().key())
         } else {
             false
@@ -1314,7 +1321,7 @@ impl TPK {
 
     /// Returns whether or not the key is alive at the given time.
     pub fn alive_at(&self, tm: time::Tm) -> bool {
-        if let Some(sig) = self.primary_key_signature() {
+        if let Some(sig) = self.primary_key_signature(tm) {
             sig.key_alive_at(self.primary().key(), tm)
         } else {
             false
@@ -1336,7 +1343,7 @@ impl TPK {
     {
         let sig = {
             let (userid, template) = self
-                .primary_key_signature_full()
+                .primary_key_signature_full(Some(now))
                 .ok_or(Error::MalformedTPK("No self-signature".into()))?;
 
             // Recompute the signature.
@@ -1691,7 +1698,7 @@ impl TPK {
         // certification capable.
         if ! self.subkeys.is_empty() {
             let pk_can_certify =
-                self.primary_key_signature()
+                self.primary_key_signature(None)
                 .map(|sig| sig.key_flags().can_certify())
                 .unwrap_or(true);
 
@@ -2286,14 +2293,14 @@ mod test {
     fn merge_with_incomplete_update() {
         let tpk = TPK::from_bytes(crate::tests::key("about-to-expire.expired.pgp"))
             .unwrap();
-        assert!(tpk.primary_key_signature().unwrap()
+        assert!(tpk.primary_key_signature(None).unwrap()
                 .key_expired(tpk.primary().key()));
 
         let update =
             TPK::from_bytes(crate::tests::key("about-to-expire.update-no-uid.pgp"))
             .unwrap();
         let tpk = tpk.merge(update).unwrap();
-        assert!(! tpk.primary_key_signature().unwrap()
+        assert!(! tpk.primary_key_signature(None).unwrap()
                 .key_expired(tpk.primary().key()));
     }
 
@@ -2352,10 +2359,11 @@ mod test {
     #[test]
     fn set_expiry() {
         let now = time::now_utc();
+        let a_sec = time::Duration::seconds(1);
 
         let (tpk, _) = TPKBuilder::autocrypt(None, Some("Test"))
             .generate().unwrap();
-        let expiry_orig = tpk.primary_key_signature().unwrap()
+        let expiry_orig = tpk.primary_key_signature(None).unwrap()
             .key_expiration_time()
             .expect("Keys expire by default.");
 
@@ -2363,30 +2371,56 @@ mod test {
             .into_keypair().unwrap();
 
         // Clear the expiration.
+        let as_of1 = now + time::Duration::seconds(10);
         let tpk = tpk.set_expiry_as_of(
             &mut keypair,
             None,
-            now + time::Duration::seconds(10)).unwrap();
+            as_of1).unwrap();
         {
-            let expiry = tpk.primary_key_signature().unwrap()
-                .key_expiration_time();
-            assert_eq!(expiry, None);
+            // If t < as_of1, we should get the original expiry.
+            assert_eq!(tpk.primary_key_signature(now).unwrap()
+                           .key_expiration_time(),
+                       Some(expiry_orig));
+            assert_eq!(tpk.primary_key_signature(as_of1 - a_sec).unwrap()
+                           .key_expiration_time(),
+                       Some(expiry_orig));
+            // If t >= as_of1, we should get the new expiry.
+            assert_eq!(tpk.primary_key_signature(as_of1).unwrap()
+                           .key_expiration_time(),
+                       None);
         }
 
         // Shorten the expiry.  (The default expiration should be at
         // least a few weeks, so removing an hour should still keep us
         // over 0.)
-        let expiry_expected = expiry_orig - time::Duration::hours(1);
-        assert!(expiry_expected > time::Duration::seconds(0));
+        let expiry_new = expiry_orig - time::Duration::hours(1);
+        assert!(expiry_new > time::Duration::seconds(0));
 
+        let as_of2 = as_of1 + time::Duration::seconds(10);
         let tpk = tpk.set_expiry_as_of(
             &mut keypair,
-            Some(expiry_expected),
-            now + time::Duration::seconds(20)).unwrap();
+            Some(expiry_new),
+            as_of2).unwrap();
         {
-            let expiry = tpk.primary_key_signature().unwrap()
-                .key_expiration_time();
-            assert_eq!(expiry.unwrap(), expiry_expected);
+            // If t < as_of1, we should get the original expiry.
+            assert_eq!(tpk.primary_key_signature(now).unwrap()
+                           .key_expiration_time(),
+                       Some(expiry_orig));
+            assert_eq!(tpk.primary_key_signature(as_of1 - a_sec).unwrap()
+                           .key_expiration_time(),
+                       Some(expiry_orig));
+            // If as_of1 <= t < as_of2, we should get the second
+            // expiry (None).
+            assert_eq!(tpk.primary_key_signature(as_of1).unwrap()
+                           .key_expiration_time(),
+                       None);
+            assert_eq!(tpk.primary_key_signature(as_of2 - a_sec).unwrap()
+                           .key_expiration_time(),
+                       None);
+            // If t <= as_of2, we should get the new expiry.
+            assert_eq!(tpk.primary_key_signature(as_of2).unwrap()
+                           .key_expiration_time(),
+                       Some(expiry_new));
         }
     }
 
@@ -2402,7 +2436,8 @@ mod test {
         tpk1.serialize(&mut buf).unwrap();
         let tpk2 = TPK::from_bytes(&buf).unwrap();
 
-        assert_eq!(tpk2.primary_key_signature().unwrap().typ(), SignatureType::DirectKey);
+        assert_eq!(tpk2.primary_key_signature(None).unwrap().typ(),
+                   SignatureType::DirectKey);
         assert_eq!(tpk2.userids().count(), 0);
     }
 
@@ -2412,7 +2447,7 @@ mod test {
                  userid_revoked: bool, subkey_revoked: bool) {
             // If we have a user id---even if it is revoked---we have
             // a primary key signature.
-            let typ = tpk.primary_key_signature().unwrap().typ();
+            let typ = tpk.primary_key_signature(None).unwrap().typ();
             assert_eq!(typ, SignatureType::PositiveCertificate,
                        "{:#?}", tpk);
 
@@ -2653,11 +2688,7 @@ mod test {
 
         assert_eq!(tpk.revocation_status_at(te1), RevocationStatus::NotAsFarAsWeKnow);
         assert_eq!(tpk.revocation_status_at(t12), RevocationStatus::NotAsFarAsWeKnow);
-        // XXX: TPK::primary_key_signature returns the most recent
-        // self signature, not the most recent self signature that was
-        // valid at time `t`.  Reenable this test when that is fixed.
-        //
-        // assert_match!(RevocationStatus::Revoked(_) = tpk.revocation_status_at(t23));
+        assert_match!(RevocationStatus::Revoked(_) = tpk.revocation_status_at(t23));
         assert_eq!(tpk.revocation_status_at(t34), RevocationStatus::NotAsFarAsWeKnow);
 
         // Merge in the hard revocation.
@@ -2707,7 +2738,7 @@ mod test {
             let tpk = TPK::from_bytes(
                 crate::tests::key(
                     &format!("really-revoked-{}-0-public.pgp", f))).unwrap();
-            let selfsig0 = tpk.primary_key_signature().unwrap()
+            let selfsig0 = tpk.primary_key_signature(None).unwrap()
                 .signature_creation_time().unwrap();
 
             assert!(!revoked(&tpk, Some(selfsig0)));

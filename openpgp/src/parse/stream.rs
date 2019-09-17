@@ -519,7 +519,7 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
 
                     for (i, tpk) in v.tpks.iter().enumerate() {
                         if can_sign(tpk.primary().key(),
-                                    tpk.primary_key_signature(), t) {
+                                    tpk.primary_key_signature(None), t) {
                             v.keys.insert(tpk.keyid(), (i, 0));
                         }
 
@@ -1306,7 +1306,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                         };
 
                         if can_sign(tpk.primary().key().into(),
-                                    tpk.primary_key_signature()) {
+                                    tpk.primary_key_signature(None)) {
                             v.keys.insert(tpk.keyid(), (i, 0));
                         }
 

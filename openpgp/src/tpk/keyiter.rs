@@ -95,7 +95,7 @@ impl<'a, P: 'a + key::KeyParts, R: 'a + key::KeyRole> Iterator
                 = if ! self.primary {
                     self.primary = true;
 
-                    (tpk.primary_key_signature(),
+                    (tpk.primary_key_signature(None),
                      tpk.revocation_status(),
                      tpk.primary().key().into())
                 } else {
