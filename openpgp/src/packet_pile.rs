@@ -126,7 +126,7 @@ impl PacketPile {
                 if *i < c.packets.len() {
                     let p = &c.packets[*i];
                     packet = Some(p);
-                    cont = p.children.as_ref();
+                    cont = p.children_ref();
                     continue;
                 }
             }
@@ -156,7 +156,7 @@ impl PacketPile {
                 return Some(p)
             }
 
-            container = p.children.as_mut().unwrap();
+            container = p.children_mut().unwrap();
         }
 
         None
@@ -244,12 +244,12 @@ impl PacketPile {
             }
 
             let p = &mut tmp.packets[i];
-            if p.children.is_none() {
+            if p.children_ref().is_none() {
                 match p {
                     Packet::CompressedData(_) | Packet::SEIP(_) => {
                         // We have a container with no children.
                         // That's okay.  We can create the container.
-                        p.children = Some(Container::new());
+                        p.set_children(Some(Container::new()));
                     },
                     _ => {
                         return Err(Error::IndexOutOfRange.into());
@@ -257,7 +257,7 @@ impl PacketPile {
                 }
             }
 
-            container = p.children.as_mut().unwrap();
+            container = p.children_mut().unwrap();
         }
 
         return Err(Error::IndexOutOfRange.into());
@@ -332,7 +332,7 @@ impl PacketPile {
                 let packets_len = tmp.packets.len();
                 let p = &mut tmp.packets[packets_len - 1];
 
-                container = p.children.as_mut().unwrap();
+                container = p.children_mut().unwrap();
             }
 
             if relative_position < 0 {
@@ -347,9 +347,9 @@ impl PacketPile {
                     // Create a new container.
                     let tmp = container;
                     let i = tmp.packets.len() - 1;
-                    assert!(tmp.packets[i].children.is_none());
-                    tmp.packets[i].children = Some(Container::new());
-                    container = tmp.packets[i].children.as_mut().unwrap();
+                    assert!(tmp.packets[i].children_ref().is_none());
+                    tmp.packets[i].set_children(Some(Container::new()));
+                    container = tmp.packets[i].children_mut().unwrap();
                 }
 
                 container.packets.push(packet);
@@ -644,8 +644,8 @@ mod test {
         }
 
         let mut seip = SEIP1::new();
-        seip.common.children = Some(Container::new());
-        seip.common.children.as_mut().unwrap().push(cd.into());
+        seip.set_children(Some(Container::new()));
+        seip.children_mut().unwrap().push(cd.into());
         packets.push(seip.into());
 
         eprintln!("{:#?}", packets);
@@ -813,7 +813,7 @@ mod test {
                     assert_eq!(top_level.len(), 1);
 
                     let values = top_level[0]
-                        .children.as_ref().unwrap().children()
+                        .children()
                         .map(|p| {
                             if let Packet::Literal(ref literal) = p {
                                 literal.body().unwrap()

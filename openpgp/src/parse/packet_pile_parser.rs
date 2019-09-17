@@ -146,17 +146,17 @@ impl<'a> PacketPileParser<'a> {
             let tmp = container;
             let packets_len = tmp.packets.len();
             let p = &mut tmp.packets[packets_len - 1];
-            if p.children.is_none() {
+            if p.children().next().is_none() {
                 if i == position - 1 {
                     // This is the leaf.  Create a new container
                     // here.
-                    p.children = Some(Container::new());
+                    p.set_children(Some(Container::new()));
                 } else {
                     panic!("Internal inconsistency while building message.");
                 }
             }
 
-            container = p.children.as_mut().unwrap();
+            container = p.children_mut().unwrap();
         }
 
         container.packets.push(packet);

@@ -1676,8 +1676,7 @@ impl Serialize for CompressedData {
             eprintln!("CompressedData::serialize(\
                        algo: {}, {:?} children, {:?} bytes)",
                       self.algorithm(),
-                      self.common.children.as_ref().map(
-                          |cont| cont.children().len()),
+                      self.children().count(),
                       self.body().as_ref().map(|body| body.len()));
         }
 
@@ -1686,10 +1685,8 @@ impl Serialize for CompressedData {
             o, self.algorithm(), Default::default(), 0)?;
 
         // Serialize the packets.
-        if let Some(ref children) = self.common.children {
-            for p in children.children() {
-                p.serialize(&mut o)?;
-            }
+        for p in self.children() {
+            p.serialize(&mut o)?;
         }
 
         // Append the data.
@@ -1704,10 +1701,7 @@ impl Serialize for CompressedData {
 impl NetLength for CompressedData {
     fn net_len(&self) -> usize {
         let inner_length =
-            self.common.children.as_ref().map(|children| {
-                children.packets.iter().map(|p| p.serialized_len())
-                    .sum()
-            }).unwrap_or(0)
+            self.children().map(|p| p.serialized_len()).sum::<usize>()
             + self.body().as_ref().map(|body| body.len()).unwrap_or(0);
 
         // Worst case, the data gets larger.  Account for that.
@@ -1906,7 +1900,7 @@ impl Serialize for SEIP {
     /// To construct an encrypted message, use
     /// `serialize::stream::Encryptor`.
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
-        if let Some(ref _children) = self.common.children {
+        if self.children().next().is_some() {
             return Err(Error::InvalidOperation(
                 "Cannot encrypt, use serialize::stream::Encryptor".into())
                        .into());
@@ -1930,7 +1924,7 @@ impl NetLength for SEIP {
 
 impl SerializeInto for SEIP {
     fn serialized_len(&self) -> usize {
-        if self.common.children.is_some() {
+        if self.children().next().is_some() {
             0 // XXX
         } else {
             self.gross_len()
@@ -2009,7 +2003,7 @@ impl Serialize for AED1 {
     /// To construct an encrypted message, use
     /// `serialize::stream::Encryptor`.
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
-        if let Some(ref _children) = self.common.children {
+        if self.children().next().is_some() {
             return Err(Error::InvalidOperation(
                 "Cannot encrypt, use serialize::stream::Encryptor".into())
                        .into());
@@ -2027,7 +2021,7 @@ impl Serialize for AED1 {
 
 impl NetLength for AED1 {
     fn net_len(&self) -> usize {
-        if self.common.children.is_some() {
+        if self.children().next().is_some() {
             0
         } else {
             4 // Headers.

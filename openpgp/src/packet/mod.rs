@@ -118,7 +118,7 @@ pub struct Common {
     ///   [`PacketPile`]: ../struct.PacketPile.html
     ///   [`PacketPile::from_file`]: ../struct.PacketPile.html#method.from_file
     ///   [`PacketParser`]: ../parse/struct.PacketParser.html
-    pub children: Option<Container>,
+    children: Option<Container>,
 
     /// Holds a packet's body.
     ///
@@ -186,16 +186,40 @@ impl Default for Common {
 }
 
 impl Common {
+    pub(crate) // for packet_pile.rs
+    fn children_ref(&self) -> Option<&Container> {
+        self.children.as_ref()
+    }
+
+    pub(crate) // for packet_pile.rs
+    fn children_mut(&mut self) -> Option<&mut Container> {
+        self.children.as_mut()
+    }
+
+    pub(crate) // for packet_pile.rs
+    fn set_children(&mut self, v: Option<Container>) -> Option<Container> {
+        std::mem::replace(&mut self.children, v)
+    }
+
+    fn children_iter<'a>(&'a self) -> slice::Iter<'a, Packet> {
+        if let Some(ref container) = self.children {
+            container.packets.iter()
+        } else {
+            let empty_packet_slice : &[Packet] = &[];
+            empty_packet_slice.iter()
+        }
+    }
+
+    /// Returns an iterator over the packet's immediate children.
+    pub fn children<'a>(&'a self) -> impl Iterator<Item = &'a Packet> {
+        self.children_iter()
+    }
+
     /// Returns an iterator over all of the packet's descendants, in
     /// depth-first order.
     pub fn descendants(&self) -> Iter {
         return Iter {
-            children: if let Some(ref container) = self.children {
-                container.packets.iter()
-            } else {
-                let empty_packet_slice : &[Packet] = &[];
-                empty_packet_slice.iter()
-            },
+            children: self.children_iter(),
             child: None,
             grandchildren: None,
             depth: 0,
