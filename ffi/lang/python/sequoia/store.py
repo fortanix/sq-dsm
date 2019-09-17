@@ -4,17 +4,9 @@ from .error import Error
 from .glue import _str, _static_str, SQObject, sq_iterator, sq_time
 from .openpgp import Fingerprint, TPK
 
-class Store(SQObject):
-    _del = lib.sq_store_free
-
-    # Keys used for communications.
-    REALM_CONTACTS = _static_str(lib.SQ_REALM_CONTACTS)
-
-    # Keys used for signing software updates.
-    REALM_SOFTWARE_UPDATES = _static_str(lib.SQ_REALM_SOFTWARE_UPDATES)
-
+class Store(object):
     @classmethod
-    def server_log(cls, ctx):
+    def log(cls, ctx):
         yield from sq_iterator(
             ffi.gc(
                 lib.sq_store_server_log(ctx.ref()),
@@ -39,30 +31,39 @@ class Store(SQObject):
                 lib.sq_key_iter_free),
             next_fn)
 
+class Mapping(SQObject):
+    _del = lib.sq_mapping_free
+
+    # Keys used for communications.
+    REALM_CONTACTS = _static_str(lib.SQ_REALM_CONTACTS)
+
+    # Keys used for signing software updates.
+    REALM_SOFTWARE_UPDATES = _static_str(lib.SQ_REALM_SOFTWARE_UPDATES)
+
     @classmethod
     def open(cls, ctx, realm=REALM_CONTACTS, name="default"):
-        return Store(lib.sq_store_open(ctx.ref(), realm.encode(), name.encode()), context=ctx)
+        return Mapping(lib.sq_mapping_open(ctx.ref(), realm.encode(), name.encode()), context=ctx)
 
 
     def add(self, label, fingerprint):
-        return Binding(lib.sq_store_add(self.context().ref(), self.ref(),
+        return Binding(lib.sq_mapping_add(self.context().ref(), self.ref(),
                                         label.encode(), fingerprint.ref()),
                        context=self.context())
 
     def import_(self, label, tpk):
-        return TPK(lib.sq_store_import(self.context().ref(), self.ref(),
+        return TPK(lib.sq_mapping_import(self.context().ref(), self.ref(),
                                        label.encode(), tpk.ref()),
                    context=self.context())
 
     def lookup(self, label):
-        return Binding(lib.sq_store_lookup(self.context().ref(), self.ref(),
+        return Binding(lib.sq_mapping_lookup(self.context().ref(), self.ref(),
                                            label.encode()),
                        self.context())
 
     def delete(self):
-        if lib.sq_store_delete(self.ref()):
+        if lib.sq_mapping_delete(self.ref()):
             raise Error._last(self.context())
-        super(Store, self)._delete(skip_free=True)
+        super(Mapping, self)._delete(skip_free=True)
 
     def iter(self):
         def next_fn(i):
@@ -78,14 +79,14 @@ class Store(SQObject):
 
         yield from sq_iterator(
             ffi.gc(
-                lib.sq_store_iter(self.context().ref(), self.ref()),
+                lib.sq_mapping_iter(self.context().ref(), self.ref()),
                 lib.sq_binding_iter_free),
             next_fn)
 
     def log(self):
         yield from sq_iterator(
             ffi.gc(
-                lib.sq_store_log(self.context().ref(), self.ref()),
+                lib.sq_mapping_log(self.context().ref(), self.ref()),
                 lib.sq_log_iter_free),
             lib.sq_log_iter_next,
             lambda x: Log(x, context=self.context()))

@@ -12,7 +12,7 @@
 //! of scope for Sequoia.  Please take the necessary precautions.
 //!
 //! Sequoia updates keys in compliance with the [network policy] used
-//! to create the store.
+//! to create the mapping.
 //!
 //! [network policy]: ../sequoia_core/enum.NetworkPolicy.html
 //!
@@ -31,10 +31,10 @@
 //! #     .network_policy(NetworkPolicy::Offline)
 //! #     .ipc_policy(IPCPolicy::Internal)
 //! #     .ephemeral().build()?;
-//! let store = Store::open(&ctx, REALM_CONTACTS, "default")?;
+//! let mapping = Mapping::open(&ctx, REALM_CONTACTS, "default")?;
 //!
 //! let fp = Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb");
-//! let binding = store.add("Mister B.", &fp)?;
+//! let binding = mapping.add("Mister B.", &fp)?;
 //!
 //! println!("Binding {:?}", binding.stats()?);
 //! // prints:
@@ -120,6 +120,24 @@ pub struct Pool {
 }
 
 impl Pool {
+    /// Establishes a connection to the backend.
+    fn connect(c: &Context) -> Result<(Core, node::Client)> {
+        let descriptor = descriptor(c);
+        let core = Core::new()?;
+        let handle = core.handle();
+
+        let mut rpc_system
+            = match descriptor.connect(&handle) {
+                Ok(r) => r,
+                Err(e) => return Err(e.into()),
+            };
+
+        let client: node::Client = rpc_system.bootstrap(Side::Server);
+        handle.spawn(rpc_system.map_err(|_e| ()));
+
+        Ok((core, client))
+    }
+
     /// Imports a key into the common key pool.
     ///
     /// # Example
@@ -149,7 +167,7 @@ impl Pool {
         let mut blob = vec![];
         tpk.serialize(&mut blob)?;
 
-        let (mut core, client) = Store::connect(c)?;
+        let (mut core, client) = Self::connect(c)?;
         let mut request = client.import_request();
         request.get().set_key(&blob);
         let key = make_request!(&mut core, request)?;
@@ -183,7 +201,7 @@ impl Pool {
     /// # }
     /// ```
     pub fn lookup(c: &Context, fp: &Fingerprint) -> Result<Key> {
-        let (mut core, client) = Store::connect(c)?;
+        let (mut core, client) = Self::connect(c)?;
         let mut request = client.lookup_by_fingerprint_request();
         let fp = fp.to_hex();
         request.get().set_fingerprint(&fp);
@@ -218,7 +236,7 @@ impl Pool {
     /// # }
     /// ```
     pub fn lookup_by_keyid(c: &Context, keyid: &KeyID) -> Result<Key> {
-        let (mut core, client) = Store::connect(c)?;
+        let (mut core, client) = Self::connect(c)?;
         let mut request = client.lookup_by_keyid_request();
         request.get().set_keyid(keyid.as_u64()?);
         let key = make_request!(&mut core, request)?;
@@ -269,82 +287,11 @@ impl Pool {
     /// # }
     /// ```
     pub fn lookup_by_subkeyid(c: &Context, keyid: &KeyID) -> Result<Key> {
-        let (mut core, client) = Store::connect(c)?;
+        let (mut core, client) = Self::connect(c)?;
         let mut request = client.lookup_by_subkeyid_request();
         request.get().set_keyid(keyid.as_u64()?);
         let key = make_request!(&mut core, request)?;
         Ok(Key::new(Rc::new(RefCell::new(core)), key))
-    }
-
-}
-
-/// A public key store.
-pub struct Store {
-    name: String,
-    core: Rc<RefCell<Core>>,
-    store: node::store::Client,
-}
-
-impl fmt::Debug for Store {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Store {{ name: {} }}", self.name)
-    }
-}
-
-impl Store {
-    /// Establishes a connection to the backend.
-    fn connect(c: &Context) -> Result<(Core, node::Client)> {
-        let descriptor = descriptor(c);
-        let core = Core::new()?;
-        let handle = core.handle();
-
-        let mut rpc_system
-            = match descriptor.connect(&handle) {
-                Ok(r) => r,
-                Err(e) => return Err(e.into()),
-            };
-
-        let client: node::Client = rpc_system.bootstrap(Side::Server);
-        handle.spawn(rpc_system.map_err(|_e| ()));
-
-        Ok((core, client))
-    }
-
-    /// Opens a store.
-    ///
-    /// Opens a store with the given name.  If the store does not
-    /// exist, it is created.  Stores are handles for objects
-    /// maintained by a background service.  The background service
-    /// associates state with this name.
-    ///
-    /// The store updates TPKs in compliance with the network policy
-    /// of the context that created the store in the first place.
-    /// Opening the store with a different network policy is
-    /// forbidden.
-    pub fn open(c: &Context, realm: &str, name: &str) -> Result<Self> {
-        let (mut core, client) = Self::connect(c)?;
-
-        let mut request = client.open_request();
-        request.get().set_realm(realm);
-        request.get().set_network_policy(c.network_policy().into());
-        request.get().set_ephemeral(c.ephemeral());
-        request.get().set_name(name);
-
-        let store = make_request!(&mut core, request)?;
-        Ok(Self::new(Rc::new(RefCell::new(core)), name, store))
-    }
-
-    fn new(core: Rc<RefCell<Core>>, name: &str, store: node::store::Client) -> Self {
-        Store{core: core, name: name.into(), store: store}
-    }
-
-    /// Lists all stores with the given prefix.
-    pub fn list(c: &Context, realm_prefix: &str) -> Result<StoreIter> {
-        let (mut core, client) = Self::connect(c)?;
-        let mut request = client.iter_request();
-        request.get().set_realm_prefix(realm_prefix);
-        let iter = make_request!(&mut core, request)?;
-        Ok(StoreIter{core: Rc::new(RefCell::new(core)), iter: iter})
     }
 
     /// Lists all keys in the common key pool.
@@ -362,8 +309,60 @@ impl Store {
         let iter = make_request!(&mut core, request)?;
         Ok(LogIter{core: Rc::new(RefCell::new(core)), iter: iter})
     }
+}
 
-    /// Adds a key identified by fingerprint to the store.
+/// A public key store.
+pub struct Mapping {
+    name: String,
+    core: Rc<RefCell<Core>>,
+    mapping: node::mapping::Client,
+}
+
+impl fmt::Debug for Mapping {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Mapping {{ name: {} }}", self.name)
+    }
+}
+
+impl Mapping {
+    /// Opens a mapping.
+    ///
+    /// Opens a mapping with the given name.  If the mapping does not
+    /// exist, it is created.  Mappings are handles for objects
+    /// maintained by a background service.  The background service
+    /// associates state with this name.
+    ///
+    /// The store updates TPKs in compliance with the network policy
+    /// of the context that created the mapping in the first place.
+    /// Opening the mapping with a different network policy is
+    /// forbidden.
+    pub fn open(c: &Context, realm: &str, name: &str) -> Result<Self> {
+        let (mut core, client) = Pool::connect(c)?;
+
+        let mut request = client.open_request();
+        request.get().set_realm(realm);
+        request.get().set_network_policy(c.network_policy().into());
+        request.get().set_ephemeral(c.ephemeral());
+        request.get().set_name(name);
+
+        let mapping = make_request!(&mut core, request)?;
+        Ok(Self::new(Rc::new(RefCell::new(core)), name, mapping))
+    }
+
+    fn new(core: Rc<RefCell<Core>>, name: &str, mapping: node::mapping::Client) -> Self {
+        Mapping{core: core, name: name.into(), mapping: mapping}
+    }
+
+    /// Lists all mappings with the given prefix.
+    pub fn list(c: &Context, realm_prefix: &str) -> Result<MappingIter> {
+        let (mut core, client) = Pool::connect(c)?;
+        let mut request = client.iter_request();
+        request.get().set_realm_prefix(realm_prefix);
+        let iter = make_request!(&mut core, request)?;
+        Ok(MappingIter{core: Rc::new(RefCell::new(core)), iter: iter})
+    }
+
+    /// Adds a key identified by fingerprint to the mapping.
     ///
     /// # Example
     ///
@@ -380,21 +379,21 @@ impl Store {
     /// #     .network_policy(NetworkPolicy::Offline)
     /// #     .ipc_policy(IPCPolicy::Internal)
     /// #     .ephemeral().build()?;
-    /// let store = Store::open(&ctx, REALM_CONTACTS, "default")?;
+    /// let mapping = Mapping::open(&ctx, REALM_CONTACTS, "default")?;
     /// let fp = Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb");
-    /// store.add("Mister B.", &fp)?;
+    /// mapping.add("Mister B.", &fp)?;
     /// # Ok(())
     /// # }
     /// ```
     pub fn add(&self, label: &str, fingerprint: &Fingerprint) -> Result<Binding> {
-        let mut request = self.store.add_request();
+        let mut request = self.mapping.add_request();
         request.get().set_label(label);
         request.get().set_fingerprint(fingerprint.to_hex().as_ref());
         let binding = make_request!(self.core.borrow_mut(), request)?;
         Ok(Binding::new(self.core.clone(), Some(label), binding))
     }
 
-    /// Imports a key into the store.
+    /// Imports a key into the mapping.
     ///
     /// # Example
     ///
@@ -414,14 +413,14 @@ impl Store {
     /// #     .ephemeral().build()?;
     /// # let tpk = TPK::from_bytes(
     /// #     include_bytes!("../../openpgp/tests/data/keys/testy.pgp")).unwrap();
-    /// let store = Store::open(&ctx, REALM_CONTACTS, "default")?;
-    /// store.import("Testy McTestface", &tpk)?;
+    /// let mapping = Mapping::open(&ctx, REALM_CONTACTS, "default")?;
+    /// mapping.import("Testy McTestface", &tpk)?;
     /// # Ok(())
     /// # }
     /// ```
     pub fn import(&self, label: &str, tpk: &TPK) -> Result<TPK> {
         let fingerprint = tpk.fingerprint();
-        let mut request = self.store.add_request();
+        let mut request = self.mapping.add_request();
         request.get().set_label(label);
         request.get().set_fingerprint(fingerprint.to_hex().as_ref());
         let binding = make_request!(self.core.borrow_mut(), request)?;
@@ -446,18 +445,18 @@ impl Store {
     /// #     .network_policy(NetworkPolicy::Offline)
     /// #     .ipc_policy(IPCPolicy::Internal)
     /// #     .ephemeral().build()?;
-    /// let store = Store::open(&ctx, REALM_CONTACTS, "default")?;
+    /// let mapping = Mapping::open(&ctx, REALM_CONTACTS, "default")?;
     /// let fp = Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb");
-    /// store.add("Mister B.", &fp)?;
-    /// drop(store);
+    /// mapping.add("Mister B.", &fp)?;
+    /// drop(mapping);
     /// // ...
-    /// let store = Store::open(&ctx, REALM_CONTACTS, "default")?;
-    /// let binding = store.lookup("Mister B.")?;
+    /// let mapping = Mapping::open(&ctx, REALM_CONTACTS, "default")?;
+    /// let binding = mapping.lookup("Mister B.")?;
     /// # Ok(())
     /// # }
     /// ```
     pub fn lookup(&self, label: &str) -> Result<Binding> {
-        let mut request = self.store.lookup_request();
+        let mut request = self.mapping.lookup_request();
         request.get().set_label(label);
         let binding = make_request!(self.core.borrow_mut(), request)?;
         Ok(Binding::new(self.core.clone(), Some(label), binding))
@@ -486,23 +485,23 @@ impl Store {
     /// # let tpk = TPK::from_bytes(
     /// #     include_bytes!("../../openpgp/tests/data/keys/emmelie-dorothea-dina-samantha-awina-ed25519.pgp"))
     /// #     .unwrap();
-    /// let store = Store::open(&ctx, REALM_CONTACTS, "default")?;
-    /// store.import("Emmelie", &tpk)?;
+    /// let mapping = Mapping::open(&ctx, REALM_CONTACTS, "default")?;
+    /// mapping.import("Emmelie", &tpk)?;
     ///
     /// // Lookup by the primary key's KeyID.
-    /// let tpk_ = store.lookup_by_subkeyid(&"069C0C348DD82C19".parse()?)?
+    /// let tpk_ = mapping.lookup_by_subkeyid(&"069C0C348DD82C19".parse()?)?
     ///     .tpk()?;
     /// assert_eq!(tpk, tpk_);
     ///
     /// // Lookup by the subkey's KeyID.
-    /// let tpk_ = store.lookup_by_subkeyid(&"22E3FAFE96B56C32".parse()?)?
+    /// let tpk_ = mapping.lookup_by_subkeyid(&"22E3FAFE96B56C32".parse()?)?
     ///     .tpk()?;
     /// assert_eq!(tpk, tpk_);
     /// # Ok(())
     /// # }
     /// ```
     pub fn lookup_by_subkeyid(&self, keyid: &KeyID) -> Result<Binding> {
-        let mut request = self.store.lookup_by_subkeyid_request();
+        let mut request = self.mapping.lookup_by_subkeyid_request();
         request.get().set_keyid(keyid.as_u64()?);
         let binding = make_request!(self.core.borrow_mut(), request)?;
         let mut binding = Binding::new(self.core.clone(), None, binding);
@@ -510,7 +509,7 @@ impl Store {
         Ok(binding)
     }
 
-    /// Deletes this store.
+    /// Deletes this mapping.
     ///
     /// # Example
     ///
@@ -527,32 +526,32 @@ impl Store {
     /// #     .network_policy(NetworkPolicy::Offline)
     /// #     .ipc_policy(IPCPolicy::Internal)
     /// #     .ephemeral().build()?;
-    /// let store = Store::open(&ctx, REALM_CONTACTS, "default")?;
+    /// let mapping = Mapping::open(&ctx, REALM_CONTACTS, "default")?;
     /// let fp = Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb");
-    /// store.add("Mister B.", &fp)?;
-    /// store.delete()?;
+    /// mapping.add("Mister B.", &fp)?;
+    /// mapping.delete()?;
     /// // ...
-    /// let store = Store::open(&ctx, REALM_CONTACTS, "default")?;
-    /// let binding = store.lookup("Mister B.");
+    /// let mapping = Mapping::open(&ctx, REALM_CONTACTS, "default")?;
+    /// let binding = mapping.lookup("Mister B.");
     /// assert!(binding.is_err()); // not found
     /// # Ok(())
     /// # }
     /// ```
     pub fn delete(self) -> Result<()> {
-        let request = self.store.delete_request();
+        let request = self.mapping.delete_request();
         make_request_map!(self.core.borrow_mut(), request, |_| Ok(()))
     }
 
     /// Lists all bindings.
     pub fn iter(&self) -> Result<BindingIter> {
-        let request = self.store.iter_request();
+        let request = self.mapping.iter_request();
         let iter = make_request!(self.core.borrow_mut(), request)?;
         Ok(BindingIter{core: self.core.clone(), iter: iter})
     }
 
-    /// Lists all log entries related to this store.
+    /// Lists all log entries related to this mapping.
     pub fn log(&self) -> Result<LogIter> {
-        let request = self.store.log_request();
+        let request = self.mapping.log_request();
         let iter = make_request!(self.core.borrow_mut(), request)?;
         Ok(LogIter{core: self.core.clone(), iter: iter})
     }
@@ -578,9 +577,9 @@ macro_rules! make_stats_request {
     }}
 }
 
-/// Represents an entry in a Store.
+/// Represents an entry in a Mapping.
 ///
-/// Stores map labels to TPKs.  A `Binding` represents a pair in this
+/// Mappings map labels to TPKs.  A `Binding` represents a pair in this
 /// relation.  We make this explicit because we associate metadata
 /// with these pairs.
 pub struct Binding {
@@ -619,10 +618,10 @@ impl Binding {
     /// #     .network_policy(NetworkPolicy::Offline)
     /// #     .ipc_policy(IPCPolicy::Internal)
     /// #     .ephemeral().build()?;
-    /// let store = Store::open(&ctx, REALM_CONTACTS, "default")?;
+    /// let mapping = Mapping::open(&ctx, REALM_CONTACTS, "default")?;
     ///
     /// let fp = Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb");
-    /// let binding = store.add("Mister B.", &fp)?;
+    /// let binding = mapping.add("Mister B.", &fp)?;
     ///
     /// println!("Binding {:?}", binding.stats()?);
     /// // prints:
@@ -687,10 +686,10 @@ impl Binding {
     /// #     include_bytes!("../../openpgp/tests/data/keys/testy.pgp")).unwrap();
     /// # let new = TPK::from_bytes(
     /// #     include_bytes!("../../openpgp/tests/data/keys/testy-new.pgp")).unwrap();
-    /// let store = Store::open(&ctx, REALM_CONTACTS, "default")?;
-    /// store.import("Testy McTestface", &old)?;
+    /// let mapping = Mapping::open(&ctx, REALM_CONTACTS, "default")?;
+    /// mapping.import("Testy McTestface", &old)?;
     /// // later...
-    /// let binding = store.lookup("Testy McTestface")?;
+    /// let binding = mapping.lookup("Testy McTestface")?;
     /// let r = binding.import(&new);
     /// assert!(r.is_err()); // Conflict!
     /// # Ok(())
@@ -742,10 +741,10 @@ impl Binding {
     /// #     include_bytes!("../../openpgp/tests/data/keys/testy.pgp")).unwrap();
     /// # let new = TPK::from_bytes(
     /// #     include_bytes!("../../openpgp/tests/data/keys/testy-new.pgp")).unwrap();
-    /// let store = Store::open(&ctx, REALM_CONTACTS, "default")?;
-    /// store.import("Testy McTestface", &old)?;
+    /// let mapping = Mapping::open(&ctx, REALM_CONTACTS, "default")?;
+    /// mapping.import("Testy McTestface", &old)?;
     /// // later...
-    /// let binding = store.lookup("Testy McTestface")?;
+    /// let binding = mapping.lookup("Testy McTestface")?;
     /// let r = binding.import(&new);
     /// assert!(r.is_err()); // Conflict!
     /// let r = binding.rotate(&new)?;
@@ -782,11 +781,11 @@ impl Binding {
     /// #     .network_policy(NetworkPolicy::Offline)
     /// #     .ipc_policy(IPCPolicy::Internal)
     /// #     .ephemeral().build()?;
-    /// let store = Store::open(&ctx, REALM_CONTACTS, "default")?;
+    /// let mapping = Mapping::open(&ctx, REALM_CONTACTS, "default")?;
     /// let fp = Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb");
-    /// let binding = store.add("Mister B.", &fp)?;
+    /// let binding = mapping.add("Mister B.", &fp)?;
     /// binding.delete()?;
-    /// let binding = store.lookup("Mister B.");
+    /// let binding = mapping.lookup("Mister B.");
     /// assert!(binding.is_err()); // not found
     /// # Ok(())
     /// # }
@@ -830,7 +829,7 @@ impl Binding {
     }
 }
 
-/// Represents a key in a store.
+/// Represents a key in the store.
 ///
 /// A `Key` is a handle to a stored TPK.  We make this explicit
 /// because we associate metadata with TPKs.
@@ -894,9 +893,9 @@ impl Key {
     /// #     include_bytes!("../../openpgp/tests/data/keys/testy.pgp")).unwrap();
     /// # let new = TPK::from_bytes(
     /// #     include_bytes!("../../openpgp/tests/data/keys/testy-new.pgp")).unwrap();
-    /// let store = Store::open(&ctx, REALM_CONTACTS, "default")?;
+    /// let mapping = Mapping::open(&ctx, REALM_CONTACTS, "default")?;
     /// let fp = Fingerprint::from_hex("3E8877C877274692975189F5D03F6F865226FE8B").unwrap();
-    /// let binding = store.add("Testy McTestface", &fp)?;
+    /// let binding = mapping.add("Testy McTestface", &fp)?;
     /// let key = binding.key()?;
     /// let r = key.import(&old)?;
     /// assert_eq!(r.fingerprint(), old.fingerprint());
@@ -960,8 +959,8 @@ pub struct Log {
     /// Records the time of the entry.
     pub timestamp: Timespec,
 
-    /// Relates the entry to a store.
-    pub store: Option<Store>,
+    /// Relates the entry to a mapping.
+    pub mapping: Option<Mapping>,
 
     /// Relates the entry to a binding.
     pub binding: Option<Binding>,
@@ -983,14 +982,14 @@ pub struct Log {
 
 impl Log {
     fn new(timestamp: i64,
-           store: Option<Store>, binding: Option<Binding>, key: Option<Key>,
+           mapping: Option<Mapping>, binding: Option<Binding>, key: Option<Key>,
            slug: &str, message: &str, error: Option<&str>)
            -> Option<Self> {
         let timestamp = from_unix(timestamp)?;
 
         Some(Log{
             timestamp: timestamp,
-            store: store,
+            mapping: mapping,
             binding: binding,
             key: key,
             slug: slug.into(),
@@ -1058,32 +1057,32 @@ impl Stamps {
 
 /* Iterators.  */
 
-/// Iterates over stores.
-pub struct StoreIter {
+/// Iterates over mappings.
+pub struct MappingIter {
     core: Rc<RefCell<Core>>,
-    iter: node::store_iter::Client,
+    iter: node::mapping_iter::Client,
 }
 
-impl Iterator for StoreIter {
-    type Item = (String, String, core::NetworkPolicy, Store);
+impl Iterator for MappingIter {
+    type Item = (String, String, core::NetworkPolicy, Mapping);
 
     fn next(&mut self) -> Option<Self::Item> {
         let request = self.iter.next_request();
         let doit = || {
             make_request_map!(
                 self.core.borrow_mut(), request,
-                |r: node::store_iter::item::Reader|
+                |r: node::mapping_iter::item::Reader|
                 Ok((
                     r.get_realm()?.into(),
                     r.get_name()?.into(),
                     r.get_network_policy()?.into(),
-                    Store::new(self.core.clone(), r.get_name()?, r.get_store()?))))
+                    Mapping::new(self.core.clone(), r.get_name()?, r.get_mapping()?))))
         };
         doit().ok()
     }
 }
 
-/// Iterates over bindings in a store.
+/// Iterates over bindings in a mapping.
 pub struct BindingIter {
     core: Rc<RefCell<Core>>,
     iter: node::binding_iter::Client,
@@ -1145,8 +1144,8 @@ impl Iterator for LogIter {
                 self.core.borrow_mut(), request,
                 |r: node::log_iter::entry::Reader|
                 Log::new(r.get_timestamp(),
-                         r.get_store().ok().map(
-                             |cap| Store::new(self.core.clone(), &"", cap)),
+                         r.get_mapping().ok().map(
+                             |cap| Mapping::new(self.core.clone(), &"", cap)),
                          r.get_binding().ok().map(
                              |cap| Binding::new(self.core.clone(), None, cap)),
                          r.get_key().ok().map(
@@ -1241,23 +1240,23 @@ mod test {
     }
 
     #[test]
-    fn store_network_policy_mismatch() {
+    fn mapping_network_policy_mismatch() {
         let ctx = core::Context::configure()
             .ephemeral()
             .network_policy(core::NetworkPolicy::Offline)
             .ipc_policy(core::IPCPolicy::Internal)
             .build().unwrap();
-        // Create store.
-        Store::open(&ctx, REALM_CONTACTS, "default").unwrap();
+        // Create mapping.
+        Mapping::open(&ctx, REALM_CONTACTS, "default").unwrap();
 
         let ctx2 = core::Context::configure()
             .home(ctx.home())
             .network_policy(core::NetworkPolicy::Encrypted)
             .ipc_policy(core::IPCPolicy::Internal)
             .build().unwrap();
-        let store = Store::open(&ctx2, REALM_CONTACTS, "default");
+        let mapping = Mapping::open(&ctx2, REALM_CONTACTS, "default");
         assert_match!(core::Error::NetworkPolicyViolation(_)
-                      = store.err().unwrap().downcast::<core::Error>().unwrap());
+                      = mapping.err().unwrap().downcast::<core::Error>().unwrap());
     }
 
     #[test]
@@ -1267,10 +1266,10 @@ mod test {
             .network_policy(core::NetworkPolicy::Offline)
             .ipc_policy(core::IPCPolicy::Internal)
             .build().unwrap();
-        let store = Store::open(&ctx, REALM_CONTACTS, "default").unwrap();
+        let mapping = Mapping::open(&ctx, REALM_CONTACTS, "default").unwrap();
         let tpk = TPK::from_bytes(bytes!("testy.pgp")).unwrap();
-        store.import("Mr. McTestface", &tpk).unwrap();
-        let binding = store.lookup("Mr. McTestface").unwrap();
+        mapping.import("Mr. McTestface", &tpk).unwrap();
+        let binding = mapping.lookup("Mr. McTestface").unwrap();
         let tpk_retrieved = binding.tpk().unwrap();
         assert_eq!(tpk.fingerprint(), tpk_retrieved.fingerprint());
     }
@@ -1282,8 +1281,8 @@ mod test {
             .network_policy(core::NetworkPolicy::Offline)
             .ipc_policy(core::IPCPolicy::Internal)
             .build().unwrap();
-        let store = Store::open(&ctx, REALM_CONTACTS, "default").unwrap();
-        let r = store.lookup("I do not exist");
+        let mapping = Mapping::open(&ctx, REALM_CONTACTS, "default").unwrap();
+        let r = mapping.lookup("I do not exist");
         assert_match!(Error::NotFound
                       = r.err().unwrap().downcast::<Error>().unwrap());
     }
@@ -1295,10 +1294,10 @@ mod test {
             .network_policy(core::NetworkPolicy::Offline)
             .ipc_policy(core::IPCPolicy::Internal)
             .build().unwrap();
-        let store = Store::open(&ctx, REALM_CONTACTS, "default").unwrap();
+        let mapping = Mapping::open(&ctx, REALM_CONTACTS, "default").unwrap();
         let tpk = TPK::from_bytes(bytes!("testy.pgp")).unwrap();
         let fp = Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb");
-        let binding = store.add("Mister B.", &fp).unwrap();
+        let binding = mapping.add("Mister B.", &fp).unwrap();
         let r = binding.import(&tpk);
         assert_match!(Error::Conflict
                       = r.err().unwrap().downcast::<Error>().unwrap());
@@ -1311,37 +1310,37 @@ mod test {
             .network_policy(core::NetworkPolicy::Offline)
             .ipc_policy(core::IPCPolicy::Internal)
             .build().unwrap();
-        let store = Store::open(&ctx, REALM_CONTACTS, "default").unwrap();
+        let mapping = Mapping::open(&ctx, REALM_CONTACTS, "default").unwrap();
         let b = Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb");
-        store.add("Mister B.", &b).unwrap();
+        mapping.add("Mister B.", &b).unwrap();
         let c = Fingerprint::from_bytes(b"cccccccccccccccccccc");
         assert_match!(Error::Conflict
-                      = store.add("Mister B.", &c)
+                      = mapping.add("Mister B.", &c)
                       .err().unwrap().downcast::<Error>().unwrap());
     }
 
     #[test]
-    fn delete_store_twice() {
+    fn delete_mapping_twice() {
         let ctx = core::Context::configure()
             .ephemeral()
             .network_policy(core::NetworkPolicy::Offline)
             .ipc_policy(core::IPCPolicy::Internal)
             .build().unwrap();
-        let s0 = Store::open(&ctx, REALM_CONTACTS, "default").unwrap();
-        let s1 = Store::open(&ctx, REALM_CONTACTS, "default").unwrap();
+        let s0 = Mapping::open(&ctx, REALM_CONTACTS, "default").unwrap();
+        let s1 = Mapping::open(&ctx, REALM_CONTACTS, "default").unwrap();
         s0.delete().unwrap();
         s1.delete().unwrap();
     }
 
     #[test]
-    fn delete_store_then_use() {
+    fn delete_mapping_then_use() {
         let ctx = core::Context::configure()
             .ephemeral()
             .network_policy(core::NetworkPolicy::Offline)
             .ipc_policy(core::IPCPolicy::Internal)
             .build().unwrap();
-        let s0 = Store::open(&ctx, REALM_CONTACTS, "default").unwrap();
-        let s1 = Store::open(&ctx, REALM_CONTACTS, "default").unwrap();
+        let s0 = Mapping::open(&ctx, REALM_CONTACTS, "default").unwrap();
+        let s1 = Mapping::open(&ctx, REALM_CONTACTS, "default").unwrap();
         s0.delete().unwrap();
         let binding = s1.lookup("Foobarbaz");
         assert_match!(Error::NotFound
@@ -1359,10 +1358,10 @@ mod test {
             .network_policy(core::NetworkPolicy::Offline)
             .ipc_policy(core::IPCPolicy::Internal)
             .build().unwrap();
-        let store = Store::open(&ctx, REALM_CONTACTS, "default").unwrap();
+        let mapping = Mapping::open(&ctx, REALM_CONTACTS, "default").unwrap();
         let fp = Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb");
-        let b0 = store.add("Mister B.", &fp).unwrap();
-        let b1 = store.lookup("Mister B.").unwrap();
+        let b0 = mapping.add("Mister B.", &fp).unwrap();
+        let b1 = mapping.lookup("Mister B.").unwrap();
         b0.delete().unwrap();
         b1.delete().unwrap();
     }
@@ -1374,10 +1373,10 @@ mod test {
             .network_policy(core::NetworkPolicy::Offline)
             .ipc_policy(core::IPCPolicy::Internal)
             .build().unwrap();
-        let store = Store::open(&ctx, REALM_CONTACTS, "default").unwrap();
+        let mapping = Mapping::open(&ctx, REALM_CONTACTS, "default").unwrap();
         let fp = Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb");
-        let b0 = store.add("Mister B.", &fp).unwrap();
-        let b1 = store.lookup("Mister B.").unwrap();
+        let b0 = mapping.add("Mister B.", &fp).unwrap();
+        let b1 = mapping.lookup("Mister B.").unwrap();
         b0.delete().unwrap();
         assert_match!(Error::NotFound
                       = b1.stats().err().unwrap().downcast::<Error>().unwrap());
@@ -1385,38 +1384,38 @@ mod test {
                       = b1.key().err().unwrap().downcast::<Error>().unwrap());
     }
 
-    fn make_some_stores() -> core::Context {
+    fn make_some_mappings() -> core::Context {
         let ctx0 = core::Context::configure()
             .ephemeral()
             .network_policy(core::NetworkPolicy::Offline)
             .ipc_policy(core::IPCPolicy::Internal)
             .build().unwrap();
-        let store = Store::open(&ctx0, REALM_CONTACTS, "default").unwrap();
+        let mapping = Mapping::open(&ctx0, REALM_CONTACTS, "default").unwrap();
         let fp = Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb");
-        store.add("Mister B.", &fp).unwrap();
-        store.add("B4", &fp).unwrap();
+        mapping.add("Mister B.", &fp).unwrap();
+        mapping.add("B4", &fp).unwrap();
 
-        Store::open(&ctx0, REALM_CONTACTS, "another store").unwrap();
+        Mapping::open(&ctx0, REALM_CONTACTS, "another mapping").unwrap();
 
         let ctx1 = core::Context::configure()
             .home(ctx0.home())
             .network_policy(core::NetworkPolicy::Offline)
             .ipc_policy(core::IPCPolicy::Internal)
             .build().unwrap();
-        let store =
-            Store::open(&ctx1, REALM_SOFTWARE_UPDATES, "default").unwrap();
+        let mapping =
+            Mapping::open(&ctx1, REALM_SOFTWARE_UPDATES, "default").unwrap();
         let fp = Fingerprint::from_bytes(b"cccccccccccccccccccc");
-        store.add("Mister C.", &fp).unwrap();
+        mapping.add("Mister C.", &fp).unwrap();
 
         ctx0
     }
 
     #[test]
     fn stats() {
-        let ctx = make_some_stores();
-        let store = Store::open(&ctx, REALM_CONTACTS, "default").unwrap();
+        let ctx = make_some_mappings();
+        let mapping = Mapping::open(&ctx, REALM_CONTACTS, "default").unwrap();
         let fp = Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb");
-        let binding = store.add("Mister B.", &fp).unwrap();
+        let binding = mapping.add("Mister B.", &fp).unwrap();
 
         let stats0 = binding.stats().unwrap();
         assert_match!(Some(_) = stats0.created);
@@ -1448,28 +1447,28 @@ mod test {
 
 
     #[test]
-    fn store_iterator() {
-        let ctx = make_some_stores();
-        let mut iter = Store::list(&ctx, REALM_CONTACTS).unwrap();
-        let (realm, name, network_policy, store) = iter.next().unwrap();
+    fn mapping_iterator() {
+        let ctx = make_some_mappings();
+        let mut iter = Mapping::list(&ctx, REALM_CONTACTS).unwrap();
+        let (realm, name, network_policy, mapping) = iter.next().unwrap();
         assert_eq!(realm, REALM_CONTACTS);
         assert_eq!(name, "default");
         assert_eq!(network_policy, core::NetworkPolicy::Offline);
         let fp = Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb");
-        store.add("Mister B.", &fp).unwrap();
-        let (realm, name, network_policy, store) = iter.next().unwrap();
+        mapping.add("Mister B.", &fp).unwrap();
+        let (realm, name, network_policy, mapping) = iter.next().unwrap();
         assert_eq!(realm, REALM_CONTACTS);
-        assert_eq!(name, "another store");
+        assert_eq!(name, "another mapping");
         assert_eq!(network_policy, core::NetworkPolicy::Offline);
-        store.add("Mister B.", &fp).unwrap();
+        mapping.add("Mister B.", &fp).unwrap();
         assert!(iter.next().is_none());
     }
 
     #[test]
     fn binding_iterator() {
-        let ctx = make_some_stores();
-        let store = Store::open(&ctx, REALM_CONTACTS, "default").unwrap();
-        let mut iter = store.iter().unwrap();
+        let ctx = make_some_mappings();
+        let mapping = Mapping::open(&ctx, REALM_CONTACTS, "default").unwrap();
+        let mut iter = mapping.iter().unwrap();
         let (label, fingerprint, binding) = iter.next().unwrap();
         let fp = Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb");
         assert_eq!(label, "Mister B.");
@@ -1484,8 +1483,8 @@ mod test {
 
     #[test]
     fn key_iterator() {
-        let ctx = make_some_stores();
-        let mut iter = Store::list_keys(&ctx).unwrap();
+        let ctx = make_some_mappings();
+        let mut iter = Pool::list_keys(&ctx).unwrap();
         let (fingerprint, key) = iter.next().unwrap();
         assert_eq!(fingerprint, Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb"));
         key.stats().unwrap();

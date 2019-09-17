@@ -14,19 +14,19 @@ const char *SQ_REALM_CONTACTS = "org.sequoia-pgp.contacts";
 const char *SQ_REALM_SOFTWARE_UPDATES = "org.sequoia-pgp.software-updates";
 
 /*/
-/// A public key store.
+/// A public key mapping.
 /*/
-typedef struct sq_store *sq_store_t;
+typedef struct sq_mapping *sq_mapping_t;
 
 /*/
-/// Frees a sq_store_t.
+/// Frees a sq_mapping_t.
 /*/
-void sq_store_free (sq_store_t store);
+void sq_mapping_free (sq_mapping_t mapping);
 
 /*/
-/// Represents an entry in a Store.
+/// Represents an entry in a Mapping.
 ///
-/// Stores map labels to TPKs.  A `Binding` represents a pair in this
+/// Mappings map labels to TPKs.  A `Binding` represents a pair in this
 /// relation.  We make this explicit because we associate metadata
 /// with these pairs.
 /*/
@@ -38,7 +38,7 @@ typedef struct sq_binding *sq_binding_t;
 void sq_binding_free (sq_binding_t binding);
 
 /*/
-/// Represents a key in a store.
+/// Represents a key in a mapping.
 ///
 /// A `Key` is a handle to a stored TPK.  We make this explicit
 /// because we associate metadata with TPKs.
@@ -60,11 +60,11 @@ struct sq_log {
   uint64_t timestamp;
 
   /*/
-  /// Relates the entry to a store.
+  /// Relates the entry to a mapping.
   ///
   /// May be `NULL`.
   /*/
-  sq_store_t store;
+  sq_mapping_t mapping;
 
   /*/
   /// Relates the entry to a binding.
@@ -159,31 +159,31 @@ typedef struct sq_stats *sq_stats_t;
 void sq_stats_free (sq_stats_t stats);
 
 /*/
-/// Iterates over stores.
+/// Iterates over mappings.
 /*/
-typedef struct sq_store_iter *sq_store_iter_t;
+typedef struct sq_mapping_iter *sq_mapping_iter_t;
 
 /*/
-/// Returns the next store.
+/// Returns the next mapping.
 ///
 /// Returns `NULL` on exhaustion.  If `realmp` is not `NULL`, the
-/// stores realm is stored there.  If `namep` is not `NULL`, the
-/// stores name is stored there.  If `policyp` is not `NULL`, the
-/// stores network policy is stored there.
+/// mapping's realm is stored there.  If `namep` is not `NULL`, the
+/// mapping's name is stored there.  If `policyp` is not `NULL`, the
+/// mapping's network policy is stored there.
 /*/
-sq_store_t sq_store_iter_next (sq_store_iter_t iter,
+sq_mapping_t sq_mapping_iter_next (sq_mapping_iter_t iter,
 			       char **realmp,
 			       char **namep,
 			       uint8_t *policyp);
 
 
 /*/
-/// Frees a sq_store_iter_t.
+/// Frees a sq_mapping_iter_t.
 /*/
-void sq_store_iter_free (sq_store_iter_t iter);
+void sq_mapping_iter_free (sq_mapping_iter_t iter);
 
 /*/
-/// Iterates over bindings in a store.
+/// Iterates over bindings in a mapping.
 /*/
 typedef struct sq_binding_iter *sq_binding_iter_t;
 
@@ -250,36 +250,36 @@ sq_log_iter_t sq_store_server_log (sq_context_t ctx);
 sq_key_iter_t sq_store_list_keys (sq_context_t ctx);
 
 /*/
-/// Opens a store.
+/// Opens a mapping.
 ///
-/// Opens a store with the given name in the given realm.  If the
-/// store does not exist, it is created.  Stores are handles for
+/// Opens a mapping with the given name in the given realm.  If the
+/// mapping does not exist, it is created.  Mappings are handles for
 /// objects maintained by a background service.  The background
 /// service associates state with this name.
 ///
-/// The store updates TPKs in compliance with the network policy
-/// of the context that created the store in the first place.
-/// Opening the store with a different network policy is
+/// The mapping updates TPKs in compliance with the network policy
+/// of the context that created the mapping in the first place.
+/// Opening the mapping with a different network policy is
 /// forbidden.
 /*/
-sq_store_t sq_store_open (sq_context_t ctx, const char *realm, const char *name);
+sq_mapping_t sq_mapping_open (sq_context_t ctx, const char *realm, const char *name);
 
 /*/
-/// Adds a key identified by fingerprint to the store.
+/// Adds a key identified by fingerprint to the mapping.
 /*/
-sq_binding_t sq_store_add (sq_context_t ctx, sq_store_t store,
+sq_binding_t sq_mapping_add (sq_context_t ctx, sq_mapping_t mapping,
 			   const char *label, pgp_fingerprint_t fp);
 
 /*/
-/// Imports a key into the store.
+/// Imports a key into the mapping.
 /*/
-pgp_tpk_t sq_store_import (sq_context_t ctx, sq_store_t store,
+pgp_tpk_t sq_mapping_import (sq_context_t ctx, sq_mapping_t mapping,
 			  const char *label, pgp_tpk_t tpk);
 
 /*/
 /// Returns the binding for the given label.
 /*/
-sq_binding_t sq_store_lookup (sq_context_t ctx, sq_store_t store,
+sq_binding_t sq_mapping_lookup (sq_context_t ctx, sq_mapping_t mapping,
 			      const char *label);
 
 /*/
@@ -293,21 +293,21 @@ sq_key_t sq_store_lookup_by_keyid (sq_context_t ctx, pgp_keyid_t keyid);
 sq_key_t sq_store_lookup_by_subkeyid (sq_context_t ctx, pgp_keyid_t keyid);
 
 /*/
-/// Deletes this store.
+/// Deletes this mapping.
 ///
-/// Consumes `store`.  Returns != 0 on error.
+/// Consumes `mapping`.  Returns != 0 on error.
 /*/
-pgp_status_t sq_store_delete (sq_store_t store);
+pgp_status_t sq_mapping_delete (sq_mapping_t mapping);
 
 /*/
 /// Lists all bindings.
 /*/
-sq_binding_iter_t sq_store_iter (sq_context_t ctx, sq_store_t store);
+sq_binding_iter_t sq_mapping_iter (sq_context_t ctx, sq_mapping_t mapping);
 
 /*/
-/// Lists all log entries related to this store.
+/// Lists all log entries related to this mapping.
 /*/
-sq_log_iter_t sq_store_log (sq_context_t ctx, sq_store_t store);
+sq_log_iter_t sq_mapping_log (sq_context_t ctx, sq_mapping_t mapping);
 
 /*/
 /// Returns the `sq_stats_t` of this binding.

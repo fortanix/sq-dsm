@@ -2,8 +2,8 @@
 
 interface Node {
   open @0 (realm: Text, networkPolicy: NetworkPolicy, ephemeral: Bool, name: Text)
-         -> (result: Result(Store));
-  iter @1 (realmPrefix: Text) -> (result: Result(StoreIter));
+         -> (result: Result(Mapping));
+  iter @1 (realmPrefix: Text) -> (result: Result(MappingIter));
   iterKeys @2 () -> (result: Result(KeyIter));
   log @3 () -> (result: Result(LogIter));
   import @4 (key: Data) -> (result: Result(Key));
@@ -11,7 +11,7 @@ interface Node {
   lookupByFingerprint @6 (fingerprint: Text) -> (result: Result(Key));
   lookupBySubkeyid @7 (keyid: UInt64) -> (result: Result(Key));
 
-  interface Store {
+  interface Mapping {
     add @0 (label: Text, fingerprint: Text) -> (result: Result(Binding));
     lookup @1 (label: Text) -> (result: Result(Binding));
     delete @2 () -> (result: Result(Unit));
@@ -39,14 +39,14 @@ interface Node {
   }
 
   # Iterators.
-  interface StoreIter {
+  interface MappingIter {
     next @0 () -> (result: Result(Item));
 
     struct Item {
       realm @0 :Text;
       name @1 :Text;
       networkPolicy @2 :NetworkPolicy;
-      store @3 :Store;
+      mapping @3 :Mapping;
     }
   }
 
@@ -74,7 +74,7 @@ interface Node {
 
     struct Entry {
       timestamp @0 :Int64;
-      store     @1 :Store;
+      mapping   @1 :Mapping;
       binding   @2 :Binding;
       key       @3 :Key;
       slug      @4 :Text;

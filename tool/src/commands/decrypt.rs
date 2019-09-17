@@ -31,7 +31,7 @@ struct Helper<'a> {
 }
 
 impl<'a> Helper<'a> {
-    fn new(ctx: &'a Context, store: &'a mut store::Store,
+    fn new(ctx: &'a Context, mapping: &'a mut store::Mapping,
            signatures: usize, tpks: Vec<TPK>, secrets: Vec<TPK>,
            dump_session_key: bool, dump: bool, hex: bool)
            -> Self {
@@ -77,7 +77,7 @@ impl<'a> Helper<'a> {
         }
 
         Helper {
-            vhelper: VHelper::new(ctx, store, signatures, tpks),
+            vhelper: VHelper::new(ctx, mapping, signatures, tpks),
             secret_keys: keys,
             key_identities: identities,
             key_hints: hints,
@@ -292,13 +292,13 @@ impl<'a> DecryptionHelper for Helper<'a> {
     }
 }
 
-pub fn decrypt(ctx: &Context, store: &mut store::Store,
+pub fn decrypt(ctx: &Context, mapping: &mut store::Mapping,
                input: &mut io::Read, output: &mut io::Write,
                signatures: usize, tpks: Vec<TPK>, secrets: Vec<TPK>,
                dump_session_key: bool,
                dump: bool, hex: bool)
                -> Result<()> {
-    let helper = Helper::new(ctx, store, signatures, tpks, secrets,
+    let helper = Helper::new(ctx, mapping, signatures, tpks, secrets,
                              dump_session_key, dump, hex);
     let mut decryptor = Decryptor::from_reader(input, helper, None)
         .context("Decryption failed")?;

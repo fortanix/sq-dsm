@@ -44,14 +44,14 @@ fn main() {
     // Parse TPK.
     let tpk = openpgp::TPK::from_bytes(tpk).unwrap();
 
-    // Open a store.
-    let store =
-        store::Store::open(&ctx, store::REALM_CONTACTS, "default").unwrap();
+    // Open a mapping.
+    let mapping =
+        store::Mapping::open(&ctx, store::REALM_CONTACTS, "default").unwrap();
 
     // Store the TPK.
-    store.import("Ἀριστοτέλης", &tpk).unwrap();
+    mapping.import("Ἀριστοτέλης", &tpk).unwrap();
 
     // Now let's get it back.
-    let tpk_ = store.lookup("Ἀριστοτέλης").unwrap().tpk().unwrap();
+    let tpk_ = mapping.lookup("Ἀριστοτέλης").unwrap().tpk().unwrap();
     assert_eq!(tpk.fingerprint(), tpk_.fingerprint());
 }

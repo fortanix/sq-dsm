@@ -84,7 +84,7 @@ fn get_signing_keys(tpks: &[openpgp::TPK])
     Ok(keys)
 }
 
-pub fn encrypt(store: &mut store::Store,
+pub fn encrypt(mapping: &mut store::Mapping,
                input: &mut io::Read, output: &mut io::Write,
                npasswords: usize, recipients: Vec<&str>,
                mut tpks: Vec<openpgp::TPK>, signers: Vec<openpgp::TPK>,
@@ -92,7 +92,7 @@ pub fn encrypt(store: &mut store::Store,
                compression: &str)
                -> Result<()> {
     for r in recipients {
-        tpks.push(store.lookup(r).context("No such key found")?.tpk()?);
+        tpks.push(mapping.lookup(r).context("No such key found")?.tpk()?);
     }
     let mut passwords: Vec<crypto::Password> = Vec::with_capacity(npasswords);
     for n in 0..npasswords {
@@ -171,7 +171,7 @@ pub fn encrypt(store: &mut store::Store,
 
 struct VHelper<'a> {
     ctx: &'a Context,
-    store: &'a mut store::Store,
+    mapping: &'a mut store::Mapping,
     signatures: usize,
     tpks: Option<Vec<TPK>>,
     labels: HashMap<KeyID, String>,
@@ -184,12 +184,12 @@ struct VHelper<'a> {
 }
 
 impl<'a> VHelper<'a> {
-    fn new(ctx: &'a Context, store: &'a mut store::Store, signatures: usize,
+    fn new(ctx: &'a Context, mapping: &'a mut store::Mapping, signatures: usize,
            tpks: Vec<TPK>)
            -> Self {
         VHelper {
             ctx: ctx,
-            store: store,
+            mapping: mapping,
             signatures: signatures,
             tpks: Some(tpks),
             labels: HashMap::new(),
@@ -298,14 +298,14 @@ impl<'a> VerificationHelper for VHelper<'a> {
         // Explicitly provided keys are trusted.
         self.trusted = seen.clone();
 
-        // Try to get missing TPKs from the store.
+        // Try to get missing TPKs from the mapping.
         for id in ids.iter().filter(|i| !seen.contains(i)) {
             let _ =
-                self.store.lookup_by_subkeyid(id)
+                self.mapping.lookup_by_subkeyid(id)
                 .and_then(|binding| {
                     self.labels.insert(id.clone(), binding.label()?);
 
-                    // Keys from our store are trusted.
+                    // Keys from our mapping are trusted.
                     self.trusted.insert(id.clone());
 
                     binding.tpk()
@@ -362,13 +362,13 @@ impl<'a> VerificationHelper for VHelper<'a> {
     }
 }
 
-pub fn verify(ctx: &Context, store: &mut store::Store,
+pub fn verify(ctx: &Context, mapping: &mut store::Mapping,
               input: &mut io::Read,
               detached: Option<&mut io::Read>,
               output: &mut io::Write,
               signatures: usize, tpks: Vec<TPK>)
               -> Result<()> {
-    let helper = VHelper::new(ctx, store, signatures, tpks);
+    let helper = VHelper::new(ctx, mapping, signatures, tpks);
     let mut verifier = if let Some(dsig) = detached {
         DetachedVerifier::from_reader(dsig, input, helper, None)?
     } else {
@@ -468,7 +468,7 @@ pub fn join(inputs: Option<clap::Values>, output: &mut io::Write)
     Ok(())
 }
 
-pub fn store_print_stats(store: &store::Store, label: &str) -> Result<()> {
+pub fn mapping_print_stats(mapping: &store::Mapping, label: &str) -> Result<()> {
     fn print_stamps(st: &store::Stamps) -> Result<()> {
         println!("{} messages using this key", st.count);
         if let Some(t) = st.first {
@@ -494,7 +494,7 @@ pub fn store_print_stats(store: &store::Store, label: &str) -> Result<()> {
         Ok(())
     }
 
-    let binding = store.lookup(label)?;
+    let binding = mapping.lookup(label)?;
     println!("Binding {:?}", label);
     print_stats(&binding.stats().context("Failed to get stats")?)?;
     let key = binding.key().context("Failed to get key")?;

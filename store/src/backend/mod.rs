@@ -149,12 +149,12 @@ impl node::Server for NodeServer {
 
         // XXX maybe check ephemeral and use in-core sqlite db
 
-        let store = sry!(StoreServer::open(self.c.clone(),
+        let mapping = sry!(MappingServer::open(self.c.clone(),
                                            pry!(params.get_realm()),
                                            pry!(params.get_network_policy()).into(),
                                            pry!(params.get_name())));
         pry!(pry!(results.get().get_result()).set_ok(
-            node::store::ToClient::new(store).into_client::<capnp_rpc::Server>()));
+            node::mapping::ToClient::new(mapping).into_client::<capnp_rpc::Server>()));
         Promise::ok(())
     }
 
@@ -164,9 +164,9 @@ impl node::Server for NodeServer {
             -> Promise<(), capnp::Error> {
         bind_results!(results);
         let prefix = pry!(pry!(params.get()).get_realm_prefix());
-        let iter = StoreIterServer::new(self.c.clone(), prefix);
+        let iter = MappingIterServer::new(self.c.clone(), prefix);
         pry!(pry!(results.get().get_result()).set_ok(
-            node::store_iter::ToClient::new(iter).into_client::<capnp_rpc::Server>()));
+            node::mapping_iter::ToClient::new(iter).into_client::<capnp_rpc::Server>()));
         Promise::ok(())
     }
 
@@ -261,14 +261,14 @@ impl node::Server for NodeServer {
     }
 }
 
-struct StoreServer {
+struct MappingServer {
     c: Rc<Connection>,
     id: ID,
 }
 
-impl Query for StoreServer {
+impl Query for MappingServer {
     fn table_name() -> &'static str {
-        "stores"
+        "mappings"
     }
 
     fn id(&self) -> ID {
@@ -281,7 +281,7 @@ impl Query for StoreServer {
 
     fn slug(&self) -> String {
         self.c.query_row(
-            "SELECT realm, name FROM stores WHERE id = ?1",
+            "SELECT realm, name FROM mappings WHERE id = ?1",
             &[&self.id], |row| -> rusqlite::Result<String> {
                 Ok(format!("{}:{}",
                            row.get::<_, String>(0)?,
@@ -293,9 +293,9 @@ impl Query for StoreServer {
     }
 }
 
-impl StoreServer {
-    fn new(c: Rc<Connection>, id: ID) -> StoreServer {
-        StoreServer{c: c, id: id}
+impl MappingServer {
+    fn new(c: Rc<Connection>, id: ID) -> MappingServer {
+        MappingServer{c: c, id: id}
     }
 
     fn open(c: Rc<Connection>, realm: &str, policy: core::NetworkPolicy, name: &str)
@@ -305,22 +305,22 @@ impl StoreServer {
         let p: u8 = (&policy).into();
 
         c.execute(
-            "INSERT OR IGNORE INTO stores (realm, network_policy, name) VALUES (?1, ?2, ?3)",
+            "INSERT OR IGNORE INTO mappings (realm, network_policy, name) VALUES (?1, ?2, ?3)",
             &[&realm as &ToSql, &p, &name])?;
-        let (id, store_policy): (ID, i64) = c.query_row(
-            "SELECT id, network_policy FROM stores WHERE realm = ?1 AND name = ?2",
+        let (id, mapping_policy): (ID, i64) = c.query_row(
+            "SELECT id, network_policy FROM mappings WHERE realm = ?1 AND name = ?2",
             &[&realm, &name],
             |row| Ok((row.get(0)?, row.get(1)?)))?;
 
         // We cannot implement FromSql and friends for
         // core::NetworkPolicy, hence we need to do it by foot.
-        if store_policy < 0 || store_policy > 3 {
+        if mapping_policy < 0 || mapping_policy > 3 {
             return Err(super::Error::ProtocolError.into());
         }
-        let store_policy = core::NetworkPolicy::from(store_policy as u8);
+        let mapping_policy = core::NetworkPolicy::from(mapping_policy as u8);
 
-        if store_policy != policy {
-            return Err(core::Error::NetworkPolicyViolation(store_policy)
+        if mapping_policy != policy {
+            return Err(core::Error::NetworkPolicyViolation(mapping_policy)
                        .into());
         }
 
@@ -328,10 +328,10 @@ impl StoreServer {
     }
 }
 
-impl node::store::Server for StoreServer {
+impl node::mapping::Server for MappingServer {
     fn add(&mut self,
-           params: node::store::AddParams,
-           mut results: node::store::AddResults)
+           params: node::mapping::AddParams,
+           mut results: node::mapping::AddResults)
            -> Promise<(), capnp::Error> {
         bind_results!(results);
         let params = pry!(params.get());
@@ -346,7 +346,7 @@ impl node::store::Server for StoreServer {
         if created {
             sry!(log::message(
                 &self.c,
-                log::Refers::to().store(self.id).binding(binding_id).key(key_id),
+                log::Refers::to().mapping(self.id).binding(binding_id).key(key_id),
                 &self.slug(),
                 &format!("New binding {} -> {}", label, fp.to_keyid())));
         }
@@ -360,15 +360,15 @@ impl node::store::Server for StoreServer {
     }
 
     fn lookup(&mut self,
-              params: node::store::LookupParams,
-              mut results: node::store::LookupResults)
+              params: node::mapping::LookupParams,
+              mut results: node::mapping::LookupResults)
               -> Promise<(), capnp::Error> {
         bind_results!(results);
         let label = pry!(pry!(params.get()).get_label());
 
         let binding_id: ID = sry!(
             self.c.query_row(
-                "SELECT id FROM bindings WHERE store = ?1 AND label = ?2",
+                "SELECT id FROM bindings WHERE mapping = ?1 AND label = ?2",
                 &[&self.id as &ToSql, &label], |row| row.get(0)));
 
         pry!(pry!(results.get().get_result()).set_ok(
@@ -379,8 +379,8 @@ impl node::store::Server for StoreServer {
     }
 
     fn lookup_by_subkeyid(&mut self,
-                          params: node::store::LookupBySubkeyidParams,
-                          mut results: node::store::LookupBySubkeyidResults)
+                          params: node::mapping::LookupBySubkeyidParams,
+                          mut results: node::mapping::LookupBySubkeyidResults)
                           -> Promise<(), capnp::Error> {
         bind_results!(results);
         let keyid = pry!(params.get()).get_keyid();
@@ -400,18 +400,18 @@ impl node::store::Server for StoreServer {
     }
 
     fn delete(&mut self,
-              _: node::store::DeleteParams,
-              mut results: node::store::DeleteResults)
+              _: node::mapping::DeleteParams,
+              mut results: node::mapping::DeleteResults)
               -> Promise<(), capnp::Error> {
         bind_results!(results);
-        sry!(self.c.execute("DELETE FROM stores WHERE id = ?1",
+        sry!(self.c.execute("DELETE FROM mappings WHERE id = ?1",
                                      &[&self.id]));
         Promise::ok(())
     }
 
     fn iter(&mut self,
-            _: node::store::IterParams,
-            mut results: node::store::IterResults)
+            _: node::mapping::IterParams,
+            mut results: node::mapping::IterResults)
             -> Promise<(), capnp::Error> {
         bind_results!(results);
         let iter = BindingIterServer::new(self.c.clone(), self.id);
@@ -421,11 +421,11 @@ impl node::store::Server for StoreServer {
     }
 
     fn log(&mut self,
-           _: node::store::LogParams,
-           mut results: node::store::LogResults)
+           _: node::mapping::LogParams,
+           mut results: node::mapping::LogResults)
            -> Promise<(), capnp::Error> {
         bind_results!(results);
-        let iter = log::IterServer::new(self.c.clone(), log::Selector::Store(self.id));
+        let iter = log::IterServer::new(self.c.clone(), log::Selector::Mapping(self.id));
         pry!(pry!(results.get().get_result()).set_ok(
             node::log_iter::ToClient::new(iter).into_client::<capnp_rpc::Server>()));
         Promise::ok(())
@@ -454,12 +454,12 @@ impl BindingServer {
     ///
     /// On success, the id of the binding and the key is returned, and
     /// whether or not the entry was just created.
-    fn lookup_or_create(c: &Connection, store: ID, label: &str, fp: &Fingerprint)
+    fn lookup_or_create(c: &Connection, mapping: ID, label: &str, fp: &Fingerprint)
                         -> Result<(ID, ID, bool)> {
         let key_id = KeyServer::lookup_or_create(c, fp)?;
         if let Ok((binding, key)) = c.query_row(
-            "SELECT id, key FROM bindings WHERE store = ?1 AND label = ?2",
-            &[&store as &ToSql, &label],
+            "SELECT id, key FROM bindings WHERE mapping = ?1 AND label = ?2",
+            &[&mapping as &ToSql, &label],
             |row| -> rusqlite::Result<(ID, ID)> {
                 Ok((row.get(0)?, row.get(1)?))
             })
@@ -471,9 +471,9 @@ impl BindingServer {
             }
         } else {
             let r = c.execute(
-                "INSERT INTO bindings (store, label, key, created)
+                "INSERT INTO bindings (mapping, label, key, created)
                  VALUES (?, ?, ?, ?)",
-                &[&store as &ToSql, &label, &key_id, &Timestamp::now()]);
+                &[&mapping as &ToSql, &label, &key_id, &Timestamp::now()]);
 
             // Some other mutator might race us to the insertion.
             match r {
@@ -481,8 +481,8 @@ impl BindingServer {
                     // We lost.  Retry the lookup.
                     rusqlite::ErrorCode::ConstraintViolation => {
                         let (binding, key): (ID, ID) = c.query_row(
-                            "SELECT id, key FROM bindings WHERE store = ?1 AND label = ?2",
-                            &[&store as &ToSql, &label],
+                            "SELECT id, key FROM bindings WHERE mapping = ?1 AND label = ?2",
+                            &[&mapping as &ToSql, &label],
                             |row| Ok((row.get(0)?, row.get(1)?)))?;
                         if key == key_id {
                             Ok((binding, key_id, false))
@@ -863,8 +863,8 @@ impl KeyServer {
         c.query_row(
             "SELECT keys.update_at FROM keys
                  JOIN bindings on keys.id = bindings.key
-                 JOIN stores on stores.id = bindings.store
-                 WHERE stores.network_policy = ?1
+                 JOIN mappings on mappings.id = bindings.mapping
+                 WHERE mappings.network_policy = ?1
                  ORDER BY keys.update_at LIMIT 1",
             &[&network_policy_u8], |row| -> rusqlite::Result<Timestamp> {
                 row.get(0)
@@ -879,8 +879,8 @@ impl KeyServer {
         let count: i64 = c.query_row(
             "SELECT COUNT(*) FROM keys
                  JOIN bindings on keys.id = bindings.key
-                 JOIN stores on stores.id = bindings.store
-                 WHERE stores.network_policy >= ?1",
+                 JOIN mappings on mappings.id = bindings.mapping
+                 WHERE mappings.network_policy >= ?1",
             &[&network_policy_u8], |row| row.get(0))?;
         assert!(count >= 0);
         Ok(count as i32)
@@ -899,8 +899,8 @@ impl KeyServer {
         let (id, fingerprint): (ID, String) = c.query_row(
             "SELECT keys.id, keys.fingerprint FROM keys
                  JOIN bindings on keys.id = bindings.key
-                 JOIN stores on stores.id = bindings.store
-                 WHERE stores.network_policy >= ?1
+                 JOIN mappings on mappings.id = bindings.mapping
+                 WHERE mappings.network_policy >= ?1
                    AND keys.update_at < ?2
                  ORDER BY keys.update_at LIMIT 1",
             &[&network_policy_u8 as &ToSql, &Timestamp::now()],
@@ -1125,27 +1125,27 @@ trait Query {
 
 /* Iterators.  */
 
-struct StoreIterServer {
+struct MappingIterServer {
     c: Rc<Connection>,
     prefix: String,
     n: ID,
 }
 
-impl StoreIterServer {
+impl MappingIterServer {
     fn new(c: Rc<Connection>, prefix: &str) -> Self {
-        StoreIterServer{c: c, prefix: String::from(prefix) + "%", n: ID::null()}
+        MappingIterServer{c: c, prefix: String::from(prefix) + "%", n: ID::null()}
     }
 }
 
-impl node::store_iter::Server for StoreIterServer {
+impl node::mapping_iter::Server for MappingIterServer {
     fn next(&mut self,
-            _: node::store_iter::NextParams,
-            mut results: node::store_iter::NextResults)
+            _: node::mapping_iter::NextParams,
+            mut results: node::mapping_iter::NextResults)
             -> Promise<(), capnp::Error> {
         bind_results!(results);
         let (id, realm, name, network_policy): (ID, String, String, i64) =
             sry!(self.c.query_row(
-                 "SELECT id, realm, name, network_policy FROM stores
+                 "SELECT id, realm, name, network_policy FROM mappings
                       WHERE id > ?1 AND realm like ?2
                       ORDER BY id LIMIT 1",
                 &[&self.n as &ToSql, &self.prefix],
@@ -1162,8 +1162,8 @@ impl node::store_iter::Server for StoreIterServer {
         entry.set_realm(&realm);
         entry.set_name(&name);
         entry.set_network_policy(network_policy.into());
-        entry.set_store(node::store::ToClient::new(
-            StoreServer::new(self.c.clone(), id)).into_client::<capnp_rpc::Server>());
+        entry.set_mapping(node::mapping::ToClient::new(
+            MappingServer::new(self.c.clone(), id)).into_client::<capnp_rpc::Server>());
         self.n = id;
         Promise::ok(())
     }
@@ -1171,13 +1171,13 @@ impl node::store_iter::Server for StoreIterServer {
 
 struct BindingIterServer {
     c: Rc<Connection>,
-    store_id: ID,
+    mapping_id: ID,
     n: ID,
 }
 
 impl BindingIterServer {
-    fn new(c: Rc<Connection>, store_id: ID) -> Self {
-        BindingIterServer{c: c, store_id: store_id, n: ID::null()}
+    fn new(c: Rc<Connection>, mapping_id: ID) -> Self {
+        BindingIterServer{c: c, mapping_id: mapping_id, n: ID::null()}
     }
 }
 
@@ -1191,9 +1191,9 @@ impl node::binding_iter::Server for BindingIterServer {
             sry!(self.c.query_row(
                  "SELECT bindings.id, bindings.label, keys.fingerprint FROM bindings
                       JOIN keys ON bindings.key = keys.id
-                      WHERE bindings.id > ?1 AND bindings.store = ?2
+                      WHERE bindings.id > ?1 AND bindings.mapping = ?2
                       ORDER BY bindings.id LIMIT 1",
-                &[&self.n, &self.store_id],
+                &[&self.n, &self.mapping_id],
                 |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?))));
 
         let mut entry = pry!(results.get().get_result()).init_ok();
@@ -1371,7 +1371,7 @@ CREATE TABLE version (
 
 INSERT INTO version (id, version) VALUES (1, 1);
 
-CREATE TABLE stores (
+CREATE TABLE mappings (
     id INTEGER PRIMARY KEY,
     realm TEXT NOT NULL,
     network_policy INTEGER NOT NULL,
@@ -1380,7 +1380,7 @@ CREATE TABLE stores (
 
 CREATE TABLE bindings (
     id INTEGER PRIMARY KEY,
-    store INTEGER NOT NULL,
+    mapping INTEGER NOT NULL,
     label TEXT NOT NULL,
     key INTEGER NOT NULL,
 
@@ -1394,8 +1394,8 @@ CREATE TABLE bindings (
     verification_first INTEGER NULL,
     verification_last INTEGER NULL,
 
-    UNIQUE(store, label),
-    FOREIGN KEY (store) REFERENCES stores(id) ON DELETE CASCADE,
+    UNIQUE(mapping, label),
+    FOREIGN KEY (mapping) REFERENCES mappings(id) ON DELETE CASCADE,
     FOREIGN KEY (key) REFERENCES keys(id) ON DELETE CASCADE);
 
 CREATE TABLE keys (
@@ -1428,13 +1428,13 @@ CREATE TABLE log (
     id INTEGER PRIMARY KEY,
     timestamp INTEGER NOT NULL,
     level INTEGER NOT NULL,
-    store INTEGER NULL,
+    mapping INTEGER NULL,
     binding INTEGER NULL,
     key INTEGER NULL,
     slug TEXT NOT NULL,
     message TEXT NOT NULL,
     error TEXT NULL,
-    FOREIGN KEY (store) REFERENCES stores(id) ON DELETE CASCADE,
+    FOREIGN KEY (mapping) REFERENCES mappings(id) ON DELETE CASCADE,
     FOREIGN KEY (binding) REFERENCES bindings(id) ON DELETE CASCADE,
     FOREIGN KEY (key) REFERENCES keys(id) ON DELETE CASCADE);
 ";

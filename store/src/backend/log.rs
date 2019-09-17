@@ -4,13 +4,13 @@
 use rusqlite::{Connection, types::ToSql};
 use super::{
     ID, Timestamp, Rc, Result, node,
-    StoreServer, BindingServer, KeyServer,
+    MappingServer, BindingServer, KeyServer,
     Promise, capnp, capnp_rpc
 };
 
 /// Models entries referring to other objects.
 pub struct Refers {
-    store: Option<ID>,
+    mapping: Option<ID>,
     binding: Option<ID>,
     key: Option<ID>,
 }
@@ -18,12 +18,12 @@ pub struct Refers {
 impl Refers {
     /// Builds an empty object.
     pub fn to() -> Self {
-	Refers{store: None, binding: None, key: None}
+	Refers{mapping: None, binding: None, key: None}
     }
 
-    /// Makes log refer a store.
-    pub fn store(mut self, id: ID) -> Self {
-        self.store = Some(id);
+    /// Makes log refer a mapping.
+    pub fn mapping(mut self, id: ID) -> Self {
+        self.mapping = Some(id);
         self
     }
 
@@ -59,10 +59,10 @@ fn log(c: &Rc<Connection>, refers: Refers,
        slug: &str, message: &str, error: Option<&str>)
        -> Result<ID> {
     c.execute("INSERT INTO log
-                   (timestamp, level, store, binding, key, slug, message, error)
+                   (timestamp, level, mapping, binding, key, slug, message, error)
                    VALUES (?1, 0, ?2, ?3, ?4, ?5, ?6, ?7)",
               &[&Timestamp::now() as &ToSql,
-                &refers.store, &refers.binding, &refers.key,
+                &refers.mapping, &refers.binding, &refers.key,
                 &slug, &message, &error])?;
     Ok(c.last_insert_rowid().into())
 }
@@ -70,7 +70,7 @@ fn log(c: &Rc<Connection>, refers: Refers,
 /// Selects log entries to iterate over.
 pub enum Selector {
     All,
-    Store(ID),
+    Mapping(ID),
     Binding(ID),
     Key(ID),
 }
@@ -97,7 +97,7 @@ impl node::log_iter::Server for IterServer {
 
         let (
             id, timestamp,
-            store, binding, key,
+            mapping, binding, key,
             slug, message, error
         ): (
             ID, Timestamp,
@@ -107,7 +107,7 @@ impl node::log_iter::Server for IterServer {
             Selector::All =>
                 self.c.query_row(
                     "SELECT id, timestamp,
-                            store, binding, key,
+                            mapping, binding, key,
                             slug, message, error
                          FROM log
                          WHERE id < ?1
@@ -117,18 +117,18 @@ impl node::log_iter::Server for IterServer {
                               row.get(2)?, row.get(3)?, row.get(4)?,
                               row.get(5)?, row.get(6)?, row.get(7)?))),
 
-            Selector::Store(store) =>
+            Selector::Mapping(mapping) =>
                 self.c.query_row(
                     "SELECT id, timestamp,
-                            store, binding, key,
+                            mapping, binding, key,
                             slug, message, error
                          FROM log
                          WHERE id < ?1
-                           AND (store = ?2
-                                OR binding IN (SELECT id FROM bindings WHERE store = ?2)
-                                OR key IN (SELECT key FROM bindings WHERE store = ?2))
+                           AND (mapping = ?2
+                                OR binding IN (SELECT id FROM bindings WHERE mapping = ?2)
+                                OR key IN (SELECT key FROM bindings WHERE mapping = ?2))
                          ORDER BY id DESC LIMIT 1",
-                    &[&self.n, &store],
+                    &[&self.n, &mapping],
                     |row| Ok((row.get(0)?, row.get(1)?,
                               row.get(2)?, row.get(3)?, row.get(4)?,
                               row.get(5)?, row.get(6)?, row.get(7)?))),
@@ -136,7 +136,7 @@ impl node::log_iter::Server for IterServer {
             Selector::Binding(binding) =>
                 self.c.query_row(
                     "SELECT id, timestamp,
-                            store, binding, key,
+                            mapping, binding, key,
                             slug, message, error
                          FROM log
                          WHERE id < ?1
@@ -151,7 +151,7 @@ impl node::log_iter::Server for IterServer {
             Selector::Key(key) =>
                 self.c.query_row(
                     "SELECT id, timestamp,
-                            store, binding, key,
+                            mapping, binding, key,
                             slug, message, error
                          FROM log
                          WHERE id < ?1
@@ -166,9 +166,9 @@ impl node::log_iter::Server for IterServer {
         let mut entry = pry!(results.get().get_result()).init_ok();
         entry.set_timestamp(timestamp.unix());
 
-        if let Some(store) = store {
-            entry.set_store(node::store::ToClient::new(
-                StoreServer::new(self.c.clone(), store))
+        if let Some(mapping) = mapping {
+            entry.set_mapping(node::mapping::ToClient::new(
+                MappingServer::new(self.c.clone(), mapping))
                             .into_client::<capnp_rpc::Server>());
         }
 

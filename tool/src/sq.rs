@@ -22,7 +22,7 @@ use std::process::exit;
 extern crate sequoia_openpgp as openpgp;
 extern crate sequoia_core;
 extern crate sequoia_net;
-extern crate sequoia_store;
+extern crate sequoia_store as store;
 
 use crate::openpgp::{armor, autocrypt, Fingerprint, TPK};
 use crate::openpgp::conversions::hex;
@@ -32,7 +32,7 @@ use crate::openpgp::serialize::Serialize;
 use crate::openpgp::tpk::TPKParser;
 use sequoia_core::{Context, NetworkPolicy};
 use sequoia_net::{KeyServer, wkd};
-use sequoia_store::{Store, LogIter};
+use store::{Mapping, LogIter};
 
 mod sq_cli;
 mod commands;
@@ -151,8 +151,8 @@ fn real_main() -> Result<(), failure::Error> {
         },
     };
     let force = matches.is_present("force");
-    let (realm_name, store_name) = {
-        let s = matches.value_of("store").expect("has a default value");
+    let (realm_name, mapping_name) = {
+        let s = matches.value_of("mapping").expect("has a default value");
         if let Some(i) = s.find('/') {
             (&s[..i], &s[i+1..])
         } else {
@@ -179,9 +179,9 @@ fn real_main() -> Result<(), failure::Error> {
             let secrets = m.values_of("secret-key-file")
                 .map(load_tpks)
                 .unwrap_or(Ok(vec![]))?;
-            let mut store = Store::open(&ctx, realm_name, store_name)
-                .context("Failed to open the store")?;
-            commands::decrypt(&ctx, &mut store,
+            let mut mapping = Mapping::open(&ctx, realm_name, mapping_name)
+                .context("Failed to open the mapping")?;
+            commands::decrypt(&ctx, &mut mapping,
                               &mut input, &mut output,
                               signatures, tpks, secrets,
                               m.is_present("dump-session-key"),
@@ -197,8 +197,8 @@ fn real_main() -> Result<(), failure::Error> {
             } else {
                 output
             };
-            let mut store = Store::open(&ctx, realm_name, store_name)
-                .context("Failed to open the store")?;
+            let mut mapping = Mapping::open(&ctx, realm_name, mapping_name)
+                .context("Failed to open the mapping")?;
             let recipients = m.values_of("recipient")
                 .map(|r| r.collect())
                 .unwrap_or(vec![]);
@@ -218,7 +218,7 @@ fn real_main() -> Result<(), failure::Error> {
                     .set_encrypt_for_transport(true),
                 _ => unreachable!("uses possible_values"),
             };
-            commands::encrypt(&mut store, &mut input, &mut output,
+            commands::encrypt(&mut mapping, &mut input, &mut output,
                               m.occurrences_of("symmetric") as usize,
                               recipients, additional_tpks, additional_secrets,
                               mode,
@@ -250,9 +250,9 @@ fn real_main() -> Result<(), failure::Error> {
             let tpks = m.values_of("public-key-file")
                 .map(load_tpks)
                 .unwrap_or(Ok(vec![]))?;
-            let mut store = Store::open(&ctx, realm_name, store_name)
-                .context("Failed to open the store")?;
-            commands::verify(&ctx, &mut store, &mut input,
+            let mut mapping = Mapping::open(&ctx, realm_name, mapping_name)
+                .context("Failed to open the mapping")?;
+            commands::verify(&ctx, &mut mapping, &mut input,
                              detached.as_mut().map(|r| r as &mut io::Read),
                              &mut output, signatures, tpks)?;
         },
@@ -402,28 +402,28 @@ fn real_main() -> Result<(), failure::Error> {
                 _ => unreachable!(),
             }
         },
-        ("store",  Some(m)) => {
-            let store = Store::open(&ctx, realm_name, store_name)
-                .context("Failed to open the store")?;
+        ("mapping",  Some(m)) => {
+            let mapping = Mapping::open(&ctx, realm_name, mapping_name)
+                .context("Failed to open the mapping")?;
 
             match m.subcommand() {
                 ("list",  Some(_)) => {
-                    list_bindings(&store, realm_name, store_name)?;
+                    list_bindings(&mapping, realm_name, mapping_name)?;
                 },
                 ("add",  Some(m)) => {
                     let fp = Fingerprint::from_hex(m.value_of("fingerprint").unwrap())
                         .expect("Malformed fingerprint");
-                    store.add(m.value_of("label").unwrap(), &fp)?;
+                    mapping.add(m.value_of("label").unwrap(), &fp)?;
                 },
                 ("import",  Some(m)) => {
                     let label = m.value_of("label").unwrap();
                     help_warning(label);
                     let mut input = open_or_stdin(m.value_of("input"))?;
                     let tpk = TPK::from_reader(&mut input)?;
-                    store.import(label, &tpk)?;
+                    mapping.import(label, &tpk)?;
                 },
                 ("export",  Some(m)) => {
-                    let tpk = store.lookup(m.value_of("label").unwrap())?.tpk()?;
+                    let tpk = mapping.lookup(m.value_of("label").unwrap())?.tpk()?;
                     let mut output = create_or_stdout(m.value_of("output"), force)?;
                     if m.is_present("binary") {
                         tpk.serialize(&mut output)?;
@@ -432,30 +432,30 @@ fn real_main() -> Result<(), failure::Error> {
                     }
                 },
                 ("delete",  Some(m)) => {
-                    if m.is_present("label") == m.is_present("the-store") {
-                        eprintln!("Please specify either a label or --the-store.");
+                    if m.is_present("label") == m.is_present("the-mapping") {
+                        eprintln!("Please specify either a label or --the-mapping.");
                         exit(1);
                     }
 
-                    if m.is_present("the-store") {
-                        store.delete().context("Failed to delete the store")?;
+                    if m.is_present("the-mapping") {
+                        mapping.delete().context("Failed to delete the mapping")?;
                     } else {
-                        let binding = store.lookup(m.value_of("label").unwrap())
+                        let binding = mapping.lookup(m.value_of("label").unwrap())
                             .context("Failed to get key")?;
                         binding.delete().context("Failed to delete the binding")?;
                     }
                 },
                 ("stats",  Some(m)) => {
-                    commands::store_print_stats(&store,
+                    commands::mapping_print_stats(&mapping,
                                                 m.value_of("label").unwrap())?;
                 },
                 ("log",  Some(m)) => {
                     if m.is_present("label") {
-                        let binding = store.lookup(m.value_of("label").unwrap())
+                        let binding = mapping.lookup(m.value_of("label").unwrap())
                             .context("No such key")?;
                         print_log(binding.log().context("Failed to get log")?, false);
                     } else {
-                        print_log(store.log().context("Failed to get log")?, true);
+                        print_log(mapping.log().context("Failed to get log")?, true);
                     }
                 },
                 _ => unreachable!(),
@@ -463,13 +463,13 @@ fn real_main() -> Result<(), failure::Error> {
         },
         ("list",  Some(m)) => {
             match m.subcommand() {
-                ("stores",  Some(m)) => {
+                ("mappings",  Some(m)) => {
                     let mut table = Table::new();
                     table.set_format(*prettytable::format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
                     table.set_titles(row!["realm", "name", "network policy"]);
 
                     for (realm, name, network_policy, _)
-                        in Store::list(&ctx, m.value_of("prefix").unwrap_or(""))? {
+                        in Mapping::list(&ctx, m.value_of("prefix").unwrap_or(""))? {
                             table.add_row(Row::new(vec![
                                 Cell::new(&realm),
                                 Cell::new(&name),
@@ -480,9 +480,9 @@ fn real_main() -> Result<(), failure::Error> {
                     table.printstd();
                 },
                 ("bindings",  Some(m)) => {
-                    for (realm, name, _, store)
-                        in Store::list(&ctx, m.value_of("prefix").unwrap_or(""))? {
-                            list_bindings(&store, &realm, &name)?;
+                    for (realm, name, _, mapping)
+                        in Mapping::list(&ctx, m.value_of("prefix").unwrap_or(""))? {
+                            list_bindings(&mapping, &realm, &name)?;
                         }
                 },
                 ("keys",  Some(_)) => {
@@ -490,7 +490,7 @@ fn real_main() -> Result<(), failure::Error> {
                     table.set_format(*prettytable::format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
                     table.set_titles(row!["fingerprint", "updated", "status"]);
 
-                    for (fingerprint, key) in Store::list_keys(&ctx)? {
+                    for (fingerprint, key) in store::Pool::list_keys(&ctx)? {
                             let stats = key.stats()
                                 .context("Failed to get key stats")?;
                             table.add_row(Row::new(vec![
@@ -507,7 +507,7 @@ fn real_main() -> Result<(), failure::Error> {
                     table.printstd();
                 },
                 ("log",  Some(_)) => {
-                    print_log(Store::server_log(&ctx)?, true);
+                    print_log(store::Pool::server_log(&ctx)?, true);
                 },
                 _ => unreachable!(),
             }
@@ -573,18 +573,20 @@ fn real_main() -> Result<(), failure::Error> {
     return Ok(())
 }
 
-fn list_bindings(store: &Store, realm: &str, name: &str) -> Result<(), failure::Error> {
-    if store.iter()?.count() == 0 {
-        println!("No label-key bindings in the \"{}/{}\" store.", realm, name);
+fn list_bindings(mapping: &Mapping, realm: &str, name: &str)
+                 -> Result<(), failure::Error> {
+    if mapping.iter()?.count() == 0 {
+        println!("No label-key bindings in the \"{}/{}\" mapping.",
+                 realm, name);
         return Ok(());
     }
 
-    println!("Realm: {:?}, store: {:?}:", realm, name);
+    println!("Realm: {:?}, mapping: {:?}:", realm, name);
 
     let mut table = Table::new();
     table.set_format(*prettytable::format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
     table.set_titles(row!["label", "fingerprint"]);
-    for (label, fingerprint, _) in store.iter()? {
+    for (label, fingerprint, _) in mapping.iter()? {
         table.add_row(Row::new(vec![
             Cell::new(&label),
             Cell::new(&fingerprint.to_string())]));

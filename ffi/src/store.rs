@@ -29,7 +29,7 @@ use std::ptr;
 extern crate sequoia_openpgp as openpgp;
 
 use sequoia_store::{
-    self, Store, StoreIter, Binding, BindingIter, Key, KeyIter, LogIter, Pool,
+    self, Mapping, MappingIter, Binding, BindingIter, Key, KeyIter, LogIter, Pool,
 };
 
 use super::error::Status;
@@ -43,33 +43,33 @@ use crate::MoveIntoRaw;
 use crate::MoveResultIntoRaw;
 use crate::Maybe;
 
-/// Lists all stores with the given prefix.
+/// Lists all mappings with the given prefix.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn sq_store_list_stores(ctx: *mut Context,
+fn sq_store_list_mappings(ctx: *mut Context,
                         realm_prefix: *const c_char)
-                        -> *mut StoreIter {
+                        -> *mut MappingIter {
     let ctx = ffi_param_ref_mut!(ctx);
     ffi_make_fry_from_ctx!(ctx);
     let realm_prefix = ffi_param_cstr!(realm_prefix).to_string_lossy();
 
-    ffi_try_box!(Store::list(&ctx.c, &realm_prefix))
+    ffi_try_box!(Mapping::list(&ctx.c, &realm_prefix))
 }
 
-/// Returns the next store.
+/// Returns the next mapping.
 ///
 /// Returns `NULL` on exhaustion.  If `realmp` is not `NULL`, the
-/// stores realm is stored there.  If `namep` is not `NULL`, the
-/// stores name is stored there.  If `policyp` is not `NULL`, the
-/// stores network policy is stored there.
+/// mapping's realm is stored there.  If `namep` is not `NULL`, the
+/// mapping's name is stored there.  If `policyp` is not `NULL`, the
+/// mapping's network policy is stored there.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn sq_store_iter_next(iter: *mut StoreIter,
+fn sq_mapping_iter_next(iter: *mut MappingIter,
                       realmp: Option<&mut *mut c_char>,
                       namep: Option<&mut *mut c_char>,
                       policyp: Option<&mut u8>)
-                      -> *mut Store {
+                      -> *mut Mapping {
     let iter = ffi_param_ref_mut!(iter);
     match iter.next() {
-        Some((realm, name, policy, store)) => {
+        Some((realm, name, policy, mapping)) => {
             if realmp.is_some() {
                 *realmp.unwrap() = ffi_return_maybe_string!(realm);
             }
@@ -82,15 +82,15 @@ fn sq_store_iter_next(iter: *mut StoreIter,
                 *policyp.unwrap() = (&policy).into();
             }
 
-            box_raw!(store)
+            box_raw!(mapping)
         },
         None => ptr::null_mut(),
     }
 }
 
-/// Frees a sq_store_iter_t.
+/// Frees a sq_mapping_iter_t.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn sq_store_iter_free(iter: Option<&mut StoreIter>) {
+fn sq_mapping_iter_free(iter: Option<&mut MappingIter>) {
     ffi_free!(iter)
 }
 
@@ -100,7 +100,7 @@ fn sq_store_list_keys(ctx: *mut Context) -> *mut KeyIter {
     let ctx = ffi_param_ref_mut!(ctx);
     ffi_make_fry_from_ctx!(ctx);
 
-    ffi_try_box!(Store::list_keys(&ctx.c))
+    ffi_try_box!(Pool::list_keys(&ctx.c))
 }
 
 /// Lists all log entries.
@@ -109,7 +109,7 @@ fn sq_store_server_log(ctx: *mut Context) -> *mut LogIter {
     let ctx = ffi_param_ref_mut!(ctx);
     ffi_make_fry_from_ctx!(ctx);
 
-    ffi_try_box!(Store::server_log(&ctx.c))
+    ffi_try_box!(Pool::server_log(&ctx.c))
 }
 
 /// Returns the next key.
@@ -160,7 +160,7 @@ fn sq_log_iter_next(iter: *mut LogIter) -> *mut Log {
 
             box_raw!(Log{
                 timestamp: e.timestamp.sec as u64,
-                store: maybe_box_raw!(e.store),
+                mapping: maybe_box_raw!(e.mapping),
                 binding: maybe_box_raw!(e.binding),
                 key: maybe_box_raw!(e.key),
                 slug: ffi_return_string!(&e.slug),
@@ -178,80 +178,80 @@ fn sq_log_iter_free(iter: Option<&mut LogIter>) {
     ffi_free!(iter)
 }
 
-/// Opens a store.
+/// Opens a mapping.
 ///
-/// Opens a store with the given name.  If the store does not
-/// exist, it is created.  Stores are handles for objects
+/// Opens a mapping with the given name.  If the mapping does not
+/// exist, it is created.  Mappings are handles for objects
 /// maintained by a background service.  The background service
 /// associates state with this name.
 ///
-/// The store updates TPKs in compliance with the network policy
-/// of the context that created the store in the first place.
-/// Opening the store with a different network policy is
+/// The mapping updates TPKs in compliance with the network policy
+/// of the context that created the mapping in the first place.
+/// Opening the mapping with a different network policy is
 /// forbidden.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn sq_store_open(ctx: *mut Context,
+fn sq_mapping_open(ctx: *mut Context,
                  realm: *const c_char,
                  name: *const c_char)
-                 -> *mut Store {
+                 -> *mut Mapping {
     let ctx = ffi_param_ref_mut!(ctx);
     ffi_make_fry_from_ctx!(ctx);
     let realm = ffi_param_cstr!(realm).to_string_lossy();
     let name = ffi_param_cstr!(name).to_string_lossy();
 
-    ffi_try_box!(Store::open(&ctx.c, &realm, &name))
+    ffi_try_box!(Mapping::open(&ctx.c, &realm, &name))
 }
 
-/// Frees a sq_store_t.
+/// Frees a sq_mapping_t.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn sq_store_free(store: Option<&mut Store>) {
-    ffi_free!(store)
+fn sq_mapping_free(mapping: Option<&mut Mapping>) {
+    ffi_free!(mapping)
 }
 
-/// Adds a key identified by fingerprint to the store.
+/// Adds a key identified by fingerprint to the mapping.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn sq_store_add(ctx: *mut Context,
-                store: *const Store,
+fn sq_mapping_add(ctx: *mut Context,
+                mapping: *const Mapping,
                 label: *const c_char,
                 fingerprint: *const Fingerprint)
                 -> *mut Binding {
     let ctx = ffi_param_ref_mut!(ctx);
     ffi_make_fry_from_ctx!(ctx);
-    let store = ffi_param_ref!(store);
+    let mapping = ffi_param_ref!(mapping);
     let label = ffi_param_cstr!(label).to_string_lossy();
     let fingerprint = fingerprint.ref_raw();
 
-    ffi_try_box!(store.add(&label, fingerprint))
+    ffi_try_box!(mapping.add(&label, fingerprint))
 }
 
-/// Imports a key into the store.
+/// Imports a key into the mapping.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn sq_store_import(ctx: *mut Context,
-                   store: *const Store,
+fn sq_mapping_import(ctx: *mut Context,
+                   mapping: *const Mapping,
                    label: *const c_char,
                    tpk: *const TPK)
                    -> Maybe<TPK> {
     let ctx = ffi_param_ref_mut!(ctx);
     ffi_make_fry_from_ctx!(ctx);
-    let store = ffi_param_ref!(store);
+    let mapping = ffi_param_ref!(mapping);
     let label = ffi_param_cstr!(label).to_string_lossy();
     let tpk = tpk.ref_raw();
 
-    store.import(&label, tpk).move_into_raw(Some(ctx.errp()))
+    mapping.import(&label, tpk).move_into_raw(Some(ctx.errp()))
 }
 
 /// Returns the binding for the given label.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn sq_store_lookup(ctx: *mut Context,
-                   store: *const Store,
+fn sq_mapping_lookup(ctx: *mut Context,
+                   mapping: *const Mapping,
                    label: *const c_char)
                    -> *mut Binding {
     let ctx = ffi_param_ref_mut!(ctx);
     ffi_make_fry_from_ctx!(ctx);
-    let store = ffi_param_ref!(store);
+    let mapping = ffi_param_ref!(mapping);
     let label = ffi_param_cstr!(label).to_string_lossy();
 
-    ffi_try_box!(store.lookup(&label))
+    ffi_try_box!(mapping.lookup(&label))
 }
 
 /// Looks up a key in the common key pool by KeyID.
@@ -278,35 +278,35 @@ fn sq_store_lookup_by_subkeyid(ctx: *mut Context, keyid: *const KeyID)
     ffi_try_box!(Pool::lookup_by_subkeyid(&ctx.c, keyid))
 }
 
-/// Deletes this store.
+/// Deletes this mapping.
 ///
-/// Consumes `store`.  Returns != 0 on error.
+/// Consumes `mapping`.  Returns != 0 on error.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn sq_store_delete(ctx: *mut Context, store: *mut Store)
+fn sq_mapping_delete(ctx: *mut Context, mapping: *mut Mapping)
                    -> Status {
     let ctx = ffi_param_ref_mut!(ctx);
     ffi_make_fry_from_ctx!(ctx);
-    let store = ffi_param_move!(store);
+    let mapping = ffi_param_move!(mapping);
 
-    ffi_try_status!(store.delete())
+    ffi_try_status!(mapping.delete())
 }
 
 /// Lists all bindings.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn sq_store_iter(ctx: *mut Context, store: *const Store)
+fn sq_mapping_iter(ctx: *mut Context, mapping: *const Mapping)
                  -> *mut BindingIter {
     let ctx = ffi_param_ref_mut!(ctx);
     ffi_make_fry_from_ctx!(ctx);
-    let store = ffi_param_ref!(store);
+    let mapping = ffi_param_ref!(mapping);
 
-    ffi_try_box!(store.iter())
+    ffi_try_box!(mapping.iter())
 }
 
 /// Returns the next binding.
 ///
 /// Returns `NULL` on exhaustion.  If `labelp` is not `NULL`, the
-/// bindings label is stored there.  If `fpp` is not `NULL`, the
-/// bindings fingerprint is stored there.
+/// bindings label is mappingd there.  If `fpp` is not `NULL`, the
+/// bindings fingerprint is mappingd there.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn sq_binding_iter_next(iter: *mut BindingIter,
                         labelp: Option<&mut *mut c_char>,
@@ -340,15 +340,15 @@ fn sq_binding_iter_free(iter: Option<&mut BindingIter>) {
     ffi_free!(iter)
 }
 
-/// Lists all log entries related to this store.
+/// Lists all log entries related to this mapping.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn sq_store_log(ctx: *mut Context, store: *const Store)
+fn sq_mapping_log(ctx: *mut Context, mapping: *const Mapping)
                 -> *mut LogIter {
     let ctx = ffi_param_ref_mut!(ctx);
     ffi_make_fry_from_ctx!(ctx);
-    let store = ffi_param_ref!(store);
+    let mapping = ffi_param_ref!(mapping);
 
-    ffi_try_box!(store.log())
+    ffi_try_box!(mapping.log())
 }
 
 /// Frees a sq_binding_t.
@@ -368,8 +368,8 @@ fn sq_key_free(key: Option<&mut Key>) {
 fn sq_log_free(log: Option<&mut Log>) {
     if let Some(log) = log {
         let log = unsafe { Box::from_raw(log) };
-        if ! log.store.is_null() {
-            ffi_param_move!(log.store);
+        if ! log.mapping.is_null() {
+            ffi_param_move!(log.mapping);
         }
         if ! log.binding.is_null() {
             ffi_param_move!(log.binding);
@@ -453,7 +453,7 @@ fn sq_binding_import(ctx: *mut Context,
 ///
 /// The current key is replaced with the new key `tpk`, even if
 /// they do not have the same fingerprint.  If a key with the same
-/// fingerprint as `tpk` is already in the store, is merged with
+/// fingerprint as `tpk` is already in the mapping, is merged with
 /// `tpk` and normalized.  The returned key contains all packets
 /// known to Sequoia, and should be used instead of `tpk`.
 ///
@@ -627,10 +627,10 @@ pub struct Log {
     /// Records the time of the entry.
     pub timestamp: u64,
 
-    /// Relates the entry to a store.
+    /// Relates the entry to a mapping.
     ///
     /// May be `NULL`.
-    pub store: *mut Store,
+    pub mapping: *mut Mapping,
 
     /// Relates the entry to a binding.
     ///

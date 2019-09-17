@@ -5,7 +5,7 @@ use std::env::current_exe;
 use std::path::PathBuf;
 
 use sequoia_core::{Context, NetworkPolicy, IPCPolicy};
-use sequoia_store::{Store, REALM_CONTACTS};
+use sequoia_store::{Mapping, REALM_CONTACTS};
 
 #[test]
 fn ipc_policy_external() {
@@ -15,7 +15,7 @@ fn ipc_policy_external() {
         .network_policy(NetworkPolicy::Offline)
         .ipc_policy(IPCPolicy::External)
         .build().unwrap();
-    Store::open(&ctx, REALM_CONTACTS, "default").unwrap();
+    Mapping::open(&ctx, REALM_CONTACTS, "default").unwrap();
 }
 
 #[test]
@@ -26,7 +26,7 @@ fn ipc_policy_internal() {
         .network_policy(NetworkPolicy::Offline)
         .ipc_policy(IPCPolicy::Internal)
         .build().unwrap();
-    Store::open(&ctx, REALM_CONTACTS, "default").unwrap();
+    Mapping::open(&ctx, REALM_CONTACTS, "default").unwrap();
 }
 
 #[test]
@@ -37,7 +37,7 @@ fn ipc_policy_robust() {
         .network_policy(NetworkPolicy::Offline)
         .ipc_policy(IPCPolicy::Robust)
         .build().unwrap();
-    Store::open(&ctx, REALM_CONTACTS, "default").unwrap();
+    Mapping::open(&ctx, REALM_CONTACTS, "default").unwrap();
 
     let ctx = Context::configure()
         .ephemeral()
@@ -45,5 +45,5 @@ fn ipc_policy_robust() {
         .network_policy(NetworkPolicy::Offline)
         .ipc_policy(IPCPolicy::Robust)
         .build().unwrap();
-    Store::open(&ctx, REALM_CONTACTS, "default").unwrap();
+    Mapping::open(&ctx, REALM_CONTACTS, "default").unwrap();
 }
