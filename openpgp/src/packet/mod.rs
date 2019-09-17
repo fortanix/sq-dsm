@@ -257,7 +257,7 @@ impl Common {
 /// This is used by OpenPGP container packets, like the compressed
 /// data packet, to store the containing packets.
 #[derive(PartialEq, Eq, Hash, Clone)]
-pub struct Container {
+pub(crate) struct Container {
     pub(crate) packets: Vec<Packet>,
 }
 
