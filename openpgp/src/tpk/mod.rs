@@ -1026,6 +1026,88 @@ impl TPK {
         &self.primary
     }
 
+    /// Returns the binding for the primary User ID at time `t`.
+    ///
+    /// See `TPK::primary_userid_full` for a description of how the
+    /// primary user id is determined.
+    pub fn primary_userid<T>(&self, t: T) -> Option<&UserIDBinding>
+        where T: Into<Option<time::Tm>>
+    {
+        self.primary_userid_full(t).map(|r| r.0)
+    }
+
+    /// Returns the binding for the primary User ID at time `t` and
+    /// some associated data.
+    ///
+    /// In addition to the User ID binding, this also returns the
+    /// binding signature and the User ID's `RevocationStatus` at time
+    /// `t`.
+    ///
+    /// The primary User ID is determined by taking the User IDs that
+    /// are alive at time `t`, and sorting them as follows:
+    ///
+    ///   - non-revoked first
+    ///   - primary first
+    ///   - signature creation first
+    ///
+    /// If there is more than one, than one is selected in a
+    /// deterministic, but undefined manner.
+    pub fn primary_userid_full<T>(&self, t: T)
+        -> Option<(&UserIDBinding, &Signature, RevocationStatus)>
+        where T: Into<Option<time::Tm>>
+    {
+        let t = t.into().unwrap_or_else(time::now_utc);
+        self.userids()
+            // Filter out User IDs that are not alive at time `t`.
+            //
+            // While we have the binding signature, extract a few
+            // properties to avoid recomputing the same thing multiple
+            // times.
+            .filter_map(|b| {
+                // No binding signature at time `t` => not alive.
+                let selfsig = b.binding_signature(t)?;
+
+                if !selfsig.signature_alive_at(t) {
+                    return None;
+                }
+
+                let revoked = b.revoked(t);
+                let primary = selfsig.primary_userid().unwrap_or(false);
+                let signature_creation_time = selfsig.signature_creation_time()?;
+
+                Some(((b, selfsig, revoked), primary, signature_creation_time))
+            })
+            .max_by(|(a, a_primary, a_signature_creation_time),
+                    (b, b_primary, b_signature_creation_time)| {
+                match (destructures_to!(RevocationStatus::Revoked(_) = &a.2),
+                       destructures_to!(RevocationStatus::Revoked(_) = &b.2)) {
+                    (true, false) => return Ordering::Less,
+                    (false, true) => return Ordering::Greater,
+                    _ => (),
+                }
+                match (a_primary, b_primary) {
+                    (true, false) => return Ordering::Greater,
+                    (false, true) => return Ordering::Less,
+                    _ => (),
+                }
+                match a_signature_creation_time.cmp(&b_signature_creation_time) {
+                    Ordering::Less => return Ordering::Less,
+                    Ordering::Greater => return Ordering::Greater,
+                    Ordering::Equal => (),
+                }
+
+                // Fallback to a lexographical comparison.  Prefer
+                // the "smaller" one.
+                match a.0.userid().value().cmp(&b.0.userid().value()) {
+                    Ordering::Less => return Ordering::Greater,
+                    Ordering::Greater => return Ordering::Less,
+                    Ordering::Equal =>
+                        panic!("non-canonicalized TPK (duplicate User IDs)"),
+                }
+            })
+            .map(|b| b.0)
+    }
+
     /// Returns the primary key's current self-signature and, if the
     /// self-signature belongs to a user id (as opposed to a direct
     /// signature), a reference to the `UserIDBinding`.
@@ -2959,5 +3041,148 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
     fn tpk_is_send_and_sync() {
         fn f<T: Send + Sync>(_: T) {}
         f(TPK::from_bytes(crate::tests::key("testy-new.pgp")).unwrap());
+    }
+
+    #[test]
+    fn primary_userid() {
+        // 'really-revoked-userid' has two user ids.  One of them is
+        // revoked and then restored.  Neither of the user ids has the
+        // primary userid bit set.
+        //
+        // This test makes sure that TPK::primary_userid prefers
+        // unrevoked user ids to revoked user ids, even if the latter
+        // have newer self signatures.
+
+        let tpk = TPK::from_bytes(
+            crate::tests::key("really-revoked-userid-0-public.pgp")).unwrap();
+
+        let now = time::now_utc();
+        let selfsig0
+            = tpk.userids().map(|b| {
+                b.binding_signature(now).unwrap()
+                    .signature_creation_time().unwrap()
+            })
+            .max().unwrap();
+
+        // The self-sig for:
+        //
+        //   Slim Shady: 2019-09-14T14:21
+        //   Eminem:     2019-09-14T14:22
+        assert_eq!(tpk.primary_userid(selfsig0).unwrap().userid().value(), b"Eminem");
+        assert_eq!(tpk.primary_userid(now).unwrap().userid().value(), b"Eminem");
+
+        // A soft-revocation for "Slim Shady".
+        let tpk = tpk.merge(
+            TPK::from_bytes(
+                crate::tests::key("really-revoked-userid-1-soft-revocation.pgp")
+            ).unwrap()).unwrap();
+
+        assert_eq!(tpk.primary_userid(selfsig0).unwrap().userid().value(), b"Eminem");
+        assert_eq!(tpk.primary_userid(now).unwrap().userid().value(), b"Eminem");
+
+        // A new self signature for "Slim Shady".  This should
+        // override the soft-revocation.
+        let tpk = tpk.merge(
+            TPK::from_bytes(
+                crate::tests::key("really-revoked-userid-2-new-self-sig.pgp")
+            ).unwrap()).unwrap();
+
+        assert_eq!(tpk.primary_userid(selfsig0).unwrap().userid().value(), b"Eminem");
+        assert_eq!(tpk.primary_userid(now).unwrap().userid().value(), b"Slim Shady");
+
+        // A hard revocation for "Slim Shady".
+        let tpk = tpk.merge(
+            TPK::from_bytes(
+                crate::tests::key("really-revoked-userid-3-hard-revocation.pgp")
+            ).unwrap()).unwrap();
+
+        assert_eq!(tpk.primary_userid(selfsig0).unwrap().userid().value(), b"Eminem");
+        assert_eq!(tpk.primary_userid(now).unwrap().userid().value(), b"Eminem");
+
+        // A newer self siganture for "Slim Shady". Unlike for TPKs, this
+        // does NOT trump everything.
+        let tpk = tpk.merge(
+            TPK::from_bytes(
+                crate::tests::key("really-revoked-userid-4-new-self-sig.pgp")
+            ).unwrap()).unwrap();
+
+        assert_eq!(tpk.primary_userid(selfsig0).unwrap().userid().value(), b"Eminem");
+        assert_eq!(tpk.primary_userid(now).unwrap().userid().value(), b"Slim Shady");
+
+        // Play with the primary user id flag.
+
+        let tpk = TPK::from_bytes(
+            crate::tests::key("primary-key-0-public.pgp")).unwrap();
+        let selfsig0
+            = tpk.userids().map(|b| {
+                b.binding_signature(now).unwrap()
+                    .signature_creation_time().unwrap()
+            })
+            .max().unwrap();
+
+        // There is only a single User ID.
+        assert_eq!(tpk.primary_userid(selfsig0).unwrap().userid().value(), b"aaaaa");
+        assert_eq!(tpk.primary_userid(now).unwrap().userid().value(), b"aaaaa");
+
+
+        // Add a second user id.  Since neither is marked primary, the
+        // newer one should be considered primary.
+        let tpk = tpk.merge(
+            TPK::from_bytes(
+                crate::tests::key("primary-key-1-add-userid-bbbbb.pgp")
+            ).unwrap()).unwrap();
+
+        assert_eq!(tpk.primary_userid(selfsig0).unwrap().userid().value(), b"aaaaa");
+        assert_eq!(tpk.primary_userid(now).unwrap().userid().value(), b"bbbbb");
+
+        // Mark aaaaa as primary.  It is now primary and the newest one.
+        let tpk = tpk.merge(
+            TPK::from_bytes(
+                crate::tests::key("primary-key-2-make-aaaaa-primary.pgp")
+            ).unwrap()).unwrap();
+
+        assert_eq!(tpk.primary_userid(selfsig0).unwrap().userid().value(), b"aaaaa");
+        assert_eq!(tpk.primary_userid(now).unwrap().userid().value(), b"aaaaa");
+
+        // Update the preferences on bbbbb.  It is now the newest, but
+        // it is not marked as primary.
+        let tpk = tpk.merge(
+            TPK::from_bytes(
+                crate::tests::key("primary-key-3-make-bbbbb-new-self-sig.pgp")
+            ).unwrap()).unwrap();
+
+        assert_eq!(tpk.primary_userid(selfsig0).unwrap().userid().value(), b"aaaaa");
+        assert_eq!(tpk.primary_userid(now).unwrap().userid().value(), b"aaaaa");
+
+        // Mark bbbbb as primary.  It is now the newest and marked as
+        // primary.
+        let tpk = tpk.merge(
+            TPK::from_bytes(
+                crate::tests::key("primary-key-4-make-bbbbb-primary.pgp")
+            ).unwrap()).unwrap();
+
+        assert_eq!(tpk.primary_userid(selfsig0).unwrap().userid().value(), b"aaaaa");
+        assert_eq!(tpk.primary_userid(now).unwrap().userid().value(), b"bbbbb");
+
+        // Update the preferences on aaaaa.  It is now has the newest
+        // self sig, but that self sig does not say that it is
+        // primary.
+        let tpk = tpk.merge(
+            TPK::from_bytes(
+                crate::tests::key("primary-key-5-make-aaaaa-self-sig.pgp")
+            ).unwrap()).unwrap();
+
+        assert_eq!(tpk.primary_userid(selfsig0).unwrap().userid().value(), b"aaaaa");
+        assert_eq!(tpk.primary_userid(now).unwrap().userid().value(), b"bbbbb");
+
+        // Hard revoke aaaaa.  Unlike with TPKs, a hard revocation is
+        // not treated specially.
+        let tpk = tpk.merge(
+            TPK::from_bytes(
+                crate::tests::key("primary-key-6-revoked-aaaaa.pgp")
+            ).unwrap()).unwrap();
+
+        assert_eq!(tpk.primary_userid(selfsig0).unwrap().userid().value(), b"aaaaa");
+        assert_eq!(tpk.primary_userid(now).unwrap().userid().value(), b"bbbbb");
     }
 }
