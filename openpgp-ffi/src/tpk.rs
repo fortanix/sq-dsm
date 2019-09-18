@@ -320,20 +320,17 @@ fn pgp_tpk_revoke_in_place(errp: Option<&mut *mut crate::error::Error>,
 }
 
 /// Returns whether the TPK has expired.
+///
+/// If `when` is 0, then the current time is used.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn pgp_tpk_expired(tpk: *const TPK)
-                   -> c_int {
+fn pgp_tpk_expired(tpk: *const TPK, when: time_t) -> c_int {
     let tpk = tpk.ref_raw();
-
-    tpk.expired() as c_int
-}
-
-/// Returns whether the TPK has expired.
-#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn pgp_tpk_expired_at(tpk: *const TPK, when: time_t)
-                      -> c_int {
-    let tpk = tpk.ref_raw();
-    tpk.expired_at(time::at(time::Timespec::new(when as i64, 0))) as c_int
+    let t = if when == 0 {
+        None
+    } else {
+        Some(time::at(time::Timespec::new(when as i64, 0)))
+    };
+    tpk.expired(t) as c_int
 }
 
 /// Returns whether the TPK is alive.

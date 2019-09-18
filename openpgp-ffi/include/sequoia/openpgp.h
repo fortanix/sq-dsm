@@ -812,13 +812,10 @@ pgp_tpk_t pgp_tpk_revoke_in_place (pgp_error_t *errp,
 
 /*/
 /// Returns whether the TPK has expired.
+///
+/// If `when` is 0, then the current time is used.
 /*/
-int pgp_tpk_expired(pgp_tpk_t tpk);
-
-/*/
-/// Returns whether the TPK has expired at the specified time.
-/*/
-int pgp_tpk_expired_at(pgp_tpk_t tpk, time_t at);
+int pgp_tpk_expired(pgp_tpk_t tpk, time_t at);
 
 /*/
 /// Returns whether the TPK is alive.

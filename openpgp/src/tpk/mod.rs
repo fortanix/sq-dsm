@@ -1286,19 +1286,13 @@ impl TPK {
         self.merge_packets(vec![sig.into()])
     }
 
-    /// Returns whether or not the TPK has expired.
-    pub fn expired(&self) -> bool {
-        if let Some(Signature::V4(sig)) = self.primary_key_signature(None) {
-            sig.key_expired(self.primary().key(), None)
-        } else {
-            false
-        }
-    }
-
-    /// Returns whether or not the key is expired at the given time.
-    pub fn expired_at(&self, tm: time::Tm) -> bool {
-        if let Some(Signature::V4(sig)) = self.primary_key_signature(tm) {
-            sig.key_expired(self.primary().key(), tm)
+    /// Returns whether or not the key is expired at `t`.
+    pub fn expired<T>(&self, t: T) -> bool
+        where T: Into<Option<time::Tm>>
+    {
+        let t = t.into();
+        if let Some(Signature::V4(sig)) = self.primary_key_signature(t) {
+            sig.key_expired(self.primary().key(), t)
         } else {
             false
         }
