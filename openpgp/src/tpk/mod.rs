@@ -1286,7 +1286,7 @@ impl TPK {
         self.merge_packets(vec![sig.into()])
     }
 
-    /// Returns whether or not the key is expired at `t`.
+    /// Returns whether or not the TPK is expired at `t`.
     pub fn expired<T>(&self, t: T) -> bool
         where T: Into<Option<time::Tm>>
     {
@@ -1737,7 +1737,7 @@ impl TPK {
 
     /// Converts the TPK into a `PacketPile`.
     ///
-    /// This method discards an invalid components and bad signatures.
+    /// This method discards invalid components and bad signatures.
     pub fn into_packet_pile(self) -> PacketPile {
         PacketPile::from(self.into_packets().collect::<Vec<Packet>>())
     }
