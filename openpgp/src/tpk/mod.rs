@@ -1361,10 +1361,7 @@ impl TPK {
         self.set_expiry_as_of(primary_signer, expiration, time::now())
     }
 
-    /// Returns an iterator over the TPK's valid `UserIDBinding`s.
-    ///
-    /// The primary user id is returned first.  A valid
-    /// `UserIDBinding` has at least one good self-signature.
+    /// Returns an iterator over the TPK's `UserIDBinding`s.
     pub fn userids(&self) -> UserIDBindingIter {
         UserIDBindingIter { iter: Some(self.userids.iter()) }
     }
