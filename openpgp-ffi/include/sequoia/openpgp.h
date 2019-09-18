@@ -395,14 +395,11 @@ bool pgp_signature_alive(pgp_signature_t signature);
 bool pgp_signature_alive_at(pgp_signature_t signature, time_t when);
 
 /*/
-/// Returns whether the signature is expired.
-/*/
-bool pgp_signature_expired(pgp_signature_t signature);
-
-/*/
 /// Returns whether the signature is expired at the specified time.
+///
+/// If `when` is 0, then the current time is used.
 /*/
-bool pgp_signature_expired_at(pgp_signature_t signature, time_t when);
+bool pgp_signature_expired(pgp_signature_t signature, time_t when);
 
 /*/
 /// Returns whether the signature is alive at the specified time.

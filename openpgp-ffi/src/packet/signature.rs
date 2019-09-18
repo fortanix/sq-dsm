@@ -135,17 +135,17 @@ fn pgp_signature_alive_at(sig: *const Signature, when: time_t) -> bool {
         .signature_alive_at(time::at(time::Timespec::new(when as i64, 0)))
 }
 
-/// Returns whether the signature is expired.
-#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn pgp_signature_expired(sig: *const Signature) -> bool {
-    sig.ref_raw().signature_expired()
-}
-
 /// Returns whether the signature is expired at the specified time.
+///
+/// If `when` is 0, then the current time is used.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn pgp_signature_expired_at(sig: *const Signature, when: time_t) -> bool {
-    sig.ref_raw()
-        .signature_expired_at(time::at(time::Timespec::new(when as i64, 0)))
+fn pgp_signature_expired(sig: *const Signature, when: time_t) -> bool {
+    let t = if when == 0 {
+        None
+    } else {
+        Some(time::at(time::Timespec::new(when as i64, 0)))
+    };
+    sig.ref_raw().signature_expired(t)
 }
 
 /// Returns whether the signature is alive at the specified time.
