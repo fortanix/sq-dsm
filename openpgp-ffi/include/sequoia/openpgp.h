@@ -422,15 +422,12 @@ bool pgp_signature_key_alive_at(pgp_signature_t signature, pgp_key_t key,
                                 time_t when);
 
 /*/
-/// Returns whether the signature is expired.
-/*/
-bool pgp_signature_key_expired(pgp_signature_t signature, pgp_key_t key);
-
-/*/
 /// Returns whether the signature is expired at the specified time.
+///
+/// If `when` is 0, then the current time is used.
 /*/
-bool pgp_signature_key_expired_at(pgp_signature_t signature, pgp_key_t key,
-                                  time_t when);
+bool pgp_signature_key_expired(pgp_signature_t signature, pgp_key_t key,
+                               time_t when);
 
 /*/
 /// Returns the PKESK's recipient.
