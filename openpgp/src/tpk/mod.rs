@@ -1103,8 +1103,11 @@ impl TPK {
             .map(|b| b.0)
     }
 
-    /// Returns the primary key's current self-signature as of `t` and
-    /// the corresponding User ID binding, if any.
+    /// Returns the primary key's current self-signature as of `t`.
+    ///
+    /// If the current self-signature is from a User ID binding (and
+    /// not a direct signature), this also returns the User ID binding
+    /// and its revocation status as of `t`.
     ///
     /// The primary key's current self-signature as of `t` is, in
     /// order of preference:
@@ -1120,7 +1123,7 @@ impl TPK {
     ///
     /// If there are no applicable signatures, `None` is returned.
     pub fn primary_key_signature_full<T>(&self, t: T)
-        -> Option<(Option<&UserIDBinding>, &Signature)>
+        -> Option<(&Signature, Option<(&UserIDBinding, RevocationStatus)>)>
         where T: Into<Option<time::Tm>>
     {
         let t = t.into().unwrap_or_else(time::now_utc);
@@ -1129,19 +1132,19 @@ impl TPK {
         let primary_userid = self.primary_userid_full(t);
         if let Some((ref u, ref s, ref r)) = primary_userid {
             if !destructures_to!(RevocationStatus::Revoked(_) = r) {
-                return Some((Some(u), s));
+                return Some((s, Some((u, r.clone()))));
             }
         }
 
         // 2. Direct signature.
         if let Some(s) = self.primary.binding_signature(t) {
-            return Some((None, s));
+            return Some((s, None));
         }
 
         // 3. All User IDs are revoked.
         if let Some((u, s, r)) = primary_userid {
-            assert!(destructures_to!(RevocationStatus::Revoked(_) = r));
-            return Some((Some(u), s));
+            assert!(destructures_to!(RevocationStatus::Revoked(_) = &r));
+            return Some((s, Some((u, r))));
         }
 
         // 4. No user ids and no direct signatures.
@@ -1156,7 +1159,7 @@ impl TPK {
     pub fn primary_key_signature<T>(&self, t: T) -> Option<&Signature>
         where T: Into<Option<time::Tm>>
     {
-        if let Some((_, sig)) = self.primary_key_signature_full(t) {
+        if let Some((sig, _)) = self.primary_key_signature_full(t) {
             Some(sig)
         } else {
             None
@@ -1333,7 +1336,7 @@ impl TPK {
         where R: key::KeyRole
     {
         let sig = {
-            let (userid, template) = self
+            let (template, userid) = self
                 .primary_key_signature_full(Some(now))
                 .ok_or(Error::MalformedTPK("No self-signature".into()))?;
 
@@ -1342,7 +1345,7 @@ impl TPK {
             let mut hash = hash_algo.context()?;
 
             self.primary().key().hash(&mut hash);
-            if let Some(userid) = userid {
+            if let Some((userid, _)) = userid {
                 userid.userid().hash(&mut hash);
             } else {
                 assert_eq!(template.typ(), SignatureType::DirectKey);
