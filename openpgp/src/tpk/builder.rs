@@ -543,7 +543,7 @@ mod tests {
             .primary_keyflags(KeyFlags::default())
             .add_subkey(KeyFlags::default().set_certify(true))
             .generate().unwrap();
-        let sig_pkts = tpk1.subkeys().next().unwrap().selfsigs[0].hashed_area();
+        let sig_pkts = tpk1.subkeys().next().unwrap().self_signatures[0].hashed_area();
 
         match sig_pkts.lookup(SubpacketTag::KeyFlags) {
             Some(Subpacket{ value: SubpacketValue::KeyFlags(ref ks),.. }) => {

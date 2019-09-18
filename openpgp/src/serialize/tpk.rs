@@ -55,7 +55,7 @@ impl TPK {
         }
 
         for u in self.userids() {
-            if export && ! u.selfsigs().iter().chain(u.self_revocations()).any(
+            if export && ! u.self_signatures().iter().chain(u.self_revocations()).any(
                 |s| s.exportable_certification().unwrap_or(true))
             {
                 // No exportable selfsig on this component, skip it.
@@ -66,7 +66,7 @@ impl TPK {
             for s in u.self_revocations() {
                 serialize_sig(o, s)?;
             }
-            for s in u.selfsigs() {
+            for s in u.self_signatures() {
                 serialize_sig(o, s)?;
             }
             for s in u.other_revocations() {
@@ -78,7 +78,7 @@ impl TPK {
         }
 
         for u in self.user_attributes() {
-            if export && ! u.selfsigs().iter().chain(u.self_revocations()).any(
+            if export && ! u.self_signatures().iter().chain(u.self_revocations()).any(
                 |s| s.exportable_certification().unwrap_or(true))
             {
                 // No exportable selfsig on this component, skip it.
@@ -89,7 +89,7 @@ impl TPK {
             for s in u.self_revocations() {
                 serialize_sig(o, s)?;
             }
-            for s in u.selfsigs() {
+            for s in u.self_signatures() {
                 serialize_sig(o, s)?;
             }
             for s in u.other_revocations() {
@@ -101,7 +101,7 @@ impl TPK {
         }
 
         for k in self.subkeys() {
-            if export && ! k.selfsigs().iter().chain(k.self_revocations()).any(
+            if export && ! k.self_signatures().iter().chain(k.self_revocations()).any(
                 |s| s.exportable_certification().unwrap_or(true))
             {
                 // No exportable selfsig on this component, skip it.
@@ -112,7 +112,7 @@ impl TPK {
             for s in k.self_revocations() {
                 serialize_sig(o, s)?;
             }
-            for s in k.selfsigs() {
+            for s in k.self_signatures() {
                 serialize_sig(o, s)?;
             }
             for s in k.other_revocations() {
@@ -136,7 +136,7 @@ impl TPK {
             for s in u.self_revocations() {
                 serialize_sig(o, s)?;
             }
-            for s in u.selfsigs() {
+            for s in u.self_signatures() {
                 serialize_sig(o, s)?;
             }
             for s in u.other_revocations() {
@@ -179,7 +179,7 @@ impl SerializeInto for TPK {
             for s in u.self_revocations() {
                 l += PacketRef::Signature(s).serialized_len();
             }
-            for s in u.selfsigs() {
+            for s in u.self_signatures() {
                 l += PacketRef::Signature(s).serialized_len();
             }
             for s in u.other_revocations() {
@@ -196,7 +196,7 @@ impl SerializeInto for TPK {
             for s in u.self_revocations() {
                 l += PacketRef::Signature(s).serialized_len();
             }
-            for s in u.selfsigs() {
+            for s in u.self_signatures() {
                 l += PacketRef::Signature(s).serialized_len();
             }
             for s in u.other_revocations() {
@@ -213,7 +213,7 @@ impl SerializeInto for TPK {
             for s in k.self_revocations() {
                 l += PacketRef::Signature(s).serialized_len();
             }
-            for s in k.selfsigs() {
+            for s in k.self_signatures() {
                 l += PacketRef::Signature(s).serialized_len();
             }
             for s in k.other_revocations() {
@@ -230,7 +230,7 @@ impl SerializeInto for TPK {
             for s in u.self_revocations() {
                 l += PacketRef::Signature(s).serialized_len();
             }
-            for s in u.selfsigs() {
+            for s in u.self_signatures() {
                 l += PacketRef::Signature(s).serialized_len();
             }
             for s in u.other_revocations() {
@@ -400,7 +400,7 @@ impl<'a> TSK<'a> {
         }
 
         for u in self.tpk.userids() {
-            if export && ! u.selfsigs().iter().chain(u.self_revocations()).any(
+            if export && ! u.self_signatures().iter().chain(u.self_revocations()).any(
                 |s| s.exportable_certification().unwrap_or(true))
             {
                 // No exportable selfsig on this component, skip it.
@@ -411,7 +411,7 @@ impl<'a> TSK<'a> {
             for s in u.self_revocations() {
                 serialize_sig(o, s)?;
             }
-            for s in u.selfsigs() {
+            for s in u.self_signatures() {
                 serialize_sig(o, s)?;
             }
             for s in u.other_revocations() {
@@ -423,7 +423,7 @@ impl<'a> TSK<'a> {
         }
 
         for u in self.tpk.user_attributes() {
-            if export && ! u.selfsigs().iter().chain(u.self_revocations()).any(
+            if export && ! u.self_signatures().iter().chain(u.self_revocations()).any(
                 |s| s.exportable_certification().unwrap_or(true))
             {
                 // No exportable selfsig on this component, skip it.
@@ -434,7 +434,7 @@ impl<'a> TSK<'a> {
             for s in u.self_revocations() {
                 serialize_sig(o, s)?;
             }
-            for s in u.selfsigs() {
+            for s in u.self_signatures() {
                 serialize_sig(o, s)?;
             }
             for s in u.other_revocations() {
@@ -446,7 +446,7 @@ impl<'a> TSK<'a> {
         }
 
         for k in self.tpk.subkeys() {
-            if export && ! k.selfsigs().iter().chain(k.self_revocations()).any(
+            if export && ! k.self_signatures().iter().chain(k.self_revocations()).any(
                 |s| s.exportable_certification().unwrap_or(true))
             {
                 // No exportable selfsig on this component, skip it.
@@ -458,7 +458,7 @@ impl<'a> TSK<'a> {
             for s in k.self_revocations() {
                 serialize_sig(o, s)?;
             }
-            for s in k.selfsigs() {
+            for s in k.self_signatures() {
                 serialize_sig(o, s)?;
             }
             for s in k.other_revocations() {
@@ -482,7 +482,7 @@ impl<'a> TSK<'a> {
             for s in u.self_revocations() {
                 serialize_sig(o, s)?;
             }
-            for s in u.selfsigs() {
+            for s in u.self_signatures() {
                 serialize_sig(o, s)?;
             }
             for s in u.other_revocations() {
@@ -558,7 +558,7 @@ impl<'a> SerializeInto for TSK<'a> {
             for s in u.self_revocations() {
                 l += PacketRef::Signature(s).serialized_len();
             }
-            for s in u.selfsigs() {
+            for s in u.self_signatures() {
                 l += PacketRef::Signature(s).serialized_len();
             }
             for s in u.other_revocations() {
@@ -575,7 +575,7 @@ impl<'a> SerializeInto for TSK<'a> {
             for s in u.self_revocations() {
                 l += PacketRef::Signature(s).serialized_len();
             }
-            for s in u.selfsigs() {
+            for s in u.self_signatures() {
                 l += PacketRef::Signature(s).serialized_len();
             }
             for s in u.other_revocations() {
@@ -593,7 +593,7 @@ impl<'a> SerializeInto for TSK<'a> {
             for s in k.self_revocations() {
                 l += PacketRef::Signature(s).serialized_len();
             }
-            for s in k.selfsigs() {
+            for s in k.self_signatures() {
                 l += PacketRef::Signature(s).serialized_len();
             }
             for s in k.other_revocations() {
@@ -610,7 +610,7 @@ impl<'a> SerializeInto for TSK<'a> {
             for s in u.self_revocations() {
                 l += PacketRef::Signature(s).serialized_len();
             }
-            for s in u.selfsigs() {
+            for s in u.self_signatures() {
                 l += PacketRef::Signature(s).serialized_len();
             }
             for s in u.other_revocations() {

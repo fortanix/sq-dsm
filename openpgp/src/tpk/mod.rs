@@ -114,7 +114,7 @@ pub struct ComponentBinding<C> {
     component: C,
 
     // Self signatures.
-    selfsigs: Vec<Signature>,
+    self_signatures: Vec<Signature>,
 
     // Third-party certifications.  (In general, this will only be by
     // designated revokers.)
@@ -152,7 +152,7 @@ impl<C> ComponentBinding<C> {
         let t = t.into().unwrap_or_else(time::now_utc);
         let time_zero = time::at_utc(time::Timespec::new(0, 0));
 
-        self.selfsigs.iter().filter(|s| {
+        self.self_signatures.iter().filter(|s| {
             s.signature_alive(t)
         }).max_by(|a, b| {
             a.signature_creation_time().unwrap_or(time_zero).cmp(
@@ -164,8 +164,8 @@ impl<C> ComponentBinding<C> {
     ///
     /// All self-signatures have been validated, and the newest
     /// self-signature is last.
-    pub fn selfsigs(&self) -> &[Signature] {
-        &self.selfsigs
+    pub fn self_signatures(&self) -> &[Signature] {
+        &self.self_signatures
     }
 
     /// Any third-party certifications.
@@ -290,7 +290,7 @@ impl<C> ComponentBinding<C> {
     {
         let p : Packet = self.component.into();
         std::iter::once(p)
-            .chain(self.selfsigs.into_iter().map(|s| s.into()))
+            .chain(self.self_signatures.into_iter().map(|s| s.into()))
             .chain(self.certifications.into_iter().map(|s| s.into()))
             .chain(self.self_revocations.into_iter().map(|s| s.into()))
             .chain(self.other_revocations.into_iter().map(|s| s.into()))
@@ -308,8 +308,8 @@ impl<C> ComponentBinding<C> {
     // kept is undefined.
     fn sort_and_dedup(&mut self)
     {
-        self.selfsigs.sort_by(sig_cmp);
-        self.selfsigs.dedup();
+        self.self_signatures.sort_by(sig_cmp);
+        self.self_signatures.dedup();
 
         // There is no need to sort the certifications, but we do
         // want to remove dups and sorting is a prerequisite.
@@ -868,7 +868,7 @@ impl<C> ComponentBindings<C>
                 merge(&mut a.component, &mut b.component);
 
                 // Recall: if a and b are equal, a will be dropped.
-                b.selfsigs.append(&mut a.selfsigs);
+                b.self_signatures.append(&mut a.self_signatures);
                 b.certifications.append(&mut a.certifications);
                 b.self_revocations.append(&mut a.self_revocations);
                 b.other_revocations.append(&mut a.self_revocations);
@@ -1171,7 +1171,7 @@ impl TPK {
     /// All revocations are validated, and they are sorted by their
     /// creation time.
     pub fn direct_signatures(&self) -> &[Signature] {
-        &self.primary.selfsigs
+        &self.primary.self_signatures
     }
 
     /// Third-party certifications.
@@ -1548,14 +1548,14 @@ impl TPK {
         }
 
         check!("primary key",
-               self.primary, selfsigs, verify_primary_key_binding);
+               self.primary, self_signatures, verify_primary_key_binding);
         check!("primary key",
                self.primary, self_revocations, verify_primary_key_revocation);
 
         for binding in self.userids.iter_mut() {
             check!(format!("userid \"{}\"",
                            String::from_utf8_lossy(binding.userid().value())),
-                   binding, selfsigs, verify_userid_binding,
+                   binding, self_signatures, verify_userid_binding,
                    binding.userid());
             check!(format!("userid \"{}\"",
                            String::from_utf8_lossy(binding.userid().value())),
@@ -1565,7 +1565,7 @@ impl TPK {
 
         for binding in self.user_attributes.iter_mut() {
             check!("user attribute",
-                   binding, selfsigs, verify_user_attribute_binding,
+                   binding, self_signatures, verify_user_attribute_binding,
                    binding.user_attribute());
             check!("user attribute",
                    binding, self_revocations, verify_user_attribute_revocation,
@@ -1574,7 +1574,7 @@ impl TPK {
 
         for binding in self.subkeys.iter_mut() {
             check!(format!("subkey {}", binding.key().keyid()),
-                   binding, selfsigs, verify_subkey_binding,
+                   binding, self_signatures, verify_subkey_binding,
                    binding.key());
             check!(format!("subkey {}", binding.key().keyid()),
                    binding, self_revocations, verify_subkey_revocation,
@@ -1612,7 +1612,7 @@ impl TPK {
                 });
             }
 
-            check_one!("primary key", self.primary.selfsigs, sig,
+            check_one!("primary key", self.primary.self_signatures, sig,
                        verify_primary_key_binding);
             check_one!("primary key", self.primary.self_revocations, sig,
                        verify_primary_key_revocation);
@@ -1621,7 +1621,7 @@ impl TPK {
                 check_one!(format!("userid \"{}\"",
                                    String::from_utf8_lossy(
                                        binding.userid().value())),
-                           binding.selfsigs, sig,
+                           binding.self_signatures, sig,
                            verify_userid_binding, binding.userid());
                 check_one!(format!("userid \"{}\"",
                                    String::from_utf8_lossy(
@@ -1632,7 +1632,7 @@ impl TPK {
 
             for binding in self.user_attributes.iter_mut() {
                 check_one!("user attribute",
-                           binding.selfsigs, sig,
+                           binding.self_signatures, sig,
                            verify_user_attribute_binding,
                            binding.user_attribute());
                 check_one!("user attribute",
@@ -1643,7 +1643,7 @@ impl TPK {
 
             for binding in self.subkeys.iter_mut() {
                 check_one!(format!("subkey {}", binding.key().keyid()),
-                           binding.selfsigs, sig,
+                           binding.self_signatures, sig,
                            verify_subkey_binding, binding.key());
                 check_one!(format!("subkey {}", binding.key().keyid()),
                            binding.self_revocations, sig,
@@ -1666,17 +1666,17 @@ impl TPK {
         // Only keep user ids / user attributes / subkeys with at
         // least one valid self-signature or self-revocation.
         self.userids.retain(|userid| {
-            userid.selfsigs.len() > 0 || userid.self_revocations.len() > 0
+            userid.self_signatures.len() > 0 || userid.self_revocations.len() > 0
         });
         t!("Retained {} userids", self.userids.len());
 
         self.user_attributes.retain(|ua| {
-            ua.selfsigs.len() > 0 || ua.self_revocations.len() > 0
+            ua.self_signatures.len() > 0 || ua.self_revocations.len() > 0
         });
         t!("Retained {} user_attributes", self.user_attributes.len());
 
         self.subkeys.retain(|subkey| {
-            subkey.selfsigs.len() > 0 || subkey.self_revocations.len() > 0
+            subkey.self_signatures.len() > 0 || subkey.self_revocations.len() > 0
         });
         t!("Retained {} subkeys", self.subkeys.len());
 
@@ -1788,8 +1788,8 @@ impl TPK {
             self.primary.key_mut().set_secret(other.primary.key_mut().set_secret(None));
         }
 
-        self.primary.selfsigs.append(
-            &mut other.primary.selfsigs);
+        self.primary.self_signatures.append(
+            &mut other.primary.self_signatures);
         self.primary.certifications.append(
             &mut other.primary.certifications);
         self.primary.self_revocations.append(
@@ -1870,8 +1870,8 @@ mod test {
             assert_eq!(tpk.userids.len(), 1);
             assert_eq!(tpk.userids[0].userid().value(),
                        &b"Testy McTestface <testy@example.org>"[..]);
-            assert_eq!(tpk.userids[0].selfsigs.len(), 1);
-            assert_eq!(tpk.userids[0].selfsigs[0].hash_prefix(),
+            assert_eq!(tpk.userids[0].self_signatures.len(), 1);
+            assert_eq!(tpk.userids[0].self_signatures[0].hash_prefix(),
                        &[ 0xc6, 0x8f ]);
             assert_eq!(tpk.user_attributes.len(), 0);
             assert_eq!(tpk.subkeys.len(), 0);
@@ -1891,8 +1891,8 @@ mod test {
             assert_eq!(tpk.userids.len(), 1, "number of userids");
             assert_eq!(tpk.userids[0].userid().value(),
                        &b"Testy McTestface <testy@example.org>"[..]);
-            assert_eq!(tpk.userids[0].selfsigs.len(), 1);
-            assert_eq!(tpk.userids[0].selfsigs[0].hash_prefix(),
+            assert_eq!(tpk.userids[0].self_signatures.len(), 1);
+            assert_eq!(tpk.userids[0].self_signatures[0].hash_prefix(),
                        &[ 0xc6, 0x8f ]);
 
             assert_eq!(tpk.user_attributes.len(), 0);
@@ -1900,7 +1900,7 @@ mod test {
             assert_eq!(tpk.subkeys.len(), 1, "number of subkeys");
             assert_eq!(tpk.subkeys[0].key().creation_time().to_pgp().unwrap(),
                        1511355130);
-            assert_eq!(tpk.subkeys[0].selfsigs[0].hash_prefix(),
+            assert_eq!(tpk.subkeys[0].self_signatures[0].hash_prefix(),
                        &[ 0xb7, 0xb9 ]);
 
             let tpk = parse_tpk(crate::tests::key("testy-no-subkey.pgp"),
@@ -1914,8 +1914,8 @@ mod test {
             assert_eq!(tpk.userids.len(), 1, "number of userids");
             assert_eq!(tpk.userids[0].userid().value(),
                        &b"Testy McTestface <testy@example.org>"[..]);
-            assert_eq!(tpk.userids[0].selfsigs.len(), 1);
-            assert_eq!(tpk.userids[0].selfsigs[0].hash_prefix(),
+            assert_eq!(tpk.userids[0].self_signatures.len(), 1);
+            assert_eq!(tpk.userids[0].self_signatures[0].hash_prefix(),
                        &[ 0xc6, 0x8f ]);
 
             assert_eq!(tpk.subkeys.len(), 0, "number of subkeys");
@@ -2054,20 +2054,20 @@ mod test {
             .unwrap();
 
         assert!(tpk_donald_signs_base.userids.len() == 1);
-        assert!(tpk_donald_signs_base.userids[0].selfsigs.len() == 1);
+        assert!(tpk_donald_signs_base.userids[0].self_signatures.len() == 1);
         assert!(tpk_base.userids[0].certifications.len() == 0);
         assert!(tpk_donald_signs_base.userids[0].certifications.len() == 1);
 
         let merged = tpk_donald_signs_base.clone()
             .merge(tpk_ivanka_signs_base.clone()).unwrap();
         assert!(merged.userids.len() == 1);
-        assert!(merged.userids[0].selfsigs.len() == 1);
+        assert!(merged.userids[0].self_signatures.len() == 1);
         assert!(merged.userids[0].certifications.len() == 2);
 
         let merged = tpk_donald_signs_base.clone()
             .merge(tpk_donald_signs_all.clone()).unwrap();
         assert!(merged.userids.len() == 3);
-        assert!(merged.userids[0].selfsigs.len() == 1);
+        assert!(merged.userids[0].self_signatures.len() == 1);
         // There should be two certifications from the Donald on the
         // first user id.
         assert!(merged.userids[0].certifications.len() == 2);
@@ -2079,7 +2079,7 @@ mod test {
             .merge(tpk_ivanka_signs_base.clone()).unwrap()
             .merge(tpk_ivanka_signs_all.clone()).unwrap();
         assert!(merged.userids.len() == 3);
-        assert!(merged.userids[0].selfsigs.len() == 1);
+        assert!(merged.userids[0].self_signatures.len() == 1);
         // There should be two certifications from each of the Donald
         // and Ivanka on the first user id, and one each on the rest.
         assert!(merged.userids[0].certifications.len() == 4);
@@ -2097,7 +2097,7 @@ mod test {
             .merge(tpk_donald_signs_all.clone()).unwrap()
             .merge(tpk_ivanka_signs_all.clone()).unwrap();
         assert!(merged.userids.len() == 3);
-        assert!(merged.userids[0].selfsigs.len() == 1);
+        assert!(merged.userids[0].self_signatures.len() == 1);
         // There should be two certifications from each of the Donald
         // and Ivanka on the first user id, and one each on the rest.
         assert!(merged.userids[0].certifications.len() == 4);
@@ -3059,10 +3059,10 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
         let uidb = neal.userids().nth(0).unwrap();
         // Signatures are sorted in ascending order wrt the signature
         // creation time.
-        assert!(uidb.selfsigs()[0].signature_creation_time()
-                < uidb.selfsigs()[1].signature_creation_time());
+        assert!(uidb.self_signatures()[0].signature_creation_time()
+                < uidb.self_signatures()[1].signature_creation_time());
         // Make sure we return the most recent here.
-        assert_eq!(uidb.selfsigs().last().unwrap(),
+        assert_eq!(uidb.self_signatures().last().unwrap(),
                    uidb.binding_signature(None).unwrap());
     }
 

@@ -620,7 +620,7 @@ impl<'a, I: Iterator<Item=Packet>> TPKParser<'a, I> {
             fn split_sigs<C>(primary: &Fingerprint, primary_keyid: &KeyID,
                              b: &mut ComponentBinding<C>)
             {
-                let mut selfsigs = vec![];
+                let mut self_signatures = vec![];
                 let mut certifications = vec![];
                 let mut self_revs = vec![];
                 let mut other_revs = vec![];
@@ -650,7 +650,7 @@ impl<'a, I: Iterator<Item=Packet>> TPKParser<'a, I> {
                                 }
                             } else {
                                 if is_selfsig {
-                                    selfsigs.push(sig.into());
+                                    self_signatures.push(sig.into());
                                 } else {
                                     certifications.push(sig.into());
                                 }
@@ -659,7 +659,7 @@ impl<'a, I: Iterator<Item=Packet>> TPKParser<'a, I> {
                     }
                 }
 
-                b.selfsigs = selfsigs;
+                b.self_signatures = self_signatures;
                 b.certifications = certifications;
                 b.self_revocations = self_revs;
                 b.other_revocations = other_revs;

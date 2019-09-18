@@ -460,7 +460,7 @@ mod test {
         fn check(tpk: TPK) -> (usize, usize, usize) {
             let mut userid_sigs = 0;
             for (i, binding) in tpk.userids().enumerate() {
-                for selfsig in binding.selfsigs() {
+                for selfsig in binding.self_signatures() {
                     let h = Signature::userid_binding_hash(
                         selfsig,
                         tpk.primary(),
@@ -476,7 +476,7 @@ mod test {
             }
             let mut ua_sigs = 0;
             for (i, binding) in tpk.user_attributes().enumerate() {
-                for selfsig in binding.selfsigs() {
+                for selfsig in binding.self_signatures() {
                     let h = Signature::user_attribute_binding_hash(
                         selfsig,
                         tpk.primary(),
@@ -492,7 +492,7 @@ mod test {
             }
             let mut subkey_sigs = 0;
             for (i, binding) in tpk.subkeys().enumerate() {
-                for selfsig in binding.selfsigs() {
+                for selfsig in binding.self_signatures() {
                     let h = Signature::subkey_binding_hash(
                         selfsig,
                         tpk.primary(),

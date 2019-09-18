@@ -121,7 +121,7 @@ impl AutocryptHeader {
 
             let k : key::PublicSubkey = skb.key().clone();
             acc.push(k.into());
-            skb.selfsigs().iter().take(1)
+            skb.self_signatures().iter().take(1)
                 .for_each(|s| acc.push(s.clone().into()));
         }
 
@@ -131,7 +131,7 @@ impl AutocryptHeader {
             if let Ok(Some(a)) = uidb.userid().address() {
                 if &a == addr {
                     acc.push(uidb.userid().clone().into());
-                    uidb.selfsigs().iter().take(1)
+                    uidb.self_signatures().iter().take(1)
                         .for_each(|s| acc.push(s.clone().into()));
                 } else {
                     // Address is not matching.
