@@ -62,12 +62,13 @@ const TRACE : bool = false;
 /// the more recent signature is first.
 fn canonical_signature_order(a: Option<time::Tm>, b: Option<time::Tm>)
                              -> Ordering {
-    match (a, b) {
-        (None, None) => Ordering::Equal,
-        (None, Some(_)) => Ordering::Greater,
-        (Some(_), None) => Ordering::Less,
-        (Some(ref a), Some(ref b)) => a.cmp(b),
-    }
+    // Note: None < Some, so the normal ordering is:
+    //
+    //   None, Some(old), Some(new)
+    //
+    // Reversing the ordering puts the signatures without a creation
+    // time at the end, which is where they belong.
+    a.cmp(&b).reverse()
 }
 
 fn sig_cmp(a: &Signature, b: &Signature) -> Ordering {
@@ -162,29 +163,32 @@ impl<C> ComponentBinding<C> {
 
     /// The self-signatures.
     ///
-    /// All self-signatures have been validated, and the newest
-    /// self-signature is last.
+    /// The signatures are validated, and they are reverse sorted by
+    /// their creation time (newest first).
     pub fn self_signatures(&self) -> &[Signature] {
         &self.self_signatures
     }
 
     /// Any third-party certifications.
     ///
-    /// The signatures have *not* been validated.
+    /// The signatures are *not* validated.  They are reverse sorted by
+    /// their creation time (newest first).
     pub fn certifications(&self) -> &[Signature] {
         &self.certifications
     }
 
     /// Revocations issued by the key itself.
     ///
-    /// The revocations have been validated, and the newest is last.
+    /// The revocations are validated, and they are reverse sorted by
+    /// their creation time (newest first).
     pub fn self_revocations(&self) -> &[Signature] {
         &self.self_revocations
     }
 
     /// Revocations issued by other keys.
     ///
-    /// The revocations have *not* been validated.
+    /// The revocations are *not* validated.  They are reverse sorted
+    /// by their creation time (newest first).
     pub fn other_revocations(&self) -> &[Signature] {
         &self.other_revocations
     }
@@ -843,32 +847,32 @@ impl TPK {
 
     /// The direct signatures.
     ///
-    /// All revocations are validated, and they are sorted by their
-    /// creation time.
+    /// The signatures are validated, and they are reverse sorted by
+    /// their creation time (newest first).
     pub fn direct_signatures(&self) -> &[Signature] {
         &self.primary.self_signatures
     }
 
     /// Third-party certifications.
     ///
-    /// The signatures are *not* validated.  They are sorted by their
-    /// creation time.
+    /// The signatures are *not* validated.  They are reverse sorted by
+    /// their creation time (newest first).
     pub fn certifications(&self) -> &[Signature] {
         &self.primary.certifications
     }
 
     /// Revocations issued by the key itself.
     ///
-    /// All revocations are validated, and they are sorted by their
-    /// creation time.
+    /// The revocations are validated, and they are reverse sorted by
+    /// their creation time (newest first).
     pub fn self_revocations(&self) -> &[Signature] {
         &self.primary.self_revocations
     }
 
     /// Revocations issued by other keys.
     ///
-    /// The revocations are *not* validated.  They are sorted by their
-    /// creation time.
+    /// The revocations are *not* validated.  They are reverse sorted
+    /// by their creation time (newest first).
     pub fn other_revocations(&self) -> &[Signature] {
         &self.primary.other_revocations
     }
@@ -2746,12 +2750,12 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
                 for sigs in sigs.windows(2) {
                     cmps += 1;
                     assert!(sigs[0].signature_creation_time()
-                            <= sigs[1].signature_creation_time());
+                            >= sigs[1].signature_creation_time());
                 }
             }
 
-            // Make sure we return the most recent here.
-            assert_eq!(uid.self_signatures().last().unwrap(),
+            // Make sure we return the most recent first.
+            assert_eq!(uid.self_signatures().first().unwrap(),
                        uid.binding_signature(None).unwrap());
         }
 
