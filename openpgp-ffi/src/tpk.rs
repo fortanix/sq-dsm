@@ -149,7 +149,7 @@ fn pgp_tpk_as_tsk(tpk: *const TPK) -> *mut TSK<'static> {
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_tpk_primary_key(tpk: *const TPK) -> *const Key {
     let key : &self::openpgp::packet::key::UnspecifiedKey
-        = tpk.ref_raw().primary().key().into();
+        = tpk.ref_raw().primary().into();
     key.move_into_raw()
 }
 

@@ -2937,7 +2937,7 @@ mod test {
         use crate::tpk::TPKBuilder;
 
         let (tpk, _) = TPKBuilder::new().generate().unwrap();
-        let mut keypair = tpk.primary().key().clone().mark_parts_secret()
+        let mut keypair = tpk.primary().clone().mark_parts_secret()
             .into_keypair().unwrap();
         let uid = UserID::from("foo");
 

@@ -403,7 +403,7 @@ enum PacketSource<'a, I: Iterator<Item=Packet>> {
 /// for tpko in TPKParser::from_packet_parser(ppr) {
 ///     match tpko {
 ///         Ok(tpk) => {
-///             println!("Key: {}", tpk.primary().key());
+///             println!("Key: {}", tpk.primary());
 ///             for binding in tpk.userids() {
 ///                 println!("User ID: {}", binding.userid());
 ///             }
@@ -522,7 +522,7 @@ impl<'a, I: Iterator<Item=Packet>> TPKParser<'a, I> {
     /// #     let some_keyid = KeyID::from_hex("C2B819056C652598").unwrap();
     /// for tpkr in TPKParser::from_packet_parser(ppr)
     ///     .unvalidated_tpk_filter(|tpk, _| {
-    ///         if tpk.primary().key().keyid() == some_keyid {
+    ///         if tpk.primary().keyid() == some_keyid {
     ///             return true;
     ///         }
     ///         for binding in tpk.subkeys() {
@@ -665,7 +665,7 @@ impl<'a, I: Iterator<Item=Packet>> TPKParser<'a, I> {
                 b.other_revocations = other_revs;
             }
 
-            let primary_fp = tpk.primary().key().fingerprint();
+            let primary_fp = tpk.primary().fingerprint();
             let primary_keyid = primary_fp.to_keyid();
 
             // The parser puts all of the signatures on the
@@ -752,7 +752,7 @@ impl<'a, I: Iterator<Item=Packet>> Iterator for TPKParser<'a, I> {
                         Ok(Some(tpk)) => {
                             if TRACE {
                                 eprintln!("TPKParser::next => {}",
-                                          tpk.primary().key().fingerprint());
+                                          tpk.primary().fingerprint());
                             }
                             return Some(Ok(tpk));
                         }

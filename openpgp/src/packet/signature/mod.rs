@@ -1222,9 +1222,9 @@ mod test {
                 crate::tests::message(test.data)).unwrap();
             while let PacketParserResult::Some(pp) = ppr {
                 if let Packet::Signature(ref sig) = pp.packet {
-                    let result = sig.verify(tpk.primary().key()).unwrap_or(false);
+                    let result = sig.verify(tpk.primary()).unwrap_or(false);
                     eprintln!("  Primary {:?}: {:?}",
-                              tpk.primary().key().fingerprint(), result);
+                              tpk.primary().fingerprint(), result);
                     if result {
                         good += 1;
                     }
@@ -1282,7 +1282,7 @@ mod test {
             "emmelie-dorothea-dina-samantha-awina-ed25519-private.pgp",
         ] {
             let tpk = TPK::from_bytes(crate::tests::key(key)).unwrap();
-            let mut pair = tpk.primary().key().clone()
+            let mut pair = tpk.primary().clone()
                 .mark_parts_secret()
                 .into_keypair()
                 .expect("secret key is encrypted/missing");
@@ -1339,7 +1339,7 @@ mod test {
             panic!("Expected a Signature, got: {:?}", p);
         };
 
-        assert!(sig.verify_message(tpk.primary().key(), &msg[..]).unwrap());
+        assert!(sig.verify_message(tpk.primary(), &msg[..]).unwrap());
     }
 
     #[test]
@@ -1399,7 +1399,7 @@ mod test {
         let cert = &uid_binding.certifications()[0];
 
         assert_eq!(cert.verify_userid_binding(cert_key1,
-                                              test2.primary().key(),
+                                              test2.primary(),
                                               uid_binding.userid()).ok(),
                    Some(true));
     }
@@ -1483,7 +1483,7 @@ mod test {
         if let Packet::Signature(sig) = p {
             let digest = Signature::standalone_hash(&sig).unwrap();
             eprintln!("{}", crate::conversions::hex::encode(&digest));
-            assert!(sig.verify_timestamp(alpha.primary().key()).unwrap());
+            assert!(sig.verify_timestamp(alpha.primary()).unwrap());
         } else {
             panic!("expected a signature packet");
         }

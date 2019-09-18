@@ -518,7 +518,7 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
                     v.tpks = v.helper.get_public_keys(&issuers)?;
 
                     for (i, tpk) in v.tpks.iter().enumerate() {
-                        if can_sign(tpk.primary().key(),
+                        if can_sign(tpk.primary(),
                                     tpk.primary_key_signature(None), t) {
                             v.keys.insert(tpk.keyid(), (i, 0));
                         }
@@ -1305,7 +1305,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                             }
                         };
 
-                        if can_sign(tpk.primary().key().into(),
+                        if can_sign(tpk.primary().into(),
                                     tpk.primary_key_signature(None)) {
                             v.keys.insert(tpk.keyid(), (i, 0));
                         }

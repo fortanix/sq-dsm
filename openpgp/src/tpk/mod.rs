@@ -748,7 +748,7 @@ impl Ord for UnknownBinding
 
 impl fmt::Display for TPK {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.primary().key().fingerprint())
+        write!(f, "{}", self.primary().fingerprint())
     }
 }
 
@@ -954,7 +954,7 @@ pub type UnknownBindings = ComponentBindings<Unknown>;
 /// #     let ppr = PacketParser::from_bytes(&b""[..])?;
 /// match TPK::from_packet_parser(ppr) {
 ///     Ok(tpk) => {
-///         println!("Key: {}", tpk.primary().key());
+///         println!("Key: {}", tpk.primary());
 ///         for binding in tpk.userids() {
 ///             println!("User ID: {}", binding.userid());
 ///         }
@@ -1017,8 +1017,8 @@ impl TPK {
     /// information is not contained in the key binding.  Instead, you
     /// should use methods like `TPK::primary_key_signature()` to get
     /// information about the primary key.
-    pub fn primary(&self) -> &PrimaryKeyBinding<key::PublicParts> {
-        &self.primary
+    pub fn primary(&self) -> &key::PublicKey {
+        &self.primary.key()
     }
 
     /// Returns the binding for the primary User ID at time `t`.
@@ -1166,6 +1166,38 @@ impl TPK {
         }
     }
 
+    /// The direct signatures.
+    ///
+    /// All revocations are validated, and they are sorted by their
+    /// creation time.
+    pub fn direct_signatures(&self) -> &[Signature] {
+        &self.primary.selfsigs
+    }
+
+    /// Third-party certifications.
+    ///
+    /// The signatures are *not* validated.  They are sorted by their
+    /// creation time.
+    pub fn certifications(&self) -> &[Signature] {
+        &self.primary.certifications
+    }
+
+    /// Revocations issued by the key itself.
+    ///
+    /// All revocations are validated, and they are sorted by their
+    /// creation time.
+    pub fn self_revocations(&self) -> &[Signature] {
+        &self.primary.self_revocations
+    }
+
+    /// Revocations issued by other keys.
+    ///
+    /// The revocations are *not* validated.  They are sorted by their
+    /// creation time.
+    pub fn other_revocations(&self) -> &[Signature] {
+        &self.primary.other_revocations
+    }
+
     /// Returns the TPK's revocation status at time `t`.
     ///
     /// A TPK is revoked at time `t` if:
@@ -1209,7 +1241,7 @@ impl TPK {
     /// assert_eq!(RevocationStatus::NotAsFarAsWeKnow,
     ///            tpk.revoked(None));
     ///
-    /// let mut keypair = tpk.primary().key().clone()
+    /// let mut keypair = tpk.primary().clone()
     ///     .mark_parts_secret().into_keypair()?;
     /// let sig = tpk.revoke(&mut keypair, ReasonForRevocation::KeyCompromised,
     ///                      b"It was the maid :/")?;
@@ -1228,7 +1260,7 @@ impl TPK {
         // Recompute the signature.
         let hash_algo = HashAlgorithm::SHA512;
         let mut hash = hash_algo.context()?;
-        let pair = self.primary().key();
+        let pair = self.primary();
         pair.hash(&mut hash);
 
         signature::Builder::new(SignatureType::KeyRevocation)
@@ -1260,7 +1292,7 @@ impl TPK {
     /// assert_eq!(RevocationStatus::NotAsFarAsWeKnow,
     ///            tpk.revoked(None));
     ///
-    /// let mut keypair = tpk.primary().key().clone()
+    /// let mut keypair = tpk.primary().clone()
     ///     .mark_parts_secret().into_keypair()?;
     /// let tpk = tpk.revoke_in_place(&mut keypair,
     ///                               ReasonForRevocation::KeyCompromised,
@@ -1292,7 +1324,7 @@ impl TPK {
     {
         let t = t.into();
         if let Some(Signature::V4(sig)) = self.primary_key_signature(t) {
-            sig.key_expired(self.primary().key(), t)
+            sig.key_expired(self.primary(), t)
         } else {
             false
         }
@@ -1304,7 +1336,7 @@ impl TPK {
     {
         let t = t.into();
         if let Some(sig) = self.primary_key_signature(t) {
-            sig.key_alive(self.primary().key(), t)
+            sig.key_alive(self.primary(), t)
         } else {
             false
         }
@@ -1332,7 +1364,7 @@ impl TPK {
             let hash_algo = HashAlgorithm::SHA512;
             let mut hash = hash_algo.context()?;
 
-            self.primary().key().hash(&mut hash);
+            self.primary().hash(&mut hash);
             if let Some((userid, _)) = userid {
                 userid.userid().hash(&mut hash);
             } else {
@@ -1628,7 +1660,7 @@ impl TPK {
 
         if self.bad.len() > 0 {
             t!("{}: ignoring {} bad self-signatures",
-               self.primary().key().keyid(), self.bad.len());
+               self.primary().keyid(), self.bad.len());
         }
 
         // Only keep user ids / user attributes / subkeys with at
@@ -1714,12 +1746,12 @@ impl TPK {
 
     /// Returns the TPK's fingerprint.
     pub fn fingerprint(&self) -> Fingerprint {
-        self.primary().key().fingerprint()
+        self.primary().fingerprint()
     }
 
     /// Returns the TPK's keyid.
     pub fn keyid(&self) -> KeyID {
-        self.primary().key().keyid()
+        self.primary().keyid()
     }
 
     /// Converts the TPK into an iterator over a sequence of packets.
@@ -1743,8 +1775,8 @@ impl TPK {
     ///
     /// If `other` is a different key, then an error is returned.
     pub fn merge(mut self, mut other: TPK) -> Result<Self> {
-        if self.primary().key().fingerprint()
-            != other.primary().key().fingerprint()
+        if self.primary().fingerprint()
+            != other.primary().fingerprint()
         {
             // The primary key is not the same.  There is nothing to
             // do.
@@ -1786,7 +1818,7 @@ impl TPK {
     /// Returns whether at least one of the keys includes a secret
     /// part.
     pub fn is_tsk(&self) -> bool {
-        if self.primary().key().secret().is_some() {
+        if self.primary().secret().is_some() {
             return true;
         }
         self.subkeys().any(|sk| {
@@ -2273,14 +2305,14 @@ mod test {
         let tpk = TPK::from_bytes(crate::tests::key("about-to-expire.expired.pgp"))
             .unwrap();
         assert!(tpk.primary_key_signature(None).unwrap()
-                .key_expired(tpk.primary().key(), None));
+                .key_expired(tpk.primary(), None));
 
         let update =
             TPK::from_bytes(crate::tests::key("about-to-expire.update-no-uid.pgp"))
             .unwrap();
         let tpk = tpk.merge(update).unwrap();
         assert!(! tpk.primary_key_signature(None).unwrap()
-                .key_expired(tpk.primary().key(), None));
+                .key_expired(tpk.primary(), None));
     }
 
     #[test]
@@ -2346,7 +2378,7 @@ mod test {
             .key_expiration_time()
             .expect("Keys expire by default.");
 
-        let mut keypair = tpk.primary().key().clone().mark_parts_secret()
+        let mut keypair = tpk.primary().clone().mark_parts_secret()
             .into_keypair().unwrap();
 
         // Clear the expiration.
@@ -2519,15 +2551,15 @@ mod test {
         assert_eq!(RevocationStatus::NotAsFarAsWeKnow,
                    tpk.revoked(None));
 
-        let mut keypair = tpk.primary().key().clone().mark_parts_secret()
+        let mut keypair = tpk.primary().clone().mark_parts_secret()
             .into_keypair().unwrap();
         let sig = tpk.revoke(&mut keypair,
                              ReasonForRevocation::KeyCompromised,
                              b"It was the maid :/").unwrap();
         assert_eq!(sig.typ(), SignatureType::KeyRevocation);
-        assert_eq!(sig.issuer(), Some(tpk.primary().key().keyid()));
+        assert_eq!(sig.issuer(), Some(tpk.primary().keyid()));
         assert_eq!(sig.issuer_fingerprint(),
-                   Some(tpk.primary().key().fingerprint()));
+                   Some(tpk.primary().fingerprint()));
 
         let tpk = tpk.merge_packets(vec![sig.into()]).unwrap();
         assert_match!(RevocationStatus::Revoked(_) = tpk.revoked(None));
@@ -2537,15 +2569,15 @@ mod test {
         let (other, _) = TPKBuilder::autocrypt(None, Some("Test 2"))
             .generate().unwrap();
 
-        let mut keypair = other.primary().key().clone().mark_parts_secret()
+        let mut keypair = other.primary().clone().mark_parts_secret()
             .into_keypair().unwrap();
         let sig = tpk.revoke(&mut keypair,
                              ReasonForRevocation::KeyCompromised,
                              b"It was the maid :/").unwrap();
         assert_eq!(sig.typ(), SignatureType::KeyRevocation);
-        assert_eq!(sig.issuer(), Some(other.primary().key().keyid()));
+        assert_eq!(sig.issuer(), Some(other.primary().keyid()));
         assert_eq!(sig.issuer_fingerprint(),
-                   Some(other.primary().key().fingerprint()));
+                   Some(other.primary().fingerprint()));
     }
 
     #[test]
@@ -2562,7 +2594,7 @@ mod test {
             let uid = tpk.userids().skip(1).next().unwrap();
             assert_eq!(RevocationStatus::NotAsFarAsWeKnow, uid.revoked(None));
 
-            let mut keypair = tpk.primary().key().clone().mark_parts_secret()
+            let mut keypair = tpk.primary().clone().mark_parts_secret()
                 .into_keypair().unwrap();
             uid.userid()
                 .revoke(&mut keypair, &tpk,

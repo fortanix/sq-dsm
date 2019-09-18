@@ -97,7 +97,7 @@ impl<'a, P: 'a + key::KeyParts, R: 'a + key::KeyRole> Iterator
 
                     (tpk.primary_key_signature(None),
                      tpk.revoked(None),
-                     tpk.primary().key().into())
+                     tpk.primary().into())
                 } else {
                     self.subkey_iter.next()
                         .map(|sk_binding| (sk_binding.binding_signature(None),

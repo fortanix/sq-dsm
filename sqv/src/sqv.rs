@@ -302,7 +302,7 @@ fn real_main() -> Result<(), failure::Error> {
                                 continue;
                             }
 
-                            println!("{}", tpk.primary().key().fingerprint());
+                            println!("{}", tpk.primary().fingerprint());
                             good += 1;
                         },
                         Ok(false) => {

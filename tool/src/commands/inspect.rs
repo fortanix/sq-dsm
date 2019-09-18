@@ -131,8 +131,8 @@ fn inspect_tpk(output: &mut io::Write, tpk: &openpgp::TPK,
     writeln!(output)?;
     writeln!(output, "    Fingerprint: {}", tpk.fingerprint())?;
     inspect_revocation(output, "", tpk.revoked(None))?;
-    inspect_key(output, "", tpk.primary().key(), tpk.primary_key_signature(None),
-                tpk.primary().certifications(),
+    inspect_key(output, "", tpk.primary(), tpk.primary_key_signature(None),
+                tpk.certifications(),
                 print_keygrips, print_certifications)?;
     writeln!(output)?;
 
