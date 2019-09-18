@@ -333,21 +333,19 @@ fn pgp_tpk_expired(tpk: *const TPK, when: time_t) -> c_int {
     tpk.expired(t) as c_int
 }
 
-/// Returns whether the TPK is alive.
-#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn pgp_tpk_alive(tpk: *const TPK)
-                 -> c_int {
-    let tpk = tpk.ref_raw();
-
-    tpk.alive() as c_int
-}
-
 /// Returns whether the TPK is alive at the specified time.
+///
+/// If `when` is 0, then the current time is used.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn pgp_tpk_alive_at(tpk: *const TPK, when: time_t)
+fn pgp_tpk_alive(tpk: *const TPK, when: time_t)
                     -> c_int {
     let tpk = tpk.ref_raw();
-    tpk.alive_at(time::at(time::Timespec::new(when as i64, 0))) as c_int
+    let t = if when == 0 {
+        None
+    } else {
+        Some(time::at(time::Timespec::new(when as i64, 0)))
+    };
+    tpk.alive(t) as c_int
 }
 
 /// Changes the TPK's expiration.

@@ -1298,19 +1298,13 @@ impl TPK {
         }
     }
 
-    /// Returns whether or not the TPK is alive.
-    pub fn alive(&self) -> bool {
-        if let Some(sig) = self.primary_key_signature(None) {
-            sig.key_alive(self.primary().key(), None)
-        } else {
-            false
-        }
-    }
-
-    /// Returns whether or not the key is alive at the given time.
-    pub fn alive_at(&self, tm: time::Tm) -> bool {
-        if let Some(sig) = self.primary_key_signature(tm) {
-            sig.key_alive(self.primary().key(), tm)
+    /// Returns whether or not the TPK is alive at `t`.
+    pub fn alive<T>(&self, t: T) -> bool
+        where T: Into<Option<time::Tm>>
+    {
+        let t = t.into();
+        if let Some(sig) = self.primary_key_signature(t) {
+            sig.key_alive(self.primary().key(), t)
         } else {
             false
         }
