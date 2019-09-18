@@ -1552,35 +1552,23 @@ impl Signature4 {
         }
     }
 
-    /// Returns whether or not the given key is alive, i.e. the
-    /// creation time has passed, but the expiration time has not.
+    /// Returns whether or not the given key is alive at `t`.
+    ///
+    /// A key is considered to be alive if `creation time <= t` and `t
+    /// <= expiration time`.
     ///
     /// This function does not check whether the key was revoked.
     ///
     /// See [Section 5.2.3.6 of RFC 4880].
     ///
     ///  [Section 5.2.3.6 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.6
-    pub fn key_alive<P, R>(&self, key: &Key<P, R>) -> bool
+    pub fn key_alive<P, R, T>(&self, key: &Key<P, R>, t: T) -> bool
         where P: key::KeyParts,
-            R: key::KeyRole
+              R: key::KeyRole,
+              T: Into<Option<time::Tm>>
     {
-        self.key_alive_at(key, time::now_utc())
-    }
-
-    /// Returns whether or not the given key is alive at the given
-    /// time, i.e. the creation time has passed, but the expiration
-    /// time has not.
-    ///
-    /// This function does not check whether the key was revoked.
-    ///
-    /// See [Section 5.2.3.6 of RFC 4880].
-    ///
-    ///  [Section 5.2.3.6 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.6
-    pub fn key_alive_at<P, R>(&self, key: &Key<P, R>, tm: time::Tm) -> bool
-        where P: key::KeyParts,
-            R: key::KeyRole
-    {
-        *key.creation_time() <= tm && ! self.key_expired(key, tm)
+        let t = t.into().unwrap_or_else(time::now_utc);
+        *key.creation_time() <= t && ! self.key_expired(key, t)
     }
 
     /// Returns the value of the Preferred Symmetric Algorithms
@@ -2506,10 +2494,10 @@ fn accessors() {
     assert!(!sig_.key_expired(&key, now));
     assert!(sig_.key_expired(&key, now + ten_minutes));
 
-    assert!(sig_.key_alive(&key));
-    assert!(sig_.key_alive_at(&key, now));
-    assert!(!sig_.key_alive_at(&key, now - five_minutes));
-    assert!(!sig_.key_alive_at(&key, now + ten_minutes));
+    assert!(sig_.key_alive(&key, None));
+    assert!(sig_.key_alive(&key, now));
+    assert!(!sig_.key_alive(&key, now - five_minutes));
+    assert!(!sig_.key_alive(&key, now + ten_minutes));
 
     sig = sig.set_key_expiration_time(None).unwrap();
     let sig_ =
@@ -2519,10 +2507,10 @@ fn accessors() {
     assert!(!sig_.key_expired(&key, now));
     assert!(!sig_.key_expired(&key, now + ten_minutes));
 
-    assert!(sig_.key_alive(&key));
-    assert!(sig_.key_alive_at(&key, now));
-    assert!(!sig_.key_alive_at(&key, now - five_minutes));
-    assert!(sig_.key_alive_at(&key, now + ten_minutes));
+    assert!(sig_.key_alive(&key, None));
+    assert!(sig_.key_alive(&key, now));
+    assert!(!sig_.key_alive(&key, now - five_minutes));
+    assert!(sig_.key_alive(&key, now + ten_minutes));
 
     let pref = vec![SymmetricAlgorithm::AES256,
                     SymmetricAlgorithm::AES192,

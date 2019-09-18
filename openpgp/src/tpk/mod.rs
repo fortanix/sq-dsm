@@ -1301,7 +1301,7 @@ impl TPK {
     /// Returns whether or not the TPK is alive.
     pub fn alive(&self) -> bool {
         if let Some(sig) = self.primary_key_signature(None) {
-            sig.key_alive(self.primary().key())
+            sig.key_alive(self.primary().key(), None)
         } else {
             false
         }
@@ -1310,7 +1310,7 @@ impl TPK {
     /// Returns whether or not the key is alive at the given time.
     pub fn alive_at(&self, tm: time::Tm) -> bool {
         if let Some(sig) = self.primary_key_signature(tm) {
-            sig.key_alive_at(self.primary().key(), tm)
+            sig.key_alive(self.primary().key(), tm)
         } else {
             false
         }

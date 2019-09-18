@@ -480,7 +480,7 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
                 sig.key_flags().can_sign()
                 // Check expiry.
                     && sig.signature_alive_at(t)
-                    && sig.key_alive_at(key, t)
+                    && sig.key_alive(key, t)
             } else {
                 false
             }
@@ -1299,7 +1299,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                                 sig.key_flags().can_sign()
                                 // Check expiry.
                                     && sig.signature_alive_at(t)
-                                    && sig.key_alive_at(key, t)
+                                    && sig.key_alive(key, t)
                             } else {
                                 false
                             }

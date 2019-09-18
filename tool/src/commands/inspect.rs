@@ -178,7 +178,7 @@ fn inspect_key<P, R>(output: &mut io::Write,
     if let Some(sig) = binding_signature {
         if sig.key_expired(key, None) {
             writeln!(output, "{}                 Expired", indent)?;
-        } else if ! sig.key_alive(key) {
+        } else if ! sig.key_alive(key, None) {
             writeln!(output, "{}                 Not yet valid", indent)?;
         }
     }

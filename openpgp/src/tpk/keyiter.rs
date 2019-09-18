@@ -123,7 +123,7 @@ impl<'a, P: 'a + key::KeyParts, R: 'a + key::KeyRole> Iterator
 
             if let Some(alive_at) = self.alive_at {
                 if let Some(sig) = sigo {
-                    if ! sig.key_alive_at(key, alive_at) {
+                    if ! sig.key_alive(key, alive_at) {
                         t!("Key not alive... skipping.");
                         continue;
                     }
