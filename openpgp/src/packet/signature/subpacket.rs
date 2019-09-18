@@ -1350,24 +1350,14 @@ impl Signature4 {
         }
     }
 
-    /// Returns whether or not the signature is alive, i.e. the
-    /// creation time has passed, but the expiration time has not.
-    ///
-    /// Note that [Section 5.2.3.4 of RFC 4880] states that "[[A
-    /// Signature Creation Time subpacket]] MUST be present in the
-    /// hashed area."  Consequently, if such a packet does not exist,
-    /// but a "Signature Expiration Time" subpacket exists, we
-    /// conservatively treat the signature as expired, because there
-    /// is no way to evaluate the expiration time.
-    ///
-    ///  [Section 5.2.3.4 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.4
-    pub fn signature_alive(&self) -> bool {
-        self.signature_alive_at(time::now_utc())
-    }
-
     /// Returns whether or not the signature is alive at the given
-    /// time, i.e. the creation time has passed, but the expiration
-    /// time has not.
+    /// time.
+    ///
+    /// A signature is considered to be alive if `creation time <= t`
+    /// and `t <= expiration time`.
+    ///
+    /// If `t` is None, uses the current time.
+    ///
     ///
     /// Note that [Section 5.2.3.4 of RFC 4880] states that "[[A
     /// Signature Creation Time subpacket]] MUST be present in the
@@ -1377,9 +1367,12 @@ impl Signature4 {
     /// is no way to evaluate the expiration time.
     ///
     ///  [Section 5.2.3.4 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.4
-    pub fn signature_alive_at(&self, tm: time::Tm) -> bool {
+    pub fn signature_alive<T>(&self, t: T) -> bool
+        where T: Into<Option<time::Tm>>
+    {
+        let t = t.into().unwrap_or_else(time::now_utc);
         if let Some(creation_time) = self.signature_creation_time() {
-            creation_time <= tm && ! self.signature_expired(tm)
+            creation_time <= t && ! self.signature_expired(t)
         } else {
             false
         }
@@ -2429,10 +2422,10 @@ fn accessors() {
     assert!(!sig_.signature_expired(now));
     assert!(sig_.signature_expired(now + ten_minutes));
 
-    assert!(sig_.signature_alive());
-    assert!(sig_.signature_alive_at(now));
-    assert!(!sig_.signature_alive_at(now - five_minutes));
-    assert!(!sig_.signature_alive_at(now + ten_minutes));
+    assert!(sig_.signature_alive(None));
+    assert!(sig_.signature_alive(now));
+    assert!(!sig_.signature_alive(now - five_minutes));
+    assert!(!sig_.signature_alive(now + ten_minutes));
 
     sig = sig.set_signature_expiration_time(None).unwrap();
     let sig_ =
@@ -2442,10 +2435,10 @@ fn accessors() {
     assert!(!sig_.signature_expired(now));
     assert!(!sig_.signature_expired(now + ten_minutes));
 
-    assert!(sig_.signature_alive());
-    assert!(sig_.signature_alive_at(now));
-    assert!(!sig_.signature_alive_at(now - five_minutes));
-    assert!(sig_.signature_alive_at(now + ten_minutes));
+    assert!(sig_.signature_alive(None));
+    assert!(sig_.signature_alive(now));
+    assert!(!sig_.signature_alive(now - five_minutes));
+    assert!(sig_.signature_alive(now + ten_minutes));
 
     sig = sig.set_exportable_certification(true).unwrap();
     let sig_ =

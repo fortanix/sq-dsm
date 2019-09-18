@@ -116,23 +116,20 @@ fn pgp_signature_is_group_key(sig: *const Signature) -> bool {
 }
 
 
-/// Returns whether the signature is alive.
-///
-/// A signature is alive if the creation date is in the past, and the
-/// signature has not expired.
-#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn pgp_signature_alive(sig: *const Signature) -> bool {
-    sig.ref_raw().signature_alive()
-}
-
 /// Returns whether the signature is alive at the specified time.
+///
+/// If `when` is 0, then the current time is used.
 ///
 /// A signature is alive if the creation date is in the past, and the
 /// signature has not expired at the specified time.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn pgp_signature_alive_at(sig: *const Signature, when: time_t) -> bool {
-    sig.ref_raw()
-        .signature_alive_at(time::at(time::Timespec::new(when as i64, 0)))
+fn pgp_signature_alive(sig: *const Signature, when: time_t) -> bool {
+    let t = if when == 0 {
+        None
+    } else {
+        Some(time::at(time::Timespec::new(when as i64, 0)))
+    };
+    sig.ref_raw().signature_alive(t)
 }
 
 /// Returns whether the signature is expired at the specified time.

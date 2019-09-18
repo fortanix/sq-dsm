@@ -153,7 +153,7 @@ impl<C> ComponentBinding<C> {
         let time_zero = time::at_utc(time::Timespec::new(0, 0));
 
         self.selfsigs.iter().filter(|s| {
-            s.signature_alive_at(t)
+            s.signature_alive(t)
         }).max_by(|a, b| {
             a.signature_creation_time().unwrap_or(time_zero).cmp(
                 &b.signature_creation_time().unwrap_or(time_zero))
@@ -219,7 +219,7 @@ impl<C> ComponentBinding<C> {
            selfsig_creation_time.rfc822(),
            t.rfc822());
         if let Some(selfsig) = selfsig {
-            assert!(selfsig.signature_alive_at(t));
+            assert!(selfsig.signature_alive(t));
         }
 
         macro_rules! check {
@@ -249,7 +249,7 @@ impl<C> ComponentBinding<C> {
                            rev.signature_creation_time()
                                .unwrap_or_else(time_zero).rfc822());
                         None
-                    } else if !rev.signature_alive_at(t) {
+                    } else if !rev.signature_alive(t) {
                         t!("  ignoring revocation that is not alive ({} - {})",
                            rev.signature_creation_time()
                                .unwrap_or_else(time_zero).rfc822(),
@@ -1062,7 +1062,7 @@ impl TPK {
                 // No binding signature at time `t` => not alive.
                 let selfsig = b.binding_signature(t)?;
 
-                if !selfsig.signature_alive_at(t) {
+                if !selfsig.signature_alive(t) {
                     return None;
                 }
 
