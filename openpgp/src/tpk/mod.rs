@@ -151,14 +151,62 @@ impl<C> ComponentBinding<C> {
         where T: Into<Option<time::Tm>>
     {
         let t = t.into().unwrap_or_else(time::now_utc);
-        let time_zero = time::at_utc(time::Timespec::new(0, 0));
 
-        self.self_signatures.iter().filter(|s| {
+        // Recall: the signatures are sorted by their creation time in
+        // descending order, i.e., newest first.
+        //
+        // We want the newest signature that is older than t.  So,
+        // search for `t`.
+
+        let i =
+            // Usually, the first signature is what we are looking for.
+            // Short circuit the binary search.
+            if Some(t) >= self.self_signatures.get(0)
+                              .and_then(|s| s.signature_creation_time())
+            {
+                0
+            } else {
+                match self.self_signatures.binary_search_by(
+                    |s| canonical_signature_order(
+                        s.signature_creation_time(), Some(t)))
+                {
+                    // If there are multiple matches, then we need to search
+                    // backwards to find the first one.  Consider:
+                    //
+                    //     t: 9 8 8 8 8 7
+                    //     i: 0 1 2 3 4 5
+                    //
+                    // If we are looking for t == 8, then binary_search could
+                    // return index 1, 2, 3 or 4.
+                    Ok(mut i) => {
+                        // XXX: we use PartialOrd to compare Tms due to
+                        // https://github.com/rust-lang-deprecated/time/issues/180
+                        while i > 0
+                            && self.self_signatures[i - 1].signature_creation_time()
+                            .cmp(&Some(t)) == Ordering::Equal
+                        {
+                            i -= 1;
+                        }
+                        i
+                    }
+
+                    // There was no match.  `i` is where a new element could
+                    // be inserted while maintaining the sorted order.
+                    // Consider:
+                    //
+                    //    t: 9 8 6 5
+                    //    i: 0 1 2 3
+                    //
+                    // If we are looing for t == 7, then binary_search will
+                    // return i == 2.  That's exactly where we should start
+                    // looking.
+                    Err(i) => i,
+                }
+            };
+
+        self.self_signatures[i..].iter().filter(|s| {
             s.signature_alive(t)
-        }).max_by(|a, b| {
-            a.signature_creation_time().unwrap_or(time_zero).cmp(
-                &b.signature_creation_time().unwrap_or(time_zero))
-        })
+        }).nth(0)
     }
 
     /// The self-signatures.
@@ -2917,5 +2965,66 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
 
         assert_eq!(tpk.primary_userid(selfsig0).unwrap().userid().value(), b"aaaaa");
         assert_eq!(tpk.primary_userid(now).unwrap().userid().value(), b"bbbbb");
+    }
+
+    #[test]
+    fn binding_signature_lookup() {
+        // Check that searching for the right binding signature works
+        // even when there are signatures with the same time.
+
+        use crate::constants::Features;
+        use crate::packet::key::Key4;
+        use crate::constants::Curve;
+
+        let a_sec = time::Duration::seconds(1);
+        let time_zero = time::at_utc(time::Timespec::new(0, 0));
+
+        let t1 = time::strptime("2000-1-1", "%F").unwrap();
+        let t2 = time::strptime("2001-1-1", "%F").unwrap();
+        let t3 = time::strptime("2002-1-1", "%F").unwrap();
+        let t4 = time::strptime("2003-1-1", "%F").unwrap();
+
+        let key: key::SecretKey
+            = Key4::generate_ecc(true, Curve::Ed25519).unwrap().into();
+        let mut pair = key.clone().into_keypair().unwrap();
+        let pk : key::PublicKey = key.clone().into();
+        let mut tpk = TPK::from_packet_pile(PacketPile::from(vec![
+            pk.into(),
+        ])).unwrap();
+
+        for (ref t, ref offset) in [ (t2, 0), (t4, 0), (t3, 100), (t1, 300) ].into_iter() {
+            for i in 0..100 {
+                let binding = signature::Builder::new(SignatureType::DirectKey)
+                    .set_features(&Features::sequoia()).unwrap()
+                    .set_key_flags(&KeyFlags::default()).unwrap()
+                    .set_signature_creation_time(t1).unwrap()
+                    // Vary this...
+                    .set_key_expiration_time(Some(time::Duration::days(1 + i))).unwrap()
+                    .set_issuer_fingerprint(key.fingerprint()).unwrap()
+                    .set_issuer(key.keyid()).unwrap()
+                    .set_preferred_hash_algorithms(vec![HashAlgorithm::SHA512]).unwrap()
+                    .set_signature_creation_time(*t).unwrap()
+                    .sign_primary_key_binding(&mut pair,
+                                              HashAlgorithm::SHA512).unwrap();
+
+                let binding : Packet = binding.into();
+
+                tpk = tpk.merge_packets(vec![ binding ]).unwrap();
+                // A time that matches multiple signatures.
+                assert_eq!(tpk.primary_key_signature(*t),
+                           tpk.direct_signatures().get(*offset));
+                // A time that doesn't match any signature.
+                assert_eq!(tpk.primary_key_signature(*t + a_sec),
+                           tpk.direct_signatures().get(*offset));
+
+                // The current time, which should use the first signature.
+                assert_eq!(tpk.primary_key_signature(None),
+                           tpk.direct_signatures().get(0));
+
+                // The beginning of time, which should return no
+                // binding signatures.
+                assert_eq!(tpk.primary_key_signature(time_zero), None);
+            }
+        }
     }
 }
