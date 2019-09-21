@@ -87,6 +87,10 @@ use `make install`.  The latter target honors `PREFIX` and `DESTDIR`.
 Finally, to return your source tree to its pristine state, run `make
 clean`.
 
+**Note:** By default the Python FFI bindings are also built. To skip
+these add `PYTHON=disable` to all `make` invocations. E.g. `make
+PYTHON=disable`.
+
 To build Sequoia, you need at least Rust 1.34 and a few
 libraries.  Please see below for OS-specific notes.
 
