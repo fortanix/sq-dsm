@@ -38,7 +38,7 @@ fn generate() -> openpgp::Result<openpgp::TPK> {
 }
 
 /// Encrypts the given message.
-fn encrypt(sink: &mut Write, plaintext: &str, recipient: &openpgp::TPK)
+fn encrypt(sink: &mut dyn Write, plaintext: &str, recipient: &openpgp::TPK)
            -> openpgp::Result<()> {
     // Build a vector of recipients to hand to Encryptor.
     let recipients =
@@ -72,7 +72,7 @@ fn encrypt(sink: &mut Write, plaintext: &str, recipient: &openpgp::TPK)
 }
 
 /// Decrypts the given message.
-fn decrypt(sink: &mut Write, ciphertext: &[u8], recipient: &openpgp::TPK)
+fn decrypt(sink: &mut dyn Write, ciphertext: &[u8], recipient: &openpgp::TPK)
            -> openpgp::Result<()> {
     // Make a helper that that feeds the recipient's secret key to the
     // decryptor.

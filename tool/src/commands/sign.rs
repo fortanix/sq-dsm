@@ -19,7 +19,7 @@ use crate::openpgp::serialize::stream::{
 };
 use crate::create_or_stdout;
 
-pub fn sign(input: &mut io::Read, output_path: Option<&str>,
+pub fn sign(input: &mut dyn io::Read, output_path: Option<&str>,
             secrets: Vec<openpgp::TPK>, detached: bool, binary: bool,
             append: bool, notarize: bool, force: bool)
             -> Result<()> {
@@ -32,12 +32,12 @@ pub fn sign(input: &mut io::Read, output_path: Option<&str>,
     }
 }
 
-fn sign_data(input: &mut io::Read, output_path: Option<&str>,
+fn sign_data(input: &mut dyn io::Read, output_path: Option<&str>,
              secrets: Vec<openpgp::TPK>, detached: bool, binary: bool,
              append: bool, force: bool)
              -> Result<()> {
     let (mut output, prepend_sigs, tmp_path):
-    (Box<io::Write>, Vec<Signature>, Option<PathBuf>) =
+    (Box<dyn io::Write>, Vec<Signature>, Option<PathBuf>) =
         if detached && append && output_path.is_some() {
             // First, read the existing signatures.
             let mut sigs = Vec::new();
@@ -126,7 +126,7 @@ fn sign_data(input: &mut io::Read, output_path: Option<&str>,
     Ok(())
 }
 
-fn sign_message(input: &mut io::Read, output_path: Option<&str>,
+fn sign_message(input: &mut dyn io::Read, output_path: Option<&str>,
                 secrets: Vec<openpgp::TPK>, binary: bool, notarize: bool,
                 force: bool)
              -> Result<()> {

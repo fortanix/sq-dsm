@@ -83,7 +83,7 @@ const KEYSERVER_ENCODE_SET: &AsciiSet =
 
 /// For accessing keyservers using HKP.
 pub struct KeyServer {
-    client: Box<AClient>,
+    client: Box<dyn AClient>,
     uri: Url,
 }
 
@@ -95,7 +95,7 @@ impl KeyServer {
         let uri: Url = uri.parse()
             .or_else(|_| format!("hkps://{}", uri).parse())?;
 
-        let client: Box<AClient> = match uri.scheme() {
+        let client: Box<dyn AClient> = match uri.scheme() {
             "hkp" => Box::new(Client::new()),
             "hkps" => {
                 Box::new(Client::builder()
@@ -114,7 +114,7 @@ impl KeyServer {
                      -> Result<Self> {
         let uri: Url = uri.parse()?;
 
-        let client: Box<AClient> = {
+        let client: Box<dyn AClient> = {
             let mut tls = TlsConnector::builder();
             tls.add_root_certificate(cert);
             let tls = tls.build()?;
@@ -137,7 +137,7 @@ impl KeyServer {
     }
 
     /// Common code for the above functions.
-    fn make(ctx: &Context, client: Box<AClient>, uri: Url) -> Result<Self> {
+    fn make(ctx: &Context, client: Box<dyn AClient>, uri: Url) -> Result<Self> {
         let s = uri.scheme();
         match s {
             "hkp" => ctx.network_policy().assert(NetworkPolicy::Insecure),
@@ -160,7 +160,7 @@ impl KeyServer {
 
     /// Retrieves the key with the given `keyid`.
     pub fn get(&mut self, keyid: &KeyID)
-               -> Box<Future<Item=TPK, Error=failure::Error> + 'static> {
+               -> Box<dyn Future<Item=TPK, Error=failure::Error> + 'static> {
         let uri = self.uri.join(
             &format!("pks/lookup?op=get&options=mr&search=0x{}",
                      keyid.to_hex()));
@@ -192,7 +192,7 @@ impl KeyServer {
 
     /// Sends the given key to the server.
     pub fn send(&mut self, key: &TPK)
-                -> Box<Future<Item=(), Error=failure::Error> + 'static> {
+                -> Box<dyn Future<Item=(), Error=failure::Error> + 'static> {
         use crate::openpgp::armor::{Writer, Kind};
 
         let uri =

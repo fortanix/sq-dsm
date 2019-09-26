@@ -10,7 +10,7 @@ use super::*;
 /// how much data can be read from the underlying `BufferedReader`,
 /// it causes at least N bytes to by buffered.
 pub struct Reserve<'a, C> {
-    reader: Box<'a + BufferedReader<C>>,
+    reader: Box<dyn BufferedReader<C> + 'a>,
     reserve: usize,
 
     cookie: C,
@@ -36,7 +36,7 @@ impl<'a> Reserve<'a, ()> {
     ///
     /// `reader` is the source to wrap.  `reserve` is the number of
     /// bytes that will not be returned to the reader.
-    pub fn new(reader: Box<'a + BufferedReader<()>>, reserve: usize) -> Self {
+    pub fn new(reader: Box<dyn BufferedReader<()> + 'a>, reserve: usize) -> Self {
         Self::with_cookie(reader, reserve, ())
     }
 }
@@ -46,7 +46,7 @@ impl<'a, C> Reserve<'a, C> {
     ///
     /// The cookie can be retrieved using the `cookie_ref` and
     /// `cookie_mut` methods, and set using the `cookie_set` method.
-    pub fn with_cookie(reader: Box<'a + BufferedReader<C>>,
+    pub fn with_cookie(reader: Box<dyn BufferedReader<C> + 'a>,
                        reserve: usize, cookie: C)
             -> Reserve<'a, C> {
         Reserve {
@@ -126,15 +126,15 @@ impl<'a, C> BufferedReader<C> for Reserve<'a, C> {
         Ok(self.consume(amount))
     }
 
-    fn get_mut(&mut self) -> Option<&mut BufferedReader<C>> {
+    fn get_mut(&mut self) -> Option<&mut dyn BufferedReader<C>> {
         Some(&mut self.reader)
     }
 
-    fn get_ref(&self) -> Option<&BufferedReader<C>> {
+    fn get_ref(&self) -> Option<&dyn BufferedReader<C>> {
         Some(&self.reader)
     }
 
-    fn into_inner<'b>(self: Box<Self>) -> Option<Box<BufferedReader<C> + 'b>>
+    fn into_inner<'b>(self: Box<Self>) -> Option<Box<dyn BufferedReader<C> + 'b>>
         where Self: 'b {
         Some(self.reader)
     }

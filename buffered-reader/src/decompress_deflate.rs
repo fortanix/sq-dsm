@@ -101,16 +101,16 @@ impl<R: BufferedReader<C>, C> BufferedReader<C>
         return self.reader.steal_eof();
     }
 
-    fn get_mut(&mut self) -> Option<&mut BufferedReader<C>> {
+    fn get_mut(&mut self) -> Option<&mut dyn BufferedReader<C>> {
         Some(self.reader.reader.get_mut())
     }
 
-    fn get_ref(&self) -> Option<&BufferedReader<C>> {
+    fn get_ref(&self) -> Option<&dyn BufferedReader<C>> {
         Some(self.reader.reader.get_ref())
     }
 
     fn into_inner<'b>(self: Box<Self>)
-            -> Option<Box<BufferedReader<C> + 'b>> where Self: 'b {
+            -> Option<Box<dyn BufferedReader<C> + 'b>> where Self: 'b {
         // Strip the outer box.
         Some(Box::new(self.reader.reader.into_inner()))
     }
@@ -223,16 +223,16 @@ impl<R: BufferedReader<C>, C> BufferedReader<C>
         return self.reader.steal_eof();
     }
 
-    fn get_mut(&mut self) -> Option<&mut BufferedReader<C>> {
+    fn get_mut(&mut self) -> Option<&mut dyn BufferedReader<C>> {
         Some(self.reader.reader.get_mut())
     }
 
-    fn get_ref(&self) -> Option<&BufferedReader<C>> {
+    fn get_ref(&self) -> Option<&dyn BufferedReader<C>> {
         Some(self.reader.reader.get_ref())
     }
 
     fn into_inner<'b>(self: Box<Self>)
-            -> Option<Box<BufferedReader<C> + 'b>> where Self: 'b {
+            -> Option<Box<dyn BufferedReader<C> + 'b>> where Self: 'b {
         // Strip the outer box.
         Some(Box::new(self.reader.reader.into_inner()))
     }

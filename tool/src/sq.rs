@@ -37,7 +37,7 @@ use store::{Mapping, LogIter};
 mod sq_cli;
 mod commands;
 
-fn open_or_stdin(f: Option<&str>) -> Result<Box<io::Read>, failure::Error> {
+fn open_or_stdin(f: Option<&str>) -> Result<Box<dyn io::Read>, failure::Error> {
     match f {
         Some(f) => Ok(Box::new(File::open(f)
                                .context("Failed to open input file")?)),
@@ -46,7 +46,7 @@ fn open_or_stdin(f: Option<&str>) -> Result<Box<io::Read>, failure::Error> {
 }
 
 fn create_or_stdout(f: Option<&str>, force: bool)
-    -> Result<Box<io::Write>, failure::Error> {
+    -> Result<Box<dyn io::Write>, failure::Error> {
     match f {
         None => Ok(Box::new(io::stdout())),
         Some(p) if p == "-" => Ok(Box::new(io::stdout())),
@@ -79,7 +79,7 @@ fn load_tpks<'a, I>(files: I) -> openpgp::Result<Vec<TPK>>
 }
 
 /// Serializes a keyring, adding descriptive headers if armored.
-fn serialize_keyring(mut output: &mut io::Write, tpks: &[TPK], binary: bool)
+fn serialize_keyring(mut output: &mut dyn io::Write, tpks: &[TPK], binary: bool)
                      -> openpgp::Result<()> {
     // Handle the easy options first.  No armor no cry:
     if binary {
@@ -253,7 +253,7 @@ fn real_main() -> Result<(), failure::Error> {
             let mut mapping = Mapping::open(&ctx, realm_name, mapping_name)
                 .context("Failed to open the mapping")?;
             commands::verify(&ctx, &mut mapping, &mut input,
-                             detached.as_mut().map(|r| r as &mut io::Read),
+                             detached.as_mut().map(|r| r as &mut dyn io::Read),
                              &mut output, signatures, tpks)?;
         },
 

@@ -50,7 +50,7 @@ impl Key<key::PublicParts, key::SubordinateRole> {
     /// // Check that we have an encryption subkey.
     /// assert_eq!(tpk.keys_valid().key_flags(flags).count(), 1);
     /// # Ok(()) }
-    pub fn bind<H, T, R>(&self, signer: &mut Signer<R>, tpk: &TPK,
+    pub fn bind<H, T, R>(&self, signer: &mut dyn Signer<R>, tpk: &TPK,
                          signature: signature::Builder,
                          hash_algo: H, creation_time: T)
         -> Result<Signature>
@@ -109,7 +109,7 @@ impl UserID {
     /// // Check that we have a userid.
     /// assert_eq!(tpk.userids().len(), 1);
     /// # Ok(()) }
-    pub fn bind<H, T, R>(&self, signer: &mut Signer<R>, tpk: &TPK,
+    pub fn bind<H, T, R>(&self, signer: &mut dyn Signer<R>, tpk: &TPK,
                       signature: signature::Builder,
                       hash_algo: H, creation_time: T)
                       -> Result<Signature>
@@ -179,7 +179,7 @@ impl UserID {
     /// // Check that we have a certification on the userid.
     /// assert_eq!(bob.userids().nth(0).unwrap().certifications().len(), 1);
     /// # Ok(()) }
-    pub fn certify<S, H, T, R>(&self, signer: &mut Signer<R>, tpk: &TPK,
+    pub fn certify<S, H, T, R>(&self, signer: &mut dyn Signer<R>, tpk: &TPK,
                                signature_type: S,
                                hash_algo: H, creation_time: T)
         -> Result<Signature>
@@ -251,7 +251,7 @@ impl UserAttribute {
     /// // Check that we have a user attribute.
     /// assert_eq!(tpk.user_attributes().len(), 1);
     /// # Ok(()) }
-    pub fn bind<H, T, R>(&self, signer: &mut Signer<R>, tpk: &TPK,
+    pub fn bind<H, T, R>(&self, signer: &mut dyn Signer<R>, tpk: &TPK,
                          signature: signature::Builder,
                          hash_algo: H, creation_time: T)
         -> Result<Signature>
@@ -326,7 +326,7 @@ impl UserAttribute {
     /// assert_eq!(bob.user_attributes().nth(0).unwrap().certifications().len(),
     ///            1);
     /// # Ok(()) }
-    pub fn certify<S, H, T, R>(&self, signer: &mut Signer<R>, tpk: &TPK,
+    pub fn certify<S, H, T, R>(&self, signer: &mut dyn Signer<R>, tpk: &TPK,
                                signature_type: S,
                                hash_algo: H, creation_time: T)
         -> Result<Signature>

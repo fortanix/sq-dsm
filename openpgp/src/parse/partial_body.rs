@@ -375,15 +375,15 @@ impl<T: BufferedReader<Cookie>> BufferedReader<Cookie>
         self.partial_body_length == 0 && self.last
     }
 
-    fn get_mut(&mut self) -> Option<&mut BufferedReader<Cookie>> {
+    fn get_mut(&mut self) -> Option<&mut dyn BufferedReader<Cookie>> {
         Some(&mut self.reader)
     }
 
-    fn get_ref(&self) -> Option<&BufferedReader<Cookie>> {
+    fn get_ref(&self) -> Option<&dyn BufferedReader<Cookie>> {
         Some(&self.reader)
     }
 
-    fn into_inner<'b>(self: Box<Self>) -> Option<Box<BufferedReader<Cookie> + 'b>>
+    fn into_inner<'b>(self: Box<Self>) -> Option<Box<dyn BufferedReader<Cookie> + 'b>>
             where Self: 'b {
         Some(Box::new(self.reader))
     }

@@ -11,7 +11,7 @@ use super::*;
 /// much data as you read.  Thus, it should only be used for peeking
 /// at the underlying `BufferedReader`.
 pub struct Dup<'a, C> {
-    reader: Box<'a + BufferedReader<C>>,
+    reader: Box<dyn BufferedReader<C> + 'a>,
 
     // The number of bytes that have been consumed.
     cursor: usize,
@@ -40,7 +40,7 @@ impl<'a> Dup<'a, ()> {
     /// Instantiates a new `Dup` buffered reader.
     ///
     /// `reader` is the `BufferedReader` to duplicate.
-    pub fn new(reader: Box<'a + BufferedReader<()>>) -> Self {
+    pub fn new(reader: Box<dyn BufferedReader<()> + 'a>) -> Self {
         Self::with_cookie(reader, ())
     }
 }
@@ -50,7 +50,7 @@ impl<'a, C> Dup<'a, C> {
     ///
     /// The cookie can be retrieved using the `cookie_ref` and
     /// `cookie_mut` methods, and set using the `cookie_set` method.
-    pub fn with_cookie(reader: Box<'a + BufferedReader<C>>, cookie: C) -> Self {
+    pub fn with_cookie(reader: Box<dyn BufferedReader<C> + 'a>, cookie: C) -> Self {
         Dup {
             reader: reader,
             cursor: 0,
@@ -121,15 +121,15 @@ impl<'a, C> BufferedReader<C> for Dup<'a, C> {
         Ok(data)
     }
 
-    fn get_mut(&mut self) -> Option<&mut BufferedReader<C>> {
+    fn get_mut(&mut self) -> Option<&mut dyn BufferedReader<C>> {
         Some(&mut self.reader)
     }
 
-    fn get_ref(&self) -> Option<&BufferedReader<C>> {
+    fn get_ref(&self) -> Option<&dyn BufferedReader<C>> {
         Some(&self.reader)
     }
 
-    fn into_inner<'b>(self: Box<Self>) -> Option<Box<BufferedReader<C> + 'b>>
+    fn into_inner<'b>(self: Box<Self>) -> Option<Box<dyn BufferedReader<C> + 'b>>
             where Self: 'b {
         Some(self.reader)
     }

@@ -85,7 +85,7 @@ fn get_signing_keys(tpks: &[openpgp::TPK])
 }
 
 pub fn encrypt(mapping: &mut store::Mapping,
-               input: &mut io::Read, output: &mut io::Write,
+               input: &mut dyn io::Read, output: &mut dyn io::Write,
                npasswords: usize, recipients: Vec<&str>,
                mut tpks: Vec<openpgp::TPK>, signers: Vec<openpgp::TPK>,
                mode: openpgp::constants::KeyFlags,
@@ -363,9 +363,9 @@ impl<'a> VerificationHelper for VHelper<'a> {
 }
 
 pub fn verify(ctx: &Context, mapping: &mut store::Mapping,
-              input: &mut io::Read,
-              detached: Option<&mut io::Read>,
-              output: &mut io::Write,
+              input: &mut dyn io::Read,
+              detached: Option<&mut dyn io::Read>,
+              output: &mut dyn io::Write,
               signatures: usize, tpks: Vec<TPK>)
               -> Result<()> {
     let helper = VHelper::new(ctx, mapping, signatures, tpks);
@@ -388,7 +388,7 @@ pub fn verify(ctx: &Context, mapping: &mut store::Mapping,
     Ok(())
 }
 
-pub fn split(input: &mut io::Read, prefix: &str)
+pub fn split(input: &mut dyn io::Read, prefix: &str)
              -> Result<()> {
     // We (ab)use the mapping feature to create byte-accurate dumps of
     // nested packets.
@@ -434,11 +434,11 @@ pub fn split(input: &mut io::Read, prefix: &str)
 }
 
 /// Joins the given files.
-pub fn join(inputs: Option<clap::Values>, output: &mut io::Write)
+pub fn join(inputs: Option<clap::Values>, output: &mut dyn io::Write)
             -> Result<()> {
     /// Writes a bit-accurate copy of all top-level packets in PPR to
     /// OUTPUT.
-    fn copy(mut ppr: PacketParserResult, output: &mut io::Write)
+    fn copy(mut ppr: PacketParserResult, output: &mut dyn io::Write)
             -> Result<()> {
         while let PacketParserResult::Some(pp) = ppr {
             // We (ab)use the mapping feature to create byte-accurate

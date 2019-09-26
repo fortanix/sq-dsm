@@ -1312,7 +1312,7 @@ impl SerializeInto for OnePassSig3 {
 }
 
 impl<P: key::KeyParts, R: key::KeyRole> Serialize for Key<P, R> {
-    fn serialize(&self, o: &mut io::Write) -> Result<()> {
+    fn serialize(&self, o: &mut dyn io::Write) -> Result<()> {
         match self {
             &Key::V4(ref p) => p.serialize(o),
         }
@@ -1345,7 +1345,7 @@ impl<P, R> Serialize for Key4<P, R>
     where P: key::KeyParts,
           R: key::KeyRole,
 {
-    fn serialize(&self, o: &mut io::Write) -> Result<()> {
+    fn serialize(&self, o: &mut dyn io::Write) -> Result<()> {
         self.serialize_key(o, true)
     }
 }
@@ -1355,7 +1355,7 @@ impl<P, R> Key4<P, R>
           R: key::KeyRole,
 {
     pub(crate) // For tests in key.
-    fn serialize_key(&self, o: &mut io::Write, serialize_secrets: bool)
+    fn serialize_key(&self, o: &mut dyn io::Write, serialize_secrets: bool)
                      -> Result<()> {
         let have_secret_key = self.secret().is_some() && serialize_secrets;
 

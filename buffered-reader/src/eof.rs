@@ -72,18 +72,18 @@ impl<C> BufferedReader<C> for EOF<C> {
         }
     }
 
-    fn into_inner<'a>(self: Box<Self>) -> Option<Box<BufferedReader<C> + 'a>>
+    fn into_inner<'a>(self: Box<Self>) -> Option<Box<dyn BufferedReader<C> + 'a>>
         where Self: 'a
     {
         return None;
     }
 
-    fn get_mut(&mut self) -> Option<&mut BufferedReader<C>>
+    fn get_mut(&mut self) -> Option<&mut dyn BufferedReader<C>>
     {
         return None;
     }
 
-    fn get_ref(&self) -> Option<&BufferedReader<C>>
+    fn get_ref(&self) -> Option<&dyn BufferedReader<C>>
     {
         return None;
     }

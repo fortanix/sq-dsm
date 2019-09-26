@@ -280,7 +280,7 @@ impl PacketPile {
     }
 
 
-    pub(crate) fn from_buffered_reader<'a>(bio: Box<'a + BufferedReader<Cookie>>)
+    pub(crate) fn from_buffered_reader<'a>(bio: Box<dyn BufferedReader<Cookie> + 'a>)
             -> Result<PacketPile> {
         PacketParserBuilder::from_buffered_reader(bio)?
             .buffer_unread_content()

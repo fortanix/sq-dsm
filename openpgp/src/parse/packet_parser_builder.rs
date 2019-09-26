@@ -36,7 +36,7 @@ pub enum Dearmor {
 /// for instance, `PacketParser::from_file` or
 /// `PacketParser::from_reader` to start parsing an OpenPGP message.
 pub struct PacketParserBuilder<'a> {
-    bio: Box<'a + BufferedReader<Cookie>>,
+    bio: Box<dyn BufferedReader<Cookie> + 'a>,
     dearmor: Dearmor,
     settings: PacketParserSettings,
 }
@@ -72,7 +72,7 @@ impl<'a> PacketParserBuilder<'a> {
     //
     // Note: this clears the `level` field of the
     // `Cookie` cookie.
-    pub(crate) fn from_buffered_reader(mut bio: Box<'a + BufferedReader<Cookie>>)
+    pub(crate) fn from_buffered_reader(mut bio: Box<dyn BufferedReader<Cookie> + 'a>)
             -> Result<Self> {
         bio.cookie_mut().level = None;
         Ok(PacketParserBuilder {

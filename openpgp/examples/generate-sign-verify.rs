@@ -37,7 +37,7 @@ fn generate() -> openpgp::Result<openpgp::TPK> {
 }
 
 /// Signs the given message.
-fn sign(sink: &mut Write, plaintext: &str, tsk: &openpgp::TPK)
+fn sign(sink: &mut dyn Write, plaintext: &str, tsk: &openpgp::TPK)
            -> openpgp::Result<()> {
     // Get the keypair to do the signing from the TPK.
     let mut keypair = tsk.keys_valid().signing_capable().nth(0).unwrap().2
@@ -63,7 +63,7 @@ fn sign(sink: &mut Write, plaintext: &str, tsk: &openpgp::TPK)
 }
 
 /// Verifies the given message.
-fn verify(sink: &mut Write, signed_message: &[u8], sender: &openpgp::TPK)
+fn verify(sink: &mut dyn Write, signed_message: &[u8], sender: &openpgp::TPK)
           -> openpgp::Result<()> {
     // Make a helper that that feeds the sender's public key to the
     // verifier.

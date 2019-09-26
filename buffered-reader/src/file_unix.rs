@@ -204,15 +204,15 @@ impl<'a, C> BufferedReader<C> for File<'a, C> {
         }
     }
 
-    fn get_mut(&mut self) -> Option<&mut BufferedReader<C>> {
+    fn get_mut(&mut self) -> Option<&mut dyn BufferedReader<C>> {
         None
     }
 
-    fn get_ref(&self) -> Option<&BufferedReader<C>> {
+    fn get_ref(&self) -> Option<&dyn BufferedReader<C>> {
         None
     }
 
-    fn into_inner<'b>(self: Box<Self>) -> Option<Box<BufferedReader<C> + 'b>>
+    fn into_inner<'b>(self: Box<Self>) -> Option<Box<dyn BufferedReader<C> + 'b>>
         where Self: 'b {
         None
     }

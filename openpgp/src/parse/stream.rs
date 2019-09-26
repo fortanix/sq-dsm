@@ -468,7 +468,7 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
     ///
     /// Signature verifications are done relative to time `t`, or the
     /// current time, if `t` is `None`.
-    pub(crate) fn from_buffered_reader(bio: Box<BufferedReader<Cookie> + 'a>,
+    pub(crate) fn from_buffered_reader(bio: Box<dyn BufferedReader<Cookie> + 'a>,
                                        helper: H, t: time::Tm)
                                        -> Result<Verifier<'a, H>>
     {
@@ -717,7 +717,7 @@ impl<'a, H: VerificationHelper> io::Read for Verifier<'a, H> {
 struct Transformer<'a> {
     state: TransformationState,
     sigs: Vec<Signature>,
-    reader: Box<'a + BufferedReader<()>>,
+    reader: Box<dyn BufferedReader<()> + 'a>,
     buffer: Vec<u8>,
 }
 
@@ -729,8 +729,8 @@ enum TransformationState {
 }
 
 impl<'a> Transformer<'a> {
-    fn new<'b>(signatures: Box<'b + BufferedReader<Cookie>>,
-               mut data: Box<'a + BufferedReader<()>>)
+    fn new<'b>(signatures: Box<dyn BufferedReader<Cookie> + 'b>,
+               mut data: Box<dyn BufferedReader<()> + 'a>)
                -> Result<Transformer<'a>>
     {
         let mut sigs = Vec::new();
@@ -1009,8 +1009,8 @@ impl DetachedVerifier {
     /// Signature verifications are done relative to time `t`, or the
     /// current time, if `t` is `None`.
     pub(crate) fn from_buffered_reader<'a, 's, H>
-        (signature_bio: Box<BufferedReader<Cookie> + 's>,
-         reader: Box<'a + BufferedReader<()>>,
+        (signature_bio: Box<dyn BufferedReader<Cookie> + 's>,
+         reader: Box<dyn BufferedReader<()> + 'a>,
          helper: H, t: time::Tm)
          -> Result<Verifier<'a, H>>
         where H: VerificationHelper
@@ -1212,7 +1212,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
     }
 
     /// Creates the `Decryptor`, and buffers the data up to `BUFFER_SIZE`.
-    pub(crate) fn from_buffered_reader(bio: Box<BufferedReader<Cookie> + 'a>,
+    pub(crate) fn from_buffered_reader(bio: Box<dyn BufferedReader<Cookie> + 'a>,
                                        helper: H, t: time::Tm)
                                        -> Result<Decryptor<'a, H>>
     {

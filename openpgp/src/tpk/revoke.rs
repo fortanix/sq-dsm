@@ -99,7 +99,7 @@ impl TPKRevocationBuilder {
 
     /// Returns a revocation certificate for the tpk `TPK` signed by
     /// `signer`.
-    pub fn build<H, R>(self, signer: &mut Signer<R>, tpk: &TPK, hash_algo: H)
+    pub fn build<H, R>(self, signer: &mut dyn Signer<R>, tpk: &TPK, hash_algo: H)
         -> Result<Signature>
         where H: Into<Option<HashAlgorithm>>,
               R: key::KeyRole
@@ -219,7 +219,7 @@ impl SubkeyRevocationBuilder {
 
     /// Returns a revocation certificate for the tpk `TPK` signed by
     /// `signer`.
-    pub fn build<H, R>(self, signer: &mut Signer<R>,
+    pub fn build<H, R>(self, signer: &mut dyn Signer<R>,
                        tpk: &TPK, key: &key::PublicSubkey,
                        hash_algo: H)
         -> Result<Signature>
@@ -331,7 +331,7 @@ impl UserIDRevocationBuilder {
 
     /// Returns a revocation certificate for the tpk `TPK` signed by
     /// `signer`.
-    pub fn build<H, R>(self, signer: &mut Signer<R>,
+    pub fn build<H, R>(self, signer: &mut dyn Signer<R>,
                        tpk: &TPK, userid: &UserID,
                        hash_algo: H)
         -> Result<Signature>
@@ -446,7 +446,7 @@ impl UserAttributeRevocationBuilder {
 
     /// Returns a revocation certificate for the tpk `TPK` signed by
     /// `signer`.
-    pub fn build<H, R>(self, signer: &mut Signer<R>,
+    pub fn build<H, R>(self, signer: &mut dyn Signer<R>,
                        tpk: &TPK, ua: &UserAttribute,
                        hash_algo: H)
         -> Result<Signature>

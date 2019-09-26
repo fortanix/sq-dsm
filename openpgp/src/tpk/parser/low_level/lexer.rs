@@ -130,7 +130,7 @@ impl fmt::Display for Token {
 }
 
 pub(crate) struct Lexer<'input> {
-    iter: Box<Iterator<Item=(usize, &'input Token)> + 'input>,
+    iter: Box<dyn Iterator<Item=(usize, &'input Token)> + 'input>,
 }
 
 impl<'input> Iterator for Lexer<'input> {

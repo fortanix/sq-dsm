@@ -386,7 +386,7 @@ pub enum ReaderMode {
 
 /// A filter that strips ASCII Armor from a stream of data.
 pub struct Reader<'a> {
-    source: Box<'a + BufferedReader<()>>,
+    source: Box<dyn BufferedReader<()> + 'a>,
     kind: Option<Kind>,
     mode: ReaderMode,
     buffer: Vec<u8>,
@@ -513,7 +513,7 @@ impl<'a> Reader<'a> {
     }
 
     pub(crate) fn from_buffered_reader<C: 'a, M>(
-        inner: Box<'a + BufferedReader<C>>, mode: M) -> Self
+        inner: Box<dyn BufferedReader<C> + 'a>, mode: M) -> Self
         where M: Into<Option<ReaderMode>>
     {
         let mode = mode.into().unwrap_or(Default::default());

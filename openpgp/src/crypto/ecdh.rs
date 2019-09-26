@@ -458,7 +458,7 @@ pub fn aes_key_wrap(algo: SymmetricAlgorithm, key: &Protected,
     // nettle::Mode:ECB, and we need nettle::Mode for polymorphism (we
     // cannot have Box<nettle::Cipher>).  To work around this, we use
     // CBC, and always use an all-zero IV.
-    let mut cipher: Box<Mode> = match algo {
+    let mut cipher: Box<dyn Mode> = match algo {
         AES128 => Box::new(
             mode::Cbc::<cipher::Aes128>::with_encrypt_key(key)?),
         AES192 => Box::new(
@@ -544,7 +544,7 @@ pub fn aes_key_unwrap(algo: SymmetricAlgorithm, key: &Protected,
     // nettle::Mode:ECB, and we need nettle::Mode for polymorphism (we
     // cannot have Box<nettle::Cipher>).  To work around this, we use
     // CBC, and always use an all-zero IV.
-    let mut cipher: Box<Mode> = match algo {
+    let mut cipher: Box<dyn Mode> = match algo {
         AES128 => Box::new(
             mode::Cbc::<cipher::Aes128>::with_decrypt_key(key)?),
         AES192 => Box::new(

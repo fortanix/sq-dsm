@@ -799,7 +799,7 @@ pub trait BufferedReader<C> : io::Read + fmt::Debug + fmt::Display {
     /// ```text
     /// let inner = Box::new(br).into_inner();
     /// ```
-    fn into_inner<'a>(self: Box<Self>) -> Option<Box<BufferedReader<C> + 'a>>
+    fn into_inner<'a>(self: Box<Self>) -> Option<Box<dyn BufferedReader<C> + 'a>>
         where Self: 'a;
 
     /// Returns a mutable reference to the inner `BufferedReader`, if
@@ -809,10 +809,10 @@ pub trait BufferedReader<C> : io::Read + fmt::Debug + fmt::Display {
     /// `BufferedReader`, because this `BufferedReader` may have some
     /// data buffered.  However, this function can be useful to get
     /// the cookie.
-    fn get_mut(&mut self) -> Option<&mut BufferedReader<C>>;
+    fn get_mut(&mut self) -> Option<&mut dyn BufferedReader<C>>;
 
     /// Returns a reference to the inner `BufferedReader`, if any.
-    fn get_ref(&self) -> Option<&BufferedReader<C>>;
+    fn get_ref(&self) -> Option<&dyn BufferedReader<C>>;
 
     /// Sets the `BufferedReader`'s cookie and returns the old value.
     fn cookie_set(&mut self, cookie: C) -> C;
@@ -865,7 +865,7 @@ pub fn buffered_reader_generic_read_impl<T: BufferedReader<C>, C>
 }
 
 /// Make a `Box<BufferedReader>` look like a BufferedReader.
-impl <'a, C> BufferedReader<C> for Box<BufferedReader<C> + 'a> {
+impl <'a, C> BufferedReader<C> for Box<dyn BufferedReader<C> + 'a> {
     fn buffer(&self) -> &[u8] {
         return self.as_ref().buffer();
     }
@@ -924,17 +924,17 @@ impl <'a, C> BufferedReader<C> for Box<BufferedReader<C> + 'a> {
         return self.as_mut().drop_eof();
     }
 
-    fn get_mut(&mut self) -> Option<&mut BufferedReader<C>> {
+    fn get_mut(&mut self) -> Option<&mut dyn BufferedReader<C>> {
         // Strip the outer box.
         self.as_mut().get_mut()
     }
 
-    fn get_ref(&self) -> Option<&BufferedReader<C>> {
+    fn get_ref(&self) -> Option<&dyn BufferedReader<C>> {
         // Strip the outer box.
         self.as_ref().get_ref()
     }
 
-    fn into_inner<'b>(self: Box<Self>) -> Option<Box<BufferedReader<C> + 'b>>
+    fn into_inner<'b>(self: Box<Self>) -> Option<Box<dyn BufferedReader<C> + 'b>>
             where Self: 'b {
         // Strip the outer box.
         (*self).into_inner()

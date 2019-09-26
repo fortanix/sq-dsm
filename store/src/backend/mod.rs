@@ -68,9 +68,9 @@ fn random_duration(d: Duration) -> Duration {
 
 /// Makes backends.
 pub fn factory(descriptor: ipc::Descriptor, handle: Handle)
-               -> Result<Box<ipc::Handler>> {
+               -> Result<Box<dyn ipc::Handler>> {
     Backend::new(descriptor, handle)
-        .map(|b| -> Box<ipc::Handler> { Box::new(b) })
+        .map(|b| -> Box<dyn ipc::Handler> { Box::new(b) })
 }
 
 struct Backend {
@@ -306,7 +306,7 @@ impl MappingServer {
 
         c.execute(
             "INSERT OR IGNORE INTO mappings (realm, network_policy, name) VALUES (?1, ?2, ?3)",
-            &[&realm as &ToSql, &p, &name])?;
+            &[&realm as &dyn ToSql, &p, &name])?;
         let (id, mapping_policy): (ID, i64) = c.query_row(
             "SELECT id, network_policy FROM mappings WHERE realm = ?1 AND name = ?2",
             &[&realm, &name],
@@ -369,7 +369,7 @@ impl node::mapping::Server for MappingServer {
         let binding_id: ID = sry!(
             self.c.query_row(
                 "SELECT id FROM bindings WHERE mapping = ?1 AND label = ?2",
-                &[&self.id as &ToSql, &label], |row| row.get(0)));
+                &[&self.id as &dyn ToSql, &label], |row| row.get(0)));
 
         pry!(pry!(results.get().get_result()).set_ok(
             node::binding::ToClient::new(
@@ -459,7 +459,7 @@ impl BindingServer {
         let key_id = KeyServer::lookup_or_create(c, fp)?;
         if let Ok((binding, key)) = c.query_row(
             "SELECT id, key FROM bindings WHERE mapping = ?1 AND label = ?2",
-            &[&mapping as &ToSql, &label],
+            &[&mapping as &dyn ToSql, &label],
             |row| -> rusqlite::Result<(ID, ID)> {
                 Ok((row.get(0)?, row.get(1)?))
             })
@@ -473,7 +473,7 @@ impl BindingServer {
             let r = c.execute(
                 "INSERT INTO bindings (mapping, label, key, created)
                  VALUES (?, ?, ?, ?)",
-                &[&mapping as &ToSql, &label, &key_id, &Timestamp::now()]);
+                &[&mapping as &dyn ToSql, &label, &key_id, &Timestamp::now()]);
 
             // Some other mutator might race us to the insertion.
             match r {
@@ -482,7 +482,7 @@ impl BindingServer {
                     rusqlite::ErrorCode::ConstraintViolation => {
                         let (binding, key): (ID, ID) = c.query_row(
                             "SELECT id, key FROM bindings WHERE mapping = ?1 AND label = ?2",
-                            &[&mapping as &ToSql, &label],
+                            &[&mapping as &dyn ToSql, &label],
                             |row| Ok((row.get(0)?, row.get(1)?)))?;
                         if key == key_id {
                             Ok((binding, key_id, false))
@@ -602,7 +602,7 @@ impl node::binding::Server for BindingServer {
         sry!(new.serialize(&mut blob));
 
         sry!(self.c.execute("UPDATE keys SET key = ?1 WHERE id = ?2",
-                            &[&blob as &ToSql, &key_id]));
+                            &[&blob as &dyn ToSql, &key_id]));
         sry!(KeyServer::reindex_subkeys(&self.c, key_id, &new));
 
         pry!(pry!(results.get().get_result()).set_ok(&blob[..]));
@@ -633,14 +633,14 @@ impl node::binding::Server for BindingServer {
                            encryption_first = coalesce(encryption_first, ?2),
                            encryption_last = ?2
                        WHERE id = ?1",
-                      &[&self.id as &ToSql, &now]));
+                      &[&self.id as &dyn ToSql, &now]));
         sry!(self.c
              .execute("UPDATE keys
                        SET encryption_count = encryption_count + 1,
                            encryption_first = coalesce(encryption_first, ?2),
                            encryption_last = ?2
                        WHERE id = ?1",
-                      &[&key as &ToSql, &now]));
+                      &[&key as &dyn ToSql, &now]));
 
         sry!(self.query_stats( pry!(results.get().get_result()).init_ok()));
         Promise::ok(())
@@ -660,14 +660,14 @@ impl node::binding::Server for BindingServer {
                            verification_first = coalesce(verification_first, ?2),
                            verification_last = ?2
                        WHERE id = ?1",
-                      &[&self.id as &ToSql, &now]));
+                      &[&self.id as &dyn ToSql, &now]));
         sry!(self.c
              .execute("UPDATE keys
                        SET verification_count = verification_count + 1,
                            verification_first = coalesce(verification_first, ?2),
                            verification_last = ?2
                        WHERE id = ?1",
-                      &[&key as &ToSql, &now]));
+                      &[&key as &dyn ToSql, &now]));
 
         sry!(self.query_stats( pry!(results.get().get_result()).init_ok()));
         Promise::ok(())
@@ -745,7 +745,7 @@ impl KeyServer {
         } else {
             let r = c.execute(
                 "INSERT INTO keys (fingerprint, created, update_at) VALUES (?1, ?2, ?2)",
-                &[&fp as &ToSql, &Timestamp::now()]);
+                &[&fp as &dyn ToSql, &Timestamp::now()]);
 
             // Some other mutator might race us to the insertion.
             match r {
@@ -798,7 +798,7 @@ impl KeyServer {
         new.serialize(&mut blob)?;
 
         self.c.execute("UPDATE keys SET key = ?1 WHERE id = ?2",
-                       &[&blob as &ToSql, &self.id])?;
+                       &[&blob as &dyn ToSql, &self.id])?;
         KeyServer::reindex_subkeys(&self.c, self.id, &new)?;
 
         Ok(blob)
@@ -812,7 +812,7 @@ impl KeyServer {
 
             let r = c.execute(
                 "INSERT INTO key_by_keyid (keyid, key) VALUES (?1, ?2)",
-                &[&(keyid as i64) as &ToSql, &key_id]);
+                &[&(keyid as i64) as &dyn ToSql, &key_id]);
 
             // The mapping might already be present.  This is not an error.
             match r {
@@ -837,7 +837,7 @@ impl KeyServer {
         self.c.execute("UPDATE keys
                         SET updated = ?2, update_at = ?3
                         WHERE id = ?1",
-                       &[&self.id as &ToSql, &Timestamp::now(),
+                       &[&self.id as &dyn ToSql, &Timestamp::now(),
                          &(Timestamp::now() + next)])?;
         Ok(())
     }
@@ -849,7 +849,7 @@ impl KeyServer {
         self.c.execute("UPDATE keys
                         SET update_at = ?2
                         WHERE id = ?1",
-                       &[&self.id as &ToSql,
+                       &[&self.id as &dyn ToSql,
                          &(Timestamp::now() + next)])?;
         Ok(())
     }
@@ -903,7 +903,7 @@ impl KeyServer {
                  WHERE mappings.network_policy >= ?1
                    AND keys.update_at < ?2
                  ORDER BY keys.update_at LIMIT 1",
-            &[&network_policy_u8 as &ToSql, &Timestamp::now()],
+            &[&network_policy_u8 as &dyn ToSql, &Timestamp::now()],
             |row| Ok((row.get(0)?, row.get(1)?)))?;
         let fingerprint = openpgp::Fingerprint::from_hex(&fingerprint)
             .map_err(|_| node::Error::SystemError)?;
@@ -920,7 +920,7 @@ impl KeyServer {
     /// Updates the key that was least recently updated.
     fn update(c: &Rc<Connection>,
               network_policy: core::NetworkPolicy)
-              -> Box<Future<Item=Duration, Error=failure::Error> + 'static> {
+              -> Box<dyn Future<Item=Duration, Error=failure::Error> + 'static> {
         let (key, id, mut keyserver)
             = match Self::update_helper(c, network_policy) {
             Ok((key, id, keyserver)) => (key, id, keyserver),
@@ -1148,7 +1148,7 @@ impl node::mapping_iter::Server for MappingIterServer {
                  "SELECT id, realm, name, network_policy FROM mappings
                       WHERE id > ?1 AND realm like ?2
                       ORDER BY id LIMIT 1",
-                &[&self.n as &ToSql, &self.prefix],
+                &[&self.n as &dyn ToSql, &self.prefix],
                 |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))));
 
         // We cannot implement FromSql and friends for

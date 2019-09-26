@@ -129,7 +129,7 @@ impl<'a> PacketPileParser<'a> {
 
     /// Creates a `PacketPileParser` to parse the OpenPGP message stored
     /// in the `BufferedReader` object.
-    pub(crate) fn from_buffered_reader(bio: Box<BufferedReader<Cookie> + 'a>)
+    pub(crate) fn from_buffered_reader(bio: Box<dyn BufferedReader<Cookie> + 'a>)
             -> Result<PacketPileParser<'a>> {
         Self::from_packet_parser(PacketParser::from_buffered_reader(bio)?)
     }

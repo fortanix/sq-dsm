@@ -91,8 +91,8 @@ impl Message {
     }
 }
 
-impl<'a> From<&'a mut io::Write> for writer::Stack<'a, Cookie> {
-    fn from(w: &'a mut io::Write) -> Self {
+impl<'a> From<&'a mut dyn io::Write> for writer::Stack<'a, Cookie> {
+    fn from(w: &'a mut dyn io::Write) -> Self {
         writer::Generic::new(w, Cookie::new(0))
     }
 }
@@ -169,10 +169,10 @@ impl<'a> writer::Stackable<'a, Cookie> for ArbitraryWriter<'a> {
     fn mount(&mut self, _new: writer::BoxStack<'a, Cookie>) {
         unreachable!("Only implemented by Signer")
     }
-    fn inner_ref(&self) -> Option<&writer::Stackable<'a, Cookie>> {
+    fn inner_ref(&self) -> Option<&dyn writer::Stackable<'a, Cookie>> {
         Some(self.inner.as_ref())
     }
-    fn inner_mut(&mut self) -> Option<&mut writer::Stackable<'a, Cookie>> {
+    fn inner_mut(&mut self) -> Option<&mut dyn writer::Stackable<'a, Cookie>> {
         Some(self.inner.as_mut())
     }
     fn cookie_set(&mut self, cookie: Cookie) -> Cookie {
@@ -512,14 +512,14 @@ impl<'a, R> writer::Stackable<'a, Cookie> for Signer<'a, R>
     fn mount(&mut self, new: writer::BoxStack<'a, Cookie>) {
         self.inner = Some(new);
     }
-    fn inner_mut(&mut self) -> Option<&mut writer::Stackable<'a, Cookie>> {
+    fn inner_mut(&mut self) -> Option<&mut dyn writer::Stackable<'a, Cookie>> {
         if let Some(ref mut i) = self.inner {
             Some(i)
         } else {
             None
         }
     }
-    fn inner_ref(&self) -> Option<&writer::Stackable<'a, Cookie>> {
+    fn inner_ref(&self) -> Option<&dyn writer::Stackable<'a, Cookie>> {
         self.inner.as_ref().map(|r| r.as_ref())
     }
     fn into_inner(mut self: Box<Self>)
@@ -701,10 +701,10 @@ impl<'a> writer::Stackable<'a, Cookie> for LiteralWriter<'a> {
     fn mount(&mut self, _new: writer::BoxStack<'a, Cookie>) {
         unreachable!("Only implemented by Signer")
     }
-    fn inner_ref(&self) -> Option<&writer::Stackable<'a, Cookie>> {
+    fn inner_ref(&self) -> Option<&dyn writer::Stackable<'a, Cookie>> {
         Some(self.inner.as_ref())
     }
-    fn inner_mut(&mut self) -> Option<&mut writer::Stackable<'a, Cookie>> {
+    fn inner_mut(&mut self) -> Option<&mut dyn writer::Stackable<'a, Cookie>> {
         Some(self.inner.as_mut())
     }
     fn cookie_set(&mut self, cookie: Cookie) -> Cookie {
@@ -845,10 +845,10 @@ impl<'a> writer::Stackable<'a, Cookie> for Compressor<'a> {
     fn mount(&mut self, _new: writer::BoxStack<'a, Cookie>) {
         unreachable!("Only implemented by Signer")
     }
-    fn inner_ref(&self) -> Option<&writer::Stackable<'a, Cookie>> {
+    fn inner_ref(&self) -> Option<&dyn writer::Stackable<'a, Cookie>> {
         Some(self.inner.as_ref())
     }
-    fn inner_mut(&mut self) -> Option<&mut writer::Stackable<'a, Cookie>> {
+    fn inner_mut(&mut self) -> Option<&mut dyn writer::Stackable<'a, Cookie>> {
         Some(self.inner.as_mut())
     }
     fn cookie_set(&mut self, cookie: Cookie) -> Cookie {
@@ -1185,10 +1185,10 @@ impl<'a> writer::Stackable<'a, Cookie> for Encryptor<'a> {
     fn mount(&mut self, _new: writer::BoxStack<'a, Cookie>) {
         unreachable!("Only implemented by Signer")
     }
-    fn inner_ref(&self) -> Option<&writer::Stackable<'a, Cookie>> {
+    fn inner_ref(&self) -> Option<&dyn writer::Stackable<'a, Cookie>> {
         self.inner.as_ref().map(|r| r.as_ref())
     }
-    fn inner_mut(&mut self) -> Option<&mut writer::Stackable<'a, Cookie>> {
+    fn inner_mut(&mut self) -> Option<&mut dyn writer::Stackable<'a, Cookie>> {
         if let Some(ref mut i) = self.inner {
             Some(i)
         } else {

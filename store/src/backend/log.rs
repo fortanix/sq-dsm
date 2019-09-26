@@ -61,7 +61,7 @@ fn log(c: &Rc<Connection>, refers: Refers,
     c.execute("INSERT INTO log
                    (timestamp, level, mapping, binding, key, slug, message, error)
                    VALUES (?1, 0, ?2, ?3, ?4, ?5, ?6, ?7)",
-              &[&Timestamp::now() as &ToSql,
+              &[&Timestamp::now() as &dyn ToSql,
                 &refers.mapping, &refers.binding, &refers.key,
                 &slug, &message, &error])?;
     Ok(c.last_insert_rowid().into())

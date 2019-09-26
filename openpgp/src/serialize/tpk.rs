@@ -294,7 +294,7 @@ impl TPK {
 /// # Ok(()) }
 pub struct TSK<'a> {
     tpk: &'a TPK,
-    filter: Option<Box<'a + Fn(&'a key::UnspecifiedSecret) -> bool>>,
+    filter: Option<Box<dyn Fn(&'a key::UnspecifiedSecret) -> bool + 'a>>,
 }
 
 impl<'a> TSK<'a> {

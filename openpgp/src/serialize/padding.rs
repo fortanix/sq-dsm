@@ -225,10 +225,10 @@ impl<'a, P: Fn(u64) -> u64 + 'a> writer::Stackable<'a, Cookie> for Padder<'a, P>
     fn mount(&mut self, _new: writer::BoxStack<'a, Cookie>) {
         unreachable!("Only implemented by Signer")
     }
-    fn inner_ref(&self) -> Option<&writer::Stackable<'a, Cookie>> {
+    fn inner_ref(&self) -> Option<&dyn writer::Stackable<'a, Cookie>> {
         Some(self.inner.as_ref())
     }
-    fn inner_mut(&mut self) -> Option<&mut writer::Stackable<'a, Cookie>> {
+    fn inner_mut(&mut self) -> Option<&mut dyn writer::Stackable<'a, Cookie>> {
         Some(self.inner.as_mut())
     }
     fn cookie_set(&mut self, cookie: Cookie) -> Cookie {

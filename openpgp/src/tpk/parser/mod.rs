@@ -420,7 +420,7 @@ pub struct TPKParser<'a, I: Iterator<Item=Packet>> {
     source: PacketSource<'a, I>,
     packets: Vec<Packet>,
     saw_error: bool,
-    filter: Vec<Box<Fn(&TPK, bool) -> bool + 'a>>,
+    filter: Vec<Box<dyn Fn(&TPK, bool) -> bool + 'a>>,
 }
 
 impl<'a, I: Iterator<Item=Packet>> Default for TPKParser<'a, I> {

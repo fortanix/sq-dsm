@@ -227,7 +227,7 @@ impl<'a> PacketHeaderParser<'a> {
     // Returns a `PacketHeaderParser` to parse an OpenPGP packet.
     // `inner` points to the start of the OpenPGP framing information,
     // i.e., the CTB.
-    fn new(inner: Box<'a + BufferedReader<Cookie>>,
+    fn new(inner: Box<dyn BufferedReader<Cookie> + 'a>,
            state: PacketParserState,
            path: Vec<usize>, header: Header,
            header_bytes: Vec<u8>) -> Self
@@ -256,7 +256,7 @@ impl<'a> PacketHeaderParser<'a> {
     // framing has already been processed, and `inner` already
     // includes any required filters (e.g., a
     // `BufferedReaderPartialBodyFilter`, etc.).
-    fn new_naked(inner: Box<'a + BufferedReader<Cookie>>) -> Self {
+    fn new_naked(inner: Box<dyn BufferedReader<Cookie> + 'a>) -> Self {
         PacketHeaderParser::new(inner,
                                 PacketParserState::new(Default::default()),
                                 vec![ 0 ],
@@ -600,9 +600,9 @@ impl Cookie {
     //
     // Thus to disable the hashing of a level 3 literal packet's
     // meta-data, we disable hashing at level 2.
-    fn hashing(reader: &mut BufferedReader<Cookie>,
+    fn hashing(reader: &mut dyn BufferedReader<Cookie>,
                how: Hashing, level: isize) {
-        let mut reader : Option<&mut BufferedReader<Cookie>>
+        let mut reader : Option<&mut dyn BufferedReader<Cookie>>
             = Some(reader);
         while let Some(r) = reader {
             {
@@ -626,9 +626,9 @@ impl Cookie {
     // A helpful debugging aid to pretty print a Buffered Reader
     // stack.
     #[allow(dead_code)]
-    fn dump(reader: &BufferedReader<Cookie>) {
+    fn dump(reader: &dyn BufferedReader<Cookie>) {
         let mut i = 1;
-        let mut reader : Option<&BufferedReader<Cookie>> = Some(reader);
+        let mut reader : Option<&dyn BufferedReader<Cookie>> = Some(reader);
         while let Some(r) = reader {
             {
                 let cookie = r.cookie_ref();
@@ -648,8 +648,8 @@ impl Cookie {
 
 // Pops readers from a buffered reader stack at the specified level.
 fn buffered_reader_stack_pop<'a>(
-    mut reader: Box<BufferedReader<Cookie> + 'a>, depth: isize)
-    -> Result<(bool, Box<BufferedReader<Cookie> + 'a>)>
+    mut reader: Box<dyn BufferedReader<Cookie> + 'a>, depth: isize)
+    -> Result<(bool, Box<dyn BufferedReader<Cookie> + 'a>)>
 {
     tracer!(TRACE, "buffered_reader_stack_pop", depth);
     t!("(reader level: {:?}, pop through: {})",
@@ -935,7 +935,7 @@ pub(crate) fn to_unknown_packet<R: Read>(reader: R) -> Result<Unknown>
         reader, None, Cookie::default());
     let header = Header::parse(&mut reader)?;
 
-    let reader : Box<BufferedReader<Cookie>>
+    let reader : Box<dyn BufferedReader<Cookie>>
         = match header.length() {
             &BodyLength::Full(len) =>
                 Box::new(buffered_reader::Limitor::with_cookie(
@@ -1202,7 +1202,7 @@ impl OnePassSig3 {
         // hashed reader on level recursion_depth - 1.
         let done = {
             let mut done = false;
-            let mut reader : Option<&mut BufferedReader<Cookie>>
+            let mut reader : Option<&mut dyn BufferedReader<Cookie>>
                 = Some(&mut php.reader);
             while let Some(r) = reader {
                 {
@@ -2015,7 +2015,7 @@ impl MDC {
 
         let mut computed_hash : [u8; 20] = Default::default();
         {
-            let mut r : Option<&mut BufferedReader<Cookie>>
+            let mut r : Option<&mut dyn BufferedReader<Cookie>>
                 = Some(&mut php.reader);
             while let Some(bio) = r {
                 {
@@ -2316,7 +2316,7 @@ pub struct PacketParser<'a> {
     // `next()` or `recurse()`.
     last_path: Vec<usize>,
 
-    reader: Box<BufferedReader<Cookie> + 'a>,
+    reader: Box<dyn BufferedReader<Cookie> + 'a>,
 
     // Whether the caller read the packet's content.  If so, then we
     // can't recurse, because we're missing some of the packet!
@@ -2358,7 +2358,7 @@ impl<'a> std::fmt::Debug for PacketParser<'a> {
 /// The return value of PacketParser::parse.
 enum ParserResult<'a> {
     Success(PacketParser<'a>),
-    EOF((Box<BufferedReader<Cookie> + 'a>, PacketParserState, Vec<usize>)),
+    EOF((Box<dyn BufferedReader<Cookie> + 'a>, PacketParserState, Vec<usize>)),
 }
 
 /// Information about the stream of packets parsed by the
@@ -2593,7 +2593,7 @@ impl <'a> PacketParser<'a> {
     ///
     /// This function returns a `PacketParser` for the first packet in
     /// the stream.
-    pub(crate) fn from_buffered_reader(bio: Box<BufferedReader<Cookie> + 'a>)
+    pub(crate) fn from_buffered_reader(bio: Box<dyn BufferedReader<Cookie> + 'a>)
             -> Result<PacketParserResult<'a>> {
         PacketParserBuilder::from_buffered_reader(bio)?.finalize()
     }
@@ -2603,7 +2603,7 @@ impl <'a> PacketParser<'a> {
     ///
     /// This function may only be called when the `PacketParser` is in
     /// State::Body.
-    fn take_reader(&mut self) -> Box<BufferedReader<Cookie> + 'a> {
+    fn take_reader(&mut self) -> Box<dyn BufferedReader<Cookie> + 'a> {
         self.set_reader(
             Box::new(buffered_reader::EOF::with_cookie(Default::default())))
     }
@@ -2612,14 +2612,14 @@ impl <'a> PacketParser<'a> {
     ///
     /// This function may only be called when the `PacketParser` is in
     /// State::Body.
-    fn set_reader(&mut self, reader: Box<BufferedReader<Cookie> + 'a>)
-        -> Box<BufferedReader<Cookie> + 'a>
+    fn set_reader(&mut self, reader: Box<dyn BufferedReader<Cookie> + 'a>)
+        -> Box<dyn BufferedReader<Cookie> + 'a>
     {
         mem::replace(&mut self.reader, reader)
     }
 
     /// Returns a mutable reference to the reader stack.
-    fn mut_reader(&mut self) -> &mut BufferedReader<Cookie> {
+    fn mut_reader(&mut self) -> &mut dyn BufferedReader<Cookie> {
         &mut self.reader
     }
 
@@ -2773,7 +2773,7 @@ impl <'a> PacketParser<'a> {
     /// Returns a `PacketParser` for the next OpenPGP packet in the
     /// stream.  If there are no packets left, this function returns
     /// `bio`.
-    fn parse(mut bio: Box<BufferedReader<Cookie> + 'a>,
+    fn parse(mut bio: Box<dyn BufferedReader<Cookie> + 'a>,
              state: PacketParserState,
              path: Vec<usize>)
         -> Result<ParserResult<'a>>
@@ -2883,7 +2883,7 @@ impl <'a> PacketParser<'a> {
         let header_bytes =
             Vec::from(&bio.data_consume_hard(consumed)?[..consumed]);
 
-        let bio : Box<BufferedReader<Cookie>>
+        let bio : Box<dyn BufferedReader<Cookie>>
             = match header.length() {
                 &BodyLength::Full(len) => {
                     t!("Pushing a limitor ({} bytes), level: {}.",
@@ -3416,16 +3416,16 @@ impl<'a> BufferedReader<Cookie> for PacketParser<'a> {
         self.reader.drop_eof()
     }
 
-    fn get_mut(&mut self) -> Option<&mut BufferedReader<Cookie>> {
+    fn get_mut(&mut self) -> Option<&mut dyn BufferedReader<Cookie>> {
         None
     }
 
-    fn get_ref(&self) -> Option<&BufferedReader<Cookie>> {
+    fn get_ref(&self) -> Option<&dyn BufferedReader<Cookie>> {
         None
     }
 
     fn into_inner<'b>(self: Box<Self>)
-            -> Option<Box<BufferedReader<Cookie> + 'b>>
+            -> Option<Box<dyn BufferedReader<Cookie> + 'b>>
             where Self: 'b {
         None
     }

@@ -53,7 +53,7 @@ impl SymmetricAlgorithm {
     }
 
     /// Creates a Nettle context for encrypting in CFB mode.
-    pub fn make_encrypt_cfb(self, key: &[u8]) -> Result<Box<Mode>> {
+    pub fn make_encrypt_cfb(self, key: &[u8]) -> Result<Box<dyn Mode>> {
         use nettle::{mode, cipher};
         match self {
             SymmetricAlgorithm::TripleDES =>
@@ -91,7 +91,7 @@ impl SymmetricAlgorithm {
     }
 
     /// Creates a Nettle context for decrypting in CFB mode.
-    pub fn make_decrypt_cfb(self, key: &[u8]) -> Result<Box<Mode>> {
+    pub fn make_decrypt_cfb(self, key: &[u8]) -> Result<Box<dyn Mode>> {
         use nettle::{mode, cipher};
         match self {
             SymmetricAlgorithm::TripleDES =>
@@ -134,7 +134,7 @@ pub struct Decryptor<R: io::Read> {
     // The encrypted data.
     source: R,
 
-    dec: Box<Mode>,
+    dec: Box<dyn Mode>,
     block_size: usize,
     iv: Vec<u8>,
     // Up to a block of unread data.
@@ -368,16 +368,16 @@ impl<R: BufferedReader<C>, C> BufferedReader<C>
         return self.reader.steal_eof();
     }
 
-    fn get_mut(&mut self) -> Option<&mut BufferedReader<C>> {
+    fn get_mut(&mut self) -> Option<&mut dyn BufferedReader<C>> {
         Some(&mut self.reader.reader.source)
     }
 
-    fn get_ref(&self) -> Option<&BufferedReader<C>> {
+    fn get_ref(&self) -> Option<&dyn BufferedReader<C>> {
         Some(&self.reader.reader.source)
     }
 
     fn into_inner<'b>(self: Box<Self>)
-            -> Option<Box<BufferedReader<C> + 'b>> where Self: 'b {
+            -> Option<Box<dyn BufferedReader<C> + 'b>> where Self: 'b {
         Some(Box::new(self.reader.reader.source))
     }
 
@@ -398,7 +398,7 @@ impl<R: BufferedReader<C>, C> BufferedReader<C>
 pub struct Encryptor<W: io::Write> {
     inner: Option<W>,
 
-    cipher: Box<Mode>,
+    cipher: Box<dyn Mode>,
     block_size: usize,
     iv: Vec<u8>,
     // Up to a block of unencrypted data.

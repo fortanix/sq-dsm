@@ -25,7 +25,7 @@ pub struct Reader(ReaderKind);
 /// In some cases, we want to call functions on concrete types.  To
 /// avoid nasty hacks, we have specialized variants for that.
 pub(crate) enum ReaderKind {
-    Generic(Box<io::Read>),
+    Generic(Box<dyn io::Read>),
     Armored(openpgp::armor::Reader<'static>),
 }
 
@@ -138,7 +138,7 @@ pub extern "C" fn pgp_reader_discard(errp: Option<&mut *mut crate::error::Error>
 
 /// Wraps a generic writer.
 #[crate::ffi_wrapper_type(prefix = "pgp_")]
-pub struct Writer(Box<io::Write>);
+pub struct Writer(Box<dyn io::Write>);
 
 /// Opens a file returning a writer.
 ///
@@ -150,7 +150,7 @@ fn pgp_writer_from_file(errp: Option<&mut *mut crate::error::Error>,
                         -> Maybe<Writer> {
     let filename = ffi_param_cstr!(filename).to_string_lossy().into_owned();
     File::create(Path::new(&filename))
-        .map(|w| -> Box<io::Write> { Box::new(w) })
+        .map(|w| -> Box<dyn io::Write> { Box::new(w) })
         .map_err(|e| ::failure::Error::from(e))
         .move_into_raw(errp)
 }
@@ -159,7 +159,7 @@ fn pgp_writer_from_file(errp: Option<&mut *mut crate::error::Error>,
 #[cfg(unix)]
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_writer_from_fd(fd: c_int) -> *mut Writer {
-    let w: Box<io::Write> = Box::new(unsafe { File::from_raw_fd(fd) });
+    let w: Box<dyn io::Write> = Box::new(unsafe { File::from_raw_fd(fd) });
     w.move_into_raw()
 }
 
@@ -170,7 +170,7 @@ fn pgp_writer_from_bytes(buf: *mut u8, len: size_t) -> *mut Writer {
     let buf = unsafe {
         slice::from_raw_parts_mut(buf, len as usize)
     };
-    let w: Box<io::Write> = Box::new(Cursor::new(buf));
+    let w: Box<dyn io::Write> = Box::new(Cursor::new(buf));
     w.move_into_raw()
 }
 
@@ -188,7 +188,7 @@ fn pgp_writer_alloc(buf: *mut *mut c_void, len: *mut size_t)
     let buf = ffi_param_ref_mut!(buf);
     let len = ffi_param_ref_mut!(len);
 
-    let w: Box<io::Write> = Box::new(WriterAlloc {
+    let w: Box<dyn io::Write> = Box::new(WriterAlloc {
         buf: buf,
         len: len,
     });

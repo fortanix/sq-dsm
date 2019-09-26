@@ -238,7 +238,7 @@ fn int_to_reason_for_revocation(code: c_int) -> ReasonForRevocation {
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_tpk_revoke(errp: Option<&mut *mut crate::error::Error>,
                   tpk: *const TPK,
-                  primary_signer: *mut Box<crypto::Signer<
+                  primary_signer: *mut Box<dyn crypto::Signer<
                           openpgp::packet::key::UnspecifiedRole>>,
                   code: c_int,
                   reason: Option<&c_char>)
@@ -305,7 +305,7 @@ fn pgp_tpk_revoke(errp: Option<&mut *mut crate::error::Error>,
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_tpk_revoke_in_place(errp: Option<&mut *mut crate::error::Error>,
                            tpk: *mut TPK,
-                           primary_signer: *mut Box<crypto::Signer<
+                           primary_signer: *mut Box<dyn crypto::Signer<
                                    openpgp::packet::key::UnspecifiedRole>>,
                            code: c_int,
                            reason: Option<&c_char>)
@@ -360,7 +360,7 @@ fn pgp_tpk_alive(tpk: *const TPK, when: time_t)
 /// This function consumes `tpk` and returns a new `TPK`.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_tpk_set_expiry(errp: Option<&mut *mut crate::error::Error>,
-                      tpk: *mut TPK, primary_signer: *mut Box<crypto::Signer<
+                      tpk: *mut TPK, primary_signer: *mut Box<dyn crypto::Signer<
                               openpgp::packet::key::UnspecifiedRole>>,
                       expiry: u32)
                       -> Maybe<TPK> {

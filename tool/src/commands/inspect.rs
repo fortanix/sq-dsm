@@ -9,7 +9,7 @@ use crate::openpgp::parse::{Parse, PacketParserResult};
 
 use super::TIMEFMT;
 
-pub fn inspect(m: &clap::ArgMatches, output: &mut io::Write)
+pub fn inspect(m: &clap::ArgMatches, output: &mut dyn io::Write)
                -> Result<()> {
     let print_keygrips = m.is_present("keygrips");
     let print_certifications = m.is_present("certifications");
@@ -124,7 +124,7 @@ pub fn inspect(m: &clap::ArgMatches, output: &mut io::Write)
     Ok(())
 }
 
-fn inspect_tpk(output: &mut io::Write, tpk: &openpgp::TPK,
+fn inspect_tpk(output: &mut dyn io::Write, tpk: &openpgp::TPK,
                print_keygrips: bool, print_certifications: bool) -> Result<()> {
     writeln!(output, "Transferable {} Key.",
              if tpk.is_tsk() { "Secret" } else { "Public" })?;
@@ -164,7 +164,7 @@ fn inspect_tpk(output: &mut io::Write, tpk: &openpgp::TPK,
     Ok(())
 }
 
-fn inspect_key<P, R>(output: &mut io::Write,
+fn inspect_key<P, R>(output: &mut dyn io::Write,
                      indent: &str,
                      key: &openpgp::packet::Key<P, R>,
                      binding_signature: Option<&openpgp::packet::Signature>,
@@ -211,7 +211,7 @@ fn inspect_key<P, R>(output: &mut io::Write,
     Ok(())
 }
 
-fn inspect_revocation(output: &mut io::Write,
+fn inspect_revocation(output: &mut dyn io::Write,
                       indent: &str,
                       revoked: openpgp::RevocationStatus)
                       -> Result<()> {
@@ -252,7 +252,7 @@ fn inspect_key_flags(flags: openpgp::constants::KeyFlags) -> Option<String> {
     }
 }
 
-fn inspect_signatures(output: &mut io::Write,
+fn inspect_signatures(output: &mut dyn io::Write,
                       sigs: &[openpgp::packet::Signature]) -> Result<()> {
     use crate::openpgp::constants::SignatureType::*;
     for sig in sigs {
@@ -276,7 +276,7 @@ fn inspect_signatures(output: &mut io::Write,
     Ok(())
 }
 
-fn inspect_certifications(output: &mut io::Write,
+fn inspect_certifications(output: &mut dyn io::Write,
                           certs: &[openpgp::packet::Signature],
                           print_certifications: bool) -> Result<()> {
     if print_certifications {

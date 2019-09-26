@@ -6,7 +6,7 @@ use super::*;
 /// Limits the amount of data that can be read from a
 /// `BufferedReader`.
 pub struct Limitor<'a, C> {
-    reader: Box<'a + BufferedReader<C>>,
+    reader: Box<dyn BufferedReader<C> + 'a>,
     limit: u64,
 
     cookie: C,
@@ -32,7 +32,7 @@ impl<'a> Limitor<'a, ()> {
     ///
     /// `reader` is the source to wrap.  `limit` is the maximum number
     /// of bytes that can be read from the source.
-    pub fn new(reader: Box<'a + BufferedReader<()>>, limit: u64) -> Self {
+    pub fn new(reader: Box<dyn BufferedReader<()> + 'a>, limit: u64) -> Self {
         Self::with_cookie(reader, limit, ())
     }
 }
@@ -42,7 +42,7 @@ impl<'a, C> Limitor<'a, C> {
     ///
     /// The cookie can be retrieved using the `cookie_ref` and
     /// `cookie_mut` methods, and set using the `cookie_set` method.
-    pub fn with_cookie(reader: Box<'a + BufferedReader<C>>, limit: u64, cookie: C)
+    pub fn with_cookie(reader: Box<dyn BufferedReader<C> + 'a>, limit: u64, cookie: C)
             -> Limitor<'a, C> {
         Limitor {
             reader: reader,
@@ -124,15 +124,15 @@ impl<'a, C> BufferedReader<C> for Limitor<'a, C> {
         self.limit == 0
     }
 
-    fn get_mut(&mut self) -> Option<&mut BufferedReader<C>> {
+    fn get_mut(&mut self) -> Option<&mut dyn BufferedReader<C>> {
         Some(&mut self.reader)
     }
 
-    fn get_ref(&self) -> Option<&BufferedReader<C>> {
+    fn get_ref(&self) -> Option<&dyn BufferedReader<C>> {
         Some(&self.reader)
     }
 
-    fn into_inner<'b>(self: Box<Self>) -> Option<Box<BufferedReader<C> + 'b>>
+    fn into_inner<'b>(self: Box<Self>) -> Option<Box<dyn BufferedReader<C> + 'b>>
         where Self: 'b {
         Some(self.reader)
     }
@@ -162,7 +162,7 @@ mod test {
 
         /* Add a single limitor.  */
         {
-            let mut bio : Box<BufferedReader<()>>
+            let mut bio : Box<dyn BufferedReader<()>>
                 = Box::new(Memory::new(data));
 
             bio = {
@@ -200,15 +200,15 @@ mod test {
         /* Try with two limitors where the first one imposes the real
          * limit.  */
         {
-            let mut bio : Box<BufferedReader<()>>
+            let mut bio : Box<dyn BufferedReader<()>>
                 = Box::new(Memory::new(data));
 
             bio = {
-                let bio2 : Box<BufferedReader<()>>
+                let bio2 : Box<dyn BufferedReader<()>>
                     = Box::new(Limitor::new(bio, 5));
                 // We limit to 15 bytes, but bio2 will still limit us to 5
                 // bytes.
-                let mut bio3 : Box<BufferedReader<()>>
+                let mut bio3 : Box<dyn BufferedReader<()>>
                     = Box::new(Limitor::new(bio2, 15));
                 {
                     let result = bio3.data(100).unwrap();

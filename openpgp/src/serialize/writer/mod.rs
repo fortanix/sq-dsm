@@ -72,7 +72,7 @@ impl<'a, C> From<Stack<'a, C>> for BoxStack<'a, C> {
     }
 }
 
-pub(crate) type BoxStack<'a, C> = Box<'a + Stackable<'a, C>>;
+pub(crate) type BoxStack<'a, C> = Box<dyn Stackable<'a, C> + 'a>;
 
 /// Makes a writer stackable and provides convenience functions.
 pub(crate) trait Stackable<'a, C> : io::Write + fmt::Debug {
@@ -99,10 +99,10 @@ pub(crate) trait Stackable<'a, C> : io::Write + fmt::Debug {
     ///
     /// It is a very bad idea to write any data from the inner
     /// `Writer`, but it can sometimes be useful to get the cookie.
-    fn inner_mut(&mut self) -> Option<&mut Stackable<'a, C>>;
+    fn inner_mut(&mut self) -> Option<&mut dyn Stackable<'a, C>>;
 
     /// Returns a reference to the inner `Writer`.
-    fn inner_ref(&self) -> Option<&Stackable<'a, C>>;
+    fn inner_ref(&self) -> Option<&dyn Stackable<'a, C>>;
 
     /// Sets the cookie and returns the old value.
     fn cookie_set(&mut self, cookie: C) -> C;
@@ -149,10 +149,10 @@ impl <'a, C> Stackable<'a, C> for BoxStack<'a, C> {
     fn mount(&mut self, new: BoxStack<'a, C>) {
         self.as_mut().mount(new);
     }
-    fn inner_mut(&mut self) -> Option<&mut Stackable<'a, C>> {
+    fn inner_mut(&mut self) -> Option<&mut dyn Stackable<'a, C>> {
         self.as_mut().inner_mut()
     }
-    fn inner_ref(&self) -> Option<&Stackable<'a, C>> {
+    fn inner_ref(&self) -> Option<&dyn Stackable<'a, C>> {
         self.as_ref().inner_ref()
     }
     fn cookie_set(&mut self, cookie: C) -> C {
@@ -171,8 +171,8 @@ impl <'a, C> Stackable<'a, C> for BoxStack<'a, C> {
 
 /// Maps a function over the stack of writers.
 #[allow(dead_code)]
-pub(crate) fn map<C, F>(head: &Stackable<C>, mut fun: F)
-    where F: FnMut(&Stackable<C>) -> bool {
+pub(crate) fn map<C, F>(head: &dyn Stackable<C>, mut fun: F)
+    where F: FnMut(&dyn Stackable<C>) -> bool {
     let mut ow = Some(head);
     while let Some(w) = ow {
         if ! fun(w) {
@@ -184,8 +184,8 @@ pub(crate) fn map<C, F>(head: &Stackable<C>, mut fun: F)
 
 /// Maps a function over the stack of mutable writers.
 #[allow(dead_code)]
-pub(crate) fn map_mut<C, F>(head: &mut Stackable<C>, mut fun: F)
-    where F: FnMut(&mut Stackable<C>) -> bool {
+pub(crate) fn map_mut<C, F>(head: &mut dyn Stackable<C>, mut fun: F)
+    where F: FnMut(&mut dyn Stackable<C>) -> bool {
     let mut ow = Some(head);
     while let Some(w) = ow {
         if ! fun(w) {
@@ -197,7 +197,7 @@ pub(crate) fn map_mut<C, F>(head: &mut Stackable<C>, mut fun: F)
 
 /// Dumps the writer stack.
 #[allow(dead_code)]
-pub(crate) fn dump<C>(head: &Stackable<C>) {
+pub(crate) fn dump<C>(head: &dyn Stackable<C>) {
     let mut depth = 0;
     map(head, |w| {
         eprintln!("{}: {:?}", depth, w);
@@ -257,14 +257,14 @@ impl<'a, C> Stackable<'a, C> for Identity<'a, C> {
     fn mount(&mut self, new: BoxStack<'a, C>) {
         self.inner = Some(new);
     }
-    fn inner_ref(&self) -> Option<&Stackable<'a, C>> {
+    fn inner_ref(&self) -> Option<&dyn Stackable<'a, C>> {
         if let Some(ref i) = self.inner {
             Some(i)
         } else {
             None
         }
     }
-    fn inner_mut(&mut self) -> Option<&mut Stackable<'a, C>> {
+    fn inner_mut(&mut self) -> Option<&mut dyn Stackable<'a, C>> {
         if let Some(ref mut i) = self.inner {
             Some(i)
         } else {
@@ -342,14 +342,14 @@ impl<'a, W: io::Write, C> Stackable<'a, C> for Generic<W, C> {
     /// Sets the inner stackable.
     fn mount(&mut self, _new: BoxStack<'a, C>) {
     }
-    fn inner_mut(&mut self) -> Option<&mut Stackable<'a, C>> {
+    fn inner_mut(&mut self) -> Option<&mut dyn Stackable<'a, C>> {
         // If you use Generic to wrap an io::Writer, and you know that
         // the io::Writer's inner is also a Stackable, then return a
         // reference to the innermost Stackable in your
         // implementation.  See e.g. writer::ZLIB.
         None
     }
-    fn inner_ref(&self) -> Option<&Stackable<'a, C>> {
+    fn inner_ref(&self) -> Option<&dyn Stackable<'a, C>> {
         // If you use Generic to wrap an io::Writer, and you know that
         // the io::Writer's inner is also a Stackable, then return a
         // reference to the innermost Stackable in your
@@ -419,12 +419,12 @@ impl<'a, C: 'a> Stackable<'a, C> for Encryptor<'a, C> {
     fn mount(&mut self, _new: BoxStack<'a, C>) {
         unreachable!("Only implemented by Signer")
     }
-    fn inner_mut(&mut self) -> Option<&mut Stackable<'a, C>> {
+    fn inner_mut(&mut self) -> Option<&mut dyn Stackable<'a, C>> {
         // XXX: Unfortunately, this doesn't work due to a lifetime mismatch:
         // self.inner.inner.get_mut().map(|r| r.as_mut())
         None
     }
-    fn inner_ref(&self) -> Option<&Stackable<'a, C>> {
+    fn inner_ref(&self) -> Option<&dyn Stackable<'a, C>> {
         self.inner.inner.get_ref().map(|r| r.as_ref())
     }
     fn cookie_set(&mut self, cookie: C) -> C {
@@ -492,12 +492,12 @@ impl<'a, C: 'a> Stackable<'a, C> for AEADEncryptor<'a, C> {
     fn mount(&mut self, _new: BoxStack<'a, C>) {
         unreachable!("Only implemented by Signer")
     }
-    fn inner_mut(&mut self) -> Option<&mut Stackable<'a, C>> {
+    fn inner_mut(&mut self) -> Option<&mut dyn Stackable<'a, C>> {
         // XXX: Unfortunately, this doesn't work due to a lifetime mismatch:
         // self.inner.inner.get_mut().map(|r| r.as_mut())
         None
     }
-    fn inner_ref(&self) -> Option<&Stackable<'a, C>> {
+    fn inner_ref(&self) -> Option<&dyn Stackable<'a, C>> {
         self.inner.inner.get_ref().map(|r| r.as_ref())
     }
     fn cookie_set(&mut self, cookie: C) -> C {

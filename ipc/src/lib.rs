@@ -93,7 +93,7 @@ pub trait Handler {
 /// A factory for handlers.
 pub type HandlerFactory = fn(descriptor: Descriptor,
                              handle: tokio_core::reactor::Handle)
-                             -> Result<Box<Handler>>;
+                             -> Result<Box<dyn Handler>>;
 
 /// A descriptor is used to connect to a service.
 #[derive(Clone)]

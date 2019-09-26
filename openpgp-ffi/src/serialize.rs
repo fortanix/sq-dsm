@@ -150,7 +150,7 @@ pub extern "C" fn pgp_arbitrary_writer_new
 pub extern "C" fn pgp_signer_new
     (errp: Option<&mut *mut crate::error::Error>,
      inner: *mut writer::Stack<'static, Cookie>,
-     signers: *const *mut Box<self::openpgp::crypto::Signer<
+     signers: *const *mut Box<dyn self::openpgp::crypto::Signer<
              self::openpgp::packet::key::UnspecifiedRole>>,
      signers_len: size_t,
      hash_algo: u8)
@@ -183,7 +183,7 @@ pub extern "C" fn pgp_signer_new
 pub extern "C" fn pgp_signer_new_detached
     (errp: Option<&mut *mut crate::error::Error>,
      inner: *mut writer::Stack<'static, Cookie>,
-     signers: *const *mut Box<self::openpgp::crypto::Signer<
+     signers: *const *mut Box<dyn self::openpgp::crypto::Signer<
              self::openpgp::packet::key::UnspecifiedRole>>,
      signers_len: size_t,
      hash_algo: u8)

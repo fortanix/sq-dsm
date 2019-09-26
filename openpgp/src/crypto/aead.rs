@@ -41,7 +41,7 @@ impl AEADAlgorithm {
 
     /// Creates a nettle context.
     pub fn context(&self, sym_algo: SymmetricAlgorithm, key: &[u8], nonce: &[u8])
-                   -> Result<Box<aead::Aead>> {
+                   -> Result<Box<dyn aead::Aead>> {
         match self {
             AEADAlgorithm::EAX => match sym_algo {
                 SymmetricAlgorithm::AES128 =>
@@ -125,7 +125,7 @@ impl<R: io::Read> Decryptor<R> {
         })
     }
 
-    fn hash_associated_data(&mut self, aead: &mut Box<aead::Aead>,
+    fn hash_associated_data(&mut self, aead: &mut Box<dyn aead::Aead>,
                             final_digest: bool) {
         // Prepare the associated data.
         write_be_u64(&mut self.ad[AD_PREFIX_LEN..AD_PREFIX_LEN + 8],
@@ -140,7 +140,7 @@ impl<R: io::Read> Decryptor<R> {
         }
     }
 
-    fn make_aead(&mut self) -> Result<Box<aead::Aead>> {
+    fn make_aead(&mut self) -> Result<Box<dyn aead::Aead>> {
         // The chunk index is XORed into the IV.
         let mut chunk_index_be64 = vec![0u8; 8];
         write_be_u64(&mut chunk_index_be64, self.chunk_index);
@@ -479,16 +479,16 @@ impl<R: BufferedReader<C>, C> BufferedReader<C>
         return self.reader.steal_eof();
     }
 
-    fn get_mut(&mut self) -> Option<&mut BufferedReader<C>> {
+    fn get_mut(&mut self) -> Option<&mut dyn BufferedReader<C>> {
         Some(&mut self.reader.reader.source)
     }
 
-    fn get_ref(&self) -> Option<&BufferedReader<C>> {
+    fn get_ref(&self) -> Option<&dyn BufferedReader<C>> {
         Some(&self.reader.reader.source)
     }
 
     fn into_inner<'b>(self: Box<Self>)
-            -> Option<Box<BufferedReader<C> + 'b>> where Self: 'b {
+            -> Option<Box<dyn BufferedReader<C> + 'b>> where Self: 'b {
         Some(Box::new(self.reader.reader.source))
     }
 
@@ -558,7 +558,7 @@ impl<W: io::Write> Encryptor<W> {
         })
     }
 
-    fn hash_associated_data(&mut self, aead: &mut Box<aead::Aead>,
+    fn hash_associated_data(&mut self, aead: &mut Box<dyn aead::Aead>,
                             final_digest: bool) {
         // Prepare the associated data.
         write_be_u64(&mut self.ad[AD_PREFIX_LEN..AD_PREFIX_LEN + 8],
@@ -573,7 +573,7 @@ impl<W: io::Write> Encryptor<W> {
         }
     }
 
-    fn make_aead(&mut self) -> Result<Box<aead::Aead>> {
+    fn make_aead(&mut self) -> Result<Box<dyn aead::Aead>> {
         // The chunk index is XORed into the IV.
         let mut chunk_index_be64 = vec![0u8; 8];
         write_be_u64(&mut chunk_index_be64, self.chunk_index);

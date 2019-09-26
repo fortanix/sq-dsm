@@ -1000,7 +1000,7 @@ impl TPK {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn revoke_in_place<R>(self, primary_signer: &mut Signer<R>,
+    pub fn revoke_in_place<R>(self, primary_signer: &mut dyn Signer<R>,
                               code: ReasonForRevocation, reason: &[u8])
         -> Result<TPK>
         where R: key::KeyRole
@@ -1042,7 +1042,7 @@ impl TPK {
     ///
     /// This function exists to facilitate testing, which is why it is
     /// not exported.
-    fn set_expiry_as_of<R>(self, primary_signer: &mut Signer<R>,
+    fn set_expiry_as_of<R>(self, primary_signer: &mut dyn Signer<R>,
                            expiration: Option<time::Duration>,
                            now: time::Tm)
         -> Result<TPK>
@@ -1078,7 +1078,7 @@ impl TPK {
     ///
     /// Note: the time is relative to the key's creation time, not the
     /// current time!
-    pub fn set_expiry<R>(self, primary_signer: &mut Signer<R>,
+    pub fn set_expiry<R>(self, primary_signer: &mut dyn Signer<R>,
                          expiration: Option<time::Duration>)
         -> Result<TPK>
         where R: key::KeyRole
@@ -2466,7 +2466,7 @@ mod test {
                               = tpk.subkeys().nth(0).unwrap().revoked(t))
         }
 
-        let tests : [(&str, Box<Fn(&TPK, _) -> bool>); 2] = [
+        let tests : [(&str, Box<dyn Fn(&TPK, _) -> bool>); 2] = [
             ("tpk", Box::new(tpk_revoked)),
             ("subkey", Box::new(subkey_revoked)),
         ];
@@ -2581,7 +2581,7 @@ mod test {
 
         tracer!(true, "userid_revoked2", 0);
 
-        let tests : [(&str, Box<Fn(&TPK, bool, _)>); 2] = [
+        let tests : [(&str, Box<dyn Fn(&TPK, bool, _)>); 2] = [
             ("userid", Box::new(check_userids)),
             ("user-attribute", Box::new(check_uas)),
         ];
