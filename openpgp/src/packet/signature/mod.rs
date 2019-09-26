@@ -1,7 +1,7 @@
 //! Types for signatures.
 
 use std::fmt;
-use std::ops::Deref;
+use std::ops::{Deref, DerefMut};
 
 use crate::constants::Curve;
 use crate::Error;
@@ -24,7 +24,10 @@ use crate::packet::UserID;
 use crate::packet::UserAttribute;
 use crate::Packet;
 use crate::packet;
-use crate::packet::signature::subpacket::SubpacketArea;
+use crate::packet::signature::subpacket::{
+    SubpacketArea,
+    SubpacketAreas,
+};
 
 use nettle::{dsa, ecc, ecdsa, ed25519, rsa};
 use nettle::rsa::verify_digest_pkcs1;
@@ -47,10 +50,22 @@ pub struct Builder {
     pk_algo: PublicKeyAlgorithm,
     /// Hash algorithm used to compute the signature.
     hash_algo: HashAlgorithm,
-    /// Subpackets that are part of the signature.
-    hashed_area: SubpacketArea,
-    /// Subpackets _not_ that are part of the signature.
-    unhashed_area: SubpacketArea,
+    /// Subpackets.
+    subpackets: SubpacketAreas,
+}
+
+impl Deref for Builder {
+    type Target = SubpacketAreas;
+
+    fn deref(&self) -> &Self::Target {
+        &self.subpackets
+    }
+}
+
+impl DerefMut for Builder {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.subpackets
+    }
 }
 
 impl Builder {
@@ -61,8 +76,7 @@ impl Builder {
             typ: typ,
             pk_algo: PublicKeyAlgorithm::Unknown(0),
             hash_algo: HashAlgorithm::Unknown(0),
-            hashed_area: SubpacketArea::empty(),
-            unhashed_area: SubpacketArea::empty(),
+            subpackets: SubpacketAreas::empty(),
         }
     }
 
@@ -90,26 +104,6 @@ impl Builder {
     /// Gets the hash algorithm.
     pub fn hash_algo(&self) -> HashAlgorithm {
         self.hash_algo
-    }
-
-    /// Gets a reference to the hashed area.
-    pub fn hashed_area(&self) -> &SubpacketArea {
-        &self.hashed_area
-    }
-
-    /// Gets a mutable reference to the hashed area.
-    pub fn hashed_area_mut(&mut self) -> &mut SubpacketArea {
-        &mut self.hashed_area
-    }
-
-    /// Gets a reference to the unhashed area.
-    pub fn unhashed_area(&self) -> &SubpacketArea {
-        &self.unhashed_area
-    }
-
-    /// Gets a mutable reference to the unhashed area.
-    pub fn unhashed_area_mut(&mut self) -> &mut SubpacketArea {
-        &mut self.unhashed_area
     }
 
     /// Creates a standalone signature.
@@ -343,14 +337,6 @@ pub struct Signature4 {
     level: usize,
 }
 
-impl Deref for Signature4 {
-    type Target = Builder;
-
-    fn deref(&self) -> &Self::Target {
-        &self.fields
-    }
-}
-
 impl fmt::Debug for Signature4 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         // Get the issuer.  Prefer the issuer fingerprint to the
@@ -403,7 +389,7 @@ impl PartialEq for Signature4 {
             && self.fields.typ == other.fields.typ
             && self.fields.pk_algo == other.fields.pk_algo
             && self.fields.hash_algo == other.fields.hash_algo
-            && self.fields.hashed_area == other.fields.hashed_area
+            && self.fields.hashed_area() == other.fields.hashed_area()
     }
 }
 
@@ -414,7 +400,7 @@ impl std::hash::Hash for Signature4 {
         self.fields.typ.hash(state);
         self.fields.pk_algo.hash(state);
         self.fields.hash_algo.hash(state);
-        self.fields.hashed_area.hash(state);
+        self.fields.hashed_area().hash(state);
         StdHash::hash(&self.mpis, state);
     }
 }
@@ -438,19 +424,13 @@ impl Signature4 {
                 typ: typ,
                 pk_algo: pk_algo,
                 hash_algo: hash_algo,
-                hashed_area: hashed_area,
-                unhashed_area: unhashed_area,
+                subpackets: SubpacketAreas::new(hashed_area, unhashed_area),
             },
             hash_prefix: hash_prefix,
             mpis: mpis,
             computed_hash: None,
             level: 0,
         }
-    }
-
-    /// Gets a mutable reference to the unhashed area.
-    pub fn unhashed_area_mut(&mut self) -> &mut SubpacketArea {
-        &mut self.fields.unhashed_area
     }
 
     /// Gets the hash prefix.

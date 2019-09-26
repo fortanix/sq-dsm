@@ -59,6 +59,7 @@ use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 use std::iter::FromIterator;
 use std::sync::Mutex;
+use std::ops::{Deref, DerefMut};
 use std::fmt;
 use std::io;
 use time;
@@ -1240,22 +1241,10 @@ quickcheck! {
 }
 
 
-impl Signature4 {
+impl SubpacketArea {
     /// Returns the *last* instance of the specified subpacket.
     fn subpacket<'a>(&'a self, tag: SubpacketTag) -> Option<Subpacket<'a>> {
-        if let Some(sb) = self.hashed_area().lookup(tag) {
-            return Some(sb);
-        }
-
-        // There are a couple of subpackets that we are willing to
-        // take from the unhashed area.  The others we ignore
-        // completely.
-        if !(tag == SubpacketTag::Issuer
-             || tag == SubpacketTag::EmbeddedSignature) {
-            return None;
-        }
-
-        self.unhashed_area().lookup(tag)
+        self.lookup(tag)
     }
 
     /// Returns all instances of the specified subpacket.
@@ -1266,7 +1255,7 @@ impl Signature4 {
     fn subpackets<'a>(&'a self, target: SubpacketTag) -> Vec<Subpacket<'a>> {
         let mut result = Vec::new();
 
-        for (_start, _len, sb) in self.hashed_area().iter_raw() {
+        for (_start, _len, sb) in self.iter_raw() {
             if sb.tag == target {
                 result.push(sb.into());
             }
@@ -1318,63 +1307,6 @@ impl Signature4 {
             }
         } else {
             None
-        }
-    }
-
-    /// Returns whether or not the signature is expired at the given time.
-    ///
-    /// If `t` is None, uses the current time.
-    ///
-    /// Note that [Section 5.2.3.4 of RFC 4880] states that "[[A
-    /// Signature Creation Time subpacket]] MUST be present in the
-    /// hashed area."  Consequently, if such a packet does not exist,
-    /// but a "Signature Expiration Time" subpacket exists, we
-    /// conservatively treat the signature as expired, because there
-    /// is no way to evaluate the expiration time.
-    ///
-    ///  [Section 5.2.3.4 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.4
-    pub fn signature_expired<T>(&self, t: T) -> bool
-        where T: Into<Option<time::Tm>>
-    {
-        let t = t.into().unwrap_or_else(time::now_utc);
-        match (self.signature_creation_time(), self.signature_expiration_time())
-        {
-            (Some(_), Some(e)) if e.num_seconds() == 0 =>
-                false, // Zero expiration time, does not expire.
-            (Some(c), Some(e)) =>
-                (c + e) <= t,
-            (None, Some(_)) =>
-                true, // No creation time, treat as always expired.
-            (_, None) =>
-                false, // No expiration time, does not expire.
-        }
-    }
-
-    /// Returns whether or not the signature is alive at the given
-    /// time.
-    ///
-    /// A signature is considered to be alive if `creation time <= t`
-    /// and `t <= expiration time`.
-    ///
-    /// If `t` is None, uses the current time.
-    ///
-    ///
-    /// Note that [Section 5.2.3.4 of RFC 4880] states that "[[A
-    /// Signature Creation Time subpacket]] MUST be present in the
-    /// hashed area."  Consequently, if such a packet does not exist,
-    /// but a "Signature Expiration Time" subpacket exists, we
-    /// conservatively treat the signature as expired, because there
-    /// is no way to evaluate the expiration time.
-    ///
-    ///  [Section 5.2.3.4 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.4
-    pub fn signature_alive<T>(&self, t: T) -> bool
-        where T: Into<Option<time::Tm>>
-    {
-        let t = t.into().unwrap_or_else(time::now_utc);
-        if let Some(creation_time) = self.signature_creation_time() {
-            creation_time <= t && ! self.signature_expired(t)
-        } else {
-            false
         }
     }
 
@@ -1511,48 +1443,6 @@ impl Signature4 {
         } else {
             None
         }
-    }
-
-    /// Returns whether or not the key is expired at the given time.
-    ///
-    /// If `t` is None, uses the current time.
-    ///
-    /// See [Section 5.2.3.6 of RFC 4880].
-    ///
-    ///  [Section 5.2.3.6 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.6
-    pub fn key_expired<P, R, T>(&self, key: &Key<P, R>, t: T) -> bool
-        where P: key::KeyParts,
-              R: key::KeyRole,
-              T: Into<Option<time::Tm>>
-    {
-        let t = t.into().unwrap_or_else(time::now_utc);
-        match self.key_expiration_time() {
-            Some(e) if e.num_seconds() == 0 =>
-                false, // Zero expiration time, does not expire.
-            Some(e) =>
-                *key.creation_time() + e <= t,
-            None =>
-                false, // No expiration time, does not expire.
-        }
-    }
-
-    /// Returns whether or not the given key is alive at `t`.
-    ///
-    /// A key is considered to be alive if `creation time <= t` and `t
-    /// <= expiration time`.
-    ///
-    /// This function does not check whether the key was revoked.
-    ///
-    /// See [Section 5.2.3.6 of RFC 4880].
-    ///
-    ///  [Section 5.2.3.6 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.6
-    pub fn key_alive<P, R, T>(&self, key: &Key<P, R>, t: T) -> bool
-        where P: key::KeyParts,
-              R: key::KeyRole,
-              T: Into<Option<time::Tm>>
-    {
-        let t = t.into().unwrap_or_else(time::now_utc);
-        *key.creation_time() <= t && ! self.key_expired(key, t)
     }
 
     /// Returns the value of the Preferred Symmetric Algorithms
@@ -2023,7 +1913,7 @@ impl Signature4 {
     pub fn intended_recipients(&self) -> Vec<Fingerprint> {
         let mut result = Vec::new();
 
-        for (_start, _len, sb) in self.hashed_area().iter_raw() {
+        for (_start, _len, sb) in self.iter_raw() {
             if sb.tag == SubpacketTag::IntendedRecipient {
                 let s = Subpacket::from(sb);
                 if let SubpacketValue::IntendedRecipient(fp) = s.value {
@@ -2033,6 +1923,300 @@ impl Signature4 {
         }
 
         result
+    }
+}
+
+/// Subpacket storage.
+///
+/// Subpackets are stored either in a so-called hashed area or a
+/// so-called unhashed area.  Packets stored in the hashed area are
+/// protected by the signature's hash whereas packets stored in the
+/// unhashed area are not.  Generally, two types of information are
+/// stored in the unhashed area: self-authenticating data (the
+/// `Issuer` subpacket, the `Issuer Fingerprint` subpacket, and the
+/// `Embedded Signature` subpacket), and hints, like the features
+/// subpacket.
+///
+/// When accessing subpackets directly via `SubpacketArea`s, the
+/// subpackets are only looked up in the hashed area unless the
+/// packets are self-authenticating in which case subpackets from the
+/// hash area are preferred.  To return packets from a specific area,
+/// use the `hashed_area` and `unhashed_area` methods to get the
+/// specific methods and then use their accessors.
+#[derive(Clone, PartialEq, Eq, Hash)]
+pub struct SubpacketAreas {
+    /// Subpackets that are part of the signature.
+    hashed_area: SubpacketArea,
+    /// Subpackets _not_ that are part of the signature.
+    unhashed_area: SubpacketArea,
+}
+
+impl Deref for SubpacketAreas {
+    type Target = SubpacketArea;
+
+    fn deref(&self) -> &Self::Target {
+        &self.hashed_area
+    }
+}
+
+impl DerefMut for SubpacketAreas {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.hashed_area
+    }
+}
+
+impl SubpacketAreas {
+    /// Returns a new `SubpacketAreas` object.
+    pub fn new(hashed_area: SubpacketArea,
+               unhashed_area: SubpacketArea) ->  Self {
+        Self {
+            hashed_area: hashed_area,
+            unhashed_area: unhashed_area,
+        }
+    }
+
+    /// Returns a new `SubpacketAreas` object with empty hashed and
+    /// unhashed subpacket areas.
+    pub fn empty() -> Self {
+        Self {
+            hashed_area: SubpacketArea::empty(),
+            unhashed_area: SubpacketArea::empty(),
+        }
+    }
+
+    /// Gets a reference to the hashed area.
+    pub fn hashed_area(&self) -> &SubpacketArea {
+        &self.hashed_area
+    }
+
+    /// Gets a mutable reference to the hashed area.
+    pub fn hashed_area_mut(&mut self) -> &mut SubpacketArea {
+        &mut self.hashed_area
+    }
+
+    /// Gets a reference to the unhashed area.
+    pub fn unhashed_area(&self) -> &SubpacketArea {
+        &self.unhashed_area
+    }
+
+    /// Gets a mutable reference to the unhashed area.
+    pub fn unhashed_area_mut(&mut self) -> &mut SubpacketArea {
+        &mut self.unhashed_area
+    }
+
+    /// Returns the *last* instance of the specified subpacket.
+    fn subpacket<'a>(&'a self, tag: SubpacketTag) -> Option<Subpacket<'a>> {
+        if let Some(sb) = self.hashed_area().lookup(tag) {
+            return Some(sb);
+        }
+
+        // There are a couple of subpackets that we are willing to
+        // take from the unhashed area.  The others we ignore
+        // completely.
+        if !(tag == SubpacketTag::Issuer
+             || tag == SubpacketTag::EmbeddedSignature) {
+            return None;
+        }
+
+        self.unhashed_area().lookup(tag)
+    }
+
+    /// Returns whether or not the signature is expired at the given time.
+    ///
+    /// If `t` is None, uses the current time.
+    ///
+    /// Note that [Section 5.2.3.4 of RFC 4880] states that "[[A
+    /// Signature Creation Time subpacket]] MUST be present in the
+    /// hashed area."  Consequently, if such a packet does not exist,
+    /// but a "Signature Expiration Time" subpacket exists, we
+    /// conservatively treat the signature as expired, because there
+    /// is no way to evaluate the expiration time.
+    ///
+    ///  [Section 5.2.3.4 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.4
+    pub fn signature_expired<T>(&self, t: T) -> bool
+        where T: Into<Option<time::Tm>>
+    {
+        let t = t.into().unwrap_or_else(time::now_utc);
+        match (self.signature_creation_time(), self.signature_expiration_time())
+        {
+            (Some(_), Some(e)) if e.num_seconds() == 0 =>
+                false, // Zero expiration time, does not expire.
+            (Some(c), Some(e)) =>
+                (c + e) <= t,
+            (None, Some(_)) =>
+                true, // No creation time, treat as always expired.
+            (_, None) =>
+                false, // No expiration time, does not expire.
+        }
+    }
+
+    /// Returns whether or not the signature is alive at the given
+    /// time.
+    ///
+    /// A signature is considered to be alive if `creation time <= t`
+    /// and `t <= expiration time`.
+    ///
+    /// If `t` is None, uses the current time.
+    ///
+    ///
+    /// Note that [Section 5.2.3.4 of RFC 4880] states that "[[A
+    /// Signature Creation Time subpacket]] MUST be present in the
+    /// hashed area."  Consequently, if such a packet does not exist,
+    /// but a "Signature Expiration Time" subpacket exists, we
+    /// conservatively treat the signature as expired, because there
+    /// is no way to evaluate the expiration time.
+    ///
+    ///  [Section 5.2.3.4 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.4
+    pub fn signature_alive<T>(&self, t: T) -> bool
+        where T: Into<Option<time::Tm>>
+    {
+        let t = t.into().unwrap_or_else(time::now_utc);
+        if let Some(creation_time) = self.signature_creation_time() {
+            creation_time <= t && ! self.signature_expired(t)
+        } else {
+            false
+        }
+    }
+
+    /// Returns whether or not the key is expired at the given time.
+    ///
+    /// If `t` is None, uses the current time.
+    ///
+    /// See [Section 5.2.3.6 of RFC 4880].
+    ///
+    ///  [Section 5.2.3.6 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.6
+    pub fn key_expired<P, R, T>(&self, key: &Key<P, R>, t: T) -> bool
+        where P: key::KeyParts,
+              R: key::KeyRole,
+              T: Into<Option<time::Tm>>
+    {
+        let t = t.into().unwrap_or_else(time::now_utc);
+        match self.key_expiration_time() {
+            Some(e) if e.num_seconds() == 0 =>
+                false, // Zero expiration time, does not expire.
+            Some(e) =>
+                *key.creation_time() + e <= t,
+            None =>
+                false, // No expiration time, does not expire.
+        }
+    }
+
+    /// Returns whether or not the given key is alive at `t`.
+    ///
+    /// A key is considered to be alive if `creation time <= t` and `t
+    /// <= expiration time`.
+    ///
+    /// This function does not check whether the key was revoked.
+    ///
+    /// See [Section 5.2.3.6 of RFC 4880].
+    ///
+    ///  [Section 5.2.3.6 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.6
+    pub fn key_alive<P, R, T>(&self, key: &Key<P, R>, t: T) -> bool
+        where P: key::KeyParts,
+              R: key::KeyRole,
+              T: Into<Option<time::Tm>>
+    {
+        let t = t.into().unwrap_or_else(time::now_utc);
+        *key.creation_time() <= t && ! self.key_expired(key, t)
+    }
+
+    /// Returns the value of the Issuer subpacket, which contains the
+    /// KeyID of the key that allegedly created this signature.
+    ///
+    /// Note: for historical reasons this packet is usually stored in
+    /// the unhashed area of the signature and, consequently, it is
+    /// *not* protected by the signature.  Thus, it is trivial to
+    /// modify it in transit.  For this reason, the Issuer Fingerprint
+    /// subpacket should be preferred, when it is present.
+    ///
+    /// If the subpacket is not present or malformed, this returns
+    /// `None`.
+    ///
+    /// Note: if the signature contains multiple instances of this
+    /// subpacket, only the last one is considered.
+    pub fn issuer(&self) -> Option<KeyID> {
+        // 8-octet Key ID
+        if let Some(sb)
+                = self.subpacket(SubpacketTag::Issuer) {
+            if let SubpacketValue::Issuer(v) = sb.value {
+                Some(v)
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
+
+    /// Returns the value of the Embedded Signature subpacket, which
+    /// contains a signature.
+    ///
+    /// This is used, for instance, to store a subkey's primary key
+    /// binding signature (0x19).
+    ///
+    /// If the subpacket is not present or malformed, this returns
+    /// `None`.
+    ///
+    /// Note: if the signature contains multiple instances of this
+    /// subpacket, only the last one is considered.
+    pub fn embedded_signature(&self) -> Option<Packet> {
+        // 1 signature packet body
+        if let Some(sb)
+                = self.subpacket(SubpacketTag::EmbeddedSignature) {
+            if let SubpacketValue::EmbeddedSignature(v) = sb.value {
+                Some(v)
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
+
+    /// Returns the value of the Issuer Fingerprint subpacket, which
+    /// contains the fingerprint of the key that allegedly created
+    /// this signature.
+    ///
+    /// This subpacket should be preferred to the Issuer subpacket,
+    /// because Fingerprints are not subject to collisions, and the
+    /// Issuer subpacket is, for historic reasons, traditionally
+    /// stored in the unhashed area, i.e., it is not cryptographically
+    /// secured.
+    ///
+    /// This is used, for instance, to store a subkey's primary key
+    /// binding signature (0x19).
+    ///
+    /// If the subpacket is not present or malformed, this returns
+    /// `None`.
+    ///
+    /// Note: if the signature contains multiple instances of this
+    /// subpacket, only the last one is considered.
+    pub fn issuer_fingerprint(&self) -> Option<Fingerprint> {
+        // 1 octet key version number, N octets of fingerprint
+        if let Some(sb)
+                = self.subpacket(SubpacketTag::IssuerFingerprint) {
+            if let SubpacketValue::IssuerFingerprint(v) = sb.value {
+                Some(v)
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
+}
+
+impl Deref for Signature4 {
+    type Target = signature::Builder;
+
+    fn deref(&self) -> &Self::Target {
+        &self.fields
+    }
+}
+
+impl DerefMut for Signature4 {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.fields
     }
 }
 
