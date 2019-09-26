@@ -88,12 +88,12 @@ impl<'input> Iterator for Lexer<'input> {
                 ')' => return Some(Ok((1, RPAREN))),
                 '[' => return Some(Ok((1, LBRACKET))),
                 ']' => return Some(Ok((1, RBRACKET))),
-                '0'...'9' => {
+                '0'..='9' => {
                     for (i, c) in input.iter().enumerate() {
                         let offset = i + 1;       // Offset in input.
 
                         match *c as char {
-                            '0'...'9' =>
+                            '0'..='9' =>
                                 (), // Keep consuming all the digits.
                             ':' => {
                                 let len = std::str::from_utf8(&input[..i])

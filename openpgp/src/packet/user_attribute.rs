@@ -174,7 +174,7 @@ impl<'a> Iterator for SubpacketIterator<'a> {
                 Some(Ok(Subpacket::Image(match image_kind {
                     1 =>
                         Image::JPEG(Vec::from(&raw[16..]).into_boxed_slice()),
-                    n @ 100...110 =>
+                    n @ 100..=110 =>
                         Image::Private(
                             n, Vec::from(&raw[16..]).into_boxed_slice()),
                     n =>

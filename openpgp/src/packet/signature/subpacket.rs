@@ -211,7 +211,7 @@ impl From<u8> for SubpacketTag {
             34 => SubpacketTag::PreferredAEADAlgorithms,
             35 => SubpacketTag::IntendedRecipient,
             0| 1| 8| 13| 14| 15| 17| 18| 19 => SubpacketTag::Reserved(u),
-            100...110 => SubpacketTag::Private(u),
+            100..=110 => SubpacketTag::Private(u),
             _ => SubpacketTag::Unknown(u),
         }
     }

@@ -121,7 +121,7 @@ impl Literal {
                                    -> Result<Option<Vec<u8>>> {
         Ok(::std::mem::replace(&mut self.filename, match filename.len() {
             0 => None,
-            1...255 => Some(filename.to_vec()),
+            1..=255 => Some(filename.to_vec()),
             n => return
                 Err(Error::InvalidArgument(
                     format!("filename too long: {} bytes", n)).into()),

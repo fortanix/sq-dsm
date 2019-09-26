@@ -764,7 +764,7 @@ impl S2K {
                 salt: Self::read_salt(php)?,
                 hash_bytes: S2K::decode_count(php.parse_u8("s2k_count")?),
             },
-            100...110 => S2K::Private(s2k),
+            100..=110 => S2K::Private(s2k),
             u => S2K::Unknown(u),
         };
 
@@ -826,14 +826,14 @@ impl BodyLength {
     {
         let octet1 : u8 = bio.data_consume_hard(1)?[0];
         match octet1 {
-            0...191 => // One octet.
+            0..=191 => // One octet.
                 Ok(BodyLength::Full(octet1 as u32)),
-            192...223 => { // Two octets length.
+            192..=223 => { // Two octets length.
                 let octet2 = bio.data_consume_hard(1)?[0];
                 Ok(BodyLength::Full(((octet1 as u32 - 192) << 8)
                                     + octet2 as u32 + 192))
             },
-            224...254 => // Partial body length.
+            224..=254 => // Partial body length.
                 Ok(BodyLength::Partial(1 << (octet1 & 0x1F))),
             255 => // Five octets.
                 Ok(BodyLength::Full(bio.read_be_u32()?)),
@@ -1481,7 +1481,7 @@ impl Key4<key::UnspecifiedParts, key::UnspecifiedRole>
                     sec.into()
                 }
                 // Encrypted & MD5 for key derivation: unsupported
-                1...253 => {
+                1..=253 => {
                     return php.fail("unsupported secret key encryption");
                 }
                 // Encrypted, S2K & SHA-1 checksum

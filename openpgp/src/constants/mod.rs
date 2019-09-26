@@ -107,7 +107,7 @@ impl From<u8> for PublicKeyAlgorithm {
             19 => ECDSA,
             20 => ElgamalEncryptSign,
             22 => EdDSA,
-            100...110 => Private(u),
+            100..=110 => Private(u),
             u => Unknown(u),
         }
     }
@@ -401,7 +401,7 @@ impl From<u8> for SymmetricAlgorithm {
             11 => SymmetricAlgorithm::Camellia128,
             12 => SymmetricAlgorithm::Camellia192,
             13 => SymmetricAlgorithm::Camellia256,
-            100...110 => SymmetricAlgorithm::Private(u),
+            100..=110 => SymmetricAlgorithm::Private(u),
             u => SymmetricAlgorithm::Unknown(u),
         }
     }
@@ -509,7 +509,7 @@ impl From<u8> for AEADAlgorithm {
         match u {
             1 => AEADAlgorithm::EAX,
             2 => AEADAlgorithm::OCB,
-            100...110 => AEADAlgorithm::Private(u),
+            100..=110 => AEADAlgorithm::Private(u),
             u => AEADAlgorithm::Unknown(u),
         }
     }
@@ -612,7 +612,7 @@ impl From<u8> for CompressionAlgorithm {
             1 => CompressionAlgorithm::Zip,
             2 => CompressionAlgorithm::Zlib,
             3 => CompressionAlgorithm::BZip2,
-            100...110 => CompressionAlgorithm::Private(u),
+            100..=110 => CompressionAlgorithm::Private(u),
             u => CompressionAlgorithm::Unknown(u),
         }
     }
@@ -693,7 +693,7 @@ impl From<u8> for HashAlgorithm {
             9 => HashAlgorithm::SHA384,
             10 => HashAlgorithm::SHA512,
             11 => HashAlgorithm::SHA224,
-            100...110 => HashAlgorithm::Private(u),
+            100..=110 => HashAlgorithm::Private(u),
             u => HashAlgorithm::Unknown(u),
         }
     }
@@ -936,7 +936,7 @@ impl From<u8> for ReasonForRevocation {
             2 => KeyCompromised,
             3 => KeyRetired,
             32 => UIDRetired,
-            100...110 => Private(u),
+            100..=110 => Private(u),
             u => Unknown(u),
         }
     }

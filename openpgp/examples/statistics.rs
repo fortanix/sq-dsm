@@ -256,7 +256,7 @@ fn main() {
                 println!("{:>18} {:>9}",
                          match t {
                              1 =>         "Image::JPEG".into(),
-                             100...110 => format!("Image::Private({})", t),
+                             100..=110 => format!("Image::Private({})", t),
                              _ =>         format!("Image::Unknown({})", t),
                          }, n);
             }

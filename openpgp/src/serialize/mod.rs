@@ -394,10 +394,10 @@ impl BodyLength {
                 match l {
                     // One octet length.
                     // write_byte can't fail for a Vec.
-                    0 ... 0xFF =>
+                    0 ..= 0xFF =>
                         write_byte(&mut buffer, l as u8).unwrap(),
                     // Two octet length.
-                    0x1_00 ... 0xFF_FF =>
+                    0x1_00 ..= 0xFF_FF =>
                         write_be_u16(&mut buffer, l as u16).unwrap(),
                     // Four octet length,
                     _ =>

@@ -137,9 +137,9 @@ impl CTBOld {
             BodyLength::Full(l) => {
                 match l {
                     // One octet length.
-                    0 ... 0xFF => PacketLengthType::OneOctet,
+                    0 ..= 0xFF => PacketLengthType::OneOctet,
                     // Two octet length.
-                    0x1_00 ... 0xFF_FF => PacketLengthType::TwoOctets,
+                    0x1_00 ..= 0xFF_FF => PacketLengthType::TwoOctets,
                     // Four octet length,
                     _ => PacketLengthType::FourOctets,
                 }

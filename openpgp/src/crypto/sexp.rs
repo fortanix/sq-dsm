@@ -312,7 +312,7 @@ impl fmt::Debug for String_ {
             write!(f, "b\"")?;
             for &b in buf {
                 match b {
-                    0...31 | 128...255 =>
+                    0..=31 | 128..=255 =>
                         write!(f, "\\x{:02x}", b)?,
                     0x22 => // "
                         write!(f, "\\\"")?,

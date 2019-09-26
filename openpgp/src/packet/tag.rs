@@ -102,7 +102,7 @@ impl From<u8> for Tag {
             18 => SEIP,
             19 => MDC,
             20 => AED,
-            60...63 => Private(u),
+            60..=63 => Private(u),
             _ => Unknown(u),
         }
     }

@@ -159,9 +159,9 @@ impl S2K {
         use std::usize;
 
         match hash_bytes {
-            0...1024 => 1024,
-            1025...2048 => hash_bytes as u32,
-            0x3e00001...usize::MAX => 0x3e00000,
+            0..=1024 => 1024,
+            1025..=2048 => hash_bytes as u32,
+            0x3e00001..=usize::MAX => 0x3e00000,
             hash_bytes => {
                 let hash_bytes = hash_bytes as u32;
                 let msb = 32 - hash_bytes.leading_zeros();
@@ -206,12 +206,12 @@ impl S2K {
 
         let msb = 32 - hash_bytes.leading_zeros();
         let (mantissa_mask, tail_mask) = match msb {
-            0...10 => {
+            0..=10 => {
                 return Err(Error::InvalidArgument(
                     format!("S2K: cannot encode iteration count of {}",
                             hash_bytes)).into());
             }
-            11...32 => {
+            11..=32 => {
                 let m = 0b1111_000000 << (msb - 11);
                 let t = 1 << (msb - 11);
 
