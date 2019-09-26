@@ -2015,6 +2015,7 @@ impl SubpacketAreas {
         // take from the unhashed area.  The others we ignore
         // completely.
         if !(tag == SubpacketTag::Issuer
+             || tag == SubpacketTag::IssuerFingerprint
              || tag == SubpacketTag::EmbeddedSignature) {
             return None;
         }
