@@ -160,6 +160,7 @@ impl KeyServer {
     /// Retrieves the key with the given `keyid`.
     pub fn get(&mut self, keyid: &KeyID)
                -> Box<dyn Future<Item=TPK, Error=failure::Error> + 'static> {
+        let keyid_want = keyid.clone();
         let uri = self.uri.join(
             &format!("pks/lookup?op=get&options=mr&search=0x{}",
                      keyid.to_hex()));
@@ -180,7 +181,22 @@ impl KeyServer {
                                      c,
                                      armor::ReaderMode::Tolerant(
                                          Some(armor::Kind::PublicKey)));
-                                 future::done(TPK::from_reader(r))
+                                 match TPK::from_reader(r) {
+                                     Ok(tpk) => {
+                                         if tpk.keys_all().any(|(_, _, key)| {
+                                             key.fingerprint().to_keyid()
+                                                 == keyid_want
+                                         }) {
+                                             future::done(Ok(tpk))
+                                         } else {
+                                             future::err(Error::MismatchedKeyID(
+                                                 keyid_want, tpk).into())
+                                         }
+                                     },
+                                     Err(e) => {
+                                         future::err(e.into())
+                                     }
+                                 }
                              },
                              StatusCode::NOT_FOUND =>
                                  future::err(Error::NotFound.into()),
@@ -283,6 +299,9 @@ pub enum Error {
     /// A requested key was not found.
     #[fail(display = "Key not found")]
     NotFound,
+    /// Mismatched key ID
+    #[fail(display = "Mismatched key ID, expected {}", _0)]
+    MismatchedKeyID(KeyID, TPK),
     /// A given keyserver URI was malformed.
     #[fail(display = "Malformed URI; expected hkp: or hkps:")]
     MalformedUri,
