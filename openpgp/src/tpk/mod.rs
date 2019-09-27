@@ -950,59 +950,6 @@ impl TPK {
         self.primary._revoked(true, self.primary_key_signature(t), t)
     }
 
-    /// Returns a revocation certificate for the TPK.
-    ///
-    /// Note: this function has two degrees of freedom: the TPK, and
-    /// the key used to generate the revocation.
-    ///
-    /// Normally, the key used to generate the revocation is the TPK's
-    /// primary key.  However, this is not required.
-    ///
-    /// If Alice has marked Robert's key (R) as a designated revoker
-    /// for her key (A), then R can revoke A or parts of A.  In this
-    /// case, the TPK is A, and the key used to generate the
-    /// revocation comes from R.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// # extern crate sequoia_openpgp as openpgp;
-    /// # use openpgp::Result;
-    /// use openpgp::RevocationStatus;
-    /// use openpgp::constants::{ReasonForRevocation, SignatureType};
-    /// use openpgp::tpk::{CipherSuite, TPKBuilder};
-    /// use openpgp::crypto::KeyPair;
-    /// use openpgp::parse::Parse;
-    /// # fn main() { f().unwrap(); }
-    /// # fn f() -> Result<()>
-    /// # {
-    /// let (tpk, _) = TPKBuilder::new()
-    ///     .set_cipher_suite(CipherSuite::Cv25519)
-    ///     .generate()?;
-    /// assert_eq!(RevocationStatus::NotAsFarAsWeKnow,
-    ///            tpk.revoked(None));
-    ///
-    /// let mut keypair = tpk.primary().clone()
-    ///     .mark_parts_secret().into_keypair()?;
-    /// let sig = tpk.revoke(&mut keypair, ReasonForRevocation::KeyCompromised,
-    ///                      b"It was the maid :/")?;
-    /// assert_eq!(sig.typ(), SignatureType::KeyRevocation);
-    ///
-    /// let tpk = tpk.merge_packets(vec![sig.clone().into()])?;
-    /// assert_eq!(RevocationStatus::Revoked(vec![&sig]),
-    ///            tpk.revoked(None));
-    /// # Ok(())
-    /// # }
-    pub fn revoke<R>(&self, primary_signer: &mut Signer<R>,
-                     code: ReasonForRevocation, reason: &[u8])
-        -> Result<Signature>
-        where R: key::KeyRole
-    {
-        TPKRevocationBuilder::new()
-            .set_reason_for_revocation(code, reason)?
-            .build(primary_signer, self, None)
-    }
-
     /// Revokes the TPK.
     ///
     /// # Example
@@ -1046,7 +993,9 @@ impl TPK {
         -> Result<TPK>
         where R: key::KeyRole
     {
-        let sig = self.revoke(primary_signer, code, reason)?;
+        let sig = TPKRevocationBuilder::new()
+            .set_reason_for_revocation(code, reason)?
+            .build(primary_signer, &self, None)?;
         self.merge_packets(vec![sig.into()])
     }
 
@@ -2285,9 +2234,13 @@ mod test {
 
         let mut keypair = tpk.primary().clone().mark_parts_secret()
             .into_keypair().unwrap();
-        let sig = tpk.revoke(&mut keypair,
-                             ReasonForRevocation::KeyCompromised,
-                             b"It was the maid :/").unwrap();
+
+        let sig = TPKRevocationBuilder::new()
+            .set_reason_for_revocation(
+                ReasonForRevocation::KeyCompromised,
+                b"It was the maid :/").unwrap()
+            .build(&mut keypair, &tpk, None)
+            .unwrap();
         assert_eq!(sig.typ(), SignatureType::KeyRevocation);
         assert_eq!(sig.issuer(), Some(tpk.primary().keyid()));
         assert_eq!(sig.issuer_fingerprint(),
@@ -2303,9 +2256,14 @@ mod test {
 
         let mut keypair = other.primary().clone().mark_parts_secret()
             .into_keypair().unwrap();
-        let sig = tpk.revoke(&mut keypair,
-                             ReasonForRevocation::KeyCompromised,
-                             b"It was the maid :/").unwrap();
+
+        let sig = TPKRevocationBuilder::new()
+            .set_reason_for_revocation(
+                ReasonForRevocation::KeyCompromised,
+                b"It was the maid :/").unwrap()
+            .build(&mut keypair, &tpk, None)
+            .unwrap();
+
         assert_eq!(sig.typ(), SignatureType::KeyRevocation);
         assert_eq!(sig.issuer(), Some(other.primary().keyid()));
         assert_eq!(sig.issuer_fingerprint(),

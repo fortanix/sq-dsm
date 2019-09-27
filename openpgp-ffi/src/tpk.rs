@@ -23,6 +23,7 @@ use self::openpgp::{
         KeyIter,
         TPKBuilder,
         TPKParser,
+        TPKRevocationBuilder,
         UserIDBinding,
         UserIDBindingIter,
     },
@@ -253,7 +254,10 @@ fn pgp_tpk_revoke(errp: Option<&mut *mut crate::error::Error>,
         b""
     };
 
-    tpk.revoke(signer.as_mut(), code, reason).move_into_raw(errp)
+    let builder = TPKRevocationBuilder::new();
+    let builder = ffi_try_or!(builder.set_reason_for_revocation(code, reason), None);
+    let sig = builder.build(signer.as_mut(), tpk, None);
+    sig.move_into_raw(errp)
 }
 
 /// Adds a revocation certificate to the tpk.
