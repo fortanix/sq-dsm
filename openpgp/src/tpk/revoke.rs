@@ -14,6 +14,7 @@ use crate::packet::{
     key,
     signature,
     Signature,
+    UserAttribute,
     UserID,
 };
 use crate::tpk::TPK;
@@ -346,6 +347,121 @@ impl UserIDRevocationBuilder {
 }
 
 impl Deref for UserIDRevocationBuilder {
+    type Target = signature::Builder;
+
+    fn deref(&self) -> &Self::Target {
+        &self.builder
+    }
+}
+
+/// A `UserAttribute` revocation builder.
+///
+/// Note: this function has three degrees of freedom: the TPK, the
+/// key used to generate the revocation, and the user attribute.
+///
+/// Normally, the key used to generate the revocation is the TPK's
+/// primary key, and the user attribute is a user attribute that is
+/// bound to the TPK.  However, this is not required.
+///
+/// If Alice has marked Robert's key (R) as a designated revoker
+/// for her key (A), then R can revoke A or parts of A.  In this
+/// case, the TPK is A, the key used to generate the revocation
+/// comes from R, and the User Attribute is bound to A.
+///
+/// But, the component doesn't technically need to be bound to the
+/// TPK.  For instance, it is possible for R to revoke the User ID
+/// "bob@example.org" in the context of A, even if
+/// "bob@example.org" is not bound to A.
+///
+/// # Example
+///
+/// ```
+/// # use sequoia_openpgp::{*, packet::*, constants::*, tpk::*};
+/// # f().unwrap();
+/// # fn f() -> Result<()> {
+/// # let subpacket
+/// #     = user_attribute::Subpacket::Unknown(1, [ 1 ].to_vec().into_boxed_slice());
+/// # let some_user_attribute = UserAttribute::new(&[ subpacket ])?;
+/// // Generate a TPK, and create a keypair from the primary key.
+/// let (tpk, _) = TPKBuilder::new()
+///     .add_user_attribute(some_user_attribute)
+///     .generate()?;
+/// let mut keypair = tpk.primary().clone()
+///     .mark_parts_secret().into_keypair()?;
+/// let ua = tpk.user_attributes().nth(0).unwrap();
+///
+/// // Generate the revocation for the first and only UserAttribute.
+/// let revocation =
+///     UserAttributeRevocationBuilder::new()
+///         .set_reason_for_revocation(
+///             ReasonForRevocation::KeyRetired,
+///             b"Left example.org.").unwrap()
+///         .build(&mut keypair, &tpk, ua.user_attribute(), None)?;
+/// assert_eq!(revocation.typ(), SignatureType::CertificateRevocation);
+///
+/// // Now merge the revocation signature into the TPK.
+/// let tpk = tpk.merge_packets(vec![revocation.clone().into()])?;
+///
+/// // Check that it is revoked.
+/// let ua = tpk.user_attributes().nth(0).unwrap();
+/// if let RevocationStatus::Revoked(revocations) = ua.revoked(None) {
+///     assert_eq!(revocations.len(), 1);
+///     assert_eq!(*revocations[0], revocation);
+/// } else {
+///     panic!("UserAttribute is not revoked.");
+/// }
+/// # Ok(()) }
+/// ```
+pub struct UserAttributeRevocationBuilder {
+    builder: signature::Builder,
+}
+
+impl UserAttributeRevocationBuilder {
+    /// Returns a new `UserAttributeRevocationBuilder`.
+    pub fn new() -> Self {
+        Self {
+            builder:
+                signature::Builder::new(SignatureType::CertificateRevocation)
+        }
+    }
+
+    /// Sets the reason for revocation.
+    pub fn set_reason_for_revocation(self, code: ReasonForRevocation,
+                                     reason: &[u8])
+        -> Result<Self>
+    {
+        Ok(Self {
+            builder: self.builder.set_reason_for_revocation(code, reason)?
+        })
+    }
+
+    /// Sets the revocation signature's creation time.
+    pub fn set_signature_creation_time(self, creation_time: time::Tm)
+        -> Result<Self>
+    {
+        Ok(Self {
+            builder: self.builder.set_signature_creation_time(creation_time)?
+        })
+    }
+
+    /// Returns a revocation certificate for the tpk `TPK` signed by
+    /// `signer`.
+    pub fn build<H, R>(self, signer: &mut Signer<R>,
+                       tpk: &TPK, ua: &UserAttribute,
+                       hash_algo: H)
+        -> Result<Signature>
+        where H: Into<Option<HashAlgorithm>>,
+              R: key::KeyRole
+    {
+        let hash_algo = hash_algo.into().unwrap_or(HashAlgorithm::SHA512);
+        let creation_time
+            = self.signature_creation_time().unwrap_or_else(time::now);
+
+        ua.bind(signer, tpk, self.builder, hash_algo, creation_time)
+    }
+}
+
+impl Deref for UserAttributeRevocationBuilder {
     type Target = signature::Builder;
 
     fn deref(&self) -> &Self::Target {

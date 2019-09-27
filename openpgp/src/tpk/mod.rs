@@ -58,6 +58,7 @@ pub use parser::{
 pub use revoke::{
     SubkeyRevocationBuilder,
     TPKRevocationBuilder,
+    UserAttributeRevocationBuilder,
     UserIDRevocationBuilder,
 };
 

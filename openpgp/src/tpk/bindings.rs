@@ -1,7 +1,7 @@
 use crate::Error;
 use crate::Result;
 use crate::TPK;
-use crate::constants::{HashAlgorithm, SignatureType, ReasonForRevocation};
+use crate::constants::{HashAlgorithm, SignatureType};
 use crate::crypto::Signer;
 use crate::packet::{UserID, UserAttribute, key, Key, signature, Signature};
 
@@ -346,74 +346,6 @@ impl UserAttribute {
             None => SignatureType::GenericCertificate,
         };
         self.bind(signer, tpk, signature::Builder::new(typ),
-                  // Unwrap arguments to prevent further
-                  // monomorphization of bind().
-                  hash_algo.into().unwrap_or(HashAlgorithm::SHA512),
-                  creation_time.into().unwrap_or_else(time::now_utc))
-    }
-
-    /// Returns a revocation certificate for the user attribute.
-    ///
-    /// The revocation signature revokes the binding between this user
-    /// attribute and `tpk`.  `signer` will be used to create a
-    /// signature with the given reason in `code` and `reason`.
-    /// `signature_type`.  `hash_algo` defaults to SHA512,
-    /// `creation_time` to the current time.
-    ///
-    /// This function adds a creation time subpacket, a issuer
-    /// fingerprint subpacket, and a issuer subpacket to the
-    /// signature.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use sequoia_openpgp::{*, constants::*, tpk::*,
-    ///                         packet::user_attribute::*};
-    /// # f().unwrap();
-    /// # fn f() -> Result<()> {
-    /// // Generate a TPK, and create a keypair from the primary key.
-    /// let user_attr = UserAttribute::new(&[
-    ///     Subpacket::Image(
-    ///         Image::Private(100, vec![0, 1, 2].into_boxed_slice())),
-    /// ])?;
-    /// let (tpk, _) = TPKBuilder::new()
-    ///     .add_user_attribute(user_attr)
-    ///     .generate()?;
-    /// let mut keypair = tpk.primary().clone()
-    ///     .mark_parts_secret().into_keypair()?;
-    ///
-    /// // Generate the revocation for the first and only UserAttribute.
-    /// let revocation =
-    ///     tpk.user_attributes().nth(0).unwrap().user_attribute()
-    ///         .revoke(&mut keypair, &tpk,
-    ///                 ReasonForRevocation::UIDRetired,
-    ///                 b"I look different now.", None, None)?;
-    /// assert_eq!(revocation.typ(), SignatureType::CertificateRevocation);
-    ///
-    /// // Now merge the revocation signature into the TPK.
-    /// let tpk = tpk.merge_packets(vec![revocation.clone().into()])?;
-    ///
-    /// // Check that it is revoked.
-    /// let ua = tpk.user_attributes().nth(0).unwrap();
-    /// if let RevocationStatus::Revoked(revocations) = ua.revoked(None) {
-    ///     assert_eq!(revocations.len(), 1);
-    ///     assert_eq!(*revocations[0], revocation);
-    /// } else {
-    ///     panic!("UserAttribute is not revoked.");
-    /// }
-    /// # Ok(()) }
-    /// ```
-    pub fn revoke<H, T, R>(&self, signer: &mut Signer<R>, tpk: &TPK,
-                        code: ReasonForRevocation, reason: &[u8],
-                        hash_algo: H, creation_time: T)
-        -> Result<Signature>
-        where H: Into<Option<HashAlgorithm>>,
-              T: Into<Option<time::Tm>>,
-              R: key::KeyRole
-    {
-        self.bind(signer, tpk,
-                  signature::Builder::new(SignatureType::CertificateRevocation)
-                  .set_reason_for_revocation(code, reason)?,
                   // Unwrap arguments to prevent further
                   // monomorphization of bind().
                   hash_algo.into().unwrap_or(HashAlgorithm::SHA512),
