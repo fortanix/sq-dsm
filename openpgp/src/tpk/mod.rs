@@ -55,7 +55,10 @@ pub use parser::{
     TPKValidator,
 };
 
-pub use revoke::TPKRevocationBuilder;
+pub use revoke::{
+    SubkeyRevocationBuilder,
+    TPKRevocationBuilder,
+};
 
 const TRACE : bool = false;
 
@@ -2268,6 +2271,37 @@ mod test {
         assert_eq!(sig.issuer(), Some(other.primary().keyid()));
         assert_eq!(sig.issuer_fingerprint(),
                    Some(other.primary().fingerprint()));
+    }
+
+    #[test]
+    fn revoke_subkey() {
+        use std::{thread, time};
+
+        let (tpk, _) = TPKBuilder::new()
+            .add_encryption_subkey()
+            .generate().unwrap();
+
+        thread::sleep(time::Duration::from_secs(2));
+        let sig = {
+            let subkey = tpk.subkeys().nth(0).unwrap();
+            assert_eq!(RevocationStatus::NotAsFarAsWeKnow, subkey.revoked(None));
+
+            let mut keypair = tpk.primary().clone().mark_parts_secret()
+                .into_keypair().unwrap();
+            SubkeyRevocationBuilder::new()
+                .set_reason_for_revocation(
+                    ReasonForRevocation::UIDRetired,
+                    b"It was the maid :/").unwrap()
+                .build(&mut keypair, &tpk, subkey.key(), None)
+                .unwrap()
+        };
+        assert_eq!(sig.typ(), SignatureType::SubkeyRevocation);
+        let tpk = tpk.merge_packets(vec![sig.into()]).unwrap();
+        assert_eq!(RevocationStatus::NotAsFarAsWeKnow,
+                   tpk.revoked(None));
+
+        let subkey = tpk.subkeys().nth(0).unwrap();
+        assert_match!(RevocationStatus::Revoked(_) = subkey.revoked(None));
     }
 
     #[test]
