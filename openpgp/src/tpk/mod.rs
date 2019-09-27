@@ -955,7 +955,14 @@ impl TPK {
         self.primary._revoked(true, self.primary_key_signature(t), t)
     }
 
-    /// Revokes the TPK.
+    /// Revokes the TPK in place.
+    ///
+    /// Note: to just generate a revocation certificate, use the
+    /// `TPKRevocationBuilder`.
+    ///
+    /// If you want to revoke an individual component, use
+    /// `SubkeyRevocationBuilder`, `UserIDRevocationBuilder`, or
+    /// `UserAttributeRevocationBuilder`, as appropriate.
     ///
     /// # Example
     ///
