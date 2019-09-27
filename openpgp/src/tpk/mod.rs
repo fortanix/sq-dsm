@@ -58,6 +58,7 @@ pub use parser::{
 pub use revoke::{
     SubkeyRevocationBuilder,
     TPKRevocationBuilder,
+    UserIDRevocationBuilder,
 };
 
 const TRACE : bool = false;
@@ -2320,10 +2321,12 @@ mod test {
 
             let mut keypair = tpk.primary().clone().mark_parts_secret()
                 .into_keypair().unwrap();
-            uid.userid()
-                .revoke(&mut keypair, &tpk,
-                        ReasonForRevocation::UIDRetired,
-                        b"It was the maid :/", None, None).unwrap()
+            UserIDRevocationBuilder::new()
+                .set_reason_for_revocation(
+                    ReasonForRevocation::UIDRetired,
+                    b"It was the maid :/").unwrap()
+                .build(&mut keypair, &tpk, uid.userid(), None)
+                .unwrap()
         };
         assert_eq!(sig.typ(), SignatureType::CertificateRevocation);
         let tpk = tpk.merge_packets(vec![sig.into()]).unwrap();

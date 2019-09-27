@@ -14,6 +14,7 @@ use crate::packet::{
     key,
     signature,
     Signature,
+    UserID,
 };
 use crate::tpk::TPK;
 
@@ -128,7 +129,6 @@ impl Deref for TPKRevocationBuilder {
 }
 
 
-
 /// A `Subkey` revocation builder.
 ///
 /// Note: this function has three degrees of freedom: the TPK, the
@@ -234,6 +234,118 @@ impl SubkeyRevocationBuilder {
 }
 
 impl Deref for SubkeyRevocationBuilder {
+    type Target = signature::Builder;
+
+    fn deref(&self) -> &Self::Target {
+        &self.builder
+    }
+}
+
+/// A `UserID` revocation builder.
+///
+/// Note: this function has three degrees of freedom: the TPK, the
+/// key used to generate the revocation, and the user id.
+///
+/// Normally, the key used to generate the revocation is the TPK's
+/// primary key, and the user id is a user id that is bound to the
+/// TPK.  However, this is not required.
+///
+/// If Alice has marked Robert's key (R) as a designated revoker
+/// for her key (A), then R can revoke A or parts of A.  In this
+/// case, the TPK is A, the key used to generate the revocation
+/// comes from R, and the User ID is bound to A.
+///
+/// But, the component doesn't technically need to be bound to the
+/// TPK.  For instance, it is possible for R to revoke the User ID
+/// "bob@example.org" in the context of A, even if
+/// "bob@example.org" is not bound to A.
+///
+/// # Example
+///
+/// ```
+/// # use sequoia_openpgp::{*, packet::*, constants::*, tpk::*};
+/// # f().unwrap();
+/// # fn f() -> Result<()> {
+/// // Generate a TPK, and create a keypair from the primary key.
+/// let (tpk, _) = TPKBuilder::new()
+///     .add_userid("some@example.org")
+///     .generate()?;
+/// let mut keypair = tpk.primary().clone()
+///     .mark_parts_secret().into_keypair()?;
+/// let userid = tpk.userids().nth(0).unwrap();
+///
+/// // Generate the revocation for the first and only UserID.
+/// let revocation =
+///     UserIDRevocationBuilder::new()
+///         .set_reason_for_revocation(
+///             ReasonForRevocation::KeyRetired,
+///             b"Left example.org.").unwrap()
+///         .build(&mut keypair, &tpk, userid.userid(), None)?;
+/// assert_eq!(revocation.typ(), SignatureType::CertificateRevocation);
+///
+/// // Now merge the revocation signature into the TPK.
+/// let tpk = tpk.merge_packets(vec![revocation.clone().into()])?;
+///
+/// // Check that it is revoked.
+/// let userid = tpk.userids().nth(0).unwrap();
+/// if let RevocationStatus::Revoked(revocations) = userid.revoked(None) {
+///     assert_eq!(revocations.len(), 1);
+///     assert_eq!(*revocations[0], revocation);
+/// } else {
+///     panic!("UserID is not revoked.");
+/// }
+/// # Ok(()) }
+/// ```
+pub struct UserIDRevocationBuilder {
+    builder: signature::Builder,
+}
+
+impl UserIDRevocationBuilder {
+    /// Returns a new `UserIDRevocationBuilder`.
+    pub fn new() -> Self {
+        Self {
+            builder:
+                signature::Builder::new(SignatureType::CertificateRevocation)
+        }
+    }
+
+    /// Sets the reason for revocation.
+    pub fn set_reason_for_revocation(self, code: ReasonForRevocation,
+                                     reason: &[u8])
+        -> Result<Self>
+    {
+        Ok(Self {
+            builder: self.builder.set_reason_for_revocation(code, reason)?
+        })
+    }
+
+    /// Sets the revocation signature's creation time.
+    pub fn set_signature_creation_time(self, creation_time: time::Tm)
+        -> Result<Self>
+    {
+        Ok(Self {
+            builder: self.builder.set_signature_creation_time(creation_time)?
+        })
+    }
+
+    /// Returns a revocation certificate for the tpk `TPK` signed by
+    /// `signer`.
+    pub fn build<H, R>(self, signer: &mut Signer<R>,
+                       tpk: &TPK, userid: &UserID,
+                       hash_algo: H)
+        -> Result<Signature>
+        where H: Into<Option<HashAlgorithm>>,
+              R: key::KeyRole
+    {
+        let hash_algo = hash_algo.into().unwrap_or(HashAlgorithm::SHA512);
+        let creation_time
+            = self.signature_creation_time().unwrap_or_else(time::now);
+
+        userid.bind(signer, tpk, self.builder, hash_algo, creation_time)
+    }
+}
+
+impl Deref for UserIDRevocationBuilder {
     type Target = signature::Builder;
 
     fn deref(&self) -> &Self::Target {
