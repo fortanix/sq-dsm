@@ -41,6 +41,7 @@ mod builder;
 mod bindings;
 mod keyiter;
 mod parser;
+mod revoke;
 
 pub use self::builder::{TPKBuilder, CipherSuite};
 
@@ -53,6 +54,8 @@ pub use parser::{
     TPKValidity,
     TPKValidator,
 };
+
+pub use revoke::TPKRevocationBuilder;
 
 const TRACE : bool = false;
 
@@ -949,6 +952,17 @@ impl TPK {
 
     /// Returns a revocation certificate for the TPK.
     ///
+    /// Note: this function has two degrees of freedom: the TPK, and
+    /// the key used to generate the revocation.
+    ///
+    /// Normally, the key used to generate the revocation is the TPK's
+    /// primary key.  However, this is not required.
+    ///
+    /// If Alice has marked Robert's key (R) as a designated revoker
+    /// for her key (A), then R can revoke A or parts of A.  In this
+    /// case, the TPK is A, and the key used to generate the
+    /// revocation comes from R.
+    ///
     /// # Example
     ///
     /// ```rust
@@ -984,18 +998,9 @@ impl TPK {
         -> Result<Signature>
         where R: key::KeyRole
     {
-        // Recompute the signature.
-        let hash_algo = HashAlgorithm::SHA512;
-        let mut hash = hash_algo.context()?;
-        let pair = self.primary();
-        pair.hash(&mut hash);
-
-        signature::Builder::new(SignatureType::KeyRevocation)
-            .set_signature_creation_time(time::now_utc())?
-            .set_issuer_fingerprint(primary_signer.public().fingerprint())?
-            .set_issuer(primary_signer.public().keyid())?
+        TPKRevocationBuilder::new()
             .set_reason_for_revocation(code, reason)?
-            .sign_hash(primary_signer, hash_algo, hash)
+            .build(primary_signer, self, None)
     }
 
     /// Revokes the TPK.
