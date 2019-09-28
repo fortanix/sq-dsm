@@ -40,7 +40,7 @@ impl fmt::Debug for KeyFlags {
             f.write_str("A")?;
         }
         if self.is_split_key() {
-            f.write_str("S")?;
+            f.write_str("D")?;
         }
         if self.is_group_key() {
             f.write_str("G")?;
