@@ -43,6 +43,8 @@ fn main() {
     let mut sigs_subpacket_tags_size_count = vec![0; 256];
     let mut sigs_subpacket_tags_size_min = vec![::std::u32::MAX; 256];
     let mut sigs_subpacket_tags_size_max = vec![0; 256];
+    let mut sigs_subpacket_exportable_true = 0;
+    let mut sigs_subpacket_exportable_false = 0;
 
     // Per-Signature statistics.
     let mut signature_min = PerSignature::max();
@@ -167,6 +169,12 @@ fn main() {
                                         *count += 1;
                                     } else {
                                         p_aead.insert(a.clone(), 1);
+                                    },
+                                SubpacketValue::ExportableCertification(v) =>
+                                    if v {
+                                        sigs_subpacket_exportable_true += 1;
+                                    } else {
+                                        sigs_subpacket_exportable_false += 1;
                                     },
                                 _ => (),
                             }
@@ -314,6 +322,22 @@ fn main() {
                          count,
                          sigs_subpacket_tags_unknown[t],
                          "-", "-", "-", "-");
+            }
+
+            match SubpacketTag::from(t as u8) {
+                SubpacketTag::ExportableCertification => {
+                    if sigs_subpacket_exportable_true > 0 {
+                        println!("{:>30} {:>8}",
+                                 "ExportableCertification(true)",
+                                 sigs_subpacket_exportable_true);
+                    }
+                    if sigs_subpacket_exportable_false > 0 {
+                        println!("{:>30} {:>8}",
+                                 "ExportableCertification(false)",
+                                 sigs_subpacket_exportable_false);
+                    }
+                },
+                _ => (),
             }
         }
     }
