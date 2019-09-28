@@ -4,7 +4,7 @@ use std::ops::{BitAnd, BitOr};
 
 /// Describes how a key may be used, and stores additional
 /// information.
-#[derive(Clone)]
+#[derive(Clone, Hash)]
 pub struct KeyFlags{
     can_certify: bool,
     can_sign: bool,
