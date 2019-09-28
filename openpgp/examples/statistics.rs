@@ -50,6 +50,14 @@ fn main() {
 
     // Various SubpacketValue-related counters.
     let mut key_flags: HashMap<KeyFlags, usize> = Default::default();
+    let mut p_sym: HashMap<Vec<SymmetricAlgorithm>, usize> =
+        Default::default();
+    let mut p_hashes: HashMap<Vec<HashAlgorithm>, usize> =
+        Default::default();
+    let mut p_comp: HashMap<Vec<CompressionAlgorithm>, usize> =
+        Default::default();
+    let mut p_aead: HashMap<Vec<AEADAlgorithm>, usize> =
+        Default::default();
 
     // Per-TPK statistics.
     let mut tpk_count = 0;
@@ -131,6 +139,34 @@ fn main() {
                                         *count += 1;
                                     } else {
                                         key_flags.insert(k.clone(), 1);
+                                    },
+                                SubpacketValue::PreferredSymmetricAlgorithms(a)
+                                    =>
+                                    if let Some(count) = p_sym.get_mut(&a) {
+                                        *count += 1;
+                                    } else {
+                                        p_sym.insert(a.clone(), 1);
+                                    },
+                                SubpacketValue::PreferredHashAlgorithms(a)
+                                    =>
+                                    if let Some(count) = p_hashes.get_mut(&a) {
+                                        *count += 1;
+                                    } else {
+                                        p_hashes.insert(a.clone(), 1);
+                                    },
+                                SubpacketValue::PreferredCompressionAlgorithms(a)
+                                    =>
+                                    if let Some(count) = p_comp.get_mut(&a) {
+                                        *count += 1;
+                                    } else {
+                                        p_comp.insert(a.clone(), 1);
+                                    },
+                                SubpacketValue::PreferredAEADAlgorithms(a)
+                                    =>
+                                    if let Some(count) = p_aead.get_mut(&a) {
+                                        *count += 1;
+                                    } else {
+                                        p_aead.insert(a.clone(), 1);
                                     },
                                 _ => (),
                             }
@@ -295,6 +331,79 @@ fn main() {
         kf.sort_unstable_by(|a, b| b.1.cmp(&a.1));
         for (f, n) in kf.iter() {
             println!("{:>22} {:>9}", f, n);
+        }
+    }
+
+    if p_sym.len() > 0 {
+        println!();
+        println!("# PreferredSymmetricAlgorithms statistics");
+        println!();
+        println!("{:>70} {:>9}", "", "count",);
+        println!("----------------------------------------\
+                  ----------------------------------------");
+
+        // Sort by the number of occurrences.
+        let mut preferences = p_sym.iter().map(|(a, n)| {
+            let a = format!("{:?}", a);
+            (a[1..a.len()-1].to_string(), n)
+        }).collect::<Vec<_>>();
+        preferences.sort_unstable_by(|a, b| b.1.cmp(&a.1));
+        for (a, n) in preferences {
+            println!("{:>70} {:>9}", a, n);
+        }
+    }
+
+    if p_hashes.len() > 0 {
+        println!();
+        println!("# PreferredHashlgorithms statistics");
+        println!();
+        println!("{:>70} {:>9}", "", "count",);
+        println!("----------------------------------------\
+                  ----------------------------------------");
+
+        // Sort by the number of occurrences.
+        let mut preferences = p_hashes.iter().map(|(a, n)| {
+            let a = format!("{:?}", a);
+            (a[1..a.len()-1].to_string(), n)
+        }).collect::<Vec<_>>();
+        preferences.sort_unstable_by(|a, b| b.1.cmp(&a.1));
+        for (a, n) in preferences {
+            let a = format!("{:?}", a);
+            println!("{:>70} {:>9}", &a[1..a.len()-1], n);
+        }
+    }
+
+    if p_comp.len() > 0 {
+        println!();
+        println!("# PreferredCompressionAlgorithms statistics");
+        println!();
+        println!("{:>70} {:>9}", "", "count",);
+        println!("----------------------------------------\
+                  ----------------------------------------");
+
+        // Sort by the number of occurrences.
+        let mut preferences = p_comp.iter().map(|(a, n)| {
+            let a = format!("{:?}", a);
+            (a[1..a.len()-1].to_string(), n)
+        }).collect::<Vec<_>>();
+        preferences.sort_unstable_by(|a, b| b.1.cmp(&a.1));
+        for (a, n) in preferences {
+            let a = format!("{:?}", a);
+            println!("{:>70} {:>9}", &a[1..a.len()-1], n);
+        }
+    }
+
+    if p_aead.len() > 0 {
+        println!();
+        println!("# PreferredAEADAlgorithms statistics");
+        println!();
+        println!("{:>70} {:>9}", "", "count",);
+        println!("----------------------------------------\
+                  ----------------------------------------");
+
+        for (a, n) in p_aead.iter() {
+            let a = format!("{:?}", a);
+            println!("{:>70} {:>9}", &a[1..a.len()-1], n);
         }
     }
 
