@@ -43,6 +43,10 @@ fn main() {
     let mut sigs_subpacket_tags_size_min = vec![::std::u32::MAX; 256];
     let mut sigs_subpacket_tags_size_max = vec![0; 256];
 
+    // Per-Signature statistics.
+    let mut signature_min = PerSignature::max();
+    let mut signature_max = PerSignature::min();
+
     // Per-TPK statistics.
     let mut tpk_count = 0;
     let mut tpk = PerTPK::min();
@@ -92,6 +96,7 @@ fn main() {
                 Packet::Signature(ref sig) => {
                     sigs_count[u8::from(sig.typ()) as usize] += 1;
                     tpk.sigs[u8::from(sig.typ()) as usize] += 1;
+                    let mut signature = PerSignature::min();
 
                     for (_offset, len, sub) in sig.hashed_area().iter()
                         .chain(sig.unhashed_area().iter())
@@ -100,6 +105,7 @@ fn main() {
                         let i = u8::from(sub.tag) as usize;
                         sigs_subpacket_tags_count[i] += 1;
                         tpk.sigs_subpacket_tags_count[i] += 1;
+                        signature.subpacket_tags_count[i] += 1;
                         if let SubpacketValue::Unknown(_) = sub.value {
                             sigs_subpacket_tags_unknown
                                 [u8::from(sub.tag) as usize] += 1;
@@ -115,6 +121,9 @@ fn main() {
                             }
                         }
                     }
+
+                    signature.update_min_max(&mut signature_min,
+                                             &mut signature_max);
                 },
 
                 Packet::UserAttribute(ref ua) => {
@@ -188,7 +197,8 @@ fn main() {
         }
     }
 
-    if tags_count[u8::from(Tag::Signature) as usize] > 0 {
+    let signature_count = tags_count[u8::from(Tag::Signature) as usize];
+    if signature_count > 0 {
         println!();
         println!("# Signature statistics");
         println!();
@@ -203,6 +213,25 @@ fn main() {
                          sigs_count[t]);
             }
         }
+
+        println!();
+        println!("# Per-Signature Subpacket statistics");
+        println!();
+        println!("{:>30} {:>9} {:>9} {:>9}", "", "min", "mean", "max");
+        println!("----------------------------------------------------\
+                  --------");
+
+        for t in 0..256 {
+            let max = signature_max.subpacket_tags_count[t];
+            if max > 0 {
+                println!("{:>30} {:>9} {:>9} {:>9}",
+                         subpacket_short_name(t),
+                         signature_min.subpacket_tags_count[t],
+                         sigs_subpacket_tags_count[t] / signature_count,
+                         max);
+            }
+        }
+
 
         println!();
         println!("# Signature Subpacket statistics");
@@ -394,6 +423,35 @@ impl PerTPK {
             }
             if self.sigs_subpacket_tags_count[i] > max.sigs_subpacket_tags_count[i] {
                 max.sigs_subpacket_tags_count[i] = self.sigs_subpacket_tags_count[i];
+            }
+        }
+    }
+}
+
+struct PerSignature {
+    subpacket_tags_count: Vec<u32>,
+}
+
+impl PerSignature {
+    fn min() -> Self {
+        PerSignature {
+            subpacket_tags_count: vec![0; 256],
+        }
+    }
+
+    fn max() -> Self {
+        PerSignature {
+            subpacket_tags_count: vec![::std::u32::MAX; 256],
+        }
+    }
+
+    fn update_min_max(&self, min: &mut PerSignature, max: &mut PerSignature) {
+        for i in 0..256 {
+            if self.subpacket_tags_count[i] < min.subpacket_tags_count[i] {
+                min.subpacket_tags_count[i] = self.subpacket_tags_count[i];
+            }
+            if self.subpacket_tags_count[i] > max.subpacket_tags_count[i] {
+                max.subpacket_tags_count[i] = self.subpacket_tags_count[i];
             }
         }
     }
