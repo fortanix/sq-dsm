@@ -45,6 +45,11 @@ impl fmt::Debug for KeyFlags {
         if self.is_group_key() {
             f.write_str("G")?;
         }
+        if self.unknown.len() > 0 {
+            f.write_str("+0x")?;
+            f.write_str(
+                &crate::conversions::hex::encode_pretty(&self.unknown))?;
+        }
 
         Ok(())
     }
