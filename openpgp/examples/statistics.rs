@@ -8,9 +8,10 @@
 ///           -- <packet-dump>
 
 use std::env;
+use std::collections::HashMap;
 extern crate sequoia_openpgp as openpgp;
 use crate::openpgp::Packet;
-use crate::openpgp::constants::SignatureType;
+use crate::openpgp::constants::*;
 use crate::openpgp::packet::{user_attribute, header::BodyLength, Tag};
 use crate::openpgp::packet::signature::subpacket::SubpacketTag;
 use crate::openpgp::parse::{Parse, PacketParserResult, PacketParser};
@@ -46,6 +47,9 @@ fn main() {
     // Per-Signature statistics.
     let mut signature_min = PerSignature::max();
     let mut signature_max = PerSignature::min();
+
+    // Various SubpacketValue-related counters.
+    let mut key_flags: HashMap<KeyFlags, usize> = Default::default();
 
     // Per-TPK statistics.
     let mut tpk_count = 0;
@@ -118,6 +122,17 @@ fn main() {
                             }
                             if len > sigs_subpacket_tags_size_max[i] {
                                 sigs_subpacket_tags_size_max[i] = len;
+                            }
+
+                            match sub.value {
+                                SubpacketValue::Unknown(_) => unreachable!(),
+                                SubpacketValue::KeyFlags(k) =>
+                                    if let Some(count) = key_flags.get_mut(&k) {
+                                        *count += 1;
+                                    } else {
+                                        key_flags.insert(k.clone(), 1);
+                                    },
+                                _ => (),
                             }
                         }
                     }
@@ -264,6 +279,22 @@ fn main() {
                          sigs_subpacket_tags_unknown[t],
                          "-", "-", "-", "-");
             }
+        }
+    }
+
+    if key_flags.len() > 0 {
+        println!();
+        println!("# KeyFlags statistics");
+        println!();
+        println!("{:>22} {:>9}", "", "count",);
+        println!("--------------------------------");
+
+        // Sort by the number of occurrences.
+        let mut kf = key_flags.iter().map(|(f, n)| (format!("{:?}", f), n))
+            .collect::<Vec<_>>();
+        kf.sort_unstable_by(|a, b| b.1.cmp(&a.1));
+        for (f, n) in kf.iter() {
+            println!("{:>22} {:>9}", f, n);
         }
     }
 
