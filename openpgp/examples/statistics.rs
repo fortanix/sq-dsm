@@ -12,6 +12,7 @@ extern crate sequoia_openpgp as openpgp;
 use crate::openpgp::Packet;
 use crate::openpgp::constants::SignatureType;
 use crate::openpgp::packet::{user_attribute, header::BodyLength, Tag};
+use crate::openpgp::packet::signature::subpacket::SubpacketTag;
 use crate::openpgp::parse::{Parse, PacketParserResult, PacketParser};
 
 fn main() {
@@ -98,6 +99,7 @@ fn main() {
                         use crate::openpgp::packet::signature::subpacket::*;
                         let i = u8::from(sub.tag) as usize;
                         sigs_subpacket_tags_count[i] += 1;
+                        tpk.sigs_subpacket_tags_count[i] += 1;
                         if let SubpacketValue::Unknown(_) = sub.value {
                             sigs_subpacket_tags_unknown
                                 [u8::from(sub.tag) as usize] += 1;
@@ -215,15 +217,11 @@ fn main() {
                   ----------------------");
 
         for t in 0..256 {
-            use crate::openpgp::packet::signature::subpacket::SubpacketTag;
             let count = sigs_subpacket_tags_count[t];
             let size_count = sigs_subpacket_tags_size_count[t];
-            let tag_name = format!("{:?}", SubpacketTag::from(t as u8));
-            let tag_short = String::from_utf8_lossy(
-                tag_name.as_bytes().chunks(30).next().unwrap());
             if size_count > 0 {
                 println!("{:>30} {:>8} {:>6} {:>4} {:>4} {:>5} {:>14}",
-                         tag_short,
+                         subpacket_short_name(t),
                          count,
                          sigs_subpacket_tags_unknown[t],
                          sigs_subpacket_tags_size_min[t],
@@ -232,7 +230,7 @@ fn main() {
                          sigs_subpacket_tags_size_bytes[t]);
             } else if count > 0 {
                 println!("{:>30} {:>8} {:>6} {:>4} {:>4} {:>5} {:>14}",
-                         tag_short,
+                         subpacket_short_name(t),
                          count,
                          sigs_subpacket_tags_unknown[t],
                          "-", "-", "-", "-");
@@ -278,21 +276,21 @@ fn main() {
 
     println!();
     println!("# TPK statistics\n\n\
-              {:>22} {:>9} {:>9} {:>9}",
+              {:>30} {:>9} {:>9} {:>9}",
              "", "min", "mean", "max");
-    println!("----------------------------------------------------");
-    println!("{:>22} {:>9} {:>9} {:>9}",
+    println!("------------------------------------------------------------");
+    println!("{:>30} {:>9} {:>9} {:>9}",
              "Size (packets)",
              tpk_min.packets, packet_count / tpk_count, tpk_max.packets);
-    println!("{:>22} {:>9} {:>9} {:>9}",
+    println!("{:>30} {:>9} {:>9} {:>9}",
              "Size (bytes)",
              tpk_min.bytes, packet_size / tpk_count, tpk_max.bytes);
 
-    println!("\n{:>22}", "- Packets -");
+    println!("\n{:>30}", "- Packets -");
     for t in 0..64 {
         let max = tpk_max.tags[t];
         if t as u8 != Tag::PublicKey.into() && max > 0 {
-            println!("{:>22} {:>9} {:>9} {:>9}",
+            println!("{:>30} {:>9} {:>9} {:>9}",
                      format!("{:?}", Tag::from(t as u8)),
                      tpk_min.tags[t],
                      tags_count[t] / tpk_count,
@@ -300,11 +298,11 @@ fn main() {
         }
     }
 
-    println!("\n{:>22}", "- Signatures -");
+    println!("\n{:>30}", "- Signatures -");
     for t in 0..256 {
         let max = tpk_max.sigs[t];
         if max > 0 {
-            println!("{:>22} {:>9} {:>9} {:>9}",
+            println!("{:>30} {:>9} {:>9} {:>9}",
                      format!("{:?}",
                              SignatureType::from(t as u8)),
                      tpk_min.sigs[t],
@@ -312,6 +310,24 @@ fn main() {
                      max);
         }
     }
+
+    println!("\n{:>30}", "- Signature Subpackets -");
+    for t in 0..256 {
+        let max = tpk_max.sigs_subpacket_tags_count[t];
+        if max > 0 {
+            println!("{:>30} {:>9} {:>9} {:>9}",
+                     subpacket_short_name(t),
+                     tpk_min.sigs_subpacket_tags_count[t],
+                     sigs_subpacket_tags_count[t] / tpk_count,
+                     max);
+        }
+    }
+}
+
+fn subpacket_short_name(t: usize) -> String {
+    let tag_name = format!("{:?}", SubpacketTag::from(t as u8));
+    String::from_utf8_lossy(
+        tag_name.as_bytes().chunks(30).next().unwrap()).into()
 }
 
 struct PerTPK {
@@ -319,6 +335,7 @@ struct PerTPK {
     bytes: usize,
     tags: Vec<u32>,
     sigs: Vec<u32>,
+    sigs_subpacket_tags_count: Vec<u32>,
 }
 
 impl PerTPK {
@@ -328,6 +345,7 @@ impl PerTPK {
             bytes: 0,
             tags: vec![0; 64],
             sigs: vec![0; 256],
+            sigs_subpacket_tags_count: vec![0; 256],
         }
     }
 
@@ -337,6 +355,7 @@ impl PerTPK {
             bytes: ::std::usize::MAX,
             tags: vec![::std::u32::MAX; 64],
             sigs: vec![::std::u32::MAX; 256],
+            sigs_subpacket_tags_count: vec![::std::u32::MAX; 256],
         }
     }
 
@@ -367,6 +386,14 @@ impl PerTPK {
             }
             if self.sigs[i] > max.sigs[i] {
                 max.sigs[i] = self.sigs[i];
+            }
+        }
+        for i in 0..256 {
+            if self.sigs_subpacket_tags_count[i] < min.sigs_subpacket_tags_count[i] {
+                min.sigs_subpacket_tags_count[i] = self.sigs_subpacket_tags_count[i];
+            }
+            if self.sigs_subpacket_tags_count[i] > max.sigs_subpacket_tags_count[i] {
+                max.sigs_subpacket_tags_count[i] = self.sigs_subpacket_tags_count[i];
             }
         }
     }
