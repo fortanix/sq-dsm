@@ -45,6 +45,8 @@ fn main() {
     let mut sigs_subpacket_tags_size_max = vec![0; 256];
     let mut sigs_subpacket_exportable_true = 0;
     let mut sigs_subpacket_exportable_false = 0;
+    let mut sigs_subpacket_re_zero_terminated = 0;
+    let mut sigs_subpacket_re_inner_zero = 0;
 
     // Per-Signature statistics.
     let mut signature_min = PerSignature::max();
@@ -175,6 +177,12 @@ fn main() {
                                         sigs_subpacket_exportable_true += 1;
                                     } else {
                                         sigs_subpacket_exportable_false += 1;
+                                    },
+                                SubpacketValue::RegularExpression(r) =>
+                                    if r.last() == Some(&0) {
+                                        sigs_subpacket_re_zero_terminated += 1;
+                                    } else if r.iter().any(|&b| b == 0) {
+                                        sigs_subpacket_re_inner_zero += 1;
                                     },
                                 _ => (),
                             }
@@ -336,6 +344,14 @@ fn main() {
                                  "ExportableCertification(false)",
                                  sigs_subpacket_exportable_false);
                     }
+                },
+                SubpacketTag::RegularExpression => {
+                    println!("{:>30} {:>8}",
+                             "RegularExpression 0-terminated",
+                             sigs_subpacket_re_zero_terminated);
+                    println!("{:>30} {:>8}",
+                             "RegularExpression inner 0",
+                             sigs_subpacket_re_inner_zero);
                 },
                 _ => (),
             }
