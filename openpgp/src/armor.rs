@@ -395,6 +395,8 @@ pub struct Reader<'a> {
     initialized: bool,
     headers: Vec<(String, String)>,
     finalized: bool,
+    prefix_len: usize,
+    prefix_remaining: usize,
 }
 
 impl Default for ReaderMode {
@@ -528,6 +530,8 @@ impl<'a> Reader<'a> {
             headers: Vec::new(),
             initialized: false,
             finalized: false,
+            prefix_len: 0,
+            prefix_remaining: 0,
         }
     }
 
@@ -601,15 +605,31 @@ impl<'a> Reader<'a> {
         };
 
         let mut lines = 0;
+        let mut prefix = Vec::new();
         let n = 'search: loop {
             if lines > 0 {
                 // Find the start of the next line.
                 self.source.drop_through(&[b'\n'])?;
+                prefix = Vec::new();
             }
             lines += 1;
 
             // Ignore leading whitespace, etc.
-            while self.source.data_hard(1)?[0].is_ascii_whitespace() {
+            while match self.source.data_hard(1)?[0] {
+                // Skip some whitespace (previously .is_ascii_whitespace())
+                b' ' | b'\t' | b'\r' | b'\n' => true,
+                // Also skip common quote characters
+                b'>' | b'|' | b']' | b'}' => true,
+                // Do not skip anything else
+                _ => false,
+            } {
+                let c = self.source.data(1)?[0];
+                if c == b'\n' {
+                    // We found a newline while walking whitespace, reset prefix
+                    prefix = Vec::new();
+                } else {
+                    prefix.push(self.source.data_hard(1)?[0]);
+                }
                 self.source.consume(1);
             }
 
@@ -670,6 +690,8 @@ impl<'a> Reader<'a> {
         if found_blob {
             // Skip the rest of the initialization.
             self.initialized = true;
+            self.prefix_len = prefix.len();
+            self.prefix_remaining = prefix.len();
             return Ok(());
         }
 
@@ -686,10 +708,29 @@ impl<'a> Reader<'a> {
         };
         self.source.consume(n);
 
+        let next_prefix = &self.source.data_hard(prefix.len())?[..prefix.len()];
+        if prefix != next_prefix {
+            // If the next line doesn't start with the same prefix, we assume
+            // it was garbage on the front and drop the prefix so long as it
+            // was purely whitespace.  Any non-whitespace remains an error
+            // while searching for the armor header if it's not repeated.
+            if prefix.iter().all(|b| (*b as char).is_ascii_whitespace()) {
+                prefix = Vec::new();
+            } else {
+                // Nope, we have actually failed to read this properly
+                return Err(
+                    Error::new(ErrorKind::InvalidInput,
+                               "Reached EOF looking for Armor Header Line"));
+            }
+        }
+
         // Read the key-value headers.
         let mut n = 0;
         let mut lines = 0;
         loop {
+            // Skip any known prefix on lines
+            self.source.consume(prefix.len());
+
             self.source.consume(n);
 
             let line = self.source.read_to('\n' as u8)?;
@@ -743,6 +784,8 @@ impl<'a> Reader<'a> {
         self.source.consume(n);
 
         self.initialized = true;
+        self.prefix_len = prefix.len();
+        self.prefix_remaining = prefix.len();
         Ok(())
     }
 }
@@ -768,8 +811,9 @@ impl<'a> Reader<'a> {
 //
 // This function will stop after it sees base64 padding, and if it
 // sees invalid base64 data.
-fn base64_filter(mut bytes: Cow<[u8]>, base64_data_max: usize)
-    -> (Cow<[u8]>, usize)
+fn base64_filter(mut bytes: Cow<[u8]>, base64_data_max: usize,
+                 mut prefix_remaining: usize, prefix_len: usize)
+    -> (Cow<[u8]>, usize, usize)
 {
     let mut leading_whitespace = 0;
 
@@ -795,9 +839,31 @@ fn base64_filter(mut bytes: Cow<[u8]>, base64_data_max: usize)
         // A valid base64 chunk never starts with padding.
         && ! (padding > 0 && base64_len % 4 == 0)
     {
+        // If we have some prefix to skip, skip it.
+        if prefix_remaining > 0 {
+            prefix_remaining -= 1;
+            if unfiltered_offset == 0 {
+                match bytes {
+                    Cow::Borrowed(s) => {
+                        // We're at the beginning.  Avoid moving
+                        // data by cutting off the start of the
+                        // slice.
+                        bytes = Cow::Borrowed(&s[1..]);
+                        leading_whitespace += 1;
+                        continue;
+                    }
+                    Cow::Owned(_) => (),
+                }
+            }
+            unfiltered_offset += 1;
+            continue;
+        }
         match bytes[unfiltered_offset] {
             // White space.
             c if c.is_ascii_whitespace() => {
+                if c == b'\n' {
+                    prefix_remaining = prefix_len;
+                }
                 if unfiltered_offset == 0 {
                     match bytes {
                         Cow::Borrowed(s) => {
@@ -862,10 +928,11 @@ fn base64_filter(mut bytes: Cow<[u8]>, base64_data_max: usize)
     unfiltered_complete_len += leading_whitespace;
     match bytes {
         Cow::Borrowed(s) =>
-            (Cow::Borrowed(&s[..base64_len]), unfiltered_complete_len),
+            (Cow::Borrowed(&s[..base64_len]), unfiltered_complete_len,
+             prefix_remaining),
         Cow::Owned(mut v) => {
             v.truncate(base64_len);
-            (Cow::Owned(v), unfiltered_complete_len)
+            (Cow::Owned(v), unfiltered_complete_len, prefix_remaining)
         }
     }
 }
@@ -875,7 +942,7 @@ fn is_armored_pgp_blob(bytes: &[u8]) -> bool {
     // Get up to 32 bytes of base64 data.  That's 24 bytes of data
     // (ignoring padding), which is more than enough to get the first
     // packet's header.
-    let (bytes, _) = base64_filter(Cow::Borrowed(bytes), 32);
+    let (bytes, _, _) = base64_filter(Cow::Borrowed(bytes), 32, 0, 0);
 
     match base64::decode_config(&bytes, base64::STANDARD) {
         Ok(d) => {
@@ -985,12 +1052,14 @@ impl<'a> Read for Reader<'a> {
                 base64data
             };
 
-            let (base64data, consumed)
+            let (base64data, consumed, prefix_remaining)
                 = base64_filter(Cow::Borrowed(base64data),
                                 // base64_size rounds up, but we want
                                 // to round down as we have to double
                                 // buffer partial chunks.
-                                cmp::max(THRESHOLD, buf.len() / 3 * 4));
+                                cmp::max(THRESHOLD, buf.len() / 3 * 4),
+                                self.prefix_remaining,
+                                self.prefix_len);
 
             // We shouldn't have any partial chunks.
             assert_eq!(base64data.len() % 4, 0);
@@ -1023,11 +1092,12 @@ impl<'a> Read for Reader<'a> {
                 decoded
             };
 
+            self.prefix_remaining = prefix_remaining;
+
             (consumed, decoded)
         };
 
         self.source.consume(consumed);
-
         if decoded == 0 {
             self.finalized = true;
 
@@ -1073,6 +1143,8 @@ impl<'a> Read for Reader<'a> {
             };
             self.source.consume(consumed);
 
+            // Skip any expected prefix
+            self.source.consume(self.prefix_len);
             // Look for a footer.
             let consumed = {
                 // Skip whitespace.
@@ -1437,6 +1509,51 @@ mod test {
         for c in r.bytes() {
             dearmored.push(c.unwrap());
         }
+    }
+
+    #[test]
+    fn dearmor_quoted() {
+        let mut r = Reader::new(
+            Cursor::new(
+                &include_bytes!("../tests/data/armor/test-3.with-headers-quoted.asc")[..]
+            ),
+            ReaderMode::VeryTolerant);
+        let mut buf = [0; 5];
+        let e = r.read(&mut buf);
+        assert!(r.kind() == Some(Kind::File));
+        assert!(e.is_ok());
+    }
+
+    #[test]
+    fn dearmor_quoted_a_lot() {
+        let mut r = Reader::new(
+            Cursor::new(
+                &include_bytes!("../tests/data/armor/test-3.with-headers-quoted-a-lot.asc")[..]
+            ),
+            ReaderMode::VeryTolerant);
+        let mut buf = [0; 5];
+        // Loop over the input to ensure we read and verify all the way to the
+        // end of the input in order to check the checksum and footer validation
+        loop {
+            let e = r.read(&mut buf);
+            assert!(r.kind() == Some(Kind::File));
+            assert!(e.is_ok());
+            if e.unwrap() == 0 {
+                break;
+            }
+        }
+    }
+
+    #[test]
+    fn dearmor_quoted_badly() {
+        let mut r = Reader::new(
+            Cursor::new(
+                &include_bytes!("../tests/data/armor/test-3.with-headers-quoted-badly.asc")[..]
+            ),
+            ReaderMode::VeryTolerant);
+        let mut buf = [0; 5];
+        let e = r.read(&mut buf);
+        assert!(e.is_err());
     }
 
     quickcheck! {
