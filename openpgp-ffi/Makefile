@@ -60,7 +60,7 @@ check-headers: force-build
 		$(CARGO_TARGET_DIR)/debug/libsequoia_openpgp_ffi.$(_SEQ_LIB_EXT) \
 		| cut -d' ' -f3 | sed s/^_// | sort -u | grep pgp_ \
 		| while read SYM ; \
-			do git grep -q "$$SYM" include || echo $$SYM ; \
+			do grep -r -q "$$SYM" include || echo $$SYM ; \
 		done | tee $(CARGO_TARGET_DIR)/debug/.check-headers ; \
 	! test -s $(CARGO_TARGET_DIR)/debug/.check-headers
 
