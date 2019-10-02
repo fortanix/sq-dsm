@@ -3035,4 +3035,66 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
             }
         }
     }
+
+    #[test]
+    fn keysigning_party() {
+        use crate::tpk::packet::signature;
+
+        for cs in &[ CipherSuite::Cv25519,
+                     CipherSuite::RSA3k,
+                     CipherSuite::P256,
+                     CipherSuite::P384,
+                     CipherSuite::P521,
+                     CipherSuite::RSA2k ]
+        {
+            let (alice, _) = TPKBuilder::new()
+                .set_cipher_suite(*cs)
+                .add_userid("alice@foo.com")
+                .generate().unwrap();
+
+            let (bob, _) = TPKBuilder::new()
+                .set_cipher_suite(*cs)
+                .add_userid("bob@bar.com")
+                .generate().unwrap();
+
+            assert_eq!(bob.userids().len(), 1);
+            let bob_userid_binding = bob.userids().nth(0).unwrap();
+            assert_eq!(bob_userid_binding.userid().value(), b"bob@bar.com");
+
+            let sig_template
+                = signature::Builder::new(SignatureType::GenericCertificate)
+                      .set_trust_signature(255, 120)
+                      .unwrap();
+
+            // Have alice cerify the binding "bob@bar.com" and bob's key.
+            let alice_certifies_bob
+                = bob_userid_binding.userid().bind(
+                    &mut alice.primary().clone().mark_parts_secret()
+                        .into_keypair().unwrap(),
+                    &bob,
+                    sig_template,
+                    None, None).unwrap();
+
+            let bob
+                = bob.merge_packets(vec![ alice_certifies_bob.clone().into() ])
+                .unwrap();
+
+            // Make sure the certification is merged, and put in the right
+            // place.
+            assert_eq!(bob.userids().len(), 1);
+            let bob_userid_binding = bob.userids().nth(0).unwrap();
+            assert_eq!(bob_userid_binding.userid().value(), b"bob@bar.com");
+            assert_eq!(bob_userid_binding.certifications(),
+                       &[ alice_certifies_bob.clone() ]);
+
+            // Make sure the certification is correct.
+            assert_eq!(
+                alice_certifies_bob
+                    .verify_userid_binding(&alice.primary().clone(),
+                                           &bob.primary().clone(),
+                                           bob_userid_binding.userid())
+                    .unwrap(),
+                true);
+        }
+   }
 }
