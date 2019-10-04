@@ -18,6 +18,12 @@ use crate::crypto::SessionKey;
 use crate::crypto::mem::secure_cmp;
 use crate::parse::Cookie;
 
+/// Disables authentication checks.
+///
+/// This is DANGEROUS, and is only useful for debugging problems with
+/// malformed AEAD-encrypted messages.
+const DANGER_DISABLE_AUTHENTICATION: bool = false;
+
 impl AEADAlgorithm {
     /// Returns the digest size of the AEAD algorithm.
     pub fn digest_size(&self) -> Result<usize> {
@@ -323,7 +329,7 @@ impl<'a> Decryptor<'a> {
                 // Check digest.
                 aead.digest(&mut digest);
                 if secure_cmp(&digest[..], &chunk[to_decrypt..])
-                    != Ordering::Equal
+                    != Ordering::Equal && ! DANGER_DISABLE_AUTHENTICATION
                 {
                     return Err(Error::ManipulatedMessage.into());
                 }
@@ -363,6 +369,7 @@ impl<'a> Decryptor<'a> {
                 let final_digest = self.source.data(final_digest_size)?;
                 if final_digest.len() != final_digest_size
                     || secure_cmp(&digest[..], final_digest) != Ordering::Equal
+                    && ! DANGER_DISABLE_AUTHENTICATION
                 {
                     return Err(Error::ManipulatedMessage.into());
                 }
