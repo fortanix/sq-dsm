@@ -589,10 +589,34 @@
 //!     -V, --version    Prints version information
 //!
 //! SUBCOMMANDS:
-//!     dump     Lists OpenPGP packets
-//!     help     Prints this message or the help of the given subcommand(s)
-//!     join     Joins OpenPGP packets split across files
-//!     split    Splits a message into OpenPGP packets
+//!     decrypt    Decrypts an OpenPGP message, dumping the content of the encryption container without further
+//!                processing
+//!     dump       Lists OpenPGP packets
+//!     help       Prints this message or the help of the given subcommand(s)
+//!     join       Joins OpenPGP packets split across files
+//!     split      Splits a message into OpenPGP packets
+//! ```
+//!
+//! ### Subcommand packet decrypt
+//!
+//! ```text
+//! Decrypts an OpenPGP message, dumping the content of the encryption container without further processing
+//!
+//! USAGE:
+//!     sq packet decrypt [FLAGS] [OPTIONS] [--] [FILE]
+//!
+//! FLAGS:
+//!     -B, --binary              Don't ASCII-armor encode the OpenPGP data
+//!         --dump-session-key    Prints the session key to stderr
+//!     -h, --help                Prints help information
+//!     -V, --version             Prints version information
+//!
+//! OPTIONS:
+//!     -o, --output <FILE>                    Sets the output file to use
+//!         --secret-key-file <TSK-FILE>...    Secret key to decrypt with, given as a file (can be given multiple times)
+//!
+//! ARGS:
+//!     <FILE>    Sets the input file to use
 //! ```
 //!
 //! ### Subcommand packet dump

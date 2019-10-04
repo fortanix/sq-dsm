@@ -31,7 +31,7 @@ use crate::openpgp::serialize::padding::{
 };
 extern crate sequoia_store as store;
 
-mod decrypt;
+pub mod decrypt;
 pub use self::decrypt::decrypt;
 mod sign;
 pub use self::sign::sign;

@@ -10,8 +10,13 @@ use crate::openpgp::types::SymmetricAlgorithm;
 use crate::openpgp::fmt::hex;
 use crate::openpgp::crypto::{self, SessionKey};
 use crate::openpgp::{Fingerprint, Cert, KeyID, Result};
+use crate::openpgp::packet;
 use crate::openpgp::packet::prelude::*;
-use crate::openpgp::parse::PacketParser;
+use crate::openpgp::parse::{
+    Parse,
+    PacketParser,
+    PacketParserResult,
+};
 use crate::openpgp::parse::stream::{
     VerificationHelper, DecryptionHelper, Decryptor, MessageStructure,
 };
@@ -318,4 +323,51 @@ pub fn decrypt(ctx: &Context, mapping: &mut store::Mapping,
     }
     helper.vhelper.print_status();
     return Ok(());
+}
+
+pub fn decrypt_unwrap(ctx: &Context, mapping: &mut store::Mapping,
+                      input: &mut dyn io::Read, output: &mut dyn io::Write,
+                      secrets: Vec<Cert>, dump_session_key: bool)
+                      -> Result<()> {
+    let mut helper = Helper::new(ctx, mapping, 0, Vec::new(), secrets,
+                                 dump_session_key, false, false);
+
+    let mut ppr = PacketParser::from_reader(input)?;
+
+    let mut pkesks: Vec<packet::PKESK> = Vec::new();
+    let mut skesks: Vec<packet::SKESK> = Vec::new();
+    while let PacketParserResult::Some(mut pp) = ppr {
+        match pp.packet {
+            Packet::SEIP(_) | Packet::AED(_) => {
+                {
+                    let decrypt =
+                        |algo, secret: &SessionKey| pp.decrypt(algo, secret);
+                    helper.decrypt(&pkesks[..], &skesks[..], decrypt)?;
+                }
+                if ! pp.decrypted() {
+                    // XXX: That is not quite the right error to return.
+                    return Err(
+                        openpgp::Error::InvalidSessionKey(
+                            "No session key".into()).into());
+                }
+
+                io::copy(&mut pp, output)?;
+                return Ok(());
+            },
+            Packet::MDC(ref mdc) => if ! mdc.valid() {
+                return Err(openpgp::Error::ManipulatedMessage.into());
+            },
+            _ => (),
+        }
+
+        let (p, ppr_tmp) = pp.recurse()?;
+        match p {
+            Packet::PKESK(pkesk) => pkesks.push(pkesk),
+            Packet::SKESK(skesk) => skesks.push(skesk),
+            _ => (),
+        }
+        ppr = ppr_tmp;
+    }
+
+    Ok(())
 }

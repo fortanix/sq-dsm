@@ -450,6 +450,36 @@ pub fn build() -> App<'static, 'static> {
                                      .long("hex")
                                      .short("x")
                                      .help("Print a hexdump")))
+
+                    .subcommand(SubCommand::with_name("decrypt")
+                                .display_order(10)
+                                .about("Decrypts an OpenPGP message, dumping \
+                                        the content of the encryption \
+                                        container without further processing")
+                                .arg(Arg::with_name("input").value_name("FILE")
+                                     .help("Sets the input file to use"))
+                                .arg(Arg::with_name("output").value_name("FILE")
+                                     .long("output")
+                                     .short("o")
+                                     .help("Sets the output file to use"))
+                                .arg(Arg::with_name("binary")
+                                     .long("binary")
+                                     .short("B")
+                                     .help("Don't ASCII-armor encode the \
+                                            OpenPGP data"))
+                                .arg(Arg::with_name("secret-key-file")
+                                     .long("secret-key-file")
+                                     .multiple(true)
+                                     .takes_value(true)
+                                     .value_name("TSK-FILE")
+                                     .number_of_values(1)
+                                     .help("Secret key to decrypt with, given \
+                                            as a file \
+                                            (can be given multiple times)"))
+                                .arg(Arg::with_name("dump-session-key")
+                                     .long("dump-session-key")
+                                     .help("Prints the session key to stderr")))
+
                     .subcommand(SubCommand::with_name("split")
                                 .about("Splits a message into OpenPGP packets")
                                 .arg(Arg::with_name("input").value_name("FILE")

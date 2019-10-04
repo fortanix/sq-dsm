@@ -332,6 +332,28 @@ fn real_main() -> Result<(), failure::Error> {
                                m.is_present("mpis"), m.is_present("hex"),
                                session_key.as_ref(), width)?;
             },
+
+            ("decrypt",  Some(m)) => {
+                let mut input = open_or_stdin(m.value_of("input"))?;
+                let output = create_or_stdout(m.value_of("output"), force)?;
+                let mut output = if ! m.is_present("binary") {
+                    Box::new(armor::Writer::new(output,
+                                                armor::Kind::Message,
+                                                &[])?)
+                } else {
+                    output
+                };
+                let secrets = m.values_of("secret-key-file")
+                    .map(load_certs)
+                    .unwrap_or(Ok(vec![]))?;
+                let mut mapping = Mapping::open(&ctx, realm_name, mapping_name)
+                    .context("Failed to open the mapping")?;
+                commands::decrypt::decrypt_unwrap(
+                    &ctx, &mut mapping,
+                    &mut input, &mut output,
+                    secrets, m.is_present("dump-session-key"))?;
+            },
+
             ("split",  Some(m)) => {
                 let mut input = open_or_stdin(m.value_of("input"))?;
                 let prefix =
