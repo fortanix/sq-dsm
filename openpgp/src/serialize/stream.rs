@@ -1544,4 +1544,95 @@ mod test {
             assert_eq!(state, State::Done);
         }
     }
+
+    #[test]
+    fn aead_short_read() {
+        // AEAD data is of the form:
+        //
+        //   [ chunk1 ][ tag1 ] ... [ chunkN ][ tagN ][ tag ]
+        //
+        // All chunks are the same size except for the last chunk, which may
+        // be shorter.
+        //
+        // In `Decryptor::read_helper`, we read a chunk and a tag worth of
+        // data at a time.  Because only the last chunk can be shorter, if
+        // the amount read is less than `chunk_size + tag_size`, then we know
+        // that we've read the last chunk.
+        //
+        // Unfortunately, this is not sufficient: if the last chunk is
+        // `chunk_size - tag size` bytes large, then when we read it, we'll
+        // read `chunk_size + tag_size` bytes, because we'll have also read
+        // the final tag!
+        //
+        // Make sure we handle this situation correctly.
+
+        use crate::constants::KeyFlags;
+        use crate::parse::{
+            Parse,
+            stream::{
+                Decryptor,
+                DecryptionHelper,
+                VerificationHelper,
+                MessageStructure,
+            },
+        };
+
+        let tsk =
+            TPK::from_bytes(crate::tests::key("testy-private.pgp")).unwrap();
+
+        // Build a vector of recipients to hand to Encryptor.
+        let recipients =
+            tsk.keys_all()
+            .key_flags(KeyFlags::default()
+                       .set_encrypt_at_rest(true)
+                       .set_encrypt_for_transport(true))
+            .map(|(_, _, key)| key.into())
+            .collect::<Vec<_>>();
+
+        let mut o = vec![];
+        {
+            let m = Message::new(&mut o);
+            let encryptor = Encryptor::new(
+                m, &[], &recipients, None, AEADAlgorithm::EAX)
+                .unwrap();
+            let mut literal = LiteralWriter::new(encryptor, None, None, None)
+                .unwrap();
+            literal.write_all(&vec![0; 4071]).unwrap();
+        }
+
+        struct Helper {
+            tsk: TPK,
+        };
+        impl VerificationHelper for Helper {
+            fn get_public_keys(&mut self, _ids: &[KeyID]) -> Result<Vec<TPK>> {
+                Ok(Vec::new())
+            }
+            fn check(&mut self, _structure: &MessageStructure) -> Result<()> {
+                Ok(())
+            }
+        }
+        impl DecryptionHelper for Helper {
+            fn decrypt<D>(&mut self, pkesks: &[PKESK], _skesks: &[SKESK],
+                          mut decrypt: D) -> Result<Option<crate::Fingerprint>>
+                where D: FnMut(SymmetricAlgorithm, &SessionKey) -> Result<()>
+            {
+                let mut keypair = self.tsk.keys_all()
+                    .key_flags(
+                        KeyFlags::default()
+                            .set_encrypt_at_rest(true)
+                            .set_encrypt_for_transport(true))
+                    .map(|(_, _, key)| key).next().unwrap()
+                    .clone().mark_parts_secret().into_keypair().unwrap();
+                pkesks[0].decrypt(&mut keypair)
+                    .and_then(|(algo, session_key)| decrypt(algo, &session_key))
+                    .map(|_| None)
+            }
+        }
+
+        let h = Helper { tsk };
+        let mut v = Decryptor::from_bytes(&o, h, None).unwrap();
+        let mut content = Vec::new();
+        v.read_to_end(&mut content).unwrap();
+        assert_eq!(content.len(), 4071);
+    }
 }
