@@ -3611,14 +3611,20 @@ impl<'a> PacketParser<'a> {
             },
 
             Packet::AED(AED::V1(aed)) => {
-                // Get the first chunk and check whether we can
+                // Read the first chunk and check whether we can
                 // decrypt it using the provided key.  Don't actually
-                // comsume them in case we can't.
+                // consume them in case we can't.
                 {
-                    let data = self.data(aed.chunk_digest_size()?)?;
+                    // We need a bit more than one chunk so that
+                    // `aead::Decryptor` won't see EOF and think that
+                    // it has a partial block and it needs to verify
+                    // the final chunk.
+                    let amount = aed.chunk_digest_size()? + 1;
+                    let data = self.data(amount)?;
                     let dec = aead::Decryptor::new(
                         1, aed.symmetric_algo(), aed.aead(), aed.chunk_size(),
-                        aed.iv(), key, &data[..cmp::min(data.len(), aed.chunk_digest_size()?)])?;
+                        aed.iv(), key,
+                        &data[..cmp::min(data.len(), amount)])?;
                     let mut chunk = Vec::new();
                     dec.take(aed.chunk_size() as u64).read_to_end(&mut chunk)?;
                 }
