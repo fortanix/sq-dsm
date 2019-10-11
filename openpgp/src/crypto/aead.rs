@@ -790,15 +790,16 @@ impl<W: io::Write> Encryptor<W> {
                 unsafe { self.scratch.set_len(self.digest_size) }
                 aead.digest(&mut self.scratch[..self.digest_size]);
                 inner.write_all(&self.scratch[..self.digest_size])?;
-
-                // Write final digest.
-                let mut aead = self.make_aead()?;
-                self.hash_associated_data(&mut aead, true);
-                let mut nada = [0; 0];
-                aead.encrypt(&mut nada, b"");
-                aead.digest(&mut self.scratch[..self.digest_size]);
-                inner.write_all(&self.scratch[..self.digest_size])?;
             }
+
+            // Write final digest.
+            let mut aead = self.make_aead()?;
+            self.hash_associated_data(&mut aead, true);
+            let mut nada = [0; 0];
+            aead.encrypt(&mut nada, b"");
+            aead.digest(&mut self.scratch[..self.digest_size]);
+            inner.write_all(&self.scratch[..self.digest_size])?;
+
             Ok(inner)
         } else {
             Err(io::Error::new(io::ErrorKind::BrokenPipe,
