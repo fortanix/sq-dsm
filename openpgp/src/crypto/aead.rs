@@ -17,6 +17,69 @@ use crate::Result;
 use crate::crypto::SessionKey;
 use crate::crypto::mem::secure_cmp;
 
+// A helper to allow us to determine whether a Reader has reached EOF.
+struct Peekable<R> where R: io::Read {
+    data: Option<u8>,
+    inner: R,
+}
+
+impl<R> Peekable<R> where R: io::Read {
+    fn new(inner: R) -> Self {
+        Peekable {
+            data: None,
+            inner: inner,
+        }
+    }
+
+    // Returns the next byte in the file without consuming that byte.
+    //
+    // That is, the next call to read will still return that byte.
+    // Returns None if there is no data left to read.
+    fn peek(&mut self) -> Option<u8> {
+        if let Some(data) = self.data {
+            Some(data)
+        } else {
+            let mut buffer = Vec::new();
+            match (&mut self.inner).take(1).read_to_end(&mut buffer) {
+                Ok(0) => None, // EOF
+                Ok(1) => {
+                    self.data = Some(buffer[0]);
+                    self.data
+                }
+                Ok(_) => unreachable!(),
+                Err(_) => None,
+            }
+        }
+    }
+
+    // Returns whether the end of file has been reached.
+    fn eof(&mut self) -> bool {
+        self.peek().is_none()
+    }
+}
+
+impl<R> io::Read for Peekable<R> where R: io::Read {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        if buf.len() == 0 {
+            // Zero length read.
+            return Ok(0);
+        }
+
+        let start = if let Some(data) = self.data.take() {
+            buf[0] = data;
+            1
+        } else {
+            0
+        };
+
+        match self.inner.read(&mut buf[start..]) {
+            Ok(n) => Ok(start + n),
+            Err(_) if start > 0 => Ok(start),
+            Err(e) => Err(e),
+        }
+    }
+}
+
 impl AEADAlgorithm {
     /// Returns the digest size of the AEAD algorithm.
     pub fn digest_size(&self) -> Result<usize> {
@@ -79,7 +142,7 @@ const AD_PREFIX_LEN: usize = 5;
 /// A `Read`er for decrypting AEAD-encrypted data.
 pub struct Decryptor<R: io::Read> {
     // The encrypted data.
-    source: R,
+    source: Peekable<R>,
 
     sym_algo: SymmetricAlgorithm,
     aead: AEADAlgorithm,
@@ -103,7 +166,7 @@ impl<R: io::Read> Decryptor<R> {
                chunk_size: usize, iv: &[u8], key: &SessionKey, source: R)
                -> Result<Self> {
         Ok(Decryptor {
-            source: source,
+            source: Peekable::new(source),
             sym_algo: sym_algo,
             aead: aead,
             key: key.clone(),
@@ -211,7 +274,25 @@ impl<R: io::Read> Decryptor<R> {
                     return Ok(pos);
                 }
 
-                short_read = amount < to_copy;
+                // Recall: AEAD data is of the form:
+                //
+                //   [ chunk1 ][ tag1 ] ... [ chunkN ][ tagN ][ tag ]
+                //
+                // And, all chunks are the same size except for the
+                // last chunk, which may be shorter.
+                //
+                // Because only the last chunk can be shorter, if the
+                // amount read is less than `chunk_size + tag_size`,
+                // then we know that we've read the last chunk.
+                //
+                // Unfortunately, this is not sufficient: if the last
+                // chunk is `chunk_size - tag size` bytes large, then
+                // when we read it, we'll read `chunk_size + tag_size`
+                // bytes, because we'll have also read the final tag!
+                //
+                // We can detect this by also checking for EOF.
+                short_read = amount < to_copy
+                    || (amount > 0 && self.source.eof());
                 to_copy = amount;
                 ciphertext.truncate(to_copy);
             },
@@ -290,7 +371,24 @@ impl<R: io::Read> Decryptor<R> {
                     return Ok(pos);
                 }
 
-                short_read = amount < chunk_digest_size;
+                // Recall: AEAD data is of the form:
+                //
+                //   [ chunk1 ][ tag1 ] ... [ chunkN ][ tagN ][ tag ]
+                //
+                // And, all chunks are the same size except for the
+                // last chunk, which may be shorter.
+                //
+                // Because only the last chunk can be shorter, if the
+                // amount read is less than `chunk_size + tag_size`,
+                // then we know that we've read the last chunk.
+                //
+                // Unfortunately, this is not sufficient: if the last
+                // chunk is `chunk_size - tag size` bytes large, then
+                // when we read it, we'll read `chunk_size + tag_size`
+                // bytes, because we'll have also read the final tag!
+                //
+                // We can detect this by also checking for EOF.
+                short_read = amount < chunk_digest_size || self.source.eof();
 
                 // Make sure `ciphertext` is not larger than the
                 // amount of data that was actually read.
@@ -480,16 +578,16 @@ impl<R: BufferedReader<C>, C> BufferedReader<C>
     }
 
     fn get_mut(&mut self) -> Option<&mut dyn BufferedReader<C>> {
-        Some(&mut self.reader.reader.source)
+        Some(&mut self.reader.reader.source.inner)
     }
 
     fn get_ref(&self) -> Option<&dyn BufferedReader<C>> {
-        Some(&self.reader.reader.source)
+        Some(&self.reader.reader.source.inner)
     }
 
     fn into_inner<'b>(self: Box<Self>)
             -> Option<Box<dyn BufferedReader<C> + 'b>> where Self: 'b {
-        Some(Box::new(self.reader.reader.source))
+        Some(Box::new(self.reader.reader.source.inner))
     }
 
     fn cookie_set(&mut self, cookie: C) -> C {
