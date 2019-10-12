@@ -3619,7 +3619,8 @@ impl<'a> PacketParser<'a> {
                     // `aead::Decryptor` won't see EOF and think that
                     // it has a partial block and it needs to verify
                     // the final chunk.
-                    let amount = aed.chunk_digest_size()? + 1;
+                    let amount
+                        = aed.chunk_digest_size()? + aed.aead().digest_size()?;
                     let data = self.data(amount)?;
                     let dec = aead::Decryptor::new(
                         1, aed.symmetric_algo(), aed.aead(), aed.chunk_size(),

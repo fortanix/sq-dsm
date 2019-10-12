@@ -1551,7 +1551,7 @@ mod test {
     }
 
     #[test]
-    fn aead_short_read() {
+    fn aead_messages() {
         // AEAD data is of the form:
         //
         //   [ chunk1 ][ tag1 ] ... [ chunkN ][ tagN ][ tag ]
@@ -1571,9 +1571,10 @@ mod test {
         //
         // Make sure we handle this situation correctly.
 
+        use std::cmp;
+
         use crate::constants::KeyFlags;
         use crate::parse::{
-            Parse,
             stream::{
                 Decryptor,
                 DecryptionHelper,
@@ -1581,9 +1582,13 @@ mod test {
                 MessageStructure,
             },
         };
+        use crate::tpk::{TPKBuilder, CipherSuite};
+        use crate::serialize::stream::{LiteralWriter, Message};
 
-        let tsk =
-            TPK::from_bytes(crate::tests::key("testy-private.pgp")).unwrap();
+        let (tsk, _) = TPKBuilder::new()
+            .set_cipher_suite(CipherSuite::Cv25519)
+            .add_encryption_subkey()
+            .generate().unwrap();
 
         // Build a vector of recipients to hand to Encryptor.
         let recipients =
@@ -1594,21 +1599,10 @@ mod test {
             .map(|(_, _, key)| key.into())
             .collect::<Vec<_>>();
 
-        let mut o = vec![];
-        {
-            let m = Message::new(&mut o);
-            let encryptor = Encryptor::new(
-                m, &[], &recipients, None, AEADAlgorithm::EAX)
-                .unwrap();
-            let mut literal = LiteralWriter::new(encryptor, None, None, None)
-                .unwrap();
-            literal.write_all(&vec![0; 4071]).unwrap();
-        }
-
-        struct Helper {
-            tsk: TPK,
+        struct Helper<'a> {
+            tsk: &'a TPK,
         };
-        impl VerificationHelper for Helper {
+        impl<'a> VerificationHelper for Helper<'a> {
             fn get_public_keys(&mut self, _ids: &[KeyID]) -> Result<Vec<TPK>> {
                 Ok(Vec::new())
             }
@@ -1616,7 +1610,7 @@ mod test {
                 Ok(())
             }
         }
-        impl DecryptionHelper for Helper {
+        impl<'a> DecryptionHelper for Helper<'a> {
             fn decrypt<D>(&mut self, pkesks: &[PKESK], _skesks: &[SKESK],
                           mut decrypt: D) -> Result<Option<crate::Fingerprint>>
                 where D: FnMut(SymmetricAlgorithm, &SessionKey) -> Result<()>
@@ -1624,7 +1618,6 @@ mod test {
                 let mut keypair = self.tsk.keys_all()
                     .key_flags(
                         KeyFlags::default()
-                            .set_encrypt_at_rest(true)
                             .set_encrypt_for_transport(true))
                     .map(|(_, _, key)| key).next().unwrap()
                     .clone().mark_parts_secret().into_keypair().unwrap();
@@ -1634,10 +1627,91 @@ mod test {
             }
         }
 
-        let h = Helper { tsk };
-        let mut v = Decryptor::from_bytes(&o, h, None).unwrap();
-        let mut content = Vec::new();
-        v.read_to_end(&mut content).unwrap();
-        assert_eq!(content.len(), 4071);
+        for chunks in 0..3 {
+            for msg_len in
+                      cmp::max(24, chunks * Encryptor::AEAD_CHUNK_SIZE) - 24
+                          ..chunks * Encryptor::AEAD_CHUNK_SIZE + 24
+            {
+                eprintln!("Encrypting message of size: {}", msg_len);
+
+                let mut content : Vec<u8> = Vec::new();
+                for i in 0..msg_len {
+                    content.push(b'0' + ((i % 10) as u8));
+                }
+
+                let mut msg = vec![];
+                {
+                    let m = Message::new(&mut msg);
+                    let encryptor = Encryptor::new(
+                        m, &[], &recipients, None, AEADAlgorithm::EAX)
+                        .unwrap();
+                    let mut literal = LiteralWriter::new(encryptor, None, None, None)
+                        .unwrap();
+                    literal.write_all(&content).unwrap();
+                    // literal.finalize().unwrap();
+                }
+
+                for &read_len in [
+                    37,
+                    Encryptor::AEAD_CHUNK_SIZE - 1,
+                    Encryptor::AEAD_CHUNK_SIZE,
+                    100 * Encryptor::AEAD_CHUNK_SIZE
+                ].into_iter() {
+                    for &do_err in [ false, true ].into_iter() {
+                        let mut msg = msg.clone();
+                        if do_err {
+                            let l = msg.len() - 1;
+                            if msg[l] == 0 {
+                                msg[l] = 1;
+                            } else {
+                                msg[l] = 0;
+                            }
+                        }
+
+                        let h = Helper { tsk: &tsk };
+                        // Note: a corrupted message is only guaranteed
+                        // to error out before it returns EOF.
+                        let mut v = match Decryptor::from_bytes(&msg, h, None) {
+                            Ok(v) => v,
+                            Err(_) if do_err => continue,
+                            Err(err) => panic!("Decrypting message: {}", err),
+                        };
+
+                        let mut buffer = Vec::new();
+                        while buffer.len() < read_len {
+                            buffer.push(0);
+                        }
+
+                        let mut decrypted_content = Vec::new();
+                        loop {
+                            match v.read(&mut buffer[..read_len]) {
+                                Ok(0) if do_err =>
+                                    panic!("Expected an error, got EOF"),
+                                Ok(0) => break,
+                                Ok(len) =>
+                                    decrypted_content.extend_from_slice(
+                                        &buffer[..len]),
+                                Err(_) if do_err => break,
+                                Err(err) =>
+                                    panic!("Decrypting data: {:?}", err),
+                            }
+                        }
+
+                        if do_err {
+                            // If we get an error once, we should get
+                            // one again.
+                            for _ in 0..3 {
+                                assert!(v.read(&mut buffer[..read_len]).is_err());
+                            }
+                        }
+
+                        // We only corrupted the final tag, so we
+                        // should get all of the content.
+                        assert_eq!(msg_len, decrypted_content.len());
+                        assert_eq!(content, decrypted_content);
+                    }
+                }
+            }
+        }
     }
 }
