@@ -1010,6 +1010,11 @@ impl<'a> Encryptor<'a> {
                    aead_algo.into())
     }
 
+    // The default chunk size.
+    //
+    // A page, 3 per mille overhead.
+    const AEAD_CHUNK_SIZE : usize = 4096;
+
     fn make(mut inner: writer::Stack<'a, Cookie>,
             passwords: Vec<&Password>,
             recipients: Vec<&Recipient>,
@@ -1033,7 +1038,7 @@ impl<'a> Encryptor<'a> {
             crypto::random(&mut nonce);
             Some(AEADParameters {
                 algo: algo,
-                chunk_size: 4096, // A page, 3 per mille overhead.
+                chunk_size: Self::AEAD_CHUNK_SIZE,
                 nonce: nonce.into_boxed_slice(),
             })
         } else {
