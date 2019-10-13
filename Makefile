@@ -80,6 +80,7 @@ build-release:
 	    $(CARGO) build $(CARGO_FLAGS) --release --all
 	$(MAKE) -Copenpgp-ffi build-release
 	$(MAKE) -Cffi build-release
+	$(MAKE) -Csqv build-release
 
 .PHONY: install
 install: build-release
