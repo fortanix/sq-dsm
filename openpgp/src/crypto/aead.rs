@@ -16,69 +16,7 @@ use crate::Error;
 use crate::Result;
 use crate::crypto::SessionKey;
 use crate::crypto::mem::secure_cmp;
-
-// A helper to allow us to determine whether a Reader has reached EOF.
-struct Peekable<R> where R: io::Read {
-    data: Option<u8>,
-    inner: R,
-}
-
-impl<R> Peekable<R> where R: io::Read {
-    fn new(inner: R) -> Self {
-        Peekable {
-            data: None,
-            inner: inner,
-        }
-    }
-
-    // Returns the next byte in the file without consuming that byte.
-    //
-    // That is, the next call to read will still return that byte.
-    // Returns None if there is no data left to read.
-    fn peek(&mut self) -> Option<u8> {
-        if let Some(data) = self.data {
-            Some(data)
-        } else {
-            let mut buffer = Vec::new();
-            match (&mut self.inner).take(1).read_to_end(&mut buffer) {
-                Ok(0) => None, // EOF
-                Ok(1) => {
-                    self.data = Some(buffer[0]);
-                    self.data
-                }
-                Ok(_) => unreachable!(),
-                Err(_) => None,
-            }
-        }
-    }
-
-    // Returns whether the end of file has been reached.
-    fn eof(&mut self) -> bool {
-        self.peek().is_none()
-    }
-}
-
-impl<R> io::Read for Peekable<R> where R: io::Read {
-    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        if buf.len() == 0 {
-            // Zero length read.
-            return Ok(0);
-        }
-
-        let start = if let Some(data) = self.data.take() {
-            buf[0] = data;
-            1
-        } else {
-            0
-        };
-
-        match self.inner.read(&mut buf[start..]) {
-            Ok(n) => Ok(start + n),
-            Err(_) if start > 0 => Ok(start),
-            Err(e) => Err(e),
-        }
-    }
-}
+use crate::parse::Cookie;
 
 impl AEADAlgorithm {
     /// Returns the digest size of the AEAD algorithm.
@@ -140,9 +78,9 @@ impl AEADAlgorithm {
 const AD_PREFIX_LEN: usize = 5;
 
 /// A `Read`er for decrypting AEAD-encrypted data.
-pub struct Decryptor<R: io::Read> {
+pub struct Decryptor<'a> {
     // The encrypted data.
-    source: Peekable<R>,
+    source: Box<BufferedReader<Cookie> + 'a>,
 
     sym_algo: SymmetricAlgorithm,
     aead: AEADAlgorithm,
@@ -158,15 +96,30 @@ pub struct Decryptor<R: io::Read> {
     buffer: Vec<u8>,
 }
 
-impl<R: io::Read> Decryptor<R> {
+impl<'a> Decryptor<'a> {
     /// Instantiate a new AEAD decryptor.
     ///
     /// `source` is the source to wrap.
-    pub fn new(version: u8, sym_algo: SymmetricAlgorithm, aead: AEADAlgorithm,
-               chunk_size: usize, iv: &[u8], key: &SessionKey, source: R)
-               -> Result<Self> {
+    pub fn new<R: io::Read>(version: u8, sym_algo: SymmetricAlgorithm,
+                            aead: AEADAlgorithm, chunk_size: usize,
+                            iv: &[u8], key: &SessionKey, source: R)
+        -> Result<Self>
+        where R: 'a
+    {
+        Self::from_buffered_reader(
+            version, sym_algo, aead, chunk_size, iv, key,
+            Box::new(buffered_reader::Generic::with_cookie(
+                source, None, Default::default())))
+    }
+
+    fn from_buffered_reader(version: u8, sym_algo: SymmetricAlgorithm,
+                            aead: AEADAlgorithm, chunk_size: usize,
+                            iv: &[u8], key: &SessionKey,
+                            source: Box<'a + BufferedReader<Cookie>>)
+        -> Result<Self>
+    {
         Ok(Decryptor {
-            source: Peekable::new(source),
+            source: source,
             sym_algo: sym_algo,
             aead: aead,
             key: key.clone(),
@@ -471,7 +424,7 @@ impl<R: io::Read> Decryptor<R> {
 // gratuitiously do a short read.  Specifically, if the return value
 // is less than `plaintext.len()`, then it is either because we
 // reached the end of the input or an error occured.
-impl<R: io::Read> io::Read for Decryptor<R> {
+impl<'a> io::Read for Decryptor<'a> {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         match self.read_helper(buf) {
             Ok(n) => Ok(n),
@@ -488,17 +441,18 @@ impl<R: io::Read> io::Read for Decryptor<R> {
 
 /// A `BufferedReader` that decrypts AEAD-encrypted data as it is
 /// read.
-pub(crate) struct BufferedReaderDecryptor<R: BufferedReader<C>, C> {
-    reader: buffered_reader::Generic<Decryptor<R>, C>,
+pub(crate) struct BufferedReaderDecryptor<'a> {
+    reader: buffered_reader::Generic<Decryptor<'a>, Cookie>,
 }
 
-impl <R: BufferedReader<C>, C> BufferedReaderDecryptor<R, C> {
+impl<'a> BufferedReaderDecryptor<'a> {
     /// Like `new()`, but sets a cookie, which can be retrieved using
     /// the `cookie_ref` and `cookie_mut` methods, and set using
     /// the `cookie_set` method.
     pub fn with_cookie(version: u8, sym_algo: SymmetricAlgorithm,
                        aead: AEADAlgorithm, chunk_size: usize, iv: &[u8],
-                       key: &SessionKey, source: R, cookie: C)
+                       key: &SessionKey, source: Box<BufferedReader<Cookie> + 'a>,
+                       cookie: Cookie)
         -> Result<Self>
     {
         Ok(BufferedReaderDecryptor {
@@ -510,19 +464,19 @@ impl <R: BufferedReader<C>, C> BufferedReaderDecryptor<R, C> {
     }
 }
 
-impl<R: BufferedReader<C>, C> io::Read for BufferedReaderDecryptor<R, C> {
+impl<'a> io::Read for BufferedReaderDecryptor<'a> {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         self.reader.read(buf)
     }
 }
 
-impl<R: BufferedReader<C>, C> fmt::Display for BufferedReaderDecryptor<R, C> {
+impl<'a> fmt::Display for BufferedReaderDecryptor<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "BufferedReaderDecryptor")
     }
 }
 
-impl<R: BufferedReader<C>, C> fmt::Debug for BufferedReaderDecryptor<R, C> {
+impl<'a> fmt::Debug for BufferedReaderDecryptor<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("BufferedReaderDecryptor")
             .field("reader", &self.get_ref().unwrap())
@@ -530,8 +484,7 @@ impl<R: BufferedReader<C>, C> fmt::Debug for BufferedReaderDecryptor<R, C> {
     }
 }
 
-impl<R: BufferedReader<C>, C> BufferedReader<C>
-        for BufferedReaderDecryptor<R, C> {
+impl<'a> BufferedReader<Cookie> for BufferedReaderDecryptor<'a> {
     fn buffer(&self) -> &[u8] {
         return self.reader.buffer();
     }
@@ -577,28 +530,28 @@ impl<R: BufferedReader<C>, C> BufferedReader<C>
         return self.reader.steal_eof();
     }
 
-    fn get_mut(&mut self) -> Option<&mut dyn BufferedReader<C>> {
-        Some(&mut self.reader.reader.source.inner)
+    fn get_mut(&mut self) -> Option<&mut dyn BufferedReader<Cookie>> {
+        Some(&mut self.reader.reader.source)
     }
 
-    fn get_ref(&self) -> Option<&dyn BufferedReader<C>> {
-        Some(&self.reader.reader.source.inner)
+    fn get_ref(&self) -> Option<&dyn BufferedReader<Cookie>> {
+        Some(&self.reader.reader.source)
     }
 
     fn into_inner<'b>(self: Box<Self>)
-            -> Option<Box<dyn BufferedReader<C> + 'b>> where Self: 'b {
-        Some(Box::new(self.reader.reader.source.inner))
+            -> Option<Box<dyn BufferedReader<Cookie> + 'b>> where Self: 'b {
+        Some(Box::new(self.reader.reader.source))
     }
 
-    fn cookie_set(&mut self, cookie: C) -> C {
+    fn cookie_set(&mut self, cookie: Cookie) -> Cookie {
         self.reader.cookie_set(cookie)
     }
 
-    fn cookie_ref(&self) -> &C {
+    fn cookie_ref(&self) -> &Cookie {
         self.reader.cookie_ref()
     }
 
-    fn cookie_mut(&mut self) -> &mut C {
+    fn cookie_mut(&mut self) -> &mut Cookie {
         self.reader.cookie_mut()
     }
 }
