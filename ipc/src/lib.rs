@@ -275,6 +275,8 @@ impl Descriptor {
             .arg(format!("{}", self.ctx.ephemeral()))
             // l will be closed here if the exec fails.
             .stdin(unsafe { Stdio::from_raw_fd(fd) })
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
             .spawn()?;
         Ok(())
     }
