@@ -193,6 +193,10 @@ impl<'a> Decryptor<'a> {
         }
     }
 
+    // Note: this implementation tries *very* hard to make sure we don't
+    // gratuitiously do a short read.  Specifically, if the return value
+    // is less than `plaintext.len()`, then it is either because we
+    // reached the end of the input or an error occured.
     fn read_helper(&mut self, plaintext: &mut [u8]) -> Result<usize> {
         use std::cmp::Ordering;
 
@@ -273,11 +277,7 @@ impl<'a> Decryptor<'a> {
                     }
 
                     if chunk.len() < final_digest_size {
-                        if pos > 0 {
-                            return Ok(pos);
-                        } else {
-                            return Err(Error::ManipulatedMessage.into());
-                        }
+                        return Err(Error::ManipulatedMessage.into());
                     }
 
                     check_final_tag = chunk.len() < to_read;
@@ -285,9 +285,6 @@ impl<'a> Decryptor<'a> {
                     // Return the chunk.
                     &chunk[..cmp::min(chunk.len(), to_read) - final_digest_size]
                 },
-                // We encountered an error, but we've already read
-                // something, so return that.
-                Err(_) if pos > 0 => return Ok(pos),
                 Err(e) => return Err(e.into()),
             };
 
@@ -298,11 +295,7 @@ impl<'a> Decryptor<'a> {
                 // the final tag.
             } else if chunk.len() <= self.digest_size {
                 // A chunk has to include at least one byte and a tag.
-                if pos > 0 {
-                    return Ok(pos);
-                } else {
-                    return Err(Error::ManipulatedMessage.into());
-                }
+                return Err(Error::ManipulatedMessage.into());
             } else {
                 // Decrypt the chunk and check the tag.
                 let to_decrypt = chunk.len() - self.digest_size;
@@ -326,11 +319,7 @@ impl<'a> Decryptor<'a> {
                 if secure_cmp(&digest[..], &chunk[to_decrypt..])
                     != Ordering::Equal
                 {
-                    if pos > 0 {
-                        return Ok(pos);
-                    } else {
-                        return Err(Error::ManipulatedMessage.into());
-                    }
+                    return Err(Error::ManipulatedMessage.into());
                 }
 
                 if double_buffer {
@@ -368,11 +357,7 @@ impl<'a> Decryptor<'a> {
                 if final_digest.len() != final_digest_size
                     || secure_cmp(&digest[..], final_digest) != Ordering::Equal
                 {
-                    if pos > 0 {
-                        return Ok(pos);
-                    } else {
-                        return Err(Error::ManipulatedMessage.into());
-                    }
+                    return Err(Error::ManipulatedMessage.into());
                 }
 
                 // Consume the data only on success so that we keep
