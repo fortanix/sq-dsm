@@ -1678,9 +1678,7 @@ mod test {
                         };
 
                         let mut buffer = Vec::new();
-                        while buffer.len() < read_len {
-                            buffer.push(0);
-                        }
+                        buffer.resize(read_len, 0);
 
                         let mut decrypted_content = Vec::new();
                         loop {

@@ -304,9 +304,7 @@ impl<'a> Decryptor<'a> {
                 // chunk, then we have to double buffer.
                 let double_buffer = to_decrypt > plaintext.len() - pos;
                 let buffer = if double_buffer {
-                    while self.buffer.len() < to_decrypt {
-                        self.buffer.push(0u8);
-                    }
+                    self.buffer.resize(to_decrypt, 0);
                     &mut self.buffer[..]
                 } else {
                     &mut plaintext[pos..pos + to_decrypt]
