@@ -15,8 +15,10 @@ pub fn generate(m: &ArgMatches, force: bool) -> failure::Fallible<()> {
     let mut builder = TPKBuilder::new();
 
     // User ID
-    match m.value_of("userid") {
-        Some(uid) => { builder = builder.add_userid(uid); }
+    match m.values_of("userid") {
+        Some(uids) => for uid in uids {
+            builder = builder.add_userid(uid);
+        },
         None => {
             eprintln!("No user ID given, using direct key signature");
         }

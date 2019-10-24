@@ -362,7 +362,11 @@ pub fn build() -> App<'static, 'static> {
                              .value_name("EMAIL")
                              .long("userid")
                              .short("u")
-                             .help("Primary user ID"))
+                             .multiple(true)
+                             .number_of_values(1)
+                             .takes_value(true)
+                             .help("Add userid to the key \
+                                    (can be given multiple times)"))
                         .arg(Arg::with_name("cipher-suite")
                              .value_name("CIPHER-SUITE")
                              .long("cipher-suite")

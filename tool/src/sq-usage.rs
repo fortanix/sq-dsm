@@ -493,7 +493,7 @@
 //!     -e, --export <OUTFILE>               Exports the key instead of saving it in the store
 //!         --rev-cert <FILE or ->           Sets the output file for the revocation certificate. Default is <OUTFILE>.rev,
 //!                                          mandatory if OUTFILE is '-'.
-//!     -u, --userid <EMAIL>                 Primary user ID
+//!     -u, --userid <EMAIL>...              Add userid to the key (can be given multiple times)
 //! ```
 //!
 //! ## Subcommand list
