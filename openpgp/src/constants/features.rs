@@ -43,7 +43,7 @@ impl Features {
     pub fn sequoia() -> Self {
         Features{
             mdc: true,
-            aead: true,
+            aead: false,
             unknown: Default::default(),
         }
     }

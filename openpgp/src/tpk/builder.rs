@@ -449,7 +449,6 @@ mod tests {
         assert_eq!(tpk.subkeys().count(), 3);
         if let Some(sig) = tpk.primary_key_signature(None) {
             assert!(sig.features().supports_mdc());
-            assert!(sig.features().supports_aead());
         } else {
             panic!();
         }
@@ -485,7 +484,6 @@ mod tests {
         assert!(tpk1.subkeys().next().is_none());
         if let Some(sig) = tpk1.primary_key_signature(None) {
             assert!(sig.features().supports_mdc());
-            assert!(sig.features().supports_aead());
         } else {
             panic!();
         }
