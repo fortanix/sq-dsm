@@ -26,6 +26,9 @@ impl AEADAlgorithm {
             &EAX =>
             // Digest size is independent of the cipher.
                 Ok(aead::Eax::<cipher::Aes128>::DIGEST_SIZE),
+            &OCB =>
+            // According to RFC4880bis, Section 5.16.2.
+                Ok(16),
             _ => Err(Error::UnsupportedAEADAlgorithm(self.clone()).into()),
         }
     }
@@ -36,6 +39,11 @@ impl AEADAlgorithm {
         match self {
             &EAX =>
                 Ok(16), // According to RFC4880bis, Section 5.16.1.
+            &OCB =>
+            // According to RFC4880bis, Section 5.16.2, the IV is "at
+            // least 15 octets long".  GnuPG hardcodes 15 in
+            // openpgp_aead_algo_info.
+                Ok(15),
             _ => Err(Error::UnsupportedAEADAlgorithm(self.clone()).into()),
         }
     }
