@@ -3303,7 +3303,7 @@ impl <'a> PacketParser<'a> {
             match self.packet.tag() {
                 Tag::SEIP | Tag::AED | Tag::SED | Tag::CompressedData => {
                     // We didn't (fully) process a container's content.  Add
-                    // this as opaque conent to the message validator.
+                    // this as opaque content to the message validator.
                     let mut path = self.path().to_vec();
                     path.push(0);
                     self.state.message_validator.push_token(
@@ -3539,7 +3539,7 @@ impl<'a> PacketParser<'a> {
             Packet::SEIP(_) => {
                 // Get the first blocksize plus two bytes and check
                 // whether we can decrypt them using the provided key.
-                // Don't actually comsume them in case we can't.
+                // Don't actually consume them in case we can't.
                 let bl = algo.block_size()?;
 
                 {

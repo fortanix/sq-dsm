@@ -2691,7 +2691,7 @@ mod test {
             // 1. Read the message into a local buffer.
             let data = crate::tests::message(filename);
 
-            // 2. Do a shallow parse of the messsage.  In other words,
+            // 2. Do a shallow parse of the message.  In other words,
             // never recurse so that the resulting message only
             // contains the top-level packets.  Any containers will
             // have their raw content stored in packet.content.

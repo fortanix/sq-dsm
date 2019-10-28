@@ -241,7 +241,7 @@ mod tests {
 
         // Create userids one character longer than the size allowed in the
         // header and expect headers with the correct length.
-        // 1 byte characer
+        // 1 byte character
         // Can not use `to_string` here because not such method for
         //`std::vec::Vec<char>`
         let userid1: String = vec!['a'; length_value + 1].into_iter()

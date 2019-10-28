@@ -15,7 +15,7 @@ use crate::RefRaw;
 
 /// Returns the PKESK's recipient.
 ///
-/// The return value is a reference ot a `KeyID`.  The caller must not
+/// The return value is a reference to a `KeyID`.  The caller must not
 /// modify or free it.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "C" fn pgp_pkesk_recipient(pkesk: *const PKESK)

@@ -1273,18 +1273,18 @@ mod tests {
 
             // Try some URIs for completeness.
             Test {
-                input: "ssh://user:pasword@example.org/resource",
+                input: "ssh://user:password@example.org/resource",
                 output: Some(vec![
                     Component::InvalidAddress(
-                        e(), "ssh://user:pasword@example.org/resource".into())
+                        e(), "ssh://user:password@example.org/resource".into())
                 ])
             },
 
             Test {
-                input: "(not a comment)   ssh://user:pasword@example.org/resource",
+                input: "(not a comment)   ssh://user:password@example.org/resource",
                 output: Some(vec![
                     Component::InvalidAddress(
-                        e(), "(not a comment)   ssh://user:pasword@example.org/resource".into())
+                        e(), "(not a comment)   ssh://user:password@example.org/resource".into())
                 ])
             },
 
@@ -1481,11 +1481,11 @@ mod tests {
         c("Willi Wonka",
           Some(vec![ Component::Text("Willi Wonka".into()) ]));
 
-        // As an extention we unquoted dots.
+        // As an extension we unquoted dots.
         c("Willi A. Wonka",
           Some(vec![ Component::Text("Willi A. Wonka".into()) ]));
 
-        // As an extention we unquoted ats.
+        // As an extension we unquoted ats.
         c("foo@example.org",
           Some(vec![ Component::Text("foo@example.org".into()) ]));
     }

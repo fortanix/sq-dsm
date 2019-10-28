@@ -74,7 +74,7 @@ impl Default for S2K {
 }
 
 impl S2K {
-    /// Convert the string to a key using the S2K's paramters.
+    /// Convert the string to a key using the S2K's parameters.
     pub fn derive_key(&self, string: &Password, key_size: usize)
     -> Result<SessionKey> {
         match self {

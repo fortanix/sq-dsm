@@ -963,7 +963,7 @@ mod tests {
         // There are no simple constructors for SEIP packets: they are
         // interleaved with SK-ESK and PK-ESK packets.  And, the
         // session key needs to be managed.  Instead, we use some
-        // internal iterfaces to progressively build up more
+        // internal interfaces to progressively build up more
         // complicated messages.
 
         let mut lit = Literal::new(Text);

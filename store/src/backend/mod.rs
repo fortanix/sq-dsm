@@ -766,7 +766,7 @@ impl KeyServer {
 
     /// Merges other into this key updating the database.
     ///
-    /// Returnes the merged key as blob.
+    /// Returns the merged key as blob.
     fn merge(&self, other: TPK) -> Result<Vec<u8>> {
         let mut new = other;
 

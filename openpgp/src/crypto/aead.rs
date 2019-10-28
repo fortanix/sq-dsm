@@ -204,7 +204,7 @@ impl<'a> Decryptor<'a> {
     // Note: this implementation tries *very* hard to make sure we don't
     // gratuitiously do a short read.  Specifically, if the return value
     // is less than `plaintext.len()`, then it is either because we
-    // reached the end of the input or an error occured.
+    // reached the end of the input or an error occurred.
     fn read_helper(&mut self, plaintext: &mut [u8]) -> Result<usize> {
         use std::cmp::Ordering;
 
@@ -380,7 +380,7 @@ impl<'a> Decryptor<'a> {
 // Note: this implementation tries *very* hard to make sure we don't
 // gratuitiously do a short read.  Specifically, if the return value
 // is less than `plaintext.len()`, then it is either because we
-// reached the end of the input or an error occured.
+// reached the end of the input or an error occurred.
 impl<'a> io::Read for Decryptor<'a> {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         match self.read_helper(buf) {

@@ -5,7 +5,7 @@ PREFIX		?= /usr/local
 DESTDIR		?=
 CARGO_FLAGS	?=
 # cargo's "target" directory.  Normally, this is in the root
-# directory of the project, but it can be overriden by setting
+# directory of the project, but it can be overridden by setting
 # CARGO_TARGET_DIR.
 CARGO_TARGET_DIR	?= $(shell pwd)/target
 # We currently only support absolute paths.

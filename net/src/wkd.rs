@@ -185,7 +185,7 @@ impl Url {
         // let mut path_buf = PathBuf::new();
         // path_buf.push(url.domain().unwrap());
         // path_buf.push(url.path());
-        // Because the domain part will disapear, dunno why.
+        // Because the domain part will disappear, dunno why.
         // url.to_file_path() would not create the directory with the domain,
         // but expect the hostname to match the domain.
         // Ignore the query part of the url, take only the domain and path.

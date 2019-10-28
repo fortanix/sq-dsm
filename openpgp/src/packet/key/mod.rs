@@ -409,7 +409,7 @@ macro_rules! create_conversions {
         {
             /// Changes the key's parts tag to `PublicParts`.
             pub fn mark_parts_public(self) -> $Key<PublicParts, R> {
-                // Ideally, we'd use self.into() to do the actualy
+                // Ideally, we'd use self.into() to do the actually
                 // conversion.  But, because P is not concrete, we get the
                 // following error:
                 //

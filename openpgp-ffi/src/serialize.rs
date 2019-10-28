@@ -143,7 +143,7 @@ pub extern "C" fn pgp_arbitrary_writer_new
 /// packet, then hashes and emits the data stream, then for every key
 /// writes a signature packet.
 ///
-/// The hash is performed using the algorithm specificed in
+/// The hash is performed using the algorithm specified in
 /// `hash_algo`.  Pass 0 for the default (which is what you usually
 /// want).
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]

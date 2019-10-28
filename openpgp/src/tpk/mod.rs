@@ -1427,7 +1427,7 @@ impl TPK {
         // Note: just because the TPK doesn't indicate that a key is a
         // designed revoker doesn't mean that it isn't---we might just
         // be missing the signature.  In other words, this is a policy
-        // decision, but given how easy it could be to create rouge
+        // decision, but given how easy it could be to create rogue
         // revocations, is probably the better to reject such
         // signatures than to keep them around and have many keys
         // being shown as "potentially revoked".
@@ -1692,7 +1692,7 @@ mod test {
             .merge(tpk_add_subkey_1.clone()).unwrap();
         assert_eq!(tpk_all_subkeys, merged);
 
-        // Merge alot.
+        // Merge a lot.
         let merged = tpk_base.clone()
             .merge(tpk_add_subkey_1.clone()).unwrap()
             .merge(tpk_add_subkey_1.clone()).unwrap()

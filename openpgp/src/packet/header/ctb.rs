@@ -109,7 +109,7 @@ impl From<PacketLengthType> for u8 {
 pub struct CTBOld {
     /// Common CTB fields.
     common: CTBCommon,
-    /// Type of length sepcifier.
+    /// Type of length specifier.
     pub length_type: PacketLengthType,
 }
 

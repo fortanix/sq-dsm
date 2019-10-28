@@ -332,7 +332,7 @@ impl AutocryptSetupMessage {
     /// You can set the `prefer_encrypt` setting, which defaults to
     /// "nopreference", using `set_prefer_encrypt`.
     ///
-    /// Note: this generates a random passcode.  To retreive the
+    /// Note: this generates a random passcode.  To retrieve the
     /// passcode, use the `passcode` method.
     ///
     /// To decode an Autocrypt Setup Message, use the `from_bytes` or
@@ -1010,7 +1010,7 @@ In the light of the Efail vulnerability I am asking myself if it's
             .collect::<Vec<(usize, usize)>>()
         {
             let is_good = lower < count && count < upper;
-            eprintln!("{}: {} occurances{}.",
+            eprintln!("{}: {} occurrences{}.",
                       i, count, if is_good { "" } else { " UNLIKELY" });
 
             if !is_good {

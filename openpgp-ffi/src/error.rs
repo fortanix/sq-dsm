@@ -99,7 +99,7 @@ pub enum Status {
     /// Unsupported Compression algorithm.
     UnsupportedCompressionAlgorithm = -28,
 
-    /// Unsupport signature type.
+    /// Unsupported signature type.
     UnsupportedSignatureType = -20,
 
     /// Invalid password.
@@ -176,7 +176,7 @@ pub extern "C" fn pgp_status_to_string(status: Status) -> *const c_char {
         UnsupportedAEADAlgorithm => "Unsupported AEAD algorithm\x00",
         UnsupportedCompressionAlgorithm =>
             "Unsupported compression algorithm\x00",
-        UnsupportedSignatureType => "Unsupport signature type\x00",
+        UnsupportedSignatureType => "Unsupported signature type\x00",
         InvalidPassword => "Invalid password\x00",
         InvalidSessionKey => "Invalid session key\x00",
         MissingSessionKey => "Missing session key\x00",

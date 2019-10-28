@@ -319,7 +319,7 @@ pub struct SubpacketArea {
 
     // The subpacket area, but parsed so that the map is indexed by
     // the subpacket tag, and the value corresponds to the *last*
-    // occurance of that subpacket in the subpacket area.
+    // occurrence of that subpacket in the subpacket area.
     //
     // Since self-referential structs are a no-no, we use (start, len)
     // to reference the content in the area.

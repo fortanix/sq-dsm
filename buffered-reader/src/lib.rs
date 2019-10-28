@@ -31,7 +31,7 @@
 //! # Details
 //!
 //! Because the [`BufRead`] trait doesn't provide a mechanism for the
-//! user to size the interal buffer, a parser can't generally be sure
+//! user to size the internal buffer, a parser can't generally be sure
 //! that the internal buffer will be large enough to allow it to work
 //! with all data in place.
 //!
@@ -164,7 +164,7 @@
 //! lazily.  This is done by implementing the `BufferedReader` trait
 //! for the framing parser, and stacking the `BufferedReader`s.
 //!
-//! For our next example, we rewrite the previous code asssuming that
+//! For our next example, we rewrite the previous code assuming that
 //! the object parser reads from a `BufferedReader` object.  Since the
 //! framing parser is really just a limit on the object's size, we
 //! don't need to implement a special `BufferedReader`, but can use a

@@ -158,7 +158,7 @@ impl<T: io::Read, C> Generic<T, C> {
         }
 
         if self.error.is_some() {
-            // An error occured.  If we have enough data to fulfill
+            // An error occurred.  If we have enough data to fulfill
             // the caller's request, then delay returning the error.
             if let Some(ref buffer) = self.buffer {
                 if amount > buffer.len() {

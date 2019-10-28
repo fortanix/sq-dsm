@@ -194,7 +194,7 @@ fn read_exact<R: io::Read>(reader: &mut R, mut buffer: &mut [u8])
 // Note: this implementation tries *very* hard to make sure we don't
 // gratuitiously do a short read.  Specifically, if the return value
 // is less than `plaintext.len()`, then it is either because we
-// reached the end of the input or an error occured.
+// reached the end of the input or an error occurred.
 impl<R: io::Read> io::Read for Decryptor<R> {
     fn read(&mut self, plaintext: &mut [u8]) -> io::Result<usize> {
         let mut pos = 0;
