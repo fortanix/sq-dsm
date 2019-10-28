@@ -3859,7 +3859,16 @@ mod test {
 
     #[test]
     fn decrypt_test() {
-        for test in DECRYPT_TESTS.iter() { for stream in [false, true].iter() {
+        decrypt_test_common(false);
+    }
+
+    #[test]
+    fn decrypt_test_stream() {
+        decrypt_test_common(true);
+    }
+
+    fn decrypt_test_common(stream: bool) {
+        for test in DECRYPT_TESTS.iter() {
             eprintln!("Decrypting {}, streaming content: {}",
                       test.filename, stream);
 
@@ -3885,7 +3894,7 @@ mod test {
                 ppr, true, &[ Tag::Literal ][..],
                 &[ Tag::OnePassSig, Tag::CompressedData ][..]);
             if let PacketParserResult::Some(ref mut pp) = ppr {
-                if *stream {
+                if stream {
                     let mut body = Vec::new();
                     loop {
                         let mut b = [0];
@@ -3924,7 +3933,7 @@ mod test {
             let ppr = consume_until(
                 ppr, true, &[][..], &[][..]);
             assert!(ppr.is_none());
-        }}
+        }
     }
 
     #[test]
