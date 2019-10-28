@@ -55,8 +55,8 @@ pub struct Packet(openpgp::Packet);
 ///
 ///   [Section 4.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.3
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn pgp_packet_tag(p: *const Packet) -> u8 {
-    u8::from(p.ref_raw().tag()) as u8
+fn pgp_packet_tag(p: *const Packet) -> u32 {
+    u8::from(p.ref_raw().tag()) as u32
 }
 
 /// Returns the parsed `Packet's` corresponding OpenPGP tag.
@@ -67,9 +67,9 @@ fn pgp_packet_tag(p: *const Packet) -> u8 {
 /// into an `Packet::Unknown`.  `tag()` returns `PGP_TAG_SIGNATURE`,
 /// whereas `kind()` returns `0`.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn pgp_packet_kind(p: *const Packet) -> u8 {
+fn pgp_packet_kind(p: *const Packet) -> u32 {
     if let Some(kind) = p.ref_raw().kind() {
-        kind.into()
+        u8::from(kind) as u32
     } else {
         0
     }

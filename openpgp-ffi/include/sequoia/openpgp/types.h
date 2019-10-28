@@ -286,6 +286,10 @@ typedef enum pgp_tag {
     PGP_TAG_PRIVATE1 = 61,
     PGP_TAG_PRIVATE2 = 62,
     PGP_TAG_PRIVATE3 = 63,
+
+    /* Dummy value to make sure the enumeration has a defined size.
+       Do not use this value.  */
+    PGP_TAG_FORCE_WIDTH = INT_MAX,
 } pgp_tag_t;
 
 /*/
