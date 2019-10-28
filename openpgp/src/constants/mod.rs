@@ -436,7 +436,7 @@ impl fmt::Display for SymmetricAlgorithm {
             SymmetricAlgorithm::IDEA =>
                 f.write_str("IDEA"),
             SymmetricAlgorithm::TripleDES =>
-                f.write_str("TipleDES (EDE-DES, 168 bit key derived from 192))"),
+                f.write_str("TripleDES (EDE-DES, 168 bit key derived from 192))"),
             SymmetricAlgorithm::CAST5 =>
                 f.write_str("CAST5 (128 bit key, 16 rounds)"),
             SymmetricAlgorithm::Blowfish =>
