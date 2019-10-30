@@ -999,7 +999,7 @@ impl DetachedVerifier {
         let t = t.into().unwrap_or_else(time::now_utc);
         Self::from_buffered_reader(
             Box::new(buffered_reader::Memory::with_cookie(signature_bytes,
-                                                       Default::default())),
+                                                          Default::default())),
             Box::new(buffered_reader::Memory::new(bytes)),
             helper, t)
     }
