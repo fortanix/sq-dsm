@@ -723,16 +723,21 @@ pub trait BufferedReader<C> : io::Read + fmt::Debug + fmt::Display {
     ///
     /// Returns the terminal byte and the number of bytes discarded.
     ///
-    /// Unlike `drop_until`, The end of file is *not* considered a
-    /// match.
+    /// If match_eof is true, then the end of file is considered a
+    /// match.  Otherwise, if the end of file is encountered, an error
+    /// is returned.
     ///
     /// `terminals` must be sorted.
-    fn drop_through(&mut self, terminals: &[u8])
-        -> Result<(u8, usize), std::io::Error>
+    fn drop_through(&mut self, terminals: &[u8], match_eof: bool)
+        -> Result<(Option<u8>, usize), std::io::Error>
     {
         let dropped = self.drop_until(terminals)?;
-        let terminal = self.data_consume_hard(1)?[0];
-        Ok((terminal, dropped + 1))
+        match self.data_consume(1) {
+            Ok([]) if match_eof => Ok((None, dropped)),
+            Ok([]) => Err(Error::new(ErrorKind::UnexpectedEof, "EOF")),
+            Ok(rest) => Ok((Some(rest[0]), dropped + 1)),
+            Err(err) => Err(err),
+        }
     }
 
     /// Like `data_consume_hard()`, but returns the data in a
@@ -1110,15 +1115,17 @@ mod test {
         let mut reader = Memory::new(data);
 
         // Matches the 'a' at 0 and consumes 1 byte.
-        assert_eq!(reader.drop_through(b"ab").unwrap(),
-                   (b'a', 1));
+        assert_eq!(reader.drop_through(b"ab", false).unwrap(),
+                   (Some(b'a'), 1));
         // Matches the 'b' at 1 and consumes 1 byte.
-        assert_eq!(reader.drop_through(b"ab").unwrap(),
-                   (b'b', 1));
+        assert_eq!(reader.drop_through(b"ab", false).unwrap(),
+                   (Some(b'b'), 1));
         // Matches the 'd' at 4 and consumes 2 byte.
-        assert_eq!(reader.drop_through(b"def").unwrap(),
-                   (b'd', 2));
+        assert_eq!(reader.drop_through(b"def", false).unwrap(),
+                   (Some(b'd'), 2));
         // Doesn't match (eof).
-        assert!(reader.drop_through(b"def").is_err())
+        assert!(reader.drop_through(b"def", false).is_err());
+        // Matches EOF.
+        assert!(reader.drop_through(b"def", true).unwrap().0.is_none());
     }
 }

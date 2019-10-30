@@ -609,7 +609,7 @@ impl<'a> Reader<'a> {
         let n = 'search: loop {
             if lines > 0 {
                 // Find the start of the next line.
-                self.source.drop_through(&[b'\n'])?;
+                self.source.drop_through(&[b'\n'], true)?;
                 prefix = Vec::new();
             }
             lines += 1;
