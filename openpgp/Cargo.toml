@@ -3,7 +3,6 @@ name = "sequoia-openpgp"
 description = "OpenPGP data types and associated machinery"
 version = "0.11.0"
 authors = [
-    "Juga <juga@sequoia-pgp.org>",
     "Justus Winter <justus@sequoia-pgp.org>",
     "Kai Michaelis <kai@sequoia-pgp.org>",
     "Neal H. Walfield <neal@sequoia-pgp.org>",
