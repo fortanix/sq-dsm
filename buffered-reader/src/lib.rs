@@ -307,9 +307,7 @@ pub trait BufferedReader<C> : io::Read + fmt::Debug + fmt::Display {
     /// EOF has been reached or an error occurs, in which case the
     /// returned slice will contain the rest of the file.
     ///
-    /// If an error occurs, it is not discarded, but saved.  It is
-    /// returned when `data` (or a related function) is called and the
-    /// internal buffer is empty.
+    /// Errors are returned only when the internal buffer is empty.
     ///
     /// This function does not advance the cursor.  To advance the
     /// cursor, use `consume()`.

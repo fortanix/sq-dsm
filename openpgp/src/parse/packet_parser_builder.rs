@@ -170,22 +170,26 @@ impl<'a> PacketParserBuilder<'a> {
             Dearmor::Enabled(mode) => Some(mode),
             Dearmor::Disabled => None,
             Dearmor::Auto(mode) => {
-                let mut reader = buffered_reader::Dup::with_cookie(
-                    self.bio, Cookie::default());
-                let header = packet::Header::parse(&mut reader);
-                self.bio = Box::new(reader).into_inner().unwrap();
-                if let Ok(header) = header {
-                    if let Err(_) = header.valid(false) {
-                        // Invalid header: better try an ASCII armor
-                        // decoder.
-                        Some(mode)
-                    } else {
-                        None
-                    }
+                if self.bio.eof() {
+                    None
                 } else {
-                    // Failed to parse the header: better try an ASCII
-                    // armor decoder.
-                    Some(mode)
+                    let mut reader = buffered_reader::Dup::with_cookie(
+                        self.bio, Cookie::default());
+                    let header = packet::Header::parse(&mut reader);
+                    self.bio = Box::new(reader).into_inner().unwrap();
+                    if let Ok(header) = header {
+                        if let Err(_) = header.valid(false) {
+                            // Invalid header: better try an ASCII armor
+                            // decoder.
+                            Some(mode)
+                        } else {
+                            None
+                        }
+                    } else {
+                        // Failed to parse the header: better try an ASCII
+                        // armor decoder.
+                        Some(mode)
+                    }
                 }
             }
         };
@@ -237,13 +241,7 @@ mod tests {
         let ppr = PacketParserBuilder::from_bytes(msg).unwrap()
             .dearmor(Dearmor::Enabled(Default::default()))
             .finalize();
-        // XXX: If the dearmorer doesn't find a header and has no
-        // data, then it should return an error.  Fix this when
-        // https://gitlab.com/sequoia-pgp/sequoia/issues/174 is
-        // resolved.
-        //
-        // assert_match!(Err(_) = ppr);
-        assert_match!(Ok(PacketParserResult::EOF(ref _pp)) = ppr);
+        assert_match!(Err(_) = ppr);
 
         // ASCII armor encoded data.
         let msg = crate::tests::message("a-cypherpunks-manifesto.txt.ed25519.sig");
