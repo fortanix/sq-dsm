@@ -606,12 +606,16 @@ impl Signature4 {
                     // We need to zero-pad them at the front, because
                     // the MPI encoding drops leading zero bytes.
                     let half = ed25519::ED25519_SIGNATURE_SIZE / 2;
-                    for _ in 0..half - r.value().len() {
-                        signature.push(0);
+                    if r.value().len() < half {
+                        for _ in 0..half - r.value().len() {
+                            signature.push(0);
+                        }
                     }
                     signature.extend_from_slice(r.value());
-                    for _ in 0..half - s.value().len() {
-                        signature.push(0);
+                    if s.value().len() < half {
+                        for _ in 0..half - s.value().len() {
+                            signature.push(0);
+                        }
                     }
                     signature.extend_from_slice(s.value());
 
