@@ -922,13 +922,13 @@ impl<'a> io::Read for Transformer<'a> {
 /// }
 ///
 /// let signature =
-///    b"-----BEGIN SIGNATURE-----
+///    b"-----BEGIN PGP SIGNATURE-----
 ///
 ///      wnUEABYKACcFglt+z/EWoQSOjDP6RiYzeXbZeXgGnAw0jdgsGQmQBpwMNI3YLBkA
 ///      AHmUAP9mpj2wV0/ekDuzxZrPQ0bnobFVaxZGg7YzdlksSOERrwEA6v6czXQjKcv2
 ///      KOwGTamb+ajTLQ3YRG9lh+ZYIXynvwE=
 ///      =IJ29
-///      -----END SIGNATURE-----";
+///      -----END PGP SIGNATURE-----";
 ///
 /// let data = b"Hello World!";
 /// let h = Helper {};
