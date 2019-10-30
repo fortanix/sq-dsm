@@ -7,6 +7,7 @@ use std::fmt;
 use crate::Result;
 use crate::Error;
 use crate::SymmetricAlgorithm;
+use crate::vec_truncate;
 
 use buffered_reader::BufferedReader;
 
@@ -221,7 +222,7 @@ impl<R: io::Read> io::Read for Decryptor<R> {
             Ok(amount) => {
                 short_read = amount < to_copy;
                 to_copy = amount;
-                ciphertext.truncate(to_copy);
+                vec_truncate(&mut ciphertext, to_copy);
             },
             // We encountered an error, but we did read some.
             Err(_) if pos > 0 => return Ok(pos),
@@ -251,7 +252,7 @@ impl<R: io::Read> io::Read for Decryptor<R> {
             Ok(amount) => {
                 // Make sure `ciphertext` is not larger than the
                 // amount of data that was actually read.
-                ciphertext.truncate(amount);
+                vec_truncate(&mut ciphertext, amount);
 
                 // Make sure we don't read more than is available.
                 to_copy = cmp::min(to_copy, ciphertext.len());
@@ -265,7 +266,7 @@ impl<R: io::Read> io::Read for Decryptor<R> {
         while self.buffer.len() < ciphertext.len() {
             self.buffer.push(0u8);
         }
-        self.buffer.truncate(ciphertext.len());
+        vec_truncate(&mut self.buffer, ciphertext.len());
 
         self.dec.decrypt(&mut self.iv, &mut self.buffer, &ciphertext[..])
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput,

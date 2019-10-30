@@ -640,6 +640,7 @@ impl<'a> SerializeInto for TSK<'a> {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::vec_truncate;
     use crate::parse::Parse;
     use crate::serialize::Serialize;
     use crate::packet::key;
@@ -785,7 +786,7 @@ mod test {
 
         let mut buf = vec![0; tpk.serialized_len()];
         let l = tpk.export_into(&mut buf).unwrap();
-        buf.truncate(l);
+        vec_truncate(&mut buf, l);
         let tpk_ = TPK::from_bytes(&buf).unwrap();
         assert_eq!(tpk_.subkeys().count(), 0);
         assert_eq!(tpk_.userids().count(), 0);
@@ -806,7 +807,7 @@ mod test {
 
         let mut buf = vec![0; tpk.serialized_len()];
         let l = tpk.armored().export_into(&mut buf).unwrap();
-        buf.truncate(l);
+        vec_truncate(&mut buf, l);
         let tpk_ = TPK::from_bytes(&buf).unwrap();
         assert_eq!(tpk_.subkeys().count(), 0);
         assert_eq!(tpk_.userids().count(), 0);
@@ -828,7 +829,7 @@ mod test {
 
         let mut buf = vec![0; tpk.serialized_len()];
         let l = tpk.as_tsk().export_into(&mut buf).unwrap();
-        buf.truncate(l);
+        vec_truncate(&mut buf, l);
         let tpk_ = TPK::from_bytes(&buf).unwrap();
         assert_eq!(tpk_.subkeys().count(), 0);
         assert_eq!(tpk_.userids().count(), 0);

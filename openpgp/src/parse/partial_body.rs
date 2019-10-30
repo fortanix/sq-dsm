@@ -4,6 +4,8 @@ use std::io;
 use std::io::{Error, ErrorKind};
 
 use buffered_reader::{buffered_reader_generic_read_impl, BufferedReader};
+
+use crate::vec_truncate;
 use crate::packet::header::BodyLength;
 use crate::parse::{Cookie, Hashing};
 
@@ -203,8 +205,7 @@ impl<T: BufferedReader<Cookie>> BufferedReaderPartialBodyFilter<T> {
                 }
             }
         }
-
-        buffer.truncate(amount_buffered);
+        vec_truncate(&mut buffer, amount_buffered);
         buffer.shrink_to_fit();
 
         // We're done.

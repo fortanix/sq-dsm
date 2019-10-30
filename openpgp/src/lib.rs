@@ -73,6 +73,25 @@ extern crate idna;
 #[macro_use]
 mod macros;
 
+// On debug builds, Vec<u8>::truncate is very, very slow.  For
+// instance, running the decrypt_test_stream test takes 51 seconds on
+// my (Neal's) computer using Vec<u8>::truncate and <0.1 seconds using
+// `unsafe { v.set_len(len); }`.
+//
+// The issue is that the compiler calls drop on every element that is
+// dropped, even though a u8 doesn't have a drop implementation.  The
+// compiler optimizes this away at high optimization levels, but those
+// levels make debugging harder.
+fn vec_truncate(v: &mut Vec<u8>, len: usize) {
+    if cfg!(debug_assertions) {
+        if len < v.len() {
+            unsafe { v.set_len(len); }
+        }
+    } else {
+        v.truncate(len);
+    }
+}
+
 // Like assert!, but checks a pattern.
 //
 //   assert_match!(Some(_) = x);

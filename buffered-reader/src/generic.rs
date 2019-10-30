@@ -131,7 +131,6 @@ impl<T: io::Read, C> Generic<T, C> {
 
             if amount_read > 0 {
                 // We read something.
-
                 if let Some(ref buffer) = self.buffer {
                     // We need to copy in the old data.
                     buffer_new[0..amount_buffered]
@@ -139,7 +138,7 @@ impl<T: io::Read, C> Generic<T, C> {
                             &buffer[self.cursor..self.cursor + amount_buffered]);
                 }
 
-                buffer_new.truncate(amount_buffered + amount_read);
+                vec_truncate(&mut buffer_new, amount_buffered + amount_read);
                 buffer_new.shrink_to_fit();
 
                 self.buffer = Some(buffer_new.into_boxed_slice());

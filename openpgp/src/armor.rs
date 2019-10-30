@@ -35,6 +35,7 @@ use std::str;
 use std::borrow::Cow;
 use quickcheck::{Arbitrary, Gen};
 
+use crate::vec_truncate;
 use crate::packet::prelude::*;
 use crate::packet::header::BodyLength;
 use crate::packet::header::ctb::{CTBNew, CTBOld};
@@ -931,7 +932,7 @@ fn base64_filter(mut bytes: Cow<[u8]>, base64_data_max: usize,
             (Cow::Borrowed(&s[..base64_len]), unfiltered_complete_len,
              prefix_remaining),
         Cow::Owned(mut v) => {
-            v.truncate(base64_len);
+            vec_truncate(&mut v, base64_len);
             (Cow::Owned(v), unfiltered_complete_len, prefix_remaining)
         }
     }

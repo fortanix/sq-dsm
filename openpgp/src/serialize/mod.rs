@@ -92,7 +92,7 @@ pub trait SerializeInto {
     fn to_vec(&self) -> Result<Vec<u8>> {
         let mut o = vec![0; self.serialized_len()];
         let len = self.serialize_into(&mut o[..])?;
-        o.truncate(len);
+        vec_truncate(&mut o, len);
         o.shrink_to_fit();
         Ok(o)
     }
@@ -139,7 +139,7 @@ pub trait SerializeInto {
     fn export_to_vec(&self) -> Result<Vec<u8>> {
         let mut o = vec![0; self.serialized_len()];
         let len = self.export_into(&mut o[..])?;
-        o.truncate(len);
+        vec_truncate(&mut o, len);
         o.shrink_to_fit();
         Ok(o)
     }

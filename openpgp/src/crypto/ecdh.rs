@@ -1,5 +1,6 @@
 //! Elliptic Curve Diffie-Hellman.
 
+use crate::vec_truncate;
 use crate::Error;
 use crate::packet::{
     Key,
@@ -426,7 +427,7 @@ pub fn pkcs5_unpad(sk: Protected, target_len: usize) -> Result<Protected> {
     }
 
     if good {
-        buf.truncate(target_len);
+        vec_truncate(&mut buf, target_len);
         Ok(buf.into())
     } else {
         let sk: Protected = buf.into();
