@@ -711,7 +711,14 @@ pub trait BufferedReader<C> : io::Read + fmt::Debug + fmt::Display {
         let mut total = 0;
         let position = 'outer: loop {
             let len = {
-                let buffer = self.data(DEFAULT_BUF_SIZE)?;
+                // Try self.buffer.  Only if it is empty, use
+                // self.data.
+                let buffer = if self.buffer().len() == 0 {
+                    self.data(DEFAULT_BUF_SIZE)?
+                } else {
+                    self.buffer()
+                };
+
                 if buffer.len() == 0 {
                     break 'outer 0;
                 }
