@@ -14,7 +14,7 @@ repository = "https://gitlab.com/sequoia-pgp/sequoia"
 readme = "../README.md"
 keywords = ["cryptography", "openpgp", "pgp", "encryption", "signing"]
 categories = ["cryptography", "authentication", "command-line-utilities"]
-license = "GPL-3.0"
+license = "GPL-2.0-or-later"
 edition = "2018"
 
 [badges]
