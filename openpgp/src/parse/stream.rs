@@ -826,7 +826,8 @@ impl<'a> Transformer<'a> {
                     assert!(s <= ::std::u32::MAX as usize);
 
                     // Try to read that amount into the buffer.
-                    let data = self.reader.data(s)?;
+                    let data = self.reader.data_consume(s)?;
+                    let data = &data[..cmp::min(s, data.len())];
 
                     // Short read?
                     if data.len() < s {
@@ -1763,44 +1764,97 @@ mod test {
 
     #[test]
     fn detached_verifier() {
+        use crate::conversions::Time;
+
+        struct Test<'a> {
+            sig: &'a [u8],
+            content: &'a [u8],
+            reference: time::Tm,
+        };
+        let tests = [
+            Test {
+                sig: crate::tests::message(
+                    "a-cypherpunks-manifesto.txt.ed25519.sig"),
+                content: crate::tests::manifesto(),
+                reference: crate::frozen_time(),
+            },
+            Test {
+                sig: crate::tests::message(
+                    "emmelie-dorothea-dina-samantha-awina-detachted-signature-of-100MB-of-zeros.sig"),
+                content: &vec![ 0; 100 * 1024 * 1024 ][..],
+                reference: time::Tm::from_pgp(1572602018),
+            },
+        ];
+
         let keys = [
             "emmelie-dorothea-dina-samantha-awina-ed25519.pgp"
         ].iter()
-         .map(|f| TPK::from_bytes(crate::tests::key(f)).unwrap())
-         .collect::<Vec<_>>();
+            .map(|f| TPK::from_bytes(crate::tests::key(f)).unwrap())
+            .collect::<Vec<_>>();
 
-        let reference = crate::tests::manifesto();
+        for test in tests.iter() {
+            let sig = test.sig;
+            let content = test.content;
+            let reference = test.reference;
 
-        let h = VHelper::new(0, 0, 0, 0, keys.clone());
-        let mut v = DetachedVerifier::from_bytes(
-            crate::tests::message("a-cypherpunks-manifesto.txt.ed25519.sig"),
-            crate::tests::manifesto(),
-            h, crate::frozen_time()).unwrap();
-        assert!(v.message_processed());
+            // Transformer::read_helper rounds up to 4 MB chunks try
+            // chunk sizes around that size.
+            for l in [ 4 * 1024 * 1024 - 1,
+                       4 * 1024 * 1024,
+                       4 * 1024 * 1024 + 1
+            ].iter() {
+                let h = VHelper::new(0, 0, 0, 0, keys.clone());
+                let mut v = DetachedVerifier::from_bytes(
+                    sig, content, h, reference).unwrap();
 
-        let mut content = Vec::new();
-        v.read_to_end(&mut content).unwrap();
-        assert_eq!(reference.len(), content.len());
-        assert_eq!(reference, &content[..]);
+                let mut got = Vec::with_capacity(100 * 1024 * 1024);
+                let mut offset = 0;
+                loop {
+                    got.resize(got.len() + l, 0);
+                    match v.read(&mut got[offset..offset + l]) {
+                        Ok(0) => break,
+                        Ok(l) => {
+                            offset += l;
+                            got.truncate(offset);
+                        },
+                        Err(err) => panic!("Error reading data: {:?}", err),
+                    }
+                }
+                got.truncate(offset);
+                assert!(v.message_processed());
+                assert_eq!(got.len(), content.len());
+                assert_eq!(got, &content[..]);
 
-        let h = v.into_helper();
-        assert_eq!(h.good, 1);
-        assert_eq!(h.bad, 0);
+                let h = v.into_helper();
+                assert_eq!(h.good, 1);
+                assert_eq!(h.bad, 0);
 
-        // Same, but with readers.
-        use std::io::Cursor;
-        let h = VHelper::new(0, 0, 0, 0, keys.clone());
-        let mut v = DetachedVerifier::from_reader(
-            Cursor::new(
-                crate::tests::message("a-cypherpunks-manifesto.txt.ed25519.sig")),
-            Cursor::new(crate::tests::manifesto()),
-            h, crate::frozen_time()).unwrap();
-        assert!(v.message_processed());
+                // Same, but with readers.
+                use std::io::Cursor;
+                let h = VHelper::new(0, 0, 0, 0, keys.clone());
+                let mut v = DetachedVerifier::from_reader(
+                    Cursor::new(sig), Cursor::new(content),
+                    h, reference).unwrap();
 
-        let mut content = Vec::new();
-        v.read_to_end(&mut content).unwrap();
-        assert_eq!(reference.len(), content.len());
-        assert_eq!(reference, &content[..]);
+                let mut got = Vec::with_capacity(1024 * 1024);
+                let mut offset = 0;
+                loop {
+                    got.resize(got.len() + l, 0);
+                    match v.read(&mut got[offset..offset + l]) {
+                        Ok(0) => break,
+                        Ok(l) => {
+                            offset += l;
+                            got.truncate(offset);
+                        },
+                        Err(err) => panic!("Error reading data: {:?}", err),
+                    }
+                }
+                assert!(v.message_processed());
+                got.truncate(offset);
+                assert_eq!(got.len(), content.len());
+                assert_eq!(got, &content[..]);
+            }
+        }
     }
 
     #[test]
