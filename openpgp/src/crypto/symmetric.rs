@@ -22,7 +22,8 @@ impl SymmetricAlgorithm {
         match self {
             SymmetricAlgorithm::TripleDES => Ok(cipher::Des3::KEY_SIZE),
             SymmetricAlgorithm::CAST5 => Ok(cipher::Cast128::KEY_SIZE),
-            SymmetricAlgorithm::Blowfish => Ok(cipher::Blowfish::KEY_SIZE),
+            // RFC4880, Section 9.2: Blowfish (128 bit key, 16 rounds)
+            SymmetricAlgorithm::Blowfish => Ok(16),
             SymmetricAlgorithm::AES128 => Ok(cipher::Aes128::KEY_SIZE),
             SymmetricAlgorithm::AES192 => Ok(cipher::Aes192::KEY_SIZE),
             SymmetricAlgorithm::AES256 => Ok(cipher::Aes256::KEY_SIZE),
