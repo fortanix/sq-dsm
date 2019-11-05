@@ -63,9 +63,9 @@ detached messages called 'sqv'.
 LICENSE
 =======
 
-Sequoia is licensed under the GNU General Public License version 3 or
+Sequoia is licensed under the GNU General Public License version 2 or
 any later version.  See the file LICENSE.txt or visit
-https://www.gnu.org/licenses/gpl-3.0.html for details.
+https://www.gnu.org/licenses/gpl-2.0.html for details.
 
 Building Sequoia
 ================
