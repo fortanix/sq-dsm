@@ -118,13 +118,13 @@ fn main() {
                         .chain(sig.unhashed_area().iter())
                     {
                         use crate::openpgp::packet::signature::subpacket::*;
-                        let i = u8::from(sub.tag) as usize;
+                        let i = u8::from(sub.tag()) as usize;
                         sigs_subpacket_tags_count[i] += 1;
                         tpk.sigs_subpacket_tags_count[i] += 1;
                         signature.subpacket_tags_count[i] += 1;
-                        if let SubpacketValue::Unknown(_) = sub.value {
+                        if let SubpacketValue::Unknown(_) = sub.value() {
                             sigs_subpacket_tags_unknown
-                                [u8::from(sub.tag) as usize] += 1;
+                                [u8::from(sub.tag()) as usize] += 1;
                         } else {
                             sigs_subpacket_tags_size_bytes[i] += len;
                             sigs_subpacket_tags_size_count[i] += 1;
@@ -136,7 +136,7 @@ fn main() {
                                 sigs_subpacket_tags_size_max[i] = len;
                             }
 
-                            match sub.value {
+                            match sub.value() {
                                 SubpacketValue::Unknown(_) => unreachable!(),
                                 SubpacketValue::KeyFlags(k) =>
                                     if let Some(count) = key_flags.get_mut(&k) {
@@ -146,34 +146,34 @@ fn main() {
                                     },
                                 SubpacketValue::PreferredSymmetricAlgorithms(a)
                                     =>
-                                    if let Some(count) = p_sym.get_mut(&a) {
+                                    if let Some(count) = p_sym.get_mut(a) {
                                         *count += 1;
                                     } else {
                                         p_sym.insert(a.clone(), 1);
                                     },
                                 SubpacketValue::PreferredHashAlgorithms(a)
                                     =>
-                                    if let Some(count) = p_hashes.get_mut(&a) {
+                                    if let Some(count) = p_hashes.get_mut(a) {
                                         *count += 1;
                                     } else {
                                         p_hashes.insert(a.clone(), 1);
                                     },
                                 SubpacketValue::PreferredCompressionAlgorithms(a)
                                     =>
-                                    if let Some(count) = p_comp.get_mut(&a) {
+                                    if let Some(count) = p_comp.get_mut(a) {
                                         *count += 1;
                                     } else {
                                         p_comp.insert(a.clone(), 1);
                                     },
                                 SubpacketValue::PreferredAEADAlgorithms(a)
                                     =>
-                                    if let Some(count) = p_aead.get_mut(&a) {
+                                    if let Some(count) = p_aead.get_mut(a) {
                                         *count += 1;
                                     } else {
                                         p_aead.insert(a.clone(), 1);
                                     },
                                 SubpacketValue::ExportableCertification(v) =>
-                                    if v {
+                                    if *v {
                                         sigs_subpacket_exportable_true += 1;
                                     } else {
                                         sigs_subpacket_exportable_false += 1;

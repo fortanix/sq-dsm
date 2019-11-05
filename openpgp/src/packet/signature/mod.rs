@@ -526,7 +526,7 @@ impl Signature4 {
             // Second, re-add the EmbeddedSignature, if present.
             if let Some(embedded_sig) =
                 self.unhashed_area().iter().find_map(|(_, _, v)| {
-                    if v.tag == SubpacketTag::EmbeddedSignature {
+                    if v.tag() == SubpacketTag::EmbeddedSignature {
                         Some(v)
                     } else {
                         None
@@ -1427,7 +1427,7 @@ mod test {
         assert_eq!(sig.unhashed_area().iter().nth(0).unwrap().2,
                    Subpacket::new(SubpacketValue::Issuer(keyid.clone()),
                                   false).unwrap());
-        assert_eq!(sig.unhashed_area().iter().nth(1).unwrap().2.tag,
+        assert_eq!(sig.unhashed_area().iter().nth(1).unwrap().2.tag(),
                    SubpacketTag::EmbeddedSignature);
 
         // Now, make sure that an Issuer subpacket is synthesized from

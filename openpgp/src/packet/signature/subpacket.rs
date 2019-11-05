@@ -871,11 +871,11 @@ impl<'a> SubpacketValue<'a> {
 #[derive(PartialEq, Clone)]
 pub struct Subpacket<'a> {
     /// Critical flag.
-    pub critical: bool,
+    critical: bool,
     /// Packet type.
-    pub tag: SubpacketTag,
+    tag: SubpacketTag,
     /// Packet value, must match packet type.
-    pub value: SubpacketValue<'a>,
+    value: SubpacketValue<'a>,
 }
 
 impl<'a> fmt::Debug for Subpacket<'a> {
@@ -898,6 +898,21 @@ impl<'a> Subpacket<'a> {
             tag: value.tag()?,
             value: value,
         })
+    }
+
+    /// Returns whether this subpacket is critical.
+    pub fn critical(&self) -> bool {
+        self.critical
+    }
+
+    /// Returns the subpacket tag.
+    pub fn tag(&self) -> SubpacketTag {
+        self.tag
+    }
+
+    /// Returns the subpackets value.
+    pub fn value(&self) -> &SubpacketValue<'a> {
+        &self.value
     }
 
     /// Returns the length of the serialized subpacket.

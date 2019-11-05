@@ -408,7 +408,7 @@ impl TPKBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::packet::signature::subpacket::{SubpacketTag, Subpacket, SubpacketValue};
+    use crate::packet::signature::subpacket::{SubpacketTag, SubpacketValue};
     use crate::constants::PublicKeyAlgorithm;
 
     #[test]
@@ -526,11 +526,9 @@ mod tests {
             .generate().unwrap();
         let sig_pkts = &tpk1.primary_key_signature(None).unwrap().hashed_area();
 
-        match sig_pkts.lookup(SubpacketTag::KeyFlags) {
-            Some(Subpacket{ value: SubpacketValue::KeyFlags(ref ks),.. }) => {
-                assert!(ks.can_certify());
-            }
-            _ => {}
+        match sig_pkts.lookup(SubpacketTag::KeyFlags).unwrap().value() {
+            SubpacketValue::KeyFlags(ref ks) => assert!(ks.can_certify()),
+            v => panic!("Unexpected subpacket: {:?}", v),
         }
 
         assert_eq!(tpk1.subkeys().count(), 1);
@@ -545,11 +543,9 @@ mod tests {
             .generate().unwrap();
         let sig_pkts = tpk1.subkeys().next().unwrap().self_signatures[0].hashed_area();
 
-        match sig_pkts.lookup(SubpacketTag::KeyFlags) {
-            Some(Subpacket{ value: SubpacketValue::KeyFlags(ref ks),.. }) => {
-                assert!(ks.can_certify());
-            }
-            _ => {}
+        match sig_pkts.lookup(SubpacketTag::KeyFlags).unwrap().value() {
+            SubpacketValue::KeyFlags(ref ks) => assert!(ks.can_certify()),
+            v => panic!("Unexpected subpacket: {:?}", v),
         }
 
         assert_eq!(tpk1.subkeys().count(), 1);

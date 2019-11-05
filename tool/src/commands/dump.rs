@@ -700,15 +700,15 @@ impl PacketDumper {
             Ok(())
         };
 
-        match s.value {
+        match s.value() {
             Unknown(ref b) => {
-                writeln!(output, "{}    {:?}{}:", i, s.tag,
-                         if s.critical { " (critical)" } else { "" })?;
+                writeln!(output, "{}    {:?}{}:", i, s.tag(),
+                         if s.critical() { " (critical)" } else { "" })?;
                 hexdump_unknown(output, b)?;
             },
             Invalid(ref b) => {
-                writeln!(output, "{}    {:?}{}:", i, s.tag,
-                         if s.critical { " (critical)" } else { "" })?;
+                writeln!(output, "{}    {:?}{}:", i, s.tag(),
+                         if s.critical() { " (critical)" } else { "" })?;
                 hexdump_unknown(output, b)?;
             },
             SignatureCreationTime(ref t) =>
@@ -793,10 +793,10 @@ impl PacketDumper {
                 write!(output, "{}    Intended Recipient: {}", i, fp)?,
         }
 
-        match s.value {
+        match s.value() {
             Unknown(_) | Invalid(_) => (),
             EmbeddedSignature(ref sig) => {
-                if s.critical {
+                if s.critical() {
                     write!(output, " (critical)")?;
                 }
                 writeln!(output)?;
@@ -804,7 +804,7 @@ impl PacketDumper {
                 self.dump_packet(output, &indent, None, sig, None, None)?;
             },
             _ => {
-                if s.critical {
+                if s.critical() {
                     write!(output, " (critical)")?;
                 }
                 writeln!(output)?;
