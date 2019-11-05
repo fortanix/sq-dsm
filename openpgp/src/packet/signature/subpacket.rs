@@ -892,12 +892,20 @@ impl<'a> fmt::Debug for Subpacket<'a> {
 
 impl<'a> Subpacket<'a> {
     /// Creates a new subpacket.
-    pub fn new(value: SubpacketValue<'a>, critical: bool) -> Result<Subpacket<'a>> {
-        Ok(Subpacket {
-            critical: critical,
-            tag: value.tag()?,
-            value: value,
-        })
+    pub fn new(value: SubpacketValue<'a>, critical: bool)
+               -> Result<Subpacket<'a>> {
+        Ok(Self::with_tag(value.tag()?, value, critical))
+    }
+
+    /// Creates a new subpacket with the given tag.
+    pub fn with_tag(tag: SubpacketTag, value: SubpacketValue<'a>,
+                    critical: bool)
+               -> Subpacket<'a> {
+        Subpacket {
+            critical,
+            tag,
+            value,
+        }
     }
 
     /// Returns whether this subpacket is critical.
