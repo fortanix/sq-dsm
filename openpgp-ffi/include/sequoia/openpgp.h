@@ -621,15 +621,16 @@ void pgp_tpk_key_iter_unencrypted_secret (pgp_tpk_key_iter_t iter,
                                           bool unencrypted_secret);
 
 /*/
-/// Returns the next key.  Returns NULL if there are no more elements.
+/// Returns a reference to the next key.  Returns NULL if there are no
+/// more elements.
 ///
-/// If sigo is not NULL, stores the current self-signature (if any) in
-/// *sigo.  (Note: subkeys always have signatures, but a primary key
-/// may not have a direct signature, and there might not be any user
-/// ids.)
+/// If signature is not NULL, stores the current self-signature (if
+/// any) in *signature.  (Note: subkeys always have signatures, but a
+/// primary key may not have a direct signature, and there might not
+/// be any user ids.)
 ///
-/// If rso is not NULL, this stores the key's revocation status in
-/// *rso.
+/// If rev is not NULL, this stores the key's revocation status in
+/// *rev.
 /*/
 pgp_key_t pgp_tpk_key_iter_next (pgp_tpk_key_iter_t iter,
                                  pgp_signature_t *signature,
