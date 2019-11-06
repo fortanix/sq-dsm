@@ -27,11 +27,8 @@ fn pgp_user_id_new(value: *const c_char)
 
 /// Constructs a User ID.
 ///
-/// This escapes the name.  The comment and address must be well
-/// formed according to RFC 2822.  Only the address is required.
-///
-/// If you already have a full RFC 2822 mailbox, then you can just
-/// use `UserID::from()`.
+/// This does a basic check and any necessary escaping to form a de
+/// factor User ID.  Only the address is required.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "C"
 fn pgp_user_id_from_address(
@@ -63,14 +60,11 @@ fn pgp_user_id_from_address(
 
 /// Constructs a User ID.
 ///
-/// This escapes the name.  The comment must be well formed, the
-/// address can be arbitrary.
+/// This does a basic check and any necessary escaping to form a de
+/// factor User ID.  The address is not checked.
 ///
 /// This is useful when you want to specify a URI instead of an
 /// email address.
-///
-/// If you have a full RFC 2822 mailbox, then you can just use
-/// `UserID::from()`.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "C"
 fn pgp_user_id_from_unchecked_address(
@@ -132,23 +126,15 @@ fn pgp_user_id_value(uid: *const Packet, value_len: Option<&mut size_t>)
     }
 }
 
-/// Returns the User ID's display name, if any.
+/// Returns the User ID's name component, if any.
 ///
-/// The User ID is parsed as an [RFC 2822 mailbox], and the display
-/// name is extracted.
+/// The User ID is parsed according to de factor convention, and the
+/// name component is extracted.
 ///
-/// Note: invalid email addresses are accepted in order to support
-/// things like URIs of the form `Hostname
-/// <ssh://server@example.net>`.
+/// If the User ID cannot be parsed, then an error is returned.
 ///
-/// If the User ID is otherwise not a valid RFC 2822 mailbox
-/// production, then an error is returned.
-///
-///
-/// If the User ID does not contain a display, *name is set
-/// to NULL.
-///
-///   [RFC 2822 mailbox]: https://tools.ietf.org/html/rfc2822#section-3.4
+/// If the User ID does not contain a name component, *namep is set to
+/// NULL.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "C"
 fn pgp_user_id_name(
@@ -181,22 +167,15 @@ fn pgp_user_id_name(
     Status::Success
 }
 
-/// Returns the User ID's comment, if any.
+/// Returns the User ID's comment field, if any.
 ///
-/// The User ID is parsed as an [RFC 2822 mailbox], and the first
-/// comment is extracted.
+/// The User ID is parsed according to de factor convention, and the
+/// comment field is extracted.
 ///
-/// Note: invalid email addresses are accepted in order to support
-/// things like URIs of the form `Hostname
-/// <ssh://server@example.net>`.
-///
-/// If the User ID is otherwise not a valid RFC 2822 mailbox
-/// production, then an error is returned.
+/// If the User ID cannot be parsed, then an error is returned.
 ///
 /// If the User ID does not contain a comment, *commentp is set
 /// to NULL.
-///
-///   [RFC 2822 mailbox]: https://tools.ietf.org/html/rfc2822#section-3.4
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "C"
 fn pgp_user_id_comment(
@@ -231,23 +210,16 @@ fn pgp_user_id_comment(
 
 /// Returns the User ID's email address, if any.
 ///
-/// The User ID is parsed as an [RFC 2822 mailbox], and the email
-/// address is extracted.
+/// The User ID is parsed according to de factor convention, and the
+/// email address is extracted.
 ///
-/// Note: invalid email addresses are accepted in order to support
-/// things like URIs of the form `Hostname
-/// <ssh://server@example.net>`.
-///
-/// If the User ID is otherwise not a valid RFC 2822 mailbox
-/// production, then an error is returned.
+/// If the User ID cannot be parsed, then an error is returned.
 ///
 /// If the User ID does not contain an email address, *addressp is set
 /// to NULL.
-///
-///   [RFC 2822 mailbox]: https://tools.ietf.org/html/rfc2822#section-3.4
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "C"
-fn pgp_user_id_address(
+fn pgp_user_id_email(
     errp: Option<&mut *mut crate::error::Error>, uid: *const Packet,
     addressp: &mut *mut c_char)
     -> Status
@@ -256,120 +228,11 @@ fn pgp_user_id_address(
     let uid = uid.ref_raw();
 
     if let &openpgp::Packet::UserID(ref uid) = uid {
-        match uid.address() {
+        match uid.email() {
             Ok(Some(address)) =>
                 *addressp = ffi_return_string!(address),
             Ok(None) =>
                 *addressp = ::std::ptr::null_mut(),
-            Err(err) => {
-                use crate::MoveIntoRaw;
-                let status = crate::error::Status::from(&err);
-                if let Some(errp) = errp {
-                    *errp = err.move_into_raw();
-                }
-                return status;
-            }
-        }
-    } else {
-        panic!("Not a UserID packet");
-    }
-
-    Status::Success
-}
-
-/// Returns the User ID's invalid address, if any.
-///
-/// The User ID is parsed as an [RFC 2822 mailbox], and if the address
-/// is invalid, that is returned.
-///
-/// Note: invalid email addresses are accepted in order to support
-/// things like URIs of the form `Hostname
-/// <ssh://server@example.net>`.
-///
-/// If the User ID is otherwise not a valid RFC 2822 mailbox
-/// production, then an error is returned.
-///
-/// If the User ID does not contain an invalid address, *otherp is
-/// set to NULL.
-///
-///   [RFC 2822 mailbox]: https://tools.ietf.org/html/rfc2822#section-3.4
-#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "C"
-fn pgp_user_id_other(
-    errp: Option<&mut *mut crate::error::Error>, uid: *const Packet,
-    otherp: &mut *mut c_char)
-    -> Status
-{
-    ffi_make_fry_from_errp!(errp);
-    let uid = uid.ref_raw();
-
-    if let &openpgp::Packet::UserID(ref uid) = uid {
-        match uid.other() {
-            Ok(Some(other)) =>
-                *otherp = ffi_return_string!(other),
-            Ok(None) =>
-                *otherp = ::std::ptr::null_mut(),
-            Err(err) => {
-                use crate::MoveIntoRaw;
-                let status = crate::error::Status::from(&err);
-                if let Some(errp) = errp {
-                    *errp = err.move_into_raw();
-                }
-                return status;
-            }
-        }
-    } else {
-        panic!("Not a UserID packet");
-    }
-
-    Status::Success
-}
-
-/// Returns the User ID's email address, if any.
-///
-/// The User ID is parsed as an [RFC 2822 mailbox], and the email
-/// address, whether it is valid or not, is extracted.
-///
-/// Note: invalid email addresses are accepted in order to support
-/// things like URIs of the form `Hostname
-/// <ssh://server@example.net>`.
-///
-/// If the User ID is otherwise not a valid RFC 2822 mailbox
-/// production, then an error is returned.
-///
-/// If the User ID does not contain an address (valid or invalid),
-/// *addressp is set to NULL.
-///
-///   [RFC 2822 mailbox]: https://tools.ietf.org/html/rfc2822#section-3.4
-#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "C"
-fn pgp_user_id_address_or_other(
-    errp: Option<&mut *mut crate::error::Error>, uid: *const Packet,
-    addressp: &mut *mut c_char)
-    -> Status
-{
-    ffi_make_fry_from_errp!(errp);
-    let uid = uid.ref_raw();
-
-    if let &openpgp::Packet::UserID(ref uid) = uid {
-        match uid.address() {
-            Ok(Some(address)) =>
-                *addressp = ffi_return_string!(address),
-            Ok(None) =>
-                match uid.other() {
-                    Ok(Some(other)) =>
-                        *addressp = ffi_return_string!(other),
-                    Ok(None) =>
-                        *addressp = ::std::ptr::null_mut(),
-                    Err(err) => {
-                        use crate::MoveIntoRaw;
-                        let status = crate::error::Status::from(&err);
-                        if let Some(errp) = errp {
-                            *errp = err.move_into_raw();
-                        }
-                        return status;
-                    }
-                },
             Err(err) => {
                 use crate::MoveIntoRaw;
                 let status = crate::error::Status::from(&err);
@@ -406,20 +269,20 @@ fn pgp_user_id_address_or_other(
 ///   [Autocrypt]: https://autocrypt.org/level1.html#e-mail-address-canonicalization
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "C"
-fn pgp_user_id_address_normalized(
+fn pgp_user_id_email_normalized(
     errp: Option<&mut *mut crate::error::Error>, uid: *const Packet,
-    addressp: &mut *mut c_char)
+    emailp: &mut *mut c_char)
     -> Status
 {
     ffi_make_fry_from_errp!(errp);
     let uid = uid.ref_raw();
 
     if let &openpgp::Packet::UserID(ref uid) = uid {
-        match uid.address_normalized() {
-            Ok(Some(address)) =>
-                *addressp = ffi_return_string!(address),
+        match uid.email_normalized() {
+            Ok(Some(email)) =>
+                *emailp = ffi_return_string!(email),
             Ok(None) =>
-                *addressp = ::std::ptr::null_mut(),
+                *emailp = ::std::ptr::null_mut(),
             Err(err) => {
                 use crate::MoveIntoRaw;
                 let status = crate::error::Status::from(&err);

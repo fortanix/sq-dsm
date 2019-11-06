@@ -7,31 +7,273 @@ use std::sync::Mutex;
 
 use quickcheck::{Arbitrary, Gen};
 use failure::ResultExt;
+use regex::Regex;
 
 use crate::Result;
 use crate::packet;
 use crate::Packet;
+use crate::Error;
 
-mod rfc2822;
-use rfc2822::{
-    AddrSpec,
-    AddrSpecOrOther,
-    Name,
-    NameAddr,
-    NameAddrOrOther,
-};
+/// A conventionally parsed UserID.
+///
+/// Informally, conventional UserIDs are of the form:
+///
+///   - First Last (Comment) <name@example.org>
+///   - First Last <name@example.org>
+///   - First Last
+///   - name@example.org <name@example.org>
+///   - <name@example.org>
+///   - name@example.org
+///
+/// Names consist of UTF-8 non-control characters and may include
+/// punctuation.  For instance, the following names are valid:
+///
+///   - Acme Industries, Inc.
+///   - Michael O'Brian
+///   - Smith, John
+///   - e.e. cummings
+///
+/// (Note: according to RFC 2822 and its successors, all of these
+/// would need to be quoted.  Conventionally, no implementation quotes
+/// names.)
+///
+/// Conventional User IDs are UTF-8.  RFC 2822 only covers US-ASCII
+/// and allows character set switching using RFC 2047.  For example,
+/// an RFC 2822 parser would parse:
+///
+///    - Bj=?utf-8?q?=C3=B6?=rn Bj=?utf-8?q?=C3=B6?=rnson
+///
+/// "Björn Björnson".  Nobody uses this in practice, and, as such,
+/// this extension is not supported by this parser.
+///
+/// Comments can include any UTF-8 text except parentheses.  Thus, the
+/// following is not a valid comment even though the parentheses are
+/// balanced:
+///
+///   - (foo (bar))
+///
+/// Formal Grammar
+/// --------------
+///
+/// Formally, the following grammar is used to decompose a User ID:
+///
+///   WS                 = 0x20 (space character)
+///
+///   comment-specials   = "<" / ">" /   ; RFC 2822 specials - "(" and ")"
+///                        "[" / "]" /
+///                        ":" / ";" /
+///                        "@" / "\" /
+///                        "," / "." /
+///                        DQUOTE
+///
+///   atext-specials     = "(" / ")" /   ; RFC 2822 specials - "<" and ">".
+///                        "[" / "]" /
+///                        ":" / ";" /
+///                        "@" / "\" /
+///                        "," / "." /
+///                        DQUOTE
+///
+///   atext              = ALPHA / DIGIT /   ; Any character except controls,
+///                        "!" / "#" /       ;  SP, and specials.
+///                        "$" / "%" /       ;  Used for atoms
+///                        "&" / "'" /
+///                        "*" / "+" /
+///                        "-" / "/" /
+///                        "=" / "?" /
+///                        "^" / "_" /
+///                        "`" / "{" /
+///                        "|" / "}" /
+///                        "~" /
+///                        \u{80}-\u{10ffff} ; Non-ascii, non-control UTF-8
+///
+///   dot_atom_text      = 1*atext *("." *atext)
+///
+///   name-char-start    = atext / atext-specials
+///
+///   name-char-rest     = atext / atext-specials / WS
+///
+///   name               = name-char-start *name-char-rest
+///
+///   comment-char       = atext / comment-specials / WS
+///
+///   comment-content    = *comment-char
+///
+///   comment            = "(" *WS comment-content *WS ")"
+///
+///   addr-spec          = dot-atom-text "@" dot-atom-text
+///
+///   pgp-uid-convention = addr-spec /
+///                        *WS [name] *WS [comment] *WS "<" addr-spec ">" /
+///                        *WS name *WS [comment] *WS
+#[derive(Clone, Debug)]
+pub struct ConventionallyParsedUserID {
+    userid: String,
 
-struct ParsedUserID {
-    name: Option<String>,
-    comment: Option<String>,
-    address: Result<String>,
-    // Handles invalid email addresses.  For instance:
-    //
-    //     Hostname <ssh://server@example.net>
-    //
-    // would have no address, but other would be
-    // "ssh://server@example.net".
-    other: Option<String>,
+    name: Option<(usize, usize)>,
+    comment: Option<(usize, usize)>,
+    email: Option<(usize, usize)>,
+
+    // XXX: Add support for URIs.
+    // uri: Option<(usize, usize)>,
+}
+
+impl ConventionallyParsedUserID {
+    /// Parses the userid according to the usual conventions.
+    pub fn new<S>(userid: S) -> Result<Self>
+        where S: Into<String>
+    {
+        Self::parse(userid.into())
+    }
+
+    /// Returns the User ID's name component, if any.
+    pub fn name(&self) -> Option<&str> {
+        self.name.map(|(s, e)| &self.userid[s..e])
+    }
+
+    /// Returns the User ID's comment field, if any.
+    pub fn comment(&self) -> Option<&str> {
+        self.comment.map(|(s, e)| &self.userid[s..e])
+    }
+
+    /// Returns the User ID's email component, if any.
+    pub fn email(&self) -> Option<&str> {
+        self.email.map(|(s, e)| &self.userid[s..e])
+    }
+
+    fn parse(userid: String) -> Result<Self> {
+        lazy_static!{
+            static ref USER_ID_PARSER: Regex = {
+                // Whitespace.
+                let ws_bare = " ";
+                let ws = format!("[{}]", ws_bare);
+                let optional_ws = format!("(?:{}*)", ws);
+
+                // Specials minus ( and ).
+                let comment_specials_bare = r#"<>\[\]:;@\\,.""#;
+                let _comment_specials
+                    = format!("[{}]", comment_specials_bare);
+
+                let atext_specials_bare = r#"()\[\]:;@\\,.""#;
+                let _atext_specials =
+                    format!("[{}]", atext_specials_bare);
+
+                // "Text"
+                let atext_bare
+                    = "-A-Za-z0-9!#$%&'*+/=?^_`{|}~\u{80}-\u{10ffff}";
+                let atext = format!("[{}]", atext_bare);
+
+                // An atext with dots and the added restriction that
+                // it may not start or end with a dot.
+                let dot_atom_text
+                    = format!(r"(?:{}+(?:\.{}+)*)", atext, atext);
+
+
+                let name_char_start
+                    = format!("[{}{}]",
+                              atext_bare, atext_specials_bare);
+                let name_char_rest
+                    = format!("[{}{}{}]",
+                              atext_bare, atext_specials_bare, ws_bare);
+                // We need to minimize the match as otherwise we
+                // swallow any comment.
+                let name
+                    = format!("(?:{}{}*?)", name_char_start, name_char_rest);
+
+                let comment_char
+                    = format!("[{}{}{}]",
+                              atext_bare, comment_specials_bare, ws_bare);
+
+                let comment = |prefix| {
+                    format!(r#"(?:\({}(?P<{}_comment>{}*?){}\))"#,
+                            optional_ws, prefix, comment_char, optional_ws)
+                };
+
+                let addr_spec
+                    = format!("(?:{}@{})", dot_atom_text, dot_atom_text);
+
+
+                let addr_spec_raw
+                    = format!("(?P<raw_addr_spec>{})", addr_spec);
+
+                // whitespace is ignored.  It is allowed (but not
+                // required) at the start and between components, but
+                // it is not allowed after the closing '>'.  space is
+                // not allowed.
+                let addr_spec_wrapped
+                    = format!("{}(?P<wrapped_name>{})?{}\
+                               (:?{})?{}\
+                               <(?P<wrapped_addr_spec>{})>",
+                              optional_ws, name, optional_ws,
+                              comment("wrapped"), optional_ws,
+                              addr_spec);
+
+                let bare_name
+                    = format!("{}(?P<bare_name>{}){}\
+                               (?:{})?{}",
+                              optional_ws, name, optional_ws,
+                              comment("bare"), optional_ws);
+
+                // Note: bare-name has to come after addr-spec-raw as
+                // prefer addr-spec-raw to bare-name when the match is
+                // ambiguous.
+                let pgp_uid_convention
+                    = format!("^(?:{}|{}|{})$",
+                              addr_spec_raw, addr_spec_wrapped, bare_name);
+
+                Regex::new(&pgp_uid_convention).unwrap()
+            };
+        }
+
+        // The regex is anchored at the start and at the end so we
+        // have either 0 or 1 matches.
+        if let Some(cap) = USER_ID_PARSER.captures_iter(&userid).nth(0) {
+            let to_range = |m: regex::Match| (m.start(), m.end());
+
+            match (cap.name("raw_addr_spec"), cap.name("bare_name")) {
+                // addr-spec-raw
+                (Some(email), None) => {
+                    let email = Some(to_range(email));
+                    let comment = cap.name("bare_comment").map(to_range);
+
+                    Ok(ConventionallyParsedUserID {
+                        userid: userid,
+                        name: None,
+                        comment: comment,
+                        email: email,
+                    })
+                }
+                // addr-spec-wrapped
+                (None, None) => {
+                    let name = cap.name("wrapped_name").map(to_range);
+                    let comment = cap.name("wrapped_comment").map(to_range);
+                    let email = cap.name("wrapped_addr_spec").map(to_range);
+
+                    Ok(ConventionallyParsedUserID {
+                        userid: userid,
+                        name: name,
+                        comment: comment,
+                        email: email,
+                    })
+                }
+                // bare name
+                (None, Some(name)) => {
+                    let name = Some(to_range(name));
+                    let comment = cap.name("bare_comment").map(to_range);
+
+                    Ok(ConventionallyParsedUserID {
+                        userid: userid,
+                        name: name,
+                        comment: comment,
+                        email: None,
+                    })
+                }
+                _ => panic!("Unexpected result"),
+            }
+        } else {
+            return Err(Error::InvalidArgument(
+                "Failed to parse UserID".into()).into());
+        }
+    }
 }
 
 /// Holds a UserID packet.
@@ -53,7 +295,7 @@ pub struct UserID {
     /// Use `UserID::default()` to get a UserID with a default settings.
     value: Vec<u8>,
 
-    parsed: Mutex<RefCell<Option<ParsedUserID>>>,
+    parsed: Mutex<RefCell<Option<ConventionallyParsedUserID>>>,
 }
 
 impl From<Vec<u8>> for UserID {
@@ -150,86 +392,153 @@ impl Clone for UserID {
 }
 
 impl UserID {
+    fn assemble<S>(name: Option<S>, comment: Option<S>,
+                   address: S, check_address: bool)
+        -> Result<Self>
+        where S: AsRef<str>,
+    {
+        let mut value = String::with_capacity(64);
+
+        // Make sure the individual components are valid.
+        if let Some(ref name) = name {
+            let name = name.as_ref();
+            match ConventionallyParsedUserID::new(name.to_string()) {
+                Err(err) =>
+                    return Err(err.context(format!(
+                        "Validating name ({:?})",
+                        name)).into()),
+                Ok(p) => {
+                    if !(p.name().is_some()
+                         && p.comment().is_none()
+                         && p.email().is_none()) {
+                        return Err(Error::InvalidArgument(
+                            format!("Invalid name ({:?})", name)
+                                .into()).into());
+                    }
+                }
+            }
+
+            value.push_str(name);
+        }
+
+        if let Some(ref comment) = comment {
+            let comment = comment.as_ref();
+            match ConventionallyParsedUserID::new(
+                format!("x ({})", comment))
+            {
+                Err(err) =>
+                    return Err(err.context(format!(
+                        "Validating comment ({:?})",
+                        comment)).into()),
+                Ok(p) => {
+                    if !(p.name().is_none()
+                         && p.comment().is_some()
+                         && p.email().is_none()) {
+                    return Err(Error::InvalidArgument(
+                        format!("Invalid comment ({:?})", comment)
+                            .into()).into());
+                    }
+                }
+            }
+
+            if value.len() > 0 {
+                value.push_str(" ");
+            }
+            value.push_str("(");
+            value.push_str(comment);
+            value.push_str(")");
+        }
+
+        if check_address {
+            let address = address.as_ref();
+            match ConventionallyParsedUserID::new(
+                format!("<{}>", address))
+            {
+                Err(err) =>
+                    return Err(err.context(format!(
+                        "Validating address ({:?})",
+                        address)).into()),
+                Ok(p) => {
+                    if !(p.name().is_none()
+                         && p.comment().is_none()
+                         && p.email().is_some()) {
+                        return Err(Error::InvalidArgument(
+                            format!("Invalid address address ({:?})", address)
+                                .into()).into());
+                    }
+                }
+            }
+        }
+
+        let something = value.len() > 0;
+        if something {
+            value.push_str(" <");
+        }
+        value.push_str(address.as_ref());
+        if something {
+            value.push_str(">");
+        }
+
+        if check_address {
+            // Make sure the combined thing is valid.
+            match ConventionallyParsedUserID::new(value.clone())
+            {
+                Err(err) =>
+                    return Err(err.context(format!(
+                        "Validating User ID ({:?})",
+                        value)).into()),
+                Ok(p) => {
+                    if !(p.name().is_none() == name.is_none()
+                         && p.comment().is_none() == comment.is_none()
+                         && p.email().is_some()) {
+                        return Err(Error::InvalidArgument(
+                            format!("Invalid User ID ({:?})", value)
+                                .into()).into());
+                    }
+                }
+            }
+        }
+
+        Ok(UserID::from(value))
+    }
+
     /// Constructs a User ID.
     ///
-    /// This escapes the name.  The comment and address must be well
-    /// formed according to RFC 2822.  Only the address is required.
+    /// This does a basic check and any necessary escaping to form a de
+    /// factor User ID.
     ///
-    /// If you already have a full RFC 2822 mailbox, then you can just
+    /// Only the address is required.  If a comment is supplied, then
+    /// a name is also required.
+    ///
+    /// If you already have a User ID value, then you can just
     /// use `UserID::from()`.
     ///
     /// ```
     /// # extern crate sequoia_openpgp as openpgp;
     /// # use openpgp::packet::UserID;
     /// assert_eq!(UserID::from_address(
-    ///                "John \"the Boat\" Smith".into(),
+    ///                "John Smith".into(),
     ///                None, "boat@example.org").unwrap().value(),
-    ///            &b"\"John \\\"the Boat\\\" Smith\" <boat@example.org>"[..]);
+    ///            &b"John Smith <boat@example.org>"[..]);
     /// ```
-    pub fn from_address<O, S>(name: O, comment: O, address: S)
+    pub fn from_address<O, S>(name: O, comment: O, email: S)
         -> Result<Self>
         where S: AsRef<str>,
               O: Into<Option<S>>
     {
-        let name = name.into();
-        let comment = comment.into();
-        let address = address.as_ref();
-
-        // Make sure the address is valid.
-        AddrSpec::parse(address)
-            .context(format!("Invalid address: {:?}", address))?;
-
-        // XXX: Currently we don't have an interface to just parse a
-        // comment, but we check it's validity below.
-
-        let is_name_addr = name.is_some() || comment.is_some();
-
-        let combined = match (name, comment) {
-            (Some(name), Some(comment)) => {
-                let name = name.as_ref();
-
-                format!("{} ({}) <{}>",
-                        Name::escaped(name)
-                            .context(format!("Invalid display name: {:?}",
-                                             name))?,
-                        comment.as_ref(), address)
-            }
-            (Some(name), None) => {
-                let name = name.as_ref();
-
-                format!("{} <{}>",
-                        Name::escaped(name)
-                            .context(format!("Invalid display name: {:?}",
-                                             name))?,
-                        address)
-            }
-            (None, Some(comment)) =>
-                // A comment can't exist without a display name.
-                format!("\"\" {} <{}>",
-                        comment.as_ref(), address),
-            (None, None) =>
-                address.into(),
-        };
-
-        if is_name_addr {
-            // Make sure the whole thing is valid (this also checks the
-            // comment).
-            NameAddr::parse(&combined)?;
-        }
-
-        Ok(combined.into())
+        Self::assemble(name.into(), comment.into(), email, true)
     }
 
     /// Constructs a User ID.
     ///
-    /// This escapes the name.  The comment must be well formed, the
-    /// address can be arbitrary.
+    /// This does a basic check and any necessary escaping to form a de
+    /// factor User ID modulo the address, which is not checked.
     ///
     /// This is useful when you want to specify a URI instead of an
     /// email address.
     ///
-    /// If you have a full RFC 2822 mailbox, then you can just use
-    /// `UserID::from()`.
+    /// If you already have a User ID value, then you can just
+    /// use `UserID::from()`.
     ///
     /// ```
     /// # extern crate sequoia_openpgp as openpgp;
@@ -244,51 +553,7 @@ impl UserID {
         where S: AsRef<str>,
               O: Into<Option<S>>
     {
-        let name = name.into();
-        let comment = comment.into();
-        let address = address.as_ref();
-
-        // XXX: Currently we don't have an interface to just parse a
-        // comment, but we check it's validity below.
-
-        let is_name_addr = name.is_some() || comment.is_some();
-
-        let combined = match (name, comment) {
-            (Some(name), Some(comment)) => {
-                let name = name.as_ref();
-
-                format!("{} ({}) <{}>",
-                        Name::escaped(name)
-                            .context(format!("Invalid display name: {:?}",
-                                             name))?,
-                        comment.as_ref(), address)
-            }
-            (Some(name), None) => {
-                let name = name.as_ref();
-
-                format!("{} <{}>",
-                        Name::escaped(name)
-                            .context(format!("Invalid display name: {:?}",
-                                             name))?,
-                        address)
-            }
-            (None, Some(comment)) =>
-                // A comment can't exist without a display name.
-                format!("\"\" {} <{}>",
-                        comment.as_ref(), address),
-            (None, None) =>
-                address.into(),
-        };
-
-        // Make sure the whole thing is valid (this also checks the
-        // comment).
-        if is_name_addr {
-            // Make sure the whole thing is valid (this also checks the
-            // comment).
-            NameAddrOrOther::parse(&combined)?;
-        }
-
-        Ok(combined.into())
+        Self::assemble(name.into(), comment.into(), address, false)
     }
 
     /// Gets the user ID packet's value.
@@ -301,121 +566,45 @@ impl UserID {
             let s = str::from_utf8(&self.value)?;
 
             *self.parsed.lock().unwrap().borrow_mut() =
-              Some(match NameAddrOrOther::parse(s) {
-                Ok(na) => ParsedUserID {
-                    name: na.name().map(|s| s.to_string()),
-                    comment: na.comment().map(|s| s.to_string()),
-                    address: na.address().map(|s| s.to_string()),
-                    other: na.other().map(|s| s.to_string()),
-                },
+              Some(match ConventionallyParsedUserID::new(s) {
+                Ok(puid) => puid,
                 Err(err) => {
-                    // Try with the addr-spec parser.
-                    if let Ok(a) = AddrSpecOrOther::parse(s) {
-                        ParsedUserID {
-                            name: None,
-                            comment: None,
-                            address: a.address().map(|s| s.to_string()),
-                            other: a.other().map(|s| s.to_string()),
-                        }
-                    } else {
-                        // Return the error from the NameAddrOrOther parser.
-                        let err : failure::Error = err.into();
-                        return Err(err).context(format!(
-                            "Not a valid RFC 2822 mailbox: {:?}", s))?;
-                    }
+                    // Return the error from the NameAddrOrOther parser.
+                    let err : failure::Error = err.into();
+                    return Err(err).context(format!(
+                        "Failed to parse User ID: {:?}", s))?;
                 }
             });
         }
         Ok(())
     }
 
-    /// Treats the user ID as an RFC 2822 name-addr and extracts the
-    /// display name, if any.
-    ///
-    /// Note: if the email address is invalid, but the rest of the
-    /// input is okay, this still returns the display name.
+    /// Parses the User ID according to de facto conventions, and
+    /// returns the name component, if any.
     pub fn name(&self) -> Result<Option<String>> {
         self.do_parse()?;
         match *self.parsed.lock().unwrap().borrow() {
-            Some(ParsedUserID { ref name, .. }) =>
-                Ok(name.as_ref().map(|s| s.clone())),
+            Some(ref puid) => Ok(puid.name().map(|s| s.to_string())),
             None => unreachable!(),
         }
     }
 
-    /// Treats the user ID as an RFC 2822 name-addr and extracts the
-    /// first comment, if any.
-    ///
-    /// Note: if the email address is invalid, but the rest of the
-    /// input is okay, this still returns the first comment.
+    /// Parses the User ID according to de facto conventions, and
+    /// returns the comment field, if any.
     pub fn comment(&self) -> Result<Option<String>> {
         self.do_parse()?;
         match *self.parsed.lock().unwrap().borrow() {
-            Some(ParsedUserID { ref comment, .. }) =>
-                Ok(comment.as_ref().map(|s| s.clone())),
+            Some(ref puid) => Ok(puid.comment().map(|s| s.to_string())),
             None => unreachable!(),
         }
     }
 
-    /// Treats the user ID as an RFC 2822 name-addr and extracts the
-    /// address, if valid.
-    ///
-    /// If the email address is invalid, returns `Ok(None)`.  In this
-    /// case, the invalid email address can be returned using
-    /// `UserID::other_address()`.
-    pub fn address(&self) -> Result<Option<String>> {
+    /// Parses the User ID according to de facto conventions, and
+    /// returns the email address, if any.
+    pub fn email(&self) -> Result<Option<String>> {
         self.do_parse()?;
         match *self.parsed.lock().unwrap().borrow() {
-            Some(ParsedUserID { address: Ok(ref address), .. }) =>
-                Ok(Some(address.clone())),
-            Some(ParsedUserID { address: Err(_), .. }) =>
-                Ok(None),
-            None => unreachable!(),
-        }
-    }
-
-    /// Treats the user ID as an RFC 2822 name-addr and, if the
-    /// address is invalid, returns that.
-    ///
-    /// If the address is valid, this returns None.
-    ///
-    /// This is particularly useful with the following types of User
-    /// IDs:
-    ///
-    /// ```text
-    /// First Last (Comment) <ssh://server.example.net>
-    /// ```
-    ///
-    /// will be successfully parsed.  In this case,
-    /// `NameAddrOrOther::address()` will return the parse error, and the
-    /// invalid address can be obtained using `NameAddrOrOther::other()`.
-    pub fn other(&self) -> Result<Option<String>> {
-        self.do_parse()?;
-        match *self.parsed.lock().unwrap().borrow() {
-            Some(ParsedUserID { ref other, .. }) =>
-                Ok(other.as_ref().map(|s| s.clone())),
-            None => unreachable!(),
-        }
-    }
-
-    /// Treats the user ID as an RFC 2822 name-addr and returns the
-    /// address.
-    ///
-    /// If the address is invalid, that is returned.  For instance:
-    ///
-    /// ```text
-    /// First Last (Comment) <ssh://server.example.net>
-    /// ```
-    ///
-    /// will be successfully parsed and this function will return
-    /// `ssh://server.example.net`.
-    pub fn other_or_address(&self) -> Result<Option<String>> {
-        self.do_parse()?;
-        match *self.parsed.lock().unwrap().borrow() {
-            Some(ParsedUserID { address: Ok(ref address), .. }) =>
-                Ok(Some(address.clone())),
-            Some(ParsedUserID { ref other, .. }) =>
-                Ok(other.as_ref().map(|s| s.clone())),
+            Some(ref puid) => Ok(puid.email().map(|s| s.to_string())),
             None => unreachable!(),
         }
     }
@@ -438,8 +627,8 @@ impl UserID {
     ///   [puny-code normalization]: https://tools.ietf.org/html/rfc5891.html#section-4.4
     ///   [empty locale]: https://www.w3.org/International/wiki/Case_folding
     ///   [Autocrypt]: https://autocrypt.org/level1.html#e-mail-address-canonicalization
-    pub fn address_normalized(&self) -> Result<Option<String>> {
-        match self.address() {
+    pub fn email_normalized(&self) -> Result<Option<String>> {
+        match self.email() {
             e @ Err(_) => e,
             Ok(None) => Ok(None),
             Ok(Some(address)) => {
@@ -497,118 +686,204 @@ mod tests {
     }
 
     #[test]
-    fn name_addr() {
-        fn c(value: &str, ok: bool,
-             name: Option<&str>, comment: Option<&str>,
-             address: Option<&str>, other: Option<&str>)
+    fn decompose() {
+        tracer!(true, "decompose", 0);
+
+        fn c(userid: &str,
+             name: Option<&str>, comment: Option<&str>, email: Option<&str>)
+            -> bool
         {
-            let name = name.map(|s| s.to_string());
-            let comment = comment.map(|s| s.to_string());
-            let address = address.map(|s| s.to_string());
-            let other = other.map(|s| s.to_string());
+            match ConventionallyParsedUserID::new(userid) {
+                Ok(puid) => {
+                    let good = puid.name() == name
+                        && puid.comment() == comment
+                        && puid.email() == email;
 
-            let u = UserID::from(value);
-            for _ in 0..2 {
-                let name_got = u.name();
-                let comment_got = u.comment();
-                let address_got = u.address();
-                let other_got = u.other();
+                    if ! good {
+                        t!("userid: {}", userid);
+                        t!(" -> {:?}", puid);
+                        t!("  {:?} {}= {:?}",
+                           puid.name(),
+                           if puid.name() == name { "=" } else { "!" },
+                           name);
+                        t!("  {:?} {}= {:?}",
+                           puid.comment(),
+                           if puid.comment() == comment { "=" } else { "!" },
+                           comment);
+                        t!("  {:?} {}= {:?}",
+                           puid.email(),
+                           if puid.email() == email { "=" } else { "!" },
+                           email);
 
-                eprintln!("Parsing {:?}", value);
-                eprintln!("name: expected: {:?}, got: {:?}",
-                          name, name_got);
-                eprintln!("comment: expected: {:?}, got: {:?}",
-                          comment, comment_got);
-                eprintln!("address: expected: {:?}, got: {:?}",
-                          address, address_got);
-                eprintln!("other: expected: {:?}, got: {:?}",
-                          other, other_got);
-
-                match name_got {
-                    Ok(ref v) if ok =>
-                        assert_eq!(v, &name),
-                    Ok(_) if !ok =>
-                        panic!("Expected parse to fail."),
-                    Err(ref err) if ok =>
-                        panic!("Expected parse to succeed: {:?}", err),
-                    Err(_) if !ok =>
-                        (),
-                    _ => unreachable!(),
-                };
-                match comment_got {
-                    Ok(ref v) if ok =>
-                        assert_eq!(v, &comment),
-                    Ok(_) if !ok =>
-                        panic!("Expected parse to fail."),
-                    Err(ref err) if ok =>
-                        panic!("Expected parse to succeed: {:?}", err),
-                    Err(_) if !ok =>
-                        (),
-                    _ => unreachable!(),
-                };
-                match address_got {
-                    Ok(ref v) if ok =>
-                        assert_eq!(v, &address),
-                    Ok(_) if !ok =>
-                        panic!("Expected parse to fail."),
-                    Err(ref err) if ok =>
-                        panic!("Expected parse to succeed: {:?}", err),
-                    Err(_) if !ok =>
-                        (),
-                    _ => unreachable!(),
-                };
-                match other_got {
-                    Ok(ref v) if ok =>
-                        assert_eq!(v, &other),
-                    Ok(_) if !ok =>
-                        panic!("Expected parse to fail."),
-                    Err(ref err) if ok =>
-                        panic!("Expected parse to succeed: {:?}", err),
-                    Err(_) if !ok =>
-                        (),
-                    _ => unreachable!(),
-                };
+                        t!(" -> BAD PARSE");
+                    }
+                    good
+                }
+                Err(err) => {
+                    t!("userid: {} -> PARSE ERROR: {:?}", userid, err);
+                    false
+                }
             }
         }
 
-        c("Henry Ford (CEO) <henry@ford.com>", true,
-          Some("Henry Ford"), Some("CEO"), Some("henry@ford.com"), None);
+        let mut g = true;
 
-        // The quotes disappear.  Unexpected, but true.
-        c("Thomas \"Tomakin\" (DHC) <thomas@clh.co.uk>", true,
-          Some("Thomas Tomakin"), Some("DHC"),
-          Some("thomas@clh.co.uk"), None);
+        // Conventional User IDs:
+        g &= c("First Last (Comment) <name@example.org>",
+          Some("First Last"), Some("Comment"), Some("name@example.org"));
+        g &= c("First Last <name@example.org>",
+          Some("First Last"), None, Some("name@example.org"));
+        g &= c("First Last", Some("First Last"), None, None);
+        g &= c("name@example.org <name@example.org>",
+          Some("name@example.org"), None, Some("name@example.org"));
+        g &= c("<name@example.org>",
+          None, None, Some("name@example.org"));
+        g &= c("name@example.org",
+          None, None, Some("name@example.org"));
 
-        c("Aldous L. Huxley <huxley@old-world.org>", true,
-          Some("Aldous L. Huxley"), None,
-          Some("huxley@old-world.org"), None);
+        // Examples from dkg's mail:
+        g &= c("Björn Björnson <bjoern@example.net>",
+          Some("Björn Björnson"), None, Some("bjoern@example.net"));
+        // We explicitly don't support RFC 2047 so the following is
+        // correctly not escaped.
+        g &= c("Bj=?utf-8?q?=C3=B6?=rn Bj=?utf-8?q?=C3=B6?=rnson \
+           <bjoern@example.net>",
+          Some("Bj=?utf-8?q?=C3=B6?=rn Bj=?utf-8?q?=C3=B6?=rnson"),
+          None, Some("bjoern@example.net"));
+        g &= c("Acme Industries, Inc. <info@acme.example>",
+          Some("Acme Industries, Inc."), None, Some("info@acme.example"));
+        g &= c("Michael O'Brian <obrian@example.biz>",
+          Some("Michael O'Brian"), None, Some("obrian@example.biz"));
+        g &= c("Smith, John <jsmith@example.com>",
+          Some("Smith, John"), None, Some("jsmith@example.com"));
+        g &= c("mariag@example.org",
+          None, None, Some("mariag@example.org"));
+        g &= c("joe@example.net <joe@example.net>",
+          Some("joe@example.net"), None, Some("joe@example.net"));
+        g &= c("иван.сергеев@пример.рф",
+          None, None, Some("иван.сергеев@пример.рф"));
+        g &= c("Dörte@Sörensen.example.com",
+          None, None, Some("Dörte@Sörensen.example.com"));
 
-        // Make sure bare email addresses work.  This is an extension
-        // to 2822 where addresses normally have to be in angle
-        // brackets.
-        c("huxley@old-world.org", true,
-          None, None, Some("huxley@old-world.org"), None);
+        // Some craziness.
 
-        // Tricky...
-        c("\"<loki@bar.com>\" <foo@bar.com>", true,
-          Some("<loki@bar.com>"), None, Some("foo@bar.com"), None);
+        g &= c("Vorname Nachname, Dr.",
+               Some("Vorname Nachname, Dr."), None, None);
+        g &= c("Vorname Nachname, Dr. <dr@example.org>",
+               Some("Vorname Nachname, Dr."), None, Some("dr@example.org"));
 
-        // Invalid.
-        c("<huxley@@old-world.org>", true,
-          None, None, None, Some("huxley@@old-world.org"));
-        c("huxley@@old-world.org", true,
-          None, None, None, Some("huxley@@old-world.org"));
-        c("huxley@old-world.org.", true,
-          None, None, None, Some("huxley@old-world.org."));
-        c("@old-world.org", true,
-          None, None, None, Some("@old-world.org"));
+        // Only the last comment counts as a comment.  The rest if
+        // part of the name.
+        g &= c("Foo (Bar) (Baz)",
+          Some("Foo (Bar)"), Some("Baz"), None);
+        // The same with extra whitespace.
+        g &= c("Foo  (Bar)  (Baz)",
+          Some("Foo  (Bar)"), Some("Baz"), None);
+        g &= c("Foo  (Bar  (Baz)",
+          Some("Foo  (Bar"), Some("Baz"), None);
+
+        // Make sure whitespace is stipped.
+        g &= c("  Name   Last   (   some  comment )   <name@example.org>",
+               Some("Name   Last"), Some("some  comment"),
+               Some("name@example.org"));
+
+        // Make sure an email is a comment is recognized as a comment.
+        g &= c(" Name Last (email@example.org)",
+               Some("Name Last"), Some("email@example.org"), None);
+
+        // Quoting in the local part of the email address is not
+        // allowed, but it is recognized as a name.  That's fine.
+        g &= c("\"user\"@example.org",
+               Some("\"user\"@example.org"), None, None);
+        // Even unbalanced quotes.
+        g &= c("\"user@example.org",
+               Some("\"user@example.org"), None, None);
+
+        g &= c("Henry Ford (CEO) <henry@ford.com>",
+               Some("Henry Ford"), Some("CEO"), Some("henry@ford.com"));
+
+        g &= c("Thomas \"Tomakin\" (DHC) <thomas@clh.co.uk>",
+               Some("Thomas \"Tomakin\""), Some("DHC"),
+               Some("thomas@clh.co.uk"));
+
+        g &= c("Aldous L. Huxley <huxley@old-world.org>",
+               Some("Aldous L. Huxley"), None,
+               Some("huxley@old-world.org"));
+
+        if !g {
+            panic!("Parse error");
+        }
+    }
+
+    // Make sure we can't parse non conventional User IDs.
+    #[test]
+    fn decompose_non_conventional() {
+        // Emptry string is not allowed.
+        assert!(ConventionallyParsedUserID::new("").is_err());
+        // Likewise, only whitespace.
+        assert!(ConventionallyParsedUserID::new(" ").is_err());
+        assert!(ConventionallyParsedUserID::new("   ").is_err());
+
+        // Double dots are not allowed.
+        assert!(ConventionallyParsedUserID::new(
+            "<a..b@example.org>").is_err());
+        // Nor are dots at the start or end of the local part.
+        assert!(ConventionallyParsedUserID::new(
+            "<dr.@example.org>").is_err());
+        assert!(ConventionallyParsedUserID::new(
+            "<.drb@example.org>").is_err());
+
+        assert!(ConventionallyParsedUserID::new(
+            "<hallo> <hello@example.org>").is_err());
+        assert!(ConventionallyParsedUserID::new(
+            "<hallo <hello@example.org>").is_err());
+        assert!(ConventionallyParsedUserID::new(
+            "hallo> <hello@example.org>").is_err());
+
+        // No @.
+        assert!(ConventionallyParsedUserID::new(
+            "foo <example.org>").is_err());
+        // Two @s.
+        assert!(ConventionallyParsedUserID::new(
+            "Huxley <huxley@@old-world.org>").is_err());
+
+        // Unfortunately, the following is accepted as a name:
+        //
+        // assert!(ConventionallyParsedUserID::new(
+        //     "huxley@@old-world.org").is_err());
+
+        // No local part.
+        assert!(ConventionallyParsedUserID::new(
+            "foo <@example.org>").is_err());
+
+        // No leading/ending dot in the email address.
+        assert!(ConventionallyParsedUserID::new(
+            "<huxley@.old-world.org>").is_err());
+        assert!(ConventionallyParsedUserID::new(
+            "<huxley@old-world.org.>").is_err());
+
+        // Unfortunately, the following are recognized as names:
+        //
+        // assert!(ConventionallyParsedUserID::new(
+        //     "huxley@.old-world.org").is_err());
+        // assert!(ConventionallyParsedUserID::new(
+        //     "huxley@old-world.org.").is_err());
+
+        // Need something in the local part.
+        assert!(ConventionallyParsedUserID::new(
+            "<@old-world.org>").is_err());
+
+        // Unfortunately, the following is recognized as a name:
+        //
+        // assert!(ConventionallyParsedUserID::new(
+        //     "@old-world.org").is_err());
     }
 
     #[test]
-    fn address_normalized() {
+    fn email_normalized() {
         fn c(value: &str, expected: &str) {
             let u = UserID::from(value);
-            let got = u.address_normalized().unwrap().unwrap();
+            let got = u.email_normalized().unwrap().unwrap();
             assert_eq!(expected, got);
         }
 
@@ -627,6 +902,6 @@ mod tests {
         assert!(UserID::from_address(None, None, "foo@@bar.com").is_err());
         assert_eq!(UserID::from_address("Foo Q. Bar".into(), None, "foo@bar.com")
                       .unwrap().value(),
-                   b"\"Foo Q. Bar\" <foo@bar.com>");
+                   b"Foo Q. Bar <foo@bar.com>");
     }
 }

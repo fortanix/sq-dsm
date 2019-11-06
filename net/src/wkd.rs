@@ -240,7 +240,7 @@ fn parse_body<S: AsRef<str>>(body: &[u8], email_address: S)
         // method to maintain
         .filter(|tpk| {tpk.userids()
             .any(|uidb|
-                if let Ok(Some(a)) = uidb.userid().address() {
+                if let Ok(Some(a)) = uidb.userid().email() {
                     a == email_address
                 } else { false })
         }).cloned().collect();
@@ -350,7 +350,7 @@ pub fn insert<P, S, V>(base_path: P, domain: S, variant: V,
 
     // First, check which UserIDs are in `domain`.
     let addresses = tpk.userids().filter_map(|uidb| {
-        uidb.userid().address().unwrap_or(None).and_then(|addr| {
+        uidb.userid().email().unwrap_or(None).and_then(|addr| {
             if EmailAddress::from(&addr).ok().map(|e| e.domain == domain)
                 .unwrap_or(false)
             {

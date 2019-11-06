@@ -292,7 +292,7 @@ fn real_main() -> Result<(), failure::Error> {
                     let addr = m.value_of("address").map(|a| a.to_string())
                         .or_else(|| {
                             if let Some(Ok(Some(a))) =
-                                tpk.userids().nth(0).map(|u| u.userid().address())
+                                tpk.userids().nth(0).map(|u| u.userid().email())
                             {
                                 Some(a)
                             } else {

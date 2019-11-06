@@ -128,7 +128,7 @@ impl AutocryptHeader {
         // The UserIDs matching ADDR.
         for uidb in tpk.userids() {
             // XXX: Fix match once we have the rfc2822-name-addr.
-            if let Ok(Some(a)) = uidb.userid().address() {
+            if let Ok(Some(a)) = uidb.userid().email() {
                 if &a == addr {
                     acc.push(uidb.userid().clone().into());
                     uidb.self_signatures().iter().take(1)

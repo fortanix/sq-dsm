@@ -1063,11 +1063,8 @@ pgp_key_pair_t pgp_key_into_key_pair (pgp_error_t *errp, pgp_key_t key);
 /*/
 /// Constructs a User ID.
 ///
-/// This escapes the name.  The comment and address must be well
-/// formed according to RFC 2822.  Only the address is required.
-///
-/// If you already have a full RFC 2822 mailbox, then you can just
-/// use `UserID::from()`.
+/// This does a basic check and any necessary escaping to form a de
+/// factor User ID.  Only the address is required.
 /*/
 pgp_packet_t pgp_user_id_from_address (pgp_error_t *errp,
                                        const char *name,
@@ -1077,14 +1074,11 @@ pgp_packet_t pgp_user_id_from_address (pgp_error_t *errp,
 /*/
 /// Constructs a User ID.
 ///
-/// This escapes the name.  The comment must be well formed, the
-/// address can be arbitrary.
+/// This does a basic check and any necessary escaping to form a de
+/// factor User ID.  The address is not checked.
 ///
 /// This is useful when you want to specify a URI instead of an
 /// email address.
-///
-/// If you have a full RFC 2822 mailbox, then you can just use
-/// `UserID::from()`.
 /*/
 pgp_packet_t pgp_user_id_from_unchecked_address (pgp_error_t *errp,
                                                  const char *name,
@@ -1111,44 +1105,29 @@ const uint8_t *pgp_user_id_value (pgp_packet_t uid,
 				 size_t *value_len);
 
 /*/
-/// Returns the User ID's display name, if any.
+/// Returns the User ID's name component, if any.
 ///
-/// The User ID is parsed as an [RFC 2822 mailbox], and the display
-/// name is extracted.
+/// The User ID is parsed according to de factor convention, and the
+/// name component is extracted.
 ///
-/// Note: invalid email addresses are accepted in order to support
-/// things like URIs of the form `Hostname
-/// <ssh://server@example.net>`.
+/// If the User ID cannot be parsed, then an error is returned.
 ///
-/// If the User ID is otherwise not a valid RFC 2822 mailbox
-/// production, then an error is returned.
-///
-///
-/// If the User ID does not contain a display, *name is set
-/// to NULL.
-///
-///   [RFC 2822 mailbox]: https://tools.ietf.org/html/rfc2822#section-3.4
+/// If the User ID does not contain a name component, *namep is set to
+/// NULL.
 /*/
 pgp_status_t pgp_user_id_name(pgp_error_t *errp, pgp_packet_t uid,
                               char **namep);
 
 /*/
-/// Returns the User ID's comment, if any.
+/// Returns the User ID's comment field, if any.
 ///
-/// The User ID is parsed as an [RFC 2822 mailbox], and the first
-/// comment is extracted.
+/// The User ID is parsed according to de factor convention, and the
+/// comment field is extracted.
 ///
-/// Note: invalid email addresses are accepted in order to support
-/// things like URIs of the form `Hostname
-/// <ssh://server@example.net>`.
-///
-/// If the User ID is otherwise not a valid RFC 2822 mailbox
-/// production, then an error is returned.
+/// If the User ID cannot be parsed, then an error is returned.
 ///
 /// If the User ID does not contain a comment, *commentp is set
 /// to NULL.
-///
-///   [RFC 2822 mailbox]: https://tools.ietf.org/html/rfc2822#section-3.4
 /*/
 pgp_status_t pgp_user_id_comment(pgp_error_t *errp, pgp_packet_t uid,
                                  char **commentp);
@@ -1156,65 +1135,16 @@ pgp_status_t pgp_user_id_comment(pgp_error_t *errp, pgp_packet_t uid,
 /*/
 /// Returns the User ID's email address, if any.
 ///
-/// The User ID is parsed as an [RFC 2822 mailbox], and the email
-/// address is extracted.
+/// The User ID is parsed according to de factor convention, and the
+/// email address is extracted.
 ///
-/// Note: invalid email addresses are accepted in order to support
-/// things like URIs of the form `Hostname
-/// <ssh://server@example.net>`.
-///
-/// If the User ID is otherwise not a valid RFC 2822 mailbox
-/// production, then an error is returned.
+/// If the User ID cannot be parsed, then an error is returned.
 ///
 /// If the User ID does not contain an email address, *addressp is set
 /// to NULL.
-///
-///   [RFC 2822 mailbox]: https://tools.ietf.org/html/rfc2822#section-3.4
 /*/
-pgp_status_t pgp_user_id_address(pgp_error_t *errp, pgp_packet_t uid,
-                                 char **addressp);
-
-/*/
-/// Returns the User ID's invalid address, if any.
-///
-/// The User ID is parsed as an [RFC 2822 mailbox], and if the address
-/// is invalid, that is returned.
-///
-/// Note: invalid email addresses are accepted in order to support
-/// things like URIs of the form `Hostname
-/// <ssh://server@example.net>`.
-///
-/// If the User ID is otherwise not a valid RFC 2822 mailbox
-/// production, then an error is returned.
-///
-/// If the User ID does not contain an invalid address, *otherp is
-/// set to NULL.
-///
-///   [RFC 2822 mailbox]: https://tools.ietf.org/html/rfc2822#section-3.4
-/*/
-pgp_status_t pgp_user_id_other(pgp_error_t *errp, pgp_packet_t uid,
-                               char **addressp);
-
-/*/
-/// Returns the User ID's email address, if any.
-///
-/// The User ID is parsed as an [RFC 2822 mailbox], and the email
-/// address, whether it is valid or not, is extracted.
-///
-/// Note: invalid email addresses are accepted in order to support
-/// things like URIs of the form `Hostname
-/// <ssh://server@example.net>`.
-///
-/// If the User ID is otherwise not a valid RFC 2822 mailbox
-/// production, then an error is returned.
-///
-/// If the User ID does not contain an address (valid or invalid),
-/// *addressp is set to NULL.
-///
-///   [RFC 2822 mailbox]: https://tools.ietf.org/html/rfc2822#section-3.4
-/*/
-pgp_status_t pgp_user_id_address_or_other(pgp_error_t *errp, pgp_packet_t uid,
-                                          char **addressp);
+pgp_status_t pgp_user_id_email(pgp_error_t *errp, pgp_packet_t uid,
+                               char **emailp);
 
 /*/
 /// Returns a normalized version of the UserID's email address.
@@ -1236,8 +1166,8 @@ pgp_status_t pgp_user_id_address_or_other(pgp_error_t *errp, pgp_packet_t uid,
 ///   [empty locale]: https://www.w3.org/International/wiki/Case_folding
 ///   [Autocryt]: https://autocrypt.org/level1.html#e-mail-address-canonicalization
 /*/
-pgp_status_t pgp_user_id_address_normalized(pgp_error_t *errp, pgp_packet_t uid,
-                                            char **addressp);
+pgp_status_t pgp_user_id_email_normalized(pgp_error_t *errp, pgp_packet_t uid,
+                                          char **emailp);
 
 /*/
 /// Returns the value of the User Attribute Packet.
