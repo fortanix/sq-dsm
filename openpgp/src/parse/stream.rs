@@ -1555,6 +1555,7 @@ mod test {
     use failure;
     use super::*;
     use crate::parse::Parse;
+    use crate::vec_truncate;
 
     #[derive(Debug, PartialEq)]
     struct VHelper {
@@ -1815,12 +1816,12 @@ mod test {
                         Ok(0) => break,
                         Ok(l) => {
                             offset += l;
-                            got.truncate(offset);
+                            vec_truncate(&mut got, offset);
                         },
                         Err(err) => panic!("Error reading data: {:?}", err),
                     }
                 }
-                got.truncate(offset);
+                vec_truncate(&mut got, offset);
                 assert!(v.message_processed());
                 assert_eq!(got.len(), content.len());
                 assert_eq!(got, &content[..]);
@@ -1844,13 +1845,13 @@ mod test {
                         Ok(0) => break,
                         Ok(l) => {
                             offset += l;
-                            got.truncate(offset);
+                            vec_truncate(&mut got, offset);
                         },
                         Err(err) => panic!("Error reading data: {:?}", err),
                     }
                 }
                 assert!(v.message_processed());
-                got.truncate(offset);
+                vec_truncate(&mut got, offset);
                 assert_eq!(got.len(), content.len());
                 assert_eq!(got, &content[..]);
             }
