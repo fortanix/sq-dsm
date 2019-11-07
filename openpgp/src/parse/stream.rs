@@ -1555,7 +1555,6 @@ mod test {
     use failure;
     use super::*;
     use crate::parse::Parse;
-    use crate::vec_truncate;
 
     #[derive(Debug, PartialEq)]
     struct VHelper {
@@ -1793,6 +1792,31 @@ mod test {
             .map(|f| TPK::from_bytes(crate::tests::key(f)).unwrap())
             .collect::<Vec<_>>();
 
+        let mut buffer = Vec::with_capacity(104 * 1024 * 1024);
+        buffer.resize(buffer.capacity(), 0);
+
+        let read_to_end = |v: &mut Verifier<_>, l, buffer: &mut Vec<_>| {
+            let mut offset = 0;
+            loop {
+                if offset + l > buffer.len() {
+                    if buffer.len() < buffer.capacity() {
+                        // Use the available capacity.
+                        buffer.resize(buffer.capacity(), 0);
+                    } else {
+                        // Double the capacity and size.
+                        buffer.resize(buffer.capacity() * 2, 0);
+                    }
+                }
+                match v.read(&mut buffer[offset..offset + l]) {
+                    Ok(0) => break,
+                    Ok(l) => offset += l,
+                    Err(err) => panic!("Error reading data: {:?}", err),
+                }
+            }
+
+            offset
+        };
+
         for test in tests.iter() {
             let sig = test.sig;
             let content = test.content;
@@ -1808,21 +1832,9 @@ mod test {
                 let mut v = DetachedVerifier::from_bytes(
                     sig, content, h, reference).unwrap();
 
-                let mut got = Vec::with_capacity(100 * 1024 * 1024);
-                let mut offset = 0;
-                loop {
-                    got.resize(got.len() + l, 0);
-                    match v.read(&mut got[offset..offset + l]) {
-                        Ok(0) => break,
-                        Ok(l) => {
-                            offset += l;
-                            vec_truncate(&mut got, offset);
-                        },
-                        Err(err) => panic!("Error reading data: {:?}", err),
-                    }
-                }
-                vec_truncate(&mut got, offset);
+                let got = read_to_end(&mut v, l, &mut buffer);
                 assert!(v.message_processed());
+                let got = &buffer[..got];
                 assert_eq!(got.len(), content.len());
                 assert_eq!(got, &content[..]);
 
@@ -1837,21 +1849,9 @@ mod test {
                     Cursor::new(sig), Cursor::new(content),
                     h, reference).unwrap();
 
-                let mut got = Vec::with_capacity(1024 * 1024);
-                let mut offset = 0;
-                loop {
-                    got.resize(got.len() + l, 0);
-                    match v.read(&mut got[offset..offset + l]) {
-                        Ok(0) => break,
-                        Ok(l) => {
-                            offset += l;
-                            vec_truncate(&mut got, offset);
-                        },
-                        Err(err) => panic!("Error reading data: {:?}", err),
-                    }
-                }
+                let got = read_to_end(&mut v, l, &mut buffer);
+                let got = &buffer[..got];
                 assert!(v.message_processed());
-                vec_truncate(&mut got, offset);
                 assert_eq!(got.len(), content.len());
                 assert_eq!(got, &content[..]);
             }
