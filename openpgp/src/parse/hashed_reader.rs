@@ -39,7 +39,8 @@ impl<R: BufferedReader<Cookie>> HashedReader<R> {
             -> Self {
         let mut cookie = Cookie::default();
         for &algo in &algos {
-            cookie.sig_group_mut().hashes.insert(algo, algo.context().unwrap());
+            cookie.sig_group_mut().hashes
+                .push((algo, algo.context().unwrap()));
         }
         cookie.hashes_for = hashes_for;
 

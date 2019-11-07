@@ -193,7 +193,7 @@ pub fn hash_file<R: Read>(reader: R, algos: &[HashAlgorithm])
     let mut hashes =
         mem::replace(&mut reader.cookie_mut().sig_group_mut().hashes,
                      Default::default());
-    let hashes = hashes.drain().collect();
+    let hashes = hashes.drain(..).collect();
     Ok(hashes)
 }
 

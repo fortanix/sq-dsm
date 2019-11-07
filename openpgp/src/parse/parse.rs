@@ -2,7 +2,6 @@ use std;
 use std::io;
 use std::io::prelude::*;
 use std::cmp;
-use std::collections::HashMap;
 use std::str;
 use std::mem;
 use std::fmt;
@@ -489,12 +488,12 @@ pub(crate) struct SignatureGroup {
     ops_count: usize,
 
     /// Maps hash algorithms to hash contexts.
-    pub(crate) hashes: HashMap<HashAlgorithm, crypto::hash::Context>,
+    pub(crate) hashes: Vec<(HashAlgorithm, crypto::hash::Context)>,
 }
 
 impl fmt::Debug for SignatureGroup {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let algos = self.hashes.keys()
+        let algos = self.hashes.iter().map(|(a, _)| a)
             .collect::<Vec<&HashAlgorithm>>();
 
         f.debug_struct("Cookie")
@@ -508,7 +507,7 @@ impl Default for SignatureGroup {
     fn default() -> Self {
         SignatureGroup {
             ops_count: 0,
-            hashes: HashMap::new(),
+            hashes: Default::default(),
         }
     }
 }
@@ -1051,7 +1050,12 @@ impl Signature4 {
                     if cookie.hashes_for == HashesFor::Signature {
                         cookie.sig_group_mut().ops_count -= 1;
                         if let Some(hash) =
-                            cookie.sig_group().hashes.get(&hash_algo)
+                            cookie.sig_group().hashes.iter().find_map(
+                                |(a, h)| if *a == hash_algo {
+                                    Some(h)
+                                } else {
+                                    None
+                                })
                         {
                             t!("popped a {:?} HashedReader", hash_algo);
                             computed_hash = Some((cookie.signature_level(),
@@ -1224,11 +1228,11 @@ impl OnePassSig3 {
                                 // Make sure that it uses the required
                                 // hash algorithm.
                                 if ! cookie.sig_group()
-                                    .hashes.contains_key(&hash_algo)
+                                    .hashes.iter().any(|(a, _)| *a == hash_algo)
                                 {
                                     if let Ok(ctx) = hash_algo.context() {
                                         cookie.sig_group_mut()
-                                            .hashes.insert(hash_algo, ctx);
+                                            .hashes.push((hash_algo, ctx));
                                     }
                                 }
 
@@ -2023,8 +2027,13 @@ impl MDC {
                     if state.hashes_for == HashesFor::MDC {
                         if state.sig_group().hashes.len() > 0 {
                             let h = state.sig_group_mut().hashes
-                                .get_mut(&HashAlgorithm::SHA1)
-                                .unwrap();
+                                .iter_mut().find_map(
+                                    |(a, h)|
+                                    if *a == HashAlgorithm::SHA1 {
+                                        Some(h)
+                                    } else {
+                                        None
+                                    }).unwrap();
                             h.digest(&mut computed_hash);
                         }
 
