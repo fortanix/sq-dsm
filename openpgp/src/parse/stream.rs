@@ -1762,8 +1762,9 @@ mod test {
         assert!(v.message_processed());
     }
 
-    #[test]
-    fn detached_verifier() {
+    // This test is relatively long running in debug mode.  Split it
+    // up.
+    fn detached_verifier_read_size(l: usize) {
         use crate::conversions::Time;
 
         struct Test<'a> {
@@ -1822,40 +1823,48 @@ mod test {
             let content = test.content;
             let reference = test.reference;
 
-            // Transformer::read_helper rounds up to 4 MB chunks try
-            // chunk sizes around that size.
-            for l in [ 4 * 1024 * 1024 - 1,
-                       4 * 1024 * 1024,
-                       4 * 1024 * 1024 + 1
-            ].iter() {
-                let h = VHelper::new(0, 0, 0, 0, keys.clone());
-                let mut v = DetachedVerifier::from_bytes(
-                    sig, content, h, reference).unwrap();
+            let h = VHelper::new(0, 0, 0, 0, keys.clone());
+            let mut v = DetachedVerifier::from_bytes(
+                sig, content, h, reference).unwrap();
 
-                let got = read_to_end(&mut v, l, &mut buffer);
-                assert!(v.message_processed());
-                let got = &buffer[..got];
-                assert_eq!(got.len(), content.len());
-                assert_eq!(got, &content[..]);
+            let got = read_to_end(&mut v, l, &mut buffer);
+            assert!(v.message_processed());
+            let got = &buffer[..got];
+            assert_eq!(got.len(), content.len());
+            assert_eq!(got, &content[..]);
 
-                let h = v.into_helper();
-                assert_eq!(h.good, 1);
-                assert_eq!(h.bad, 0);
+            let h = v.into_helper();
+            assert_eq!(h.good, 1);
+            assert_eq!(h.bad, 0);
 
-                // Same, but with readers.
-                use std::io::Cursor;
-                let h = VHelper::new(0, 0, 0, 0, keys.clone());
-                let mut v = DetachedVerifier::from_reader(
-                    Cursor::new(sig), Cursor::new(content),
-                    h, reference).unwrap();
+            // Same, but with readers.
+            use std::io::Cursor;
+            let h = VHelper::new(0, 0, 0, 0, keys.clone());
+            let mut v = DetachedVerifier::from_reader(
+                Cursor::new(sig), Cursor::new(content),
+                h, reference).unwrap();
 
-                let got = read_to_end(&mut v, l, &mut buffer);
-                let got = &buffer[..got];
-                assert!(v.message_processed());
-                assert_eq!(got.len(), content.len());
-                assert_eq!(got, &content[..]);
-            }
+            let got = read_to_end(&mut v, l, &mut buffer);
+            let got = &buffer[..got];
+            assert!(v.message_processed());
+            assert_eq!(got.len(), content.len());
+            assert_eq!(got, &content[..]);
         }
+    }
+
+    #[test]
+    fn detached_verifier1() {
+        // Transformer::read_helper rounds up to 4 MB chunks try
+        // chunk sizes around that size.
+        detached_verifier_read_size(4 * 1024 * 1024 - 1);
+    }
+    #[test]
+    fn detached_verifier2() {
+        detached_verifier_read_size(4 * 1024 * 1024);
+    }
+    #[test]
+    fn detached_verifier3() {
+        detached_verifier_read_size(4 * 1024 * 1024 + 1);
     }
 
     #[test]
