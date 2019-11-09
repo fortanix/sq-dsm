@@ -13,7 +13,6 @@ test:
     - if ! git diff --quiet ; then echo "Please run 'make -C tool update-usage' and commit the result." ; false ; fi
     - make -C sqv update-usage
     - if ! git diff --quiet ; then echo "Please run 'make -C sqv update-usage' and commit the result." ; false ; fi
-    - cargo clean -p buffered-reader -p sequoia-openpgp -p sequoia-openpgp-ffi -p sequoia-core -p sequoia-ffi -p sequoia-ffi-macros -p sequoia-ipc -p sequoia-net -p sequoia-store -p sequoia-tool -p sequoia-sqv -p sequoia-guide
     - find $CARGO_TARGET_DIR -type f -atime +7 -delete
     - du -sh $CARGO_TARGET_DIR
     - du -sh $CARGO_HOME
