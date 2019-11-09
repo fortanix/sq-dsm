@@ -578,6 +578,60 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
         Ok(())
     }
 
+    // Verify the signatures.  This can only be called once the
+    // message has been fully processed.
+    fn check_signatures(&mut self) -> Result<()> {
+        assert!(self.oppr.is_none());
+
+        // Verify the signatures.
+        let mut results = MessageStructure::new();
+        for layer in ::std::mem::replace(&mut self.structure,
+                                         IMessageStructure::new())
+            .layers.into_iter()
+        {
+            match layer {
+                IMessageLayer::Compression { algo } =>
+                    results.new_compression_layer(algo),
+                IMessageLayer::Encryption { .. } =>
+                    unreachable!("not decrypting messages"),
+                IMessageLayer::SignatureGroup { sigs, .. } => {
+                    results.new_signature_group();
+                    for sig in sigs.into_iter() {
+                        results.push_verification_result(
+                            if let Some(issuer) = sig.get_issuer() {
+                                if let Some((i, j)) =
+                                    self.keys.get(&issuer)
+                                {
+                                    let tpk = &self.tpks[*i];
+                                    let (binding, revocation, key)
+                                        = tpk.keys_all().nth(*j)
+                                        .unwrap();
+                                    if sig.verify(key).unwrap_or(false)
+                                        && sig.signature_alive(self.time)
+                                    {
+                                        VerificationResult::GoodChecksum
+                                            (sig, tpk, key, binding,
+                                             revocation)
+                                    } else {
+                                        VerificationResult::BadChecksum
+                                            (sig)
+                                    }
+                                } else {
+                                    VerificationResult::MissingKey(sig)
+                                }
+                            } else {
+                                // No issuer.
+                                VerificationResult::BadChecksum(sig)
+                            }
+                        )
+                    }
+                },
+            }
+        }
+
+        self.helper.check(&results)
+    }
+
     // If the amount of remaining data does not exceed the reserve,
     // finish processing the OpenPGP packet sequence.
     //
@@ -587,6 +641,9 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
             // Check if we hit EOF.
             let data_len = pp.data(BUFFER_SIZE + 1)?.len();
             if data_len <= BUFFER_SIZE {
+                let data_len = pp.data(BUFFER_SIZE + 1)?.len();
+                assert!(data_len <= BUFFER_SIZE);
+
                 // Stash the reserve.
                 self.reserve = Some(pp.steal_eof()?);
 
@@ -603,53 +660,7 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
                     ppr = ppr_tmp;
                 }
 
-                // Verify the signatures.
-                let mut results = MessageStructure::new();
-                for layer in ::std::mem::replace(&mut self.structure,
-                                                 IMessageStructure::new())
-                    .layers.into_iter()
-                {
-                    match layer {
-                        IMessageLayer::Compression { algo } =>
-                            results.new_compression_layer(algo),
-                        IMessageLayer::Encryption { .. } =>
-                            unreachable!("not decrypting messages"),
-                        IMessageLayer::SignatureGroup { sigs, .. } => {
-                            results.new_signature_group();
-                            for sig in sigs.into_iter() {
-                                results.push_verification_result(
-                                    if let Some(issuer) = sig.get_issuer() {
-                                        if let Some((i, j)) =
-                                            self.keys.get(&issuer)
-                                        {
-                                            let tpk = &self.tpks[*i];
-                                            let (binding, revocation, key)
-                                                = tpk.keys_all().nth(*j)
-                                                .unwrap();
-                                            if sig.verify(key).unwrap_or(false)
-                                                && sig.signature_alive(self.time)
-                                            {
-                                                VerificationResult::GoodChecksum
-                                                    (sig, tpk, key, binding,
-                                                     revocation)
-                                            } else {
-                                                VerificationResult::BadChecksum
-                                                    (sig)
-                                            }
-                                        } else {
-                                            VerificationResult::MissingKey(sig)
-                                        }
-                                    } else {
-                                        // No issuer.
-                                        VerificationResult::BadChecksum(sig)
-                                    }
-                                )
-                            }
-                        },
-                    }
-                }
-
-                self.helper.check(&results)
+                self.check_signatures()
             } else {
                 self.oppr = Some(PacketParserResult::Some(pp));
                 Ok(())
