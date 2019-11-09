@@ -229,6 +229,7 @@ impl<'a> VHelper<'a> {
         for result in results {
             let (issuer, level) = match result {
                 GoodChecksum(ref sig, ..) => (sig.get_issuer(), sig.level()),
+                NotAlive(ref sig) => (sig.get_issuer(), sig.level()),
                 MissingKey(ref sig) => (sig.get_issuer(), sig.level()),
                 BadChecksum(ref sig) => (sig.get_issuer(), sig.level()),
             };
@@ -256,6 +257,23 @@ impl<'a> VHelper<'a> {
                         self.good_signatures += 1;
                     } else {
                         self.good_checksums += 1;
+                    }
+                },
+                NotAlive(_) => {
+                    if let Some(issuer) = issuer {
+                        let issuer_str = format!("{}", issuer);
+                        eprintln!("Good, but not alive {} from {}", what,
+                                  self.labels.get(&issuer).unwrap_or(
+                                      &issuer_str));
+                    } else {
+                        eprintln!("Good, but not alive signature from {} \
+                                   without issuer information",
+                                  what);
+                    }
+                    if trusted {
+                        self.bad_signatures += 1;
+                    } else {
+                        self.bad_checksums += 1;
                     }
                 },
                 MissingKey(_) => {

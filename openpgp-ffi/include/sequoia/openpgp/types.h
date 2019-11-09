@@ -480,6 +480,7 @@ typedef enum pgp_verification_result_variant {
   PGP_VERIFICATION_RESULT_GOOD_CHECKSUM = 1,
   PGP_VERIFICATION_RESULT_MISSING_KEY = 2,
   PGP_VERIFICATION_RESULT_BAD_CHECKSUM = 3,
+  PGP_VERIFICATION_RESULT_NOT_ALIVE = 4,
 
   /* Dummy value to make sure the enumeration has a defined size.  Do
      not use this value.  */

@@ -131,6 +131,12 @@ impl VerificationHelper for Helper {
                                     .expect("good checksum has an issuer");
                                 eprintln!("Good signature from {}", issuer);
                             },
+                            NotAlive(ref sig) => {
+                                let issuer = sig.issuer()
+                                    .expect("not alive has an issuer");
+                                eprintln!("Good, but not alive signature from {}",
+                                          issuer);
+                            },
                             MissingKey(ref sig) => {
                                 let issuer = sig.issuer()
                                     .expect("missing key checksum has an \

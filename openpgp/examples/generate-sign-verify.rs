@@ -108,6 +108,9 @@ impl<'a> VerificationHelper for Helper<'a> {
                     match results.get(0) {
                         Some(VerificationResult::GoodChecksum(..)) =>
                             good = true,
+                        Some(VerificationResult::NotAlive(..)) =>
+                            return Err(failure::err_msg(
+                                "Signature good, but not alive")),
                         Some(VerificationResult::MissingKey(_)) =>
                             return Err(failure::err_msg(
                                 "Missing key to verify signature")),

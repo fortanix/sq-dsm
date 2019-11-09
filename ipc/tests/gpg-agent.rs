@@ -162,6 +162,9 @@ fn sign() {
                         match results.get(0) {
                             Some(VerificationResult::GoodChecksum(..)) =>
                                 good = true,
+                            Some(VerificationResult::NotAlive(_)) =>
+                                return Err(failure::err_msg(
+                                    "Good, but not live signature")),
                             Some(VerificationResult::MissingKey(_)) =>
                                 return Err(failure::err_msg(
                                     "Missing key to verify signature")),

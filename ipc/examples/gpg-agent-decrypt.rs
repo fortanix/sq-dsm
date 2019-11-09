@@ -138,6 +138,13 @@ impl<'a> VerificationHelper for Helper<'a> {
                                     .expect("good checksum has an issuer");
                                 eprintln!("Good signature from {}", issuer);
                             },
+                            NotAlive(ref sig) => {
+                                let issuer = sig.issuer()
+                                    .expect("Good, but not live signature has an \
+                                             issuer");
+                                eprintln!("Good, but not live signature from {}",
+                                          issuer);
+                            },
                             MissingKey(ref sig) => {
                                 let issuer = sig.issuer()
                                     .expect("missing key checksum has an \

@@ -152,6 +152,12 @@ pub enum VerificationResult<'a> {
                  &'a key::UnspecifiedPublic,
                  Option<&'a Signature>,
                  RevocationStatus<'a>),
+    /// The signature is good, but it is not alive at the specified
+    /// time.
+    ///
+    /// See `SubpacketAreas::signature_alive` for a definition of
+    /// liveness.
+    NotAlive(Signature),
     /// Unable to verify the signature because the key is missing.
     MissingKey(Signature),
     /// The signature is bad.
@@ -164,6 +170,7 @@ impl<'a> VerificationResult<'a> {
         use self::VerificationResult::*;
         match self {
             &GoodChecksum(ref sig, ..) => sig.level(),
+            &NotAlive(ref sig, ..) => sig.level(),
             &MissingKey(ref sig) => sig.level(),
             &BadChecksum(ref sig) => sig.level(),
         }
@@ -597,33 +604,34 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
                 IMessageLayer::SignatureGroup { sigs, .. } => {
                     results.new_signature_group();
                     for sig in sigs.into_iter() {
-                        results.push_verification_result(
-                            if let Some(issuer) = sig.get_issuer() {
-                                if let Some((i, j)) =
-                                    self.keys.get(&issuer)
-                                {
-                                    let tpk = &self.tpks[*i];
-                                    let (binding, revocation, key)
-                                        = tpk.keys_all().nth(*j)
-                                        .unwrap();
-                                    if sig.verify(key).unwrap_or(false)
-                                        && sig.signature_alive(self.time)
-                                    {
+                        let r = if let Some(issuer) = sig.get_issuer() {
+                            if let Some((i, j)) =
+                                self.keys.get(&issuer)
+                            {
+                                let tpk = &self.tpks[*i];
+                                let (binding, revocation, key)
+                                    = tpk.keys_all().nth(*j).unwrap();
+                                if sig.verify(key).unwrap_or(false) {
+                                    if sig.signature_alive(self.time) {
                                         VerificationResult::GoodChecksum
                                             (sig, tpk, key, binding,
                                              revocation)
+                                    } else if !sig.signature_alive(self.time) {
+                                        VerificationResult::NotAlive(sig)
                                     } else {
-                                        VerificationResult::BadChecksum
-                                            (sig)
+                                        VerificationResult::BadChecksum(sig)
                                     }
                                 } else {
-                                    VerificationResult::MissingKey(sig)
+                                    VerificationResult::BadChecksum(sig)
                                 }
                             } else {
-                                // No issuer.
-                                VerificationResult::BadChecksum(sig)
+                                VerificationResult::MissingKey(sig)
                             }
-                        )
+                        } else {
+                            // No issuer.
+                            VerificationResult::BadChecksum(sig)
+                        };
+                        results.push_verification_result(r)
                     }
                 },
             }
@@ -1614,6 +1622,7 @@ mod test {
                             match result {
                                 GoodChecksum(..) => self.good += 1,
                                 MissingKey(_) => self.unknown += 1,
+                                NotAlive(_) => self.bad += 1,
                                 BadChecksum(_) => self.bad += 1,
                             }
                         }

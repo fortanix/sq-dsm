@@ -172,6 +172,7 @@ fn pgp_verification_result_variant(result: *const VerificationResult)
         GoodChecksum(..) => 1,
         MissingKey(_) => 2,
         BadChecksum(_) => 3,
+        NotAlive(_) => 4,
     }
 }
 
@@ -213,6 +214,29 @@ fn pgp_verification_result_good_checksum<'a>(
         }
         if let Some(mut p) = revocation_status_r {
             *unsafe { p.as_mut() } = revocation.move_into_raw();
+        }
+        true
+    } else {
+        false
+    }
+}
+
+/// Decomposes a `VerificationResult::NotAlive`.
+///
+/// Returns `true` iff the given value is a
+/// `VerificationResult::NotAlive`, and returns the variant's members
+/// in `sig_r` and the like iff `sig_r != NULL`.
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
+fn pgp_verification_result_not_alive<'a>(
+    result: *const VerificationResult<'a>,
+    sig_r: Maybe<*mut Signature>)
+    -> bool
+{
+    use self::stream::VerificationResult::*;
+    if let NotAlive(ref sig) = result.ref_raw()
+    {
+        if let Some(mut p) = sig_r {
+            *unsafe { p.as_mut() } = sig.move_into_raw();
         }
         true
     } else {

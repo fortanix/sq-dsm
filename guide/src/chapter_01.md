@@ -119,6 +119,9 @@ fn main() {
 #                     match results.get(0) {
 #                         Some(VerificationResult::GoodChecksum(..)) =>
 #                             good = true,
+#                         Some(VerificationResult::NotAlive(_)) =>
+#                             return Err(failure::err_msg(
+#                                 "Good, but not alive signature")),
 #                         Some(VerificationResult::MissingKey(_)) =>
 #                             return Err(failure::err_msg(
 #                                 "Missing key to verify signature")),
@@ -261,6 +264,9 @@ fn generate() -> openpgp::Result<openpgp::TPK> {
 #                     match results.get(0) {
 #                         Some(VerificationResult::GoodChecksum(..)) =>
 #                             good = true,
+#                         Some(VerificationResult::NotAlive(_)) =>
+#                             return Err(failure::err_msg(
+#                                 "Good, but not alive signature")),
 #                         Some(VerificationResult::MissingKey(_)) =>
 #                             return Err(failure::err_msg(
 #                                 "Missing key to verify signature")),
@@ -403,6 +409,9 @@ fn sign(sink: &mut Write, plaintext: &str, tsk: &openpgp::TPK)
 #                     match results.get(0) {
 #                         Some(VerificationResult::GoodChecksum(..)) =>
 #                             good = true,
+#                         Some(VerificationResult::NotAlive(_)) =>
+#                             return Err(failure::err_msg(
+#                                 "Good, but not alive signature")),
 #                         Some(VerificationResult::MissingKey(_)) =>
 #                             return Err(failure::err_msg(
 #                                 "Missing key to verify signature")),
@@ -556,6 +565,9 @@ impl<'a> VerificationHelper for Helper<'a> {
                     match results.get(0) {
                         Some(VerificationResult::GoodChecksum(..)) =>
                             good = true,
+                        Some(VerificationResult::NotAlive(_)) =>
+                            return Err(failure::err_msg(
+                                "Good, but not alive signature")),
                         Some(VerificationResult::MissingKey(_)) =>
                             return Err(failure::err_msg(
                                 "Missing key to verify signature")),
