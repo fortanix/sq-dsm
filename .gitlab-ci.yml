@@ -3,8 +3,8 @@ image: registry.gitlab.com/sequoia-pgp/build-docker-image:latest
 test:
   script:
     - if [ -f cache.tar ]; then du -sh cache.tar ; tar xf cache.tar ; rm cache.tar ; fi
-    - if [ -d target ]; then find target | wc --lines; du -sh target; fi
-    - if [ -d cargo ]; then find cargo | wc --lines; du -sh cargo; fi
+    - if [ -d $CARGO_TARGET_DIR ]; then find $CARGO_TARGET_DIR | wc --lines; du -sh $CARGO_TARGET_DIR; fi
+    - if [ -d $CARGO_HOME ]; then find $CARGO_HOME | wc --lines; du -sh $CARGO_HOME; fi
     - rustc --version
     - cargo --version
     - clang --version
@@ -15,10 +15,10 @@ test:
     - make -C sqv update-usage
     - if ! git diff --quiet ; then echo "Please run 'make -C sqv update-usage' and commit the result." ; false ; fi
     - cargo clean -p buffered-reader -p sequoia-openpgp -p sequoia-openpgp-ffi -p sequoia-core -p sequoia-ffi -p sequoia-ffi-macros -p sequoia-ipc -p sequoia-net -p sequoia-store -p sequoia-tool -p sequoia-sqv -p sequoia-guide
-    - find target -type f -atime +7 -delete
-    - du -sh target
-    - du -sh cargo
-    - tar cf cache.tar target cargo
+    - find $CARGO_TARGET_DIR -type f -atime +7 -delete
+    - du -sh $CARGO_TARGET_DIR
+    - du -sh $CARGO_HOME
+    - tar cf cache.tar $CARGO_TARGET_DIR $CARGO_HOME
 
 cache:
   key: tarred-cache
@@ -27,6 +27,7 @@ cache:
 
 variables:
   CARGO_HOME: $CI_PROJECT_DIR/cargo
+  CARGO_TARGET_DIR: $CI_PROJECT_DIR/target
   CARGO_FLAGS: --color always
   CARGO_INCREMENTAL: 0
   RUST_BACKTRACE: full
