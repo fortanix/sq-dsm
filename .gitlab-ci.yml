@@ -2,7 +2,6 @@ image: registry.gitlab.com/sequoia-pgp/build-docker-image:latest
 
 test:
   script:
-    - if [ -f cache.tar ]; then du -sh cache.tar ; tar xf cache.tar ; rm cache.tar ; fi
     - if [ -d $CARGO_TARGET_DIR ]; then find $CARGO_TARGET_DIR | wc --lines; du -sh $CARGO_TARGET_DIR; fi
     - if [ -d $CARGO_HOME ]; then find $CARGO_HOME | wc --lines; du -sh $CARGO_HOME; fi
     - rustc --version
@@ -18,16 +17,10 @@ test:
     - find $CARGO_TARGET_DIR -type f -atime +7 -delete
     - du -sh $CARGO_TARGET_DIR
     - du -sh $CARGO_HOME
-    - tar cf cache.tar $CARGO_TARGET_DIR $CARGO_HOME
-
-cache:
-  key: tarred-cache
-  paths:
-    - cache.tar
 
 variables:
-  CARGO_HOME: $CI_PROJECT_DIR/cargo
-  CARGO_TARGET_DIR: $CI_PROJECT_DIR/target
+  CARGO_HOME: $CI_PROJECT_DIR/../cargo
+  CARGO_TARGET_DIR: $CI_PROJECT_DIR/../target
   CARGO_FLAGS: --color always
   CARGO_INCREMENTAL: 0
   RUST_BACKTRACE: full
