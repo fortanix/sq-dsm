@@ -5,7 +5,7 @@ use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 
 // one possible implementation of walking a directory only visiting files
-fn visit_dirs(dir: &Path, cb: &Fn(&DirEntry) -> io::Result<()>)
+fn visit_dirs(dir: &Path, cb: &dyn Fn(&DirEntry) -> io::Result<()>)
               -> io::Result<()> {
     if dir.is_dir() {
         for entry in fs::read_dir(dir)? {

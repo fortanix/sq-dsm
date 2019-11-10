@@ -88,7 +88,7 @@ const AD_PREFIX_LEN: usize = 5;
 /// A `Read`er for decrypting AEAD-encrypted data.
 pub struct Decryptor<'a> {
     // The encrypted data.
-    source: Box<BufferedReader<Cookie> + 'a>,
+    source: Box<dyn BufferedReader<Cookie> + 'a>,
 
     sym_algo: SymmetricAlgorithm,
     aead: AEADAlgorithm,
@@ -123,7 +123,7 @@ impl<'a> Decryptor<'a> {
     fn from_buffered_reader(version: u8, sym_algo: SymmetricAlgorithm,
                             aead: AEADAlgorithm, chunk_size: usize,
                             iv: &[u8], key: &SessionKey,
-                            source: Box<'a + BufferedReader<Cookie>>)
+                            source: Box<dyn 'a + BufferedReader<Cookie>>)
         -> Result<Self>
     {
         Ok(Decryptor {
@@ -347,7 +347,8 @@ impl<'a> Decryptor<'a> {
 
                 // Consume the data only on success so that we keep
                 // returning the error.
-                self.source.consume(chunk.len());
+                let chunk_len = chunk.len();
+                self.source.consume(chunk_len);
             }
 
             if check_final_tag {
@@ -408,7 +409,7 @@ impl<'a> BufferedReaderDecryptor<'a> {
     /// the `cookie_set` method.
     pub fn with_cookie(version: u8, sym_algo: SymmetricAlgorithm,
                        aead: AEADAlgorithm, chunk_size: usize, iv: &[u8],
-                       key: &SessionKey, source: Box<BufferedReader<Cookie> + 'a>,
+                       key: &SessionKey, source: Box<dyn BufferedReader<Cookie> + 'a>,
                        cookie: Cookie)
         -> Result<Self>
     {
