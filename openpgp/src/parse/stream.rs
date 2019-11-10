@@ -616,10 +616,8 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
                                         VerificationResult::GoodChecksum
                                             (sig, tpk, key, binding,
                                              revocation)
-                                    } else if !sig.signature_alive(self.time) {
-                                        VerificationResult::NotAlive(sig)
                                     } else {
-                                        VerificationResult::BadChecksum(sig)
+                                        VerificationResult::NotAlive(sig)
                                     }
                                 } else {
                                     VerificationResult::BadChecksum(sig)
