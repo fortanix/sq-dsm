@@ -486,7 +486,7 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
             if let Some(sig) = sig {
                 sig.key_flags().can_sign()
                 // Check expiry.
-                    && sig.signature_alive(t)
+                    && sig.signature_alive(t, None)
                     && sig.key_alive(key, t)
             } else {
                 false
@@ -612,7 +612,7 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
                                 let (binding, revocation, key)
                                     = tpk.keys_all().nth(*j).unwrap();
                                 if sig.verify(key).unwrap_or(false) {
-                                    if sig.signature_alive(self.time) {
+                                    if sig.signature_alive(self.time, None) {
                                         VerificationResult::GoodChecksum
                                             (sig, tpk, key, binding,
                                              revocation)
@@ -1316,7 +1316,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                             if let Some(sig) = sig {
                                 sig.key_flags().can_sign()
                                 // Check expiry.
-                                    && sig.signature_alive(t)
+                                    && sig.signature_alive(t, None)
                                     && sig.key_alive(key, t)
                             } else {
                                 false
@@ -1463,7 +1463,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                                     let (binding, revocation, key)
                                         = tpk.keys_all().nth(*j).unwrap();
                                     if sig.verify(key).unwrap_or(false) &&
-                                        sig.signature_alive(self.time)
+                                        sig.signature_alive(self.time, None)
                                     {
                                         // Check intended recipients.
                                         if let Some(identity) =

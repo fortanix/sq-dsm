@@ -151,7 +151,7 @@ fn inspect_tpk(output: &mut dyn io::Write, tpk: &openpgp::TPK,
         if let Some(sig) = uidb.binding_signature(None) {
             if sig.signature_expired(None) {
                 writeln!(output, "                 Expired")?;
-            } else if ! sig.signature_alive(None) {
+            } else if ! sig.signature_alive(None, time::Duration::seconds(0)) {
                 writeln!(output, "                 Not yet valid")?;
             }
         }

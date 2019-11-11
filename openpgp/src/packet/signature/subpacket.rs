@@ -62,6 +62,7 @@ use std::sync::Mutex;
 use std::ops::{Deref, DerefMut};
 use std::fmt;
 use std::io;
+use std::cmp;
 use time;
 
 use quickcheck::{Arbitrary, Gen};
@@ -96,6 +97,39 @@ use crate::conversions::{
     Duration,
 };
 
+lazy_static!{
+    /// The default amount of tolerance to use when comparing
+    /// some timestamps.
+    ///
+    /// Used by `Subpacket::signature_alive`.
+    ///
+    /// When determining whether a timestamp generated on another
+    /// machine is valid *now*, we need to account for clock skew.
+    /// (Note: you don't normally need to consider clock skew when
+    /// evaluating a signature's validity at some time in the past.)
+    ///
+    /// We tolerate half an hour of skew based on the following
+    /// anecdote: In 2019, a developer using Sequoia in a Windows VM
+    /// running inside of Virtual Box on Mac OS X reported that he
+    /// typically observed a few minutes of clock skew and
+    /// occasionally saw over 20 minutes of clock skew.
+    ///
+    /// Note: when new messages override older messages, and their
+    /// signatures are evaluated at some arbitrary point in time, an
+    /// application may not see a consistent state if it uses a
+    /// tolerance.  Consider an application that has two messages and
+    /// wants to get the current message at time te:
+    ///
+    ///   - t0: message 0
+    ///   - te: "get current message"
+    ///   - t1: message 1
+    ///
+    /// If te is close to t1, then t1 may be considered valid, which
+    /// is probably not what you want.
+    pub static ref CLOCK_SKEW_TOLERANCE: time::Duration
+        = time::Duration::seconds(30 * 60);
+}
+
 /// The subpacket types specified by [Section 5.2.3.1 of RFC 4880].
 ///
 /// [Section 5.2.3.1 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.1
@@ -2075,14 +2109,48 @@ impl SubpacketAreas {
         }
     }
 
-    /// Returns whether or not the signature is alive at the given
+    /// Returns whether or not the signature is alive at the specified
     /// time.
     ///
-    /// A signature is considered to be alive if `creation time <= t`
-    /// and `t <= expiration time`.
+    /// A signature is considered to be alive if `creation time -
+    /// tolerance <= time` and `time <= expiration time`.
     ///
-    /// If `t` is None, uses the current time.
+    /// If `time` is None, uses the current time.
     ///
+    /// If `time` is None, and `clock_skew_tolerance` is None, then
+    /// uses `CLOCK_SKEW_TOLERANCE`.  If `time` is not None, but
+    /// `clock_skew_tolerance` is None, uses no tolerance.
+    ///
+    /// Some tolerance for clock skew is sometimes necessary, because
+    /// although most computers synchronize their clock with a time
+    /// server, up to a few seconds of clock skew are not unusual in
+    /// practice.  And, even worse, several minutes of clock skew
+    /// appear to be not uncommon on virtual machines.
+    ///
+    /// Not accounting for clock skew can result in signatures being
+    /// unexpectedly considered invalid.  Consider: computer A sends a
+    /// message to computer B at 9:00, but computer B, whose clock
+    /// says the current time is 8:59, rejects it, because the
+    /// signature appears to have been made in the future.  This is
+    /// particularly problematic for low-latency protocols built on
+    /// top of OpenPGP, e.g., state synchronization between two MUAs
+    /// via a shared IMAP folder.
+    ///
+    /// Being tolerant to potential clock skew is not always
+    /// appropriate.  For instance, when determining a User ID's
+    /// current self signature at time `t`, we don't ever want to
+    /// consider a self-signature made after `t` to be valid, even if
+    /// it was made just a few moments after `t`.  This goes doubly so
+    /// for soft revocation certificates: the user might send a
+    /// message that she is retiring, and then immediately create a
+    /// soft revocation.  The soft revocation should not invalidate
+    /// the message.
+    ///
+    /// Unfortunately, in many cases, whether we should account for
+    /// clock skew or not depends on application-specific context.  As
+    /// a rule of thumb, if the time and the timestamp come from
+    /// different sources, you probably want to account for clock
+    /// skew.
     ///
     /// Note that [Section 5.2.3.4 of RFC 4880] states that "[[A
     /// Signature Creation Time subpacket]] MUST be present in the
@@ -2092,12 +2160,28 @@ impl SubpacketAreas {
     /// is no way to evaluate the expiration time.
     ///
     ///  [Section 5.2.3.4 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.4
-    pub fn signature_alive<T>(&self, t: T) -> bool
-        where T: Into<Option<time::Tm>>
+    pub fn signature_alive<T, U>(&self, time: T, clock_skew_tolerance: U)
+        -> bool
+        where T: Into<Option<time::Tm>>,
+              U: Into<Option<time::Duration>>
     {
-        let t = t.into().unwrap_or_else(time::now_utc);
+        let (time, tolerance)
+            = match (time.into(), clock_skew_tolerance.into()) {
+                (None, None) =>
+                    (time::now_utc(), *CLOCK_SKEW_TOLERANCE),
+                (None, Some(tolerance)) =>
+                    (time::now_utc(), tolerance),
+                (Some(time), None) =>
+                    (time, time::Duration::seconds(0)),
+                (Some(time), Some(tolerance)) =>
+                    (time, tolerance)
+            };
+        let time_zero = || time::at_utc(time::Timespec::new(0, 0));
+
         if let Some(creation_time) = self.signature_creation_time() {
-            creation_time <= t && ! self.signature_expired(t)
+            // Be careful to avoid underflow.
+            cmp::max(creation_time, time_zero() + tolerance) - tolerance <= time
+                && ! self.signature_expired(time)
         } else {
             false
         }
@@ -2666,10 +2750,10 @@ fn accessors() {
     assert!(!sig_.signature_expired(now));
     assert!(sig_.signature_expired(now + ten_minutes));
 
-    assert!(sig_.signature_alive(None));
-    assert!(sig_.signature_alive(now));
-    assert!(!sig_.signature_alive(now - five_minutes));
-    assert!(!sig_.signature_alive(now + ten_minutes));
+    assert!(sig_.signature_alive(None, time::Duration::seconds(0)));
+    assert!(sig_.signature_alive(now, time::Duration::seconds(0)));
+    assert!(!sig_.signature_alive(now - five_minutes, time::Duration::seconds(0)));
+    assert!(!sig_.signature_alive(now + ten_minutes, time::Duration::seconds(0)));
 
     sig = sig.set_signature_expiration_time(None).unwrap();
     let sig_ =
@@ -2679,10 +2763,10 @@ fn accessors() {
     assert!(!sig_.signature_expired(now));
     assert!(!sig_.signature_expired(now + ten_minutes));
 
-    assert!(sig_.signature_alive(None));
-    assert!(sig_.signature_alive(now));
-    assert!(!sig_.signature_alive(now - five_minutes));
-    assert!(sig_.signature_alive(now + ten_minutes));
+    assert!(sig_.signature_alive(None, time::Duration::seconds(0)));
+    assert!(sig_.signature_alive(now, time::Duration::seconds(0)));
+    assert!(!sig_.signature_alive(now - five_minutes, time::Duration::seconds(0)));
+    assert!(sig_.signature_alive(now + ten_minutes, time::Duration::seconds(0)));
 
     sig = sig.set_exportable_certification(true).unwrap();
     let sig_ =

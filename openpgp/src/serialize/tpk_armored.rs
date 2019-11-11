@@ -39,7 +39,9 @@ impl TPK {
                 }
             // Ignore userids not "alive".
             }).filter_map(|uidb| {
-                if uidb.binding_signature(None)?.signature_alive(None) {
+                if uidb.binding_signature(None)?
+                    .signature_alive(None, time::Duration::seconds(0))
+                {
                     Some(uidb)
                 } else {
                     None

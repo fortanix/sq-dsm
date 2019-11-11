@@ -381,12 +381,107 @@ bool pgp_signature_is_group_key(pgp_signature_t signature);
 /*/
 /// Returns whether the signature is alive at the specified time.
 ///
-/// If `when` is 0, then the current time is used.
+/// A signature is considered to be alive if `creation time -
+/// tolerance <= time` and `time <= expiration time`.
 ///
-/// A signature is alive if the creation date is in the past, and the
-/// signature has not expired at the specified time.
+/// If `time` is 0, uses the current time.
+///
+/// This function uses the default tolerance.  If you want to specify
+/// a different tolerance (or no tolerance), then use
+/// `pgp_signature_alive_with_tolerance`.
+///
+/// Some tolerance for clock skew is sometimes necessary, because
+/// although most computers synchronize their clock with a time
+/// server, up to a few seconds of clock skew are not unusual in
+/// practice.  And, even worse, several minutes of clock skew appear
+/// to be not uncommon on virtual machines.
+///
+/// Not accounting for clock skew can result in signatures being
+/// unexpectedly considered invalid.  Consider: computer A sends a
+/// message to computer B at 9:00, but computer B, whose clock says
+/// the current time is 8:59, rejects it, because the signature
+/// appears to have been made in the future.  This is particularly
+/// problematic for low-latency protocols built on top of OpenPGP,
+/// e.g., state synchronization between two MUAs via a shared IMAP
+/// folder.
+///
+/// Being tolerant to potential clock skew is not always appropriate.
+/// For instance, when determining a User ID's current self signature
+/// at time `t`, we don't ever want to consider a self-signature made
+/// after `t` to be valid, even if it was made just a few moments
+/// after `t`.  This goes doubly so for soft revocation certificates:
+/// the user might send a message that she is retiring, and then
+/// immediately create a soft revocation.  The soft revocation should
+/// not invalidate the message.
+///
+/// Unfortunately, in many cases, whether we should account for clock
+/// skew or not depends on application-specific context.  As a rule of
+/// thumb, if the time and the timestamp come from different sources,
+/// you probably want to account for clock skew.
+///
+/// Note that [Section 5.2.3.4 of RFC 4880] states that "[[A Signature
+/// Creation Time subpacket]] MUST be present in the hashed area."
+/// Consequently, if such a packet does not exist, but a "Signature
+/// Expiration Time" subpacket exists, we conservatively treat the
+/// signature as expired, because there is no way to evaluate the
+/// expiration time.
+///
+///  [Section 5.2.3.4 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.4
 /*/
 bool pgp_signature_alive(pgp_signature_t signature, time_t when);
+
+/*/
+/// Returns whether the signature is alive at the specified time.
+///
+/// A signature is considered to be alive if `creation time -
+/// tolerance <= time` and `time <= expiration time`.
+///
+/// If `time` is 0, uses the current time.
+///
+/// If `tolerance` is 0, uses no tolerance.  To ensure consistency
+/// across callers, you should use the default tolerance (i.e., use
+/// `pgp_signature_alive`).
+///
+/// Some tolerance for clock skew is sometimes necessary, because
+/// although most computers synchronize their clock with a time
+/// server, up to a few seconds of clock skew are not unusual in
+/// practice.  And, even worse, several minutes of clock skew appear
+/// to be not uncommon on virtual machines.
+///
+/// Not accounting for clock skew can result in signatures being
+/// unexpectedly considered invalid.  Consider: computer A sends a
+/// message to computer B at 9:00, but computer B, whose clock says
+/// the current time is 8:59, rejects it, because the signature
+/// appears to have been made in the future.  This is particularly
+/// problematic for low-latency protocols built on top of OpenPGP,
+/// e.g., state synchronization between two MUAs via a shared IMAP
+/// folder.
+///
+/// Being tolerant to potential clock skew is not always appropriate.
+/// For instance, when determining a User ID's current self signature
+/// at time `t`, we don't ever want to consider a self-signature made
+/// after `t` to be valid, even if it was made just a few moments
+/// after `t`.  This goes doubly so for soft revocation certificates:
+/// the user might send a message that she is retiring, and then
+/// immediately create a soft revocation.  The soft revocation should
+/// not invalidate the message.
+///
+/// Unfortunately, in many cases, whether we should account for clock
+/// skew or not depends on application-specific context.  As a rule of
+/// thumb, if the time and the timestamp come from different sources,
+/// you probably want to account for clock skew.
+///
+/// Note that [Section 5.2.3.4 of RFC 4880] states that "[[A Signature
+/// Creation Time subpacket]] MUST be present in the hashed area."
+/// Consequently, if such a packet does not exist, but a "Signature
+/// Expiration Time" subpacket exists, we conservatively treat the
+/// signature as expired, because there is no way to evaluate the
+/// expiration time.
+///
+///  [Section 5.2.3.4 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.4
+/*/
+bool pgp_signature_alive_with_tolerance(pgp_signature_t signature,
+                                        time_t time, unsigned int tolerance);
 
 /*/
 /// Returns whether the signature is expired at the specified time.
