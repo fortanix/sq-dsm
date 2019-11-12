@@ -60,7 +60,8 @@ impl CipherSuite {
                 Key4::generate_rsa(3072),
             CipherSuite::Cv25519 | CipherSuite::P256 |
             CipherSuite::P384 | CipherSuite::P521 => {
-                let sign = flags.can_certify() || flags.can_sign();
+                let sign = flags.can_certify() || flags.can_sign()
+                    || flags.can_authenticate();
                 let encrypt = flags.can_encrypt_for_transport()
                     || flags.can_encrypt_at_rest();
                 let curve = match self {
@@ -245,6 +246,11 @@ impl TPKBuilder {
     /// Adds an certification capable subkey.
     pub fn add_certification_subkey(self) -> Self {
         self.add_subkey(KeyFlags::default().set_certify(true))
+    }
+
+    /// Adds an authentication capable subkey.
+    pub fn add_authentication_subkey(self) -> Self {
+        self.add_subkey(KeyFlags::default().set_authenticate(true))
     }
 
     /// Adds a custom subkey
