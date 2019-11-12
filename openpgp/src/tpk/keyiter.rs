@@ -422,4 +422,21 @@ mod test {
 
         assert_eq!(tpk.keys_all().key_flags(flags).count(), 2);
     }
+
+    #[test]
+    fn selectors() {
+        let (tpk, _) = TPKBuilder::new()
+            .add_signing_subkey()
+            .add_certification_subkey()
+            .add_encryption_subkey()
+            .add_authentication_subkey()
+            .generate().unwrap();
+        assert_eq!(tpk.keys_valid().certification_capable().count(), 2);
+        assert_eq!(tpk.keys_valid().encrypting_capable_for_transport().count(),
+                   1);
+        assert_eq!(tpk.keys_valid().encrypting_capable_at_rest().count(), 1);
+        assert_eq!(tpk.keys_valid().signing_capable().count(), 1);
+        assert_eq!(tpk.keys_valid().key_flags(
+            KeyFlags::default().set_authenticate(true)).count(), 1);
+    }
 }
