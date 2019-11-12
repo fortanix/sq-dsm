@@ -266,6 +266,8 @@ impl PacketDumper {
             if let Some(bits) = k.mpis().bits() {
                 writeln!(output, "{}  Pk size: {} bits", i, bits)?;
             }
+            writeln!(output, "{}  Fingerprint: {}", i, k.fingerprint())?;
+            writeln!(output, "{}  KeyID: {}", i, k.keyid())?;
             if pd.mpis {
                 writeln!(output, "{}", i)?;
                 writeln!(output, "{}  Public Key:", i)?;
