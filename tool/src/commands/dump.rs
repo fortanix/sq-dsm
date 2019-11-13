@@ -795,6 +795,7 @@ impl PacketDumper {
                 }
                 writeln!(output)?;
                 let indent = format!("{}      ", i);
+                write!(output, "{}", indent)?;
                 self.dump_packet(output, &indent, None, sig, None, None)?;
             },
             _ => {
